@@ -241,7 +241,10 @@ assert.ok(quoteBoard.includes('real.length?liveCards:references'),
 assert.match(customer,/tamao-checkout-total-compare/);
 assert.match(customer,/tamao-checkout-coupon-callout/);
 assert.match(customer,/potentialBenefit=validTotal/);
-assert.ok(customer.includes('state.checkout.useCashback===true?potentialBenefit:0'));
+assert.ok(customer.includes('state.checkout.useCashback===true?estimatedBenefits:0'),
+ 'estimated checkout benefit now accounts for the opted-in pre-paid voucher and existing cashback');
+assert.ok(customer.includes("typeof clubePaidCouponVoucherForQuote==='function'"),
+ 'coupon is read only from verified account, with absent coupon support failing closed');
 assert.ok(!customer.includes('cupom automaticamente aplicado'),
  'do not imply coupon redemption where server redemption is absent');
 for(const selector of ['.tamao-home-coupon-rail','.tamao-quote-benefit-grid',
