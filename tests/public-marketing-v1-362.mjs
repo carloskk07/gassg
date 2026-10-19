@@ -275,7 +275,8 @@ assert.ok(!previewOnly.includes('Cashback selecionado (estimativa)'),
 checkState.user.cashback=0;
 const withoutBenefit=offerSandbox.offer(realQuote);
 assert.match(withoutBenefit,/Sem desconto aplicado/);
-assert.ok(!withoutBenefit.includes('R$ 140.00'),
+assert.ok(!withoutBenefit.includes('COM CASHBACK TAMÃO')&&
+ withoutBenefit.includes('Sem desconto aplicado'),
  'do not invent a coupon discount or cashback without balance');
 const invalidQuote=offerSandbox.offer({id:'q-2',eta:45,roles:[]});
 assert.match(invalidQuote,/Total indisponível/);
