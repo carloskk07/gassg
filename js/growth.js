@@ -805,6 +805,14 @@ function merchantJoin(){
     if(['disabled','loading'].includes(rt.status)){
       return shell('<section class="page"><h1 class="page-title">Cadastro de parceiro</h1><div class="empty card">Conectando à sua conta…</div></section>');
     }
+    if(rt.status==='unsafe-origin')return merchantLivePage();
+    if(rt.status==='unavailable'||(rt.status==='no-access'&&rt.applicationFetchError)){
+      // Do not collect registration data while auth or the applicant's own
+      // records are unverified: a retry must recheck the real session first.
+      return shell('<section class="page"><h1 class="page-title">Continuar cadastro da revenda</h1>'+
+        '<div class="notice danger" role="alert">Não foi possível confirmar sua conta e os cadastros já enviados. Nenhum novo cadastro foi registrado.</div>'+
+        '<button type="button" class="primary" onclick="location.reload()">Tentar novamente com segurança</button></section>');
+    }
     if(rt.status==='unauthenticated')return merchantLiveLoginView();
   }
   if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.()){
