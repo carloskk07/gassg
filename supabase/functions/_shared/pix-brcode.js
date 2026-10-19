@@ -23,6 +23,11 @@ function pixCrc16(raw){
   }
   return crc.toString(16).toUpperCase().padStart(4,"0");
 }
+/**
+ * @param {unknown} value
+ * @param {{expectedAmountCents?: number|null}} [options]
+ * @returns {{valid:boolean,reason:string|null}}
+ */
 export function validatePixBrCode(value,{expectedAmountCents=null}={}){
   const raw=typeof value==="string"?value:"";
   // BR Codes use ASCII: reject hidden whitespace and multibyte characters
