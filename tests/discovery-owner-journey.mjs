@@ -238,7 +238,57 @@ const loggedOut=ctx.discoveryOwnerPage();
 assert.match(loggedOut,/Receber link de acesso/);
 const emailForm={elements:{email:{value:'anunciante@example.test'}}};
 await ctx.discoveryOwnerLogin({preventDefault(){},target:emailForm});
-assert.equal(loginUrl,'https://tamao.com.br/#advertise');
+assert.equal(loginUrl,'https://tamao.com.br/?advertise=1',
+ 'OTP callback must preserve advertiser intent outside auth token fragment');
+assert.equal(new URL(loginUrl).hash,'','OTP hash belongs to Supabase authentication');
+
+// The server may return a token-only hash instead of #advertise.
+// The existing real Supabase client consumes the callback before the
+// application restores the route; mocks check navigation and no token leaks.
+const savedLocation=ctx.location;
+const savedRoute=ctx.route;
+ctx.location={
+  origin:'https://tamao.com.br',pathname:'/',search:'?advertise=1',
+  hash:'#access_token=secret-callback-token',
+  href:'https://tamao.com.br/?advertise=1#access_token=secret-callback-token'
+};
+ctx.route=()=>ctx.location.hash.replace(/^#/,'')||'home';
+ctx.discoveryOwnerReturnPending=()=>new URLSearchParams(ctx.location.search).get('advertise')==='1';
+ctx.history={replaceState(_state,_title,url){
+  const resolved=new URL(url,'https://tamao.com.br');
+  ctx.location.href=resolved.href;
+  ctx.location.search=resolved.search;
+  ctx.location.hash=resolved.hash;
+}};
+user={id:userId,email:'anunciante@example.test'};
+ctx.discoveryOwner.phase='idle';
+const renderBeforeCallback=renderCount;
+ctx.discoveryOwnerAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(ctx.location.href,'https://tamao.com.br/#advertise');
+assert.ok(renderCount>renderBeforeCallback,'OTP recovery must render owner route');
+assert.equal(ctx.discoveryOwner.user?.id,userId);
+assert.doesNotMatch(ctx.location.href,/access_token|advertise=1/,
+ 'the callback token and transient intent must leave browser URL');
+ctx.location=savedLocation;ctx.route=savedRoute;
+
+const intentStart=read('js/bootstrap.js').indexOf('function discoveryOwnerReturnPending(){');
+const intentEnd=read('js/bootstrap.js').indexOf('\nfunction discoveryOwnerLoadingPage(){',intentStart);
+assert.ok(intentStart>=0&&intentEnd>intentStart);
+function pendingIntent(search,admin=false,merchant=false,hash='#access_token=opaque'){
+ const context=vm.createContext({
+  location:{search,hash},URLSearchParams,
+  globalThis:{adminPortalRequested:()=>admin,merchantPortalRequested:()=>merchant}
+ });
+ vm.runInContext(read('js/bootstrap.js').slice(intentStart,intentEnd)+';this.pending=discoveryOwnerReturnPending;',context);
+ return context.pending();
+}
+assert.equal(pendingIntent('?advertise=1'),true);
+assert.equal(pendingIntent('?advertise=0'),false);
+assert.equal(pendingIntent('?advertise=1',true),false,'Admin portal cannot load owner');
+assert.equal(pendingIntent('?advertise=1',false,true),false,'Merchant portal cannot load owner');
+assert.match(read('js/bootstrap.js'),/route\(\)!=='advertise'&&!discoveryOwnerReturnPending\(\)/,
+ 'owner module must load despite OTP fragment replacing the route');
 currentRoute='admin';
 assert.equal(ctx.discoveryOwnerRoute(),false);
 assert.equal(ctx.discoveryOwnerPage().includes('Não encontrado'),true);
