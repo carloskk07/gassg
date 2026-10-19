@@ -829,3 +829,18 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 - O Audit oficial SHA `cd879fc918e9195740c47a1854fb31434a46d9ea` terminou `failure` no step `Browser smoke — mobile routes` (run `39332915392`), pois a asserção da landing de revendas ainda procurava `Quer vender pelo TAMÃO?`, removido pelo novo CTA de anunciante.
 - `.github/workflows/audit.yml` commit `0b30424511d212b7d13c8304cc1782f7afe18c34` agora exige HTML renderizado de `Seu comércio merece ser encontrado.`, `ANUNCIE NO TAMÃO` e `Quero anunciar no TAMÃO`; também preserva `Quero levar minha empresa ao TAMÃO` para a jornada comercial. Não apenas removeu a asserção: substituiu por marcadores reais e específicos da nova página.
 - Os testes anteriores sobre form `tests/commercial-entry-v1-374.mjs` já passaram com **56 assertivas V8**. Workflow do novo SHA `0b30424` iniciado no GitHub, aguardando conclusão; ainda sem deploy da alteração de leads ou publicação de anúncio.
+
+
+### HOMOLOGAÇÃO OFICIAL DA SIMPLIFICAÇÃO DE ANUNCIANTES — quatro workflows SUCCESS
+
+**Prova GitHub Actions obtida por commit de código `0b30424511d212b7d13c8304cc1782f7afe18c34`**, após 4 correções de regressões antigas de copy/estrutura e uma correção de smoke real de navegador:
+
+- `Audit` run **39333313091**, job `verify` `completed/success`, incluindo testes de navegador móvel, testes de servidor e todas as 127 assertivas das suítes de cadastro e mobile adicionadas/atualizadas.
+- `TAMÃO discovery PostgreSQL contract` run **39333313082**, `completed/success`.
+- `Build isolated live portals` run **39333313092**, `completed/success`.
+- `TAMÃO public visual smoke` run **39333313080**, `completed/success`.
+- `TAMÃO release-candidate visual review (no deploy)` run **39333313088** `completed/skipped` — não tratar como sucesso de publicação nem deploy.
+
+**Banco real reconfirmado somente em leitura:** `PRELAUNCH`, `commerce_enabled=false`, `orders=0`, Carlos Santos não `active/online`, e lead sintético da regressão não persistiu. A função SQL real aceitou os dados opcionais em `BEGIN...ROLLBACK`. Não há pedido, cobrança, anunciante público nem status comercial falsamente ativado.
+
+**Próximo passo:** entregar o onboarding rápido como alteração isolada no site/Edge públicos, preservando a `main` de pagamentos, sem publicar prematuramente toda a expansão da PR #492; em paralelo concluir classificação/publicação de anúncios com opt-in específico e revisão leve. A PR integrada segue `draft`; a homologação de teste **não comprova deploy em produção**.
