@@ -69,12 +69,16 @@ Deno.serve(async(req:Request)=>{
     });
     const {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,status,sale_price_cents,created_at,paid_at")
+      .select("id,package_key,status,sale_price_cents,created_at,paid_at,net_proceeds_cents,net_proceeds_verified_at,coupon_face_cents,coupons_per_pack")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError)throw invoiceError;
     const paidIds=new Set((invoices||[])
-      .filter((row:any)=>row.status==="paid").map((row:any)=>String(row.id)));
+      .filter((row:any)=>row.status==="paid"&&
+        row.net_proceeds_verified_at!=null&&
+        Number.isSafeInteger(row.net_proceeds_cents)&&
+        row.net_proceeds_cents>=row.coupon_face_cents*row.coupons_per_pack)
+      .map((row:any)=>String(row.id)));
     const {data:rows,error:issuanceError}=await admin
       .from("clube_coupon_paid_issuances")
       .select("id,invoice_id,ordinal,face_cents,status,expires_at")
@@ -93,7 +97,8 @@ Deno.serve(async(req:Request)=>{
           voucherId:row.id,invoiceId:row.invoice_id,ordinal:row.ordinal,
           faceCents:row.face_cents,status:row.status,expiresAt:row.expires_at
         })),
-      couponSalesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"
+      couponSalesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+      couponCheckoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"
     },200,origin);
   }
   if(operation!=="purchase")return respond({error:"COUPON_ACTION_INVALID"},400,origin);
