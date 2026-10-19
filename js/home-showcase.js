@@ -72,12 +72,13 @@ function homeRegionalPriceBoard(region){
    '<h2>'+(real.length?'Quanto custam os produtos em ':'Pesquise os preços em ')+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
    '<span class="city-price-place">📍 '+esc(place)+'</span></div>'+
 
+  '<div class="city-price-grid">'+cards+'</div>'+
   '<div class="tamao-home-coupon-rail" aria-label="Cupons e descontos TAMÃO">'+
    '<span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span>'+
    '<div><strong>O preço é só o começo. Descubra os benefícios TAMÃO.</strong>'+
    '<p>Conheça os cupons das campanhas, compare preços e veja seu saldo no Clube.</p></div>'+
    '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>'+
-  '<div class="city-price-grid">'+cards+'</div>'+
+
   (spread?'<div class="tamao-quote-spread"><span aria-hidden="true">↔</span><div><strong>Diferença de '+esc(spreadValue)+' entre os valores estimados para '+esc(spreadName)+'</strong>'+
    '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
   '<p class="city-price-disclaimer">'+(real.length
