@@ -237,6 +237,19 @@ companyCtx.pick('not-my-company');
 assert.equal(merchantState.selectedApplicationId,'app-b',
  'unowned company IDs must not be selected');
 assert.equal(companyRenders,2);
+const ownFnStart=backend.indexOf('function merchantOwnApplicationForInvite(){');
+const ownFnEnd=backend.indexOf('\nasync function merchantSendLogin(',ownFnStart);
+assert.ok(ownFnStart>=0&&ownFnEnd>ownFnStart);
+const ownCtx=vm.createContext({
+ merchantRuntime:{ownApplications:applications,selectedApplicationId:'app-b'},
+ globalThis:{merchantProspectInviteDetails:()=>null}
+});
+vm.runInContext(backend.slice(ownFnStart,ownFnEnd)+';this.own=merchantOwnApplicationForInvite;',ownCtx);
+assert.equal(ownCtx.own().id,'app-b','owner selection must use only their own list');
+ownCtx.merchantRuntime.selectedApplicationId='unowned-id';
+assert.equal(ownCtx.own().id,'app-a','forged selection must fall back to own first application');
+ownCtx.globalThis.merchantProspectInviteDetails=()=>({cnpj:'22345678000190'});
+assert.equal(ownCtx.own().id,'app-b','verified prospect invite match overrides previous selector');
 assert.ok(backend.includes('merchantRuntime.selectedApplicationId')&&
  backend.includes('merchantRuntime.newApplicationMode=false'),
  'the selected application must be reset on logout');
