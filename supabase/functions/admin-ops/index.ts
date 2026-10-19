@@ -659,7 +659,25 @@ async function adminFinanceLabChargeDiagnostics(admin:any){
       "Não foi possível conciliar as cobranças com suas solicitações.",503);
     requests=lookup.data||[];
   }
+  // Correlate verified charge records with received payment/webhook events.
+  // Read only: never replay a webhook or treat its receipt as a settlement.
+  let paymentEvents:any[]=[];
+  if(ids.length){
+    const evidence=await admin.from("merchant_billing_payment_events")
+      .select("payment_request_id,provider,status,amount_cents,received_at,applied_at,ignored_at")
+      .in("payment_request_id",ids)
+      .order("received_at",{ascending:false}).limit(100);
+    if(evidence.error)throw new DomainError("FINANCE_LAB_WEBHOOK_EVIDENCE_UNAVAILABLE",
+      "Não foi possível consultar os eventos de pagamento para conciliação.",503);
+    paymentEvents=evidence.data||[];
+  }
   const byRequest=new Map(requests.map((row:any)=>[String(row.id),row]));
+  const byEvidence=new Map();
+  for(const event of paymentEvents){
+    const key=String(event.payment_request_id||"")+"|"+String(event.provider||"");
+    if(!byEvidence.has(key))byEvidence.set(key,[]);
+    byEvidence.get(key).push(event);
+  }
   const now=Date.now();
   const result=charges.map((charge:any)=>{
     const amount=Number(charge.amount_cents);
@@ -682,6 +700,16 @@ async function adminFinanceLabChargeDiagnostics(admin:any){
     if(!request)issues.push("REQUEST_MISSING");
     else if(!amountMatches)issues.push("REQUEST_AMOUNT_MISMATCH");
     if(status==="active"&&(expired||!hasExpiry))issues.push("ACTIVE_CHARGE_NOT_PAYABLE");
+    const events=byEvidence.get(String(charge.payment_request_id||"")+"|"+String(charge.provider||""))||[];
+    const appliedCount=events.filter((event:any)=>Boolean(event.applied_at)).length;
+    const ignoredCount=events.filter((event:any)=>Boolean(event.ignored_at)).length;
+    const pendingCount=events.length-appliedCount-ignoredCount;
+    const webhookAmountMismatch=events.some((event:any)=>{
+      const cents=Number(event.amount_cents);
+      return Number.isSafeInteger(cents)&&requestedAmount!=null&&cents!==requestedAmount;
+    });
+    if(webhookAmountMismatch)issues.push("WEBHOOK_AMOUNT_MISMATCH");
+    if(status==="completed"&&appliedCount===0)issues.push("SETTLEMENT_EVENT_NOT_FOUND");
     const codeValid=proof.valid===true;
     return {
       chargeId:String(charge.id||""),provider:String(charge.provider||"unknown").slice(0,40),
@@ -690,13 +718,23 @@ async function adminFinanceLabChargeDiagnostics(admin:any){
       createdAt:charge.created_at,expiresAt:charge.expires_at,completedAt:charge.completed_at,
       codeValid,codeReason:proof.reason??null,expired,hasExpiry,
       amountMatches:request?amountMatches:null,issues,
+      webhook:{
+        receivedCount:events.length,appliedCount,ignoredCount,
+        pendingCount:Math.max(0,pendingCount),
+        lastReceivedAt:events[0]?.received_at??null,
+        status:appliedCount>0?"applied":ignoredCount>0?"ignored":
+          events.length?"received":"none",
+        amountMismatch:webhookAmountMismatch
+      },
       displayableInPortal:status==="active"&&codeValid&&hasExpiry&&!expired&&amountMatches,
       lastErrorCode:String(charge.last_error_code||"").slice(0,80)||null
     };
   });
   return {ok:true,readOnly:true,scope:"last_20_provider_charges",
     checkedAt:new Date().toISOString(),count:result.length,
-    charges:result,note:"BR Code válido não garante pagamento; confirmação depende do PSP e do banco."};
+    charges:result,
+    evidenceLimit:100,
+    note:"Webhook recebido não comprova pagamento. Conciliação depende de evento aplicado e prova do PSP."};
 }
 
 async function adminFinanceLabReadiness(admin:any,actorId:string){
