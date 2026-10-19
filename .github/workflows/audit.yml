@@ -87,6 +87,8 @@ jobs:
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation
         run: node tests/coupon-atomic-checkout-contract.mjs
+      - name: Admin coupon finance read-only UI and permission regression
+        run: node tests/admin-clube-finance-status.mjs
       - name: Superadmin ad moderation and review queue client contract
         run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
@@ -725,8 +727,10 @@ jobs:
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
           grep -q "✓ Sem pedido automático" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
-          grep -q "Me avise quando puder pedir" /tmp/home.html
-          grep -q "PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA." /tmp/home.html
+          # Quote-first home: avoid blocking CI on obsolete pre-redesign copy.
+          grep -Fq 'tamao-quote-first' /tmp/home.html
+          grep -Fq 'tamao-home-coupon-rail' /tmp/home.html
+          grep -Fq 'COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.' /tmp/home.html
           grep -q "Mais economia para quem compra. Mais oportunidades para quem vende." /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
