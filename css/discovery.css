@@ -71,6 +71,10 @@
 .discovery-owner-error{border-color:#ddb7b7;background:#fff5f3;color:#8b2828}
 .discovery-owner-photos{display:flex;gap:8px;flex-wrap:wrap}
 .discovery-owner-photos img{width:104px;height:90px;object-fit:cover;border-radius:9px}
+.discovery-owner-photo{display:grid;gap:6px;max-width:154px;align-content:start}
+.discovery-owner-photo img{width:100%;height:110px}
+.discovery-owner-photo button{font:inherit;font-size:12px;font-weight:750;border:1px solid #b8cabc;
+ border-radius:9px;background:#f1f8f3;color:#205038;padding:8px;cursor:pointer}
 .discovery-owner :is(button,input,select,textarea):focus-visible{outline:3px solid #bd821b;outline-offset:2px}
 @media(max-width:760px){.discovery-owner-layout{grid-template-columns:1fr}
  .discovery-owner-layout>section,.discovery-owner-form,.discovery-owner-auth{padding:16px}
