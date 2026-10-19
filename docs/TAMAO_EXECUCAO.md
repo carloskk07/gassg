@@ -801,3 +801,10 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 - Correção `tests/production-language-v1-147.mjs` commit `0fa50d5`: em vez de enfraquecer a segurança, exige explicitamente título do anúncio rápido, CTA e consentimento de WhatsApp, mantendo todas as outras regressões de confiança. Novo workflow oficial disparado neste SHA e **em execução** na última consulta; não declarar Audit aprovado antecipadamente.
 - `capture_prelaunch_lead_idempotent` já implantada na produção foi exercitada via SQL real com `contact_name=null`, `interests={}`, `postal_code=null`, dados fictícios e `BEGIN ... ROLLBACK`; retorno correto e `test_lead_not_persisted=true`. A Edge Function editada da PR ainda **não está publicada**, logo a simplificação completa do site aguarda publicação autorizada.
 - O novo posicionamento em publicidade **não** dá automaticamente ao lead o direito de exibir telefone/nome publicamente: será necessário opt-in específico e mecanismo de publicação moderada. Para GLP, confirmar autorização da revenda no cadastro ANP é caminho de menor burocracia, sem inventar validação.
+
+
+### CI de anunciante — segunda expectativa legada corrigida
+
+- O Audit do SHA `0fa50d523d2f867a0c0011613c4abcef002f65cd` terminou `failure` no step `Natural language and truthful availability V1.166 regression` (run `39331840682`), arquivo `tests/natural-voice-v1-166.mjs:24`. A exigência antiga `Esse contato não libera vendas.` não se aplicava à nova copy do anúncio rápido.
+- Correção `d841e0dd748e52556a6ce81e09f6fd004a581d54` muda essa assertiva para `Anunciar é diferente de receber pedidos pela plataforma.` e preserva todos os demais checks de confiança, sem alterar controle de autorização, estoque, pedidos, dinheiro ou dados de clientes.
+- No SHA `d841e0d`, `Build isolated live portals`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke` já estão `success`; Audit `39332153084` continua `in_progress` na última consulta. Não declarar sucesso até `completed/success`. Release-candidate visual review `skipped`. Não houve deploy comercial.
