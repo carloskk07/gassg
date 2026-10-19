@@ -108,6 +108,14 @@ function discoveryRequestModule(){
 }
 let discoveryOwnerModuleRequested=false;
 let discoveryOwnerModuleError=false;
+// Email OTP callbacks may replace the URL fragment (#advertise) with auth
+// tokens. Keep the non-sensitive route intent in the query until Supabase
+// consumes the callback, then restore the regular #advertise route.
+function discoveryOwnerReturnPending(){
+  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
+  try{return new URLSearchParams(location.search).get('advertise')==='1';}
+  catch{return false;}
+}
 function discoveryOwnerLoadingPage(){
   return shell('<section class="section"><h1>Meus anúncios TAMÃO</h1>'+
     (discoveryOwnerModuleError?
@@ -120,8 +128,8 @@ function retryDiscoveryOwnerModule(){
 }
 function discoveryOwnerRequestModule(){
   if(discoveryOwnerModuleRequested||typeof discoveryOwnerPage==='function')return;
-  if(route()!=='advertise'||globalThis.adminPortalRequested?.()||
-     globalThis.merchantPortalRequested?.())return;
+  if((route()!=='advertise'&&!discoveryOwnerReturnPending())||
+     globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
   discoveryOwnerModuleRequested=true;
   const source=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
   let version='';
