@@ -15,7 +15,11 @@ create table if not exists public.clube_coupon_paid_packages (
   sale_enabled boolean not null default false,
   updated_at timestamptz not null default clock_timestamp(),
   constraint coupon_sale_requires_verification check(
-    not sale_enabled or (funding_verified and legal_terms_verified and redeem_settlement_verified))
+    not sale_enabled or (
+      funding_verified and legal_terms_verified and redeem_settlement_verified
+      -- Until provider-verified sponsor contributions are ledgered, a paid
+      -- package must cover its full outstanding voucher face value.
+      and sale_price_cents::bigint>=coupon_face_cents::bigint*coupons_per_pack::bigint))
 );
 
 create table if not exists public.clube_coupon_paid_invoices (
