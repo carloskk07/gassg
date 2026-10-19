@@ -145,3 +145,30 @@ revoke all on function public.clube_coupon_paid_payment_refund(uuid,text)
  from public,anon,authenticated;
 grant execute on function public.clube_coupon_paid_payment_refund(uuid,text)
  to service_role;
+
+
+-- Partial refunds, chargebacks or inconsistent credit events cannot be
+-- treated as a full refund. Hold all unspent vouchers for finance review.
+create or replace function public.clube_coupon_paid_payment_review(
+ p_invoice_id uuid,p_provider_order_id text
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $$
+declare v_invoice public.clube_coupon_paid_invoices%rowtype;
+begin
+ select * into v_invoice from public.clube_coupon_paid_invoices
+ where id=p_invoice_id for update;
+ if not found or v_invoice.provider_order_id is distinct from p_provider_order_id
+ then raise exception 'COUPON_REVIEW_BINDING_MISMATCH';end if;
+ update public.clube_coupon_paid_invoices
+ set status='review_required',updated_at=clock_timestamp()
+ where id=v_invoice.id;
+ update public.clube_coupon_paid_issuances
+ set status='review_required'
+ where invoice_id=v_invoice.id and status in ('issued','reserved');
+ return pg_catalog.jsonb_build_object('ok',false,'reviewRequired',true);
+end
+$$;
+revoke all on function public.clube_coupon_paid_payment_review(uuid,text)
+ from public,anon,authenticated;
+grant execute on function public.clube_coupon_paid_payment_review(uuid,text)
+ to service_role;
