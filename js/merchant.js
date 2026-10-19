@@ -1062,8 +1062,9 @@ async function merchantCreateBillingPackagePixFromUi(planKey){
   if(!plan)return toast('Pacote não encontrado');
   if(!confirm('Gerar Pix de '+BRL.format(Number(plan.purchaseAmountCents||0)/100)+' para '+plan.displayName+'? O crédito só será liberado após confirmação financeira.'))return;
   try{
-    await merchantCreateBillingPixLive({planKey});
-    toast('Pix gerado. Use o QR ou o código copia e cola.');
+    const result=await merchantCreateBillingPixLive({planKey});
+    toast(result?.alreadyReceived?'Pagamento já identificado pelo provedor. Aguarde a conferência financeira.':
+      'Pix gerado. Use o QR ou o código copia e cola.');
   }catch(e){toast(String(e?.message||e))}
 }
 
@@ -1105,7 +1106,11 @@ async function merchantNotifyRefundRecoveryPaidFromUi(refundRecoveryId){
 async function merchantCopyBillingPixCode(paymentRequestId){
   const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
     .find(r=>r.id===paymentRequestId);
-  const code=String(request?.pixCharge?.brCode||'');
+  const charge=request?.pixCharge;
+  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
+    return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
+  }
+  const code=String(charge.brCode||'');
   if(!code)return toast('Código Pix indisponível');
   try{
     if(navigator.clipboard?.writeText){
