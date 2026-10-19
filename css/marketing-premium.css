@@ -1287,3 +1287,33 @@
 @media(prefers-reduced-motion:reduce){
  .tamao-home-coupon-rail,.tamao-home-coupon-rail button{transition:none}
 }
+
+
+/* TAMÃO — comparativo do Clube na cotação real */
+.tamao-checkout-total-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:10px;margin:13px 0 15px}
+.tamao-checkout-total-compare>div{min-width:0;display:flex;flex-direction:column;gap:7px;
+ background:#f5f8f6;border:1px solid #dce7df;border-radius:15px;padding:15px}
+.tamao-checkout-total-compare small{font-size:11px;letter-spacing:.045em;font-weight:900;color:#456150}
+.tamao-checkout-total-compare strong{font-size:clamp(18px,2.4vw,26px);color:#254435;
+ letter-spacing:-.035em;line-height:1.2;overflow-wrap:anywhere}
+.tamao-checkout-total-compare span{font-size:12px;line-height:1.45;color:#607165}
+.tamao-checkout-total-compare .has-discount{background:#effcf1;border-color:#9fd6b2}
+.tamao-checkout-total-compare .has-discount strong{color:#0b683e}
+.tamao-checkout-total-compare .has-discount span{font-weight:750;color:#176848}
+.tamao-checkout-coupon-callout{display:flex;align-items:center;gap:12px;
+ padding:14px 15px;margin:14px 0;border:1px solid #edd3a0;
+ border-radius:17px;background:linear-gradient(120deg,#fff6dc,#fffaf0)}
+.tamao-checkout-coupon-callout>span{font-size:25px}
+.tamao-checkout-coupon-callout>div{min-width:0;flex:1}
+.tamao-checkout-coupon-callout strong{font-size:16px;color:#684913}
+.tamao-checkout-coupon-callout p{font-size:12px;line-height:1.4;color:#6e552b;margin:5px 0 0}
+.tamao-checkout-coupon-callout button{flex-shrink:0;border-radius:12px;padding:11px 14px;
+ min-height:44px;border:1px solid #cba351;background:#fff;color:#6f4d0c;font-weight:850;cursor:pointer}
+.tamao-checkout-coupon-callout button:focus-visible{outline:3px solid #b77b10;outline-offset:3px}
+@media(max-width:550px){
+ .tamao-checkout-total-compare{grid-template-columns:minmax(0,1fr)}
+ .tamao-checkout-coupon-callout{flex-wrap:wrap}
+ .tamao-checkout-coupon-callout>div{flex-basis:calc(100% - 45px)}
+ .tamao-checkout-coupon-callout button{width:100%}
+}
