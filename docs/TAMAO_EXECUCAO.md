@@ -501,3 +501,11 @@
 **Risco de integração a tratar antes do merge:** 11 commits da `main` alteraram arquivos compartilhados (`js/admin.js`, `js/bootstrap.js`, `js/merchant.js`, `js/growth.js`, financeiro). Reconciliar alterações e conflitos sem sobrescrever #498–#506, rodar CI integral e homologação real Auth/Storage (usuário A/B/admin/visitante). Publicar a expansão só quando liberada por gate próprio; iniciar operação comercial atual separadamente conforme #493.
 
 **ÚLTIMA ETAPA CONCLUÍDA NESTA CONTINUAÇÃO:** correção do retorno OTP do anunciante na PR draft, regressões escritas e simulação JS isolada. **ETAPA ATUAL:** obtenção de CI por SHA e homologação comercial real de novas revendas + preparação legítima da primeira revenda até 21/10.
+
+
+### Revisão do contrato de teste OTP antes de aprovação (19/10)
+
+- A inspeção do novo teste encontrou um defeito **no próprio mock**, não na interface: declarações `const` em `vm.runInNewContext()` não viram propriedades de `ctx`. O estado lexical do anunciante passou a ser exposto **somente na VM de teste** como `globalThis.__discoveryOwnerTestState` no commit `dc74437`. Isso evita falsa falha quando GitHub Actions executar `tests/discovery-owner-journey.mjs`.
+- O teste agora cobre também retorno de link expirado sem sessão: mostra login, não trata a query `advertise=1` como autorização, e remove o hash com token inválido. Commit `e578050`.
+- Verificação nesta execução: sintaxe do JavaScript das duas páginas e sintaxe adaptada do teste Node **PASS**; simulação dinâmica isolada do fluxo válido/isolamento **PASS**. Os testes completos do repositório, o PostgreSQL isolado e o login real Supabase **não foram executados nem aprovados nesta sessão**. Nenhuma migration nem deploy.
+- **Próximo gate:** obter Audit, PG17, build dos portais e smoke com a SHA mais recente; só depois E2E autenticado, reconciliação segura com os 11 commits da main e eventual avaliação de publicação. Prioridade comercial da #493 não foi alterada.
