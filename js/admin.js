@@ -961,7 +961,8 @@ function adminMerchantTrialEstimate(detail,productCode,quantity,assumedDiscountC
   const stock=Number(product.available_stock);
   const delivery=Number(merchant.delivery_fee_cents);
   const qty=Number(quantity),discount=Number(assumedDiscountCents);
-  if(![unit,stock,delivery,qty,discount].every(Number.isSafeInteger)
+  if(assumedDiscountCents==null||
+    ![unit,stock,delivery,qty,discount].every(Number.isSafeInteger)
     ||unit<=0||stock<0||delivery<0||delivery>100000
     ||qty<1||qty>20||qty>stock||discount<0){
     return {ok:false,reason:'Quantidade, preço, estoque ou benefício inválidos.'};
@@ -996,7 +997,7 @@ function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents
   const discount=Number(assumedDiscountCents);
   const delivery=Number(merchant?.delivery_fee_cents);
   if(!merchant||!requested.length||requested.length>40||
-    !Number.isSafeInteger(discount)||discount<0||
+    assumedDiscountCents==null||!Number.isSafeInteger(discount)||discount<0||
     !Number.isSafeInteger(delivery)||delivery<0||delivery>100000)
     return {ok:false,reason:'Seleção, frete ou desconto inválidos para a cesta.'};
   const items=[];
