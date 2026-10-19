@@ -161,4 +161,32 @@ assert.equal(resume('?merchant=1&signup=1','ready'),'merchant',
  'returning owner with full access stays on their real panel');
 assert.equal(resume('?merchant=1','no-access',true),'merchant-join',
  'existing valid pilot invitations still work');
+
+// The real partner portal must never display an editable company form while
+// the authenticated account or its existing applications cannot be checked.
+const joinStart=growth.indexOf('function merchantJoin(){');
+const joinEnd=growth.indexOf('\nfunction onlyDigits(',joinStart);
+assert.ok(joinStart>=0&&joinEnd>joinStart,'find partner registration view');
+const joinSource=growth.slice(joinStart,joinEnd);
+function guardedJoin(status,applicationFetchError=null){
+ const ctx=vm.createContext({
+  globalThis:{merchantPortalRequested:()=>true,
+   merchantRuntime:{status,applicationFetchError}},
+  shell:html=>html,
+  merchantLiveLoginView:()=> 'LOGIN',
+  merchantLivePage:()=> 'ORIGIN_BLOCKED',
+ });
+ vm.runInContext(joinSource+';this.join=merchantJoin;',ctx);
+ return ctx.join();
+}
+assert.equal(guardedJoin('unsafe-origin'),'ORIGIN_BLOCKED');
+for(const [status,appError] of [['unavailable',null],['no-access','NETWORK_ERROR']]){
+ const page=guardedJoin(status,appError);
+ assert.match(page,/Tentar novamente com segurança/);
+ assert.match(page,/role="alert"/);
+ assert.doesNotMatch(page,/merchant-join-form|joinMerchant\(\)/,
+  'fail-closed for unavailable account/application verification');
+}
+assert.equal(guardedJoin('unauthenticated'),'LOGIN');
+
 console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');
