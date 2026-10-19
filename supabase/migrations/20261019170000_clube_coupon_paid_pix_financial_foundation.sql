@@ -131,8 +131,9 @@ begin
  if v_redeemed>0 then
   update public.clube_coupon_paid_invoices set status='review_required',updated_at=clock_timestamp()
   where id=v_invoice.id;
-  update public.clube_coupon_paid_issuances set status='review_required'
-  where invoice_id=v_invoice.id and status='issued';
+  update public.clube_coupon_paid_issuances
+  set status='review_required',reserved_quote_id=null,reserved_at=null
+  where invoice_id=v_invoice.id and status in ('issued','reserved');
   return pg_catalog.jsonb_build_object('ok',false,'reviewRequired',true);
  end if;
  update public.clube_coupon_paid_invoices
@@ -165,7 +166,7 @@ begin
  set status='review_required',updated_at=clock_timestamp()
  where id=v_invoice.id;
  update public.clube_coupon_paid_issuances
- set status='review_required'
+ set status='review_required',reserved_quote_id=null,reserved_at=null
  where invoice_id=v_invoice.id and status in ('issued','reserved');
  return pg_catalog.jsonb_build_object('ok',false,'reviewRequired',true);
 end
