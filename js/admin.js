@@ -4055,7 +4055,7 @@ const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indic
 /* Finance Lab: admin-only orchestration; mock invoices never enter accounting. */
 function adminFinanceLabCents(value){
   const raw=String(value??'').trim();
-  if(!/^(?:0|[1-9]\\d{0,6})(?:[,.]\\d{1,2})?$/.test(raw))return null;
+  if(!/^(?:0|[1-9]\d{0,6})(?:[,.]\d{1,2})?$/.test(raw))return null;
   const [reais,centavos='']=raw.replace(',','.').split('.');
   const cents=Number(reais)*100+Number(centavos.padEnd(2,'0'));
   return Number.isSafeInteger(cents)&&cents>=1&&cents<=100000000?cents:null;
