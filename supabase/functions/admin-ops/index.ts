@@ -632,8 +632,8 @@ function adminFinanceLabConfig(){
   const token=String(Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")??"").trim();
   const payerEmail=String(Deno.env.get("FINANCE_LAB_TEST_PAYER_EMAIL")??"").trim();
   const productionToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
-  const tokenConfigured=token.length>=20&&!/[\\s\\u0000-\\u001f\\u007f]/.test(token);
-  const payerConfigured=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(payerEmail);
+  const tokenConfigured=token.length>=20&&!/[\s\u0000-\u001f\u007f]/.test(token);
+  const payerConfigured=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail);
   const distinctToken=tokenConfigured&&(!productionToken||token!==productionToken);
   return {enabled,tokenConfigured,payerConfigured,distinctToken,
     ready:enabled&&tokenConfigured&&payerConfigured&&distinctToken,
