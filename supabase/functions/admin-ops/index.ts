@@ -639,6 +639,66 @@ function adminFinanceLabConfig(){
     ready:enabled&&tokenConfigured&&payerConfigured&&distinctToken,
     token,payerEmail};
 }
+// Historical Pix diagnosis: read-only; never expose BR Code or payer data.
+// This cannot prove that a PSP/bank will accept a charge. It diagnoses local
+// format, value, expiration and mismatched bookkeeping evidence only.
+async function adminFinanceLabChargeDiagnostics(admin:any){
+  const {data:rows,error}=await admin.from("merchant_billing_provider_charges")
+    .select("id,payment_request_id,provider,status,amount_cents,currency,br_code,expires_at,expired_at,created_at,completed_at,last_error_code")
+    .order("created_at",{ascending:false}).limit(20);
+  if(error)throw new DomainError("FINANCE_LAB_CHARGES_UNAVAILABLE",
+    "Não foi possível conferir os registros de cobranças.",503);
+  const charges=rows||[];
+  const ids=[...new Set(charges.map((row:any)=>String(row.payment_request_id||"")).filter(Boolean))];
+  let requests:any[]=[];
+  if(ids.length){
+    const lookup=await admin.from("merchant_billing_payment_requests")
+      .select("id,status,expected_amount_cents,request_kind")
+      .in("id",ids).limit(20);
+    if(lookup.error)throw new DomainError("FINANCE_LAB_REQUESTS_UNAVAILABLE",
+      "Não foi possível conciliar as cobranças com suas solicitações.",503);
+    requests=lookup.data||[];
+  }
+  const byRequest=new Map(requests.map((row:any)=>[String(row.id),row]));
+  const now=Date.now();
+  const result=charges.map((charge:any)=>{
+    const amount=Number(charge.amount_cents);
+    const request=byRequest.get(String(charge.payment_request_id||""));
+    const requestedAmount=request?Number(request.expected_amount_cents):null;
+    const expected=Number.isSafeInteger(amount)&&amount>0?amount:null;
+    const raw=String(charge.br_code??"");
+    const proof=raw?validatePixBrCode(raw,{expectedAmountCents:expected}):
+      {valid:false,reason:"PIX_BR_CODE_MISSING"};
+    const timestamp=Date.parse(String(charge.expires_at||""));
+    const hasExpiry=Number.isFinite(timestamp);
+    const expired=hasExpiry&&timestamp<=now;
+    const amountMatches=requestedAmount!=null&&Number.isSafeInteger(requestedAmount)
+      &&expected===requestedAmount;
+    const status=String(charge.status||"unknown").slice(0,60);
+    const issues:string[]=[];
+    if(!proof.valid)issues.push(String(proof.reason||"PIX_BR_CODE_INVALID"));
+    if(!hasExpiry)issues.push("EXPIRATION_UNKNOWN");
+    else if(expired)issues.push("PIX_EXPIRED");
+    if(!request)issues.push("REQUEST_MISSING");
+    else if(!amountMatches)issues.push("REQUEST_AMOUNT_MISMATCH");
+    if(status==="active"&&(expired||!hasExpiry))issues.push("ACTIVE_CHARGE_NOT_PAYABLE");
+    const codeValid=proof.valid===true;
+    return {
+      chargeId:String(charge.id||""),provider:String(charge.provider||"unknown").slice(0,40),
+      status,requestStatus:request?String(request.status||"unknown").slice(0,60):"not_found",
+      amountCents:expected,requestedAmountCents:requestedAmount,
+      createdAt:charge.created_at,expiresAt:charge.expires_at,completedAt:charge.completed_at,
+      codeValid,codeReason:proof.reason??null,expired,hasExpiry,
+      amountMatches:request?amountMatches:null,issues,
+      displayableInPortal:status==="active"&&codeValid&&hasExpiry&&!expired&&amountMatches,
+      lastErrorCode:String(charge.last_error_code||"").slice(0,80)||null
+    };
+  });
+  return {ok:true,readOnly:true,scope:"last_20_provider_charges",
+    checkedAt:new Date().toISOString(),count:result.length,
+    charges:result,note:"BR Code válido não garante pagamento; confirmação depende do PSP e do banco."};
+}
+
 async function adminFinanceLabReadiness(admin:any,actorId:string){
   const config=adminFinanceLabConfig();
   const {data,error}=await admin.from("platform_admin_audit")
@@ -5530,6 +5590,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="billing-provider-health"){
       return json(await billingProviderHealth(admin),200,origin);
+    }
+    if(action==="finance-lab-charge-diagnostics"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode diagnosticar cobranças.",403);
+      }
+      return json(await adminFinanceLabChargeDiagnostics(admin),200,origin);
     }
     if(action==="finance-lab-readiness"||action==="finance-lab-sandbox-check"){
       if(String(adminAccess.admin_role)!=="superadmin"){
