@@ -4228,7 +4228,7 @@ function adminFinanceLabView(d){
         ${state.readiness?.recentTests?.length?'<h4>Últimas ordens de TESTE</h4>'+
           state.readiness.recentTests.slice(0,6).map(t=>'<div class="order-line">'+
             esc(t.orderId)+' • '+esc(t.providerStatus)+' • '+esc(formatDateTime(t.createdAt))+
-            ' <button type="button" class="ghost small" onclick="adminFinanceLabCheckOrderFromUi(\\''+esc(t.orderId)+'\\')">Consultar</button></div>').join('')
+            ' <button type="button" class="ghost small" onclick="adminFinanceLabCheckOrderFromUi(&quot;'+esc(t.orderId)+'&quot;)">Consultar</button></div>').join('')
           :'<small>Nenhuma ordem de teste comprovada nesta consulta.</small>'}
         <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
         <div class="order-actions">
