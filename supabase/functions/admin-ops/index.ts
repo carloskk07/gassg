@@ -9,7 +9,7 @@ import {
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
-import { mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
+import { mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 
@@ -111,7 +111,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status",
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports",
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
@@ -2188,6 +2188,69 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="clube-coupon-mp-release-reports"){
+      // Read-only on the existing TAMÃO Mercado Pago receiving account:
+      // GET /v1/account/release_report/list. No creation, downloads,
+      // money movement, or coupon activation from this endpoint.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Relatórios financeiros exigem perfil financeiro.",403);
+      }
+      const mpToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+      if(!mercadoPagoConfigured(mpToken)){
+        return json({
+          source:"mercadopago_release_reports_list_v1",
+          readOnly:true,available:false,coverage:"unavailable",
+          reason:"MERCADOPAGO_NOT_CONFIGURED",reports:[],
+          moneyVerified:false,checkedAt:new Date().toISOString()
+        },200,origin);
+      }
+      await enforceApiQuota(admin,{
+        userId:user.id,actionName:"admin-mp-release-reports",
+        limit:5,windowSeconds:600
+      });
+      const response=await mercadoPagoFetch("/v1/account/release_report/list",{
+        accessToken:mpToken,method:"GET",timeoutMs:8000
+      });
+      if(!response.ok)throw new DomainError(
+        "MERCADOPAGO_REPORT_LIST_UNAVAILABLE",
+        "Não foi possível consultar os extratos do Mercado Pago.",503);
+      const raw=await readMercadoPagoJson(response);
+      if(!Array.isArray(raw))throw new DomainError(
+        "MERCADOPAGO_REPORT_FORMAT_UNEXPECTED",
+        "O Mercado Pago retornou uma lista de relatórios em formato inesperado.",503);
+      const complete=raw.length<=50;
+      const reports=raw.slice(0,50).map((item:any)=>{
+        const currency=String(item?.currency_id??"");
+        const status=String(item?.status??"").trim().toLowerCase();
+        const started=String(item?.begin_date??"");
+        const ended=String(item?.end_date??"");
+        const generated=String(item?.generation_date??"");
+        return {
+          status:["processed","pending","processing","failed"].includes(status)
+            ?status:"unknown",
+          currency:currency==="BRL"?"BRL":null,
+          test:item?.is_test===true,
+          generatedAt:Number.isFinite(Date.parse(generated))
+            ?new Date(generated).toISOString():null,
+          periodStart:Number.isFinite(Date.parse(started))
+            ?new Date(started).toISOString():null,
+          periodEnd:Number.isFinite(Date.parse(ended))
+            ?new Date(ended).toISOString():null
+        };
+      });
+      return json({
+        source:"mercadopago_release_reports_list_v1",
+        readOnly:true,available:true,
+        coverage:complete?"list_only":"partial",
+        reports,listedCount:reports.length,
+        moneyVerified:false,
+        // This returns ONLY report metadata. It never asserts that a
+        // specific coupon Pix or seller reimbursement has been reconciled.
+        checkedAt:new Date().toISOString()
+      },200,origin);
+    }
 
     if(action==="clube-coupon-finance-status"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
