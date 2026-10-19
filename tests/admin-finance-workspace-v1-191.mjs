@@ -15,7 +15,7 @@ const extract=name=>{
 const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=(\[[^\n]+\]);/);
 assert.ok(declaration,'Finance workspace allowlist required');
 const keys=JSON.parse(declaration[1]).map(x=>x.id);
-assert.equal(keys.join('|'),'summary|billing|reconciliation|policy');
+assert.equal(keys.join('|'),'summary|billing|lab|reconciliation|policy');
 let role='finance',repaints=0,focuses=[],scrolls=[];
 const rt={financeWorkspace:'summary'};
 const document={
@@ -29,6 +29,7 @@ const document={
 };
 const ctx=vm.createContext({
   adminRuntime:rt,
+  adminCurrentRole:()=>role,
   adminRoleCanSection:key=>key==='finance'&&['superadmin','finance'].includes(role),
   render:()=>repaints++,
   requestAnimationFrame:fn=>fn(),document
@@ -71,6 +72,16 @@ role='readonly';
 assert.equal(ctx.nav(),'');
 role='superadmin';
 assert.ok(ctx.nav().includes('CENTRAL FINANCEIRA'));
+assert.ok(ctx.nav().includes('Laboratório'));
+assert.equal((ctx.nav().match(/aria-pressed=/g)||[]).length,5);
+ctx.select('lab');
+assert.equal(rt.financeWorkspace,'lab');
+role='finance';
+assert.equal(ctx.current(),'summary','Non-superadmin must not stay inside financial lab');
+const beforeLab=repaints;
+ctx.select('lab');
+assert.equal(repaints,beforeLab,'Only superadmin can enter the financial lab');
+role='superadmin';
 const from=src.indexOf('  const financeSummaryContent=');
 const until=src.indexOf('  const incidentsContent=',from);
 assert.ok(from>0&&until>from);
