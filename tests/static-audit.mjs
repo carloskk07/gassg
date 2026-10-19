@@ -161,7 +161,7 @@ assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCust
 assert.ok(customer.includes('conciseHome=acquisitionOpen&&!testDemo')&&(customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('first-visit-intent-grid')&&customer.includes('prelaunchCustomerLeadSection()')&&customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map'),'home sem supply precisa distinguir descoberta de produtos, consulta de CEP, aviso e convite sem simular ofertas');
 assert.ok(acquisition.includes('ATENDIMENTO POR REGIÃO')&&acquisition.includes('Revendas cadastradas')&&acquisition.includes('Nenhuma compra é criada por este cadastro'),'aquisição precisa comunicar disponibilidade real sem fabricar prova social');
 assert.ok(core.includes('const merchantAction=merchantPortal?"go(\'merchant\')":testDemo?"setMode(\'merchant\')":"go(\'merchants\')"'),'switcher público deve apresentar a página comercial antes de permitir acesso ao portal; não pode redirecionar visitantes ao painel');
-assert.ok(core.includes("['early-access','🔔','Avisos','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
+assert.ok(core.includes("['availability','🧺','Consultar','market']")&&core.includes("tamaoOpenAvailability()"),'menu mobile único precisa consultar disponibilidade no clique, sem trocar estrutura após bootstrap');
 assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
 assert.ok(analytics.includes("['tamao.com.br','www.tamao.com.br'].includes(host)"),'analytics não pode medir laboratório, localhost ou preview');
 assert.ok(analytics.includes("globalThis.__CHAMA_TEST__!==true")&&analytics.includes("globalThis.CHAMA_INTERNAL_PILOT!==true")&&analytics.includes("adminPortalRequested?.()!==true")&&analytics.includes("merchantPortalRequested?.()!==true"),'analytics de primeira parte na operação real deve excluir testes, pilotos internos e portais privados');
@@ -1400,7 +1400,11 @@ assert.ok(pilotDigestRepair.includes('revoke all on function public.claim_pilot_
 const merchantUiSource=read('js/merchant.js');
 const bootstrapSource=read('js/bootstrap.js');
 assert.ok(merchantUiSource.includes('Convite reconhecido.')&&merchantUiSource.includes('Continue seu cadastro'),'login da revenda precisa reconhecer visualmente o convite sem expor token');
-assert.ok(bootstrapSource.includes("invitedPartner&&globalThis.merchantRuntime?.status==='no-access'")&&bootstrapSource.includes("go('merchant-join')"),'retorno do magic link de parceiro convidado precisa ir direto ao cadastro');
+assert.ok(bootstrapSource.includes("const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.())")&&
+ bootstrapSource.includes("const returningToSignup=new URLSearchParams(location.search).get('signup')==='1'")&&
+ bootstrapSource.includes("(invitedPartner||returningToSignup)&&globalThis.merchantRuntime?.status==='no-access'")&&
+ bootstrapSource.includes("go('merchant-join')"),
+ 'retorno do magic link de parceiro convidado OU cadastro sem convite precisa ir direto ao formulário, sem conceder permissão');
 assert.ok(admin.includes('application?.companyName')&&admin.includes('application?.cnpj')&&admin.includes('application?.responsibleName'),'dados enviados pelo parceiro devem pré-preencher a conversão assistida');
 const merchantReadinessAuthority=read('supabase/migrations/20261007181500_admin_merchant_readiness_v1_73.sql');
 assert.ok(merchantReadinessAuthority.includes('admin_merchant_readiness_snapshot')&&merchantReadinessAuthority.includes('merchant_operational_compliance_current'),'readiness da revenda precisa ter autoridade server-side única e reutilizar compliance real');

@@ -62,10 +62,11 @@ assert.ok(
 );
 
 assert.ok(
-  core.includes('Disponibilidade</button>')
-  &&core.includes("'Avisos','lead'")
+  core.includes('tamaoOpenAvailability()\">Consultar</button>')
+  &&core.includes("['availability','🧺','Consultar','market']")
+  &&core.includes('prelaunchExamplesEnabled?.()===true)return openPrelaunchCustomerLead()')
   &&core.includes("const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região'"),
-  'navegação global não pode manter linguagem de abertura'
+  'navegação global estável deve consultar disponibilidade no clique, sem linguagem de abertura'
 );
 
 assert.ok(
