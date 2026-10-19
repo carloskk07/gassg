@@ -79,6 +79,12 @@ jobs:
         run: node tests/discovery-public-journeys.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
+      - name: Regional wood, charcoal and ice units
+        run: node tests/regional-product-units.mjs
+      - name: Coupon Mercado Pago signed settlement contract
+        run: node tests/coupon-paid-pix-contract.mjs
+      - name: Authenticated Clube voucher viewer
+        run: node tests/clube-paid-coupon-view.mjs
       - name: Superadmin ad moderation and review queue client contract
         run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
