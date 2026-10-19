@@ -42,7 +42,7 @@ assert.equal(requests.length,0,'invoice preview must be zero-impact');
 let html=ctx.lab.view({merchantBilling:{providerCharges:[{status:'expired'}],paymentIngress:{activeBillingProvider:'mercadopago'}}});
 assert.match(html,/Fatura de exemplo/);
 assert.match(html,/NÃO PAGÁVEL/);
-assert.match(html,/Pix vencidos/);
+assert.match(html,/PIX vencidos/);
 assert.match(html,/Solicitar Pix no sandbox do PSP/);
 await ctx.lab.sandbox();
 assert.equal(requests.length,1);
