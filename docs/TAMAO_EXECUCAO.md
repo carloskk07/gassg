@@ -294,3 +294,16 @@
 **Estado real read-only:** Supabase `lgugwujpunhslavewffd` mantém `PRELAUNCH` / comércio desabilitado; 1 merchant `pending`/offline e sem confirmação geral de preços; 1 application; 0 pedidos, 0 incidentes, 0 casos de suporte; `discovery_listings` ausente e migration `20261018131000` não aplicada. Último atestado de portais em `6a13bb29acf8` (run OIDC). Nenhuma escrita no banco e nenhuma nova cidade/modalidade ativada.
 
 **ETAPA ATUAL:** checar CI da revisão, corrigir eventual falha e executar fluxo autenticado com pelo menos duas revendas distintas, sua análise administrativa e isolamento. Se a correção estreita estiver comprovada, extrair release comercial seguro sem transportar a expansão. Depois validar oferta, preços frescos, entrega, compliance e primeiro pedido autorizado. Continuar Profissionais/Caronas/Hospedagens/SEO/Ads na mesma PR, sem cobrança nem módulos incompletos em produção.
+
+
+## Entrega comercial multiempresa — PR #497 integrada (18/10/2026)
+
+- **Entrega comercial segregada da expansão:** extraída a correção de seleção de inscrições na PR [#497](https://github.com/carloskk07/gassg/pull/497). O diff da PR tinha exatamente 5 arquivos (`js/backend.js`, `js/bootstrap.js`, `js/growth.js`, `js/merchant.js`, `tests/merchant-direct-onboarding-v1-410.mjs`), sem migração, cobrança ou função Supabase. Alterações de código empresarial equivalentes à branch canônica, com o bootstrap limitado ao novo handler. PR integrada por squash na `main` no commit `958963f1492def01c03020957a55f9e9cb7464f6`.
+
+- **Gates da PR #497:** no HEAD `402ba4771f646026c82166df5643132268751e56`, Audit PASS run `39186398504` (incluindo `One-step merchant signup and referral attribution V1.410` PASS, browser mobile e E2E PASS), `Build isolated live portals` PASS run `39186398415`; release-candidate sem deploy SKIPPED. Não alegar PostgreSQL/visual smoke nesta PR pois os filtros não dispararam. A PR #492 não exibia execuções no `fetch_commit_workflow_runs` para seus SHAs recentes (filtro dessa ferramenta limitado a pull_request), portanto o release isolado forneceu CI comprovado.
+
+- **Publicação:** após o merge, a última consulta antes deste checkpoint ainda mostrava atestado OIDC do SHA anterior `6a13bb29acf8`, não do novo `958963f`. Necessário confirmar que o workflow de publicação ateste `958963f` nos três portais (`tamao.com.br`, `parceiro.tamao.com.br`, `admin.tamao.com.br`) antes de afirmar que a nova interface entrou no ar. Ausência temporária não é falha nem sucesso.
+
+- **Estado real preservado:** Supabase em `PRELAUNCH`, `commerce_enabled=false`; revenda existente `pending`/offline e com `price_confirmed_at=null`; ainda 1 inscrição, 0 pedidos, migração de expansão não aplicada. Nenhuma ativação automática, preço forjado ou compra/pagamento de teste.
+
+- **Próxima tarefa prioritária:** conferir novo atestado SHA nos três portais, depois homologação real OTP de **duas contas distintas** e múltiplos CNPJs legítimos, verificação do vínculo pelo admin, proteção de leitura cruzada e retorno/edição. Só então oferta e pedido real com revenda apta/autorizações. Manter Profissionais/Caronas/Hospedagens/Ads/SEO isolados na PR #492 draft. Após squash #497 a branch canônica pode ficar mais commits atrás da `main` no histórico; preservar o ramo e reconciliar antes de merge futuro, sem criar estruturas paralelas.
