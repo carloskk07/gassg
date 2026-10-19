@@ -37,6 +37,18 @@ BEGIN
     RAISE EXCEPTION 'UNFUNDED_COUPON_WAS_ENABLED';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
+  -- All Boolean approvals are insufficient if money cannot cover the
+  -- sum of the vouchers: never sell a R$10 package worth R$20.
+  BEGIN
+    INSERT INTO public.clube_coupon_paid_packages
+    (package_key,title,sale_price_cents,coupon_face_cents,
+     coupons_per_pack,valid_days,sale_enabled,
+     funding_verified,legal_terms_verified,redeem_settlement_verified)
+    VALUES ('test_underfunded','Teste sem lastro suficiente',1000,1000,2,90,
+      true,true,true,true);
+    RAISE EXCEPTION 'UNDERFUNDED_COUPON_PACKAGE_SELLABLE';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
   INSERT INTO public.clube_coupon_paid_packages
   (package_key,title,sale_price_cents,coupon_face_cents,
    coupons_per_pack,valid_days)
