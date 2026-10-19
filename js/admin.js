@@ -47,6 +47,7 @@ const adminRuntime={
   financeWorkspace:'summary',
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
+  clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null},
   prospectReport:null,
   prospectLoadedAt:null,
   prospectLoadedFor:null,
@@ -347,6 +348,7 @@ async function adminSignOut(){
   if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.session=null;
   adminRuntime.data=null;
+  adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null};
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   adminRuntime.searchPending=false;
@@ -4353,6 +4355,81 @@ async function adminClubeCouponPreviewFromUi(){
     }
   }finally{x.pending=false;render();}
 }
+/* Clube TAMÃO — consulta do estado financeiro, sem cobrança nem ativação.
+ * Totalizadores limitados ou migração ausente nunca equivalem a aprovação. */
+async function adminClubeFinanceRefresh(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+    adminRuntime.status!=='ready')return;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId)return;
+  const state=adminRuntime.clubeFinance;
+  if(state.pending)return;
+  Object.assign(state,{pending:true,error:null,data:null,loadedFor:userId,checkedAt:null});
+  render();
+  try{
+    const result=await adminInvoke({action:'clube-coupon-finance-status'});
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(result?.source!=='clube_coupon_finance_status_v1'||
+      result.readOnly!==true||result.paymentsChecked!==false||
+      typeof result.schemaInstalled!=='boolean'||
+      !['unavailable','partial','bounded_under_limits'].includes(result.coverage)){
+      throw new Error('A consulta financeira não retornou dados verificáveis.');
+    }
+    state.data=result;
+    state.checkedAt=new Date().toISOString();
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId){
+      state.error=String(error?.message||error||'Não foi possível consultar cupons.');
+    }
+  }finally{
+    state.pending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
+function adminClubeFinanceView(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const state=adminRuntime.clubeFinance||{};
+  const sameUser=String(adminRuntime.session?.user?.id||'')&&
+    state.loadedFor===String(adminRuntime.session.user.id);
+  const data=sameUser?state.data:null;
+  const issue=sameUser?state.error:null;
+  const amount=(value)=>Number.isSafeInteger(value)&&value>=0
+    ?String(value):'Não verificado';
+  const schemaMissing=data&&data.schemaInstalled!==true;
+  const incomplete=data&&data.coverage!=='bounded_under_limits';
+  const readyCount=data&&data.schemaInstalled===true&&
+    data.coverage==='bounded_under_limits';
+  const entries=readyCount?[
+    ['Pacotes cadastrados',data.packageCount],
+    ['Faturas de cupons',data.invoiceCount],
+    ['Cupons emitidos',data.issuedCount],
+    ['Cupons utilizados',data.redeemedCount],
+    ['Pagamentos sem líquido comprovado',data.pendingNetCount],
+    ['Cupons e faturas em revisão',data.refundReviewCount],
+    ['Obrigações de revendas pendentes',data.merchantSettlementPendingCount]
+  ]:[];
+  return `<section class="section admin-clube-finance" aria-label="Conciliação financeira dos cupons">
+    <div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • CONTROLADORIA</span>
+      <h3>Cupons, recebimentos e compensação às revendas</h3>
+      <p>Acompanhe o que falta conciliar, sem gerar cobranças ou liberar descontos.</p></div>
+      <button type="button" class="secondary"
+        onclick="adminClubeFinanceRefresh()" ${state.pending?'disabled':''}>
+        ${state.pending?'Consultando…':'Conferir situação dos cupons'}
+      </button></div>
+    ${issue?'<div role="alert" class="notice danger">'+esc(issue)+'</div>':''}
+    ${!sameUser||!data?'<p class="tiny muted">Use a consulta para verificar as condições financeiras atuais.</p>':''}
+    ${schemaMissing?'<div class="notice" role="status"><strong>Cupons pagos ainda não instalados.</strong><br>O financeiro continua protegido; faltam etapas de implantação e homologação.</div>':''}
+    ${incomplete&&!schemaMissing?'<div class="notice" role="status"><strong>Informação incompleta.</strong><br>Há registros além do limite ou uma reconciliação sem evidência. Não use esta consulta para autorizar vendas.</div>':''}
+    ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
+      '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
+       esc(amount(value))+'</strong></div>').join('')+'</div>':''}
+    ${data?'<div class="notice"><strong>Mercado Pago:</strong> esta consulta não confere o extrato de liberação nem comprova repasse bancário. '+
+      'Cobrança de cupons: '+(data.salesEnabled===true?'indicada como habilitada na configuração':'não habilitada na configuração')+
+      '. Uso no pedido: '+(data.checkoutEnabled===true?'indicado como habilitado':'não habilitado')+
+      '. Antes de comercializar, confira a liquidação real no provedor e a homologação completa.</div>':''}
+  </section>`;
+}
+
 function adminClubeCouponPreviewView(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const x=adminRuntime.clubePreview||{};
@@ -6582,6 +6659,7 @@ function adminPage(){
     ${adminCommercialPolicySection(d)}
     ${adminGrowthBenefitPreviewView()}
     ${adminClubeCouponPreviewView()}
+    ${adminClubeFinanceView()}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
 `):'';
   const financeAreas={
