@@ -654,7 +654,9 @@ async function adminFinanceLabReadiness(admin:any,actorId:string){
       payerConfigured:config.payerConfigured,distinctToken:config.distinctToken
     },
     officialTestAmountCents:FINANCE_LAB_PIX_TEST_AMOUNT_CENTS,
-    recentTests:(data||[]).map((row:any)=>({
+    recentTests:(data||[]).filter((row:any)=>
+      /^[A-Za-z0-9_-]{10,120}$/.test(String(row.target_id||""))
+    ).map((row:any)=>({
       orderId:String(row.target_id||""),
       amountCents:Number(row.metadata?.amountCents||0),
       createdAt:row.created_at,
@@ -753,7 +755,8 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
     ||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/"));
   const valid=validatePixBrCode(brCode,{expectedAmountCents:amount});
   const returnedAmount=moneyToCents(order?.total_amount);
-  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount||!order?.id){
+  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount
+    ||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order?.id||""))){
     throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX",
       "O provedor não confirmou o ambiente de TESTE ou devolveu PIX/valor inválido. Nenhum código será exibido.",409);
   }
