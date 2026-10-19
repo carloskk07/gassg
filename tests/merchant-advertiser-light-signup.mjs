@@ -5,6 +5,17 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const acquisition=read('js/acquisition.js');
 const edge=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const merchant=read('js/merchant.js');
+const customer=read('js/customer.js');
+new vm.Script(merchant,{filename:'js/merchant.js'});
+new vm.Script(customer,{filename:'js/customer.js'});
+assert.match(customer,/Anuncie seu comércio\. Receber pedidos pelo TAMÃO é opcional\./);
+assert.match(customer,/onclick="openPrelaunchMerchantLead\(\)">Quero anunciar minha empresa/);
+assert.match(merchant,/Quer só anunciar seu comércio\?/);
+assert.match(merchant,/Cadastro rápido para anunciar/);
+assert.match(merchant,/https:\/\/tamao\.com\.br\/#merchants/);
+assert.match(merchant,/merchantLoginFromUi\(\)/,
+ 'commercial dashboard can still require its proper registration');
+
 new vm.Script(acquisition,{filename:'js/acquisition.js'});
 const begin=acquisition.indexOf('function prelaunchMerchantLeadSection(){');
 const finish=acquisition.indexOf('function openPrelaunchMerchantLead(){',begin);
