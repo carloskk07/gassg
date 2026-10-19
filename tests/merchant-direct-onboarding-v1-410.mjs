@@ -100,4 +100,65 @@ try{
 }finally{fs.rmSync(dir,{recursive:true,force:true})}
 assert.ok(read('supabase/migrations/20261014001000_clube_coupon_finance_preview_v1_239.sql')
   .includes('sales_enabled = false'),'financial claims cannot be activated by marketing redirects');
-console.log('V1.410 PASS: fast signup, campaign ref, existing access, safe fallback and optional contact.');
+// The email magic link must retain the intent to CREATE A NEW REVENDA,
+// including accounts without a pilot/prospect invitation.
+const loginStart=backend.indexOf('async function merchantSendLogin(email){');
+const loginEnd=backend.indexOf('\nasync function merchantSignOut(){',loginStart);
+assert.ok(loginStart>=0&&loginEnd>loginStart);
+const otpSrc=backend.slice(loginStart,loginEnd);
+async function otpRedirect(fromRoute){
+ let redirect='',renders=0;
+ const fake={client:{auth:{signInWithOtp:async({options})=>{
+  redirect=options.emailRedirectTo;return {error:null};
+ }}},status:'unauthenticated',notice:null};
+ const ctx=vm.createContext({
+  merchantRuntime:fake,
+  merchantBackendInit:async()=>true,
+  merchantPilotInviteToken:()=>'',route:()=>fromRoute,
+  location:{origin:'https://parceiro.tamao.com.br',pathname:'/'},
+  URL,
+  globalThis:{chamaTurnstile:{challenge:async()=> 'test-token'}},
+  render:()=>{renders++;}
+ });
+ vm.runInContext(otpSrc+';this.login=merchantSendLogin;',ctx);
+ await ctx.login('parceiro@example.com');
+ assert.equal(renders,1);
+ return new URL(redirect);
+}
+const fromSignup=await otpRedirect('merchant-join');
+assert.equal(fromSignup.searchParams.get('merchant'),'1');
+assert.equal(fromSignup.searchParams.get('signup'),'1',
+ 'new-partner intent survives across mail link');
+assert.equal(fromSignup.hash,'','auth token fragment must remain available');
+const fromLogin=await otpRedirect('merchant');
+assert.equal(fromLogin.searchParams.has('signup'),false,
+ 'existing-partner login must not start signup');
+
+// Simulate the post-OTP portal selection, after merchantBackendInit sees no
+// existing merchant membership. No invite must be required to resume signup.
+const afterLoadStart=bootstrap.indexOf('    const invitedPartner=Boolean(',
+ bootstrap.indexOf("window.addEventListener('load'"));
+const afterLoadEnd=bootstrap.indexOf('    render();',afterLoadStart);
+assert.ok(afterLoadStart>=0&&afterLoadEnd>afterLoadStart);
+const afterLoad=bootstrap.slice(afterLoadStart,afterLoadEnd);
+function resume(search,status,invite=false){
+ let current='home',routed=null;
+ const ctx=vm.createContext({
+  location:{search},URLSearchParams,
+  route:()=>current,go:next=>{current=next;routed=next;},
+  globalThis:{
+   merchantRuntime:{status},
+   merchantPilotInviteToken:()=>invite?'invite':'',
+   merchantProspectInviteToken:()=> ''
+  }
+ });
+ vm.runInContext(afterLoad,ctx);
+ return routed;
+}
+assert.equal(resume('?merchant=1&signup=1','no-access'),'merchant-join');
+assert.equal(resume('?merchant=1','no-access'),'merchant');
+assert.equal(resume('?merchant=1&signup=1','ready'),'merchant',
+ 'returning owner with full access stays on their real panel');
+assert.equal(resume('?merchant=1','no-access',true),'merchant-join',
+ 'existing valid pilot invitations still work');
+console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');

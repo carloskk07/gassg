@@ -2008,6 +2008,10 @@ async function merchantSendLogin(email){
   redirect.searchParams.set('merchant','1');
   // Supabase implicit auth owns the URL fragment while returning access tokens.
   // Pilot invite state is already persisted separately, so keep this hash empty.
+  // Preserve the choice to JOIN across the emailed OTP link and devices;
+  // Supabase reserves the fragment for auth tokens, so use a harmless query flag.
+  if(typeof route==='function'&&route()==='merchant-join')
+    redirect.searchParams.set('signup','1');
   merchantPilotInviteToken();
   redirect.hash='';
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
