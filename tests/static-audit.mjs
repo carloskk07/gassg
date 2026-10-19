@@ -1802,7 +1802,9 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(!source.includes('sendPushNotification')&&!source.includes('merchant_push_cron_tick'),
       entry.name+' só pode ler dados');
   }else{
-    assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('readJsonBody(req'),entry.name+' precisa usar leitura de JSON com limite');
+    if(entry.name==='coupon-credit-pix')assert.ok(source.includes('readJsonBody(req,{maxBytes:4096})')&&
+      !source.includes('const raw=await req.text()'),entry.name+' precisa limitar a leitura ANTES de alocar o corpo todo');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
   }
   if(entry.name==='complete-delivery'){
