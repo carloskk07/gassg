@@ -23,8 +23,8 @@ for(const token of [
  "go('merchants')","go('earn')",'startHomeBrowse()',
  'homeRegionalPriceBoard(homeRegion)'
 ])assert.ok(home.includes(token),'home journey lacks '+token);
-assert.ok(home.indexOf('home-discover-grid')<home.indexOf('homeRegionalPriceBoard(homeRegion)'),
- 'verified regional price panel must follow product discovery');
+assert.ok(home.indexOf('homeRegionalPriceBoard(homeRegion)')<home.indexOf('home-discover-grid'),
+ 'regional quote board must appear before hero and long product discovery');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
  'marketing cannot display unverified city prices');
 assert.ok(home.includes('home-first-visit'),
@@ -220,5 +220,66 @@ activeRoute='sponsors';
 assert.equal(audienceEnv.audience(),'merchant');
 activeRoute='home';
 assert.equal(audienceEnv.audience(),'customer');
+
+
+// High-CTR price and savings UI must never invent active coupons or turn
+// a pending merchant's draft price into an eligible public offer.
+const quoteBoard=read('js/home-showcase.js');
+new vm.Script(quoteBoard,{filename:'js/home-showcase.js'});
+assert.match(quoteBoard,/tamao-quote-first/);
+assert.match(quoteBoard,/tamao-home-coupon-rail/);
+assert.match(quoteBoard,/Ver cupons e Clube/);
+assert.match(quoteBoard,/go\\\\'club/);
+assert.ok(!quoteBoard.includes('Os preços reais substituem as referências automaticamente'),
+ 'internal data-refresh copy must not be shown to customers');
+assert.match(quoteBoard,/snapshot\\?.real===true/);
+assert.match(quoteBoard,/snapshot\\?.notAQuote===true/);
+assert.match(quoteBoard,/real.length\\?liveCards:references/,
+ 'do not show pending merchant prices as approved offers');
+assert.match(customer,/tamao-checkout-total-compare/);
+assert.match(customer,/tamao-checkout-coupon-callout/);
+assert.match(customer,/potentialBenefit=validTotal/);
+assert.match(customer,/state.checkout.useCashback===true\\?potentialBenefit:0/);
+assert.ok(!customer.includes('cupom automaticamente aplicado'),
+ 'do not imply coupon redemption where server redemption is absent');
+for(const selector of ['.tamao-home-coupon-rail','.tamao-quote-benefit-grid',
+  '.tamao-checkout-total-compare','.tamao-checkout-coupon-callout']){
+ assert.ok(css.includes(selector),'premium coupon/price style missing '+selector);
+}
+
+// Evaluate the actual offer card with a confirmed quote and a test balance;
+// only actual opted-in cashback may change the request's payable amount.
+const offerBegin=customer.indexOf('function offerCard(o,facts={}){');
+const offerEnd=customer.indexOf('// V1.380',offerBegin);
+assert.ok(offerBegin>=0&&offerEnd>offerBegin);
+const checkState={user:{cashback:10},checkout:{useCashback:true,paymentMethod:'pix'}};
+const offerSandbox=vm.createContext({
+ state:checkState,globalThis:{liveRuntime:{}},CHAMA_INTERNAL_PILOT:false,
+ BRL:{format:value=>'R$ '+Number(value).toFixed(2)},
+ roundMoney:value=>Math.round(value*100)/100,paymentLabel:()=> 'Pix',
+ esc:value=>String(value??'')
+});
+vm.runInContext(customer.slice(offerBegin,offerEnd)+';this.offer=offerCard;',offerSandbox);
+const realQuote={id:'q-1',total:150,deliveryFee:10,eta:30,etaMax:45,roles:[]};
+const withBenefit=offerSandbox.offer(realQuote);
+assert.match(withBenefit,/SEM BENEFÍCIO/);
+assert.match(withBenefit,/R\\$ 150\\.00/);
+assert.match(withBenefit,/COM CASHBACK TAMÃO/);
+assert.match(withBenefit,/R\\$ 140\\.00/);
+assert.match(withBenefit,/selecionado/);
+checkState.checkout.useCashback=false;
+const previewOnly=offerSandbox.offer(realQuote);
+assert.match(previewOnly,/ative o uso do saldo acima/);
+assert.doesNotMatch(previewOnly,/Cashback selecionado \\(estimativa\\)/,
+ 'preview cannot be marked as applied before opt-in');
+checkState.user.cashback=0;
+const withoutBenefit=offerSandbox.offer(realQuote);
+assert.match(withoutBenefit,/Sem desconto aplicado/);
+assert.doesNotMatch(withoutBenefit,/R\\$ 140\\.00/,
+ 'do not invent a coupon discount or cashback without balance');
+const invalidQuote=offerSandbox.offer({id:'q-2',eta:45,roles:[]});
+assert.match(invalidQuote,/Total indisponível/);
+assert.doesNotMatch(invalidQuote,/class="tamao-checkout-total-compare"/,
+ 'malformed offer must not display false numerical prices');
 
 console.log('V1.366: marketing journeys, benefit conditions, sponsor attribution and mobile styles verified.');
