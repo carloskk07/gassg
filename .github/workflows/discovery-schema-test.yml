@@ -6,6 +6,8 @@ on:
     paths:
       - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
       - 'tests/discovery-db-integration.sql'
+      - 'supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql'
+      - 'tests/coupon-finance-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
 
@@ -40,3 +42,16 @@ jobs:
           PGDATABASE: postgres
         run: |
           psql -v ON_ERROR_STOP=1 -f tests/discovery-db-integration.sql
+      - name: Verify coupon Pix finance in same isolated PostgreSQL 17
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: |
+          # The preceding isolated fixture provides auth.users and anon/
+          # authenticated roles. No production credentials or services.
+          psql -v ON_ERROR_STOP=1 -c 'create role service_role nologin;'
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-finance-postgres-17.sql
