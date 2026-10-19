@@ -87,6 +87,8 @@ assert.equal(combined.originalTotalCents,17270);
 assert.equal(combined.assumedDiscountCents,500);
 assert.equal(combined.simulatedTotalCents,16770);
 assert.equal(combined.mixedLoadRequiresVerification,true);
+assert.equal(combined.staleItemCount,3,'all Oct 15 price observations are stale');
+assert.equal(combined.deliveryNeedsReview,true,'no fresh fee confirmation in test fixture');
 for(const flag of ['publicQuote','orderCreated','paymentCreated',
  'stockReserved','merchantActivated','complianceVerified']){
  assert.equal(combined[flag],false,flag+' must remain disabled');
@@ -107,6 +109,8 @@ assert.match(ctx.view(detail),/Resultado do teste da cesta/);
 assert.match(ctx.view(detail),/R\$ 172\.70/);
 assert.match(ctx.view(detail),/R\$ 167\.70/);
 assert.match(ctx.view(detail),/capacidade de transporte misto ainda não validada/);
+assert.match(ctx.view(detail),/Preços sem reconfirmação recente: 3 item/);
+assert.match(ctx.view(detail),/Taxa de entrega cadastrada sem confirmação/);
 assert.equal(runtime.merchantTrial.mode,'basket');
 assert.equal(runtime.merchantTrial.merchantId,merchantId);
 assert.equal(runtime.merchantTrial.adminUserId,user);
