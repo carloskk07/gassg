@@ -72,7 +72,7 @@ assert.match(edge.slice(dispatch,dispatch+420),/adminAccess.admin_role\)!=="supe
 assert.match(bootstrap,/adminFinanceLabDiagnoseChargesFromUi/);
 assert.match(admin,/Diagnosticar cobranças PIX/);
 assert.match(admin,/Código estruturalmente válido não confirma/);
-assert.match(admin,/displayableInPortal/);
+assert.match(edge,/displayableInPortal/);
 const start=admin.indexOf('async function adminFinanceLabDiagnoseChargesFromUi(');
 const end=admin.indexOf('async function adminFinanceLabReadinessFromUi(',start);
 assert.ok(start>0&&end>start);
