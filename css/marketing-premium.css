@@ -1223,63 +1223,49 @@
 }
 
 
-/* TAMÃO — public home conversion hotfix, isolated from financial coupons. */
-.tamao-quote-first{border:1px solid #bddfc8;border-radius:24px;
-  background:linear-gradient(140deg,#f1fff5 0%,#fffdf7 68%,#effbf3 100%);
-  box-shadow:0 14px 36px rgba(14,68,39,.09)}
-.tamao-quote-first .city-price-heading h2{font-size:clamp(27px,3.7vw,44px);
-  letter-spacing:-.038em;line-height:1.12}
-.tamao-quote-first .city-price-grid{margin-block:14px 19px}
+/* TAMÃO — home pública; preço primeiro, cupons com CTA e total verificável. */
+.tamao-quote-first{background:linear-gradient(140deg,#f2fff5,#fffcf2);border-radius:22px;
+ box-shadow:0 12px 30px rgba(14,68,39,.08)}
+.city-price-reference-summary:has(.city-price-research-grid){display:block;min-width:0;
+ max-width:100%;overflow-wrap:anywhere}
 .city-price-research-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:10px;flex:1;min-width:0}
-.city-price-research-item{padding:13px;border:1px solid #dbeadf;border-radius:13px;
-  background:#fff;min-width:0}
-.city-price-research-item .city-price-caption{display:block;color:#4f695b;
-  font-size:12px;margin-bottom:7px}
-.city-price-research-item .city-price-amount{display:block;white-space:nowrap;
-  font-size:clamp(17px,2.6vw,27px);font-weight:900;letter-spacing:-.045em;color:#155337}
-.city-price-reference-summary:has(.city-price-research-grid){display:flex;align-items:stretch;
-  flex-wrap:wrap;gap:12px}
-.city-price-reference-summary:has(.city-price-research-grid) .city-price-reference-copy{
-  flex-basis:100%;max-width:100%}
-.city-price-reference-summary:has(.city-price-research-grid) .city-price-reference-note{
-  flex-basis:100%;max-width:100%;margin:0}
-.tamao-home-coupon-rail{display:flex;align-items:center;gap:15px;border:1px solid #e7c77d;
-  background:linear-gradient(110deg,#ffefbe,#fffae9);
-  border-radius:19px;padding:17px 19px;margin:18px 0 19px}
-.tamao-home-coupon-icon{display:grid;place-items:center;flex-shrink:0;width:53px;height:53px;
-  font-size:24px;border-radius:15px;background:#fff9ec}
-.tamao-home-coupon-rail>div{min-width:0;flex:1}
-.tamao-home-coupon-rail strong{display:block;font-size:clamp(17px,2.1vw,22px);
-  line-height:1.25;letter-spacing:-.025em;color:#68460b}
-.tamao-home-coupon-rail p{margin:5px 0 0;font-size:13px;color:#725325;line-height:1.45}
-.tamao-home-coupon-rail button{flex-shrink:0;min-height:46px;border:0;border-radius:13px;
-  background:#714a0b;color:#fff;padding:11px 17px;font-weight:850;cursor:pointer}
-.tamao-home-coupon-rail button:hover{background:#503308}
-.tamao-home-coupon-rail button:focus-visible{outline:3px solid #dfab43;outline-offset:3px}
-.tamao-quote-first .tamao-quote-benefits{border-top:1px solid #d7e5d8;
-  margin-top:19px;padding-top:19px}
-.tamao-quote-benefit-grid article:nth-child(2){border-color:#eed5a7;background:#fff9ee}
+ min-width:0;width:100%;gap:9px;margin:15px 0}
+.city-price-research-item{min-width:0;max-width:100%;box-sizing:border-box;
+ border:1px solid #dbeadf;background:#fff;border-radius:12px;padding:11px}
+.city-price-research-item .city-price-caption{display:block;font-size:12px;
+ color:#4f695b;margin-bottom:5px;overflow-wrap:anywhere}
+.city-price-research-item .city-price-amount{display:block;color:#155337;
+ font-weight:900;font-size:clamp(17px,2.1vw,24px);letter-spacing:-.03em}
+.tamao-home-coupon-rail{display:flex;align-items:center;gap:12px;
+ border:1px solid #e7c77d;background:linear-gradient(110deg,#ffefbe,#fff9e9);
+ border-radius:17px;padding:15px;margin:15px 0}
+.tamao-home-coupon-icon{font-size:25px;flex-shrink:0}
+.tamao-home-coupon-rail>div{flex:1;min-width:0}
+.tamao-home-coupon-rail strong{display:block;font-size:clamp(17px,2vw,21px);
+ line-height:1.25;color:#67450d}
+.tamao-home-coupon-rail p{font-size:13px;color:#755828;margin:5px 0 0;line-height:1.4}
+.tamao-home-coupon-rail button{flex-shrink:0;min-height:44px;
+ padding:10px 14px;border:0;border-radius:12px;
+ background:#714a0b;color:#fff;font-weight:850;cursor:pointer}
+.tamao-home-coupon-rail button:focus-visible{outline:3px solid #dfab43;outline-offset:2px}
 .tamao-home-checkout-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;margin:12px 0 15px}
-.tamao-home-checkout-compare>div{display:flex;flex-direction:column;gap:7px;
-  border:1px solid #d7e3d9;background:#f7faf7;border-radius:15px;
-  min-width:0;padding:15px}
-.tamao-home-checkout-compare small{font-size:11px;letter-spacing:.045em;
-  font-weight:900;color:#456150}
-.tamao-home-checkout-compare strong{font-size:clamp(17px,2.5vw,25px);
-  overflow-wrap:anywhere;color:#244735;letter-spacing:-.035em}
-.tamao-home-checkout-compare span{font-size:12px;line-height:1.5;color:#53695c}
+ gap:9px;margin:12px 0}
+.tamao-home-checkout-compare>div{min-width:0;border:1px solid #d7e3d9;
+ background:#f7faf7;border-radius:13px;padding:12px;display:grid;gap:5px}
+.tamao-home-checkout-compare small{font-size:11px;font-weight:900;color:#456150}
+.tamao-home-checkout-compare strong{font-size:clamp(18px,2.4vw,24px);
+ overflow-wrap:anywhere;color:#244735}
+.tamao-home-checkout-compare span{font-size:12px;line-height:1.4;color:#53695c}
 .tamao-home-checkout-compare .has-discount{background:#ecf9f0;border-color:#a5d8b3}
 .tamao-home-checkout-compare .has-discount strong{color:#07613e}
-@media(max-width:740px){
- .tamao-quote-first{padding:18px 14px;border-radius:18px}
+@media(max-width:850px){
  .city-price-research-grid{grid-template-columns:minmax(0,1fr)}
- .city-price-research-item{display:flex;align-items:center;justify-content:space-between;
-   gap:12px}
- .city-price-research-item .city-price-amount{font-size:21px;white-space:nowrap}
- .tamao-home-coupon-rail{flex-wrap:wrap;gap:11px;padding:15px}
- .tamao-home-coupon-rail>div{flex-basis:calc(100% - 66px)}
+ .city-price-research-item{display:flex;align-items:center;justify-content:space-between;gap:8px}
+ .tamao-home-coupon-rail{flex-wrap:wrap}
+ .tamao-home-coupon-rail>div{flex-basis:calc(100% - 46px)}
  .tamao-home-coupon-rail button{width:100%}
+}
+@media(max-width:530px){
  .tamao-home-checkout-compare{grid-template-columns:minmax(0,1fr)}
+ .city-price-research-item .city-price-amount{font-size:20px}
 }
