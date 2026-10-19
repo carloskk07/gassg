@@ -673,7 +673,9 @@ async function adminFinanceLabCheckSandboxOrder(admin:any,actorId:string,body:an
   const {data:proof,error}=await admin.from("platform_admin_audit")
     .select("target_id,metadata").eq("actor_user_id",actorId)
     .eq("action","finance_lab_sandbox_pix_created").eq("target_id",orderId)
-    .maybeSingle();
+    // A retried idempotent order can create repeated audit evidence. Choose
+    // one recent record instead of failing a maybeSingle cardinality check.
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
   if(error)throw error;
   if(!proof||proof.metadata?.mode!=="sandbox"||Number(proof.metadata?.amountCents)!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS){
     throw new DomainError("FINANCE_LAB_ORDER_NOT_OWNED","Ordem não pertence aos testes deste administrador.",403);
