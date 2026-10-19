@@ -16,6 +16,7 @@ const testUUID=()=>{
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
+let simulatePhotoUnlinkDenied=false;
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
   description:'Atendo residências e estabelecimentos com orçamento transparente.',
   state_code:'RS',city_name:'São Gabriel',public_area:'Centro',
@@ -66,6 +67,8 @@ const client={
   update(data){return {eq:async (key,id)=>{
     if(name==='discovery_listings'&&data.photo_urls&&simulatePhotoWriteFailure)
       return {error:new Error('Writing photos failed')};
+    if(name==='discovery_listings'&&data.photo_urls&&simulatePhotoUnlinkDenied)
+      return {error:null};
     writes.push([name,'update',data,key,id]);
     const item=records.find(r=>r.id===id);if(item)Object.assign(item,data);
     return {error:null};
@@ -205,6 +208,31 @@ assert.equal(removed.length,beforePhotoRemove+1);
 assert.match(ctx.discoveryOwnerPage(),/não foi possível confirmar a limpeza/);
 simulateRemovalOutage=false;
 simulatePhotoWriteFailure=false;
+
+// Removing existing marketing images must first unlink the persisted DB
+// reference; do not call Storage.remove() when an RLS update affects zero rows.
+await ctx.discoveryOwnerOpen(id);
+assert.match(ctx.discoveryOwnerPage(),/Remover foto 1/);
+const beforeUnlink=removed.length;
+simulatePhotoUnlinkDenied=true;
+await ctx.discoveryOwnerRemovePhoto(filePath);
+assert.ok(records[0].photo_urls.includes(filePath),'RLS no-op must retain image reference');
+assert.equal(removed.length,beforeUnlink,'no Storage deletion before confirmed DB unlink');
+simulatePhotoUnlinkDenied=false;
+
+// A Storage failure after DB unlink must be visible and offer a retry.
+simulateRemovalOutage=true;
+await ctx.discoveryOwnerRemovePhoto(filePath);
+assert.ok(!records[0].photo_urls.includes(filePath),'photo must first leave draft listing');
+assert.equal(removed.length,beforeUnlink,'failed Storage removal must not claim success');
+assert.match(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
+assert.match(ctx.discoveryOwnerPage(),/ainda precisa ser removido/);
+simulateRemovalOutage=false;
+await ctx.discoveryOwnerRetryPhotoCleanup();
+assert.equal(removed.length,beforeUnlink+1);
+assert.equal(removed.at(-1),filePath);
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover foto 1/);
 await ctx.discoveryOwnerLogout();
 const loggedOut=ctx.discoveryOwnerPage();
 assert.match(loggedOut,/Receber link de acesso/);
