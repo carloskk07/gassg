@@ -45,6 +45,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
+  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
   prospectReport:null,
@@ -4049,7 +4050,149 @@ function adminFocusFinanceRecord(kind,id){
 }
 
 /* V1.191 — stable finance workspaces, never change financial authority. */
-const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
+const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
+
+/* Finance Lab: admin-only orchestration; mock invoices never enter accounting. */
+function adminFinanceLabCents(value){
+  const raw=String(value??'').trim();
+  if(!/^(?:0|[1-9]\\d{0,6})(?:[,.]\\d{1,2})?$/.test(raw))return null;
+  const [reais,centavos='']=raw.replace(',','.').split('.');
+  const cents=Number(reais)*100+Number(centavos.padEnd(2,'0'));
+  return Number.isSafeInteger(cents)&&cents>=1&&cents<=100000000?cents:null;
+}
+function adminFinanceLabPreviewFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const input=document.getElementById('admin-finance-lab-value')?.value;
+  const amountCents=adminFinanceLabCents(input);
+  const kind=String(document.getElementById('admin-finance-lab-kind')?.value||'pix');
+  const state=adminRuntime.financeLab;
+  if(amountCents==null||!['pix','invoice','expiration','webhook','reconciliation'].includes(kind)){
+    state.error='Informe um valor positivo até R$ 1.000.000,00 (máximo de duas casas decimais).';
+    render();return;
+  }
+  const checkedAt=new Date().toISOString();
+  state.preview={kind,amountCents,checkedAt,
+    reference:'SIMULACAO-'+checkedAt.slice(0,19).replace(/[-:T]/g,''),
+    dueAt:new Date(Date.now()+86400000).toISOString()};
+  state.error=null;state.sandbox=null;
+  render();
+}
+async function adminFinanceLabSandboxPixFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const state=adminRuntime.financeLab;
+  if(state.pending)return;
+  const amountCents=adminFinanceLabCents(
+    document.getElementById('admin-finance-lab-value')?.value
+  );
+  if(amountCents==null){state.error='Digite um valor entre R$ 0,01 e R$ 1.000.000,00.';render();return;}
+  if(!confirm('Criar uma ordem no ambiente de TESTE do Mercado Pago? Não haverá recarga, crédito, fatura real ou pagamento bancário.'))return;
+  if(state.amountCents!==amountCents||!state.idempotencyKey){
+    state.idempotencyKey=adminIdempotency('finance-lab-pix');
+    state.amountCents=amountCents;
+  }
+  state.pending=true;state.error=null;state.sandbox=null;render();
+  try{
+    const result=await adminInvoke({
+      action:'finance-lab-sandbox-pix',amountCents
+    },{idempotencyKey:state.idempotencyKey});
+    if(result?.ok!==true||result.mode!=='sandbox'||result.amountCents!==amountCents
+      ||typeof result.brCode!=='string'||result.brCode.length<30){
+      throw new Error('O provedor não confirmou a ordem em ambiente de testes.');
+    }
+    state.sandbox=result;
+  }catch(e){state.error=String(e?.message||e);}
+  finally{state.pending=false;render();}
+}
+async function adminFinanceLabCopySandboxPixFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const data=adminRuntime.financeLab.sandbox;
+  if(data?.mode!=='sandbox'||!data.brCode)return;
+  try{await navigator.clipboard.writeText(data.brCode);toast('Código do ambiente de TESTE copiado — não pagável em bancos.');}
+  catch{toast('Não foi possível copiar o PIX de teste.');}
+}
+function adminFinanceLabView(d){
+  if(adminCurrentRole()!=='superadmin')return '<div class="notice">Laboratório disponível ao administrador principal.</div>';
+  const state=adminRuntime.financeLab||{};
+  const preview=state.preview||null;
+  const sandbox=state.sandbox||null;
+  const ingress=d?.merchantBilling?.paymentIngress||{};
+  const charges=Array.isArray(d?.merchantBilling?.providerCharges)
+    ?d.merchantBilling.providerCharges:[];
+  const pending=charges.filter(c=>c.status==='active').length;
+  const expired=charges.filter(c=>c.status==='expired').length;
+  const completed=charges.filter(c=>c.status==='completed').length;
+  const provider=adminRuntime.providerHealth||null;
+  const previewLabels={
+    pix:'Pix de exemplo',invoice:'Fatura de exemplo',
+    expiration:'Vencimento de exemplo',webhook:'Webhook de exemplo',
+    reconciliation:'Conciliação de exemplo'
+  };
+  return `<section class="section" id="admin-finance-lab">
+    <div class="section-head"><div><span class="section-kicker">ADMIN • LABORATÓRIO FINANCEIRO</span>
+      <h2>Testar sem entrar em uma revenda</h2>
+      <p>Simule valores, examine cobranças e valide o PSP. Nenhuma simulação concede créditos nem gera dívida.</p>
+    </div><span class="status-pill">ACESSO SUPERADMIN</span></div>
+    <div class="admin-entity-grid">
+      <div class="card flat"><h3>Simulador e fatura de teste</h3>
+        <p class="muted tiny">Valor livre para ensaios internos, sem registro de venda ou recebimento.</p>
+        <div class="field-row">
+          <div class="input-wrap"><label for="admin-finance-lab-value">Valor em R$</label>
+            <input id="admin-finance-lab-value" class="input" type="text" inputmode="decimal"
+              placeholder="Ex.: 12,35" maxlength="12" value="${esc(preview?String((preview.amountCents/100).toFixed(2)).replace('.',','):'10,00')}"></div>
+          <div class="input-wrap"><label for="admin-finance-lab-kind">Cenário</label>
+            <select id="admin-finance-lab-kind" class="input">
+              ${Object.entries(previewLabels).map(([value,label])=>
+                '<option value="'+value+'"'+(preview?.kind===value?' selected':'')+'>'+label+'</option>').join('')}
+            </select></div>
+        </div>
+        <div class="order-actions">
+          <button class="primary small" onclick="adminFinanceLabPreviewFromUi()">Gerar teste / fatura</button>
+          <button class="secondary small" onclick="adminFinanceLabSandboxPixFromUi()" ${state.pending?'disabled':''}>
+            ${state.pending?'Consultando provedor…':'Solicitar Pix no sandbox do PSP'}
+          </button>
+        </div>
+        ${state.error?'<div class="notice danger" role="alert">'+esc(state.error)+'</div>':''}
+        ${preview?`<div class="card flat" style="margin-top:12px">
+          <span class="status-pill">DOCUMENTO SIMULADO • NÃO PAGÁVEL</span>
+          <h3>${esc(previewLabels[preview.kind])}</h3>
+          <div class="order-line"><strong>Valor:</strong> ${adminMoney(preview.amountCents)}</div>
+          <div class="order-line"><strong>Referência:</strong> ${esc(preview.reference)}</div>
+          <div class="order-line"><strong>Data:</strong> ${esc(formatDateTime(preview.checkedAt))}</div>
+          <div class="order-line"><strong>Vencimento ilustrativo:</strong> ${esc(formatDateTime(preview.dueAt))}</div>
+          <small>Nenhum PIX, documento fiscal, cobrança, recebimento ou lançamento financeiro foi criado.</small>
+        </div>`:''}
+        ${sandbox?`<div class="card flat" style="margin-top:12px">
+          <span class="status-pill">MERCADO PAGO • TESTE</span>
+          <h3>PIX sandbox — ${adminMoney(sandbox.amountCents)}</h3>
+          <p class="muted tiny">Este é um código de homologação do provedor, não pagável por bancos reais. Não gera crédito no TAMÃO.</p>
+          <div class="input-wrap"><label>BR Code de teste</label><textarea class="input" readonly rows="3">${esc(sandbox.brCode)}</textarea></div>
+          <div class="order-actions"><button class="secondary small" onclick="adminFinanceLabCopySandboxPixFromUi()">Copiar código de teste</button>
+          ${sandbox.paymentLinkUrl?'<a class="ghost small" target="_blank" rel="noopener noreferrer" href="'+esc(sandbox.paymentLinkUrl)+'">Abrir página de teste</a>':''}</div>
+          <small>Referência: ${esc(sandbox.reference||'—')} • ${esc(sandbox.orderStatus||'—')}</small>
+        </div>`:''}
+      </div>
+      <div class="card flat"><h3>Verificações integradas</h3>
+        <div class="merchant-kpis">
+          <div class="kpi"><span class="label">PIX ativos</span><strong>${pending}</strong></div>
+          <div class="kpi"><span class="label">PIX vencidos</span><strong>${expired}</strong></div>
+          <div class="kpi"><span class="label">Recebimentos PSP</span><strong>${completed}</strong></div>
+        </div>
+        <p class="muted tiny">Contagem dos registros financeiros retornados ao Admin. Não inclui pedidos artificiais.</p>
+        <div class="order-line"><strong>Provedor configurado:</strong> ${esc(String(ingress.activeBillingProvider||'Não informado'))}</div>
+        <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
+        <div class="order-actions">
+          <button class="secondary small" onclick="adminCheckBillingProviderHealth()">Testar conexão com PSP</button>
+          <button class="ghost small" onclick="adminSetFinanceWorkspace('billing')">Examinar cobranças e webhooks</button>
+          <button class="ghost small" onclick="adminSetFinanceWorkspace('reconciliation')">Examinar conciliação</button>
+        </div>
+        <div class="notice"><strong>Diferença entre testes e dinheiro real.</strong><br>
+          O PIX de sandbox testa a resposta da API. Para comprovar pagamento real e conciliação, são necessários
+          registro financeiro legítimo, confirmação do PSP e identificação do recebimento. Não se simula um pagamento como aprovado.</div>
+      </div>
+    </div>
+  </section>`;
+}
+
 function adminFinanceWorkspaceCurrent(){
   const selected=String(adminRuntime.financeWorkspace||'summary');
   return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)?selected:'summary';
@@ -6415,6 +6558,7 @@ function adminPage(){
   const financeAreas={
     summary:financeSummaryContent,
     billing:financeBillingContent,
+    lab:sectionActive('finance')&&financeSelection==='lab'?adminFinanceLabView(d):'',
     reconciliation:financeReconciliationContent,
     policy:financePolicyContent
   };
