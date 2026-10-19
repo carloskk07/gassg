@@ -30,20 +30,29 @@ function homeRegionalPriceBoard(region){
    '<small>'+esc(band)+'</small><span class="city-price-origin">'+Number(p.merchantCount)+
    (p.merchantCount===1?' revenda elegível':' revendas elegíveis')+'</span></article>';
  }).join('');
- // A reference is not three store offers. Show one clearly contextualized
- // market note, never a three-card comparison without verified revendas.
+ // These are LOCAL PRICE RESEARCH values provided for São Gabriel,
+ // recorded in the test merchant catalog on 15/10/2026. They are not
+ // current inventory, availability, the price of a verified merchant,
+ // or three competitive offers. Only verified RPC data is an offer.
+ const localResearch=localP13?[
+   {code:'P13',label:'Gás P13 • 13 kg',priceCents:11590},
+   {code:'WATER20',label:'Água • 20 L',priceCents:1590},
+   {code:'WOOD',label:'Lenha • unidade informada',priceCents:2500}
+ ]:[];
  const references=localP13?
-  '<article class="city-price-card reference city-price-reference-summary">'+
-   '<div class="city-price-reference-copy"><span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
-   '<div class="city-price-name">Gás P13 • 13 kg</div>'+
-   '<p>Um ponto de partida para comparar.</p></div>'+
-   '<div class="city-price-reference-amount"><span class="city-price-caption">Referência usual</span>'+
-   '<strong class="city-price-amount">'+BRL.format(PUBLIC_P13_REFERENCE.usual)+'</strong>'+
-   '<small>Faixa de '+BRL.format(PUBLIC_P13_REFERENCE.minimum)+' a '+BRL.format(PUBLIC_P13_REFERENCE.maximum)+'</small></div>'+
-   '<p class="city-price-reference-note">Referência de mercado • não é oferta de revenda.</p>'+
-  '</article>':
-  '<div class="city-price-empty">Explore os produtos e consulte as ofertas de '+esc(place)+
-  '.</div>';
+   '<article class="city-price-card reference city-price-reference-summary">'+
+   '<div class="city-price-reference-copy">'+
+   '<span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
+   '<div class="city-price-name">Valores pesquisados em São Gabriel</div>'+
+   '<p>Pesquisa local informada em 15/10/2026.</p></div>'+
+   '<div class="city-price-research-grid">'+localResearch.map(item=>
+      '<div class="city-price-research-item"><span>'+esc(item.label)+'</span>'+
+      '<strong>'+BRL.format(item.priceCents/100)+'</strong></div>'
+   ).join('')+'</div>'+
+   '<p class="city-price-reference-note">Referência de mercado • não é oferta de revenda. Consulte preços e entrega antes de comprar.</p>'+
+   '</article>':
+   '<div class="city-price-empty">Explore os produtos e consulte as ofertas de '+esc(place)+
+   '.</div>';
  const cards=real.length?liveCards:references;
  const copy=real.length
   ?'Compare os preços da sua região e escolha a melhor opção para sua compra.'
