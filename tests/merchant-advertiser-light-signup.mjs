@@ -17,7 +17,7 @@ assert.match(html,/Quero anunciar no TAMÃO/);
 assert.match(html,/Nome da empresa/);
 assert.match(html,/WhatsApp/);
 assert.match(html,/Autorizo o TAMÃO a entrar em contato/);
-assert.doesNotMatch(html,/\bCNPJ\b|\bANP\b|RG|CPF|foto de documento/i);
+assert.doesNotMatch(html,/\bCNPJ\b|\bANP\b|\bRG\b|\bCPF\b|foto de documento/i);
 assert.ok(html.indexOf('id="partner-business"')<html.indexOf('<details'));
 assert.ok(html.indexOf('id="partner-phone"')<html.indexOf('<details'));
 assert.ok(html.indexOf('id="partner-name"')>html.indexOf('<details'),
