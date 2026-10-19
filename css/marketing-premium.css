@@ -1221,3 +1221,69 @@
   .tamao-value-compact .tamao-perks-panel h3{font-size:22px}
   .tamao-value-compact .tamao-perks-panel button{width:100%;justify-content:space-between}
 }
+
+
+/* TAMÃO — cotações e benefícios em primeiro plano */
+.city-price-board.tamao-quote-first{
+  max-width:1190px;margin:12px auto 22px;
+  padding:clamp(18px,3vw,34px);
+  background:linear-gradient(135deg,#f4fff7 0%,#fffdf7 65%,#f2fbf5 100%);
+  border:1px solid #bfddc7;
+  box-shadow:0 16px 44px rgba(21,85,51,.10)
+}
+.tamao-quote-topline{display:flex;justify-content:space-between;gap:14px;
+  margin-bottom:13px;color:#155c3e;font-size:12px;letter-spacing:.02em;font-weight:900}
+.tamao-quote-topline>span:last-child{font-weight:650;color:#536b5e}
+.tamao-quote-first .city-price-heading h2{font-size:clamp(27px,3.6vw,43px);margin:5px 0 8px}
+.tamao-quote-first .city-price-grid{margin:16px 0 11px}
+.tamao-home-coupon-rail{display:flex;align-items:center;gap:15px;
+  border:1px solid #eed29b;background:linear-gradient(110deg,#fff0c5,#fff9ec);
+  border-radius:19px;padding:16px 18px;margin:18px 0 16px}
+.tamao-home-coupon-icon{display:grid;place-items:center;flex-shrink:0;
+  width:51px;height:51px;font-size:24px;border-radius:15px;background:#fff7e6;
+  box-shadow:0 5px 16px rgba(103,71,13,.10)}
+.tamao-home-coupon-rail>div{min-width:0;flex:1}
+.tamao-home-coupon-rail strong{display:block;font-size:clamp(17px,2.1vw,22px);
+  line-height:1.25;letter-spacing:-.025em;color:#61420c}
+.tamao-home-coupon-rail p{margin:5px 0 0;font-size:13px;color:#755723;line-height:1.45}
+.tamao-home-coupon-rail button{flex-shrink:0;min-height:46px;border:0;
+  border-radius:13px;background:#714a0b;color:#fff;padding:11px 17px;
+  font-size:13px;font-weight:850;cursor:pointer}
+.tamao-home-coupon-rail button:hover{background:#583708}
+.tamao-home-coupon-rail button:focus-visible{outline:3px solid #e8a92d;outline-offset:3px}
+.tamao-quote-benefits{border-top:1px solid #d5e8dc;padding-top:20px;margin-top:20px}
+.tamao-quote-benefits-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:13px}
+.tamao-quote-benefits-head h3{font-size:clamp(21px,2.8vw,29px);color:#164a31;
+  line-height:1.2;letter-spacing:-.035em;margin:4px 0 0}
+.tamao-quote-benefits-head>button{min-height:42px;border:0;background:transparent;
+  color:#0b6949;font-weight:850;text-align:left;cursor:pointer}
+.tamao-quote-benefit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.tamao-quote-benefit-grid article{display:flex;flex-direction:column;align-items:flex-start;
+  gap:9px;min-width:0;border:1px solid #d8e7db;border-radius:17px;background:#fff;padding:17px}
+.tamao-quote-benefit-grid article.tamao-quote-coupons{border-color:#eacb8e;background:#fffaf1}
+.tamao-quote-benefit-grid article>span{font-size:24px}
+.tamao-quote-benefit-grid article strong{color:#184d35;font-size:16px}
+.tamao-quote-benefit-grid article p{color:#54695b;line-height:1.55;margin:0;flex:1;font-size:13px}
+.tamao-quote-benefit-grid article button{min-height:42px;border:0;background:transparent;
+  font-weight:850;color:#08714b;text-align:left;padding:8px 0;cursor:pointer}
+.tamao-quote-benefit-grid button:focus-visible,.tamao-quote-benefits-head button:focus-visible{
+  outline:3px solid #d9a93a;outline-offset:2px;border-radius:6px}
+.tamao-quote-spread{display:flex;gap:12px;padding:14px 17px;border-radius:16px;
+  background:#fff;border:1px solid #b9e0cc;color:#144e38}
+.tamao-quote-spread strong{font-size:15px}
+.tamao-quote-spread p{margin:6px 0 0;color:#547261;font-size:13px}
+@media(max-width:740px){
+ .city-price-board.tamao-quote-first{margin:10px 10px 24px;padding:19px 15px}
+ .tamao-quote-topline{flex-direction:column;gap:4px}
+ .tamao-home-coupon-rail{flex-wrap:wrap;gap:11px;padding:15px}
+ .tamao-home-coupon-rail>div{flex-basis:calc(100% - 66px)}
+ .tamao-home-coupon-rail button{width:100%}
+ .tamao-quote-benefits-head{align-items:flex-start;flex-direction:column}
+ .tamao-quote-benefit-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(min-width:741px) and (max-width:940px){
+ .tamao-quote-benefit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){
+ .tamao-home-coupon-rail,.tamao-home-coupon-rail button{transition:none}
+}
