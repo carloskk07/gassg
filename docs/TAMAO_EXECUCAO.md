@@ -403,3 +403,18 @@
 
 
 **Reconciliação HTTP comprovada da #502:** atestado OIDC `2026-10-19T04:16:28Z` registrou SHA `338fed65d2491dd0b4f1292dc697cb1fecbd271b`, `allPortalsReady=true`, origem customer/merchant/admin com `htmlStatus=200`, `buildStatus=200`, `runtimeStatus=200` e Turnstile de produção. O atestado de rede é evidência de publicação, não um teste autenticado do sandbox real.
+
+
+## Laboratório financeiro — ajuste oficial PIX/consulta PSP, PR #503 (19/10/2026)
+
+**Entrega segregada da expansão:** PR [#503](https://github.com/carloskk07/gassg/pull/503), branch comercial `fix/admin-financial-lab-status-502`, integrada via squash na `main` no SHA `265ebc9e8a6f33676477cc0d674f56bf99f39742`. Arquivos: `js/admin.js`, `js/bootstrap.js`, `supabase/functions/admin-ops/index.ts`, testes `admin-financial-lab.mjs`, `admin-finance-workspace-v1-191.mjs`. NÃO inclui migração de anúncios nem módulos de Profissionais/Caronas/Hospedagens.
+
+**Correção do contrato real de homologação PIX:** a documentação pública oficial do Mercado Pago Checkout API Orders prescreve ordem de PIX de TESTE com `total_amount=50.00`, pagamento PIX de `50.00` e `payer.first_name=APRO`; o retorno esperado inicia `action_required` e passa a aprovado. A ação `finance-lab-sandbox-pix` agora aceita somente **5000 centavos**, exige credenciais próprias de testes separadas do token de produção, bloqueia valores divergentes, confirma ambiente sandbox, valor e BR Code (CRC/TLV) e não grava qualquer saldo, crédito ou fatura real. A simulação demonstrativa de fatura no Admin permanece com valores livres.
+
+**Leitura de testes:** ações `finance-lab-readiness` e `finance-lab-sandbox-check` disponíveis exclusivamente ao superadmin. A primeira apresenta apenas flags sanitizadas de credenciais e até 12 ordens de sandbox associadas ao próprio administrador pelo `platform_admin_audit`. A segunda consulta o PSP pelo ID de ordem auditado e revalida `external_reference`, ID, valor de 5000 centavos e evidência do ambiente sandbox; devolve estado de ordem/pagamento sem alterar a carteira (`credited=false`). Botões vinculados em Admin > Financeiro > Laboratório.
+
+**CI:** no HEAD de PR `6dcfeaabfaf28fee1944790f06ae0254bc0b6482`, Audit PASS run `39199576478` (inclui laboratório financeiro e navegação dos demais perfis), build isolado dos 3 portais PASS run `39199576415`. PR foi considerada mergeable com exatamente 5 arquivos no diff, e integrada com commit `265ebc9e`. Release candidate de revisão visual sem deploy SKIPPED pelo workflow (não tratar como aprovação).
+
+**Implantação comprovada:** Supabase `admin-ops` ACTIVE v176, `verify_jwt=false` preservado porque a função valida bearer via `getUser` e papel via `platform_admins`; shared dependencies conferidas idênticas às instaladas antes da publicação. Os dados e a abertura comercial permanecem inalterados (`PRELAUNCH`, `commerce_enabled=false`). Na última verificação, atestado OIDC dos 3 portais ainda apontava commit anterior `338fed65`, não `265ebc9e`. **NÃO declarar frontend da nova revisão publicado sem SHA concordante.**
+
+**Gates pendentes:** somente o superadmin autenticado pode comprovar readiness e efetuar teste oficial de ambiente sandbox; não foram verificadas credenciais de teste instaladas nem criada ordem no provedor. O teste oficial não produz PIX pagável em banco. Fluxo futuro de cobranças de valores arbitrários e pagamento real pelo Admin exige registro financeiro auditável, autorização explícita e conciliação do PSP; não reclassificar simulação como recebimento. Validar OIDC SHA `265ebc9e` nos três portais, então testar UI em conta real e registrar falhas. Continuar a expansão na PR #492 sem transportar experimentalizações.
