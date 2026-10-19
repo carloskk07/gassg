@@ -125,7 +125,9 @@ window.addEventListener('load',async()=>{
     render();
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
-    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.());
+    // An OTP callback with signup=1 may represent a new partner without an invite.
+    // This only selects the registration form; the backend still denies operations.
+    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.()||new URLSearchParams(location.search).get('signup')==='1');
     if(invitedPartner&&globalThis.merchantRuntime?.status==='no-access'){
       if(route()!=='merchant-join')go('merchant-join');
     }else if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route())){
