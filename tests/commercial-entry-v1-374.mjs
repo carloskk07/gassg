@@ -72,13 +72,13 @@ for(const field of ['partner-business','partner-name','partner-phone',
 assert.ok(form.includes('merchant-lead-form-head'));
 const collapsed=form.indexOf('<details class="merchant-lead-options">');
 const firstEnd=form.indexOf('</details>',collapsed);
-const second=form.indexOf('<details class="merchant-lead-options">',firstEnd+10);
-const secondEnd=form.indexOf('</details>',second);
-assert.ok(collapsed>0&&firstEnd>collapsed&&second>firstEnd&&secondEnd>second);
+const secondOption=form.indexOf('<details class="merchant-lead-options">',firstEnd+10);
+const secondEnd=form.indexOf('</details>',secondOption);
+assert.ok(collapsed>0&&firstEnd>collapsed&&secondOption>firstEnd&&secondEnd>secondOption);
 assert.ok(form.indexOf('partner-name')>collapsed&&form.indexOf('partner-name')<firstEnd);
 assert.ok(form.indexOf('name="partner-interest"')>collapsed&&form.indexOf('name="partner-interest"')<firstEnd);
-assert.ok(form.indexOf('partner-postal')>second&&form.indexOf('partner-postal')<secondEnd);
-assert.ok(form.indexOf('partner-note')>second&&form.indexOf('partner-note')<secondEnd);
+assert.ok(form.indexOf('partner-postal')>secondOption&&form.indexOf('partner-postal')<secondEnd);
+assert.ok(form.indexOf('partner-note')>secondOption&&form.indexOf('partner-note')<secondEnd);
 assert.ok(form.indexOf('partner-phone')<collapsed);
 assert.ok(form.indexOf('partner-consent')>secondEnd);
 assert.ok(!acquisition.includes("if(!interests.length)return prelaunchMerchantFieldError('partner-interest-categories'"),
