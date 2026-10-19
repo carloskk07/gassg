@@ -125,10 +125,11 @@ window.addEventListener('load',async()=>{
     render();
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
-    // An OTP callback with signup=1 may represent a new partner without an invite.
-    // This only selects the registration form; the backend still denies operations.
-    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.()||new URLSearchParams(location.search).get('signup')==='1');
-    if(invitedPartner&&globalThis.merchantRuntime?.status==='no-access'){
+    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.());
+    // The public signup marker is not an invitation or an authorization;
+    // it simply resumes the form when OTP returns with no linked merchant.
+    const returningToSignup=new URLSearchParams(location.search).get('signup')==='1';
+    if((invitedPartner||returningToSignup)&&globalThis.merchantRuntime?.status==='no-access'){
       if(route()!=='merchant-join')go('merchant-join');
     }else if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route())){
       go('merchant');

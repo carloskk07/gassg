@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './public-navigation-stability.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
@@ -61,10 +62,10 @@ for(const selector of ['.home-trust-brief','.home-trust-answers','.home-notify-s
   assert.ok(css.includes(selector),'V1.363 responsive clarity element missing: '+selector);
 }
 // V1.364: public and mobile buyer entry must never force P13 into a cart.
-assert.match(core,/\['order','🧺','Pedir','browse'\]/,
- 'mobile order CTA must open product-first browsing');
-assert.match(core,/act==='browse'\?"startHomeBrowse\(\)"/,
- 'bottom nav click must preserve the basket and open the product chooser');
+assert.match(core,/\['availability','🧺','Consultar','market'\]/,
+ 'mobile consult CTA must open product-first browsing or availability notice');
+assert.match(core,/act==='market'\?"tamaoOpenAvailability\(\)"/,
+ 'bottom nav click must preserve the basket and decide based on current availability');
 assert.match(core,/nav-btn-shop/,'buy action needs an identifiable mobile style');
 assert.ok(home.includes("${!conciseHome?valueBridge:''}"),
  'unverified first visit must not repeat buyer-merchant-network cards');

@@ -709,26 +709,25 @@
    Static markup contains no offer, delivery or stock claim. */
 .tamao-preboot{
   box-sizing:border-box;min-height:min(720px,100svh);padding:clamp(22px,5vw,65px);
-  color:#fff;background:radial-gradient(circle at 90% 10%,rgba(244,182,63,.18),transparent 35%),
-  radial-gradient(circle at 25% 85%,rgba(32,164,101,.28),transparent 43%),
-  linear-gradient(145deg,#0a3e2d,#0d6b4b 72%,#0a4b38);
+  color:#123e2e;background:radial-gradient(circle at 90% 10%,rgba(244,182,63,.15),transparent 35%),
+  linear-gradient(145deg,#fffdf9,#f4faf4 72%,#fffaf0);
   display:flex;flex-direction:column;gap:clamp(40px,8vh,95px);
 }
 .tamao-preboot-brand{display:flex;align-items:center;gap:11px;max-width:1100px;width:100%;margin-inline:auto}
 .tamao-preboot-brand>img{width:44px;height:44px;border-radius:13px}
 .tamao-preboot-brand span{display:grid;gap:1px}
 .tamao-preboot-brand strong{font-size:25px;letter-spacing:-.05em;line-height:1}
-.tamao-preboot-brand small{font-size:11px;color:#d9f1e5}
+.tamao-preboot-brand small{font-size:11px;color:#466b57}
 .tamao-preboot-content{max-width:1100px;width:100%;margin:0 auto}
-.tamao-preboot-eyebrow{display:block;font-size:11px;font-weight:900;letter-spacing:.14em;color:#f9d788}
-.tamao-preboot h1{font-size:clamp(39px,7vw,85px);font-weight:900;line-height:1.06;letter-spacing:-.055em;max-width:14ch;margin:14px 0 18px;text-wrap:balance;color:#fff}
-.tamao-preboot h1 em{font-style:normal;color:#f4b63f}
-.tamao-preboot-content>p{font-size:clamp(15px,1.7vw,19px);line-height:1.6;max-width:57ch;color:#e4f3e9;margin-bottom:24px}
+.tamao-preboot-eyebrow{display:block;font-size:11px;font-weight:900;letter-spacing:.14em;color:#236748}
+.tamao-preboot h1{font-size:clamp(39px,7vw,85px);font-weight:900;line-height:1.06;letter-spacing:-.055em;max-width:14ch;margin:14px 0 18px;text-wrap:balance;color:#123e2e}
+.tamao-preboot h1 em{font-style:normal;color:#946209}
+.tamao-preboot-content>p{font-size:clamp(15px,1.7vw,19px);line-height:1.6;max-width:57ch;color:#43664f;margin-bottom:24px}
 .tamao-preboot nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.tamao-preboot nav a{display:inline-flex;align-items:center;justify-content:center;min-height:47px;padding:12px 18px;border:1px solid rgba(255,255,255,.36);border-radius:12px;color:#fff;text-decoration:none;font-weight:800;font-size:13px}
+.tamao-preboot nav a{display:inline-flex;align-items:center;justify-content:center;min-height:47px;padding:12px 18px;border:1px solid #bcdcc6;border-radius:12px;color:#14553b;text-decoration:none;font-weight:800;font-size:13px}
 .tamao-preboot nav .tamao-preboot-primary{background:#f4b63f;color:#143b2a;border-color:#f4b63f}
-.tamao-preboot a:focus-visible{outline:3px solid #fff;outline-offset:4px}
-.tamao-preboot noscript p{color:#fff;font-size:13px}
+.tamao-preboot a:focus-visible{outline:3px solid #14553b;outline-offset:4px}
+.tamao-preboot noscript p{color:#345c43;font-size:13px}
 /* One market reference cannot masquerade as three independent store prices. */
 .city-price-reference-summary{
   grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.45fr);
