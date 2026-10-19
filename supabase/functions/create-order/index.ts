@@ -77,7 +77,14 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     POSTAL_CODE_OUTSIDE_SERVICE_AREA: { status: 409, message: "Este CEP não pertence mais à área atendida." },
     QUOTE_ADDRESS_NOT_CANONICAL: { status: 409, message: "O endereço desta oferta precisa ser validado novamente." },
     COMMERCE_NOT_ENABLED: { status: 409, message: "Os pedidos reais ainda não foram liberados. Aguarde a abertura oficial do TAMÃO." },
-    PILOT_MERCHANT_NOT_ALLOWED: { status: 409, message: "Esta oferta não está mais disponível para esta operação. Atualize as opções." }
+    PILOT_MERCHANT_NOT_ALLOWED: { status: 409, message: "Esta oferta não está mais disponível para esta operação. Atualize as opções." },
+    COUPON_PAID_NET_FUNDS_REQUIRED: { status: 409, message: "O pagamento e a compensação deste cupom ainda não foram confirmados." },
+    COUPON_AND_CASHBACK_EXCEED_QUOTE: { status: 409, message: "Escolha uma cesta maior ou atualize os benefícios antes de aplicar o cupom." },
+    COUPON_ORDER_MONEY_MISMATCH: { status: 409, message: "Os valores do cupom e do pedido precisam ser atualizados." },
+    COUPON_NOT_AVAILABLE: { status: 409, message: "Este cupom não está disponível para esta cotação." },
+    COUPON_INVALID_OR_SPENT: { status: 409, message: "Cupom utilizado, expirado ou indisponível." },
+    COUPON_QUOTE_INVALID: { status: 409, message: "Atualize sua cotação antes de usar o cupom." },
+    COUPON_NOT_OWNED: { status: 403, message: "Cupom não pertence a esta conta." }
   };
 
   for (const [code, meta] of Object.entries(known)) {
@@ -133,6 +140,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const useCashback = body.useCashback === true;
+    const couponVoucherId=body.couponVoucherId==null?"":String(body.couponVoucherId).trim();
+    if(couponVoucherId&&!UUID_RE.test(couponVoucherId))
+      throw new DomainError("COUPON_INVALID","Cupom inválido.",400);
+    if(couponVoucherId&&!useCashback)
+      throw new DomainError("COUPON_REQUIRES_CASHBACK","Ative os benefícios TAMÃO para usar o cupom.",400);
+    // Existing regular checkout remains untouched. Paid-coupon checkout
+    // cannot run until both sale and net-settlement E2E gates are enabled.
+    if(couponVoucherId&&Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")!=="true")
+      throw new DomainError("COUPON_CHECKOUT_NOT_ENABLED","Uso de cupons indisponível no momento.",423);
     const rawCashTender = body.cashTenderCents;
     const cashTenderCents = rawCashTender == null || rawCashTender === ""
       ? null
@@ -180,6 +196,7 @@ Deno.serve(async (req: Request) => {
       addressComplement,
       deliveryReference,
       deliveryNotes,
+      ...(couponVoucherId?{couponVoucherId}:{}),
       ...(campaignTag?{campaignTag}:{})
     };
     const requestHash = await requestFingerprint("create-order", fingerprintPayload);
@@ -189,11 +206,10 @@ Deno.serve(async (req: Request) => {
     });
     await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
-    const { data, error } = await admin.rpc("create_order_from_quote_v8", {
+    const baseOrderArgs={
       p_user_id: user.id,
       p_quote_id: quoteId,
       p_payment_method: paymentMethod,
-      p_use_cashback: useCashback,
       p_idempotency_key: idempotencyKey,
       p_request_hash: requestHash,
       p_referral_code: referralCode,
@@ -202,7 +218,14 @@ Deno.serve(async (req: Request) => {
       p_address_complement: addressComplement,
       p_delivery_reference: deliveryReference,
       p_delivery_notes: deliveryNotes
-    });
+    };
+    const { data, error } = couponVoucherId
+      ?await admin.rpc("clube_coupon_paid_create_order",{
+        ...baseOrderArgs,p_voucher_id:couponVoucherId
+       })
+      :await admin.rpc("create_order_from_quote_v8",{
+        ...baseOrderArgs,p_use_cashback:useCashback
+       });
 
     if (error) {
       const mapped = mapRpcError(error);
