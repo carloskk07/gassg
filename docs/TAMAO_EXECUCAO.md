@@ -859,3 +859,12 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 **Commits da branch canônica:** `798adcc` cesta, `58d3435` regressão inicial, `81a3f52` atalho no cartão, `a822aae` contrato de navegação, `30fde8a` alertas de preço/frete, `b1a14dc` regressões de validade, `844a0c6` falha fechada de desconto inválido, `85ab1ad` testes para esse erro. Execução dinâmica da suíte `tests/admin-merchant-catalog-trial.mjs` no V8 usando `js/admin.js` real: **76 verificações PASS**, inclusive isolamento de conta, estoque, produto desativado, combinação de gás e outros produtos e inexistência de cobranças/pedidos. **CI GitHub Actions HEAD `85ab1ad` ainda em execução** na consulta, portanto não homologado oficialmente. Commit da branch permanece em PR #492, rascunho e **não publicado** nos portais oficiais.
 
 **Próxima etapa executável:** aguardar/validar Audit + Build + PG17 + public smoke do HEAD, escolher entrega isolada do simulador Admin para `main` sem publicar a expansão, ou integrar a branch preservando correções recentes de PIX; oferecer ao dono do TAMÃO testes de cesta já no Admin após deploy homologado. Para habilitar pedidos reais, cumprir verificações de titularidade/compliance e preço atualizado, configuração de meios de pagamento/entrega, autorização comercial da cidade e testes E2E. Issue #493 continua prioridade. **Não confundir `pronta para simulação no Admin` com `revenda active` na produção.**
+
+
+**Homologação oficial do simulador Carlos Santos — 19/10/2026**
+
+- SHA exato do checkpoint com código e documentação: `be4daaced62582052b805d0319f6da989344e893`.
+- GitHub Actions **completed/success** para: `Audit` (run 39335867898), `Build isolated live portals` (39335867888), `TAMÃO discovery PostgreSQL contract` (39335867861), `TAMÃO public visual smoke` (39335868029).
+- `TAMÃO release-candidate visual review (no deploy)` run 39335868028 **skipped** (não é homologação de publicação).
+- A compilação e os testes foram oficiais no GitHub para a implementação `js/admin.js` e `tests/admin-merchant-catalog-trial.mjs`, incluindo o cálculo de cesta de Carlos Santos; regressão isolada V8 mostrou 76 PASS. O registro deste status é **apenas documental**, sem mudança de código/estados comerciais ou implantação.
+- Produção permanece `Carlos Santos=pending/online=false`, `PRELAUNCH`, comércio desativado e 0 pedidos. Não declarar conta ativada para vendas nem homologação real de PIX.
