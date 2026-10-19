@@ -97,7 +97,7 @@ const ctx={
  console
 };
 ctx.globalThis=ctx;
-vm.runInNewContext(source,ctx,{filename:'js/discovery-owner.js'});
+vm.runInNewContext(source+'\n;globalThis.__discoveryOwnerTestState=discoveryOwner;',ctx,{filename:'js/discovery-owner.js'});
 assert.equal(ctx.discoveryOwnerRoute(),true);
 ctx.discoveryOwnerAfterRender();
 await new Promise(resolve=>setImmediate(resolve));
@@ -261,13 +261,13 @@ ctx.history={replaceState(_state,_title,url){
   ctx.location.hash=resolved.hash;
 }};
 user={id:userId,email:'anunciante@example.test'};
-ctx.discoveryOwner.phase='idle';
+ctx.__discoveryOwnerTestState.phase='idle';
 const renderBeforeCallback=renderCount;
 ctx.discoveryOwnerAfterRender();
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(ctx.location.href,'https://tamao.com.br/#advertise');
 assert.ok(renderCount>renderBeforeCallback,'OTP recovery must render owner route');
-assert.equal(ctx.discoveryOwner.user?.id,userId);
+assert.equal(ctx.__discoveryOwnerTestState.user?.id,userId);
 assert.doesNotMatch(ctx.location.href,/access_token|advertise=1/,
  'the callback token and transient intent must leave browser URL');
 ctx.location=savedLocation;ctx.route=savedRoute;
