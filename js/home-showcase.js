@@ -83,6 +83,8 @@ function homeRegionalPriceBoard(region){
    :'Referência informativa, sem revenda associada. A consulta não cria pedido.')+'</p>'+
   '<div class="city-price-controls">'+
    '<button type="button" class="primary" onclick="startCustomerAvailability()">Escolher produtos e consultar entrega →</button>'+
+   (globalThis.liveReady?.()===true?
+     '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
    '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+
     '<div class="city-price-chooser-fields">'+
      '<label>Cidade<input id="home-city-name" maxlength="80" autocomplete="address-level2" value="'+esc(city)+'"></label>'+

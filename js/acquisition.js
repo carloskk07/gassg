@@ -48,6 +48,37 @@ function homeChooseMarketCity(){
   pending?.then?.(()=>render()).catch?.(()=>{});
 }
 
+let homeQuoteRefreshInFlight=false;
+// Refreshes the read-only city quote panel without creating an order or
+// changing the verified delivery address, cart, or merchant permissions.
+async function homeRefreshQuotePrices(){
+  if(homeQuoteRefreshInFlight)return false;
+  if(globalThis.liveReady?.()!==true||typeof globalThis.liveRefreshCityPriceBoard!=='function'){
+    toast('A consulta de cotações está indisponível agora. Tente novamente.');
+    return false;
+  }
+  const selected=homeMarketRegion();
+  homeQuoteRefreshInFlight=true;
+  try{
+    const latest=await globalThis.liveRefreshCityPriceBoard({force:true});
+    const current=homeMarketRegion();
+    // A city change while the request is pending must never show a
+    // success message about prices belonging to a previous city.
+    if(!latest||current.city!==selected.city||current.state!==selected.state||
+       latest.city!==selected.city||latest.state!==selected.state)return false;
+    render();
+    toast(Array.isArray(latest.products)&&latest.products.length
+      ?'Preços consultados agora. Confirme valor e entrega para seu CEP.'
+      :'Consulta atualizada. Ainda não há preços de revendas elegíveis nesta cidade.');
+    return true;
+  }catch{
+    toast('Não foi possível atualizar os preços agora. Consulte seu CEP para confirmar ofertas.');
+    return false;
+  }finally{
+    homeQuoteRefreshInFlight=false;
+  }
+}
+
 function prelaunchLeadSent(type){
   try{
     const saved=localStorage.getItem('tamao-prelaunch-'+type+'-sent-v1');
