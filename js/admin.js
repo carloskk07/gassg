@@ -47,7 +47,8 @@ const adminRuntime={
   financeWorkspace:'summary',
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
-  clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null},
+  clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
+    reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null},
   prospectReport:null,
   prospectLoadedAt:null,
   prospectLoadedFor:null,
@@ -348,7 +349,8 @@ async function adminSignOut(){
   if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.session=null;
   adminRuntime.data=null;
-  adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null};
+  adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
+    reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null};
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   adminRuntime.searchPending=false;
@@ -4386,6 +4388,65 @@ async function adminClubeFinanceRefresh(){
     if(String(adminRuntime.session?.user?.id||'')===userId)render();
   }
 }
+async function adminClubeReleaseReportsRefresh(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId)return;
+  const state=adminRuntime.clubeFinance;
+  if(state.reportsPending)return;
+  Object.assign(state,{reports:null,reportsPending:true,
+    reportsError:null,reportsFor:userId,reportsAt:null});
+  render();
+  try{
+    const reply=await adminInvoke({action:'clube-coupon-mp-release-reports'});
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(reply?.source!=='mercadopago_release_reports_list_v1'||
+       reply.readOnly!==true||reply.moneyVerified!==false||
+       typeof reply.available!=='boolean'||
+       !['unavailable','partial','list_only'].includes(reply.coverage)||
+       !Array.isArray(reply.reports)||reply.reports.length>50)
+      throw Error('Resposta de extratos não verificada.');
+    state.reports=reply;
+    state.reportsAt=new Date().toISOString();
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId){
+      state.reportsError=String(error?.message||error||'Extratos indisponíveis.');
+    }
+  }finally{
+    state.reportsPending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
+function adminClubeReleaseReportsView(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const state=adminRuntime.clubeFinance||{};
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const sameUser=Boolean(userId&&state.reportsFor===userId);
+  const data=sameUser?state.reports:null;
+  const err=sameUser?state.reportsError:null;
+  const count=data?.available===true?Number(data.listedCount):null;
+  const processed=data?.available===true?data.reports.filter(item=>
+     item.status==='processed'&&item.currency==='BRL'&&item.test!==true).length:null;
+  return `<div class="card flat admin-clube-mp-extracts" aria-label="Extratos Mercado Pago">
+    <h4>Extratos de liberação do Mercado Pago</h4>
+    <p>Consulte os relatórios gerados na conta do TAMÃO, sem criar pagamentos.</p>
+    <button type="button" class="secondary" onclick="adminClubeReleaseReportsRefresh()"
+      ${state.reportsPending?'disabled':''}>
+      ${state.reportsPending?'Consultando…':'Consultar relatórios do Mercado Pago'}
+    </button>
+    ${err?'<p role="alert" class="notice danger">'+esc(err)+'</p>':''}
+    ${data?.available===false?'<p class="notice">Conta Mercado Pago não configurada para esta consulta.</p>':''}
+    ${data?.available===true?'<p role="status">'+
+       (Number.isSafeInteger(count)?esc(count):'Não verificado')+
+       ' relatórios listados • '+
+       (Number.isSafeInteger(processed)?esc(processed):'Não verificado')+
+       ' processados em BRL, fora do ambiente de teste.</p>':''}
+    ${data?.coverage==='partial'?'<p class="notice">Lista parcial: há relatórios adicionais que não foram analisados.</p>':''}
+    ${data?.available===true&&data.reports.length===0?'<p class="muted">Nenhum relatório gerado foi encontrado na conta consultada.</p>':''}
+    <p class="tiny muted">Listar relatórios não confirma o PIX líquido, nem o pagamento à revenda. Antes de liberar cupons, confira a transação e as tarifas no relatório de Liberações.</p>
+  </div>`;
+}
 function adminClubeFinanceView(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const state=adminRuntime.clubeFinance||{};
@@ -4423,6 +4484,7 @@ function adminClubeFinanceView(){
     ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
       '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
        esc(amount(value))+'</strong></div>').join('')+'</div>':''}
+    ${adminClubeReleaseReportsView()}
     ${data?'<div class="notice"><strong>Mercado Pago:</strong> esta consulta não confere o extrato de liberação nem comprova repasse bancário. '+
       'Cobrança de cupons: '+(data.salesEnabled===true?'indicada como habilitada na configuração':'não habilitada na configuração')+
       '. Uso no pedido: '+(data.checkoutEnabled===true?'indicado como habilitado':'não habilitado')+
