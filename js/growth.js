@@ -33,7 +33,78 @@ function publicLandingJump(sectionId){
 // Paid coupons share the customer's authenticated Supabase session.
 // The history is read-only; a purchase/resgate button is intentionally absent
 // until funded voucher settlement is authorized in the back end.
-const clubePaidCouponView={userId:null,status:'idle',purchases:[],vouchers:[],error:null};
+const clubePaidCouponView={
+  userId:null,status:'idle',purchases:[],vouchers:[],error:null,
+  checkoutEnabled:false
+};
+const clubePaidCheckoutSelection={userId:null,voucherId:null};
+function clubePaidCouponOptions(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId||clubePaidCouponView.userId!==userId||
+     clubePaidCouponView.status!=='ready'||
+     clubePaidCouponView.checkoutEnabled!==true)return [];
+  const now=Date.now();
+  return clubePaidCouponView.vouchers.filter(v=>
+    v.status==='issued'&&
+    /^[0-9a-f-]{36}$/i.test(String(v.voucherId||''))&&
+    Number.isSafeInteger(Number(v.faceCents))&&v.faceCents>0&&
+    Number.isFinite(Date.parse(v.expiresAt))&&
+    Date.parse(v.expiresAt)>now
+  );
+}
+function clubePaidCouponVoucherForQuote(quoteTotalCents){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(clubePaidCheckoutSelection.userId!==userId||!userId||
+    state.checkout.useCashback!==true)return null;
+  const balanceCents=Math.round(Math.max(0,Number(state.user?.cashback||0))*100);
+  const voucher=clubePaidCouponOptions().find(v=>
+    v.voucherId===clubePaidCheckoutSelection.voucherId);
+  if(!voucher||!Number.isSafeInteger(quoteTotalCents)||
+    quoteTotalCents<balanceCents+voucher.faceCents)return null;
+  return voucher;
+}
+function clubePaidCouponCheckoutPanel(){
+  if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
+  const userId=String(globalThis.liveRuntime.session.user.id);
+  const valid=clubePaidCouponView.userId===userId;
+  const options=clubePaidCouponOptions();
+  const current=clubePaidCheckoutSelection.userId===userId?
+    clubePaidCheckoutSelection.voucherId:null;
+  const select=options.length?
+    '<label for="tamao-paid-coupon">Cupom pré-pago</label>'+
+    '<select id="tamao-paid-coupon" onchange="clubeChoosePaidCheckoutVoucher(this.value)">'+
+    '<option value="">Sem cupom de compra</option>'+
+    options.map(v=>'<option value="'+esc(v.voucherId)+'" '+
+      (current===v.voucherId?'selected':'')+'>'+
+      esc(BRL.format(v.faceCents/100))+' • válido até '+
+      esc(new Date(v.expiresAt).toLocaleDateString('pt-BR'))+'</option>').join('')+
+    '</select><small>O desconto só é confirmado ao criar o pedido.</small>':'';
+  return '<div class="tamao-checkout-voucher-picker">'+
+   '<strong>Cupons da sua conta</strong>'+
+   '<p>Confira os benefícios válidos para sua compra.</p>'+
+   (select||'<p class="muted">'+(valid&&clubePaidCouponView.status==='loading'?
+     'Consultando cupons…':'Sem cupons pré-pagos disponíveis para aplicar.')+'</p>')+
+   '<button type="button" class="secondary" onclick="clubePaidCouponsRefresh()" '+
+   (valid&&clubePaidCouponView.status==='loading'?'disabled':'')+
+   '>Atualizar meus cupons</button></div>';
+}
+function clubeChoosePaidCheckoutVoucher(id){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId)return;
+  if(id&&!clubePaidCouponOptions().some(v=>v.voucherId===id)){
+    toast('Este cupom não está disponível. Atualize sua carteira.');
+    return;
+  }
+  clubePaidCheckoutSelection.userId=userId;
+  clubePaidCheckoutSelection.voucherId=id||null;
+  if(id){state.checkout.useCashback=true;save();}
+  render();
+}
+function clubeClearPaidCheckoutVoucher(){
+  clubePaidCheckoutSelection.userId=null;
+  clubePaidCheckoutSelection.voucherId=null;
+}
+
 function clubePaidCouponPanel(){
   const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!userId||typeof liveReady!=='function'||!liveReady())
@@ -77,7 +148,7 @@ async function clubePaidCouponsRefresh(){
     return toast('Entre na sua conta para consultar os cupons.');
   if(clubePaidCouponView.userId===userId&&clubePaidCouponView.status==='loading')return;
   Object.assign(clubePaidCouponView,{userId,status:'loading',error:null,
-    purchases:[],vouchers:[]});
+    checkoutEnabled:false,purchases:[],vouchers:[]});
   if(route()==='club')render();
   try{
     const result=await liveInvoke('coupon-credit-pix',{action:'my-vouchers'});
@@ -86,13 +157,14 @@ async function clubePaidCouponsRefresh(){
       throw Error('COUPON_DATA_UNVERIFIED');
     if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId)return;
     Object.assign(clubePaidCouponView,{
-      status:'ready',vouchers:result.vouchers,purchases:result.purchases
+      status:'ready',vouchers:result.vouchers,purchases:result.purchases,
+      checkoutEnabled:result.couponCheckoutEnabled===true
     });
   }catch(err){
     if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId)return;
     clubePaidCouponView.status='failed';
     clubePaidCouponView.error=String(err?.message||err);
-  }finally{if(route()==='club')render();}
+  }finally{if(route()==='club'||route()==='order')render();}
 }
 
 function club(){
