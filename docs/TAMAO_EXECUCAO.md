@@ -266,3 +266,14 @@
 **Operação ainda bloqueada:** `platform_launch_control.operation_mode=PRELAUNCH`, `commerce_enabled=false`; marketplace São Gabriel fechado. Não usar o sucesso do deploy como evidência de disponibilidade de ofertas ou aprovação de revenda. Continua faltando autenticação/OTP real com duas contas, inscrição/edição com contas distintas, revisão superadmin, isolamento e registro de evidência de fluxo, bem como habilitação operacional legítima e primeiro pedido assistido autorizado.
 
 **PRÓXIMA AÇÃO EXATA:** validar manualmente a jornada curta de duas contas reais e revisar casos pelo superadmin, com dados privados omitidos de issues; testar retorno OTP e recarga/recuperação. Tratar bloqueios específicos identificados, sem abrir a cidade por SQL. Em paralelo, retomar a expansão na PR #492 (Profissionais/Caronas/Hospedagens/SEO/Ads) e reconciliar o histórico de `main` antes de qualquer eventual merge. Migração `20261018131000` permanece não aplicada.
+
+
+## Continuação da expansão — filtro de partida em Caronas (18/10/2026)
+
+**ÚLTIMA ETAPA CONCLUÍDA:** continuação funcional da PR #492 sem misturar release comercial. `js/discovery.js` ganhou campo público de data/hora **Saída a partir de** somente na rota Caronas; parâmetro `p_departure_after` já era aceito por `discovery_public_search` na migration existente. Horário escolhido em `datetime-local` é convertido para ISO UTC para a busca. Hospedagens e Profissionais não recebem filtro de partida. `tests/discovery-public-journeys.mjs` cobre UI, parâmetro UTC e isolamento entre modalidades. Código/teste revisado: `1601b28050fb5a30dfdeb01fd13c357d8a994e65`.
+
+**Gates no SHA `1601b2805`:** Audit PASS (run `39183930937`), PostgreSQL 17 isolado PASS (`39183930950`), build de três portais PASS (`39183931086`), smoke visual público PASS (`39183931004`). Revisão candidata sem deploy SKIPPED. **Apenas branch draft:** o filtro NÃO está em produção; a migration da expansão permanece NÃO aplicada.
+
+**Comércio/produção preservados:** PR comercial [#496](https://github.com/carloskk07/gassg/pull/496) já integrada à `main` em `6a13bb29acf8d170556927df0cec2ea727ae7077` e atestada por OIDC com 3 portais HTTP 200. Plataforma/São Gabriel não abertas, OTP real com duas revendas ainda não homologado; issue #493 continua prioritária. O histórico da PR #492 divergiu um commit de `main` após squash de hotfix, embora os dois arquivos extraídos coincidam em conteúdo; não forçar reset do ramo.
+
+**ETAPA ATUAL / PRÓXIMA AÇÃO:** validar cadastros reais de duas revendas independentes, revisão do superadmin e oferta pronta para primeiro pedido autorizado, sem pagamentos simulados nem abertura antecipada. Na expansão, continuar o fluxo de Hospedagens e Profissionais, disponibilidade/datas declaradas, SEO internacional e publicidade na mesma PR, respeitando Auth/Storage real A/B/admin antes de publicar. Antes de eventual merge da PR #492, reconciliar a `main` sem descartar commits nem duplicar implementações.
