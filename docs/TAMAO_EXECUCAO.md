@@ -452,3 +452,18 @@
 ### Reconciliação final de publicação do diagnóstico PIX #505
 
 **ATUALIZAÇÃO VALIDADA:** Supabase recebeu atestado `github_oidc_edge` em `2026-10-19T09:02:47Z`, `source_sha=db1986b44c60cd7e2781c951601a7d0550630edc`, `allPortalsReady=true`. Portais `tamao.com.br`, `parceiro.tamao.com.br` e `admin.tamao.com.br` registraram `htmlStatus=200`, `buildStatus=200`, `runtimeStatus=200`, `turnstileProduction=true` e SHA coincidente. Assim o bloqueio de reconciliação frontend do checkpoint anterior está resolvido. Isso **não** equivale à autenticação real do superadmin nem prova novo PIX bancariamente pagável.
+
+
+## Laboratório financeiro — evidências de webhook e conciliação #506 (19/10/2026)
+
+**Retomada sem repetição:** a PR #503 (Pix oficial sandbox de R$ 50,00 e verificação de status), #504 e #505 (diagnóstico de cobranças Pix) já estavam integradas quando a execução foi retomada. A expansão #492 segue em draft e não foi transportada a produção.
+
+**Correção incremental na PR [#506](https://github.com/carloskk07/gassg/pull/506):** integrada por squash à `main` no commit `1018b5f60cb3284491736de135f5f1d36605c13f`. Apenas `supabase/functions/admin-ops/index.ts`, `js/admin.js` e `tests/admin-financial-pix-diagnostics.mjs`. A ação `finance-lab-charge-diagnostics` passou a correlacionar últimas 20 cobranças com até 100 eventos da tabela real `merchant_billing_payment_events`, somente leitura, por `payment_request_id` e `provider`. Devolve por cobrança quantidade de eventos recebidos, aplicados, ignorados e pendentes, com último recebimento e sinais de divergência de valor. No Admin fica claro que webhook recebido não significa recebimento confirmado; não retorna BR Code, chave Pix, dados do pagador nem IDs de evento. Não invoca pagamentos externos, webhooks ou alteração de saldo.
+
+**Gates comprovados:** Audit PASS [39241471041](https://github.com/carloskk07/gassg/actions/runs/39241471041), incluindo regressão `tests/admin-financial-pix-diagnostics.mjs` com isolamento entre PSPs, código expirado, webhook ignorado/aplicado e proibição de dados sensíveis; Build isolated live portals PASS [39241471233](https://github.com/carloskk07/gassg/actions/runs/39241471233), release candidate no-deploy SKIPPED. Primeiro Audit acusou asserção de texto antigo, corrigida antes do merge. A PR #506 não possui migração SQL.
+
+**Publicação:** Supabase `admin-ops` ACTIVE v179, `verify_jwt=false` preservado porque a função mantém autenticação própria, 7 dependências compartilhadas byte-idênticas à versão anterior. Atestação OIDC dos portais em `2026-10-19T11:03:33Z`, `source_sha=1018b5f60cb3284491736de135f5f1d36605c13f`, `allPortalsReady=true`; HTML/build/runtime HTTP 200 e Turnstile produção em customer, merchant e admin. `platform_launch_control.portals_source_sha` corresponde ao SHA.
+
+**Dados reais:** banco mantém 1 cobrança de provedor histórica (expirada anteriormente), **0 eventos de pagamento recebidos**, **0 eventos aplicados** e **0 pedidos**. `PRELAUNCH` e `commerce_enabled=false` permanecem. Nenhum crédito, PIX ou fatura foram gerados nesta execução.
+
+**O que ainda falta:** executar a jornada dentro de uma sessão real do superadmin; credenciais específicas de TESTE do Mercado Pago para validar criação/consulta de pedido oficial sandbox; pagamento PIX bancário realmente válido, solicitação/recebimento PSP e reconciliação sob autorização explícita. Valor arbitrário no Admin continua simulado e não pagável; o modo oficial de testes do Mercado Pago usa R$ 50,00. A integração comercial assistida e abertura segura continuam prioridade da issue #493. Não declarar TAMÃO integral pronto nem confluir com expansão #492.
