@@ -242,5 +242,12 @@ assert.ok(backend.includes('merchantRuntime.selectedApplicationId')&&
  'the selected application must be reset on logout');
 assert.ok(bootstrap.includes('merchantPickOwnApplicationFromUi'),
  'existing company selector must be wired in the merchant portal');
+const merchantLive=read('js/merchant.js');
+assert.match(merchantLive,/const anotherCompany=/);
+assert.match(merchantLive,/Cadastrar outra empresa/);
+assert.ok(merchantLive.includes('${anotherCompany}'),
+ 'approved application must not strand an owner who wants another company');
+assert.ok(growth.includes("if(route()!=='merchant-join')go('merchant-join')"),
+ 'new-company button from the dashboard must route to the form');
 
 console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');
