@@ -11,6 +11,34 @@ const discoveryOwnerTables={
   rides:'discovery_ride_details',
   stays:'discovery_stay_details'
 };
+// Only orphaned public photo keys are stored; never documents or auth tokens.
+// Per-user keys avoid a shared browser retrying another account's cleanup.
+// Supabase Storage RLS is authoritative even if localStorage is modified.
+function discoveryOwnerPendingStorageKey(ownerId){
+  return /^[0-9a-f-]{36}$/.test(String(ownerId||''))
+    ?'tamao-photo-cleanup-v1:'+ownerId:'';
+}
+function discoveryOwnerReadPendingPhotoRemovals(ownerId){
+  const name=discoveryOwnerPendingStorageKey(ownerId);
+  if(!name)return [];
+  try{
+    const parsed=JSON.parse(globalThis.localStorage?.getItem(name)||'[]');
+    return Array.isArray(parsed)?[...new Set(parsed.filter(key=>
+      typeof key==='string'&&key.startsWith(ownerId+'/')&&
+      Boolean(discoveryOwnerPhotoUrl(key))
+    ))].slice(0,1800):[];
+  }catch{return [];}
+}
+function discoveryOwnerPersistPendingPhotoRemovals(){
+  const s=discoveryOwner,name=discoveryOwnerPendingStorageKey(s.user?.id);
+  if(!name)return false;
+  try{
+    if(s.pendingPhotoRemovals.length)
+      globalThis.localStorage?.setItem(name,JSON.stringify(s.pendingPhotoRemovals.slice(0,1800)));
+    else globalThis.localStorage?.removeItem(name);
+    return Boolean(globalThis.localStorage);
+  }catch{return false;}
+}
 const discoveryOwnerStates=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT',
   'MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 function discoveryOwnerRoute(){
@@ -150,7 +178,10 @@ async function discoveryOwnerInit(){
     const response=await s.client.auth.getUser();
     s.user=response?.data?.user||null;
     s.phase='ready';
-    if(s.user)await discoveryOwnerRefresh();
+    if(s.user){
+      s.pendingPhotoRemovals=discoveryOwnerReadPendingPhotoRemovals(s.user.id);
+      await discoveryOwnerRefresh();
+    }
   }catch(e){s.phase='ready';s.error='Não foi possível conectar ao cadastro. Tente novamente.';}
   if(returningFromOtp){
     // getUser() waits for the Supabase URL-session initialization. Restore
@@ -397,7 +428,9 @@ async function discoveryOwnerRemovePhoto(photoPath){
       s.notice='Foto retirada do anúncio e do armazenamento.';
     }catch{
       s.pendingPhotoRemovals=[...new Set([...s.pendingPhotoRemovals,key])];
-      s.error='A foto saiu do anúncio, mas o arquivo ainda precisa ser removido. Use “Repetir limpeza de fotos pendentes”.';
+      const savedLocally=discoveryOwnerPersistPendingPhotoRemovals();
+      s.error='A foto saiu do anúncio, mas o arquivo ainda precisa ser removido. Use “Repetir limpeza de fotos pendentes”.'+
+        (savedLocally?'':' A pendência não pôde ser guardada para a próxima visita.');
     }
   }catch(e){
     s.error=discoveryOwnerError(e);
@@ -417,8 +450,11 @@ async function discoveryOwnerRetryPhotoCleanup(){
     }catch{pending.push(key);}
   }
   s.pendingPhotoRemovals=pending;
-  if(pending.length)s.error='A limpeza das fotos pendentes não foi confirmada. Verifique a conexão e tente novamente.';
-  else s.notice='Arquivos de fotos pendentes removidos do armazenamento.';
+  const savedLocally=discoveryOwnerPersistPendingPhotoRemovals();
+  if(pending.length){
+    s.error='A limpeza das fotos pendentes não foi confirmada. Verifique a conexão e tente novamente.'+
+      (savedLocally?'':' A pendência não pôde ser guardada para a próxima visita.');
+  }else s.notice='Arquivos de fotos pendentes removidos do armazenamento.';
   s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerRemoveDocument(docId){
