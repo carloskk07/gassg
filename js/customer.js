@@ -1063,6 +1063,7 @@ function checkoutOfferComparison(all){
       <p>Confira campanhas no Clube. O desconto em dinheiro só aparece na cotação quando for aplicável; cupons não são descontados automaticamente.</p></div>
       <button type="button" onclick="go('club')">Ver benefícios →</button>
     </div>
+    ${typeof clubePaidCouponCheckoutPanel==='function'?clubePaidCouponCheckoutPanel():''}
     ${checkoutOfferDecisionSummary(all)}
     ${checkoutRequestExplainer()}
     ${checkoutSponsoredEditorial()}
@@ -1104,9 +1105,13 @@ function offerCard(o,facts={}){
   const balance=Number(state.user?.cashback||0);
   const potentialBenefit=validTotal&&Number.isFinite(balance)&&balance>0
     ?roundMoney(Math.min(balance,gross)):0;
-  const discount=state.checkout.useCashback===true?potentialBenefit:0;
+  const couponVoucher=validTotal&&typeof clubePaidCouponVoucherForQuote==='function'
+    ?clubePaidCouponVoucherForQuote(Math.round(gross*100)):null;
+  const couponBenefit=couponVoucher?roundMoney(couponVoucher.faceCents/100):0;
+  const estimatedBenefits=roundMoney(potentialBenefit+couponBenefit);
+  const discount=state.checkout.useCashback===true?estimatedBenefits:0;
   const payable=roundMoney(Math.max(0,gross-discount));
-  const cashbackPreview=roundMoney(Math.max(0,gross-potentialBenefit));
+  const cashbackPreview=roundMoney(Math.max(0,gross-estimatedBenefits));
   const totalCents=validTotal?Math.round(gross*100):null;
   const fee=Number(o.deliveryFee);
   const hasBreakdown=validTotal&&o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
@@ -1149,17 +1154,18 @@ function offerCard(o,facts={}){
   const comparison=validTotal?`<div class="tamao-checkout-total-compare" aria-label="Comparação de total sem e com benefício TAMÃO">
     <div class="tamao-checkout-total-base"><small>SEM BENEFÍCIO</small>
       <strong>${BRL.format(gross)}</strong><span>Preço com entrega</span></div>
-    <div class="tamao-checkout-total-benefit ${potentialBenefit>0?'has-discount':''}">
-      <small>${potentialBenefit>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
-      <strong>${potentialBenefit>0?BRL.format(cashbackPreview):'Sem desconto aplicado'}</strong>
-      <span>${potentialBenefit>0
-       ?'Até '+BRL.format(potentialBenefit)+' de cashback estimado'+
+    <div class="tamao-checkout-total-benefit ${estimatedBenefits>0?'has-discount':''}">
+      <small>${couponBenefit>0?'COM CUPOM E CASHBACK':estimatedBenefits>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
+      <strong>${estimatedBenefits>0?BRL.format(cashbackPreview):'Sem desconto aplicado'}</strong>
+      <span>${estimatedBenefits>0
+       ?'Até '+BRL.format(estimatedBenefits)+' em benefícios estimados'+
+        (couponBenefit>0?' • cupom '+BRL.format(couponBenefit):'')+
         (state.checkout.useCashback===true?' • selecionado':' • ative o uso do saldo acima')
        :'Veja cupons e vantagens disponíveis no Clube'}</span>
     </div>
   </div>`:'';
   const cashback=discount>0?`<div class="offer-cashback">
-    <span>Cashback selecionado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
+    <span>${couponBenefit>0?'Cupom e cashback selecionados (estimativa)':'Cashback selecionado (estimativa)'}</span><strong>− ${BRL.format(discount)}</strong>
     <small>Total estimado a pagar: ${BRL.format(payable)}. O desconto aplicável será confirmado ao enviar o pedido.</small>
   </div>`:'';
   return `<article class="offer offer-comparison-card ${featured?'selected':''}">
@@ -1370,7 +1376,10 @@ async function checkout(mid){
   if(globalThis.liveRequested?.()&&!syncDeliveryDetailsFromUi({requirePhone:true}))return;
   const selected=(globalThis.liveRuntime?.offers||[]).find(o=>o.id===mid||o.quoteId===mid);
   if(state.checkout.paymentMethod==='cash'&&state.checkout.cashTenderCents&&selected){
-    const discount=state.checkout.useCashback?Math.min(state.user.cashback,selected.total):0;
+    const coupon=typeof clubePaidCouponVoucherForQuote==='function'
+      ?clubePaidCouponVoucherForQuote(Math.round(selected.total*100)):null;
+    const discount=state.checkout.useCashback
+      ?Math.min(selected.total,(Number(state.user.cashback)||0)+(coupon?coupon.faceCents/100:0)):0;
     const payableCents=Math.round(Math.max(0,selected.total-discount)*100);
     if(state.checkout.cashTenderCents<payableCents)return toast('O valor para troco precisa cobrir o total do pedido');
   }
