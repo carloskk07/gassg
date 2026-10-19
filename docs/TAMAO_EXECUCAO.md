@@ -808,3 +808,10 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 - O Audit do SHA `0fa50d523d2f867a0c0011613c4abcef002f65cd` terminou `failure` no step `Natural language and truthful availability V1.166 regression` (run `39331840682`), arquivo `tests/natural-voice-v1-166.mjs:24`. A exigência antiga `Esse contato não libera vendas.` não se aplicava à nova copy do anúncio rápido.
 - Correção `d841e0dd748e52556a6ce81e09f6fd004a581d54` muda essa assertiva para `Anunciar é diferente de receber pedidos pela plataforma.` e preserva todos os demais checks de confiança, sem alterar controle de autorização, estoque, pedidos, dinheiro ou dados de clientes.
 - No SHA `d841e0d`, `Build isolated live portals`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke` já estão `success`; Audit `39332153084` continua `in_progress` na última consulta. Não declarar sucesso até `completed/success`. Release-candidate visual review `skipped`. Não houve deploy comercial.
+
+
+### CI de anunciante — ajuste do CTA na conversão
+
+- GitHub Actions Audit SHA `d841e0dd748e52556a6ce81e09f6fd004a581d54` retornou `failure` no step `Human-centered public conversion V1.159 regression contract` (run `39332153084`), pois `tests/public-conversion-v1-159.mjs:43` ainda exigia o antigo CTA `Quero apresentar minha empresa`.
+- Commit `0f39ebcbb01387fc253a5ba3ad996e064d5534e5` ajusta a mesma assertiva para `Quero anunciar no TAMÃO`, sem remover contrato de consentimento, dinheiro direto para revenda ou proteções contra publicidade enganosa. Conferência paralela em 11 suítes relevantes de marketing/acquisition não encontrou outra exigência dos antigos textos citados. O `Build` e `PostgreSQL discovery` já passaram neste SHA; Audit e visual smoke estavam em execução na última consulta.
+- Nenhuma mutação no banco comercial e nenhuma publicação dos portais oficiais nesta correção de teste.
