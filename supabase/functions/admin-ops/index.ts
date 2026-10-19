@@ -10,6 +10,7 @@ import {
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
 import { mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
+import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 
@@ -619,6 +620,74 @@ async function mercadoPagoBillingProviderHealth(admin:any){
   }finally{
     clearTimeout(timer);
   }
+}
+
+
+// The financial lab only exercises the provider's TEST credentials. It never
+// touches billing requests, receipts, credit ledgers or live merchant orders.
+async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:Request){
+  const enabled=String(Deno.env.get("FINANCE_LAB_SANDBOX_ENABLED")??"").trim()==="true";
+  const token=String(Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")??"").trim();
+  const payerEmail=String(Deno.env.get("FINANCE_LAB_TEST_PAYER_EMAIL")??"").trim();
+  if(!enabled||token.length<20||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)){
+    throw new DomainError("FINANCE_LAB_TEST_CREDENTIALS_REQUIRED",
+      "Configure credenciais e conta pagadora de TESTE específicas para ativar o laboratório Pix.",409);
+  }
+  const amount=body?.amountCents;
+  if(!Number.isSafeInteger(amount)||amount<1||amount>100000000){
+    throw new DomainError("FINANCE_LAB_AMOUNT_INVALID","Valor de teste deve estar entre R$ 0,01 e R$ 1.000.000,00.",400);
+  }
+  const key=String(req.headers.get("Idempotency-Key")??"").trim();
+  if(key.length<12||key.length>100||!/^[a-zA-Z0-9._:-]+$/.test(key)){
+    throw new DomainError("INVALID_IDEMPOTENCY_KEY","Informe uma chave de operação válida.",400);
+  }
+  const externalReference="tamao-finlab-"+key;
+  const formatted=(amount/100).toFixed(2);
+  const response=await mercadoPagoFetch("/v1/orders",{
+    accessToken:token,method:"POST",idempotencyKey:key,
+    body:{
+      type:"online",total_amount:formatted,external_reference:externalReference,
+      processing_mode:"automatic",
+      transactions:{payments:[{
+        amount:formatted,payment_method:{id:"pix",type:"bank_transfer"},
+        expiration_time:"P1D"
+      }]},
+      payer:{email:payerEmail}
+    }
+  });
+  const order=await readMercadoPagoJson(response);
+  if(!response.ok){
+    return {ok:false,mode:"sandbox",provider:"mercadopago",apiStatus:response.status,
+      error:"FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",
+      message:"O Mercado Pago recusou a ordem de teste. Confira as credenciais de TESTE e o valor permitido pelo provedor."};
+  }
+  const payment=Array.isArray(order?.transactions?.payments)
+    ?order.transactions.payments.find((x:any)=>String(x?.payment_method?.id??"").toLowerCase()==="pix")
+    :null;
+  const method=payment?.payment_method??{};
+  const brCode=String(method?.qr_code??"");
+  const sandboxUrl=safeMercadoPagoUrl(method?.ticket_url);
+  // A test credential MUST produce explicitly non-live evidence. Fail closed
+  // when provider response cannot prove sandbox status.
+  const verifiedSandbox=order?.live_mode===false
+    ||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/"));
+  const valid=validatePixBrCode(brCode,{expectedAmountCents:amount});
+  const returnedAmount=moneyToCents(order?.total_amount);
+  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount||!order?.id){
+    throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX",
+      "O provedor não confirmou o ambiente de TESTE ou devolveu PIX/valor inválido. Nenhum código será exibido.",409);
+  }
+  const {error:auditError}=await admin.from("platform_admin_audit").insert({
+    actor_user_id:actorId,action:"finance_lab_sandbox_pix_created",
+    target_type:"financial_lab_sandbox",target_id:String(order.id).slice(0,240),
+    metadata:{provider:"mercadopago",amountCents:amount,mode:"sandbox",
+      externalReference,providerStatus:String(order?.status??"unknown").slice(0,80)}
+  });
+  if(auditError)throw auditError;
+  return {ok:true,mode:"sandbox",provider:"mercadopago",amountCents:amount,
+    reference:externalReference,orderStatus:String(order?.status??"unknown"),
+    brCode,expiresAt:null,paymentLinkUrl:sandboxUrl,
+    message:"PIX exclusivo do ambiente de TESTE; não é uma cobrança bancária pagável e não concede créditos."};
 }
 
 async function billingProviderHealth(admin:any){
@@ -5375,6 +5444,13 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="billing-provider-health"){
       return json(await billingProviderHealth(admin),200,origin);
+    }
+    if(action==="finance-lab-sandbox-pix"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode solicitar testes ao provedor.",403);
+      }
+      const result=await adminFinanceLabSandboxPix(admin,user.id,body,req);
+      return json(result,result.ok?200:502,origin);
     }
     if(action==="audit-search"){
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
