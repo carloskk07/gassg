@@ -89,6 +89,8 @@ jobs:
         run: node tests/coupon-atomic-checkout-contract.mjs
       - name: Admin coupon finance read-only UI and permission regression
         run: node tests/admin-clube-finance-status.mjs
+      - name: Admin merchant catalog dry-run without orders or Pix
+        run: node tests/admin-merchant-catalog-trial.mjs
       - name: Superadmin ad moderation and review queue client contract
         run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
