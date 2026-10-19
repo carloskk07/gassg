@@ -152,7 +152,10 @@ function render(){
   renderLock=true;
   try{
     if(!globalThis.adminPortalRequested?.())housekeeping();
-    const r=route();
+    // An OTP response can temporarily contain #access_token=... in place of
+    // #advertise. Keep the advertiser workspace visible, not the home/menu,
+    // while its lazy SDK safely finishes the auth callback.
+    const r=discoveryOwnerReturnPending()?'advertise':route();
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
