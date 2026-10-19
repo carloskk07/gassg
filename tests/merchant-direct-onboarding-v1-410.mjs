@@ -263,4 +263,25 @@ assert.ok(merchantLive.includes('${anotherCompany}'),
 assert.ok(growth.includes("if(route()!=='merchant-join')go('merchant-join')"),
  'new-company button from the dashboard must route to the form');
 
+// Brazilian WhatsApp links normally provide +55, while the Edge endpoint
+// already accepts 10–13 numeric digits. Do not block authentic prospects.
+const phoneStart=growth.indexOf('function onlyDigits(v)');
+const phoneEnd=growth.indexOf('function merchantJoinInvalid(',phoneStart);
+assert.ok(phoneStart>=0&&phoneEnd>phoneStart);
+const phoneCtx=vm.createContext({});
+vm.runInContext(growth.slice(phoneStart,phoneEnd)+';this.validPhone=isValidPhoneShape;',phoneCtx);
+for(const number of [
+  '(55) 99999-9999', '55 99999-9999', '+55 55 99999-9999',
+  '+55 (11) 98765-4321', '(11) 3456-7890', '+55 11 3456-7890'
+]){
+ assert.equal(phoneCtx.validPhone(number),true,'Brazilian WhatsApp accepted: '+number);
+}
+for(const number of ['123','+54 11 98765-4321','5500000000000',
+  '551198765432109','55559876543210','11 1234567']){
+ assert.equal(phoneCtx.validPhone(number),false,'invalid/unsupported input rejected: '+number);
+}
+assert.ok(read('supabase/functions/submit-merchant-application/index.ts')
+ .includes('if(phone.length<10||phone.length>13)'),
+ 'server-side registered length must still be checked');
+
 console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');
