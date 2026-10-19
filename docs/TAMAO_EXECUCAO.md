@@ -196,6 +196,13 @@
 - **Foco até 21/10:** várias revendas podem solicitar cadastro antes da liberação comercial da primeira; testar OTP real em navegador/email, envio e recuperação da solicitação, painel do administrador e o primeiro pedido autorizado. Não falsificar habilitação, preços, estoque, CNPJ, ANP ou pagamentos.
 - **Ações pendentes:** confirmar workflow de deploy e evidência real SHA dos três portais; checar PR #492 em CI após reconciliação; concluir revisão visual do preboot/menu já corrigido na expansão e extrair somente correções verificadas para lançamento.
 
+## Correção da primeira pintura e menus aprovada e integrada (18/10/2026)
+
+- **Entregue pela PR #495**, commit `7272725b8f98608e1686bfe059fee569dfd8b0a5` na `main`: preboot claro, rótulos iniciais consistentes, navegação desktop/mobile estável com ação “Consultar” contextual no clique. Os controles de loja/checkout permanecem fechados sem oferta real.
+- A PR #495 isolou apenas 9 arquivos de UI/testes e passou dois Audits, build dos portais e smoke visual antes do merge. **Checar publicação real nos três domínios e atestado do SHA antes de afirmar implantação concluída.**
+- A PR de expansão #492 já possuía a mesma implementação de UI, por isso este merge histórico preserva a árvore de código da iniciativa, incorporando a atualização do teste de benefícios `tests/public-benefits-first-v1-405.mjs` que precisa reconhecer o rótulo “Indicações” em vez da referência antiga. A PR #492 segue draft, sem aplicação da migration de expansão.
+- **Trabalho restante para a meta de 21/10:** validar cadastro comercial real de duas novas revendas (OTP, ficha, acompanhamento, backoffice) e ofertas/pedidos com revenda efetivamente habilitada e autorização do administrador. Comunicação de disponibilidade real, sem fingir pagamento ou operação.
+
 ## Como retomar após interrupção
 
 1. Ler este arquivo e o escopo, sem confiar somente em memória.
