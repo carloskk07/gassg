@@ -45,9 +45,9 @@ function homeRegionalPriceBoard(region){
    '<span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
    '<div class="city-price-name">Valores pesquisados em São Gabriel</div>'+
    '<p>Pesquisa local informada em 15/10/2026.</p></div>'+
-   '<div class="city-price-research-grid">'+localResearch.map(item=>
-      '<div class="city-price-research-item"><span>'+esc(item.label)+'</span>'+
-      '<strong>'+BRL.format(item.priceCents/100)+'</strong></div>'
+   '<div class="city-price-research-grid city-price-reference-amount">'+localResearch.map(item=>
+      '<div class="city-price-research-item"><span class="city-price-caption">'+esc(item.label)+'</span>'+
+      '<strong class="city-price-amount">'+BRL.format(item.priceCents/100)+'</strong></div>'
    ).join('')+'</div>'+
    '<p class="city-price-reference-note">Referência de mercado • não é oferta de revenda. Consulte preços e entrega antes de comprar.</p>'+
    '</article>':
