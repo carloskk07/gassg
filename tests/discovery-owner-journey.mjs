@@ -16,8 +16,9 @@ const testUUID=()=>{
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
-let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false;
+let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false,simulateAfterRpcChange=false;
 const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
+const afterRpcPhotoKey=userId+'/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
   description:'Atendo residências e estabelecimentos com orçamento transparente.',
   state_code:'RS',city_name:'São Gabriel',public_area:'Centro',
@@ -40,7 +41,13 @@ const client={
   signOut:async()=>{user=null;return {error:null}}
  },
  rpc:async(name,args)=>{
-  if(name==='discovery_my_listings')return {data:records,error:null};
+  if(name==='discovery_my_listings'){
+   if(simulateAfterRpcChange&&records[0]){
+    records[0].photo_urls.push(afterRpcPhotoKey);
+    simulateAfterRpcChange=false;
+   }
+   return {data:records,error:null};
+  }
   if(name==='discovery_unlink_listing_photo'){
    const entry=records.find(r=>r.id===args.p_listing_id);
    if(simulatePhotoUnlinkDenied)return {data:null,error:{code:'42501',message:'OWNER_DRAFT_REQUIRED'}};
@@ -243,10 +250,13 @@ simulatePhotoUnlinkDenied=false;
 // A Storage failure after DB unlink must be visible and offer a retry.
 simulateRemovalOutage=true;
 simulateConcurrentPhotoChange=true;
+simulateAfterRpcChange=true;
 await ctx.discoveryOwnerRemovePhoto(filePath);
 assert.ok(!records[0].photo_urls.includes(filePath),'photo must first leave draft listing');
 assert.ok(records[0].photo_urls.includes(concurrentPhotoKey),
  'atomic unlink must preserve a concurrent photo addition from another tab');
+assert.ok(records[0].photo_urls.includes(afterRpcPhotoKey),
+ 'a second post-commit edit must not prevent safe cleanup of the unlinked target');
 assert.equal(removed.length,beforeUnlink,'failed Storage removal must not claim success');
 assert.match(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
 assert.match(ctx.discoveryOwnerPage(),/ainda precisa ser removido/);
