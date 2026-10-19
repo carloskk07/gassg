@@ -107,6 +107,52 @@ begin
  if n<>0 then raise exception 'UNLINKED_PHOTO_CLEANUP_DENIED';end if;
 end $photo_cleanup$;
 
+-- Atomic photo unlink regression: a forged owner cannot alter the draft;
+-- deleting one image must retain others, then Storage RLS permits cleanup.
+insert into storage.objects(bucket_id,name,owner_id,metadata)
+values('tamao-discovery-photos',
+  '00000000-0000-0000-0000-000000000011/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg',
+  '00000000-0000-0000-0000-000000000011',
+  '{"mimetype":"image/jpeg"}'::jsonb);
+update public.discovery_listings
+ set photo_urls=array_append(photo_urls,
+ '00000000-0000-0000-0000-000000000011/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg')
+ where id=current_setting('tamao.test.listing_id')::uuid;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $unlink_cross_owner$
+begin
+  begin
+    perform public.discovery_unlink_listing_photo(
+      current_setting('tamao.test.listing_id')::uuid,
+      '00000000-0000-0000-0000-000000000011/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg');
+    raise exception 'CROSS_OWNER_PHOTO_UNLINK_ALLOWED';
+  exception when insufficient_privilege then null;
+  end;
+end $unlink_cross_owner$;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+select public.discovery_unlink_listing_photo(
+  current_setting('tamao.test.listing_id')::uuid,
+  '00000000-0000-0000-0000-000000000011/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg')
+ as photo_unlinked;
+do $unlink_preserve$
+declare paths text[];
+begin
+ select photo_urls into paths from public.discovery_listings
+  where id=current_setting('tamao.test.listing_id')::uuid;
+ if cardinality(paths)<>1
+   or paths[1]<>'00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg'
+   then raise exception 'ATOMIC_UNLINK_LOST_OTHER_PHOTO';end if;
+end $unlink_preserve$;
+delete from storage.objects where bucket_id='tamao-discovery-photos'
+ and name='00000000-0000-0000-0000-000000000011/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
+do $unlink_cleanup$
+declare n integer;
+begin
+ select count(*) into n from storage.objects where bucket_id='tamao-discovery-photos'
+ and name='00000000-0000-0000-0000-000000000011/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
+ if n<>0 then raise exception 'ATOMIC_UNLINK_STORAGE_CLEANUP_DENIED';end if;
+end $unlink_cleanup$;
+
 -- Owner-only listing RPC: include drafts without exposing internal owner UUID.
 do $$
 declare n integer;
