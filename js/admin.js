@@ -1030,6 +1030,14 @@ function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents
   const total=subtotal+delivery;
   if(!items.length||totalQuantity>20||!Number.isSafeInteger(total)||discount>total)
     return {ok:false,reason:'Cesta vazia, acima de 20 unidades ou benefício maior que o total.'};
+  const now=Date.now();
+  const staleItemCount=items.filter(item=>{
+    const date=Date.parse(String(item.priceConfirmedAt||''));
+    return !Number.isFinite(date)||date>now||now-date>86400000;
+  }).length;
+  const freightCheckedAt=Date.parse(String(merchant.delivery_fee_confirmed_at||''));
+  const deliveryNeedsReview=!Number.isFinite(freightCheckedAt)||
+    freightCheckedAt>now||now-freightCheckedAt>86400000;
   const hasRegulatedProduct=items.some(x=>x.productCode==='P13'||/^P(?:5|20|45)$/.test(x.productCode));
   const mixedLoad=hasRegulatedProduct&&items.length>1;
   const mixedLoadVerified=Array.isArray(detail?.deliveryCapabilities)&&
@@ -1037,7 +1045,7 @@ function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents
   return {ok:true,source:'admin_merchant_basket_internal_calculator_v1',
     items,subtotalCents:subtotal,deliveryCents:delivery,
     originalTotalCents:total,assumedDiscountCents:discount,
-    simulatedTotalCents:total-discount,totalQuantity,
+    simulatedTotalCents:total-discount,totalQuantity,staleItemCount,deliveryNeedsReview,
     mixedLoadRequiresVerification:mixedLoad&&!mixedLoadVerified,
     publicQuote:false,orderCreated:false,merchantActivated:false,
     complianceVerified:false,paymentCreated:false,stockReserved:false};
@@ -1111,6 +1119,8 @@ function adminMerchantTrialView(detail){
         <div class="order-line">Sem benefício: <strong>${money(result.originalTotalCents)}</strong></div>
         <div class="order-line">Benefício hipotético: <strong>− ${money(result.assumedDiscountCents)}</strong></div>
         <div class="order-line">Total de teste: <strong>${money(result.simulatedTotalCents)}</strong></div>
+        ${result.staleItemCount>0?'<div class="notice">Preços sem reconfirmação recente: '+esc(result.staleItemCount)+' item(ns). Consulte a revenda antes de uma venda real.</div>':''}
+        ${result.deliveryNeedsReview?'<div class="notice">Taxa de entrega cadastrada sem confirmação nas últimas 24 horas.</div>':''}
         ${result.mixedLoadRequiresVerification?'<div class="notice">Gás com outros produtos: capacidade de transporte misto ainda não validada.</div>':''}
         <small>Cálculo interno. Nenhuma oferta pública, pedido, Pix ou reserva de estoque foi criada.</small>
       </div>`:''}
