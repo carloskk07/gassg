@@ -969,9 +969,16 @@ function adminMerchantTrialEstimate(detail,productCode,quantity,assumedDiscountC
   const subtotal=unit*qty,total=subtotal+delivery;
   if(!Number.isSafeInteger(total)||discount>total)
     return {ok:false,reason:'Benefício de teste maior que o total cadastrado.'};
+  const minimum=Number(product.min_price_cents);
+  const maximum=Number(product.max_price_cents);
+  const range=String(product.pricing_mode||'fixed')==='range'&&
+    Number.isSafeInteger(minimum)&&Number.isSafeInteger(maximum)&&
+    minimum>0&&maximum>=minimum&&unit>=minimum&&unit<=maximum;
   return {ok:true,source:'admin_merchant_catalog_internal_calculator_v1',
     productCode:code,productName:String(product.product_name||code),
     pricingMode:String(product.pricing_mode||'fixed'),
+    hasPriceRange:range,minUnitPriceCents:range?minimum:null,
+    maxUnitPriceCents:range?maximum:null,
     quantity:qty,unitPriceCents:unit,stock,deliveryCents:delivery,
     subtotalCents:subtotal,originalTotalCents:total,
     assumedDiscountCents:discount,simulatedTotalCents:total-discount,
@@ -1029,8 +1036,11 @@ function adminMerchantTrialView(detail){
       ${mine&&state.error?'<div class="notice danger" role="alert">'+esc(state.error)+'</div>':''}
       ${result?.ok?`<div class="card flat" aria-label="Resultado do teste de preços">
         <strong>${esc(result.productName)} · ${result.quantity} unidade(s)</strong>
+        ${result.hasPriceRange?'<small>Faixa cadastrada por unidade: '+
+          money(result.minUnitPriceCents)+' a '+money(result.maxUnitPriceCents)+
+          '. Cálculo ilustrativo pelo preço registrado de '+money(result.unitPriceCents)+'.</small>':''}
         <div class="order-line">Produtos: <strong>${money(result.subtotalCents)}</strong></div>
-        <div class="order-line">Entrega cadastrada: <strong>${money(result.deliveryCents)}</strong></div>
+        <div class="order-line">Taxa de entrega cadastrada (não verificada): <strong>${money(result.deliveryCents)}</strong></div>
         <div class="order-line">Sem benefício: <strong>${money(result.originalTotalCents)}</strong></div>
         <div class="order-line">Benefício hipotético: <strong>− ${money(result.assumedDiscountCents)}</strong></div>
         <div class="order-line">Total de teste: <strong>${money(result.simulatedTotalCents)}</strong></div>
