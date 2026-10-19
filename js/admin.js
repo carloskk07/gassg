@@ -4249,9 +4249,9 @@ function adminFinanceLabView(d){
             ' <button type="button" class="ghost small" onclick="adminFinanceLabCheckOrderFromUi(&quot;'+esc(t.orderId)+'&quot;)">Consultar</button></div>').join('')
           :'<small>Nenhuma ordem de teste comprovada nesta consulta.</small>'}
         <h4>Auditoria dos PIX já emitidos</h4>
-        <p class="muted tiny">Verifica no banco formato, valor e vencimento das últimas 20 cobranças, sem gerar PIX ou exibir chaves.</p>
+        <p class="muted tiny">Verifica código, valor, vencimento e registros de webhook das últimas 20 cobranças, sem criar PIX ou pagamentos e sem expor chaves.</p>
         <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabDiagnoseChargesFromUi()" ${state.chargesLoading?'disabled':''}>
-          ${state.chargesLoading?'Conferindo cobranças…':'Diagnosticar cobranças PIX'}
+          ${state.chargesLoading?'Conferindo cobranças…':'Diagnosticar cobranças PIX e webhooks'}
         </button></div>
         ${state.chargesError?'<div class="notice danger" role="alert">'+esc(state.chargesError)+'</div>':''}
         ${state.charges?'<div role="status"><small>Conferência: '+esc(formatDateTime(state.charges.checkedAt))+' • últimas '+state.charges.count+' cobranças, sem movimentação de dinheiro.</small></div>':''}
@@ -4262,9 +4262,16 @@ function adminFinanceLabView(d){
           ' • '+esc(String(item.requestStatus||'—'))+'</div>'+
           '<div class="order-line">Código Pix: '+(item.codeValid===true?'Estrutura válida':'Inconsistente')+
           ' • Vencimento: '+esc(item.expiresAt?formatDateTime(item.expiresAt):'não informado')+'</div>'+
+          '<div class="order-line">Webhook: '+esc(item.webhook?.status==='applied'?'Evento aplicado':
+            item.webhook?.status==='ignored'?'Evento ignorado':
+            item.webhook?.status==='received'?'Evento recebido, sem aplicação':
+            'Sem evento registrado')+
+          ' • recebidos '+esc(String(item.webhook?.receivedCount??0))+
+          ' • aplicados '+esc(String(item.webhook?.appliedCount??0))+
+          ' • ignorados '+esc(String(item.webhook?.ignoredCount??0))+'</div>'+
           '<small>Diagnóstico: '+esc((item.issues||[]).join(', ')||'Sem divergência estrutural detectada')+'</small>'+
           '</div>').join(''):(state.charges?'<small>Nenhuma cobrança disponível para diagnóstico.</small>':'')}
-        <small class="muted">Código estruturalmente válido não confirma que o banco aceita o pagamento. O PSP é a autoridade do recebimento.</small>
+        <small class="muted">Webhook recebido não comprova pagamento nem autoriza crédito. Os registros exibidos são evidências internas, não consulta online ao PSP; a confirmação depende da conciliação legítima.</small>
         <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
         <div class="order-actions">
           <button class="secondary small" onclick="adminCheckBillingProviderHealth()">Testar conexão com PSP</button>
