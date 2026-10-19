@@ -39,7 +39,7 @@ create function public.cashback_position(p_user_id uuid)
  returns jsonb language sql security definer set search_path=pg_catalog
 as $$
  select pg_catalog.jsonb_build_object('spendableCents',
-  pg_catalog.greatest(0,pg_catalog.coalesce(
+  greatest(0,coalesce(
    (select sum(amount_cents) from public.wallet_entries
      where user_id=p_user_id and bucket='cashback'),0)));
 $$;
