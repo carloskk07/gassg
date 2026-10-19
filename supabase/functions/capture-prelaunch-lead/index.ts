@@ -124,14 +124,15 @@ Deno.serve(async(req:Request)=>{
     }
     if(leadType==="merchant"){
       if(!businessName||businessName.length<2)return json({error:"BUSINESS_REQUIRED",message:"Informe o nome da empresa."},400,origin);
-      if(!contactName||contactName.length<2)return json({error:"CONTACT_REQUIRED",message:"Informe o nome do responsável."},400,origin);
     }
 
     const interests=Array.isArray(body.interests)
       ? [...new Set(body.interests.map((v:any)=>String(v||"").trim().toLowerCase()).filter((v:string)=>INTERESTS.has(v)))].slice(0,6)
       : [];
-    if(!interests.length){
-      return json({error:"INTEREST_REQUIRED",message:leadType==="merchant"?"Marque pelo menos uma categoria que sua empresa vende.":"Marque pelo menos um produto de interesse."},400,origin);
+    // Merchant advertising contact is deliberately minimal; product categories
+    // can be collected later. Buyer demand alerts still need an interest.
+    if(leadType==="customer"&&!interests.length){
+      return json({error:"INTEREST_REQUIRED",message:"Marque pelo menos um produto de interesse."},400,origin);
     }
 
     const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim()||null;
@@ -262,7 +263,7 @@ Deno.serve(async(req:Request)=>{
       replayed,
       referralCaptured,
       message:leadType==="merchant"
-        ?"Interesse recebido. O TAMÃO pode entrar em contato pelo WhatsApp informado."
+        ?"Contato recebido. Podemos conversar sobre seu anúncio pelo WhatsApp informado."
         :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
     },reused||replayed?200:201,origin);
   }catch(error){
