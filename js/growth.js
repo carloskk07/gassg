@@ -815,7 +815,8 @@ function merchantPickOwnApplicationFromUi(value){
     rt.newApplicationMode=false;
     rt.selectedApplicationId=id;
   }
-  render();
+  if(route()!=='merchant-join')go('merchant-join');
+  else render();
 }
 function merchantJoin(){
   if(globalThis.merchantPortalRequested?.()){
