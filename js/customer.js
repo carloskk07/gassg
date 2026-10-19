@@ -580,7 +580,10 @@ function home(){
       <details><summary>Posso indicar pessoas e revendas?</summary><p>Sim. Conheça sua Rede TAMÃO e acompanhe indicações atribuídas. Benefícios financeiros dependem das regras e da elegibilidade de cada campanha.</p></details>
     </div>
   </section>`;
-  return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
+  // A regional price-and-benefits dashboard is the first visible content,
+  // using the existing verified city RPC and never a mock merchant offer.
+  return shell(`${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
+<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
     <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
@@ -656,7 +659,6 @@ ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no T
     <li><span class="home-buying-step-icon" aria-hidden="true">✓</span><div><strong>Confirme quando houver opção</strong><p>Confira valor e prazo. O pedido só avança após o aceite da revenda.</p></div></li>
   </ol>
 </section>`:''}
-${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${!conciseHome?valueBridge:''}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
