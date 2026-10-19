@@ -15,6 +15,10 @@ assert.match(source,/\$\{adminMerchantTrialView\(d\)\}/,
  'Admin merchant drawer includes the simulator');
 assert.match(source,/adminRuntime\.merchantTrial=null/,
  'session logout must clear historic simulated values');
+assert.match(source,/Ver preços e simular cesta/,
+ 'Admin partner card must link directly to saved-price test');
+assert.match(source,/function adminMerchantTrialBasketEstimate\(/,
+ 'reuse Admin merchant detail instead of creating a second test portal');
 
 let roleAllowed=true,loggedIn=true,rendered=0;
 let user='11111111-1111-4111-8111-111111111111';
