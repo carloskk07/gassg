@@ -329,3 +329,13 @@
 
 **ATENÇÃO DE INTEGRAÇÃO:** esta PR #492 ainda altera `js/customer.js` e mantém cópia antiga de `js/home-showcase.js`/`css/components.css`. Antes de mesclar expansão, reconciliar cuidadosamente a `main` `9f6c076` e preservar o painel/preços PRIMEIRO, além dos recursos da expansão. Não sobrescrever ou duplicar a vitrine, nem fundir a PR #492 em produção sem seus gates completos. A confirmação operacional de revendas/pedidos reais continua na issue #493.
 
+
+## Atualização das cotações sem recarregar — PR #499 (18/10/2026)
+
+- A diretriz **home preço-primeiro** já havia sido efetivada e publicada pela PR #498 no commit `9f6c07684a3ac1eedf47635699466d41f266ee80`. Não reconstruir nem duplicar a vitrine de preços/benefícios.
+- **Extensão cirúrgica entregue:** [PR #499](https://github.com/carloskk07/gassg/pull/499), integrada na `main` por squash `50aaf3b31235d532653de194e1990fd95f2d9503`. Alterados somente `js/home-showcase.js`, `js/acquisition.js`, `js/bootstrap.js` e `tests/customer-city-price-showcase-v1-341.mjs`.
+- **Funcionalidade:** botão `↻ Atualizar cotações` somente com backend pronto, reutilizando a RPC existente `public_city_price_board_v1_341` (somente leitura, resposta real validada e delimitada pela cidade). Garante bloqueio de requisições simultâneas, mensagem de ausência de ofertas sem inventar preço, proteção contra troca de cidade durante a chamada e nenhuma mudança de CEP, endereço, carrinho ou pedido.
+- **Prova na PR:** Audit PASS runs `39192415118` e `39192412358`; build dos três portais PASS `39192415091`. O contrato antigo de navegação foi preservado na correção de compatibilidade `c0c92b3`.
+- **Publicação:** ao registrar a atualização, os workflows `TAMÃO launch readiness`, `Audit` e `Cloudflare official production deploy` da `main` `50aaf3b` estavam em execução. **Conferir conclusão e atestado do SHA nos três portais antes de declarar publicação concluída.**
+- **Alerta de integração:** a PR #492 continua draft em ramo divergente historicamente após squashes comerciais. Antes de integrá-la na `main`, rebase/merge real com resolução dos arquivos do checkout e da home, mantendo os commits #498/#499, NÃO criar uma home alternativa e não sobrescrever `js/home-showcase.js` pela versão antiga da expansão. Preservar também o fluxo de inscrição multiempresa #497.
+- **Limitação comercial honesta:** preços verificados de revendas só aparecem quando elegíveis. Como o comércio ainda não estava aberto na consulta anterior, valores de referência P13 permanecem **informativos** e não representam cotação final, cupom ativo ou entrega garantida.
