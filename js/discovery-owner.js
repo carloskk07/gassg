@@ -373,17 +373,22 @@ async function discoveryOwnerRemovePhoto(photoPath){
     !Array.isArray(d.photo_urls)||!d.photo_urls.includes(key))return;
   s.busy=true;s.error='';s.notice='';
   try{
-    const remaining=d.photo_urls.filter(path=>path!==key);
-    const updated=await s.client.from('discovery_listings')
-      .update({photo_urls:remaining}).eq('id',d.id);
+    // The authenticated RPC locks the draft and removes only this photo.
+    // A stale browser tab must not overwrite photos added in another tab.
+    const updated=await s.client.rpc('discovery_unlink_listing_photo',{
+      p_listing_id:d.id,p_photo_path:key
+    });
     if(updated.error)throw updated.error;
-    // An UPDATE affected by RLS can report no error and change zero rows.
-    // Never remove bytes before confirming the new DB reference set.
+    if(!Array.isArray(updated.data)||updated.data.includes(key))
+      throw Error('PHOTO_UNLINK_UNCONFIRMED');
+    // Independently read back the owner-scoped state before deleting bytes.
+    // Storage RLS separately forbids deleting any photo still referenced.
     await discoveryOwnerRefresh();
     const persisted=s.items.find(item=>item.id===d.id);
     if(!persisted||!Array.isArray(persisted.photo_urls)||
       persisted.photo_urls.includes(key)||
-      persisted.photo_urls.length!==remaining.length)
+      persisted.photo_urls.length!==updated.data.length||
+      updated.data.some(photo=>!persisted.photo_urls.includes(photo)))
       throw Error('PHOTO_UNLINK_UNCONFIRMED');
     d.photo_urls=persisted.photo_urls.slice();
     try{
