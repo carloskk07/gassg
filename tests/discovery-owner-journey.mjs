@@ -289,6 +289,10 @@ assert.equal(pendingIntent('?advertise=1',true),false,'Admin portal cannot load 
 assert.equal(pendingIntent('?advertise=1',false,true),false,'Merchant portal cannot load owner');
 assert.match(read('js/bootstrap.js'),/route\(\)!=='advertise'&&!discoveryOwnerReturnPending\(\)/,
  'owner module must load despite OTP fragment replacing the route');
+assert.match(read('js/bootstrap.js'),
+ /const r=discoveryOwnerReturnPending\(\)\?'advertise':route\(\)/,
+ 'callback must show advertiser loading state, not an unrelated home/menu');
+
 currentRoute='admin';
 assert.equal(ctx.discoveryOwnerRoute(),false);
 assert.equal(ctx.discoveryOwnerPage().includes('Não encontrado'),true);
