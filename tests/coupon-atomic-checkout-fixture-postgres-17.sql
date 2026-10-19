@@ -11,11 +11,19 @@ create table public.orders(
  customer_id uuid not null,
  merchant_id uuid,
  proposed_merchant_id uuid,
+ status text not null default 'CREATED',
+ financial_reversed_at timestamptz,
  gross_total_cents integer not null,
  cashback_reserved_cents integer not null,
  total_cents integer not null,
  constraint atomic_mock_money_check
    check(total_cents=gross_total_cents-cashback_reserved_cents)
+);
+create table public.merchant_cashback_reimbursements(
+ order_id uuid primary key,
+ merchant_id uuid not null,
+ cashback_cents integer not null,
+ status text not null default 'open'
 );
 create table public.action_requests(
  idempotency_key text primary key,
