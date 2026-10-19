@@ -434,3 +434,16 @@
 **Implantação:** Supabase `admin-ops` ACTIVE v177, `verify_jwt=false` preservado com verificação interna de sessão/perfil, dependências já instaladas comparadas sem divergência; versão publicada inclui `.order("created_at",{ascending:false}).limit(1).maybeSingle()`. Atestado OIDC posterior ao merge, `2026-10-19T04:39:31Z`, registrou SHA `fda73b4bb11f2907283a35021d907d1291cdefb8`, `allPortalsReady=true`, nos 3 domínios oficiais; HTML, build e runtime 200 e Turnstile de produção presentes.
 
 **Pendente:** login real do superadmin e teste com credenciais sandbox separadas ainda não executados; nenhuma ordem PIX externa de teste ou pagamento foi criada nesta sessão. Valor livre no Admin gera documento demonstrativo, não fatura pagável; emissão de cobrança real arbitrária requer vínculo financeiro, autorização explícita, conciliação e cancelamento/reembolso. Plataforma segue `PRELAUNCH`/comércio desabilitado, 0 pedidos. A expansão da PR #492 continua isolada. Próxima continuação deve começar verificando este checkpoint e os SHAs, e não duplicar a implementação.
+
+
+## Laboratório financeiro — Diagnóstico de PIX históricos #505 (19/10/2026)
+
+**Nova entrega isolada do Admin:** PR [#505](https://github.com/carloskk07/gassg/pull/505) concluída e integrada por squash à `main` SHA `db1986b44c60cd7e2781c951601a7d0550630edc`, sem transportar a expansão da PR #492. Novo botão `Admin > Financeiro > Laboratório > Diagnosticar cobranças PIX`, acessível apenas ao superadmin. Usa API `admin-ops:finance-lab-charge-diagnostics` em modo leitura: últimas 20 cobranças PSP, comparando BR Code, CRC/valor, data de vencimento, status da solicitação, divergência do valor e último erro armazenado. Resposta **não contém BR Code, chave PIX, QR, identificação da revenda, token ou dados de recebedor**. Nenhum pagamento é criado ou alterado. BR Code bem formado NÃO comprova aceitação bancária ou PSP.
+
+**Gates dessa revisão:** Audit PASS run `39226739730` incluindo teste isolado `tests/admin-financial-pix-diagnostics.mjs` de código válido mas vencido, CRC inválido, valor divergente, proteção do superadmin e ausência de payload PIX; build isolado dos 3 portais PASS `39226739795`. Release candidate no-deploy SKIPPED; nenhuma migration nova.
+
+**Backend publicado:** `admin-ops` ACTIVE v178 no projeto Supabase `lgugwujpunhslavewffd`, com rota nova presente e `verify_jwt=false` preservado (autenticação própria `getUser`), dependências existentes comparadas e intactas. Em produção ainda há 1 cobrança histórica e 0 pedidos; plataforma `PRELAUNCH`, `commerce_enabled=false`. O diagnóstico não gera gastos nem saldos.
+
+**Evidência de portais:** na primeira leitura pós-merge o atestado OIDC ainda mostrava SHA `fda73b4bb11f2907283a35021d907d1291cdefb8` (anterior), não `db1986b4`. A atualização da interface depende de nova reconciliação dos três portais; consultar novamente antes de declarar publicada na web. Não confundir Edge ACTIVE com deploy confirmado do frontend.
+
+**Pendências:** teste autenticado do botão no Admin real, configuração autorizada do token de sandbox e simulação oficial de R$ 50,00, inspeção de recusa real de novo PIX no aplicativo bancário e emissão de fatura pagável/valor livre com conciliação legal/financeira. A expansão #492 segue draft e isolada; não alterar a revenda/cidade para esta melhoria.
