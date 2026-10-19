@@ -986,6 +986,62 @@ function adminMerchantTrialEstimate(detail,productCode,quantity,assumedDiscountC
     publicQuote:false,orderCreated:false,merchantActivated:false,
     complianceVerified:false,paymentCreated:false};
 }
+// Cesta de testes administrativos: múltiplos SKUs do MESMO catálogo salvo.
+// Não usa a cotação pública, estoque real, fluxo de pedidos ou PSP.
+function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents=0){
+  const merchant=detail?.type==='merchant'?detail.merchant:null;
+  const catalog=Array.isArray(detail?.catalog)?detail.catalog:[];
+  const requested=quantities&&typeof quantities==='object'&&!Array.isArray(quantities)
+    ?Object.entries(quantities):[];
+  const discount=Number(assumedDiscountCents);
+  const delivery=Number(merchant?.delivery_fee_cents);
+  if(!merchant||!requested.length||requested.length>40||
+    !Number.isSafeInteger(discount)||discount<0||
+    !Number.isSafeInteger(delivery)||delivery<0||delivery>100000)
+    return {ok:false,reason:'Seleção, frete ou desconto inválidos para a cesta.'};
+  const items=[];
+  let subtotal=0,totalQuantity=0;
+  for(const [key,rawQty] of requested){
+    const code=String(key).trim().toUpperCase();
+    if(!/^[A-Z0-9_-]{1,24}$/.test(code))
+      return {ok:false,reason:'Código de produto inválido.'};
+    const qty=Number(rawQty);
+    if(!Number.isSafeInteger(qty)||qty<0||qty>20)
+      return {ok:false,reason:'Quantidade inválida na cesta.'};
+    if(qty===0)continue;
+    const product=catalog.find(p=>p?.product_code===code);
+    const price=Number(product?.price_cents),stock=Number(product?.available_stock);
+    if(!product||product.active!==true||
+       !Number.isSafeInteger(price)||price<=0||
+       !Number.isSafeInteger(stock)||stock<qty){
+      return {ok:false,reason:'Há produto sem preço, estoque ou cadastro ativo.'};
+    }
+    const line=price*qty;
+    if(!Number.isSafeInteger(line)||!Number.isSafeInteger(subtotal+line))
+      return {ok:false,reason:'Total da cesta excede o limite de cálculo.'};
+    subtotal+=line;
+    totalQuantity+=qty;
+    items.push({
+      productCode:code,productName:String(product.product_name||code),
+      quantity:qty,priceCents:price,lineTotalCents:line,
+      priceConfirmedAt:product.price_confirmed_at||null
+    });
+  }
+  const total=subtotal+delivery;
+  if(!items.length||totalQuantity>20||!Number.isSafeInteger(total)||discount>total)
+    return {ok:false,reason:'Cesta vazia, acima de 20 unidades ou benefício maior que o total.'};
+  const hasRegulatedProduct=items.some(x=>x.productCode==='P13'||/^P(?:5|20|45)$/.test(x.productCode));
+  const mixedLoad=hasRegulatedProduct&&items.length>1;
+  const mixedLoadVerified=Array.isArray(detail?.deliveryCapabilities)&&
+    detail.deliveryCapabilities.some(x=>x?.capability_code==='regulated_glp_mixed_load_verified'&&x.active===true);
+  return {ok:true,source:'admin_merchant_basket_internal_calculator_v1',
+    items,subtotalCents:subtotal,deliveryCents:delivery,
+    originalTotalCents:total,assumedDiscountCents:discount,
+    simulatedTotalCents:total-discount,totalQuantity,
+    mixedLoadRequiresVerification:mixedLoad&&!mixedLoadVerified,
+    publicQuote:false,orderCreated:false,merchantActivated:false,
+    complianceVerified:false,paymentCreated:false,stockReserved:false};
+}
 function adminMerchantTrialView(detail){
   if(!adminRoleCanSection('partners')||detail?.type!=='merchant')return '';
   const merchant=detail.merchant||{};
@@ -1033,8 +1089,32 @@ function adminMerchantTrialView(detail){
       <div class="order-actions"><button class="secondary small" type="button"
         onclick="adminMerchantTrialCalculate()">Calcular total de teste</button></div>`
        :'<p class="muted">Não há produtos ativos com preço e estoque para simular.</p>'}
+      ${offers.length?'<details class="admin-merchant-trial-basket"><summary>Simular cesta com vários produtos</summary>'+
+        '<div class="form-grid">'+offers.map(p=>
+          '<div class="input-wrap"><label for="admin-merchant-basket-'+esc(p.product_code)+'">'+
+          esc(p.product_name)+' — '+money(p.price_cents)+'</label>'+
+          '<input class="input" id="admin-merchant-basket-'+esc(p.product_code)+
+          '" type="number" inputmode="numeric" min="0" max="20" step="1" value="'+
+          (mine&&state.mode==='basket'&&Number.isSafeInteger(state.basket?.[p.product_code])
+            ?state.basket[p.product_code]:0)+'"></div>').join('')+'</div>'+
+        '<p class="tiny muted">O total soma os produtos e a taxa cadastrada apenas uma vez. Estoque, entrega, regras de gás e descontos são conferidos no pedido real, não neste teste.</p>'+
+        '<button class="secondary small" type="button" onclick="adminMerchantTrialBasketCalculate()">Simular cesta completa</button>'+
+        '</details>':''}
       ${mine&&state.error?'<div class="notice danger" role="alert">'+esc(state.error)+'</div>':''}
-      ${result?.ok?`<div class="card flat" aria-label="Resultado do teste de preços">
+      ${result?.ok&&state.mode==='basket'?`<div class="card flat" aria-label="Resultado do teste da cesta">
+        <strong>Cesta simulada · ${result.totalQuantity} unidade(s)</strong>
+        ${result.items.map(item=>'<div class="order-line">'+
+          esc(item.quantity+' × '+item.productName)+'<strong>'+
+          money(item.lineTotalCents)+'</strong></div>').join('')}
+        <div class="order-line">Produtos: <strong>${money(result.subtotalCents)}</strong></div>
+        <div class="order-line">Entrega cadastrada, não confirmada: <strong>${money(result.deliveryCents)}</strong></div>
+        <div class="order-line">Sem benefício: <strong>${money(result.originalTotalCents)}</strong></div>
+        <div class="order-line">Benefício hipotético: <strong>− ${money(result.assumedDiscountCents)}</strong></div>
+        <div class="order-line">Total de teste: <strong>${money(result.simulatedTotalCents)}</strong></div>
+        ${result.mixedLoadRequiresVerification?'<div class="notice">Gás com outros produtos: capacidade de transporte misto ainda não validada.</div>':''}
+        <small>Cálculo interno. Nenhuma oferta pública, pedido, Pix ou reserva de estoque foi criada.</small>
+      </div>`:''}
+      ${result?.ok&&state.mode!=='basket'?`<div class="card flat" aria-label="Resultado do teste de preços">
         <strong>${esc(result.productName)} · ${result.quantity} unidade(s)</strong>
         ${result.hasPriceRange?'<small>Faixa cadastrada por unidade: '+
           money(result.minUnitPriceCents)+' a '+money(result.maxUnitPriceCents)+
@@ -1049,6 +1129,31 @@ function adminMerchantTrialView(detail){
       </div>`:''}
     </div>
   </section>`;
+}
+function adminMerchantTrialBasketCalculate(){
+  if(!adminReady()||!adminRoleCanSection('partners'))return;
+  const detail=adminRuntime.detail;
+  if(detail?.type!=='merchant'||!detail.merchant?.id)return;
+  const rows=Array.isArray(detail.catalog)?detail.catalog:[];
+  const basket={};
+  for(const p of rows){
+    if(!p?.product_code||!p.active||!Number.isSafeInteger(p.price_cents)||
+       p.price_cents<=0||!Number.isSafeInteger(p.available_stock)||p.available_stock<=0)continue;
+    const raw=document.getElementById('admin-merchant-basket-'+p.product_code)?.value;
+    if(raw==null)continue;
+    const value=String(raw).trim();
+    basket[p.product_code]=/^(?:0|[1-9]|1\d|20)$/.test(value)?Number(value):NaN;
+  }
+  const discountRaw=String(document.getElementById('admin-merchant-trial-benefit')?.value||'').trim();
+  const discount=discountRaw==='0'||discountRaw==='0,00'||discountRaw==='0.00'
+    ?0:adminFinanceLabCents(discountRaw);
+  const result=adminMerchantTrialBasketEstimate(detail,basket,discount);
+  adminRuntime.merchantTrial={
+    mode:'basket',adminUserId:String(adminRuntime.session?.user?.id||''),
+    merchantId:detail.merchant.id,basket,discountCents:discount,
+    result:result.ok?result:null,error:result.ok?null:result.reason
+  };
+  render();
 }
 function adminMerchantTrialCalculate(){
   if(!adminReady()||!adminRoleCanSection('partners'))return;
