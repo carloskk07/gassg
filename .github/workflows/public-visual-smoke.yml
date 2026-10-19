@@ -43,11 +43,15 @@ jobs:
             --remote-debugging-port=9230 --remote-allow-origins='*' \
             --user-data-dir=/tmp/tamao-visual-chrome about:blank \
             >/tmp/tamao-visual-chrome.log 2>&1 &
-          for attempt in $(seq 1 40); do
+          # Hosted runners may need more than 10 seconds for the first
+          # Chrome headless startup. Keep the real CDP health assertion.
+          for attempt in $(seq 1 160); do
             if curl -fsS http://127.0.0.1:9230/json/version >/dev/null 2>&1; then exit 0; fi
             sleep 0.25
           done
-          cat /tmp/tamao-visual-chrome.log
+          echo 'Chrome CDP did not become ready within 40s'
+          cat /tmp/tamao-visual-chrome.log || true
+          ps -ef | grep -E '[c]hrome|[c]hromium' || true
           exit 1
 
       - name: Desktop tablet mobile real-browser screenshot and overflow gate
