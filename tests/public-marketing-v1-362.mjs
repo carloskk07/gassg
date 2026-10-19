@@ -232,8 +232,8 @@ assert.match(quoteBoard,/Ver cupons e Clube/);
 assert.ok(quoteBoard.includes('Ver cupons e Clube'),'coupon CTA must exist');
 assert.ok(!quoteBoard.includes('Os preços reais substituem as referências automaticamente'),
  'internal data-refresh copy must not be shown to customers');
-assert.ok(quoteBoard.includes('snapshot?.real===true'),'only verified data may become an offer');
-assert.ok(quoteBoard.includes('snapshot?.notAQuote===true'),'regional data is not a quote');
+assert.ok(quoteBoard.includes('snapshot.real===true'),'only verified data may become an offer');
+assert.ok(quoteBoard.includes('snapshot.notAQuote===true'),'regional data is not a quote');
 assert.ok(quoteBoard.includes('real.length?liveCards:references'),
  'do not show pending merchant prices as approved offers');
 assert.match(customer,/tamao-checkout-total-compare/);
