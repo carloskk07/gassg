@@ -35,6 +35,20 @@ const db={
         {id:'request-b',status:'pending',expected_amount_cents:5000,request_kind:'package_purchase'}
       ],error:null})})})
     };
+    if(name==='merchant_billing_payment_events')return {
+      select:()=>({in:()=>({order:()=>({limit:async()=>({data:[
+        {payment_request_id:'request-a',provider:'mercadopago',status:'ignored',
+          amount_cents:30000,received_at:'2026-10-16T12:00:00Z',
+          applied_at:null,ignored_at:'2026-10-16T12:01:00Z',
+          payer_reference:'PRIVATE_PAYER_DO_NOT_LEAK'},
+        {payment_request_id:'request-b',provider:'mercadopago',status:'matched',
+          amount_cents:3000,received_at:'2026-10-18T18:00:00Z',
+          applied_at:'2026-10-18T18:05:00Z',ignored_at:null},
+        {payment_request_id:'request-b',provider:'another_provider',status:'matched',
+          amount_cents:5000,received_at:'2026-10-18T19:00:00Z',
+          applied_at:'2026-10-18T19:05:00Z',ignored_at:null}
+      ],error:null})})})})
+    };
     throw new Error('Unexpected table: '+name);
   }
 };
@@ -50,27 +64,46 @@ const data=await context.diagnose(db);
 assert.equal(data.ok,true);
 assert.equal(data.readOnly,true);
 assert.equal(data.count,2);
-assert.deepEqual(tables,['merchant_billing_provider_charges','merchant_billing_payment_requests']);
+assert.deepEqual(tables,['merchant_billing_provider_charges',
+  'merchant_billing_payment_requests','merchant_billing_payment_events']);
 const old=data.charges.find(c=>c.chargeId==='charge-old');
 const broken=data.charges.find(c=>c.chargeId==='charge-new');
 assert.equal(old.codeValid,true);
 assert.equal(old.expired,true);
 assert.equal(old.displayableInPortal,false);
 assert.ok(old.issues.includes('PIX_EXPIRED'));
+assert.equal(old.webhook.receivedCount,1);
+assert.equal(old.webhook.ignoredCount,1);
+assert.equal(old.webhook.appliedCount,0);
+assert.equal(old.webhook.status,'ignored');
+assert.ok(!old.issues.includes('SETTLEMENT_EVENT_NOT_FOUND'),
+  'an expired uncollected Pix is not automatically a reconciliation failure');
 assert.equal(broken.codeValid,false);
 assert.equal(broken.amountMatches,false);
 assert.ok(broken.issues.includes('REQUEST_AMOUNT_MISMATCH'));
 assert.equal(broken.displayableInPortal,false);
 assert.ok(broken.issues.includes('PIX_BR_CODE_CRC_INVALID'));
+assert.equal(broken.webhook.receivedCount,1,'do not mix PSP providers for same request');
+assert.equal(broken.webhook.appliedCount,1);
+assert.equal(broken.webhook.status,'applied');
+assert.equal(broken.webhook.amountMismatch,true);
+assert.ok(broken.issues.includes('WEBHOOK_AMOUNT_MISMATCH'));
 assert.ok(!JSON.stringify(data).includes('PRIVATE_BR_CODE'),
  'sensitive codes must not be sent to the browser');
 assert.ok(!JSON.stringify(data).includes('merchant_id'),
  'the diagnosis does not expose merchant identity');
+assert.ok(!JSON.stringify(data).includes('PRIVATE_PAYER'),
+ 'private payer references must not appear in diagnostics');
+assert.equal(data.evidenceLimit,100);
+assert.match(data.note,/Webhook recebido não comprova pagamento/);
 const dispatch=edge.indexOf('if(action==="finance-lab-charge-diagnostics")');
 assert.ok(dispatch>=0);
 assert.match(edge.slice(dispatch,dispatch+420),/adminAccess.admin_role\)!=="superadmin"/);
 assert.match(bootstrap,/adminFinanceLabDiagnoseChargesFromUi/);
-assert.match(admin,/Diagnosticar cobranças PIX/);
+assert.match(admin,/Diagnosticar cobranças PIX e webhooks/);
+assert.match(admin,/Evento aplicado/);
+assert.match(admin,/Evento ignorado/);
+assert.match(admin,/Sem evento registrado/);
 assert.match(admin,/Código estruturalmente válido não confirma/);
 assert.match(edge,/displayableInPortal/);
 const start=admin.indexOf('async function adminFinanceLabDiagnoseChargesFromUi(');
@@ -88,4 +121,4 @@ await uiCtx.refresh();
 assert.equal(calls,1);
 assert.equal(rt.financeLab.charges.count,2);
 assert.equal(rt.financeLab.chargesLoading,false);
-console.log('PASS: admin PIX diagnosis, expiration, CRC failure, amount mismatch, no sensitive code');
+console.log('PASS: Admin PIX diagnosis + webhook evidence, provider isolation and no sensitive data');
