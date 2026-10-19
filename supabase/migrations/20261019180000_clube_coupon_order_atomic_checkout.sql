@@ -55,7 +55,7 @@ create table public.clube_coupon_paid_order_applications(
  quote_id uuid not null unique references public.quotes(id) on delete restrict,
  invoice_id uuid not null references public.clube_coupon_paid_invoices(id),
  customer_user_id uuid not null references auth.users(id),
- merchant_id uuid not null references public.merchants(id),
+ quoted_merchant_id uuid not null references public.merchants(id),
  face_cents integer not null check(face_cents>0),
  net_proceeds_reference text not null,
  original_order_cashback_cents integer not null check(original_order_cashback_cents>=face_cents),
@@ -193,7 +193,7 @@ begin
  v_order_id:=(v_result->>'orderId')::uuid;
  select * into v_order from public.orders where id=v_order_id for update;
  if not found or v_order.customer_id<>p_user_id
-    or v_order.merchant_id<>v_quote.merchant_id
+    or coalesce(v_order.merchant_id,v_order.proposed_merchant_id)<>v_quote.merchant_id
     or v_order.gross_total_cents<>v_quote.gross_total_cents
     or v_order.cashback_reserved_cents<>v_after
     or v_order.cashback_reserved_cents<v_face
@@ -207,11 +207,11 @@ begin
     and reserved_quote_id=p_quote_id;
  if not found then raise exception 'COUPON_REDEMPTION_RACE' using errcode='40001';end if;
  insert into public.clube_coupon_paid_order_applications(
-  voucher_id,order_id,quote_id,invoice_id,customer_user_id,merchant_id,
+  voucher_id,order_id,quote_id,invoice_id,customer_user_id,quoted_merchant_id,
   face_cents,net_proceeds_reference,original_order_cashback_cents,
   original_order_total_cents)
  values(v_voucher.id,v_order.id,p_quote_id,v_invoice.id,p_user_id,
-  v_order.merchant_id,v_face,v_invoice.net_proceeds_reference,
+  v_quote.merchant_id,v_face,v_invoice.net_proceeds_reference,
   v_order.cashback_reserved_cents,v_order.total_cents);
  return v_result||pg_catalog.jsonb_build_object(
   'couponAppliedCents',v_face,'couponVoucherId',p_voucher_id,
