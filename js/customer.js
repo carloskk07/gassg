@@ -603,7 +603,7 @@ function home(){
     <div class="hero-overline">COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
-    <p class="hero-lead"><strong>Gás, água e essenciais para sua rotina. Mais economia para sua compra.</strong> Escolha produtos, compare o total com entrega, consulte seu Clube e descubra as vantagens TAMÃO.</p>
+    <p class="hero-lead"><strong>Gás, água e essenciais para sua rotina. Mais economia para sua compra.</strong> Compare preços, confira o total com entrega, consulte seu Clube e descubra as vantagens TAMÃO.</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
       <span>💰 Compare ofertas e confira o total</span>
       <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
