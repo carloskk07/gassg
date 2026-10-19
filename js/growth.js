@@ -52,6 +52,11 @@ function clubePaidCouponOptions(){
     Date.parse(v.expiresAt)>now
   );
 }
+function clubePaidCouponSelectedIntent(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  return userId&&clubePaidCheckoutSelection.userId===userId?
+    clubePaidCheckoutSelection.voucherId:null;
+}
 function clubePaidCouponVoucherForQuote(quoteTotalCents){
   const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(clubePaidCheckoutSelection.userId!==userId||!userId||
