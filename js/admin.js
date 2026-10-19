@@ -4195,17 +4195,19 @@ function adminFinanceLabView(d){
 
 function adminFinanceWorkspaceCurrent(){
   const selected=String(adminRuntime.financeWorkspace||'summary');
-  return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)?selected:'summary';
+  return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)
+    &&(selected!=='lab'||adminCurrentRole()==='superadmin')?selected:'summary';
 }
 function adminFinanceWorkspaceNav(){
   if(!adminRoleCanSection('finance'))return '';
   const selected=adminFinanceWorkspaceCurrent();
+  const items=ADMIN_FINANCE_WORKSPACES.filter(item=>item.id!=='lab'||adminCurrentRole()==='superadmin');
   return `<section class='admin-finance-workspace-nav' aria-label='Navegação interna do Financeiro'>
     <div class='section-head'><div><span class='section-kicker'>CENTRAL FINANCEIRA</span>
       <h2>O que você precisa acompanhar?</h2>
       <p>Escolha uma área. Você pode voltar ao resumo a qualquer momento, sem perder os dados já consultados.</p></div></div>
     <nav class='admin-finance-areas' aria-label='Áreas do Financeiro'>
-      ${ADMIN_FINANCE_WORKSPACES.map(item=>`<button type='button'
+      ${items.map(item=>`<button type='button'
         id='admin-finance-switch-${item.id}'
         class='admin-finance-area ${selected===item.id?'active':''}'
         aria-pressed='${selected===item.id}'
@@ -4218,7 +4220,8 @@ function adminFinanceWorkspaceNav(){
 function adminSetFinanceWorkspace(workspace){
   if(!adminRoleCanSection('finance'))return;
   const key=String(workspace||'');
-  if(!ADMIN_FINANCE_WORKSPACES.some(item=>item.id===key))return;
+  if(!ADMIN_FINANCE_WORKSPACES.some(item=>item.id===key)
+    ||(key==='lab'&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   render();
   requestAnimationFrame(()=>{
