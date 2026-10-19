@@ -9,6 +9,9 @@ on:
       - 'supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql'
       - 'tests/coupon-finance-postgres-17.sql'
       - 'tests/coupon-quote-reservation-postgres-17.sql'
+      - 'supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql'
+      - 'tests/coupon-atomic-checkout-fixture-postgres-17.sql'
+      - 'tests/coupon-atomic-checkout-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
 
@@ -57,3 +60,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-finance-postgres-17.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-quote-reservation-postgres-17.sql
+          # This stubbed checkout exists only inside this ephemeral PG17 job.
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-fixture-postgres-17.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-postgres-17.sql
