@@ -307,3 +307,14 @@
 - **Estado real preservado:** Supabase em `PRELAUNCH`, `commerce_enabled=false`; revenda existente `pending`/offline e com `price_confirmed_at=null`; ainda 1 inscrição, 0 pedidos, migração de expansão não aplicada. Nenhuma ativação automática, preço forjado ou compra/pagamento de teste.
 
 - **Próxima tarefa prioritária:** conferir novo atestado SHA nos três portais, depois homologação real OTP de **duas contas distintas** e múltiplos CNPJs legítimos, verificação do vínculo pelo admin, proteção de leitura cruzada e retorno/edição. Só então oferta e pedido real com revenda apta/autorizações. Manter Profissionais/Caronas/Hospedagens/Ads/SEO isolados na PR #492 draft. Após squash #497 a branch canônica pode ficar mais commits atrás da `main` no histórico; preservar o ramo e reconciliar antes de merge futuro, sem criar estruturas paralelas.
+
+
+## Reconciliação de publicação e aprovação direta — PR #497 (18/10/2026)
+
+- **Publicação confirmada pelo atestador confiável:** o Supabase recebeu `platform_portal_attestations` em `2026-10-19T01:43:35Z`, fonte `github_oidc_edge`, com `source_sha=958963f1492def01c03020957a55f9e9cb7464f6` e `allPortalsReady=true`. Portais `customer`, `merchant`, `admin` apresentaram `htmlStatus=200`, `buildStatus=200`, `runtimeStatus=200`, `turnstileProduction=true` e mesmo SHA nas origens `https://tamao.com.br`, `https://parceiro.tamao.com.br`, `https://admin.tamao.com.br`. Isso comprova reconciliação automática de publicação, não E2E com contas reais.
+
+- **Autoridade da aprovação checada no SQL real (somente leitura):** `public.admin_execute_action` chama `public.admin_approve_merchant_application` para `approve-application`; esta função exige `require_platform_admin`, bloqueia CNPJ com owner conflitante, cria revenda nova `pending`/offline (ou reaproveita revenda elegível), vincula o `applicant_user_id` como `owner`, provisiona `merchant_compliance` pendente e grava auditoria. O status `approved` da inscrição não libera vendas nem define compliance verificado. Isso é caminho administrativo real existente, não funcionalidade recém-implantada.
+
+- **Pendências reais:** 1 revenda ainda `pending`/offline, preços gerais e comprovação regulatória pendentes, 1 inscrição e 0 pedidos. `PRELAUNCH`, comércio global e São Gabriel desligados. Testar envio OTP/cadastro por **duas identidades diferentes** e revisão administrativa real, confirmação operacional da revenda e pedido assistido com autorização antes de abrir. Nenhum cadastro artificial foi criado nesta sessão. Migração de expansão não aplicada.
+
+- **Estado da execução:** correção multiempresa agora em produção via PR #497; PR #492 permanece única branch de expansão draft com divergência histórica após squash das PRs comerciais #496 e #497. Não mesclar a PR #492 até reconciliar `main` e concluir os gates próprios de anúncios/Storage/RLS/SEO/Ads.
