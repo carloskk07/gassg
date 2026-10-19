@@ -416,10 +416,11 @@ async function discoveryOwnerRemovePhoto(photoPath){
     // Storage RLS separately forbids deleting any photo still referenced.
     await discoveryOwnerRefresh();
     const persisted=s.items.find(item=>item.id===d.id);
+    // A second editor may add/remove OTHER images after the RPC commits.
+    // Only the target's absence is required; comparing whole arrays would
+    // incorrectly treat a legitimate concurrent edit as failed cleanup.
     if(!persisted||!Array.isArray(persisted.photo_urls)||
-      persisted.photo_urls.includes(key)||
-      persisted.photo_urls.length!==updated.data.length||
-      updated.data.some(photo=>!persisted.photo_urls.includes(photo)))
+      persisted.photo_urls.includes(key))
       throw Error('PHOTO_UNLINK_UNCONFIRMED');
     d.photo_urls=persisted.photo_urls.slice();
     try{
