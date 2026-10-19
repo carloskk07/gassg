@@ -2647,6 +2647,19 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
       statementId:statement,
       refundRecoveryId:recovery
     },{idempotencyKey}));
+    // Refuse to announce a successful new Pix unless the server has proved
+    // an active code with a future expiry. A stale QR is not a payment option.
+    const charge=result?.charge;
+    if(charge?.status==='completed'){
+      await merchantRefresh({silent:true});
+      return {...result,alreadyReceived:true};
+    }
+    if(charge?.status!=='active'||typeof charge.brCode!=='string'
+      ||charge.brCode.length<30||!Number.isFinite(Date.parse(charge.expiresAt))
+      ||Date.parse(charge.expiresAt)<=Date.now()){
+      await merchantRefresh({silent:true});
+      throw new Error('O Pix não ficou disponível para pagamento. Atualize o financeiro e gere um novo código.');
+    }
     await merchantRefresh({silent:true});
     return result;
   }catch(error){
