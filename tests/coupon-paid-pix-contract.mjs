@@ -12,8 +12,14 @@ for(const table of ['clube_coupon_paid_packages','clube_coupon_paid_invoices','c
  assert.match(migration,new RegExp('alter table public\\.'+table+' enable row level security'));
  assert.match(migration,new RegExp('revoke all on public\\.'+table+' from public,anon,authenticated'));
 }
-assert.match(migration,/not sale_enabled or \(funding_verified and legal_terms_verified and redeem_settlement_verified\)/,
- 'unsponsored/unsettled coupon cannot be sold');
+assert.match(migration,/not sale_enabled or \(/,
+ 'unapproved financial packages must not go on sale');
+assert.match(migration,/funding_verified and legal_terms_verified and redeem_settlement_verified/,
+ 'commercial authorization requires contract, funding and settlement');
+assert.match(migration,/sale_price_cents::bigint>=coupon_face_cents::bigint\*coupons_per_pack::bigint/,
+ 'the cash received must cover all face-value obligations before a sale');
+assert.match(coupon,/pkg.sale_price_cents<pkg.coupon_face_cents\*pkg.coupons_per_pack/,
+ 'the PIX edge must independently check package funding');
 assert.doesNotMatch(migration,/insert into public\.clube_coupon_paid_packages/i,
  'migration cannot switch on a live package');
 assert.match(migration,/unique\(customer_user_id,request_id\)/,
@@ -24,6 +30,24 @@ assert.match(migration,/where id=p_invoice_id for update/,
  'credit verification and refunds need row locking');
 assert.match(migration,/on conflict \(invoice_id,ordinal\) do nothing/,
  'duplicated Mercado Pago webhooks cannot duplicate credits');
+assert.match(migration,/create or replace function public.clube_coupon_paid_quote_reserve\(/);
+assert.match(migration,/create or replace function public.clube_coupon_paid_quote_release\(/);
+assert.match(migration,/reserved_quote_id uuid/);
+assert.match(migration,/clube_coupon_one_reservation_per_quote/);
+assert.match(migration,/v_invoice.status<>'paid'/,
+ 'an unpaid voucher cannot be reserved');
+assert.match(migration,/v_quote.customer_id<>p_customer_user_id/,
+ 'a customer may not bind vouchers to another person\'s quote');
+assert.match(migration,/v_quote.gross_total_cents<v_voucher.face_cents/,
+ 'voucher may not exceed current quote');
+assert.match(migration,/v_invoice.sale_price_cents::bigint</,
+ 'reservation requires lastro integral do pacote');
+assert.ok(migration.includes("'appliedCents',0"),
+ 'a reservation is not a redeemed discount');
+for(const fn of ['clube_coupon_paid_quote_reserve','clube_coupon_paid_quote_release']){
+  assert.match(migration,new RegExp('revoke all on function public\\\\.'+fn));
+  assert.match(migration,new RegExp('grant execute on function public\\\\.'+fn+'[\\\\s\\\\S]*?to service_role'));
+}
 for(const func of ['clube_coupon_paid_payment_verify','clube_coupon_paid_payment_refund',
  'clube_coupon_paid_payment_review']){
  assert.match(migration,new RegExp('revoke all on function public\\.'+func));
