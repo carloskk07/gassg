@@ -111,7 +111,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","clube-coupon-preview",
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status",
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
@@ -2188,6 +2188,95 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="clube-coupon-finance-status"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A conciliação de cupons exige perfil financeiro.",403);
+      }
+      // Read only. Empty is NOT a green light to enable coupon sales.
+      const missingTable=(error:any)=>["PGRST205","42P01"].includes(
+        String(error?.code||""));
+      const packageResult=await admin.from("clube_coupon_paid_packages")
+        .select("package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sale_price_cents,coupon_face_cents,coupons_per_pack")
+        .limit(101);
+      if(packageResult.error){
+        if(missingTable(packageResult.error)){
+          return json({source:"clube_coupon_finance_status_v1",readOnly:true,
+            schemaInstalled:false,coverage:"unavailable",
+            salesEnabled:false,checkoutEnabled:false,
+            items:[],pendingNetCount:null,refundReviewCount:null,
+            merchantSettlementPendingCount:null,unfundedOfferCount:null,
+            paymentsChecked:false,reason:"COUPON_FINANCE_SCHEMA_NOT_INSTALLED"
+          },200,origin);
+        }
+        throw packageResult.error;
+      }
+      const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
+        admin.from("clube_coupon_paid_invoices")
+          .select("status,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
+          .limit(101),
+        admin.from("clube_coupon_paid_issuances")
+          .select("status").limit(101),
+        admin.from("clube_coupon_paid_order_applications")
+          .select("order_id").limit(26)
+      ]);
+      if(invoiceResult.error||voucherResult.error||applicationResult.error){
+        throw invoiceResult.error||voucherResult.error||applicationResult.error;
+      }
+      // A bounded list is never allowed to report all-clear when truncated.
+      const bounded=packageResult.data?.length===101||
+        invoiceResult.data?.length===101||
+        voucherResult.data?.length===101||
+        applicationResult.data?.length===26;
+      const invoiceRows=invoiceResult.data||[];
+      const voucherRows=voucherResult.data||[];
+      const packages=packageResult.data||[];
+      const pendingNet=invoiceRows.filter((row:any)=>
+        row.status==="paid" && !row.net_proceeds_verified_at).length;
+      const financialReviews=invoiceRows.filter((row:any)=>
+        row.status==="review_required").length+
+        voucherRows.filter((row:any)=>row.status==="review_required").length;
+      const unfunded=packages.filter((pkg:any)=>
+        pkg.sale_enabled===true&&(
+          pkg.funding_verified!==true||pkg.legal_terms_verified!==true||
+          pkg.redeem_settlement_verified!==true||
+          pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack)
+      ).length;
+      // A separate query reuses the existing immutable accounting report.
+      let pendingSettlement=0;
+      let failedSettlement=0;
+      for(const item of applicationResult.data||[]){
+        const {data,error}=await admin.rpc("clube_coupon_paid_order_reconciliation",{
+          p_order_id:item.order_id
+        });
+        if(error||data?.source!=="clube_coupon_paid_order_reconciliation_v1"){
+          failedSettlement++;continue;
+        }
+        if(["MERCHANT_REIMBURSEMENT_MISSING","MERCHANT_REIMBURSEMENT_MISMATCH",
+          "MERCHANT_REIMBURSEMENT_DUE","CANCELLATION_REVIEW","REVERSAL_REVIEW",
+          "FINANCIAL_REVIEW"].includes(data.status))pendingSettlement++;
+      }
+      return json({
+        source:"clube_coupon_finance_status_v1",
+        readOnly:true,schemaInstalled:true,
+        coverage:bounded||failedSettlement>0?"partial":"bounded_under_limits",
+        salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+        checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
+        packageCount:packages.length,invoiceCount:invoiceRows.length,
+        voucherCount:voucherRows.length,
+        issuedCount:voucherRows.filter((v:any)=>v.status==="issued").length,
+        redeemedCount:voucherRows.filter((v:any)=>v.status==="redeemed").length,
+        pendingNetCount:pendingNet,
+        refundReviewCount:financialReviews,
+        unfundedOfferCount:unfunded,
+        merchantSettlementPendingCount:failedSettlement?null:pendingSettlement,
+        missingSettlementEvidenceCount:failedSettlement,
+        paymentsChecked:false,
+        reportType:"MP_RELEASES_REQUIRES_OPERATOR_RECONCILIATION",
+        refreshedAt:new Date().toISOString()
+      },200,origin);
+    }
 
     if(action==="clube-coupon-preview"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
