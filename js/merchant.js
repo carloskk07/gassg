@@ -608,6 +608,10 @@ function merchantLiveNoAccess(){
         :'';
   const applicationAction=applicationStatus==='rejected'?'Corrigir e reenviar':
     applicationStatus==='pending'?'Revisar cadastro':'Cadastrar empresa';
+  const anotherCompany=!roleBlocked&&Array.isArray(rt.ownApplications)&&rt.ownApplications.length>0&&
+    !globalThis.merchantPilotInviteToken?.()&&!globalThis.merchantProspectInviteToken?.()
+    ?'<button type="button" class="secondary full" style="margin-top:12px" onclick="merchantPickOwnApplicationFromUi(\'__new__\')">Cadastrar outra empresa</button>'
+    :'';
   return shell(`<section class="page">
     <span class="eyebrow">CONTA AUTENTICADA</span>
     <h1 class="page-title">${roleBlocked?'Seu acesso à revenda ainda não foi liberado':'Ainda não encontramos uma revenda vinculada'}</h1>
@@ -619,6 +623,7 @@ function merchantLiveNoAccess(){
     ${roleBlocked
       ? '<div class="notice" style="margin-top:16px"><strong>Acesso à revenda ainda não liberado.</strong><br>Seu usuário ainda não tem permissão para operar esta revenda.</div>'
       : applicationStatus==='approved'?'': '<div class="card flat" style="margin-top:16px"><h3>Seu cadastro</h3><p class="muted tiny">Se precisar corrigir alguma informação, atualize o cadastro já enviado.</p><button class="primary full" onclick="go(\'merchant-join\')">'+applicationAction+'</button></div>'}
+    ${anotherCompany}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
