@@ -521,12 +521,24 @@ async function handlePaidCouponOrder(
   ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
   ||["refunded","partially_refunded"].includes(String(order?.status??"").toLowerCase());
  if(hasRefund){
-  const {data,error}=await admin.rpc("clube_coupon_paid_payment_refund",{
+  const refunded=refunds.reduce((total:number,r:any)=>{
+    if(!["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
+      return total;
+    return total+(moneyToCents(r.amount)??0);
+  },0);
+  // A partial refund, status inconsistency or chargeback needs manual
+  // allocation review. It may never be treated as a full paid voucher.
+  const fullRefund=refunded>=Number(invoice.sale_price_cents)&&
+    refunded>0;
+  const rpc=fullRefund?"clube_coupon_paid_payment_refund":
+    "clube_coupon_paid_payment_review";
+  const {data,error}=await admin.rpc(rpc,{
    p_invoice_id:invoice.id,p_provider_order_id:dataId
   });
   if(error)throw error;
   return json({ok:true,route:"coupon_funding",provider:"mercadopago",
-   status:"refunded",reviewRequired:data?.reviewRequired===true},200);
+   status:fullRefund?"refunded":"review_required",
+   reviewRequired:!fullRefund||data?.reviewRequired===true},200);
  }
  const providerStatus=String(order?.status??"").toLowerCase();
  if(providerStatus==="processed"&&
