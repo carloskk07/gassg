@@ -189,4 +189,78 @@ for(const [status,appError] of [['unavailable',null],['no-access','NETWORK_ERROR
 }
 assert.equal(guardedJoin('unauthenticated'),'LOGIN');
 
+
+// One owner may submit several distinct CNPJs; changing the selected
+// application must not silently overwrite the first company's draft.
+const companyBegin=growth.indexOf('function merchantPickOwnApplicationFromUi(');
+assert.ok(companyBegin>=0);
+const companySource=growth.slice(companyBegin,joinEnd);
+const applications=[
+ {id:'app-a',company_name:'Empresa Alfa',cnpj:'12345678000190',status:'pending',responsible_name:'Ana',phone:'55999998888',address_text:'Rua A'},
+ {id:'app-b',company_name:'Empresa Beta',cnpj:'22345678000190',status:'approved',responsible_name:'Beto',phone:'55999997777',address_text:'Rua B'}
+];
+const merchantState={
+ status:'no-access',session:{access_token:'test-session'},ownApplications:applications,
+ selectedApplicationId:null,newApplicationMode:false
+};
+let companyRenders=0;
+const companyCtx=vm.createContext({
+ globalThis:{
+   merchantPortalRequested:()=>true,merchantRuntime:merchantState,
+   merchantOwnApplicationForInvite:()=>applications.find(a=>a.id===merchantState.selectedApplicationId)||applications[0],
+   __CHAMA_TEST__:false
+ },
+ shell:html=>html,
+ esc:value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])),
+ render:()=>{companyRenders++},
+ currentMerchantProspectInviteToken:()=>'',currentMerchantPilotInviteToken:()=>'',growthAttributionCode:()=>'',
+ route:()=> 'merchant-join'
+});
+vm.runInContext(companySource+';this.join=merchantJoin;this.pick=merchantPickOwnApplicationFromUi;',companyCtx);
+let listing=companyCtx.join();
+assert.match(listing,/Escolha a empresa/);
+assert.match(listing,/Empresa Alfa/);
+assert.match(listing,/Empresa Beta/);
+assert.match(listing,/value="12345678000190"/);
+companyCtx.pick('__new__');
+listing=companyCtx.join();
+assert.equal(merchantState.newApplicationMode,true);
+assert.match(listing,/value="__new__" selected/);
+assert.doesNotMatch(listing,/value="12345678000190"/);
+assert.match(listing,/Enviar cadastro da minha empresa/);
+companyCtx.pick('app-b');
+listing=companyCtx.join();
+assert.equal(merchantState.selectedApplicationId,'app-b');
+assert.match(listing,/value="22345678000190"/);
+assert.match(listing,/Empresa já aprovada/);
+companyCtx.pick('not-my-company');
+assert.equal(merchantState.selectedApplicationId,'app-b',
+ 'unowned company IDs must not be selected');
+assert.equal(companyRenders,2);
+const ownFnStart=backend.indexOf('function merchantOwnApplicationForInvite(){');
+const ownFnEnd=backend.indexOf('\nasync function merchantSendLogin(',ownFnStart);
+assert.ok(ownFnStart>=0&&ownFnEnd>ownFnStart);
+const ownCtx=vm.createContext({
+ merchantRuntime:{ownApplications:applications,selectedApplicationId:'app-b'},
+ globalThis:{merchantProspectInviteDetails:()=>null}
+});
+vm.runInContext(backend.slice(ownFnStart,ownFnEnd)+';this.own=merchantOwnApplicationForInvite;',ownCtx);
+assert.equal(ownCtx.own().id,'app-b','owner selection must use only their own list');
+ownCtx.merchantRuntime.selectedApplicationId='unowned-id';
+assert.equal(ownCtx.own().id,'app-a','forged selection must fall back to own first application');
+ownCtx.globalThis.merchantProspectInviteDetails=()=>({cnpj:'22345678000190'});
+assert.equal(ownCtx.own().id,'app-b','verified prospect invite match overrides previous selector');
+assert.ok(backend.includes('merchantRuntime.selectedApplicationId')&&
+ backend.includes('merchantRuntime.newApplicationMode=false'),
+ 'the selected application must be reset on logout');
+assert.ok(bootstrap.includes('merchantPickOwnApplicationFromUi'),
+ 'existing company selector must be wired in the merchant portal');
+const merchantLive=read('js/merchant.js');
+assert.match(merchantLive,/const anotherCompany=/);
+assert.match(merchantLive,/Cadastrar outra empresa/);
+assert.ok(merchantLive.includes('${anotherCompany}'),
+ 'approved application must not strand an owner who wants another company');
+assert.ok(growth.includes("if(route()!=='merchant-join')go('merchant-join')"),
+ 'new-company button from the dashboard must route to the form');
+
 console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');
