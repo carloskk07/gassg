@@ -7,6 +7,11 @@ const billing=read('supabase/functions/merchant-billing-pix/index.ts');
 const coupon=read('supabase/functions/coupon-credit-pix/index.ts');
 const webhook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
 const shared=read('supabase/functions/_shared/mercadopago.js');
+const quotePg=read('tests/coupon-quote-reservation-postgres-17.sql');
+assert.match(quotePg,/set_config\('tamao\.coupon\.isolated_quote_fixture','true',false\)/,
+ 'quote fixture marker must survive two DO statements in one psql session');
+assert.match(quotePg,/COUPON_QUOTE_FIXTURE_FLAG_LOST/,
+ 'CI must fail instead of silently skipping real coupon reservations');
 for(const table of ['clube_coupon_paid_packages','clube_coupon_paid_invoices','clube_coupon_paid_issuances']){
  assert.match(migration,new RegExp('create table if not exists public\\.'+table));
  assert.match(migration,new RegExp('alter table public\\.'+table+' enable row level security'));
