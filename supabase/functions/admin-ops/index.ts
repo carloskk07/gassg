@@ -10,6 +10,7 @@ import {
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
 import { mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
+import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 
@@ -619,6 +620,258 @@ async function mercadoPagoBillingProviderHealth(admin:any){
   }finally{
     clearTimeout(timer);
   }
+}
+
+
+// The financial lab only exercises the provider's TEST credentials. It never
+// touches billing requests, receipts, credit ledgers or live merchant orders.
+
+const FINANCE_LAB_PIX_TEST_AMOUNT_CENTS=5000; // Mercado Pago's official test scenario: R$ 50.
+function adminFinanceLabConfig(){
+  const enabled=String(Deno.env.get("FINANCE_LAB_SANDBOX_ENABLED")??"").trim()==="true";
+  const token=String(Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")??"").trim();
+  const payerEmail=String(Deno.env.get("FINANCE_LAB_TEST_PAYER_EMAIL")??"").trim();
+  const productionToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  const tokenConfigured=token.length>=20&&!/[\s\u0000-\u001f\u007f]/.test(token);
+  const payerConfigured=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail);
+  const distinctToken=tokenConfigured&&(!productionToken||token!==productionToken);
+  return {enabled,tokenConfigured,payerConfigured,distinctToken,
+    ready:enabled&&tokenConfigured&&payerConfigured&&distinctToken,
+    token,payerEmail};
+}
+// Historical Pix diagnosis: read-only; never expose BR Code or payer data.
+// This cannot prove that a PSP/bank will accept a charge. It diagnoses local
+// format, value, expiration and mismatched bookkeeping evidence only.
+async function adminFinanceLabChargeDiagnostics(admin:any){
+  const {data:rows,error}=await admin.from("merchant_billing_provider_charges")
+    .select("id,payment_request_id,provider,status,amount_cents,currency,br_code,expires_at,expired_at,created_at,completed_at,last_error_code")
+    .order("created_at",{ascending:false}).limit(20);
+  if(error)throw new DomainError("FINANCE_LAB_CHARGES_UNAVAILABLE",
+    "Não foi possível conferir os registros de cobranças.",503);
+  const charges=rows||[];
+  const ids=[...new Set(charges.map((row:any)=>String(row.payment_request_id||"")).filter(Boolean))];
+  let requests:any[]=[];
+  if(ids.length){
+    const lookup=await admin.from("merchant_billing_payment_requests")
+      .select("id,status,expected_amount_cents,request_kind")
+      .in("id",ids).limit(20);
+    if(lookup.error)throw new DomainError("FINANCE_LAB_REQUESTS_UNAVAILABLE",
+      "Não foi possível conciliar as cobranças com suas solicitações.",503);
+    requests=lookup.data||[];
+  }
+  // Correlate verified charge records with received payment/webhook events.
+  // Read only: never replay a webhook or treat its receipt as a settlement.
+  let paymentEvents:any[]=[];
+  if(ids.length){
+    const evidence=await admin.from("merchant_billing_payment_events")
+      .select("payment_request_id,provider,status,amount_cents,received_at,applied_at,ignored_at")
+      .in("payment_request_id",ids)
+      .order("received_at",{ascending:false}).limit(100);
+    if(evidence.error)throw new DomainError("FINANCE_LAB_WEBHOOK_EVIDENCE_UNAVAILABLE",
+      "Não foi possível consultar os eventos de pagamento para conciliação.",503);
+    paymentEvents=evidence.data||[];
+  }
+  const byRequest=new Map(requests.map((row:any)=>[String(row.id),row]));
+  const byEvidence=new Map();
+  for(const event of paymentEvents){
+    const key=String(event.payment_request_id||"")+"|"+String(event.provider||"");
+    if(!byEvidence.has(key))byEvidence.set(key,[]);
+    byEvidence.get(key).push(event);
+  }
+  const now=Date.now();
+  const result=charges.map((charge:any)=>{
+    const amount=Number(charge.amount_cents);
+    const request=byRequest.get(String(charge.payment_request_id||""));
+    const requestedAmount=request?Number(request.expected_amount_cents):null;
+    const expected=Number.isSafeInteger(amount)&&amount>0?amount:null;
+    const raw=String(charge.br_code??"");
+    const proof=raw?validatePixBrCode(raw,{expectedAmountCents:expected}):
+      {valid:false,reason:"PIX_BR_CODE_MISSING"};
+    const timestamp=Date.parse(String(charge.expires_at||""));
+    const hasExpiry=Number.isFinite(timestamp);
+    const expired=hasExpiry&&timestamp<=now;
+    const amountMatches=requestedAmount!=null&&Number.isSafeInteger(requestedAmount)
+      &&expected===requestedAmount;
+    const status=String(charge.status||"unknown").slice(0,60);
+    const issues:string[]=[];
+    if(!proof.valid)issues.push(String(proof.reason||"PIX_BR_CODE_INVALID"));
+    if(!hasExpiry)issues.push("EXPIRATION_UNKNOWN");
+    else if(expired)issues.push("PIX_EXPIRED");
+    if(!request)issues.push("REQUEST_MISSING");
+    else if(!amountMatches)issues.push("REQUEST_AMOUNT_MISMATCH");
+    if(status==="active"&&(expired||!hasExpiry))issues.push("ACTIVE_CHARGE_NOT_PAYABLE");
+    const events=byEvidence.get(String(charge.payment_request_id||"")+"|"+String(charge.provider||""))||[];
+    const appliedCount=events.filter((event:any)=>Boolean(event.applied_at)).length;
+    const ignoredCount=events.filter((event:any)=>Boolean(event.ignored_at)).length;
+    const pendingCount=events.length-appliedCount-ignoredCount;
+    const webhookAmountMismatch=events.some((event:any)=>{
+      const cents=Number(event.amount_cents);
+      return Number.isSafeInteger(cents)&&requestedAmount!=null&&cents!==requestedAmount;
+    });
+    if(webhookAmountMismatch)issues.push("WEBHOOK_AMOUNT_MISMATCH");
+    if(status==="completed"&&appliedCount===0)issues.push("SETTLEMENT_EVENT_NOT_FOUND");
+    const codeValid=proof.valid===true;
+    return {
+      chargeId:String(charge.id||""),provider:String(charge.provider||"unknown").slice(0,40),
+      status,requestStatus:request?String(request.status||"unknown").slice(0,60):"not_found",
+      amountCents:expected,requestedAmountCents:requestedAmount,
+      createdAt:charge.created_at,expiresAt:charge.expires_at,completedAt:charge.completed_at,
+      codeValid,codeReason:proof.reason??null,expired,hasExpiry,
+      amountMatches:request?amountMatches:null,issues,
+      webhook:{
+        receivedCount:events.length,appliedCount,ignoredCount,
+        pendingCount:Math.max(0,pendingCount),
+        lastReceivedAt:events[0]?.received_at??null,
+        status:appliedCount>0?"applied":ignoredCount>0?"ignored":
+          events.length?"received":"none",
+        amountMismatch:webhookAmountMismatch
+      },
+      displayableInPortal:status==="active"&&codeValid&&hasExpiry&&!expired&&amountMatches,
+      lastErrorCode:String(charge.last_error_code||"").slice(0,80)||null
+    };
+  });
+  return {ok:true,readOnly:true,scope:"last_20_provider_charges",
+    checkedAt:new Date().toISOString(),count:result.length,
+    charges:result,
+    evidenceLimit:100,
+    note:"Webhook recebido não comprova pagamento. Conciliação depende de evento aplicado e prova do PSP."};
+}
+
+async function adminFinanceLabReadiness(admin:any,actorId:string){
+  const config=adminFinanceLabConfig();
+  const {data,error}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_sandbox_pix_created")
+    .order("created_at",{ascending:false}).limit(12);
+  if(error)throw error;
+  return {ok:true,mode:"sandbox",provider:"mercadopago",
+    configured:config.ready,
+    prerequisites:{
+      enabled:config.enabled,tokenConfigured:config.tokenConfigured,
+      payerConfigured:config.payerConfigured,distinctToken:config.distinctToken
+    },
+    officialTestAmountCents:FINANCE_LAB_PIX_TEST_AMOUNT_CENTS,
+    recentTests:(data||[]).filter((row:any)=>
+      /^[A-Za-z0-9_-]{10,120}$/.test(String(row.target_id||""))
+    ).map((row:any)=>({
+      orderId:String(row.target_id||""),
+      amountCents:Number(row.metadata?.amountCents||0),
+      createdAt:row.created_at,
+      providerStatus:String(row.metadata?.providerStatus||"unknown")
+    })),
+    checkedAt:new Date().toISOString()
+  };
+}
+async function adminFinanceLabCheckSandboxOrder(admin:any,actorId:string,body:any){
+  const orderId=String(body?.orderId||"").trim();
+  if(!/^[A-Za-z0-9_-]{10,120}$/.test(orderId)){
+    throw new DomainError("FINANCE_LAB_INVALID_ORDER_ID","Identificador de ordem de teste inválido.",400);
+  }
+  const {data:proof,error}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata").eq("actor_user_id",actorId)
+    .eq("action","finance_lab_sandbox_pix_created").eq("target_id",orderId)
+    // A retried idempotent order can create repeated audit evidence. Choose
+    // one recent record instead of failing a maybeSingle cardinality check.
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(error)throw error;
+  if(!proof||proof.metadata?.mode!=="sandbox"||Number(proof.metadata?.amountCents)!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS){
+    throw new DomainError("FINANCE_LAB_ORDER_NOT_OWNED","Ordem não pertence aos testes deste administrador.",403);
+  }
+  const config=adminFinanceLabConfig();
+  if(!config.ready)throw new DomainError("FINANCE_LAB_TEST_CREDENTIALS_REQUIRED",
+    "Credenciais próprias de TESTE ainda indisponíveis.",409);
+  const response=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(orderId),{
+    accessToken:config.token,method:"GET"
+  });
+  const order=await readMercadoPagoJson(response);
+  if(!response.ok)throw new DomainError("FINANCE_LAB_ORDER_STATUS_FAILED",
+    "O provedor não confirmou o estado desta ordem de teste.",502);
+  if(String(order?.id||"")!==orderId
+    ||moneyToCents(order?.total_amount)!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS
+    ||String(order?.external_reference||"")!==String(proof.metadata?.externalReference||"")){
+    throw new DomainError("FINANCE_LAB_ORDER_MISMATCH",
+      "Os dados retornados pelo provedor não correspondem à ordem auditada.",409);
+  }
+  const payments=Array.isArray(order?.transactions?.payments)?order.transactions.payments:[];
+  const payment=payments.find((x:any)=>String(x?.payment_method?.id??"").toLowerCase()==="pix");
+  const sandboxUrl=safeMercadoPagoUrl(payment?.payment_method?.ticket_url);
+  if(!(order?.live_mode===false||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/")))){
+    throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX","A consulta não comprovou ambiente de teste.",409);
+  }
+  return {ok:true,mode:"sandbox",orderId,
+    amountCents:FINANCE_LAB_PIX_TEST_AMOUNT_CENTS,
+    orderStatus:String(order?.status||"unknown").slice(0,80),
+    paymentStatus:String(payment?.status||"unknown").slice(0,80),
+    paymentStatusDetail:String(payment?.status_detail||"").slice(0,100),
+    checkedAt:new Date().toISOString(),
+    credited:false
+  };
+}
+
+async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:Request){
+  const config=adminFinanceLabConfig();
+  if(!config.ready){
+    throw new DomainError("FINANCE_LAB_TEST_CREDENTIALS_REQUIRED",
+      "Configure credenciais e conta pagadora de TESTE específicas para ativar o laboratório Pix.",409);
+  }
+  const amount=body?.amountCents;
+  if(amount!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS){
+    throw new DomainError("FINANCE_LAB_TEST_AMOUNT_FIXED",
+      "O teste oficial Pix do Mercado Pago usa R$ 50,00. Valores livres estão disponíveis somente na simulação.",400);
+  }
+  const key=String(req.headers.get("Idempotency-Key")??"").trim();
+  if(key.length<12||key.length>100||!/^[a-zA-Z0-9._:-]+$/.test(key)){
+    throw new DomainError("INVALID_IDEMPOTENCY_KEY","Informe uma chave de operação válida.",400);
+  }
+  const externalReference="tamao-finlab-"+key;
+  const formatted=(amount/100).toFixed(2);
+  const response=await mercadoPagoFetch("/v1/orders",{
+    accessToken:config.token,method:"POST",idempotencyKey:key,
+    body:{
+      type:"online",total_amount:formatted,external_reference:externalReference,
+      processing_mode:"automatic",
+      transactions:{payments:[{
+        amount:formatted,payment_method:{id:"pix",type:"bank_transfer"}
+      }]},
+      payer:{email:config.payerEmail,first_name:"APRO"}
+    }
+  });
+  const order=await readMercadoPagoJson(response);
+  if(!response.ok){
+    return {ok:false,mode:"sandbox",provider:"mercadopago",apiStatus:response.status,
+      error:"FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",
+      message:"O Mercado Pago recusou a ordem de teste. Confira as credenciais de TESTE e o valor permitido pelo provedor."};
+  }
+  const payment=Array.isArray(order?.transactions?.payments)
+    ?order.transactions.payments.find((x:any)=>String(x?.payment_method?.id??"").toLowerCase()==="pix")
+    :null;
+  const method=payment?.payment_method??{};
+  const brCode=String(method?.qr_code??"");
+  const sandboxUrl=safeMercadoPagoUrl(method?.ticket_url);
+  // A test credential MUST produce explicitly non-live evidence. Fail closed
+  // when provider response cannot prove sandbox status.
+  const verifiedSandbox=order?.live_mode===false
+    ||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/"));
+  const valid=validatePixBrCode(brCode,{expectedAmountCents:amount});
+  const returnedAmount=moneyToCents(order?.total_amount);
+  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount
+    ||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order?.id||""))){
+    throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX",
+      "O provedor não confirmou o ambiente de TESTE ou devolveu PIX/valor inválido. Nenhum código será exibido.",409);
+  }
+  const {error:auditError}=await admin.from("platform_admin_audit").insert({
+    actor_user_id:actorId,action:"finance_lab_sandbox_pix_created",
+    target_type:"financial_lab_sandbox",target_id:String(order.id).slice(0,240),
+    metadata:{provider:"mercadopago",amountCents:amount,mode:"sandbox",
+      externalReference,providerStatus:String(order?.status??"unknown").slice(0,80)}
+  });
+  if(auditError)throw auditError;
+  return {ok:true,mode:"sandbox",provider:"mercadopago",amountCents:amount,
+    orderId:String(order.id),
+    reference:externalReference,orderStatus:String(order?.status??"unknown"),
+    brCode,expiresAt:null,paymentLinkUrl:sandboxUrl,
+    message:"PIX exclusivo do ambiente de TESTE; não é uma cobrança bancária pagável e não concede créditos."};
 }
 
 async function billingProviderHealth(admin:any){
@@ -5542,6 +5795,28 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="billing-provider-health"){
       return json(await billingProviderHealth(admin),200,origin);
+    }
+    if(action==="finance-lab-charge-diagnostics"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode diagnosticar cobranças.",403);
+      }
+      return json(await adminFinanceLabChargeDiagnostics(admin),200,origin);
+    }
+    if(action==="finance-lab-readiness"||action==="finance-lab-sandbox-check"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode consultar o laboratório.",403);
+      }
+      const result=action==="finance-lab-readiness"
+        ?await adminFinanceLabReadiness(admin,user.id)
+        :await adminFinanceLabCheckSandboxOrder(admin,user.id,body);
+      return json(result,200,origin);
+    }
+    if(action==="finance-lab-sandbox-pix"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode solicitar testes ao provedor.",403);
+      }
+      const result=await adminFinanceLabSandboxPix(admin,user.id,body,req);
+      return json(result,result.ok?200:502,origin);
     }
     if(action==="audit-search"){
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
