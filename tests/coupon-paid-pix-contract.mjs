@@ -45,8 +45,8 @@ assert.match(migration,/v_invoice.sale_price_cents::bigint</,
 assert.ok(migration.includes("'appliedCents',0"),
  'a reservation is not a redeemed discount');
 for(const fn of ['clube_coupon_paid_quote_reserve','clube_coupon_paid_quote_release']){
-  assert.match(migration,new RegExp('revoke all on function public\\\\.'+fn));
-  assert.match(migration,new RegExp('grant execute on function public\\\\.'+fn+'[\\\\s\\\\S]*?to service_role'));
+  assert.match(migration,new RegExp('revoke all on function public\\.'+fn));
+  assert.match(migration,new RegExp('grant execute on function public\\.'+fn+'[\\s\\S]*?to service_role'));
 }
 for(const func of ['clube_coupon_paid_payment_verify','clube_coupon_paid_payment_refund',
  'clube_coupon_paid_payment_review']){
