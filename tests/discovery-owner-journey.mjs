@@ -16,7 +16,8 @@ const testUUID=()=>{
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
-let simulatePhotoUnlinkDenied=false;
+let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false;
+const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
   description:'Atendo residências e estabelecimentos com orçamento transparente.',
   state_code:'RS',city_name:'São Gabriel',public_area:'Centro',
@@ -34,6 +35,19 @@ const client={
  },
  rpc:async(name,args)=>{
   if(name==='discovery_my_listings')return {data:records,error:null};
+  if(name==='discovery_unlink_listing_photo'){
+   const entry=records.find(r=>r.id===args.p_listing_id);
+   if(simulatePhotoUnlinkDenied)return {data:null,error:{code:'42501',message:'OWNER_DRAFT_REQUIRED'}};
+   if(!entry||!['draft','rejected'].includes(entry.status)||
+      !entry.photo_urls.includes(args.p_photo_path))
+     return {data:null,error:{code:'22023',message:'PHOTO_NOT_IN_DRAFT'}};
+   if(simulateConcurrentPhotoChange){
+    entry.photo_urls.push(concurrentPhotoKey);
+    simulateConcurrentPhotoChange=false;
+   }
+   entry.photo_urls=entry.photo_urls.filter(path=>path!==args.p_photo_path);
+   return {data:entry.photo_urls.slice(),error:null};
+  }
   if(name==='discovery_transition_listing'){
    transitions.push(args);const item=records.find(r=>r.id===args.p_listing_id);
    if(item)item.status=args.p_next_status;
@@ -210,20 +224,23 @@ simulateRemovalOutage=false;
 simulatePhotoWriteFailure=false;
 
 // Removing existing marketing images must first unlink the persisted DB
-// reference; do not call Storage.remove() when an RLS update affects zero rows.
+// reference atomically; a denied RPC may not remove Storage bytes.
 await ctx.discoveryOwnerOpen(id);
 assert.match(ctx.discoveryOwnerPage(),/Remover foto 1/);
 const beforeUnlink=removed.length;
 simulatePhotoUnlinkDenied=true;
 await ctx.discoveryOwnerRemovePhoto(filePath);
-assert.ok(records[0].photo_urls.includes(filePath),'RLS no-op must retain image reference');
+assert.ok(records[0].photo_urls.includes(filePath),'denied RPC must retain photo reference');
 assert.equal(removed.length,beforeUnlink,'no Storage deletion before confirmed DB unlink');
 simulatePhotoUnlinkDenied=false;
 
 // A Storage failure after DB unlink must be visible and offer a retry.
 simulateRemovalOutage=true;
+simulateConcurrentPhotoChange=true;
 await ctx.discoveryOwnerRemovePhoto(filePath);
 assert.ok(!records[0].photo_urls.includes(filePath),'photo must first leave draft listing');
+assert.ok(records[0].photo_urls.includes(concurrentPhotoKey),
+ 'atomic unlink must preserve a concurrent photo addition from another tab');
 assert.equal(removed.length,beforeUnlink,'failed Storage removal must not claim success');
 assert.match(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
 assert.match(ctx.discoveryOwnerPage(),/ainda precisa ser removido/);
@@ -232,7 +249,8 @@ await ctx.discoveryOwnerRetryPhotoCleanup();
 assert.equal(removed.length,beforeUnlink+1);
 assert.equal(removed.at(-1),filePath);
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
-assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover foto 1/);
+assert.match(ctx.discoveryOwnerPage(),/Remover foto 1/,
+ 'concurrently added photo must stay editable after unlink');
 await ctx.discoveryOwnerLogout();
 const loggedOut=ctx.discoveryOwnerPage();
 assert.match(loggedOut,/Receber link de acesso/);
