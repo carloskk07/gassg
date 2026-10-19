@@ -30,6 +30,71 @@ function publicLandingJump(sectionId){
   return true;
 }
 
+// Paid coupons share the customer's authenticated Supabase session.
+// The history is read-only; a purchase/resgate button is intentionally absent
+// until funded voucher settlement is authorized in the back end.
+const clubePaidCouponView={userId:null,status:'idle',purchases:[],vouchers:[],error:null};
+function clubePaidCouponPanel(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId||typeof liveReady!=='function'||!liveReady())
+    return '<section class="section"><h2>Seus cupons TAMÃO</h2>'+
+      '<p>Entre na sua conta para consultar seus cupons e benefícios.</p></section>';
+  const valid=clubePaidCouponView.userId===userId;
+  const status=valid?clubePaidCouponView.status:'idle';
+  const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
+  const expire=value=>{
+    const d=new Date(String(value||''));
+    return Number.isFinite(d.getTime())?d.toLocaleDateString('pt-BR'):'—';
+  };
+  const labels={
+    issued:'Disponível na carteira',reserved:'Reservado',redeemed:'Utilizado',
+    void:'Cancelado',review_required:'Em revisão financeira'
+  };
+  const cards=valid&&status==='ready'
+    ?clubePaidCouponView.vouchers.slice(0,30).map(item=>
+      '<article class="card flat">'+
+      '<strong>'+esc(money(item.faceCents))+'</strong>'+
+      '<p> Cupom '+esc(String(item.ordinal))+' · '+esc(labels[item.status]||'Em análise')+'</p>'+
+      '<small>Validade: '+esc(expire(item.expiresAt))+'</small></article>').join('')
+    :'';
+  const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
+    ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
+  const issue=valid&&status==='failed'
+    ?'<p role="alert" class="notice danger">Não conseguimos consultar seus cupons agora. Tente novamente.</p>':'';
+  return '<section class="section" aria-label="Meus cupons TAMÃO">'+
+    '<div class="section-head"><div><span class="section-kicker">SEUS BENEFÍCIOS</span>'+
+    '<h2>Meus cupons TAMÃO</h2>'+
+    '<p>Consulte seus cupons por valor, validade e situação.</p></div>'+
+    '<button class="secondary" type="button" onclick="clubePaidCouponsRefresh()" '+
+      (status==='loading'?'disabled':'')+'>'+
+      (status==='loading'?'Consultando…':'Consultar meus cupons')+'</button></div>'+
+    issue+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
+    '</section>';
+}
+async function clubePaidCouponsRefresh(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId||typeof liveReady!=='function'||!liveReady())
+    return toast('Entre na sua conta para consultar os cupons.');
+  if(clubePaidCouponView.userId===userId&&clubePaidCouponView.status==='loading')return;
+  Object.assign(clubePaidCouponView,{userId,status:'loading',error:null,
+    purchases:[],vouchers:[]});
+  if(route()==='club')render();
+  try{
+    const result=await liveInvoke('coupon-credit-pix',{action:'my-vouchers'});
+    if(result?.source!=='clube_coupon_paid_my_vouchers_v1'||result.ok!==true||
+      !Array.isArray(result.vouchers)||!Array.isArray(result.purchases))
+      throw Error('COUPON_DATA_UNVERIFIED');
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId)return;
+    Object.assign(clubePaidCouponView,{
+      status:'ready',vouchers:result.vouchers,purchases:result.purchases
+    });
+  }catch(err){
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId)return;
+    clubePaidCouponView.status='failed';
+    clubePaidCouponView.error=String(err?.message||err);
+  }finally{if(route()==='club')render();}
+}
+
 function club(){
   const purchases=Math.max(0,Number(state.user.purchases)||0);
   const cycle=purchases===0?0:(purchases%5||5);
@@ -49,6 +114,7 @@ function club(){
       <div class="earn-balance-card"><span>Cashback disponível</span><strong>${BRL.format(state.user.cashback)}</strong><small>saldo que pode reduzir uma próxima compra</small></div>
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
+    ${clubePaidCouponPanel()}
     <section class="tamao-club-shop-now" aria-label="Usar as vantagens do Clube">
       <div><span class="section-kicker">SEU CLUBE NA PRÁTICA</span>
         <h2>Compare, faça seu pedido e acompanhe o que você economizou.</h2>
