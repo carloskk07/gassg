@@ -596,16 +596,17 @@ function home(){
       <details><summary>Posso indicar pessoas e revendas?</summary><p>Sim. Conheça sua Rede TAMÃO e acompanhe indicações atribuídas. Benefícios financeiros dependem das regras e da elegibilidade de cada campanha.</p></details>
     </div>
   </section>`;
-  return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
+  return shell(`${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
+<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
-    <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
+    <div class="hero-overline">COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
-    <p class="hero-lead"><strong>Compare preços totais e conheça o Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <p class="hero-lead"><strong>Gás, água e essenciais para sua rotina. Mais economia para sua compra.</strong> Escolha produtos, compare o total com entrega, consulte seu Clube e descubra as vantagens TAMÃO.</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
-      <span>💰 Compare preços totais por CEP</span>
-      <button type="button" onclick="go('club')">🎁 Conheça suas vantagens no Clube <span aria-hidden="true">→</span></button>
+      <span>💰 Compare ofertas e confira o total</span>
+      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
       <button type="button" onclick="go('merchants')">🏪 Sua revenda pode conquistar novos clientes <span aria-hidden="true">→</span></button>
     </div>
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
@@ -674,7 +675,6 @@ ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no T
     <li><span class="home-buying-step-icon" aria-hidden="true">✓</span><div><strong>Confirme quando houver opção</strong><p>Confira valor e prazo. O pedido só avança após o aceite da revenda.</p></div></li>
   </ol>
 </section>`:''}
-${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${!conciseHome?valueBridge:''}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
