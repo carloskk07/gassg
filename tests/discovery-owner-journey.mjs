@@ -270,6 +270,18 @@ assert.ok(renderCount>renderBeforeCallback,'OTP recovery must render owner route
 assert.equal(ctx.__discoveryOwnerTestState.user?.id,userId);
 assert.doesNotMatch(ctx.location.href,/access_token|advertise=1/,
  'the callback token and transient intent must leave browser URL');
+// Invalid/expired sessions must return to the login form; they cannot be
+// treated as authenticated advertisers solely because the query says 1.
+user=null;
+ctx.location.search='?advertise=1';
+ctx.location.hash='#access_token=expired-secret';
+ctx.location.href='https://tamao.com.br/?advertise=1#access_token=expired-secret';
+ctx.__discoveryOwnerTestState.phase='idle';
+ctx.discoveryOwnerAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(ctx.__discoveryOwnerTestState.user,null);
+assert.match(ctx.discoveryOwnerPage(),/Receber link de acesso/);
+assert.equal(ctx.location.href,'https://tamao.com.br/#advertise');
 ctx.location=savedLocation;ctx.route=savedRoute;
 
 const intentStart=read('js/bootstrap.js').indexOf('function discoveryOwnerReturnPending(){');
