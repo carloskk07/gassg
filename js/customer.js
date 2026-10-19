@@ -1055,8 +1055,13 @@ function checkoutOfferComparison(all){
   return `<section class="checkout-comparison" aria-label="Comparar opções de entrega">
     <div class="comparison-intro">
       <span class="section-kicker">COMPARE COM TRANQUILIDADE</span>
-      <h2>${all.length===1?'Encontramos uma opção para sua cesta':'Compare '+all.length+' opções para sua cesta'}</h2>
-      <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
+      <h2>${all.length===1?'Sua cotação com benefícios TAMÃO':'Compare '+all.length+' ofertas e seus benefícios'}</h2>
+      <p>Veja o total com entrega e compare com os créditos do seu Clube.</p>
+    </div>
+    <div class="tamao-checkout-coupon-callout">
+      <span aria-hidden="true">🎟️</span><div><strong>Tem cupom ou cashback TAMÃO?</strong>
+      <p>Confira campanhas no Clube. O desconto em dinheiro só aparece na cotação quando for aplicável; cupons não são descontados automaticamente.</p></div>
+      <button type="button" onclick="go('club')">Ver benefícios →</button>
     </div>
     ${checkoutOfferDecisionSummary(all)}
     ${checkoutRequestExplainer()}
@@ -1097,9 +1102,11 @@ function offerCard(o,facts={}){
   const validTotal=o.total!=null&&Number.isFinite(rawTotal)&&rawTotal>0;
   const gross=validTotal?rawTotal:0;
   const balance=Number(state.user?.cashback||0);
-  const discount=state.checkout.useCashback&&Number.isFinite(balance)
-    ?Math.min(Math.max(0,balance),gross):0;
+  const potentialBenefit=validTotal&&Number.isFinite(balance)&&balance>0
+    ?roundMoney(Math.min(balance,gross)):0;
+  const discount=state.checkout.useCashback===true?potentialBenefit:0;
   const payable=roundMoney(Math.max(0,gross-discount));
+  const cashbackPreview=roundMoney(Math.max(0,gross-potentialBenefit));
   const totalCents=validTotal?Math.round(gross*100):null;
   const fee=Number(o.deliveryFee);
   const hasBreakdown=validTotal&&o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
@@ -1139,9 +1146,21 @@ function offerCard(o,facts={}){
     <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
     <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
   </div>`:`<p class="offer-total-note">${validTotal?'Valor total da cesta com a entrega incluída.':'Preço e entrega precisam de nova consulta.'}</p>`;
+  const comparison=validTotal?`<div class="tamao-checkout-total-compare" aria-label="Comparação de total sem e com benefício TAMÃO">
+    <div class="tamao-checkout-total-base"><small>SEM BENEFÍCIO</small>
+      <strong>${BRL.format(gross)}</strong><span>Preço com entrega</span></div>
+    <div class="tamao-checkout-total-benefit ${potentialBenefit>0?'has-discount':''}">
+      <small>${potentialBenefit>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
+      <strong>${potentialBenefit>0?BRL.format(cashbackPreview):'Sem desconto aplicado'}</strong>
+      <span>${potentialBenefit>0
+       ?'Até '+BRL.format(potentialBenefit)+' de cashback estimado'+
+        (state.checkout.useCashback===true?' • selecionado':' • ative o uso do saldo acima')
+       :'Veja cupons e vantagens disponíveis no Clube'}</span>
+    </div>
+  </div>`:'';
   const cashback=discount>0?`<div class="offer-cashback">
-    <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
-    <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
+    <span>Cashback selecionado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
+    <small>Total estimado a pagar: ${BRL.format(payable)}. O desconto aplicável será confirmado ao enviar o pedido.</small>
   </div>`:'';
   return `<article class="offer offer-comparison-card ${featured?'selected':''}">
     ${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}
@@ -1155,7 +1174,7 @@ function offerCard(o,facts={}){
       </div>
       <div class="offer-eta"><small>PREVISÃO DE ENTREGA</small><strong>${validEta?etaStart+'–'+etaEnd+' min':'Prazo indisponível'}</strong><small>Após confirmação da revenda</small></div>
     </div>
-    ${breakdown}${cashback}
+    ${breakdown}${comparison}${cashback}
     <div class="offer-payment"><span aria-hidden="true">✓</span><span>Você paga diretamente à revenda: <strong>${payment} na entrega</strong></span></div>
     <details class="offer-details"><summary>Por que esta opção apareceu?</summary>
       <div class="offer-meta">${distanceChip}
