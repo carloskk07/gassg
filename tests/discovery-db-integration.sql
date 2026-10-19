@@ -181,6 +181,17 @@ begin
  end;
 end $$;
 select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'review') as owner_submitted;
+-- A reviewed/published photo cannot be silently removed by its owner.
+do $review_photo_guard$
+begin
+ begin
+  perform public.discovery_unlink_listing_photo(
+    current_setting('tamao.test.listing_id')::uuid,
+    '00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg');
+  raise exception 'REVIEW_PHOTO_UNLINK_BYPASS';
+ exception when insufficient_privilege then null;
+ end;
+end $review_photo_guard$;
 -- A regular advertiser cannot read another person's moderation queue.
 do $$
 begin
