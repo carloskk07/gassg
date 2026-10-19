@@ -371,6 +371,38 @@ async function handlePlatformBillingOrder(
   if(orderId!==dataId){
     return json({error:"MERCADOPAGO_ORDER_ID_MISMATCH"},409);
   }
+  // Mercado Pago can notify before the Pix creation response commits its
+  // provider_order_id. Recover only if the remote order names an existing,
+  // prepared coupon invoice AND has the exact snapshotted amount/payment.
+  // Never credit based solely on external_reference or an unverified webhook.
+  if(UUID_RE.test(externalReference)){
+    const {data:pendingCoupon,error:pendingError}=await admin
+      .from("clube_coupon_paid_invoices")
+      .select("id,sale_price_cents,provider_order_id,status")
+      .eq("id",externalReference)
+      .maybeSingle();
+    if(pendingError&&pendingError.code!=="42P01")throw pendingError;
+    if(pendingCoupon){
+      if(pendingCoupon.provider_order_id&&pendingCoupon.provider_order_id!==dataId){
+        return json({error:"COUPON_PROVIDER_REFERENCE_MISMATCH"},409);
+      }
+      const pix=billingPixPayment(order);
+      if(moneyToCents(order?.total_amount)!==Number(pendingCoupon.sale_price_cents)||
+         String(pix?.payment_method?.id??"")!=="pix"||
+         String(pix?.payment_method?.type??"")!=="bank_transfer"||
+         !pix?.id){
+        return json({error:"COUPON_EARLY_PAYMENT_MISMATCH"},409);
+      }
+      if(!pendingCoupon.provider_order_id&&pendingCoupon.status==="prepared"){
+        const {error:linkError}=await admin.from("clube_coupon_paid_invoices")
+          .update({provider_order_id:dataId,provider_payment_id:String(pix.id),
+            status:"awaiting_payment",updated_at:new Date().toISOString()})
+          .eq("id",pendingCoupon.id).eq("status","prepared").is("provider_order_id",null);
+        if(linkError)throw linkError;
+      }
+      return await handlePaidCouponOrder(admin,dataId,pendingCoupon,accessToken);
+    }
+  }
   if(!UUID_RE.test(externalReference)){
     return json({ok:true,ignored:true,reason:"FOREIGN_PLATFORM_ORDER"},202);
   }
