@@ -114,7 +114,11 @@ Deno.serve(async(req:Request)=>{
     .eq("package_key",packageKey).maybeSingle();
   if(packageError)throw packageError;
   if(!pkg||pkg.sale_enabled!==true||pkg.funding_verified!==true||
-    pkg.legal_terms_verified!==true||pkg.redeem_settlement_verified!==true)
+    pkg.legal_terms_verified!==true||pkg.redeem_settlement_verified!==true||
+    !Number.isSafeInteger(pkg.sale_price_cents)||
+    !Number.isSafeInteger(pkg.coupon_face_cents)||
+    !Number.isSafeInteger(pkg.coupons_per_pack)||
+    pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack)
    return respond({error:"COUPON_PACKAGE_NOT_AVAILABLE"},409,origin);
   const details={
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
