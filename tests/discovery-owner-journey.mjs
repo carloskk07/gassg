@@ -117,6 +117,8 @@ const ctx={
  shell:s=>s,esc,CHAMA_BACKEND:{url:'https://example.supabase.co',publishableKey:'sb_publishable_test'},
  chamaFetch:async()=>({}), render:()=>{renderCount++;},
  location:{origin:'https://tamao.com.br',pathname:'/'},
+ // vm contexts do not inherit Node's URL globals: supply real browser APIs.
+ URL,URLSearchParams,
  crypto:{randomUUID:testUUID},
  document:{getElementById:id=>id==='discovery-owner-photos'?{files:selectedFiles}:
    id==='discovery-owner-documents'?{files:selectedDocuments}:null},
