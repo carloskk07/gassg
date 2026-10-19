@@ -9,12 +9,14 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 })[c]);
 let current='professionals',results=[],calls=[],rendered=0;
+let requestedDeparture='';
 const sandbox={
  route:()=>current,shell:s=>s,esc,BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
  chamaFetch:async()=>({}),CHAMA_BACKEND:{url:'https://example.test',publishableKey:'test-publishable'},
  render:()=>{rendered++;},
  document:{getElementById:(id)=>({
-   'discovery-uf':{value:'SC'},'discovery-city':{value:'Florianópolis'}
+   'discovery-uf':{value:'SC'},'discovery-city':{value:'Florianópolis'},
+   'discovery-departure-after':{value:requestedDeparture}
  })[id]},
  loadSupabaseBrowser:async()=>({
    createClient:(_url,_key,opts)=>{
@@ -72,6 +74,20 @@ for(const [kind,term] of [['rides','CARONAS'],['stays','HOSPEDAGENS']]){
  assert.match(page,new RegExp('TAMÃO '+term));
  assert.match(page,/Nenhum anúncio publicado encontrado/);
 }
+current='rides';
+requestedDeparture='2030-03-10T09:30';
+assert.match(sandbox.discoveryPage(),/id="discovery-departure-after"/);
+sandbox.discoverySearchFromUi({preventDefault(){}});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_departure_after,new Date(requestedDeparture).toISOString(),
+ 'ride date filter must be sent in UTC, preserving local visitor intent');
+assert.equal(calls.at(-1)[1].p_min_guests,null);
+current='stays';
+requestedDeparture='';
+sandbox.discoverySearchFromUi({preventDefault(){}});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_departure_after,null,
+ 'stays must not inherit ride date filters');
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
