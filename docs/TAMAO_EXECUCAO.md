@@ -339,3 +339,9 @@
 - **Publicação:** ao registrar a atualização, os workflows `TAMÃO launch readiness`, `Audit` e `Cloudflare official production deploy` da `main` `50aaf3b` estavam em execução. **Conferir conclusão e atestado do SHA nos três portais antes de declarar publicação concluída.**
 - **Alerta de integração:** a PR #492 continua draft em ramo divergente historicamente após squashes comerciais. Antes de integrá-la na `main`, rebase/merge real com resolução dos arquivos do checkout e da home, mantendo os commits #498/#499, NÃO criar uma home alternativa e não sobrescrever `js/home-showcase.js` pela versão antiga da expansão. Preservar também o fluxo de inscrição multiempresa #497.
 - **Limitação comercial honesta:** preços verificados de revendas só aparecem quando elegíveis. Como o comércio ainda não estava aberto na consulta anterior, valores de referência P13 permanecem **informativos** e não representam cotação final, cupom ativo ou entrega garantida.
+
+### Publicação verificada no SHA 50aaf3b (18/10/2026 à noite, Brasil)
+
+- A `main` `50aaf3b31235d532653de194e1990fd95f2d9503` concluiu `Build isolated live portals` PASS (run `39192586143`), `TAMÃO Cloudflare official production deploy` PASS (run `39192586238`) e `TAMÃO launch readiness` PASS (run `39192585918`). Reconciliação nativa também PASS (run `39192692904`).
+- **Atestado OIDC Supabase confirmado:** `platform_portal_attestations.source_sha=50aaf3b31235d532653de194e1990fd95f2d9503`, `attestation_source=github_oidc_edge`, `verified_at=2026-10-19 03:01:15 UTC`, `run_id=39192585918`. O atestado corresponde à leitura autenticada feita pelo workflow oficial; não comprova por si só compras reais de clientes.
+- **Estado comercial não alterado pela PR #499**: o botão apenas atualiza o painel de preços regional, sem integrar a expansão, alterar ofertas, ativar cidades ou cobrar.
