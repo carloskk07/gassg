@@ -47,7 +47,7 @@ function clubePaidCouponPanel(){
     return Number.isFinite(d.getTime())?d.toLocaleDateString('pt-BR'):'—';
   };
   const labels={
-    issued:'Disponível na carteira',reserved:'Reservado',redeemed:'Utilizado',
+    issued:'Emitido',reserved:'Reservado',redeemed:'Utilizado',
     void:'Cancelado',review_required:'Em revisão financeira'
   };
   const cards=valid&&status==='ready'
