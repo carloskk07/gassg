@@ -629,7 +629,7 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   const enabled=String(Deno.env.get("FINANCE_LAB_SANDBOX_ENABLED")??"").trim()==="true";
   const token=String(Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")??"").trim();
   const payerEmail=String(Deno.env.get("FINANCE_LAB_TEST_PAYER_EMAIL")??"").trim();
-  if(!enabled||token.length<20||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(payerEmail)){
+  if(!enabled||token.length<20||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)){
     throw new DomainError("FINANCE_LAB_TEST_CREDENTIALS_REQUIRED",
       "Configure credenciais e conta pagadora de TESTE específicas para ativar o laboratório Pix.",409);
   }
