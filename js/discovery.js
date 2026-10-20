@@ -76,22 +76,26 @@ function discoveryPublicGallery(item){
 }
 // Optional inquiry details: never a reservation, payment or availability promise.
 function discoveryInquiryForm(item,kind){
- if(kind!=='rides'&&kind!=='stays')return '';
+ if(!Object.hasOwn(discoveryVerticals,kind))return '';
  const phone=String(item?.whatsapp_e164||'');
  if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
  const title=esc(String(item?.title||'').slice(0,80));
- const count=Number(kind==='rides'?item.seats_available:item.guests);
- if(!Number.isInteger(count)||count<1||count>(kind==='rides'?8:80))return '';
- const inputs=kind==='rides'?
+ const count=kind==='professionals'?0:Number(kind==='rides'?item.seats_available:item.guests);
+ if(kind!=='professionals'&&(!Number.isInteger(count)||count<1||count>(kind==='rides'?8:80)))return '';
+ const inputs=kind==='professionals'?
+  '<label>Qual serviço você precisa?<textarea name="service" required minlength="10" maxlength="500" rows="3" placeholder="Descreva o serviço e a região aproximada, sem informar dados pessoais."></textarea></label>'+
+  '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>':
+  kind==='rides'?
   '<label>Quantas vagas deseja consultar?<input name="seats" type="number" required min="1" max="'+count+'" value="1"></label>':
   '<label>Entrada desejada<input name="checkin" type="date" required></label>'+
   '<label>Saída desejada<input name="checkout" type="date" required></label>'+
   '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
  return '<details class="discovery-inquiry" data-phone="'+esc(phone)+
   '" data-kind="'+kind+'" data-title="'+title+'" data-max="'+count+'">'+
-  '<summary>'+(kind==='rides'?'Consultar quantidade de vagas':'Consultar datas e hóspedes')+'</summary>'+
+  '<summary>'+(kind==='professionals'?'Pedir orçamento com detalhes':
+    kind==='rides'?'Consultar quantidade de vagas':'Consultar datas e hóspedes')+'</summary>'+
   '<div class="discovery-inquiry-fields">'+inputs+'</div>'+
-  '<p class="tiny muted">É apenas uma consulta ao anunciante. Nenhuma vaga ou diária é reservada pelo TAMÃO.</p>'+
+  '<p class="tiny muted">É apenas uma consulta direta. Orçamento, disponibilidade e condições dependem do anunciante. O TAMÃO não recebe pagamentos nesta etapa.</p>'+
   '<p class="discovery-inquiry-feedback" role="alert"></p>'+
   '<a href="#" target="_blank" rel="noopener noreferrer" onclick="return discoveryPrepareInquiry(this)">Preparar consulta no WhatsApp ↗</a>'+
   '</details>';
@@ -104,10 +108,25 @@ function discoveryPrepareInquiry(anchor){
  const feedback=box?.querySelector?.('.discovery-inquiry-feedback');
  const invalid=message=>{if(feedback)feedback.textContent=message;return false};
  if(!/^\+[1-9][0-9]{7,14}$/.test(phone)||!title||
-    !Number.isInteger(limit)||limit<1||limit>80)return false;
+    !Number.isInteger(limit)||limit<0||limit>80||
+    (kind!=='professionals'&&limit<1))return false;
  const number=name=>Number(box?.querySelector?.('[name="'+name+'"]')?.value);
  let message='';
- if(kind==='rides'){
+ if(kind==='professionals'){
+  const raw=String(box?.querySelector?.('[name="service"]')?.value||'');
+  const service=raw.replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim();
+  const day=String(box?.querySelector?.('[name="preferred_day"]')?.value||'').trim();
+  const validDay=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
+    Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  if(service.length<10||service.length>500)
+    return invalid('Descreva o serviço em 10 a 500 caracteres.');
+  if(day&&(!validDay(day)||Date.parse(day)<Date.now()-86400000))
+    return invalid('Informe uma data válida, a partir de hoje.');
+  message='Olá! Encontrei seu anúncio de serviço no TAMÃO: '+title+
+    '. Gostaria de solicitar um orçamento. Serviço: '+service+
+    (day?'. Dia desejado: '+day:'')+
+    '. Podemos conversar sobre valores, região atendida e disponibilidade?';
+ }else if(kind==='rides'){
   const seats=number('seats');
   if(limit>8||!Number.isInteger(seats)||seats<1||seats>limit)
     return invalid('Informe uma quantidade de vagas válida.');
