@@ -77,6 +77,8 @@ jobs:
         run: node tests/public-navigation-stability.mjs
       - name: Public discovery journeys, HTML escaping and PWA assets
         run: node tests/discovery-public-journeys.mjs
+      - name: Discovery favorites and verified-current shortlist
+        run: node tests/discovery-saved-shortlist.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
       - name: Regional wood, charcoal and ice units
