@@ -30,6 +30,12 @@ assert.match(edge,/if\(leadType==="customer"&&!interests.length\)/,
  'do not weaken buyer interest checks');
 assert.doesNotMatch(edge,/CONTACT_REQUIRED/);
 assert.match(edge,/if\(leadType==="merchant"\)\{/);
+assert.match(edge,/function clean\\(value:unknown,max:number\\)/);
+assert.match(edge,/return text\\?text\\.slice\\(0,max\\):null;/,
+  'optional empty personal name must become SQL NULL, not invalid empty text');
+assert.match(edge,/const contactName=clean\\(body\\.contactName,120\\);/,
+  'server must normalize optional name before invoking the existing lead RPC');
+
 assert.match(edge,/if\(!businessName\|\|businessName.length<2\)/);
 assert.match(edge,/if\(body.consent!==true\)/);
 assert.match(edge,/capture_prelaunch_lead_idempotent/);
