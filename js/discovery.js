@@ -311,6 +311,69 @@ function discoveryPrepareInquiry(anchor){
  anchor.href='https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent(message);
  return true;
 }
+// Only a confirmed session can create a report; anonymous traffic is not
+// silently forwarded to the privileged database API. The listing is rechecked
+// by the server (published + enabled city) at submission time.
+function discoveryReportForm(item,kind){
+ const id=String(item?.id||'').toLowerCase();
+ if(!discoveryListingIdPattern.test(id)||item?.vertical!==kind)return '';
+ return '<details class="discovery-report"><summary>Informar problema com este anúncio</summary>'+
+  '<form data-listing-id="'+id+'" onsubmit="discoverySubmitReport(event);return false;">'+
+  '<label>Motivo<select name="reason" required>'+
+   '<option value="">Selecione</option>'+
+   '<option value="incorrect_information">Informação incorreta</option>'+
+   '<option value="suspected_fraud">Possível fraude</option>'+
+   '<option value="unsafe_content">Conteúdo perigoso</option>'+
+   '<option value="other">Outro problema</option></select></label>'+
+  '<label>Descreva o problema<textarea name="details" required minlength="12" maxlength="600" rows="3" '+
+  'placeholder="Explique o ocorrido, sem incluir documentos ou dados pessoais."></textarea></label>'+
+  '<p class="tiny muted">Exige uma conta TAMÃO verificada para prevenir abusos. A denúncia fica privada e é analisada pelo TAMÃO.</p>'+
+  '<p class="discovery-report-feedback" role="status" aria-live="polite"></p>'+
+  '<button type="submit">Enviar denúncia</button></form></details>';
+}
+async function discoverySubmitReport(event){
+ event?.preventDefault?.();
+ const form=event?.currentTarget,listingId=String(form?.dataset?.listingId||'');
+ const reason=String(form?.querySelector?.('[name="reason"]')?.value||'');
+ const details=String(form?.querySelector?.('[name="details"]')?.value||'').trim();
+ const feedback=form?.querySelector?.('.discovery-report-feedback');
+ const button=form?.querySelector?.('button[type="submit"]');
+ const show=message=>{if(feedback)feedback.textContent=message;};
+ const kind=discoveryKind(),state=kind?discoveryState(kind):null;
+ if(!discoveryListingIdPattern.test(listingId)||
+    !state?.items.some(x=>x.id===listingId&&x.vertical===kind)||
+    !['incorrect_information','suspected_fraud','unsafe_content','other'].includes(reason)||
+    details.length<12||details.length>600){
+    show('Revise o motivo, a descrição e o anúncio publicado.');return false;
+ }
+ if(button?.disabled)return false;
+ if(button)button.disabled=true;
+ show('Conferindo sua conta e enviando denúncia…');
+ try{
+   const sdk=await loadSupabaseBrowser();
+   const client=sdk.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
+     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false},
+     global:{fetch:chamaFetch}
+   });
+   const user=await client.auth.getUser();
+   if(user.error||!user.data?.user){
+      show('Entre em sua conta TAMÃO verificada e depois volte a este anúncio para enviar a denúncia.');
+      return false;
+   }
+   const sent=await client.rpc('discovery_submit_report',{
+     p_listing_id:listingId,p_reason:reason,p_details:details
+   });
+   if(sent.error||!Number.isSafeInteger(Number(sent.data))||Number(sent.data)<=0)
+      throw Error('REPORT_NOT_CONFIRMED');
+   show('Denúncia registrada com protocolo '+String(sent.data)+'. A equipe poderá analisá-la no painel TAMÃO.');
+   if(form.querySelector?.('[name="details"]'))form.querySelector('[name="details"]').value='';
+ }catch(_){
+   show('Não foi possível registrar a denúncia. Verifique a conexão ou a verificação da conta e tente novamente.');
+ }finally{
+   if(button)button.disabled=false;
+ }
+ return false;
+}
 function discoveryCard(item,kind){
   if(item?.vertical!==kind)return '';
   const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
@@ -371,7 +434,7 @@ function discoveryCard(item,kind){
     (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
     (saved?'<button type="button" class="discovery-pick" data-id="'+id+'" aria-pressed="'+compared+'" onclick="discoveryPickForComparison(this.dataset.id)">'+(compared?'✓ Comparando':'⇄ Selecionar comparação')+'</button>':'')+
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
-    '</div>'+discoveryInquiryForm(item,kind)+'</article>';
+    '</div>'+discoveryInquiryForm(item,kind)+discoveryReportForm(item,kind)+'</article>';
 }
 function discoveryPage(){
   const kind=discoveryKind();
