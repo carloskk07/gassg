@@ -158,3 +158,18 @@
 .discovery-actions .discovery-pick[aria-pressed="true"]{border-color:#14794d;background:#dbf4e4;color:#075b38}
 .discovery-actions .discovery-pick:focus-visible{outline:3px solid #b98728;outline-offset:3px}
 @media(max-width:560px){.discovery-actions .discovery-pick{flex:1 1 145px}}
+
+/* Verified account reports stay compact and separate from public contact. */
+.discovery-report{width:100%;margin-top:8px;padding:12px;border:1px solid #d5e5d9;
+ border-radius:12px;background:#f8fbf9}
+.discovery-report summary{cursor:pointer;font-weight:750;color:#345a44;min-height:32px}
+.discovery-report form{display:grid;gap:12px;margin-top:12px}
+.discovery-report label{display:grid;gap:5px;font-weight:650;font-size:14px}
+.discovery-report select,.discovery-report textarea{width:100%;min-width:0;padding:10px;
+ border:1px solid #9bbca8;border-radius:9px;background:#fff;color:#173f2d;font:inherit}
+.discovery-report button{min-height:44px;padding:10px 16px;border:1px solid #1c6b47;
+ border-radius:9px;background:#fff;color:#195b3b;font-weight:750;cursor:pointer}
+.discovery-report button:disabled{opacity:.6;cursor:wait}
+.discovery-report :is(summary,button,textarea,select):focus-visible{
+ outline:3px solid #bf8d36;outline-offset:2px}
+.discovery-report-feedback{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
