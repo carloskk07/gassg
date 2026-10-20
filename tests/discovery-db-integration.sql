@@ -308,6 +308,7 @@ end $$;
 
 -- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
 -- These fixtures exist ONLY in disposable CI, never in Supabase production.
+reset role;
 begin;
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
@@ -383,6 +384,8 @@ begin
  if n<>0 then raise exception 'CROSS_VERTICAL_FILTER_LEAK';end if;
 end $filter_contract$;
 rollback;
+set role anon;
+reset request.jwt.claim.sub;
 
 -- Public role must never read billing, audit, or private advertising terms.
 do $$
