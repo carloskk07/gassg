@@ -315,6 +315,91 @@ begin
  if v_stays<>0 then raise exception 'DISCOVERY_STAY_LEAK';end if;
 end $$;
 
+-- Authentic reporting: one verified visitor, owner/anon rejected,
+-- duplicate report idempotent, daily per-user throttle and admin-only review.
+reset role;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+select public.discovery_submit_report(
+ current_setting('tamao.test.listing_id')::uuid,
+ 'incorrect_information','O endereço aproximado do anúncio precisa de revisão'
+) as submitted_report_id \gset
+do $
+declare v_same bigint;v_expected bigint;
+begin
+ v_expected:=current_setting('tamao.test.submitted_report_id')::bigint;
+ select public.discovery_submit_report(
+  current_setting('tamao.test.listing_id')::uuid,
+  'incorrect_information','O anúncio ainda contém informação incorreta'
+ ) into v_same;
+ if v_same<>v_expected then raise exception 'REPORT_NOT_IDEMPOTENT';end if;
+ begin
+  perform count(*) from public.discovery_admin_report_queue();
+  raise exception 'ADMIN_REPORT_QUEUE_LEAK';
+ exception when insufficient_privilege then null;end;
+end $;
+select public.discovery_submit_report(
+ current_setting('tamao.test.listing_id')::uuid,
+ 'suspected_fraud','Há possível informação de contato não confiável no anúncio');
+select public.discovery_submit_report(
+ current_setting('tamao.test.listing_id')::uuid,
+ 'unsafe_content','O conteúdo requer inspeção de segurança antes de prosseguir');
+do $
+begin
+ begin
+  perform public.discovery_submit_report(
+   current_setting('tamao.test.listing_id')::uuid,'other',
+   'Quarta denúncia no mesmo dia deve ser recusada pelo banco');
+  raise exception 'REPORT_RATE_LIMIT_BYPASSED';
+ exception when sqlstate '22023' then null;end;
+end $;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $
+begin
+ begin
+  perform public.discovery_submit_report(
+   current_setting('tamao.test.listing_id')::uuid,'other',
+   'O próprio anunciante não pode denunciar seu anúncio');
+  raise exception 'OWNER_REPORT_ALLOWED';
+ exception when sqlstate '22023' then null;end;
+end $;
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+do $
+begin
+ begin
+  perform public.discovery_submit_report(
+   current_setting('tamao.test.listing_id')::uuid,'other',
+   'Envio anônimo não pode contornar exigência de verificação');
+  raise exception 'ANONYMOUS_REPORT_ALLOWED';
+ exception when insufficient_privilege then null;end;
+end $;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
+do $
+declare n integer;
+begin
+ select count(*) into n from public.discovery_admin_report_queue();
+ if n<>3 then raise exception 'ADMIN_REPORT_COUNT_INVALID';end if;
+end $;
+select public.discovery_review_report(
+ current_setting('tamao.test.submitted_report_id')::bigint,
+ 'resolved','Analisada a denúncia e adotadas providências');
+do $
+begin
+ begin
+  perform public.discovery_review_report(
+   current_setting('tamao.test.submitted_report_id')::bigint,
+   'dismissed','Tentativa indevida de alterar decisão já concluída');
+  raise exception 'REPORT_REOPEN_ALLOWED';
+ exception when sqlstate '22023' then null;end;
+end $;
+reset role;
+
 -- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
 -- These fixtures exist ONLY in disposable CI, never in Supabase production.
 reset role;
