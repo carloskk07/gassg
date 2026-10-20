@@ -14,7 +14,7 @@ for(const [name,code] of Object.entries({customer,growth,merchant,admin,core})){
 }
 for(const required of [
   'const discoveryTiles=','home-discover-tile','home-discover-grid',
-  'quickProduct(','home-discover-all','PRIMEIRO ESCOLHA.',
+  'quickProduct(','home-discover-all','COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.',
   'Continuar para a cesta','REFERÊNCIA LOCAL'
 ])assert.ok(customer.includes(required),'missing customer discovery: '+required);
 assert.ok(customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map')&&customer.includes('data-tamao-discover-kind'),'product discovery must originate in the vetted catalogue');
