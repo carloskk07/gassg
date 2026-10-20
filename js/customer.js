@@ -197,6 +197,51 @@ function homeChooseProduct(code){
   return true;
 }
 
+function homeQuoteSelectProduct(code,buy=false){
+ const sku=String(code||'').trim().toUpperCase();
+ if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){
+  toast('Este produto não está disponível para selecionar.');return false;
+ }
+ const panel=document.querySelector('[data-city-quote-code="'+sku+'"]');
+ if(!panel)return false;
+ const zipField=panel.querySelector('.city-price-product-postal');
+ const qtyField=panel.querySelector('.city-price-product-qty');
+ const raw=String(zipField?.value||'').trim(),postal=raw.replace(/\D/g,'');
+ if(raw&&!/^[0-9]{8}$/.test(postal)){
+  zipField?.focus();toast('Informe um CEP válido com 8 dígitos.');return false;
+ }
+ if(buy&&!postal){zipField?.focus();toast('Informe seu CEP para consultar as ofertas.');return false}
+ const quantity=Number(qtyField?.value);
+ if(!Number.isInteger(quantity)||quantity<1||quantity>20){
+  qtyField?.focus();toast('Escolha de 1 a 20 unidades.');return false;
+ }
+ const previous=String(state.postalCode||'').replace(/\D/g,'');
+ if(postal&&postal!==previous){
+  state.postalCode=postal;
+  state.address='';state.addressNumber='';
+  const rt=globalThis.liveRuntime;
+  if(rt){
+   rt.offers=[];rt.postalValidated=false;rt.lastCityCheck=null;
+   rt.lastSyncAt=null;rt.error=null;
+  }
+  globalThis.liveInvalidateOfferAddressDraft?.();
+ }
+ const existing=Math.max(0,Number(state.cart?.[sku]||0));
+ setCartProduct(sku,Math.min(99,existing+quantity));
+ if(buy){
+  // The official order page confirms CEP, address, stock and current eligible offers.
+  go('order');
+  if(!state.addressNumber)globalThis.setTimeout?.(()=>{
+   if(route()==='order')document.querySelector('#address-number')?.focus();
+  },120);
+  return true;
+ }
+ const feedback=panel.querySelector('.city-price-product-feedback');
+ if(feedback)feedback.textContent=quantity+' '+(quantity===1?'unidade adicionada':'unidades adicionadas')+
+  ' à cesta. Total deste produto: '+Number(state.cart[sku])+'. Continue escolhendo ou consulte a compra.';
+ return true;
+}
+
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
   const input=globalThis.document?.querySelector('#home-address');
