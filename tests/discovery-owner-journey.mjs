@@ -141,6 +141,26 @@ assert.match(ctx.discoveryOwnerPhotoUrl(filePath),/tamao-discovery-photos/);
 assert.equal(ctx.discoveryOwnerPhotoUrl('https://evil.test/track.jpg'),'');
 assert.equal(ctx.discoveryOwnerPhotoUrl('../../secret'),'');
 assert.match(ctx.discoveryOwnerCitySlug('São Gabriel'),/sao-gabriel/);
+const rideFields=ctx.discoveryOwnerTypeFields('rides',{});
+assert.match(rideFields,/name="route_notes"/);
+assert.match(rideFields,/Paradas/);
+const stayFields=ctx.discoveryOwnerTypeFields('stays',{});
+assert.match(stayFields,/name="amenities"/);
+assert.match(stayFields,/name="price_unit"/);
+assert.match(stayFields,/name="units"/);
+const stayValues={property_type:'inn',guests:'4',bedrooms:'2',beds:'3',units:'2',
+ price_from:'289.50',price_unit:'week',amenities:'Wi-Fi, Estacionamento, Wi-Fi'};
+const stayDetails=ctx.discoveryOwnerDetails('stays',{get:key=>stayValues[key]||''});
+assert.equal(stayDetails.price_unit,'week');
+assert.equal(stayDetails.price_from_brl_cents,28950);
+assert.equal(stayDetails.units,2);
+assert.equal(JSON.stringify(stayDetails.amenities),'["Wi-Fi","Estacionamento"]');
+const rideValues={departure_at:'2030-07-05T12:00',seats_total:'3',
+ seats_available:'2',proposed_cost_share:'35.50',route_notes:'Parada acordada no centro'};
+const rideDetails=ctx.discoveryOwnerDetails('rides',{get:key=>rideValues[key]||''});
+assert.equal(rideDetails.proposed_cost_share_cents,3550);
+assert.equal(rideDetails.route_notes,'Parada acordada no centro');
+
 const form={checkValidity:()=>true};
 await ctx.discoveryOwnerSave({preventDefault(){},target:form});
 assert.ok(writes.some(w=>w[0]==='discovery_listings'&&w[1]==='insert'));
