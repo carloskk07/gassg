@@ -9,6 +9,15 @@ const merchant=read('js/merchant.js');
 const admin=read('js/admin.js');
 const core=read('js/core.js');
 const css=read('css/components.css');
+const premium=read('css/marketing-premium.css');
+// Preserve published 19/10 price-first homepage when expansion is integrated.
+for(const rule of ['.city-price-research-grid','.city-price-research-item',
+  '.tamao-home-coupon-rail',
+  ':is(.tamao-home-checkout-compare,.tamao-checkout-total-compare)',
+  '.tamao-checkout-coupon-callout','.tamao-quote-benefit-grid article.tamao-quote-coupons'])
+  assert.ok(premium.includes(rule),'home/checkout CSS regression: '+rule);
+assert.ok(premium.includes('@media(max-width:850px)'),
+  'published price-first mobile breakpoints must be preserved');
 for(const [name,code] of Object.entries({customer,growth,merchant,admin,core})){
   new vm.Script(code,{filename:name+'.js'});
 }
