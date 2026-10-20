@@ -141,7 +141,7 @@ function discoveryOwnerPage(){
     discoveryOwnerField('public_area','Bairro ou área aproximada (opcional)',d.public_area,'text','maxlength="140"')+
     discoveryOwnerField('whatsapp_e164','WhatsApp com DDI (ex.: +5555999999999)',d.whatsapp_e164,'tel','required pattern="\\+[1-9][0-9]{7,14}"')+
     discoveryOwnerTypeFields(kind,d)+
-    '<label>Fotos públicas do anúncio (JPG, PNG ou WebP, até 5 MB)<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
+    '<label>'+(kind==='rides'?'Fotos da carona (opcionais, até 5 MB)':'Fotos públicas do anúncio (JPG, PNG ou WebP, até 5 MB)')+'<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
     '<label>Comprovantes para análise privada (PDF ou imagem, até 10 MB; máximo de 4 por envio)<input id="discovery-owner-documents" name="documents" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple></label>'+
     '<p class="tiny muted">Comprovantes não aparecem no anúncio: somente você e o superadministrador podem consultar esses arquivos. Envie apenas documentos necessários.</p>'+
     (Array.isArray(d.documents)&&d.documents.length?
