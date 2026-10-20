@@ -415,7 +415,12 @@ begin
   elsif p_next_status='review' then
     if v_actor<>v_listing.owner_id or v_listing.status not in ('draft','rejected','paused')
        then raise exception 'OWNER_DRAFT_REQUIRED' using errcode='42501';end if;
-    if not public.discovery_verified_photo_paths(p_listing_id) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+    -- Caronas ocasionais podem ser anunciadas sem foto. Fotos fornecidas
+    -- devem continuar válidas e pertencentes ao anunciante.
+    if not (v_listing.vertical='rides' and cardinality(v_listing.photo_urls)=0)
+       and not public.discovery_verified_photo_paths(p_listing_id) then
+      raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';
+    end if;
     if not (
      (v_listing.vertical='professionals' and exists(
       select 1 from public.discovery_professional_details where listing_id=p_listing_id)) or
@@ -433,7 +438,12 @@ begin
     if v_admin and length(btrim(coalesce(p_reason,'')))<8 then
       raise exception 'REASON_REQUIRED' using errcode='22023';end if;
     if p_next_status='published' then
-      if not public.discovery_verified_photo_paths(p_listing_id) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+      -- Caronas ocasionais podem ser anunciadas sem foto. Fotos fornecidas
+    -- devem continuar válidas e pertencentes ao anunciante.
+    if not (v_listing.vertical='rides' and cardinality(v_listing.photo_urls)=0)
+       and not public.discovery_verified_photo_paths(p_listing_id) then
+      raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';
+    end if;
       if v_listing.vertical='rides' and not exists(
         select 1 from public.discovery_ride_details r
         where r.listing_id=p_listing_id and r.departure_at>clock_timestamp()
