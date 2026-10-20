@@ -26,7 +26,15 @@ function discoveryExploreCards(){
 function discoveryWhatsApp(item){
   const phone=String(item.whatsapp_e164||'');
   if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
-  return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent('Olá, vi seu anúncio no TAMÃO: '+String(item.title||'').slice(0,80));
+  const title=String(item.title||'').trim().slice(0,80);
+  const kind=String(item.vertical||'');
+  const opening=kind==='rides'?'Olá! Vi sua carona anunciada no TAMÃO: ':
+    kind==='stays'?'Olá! Vi sua hospedagem anunciada no TAMÃO: ':
+    'Olá! Vi seu serviço anunciado no TAMÃO: ';
+  const question=kind==='rides'?' Há vagas disponíveis? Podemos conversar sobre o trajeto e as condições?':
+    kind==='stays'?' Gostaria de consultar datas, preços e condições diretamente com você.':
+    ' Gostaria de solicitar um orçamento e confirmar a disponibilidade.';
+  return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent(opening+title+'.'+question);
 }
 function discoverySharedListingId(){
  const search=String(globalThis.location?.search||'').slice(0,700);
@@ -104,6 +112,11 @@ function discoveryCard(item,kind){
       typeof x==='string'&&x.trim()&&x.length<=60).slice(0,5):[];
     if(amenities.length)facts.push('Comodidades: '+amenities.map(x=>esc(x)).join(', '));
   }
+  const actionText=kind==='rides'?'Consultar vagas pelo WhatsApp ↗':
+    kind==='stays'?'Consultar datas pelo WhatsApp ↗':
+    'Pedir orçamento pelo WhatsApp ↗';
+  if(typeof item.public_area==='string'&&item.public_area.trim().length>=2&&
+     item.public_area.length<=140)facts.unshift('Região: '+esc(item.public_area));
   const contact=discoveryWhatsApp(item),share=discoveryShareLink(item,kind);
   const gallery=discoveryPublicGallery(item);
   return '<article class="discovery-result">'+
@@ -112,7 +125,7 @@ function discoveryCard(item,kind){
     (facts.length?'<ul class="discovery-facts">'+facts.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'')+
     '<p>'+esc(item.description)+'</p>'+
     '<div class="discovery-actions">'+
-    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+
+    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
     '</div></article>';
