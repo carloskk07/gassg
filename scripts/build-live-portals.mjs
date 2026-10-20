@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
 import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from './build-public-landing-pages.mjs';
+import {writeDiscoveryLandingPages,DISCOVERY_LANDING_SLUGS} from './build-discovery-landings.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from './strip-admin-css.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
@@ -196,7 +197,7 @@ function writePortalRobots(target,role){
       'utf8'
     );
     const landingUrls=role==='customer'
-      ?PUBLIC_LANDING_SLUGS.map(slug=>'  <url><loc>'+origin+'/'+slug+'/</loc></url>\n').join('')
+      ?[...PUBLIC_LANDING_SLUGS,...DISCOVERY_LANDING_SLUGS].map(slug=>'  <url><loc>'+origin+'/'+slug+'/</loc></url>\n').join('')
       :'';
     fs.writeFileSync(
       path.join(target,'sitemap.xml'),
@@ -333,6 +334,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha,role),'utf8');
     writePortalRobots(target,role);
     if(role==='customer')writePublicLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
+    if(role==='customer')writeDiscoveryLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
