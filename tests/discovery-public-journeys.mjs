@@ -251,4 +251,25 @@ assert.match(sandbox.discoveryPage(),/Anunciar no TAMÃO/);
 for(const marker of ['.discovery-gallery-grid','.discovery-gallery-more','.discovery-direct-link','.discovery-count'])
  assert.ok(css.includes(marker),'Missing gallery/accessibility CSS: '+marker);
 
+// Each vertical's contact message is an inquiry, not a booking or a platform charge.
+for(const [kind,cta,keyword] of [
+ ['professionals','Pedir orçamento pelo WhatsApp','solicitar um orçamento'],
+ ['rides','Consultar vagas pelo WhatsApp','Há vagas disponíveis'],
+ ['stays','Consultar datas pelo WhatsApp','consultar datas, preços']
+]){
+ const entry={vertical:kind,id:publicId,title:'Oferta <teste>',description:'Contato direto',
+   city_name:'São Gabriel',state_code:'RS',public_area:'Centro <teste>',
+   whatsapp_e164:'+555599998888'};
+ const html=sandbox.discoveryCard(entry,kind);
+ assert.match(html,new RegExp(cta));
+ assert.match(html,/Região: Centro &lt;teste&gt;/);
+ assert.doesNotMatch(html,/Região: Centro <teste>|Reserva confirmada|Compra garantida/);
+ const href=sandbox.discoveryWhatsApp(entry);
+ assert.ok(href.startsWith('https://wa.me/555599998888?text='));
+ const message=decodeURIComponent(href.split('?text=')[1]);
+ assert.ok(message.includes(keyword));
+ assert.ok(!/pagamento confirmado|reserva realizada/i.test(message));
+}
+assert.equal(sandbox.discoveryWhatsApp({vertical:'stays',whatsapp_e164:'javascript:alert(1)'}),'');
+
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
