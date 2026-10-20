@@ -63,8 +63,9 @@
  display:grid;gap:9px;overflow-wrap:anywhere}
 .discovery-owner-item small{color:#53685a}
 .discovery-owner-actions{display:flex;flex-wrap:wrap;gap:7px}
-.discovery-owner-actions button,.discovery-owner-top button{border:1px solid #a1c8af;border-radius:9px;
- background:#eff8f1;color:#185538;font:inherit;font-weight:700;padding:9px 12px;cursor:pointer}
+.discovery-owner-actions button,.discovery-owner-actions a,.discovery-owner-top button{border:1px solid #a1c8af;border-radius:9px;
+ background:#eff8f1;color:#185538;font:inherit;font-weight:700;padding:9px 12px;cursor:pointer;
+ display:inline-flex;align-items:center;justify-content:center;min-height:44px;text-decoration:none}
 .discovery-owner-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:15px 0}
 .discovery-owner-message,.discovery-owner-error{padding:12px 15px;border-radius:10px;
  border:1px solid #b5d0be;background:#eff8f1}
