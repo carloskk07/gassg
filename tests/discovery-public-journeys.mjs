@@ -351,4 +351,61 @@ assert.match(inquiry.feedback,/hóspedes válida/);
 for(const rule of ['.discovery-inquiry-fields','.discovery-inquiry summary','.discovery-inquiry-fields textarea'])
  assert.ok(css.includes(rule),'Missing inquiry styles '+rule);
 
+// Private report UX remains tied to a published result returned by the RPC.
+current='professionals';
+sandbox.discoveryState('professionals').status='ready';
+sandbox.discoveryState('professionals').items=[
+ {id:publicId,vertical:'professionals',title:'Profissional publicado',description:'Serviço local'}];
+assert.match(sandbox.discoveryReportForm({id:publicId,vertical:'professionals'},'professionals'),/Enviar denúncia/);
+assert.equal(sandbox.discoveryReportForm({id:'bad',vertical:'professionals'},'professionals'),'');
+assert.match(sandbox.discoveryCard({
+ id:publicId,vertical:'professionals',title:'Profissional publicado',
+ description:'Informações públicas',city_name:'São Gabriel',state_code:'RS'
+},'professionals'),/Informar problema com este anúncio/);
+const fields={
+ reason:{value:'incorrect_information'},
+ details:{value:'O anúncio informa uma condição incorreta'},
+ feedback:{textContent:''},button:{disabled:false}
+};
+const reportForm={
+ dataset:{listingId:publicId},
+ querySelector(selector){
+   return selector==='[name="reason"]'?fields.reason:
+     selector==='[name="details"]'?fields.details:
+     selector==='.discovery-report-feedback'?fields.feedback:
+     selector==='button[type="submit"]'?fields.button:null;
+ }
+};
+let signedIn=true,reportError=false,reportCalls=[];
+sandbox.loadSupabaseBrowser=async()=>({createClient:(_u,_k,opts)=>{
+ assert.equal(opts.auth.persistSession,true);
+ assert.equal(opts.auth.detectSessionInUrl,false);
+ return {
+  auth:{getUser:async()=>({data:{user:signedIn?{id:'verified-actor'}:null},error:null})},
+  rpc:async(name,args)=>{reportCalls.push([name,args]);return reportError?
+   {data:null,error:{message:'DISCONNECTED'}}:{data:17,error:null};}
+ };
+}});
+await sandbox.discoverySubmitReport({preventDefault(){},currentTarget:reportForm});
+assert.equal(reportCalls.length,1);
+assert.equal(reportCalls[0][0],'discovery_submit_report');
+assert.equal(reportCalls[0][1].p_listing_id,publicId);
+assert.match(fields.feedback.textContent,/protocolo 17/);
+assert.equal(fields.button.disabled,false);
+assert.equal(fields.details.value,'');
+fields.details.value='Outro problema para acompanhamento';
+signedIn=false;
+await sandbox.discoverySubmitReport({preventDefault(){},currentTarget:reportForm});
+assert.equal(reportCalls.length,1,'no auth means no report RPC');
+assert.match(fields.feedback.textContent,/Entre em sua conta/);
+signedIn=true;reportError=true;
+await sandbox.discoverySubmitReport({preventDefault(){},currentTarget:reportForm});
+assert.doesNotMatch(fields.feedback.textContent,/protocolo/);
+assert.match(fields.feedback.textContent,/Não foi possível registrar/);
+reportForm.dataset.listingId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+await sandbox.discoverySubmitReport({preventDefault(){},currentTarget:reportForm});
+assert.equal(reportCalls.length,2,'unlisted UUID must not be reported by the client');
+for(const selector of ['.discovery-report','.discovery-report-feedback','.discovery-report button'])
+ assert.ok(css.includes(selector),'Missing complaint UI CSS '+selector);
+
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
