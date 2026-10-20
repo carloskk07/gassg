@@ -531,6 +531,8 @@ jobs:
         run: node tests/payout-review-followup-deadlines-v1-338.mjs
       - name: City-first live/reference pricing V1.341 regression
         run: node tests/customer-city-price-showcase-v1-341.mjs
+      - name: Main production home quotes, coupon rail, true savings and empty state
+        run: node tests/home-publicacao-cotacoes-cupons-20261019.mjs
       - name: Inline quote product CEP, basket and checkout regression #511
         run: node tests/home-quote-inline-purchase-20261019.mjs
       - name: Home V1.414 premium quote basket and CEP regression
