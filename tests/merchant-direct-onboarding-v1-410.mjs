@@ -83,8 +83,12 @@ assert.ok(merchantUi.includes("signupEntry?'Cadastre sua revenda no TAMÃO'") &&
  merchantUi.includes("signupEntry?'Continuar meu cadastro →'"),
  'signup visitors must see onboarding, not existing-partner login copy');
 assert.ok(growth.includes('class="primary merchant-live-signup-cta"'));
-assert.ok(growth.includes('class="merchant-secondary-lead"'));
-assert.ok(growth.includes('Prefere conversar antes? Deixe seu contato'));
+assert.ok(growth.includes('class="merchant-secondary-lead" open'),
+ 'visible two-field contact must be expanded on first visit');
+assert.ok(growth.includes('Quero anunciar meu comércio com nome e WhatsApp'),
+ 'visitor sees the low-friction advertising entry');
+assert.ok(growth.includes('openMerchantPortal(true)'),
+ 'the complete authenticated signup remains available');
 assert.equal((growth.slice(growth.indexOf('function merchantsLanding(){'),
   growth.indexOf('\nfunction merchantJoin(){')).match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
 assert.ok(css.includes('.merchant-secondary-lead>summary:focus-visible'));
