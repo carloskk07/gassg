@@ -50,6 +50,12 @@ const client={
  if(name==='discovery_admin_report_queue')return {data:reports,error:null};
  if(name==='discovery_admin_listing_overview')return {data:active,error:null};
  if(name==='discovery_admin_city_matrix')return {data:cities,error:null};
+ if(name==='discovery_admin_readiness')return {data:{
+  source:'discovery_admin_readiness_v1',infrastructureReady:true,
+  rlsTables:10,expectedRlsTables:10,publicPhotoBucketReady:true,
+  privateDocumentBucketReady:true,enabledCityVerticals:0,
+  totalListings:0,reviewQueueCount:0,otpAndUploadE2eVerified:false
+ },error:null};
  if(name==='discovery_review_report'){reports.length=0;return {data:args.p_status,error:null};}
  if(name==='discovery_transition_listing')return {data:args.p_next_status,error:null};
  if(name==='discovery_set_vertical_city')return {data:null,error:null};
@@ -77,6 +83,12 @@ assert.match(html,/Aprovar anúncio<\/button>/);
 assert.match(html,/Conferir comprovantes privados/);
 assert.match(html,/Denúncias de anúncios/);
 assert.match(html,/Publicações e pausas/);
+assert.match(html,/Diagnóstico da expansão/);
+assert.match(html,/Verificar infraestrutura/);
+await ctx.adminDiscoveryReadiness();
+assert.match(ctx.adminDiscoveryView(),/Estrutura técnica disponível/);
+assert.match(ctx.adminDiscoveryView(),/não comprova login por e-mail/);
+assert.equal(requested.filter(r=>r[0]==='discovery_admin_readiness').length,1);
 assert.match(html,/São Gabriel \/ RS/);
 assert.match(html,/Bagé \/ RS/);
 assert.match(html,/Suspensa/);
@@ -180,4 +192,8 @@ const citySql=read('supabase/migrations/20261020181500_discovery_city_control_in
 assert.match(citySql,/create function public.discovery_admin_city_matrix/);
 assert.match(citySql,/revoke all on function public.discovery_admin_city_matrix/);
 assert.match(sql,/UNRESOLVED_REPORT_BLOCKS_REACTIVATION/);
+const readinessSql=read('supabase/migrations/20261020192500_discovery_admin_readiness.sql');
+assert.match(readinessSql,/create function public.discovery_admin_readiness/);
+assert.match(readinessSql,/canDeclareCommercialReadiness',false/);
+assert.match(readinessSql,/revoke all on function public.discovery_admin_readiness/);
 console.log('PASS: admin-only queue, safe markup, city gate, reason gate, RPC action, existing panel integration.');
