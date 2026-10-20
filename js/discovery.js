@@ -30,14 +30,14 @@ function discoveryWhatsApp(item){
 }
 function discoverySharedListingId(){
  const search=String(globalThis.location?.search||'').slice(0,700);
- const match=search.match(/(?:^\\?|&)listing=([0-9a-f-]{36})(?:&|$)/i);
+ const match=search.match(/(?:^\?|&)listing=([0-9a-f-]{36})(?:&|$)/i);
  const id=match?.[1]||'';
  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id.toLowerCase():'';
 }
 function discoveryShareLink(item,kind){
  const id=String(item?.id||'').toLowerCase(),origin=String(globalThis.location?.origin||'');
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)||
-    !/^https:\\/\\/(?:www\\.)?tamao\\.com\\.br$/.test(origin)||
+    !/^https:\/\/(?:www\.)?tamao\.com\.br$/.test(origin)||
     !Object.hasOwn(discoveryVerticals,kind))return '';
  return origin+'/?listing='+id+'#'+kind;
 }
