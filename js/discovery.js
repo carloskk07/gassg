@@ -78,7 +78,7 @@ function discoveryPublicGallery(item){
 function discoveryInquiryForm(item,kind){
  if(kind!=='rides'&&kind!=='stays')return '';
  const phone=String(item?.whatsapp_e164||'');
- if(!/^\\+[1-9][0-9]{7,14}$/.test(phone))return '';
+ if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
  const title=esc(String(item?.title||'').slice(0,80));
  const count=Number(kind==='rides'?item.seats_available:item.guests);
  if(!Number.isInteger(count)||count<1||count>(kind==='rides'?8:80))return '';
@@ -103,7 +103,7 @@ function discoveryPrepareInquiry(anchor){
  const limit=Number(box?.dataset?.max);
  const feedback=box?.querySelector?.('.discovery-inquiry-feedback');
  const invalid=message=>{if(feedback)feedback.textContent=message;return false};
- if(!/^\\+[1-9][0-9]{7,14}$/.test(phone)||!title||
+ if(!/^\+[1-9][0-9]{7,14}$/.test(phone)||!title||
     !Number.isInteger(limit)||limit<1||limit>80)return false;
  const number=name=>Number(box?.querySelector?.('[name="'+name+'"]')?.value);
  let message='';
@@ -118,7 +118,7 @@ function discoveryPrepareInquiry(anchor){
   const checkin=String(box?.querySelector?.('[name="checkin"]')?.value||'');
   const checkout=String(box?.querySelector?.('[name="checkout"]')?.value||'');
   const guests=number('guests');
-  const validDate=value=>/^\\d{4}-\\d{2}-\\d{2}$/.test(value)&&
+  const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
     Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
   if(!validDate(checkin)||!validDate(checkout)||checkout<=checkin||
      Date.parse(checkin)<Date.now()-86400000)
