@@ -804,6 +804,54 @@ end $$;
 reset role;
 \i supabase/migrations/20261020181500_discovery_city_control_inventory.sql
 \i supabase/migrations/20261020192500_discovery_admin_readiness.sql
+\i supabase/migrations/20261020214500_discovery_documents_owner_hardening.sql
+-- A mismatched Storage uploader MUST NOT be accepted merely because the
+-- private object exists under the advertised path.
+reset role;
+insert into storage.objects(bucket_id,name,owner_id,metadata)
+values(
+ 'tamao-discovery-documents',
+ '00000000-0000-0000-0000-000000000011/'||
+ current_setting('tamao.test.private_listing_id')||
+ '/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.pdf',
+ '00000000-0000-0000-0000-000000000022',
+ '{"mimetype":"application/pdf"}'::jsonb
+);
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $document_guard_v2$
+declare
+ n integer;
+begin
+ select count(*) into n from public.discovery_documents
+  where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ if n<>1 then raise exception 'VERIFIED_OWNER_LOST_DOCUMENT_READ';end if;
+ begin
+  insert into public.discovery_documents(listing_id,kind,object_path)
+  values(current_setting('tamao.test.private_listing_id')::uuid,
+    'supporting',
+    '00000000-0000-0000-0000-000000000011/'||
+    current_setting('tamao.test.private_listing_id')||
+    '/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.pdf');
+  raise exception 'FOREIGN_STORAGE_UPLOADER_WAS_ACCEPTED';
+ exception when insufficient_privilege then null;end;
+end $document_guard_v2$;
+reset role;
+-- Revocation of verification must not preserve private owner access.
+update auth.users set is_anonymous=true,email_confirmed_at=null
+ where id='00000000-0000-0000-0000-000000000011';
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $document_guard_v2$
+declare n integer;
+begin
+ select count(*) into n from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ if n<>0 then raise exception 'UNVERIFIED_OWNER_CAN_READ_PRIVATE_DOCUMENTS';end if;
+end $document_guard_v2$;
+reset role;
+update auth.users set is_anonymous=false,email_confirmed_at=clock_timestamp()
+ where id='00000000-0000-0000-0000-000000000011';
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
 do $city_test$
