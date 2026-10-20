@@ -519,6 +519,8 @@ jobs:
         run: node tests/home-product-hero-v1-373.mjs
       - name: V1.374 commercial enrollment conversion regression
         run: node tests/commercial-entry-v1-374.mjs
+      - name: Fast opt-in advertiser contact, no trading activation #493
+        run: node tests/merchant-advertiser-light-signup-493.mjs
       - name: V1.375 public acquisition entry and UTM/referral integrity
         run: node tests/public-landing-entry-v1-375.mjs
       - name: V1.377 public editorial SEO, handoff and portal isolation
@@ -728,9 +730,10 @@ jobs:
           grep -q "Sua revenda mais visível." /tmp/merchants.html
           grep -q "Sua marca mais perto de quem compra na cidade." /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
-          grep -q "Quer vender pelo TAMÃO?" /tmp/merchants.html
+          grep -Fq "Seu comércio merece ser encontrado." /tmp/merchants.html
+          grep -Fq "Quero anunciar no TAMÃO" /tmp/merchants.html
+          grep -Fq "ANUNCIE NO TAMÃO" /tmp/merchants.html
           grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
-          grep -q "VENDA PELO TAMÃO" /tmp/merchants.html
           grep -q "Aviso de Privacidade" /tmp/privacy.html
           grep -q "Seus direitos" /tmp/privacy.html
           grep -q "Termos de Uso" /tmp/terms.html

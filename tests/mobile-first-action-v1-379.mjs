@@ -115,9 +115,16 @@ const formCtx=vm.createContext({prelaunchLeadSent:()=>false});
 vm.runInContext(acquisition.slice(fsStart,fsEnd)+'\nthis.page=prelaunchMerchantLeadSection;',formCtx);
 const html=formCtx.page();
 assert.match(html,/id="partner-interest-categories" class="lead-interests" tabindex="-1"/);
-for(const field of ['partner-business','partner-name','partner-phone','partner-postal','partner-interest-categories','partner-consent']){
+for(const field of ['partner-business','partner-phone','partner-postal','partner-consent']){
  assert.ok(acquisition.includes("prelaunchMerchantFieldError('"+field+"'"),'no inline merchant feedback: '+field);
 }
+for(const optional of ['partner-name','partner-interest-categories']){
+ assert.match(html,new RegExp('id="'+optional+'"'),optional+' remains available in optional details');
+ assert.ok(!acquisition.includes("prelaunchMerchantFieldError('"+optional+"'"),
+   optional+' must not block a quick advertiser registration');
+}
+assert.ok(html.indexOf('id="partner-phone"')<html.indexOf('<details class="merchant-lead-options"'),
+  'business name and WhatsApp must come before optional details');
 assert.ok(acquisition.includes("leadType:'merchant'"));
 assert.ok(acquisition.includes('if(button?.disabled)return;'));
 for(const token of ['.partner-inline-error','[aria-invalid="true"]','@media(max-width:620px)'])

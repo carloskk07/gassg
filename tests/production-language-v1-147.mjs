@@ -56,9 +56,11 @@ assert.ok(
 assert.ok(
   acquisition.includes('ATENDIMENTO POR REGIÃO')
   &&acquisition.includes('AVISO DE DISPONIBILIDADE')
-  &&acquisition.includes('CADASTRO DE PARCEIRO')
-  &&acquisition.includes('VENDA PELO TAMÃO'),
-  'aquisição deve parecer fluxo normal de cobertura e cadastro'
+  &&acquisition.includes('DIVULGUE SUA EMPRESA')
+  &&acquisition.includes('ANUNCIE NO TAMÃO')
+  &&acquisition.includes('Quero anunciar no TAMÃO')
+  &&acquisition.includes('Autorizo o TAMÃO a entrar em contato pelo WhatsApp.'),
+  'a captação deve distinguir anúncio rápido de operação de pedidos'
 );
 
 assert.ok(

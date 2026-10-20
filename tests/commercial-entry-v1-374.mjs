@@ -71,14 +71,20 @@ for(const field of ['partner-business','partner-name','partner-phone',
 }
 assert.ok(form.includes('merchant-lead-form-head'));
 const collapsed=form.indexOf('<details class="merchant-lead-options">');
-const collapseEnd=form.indexOf('</details>',collapsed);
-assert.ok(collapsed>0&&collapseEnd>collapsed);
-assert.ok(form.indexOf('partner-postal')>collapsed&&form.indexOf('partner-postal')<collapseEnd);
-assert.ok(form.indexOf('partner-note')>collapsed&&form.indexOf('partner-note')<collapseEnd);
+const firstEnd=form.indexOf('</details>',collapsed);
+const secondOption=form.indexOf('<details class="merchant-lead-options">',firstEnd+10);
+const secondEnd=form.indexOf('</details>',secondOption);
+assert.ok(collapsed>0&&firstEnd>collapsed&&secondOption>firstEnd&&secondEnd>secondOption);
+assert.ok(form.indexOf('partner-name')>collapsed&&form.indexOf('partner-name')<firstEnd);
+assert.ok(form.indexOf('name="partner-interest"')>collapsed&&form.indexOf('name="partner-interest"')<firstEnd);
+assert.ok(form.indexOf('partner-postal')>secondOption&&form.indexOf('partner-postal')<secondEnd);
+assert.ok(form.indexOf('partner-note')>secondOption&&form.indexOf('partner-note')<secondEnd);
 assert.ok(form.indexOf('partner-phone')<collapsed);
-assert.ok(form.indexOf('name="partner-interest"')<collapsed);
-assert.ok(form.indexOf('partner-consent')>collapseEnd);
-assert.ok(acquisition.includes("if(!interests.length)return prelaunchMerchantFieldError('partner-interest-categories'"));
+assert.ok(form.indexOf('partner-consent')>secondEnd);
+assert.ok(!acquisition.includes("if(!interests.length)return prelaunchMerchantFieldError('partner-interest-categories'"),
+ 'advertiser categories are optional at first contact');
+assert.ok(!acquisition.includes("if(contactName.length<2)return prelaunchMerchantFieldError('partner-name'"),
+ 'personal contact name is optional');
 assert.ok(acquisition.includes("if(!consent)return prelaunchMerchantFieldError('partner-consent'"));
 assert.ok(acquisition.includes("leadType:'merchant'"),'lead still uses server onboarding');
 
