@@ -554,7 +554,7 @@ revoke all on public.discovery_listing_reports from public,anon,authenticated;
 create function public.discovery_submit_report(
  p_listing_id uuid,p_reason text,p_details text
 ) returns bigint language plpgsql security definer set search_path='pg_catalog'
-as $
+as $report$
 declare
  v_actor uuid:=(select auth.uid());
  v_previous bigint;
@@ -588,7 +588,7 @@ begin
  insert into public.discovery_listing_reports(listing_id,reporter_id,reason,details)
  values(p_listing_id,v_actor,p_reason,btrim(p_details)) returning id into v_result;
  return v_result;
-end $;
+end $report$;
 revoke all on function public.discovery_submit_report(uuid,text,text) from public,anon,authenticated;
 grant execute on function public.discovery_submit_report(uuid,text,text) to authenticated;
 
@@ -597,7 +597,7 @@ returns table (
  id bigint,listing_id uuid,vertical text,title text,listing_status text,
  reason text,details text,status text,created_at timestamptz
 ) language plpgsql stable security definer set search_path='pg_catalog'
-as $
+as $report$
 begin
  if not public.discovery_is_superadmin() then
    raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
@@ -609,14 +609,14 @@ begin
  where r.status='open'
  order by r.created_at,r.id
  limit greatest(1,least(coalesce(p_limit,50),100));
-end $;
+end $report$;
 revoke all on function public.discovery_admin_report_queue(integer) from public,anon,authenticated;
 grant execute on function public.discovery_admin_report_queue(integer) to authenticated;
 
 create function public.discovery_review_report(
  p_report_id bigint,p_status text,p_note text
 ) returns text language plpgsql security definer set search_path='pg_catalog'
-as $
+as $report$
 declare v_actor uuid:=(select auth.uid());
 begin
  if not public.discovery_is_superadmin() then
@@ -630,7 +630,7 @@ begin
  where id=p_report_id and status='open';
  if not found then raise exception 'REPORT_NOT_OPEN' using errcode='22023';end if;
  return p_status;
-end $;
+end $report$;
 revoke all on function public.discovery_review_report(bigint,text,text) from public,anon,authenticated;
 grant execute on function public.discovery_review_report(bigint,text,text) to authenticated;
 
