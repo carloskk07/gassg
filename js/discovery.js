@@ -327,7 +327,7 @@ function discoveryReportForm(item,kind){
    '<option value="other">Outro problema</option></select></label>'+
   '<label>Descreva o problema<textarea name="details" required minlength="12" maxlength="600" rows="3" '+
   'placeholder="Explique o ocorrido, sem incluir documentos ou dados pessoais."></textarea></label>'+
-  '<p class="tiny muted">Exige uma conta TAMÃO verificada para prevenir abusos. A denúncia fica privada e é analisada pelo TAMÃO.</p>'+
+  '<p class="tiny muted">Exige uma conta TAMÃO verificada para prevenir abusos. A denúncia fica privada e é analisada pelo TAMÃO. <a href="#advertise">Entrar na minha conta TAMÃO</a></p>'+
   '<p class="discovery-report-feedback" role="status" aria-live="polite"></p>'+
   '<button type="submit">Enviar denúncia</button></form></details>';
 }
@@ -352,12 +352,13 @@ async function discoverySubmitReport(event){
  try{
    const sdk=await loadSupabaseBrowser();
    const client=sdk.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
-     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false},
+     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,
+       storageKey:'tamao-discovery-auth'},
      global:{fetch:chamaFetch}
    });
    const user=await client.auth.getUser();
    if(user.error||!user.data?.user){
-      show('Entre em sua conta TAMÃO verificada e depois volte a este anúncio para enviar a denúncia.');
+      show('Entre em sua conta TAMÃO pelo link acima e depois volte a este anúncio para enviar a denúncia.');
       return false;
    }
    const sent=await client.rpc('discovery_submit_report',{
