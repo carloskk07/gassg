@@ -83,7 +83,7 @@ assert.equal(pickContext.pick('WOOD',true),true);
 assert.equal(state.postalCode,'90000000');
 assert.equal(state.address,'','new ZIP must invalidate old address');
 assert.equal(state.addressNumber,'');
-assert.deepEqual(runtime.offers,[],'old offer cannot survive ZIP change');
+assert.equal(runtime.offers.length,0,'old offer cannot survive ZIP change');
 assert.equal(runtime.postalValidated,false);
 assert.equal(runtime.lastCityCheck,null);
 assert.equal(state.cart.WATER20,3,'basket survives address change');
