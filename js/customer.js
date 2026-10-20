@@ -222,7 +222,7 @@ function homeQuoteUpdateBasket(){
  const node=document.getElementById?.('city-price-basket');
  if(node&&typeof homeQuoteBasketMarkup==='function')node.innerHTML=homeQuoteBasketMarkup(state.cart);
 }
-function homeQuoteGoToCheckout(){
+function homeQuoteGoToOrder(){
  if(!Object.values(state.cart||{}).some(quantity=>Number(quantity)>0)){
   toast('Adicione um produto para montar sua cesta.');return false;
  }
