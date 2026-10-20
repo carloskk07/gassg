@@ -429,6 +429,42 @@ select public.discovery_transition_listing(
  'Reativação autorizada após conclusão das denúncias');
 reset role;
 
+-- Carona sem foto não bloqueia o anúncio; outros tipos exigem foto real.
+-- Tudo dentro de uma transação descartada após o teste.
+reset role;
+begin;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+insert into public.discovery_listings(
+ vertical,title,description,state_code,city_key,city_name,whatsapp_e164,photo_urls)
+values('rides','Carona eventual sem foto',
+ 'Trajeto casual para compartilhar despesas, sem reserva nem pagamento pela plataforma.',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999','{}')
+ returning id as ride_without_photo \gset
+insert into public.discovery_ride_details(
+ listing_id,departure_state,departure_city,destination_state,destination_city,
+ departure_at,seats_total,seats_available)
+values(:'ride_without_photo'::uuid,'RS','São Gabriel','RS','Bagé',
+ now()+interval '3 days',3,3);
+select public.discovery_transition_listing(:'ride_without_photo'::uuid,'review');
+insert into public.discovery_listings(
+ vertical,title,description,state_code,city_key,city_name,whatsapp_e164,photo_urls)
+values('professionals','Prestador sem foto bloqueado',
+ 'Profissional com descrição completa, mas sem uma imagem de marketing validada.',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999','{}')
+ returning id as pro_without_photo \gset
+insert into public.discovery_professional_details(listing_id,occupation,service_area)
+values(:'pro_without_photo'::uuid,'Eletricista','São Gabriel e região');
+select set_config('tamao.test.pro_without_photo', :'pro_without_photo', true);
+do $photocheck$
+begin
+ begin
+   perform public.discovery_transition_listing(
+     current_setting('tamao.test.pro_without_photo')::uuid,'review');
+   raise exception 'PRO_PHOTO_GATE_BYPASSED';
+ exception when sqlstate '22023' then null;end;
+end $photocheck$;
+rollback;
 -- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
 -- These fixtures exist ONLY in disposable CI, never in Supabase production.
 reset role;
