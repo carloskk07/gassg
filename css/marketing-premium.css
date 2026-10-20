@@ -1,4 +1,4 @@
-
+/* TAMÃO V1.362 — visual */
 .marketing-hero .hero-lead{max-width:63ch;line-height:1.62}
 .marketing-hero .hero-emotional-promise{margin-block:13px 17px}
 .marketing-hero .purchase-starter{border-color:#c6ded0;box-shadow:0 20px 44px rgba(17,73,46,.10)}
@@ -589,7 +589,7 @@ grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.
 @media(prefers-reduced-motion:reduce){
 .tamao-preboot *{scroll-behavior:auto}
 }
-
+/* TAMÃO V1.377 — visual */
 .marketing-hero .hero-grid{
 position:relative;isolation:isolate;overflow:hidden;border:1px solid #d6e5d8;background:
 radial-gradient(ellipse at 100% 5%,rgba(248,190,76,.18),transparent 42%),
