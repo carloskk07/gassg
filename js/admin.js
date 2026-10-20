@@ -2563,7 +2563,7 @@ function adminOperationalAlertsView(){
 }
 
 /* TAMÃO Discovery: one moderation workspace in the existing protected admin portal. */
-const adminDiscoveryDesk={status:'idle',items:[],reports:[],live:[],error:'',pending:false,documents:{},documentPending:null};
+const adminDiscoveryDesk={status:'idle',items:[],reports:[],live:[],cities:[],error:'',pending:false,documents:{},documentPending:null};
 function adminDiscoveryImage(key){
   if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
   return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
@@ -2587,6 +2587,13 @@ async function adminDiscoveryLoad(){
     if(overview.error||!Array.isArray(overview.data))throw Error('DISCOVERY_LISTING_OVERVIEW_UNAVAILABLE');
     d.live=overview.data.filter(x=>x&&/^[0-9a-f-]{36}$/.test(String(x.id||''))&&
       ['published','paused'].includes(x.status)&&['professionals','rides','stays'].includes(x.vertical));
+    const cityResult=await adminRuntime.client.rpc('discovery_admin_city_matrix',{p_limit:100});
+    if(cityResult.error||!Array.isArray(cityResult.data))throw Error('DISCOVERY_CITY_MATRIX_UNAVAILABLE');
+    d.cities=cityResult.data.filter(x=>x&&
+      ['professionals','rides','stays'].includes(x.vertical)&&
+      /^[A-Z]{2}$/.test(String(x.state_code||''))&&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(x.city_key||''))&&
+      typeof x.enabled==='boolean');
     d.documents={}; // Never retain expiring signed document links across refreshes.
     d.status='ready';
   }catch(e){
@@ -2598,6 +2605,21 @@ async function adminDiscoveryLoad(){
 function adminDiscoveryCitySlug(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
+}
+function adminDiscoveryPrefillCity(index){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const city=adminDiscoveryDesk.cities[index];
+  if(!city||!['professionals','rides','stays'].includes(city.vertical))return;
+  const inputs={
+    'admin-discovery-city-kind':city.vertical,
+    'admin-discovery-city-state':city.state_code,
+    'admin-discovery-city-name':city.city_name
+  };
+  for(const [id,value] of Object.entries(inputs)){
+    const field=document.getElementById(id);
+    if(field)field.value=String(value||'');
+  }
+  document.getElementById('admin-discovery-city-reason')?.focus();
 }
 async function adminDiscoverySetCity(enabled){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending)return;
@@ -2699,6 +2721,15 @@ function adminDiscoveryView(){
           (!enabled||d.pending?' disabled':'')+'>Reativar anúncio</button>')+
       '</div></article>';
   }).join(''):'<p>Nenhum anúncio publicado ou pausado nesta consulta.</p>';
+  const cityMatrix=d.status!=='ready'?'':d.cities.length?
+    '<div class="form-stack" role="list" aria-label="Modalidades cadastradas por cidade">'+
+      d.cities.map((x,index)=>
+        '<div class="card flat" role="listitem" style="padding:12px">'+
+        '<strong>'+esc(x.city_name)+' / '+esc(x.state_code)+'</strong>'+
+        ' • '+esc(x.vertical)+' • <strong>'+(x.enabled?'Habilitada':'Suspensa')+'</strong>'+
+        '<button type="button" class="secondary small" style="margin-left:8px" '+
+          'onclick="adminDiscoveryPrefillCity('+index+')">Selecionar</button></div>'
+      ).join('')+'</div>':'<p>Nenhuma modalidade habilitada ou suspensa foi cadastrada ainda.</p>';
   const cityControls='<section class="card flat" style="margin-block:16px;padding:18px">'+
     '<h3>Disponibilidade por modalidade e cidade</h3>'+
     '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
@@ -2713,7 +2744,7 @@ function adminDiscoveryView(){
       '<div class="order-actions">'+
         '<button type="button" class="secondary small" onclick="adminDiscoverySetCity(false)"'+(d.pending?' disabled':'')+'>Suspender modalidade</button>'+
         '<button type="button" class="primary small" onclick="adminDiscoverySetCity(true)"'+(d.pending?' disabled':'')+'>Habilitar modalidade</button>'+
-      '</div></div></section>';
+      '</div></div>'+cityMatrix+'</section>';
   return '<section class="section"><div class="section-head"><div><h2>Revisão de anúncios</h2>'+
     '<p>Decisões reservadas ao superadministrador e auditadas no banco. Nenhum anúncio é aprovado automaticamente.</p>'+
     '</div><button class="secondary small" type="button" onclick="adminDiscoveryLoad()"'+
