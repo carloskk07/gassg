@@ -2563,7 +2563,7 @@ function adminOperationalAlertsView(){
 }
 
 /* TAMÃO Discovery: one moderation workspace in the existing protected admin portal. */
-const adminDiscoveryDesk={status:'idle',items:[],reports:[],error:'',pending:false,documents:{},documentPending:null};
+const adminDiscoveryDesk={status:'idle',items:[],reports:[],live:[],error:'',pending:false,documents:{},documentPending:null};
 function adminDiscoveryImage(key){
   if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
   return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
@@ -2583,6 +2583,10 @@ async function adminDiscoveryLoad(){
     if(reports.error||!Array.isArray(reports.data))throw Error('DISCOVERY_REPORT_QUEUE_UNAVAILABLE');
     d.reports=reports.data.filter(x=>x&&Number.isSafeInteger(Number(x.id))&&
       Number(x.id)>0&&/^[0-9a-f-]{36}$/.test(String(x.listing_id||''))&&x.status==='open');
+    const overview=await adminRuntime.client.rpc('discovery_admin_listing_overview',{p_limit:100});
+    if(overview.error||!Array.isArray(overview.data))throw Error('DISCOVERY_LISTING_OVERVIEW_UNAVAILABLE');
+    d.live=overview.data.filter(x=>x&&/^[0-9a-f-]{36}$/.test(String(x.id||''))&&
+      ['published','paused'].includes(x.status)&&['professionals','rides','stays'].includes(x.vertical));
     d.documents={}; // Never retain expiring signed document links across refreshes.
     d.status='ready';
   }catch(e){
@@ -2679,6 +2683,22 @@ function adminDiscoveryView(){
             (d.pending?' disabled':'')+'>Registrar providência</button>'+
         '</div></article>';
     }).join(''):'<p>Não há denúncias abertas.</p>';
+  const liveCards=d.status!=='ready'?'':d.live.length?d.live.map(x=>{
+    const id=String(x.id);
+    const enabled=x.city_vertical_enabled===true;
+    return '<article class="card flat" style="padding:14px;margin-block:10px">'+
+      '<strong>'+esc(String(x.title||''))+'</strong><small> • '+esc(x.vertical)+' • '+
+      esc(String(x.city_name||''))+' / '+esc(String(x.state_code||''))+'</small>'+
+      '<p class="tiny muted">Estado: '+esc(x.status==='published'?'Publicado':'Pausado')+
+        (enabled?' • Localidade habilitada':' • Modalidade desabilitada nesta cidade')+'</p>'+
+      '<div class="order-actions">'+
+        (x.status==='published'?
+        '<button type="button" class="secondary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'paused\')"'+
+          (d.pending?' disabled':'')+'>Pausar publicação</button>':
+        '<button type="button" class="primary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'published\')"'+
+          (!enabled||d.pending?' disabled':'')+'>Reativar anúncio</button>')+
+      '</div></article>';
+  }).join(''):'<p>Nenhum anúncio publicado ou pausado nesta consulta.</p>';
   const cityControls='<section class="card flat" style="margin-block:16px;padding:18px">'+
     '<h3>Disponibilidade por modalidade e cidade</h3>'+
     '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
@@ -2699,8 +2719,37 @@ function adminDiscoveryView(){
     '</div><button class="secondary small" type="button" onclick="adminDiscoveryLoad()"'+
       (d.pending?' disabled':'')+'>Atualizar fila</button></div>'+
     '<p class="tiny muted">Confira a veracidade do anúncio e as obrigações aplicáveis antes de aprovar. Fotos públicas não substituem documentação.</p>'+
-    cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
+    cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Publicações e pausas</h3><p class="tiny muted">Até 100 anúncios recentes. A decisão exige justificativa e continua auditada no banco.</p>'+liveCards+'</section><section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
 }
+async function adminDiscoveryChangeLive(id,next){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !/^[0-9a-f-]{36}$/.test(String(id||''))||!['paused','published'].includes(next))return;
+  const current=adminDiscoveryDesk.live.find(x=>x.id===id);
+  if(!current||current.status===(next==='paused'?'paused':'published')||
+     (next==='paused'&&current.status!=='published')||
+     (next==='published'&&(current.status!=='paused'||current.city_vertical_enabled!==true)))return;
+  const promptText=next==='paused'?'Informe o motivo da suspensão:':
+     'Informe por que a reativação é segura (confira as denúncias pendentes):';
+  const reason=prompt(promptText);
+  if(reason===null)return;
+  const note=String(reason).trim();
+  if(note.length<8||note.length>240){
+    toast('A justificativa deve conter entre 8 e 240 caracteres.');return;
+  }
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:next,p_reason:note
+    });
+    if(error)throw error;
+    toast(next==='paused'?'Publicação suspensa.':'Anúncio reativado após conferência.');
+    d.pending=false;await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;
+    toast('Não foi possível confirmar a alteração. Confira situação e requisitos.');
+  }
+}
+
 async function adminDiscoverySuspendReportedListing(id){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !/^[0-9a-f-]{36}$/.test(String(id||''))||
