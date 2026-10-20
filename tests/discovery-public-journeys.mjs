@@ -131,7 +131,7 @@ const rideCard=sandbox.discoveryCard({
  departure_at:'2030-07-05T12:00:00Z',proposed_cost_share_cents:3500
 },'rides');
 assert.match(rideCard,/2 vagas anunciadas/);
-assert.match(rideCard,/Contribuição sugerida por vaga: R\\$\\s?35,00/);
+assert.match(rideCard,/Contribuição sugerida por vaga: R\$\s?35,00/);
 assert.doesNotMatch(rideCard,/Pagamento realizado|Reserva confirmada/);
 const stayCard=sandbox.discoveryCard({
  vertical:'stays',title:'Pousada teste',description:'Condições declaradas',
@@ -140,9 +140,9 @@ const stayCard=sandbox.discoveryCard({
 },'stays');
 assert.match(stayCard,/Pousada/);
 assert.match(stayCard,/2 quartos/);
-assert.match(stayCard,/Preço anunciado desde R\\$\\s?289,00 por noite/);
+assert.match(stayCard,/Preço anunciado desde R\$\s?289,00 por noite/);
 assert.doesNotMatch(stayCard,/<img src=x onerror/);
-assert.match(stayCard,/&lt;img src=x onerror=alert\\(1\\)&gt;/);
+assert.match(stayCard,/&lt;img src=x onerror=alert\(1\)&gt;/);
 assert.equal(sandbox.discoveryCard({...results[0],vertical:'stays'},'rides'),'');
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
