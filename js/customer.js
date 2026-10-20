@@ -205,7 +205,7 @@ function homeQuoteSyncPostal(input){
  const formatted=digits.length>5?digits.slice(0,5)+'-'+digits.slice(5):digits;
  input.value=formatted;
  // Hide a previous server quote as soon as someone edits a different CEP.
- if(digits!==String(state.postalCode||'').replace(/\\D/g,'')){
+ if(digits!==String(state.postalCode||'').replace(/\D/g,'')){
   globalThis.liveInvalidateOfferAddressDraft?.();
   homeQuoteUpdateBasket();
  }
@@ -234,11 +234,11 @@ function homeQuoteGoToOrder(){
  // The basket CTA must not discard a CEP entered in a product disclosure.
  const input=document.querySelector?.('.city-price-product-pick[open] .city-price-product-postal')||
    document.querySelector?.('.city-price-product-postal');
- const raw=String(input?.value||'').trim(),postal=raw.replace(/\\D/g,'');
+ const raw=String(input?.value||'').trim(),postal=raw.replace(/\D/g,'');
  if(raw&&!/^[0-9]{8}$/.test(postal)){
   input?.focus();toast('Informe um CEP válido com 8 dígitos.');return false;
  }
- if(postal&&postal!==String(state.postalCode||'').replace(/\\D/g,'')){
+ if(postal&&postal!==String(state.postalCode||'').replace(/\D/g,'')){
   globalThis.liveInvalidateOfferAddressDraft?.();
   state.postalCode=postal;state.address='';state.addressNumber='';
   const rt=globalThis.liveRuntime;
