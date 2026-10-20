@@ -536,7 +536,11 @@ create function public.discovery_public_search(
   p_destination_city text default null,
   p_departure_after timestamptz default null,
   p_min_guests integer default null,
-  p_limit integer default 20
+  p_limit integer default 20,
+  p_occupation_query text default null,
+  p_min_seats integer default null,
+  p_property_type text default null,
+  p_max_price_cents integer default null
 ) returns table(
   id uuid,vertical text,title text,description text,
   state_code text,city_key text,city_name text,public_area text,
@@ -577,13 +581,27 @@ as $$
       (l.vertical='rides' and r.departure_at>=p_departure_after))
    and (p_min_guests is null or
       (l.vertical='stays' and st.guests>=p_min_guests))
+   and (nullif(btrim(p_occupation_query),'') is null or
+      (l.vertical='professionals' and length(p_occupation_query)<=100
+       and position(lower(btrim(p_occupation_query)) in lower(pro.occupation))>0))
+   and (p_min_seats is null or
+      (l.vertical='rides' and p_min_seats between 1 and 8
+       and r.seats_available>=p_min_seats))
+   and (p_property_type is null or
+      (l.vertical='stays' and p_property_type in
+       ('hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other')
+       and st.property_type=p_property_type))
+   and (p_max_price_cents is null or
+      (l.vertical='stays' and p_max_price_cents between 0 and 50000000
+       and st.price_from_brl_cents is not null
+       and st.price_from_brl_cents<=p_max_price_cents))
  order by l.published_at desc,l.id desc
  limit greatest(1,least(coalesce(p_limit,20),50))
 $$;
 revoke all on function public.discovery_public_search(
-  text,text,text,text,text,timestamptz,integer,integer) from public;
+  text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer) from public;
 grant execute on function public.discovery_public_search(
-  text,text,text,text,text,timestamptz,integer,integer) to anon,authenticated;
+  text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer) to anon,authenticated;
 
 -- Sem seeds artificiais, cobrança automática, publicação automática ou
 -- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
