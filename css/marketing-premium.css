@@ -1071,7 +1071,7 @@
   display:none;
 }
 
-.home-discover-tile{
+.home-discover .home-discover-tile{
   align-items:center;
   text-align:center;
   min-width:0;
