@@ -57,7 +57,8 @@ function discoverySavedComparison(kind,items){
  const selected=(Array.isArray(items)?items:[]).filter(item=>
   item?.vertical===kind&&saved.has(item.id)&&discoveryListingIdPattern.test(item.id)).slice(0,3);
  if(!selected.length)return '';
- const safeAmount=cents=>Number.isSafeInteger(Number(cents))&&Number(cents)>=0&&
+ const safeAmount=cents=>cents!==null&&cents!==undefined&&String(cents).trim()!==''&&
+   Number.isSafeInteger(Number(cents))&&Number(cents)>=0&&
    Number(cents)<=50000000?BRL.format(Number(cents)/100):'';
  const entries=selected.map(item=>{
   const parts=[item.city_name,item.state_code].filter(x=>typeof x==='string'&&x.length<=120).map(esc);
@@ -301,7 +302,7 @@ function discoveryPage(){
   const s=discoveryState(kind),v=discoveryVerticals[kind];
   const savedIds=discoverySavedIds(kind);
   const savedSet=new Set(savedIds);
-  const eligible=s.status==='ready'?s.items:[];
+  const eligible=(s.status==='ready'||s.status==='loading-more')?s.items:[];
   const visible=s.savedOnly?eligible.filter(item=>savedSet.has(item?.id)):eligible;
   const visibleCount=visible.length;
   const loadedSaved=eligible.filter(item=>savedSet.has(item?.id)).length;
