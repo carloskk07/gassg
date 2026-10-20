@@ -1248,16 +1248,16 @@
  padding:10px 14px;border:0;border-radius:12px;
  background:#714a0b;color:#fff;font-weight:850;cursor:pointer}
 .tamao-home-coupon-rail button:focus-visible{outline:3px solid #dfab43;outline-offset:2px}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+.tamao-home-checkout-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
  gap:9px;margin:12px 0}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare)>div{min-width:0;border:1px solid #d7e3d9;
+.tamao-home-checkout-compare>div{min-width:0;border:1px solid #d7e3d9;
  background:#f7faf7;border-radius:13px;padding:12px;display:grid;gap:5px}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare) small{font-size:11px;font-weight:900;color:#456150}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare) strong{font-size:clamp(18px,2.4vw,24px);
+.tamao-home-checkout-compare small{font-size:11px;font-weight:900;color:#456150}
+.tamao-home-checkout-compare strong{font-size:clamp(18px,2.4vw,24px);
  overflow-wrap:anywhere;color:#244735}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare) span{font-size:12px;line-height:1.4;color:#53695c}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare) .has-discount{background:#ecf9f0;border-color:#a5d8b3}
-:is(.tamao-home-checkout-compare,.tamao-checkout-total-compare) .has-discount strong{color:#07613e}
+.tamao-home-checkout-compare span{font-size:12px;line-height:1.4;color:#53695c}
+.tamao-home-checkout-compare .has-discount{background:#ecf9f0;border-color:#a5d8b3}
+.tamao-home-checkout-compare .has-discount strong{color:#07613e}
 @media(max-width:850px){
  .city-price-research-grid{grid-template-columns:minmax(0,1fr)}
  .city-price-research-item{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -1266,10 +1266,6 @@
  .tamao-home-coupon-rail button{width:100%}
 }
 @media(max-width:530px){
- :is(.tamao-home-checkout-compare,.tamao-checkout-total-compare){grid-template-columns:minmax(0,1fr)}
+ .tamao-home-checkout-compare{grid-template-columns:minmax(0,1fr)}
  .city-price-research-item .city-price-amount{font-size:20px}
 }
-
-/* Integrated draft coupon checkout styles; no production flag changes. */
-.tamao-quote-benefit-grid article.tamao-quote-coupons{border-color:#eacb8e;background:#fffaf1}
-.tamao-checkout-coupon-callout{display:flex;align-items:center;gap:12px;padding:14px 15px;margin:14px 0;border:1px solid #edd3a0;border-radius:17px;background:linear-gradient(120deg,#fff6dc,#fffaf0)}.tamao-checkout-coupon-callout>span{font-size:25px}.tamao-checkout-coupon-callout>div{min-width:0;flex:1}.tamao-checkout-coupon-callout strong{font-size:16px;color:#684913}.tamao-checkout-coupon-callout p{font-size:12px;line-height:1.4;color:#6e552b;margin:5px 0 0}.tamao-checkout-coupon-callout button{flex-shrink:0;border-radius:12px;padding:11px 14px;min-height:44px;border:1px solid #cba351;background:#fff;color:#6f4d0c;font-weight:850;cursor:pointer}.tamao-checkout-coupon-callout button:focus-visible{outline:3px solid #b77b10;outline-offset:3px}@media(max-width:550px){.tamao-checkout-total-compare{grid-template-columns:minmax(0,1fr)}.tamao-checkout-coupon-callout{flex-wrap:wrap}.tamao-checkout-coupon-callout>div{flex-basis:calc(100% - 45px)}.tamao-checkout-coupon-callout button{width:100%}}
