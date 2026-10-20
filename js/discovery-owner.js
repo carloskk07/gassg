@@ -82,7 +82,7 @@ function discoveryOwnerImportSource(raw){
   const host=url.hostname.toLowerCase().replace(/^www\./,'');
   const path=url.pathname;
   if(host==='booking.com'||host==='booking.com.br'){
-    const hit=path.match(/^\/hotel\/[a-z]{2}\/([a-z0-9][a-z0-9-]{2,110})(?:\.[a-z]{2,5})?\/?$/i);
+    const hit=path.match(/^\/hotel\/[a-z]{2}\/([a-z0-9][a-z0-9-]{2,110})(?:\.[a-z]{2}(?:-[a-z]{2})?)?(?:\.html?)?\/?$/i);
     if(!hit)return null;
     const slug=hit[1].replace(/-[a-z]{2}$/i,'');
     const proposedTitle=slug.replace(/-/g,' ').replace(/\s+/g,' ').trim().slice(0,120);
