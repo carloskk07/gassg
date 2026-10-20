@@ -108,6 +108,7 @@ function discoveryOwnerImportPayload(raw){
     title:['title','nome','titulo','título','name'],
     description:['description','descricao','descrição','resumo'],
     city_name:['city_name','city','cidade'],
+    state_code:['state_code','uf','estado'],
     public_area:['public_area','bairro','regiao','região'],
     guests:['guests','hospedes','hóspedes','capacidade'],
     bedrooms:['bedrooms','quartos'],
@@ -143,6 +144,8 @@ function discoveryOwnerImportPayload(raw){
   if(desc.length>=30)clean.description=desc;
   const city=safeText(values.city_name,120);
   if(city.length>=2)clean.city_name=city;
+  const state=safeText(values.state_code,2).toUpperCase();
+  if(discoveryOwnerStates.includes(state))clean.state_code=state;
   const area=safeText(values.public_area,140);
   if(area)clean.public_area=area;
   for(const [key,min,max] of [['guests',1,80],['bedrooms',0,60],['beds',1,120],['units',1,250]]){
@@ -237,7 +240,7 @@ function discoveryOwnerImportJSONLD(raw){
           .map(v=>v.name).filter(v=>typeof v==='string').slice(0,20):[];
         const result={
           title:node.name,description:node.description,
-          city_name:address.addressLocality,public_area:address.addressRegion,
+          city_name:address.addressLocality,state_code:address.addressRegion,
           guests:occupancy,bedrooms:node.numberOfBedrooms,
           beds:node.numberOfBeds,amenities
         };
