@@ -44,7 +44,7 @@ assert.doesNotMatch(verified,/R\$ 115.90|Pesquisa local informada/);
 assert.ok(!ctx.renderQuote({city:'Santa Maria',state:'RS'}).includes('data-city-quote-code="WATER20"'),
  'quote for previous city must not spill into a new region');
 const begin=customer.indexOf('function homeQuoteSelectProduct(');
-const end=customer.indexOf('// Consulta ofertas reais quando a sessão está pronta;',begin);
+const end=customer.indexOf('function startCustomerAvailability(',begin);
 assert.ok(begin>=0&&end>begin);
 let postal='',amount='2',feedback='',focus=[],messages=[],routes=[],writes=[];
 const state={postalCode:'97300000',address:'Rua validada',addressNumber:'15',
