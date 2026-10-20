@@ -1269,3 +1269,20 @@
  .tamao-home-checkout-compare{grid-template-columns:minmax(0,1fr)}
  .city-price-research-item .city-price-amount{font-size:20px}
 }
+
+/* City quotation: disclosure directly under each product, no fake checkout. */
+.city-price-product-pick{width:100%;min-width:0}
+.city-price-product-pick>summary{list-style:none;display:grid;gap:4px;cursor:pointer}
+.city-price-product-pick>summary::-webkit-details-marker{display:none}
+.city-price-product-pick>summary:focus-visible{outline:3px solid #0a8053;outline-offset:3px;border-radius:7px}
+.city-price-product-hint{font-size:12px;font-weight:800;color:#07613e}
+.city-price-product-pick[open] .city-price-product-hint{color:#526c5b}
+.city-price-product-form{border-top:1px solid #d3e7d9;margin-top:12px;padding-top:12px;min-width:0}
+.city-price-product-fields{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:8px}
+.city-price-product-fields label{display:grid;gap:5px;font-size:12px;font-weight:750;color:#174d36}
+.city-price-product-fields input{box-sizing:border-box;width:100%;min-width:0;min-height:44px;border:1px solid #a6c9b2;border-radius:9px;padding:8px;background:#fff;color:#153c29}
+.city-price-product-actions{display:flex;flex-wrap:wrap;gap:8px}
+.city-price-product-actions button{flex:1 1 112px;white-space:normal;min-height:44px}
+.city-price-product-note,.city-price-product-feedback{font-size:12px;line-height:1.5;color:#526858;margin:9px 0}
+.city-price-research-item:has(.city-price-product-pick){display:block}
+@media(max-width:370px){.city-price-product-fields{grid-template-columns:minmax(0,1fr) 76px}}
