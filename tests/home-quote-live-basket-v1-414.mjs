@@ -55,7 +55,7 @@ const ctx=vm.createContext({state,products,document:doc,
  homeQuoteBasketMarkup:cart=>htmlCtx.basket(cart),
  toast:msg=>toasts.push(msg),go:route=>routes.push(route),
  setCartProduct:(code,qty)=>{state.cart[code]=qty},globalThis:{liveRuntime:{offers:[]}}});
-vm.runInContext(customer.slice(pieceStart,pieceEnd)+';this.sync=homeQuoteSyncPostal;this.qty=homeQuoteAdjustQuantity;this.checkout=homeQuoteGoToCheckout;this.add=homeQuoteSelectProduct;',ctx);
+vm.runInContext(customer.slice(pieceStart,pieceEnd)+';this.sync=homeQuoteSyncPostal;this.qty=homeQuoteAdjustQuantity;this.checkout=homeQuoteGoToOrder;this.add=homeQuoteSelectProduct;',ctx);
 input.value='97300000';assert.equal(ctx.sync(input),'97300-000');
 assert.equal(otherInput.value,'97300-000','other product inherits ZIP');
 numberInput.value='1';ctx.qty('WATER20',-1);assert.equal(numberInput.value,'1');
