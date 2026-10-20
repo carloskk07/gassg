@@ -127,3 +127,21 @@
 .discovery-inquiry-fields textarea:focus-visible{outline:3px solid #bd821b;outline-offset:2px}
 .discovery-inquiry .discovery-inquiry-feedback{margin:5px 0;color:#a43a28;font-size:12px}
 .discovery-inquiry a{display:inline-flex;padding:10px 14px;min-height:44px;align-items:center;background:#e7f5eb;color:#12583a;border-radius:10px;font-size:13px;font-weight:850;text-decoration:none}
+
+/* Saved listings are device-local IDs; visible facts always come from public search. */
+.discovery-saved-bar{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:15px;padding:12px;border:1px solid #c4dccb;border-radius:13px;background:#f3f9f4}
+.discovery-saved-bar span{font-weight:850;color:#12583b;margin-right:auto;font-size:13px}
+.discovery-saved-bar button,.discovery-actions .discovery-save{min-height:44px;padding:9px 13px;border:1px solid #92b9a2;border-radius:9px;background:white;color:#17573c;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.discovery-saved-bar button[aria-pressed="true"],.discovery-actions .discovery-save[aria-pressed="true"]{background:#e1f6e8;color:#125d39;border-color:#54a577}
+.discovery-saved-bar button:disabled{opacity:.5;cursor:not-allowed}
+.discovery-saved-bar button:focus-visible,.discovery-actions .discovery-save:focus-visible{outline:3px solid #b98728;outline-offset:3px}
+.discovery-saved-note,.discovery-saved-feedback{font-size:12px;color:#3a5948;margin:7px 0 12px}
+.discovery-shortlist{padding:15px;border:1px solid #a7cfb3;border-radius:15px;background:#f4faf6;margin:13px 0}
+.discovery-shortlist h2{font-size:19px;margin:0 0 6px}
+.discovery-shortlist>p{font-size:12px;color:#365341;margin:0 0 11px}
+.discovery-shortlist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.discovery-shortlist-card{min-width:0;display:grid;align-content:start;gap:7px;background:#fff;border:1px solid #d4e8db;border-radius:11px;padding:12px;overflow-wrap:anywhere}
+.discovery-shortlist-card strong{font-size:15px;color:#173d2b}
+.discovery-shortlist-card span,.discovery-shortlist-card p{font-size:12px;line-height:1.4;color:#395947;margin:0}
+.discovery-shortlist-card a{font-size:13px;color:#125d3a;font-weight:850}
+@media(max-width:760px){.discovery-shortlist-grid{grid-template-columns:1fr}.discovery-saved-bar button{flex:1 1 135px}}
