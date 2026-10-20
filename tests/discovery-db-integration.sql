@@ -387,6 +387,22 @@ begin
  select count(*) into n from public.discovery_admin_report_queue();
  if n<>3 then raise exception 'ADMIN_REPORT_COUNT_INVALID';end if;
 end $reporttest$;
+-- Suspensão pública imediata e retomada somente após resolver denúncias.
+select public.discovery_transition_listing(
+ current_setting('tamao.test.listing_id')::uuid,'paused',
+ 'Suspensão durante análise de relatos reais');
+do $reporttest$
+declare n integer;
+begin
+ select count(*) into n from public.discovery_admin_listing_overview();
+ if n<>1 then raise exception 'ADMIN_LIVE_LISTINGS_INCOMPLETE';end if;
+ begin
+   perform public.discovery_transition_listing(
+     current_setting('tamao.test.listing_id')::uuid,'published',
+     'Reativação insegura com denúncias abertas');
+   raise exception 'REPORT_REACTIVATION_BYPASS';
+ exception when sqlstate '22023' then null;end;
+end $reporttest$;
 select public.discovery_review_report(
  current_setting('tamao.test.submitted_report_id')::bigint,
  'resolved','Analisada a denúncia e adotadas providências');
@@ -399,6 +415,18 @@ begin
   raise exception 'REPORT_REOPEN_ALLOWED';
  exception when sqlstate '22023' then null;end;
 end $reporttest$;
+-- Resolver as outras denúncias para permitir uma reativação consciente.
+do $reporttest$
+declare report_row record;
+begin
+ for report_row in select id from public.discovery_admin_report_queue() loop
+   perform public.discovery_review_report(
+     report_row.id,'resolved','Análise concluída e providências documentadas');
+ end loop;
+end $reporttest$;
+select public.discovery_transition_listing(
+ current_setting('tamao.test.listing_id')::uuid,'published',
+ 'Reativação autorizada após conclusão das denúncias');
 reset role;
 
 -- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
