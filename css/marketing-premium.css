@@ -1240,3 +1240,12 @@ overflow-wrap:anywhere;color:#244735}
 .city-price-basket button{flex-shrink:0;background:#f6c95c;color:#173c29;min-height:46px}
 .city-price-basket button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:620px){.city-price-shopping-steps{justify-content:space-between;gap:5px}.city-price-shopping-steps span{font-size:10px}.city-price-basket{position:relative;bottom:auto;align-items:stretch;flex-direction:column}.city-price-basket button{width:100%}}
+
+.city-price-basket:has(.city-price-verified-list){flex-wrap:wrap}
+.city-price-verified-list{order:3;flex:1 1 100%;border-top:1px solid #55876a;padding-top:11px}
+.city-price-verified-list>strong{display:block;color:white;font-size:14px}
+.city-price-verified-list p{margin:5px 0 9px;color:#d6f1de;font-size:12px}
+.city-price-verified-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px}
+.city-price-verified-option{display:grid;gap:3px;border:1px solid #8dba9d;border-radius:11px;background:#eefaef;color:#114f34;padding:11px;font-size:12px}
+.city-price-verified-option strong{font-size:20px}
+.city-price-verified-option small{color:#365d46}
