@@ -45,6 +45,14 @@ function discoveryOwnerRoute(){
   return (route()==='advertise'||globalThis.discoveryOwnerReturnPending?.()===true)&&
     !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();
 }
+function discoveryOwnerPublishedLink(item){
+  const id=String(item?.id||'').toLowerCase();
+  const kind=String(item?.vertical||'');
+  if(item?.status!=='published'||!Object.hasOwn(discoveryOwnerTables,kind)||
+     !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(id))return '';
+  // Always give visitors the official public origin, never a preview host.
+  return 'https://tamao.com.br/?listing='+id+'#'+kind;
+}
 function discoveryOwnerCitySlug(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
@@ -118,10 +126,16 @@ function discoveryOwnerPage(){
     const canEdit=['draft','rejected','paused'].includes(x.status);
     const edit=canEdit?'<button type="button" onclick="discoveryOwnerOpen(\''+id+'\')">Editar</button>':'';
     const review=canEdit?'<button type="button" onclick="discoveryOwnerSubmit(\''+id+'\')">Enviar para revisão</button>':'';
+    const publicLink=discoveryOwnerPublishedLink(x);
+    const share=publicLink?
+      '<a class="secondary" href="'+esc(publicLink)+'" target="_blank" rel="noopener noreferrer">Ver anúncio</a>'+
+      '<a class="secondary" href="https://wa.me/?text='+encodeURIComponent(
+        'Encontre '+String(x.title||'').slice(0,120)+' no TAMÃO: '+publicLink
+      )+'" target="_blank" rel="noopener noreferrer">Compartilhar no WhatsApp</a>':'';
     const pause=x.status==='published'?'<button type="button" onclick="discoveryOwnerPause(\''+id+'\')">Pausar anúncio</button>':'';
     return '<article class="discovery-owner-item"><strong>'+esc(x.title)+'</strong>'+
       '<small>'+esc(x.vertical)+' · '+esc(x.city_name)+' / '+esc(x.state_code)+' · '+esc(x.status)+'</small>'+
-      '<div class="discovery-owner-actions">'+edit+review+pause+'</div></article>';
+      '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div></article>';
   }).join('');
   const d=s.editor||{},kind=s.editor?.vertical||s.kind;
   const form='<form id="discovery-owner-form" class="discovery-owner-form" onsubmit="return discoveryOwnerSave(event)">'+
