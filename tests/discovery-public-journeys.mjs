@@ -155,11 +155,19 @@ assert.match(sandbox.discoveryCard({
  description:'Visita comercial',city_name:'São Gabriel',state_code:'RS'
 },'professionals'),/Compartilhar anúncio/);
 current='rides';
-sandbox.discoveryState('rides').status='idle';
+Object.assign(sandbox.discoveryState('rides'),{
+ status:'idle',state:'SC',city:'Florianópolis',origin:'Chapecó',
+ destination:'Florianópolis',departureAfter:'2030-03-10T09:30',minSeats:'3'
+});
 sandbox.discoveryAfterRender();
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_listing_id,publicId,'deep link must be fetched from approved server search');
 assert.equal(calls.at(-1)[1].p_vertical,'rides','shared links never mix modalities');
+for(const key of ['p_state_code','p_city_key','p_departure_city','p_destination_city',
+ 'p_departure_after','p_min_guests','p_occupation_query','p_min_seats','p_property_type','p_max_price_cents']){
+ assert.equal(calls.at(-1)[1][key],null,'shared listing cannot inherit unrelated filters: '+key);
+}
+
 sandbox.discoverySearchFromUi({preventDefault(){}});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_listing_id,null,'manual search must leave shared detail mode');
