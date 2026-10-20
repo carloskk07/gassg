@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
+      - 'supabase/migrations/20261020181500_discovery_city_control_inventory.sql'
       - 'tests/discovery-db-integration.sql'
       - 'supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql'
       - 'tests/coupon-finance-postgres-17.sql'
@@ -17,6 +18,7 @@ on:
     branches: [feat/unified-discovery-tamao]
     paths:
       - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
+      - 'supabase/migrations/20261020181500_discovery_city_control_inventory.sql'
       - 'tests/discovery-db-integration.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
