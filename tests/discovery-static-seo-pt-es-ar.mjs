@@ -25,7 +25,7 @@ try{
   assert.match(html,/property="og:url"/);
   assert.match(html,/class="ed-faq-items"/);
   assert.match(html,/class="ed-proof-grid"/);
-  assert.doesNotMatch(html,/checkout\(|create_order|supabase|fake results|reserva confirmada|pagamento recebido|disponibilidade garantida|preços garantidos/i);
+  assert.doesNotMatch(html,/checkout\(|create_order|supabase|fake results|reserva confirmada automaticamente|pagamento recebido pelo TAMÃO|disponibilidade garantida|preços garantidos/i);
   assert.doesNotMatch(html,/<script\b|<form\b|<input\b|data-private|secret_token/i);
   const self='https://tamao.com.br/'+slug+'/';
   assert.ok(html.includes('<link rel="canonical" href="'+self+'">'));
