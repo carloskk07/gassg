@@ -11,7 +11,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',error:'',seq:0} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -27,6 +27,19 @@ function discoveryWhatsApp(item){
   const phone=String(item.whatsapp_e164||'');
   if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
   return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent('Olá, vi seu anúncio no TAMÃO: '+String(item.title||'').slice(0,80));
+}
+function discoverySharedListingId(){
+ const search=String(globalThis.location?.search||'').slice(0,700);
+ const match=search.match(/(?:^\\?|&)listing=([0-9a-f-]{36})(?:&|$)/i);
+ const id=match?.[1]||'';
+ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)?id.toLowerCase():'';
+}
+function discoveryShareLink(item,kind){
+ const id=String(item?.id||'').toLowerCase(),origin=String(globalThis.location?.origin||'');
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)||
+    !/^https:\\/\\/(?:www\\.)?tamao\\.com\\.br$/.test(origin)||
+    !Object.hasOwn(discoveryVerticals,kind))return '';
+ return origin+'/?listing='+id+'#'+kind;
 }
 function discoveryPublicPhotoUrl(raw){
   const key=String(raw||'');
@@ -74,15 +87,17 @@ function discoveryCard(item,kind){
       typeof x==='string'&&x.trim()&&x.length<=60).slice(0,5):[];
     if(amenities.length)facts.push('Comodidades: '+amenities.map(x=>esc(x)).join(', '));
   }
-  const contact=discoveryWhatsApp(item);
+  const contact=discoveryWhatsApp(item),share=discoveryShareLink(item,kind);
   const photo=discoveryPublicPhotoUrl(Array.isArray(item.photo_urls)?item.photo_urls[0]:'');
   return '<article class="discovery-result">'+
     (photo?'<img class="discovery-photo" src="'+esc(photo)+'" alt="" loading="lazy" decoding="async">':'')+
     '<small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
     (facts.length?'<ul class="discovery-facts">'+facts.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'')+
     '<p>'+esc(item.description)+'</p>'+
+    '<div class="discovery-actions">'+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+
-    '</article>';
+    (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
+    '</div></article>';
 }
 function discoveryPage(){
   const kind=discoveryKind();
@@ -120,6 +135,7 @@ function discoverySearchFromUi(event){
   const kind=discoveryKind();
   if(!kind)return false;
   const s=discoveryState(kind);
+  s.sharedId=''; // Submitting filters leaves any incoming shared-detail link.
   s.state=String(document.getElementById('discovery-uf')?.value||'').slice(0,2);
   s.city=String(document.getElementById('discovery-city')?.value||'').trim().slice(0,120);
   s.origin=String(document.getElementById('discovery-origin')?.value||'').trim().slice(0,120);
@@ -156,6 +172,7 @@ async function discoveryFetch(){
       p_min_seats:kind==='rides'&&/^[1-8]$/.test(s.minSeats)?Number(s.minSeats):null,
       p_property_type:kind==='stays'&&['hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other'].includes(s.propertyType)?s.propertyType:null,
       p_max_price_cents:kind==='stays'&&/^(?:0|[1-9][0-9]{0,5})(?:[.][0-9]{1,2})?$/.test(s.maxPrice)&&Number(s.maxPrice)<=500000?Math.round(Number(s.maxPrice)*100):null,
+      p_listing_id:s.sharedId||null,
       p_limit:24
     });
     if(error)throw error;
@@ -171,5 +188,8 @@ async function discoveryFetch(){
 }
 function discoveryAfterRender(){
   const kind=discoveryKind();
-  if(kind&&discoveryState(kind).status==='idle')discoveryFetch();
+  if(kind&&discoveryState(kind).status==='idle'){
+    discoveryState(kind).sharedId=discoverySharedListingId();
+    discoveryFetch();
+  }
 }
