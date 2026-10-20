@@ -634,6 +634,33 @@ end $report$;
 revoke all on function public.discovery_review_report(bigint,text,text) from public,anon,authenticated;
 grant execute on function public.discovery_review_report(bigint,text,text) to authenticated;
 
+-- Superadmin needs a live inventory to suspend or reinstate advertisements
+-- without waiting for an external complaint. No owner identifiers or evidence.
+create function public.discovery_admin_listing_overview(p_limit integer default 100)
+returns table(
+ id uuid,vertical text,title text,status text,city_name text,
+ state_code text,published_at timestamptz,city_vertical_enabled boolean
+) language plpgsql stable security definer set search_path='pg_catalog'
+as $overview$
+begin
+ if not public.discovery_is_superadmin() then
+   raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+ return query
+ select l.id,l.vertical,l.title,l.status,l.city_name,l.state_code,
+        l.published_at,exists(
+         select 1 from public.discovery_vertical_cities c
+         where c.vertical=l.vertical and c.state_code=l.state_code
+           and c.city_key=l.city_key and c.enabled
+        )
+ from public.discovery_listings l
+ where l.status in ('published','paused')
+ order by l.updated_at desc,l.id desc
+ limit greatest(1,least(coalesce(p_limit,100),100));
+end $overview$;
+revoke all on function public.discovery_admin_listing_overview(integer)
+ from public,anon,authenticated;
+grant execute on function public.discovery_admin_listing_overview(integer) to authenticated;
+
 -- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
 -- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
 create function public.discovery_public_search(
