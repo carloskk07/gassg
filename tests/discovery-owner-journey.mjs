@@ -181,6 +181,9 @@ assert.equal(uploads[0].opts.upsert,false);
 assert.equal(uploads[1].opts.upsert,false);
 assert.ok(writes.some(w=>w[0]==='discovery_listings'&&w[1]==='update'&&w[2].photo_urls[0]===filePath));
 const id=records[0].id;
+assert.equal(ctx.discoveryOwnerPublishedLink(records[0]),'','a draft is never shared');
+assert.equal(ctx.discoveryOwnerPublishedLink({id,vertical:'invalid',status:'published'}),'');
+assert.equal(ctx.discoveryOwnerPublishedLink({id:'invalid',vertical:'rides',status:'published'}),'');
 // One-click publishing journey: photos, private records and details are saved,
 // but only the server RPC can move the draft into moderation, never published.
 selectedFiles=[];selectedDocuments=[];
@@ -205,7 +208,16 @@ assert.equal(uploads.length,2,'reusing saved draft does not reupload previous fi
 records[0].status='draft';
 await ctx.discoveryOwnerSubmit(id);
 assert.equal(records[0].status,'review');
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Compartilhar no WhatsApp/);
+records[0].status='published';
+const verifiedPublicLink='https://tamao.com.br/?listing='+id+'#professionals';
+assert.equal(ctx.discoveryOwnerPublishedLink(records[0]),verifiedPublicLink);
+assert.match(ctx.discoveryOwnerPage(),/Compartilhar no WhatsApp/);
+assert.match(ctx.discoveryOwnerPage(),/Ver anúncio/);
+assert.match(ctx.discoveryOwnerPage(),/https:\/\/wa\.me\/\?text=/);
 records[0].status='paused';
+assert.equal(ctx.discoveryOwnerPublishedLink(records[0]),'');
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Compartilhar no WhatsApp/);
 await ctx.discoveryOwnerOpen(id);
 assert.equal(records[0].status,'draft','paused item must reopen into new reviewed draft before editing');
 assert.ok(transitions.some(x=>x.p_next_status==='draft'));
