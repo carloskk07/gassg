@@ -101,7 +101,7 @@ function discoverySortLoaded(kind,items,mode){
  const numeric=(value,max)=>value!==null&&value!==undefined&&
    String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&
    Number(value)>=0&&Number(value)<=max?Number(value):null;
- const stamp=value=>typeof value==='string'&&/^\\d{4}-\\d{2}-\\d{2}T/.test(value)&&
+ const stamp=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(value)&&
    Number.isFinite(Date.parse(value))?Date.parse(value):null;
  const value=item=>{
   if(kind==='professionals'&&mode==='experience')return numeric(item?.years_experience,80);
