@@ -549,6 +549,8 @@ jobs:
         run: node tests/public-landing-entry-v1-375.mjs
       - name: V1.377 public editorial SEO, handoff and portal isolation
         run: node tests/public-editorial-seo-v1-377.mjs
+      - name: Discovery SEO PT and Argentina, six independent static pages
+        run: node tests/discovery-static-seo-pt-es-ar.mjs
       - name: Public benefits-first pages and pre-opening home
         run: node tests/public-benefits-first-v1-405.mjs
       - name: Public storytelling and benefits experience V1.406
