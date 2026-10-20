@@ -79,3 +79,10 @@
 @media(max-width:760px){.discovery-owner-layout{grid-template-columns:1fr}
  .discovery-owner-layout>section,.discovery-owner-form,.discovery-owner-auth{padding:16px}
  .discovery-owner{padding-block:22px 70px}}
+
+/* Rich results, populated exclusively by moderated published listings. */
+.discovery-facts{display:grid;gap:7px;list-style:none;padding:0;margin:12px 0 15px}
+.discovery-facts li{padding:7px 10px;border:1px solid #dce9e0;background:#f3faf5;
+ border-radius:9px;color:#264c36;font-size:13px;overflow-wrap:anywhere}
+.discovery-search select,.discovery-search input{min-height:44px}
+.discovery-results{align-items:start}
