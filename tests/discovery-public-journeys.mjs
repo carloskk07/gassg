@@ -286,7 +286,15 @@ assert.match(stayInquiry,/Hóspedes/);
 assert.doesNotMatch(rideInquiry+stayInquiry,/Reserva confirmada|Pagar no TAMÃO/);
 assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'bad',seats_available:1},'rides'),'');
 assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'+555599998888',seats_available:0},'rides'),'');
-assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'+555599998888',guests:2},'professionals'),'');
+const professionalInquiry=sandbox.discoveryInquiryForm({
+ title:'Eletricista regional',whatsapp_e164:'+555599998888'
+},'professionals');
+assert.match(professionalInquiry,/Pedir orçamento com detalhes/);
+assert.match(professionalInquiry,/Qual serviço você precisa/);
+assert.match(professionalInquiry,/Dia desejado \(opcional\)/);
+assert.match(professionalInquiry,/name="service" required minlength="10" maxlength="500"/);
+assert.doesNotMatch(professionalInquiry,/Reserva confirmada|Pagar no TAMÃO/);
+assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'not-phone'},'professionals'),'');
 function makeInquiry(kind,values,max=3){
  const feedback={textContent:''};
  const box={dataset:{phone:'+555599998888',kind,title:'Anúncio exemplo',max:String(max)},
@@ -296,7 +304,26 @@ function makeInquiry(kind,values,max=3){
  const anchor={href:'#',closest:sel=>sel==='.discovery-inquiry'?box:null};
  return {ok:sandbox.discoveryPrepareInquiry(anchor),link:anchor.href,feedback:feedback.textContent};
 }
-let inquiry=makeInquiry('rides',{seats:'2'},3);
+let inquiry=makeInquiry('professionals',{service:'Preciso instalar tomadas na sala',preferred_day:'2030-08-10'},0);
+assert.equal(inquiry.ok,true);
+assert.match(decodeURIComponent(inquiry.link),/solicitar um orçamento/);
+assert.match(decodeURIComponent(inquiry.link),/instalar tomadas na sala/);
+assert.match(decodeURIComponent(inquiry.link),/Dia desejado: 2030-08-10/);
+assert.doesNotMatch(decodeURIComponent(inquiry.link),/Reserva confirmada|Pagamento efetuado/);
+inquiry=makeInquiry('professionals',{service:'curto',preferred_day:''},0);
+assert.equal(inquiry.ok,false);
+assert.match(inquiry.feedback,/10 a 500 caracteres/);
+assert.equal(inquiry.link,'#');
+inquiry=makeInquiry('professionals',{service:'Descrição válida de reparos',preferred_day:'2030-02-30'},0);
+assert.equal(inquiry.ok,false);
+assert.match(inquiry.feedback,/data válida/);
+inquiry=makeInquiry('professionals',{service:'A'.repeat(501),preferred_day:''},0);
+assert.equal(inquiry.ok,false);
+assert.equal(inquiry.link,'#');
+inquiry=makeInquiry('professionals',{service:'Trocar chuveiro e revisar instalação',preferred_day:''},0);
+assert.equal(inquiry.ok,true,'service inquiry must work without an optional date');
+assert.doesNotMatch(decodeURIComponent(inquiry.link),/Dia desejado:/);
+inquiry=makeInquiry('rides',{seats:'2'},3);
 assert.equal(inquiry.ok,true);
 assert.match(decodeURIComponent(inquiry.link),/consultar 2 vagas/);
 assert.doesNotMatch(decodeURIComponent(inquiry.link),/Reserva confirmada|Pagamento efetuado/);
@@ -313,7 +340,7 @@ assert.match(inquiry.feedback,/saída após a entrada/);
 inquiry=makeInquiry('stays',{checkin:'2030-08-10',checkout:'2030-08-14',guests:'10'},6);
 assert.equal(inquiry.ok,false);
 assert.match(inquiry.feedback,/hóspedes válida/);
-for(const rule of ['.discovery-inquiry-fields','.discovery-inquiry summary'])
+for(const rule of ['.discovery-inquiry-fields','.discovery-inquiry summary','.discovery-inquiry-fields textarea'])
  assert.ok(css.includes(rule),'Missing inquiry styles '+rule);
 
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
