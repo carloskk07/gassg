@@ -218,6 +218,66 @@ ctx.document.getElementById=originalLookup;
 ctx.discoveryOwnerNew();
 ctx.discoveryOwnerTypeChanged('professionals');
 
+// Offline owner file import: one CSV record, structured HTML JSON-LD and
+// JSON. Nothing can fetch a third-party URL or create a listing automatically.
+const csv='title;description;city_name;guests;bedrooms;beds;amenities;price_from\n'+
+ '"Hotel do Lago";"Hospedagem com vista e quartos completos para famílias.";"São Gabriel";4;2;3;"Wi-Fi, Café";"320,50"';
+const csvData=ctx.discoveryOwnerImportFileText('hotel.csv',csv);
+assert.equal(ctx.discoveryOwnerImportPayload(csvData).title,'Hotel do Lago');
+assert.equal(ctx.discoveryOwnerImportPayload(csvData).price_from,'320.50');
+assert.equal(ctx.discoveryOwnerImportFileText('hotel.csv',csv+'\nfoo;bar'),null,
+ 'multi-row source requires explicit per-property confirmation');
+assert.equal(ctx.discoveryOwnerImportFileText('hotel.exe',csv),null);
+assert.equal(ctx.discoveryOwnerImportFileText('hotel.html','<h1>Hotel</h1>'),null);
+const htmlFile='<html><head><script type="application/ld+json">'+
+ JSON.stringify({'@context':'https://schema.org','@type':'Hotel',
+   name:'Hotel Estrela do Sul',description:'Hospedagem completa no centro da cidade com estacionamento.',
+   address:{'@type':'PostalAddress',addressLocality:'São Gabriel',addressRegion:'RS'},
+   occupancy:{'@type':'QuantitativeValue',value:6},numberOfBedrooms:3,numberOfBeds:4,
+   amenityFeature:[{name:'Wi-Fi',value:true},{name:'Piscina',value:false}],
+   offers:{price:'389.90',priceCurrency:'BRL'},image:'https://notimported.test/image.jpg',
+   telephone:'+5555999999999'})+'</script></head></html>';
+const htmlData=ctx.discoveryOwnerImportFileText('hotel.html',htmlFile);
+const parsedHtml=ctx.discoveryOwnerImportPayload(htmlData);
+assert.equal(parsedHtml.title,'Hotel Estrela do Sul');
+assert.equal(parsedHtml.city_name,'São Gabriel');
+assert.equal(parsedHtml.guests,6);
+assert.equal(parsedHtml.bedrooms,3);
+assert.equal(parsedHtml.beds,4);
+assert.equal(parsedHtml.price_from,'389.90');
+assert.equal(JSON.stringify(parsedHtml.amenities),'["Wi-Fi"]');
+assert.equal(parsedHtml.property_type,'hotel');
+assert.equal(Object.hasOwn(parsedHtml,'image'),false);
+assert.equal(Object.hasOwn(parsedHtml,'telephone'),false);
+const usdHtml=htmlFile.replace('"priceCurrency":"BRL"','"priceCurrency":"USD"');
+assert.equal(ctx.discoveryOwnerImportPayload(ctx.discoveryOwnerImportFileText('hotel.html',usdHtml)).price_from,undefined);
+assert.equal(ctx.discoveryOwnerImportFileText('hotel.html','<script type="application/ld+json">{"@type":"Article","name":"Fake listing"}</script>'),null);
+const csvInput={value:'chosen',files:[{name:'hotel.csv',size:csv.length,text:async()=>csv}]};
+const importStatus={textContent:''},importText={value:''};
+const baseLookup=ctx.document.getElementById;
+ctx.discoveryOwnerNew();
+ctx.discoveryOwnerTypeChanged('stays');
+assert.match(ctx.discoveryOwnerPage(),/arquivo exportado ou salvo/);
+ctx.document.getElementById=id=>({
+ 'discovery-owner-import-link':{value:''},
+ 'discovery-owner-import-details':importText,
+ 'discovery-owner-import-feedback':importStatus,
+ 'discovery-owner-form':form,
+})[id]||baseLookup(id);
+assert.equal(await ctx.discoveryOwnerImportFile({target:csvInput}),true);
+assert.equal(ctx.__discoveryOwnerTestState.editor.title,'Hotel do Lago');
+assert.equal(ctx.__discoveryOwnerTestState.editor.guests,4);
+assert.equal(csvInput.value,'');
+assert.equal(writes.length,0,'file import must not write records');
+ctx.discoveryOwnerNew();
+const unsafeInput={value:'chosen',files:[{name:'metadata.js',size:20,text:async()=>csv}]};
+assert.equal(await ctx.discoveryOwnerImportFile({target:unsafeInput}),false);
+assert.match(importStatus.textContent,/JSON, CSV, TXT ou HTML/);
+assert.equal(writes.length,0,'rejected file must not write records');
+ctx.document.getElementById=baseLookup;
+ctx.discoveryOwnerNew();
+ctx.discoveryOwnerTypeChanged('professionals');
+
 const stayValues={property_type:'inn',guests:'4',bedrooms:'2',beds:'3',units:'2',
  price_from:'289.50',price_unit:'week',amenities:'Wi-Fi, Estacionamento, Wi-Fi'};
 const stayDetails=ctx.discoveryOwnerDetails('stays',{get:key=>stayValues[key]||''});
