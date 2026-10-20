@@ -83,10 +83,11 @@ for(const contract of [
  "st.price_from_brl_cents<=p_max_price_cents",
  "pro.service_area,pro.years_experience,r.proposed_cost_share_cents,st.amenities"
 ])assert.ok(sql.includes(contract),'missing secure public discovery contract: '+contract);
-assert.match(sql,/position\\(lower\\(btrim\\(p_occupation_query\\)\\) in lower\\(pro\\.occupation\\)\\)>0/,
+assert.ok(sql.includes('position(lower(btrim(p_occupation_query)) in lower(pro.occupation))>0'),
  'occupation search must compare fixed substrings, not interpolate wildcards');
-assert.match(sql,/grant execute on function public\\.discovery_public_search\\([\\s\\S]*?to anon,authenticated/,
- 'only callable public RPC, no owner bypass');
+assert.ok(sql.includes('grant execute on function public.discovery_public_search(')&&
+ sql.includes('to anon,authenticated;'),
+ 'public search must be callable only through scoped RPC');
 assert.match(sql,/create function public\.discovery_owner_can_edit_details\(/,
   'detail editing authorization must verify ownership server-side');
 for(const vertical of ['professionals','rides','stays']){
