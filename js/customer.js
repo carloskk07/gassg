@@ -39,14 +39,12 @@ function prelaunchExampleSection(cart={P13:1}){
   return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">EXEMPLO DE INTERFACE</span><h2>Visualização interna de comparação</h2><p>Conteúdo reservado ao ambiente interno de validação.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
-// V1.243 — Product imagery is representative, never a claim about a merchant's brand or inventory.
 function tamaoProductArt(code,product,extra=''){
   const art=({P13:'gas',WATER20:'water',CHARCOAL4:'charcoal',WOOD:'wood',ICE5:'ice'})[String(code||'').toUpperCase()];
   const variant=extra==='hero'?' hero-photo':extra==='cart'?' cart-photo':'';
   return art?'<span class="tamao-product-photo product-'+art+variant+'" aria-hidden="true"></span>'
     :'<span class="tamao-product-emoji" aria-hidden="true">'+esc(product?.icon||'🧺')+'</span>';
 }
-// Value proposition remains truthful for both cities with and without verified offers.
 function tamaoHomeBenefits({compact=false}={}){
   const extraBenefits=compact?'':`    <div class="tamao-action-now">
       <div><span class="section-kicker">APROVEITE O TAMÃO AGORA</span>
@@ -131,8 +129,6 @@ async function startHomeOrder({addFeatured=true}={}){
     }
   }
 
-  // Keep the existing cart when someone returns to the home page; don't turn
-  // "consult my order" into an accidental new basket of gas.
   const alreadyHasItems=Object.values(state.cart||{}).some(qty=>Number(qty)>0);
   if(!alreadyHasItems){
     state.cart=normalizeCart({});
@@ -152,13 +148,10 @@ async function startHomeOrder({addFeatured=true}={}){
   }
 }
 
-// Product-first entry: preserve the existing cart and CEP, never silently add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
 
-// V1.379 — Product taps from the home preserve an optional verified CEP,
-// without carrying address, offers or city proof from another region.
 function homeChooseProduct(code){
   const productCode=String(code||'').toUpperCase();
   if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)||!products[productCode]||products[productCode].hidden)return false;
@@ -280,7 +273,6 @@ function homeQuoteSelectProduct(code,buy=false){
  setCartProduct(sku,Math.min(99,existing+quantity));
  if(typeof homeQuoteUpdateBasket==='function')homeQuoteUpdateBasket();
  if(buy){
-  // The official order page confirms CEP, address, stock and current eligible offers.
   go('order');
   if(!state.addressNumber)globalThis.setTimeout?.(()=>{
    if(route()==='order')document.querySelector('#address-number')?.focus();
@@ -293,7 +285,6 @@ function homeQuoteSelectProduct(code,buy=false){
  return true;
 }
 
-// Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
   const input=globalThis.document?.querySelector('#home-address');
   const raw=String(input?.value||'').trim();
@@ -302,7 +293,6 @@ function startCustomerAvailability(){
     toast('Informe um CEP válido ou deixe para a próxima etapa.');
     return;
   }
-  // Browse first; CEP is validated on the checkout journey, not first paint.
   return startHomeOrder();
 }
 
@@ -415,13 +405,11 @@ function deliveryScheduleBlock(){
 function homeProductGroup(code,product){
   const key=String(product?.categoryKey||'').trim().toLowerCase();
   const productCode=String(code||'').toUpperCase();
-  // The server catalog category wins; hardcoded codes are only a fallback.
   if(key)return key==='glp'?'gas':key==='water'?'water':'other';
   if(/^P[1-9][0-9]?$/.test(productCode))return 'gas';
   if(/^WATER/.test(productCode))return 'water';
   return 'other';
 }
-// Local catalogue navigation only. No stock, prices, quotes or permissions change.
 function homeFilterProducts(group){
   const chosen=['all','gas','water','other'].includes(group)?group:'all';
   const grid=document.getElementById('home-discover-grid');
@@ -445,7 +433,6 @@ function homeFilterProducts(group){
 }
 function homeDiscoverFocus(){
   const panel=document.getElementById('home-discover');
-  // An empty discovery panel must not silently insert the featured gas item.
   if(!panel)return startHomeBrowse();
   const heading=panel.querySelector('h2');
   panel.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth',block:'start'});
@@ -453,7 +440,6 @@ function homeDiscoverFocus(){
   return true;
 }
 
-// Fast, no-extra-request navigation: browse pages load only after a visitor chooses one.
 function tamaoDiscoveryEntryHub(){
   return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
     '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
@@ -580,7 +566,6 @@ function home(){
       Number(a.sortOrder||100)-Number(b.sortOrder||100)
       ||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')
     );
-  // Every catalogue tile is a product choice, not a stock, price or merchant assertion.
   const discoveryEntries=homeProductEntries
     .filter(([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code))
     .slice(0,24);
@@ -590,8 +575,6 @@ function home(){
     ['all','Destaques'],['gas','Gás'],['water','Água'],['other','Outros']
   ].filter(([kind])=>kind==='all'||discoveryCounts[kind]>0).map(([kind,label])=>
     `<button type="button" data-tamao-filter="${kind}" aria-pressed="${kind==='all'}" onclick="homeFilterProducts('${kind}')">${label}</button>`).join('');
-  // Optional campaign intent only highlights browseable categories. A category
-  // without public catalogue entries is never advertised as available.
   const publicEntryKind=typeof tamaoPublicEntryIntent==='function'?tamaoPublicEntryIntent():'';
   const homeIntentKind=publicEntryKind==='agua'&&discoveryCounts.water>0?'water'
     :publicEntryKind==='gas'&&discoveryCounts.gas>0?'gas':'';
@@ -614,7 +597,6 @@ function home(){
   const heroVisualCodes=[...new Set(['P13','WATER20',...discoveryEntries.map(([code])=>code)])]
     .filter(code=>discoveryEntries.some(([entryCode])=>entryCode===code))
     .slice(0,2);
-  // Use only publicly browseable catalogue entries, never implied stock or offers.
   const heroVisualCards=heroVisualCodes.map((code,index)=>{
     const product=products[code];
     const name=customerProductName(code,product);
@@ -631,15 +613,12 @@ function home(){
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
     ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
     ||(cityChecked&&!hasConfirmedCityOffers));
-  // A region without verified offers should show a concise path to consultation
-  // and opt-in, not a long catalogue that resembles available inventory.
   const conciseHome=acquisitionOpen&&!testDemo;
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
   const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Escolher meus produtos':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Consultar '+featuredName;
   const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()';
-  // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
@@ -676,8 +655,6 @@ function home(){
       <article class="visitor-path visitor-path-sponsor"><span class="visitor-path-icon" aria-hidden="true">📣</span><small>PARA SUA MARCA</small><h3>Esteja presente nas escolhas da cidade.</h3><p>Conheça propostas de divulgação regional identificada e ações com benefícios, definidas junto ao TAMÃO.</p><button type="button" onclick="go('sponsors')">Quero divulgar <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
-  // Visible only before a verified offer: explain the journey without turning
-  // illustrative catalogue entries into stock, delivery or price claims.
   const homeAnswers=`<section class="home-trust-brief" aria-label="Respostas rápidas sobre o TAMÃO">
     <div class="home-trust-intro">
       <span class="section-kicker">COMPRAR COM MAIS CLAREZA</span>
@@ -891,7 +868,6 @@ function customerCheckoutFocusStep(step){
   else area.querySelector?.('h2')?.focus({preventScroll:true});
   return true;
 }
-// Only local catalogue display changes. Selected items remain visible in every category.
 function buyerCartFilter(group){
   const chosen=['all','gas','water','other'].includes(group)?group:'all';
   const catalog=document.getElementById('buyer-cart-catalog');
@@ -1060,9 +1036,7 @@ function cartRow(k,p){
   const label=customerProductName(k,p);
   return `<div class="cart-item"><div class="product-left"><div class="product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(k,p,"cart"):esc(p.icon)}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
-// Sorting never changes backend recommendation or creates a new quote.
 let checkoutOfferSort='recommended';
-// The same expiry rule controls both the progress indicator and rendered choices.
 function customerEligibleCheckoutOffers(all,{testDemo=false,now=Date.now()}={}){
   const rows=Array.isArray(all)?all:[];
   if(testDemo)return rows;
@@ -1110,8 +1084,6 @@ function checkoutSponsoredEditorial(){
      esc([slot.city,slot.state].filter(Boolean).join('/'))+
     '</p></aside>';
 }
-// Summary uses only the displayed offers. Never infers a guaranteed saving,
- // a completed payment, or an actual delivery time.
 function checkoutOfferDecisionSummary(all){
   if(!Array.isArray(all)||all.length<2)return '';
   const totals=all.map(o=>Number(o?.total));
@@ -1174,7 +1146,6 @@ function setCheckoutOfferSort(mode){
   const container=document.getElementById('checkout-offer-choices');
   if(!container)return;
   const current=globalThis.__CHAMA_TEST__===true?offers():globalThis.liveRuntime?.offers||[];
-  // Sorting only rearranges server-confirmed, non-expired options.
   const eligible=customerEligibleCheckoutOffers(current,{testDemo:globalThis.__CHAMA_TEST__===true});
   container.innerHTML=eligible.length?checkoutOfferCards(eligible):
     '<div class="empty card offer-expired-notice" role="status"><strong>As opções desta consulta expiraram.</strong><p class="muted tiny">Atualize a consulta para receber preços e prazos atuais. Nenhum pedido foi enviado.</p><button type="button" class="primary" onclick="liveRefreshOffers().catch(()=>{})">Atualizar opções →</button></div>';
@@ -1194,7 +1165,6 @@ function offerCard(o,facts={}){
   const recommended=roles.includes('Recomendado');
   const available=roles.includes('Disponível agora');
   const featured=recommended||available;
-  // Do not translate missing or malformed server data into an invented R$ 0.
   const rawTotal=Number(o.total);
   const validTotal=o.total!=null&&Number.isFinite(rawTotal)&&rawTotal>0;
   const gross=validTotal?rawTotal:0;
