@@ -172,15 +172,147 @@ function discoveryOwnerImportPayload(raw){
   }
   return clean;
 }
+// Offline file import: only data the owner selects is read in their browser.
+// No fetch/proxy to Airbnb, Booking or an arbitrary URL is ever performed.
+function discoveryOwnerImportCSV(raw){
+  const input=String(raw||'').replace(/^\uFEFF/,'');
+  if(!input||input.length>12000)return null;
+  const head=input.split(/\r?\n/,1)[0];
+  const delimiters=[';',',','\t'];
+  const delimiter=delimiters.sort((a,b)=>head.split(b).length-head.split(a).length)[0];
+  if(!head.includes(delimiter))return null;
+  let field='',row=[],rows=[],quoted=false;
+  for(let i=0;i<input.length;i++){
+    const c=input[i];
+    if(c==='"'){
+      if(quoted&&input[i+1]==='"'){field+='"';i++;}
+      else quoted=!quoted;
+    }else if(!quoted&&c===delimiter){
+      row.push(field.trim());field='';
+    }else if(!quoted&&(c==='\n'||c==='\r')){
+      row.push(field.trim());field='';
+      if(row.some(Boolean))rows.push(row);
+      row=[];
+      if(c==='\r'&&input[i+1]==='\n')i++;
+      if(rows.length>2)return null;
+    }else field+=c;
+  }
+  if(quoted)return null;
+  row.push(field.trim());
+  if(row.some(Boolean))rows.push(row);
+  if(rows.length!==2||rows[0].length!==rows[1].length||
+     rows[0].length>40||rows[0].length<2)return null;
+  const result=Object.create(null);
+  for(let i=0;i<rows[0].length;i++){
+    const key=rows[0][i].trim().toLowerCase().slice(0,80);
+    if(!key||Object.hasOwn(result,key))return null;
+    result[key]=rows[1][i].slice(0,3500);
+  }
+  return result;
+}
+function discoveryOwnerImportJSONLD(raw){
+  if(typeof raw!=='string'||raw.length>131072)return null;
+  const blocks=raw.match(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi)||[];
+  for(const block of blocks.slice(0,30)){
+    const open=block.match(/^<script\b([^>]*)>/i);
+    if(!open||!/\btype\s*=\s*["']application\/ld\+json["']/i.test(open[1]))continue;
+    const content=block.slice(open[0].length).replace(/<\/script\s*>$/i,'').trim();
+    if(content.length>12000)continue;
+    let decoded;
+    try{decoded=JSON.parse(content);}catch{continue;}
+    const candidates=Array.isArray(decoded)?decoded:[decoded];
+    for(const obj of candidates.slice(0,15)){
+      const nodes=Array.isArray(obj?.['@graph'])?obj['@graph'].slice(0,40):[obj];
+      for(const node of nodes){
+        if(!node||typeof node!=='object'||Array.isArray(node))continue;
+        const types=Array.isArray(node['@type'])?node['@type']:[node['@type']];
+        const matching=types.filter(x=>typeof x==='string').some(x=>
+          /^(?:https?:\/\/schema\.org\/)?(?:Hotel|Motel|Hostel|LodgingBusiness|BedAndBreakfast|VacationRental|Accommodation|Apartment|House)$/i.test(x));
+        if(!matching)continue;
+        const address=node.address&&typeof node.address==='object'?node.address:{};
+        const occupancy=node.occupancy&&typeof node.occupancy==='object'?
+          node.occupancy.value:node.occupancy;
+        const amenities=Array.isArray(node.amenityFeature)?node.amenityFeature
+          .filter(v=>v&&typeof v==='object'&&v.value!==false&&v.value!=='false')
+          .map(v=>v.name).filter(v=>typeof v==='string').slice(0,20):[];
+        const result={
+          title:node.name,description:node.description,
+          city_name:address.addressLocality,public_area:address.addressRegion,
+          guests:occupancy,bedrooms:node.numberOfBedrooms,
+          beds:node.numberOfBeds,amenities
+        };
+        const type=types.join(' ').toLowerCase();
+        result.property_type=/hotel/.test(type)?'hotel':
+          /apartment/.test(type)?'apartment':/vacationrental|house/.test(type)?
+          'holiday_house':'inn';
+        const offers=Array.isArray(node.offers)?node.offers[0]:node.offers;
+        if(offers&&typeof offers==='object'&&offers.priceCurrency==='BRL'&&
+           (typeof offers.price==='number'||typeof offers.price==='string'))
+          result.price_from=offers.price;
+        return result;
+      }
+    }
+  }
+  return null;
+}
+function discoveryOwnerImportFileText(name,raw){
+  const filename=String(name||'').toLowerCase();
+  const text=String(raw||'').replace(/^\uFEFF/,'');
+  if(!text||text.length>131072)return null;
+  if(/\.csv$/.test(filename)){
+    const record=discoveryOwnerImportCSV(text);
+    return record?JSON.stringify(record):null;
+  }
+  if(/\.html?$/.test(filename)){
+    const record=discoveryOwnerImportJSONLD(text);
+    return record?JSON.stringify(record):null;
+  }
+  if(/\.(?:json|txt)$/.test(filename)&&text.length<=12000)
+    return text;
+  return null;
+}
+async function discoveryOwnerImportFile(event){
+  const s=discoveryOwner;
+  const input=event?.target;
+  if(s.busy||!s.user||s.editor?.id)return false;
+  const file=input?.files?.[0];
+  const feedback=document.getElementById('discovery-owner-import-feedback');
+  const show=message=>{if(feedback)feedback.textContent=message;};
+  if(!file)return false;
+  if(file.size<1||file.size>131072||
+     !/\.(?:json|csv|txt|html|htm)$/i.test(String(file.name||''))){
+    show('Escolha um arquivo JSON, CSV, TXT ou HTML de até 128 KB.');
+    if(input)input.value='';
+    return false;
+  }
+  try{
+    const text=await file.text();
+    const parsed=discoveryOwnerImportFileText(file.name,text);
+    if(!parsed||!Object.keys(discoveryOwnerImportPayload(parsed)).length){
+      show('Arquivo não reconhecido. Use um único imóvel em CSV, JSON, texto por campos ou HTML com dados estruturados de hospedagem.');
+      return false;
+    }
+    const field=document.getElementById('discovery-owner-import-details');
+    if(!field)return false;
+    if(parsed.length>12000){show('Dados extraídos excedem o limite de 12 mil caracteres.');return false;}
+    field.value=parsed;
+    show('Arquivo lido no seu aparelho. Aplicando as informações ao cadastro…');
+    return discoveryOwnerImportStay();
+  }catch{
+    show('Não foi possível ler o arquivo no aparelho. Tente JSON, CSV, TXT ou HTML válido.');
+    return false;
+  }finally{if(input)input.value='';}
+}
 function discoveryOwnerImportStay(){
   const s=discoveryOwner;
   if(s.busy||!s.user||s.editor?.id){return false;}
   const source=document.getElementById('discovery-owner-import-link')?.value||'';
   const details=document.getElementById('discovery-owner-import-details')?.value||'';
   const provider=discoveryOwnerImportSource(source);
-  if(!provider){
-    s.error='Use um link HTTPS válido de um imóvel do Booking.com ou Airbnb.';
-    s.notice='';render();return false;
+  if(String(source).trim()&&!provider){
+    const feedback=document.getElementById('discovery-owner-import-feedback');
+    if(feedback)feedback.textContent='Use um link HTTPS válido de imóvel no Booking.com ou Airbnb, ou deixe o link vazio ao importar seu arquivo.';
+    return false;
   }
   if(String(details).length>12000){
     s.error='O texto importado ultrapassa 12 mil caracteres.';
@@ -189,8 +321,9 @@ function discoveryOwnerImportStay(){
   const data=discoveryOwnerImportPayload(details);
   if(!data.title&&provider.proposedTitle)data.title=provider.proposedTitle;
   if(!Object.keys(data).length){
-    s.error='Link reconhecido, mas não contém os detalhes do imóvel. Cole título, descrição e informações do seu anúncio no campo abaixo para preencher o cadastro.';
-    s.notice='';return false;
+    const feedback=document.getElementById('discovery-owner-import-feedback');
+    if(feedback)feedback.textContent='Não encontrei informações suficientes. Cole os dados ou escolha um arquivo exportado do seu imóvel.';
+    return false;
   }
   const ownerForm=document.getElementById('discovery-owner-form');
   const values=ownerForm?new FormData(ownerForm):null;
@@ -206,7 +339,7 @@ function discoveryOwnerImportStay(){
   s.editor={...own,...data,vertical:'stays'};
   s.kind='stays';
   s.error='';
-  s.notice='Pré-preenchimento assistido de '+provider.provider+'. Confira os dados, complete os campos obrigatórios e anexe suas próprias fotos antes de enviar para análise. Nenhuma reserva ou disponibilidade foi sincronizada.';
+  s.notice='Pré-preenchimento assistido a partir de '+(provider?.provider||'seus dados exportados')+'. Confira os dados, complete os campos obrigatórios e anexe suas próprias fotos antes de enviar para análise. Nenhuma reserva ou disponibilidade foi sincronizada.';
   render();return true;
 }
 function discoveryOwnerTypeFields(type,d){
@@ -286,8 +419,10 @@ function discoveryOwnerPage(){
       '</select></label>')+
     (kind==='stays'&&!s.editor?.id?'<details class="discovery-owner-import"><summary>Já anuncio no Airbnb ou Booking.com? Aproveitar meu anúncio</summary>'+
       '<p class="tiny muted">Cole o link do seu imóvel e, se tiver, os dados exportados ou copiados do seu próprio anúncio (Título, Descrição, Cidade, Hóspedes, Quartos, Camas, Comodidades, Preço). Os campos reconhecidos serão preenchidos aqui. Não acessamos nem copiamos fotos, avaliações, calendário ou reservas dessas plataformas.</p>'+
-      '<label>Link do seu anúncio<input id="discovery-owner-import-link" type="url" maxlength="1500" placeholder="https://www.booking.com/hotel/br/seu-imovel.html ou https://www.airbnb.com/rooms/12345678"></label>'+
+      '<label>Link do seu anúncio (opcional com arquivo)<input id="discovery-owner-import-link" type="url" maxlength="1500" placeholder="https://www.booking.com/hotel/br/seu-imovel.html ou https://www.airbnb.com/rooms/12345678"></label>'+
       '<label>Informações do meu imóvel (opcional, formato Campo: valor ou JSON)<textarea id="discovery-owner-import-details" maxlength="12000" rows="5" placeholder="Título: Pousada no centro&#10;Descrição: Pousada com quartos completos e estacionamento perto do centro.&#10;Cidade: São Gabriel&#10;Hóspedes: 4&#10;Quartos: 2&#10;Camas: 3&#10;Comodidades: Wi-Fi, estacionamento"></textarea></label>'+
+      '<label>Ou selecione um arquivo exportado ou salvo do imóvel (JSON, CSV, TXT ou HTML; até 128 KB)<input type="file" accept=".json,.csv,.txt,.html,.htm" onchange="discoveryOwnerImportFile(event)"></label>'+
+      '<p id="discovery-owner-import-feedback" class="tiny muted" role="status" aria-live="polite"></p>'+
       '<button type="button" class="secondary" onclick="discoveryOwnerImportStay()">Aproveitar informações no cadastro</button>'+
       '<p class="tiny muted">Só você pode confirmar que administra o imóvel e tem direito de usar os textos e fotos. A importação não cria reservas nem publica sem análise.</p></details>':'')+
     discoveryOwnerField('title','Título do anúncio',d.title,'text','required minlength="8" maxlength="120"')+
