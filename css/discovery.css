@@ -153,3 +153,8 @@
 .discovery-sort-bar select:focus-visible{outline:3px solid #b98728;outline-offset:2px}
 .discovery-sort-bar span{font-size:12px;color:#466552;flex:1 1 215px}
 @media(max-width:560px){.discovery-sort-bar{display:grid;gap:8px}.discovery-sort-bar select{width:100%}}
+
+.discovery-actions .discovery-pick{min-height:44px;padding:9px 12px;border:1px solid #9ebdad;border-radius:9px;background:#fff;color:#255743;font:inherit;font-weight:750;cursor:pointer}
+.discovery-actions .discovery-pick[aria-pressed="true"]{border-color:#14794d;background:#dbf4e4;color:#075b38}
+.discovery-actions .discovery-pick:focus-visible{outline:3px solid #b98728;outline-offset:3px}
+@media(max-width:560px){.discovery-actions .discovery-pick{flex:1 1 145px}}
