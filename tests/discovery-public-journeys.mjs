@@ -144,6 +144,27 @@ assert.match(stayCard,/Preço anunciado desde R\$\s?289,00 por noite/);
 assert.doesNotMatch(stayCard,/<img src=x onerror/);
 assert.match(stayCard,/&lt;img src=x onerror=alert\(1\)&gt;/);
 assert.equal(sandbox.discoveryCard({...results[0],vertical:'stays'},'rides'),'');
+const publicId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+sandbox.location={origin:'https://tamao.com.br',search:'?listing='+publicId};
+const shared=sandbox.discoveryShareLink({id:publicId},'professionals');
+assert.equal(shared,'https://tamao.com.br/?listing='+publicId+'#professionals');
+assert.equal(sandbox.discoveryShareLink({id:'invalid'},'professionals'),'');
+assert.equal(sandbox.discoveryShareLink({id:publicId},'unknown'),'');
+assert.match(sandbox.discoveryCard({
+ vertical:'professionals',id:publicId,title:'Eletricista publicado',
+ description:'Visita comercial',city_name:'São Gabriel',state_code:'RS'
+},'professionals'),/Compartilhar anúncio/);
+current='rides';
+sandbox.discoveryState('rides').status='idle';
+sandbox.discoveryAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_listing_id,publicId,'deep link must be fetched from approved server search');
+assert.equal(calls.at(-1)[1].p_vertical,'rides','shared links never mix modalities');
+sandbox.discoverySearchFromUi({preventDefault(){}});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_listing_id,null,'manual search must leave shared detail mode');
+sandbox.location.search='?listing=<script>'; 
+assert.equal(sandbox.discoverySharedListingId(),'','invalid share ids rejected');
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
