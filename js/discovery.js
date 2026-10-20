@@ -49,6 +49,23 @@ function discoveryPublicPhotoUrl(raw){
   return base+'/storage/v1/object/public/tamao-discovery-photos/'+
     key.split('/').map(encodeURIComponent).join('/');
 }
+// Only moderated public marketing images are eligible for the visitor gallery.
+function discoveryPublicGallery(item){
+ const keys=Array.isArray(item?.photo_urls)?item.photo_urls:[];
+ const photos=[...new Set(keys.filter(key=>typeof key==='string').map(discoveryPublicPhotoUrl).filter(Boolean))].slice(0,8);
+ if(!photos.length)return '';
+ const title=String(item?.title||'Anúncio').slice(0,100);
+ const main='<img class="discovery-photo" src="'+esc(photos[0])+'" alt="'+
+   esc('Foto principal de '+title)+'" loading="lazy" decoding="async">';
+ if(photos.length===1)return '<div class="discovery-gallery">'+main+'</div>';
+ const extra=photos.slice(1).map((url,i)=>
+  '<img src="'+esc(url)+'" alt="'+esc('Foto '+(i+2)+' de '+title)+
+  '" loading="lazy" decoding="async">').join('');
+ return '<div class="discovery-gallery">'+main+
+  '<details class="discovery-gallery-more"><summary>Ver mais '+(photos.length-1)+
+  (photos.length===2?' foto':' fotos')+'</summary>'+
+  '<div class="discovery-gallery-grid">'+extra+'</div></details></div>';
+}
 function discoveryCard(item,kind){
   if(item?.vertical!==kind)return '';
   const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
@@ -88,14 +105,15 @@ function discoveryCard(item,kind){
     if(amenities.length)facts.push('Comodidades: '+amenities.map(x=>esc(x)).join(', '));
   }
   const contact=discoveryWhatsApp(item),share=discoveryShareLink(item,kind);
-  const photo=discoveryPublicPhotoUrl(Array.isArray(item.photo_urls)?item.photo_urls[0]:'');
+  const gallery=discoveryPublicGallery(item);
   return '<article class="discovery-result">'+
-    (photo?'<img class="discovery-photo" src="'+esc(photo)+'" alt="" loading="lazy" decoding="async">':'')+
+    gallery+
     '<small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
     (facts.length?'<ul class="discovery-facts">'+facts.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'')+
     '<p>'+esc(item.description)+'</p>'+
     '<div class="discovery-actions">'+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+
+    (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
     '</div></article>';
 }
@@ -104,8 +122,8 @@ function discoveryPage(){
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
   const s=discoveryState(kind),v=discoveryVerticals[kind];
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
-    s.status==='error'?'<p role="alert">Consulta indisponível no momento. Verifique a conexão e tente novamente.</p>':
-    s.status==='ready'&&!s.items.length?'<div class="discovery-empty"><p>Nenhum anúncio publicado encontrado com esses filtros.</p><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button></div>':
+    s.status==='error'?'<div class="discovery-empty" role="alert"><p>Consulta indisponível no momento. Verifique a conexão e tente novamente.</p><button type="button" onclick="discoveryFetch()">Tentar novamente</button></div>':
+    s.status==='ready'&&!s.items.length?'<div class="discovery-empty"><p>Nenhum anúncio publicado encontrado com esses filtros.</p><button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button></div>':
     s.items.map(item=>discoveryCard(item,kind)).join('');
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
     '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+v[1]+'</h1>'+
@@ -129,6 +147,9 @@ function discoveryPage(){
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
+    (s.items.length?'<p class="discovery-count" role="status">Exibindo '+s.items.length+
+      (s.items.length===1?' anúncio publicado':' anúncios publicados')+
+      (s.hasMore?' nesta busca. Há mais resultados para carregar.':'.')+'</p>':'')+
     '<div class="discovery-results" aria-live="polite">'+content+'</div>'+
     (s.hasMore?'<button type="button" class="secondary discovery-more" onclick="discoveryLoadMore()"'+(s.status==='loading-more'?' disabled':'')+'>'+(s.status==='loading-more'?'Carregando anúncios…':'Carregar mais anúncios')+'</button>':'')+
     (s.status==='ready'&&s.error?'<p role="alert">Não foi possível trazer mais anúncios. Tente novamente.</p>':'')+
