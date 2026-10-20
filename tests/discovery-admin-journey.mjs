@@ -19,6 +19,7 @@ const queue=[{
 const docKey='00000000-0000-0000-0000-000000000011/'+validId+
  '/22222222-2222-2222-2222-222222222222.pdf';
 let documentReads=0,documentSigns=0,unsafeSigned=false;
+const reports=[{id:17,listing_id:validId,vertical:'professionals',title:'<script>alert(1)</script>',listing_status:'published',reason:'suspected_fraud',details:'<img src=x onerror=alert(1)>',status:'open'}];
 const client={
  from(name){assert.equal(name,'discovery_documents');return{
   select(){return {eq(_column,_id){assert.equal(_id,validId);return {
@@ -33,6 +34,8 @@ const client={
  rpc:async(name,args)=>{
  requested.push([name,args]);
  if(name==='discovery_admin_review_queue')return {data:queue,error:null};
+ if(name==='discovery_admin_report_queue')return {data:reports,error:null};
+ if(name==='discovery_review_report'){reports.length=0;return {data:args.p_status,error:null};}
  if(name==='discovery_transition_listing')return {data:args.p_next_status,error:null};
  if(name==='discovery_set_vertical_city')return {data:null,error:null};
  throw Error('Unexpected RPC');
@@ -61,6 +64,10 @@ assert.match(html,/&lt;script&gt;/);
 assert.doesNotMatch(html,/<script>alert/);
 assert.match(html,/Aprovar anúncio<\/button>/);
 assert.match(html,/Conferir comprovantes privados/);
+assert.match(html,/Denúncias de anúncios/);
+assert.match(html,/Possível fraude/);
+assert.match(html,/&lt;img src=x onerror=/);
+assert.doesNotMatch(html,/<img src=x onerror=/);
 await ctx.adminDiscoveryDocuments(validId);
 assert.equal(documentReads,1);
 assert.equal(documentSigns,1);
@@ -92,13 +99,24 @@ assert.equal(cityAction[1].p_vertical,'stays');
 assert.equal(cityAction[1].p_city_key,'sao-gabriel');
 assert.equal(cityAction[1].p_enabled,true);
 role='operations';
+await ctx.adminDiscoveryReviewReport(17,'resolved');
+assert.equal(requested.filter(r=>r[0]==='discovery_review_report').length,0);
 await ctx.adminDiscoveryDocuments(validId);
 assert.equal(documentReads,2,'non-admin must not fetch private evidence');
 await ctx.adminDiscoveryLoad();
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_review_queue').length,3);
+assert.equal(requested.filter(r=>r[0]==='discovery_admin_report_queue').length,3);
 await ctx.adminDiscoveryDecision(validId,'rejected');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,1);
 assert.equal(ctx.adminDiscoveryView(),'');
+role='superadmin';
+ctx.prompt=()=> 'Análise e providências registradas';
+await ctx.adminDiscoveryReviewReport(17,'resolved');
+const reviewed=requested.filter(r=>r[0]==='discovery_review_report');
+assert.equal(reviewed.length,1);
+assert.equal(reviewed[0][1].p_status,'resolved');
+assert.equal(reviewed[0][1].p_report_id,17);
+assert.doesNotMatch(ctx.adminDiscoveryView(),/<img src=x onerror=/);
 assert.ok(src.includes("discovery:new Set(['superadmin'])"));
 assert.ok(src.includes("adminMenuButton('discovery','Anúncios'"));
 assert.ok(src.includes("adminPanel('discovery'"));
@@ -107,4 +125,7 @@ assert.ok(src.includes("onclick=\"adminDiscoverySetCity(true)\""));
 const sql=read('supabase/migrations/20261018131000_discovery_shared_verticals.sql');
 assert.ok(sql.includes('create function public.discovery_admin_review_queue'));
 assert.ok(sql.includes("a.admin_role='superadmin'"));
+assert.match(sql,/create table public.discovery_listing_reports/);
+assert.match(sql,/create function public.discovery_admin_report_queue/);
+assert.match(sql,/create function public.discovery_review_report/);
 console.log('PASS: admin-only queue, safe markup, city gate, reason gate, RPC action, existing panel integration.');
