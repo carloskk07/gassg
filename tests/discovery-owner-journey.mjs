@@ -264,7 +264,7 @@ ctx.document.getElementById=id=>({
  'discovery-owner-import-link':{value:''},
  'discovery-owner-import-details':importText,
  'discovery-owner-import-feedback':importStatus,
- 'discovery-owner-form':form,
+ 'discovery-owner-form':{checkValidity:()=>true},
 })[id]||baseLookup(id);
 assert.equal(await ctx.discoveryOwnerImportFile({target:csvInput}),true);
 assert.equal(ctx.__discoveryOwnerTestState.editor.title,'Hotel do Lago');
