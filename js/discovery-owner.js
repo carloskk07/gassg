@@ -162,7 +162,11 @@ function discoveryOwnerPage(){
       }).join('')+'</div>':'')+
     (s.pendingPhotoRemovals.length?'<button type="button" onclick="discoveryOwnerRetryPhotoCleanup()">'+
       'Repetir limpeza de '+s.pendingPhotoRemovals.length+' foto(s) pendente(s)</button>':'')+
-    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar rascunho e fotos</button>'+
+    '<div class="discovery-owner-actions">'+
+      '<button type="submit" name="finish" value="review" class="primary"'+(s.busy?' disabled':'')+
+        '>Salvar e enviar para análise</button>'+
+      '<button type="submit" name="finish" value="draft" class="secondary"'+(s.busy?' disabled':'')+
+        '>Somente salvar rascunho</button></div>'+
     '<p class="tiny muted">O anúncio só aparece para visitantes depois da revisão e da abertura da modalidade nesta cidade.</p>'+
     '</form>';
   return shell('<section class="section discovery-owner">'+header+note+error+
@@ -310,6 +314,9 @@ async function discoveryOwnerSave(ev){
   const s=discoveryOwner;
   if(s.busy||!s.user||!s.client)return false;
   const form=ev?.target; if(!form||!form.checkValidity())return false;
+  // A single click may save the full draft and request review. The server
+  // remains authoritative: this does NOT approve or publish the listing.
+  const sendForReview=ev?.submitter?.name==='finish'&&ev.submitter.value==='review';
   const f=new FormData(form),get=n=>String(f.get(n)||'').trim();
   const vertical=s.editor?.vertical||get('vertical');
   if(!Object.hasOwn(discoveryOwnerTables,vertical))return false;
@@ -399,7 +406,22 @@ async function discoveryOwnerSave(ev){
       throw photoError;
     }
     await discoveryOwnerRefresh();
-    s.editor=null;s.notice='Rascunho salvo. Você pode enviá-lo para revisão.';
+    s.editor=null;
+    if(sendForReview){
+      const sent=await client.rpc('discovery_transition_listing',{
+        p_listing_id:id,p_next_status:'review',p_reason:'Envio pelo anunciante após salvar'
+      });
+      if(sent.error){
+        // Keep the saved draft rather than pretending the review succeeded.
+        s.notice='Rascunho salvo, mas ainda não enviado para análise.';
+        s.error=discoveryOwnerError(sent.error);
+      }else{
+        await discoveryOwnerRefresh();
+        s.notice='Anúncio salvo e enviado para análise. A publicação depende da aprovação do TAMÃO.';
+      }
+    }else{
+      s.notice='Rascunho salvo. Você pode enviá-lo para revisão.';
+    }
   }catch(e){
     s.error=discoveryOwnerError(e);
     if(id){
