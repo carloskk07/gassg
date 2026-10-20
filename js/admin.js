@@ -2563,7 +2563,7 @@ function adminOperationalAlertsView(){
 }
 
 /* TAMÃO Discovery: one moderation workspace in the existing protected admin portal. */
-const adminDiscoveryDesk={status:'idle',items:[],reports:[],live:[],cities:[],error:'',pending:false,documents:{},documentPending:null};
+const adminDiscoveryDesk={status:'idle',items:[],reports:[],live:[],cities:[],readiness:null,readinessStatus:'idle',error:'',pending:false,documents:{},documentPending:null};
 function adminDiscoveryImage(key){
   if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
   return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
@@ -2600,6 +2600,23 @@ async function adminDiscoveryLoad(){
     d.status='error';d.error='Não foi possível consultar a fila de revisão. Verifique a conexão ou a instalação da modalidade.';
   }
   d.pending=false;
+  if(adminRuntime.section==='discovery')render();
+}
+async function adminDiscoveryReadiness(){
+  const d=adminDiscoveryDesk;
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||d.pending||
+     d.readinessStatus==='loading')return;
+  d.readiness=null;d.readinessStatus='loading';
+  if(adminRuntime.section==='discovery')render();
+  try{
+    const {data,error}=await adminRuntime.client.rpc('discovery_admin_readiness');
+    if(error||!data||data.source!=='discovery_admin_readiness_v1'||
+       !Number.isSafeInteger(data.rlsTables)||!Number.isSafeInteger(data.expectedRlsTables))
+      throw Error('UNVERIFIED_DISCOVERY_READINESS');
+    d.readiness=data;d.readinessStatus='ready';
+  }catch{
+    d.readiness=null;d.readinessStatus='error';
+  }
   if(adminRuntime.section==='discovery')render();
 }
 function adminDiscoveryCitySlug(raw){
@@ -2721,6 +2738,25 @@ function adminDiscoveryView(){
           (!enabled||d.pending?' disabled':'')+'>Reativar anúncio</button>')+
       '</div></article>';
   }).join(''):'<p>Nenhum anúncio publicado ou pausado nesta consulta.</p>';
+  const checks=d.readinessStatus==='ready'&&d.readiness;
+  const readinessSummary=checks?
+    '<p role="status"><strong>'+(checks.infrastructureReady===true?
+      'Estrutura técnica disponível':'Estrutura técnica com pendências')+'</strong></p>'+
+    '<p>RLS: '+esc(checks.rlsTables)+' de '+esc(checks.expectedRlsTables)+
+      ' tabelas • Fotos: '+(checks.publicPhotoBucketReady===true?'OK':'Verificar')+
+      ' • Documentos privados: '+(checks.privateDocumentBucketReady===true?'OK':'Verificar')+'</p>'+
+    '<p>Cidades/modalidades abertas: '+esc(checks.enabledCityVerticals)+
+      ' • Anúncios: '+esc(checks.totalListings)+
+      ' • Aguardando moderação: '+esc(checks.reviewQueueCount)+'</p>'+
+    '<p class="tiny muted">A estrutura disponível não comprova login por e-mail, upload real, anúncios publicados ou contratação. Abertura comercial exige teste autenticado e autorização do superadmin.</p>':
+    d.readinessStatus==='loading'?'<p role="status">Conferindo infraestrutura…</p>':
+    d.readinessStatus==='error'?'<p role="alert">Não foi possível validar a infraestrutura. Nenhuma liberação foi realizada.</p>':
+    '<p>Execute um diagnóstico atualizado antes da abertura das modalidades.</p>';
+  const readinessCard='<section class="card flat" style="margin-block:16px;padding:18px">'+
+    '<h3>Diagnóstico da expansão</h3><p class="tiny muted">Leitura técnica, sem alterar anúncios ou pagamentos.</p>'+
+    '<button type="button" class="secondary small" onclick="adminDiscoveryReadiness()"'+
+     (d.pending||d.readinessStatus==='loading'?' disabled':'')+
+     '>Verificar infraestrutura</button>'+readinessSummary+'</section>';
   const cityMatrix=d.status!=='ready'?'':d.cities.length?
     '<div class="form-stack" role="list" aria-label="Modalidades cadastradas por cidade">'+
       d.cities.map((x,index)=>
@@ -2750,7 +2786,7 @@ function adminDiscoveryView(){
     '</div><button class="secondary small" type="button" onclick="adminDiscoveryLoad()"'+
       (d.pending?' disabled':'')+'>Atualizar fila</button></div>'+
     '<p class="tiny muted">Confira a veracidade do anúncio e as obrigações aplicáveis antes de aprovar. Fotos públicas não substituem documentação.</p>'+
-    cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Publicações e pausas</h3><p class="tiny muted">Até 100 anúncios recentes. A decisão exige justificativa e continua auditada no banco.</p>'+liveCards+'</section><section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
+    readinessCard+cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Publicações e pausas</h3><p class="tiny muted">Até 100 anúncios recentes. A decisão exige justificativa e continua auditada no banco.</p>'+liveCards+'</section><section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
 }
 async function adminDiscoveryChangeLive(id,next){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
