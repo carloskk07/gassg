@@ -357,6 +357,7 @@ sandbox.discoveryState('professionals').status='ready';
 sandbox.discoveryState('professionals').items=[
  {id:publicId,vertical:'professionals',title:'Profissional publicado',description:'Serviço local'}];
 assert.match(sandbox.discoveryReportForm({id:publicId,vertical:'professionals'},'professionals'),/Enviar denúncia/);
+assert.match(sandbox.discoveryReportForm({id:publicId,vertical:'professionals'},'professionals'),/href="#advertise"/);
 assert.equal(sandbox.discoveryReportForm({id:'bad',vertical:'professionals'},'professionals'),'');
 assert.match(sandbox.discoveryCard({
  id:publicId,vertical:'professionals',title:'Profissional publicado',
@@ -380,6 +381,7 @@ let signedIn=true,reportError=false,reportCalls=[];
 sandbox.loadSupabaseBrowser=async()=>({createClient:(_u,_k,opts)=>{
  assert.equal(opts.auth.persistSession,true);
  assert.equal(opts.auth.detectSessionInUrl,false);
+ assert.equal(opts.auth.storageKey,'tamao-discovery-auth');
  return {
   auth:{getUser:async()=>({data:{user:signedIn?{id:'verified-actor'}:null},error:null})},
   rpc:async(name,args)=>{reportCalls.push([name,args]);return reportError?
