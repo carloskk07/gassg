@@ -527,6 +527,8 @@ jobs:
         run: node tests/customer-city-price-showcase-v1-341.mjs
       - name: Inline quote product CEP, basket and checkout regression #511
         run: node tests/home-quote-inline-purchase-20261019.mjs
+      - name: Home V1.414 premium quote basket and CEP regression
+        run: node tests/home-quote-live-basket-v1-414.mjs
       - name: V1.346 marketing and accessibility design regression
         run: node tests/marketing-experience-v1-346.mjs
       - name: V1.362 public marketing and navigation regression
