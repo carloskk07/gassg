@@ -306,6 +306,84 @@ begin
  if v_stays<>0 then raise exception 'DISCOVERY_STAY_LEAK';end if;
 end $$;
 
+-- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
+-- These fixtures exist ONLY in disposable CI, never in Supabase production.
+begin;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+insert into public.discovery_listings(
+ vertical,title,description,state_code,city_key,city_name,whatsapp_e164,photo_urls
+) values(
+ 'rides','Carona São Gabriel para Bagé',
+ 'Viagem eventual combinada diretamente com os passageiros, horários declarados.',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999',
+ array['00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg']
+) returning id as filter_ride_id \gset
+insert into public.discovery_ride_details(
+ listing_id,departure_state,departure_city,destination_state,destination_city,
+ departure_at,seats_total,seats_available,proposed_cost_share_cents
+) values(:'filter_ride_id','RS','São Gabriel','RS','Bagé',
+ clock_timestamp()+interval '7 days',4,2,3500);
+select public.discovery_transition_listing(:'filter_ride_id'::uuid,'review');
+insert into public.discovery_listings(
+ vertical,title,description,state_code,city_key,city_name,whatsapp_e164,photo_urls
+) values(
+ 'stays','Pousada teste da região',
+ 'Hospedagem anunciada com condições e valores confirmados diretamente com o responsável.',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999',
+ array['00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg']
+) returning id as filter_stay_id \gset
+insert into public.discovery_stay_details(
+ listing_id,property_type,guests,bedrooms,beds,price_from_brl_cents,price_unit
+) values(:'filter_stay_id','inn',4,2,3,28900,'night');
+select public.discovery_transition_listing(:'filter_stay_id'::uuid,'review');
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
+select public.discovery_set_vertical_city('rides','RS','sao-gabriel',
+ 'São Gabriel',true,'Teste isolado de consulta por vagas');
+select public.discovery_set_vertical_city('stays','RS','sao-gabriel',
+ 'São Gabriel',true,'Teste isolado de consulta de hospedagens');
+select public.discovery_transition_listing(:'filter_ride_id'::uuid,'published',
+ 'Documento e trajeto revisados no teste');
+select public.discovery_transition_listing(:'filter_stay_id'::uuid,'published',
+ 'Hospedagem revisada no ambiente isolado');
+set role anon;
+reset request.jwt.claim.sub;
+do $filter_contract$
+declare n int;
+begin
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'professionals',p_occupation_query=>'eletric');
+ if n<>1 then raise exception 'PROFESSION_FILTER_MISSED';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'professionals',p_occupation_query=>'Encanador');
+ if n<>0 then raise exception 'PROFESSION_FILTER_LEAK';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'rides',p_min_seats=>2);
+ if n<>1 then raise exception 'RIDE_SEATS_FILTER_MISSED';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'rides',p_min_seats=>3);
+ if n<>0 then raise exception 'RIDE_SEATS_FILTER_LEAK';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'rides',p_min_seats=>99);
+ if n<>0 then raise exception 'INVALID_RIDE_SEATS_NOT_CLOSED';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'stays',p_property_type=>'inn',p_max_price_cents=>30000);
+ if n<>1 then raise exception 'STAY_TYPE_PRICE_FILTER_MISSED';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'stays',p_property_type=>'hotel');
+ if n<>0 then raise exception 'STAY_PROPERTY_TYPE_FILTER_LEAK';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'stays',p_max_price_cents=>25000);
+ if n<>0 then raise exception 'STAY_PRICE_FILTER_LEAK';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'stays',p_max_price_cents=>-1);
+ if n<>0 then raise exception 'NEGATIVE_PRICE_NOT_CLOSED';end if;
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'rides',p_property_type=>'inn');
+ if n<>0 then raise exception 'CROSS_VERTICAL_FILTER_LEAK';end if;
+end $filter_contract$;
+rollback;
+
 -- Public role must never read billing, audit, or private advertising terms.
 do $$
 begin
