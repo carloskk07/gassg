@@ -67,28 +67,31 @@ const mkContext=(snapshot=null)=>{
 let env=mkContext();
 let html=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
 assert.match(html,/R\$ 115.90/);
-assert.match(html,/R\$ 120.00/);
-assert.match(html,/R\$ 125.00/);
+assert.match(html,/R\$ 15.90/);
+assert.match(html,/R\$ 25.00/);
 assert.equal((html.match(/REFERÊNCIA LOCAL • NÃO É OFERTA/g)||[]).length,1,
  'a single market reference must not be presented as three seller cards');
 assert.match(html,/city-price-reference-summary/);
-assert.match(html,/PAINEL DE COTAÇÕES DO TAMÃO/);
+assert.match(html,/COTAÇÕES E ECONOMIA/);
+assert.match(html,/Pesquisa local informada em 15\/10\/2026/);
+assert.equal((html.match(/class="city-price-research-item"/g)||[]).length,3);
 assert.doesNotMatch(html,/↻ Atualizar cotações/,'do not offer refresh until live RPC is ready');
 env.globalThis.liveReady=()=>true;
 let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
 assert.match(whenReady,/homeRefreshQuotePrices\(\)/,
  'quote board must offer manual refresh when the live RPC is ready');
-assert.match(html,/Clube, cashback e cupons/);
+assert.match(html,/Cupons e Clube TAMÃO/);
 assert.match(html,/Indicar também tem valor/);
-assert.match(html,/campanhas válidas, quando disponíveis/);
+assert.match(html,/Descubra campanhas e vantagens/);
 assert.doesNotMatch(html,/Diferença de R\$/,'no merchant price spread with reference only');
-assert.match(html,/Não representa uma revenda/);
+assert.match(html,/Referência de mercado • não é oferta de revenda/);
 assert.doesNotMatch(html,/PREÇO DE REVENDA/);
-assert.match(html,/São Gabriel é a vitrine inicial/);
+assert.match(html,/city-price-place[^>]*>📍 São Gabriel/);
+assert.doesNotMatch(html,/Os preços reais substituem as referências automaticamente/);
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Outra Cidade",state:"RS",origin:"chosen"})',env);
-assert.doesNotMatch(html,/R\$ 115.90|R\$ 120.00|R\$ 125.00/);
-assert.match(html,/Não exibimos preços inventados/);
+assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
+assert.match(html,/Explore os produtos e consulte as ofertas de Outra Cidade/);
 assert.match(html,/Ver outra cidade/);
 const real={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
@@ -108,11 +111,11 @@ assert.match(html,/R\$ 126.00/);
 assert.match(html,/R\$ 18.50/);
 assert.match(html,/2 revendas elegíveis/);
 assert.match(html,/Diferença de R\$ 7.10 entre os valores estimados/);
-assert.match(html,/não desconto nem economia garantida/);
-assert.match(html,/Verificado em/);
-assert.doesNotMatch(html,/R\$ 115.90|R\$ 120.00|R\$ 125.00/);
+assert.match(html,/Compare as ofertas com entrega para seu endereço/);
+assert.match(html,/Atualizado/);
+assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL • NÃO É OFERTA/);
-assert.match(html,/não são cotações finais/);
+assert.match(html,/O valor final com entrega aparece na consulta por CEP/);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Rio Grande",state:"RS",origin:"chosen"})',env);
 assert.doesNotMatch(html,/R\$ 118.90|PREÇO DE REVENDA/,
  'real prices cannot leak from previous city selection');
