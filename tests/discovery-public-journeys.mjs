@@ -116,6 +116,34 @@ current='stays';sandbox.discoverySearchFromUi({preventDefault(){}});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_property_type,null);
 assert.equal(calls.at(-1)[1].p_max_price_cents,null);
+// Truthful detail cards from moderated public attributes only.
+const professionalCard=sandbox.discoveryCard({
+ vertical:'professionals',title:'Eletricista regional',city_name:'São Gabriel',
+ state_code:'RS',description:'Atendimento direto e orçamento com profissional.',
+ occupation:'Eletricista',service_area:'São Gabriel e entorno',years_experience:12,
+ whatsapp_e164:'+555599998888'
+},'professionals');
+assert.match(professionalCard,/Atende: São Gabriel e entorno/);
+assert.match(professionalCard,/12 anos de experiência declarada/);
+const rideCard=sandbox.discoveryCard({
+ vertical:'rides',title:'Carona região',description:'Saída anunciada',
+ departure_city:'São Gabriel',destination_city:'Bagé',seats_available:2,
+ departure_at:'2030-07-05T12:00:00Z',proposed_cost_share_cents:3500
+},'rides');
+assert.match(rideCard,/2 vagas anunciadas/);
+assert.match(rideCard,/Contribuição sugerida por vaga: R\\$\\s?35,00/);
+assert.doesNotMatch(rideCard,/Pagamento realizado|Reserva confirmada/);
+const stayCard=sandbox.discoveryCard({
+ vertical:'stays',title:'Pousada teste',description:'Condições declaradas',
+ property_type:'inn',guests:4,bedrooms:2,price_from_brl_cents:28900,
+ price_unit:'night',amenities:['Wi-Fi','<img src=x onerror=alert(1)>']
+},'stays');
+assert.match(stayCard,/Pousada/);
+assert.match(stayCard,/2 quartos/);
+assert.match(stayCard,/Preço anunciado desde R\\$\\s?289,00 por noite/);
+assert.doesNotMatch(stayCard,/<img src=x onerror/);
+assert.match(stayCard,/&lt;img src=x onerror=alert\\(1\\)&gt;/);
+assert.equal(sandbox.discoveryCard({...results[0],vertical:'stays'},'rides'),'');
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
