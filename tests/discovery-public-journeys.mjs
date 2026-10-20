@@ -165,6 +165,27 @@ await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_listing_id,null,'manual search must leave shared detail mode');
 sandbox.location.search='?listing=<script>'; 
 assert.equal(sandbox.discoverySharedListingId(),'','invalid share ids rejected');
+// Server pagination is bounded; a duplicate cannot make a second card.
+sandbox.location.search='';
+current='professionals';
+sandbox.discoveryState('professionals').status='idle';
+results=Array.from({length:24},(_,i)=>({
+ id:'ad-'+i,vertical:'professionals',title:'Profissional publicado '+i,
+ description:'Contato declarado',occupation:'Eletricista'
+}));
+sandbox.discoveryAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.match(sandbox.discoveryPage(),/Carregar mais anúncios/);
+assert.equal(calls.at(-1)[1].p_offset,0);
+results=[
+ {id:'ad-23',vertical:'professionals',title:'Anúncio repetido',description:'Mesmo anúncio'},
+ {id:'ad-24',vertical:'professionals',title:'Anúncio adicional',description:'Novo resultado'}
+];
+sandbox.discoveryLoadMore();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_offset,24);
+assert.equal(sandbox.discoveryState('professionals').items.length,25);
+assert.doesNotMatch(sandbox.discoveryPage(),/Carregar mais anúncios/);
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
