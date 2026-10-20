@@ -85,6 +85,8 @@ assert.equal(inputs['admin-discovery-city-kind'].value,'rides');
 assert.equal(inputs['admin-discovery-city-name'].value,'Bagé');
 assert.equal(inputs['admin-discovery-city-reason'].focused,true);
 ctx.adminDiscoveryPrefillCity(0);
+inputs['admin-discovery-city-kind'].value='stays';
+inputs['admin-discovery-city-name'].value='São Gabriel';
 assert.match(html,/Pausar publicação/);
 assert.match(html,/disabled>Reativar anúncio/);
 assert.match(html,/Possível fraude/);
