@@ -803,6 +803,7 @@ end $$;
 
 reset role;
 \i supabase/migrations/20261020181500_discovery_city_control_inventory.sql
+\i supabase/migrations/20261020192500_discovery_admin_readiness.sql
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
 do $city_test$
@@ -810,6 +811,12 @@ declare n int;
 begin
  select count(*) into n from public.discovery_admin_city_matrix();
  if n<1 then raise exception 'ADMIN_CITY_MATRIX_EMPTY';end if;
+ if (public.discovery_admin_readiness()->>'source')<>'discovery_admin_readiness_v1' then
+   raise exception 'ADMIN_READINESS_SOURCE_INVALID';
+ end if;
+ if (public.discovery_admin_readiness()->>'canDeclareCommercialReadiness')<>'false' then
+   raise exception 'ADMIN_DIAGNOSTIC_OVERCERTIFIED';
+ end if;
 end $city_test$;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
 do $city_test$
@@ -817,6 +824,10 @@ begin
  begin
   perform public.discovery_admin_city_matrix();
   raise exception 'NONADMIN_CITY_MATRIX_EXPOSED';
+ exception when insufficient_privilege then null;end;
+ begin
+   perform public.discovery_admin_readiness();
+   raise exception 'NONADMIN_DIAGNOSTIC_EXPOSED';
  exception when insufficient_privilege then null;end;
 end $city_test$;
 reset role;
