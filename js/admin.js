@@ -2670,6 +2670,9 @@ function adminDiscoveryView(){
           ' • Situação: '+esc(x.listing_status)+'</p>'+
         '<p>'+esc(String(x.details||'').slice(0,600))+'</p>'+
         '<div class="order-actions">'+
+          (x.listing_status==='published'?
+            '<button class="secondary small" type="button" onclick="adminDiscoverySuspendReportedListing(\''+
+              esc(String(x.listing_id))+'\')"'+(d.pending?' disabled':'')+'>Suspender anúncio</button>':'')+
           '<button class="secondary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'dismissed\')"'+
             (d.pending?' disabled':'')+'>Improcedente</button>'+
           '<button class="primary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'resolved\')"'+
@@ -2698,6 +2701,27 @@ function adminDiscoveryView(){
     '<p class="tiny muted">Confira a veracidade do anúncio e as obrigações aplicáveis antes de aprovar. Fotos públicas não substituem documentação.</p>'+
     cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
 }
+async function adminDiscoverySuspendReportedListing(id){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !/^[0-9a-f-]{36}$/.test(String(id||''))||
+     !adminDiscoveryDesk.reports.some(x=>x.listing_id===id&&x.listing_status==='published'))return;
+  const reason=prompt('Informe por que este anúncio deve ser suspenso:');
+  if(reason===null)return;
+  const note=String(reason).trim();
+  if(note.length<8||note.length>240){toast('Justificativa obrigatória entre 8 e 240 caracteres.');return;}
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:'paused',p_reason:note
+    });
+    if(error)throw error;
+    toast('Anúncio suspenso; a denúncia continua aberta para análise.');
+    d.pending=false;await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;toast('Não foi possível suspender o anúncio. Confira a situação atual.');
+  }
+}
+
 async function adminDiscoveryReviewReport(id,status){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !Number.isSafeInteger(id)||id<=0||!['resolved','dismissed'].includes(status)||
