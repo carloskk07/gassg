@@ -1,3 +1,18 @@
+// A live basket counts quantities, not imaginary savings from reference research.
+function homeQuoteBasketMarkup(cart){
+ const selected=Object.entries(cart||{}).filter(([code,qty])=>
+  /^[A-Z][A-Z0-9_]{1,31}$/.test(code)&&Number.isInteger(Number(qty))&&
+  Number(qty)>0&&products[code]&&!products[code].hidden);
+ const units=selected.reduce((total,[,qty])=>total+Number(qty),0);
+ const items=selected.slice(0,4).map(([code,qty])=>
+  '<span class="city-price-basket-chip">'+Number(qty)+'× '+esc(customerProductName(code,products[code]))+'</span>').join('');
+ return '<div class="city-price-basket-copy"><span class="city-price-basket-label">🧺 SUA CESTA</span>'+
+  '<strong>'+(units?units+' '+(units===1?'unidade selecionada':'unidades selecionadas'):'Escolha um produto para começar')+'</strong>'+
+  '<span>'+(units?'Consulte o total com entrega e descontos aplicáveis no próximo passo.':'Selecione gás, água, lenha ou outro item da cotação.')+'</span>'+
+  (items?'<div class="city-price-basket-items">'+items+'</div>':'')+'</div>'+
+  '<button type="button" class="primary" onclick="homeQuoteGoToOrder()"'+(units?'':' disabled')+'>Ver cesta e consultar →</button>';
+}
+
 // Expand a product directly below its price; never use research prices as checkout offers.
 function homeQuoteProductPicker(item){
  const code=String(item?.code||'').trim().toUpperCase();
@@ -5,17 +20,17 @@ function homeQuoteProductPicker(item){
  const label=String(item?.label||code),price=String(item?.price||'');
  const previousPostal=typeof state==='object'?String(state?.postalCode||''):'';
  const zipId='city-price-postal-'+code,qtyId='city-price-qty-'+code;
- return '<details class="city-price-product-pick" data-city-quote-code="'+code+'">'+
+ return '<details name="tamao-city-quote" class="city-price-product-pick" data-city-quote-code="'+code+'">'+
   '<summary aria-label="Selecionar '+esc(label)+' e consultar pelo CEP">'+
-   '<span class="city-price-caption">'+esc(label)+'</span>'+
+   '<span class="city-price-product-heading"><span class="city-price-product-icon" aria-hidden="true">'+esc(products[code]?.icon||'🛒')+'</span><span class="city-price-caption">'+esc(label)+'</span></span>'+
    (item.caption?'<small>'+esc(item.caption)+'</small>':'')+
    '<strong class="city-price-amount">'+esc(price)+'</strong>'+
-   '<span class="city-price-product-hint">Clique para consultar ofertas ↓</span>'+
+   '<span class="city-price-product-hint">Selecionar e consultar <span aria-hidden="true">↘</span></span>'+
   '</summary>'+
   '<div class="city-price-product-form">'+
    '<div class="city-price-product-fields">'+
-    '<label for="'+zipId+'">Seu CEP<input id="'+zipId+'" class="city-price-product-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" value="'+esc(previousPostal)+'"></label>'+
-    '<label for="'+qtyId+'">Quantidade<input id="'+qtyId+'" class="city-price-product-qty" type="number" min="1" max="20" step="1" value="1"></label>'+
+    '<label for="'+zipId+'">CEP de entrega<input id="'+zipId+'" class="city-price-product-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" oninput="homeQuoteSyncPostal(this)" value="'+esc(previousPostal)+'"></label>'+
+    '<label for="'+qtyId+'">Quantidade<span class="city-price-product-qty-control"><button type="button" aria-label="Diminuir quantidade de '+esc(label)+'" onclick="homeQuoteAdjustQuantity(\''+code+'\',-1)">−</button><input id="'+qtyId+'" class="city-price-product-qty" type="number" min="1" max="20" step="1" value="1"><button type="button" aria-label="Aumentar quantidade de '+esc(label)+'" onclick="homeQuoteAdjustQuantity(\''+code+'\',1)">+</button></span></label>'+
    '</div>'+
    '<p class="city-price-product-note">'+(item.reference
      ?'Valor de pesquisa, não é oferta. Preço, estoque e entrega só serão confirmados na consulta.'
@@ -107,7 +122,10 @@ function homeRegionalPriceBoard(region){
    '<h2>Tamão '+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
    '<span class="city-price-place">📍 '+esc(place)+'</span></div>'+
 
+  '<div class="city-price-shopping-steps" aria-label="Como comprar"><span><b>1</b> Escolha</span><span><b>2</b> Informe o CEP</span><span><b>3</b> Compare e compre</span></div>'+
   '<div class="city-price-grid">'+cards+'</div>'+
+  '<aside id="city-price-basket" class="city-price-basket" aria-label="Cesta de produtos selecionados">'+
+   homeQuoteBasketMarkup(typeof state==='object'?state.cart:{})+'</aside>'+
   '<div class="tamao-home-coupon-rail" aria-label="Cupons e descontos TAMÃO">'+
    '<span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span>'+
    '<div><strong>O preço é só o começo. Descubra os benefícios TAMÃO.</strong>'+

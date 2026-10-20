@@ -198,6 +198,37 @@ function homeChooseProduct(code){
 }
 
 // Product CTA from the city quote: reuse the real cart and checkout, never a reference price.
+// Keep CEP consistent as shoppers expand different quote cards.
+function homeQuoteSyncPostal(input){
+ if(!input)return '';
+ const digits=String(input.value||'').replace(/\D/g,'').slice(0,8);
+ const formatted=digits.length>5?digits.slice(0,5)+'-'+digits.slice(5):digits;
+ input.value=formatted;
+ for(const field of document.querySelectorAll?.('.city-price-product-postal')||[]){
+  if(field!==input)field.value=formatted;
+ }
+ return formatted;
+}
+function homeQuoteAdjustQuantity(code,delta){
+ const sku=String(code||'').trim().toUpperCase();
+ if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku))return false;
+ const panel=document.querySelector('[data-city-quote-code="'+sku+'"]');
+ const field=panel?.querySelector('.city-price-product-qty');
+ if(!field)return false;
+ field.value=String(Math.max(1,Math.min(20,(Number(field.value)||1)+Number(delta||0))));
+ return true;
+}
+function homeQuoteUpdateBasket(){
+ const node=document.getElementById?.('city-price-basket');
+ if(node&&typeof homeQuoteBasketMarkup==='function')node.innerHTML=homeQuoteBasketMarkup(state.cart);
+}
+function homeQuoteGoToOrder(){
+ if(!Object.values(state.cart||{}).some(quantity=>Number(quantity)>0)){
+  toast('Adicione um produto para montar sua cesta.');return false;
+ }
+ go('order');return true;
+}
+
 function homeQuoteSelectProduct(code,buy=false){
  const sku=String(code||'').trim().toUpperCase();
  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){
@@ -229,6 +260,7 @@ function homeQuoteSelectProduct(code,buy=false){
  }
  const existing=Math.max(0,Number(state.cart?.[sku]||0));
  setCartProduct(sku,Math.min(99,existing+quantity));
+ if(typeof homeQuoteUpdateBasket==='function')homeQuoteUpdateBasket();
  if(buy){
   // The official order page confirms CEP, address, stock and current eligible offers.
   go('order');
