@@ -9,6 +9,7 @@ const core=read('js/core.js');
 const index=read('index.html');
 const sw=read('sw.js');
 const css=read('css/marketing-premium.css');
+const components=read('css/components.css');
 
 // Syntax, route/CTA contract and truthful marketing, without remote services.
 for(const [name,code] of Object.entries({customer,growth,core}))
@@ -247,10 +248,11 @@ assert.ok(customer.includes("typeof clubePaidCouponVoucherForQuote==='function'"
  'coupon is read only from verified account, with absent coupon support failing closed');
 assert.ok(!customer.includes('cupom automaticamente aplicado'),
  'do not imply coupon redemption where server redemption is absent');
-for(const selector of ['.tamao-home-coupon-rail','.tamao-quote-benefit-grid',
-  '.tamao-home-checkout-compare','.tamao-home-coupon-rail']){
- assert.ok(css.includes(selector),'premium coupon/price style missing '+selector);
+for(const selector of ['.tamao-home-coupon-rail','.tamao-home-checkout-compare']){
+ assert.ok(css.includes(selector),'published coupon/price stylesheet missing '+selector);
 }
+assert.ok(components.includes('.tamao-quote-benefit-grid'),
+  'shared components stylesheet must style quote benefits');
 
 // Evaluate the actual offer card with a confirmed quote and a test balance;
 // only actual opted-in cashback may change the request's payable amount.
