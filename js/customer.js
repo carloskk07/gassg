@@ -148,6 +148,7 @@ async function startHomeOrder({addFeatured=true}={}){
   }
 }
 
+// Product-first entry: preserve the existing cart and CEP, never silently add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
