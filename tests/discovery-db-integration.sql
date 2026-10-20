@@ -324,6 +324,7 @@ select public.discovery_submit_report(
  current_setting('tamao.test.listing_id')::uuid,
  'incorrect_information','O endereço aproximado do anúncio precisa de revisão'
 ) as submitted_report_id \gset
+select set_config('tamao.test.submitted_report_id', :'submitted_report_id', false);
 do $
 declare v_same bigint;v_expected bigint;
 begin
