@@ -186,6 +186,18 @@ await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_offset,24);
 assert.equal(sandbox.discoveryState('professionals').items.length,25);
 assert.doesNotMatch(sandbox.discoveryPage(),/Carregar mais anúncios/);
+sandbox.discoveryClearFilters();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(sandbox.discoveryState('professionals').city,'');
+assert.equal(sandbox.discoveryState('professionals').occupation,'');
+assert.equal(calls.at(-1)[1].p_city_key,null);
+assert.equal(calls.at(-1)[1].p_occupation_query,null);
+assert.match(sandbox.discoveryPage(),/Limpar filtros/);
+results=[];
+sandbox.discoveryClearFilters();
+await new Promise(resolve=>setImmediate(resolve));
+assert.match(sandbox.discoveryPage(),/Anunciar no TAMÃO/);
+
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
