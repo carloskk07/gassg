@@ -145,3 +145,11 @@
 .discovery-shortlist-card span,.discovery-shortlist-card p{font-size:12px;line-height:1.4;color:#395947;margin:0}
 .discovery-shortlist-card a{font-size:13px;color:#125d3a;font-weight:850}
 @media(max-width:760px){.discovery-shortlist-grid{grid-template-columns:1fr}.discovery-saved-bar button{flex:1 1 135px}}
+
+/* The selected order changes only the current public-search page. */
+.discovery-sort-bar{display:flex;flex-wrap:wrap;align-items:center;gap:9px 14px;margin:16px 0 8px;padding:10px 12px;border:1px solid #d0e3d7;border-radius:11px;background:#f7fbf8}
+.discovery-sort-bar label{font-size:13px;font-weight:800;color:#214a36}
+.discovery-sort-bar select{min-height:44px;min-width:175px;max-width:100%;border:1px solid #96bca4;border-radius:9px;padding:8px 12px;background:#fff;color:#17452e;font:inherit;font-size:13px}
+.discovery-sort-bar select:focus-visible{outline:3px solid #b98728;outline-offset:2px}
+.discovery-sort-bar span{font-size:12px;color:#466552;flex:1 1 215px}
+@media(max-width:560px){.discovery-sort-bar{display:grid;gap:8px}.discovery-sort-bar select{width:100%}}
