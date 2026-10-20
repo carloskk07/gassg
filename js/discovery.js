@@ -39,20 +39,50 @@ function discoveryPublicPhotoUrl(raw){
 function discoveryCard(item,kind){
   if(item?.vertical!==kind)return '';
   const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
-  let extra=kind==='professionals'?esc(item.occupation||''):
-    kind==='rides'?esc((item.departure_city||'')+' → '+(item.destination_city||''))+
-      ' · '+Math.max(0,Math.trunc(Number(item.seats_available)||0))+' vaga(s) declaradas'+
-      (Number.isFinite(Date.parse(item.departure_at))?' · '+esc(new Date(item.departure_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):'')
-    :'Até '+Math.max(0,Math.trunc(Number(item.guests)||0))+' hóspedes'+
-      (Number.isSafeInteger(Number(item.price_from_brl_cents))&&item.price_from_brl_cents!==null&&Number(item.price_from_brl_cents)>=0
-       ?' · Preço anunciado desde '+esc(BRL.format(Number(item.price_from_brl_cents)/100)):'');
+  const facts=[];
+  const safeInt=(v,max)=>v!==null&&v!==undefined&&String(v).trim()!==''&&
+    Number.isSafeInteger(Number(v))&&Number(v)>=0&&Number(v)<=max?Number(v):null;
+  const price=cents=>BRL.format(cents/100);
+  if(kind==='professionals'){
+    if(item.occupation)facts.push(esc(item.occupation));
+    if(item.service_area)facts.push('Atende: '+esc(String(item.service_area).slice(0,200)));
+    const years=safeInt(item.years_experience,80);
+    if(years!==null)facts.push(years+' '+(years===1?'ano':'anos')+' de experiência declarada');
+  }else if(kind==='rides'){
+    const places=[item.departure_city,item.destination_city].map(x=>esc(String(x||'').slice(0,120)));
+    facts.push(places.join(' → '));
+    const seats=safeInt(item.seats_available,8);
+    if(seats!==null)facts.push(seats+' '+(seats===1?'vaga anunciada':'vagas anunciadas'));
+    const departure=Date.parse(String(item.departure_at||''));
+    if(Number.isFinite(departure))facts.push('Saída declarada: '+
+      esc(new Date(departure).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})));
+    const contribution=safeInt(item.proposed_cost_share_cents,500000);
+    if(contribution!==null)facts.push('Contribuição sugerida por vaga: '+esc(price(contribution)));
+  }else{
+    const types={hotel:'Hotel',inn:'Pousada',holiday_house:'Casa de temporada',
+      beach_house:'Casa de praia',apartment:'Apartamento',cabin:'Cabana',
+      country_house:'Casa de campo',other:'Hospedagem'};
+    if(Object.hasOwn(types,item.property_type))facts.push(types[item.property_type]);
+    const guests=safeInt(item.guests,80),rooms=safeInt(item.bedrooms,60);
+    if(guests!==null)facts.push('Até '+guests+' hóspedes');
+    if(rooms!==null)facts.push(rooms+' '+(rooms===1?'quarto':'quartos'));
+    const cents=safeInt(item.price_from_brl_cents,50000000);
+    const units={night:'noite',stay:'estadia',week:'semana'};
+    if(cents!==null&&Object.hasOwn(units,item.price_unit))
+      facts.push('Preço anunciado desde '+esc(price(cents))+' por '+units[item.price_unit]);
+    const amenities=Array.isArray(item.amenities)?item.amenities.filter(x=>
+      typeof x==='string'&&x.trim()&&x.length<=60).slice(0,5):[];
+    if(amenities.length)facts.push('Comodidades: '+amenities.map(x=>esc(x)).join(', '));
+  }
   const contact=discoveryWhatsApp(item);
   const photo=discoveryPublicPhotoUrl(Array.isArray(item.photo_urls)?item.photo_urls[0]:'');
   return '<article class="discovery-result">'+
     (photo?'<img class="discovery-photo" src="'+esc(photo)+'" alt="" loading="lazy" decoding="async">':'')+
     '<small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
-    '<p class="discovery-detail">'+extra+'</p><p>'+esc(item.description)+'</p>'+
-    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+'</article>';
+    (facts.length?'<ul class="discovery-facts">'+facts.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'')+
+    '<p>'+esc(item.description)+'</p>'+
+    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+
+    '</article>';
 }
 function discoveryPage(){
   const kind=discoveryKind();
