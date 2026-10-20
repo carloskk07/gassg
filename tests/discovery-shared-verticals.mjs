@@ -70,6 +70,23 @@ assert.match(sql,/r\.departure_at>statement_timestamp\(\) and r\.seats_available
   'rides past departure or with no seats must stay out of results');
 assert.doesNotMatch(sql,/grant select \(owner_id\) on public\.discovery_listings/,
   'browser must not expose publisher UUID');
+// New browse capabilities remain SQL-bound and strictly tied to moderated rows.
+for(const contract of [
+ "p_occupation_query text default null",
+ "p_min_seats integer default null",
+ "p_property_type text default null",
+ "p_max_price_cents integer default null",
+ "p_listing_id uuid default null",
+ "l.id=p_listing_id",
+ "r.seats_available>=p_min_seats",
+ "st.property_type=p_property_type",
+ "st.price_from_brl_cents<=p_max_price_cents",
+ "pro.service_area,pro.years_experience,r.proposed_cost_share_cents,st.amenities"
+])assert.ok(sql.includes(contract),'missing secure public discovery contract: '+contract);
+assert.match(sql,/position\\(lower\\(btrim\\(p_occupation_query\\)\\) in lower\\(pro\\.occupation\\)\\)>0/,
+ 'occupation search must compare fixed substrings, not interpolate wildcards');
+assert.match(sql,/grant execute on function public\\.discovery_public_search\\([\\s\\S]*?to anon,authenticated/,
+ 'only callable public RPC, no owner bypass');
 assert.match(sql,/create function public\.discovery_owner_can_edit_details\(/,
   'detail editing authorization must verify ownership server-side');
 for(const vertical of ['professionals','rides','stays']){
