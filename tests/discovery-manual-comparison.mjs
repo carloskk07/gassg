@@ -36,7 +36,7 @@ assert.match(box.discoveryPage(),/Limpar seleção \(1\)/);
 assert.equal(box.discoveryPickForComparison(id(2)),true);
 assert.equal(box.discoveryPickForComparison(id(3)),true);
 assert.equal(box.discoveryPickForComparison(id(4)),false,'fourth comparison must be rejected');
-assert.match(state.savedNotice,/no máximo três/);
+assert.match(state.savedNotice,/até três anúncios/);
 comparison=box.discoverySavedComparison(kind,list);
 assert.equal((comparison.match(/class="discovery-shortlist-card"/g)||[]).length,3);
 assert.doesNotMatch(comparison,/Profissional 4/);
