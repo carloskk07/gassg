@@ -115,3 +115,13 @@
 .discovery-empty button+button{margin-left:9px}
 @media(max-width:440px){.discovery-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .discovery-empty button{margin:5px 3px}}
+
+/* Contact is a direct inquiry to the advertiser, never a TAMÃO reservation. */
+.discovery-inquiry{width:100%;border-top:1px solid #dbe8de;padding-top:9px;margin-top:6px}
+.discovery-inquiry summary{cursor:pointer;color:#135a3b;font-weight:800;font-size:13px;padding:8px 0}
+.discovery-inquiry summary:focus-visible,.discovery-inquiry a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.discovery-inquiry-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin:9px 0}
+.discovery-inquiry-fields label{display:grid;gap:5px;font-size:12px;font-weight:750;color:#284a39}
+.discovery-inquiry-fields input{min-width:0;width:100%;min-height:44px;padding:8px 10px;border:1px solid #accab6;border-radius:9px;background:#fff;color:#194d32;font:inherit}
+.discovery-inquiry .discovery-inquiry-feedback{margin:5px 0;color:#a43a28;font-size:12px}
+.discovery-inquiry a{display:inline-flex;padding:10px 14px;min-height:44px;align-items:center;background:#e7f5eb;color:#12583a;border-radius:10px;font-size:13px;font-weight:850;text-decoration:none}
