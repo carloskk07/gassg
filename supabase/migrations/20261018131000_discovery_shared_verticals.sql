@@ -526,6 +526,114 @@ revoke all on function public.discovery_admin_review_queue(integer)
  from public,anon,authenticated;
 grant execute on function public.discovery_admin_review_queue(integer) to authenticated;
 
+-- Denúncias persistentes: só contas verificadas podem enviar nesta fase.
+-- Sem formulário anônimo até existir antispam verificado; nunca abrir dados privados.
+create table public.discovery_listing_reports (
+ id bigint generated always as identity primary key,
+ listing_id uuid not null references public.discovery_listings(id),
+ reporter_id uuid not null references auth.users(id),
+ reason text not null check (reason in
+   ('suspected_fraud','incorrect_information','unsafe_content','other')),
+ details text not null check (length(btrim(details)) between 12 and 600),
+ status text not null default 'open' check (status in ('open','resolved','dismissed')),
+ created_at timestamptz not null default now(),
+ reviewed_by uuid references auth.users(id),
+ reviewed_at timestamptz,
+ review_note text check (review_note is null or length(btrim(review_note)) between 8 and 500)
+);
+create index discovery_reports_moderation_idx
+ on public.discovery_listing_reports(status,created_at,id);
+create index discovery_reports_reporter_limit_idx
+ on public.discovery_listing_reports(reporter_id,created_at desc);
+alter table public.discovery_listing_reports enable row level security;
+revoke all on public.discovery_listing_reports from public,anon,authenticated;
+
+-- No direct table privileges: every read/write is authorized by a narrowly
+-- scoped RPC. Limit abuse per verified identity, block cross-owner and
+-- unpublished submissions, and do not reveal nonpublic listing existence.
+create function public.discovery_submit_report(
+ p_listing_id uuid,p_reason text,p_details text
+) returns bigint language plpgsql security definer set search_path='pg_catalog'
+as $
+declare
+ v_actor uuid:=(select auth.uid());
+ v_previous bigint;
+ v_result bigint;
+begin
+ if v_actor is null or not public.discovery_verified_account() then
+  raise exception 'VERIFIED_ACCOUNT_REQUIRED' using errcode='42501';
+ end if;
+ if p_reason not in ('suspected_fraud','incorrect_information','unsafe_content','other')
+    or p_reason is null or length(btrim(coalesce(p_details,''))) not between 12 and 600 then
+  raise exception 'INVALID_REPORT' using errcode='22023';
+ end if;
+ -- Same-account requests serialize to prevent bypassing the daily rate limit.
+ perform 1 from auth.users where id=v_actor for update;
+ if not exists (
+  select 1 from public.discovery_listings l where l.id=p_listing_id
+    and l.status='published' and l.owner_id<>v_actor
+    and exists(select 1 from public.discovery_vertical_cities c
+       where c.vertical=l.vertical and c.state_code=l.state_code
+         and c.city_key=l.city_key and c.enabled)
+ ) then raise exception 'PUBLIC_LISTING_REQUIRED' using errcode='22023';end if;
+ select id into v_previous from public.discovery_listing_reports
+ where reporter_id=v_actor and listing_id=p_listing_id and reason=p_reason
+   and status='open' and created_at>clock_timestamp()-interval '24 hours'
+ order by id desc limit 1;
+ if v_previous is not null then return v_previous;end if;
+ if (select count(*) from public.discovery_listing_reports
+     where reporter_id=v_actor and created_at>clock_timestamp()-interval '24 hours')>=3 then
+   raise exception 'REPORT_RATE_LIMIT' using errcode='22023';
+ end if;
+ insert into public.discovery_listing_reports(listing_id,reporter_id,reason,details)
+ values(p_listing_id,v_actor,p_reason,btrim(p_details)) returning id into v_result;
+ return v_result;
+end $;
+revoke all on function public.discovery_submit_report(uuid,text,text) from public,anon,authenticated;
+grant execute on function public.discovery_submit_report(uuid,text,text) to authenticated;
+
+create function public.discovery_admin_report_queue(p_limit integer default 50)
+returns table (
+ id bigint,listing_id uuid,vertical text,title text,listing_status text,
+ reason text,details text,status text,created_at timestamptz
+) language plpgsql stable security definer set search_path='pg_catalog'
+as $
+begin
+ if not public.discovery_is_superadmin() then
+   raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+ return query
+ select r.id,r.listing_id,l.vertical,l.title,l.status,r.reason,r.details,
+   r.status,r.created_at
+ from public.discovery_listing_reports r
+ join public.discovery_listings l on l.id=r.listing_id
+ where r.status='open'
+ order by r.created_at,r.id
+ limit greatest(1,least(coalesce(p_limit,50),100));
+end $;
+revoke all on function public.discovery_admin_report_queue(integer) from public,anon,authenticated;
+grant execute on function public.discovery_admin_report_queue(integer) to authenticated;
+
+create function public.discovery_review_report(
+ p_report_id bigint,p_status text,p_note text
+) returns text language plpgsql security definer set search_path='pg_catalog'
+as $
+declare v_actor uuid:=(select auth.uid());
+begin
+ if not public.discovery_is_superadmin() then
+   raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+ if p_status not in ('resolved','dismissed') or p_status is null or
+    length(btrim(coalesce(p_note,''))) not between 8 and 500 then
+   raise exception 'INVALID_REPORT_DECISION' using errcode='22023';end if;
+ update public.discovery_listing_reports
+ set status=p_status,review_note=btrim(p_note),reviewed_by=v_actor,
+     reviewed_at=clock_timestamp()
+ where id=p_report_id and status='open';
+ if not found then raise exception 'REPORT_NOT_OPEN' using errcode='22023';end if;
+ return p_status;
+end $;
+revoke all on function public.discovery_review_report(bigint,text,text) from public,anon,authenticated;
+grant execute on function public.discovery_review_report(bigint,text,text) to authenticated;
+
 -- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
 -- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
 create function public.discovery_public_search(
