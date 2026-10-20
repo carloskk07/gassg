@@ -5,13 +5,95 @@ const discoveryVerticals={
   stays:['Hospedagens','Explore hospedagens publicadas em destinos brasileiros','🏡']
 };
 const discoveryRuntime=Object.create(null);
+
+const discoverySavedMemory=Object.create(null);
+const discoveryListingIdPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function discoverySavedIds(kind){
+ if(!Object.hasOwn(discoveryVerticals,kind))return [];
+ const key='tamao-discovery-saved-v1-'+kind;
+ let raw=discoverySavedMemory[kind]||[];
+ try{
+  const stored=globalThis.localStorage?.getItem(key);
+  if(stored!==null&&stored!==undefined)raw=JSON.parse(stored);
+ }catch(_){/* Storage may be disabled; keep a session-only shortlist. */}
+ if(!Array.isArray(raw))return [];
+ return [...new Set(raw.filter(id=>typeof id==='string'&&discoveryListingIdPattern.test(id))
+  .map(id=>id.toLowerCase()))].slice(0,30);
+}
+function discoverySaveIds(kind,ids){
+ const clean=[...new Set(ids.filter(id=>discoveryListingIdPattern.test(id)))].slice(0,30);
+ discoverySavedMemory[kind]=clean;
+ try{globalThis.localStorage?.setItem('tamao-discovery-saved-v1-'+kind,JSON.stringify(clean))}
+ catch(_){/* A private browser can still use its in-session shortlist. */}
+}
+function discoveryToggleSaved(id){
+ const kind=discoveryKind(),s=kind?discoveryState(kind):null;
+ const normalized=String(id||'').toLowerCase();
+ if(!s||s.status!=='ready'||!discoveryListingIdPattern.test(normalized)||
+    !s.items.some(item=>item?.id===normalized&&item.vertical===kind))return false;
+ const saved=discoverySavedIds(kind),already=saved.includes(normalized);
+ if(!already&&saved.length>=30){s.savedNotice='Limite de 30 anúncios salvos nesta categoria.';render();return false}
+ discoverySaveIds(kind,already?saved.filter(value=>value!==normalized):[...saved,normalized]);
+ s.savedNotice=already?'Anúncio retirado dos salvos.':'Anúncio salvo para consultar nesta busca.';
+ render();return true;
+}
+function discoveryToggleSavedFilter(){
+ const kind=discoveryKind();
+ if(!kind)return false;
+ const s=discoveryState(kind);
+ s.savedOnly=!s.savedOnly;
+ s.savedNotice='';
+ render();return true;
+}
+function discoveryToggleComparison(){
+ const kind=discoveryKind();
+ if(!kind)return false;
+ const s=discoveryState(kind);
+ s.compareOpen=!s.compareOpen;
+ render();return true;
+}
+function discoverySavedComparison(kind,items){
+ const saved=new Set(discoverySavedIds(kind));
+ const selected=(Array.isArray(items)?items:[]).filter(item=>
+  item?.vertical===kind&&saved.has(item.id)&&discoveryListingIdPattern.test(item.id)).slice(0,3);
+ if(!selected.length)return '';
+ const safeAmount=cents=>Number.isSafeInteger(Number(cents))&&Number(cents)>=0&&
+   Number(cents)<=50000000?BRL.format(Number(cents)/100):'';
+ const entries=selected.map(item=>{
+  const parts=[item.city_name,item.state_code].filter(x=>typeof x==='string'&&x.length<=120).map(esc);
+  let fact='';
+  if(kind==='professionals')fact=item.occupation?'Profissão: '+esc(String(item.occupation).slice(0,120)):'';
+  if(kind==='rides'){
+   const seats=Number(item.seats_available);
+   const departure=Date.parse(String(item.departure_at||''));
+   fact=(Number.isInteger(seats)&&seats>=1&&seats<=8?seats+' vagas anunciadas':'')+
+    (Number.isFinite(departure)?' · Saída declarada: '+
+      esc(new Date(departure).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):'');
+  }
+  if(kind==='stays'){
+   const guests=Number(item.guests),price=safeAmount(item.price_from_brl_cents);
+   fact=(Number.isInteger(guests)&&guests>0&&guests<=80?'Até '+guests+' hóspedes':'')+
+    (price&&['night','stay','week'].includes(item.price_unit)?' · Desde '+esc(price)+
+      ' por '+({night:'noite',stay:'estadia',week:'semana'})[item.price_unit]:'');
+  }
+  const share=discoveryShareLink(item,kind);
+  return '<article class="discovery-shortlist-card"><strong>'+esc(String(item.title||'').slice(0,120))+'</strong>'+
+   '<span>'+parts.join(' / ')+'</span>'+(fact?'<p>'+fact+'</p>':'')+
+   (share?'<a href="'+esc(share)+'">Abrir anúncio ↗</a>':'')+'</article>';
+ }).join('');
+ return '<section class="discovery-shortlist" aria-label="Comparação de anúncios salvos">'+
+  '<h2>Compare os salvos desta busca</h2>'+
+  '<p>Dados declarados nos anúncios carregados. Confirme preços, vagas e disponibilidade diretamente com o anunciante.</p>'+
+  '<div class="discovery-shortlist-grid">'+entries+'</div></section>';
+}
+
 function discoveryKind(){
   const r=route();
   return !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.()
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:''} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -197,6 +279,9 @@ function discoveryCard(item,kind){
   if(typeof item.public_area==='string'&&item.public_area.trim().length>=2&&
      item.public_area.length<=140)facts.unshift('Região: '+esc(item.public_area));
   const contact=discoveryWhatsApp(item),share=discoveryShareLink(item,kind);
+  const id=String(item.id||'').toLowerCase();
+  const canSave=discoveryListingIdPattern.test(id);
+  const saved=canSave&&discoverySavedIds(kind).includes(id);
   const gallery=discoveryPublicGallery(item);
   return '<article class="discovery-result">'+
     gallery+
@@ -206,6 +291,7 @@ function discoveryCard(item,kind){
     '<div class="discovery-actions">'+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
+    (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
     '</div>'+discoveryInquiryForm(item,kind)+'</article>';
 }
@@ -213,10 +299,16 @@ function discoveryPage(){
   const kind=discoveryKind();
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
   const s=discoveryState(kind),v=discoveryVerticals[kind];
+  const savedIds=discoverySavedIds(kind);
+  const savedSet=new Set(savedIds);
+  const eligible=s.status==='ready'?s.items:[];
+  const visible=s.savedOnly?eligible.filter(item=>savedSet.has(item?.id)):eligible;
+  const visibleCount=visible.length;
+  const loadedSaved=eligible.filter(item=>savedSet.has(item?.id)).length;
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
     s.status==='error'?'<div class="discovery-empty" role="alert"><p>Consulta indisponível no momento. Verifique a conexão e tente novamente.</p><button type="button" onclick="discoveryFetch()">Tentar novamente</button></div>':
-    s.status==='ready'&&!s.items.length?'<div class="discovery-empty"><p>Nenhum anúncio publicado encontrado com esses filtros.</p><button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button></div>':
-    s.items.map(item=>discoveryCard(item,kind)).join('');
+    s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Nenhum anúncio publicado encontrado com esses filtros.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':'<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>')+'</div>':
+    visible.map(item=>discoveryCard(item,kind)).join('');
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
     '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+v[1]+'</h1>'+
     '<p>Consulte anúncios publicados e fale diretamente com quem anunciou.</p></header>'+
@@ -238,9 +330,18 @@ function discoveryPage(){
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
+    '<div class="discovery-saved-bar" aria-label="Anúncios salvos">'+
+     '<span>★ '+savedIds.length+' salvo'+(savedIds.length===1?'':'s')+' neste navegador</span>'+
+     '<button type="button" aria-pressed="'+Boolean(s.savedOnly)+'" onclick="discoveryToggleSavedFilter()">'+
+      (s.savedOnly?'Ver todos os anúncios':'Mostrar salvos desta busca')+'</button>'+
+     '<button type="button" aria-expanded="'+Boolean(s.compareOpen)+'" onclick="discoveryToggleComparison()"'+
+      (loadedSaved?'':' disabled')+'>Comparar salvos ('+loadedSaved+')</button></div>'+
+    '<p class="discovery-saved-note">Salvos só aparecem após nova consulta ao servidor, se ainda estiverem publicados e disponíveis nesta busca.</p>'+
+    (s.savedNotice?'<p class="discovery-saved-feedback" role="status">'+esc(s.savedNotice)+'</p>':'')+
+    (s.compareOpen?discoverySavedComparison(kind,eligible):'')+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
-    (s.items.length?'<p class="discovery-count" role="status">Exibindo '+s.items.length+
-      (s.items.length===1?' anúncio publicado':' anúncios publicados')+
+    (visibleCount?'<p class="discovery-count" role="status">Exibindo '+visibleCount+
+      (s.savedOnly?(visibleCount===1?' anúncio salvo':' anúncios salvos'):(visibleCount===1?' anúncio publicado':' anúncios publicados'))+
       (s.hasMore?' nesta busca. Há mais resultados para carregar.':'.')+'</p>':'')+
     '<div class="discovery-results" aria-live="polite">'+content+'</div>'+
     (s.hasMore?'<button type="button" class="secondary discovery-more" onclick="discoveryLoadMore()"'+(s.status==='loading-more'?' disabled':'')+'>'+(s.status==='loading-more'?'Carregando anúncios…':'Carregar mais anúncios')+'</button>':'')+
