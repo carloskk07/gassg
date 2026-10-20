@@ -70,6 +70,145 @@ function discoveryOwnerField(name,label,value,type,attrs){
   return '<label>'+label+'<input name="'+name+'" type="'+(type||'text')+
     '" '+(attrs||'')+' value="'+discoveryOwnerValue({v:value},'v')+'"></label>';
 }
+// Assistive owner-supplied import. NEVER fetch, scrape, embed or download
+// third-party page content. Provider APIs require separate authorization.
+// No import sets owner, status, URL credentials, files or live availability.
+function discoveryOwnerImportSource(raw){
+  const input=String(raw||'').trim();
+  if(!input||input.length>1500)return null;
+  let url;
+  try{url=new URL(input);}catch{return null;}
+  if(url.protocol!=='https:'||url.username||url.password||url.port)return null;
+  const host=url.hostname.toLowerCase().replace(/^www\./,'');
+  const path=url.pathname;
+  if(host==='booking.com'||host==='booking.com.br'){
+    const hit=path.match(/^\/hotel\/[a-z]{2}\/([a-z0-9][a-z0-9-]{2,110})(?:\.[a-z]{2,5})?\/?$/i);
+    if(!hit)return null;
+    const slug=hit[1].replace(/-[a-z]{2}$/i,'');
+    const proposedTitle=slug.replace(/-/g,' ').replace(/\s+/g,' ').trim().slice(0,120);
+    return {provider:'Booking.com',id:slug,proposedTitle:proposedTitle.length>=8?proposedTitle:''};
+  }
+  if(host==='airbnb.com'||host==='airbnb.com.br'){
+    const hit=path.match(/^\/(?:rooms|s)\/(\d{5,20})\/?$/);
+    if(!hit)return null;
+    return {provider:'Airbnb',id:hit[1],proposedTitle:''};
+  }
+  return null;
+}
+function discoveryOwnerImportPayload(raw){
+  const text=String(raw||'').trim();
+  if(!text||text.length>12000)return {};
+  let original=null;
+  if(text.startsWith('{')){
+    try{const parsed=JSON.parse(text);
+      if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))original=parsed;
+    }catch{return {};}
+  }
+  const aliases={
+    title:['title','nome','titulo','título','name'],
+    description:['description','descricao','descrição','resumo'],
+    city_name:['city_name','city','cidade'],
+    public_area:['public_area','bairro','regiao','região'],
+    guests:['guests','hospedes','hóspedes','capacidade'],
+    bedrooms:['bedrooms','quartos'],
+    beds:['beds','camas'],
+    units:['units','unidades'],
+    amenities:['amenities','comodidades'],
+    property_type:['property_type','tipo','tipo_de_imovel','tipo de imóvel'],
+    price_from:['price_from','preco','preço','valor']
+  };
+  const values={};
+  if(original){
+    const flat=Object.fromEntries(Object.entries(original).slice(0,80).map(
+      ([k,v])=>[String(k).toLowerCase().trim(),v]));
+    for(const [target,names] of Object.entries(aliases)){
+      for(const key of names)if(Object.hasOwn(flat,key)){values[target]=flat[key];break;}
+    }
+  }else{
+    // Simple owner-provided "Título: ...", "Cidade: ..." field export.
+    const rows=text.split(/\r?\n/).slice(0,80);
+    for(const row of rows){
+      const hit=row.match(/^\s*([^:]{2,40}):\s*(.{1,2500})$/);
+      if(!hit)continue;
+      const key=hit[1].trim().toLowerCase(),match=Object.entries(aliases)
+        .find(([,names])=>names.includes(key));
+      if(match&&!Object.hasOwn(values,match[0]))values[match[0]]=hit[2].trim();
+    }
+  }
+  const clean={};
+  const safeText=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
+  const title=safeText(values.title,120);
+  if(title.length>=8)clean.title=title;
+  const desc=safeText(values.description,3500);
+  if(desc.length>=30)clean.description=desc;
+  const city=safeText(values.city_name,120);
+  if(city.length>=2)clean.city_name=city;
+  const area=safeText(values.public_area,140);
+  if(area)clean.public_area=area;
+  for(const [key,min,max] of [['guests',1,80],['bedrooms',0,60],['beds',1,120],['units',1,250]]){
+    const n=Number(values[key]);
+    if(values[key]!==undefined&&values[key]!==null&&String(values[key]).trim()!==''&&
+       Number.isSafeInteger(n)&&n>=min&&n<=max)clean[key]=n;
+  }
+  const amenities=Array.isArray(values.amenities)?values.amenities:
+    typeof values.amenities==='string'?values.amenities.split(/[,;]/):[];
+  if(amenities.length)clean.amenities=[...new Set(amenities.filter(v=>typeof v==='string')
+    .map(v=>v.trim().slice(0,60)).filter(Boolean))].slice(0,20);
+  const type=safeText(values.property_type,40).toLowerCase();
+  const allowed=['hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other'];
+  if(allowed.includes(type))clean.property_type=type;
+  // Price is opt-in, declared by the owner, not inferred from the platform URL.
+  const rawPrice=values.price_from;
+  if(typeof rawPrice==='number'||typeof rawPrice==='string'){
+    const input=String(rawPrice).trim();
+    const normalized=input.replace(/^R\$\s*/i,'').replace(/\s/g,'');
+    const converted=/^\d{1,6},\d{1,2}$/.test(normalized)?normalized.replace(',','.'):
+      /^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(normalized)?
+      normalized.replace(/\./g,'').replace(',','.'):
+      /^\d{1,6}(?:\.\d{1,2})?$/.test(normalized)?normalized:null;
+    const price=Number(converted);
+    if(converted!==null&&Number.isFinite(price)&&price>=0&&price<=500000)
+      clean.price_from=price.toFixed(2);
+  }
+  return clean;
+}
+function discoveryOwnerImportStay(){
+  const s=discoveryOwner;
+  if(s.busy||!s.user||s.editor?.id){return false;}
+  const source=document.getElementById('discovery-owner-import-link')?.value||'';
+  const details=document.getElementById('discovery-owner-import-details')?.value||'';
+  const provider=discoveryOwnerImportSource(source);
+  if(!provider){
+    s.error='Use um link HTTPS válido de um imóvel do Booking.com ou Airbnb.';
+    s.notice='';render();return false;
+  }
+  if(String(details).length>12000){
+    s.error='O texto importado ultrapassa 12 mil caracteres.';
+    s.notice='';render();return false;
+  }
+  const data=discoveryOwnerImportPayload(details);
+  if(!data.title&&provider.proposedTitle)data.title=provider.proposedTitle;
+  if(!Object.keys(data).length){
+    s.error='Link reconhecido, mas não contém os detalhes do imóvel. Cole título, descrição e informações do seu anúncio no campo abaixo para preencher o cadastro.';
+    s.notice='';return false;
+  }
+  const ownerForm=document.getElementById('discovery-owner-form');
+  const values=ownerForm?new FormData(ownerForm):null;
+  // Preserve already typed contact data; never import phone numbers, uploads,
+  // account IDs or owner identity from an untrusted third-party page.
+  const own={};
+  for(const key of ['whatsapp_e164','state_code']){
+    const v=String(values?.get(key)||'').trim();
+    if(v)own[key]=v.slice(0,45);
+  }
+  if(!Object.hasOwn(data,'description')&&String(values?.get('description')||'').trim().length>=30)
+    own.description=String(values.get('description')).trim().slice(0,3500);
+  s.editor={...own,...data,vertical:'stays'};
+  s.kind='stays';
+  s.error='';
+  s.notice='Pré-preenchimento assistido de '+provider.provider+'. Confira os dados, complete os campos obrigatórios e anexe suas próprias fotos antes de enviar para análise. Nenhuma reserva ou disponibilidade foi sincronizada.';
+  render();return true;
+}
 function discoveryOwnerTypeFields(type,d){
   if(type==='professionals')return (
     discoveryOwnerField('occupation','Profissão ou especialidade',d.occupation,'text','required minlength="3" maxlength="100"')+
@@ -145,6 +284,12 @@ function discoveryOwnerPage(){
       Object.entries({professionals:'Profissionais',rides:'Caronas',stays:'Hospedagens'})
         .map(([v,t])=>'<option value="'+v+'"'+(kind===v?' selected':'')+'>'+t+'</option>').join('')+
       '</select></label>')+
+    (kind==='stays'&&!s.editor?.id?'<details class="discovery-owner-import"><summary>Já anuncio no Airbnb ou Booking.com? Aproveitar meu anúncio</summary>'+
+      '<p class="tiny muted">Cole o link do seu imóvel e, se tiver, os dados exportados ou copiados do seu próprio anúncio (Título, Descrição, Cidade, Hóspedes, Quartos, Camas, Comodidades, Preço). Os campos reconhecidos serão preenchidos aqui. Não acessamos nem copiamos fotos, avaliações, calendário ou reservas dessas plataformas.</p>'+
+      '<label>Link do seu anúncio<input id="discovery-owner-import-link" type="url" maxlength="1500" placeholder="https://www.booking.com/hotel/br/seu-imovel.html ou https://www.airbnb.com/rooms/12345678"></label>'+
+      '<label>Informações do meu imóvel (opcional, formato Campo: valor ou JSON)<textarea id="discovery-owner-import-details" maxlength="12000" rows="5" placeholder="Título: Pousada no centro&#10;Descrição: Pousada com quartos completos e estacionamento perto do centro.&#10;Cidade: São Gabriel&#10;Hóspedes: 4&#10;Quartos: 2&#10;Camas: 3&#10;Comodidades: Wi-Fi, estacionamento"></textarea></label>'+
+      '<button type="button" class="secondary" onclick="discoveryOwnerImportStay()">Aproveitar informações no cadastro</button>'+
+      '<p class="tiny muted">Só você pode confirmar que administra o imóvel e tem direito de usar os textos e fotos. A importação não cria reservas nem publica sem análise.</p></details>':'')+
     discoveryOwnerField('title','Título do anúncio',d.title,'text','required minlength="8" maxlength="120"')+
     '<label>Descrição<textarea name="description" minlength="30" maxlength="3500" rows="4" required>'+
       discoveryOwnerValue(d,'description')+'</textarea></label>'+
