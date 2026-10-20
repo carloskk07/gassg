@@ -213,4 +213,41 @@ for(const kind of ['professionals','rides','stays']){
 assert.match(boot,/discoveryRequestModule/);
 assert.match(home,/tamaoDiscoveryEntryHub/);
 assert.match(css,/@media\(max-width:760px\)/);
+// Responsive gallery uses approved public paths only, with no document identifiers or network extras.
+const galleryId='11111111-1111-4111-8111-111111111111';
+const imageKey=i=>galleryId+'/'+String(i).padStart(8,'0')+'-2222-4222-8222-222222222222.webp';
+const galleryPhotos=Array.from({length:11},(_,i)=>imageKey(i));
+const gallery=sandbox.discoveryPublicGallery({
+ title:'Casa <b>com fotos</b>',photo_urls:[
+  galleryPhotos[0],galleryPhotos[0],'../private-credential.pdf',
+  'https://tracking.invalid/collect',...galleryPhotos.slice(1)
+ ]
+});
+assert.match(gallery,/Foto principal de Casa &lt;b&gt;com fotos&lt;\/b&gt;/);
+assert.match(gallery,/Ver mais 7 fotos/);
+assert.equal((gallery.match(/<img /g)||[]).length,8,'bounded image gallery');
+assert.doesNotMatch(gallery,/private-credential|tracking\.invalid|<b>com fotos/);
+assert.equal(sandbox.discoveryPublicGallery({photo_urls:['../document.pdf']}),'');
+assert.doesNotMatch(sandbox.discoveryPublicGallery({photo_urls:[galleryPhotos[0],galleryPhotos[0]]}),/Ver mais/);
+const fullCard=sandbox.discoveryCard({
+ vertical:'stays',id:publicId,title:'Pousada central',
+ description:'Hospedagem anunciada',city_name:'São Gabriel',state_code:'RS',
+ photo_urls:galleryPhotos.slice(0,3),whatsapp_e164:'+555599998888'
+},'stays');
+assert.match(fullCard,/Ver mais 2 fotos/);
+assert.match(fullCard,/Abrir link direto deste anúncio/);
+assert.match(fullCard,/https:\/\/tamao\.com\.br\/\?listing=/);
+assert.doesNotMatch(fullCard,/owner_id|private\.pdf/);
+const sPublic=sandbox.discoveryState('professionals');
+sPublic.status='ready';sPublic.items=[results[0]];sPublic.hasMore=true;
+assert.match(sandbox.discoveryPage(),/Exibindo 1 anúncio publicado nesta busca/);
+sPublic.status='error';sPublic.items=[];
+assert.match(sandbox.discoveryPage(),/Tentar novamente/);
+assert.match(sandbox.discoveryPage(),/onclick="discoveryFetch\(\)"/);
+sPublic.status='ready';
+assert.match(sandbox.discoveryPage(),/Ver todos os anúncios/);
+assert.match(sandbox.discoveryPage(),/Anunciar no TAMÃO/);
+for(const marker of ['.discovery-gallery-grid','.discovery-gallery-more','.discovery-direct-link','.discovery-count'])
+ assert.ok(css.includes(marker),'Missing gallery/accessibility CSS: '+marker);
+
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
