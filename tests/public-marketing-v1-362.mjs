@@ -238,8 +238,8 @@ assert.ok(quoteBoard.includes('snapshot.real===true'),'only verified data may be
 assert.ok(quoteBoard.includes('snapshot.notAQuote===true'),'regional data is not a quote');
 assert.ok(quoteBoard.includes('real.length?liveCards:references'),
  'do not show pending merchant prices as approved offers');
-assert.match(customer,/tamao-checkout-total-compare/);
-assert.match(customer,/tamao-checkout-coupon-callout/);
+assert.match(customer,/tamao-home-checkout-compare/);
+assert.match(customer,/tamao-home-coupon-rail/);
 assert.match(customer,/potentialBenefit=validTotal/);
 assert.ok(customer.includes('state.checkout.useCashback===true?estimatedBenefits:0'),
  'estimated checkout benefit now accounts for the opted-in pre-paid voucher and existing cashback');
@@ -248,7 +248,7 @@ assert.ok(customer.includes("typeof clubePaidCouponVoucherForQuote==='function'"
 assert.ok(!customer.includes('cupom automaticamente aplicado'),
  'do not imply coupon redemption where server redemption is absent');
 for(const selector of ['.tamao-home-coupon-rail','.tamao-quote-benefit-grid',
-  '.tamao-checkout-total-compare','.tamao-checkout-coupon-callout']){
+  '.tamao-home-checkout-compare','.tamao-home-coupon-rail']){
  assert.ok(css.includes(selector),'premium coupon/price style missing '+selector);
 }
 
@@ -285,7 +285,7 @@ assert.ok(!withoutBenefit.includes('COM CASHBACK TAMÃO')&&
  'do not invent a coupon discount or cashback without balance');
 const invalidQuote=offerSandbox.offer({id:'q-2',eta:45,roles:[]});
 assert.match(invalidQuote,/Total indisponível/);
-assert.doesNotMatch(invalidQuote,/class="tamao-checkout-total-compare"/,
+assert.doesNotMatch(invalidQuote,/class="tamao-home-checkout-compare"/,
  'malformed offer must not display false numerical prices');
 
 console.log('V1.366: marketing journeys, benefit conditions, sponsor attribution and mobile styles verified.');
