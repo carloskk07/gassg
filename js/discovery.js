@@ -105,7 +105,7 @@ function discoveryPage(){
   const s=discoveryState(kind),v=discoveryVerticals[kind];
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
     s.status==='error'?'<p role="alert">Consulta indisponível no momento. Verifique a conexão e tente novamente.</p>':
-    s.status==='ready'&&!s.items.length?'<p>Nenhum anúncio publicado encontrado com esses filtros.</p>':
+    s.status==='ready'&&!s.items.length?'<div class="discovery-empty"><p>Nenhum anúncio publicado encontrado com esses filtros.</p><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button></div>':
     s.items.map(item=>discoveryCard(item,kind)).join('');
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
     '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+v[1]+'</h1>'+
@@ -126,7 +126,8 @@ function discoveryPage(){
        [['hotel','Hotel'],['inn','Pousada'],['holiday_house','Casa de temporada'],['beach_house','Casa de praia'],['apartment','Apartamento'],['cabin','Cabana'],['country_house','Casa de campo'],['other','Outro']].map(([code,label])=>
         '<option value="'+code+'"'+(s.propertyType===code?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
-    '<button type="submit" class="primary">Pesquisar</button></form>'+
+    '<button type="submit" class="primary">Pesquisar</button>'+
+    '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
     '<div class="discovery-results" aria-live="polite">'+content+'</div>'+
     (s.hasMore?'<button type="button" class="secondary discovery-more" onclick="discoveryLoadMore()"'+(s.status==='loading-more'?' disabled':'')+'>'+(s.status==='loading-more'?'Carregando anúncios…':'Carregar mais anúncios')+'</button>':'')+
@@ -151,6 +152,15 @@ function discoverySearchFromUi(event){
   s.maxPrice=kind==='stays'?String(document.getElementById('discovery-max-price')?.value||'').trim().slice(0,12):'';
   discoveryFetch();
   return false;
+}
+function discoveryClearFilters(){
+ const kind=discoveryKind();
+ if(!kind)return;
+ const s=discoveryState(kind);
+ for(const field of ['city','state','origin','destination','departureAfter','guests',
+   'occupation','minSeats','propertyType','maxPrice','sharedId'])s[field]='';
+ s.offset=0;s.hasMore=false;
+ discoveryFetch();
 }
 function discoveryLoadMore(){
  const kind=discoveryKind();
