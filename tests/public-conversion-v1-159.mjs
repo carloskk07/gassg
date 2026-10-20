@@ -40,7 +40,7 @@ for(const [src,fragment] of [
  [acquisition,'Sem compromisso de compra'],
  [acquisition,'Me avise quando puder pedir'],
  [acquisition,'Autorizo o TAMÃO a entrar em contato'],
- [acquisition,'Quero apresentar minha empresa'],
+ [acquisition,'Quero anunciar no TAMÃO'],
  [html,'Faltou em casa? <em>Tá na mão.</em>'],
  [html,'consulte preço e entrega por CEP'],
  [css,'@media(prefers-reduced-motion:reduce)'],
