@@ -1,3 +1,33 @@
+// Expand a product directly below its price; never use research prices as checkout offers.
+function homeQuoteProductPicker(item){
+ const code=String(item?.code||'').trim().toUpperCase();
+ if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(code))return '';
+ const label=String(item?.label||code),price=String(item?.price||'');
+ const previousPostal=typeof state==='object'?String(state?.postalCode||''):'';
+ const zipId='city-price-postal-'+code,qtyId='city-price-qty-'+code;
+ return '<details class="city-price-product-pick" data-city-quote-code="'+code+'">'+
+  '<summary aria-label="Selecionar '+esc(label)+' e consultar pelo CEP">'+
+   '<span class="city-price-caption">'+esc(label)+'</span>'+
+   (item.caption?'<small>'+esc(item.caption)+'</small>':'')+
+   '<strong class="city-price-amount">'+esc(price)+'</strong>'+
+   '<span class="city-price-product-hint">Clique para consultar ofertas ↓</span>'+
+  '</summary>'+
+  '<div class="city-price-product-form">'+
+   '<div class="city-price-product-fields">'+
+    '<label for="'+zipId+'">Seu CEP<input id="'+zipId+'" class="city-price-product-postal" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" value="'+esc(previousPostal)+'"></label>'+
+    '<label for="'+qtyId+'">Quantidade<input id="'+qtyId+'" class="city-price-product-qty" type="number" min="1" max="20" step="1" value="1"></label>'+
+   '</div>'+
+   '<p class="city-price-product-note">'+(item.reference
+     ?'Valor de pesquisa, não é oferta. Preço, estoque e entrega só serão confirmados na consulta.'
+     :'Preço inicial informativo. Confirme o total com entrega e a disponibilidade no seu CEP.')+'</p>'+
+   '<div class="city-price-product-actions">'+
+    '<button type="button" class="secondary small" onclick="homeQuoteSelectProduct(\''+code+'\',false)">Adicionar à cesta</button>'+
+    '<button type="button" class="primary small" onclick="homeQuoteSelectProduct(\''+code+'\',true)">Consultar e comprar →</button>'+
+   '</div>'+
+   '<p class="city-price-product-feedback" role="status" aria-live="polite"></p>'+
+  '</div></details>';
+}
+
 // TAMÃO V1.341 — trustworthy city-first pricing presentation.
 // Real prices only originate in the read-only, commercially gated city RPC.
 function homeRegionalPriceBoard(region){
@@ -24,9 +54,8 @@ function homeRegionalPriceBoard(region){
   const band=p.toCents>p.fromCents?'até '+BRL.format(p.toCents/100)+' em outras revendas':'preço informado pela revenda';
   return '<article class="city-price-card verified">'+
    '<span class="city-price-kind"><i class="city-price-dot"></i> PREÇO DE REVENDA</span>'+
-   '<div class="city-price-name">'+esc(label)+'</div>'+
-   '<span class="city-price-caption">'+(p.toCents>p.fromCents?'A partir de':'Preço informado')+'</span>'+
-   '<strong class="city-price-amount">'+price+'</strong>'+
+   homeQuoteProductPicker({code:p.code,label,price,
+    caption:p.toCents>p.fromCents?'A partir de':'Preço informado'})+
    '<small>'+esc(band)+'</small><span class="city-price-origin">'+Number(p.merchantCount)+
    (p.merchantCount===1?' revenda elegível':' revendas elegíveis')+'</span></article>';
  }).join('');
@@ -46,19 +75,16 @@ function homeRegionalPriceBoard(region){
    '<div class="city-price-name">Valores pesquisados em São Gabriel</div>'+
    '<p>Pesquisa local informada em 15/10/2026.</p></div>'+
    '<div class="city-price-research-grid city-price-reference-amount">'+localResearch.map(item=>
-      '<div class="city-price-research-item"><span class="city-price-caption">'+esc(item.label)+'</span>'+
-      '<strong class="city-price-amount">'+BRL.format(item.priceCents/100)+'</strong></div>'
+      '<div class="city-price-research-item">'+homeQuoteProductPicker({
+       code:item.code,label:item.label,price:BRL.format(item.priceCents/100),reference:true
+      })+'</div>'
    ).join('')+'</div>'+
    '<p class="city-price-reference-note">Referência de mercado • não é oferta de revenda. Consulte preços e entrega antes de comprar.</p>'+
    '</article>':
    '<div class="city-price-empty">Explore os produtos e consulte as ofertas de '+esc(place)+
    '.</div>';
  const cards=real.length?liveCards:references;
- const copy=real.length
-  ?'Compare os preços da sua região e escolha a melhor opção para sua compra.'
-  :localP13
-    ?'Conheça a referência de preço e consulte as ofertas para o seu endereço.'
-    :'Escolha o que precisa e descubra ofertas na sua cidade.';
+ const copy='Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço.';
  const savingGuide='<div class="tamao-quote-benefits" aria-label="Como aproveitar vantagens no TAMÃO">'+
    '<div class="tamao-quote-benefits-head"><div><span class="section-kicker">ECONOMIZE MAIS. VOLTE SEMPRE.</span>'+
     '<h3>Economize comparando. Aproveite os benefícios TAMÃO.</h3></div>'+
@@ -78,7 +104,7 @@ function homeRegionalPriceBoard(region){
   '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
    '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
   '<div class="city-price-heading"><div><span class="section-kicker">COTAÇÕES POR CIDADE</span>'+
-   '<h2>'+(real.length?'Quanto custam os produtos em ':'Pesquise os preços em ')+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
+   '<h2>Tamão '+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
    '<span class="city-price-place">📍 '+esc(place)+'</span></div>'+
 
   '<div class="city-price-grid">'+cards+'</div>'+
