@@ -20,6 +20,9 @@ const docKey='00000000-0000-0000-0000-000000000011/'+validId+
  '/22222222-2222-2222-2222-222222222222.pdf';
 let documentReads=0,documentSigns=0,unsafeSigned=false;
 const reports=[{id:17,listing_id:validId,vertical:'professionals',title:'<script>alert(1)</script>',listing_status:'published',reason:'suspected_fraud',details:'<img src=x onerror=alert(1)>',status:'open'}];
+const pausedId='22222222-2222-4222-8222-222222222222';
+const active=[{id:validId,vertical:'professionals',title:'<script>alert(1)</script>',status:'published',city_name:'São Gabriel',state_code:'RS',city_vertical_enabled:true},
+ {id:pausedId,vertical:'stays',title:'Pousada do centro',status:'paused',city_name:'São Gabriel',state_code:'RS',city_vertical_enabled:false}];
 const client={
  from(name){assert.equal(name,'discovery_documents');return{
   select(){return {eq(_column,_id){assert.equal(_id,validId);return {
@@ -35,6 +38,7 @@ const client={
  requested.push([name,args]);
  if(name==='discovery_admin_review_queue')return {data:queue,error:null};
  if(name==='discovery_admin_report_queue')return {data:reports,error:null};
+ if(name==='discovery_admin_listing_overview')return {data:active,error:null};
  if(name==='discovery_review_report'){reports.length=0;return {data:args.p_status,error:null};}
  if(name==='discovery_transition_listing')return {data:args.p_next_status,error:null};
  if(name==='discovery_set_vertical_city')return {data:null,error:null};
@@ -65,6 +69,9 @@ assert.doesNotMatch(html,/<script>alert/);
 assert.match(html,/Aprovar anúncio<\/button>/);
 assert.match(html,/Conferir comprovantes privados/);
 assert.match(html,/Denúncias de anúncios/);
+assert.match(html,/Publicações e pausas/);
+assert.match(html,/Pausar publicação/);
+assert.match(html,/disabled>Reativar anúncio/);
 assert.match(html,/Possível fraude/);
 assert.match(html,/&lt;img src=x onerror=/);
 assert.doesNotMatch(html,/<img src=x onerror=/);
@@ -106,6 +113,7 @@ assert.equal(documentReads,2,'non-admin must not fetch private evidence');
 await ctx.adminDiscoveryLoad();
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_review_queue').length,3);
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_report_queue').length,3);
+assert.equal(requested.filter(r=>r[0]==='discovery_admin_listing_overview').length,3);
 await ctx.adminDiscoveryDecision(validId,'rejected');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,1);
 assert.equal(ctx.adminDiscoveryView(),'');
@@ -123,6 +131,21 @@ assert.equal(reviewed.length,1);
 assert.equal(reviewed[0][1].p_status,'resolved');
 assert.equal(reviewed[0][1].p_report_id,17);
 assert.doesNotMatch(ctx.adminDiscoveryView(),/<img src=x onerror=/);
+ctx.prompt=()=> 'Revisão de publicação após checagem de contatos';
+await ctx.adminDiscoveryChangeLive(pausedId,'published');
+assert.equal(requested.filter(x=>x[0]==='discovery_transition_listing'&&
+  x[1].p_listing_id===pausedId).length,0,'disabled city prevents reinstatement');
+active[1].city_vertical_enabled=true;
+await ctx.adminDiscoveryChangeLive(pausedId,'published');
+const resume=requested.filter(x=>x[0]==='discovery_transition_listing'&&
+  x[1].p_listing_id===pausedId);
+assert.equal(resume.length,1,'resumption must use existing audited RPC');
+assert.equal(resume[0][1].p_next_status,'published');
+role='operations';
+await ctx.adminDiscoveryChangeLive(validId,'paused');
+assert.equal(requested.filter(x=>x[0]==='discovery_transition_listing'&&
+  x[1].p_listing_id===validId&&x[1].p_reason==='Revisão de publicação após checagem de contatos').length,0);
+role='superadmin';
 assert.ok(src.includes("discovery:new Set(['superadmin'])"));
 assert.ok(src.includes("adminMenuButton('discovery','Anúncios'"));
 assert.ok(src.includes("adminPanel('discovery'"));
@@ -134,4 +157,6 @@ assert.ok(sql.includes("a.admin_role='superadmin'"));
 assert.match(sql,/create table public.discovery_listing_reports/);
 assert.match(sql,/create function public.discovery_admin_report_queue/);
 assert.match(sql,/create function public.discovery_review_report/);
+assert.match(sql,/create function public.discovery_admin_listing_overview/);
+assert.match(sql,/UNRESOLVED_REPORT_BLOCKS_REACTIVATION/);
 console.log('PASS: admin-only queue, safe markup, city gate, reason gate, RPC action, existing panel integration.');
