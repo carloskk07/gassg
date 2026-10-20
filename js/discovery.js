@@ -88,13 +88,53 @@ function discoverySavedComparison(kind,items){
   '<div class="discovery-shortlist-grid">'+entries+'</div></section>';
 }
 
+// Local ordering never changes the server query, authority, or publication state.
+const discoverySortOptions={
+ professionals:[['recent','Mais recentes'],['experience','Mais experiência declarada']],
+ rides:[['recent','Mais recentes'],['departure','Próximas saídas'],['seats','Mais vagas anunciadas']],
+ stays:[['recent','Mais recentes'],['price','Menor preço anunciado'],['capacity','Maior capacidade declarada']]
+};
+function discoverySortLoaded(kind,items,mode){
+ const rows=Array.isArray(items)?items.slice():[];
+ const options=discoverySortOptions[kind]||[];
+ if(!options.some(([key])=>key===mode)||mode==='recent')return rows;
+ const numeric=(value,max)=>value!==null&&value!==undefined&&
+   String(value).trim()!==''&&Number.isSafeInteger(Number(value))&&
+   Number(value)>=0&&Number(value)<=max?Number(value):null;
+ const stamp=value=>typeof value==='string'&&/^\\d{4}-\\d{2}-\\d{2}T/.test(value)&&
+   Number.isFinite(Date.parse(value))?Date.parse(value):null;
+ const value=item=>{
+  if(kind==='professionals'&&mode==='experience')return numeric(item?.years_experience,80);
+  if(kind==='rides'&&mode==='departure')return stamp(item?.departure_at);
+  if(kind==='rides'&&mode==='seats')return numeric(item?.seats_available,8);
+  if(kind==='stays'&&mode==='price')return numeric(item?.price_from_brl_cents,50000000);
+  if(kind==='stays'&&mode==='capacity')return numeric(item?.guests,80);
+  return null;
+ };
+ const ascending=mode==='price'||mode==='departure';
+ return rows.map((item,index)=>({item,index,rank:value(item)}))
+  .sort((a,b)=>a.rank===null&&b.rank===null?a.index-b.index:
+   a.rank===null?1:b.rank===null?-1:
+   a.rank===b.rank?a.index-b.index:
+   ascending?a.rank-b.rank:b.rank-a.rank)
+  .map(entry=>entry.item);
+}
+function discoverySetSort(value){
+ const kind=discoveryKind();
+ if(!kind)return false;
+ const mode=String(value||'');
+ if(!(discoverySortOptions[kind]||[]).some(([key])=>key===mode))return false;
+ const s=discoveryState(kind);
+ s.sortMode=mode;
+ render();return true;
+}
 function discoveryKind(){
   const r=route();
   return !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.()
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:''} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:'',sortMode:'recent'} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -305,11 +345,12 @@ function discoveryPage(){
   const eligible=(s.status==='ready'||s.status==='loading-more')?s.items:[];
   const visible=s.savedOnly?eligible.filter(item=>savedSet.has(item?.id)):eligible;
   const visibleCount=visible.length;
+  const displayItems=discoverySortLoaded(kind,visible,s.sortMode);
   const loadedSaved=eligible.filter(item=>savedSet.has(item?.id)).length;
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
     s.status==='error'?'<div class="discovery-empty" role="alert"><p>Consulta indisponível no momento. Verifique a conexão e tente novamente.</p><button type="button" onclick="discoveryFetch()">Tentar novamente</button></div>':
     s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Nenhum anúncio publicado encontrado com esses filtros.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':'<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>')+'</div>':
-    visible.map(item=>discoveryCard(item,kind)).join('');
+    displayItems.map(item=>discoveryCard(item,kind)).join('');
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
     '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+v[1]+'</h1>'+
     '<p>Consulte anúncios publicados e fale diretamente com quem anunciou.</p></header>'+
@@ -331,6 +372,10 @@ function discoveryPage(){
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
+    '<div class="discovery-sort-bar"><label for="discovery-sort">Ordenar anúncios carregados</label>'+
+     '<select id="discovery-sort" onchange="discoverySetSort(this.value)">'+
+     discoverySortOptions[kind].map(([key,label])=>'<option value="'+key+'"'+(s.sortMode===key?' selected':'')+'>'+label+'</option>').join('')+
+     '</select><span>Ordem local: não inclui anúncios ainda não carregados.</span></div>'+
     '<div class="discovery-saved-bar" aria-label="Anúncios salvos">'+
      '<span>★ '+savedIds.length+' salvo'+(savedIds.length===1?'':'s')+' neste navegador</span>'+
      '<button type="button" aria-pressed="'+Boolean(s.savedOnly)+'" onclick="discoveryToggleSavedFilter()">'+
