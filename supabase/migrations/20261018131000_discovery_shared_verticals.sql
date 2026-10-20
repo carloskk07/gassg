@@ -191,6 +191,25 @@ $$;
 revoke all on function public.discovery_verified_account() from public;
 grant execute on function public.discovery_verified_account() to authenticated;
 
+-- Cost guard: verified accounts receive a finite initial object allowance.
+-- Lock the account row so simultaneous uploads cannot defeat object quotas.
+create function public.discovery_storage_quota_ok(p_bucket text)
+returns boolean language plpgsql volatile security definer set search_path='pg_catalog'
+as $quota$
+declare v_actor uuid:=(select auth.uid());v_count integer;v_limit integer;
+begin
+ if v_actor is null or p_bucket not in
+   ('tamao-discovery-photos','tamao-discovery-documents') then return false;end if;
+ v_limit:=case when p_bucket='tamao-discovery-photos' then 24 else 8 end;
+ perform 1 from auth.users where id=v_actor for update;
+ if not found then return false;end if;
+ select count(*) into v_count from storage.objects o
+  where o.bucket_id=p_bucket and o.owner_id=v_actor::text;
+ return v_count<v_limit;
+end $quota$;
+revoke all on function public.discovery_storage_quota_ok(text) from public,anon,authenticated;
+grant execute on function public.discovery_storage_quota_ok(text) to authenticated;
+
 -- Public marketing photos only; identification/licensing documents require private storage.
 -- Owners can upload new images, but have no overwrite/delete/list privilege.
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
@@ -204,6 +223,7 @@ for insert to authenticated with check (
  and split_part(name,'/',2) ~ '^[0-9a-f-]{36}[.](jpg|jpeg|png|webp)$'
  and name !~ '/.*/'
  and (select public.discovery_verified_account())
+ and (select public.discovery_storage_quota_ok('tamao-discovery-photos'))
 );
 -- photo_urls stores Storage keys, never remotely hosted images/URLs.
 create function public.discovery_verified_photo_paths(p_listing_id uuid)
@@ -881,6 +901,7 @@ create policy discovery_document_storage_insert on storage.objects
    and split_part(name,'/',1)=(select auth.uid())::text
    and (select public.discovery_verified_account())
    and (select public.discovery_document_editable(split_part(name,'/',2)))
+   and (select public.discovery_storage_quota_ok('tamao-discovery-documents'))
  );
 -- SELECT is required for authorised short-lived signed URLs; no UPDATE/DELETE.
 -- Administrators can retrieve only documents actually registered in the ledger.
