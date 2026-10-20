@@ -76,7 +76,8 @@ function discoveryOwnerTypeFields(type,d){
     discoveryOwnerField('departure_at','Saída (data e hora)',d.departure_at?new Date(d.departure_at).toISOString().slice(0,16):'','datetime-local','required')+
     discoveryOwnerField('seats_total','Vagas totais',d.seats_total||1,'number','required min="1" max="8"')+
     discoveryOwnerField('seats_available','Vagas disponíveis',d.seats_available??1,'number','required min="0" max="8"')+
-    discoveryOwnerField('proposed_cost_share','Contribuição por vaga (R$), opcional',d.proposed_cost_share_cents===null?'':d.proposed_cost_share_cents===undefined?'':Number(d.proposed_cost_share_cents)/100,'number','min="0" max="5000" step=".01"')
+    discoveryOwnerField('proposed_cost_share','Contribuição por vaga (R$), opcional',d.proposed_cost_share_cents===null?'':d.proposed_cost_share_cents===undefined?'':Number(d.proposed_cost_share_cents)/100,'number','min="0" max="5000" step=".01"')+
+    '<label>Trajeto e paradas (opcional)<textarea name="route_notes" maxlength="600" rows="3" placeholder="Explique as paradas combinadas, sem publicar endereço residencial">'+esc(d.route_notes||'')+'</textarea></label>'
   );
   const types=[['holiday_house','Casa de temporada'],['beach_house','Casa de praia'],['inn','Pousada'],
     ['hotel','Hotel'],['apartment','Apartamento'],['cabin','Cabana'],
@@ -86,7 +87,12 @@ function discoveryOwnerTypeFields(type,d){
     discoveryOwnerField('guests','Capacidade de hóspedes',d.guests||2,'number','required min="1" max="80"')+
     discoveryOwnerField('bedrooms','Quartos',d.bedrooms??1,'number','required min="0" max="60"')+
     discoveryOwnerField('beds','Camas',d.beds??1,'number','required min="1" max="120"')+
-    discoveryOwnerField('price_from','Valor informado a partir de (R$, opcional)',d.price_from_brl_cents===null?'':d.price_from_brl_cents===undefined?'':Number(d.price_from_brl_cents)/100,'number','min="0" max="500000" step=".01"');
+    discoveryOwnerField('units','Unidades disponíveis no imóvel',d.units??1,'number','required min="1" max="250"')+
+    discoveryOwnerField('price_from','Valor anunciado a partir de (R$, opcional)',d.price_from_brl_cents===null?'':d.price_from_brl_cents===undefined?'':Number(d.price_from_brl_cents)/100,'number','min="0" max="500000" step=".01"')+
+    '<label>Período do preço<select name="price_unit">'+
+      [['night','Por noite'],['stay','Por estadia'],['week','Por semana']].map(([value,label])=>
+        '<option value="'+value+'"'+((d.price_unit||'night')===value?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
+    '<label>Comodidades (separe por vírgulas)<textarea name="amenities" maxlength="1200" rows="3" placeholder="Ex.: Wi-Fi, estacionamento, cozinha">'+esc(Array.isArray(d.amenities)?d.amenities.join(', '):'')+'</textarea></label>';
 }
 function discoveryOwnerPage(){
   const s=discoveryOwner;
@@ -288,13 +294,15 @@ function discoveryOwnerDetails(vertical,f){
     destination_city:field('destination_city'),
     departure_at:new Date(field('departure_at')).toISOString(),
     seats_total:nonneg('seats_total',1),seats_available:nonneg('seats_available',1),
-    proposed_cost_share_cents:field('proposed_cost_share')===''?null:Math.round(Number(field('proposed_cost_share'))*100)
+    proposed_cost_share_cents:field('proposed_cost_share')===''?null:Math.round(Number(field('proposed_cost_share'))*100),
+    route_notes:field('route_notes')||null
   };
   return {
     property_type:field('property_type'),guests:nonneg('guests',2),
-    bedrooms:nonneg('bedrooms',1),beds:nonneg('beds',1),units:1,
+    bedrooms:nonneg('bedrooms',1),beds:nonneg('beds',1),units:nonneg('units',1),
+    amenities:[...new Set(field('amenities').split(',').map(x=>x.trim()).filter(x=>x&&x.length<=60))].slice(0,20),
     price_from_brl_cents:field('price_from')===''?null:Math.round(Number(field('price_from'))*100),
-    price_unit:field('price_from')===''?null:'night'
+    price_unit:field('price_from')===''?null:['night','stay','week'].includes(field('price_unit'))?field('price_unit'):'night'
   };
 }
 async function discoveryOwnerSave(ev){
