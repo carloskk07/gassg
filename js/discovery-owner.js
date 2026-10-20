@@ -332,13 +332,18 @@ function discoveryOwnerImportStay(){
   const values=ownerForm?new FormData(ownerForm):null;
   // Preserve already typed contact data; never import phone numbers, uploads,
   // account IDs or owner identity from an untrusted third-party page.
-  const own={};
+  const snapshot={};
+  for(const key of ['title','description','city_name','public_area','guests',
+      'bedrooms','beds','units','property_type','price_from','amenities']){
+    const v=String(values?.get(key)||'').trim();
+    if(v)snapshot[key]=v.slice(0,3500);
+  }
+  const own=discoveryOwnerImportPayload(JSON.stringify(snapshot));
+  // Only owner-entered contact can be retained; never take it from an import.
   for(const key of ['whatsapp_e164','state_code']){
     const v=String(values?.get(key)||'').trim();
     if(v)own[key]=v.slice(0,45);
   }
-  if(!Object.hasOwn(data,'description')&&String(values?.get('description')||'').trim().length>=30)
-    own.description=String(values.get('description')).trim().slice(0,3500);
   s.editor={...own,...data,vertical:'stays'};
   s.kind='stays';
   s.error='';
