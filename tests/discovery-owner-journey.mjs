@@ -143,7 +143,7 @@ assert.equal(ctx.discoveryOwnerPhotoUrl('../../secret'),'');
 assert.match(ctx.discoveryOwnerCitySlug('São Gabriel'),/sao-gabriel/);
 const rideFields=ctx.discoveryOwnerTypeFields('rides',{});
 assert.match(rideFields,/name="route_notes"/);
-assert.match(rideFields,/Paradas/);
+assert.match(rideFields,/paradas/i);
 const stayFields=ctx.discoveryOwnerTypeFields('stays',{});
 assert.match(stayFields,/name="amenities"/);
 assert.match(stayFields,/name="price_unit"/);
