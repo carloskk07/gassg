@@ -441,6 +441,12 @@ begin
       ) then raise exception 'EXPIRED_OR_FULL_RIDE' using errcode='22023';end if;
       if v_listing.status not in ('review','paused') then
         raise exception 'LISTING_REVIEW_REQUIRED' using errcode='22023';end if;
+      if v_listing.status='paused' and exists(
+        select 1 from public.discovery_listing_reports r
+        where r.listing_id=p_listing_id and r.status='open'
+      ) then
+        raise exception 'UNRESOLVED_REPORT_BLOCKS_REACTIVATION' using errcode='22023';
+      end if;
       if not exists (
         select 1 from public.discovery_vertical_cities c where c.vertical=v_listing.vertical
         and c.state_code=v_listing.state_code and c.city_key=v_listing.city_key and c.enabled
