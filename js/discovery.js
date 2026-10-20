@@ -74,6 +74,66 @@ function discoveryPublicGallery(item){
   (photos.length===2?' foto':' fotos')+'</summary>'+
   '<div class="discovery-gallery-grid">'+extra+'</div></details></div>';
 }
+// Optional inquiry details: never a reservation, payment or availability promise.
+function discoveryInquiryForm(item,kind){
+ if(kind!=='rides'&&kind!=='stays')return '';
+ const phone=String(item?.whatsapp_e164||'');
+ if(!/^\\+[1-9][0-9]{7,14}$/.test(phone))return '';
+ const title=esc(String(item?.title||'').slice(0,80));
+ const count=Number(kind==='rides'?item.seats_available:item.guests);
+ if(!Number.isInteger(count)||count<1||count>(kind==='rides'?8:80))return '';
+ const inputs=kind==='rides'?
+  '<label>Quantas vagas deseja consultar?<input name="seats" type="number" required min="1" max="'+count+'" value="1"></label>':
+  '<label>Entrada desejada<input name="checkin" type="date" required></label>'+
+  '<label>Saída desejada<input name="checkout" type="date" required></label>'+
+  '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
+ return '<details class="discovery-inquiry" data-phone="'+esc(phone)+
+  '" data-kind="'+kind+'" data-title="'+title+'" data-max="'+count+'">'+
+  '<summary>'+(kind==='rides'?'Consultar quantidade de vagas':'Consultar datas e hóspedes')+'</summary>'+
+  '<div class="discovery-inquiry-fields">'+inputs+'</div>'+
+  '<p class="tiny muted">É apenas uma consulta ao anunciante. Nenhuma vaga ou diária é reservada pelo TAMÃO.</p>'+
+  '<p class="discovery-inquiry-feedback" role="alert"></p>'+
+  '<a href="#" target="_blank" rel="noopener noreferrer" onclick="return discoveryPrepareInquiry(this)">Preparar consulta no WhatsApp ↗</a>'+
+  '</details>';
+}
+function discoveryPrepareInquiry(anchor){
+ const box=anchor?.closest?.('.discovery-inquiry');
+ const kind=String(box?.dataset?.kind||''),phone=String(box?.dataset?.phone||'');
+ const title=String(box?.dataset?.title||'').slice(0,80);
+ const limit=Number(box?.dataset?.max);
+ const feedback=box?.querySelector?.('.discovery-inquiry-feedback');
+ const invalid=message=>{if(feedback)feedback.textContent=message;return false};
+ if(!/^\\+[1-9][0-9]{7,14}$/.test(phone)||!title||
+    !Number.isInteger(limit)||limit<1||limit>80)return false;
+ const number=name=>Number(box?.querySelector?.('[name="'+name+'"]')?.value);
+ let message='';
+ if(kind==='rides'){
+  const seats=number('seats');
+  if(limit>8||!Number.isInteger(seats)||seats<1||seats>limit)
+    return invalid('Informe uma quantidade de vagas válida.');
+  message='Olá! Vi sua carona no TAMÃO: '+title+
+    '. Gostaria de consultar '+seats+(seats===1?' vaga':' vagas')+
+    '. Podemos confirmar disponibilidade, trajeto e condições?';
+ }else if(kind==='stays'){
+  const checkin=String(box?.querySelector?.('[name="checkin"]')?.value||'');
+  const checkout=String(box?.querySelector?.('[name="checkout"]')?.value||'');
+  const guests=number('guests');
+  const validDate=value=>/^\\d{4}-\\d{2}-\\d{2}$/.test(value)&&
+    Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  if(!validDate(checkin)||!validDate(checkout)||checkout<=checkin||
+     Date.parse(checkin)<Date.now()-86400000)
+    return invalid('Informe entrada e saída válidas, com saída após a entrada.');
+  if(!Number.isInteger(guests)||guests<1||guests>limit)
+    return invalid('Informe uma quantidade de hóspedes válida.');
+  message='Olá! Vi sua hospedagem no TAMÃO: '+title+
+    '. Gostaria de consultar de '+checkin+' a '+checkout+' para '+
+    guests+(guests===1?' hóspede':' hóspedes')+
+    '. Pode confirmar disponibilidade e condições?';
+ }else return false;
+ if(feedback)feedback.textContent='';
+ anchor.href='https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent(message);
+ return true;
+}
 function discoveryCard(item,kind){
   if(item?.vertical!==kind)return '';
   const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
@@ -128,7 +188,7 @@ function discoveryCard(item,kind){
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
-    '</div></article>';
+    '</div>'+discoveryInquiryForm(item,kind)+'</article>';
 }
 function discoveryPage(){
   const kind=discoveryKind();
