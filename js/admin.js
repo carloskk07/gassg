@@ -2563,7 +2563,7 @@ function adminOperationalAlertsView(){
 }
 
 /* TAMÃO Discovery: one moderation workspace in the existing protected admin portal. */
-const adminDiscoveryDesk={status:'idle',items:[],error:'',pending:false,documents:{},documentPending:null};
+const adminDiscoveryDesk={status:'idle',items:[],reports:[],error:'',pending:false,documents:{},documentPending:null};
 function adminDiscoveryImage(key){
   if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
   return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
@@ -2579,6 +2579,10 @@ async function adminDiscoveryLoad(){
     if(error)throw error;
     if(!Array.isArray(data))throw Error('Invalid discovery review response');
     d.items=data.filter(x=>x&&/^[0-9a-f-]{36}$/.test(String(x.id||''))&&x.status==='review');
+    const reports=await adminRuntime.client.rpc('discovery_admin_report_queue',{p_limit:50});
+    if(reports.error||!Array.isArray(reports.data))throw Error('DISCOVERY_REPORT_QUEUE_UNAVAILABLE');
+    d.reports=reports.data.filter(x=>x&&Number.isSafeInteger(Number(x.id))&&
+      Number(x.id)>0&&/^[0-9a-f-]{36}$/.test(String(x.listing_id||''))&&x.status==='open');
     d.documents={}; // Never retain expiring signed document links across refreshes.
     d.status='ready';
   }catch(e){
@@ -2655,6 +2659,23 @@ function adminDiscoveryView(){
           (!canPublish||d.pending?' disabled':'')+'>Aprovar anúncio</button>'+
         '</div></article>';
     }).join('');
+  const reportReasonLabels={suspected_fraud:'Possível fraude',incorrect_information:'Informação incorreta',
+    unsafe_content:'Conteúdo perigoso',other:'Outros problemas'};
+  const reportCards=d.status!=='ready'?'':d.reports.length?
+    d.reports.map(x=>{
+      const id=Number(x.id),kind=String(x.vertical||''),reason=reportReasonLabels[x.reason]||'Denúncia';
+      return '<article class="card flat" style="margin-block:12px;padding:16px">'+
+        '<h4>'+esc(reason)+' — '+esc(x.title)+'</h4>'+
+        '<p class="tiny muted">'+esc(kind)+' • ID: '+esc(String(x.listing_id))+
+          ' • Situação: '+esc(x.listing_status)+'</p>'+
+        '<p>'+esc(String(x.details||'').slice(0,600))+'</p>'+
+        '<div class="order-actions">'+
+          '<button class="secondary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'dismissed\')"'+
+            (d.pending?' disabled':'')+'>Improcedente</button>'+
+          '<button class="primary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'resolved\')"'+
+            (d.pending?' disabled':'')+'>Registrar providência</button>'+
+        '</div></article>';
+    }).join(''):'<p>Não há denúncias abertas.</p>';
   const cityControls='<section class="card flat" style="margin-block:16px;padding:18px">'+
     '<h3>Disponibilidade por modalidade e cidade</h3>'+
     '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
@@ -2675,8 +2696,31 @@ function adminDiscoveryView(){
     '</div><button class="secondary small" type="button" onclick="adminDiscoveryLoad()"'+
       (d.pending?' disabled':'')+'>Atualizar fila</button></div>'+
     '<p class="tiny muted">Confira a veracidade do anúncio e as obrigações aplicáveis antes de aprovar. Fotos públicas não substituem documentação.</p>'+
-    cityControls+content+'</section>';
+    cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
 }
+async function adminDiscoveryReviewReport(id,status){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !Number.isSafeInteger(id)||id<=0||!['resolved','dismissed'].includes(status)||
+     !adminDiscoveryDesk.reports.some(x=>Number(x.id)===id))return;
+  const note=prompt('Registre a justificativa ou providência (mínimo 8 caracteres):');
+  if(note===null)return;
+  const value=String(note).trim();
+  if(value.length<8||value.length>500){toast('Informe uma justificativa entre 8 e 500 caracteres.');return;}
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_review_report',{
+      p_report_id:id,p_status:status,p_note:value
+    });
+    if(error)throw error;
+    toast('Denúncia analisada e registrada.');
+    d.pending=false;
+    await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;
+    toast('Não foi possível registrar a decisão; tente novamente.');
+  }
+}
+
 async function adminDiscoveryDecision(id,status){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !['published','rejected'].includes(status)||!/^[0-9a-f-]{36}$/.test(String(id||'')))return;
