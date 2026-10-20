@@ -294,18 +294,19 @@ async function discoveryFetch(more=false){
       auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
       global:{fetch:chamaFetch}
     });
+    const shared=Boolean(s.sharedId); // A verified listing link must not inherit past search filters.
     const {data,error}=await client.rpc('discovery_public_search',{
-      p_vertical:kind,p_state_code:s.state||null,p_city_key:discoveryCityKey(s.city)||null,
-      p_departure_city:kind==='rides'?s.origin||null:null,
-      p_destination_city:kind==='rides'?s.destination||null:null,
+      p_vertical:kind,p_state_code:shared?null:s.state||null,p_city_key:shared?null:discoveryCityKey(s.city)||null,
+      p_departure_city:!shared&&kind==='rides'?s.origin||null:null,
+      p_destination_city:!shared&&kind==='rides'?s.destination||null:null,
       // datetime-local is in the visitor's timezone; convert to UTC before RPC.
-      p_departure_after:kind==='rides'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.departureAfter)&&
+      p_departure_after:!shared&&kind==='rides'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.departureAfter)&&
         Number.isFinite(Date.parse(s.departureAfter))?new Date(s.departureAfter).toISOString():null,
-      p_min_guests:kind==='stays'&&/^[1-9][0-9]?$/.test(s.guests)&&Number(s.guests)<=80?Number(s.guests):null,
-      p_occupation_query:kind==='professionals'&&s.occupation?s.occupation:null,
-      p_min_seats:kind==='rides'&&/^[1-8]$/.test(s.minSeats)?Number(s.minSeats):null,
-      p_property_type:kind==='stays'&&['hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other'].includes(s.propertyType)?s.propertyType:null,
-      p_max_price_cents:kind==='stays'&&/^(?:0|[1-9][0-9]{0,5})(?:[.][0-9]{1,2})?$/.test(s.maxPrice)&&Number(s.maxPrice)<=500000?Math.round(Number(s.maxPrice)*100):null,
+      p_min_guests:!shared&&kind==='stays'&&/^[1-9][0-9]?$/.test(s.guests)&&Number(s.guests)<=80?Number(s.guests):null,
+      p_occupation_query:!shared&&kind==='professionals'&&s.occupation?s.occupation:null,
+      p_min_seats:!shared&&kind==='rides'&&/^[1-8]$/.test(s.minSeats)?Number(s.minSeats):null,
+      p_property_type:!shared&&kind==='stays'&&['hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other'].includes(s.propertyType)?s.propertyType:null,
+      p_max_price_cents:!shared&&kind==='stays'&&/^(?:0|[1-9][0-9]{0,5})(?:[.][0-9]{1,2})?$/.test(s.maxPrice)&&Number(s.maxPrice)<=500000?Math.round(Number(s.maxPrice)*100):null,
       p_listing_id:s.sharedId||null,
       p_limit:24,p_offset:offset
     });
