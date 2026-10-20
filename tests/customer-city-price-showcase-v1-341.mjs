@@ -85,7 +85,8 @@ assert.match(whenReady,/homeRefreshQuotePrices\(\)/,
  'quote board must offer manual refresh when the live RPC is ready');
 assert.match(html,/Cupons e Clube TAMÃO/);
 assert.match(html,/Indicar também tem valor/);
-assert.match(html,/cupons de campanhas/);
+// UI copy follows the verified #508 homepage; keep contract for real campaigns, not historical wording.
+assert.match(html,/Descubra campanhas e vantagens/);
 assert.doesNotMatch(html,/Diferença de R\$/,'no merchant price spread with reference only');
 assert.match(html,/Referência de mercado • não é oferta de revenda/);
 assert.doesNotMatch(html,/PREÇO DE REVENDA/);
