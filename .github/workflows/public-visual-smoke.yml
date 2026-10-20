@@ -39,19 +39,26 @@ jobs:
           python3 -m http.server 4179 --directory /tmp/tamao-visual-413 >/tmp/tamao-visual-http.log 2>&1 &
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
+          # GitHub hosted runners can inherit an invalid D-Bus address.
+          # Chrome startup may take >10s under Actions load. Keep the real
+          # overflow assertion strict; only make browser startup deterministic.
+          unset DBUS_SESSION_BUS_ADDRESS DBUS_SYSTEM_BUS_ADDRESS
           "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --no-first-run --disable-background-networking \
             --remote-debugging-port=9230 --remote-allow-origins='*' \
             --user-data-dir=/tmp/tamao-visual-chrome about:blank \
             >/tmp/tamao-visual-chrome.log 2>&1 &
-          # Hosted runners may need more than 10 seconds for the first
-          # Chrome headless startup. Keep the real CDP health assertion.
-          for attempt in $(seq 1 160); do
+          CHROME_PID=$!
+          for attempt in $(seq 1 80); do
             if curl -fsS http://127.0.0.1:9230/json/version >/dev/null 2>&1; then exit 0; fi
-            sleep 0.25
+            if ! kill -0 "$CHROME_PID" 2>/dev/null; then
+              echo "::error::Chromium quit before DevTools became ready."
+              cat /tmp/tamao-visual-chrome.log
+              exit 1
+            fi
+            sleep 0.5
           done
-          echo 'Chrome CDP did not become ready within 40s'
-          cat /tmp/tamao-visual-chrome.log || true
-          ps -ef | grep -E '[c]hrome|[c]hromium' || true
+          cat /tmp/tamao-visual-chrome.log
           exit 1
 
       - name: Desktop tablet mobile real-browser screenshot and overflow gate
