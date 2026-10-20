@@ -1,3 +1,51 @@
+// Only an authenticated, fresh server query tied to this exact checkout draft
+// may be summarized on the home page. It does not authorize an order.
+function homeQuoteVerifiedOffers(){
+ const rt=globalThis.liveRuntime;
+ if(globalThis.liveReady?.()!==true||!rt||rt.postalValidated!==true||
+    rt.commerceLaunchBlocked===true||rt.loadingOffers===true||
+    typeof liveOfferRequestFingerprint!=='function')return [];
+ const zip=String(state?.postalCode||'').replace(/\D/g,'');
+ const number=String(state?.addressNumber||'').trim().toUpperCase();
+ if(!/^[0-9]{8}$/.test(zip)||!/^[0-9]{1,6}[A-Za-z]?$/.test(number)||
+    !String(state?.address||'').trim()||rt.lastCityCheck?.postalCode!==zip||
+    rt.lastCityCheck?.regionAvailable!==true)return [];
+ const fingerprint=liveOfferRequestFingerprint();
+ if(!fingerprint||rt.lastOfferFingerprint!==fingerprint||
+    !Number.isFinite(Number(rt.lastOfferCheckedAt))||
+    Date.now()-Number(rt.lastOfferCheckedAt)>60000||
+    Date.now()<Number(rt.lastOfferCheckedAt)-1000)return [];
+ return (Array.isArray(rt.offers)?rt.offers:[]).filter(offer=>
+   offer?.live===true&&
+   typeof offer.id==='string'&&/^[A-Za-z0-9-]{1,70}$/.test(offer.id)&&
+   offer.total!=null&&Number.isFinite(Number(offer.total))&&
+   Number(offer.total)>0&&Number(offer.total)<=1000000&&
+   Number.isFinite(Date.parse(String(offer.expiresAt||'')))&&
+   Date.parse(String(offer.expiresAt))>Date.now()+1000
+ ).slice().sort((a,b)=>Number(a.total)-Number(b.total)).slice(0,3);
+}
+function homeQuoteVerifiedComparison(){
+ const matches=homeQuoteVerifiedOffers();
+ if(!matches.length)return '';
+ const rows=matches.map((offer,index)=>{
+  const total=Number(offer.total),fee=Number(offer.deliveryFee);
+  const delivery=offer.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=total
+    ?'<span>Entrega: '+BRL.format(fee)+'</span>'
+    :'<span>Entrega incluída no total</span>';
+  const eta=Number(offer.etaMax??offer.eta);
+  const deadline=(offer.etaMax??offer.eta)!=null&&Number.isFinite(eta)&&eta>0&&eta<=1440
+    ?'<span>Até '+Math.round(eta)+' min (estimativa)</span>':'';
+  return '<div class="city-price-verified-option"><span>'+(index===0?'Menor total consultado':'Outra opção')+'</span>'+
+    '<strong>'+BRL.format(total)+'</strong><small>Total com entrega</small>'+
+    delivery+deadline+'</div>';
+ }).join('');
+ return '<section class="city-price-verified-list" aria-label="Comparativo das últimas ofertas confirmadas">'+
+  '<strong>Ofertas consultadas para esta cesta e endereço</strong>'+
+  '<p>Valores e entrega da última consulta válida. Confira novamente antes de solicitar.</p>'+
+  '<div class="city-price-verified-options">'+rows+'</div>'+
+  '<p>Cupons e cashback são calculados conforme a elegibilidade no pedido.</p></section>';
+}
+
 // A live basket counts quantities, not imaginary savings from reference research.
 function homeQuoteBasketMarkup(cart){
  const selected=Object.entries(cart||{}).filter(([code,qty])=>
@@ -10,6 +58,7 @@ function homeQuoteBasketMarkup(cart){
   '<strong>'+(units?units+' '+(units===1?'unidade selecionada':'unidades selecionadas'):'Escolha um produto para começar')+'</strong>'+
   '<span>'+(units?'Consulte o total com entrega e descontos aplicáveis no próximo passo.':'Selecione gás, água, lenha ou outro item da cotação.')+'</span>'+
   (items?'<div class="city-price-basket-items">'+items+'</div>':'')+'</div>'+
+  (units?homeQuoteVerifiedComparison():'')+
   '<button type="button" class="primary" onclick="homeQuoteGoToOrder()"'+(units?'':' disabled')+'>Ver cesta e consultar →</button>';
 }
 

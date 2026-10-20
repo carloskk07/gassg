@@ -204,6 +204,11 @@ function homeQuoteSyncPostal(input){
  const digits=String(input.value||'').replace(/\D/g,'').slice(0,8);
  const formatted=digits.length>5?digits.slice(0,5)+'-'+digits.slice(5):digits;
  input.value=formatted;
+ // Hide a previous server quote as soon as someone edits a different CEP.
+ if(digits!==String(state.postalCode||'').replace(/\D/g,'')){
+  globalThis.liveInvalidateOfferAddressDraft?.();
+  homeQuoteUpdateBasket();
+ }
  for(const field of document.querySelectorAll?.('.city-price-product-postal')||[]){
   if(field!==input)field.value=formatted;
  }
@@ -225,6 +230,21 @@ function homeQuoteUpdateBasket(){
 function homeQuoteGoToOrder(){
  if(!Object.values(state.cart||{}).some(quantity=>Number(quantity)>0)){
   toast('Adicione um produto para montar sua cesta.');return false;
+ }
+ // The basket CTA must not discard a CEP entered in a product disclosure.
+ const input=document.querySelector?.('.city-price-product-pick[open] .city-price-product-postal')||
+   document.querySelector?.('.city-price-product-postal');
+ const raw=String(input?.value||'').trim(),postal=raw.replace(/\D/g,'');
+ if(raw&&!/^[0-9]{8}$/.test(postal)){
+  input?.focus();toast('Informe um CEP válido com 8 dígitos.');return false;
+ }
+ if(postal&&postal!==String(state.postalCode||'').replace(/\D/g,'')){
+  globalThis.liveInvalidateOfferAddressDraft?.();
+  state.postalCode=postal;state.address='';state.addressNumber='';
+  const rt=globalThis.liveRuntime;
+  if(rt){rt.offers=[];rt.postalValidated=false;rt.lastCityCheck=null;
+   rt.lastOfferFingerprint=null;rt.lastOfferCheckedAt=0;rt.lastSyncAt=null}
+  save();
  }
  go('order');return true;
 }
