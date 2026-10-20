@@ -325,7 +325,7 @@ select public.discovery_submit_report(
  'incorrect_information','O endereço aproximado do anúncio precisa de revisão'
 ) as submitted_report_id \gset
 select set_config('tamao.test.submitted_report_id', :'submitted_report_id', false);
-do $
+do $reporttest$
 declare v_same bigint;v_expected bigint;
 begin
  v_expected:=current_setting('tamao.test.submitted_report_id')::bigint;
@@ -338,14 +338,14 @@ begin
   perform count(*) from public.discovery_admin_report_queue();
   raise exception 'ADMIN_REPORT_QUEUE_LEAK';
  exception when insufficient_privilege then null;end;
-end $;
+end $reporttest$;
 select public.discovery_submit_report(
  current_setting('tamao.test.listing_id')::uuid,
  'suspected_fraud','Há possível informação de contato não confiável no anúncio');
 select public.discovery_submit_report(
  current_setting('tamao.test.listing_id')::uuid,
  'unsafe_content','O conteúdo requer inspeção de segurança antes de prosseguir');
-do $
+do $reporttest$
 begin
  begin
   perform public.discovery_submit_report(
@@ -353,11 +353,11 @@ begin
    'Quarta denúncia no mesmo dia deve ser recusada pelo banco');
   raise exception 'REPORT_RATE_LIMIT_BYPASSED';
  exception when sqlstate '22023' then null;end;
-end $;
+end $reporttest$;
 reset role;
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
-do $
+do $reporttest$
 begin
  begin
   perform public.discovery_submit_report(
@@ -365,11 +365,11 @@ begin
    'O próprio anunciante não pode denunciar seu anúncio');
   raise exception 'OWNER_REPORT_ALLOWED';
  exception when sqlstate '22023' then null;end;
-end $;
+end $reporttest$;
 reset role;
 set role anon;
 reset request.jwt.claim.sub;
-do $
+do $reporttest$
 begin
  begin
   perform public.discovery_submit_report(
@@ -377,20 +377,20 @@ begin
    'Envio anônimo não pode contornar exigência de verificação');
   raise exception 'ANONYMOUS_REPORT_ALLOWED';
  exception when insufficient_privilege then null;end;
-end $;
+end $reporttest$;
 reset role;
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
-do $
+do $reporttest$
 declare n integer;
 begin
  select count(*) into n from public.discovery_admin_report_queue();
  if n<>3 then raise exception 'ADMIN_REPORT_COUNT_INVALID';end if;
-end $;
+end $reporttest$;
 select public.discovery_review_report(
  current_setting('tamao.test.submitted_report_id')::bigint,
  'resolved','Analisada a denúncia e adotadas providências');
-do $
+do $reporttest$
 begin
  begin
   perform public.discovery_review_report(
@@ -398,7 +398,7 @@ begin
    'dismissed','Tentativa indevida de alterar decisão já concluída');
   raise exception 'REPORT_REOPEN_ALLOWED';
  exception when sqlstate '22023' then null;end;
-end $;
+end $reporttest$;
 reset role;
 
 -- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
