@@ -604,7 +604,7 @@ as $$
  order by l.published_at desc,l.id desc
  limit greatest(1,least(coalesce(p_limit,20),50))
  offset greatest(0,least(coalesce(p_offset,0),500))
-$;
+$$;
 revoke all on function public.discovery_public_search(
   text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer,uuid,integer) from public;
 grant execute on function public.discovery_public_search(
