@@ -509,6 +509,8 @@ jobs:
         run: node tests/public-marketing-v1-362.mjs
       - name: Home quote board, local research, coupon CTA and real cashback
         run: node tests/home-publicacao-cotacoes-cupons-20261019.mjs
+      - name: Inline price board CEP, cart and official checkout routing
+        run: node tests/home-quote-inline-purchase-20261019.mjs
       - name: V1.367 commercial conversion analytics resilience
         run: node tests/marketing-conversion-observation-v1-367.mjs
       - name: V1.371 public visitor hierarchy and accessible page navigation
