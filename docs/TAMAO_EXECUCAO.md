@@ -1,7 +1,7 @@
 # TAMÃO — Diário Oficial de Execução Técnica
 
 **Iniciativa:** TAMÃO — Expansão Integrada e Consolidação para Produção  
-**Última atualização:** 2026-10-18  
+**Última atualização:** 2026-10-20  
 **Repositório:** `carloskk07/gassg`  
 **Branch de integração:** `feat/unified-discovery-tamao`  
 **Branch oficial:** `main`  
@@ -1105,3 +1105,18 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 **Portões restantes mínimos por vertical (independentes do comércio de produtos):** resolver merge sem perda da home; executar teste Auth/OTP e upload/deleção real com duas contas verificadas e documentos privados; conferir permissões/RLS do ambiente ativo e trilha superadmin; criar rascunho → revisão → publicação numa cidade explicitamente habilitada → busca pública → contato; testar pausa e reversão; confirmar build, manifests HTTP e suporte/denúncia; checar ausência de P0/P1. Depois abrir cada vertical separadamente pelo superadmin. Sem credenciais falsas, inventário fabricado ou anúncios automaticamente publicados. Impulso pago e cupons PIX continuam desabilitados até os próprios testes financeiros.
 
 **ÚLTIMA ETAPA CONCLUÍDA:** fluxo administrativo de publicações, carona sem foto obrigatória e quotas de Storage em código da branch, com Audit/PG17 isolado PASS. **ETAPA ATUAL:** resolver integração da PR #492 e Auth/Storage real em ambiente sem custo novo; priorizar abertura de modalidade independente assim que seus portões mínimos forem comprovados, sem sacrificar o mercado de produtos.
+
+
+### 20/10/2026 — Reconciliação da PR #492 com `main`
+
+**Escopo da sessão:** por orientação do responsável, máxima preparação de Profissionais, Caronas e Hospedagens até 21/10/2026; manter publicidade financeira isolada, cupons/faturas fora desta liberação e comércio atual preservado.
+
+**Integração de branch comprovada:** a `main` pública estava em `6fcae9ffb651b5d5d67913167676c8d7298d9361`, a PR #492 em draft e `mergeable=false` (sete commits de `main` não incorporados). Foram conciliados `js/customer.js` (home, CEP, cesta, CTA de cupons e benefícios) **sem** excluir `clubePaidCouponVoucherForQuote`, funções de cotação nem `tamaoDiscoveryEntryHub`; atualizado teste estático de copy e incorporado o teste de preços/cashback `tests/home-publicacao-cotacoes-cupons-20261019.mjs`, ajustado à comparação de cupom/cashback da expansão. Workflow Audit passou a executar ambos os contratos e a checar a home vigente. O workflow visual isolado da `main` já havia sido restaurado anteriormente.
+
+**Commit canônico de integração:** `b7a560b568124aafdf52bc3542fa827882b4e173`, com **dois pais**: branch de expansão `416398cc86e7e42c58f2a93cb7c3bba9854adc11` e `main` `6fcae9ffb651b5d5d67913167676c8d7298d9361`, escolhendo árvore reconciliada após revisar diferenças críticas. O GitHub confirmou `behind_by=0`, `merge_base=main`, **PR #492 `mergeable=true`** e **ainda draft**. O commit pai `416398cc` passou no [Audit 39465336038](https://github.com/carloskk07/gassg/actions/runs/39465336038).
+
+**CI no HEAD `b7a560b5` observado nesta sessão:** [PostgreSQL 17 isolado PASS](https://github.com/carloskk07/gassg/actions/runs/39465766147); [public visual smoke PASS](https://github.com/carloskk07/gassg/actions/runs/39465766077); [build isolado de 3 portais PASS](https://github.com/carloskk07/gassg/actions/runs/39465766270). Audits [39465766225](https://github.com/carloskk07/gassg/actions/runs/39465766225) e [39465759205](https://github.com/carloskk07/gassg/actions/runs/39465759205) estavam em andamento na última conferência: revisar conclusão antes de declarar CI completo.
+
+**Supabase real auditado sem mutação:** projeto `lgugwujpunhslavewffd` em `PRELAUNCH`, `commerce_enabled=false`; `discovery_listings` ausente, nenhum dos buckets Storage da expansão e nenhuma política/função `discovery_*` instalados. Nenhuma cidade abriu e nenhum anúncio foi fabricado. A ferramenta MCP `apply_migration` **gera uma versão diferente do arquivo SQL histórico**; aplicá-la agora sem reconciliação produziria drift entre Supabase e GitHub (ver https://github.com/supabase/mcp/issues/241). Por segurança, **não se aplicou DDL e não se falsificou o histórico**. Para instalar, usar caminho que registre corretamente o timestamp versionado do arquivo, com preview/rollback, ou reparar explicitamente a versão de forma controlada — sem duplicar migração.
+
+**ESTADO ATUAL:** PR #492 deixou de ter conflito de merge, ainda não foi mesclada ou implantada; nenhuma expansão está ativa no site público. **Próxima ação:** auditar conclusão de ambos Audits na nova SHA; resolver pré-requisitos de migração versionada sem drift; validar Auth/OTP, Storage privado e RLS com contas reais; reconciliar manifests HTTP dos portais; aprovar módulos/cidades individualmente pelo superadmin, começando por Profissionais e Caronas, sem depender da abertura da compra de produtos. Não ativar anúncios pagos ou transações sem prova financeira específica.
