@@ -420,11 +420,12 @@ function discoveryOwnerPage(){
       Object.entries({professionals:'Profissionais',rides:'Caronas',stays:'Hospedagens'})
         .map(([v,t])=>'<option value="'+v+'"'+(kind===v?' selected':'')+'>'+t+'</option>').join('')+
       '</select></label>')+
-    (kind==='stays'&&!s.editor?.id?'<details class="discovery-owner-import"><summary>Já anuncio no Airbnb ou Booking.com? Aproveitar meu anúncio</summary>'+
+    (kind==='stays'&&!s.editor?.id?'<details class="discovery-owner-import" open><summary>Importar hospedagem do Booking, Airbnb ou arquivo</summary>'+
       '<p class="tiny muted">Cole o link do seu imóvel e, se tiver, os dados exportados ou copiados do seu próprio anúncio (Título, Descrição, Cidade, Hóspedes, Quartos, Camas, Comodidades, Preço). Os campos reconhecidos serão preenchidos aqui. Não acessamos nem copiamos fotos, avaliações, calendário ou reservas dessas plataformas.</p>'+
+      '<label class="discovery-owner-import-primary">Selecionar arquivo exportado ou salvo do imóvel (JSON, CSV, TXT ou HTML; até 128 KB)<input type="file" accept=".json,.csv,.txt,.html,.htm" onchange="discoveryOwnerImportFile(event)"></label>'+
+      '<p class="tiny muted">Ou cole o link do anúncio e as informações que são suas:</p>'+
       '<label>Link do seu anúncio (opcional com arquivo)<input id="discovery-owner-import-link" type="url" maxlength="1500" placeholder="https://www.booking.com/hotel/br/seu-imovel.html ou https://www.airbnb.com/rooms/12345678"></label>'+
-      '<label>Informações do meu imóvel (opcional, formato Campo: valor ou JSON)<textarea id="discovery-owner-import-details" maxlength="12000" rows="5" placeholder="Título: Pousada no centro&#10;Descrição: Pousada com quartos completos e estacionamento perto do centro.&#10;Cidade: São Gabriel&#10;Hóspedes: 4&#10;Quartos: 2&#10;Camas: 3&#10;Comodidades: Wi-Fi, estacionamento"></textarea></label>'+
-      '<label>Ou selecione um arquivo exportado ou salvo do imóvel (JSON, CSV, TXT ou HTML; até 128 KB)<input type="file" accept=".json,.csv,.txt,.html,.htm" onchange="discoveryOwnerImportFile(event)"></label>'+
+      '<label>Informações do meu imóvel (formato Campo: valor ou JSON)<textarea id="discovery-owner-import-details" maxlength="12000" rows="5" placeholder="Título: Pousada no centro&#10;Descrição: Pousada com quartos completos e estacionamento perto do centro.&#10;Cidade: São Gabriel&#10;Hóspedes: 4&#10;Quartos: 2&#10;Camas: 3&#10;Comodidades: Wi-Fi, estacionamento"></textarea></label>'+
       '<p id="discovery-owner-import-feedback" class="tiny muted" role="status" aria-live="polite"></p>'+
       '<button type="button" class="secondary" onclick="discoveryOwnerImportStay()">Aproveitar informações no cadastro</button>'+
       '<p class="tiny muted">Só você pode confirmar que administra o imóvel e tem direito de usar os textos e fotos. A importação não cria reservas nem publica sem análise.</p></details>':'')+
