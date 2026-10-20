@@ -272,4 +272,48 @@ for(const [kind,cta,keyword] of [
 }
 assert.equal(sandbox.discoveryWhatsApp({vertical:'stays',whatsapp_e164:'javascript:alert(1)'}),'');
 
+// Contact requests contain only prospective intent, not reservations or billing.
+const rideInquiry=sandbox.discoveryInquiryForm({
+ title:'Carona São Gabriel',whatsapp_e164:'+555599998888',seats_available:3
+},'rides');
+const stayInquiry=sandbox.discoveryInquiryForm({
+ title:'Casa para férias',whatsapp_e164:'+555599998888',guests:6
+},'stays');
+assert.match(rideInquiry,/Quantas vagas deseja consultar/);
+assert.match(stayInquiry,/Entrada desejada/);
+assert.match(stayInquiry,/Saída desejada/);
+assert.match(stayInquiry,/Hóspedes/);
+assert.doesNotMatch(rideInquiry+stayInquiry,/Reserva confirmada|Pagar no TAMÃO/);
+assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'bad',seats_available:1},'rides'),'');
+assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'+555599998888',seats_available:0},'rides'),'');
+assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'+555599998888',guests:2},'professionals'),'');
+function makeInquiry(kind,values,max=3){
+ const feedback={textContent:''};
+ const box={dataset:{phone:'+555599998888',kind,title:'Anúncio exemplo',max:String(max)},
+ querySelector:sel=>sel==='.discovery-inquiry-feedback'?feedback:
+  Object.hasOwn(values,(sel.match(/\[name="([^"]+)"\]/)||[])[1])?
+    {value:values[(sel.match(/\[name="([^"]+)"\]/)||[])[1]]}:null};
+ const anchor={href:'#',closest:sel=>sel==='.discovery-inquiry'?box:null};
+ return {ok:sandbox.discoveryPrepareInquiry(anchor),link:anchor.href,feedback:feedback.textContent};
+}
+let inquiry=makeInquiry('rides',{seats:'2'},3);
+assert.equal(inquiry.ok,true);
+assert.match(decodeURIComponent(inquiry.link),/consultar 2 vagas/);
+assert.doesNotMatch(decodeURIComponent(inquiry.link),/Reserva confirmada|Pagamento efetuado/);
+inquiry=makeInquiry('rides',{seats:'4'},3);
+assert.equal(inquiry.ok,false);
+assert.match(inquiry.feedback,/quantidade de vagas válida/);
+assert.equal(inquiry.link,'#');
+inquiry=makeInquiry('stays',{checkin:'2030-08-10',checkout:'2030-08-14',guests:'3'},6);
+assert.equal(inquiry.ok,true);
+assert.match(decodeURIComponent(inquiry.link),/2030-08-10 a 2030-08-14 para 3 hóspedes/);
+inquiry=makeInquiry('stays',{checkin:'2030-08-15',checkout:'2030-08-14',guests:'2'},6);
+assert.equal(inquiry.ok,false);
+assert.match(inquiry.feedback,/saída após a entrada/);
+inquiry=makeInquiry('stays',{checkin:'2030-08-10',checkout:'2030-08-14',guests:'10'},6);
+assert.equal(inquiry.ok,false);
+assert.match(inquiry.feedback,/hóspedes válida/);
+for(const rule of ['.discovery-inquiry-fields','.discovery-inquiry summary'])
+ assert.ok(css.includes(rule),'Missing inquiry styles '+rule);
+
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
