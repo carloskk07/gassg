@@ -34,6 +34,7 @@ function discoveryToggleSaved(id){
  const saved=discoverySavedIds(kind),already=saved.includes(normalized);
  if(!already&&saved.length>=30){s.savedNotice='Limite de 30 anúncios salvos nesta categoria.';render();return false}
  discoverySaveIds(kind,already?saved.filter(value=>value!==normalized):[...saved,normalized]);
+ if(already)s.compareIds=(s.compareIds||[]).filter(id=>id!==normalized);
  s.savedNotice=already?'Anúncio retirado dos salvos.':'Anúncio salvo para consultar nesta busca.';
  render();return true;
 }
@@ -52,10 +53,44 @@ function discoveryToggleComparison(){
  s.compareOpen=!s.compareOpen;
  render();return true;
 }
+// Manual shortlist comparison never revives announcements absent from public search.
+function discoveryPickForComparison(id){
+ const kind=discoveryKind();
+ if(!kind)return false;
+ const s=discoveryState(kind),value=String(id||'').toLowerCase();
+ if(!['ready','loading-more'].includes(s.status)||
+    !discoveryListingIdPattern.test(value)||
+    !discoverySavedIds(kind).includes(value)||
+    !s.items.some(item=>item?.id===value&&item.vertical===kind))return false;
+ const chosen=Array.isArray(s.compareIds)?s.compareIds:[];
+ if(chosen.includes(value)){
+  s.compareIds=chosen.filter(id=>id!==value);
+  s.savedNotice='Anúncio retirado da comparação.';
+ }else{
+  if(chosen.length>=3){
+   s.savedNotice='É possível comparar até três anúncios.';
+   render();return false;
+  }
+  s.compareIds=[...chosen,value];
+  s.savedNotice='Anúncio selecionado para comparar.';
+ }
+ s.compareOpen=true;
+ render();return true;
+}
+function discoveryClearComparisonSelection(){
+ const kind=discoveryKind();
+ if(!kind)return false;
+ const s=discoveryState(kind);
+ s.compareIds=[];s.compareOpen=false;
+ s.savedNotice='Seleção de comparação limpa.';
+ render();return true;
+}
 function discoverySavedComparison(kind,items){
  const saved=new Set(discoverySavedIds(kind));
+ const chosen=(discoveryState(kind).compareIds||[]).filter(id=>saved.has(id));
+ const wanted=chosen.length?new Set(chosen):saved;
  const selected=(Array.isArray(items)?items:[]).filter(item=>
-  item?.vertical===kind&&saved.has(item.id)&&discoveryListingIdPattern.test(item.id)).slice(0,3);
+  item?.vertical===kind&&wanted.has(item.id)&&discoveryListingIdPattern.test(item.id)).slice(0,3);
  if(!selected.length)return '';
  const safeAmount=cents=>cents!==null&&cents!==undefined&&String(cents).trim()!==''&&
    Number.isSafeInteger(Number(cents))&&Number(cents)>=0&&
@@ -134,7 +169,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:'',sortMode:'recent'} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:'',sortMode:'recent',compareIds:[]} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -323,6 +358,7 @@ function discoveryCard(item,kind){
   const id=String(item.id||'').toLowerCase();
   const canSave=discoveryListingIdPattern.test(id);
   const saved=canSave&&discoverySavedIds(kind).includes(id);
+  const compared=saved&&(discoveryState(kind).compareIds||[]).includes(id);
   const gallery=discoveryPublicGallery(item);
   return '<article class="discovery-result">'+
     gallery+
@@ -333,6 +369,7 @@ function discoveryCard(item,kind){
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
     (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
+    (saved?'<button type="button" class="discovery-pick" data-id="'+id+'" aria-pressed="'+compared+'" onclick="discoveryPickForComparison(this.dataset.id)">'+(compared?'✓ Comparando':'⇄ Selecionar comparação')+'</button>':'')+
     (share?'<a href="'+esc('https://wa.me/?text='+encodeURIComponent('Veja este anúncio publicado no TAMÃO: '+share))+'" target="_blank" rel="noopener noreferrer">Compartilhar anúncio ↗</a>':'')+
     '</div>'+discoveryInquiryForm(item,kind)+'</article>';
 }
@@ -381,7 +418,8 @@ function discoveryPage(){
      '<button type="button" aria-pressed="'+Boolean(s.savedOnly)+'" onclick="discoveryToggleSavedFilter()">'+
       (s.savedOnly?'Ver todos os anúncios':'Mostrar salvos desta busca')+'</button>'+
      '<button type="button" aria-expanded="'+Boolean(s.compareOpen)+'" onclick="discoveryToggleComparison()"'+
-      (loadedSaved?'':' disabled')+'>Comparar salvos ('+loadedSaved+')</button></div>'+
+      (loadedSaved?'':' disabled')+'>Comparar salvos ('+loadedSaved+')</button>'+
+     (s.compareIds.length?'<button type="button" onclick="discoveryClearComparisonSelection()">Limpar seleção ('+s.compareIds.length+')</button>':'')+'</div>'+
     '<p class="discovery-saved-note">Salvos só aparecem após nova consulta ao servidor, se ainda estiverem publicados e disponíveis nesta busca.</p>'+
     (s.savedNotice?'<p class="discovery-saved-feedback" role="status">'+esc(s.savedNotice)+'</p>':'')+
     (s.compareOpen?discoverySavedComparison(kind,eligible):'')+
