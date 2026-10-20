@@ -68,8 +68,8 @@ function homeRegionalPriceBoard(region){
      '<p>Compare o total com entrega. Escolha a melhor opção para você.</p>'+
      '<button type="button" onclick="startCustomerAvailability()">Consultar ofertas →</button></article>'+
     '<article><span aria-hidden="true">🎟️</span><strong>Cupons e Clube TAMÃO</strong>'+
-     '<p>Veja cupons de campanhas e acompanhe o cashback das compras elegíveis.</p>'+
-     '<button type="button" onclick="go(\'club\')">Conhecer descontos →</button></article>'+
+     '<p>Descubra campanhas e vantagens, acompanhe seu cashback e saiba o que pode usar.</p>'+
+     '<button type="button" onclick="go(\'club\')">Ver benefícios e descontos →</button></article>'+
     '<article><span aria-hidden="true">🤝</span><strong>Indicar também tem valor</strong>'+
      '<p>Convide amigos e revendas. Descubra as vantagens de fazer parte da rede.</p>'+
      '<button type="button" onclick="go(\'earn\')">Conhecer minha rede →</button></article>'+
@@ -85,7 +85,7 @@ function homeRegionalPriceBoard(region){
   '<div class="tamao-home-coupon-rail" aria-label="Cupons e descontos TAMÃO">'+
    '<span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span>'+
    '<div><strong>O preço é só o começo. Descubra os benefícios TAMÃO.</strong>'+
-   '<p>Conheça os cupons das campanhas, compare preços e veja seu saldo no Clube.</p></div>'+
+   '<p>Explore descontos e campanhas, compare preços e acompanhe seu saldo no Clube.</p></div>'+
    '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>'+
 
   (spread?'<div class="tamao-quote-spread"><span aria-hidden="true">↔</span><div><strong>Diferença de '+esc(spreadValue)+' entre os valores estimados para '+esc(spreadName)+'</strong>'+
