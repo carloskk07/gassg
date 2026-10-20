@@ -1058,8 +1058,8 @@ function checkoutOfferComparison(all){
       <h2>${all.length===1?'Sua cotação com benefícios TAMÃO':'Compare '+all.length+' ofertas e seus benefícios'}</h2>
       <p>Veja o total com entrega e compare com os créditos do seu Clube.</p>
     </div>
-    <div class="tamao-checkout-coupon-callout">
-      <span aria-hidden="true">🎟️</span><div><strong>Tem cupom ou cashback TAMÃO?</strong>
+    <div class="tamao-home-coupon-rail">
+      <span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span><div><strong>Tem cupom ou cashback TAMÃO?</strong>
       <p>Confira campanhas no Clube. O desconto em dinheiro só aparece na cotação quando for aplicável; cupons não são descontados automaticamente.</p></div>
       <button type="button" onclick="go('club')">Ver benefícios →</button>
     </div>
@@ -1151,7 +1151,7 @@ function offerCard(o,facts={}){
     <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
     <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
   </div>`:`<p class="offer-total-note">${validTotal?'Valor total da cesta com a entrega incluída.':'Preço e entrega precisam de nova consulta.'}</p>`;
-  const comparison=validTotal?`<div class="tamao-checkout-total-compare" aria-label="Comparação de total sem e com benefício TAMÃO">
+  const comparison=validTotal?`<div class="tamao-home-checkout-compare" aria-label="Comparação de total sem e com benefício TAMÃO">
     <div class="tamao-checkout-total-base"><small>SEM BENEFÍCIO</small>
       <strong>${BRL.format(gross)}</strong><span>Preço com entrega</span></div>
     <div class="tamao-checkout-total-benefit ${estimatedBenefits>0?'has-discount':''}">
