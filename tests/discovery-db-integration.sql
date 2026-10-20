@@ -298,6 +298,12 @@ begin
  select count(*) into v_found from public.discovery_public_search(
    p_vertical=>'professionals',p_state_code=>'RS',p_city_key=>'sao-gabriel');
  if v_found<>1 then raise exception 'DISCOVERY_PUBLIC_SEARCH_FAILED';end if;
+ select count(*) into v_found from public.discovery_public_search(
+   p_vertical=>'professionals',p_listing_id=>current_setting('tamao.test.listing_id')::uuid);
+ if v_found<>1 then raise exception 'SHARED_LISTING_NOT_FOUND';end if;
+ select count(*) into v_found from public.discovery_public_search(
+   p_vertical=>'rides',p_listing_id=>current_setting('tamao.test.listing_id')::uuid);
+ if v_found<>0 then raise exception 'SHARED_LISTING_CROSS_VERTICAL_LEAK';end if;
  select count(*) into v_wrong_city from public.discovery_public_search(
    p_vertical=>'professionals',p_state_code=>'RS',p_city_key=>'porto-alegre');
  if v_wrong_city<>0 then raise exception 'DISCOVERY_CITY_FILTER_FAILED';end if;
@@ -483,6 +489,9 @@ declare v_result integer;
 begin
  select count(*) into v_result from public.discovery_public_search(p_vertical=>'professionals');
  if v_result<>0 then raise exception 'DISABLED_CITY_IN_SEARCH';end if;
+ select count(*) into v_result from public.discovery_public_search(
+   p_listing_id=>current_setting('tamao.test.listing_id')::uuid);
+ if v_result<>0 then raise exception 'DISABLED_CITY_SHARED_LINK_LEAK';end if;
 end $$;
 
 
