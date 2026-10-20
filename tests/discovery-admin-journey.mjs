@@ -23,6 +23,16 @@ const reports=[{id:17,listing_id:validId,vertical:'professionals',title:'<script
 const pausedId='22222222-2222-4222-8222-222222222222';
 const active=[{id:validId,vertical:'professionals',title:'<script>alert(1)</script>',status:'published',city_name:'São Gabriel',state_code:'RS',city_vertical_enabled:true},
  {id:pausedId,vertical:'stays',title:'Pousada do centro',status:'paused',city_name:'São Gabriel',state_code:'RS',city_vertical_enabled:false}];
+const cities=[
+ {vertical:'professionals',state_code:'RS',city_key:'sao-gabriel',city_name:'São Gabriel',enabled:true},
+ {vertical:'rides',state_code:'RS',city_key:'bage',city_name:'Bagé',enabled:false}
+];
+const inputs={
+ 'admin-discovery-city-kind':{value:'stays'},
+ 'admin-discovery-city-state':{value:'RS'},
+ 'admin-discovery-city-name':{value:'São Gabriel'},
+ 'admin-discovery-city-reason':{value:'Ativação manual conferida',focus(){this.focused=true;}}
+};
 const client={
  from(name){assert.equal(name,'discovery_documents');return{
   select(){return {eq(_column,_id){assert.equal(_id,validId);return {
@@ -39,6 +49,7 @@ const client={
  if(name==='discovery_admin_review_queue')return {data:queue,error:null};
  if(name==='discovery_admin_report_queue')return {data:reports,error:null};
  if(name==='discovery_admin_listing_overview')return {data:active,error:null};
+ if(name==='discovery_admin_city_matrix')return {data:cities,error:null};
  if(name==='discovery_review_report'){reports.length=0;return {data:args.p_status,error:null};}
  if(name==='discovery_transition_listing')return {data:args.p_next_status,error:null};
  if(name==='discovery_set_vertical_city')return {data:null,error:null};
@@ -52,11 +63,7 @@ const ctx={
  adminRuntime:{client,section:'discovery'},
  adminReady:()=>true,adminCurrentRole:()=>role,
  esc,render:()=>{rendered++;},toast:s=>notes.push(s),
- document:{getElementById:id=>({value:({
-  'admin-discovery-city-kind':'stays','admin-discovery-city-state':'RS',
-  'admin-discovery-city-name':'São Gabriel',
-  'admin-discovery-city-reason':'Ativação manual conferida'
- })[id]??reason})}
+ document:{getElementById:id=>inputs[id]||{value:reason}}
 };ctx.globalThis=ctx;
 vm.runInNewContext(part,ctx,{filename:'admin/discovery-workspace'});
 let html=ctx.adminDiscoveryView();
@@ -70,6 +77,14 @@ assert.match(html,/Aprovar anúncio<\/button>/);
 assert.match(html,/Conferir comprovantes privados/);
 assert.match(html,/Denúncias de anúncios/);
 assert.match(html,/Publicações e pausas/);
+assert.match(html,/São Gabriel \/ RS/);
+assert.match(html,/Bagé \/ RS/);
+assert.match(html,/Suspensa/);
+ctx.adminDiscoveryPrefillCity(1);
+assert.equal(inputs['admin-discovery-city-kind'].value,'rides');
+assert.equal(inputs['admin-discovery-city-name'].value,'Bagé');
+assert.equal(inputs['admin-discovery-city-reason'].focused,true);
+ctx.adminDiscoveryPrefillCity(0);
 assert.match(html,/Pausar publicação/);
 assert.match(html,/disabled>Reativar anúncio/);
 assert.match(html,/Possível fraude/);
@@ -114,6 +129,7 @@ await ctx.adminDiscoveryLoad();
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_review_queue').length,3);
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_report_queue').length,3);
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_listing_overview').length,3);
+assert.equal(requested.filter(r=>r[0]==='discovery_admin_city_matrix').length,3);
 await ctx.adminDiscoveryDecision(validId,'rejected');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,1);
 assert.equal(ctx.adminDiscoveryView(),'');
@@ -158,5 +174,8 @@ assert.match(sql,/create table public.discovery_listing_reports/);
 assert.match(sql,/create function public.discovery_admin_report_queue/);
 assert.match(sql,/create function public.discovery_review_report/);
 assert.match(sql,/create function public.discovery_admin_listing_overview/);
+const citySql=read('supabase/migrations/20261020181500_discovery_city_control_inventory.sql');
+assert.match(citySql,/create function public.discovery_admin_city_matrix/);
+assert.match(citySql,/revoke all on function public.discovery_admin_city_matrix/);
 assert.match(sql,/UNRESOLVED_REPORT_BLOCKS_REACTIVATION/);
 console.log('PASS: admin-only queue, safe markup, city gate, reason gate, RPC action, existing panel integration.');
