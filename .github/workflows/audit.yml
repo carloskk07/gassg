@@ -507,6 +507,8 @@ jobs:
         run: node tests/marketing-experience-v1-346.mjs
       - name: V1.362 public marketing and navigation regression
         run: node tests/public-marketing-v1-362.mjs
+      - name: Home quote board, local research, coupon CTA and real cashback
+        run: node tests/home-publicacao-cotacoes-cupons-20261019.mjs
       - name: V1.367 commercial conversion analytics resilience
         run: node tests/marketing-conversion-observation-v1-367.mjs
       - name: V1.371 public visitor hierarchy and accessible page navigation
@@ -711,12 +713,12 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
-          grep -q "✓ Sem pedido automático" /tmp/home.html
+          grep -Fq '✓ Compare preços' /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
-          grep -q "Me avise quando puder pedir" /tmp/home.html
-          grep -q "PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA." /tmp/home.html
+          grep -Fq 'tamao-home-coupon-rail' /tmp/home.html
+          grep -Fq 'COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.' /tmp/home.html
           grep -q "Mais economia para quem compra. Mais oportunidades para quem vende." /tmp/home.html
-          grep -q "Entender como funciona" /tmp/home.html
+          grep -Fq 'Ver cupons e Clube' /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
           grep -q "Indique quem compra. Apresente quem vende. Faça sua rede crescer." /tmp/earn.html

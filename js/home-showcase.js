@@ -30,59 +30,71 @@ function homeRegionalPriceBoard(region){
    '<small>'+esc(band)+'</small><span class="city-price-origin">'+Number(p.merchantCount)+
    (p.merchantCount===1?' revenda elegível':' revendas elegíveis')+'</span></article>';
  }).join('');
- // A reference is not three store offers. Show one clearly contextualized
- // market note, never a three-card comparison without verified revendas.
+ // These are LOCAL PRICE RESEARCH values provided for São Gabriel,
+ // recorded in the test merchant catalog on 15/10/2026. They are not
+ // current inventory, availability, the price of a verified merchant,
+ // or three competitive offers. Only verified RPC data is an offer.
+ const localResearch=localP13?[
+   {code:'P13',label:'Gás P13 • 13 kg',priceCents:11590},
+   {code:'WATER20',label:'Água • 20 L',priceCents:1590},
+   {code:'WOOD',label:'Lenha • unidade informada',priceCents:2500}
+ ]:[];
  const references=localP13?
-  '<article class="city-price-card reference city-price-reference-summary">'+
-   '<div class="city-price-reference-copy"><span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
-   '<div class="city-price-name">Gás P13 • 13 kg</div>'+
-   '<p>Valor usual de referência, com entrega incluída na faixa informada.</p></div>'+
-   '<div class="city-price-reference-amount"><span class="city-price-caption">Referência usual</span>'+
-   '<strong class="city-price-amount">'+BRL.format(PUBLIC_P13_REFERENCE.usual)+'</strong>'+
-   '<small>Faixa de '+BRL.format(PUBLIC_P13_REFERENCE.minimum)+' a '+BRL.format(PUBLIC_P13_REFERENCE.maximum)+'</small></div>'+
-   '<p class="city-price-reference-note">Não representa uma revenda, um preço disponível ou uma entrega confirmada para seu CEP.</p>'+
-  '</article>':
-  '<div class="city-price-empty">Os preços de '+esc(place)+
-  ' aparecerão aqui quando houver revendas autorizadas e disponíveis. Não exibimos preços inventados.</div>';
+   '<article class="city-price-card reference city-price-reference-summary">'+
+   '<div class="city-price-reference-copy">'+
+   '<span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
+   '<div class="city-price-name">Valores pesquisados em São Gabriel</div>'+
+   '<p>Pesquisa local informada em 15/10/2026.</p></div>'+
+   '<div class="city-price-research-grid city-price-reference-amount">'+localResearch.map(item=>
+      '<div class="city-price-research-item"><span class="city-price-caption">'+esc(item.label)+'</span>'+
+      '<strong class="city-price-amount">'+BRL.format(item.priceCents/100)+'</strong></div>'
+   ).join('')+'</div>'+
+   '<p class="city-price-reference-note">Referência de mercado • não é oferta de revenda. Consulte preços e entrega antes de comprar.</p>'+
+   '</article>':
+   '<div class="city-price-empty">Explore os produtos e consulte as ofertas de '+esc(place)+
+   '.</div>';
  const cards=real.length?liveCards:references;
  const copy=real.length
-  ?'Preços informativos de revendas autorizadas, com produto em estoque. Para pedir, confirme seu CEP, cesta e condições da entrega.'
+  ?'Compare os preços da sua região e escolha a melhor opção para sua compra.'
   :localP13
-    ?'Uma referência comercial ajuda a orientar sua pesquisa, mas somente a consulta por CEP confirma revendas, preço e entrega.'
-    :'Sua vitrine local será preenchida por preços reais assim que houver revendas elegíveis.';
- const origin=region?.origin==='confirmed'?'Cidade lembrada de uma consulta por CEP':
-   region?.origin==='chosen'?'Cidade escolhida por você':'São Gabriel é a vitrine inicial do TAMÃO';
+    ?'Conheça a referência de preço e consulte as ofertas para o seu endereço.'
+    :'Escolha o que precisa e descubra ofertas na sua cidade.';
  const savingGuide='<div class="tamao-quote-benefits" aria-label="Como aproveitar vantagens no TAMÃO">'+
    '<div class="tamao-quote-benefits-head"><div><span class="section-kicker">ECONOMIZE MAIS. VOLTE SEMPRE.</span>'+
-    '<h3>Preço é só o começo. Veja todas as suas vantagens.</h3></div>'+
+    '<h3>Economize comparando. Aproveite os benefícios TAMÃO.</h3></div>'+
     '<button type="button" onclick="go(\'learn\')">Por que usar o TAMÃO? →</button></div>'+
    '<div class="tamao-quote-benefit-grid">'+
     '<article><span aria-hidden="true">💰</span><strong>Compare antes de comprar</strong>'+
-     '<p>Compare o preço total e a entrega para seu CEP. Escolha o que faz mais sentido para você.</p>'+
+     '<p>Compare o total com entrega. Escolha a melhor opção para você.</p>'+
      '<button type="button" onclick="startCustomerAvailability()">Consultar ofertas →</button></article>'+
-    '<article><span aria-hidden="true">🎟️</span><strong>Clube, cashback e cupons</strong>'+
-     '<p>Acompanhe créditos de compras elegíveis e consulte descontos de campanhas válidas, quando disponíveis.</p>'+
-     '<button type="button" onclick="go(\'club\')">Ver minhas vantagens →</button></article>'+
+    '<article><span aria-hidden="true">🎟️</span><strong>Cupons e Clube TAMÃO</strong>'+
+     '<p>Descubra campanhas e vantagens, acompanhe seu cashback e saiba o que pode usar.</p>'+
+     '<button type="button" onclick="go(\'club\')">Ver benefícios e descontos →</button></article>'+
     '<article><span aria-hidden="true">🤝</span><strong>Indicar também tem valor</strong>'+
-     '<p>Apresente o TAMÃO a amigos e revendas. Acompanhe sua rede e os benefícios de indicações qualificadas.</p>'+
+     '<p>Convide amigos e revendas. Descubra as vantagens de fazer parte da rede.</p>'+
      '<button type="button" onclick="go(\'earn\')">Conhecer minha rede →</button></article>'+
    '</div></div>';
  return '<section class="city-price-board tamao-quote-first" aria-label="Painel de preços e vantagens de sua cidade">'+
-  '<div class="tamao-quote-topline"><span>📊 PAINEL DE COTAÇÕES DO TAMÃO</span>'+
-   '<span>'+(real.length&&checkedLabel?'Verificado em '+esc(checkedLabel):'Consulte preços e benefícios da sua região')+'</span></div>'+
+  '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
+   '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
   '<div class="city-price-heading"><div><span class="section-kicker">COTAÇÕES POR CIDADE</span>'+
    '<h2>'+(real.length?'Quanto custam os produtos em ':'Pesquise os preços em ')+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
    '<span class="city-price-place">📍 '+esc(place)+'</span></div>'+
-  '<p class="tiny muted city-price-location-note">'+esc(origin)+
-   ' • Os preços reais substituem as referências automaticamente quando houver revendas elegíveis.</p>'+
+
   '<div class="city-price-grid">'+cards+'</div>'+
+  '<div class="tamao-home-coupon-rail" aria-label="Cupons e descontos TAMÃO">'+
+   '<span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span>'+
+   '<div><strong>O preço é só o começo. Descubra os benefícios TAMÃO.</strong>'+
+   '<p>Explore descontos e campanhas, compare preços e acompanhe seu saldo no Clube.</p></div>'+
+   '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>'+
+
   (spread?'<div class="tamao-quote-spread"><span aria-hidden="true">↔</span><div><strong>Diferença de '+esc(spreadValue)+' entre os valores estimados para '+esc(spreadName)+'</strong>'+
-   '<p>Variação entre revendas, não desconto nem economia garantida. Compare o total confirmado para seu CEP.</p></div></div>':'')+
+   '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
   '<p class="city-price-disclaimer">'+(real.length
-   ?'Valores preliminares de produto + taxa de entrega configurada; não são cotações finais nem garantia de atendimento.'
-   :'Referência informativa, sem revenda associada. A consulta não cria pedido.')+'</p>'+
+   ?'O valor final com entrega aparece na consulta por CEP.'
+   :'Referência de mercado, não é uma oferta disponível.')+'</p>'+
   '<div class="city-price-controls">'+
-   '<button type="button" class="primary" onclick="startCustomerAvailability()">Escolher produtos e consultar entrega →</button>'+
+   '<button type="button" class="primary" onclick="startCustomerAvailability()">Comparar preços e benefícios →</button>'+
    (globalThis.liveReady?.()===true?
      '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
    '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+

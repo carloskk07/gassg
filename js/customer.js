@@ -451,7 +451,7 @@ function home(){
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : globalThis.liveRuntime?.status==='loading'
               ? 'Conectando ao serviço.'
-              : 'Os preços de revendas aparecem após confirmação. Confira seu CEP e as condições antes de comprar.';
+              : 'Escolha os produtos e consulte ofertas para seu CEP.';
 
   const disabled=!testDemo&&!ready&&!preview;
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
@@ -586,13 +586,13 @@ function home(){
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
-    <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
+    <div class="hero-overline">COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
-    <p class="hero-lead"><strong>Compare preços totais e conheça o Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <p class="hero-lead"><strong>Compare preços e conheça as vantagens do TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. Veja referências da sua cidade e consulte ofertas e entrega pelo CEP.</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
-      <span>💰 Compare preços totais por CEP</span>
-      <button type="button" onclick="go('club')">🎁 Conheça suas vantagens no Clube <span aria-hidden="true">→</span></button>
+      <span>💰 Veja o valor antes de comprar</span>
+      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
       <button type="button" onclick="go('merchants')">🏪 Sua revenda pode conquistar novos clientes <span aria-hidden="true">→</span></button>
     </div>
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
@@ -603,7 +603,7 @@ function home(){
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
-    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Escolha sem pressa. Confira as condições antes de confirmar.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>Mais praticidade para comparar, escolher e voltar ao TAMÃO.</span></div>
 
     <div class="home-benefits-shortcuts" aria-label="Mais motivos para conhecer o TAMÃO">
       <span>✓ Sua cesta, suas escolhas</span>
@@ -618,7 +618,7 @@ function home(){
     </div>
     <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button>${acquisitionOpen?'<button type="button" class="home-notify-shortcut" onclick="openPrelaunchCustomerLead()">Quero receber aviso de disponibilidade <span aria-hidden="true">↗</span></button>':''}</div>
 
-    <div class="trust-row" aria-label="O que você pode esperar">${conciseHome?'<span class="trust-chip">✓ Consulta por CEP</span><span class="trust-chip">✓ Aviso opcional por WhatsApp</span><span class="trust-chip">✓ Sem pedido automático</span>':'<span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span>'}</div>
+    <div class="trust-row" aria-label="O que você pode esperar"><span class="trust-chip">✓ Compare preços</span><span class="trust-chip">✓ Consulte pelo CEP</span><span class="trust-chip">✓ Descubra seus benefícios</span></div>
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   ${!conciseHome?`<div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
@@ -1081,9 +1081,11 @@ function offerCard(o,facts={}){
   const validTotal=o.total!=null&&Number.isFinite(rawTotal)&&rawTotal>0;
   const gross=validTotal?rawTotal:0;
   const balance=Number(state.user?.cashback||0);
-  const discount=state.checkout.useCashback&&Number.isFinite(balance)
-    ?Math.min(Math.max(0,balance),gross):0;
+  const availableCashback=validTotal&&Number.isFinite(balance)
+    ?roundMoney(Math.min(Math.max(0,balance),gross)):0;
+  const discount=state.checkout.useCashback?availableCashback:0;
   const payable=roundMoney(Math.max(0,gross-discount));
+  const cashbackPreviewTotal=roundMoney(Math.max(0,gross-availableCashback));
   const totalCents=validTotal?Math.round(gross*100):null;
   const fee=Number(o.deliveryFee);
   const hasBreakdown=validTotal&&o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
@@ -1123,6 +1125,17 @@ function offerCard(o,facts={}){
     <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
     <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
   </div>`:`<p class="offer-total-note">${validTotal?'Valor total da cesta com a entrega incluída.':'Preço e entrega precisam de nova consulta.'}</p>`;
+  const comparison=validTotal?`<div class="tamao-home-checkout-compare" aria-label="Comparativo de preço sem e com cashback TAMÃO">
+    <div><small>SEM BENEFÍCIO</small><strong>${BRL.format(gross)}</strong><span>Total com entrega</span></div>
+    <div class="${availableCashback>0?'has-discount':''}">
+      <small>${availableCashback>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
+      <strong>${availableCashback>0?BRL.format(cashbackPreviewTotal):'Sem desconto aplicado'}</strong>
+      <span>${availableCashback>0?
+        'Até '+BRL.format(availableCashback)+' com o saldo do Clube'+
+        (state.checkout.useCashback?' • selecionado':' • selecione o uso do saldo')
+        :'Consulte cupons e cashback no Clube'}</span>
+    </div>
+  </div>`:'';
   const cashback=discount>0?`<div class="offer-cashback">
     <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
     <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
@@ -1139,7 +1152,7 @@ function offerCard(o,facts={}){
       </div>
       <div class="offer-eta"><small>PREVISÃO DE ENTREGA</small><strong>${validEta?etaStart+'–'+etaEnd+' min':'Prazo indisponível'}</strong><small>Após confirmação da revenda</small></div>
     </div>
-    ${breakdown}${cashback}
+    ${breakdown}${comparison}${cashback}
     <div class="offer-payment"><span aria-hidden="true">✓</span><span>Você paga diretamente à revenda: <strong>${payment} na entrega</strong></span></div>
     <details class="offer-details"><summary>Por que esta opção apareceu?</summary>
       <div class="offer-meta">${distanceChip}
