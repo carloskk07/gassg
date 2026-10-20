@@ -260,7 +260,7 @@ function homeQuoteSelectProduct(code,buy=false){
  }
  const existing=Math.max(0,Number(state.cart?.[sku]||0));
  setCartProduct(sku,Math.min(99,existing+quantity));
- homeQuoteUpdateBasket();
+ if(typeof homeQuoteUpdateBasket==='function')homeQuoteUpdateBasket();
  if(buy){
   // The official order page confirms CEP, address, stock and current eligible offers.
   go('order');
