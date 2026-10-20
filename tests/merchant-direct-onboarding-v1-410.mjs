@@ -84,11 +84,11 @@ assert.ok(merchantUi.includes("signupEntry?'Cadastre sua revenda no TAMÃO'") &&
  'signup visitors must see onboarding, not existing-partner login copy');
 assert.ok(growth.includes('class="primary merchant-live-signup-cta"'));
 assert.ok(growth.includes('class="merchant-secondary-lead" open'),
- 'the two-field advertiser inquiry is visible on first visit');
+ 'visible two-field contact must be expanded on first visit');
 assert.ok(growth.includes('Quero anunciar meu comércio com nome e WhatsApp'),
- 'the public landing must explain its simple advertiser inquiry');
+ 'visitor sees the low-friction advertising entry');
 assert.ok(growth.includes('openMerchantPortal(true)'),
- 'full authenticated merchant onboarding remains available');
+ 'the complete authenticated signup remains available');
 assert.equal((growth.slice(growth.indexOf('function merchantsLanding(){'),
   growth.indexOf('\nfunction merchantJoin(){')).match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
 assert.ok(css.includes('.merchant-secondary-lead>summary:focus-visible'));
@@ -266,5 +266,88 @@ assert.ok(merchantLive.includes('${anotherCompany}'),
  'approved application must not strand an owner who wants another company');
 assert.ok(growth.includes("if(route()!=='merchant-join')go('merchant-join')"),
  'new-company button from the dashboard must route to the form');
+
+// Brazilian WhatsApp links normally provide +55, while the Edge endpoint
+// already accepts 10–13 numeric digits. Do not block authentic prospects.
+const phoneStart=growth.indexOf('function onlyDigits(v)');
+const phoneEnd=growth.indexOf('function merchantJoinInvalid(',phoneStart);
+assert.ok(phoneStart>=0&&phoneEnd>phoneStart);
+const phoneCtx=vm.createContext({});
+vm.runInContext(growth.slice(phoneStart,phoneEnd)+';this.validPhone=isValidPhoneShape;',phoneCtx);
+for(const number of [
+  '(55) 99999-9999', '55 99999-9999', '+55 55 99999-9999',
+  '+55 (11) 98765-4321', '(11) 3456-7890', '+55 11 3456-7890'
+]){
+ assert.equal(phoneCtx.validPhone(number),true,'Brazilian WhatsApp accepted: '+number);
+}
+for(const number of ['123','+54 11 98765-4321','5500000000000',
+  '551198765432109','55559876543210','11 1234567']){
+ assert.equal(phoneCtx.validPhone(number),false,'invalid/unsupported input rejected: '+number);
+}
+assert.ok(read('supabase/functions/submit-merchant-application/index.ts')
+ .includes('if(phone.length<10||phone.length>13)'),
+ 'server-side registered length must still be checked');
+
+
+// After admin approval, a no-access applicant must be able to check the
+// latest status without logging out, registering another CNPJ, or reloading.
+// The refresh is read-only and scoped by server-side applicant_user_id.
+const noAccessStart=merchantLive.indexOf('function merchantLiveNoAccess(){');
+const noAccessEnd=merchantLive.indexOf('\nfunction merchantLiveProduct(',noAccessStart);
+const refreshStart=merchantLive.indexOf('async function merchantLiveRefresh(){');
+const refreshEnd=merchantLive.indexOf('\nfunction merchantDeliveryAssignmentChanged(',refreshStart);
+assert.ok(noAccessStart>=0&&noAccessEnd>noAccessStart&&
+  refreshStart>=0&&refreshEnd>refreshStart);
+const applicantState={
+ status:'no-access',session:{access_token:'auth-test',user:{email:'contact@example.test'}},
+ ownApplications:[{id:'app-1',company_name:'Empresa Alfa',status:'pending'}],
+ applicationFetchError:null,onboardingRefreshPending:false
+};
+let refreshedApplications=0,merchantReadCalls=0,applicantRenders=0;
+let failApplicationRead=false;
+const applicantCtx=vm.createContext({
+ globalThis:{
+  merchantRuntime:applicantState,
+  merchantOwnApplicationForInvite:()=>applicantState.ownApplications[0],
+  merchantPilotInviteToken:()=>'',merchantProspectInviteToken:()=>''
+ },
+ shell:html=>html,esc:value=>String(value??'')
+  .replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])),
+ merchantRefresh:async()=>{merchantReadCalls++;},
+ merchantLoadOwnApplications:async()=>{
+  refreshedApplications++;
+  if(failApplicationRead)throw Error('temporary-network-error');
+  applicantState.ownApplications=[{
+   id:'app-1',company_name:'Empresa Alfa',status:'approved'
+  }];
+ },
+ toast:()=>{},render:()=>{applicantRenders++}
+});
+vm.runInContext(
+ merchantLive.slice(noAccessStart,noAccessEnd)+
+ merchantLive.slice(refreshStart,refreshEnd)+
+ ';this.page=merchantLiveNoAccess;this.refresh=merchantLiveRefresh;',
+ applicantCtx
+);
+assert.match(applicantCtx.page(),/Atualizar situação da minha empresa/);
+assert.match(applicantCtx.page(),/Cadastro em análise/);
+await applicantCtx.refresh();
+assert.equal(merchantReadCalls,1);
+assert.equal(refreshedApplications,1);
+assert.match(applicantCtx.page(),/Cadastro aprovado/);
+assert.ok(applicantRenders>0);
+assert.equal(applicantState.onboardingRefreshPending,false);
+failApplicationRead=true;
+await applicantCtx.refresh();
+assert.equal(refreshedApplications,2);
+assert.match(applicantCtx.page(),/Não foi possível conferir seus cadastros/);
+assert.match(applicantCtx.page(),/role="alert"/);
+applicantState.status='ready';
+await applicantCtx.refresh();
+assert.equal(refreshedApplications,2,
+ 'approved owner must not query no-access applications unnecessarily');
+assert.ok(read('supabase/functions/submit-merchant-application/index.ts')
+ .includes('.eq("applicant_user_id",user.id)'),
+ 'backend applicant lookup must be scoped to the signed-in identity');
 
 console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');

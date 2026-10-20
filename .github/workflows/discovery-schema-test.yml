@@ -1,0 +1,76 @@
+name: TAMÃO discovery PostgreSQL contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
+      - 'supabase/migrations/20261020181500_discovery_city_control_inventory.sql'
+      - 'supabase/migrations/20261020192500_discovery_admin_readiness.sql'
+      - 'tests/discovery-db-integration.sql'
+      - 'supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql'
+      - 'tests/coupon-finance-postgres-17.sql'
+      - 'tests/coupon-quote-reservation-postgres-17.sql'
+      - 'supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql'
+      - 'tests/coupon-atomic-checkout-fixture-postgres-17.sql'
+      - 'tests/coupon-atomic-checkout-postgres-17.sql'
+      - '.github/workflows/discovery-schema-test.yml'
+  push:
+    branches: [feat/unified-discovery-tamao]
+    paths:
+      - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
+      - 'supabase/migrations/20261020181500_discovery_city_control_inventory.sql'
+      - 'supabase/migrations/20261020192500_discovery_admin_readiness.sql'
+      - 'tests/discovery-db-integration.sql'
+      - '.github/workflows/discovery-schema-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Execute isolated role and publication contract
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/discovery-db-integration.sql
+      - name: Verify coupon Pix finance in same isolated PostgreSQL 17
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: |
+          # The preceding isolated fixture provides auth.users and anon/
+          # authenticated roles. No production credentials or services.
+          psql -v ON_ERROR_STOP=1 -c 'create role service_role nologin;'
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-finance-postgres-17.sql
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-quote-reservation-postgres-17.sql
+          # This stubbed checkout exists only inside this ephemeral PG17 job.
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-fixture-postgres-17.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-postgres-17.sql

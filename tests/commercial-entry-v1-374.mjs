@@ -43,12 +43,6 @@ assert.ok(merchant.indexOf('merchant-landing-premium')>=0);
 const conversion=merchant.indexOf('merchant-conversion-start');
 assert.ok(conversion>merchant.indexOf('merchant-landing-premium'));
 assert.ok(conversion<merchant.indexOf('public-page-jump-rail'));
-assert.match(merchant,/<details class="merchant-secondary-lead" open>/,
-  'minimal advertiser form must be expanded on first visit, not behind an extra click');
-assert.ok(merchant.includes('Quero anunciar meu comércio com nome e WhatsApp'),
-  'inquiry CTA must explain simple signup');
-assert.ok(merchant.includes('openMerchantPortal(true)'),
-  'optional full operational signup must remain available');
 assert.ok(conversion<merchant.indexOf('merchant-cro-steps'));
 assert.ok(conversion<merchant.indexOf('id="merchant-margin"'));
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1,

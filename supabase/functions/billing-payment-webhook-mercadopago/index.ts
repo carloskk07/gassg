@@ -371,6 +371,38 @@ async function handlePlatformBillingOrder(
   if(orderId!==dataId){
     return json({error:"MERCADOPAGO_ORDER_ID_MISMATCH"},409);
   }
+  // Mercado Pago can notify before the Pix creation response commits its
+  // provider_order_id. Recover only if the remote order names an existing,
+  // prepared coupon invoice AND has the exact snapshotted amount/payment.
+  // Never credit based solely on external_reference or an unverified webhook.
+  if(UUID_RE.test(externalReference)){
+    const {data:pendingCoupon,error:pendingError}=await admin
+      .from("clube_coupon_paid_invoices")
+      .select("id,sale_price_cents,provider_order_id,status")
+      .eq("id",externalReference)
+      .maybeSingle();
+    if(pendingError&&pendingError.code!=="42P01")throw pendingError;
+    if(pendingCoupon){
+      if(pendingCoupon.provider_order_id&&pendingCoupon.provider_order_id!==dataId){
+        return json({error:"COUPON_PROVIDER_REFERENCE_MISMATCH"},409);
+      }
+      const pix=billingPixPayment(order);
+      if(moneyToCents(order?.total_amount)!==Number(pendingCoupon.sale_price_cents)||
+         String(pix?.payment_method?.id??"")!=="pix"||
+         String(pix?.payment_method?.type??"")!=="bank_transfer"||
+         !pix?.id){
+        return json({error:"COUPON_EARLY_PAYMENT_MISMATCH"},409);
+      }
+      if(!pendingCoupon.provider_order_id&&pendingCoupon.status==="prepared"){
+        const {error:linkError}=await admin.from("clube_coupon_paid_invoices")
+          .update({provider_order_id:dataId,provider_payment_id:String(pix.id),
+            status:"awaiting_payment",updated_at:new Date().toISOString()})
+          .eq("id",pendingCoupon.id).eq("status","prepared").is("provider_order_id",null);
+        if(linkError)throw linkError;
+      }
+      return await handlePaidCouponOrder(admin,dataId,pendingCoupon,accessToken);
+    }
+  }
   if(!UUID_RE.test(externalReference)){
     return json({ok:true,ignored:true,reason:"FOREIGN_PLATFORM_ORDER"},202);
   }
@@ -462,6 +494,74 @@ async function handlePlatformBillingOrder(
     statusDetail,
     pending:true
   },200);
+}
+
+// The SAME production Mercado Pago webhook handles coupon purchases after
+// signature verification. Never accept a client-generated 'paid' callback.
+async function handlePaidCouponOrder(
+  admin:any,dataId:string,invoice:any,accessToken:string
+){
+ if(!mercadoPagoConfigured(accessToken))return json({error:"MP_NOT_CONFIGURED"},503);
+ const {response,data:order}=await fetchProviderOrder(accessToken,dataId);
+ if(!response.ok)return json({error:"COUPON_PROVIDER_LOOKUP_FAILED"},503);
+ const pix=billingPixPayment(order);
+ const amount=moneyToCents(order?.total_amount);
+ if(String(order?.id??"")!==dataId||
+    String(order?.external_reference??"")!==String(invoice.id)||
+    amount!==Number(invoice.sale_price_cents)||
+    (order?.currency_id&&order.currency_id!=="BRL")||
+    String(pix?.payment_method?.id??"")!=="pix"||
+    String(pix?.payment_method?.type??"")!=="bank_transfer"){
+  return json({error:"COUPON_ORDER_BINDING_MISMATCH"},409);
+ }
+ // Refunds and chargebacks outrank 'processed' on any replay. A paid coupon
+ // is never left spendable after a verified refund without an explicit hold.
+ const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
+ const hasRefund=refunds.some((r:any)=>
+  ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
+  ||["refunded","partially_refunded","charged_back","chargeback",
+      "disputed","in_mediation"].includes(String(order?.status??"").toLowerCase());
+ if(hasRefund){
+  const refunded=refunds.reduce((total:number,r:any)=>{
+    if(!["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
+      return total;
+    return total+(moneyToCents(r.amount)??0);
+  },0);
+  // A partial refund, status inconsistency or chargeback needs manual
+  // allocation review. It may never be treated as a full paid voucher.
+  const fullRefund=refunded===Number(invoice.sale_price_cents)&&
+    refunded>0&&!["charged_back","chargeback","disputed","in_mediation"]
+      .includes(String(order?.status??"").toLowerCase());
+  const rpc=fullRefund?"clube_coupon_paid_payment_refund":
+    "clube_coupon_paid_payment_review";
+  const {data,error}=await admin.rpc(rpc,{
+   p_invoice_id:invoice.id,p_provider_order_id:dataId
+  });
+  if(error)throw error;
+  return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+   status:fullRefund?"refunded":"review_required",
+   reviewRequired:!fullRefund||data?.reviewRequired===true},200);
+ }
+ const providerStatus=String(order?.status??"").toLowerCase();
+ if(providerStatus==="processed"&&
+    ["processed","accredited","approved"].includes(String(pix?.status??"").toLowerCase())){
+  const {data,error}=await admin.rpc("clube_coupon_paid_payment_verify",{
+   p_invoice_id:invoice.id,p_provider_order_id:dataId,
+   p_payment_id:String(pix.id??""),p_amount_cents:amount
+  });
+  if(error)throw error;
+  return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+   status:"paid",replayed:data?.replayed===true},200);
+ }
+ if(["expired","canceled","failed"].includes(providerStatus)){
+  const next=providerStatus==="expired"?"expired":"cancelled";
+  const {error}=await admin.from("clube_coupon_paid_invoices")
+   .update({status:next,updated_at:new Date().toISOString()})
+   .eq("id",invoice.id).in("status",["prepared","awaiting_payment"]);
+  if(error)throw error;
+ }
+ return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+  status:providerStatus,pending:true},200);
 }
 
 async function handleWebhookProbe(
@@ -603,6 +703,21 @@ Deno.serve(async(req:Request)=>{
         body,
         String(Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??"").trim()
       );
+    }
+
+    // Strict provider-order binding prevents mixing coupon charges with
+    // existing merchant-billing and merchant-OAuth payments.
+    const {data:couponInvoice,error:couponLookupError}=await admin
+      .from("clube_coupon_paid_invoices")
+      .select("id,provider_order_id,sale_price_cents,status")
+      .eq("provider","mercadopago")
+      .eq("provider_order_id",dataId)
+      .maybeSingle();
+    // No coupon tables on older deployments: preserve all existing routes.
+    if(couponLookupError&&couponLookupError.code!=="42P01")throw couponLookupError;
+    if(couponInvoice){
+      return await handlePaidCouponOrder(admin,dataId,couponInvoice,
+        String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim());
     }
 
     return await handlePlatformBillingOrder(

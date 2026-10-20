@@ -48,6 +48,8 @@ const adminRuntime={
   financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
+  clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
+    reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null},
   prospectReport:null,
   prospectLoadedAt:null,
   prospectLoadedFor:null,
@@ -349,6 +351,8 @@ async function adminSignOut(){
   adminRuntime.session=null;
   adminRuntime.data=null;
   adminRuntime.merchantTrial=null;
+  adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
+    reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null};
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   adminRuntime.searchPending=false;
@@ -2558,6 +2562,359 @@ function adminOperationalAlertsView(){
   </section>`;
 }
 
+/* TAMÃO Discovery: one moderation workspace in the existing protected admin portal. */
+const adminDiscoveryDesk={status:'idle',items:[],reports:[],live:[],cities:[],readiness:null,readinessStatus:'idle',error:'',pending:false,documents:{},documentPending:null};
+function adminDiscoveryImage(key){
+  if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
+  return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
+    '/storage/v1/object/public/tamao-discovery-photos/'+
+    String(key).split('/').map(encodeURIComponent).join('/');
+}
+async function adminDiscoveryLoad(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending)return;
+  const d=adminDiscoveryDesk;
+  d.pending=true;d.status='loading';d.error='';
+  try{
+    const {data,error}=await adminRuntime.client.rpc('discovery_admin_review_queue',{p_limit:50});
+    if(error)throw error;
+    if(!Array.isArray(data))throw Error('Invalid discovery review response');
+    d.items=data.filter(x=>x&&/^[0-9a-f-]{36}$/.test(String(x.id||''))&&x.status==='review');
+    const reports=await adminRuntime.client.rpc('discovery_admin_report_queue',{p_limit:50});
+    if(reports.error||!Array.isArray(reports.data))throw Error('DISCOVERY_REPORT_QUEUE_UNAVAILABLE');
+    d.reports=reports.data.filter(x=>x&&Number.isSafeInteger(Number(x.id))&&
+      Number(x.id)>0&&/^[0-9a-f-]{36}$/.test(String(x.listing_id||''))&&x.status==='open');
+    const overview=await adminRuntime.client.rpc('discovery_admin_listing_overview',{p_limit:100});
+    if(overview.error||!Array.isArray(overview.data))throw Error('DISCOVERY_LISTING_OVERVIEW_UNAVAILABLE');
+    d.live=overview.data.filter(x=>x&&/^[0-9a-f-]{36}$/.test(String(x.id||''))&&
+      ['published','paused'].includes(x.status)&&['professionals','rides','stays'].includes(x.vertical));
+    const cityResult=await adminRuntime.client.rpc('discovery_admin_city_matrix',{p_limit:100});
+    if(cityResult.error||!Array.isArray(cityResult.data))throw Error('DISCOVERY_CITY_MATRIX_UNAVAILABLE');
+    d.cities=cityResult.data.filter(x=>x&&
+      ['professionals','rides','stays'].includes(x.vertical)&&
+      /^[A-Z]{2}$/.test(String(x.state_code||''))&&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(x.city_key||''))&&
+      typeof x.enabled==='boolean');
+    d.documents={}; // Never retain expiring signed document links across refreshes.
+    d.status='ready';
+  }catch(e){
+    d.status='error';d.error='Não foi possível consultar a fila de revisão. Verifique a conexão ou a instalação da modalidade.';
+  }
+  d.pending=false;
+  if(adminRuntime.section==='discovery')render();
+}
+async function adminDiscoveryReadiness(){
+  const d=adminDiscoveryDesk;
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||d.pending||
+     d.readinessStatus==='loading')return;
+  d.readiness=null;d.readinessStatus='loading';
+  if(adminRuntime.section==='discovery')render();
+  try{
+    const {data,error}=await adminRuntime.client.rpc('discovery_admin_readiness');
+    if(error||!data||data.source!=='discovery_admin_readiness_v1'||
+       !Number.isSafeInteger(data.rlsTables)||!Number.isSafeInteger(data.expectedRlsTables))
+      throw Error('UNVERIFIED_DISCOVERY_READINESS');
+    d.readiness=data;d.readinessStatus='ready';
+  }catch{
+    d.readiness=null;d.readinessStatus='error';
+  }
+  if(adminRuntime.section==='discovery')render();
+}
+function adminDiscoveryCitySlug(raw){
+  return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
+}
+function adminDiscoveryPrefillCity(index){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const city=adminDiscoveryDesk.cities[index];
+  if(!city||!['professionals','rides','stays'].includes(city.vertical))return;
+  const inputs={
+    'admin-discovery-city-kind':city.vertical,
+    'admin-discovery-city-state':city.state_code,
+    'admin-discovery-city-name':city.city_name
+  };
+  for(const [id,value] of Object.entries(inputs)){
+    const field=document.getElementById(id);
+    if(field)field.value=String(value||'');
+  }
+  document.getElementById('admin-discovery-city-reason')?.focus();
+}
+async function adminDiscoverySetCity(enabled){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending)return;
+  const value=id=>String(document.getElementById(id)?.value||'').trim();
+  const vertical=value('admin-discovery-city-kind');
+  const state=value('admin-discovery-city-state').toUpperCase();
+  const city=value('admin-discovery-city-name');
+  const reason=value('admin-discovery-city-reason');
+  if(!['professionals','rides','stays'].includes(vertical)||
+     !/^[A-Z]{2}$/.test(state)||city.length<2||city.length>120||reason.length<8){
+    toast('Informe modalidade, UF, cidade e uma justificativa de pelo menos 8 caracteres.');
+    return;
+  }
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_set_vertical_city',{
+      p_vertical:vertical,p_state:state,p_city_key:adminDiscoveryCitySlug(city),
+      p_city_name:city,p_enabled:enabled,p_reason:reason
+    });
+    if(error)throw error;
+    toast(enabled?'Modalidade habilitada nesta cidade.':'Modalidade suspensa nesta cidade.');
+    d.pending=false;await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;toast('Não foi possível alterar a modalidade na cidade.');
+  }
+}
+function adminDiscoveryView(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return '';
+  const d=adminDiscoveryDesk;
+  const content=d.status==='idle'?'<p>Consulte os anúncios enviados por anunciantes para análise.</p>':
+    d.status==='loading'?'<p role="status">Consultando anúncios pendentes…</p>':
+    d.status==='error'?'<p role="alert">'+esc(d.error)+'</p>':
+    !d.items.length?'<p>Nenhum anúncio aguardando revisão.</p>':
+    d.items.map(x=>{
+      const id=String(x.id||'');
+      const photo=adminDiscoveryImage(Array.isArray(x.photo_urls)?x.photo_urls[0]:'');
+      const hint=x.vertical==='professionals'?x.occupation:
+        x.vertical==='rides'?(String(x.departure_city||'')+' → '+String(x.destination_city||'')):
+        ('Hospedagem para até '+String(x.guests||'')+' hóspedes');
+      const canPublish=x.city_vertical_enabled===true;
+      const docs=d.documents[id];
+      const documentsHtml=docs===undefined?'':docs===null?
+        '<p role="status">Consultando documentos privados…</p>':
+        docs.length?'<ul>'+docs.map(f=>'<li><a target="_blank" rel="noopener noreferrer" href="'+
+          esc(f.signedUrl)+'">Comprovante '+esc(f.kind)+'</a> (link temporário)</li>').join('')+'</ul>':
+        '<p>Nenhum documento privado anexado. Avalie as exigências legais antes de publicar.</p>';
+      return '<article class="card flat" style="margin-block:12px;padding:18px">'+
+        '<h3>'+esc(x.title)+'</h3><small>'+esc(x.vertical)+' • '+esc(x.city_name)+' / '+esc(x.state_code)+'</small>'+
+        (photo?'<img src="'+esc(photo)+'" alt="Foto de anúncio para revisão" loading="lazy" style="width:100%;max-width:260px;aspect-ratio:16/9;object-fit:cover;border-radius:12px;margin-top:12px">':'')+
+        '<p>'+esc(x.description)+'</p><p><strong>'+esc(hint||'')+'</strong></p>'+
+        '<p>'+ (canPublish?'Modalidade habilitada nesta cidade.':
+          'Modalidade ainda desabilitada nesta cidade — publicar permanece bloqueado.')+'</p>'+
+        '<button class="secondary small" type="button" onclick="adminDiscoveryDocuments(\''+id+'\')"'+
+        (d.documentPending===id?' disabled':'')+'>Conferir comprovantes privados</button>'+
+        documentsHtml+
+        '<div class="input-wrap"><label for="admin-discovery-reason-'+id+'">Justificativa da decisão</label>'+
+        '<input id="admin-discovery-reason-'+id+'" type="text" class="input" minlength="8" maxlength="240" '+
+        'placeholder="Descreva a conferência realizada"></div>'+
+        '<div class="order-actions">'+
+        '<button class="secondary small" type="button" onclick="adminDiscoveryDecision(\''+id+'\',\'rejected\')"'+
+          (d.pending?' disabled':'')+'>Solicitar ajustes / rejeitar</button>'+
+        '<button class="primary small" type="button" onclick="adminDiscoveryDecision(\''+id+'\',\'published\')"'+
+          (!canPublish||d.pending?' disabled':'')+'>Aprovar anúncio</button>'+
+        '</div></article>';
+    }).join('');
+  const reportReasonLabels={suspected_fraud:'Possível fraude',incorrect_information:'Informação incorreta',
+    unsafe_content:'Conteúdo perigoso',other:'Outros problemas'};
+  const reportCards=d.status!=='ready'?'':d.reports.length?
+    d.reports.map(x=>{
+      const id=Number(x.id),kind=String(x.vertical||''),reason=reportReasonLabels[x.reason]||'Denúncia';
+      return '<article class="card flat" style="margin-block:12px;padding:16px">'+
+        '<h4>'+esc(reason)+' — '+esc(x.title)+'</h4>'+
+        '<p class="tiny muted">'+esc(kind)+' • ID: '+esc(String(x.listing_id))+
+          ' • Situação: '+esc(x.listing_status)+'</p>'+
+        '<p>'+esc(String(x.details||'').slice(0,600))+'</p>'+
+        '<div class="order-actions">'+
+          (x.listing_status==='published'?
+            '<button class="secondary small" type="button" onclick="adminDiscoverySuspendReportedListing(\''+
+              esc(String(x.listing_id))+'\')"'+(d.pending?' disabled':'')+'>Suspender anúncio</button>':'')+
+          '<button class="secondary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'dismissed\')"'+
+            (d.pending?' disabled':'')+'>Improcedente</button>'+
+          '<button class="primary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'resolved\')"'+
+            (d.pending?' disabled':'')+'>Registrar providência</button>'+
+        '</div></article>';
+    }).join(''):'<p>Não há denúncias abertas.</p>';
+  const liveCards=d.status!=='ready'?'':d.live.length?d.live.map(x=>{
+    const id=String(x.id);
+    const enabled=x.city_vertical_enabled===true;
+    return '<article class="card flat" style="padding:14px;margin-block:10px">'+
+      '<strong>'+esc(String(x.title||''))+'</strong><small> • '+esc(x.vertical)+' • '+
+      esc(String(x.city_name||''))+' / '+esc(String(x.state_code||''))+'</small>'+
+      '<p class="tiny muted">Estado: '+esc(x.status==='published'?'Publicado':'Pausado')+
+        (enabled?' • Localidade habilitada':' • Modalidade desabilitada nesta cidade')+'</p>'+
+      '<div class="order-actions">'+
+        (x.status==='published'?
+        '<button type="button" class="secondary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'paused\')"'+
+          (d.pending?' disabled':'')+'>Pausar publicação</button>':
+        '<button type="button" class="primary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'published\')"'+
+          (!enabled||d.pending?' disabled':'')+'>Reativar anúncio</button>')+
+      '</div></article>';
+  }).join(''):'<p>Nenhum anúncio publicado ou pausado nesta consulta.</p>';
+  const checks=d.readinessStatus==='ready'&&d.readiness;
+  const readinessSummary=checks?
+    '<p role="status"><strong>'+(checks.infrastructureReady===true?
+      'Estrutura técnica disponível':'Estrutura técnica com pendências')+'</strong></p>'+
+    '<p>RLS: '+esc(checks.rlsTables)+' de '+esc(checks.expectedRlsTables)+
+      ' tabelas • Fotos: '+(checks.publicPhotoBucketReady===true?'OK':'Verificar')+
+      ' • Documentos privados: '+(checks.privateDocumentBucketReady===true?'OK':'Verificar')+'</p>'+
+    '<p>Cidades/modalidades abertas: '+esc(checks.enabledCityVerticals)+
+      ' • Anúncios: '+esc(checks.totalListings)+
+      ' • Aguardando moderação: '+esc(checks.reviewQueueCount)+'</p>'+
+    '<p class="tiny muted">A estrutura disponível não comprova login por e-mail, upload real, anúncios publicados ou contratação. Abertura comercial exige teste autenticado e autorização do superadmin.</p>':
+    d.readinessStatus==='loading'?'<p role="status">Conferindo infraestrutura…</p>':
+    d.readinessStatus==='error'?'<p role="alert">Não foi possível validar a infraestrutura. Nenhuma liberação foi realizada.</p>':
+    '<p>Execute um diagnóstico atualizado antes da abertura das modalidades.</p>';
+  const readinessCard='<section class="card flat" style="margin-block:16px;padding:18px">'+
+    '<h3>Diagnóstico da expansão</h3><p class="tiny muted">Leitura técnica, sem alterar anúncios ou pagamentos.</p>'+
+    '<button type="button" class="secondary small" onclick="adminDiscoveryReadiness()"'+
+     (d.pending||d.readinessStatus==='loading'?' disabled':'')+
+     '>Verificar infraestrutura</button>'+readinessSummary+'</section>';
+  const cityMatrix=d.status!=='ready'?'':d.cities.length?
+    '<div class="form-stack" role="list" aria-label="Modalidades cadastradas por cidade">'+
+      d.cities.map((x,index)=>
+        '<div class="card flat" role="listitem" style="padding:12px">'+
+        '<strong>'+esc(x.city_name)+' / '+esc(x.state_code)+'</strong>'+
+        ' • '+esc(x.vertical)+' • <strong>'+(x.enabled?'Habilitada':'Suspensa')+'</strong>'+
+        '<button type="button" class="secondary small" style="margin-left:8px" '+
+          'onclick="adminDiscoveryPrefillCity('+index+')">Selecionar</button></div>'
+      ).join('')+'</div>':'<p>Nenhuma modalidade habilitada ou suspensa foi cadastrada ainda.</p>';
+  const cityControls='<section class="card flat" style="margin-block:16px;padding:18px">'+
+    '<h3>Disponibilidade por modalidade e cidade</h3>'+
+    '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
+    '<div class="form-stack">'+
+      '<label>Modalidade<select class="input" id="admin-discovery-city-kind">'+
+        '<option value="professionals">Profissionais</option>'+
+        '<option value="rides">Caronas</option>'+
+        '<option value="stays">Hospedagens</option></select></label>'+
+      '<label>UF<input class="input" id="admin-discovery-city-state" maxlength="2" value="RS"></label>'+
+      '<label>Cidade<input class="input" id="admin-discovery-city-name" maxlength="120" placeholder="São Gabriel"></label>'+
+      '<label>Justificativa<input class="input" id="admin-discovery-city-reason" maxlength="240" placeholder="Motivo da decisão"></label>'+
+      '<div class="order-actions">'+
+        '<button type="button" class="secondary small" onclick="adminDiscoverySetCity(false)"'+(d.pending?' disabled':'')+'>Suspender modalidade</button>'+
+        '<button type="button" class="primary small" onclick="adminDiscoverySetCity(true)"'+(d.pending?' disabled':'')+'>Habilitar modalidade</button>'+
+      '</div></div>'+cityMatrix+'</section>';
+  return '<section class="section"><div class="section-head"><div><h2>Revisão de anúncios</h2>'+
+    '<p>Decisões reservadas ao superadministrador e auditadas no banco. Nenhum anúncio é aprovado automaticamente.</p>'+
+    '</div><button class="secondary small" type="button" onclick="adminDiscoveryLoad()"'+
+      (d.pending?' disabled':'')+'>Atualizar fila</button></div>'+
+    '<p class="tiny muted">Confira a veracidade do anúncio e as obrigações aplicáveis antes de aprovar. Fotos públicas não substituem documentação.</p>'+
+    readinessCard+cityControls+content+'<section class="card flat" style="margin-top:20px;padding:18px"><h3>Publicações e pausas</h3><p class="tiny muted">Até 100 anúncios recentes. A decisão exige justificativa e continua auditada no banco.</p>'+liveCards+'</section><section class="card flat" style="margin-top:20px;padding:18px"><h3>Denúncias de anúncios</h3>'+reportCards+'</section></section>';
+}
+async function adminDiscoveryChangeLive(id,next){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !/^[0-9a-f-]{36}$/.test(String(id||''))||!['paused','published'].includes(next))return;
+  const current=adminDiscoveryDesk.live.find(x=>x.id===id);
+  if(!current||current.status===(next==='paused'?'paused':'published')||
+     (next==='paused'&&current.status!=='published')||
+     (next==='published'&&(current.status!=='paused'||current.city_vertical_enabled!==true)))return;
+  const promptText=next==='paused'?'Informe o motivo da suspensão:':
+     'Informe por que a reativação é segura (confira as denúncias pendentes):';
+  const reason=prompt(promptText);
+  if(reason===null)return;
+  const note=String(reason).trim();
+  if(note.length<8||note.length>240){
+    toast('A justificativa deve conter entre 8 e 240 caracteres.');return;
+  }
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:next,p_reason:note
+    });
+    if(error)throw error;
+    toast(next==='paused'?'Publicação suspensa.':'Anúncio reativado após conferência.');
+    d.pending=false;await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;
+    toast('Não foi possível confirmar a alteração. Confira situação e requisitos.');
+  }
+}
+
+async function adminDiscoverySuspendReportedListing(id){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !/^[0-9a-f-]{36}$/.test(String(id||''))||
+     !adminDiscoveryDesk.reports.some(x=>x.listing_id===id&&x.listing_status==='published'))return;
+  const reason=prompt('Informe por que este anúncio deve ser suspenso:');
+  if(reason===null)return;
+  const note=String(reason).trim();
+  if(note.length<8||note.length>240){toast('Justificativa obrigatória entre 8 e 240 caracteres.');return;}
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:'paused',p_reason:note
+    });
+    if(error)throw error;
+    toast('Anúncio suspenso; a denúncia continua aberta para análise.');
+    d.pending=false;await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;toast('Não foi possível suspender o anúncio. Confira a situação atual.');
+  }
+}
+
+async function adminDiscoveryReviewReport(id,status){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !Number.isSafeInteger(id)||id<=0||!['resolved','dismissed'].includes(status)||
+     !adminDiscoveryDesk.reports.some(x=>Number(x.id)===id))return;
+  const note=prompt('Registre a justificativa ou providência (mínimo 8 caracteres):');
+  if(note===null)return;
+  const value=String(note).trim();
+  if(value.length<8||value.length>500){toast('Informe uma justificativa entre 8 e 500 caracteres.');return;}
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_review_report',{
+      p_report_id:id,p_status:status,p_note:value
+    });
+    if(error)throw error;
+    toast('Denúncia analisada e registrada.');
+    d.pending=false;
+    await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;
+    toast('Não foi possível registrar a decisão; tente novamente.');
+  }
+}
+
+async function adminDiscoveryDecision(id,status){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
+     !['published','rejected'].includes(status)||!/^[0-9a-f-]{36}$/.test(String(id||'')))return;
+  const entry=adminDiscoveryDesk.items.find(x=>x.id===id&&x.status==='review');
+  if(!entry||status==='published'&&entry.city_vertical_enabled!==true)return;
+  const reason=String(document.getElementById('admin-discovery-reason-'+id)?.value||'').trim();
+  if(reason.length<8){toast('Descreva a justificativa da revisão (mínimo 8 caracteres).');return;}
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:status,p_reason:reason
+    });
+    if(error)throw error;
+    toast(status==='published'?'Anúncio aprovado.':'Anúncio devolvido ao anunciante.');
+    d.pending=false;
+    await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;
+    toast('Não foi possível confirmar esta decisão. Confira as condições de publicação e tente novamente.');
+  }
+}
+
+
+async function adminDiscoveryDocuments(id){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||
+     !/^[0-9a-f-]{36}$/.test(String(id||''))||adminDiscoveryDesk.documentPending||
+     !adminDiscoveryDesk.items.some(x=>x.id===id&&x.status==='review'))return;
+  const d=adminDiscoveryDesk;
+  d.documentPending=id;d.documents[id]=null;render();
+  try{
+    const client=adminRuntime.client;
+    const result=await client.from('discovery_documents')
+      .select('id,kind,object_path').eq('listing_id',id).limit(20);
+    if(result.error||!Array.isArray(result.data))throw Error('PRIVATE_DOCUMENT_LOOKUP_FAILED');
+    const allowed=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
+      '/storage/v1/object/sign/tamao-discovery-documents/';
+    const links=[];
+    for(const doc of result.data){
+      const key=String(doc.object_path||'');
+      if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(key))throw Error('UNSAFE_DOCUMENT_PATH');
+      const signed=await client.storage.from('tamao-discovery-documents').createSignedUrl(key,90,{download:true});
+      if(signed.error||typeof signed.data?.signedUrl!=='string'||
+         !signed.data.signedUrl.startsWith(allowed))throw Error('UNSAFE_DOCUMENT_LINK');
+      links.push({kind:String(doc.kind||'de verificação'),signedUrl:signed.data.signedUrl});
+    }
+    d.documents[id]=links;
+  }catch(e){
+    delete d.documents[id];
+    toast('Não foi possível abrir os comprovantes privados. Verifique as permissões e tente novamente.');
+  }
+  d.documentPending=null;
+  if(adminRuntime.section==='discovery')render();
+}
+
 const ADMIN_SECTION_ROLES={
   overview:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   orders:new Set(['superadmin','operations','finance','support']),
@@ -2571,7 +2928,8 @@ const ADMIN_SECTION_ROLES={
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   audit:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   system:new Set(['superadmin','readonly','operations']),
-  activations:new Set(['superadmin','readonly','operations'])
+  activations:new Set(['superadmin','readonly','operations']),
+  discovery:new Set(['superadmin'])
 };
 function adminRoleCanSection(section,role=adminCurrentRole()){
   return ADMIN_SECTION_ROLES[String(section)]?.has(String(role))===true;
@@ -2595,7 +2953,8 @@ function adminSectionMeta(section=adminRuntime.section){
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
     audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
     system:{kicker:'SEGURANÇA & PLATAFORMA',title:'Sistema',description:'Saúde técnica, portais, PSP, RBAC e controles estruturais do ambiente.'},
-    activations:{kicker:'DECISÕES E CONTROLES',title:'Ativações estratégicas',description:'Campanhas, benefícios, patrocínios, avisos e pagamentos em uma só consulta.'}
+    activations:{kicker:'DECISÕES E CONTROLES',title:'Ativações estratégicas',description:'Campanhas, benefícios, patrocínios, avisos e pagamentos em uma só consulta.'},
+    discovery:{kicker:'MODERAÇÃO',title:'Anúncios e revisões',description:'Análise de profissionais, caronas e hospedagens, com decisões auditadas.'}
   })[String(section||'overview')]||{kicker:'CONTROL PLANE',title:'Administração',description:'Controle operacional do TAMÃO.'};
 }
 function adminRelativeTime(value){
@@ -2859,7 +3218,7 @@ function adminOwnerFinanceFallbackView(){
 }
 
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations'];
+  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations','discovery'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
@@ -2868,6 +3227,7 @@ function adminSetSection(section){
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
   if(['system','overview'].includes(next))adminLoadGovernanceGates().catch(()=>{});
   if(next==='activations')adminActivationLoadOnDemand().catch(()=>{});
+  if(next==='discovery')adminDiscoveryLoad().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
   if(next==='partners'&&adminCurrentRole()==='superadmin')
@@ -4660,6 +5020,141 @@ async function adminClubeCouponPreviewFromUi(){
     }
   }finally{x.pending=false;render();}
 }
+/* Clube TAMÃO — consulta do estado financeiro, sem cobrança nem ativação.
+ * Totalizadores limitados ou migração ausente nunca equivalem a aprovação. */
+async function adminClubeFinanceRefresh(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+    adminRuntime.status!=='ready')return;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId)return;
+  const state=adminRuntime.clubeFinance;
+  if(state.pending)return;
+  Object.assign(state,{pending:true,error:null,data:null,loadedFor:userId,checkedAt:null});
+  render();
+  try{
+    const result=await adminInvoke({action:'clube-coupon-finance-status'});
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(result?.source!=='clube_coupon_finance_status_v1'||
+      result.readOnly!==true||result.paymentsChecked!==false||
+      typeof result.schemaInstalled!=='boolean'||
+      !['unavailable','partial','bounded_under_limits'].includes(result.coverage)){
+      throw new Error('A consulta financeira não retornou dados verificáveis.');
+    }
+    state.data=result;
+    state.checkedAt=new Date().toISOString();
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId){
+      state.error=String(error?.message||error||'Não foi possível consultar cupons.');
+    }
+  }finally{
+    state.pending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
+async function adminClubeReleaseReportsRefresh(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId)return;
+  const state=adminRuntime.clubeFinance;
+  if(state.reportsPending)return;
+  Object.assign(state,{reports:null,reportsPending:true,
+    reportsError:null,reportsFor:userId,reportsAt:null});
+  render();
+  try{
+    const reply=await adminInvoke({action:'clube-coupon-mp-release-reports'});
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(reply?.source!=='mercadopago_release_reports_list_v1'||
+       reply.readOnly!==true||reply.moneyVerified!==false||
+       typeof reply.available!=='boolean'||
+       !['unavailable','partial','list_only'].includes(reply.coverage)||
+       !Array.isArray(reply.reports)||reply.reports.length>50)
+      throw Error('Resposta de extratos não verificada.');
+    state.reports=reply;
+    state.reportsAt=new Date().toISOString();
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId){
+      state.reportsError=String(error?.message||error||'Extratos indisponíveis.');
+    }
+  }finally{
+    state.reportsPending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
+function adminClubeReleaseReportsView(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const state=adminRuntime.clubeFinance||{};
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const sameUser=Boolean(userId&&state.reportsFor===userId);
+  const data=sameUser?state.reports:null;
+  const err=sameUser?state.reportsError:null;
+  const count=data?.available===true?Number(data.listedCount):null;
+  const processed=data?.available===true?data.reports.filter(item=>
+     item.status==='processed'&&item.currency==='BRL'&&item.test!==true).length:null;
+  return `<div class="card flat admin-clube-mp-extracts" aria-label="Extratos Mercado Pago">
+    <h4>Extratos de liberação do Mercado Pago</h4>
+    <p>Consulte os relatórios gerados na conta do TAMÃO, sem criar pagamentos.</p>
+    <button type="button" class="secondary" onclick="adminClubeReleaseReportsRefresh()"
+      ${state.reportsPending?'disabled':''}>
+      ${state.reportsPending?'Consultando…':'Consultar relatórios do Mercado Pago'}
+    </button>
+    ${err?'<p role="alert" class="notice danger">'+esc(err)+'</p>':''}
+    ${data?.available===false?'<p class="notice">Conta Mercado Pago não configurada para esta consulta.</p>':''}
+    ${data?.available===true?'<p role="status">'+
+       (Number.isSafeInteger(count)?esc(count):'Não verificado')+
+       ' relatórios listados • '+
+       (Number.isSafeInteger(processed)?esc(processed):'Não verificado')+
+       ' processados em BRL, fora do ambiente de teste.</p>':''}
+    ${data?.coverage==='partial'?'<p class="notice">Lista parcial: há relatórios adicionais que não foram analisados.</p>':''}
+    ${data?.available===true&&data.reports.length===0?'<p class="muted">Nenhum relatório gerado foi encontrado na conta consultada.</p>':''}
+    <p class="tiny muted">Listar relatórios não confirma o PIX líquido, nem o pagamento à revenda. Antes de liberar cupons, confira a transação e as tarifas no relatório de Liberações.</p>
+  </div>`;
+}
+function adminClubeFinanceView(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const state=adminRuntime.clubeFinance||{};
+  const sameUser=String(adminRuntime.session?.user?.id||'')&&
+    state.loadedFor===String(adminRuntime.session.user.id);
+  const data=sameUser?state.data:null;
+  const issue=sameUser?state.error:null;
+  const amount=(value)=>Number.isSafeInteger(value)&&value>=0
+    ?String(value):'Não verificado';
+  const schemaMissing=data&&data.schemaInstalled!==true;
+  const incomplete=data&&data.coverage!=='bounded_under_limits';
+  const readyCount=data&&data.schemaInstalled===true&&
+    data.coverage==='bounded_under_limits';
+  const entries=readyCount?[
+    ['Pacotes cadastrados',data.packageCount],
+    ['Faturas de cupons',data.invoiceCount],
+    ['Cupons emitidos',data.issuedCount],
+    ['Cupons utilizados',data.redeemedCount],
+    ['Pagamentos sem líquido comprovado',data.pendingNetCount],
+    ['Cupons e faturas em revisão',data.refundReviewCount],
+    ['Obrigações de revendas pendentes',data.merchantSettlementPendingCount]
+  ]:[];
+  return `<section class="section admin-clube-finance" aria-label="Conciliação financeira dos cupons">
+    <div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • CONTROLADORIA</span>
+      <h3>Cupons, recebimentos e compensação às revendas</h3>
+      <p>Acompanhe o que falta conciliar, sem gerar cobranças ou liberar descontos.</p></div>
+      <button type="button" class="secondary"
+        onclick="adminClubeFinanceRefresh()" ${state.pending?'disabled':''}>
+        ${state.pending?'Consultando…':'Conferir situação dos cupons'}
+      </button></div>
+    ${issue?'<div role="alert" class="notice danger">'+esc(issue)+'</div>':''}
+    ${!sameUser||!data?'<p class="tiny muted">Use a consulta para verificar as condições financeiras atuais.</p>':''}
+    ${schemaMissing?'<div class="notice" role="status"><strong>Cupons pagos ainda não instalados.</strong><br>O financeiro continua protegido; faltam etapas de implantação e homologação.</div>':''}
+    ${incomplete&&!schemaMissing?'<div class="notice" role="status"><strong>Informação incompleta.</strong><br>Há registros além do limite ou uma reconciliação sem evidência. Não use esta consulta para autorizar vendas.</div>':''}
+    ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
+      '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
+       esc(amount(value))+'</strong></div>').join('')+'</div>':''}
+    ${adminClubeReleaseReportsView()}
+    ${data?'<div class="notice"><strong>Mercado Pago:</strong> esta consulta não confere o extrato de liberação nem comprova repasse bancário. '+
+      'Cobrança de cupons: '+(data.salesEnabled===true?'indicada como habilitada na configuração':'não habilitada na configuração')+
+      '. Uso no pedido: '+(data.checkoutEnabled===true?'indicado como habilitado':'não habilitado')+
+      '. Antes de comercializar, confira a liquidação real no provedor e a homologação completa.</div>':''}
+  </section>`;
+}
+
 function adminClubeCouponPreviewView(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const x=adminRuntime.clubePreview||{};
@@ -6889,6 +7384,7 @@ function adminPage(){
     ${adminCommercialPolicySection(d)}
     ${adminGrowthBenefitPreviewView()}
     ${adminClubeCouponPreviewView()}
+    ${adminClubeFinanceView()}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
 `):'';
   const financeAreas={
@@ -6951,6 +7447,7 @@ function adminPage(){
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
       <div class="admin-nav-group">Governança</div>
       ${adminMenuButton('activations','Ativações','◈')}
+      ${adminMenuButton('discovery','Anúncios','▣')}
       ${adminMenuButton('alerts','Alertas','!',adminOperationalAlertBadge())}
       ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
@@ -6981,6 +7478,7 @@ function adminPage(){
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
         ${adminPanel('activations',sectionActive('activations')?(typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView()):'')}
+        ${adminPanel('discovery',sectionActive('discovery')?adminDiscoveryView():'')}
         ${adminPanel('alerts',alertsContent)}
         ${adminPanel('incidents',incidentsContent)}
         ${adminPanel('audit',auditContent)}

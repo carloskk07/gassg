@@ -39,7 +39,7 @@ assert.match(css,/\.city-price-product-qty-control/);
 assert.match(css,/\.city-price-shopping-steps/);
 assert.ok(css.includes('@media(max-width:620px)'));
 const pieceStart=customer.indexOf('function homeQuoteSyncPostal(');
-const pieceEnd=customer.indexOf('// Consulta ofertas reais quando a sessão está pronta;',pieceStart);
+const pieceEnd=customer.indexOf('function startCustomerAvailability(',pieceStart);
 assert.ok(pieceStart>=0&&pieceEnd>pieceStart);
 let value='',sameValue='',plus='2',feedback='',basketHTML='',routes=[],toasts=[];
 const input={value:'97300000'},otherInput={value:''},numberInput={value:'2'};

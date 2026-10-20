@@ -39,14 +39,12 @@ function prelaunchExampleSection(cart={P13:1}){
   return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">EXEMPLO DE INTERFACE</span><h2>Visualização interna de comparação</h2><p>Conteúdo reservado ao ambiente interno de validação.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
-// V1.243 — Product imagery is representative, never a claim about a merchant's brand or inventory.
 function tamaoProductArt(code,product,extra=''){
   const art=({P13:'gas',WATER20:'water',CHARCOAL4:'charcoal',WOOD:'wood',ICE5:'ice'})[String(code||'').toUpperCase()];
   const variant=extra==='hero'?' hero-photo':extra==='cart'?' cart-photo':'';
   return art?'<span class="tamao-product-photo product-'+art+variant+'" aria-hidden="true"></span>'
     :'<span class="tamao-product-emoji" aria-hidden="true">'+esc(product?.icon||'🧺')+'</span>';
 }
-// Value proposition remains truthful for both cities with and without verified offers.
 function tamaoHomeBenefits({compact=false}={}){
   const extraBenefits=compact?'':`    <div class="tamao-action-now">
       <div><span class="section-kicker">APROVEITE O TAMÃO AGORA</span>
@@ -131,8 +129,6 @@ async function startHomeOrder({addFeatured=true}={}){
     }
   }
 
-  // Keep the existing cart when someone returns to the home page; don't turn
-  // "consult my order" into an accidental new basket of gas.
   const alreadyHasItems=Object.values(state.cart||{}).some(qty=>Number(qty)>0);
   if(!alreadyHasItems){
     state.cart=normalizeCart({});
@@ -157,8 +153,6 @@ function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
 
-// V1.379 — Product taps from the home preserve an optional verified CEP,
-// without carrying address, offers or city proof from another region.
 function homeChooseProduct(code){
   const productCode=String(code||'').toUpperCase();
   if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)||!products[productCode]||products[productCode].hidden)return false;
@@ -197,8 +191,6 @@ function homeChooseProduct(code){
   return true;
 }
 
-// Product CTA from the city quote: reuse the real cart and checkout, never a reference price.
-// Keep CEP consistent as shoppers expand different quote cards.
 function homeQuoteSyncPostal(input){
  if(!input)return '';
  const digits=String(input.value||'').replace(/\D/g,'').slice(0,8);
@@ -282,7 +274,6 @@ function homeQuoteSelectProduct(code,buy=false){
  setCartProduct(sku,Math.min(99,existing+quantity));
  if(typeof homeQuoteUpdateBasket==='function')homeQuoteUpdateBasket();
  if(buy){
-  // The official order page confirms CEP, address, stock and current eligible offers.
   go('order');
   if(!state.addressNumber)globalThis.setTimeout?.(()=>{
    if(route()==='order')document.querySelector('#address-number')?.focus();
@@ -295,7 +286,6 @@ function homeQuoteSelectProduct(code,buy=false){
  return true;
 }
 
-// Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
   const input=globalThis.document?.querySelector('#home-address');
   const raw=String(input?.value||'').trim();
@@ -304,7 +294,6 @@ function startCustomerAvailability(){
     toast('Informe um CEP válido ou deixe para a próxima etapa.');
     return;
   }
-  // Browse first; CEP is validated on the checkout journey, not first paint.
   return startHomeOrder();
 }
 
@@ -417,13 +406,11 @@ function deliveryScheduleBlock(){
 function homeProductGroup(code,product){
   const key=String(product?.categoryKey||'').trim().toLowerCase();
   const productCode=String(code||'').toUpperCase();
-  // The server catalog category wins; hardcoded codes are only a fallback.
   if(key)return key==='glp'?'gas':key==='water'?'water':'other';
   if(/^P[1-9][0-9]?$/.test(productCode))return 'gas';
   if(/^WATER/.test(productCode))return 'water';
   return 'other';
 }
-// Local catalogue navigation only. No stock, prices, quotes or permissions change.
 function homeFilterProducts(group){
   const chosen=['all','gas','water','other'].includes(group)?group:'all';
   const grid=document.getElementById('home-discover-grid');
@@ -447,7 +434,6 @@ function homeFilterProducts(group){
 }
 function homeDiscoverFocus(){
   const panel=document.getElementById('home-discover');
-  // An empty discovery panel must not silently insert the featured gas item.
   if(!panel)return startHomeBrowse();
   const heading=panel.querySelector('h2');
   panel.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth',block:'start'});
@@ -455,6 +441,21 @@ function homeDiscoverFocus(){
   return true;
 }
 
+function tamaoDiscoveryEntryHub(){
+  return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
+    '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
+    '<h2>Explore outras oportunidades pelo TAMÃO.</h2>'+
+    '<p>Encontre profissionais, caronas e hospedagens anunciadas por região.</p></div></div>'+
+    '<div class="intent-grid">'+
+    [['professionals','🛠️','Profissionais','Encontre prestadores de serviços'],
+     ['rides','🚙','Caronas','Pesquise viagens compartilhadas'],
+     ['stays','🏡','Hospedagens','Conheça anúncios de hospedagens'],
+      ['advertise','✍️','Anunciar','Crie seu anúncio e envie para revisão']].map(([r,i,title,desc])=>
+      `<button class="intent-card" type="button" onclick="go('${r}')">`+
+      '<span class="intent-icon" aria-hidden="true">'+i+'</span><span><strong>'+title+
+      '</strong><small>'+desc+'</small></span><b aria-hidden="true">→</b></button>'
+    ).join('')+'</div></section>';
+}
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -566,7 +567,6 @@ function home(){
       Number(a.sortOrder||100)-Number(b.sortOrder||100)
       ||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')
     );
-  // Every catalogue tile is a product choice, not a stock, price or merchant assertion.
   const discoveryEntries=homeProductEntries
     .filter(([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code))
     .slice(0,24);
@@ -576,8 +576,6 @@ function home(){
     ['all','Destaques'],['gas','Gás'],['water','Água'],['other','Outros']
   ].filter(([kind])=>kind==='all'||discoveryCounts[kind]>0).map(([kind,label])=>
     `<button type="button" data-tamao-filter="${kind}" aria-pressed="${kind==='all'}" onclick="homeFilterProducts('${kind}')">${label}</button>`).join('');
-  // Optional campaign intent only highlights browseable categories. A category
-  // without public catalogue entries is never advertised as available.
   const publicEntryKind=typeof tamaoPublicEntryIntent==='function'?tamaoPublicEntryIntent():'';
   const homeIntentKind=publicEntryKind==='agua'&&discoveryCounts.water>0?'water'
     :publicEntryKind==='gas'&&discoveryCounts.gas>0?'gas':'';
@@ -600,7 +598,6 @@ function home(){
   const heroVisualCodes=[...new Set(['P13','WATER20',...discoveryEntries.map(([code])=>code)])]
     .filter(code=>discoveryEntries.some(([entryCode])=>entryCode===code))
     .slice(0,2);
-  // Use only publicly browseable catalogue entries, never implied stock or offers.
   const heroVisualCards=heroVisualCodes.map((code,index)=>{
     const product=products[code];
     const name=customerProductName(code,product);
@@ -617,15 +614,12 @@ function home(){
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
     ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
     ||(cityChecked&&!hasConfirmedCityOffers));
-  // A region without verified offers should show a concise path to consultation
-  // and opt-in, not a long catalogue that resembles available inventory.
   const conciseHome=acquisitionOpen&&!testDemo;
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
   const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Escolher meus produtos':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Consultar '+featuredName;
   const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()';
-  // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
@@ -662,8 +656,6 @@ function home(){
       <article class="visitor-path visitor-path-sponsor"><span class="visitor-path-icon" aria-hidden="true">📣</span><small>PARA SUA MARCA</small><h3>Esteja presente nas escolhas da cidade.</h3><p>Conheça propostas de divulgação regional identificada e ações com benefícios, definidas junto ao TAMÃO.</p><button type="button" onclick="go('sponsors')">Quero divulgar <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
-  // Visible only before a verified offer: explain the journey without turning
-  // illustrative catalogue entries into stock, delivery or price claims.
   const homeAnswers=`<section class="home-trust-brief" aria-label="Respostas rápidas sobre o TAMÃO">
     <div class="home-trust-intro">
       <span class="section-kicker">COMPRAR COM MAIS CLAREZA</span>
@@ -678,8 +670,6 @@ function home(){
       <details><summary>Posso indicar pessoas e revendas?</summary><p>Sim. Conheça sua Rede TAMÃO e acompanhe indicações atribuídas. Benefícios financeiros dependem das regras e da elegibilidade de cada campanha.</p></details>
     </div>
   </section>`;
-  // A regional price-and-benefits dashboard is the first visible content,
-  // using the existing verified city RPC and never a mock merchant offer.
   return shell(`${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
@@ -747,6 +737,8 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
+${tamaoDiscoveryEntryHub()}
+
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}
 
 ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no TAMÃO">
@@ -800,7 +792,7 @@ ${internalPilot?`<section class="section"><div class="card flat"><span class="se
 
 <section class="section"><div class="opportunity-band"><div><span class="section-kicker light">CONHEÇA OS BENEFÍCIOS</span><h2>Benefícios para aproveitar nas próximas compras.</h2><p>Veja como funcionam o cashback e as indicações. Cada benefício tem suas próprias condições de participação.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Sua revenda também pode vender pelo TAMÃO.</h2><p>Tem uma revenda de gás, água ou outros produtos? Você pode receber pedidos por mais um canal e continuar controlando seus preços, estoque e entregas.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Quero vender no TAMÃO →</button></div></section>`}`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Anuncie seu comércio. Receber pedidos pelo TAMÃO é opcional.</h2><p>Para começar, basta o nome do estabelecimento e um WhatsApp. Você escolhe depois se também quer usar cotações, entregas e pedidos pela plataforma.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">2 DADOS</span><small>para o primeiro contato</small></div><div><strong>Mais visibilidade para sua empresa, sem papelada na entrada.</strong><p>Anúncios e pedidos são etapas diferentes. A publicação depende de confirmação do contato e das verificações aplicáveis à atividade.</p></div><button class="primary" onclick="openPrelaunchMerchantLead()">Quero anunciar minha empresa →</button></div></section>`}`)
 }
 // V1.302: explain the next buyer action without bypassing real availability,
 // quote validation, server-side permissions or the existing payment flow.
@@ -877,7 +869,6 @@ function customerCheckoutFocusStep(step){
   else area.querySelector?.('h2')?.focus({preventScroll:true});
   return true;
 }
-// Only local catalogue display changes. Selected items remain visible in every category.
 function buyerCartFilter(group){
   const chosen=['all','gas','water','other'].includes(group)?group:'all';
   const catalog=document.getElementById('buyer-cart-catalog');
@@ -1046,9 +1037,7 @@ function cartRow(k,p){
   const label=customerProductName(k,p);
   return `<div class="cart-item"><div class="product-left"><div class="product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(k,p,"cart"):esc(p.icon)}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
-// Sorting never changes backend recommendation or creates a new quote.
 let checkoutOfferSort='recommended';
-// The same expiry rule controls both the progress indicator and rendered choices.
 function customerEligibleCheckoutOffers(all,{testDemo=false,now=Date.now()}={}){
   const rows=Array.isArray(all)?all:[];
   if(testDemo)return rows;
@@ -1096,8 +1085,6 @@ function checkoutSponsoredEditorial(){
      esc([slot.city,slot.state].filter(Boolean).join('/'))+
     '</p></aside>';
 }
-// Summary uses only the displayed offers. Never infers a guaranteed saving,
- // a completed payment, or an actual delivery time.
 function checkoutOfferDecisionSummary(all){
   if(!Array.isArray(all)||all.length<2)return '';
   const totals=all.map(o=>Number(o?.total));
@@ -1137,9 +1124,15 @@ function checkoutOfferComparison(all){
   return `<section class="checkout-comparison" aria-label="Comparar opções de entrega">
     <div class="comparison-intro">
       <span class="section-kicker">COMPARE COM TRANQUILIDADE</span>
-      <h2>${all.length===1?'Encontramos uma opção para sua cesta':'Compare '+all.length+' opções para sua cesta'}</h2>
-      <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
+      <h2>${all.length===1?'Sua cotação com benefícios TAMÃO':'Compare '+all.length+' ofertas e seus benefícios'}</h2>
+      <p>Veja o total com entrega e compare com os créditos do seu Clube.</p>
     </div>
+    <div class="tamao-home-coupon-rail">
+      <span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span><div><strong>Tem cupom ou cashback TAMÃO?</strong>
+      <p>Confira campanhas no Clube. O desconto em dinheiro só aparece na cotação quando for aplicável; cupons não são descontados automaticamente.</p></div>
+      <button type="button" onclick="go('club')">Ver benefícios →</button>
+    </div>
+    ${typeof clubePaidCouponCheckoutPanel==='function'?clubePaidCouponCheckoutPanel():''}
     ${checkoutOfferDecisionSummary(all)}
     ${checkoutRequestExplainer()}
     ${checkoutSponsoredEditorial()}
@@ -1154,7 +1147,6 @@ function setCheckoutOfferSort(mode){
   const container=document.getElementById('checkout-offer-choices');
   if(!container)return;
   const current=globalThis.__CHAMA_TEST__===true?offers():globalThis.liveRuntime?.offers||[];
-  // Sorting only rearranges server-confirmed, non-expired options.
   const eligible=customerEligibleCheckoutOffers(current,{testDemo:globalThis.__CHAMA_TEST__===true});
   container.innerHTML=eligible.length?checkoutOfferCards(eligible):
     '<div class="empty card offer-expired-notice" role="status"><strong>As opções desta consulta expiraram.</strong><p class="muted tiny">Atualize a consulta para receber preços e prazos atuais. Nenhum pedido foi enviado.</p><button type="button" class="primary" onclick="liveRefreshOffers().catch(()=>{})">Atualizar opções →</button></div>';
@@ -1174,16 +1166,19 @@ function offerCard(o,facts={}){
   const recommended=roles.includes('Recomendado');
   const available=roles.includes('Disponível agora');
   const featured=recommended||available;
-  // Do not translate missing or malformed server data into an invented R$ 0.
   const rawTotal=Number(o.total);
   const validTotal=o.total!=null&&Number.isFinite(rawTotal)&&rawTotal>0;
   const gross=validTotal?rawTotal:0;
   const balance=Number(state.user?.cashback||0);
-  const availableCashback=validTotal&&Number.isFinite(balance)
-    ?roundMoney(Math.min(Math.max(0,balance),gross)):0;
-  const discount=state.checkout.useCashback?availableCashback:0;
+  const potentialBenefit=validTotal&&Number.isFinite(balance)&&balance>0
+    ?roundMoney(Math.min(balance,gross)):0;
+  const couponVoucher=validTotal&&typeof clubePaidCouponVoucherForQuote==='function'
+    ?clubePaidCouponVoucherForQuote(Math.round(gross*100)):null;
+  const couponBenefit=couponVoucher?roundMoney(couponVoucher.faceCents/100):0;
+  const estimatedBenefits=roundMoney(potentialBenefit+couponBenefit);
+  const discount=state.checkout.useCashback===true?estimatedBenefits:0;
   const payable=roundMoney(Math.max(0,gross-discount));
-  const cashbackPreviewTotal=roundMoney(Math.max(0,gross-availableCashback));
+  const cashbackPreview=roundMoney(Math.max(0,gross-estimatedBenefits));
   const totalCents=validTotal?Math.round(gross*100):null;
   const fee=Number(o.deliveryFee);
   const hasBreakdown=validTotal&&o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
@@ -1223,20 +1218,22 @@ function offerCard(o,facts={}){
     <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
     <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
   </div>`:`<p class="offer-total-note">${validTotal?'Valor total da cesta com a entrega incluída.':'Preço e entrega precisam de nova consulta.'}</p>`;
-  const comparison=validTotal?`<div class="tamao-home-checkout-compare" aria-label="Comparativo de preço sem e com cashback TAMÃO">
-    <div><small>SEM BENEFÍCIO</small><strong>${BRL.format(gross)}</strong><span>Total com entrega</span></div>
-    <div class="${availableCashback>0?'has-discount':''}">
-      <small>${availableCashback>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
-      <strong>${availableCashback>0?BRL.format(cashbackPreviewTotal):'Sem desconto aplicado'}</strong>
-      <span>${availableCashback>0?
-        'Até '+BRL.format(availableCashback)+' com o saldo do Clube'+
-        (state.checkout.useCashback?' • selecionado':' • selecione o uso do saldo')
-        :'Consulte cupons e cashback no Clube'}</span>
+  const comparison=validTotal?`<div class="tamao-home-checkout-compare" aria-label="Comparação de total sem e com benefício TAMÃO">
+    <div class="tamao-checkout-total-base"><small>SEM BENEFÍCIO</small>
+      <strong>${BRL.format(gross)}</strong><span>Preço com entrega</span></div>
+    <div class="tamao-checkout-total-benefit ${estimatedBenefits>0?'has-discount':''}">
+      <small>${couponBenefit>0?'COM CUPOM E CASHBACK':estimatedBenefits>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
+      <strong>${estimatedBenefits>0?BRL.format(cashbackPreview):'Sem desconto aplicado'}</strong>
+      <span>${estimatedBenefits>0
+       ?'Até '+BRL.format(estimatedBenefits)+' em benefícios estimados'+
+        (couponBenefit>0?' • cupom '+BRL.format(couponBenefit):'')+
+        (state.checkout.useCashback===true?' • selecionado':' • ative o uso do saldo acima')
+       :'Veja cupons e vantagens disponíveis no Clube'}</span>
     </div>
   </div>`:'';
   const cashback=discount>0?`<div class="offer-cashback">
-    <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
-    <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
+    <span>${couponBenefit>0?'Cupom e cashback selecionados (estimativa)':'Cashback selecionado (estimativa)'}</span><strong>− ${BRL.format(discount)}</strong>
+    <small>Total estimado a pagar: ${BRL.format(payable)}. O desconto aplicável será confirmado ao enviar o pedido.</small>
   </div>`:'';
   return `<article class="offer offer-comparison-card ${featured?'selected':''}">
     ${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}
@@ -1446,7 +1443,10 @@ async function checkout(mid){
   if(globalThis.liveRequested?.()&&!syncDeliveryDetailsFromUi({requirePhone:true}))return;
   const selected=(globalThis.liveRuntime?.offers||[]).find(o=>o.id===mid||o.quoteId===mid);
   if(state.checkout.paymentMethod==='cash'&&state.checkout.cashTenderCents&&selected){
-    const discount=state.checkout.useCashback?Math.min(state.user.cashback,selected.total):0;
+    const coupon=typeof clubePaidCouponVoucherForQuote==='function'
+      ?clubePaidCouponVoucherForQuote(Math.round(selected.total*100)):null;
+    const discount=state.checkout.useCashback
+      ?Math.min(selected.total,(Number(state.user.cashback)||0)+(coupon?coupon.faceCents/100:0)):0;
     const payableCents=Math.round(Math.max(0,selected.total-discount)*100);
     if(state.checkout.cashTenderCents<payableCents)return toast('O valor para troco precisa cobrir o total do pedido');
   }

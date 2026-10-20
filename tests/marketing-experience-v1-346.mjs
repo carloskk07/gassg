@@ -9,17 +9,36 @@ const merchant=read('js/merchant.js');
 const admin=read('js/admin.js');
 const core=read('js/core.js');
 const css=read('css/components.css');
+const premium=read('css/marketing-premium.css');
+// Reuse released home and checkout classes; never duplicate a financial UI stylesheet.
+for(const rule of ['.city-price-research-grid','.city-price-research-item',
+  '.tamao-home-coupon-rail','.tamao-home-checkout-compare'])
+  assert.ok(premium.includes(rule),'home/checkout CSS regression: '+rule);
+assert.ok(premium.includes('@media(max-width:850px)'),
+  'published price-first mobile breakpoint must be preserved');
+assert.ok(customer.includes('tamao-home-checkout-compare')&&
+  customer.includes('tamao-home-coupon-rail'),
+  'expanded checkout must reuse published CSS classes');
+assert.ok(!customer.includes('tamao-checkout-total-compare')&&
+  !customer.includes('tamao-checkout-coupon-callout'),
+  'avoid duplicate checkout styles');
+
 for(const [name,code] of Object.entries({customer,growth,merchant,admin,core})){
   new vm.Script(code,{filename:name+'.js'});
 }
 for(const required of [
   'const discoveryTiles=','home-discover-tile','home-discover-grid',
-  'quickProduct(','home-discover-all','COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.',
+  'quickProduct(','home-discover-all','COMPRE BEM. ECONOMIZE MAIS.',
   'Continuar para a cesta','REFERÊNCIA LOCAL'
 ])assert.ok(customer.includes(required),'missing customer discovery: '+required);
 assert.ok(customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map')&&customer.includes('data-tamao-discover-kind'),'product discovery must originate in the vetted catalogue');
-assert.ok(customer.indexOf('home-discover-grid')<customer.indexOf('homeRegionalPriceBoard(homeRegion)'),
-  'show categories before the regional price board');
+const homeMarkup=customer.slice(customer.indexOf('function home(){'),
+ customer.indexOf('\nfunction orderPage(){'));
+assert.ok(homeMarkup.indexOf('homeRegionalPriceBoard(homeRegion)')<
+ homeMarkup.indexOf('<section class="hero marketing-hero'),
+ 'the quote board must precede hero to support price-first discovery');
+assert.equal(homeMarkup.split('homeRegionalPriceBoard(homeRegion)').length-1,1,
+ 'do not render two duplicate price panels');
 assert.ok(customer.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
   'public city prices must be verified and non-quotational');
 assert.ok(customer.includes("return startHomeOrder()"),

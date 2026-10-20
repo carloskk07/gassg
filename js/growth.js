@@ -30,6 +30,148 @@ function publicLandingJump(sectionId){
   return true;
 }
 
+// Paid coupons share the customer's authenticated Supabase session.
+// The history is read-only; a purchase/resgate button is intentionally absent
+// until funded voucher settlement is authorized in the back end.
+const clubePaidCouponView={
+  userId:null,status:'idle',purchases:[],vouchers:[],error:null,
+  checkoutEnabled:false
+};
+const clubePaidCheckoutSelection={userId:null,voucherId:null};
+function clubePaidCouponOptions(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId||clubePaidCouponView.userId!==userId||
+     clubePaidCouponView.status!=='ready'||
+     clubePaidCouponView.checkoutEnabled!==true)return [];
+  const now=Date.now();
+  return clubePaidCouponView.vouchers.filter(v=>
+    v.status==='issued'&&
+    /^[0-9a-f-]{36}$/i.test(String(v.voucherId||''))&&
+    Number.isSafeInteger(Number(v.faceCents))&&v.faceCents>0&&
+    Number.isFinite(Date.parse(v.expiresAt))&&
+    Date.parse(v.expiresAt)>now
+  );
+}
+function clubePaidCouponSelectedIntent(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  return userId&&clubePaidCheckoutSelection.userId===userId?
+    clubePaidCheckoutSelection.voucherId:null;
+}
+function clubePaidCouponVoucherForQuote(quoteTotalCents){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(clubePaidCheckoutSelection.userId!==userId||!userId||
+    state.checkout.useCashback!==true)return null;
+  const balanceCents=Math.round(Math.max(0,Number(state.user?.cashback||0))*100);
+  const voucher=clubePaidCouponOptions().find(v=>
+    v.voucherId===clubePaidCheckoutSelection.voucherId);
+  if(!voucher||!Number.isSafeInteger(quoteTotalCents)||
+    quoteTotalCents<balanceCents+voucher.faceCents)return null;
+  return voucher;
+}
+function clubePaidCouponCheckoutPanel(){
+  if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
+  const userId=String(globalThis.liveRuntime.session.user.id);
+  const valid=clubePaidCouponView.userId===userId;
+  const options=clubePaidCouponOptions();
+  const current=clubePaidCheckoutSelection.userId===userId?
+    clubePaidCheckoutSelection.voucherId:null;
+  const select=options.length?
+    '<label for="tamao-paid-coupon">Cupom pré-pago</label>'+
+    '<select id="tamao-paid-coupon" onchange="clubeChoosePaidCheckoutVoucher(this.value)">'+
+    '<option value="">Sem cupom de compra</option>'+
+    options.map(v=>'<option value="'+esc(v.voucherId)+'" '+
+      (current===v.voucherId?'selected':'')+'>'+
+      esc(BRL.format(v.faceCents/100))+' • válido até '+
+      esc(new Date(v.expiresAt).toLocaleDateString('pt-BR'))+'</option>').join('')+
+    '</select><small>O desconto só é confirmado ao criar o pedido.</small>':'';
+  return '<div class="tamao-checkout-voucher-picker">'+
+   '<strong>Cupons da sua conta</strong>'+
+   '<p>Confira os benefícios válidos para sua compra.</p>'+
+   (select||'<p class="muted">'+(valid&&clubePaidCouponView.status==='loading'?
+     'Consultando cupons…':'Sem cupons pré-pagos disponíveis para aplicar.')+'</p>')+
+   '<button type="button" class="secondary" onclick="clubePaidCouponsRefresh()" '+
+   (valid&&clubePaidCouponView.status==='loading'?'disabled':'')+
+   '>Atualizar meus cupons</button></div>';
+}
+function clubeChoosePaidCheckoutVoucher(id){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId)return;
+  if(id&&!clubePaidCouponOptions().some(v=>v.voucherId===id)){
+    toast('Este cupom não está disponível. Atualize sua carteira.');
+    return;
+  }
+  clubePaidCheckoutSelection.userId=userId;
+  clubePaidCheckoutSelection.voucherId=id||null;
+  if(id){state.checkout.useCashback=true;save();}
+  render();
+}
+function clubeClearPaidCheckoutVoucher(){
+  clubePaidCheckoutSelection.userId=null;
+  clubePaidCheckoutSelection.voucherId=null;
+}
+
+function clubePaidCouponPanel(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId||typeof liveReady!=='function'||!liveReady())
+    return '<section class="section"><h2>Seus cupons TAMÃO</h2>'+
+      '<p>Entre na sua conta para consultar seus cupons e benefícios.</p></section>';
+  const valid=clubePaidCouponView.userId===userId;
+  const status=valid?clubePaidCouponView.status:'idle';
+  const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
+  const expire=value=>{
+    const d=new Date(String(value||''));
+    return Number.isFinite(d.getTime())?d.toLocaleDateString('pt-BR'):'—';
+  };
+  const labels={
+    issued:'Emitido',reserved:'Reservado',redeemed:'Utilizado',
+    void:'Cancelado',review_required:'Em revisão financeira'
+  };
+  const cards=valid&&status==='ready'
+    ?clubePaidCouponView.vouchers.slice(0,30).map(item=>
+      '<article class="card flat">'+
+      '<strong>'+esc(money(item.faceCents))+'</strong>'+
+      '<p> Cupom '+esc(String(item.ordinal))+' · '+esc(labels[item.status]||'Em análise')+'</p>'+
+      '<small>Validade: '+esc(expire(item.expiresAt))+'</small></article>').join('')
+    :'';
+  const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
+    ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
+  const issue=valid&&status==='failed'
+    ?'<p role="alert" class="notice danger">Não conseguimos consultar seus cupons agora. Tente novamente.</p>':'';
+  return '<section class="section" aria-label="Meus cupons TAMÃO">'+
+    '<div class="section-head"><div><span class="section-kicker">SEUS BENEFÍCIOS</span>'+
+    '<h2>Meus cupons TAMÃO</h2>'+
+    '<p>Consulte seus cupons por valor, validade e situação.</p></div>'+
+    '<button class="secondary" type="button" onclick="clubePaidCouponsRefresh()" '+
+      (status==='loading'?'disabled':'')+'>'+
+      (status==='loading'?'Consultando…':'Consultar meus cupons')+'</button></div>'+
+    issue+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
+    '</section>';
+}
+async function clubePaidCouponsRefresh(){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!userId||typeof liveReady!=='function'||!liveReady())
+    return toast('Entre na sua conta para consultar os cupons.');
+  if(clubePaidCouponView.userId===userId&&clubePaidCouponView.status==='loading')return;
+  Object.assign(clubePaidCouponView,{userId,status:'loading',error:null,
+    checkoutEnabled:false,purchases:[],vouchers:[]});
+  if(route()==='club')render();
+  try{
+    const result=await liveInvoke('coupon-credit-pix',{action:'my-vouchers'});
+    if(result?.source!=='clube_coupon_paid_my_vouchers_v1'||result.ok!==true||
+      !Array.isArray(result.vouchers)||!Array.isArray(result.purchases))
+      throw Error('COUPON_DATA_UNVERIFIED');
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId)return;
+    Object.assign(clubePaidCouponView,{
+      status:'ready',vouchers:result.vouchers,purchases:result.purchases,
+      checkoutEnabled:result.couponCheckoutEnabled===true
+    });
+  }catch(err){
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId)return;
+    clubePaidCouponView.status='failed';
+    clubePaidCouponView.error=String(err?.message||err);
+  }finally{if(route()==='club'||route()==='order')render();}
+}
+
 function club(){
   const purchases=Math.max(0,Number(state.user.purchases)||0);
   const cycle=purchases===0?0:(purchases%5||5);
@@ -49,6 +191,7 @@ function club(){
       <div class="earn-balance-card"><span>Cashback disponível</span><strong>${BRL.format(state.user.cashback)}</strong><small>saldo que pode reduzir uma próxima compra</small></div>
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
+    ${clubePaidCouponPanel()}
     <section class="tamao-club-shop-now" aria-label="Usar as vantagens do Clube">
       <div><span class="section-kicker">SEU CLUBE NA PRÁTICA</span>
         <h2>Compare, faça seu pedido e acompanhe o que você economizou.</h2>
@@ -871,7 +1014,16 @@ function merchantJoin(){
   return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownSelector}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Cadastre sua empresa agora. A liberação comercial exige aprovação e as verificações próprias da categoria.</small></form></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
-function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
+function isValidPhoneShape(v){
+  const n=onlyDigits(v);
+  // Brazilian local numbers have DDD + 8/9 digits; contacts copied from
+  // WhatsApp often add the country prefix +55. The application backend
+  // accepts those 12/13-digit inputs, so the browser must not reject them.
+  if(n.length===10||n.length===11)return /^[1-9][0-9]/.test(n);
+  if((n.length===12||n.length===13)&&n.startsWith('55'))
+    return /^[1-9][0-9]/.test(n.slice(2));
+  return false;
+}
 function merchantJoinInvalid(id,message){
   const input=document.getElementById(id);
   if(input){input.setAttribute('aria-invalid','true');input.focus();}

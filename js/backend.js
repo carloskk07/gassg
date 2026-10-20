@@ -803,6 +803,14 @@ async function liveCreateOrder(quoteId){
     toast('A oferta expirou. Atualizamos os preços disponíveis.');
     return;
   }
+  const couponIntent=typeof clubePaidCouponSelectedIntent==='function'
+    ?clubePaidCouponSelectedIntent():null;
+  const couponVoucher=couponIntent&&typeof clubePaidCouponVoucherForQuote==='function'
+    ?clubePaidCouponVoucherForQuote(Math.round(Number(selected.total)*100)):null;
+  if(couponIntent&&!couponVoucher){
+    toast('Este cupom não cabe nesta cotação. Atualize seus benefícios ou escolha outra oferta.');
+    return;
+  }
   liveRuntime.actionPending=true;
   liveRuntime.error=null;
   render();
@@ -821,6 +829,7 @@ async function liveCreateOrder(quoteId){
     ...(ownerCampaignTag?{campaignTag:ownerCampaignTag}:{}),
     paymentMethod:state.checkout.paymentMethod,
     useCashback:state.checkout.useCashback===true,
+    ...(couponVoucher?{couponVoucherId:couponVoucher.voucherId}:{}),
     referralCode:(()=>{
       const code=typeof growthAttributionCode==='function'?growthAttributionCode():
         String(state.user.referredBy||'');
@@ -852,6 +861,7 @@ async function liveCreateOrder(quoteId){
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,confirmedOrderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
+    if(typeof clubeClearPaidCheckoutVoucher==='function')clubeClearPaidCheckoutVoucher();
     state.checkout.cashTenderCents=null;
     state.checkout.deliveryMode='now';
     state.checkout.deliveryWindowStart=null;

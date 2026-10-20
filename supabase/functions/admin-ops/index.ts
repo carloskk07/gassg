@@ -9,7 +9,7 @@ import {
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
-import { mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
+import { mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
 import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
@@ -112,7 +112,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","clube-coupon-preview",
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports",
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
@@ -2441,6 +2441,173 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="clube-coupon-mp-release-reports"){
+      // Read-only on the existing TAMÃO Mercado Pago receiving account:
+      // GET /v1/account/release_report/list. No creation, downloads,
+      // money movement, or coupon activation from this endpoint.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Relatórios financeiros exigem perfil financeiro.",403);
+      }
+      const mpToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+      if(!mercadoPagoConfigured(mpToken)){
+        return json({
+          source:"mercadopago_release_reports_list_v1",
+          readOnly:true,available:false,coverage:"unavailable",
+          reason:"MERCADOPAGO_NOT_CONFIGURED",reports:[],
+          moneyVerified:false,checkedAt:new Date().toISOString()
+        },200,origin);
+      }
+      await enforceApiQuota(admin,{
+        userId:user.id,actionName:"admin-mp-release-reports",
+        limit:5,windowSeconds:600
+      });
+      const response=await mercadoPagoFetch("/v1/account/release_report/list",{
+        accessToken:mpToken,method:"GET",timeoutMs:8000
+      });
+      if(!response.ok)throw new DomainError(
+        "MERCADOPAGO_REPORT_LIST_UNAVAILABLE",
+        "Não foi possível consultar os extratos do Mercado Pago.",503);
+      const raw=await readMercadoPagoJson(response);
+      if(!Array.isArray(raw))throw new DomainError(
+        "MERCADOPAGO_REPORT_FORMAT_UNEXPECTED",
+        "O Mercado Pago retornou uma lista de relatórios em formato inesperado.",503);
+      const complete=raw.length<=50;
+      const reports=raw.slice(0,50).map((item:any)=>{
+        const currency=String(item?.currency_id??"");
+        const status=String(item?.status??"").trim().toLowerCase();
+        const started=String(item?.begin_date??"");
+        const ended=String(item?.end_date??"");
+        const generated=String(item?.generation_date??"");
+        return {
+          status:["processed","pending","processing","failed"].includes(status)
+            ?status:"unknown",
+          currency:currency==="BRL"?"BRL":null,
+          test:item?.is_test===true,
+          generatedAt:Number.isFinite(Date.parse(generated))
+            ?new Date(generated).toISOString():null,
+          periodStart:Number.isFinite(Date.parse(started))
+            ?new Date(started).toISOString():null,
+          periodEnd:Number.isFinite(Date.parse(ended))
+            ?new Date(ended).toISOString():null
+        };
+      });
+      return json({
+        source:"mercadopago_release_reports_list_v1",
+        readOnly:true,available:true,
+        coverage:complete?"list_only":"partial",
+        reports,listedCount:reports.length,
+        moneyVerified:false,
+        // This returns ONLY report metadata. It never asserts that a
+        // specific coupon Pix or seller reimbursement has been reconciled.
+        checkedAt:new Date().toISOString()
+      },200,origin);
+    }
+
+    if(action==="clube-coupon-finance-status"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A conciliação de cupons exige perfil financeiro.",403);
+      }
+      // Read only. Empty is NOT a green light to enable coupon sales.
+      const missingTable=(error:any)=>["PGRST205","42P01"].includes(
+        String(error?.code||""));
+      const packageResult=await admin.from("clube_coupon_paid_packages")
+        .select("package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sale_price_cents,coupon_face_cents,coupons_per_pack")
+        .limit(101);
+      if(packageResult.error){
+        if(missingTable(packageResult.error)){
+          return json({source:"clube_coupon_finance_status_v1",readOnly:true,
+            schemaInstalled:false,coverage:"unavailable",
+            salesEnabled:false,checkoutEnabled:false,
+            packageCount:null,invoiceCount:null,voucherCount:null,
+            pendingNetCount:null,refundReviewCount:null,
+            merchantSettlementPendingCount:null,unfundedOfferCount:null,
+            paymentsChecked:false,reason:"COUPON_FINANCE_SCHEMA_NOT_INSTALLED"
+          },200,origin);
+        }
+        throw packageResult.error;
+      }
+      const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
+        admin.from("clube_coupon_paid_invoices")
+          .select("status,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
+          .limit(101),
+        admin.from("clube_coupon_paid_issuances")
+          .select("status").limit(101),
+        admin.from("clube_coupon_paid_order_applications")
+          .select("order_id").limit(26)
+      ]);
+      const queries=[invoiceResult,voucherResult,applicationResult];
+      const stageUnavailable=queries.find(result=>result.error&&
+        (missingTable(result.error)||["42703","PGRST204"].includes(
+          String(result.error.code||""))));
+      if(stageUnavailable){
+        return json({source:"clube_coupon_finance_status_v1",readOnly:true,
+          schemaInstalled:false,coverage:"unavailable",
+          salesEnabled:false,checkoutEnabled:false,
+          packageCount:null,invoiceCount:null,voucherCount:null,
+          pendingNetCount:null,refundReviewCount:null,
+          merchantSettlementPendingCount:null,unfundedOfferCount:null,
+          paymentsChecked:false,reason:"COUPON_CHECKOUT_SCHEMA_INCOMPLETE"
+        },200,origin);
+      }
+      if(invoiceResult.error||voucherResult.error||applicationResult.error){
+        throw invoiceResult.error||voucherResult.error||applicationResult.error;
+      }
+      // A bounded list is never allowed to report all-clear when truncated.
+      const bounded=packageResult.data?.length===101||
+        invoiceResult.data?.length===101||
+        voucherResult.data?.length===101||
+        applicationResult.data?.length===26;
+      const invoiceRows=invoiceResult.data||[];
+      const voucherRows=voucherResult.data||[];
+      const packages=packageResult.data||[];
+      const pendingNet=invoiceRows.filter((row:any)=>
+        row.status==="paid" && !row.net_proceeds_verified_at).length;
+      const financialReviews=invoiceRows.filter((row:any)=>
+        row.status==="review_required").length+
+        voucherRows.filter((row:any)=>row.status==="review_required").length;
+      const unfunded=packages.filter((pkg:any)=>
+        pkg.sale_enabled===true&&(
+          pkg.funding_verified!==true||pkg.legal_terms_verified!==true||
+          pkg.redeem_settlement_verified!==true||
+          pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack)
+      ).length;
+      // A separate query reuses the existing immutable accounting report.
+      let pendingSettlement=0;
+      let failedSettlement=0;
+      for(const item of applicationResult.data||[]){
+        const {data,error}=await admin.rpc("clube_coupon_paid_order_reconciliation",{
+          p_order_id:item.order_id
+        });
+        if(error||data?.source!=="clube_coupon_paid_order_reconciliation_v1"){
+          failedSettlement++;continue;
+        }
+        if(["MERCHANT_REIMBURSEMENT_MISSING","MERCHANT_REIMBURSEMENT_MISMATCH",
+          "MERCHANT_REIMBURSEMENT_DUE","CANCELLATION_REVIEW","REVERSAL_REVIEW",
+          "FINANCIAL_REVIEW"].includes(data.status))pendingSettlement++;
+      }
+      return json({
+        source:"clube_coupon_finance_status_v1",
+        readOnly:true,schemaInstalled:true,
+        coverage:bounded||failedSettlement>0?"partial":"bounded_under_limits",
+        salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+        checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
+        packageCount:packages.length,invoiceCount:invoiceRows.length,
+        voucherCount:voucherRows.length,
+        issuedCount:voucherRows.filter((v:any)=>v.status==="issued").length,
+        redeemedCount:voucherRows.filter((v:any)=>v.status==="redeemed").length,
+        pendingNetCount:pendingNet,
+        refundReviewCount:financialReviews,
+        unfundedOfferCount:unfunded,
+        merchantSettlementPendingCount:failedSettlement?null:pendingSettlement,
+        missingSettlementEvidenceCount:failedSettlement,
+        paymentsChecked:false,
+        reportType:"MP_RELEASES_REQUIRES_OPERATOR_RECONCILIATION",
+        refreshedAt:new Date().toISOString()
+      },200,origin);
+    }
 
     if(action==="clube-coupon-preview"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){

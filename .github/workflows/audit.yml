@@ -47,8 +47,6 @@ jobs:
         run: node tests/expert-fuzz.mjs
       - name: Financial invariant fuzz
         run: node tests/financial-invariants-fuzz.mjs
-      - name: Admin merchant catalog test without payments or orders
-        run: node tests/admin-merchant-catalog-trial.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
@@ -71,6 +69,36 @@ jobs:
         run: node tests/strip-admin-css.mjs
       - name: Release SHA truth and legacy PR triage contract
         run: node tests/release-version-truth.mjs
+      - name: Persistent execution checkpoint and release blockers
+        run: node tests/tamao-execution-checkpoint.mjs
+      - name: Shared discovery schema isolation and security
+        run: node tests/discovery-shared-verticals.mjs
+      - name: Public navigation does not swap during availability load
+        run: node tests/public-navigation-stability.mjs
+      - name: Public discovery journeys, HTML escaping and PWA assets
+        run: node tests/discovery-public-journeys.mjs
+      - name: Discovery favorites and verified-current shortlist
+        run: node tests/discovery-saved-shortlist.mjs
+      - name: Discovery loaded-listing sort per vertical, invalid data and mobile accessibility
+        run: node tests/discovery-loaded-result-sorting.mjs
+      - name: Manual comparison of only verified, saved and currently visible discovery listings
+        run: node tests/discovery-manual-comparison.mjs
+      - name: Advertiser real-draft client contract and safe uploads
+        run: node tests/discovery-owner-journey.mjs
+      - name: Regional wood, charcoal and ice units
+        run: node tests/regional-product-units.mjs
+      - name: Coupon Mercado Pago signed settlement contract
+        run: node tests/coupon-paid-pix-contract.mjs
+      - name: Authenticated Clube voucher viewer
+        run: node tests/clube-paid-coupon-view.mjs
+      - name: Funded coupon atomic checkout and account separation
+        run: node tests/coupon-atomic-checkout-contract.mjs
+      - name: Admin coupon finance read-only UI and permission regression
+        run: node tests/admin-clube-finance-status.mjs
+      - name: Admin merchant catalog dry-run without orders or Pix
+        run: node tests/admin-merchant-catalog-trial.mjs
+      - name: Superadmin ad moderation and review queue client contract
+        run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
         run: node tests/sql-function-terminators-v1-397.mjs
       - name: Read-only legacy SQL source provenance V1.399
@@ -503,18 +531,18 @@ jobs:
         run: node tests/payout-review-followup-deadlines-v1-338.mjs
       - name: City-first live/reference pricing V1.341 regression
         run: node tests/customer-city-price-showcase-v1-341.mjs
+      - name: Main production home quotes, coupon rail, true savings and empty state
+        run: node tests/home-publicacao-cotacoes-cupons-20261019.mjs
+      - name: Inline quote product CEP, basket and checkout regression #511
+        run: node tests/home-quote-inline-purchase-20261019.mjs
+      - name: Home V1.414 premium quote basket and CEP regression
+        run: node tests/home-quote-live-basket-v1-414.mjs
+      - name: V1.415 real offer preview, CEP handoff and expiry regression
+        run: node tests/home-verified-basket-comparison-v1-415.mjs
       - name: V1.346 marketing and accessibility design regression
         run: node tests/marketing-experience-v1-346.mjs
       - name: V1.362 public marketing and navigation regression
         run: node tests/public-marketing-v1-362.mjs
-      - name: Home quote board, local research, coupon CTA and real cashback
-        run: node tests/home-publicacao-cotacoes-cupons-20261019.mjs
-      - name: Inline price board CEP, cart and official checkout routing
-        run: node tests/home-quote-inline-purchase-20261019.mjs
-      - name: Home V1.414 cart panel, shared ZIP and product stepper regression
-        run: node tests/home-quote-live-basket-v1-414.mjs
-      - name: V1.415 verified quote preview and CEP handoff
-        run: node tests/home-verified-basket-comparison-v1-415.mjs
       - name: V1.367 commercial conversion analytics resilience
         run: node tests/marketing-conversion-observation-v1-367.mjs
       - name: V1.371 public visitor hierarchy and accessible page navigation
@@ -525,12 +553,12 @@ jobs:
         run: node tests/home-product-hero-v1-373.mjs
       - name: V1.374 commercial enrollment conversion regression
         run: node tests/commercial-entry-v1-374.mjs
-      - name: Fast opt-in advertiser contact, no trading activation #493
-        run: node tests/merchant-advertiser-light-signup-493.mjs
       - name: V1.375 public acquisition entry and UTM/referral integrity
         run: node tests/public-landing-entry-v1-375.mjs
       - name: V1.377 public editorial SEO, handoff and portal isolation
         run: node tests/public-editorial-seo-v1-377.mjs
+      - name: Discovery SEO PT and Argentina, six independent static pages
+        run: node tests/discovery-static-seo-pt-es-ar.mjs
       - name: Public benefits-first pages and pre-opening home
         run: node tests/public-benefits-first-v1-405.mjs
       - name: Public storytelling and benefits experience V1.406
@@ -553,6 +581,8 @@ jobs:
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
         run: node tests/mobile-first-action-v1-379.mjs
+      - name: Low-friction advertiser signup without merchant trading compliance
+        run: node tests/merchant-advertiser-light-signup.mjs
       - name: V1.380 checkout address and phone input integrity
         run: node tests/checkout-address-clarity-v1-380.mjs
       - name: V1.381 mobile offer details and request acceptance integrity
@@ -723,6 +753,8 @@ jobs:
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
           grep -Fq '✓ Compare preços' /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
+          # Quote-first home: avoid blocking CI on obsolete pre-redesign copy.
+          grep -Fq 'tamao-quote-first' /tmp/home.html
           grep -Fq 'tamao-home-coupon-rail' /tmp/home.html
           grep -Fq 'COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.' /tmp/home.html
           grep -q "Mais economia para quem compra. Mais oportunidades para quem vende." /tmp/home.html

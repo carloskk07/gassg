@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import './public-navigation-stability.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
@@ -10,6 +9,7 @@ const core=read('js/core.js');
 const index=read('index.html');
 const sw=read('sw.js');
 const css=read('css/marketing-premium.css');
+const components=read('css/components.css');
 
 // Syntax, route/CTA contract and truthful marketing, without remote services.
 for(const [name,code] of Object.entries({customer,growth,core}))
@@ -221,5 +221,73 @@ activeRoute='sponsors';
 assert.equal(audienceEnv.audience(),'merchant');
 activeRoute='home';
 assert.equal(audienceEnv.audience(),'customer');
+
+
+// High-CTR price and savings UI must never invent active coupons or turn
+// a pending merchant's draft price into an eligible public offer.
+const quoteBoard=read('js/home-showcase.js');
+new vm.Script(quoteBoard,{filename:'js/home-showcase.js'});
+assert.match(quoteBoard,/tamao-quote-first/);
+assert.match(quoteBoard,/tamao-home-coupon-rail/);
+assert.ok(quoteBoard.indexOf('city-price-grid')<quoteBoard.indexOf('tamao-home-coupon-rail'),
+ 'show prices first and coupon benefits immediately after');
+assert.match(quoteBoard,/Ver cupons e Clube/);
+assert.ok(quoteBoard.includes('Ver cupons e Clube'),'coupon CTA must exist');
+assert.ok(!quoteBoard.includes('Os preços reais substituem as referências automaticamente'),
+ 'internal data-refresh copy must not be shown to customers');
+assert.ok(quoteBoard.includes('snapshot.real===true'),'only verified data may become an offer');
+assert.ok(quoteBoard.includes('snapshot.notAQuote===true'),'regional data is not a quote');
+assert.ok(quoteBoard.includes('real.length?liveCards:references'),
+ 'do not show pending merchant prices as approved offers');
+assert.match(customer,/tamao-home-checkout-compare/);
+assert.match(customer,/tamao-home-coupon-rail/);
+assert.match(customer,/potentialBenefit=validTotal/);
+assert.ok(customer.includes('state.checkout.useCashback===true?estimatedBenefits:0'),
+ 'estimated checkout benefit now accounts for the opted-in pre-paid voucher and existing cashback');
+assert.ok(customer.includes("typeof clubePaidCouponVoucherForQuote==='function'"),
+ 'coupon is read only from verified account, with absent coupon support failing closed');
+assert.ok(!customer.includes('cupom automaticamente aplicado'),
+ 'do not imply coupon redemption where server redemption is absent');
+for(const selector of ['.tamao-home-coupon-rail','.tamao-home-checkout-compare']){
+ assert.ok(css.includes(selector),'published coupon/price stylesheet missing '+selector);
+}
+assert.ok(components.includes('.tamao-quote-benefit-grid'),
+  'shared components stylesheet must style quote benefits');
+
+// Evaluate the actual offer card with a confirmed quote and a test balance;
+// only actual opted-in cashback may change the request's payable amount.
+const offerBegin=customer.indexOf('function offerCard(o,facts={}){');
+const offerEnd=customer.indexOf('// V1.380',offerBegin);
+assert.ok(offerBegin>=0&&offerEnd>offerBegin);
+const checkState={user:{cashback:10},checkout:{useCashback:true,paymentMethod:'pix'}};
+const offerSandbox=vm.createContext({
+ state:checkState,globalThis:{liveRuntime:{}},CHAMA_INTERNAL_PILOT:false,
+ BRL:{format:value=>'R$ '+Number(value).toFixed(2)},
+ roundMoney:value=>Math.round(value*100)/100,paymentLabel:()=> 'Pix',
+ esc:value=>String(value??'')
+});
+vm.runInContext(customer.slice(offerBegin,offerEnd)+';this.offer=offerCard;',offerSandbox);
+const realQuote={id:'q-1',total:150,deliveryFee:10,eta:30,etaMax:45,roles:[]};
+const withBenefit=offerSandbox.offer(realQuote);
+assert.match(withBenefit,/SEM BENEFÍCIO/);
+assert.ok(withBenefit.includes('R$ 150.00'));
+assert.match(withBenefit,/COM CASHBACK TAMÃO/);
+assert.ok(withBenefit.includes('R$ 140.00'));
+assert.match(withBenefit,/selecionado/);
+checkState.checkout.useCashback=false;
+const previewOnly=offerSandbox.offer(realQuote);
+assert.match(previewOnly,/ative o uso do saldo acima/);
+assert.ok(!previewOnly.includes('Cashback selecionado (estimativa)'),
+ 'preview cannot be marked as applied before opt-in');
+checkState.user.cashback=0;
+const withoutBenefit=offerSandbox.offer(realQuote);
+assert.match(withoutBenefit,/Sem desconto aplicado/);
+assert.ok(!withoutBenefit.includes('COM CASHBACK TAMÃO')&&
+ withoutBenefit.includes('Sem desconto aplicado'),
+ 'do not invent a coupon discount or cashback without balance');
+const invalidQuote=offerSandbox.offer({id:'q-2',eta:45,roles:[]});
+assert.match(invalidQuote,/Total indisponível/);
+assert.doesNotMatch(invalidQuote,/class="tamao-home-checkout-compare"/,
+ 'malformed offer must not display false numerical prices');
 
 console.log('V1.366: marketing journeys, benefit conditions, sponsor attribution and mobile styles verified.');

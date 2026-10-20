@@ -11,7 +11,7 @@ new vm.Script(customer,{filename:'customer.js'});
 new vm.Script(acquisition,{filename:'acquisition.js'});
 
 const start=customer.indexOf('function homeChooseProduct(code){');
-const end=customer.indexOf('// Consulta ofertas reais',start);
+const end=customer.indexOf('function homeQuoteSyncPostal(',start);
 assert.ok(start>=0&&end>start);
 const selectorCode=customer.slice(start,end);
 function select({input='97300-000',current='11111111',demo=false,hidden=false,code='WATER20'}={}){

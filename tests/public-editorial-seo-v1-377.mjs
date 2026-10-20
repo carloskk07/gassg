@@ -62,9 +62,9 @@ try{
  const css=read('css/landing-editorial.css');
  const marketing=read('css/marketing-premium.css');
  assert.match(live,/if\(role==='customer'\)writePublicLandingPages/);
- assert.match(live,/PUBLIC_LANDING_SLUGS\.map/);
+ assert.ok(live.includes('[...PUBLIC_LANDING_SLUGS,...DISCOVERY_LANDING_SLUGS]'),'live sitemap must retain editorial and add discovery URLs');
  assert.match(publicBuild,/writePublicLandingPages\(out,\{origin:publicOrigin,indexing:cloudflare&&indexing\}\)/);
- assert.match(publicBuild,/PUBLIC_LANDING_SLUGS\.map/);
+ assert.ok(publicBuild.includes('[...PUBLIC_LANDING_SLUGS,...DISCOVERY_LANDING_SLUGS]'),'public build sitemap must retain editorial and add discovery URLs');
  assert.match(css,/\/assets\/tamao-products-sprite\.webp/);
  assert.match(core,/site-footer-editorial/);
  assert.match(core,/officialCustomerHost&&!globalThis\.merchantPortalRequested/);

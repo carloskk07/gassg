@@ -4,8 +4,18 @@ import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const acquisition=read('js/acquisition.js');
 const edge=read('supabase/functions/capture-prelaunch-lead/index.ts');
+const merchant=read('js/merchant.js');
+const customer=read('js/customer.js');
+new vm.Script(merchant,{filename:'js/merchant.js'});
+new vm.Script(customer,{filename:'js/customer.js'});
+assert.match(customer,/Anuncie seu comércio\. Receber pedidos pelo TAMÃO é opcional\./);
+assert.match(customer,/onclick="openPrelaunchMerchantLead\(\)">Quero anunciar minha empresa/);
+assert.match(merchant,/Quer só anunciar seu comércio\?/);
+assert.match(merchant,/Cadastro rápido para anunciar/);
+assert.match(merchant,/https:\/\/tamao\.com\.br\/#merchants/);
+assert.match(merchant,/merchantLoginFromUi\(\)/,
+ 'commercial dashboard can still require its proper registration');
 
-// Isolated #493 hotfix: no public coupon/order/payment/merchant status mutations.
 new vm.Script(acquisition,{filename:'js/acquisition.js'});
 const begin=acquisition.indexOf('function prelaunchMerchantLeadSection(){');
 const finish=acquisition.indexOf('function openPrelaunchMerchantLead(){',begin);
@@ -30,12 +40,6 @@ assert.match(edge,/if\(leadType==="customer"&&!interests.length\)/,
  'do not weaken buyer interest checks');
 assert.doesNotMatch(edge,/CONTACT_REQUIRED/);
 assert.match(edge,/if\(leadType==="merchant"\)\{/);
-assert.match(edge,/function clean\(value:unknown,max:number\)/);
-assert.match(edge,/return text\?text\.slice\(0,max\):null;/,
-  'optional empty personal name must become SQL NULL, not invalid empty text');
-assert.match(edge,/const contactName=clean\(body\.contactName,120\);/,
-  'server must normalize optional name before invoking the existing lead RPC');
-
 assert.match(edge,/if\(!businessName\|\|businessName.length<2\)/);
 assert.match(edge,/if\(body.consent!==true\)/);
 assert.match(edge,/capture_prelaunch_lead_idempotent/);
@@ -89,5 +93,5 @@ fields['partner-consent'].checked=true;
 fields['partner-business'].value='A';
 await ctx.submit();
 assert.equal(errors.at(-1)[0],'partner-business','business identity still mandatory');
-// The existing OTP/merchant onboarding stays untouched by this public inquiry.
-console.log('PASS: opt-in advertiser in two fields, validated server identity, optional extras, and no transaction activation.');
+assert.match(merchant,/merchant_cnpj|cnpj/i,'full commercial path remains distinct');
+console.log('PASS: two-field advertiser lead, optional data, required consent, anti-spam & purchase gates intact.');

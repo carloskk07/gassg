@@ -1,0 +1,175 @@
+/* TAMÃO — public discovery, scoped to avoid disturbing product checkout/admin. */
+.discovery-entrances{margin-block:26px 34px}
+.discovery-entrances h2{font-size:clamp(23px,3vw,33px);line-height:1.17}
+.discovery-entry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.discovery-entry-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:11px;
+  min-width:0;min-height:168px;padding:20px;border-radius:19px;
+  border:1px solid #cfdfd4;background:linear-gradient(155deg,#fff,#edf8f0);
+  box-shadow:0 9px 22px rgba(21,74,48,.06);text-align:left;color:#144633;cursor:pointer}
+.discovery-entry-grid strong{font-size:20px;letter-spacing:-.03em}
+.discovery-entry-grid span:last-child{margin-top:auto;font-weight:700;color:#166347}
+.discovery-entry-grid button:hover{border-color:#83bfa0;transform:translateY(-2px)}
+.discovery-entry-grid button:focus-visible,.discovery-search :focus-visible,
+.discovery-result a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.discovery-page{padding-block:34px 75px;max-width:1020px}
+.discovery-intro{max-width:760px;margin-bottom:22px}
+.discovery-intro h1{font-size:clamp(30px,4.4vw,48px);line-height:1.09;letter-spacing:-.04em;margin:9px 0 12px;color:#153e2d}
+.discovery-intro p{font-size:16px;color:#4d6657;line-height:1.65}
+.discovery-search{display:grid;grid-template-columns:minmax(0,.42fr) minmax(0,1fr) auto;align-items:end;
+ gap:12px;padding:18px;border:1px solid #d2e3d5;border-radius:18px;background:#f4faf5}
+.discovery-search label{display:grid;gap:6px;font-size:13px;font-weight:800;color:#23523d}
+.discovery-search select,.discovery-search input{width:100%;min-height:46px;padding:10px 12px;
+ background:#fff;border:1px solid #b9cfc0;border-radius:10px;font:inherit;color:#183c2b}
+.discovery-search button{min-height:46px}
+.discovery-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:22px}
+.discovery-results>p,.discovery-results>.notice{grid-column:1/-1}
+.discovery-result{display:flex;flex-direction:column;align-items:flex-start;gap:9px;
+ padding:21px;border-radius:17px;border:1px solid #d7e7d9;background:#fff;min-width:0}
+.discovery-result .discovery-photo{width:100%;aspect-ratio:16/9;object-fit:cover;
+ border-radius:11px;background:#edf3ee}
+.discovery-result h2{font-size:20px;margin:0;color:#143f2c;line-height:1.24}
+.discovery-result p{color:#53685a;line-height:1.55;margin:0;overflow-wrap:anywhere}
+.discovery-result .discovery-detail{font-weight:750;color:#2e6449}
+.discovery-result a{margin-top:auto;display:inline-flex;align-items:center;min-height:42px;
+ padding:10px 14px;background:#0d6b4b;color:#fff;border-radius:11px;
+ font-size:13px;font-weight:800;text-decoration:none}
+@media(max-width:760px){
+ .discovery-entry-grid,.discovery-results{grid-template-columns:minmax(0,1fr)}
+ .discovery-search{grid-template-columns:1fr}
+ .discovery-entry-grid button{min-height:0}
+ .discovery-page{padding-block:23px 72px}
+}
+@media(prefers-reduced-motion:reduce){
+ .discovery-entry-grid button{transition:none}
+ .discovery-entry-grid button:hover{transform:none}
+}
+
+
+/* Single advertiser workspace (customer origin only, loaded on demand). */
+.discovery-owner{max-width:1200px;padding-block:30px 80px}
+.discovery-owner-intro{max-width:830px;margin-bottom:24px}
+.discovery-owner-intro h1{font-size:clamp(28px,4vw,44px);color:#173d2d;line-height:1.1;margin:10px 0}
+.discovery-owner-intro p{color:#536a5a;line-height:1.6}
+.discovery-owner-layout{display:grid;grid-template-columns:minmax(230px,.75fr) minmax(0,1.4fr);align-items:start;gap:20px}
+.discovery-owner-layout>section,.discovery-owner-form,.discovery-owner-auth{min-width:0;border:1px solid #d1e2d6;background:#fff;border-radius:18px;padding:22px}
+.discovery-owner-form,.discovery-owner-auth{display:grid;gap:14px;max-width:100%}
+.discovery-owner-form label,.discovery-owner-auth label{display:grid;gap:6px;font-size:14px;font-weight:650;color:#28513e}
+.discovery-owner-form input,.discovery-owner-form textarea,.discovery-owner-form select,
+.discovery-owner-auth input{font:inherit;padding:10px 12px;min-width:0;width:100%;max-width:100%;min-height:44px;
+ border:1px solid #a7c2b0;border-radius:9px;color:#173d2d;background:#fff}
+.discovery-owner-form textarea{min-height:115px;resize:vertical}
+.discovery-owner-form button,.discovery-owner-auth button{min-height:46px}
+.discovery-owner-item{border:1px solid #d9e9dc;border-radius:12px;padding:14px;margin:12px 0;
+ display:grid;gap:9px;overflow-wrap:anywhere}
+.discovery-owner-item small{color:#53685a}
+.discovery-owner-actions{display:flex;flex-wrap:wrap;gap:7px}
+.discovery-owner-actions button,.discovery-owner-top button{border:1px solid #a1c8af;border-radius:9px;
+ background:#eff8f1;color:#185538;font:inherit;font-weight:700;padding:9px 12px;cursor:pointer}
+.discovery-owner-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:15px 0}
+.discovery-owner-message,.discovery-owner-error{padding:12px 15px;border-radius:10px;
+ border:1px solid #b5d0be;background:#eff8f1}
+.discovery-owner-error{border-color:#ddb7b7;background:#fff5f3;color:#8b2828}
+.discovery-owner-photos{display:flex;gap:8px;flex-wrap:wrap}
+.discovery-owner-photos img{width:104px;height:90px;object-fit:cover;border-radius:9px}
+.discovery-owner-photo{display:grid;gap:6px;max-width:154px;align-content:start}
+.discovery-owner-photo img{width:100%;height:110px}
+.discovery-owner-photo button{font:inherit;font-size:12px;font-weight:750;border:1px solid #b8cabc;
+ border-radius:9px;background:#f1f8f3;color:#205038;padding:8px;cursor:pointer}
+.discovery-owner :is(button,input,select,textarea):focus-visible{outline:3px solid #bd821b;outline-offset:2px}
+@media(max-width:760px){.discovery-owner-layout{grid-template-columns:1fr}
+ .discovery-owner-layout>section,.discovery-owner-form,.discovery-owner-auth{padding:16px}
+ .discovery-owner{padding-block:22px 70px}}
+
+/* Rich results, populated exclusively by moderated published listings. */
+.discovery-facts{display:grid;gap:7px;list-style:none;padding:0;margin:12px 0 15px}
+.discovery-facts li{padding:7px 10px;border:1px solid #dce9e0;background:#f3faf5;
+ border-radius:9px;color:#264c36;font-size:13px;overflow-wrap:anywhere}
+.discovery-search select,.discovery-search input{min-height:44px}
+.discovery-results{align-items:start}
+
+.discovery-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.discovery-actions a{display:inline-flex;align-items:center;justify-content:center}
+.discovery-more{display:block;margin:20px auto 8px;min-height:46px;padding:11px 24px;
+ border-radius:12px;border:1px solid #b6d6c2;color:#13583a;background:#eef8f0;font-weight:800;cursor:pointer}
+.discovery-more:disabled{cursor:wait;opacity:.7}
+.discovery-more:focus-visible{outline:3px solid #b98728;outline-offset:3px}
+
+.discovery-empty{grid-column:1/-1;padding:26px;border:1px dashed #aacbb8;
+ background:#f4fbf6;border-radius:15px;text-align:center}
+.discovery-empty p{margin:0 0 14px;color:#3d594a}
+.discovery-empty button{min-height:44px;padding:10px 18px;border-radius:11px;
+ border:1px solid #82b79b;background:#e3f5e9;color:#125739;font-weight:800;cursor:pointer}
+.discovery-empty button:focus-visible{outline:3px solid #b98728;outline-offset:3px}
+
+/* Published marketing imagery only. No private evidence is included. */
+.discovery-gallery{width:100%;min-width:0}
+.discovery-gallery-more{margin-top:7px;width:100%}
+.discovery-gallery-more summary{cursor:pointer;display:inline-flex;align-items:center;
+ min-height:38px;border:1px solid #bad5c4;border-radius:9px;padding:7px 11px;
+ background:#edf7f0;color:#15593d;font-size:13px;font-weight:800}
+.discovery-gallery-more summary:focus-visible{outline:3px solid #bd821b;outline-offset:2px}
+.discovery-gallery-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:9px}
+.discovery-gallery-grid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;background:#eaf4ed}
+.discovery-actions .discovery-direct-link{background:#edf7f1;color:#155b3c;border:1px solid #a5cbb1}
+.discovery-count{margin:16px 0 0;color:#375b45;font-size:13px;font-weight:750}
+.discovery-empty button+button{margin-left:9px}
+@media(max-width:440px){.discovery-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .discovery-empty button{margin:5px 3px}}
+
+/* Contact is a direct inquiry to the advertiser, never a TAMÃO reservation. */
+.discovery-inquiry{width:100%;border-top:1px solid #dbe8de;padding-top:9px;margin-top:6px}
+.discovery-inquiry summary{cursor:pointer;color:#135a3b;font-weight:800;font-size:13px;padding:8px 0}
+.discovery-inquiry summary:focus-visible,.discovery-inquiry a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.discovery-inquiry-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin:9px 0}
+.discovery-inquiry-fields label{display:grid;gap:5px;font-size:12px;font-weight:750;color:#284a39}
+.discovery-inquiry-fields input{min-width:0;width:100%;min-height:44px;padding:8px 10px;border:1px solid #accab6;border-radius:9px;background:#fff;color:#194d32;font:inherit}
+.discovery-inquiry-fields textarea{box-sizing:border-box;min-width:0;width:100%;min-height:94px;resize:vertical;padding:10px;border:1px solid #accab6;border-radius:9px;background:#fff;color:#194d32;font:inherit;line-height:1.5}
+.discovery-inquiry-fields textarea:focus-visible{outline:3px solid #bd821b;outline-offset:2px}
+.discovery-inquiry .discovery-inquiry-feedback{margin:5px 0;color:#a43a28;font-size:12px}
+.discovery-inquiry a{display:inline-flex;padding:10px 14px;min-height:44px;align-items:center;background:#e7f5eb;color:#12583a;border-radius:10px;font-size:13px;font-weight:850;text-decoration:none}
+
+/* Saved listings are device-local IDs; visible facts always come from public search. */
+.discovery-saved-bar{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:15px;padding:12px;border:1px solid #c4dccb;border-radius:13px;background:#f3f9f4}
+.discovery-saved-bar span{font-weight:850;color:#12583b;margin-right:auto;font-size:13px}
+.discovery-saved-bar button,.discovery-actions .discovery-save{min-height:44px;padding:9px 13px;border:1px solid #92b9a2;border-radius:9px;background:white;color:#17573c;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+.discovery-saved-bar button[aria-pressed="true"],.discovery-actions .discovery-save[aria-pressed="true"]{background:#e1f6e8;color:#125d39;border-color:#54a577}
+.discovery-saved-bar button:disabled{opacity:.5;cursor:not-allowed}
+.discovery-saved-bar button:focus-visible,.discovery-actions .discovery-save:focus-visible{outline:3px solid #b98728;outline-offset:3px}
+.discovery-saved-note,.discovery-saved-feedback{font-size:12px;color:#3a5948;margin:7px 0 12px}
+.discovery-shortlist{padding:15px;border:1px solid #a7cfb3;border-radius:15px;background:#f4faf6;margin:13px 0}
+.discovery-shortlist h2{font-size:19px;margin:0 0 6px}
+.discovery-shortlist>p{font-size:12px;color:#365341;margin:0 0 11px}
+.discovery-shortlist-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.discovery-shortlist-card{min-width:0;display:grid;align-content:start;gap:7px;background:#fff;border:1px solid #d4e8db;border-radius:11px;padding:12px;overflow-wrap:anywhere}
+.discovery-shortlist-card strong{font-size:15px;color:#173d2b}
+.discovery-shortlist-card span,.discovery-shortlist-card p{font-size:12px;line-height:1.4;color:#395947;margin:0}
+.discovery-shortlist-card a{font-size:13px;color:#125d3a;font-weight:850}
+@media(max-width:760px){.discovery-shortlist-grid{grid-template-columns:1fr}.discovery-saved-bar button{flex:1 1 135px}}
+
+/* The selected order changes only the current public-search page. */
+.discovery-sort-bar{display:flex;flex-wrap:wrap;align-items:center;gap:9px 14px;margin:16px 0 8px;padding:10px 12px;border:1px solid #d0e3d7;border-radius:11px;background:#f7fbf8}
+.discovery-sort-bar label{font-size:13px;font-weight:800;color:#214a36}
+.discovery-sort-bar select{min-height:44px;min-width:175px;max-width:100%;border:1px solid #96bca4;border-radius:9px;padding:8px 12px;background:#fff;color:#17452e;font:inherit;font-size:13px}
+.discovery-sort-bar select:focus-visible{outline:3px solid #b98728;outline-offset:2px}
+.discovery-sort-bar span{font-size:12px;color:#466552;flex:1 1 215px}
+@media(max-width:560px){.discovery-sort-bar{display:grid;gap:8px}.discovery-sort-bar select{width:100%}}
+
+.discovery-actions .discovery-pick{min-height:44px;padding:9px 12px;border:1px solid #9ebdad;border-radius:9px;background:#fff;color:#255743;font:inherit;font-weight:750;cursor:pointer}
+.discovery-actions .discovery-pick[aria-pressed="true"]{border-color:#14794d;background:#dbf4e4;color:#075b38}
+.discovery-actions .discovery-pick:focus-visible{outline:3px solid #b98728;outline-offset:3px}
+@media(max-width:560px){.discovery-actions .discovery-pick{flex:1 1 145px}}
+
+/* Verified account reports stay compact and separate from public contact. */
+.discovery-report{width:100%;margin-top:8px;padding:12px;border:1px solid #d5e5d9;
+ border-radius:12px;background:#f8fbf9}
+.discovery-report summary{cursor:pointer;font-weight:750;color:#345a44;min-height:32px}
+.discovery-report form{display:grid;gap:12px;margin-top:12px}
+.discovery-report label{display:grid;gap:5px;font-weight:650;font-size:14px}
+.discovery-report select,.discovery-report textarea{width:100%;min-width:0;padding:10px;
+ border:1px solid #9bbca8;border-radius:9px;background:#fff;color:#173f2d;font:inherit}
+.discovery-report button{min-height:44px;padding:10px 16px;border:1px solid #1c6b47;
+ border-radius:9px;background:#fff;color:#195b3b;font-weight:750;cursor:pointer}
+.discovery-report button:disabled{opacity:.6;cursor:wait}
+.discovery-report :is(summary,button,textarea,select):focus-visible{
+ outline:3px solid #bf8d36;outline-offset:2px}
+.discovery-report-feedback{font-size:14px;line-height:1.4;overflow-wrap:anywhere}

@@ -32,8 +32,23 @@ const products={
   P45:{name:'Gás P45',icon:'🔥'},
   WATER20:{name:'Água 20 L',icon:'💧'},
   CHARCOAL4:{name:'Carvão 4 kg',icon:'⚫'},
+  CHARCOAL2:{name:'Carvão — saco 2 kg',icon:'⚫'},
+  CHARCOAL3:{name:'Carvão — saco 3 kg',icon:'⚫'},
+  CHARCOAL5:{name:'Carvão — saco 5 kg',icon:'⚫'},
+  CHARCOAL8:{name:'Carvão — saco 8 kg',icon:'⚫'},
+  CHARCOAL10:{name:'Carvão — saco 10 kg',icon:'⚫'},
   WOOD:{name:'Lenha',icon:'🪵'},
-  ICE5:{name:'Gelo 5 kg',icon:'🧊'}
+  WOOD_SACK:{name:'Lenha — saco',icon:'🪵'},
+  WOOD_100:{name:'Lenha — cento de peças',icon:'🪵'},
+  WOOD_1000:{name:'Lenha — milheiro de peças',icon:'🪵'},
+  ICE5:{name:'Gelo 5 kg',icon:'🧊'},
+  ICE2:{name:'Gelo em cubos — saco 2 kg',icon:'🧊'},
+  ICE3:{name:'Gelo em cubos — saco 3 kg',icon:'🧊'},
+  ICE10:{name:'Gelo em cubos — saco 10 kg',icon:'🧊'},
+  ICE_CRUSH5:{name:'Gelo triturado — saco 5 kg',icon:'🧊'},
+  ICE_BLOCK:{name:'Gelo em barra — unidade',icon:'🧊'},
+  ICE_BLOCK10:{name:'Gelo em barra — 10 kg',icon:'🧊'},
+  ICE_BLOCK20:{name:'Gelo em barra — 20 kg',icon:'🧊'}
 };
 function glpKgForProductCode(value){
   const code=String(value??'').trim().toUpperCase();

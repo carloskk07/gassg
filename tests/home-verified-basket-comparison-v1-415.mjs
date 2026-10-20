@@ -47,7 +47,7 @@ const budgetFields=['.city-price-verified-list{','.city-price-verified-option{']
 for(const field of budgetFields)assert.ok(css.includes(field),'missing verified quote UI stylesheet');
 
 const start=customer.indexOf('function homeQuoteSyncPostal(');
-const end=customer.indexOf('// Consulta ofertas reais quando a sessão está pronta;',start);
+const end=customer.indexOf('function startCustomerAvailability(',start);
 assert.ok(start>=0&&end>start);
 let postal='90000-000',saved=0,routes=[],messages=[],invalidates=0,focus=0;
 const field={get value(){return postal},focus(){focus++}};

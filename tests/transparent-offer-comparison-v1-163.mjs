@@ -52,7 +52,7 @@ assert.deepEqual(ids("sortedCheckoutOffers(globalThis.liveRuntime.offers,'soones
 assert.deepEqual(ids('globalThis.liveRuntime.offers.map(o=>o.id)'),
   ['quote-recommended','quote-cheap','quote-fast'],'Sorting cannot modify backend arrays');
 const initial=run('checkoutOfferComparison(globalThis.liveRuntime.offers)');
-assert.ok(initial.includes('Compare 3 opções'), 'Customer-friendly comparison heading');
+assert.ok(initial.includes('Compare 3 ofertas e seus benefícios'), 'Customer-friendly comparison heading');
 assert.ok(initial.includes('Sugeridas')&&initial.includes('Menor total')&&initial.includes('Menor prazo'),
   'Required sort controls');
 assert.ok(initial.includes('TOTAL COM ENTREGA')&&initial.includes('PREVISÃO DE ENTREGA'));
@@ -84,10 +84,12 @@ assert.deepEqual(buttons.map(b=>b.pressed),['false','false','true'],
 
 state.checkout.useCashback=true;
 const discounted=run('offerCard(globalThis.liveRuntime.offers[0])');
-assert.ok(discounted.includes('R$ 120,00')&&discounted.includes('Estimativa após cashback: R$ 100,00'),
+assert.ok(discounted.includes('R$ 120,00')&&discounted.includes('Total estimado a pagar: R$ 100,00'),
  'Quote total and conditional cashback must remain separately disclosed');
-assert.ok(discounted.includes('O valor aplicável é confirmado na criação do pedido.'));
+assert.ok(discounted.includes('O desconto aplicável será confirmado ao enviar o pedido.'));
 assert.ok(!discounted.includes('Total a pagar R$ 100,00'),'No unconditional cashback promise');
+assert.ok(discounted.includes('SEM BENEFÍCIO')&&discounted.includes('COM CASHBACK TAMÃO'),
+ 'Keep verified gross price separate from an estimated optional discount');
 
 const ties=[
   {id:'a',roles:['Recomendado'],total:110,eta:20,etaMax:30,trust:0},
