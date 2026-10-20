@@ -10,7 +10,7 @@ function homeQuoteBasketMarkup(cart){
   '<strong>'+(units?units+' '+(units===1?'unidade selecionada':'unidades selecionadas'):'Escolha um produto para começar')+'</strong>'+
   '<span>'+(units?'Consulte o total com entrega e descontos aplicáveis no próximo passo.':'Selecione gás, água, lenha ou outro item da cotação.')+'</span>'+
   (items?'<div class="city-price-basket-items">'+items+'</div>':'')+'</div>'+
-  '<button type="button" class="primary" onclick="homeQuoteGoToCheckout()"'+(units?'':' disabled')+'>Ver cesta e consultar →</button>';
+  '<button type="button" class="primary" onclick="homeQuoteGoToOrder()"'+(units?'':' disabled')+'>Ver cesta e consultar →</button>';
 }
 
 // Expand a product directly below its price; never use research prices as checkout offers.
