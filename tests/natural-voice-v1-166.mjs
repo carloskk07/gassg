@@ -14,7 +14,7 @@ for(const [source,phrase,why] of [
  [customer,'Ainda não encontramos uma revenda que entregue neste CEP.','falta de atendimento sem falsa oferta'],
  [acquisition,'Veja se já há entrega para o seu CEP.','consulta por região'],
  [acquisition,'Seu pedido de aviso para','confirmação do interesse sem simular atendimento'],
- [acquisition,'Esse contato não libera vendas.','entrada gradual da revenda'],
+ [acquisition,'Anunciar é diferente de receber pedidos pela plataforma.','entrada gradual para anúncio sem ativar vendas'],
  [growth,'Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.','página de explicação'],
  [growth,'A taxa do TAMÃO só é cobrada sobre pedidos concluídos.','política comercial sem engano'],
  [growth,'O cliente paga diretamente à sua revenda','dinheiro do cliente direto ao fornecedor'],
