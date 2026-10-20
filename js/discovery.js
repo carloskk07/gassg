@@ -11,7 +11,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',error:'',seq:0} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',error:'',seq:0} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -70,11 +70,17 @@ function discoveryPage(){
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
     '<option value="'+uf+'"'+(s.state===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></label>'+
     '<label>Cidade<input id="discovery-city" autocomplete="address-level2" placeholder="Digite a cidade" maxlength="120" value="'+esc(s.city)+'"></label>'+
+    (kind==='professionals'?'<label>Profissão ou especialidade<input id="discovery-occupation" maxlength="100" placeholder="Ex.: eletricista" value="'+esc(s.occupation)+'"></label>':'')+
     (kind==='rides'
       ?'<label>Origem<input id="discovery-origin" maxlength="120" value="'+esc(s.origin)+'" placeholder="Saindo de"></label>'+
        '<label>Destino<input id="discovery-destination" maxlength="120" value="'+esc(s.destination)+'" placeholder="Indo para"></label>'+ 
-       '<label>Saída a partir de<input id="discovery-departure-after" type="datetime-local" value="'+esc(s.departureAfter)+'"></label>'
-      :kind==='stays'?'<label>Hóspedes<input id="discovery-guests" type="number" min="1" max="80" value="'+esc(s.guests)+'"></label>':'')+
+       '<label>Saída a partir de<input id="discovery-departure-after" type="datetime-local" value="'+esc(s.departureAfter)+'"></label>'+
+       '<label>Vagas mínimas<input id="discovery-min-seats" type="number" min="1" max="8" step="1" value="'+esc(s.minSeats)+'" placeholder="Ex.: 2"></label>'
+      :kind==='stays'?'<label>Hóspedes<input id="discovery-guests" type="number" min="1" max="80" value="'+esc(s.guests)+'"></label>'+
+       '<label>Tipo de hospedagem<select id="discovery-property-type"><option value="">Todos os tipos</option>'+
+       [['hotel','Hotel'],['inn','Pousada'],['holiday_house','Casa de temporada'],['beach_house','Casa de praia'],['apartment','Apartamento'],['cabin','Cabana'],['country_house','Casa de campo'],['other','Outro']].map(([code,label])=>
+        '<option value="'+code+'"'+(s.propertyType===code?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
+       '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button></form>'+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
     '<div class="discovery-results" aria-live="polite">'+content+'</div></section>');
@@ -90,6 +96,10 @@ function discoverySearchFromUi(event){
   s.destination=String(document.getElementById('discovery-destination')?.value||'').trim().slice(0,120);
   s.departureAfter=kind==='rides'?String(document.getElementById('discovery-departure-after')?.value||'').trim().slice(0,16):'';
   s.guests=String(document.getElementById('discovery-guests')?.value||'').trim().slice(0,3);
+  s.occupation=kind==='professionals'?String(document.getElementById('discovery-occupation')?.value||'').trim().slice(0,100):'';
+  s.minSeats=kind==='rides'?String(document.getElementById('discovery-min-seats')?.value||'').trim().slice(0,2):'';
+  s.propertyType=kind==='stays'?String(document.getElementById('discovery-property-type')?.value||'').trim().slice(0,20):'';
+  s.maxPrice=kind==='stays'?String(document.getElementById('discovery-max-price')?.value||'').trim().slice(0,12):'';
   discoveryFetch();
   return false;
 }
@@ -112,6 +122,10 @@ async function discoveryFetch(){
       p_departure_after:kind==='rides'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.departureAfter)&&
         Number.isFinite(Date.parse(s.departureAfter))?new Date(s.departureAfter).toISOString():null,
       p_min_guests:kind==='stays'&&/^[1-9][0-9]?$/.test(s.guests)&&Number(s.guests)<=80?Number(s.guests):null,
+      p_occupation_query:kind==='professionals'&&s.occupation?s.occupation:null,
+      p_min_seats:kind==='rides'&&/^[1-8]$/.test(s.minSeats)?Number(s.minSeats):null,
+      p_property_type:kind==='stays'&&['hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other'].includes(s.propertyType)?s.propertyType:null,
+      p_max_price_cents:kind==='stays'&&/^(?:0|[1-9][0-9]{0,5})(?:[.][0-9]{1,2})?$/.test(s.maxPrice)&&Number(s.maxPrice)<=500000?Math.round(Number(s.maxPrice)*100):null,
       p_limit:24
     });
     if(error)throw error;
