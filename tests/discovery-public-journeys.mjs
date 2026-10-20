@@ -9,14 +9,18 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 })[c]);
 let current='professionals',results=[],calls=[],rendered=0;
-let requestedDeparture='';
+let requestedDeparture='',profession='Eletricista',minSeats='2',propertyType='inn',maxPrice='300';
 const sandbox={
  route:()=>current,shell:s=>s,esc,BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
  chamaFetch:async()=>({}),CHAMA_BACKEND:{url:'https://example.test',publishableKey:'test-publishable'},
  render:()=>{rendered++;},
  document:{getElementById:(id)=>({
    'discovery-uf':{value:'SC'},'discovery-city':{value:'Florianópolis'},
-   'discovery-departure-after':{value:requestedDeparture}
+   'discovery-departure-after':{value:requestedDeparture},
+   'discovery-occupation':{value:profession},
+   'discovery-min-seats':{value:minSeats},
+   'discovery-property-type':{value:propertyType},
+   'discovery-max-price':{value:maxPrice}
  })[id]},
  loadSupabaseBrowser:async()=>({
    createClient:(_url,_key,opts)=>{
@@ -64,6 +68,11 @@ sandbox.discoverySearchFromUi({preventDefault(){}});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_state_code,'SC');
 assert.equal(calls.at(-1)[1].p_city_key,'florianopolis');
+assert.match(sandbox.discoveryPage(),/id="discovery-occupation"/);
+assert.equal(calls.at(-1)[1].p_occupation_query,'Eletricista');
+assert.equal(calls.at(-1)[1].p_min_seats,null);
+assert.equal(calls.at(-1)[1].p_property_type,null);
+assert.equal(calls.at(-1)[1].p_max_price_cents,null);
 for(const [kind,term] of [['rides','CARONAS'],['stays','HOSPEDAGENS']]){
  current=kind;
  results=[];
@@ -82,12 +91,31 @@ await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_departure_after,new Date(requestedDeparture).toISOString(),
  'ride date filter must be sent in UTC, preserving local visitor intent');
 assert.equal(calls.at(-1)[1].p_min_guests,null);
+assert.match(sandbox.discoveryPage(),/id="discovery-min-seats"/);
+assert.equal(calls.at(-1)[1].p_min_seats,2);
+assert.equal(calls.at(-1)[1].p_occupation_query,null);
+assert.equal(calls.at(-1)[1].p_max_price_cents,null);
 current='stays';
 requestedDeparture='';
 sandbox.discoverySearchFromUi({preventDefault(){}});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_departure_after,null,
  'stays must not inherit ride date filters');
+assert.match(sandbox.discoveryPage(),/id="discovery-property-type"/);
+assert.match(sandbox.discoveryPage(),/id="discovery-max-price"/);
+assert.equal(calls.at(-1)[1].p_property_type,'inn');
+assert.equal(calls.at(-1)[1].p_max_price_cents,30000);
+assert.equal(calls.at(-1)[1].p_min_seats,null);
+assert.equal(calls.at(-1)[1].p_occupation_query,null);
+// Invalid and deliberately oversized values never become broad, unintended RPC filters.
+minSeats='9';propertyType='other<script>';maxPrice='600000';
+current='rides';sandbox.discoverySearchFromUi({preventDefault(){}});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_min_seats,null);
+current='stays';sandbox.discoverySearchFromUi({preventDefault(){}});
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.at(-1)[1].p_property_type,null);
+assert.equal(calls.at(-1)[1].p_max_price_cents,null);
 current='admin';
 assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
