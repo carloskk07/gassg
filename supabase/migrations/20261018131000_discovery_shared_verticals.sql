@@ -548,7 +548,9 @@ create function public.discovery_public_search(
   occupation text,departure_city text,destination_city text,
   departure_at timestamptz,seats_available integer,
   property_type text,guests integer,bedrooms integer,
-  price_from_brl_cents integer,price_unit text
+  price_from_brl_cents integer,price_unit text,
+  service_area text,years_experience integer,
+  proposed_cost_share_cents integer,amenities text[]
 ) language sql stable security invoker set search_path='pg_catalog'
 as $$
  select
@@ -556,7 +558,8 @@ as $$
   l.public_area,l.whatsapp_e164,l.photo_urls,l.published_at,
   pro.occupation,r.departure_city,r.destination_city,r.departure_at,
   r.seats_available,st.property_type,st.guests,st.bedrooms,
-  st.price_from_brl_cents,st.price_unit
+  st.price_from_brl_cents,st.price_unit,
+  pro.service_area,pro.years_experience,r.proposed_cost_share_cents,st.amenities
  from public.discovery_listings l
  left join public.discovery_professional_details pro
    on pro.listing_id=l.id and l.vertical='professionals'
