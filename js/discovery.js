@@ -11,7 +11,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -128,7 +128,10 @@ function discoveryPage(){
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button></form>'+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
-    '<div class="discovery-results" aria-live="polite">'+content+'</div></section>');
+    '<div class="discovery-results" aria-live="polite">'+content+'</div>'+
+    (s.hasMore?'<button type="button" class="secondary discovery-more" onclick="discoveryLoadMore()"'+(s.status==='loading-more'?' disabled':'')+'>'+(s.status==='loading-more'?'Carregando anúncios…':'Carregar mais anúncios')+'</button>':'')+
+    (s.status==='ready'&&s.error?'<p role="alert">Não foi possível trazer mais anúncios. Tente novamente.</p>':'')+
+    '</section>');
 }
 function discoverySearchFromUi(event){
   event?.preventDefault?.();
@@ -149,11 +152,19 @@ function discoverySearchFromUi(event){
   discoveryFetch();
   return false;
 }
-async function discoveryFetch(){
+function discoveryLoadMore(){
+ const kind=discoveryKind();
+ if(kind&&discoveryState(kind).status==='ready'&&discoveryState(kind).hasMore)discoveryFetch(true);
+}
+async function discoveryFetch(more=false){
   const kind=discoveryKind();
   if(!kind)return;
-  const s=discoveryState(kind),seq=++s.seq;
-  s.status='loading';s.items=[];s.error='';render();
+  const s=discoveryState(kind);
+  if(more&&(!s.hasMore||s.status!=='ready'))return;
+  const seq=++s.seq,previous=more?s.items.slice():[],offset=more?s.offset:0;
+  s.status=more?'loading-more':'loading';
+  if(!more){s.items=[];s.offset=0;s.hasMore=false}
+  s.error='';render();
   try{
     const sdk=await loadSupabaseBrowser();
     const client=sdk.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
@@ -173,16 +184,24 @@ async function discoveryFetch(){
       p_property_type:kind==='stays'&&['hotel','inn','holiday_house','beach_house','apartment','cabin','country_house','other'].includes(s.propertyType)?s.propertyType:null,
       p_max_price_cents:kind==='stays'&&/^(?:0|[1-9][0-9]{0,5})(?:[.][0-9]{1,2})?$/.test(s.maxPrice)&&Number(s.maxPrice)<=500000?Math.round(Number(s.maxPrice)*100):null,
       p_listing_id:s.sharedId||null,
-      p_limit:24
+      p_limit:24,p_offset:offset
     });
     if(error)throw error;
     if(seq!==s.seq)return;
     if(!Array.isArray(data))throw new Error('Resposta inválida');
-    s.items=data.filter(item=>item&&item.vertical===kind);
+    const rows=data.filter(item=>item&&item.vertical===kind);
+    if(more){
+      const seen=new Set(previous.map(item=>item.id));
+      s.items=[...previous,...rows.filter(item=>!seen.has(item.id))];
+    }else s.items=rows;
+    s.offset=offset+data.length;
+    s.hasMore=data.length===24&&s.offset<500;
     s.status='ready';
   }catch(e){
     if(seq!==s.seq)return;
-    s.status='error';s.error=String(e?.message||'Falha na consulta.');
+    s.status=more?'ready':'error';
+    if(more)s.items=previous;
+    s.error=String(e?.message||'Falha na consulta.');
   }
   if(discoveryKind()===kind)render();
 }
