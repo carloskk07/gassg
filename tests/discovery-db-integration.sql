@@ -465,6 +465,38 @@ begin
  exception when sqlstate '22023' then null;end;
 end $photocheck$;
 rollback;
+-- Quotas de uploads: custo limitado mesmo com rajada de chamadas do mesmo usuário.
+reset role;
+begin;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $quota_fixture$
+declare
+ v_actor text:=(select auth.uid())::text;
+ v_existing integer;
+ i integer;
+ v_path text;
+begin
+ select count(*) into v_existing from storage.objects
+  where bucket_id='tamao-discovery-photos' and owner_id=v_actor;
+ if v_existing>=24 then raise exception 'PHOTO_QUOTA_FIXTURE_FULL';end if;
+ for i in v_existing+1..24 loop
+   v_path:=v_actor||'/11111111-1111-4111-8111-'||lpad(i::text,12,'0')||'.jpg';
+   insert into storage.objects(bucket_id,name,owner_id,metadata)
+   values('tamao-discovery-photos',v_path,v_actor,
+     '{"mimetype":"image/jpeg"}'::jsonb);
+ end loop;
+ if public.discovery_storage_quota_ok('tamao-discovery-photos') then
+    raise exception 'PHOTO_QUOTA_NOT_ENFORCED';end if;
+ begin
+    insert into storage.objects(bucket_id,name,owner_id,metadata)
+    values('tamao-discovery-photos',v_actor||'/22222222-2222-4222-8222-222222222222.jpg',v_actor,
+    '{"mimetype":"image/jpeg"}'::jsonb);
+    raise exception 'DISCOVERY_STORAGE_QUOTA_BYPASSED';
+ exception when insufficient_privilege then null;end;
+end $quota_fixture$;
+rollback;
+
 -- V1.416: real PostgreSQL 17 filtering, all actors isolated and rolled back.
 -- These fixtures exist ONLY in disposable CI, never in Supabase production.
 reset role;
