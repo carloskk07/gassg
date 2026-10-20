@@ -199,7 +199,7 @@ assert.ok(leadRetryOrdering.includes('revoke all on table public.prelaunch_lead_
 assert.ok(publicRetryIdempotency.includes('public_requests_idempotency_key_uidx')&&publicRetryIdempotency.includes('prelaunch_leads_last_submission_idempotency_uidx'),'banco precisa impor unicidade das chaves públicas de retry');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão.'),'shell deve carregar a identidade TAMÃO');
-assert.ok(customer.includes('Faltou em casa?')&&customer.includes('Tá na mão.')&&customer.includes('Gás, água e essenciais para sua rotina.'),'hero deve apresentar o problema do cliente, a marca e as categorias sem promessas fictícias');
+assert.ok(customer.includes('Faltou em casa?')&&customer.includes('Tá na mão.')&&customer.includes('Compare preços e conheça as vantagens do TAMÃO.')&&customer.includes('Gás, água e o essencial do dia a dia'),'hero deve apresentar o problema do cliente, a marca e as categorias sem promessas fictícias');
 assert.ok(!/\bChama\b/.test([customer,merchant,growth,admin,backend].join('\n')),'copy pública não pode regredir para a marca anterior');
 assert.ok(core.includes("const STORAGE='chama-sg-state-v2'")&&backend.includes('CHAMA_CUSTOMER_ORIGIN'),'rebrand não pode quebrar identificadores técnicos legados nesta versão');
 assert.ok(customer.includes('SEU PEDIDO, SEM FICAR NA DÚVIDA.')&&customer.includes('Se a nova opção custar mais, você decide se aceita'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
