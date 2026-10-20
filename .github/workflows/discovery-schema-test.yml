@@ -13,6 +13,12 @@ on:
       - 'tests/coupon-atomic-checkout-fixture-postgres-17.sql'
       - 'tests/coupon-atomic-checkout-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
+  push:
+    branches: [feat/unified-discovery-tamao]
+    paths:
+      - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
+      - 'tests/discovery-db-integration.sql'
+      - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
 
 permissions:
