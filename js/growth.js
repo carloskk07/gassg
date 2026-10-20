@@ -764,7 +764,7 @@ function merchantsLanding(){
         </div>
         <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
       </div>
-      <details class="merchant-secondary-lead"><summary>Prefere conversar antes? Deixe seu contato</summary>
+      <details class="merchant-secondary-lead" open><summary>Quero anunciar meu comércio com nome e WhatsApp</summary>
         ${prelaunchMerchantLeadSection()}
       </details>
     </section>`}
