@@ -86,3 +86,10 @@
  border-radius:9px;color:#264c36;font-size:13px;overflow-wrap:anywhere}
 .discovery-search select,.discovery-search input{min-height:44px}
 .discovery-results{align-items:start}
+
+.discovery-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.discovery-actions a{display:inline-flex;align-items:center;justify-content:center}
+.discovery-more{display:block;margin:20px auto 8px;min-height:46px;padding:11px 24px;
+ border-radius:12px;border:1px solid #b6d6c2;color:#13583a;background:#eef8f0;font-weight:800;cursor:pointer}
+.discovery-more:disabled{cursor:wait;opacity:.7}
+.discovery-more:focus-visible{outline:3px solid #b98728;outline-offset:3px}
