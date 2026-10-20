@@ -154,6 +154,70 @@ const stayFields=ctx.discoveryOwnerTypeFields('stays',{});
 assert.match(stayFields,/name="amenities"/);
 assert.match(stayFields,/name="price_unit"/);
 assert.match(stayFields,/name="units"/);
+// Owner-authorized source import: the URL identifies a platform, it does NOT
+// authorize network scraping, photo copying or an unreviewed publication.
+assert.equal(ctx.discoveryOwnerImportSource('http://www.booking.com/hotel/br/casa-do-sol.html'),null);
+assert.equal(ctx.discoveryOwnerImportSource('https://www.booking.com.evil.test/hotel/br/casa-do-sol.html'),null);
+assert.equal(ctx.discoveryOwnerImportSource('https://user:pass@www.booking.com/hotel/br/casa-do-sol.html'),null);
+assert.equal(ctx.discoveryOwnerImportSource('https://www.booking.com:444/hotel/br/casa-do-sol.html'),null);
+assert.equal(ctx.discoveryOwnerImportSource('https://example.com/hotel/br/casa-do-sol.html'),null);
+assert.equal(ctx.discoveryOwnerImportSource('https://airbnb.com/rooms/nope'),null);
+const sourceBooking=ctx.discoveryOwnerImportSource('https://www.booking.com/hotel/br/pousada-do-centro.pt-br.html?aid=123');
+assert.equal(sourceBooking?.provider,'Booking.com');
+assert.equal(sourceBooking?.proposedTitle,'pousada do centro');
+const sourceAirbnb=ctx.discoveryOwnerImportSource('https://www.airbnb.com/rooms/12345678?check_in=2026-12-01');
+assert.equal(sourceAirbnb?.provider,'Airbnb');
+assert.equal(sourceAirbnb?.proposedTitle,'');
+const copiedFields=[
+ 'Título: Pousada do Centro','Descrição: Quartos confortáveis no centro com wi-fi e estacionamento.',
+ 'Cidade: São Gabriel','Hóspedes: 4','Quartos: 2','Camas: 3',
+ 'Comodidades: Wi-Fi, Estacionamento','Preço: R$ 289,50'
+].join('\n');
+const parsedImport=ctx.discoveryOwnerImportPayload(copiedFields);
+assert.equal(parsedImport.title,'Pousada do Centro');
+assert.equal(parsedImport.description,'Quartos confortáveis no centro com wi-fi e estacionamento.');
+assert.equal(parsedImport.city_name,'São Gabriel');
+assert.equal(parsedImport.guests,4);
+assert.equal(parsedImport.bedrooms,2);
+assert.equal(parsedImport.beds,3);
+assert.equal(parsedImport.price_from,'289.50');
+assert.equal(JSON.stringify(parsedImport.amenities),'["Wi-Fi","Estacionamento"]');
+const fromJson=ctx.discoveryOwnerImportPayload(JSON.stringify({
+ title:'Chalé para descansar',description:'Hospedagem com cozinha e vista para a região.',
+ city:'Bagé',guests:2,beds:1,price_from:'1.250,40',
+ amenities:['Wi-Fi','Cozinha'],property_type:'cabin',
+ owner_id:'not-owner',status:'published',whatsapp_e164:'+123',photo_urls:['https://evil']
+}));
+assert.equal(fromJson.city_name,'Bagé');
+assert.equal(fromJson.price_from,'1250.40');
+assert.equal(fromJson.property_type,'cabin');
+for(const bad of ['owner_id','status','whatsapp_e164','photo_urls']){
+ assert.equal(Object.hasOwn(fromJson,bad),false,'never import privileged field '+bad);
+}
+assert.equal(ctx.discoveryOwnerImportPayload('{invalid json').title,undefined);
+assert.equal(ctx.discoveryOwnerImportPayload('Título: Hotel sem capacidade\nHóspedes: 999').guests,undefined);
+// The public form should be prefilled in the existing draft editor, never
+// stored or submitted merely because a third-party URL was recognized.
+ctx.discoveryOwnerTypeChanged('stays');
+assert.match(ctx.discoveryOwnerPage(),/Aproveitar informações no cadastro/);
+const originalLookup=ctx.document.getElementById;
+ctx.document.getElementById=id=>({
+ 'discovery-owner-import-link':{value:'https://www.airbnb.com/rooms/12345678'},
+ 'discovery-owner-import-details':{value:copiedFields},
+ 'discovery-owner-form':{checkValidity:()=>true}
+})[id]||originalLookup(id);
+assert.equal(ctx.discoveryOwnerImportStay(),true);
+assert.equal(ctx.__discoveryOwnerTestState.editor.title,'Pousada do Centro');
+assert.equal(ctx.__discoveryOwnerTestState.editor.vertical,'stays');
+assert.equal(ctx.__discoveryOwnerTestState.editor.whatsapp_e164,formValues.whatsapp_e164);
+assert.equal(ctx.__discoveryOwnerTestState.editor.id,undefined);
+assert.match(ctx.discoveryOwnerPage(),/Pousada do Centro/);
+assert.match(ctx.discoveryOwnerPage(),/Nenhuma reserva ou disponibilidade foi sincronizada/);
+assert.equal(writes.length,0,'assistive import must not write or publish');
+ctx.document.getElementById=originalLookup;
+ctx.discoveryOwnerNew();
+ctx.discoveryOwnerTypeChanged('professionals');
+
 const stayValues={property_type:'inn',guests:'4',bedrooms:'2',beds:'3',units:'2',
  price_from:'289.50',price_unit:'week',amenities:'Wi-Fi, Estacionamento, Wi-Fi'};
 const stayDetails=ctx.discoveryOwnerDetails('stays',{get:key=>stayValues[key]||''});
