@@ -302,6 +302,9 @@ begin
    p_vertical=>'professionals',p_listing_id=>current_setting('tamao.test.listing_id')::uuid);
  if v_found<>1 then raise exception 'SHARED_LISTING_NOT_FOUND';end if;
  select count(*) into v_found from public.discovery_public_search(
+   p_vertical=>'professionals',p_offset=>1);
+ if v_found<>0 then raise exception 'PUBLIC_PAGINATION_OFFSET_IGNORED';end if;
+ select count(*) into v_found from public.discovery_public_search(
    p_vertical=>'rides',p_listing_id=>current_setting('tamao.test.listing_id')::uuid);
  if v_found<>0 then raise exception 'SHARED_LISTING_CROSS_VERTICAL_LEAK';end if;
  select count(*) into v_wrong_city from public.discovery_public_search(
