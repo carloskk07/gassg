@@ -79,6 +79,8 @@ jobs:
         run: node tests/discovery-public-journeys.mjs
       - name: Discovery favorites and verified-current shortlist
         run: node tests/discovery-saved-shortlist.mjs
+      - name: Discovery loaded-listing sort per vertical, invalid data and mobile accessibility
+        run: node tests/discovery-loaded-result-sorting.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
       - name: Regional wood, charcoal and ice units
