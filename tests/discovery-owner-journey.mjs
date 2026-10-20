@@ -17,6 +17,7 @@ const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
 let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false,simulateAfterRpcChange=false;
+let simulateReviewFailure=false;
 const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 const afterRpcPhotoKey=userId+'/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
@@ -62,7 +63,10 @@ const client={
    return {data:entry.photo_urls.slice(),error:null};
   }
   if(name==='discovery_transition_listing'){
-   transitions.push(args);const item=records.find(r=>r.id===args.p_listing_id);
+   transitions.push(args);
+   if(simulateReviewFailure&&args.p_next_status==='review')
+     return {data:null,error:{code:'22023',message:'REAL_PHOTO_REQUIRED'}};
+   const item=records.find(r=>r.id===args.p_listing_id);
    if(item)item.status=args.p_next_status;
    return {data:args.p_next_status,error:null};
   }
@@ -137,6 +141,8 @@ assert.match(html,/id="discovery-owner-form"/);
 assert.match(html,/Profissionais/);
 assert.match(html,/Caronas/);
 assert.match(html,/Hospedagens/);
+assert.match(html,/Salvar e enviar para análise/);
+assert.match(html,/Somente salvar rascunho/);
 assert.match(ctx.discoveryOwnerPhotoUrl(filePath),/tamao-discovery-photos/);
 assert.equal(ctx.discoveryOwnerPhotoUrl('https://evil.test/track.jpg'),'');
 assert.equal(ctx.discoveryOwnerPhotoUrl('../../secret'),'');
@@ -175,8 +181,29 @@ assert.equal(uploads[0].opts.upsert,false);
 assert.equal(uploads[1].opts.upsert,false);
 assert.ok(writes.some(w=>w[0]==='discovery_listings'&&w[1]==='update'&&w[2].photo_urls[0]===filePath));
 const id=records[0].id;
+// One-click publishing journey: photos, private records and details are saved,
+// but only the server RPC can move the draft into moderation, never published.
+selectedFiles=[];selectedDocuments=[];
+await ctx.discoveryOwnerOpen(id);
+simulateReviewFailure=true;
+await ctx.discoveryOwnerSave({
+ preventDefault(){},target:form,submitter:{name:'finish',value:'review'}
+});
+assert.equal(records[0].status,'draft','server denial preserves draft');
+assert.match(ctx.discoveryOwnerPage(),/Rascunho salvo, mas ainda não enviado/);
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Anúncio salvo e enviado para análise/);
+simulateReviewFailure=false;
+await ctx.discoveryOwnerOpen(id);
+await ctx.discoveryOwnerSave({
+ preventDefault(){},target:form,submitter:{name:'finish',value:'review'}
+});
+assert.equal(records[0].status,'review','single click requests review, never publication');
+assert.match(ctx.discoveryOwnerPage(),/Anúncio salvo e enviado para análise/);
+assert.ok(transitions.some(t=>t.p_next_status==='review'&&t.p_reason==='Envio pelo anunciante após salvar'));
+assert.equal(uploads.length,2,'reusing saved draft does not reupload previous files');
+// Keep the legacy separated draft/review action usable.
+records[0].status='draft';
 await ctx.discoveryOwnerSubmit(id);
-assert.equal(transitions[0].p_next_status,'review');
 assert.equal(records[0].status,'review');
 records[0].status='paused';
 await ctx.discoveryOwnerOpen(id);
