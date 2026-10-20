@@ -540,7 +540,8 @@ create function public.discovery_public_search(
   p_occupation_query text default null,
   p_min_seats integer default null,
   p_property_type text default null,
-  p_max_price_cents integer default null
+  p_max_price_cents integer default null,
+  p_listing_id uuid default null
 ) returns table(
   id uuid,vertical text,title text,description text,
   state_code text,city_key text,city_name text,public_area text,
@@ -568,6 +569,7 @@ as $$
  left join public.discovery_stay_details st
    on st.listing_id=l.id and l.vertical='stays'
  where l.status='published'
+   and (p_listing_id is null or l.id=p_listing_id)
    and (p_vertical is null or l.vertical=p_vertical)
    and (p_state_code is null or l.state_code=p_state_code)
    and (p_city_key is null or l.city_key=p_city_key)
@@ -602,9 +604,9 @@ as $$
  limit greatest(1,least(coalesce(p_limit,20),50))
 $$;
 revoke all on function public.discovery_public_search(
-  text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer) from public;
+  text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer,uuid) from public;
 grant execute on function public.discovery_public_search(
-  text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer) to anon,authenticated;
+  text,text,text,text,text,timestamptz,integer,integer,text,integer,text,integer,uuid) to anon,authenticated;
 
 -- Sem seeds artificiais, cobrança automática, publicação automática ou
 -- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
