@@ -94,4 +94,12 @@ for(const vertical of ['professionals','rides','stays']){
  assert.ok(sql.includes("discovery_owner_can_edit_details(listing_id,'"+vertical+"')"),
    vertical+' must enforce data ownership in its own details table');
 }
+assert.match(sql,/create table public\.discovery_listing_reports[\s\S]*reporter_id uuid not null/);
+assert.match(sql,/alter table public\.discovery_listing_reports enable row level security/);
+assert.match(sql,/revoke all on public\.discovery_listing_reports from public,anon,authenticated/);
+assert.match(sql,/create function public\.discovery_submit_report\(/);
+assert.match(sql,/REPORT_RATE_LIMIT/);
+assert.match(sql,/create function public\.discovery_admin_report_queue\(/);
+assert.match(sql,/create function public\.discovery_review_report\(/);
+assert.doesNotMatch(sql,/grant (select|insert|update|delete) on public\.discovery_listing_reports to (anon|authenticated)/i);
 console.log('Discovery schema: RLS, city isolation, owner controls, no autopublishing and no autocharges — PASS');
