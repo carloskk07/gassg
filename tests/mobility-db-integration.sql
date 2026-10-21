@@ -79,4 +79,5 @@ begin
 end $t$;
 select public.mobility_transition(current_setting('tamao.mobility.id')::uuid,'cancel');
 reset role;
+select public.mobility_cleanup_expired();
 select 'MOBILITY_PRIVATE_GPS_TEST_OK' as result;

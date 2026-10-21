@@ -205,3 +205,28 @@ grant execute on function public.mobility_create_request(uuid,text,text,text),
  public.mobility_publish_position(uuid,double precision,double precision,double precision),
  public.mobility_stop_position(uuid),public.mobility_snapshot(uuid),
  public.mobility_my_requests() to authenticated;
+
+-- A lost browser tab may not finish its final stop RPC. Server-side cleanup
+-- clears stale locations even if neither participant returns to the page.
+create function public.mobility_cleanup_expired()
+returns void language plpgsql volatile security definer set search_path=pg_catalog as $
+begin
+ update public.mobility_requests set status='expired',tracking_enabled=false,
+  updated_at=statement_timestamp()
+  where expires_at<=statement_timestamp() and
+   status in ('requested','accepted','en_route','arrived');
+ delete from public.mobility_live_positions p
+  where p.updated_at<statement_timestamp()-interval '3 minutes'
+   or not exists(select 1 from public.mobility_requests r
+    where r.id=p.request_id and r.status='en_route'
+     and r.tracking_enabled and r.expires_at>statement_timestamp());
+end $;
+revoke all on function public.mobility_cleanup_expired() from public,anon,authenticated;
+do $cron$
+begin
+ if exists(select 1 from pg_extension where extname='pg_cron') then
+  perform cron.schedule('tamao-mobility-gps-cleanup',
+   '*/5 * * * *','select public.mobility_cleanup_expired()');
+ end if;
+end $cron$;
+

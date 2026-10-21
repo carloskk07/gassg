@@ -1300,3 +1300,7 @@ Adicionados testes dinâmicos separados para passageiro, motorista, anônimo e t
 ### 21/10/2026 — Correções PG17 e desempenho de inicialização
 
 Isolado PostgreSQL 17 rejeitou `isfinite(double precision)` por falta de overload: substituída pela restrição numérica `BETWEEN` para lat/lon/accuracy (já há CHECKs na tabela), que também rejeita Inf/NaN fora da faixa. Audit encontrou orçamento de JavaScript inicial: loader de mobilidade compacto e CSS carregada somente com o módulo diferido, mantendo o orçamento imutável e a experiência fora de #mobility sem custo extra. Nova rodada PG17, Audit e budget necessária para aceitar.
+
+### 21/10/2026 — Limpeza automática de coordenadas perdidas
+
+O último ponto GPS só fica visível ao passageiro por 45 segundos, mas uma interrupção inesperada poderia deixar o registro no banco mesmo oculto. Nova rotina servidor `mobility_cleanup_expired` apaga automaticamente posições não ativas ou com mais de 3 minutos e expira solicitações vencidas. O Supabase com extensão `pg_cron` executará essa função a cada cinco minutos; o PG17 isolado sem extensão apenas testa a função. Não concede EXECUTE a visitantes nem contas autenticadas. O motorista continua podendo revogar imediatamente pelo botão, com exclusão no mesmo RPC.
