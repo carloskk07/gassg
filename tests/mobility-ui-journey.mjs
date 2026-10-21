@@ -173,7 +173,8 @@ assert.ok(mobilityHome.includes("'/?modalidade=moto#mobility'"),'Moto homepage o
 assert.ok(mobilityHome.includes("'/?modalidade=carro#mobility'"),'Carro homepage opens mobility without a fake listing');
 assert.ok(!mobilityHome.includes("'/?servico=moto#professionals'"),
  'Homepage moto must not route to the generic professionals landing');
-assert.ok(mobilityNav.includes('Corridas</button>'));
+assert.ok(mobilityNav.includes("['mobility','Moto e carro']"),
+ 'The public navigation must keep the dedicated vehicle-request entry');
 assert.ok(mobilityNav.includes('Minhas corridas</button>'));
 s.phase='ready';s.user=null;s.id='';s.detail=null;s.items=[];
 ctx.location.search='?modalidade=moto';
