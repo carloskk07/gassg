@@ -1389,3 +1389,7 @@ No commit `4bc877ab4ba0`, o workflow PostgreSQL 17 isolado foi aprovado incluind
 ### 21/10/2026 — Auditoria confirma a proteção, contrato textual normalizado
 
 No SHA `b6b1a66ef433`, o PG17 isolado, o build e o smoke visual passaram. A auditoria ainda exigia na suíte estática a sequência textual removida `l.status='published' and r.expires_at`, porém a implementação atual adicionou a verificação obrigatória de `discovery_vertical_cities.enabled` entre os dois fatores. O teste agora exige de forma explícita **todas** as condições de segurança dentro de `mobility_snapshot`: anúncio publicado, cidade ativa e validade temporal; a regra SQL não foi afrouxada. A auditoria completa permanece requisito da PR #515.
+
+### 21/10/2026 — Relato de problemas público via suporte existente
+
+O painel do motorista e do passageiro ganhou acesso visível `Relatar problema com este atendimento`, levando ao formulário público de suporte já operacional, com tipo `support` e protocolo da solicitação UUID preenchido. O formulário não inclui coordenadas nem histórico GPS; evita criar outra fila ou chatbot. Permite reportar falhas já na fase aberta ao público e acompanhar casos pelo suporte administrativo existente. Teste regressivo protege contra injeção de protocolo inválido. Ainda requer Audit verde após este ajuste.

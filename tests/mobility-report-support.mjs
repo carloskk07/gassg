@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const src=fs.readFileSync(new URL('../js/legal.js',import.meta.url),'utf8');
+const valid='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ctx={location:{search:'?suporte=corrida&protocolo='+valid},shell:x=>x,legalHero:()=>'',legalNav:()=>'',legalClose:()=>'',contactPrivacyOptions:()=>'',esc:x=>String(x??'').replace(/</g,'&lt;'),globalThis:{},document:{},console};
+vm.runInNewContext(src,ctx);
+const page=ctx.contactPage();
+assert.ok(page.includes('Relatar problema de mobilidade'));
+assert.ok(page.includes(valid));
+assert.match(page,/option value="support" selected/);
+assert.doesNotMatch(page,/coordinates|latitude|longitude|gps.position/i);
+ctx.location.search='?suporte=corrida&protocolo=%3Cscript%3E';
+assert.equal(ctx.tamaoMobilityReportContext(),'');
+assert.doesNotMatch(ctx.contactPage(),/Relatar problema de mobilidade/);
+console.log('PASS — validated mobility protocol prefills real support channel without coordinates');

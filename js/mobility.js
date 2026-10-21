@@ -104,6 +104,7 @@ function mobilityDetailPanel(row){
   '<h2>'+mobilityLabel(row)+'</h2><p class="mobility-status">'+esc(mobilityStatus(row))+'</p>'+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
   '<p class="tiny muted">Este pedido não garante disponibilidade, preço nem transporte. Combine condições com o anunciante.</p>'+
+  '<p><a class="mobility-report-link" href="/?suporte=corrida&protocolo='+esc(String(row.id||''))+'#contact">Relatar problema com este atendimento</a></p>'+
   (driver&&status==='en_route'?'<p>Compartilhar sua localização é voluntário. Mantenha esta página aberta e visível. Você pode parar a qualquer momento.</p>':'')+
   '<div class="mobility-actions">'+actions+'</div>'+
   (!driver?mobilityMapPanel(row):'')+
@@ -122,6 +123,7 @@ function mobilityPage(){
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
  if(!s.user)return shell('<section class="section mobility-page">'+top+
   '<p>Entre com seu e-mail para enviar pedidos ou atender solicitações de seus anúncios. Não mostraremos posições sem autenticação.</p>'+
+  '<p><a href="/#contact">Precisa de ajuda? Fale com o suporte TAMÃO</a></p>'+
   note+error+'<form class="mobility-form" onsubmit="return mobilityLogin(event)">'+
   '<label>E-mail<input name="email" type="email" required maxlength="254" autocomplete="email"></label>'+
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button></form></section>');
@@ -135,6 +137,7 @@ function mobilityPage(){
   '<p class="mobility-account">Conta: '+esc(String(s.user.email||'verificada').slice(0,254))+
   ' <button type="button" onclick="mobilityRefresh()">Atualizar atendimentos</button>'+
   ' <button type="button" onclick="mobilityLogout()">Sair e parar localização</button></p>'+
+  '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
   form+mobilityDetailPanel(s.detail)+
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
