@@ -56,7 +56,7 @@ assert.deepEqual(sorted(kind,stays,'capacity'),[uuid(10),uuid(11),uuid(9),uuid(1
 const s=box.discoveryState('stays');
 s.status='ready';s.items=stays;s.hasMore=true;
 let html=box.discoveryPage();
-assert.match(html,/Ordenar anúncios carregados/);
+assert.match(html,/Ordenar resultados/);
 assert.match(html,/Ordem local: não inclui anúncios ainda não carregados/);
 assert.match(html,/Menor preço anunciado/);
 assert.doesNotMatch(html,/Mais experiência declarada/);

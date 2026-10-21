@@ -524,14 +524,25 @@ function discoveryPage(){
   const loadedSaved=eligible.filter(item=>savedSet.has(item?.id)).length;
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
     s.status==='error'?'<div class="discovery-empty" role="alert"><p>Consulta indisponível no momento. Verifique a conexão e tente novamente.</p><button type="button" onclick="discoveryFetch()">Tentar novamente</button></div>':
-    s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Nenhum anúncio publicado encontrado com esses filtros.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':
+    s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Ainda não há anúncios publicados para esta busca.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':
     '<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button>'+
     (shortcut?'<a class="discovery-owner-cta" href="'+discoveryOwnerSignupLink(s.service)+'">Trabalha com esse serviço? Anuncie no TAMÃO →</a>':
       '<button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>'))+'</div>':
     displayItems.map(item=>discoveryCard(item,kind)).join('');
+  const titles={professionals:'Encontre profissionais para o que você precisa',
+    rides:'Encontre caronas para sua próxima viagem',
+    stays:'Encontre hospedagens para sua próxima viagem'};
+  const summaries={professionals:'Busque serviços por cidade e especialidade. Fale diretamente com quem anuncia.',
+    rides:'Procure por origem, destino e vagas publicadas. Combine os detalhes com o anunciante.',
+    stays:'Explore opções por destino, perfil da hospedagem e número de hóspedes.'};
+  const advertiseLabels={professionals:'Anunciar meus serviços',rides:'Oferecer uma carona',
+    stays:'Anunciar hospedagem'};
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
-    '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+esc(shortcut?.title||v[1])+'</h1>'+
-    '<p>'+esc(shortcut?.summary||'Consulte anúncios publicados e fale diretamente com quem anunciou.')+'</p></header>'+
+    '<div class="discovery-intro-copy"><span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span>'+
+    '<h1>'+esc(shortcut?.title||titles[kind])+'</h1>'+
+    '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
+    (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\'advertise\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
+    '</header>'+
     (kind==='professionals'?discoveryServiceLinks(s.service):'')+
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
        s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
@@ -556,7 +567,8 @@ function discoveryPage(){
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
-    '<div class="discovery-sort-bar"><label for="discovery-sort">Ordenar anúncios carregados</label>'+
+    (eligible.length||savedIds.length?'<div class="discovery-tools" aria-label="Ferramentas para anúncios publicados">'+
+    '<div class="discovery-sort-bar"><label for="discovery-sort">Ordenar resultados</label>'+
      '<select id="discovery-sort" onchange="discoverySetSort(this.value)">'+
      discoverySortOptions[kind].map(([key,label])=>'<option value="'+key+'"'+(s.sortMode===key?' selected':'')+'>'+label+'</option>').join('')+
      '</select><span>Ordem local: não inclui anúncios ainda não carregados.</span></div>'+
@@ -567,7 +579,7 @@ function discoveryPage(){
      '<button type="button" aria-expanded="'+Boolean(s.compareOpen)+'" onclick="discoveryToggleComparison()"'+
       (loadedSaved?'':' disabled')+'>Comparar salvos ('+loadedSaved+')</button>'+
      (s.compareIds.length?'<button type="button" onclick="discoveryClearComparisonSelection()">Limpar seleção ('+s.compareIds.length+')</button>':'')+'</div>'+
-    '<p class="discovery-saved-note">Salvos só aparecem após nova consulta ao servidor, se ainda estiverem publicados e disponíveis nesta busca.</p>'+
+    '<p class="discovery-saved-note">Os anúncios salvos só aparecem quando ainda estão publicados nesta busca.</p></div>':'')+
     (s.savedNotice?'<p class="discovery-saved-feedback" role="status">'+esc(s.savedNotice)+'</p>':'')+
     (s.compareOpen?discoverySavedComparison(kind,eligible):'')+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+

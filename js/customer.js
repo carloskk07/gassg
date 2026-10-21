@@ -49,19 +49,19 @@ function tamaoHomeBenefits({compact=false}={}){
   const extraBenefits=compact?'':`    <div class="tamao-action-now">
       <div><span class="section-kicker">APROVEITE O TAMÃO AGORA</span>
         <h3>Comece pela escolha. Compare o que importa.</h3>
-        <p>Escolha gás, água ou outros essenciais. Consulte o que atende seu CEP e acompanhe suas vantagens no Clube.</p></div>
+        <p>Escolha produtos, informe o CEP e acompanhe seus benefícios.</p></div>
       <button type="button" class="primary" onclick="homeDiscoverFocus()">Explorar produtos <span aria-hidden="true">→</span></button>
     </div>
     <div class="grid cards-3 tamao-value-grid">
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
         <h3>Compare preços e encontre oportunidades de economia</h3>
-        <p>Quando houver ofertas de revendas para seu CEP, compare os valores totais e a previsão de entrega. Se uma opção custar menos, a diferença fica com você.</p></article>
+        <p>Compare preço total e prazo de entrega das ofertas do seu CEP.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🛡️</span>
         <h3>Seu pedido, com etapas que você acompanha</h3>
-        <p>Uma revenda precisa confirmar seu pedido antes de ele avançar. O acompanhamento mostra as etapas efetivamente registradas.</p></article>
+        <p>Acompanhe as etapas confirmadas do seu pedido.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🤝</span>
         <h3>Indique amigos e amplie sua Rede TAMÃO</h3>
-        <p>Compartilhe seu convite com quem compra e quem vende. Consulte sua rede e acompanhe as participações atribuídas ao seu código.</p></article>
+        <p>Compartilhe seu convite e acompanhe sua rede.</p></article>
     </div>
     <div class="tamao-value-actions">
       <button type="button" class="secondary" onclick="go('earn')">Conhecer minha Rede TAMÃO →</button>
@@ -70,18 +70,18 @@ function tamaoHomeBenefits({compact=false}={}){
   return `<section class="section tamao-value-section${compact?' tamao-value-compact':''}" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
       <h2>Mais economia na escolha. Mais vantagens para voltar.</h2>
-      <p>Compare preço total e entrega pelo CEP. Acompanhe seu pedido, consulte cashback de compras elegíveis no Clube e apresente o TAMÃO a amigos e revendas.</p></div></div>
+      <p>Compare pelo CEP, acompanhe pedidos e conheça benefícios no Clube.</p></div></div>
     <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
       <article class="tamao-perks-panel tamao-perks-club">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
-        <h3>Seu Clube transforma compras elegíveis em vantagens.</h3>
-        <p>Veja a economia registrada nas suas comparações, acompanhe o cashback de compras elegíveis e consulte seu saldo para usar em novos pedidos.</p>
+        <h3>Seu Clube, mais vantagens.</h3>
+        <p>Consulte seu saldo, economia e cashback de compras elegíveis.</p>
         <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
       </article>
       <article class="tamao-perks-panel tamao-perks-network">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🤝</span><span>REDE TAMÃO</span></div>
-        <h3>Seu convite conecta quem compra e quem vende.</h3>
-        <p>Indique amigos, apresente revendas e acompanhe seus convites. Benefícios financeiros seguem a elegibilidade de cada campanha.</p>
+        <h3>Indique quem compra e vende.</h3>
+        <p>Indique amigos ou revendas e acompanhe convites. Benefícios conforme cada campanha.</p>
         <button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button>
       </article>
     </div>
@@ -457,7 +457,6 @@ function homeDiscoverFocus(){
   return true;
 }
 
-// A single compact service hub replaces overlapping mobility/discovery grids.
 function tamaoDiscoveryEntryHub(){
  const cards=[
   ['🏍️','Pedir uma moto','Mototáxis','/?modalidade=moto#mobility'],
@@ -626,9 +625,6 @@ function home(){
     ||(cityChecked&&!hasConfirmedCityOffers));
   const regionalPriceSection=!testDemo&&typeof homeRegionalPriceBoard==='function'
     ?homeRegionalPriceBoard(homeRegion):'';
-  // A visitor sees one focused order: quotations, full catalogue, one service
-  // hub, member benefits and (if needed) a contact for availability.
-  // The existing isolated test experience remains unchanged.
   if(!testDemo&&!internalPilot)return shell(`${regionalPriceSection||
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
