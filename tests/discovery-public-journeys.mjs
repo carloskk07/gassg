@@ -412,7 +412,7 @@ const mobility=read('js/customer.js');
 for(const key of ['moto','carro','fretes','entregas'])
  assert.ok(mobility.includes('/?servico='+key+'#professionals'));
 assert.ok(mobility.includes('/#rides'));
-assert.ok(read('css/components.css').includes('.tamao-mobility-grid'));
+assert.ok(read('css/components.css').includes('.intent-grid'));
 assert.ok(read('css/discovery.css').includes('.discovery-service-links'));
 sandbox.URLSearchParams=URLSearchParams;
 sandbox.URL=URL;
