@@ -40,7 +40,9 @@ function prelaunchExampleSection(cart={P13:1}){
 }
 
 function tamaoProductArt(code,product,extra=''){
-  const art=({P13:'gas',WATER20:'water',CHARCOAL4:'charcoal',WOOD:'wood',ICE5:'ice'})[String(code||'').toUpperCase()];
+  const sku=String(code||'').toUpperCase();
+  const art=({P13:'gas',WATER20:'water',CHARCOAL4:'charcoal',WOOD:'wood',ICE5:'ice'})[sku]||
+    (/^CHARCOAL/.test(sku)?'charcoal':/^WOOD/.test(sku)?'wood':/^ICE/.test(sku)?'ice':null);
   const variant=extra==='hero'?' hero-photo':extra==='cart'?' cart-photo':'';
   return art?'<span class="tamao-product-photo product-'+art+variant+'" aria-hidden="true"></span>'
     :'<span class="tamao-product-emoji" aria-hidden="true">'+esc(product?.icon||'🧺')+'</span>';
@@ -69,8 +71,8 @@ function tamaoHomeBenefits({compact=false}={}){
     </div>`;
   return `<section class="section tamao-value-section${compact?' tamao-value-compact':''}" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
-      <h2>Mais economia na escolha. Mais vantagens para voltar.</h2>
-      <p>Compare pelo CEP, acompanhe pedidos e conheça benefícios no Clube.</p></div></div>
+      <h2>${compact?'O TAMÃO continua com você.':'Mais economia na escolha. Mais vantagens para voltar.'}</h2>
+      <p>${compact?'Clube e indicações em um só lugar.':'Compare pelo CEP, acompanhe pedidos e conheça benefícios no Clube.'}</p></div></div>
     <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
       <article class="tamao-perks-panel tamao-perks-club">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
@@ -459,25 +461,30 @@ function homeDiscoverFocus(){
 
 function tamaoDiscoveryEntryHub(){
  const cards=[
-  ['🏍️','Pedir uma moto','Mototáxis','/?modalidade=moto#mobility'],
-  ['🚕','Pedir um carro','Motoristas','/?modalidade=carro#mobility'],
+  ['🏍️','Pedir uma moto','Encontre mototaxistas','/?modalidade=moto#mobility'],
+  ['🚕','Pedir um carro','Encontre motoristas','/?modalidade=carro#mobility'],
   ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
   ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
-  ['🛠️','Profissionais','Serviços locais','/#professionals'],
+  ['🛠️','Profissionais','Serviços para sua casa','/#professionals'],
   ['🚙','Caronas','Viagens compartilhadas','/#rides'],
-  ['🏡','Hospedagens','Lugares para ficar','/#stays'],
-  ['✍️','Anunciar','Ofereça seus serviços','/#advertise']
+  ['🏡','Hospedagens','Lugares para ficar','/#stays']
  ];
+ const tile=([icon,title,description,href])=>
+  '<a class="intent-card tamao-home-service" href="'+href+'">'+
+  '<span class="intent-icon" aria-hidden="true">'+icon+'</span>'+
+  '<span class="tamao-home-service-copy"><strong>'+title+'</strong><small>'+description+'</small></span>'+
+  '<b aria-hidden="true">↗</b></a>';
  return '<section class="section tamao-home-services" aria-label="Encontre serviços no TAMÃO">'+
-  '<div class="section-head"><div><span class="section-kicker">ALÉM DAS COMPRAS</span>'+
-  '<h2>Precisou de outro serviço? Tá na mão.</h2>'+
-  '<p>Encontre anunciantes da região.</p></div></div>'+
-  '<div class="intent-grid tamao-home-services-grid">'+cards.map(([icon,title,description,href])=>
-   '<a class="intent-card tamao-home-service" href="'+href+'">'+
-   '<span class="intent-icon" aria-hidden="true">'+icon+'</span>'+
-   '<span class="tamao-home-service-copy"><strong>'+title+'</strong><small>'+description+'</small></span>'+
-   '<b aria-hidden="true">↗</b></a>').join('')+
-  '</div><p class="tiny muted tamao-home-services-note">Consulte anúncios publicados e confirme condições com o anunciante.</p>'+
+  '<div class="section-head"><div><span class="section-kicker">SERVIÇOS PERTO DE VOCÊ</span>'+
+  '<h2>Moto, carro e muito mais. Tá na mão.</h2>'+
+  '<p>Encontre profissionais e consulte anúncios da sua região.</p></div></div>'+
+  '<div class="tamao-home-mobility-grid" aria-label="Moto e carro">'+cards.slice(0,2).map(tile).join('')+'</div>'+
+  '<div class="intent-grid tamao-home-services-grid tamao-home-support-grid" aria-label="Mais serviços">'+cards.slice(2).map(tile).join('')+'</div>'+
+  '<div class="tamao-home-partner-strip"><div><strong>Seu negócio também pode estar no TAMÃO.</strong>'+
+   '<span>Divulgue serviços ou apresente sua revenda para novos clientes.</span></div>'+
+   '<div class="tamao-home-partner-actions"><a href="/#advertise">Anunciar serviço ↗</a>'+
+   '<a href="/#merchants">Cadastrar revenda ↗</a></div></div>'+
+  '<p class="tiny muted tamao-home-services-note">Consulte anúncios publicados e confirme condições com o anunciante.</p>'+
   '</section>';
 }
 
@@ -631,9 +638,9 @@ function home(){
     ${homeIntentGuide}
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><span class="section-kicker">MAIS OPÇÕES PARA VOCÊ</span>
-      <h2 tabindex="-1">O que mais você precisa?</h2>
-      <p>Escolha sem obrigação de comprar gás. Preço, descontos e entrega são consultados pelo CEP.</p></div>
-      <button type="button" class="home-discover-all" onclick="startHomeBrowse()">Ver minha cesta <span aria-hidden="true">→</span></button></div>
+      <h2 tabindex="-1">Explore mais produtos</h2>
+      <p>Água, gás, carvão, lenha e outros itens. Consulte preços e entrega pelo CEP.</p></div>
+      <span class="home-discover-all">Escolha pelo produto</span></div>
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
