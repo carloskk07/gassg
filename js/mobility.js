@@ -177,12 +177,12 @@ function mobilityDetailPanel(row){
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
- const top='<header><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
- '<h1>Solicitações de moto e carro</h1>'+
- '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>'+(intent?'':discover);
  const discover='<nav class="mobility-provider-links" aria-label="Escolher anunciante para moto ou carro">'+
   '<a href="/?servico=moto#professionals">Encontrar mototaxista</a> · '+
   '<a href="/?servico=carro#professionals">Encontrar motorista</a></nav>';
+ const top='<header><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
+ '<h1>Solicitações de moto e carro</h1>'+
+ '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>'+(intent?'':discover);
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
  const error=s.error?'<p class="notice danger" role="alert">'+esc(s.error)+'</p>':'';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section mobility-page">'+top+'<p role="status">Preparando sua área segura…</p></section>');
