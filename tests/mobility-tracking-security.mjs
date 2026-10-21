@@ -12,6 +12,9 @@ assert.ok(sql.includes("r.status='en_route' and r.tracking_enabled"));
 assert.ok(sql.includes("interval '45 seconds'"));
 assert.ok(sql.includes("not r.tracking_enabled or r.expires_at"));
 assert.ok(sql.includes("create function public.mobility_start_position"));
+assert.ok(sql.includes('create function public.mobility_start_position(p_request_id uuid)\nreturns boolean language plpgsql volatile security definer set search_path=pg_catalog as $'));
+assert.ok(sql.includes('return true;\nend $;\n\ncreate function public.mobility_publish_position'));
+
 assert.ok(sql.includes("update public.mobility_requests set tracking_enabled=true,updated_at=statement_timestamp()"));
 assert.ok(sql.includes("interval '3 minutes'"));
 assert.ok(sql.includes("cron.schedule('tamao-mobility-gps-cleanup'"));

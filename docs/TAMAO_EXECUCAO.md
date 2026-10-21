@@ -1329,3 +1329,7 @@ Auditoria adicional da PR #515 identificou janela de concorrência: antes, uma a
 ### 21/10/2026 — Mapa revogado também deve desaparecer do navegador
 
 Além do bloqueio de novos pacotes no PostgreSQL, inspeção do polling silencioso revelou que, quando o servidor deixava de fornecer a posição (GPS parado, expirado ou revogado), o cliente trocava somente a legenda, mas podia deixar o `iframe` com coordenadas antigas aberto. Corrigido: a transição de posição fresca para ausente obriga nova renderização sem mapa; `mobilityUpdateMap` também remove explicitamente o src e o elemento do mapa caso chamado sem posição. Quando a posição volta após nova autorização, o mapa reaparece somente sob consentimento anterior do próprio cliente. Teste V8 verifica a remoção. Não atualizar posição após encerramento e não deixar mapa antigo visível indefinidamente. Implementação continua em PR draft #515, sem produção.
+
+### 21/10/2026 — Ajuste de sintaxe do início opt-in em PG17
+
+O primeiro CI PG17 após o reforço de revogação falhou por delimitadores incompletos na nova função `mobility_start_position` (`as $`/`end $` em vez dos dois sinais exigidos por PostgreSQL). Corrigido o par e acrescentado teste estático específico para impedir reaparecimento do erro. Nenhuma tabela ou política em produção alterada. A aprovação aguarda novamente o PostgreSQL 17 em ambiente descartável.
