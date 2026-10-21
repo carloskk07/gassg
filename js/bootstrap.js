@@ -112,13 +112,13 @@ function mobilityReturnIntent(){
  try{return new URLSearchParams(location.search).get('mobility')==='1'}catch{return false}
 }
 function mobilityLoadingPage(){
- return shell('<section class="section"><h1>Solicitações de moto e carro</h1>'+
-  (mobilityModuleError?'<p role="alert">Não foi possível abrir o acompanhamento agora.</p>'+
-   '<button type="button" onclick="mobilityRetryModule()">Tentar novamente</button>':
-   '<p role="status">Preparando acompanhamento seguro…</p>')+'</section>');
+ return shell('<section><h1>Solicitações de moto e carro</h1>'+
+  (mobilityModuleError?'<p role="alert">Falha ao abrir o acompanhamento.</p>'+
+   '<button onclick="mobilityRetryModule()">Tentar novamente</button>':
+   '<p role="status">Preparando…</p>')+'</section>');
 }
 function mobilityRetryModule(){
- mobilityModuleRequested=false;mobilityModuleError=false;mobilityRequestModule();render();
+ mobilityModuleRequested=mobilityModuleError=false;mobilityRequestModule();render();
 }
 function mobilityRequestModule(){
  if(mobilityModuleRequested||mobilityModuleError||typeof mobilityPage==='function'||

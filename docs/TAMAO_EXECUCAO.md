@@ -1345,3 +1345,7 @@ A regressão do navegador agora controla a resposta da RPC de início do compart
 ### 21/10/2026 — Falha de carregamento não pode causar loop
 
 Corrigido o lazy loader de mobilidade: na falha de rede/script, o estado passa para erro com explicação e botão de **Tentar novamente**, em vez de rearmar automaticamente a mesma carga em cada `render()`. Mantido o carregamento diferido apenas quando o usuário acessa `#mobility`; não afeta compras nem telas administrativas. Regressão estática adicionada, sujeita a Audit e orçamento da home antes de qualquer integração.
+
+### 21/10/2026 — Orçamento estrito do carregamento preservado
+
+O primeiro build da gestão de erro do módulo de mobilidade ultrapassou em 134 bytes o limite JS inicial do cliente (`530134/530000`). O conteúdo de carregamento/repetição foi condensado sem retirar o estado de erro, o retry manual nem os testes de não repetição automática. Os limites oficiais continuam inalterados. Validar novamente no CI antes de qualquer merge.
