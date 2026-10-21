@@ -8,7 +8,7 @@
 
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
- mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0};
+ mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:''};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const mobilityStates={
  requested:'Aguardando resposta do anunciante',accepted:'Aceita pelo motorista',
@@ -146,6 +146,13 @@ function mobilityAction(action,label,kind='secondary'){
  return '<button type="button" class="'+kind+'" onclick="mobilityTransition(\''+action+'\')"'+
  (mobilityRuntime.busy?' disabled':'')+'>'+label+'</button>';
 }
+function mobilityReport(id){
+ const s=mobilityRuntime;
+ if(!mobilityId.test(String(id||''))||s.detail?.id!==id)return false;
+ s.reportId=id;
+ go('contact');
+ return false;
+}
 function mobilityDetailPanel(row){
  if(!row)return '';
  const driver=row.role==='driver',status=row.status,terminal=!['requested','accepted','en_route','arrived'].includes(status);
@@ -167,7 +174,9 @@ function mobilityDetailPanel(row){
   '<h2>'+mobilityLabel(row)+'</h2><p class="mobility-status">'+esc(mobilityStatus(row))+'</p>'+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
   '<p class="tiny muted">Este pedido não garante disponibilidade, preço nem transporte. Combine condições com o anunciante.</p>'+
-  '<p><a class="mobility-report-link" href="/#contact">Relatar problema com este atendimento</a>'+
+  '<p><a class="mobility-report-link" href="/#contact"'+
+  (mobilityId.test(String(row.id||''))?' onclick="return mobilityReport(\''+row.id+'\')"':'')+
+  '>Relatar problema com este atendimento</a>'+
   ' · Informe ao suporte o protocolo <code>'+esc(String(row.id||''))+'</code>. Não compartilhe localização precisa.</p>'+
   (driver&&status==='en_route'?'<p>Compartilhar sua localização é voluntário. Mantenha esta página aberta e visível. Você pode parar a qualquer momento.</p>':'')+
   '<div class="mobility-actions">'+actions+'</div>'+
@@ -177,9 +186,12 @@ function mobilityDetailPanel(row){
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
+ const discover='<nav class="mobility-provider-links" aria-label="Escolher anunciante para moto ou carro">'+
+  '<a href="/?servico=moto#professionals">Encontrar mototaxista</a> · '+
+  '<a href="/?servico=carro#professionals">Encontrar motorista</a></nav>';
  const top='<header><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
  '<h1>Solicitações de moto e carro</h1>'+
- '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>';
+ '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>'+(intent?'':discover);
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
  const error=s.error?'<p class="notice danger" role="alert">'+esc(s.error)+'</p>':'';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section mobility-page">'+top+'<p role="status">Preparando sua área segura…</p></section>');
@@ -262,7 +274,7 @@ function mobilityClearSession(){
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
- s.noticeOptIn=false;s.pendingDriverIds=null;
+ s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';
  s.error='';s.notice='';s.busy=false;
  if(mobilityRoute())render();
 }
@@ -285,6 +297,15 @@ async function mobilityLogout(){
 }
 function mobilityAfterRender(){
  const s=mobilityRuntime;
+ if(route()==='contact'&&mobilityId.test(String(s.reportId||''))){
+  const kind=document.getElementById?.('public-request-kind');
+  const message=document.getElementById?.('public-request-message');
+  if(kind&&message){
+   kind.value='support';
+   message.value='Problema em atendimento TAMÃO. Protocolo: '+s.reportId+'. ';
+   s.reportId='';
+  }
+ }
  if(!mobilityRoute()){
   if(s.watch!==null||s.gpsPending)mobilityStopTracking();
   if(s.poll!==null){clearInterval(s.poll);s.poll=null}

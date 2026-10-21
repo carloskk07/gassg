@@ -148,7 +148,7 @@ function contactPage(){
     legalNav()+
     '<div class="contact-purpose-grid">'+
       '<article class="trust-card"><span>💬</span><h3>Dúvidas gerais e marcas</h3><p>Funcionamento, parcerias comerciais, pedidos e disponibilidade.</p></article>'+
-      '<article class="trust-card"><span>🛟</span><h3>Suporte</h3><p>Problemas de uso ou atendimento que não estejam vinculados a um pedido ativo.</p></article>'+
+      '<article class="trust-card"><span>🛟</span><h3>Suporte</h3><p>Suporte para pedidos, corridas, cadastros e problemas de uso.</p></article>'+
       '<article class="trust-card"><span>🔐</span><h3>Privacidade / LGPD</h3><p>Acesso, correção, eliminação, informações ou revogação de autorização.</p></article>'+
     '</div>'+
     '<section class="legal-card public-contact-card"><div class="field-row">'+

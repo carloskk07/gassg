@@ -460,8 +460,8 @@ function homeDiscoverFocus(){
 // A single compact service hub replaces overlapping mobility/discovery grids.
 function tamaoDiscoveryEntryHub(){
  const cards=[
-  ['🏍️','Pedir uma moto','Mototáxis da região','/?servico=moto#professionals'],
-  ['🚕','Pedir um carro','Táxis e motoristas','/?servico=carro#professionals'],
+  ['🏍️','Pedir uma moto','Mototáxis','/?modalidade=moto#mobility'],
+  ['🚕','Pedir um carro','Motoristas','/?modalidade=carro#mobility'],
   ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
   ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
   ['🛠️','Profissionais','Serviços locais','/#professionals'],
@@ -472,13 +472,13 @@ function tamaoDiscoveryEntryHub(){
  return '<section class="section tamao-home-services" aria-label="Encontre serviços no TAMÃO">'+
   '<div class="section-head"><div><span class="section-kicker">ALÉM DAS COMPRAS</span>'+
   '<h2>Precisou de outro serviço? Tá na mão.</h2>'+
-  '<p>Escolha o que procura e converse diretamente com os anunciantes da sua região.</p></div></div>'+
+  '<p>Encontre anunciantes da região.</p></div></div>'+
   '<div class="intent-grid tamao-home-services-grid">'+cards.map(([icon,title,description,href])=>
    '<a class="intent-card tamao-home-service" href="'+href+'">'+
    '<span class="intent-icon" aria-hidden="true">'+icon+'</span>'+
    '<span class="tamao-home-service-copy"><strong>'+title+'</strong><small>'+description+'</small></span>'+
    '<b aria-hidden="true">↗</b></a>').join('')+
-  '</div><p class="tiny muted tamao-home-services-note">Serviços, viagens e hospedagens dependem de anúncios publicados. Condições e disponibilidade são confirmadas com cada anunciante.</p>'+
+  '</div><p class="tiny muted tamao-home-services-note">Consulte anúncios publicados e confirme condições com o anunciante.</p>'+
   '</section>';
 }
 

@@ -168,6 +168,23 @@ assert.equal(s.user.id,another.id,'User identity switches after auth event');
 assert.equal(s.detail,null,'Switching accounts clears the other rider location');
 assert.equal(s.items.length,0,'Switching accounts clears previous trip list');
 ctx.location.search='?corrida=bad&modalidade=moto';assert.equal(ctx.mobilityIntent(),null);
+const mobilityHome=read('js/customer.js'),mobilityNav=read('js/core.js');
+assert.ok(mobilityHome.includes("'/?modalidade=moto#mobility'"),'Moto homepage opens mobility without a fake listing');
+assert.ok(mobilityHome.includes("'/?modalidade=carro#mobility'"),'Carro homepage opens mobility without a fake listing');
+assert.ok(!mobilityHome.includes("'/?servico=moto#professionals'"),
+ 'Homepage moto must not route to the generic professionals landing');
+assert.ok(mobilityNav.includes('Corridas</button>'));
+assert.ok(mobilityNav.includes('Minhas corridas</button>'));
+s.phase='ready';s.user=null;s.id='';s.detail=null;s.items=[];
+ctx.location.search='?modalidade=moto';
+assert.equal(ctx.mobilityIntent(),null,'Mode-only link must not fabricate listing permission');
+assert.match(ctx.mobilityPage(),/Encontrar mototaxista/);
+assert.match(ctx.mobilityPage(),/Encontrar motorista/);
+assert.ok(!ctx.mobilityPage().includes('onsubmit="return mobilityCreate(event)"'),
+ 'Without an authorized provider ID, no trip can be submitted');
+ctx.location.search='?corrida='+listing+'&modalidade=moto';
+assert.doesNotMatch(ctx.mobilityPage(),/Encontrar mototaxista/,
+ 'A chosen listing must preserve the direct authenticated journey');
 assert.ok(read('js/bootstrap.js').includes('mobilityRequestModule()'));
 assert.ok(read('js/bootstrap.js').includes('mobilityModuleError'));
 assert.ok(read('js/bootstrap.js').includes('mobilityRetryModule()'));
@@ -210,4 +227,30 @@ assert.match(ctx.mobilityPage(),/onsubmit="return mobilityCreate\(event\)"/);
 client.rpc=originalRpc;
 assert.match(read('js/mobility.js'),/Sou mototaxista e quero anunciar/);
 assert.match(read('js/mobility.js'),/Sou motorista e quero anunciar/);
+
+const routeBeforeReport=ctx.route;
+const domBeforeReport=ctx.document.getElementById;
+s.user=driver;s.id=listing;s.detail={id:listing,role:'rider',status:'requested'};
+ctx.location.hash='#mobility';
+ctx.go=r=>{ctx.location.hash='#'+r};
+ctx.route=()=>ctx.location.hash.slice(1);
+assert.equal(ctx.mobilityReport('invalid'),false,'Invalid UUID cannot create support context');
+assert.equal(s.reportId,'');
+assert.equal(ctx.mobilityReport(listing),false,'Valid current ride opens official support');
+assert.equal(ctx.location.hash,'#contact');
+const supportKind={value:'general'},supportMessage={value:''};
+ctx.document.getElementById=id=>({
+ 'public-request-kind':supportKind,'public-request-message':supportMessage
+})[id]||null;
+ctx.mobilityAfterRender();
+assert.equal(supportKind.value,'support','Mobility problem selects support, not privacy');
+assert.match(supportMessage.value,/Protocolo: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/);
+assert.doesNotMatch(supportMessage.value,/Centro|Bairro|30[.]33|54[.]32|GPS:/,
+ 'Only the protocol may reach the general support form');
+assert.equal(s.reportId,'','Prefill is consumed once without persisting location');
+s.reportId=listing;
+ctx.mobilityClearSession();
+assert.equal(s.reportId,'','Signing out clears pending support context');
+ctx.document.getElementById=domBeforeReport;ctx.route=routeBeforeReport;ctx.location.hash='#mobility';
+
 console.log('PASS: GPS privacy and consent, active rider resume, duplicate request prevention, driver onboarding');
