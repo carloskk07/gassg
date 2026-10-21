@@ -121,6 +121,23 @@ begin
  return v_next;
 end $$;
 
+-- Explicit driver-initiated permission in the database. A delayed GPS packet
+-- must never restore tracking after STOP, even if it arrives out of order.
+create function public.mobility_start_position(p_request_id uuid)
+returns boolean language plpgsql volatile security definer set search_path=pg_catalog as $
+declare v_user uuid:=(select auth.uid());r public.mobility_requests%rowtype;
+begin
+ if v_user is null or not public.discovery_verified_account() then
+   raise exception 'MOBILITY_AUTH_REQUIRED' using errcode='42501';end if;
+ select * into r from public.mobility_requests where id=p_request_id for update;
+ if not found or r.driver_id<>v_user or r.status<>'en_route'
+    or r.expires_at<=statement_timestamp() then
+  raise exception 'MOBILITY_START_FORBIDDEN' using errcode='42501';end if;
+ update public.mobility_requests set tracking_enabled=true,updated_at=statement_timestamp()
+  where id=r.id;
+ return true;
+end $;
+
 create function public.mobility_publish_position(
  p_request_id uuid,p_latitude double precision,p_longitude double precision,p_accuracy_m double precision)
 returns boolean language plpgsql volatile security definer set search_path=pg_catalog as $$
@@ -132,7 +149,7 @@ begin
  then raise exception 'MOBILITY_INVALID_POSITION' using errcode='22023';end if;
  select * into r from public.mobility_requests where id=p_request_id for update;
  if not found or r.driver_id<>v_user or r.status<>'en_route'
-   or r.expires_at<=statement_timestamp()
+   or not r.tracking_enabled or r.expires_at<=statement_timestamp()
  then raise exception 'MOBILITY_POSITION_FORBIDDEN' using errcode='42501';end if;
  if exists(select 1 from public.mobility_live_positions where request_id=r.id
    and updated_at>statement_timestamp()-interval '5 seconds') then return false;end if;
@@ -140,8 +157,6 @@ begin
  values(r.id,p_latitude,p_longitude,p_accuracy_m,statement_timestamp())
  on conflict(request_id) do update set latitude=excluded.latitude,
  longitude=excluded.longitude,accuracy_m=excluded.accuracy_m,updated_at=excluded.updated_at;
- update public.mobility_requests set tracking_enabled=true,updated_at=statement_timestamp()
-  where id=r.id and not tracking_enabled;
  return true;
 end $$;
 
@@ -196,12 +211,14 @@ $$;
 -- Only authenticated calls; no direct table writes, no anonymous GPS reads.
 revoke all on function public.mobility_create_request(uuid,text,text,text) from public,anon,authenticated;
 revoke all on function public.mobility_transition(uuid,text) from public,anon,authenticated;
+revoke all on function public.mobility_start_position(uuid) from public,anon,authenticated;
 revoke all on function public.mobility_publish_position(uuid,double precision,double precision,double precision) from public,anon,authenticated;
 revoke all on function public.mobility_stop_position(uuid) from public,anon,authenticated;
 revoke all on function public.mobility_snapshot(uuid) from public,anon,authenticated;
 revoke all on function public.mobility_my_requests() from public,anon,authenticated;
 grant execute on function public.mobility_create_request(uuid,text,text,text),
  public.mobility_transition(uuid,text),
+ public.mobility_start_position(uuid),
  public.mobility_publish_position(uuid,double precision,double precision,double precision),
  public.mobility_stop_position(uuid),public.mobility_snapshot(uuid),
  public.mobility_my_requests() to authenticated;

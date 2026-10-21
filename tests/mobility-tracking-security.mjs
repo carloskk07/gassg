@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const sql=fs.readFileSync(new URL('../supabase/migrations/20261021030000_mobility_live_tracking.sql',import.meta.url),'utf8');
 for(const fn of ['mobility_create_request','mobility_transition','mobility_publish_position',
-'mobility_stop_position','mobility_snapshot','mobility_my_requests']){
+'mobility_start_position','mobility_stop_position','mobility_snapshot','mobility_my_requests']){
  assert.ok(sql.includes('create function public.'+fn+'('));
  assert.ok(sql.includes('revoke all on function public.'+fn+'('));
 }
@@ -10,6 +10,9 @@ assert.equal((sql.match(/enable row level security/g)||[]).length,2);
 assert.ok(sql.includes('to authenticated using ((select auth.uid())=rider_id'));
 assert.ok(sql.includes("r.status='en_route' and r.tracking_enabled"));
 assert.ok(sql.includes("interval '45 seconds'"));
+assert.ok(sql.includes("not r.tracking_enabled or r.expires_at"));
+assert.ok(sql.includes("create function public.mobility_start_position"));
+assert.ok(sql.includes("update public.mobility_requests set tracking_enabled=true,updated_at=statement_timestamp()"));
 assert.ok(sql.includes("interval '3 minutes'"));
 assert.ok(sql.includes("cron.schedule('tamao-mobility-gps-cleanup'"));
 assert.ok(sql.includes("revoke all on function public.mobility_cleanup_expired()"));

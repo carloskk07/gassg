@@ -42,6 +42,10 @@ do $t$ begin
   perform public.mobility_transition(current_setting('tamao.mobility.id')::uuid,'accept');
   raise exception 'UNINVOLVED_USER_ACCEPTED';
  exception when insufficient_privilege then null;end;
+ begin
+  perform public.mobility_start_position(current_setting('tamao.mobility.id')::uuid);
+  raise exception 'THIRD_PARTY_STARTED_GPS';
+ exception when insufficient_privilege then null;end;
 end $t$;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
 do $t$ begin
@@ -53,6 +57,12 @@ do $t$ begin
  exception when insufficient_privilege then null;end;
  if public.mobility_transition(current_setting('tamao.mobility.id')::uuid,'depart')<>'en_route'
  then raise exception 'DEPART_FAILED';end if;
+ begin
+  perform public.mobility_publish_position(current_setting('tamao.mobility.id')::uuid,-30.34,-54.3,20);
+  raise exception 'GPS_WITHOUT_DRIVER_OPT_IN';
+ exception when insufficient_privilege then null;end;
+ if not public.mobility_start_position(current_setting('tamao.mobility.id')::uuid)
+ then raise exception 'DRIVER_START_FAILED';end if;
  if not public.mobility_publish_position(current_setting('tamao.mobility.id')::uuid,-30.34,-54.3,20)
  then raise exception 'GPS_WRITE_FAILED';end if;
 end $t$;
@@ -70,6 +80,12 @@ begin
 end $t$;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
 select public.mobility_stop_position(current_setting('tamao.mobility.id')::uuid);
+do $t$ begin
+ begin
+  perform public.mobility_publish_position(current_setting('tamao.mobility.id')::uuid,-30.35,-54.31,30);
+  raise exception 'DELAYED_GPS_REENABLED_AFTER_STOP';
+ exception when insufficient_privilege then null;end;
+end $t$;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
 do $t$
 declare s jsonb;

@@ -8,7 +8,7 @@
 
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
- mapConsent:false,mapKey:'',mapFrameAt:0};
+ mapConsent:false,mapKey:'',mapFrameAt:0,gpsPending:false,gpsRequestId:'',gpsEpoch:0};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const mobilityStates={
  requested:'Aguardando resposta do anunciante',accepted:'Aceita pelo motorista',
@@ -85,7 +85,7 @@ function mobilityDetailPanel(row){
   if(status==='arrived')actions=mobilityAction('finish','Finalizar atendimento','primary');
  }
  if(!terminal&&status!=='requested'&&driver){
-  actions+=(mobilityRuntime.watch===null&&status==='en_route'
+  actions+=(mobilityRuntime.watch===null&&!mobilityRuntime.gpsPending&&status==='en_route'
    ?'<button type="button" onclick="mobilityStartTracking()">Compartilhar meu GPS agora</button>':'');
   if(mobilityRuntime.watch!==null)actions+='<button type="button" onclick="mobilityStopTracking()">Parar compartilhamento</button>';
  }
@@ -153,7 +153,7 @@ async function mobilityInit(){
 function mobilityAfterRender(){
  const s=mobilityRuntime;
  if(!mobilityRoute()){
-  if(s.watch!==null)mobilityStopTracking();
+  if(s.watch!==null||s.gpsPending)mobilityStopTracking();
   if(s.poll!==null){clearInterval(s.poll);s.poll=null}
   return;
  }
@@ -210,7 +210,7 @@ async function mobilityRefresh(silent=false){
 }
 function mobilityFocus(id){
  if(!mobilityId.test(String(id||''))||!mobilityRuntime.items.some(x=>x.id===id))return false;
- if(mobilityRuntime.watch!==null)mobilityStopTracking();
+ if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
  mobilityRuntime.id=id;mobilityRuntime.detail=null;mobilityRuntime.mapConsent=false;
  mobilityRuntime.mapKey='';mobilityRefresh();return true;
 }
@@ -263,40 +263,74 @@ function mobilityUpdateMap(row){
   frame.src=url;mobilityRuntime.mapKey=url;mobilityRuntime.mapFrameAt=Date.now();
  }
 }
-function mobilityStartTracking(){
+async function mobilityStartTracking(){
  const s=mobilityRuntime,d=s.detail;
- if(s.watch!==null||!s.client||!s.user||d?.role!=='driver'||d.status!=='en_route')return false;
+ if(s.watch!==null||s.gpsPending||!s.client||!s.user||d?.role!=='driver'||
+  d.status!=='en_route'||!mobilityId.test(String(d.id||'')))return false;
  if(document.visibilityState==='hidden'||!globalThis.isSecureContext||!navigator.geolocation){
   s.error='GPS indisponível. Use o site por HTTPS com a tela visível.';render();return false;
  }
- // Deliberate click, no background monitoring or passive subscription.
- s.error='';s.notice='Aguardando sua permissão para compartilhar a localização.';
- s.lastPublish=0;
- s.watch=navigator.geolocation.watchPosition(async position=>{
-  if(s.watch===null||document.visibilityState==='hidden'||s.id!==d.id)return;
-  if(Date.now()-s.lastPublish<8000)return;
-  const {latitude,longitude,accuracy}=position.coords||{};
-  if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||!Number.isFinite(accuracy)||
-   accuracy<0||accuracy>1000)return;
-  s.lastPublish=Date.now();
-  const out=await s.client.rpc('mobility_publish_position',{
-   p_request_id:d.id,p_latitude:latitude,p_longitude:longitude,p_accuracy_m:accuracy
-  }).catch(()=>({error:true}));
-  if(out?.error){s.error='Falha ao compartilhar. GPS interrompido.';await mobilityStopTracking();render()}
- },()=>{
-  s.error='Localização negada ou indisponível. Ative o GPS se desejar compartilhar.';
-  mobilityStopTracking();render();
- },{enableHighAccuracy:true,maximumAge:0,timeout:15000});
- render();return true;
+ const id=d.id,client=s.client,epoch=++s.gpsEpoch;
+ s.gpsRequestId=id;s.gpsPending=true;s.lastPublish=0;s.error='';
+ s.notice='Preparando compartilhamento voluntário da localização.';
+ render();
+ try{
+  // The server allows publishing only after this explicit action. A packet
+  // arriving after STOP cannot turn tracking on again.
+  const start=await client.rpc('mobility_start_position',{p_request_id:id});
+  if(start?.error||start?.data!==true)throw Error('GPS_START_DENIED');
+  if(s.gpsEpoch!==epoch||s.gpsRequestId!==id||s.id!==id||
+     document.visibilityState==='hidden'||!mobilityRoute()||
+     s.detail?.role!=='driver'||s.detail?.status!=='en_route'){
+   await client.rpc('mobility_stop_position',{p_request_id:id}).catch(()=>{});
+   return false;
+  }
+  s.watch=navigator.geolocation.watchPosition(async position=>{
+   if(s.gpsEpoch!==epoch||s.gpsRequestId!==id||s.watch===null||
+      document.visibilityState==='hidden'||s.id!==id)return;
+   if(Date.now()-s.lastPublish<8000)return;
+   const {latitude,longitude,accuracy}=position.coords||{};
+   if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||!Number.isFinite(accuracy)||
+      accuracy<0||accuracy>1000)return;
+   s.lastPublish=Date.now();
+   const out=await client.rpc('mobility_publish_position',{
+    p_request_id:id,p_latitude:latitude,p_longitude:longitude,p_accuracy_m:accuracy
+   }).catch(()=>({error:true}));
+   if(out?.error&&s.gpsEpoch===epoch){
+    s.error='Falha ao compartilhar. GPS interrompido.';
+    await mobilityStopTracking();render();
+   }
+  },()=>{
+   if(s.gpsEpoch!==epoch)return;
+   s.error='Localização negada ou indisponível. Ative o GPS se desejar compartilhar.';
+   mobilityStopTracking();render();
+  },{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  s.notice='GPS autorizado nesta solicitação. Para interromper, toque em Parar compartilhamento.';
+  return true;
+ }catch(_){
+  if(s.gpsEpoch===epoch){
+   s.error='Não foi possível iniciar o GPS. Revise a conexão e tente novamente.';
+   await mobilityStopTracking();
+  }
+  return false;
+ }finally{
+  if(s.gpsEpoch===epoch){s.gpsPending=false;render()}
+ }
 }
 async function mobilityStopTracking(){
- const s=mobilityRuntime,id=s.id;
- if(s.watch!==null){try{navigator.geolocation.clearWatch(s.watch)}catch(_){}s.watch=null}
- if(s.client&&mobilityId.test(String(id||''))&&s.user){
-  try{await s.client.rpc('mobility_stop_position',{p_request_id:id})}catch(_){}
+ const s=mobilityRuntime,id=s.gpsRequestId||s.id,client=s.client;
+ s.gpsEpoch++;
+ s.gpsPending=false;s.gpsRequestId='';
+ if(s.watch!==null){
+  try{navigator.geolocation.clearWatch(s.watch)}catch(_){}
+  s.watch=null;
+ }
+ if(client&&mobilityId.test(String(id||''))&&s.user){
+  try{await client.rpc('mobility_stop_position',{p_request_id:id})}catch(_){}
  }
  return true;
 }
 document.addEventListener('visibilitychange',()=>{
- if(document.visibilityState==='hidden'&&mobilityRuntime.watch!==null)mobilityStopTracking();
+ if(document.visibilityState==='hidden'&&
+   (mobilityRuntime.watch!==null||mobilityRuntime.gpsPending))mobilityStopTracking();
 });
