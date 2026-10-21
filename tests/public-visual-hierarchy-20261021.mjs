@@ -11,7 +11,7 @@ assert.match(core,/tamao-nav-more-panel/);
 assert.match(core,/tamao-nav-collapsed/);
 assert.match(core,/Montar cesta/);
 assert.match(core,/Moto e carro/);
-assert.match(core,/onclick="go\(\\'merchants\\'\)"/);
+assert.match(core,/\['merchants','Para revendas'\]/);
 assert.match(premium,/\.tamao-public-nav\.tamao-public-nav|\.tamao-public-header \.desktop-nav\.tamao-public-nav/);
 assert.match(premium,/@media\(min-width:760px\) and \(max-width:1099px\)/);
 assert.match(premium,/\.tamao-nav-more-panel \.tamao-nav-collapsed\{display:block\}/);

@@ -880,24 +880,22 @@ function shell(content){
   const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"go('merchants')";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
+  const primaryLinks=[['home','Cotações'],['professionals','Profissionais'],
+    ['mobility','Moto e carro'],['rides','Caronas'],['stays','Hospedagens'],['club','Clube']];
+  const moreLinks=[['rides','Caronas',true],['stays','Hospedagens',true],
+    ['club','Clube TAMÃO',true],['advertise','Anunciar serviço'],
+    ['merchants','Para revendas'],['sponsors','Para marcas']];
   const desktopNav=adminPortal
     ? '<button onclick="go(\'admin\')">Control plane</button>'
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
-      : '<button type="button" onclick="go(\'home\')">Cotações</button>'+
-       '<button type="button" onclick="go(\'professionals\')">Profissionais</button>'+
-       '<button type="button" onclick="go(\'mobility\')">Moto e carro</button>'+
-       '<button type="button" class="tamao-nav-optional" onclick="go(\'rides\')">Caronas</button>'+
-       '<button type="button" class="tamao-nav-optional" onclick="go(\'stays\')">Hospedagens</button>'+
-       '<button type="button" class="tamao-nav-optional" onclick="go(\'club\')">Clube</button>'+
-       '<details class="tamao-nav-more"><summary>Mais <span aria-hidden="true">⌄</span></summary>'+
-       '<div class="tamao-nav-more-panel">'+
-       '<button type="button" class="tamao-nav-collapsed" onclick="go(\'rides\')">Caronas</button>'+
-       '<button type="button" class="tamao-nav-collapsed" onclick="go(\'stays\')">Hospedagens</button>'+
-       '<button type="button" class="tamao-nav-collapsed" onclick="go(\'club\')">Clube TAMÃO</button>'+
-       '<button type="button" onclick="go(\'advertise\')">Anunciar serviço</button>'+
-       '<button type="button" onclick="go(\'merchants\')">Para revendas</button>'+
-       '<button type="button" onclick="go(\'sponsors\')">Para marcas</button></div></details>';
+      : primaryLinks.map(([id,label],i)=>
+          '<button type="button"'+(i>2?' class="tamao-nav-optional"':'')+
+          ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+
+        '<details class="tamao-nav-more"><summary>Mais <span aria-hidden="true">⌄</span></summary>'+
+        '<div class="tamao-nav-more-panel">'+moreLinks.map(([id,label,collapsed])=>
+          '<button type="button"'+(collapsed?' class="tamao-nav-collapsed"':'')+
+          ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+'</div></details>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal||testDemo

@@ -336,7 +336,7 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .tamao-public-header button:focus-visible,.tamao-nav-more>summary:focus-visible{outline:3px solid #bc8728;outline-offset:3px}
 .tamao-quote-first{max-width:1120px;margin-top:16px;padding:clamp(20px,3.2vw,34px);border:1px solid #d6e5db;border-radius:26px;background:#fff;box-shadow:0 14px 40px rgba(26,64,44,.055)}
 .tamao-quote-first .tamao-quote-topline{color:#08704b;font-size:11px;letter-spacing:.08em;margin-bottom:14px}
-.tamao-quote-first .city-price-heading h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.055em;color:#153b2c}
+.app .tamao-quote-first .city-price-heading h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.055em;color:#153b2c}
 .tamao-quote-first .city-price-heading p{max-width:62ch;line-height:1.55}
 .tamao-quote-first .city-price-grid{gap:12px}
 .tamao-quote-first .city-price-reference-summary{border-radius:20px;border:1px solid #e3eee6;background:#f7fbf8;padding:clamp(14px,2.5vw,22px)}
