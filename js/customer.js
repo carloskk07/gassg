@@ -441,6 +441,16 @@ function homeDiscoverFocus(){
   return true;
 }
 
+function tamaoMobilityEntryHub(){
+ return '<div class="intent-section"><h2>Moto, carro ou entrega?</h2><div class="intent-grid">'+
+ [['🏍️ Pedir uma moto','/?servico=moto#professionals'],
+  ['🚕 Pedir um carro','/?servico=carro#professionals'],
+  ['🚚 Pedir um frete','/?servico=fretes#professionals'],
+  ['📦 Pedir uma entrega','/?servico=entregas#professionals'],
+  ['🚙 Encontrar carona','/#rides']].map(([name,url])=>
+   '<a class="intent-card" href="'+url+'"><strong>'+name+'</strong><b>→</b></a>'
+ ).join('')+'</div><p>Consulta direta com anunciantes. Sem despacho.</p></div>';
+}
 function tamaoDiscoveryEntryHub(){
   return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
     '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
@@ -737,6 +747,7 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
+${tamaoMobilityEntryHub()}
 ${tamaoDiscoveryEntryHub()}
 
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}

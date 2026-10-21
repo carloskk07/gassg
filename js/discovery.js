@@ -4,6 +4,39 @@ const discoveryVerticals={
   rides:['Caronas','Pesquise trajetos e vagas de caronas anunciadas','🚙'],
   stays:['Hospedagens','Explore hospedagens publicadas em destinos brasileiros','🏡']
 };
+// Allowlisted search intents only. No vehicle dispatch, price or availability promise.
+const discoveryServiceShortcuts=Object.freeze({
+ moto:{title:'Pedir uma moto',occupation:'Mototáxi',
+  summary:'Consulte anúncios de mototaxistas e combine o atendimento diretamente.'},
+ carro:{title:'Pedir um carro',occupation:'Motorista',
+  summary:'Encontre motoristas e táxis anunciados; confirme valores e disponibilidade.'},
+ fretes:{title:'Pedir um frete',occupation:'Frete',
+  summary:'Consulte fretes, carretos e mudanças e solicite orçamento.'},
+ entregas:{title:'Pedir uma entrega',occupation:'Entregador',
+  summary:'Consulte entregadores e motoboys anunciados para combinar sua entrega.'}
+});
+function discoveryServiceFromUrl(){
+ if(discoveryKind()!=='professionals'||discoverySharedListingId())return '';
+ try{
+  const key=new URLSearchParams(String(globalThis.location?.search||'').slice(0,1500)).get('servico')||'';
+  return Object.hasOwn(discoveryServiceShortcuts,key)?key:'';
+ }catch{return '';}
+}
+function discoveryServiceLinks(active){
+ return '<nav class="discovery-service-links" aria-label="Moto, carro e entregas">'+
+  Object.entries(discoveryServiceShortcuts).map(([key,item])=>
+   '<a href="/?servico='+key+'#professionals"'+
+   (active===key?' aria-current="page"':'')+'>'+item.title+'</a>').join('')+
+  '<a href="/#rides">Encontrar carona</a></nav>';
+}
+function discoveryForgetServiceUrl(){
+ try{
+  const url=new URL(globalThis.location?.href||'');
+  if(!url.searchParams.has('servico'))return;
+  url.searchParams.delete('servico');
+  globalThis.history?.replaceState?.(null,'',url.pathname+url.search+url.hash);
+ }catch{/* A blocked history API never blocks the local search reset. */}
+}
 const discoveryRuntime=Object.create(null);
 
 const discoverySavedMemory=Object.create(null);
@@ -169,7 +202,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:'',sortMode:'recent',compareIds:[]} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],service:'',city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',occupation:'',minSeats:'',propertyType:'',maxPrice:'',sharedId:'',error:'',seq:0,offset:0,hasMore:false,savedOnly:false,compareOpen:false,savedNotice:'',sortMode:'recent',compareIds:[]} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -440,7 +473,7 @@ function discoveryCard(item,kind){
 function discoveryPage(){
   const kind=discoveryKind();
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
-  const s=discoveryState(kind),v=discoveryVerticals[kind];
+  const s=discoveryState(kind),v=discoveryVerticals[kind],shortcut=kind==='professionals'?discoveryServiceShortcuts[s.service]:null;
   const savedIds=discoverySavedIds(kind);
   const savedSet=new Set(savedIds);
   const eligible=(s.status==='ready'||s.status==='loading-more')?s.items:[];
@@ -453,8 +486,9 @@ function discoveryPage(){
     s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Nenhum anúncio publicado encontrado com esses filtros.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':'<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>')+'</div>':
     displayItems.map(item=>discoveryCard(item,kind)).join('');
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
-    '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+v[1]+'</h1>'+
-    '<p>Consulte anúncios publicados e fale diretamente com quem anunciou.</p></header>'+
+    '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+esc(shortcut?.title||v[1])+'</h1>'+
+    '<p>'+esc(shortcut?.summary||'Consulte anúncios publicados e fale diretamente com quem anunciou.')+'</p></header>'+
+    (kind==='professionals'?discoveryServiceLinks(s.service):'')+
     '<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)">'+
     '<label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>'+
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
@@ -509,6 +543,7 @@ function discoverySearchFromUi(event){
   s.departureAfter=kind==='rides'?String(document.getElementById('discovery-departure-after')?.value||'').trim().slice(0,16):'';
   s.guests=String(document.getElementById('discovery-guests')?.value||'').trim().slice(0,3);
   s.occupation=kind==='professionals'?String(document.getElementById('discovery-occupation')?.value||'').trim().slice(0,100):'';
+  if(s.service&&s.occupation!==discoveryServiceShortcuts[s.service]?.occupation){s.service='';discoveryForgetServiceUrl();}
   s.minSeats=kind==='rides'?String(document.getElementById('discovery-min-seats')?.value||'').trim().slice(0,2):'';
   s.propertyType=kind==='stays'?String(document.getElementById('discovery-property-type')?.value||'').trim().slice(0,20):'';
   s.maxPrice=kind==='stays'?String(document.getElementById('discovery-max-price')?.value||'').trim().slice(0,12):'';
@@ -520,7 +555,8 @@ function discoveryClearFilters(){
  if(!kind)return;
  const s=discoveryState(kind);
  for(const field of ['city','state','origin','destination','departureAfter','guests',
-   'occupation','minSeats','propertyType','maxPrice','sharedId'])s[field]='';
+   'occupation','service','minSeats','propertyType','maxPrice','sharedId'])s[field]='';
+ discoveryForgetServiceUrl();
  s.offset=0;s.hasMore=false;
  discoveryFetch();
 }
@@ -581,7 +617,12 @@ async function discoveryFetch(more=false){
 function discoveryAfterRender(){
   const kind=discoveryKind();
   if(kind&&discoveryState(kind).status==='idle'){
-    discoveryState(kind).sharedId=discoverySharedListingId();
+    const s=discoveryState(kind);
+    s.sharedId=discoverySharedListingId();
+    if(kind==='professionals'&&!s.sharedId){
+     s.service=discoveryServiceFromUrl();
+     if(s.service)s.occupation=discoveryServiceShortcuts[s.service].occupation;
+    }
     discoveryFetch();
   }
 }
