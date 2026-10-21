@@ -541,7 +541,7 @@ function discoveryPage(){
     '<div class="discovery-intro-copy"><span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span>'+
     '<h1>'+esc(shortcut?.title||titles[kind])+'</h1>'+
     '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
-    (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\\'advertise\\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
+    (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\'advertise\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
     '</header>'+
     (kind==='professionals'?discoveryServiceLinks(s.service):'')+
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
