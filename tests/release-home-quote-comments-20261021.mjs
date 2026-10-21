@@ -9,5 +9,5 @@ assert.ok(source.length-emitted.length>600,'Meaningful production-only JS saving
 assert.match(emitted,/function homeQuoteCouponRail/);
 assert.match(emitted,/snapshot\.notAQuote===true/);
 new vm.Script(emitted);
-assert.equal(compactReleasedHomeQuoteComments(emitted),emitted,'Release compaction idempotent');
+assert.equal(emitted,source.replace(/^[ \\t]*\\/\\/[^\\n]*\\n/gm,line=>line.includes('TAMÃO V1.341')?line:''),'Only standalone comments are omitted');
 console.log('PASS: production bundle trims comments, preserves quote provenance and JS semantics');
