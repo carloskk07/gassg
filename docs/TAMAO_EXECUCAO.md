@@ -1317,3 +1317,7 @@ Corrigida a abertura da função de limpeza para o par de delimitadores PostgreS
 ### 21/10/2026 — Instrumentação do smoke visual da PR #515
 
 O browser smoke falhou ao esperar qualquer `h1` em 360px, inclusive o título de pré-carregamento do HTML estático. Isso pode indicar indisponibilidade do servidor de teste, navegador ou regressão no carregamento. Sem afrouxar o gate, foi acrescentado diagnóstico **somente na falha** para registrar URL real, readyState, título, pequeno trecho visível e última exceção do render. O teste continua reprovando se a página não carregar em 12 segundos. Não há mudança de visual ou banco.
+
+### 21/10/2026 — Smoke visual alinhado ao título real da home
+
+Diagnóstico automático mostrou `document.readyState=complete`, preços e cesta renderizados, `window.__lastRenderError=null`, mas o teste esperava `h1` na home. Após o redesign da home, o título único da cotação `Tamão São Gabriel/RS` está em `.tamao-quote-first .city-price-heading h2`. A espera do navegador agora exige esse título **específico** para a home e ainda exige `h1` nas demais páginas; `readDOM` recebe o mesmo fallback para medir clipping/overflow. Não removeu timeout de 12s, verificação de largura ou testes de conteúdo. Uma melhoria semântica futura poderá normalizar o primeiro título para h1 sem esta PR de GPS.

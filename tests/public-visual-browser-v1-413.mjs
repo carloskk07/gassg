@@ -47,7 +47,7 @@ function send(method,params={}){
 }
 async function readDOM(){
  const expression=`JSON.stringify((()=>{
- const heading=document.querySelector('main h1, h1');
+ const heading=document.querySelector('main h1, h1, .tamao-quote-first .city-price-heading h2');
  const rect=heading?.getBoundingClientRect();
  return {
   url:location.pathname, title:document.title,
@@ -68,7 +68,9 @@ async function readDOM(){
 }
 async function awaitReady(label){
  for(let i=0;i<60;i++){
-  const state=await send('Runtime.evaluate',{expression:"document.readyState==='complete'&&!!document.querySelector('h1')",returnByValue:true});
+  const selector=label.startsWith('home ')?'.tamao-quote-first .city-price-heading h2':'h1';
+  const state=await send('Runtime.evaluate',{expression:
+   "document.readyState==='complete'&&!!document.querySelector("+JSON.stringify(selector)+")",returnByValue:true});
   if(state.result?.value)return;
   await sleep(200);
  }
