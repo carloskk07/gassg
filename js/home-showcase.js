@@ -143,7 +143,7 @@ function homeRegionalPriceBoard(region){
        code:item.code,label:item.label,price:BRL.format(item.priceCents/100),reference:true
       })+'</div>'
    ).join('')+'</div>'+
-   '<p class="city-price-reference-note">Valores de pesquisa, não são ofertas de revendas. Consulte o CEP para conferir preço e entrega.</p>'+
+   '<p class="city-price-reference-note">Referência de mercado, não é oferta de revenda. Consulte pelo CEP para confirmar preço e entrega.</p>'+
    '</article>':
    '<div class="city-price-empty">Explore os produtos e consulte as ofertas de '+esc(place)+
    '.</div>';

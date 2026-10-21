@@ -1266,3 +1266,7 @@ Continuando o redesenho validado do SHA `5e0494c8d213fdf9f8bfa68f230815b4d65cedb
 ### 20/10/2026 — Normalização de CSS sem duplicar fontes
 
 O SHA `63078171` reprovou na auditoria `frontend-asset-coherence` por introduzir dois seletores sobrepostos nos arquivos `css/components.css` e `css/marketing-premium.css`: `.tamao-quote-first .city-price-heading h2` e `.tamao-quote-first .city-price-grid`. Correção isolada: incorporados os valores de espaçamento e tipografia diretamente nas regras originais de `components.css`, removidos os duplicados de `marketing-premium.css`. Nenhum dado comercial, preço, app funcional, schema ou permissão alterado. Reexecutar os cinco gates oficiais sobre o novo SHA.
+
+### 20/10/2026 — Compatibilidade com prova de referência local
+
+Ajuste de texto **sem alterar dados**: o disclaimer único foi padronizado para `Referência de mercado, não é oferta de revenda`, preservando a distinção legal/comercial e o contrato histórico de regressão de cotações. Continua sem segunda repetição do aviso fora do próprio cartão.
