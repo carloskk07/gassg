@@ -39,7 +39,8 @@ function mobilityFormatDate(value){
  return Number.isFinite(t)?new Date(t).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';
 }
 function mobilityMapUrl(pos){
- const lat=Number(pos?.lat),lon=Number(pos?.lon);
+ // Reject malformed coordinates rather than interpreting null as latitude 0.
+ const lat=pos?.lat,lon=pos?.lon;
  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180)return '';
  const a=Math.max(-90,lat-0.009).toFixed(6),b=Math.max(-180,lon-0.012).toFixed(6),
   c=Math.min(90,lat+0.009).toFixed(6),d=Math.min(180,lon+0.012).toFixed(6);
@@ -47,8 +48,17 @@ function mobilityMapUrl(pos){
  return 'https://www.openstreetmap.org/export/embed.html?bbox='+
   encodeURIComponent([b,a,d,c].join(','))+'&layer=mapnik&marker='+encodeURIComponent(p+','+q);
 }
+// Enforce the backend's 45-second expiry independently in the browser.
+ // A lost connection must not leave an obsolete vehicle marker visible.
+function mobilityFreshPosition(row){
+ if(row?.status!=='en_route'||!row.position)return null;
+ const time=Date.parse(String(row.position.updated_at||''));
+ const age=Date.now()-time;
+ if(!Number.isFinite(time)||age< -10000||age>=45000)return null;
+ return mobilityMapUrl(row.position)?row.position:null;
+}
 function mobilityMapPanel(row){
- const p=row?.position,url=mobilityMapUrl(p),active=row?.status==='en_route';
+ const p=mobilityFreshPosition(row),url=mobilityMapUrl(p),active=row?.status==='en_route';
  if(!active)return '<p class="mobility-gps-note">O mapa fica disponível após o motorista iniciar o deslocamento e permitir o GPS.</p>';
  if(!p||!url)return '<p class="mobility-gps-note" role="status">Aguardando localização autorizada. O motorista pode estar sem sinal, GPS ou com a tela inativa.</p>';
  const date=mobilityFormatDate(p.updated_at);
@@ -183,6 +193,13 @@ async function mobilityLogin(event){
 async function mobilityRefresh(silent=false){
  const s=mobilityRuntime;
  if(!s.client||!s.user)return false;
+ // Refreshes may be throttled when backgrounded. Expire a cached marker
+ // immediately when the next foreground check runs, even if the RPC fails.
+ if(s.detail?.position&&!mobilityFreshPosition(s.detail)){
+  s.detail={...s.detail,position:null};
+  mobilityUpdateMap(s.detail);
+  if(mobilityRoute())render();
+ }
  try{
   const {data,error}=await s.client.rpc('mobility_my_requests');
   if(error)throw error;
@@ -210,6 +227,12 @@ async function mobilityRefresh(silent=false){
   if(!silent||changed)if(mobilityRoute())render();
   return true;
  }catch(_){
+  // A network outage never authorizes keeping an old map on screen.
+  if(s.detail?.position){
+   s.detail={...s.detail,position:null};
+   mobilityUpdateMap(s.detail);
+   if(mobilityRoute())render();
+  }
   if(!silent){s.error='Não foi possível atualizar. Confira a conexão.';render()}
   return false;
  }
@@ -255,12 +278,13 @@ async function mobilityTransition(action){
 }
 function mobilityOpenMap(){
  const s=mobilityRuntime;
- if(s.detail?.role!=='rider'||!mobilityMapUrl(s.detail.position))return false;
+ if(s.detail?.role!=='rider'||!mobilityFreshPosition(s.detail))return false;
  s.mapConsent=true;s.mapKey='';s.mapFrameAt=0;render();return true;
 }
 function mobilityUpdateMap(row){
  const el=document.getElementById?.('mobility-position-text');
- if(!row?.position){
+ const position=mobilityFreshPosition(row);
+ if(!position){
   if(el)el.textContent='Localização temporariamente indisponível.';
   // Defense in depth: never retain an iframe pointing to a revoked position.
   const frame=document.getElementById?.('mobility-map');
@@ -268,10 +292,10 @@ function mobilityUpdateMap(row){
   mobilityRuntime.mapKey='';mobilityRuntime.mapFrameAt=0;
   return;
  }
- if(el)el.textContent='Última atualização: '+mobilityFormatDate(row.position.updated_at)+
-  '. Precisão aproximada: '+Math.round(Number(row.position.accuracy_m)||0)+' m.';
+ if(el)el.textContent='Última atualização: '+mobilityFormatDate(position.updated_at)+
+  '. Precisão aproximada: '+Math.round(Number(position.accuracy_m)||0)+' m.';
  if(!mobilityRuntime.mapConsent)return;
- const frame=document.getElementById?.('mobility-map'),url=mobilityMapUrl(row.position);
+ const frame=document.getElementById?.('mobility-map'),url=mobilityMapUrl(position);
  if(frame&&url&&url!==mobilityRuntime.mapKey&&Date.now()-mobilityRuntime.mapFrameAt>30000){
   frame.src=url;mobilityRuntime.mapKey=url;mobilityRuntime.mapFrameAt=Date.now();
  }
@@ -344,6 +368,21 @@ async function mobilityStopTracking(){
  return true;
 }
 document.addEventListener('visibilitychange',()=>{
- if(document.visibilityState==='hidden'&&
-   (mobilityRuntime.watch!==null||mobilityRuntime.gpsPending))mobilityStopTracking();
+ if(document.visibilityState!=='hidden')return;
+ if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
+ // No retained coordinates in the third-party map on backgrounding.
+ const frame=document.getElementById?.('mobility-map');
+ if(frame){frame.removeAttribute?.('src');frame.remove?.()}
+ mobilityRuntime.mapKey='';mobilityRuntime.mapFrameAt=0;
+ if(mobilityRuntime.detail?.position){
+  mobilityRuntime.detail={...mobilityRuntime.detail,position:null};
+ }
+});
+globalThis.addEventListener?.('offline',()=>{
+ if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
+ if(mobilityRuntime.detail?.position){
+  mobilityRuntime.detail={...mobilityRuntime.detail,position:null};
+  mobilityUpdateMap(mobilityRuntime.detail);
+  if(mobilityRoute())render();
+ }
 });

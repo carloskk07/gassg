@@ -16,9 +16,10 @@ const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
  esc:x=>String(x??'').replace(/</g,'&lt;'),CHAMA_BACKEND:{url:'https://example.test',publishableKey:'anon'},
  chamaFetch(){},loadSupabaseBrowser:async()=>({createClient:()=>client})};
 ctx.globalThis=ctx;
-let holdStart=false,resolveHeldStart=null;
+let holdStart=false,resolveHeldStart=null,failRefresh=false;
 const client={rpc:async(name,args)=>{
  called.push([name,args]);
+ if(failRefresh&&name==='mobility_my_requests')throw Error('simulated connectivity loss');
  if(name==='mobility_start_position'&&holdStart)
   return new Promise(resolve=>{resolveHeldStart=resolve});
  return {data:true,error:null};
@@ -36,6 +37,18 @@ assert.match(ctx.mobilityPage(),/Mostrar o mapa do motorista/);
 assert.doesNotMatch(ctx.mobilityPage(),/<iframe/);
 assert.equal(ctx.mobilityOpenMap(),true);
 assert.match(ctx.mobilityPage(),/<iframe/);
+const validPosition=s.detail.position;
+assert.equal(ctx.mobilityFreshPosition(s.detail)!==null,true);
+s.detail.position={...validPosition,updated_at:new Date(Date.now()-47000).toISOString()};
+assert.equal(ctx.mobilityFreshPosition(s.detail),null,
+ 'Expired GPS is rejected locally even when offline');
+assert.doesNotMatch(ctx.mobilityPage(),/<iframe/,
+ 'A stale location must never persist as an OSM iframe');
+assert.equal(ctx.mobilityOpenMap(),false);
+s.detail.position={...validPosition,updated_at:new Date(Date.now()+20000).toISOString()};
+assert.equal(ctx.mobilityFreshPosition(s.detail),null,
+ 'Future timestamp outside clock-skew tolerance is not trustworthy');
+s.detail.position=validPosition;
 s.detail.position=null;assert.doesNotMatch(ctx.mobilityPage(),/<iframe/);
 let deletedSrc=0,removedFrame=0;
 const previousLookup=ctx.document.getElementById;
@@ -46,6 +59,16 @@ ctx.mobilityUpdateMap({position:null});
 assert.equal(deletedSrc,1);
 assert.equal(removedFrame,1,'revoked GPS must remove old third-party map iframe');
 ctx.document.getElementById=previousLookup;
+assert.equal(ctx.mobilityMapUrl({lat:null,lon:0}),'',
+ 'Null latitude cannot silently become 0°');
+assert.equal(ctx.mobilityMapUrl({lat:'-30.3',lon:-54.3}),'',
+ 'Untrusted string coordinates cannot enter the map URL');
+s.detail={id:listing,role:'rider',status:'en_route',origin:'Centro',destination:'Vila',
+ position:{...validPosition,updated_at:new Date(Date.now()-50000).toISOString()}};
+failRefresh=true;
+await ctx.mobilityRefresh(true);
+assert.equal(s.detail.position,null,'A silent failed refresh expires the stale local marker');
+failRefresh=false;
 s.detail={id:listing,role:'driver',status:'accepted',origin:'Centro',destination:'Vila'};
 assert.equal(await ctx.mobilityStartTracking(),false);assert.equal(watch,0);
 s.detail.status='en_route';
