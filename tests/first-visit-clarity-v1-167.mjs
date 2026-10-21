@@ -53,8 +53,8 @@ const noSupply=render();
 assert.match(noSupply,/tamao-home-catalog/,'public catalog remains available');
 assert.match(noSupply,/tamao-home-services-grid/,'one service collection visible');
 assert.match(noSupply,/home-discover-filter/,'category filters remain functional');
-assert.match(noSupply,/class="tamao-home-service"/);
-assert.equal((noSupply.match(/class="tamao-home-services-grid"/g)||[]).length,1,
+assert.match(noSupply,/class="intent-card tamao-home-service"/);
+assert.equal((noSupply.match(/class="intent-grid tamao-home-services-grid"/g)||[]).length,1,
  'public visitor should see exactly one service grid');
 assert.doesNotMatch(noSupply,/class="hero marketing-hero"/,
  'regional board already introduces products; second large hero is redundant');

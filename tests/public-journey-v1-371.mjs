@@ -17,7 +17,7 @@ const catalogue=home.indexOf('class="home-discover tamao-home-catalog"');
 const services=home.indexOf('tamaoDiscoveryEntryHub()}');
 assert.ok(quote>=0&&catalogue>quote&&services>catalogue,
  'The regional quotation must precede the full catalogue and the single service hub');
-assert.ok(home.includes("onclick=\\"startHomeBrowse()\\""),
+assert.ok(home.includes('onclick="startHomeBrowse()"'),
  'The browse CTA opens an empty basket without automatically selecting gas');
 assert.ok(home.includes("if(!testDemo&&!internalPilot)return shell("),
  'The redundant hero must be absent from public visitor rendering');
