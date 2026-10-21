@@ -11,15 +11,18 @@ for(const [name,source] of Object.entries({customer,growth})){
 const home=customer.slice(customer.indexOf('function home(){'),
   customer.indexOf('\nfunction orderPage(){'));
 assert.ok(home.length>10000);
-assert.ok(home.includes('conciseHome?`<section class="home-buying-steps"'),
-  'compact buying guide must appear only in first-visit condition');
-assert.ok(home.includes('home-buying-steps-list'));
-assert.ok(home.includes('Gás, água ou outros essenciais, sem item obrigatório.'));
-assert.ok(home.includes('O pedido só avança após o aceite da revenda.'));
-assert.ok(home.indexOf('id="home-discover"')<home.indexOf('home-buying-steps"'),
- 'buying guide should follow product discovery, not displace the lead CTA');
-assert.ok(home.indexOf('homeRegionalPriceBoard(homeRegion)')<home.indexOf('home-buying-steps"'),
- 'verified quotations and saving guidance must appear before the buying guide');
+assert.ok(home.includes('if(!testDemo&&!internalPilot)return shell('),
+ 'Real visitor receives condensed quote-first layout');
+assert.ok(home.indexOf('homeRegionalPriceBoard(homeRegion)')<
+ home.indexOf('class="home-discover tamao-home-catalog"'));
+assert.ok(home.indexOf('class="home-discover tamao-home-catalog"')<
+ home.indexOf('tamaoDiscoveryEntryHub()}'));
+assert.ok(home.includes('tamaoHomeBenefits({compact:true})'),
+ 'Clube and Rede stay present once, in concise format');
+assert.ok(home.includes('acquisitionOpen?prelaunchCustomerLeadSection()'),
+ 'Availability lead remains only when necessary');
+assert.ok(!home.includes('conciseHome?\`<section class="home-buying-steps"'),
+ 'Old duplicate buying lecture must be removed from the home bundle');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
  'verified price evidence cannot be weakened');
 assert.ok(home.includes("const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()'"),

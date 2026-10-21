@@ -12,16 +12,15 @@ for(const [name,source] of Object.entries({customer,bootstrap})){
 }
 const home=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
 assert.ok(home.length>10000);
-const hero=home.slice(0,home.indexOf('home-discover-grid'));
-const cta=hero.indexOf('    <div class="purchase-starter ');
-const choices=hero.indexOf('    <div class="home-quick-category"');
-const promise=hero.indexOf('    <div class="hero-emotional-promise"');
-assert.ok(cta>=0&&choices>cta&&promise>cta,
-  'primary buyer action should precede secondary filters and emotional copy');
-assert.ok(hero.includes("acquisitionOpen?'Escolher meus produtos'"),
-  'unserved visitors should enter discovery, not a prefilled cart');
-assert.ok(hero.includes("'Consultar '+featuredName"),
-  'verified product CTA must name the featured product instead of claiming a neutral choice');
+const quote=home.indexOf('homeRegionalPriceBoard(homeRegion)');
+const catalogue=home.indexOf('class="home-discover tamao-home-catalog"');
+const services=home.indexOf('tamaoDiscoveryEntryHub()}');
+assert.ok(quote>=0&&catalogue>quote&&services>catalogue,
+ 'The regional quotation must precede the full catalogue and the single service hub');
+assert.ok(home.includes("onclick=\\"startHomeBrowse()\\""),
+ 'The browse CTA opens an empty basket without automatically selecting gas');
+assert.ok(home.includes("if(!testDemo&&!internalPilot)return shell("),
+ 'The redundant hero must be absent from public visitor rendering');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
   'presentation prices must still be verified and marked non-quotational');
 assert.ok(home.includes("const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()'"),

@@ -457,11 +457,11 @@ function tamaoDiscoveryEntryHub(){
   '<div class="section-head"><div><span class="section-kicker">ALÉM DAS COMPRAS</span>'+
   '<h2>Precisou de outro serviço? Tá na mão.</h2>'+
   '<p>Escolha o que procura e converse diretamente com os anunciantes da sua região.</p></div></div>'+
-  '<div class="tamao-home-services-grid">'+cards.map(([icon,title,description,href])=>
-   '<a class="tamao-home-service" href="'+href+'">'+
-   '<span class="tamao-home-service-icon" aria-hidden="true">'+icon+'</span>'+
+  '<div class="intent-grid tamao-home-services-grid">'+cards.map(([icon,title,description,href])=>
+   '<a class="intent-card tamao-home-service" href="'+href+'">'+
+   '<span class="intent-icon" aria-hidden="true">'+icon+'</span>'+
    '<span class="tamao-home-service-copy"><strong>'+title+'</strong><small>'+description+'</small></span>'+
-   '<span class="tamao-home-service-arrow" aria-hidden="true">↗</span></a>').join('')+
+   '<b aria-hidden="true">↗</b></a>').join('')+
   '</div><p class="tiny muted tamao-home-services-note">Serviços, viagens e hospedagens dependem de anúncios publicados. Condições e disponibilidade são confirmadas com cada anunciante.</p>'+
   '</section>';
 }
@@ -690,20 +690,6 @@ function home(){
       <article class="visitor-path visitor-path-sponsor"><span class="visitor-path-icon" aria-hidden="true">📣</span><small>PARA SUA MARCA</small><h3>Esteja presente nas escolhas da cidade.</h3><p>Conheça propostas de divulgação regional identificada e ações com benefícios, definidas junto ao TAMÃO.</p><button type="button" onclick="go('sponsors')">Quero divulgar <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
-  const homeAnswers=`<section class="home-trust-brief" aria-label="Respostas rápidas sobre o TAMÃO">
-    <div class="home-trust-intro">
-      <span class="section-kicker">COMPRAR COM MAIS CLAREZA</span>
-      <h2>Você escolhe. O TAMÃO explica cada passo.</h2>
-      <p>Conheça os produtos primeiro. O atendimento, o valor e a entrega dependem das opções confirmadas para seu endereço.</p>
-      <button type="button" onclick="go('learn')">Entender a compra do começo ao fim <span aria-hidden="true">→</span></button>
-    </div>
-    <div class="home-trust-answers">
-      <details><summary>Como descubro se há entrega para mim?</summary><p>Escolha seus produtos e informe o CEP na consulta. Se não encontrarmos uma revenda para seu endereço, você poderá solicitar um aviso por WhatsApp.</p></details>
-      <details><summary>Preciso comprar gás para pedir água?</summary><p>Não. Você pode escolher água e outros itens sem gás, desde que exista uma oferta disponível para o seu endereço.</p></details>
-      <details><summary>Quando meu pedido está confirmado?</summary><p>Somente depois do aceite da revenda. Antes de pedir, você confere o total e a previsão de entrega das opções disponíveis.</p></details>
-      <details><summary>Posso indicar pessoas e revendas?</summary><p>Sim. Conheça sua Rede TAMÃO e acompanhe indicações atribuídas. Benefícios financeiros dependem das regras e da elegibilidade de cada campanha.</p></details>
-    </div>
-  </section>`;
   return shell(`${regionalPriceSection}
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
@@ -775,19 +761,11 @@ ${tamaoDiscoveryEntryHub()}
 
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}
 
-${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no TAMÃO">
-  <div class="home-buying-steps-heading"><span class="section-kicker">SIMPLES DESDE O PRIMEIRO TOQUE</span><h2>Da sua escolha à sua porta.</h2></div>
-  <ol class="home-buying-steps-list">
-    <li><span class="home-buying-step-icon" aria-hidden="true">🧺</span><div><strong>Escolha o que precisa</strong><p>Gás, água ou outros essenciais, sem item obrigatório.</p></div></li>
-    <li><span class="home-buying-step-icon" aria-hidden="true">📍</span><div><strong>Confira seu CEP</strong><p>Veja se há revenda que atende seu endereço e sua cesta.</p></div></li>
-    <li><span class="home-buying-step-icon" aria-hidden="true">✓</span><div><strong>Confirme quando houver opção</strong><p>Confira valor e prazo. O pedido só avança após o aceite da revenda.</p></div></li>
-  </ol>
-</section>`:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${!conciseHome?valueBridge:''}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
-${conciseHome?homeAnswers:''}
+
 ${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
 ${reorderCard}
 
