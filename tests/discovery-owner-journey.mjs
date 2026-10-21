@@ -228,6 +228,27 @@ assert.equal(ctx.discoveryOwnerImportPayload(csvData).price_from,'320.50');
 assert.equal(ctx.discoveryOwnerImportFileText('hotel.csv',csv+'\nfoo;bar'),null,
  'multi-row source requires explicit per-property confirmation');
 assert.equal(ctx.discoveryOwnerImportFileText('hotel.exe',csv),null);
+// A legitimate partial export may omit both title and provider link; importing
+// this must keep the editor usable instead of dereferencing a null provider.
+ctx.discoveryOwnerNew();
+ctx.discoveryOwnerTypeChanged('stays');
+const partialOffline=JSON.stringify({city_name:'São Gabriel',guests:2});
+const partialLookup=ctx.document.getElementById;
+ctx.document.getElementById=id=>({
+ 'discovery-owner-import-link':{value:''},
+ 'discovery-owner-import-details':{value:partialOffline},
+ 'discovery-owner-import-feedback':{textContent:''},
+ 'discovery-owner-form':{checkValidity:()=>true}
+})[id]||partialLookup(id);
+assert.equal(ctx.discoveryOwnerImportStay(),true,
+ 'title-less file data and no provider link must not crash');
+assert.equal(ctx.__discoveryOwnerTestState.editor.guests,2);
+assert.equal(ctx.__discoveryOwnerTestState.editor.city_name,'São Gabriel');
+assert.equal(writes.length,0,'partial import must never create or publish records');
+ctx.document.getElementById=partialLookup;
+ctx.discoveryOwnerNew();
+ctx.discoveryOwnerTypeChanged('stays');
+
 assert.equal(ctx.discoveryOwnerImportFileText('hotel.html','<h1>Hotel</h1>'),null);
 const htmlFile='<html><head><script type="application/ld+json">'+
  JSON.stringify({'@context':'https://schema.org','@type':'Hotel',

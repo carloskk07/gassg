@@ -322,7 +322,7 @@ function discoveryOwnerImportStay(){
     s.notice='';render();return false;
   }
   const data=discoveryOwnerImportPayload(details);
-  if(!data.title&&provider.proposedTitle)data.title=provider.proposedTitle;
+  if(!data.title&&provider?.proposedTitle)data.title=provider.proposedTitle;
   if(!Object.keys(data).length){
     const feedback=document.getElementById('discovery-owner-import-feedback');
     if(feedback)feedback.textContent='Não encontrei informações suficientes. Cole os dados ou escolha um arquivo exportado do seu imóvel.';
