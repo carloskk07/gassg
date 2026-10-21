@@ -119,6 +119,46 @@ reset role;
 update auth.users set is_anonymous=false,email_confirmed_at=now()
  where id='00000000-0000-0000-0000-000000000011';
 set role authenticated;
+-- Admin suspending the service city must immediately revoke both RLS and
+-- snapshot access to the last coordinate. Never expose it for the 45s TTL.
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+select public.mobility_start_position(current_setting('tamao.mobility.id')::uuid);
+select public.mobility_publish_position(current_setting('tamao.mobility.id')::uuid,-30.34,-54.3,20);
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $city_visibility$
+begin
+ if (public.mobility_snapshot(current_setting('tamao.mobility.id')::uuid)
+     ->'position'->>'lat')::double precision<>-30.34
+ then raise exception 'GPS_MISSING_BEFORE_CITY_SUSPENSION';end if;
+end $city_visibility$;
+reset role;
+update public.discovery_vertical_cities set enabled=false
+ where vertical='professionals' and state_code='RS' and city_key='sao-gabriel';
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $city_visibility$
+declare p jsonb;
+begin
+ p:=public.mobility_snapshot(current_setting('tamao.mobility.id')::uuid);
+ if p->'position'<>'null'::jsonb
+ then raise exception 'CITY_SUSPENSION_LEAKED_SNAPSHOT_GPS';end if;
+ if exists(select 1 from public.mobility_live_positions
+   where request_id=current_setting('tamao.mobility.id')::uuid)
+ then raise exception 'CITY_SUSPENSION_LEAKED_DIRECT_GPS';end if;
+end $city_visibility$;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $city_driver$
+begin
+ begin
+  perform public.mobility_publish_position(
+   current_setting('tamao.mobility.id')::uuid,-30.35,-54.31,22);
+  raise exception 'DRIVER_PUBLISHED_AFTER_CITY_SUSPENSION';
+ exception when insufficient_privilege then null;end;
+end $city_driver$;
+reset role;
+update public.discovery_vertical_cities set enabled=true
+ where vertical='professionals' and state_code='RS' and city_key='sao-gabriel';
+set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
 select public.mobility_transition(current_setting('tamao.mobility.id')::uuid,'cancel');
 reset role;

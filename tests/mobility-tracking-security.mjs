@@ -45,3 +45,7 @@ assert.ok(sql.includes("l.status='published' and\n   r.expires_at"),
 assert.ok(sql.includes("perform 1 from auth.users where id=v_user for update"));
 assert.doesNotMatch(sql,/alter publication|create policy .+ to anon/);
 console.log('PASS: private GPS scoped to an active ride, explicit start, revocation and TTL');
+
+// The rider must lose GPS access when Admin disables the city.
+assert.match(sql,/create policy mobility_position_live_participants[\s\S]*?join public\.discovery_vertical_cities c[\s\S]*?c\.enabled/);
+assert.match(sql,/create function public\.mobility_snapshot[\s\S]*?c\.city_key=l\.city_key and c\.enabled/);

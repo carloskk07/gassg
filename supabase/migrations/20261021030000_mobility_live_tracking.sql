@@ -41,7 +41,10 @@ create policy mobility_position_live_participants on public.mobility_live_positi
    and ((select auth.uid())=r.rider_id or (select auth.uid())=r.driver_id)
    and r.status='en_route' and r.tracking_enabled and r.expires_at>statement_timestamp()
    and exists(select 1 from public.discovery_listings l
-     where l.id=r.listing_id and l.status='published')));
+    join public.discovery_vertical_cities c on c.vertical='professionals'
+     and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
+    where l.id=r.listing_id and l.owner_id=r.driver_id
+     and l.vertical='professionals' and l.status='published')));
 
 create function public.mobility_create_request(
  p_listing_id uuid,p_service text,p_origin_area text,p_destination_area text)
@@ -202,8 +205,11 @@ returns jsonb language sql stable security definer set search_path=pg_catalog as
   'role',case when r.rider_id=(select auth.uid()) then 'rider' else 'driver' end,
   'expires_at',r.expires_at,'listing_title',l.title,'position',
   case when r.status='en_route' and r.tracking_enabled and
-   l.status='published' and
-   r.expires_at>statement_timestamp() and
+   l.status='published' and exists(
+    select 1 from public.discovery_vertical_cities c
+     where c.vertical='professionals' and c.state_code=l.state_code
+      and c.city_key=l.city_key and c.enabled
+   ) and r.expires_at>statement_timestamp() and
    p.updated_at>statement_timestamp()-interval '45 seconds'
    then jsonb_build_object('lat',p.latitude,'lon',p.longitude,
     'accuracy_m',p.accuracy_m,'updated_at',p.updated_at) else null end)
