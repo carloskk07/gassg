@@ -50,78 +50,53 @@ function render({ready=true,available=false,city='São Gabriel',postalCode='9730
  return vm.runInContext('home()',context,{timeout:1000});
 }
 const noSupply=render();
-assert.match(noSupply,/home-first-visit/);
-assert.match(noSupply,/home-editorial-visual/);
-assert.match(noSupply,/home-discover-filter/);
-assert.match(noSupply,/class="home-trust-brief"/,'unserved visitors need fast factual answers');
-assert.match(noSupply,/Como descubro se há entrega para mim\?/);
-assert.match(noSupply,/Preciso comprar gás para pedir água\?/);
-assert.match(noSupply,/Quando meu pedido está confirmado\?/);
-assert.match(noSupply,/home-notify-shortcut/);
-assert.match(noSupply,/class="purchase-starter home-starter-neutral"/,
- 'First visit must show a neutral product chooser');
-assert.match(noSupply,/Gás, água e outros essenciais/);
-assert.match(noSupply,/COMECE PELA SUA ESCOLHA/);
-assert.doesNotMatch(noSupply,/class="home-value-bridge tamao-visitor-paths"/,
- 'Avoid repeating the visitor path before the availability signup');
-assert.match(noSupply,/home-benefits-shortcuts/,
- 'Public first fold should explain the club and referral opportunity');
-assert.match(noSupply,/event\.preventDefault\(\);startHomeBrowse\(\)/,
- 'Optional CEP Enter must not preselect gas');
-assert.ok(noSupply.indexOf('id="early-access"')<noSupply.indexOf('home-trust-brief'),
- 'availability signup should precede optional FAQ, not be blocked by a lecture');
-assert.match(noSupply,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
-assert.match(noSupply,/São Gabriel/);
-assert.match(noSupply,/Mais economia para quem compra\. Mais oportunidades para quem vende\./);
-assert.match(noSupply,/Cadastrar minha empresa/);
-assert.match(noSupply,/id="early-access"/);
-assert.match(noSupply,/id="prelaunch-postal"/);
-assert.match(noSupply,/Consulta por CEP/);
-assert.doesNotMatch(noSupply,/class="hero-visual"/,
- 'No fake live-looking order showcase without supply');
+assert.match(noSupply,/tamao-home-catalog/,'public catalog remains available');
+assert.match(noSupply,/tamao-home-services-grid/,'one service collection visible');
+assert.match(noSupply,/home-discover-filter/,'category filters remain functional');
+assert.match(noSupply,/class="tamao-home-service"/);
+assert.equal((noSupply.match(/class="tamao-home-services-grid"/g)||[]).length,1,
+ 'public visitor should see exactly one service grid');
+assert.doesNotMatch(noSupply,/class="hero marketing-hero"/,
+ 'regional board already introduces products; second large hero is redundant');
+assert.doesNotMatch(noSupply,/class="home-editorial-visual"/,
+ 'avoid showing the same products in a second photographic vitrine');
+assert.doesNotMatch(noSupply,/class="home-trust-brief"/,
+ 'avoid repetitive educational sections');
 assert.doesNotMatch(noSupply,/class="quick-grid"/,
- 'No product buttons implying inventory without verified offers');
-assert.doesNotMatch(noSupply,/class="protection-band"/,
- 'No duplicated explanations on the first visit');
-assert.doesNotMatch(noSupply,/class="prelaunch-transparency"/,
- 'No redundant three-step lecture next to the real CEP form');
-assert.doesNotMatch(noSupply,/Quero vender no TAMÃO/,
- 'Partner path should be clear and short, without a second promotional section');
-assert.ok((noSupply.match(/class="section /g)||[]).length<=2,
- 'Unserved region must focus on main CTA, signup and simple paths');
+ 'do not display a second products grid');
+assert.doesNotMatch(noSupply,/class="protection-band"/);
+assert.match(noSupply,/id="early-access"/,
+ 'unserved customers must retain the lead pathway');
+assert.match(noSupply,/São Gabriel/);
+assert.match(noSupply,/Preço, descontos e entrega são consultados pelo CEP/);
+assert.match(noSupply,/\/\?servico=moto#professionals/);
+assert.match(noSupply,/\/\?servico=carro#professionals/);
+assert.match(noSupply,/\/\#rides/);
+assert.match(noSupply,/\/\#stays/);
+assert.ok(noSupply.indexOf('id="home-discover"')<noSupply.indexOf('tamao-home-services-grid'));
+assert.ok(noSupply.indexOf('tamao-home-services-grid')<noSupply.indexOf('id="early-access"'));
 
 const unavailable=render({ready:false});
-assert.match(unavailable,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
-assert.doesNotMatch(unavailable,/class="quick-grid"/);
-assert.doesNotMatch(unavailable,/class="hero-visual"/);
-assert.match(unavailable,/Os preços de revendas aparecem após confirmação|Confira seu CEP/,
- 'Browsing remains inviting; checkout still verifies real service availability');
+assert.match(unavailable,/tamao-home-catalog/);
+assert.doesNotMatch(unavailable,/class="hero marketing-hero"/);
+assert.match(unavailable,/id="early-access"/);
 
 const withOffers=render({available:true});
-assert.doesNotMatch(withOffers,/home-first-visit/);
-assert.doesNotMatch(withOffers,/class="home-trust-brief"/,'verified buyers should not see lead-only education');
-assert.doesNotMatch(withOffers,/home-notify-shortcut/,'verified buyers should not be led to a notification form');
-assert.match(withOffers,/class="hero-visual"/);
-assert.doesNotMatch(withOffers,/class="purchase-starter home-starter-neutral"/);
-assert.match(withOffers,/class="home-value-bridge tamao-visitor-paths"/,
- 'Verified regions retain the full audience discovery experience');
-assert.match(withOffers,/class="quick-grid"/);
-assert.match(withOffers,/Botijão de cozinha 13 kg/);
-assert.match(withOffers,/Conferir ofertas do meu CEP/);
+assert.match(withOffers,/tamao-home-catalog/);
+assert.match(withOffers,/tamao-home-services-grid/);
 assert.doesNotMatch(withOffers,/id="early-access"/,
- 'A city with a verified valid offer must not be put into lead-only flow');
+ 'live offers must not be replaced by a lead-only flow');
+assert.doesNotMatch(withOffers,/class="hero-visual"/);
+assert.doesNotMatch(withOffers,/class="quick-grid"/);
+assert.match(withOffers,/Botijão de cozinha 13 kg/);
 
 const demo=render({demo:true,ready:false});
-assert.doesNotMatch(demo,/home-first-visit/);
-assert.doesNotMatch(demo,/class="home-trust-brief"/,'test mode must remain separate from public lead flow');
 assert.match(demo,/class="hero-visual"/);
 assert.match(demo,/class="quick-grid"/);
-assert.doesNotMatch(demo,/id="early-access"/,
- 'Internal demo must remain isolated from live lead capture');
+assert.doesNotMatch(demo,/id="early-access"/);
 
 const untrusted=render({city:'Cidade <script>alert(1)</script>',available:false});
 assert.doesNotMatch(untrusted,/<script>/);
-assert.match(untrusted,/Cidade &lt;script>/,
- 'Untrusted city name must remain escaped in user-facing text');
+assert.match(untrusted,/Cidade &lt;script>/);
 
 console.log('V1.167 + benefits: no pretend offers, accessible participation in pre-opening, real supply and demo preserved.');

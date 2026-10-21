@@ -441,31 +441,31 @@ function homeDiscoverFocus(){
   return true;
 }
 
-function tamaoMobilityEntryHub(){
- return '<div class="intent-section"><h2>Moto, carro ou entrega?</h2><div class="intent-grid">'+
- [['🏍️ Pedir uma moto','/?servico=moto#professionals'],
-  ['🚕 Pedir um carro','/?servico=carro#professionals'],
-  ['🚚 Pedir um frete','/?servico=fretes#professionals'],
-  ['📦 Pedir uma entrega','/?servico=entregas#professionals'],
-  ['🚙 Encontrar carona','/#rides']].map(([name,url])=>
-   '<a class="intent-card" href="'+url+'"><strong>'+name+'</strong><b>→</b></a>'
- ).join('')+'</div><p>Consulta direta com anunciantes. Sem despacho.</p></div>';
-}
+// A single compact service hub replaces overlapping mobility/discovery grids.
 function tamaoDiscoveryEntryHub(){
-  return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
-    '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
-    '<h2>Explore outras oportunidades pelo TAMÃO.</h2>'+
-    '<p>Encontre profissionais, caronas e hospedagens anunciadas por região.</p></div></div>'+
-    '<div class="intent-grid">'+
-    [['professionals','🛠️','Profissionais','Encontre prestadores de serviços'],
-     ['rides','🚙','Caronas','Pesquise viagens compartilhadas'],
-     ['stays','🏡','Hospedagens','Conheça anúncios de hospedagens'],
-      ['advertise','✍️','Anunciar','Crie seu anúncio e envie para revisão']].map(([r,i,title,desc])=>
-      `<button class="intent-card" type="button" onclick="go('${r}')">`+
-      '<span class="intent-icon" aria-hidden="true">'+i+'</span><span><strong>'+title+
-      '</strong><small>'+desc+'</small></span><b aria-hidden="true">→</b></button>'
-    ).join('')+'</div></section>';
+ const cards=[
+  ['🏍️','Pedir uma moto','Mototáxis da região','/?servico=moto#professionals'],
+  ['🚕','Pedir um carro','Táxis e motoristas','/?servico=carro#professionals'],
+  ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
+  ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
+  ['🛠️','Profissionais','Serviços locais','/#professionals'],
+  ['🚙','Caronas','Viagens compartilhadas','/#rides'],
+  ['🏡','Hospedagens','Lugares para ficar','/#stays'],
+  ['✍️','Anunciar','Ofereça seus serviços','/#advertise']
+ ];
+ return '<section class="section tamao-home-services" aria-label="Encontre serviços no TAMÃO">'+
+  '<div class="section-head"><div><span class="section-kicker">ALÉM DAS COMPRAS</span>'+
+  '<h2>Precisou de outro serviço? Tá na mão.</h2>'+
+  '<p>Escolha o que procura e converse diretamente com os anunciantes da sua região.</p></div></div>'+
+  '<div class="tamao-home-services-grid">'+cards.map(([icon,title,description,href])=>
+   '<a class="tamao-home-service" href="'+href+'">'+
+   '<span class="tamao-home-service-icon" aria-hidden="true">'+icon+'</span>'+
+   '<span class="tamao-home-service-copy"><strong>'+title+'</strong><small>'+description+'</small></span>'+
+   '<span class="tamao-home-service-arrow" aria-hidden="true">↗</span></a>').join('')+
+  '</div><p class="tiny muted tamao-home-services-note">Serviços, viagens e hospedagens dependem de anúncios publicados. Condições e disponibilidade são confirmadas com cada anunciante.</p>'+
+  '</section>';
 }
+
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -605,6 +605,32 @@ function home(){
         `<span class="home-discover-art" aria-hidden="true">${art}</span>`+
         `<strong>${esc(name)}</strong><span class="home-discover-action">Selecionar produto <span aria-hidden="true">→</span></span></button>`;
     }).join('');
+  const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
+    ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
+    ||(cityChecked&&!hasConfirmedCityOffers));
+  const regionalPriceSection=!testDemo&&typeof homeRegionalPriceBoard==='function'
+    ?homeRegionalPriceBoard(homeRegion):'';
+  // A visitor sees one focused order: quotations, full catalogue, one service
+  // hub, member benefits and (if needed) a contact for availability.
+  // The existing isolated test experience remains unchanged.
+  if(!testDemo&&!internalPilot)return shell(`${regionalPriceSection||
+    '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
+    '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
+    ${homeIntentGuide}
+    ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
+      <div class="home-discover-heading"><div><span class="section-kicker">MAIS OPÇÕES PARA VOCÊ</span>
+      <h2 tabindex="-1">O que mais você precisa?</h2>
+      <p>Escolha sem obrigação de comprar gás. Preço, descontos e entrega são consultados pelo CEP.</p></div>
+      <button type="button" class="home-discover-all" onclick="startHomeBrowse()">Ver minha cesta <span aria-hidden="true">→</span></button></div>
+      <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
+      <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
+      <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
+    </section>`:''}
+    ${tamaoDiscoveryEntryHub()}
+    ${typeof tamaoHomeBenefits==='function'?tamaoHomeBenefits({compact:true}):''}
+    ${reorderCard}
+    ${acquisitionOpen?prelaunchCustomerLeadSection():''}
+  `);
   const heroVisualCodes=[...new Set(['P13','WATER20',...discoveryEntries.map(([code])=>code)])]
     .filter(code=>discoveryEntries.some(([entryCode])=>entryCode===code))
     .slice(0,2);
@@ -621,9 +647,7 @@ function home(){
   }).join('');
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
-  const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
-    ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
-    ||(cityChecked&&!hasConfirmedCityOffers));
+
   const conciseHome=acquisitionOpen&&!testDemo;
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
@@ -680,7 +704,7 @@ function home(){
       <details><summary>Posso indicar pessoas e revendas?</summary><p>Sim. Conheça sua Rede TAMÃO e acompanhe indicações atribuídas. Benefícios financeiros dependem das regras e da elegibilidade de cada campanha.</p></details>
     </div>
   </section>`;
-  return shell(`${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
+  return shell(`${regionalPriceSection}
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
@@ -747,7 +771,6 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
-${tamaoMobilityEntryHub()}
 ${tamaoDiscoveryEntryHub()}
 
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}

@@ -29,17 +29,20 @@ assert.equal((full.match(/class="tamao-perks-panel /g)||[]).length,2);
 
 const h=customer.slice(customer.indexOf('function home(){'),
  customer.indexOf('\nfunction orderPage(){'));
-const hero=h.indexOf('return shell(');
-const discovery=h.indexOf('id="home-discover"');
+const regional=h.indexOf('homeRegionalPriceBoard(homeRegion)');
+const catalogue=h.indexOf('class="home-discover tamao-home-catalog"');
+const services=h.indexOf('tamaoDiscoveryEntryHub()}');
 const benefit=h.indexOf('tamaoHomeBenefits({compact:true})');
-const steps=h.indexOf('class="home-buying-steps"');
 const lead=h.indexOf('prelaunchCustomerLeadSection()');
-assert.ok(hero>=0&&discovery>hero&&benefit>discovery&&steps>benefit&&lead>steps,
- 'The first-visit order must be shopping → economic benefits → simple steps → availability action');
-assert.ok(h.includes("!conciseHome&&typeof tamaoHomeBenefits===\"function\"?tamaoHomeBenefits():\"\""),
- 'Available regions must keep full buyer benefits without duplicates');
-assert.ok(!h.includes("conciseHome?tamaoHomeBenefits():tamaoHomeBenefits()"),
- 'Benefit render must not accidentally duplicate');
+assert.ok(regional>=0&&catalogue>regional&&services>catalogue&&benefit>services&&lead>benefit,
+ 'Public flow must be quote -> products -> services -> benefits -> optional lead');
+assert.ok(h.includes('if(!testDemo&&!internalPilot)return shell('),
+ 'Real visitors use one condensed public experience');
+assert.ok(h.includes('return shell(`${regionalPriceSection}'),
+ 'Internal demo retains its original isolated customer journey');
+assert.ok(!h.includes('tamaoMobilityEntryHub()'),
+ 'Overlapping service grids must not return');
+
 for(const selector of [
  '.tamao-value-section.tamao-value-compact',
  '.tamao-value-compact .tamao-perks-panel',
