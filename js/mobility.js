@@ -199,7 +199,7 @@ async function mobilityRefresh(silent=false){
    const prevPosition=JSON.stringify(oldPosition);
    s.detail=next;
    changed=changed||prevStatus!==next?.status;
-   if(s.watch!==null&&(next?.status!=='en_route'||next?.role!=='driver'))mobilityStopTracking();
+   if((s.watch!==null||s.gpsPending)&&(next?.status!=='en_route'||next?.role!=='driver'))mobilityStopTracking();
    if(prevPosition!==JSON.stringify(next?.position||null)){
     // An iframe from a revoked/stale GPS point must not survive a silent poll.
     // Re-render when tracking starts or ends, otherwise refresh only the marker.
@@ -245,7 +245,7 @@ async function mobilityTransition(action){
   ['accept','depart','arrive','finish','reject','cancel'].includes(action))return false;
  s.busy=true;s.error='';render();
  try{
-  if(s.watch!==null)await mobilityStopTracking();
+  if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
   const r=await s.client.rpc('mobility_transition',{p_request_id:s.id,p_action:action});
   if(r.error)throw r.error;
   s.notice='Situação atualizada: '+(mobilityStates[r.data]||'consulte o atendimento')+'.';

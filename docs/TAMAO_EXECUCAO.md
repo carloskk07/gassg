@@ -1333,3 +1333,7 @@ Além do bloqueio de novos pacotes no PostgreSQL, inspeção do polling silencio
 ### 21/10/2026 — Ajuste de sintaxe do início opt-in em PG17
 
 O primeiro CI PG17 após o reforço de revogação falhou por delimitadores incompletos na nova função `mobility_start_position` (`as $`/`end $` em vez dos dois sinais exigidos por PostgreSQL). Corrigido o par e acrescentado teste estático específico para impedir reaparecimento do erro. Nenhuma tabela ou política em produção alterada. A aprovação aguarda novamente o PostgreSQL 17 em ambiente descartável.
+
+### 21/10/2026 — Encerramento com GPS pendente também cancela autorização
+
+Uma corrida pode ser cancelada ou passar a `arrived` enquanto o motorista aguarda a resposta da RPC de início do GPS. Atualizadas as transições e o polling para interromper também `gpsPending`, não somente `watchPosition` já ativo. O retorno assíncrono atrasado continua sendo invalidado pelo contador `gpsEpoch` e envia revogação compensatória, impedindo coleta posterior. Segurança ainda em revisão da PR #515, não publicada.
