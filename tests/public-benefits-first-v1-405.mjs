@@ -27,9 +27,11 @@ assert.ok(home.includes("go('earn')"),'benefits lead to an actual page');
 assert.ok(home.includes('homeRegionalPriceBoard(homeRegion)'),'verified regional price path must remain');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),'no invented city prices');
 assert.match(read('css/marketing-premium.css'),/\.home-benefits-shortcuts button:focus-visible/);
-const index=read('index.html');
-assert.match(index,/>Indicações<\/a>/,'initial navigation must match the stable live menu');
-assert.match(index,/oportunidades para revendas/);
+const index=read('index.html'),core=read('js/core.js');
+assert.doesNotMatch(index,/<nav aria-label="Conheça o TAMÃO">/,'bootstrap must not show a competing temporary menu');
+assert.match(index,/role="status" aria-live="polite"/,'bootstrap has an accessible loading status');
+assert.match(core,/go\(\\'earn\\'\)\">Indicações/,'real navigation retains referrals');
+assert.match(core,/Para revendas/,'real navigation retains merchant acquisition');
 
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-benefits-first-'));
 try {
