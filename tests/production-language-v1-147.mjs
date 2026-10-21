@@ -64,7 +64,8 @@ assert.ok(
 );
 
 assert.ok(
-  core.includes('tamaoOpenAvailability()\">Consultar</button>')
+  core.includes('onclick="tamaoOpenAvailability()">Montar cesta')
+  &&core.includes("['home','Cotações']")
   &&core.includes("['availability','🧺','Consultar','market']")
   &&core.includes('prelaunchExamplesEnabled?.()===true)return openPrelaunchCustomerLead()')
   &&core.includes("const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região'"),
