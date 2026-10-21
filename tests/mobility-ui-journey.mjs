@@ -16,7 +16,13 @@ const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
  esc:x=>String(x??'').replace(/</g,'&lt;'),CHAMA_BACKEND:{url:'https://example.test',publishableKey:'anon'},
  chamaFetch(){},loadSupabaseBrowser:async()=>({createClient:()=>client})};
 ctx.globalThis=ctx;
-const client={rpc:async(name,args)=>{called.push([name,args]);return {data:true,error:null}},auth:{}};
+let holdStart=false,resolveHeldStart=null;
+const client={rpc:async(name,args)=>{
+ called.push([name,args]);
+ if(name==='mobility_start_position'&&holdStart)
+  return new Promise(resolve=>{resolveHeldStart=resolve});
+ return {data:true,error:null};
+},auth:{}};
 vm.runInNewContext(source+';this.state=mobilityRuntime;',ctx);
 const s=ctx.state;
 assert.equal(ctx.mobilityIntent().id,listing);
@@ -49,6 +55,23 @@ ctx.document.visibilityState='hidden';ctx.listener();
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(stop,1);assert.equal(s.watch,null);
 assert.ok(called.some(x=>x[0]==='mobility_stop_position'));
+// Simulate network completion AFTER the tab is hidden. It must never restart GPS.
+ctx.document.visibilityState='visible';
+holdStart=true;
+const watchBefore=watch;
+const inFlight=ctx.mobilityStartTracking();
+await Promise.resolve();
+assert.equal(s.gpsPending,true,'driver authorization is still in flight');
+ctx.document.visibilityState='hidden';ctx.listener();
+await Promise.resolve();
+assert.equal(s.gpsPending,false,'hiding the tab revokes a pending GPS start');
+assert.equal(typeof resolveHeldStart,'function');
+holdStart=false;resolveHeldStart({data:true,error:null});
+assert.equal(await inFlight,false,'a late successful opt-in must be invalidated');
+assert.equal(watch,watchBefore,'no browser GPS watch is started after hiding the tab');
+assert.equal(s.watch,null);
+assert.ok(called.filter(x=>x[0]==='mobility_stop_position').length>=2,
+ 'late start must be compensated with a second server revocation');
 s.detail.status='completed';ctx.document.visibilityState='visible';
 assert.equal(await ctx.mobilityStartTracking(),false);
 assert.equal(ctx.mobilityMapUrl({lat:91,lon:0}),'');

@@ -1337,3 +1337,7 @@ O primeiro CI PG17 após o reforço de revogação falhou por delimitadores inco
 ### 21/10/2026 — Encerramento com GPS pendente também cancela autorização
 
 Uma corrida pode ser cancelada ou passar a `arrived` enquanto o motorista aguarda a resposta da RPC de início do GPS. Atualizadas as transições e o polling para interromper também `gpsPending`, não somente `watchPosition` já ativo. O retorno assíncrono atrasado continua sendo invalidado pelo contador `gpsEpoch` e envia revogação compensatória, impedindo coleta posterior. Segurança ainda em revisão da PR #515, não publicada.
+
+### 21/10/2026 — Teste de resposta atrasada do GPS
+
+A regressão do navegador agora controla a resposta da RPC de início do compartilhamento em modo assíncrono: motorista solicita autorização, aba fica oculta antes de o backend responder, o servidor responde sucesso **depois** do cancelamento e o teste exige que nenhum novo `watchPosition` seja aberto, que o contador de permissão seja invalidado e que a revogação compensatória seja enviada ao servidor. Complementa o PG17 que bloqueia envio tardio de coordenadas após revogação. A branch continua não publicada.
