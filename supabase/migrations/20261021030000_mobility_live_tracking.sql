@@ -147,8 +147,9 @@ create function public.mobility_publish_position(
 returns boolean language plpgsql volatile security definer set search_path=pg_catalog as $$
 declare v_user uuid:=(select auth.uid());r public.mobility_requests%rowtype;
 begin
- if v_user is null or not public.discovery_verified_account() or
-   p_latitude is null or p_longitude is null or
+ if v_user is null or not public.discovery_verified_account()
+ then raise exception 'MOBILITY_AUTH_REQUIRED' using errcode='42501';end if;
+ if p_latitude is null or p_longitude is null or
   p_accuracy_m is null or p_latitude not between -90 and 90 or
   p_longitude not between -180 and 180 or p_accuracy_m not between 0 and 1000
  then raise exception 'MOBILITY_INVALID_POSITION' using errcode='22023';end if;

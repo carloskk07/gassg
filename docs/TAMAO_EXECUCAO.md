@@ -1365,3 +1365,7 @@ O Audit do commit `248dfad` falhou em `tests/mobility-ui-journey.mjs` porque o s
 ### 21/10/2026 — Revogação operacional de motorista protege início e envio GPS
 
 Revisão de segurança reforçou que a autorização para enviar localização não pode sobreviver ao bloqueio posterior do anúncio profissional ou à perda da verificação do motorista. As RPCs `mobility_start_position` e `mobility_publish_position` agora revalidam, sob lock, que o anúncio continua `published`, vinculado ao mesmo motorista, com cidade de profissionais habilitada. Cada `mobility_publish_position` passa a exigir `discovery_verified_account()` (antes só criação/aceite/início exigiam verificação). O snapshot enviado ao cliente não inclui coordenadas quando o anúncio não está mais publicado. A operação `mobility_stop_position` continua possível mesmo quando o motorista perde verificação, para permitir revogação imediata. Teste PG17 remove a verificação após o trajeto e exige negação de início/envio, mantendo a revogação funcional. A migração permanece **exclusivamente na branch** até teste real de contas distintas e aprovação de segurança; nenhuma corrida ou GPS de produção foi criado.
+
+### 21/10/2026 — Erro de autenticação distinto de GPS inválido
+
+O bloqueio de conta desverificada no envio GPS foi separado da validação numérica das coordenadas: conta não verificada retorna `42501` (negado), enquanto lat/lon inválidos preservam `22023`. Isto mantém contrato SQL de papéis e facilita diagnosticar bloqueio de identidade sem alterar localização ou tolerância de sinal.
