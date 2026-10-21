@@ -175,4 +175,39 @@ assert.ok(read('js/bootstrap.js').includes("s.onerror=()=>{mobilityModuleError=t
  'a failed lazy script cannot trigger an infinite render/reload loop');
 assert.ok(read('index.html').includes('frame-src https://challenges.cloudflare.com https://www.openstreetmap.org'));
 assert.ok(read('js/discovery.js').includes('Solicitar e acompanhar no mapa'));
-console.log('PASS: GPS only driver en_route, user consent map, tab hidden stop, unknown ID blocked');
+// A rider returning after closing the browser should automatically resume a
+// server-authorized active request, not be asked to submit another trip.
+ctx.location.search='?corrida='+listing+'&modalidade=moto';
+const activeId='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const activeRide={id:activeId,role:'rider',service:'moto',status:'requested',
+ expires_at:new Date(Date.now()+600000).toISOString(),
+ origin:'Centro',destination:'Bairro São Jorge',listing_title:'Mototáxi publicado'};
+const originalRpc=client.rpc;
+client.rpc=async (name,args)=>{
+ if(name==='mobility_my_requests')return {data:[activeRide],error:null};
+ if(name==='mobility_snapshot'){
+  assert.equal(args.p_request_id,activeId);
+  return {data:{...activeRide,position:null},error:null};
+ }
+ return originalRpc(name,args);
+};
+s.phase='ready';s.client=client;s.user=driver;s.id='';s.items=[];s.detail=null;
+await ctx.mobilityRefresh();
+assert.equal(s.id,activeId,'An active ride must be resumed after a page reload');
+assert.equal(s.detail?.status,'requested');
+assert.match(ctx.mobilityPage(),/Você já tem uma solicitação em andamento/);
+assert.doesNotMatch(ctx.mobilityPage(),/onsubmit="return mobilityCreate\(event\)"/,
+ 'A current rider must not be offered duplicate trip submission');
+assert.match(ctx.mobilityPage(),/Relatar problema com este atendimento/);
+s.id='';s.items=[];s.detail=null;
+client.rpc=async (name,args)=>{
+ if(name==='mobility_my_requests')return {data:[{...activeRide,status:'expired'}],error:null};
+ return originalRpc(name,args);
+};
+await ctx.mobilityRefresh();
+assert.equal(s.id,'','Expired trips must not resurrect tracking');
+assert.match(ctx.mobilityPage(),/onsubmit="return mobilityCreate\(event\)"/);
+client.rpc=originalRpc;
+assert.match(read('js/mobility.js'),/Sou mototaxista e quero anunciar/);
+assert.match(read('js/mobility.js'),/Sou motorista e quero anunciar/);
+console.log('PASS: GPS privacy and consent, active rider resume, duplicate request prevention, driver onboarding');
