@@ -18,6 +18,7 @@ const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
 ctx.globalThis=ctx;
 let holdStart=false,resolveHeldStart=null,failRefresh=false;
 const client={auth:{
+ getUser:async()=>({data:{user:driver},error:null}),
  signOut:async()=>{signOutCalls++;signedOutListener?.('SIGNED_OUT',null);return {error:null}},
  onAuthStateChange:(callback)=>{signedOutListener=callback;return {data:{subscription:{unsubscribe(){}}}};}
 },rpc:async(name,args)=>{
@@ -31,7 +32,11 @@ vm.runInNewContext(source+';this.state=mobilityRuntime;',ctx);
 const s=ctx.state;
 assert.equal(ctx.mobilityIntent().id,listing);
 assert.match(ctx.mobilityPage(),/Preparando sua área segura/);
-s.phase='ready';s.client=client;s.user=driver;
+await ctx.mobilityInit();
+assert.equal(s.phase,'ready');
+assert.equal(s.user.id,driver.id);
+assert.equal(typeof signedOutListener,'function',
+ 'The test must register real onAuthStateChange through mobilityInit');
 assert.match(ctx.mobilityPage(),/Solicitar uma moto/);
 s.id=listing;
 s.detail={id:listing,role:'rider',status:'en_route',origin:'Centro',destination:'Vila',
@@ -120,6 +125,13 @@ signedOutListener('SIGNED_OUT',null);
 assert.equal(s.user,null,'Cross-tab sign-out must clear owner identity');
 assert.equal(s.detail,null,'Cross-tab sign-out must clear cached GPS');
 assert.equal(s.items.length,0,'Cross-tab sign-out must clear trip list');
+s.user=driver;s.items=[{id:listing}];s.detail={id:listing,role:'rider',
+ status:'en_route',position:validPosition};
+const another={id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',email:'other@example.test'};
+signedOutListener('SIGNED_IN',{user:another});
+assert.equal(s.user.id,another.id,'User identity switches after auth event');
+assert.equal(s.detail,null,'Switching accounts clears the other rider location');
+assert.equal(s.items.length,0,'Switching accounts clears previous trip list');
 ctx.location.search='?corrida=bad&modalidade=moto';assert.equal(ctx.mobilityIntent(),null);
 assert.ok(read('js/bootstrap.js').includes('mobilityRequestModule()'));
 assert.ok(read('js/bootstrap.js').includes('mobilityModuleError'));

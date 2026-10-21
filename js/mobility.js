@@ -153,8 +153,16 @@ async function mobilityInit(){
   s.user=res?.data?.user||null;
   // Signing out in this or another browser tab clears private cached
   // trips and embedded location even if no further polling is possible.
-  s.client.auth.onAuthStateChange?.((event)=>{
-   if(event==='SIGNED_OUT')mobilityClearSession();
+  s.client.auth.onAuthStateChange?.((event,session)=>{
+   if(event==='SIGNED_OUT'){mobilityClearSession();return}
+   // Switching accounts must never reuse another participant's cached GPS.
+   const next=session?.user;
+   if((event==='SIGNED_IN'||event==='TOKEN_REFRESHED')&&next?.id&&
+      next.id!==s.user?.id){
+    mobilityClearSession();
+    s.user=next;
+    if(mobilityRoute())mobilityRefresh();
+   }
   });
   s.phase='ready';
   if(mobilityReturnPending()){
