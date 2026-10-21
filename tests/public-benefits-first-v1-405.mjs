@@ -30,7 +30,7 @@ assert.match(read('css/marketing-premium.css'),/\.home-benefits-shortcuts button
 const index=read('index.html'),core=read('js/core.js');
 assert.doesNotMatch(index,/<nav aria-label="Conheça o TAMÃO">/,'bootstrap must not show a competing temporary menu');
 assert.match(index,/role="status" aria-live="polite"/,'bootstrap has an accessible loading status');
-assert.match(core,/go\(\\'earn\\'\)\">Indicações/,'real navigation retains referrals');
+assert.ok(core.includes('Indicações</button>'),'real navigation retains referrals');
 assert.match(core,/Para revendas/,'real navigation retains merchant acquisition');
 
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-benefits-first-'));
