@@ -5100,8 +5100,8 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .tamao-quote-topline{display:flex;justify-content:space-between;align-items:center;gap:12px;
  margin-bottom:14px;font-size:.73rem;font-weight:800;color:#165d41;letter-spacing:.035em}
 .tamao-quote-topline>span:last-child{font-weight:600;letter-spacing:0;color:#566d62;text-align:right}
-.tamao-quote-first .city-price-heading h2{margin-top:5px;font-size:clamp(1.65rem,3.2vw,2.6rem)}
-.tamao-quote-first .city-price-grid{margin:16px 0 11px}
+.tamao-quote-first .city-price-heading h2{margin:2px 0 6px;font-size:clamp(25px,3.2vw,39px)}
+.tamao-quote-first .city-price-grid{margin:13px 0 8px}
 .tamao-quote-spread{display:flex;align-items:start;gap:13px;padding:13px 16px;
  border-radius:15px;border:1px solid #c1e3ce;background:#fff;color:#164d37}
 .tamao-quote-spread>span{font-size:1.45rem;line-height:1.2}

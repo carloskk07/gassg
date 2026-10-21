@@ -295,9 +295,7 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 /* Compact quotation cockpit: keep accurate prices and accessible expanding products. */
 .tamao-quote-first{padding:clamp(15px,2.5vw,25px)}
 .tamao-quote-first .tamao-quote-topline{margin-bottom:7px}
-.tamao-quote-first .city-price-heading h2{margin:2px 0 6px;font-size:clamp(25px,3.2vw,39px)}
 .tamao-quote-first .city-price-heading p{margin:0;line-height:1.42}
-.tamao-quote-first .city-price-grid{margin:13px 0 8px}
 .tamao-quote-first .city-price-reference-summary{padding:clamp(12px,1.7vw,19px)}
 .tamao-quote-first .city-price-research-grid{margin:10px 0 7px}
 .tamao-quote-first .tamao-home-coupon-rail{padding:10px 12px;margin:11px 0}
