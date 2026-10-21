@@ -54,8 +54,10 @@ assert.match(noSupply,/tamao-home-catalog/,'public catalog remains available');
 assert.match(noSupply,/tamao-home-services-grid/,'one service collection visible');
 assert.match(noSupply,/home-discover-filter/,'category filters remain functional');
 assert.match(noSupply,/class="intent-card tamao-home-service"/);
-assert.equal((noSupply.match(/class="intent-grid tamao-home-services-grid"/g)||[]).length,1,
- 'public visitor should see exactly one service grid');
+assert.equal((noSupply.match(/class="intent-grid tamao-home-services-grid tamao-home-support-grid"/g)||[]).length,1,
+ 'public visitor should see exactly one secondary service grid');
+assert.equal((noSupply.match(/class="tamao-home-mobility-grid"/g)||[]).length,1,
+ 'mobility choices should be highlighted once rather than repeated');
 assert.doesNotMatch(noSupply,/class="hero marketing-hero"/,
  'regional board already introduces products; second large hero is redundant');
 assert.doesNotMatch(noSupply,/class="home-editorial-visual"/,
@@ -68,7 +70,7 @@ assert.doesNotMatch(noSupply,/class="protection-band"/);
 assert.match(noSupply,/id="early-access"/,
  'unserved customers must retain the lead pathway');
 assert.match(noSupply,/São Gabriel/);
-assert.match(noSupply,/Preço, descontos e entrega são consultados pelo CEP/);
+assert.match(noSupply,/Consulte preços e entrega pelo CEP/);
 assert.match(noSupply,/\/\?modalidade=moto#mobility/);
 assert.match(noSupply,/\/\?modalidade=carro#mobility/);
 assert.match(noSupply,/\/\#rides/);

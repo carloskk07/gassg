@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,compactReleasedCssComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
 
@@ -64,8 +64,8 @@ for(const {role,path:dir} of built){
       'Owner finance must be exactly the canonical section, without forks');
   }
   const shippedComponents=fs.readFileSync(path.join(dir,'css','components.css'),'utf8');
-  assert.equal(shippedComponents,role==='admin'?originalComponents:optimizedComponents.css,
-    role+' stylesheet must match role-specific safe CSS exactly');
+  assert.equal(shippedComponents,compactReleasedCssComments(role==='admin'?originalComponents:optimizedComponents.css),
+    role+' stylesheet must match the canonical role-specific CSS after release-only compaction');
   assert.equal(shippedComponents.includes('.admin-sidebar{'),role==='admin',
     role+' must isolate admin-only styles');
   const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');

@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {compactReleasedCustomerComments} from '../scripts/build-live-portals.mjs';
+const canonical=fs.readFileSync(new URL('../js/customer.js',import.meta.url),'utf8');
+assert.match(canonical,/\/\/ Product-first entry:/);
+assert.match(canonical,/\/\/ The basket CTA must not discard/);
+const compact=compactReleasedCustomerComments(canonical);
+assert.ok(canonical.length-compact.length>=500);
+assert.doesNotMatch(compact,/\/\/ Product-first entry:/);
+assert.match(compact,/function homeChooseProduct\(/);
+assert.match(compact,/function startHomeOrder\(/);
+assert.throws(()=>compactReleasedCustomerComments('let x=1;'),/contract shifted|marker count changed/);
+console.log('PASS: canonical customer comments retained; release copy compacted with valid syntax');

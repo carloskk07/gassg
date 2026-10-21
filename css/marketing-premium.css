@@ -373,3 +373,27 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(prefers-reduced-motion:reduce){
  .tamao-header-cta,.tamao-nav-more-panel button,.tamao-home-service{transition:none}
 }
+
+/* Home editorial section: mobility is prominent; secondary services stay concise. */
+.tamao-home-mobility-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tamao-home-mobility-grid .tamao-home-service{min-height:125px;display:flex;align-items:center;gap:17px;padding:20px 23px;border:1px solid #badcc9;border-radius:19px;background:linear-gradient(122deg,#f2faf5,#fff 78%);box-shadow:0 9px 24px rgba(11,82,49,.055)}
+.tamao-home-mobility-grid .intent-icon{flex:0 0 58px;width:58px;height:58px;display:grid;place-items:center;border-radius:18px;background:#d9f0e2;font-size:30px}
+.tamao-home-mobility-grid .tamao-home-service strong{font-size:clamp(18px,2vw,23px);line-height:1.25}
+.tamao-home-mobility-grid .tamao-home-service small{font-size:13px}
+.intent-grid.tamao-home-support-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+.tamao-home-support-grid .tamao-home-service{min-height:107px;padding:14px 11px;gap:6px;box-shadow:none}
+.tamao-home-support-grid .intent-icon{font-size:23px}
+.tamao-home-support-grid .tamao-home-service strong{font-size:14px}
+.tamao-home-support-grid .tamao-home-service small{font-size:11px}
+.tamao-home-partner-strip{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;border:1px solid #d9e8df;border-radius:17px;padding:17px 21px;margin-top:14px;background:#f7fbf8}
+.tamao-home-partner-strip>div:first-child{display:grid;gap:4px}
+.tamao-home-partner-strip strong{font-size:16px;color:#174a34}
+.tamao-home-partner-strip span{color:#57705e;font-size:13px;line-height:1.45}
+.tamao-home-partner-actions{display:flex;flex-wrap:wrap;gap:8px}
+.tamao-home-partner-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 13px;border:1px solid #b5d5bf;border-radius:11px;background:#fff;color:#075e3d;font-size:13px;font-weight:800;text-decoration:none}
+.tamao-home-partner-actions a:hover{background:#e5f4eb}
+.tamao-home-catalog .home-discover-all{display:inline-flex;align-items:center;border:0;background:transparent;box-shadow:none;cursor:default;color:#4d6a58;font-size:12px;font-weight:800}
+@media(max-width:1050px){.intent-grid.tamao-home-support-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.tamao-home-mobility-grid{grid-template-columns:1fr}.intent-grid.tamao-home-support-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tamao-home-partner-strip{padding:15px}.tamao-home-partner-actions{width:100%}}
+@media(max-width:420px){.intent-grid.tamao-home-support-grid{grid-template-columns:1fr}.tamao-home-mobility-grid .tamao-home-service{min-height:105px;padding:15px}.tamao-home-partner-actions a{flex:1 1 100%}}
+@media(prefers-reduced-motion:reduce){.tamao-home-mobility-grid .tamao-home-service{transition:none}}

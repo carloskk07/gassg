@@ -639,7 +639,8 @@ const boot=read('js/bootstrap.js'),build=read('scripts/build-live-portals.mjs'),
 assert.match(boot,/advertise:typeof discoveryOwnerPage==='function'/);
 assert.match(boot,/discoveryOwnerRequestModule/);
 assert.match(boot,/discoveryOwnerAfterRender/);
-assert.ok(home.includes("'Anunciar','Ofereça seus serviços'"));
+assert.ok(home.includes('href="/#advertise"')&&home.includes('href="/#merchants"'),
+ 'Public home must link to real advertiser onboarding and merchant registration');
 assert.ok(build.includes("fs.rmSync(path.join(target,'js','discovery-owner.js')"));
 assert.ok(!htmlOriginal.includes('js/discovery-owner.js'));
 assert.ok(!sw.includes('js/discovery-owner.js'));

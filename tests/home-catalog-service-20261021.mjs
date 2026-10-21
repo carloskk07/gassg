@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const customer=read('js/customer.js'),css=read('css/marketing-premium.css');
+const a=customer.indexOf('function tamaoProductArt('),b=customer.indexOf('\nfunction tamaoHomeBenefits(',a);
+assert.ok(a>=0&&b>a);
+const artCtx={esc:x=>x};
+vm.runInNewContext(customer.slice(a,b)+';this.art=tamaoProductArt;',artCtx);
+for(const sku of ['CHARCOAL2','CHARCOAL10','CHARCOAL4','CHARCOAL_15','WOOD100','ICE_BAR']){
+ const result=artCtx.art(sku,{icon:'⚫'},'hero');
+ assert.match(result,/tamao-product-photo product-(charcoal|wood|ice)/);
+ assert.doesNotMatch(result,/tamao-product-emoji|⚫/);
+}
+assert.match(artCtx.art('UNRELATED',{icon:'🧺'}),/tamao-product-emoji/);
+const hs=customer.indexOf('function tamaoDiscoveryEntryHub()'),he=customer.indexOf('\nfunction home(){',hs);
+assert.ok(hs>=0&&he>hs);
+const ctx={};vm.runInNewContext(customer.slice(hs,he)+';this.hub=tamaoDiscoveryEntryHub;',ctx);
+const hub=ctx.hub();
+assert.equal((hub.match(/class="intent-card tamao-home-service"/g)||[]).length,7);
+assert.equal((hub.match(/class="tamao-home-mobility-grid"/g)||[]).length,1);
+assert.match(hub,/Pedir uma moto/);assert.match(hub,/Pedir um carro/);
+assert.match(hub,/\/\?modalidade=moto#mobility/);
+assert.match(hub,/\/\?modalidade=carro#mobility/);
+assert.match(hub,/href="\/#advertise"/);assert.match(hub,/href="\/#merchants"/);
+assert.equal((hub.match(/Anunciar serviço ↗/g)||[]).length,1);
+assert.match(css,/\.tamao-home-mobility-grid/);
+assert.match(css,/\.intent-grid\.tamao-home-support-grid/);
+assert.match(css,/@media\(max-width:420px\)/);
+const body=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
+assert.match(body,/Explore mais produtos/);
+assert.doesNotMatch(body,/Ver minha cesta <span aria-hidden="true">→<\/span>/);
+assert.match(body,/homeQuoteProductPicker|homeRegionalPriceBoard/);
+console.log('PASS: product variants use existing imagery; CTA hierarchy and route integrity preserved.');
