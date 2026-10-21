@@ -403,3 +403,6 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .tamao-quote-first .tamao-home-coupon-rail strong{letter-spacing:-.024em}
 .tamao-quote-first .tamao-home-coupon-rail button:hover{background:#573605}
 @media(max-width:620px){.tamao-quote-first .tamao-home-coupon-rail{gap:9px;border-radius:14px}.tamao-quote-first .tamao-home-coupon-icon{font-size:23px}}
+
+/* Hide the empty quote basket until a valid product has been selected. */
+.tamao-quote-first .city-price-basket:not(:has(.city-price-basket-items)){display:none}

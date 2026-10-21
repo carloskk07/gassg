@@ -36,6 +36,12 @@ assert.doesNotMatch(rendered,/subtotal.*R\$|economia garantida/i);
 const empty=htmlCtx.basket({});
 assert.match(empty,/button[^>]*disabled/);
 assert.match(empty,/Escolha um produto para começar/);
+assert.doesNotMatch(empty,/city-price-basket-items/,
+ 'The empty cart cannot produce the selected-items marker');
+assert.match(htmlCtx.basket({WATER20:1}),/city-price-basket-items/,
+ 'Selecting a real product turns on the visible sticky basket');
+assert.match(css,/\.tamao-quote-first \.city-price-basket:not\(:has\(\.city-price-basket-items\)\)\{display:none\}/,
+ 'The empty basket must not overlay public quotations before first selection');
 const safe=htmlCtx.basket({P13:3,WATER20:1,OTHER:30});
 assert.match(safe,/4 unidades selecionadas/);
 assert.doesNotMatch(safe,/OTHER/);
