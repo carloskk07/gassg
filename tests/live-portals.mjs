@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,compactReleasedCssComments} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
 
@@ -89,6 +89,11 @@ for(const {role,path:dir} of built){
   assert.equal(sw.includes(merchantCache),hasPartnerOperations,role+' PWA cache: merchant.js');
   assert.equal(fs.existsSync(path.join(dir,'js','merchant.js')),hasPartnerOperations,role+' shipped merchant.js');
   assert.ok(html.includes('src="./js/growth.js?v=test-sha"'),role+' public merchant landing must remain available');
+  if(role==='customer')assert.equal(
+    fs.readFileSync(path.join(dir,'js','growth.js'),'utf8'),
+    compactReleasedGrowthComments(fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8')),
+    'Customer ships only validated growth source with comments omitted');
+
   for(const module of ['admin-acquisition','admin','admin-activations']){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
     const cacheAsset="'./js/"+module+".js?v=test-sha'";

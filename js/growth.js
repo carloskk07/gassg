@@ -173,6 +173,23 @@ async function clubePaidCouponsRefresh(){
 }
 
 function club(){
+  const member=globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id);
+  if(!member)return shell(`<section class="page tamao-club-visitor">
+    <div class="tamao-club-visitor-hero">
+      <span class="eyebrow">CLUBE TAMÃO</span>
+      <h1>Suas próximas compras podem render mais vantagens.</h1>
+      <p>Compare ofertas para seu CEP, descubra cupons e conheça o cashback do TAMÃO. Benefícios são aplicados somente quando a compra atende às condições.</p>
+      <div class="tamao-club-visitor-actions">
+        <button type="button" class="primary" onclick="go('home')">Consultar produtos →</button>
+        <button type="button" class="secondary" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
+      </div>
+    </div>
+    <div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">
+      <article class="card"><span class="feature-icon" aria-hidden="true">🎟️</span><h2>Cupons na sua conta</h2><p>Consulte valor e validade dos cupons emitidos para você quando acessar sua conta.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">💚</span><h2>Cashback elegível</h2><p>Compras qualificadas podem gerar crédito para usar em pedidos seguintes.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">🔎</span><h2>Compare pelo CEP</h2><p>Quando houver ofertas, veja os preços totais e a entrega antes de escolher.</p></article>
+    </div>
+  </section>`);
   const purchases=Math.max(0,Number(state.user.purchases)||0);
   const cycle=purchases===0?0:(purchases%5||5);
   const pct=cycle*20;
@@ -188,7 +205,6 @@ function club(){
     <div class="earn-summary" style="margin-top:14px">
       <div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
       <div class="earn-balance-card"><span>Cashback já gerado</span><strong>${BRL.format(cashbackEarned)}</strong><small>créditos válidos historicamente, mesmo que parte já tenha sido usada</small></div>
-      <div class="earn-balance-card"><span>Cashback disponível</span><strong>${BRL.format(state.user.cashback)}</strong><small>saldo que pode reduzir uma próxima compra</small></div>
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     ${clubePaidCouponPanel()}

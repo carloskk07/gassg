@@ -333,6 +333,19 @@ export function compactReleasedHomeQuoteComments(source){
  return emitted;
 }
 
+// Release-only compaction keeps marketing and financial comments in source.
+export function compactReleasedGrowthComments(source){
+ if(typeof source!=='string')throw new TypeError('Expected growth script');
+ if(!source.includes('function club(){')||
+    !source.includes('function clubePaidCouponOptions(){'))
+   throw new Error('Missing canonical growth contracts');
+ const omitted=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
+ if(omitted.length<18)throw new Error('Growth comments compaction contract changed');
+ const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+ validateClassicScriptSyntax(released,'emitted growth.js');
+ return released;
+}
+
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
   validateAllPublicScripts();
@@ -405,6 +418,8 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
       const homeQuote=path.join(target,'js','home-showcase.js');
       fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
+      const growthFile=path.join(target,'js','growth.js');
+      fs.writeFileSync(growthFile,compactReleasedGrowthComments(fs.readFileSync(growthFile,'utf8')),'utf8');
     }
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};
     fs.writeFileSync(
