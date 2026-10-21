@@ -448,9 +448,12 @@ assert.match(fields.feedback.textContent,/Não foi possível registrar/);
 reportForm.dataset.listingId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 await sandbox.discoverySubmitReport({preventDefault(){},currentTarget:reportForm});
 assert.equal(reportCalls.length,2,'unlisted UUID must not be reported by the client');
-// Fixed-category links search moderated Professionals, not dispatch or payments.
+// Moto/carro open their own dashboard; dispatch still needs a verified listing.
+// Fretes and entregas remain in moderated professional discovery.
 const mobility=read('js/customer.js');
-for(const key of ['moto','carro','fretes','entregas'])
+for(const key of ['moto','carro'])
+ assert.ok(mobility.includes('/?modalidade='+key+'#mobility'));
+for(const key of ['fretes','entregas'])
  assert.ok(mobility.includes('/?servico='+key+'#professionals'));
 assert.ok(mobility.includes('/#rides'));
 assert.ok(read('css/components.css').includes('.intent-grid'));
