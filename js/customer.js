@@ -441,16 +441,15 @@ function homeDiscoverFocus(){
   return true;
 }
 
-// Public contact searches only; no vehicle dispatch.
 function tamaoMobilityEntryHub(){
- return '<div class="intent-section"><h2>Moto, carro ou entrega? Tá na mão.</h2><div class="intent-grid">'+
+ return '<div class="intent-section"><h2>Moto, carro ou entrega?</h2><div class="intent-grid">'+
  [['🏍️ Pedir uma moto','/?servico=moto#professionals'],
   ['🚕 Pedir um carro','/?servico=carro#professionals'],
   ['🚚 Pedir um frete','/?servico=fretes#professionals'],
   ['📦 Pedir uma entrega','/?servico=entregas#professionals'],
   ['🚙 Encontrar carona','/#rides']].map(([name,url])=>
    '<a class="intent-card" href="'+url+'"><strong>'+name+'</strong><b>→</b></a>'
- ).join('')+'</div><p>Consulte anúncios e combine diretamente. Sem despacho imediato.</p></div>';
+ ).join('')+'</div><p>Consulta direta com anunciantes. Sem despacho.</p></div>';
 }
 function tamaoDiscoveryEntryHub(){
   return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
