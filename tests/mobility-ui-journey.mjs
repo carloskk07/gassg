@@ -77,6 +77,10 @@ assert.equal(await ctx.mobilityStartTracking(),false);
 assert.equal(ctx.mobilityMapUrl({lat:91,lon:0}),'');
 ctx.location.search='?corrida=bad&modalidade=moto';assert.equal(ctx.mobilityIntent(),null);
 assert.ok(read('js/bootstrap.js').includes('mobilityRequestModule()'));
+assert.ok(read('js/bootstrap.js').includes('mobilityModuleError'));
+assert.ok(read('js/bootstrap.js').includes('mobilityRetryModule()'));
+assert.ok(read('js/bootstrap.js').includes("s.onerror=()=>{mobilityModuleError=true;render()}"),
+ 'a failed lazy script cannot trigger an infinite render/reload loop');
 assert.ok(read('index.html').includes('frame-src https://challenges.cloudflare.com https://www.openstreetmap.org'));
 assert.ok(read('js/discovery.js').includes('Solicitar e acompanhar no mapa'));
 console.log('PASS: GPS only driver en_route, user consent map, tab hidden stop, unknown ID blocked');

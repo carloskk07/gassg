@@ -1341,3 +1341,7 @@ Uma corrida pode ser cancelada ou passar a `arrived` enquanto o motorista aguard
 ### 21/10/2026 — Teste de resposta atrasada do GPS
 
 A regressão do navegador agora controla a resposta da RPC de início do compartilhamento em modo assíncrono: motorista solicita autorização, aba fica oculta antes de o backend responder, o servidor responde sucesso **depois** do cancelamento e o teste exige que nenhum novo `watchPosition` seja aberto, que o contador de permissão seja invalidado e que a revogação compensatória seja enviada ao servidor. Complementa o PG17 que bloqueia envio tardio de coordenadas após revogação. A branch continua não publicada.
+
+### 21/10/2026 — Falha de carregamento não pode causar loop
+
+Corrigido o lazy loader de mobilidade: na falha de rede/script, o estado passa para erro com explicação e botão de **Tentar novamente**, em vez de rearmar automaticamente a mesma carga em cada `render()`. Mantido o carregamento diferido apenas quando o usuário acessa `#mobility`; não afeta compras nem telas administrativas. Regressão estática adicionada, sujeita a Audit e orçamento da home antes de qualquer integração.
