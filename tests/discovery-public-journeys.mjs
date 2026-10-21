@@ -476,6 +476,9 @@ for(const [service,occupation] of [
  assert.equal(calls.at(-1)[1].p_occupation_query,occupation);
  assert.equal(calls.at(-1)[1].p_vertical,'professionals');
  assert.match(sandbox.discoveryPage(),/aria-current="page"/);
+ assert.match(sandbox.discoveryPage(),new RegExp('/\\?anunciar='+service+'#advertise'));
+ assert.match(sandbox.discoveryPage(),/Quero anunciar meu serviço/);
+ assert.equal(sandbox.discoveryOwnerSignupLink(service),'/?anunciar='+service+'#advertise');
 }
 const serviceState=sandbox.discoveryState('professionals');
 sandbox.location={search:'?servico=admin',hash:'#professionals',
@@ -484,6 +487,7 @@ serviceState.status='idle';serviceState.service='';serviceState.occupation='';
 sandbox.discoveryAfterRender();
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(serviceState.service,'');
+assert.equal(sandbox.discoveryOwnerSignupLink('admin'),' /#advertise'.trim());
 assert.equal(calls.at(-1)[1].p_occupation_query,null);
 sandbox.location={search:'?servico=moto',hash:'#professionals',
  href:'https://tamao.com.br/?servico=moto#professionals'};

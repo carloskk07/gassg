@@ -18,6 +18,19 @@
  color:#18553c;font-weight:750;font-size:13px;text-decoration:none}
 .discovery-service-links a[aria-current=page]{background:#105d41;color:#fff;border-color:#105d41}
 .discovery-service-links a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.discovery-onboard-strip{display:flex;align-items:center;justify-content:space-between;gap:14px;
+ padding:15px 18px;margin:10px 0 18px;border-radius:16px;border:1px solid #c3dfcb;
+ background:linear-gradient(120deg,#eff9f2,#fff)}
+.discovery-onboard-strip div{display:grid;gap:4px}
+.discovery-onboard-strip strong{color:#17462e;font-size:15px}
+.discovery-onboard-strip span{color:#52735d;font-size:13px}
+.discovery-onboard-strip a,.discovery-owner-cta{display:inline-flex;align-items:center;
+ justify-content:center;min-height:44px;padding:9px 13px;border-radius:10px;
+ text-decoration:none;font-weight:800;font-size:13px;background:#116144;color:#fff}
+.discovery-onboard-strip a:focus-visible,.discovery-owner-cta:focus-visible{
+ outline:3px solid #bd821b;outline-offset:3px}
+@media(max-width:620px){.discovery-onboard-strip{flex-direction:column;align-items:stretch}
+ .discovery-onboard-strip a{text-align:center}}
 .discovery-intro{max-width:760px;margin-bottom:22px}
 .discovery-intro h1{font-size:clamp(30px,4.4vw,48px);line-height:1.09;letter-spacing:-.04em;margin:9px 0 12px;color:#153e2d}
 .discovery-intro p{font-size:16px;color:#4d6657;line-height:1.65}

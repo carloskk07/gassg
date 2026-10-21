@@ -22,6 +22,10 @@ function discoveryServiceFromUrl(){
   return Object.hasOwn(discoveryServiceShortcuts,key)?key:'';
  }catch{return '';}
 }
+function discoveryOwnerSignupLink(service){
+ return Object.hasOwn(discoveryServiceShortcuts,service)
+  ?'/?anunciar='+service+'#advertise':'/#advertise';
+}
 function discoveryServiceLinks(active){
  return '<nav class="discovery-service-links" aria-label="Moto, carro e entregas">'+
   Object.entries(discoveryServiceShortcuts).map(([key,item])=>
@@ -513,12 +517,20 @@ function discoveryPage(){
   const loadedSaved=eligible.filter(item=>savedSet.has(item?.id)).length;
   const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
     s.status==='error'?'<div class="discovery-empty" role="alert"><p>Consulta indisponível no momento. Verifique a conexão e tente novamente.</p><button type="button" onclick="discoveryFetch()">Tentar novamente</button></div>':
-    s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Nenhum anúncio publicado encontrado com esses filtros.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':'<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button><button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>')+'</div>':
+    s.status==='ready'&&!visible.length?'<div class="discovery-empty"><p>'+(s.savedOnly?'Nenhum anúncio salvo entre os resultados carregados desta busca.':'Nenhum anúncio publicado encontrado com esses filtros.')+'</p>'+(s.savedOnly?'<button type="button" onclick="discoveryToggleSavedFilter()">Mostrar todos desta busca</button>':
+    '<button type="button" onclick="discoveryClearFilters()">Ver todos os anúncios</button>'+
+    (shortcut?'<a class="discovery-owner-cta" href="'+discoveryOwnerSignupLink(s.service)+'">Trabalha com esse serviço? Anuncie no TAMÃO →</a>':
+      '<button type="button" onclick="go(\'advertise\')">Anunciar no TAMÃO →</button>'))+'</div>':
     displayItems.map(item=>discoveryCard(item,kind)).join('');
   return shell('<section class="section discovery-page"><header class="discovery-intro">'+
     '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+esc(shortcut?.title||v[1])+'</h1>'+
     '<p>'+esc(shortcut?.summary||'Consulte anúncios publicados e fale diretamente com quem anunciou.')+'</p></header>'+
     (kind==='professionals'?discoveryServiceLinks(s.service):'')+
+    (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
+       s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
+       s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+
+       '<span>Cadastre seu serviço e receba contatos depois da análise.</span></div>'+
+       '<a href="'+discoveryOwnerSignupLink(s.service)+'">Quero anunciar meu serviço →</a></div>':'')+
     '<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)">'+
     '<label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>'+
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>

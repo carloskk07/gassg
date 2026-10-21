@@ -143,6 +143,30 @@ assert.match(html,/Caronas/);
 assert.match(html,/Hospedagens/);
 assert.match(html,/Salvar e enviar para análise/);
 assert.match(html,/Somente salvar rascunho/);
+// A marketing entry preselects ONLY the occupation, not identity or a published listing.
+for(const [key,label] of [
+ ['moto','Mototáxi'],['carro','Motorista de carro / táxi'],
+ ['fretes','Frete e mudança'],['entregas','Entregador / motoboy']
+]){
+ ctx.location.search='?anunciar='+key;
+ assert.equal(ctx.discoveryOwnerSignupIntent(),key);
+ ctx.__discoveryOwnerTestState.serviceIntent=key;
+ ctx.__discoveryOwnerTestState.kind='professionals';
+ ctx.discoveryOwnerNew();
+ const suggested=ctx.discoveryOwnerPage();
+ assert.ok(suggested.includes('value="'+label+'"'));
+ assert.match(suggested,/Salvar e enviar para análise/);
+ assert.equal(ctx.__discoveryOwnerTestState.editor,null);
+}
+ctx.location.search='?anunciar=<script>';
+assert.equal(ctx.discoveryOwnerSignupIntent(),'');
+ctx.__discoveryOwnerTestState.serviceIntent='moto';
+ctx.discoveryOwnerTypeChanged('rides');
+assert.equal(ctx.__discoveryOwnerTestState.serviceIntent,'');
+assert.match(ctx.discoveryOwnerPage(),/name="route_notes"/);
+ctx.discoveryOwnerTypeChanged('professionals');
+ctx.location.search='';
+
 assert.match(html,/Mototáxi/);
 assert.match(html,/Motorista de carro/);
 assert.match(html,/Frete e mudança/);
@@ -510,6 +534,12 @@ const emailForm={elements:{email:{value:'anunciante@example.test'}}};
 await ctx.discoveryOwnerLogin({preventDefault(){},target:emailForm});
 assert.equal(loginUrl,'https://tamao.com.br/?advertise=1',
  'OTP callback must preserve advertiser intent outside auth token fragment');
+ctx.location.search='?anunciar=moto';
+await ctx.discoveryOwnerLogin({preventDefault(){},target:emailForm});
+assert.equal(loginUrl,'https://tamao.com.br/?advertise=1&anunciar=moto',
+ 'allowlisted mobility intent must survive OTP without leaking a token');
+ctx.location.search='';
+
 assert.equal(new URL(loginUrl).hash,'','OTP hash belongs to Supabase authentication');
 
 // The server may return a token-only hash instead of #advertise.
@@ -518,9 +548,9 @@ assert.equal(new URL(loginUrl).hash,'','OTP hash belongs to Supabase authenticat
 const savedLocation=ctx.location;
 const savedRoute=ctx.route;
 ctx.location={
-  origin:'https://tamao.com.br',pathname:'/',search:'?advertise=1',
+  origin:'https://tamao.com.br',pathname:'/',search:'?advertise=1&anunciar=moto',
   hash:'#access_token=secret-callback-token',
-  href:'https://tamao.com.br/?advertise=1#access_token=secret-callback-token'
+  href:'https://tamao.com.br/?advertise=1&anunciar=moto#access_token=secret-callback-token'
 };
 ctx.route=()=>ctx.location.hash.replace(/^#/,'')||'home';
 ctx.discoveryOwnerReturnPending=()=>new URLSearchParams(ctx.location.search).get('advertise')==='1';
@@ -535,7 +565,9 @@ ctx.__discoveryOwnerTestState.phase='idle';
 const renderBeforeCallback=renderCount;
 ctx.discoveryOwnerAfterRender();
 await new Promise(resolve=>setImmediate(resolve));
-assert.equal(ctx.location.href,'https://tamao.com.br/#advertise');
+assert.equal(ctx.location.href,'https://tamao.com.br/?anunciar=moto#advertise');
+assert.equal(ctx.__discoveryOwnerTestState.serviceIntent,'moto');
+assert.match(ctx.discoveryOwnerPage(),/value="Mototáxi"/);
 assert.ok(renderCount>renderBeforeCallback,'OTP recovery must render owner route');
 assert.equal(ctx.__discoveryOwnerTestState.user?.id,userId);
 assert.doesNotMatch(ctx.location.href,/access_token|advertise=1/,

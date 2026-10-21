@@ -4,7 +4,7 @@
  */
 const discoveryOwner={
   client:null,phase:'idle',user:null,items:[],editor:null,kind:'professionals',
-  notice:'',error:'',busy:false,pendingPhotoRemovals:[]
+  notice:'',error:'',busy:false,pendingPhotoRemovals:[],serviceIntent:''
 };
 const discoveryOwnerTables={
   professionals:'discovery_professional_details',
@@ -41,6 +41,21 @@ function discoveryOwnerPersistPendingPhotoRemovals(){
 }
 const discoveryOwnerStates=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT',
   'MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+// A deep link suggests an occupation only. It cannot grant a role, bypass
+// review, or populate private or unverifiable advertiser information.
+const discoveryOwnerTransportPresets=Object.freeze({
+ moto:{name:'Mototáxi',label:'mototáxi'},
+ carro:{name:'Motorista de carro / táxi',label:'motorista de carro ou táxi'},
+ fretes:{name:'Frete e mudança',label:'fretes e mudanças'},
+ entregas:{name:'Entregador / motoboy',label:'entregas'}
+});
+function discoveryOwnerSignupIntent(){
+ try{
+  const query=String(globalThis.location?.search||'').slice(0,1500);
+  const intent=new URLSearchParams(query).get('anunciar')||'';
+  return Object.hasOwn(discoveryOwnerTransportPresets,intent)?intent:'';
+ }catch{return '';}
+}
 function discoveryOwnerRoute(){
   return (route()==='advertise'||globalThis.discoveryOwnerReturnPending?.()===true)&&
     !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();
@@ -401,8 +416,10 @@ function discoveryOwnerTypeFields(type,d){
 function discoveryOwnerPage(){
   const s=discoveryOwner;
   if(!discoveryOwnerRoute())return shell('<section><h1>Não encontrado</h1></section>');
+  const preset=discoveryOwnerTransportPresets[s.serviceIntent]||null;
   const header='<header class="discovery-owner-intro"><span class="section-kicker">TAMÃO • ANÚNCIOS</span>'+
-    '<h1>Anuncie seus serviços, caronas e hospedagens.</h1>'+
+    '<h1>'+(preset?'Anuncie seus serviços de '+esc(preset.label)+' no TAMÃO.':
+      'Anuncie seus serviços, caronas e hospedagens.')+'</h1>'+
     '<p>Crie um anúncio, inclua fotos e envie para revisão. Você controla o conteúdo e o contato.</p></header>';
   const note=s.notice?'<p role="status" class="discovery-owner-message">'+esc(s.notice)+'</p>':'';
   const error=s.error?'<p role="alert" class="discovery-owner-error">'+esc(s.error)+'</p>':'';
@@ -433,7 +450,8 @@ function discoveryOwnerPage(){
       '<small>'+esc(x.vertical)+' · '+esc(x.city_name)+' / '+esc(x.state_code)+' · '+esc(x.status)+'</small>'+
       '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div></article>';
   }).join('');
-  const d=s.editor||{},kind=s.editor?.vertical||s.kind;
+  const kind=s.editor?.vertical||s.kind;
+  const d=s.editor||(kind==='professionals'&&preset?{occupation:preset.name}:{});
   const form='<form id="discovery-owner-form" class="discovery-owner-form" onsubmit="return discoveryOwnerSave(event)">'+
     '<h2>'+(s.editor?.id?'Editar rascunho':'Novo anúncio')+'</h2>'+
     (s.editor?.id?'<p class="tiny muted">Tipo: '+esc(kind)+'</p>':
@@ -501,6 +519,8 @@ async function discoveryOwnerInit(){
   const returningFromOtp=globalThis.discoveryOwnerReturnPending?.()===true;
   let sdkInitialized=false;
   s.phase='loading';
+  s.serviceIntent=discoveryOwnerSignupIntent();
+  if(s.serviceIntent&&!s.editor)s.kind='professionals';
   try{
     const sdk=await loadSupabaseBrowser();
     s.client=sdk.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
@@ -558,7 +578,9 @@ async function discoveryOwnerLogin(ev){
   if(s.busy||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return false;
   s.busy=true;s.error='';s.notice='';
   try{
-    const dest=location.origin+location.pathname+'?advertise=1';
+    const intent=discoveryOwnerSignupIntent();
+    const dest=location.origin+location.pathname+'?advertise=1'+
+      (intent?'&anunciar='+encodeURIComponent(intent):'');
     const {error}=await s.client.auth.signInWithOtp({email,options:{emailRedirectTo:dest}});
     if(error)throw error;
     s.notice='Link de acesso solicitado. Confira seu e-mail para continuar.';
@@ -575,6 +597,8 @@ function discoveryOwnerNew(){discoveryOwner.editor=null;discoveryOwner.notice=''
 function discoveryOwnerTypeChanged(kind){
   const s=discoveryOwner;
   if(!Object.hasOwn(discoveryOwnerTables,kind)||s.editor?.id)return;
+  // A manually chosen different vertical takes precedence over a landing link.
+  if(kind!=='professionals')s.serviceIntent='';
   s.kind=kind;s.error='';render();
 }
 async function discoveryOwnerOpen(id){
