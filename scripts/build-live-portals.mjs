@@ -418,9 +418,11 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
       const homeQuote=path.join(target,'js','home-showcase.js');
       fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
-      const growthFile=path.join(target,'js','growth.js');
-      fs.writeFileSync(growthFile,compactReleasedGrowthComments(fs.readFileSync(growthFile,'utf8')),'utf8');
     }
+    // All three portals ship the shared growth module; compact each identical
+    // release copy so customer, merchant and admin budgets remain unchanged.
+    const growthFile=path.join(target,'js','growth.js');
+    fs.writeFileSync(growthFile,compactReleasedGrowthComments(fs.readFileSync(growthFile,'utf8')),'utf8');
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};
     fs.writeFileSync(
       path.join(target,'js','runtime-config.js'),

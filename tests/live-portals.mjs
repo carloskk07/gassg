@@ -89,10 +89,10 @@ for(const {role,path:dir} of built){
   assert.equal(sw.includes(merchantCache),hasPartnerOperations,role+' PWA cache: merchant.js');
   assert.equal(fs.existsSync(path.join(dir,'js','merchant.js')),hasPartnerOperations,role+' shipped merchant.js');
   assert.ok(html.includes('src="./js/growth.js?v=test-sha"'),role+' public merchant landing must remain available');
-  if(role==='customer')assert.equal(
+  assert.equal(
     fs.readFileSync(path.join(dir,'js','growth.js'),'utf8'),
     compactReleasedGrowthComments(fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8')),
-    'Customer ships only validated growth source with comments omitted');
+    role+' ships only validated growth source with comments omitted');
 
   for(const module of ['admin-acquisition','admin','admin-activations']){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
