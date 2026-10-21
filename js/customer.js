@@ -117,8 +117,6 @@ async function startHomeOrder({addFeatured=true}={}){
     const changed=Boolean(postalCode)&&postalCode!==String(state.postalCode||'');
     if(postalCode)state.postalCode=postalCode;
     if(changed){
-      // Carry the postal code forward, but never carry a street, number or
-      // quotation certified for a different delivery address.
       state.address='';
       state.addressNumber='';
       if(globalThis.liveRuntime){
@@ -150,7 +148,6 @@ async function startHomeOrder({addFeatured=true}={}){
   }
 }
 
-// Product-first entry: preserve the existing cart and CEP, never silently add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
@@ -198,7 +195,6 @@ function homeQuoteSyncPostal(input){
  const digits=String(input.value||'').replace(/\D/g,'').slice(0,8);
  const formatted=digits.length>5?digits.slice(0,5)+'-'+digits.slice(5):digits;
  input.value=formatted;
- // Hide a previous server quote as soon as someone edits a different CEP.
  if(digits!==String(state.postalCode||'').replace(/\D/g,'')){
   globalThis.liveInvalidateOfferAddressDraft?.();
   homeQuoteUpdateBasket();
@@ -225,7 +221,6 @@ function homeQuoteGoToOrder(){
  if(!Object.values(state.cart||{}).some(quantity=>Number(quantity)>0)){
   toast('Adicione um produto para montar sua cesta.');return false;
  }
- // The basket CTA must not discard a CEP entered in a product disclosure.
  const input=document.querySelector?.('.city-price-product-pick[open] .city-price-product-postal')||
    document.querySelector?.('.city-price-product-postal');
  const raw=String(input?.value||'').trim(),postal=raw.replace(/\D/g,'');
@@ -243,13 +238,11 @@ function homeQuoteGoToOrder(){
  go('order');return true;
 }
 
-// Product-only one-tap addition: no address requirement or claimed live price.
 function homeQuoteQuickAdd(code){
  const sku=String(code||'').trim().toUpperCase();
  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){
   toast('Este produto não está disponível para selecionar.');return false;
  }
- // Only the currently displayed city quote can provide this control.
  if(!document.querySelector?.('[data-city-quote-code="'+sku+'"]'))return false;
  const current=Number(state.cart?.[sku]||0);
  if(!Number.isInteger(current)||current<0||current>=99){
