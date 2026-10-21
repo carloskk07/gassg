@@ -1274,3 +1274,7 @@ Ajuste de texto **sem alterar dados**: o disclaimer único foi padronizado para 
 ### 20/10/2026 — Atualizado contrato histórico de cotação (V1.341)
 
 A auditoria de `4dc065e3` passou na fonte única de CSS, mas indicou texto histórico da home dentro de `tests/customer-city-price-showcase-v1-341.mjs`: exigia a mini-campanha `Indicar também tem valor` dentro do painel (agora substituída pela única seção Clube/Rede depois dos serviços), um chip de cidade redundante e texto longo de cupom. Adaptados esses asserts **sem relaxar** provas da RPC: preços só quando verificados, três referências com pesquisa e data, nenhuma atribuição fictícia, apresentação por cidade correta, ausência de ofertas cruzadas e cotações por CEP. Cupom e distinção pesquisa/oferta continuam testados. Repetir todo CI antes da validação visual final.
+
+### 20/10/2026 — Prova V1.362 alinhada ao painel único
+
+O Audit do SHA `1cb564cb` revelou mais um teste histórico de marketing exigindo `.tamao-quote-benefit-grid` no `components.css`, apesar de o componente ter sido propositalmente removido por duplicar Clube/Rede. Prova atualizada para exigir **ausência de CSS órfão** e **presença dos benefícios compactos no fluxo público único**, mantendo asserções monetárias e de verificação de oferta intactas. Repete-se a suíte integral no SHA novo.

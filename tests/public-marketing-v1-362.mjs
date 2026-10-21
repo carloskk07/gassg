@@ -251,8 +251,10 @@ assert.ok(!customer.includes('cupom automaticamente aplicado'),
 for(const selector of ['.tamao-home-coupon-rail','.tamao-home-checkout-compare']){
  assert.ok(css.includes(selector),'published coupon/price stylesheet missing '+selector);
 }
-assert.ok(components.includes('.tamao-quote-benefit-grid'),
-  'shared components stylesheet must style quote benefits');
+assert.ok(!components.includes('.tamao-quote-benefit-grid'),
+  'retired quote-only benefit cards must not add orphaned CSS');
+assert.ok(customer.includes('tamaoHomeBenefits({compact:true})'),
+  'Club and Network remain available once in the public home');
 
 // Evaluate the actual offer card with a confirmed quote and a test balance;
 // only actual opted-in cashback may change the request's payable amount.
