@@ -69,8 +69,8 @@ assert.match(noSupply,/id="early-access"/,
  'unserved customers must retain the lead pathway');
 assert.match(noSupply,/São Gabriel/);
 assert.match(noSupply,/Preço, descontos e entrega são consultados pelo CEP/);
-assert.match(noSupply,/\/\?servico=moto#professionals/);
-assert.match(noSupply,/\/\?servico=carro#professionals/);
+assert.match(noSupply,/\/\?modalidade=moto#mobility/);
+assert.match(noSupply,/\/\?modalidade=carro#mobility/);
 assert.match(noSupply,/\/\#rides/);
 assert.match(noSupply,/\/\#stays/);
 assert.ok(noSupply.indexOf('id="home-discover"')<noSupply.indexOf('tamao-home-services-grid'));
