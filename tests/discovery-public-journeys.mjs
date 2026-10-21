@@ -354,6 +354,7 @@ for(const [mode,description] of [
  const query=decodeURIComponent(inquiry.link);
  assert.match(query,new RegExp(description));
  assert.match(query,/Origem aproximada: Centro/);
+ assert.match(query,/Destino aproximado: Bairro São Jorge/, 'Portuguese accented area names must survive normalization');
  assert.match(query,/Destino aproximado: Bairro São Jorge/);
  assert.match(query,/Dia desejado: 2030-08-10/);
  assert.doesNotMatch(query,/Pagamento efetuado|Reserva confirmada/);

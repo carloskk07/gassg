@@ -322,7 +322,7 @@ function discoveryPrepareInquiry(anchor){
   const mobility=Object.hasOwn(discoveryServiceShortcuts,mode)?mode:'';
   if(mobility){
     const cleanRoute=name=>String(box?.querySelector?.('[name="'+name+'"]')?.value||'')
-      .replace(/[\\u0000-\\u001f\\u007f]+/g,' ').replace(/\\s+/g,' ').trim();
+      .replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim();
     const origin=cleanRoute('origin'),destination=cleanRoute('destination');
     if(origin.length<3||origin.length>120||destination.length<3||destination.length>120)
       return invalid('Informe origem e destino aproximados, de 3 a 120 caracteres.');
