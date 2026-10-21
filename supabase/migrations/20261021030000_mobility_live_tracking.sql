@@ -39,7 +39,9 @@ create policy mobility_position_live_participants on public.mobility_live_positi
  to authenticated using (updated_at>statement_timestamp()-interval '45 seconds'
   and exists(select 1 from public.mobility_requests r where r.id=request_id
    and ((select auth.uid())=r.rider_id or (select auth.uid())=r.driver_id)
-   and r.status='en_route' and r.tracking_enabled and r.expires_at>statement_timestamp()));
+   and r.status='en_route' and r.tracking_enabled and r.expires_at>statement_timestamp()
+   and exists(select 1 from public.discovery_listings l
+     where l.id=r.listing_id and l.status='published')));
 
 create function public.mobility_create_request(
  p_listing_id uuid,p_service text,p_origin_area text,p_destination_area text)
@@ -106,6 +108,14 @@ begin
   when p_action='cancel' and r.status in ('requested','accepted','en_route','arrived') then 'cancelled'
   else null end;
  if v_next is null then raise exception 'MOBILITY_INVALID_TRANSITION' using errcode='22023';end if;
+ -- A queued request cannot be accepted after the listing/city is withdrawn.
+ if v_next='accepted' and not exists(select 1 from public.discovery_listings l
+   join public.discovery_vertical_cities c on c.vertical='professionals'
+     and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
+   where l.id=r.listing_id and l.owner_id=r.driver_id
+    and l.vertical='professionals' and l.status='published') then
+  raise exception 'MOBILITY_PROVIDER_UNAVAILABLE' using errcode='42501';
+ end if;
  -- Expire abandoned older jobs before applying the unique active-driver index.
  if v_next='accepted' then
   update public.mobility_requests set status='expired',tracking_enabled=false,

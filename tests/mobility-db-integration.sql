@@ -73,6 +73,9 @@ begin
  s:=public.mobility_snapshot(current_setting('tamao.mobility.id')::uuid);
  if (s->'position'->>'lat')::double precision<>-30.34
  then raise exception 'RIDER_GPS_NOT_VISIBLE';end if;
+ if (select count(*) from public.mobility_live_positions
+    where request_id=current_setting('tamao.mobility.id')::uuid)<>1
+ then raise exception 'RIDER_LIVE_POSITION_RLS_DENIED';end if;
  begin
   perform public.mobility_stop_position(current_setting('tamao.mobility.id')::uuid);
   raise exception 'RIDER_STOPPED_DRIVER_GPS';

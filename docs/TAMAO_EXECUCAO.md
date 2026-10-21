@@ -1369,3 +1369,7 @@ Revisão de segurança reforçou que a autorização para enviar localização n
 ### 21/10/2026 — Erro de autenticação distinto de GPS inválido
 
 O bloqueio de conta desverificada no envio GPS foi separado da validação numérica das coordenadas: conta não verificada retorna `42501` (negado), enquanto lat/lon inválidos preservam `22023`. Isto mantém contrato SQL de papéis e facilita diagnosticar bloqueio de identidade sem alterar localização ou tolerância de sinal.
+
+### 21/10/2026 — Revogação de anúncio fecha também a leitura direta do GPS
+
+Além da RPC privada de acompanhamento, `mobility_live_positions` possui uma política RLS de SELECT para participantes. A política foi reforçada para exigir que o anúncio vinculado permaneça publicado, sujeito à própria RLS de descoberta/cidade; assim, retirar o anúncio bloqueia também leituras SQL diretas da posição, mesmo dentro dos 45 segundos de TTL, e não apenas o snapshot. A transição para `accepted` também revalida o anúncio, proprietário e cidade habilitada para recusar solicitações pendentes a prestadores já suspensos. O PG17 passou a exigir que um passageiro legítimo veja a posição fresca via RLS enquanto o anúncio está publicado. Mudanças condicionais de privacidade, sem atualização de produção até homologação e deploy seguros.

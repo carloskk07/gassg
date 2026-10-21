@@ -36,6 +36,10 @@ assert.equal((sql.match(/not public.discovery_verified_account\(\)/g)||[]).lengt
  'Account verification must protect request, transitions, GPS start and each publish');
 assert.equal((sql.match(/l.status='published'/g)||[]).length>=3,true,
  'GPS may only start/publish for still-published provider listings');
+assert.ok(sql.includes("not exists(select 1 from public.discovery_listings l"),
+ 'Queued requests cannot be accepted after the provider listing is removed');
+assert.ok(sql.includes("and exists(select 1 from public.discovery_listings l\n     where l.id=r.listing_id and l.status='published'"),
+ 'Direct read policy must hide GPS as soon as listing is unpublished');
 assert.ok(sql.includes("l.status='published' and\n   r.expires_at"),
  'Rider snapshot must hide GPS from an unpublished provider');
 assert.ok(sql.includes("perform 1 from auth.users where id=v_user for update"));
