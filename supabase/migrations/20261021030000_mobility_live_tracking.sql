@@ -127,8 +127,7 @@ returns boolean language plpgsql volatile security definer set search_path=pg_ca
 declare v_user uuid:=(select auth.uid());r public.mobility_requests%rowtype;
 begin
  if v_user is null or p_latitude is null or p_longitude is null or
-  p_accuracy_m is null or not isfinite(p_latitude) or not isfinite(p_longitude) or
-  not isfinite(p_accuracy_m) or p_latitude not between -90 and 90 or
+  p_accuracy_m is null or p_latitude not between -90 and 90 or
   p_longitude not between -180 and 180 or p_accuracy_m not between 0 and 1000
  then raise exception 'MOBILITY_INVALID_POSITION' using errcode='22023';end if;
  select * into r from public.mobility_requests where id=p_request_id for update;

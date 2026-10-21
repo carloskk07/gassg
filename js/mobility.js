@@ -1,4 +1,11 @@
 /* TAMÃO: opt-in live mobility, lazily loaded; no dispatch/payment promises. */
+(function mobilityStyles(){
+ if(document.querySelector('link[href*="/css/mobility.css"]'))return;
+ const link=document.createElement('link'),source=document.querySelector('script[src*="/js/mobility.js"]')?.src||'';
+ link.rel='stylesheet';link.href='./css/mobility.css'+(source.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'');
+ document.head.appendChild(link);
+})();
+
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  mapConsent:false,mapKey:'',mapFrameAt:0};

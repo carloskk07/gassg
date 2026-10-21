@@ -1296,3 +1296,7 @@ Na branch `feat/mobility-live-tracking`, interface `#mobility` atende passageiro
 ### 21/10/2026 — PG17, usuário terceiro e consentimento GPS
 
 Adicionados testes dinâmicos separados para passageiro, motorista, anônimo e terceiro em PostgreSQL 17. Usuários externos não podem ver solicitação nem posição; passageiro não pode publicar coordenadas; motorista envia somente no estado `en_route`, e a parada remove a posição. Contrato V8 testa mapa OSM apenas após clique, GPS apenas após escolha explícita e interrupção ao ocultar a aba. Audit e workflow PG17 de descoberta foram associados à branch, sem configurar deploy público. Recuperação do login por e-mail preserva tanto `advertise=1` quanto `mobility=1`. A fase ainda requer resultados verdes e ensaio de duas contas reais antes de liberar backend à produção.
+
+### 21/10/2026 — Correções PG17 e desempenho de inicialização
+
+Isolado PostgreSQL 17 rejeitou `isfinite(double precision)` por falta de overload: substituída pela restrição numérica `BETWEEN` para lat/lon/accuracy (já há CHECKs na tabela), que também rejeita Inf/NaN fora da faixa. Audit encontrou orçamento de JavaScript inicial: loader de mobilidade compacto e CSS carregada somente com o módulo diferido, mantendo o orçamento imutável e a experiência fora de #mobility sem custo extra. Nova rodada PG17, Audit e budget necessária para aceitar.

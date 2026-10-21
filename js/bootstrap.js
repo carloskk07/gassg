@@ -108,28 +108,22 @@ function discoveryRequestModule(){
   document.head.appendChild(script);
 }
 let mobilityModuleRequested=false;
-let mobilityModuleError=false;
-function mobilityLoadingPage(){
- return shell('<section class="section"><h1>Solicitações de moto e carro</h1>'+
-  (mobilityModuleError?'<p>Não foi possível carregar a área.</p><button onclick="mobilityRetryModule()">Tentar novamente</button>':
-   '<p role="status">Carregando acompanhamento seguro…</p>')+'</section>');
-}
-function mobilityRetryModule(){mobilityModuleRequested=false;mobilityModuleError=false;mobilityRequestModule();render()}
-function mobilityRequestModule(){
- if(mobilityModuleRequested||typeof mobilityPage==='function'||(route()!=='mobility'&&!mobilityReturnIntent()))return;
- if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
- mobilityModuleRequested=true;
- const source=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
- let v='';try{v=new URL(source,location.href).searchParams.get('v')||''}catch{}
- const suffix=/^[A-Za-z0-9._-]{1,120}$/.test(v)?'?v='+encodeURIComponent(v):'';
- const link=document.createElement('link');link.rel='stylesheet';
- link.href='./css/mobility.css'+suffix;document.head.appendChild(link);
- const script=document.createElement('script');script.src='./js/mobility.js'+suffix;
- script.onload=()=>render();script.onerror=()=>{mobilityModuleError=true;render()};
- document.head.appendChild(script);
-}
 function mobilityReturnIntent(){
  try{return new URLSearchParams(location.search).get('mobility')==='1'}catch{return false}
+}
+function mobilityLoadingPage(){
+ return shell('<section class="section"><h1>Solicitações de moto e carro</h1>'+
+  '<p role="status">Preparando acompanhamento seguro…</p></section>');
+}
+function mobilityRequestModule(){
+ if(mobilityModuleRequested||typeof mobilityPage==='function'||
+  (route()!=='mobility'&&!mobilityReturnIntent())||
+  globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+ mobilityModuleRequested=true;
+ const s=document.createElement('script');
+ s.src='./js/mobility.js'+(document.querySelector('script[src*="/js/bootstrap.js"]')?.src.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'');
+ s.onload=()=>render();s.onerror=()=>{mobilityModuleRequested=false;render()};
+ document.head.appendChild(s);
 }
 let discoveryOwnerModuleRequested=false;
 let discoveryOwnerModuleError=false;

@@ -8,7 +8,9 @@ const driver={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
 const listing='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
  location:{search:'?corrida='+listing+'&modalidade=moto',origin:'https://tamao.com.br',pathname:'/',hash:'#mobility'},
- document:{visibilityState:'visible',addEventListener:(name,fn)=>{ctx.listener=fn},getElementById:()=>null},
+ document:{visibilityState:'visible',addEventListener:(name,fn)=>{ctx.listener=fn},
+  getElementById:()=>null,querySelector:()=>null,createElement:()=>({}),
+  head:{appendChild(){}}},
  navigator:{geolocation:{watchPosition(){watch++;return 17},clearWatch(){stop++}}},
  route:()=> 'mobility',shell:x=>x,render(){},setInterval(){return 1},clearInterval(){},
  esc:x=>String(x??'').replace(/</g,'&lt;'),CHAMA_BACKEND:{url:'https://example.test',publishableKey:'anon'},
