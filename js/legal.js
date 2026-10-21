@@ -138,18 +138,7 @@ async function submitPublicRequest(){
   }
 }
 
-function tamaoMobilityReportContext(){
- try{
-  const params=new URLSearchParams(location.search||'');
-  const id=params.get('protocolo')||'';
-  return params.get('suporte')==='corrida'&&
-    /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)?id:'';
- }catch{return ''}
-}
 function contactPage(){
-  const rideId=tamaoMobilityReportContext();
-  const reportPrompt=rideId?'Problema no atendimento de moto/carro do TAMÃO. Solicitação: '+rideId+
-   '. O que ocorreu (sem informar localização precisa, senhas ou documentos): ':''; 
   return shell(
     legalHero(
       'CONTATO • CANAL OFICIAL',
@@ -157,20 +146,19 @@ function contactPage(){
       'Use este canal para parcerias de marca, dúvidas gerais, suporte e solicitações relacionadas aos seus dados pessoais.'
     )+
     legalNav()+
-    (rideId?'<div class="notice"><strong>Relatar problema de mobilidade</strong><p>Informe o que aconteceu. A solicitação já está identificada. Não encaminhe posições de GPS.</p></div>':'')+
     '<div class="contact-purpose-grid">'+
       '<article class="trust-card"><span>💬</span><h3>Dúvidas gerais e marcas</h3><p>Funcionamento, parcerias comerciais, pedidos e disponibilidade.</p></article>'+
       '<article class="trust-card"><span>🛟</span><h3>Suporte</h3><p>Problemas de uso ou atendimento que não estejam vinculados a um pedido ativo.</p></article>'+
       '<article class="trust-card"><span>🔐</span><h3>Privacidade / LGPD</h3><p>Acesso, correção, eliminação, informações ou revogação de autorização.</p></article>'+
     '</div>'+
     '<section class="legal-card public-contact-card"><div class="field-row">'+
-      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support"'+(rideId?' selected':'')+'>Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
+      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support">Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
       '<div class="input-wrap" id="privacy-action-wrap" hidden><label for="public-privacy-action">Direito ou assunto de privacidade</label><select id="public-privacy-action" class="input">'+contactPrivacyOptions()+'</select></div>'+
     '</div>'+
     '<div class="field-row"><div class="input-wrap"><label for="public-contact-name">Seu nome</label><input id="public-contact-name" class="input" maxlength="120" autocomplete="name" placeholder="Nome"></div>'+
       '<div class="input-wrap"><label for="public-contact-channel">Como prefere receber resposta?</label><select id="public-contact-channel" class="input" onchange="contactChannelChanged()"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select></div></div>'+
     '<div class="input-wrap"><label for="public-contact-value">Seu contato</label><input id="public-contact-value" class="input" type="tel" inputmode="tel" maxlength="180" autocomplete="tel" placeholder="(55) 99999-9999"></div>'+
-    '<div class="input-wrap"><label for="public-request-message">Mensagem</label><textarea id="public-request-message" class="input" rows="5" maxlength="2000" placeholder="Conte o que você precisa. Evite enviar senha, código de autenticação ou dados bancários.">'+esc(reportPrompt)+'</textarea></div>'+
+    '<div class="input-wrap"><label for="public-request-message">Mensagem</label><textarea id="public-request-message" class="input" rows="5" maxlength="2000" placeholder="Conte o que você precisa. Evite enviar senha, código de autenticação ou dados bancários."></textarea></div>'+
     '<input id="public-request-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">'+
     '<label class="check-row lead-consent"><input id="public-request-ack" type="checkbox"><span><strong>Entendo que estes dados serão usados para responder à minha solicitação.</strong><small>Em pedidos de privacidade, o TAMÃO poderá solicitar confirmação de identidade antes de fornecer, corrigir ou excluir dados.</small></span></label>'+
     '<button id="public-request-submit" class="primary full" onclick="submitPublicRequest()">Enviar solicitação</button>'+

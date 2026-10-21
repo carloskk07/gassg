@@ -38,14 +38,14 @@ assert.equal(s.user.id,driver.id);
 assert.equal(typeof signedOutListener,'function',
  'The test must register real onAuthStateChange through mobilityInit');
 assert.match(ctx.mobilityPage(),/Solicitar uma moto/);
-assert.ok(read('js/legal.js').includes("tamaoMobilityReportContext"));
+assert.ok(read('js/legal.js').includes('function contactPage()'));
 assert.ok(read('js/mobility.js').includes("Relatar problema com este atendimento"));
 s.id=listing;
 s.detail={id:listing,role:'rider',status:'en_route',origin:'Centro',destination:'Vila',
  position:{lat:-30.33,lon:-54.32,accuracy_m:30,updated_at:new Date().toISOString()}};
 assert.match(ctx.mobilityPage(),/Mostrar o mapa do motorista/);
 assert.match(ctx.mobilityPage(),/Relatar problema com este atendimento/);
-assert.match(ctx.mobilityPage(),/suporte=corrida&amp;protocolo=|suporte=corrida&protocolo=/);
+assert.match(ctx.mobilityPage(),/Informe ao suporte o protocolo/);
 assert.doesNotMatch(ctx.mobilityPage(),/<iframe/);
 assert.equal(ctx.mobilityOpenMap(),true);
 assert.match(ctx.mobilityPage(),/<iframe/);

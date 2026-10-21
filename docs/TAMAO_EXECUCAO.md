@@ -1393,3 +1393,7 @@ No SHA `b6b1a66ef433`, o PG17 isolado, o build e o smoke visual passaram. A audi
 ### 21/10/2026 — Relato de problemas público via suporte existente
 
 O painel do motorista e do passageiro ganhou acesso visível `Relatar problema com este atendimento`, levando ao formulário público de suporte já operacional, com tipo `support` e protocolo da solicitação UUID preenchido. O formulário não inclui coordenadas nem histórico GPS; evita criar outra fila ou chatbot. Permite reportar falhas já na fase aberta ao público e acompanhar casos pelo suporte administrativo existente. Teste regressivo protege contra injeção de protocolo inválido. Ainda requer Audit verde após este ajuste.
+
+### 21/10/2026 — Suporte enxuto sem penalizar a performance
+
+O teste de suporte inicial falhou porque o ambiente Node VM não incluía URLSearchParams, e a tentativa de pré-preencher `#contact` fez o bundle inicial superar em 709 bytes o teto estrito de 530000. Para não ampliar o limite, foi mantida a página de contato oficial intacta. A solicitação privada de mobilidade oferece acesso direto ao formulário de suporte, mostra seu UUID e instrui o usuário a mencionar o protocolo na mensagem; nenhum dado de GPS é enviado. Os contratos testam link, identificador visível e existência do formulário suportado. O código novo do serviço continua carregado sob demanda. Auditoria e build precisam passar antes da publicação.

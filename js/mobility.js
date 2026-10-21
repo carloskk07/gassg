@@ -104,7 +104,8 @@ function mobilityDetailPanel(row){
   '<h2>'+mobilityLabel(row)+'</h2><p class="mobility-status">'+esc(mobilityStatus(row))+'</p>'+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
   '<p class="tiny muted">Este pedido não garante disponibilidade, preço nem transporte. Combine condições com o anunciante.</p>'+
-  '<p><a class="mobility-report-link" href="/?suporte=corrida&protocolo='+esc(String(row.id||''))+'#contact">Relatar problema com este atendimento</a></p>'+
+  '<p><a class="mobility-report-link" href="/#contact">Relatar problema com este atendimento</a>'+
+  ' · Informe ao suporte o protocolo <code>'+esc(String(row.id||''))+'</code>. Não compartilhe localização precisa.</p>'+
   (driver&&status==='en_route'?'<p>Compartilhar sua localização é voluntário. Mantenha esta página aberta e visível. Você pode parar a qualquer momento.</p>':'')+
   '<div class="mobility-actions">'+actions+'</div>'+
   (!driver?mobilityMapPanel(row):'')+
