@@ -406,3 +406,17 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 
 /* Hide the empty quote basket until a valid product has been selected. */
 .tamao-quote-first .city-price-basket:not(:has(.city-price-basket-items)){display:none}
+
+/* TAMÃO Clube: visitor and signed-in journeys share existing safe routes. */
+.tamao-club-visitor{max-width:1100px;margin-inline:auto}
+.tamao-club-visitor-hero{padding:clamp(25px,4.5vw,53px);border-radius:25px;background:linear-gradient(126deg,#0b5038,#0c7550);color:#fff}
+.tamao-club-visitor-hero .eyebrow{color:#c1ecd1}
+.tamao-club-visitor-hero h1{max-width:18ch;color:#fff;font-size:clamp(30px,4.1vw,50px);line-height:1.1;letter-spacing:-.045em;margin:12px 0}
+.tamao-club-visitor-hero p{max-width:62ch;color:#e1f3e8;line-height:1.65}
+.tamao-club-visitor-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:23px}
+.tamao-club-visitor-actions button{min-height:46px}
+.tamao-club-visitor-grid{margin:17px 0}
+.tamao-club-visitor-grid .card{border-color:#d9e8df;border-radius:17px}
+.tamao-club-visitor-grid h2{font-size:19px;line-height:1.24;margin:13px 0 8px}
+.tamao-club-visitor-grid p{font-size:13px;line-height:1.6}
+@media(max-width:600px){.tamao-club-visitor-hero{padding:24px 19px;border-radius:18px}.tamao-club-visitor-actions button{width:100%}}

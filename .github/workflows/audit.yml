@@ -548,6 +548,8 @@ jobs:
         run: node tests/home-quote-live-basket-v1-414.mjs
       - name: Authentic coupon count and safe fallback in home
         run: node tests/home-coupon-personalization-20261021.mjs
+      - name: Guest Clube TAMÃO and authenticated benefits isolation
+        run: node tests/club-public-visitor-20261021.mjs
       - name: Production quote script compaction with verified syntax
         run: node tests/release-home-quote-comments-20261021.mjs
       - name: V1.415 real offer preview, CEP handoff and expiry regression

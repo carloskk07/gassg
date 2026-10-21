@@ -25,7 +25,7 @@ assert.match(home,/go\('earn'\)/);
 assert.doesNotMatch(home,/tamao-coupon-preview|pacotes de cupons|em preparação|venda ou resgate/ig);
 assert.match(club,/tamao-club-shop-now/);
 assert.match(club,/Economia nas comparações/);
-assert.match(club,/Cashback disponível/);
+assert.match(club,/SEU CASHBACK DISPONÍVEL/,'Verified members retain actual cashback balance');
 assert.match(club,/Encontrar produtos para comprar/);
 assert.doesNotMatch(club,/tamao-club-coupon-bundles|pacotes de descontos|em preparação/ig);
 assert.ok(merchant.includes('openMerchantPortal(true)'),
