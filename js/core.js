@@ -884,16 +884,31 @@ function shell(content){
     ? '<button onclick="go(\'admin\')">Control plane</button>'
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
-      : '<button onclick="go(\'home\')">Início</button><button onclick="tamaoOpenAvailability()">Consultar</button><button onclick="go(\'professionals\')">Profissionais</button><button onclick="go(\'mobility\')">Corridas</button><button onclick="go(\'rides\')">Caronas</button><button onclick="go(\'stays\')">Hospedagens</button><button onclick="go(\'advertise\')">Anunciar</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button>';
+      : '<button type="button" onclick="go(\'home\')">Cotações</button>'+
+       '<button type="button" onclick="go(\'professionals\')">Profissionais</button>'+
+       '<button type="button" onclick="go(\'mobility\')">Moto e carro</button>'+
+       '<button type="button" class="tamao-nav-optional" onclick="go(\'rides\')">Caronas</button>'+
+       '<button type="button" class="tamao-nav-optional" onclick="go(\'stays\')">Hospedagens</button>'+
+       '<button type="button" class="tamao-nav-optional" onclick="go(\'club\')">Clube</button>'+
+       '<details class="tamao-nav-more"><summary>Mais <span aria-hidden="true">⌄</span></summary>'+
+       '<div class="tamao-nav-more-panel">'+
+       '<button type="button" class="tamao-nav-collapsed" onclick="go(\'rides\')">Caronas</button>'+
+       '<button type="button" class="tamao-nav-collapsed" onclick="go(\'stays\')">Hospedagens</button>'+
+       '<button type="button" class="tamao-nav-collapsed" onclick="go(\'club\')">Clube TAMÃO</button>'+
+       '<button type="button" onclick="go(\'advertise\')">Anunciar serviço</button>'+
+       '<button type="button" onclick="go(\'merchants\')">Para revendas</button>'+
+       '<button type="button" onclick="go(\'sponsors\')">Para marcas</button></div></details>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
-    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
+    :merchantPortal||testDemo
+      ? `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`
+      : '<button type="button" class="tamao-header-cta" onclick="tamaoOpenAvailability()">Montar cesta <span aria-hidden="true">→</span></button>';
   return `<div class="app">
   <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
-  <header class="topbar"><div class="shell topbar-inner">
+  <header class="topbar${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-header':''}"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
-    <nav class="desktop-only desktop-nav" aria-label="Navegação principal">${desktopNav}</nav>
+    <nav class="desktop-only desktop-nav${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':''}" aria-label="Navegação principal">${desktopNav}</nav>
     ${switcher}
   </div></header>
   <main id="tamao-main" class="shell" tabindex="-1">${content}</main>

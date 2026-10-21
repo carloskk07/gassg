@@ -313,3 +313,63 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 }
 
 .city-price-quick-add{align-self:flex-start;min-height:40px;margin-top:7px;font-weight:800}
+
+
+/* TAMÃO 21/10 — Public experience hierarchy: one navigation, one primary action,
+   clear quotations, consistent cards. Scoped to public/customer surfaces. */
+.tamao-public-header{background:rgba(255,255,255,.96);border-color:#e0e9e1;box-shadow:0 5px 24px rgba(15,64,41,.055)}
+.tamao-public-header .topbar-inner{gap:18px;min-height:76px}
+.tamao-public-header .brand-button{min-width:121px}
+.tamao-public-header .desktop-nav.tamao-public-nav{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;flex:1 1 auto;overflow:visible;border:0;border-radius:0;background:transparent;padding:0;box-shadow:none}
+.tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary{min-height:42px;padding:11px 10px!important;border:0;border-radius:11px!important;background:transparent;color:#2c5340!important;font-size:13px!important;font-weight:800!important;line-height:1.25;white-space:nowrap}
+.tamao-public-nav>button:hover,.tamao-public-nav .tamao-nav-more>summary:hover{color:#086744!important;background:#eef7f0!important}
+.tamao-nav-more{position:relative;flex:0 0 auto}
+.tamao-nav-more>summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none}
+.tamao-nav-more>summary::-webkit-details-marker{display:none}
+.tamao-nav-more[open]>summary{background:#eaf5ee;color:#075b3a!important}
+.tamao-nav-more-panel{position:absolute;z-index:50;right:0;top:calc(100% + 8px);width:218px;display:grid;gap:3px;padding:9px;border:1px solid #d3e5d8;border-radius:17px;background:#fff;box-shadow:0 18px 42px rgba(14,54,35,.14)}
+.tamao-nav-more-panel>button{width:100%;min-height:42px;border:0!important;border-radius:9px!important;background:#fff!important;text-align:left;padding:10px 13px!important;color:#254b37!important;font-weight:750!important;font-size:13px!important}
+.tamao-nav-more-panel>button:hover{background:#edf7f0!important;color:#076340!important}
+.tamao-nav-more-panel .tamao-nav-collapsed{display:none}
+.tamao-header-cta{min-height:43px;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 auto;padding:10px 15px;border:1px solid #08704b;border-radius:12px;background:#08704b;color:#fff;font-weight:850;font-size:13px;white-space:nowrap;box-shadow:0 5px 16px rgba(8,92,59,.13)}
+.tamao-header-cta:hover{background:#075739;color:#fff}
+.tamao-public-header button:focus-visible,.tamao-nav-more>summary:focus-visible{outline:3px solid #bc8728;outline-offset:3px}
+.tamao-quote-first{max-width:1120px;margin-top:16px;padding:clamp(20px,3.2vw,34px);border:1px solid #d6e5db;border-radius:26px;background:#fff;box-shadow:0 14px 40px rgba(26,64,44,.055)}
+.tamao-quote-first .tamao-quote-topline{color:#08704b;font-size:11px;letter-spacing:.08em;margin-bottom:14px}
+.tamao-quote-first .city-price-heading h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.055em;color:#153b2c}
+.tamao-quote-first .city-price-heading p{max-width:62ch;line-height:1.55}
+.tamao-quote-first .city-price-grid{gap:12px}
+.tamao-quote-first .city-price-reference-summary{border-radius:20px;border:1px solid #e3eee6;background:#f7fbf8;padding:clamp(14px,2.5vw,22px)}
+.tamao-quote-first .city-price-research-grid{gap:12px;margin:15px 0}
+.tamao-quote-first .city-price-research-item{padding:16px;border:1px solid #e0ebe3;border-radius:16px;background:#fff;box-shadow:0 4px 16px rgba(30,69,42,.035)}
+.tamao-quote-first .city-price-research-item:has(.city-price-product-pick[open]){border-color:#6aaf87;box-shadow:0 9px 25px rgba(22,92,60,.09)}
+.tamao-quote-first .city-price-basket{margin-top:14px}
+.tamao-quote-first .city-price-controls{align-items:center}
+.tamao-home-services{margin-block:clamp(30px,4vw,44px)}
+.tamao-home-services-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tamao-home-service{min-height:96px;align-items:center;border:1px solid #dce9df;background:#fff;border-radius:17px;box-shadow:0 6px 22px rgba(18,67,40,.04)}
+.tamao-home-service:hover{border-color:#80b996;box-shadow:0 10px 26px rgba(18,67,40,.095)}
+.tamao-home-services .section-head h2{font-size:clamp(26px,3.1vw,37px);letter-spacing:-.04em}
+@media(min-width:760px) and (max-width:1099px){
+ .tamao-public-nav>.tamao-nav-optional{display:none}
+ .tamao-nav-more-panel .tamao-nav-collapsed{display:block}
+ .tamao-public-header .topbar-inner{gap:8px}
+ .tamao-public-header .brand-button{min-width:112px}
+ .tamao-header-cta{padding-inline:10px}
+}
+@media(max-width:759px){
+ .tamao-public-header .topbar-inner{min-height:66px}
+ .tamao-public-header .desktop-nav.tamao-public-nav{display:none}
+ .tamao-header-cta{min-height:42px;padding:9px 12px}
+ .tamao-quote-first{margin-top:10px;padding:18px 14px;border-radius:19px}
+ .tamao-quote-first .city-price-research-item{padding:13px}
+ .tamao-home-services-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .tamao-home-service{min-height:93px;padding:13px}
+}
+@media(max-width:430px){
+ .tamao-home-services-grid{grid-template-columns:1fr}
+ .tamao-header-cta{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+ .tamao-header-cta,.tamao-nav-more-panel button,.tamao-home-service{transition:none}
+}
