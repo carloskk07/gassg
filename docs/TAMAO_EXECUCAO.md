@@ -1415,3 +1415,9 @@ A PR #516 estava baseada em `ed7eacde` e reprovava `initialJsBytes=530062 > 5300
 A copy repetida do hub de serviços foi condensada para respeitar o teto anterior de desempenho **sem elevar limites**. Teste `tests/mobility-ui-journey.mjs` protege as duas rotas, a ausência de criação sem anúncio, os dois pontos de retorno e a privacidade da seleção; CI oficial deste commit ainda deve ser conferido. Mudanças **somente na PR #516**, sem publicar em `main` ou ativar comércio, pagamentos, prestadores, carro/moto ou GPS sem consentimento.
 
 Bloqueio independente anterior: Admin Cloudflare ainda precisa reconciliar o SHA `f645a7d4` com Cliente/Revenda antes da próxima publicação. A issue #493 contém evidências HTTP, estado do Supabase e ação de recuperação.
+
+### 21/10/2026 — Relato de problemas de mobilidade com protocolo automático (pendente de CI/publicação)
+
+A opção “Relatar problema com este atendimento” em `#mobility` abre a página oficial `#contact` preenchendo **assunto Suporte e somente o UUID da solicitação selecionada**. Não persiste GPS, trajeto, endereço, telefone, nem a identidade do participante em URL, armazenamento ou analytics. O contexto fica em memória e é descartado após preencher o formulário ou trocar de conta/sair. IDs inválidos não habilitam prefill. Se o JavaScript falhar, o link HTML continua abrindo o canal oficial de contato, com o protocolo visível no painel original. O texto do contato também deixa claro que atende problemas com corridas ativas.
+
+Escopo restrito à branch da PR #516, sem alterações SQL, pagamento, autorização de anúncio, consentimento de mapa ou ativação de operação comercial. Testes de regressão em `mobility-ui-journey.mjs` e `mobility-report-support.mjs`. Gate CI completo e reconciliação Cloudflare 3/3 permanecem obrigatórios antes de merge/publicação.

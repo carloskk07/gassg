@@ -227,4 +227,30 @@ assert.match(ctx.mobilityPage(),/onsubmit="return mobilityCreate\(event\)"/);
 client.rpc=originalRpc;
 assert.match(read('js/mobility.js'),/Sou mototaxista e quero anunciar/);
 assert.match(read('js/mobility.js'),/Sou motorista e quero anunciar/);
+
+const routeBeforeReport=ctx.route;
+const domBeforeReport=ctx.document.getElementById;
+s.user=driver;s.id=listing;s.detail={id:listing,role:'rider',status:'requested'};
+ctx.location.hash='#mobility';
+ctx.go=r=>{ctx.location.hash='#'+r};
+ctx.route=()=>ctx.location.hash.slice(1);
+assert.equal(ctx.mobilityReport('invalid'),false,'Invalid UUID cannot create support context');
+assert.equal(s.reportId,'');
+assert.equal(ctx.mobilityReport(listing),false,'Valid current ride opens official support');
+assert.equal(ctx.location.hash,'#contact');
+const supportKind={value:'general'},supportMessage={value:''};
+ctx.document.getElementById=id=>({
+ 'public-request-kind':supportKind,'public-request-message':supportMessage
+})[id]||null;
+ctx.mobilityAfterRender();
+assert.equal(supportKind.value,'support','Mobility problem selects support, not privacy');
+assert.match(supportMessage.value,/Protocolo: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/);
+assert.doesNotMatch(supportMessage.value,/Centro|Bairro|30[.]33|54[.]32|GPS:/,
+ 'Only the protocol may reach the general support form');
+assert.equal(s.reportId,'','Prefill is consumed once without persisting location');
+s.reportId=listing;
+ctx.mobilityClearSession();
+assert.equal(s.reportId,'','Signing out clears pending support context');
+ctx.document.getElementById=domBeforeReport;ctx.route=routeBeforeReport;ctx.location.hash='#mobility';
+
 console.log('PASS: GPS privacy and consent, active rider resume, duplicate request prevention, driver onboarding');
