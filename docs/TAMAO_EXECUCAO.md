@@ -1385,3 +1385,7 @@ A revisão da branch no SHA `2a9d25239ba1` encontrou um problema de permissões 
 ### 21/10/2026 — PG17 aprovado e última asserção de privacidade consolidada
 
 No commit `4bc877ab4ba0`, o workflow PostgreSQL 17 isolado foi aprovado incluindo solicitação, aceite, motorista, passageiro, terceiro, usuário anônimo, suspensão da cidade e revogação de localização, com leitura direta de GPS negada para todos. O Audit parou antes do restante da suíte porque um teste estático ainda procurava o antigo fragmento da política de leitura direta removida por segurança; atualizado para verificar duas fronteiras reais: autorização para iniciar o GPS e autorização revalidada em **cada publicação de ponto**, com anúncio publicado e cidade ativa. Não relaxar regras nem colocar migração na produção antes da auditoria completa.
+
+### 21/10/2026 — Auditoria confirma a proteção, contrato textual normalizado
+
+No SHA `b6b1a66ef433`, o PG17 isolado, o build e o smoke visual passaram. A auditoria ainda exigia na suíte estática a sequência textual removida `l.status='published' and r.expires_at`, porém a implementação atual adicionou a verificação obrigatória de `discovery_vertical_cities.enabled` entre os dois fatores. O teste agora exige de forma explícita **todas** as condições de segurança dentro de `mobility_snapshot`: anúncio publicado, cidade ativa e validade temporal; a regra SQL não foi afrouxada. A auditoria completa permanece requisito da PR #515.

@@ -48,8 +48,8 @@ assert.match(sql,/create function public\.mobility_publish_position[\s\S]*?or no
  'Every GPS packet must revalidate provider listing and city');
 assert.ok(sql.includes('left join public.mobility_live_positions p on p.request_id=r.id'),
  'Only the participant-bound snapshot can read precise coordinates');
-assert.ok(sql.includes("l.status='published' and\n   r.expires_at"),
- 'Rider snapshot must hide GPS from an unpublished provider');
+assert.match(sql,/create function public\.mobility_snapshot[\s\S]*?l\.status='published' and exists\([\s\S]*?c\.city_key=l\.city_key and c\.enabled[\s\S]*?r\.expires_at>statement_timestamp\(\)/,
+ 'Participant-only snapshot must hide GPS if listing or city is withdrawn');
 assert.ok(sql.includes("perform 1 from auth.users where id=v_user for update"));
 assert.doesNotMatch(sql,/alter publication|create policy .+ to anon/);
 console.log('PASS: private GPS scoped to an active ride, explicit start, revocation and TTL');
