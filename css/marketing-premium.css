@@ -334,13 +334,13 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .tamao-header-cta{min-height:43px;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 auto;padding:10px 15px;border:1px solid #08704b;border-radius:12px;background:#08704b;color:#fff;font-weight:850;font-size:13px;white-space:nowrap;box-shadow:0 5px 16px rgba(8,92,59,.13)}
 .tamao-header-cta:hover{background:#075739;color:#fff}
 .tamao-public-header button:focus-visible,.tamao-nav-more>summary:focus-visible{outline:3px solid #bc8728;outline-offset:3px}
-.tamao-quote-first{max-width:1120px;margin-top:16px;padding:clamp(20px,3.2vw,34px);border:1px solid #d6e5db;border-radius:26px;background:#fff;box-shadow:0 14px 40px rgba(26,64,44,.055)}
-.tamao-quote-first .tamao-quote-topline{color:#08704b;font-size:11px;letter-spacing:.08em;margin-bottom:14px}
+.app .tamao-quote-first{max-width:1120px;margin-top:16px;padding:clamp(20px,3.2vw,34px);border:1px solid #d6e5db;border-radius:26px;background:#fff;box-shadow:0 14px 40px rgba(26,64,44,.055)}
+.app .tamao-quote-first .tamao-quote-topline{color:#08704b;font-size:11px;letter-spacing:.08em;margin-bottom:14px}
 .app .tamao-quote-first .city-price-heading h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.055em;color:#153b2c}
 .tamao-quote-first .city-price-heading p{max-width:62ch;line-height:1.55}
 .tamao-quote-first .city-price-grid{gap:12px}
-.tamao-quote-first .city-price-reference-summary{border-radius:20px;border:1px solid #e3eee6;background:#f7fbf8;padding:clamp(14px,2.5vw,22px)}
-.tamao-quote-first .city-price-research-grid{gap:12px;margin:15px 0}
+.app .tamao-quote-first .city-price-reference-summary{border-radius:20px;border:1px solid #e3eee6;background:#f7fbf8;padding:clamp(14px,2.5vw,22px)}
+.app .tamao-quote-first .city-price-research-grid{gap:12px;margin:15px 0}
 .tamao-quote-first .city-price-research-item{padding:16px;border:1px solid #e0ebe3;border-radius:16px;background:#fff;box-shadow:0 4px 16px rgba(30,69,42,.035)}
 .tamao-quote-first .city-price-research-item:has(.city-price-product-pick[open]){border-color:#6aaf87;box-shadow:0 9px 25px rgba(22,92,60,.09)}
 .tamao-quote-first .city-price-basket{margin-top:14px}
