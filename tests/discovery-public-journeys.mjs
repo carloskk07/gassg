@@ -81,7 +81,7 @@ for(const [kind,term] of [['rides','CARONAS'],['stays','HOSPEDAGENS']]){
  assert.equal(calls.at(-1)[1].p_vertical,kind);
  const page=sandbox.discoveryPage();
  assert.match(page,new RegExp('TAMÃO '+term));
- assert.match(page,/Nenhum anúncio publicado encontrado/);
+ assert.match(page,/Ainda não há anúncios publicados para esta busca/);
 }
 current='rides';
 requestedDeparture='2030-03-10T09:30';
