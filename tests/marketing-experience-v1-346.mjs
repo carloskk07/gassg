@@ -62,7 +62,9 @@ assert.ok(adminLogin.includes('adminRuntime.actionPending'),'admin request state
 assert.ok(adminLogin.includes('previamente autorizadas'),'server-based authorization remains clear');
 assert.ok(core.includes('skip-to-main')&&core.includes('id="tamao-main"')&&core.includes('tabindex="-1"'),
   'skip-to-content keyboard navigation missing');
-assert.ok(core.includes('<nav class="desktop-only desktop-nav" aria-label="Navegação principal">'));
+assert.ok(core.includes('<nav class="desktop-only desktop-nav')&&
+  core.includes('aria-label="Navegação principal"')&&core.includes('tamao-public-nav'),
+  'Responsive public navigation must preserve a labeled, keyboard-reachable nav');
 assert.ok(growth.includes('Veja primeiro os produtos e escolha o que precisa.'),
   'how-it-works journey must not force CEP before discovery');
 for(const token of ['.home-discover-grid','.merchant-access-grid',
