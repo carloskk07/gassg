@@ -271,19 +271,28 @@ function discoveryInquiryForm(item,kind){
  const phone=String(item?.whatsapp_e164||'');
  if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
  const title=esc(String(item?.title||'').slice(0,80));
+ const mode=kind==='professionals'?discoveryState('professionals').service:'';
+ const mobility=Object.hasOwn(discoveryServiceShortcuts,mode)?mode:'';
  const count=kind==='professionals'?0:Number(kind==='rides'?item.seats_available:item.guests);
  if(kind!=='professionals'&&(!Number.isInteger(count)||count<1||count>(kind==='rides'?8:80)))return '';
- const inputs=kind==='professionals'?
+ const mobilityInputs=
+  '<label>Origem aproximada<input name="origin" required minlength="3" maxlength="120" placeholder="Bairro ou ponto de referência"></label>'+
+  '<label>Destino aproximado<input name="destination" required minlength="3" maxlength="120" placeholder="Bairro ou região de destino"></label>'+
+  '<label>Detalhes adicionais (opcional)<textarea name="service" maxlength="350" rows="2" placeholder="Quantidade de pessoas, tipo de carga ou observações, sem dados pessoais"></textarea></label>'+
+  '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>';
+ const inputs=kind==='professionals'?(mobility?mobilityInputs:
   '<label>Qual serviço você precisa?<textarea name="service" required minlength="10" maxlength="500" rows="3" placeholder="Descreva o serviço e a região aproximada, sem informar dados pessoais."></textarea></label>'+
-  '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>':
+  '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>'):
   kind==='rides'?
   '<label>Quantas vagas deseja consultar?<input name="seats" type="number" required min="1" max="'+count+'" value="1"></label>':
   '<label>Entrada desejada<input name="checkin" type="date" required></label>'+
   '<label>Saída desejada<input name="checkout" type="date" required></label>'+
   '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
  return '<details class="discovery-inquiry" data-phone="'+esc(phone)+
-  '" data-kind="'+kind+'" data-title="'+title+'" data-max="'+count+'">'+
-  '<summary>'+(kind==='professionals'?'Pedir orçamento com detalhes':
+  '" data-kind="'+kind+'" data-service="'+mobility+'" data-title="'+title+'" data-max="'+count+'">'+
+  '<summary>'+(kind==='professionals'?(mobility?
+     (mobility==='moto'||mobility==='carro'?'Consultar trajeto e corrida':
+      mobility==='fretes'?'Consultar frete':'Consultar entrega'):'Pedir orçamento com detalhes'):
     kind==='rides'?'Consultar quantidade de vagas':'Consultar datas e hóspedes')+'</summary>'+
   '<div class="discovery-inquiry-fields">'+inputs+'</div>'+
   '<p class="tiny muted">É apenas uma consulta direta. Orçamento, disponibilidade e condições dependem do anunciante. O TAMÃO não recebe pagamentos nesta etapa.</p>'+
@@ -309,14 +318,35 @@ function discoveryPrepareInquiry(anchor){
   const day=String(box?.querySelector?.('[name="preferred_day"]')?.value||'').trim();
   const validDay=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
     Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
-  if(service.length<10||service.length>500)
-    return invalid('Descreva o serviço em 10 a 500 caracteres.');
-  if(day&&(!validDay(day)||Date.parse(day)<Date.now()-86400000))
-    return invalid('Informe uma data válida, a partir de hoje.');
-  message='Olá! Encontrei seu anúncio de serviço no TAMÃO: '+title+
-    '. Gostaria de solicitar um orçamento. Serviço: '+service+
-    (day?'. Dia desejado: '+day:'')+
-    '. Podemos conversar sobre valores, região atendida e disponibilidade?';
+  const mode=String(box?.dataset?.service||'');
+  const mobility=Object.hasOwn(discoveryServiceShortcuts,mode)?mode:'';
+  if(mobility){
+    const cleanRoute=name=>String(box?.querySelector?.('[name="'+name+'"]')?.value||'')
+      .replace(/[\\u0000-\\u001f\\u007f]+/g,' ').replace(/\\s+/g,' ').trim();
+    const origin=cleanRoute('origin'),destination=cleanRoute('destination');
+    if(origin.length<3||origin.length>120||destination.length<3||destination.length>120)
+      return invalid('Informe origem e destino aproximados, de 3 a 120 caracteres.');
+    if(service.length>350)return invalid('Detalhes excedem 350 caracteres.');
+    if(day&&(!validDay(day)||Date.parse(day)<Date.now()-86400000))
+      return invalid('Informe uma data válida, a partir de hoje.');
+    const request={moto:'uma corrida de moto',carro:'uma corrida de carro',
+      fretes:'um frete',entregas:'uma entrega'}[mobility];
+    message='Olá! Encontrei seu anúncio no TAMÃO: '+title+
+      '. Gostaria de consultar '+request+'. Origem aproximada: '+origin+
+      '. Destino aproximado: '+destination+
+      (service?'. Detalhes: '+service:'')+
+      (day?'. Dia desejado: '+day:'')+
+      '. Podemos confirmar valores e disponibilidade diretamente?';
+  }else{
+    if(service.length<10||service.length>500)
+      return invalid('Descreva o serviço em 10 a 500 caracteres.');
+    if(day&&(!validDay(day)||Date.parse(day)<Date.now()-86400000))
+      return invalid('Informe uma data válida, a partir de hoje.');
+    message='Olá! Encontrei seu anúncio de serviço no TAMÃO: '+title+
+      '. Gostaria de solicitar um orçamento. Serviço: '+service+
+      (day?'. Dia desejado: '+day:'')+
+      '. Podemos conversar sobre valores, região atendida e disponibilidade?';
+  }
  }else if(kind==='rides'){
   const seats=number('seats');
   if(limit>8||!Number.isInteger(seats)||seats<1||seats>limit)

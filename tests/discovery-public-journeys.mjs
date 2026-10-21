@@ -303,9 +303,9 @@ assert.match(professionalInquiry,/Dia desejado \(opcional\)/);
 assert.match(professionalInquiry,/name="service" required minlength="10" maxlength="500"/);
 assert.doesNotMatch(professionalInquiry,/Reserva confirmada|Pagar no TAMÃO/);
 assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'not-phone'},'professionals'),'');
-function makeInquiry(kind,values,max=3){
+function makeInquiry(kind,values,max=3,mode=''){
  const feedback={textContent:''};
- const box={dataset:{phone:'+555599998888',kind,title:'Anúncio exemplo',max:String(max)},
+ const box={dataset:{phone:'+555599998888',kind,service:mode,title:'Anúncio exemplo',max:String(max)},
  querySelector:sel=>sel==='.discovery-inquiry-feedback'?feedback:
   Object.hasOwn(values,(sel.match(/\[name="([^"]+)"\]/)||[])[1])?
     {value:values[(sel.match(/\[name="([^"]+)"\]/)||[])[1]]}:null};
@@ -331,6 +331,46 @@ assert.equal(inquiry.link,'#');
 inquiry=makeInquiry('professionals',{service:'Trocar chuveiro e revisar instalação',preferred_day:''},0);
 assert.equal(inquiry.ok,true,'service inquiry must work without an optional date');
 assert.doesNotMatch(decodeURIComponent(inquiry.link),/Dia desejado:/);
+// Direct motorbike/car/freight/last-mile inquiries use approximate regions;
+ // never create an order, claim confirmed availability or send a charge.
+for(const [mode,description] of [
+ ['moto','uma corrida de moto'],['carro','uma corrida de carro'],
+ ['fretes','um frete'],['entregas','uma entrega']
+]){
+ const s=sandbox.discoveryState('professionals');
+ s.service=mode;
+ const html=sandbox.discoveryInquiryForm({
+   title:'Prestador de mobilidade',whatsapp_e164:'+555599998888'
+ },'professionals');
+ assert.match(html,/name="origin" required/);
+ assert.match(html,/name="destination" required/);
+ assert.match(html,new RegExp('data-service="'+mode+'"'));
+ assert.doesNotMatch(html,/Reserva confirmada|Pagar no TAMÃO/);
+ inquiry=makeInquiry('professionals',{
+   origin:'Centro',destination:'Bairro São Jorge',
+   service:'Vou com bagagem pequena',preferred_day:'2030-08-10'
+ },0,mode);
+ assert.equal(inquiry.ok,true);
+ const query=decodeURIComponent(inquiry.link);
+ assert.match(query,new RegExp(description));
+ assert.match(query,/Origem aproximada: Centro/);
+ assert.match(query,/Destino aproximado: Bairro São Jorge/);
+ assert.match(query,/Dia desejado: 2030-08-10/);
+ assert.doesNotMatch(query,/Pagamento efetuado|Reserva confirmada/);
+ inquiry=makeInquiry('professionals',{origin:'',destination:'Centro',service:''},0,mode);
+ assert.equal(inquiry.ok,false);
+ assert.match(inquiry.feedback,/origem e destino aproximados/);
+ assert.equal(inquiry.link,'#');
+}
+sandbox.discoveryState('professionals').service='';
+inquiry=makeInquiry('professionals',{
+ origin:'Centro',destination:'Bairro <script>',service:'A'.repeat(351)
+},0,'moto');
+assert.equal(inquiry.ok,false);
+assert.match(inquiry.feedback,/Detalhes excedem 350/);
+inquiry=makeInquiry('professionals',{origin:'Centro',destination:'Bairro',service:'Pedido normal 1234'},0,'not-allowed');
+assert.equal(inquiry.ok,true);
+assert.doesNotMatch(decodeURIComponent(inquiry.link),/corrida de moto/);
 inquiry=makeInquiry('rides',{seats:'2'},3);
 assert.equal(inquiry.ok,true);
 assert.match(decodeURIComponent(inquiry.link),/consultar 2 vagas/);
