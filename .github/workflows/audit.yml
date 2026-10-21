@@ -751,15 +751,19 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
-          grep -Fq '✓ Compare preços' /tmp/home.html
-          grep -q "Botijão de cozinha 13 kg" /tmp/home.html
+          grep -Fq 'tamao-home-catalog' /tmp/home.html
+          grep -Fq 'home-discover-grid' /tmp/home.html
           # Quote-first home: avoid blocking CI on obsolete pre-redesign copy.
           grep -Fq 'tamao-quote-first' /tmp/home.html
           grep -Fq 'tamao-home-coupon-rail' /tmp/home.html
-          grep -Fq 'COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.' /tmp/home.html
-          grep -q "Mais economia para quem compra. Mais oportunidades para quem vende." /tmp/home.html
+          grep -Fq 'O que mais você precisa?' /tmp/home.html
+          grep -Fq 'tamao-home-services-grid' /tmp/home.html
           grep -Fq 'Ver cupons e Clube' /tmp/home.html
-          grep -q "Cadastrar minha empresa" /tmp/home.html
+          grep -Fq 'Pedir uma moto' /tmp/home.html
+          grep -Fq 'Pedir um carro' /tmp/home.html
+          grep -Fq 'Precisou de outro serviço? Tá na mão.' /tmp/home.html
+          ! grep -Fq 'home-editorial-visual' /tmp/home.html
+          ! grep -Fq 'hero marketing-hero' /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
           grep -q "Indique quem compra. Apresente quem vende. Faça sua rede crescer." /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html

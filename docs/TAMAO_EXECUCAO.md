@@ -1248,3 +1248,7 @@ O primeiro commit de refatoração `c66bfe2d` reprovou no gate do build por exce
 ### 20/10/2026 — Ajustes do segundo gate de performance
 
 O SHA `7865ceba` já reduziu o JS inicial abaixo do orçamento, mas a CSS pública excedeu em 124 bytes o teto: 283124 vs 283000. Removidas quatro declarações novas redundantes e mantido o grid responsivo reaproveitando CSS existente. A auditoria desse SHA encontrou erro de escape de aspas **somente no teste** de navegação pública recém-adaptado; corrigida a asserção para exigir botão real `startHomeBrowse()` sem alterar lógica do checkout. Ajustadas as asserções de unicidade do grid para as classes reais após a reutilização de estilos. Seguir sem aumentar budget.
+
+### 20/10/2026 — Smoke automatizado alinhado à home enxuta
+
+No SHA `3075c8e2`, build isolado e performance foram aprovados, mas o Audit parou no smoke de navegador V1.371: o workflow ainda procurava `✓ Compare preços` e vários slogans e cartões redundantes eliminados do HTML público. Atualizada a etapa `Browser smoke — mobile routes` para exigir o painel de cotações e cupons, catálogo único, grade de serviços com moto/carro e CTA de verdade, além de comprovar **ausência** da hero/vitrine duplicadas. Permanece validação de todas as rotas (compras, parceiro, admin, privacidade) e do navegador E2E mobile. Não reapresentar texto inútil só para satisfazer teste histórico.
