@@ -31,7 +31,7 @@ for(const required of [
   'quickProduct(','home-discover-all','COMPRE BEM. ECONOMIZE MAIS.',
   'Continuar para a cesta','REFERÊNCIA LOCAL'
 ])assert.ok(customer.includes(required),'missing customer discovery: '+required);
-assert.ok(customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map')&&customer.includes('data-tamao-discover-kind'),'product discovery must originate in the vetted catalogue');
+assert.ok((customer.includes('discoveryEntries=homeProductEntries')||customer.includes('discoveryEntries=homeBalancedHighlights(homeProductEntries'))&&customer.includes('discoveryTiles=discoveryEntries.map')&&customer.includes('data-tamao-discover-kind'),'product discovery must originate in the vetted catalogue');
 const homeMarkup=customer.slice(customer.indexOf('function home(){'),
  customer.indexOf('\nfunction orderPage(){'));
 assert.ok(homeMarkup.indexOf('homeRegionalPriceBoard(homeRegion)')<
