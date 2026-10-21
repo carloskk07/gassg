@@ -5107,24 +5107,6 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .tamao-quote-spread>span{font-size:1.45rem;line-height:1.2}
 .tamao-quote-spread strong{display:block;line-height:1.4}
 .tamao-quote-spread p{margin:4px 0 0;font-size:.8rem;color:#52675b;line-height:1.5}
-.tamao-quote-benefits{margin-top:21px;padding-top:20px;border-top:1px solid #d6e7db}
-.tamao-quote-benefits-head{display:flex;justify-content:space-between;align-items:end;gap:14px;margin-bottom:13px}
-.tamao-quote-benefits-head h3{font-size:clamp(1.18rem,2.1vw,1.48rem);letter-spacing:-.035em;line-height:1.25;margin:5px 0 0;color:#174c34}
-.tamao-quote-benefits-head>button{border:0;background:transparent;color:#0b6a48;
- font-weight:850;min-height:44px;cursor:pointer;text-align:left}
-.tamao-quote-benefit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.tamao-quote-benefit-grid article{min-width:0;background:#fff;border:1px solid #d5e5d9;
- border-radius:15px;padding:16px;display:flex;flex-direction:column;align-items:start;gap:7px}
-.tamao-quote-benefit-grid article>span{font-size:1.2rem}
-.tamao-quote-benefit-grid article strong{color:#184d35;line-height:1.25}
-.tamao-quote-benefit-grid article p{font-size:.82rem;line-height:1.55;color:#4b6455;margin:0;flex:1}
-.tamao-quote-benefit-grid article button{min-height:40px;background:transparent;border:0;
- padding:8px 0;color:#006b49;font-weight:850;text-align:left;cursor:pointer}
-.tamao-quote-benefit-grid button:focus-visible,.tamao-quote-benefits-head button:focus-visible{
- outline:3px solid #ba8a2b;outline-offset:3px;border-radius:4px}
-@media(max-width:740px){.tamao-quote-benefit-grid{grid-template-columns:1fr}
- .tamao-quote-benefits-head{align-items:start;flex-direction:column}
- .tamao-quote-topline{align-items:start;flex-direction:column;gap:5px}
+@media(max-width:740px){.tamao-quote-topline{align-items:start;flex-direction:column;gap:5px}
  .tamao-quote-topline>span:last-child{text-align:left}
  .city-price-board.tamao-quote-first{margin-top:9px}}
-@media(min-width:741px) and (max-width:960px){.tamao-quote-benefit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

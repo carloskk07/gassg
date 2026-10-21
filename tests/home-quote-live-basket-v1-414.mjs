@@ -14,10 +14,10 @@ vm.runInContext(home+';this.board=homeRegionalPriceBoard;this.basket=homeQuoteBa
 let rendered=htmlCtx.board({city:'São Gabriel',state:'RS'});
 assert.match(rendered,/Tamão São Gabriel\/RS/);
 assert.match(rendered,/Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço/);
-assert.match(rendered,/Como comprar/);
-assert.match(rendered,/1<\/b> Escolha/);
-assert.match(rendered,/2<\/b> Informe o CEP/);
-assert.match(rendered,/3<\/b> Compare e compre/);
+assert.doesNotMatch(rendered,/city-price-shopping-steps|tamao-quote-benefits/,
+ 'Avoid repeated buying steps and benefit cards inside quotation.');
+assert.equal((rendered.match(/class="tamao-home-coupon-rail"/g)||[]).length,1,
+ 'A single quote-board coupon action remains');
 assert.equal((rendered.match(/name="tamao-city-quote"/g)||[]).length,3,
  'one native exclusive product accordion across reference products');
 assert.match(rendered,/city-price-product-icon/);
@@ -36,7 +36,7 @@ assert.match(safe,/4 unidades selecionadas/);
 assert.doesNotMatch(safe,/OTHER/);
 assert.match(css,/\.city-price-basket/);
 assert.match(css,/\.city-price-product-qty-control/);
-assert.match(css,/\.city-price-shopping-steps/);
+assert.doesNotMatch(css,/\.city-price-shopping-steps/);
 assert.ok(css.includes('@media(max-width:620px)'));
 const pieceStart=customer.indexOf('function homeQuoteSyncPostal(');
 const pieceEnd=customer.indexOf('function startCustomerAvailability(',pieceStart);

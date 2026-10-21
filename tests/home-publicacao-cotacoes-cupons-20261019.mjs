@@ -9,6 +9,9 @@ const css=read('css/marketing-premium.css');
 new vm.Script(home,{filename:'js/home-showcase.js'});
 new vm.Script(customer,{filename:'js/customer.js'});
 assert.ok(!home.includes('Os preços reais substituem as referências automaticamente'));
+assert.ok(!home.includes('const savingGuide=')&&!home.includes('city-price-shopping-steps'),
+ 'Quote board must not duplicate the compact Club/Network section.');
+assert.ok(!home.includes('class="city-price-place"'),'City is identified only once in the title.');
 assert.match(home,/tamao-home-coupon-rail/);
 assert.match(home,/Ver cupons e Clube/);
 assert.match(home,/Consulta por CEP|consulta por CEP|consulte ofertas|consulte as ofertas/i);
@@ -58,6 +61,8 @@ quoteContext.globalThis.liveRuntime.cityPriceSnapshot={
 const eligible=quoteContext.priceBoard({city:'São Gabriel',state:'RS'});
 assert.match(eligible,/class="city-price-card verified"/);
 assert.match(eligible,/R\$ 16\.90/);
+assert.match(eligible,/PREÇO DE REVENDA/);
+assert.match(eligible,/Preço final, descontos e entrega são confirmados/);
 assert.ok(!eligible.includes('Pesquisa local informada em 15/10/2026.'),
  'eligible current data must replace local research');
 quoteContext.globalThis.liveRuntime.cityPriceSnapshot.real=false;
