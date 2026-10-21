@@ -42,8 +42,10 @@ assert.equal((sql.match(/l.status='published'/g)||[]).length>=3,true,
  'GPS may only start/publish for still-published provider listings');
 assert.ok(sql.includes("not exists(select 1 from public.discovery_listings l"),
  'Queued requests cannot be accepted after the provider listing is removed');
-assert.ok(sql.includes("and exists(select 1 from public.discovery_listings l"),
- 'Driver must revalidate listing and city before sharing GPS');
+assert.match(sql,/create function public\.mobility_start_position[\s\S]*?or not exists\(select 1 from public\.discovery_listings l[\s\S]*?c\.enabled/,
+ 'Driver starting GPS must verify listing publication and city authorization');
+assert.match(sql,/create function public\.mobility_publish_position[\s\S]*?or not exists\(select 1 from public\.discovery_listings l[\s\S]*?c\.enabled/,
+ 'Every GPS packet must revalidate provider listing and city');
 assert.ok(sql.includes('left join public.mobility_live_positions p on p.request_id=r.id'),
  'Only the participant-bound snapshot can read precise coordinates');
 assert.ok(sql.includes("l.status='published' and\n   r.expires_at"),
