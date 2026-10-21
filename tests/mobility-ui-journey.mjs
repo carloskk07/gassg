@@ -4,9 +4,13 @@ import vm from 'node:vm';
 const read=x=>fs.readFileSync(new URL('../'+x,import.meta.url),'utf8');
 const source=read('js/mobility.js');new vm.Script(source);
 let watch=0,stop=0,called=[],signedOutListener=null,signOutCalls=0;
+let noticePermissionCalls=0;const browserNotices=[];
+function FakeNotification(title,options){browserNotices.push({title,options})}
+FakeNotification.permission='default';
+FakeNotification.requestPermission=async()=>{noticePermissionCalls++;FakeNotification.permission='granted';return 'granted'};
 const driver={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
 const listing='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
+const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,Notification:FakeNotification,
  location:{search:'?corrida='+listing+'&modalidade=moto',origin:'https://tamao.com.br',pathname:'/',hash:'#mobility'},
  document:{visibilityState:'visible',addEventListener:(name,fn)=>{ctx.listener=fn},
   getElementById:()=>null,querySelector:()=>null,createElement:()=>({}),
@@ -38,6 +42,31 @@ assert.equal(s.user.id,driver.id);
 assert.equal(typeof signedOutListener,'function',
  'The test must register real onAuthStateChange through mobilityInit');
 assert.match(ctx.mobilityPage(),/Solicitar uma moto/);
+assert.match(ctx.mobilityPage(),/Pedidos para motoristas: 0 aguardando resposta/);
+assert.match(ctx.mobilityPage(),/não há avisos push com o aplicativo fechado/);
+assert.equal(noticePermissionCalls,0,'Never ask OS permission without click');
+assert.equal(await ctx.mobilityEnableAlerts(),true);
+assert.equal(noticePermissionCalls,1);
+assert.match(ctx.mobilityPage(),/Avisos opcionais ativados/);
+const request={id:listing,role:'driver',status:'requested',
+ expires_at:new Date(Date.now()+120000).toISOString(),
+ origin:'Centro',destination:'Bairro Teste',position:{lat:-30.33,lon:-54.32}};
+ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1);
+assert.equal(browserNotices[0].title,'Novo pedido de moto ou carro no TAMÃO');
+assert.doesNotMatch(JSON.stringify(browserNotices),/Centro|Bairro|lat|lon|30\.33|54\.32/,
+ 'Notification content must not disclose places or GPS coordinates');
+ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1,'Same request cannot trigger duplicate alerts');
+ctx.mobilityNotifyNewPending([]);
+ctx.document.visibilityState='hidden';
+ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1,'No browser notification for backgrounded UI');
+ctx.document.visibilityState='visible';ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1,'A now-known request cannot trigger deferred alert');
+ctx.mobilityNotifyNewPending([]);
+s.items=[request];assert.match(ctx.mobilityPage(),/Pedidos para motoristas: 1 aguardando resposta/);
+s.items=[];
 assert.ok(read('js/legal.js').includes('function contactPage()'));
 assert.ok(read('js/mobility.js').includes("Relatar problema com este atendimento"));
 s.id=listing;
@@ -122,6 +151,8 @@ assert.deepEqual(Array.from(s.items),[]);
 assert.equal(s.detail,null);
 assert.equal(s.id,'');
 assert.equal(s.mapConsent,false);
+assert.equal(s.noticeOptIn,false,'A logged-out user never preserves notification opt-in');
+assert.equal(s.pendingDriverIds,null,'An account switch clears previous request identifiers');
 assert.doesNotMatch(ctx.mobilityPage(),/openstreetmap.org/);
 s.user=driver;s.items=[{id:listing}];s.detail={id:listing,role:'rider',
  status:'en_route',position:validPosition};
@@ -137,17 +168,63 @@ assert.equal(s.user.id,another.id,'User identity switches after auth event');
 assert.equal(s.detail,null,'Switching accounts clears the other rider location');
 assert.equal(s.items.length,0,'Switching accounts clears previous trip list');
 ctx.location.search='?corrida=bad&modalidade=moto';assert.equal(ctx.mobilityIntent(),null);
+const mobilityHome=read('js/customer.js'),mobilityNav=read('js/core.js');
+assert.ok(mobilityHome.includes("'/?modalidade=moto#mobility'"),'Moto homepage opens mobility without a fake listing');
+assert.ok(mobilityHome.includes("'/?modalidade=carro#mobility'"),'Carro homepage opens mobility without a fake listing');
+assert.ok(!mobilityHome.includes("'/?servico=moto#professionals'"),
+ 'Homepage moto must not route to the generic professionals landing');
+assert.ok(mobilityNav.includes('Corridas</button>'));
+assert.ok(mobilityNav.includes('Minhas corridas</button>'));
+s.phase='ready';s.user=null;s.id='';s.detail=null;s.items=[];
+ctx.location.search='?modalidade=moto';
+assert.equal(ctx.mobilityIntent(),null,'Mode-only link must not fabricate listing permission');
+assert.match(ctx.mobilityPage(),/Encontrar mototaxista/);
+assert.match(ctx.mobilityPage(),/Encontrar motorista/);
+assert.ok(!ctx.mobilityPage().includes('onsubmit="return mobilityCreate(event)"'),
+ 'Without an authorized provider ID, no trip can be submitted');
+ctx.location.search='?corrida='+listing+'&modalidade=moto';
+assert.doesNotMatch(ctx.mobilityPage(),/Encontrar mototaxista/,
+ 'A chosen listing must preserve the direct authenticated journey');
 assert.ok(read('js/bootstrap.js').includes('mobilityRequestModule()'));
-const nav=read('js/core.js');
-assert.ok(nav.includes('Corridas</button>')&&nav.includes('Minhas corridas</button>'));
-assert.ok(nav.includes("go(\\'mobility\\')"),'dashboard must remain reachable from public navigation');
-s.phase='ready';s.user=another;s.items=[];s.detail=null;
-assert.match(ctx.mobilityPage(),/mantenha esta página aberta/);
-assert.match(ctx.mobilityPage(),/não há alertas garantidos/);
 assert.ok(read('js/bootstrap.js').includes('mobilityModuleError'));
 assert.ok(read('js/bootstrap.js').includes('mobilityRetryModule()'));
 assert.ok(read('js/bootstrap.js').includes("s.onerror=()=>{mobilityModuleError=true;render()}"),
  'a failed lazy script cannot trigger an infinite render/reload loop');
 assert.ok(read('index.html').includes('frame-src https://challenges.cloudflare.com https://www.openstreetmap.org'));
 assert.ok(read('js/discovery.js').includes('Solicitar e acompanhar no mapa'));
-console.log('PASS: GPS only driver en_route, user consent map, tab hidden stop, unknown ID blocked');
+// A rider returning after closing the browser should automatically resume a
+// server-authorized active request, not be asked to submit another trip.
+ctx.location.search='?corrida='+listing+'&modalidade=moto';
+const activeId='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const activeRide={id:activeId,role:'rider',service:'moto',status:'requested',
+ expires_at:new Date(Date.now()+600000).toISOString(),
+ origin:'Centro',destination:'Bairro São Jorge',listing_title:'Mototáxi publicado'};
+const originalRpc=client.rpc;
+client.rpc=async (name,args)=>{
+ if(name==='mobility_my_requests')return {data:[activeRide],error:null};
+ if(name==='mobility_snapshot'){
+  assert.equal(args.p_request_id,activeId);
+  return {data:{...activeRide,position:null},error:null};
+ }
+ return originalRpc(name,args);
+};
+s.phase='ready';s.client=client;s.user=driver;s.id='';s.items=[];s.detail=null;
+await ctx.mobilityRefresh();
+assert.equal(s.id,activeId,'An active ride must be resumed after a page reload');
+assert.equal(s.detail?.status,'requested');
+assert.match(ctx.mobilityPage(),/Você já tem uma solicitação em andamento/);
+assert.doesNotMatch(ctx.mobilityPage(),/onsubmit="return mobilityCreate\(event\)"/,
+ 'A current rider must not be offered duplicate trip submission');
+assert.match(ctx.mobilityPage(),/Relatar problema com este atendimento/);
+s.id='';s.items=[];s.detail=null;
+client.rpc=async (name,args)=>{
+ if(name==='mobility_my_requests')return {data:[{...activeRide,status:'expired'}],error:null};
+ return originalRpc(name,args);
+};
+await ctx.mobilityRefresh();
+assert.equal(s.id,'','Expired trips must not resurrect tracking');
+assert.match(ctx.mobilityPage(),/onsubmit="return mobilityCreate\(event\)"/);
+client.rpc=originalRpc;
+assert.match(read('js/mobility.js'),/Sou mototaxista e quero anunciar/);
+assert.match(read('js/mobility.js'),/Sou motorista e quero anunciar/);
+console.log('PASS: GPS privacy and consent, active rider resume, duplicate request prevention, driver onboarding');

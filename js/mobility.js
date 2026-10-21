@@ -8,7 +8,7 @@
 
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
- mapConsent:false,mapKey:'',mapFrameAt:0,gpsPending:false,gpsRequestId:'',gpsEpoch:0};
+ mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const mobilityStates={
  requested:'Aguardando resposta do anunciante',accepted:'Aceita pelo motorista',
@@ -79,6 +79,69 @@ function mobilityListCard(item){
   '<p>'+esc(String(item.origin||'').slice(0,120))+' → '+esc(String(item.destination||'').slice(0,120))+'</p>'+
   '<button type="button" onclick="mobilityFocus(\''+item.id+'\')">Ver '+(open?'andamento':'detalhes')+'</button></article>';
 }
+// Browsers can alert only while this dashboard is open. This is not push
+// delivery, and never sends coordinates, trip addresses or driver identity.
+function mobilityDriverPending(items){
+ return (Array.isArray(items)?items:[]).filter(item=>item?.role==='driver'&&
+  item.status==='requested'&&mobilityId.test(String(item.id||''))&&
+  Date.parse(String(item.expires_at||''))>Date.now());
+}
+function mobilityNotifyNewPending(items){
+ const s=mobilityRuntime,next=mobilityDriverPending(items).map(x=>x.id);
+ const previous=s.pendingDriverIds;
+ s.pendingDriverIds=next;
+ if(!Array.isArray(previous)||!s.noticeOptIn||document.visibilityState==='hidden'||
+   !globalThis.Notification||globalThis.Notification.permission!=='granted')return;
+ const incoming=next.filter(id=>!previous.includes(id));
+ if(incoming.length){
+  try{new globalThis.Notification('Novo pedido de moto ou carro no TAMÃO',{
+    body:'Abra a área de mobilidade para consultar a solicitação.'});}
+  catch(_){/* No permission or platform support: in-page inbox still works. */}
+ }
+}
+async function mobilityEnableAlerts(){
+ const s=mobilityRuntime;
+ if(!mobilityRoute()||!s.user)return false;
+ if(!globalThis.Notification||typeof globalThis.Notification.requestPermission!=='function'){
+  s.error='Seu navegador não oferece avisos. Consulte os pedidos nesta página.';
+  render();return false;
+ }
+ try{
+  // Only this deliberate button interaction may request OS permission.
+  const permission=await globalThis.Notification.requestPermission();
+  if(permission!=='granted'){
+   s.error='Avisos não autorizados. Pedidos continuam visíveis nesta página.';
+   render();return false;
+  }
+  s.noticeOptIn=true;
+  s.pendingDriverIds=mobilityDriverPending(s.items).map(x=>x.id);
+  s.error='';
+  s.notice='Avisos ativados enquanto esta página estiver aberta e visível.';
+  render();return true;
+ }catch(_){
+  s.error='Não foi possível ativar os avisos. Os pedidos permanecem nesta tela.';
+  render();return false;
+ }
+}
+// Restore only a currently authorized, nonexpired rider/driver request.
+ // An old completed ride must never become the default map or block a new ride.
+function mobilityActiveRequest(item){
+ return mobilityId.test(String(item?.id||''))&&
+  ['requested','accepted','en_route','arrived'].includes(item.status)&&
+  Date.parse(String(item.expires_at||''))>Date.now()&&
+  ['rider','driver'].includes(item.role);
+}
+function mobilityResumeRequest(items){
+ const s=mobilityRuntime;
+ if(s.id||!Array.isArray(items))return false;
+ const active=items.filter(mobilityActiveRequest);
+ const selected=active.find(x=>x.role==='rider')||
+  active.find(x=>x.role==='driver'&&x.status!=='requested')||
+  active.find(x=>x.role==='driver');
+ if(!selected)return false;
+ s.id=selected.id;s.detail=null;s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+ return true;
+}
 function mobilityAction(action,label,kind='secondary'){
  return '<button type="button" class="'+kind+'" onclick="mobilityTransition(\''+action+'\')"'+
  (mobilityRuntime.busy?' disabled':'')+'>'+label+'</button>';
@@ -116,7 +179,10 @@ function mobilityPage(){
  const s=mobilityRuntime,intent=mobilityIntent();
  const top='<header><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
  '<h1>Solicitações de moto e carro</h1>'+
- '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>';
+ '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>'+(intent?'':discover);
+ const discover='<nav class="mobility-provider-links" aria-label="Escolher anunciante para moto ou carro">'+
+  '<a href="/?servico=moto#professionals">Encontrar mototaxista</a> · '+
+  '<a href="/?servico=carro#professionals">Encontrar motorista</a></nav>';
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
  const error=s.error?'<p class="notice danger" role="alert">'+esc(s.error)+'</p>':'';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section mobility-page">'+top+'<p role="status">Preparando sua área segura…</p></section>');
@@ -124,11 +190,18 @@ function mobilityPage(){
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
  if(!s.user)return shell('<section class="section mobility-page">'+top+
   '<p>Entre com seu e-mail para enviar pedidos ou atender solicitações de seus anúncios. Não mostraremos posições sem autenticação.</p>'+
+  '<p><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar</a>'+
+  ' · <a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar</a></p>'+
   '<p><a href="/#contact">Precisa de ajuda? Fale com o suporte TAMÃO</a></p>'+
   note+error+'<form class="mobility-form" onsubmit="return mobilityLogin(event)">'+
   '<label>E-mail<input name="email" type="email" required maxlength="254" autocomplete="email"></label>'+
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button></form></section>');
- const form=intent?'<section class="mobility-start"><h2>Solicitar '+(intent.mode==='moto'?'uma moto':'um carro')+'</h2>'+
+ const hasOngoingRider=s.items.some(x=>x.role==='rider'&&mobilityActiveRequest(x))||
+  (s.detail?.role==='rider'&&['requested','accepted','en_route','arrived'].includes(s.detail.status))||
+  (Boolean(s.id)&&!s.detail);
+ const form=intent&&hasOngoingRider?
+  '<p class="mobility-gps-note" role="status">Você já tem uma solicitação em andamento. Acompanhe o status abaixo ou cancele antes de fazer outro pedido.</p>':
+  intent?'<section class="mobility-start"><h2>Solicitar '+(intent.mode==='moto'?'uma moto':'um carro')+'</h2>'+
   '<p>O anúncio é verificado novamente no servidor. Não informe endereço residencial ou dados sensíveis nesta etapa.</p>'+
   '<form class="mobility-form" onsubmit="return mobilityCreate(event)">'+
   '<label>Origem aproximada<input name="origin" minlength="3" maxlength="120" required placeholder="Bairro ou região"></label>'+
@@ -138,12 +211,18 @@ function mobilityPage(){
   '<p class="mobility-account">Conta: '+esc(String(s.user.email||'verificada').slice(0,254))+
   ' <button type="button" onclick="mobilityRefresh()">Atualizar atendimentos</button>'+
   ' <button type="button" onclick="mobilityLogout()">Sair e parar localização</button></p>'+
+  '<section class="mobility-driver-inbox" aria-label="Avisos de solicitações recebidas">'+
+  '<strong>Pedidos para motoristas: '+mobilityDriverPending(s.items).length+' aguardando resposta</strong>'+
+  '<p class="tiny muted">Para receber pedidos, deixe esta área aberta. A atualização ocorre enquanto a página estiver visível; não há avisos push com o aplicativo fechado.</p>'+
+  (!s.noticeOptIn?'<button type="button" onclick="mobilityEnableAlerts()">Ativar avisos do navegador nesta página</button>':
+    '<p role="status">Avisos opcionais ativados nesta sessão.</p>')+'</section>'+
   '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
   form+mobilityDetailPanel(s.detail)+
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
-  '<p>Nenhuma solicitação. Motoristas recebem aqui os pedidos enviados aos seus anúncios publicados.</p>')+
-  '<p class="tiny muted">Para receber novos pedidos, mantenha esta página aberta. A consulta é atualizada periodicamente com a aba visível; ainda não há alertas garantidos quando o navegador está fechado.</p>'+
+  '<p>Nenhuma solicitação. Motoristas recebem aqui os pedidos enviados aos seus anúncios publicados.'+
+  ' <a href="/?anunciar=moto#advertise">Anunciar como mototaxista</a> ou '+
+  '<a href="/?anunciar=carro#advertise">anunciar como motorista</a>.</p>')+
   '</section></section>');
 }
 async function mobilityInit(){
@@ -186,6 +265,7 @@ function mobilityClearSession(){
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+ s.noticeOptIn=false;s.pendingDriverIds=null;
  s.error='';s.notice='';s.busy=false;
  if(mobilityRoute())render();
 }
@@ -251,8 +331,10 @@ async function mobilityRefresh(silent=false){
   if(error)throw error;
   const items=Array.isArray(data)?data:[];
   if(items.length>30)throw Error('Invalid response');
+  mobilityNotifyNewPending(items);
   const before=JSON.stringify(s.items);s.items=items;
   let changed=before!==JSON.stringify(items);
+  if(mobilityResumeRequest(items))changed=true;
   if(s.id){
    const res=await s.client.rpc('mobility_snapshot',{p_request_id:s.id});
    if(res.error)throw res.error;
