@@ -88,7 +88,12 @@ assert.equal(homeIntent('gas',{water:2,gas:0,other:0}).html,'');
 assert.equal(homeIntent('marca',{water:2,gas:2,other:0}).html,'');
 assert.ok(customer.includes('${homeIntentGuide}'),
  'contextual helper must render in first-fold buyer hero');
-assert.ok(customer.includes('const discoveryEntries=homeProductEntries'), 'server-gated catalogue must remain');
+assert.ok(
+ (customer.includes('const discoveryEntries=homeProductEntries')||
+  customer.includes('const discoveryEntries=homeBalancedHighlights(homeProductEntries.filter('))&&
+ customer.includes("([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code)")&&
+ customer.includes('.slice(0,24)'),
+ 'server-gated catalogue, SKU allowlist and 24-item bound must remain');
 assert.ok(customer.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
  'city price claims must stay evidence-backed');
 assert.ok(customer.includes('homeFilterProducts'), 'category CTA should use existing safe filter');
