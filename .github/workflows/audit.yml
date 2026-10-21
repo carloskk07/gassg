@@ -584,6 +584,8 @@ jobs:
         run: node tests/home-commercial-rhythm-v1-413.mjs
       - name: Public home catalogue art and service conversion hierarchy
         run: node tests/home-catalog-service-20261021.mjs
+      - name: Balanced featured catalogue and complete category filters
+        run: node tests/home-balanced-highlights-20261021.mjs
       - name: Release-only CSS comments and source audit markers
         run: node tests/release-css-comments-20261021.mjs
       - name: Customer release comments preserve canonical workflow slices
