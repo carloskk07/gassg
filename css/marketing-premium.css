@@ -397,3 +397,9 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:720px){.tamao-home-mobility-grid{grid-template-columns:1fr}.intent-grid.tamao-home-support-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tamao-home-partner-strip{padding:15px}.tamao-home-partner-actions{width:100%}}
 @media(max-width:420px){.intent-grid.tamao-home-support-grid{grid-template-columns:1fr}.tamao-home-mobility-grid .tamao-home-service{min-height:105px;padding:15px}.tamao-home-partner-actions a{flex:1 1 100%}}
 @media(prefers-reduced-motion:reduce){.tamao-home-mobility-grid .tamao-home-service{transition:none}}
+
+/* Keep real account benefits visually distinct inside the price cockpit. */
+.tamao-quote-first .tamao-home-coupon-rail{border-color:#dfbe6e;background:linear-gradient(111deg,#ffefb7,#fff8e8 78%);box-shadow:0 7px 21px rgba(105,76,18,.06)}
+.tamao-quote-first .tamao-home-coupon-rail strong{letter-spacing:-.024em}
+.tamao-quote-first .tamao-home-coupon-rail button:hover{background:#573605}
+@media(max-width:620px){.tamao-quote-first .tamao-home-coupon-rail{gap:9px;border-radius:14px}.tamao-quote-first .tamao-home-coupon-icon{font-size:23px}}

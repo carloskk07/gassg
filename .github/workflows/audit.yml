@@ -546,6 +546,10 @@ jobs:
         run: node tests/home-quote-inline-purchase-20261019.mjs
       - name: Home V1.414 premium quote basket and CEP regression
         run: node tests/home-quote-live-basket-v1-414.mjs
+      - name: Authentic coupon count and safe fallback in home
+        run: node tests/home-coupon-personalization-20261021.mjs
+      - name: Production quote script compaction with verified syntax
+        run: node tests/release-home-quote-comments-20261021.mjs
       - name: V1.415 real offer preview, CEP handoff and expiry regression
         run: node tests/home-verified-basket-comparison-v1-415.mjs
       - name: V1.346 marketing and accessibility design regression
