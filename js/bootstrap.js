@@ -11,6 +11,7 @@ const TAMAO_PUBLIC_PAGE_IDENTITY=Object.freeze({
   professionals:['Profissionais — TAMÃO','Busque profissionais por cidade e entre em contato diretamente com os anunciantes.'],
   rides:['Caronas — TAMÃO','Consulte viagens compartilhadas anunciadas, trajetos e contatos diretos.'],
   stays:['Hospedagens no Brasil — TAMÃO','Conheça hospedagens anunciadas e converse diretamente com os responsáveis.'],
+  mobility:['Pedir moto ou carro — TAMÃO','Solicitações de atendimento e localização do motorista, compartilhada mediante permissão.'],
   advertise:['Anunciar no TAMÃO — Meus anúncios','Cadastre seus serviços, caronas e hospedagens para revisão no TAMÃO.'],
   sponsors:['Para marcas — Divulgue no TAMÃO','Conheça opções de divulgação regional, campanhas de benefício e parcerias com o comércio local.'],
   contact:['Contato — TAMÃO','Fale com o TAMÃO sobre compras, revendas, publicidade, parceria ou atendimento.'],
@@ -106,6 +107,30 @@ function discoveryRequestModule(){
   script.onerror=()=>{discoveryModuleError=true;render();};
   document.head.appendChild(script);
 }
+let mobilityModuleRequested=false;
+let mobilityModuleError=false;
+function mobilityLoadingPage(){
+ return shell('<section class="section"><h1>Solicitações de moto e carro</h1>'+
+  (mobilityModuleError?'<p>Não foi possível carregar a área.</p><button onclick="mobilityRetryModule()">Tentar novamente</button>':
+   '<p role="status">Carregando acompanhamento seguro…</p>')+'</section>');
+}
+function mobilityRetryModule(){mobilityModuleRequested=false;mobilityModuleError=false;mobilityRequestModule();render()}
+function mobilityRequestModule(){
+ if(mobilityModuleRequested||typeof mobilityPage==='function'||(route()!=='mobility'&&!mobilityReturnIntent()))return;
+ if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+ mobilityModuleRequested=true;
+ const source=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
+ let v='';try{v=new URL(source,location.href).searchParams.get('v')||''}catch{}
+ const suffix=/^[A-Za-z0-9._-]{1,120}$/.test(v)?'?v='+encodeURIComponent(v):'';
+ const link=document.createElement('link');link.rel='stylesheet';
+ link.href='./css/mobility.css'+suffix;document.head.appendChild(link);
+ const script=document.createElement('script');script.src='./js/mobility.js'+suffix;
+ script.onload=()=>render();script.onerror=()=>{mobilityModuleError=true;render()};
+ document.head.appendChild(script);
+}
+function mobilityReturnIntent(){
+ try{return new URLSearchParams(location.search).get('mobility')==='1'}catch{return false}
+}
 let discoveryOwnerModuleRequested=false;
 let discoveryOwnerModuleError=false;
 // Email OTP callbacks may replace the URL fragment (#advertise) with auth
@@ -155,8 +180,9 @@ function render(){
     // An OTP response can temporarily contain #access_token=... in place of
     // #advertise. Keep the advertiser workspace visible, not the home/menu,
     // while its lazy SDK safely finishes the auth callback.
-    const r=discoveryOwnerReturnPending()?'advertise':route();
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
+    const r=discoveryOwnerReturnPending()?'advertise':
+      mobilityReturnIntent()?'mobility':route();
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
     updatePublicPageIdentity(r);
@@ -165,6 +191,8 @@ function render(){
     queueMicrotask(()=>discoveryRequestModule());
     queueMicrotask(()=>globalThis.discoveryOwnerAfterRender?.());
     queueMicrotask(()=>discoveryOwnerRequestModule());
+    queueMicrotask(()=>globalThis.mobilityAfterRender?.());
+    queueMicrotask(()=>mobilityRequestModule());
   }catch(e){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);

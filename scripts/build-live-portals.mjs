@@ -104,7 +104,8 @@ function headers(portal){
     '  X-Content-Type-Options: nosniff',
     '  X-Frame-Options: DENY',
     '  Referrer-Policy: strict-origin-when-cross-origin',
-    '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
+    '  Permissions-Policy: camera=(), microphone=(), geolocation='+(
+      role==='customer'?'(self)':'()'),
     '  Cross-Origin-Resource-Policy: same-origin',
     '',
     '/sw.js',

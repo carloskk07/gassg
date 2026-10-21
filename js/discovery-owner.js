@@ -508,6 +508,7 @@ function discoveryOwnerPage(){
     '</form>';
   return shell('<section class="section discovery-owner">'+header+note+error+
     '<div class="discovery-owner-top"><strong>'+esc(s.user.email||'Conta verificada')+'</strong>'+
+    '<a href="/#mobility">Atender chamadas de moto e carro</a>'+
     '<button type="button" onclick="discoveryOwnerLogout()">Sair</button></div>'+
     '<div class="discovery-owner-layout"><section><h2>Meus anúncios</h2>'+
       (cards||'<p>Nenhum anúncio cadastrado.</p>')+
