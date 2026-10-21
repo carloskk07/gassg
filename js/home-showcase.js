@@ -89,7 +89,11 @@ function homeQuoteProductPicker(item){
     '<button type="button" class="primary small" onclick="homeQuoteSelectProduct(\''+code+'\',true)">Consultar e comprar →</button>'+
    '</div>'+
    '<p class="city-price-product-feedback" role="status" aria-live="polite"></p>'+
-  '</div></details>';
+  '</div></details>'+
+ '<button type="button" class="secondary small city-price-quick-add" '+
+ 'onclick="homeQuoteQuickAdd(\''+code+'\')" '+
+ 'aria-label="Adicionar uma unidade de '+esc(label)+' à cesta">'+
+ '＋ Adicionar à cesta</button>';
 }
 
 // TAMÃO V1.341 — trustworthy city-first pricing presentation.

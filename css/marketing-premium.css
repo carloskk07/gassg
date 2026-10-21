@@ -311,3 +311,5 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
  .tamao-quote-first .city-price-research-item .city-price-amount{grid-column:2;grid-row:1/3;text-align:right;white-space:nowrap}
  .tamao-quote-first .city-price-research-item .city-price-product-hint{grid-column:1}
 }
+
+.city-price-quick-add{align-self:flex-start;min-height:40px;margin-top:7px;font-weight:800}

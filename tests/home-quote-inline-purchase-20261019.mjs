@@ -27,6 +27,7 @@ assert.equal((local.match(/class="city-price-product-pick"/g)||[]).length,3);
 for(const code of ['P13','WATER20','WOOD']){
  assert.ok(local.includes('data-city-quote-code="'+code+'"'),'product must open own CEP: '+code);
  assert.ok(local.includes("homeQuoteSelectProduct('"+code+"',true)"),'product must use official checkout: '+code);
+ assert.ok(local.includes("homeQuoteQuickAdd('"+code+"')"),'one-tap basket must be displayed: '+code);
 }
 assert.match(local,/Valor de pesquisa, não é oferta/);
 assert.ok(!local.includes('class="city-price-card verified"'));
@@ -40,6 +41,7 @@ const verified=ctx.renderQuote({city:'São Gabriel',state:'RS'});
 assert.equal((verified.match(/class="city-price-product-pick"/g)||[]).length,1);
 assert.match(verified,/PREÇO DE REVENDA/);
 assert.match(verified,/Preço inicial informativo/);
+assert.match(verified,/homeQuoteQuickAdd\('WATER20'\)/);
 assert.doesNotMatch(verified,/R\$ 115.90|Pesquisa local informada/);
 assert.ok(!ctx.renderQuote({city:'Santa Maria',state:'RS'}).includes('data-city-quote-code="WATER20"'),
  'quote for previous city must not spill into a new region');

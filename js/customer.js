@@ -241,6 +241,22 @@ function homeQuoteGoToOrder(){
  go('order');return true;
 }
 
+// Product-only one-tap addition: no address requirement or claimed live price.
+function homeQuoteQuickAdd(code){
+ const sku=String(code||'').trim().toUpperCase();
+ if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){
+  toast('Este produto não está disponível para selecionar.');return false;
+ }
+ // Only the currently displayed city quote can provide this control.
+ if(!document.querySelector?.('[data-city-quote-code="'+sku+'"]'))return false;
+ const current=Number(state.cart?.[sku]||0);
+ if(!Number.isInteger(current)||current<0||current>=99){
+  toast('Limite de quantidade atingido para este produto.');return false;
+ }
+ setCartProduct(sku,current+1);
+ homeQuoteUpdateBasket();
+ return true;
+}
 function homeQuoteSelectProduct(code,buy=false){
  const sku=String(code||'').trim().toUpperCase();
  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){

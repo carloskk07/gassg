@@ -27,6 +27,11 @@ assert.match(rendered,/homeQuoteAdjustQuantity\('P13',1\)/);
 assert.match(rendered,/2 unidades selecionadas/);
 assert.match(rendered,/2× Água 20 L/);
 assert.match(rendered,/Ver cesta e consultar/);
+for(const sku of ['P13','WATER20','WOOD']){
+ assert.ok(rendered.includes("homeQuoteQuickAdd('"+sku+"')"),
+  'One-click basket control must exist for '+sku);
+}
+assert.equal((rendered.match(/class="secondary small city-price-quick-add"/g)||[]).length,3);
 assert.doesNotMatch(rendered,/subtotal.*R\$|economia garantida/i);
 const empty=htmlCtx.basket({});
 assert.match(empty,/button[^>]*disabled/);
@@ -55,7 +60,22 @@ const ctx=vm.createContext({state,products,document:doc,
  homeQuoteBasketMarkup:cart=>htmlCtx.basket(cart),
  toast:msg=>toasts.push(msg),go:route=>routes.push(route),
  setCartProduct:(code,qty)=>{state.cart[code]=qty},globalThis:{liveRuntime:{offers:[]}}});
-vm.runInContext(customer.slice(pieceStart,pieceEnd)+';this.sync=homeQuoteSyncPostal;this.qty=homeQuoteAdjustQuantity;this.checkout=homeQuoteGoToOrder;this.add=homeQuoteSelectProduct;',ctx);
+vm.runInContext(customer.slice(pieceStart,pieceEnd)+
+ ';this.sync=homeQuoteSyncPostal;this.qty=homeQuoteAdjustQuantity;this.checkout=homeQuoteGoToOrder;this.add=homeQuoteSelectProduct;this.quick=homeQuoteQuickAdd;',ctx);
+// A one-tap add must not require ZIP or launch the order screen.
+input.value='';
+assert.equal(ctx.quick('INVALID'),false);
+assert.equal(state.cart.WATER20,2);
+assert.equal(ctx.quick('WATER20'),true);
+assert.equal(state.cart.WATER20,3);
+assert.equal(state.postalCode,'97300000');
+assert.deepEqual(routes,[]);
+assert.match(basketHTML,/3 unidades selecionadas/);
+state.cart.WATER20=2;
+state.cart.P13=99;
+assert.equal(ctx.quick('P13'),false);
+assert.equal(state.cart.P13,99);
+state.cart.P13=0;
 input.value='97300000';assert.equal(ctx.sync(input),'97300-000');
 assert.equal(otherInput.value,'97300-000','other product inherits ZIP');
 numberInput.value='1';ctx.qty('WATER20',-1);assert.equal(numberInput.value,'1');

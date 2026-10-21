@@ -1278,3 +1278,9 @@ A auditoria de `4dc065e3` passou na fonte única de CSS, mas indicou texto hist�
 ### 20/10/2026 — Prova V1.362 alinhada ao painel único
 
 O Audit do SHA `1cb564cb` revelou mais um teste histórico de marketing exigindo `.tamao-quote-benefit-grid` no `components.css`, apesar de o componente ter sido propositalmente removido por duplicar Clube/Rede. Prova atualizada para exigir **ausência de CSS órfão** e **presença dos benefícios compactos no fluxo público único**, mantendo asserções monetárias e de verificação de oferta intactas. Repete-se a suíte integral no SHA novo.
+
+### 20/10/2026 — Cesta rápida diretamente no painel de preços
+
+**Objetivo:** menos ações desde a cotação até a cesta. Cada item de referência pesquisada ou revenda elegível exibida ganha `＋ Adicionar à cesta` imediatamente abaixo do preço, sem abrir acordeão ou exigir CEP. A operação **somente adiciona 1 unidade de SKU publicamente exibido**, respeita teto de 99, produto ativo do catálogo, preserva CEP/endereço e atualiza cesta persistente existente. Não compra, cobra, reserva estoque, seleciona revenda ou aplica cupom. O detalhe expansível segue oferecendo CEP, quantidade, `Adicionar à cesta` e `Consultar e comprar`; pedido/CEP/validação continuam exclusivamente no fluxo já existente.
+
+**Regressão:** testes V1.414 e fluxo de produto verificam os três controles em São Gabriel, item verificado de RPC, SKU inválido, quantidade máxima, preservação de endereço, cesta reativa e ausência de navegação automática. Classes responsivas compactas. Sem migrations, permissões novas, ofertas falsas, preço alterado ou finanças paralelas. Só considerar publicado após Audit, orçamento JS/CSS, build isolado, readiness, deploy Cloudflare e reconciliação final dos três portais.
