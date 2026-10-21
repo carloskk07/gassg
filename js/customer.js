@@ -441,6 +441,27 @@ function homeDiscoverFocus(){
   return true;
 }
 
+// High-intent shortcuts reuse moderated public discovery; no ride dispatch.
+function tamaoMobilityEntryHub(){
+ const choices=[
+  ['🏍️','Pedir uma moto','Consulte mototaxistas anunciados','/?servico=moto#professionals'],
+  ['🚕','Pedir um carro','Motoristas e táxis da região','/?servico=carro#professionals'],
+  ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
+  ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
+  ['🚙','Encontrar carona','Trajetos e vagas compartilhadas','/#rides']
+ ];
+ return '<section class="section intent-section tamao-mobility" aria-label="Moto, carro, fretes, entregas e caronas">'+
+  '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
+  '<h2>Vai de moto, carro ou precisa de uma entrega?</h2>'+
+  '<p>Encontre prestadores anunciados na região e converse diretamente antes de combinar o atendimento.</p></div></div>'+
+  '<div class="intent-grid tamao-mobility-grid">'+choices.map(([icon,title,description,href])=>
+   '<a class="intent-card tamao-mobility-card" href="'+href+'">'+
+   '<span class="intent-icon" aria-hidden="true">'+icon+'</span><span><strong>'+title+
+   '</strong><small>'+description+'</small></span><b aria-hidden="true">→</b></a>'
+  ).join('')+'</div>'+
+  '<p class="tiny muted tamao-mobility-note">Consulta de anúncios, sem chamada automática de veículos. Serviço, valores e disponibilidade são confirmados diretamente com o anunciante.</p>'+
+  '</section>';
+}
 function tamaoDiscoveryEntryHub(){
   return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
     '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
@@ -737,6 +758,7 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
+${tamaoMobilityEntryHub()}
 ${tamaoDiscoveryEntryHub()}
 
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}

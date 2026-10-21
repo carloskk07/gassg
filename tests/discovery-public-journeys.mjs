@@ -407,6 +407,59 @@ assert.match(fields.feedback.textContent,/Não foi possível registrar/);
 reportForm.dataset.listingId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 await sandbox.discoverySubmitReport({preventDefault(){},currentTarget:reportForm});
 assert.equal(reportCalls.length,2,'unlisted UUID must not be reported by the client');
+// Fixed-category links search moderated Professionals, not dispatch or payments.
+const mobility=read('js/customer.js');
+for(const key of ['moto','carro','fretes','entregas'])
+ assert.ok(mobility.includes('/?servico='+key+'#professionals'));
+assert.ok(mobility.includes('/#rides'));
+assert.ok(read('css/components.css').includes('.tamao-mobility-grid'));
+assert.ok(read('css/discovery.css').includes('.discovery-service-links'));
+sandbox.URLSearchParams=URLSearchParams;
+sandbox.URL=URL;
+sandbox.loadSupabaseBrowser=async()=>({createClient:()=>({
+ rpc:async(name,args)=>{calls.push([name,args]);return {data:[],error:null};}
+})});
+current='professionals';
+for(const [service,occupation] of [
+ ['moto','Mototáxi'],['carro','Motorista'],['fretes','Frete'],['entregas','Entregador']
+]){
+ const s=sandbox.discoveryState('professionals');
+ s.status='idle';s.occupation='';s.service='';s.sharedId='';
+ sandbox.location={search:'?servico='+service,hash:'#professionals',
+  href:'https://tamao.com.br/?servico='+service+'#professionals'};
+ sandbox.discoveryAfterRender();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(s.service,service);
+ assert.equal(s.occupation,occupation);
+ assert.equal(calls.at(-1)[0],'discovery_public_search');
+ assert.equal(calls.at(-1)[1].p_occupation_query,occupation);
+ assert.equal(calls.at(-1)[1].p_vertical,'professionals');
+ assert.match(sandbox.discoveryPage(),/aria-current="page"/);
+}
+const serviceState=sandbox.discoveryState('professionals');
+sandbox.location={search:'?servico=admin',hash:'#professionals',
+ href:'https://tamao.com.br/?servico=admin#professionals'};
+serviceState.status='idle';serviceState.service='';serviceState.occupation='';
+sandbox.discoveryAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(serviceState.service,'');
+assert.equal(calls.at(-1)[1].p_occupation_query,null);
+sandbox.location={search:'?servico=moto',hash:'#professionals',
+ href:'https://tamao.com.br/?servico=moto#professionals'};
+serviceState.status='idle';
+sandbox.discoveryAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+sandbox.history={replaceState(_s,_t,url){
+ sandbox.location.href='https://tamao.com.br'+url;
+ sandbox.location.search=new URL(sandbox.location.href).search;
+}};
+sandbox.discoveryClearFilters();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(serviceState.service,'');
+assert.equal(serviceState.occupation,'');
+assert.equal(calls.at(-1)[1].p_occupation_query,null);
+assert.equal(sandbox.location.search,'');
+assert.equal(sandbox.discoveryServiceFromUrl(),'');
 for(const selector of ['.discovery-report','.discovery-report-feedback','.discovery-report button'])
  assert.ok(css.includes(selector),'Missing complaint UI CSS '+selector);
 

@@ -12,6 +12,12 @@
 .discovery-entry-grid button:focus-visible,.discovery-search :focus-visible,
 .discovery-result a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
 .discovery-page{padding-block:34px 75px;max-width:1020px}
+.discovery-service-links{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 18px}
+.discovery-service-links a{display:inline-flex;align-items:center;min-height:44px;
+ padding:9px 13px;border:1px solid #b7d5c1;border-radius:999px;background:#fff;
+ color:#18553c;font-weight:750;font-size:13px;text-decoration:none}
+.discovery-service-links a[aria-current=page]{background:#105d41;color:#fff;border-color:#105d41}
+.discovery-service-links a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
 .discovery-intro{max-width:760px;margin-bottom:22px}
 .discovery-intro h1{font-size:clamp(30px,4.4vw,48px);line-height:1.09;letter-spacing:-.04em;margin:9px 0 12px;color:#153e2d}
 .discovery-intro p{font-size:16px;color:#4d6657;line-height:1.65}
@@ -59,6 +65,13 @@
  border:1px solid #a7c2b0;border-radius:9px;color:#173d2d;background:#fff}
 .discovery-owner-form textarea{min-height:115px;resize:vertical}
 
+.discovery-owner-specialties{display:flex;flex-wrap:wrap;gap:8px;padding:13px;
+ border:1px solid #c9dfd0;border-radius:14px;background:#f5faf6}
+.discovery-owner-specialties legend{font-weight:800;color:#20513a;padding:0 6px}
+.discovery-owner-specialties button{border:1px solid #afccb9;border-radius:999px;
+ min-height:43px;padding:8px 12px;background:#fff;color:#1a5239;cursor:pointer;font-weight:700}
+.discovery-owner-specialties button:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.discovery-owner-specialties p{width:100%;margin:4px 0}
 .discovery-owner-import{padding:16px;margin-block:14px 18px;border:1px solid #a9cbb5;
  border-radius:14px;background:#f5faf7;display:grid;gap:10px}
 .discovery-owner-import summary{cursor:pointer;font-weight:800;color:#174f33;line-height:1.5;

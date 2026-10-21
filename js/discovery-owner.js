@@ -350,8 +350,24 @@ function discoveryOwnerImportStay(){
   s.notice='Pré-preenchimento assistido a partir de '+(provider?.provider||'seus dados exportados')+'. Confira os dados, complete os campos obrigatórios e anexe suas próprias fotos antes de enviar para análise. Nenhuma reserva ou disponibilidade foi sincronizada.';
   render();return true;
 }
+// Suggested specialities keep the existing moderated free-text occupation.
+function discoveryOwnerSuggestOccupation(value){
+ const allowed=['Mototáxi','Motorista de carro / táxi','Frete e mudança','Entregador / motoboy'];
+ if(!allowed.includes(value))return false;
+ const field=document.querySelector?.('#discovery-owner-form [name="occupation"]');
+ if(!field)return false;
+ field.value=value;
+ field.focus?.();
+ return true;
+}
 function discoveryOwnerTypeFields(type,d){
   if(type==='professionals')return (
+    '<fieldset class="discovery-owner-specialties"><legend>Atalhos para seu tipo de serviço</legend>'+
+    [['Mototáxi','🏍️ Mototáxi'],['Motorista de carro / táxi','🚕 Motorista / táxi'],
+     ['Frete e mudança','🚚 Frete e mudança'],['Entregador / motoboy','📦 Entregas']].map(([value,label])=>
+      '<button type="button" data-occupation="'+esc(value)+'" onclick="discoveryOwnerSuggestOccupation(this.dataset.occupation)">'+label+'</button>'
+    ).join('')+
+    '<p class="tiny muted">Escolha uma sugestão ou descreva outra especialidade. Transporte de passageiros deve cumprir as regras locais; o cadastro não equivale a licença.</p></fieldset>'+
     discoveryOwnerField('occupation','Profissão ou especialidade',d.occupation,'text','required minlength="3" maxlength="100"')+
     discoveryOwnerField('service_area','Onde atende',d.service_area,'text','required minlength="3" maxlength="200"')+
     discoveryOwnerField('years_experience','Anos de experiência (opcional)',d.years_experience,'number','min="0" max="80"')
