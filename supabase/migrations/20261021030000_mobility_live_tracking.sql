@@ -124,7 +124,7 @@ end $$;
 -- Explicit driver-initiated permission in the database. A delayed GPS packet
 -- must never restore tracking after STOP, even if it arrives out of order.
 create function public.mobility_start_position(p_request_id uuid)
-returns boolean language plpgsql volatile security definer set search_path=pg_catalog as $
+returns boolean language plpgsql volatile security definer set search_path=pg_catalog as $mobility_start$
 declare v_user uuid:=(select auth.uid());r public.mobility_requests%rowtype;
 begin
  if v_user is null or not public.discovery_verified_account() then
@@ -136,7 +136,7 @@ begin
  update public.mobility_requests set tracking_enabled=true,updated_at=statement_timestamp()
   where id=r.id;
  return true;
-end $;
+end $mobility_start$;
 
 create function public.mobility_publish_position(
  p_request_id uuid,p_latitude double precision,p_longitude double precision,p_accuracy_m double precision)
