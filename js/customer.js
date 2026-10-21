@@ -488,15 +488,13 @@ function tamaoDiscoveryEntryHub(){
   '</section>';
 }
 
-// Promote one item per available product family before other package sizes.
 function homeBalancedHighlights(entries){
- const first=[],rest=[],seen=new Set();
+ const head=[],tail=[],seen=new Set;
  for(const item of entries){
-  const family=/^(CHARCOAL|WOOD|ICE)/.exec(item[0])?.[0]||homeProductGroup(item[0],item[1]);
-  (seen.has(family)?rest:first).push(item);
-  seen.add(family);
+  const kind=/^(CHARCOAL|WOOD|ICE)/.exec(item[0])?.[0]||homeProductGroup(item[0],item[1]);
+  (seen.has(kind)?tail:head).push(item);seen.add(kind);
  }
- return first.concat(rest);
+ return head.concat(tail);
 }
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
@@ -609,9 +607,8 @@ function home(){
       Number(a.sortOrder||100)-Number(b.sortOrder||100)
       ||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')
     );
-  const discoveryEntries=homeBalancedHighlights(homeProductEntries
-    .filter(([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code))
-    .slice(0,24));
+  const discoveryEntries=homeBalancedHighlights(homeProductEntries.filter(
+    ([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code)).slice(0,24));
   const discoveryCounts={gas:0,water:0,other:0};
   for(const [code,product] of discoveryEntries)discoveryCounts[homeProductGroup(code,product)]++;
   const discoveryFilters=[
