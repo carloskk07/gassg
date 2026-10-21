@@ -220,7 +220,7 @@ begin
    or not exists(select 1 from public.mobility_requests r
     where r.id=p.request_id and r.status='en_route'
      and r.tracking_enabled and r.expires_at>statement_timestamp());
-end $;
+end $$;
 revoke all on function public.mobility_cleanup_expired() from public,anon,authenticated;
 do $cron$
 begin
