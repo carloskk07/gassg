@@ -4,9 +4,13 @@ import vm from 'node:vm';
 const read=x=>fs.readFileSync(new URL('../'+x,import.meta.url),'utf8');
 const source=read('js/mobility.js');new vm.Script(source);
 let watch=0,stop=0,called=[],signedOutListener=null,signOutCalls=0;
+let noticePermissionCalls=0;const browserNotices=[];
+function FakeNotification(title,options){browserNotices.push({title,options})}
+FakeNotification.permission='default';
+FakeNotification.requestPermission=async()=>{noticePermissionCalls++;FakeNotification.permission='granted';return 'granted'};
 const driver={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
 const listing='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
+const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,Notification:FakeNotification,
  location:{search:'?corrida='+listing+'&modalidade=moto',origin:'https://tamao.com.br',pathname:'/',hash:'#mobility'},
  document:{visibilityState:'visible',addEventListener:(name,fn)=>{ctx.listener=fn},
   getElementById:()=>null,querySelector:()=>null,createElement:()=>({}),
@@ -38,6 +42,31 @@ assert.equal(s.user.id,driver.id);
 assert.equal(typeof signedOutListener,'function',
  'The test must register real onAuthStateChange through mobilityInit');
 assert.match(ctx.mobilityPage(),/Solicitar uma moto/);
+assert.match(ctx.mobilityPage(),/Pedidos para motoristas: 0 aguardando resposta/);
+assert.match(ctx.mobilityPage(),/não há avisos push com o aplicativo fechado/);
+assert.equal(noticePermissionCalls,0,'Never ask OS permission without click');
+assert.equal(await ctx.mobilityEnableAlerts(),true);
+assert.equal(noticePermissionCalls,1);
+assert.match(ctx.mobilityPage(),/Avisos opcionais ativados/);
+const request={id:listing,role:'driver',status:'requested',
+ expires_at:new Date(Date.now()+120000).toISOString(),
+ origin:'Centro',destination:'Bairro Teste',position:{lat:-30.33,lon:-54.32}};
+ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1);
+assert.equal(browserNotices[0].title,'Novo pedido de moto ou carro no TAMÃO');
+assert.doesNotMatch(JSON.stringify(browserNotices),/Centro|Bairro|lat|lon|30\.33|54\.32/,
+ 'Notification content must not disclose places or GPS coordinates');
+ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1,'Same request cannot trigger duplicate alerts');
+ctx.mobilityNotifyNewPending([]);
+ctx.document.visibilityState='hidden';
+ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1,'No browser notification for backgrounded UI');
+ctx.document.visibilityState='visible';ctx.mobilityNotifyNewPending([request]);
+assert.equal(browserNotices.length,1,'A now-known request cannot trigger deferred alert');
+ctx.mobilityNotifyNewPending([]);
+s.items=[request];assert.match(ctx.mobilityPage(),/Pedidos para motoristas: 1 aguardando resposta/);
+s.items=[];
 assert.ok(read('js/legal.js').includes('function contactPage()'));
 assert.ok(read('js/mobility.js').includes("Relatar problema com este atendimento"));
 s.id=listing;
@@ -122,6 +151,8 @@ assert.deepEqual(Array.from(s.items),[]);
 assert.equal(s.detail,null);
 assert.equal(s.id,'');
 assert.equal(s.mapConsent,false);
+assert.equal(s.noticeOptIn,false,'A logged-out user never preserves notification opt-in');
+assert.equal(s.pendingDriverIds,null,'An account switch clears previous request identifiers');
 assert.doesNotMatch(ctx.mobilityPage(),/openstreetmap.org/);
 s.user=driver;s.items=[{id:listing}];s.detail={id:listing,role:'rider',
  status:'en_route',position:validPosition};
