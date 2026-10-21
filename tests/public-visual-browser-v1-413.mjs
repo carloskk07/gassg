@@ -72,6 +72,12 @@ async function awaitReady(label){
   if(state.result?.value)return;
   await sleep(200);
  }
+ try{
+  const state=await send('Runtime.evaluate',{expression:
+   "JSON.stringify({href:location.href,ready:document.readyState,title:document.title,body:document.body?.innerText?.slice(0,500),error:window.__lastRenderError||null})",
+   returnByValue:true});
+  console.error('VISUAL_DIAGNOSTIC',label,state.result?.value||state.exceptionDetails||'no result');
+ }catch(e){console.error('VISUAL_DIAGNOSTIC_ERROR',String(e?.message||e))}
  throw new Error(label+': heading did not appear in 12 seconds');
 }
 const results=[],issues=[];

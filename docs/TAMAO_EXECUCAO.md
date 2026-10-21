@@ -1313,3 +1313,7 @@ A primeira execução da rotina de limpeza no PG17 isolado encontrou um delimita
 ### 21/10/2026 — Delimitador PL/pgSQL verificado
 
 Corrigida a abertura da função de limpeza para o par de delimitadores PostgreSQL, preservado o fechamento e nenhuma regra de acesso alterada. Nova execução isolada necessária.
+
+### 21/10/2026 — Instrumentação do smoke visual da PR #515
+
+O browser smoke falhou ao esperar qualquer `h1` em 360px, inclusive o título de pré-carregamento do HTML estático. Isso pode indicar indisponibilidade do servidor de teste, navegador ou regressão no carregamento. Sem afrouxar o gate, foi acrescentado diagnóstico **somente na falha** para registrar URL real, readyState, título, pequeno trecho visível e última exceção do render. O teste continua reprovando se a página não carregar em 12 segundos. Não há mudança de visual ou banco.
