@@ -209,7 +209,7 @@ grant execute on function public.mobility_create_request(uuid,text,text,text),
 -- A lost browser tab may not finish its final stop RPC. Server-side cleanup
 -- clears stale locations even if neither participant returns to the page.
 create function public.mobility_cleanup_expired()
-returns void language plpgsql volatile security definer set search_path=pg_catalog as $
+returns void language plpgsql volatile security definer set search_path=pg_catalog as $$
 begin
  update public.mobility_requests set status='expired',tracking_enabled=false,
   updated_at=statement_timestamp()

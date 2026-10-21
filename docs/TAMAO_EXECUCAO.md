@@ -1308,3 +1308,8 @@ O último ponto GPS só fica visível ao passageiro por 45 segundos, mas uma int
 ### 21/10/2026 — Sintaxe de limpeza PG17 corrigida
 
 A primeira execução da rotina de limpeza no PG17 isolado encontrou um delimitador de função PL/pgSQL incorreto (`as $` em vez de `as $$`). Corrigidos abertura e fechamento sem alteração da política RLS ou das regras do GPS. A validação isolada deve passar novamente antes de preparar o merge da PR #515.
+
+
+### 21/10/2026 — Delimitador PL/pgSQL verificado
+
+Corrigida a abertura da função de limpeza para o par de delimitadores PostgreSQL, preservado o fechamento e nenhuma regra de acesso alterada. Nova execução isolada necessária.
