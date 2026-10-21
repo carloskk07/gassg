@@ -320,6 +320,19 @@ export function compactReleasedCustomerComments(source){
   return output;
 }
 
+// Production copy only: retain documented research/offer guard comments in
+// canonical source, but do not ship prose with the initial customer JS.
+export function compactReleasedHomeQuoteComments(source){
+ if(typeof source!=='string')throw new TypeError('Expected home quote source');
+ const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
+ if(comments.length<10||!comments.some(x=>x[0].includes('TAMÃO V1.341')))
+   throw new Error('Home quote source-comment contract changed');
+ const emitted=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,line=>
+   line.includes('TAMÃO V1.341')?line:'');
+ validateClassicScriptSyntax(emitted,'emitted home-showcase.js');
+ return emitted;
+}
+
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
   validateAllPublicScripts();
@@ -390,6 +403,8 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     if(role==='customer'){
       const entry=path.join(target,'js','customer.js');
       fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
+      const homeQuote=path.join(target,'js','home-showcase.js');
+      fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
     }
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};
     fs.writeFileSync(

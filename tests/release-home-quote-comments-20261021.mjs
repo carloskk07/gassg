@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {compactReleasedHomeQuoteComments} from '../scripts/build-live-portals.mjs';
+const source=fs.readFileSync(new URL('../js/home-showcase.js',import.meta.url),'utf8');
+const emitted=compactReleasedHomeQuoteComments(source);
+assert.ok(source.includes('// TAMÃO V1.341'),'Canonical provenance comment retained');
+assert.ok(source.length-emitted.length>600,'Meaningful production-only JS savings');
+assert.match(emitted,/function homeQuoteCouponRail/);
+assert.match(emitted,/snapshot\.notAQuote===true/);
+new vm.Script(emitted);
+assert.equal(compactReleasedHomeQuoteComments(emitted),emitted,'Release compaction idempotent');
+console.log('PASS: production bundle trims comments, preserves quote provenance and JS semantics');

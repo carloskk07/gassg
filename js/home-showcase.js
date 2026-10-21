@@ -96,21 +96,6 @@ function homeQuoteProductPicker(item){
  '＋ Adicionar à cesta</button>';
 }
 
-// Count only fresh, user-scoped issued coupons. This is never a basket discount.
-function homeQuoteCouponRail(){
- const signedIn=globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id);
- const vouchers=signedIn&&typeof clubePaidCouponOptions==='function'?clubePaidCouponOptions():[];
- const count=Array.isArray(vouchers)?vouchers.length:0;
- const title=count?count+' '+(count===1?'cupom emitido na sua conta':'cupons emitidos na sua conta'):
-  'Cupons, descontos e Clube';
- const message=count?'Confira as condições. A aplicação é confirmada no pedido.':
-  'Consulte cupons e cashback da sua conta. Os valores dependem da compra.';
- return '<div class="tamao-home-coupon-rail" aria-label="Cupons e descontos TAMÃO">'+
-  '<span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span>'+
-  '<div><strong>'+title+'</strong><p>'+message+'</p></div>'+
-  '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>';
-}
-
 // TAMÃO V1.341 — trustworthy city-first pricing presentation.
 // Real prices only originate in the read-only, commercially gated city RPC.
 function homeRegionalPriceBoard(region){
@@ -194,3 +179,19 @@ function homeRegionalPriceBoard(region){
      '<button type="button" class="secondary" onclick="homeChooseMarketCity()">Atualizar vitrine</button>'+
     '</div></details></div></section>';
 }
+
+// Count only fresh, user-scoped issued coupons. This is never a basket discount.
+function homeQuoteCouponRail(){
+ const signedIn=globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id);
+ const vouchers=signedIn&&typeof clubePaidCouponOptions==='function'?clubePaidCouponOptions():[];
+ const count=Array.isArray(vouchers)?vouchers.length:0;
+ const title=count?count+' '+(count===1?'cupom emitido na sua conta':'cupons emitidos na sua conta'):
+  'Cupons, descontos e Clube';
+ const message=count?'Confira as condições. A aplicação é confirmada no pedido.':
+  'Consulte cupons e cashback da sua conta. Os valores dependem da compra.';
+ return '<div class="tamao-home-coupon-rail" aria-label="Cupons e descontos TAMÃO">'+
+  '<span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span>'+
+  '<div><strong>'+title+'</strong><p>'+message+'</p></div>'+
+  '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>';
+}
+

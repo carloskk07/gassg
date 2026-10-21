@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const src=read('js/home-showcase.js');
-const a=src.indexOf('function homeQuoteCouponRail(){'),b=src.indexOf('\n// TAMÃO V1.341',a);
+const a=src.indexOf('function homeQuoteCouponRail(){'),b=src.length;
 assert.ok(a>=0&&b>a);
 const ctx={globalThis:{liveReady:()=>false,liveRuntime:{session:{user:{id:'owner'}}}},
  clubePaidCouponOptions:()=>[{voucherId:'valid'}]};
@@ -23,7 +23,7 @@ ctx.clubePaidCouponOptions=()=>[];
 assert.match(ctx.coupon(),/Cupons, descontos e Clube/);
 for(const markup of [anonymous,ctx.coupon()]){
  assert.equal((markup.match(/class="tamao-home-coupon-rail"/g)||[]).length,1);
- assert.match(markup,/onclick="go\(\\'club\\'\)"/);
+ assert.match(markup,/onclick="go\('club'\)"/);
  assert.doesNotMatch(markup,/economia garantida|desconto garantido|\b\d+%/i);
 }
 assert.ok(src.indexOf('city-price-grid')<src.indexOf('homeQuoteCouponRail()+'));
