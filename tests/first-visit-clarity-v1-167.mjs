@@ -68,7 +68,7 @@ assert.doesNotMatch(noSupply,/class="protection-band"/);
 assert.match(noSupply,/id="early-access"/,
  'unserved customers must retain the lead pathway');
 assert.match(noSupply,/São Gabriel/);
-assert.match(noSupply,/Preço, descontos e entrega são consultados pelo CEP/);
+assert.match(noSupply,/Consulte preços e entrega pelo CEP/);
 assert.match(noSupply,/\/\?modalidade=moto#mobility/);
 assert.match(noSupply,/\/\?modalidade=carro#mobility/);
 assert.match(noSupply,/\/\#rides/);
