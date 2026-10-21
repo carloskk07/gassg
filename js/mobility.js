@@ -195,11 +195,17 @@ async function mobilityRefresh(silent=false){
    if(res.error)throw res.error;
    const next=res.data||null;
    const prevStatus=s.detail?.status;
-   const prevPosition=JSON.stringify(s.detail?.position||null);
+   const oldPosition=s.detail?.position||null;
+   const prevPosition=JSON.stringify(oldPosition);
    s.detail=next;
    changed=changed||prevStatus!==next?.status;
    if(s.watch!==null&&(next?.status!=='en_route'||next?.role!=='driver'))mobilityStopTracking();
-   if(!changed&&prevPosition!==JSON.stringify(next?.position||null))mobilityUpdateMap(next);
+   if(prevPosition!==JSON.stringify(next?.position||null)){
+    // An iframe from a revoked/stale GPS point must not survive a silent poll.
+    // Re-render when tracking starts or ends, otherwise refresh only the marker.
+    if(Boolean(oldPosition)!==Boolean(next?.position))changed=true;
+    else if(!changed)mobilityUpdateMap(next);
+   }
   }
   if(!silent||changed)if(mobilityRoute())render();
   return true;
@@ -254,7 +260,14 @@ function mobilityOpenMap(){
 }
 function mobilityUpdateMap(row){
  const el=document.getElementById?.('mobility-position-text');
- if(!row?.position){if(el)el.textContent='Localização temporariamente indisponível.';return}
+ if(!row?.position){
+  if(el)el.textContent='Localização temporariamente indisponível.';
+  // Defense in depth: never retain an iframe pointing to a revoked position.
+  const frame=document.getElementById?.('mobility-map');
+  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
+  mobilityRuntime.mapKey='';mobilityRuntime.mapFrameAt=0;
+  return;
+ }
  if(el)el.textContent='Última atualização: '+mobilityFormatDate(row.position.updated_at)+
   '. Precisão aproximada: '+Math.round(Number(row.position.accuracy_m)||0)+' m.';
  if(!mobilityRuntime.mapConsent)return;

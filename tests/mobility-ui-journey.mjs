@@ -31,6 +31,15 @@ assert.doesNotMatch(ctx.mobilityPage(),/<iframe/);
 assert.equal(ctx.mobilityOpenMap(),true);
 assert.match(ctx.mobilityPage(),/<iframe/);
 s.detail.position=null;assert.doesNotMatch(ctx.mobilityPage(),/<iframe/);
+let deletedSrc=0,removedFrame=0;
+const previousLookup=ctx.document.getElementById;
+ctx.document.getElementById=id=>id==='mobility-map'?{
+ removeAttribute(key){assert.equal(key,'src');deletedSrc++},remove(){removedFrame++}
+}:null;
+ctx.mobilityUpdateMap({position:null});
+assert.equal(deletedSrc,1);
+assert.equal(removedFrame,1,'revoked GPS must remove old third-party map iframe');
+ctx.document.getElementById=previousLookup;
 s.detail={id:listing,role:'driver',status:'accepted',origin:'Centro',destination:'Vila'};
 assert.equal(await ctx.mobilityStartTracking(),false);assert.equal(watch,0);
 s.detail.status='en_route';
