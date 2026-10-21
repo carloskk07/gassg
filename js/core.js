@@ -830,7 +830,8 @@ function runtimeStrip(){
   }
   // Public discovery remains usable during session startup or a temporary
   // backend interruption. Checkout and security warnings retain their gates.
-  if(['home','learn','earn','club','refer','merchants','sponsors','privacy','terms','contact']
+  if(['home','learn','earn','club','refer','merchants','sponsors','privacy','terms','contact',
+      'professionals','rides','stays','advertise','mobility']
       .includes(route())&&globalThis.liveRuntime?.status!=='unsafe-origin')return '';
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
