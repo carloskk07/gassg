@@ -133,7 +133,8 @@ function mobilityPage(){
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Enviar solicitação ao anunciante</button></form></section>':'';
  return shell('<section class="section mobility-page">'+top+note+error+
   '<p class="mobility-account">Conta: '+esc(String(s.user.email||'verificada').slice(0,254))+
-  ' <button type="button" onclick="mobilityRefresh()">Atualizar atendimentos</button></p>'+
+  ' <button type="button" onclick="mobilityRefresh()">Atualizar atendimentos</button>'+
+  ' <button type="button" onclick="mobilityLogout()">Sair e parar localização</button></p>'+
   form+mobilityDetailPanel(s.detail)+
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
@@ -150,6 +151,11 @@ async function mobilityInit(){
      storageKey:'tamao-discovery-auth'},global:{fetch:chamaFetch}});
   const res=await s.client.auth.getUser();
   s.user=res?.data?.user||null;
+  // Signing out in this or another browser tab clears private cached
+  // trips and embedded location even if no further polling is possible.
+  s.client.auth.onAuthStateChange?.((event)=>{
+   if(event==='SIGNED_OUT')mobilityClearSession();
+  });
   s.phase='ready';
   if(mobilityReturnPending()){
    const url=new URL(location.href);
@@ -159,6 +165,33 @@ async function mobilityInit(){
   if(s.user)await mobilityRefresh();
  }catch(_){s.phase='failed';s.error='Não foi possível acessar as solicitações. Tente mais tarde.';}
  if(mobilityRoute())render();
+}
+function mobilityClearSession(){
+ const s=mobilityRuntime;
+ if(s.watch!==null||s.gpsPending)mobilityStopTracking();
+ const frame=document.getElementById?.('mobility-map');
+ if(frame){frame.removeAttribute?.('src');frame.remove?.()}
+ s.user=null;s.items=[];s.detail=null;s.id='';
+ s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+ s.error='';s.notice='';s.busy=false;
+ if(mobilityRoute())render();
+}
+async function mobilityLogout(){
+ const s=mobilityRuntime;
+ if(!s.client||!s.user||s.busy)return false;
+ s.busy=true;
+ try{
+  // Server revocation must precede auth sign-out while an access token exists.
+  if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
+  const r=await s.client.auth.signOut();
+  if(r?.error)throw r.error;
+  mobilityClearSession();
+  return true;
+ }catch(_){
+  s.busy=false;
+  s.error='Não foi possível encerrar a sessão. Tente novamente.';
+  render();return false;
+ }
 }
 function mobilityAfterRender(){
  const s=mobilityRuntime;

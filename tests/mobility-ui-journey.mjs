@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=x=>fs.readFileSync(new URL('../'+x,import.meta.url),'utf8');
 const source=read('js/mobility.js');new vm.Script(source);
-let watch=0,stop=0,called=[];
+let watch=0,stop=0,called=[],signedOutListener=null,signOutCalls=0;
 const driver={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};
 const listing='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
@@ -17,13 +17,16 @@ const ctx={console,FormData,URL,URLSearchParams,Date,isSecureContext:true,
  chamaFetch(){},loadSupabaseBrowser:async()=>({createClient:()=>client})};
 ctx.globalThis=ctx;
 let holdStart=false,resolveHeldStart=null,failRefresh=false;
-const client={rpc:async(name,args)=>{
+const client={auth:{
+ signOut:async()=>{signOutCalls++;signedOutListener?.('SIGNED_OUT',null);return {error:null}},
+ onAuthStateChange:(callback)=>{signedOutListener=callback;return {data:{subscription:{unsubscribe(){}}}};}
+},rpc:async(name,args)=>{
  called.push([name,args]);
  if(failRefresh&&name==='mobility_my_requests')throw Error('simulated connectivity loss');
  if(name==='mobility_start_position'&&holdStart)
   return new Promise(resolve=>{resolveHeldStart=resolve});
  return {data:true,error:null};
-},auth:{}};
+}};
 vm.runInNewContext(source+';this.state=mobilityRuntime;',ctx);
 const s=ctx.state;
 assert.equal(ctx.mobilityIntent().id,listing);
@@ -98,6 +101,25 @@ assert.ok(called.filter(x=>x[0]==='mobility_stop_position').length>=2,
 s.detail.status='completed';ctx.document.visibilityState='visible';
 assert.equal(await ctx.mobilityStartTracking(),false);
 assert.equal(ctx.mobilityMapUrl({lat:91,lon:0}),'');
+s.user=driver;s.items=[{id:listing,role:'rider'}];
+s.detail={id:listing,role:'rider',status:'en_route',
+ position:{...validPosition,updated_at:new Date().toISOString()}};
+s.id=listing;
+assert.match(ctx.mobilityPage(),/Sair e parar localização/);
+assert.equal(await ctx.mobilityLogout(),true,'Manual exit succeeds');
+assert.equal(signOutCalls,1);
+assert.equal(s.user,null);
+assert.deepEqual(Array.from(s.items),[]);
+assert.equal(s.detail,null);
+assert.equal(s.id,'');
+assert.equal(s.mapConsent,false);
+assert.doesNotMatch(ctx.mobilityPage(),/openstreetmap.org/);
+s.user=driver;s.items=[{id:listing}];s.detail={id:listing,role:'rider',
+ status:'en_route',position:validPosition};
+signedOutListener('SIGNED_OUT',null);
+assert.equal(s.user,null,'Cross-tab sign-out must clear owner identity');
+assert.equal(s.detail,null,'Cross-tab sign-out must clear cached GPS');
+assert.equal(s.items.length,0,'Cross-tab sign-out must clear trip list');
 ctx.location.search='?corrida=bad&modalidade=moto';assert.equal(ctx.mobilityIntent(),null);
 assert.ok(read('js/bootstrap.js').includes('mobilityRequestModule()'));
 assert.ok(read('js/bootstrap.js').includes('mobilityModuleError'));
