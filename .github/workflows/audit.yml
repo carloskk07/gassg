@@ -582,6 +582,8 @@ jobs:
         run: node tests/home-catalog-service-20261021.mjs
       - name: Release-only CSS comments and source audit markers
         run: node tests/release-css-comments-20261021.mjs
+      - name: Customer release comments preserve canonical workflow slices
+        run: node tests/release-customer-comments-20261021.mjs
       - name: One-step merchant signup and referral attribution V1.410
         run: node tests/merchant-direct-onboarding-v1-410.mjs
       - name: Pix BR Code format and expired-code safeguards

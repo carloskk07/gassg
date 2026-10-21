@@ -295,6 +295,31 @@ export function compactReleasedCssComments(css){
   return out;
 }
 
+// Trim only the seven established standalone customer implementation comments in
+// the emitted script. Canonical source remains intact for historical contract slices.
+export function compactReleasedCustomerComments(source){
+  if(typeof source!=='string')throw new TypeError('Expected customer source');
+  const expected=[
+    'Carry the postal code forward',
+    'quotation certified for a different delivery address.',
+    'Product-first entry:',
+    'Hide a previous server quote',
+    'The basket CTA must not discard',
+    'Product-only one-tap addition:',
+    'Only the currently displayed city quote'
+  ];
+  let n=0;
+  const output=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,line=>{
+    if(n>=expected.length)return line;
+    if(!line.includes(expected[n]))throw new Error('Customer compaction contract shifted at '+n);
+    n++;
+    return '';
+  });
+  if(n!==expected.length)throw new Error('Customer compaction marker count changed');
+  validateClassicScriptSyntax(output,'emitted customer.js');
+  return output;
+}
+
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
   validateAllPublicScripts();
@@ -361,6 +386,10 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         const source=fs.readFileSync(filename,'utf8');
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
+    }
+    if(role==='customer'){
+      const entry=path.join(target,'js','customer.js');
+      fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
     }
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};
     fs.writeFileSync(
