@@ -123,6 +123,25 @@ async function mobilityEnableAlerts(){
   render();return false;
  }
 }
+// Restore only a currently authorized, nonexpired rider/driver request.
+ // An old completed ride must never become the default map or block a new ride.
+function mobilityActiveRequest(item){
+ return mobilityId.test(String(item?.id||''))&&
+  ['requested','accepted','en_route','arrived'].includes(item.status)&&
+  Date.parse(String(item.expires_at||''))>Date.now()&&
+  ['rider','driver'].includes(item.role);
+}
+function mobilityResumeRequest(items){
+ const s=mobilityRuntime;
+ if(s.id||!Array.isArray(items))return false;
+ const active=items.filter(mobilityActiveRequest);
+ const selected=active.find(x=>x.role==='rider')||
+  active.find(x=>x.role==='driver'&&x.status!=='requested')||
+  active.find(x=>x.role==='driver');
+ if(!selected)return false;
+ s.id=selected.id;s.detail=null;s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+ return true;
+}
 function mobilityAction(action,label,kind='secondary'){
  return '<button type="button" class="'+kind+'" onclick="mobilityTransition(\''+action+'\')"'+
  (mobilityRuntime.busy?' disabled':'')+'>'+label+'</button>';
@@ -168,11 +187,18 @@ function mobilityPage(){
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
  if(!s.user)return shell('<section class="section mobility-page">'+top+
   '<p>Entre com seu e-mail para enviar pedidos ou atender solicitações de seus anúncios. Não mostraremos posições sem autenticação.</p>'+
+  '<p><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar</a>'+
+  ' · <a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar</a></p>'+
   '<p><a href="/#contact">Precisa de ajuda? Fale com o suporte TAMÃO</a></p>'+
   note+error+'<form class="mobility-form" onsubmit="return mobilityLogin(event)">'+
   '<label>E-mail<input name="email" type="email" required maxlength="254" autocomplete="email"></label>'+
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button></form></section>');
- const form=intent?'<section class="mobility-start"><h2>Solicitar '+(intent.mode==='moto'?'uma moto':'um carro')+'</h2>'+
+ const hasOngoingRider=s.items.some(x=>x.role==='rider'&&mobilityActiveRequest(x))||
+  (s.detail?.role==='rider'&&['requested','accepted','en_route','arrived'].includes(s.detail.status))||
+  (Boolean(s.id)&&!s.detail);
+ const form=intent&&hasOngoingRider?
+  '<p class="mobility-gps-note" role="status">Você já tem uma solicitação em andamento. Acompanhe o status abaixo ou cancele antes de fazer outro pedido.</p>':
+  intent?'<section class="mobility-start"><h2>Solicitar '+(intent.mode==='moto'?'uma moto':'um carro')+'</h2>'+
   '<p>O anúncio é verificado novamente no servidor. Não informe endereço residencial ou dados sensíveis nesta etapa.</p>'+
   '<form class="mobility-form" onsubmit="return mobilityCreate(event)">'+
   '<label>Origem aproximada<input name="origin" minlength="3" maxlength="120" required placeholder="Bairro ou região"></label>'+
@@ -191,7 +217,9 @@ function mobilityPage(){
   form+mobilityDetailPanel(s.detail)+
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
-  '<p>Nenhuma solicitação. Motoristas recebem aqui os pedidos enviados aos seus anúncios publicados.</p>')+
+  '<p>Nenhuma solicitação. Motoristas recebem aqui os pedidos enviados aos seus anúncios publicados.'+
+  ' <a href="/?anunciar=moto#advertise">Anunciar como mototaxista</a> ou '+
+  '<a href="/?anunciar=carro#advertise">anunciar como motorista</a>.</p>')+
   '</section></section>');
 }
 async function mobilityInit(){
@@ -303,6 +331,7 @@ async function mobilityRefresh(silent=false){
   mobilityNotifyNewPending(items);
   const before=JSON.stringify(s.items);s.items=items;
   let changed=before!==JSON.stringify(items);
+  if(mobilityResumeRequest(items))changed=true;
   if(s.id){
    const res=await s.client.rpc('mobility_snapshot',{p_request_id:s.id});
    if(res.error)throw res.error;
