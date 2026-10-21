@@ -143,6 +143,7 @@ function mobilityPage(){
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
   '<p>Nenhuma solicitação. Motoristas recebem aqui os pedidos enviados aos seus anúncios publicados.</p>')+
+  '<p class="tiny muted">Para receber novos pedidos, mantenha esta página aberta. A consulta é atualizada periodicamente com a aba visível; ainda não há alertas garantidos quando o navegador está fechado.</p>'+
   '</section></section>');
 }
 async function mobilityInit(){

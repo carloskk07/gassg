@@ -138,6 +138,12 @@ assert.equal(s.detail,null,'Switching accounts clears the other rider location')
 assert.equal(s.items.length,0,'Switching accounts clears previous trip list');
 ctx.location.search='?corrida=bad&modalidade=moto';assert.equal(ctx.mobilityIntent(),null);
 assert.ok(read('js/bootstrap.js').includes('mobilityRequestModule()'));
+const nav=read('js/core.js');
+assert.ok(nav.includes('Corridas</button>')&&nav.includes('Minhas corridas</button>'));
+assert.ok(nav.includes("go(\\'mobility\\')"),'dashboard must remain reachable from public navigation');
+s.phase='ready';s.user=another;s.items=[];s.detail=null;
+assert.match(ctx.mobilityPage(),/mantenha esta página aberta/);
+assert.match(ctx.mobilityPage(),/não há alertas garantidos/);
 assert.ok(read('js/bootstrap.js').includes('mobilityModuleError'));
 assert.ok(read('js/bootstrap.js').includes('mobilityRetryModule()'));
 assert.ok(read('js/bootstrap.js').includes("s.onerror=()=>{mobilityModuleError=true;render()}"),
