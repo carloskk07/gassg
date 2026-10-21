@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const mob=read('js/mobility.js'),contact=read('js/legal.js');
+assert.match(mob,/Relatar problema com este atendimento/);
+assert.match(mob,/Informe ao suporte o protocolo/);
+assert.match(mob,/href="\/#contact"/);
+assert.match(contact,/function contactPage\(\)/);
+assert.match(contact,/option value="support"/);
+assert.match(contact,/submitPublicRequest\(\)/);
+assert.doesNotMatch(mob,/GPS: .*latitude|GPS: .*longitude/i);
+console.log('PASS: mobility reports use existing TAMÃO support with visible request protocol');

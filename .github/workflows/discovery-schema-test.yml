@@ -9,6 +9,8 @@ on:
       - 'supabase/migrations/20261020192500_discovery_admin_readiness.sql'
       - 'supabase/migrations/20261020214500_discovery_documents_owner_hardening.sql'
       - 'tests/discovery-db-integration.sql'
+      - 'supabase/migrations/20261021030000_mobility_live_tracking.sql'
+      - 'tests/mobility-db-integration.sql'
       - 'supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql'
       - 'tests/coupon-finance-postgres-17.sql'
       - 'tests/coupon-quote-reservation-postgres-17.sql'
@@ -17,13 +19,15 @@ on:
       - 'tests/coupon-atomic-checkout-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   push:
-    branches: [main, feat/unified-discovery-tamao]
+    branches: [main, feat/unified-discovery-tamao, feat/mobility-live-tracking]
     paths:
       - 'supabase/migrations/20261018131000_discovery_shared_verticals.sql'
       - 'supabase/migrations/20261020181500_discovery_city_control_inventory.sql'
       - 'supabase/migrations/20261020192500_discovery_admin_readiness.sql'
       - 'supabase/migrations/20261020214500_discovery_documents_owner_hardening.sql'
       - 'tests/discovery-db-integration.sql'
+      - 'supabase/migrations/20261021030000_mobility_live_tracking.sql'
+      - 'tests/mobility-db-integration.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
 
@@ -58,6 +62,14 @@ jobs:
           PGDATABASE: postgres
         run: |
           psql -v ON_ERROR_STOP=1 -f tests/discovery-db-integration.sql
+      - name: Mobility private GPS security in isolated PostgreSQL 17
+        env:
+          PGPASSWORD: postgres
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: psql -v ON_ERROR_STOP=1 -f tests/mobility-db-integration.sql
       - name: Verify coupon Pix finance in same isolated PostgreSQL 17
         env:
           PGPASSWORD: postgres

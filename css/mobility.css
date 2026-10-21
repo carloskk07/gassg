@@ -1,0 +1,18 @@
+.mobility-page{max-width:920px;padding-block:26px 70px}
+.mobility-page>header h1{font-size:clamp(27px,4vw,44px);line-height:1.15;color:#16432e}
+.mobility-page>header p{max-width:67ch;color:#4c6957}
+.mobility-form,.mobility-active,.mobility-start,.mobility-list-card{display:grid;gap:12px;padding:18px;border:1px solid #c6e0cf;background:#fff;border-radius:16px}
+.mobility-form label{display:grid;gap:5px;font-size:13px;font-weight:800}
+.mobility-form input{box-sizing:border-box;min-width:0;width:100%;min-height:46px;border:1px solid #98bba6;border-radius:9px;padding:10px}
+.mobility-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.mobility-list-card{gap:6px}.mobility-list-card p{margin:4px 0}
+.mobility-list-card small{color:#436e56}.mobility-active{margin:20px 0}
+.mobility-status{font-weight:900;color:#075f3e;font-size:18px}
+.mobility-actions{display:flex;flex-wrap:wrap;gap:10px}
+.mobility-actions button,.mobility-list-card button,.mobility-form button,.mobility-mapbox button{min-height:45px}
+.mobility-mapbox{display:grid;gap:8px;margin:12px 0;padding:12px;background:#f2faf5;border-radius:14px}
+.mobility-mapbox iframe{width:100%;height:340px;border:0;border-radius:12px}
+.mobility-gps-note{padding:12px;background:#f3f9f5}
+.mobility-account{font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+@media(max-width:430px){.mobility-page{padding-inline:12px}.mobility-mapbox iframe{height:270px}
+.mobility-actions button{width:100%}.mobility-list{grid-template-columns:minmax(0,1fr)}}

@@ -1284,3 +1284,116 @@ O Audit do SHA `1cb564cb` revelou mais um teste histórico de marketing exigindo
 **Objetivo:** menos ações desde a cotação até a cesta. Cada item de referência pesquisada ou revenda elegível exibida ganha `＋ Adicionar à cesta` imediatamente abaixo do preço, sem abrir acordeão ou exigir CEP. A operação **somente adiciona 1 unidade de SKU publicamente exibido**, respeita teto de 99, produto ativo do catálogo, preserva CEP/endereço e atualiza cesta persistente existente. Não compra, cobra, reserva estoque, seleciona revenda ou aplica cupom. O detalhe expansível segue oferecendo CEP, quantidade, `Adicionar à cesta` e `Consultar e comprar`; pedido/CEP/validação continuam exclusivamente no fluxo já existente.
 
 **Regressão:** testes V1.414 e fluxo de produto verificam os três controles em São Gabriel, item verificado de RPC, SKU inválido, quantidade máxima, preservação de endereço, cesta reativa e ausência de navegação automática. Classes responsivas compactas. Sem migrations, permissões novas, ofertas falsas, preço alterado ou finanças paralelas. Só considerar publicado após Audit, orçamento JS/CSS, build isolado, readiness, deploy Cloudflare e reconciliação final dos três portais.
+
+### 21/10/2026 — Mobilidade com localização protegida (branch isolada)
+
+Branch `feat/mobility-live-tracking`, sem integração à produção até QA. Migração `20261021030000_mobility_live_tracking.sql` cria solicitações de moto/carro vinculadas a anúncios profissionais publicados e habilitados, com aceite, deslocamento e encerramento. Posição GPS só é enviada pelo próprio motorista durante `en_route`, guardada como último ponto (sobrescrito), escondida depois de 45 segundos, apagada em transições e revogação; RLS restringe dados ao motorista/cliente daquele atendimento e APIs não concedem acesso a usuários anônimos. Corridas sem motorista real não são inventadas; não existe cobrança, ETA prometido nem carona convertida em táxi. Não rodar migração em produção nem publicar CTA de corrida sem contrato SQL em Postgres17, testes com papéis distintos e validação de consentimento no celular.
+
+### 21/10/2026 — Interface operacional para moto e carro (ainda não publicada)
+
+Na branch `feat/mobility-live-tracking`, interface `#mobility` atende passageiros e anunciantes com autenticação por e-mail (mesma sessão `tamao-discovery-auth`), criação de solicitação com origem/destino aproximados, aceite, a caminho, chegada e encerramento. GPS começa **somente após clique explícito do motorista**, exige HTTPS, GPS autorizado e tela visível; para na navegação/ocultação da tela e no encerramento, e o servidor só devolve posição fresca ao participante da corrida. Mapa OpenStreetMap é carregado pelo cliente apenas após clique informando que coordenadas são transmitidas ao provedor de mapas; nenhuma coordenada de residência do passageiro é solicitada. Caronas e contratos comerciais/GLP permanecem isolados. JavaScript/CSS diferidos, sem impacto no first paint da home. O novo CSP concede iframes ao OSM e Permissões-Policy de geolocalização **apenas no portal cliente**, onde os prestadores fazem login; parceiro e Admin continuam bloqueados. **Esta branch não comprova publicação nem segurança testada em duas contas; não fazer deploy até validação completa do backend.**
+
+### 21/10/2026 — PG17, usuário terceiro e consentimento GPS
+
+Adicionados testes dinâmicos separados para passageiro, motorista, anônimo e terceiro em PostgreSQL 17. Usuários externos não podem ver solicitação nem posição; passageiro não pode publicar coordenadas; motorista envia somente no estado `en_route`, e a parada remove a posição. Contrato V8 testa mapa OSM apenas após clique, GPS apenas após escolha explícita e interrupção ao ocultar a aba. Audit e workflow PG17 de descoberta foram associados à branch, sem configurar deploy público. Recuperação do login por e-mail preserva tanto `advertise=1` quanto `mobility=1`. A fase ainda requer resultados verdes e ensaio de duas contas reais antes de liberar backend à produção.
+
+### 21/10/2026 — Correções PG17 e desempenho de inicialização
+
+Isolado PostgreSQL 17 rejeitou `isfinite(double precision)` por falta de overload: substituída pela restrição numérica `BETWEEN` para lat/lon/accuracy (já há CHECKs na tabela), que também rejeita Inf/NaN fora da faixa. Audit encontrou orçamento de JavaScript inicial: loader de mobilidade compacto e CSS carregada somente com o módulo diferido, mantendo o orçamento imutável e a experiência fora de #mobility sem custo extra. Nova rodada PG17, Audit e budget necessária para aceitar.
+
+### 21/10/2026 — Limpeza automática de coordenadas perdidas
+
+O último ponto GPS só fica visível ao passageiro por 45 segundos, mas uma interrupção inesperada poderia deixar o registro no banco mesmo oculto. Nova rotina servidor `mobility_cleanup_expired` apaga automaticamente posições não ativas ou com mais de 3 minutos e expira solicitações vencidas. O Supabase com extensão `pg_cron` executará essa função a cada cinco minutos; o PG17 isolado sem extensão apenas testa a função. Não concede EXECUTE a visitantes nem contas autenticadas. O motorista continua podendo revogar imediatamente pelo botão, com exclusão no mesmo RPC.
+
+### 21/10/2026 — Sintaxe de limpeza PG17 corrigida
+
+A primeira execução da rotina de limpeza no PG17 isolado encontrou um delimitador de função PL/pgSQL incorreto (`as $` em vez de `as $$`). Corrigidos abertura e fechamento sem alteração da política RLS ou das regras do GPS. A validação isolada deve passar novamente antes de preparar o merge da PR #515.
+
+
+### 21/10/2026 — Delimitador PL/pgSQL verificado
+
+Corrigida a abertura da função de limpeza para o par de delimitadores PostgreSQL, preservado o fechamento e nenhuma regra de acesso alterada. Nova execução isolada necessária.
+
+### 21/10/2026 — Instrumentação do smoke visual da PR #515
+
+O browser smoke falhou ao esperar qualquer `h1` em 360px, inclusive o título de pré-carregamento do HTML estático. Isso pode indicar indisponibilidade do servidor de teste, navegador ou regressão no carregamento. Sem afrouxar o gate, foi acrescentado diagnóstico **somente na falha** para registrar URL real, readyState, título, pequeno trecho visível e última exceção do render. O teste continua reprovando se a página não carregar em 12 segundos. Não há mudança de visual ou banco.
+
+### 21/10/2026 — Smoke visual alinhado ao título real da home
+
+Diagnóstico automático mostrou `document.readyState=complete`, preços e cesta renderizados, `window.__lastRenderError=null`, mas o teste esperava `h1` na home. Após o redesign da home, o título único da cotação `Tamão São Gabriel/RS` está em `.tamao-quote-first .city-price-heading h2`. A espera do navegador agora exige esse título **específico** para a home e ainda exige `h1` nas demais páginas; `readDOM` recebe o mesmo fallback para medir clipping/overflow. Não removeu timeout de 12s, verificação de largura ou testes de conteúdo. Uma melhoria semântica futura poderá normalizar o primeiro título para h1 sem esta PR de GPS.
+
+### 21/10/2026 — Segurança reforçada: parada do GPS não pode ser desfeita por pacote atrasado
+
+Auditoria adicional da PR #515 identificou janela de concorrência: antes, uma atualização de GPS em trânsito podia ser gravada depois que a ação `Parar compartilhamento` concluísse, porque `mobility_publish_position` também reativava o compartilhamento. Correção ainda **somente em branch**: `mobility_start_position` (apenas motorista da corrida `en_route`) libera temporariamente a publicação após escolha explícita; `mobility_publish_position` passa a exigir `tracking_enabled=true` e nunca mais a liga automaticamente; `mobility_stop_position` revoga e apaga a localização. A UI usa `gpsEpoch` e ID preso à corrida durante o pedido assíncrono de GPS, cancela solicitações obsoletas no retorno e interrompe compartilhamento mesmo quando a permissão ainda está pendente ou a tela foi ocultada. Teste PostgreSQL 17 verifica que motorista **não publica após revogar**, e que terceiros não podem iniciar compartilhamento; o navegador testa início voluntário e encerramento. Nenhum dado no Supabase real foi alterado; antes do merge exigir nova rodada de Audit e PG17.
+
+### 21/10/2026 — Mapa revogado também deve desaparecer do navegador
+
+Além do bloqueio de novos pacotes no PostgreSQL, inspeção do polling silencioso revelou que, quando o servidor deixava de fornecer a posição (GPS parado, expirado ou revogado), o cliente trocava somente a legenda, mas podia deixar o `iframe` com coordenadas antigas aberto. Corrigido: a transição de posição fresca para ausente obriga nova renderização sem mapa; `mobilityUpdateMap` também remove explicitamente o src e o elemento do mapa caso chamado sem posição. Quando a posição volta após nova autorização, o mapa reaparece somente sob consentimento anterior do próprio cliente. Teste V8 verifica a remoção. Não atualizar posição após encerramento e não deixar mapa antigo visível indefinidamente. Implementação continua em PR draft #515, sem produção.
+
+### 21/10/2026 — Ajuste de sintaxe do início opt-in em PG17
+
+O primeiro CI PG17 após o reforço de revogação falhou por delimitadores incompletos na nova função `mobility_start_position` (`as $`/`end $` em vez dos dois sinais exigidos por PostgreSQL). Corrigido o par e acrescentado teste estático específico para impedir reaparecimento do erro. Nenhuma tabela ou política em produção alterada. A aprovação aguarda novamente o PostgreSQL 17 em ambiente descartável.
+
+### 21/10/2026 — Encerramento com GPS pendente também cancela autorização
+
+Uma corrida pode ser cancelada ou passar a `arrived` enquanto o motorista aguarda a resposta da RPC de início do GPS. Atualizadas as transições e o polling para interromper também `gpsPending`, não somente `watchPosition` já ativo. O retorno assíncrono atrasado continua sendo invalidado pelo contador `gpsEpoch` e envia revogação compensatória, impedindo coleta posterior. Segurança ainda em revisão da PR #515, não publicada.
+
+### 21/10/2026 — Teste de resposta atrasada do GPS
+
+A regressão do navegador agora controla a resposta da RPC de início do compartilhamento em modo assíncrono: motorista solicita autorização, aba fica oculta antes de o backend responder, o servidor responde sucesso **depois** do cancelamento e o teste exige que nenhum novo `watchPosition` seja aberto, que o contador de permissão seja invalidado e que a revogação compensatória seja enviada ao servidor. Complementa o PG17 que bloqueia envio tardio de coordenadas após revogação. A branch continua não publicada.
+
+### 21/10/2026 — Falha de carregamento não pode causar loop
+
+Corrigido o lazy loader de mobilidade: na falha de rede/script, o estado passa para erro com explicação e botão de **Tentar novamente**, em vez de rearmar automaticamente a mesma carga em cada `render()`. Mantido o carregamento diferido apenas quando o usuário acessa `#mobility`; não afeta compras nem telas administrativas. Regressão estática adicionada, sujeita a Audit e orçamento da home antes de qualquer integração.
+
+### 21/10/2026 — Orçamento estrito do carregamento preservado
+
+O primeiro build da gestão de erro do módulo de mobilidade ultrapassou em 134 bytes o limite JS inicial do cliente (`530134/530000`). O conteúdo de carregamento/repetição foi condensado sem retirar o estado de erro, o retry manual nem os testes de não repetição automática. Os limites oficiais continuam inalterados. Validar novamente no CI antes de qualquer merge.
+
+### 21/10/2026 — TTL independente no navegador: nenhum mapa antigo durante falha de rede
+
+Revisão da PR #515 identificou uma condição não coberta pelo servidor: a RPC de posição devolve apenas coordenadas dos últimos 45 segundos, mas um navegador sem conectividade podia manter visível o iframe OSM carregado antes da revogação/expiração. Adicionada validação local estrita `mobilityFreshPosition` (timestamp finito, 45 segundos, rejeita futuro incoerente e coordenadas não numéricas), aplicada em todos os pontos de apresentação do mapa, clique para abrir e atualização da posição. Poll silencioso e falha de RPC expiram e descartam o marcador local; ocultar a aba também remove o iframe e o cache de posição, parando GPS do motorista. Regressões de browser simulam localização vencida, relógio futuro, coordenadas nulas/strings e indisponibilidade de rede. O servidor continua sendo autoridade de permissão, mas a interface deixa de exibir marcador vencido até mesmo offline. **Mudança apenas na branch de desenvolvimento; migração ainda não aplicada a dados reais.**
+
+### 21/10/2026 — Encerramento de sessão limpa coordenadas e corridas locais
+
+Nova revisão da PR #515 encontrou lacuna na troca de contas: a autenticação poderia ser encerrada em outra aba enquanto a PWA retinha a posição e os dados da última solicitação já carregados na memória. Corrigido em `js/mobility.js` com `mobilityClearSession`: removido iframe OSM, apagados detalhes, lista de corridas, identificação local do usuário, seleção, consentimento do mapa e controles do GPS. Assinatura `onAuthStateChange(SIGNED_OUT)` também cobre saída em outra aba. O novo botão `Sair e parar localização` revoga o compartilhamento pelo servidor **antes** de executar `auth.signOut()`; se a saída falhar mantém a sessão e apresenta erro, sem afirmar falsamente que foi desconectado. Testes determinísticos incluem saída explícita, limpeza e sinal externo de encerramento. Nenhuma tabela nova e nenhum dado produzido em produção.
+
+### 21/10/2026 — Corrigido fixture de autenticação + troca de conta
+
+O Audit do commit `248dfad` falhou em `tests/mobility-ui-journey.mjs` porque o simulador montava `s.phase='ready'` diretamente e, portanto, nunca executava o registro de `auth.onAuthStateChange`. O teste agora chama `mobilityInit()` com `getUser()` realista, verifica o listener e executa logout por clique, logout externo e troca de usuário via `SIGNED_IN`. Para troca direta sem `SIGNED_OUT`, a PWA agora limpa a conta anterior, os atendimentos e o mapa antes de mostrar o novo usuário. Não afeta backend ou pagamentos. Retestar Audit e PG17 no SHA novo; a migração de mobilidade ainda não foi aplicada à produção.
+
+### 21/10/2026 — Revogação operacional de motorista protege início e envio GPS
+
+Revisão de segurança reforçou que a autorização para enviar localização não pode sobreviver ao bloqueio posterior do anúncio profissional ou à perda da verificação do motorista. As RPCs `mobility_start_position` e `mobility_publish_position` agora revalidam, sob lock, que o anúncio continua `published`, vinculado ao mesmo motorista, com cidade de profissionais habilitada. Cada `mobility_publish_position` passa a exigir `discovery_verified_account()` (antes só criação/aceite/início exigiam verificação). O snapshot enviado ao cliente não inclui coordenadas quando o anúncio não está mais publicado. A operação `mobility_stop_position` continua possível mesmo quando o motorista perde verificação, para permitir revogação imediata. Teste PG17 remove a verificação após o trajeto e exige negação de início/envio, mantendo a revogação funcional. A migração permanece **exclusivamente na branch** até teste real de contas distintas e aprovação de segurança; nenhuma corrida ou GPS de produção foi criado.
+
+### 21/10/2026 — Erro de autenticação distinto de GPS inválido
+
+O bloqueio de conta desverificada no envio GPS foi separado da validação numérica das coordenadas: conta não verificada retorna `42501` (negado), enquanto lat/lon inválidos preservam `22023`. Isto mantém contrato SQL de papéis e facilita diagnosticar bloqueio de identidade sem alterar localização ou tolerância de sinal.
+
+### 21/10/2026 — Revogação de anúncio fecha também a leitura direta do GPS
+
+Além da RPC privada de acompanhamento, `mobility_live_positions` possui uma política RLS de SELECT para participantes. A política foi reforçada para exigir que o anúncio vinculado permaneça publicado, sujeito à própria RLS de descoberta/cidade; assim, retirar o anúncio bloqueia também leituras SQL diretas da posição, mesmo dentro dos 45 segundos de TTL, e não apenas o snapshot. A transição para `accepted` também revalida o anúncio, proprietário e cidade habilitada para recusar solicitações pendentes a prestadores já suspensos. O PG17 passou a exigir que um passageiro legítimo veja a posição fresca via RLS enquanto o anúncio está publicado. Mudanças condicionais de privacidade, sem atualização de produção até homologação e deploy seguros.
+
+### 21/10/2026 — Revogação da cidade remove imediatamente o GPS do acompanhamento
+
+A auditoria de segurança da PR #515 detectou que suspender uma cidade já impedia novos envios do motorista, mas a consulta de acompanhamento e a leitura direta por RLS ainda poderiam devolver a última coordenada durante o TTL de 45 segundos. A política da tabela `mobility_live_positions` e a RPC `mobility_snapshot` agora exigem cidade de profissionais **habilitada**, além de anúncio publicado e participantes da corrida corretos. Um teste PostgreSQL 17 isolado publica uma coordenada legítima, suspende a cidade, exige resposta nula no snapshot e zero linhas no SELECT direto e tenta envio posterior pelo motorista; a cidade só é reabilitada no banco descartável do teste. **Não houve alteração no Supabase real.**
+
+### 21/10/2026 — Restrição adicional: GPS exclusivamente por RPC
+
+A revisão da branch no SHA `2a9d25239ba1` encontrou um problema de permissões legítimo no PostgreSQL: a política de leitura direta de posições correlacionava com a tabela privada `discovery_listings`, que não é concedida aos clientes. A solução preserva o princípio de privilégio mínimo: tabela `mobility_live_positions` mantém RLS e **não permite SELECT direto nem ao passageiro**, enviando apenas o último ponto fresco pela função `mobility_snapshot` (SECURITY DEFINER, verifica identidade do participante, publicação do anúncio, cidade ativa, consentimento e prazo de 45 s). O teste isolado agora exige que SELECT direto falhe com `42501` mesmo para um passageiro legítimo, e que o snapshot se oponha às suspensões. Não conceder permissões na tabela privada de anúncios. Ainda não implantar em produção; verificar o workflow PG17 primeiro.
+
+### 21/10/2026 — PG17 aprovado e última asserção de privacidade consolidada
+
+No commit `4bc877ab4ba0`, o workflow PostgreSQL 17 isolado foi aprovado incluindo solicitação, aceite, motorista, passageiro, terceiro, usuário anônimo, suspensão da cidade e revogação de localização, com leitura direta de GPS negada para todos. O Audit parou antes do restante da suíte porque um teste estático ainda procurava o antigo fragmento da política de leitura direta removida por segurança; atualizado para verificar duas fronteiras reais: autorização para iniciar o GPS e autorização revalidada em **cada publicação de ponto**, com anúncio publicado e cidade ativa. Não relaxar regras nem colocar migração na produção antes da auditoria completa.
+
+### 21/10/2026 — Auditoria confirma a proteção, contrato textual normalizado
+
+No SHA `b6b1a66ef433`, o PG17 isolado, o build e o smoke visual passaram. A auditoria ainda exigia na suíte estática a sequência textual removida `l.status='published' and r.expires_at`, porém a implementação atual adicionou a verificação obrigatória de `discovery_vertical_cities.enabled` entre os dois fatores. O teste agora exige de forma explícita **todas** as condições de segurança dentro de `mobility_snapshot`: anúncio publicado, cidade ativa e validade temporal; a regra SQL não foi afrouxada. A auditoria completa permanece requisito da PR #515.
+
+### 21/10/2026 — Relato de problemas público via suporte existente
+
+O painel do motorista e do passageiro ganhou acesso visível `Relatar problema com este atendimento`, levando ao formulário público de suporte já operacional, com tipo `support` e protocolo da solicitação UUID preenchido. O formulário não inclui coordenadas nem histórico GPS; evita criar outra fila ou chatbot. Permite reportar falhas já na fase aberta ao público e acompanhar casos pelo suporte administrativo existente. Teste regressivo protege contra injeção de protocolo inválido. Ainda requer Audit verde após este ajuste.
+
+### 21/10/2026 — Suporte enxuto sem penalizar a performance
+
+O teste de suporte inicial falhou porque o ambiente Node VM não incluía URLSearchParams, e a tentativa de pré-preencher `#contact` fez o bundle inicial superar em 709 bytes o teto estrito de 530000. Para não ampliar o limite, foi mantida a página de contato oficial intacta. A solicitação privada de mobilidade oferece acesso direto ao formulário de suporte, mostra seu UUID e instrui o usuário a mencionar o protocolo na mensagem; nenhum dado de GPS é enviado. Os contratos testam link, identificador visível e existência do formulário suportado. O código novo do serviço continua carregado sob demanda. Auditoria e build precisam passar antes da publicação.

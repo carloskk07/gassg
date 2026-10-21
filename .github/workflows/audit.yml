@@ -83,6 +83,11 @@ jobs:
         run: node tests/discovery-loaded-result-sorting.mjs
       - name: Manual comparison of only verified, saved and currently visible discovery listings
         run: node tests/discovery-manual-comparison.mjs
+      - name: Mobility GPS consent and access test
+        run: |
+          node tests/mobility-tracking-security.mjs
+          node tests/mobility-ui-journey.mjs
+          node tests/mobility-report-support.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
       - name: Regional wood, charcoal and ice units

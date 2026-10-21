@@ -491,12 +491,19 @@ function discoveryCard(item,kind){
   const saved=canSave&&discoverySavedIds(kind).includes(id);
   const compared=saved&&(discoveryState(kind).compareIds||[]).includes(id);
   const gallery=discoveryPublicGallery(item);
+  const intent=kind==='professionals'?discoveryState('professionals').service:'';
+  const trackedService=['moto','carro'].includes(intent)?intent:'';
+  const trackingLink=trackedService&&discoveryListingIdPattern.test(id)&&
+    ((trackedService==='moto'&&/motot[aá]xi|moto.?taxi/i.test(String(item.occupation||'')))||
+     (trackedService==='carro'&&/motorista|t[aá]xi|taxista/i.test(String(item.occupation||''))))
+   ?'/?corrida='+id+'&modalidade='+trackedService+'#mobility':'';
   return '<article class="discovery-result">'+
     gallery+
     '<small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
     (facts.length?'<ul class="discovery-facts">'+facts.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'')+
     '<p>'+esc(item.description)+'</p>'+
     '<div class="discovery-actions">'+
+    (trackingLink?'<a href="'+trackingLink+'" class="discovery-ride-track">Solicitar e acompanhar no mapa ↗</a>':'')+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
     (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
