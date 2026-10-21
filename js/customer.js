@@ -441,26 +441,16 @@ function homeDiscoverFocus(){
   return true;
 }
 
-// High-intent shortcuts reuse moderated public discovery; no ride dispatch.
+// Public contact searches only; no vehicle dispatch.
 function tamaoMobilityEntryHub(){
- const choices=[
-  ['🏍️','Pedir uma moto','Consulte mototaxistas anunciados','/?servico=moto#professionals'],
-  ['🚕','Pedir um carro','Motoristas e táxis da região','/?servico=carro#professionals'],
-  ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
-  ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
-  ['🚙','Encontrar carona','Trajetos e vagas compartilhadas','/#rides']
- ];
- return '<section class="section intent-section tamao-mobility" aria-label="Moto, carro, fretes, entregas e caronas">'+
-  '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
-  '<h2>Vai de moto, carro ou precisa de uma entrega?</h2>'+
-  '<p>Encontre prestadores anunciados na região e converse diretamente antes de combinar o atendimento.</p></div></div>'+
-  '<div class="intent-grid tamao-mobility-grid">'+choices.map(([icon,title,description,href])=>
-   '<a class="intent-card tamao-mobility-card" href="'+href+'">'+
-   '<span class="intent-icon" aria-hidden="true">'+icon+'</span><span><strong>'+title+
-   '</strong><small>'+description+'</small></span><b aria-hidden="true">→</b></a>'
-  ).join('')+'</div>'+
-  '<p class="tiny muted tamao-mobility-note">Consulta de anúncios, sem chamada automática de veículos. Serviço, valores e disponibilidade são confirmados diretamente com o anunciante.</p>'+
-  '</section>';
+ return '<div class="intent-section"><h2>Moto, carro ou entrega? Tá na mão.</h2><div class="intent-grid">'+
+ [['🏍️ Pedir uma moto','/?servico=moto#professionals'],
+  ['🚕 Pedir um carro','/?servico=carro#professionals'],
+  ['🚚 Pedir um frete','/?servico=fretes#professionals'],
+  ['📦 Pedir uma entrega','/?servico=entregas#professionals'],
+  ['🚙 Encontrar carona','/#rides']].map(([name,url])=>
+   '<a class="intent-card" href="'+url+'"><strong>'+name+'</strong><b>→</b></a>'
+ ).join('')+'</div><p>Consulte anúncios e combine diretamente. Sem despacho imediato.</p></div>';
 }
 function tamaoDiscoveryEntryHub(){
   return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
