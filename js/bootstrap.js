@@ -112,10 +112,10 @@ function mobilityReturnIntent(){
  try{return new URLSearchParams(location.search).get('mobility')==='1'}catch{return false}
 }
 function mobilityLoadingPage(){
- return shell('<section><h1>Solicitações de moto e carro</h1>'+
-  (mobilityModuleError?'<p role="alert">Falha ao abrir o acompanhamento.</p>'+
-   '<button onclick="mobilityRetryModule()">Tentar novamente</button>':
-   '<p role="status">Preparando…</p>')+'</section>');
+ return shell('<section><h1>Corrida TAMÃO</h1>'+
+  (mobilityModuleError?'<p role="alert">Falha de conexão.</p>'+
+   '<button onclick="mobilityRetryModule()">Repetir</button>':
+   '<p role="status">Carregando…</p>')+'</section>');
 }
 function mobilityRetryModule(){
  mobilityModuleRequested=mobilityModuleError=false;mobilityRequestModule();render();
