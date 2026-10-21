@@ -203,6 +203,7 @@ async function mobilityRefresh(silent=false){
 }
 function mobilityFocus(id){
  if(!mobilityId.test(String(id||''))||!mobilityRuntime.items.some(x=>x.id===id))return false;
+ if(mobilityRuntime.watch!==null)mobilityStopTracking();
  mobilityRuntime.id=id;mobilityRuntime.detail=null;mobilityRuntime.mapConsent=false;
  mobilityRuntime.mapKey='';mobilityRefresh();return true;
 }
@@ -214,7 +215,7 @@ async function mobilityCreate(event){
  if(origin.length<3||origin.length>120||destination.length<3||destination.length>120){
   s.error='Informe origem e destino aproximados.';render();return false;
  }
- s.busy=true;s.error='';render();
+ s.busy=true;s.error='';
  try{
   const r=await s.client.rpc('mobility_create_request',{
    p_listing_id:intent.id,p_service:intent.mode,p_origin_area:origin,p_destination_area:destination

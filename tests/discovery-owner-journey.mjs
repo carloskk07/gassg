@@ -628,7 +628,7 @@ assert.equal(pendingIntent('?advertise=1',false,true),false,'Merchant portal can
 assert.match(read('js/bootstrap.js'),/route\(\)!=='advertise'&&!discoveryOwnerReturnPending\(\)/,
  'owner module must load despite OTP fragment replacing the route');
 assert.match(read('js/bootstrap.js'),
- /const r=discoveryOwnerReturnPending\(\)\?'advertise':route\(\)/,
+ /const r=discoveryOwnerReturnPending\(\)\?'advertise':\s*mobilityReturnIntent\(\)\?'mobility':route\(\)/,
  'callback must show advertiser loading state, not an unrelated home/menu');
 
 currentRoute='admin';
