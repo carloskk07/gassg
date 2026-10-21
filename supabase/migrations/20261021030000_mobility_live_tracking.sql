@@ -131,7 +131,11 @@ begin
    raise exception 'MOBILITY_AUTH_REQUIRED' using errcode='42501';end if;
  select * into r from public.mobility_requests where id=p_request_id for update;
  if not found or r.driver_id<>v_user or r.status<>'en_route'
-    or r.expires_at<=statement_timestamp() then
+    or r.expires_at<=statement_timestamp() or not exists(select 1 from public.discovery_listings l
+    join public.discovery_vertical_cities c on c.vertical='professionals'
+     and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
+    where l.id=r.listing_id and l.owner_id=v_user
+      and l.vertical='professionals' and l.status='published') then
   raise exception 'MOBILITY_START_FORBIDDEN' using errcode='42501';end if;
  update public.mobility_requests set tracking_enabled=true,updated_at=statement_timestamp()
   where id=r.id;
@@ -143,13 +147,18 @@ create function public.mobility_publish_position(
 returns boolean language plpgsql volatile security definer set search_path=pg_catalog as $$
 declare v_user uuid:=(select auth.uid());r public.mobility_requests%rowtype;
 begin
- if v_user is null or p_latitude is null or p_longitude is null or
+ if v_user is null or not public.discovery_verified_account() or
+   p_latitude is null or p_longitude is null or
   p_accuracy_m is null or p_latitude not between -90 and 90 or
   p_longitude not between -180 and 180 or p_accuracy_m not between 0 and 1000
  then raise exception 'MOBILITY_INVALID_POSITION' using errcode='22023';end if;
  select * into r from public.mobility_requests where id=p_request_id for update;
  if not found or r.driver_id<>v_user or r.status<>'en_route'
-   or not r.tracking_enabled or r.expires_at<=statement_timestamp()
+   or not r.tracking_enabled or r.expires_at<=statement_timestamp() or not exists(select 1 from public.discovery_listings l
+    join public.discovery_vertical_cities c on c.vertical='professionals'
+     and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
+    where l.id=r.listing_id and l.owner_id=v_user
+      and l.vertical='professionals' and l.status='published')
  then raise exception 'MOBILITY_POSITION_FORBIDDEN' using errcode='42501';end if;
  if exists(select 1 from public.mobility_live_positions where request_id=r.id
    and updated_at>statement_timestamp()-interval '5 seconds') then return false;end if;
@@ -182,6 +191,7 @@ returns jsonb language sql stable security definer set search_path=pg_catalog as
   'role',case when r.rider_id=(select auth.uid()) then 'rider' else 'driver' end,
   'expires_at',r.expires_at,'listing_title',l.title,'position',
   case when r.status='en_route' and r.tracking_enabled and
+   l.status='published' and
    r.expires_at>statement_timestamp() and
    p.updated_at>statement_timestamp()-interval '45 seconds'
    then jsonb_build_object('lat',p.latitude,'lon',p.longitude,

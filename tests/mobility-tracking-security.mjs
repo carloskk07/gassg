@@ -32,6 +32,12 @@ assert.ok(sql.includes("l.status='published'"));
 assert.ok(sql.includes('and c.city_key=l.city_key and c.enabled'));
 assert.ok(sql.includes("p_service='moto'")&&sql.includes("p_service='carro'"));
 assert.ok(sql.includes("not public.discovery_verified_account()"));
+assert.equal((sql.match(/not public.discovery_verified_account\(\)/g)||[]).length,4,
+ 'Account verification must protect request, transitions, GPS start and each publish');
+assert.equal((sql.match(/l.status='published'/g)||[]).length>=3,true,
+ 'GPS may only start/publish for still-published provider listings');
+assert.ok(sql.includes("l.status='published' and\n   r.expires_at"),
+ 'Rider snapshot must hide GPS from an unpublished provider');
 assert.ok(sql.includes("perform 1 from auth.users where id=v_user for update"));
 assert.doesNotMatch(sql,/alter publication|create policy .+ to anon/);
 console.log('PASS: private GPS scoped to an active ride, explicit start, revocation and TTL');

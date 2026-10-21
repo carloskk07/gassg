@@ -93,6 +93,30 @@ begin
  s:=public.mobility_snapshot(current_setting('tamao.mobility.id')::uuid);
  if s->'position'<>'null'::jsonb then raise exception 'STOP_LEAKED_GPS';end if;
 end $t$;
+-- Revoking driver verification must prevent starting GPS on an otherwise
+-- still-active journey, while STOP remains available for emergency revocation.
+reset role;
+update auth.users set is_anonymous=true,email_confirmed_at=null
+ where id='00000000-0000-0000-0000-000000000011';
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $t$ begin
+ begin
+  perform public.mobility_start_position(current_setting('tamao.mobility.id')::uuid);
+  raise exception 'UNVERIFIED_DRIVER_STARTED_GPS';
+ exception when insufficient_privilege then null;end;
+ begin
+  perform public.mobility_publish_position(
+   current_setting('tamao.mobility.id')::uuid,-30.36,-54.32,10);
+  raise exception 'UNVERIFIED_DRIVER_PUBLISHED_GPS';
+ exception when insufficient_privilege then null;end;
+end $t$;
+select public.mobility_stop_position(current_setting('tamao.mobility.id')::uuid);
+reset role;
+update auth.users set is_anonymous=false,email_confirmed_at=now()
+ where id='00000000-0000-0000-0000-000000000011';
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
 select public.mobility_transition(current_setting('tamao.mobility.id')::uuid,'cancel');
 reset role;
 select public.mobility_cleanup_expired();
