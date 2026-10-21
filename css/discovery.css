@@ -219,16 +219,23 @@
 
 /* Public discovery editorial rhythm — professionals, rides and stays. */
 .discovery-page{padding-block:clamp(18px,3vw,34px) 84px}
-.discovery-intro{max-width:none;display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:25px;padding:clamp(22px,3vw,35px);border:1px solid #dce9e0;border-radius:23px;background:linear-gradient(112deg,#fff 0%,#f0f8f3 100%)}
+.discovery-intro{max-width:none;display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:18px;padding:clamp(20px,2.5vw,29px);border:1px solid #dce9e0;border-radius:23px;background:linear-gradient(112deg,#fff 0%,#f0f8f3 100%)}
 .discovery-intro-copy{min-width:0;max-width:760px}
-.discovery-intro h1{font-size:clamp(30px,3.7vw,44px);line-height:1.12;max-width:21ch;margin:11px 0 12px;text-wrap:balance;letter-spacing:-.046em}
+.discovery-intro h1{font-size:clamp(29px,3.4vw,41px);line-height:1.12;max-width:23ch;margin:9px 0 10px;text-wrap:balance;letter-spacing:-.046em}
 .discovery-intro p{max-width:58ch;margin:0;font-size:15px;line-height:1.6}
 .discovery-hero-advertise{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:space-between;gap:12px;min-height:47px;border:1px solid #bad8c4;border-radius:13px;background:#fff;color:#086345;padding:12px 15px;font-weight:800;font-size:13px}
 .discovery-hero-advertise:hover{background:#eaf6ee;border-color:#80b597}
 .discovery-page .discovery-search{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:end;padding:clamp(16px,2.4vw,23px);border:1px solid #dbe8de;border-radius:19px;background:#fff;box-shadow:0 8px 24px rgba(20,61,41,.035)}
 .discovery-page .discovery-search>label{grid-column:span 2;min-width:0}
-.discovery-page .discovery-search>label:nth-child(2){grid-column:span 3}
-.discovery-page .discovery-search>label:nth-child(3){grid-column:span 1}
+.discovery-professionals .discovery-search>label:first-child,.discovery-rides .discovery-search>label:first-child,.discovery-stays .discovery-search>label:first-child{grid-column:span 1}
+.discovery-professionals .discovery-search>label:nth-child(2),.discovery-rides .discovery-search>label:nth-child(2){grid-column:span 2}
+.discovery-professionals .discovery-search>label:nth-child(3),.discovery-rides .discovery-search>label:nth-child(3){grid-column:span 3}
+.discovery-stays .discovery-search>label:nth-child(2){grid-column:span 3}
+.discovery-stays .discovery-search>label:nth-child(3){grid-column:span 2}
+.discovery-stays .discovery-search>label:nth-child(5){grid-column:span 4}
+.discovery-rides .discovery-search>label:nth-child(4){grid-column:span 3}
+.discovery-rides .discovery-search>label:nth-child(5){grid-column:span 2}
+.discovery-rides .discovery-search>label:nth-child(6){grid-column:span 1}
 .discovery-page .discovery-search>button{grid-column:span 3;min-width:0;min-height:48px}
 .discovery-page .discovery-search label{font-size:12px;font-weight:850;color:#244e38}
 .discovery-page .discovery-search input,.discovery-page .discovery-search select{border-radius:11px;border-color:#cbded1;min-height:47px}
@@ -245,12 +252,12 @@
 .discovery-hero-advertise:focus-visible{outline:3px solid #bd872b;outline-offset:3px}
 @media(max-width:900px){
  .discovery-intro{align-items:flex-start;flex-direction:column}
- .discovery-page .discovery-search>label,.discovery-page .discovery-search>label:nth-child(2),.discovery-page .discovery-search>label:nth-child(3){grid-column:span 3}
+ .discovery-page .discovery-search>label,.discovery-professionals .discovery-search>label,.discovery-rides .discovery-search>label,.discovery-stays .discovery-search>label{grid-column:span 3}
 }
 @media(max-width:600px){
  .discovery-intro{padding:22px 17px;border-radius:18px;gap:15px}
  .discovery-intro h1{font-size:clamp(28px,8vw,36px)}
  .discovery-hero-advertise{width:100%}
  .discovery-page .discovery-search{grid-template-columns:minmax(0,1fr);padding:15px;border-radius:16px}
- .discovery-page .discovery-search>label,.discovery-page .discovery-search>label:nth-child(2),.discovery-page .discovery-search>label:nth-child(3),.discovery-page .discovery-search>button{grid-column:1/-1}
+ .discovery-page .discovery-search>label,.discovery-professionals .discovery-search>label,.discovery-rides .discovery-search>label,.discovery-stays .discovery-search>label,.discovery-page .discovery-search>button{grid-column:1/-1}
 }

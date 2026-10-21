@@ -77,6 +77,8 @@ jobs:
         run: node tests/public-navigation-stability.mjs
       - name: Public visual hierarchy and responsive menu contract
         run: node tests/public-visual-hierarchy-20261021.mjs
+      - name: Public discovery banners and ergonomic filters
+        run: node tests/public-discovery-polish-20261021.mjs
       - name: Public discovery journeys, HTML escaping and PWA assets
         run: node tests/discovery-public-journeys.mjs
       - name: Discovery favorites and verified-current shortlist

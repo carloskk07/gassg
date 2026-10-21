@@ -537,7 +537,7 @@ function discoveryPage(){
     stays:'Explore opções por destino, perfil da hospedagem e número de hóspedes.'};
   const advertiseLabels={professionals:'Anunciar meus serviços',rides:'Oferecer uma carona',
     stays:'Anunciar hospedagem'};
-  return shell('<section class="section discovery-page"><header class="discovery-intro">'+
+  return shell('<section class="section discovery-page discovery-'+kind+'"><header class="discovery-intro">'+
     '<div class="discovery-intro-copy"><span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span>'+
     '<h1>'+esc(shortcut?.title||titles[kind])+'</h1>'+
     '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
