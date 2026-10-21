@@ -3222,20 +3222,6 @@ details summary:focus-visible{border-radius:10px}
 .marketing-hero .trust-chip{background:#e9f5ec;border:1px solid #cfdfd2;color:#295943;border-radius:999px;font-size:12px}
 .intent-section{margin-block:26px 34px}
 .intent-grid{gap:14px}
-.tamao-mobility-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-.tamao-mobility-card{display:flex;flex-direction:column;align-items:flex-start;min-height:174px;
- text-decoration:none;color:#154732;background:linear-gradient(155deg,#fff,#f2faf5);
- border:1px solid #cfe3d5;box-shadow:0 9px 24px rgba(18,73,45,.07)}
-.tamao-mobility-card .intent-icon{font-size:28px;line-height:1.2}
-.tamao-mobility-card>span:nth-child(2){display:grid;gap:5px}
-.tamao-mobility-card b{margin-top:auto;align-self:flex-end;color:#08734a}
-.tamao-mobility-note{margin-top:12px}
-.tamao-mobility-card:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
-@media(max-width:1080px){.tamao-mobility-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:650px){.tamao-mobility-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
- .tamao-mobility-card{min-height:160px;padding:15px}}
-@media(max-width:360px){.tamao-mobility-grid{grid-template-columns:1fr}
- .tamao-mobility-card{min-height:0}}
 .intent-card{
   min-width:0;border:1px solid #dbe7df;border-radius:22px;background:#fff;
   padding:20px;display:flex;align-items:center;gap:12px;text-align:left
