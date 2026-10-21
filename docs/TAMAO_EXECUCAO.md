@@ -1252,3 +1252,7 @@ O SHA `7865ceba` já reduziu o JS inicial abaixo do orçamento, mas a CSS públi
 ### 20/10/2026 — Smoke automatizado alinhado à home enxuta
 
 No SHA `3075c8e2`, build isolado e performance foram aprovados, mas o Audit parou no smoke de navegador V1.371: o workflow ainda procurava `✓ Compare preços` e vários slogans e cartões redundantes eliminados do HTML público. Atualizada a etapa `Browser smoke — mobile routes` para exigir o painel de cotações e cupons, catálogo único, grade de serviços com moto/carro e CTA de verdade, além de comprovar **ausência** da hero/vitrine duplicadas. Permanece validação de todas as rotas (compras, parceiro, admin, privacidade) e do navegador E2E mobile. Não reapresentar texto inútil só para satisfazer teste histórico.
+
+### 20/10/2026 — Mobile 320 px: grade de serviços sem overflow
+
+Audit do SHA `eb2004df` passou no smoke da nova home, mas reprovou no browser E2E: em viewport CSS de 320 px, `window.innerWidth` virou 332 por conta da grade nova de oito cartões em duas colunas. Corrigido com layout de uma coluna apenas até 360 px, preservando duas colunas nos outros tamanhos móveis/tablet. Eliminada regra específica de foco duplicada porque o componente `intent-card` já tem estado global acessível; a CSS inicial permanece sob limite estrito. Teste estático impede regressão do breakpoint, além de execução real do browser E2E. Não relaxar asserts nem ampliar orçamento.

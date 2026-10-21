@@ -289,5 +289,5 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 /* 20/10: Compact service hub reuses first-paint intent-card styles. */
 .intent-grid.tamao-home-services-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .tamao-home-services .intent-card{text-decoration:none;color:#194731;min-width:0}
-.tamao-home-services .intent-card:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
 @media(max-width:900px){.intent-grid.tamao-home-services-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:360px){.intent-grid.tamao-home-services-grid{grid-template-columns:1fr}}

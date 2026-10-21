@@ -42,6 +42,8 @@ assert.ok(h.includes('return shell(`${regionalPriceSection}'),
  'Internal demo retains its original isolated customer journey');
 assert.ok(!h.includes('tamaoMobilityEntryHub()'),
  'Overlapping service grids must not return');
+assert.ok(premium.includes('@media(max-width:360px){.intent-grid.tamao-home-services-grid{grid-template-columns:1fr}}'),
+ 'Narrow phones must not create a horizontal viewport overflow from service cards');
 
 for(const selector of [
  '.tamao-value-section.tamao-value-compact',
