@@ -32,19 +32,14 @@ create table public.mobility_live_positions(
 alter table public.mobility_requests enable row level security;
 alter table public.mobility_live_positions enable row level security;
 revoke all on public.mobility_requests,public.mobility_live_positions from public,anon,authenticated;
-grant select on public.mobility_requests,public.mobility_live_positions to authenticated;
+grant select on public.mobility_requests to authenticated;
+-- Coordinates are NOT directly selectable, even by a participant. The
+-- SECURITY DEFINER snapshot enforces participant, publication and city checks.
+-- Eliminates an RLS dependency on private listing tables.
 create policy mobility_request_participants on public.mobility_requests for select
  to authenticated using ((select auth.uid())=rider_id or (select auth.uid())=driver_id);
-create policy mobility_position_live_participants on public.mobility_live_positions for select
- to authenticated using (updated_at>statement_timestamp()-interval '45 seconds'
-  and exists(select 1 from public.mobility_requests r where r.id=request_id
-   and ((select auth.uid())=r.rider_id or (select auth.uid())=r.driver_id)
-   and r.status='en_route' and r.tracking_enabled and r.expires_at>statement_timestamp()
-   and exists(select 1 from public.discovery_listings l
-    join public.discovery_vertical_cities c on c.vertical='professionals'
-     and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
-    where l.id=r.listing_id and l.owner_id=r.driver_id
-     and l.vertical='professionals' and l.status='published')));
+-- There is deliberately NO SELECT policy on mobility_live_positions.
+-- Rider/driver obtain the last fresh point only through mobility_snapshot.
 
 create function public.mobility_create_request(
  p_listing_id uuid,p_service text,p_origin_area text,p_destination_area text)

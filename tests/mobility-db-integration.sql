@@ -73,9 +73,12 @@ begin
  s:=public.mobility_snapshot(current_setting('tamao.mobility.id')::uuid);
  if (s->'position'->>'lat')::double precision<>-30.34
  then raise exception 'RIDER_GPS_NOT_VISIBLE';end if;
- if (select count(*) from public.mobility_live_positions
-    where request_id=current_setting('tamao.mobility.id')::uuid)<>1
- then raise exception 'RIDER_LIVE_POSITION_RLS_DENIED';end if;
+ -- Even a participant must use the permission-checked snapshot RPC.
+ begin
+  perform 1 from public.mobility_live_positions
+   where request_id=current_setting('tamao.mobility.id')::uuid;
+  raise exception 'DIRECT_RIDER_GPS_QUERY_ALLOWED';
+ exception when insufficient_privilege then null;end;
  begin
   perform public.mobility_stop_position(current_setting('tamao.mobility.id')::uuid);
   raise exception 'RIDER_STOPPED_DRIVER_GPS';
@@ -142,9 +145,11 @@ begin
  p:=public.mobility_snapshot(current_setting('tamao.mobility.id')::uuid);
  if p->'position'<>'null'::jsonb
  then raise exception 'CITY_SUSPENSION_LEAKED_SNAPSHOT_GPS';end if;
- if exists(select 1 from public.mobility_live_positions
-   where request_id=current_setting('tamao.mobility.id')::uuid)
- then raise exception 'CITY_SUSPENSION_LEAKED_DIRECT_GPS';end if;
+ begin
+  perform 1 from public.mobility_live_positions
+   where request_id=current_setting('tamao.mobility.id')::uuid;
+  raise exception 'DIRECT_RIDER_GPS_QUERY_AFTER_CITY_SUSPENSION_ALLOWED';
+ exception when insufficient_privilege then null;end;
 end $city_visibility$;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
 do $city_driver$

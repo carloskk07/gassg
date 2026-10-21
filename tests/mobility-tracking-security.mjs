@@ -13,6 +13,10 @@ for(const fn of [
 assert.equal((sql.match(/enable row level security/g)||[]).length,2);
 assert.ok(sql.includes('to authenticated using ((select auth.uid())=rider_id'));
 assert.ok(sql.includes("r.status='en_route' and r.tracking_enabled"));
+assert.ok(sql.includes('grant select on public.mobility_requests to authenticated'));
+assert.ok(!sql.includes('grant select on public.mobility_live_positions to authenticated'));
+assert.ok(!sql.includes('create policy mobility_position_live_participants'));
+assert.ok(sql.includes('alter table public.mobility_live_positions enable row level security'));
 assert.ok(sql.includes("interval '45 seconds'"));
 assert.ok(sql.includes("interval '3 minutes'"));
 assert.ok(sql.includes("create function public.mobility_start_position"));
@@ -38,8 +42,10 @@ assert.equal((sql.match(/l.status='published'/g)||[]).length>=3,true,
  'GPS may only start/publish for still-published provider listings');
 assert.ok(sql.includes("not exists(select 1 from public.discovery_listings l"),
  'Queued requests cannot be accepted after the provider listing is removed');
-assert.ok(sql.includes("and exists(select 1 from public.discovery_listings l\n     where l.id=r.listing_id and l.status='published'"),
- 'Direct read policy must hide GPS as soon as listing is unpublished');
+assert.ok(sql.includes("and exists(select 1 from public.discovery_listings l"),
+ 'Driver must revalidate listing and city before sharing GPS');
+assert.ok(sql.includes('left join public.mobility_live_positions p on p.request_id=r.id'),
+ 'Only the participant-bound snapshot can read precise coordinates');
 assert.ok(sql.includes("l.status='published' and\n   r.expires_at"),
  'Rider snapshot must hide GPS from an unpublished provider');
 assert.ok(sql.includes("perform 1 from auth.users where id=v_user for update"));
@@ -47,5 +53,5 @@ assert.doesNotMatch(sql,/alter publication|create policy .+ to anon/);
 console.log('PASS: private GPS scoped to an active ride, explicit start, revocation and TTL');
 
 // The rider must lose GPS access when Admin disables the city.
-assert.match(sql,/create policy mobility_position_live_participants[\s\S]*?join public\.discovery_vertical_cities c[\s\S]*?c\.enabled/);
 assert.match(sql,/create function public\.mobility_snapshot[\s\S]*?c\.city_key=l\.city_key and c\.enabled/);
+assert.match(sql,/create function public\.mobility_start_position[\s\S]*?join public\.discovery_vertical_cities c[\s\S]*?c\.enabled/);
