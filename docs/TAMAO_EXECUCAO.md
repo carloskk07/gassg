@@ -1270,3 +1270,7 @@ O SHA `63078171` reprovou na auditoria `frontend-asset-coherence` por introduzir
 ### 20/10/2026 — Compatibilidade com prova de referência local
 
 Ajuste de texto **sem alterar dados**: o disclaimer único foi padronizado para `Referência de mercado, não é oferta de revenda`, preservando a distinção legal/comercial e o contrato histórico de regressão de cotações. Continua sem segunda repetição do aviso fora do próprio cartão.
+
+### 20/10/2026 — Atualizado contrato histórico de cotação (V1.341)
+
+A auditoria de `4dc065e3` passou na fonte única de CSS, mas indicou texto histórico da home dentro de `tests/customer-city-price-showcase-v1-341.mjs`: exigia a mini-campanha `Indicar também tem valor` dentro do painel (agora substituída pela única seção Clube/Rede depois dos serviços), um chip de cidade redundante e texto longo de cupom. Adaptados esses asserts **sem relaxar** provas da RPC: preços só quando verificados, três referências com pesquisa e data, nenhuma atribuição fictícia, apresentação por cidade correta, ausência de ofertas cruzadas e cotações por CEP. Cupom e distinção pesquisa/oferta continuam testados. Repetir todo CI antes da validação visual final.

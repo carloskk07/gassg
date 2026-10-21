@@ -84,14 +84,14 @@ let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state
 assert.match(whenReady,/homeRefreshQuotePrices\(\)/,
  'quote board must offer manual refresh when the live RPC is ready');
 assert.match(html,/Cupons e Clube TAMÃO/);
-assert.match(html,/Indicar também tem valor/);
+assert.doesNotMatch(html,/Indicar também tem valor/,'Club/Network explanations belong outside the quote panel');
 // UI copy follows the verified #508 homepage; keep contract for real campaigns, not historical wording.
-assert.match(html,/Descubra campanhas e vantagens/);
+assert.match(html,/Consulte descontos e benefícios disponíveis para você/);
 assert.doesNotMatch(html,/Diferença de R\$/,'no merchant price spread with reference only');
-assert.match(html,/Referência de mercado • não é oferta de revenda/);
+assert.match(html,/Referência de mercado, não é oferta de revenda/);
 assert.doesNotMatch(html,/PREÇO DE REVENDA/);
 assert.doesNotMatch(html,/\bCarlos Santos\b/,'test account cannot be presented as a live seller');
-assert.match(html,/city-price-place[^>]*>📍 São Gabriel/);
+assert.doesNotMatch(html,/city-price-place/,'Do not repeat city in heading and badge');
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Outra Cidade",state:"RS",origin:"chosen"})',env);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
@@ -119,7 +119,7 @@ assert.match(html,/Compare as ofertas com entrega para seu endereço/);
 assert.match(html,/Atualizado /);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL • NÃO É OFERTA/);
-assert.match(html,/O valor final com entrega aparece na consulta por CEP/);
+assert.match(html,/Preço final, descontos e entrega são confirmados na consulta por CEP/);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Rio Grande",state:"RS",origin:"chosen"})',env);
 assert.doesNotMatch(html,/R\$ 118.90|PREÇO DE REVENDA/,
  'real prices cannot leak from previous city selection');
