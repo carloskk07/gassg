@@ -56,6 +56,43 @@ jobs:
           test ! -e "$ephemeral"
           cp supabase/schema.sql "$ephemeral"
           trap 'rm -f "$ephemeral"' EXIT
+          # Some committed historical files share a 14-digit migration
+          # version. Normalize only this runner's filenames, preserving
+          # exact SQL bytes and original sorted execution order. Never
+          # publish these synthetic local versions or compare them to
+          # hosted production migration-history identifiers.
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime, timedelta
+          from tempfile import TemporaryDirectory
+          from shutil import move
+          import re
+          root=Path('supabase/migrations')
+          files=sorted(root.glob('*.sql'))
+          if len(files)<200:
+              raise RuntimeError('Unexpectedly short migration chain')
+          staged=[]
+          previous=None
+          normalized=0
+          with TemporaryDirectory() as tmp:
+              for source in files:
+                  match=re.fullmatch(r'(\d{14})_(.+)\.sql',source.name)
+                  if not match:
+                      raise RuntimeError('Migration filename not canonical: '+source.name)
+                  original=datetime.strptime(match.group(1),'%Y%m%d%H%M%S')
+                  effective=original if previous is None or original>previous else previous+timedelta(seconds=1)
+                  previous=effective
+                  name=effective.strftime('%Y%m%d%H%M%S')+'_'+match.group(2)+'.sql'
+                  if name!=source.name:
+                      normalized+=1
+                  target=Path(tmp)/source.name
+                  move(source,target)
+                  staged.append((target,root/name))
+              for source,target in staged:
+                  move(source,target)
+          print('Ephemeral migration files:',len(files),'local timestamp adjustments:',normalized)
+          assert len({p.name[:14] for p in root.glob('*.sql')})==len(files)
+          PY
           supabase db start
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
