@@ -1194,42 +1194,6 @@ function adminMerchantTrialCalculate(){
   render();
 }
 
-// Reuse the authoritative seven-step partner progress inside Admin 360.
-// Read-only: detail catalogue/payment timestamps are evidence hints, never grants.
-function adminMerchant360ReadinessView(detail,now=Date.now()){
-  if(!adminRoleCanSection('partners')||detail?.type!=='merchant')return '';
-  const m=detail.merchant||{};
-  const summary=Array.isArray(adminRuntime.data?.merchants)
-    ?adminRuntime.data.merchants.find(row=>row?.id===m.id):null;
-  const progress=summary?adminMerchantProgressView(summary):
-    '<div class="notice" role="status">Etapas sem confirmação nesta sessão. Atualize o painel administrativo antes de decidir pela habilitação.</div>';
-  const listed=Array.isArray(detail.catalog)?detail.catalog.filter(p=>
-    p?.active===true&&Number.isSafeInteger(p.price_cents)&&p.price_cents>0&&
-    Number.isSafeInteger(p.available_stock)&&p.available_stock>0):[];
-  const fresh=listed.filter(p=>{
-    const t=Date.parse(String(p.price_confirmed_at||''));
-    return Number.isFinite(t)&&t<=now+60000&&now-t<=86400000;
-  }).length;
-  const feeAt=Date.parse(String(m.delivery_fee_confirmed_at||''));
-  const feeFresh=Number.isFinite(feeAt)&&feeAt<=now+60000&&now-feeAt<=86400000;
-  const methods=Array.isArray(detail.payments)?detail.payments.filter(p=>p?.active===true).length:0;
-  return '<section class="section" aria-label="Preparação do primeiro pedido da revenda">'+
-    '<h3>O que falta para receber o primeiro pedido?</h3>'+
-    progress+
-    '<div class="merchant-kpis">'+
-      '<div class="kpi"><span class="label">Produtos com estoque e preço</span><strong>'+
-        listed.length+'</strong></div>'+
-      '<div class="kpi"><span class="label">Preços confirmados em 24h</span><strong>'+
-        fresh+' de '+listed.length+'</strong></div>'+
-      '<div class="kpi"><span class="label">Taxa de entrega</span><strong>'+
-        (feeFresh?'Confirmada em 24h':'Reconfirmar')+'</strong></div>'+
-      '<div class="kpi"><span class="label">Meios de pagamento ativos</span><strong>'+
-        methods+'</strong></div>'+
-    '</div>'+
-    '<p class="tiny muted">Consulta interna, sem alteração de cadastro, pedidos, preços ou pagamentos. '+ 
-    'Meios ativos não garantem rota financeira elegível. O servidor deve validar cada requisito antes de vender.</p>'+
-  '</section>';
-}
 function adminDetailView(){
   const d=adminRuntime.detail;
   if(!d)return '';
@@ -1273,7 +1237,7 @@ function adminDetailView(){
         <div class="kpi"><span class="label">Pedidos</span><strong>${Number(metrics.orders||0)}</strong></div>
         <div class="kpi"><span class="label">Cancelamento</span><strong>${metrics.cancellationRate==null?'—':Math.round(metrics.cancellationRate*100)+'%'}</strong></div>
       </div>
-      ${adminMerchant360ReadinessView(d)}
+      ${adminMerchantProgressView((Array.isArray(adminRuntime.data?.merchants)?adminRuntime.data.merchants:[]).find(x=>x?.id===m.id))}
       <section class="section"><h3>Operação</h3><div class="card flat"><div class="order-line"><strong>Online:</strong> ${m.online?'sim':'não'} • <strong>Heartbeat:</strong> ${m.last_seen_at?esc(formatDateTime(m.last_seen_at)):'nunca'}</div><div class="order-line"><strong>Preço confirmado:</strong> ${m.price_confirmed_at?esc(formatDateTime(m.price_confirmed_at)):'nunca'}</div><div class="order-line"><strong>CNPJ:</strong> ${esc(m.cnpj||'—')}</div>${d.business?`<div class="order-line"><strong>Responsável:</strong> ${esc(d.business.responsible_name||'—')} • ${esc(d.business.whatsapp||'')}</div>`:''}</div></section>
       <section class="section"><h3>Compliance e capacidade</h3><div class="merchant-kpis"><div class="kpi"><span class="label">CNPJ</span><strong>${esc(d.compliance?.cnpj_status||'—')}</strong></div><div class="kpi"><span class="label">ANP</span><strong>${esc(d.compliance?.anp_status||'—')}</strong></div><div class="kpi"><span class="label">Pagamentos</span><strong>${(d.payments||[]).filter(x=>x.active).length}</strong></div><div class="kpi"><span class="label">Equipe</span><strong>${(d.members||[]).filter(x=>x.active).length}</strong></div></div></section>
       <section class="section"><h3>Catálogo</h3><div class="list">${(d.catalog||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.product_name)}</strong><br><small>${x.available_stock} em estoque • ${x.active?'ativo':'pausado'}</small></div><strong>${adminMoney(x.price_cents)}</strong></div>`).join('')||'<div class="tiny muted">Catálogo vazio.</div>'}</div></section>
