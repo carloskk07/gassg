@@ -126,7 +126,7 @@ assert.ok(!ctx.view(incomplete).includes('Ofertável segundo o servidor'));
 const empty=ctx.snapshot(null);
 assert.equal(empty.valid,false);
 assert.equal(ctx.view(null),'');
-const serverFalse={...merchant,readiness:{offerReady:false,nextAction:'confirm_offer'}};
+const serverFalse={...merchant,readiness:{...merchant.readiness,offerReady:false,nextAction:'confirm_offer'}};
 assert.equal(ctx.snapshot(serverFalse,now).done,6);
 assert.equal(ctx.snapshot(serverFalse,now).ready,false);
 const offline={...merchant,online:false};
