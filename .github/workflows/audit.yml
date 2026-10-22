@@ -108,6 +108,8 @@ jobs:
         run: node tests/admin-merchant-catalog-trial.mjs
       - name: Authoritative admin merchant readiness — same SKU and valid payment route
         run: node tests/admin-merchant-offer-coherence.mjs
+      - name: Admin offer availability matches public quote authority
+        run: node tests/admin-offer-scope-authority.mjs
       - name: Superadmin ad moderation and review queue client contract
         run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
