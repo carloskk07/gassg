@@ -3655,8 +3655,16 @@ function adminMerchantProgressSnapshot(m,now=Date.now()){
   const status=(raw,positive,negative=[])=>positive.includes(raw)?'done':negative.includes(raw)?'blocked':
     raw===null||raw===undefined?'unknown':'pending';
   const ownerState=ownerValid?'done':ownerIsKnown?'pending':'unknown';
-  const cnpjState=status(c.cnpj_status,['verified'],['rejected']);
-  const anpState=status(c.anp_status,['verified','not_required'],['rejected']);
+  // Use server-authoritative checks, including the current compliance policy
+  // and whether the active catalog now requires ANP.
+  const cnpjRecorded=status(c.cnpj_status,['verified'],['rejected']);
+  const anpRecorded=status(c.anp_status,['verified','not_required'],['rejected']);
+  const cnpjCurrent=m.readiness?.cnpjVerificationCurrent;
+  const anpCurrent=m.readiness?.anpVerificationCurrent;
+  const cnpjState=cnpjRecorded==='done'?
+    (cnpjCurrent===true?'done':cnpjCurrent===false?'pending':'unknown'):cnpjRecorded;
+  const anpState=anpRecorded==='done'?
+    (anpCurrent===true?'done':anpCurrent===false?'pending':'unknown'):anpRecorded;
   const rep=m.representationReview||null;
   const expiry=Date.parse(String(rep?.expires_at||''));
   const repVerified=!!rep&&rep.revoked_at==null
@@ -3673,8 +3681,15 @@ function adminMerchantProgressSnapshot(m,now=Date.now()){
     sourceReady===true?'done':sourceReady===false?'pending':'unknown';
   const steps=[
     {key:'owner',label:'Responsável vinculado',status:ownerState,detail:ownerState==='done'?'Conta permanente vinculada':'Confirmar o proprietário da conta'},
-    {key:'cnpj',label:'CNPJ verificado',status:cnpjState,detail:cnpjState==='done'?'Situação confirmada pelo administrativo':'Verificar documento e fonte oficial'},
-    {key:'anp',label:'Exigência ANP verificada',status:anpState,detail:c.anp_status==='not_required'?'Não exigida conforme registro de compliance':'Verificar situação ANP quando aplicável'},
+    {key:'cnpj',label:'CNPJ vigente',status:cnpjState,
+      detail:cnpjState==='done'?'Verificação vigente no servidor':
+        cnpjRecorded==='done'&&cnpjCurrent===false?'Reconfirmar CNPJ: validação anterior não está vigente':
+        cnpjRecorded==='done'?'Validade não retornada pelo servidor; atualize a consulta':'Verificar documento e fonte oficial'},
+    {key:'anp',label:'Exigência ANP vigente',status:anpState,
+      detail:anpState==='done'
+        ?(c.anp_status==='not_required'?'ANP não exigida para o catálogo ativo':'Verificação ANP vigente no servidor')
+        :anpRecorded==='done'&&anpCurrent===false?'Revalidar ANP ou revisar aplicabilidade ao catálogo ativo':
+        anpRecorded==='done'?'Validade ANP não retornada; atualize a consulta':'Verificar situação ANP quando aplicável'},
     {key:'representation',label:'Representação legal vigente',status:repState,detail:repState==='done'?'Poder de representação válido nesta consulta':'Conferir autorização e prazo de validade'},
     {key:'activation',label:'Cadastro operacional ativo',status:activation,detail:activation==='done'?'Ativado administrativamente':'A ativação exige análise individual'},
     {key:'presence',label:'Revenda online',status:presence,detail:presence==='done'?'Presença informada no servidor':'Responsável precisa estar disponível no portal'},
