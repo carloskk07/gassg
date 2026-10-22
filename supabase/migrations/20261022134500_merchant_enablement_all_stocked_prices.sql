@@ -142,7 +142,7 @@ select c.id,c.name,c.cnpj,c.city,c.state,c.status,
   statement_timestamp() as checked_at
 from checked c
 order by c.authoritative_offer_ready asc, c.name,c.id;
-$function$
+$function$;
 
 -- Preserve service-only EXECUTE, never grant diagnostic to unauthenticated clients.
 revoke all on function public.merchant_enablement_diagnostic_v1_158(uuid,uuid) from public, anon, authenticated;
