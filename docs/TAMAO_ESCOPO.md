@@ -38,6 +38,41 @@ Cobrança diária, quando existir, exige aceite informado, período gratuito, ev
 
 A autorização para anúncio de profissionais ou hospedagens **não herda** a abertura de cidades para pedidos de gás/água. A publicação de código **não ativa** anúncios ou cobranças. Documentação privada não é entregue a visitantes. Contato internacional deve funcionar sem obrigar o visitante a criar conta.
 
+## Regra obrigatória de conclusão operacional — 22/10/2026
+
+**Decisão do proprietário (obrigatória para TODAS as modalidades, inclusive as já implementadas):** nenhuma funcionalidade será considerada **CONCLUÍDA** por existir código, tela pública, migração, teste unitário aprovado, PR integrada, deploy com HTTP 200 ou integração aparentemente configurada. É necessário comprovar **da ação inicial do usuário até o resultado final esperado** com evidências observáveis e registradas.
+
+### Estados diferentes, sem promover automaticamente
+
+- **EM IMPLEMENTAÇÃO:** existem atividades de engenharia pendentes.
+- **IMPLEMENTADA:** código e interface disponíveis; não implica integração, disponibilidade pública ou operação útil.
+- **EM VALIDAÇÃO:** testes automatizados e/ou de integração em andamento; qualquer lacuna impede dizer concluída.
+- **PILOTO CONTROLADO:** exposição limitada e expressamente autorizada, com portão mínimo de segurança da seção seguinte, correção de incidentes, canal de suporte e capacidade de pausa; **não equivale** a concluída.
+- **CONCLUÍDA:** todos os critérios objetivos do ciclo integral foram comprovados e registrados, sem falha crítica aberta.
+- **BLOQUEADA:** existe impedimento P0/P1, financeiro, de segurança, operacional ou ausência de evidência obrigatória. Código pronto pode permanecer bloqueado.
+
+**Proibição:** não inferir `CONCLUÍDA` a partir de um resultado de CI, do título de PR/versão, do estado de migração, do rótulo de Admin ou de um teste simulado. Nem usar `PILOTO CONTROLADO` para ocultar lacunas ou divulgar ganho/recebimento que não ocorreu.
+
+### Portão de aceitação por funcionalidade
+
+Para avançar a **CONCLUÍDA**, registrar no diário oficial, na seção de gates operacionais (não abrir sistema/documento concorrente):
+
+1. **Ciclo e contrato:** público e responsável autorizados, gatilho inicial real, resultado final mensurável, critérios positivos/negativos e caminho de suspensão/recuperação.
+2. **Automação:** resultados dos testes automatizados e regressões relevantes no SHA exato, inclusive erros, duplicidade, concorrência, permissões, privacidade e rollback quando pertinente.
+3. **Integração real:** jornada ponta a ponta usando interfaces, autenticação, banco, serviços e provedor efetivamente ligados; testes isolados/mocks devem ser rotulados, não confundidos com integração real.
+4. **Implantação:** correlação do SHA aprovado com portal/ambiente efetivamente publicado; teste HTTP/navegador real quando aplicável.
+5. **Financeiro (quando aplicável):** origem/titularidade do dinheiro, recebimento confirmado pelo provedor, deduplicação/webhooks, custos/margem, crédito/obrigação, estorno, identificação correta do beneficiário, autorização de saída e liquidação comprovada por evidência independente. Cobranças, Pix, cashback, cupom e comissão não se concluem com aprovação estática.
+6. **Evidência auditável:** data, ambiente, autorizações, identificadores não sensíveis ou referências a registros privados no Admin, relatório/testes, critério de êxito, desvios e ausência de P0/P1 conhecidos; nenhuma informação pessoal ou segredo em documentação pública.
+7. **Revisão:** registrar confirmação do resultado final, não apenas evento intermediário. Se uma etapa crítica for inconclusiva, permanecer **EM VALIDAÇÃO** ou **BLOQUEADA**.
+
+**Antes de ampliar o escopo**, concluir o ciclo de uma funcionalidade prioritária já existente, corrigindo defeitos na mesma implementação. Reaproveitar o financeiro, os eventos, o painel Admin, o suporte e as migrations atuais; não duplicar páginas, contas, carteiras, ledger, endpoints, tabelas ou versões. Novas modalidades independentes só avançam sem prejudicar a conclusão do núcleo útil.
+
+### Regra de teste versus evidência
+
+O contrato automatizado `tests/tamao-execution-checkpoint.mjs` deve rejeitar registros de conclusão sem todos os campos de prova; **esse teste verifica a presença e consistência dos registros, não autentica o provedor nem substitui o E2E**. A equipe deve conferir a evidência real antes de preencher qualquer campo. Uma integração real impossível de testar ou uma autorização financeira ausente deve ficar explicitamente pendente.
+
+---
+
 ## Política de lançamento assistido e homologação em uso real
 
 **Decisão do responsável pelo TAMÃO em 18/10/2026:** priorizar entrada em operação, aprendizado com compradores, revendas e anunciantes reais, e correções rápidas a partir de erros observados e reclamações. Não exigir a conclusão de todos os cenários de homologação, todas as combinações de telas ou a operação de todos os módulos antes de abrir o primeiro uso real controlado. A experiência real complementará os testes, sem representar homologação concluída automaticamente.
