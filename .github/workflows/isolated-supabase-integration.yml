@@ -84,7 +84,7 @@ jobs:
                   original=int(match.group(1))
                   effective=original if previous is None or original>previous else previous+1
                   previous=effective
-                  name=f'{effective:014d}'+'_'+match.group(2)+'.sql
+                  name=f'{effective:014d}'+'_'+match.group(2)+'.sql'
                   if name!=source.name:
                       normalized+=1
                   target=Path(tmp)/source.name
