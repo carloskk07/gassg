@@ -14,6 +14,29 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Controle operacional de conclusão (regra do proprietário — 22/10/2026)
+
+A **regra obrigatória** e os critérios de aceitação estão no [escopo oficial](TAMAO_ESCOPO.md#regra-obrigatória-de-conclusão-operacional--22102026). Aqui fica o **único registro de evidências** por jornada prioritária: **IMPLEMENTADA/EM VALIDAÇÃO não é CONCLUÍDA**. Não transformar um teste mock, documentação, build ou deploy em prova do ciclo integral. Todas as células marcadas `PENDENTE` são comprovações não realizadas **nesta auditoria**, não alegações de defeito funcional. Para registros já comprovados em outros checkpoints, revisar evidências reais antes de atualizar a linha.
+
+Uma jornada somente pode ser promovida a **CONCLUÍDA** após preencher **todas** as evidências exigidas, com prova de testes automatizados no commit, integração real ponta a ponta, resultado financeiro do provedor **quando aplicável**, resultado final observado, SHA publicado e exercício de pausa/recuperação. Não adicionar dados bancários ou pessoais ao GitHub; apontar para registro privado do Admin quando necessário. O CI verifica integridade desse registro, **não verifica se uma transação bancária aconteceu**.
+
+<!-- INICIO_GATES_OPERACIONAIS -->
+| ID | Jornada | Estado | Ação inicial até resultado final | Testes automatizados | Integração real | Prova financeira | Evidência final | SHA publicado | Pausa/rollback | Pendência |
+|---|---|---|---|---|---|---|---|---|---|---|
+| OP-ORDER | Compra e entrega | EM VALIDAÇÃO | Cotação elegível → pedido → aceite → entrega → encerramento correto | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | E2E com revenda apta, reversão e conciliação |
+| OP-MERCHANT | Cadastro até primeira venda | EM VALIDAÇÃO | Cadastro real → verificação → catálogo/preços/entrega → oferta pública → venda | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | Comprovar credenciais, catálogo vigente e autorização real |
+| OP-PIX | Recarga e cobrança Pix | EM VALIDAÇÃO | Fatura → BR Code válido → pagamento confirmado pelo PSP → crédito conciliado | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | Comprovar liquidação, idempotência e estorno no provedor |
+| OP-REFERRAL | Renda por indicação | EM VALIDAÇÃO | Indicação válida → venda liquidada → comissão elegível → recebimento pelo beneficiário | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | Verificar identidade de destino e liquidação externa |
+| OP-COUPON | Cupom pago | BLOQUEADA | Compra de cupom → Pix liquidado → voucher emitido → resgate legítimo e reconciliação | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | Edge de venda não instalada na inspeção, financiamento/reversões por provar |
+| OP-DISCOVERY | Profissionais, caronas e hospedagens | EM VALIDAÇÃO | Anunciante autenticado → revisão → publicação autorizada → busca/contato → pausa | PENDENTE | PENDENTE | NÃO SE APLICA: publicação e contato gratuitos sem cobrança nesta jornada | PENDENTE | PENDENTE | PENDENTE | Auth/Storage/RLS/E2E com usuários e cidade real |
+| OP-MOBILITY | Pedido de carro ou moto | EM VALIDAÇÃO | Solicitação → aceite do condutor → acompanhamento consentido → chegada → encerramento | PENDENTE | PENDENTE | NÃO SE APLICA: transporte é combinado entre particulares fora do caixa TAMÃO | PENDENTE | PENDENTE | PENDENTE | Dispositivos reais, localização consentida e autorização do motorista |
+| OP-ADS | Publicidade paga | EM VALIDAÇÃO | Contrato válido → cobrança conciliada → veiculação real → medição → fechamento | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | PENDENTE | Comprovar contrato, receita do PSP e entrega contratada |
+<!-- FIM_GATES_OPERACIONAIS -->
+
+**Ordem de conclusão do núcleo útil:** (1) compra/revenda e cobrança segura; (2) indicação e primeiro repasse externo comprovado; (3) cupons e publicidade somente após fechamento econômico; (4) verticais independentes após seus E2E reais. Corrigir nas rotas/tabelas/controles já existentes, sem novo painel financeiro nem versões concorrentes. Exposição limitada em piloto pode ocorrer conforme o portão mínimo do escopo, **mas deve permanecer PILOTO CONTROLADO e nunca CONCLUÍDA até a prova integral**.
+
+---
+
 ## Estado real recuperado em 18/10/2026
 
 - Repositório `main` conferido na SHA acima; branch de expansão existente, não criar outra.
