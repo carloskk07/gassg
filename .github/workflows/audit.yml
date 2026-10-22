@@ -106,6 +106,8 @@ jobs:
         run: node tests/admin-clube-finance-status.mjs
       - name: Admin merchant catalog dry-run without orders or Pix
         run: node tests/admin-merchant-catalog-trial.mjs
+      - name: Authoritative admin merchant readiness — same SKU and valid payment route
+        run: node tests/admin-merchant-offer-coherence.mjs
       - name: Superadmin ad moderation and review queue client contract
         run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
