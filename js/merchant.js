@@ -3576,73 +3576,25 @@ async function merchantLiveToggleOnline(online){
   try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
 }
 const merchantCatalogSaving=new Set();
-// Each price is individually reviewed by the merchant and committed with the
-// existing per-SKU optimistic version check and audit trail. Partial is not all.
-let merchantBulkPriceBusy=false;
-async function merchantLiveConfirmReviewedPrices(){
-  const rt=globalThis.merchantRuntime||{};
-  if(merchantBulkPriceBusy||rt.actionPending===true||rt.status!=='ready'||
-     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
-  if(merchantQuickHasDrafts(rt)){
-    toast('Salve ou descarte primeiro os ajustes rápidos que ainda estão pendentes.');
-    return;
-  }
-  const codeOk=code=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code);
-  const eligible=(rt.catalog||[]).filter(p=>
-    p.active===true&&codeOk(String(p.productCode||''))&&
-    Number.isSafeInteger(p.priceCents)&&p.priceCents>0&&p.priceCents<=1000000&&
-    Number.isSafeInteger(p.availableStock)&&p.availableStock>0&&
-    !merchantTimestampFresh(p.priceConfirmedAt));
-  const chosen=eligible.filter(p=>document.getElementById('merchant-review-price-'+p.productCode)?.checked===true);
-  if(!chosen.length)return toast('Marque os preços e estoques que você conferiu.');
-  if(chosen.length>12)return toast('Confira até 12 produtos por vez.');
-  for(const p of chosen){
-    const code=p.productCode;
-    const number=id=>Number(document.getElementById(id+'-'+code)?.value);
-    const mode=String(document.getElementById('live-pricing-mode-'+code)?.value||'');
-    const strategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'');
-    const unchanged=Math.round(number('live-price')*100)===p.priceCents&&
-      number('live-stock')===p.availableStock&&
-      document.getElementById('live-active-'+code)?.checked===true&&
-      mode===(p.pricingMode||'fixed')&&
-      (mode!=='range'||(Math.round(number('live-min-price')*100)===p.minPriceCents&&
-        Math.round(number('live-max-price')*100)===p.maxPriceCents&&
-        strategy===(p.pricingStrategy||'balanced')));
-    if(!unchanged||!Number.isFinite(Date.parse(String(p.updatedAt||'')))){
-      toast('Existem alterações ainda não salvas ou dados antigos em '+code+'. Salve esse produto antes de confirmar em conjunto.');
-      return;
-    }
-  }
-  if(typeof confirm!=='function'||!confirm('Confirmar que você conferiu os preços e estoques salvos de '+chosen.length+' produto(s)? Cada produto será registrado separadamente.'))return;
-  merchantBulkPriceBusy=true;
-  let completed=0,reason='';
-  const merchantId=String(rt.merchant?.merchantId||'');
-  try{
-    for(const p of chosen){
-      const now=globalThis.merchantRuntime||{};
-      const current=(now.catalog||[]).find(x=>x.productCode===p.productCode);
-      if(now.status!=='ready'||now.merchant?.merchantId!==merchantId||
-         !['owner','manager'].includes(String(now.merchant?.memberRole||''))||
-         now.actionPending===true||!current||current.updatedAt!==p.updatedAt||
-         current.priceCents!==p.priceCents||current.availableStock!==p.availableStock||
-         current.active!==true)throw new Error('O cadastro mudou. Atualize e revise os produtos restantes.');
-      await merchantUpdateProductLive(p.productCode,p.priceCents,p.availableStock,true);
-      const refreshed=(globalThis.merchantRuntime?.catalog||[]).find(x=>x.productCode===p.productCode);
-      if(!refreshed||refreshed.priceCents!==p.priceCents||
-         refreshed.availableStock!==p.availableStock||
-         !merchantTimestampFresh(refreshed.priceConfirmedAt))
-        throw new Error('Confirmação sem leitura atualizada. Revise a situação antes de continuar.');
-      completed++;
-    }
-  }catch(error){reason=String(error?.message||error||'Erro ao confirmar');}
-  finally{merchantBulkPriceBusy=false;}
-  toast(reason
-    ?completed+' de '+chosen.length+' preço(s) reconfirmado(s). Interrompido: '+reason
-    :completed+' preço(s) reconfirmado(s) e verificado(s) no servidor.');
+// Loaded only when a merchant actually chooses to confirm reviewed prices.
+// Keep the Admin initial JS bundle below its strict performance limit.
+let merchantPriceBatchLoading=false;
+function merchantPriceBatchStart(){
+  if(merchantPriceBatchLoading)return;
+  if(typeof merchantLiveConfirmReviewedPrices==='function')return merchantLiveConfirmReviewedPrices();
+  merchantPriceBatchLoading=true;
+  const source=document.querySelector('script[src*="/js/merchant.js"]')?.src||'';
+  let version='';
+  try{version=new URL(source,location.href).searchParams.get('v')||'';}catch{}
+  const script=document.createElement('script');
+  script.src='./js/merchant-price-batch.js'+(/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
+  script.onload=()=>{merchantPriceBatchLoading=false;merchantLiveConfirmReviewedPrices();};
+  script.onerror=()=>{merchantPriceBatchLoading=false;toast('Não foi possível carregar a confirmação. Tente novamente.');};
+  document.head.appendChild(script);
 }
 
 async function merchantLiveSaveProduct(code){
-  if(merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
+  if(typeof merchantBulkPriceBusy!=='undefined'&&merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
   if(merchantCatalogSaving.has(code))return;
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
@@ -4301,8 +4253,8 @@ function merchantLiveCatalog(){
         BRL.format(item.priceCents/100)+' • estoque '+Number(item.availableStock)+
         ' • '+(item.pricingMode==='range'?'faixa de preço mantida':'preço fixo')+
         '</small></span></label>').join('')+
-      '<button type="button" class="primary full" onclick="merchantLiveConfirmReviewedPrices()"'+
-      (merchantBulkPriceBusy||rt.actionPending?' disabled':'')+
+      '<button type="button" class="primary full" onclick="merchantPriceBatchStart()"'+
+      (rt.actionPending?' disabled':'')+
       '>Confirmar preços revisados</button>'+
       '<small class="muted">Cada item é salvo com controle de versão e conferido novamente no servidor. Se um falhar, os seguintes não são enviados.</small>'+
       '</section>'
