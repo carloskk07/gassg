@@ -7,8 +7,8 @@ const merchant=read('js/merchant.js'),source=read('js/merchant-price-batch.js'),
 new vm.Script(merchant,{filename:'js/merchant.js'});
 new vm.Script(source,{filename:'js/merchant-price-batch.js'});
 const start=source.indexOf('let merchantBulkPriceBusy=false;');
-const end=source.indexOf('\nasync function merchantLiveSaveProduct(',start);
-assert.ok(start>0&&end>start,'batch uses the existing catalog update API');
+const end=source.length;
+assert.ok(start>0&&end>start,'batch is kept in the deferred module');
 const functionSource=source.slice(start,end);
 assert.doesNotMatch(functionSource,/merchantInvoke\s*\(|\.rpc\s*\(|fetch\s*\(/,
  'no new server call or unaudited mutation');
