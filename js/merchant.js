@@ -2215,12 +2215,14 @@ function merchantLivePage(){
     ['regulated_glp','regulated_glp_container'].includes(String(item.deliveryClass||''))));
   const cnpjCurrent=compliance.cnpjCurrent===true;
   const anpCurrent=compliance.anpCurrent===true;
-  const complianceReady=cnpjCurrent&&(!hasGlp||anpCurrent);
+  // anpCurrent is computed by the server against the complete active catalog,
+  // including regulated registry classes unavailable in this UI payload.
+  const complianceReady=cnpjCurrent&&anpCurrent;
   const cnpjWhen=compliance.cnpjVerifiedAt?formatDateTime(compliance.cnpjVerifiedAt):'nunca';
-  const anpWhen=compliance.anpVerifiedAt?formatDateTime(compliance.anpVerifiedAt):(hasGlp?'nunca':'não exigida para o catálogo atual');
+  const anpWhen=compliance.anpVerifiedAt?formatDateTime(compliance.anpVerifiedAt):'nunca';
   const complianceNotice=complianceReady
-    ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
-    : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${hasGlp&&!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
+    ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Situação ANP vigente segundo a verificação completa do servidor para o catálogo atual.'}</div>`
+    : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
   const canGoOnline=m.status==='active'&&complianceReady&&commercialReady&&!financialHold;
   const orientation=orderEvidence.fresh?merchantWorkspaceOrientation(rt,{
     canGoOnline,connectionHealthy,financialHold,orders

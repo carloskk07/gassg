@@ -104,12 +104,15 @@ const checkCompliance=(catalog,compliance)=>{
 };
 const verified={cnpjCurrent:true,anpCurrent:false};
 for(const item of ['WATER20','WOOD','CHARCOAL_5KG','ICE_BAR_10KG']){
- const value=checkCompliance([{active:true,productCode:item}],verified);
- assert.equal(value.hasGlp,false,item+' should not require ANP');
- assert.equal(value.complianceReady,true,item+' may satisfy this UI compliance gate without ANP');
+ const value=checkCompliance([{active:true,productCode:item}],{cnpjCurrent:true,anpCurrent:true});
+ assert.equal(value.hasGlp,false,item+' is not locally classed as ANP-regulated');
+ assert.equal(value.complianceReady,true,item+' is permitted when the server confirms ANP is non-applicable');
+ assert.equal(checkCompliance([{active:true,productCode:item}],verified).complianceReady,false,
+  'missing or contradictory server ANP evidence must fail closed: '+item);
 }
-assert.equal(checkCompliance([{active:false,productCode:'P13'}],verified).complianceReady,true,
- 'inactive GLP must not impose ANP on active non-GLP catalog');
+assert.equal(checkCompliance([{active:false,productCode:'P13'}],
+ {cnpjCurrent:true,anpCurrent:true}).complianceReady,true,
+ 'inactive GLP must not impose an ANP requirement on non-GLP products');
 for(const item of ['P13','P13_CONTAINER','P90_CONTAINER']){
  const value=checkCompliance([{active:true,productCode:item}],verified);
  assert.equal(value.hasGlp,true,item+' remains regulated');
@@ -121,7 +124,13 @@ assert.equal(checkCompliance([{active:true,productCode:'CUSTOM_ITEM',deliveryCla
  verified).complianceReady,false,'backend-regulated delivery classes must still require ANP');
 assert.equal(checkCompliance([{active:true,productCode:'WATER20'}],
  {cnpjCurrent:false,anpCurrent:true}).complianceReady,false,'CNPJ remains mandatory');
-assert.ok(live.includes('hasGlp&&!anpCurrent?'),
- 'non-GLP stores must not display a fictitious expired ANP warning');
+assert.ok(live.includes('!anpCurrent?'),
+ 'ANP warnings must follow authoritative server verdict even for unclassified regulated SKUs');
+assert.ok(!live.includes('Sem GLP ativo no catálogo; ANP não é exigida'),
+ 'a missing delivery class must never be presented as evidence of ANP exemption');
+assert.equal(checkCompliance([{active:true,productCode:'REGULATED_CUSTOM'}],verified).complianceReady,false,
+ 'when the server marks a custom regulated SKU ineligible, UI must fail closed');
+assert.equal(checkCompliance([{active:true,productCode:'REGULATED_CUSTOM'}],
+ {cnpjCurrent:true,anpCurrent:true}).complianceReady,true);
 
 console.log('V1.303 PASS — merchant tasks and orders first, owner-only guidance, admin control and retained operations.');
