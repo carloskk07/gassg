@@ -1039,8 +1039,17 @@ function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents
   const freightCheckedAt=Date.parse(String(merchant.delivery_fee_confirmed_at||''));
   const deliveryNeedsReview=!Number.isFinite(freightCheckedAt)||
     freightCheckedAt>now||now-freightCheckedAt>86400000;
-  const hasRegulatedProduct=items.some(x=>x.productCode==='P13'||/^P(?:5|20|45)$/.test(x.productCode));
-  const mixedLoad=hasRegulatedProduct&&items.length>1;
+  // Match the server's P1–P90 / cylinder family; classify registered custom
+  // codes using the already-authorized admin registry, without new requests.
+  const profiles=Array.isArray(adminRuntime.data?.productRegistry?.products)
+    ?adminRuntime.data.productRegistry.products:[];
+  const isGlp=item=>{
+    const code=String(item.productCode||'').toUpperCase();
+    if(/^P(?:[1-9]|[1-8][0-9]|90)(?:_CONTAINER)?$/.test(code))return true;
+    return profiles.some(p=>p?.active===true&&p.product_code===code&&
+      ['regulated_glp','regulated_glp_container'].includes(p.delivery_class));
+  };
+  const mixedLoad=items.some(isGlp)&&items.some(item=>!isGlp(item));
   const mixedLoadVerified=Array.isArray(detail?.deliveryCapabilities)&&
     detail.deliveryCapabilities.some(x=>x?.capability_code==='regulated_glp_mixed_load_verified'&&x.active===true);
   return {ok:true,source:'admin_merchant_basket_internal_calculator_v1',
