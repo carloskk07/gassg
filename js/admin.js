@@ -620,6 +620,32 @@ async function adminOpenEntity(entityType,entityId){
     render();
   }
 }
+// Admin 360 is consultative. Return to the existing audited review controls
+// for the *same* merchant without granting permissions or saving anything.
+function adminMerchantReturnToControls(merchantId){
+  const id=String(merchantId||'');
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('partners')||
+     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)||
+     !Array.isArray(adminRuntime.data?.merchants)||
+     !adminRuntime.data.merchants.some(x=>x?.id===id))return false;
+  const session=adminRuntime.session;
+  adminRuntime.detail=null;
+  adminRuntime.section='partners';
+  render();
+  requestAnimationFrame(()=>{
+    if(adminRuntime.status!=='ready'||adminRuntime.session!==session||
+       !adminRoleCanSection('partners'))return;
+    const card=document.getElementById('admin-partner-work-merchant-'+id);
+    if(!card){
+      toast('O cadastro não está visível nesta consulta. Atualize os parceiros.');
+      return;
+    }
+    const compliance=document.getElementById('cnpj-'+id);
+    (compliance||card).focus({preventScroll:true});
+    card.scrollIntoView({block:'center',behavior:'instant'});
+  });
+  return true;
+}
 function adminCloseDetail(){
   adminRuntime.detail=null;
   render();
@@ -1238,6 +1264,9 @@ function adminDetailView(){
         <div class="kpi"><span class="label">Cancelamento</span><strong>${metrics.cancellationRate==null?'—':Math.round(metrics.cancellationRate*100)+'%'}</strong></div>
       </div>
       ${adminMerchantProgressView((Array.isArray(adminRuntime.data?.merchants)?adminRuntime.data.merchants:[]).find(x=>x?.id===m.id))}
+      <div class="order-actions" style="margin:12px 0">
+        <button type="button" class="primary small" onclick="adminMerchantReturnToControls('${esc(m.id)}')">Revisar documentos e habilitação</button>
+      </div>
       <section class="section"><h3>Operação</h3><div class="card flat"><div class="order-line"><strong>Online:</strong> ${m.online?'sim':'não'} • <strong>Heartbeat:</strong> ${m.last_seen_at?esc(formatDateTime(m.last_seen_at)):'nunca'}</div><div class="order-line"><strong>Preço confirmado:</strong> ${m.price_confirmed_at?esc(formatDateTime(m.price_confirmed_at)):'nunca'}</div><div class="order-line"><strong>CNPJ:</strong> ${esc(m.cnpj||'—')}</div>${d.business?`<div class="order-line"><strong>Responsável:</strong> ${esc(d.business.responsible_name||'—')} • ${esc(d.business.whatsapp||'')}</div>`:''}</div></section>
       <section class="section"><h3>Compliance e capacidade</h3><div class="merchant-kpis"><div class="kpi"><span class="label">CNPJ</span><strong>${esc(d.compliance?.cnpj_status||'—')}</strong></div><div class="kpi"><span class="label">ANP</span><strong>${esc(d.compliance?.anp_status||'—')}</strong></div><div class="kpi"><span class="label">Pagamentos</span><strong>${(d.payments||[]).filter(x=>x.active).length}</strong></div><div class="kpi"><span class="label">Equipe</span><strong>${(d.members||[]).filter(x=>x.active).length}</strong></div></div></section>
       <section class="section"><h3>Catálogo</h3><div class="list">${(d.catalog||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.product_name)}</strong><br><small>${x.available_stock} em estoque • ${x.active?'ativo':'pausado'}</small></div><strong>${adminMoney(x.price_cents)}</strong></div>`).join('')||'<div class="tiny muted">Catálogo vazio.</div>'}</div></section>

@@ -156,4 +156,53 @@ assert.ok(css.includes('@media(max-width:390px)'));
 assert.ok(css.includes('@media(prefers-reduced-motion:reduce)'));
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-merchant-progress-v1-196.mjs'));
 assert.ok(!source.includes('admin_finance_merchant_performance_v1_190'));
+// Merchant 360 must take the administrator to the existing authorized
+// controls, not invent an alternate verifier or auto-approve a partner.
+vm.runInContext(fn('adminMerchantReturnToControls')+
+ '\nthis.goControls=adminMerchantReturnToControls;',ctx);
+assert.ok(source.includes("adminMerchantReturnToControls('${esc(m.id)}')"),
+ '360 includes the correct merchant-specific review action');
+const originalRole=role;
+const originalData=rt.data;
+const originalSection=rt.section;
+let rendered=0,focused='',scrolled=false,flash='';
+const selected='22222222-2222-4222-8222-222222222222';
+const partnerCard={focus(){focused='card';},scrollIntoView(){scrolled=true}};
+const cnpjField={focus(){focused='cnpj';}};
+ctx.render=()=>{rendered++;};
+ctx.toast=x=>{flash=String(x);};
+ctx.requestAnimationFrame=callback=>callback();
+ctx.document={getElementById:id=>id==='admin-partner-work-merchant-'+selected?partnerCard:
+ id==='cnpj-'+selected?cnpjField:null};
+rt.status='ready';
+rt.section='dashboard';
+rt.detail={type:'merchant',merchant:{id:selected}};
+rt.session={user:{id:user}};
+rt.data={merchants:[{id:selected}]};
+role='operations';
+assert.equal(ctx.goControls(selected),true);
+assert.equal(rt.section,'partners');
+assert.equal(rt.detail,null);
+assert.equal(focused,'cnpj');
+assert.equal(scrolled,true);
+assert.equal(rendered,1);
+const beforeMismatch=rendered;
+assert.equal(ctx.goControls('33333333-3333-4333-8333-333333333333'),false);
+assert.equal(rendered,beforeMismatch,'cannot navigate to a different unseen merchant');
+assert.equal(ctx.goControls('invalid'),false);
+role='finance';
+assert.equal(ctx.goControls(selected),false,'finance-only account cannot navigate merchant controls');
+assert.equal(rendered,beforeMismatch,'role rejection never rerenders');
+role='operations';
+rt.status='unauthenticated';
+assert.equal(ctx.goControls(selected),false);
+rt.status='ready';
+ctx.document={getElementById:()=>null};
+assert.equal(ctx.goControls(selected),true,'same merchant can be selected from loaded data');
+assert.match(flash,/não está visível/,'missing DOM does not fabricate completion');
+assert.ok(!fn('adminMerchantReturnToControls').includes('adminPerform('));
+rt.data=originalData;
+rt.section=originalSection;
+role=originalRole;
+
 console.log('V1.196: seven evidence-specific milestones; unknown, mismatch, revoked, expired, stale, no-writing, role and mobile styles passed.');
