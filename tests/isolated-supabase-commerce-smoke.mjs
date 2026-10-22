@@ -114,6 +114,17 @@ VALUES (
  false
 );
 
+-- A real order INSERT is protected by guard_new_order_delivery_payment.
+-- The fixture must satisfy that guard; bypassing it would invalidate the test.
+INSERT INTO public.merchant_payment_methods(merchant_id,payment_method,active)
+VALUES('00000000-0000-4000-8000-000000000022','cash',true);
+INSERT INTO public.merchant_payment_routes(
+ merchant_id,payment_method,provider,channel,verification_mode,active
+) VALUES(
+ '00000000-0000-4000-8000-000000000022',
+ 'cash','manual','delivery','merchant_confirmed',true
+);
+
 INSERT INTO public.orders(
  id,public_code,customer_id,merchant_id,status,address_text,
  payment_method,gross_total_cents,total_cents,attempted_merchant_ids,
