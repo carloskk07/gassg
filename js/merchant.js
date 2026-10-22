@@ -3576,7 +3576,25 @@ async function merchantLiveToggleOnline(online){
   try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
 }
 const merchantCatalogSaving=new Set();
+// Loaded only when a merchant actually chooses to confirm reviewed prices.
+// Keep the Admin initial JS bundle below its strict performance limit.
+let merchantPriceBatchLoading=false;
+function merchantPriceBatchStart(){
+  if(merchantPriceBatchLoading)return;
+  if(typeof merchantLiveConfirmReviewedPrices==='function')return merchantLiveConfirmReviewedPrices();
+  merchantPriceBatchLoading=true;
+  const source=document.querySelector('script[src*="/js/merchant.js"]')?.src||'';
+  let version='';
+  try{version=new URL(source,location.href).searchParams.get('v')||'';}catch{}
+  const script=document.createElement('script');
+  script.src='./js/merchant-price-batch.js'+(/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
+  script.onload=()=>{merchantPriceBatchLoading=false;merchantLiveConfirmReviewedPrices();};
+  script.onerror=()=>{merchantPriceBatchLoading=false;toast('Não foi possível carregar a confirmação. Tente novamente.');};
+  document.head.appendChild(script);
+}
+
 async function merchantLiveSaveProduct(code){
+  if(typeof merchantBulkPriceBusy!=='undefined'&&merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
   if(merchantCatalogSaving.has(code))return;
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
@@ -4224,6 +4242,23 @@ function merchantLiveCatalog(){
     :'<div class="merchant-catalog-all-clear"><strong>Sem pendências nos produtos ativos.</strong>'+
       '<span>'+(!configured.length?'Adicione seu primeiro produto para começar.':'Você pode revisar preços e estoques quando precisar.')+'</span></div>';
 
+  const batchChoices=review.filter(item=>item.active&&item.availableStock>0&&
+    item.priceCents>0&&!merchantTimestampFresh(item.priceConfirmedAt));
+  const batchReview=batchChoices.length
+    ?'<section class="card flat form-stack" aria-label="Conferir preços salvos">'+
+      '<h2>Confirmar preços já cadastrados</h2>'+
+      '<p class="tiny muted">Confira os valores e o estoque salvos abaixo. Marque somente os produtos que você verificou hoje. Ajustes ainda não salvos devem ser feitos no produto antes desta confirmação.</p>'+
+      batchChoices.slice(0,12).map(item=>'<label class="check-row"><input type="checkbox" id="merchant-review-price-'+
+        item.productCode+'"><span><strong>'+esc(item.productName)+'</strong><small>'+
+        BRL.format(item.priceCents/100)+' • estoque '+Number(item.availableStock)+
+        ' • '+(item.pricingMode==='range'?'faixa de preço mantida':'preço fixo')+
+        '</small></span></label>').join('')+
+      '<button type="button" class="primary full" onclick="merchantPriceBatchStart()"'+
+      (rt.actionPending?' disabled':'')+
+      '>Confirmar preços revisados</button>'+
+      '<small class="muted">Cada item é salvo com controle de versão e conferido novamente no servidor. Se um falhar, os seguintes não são enviados.</small>'+
+      '</section>'
+    :'';
   const addableProducts=merchantCatalogAvailableChoices(rt);
   const addableCategories=[...new Set(addableProducts.map(item=>item.categoryName))];
   const addRegistered=addableProducts.length
@@ -4276,6 +4311,7 @@ function merchantLiveCatalog(){
     <span class="section-kicker">MINHA LOJA</span><h1 class="page-title">Produtos da minha revenda</h1>
     <p class="muted">Comece pelos produtos que já cadastrou: toque para informar preço e estoque. Cada SKU possui sua própria confirmação de preço; somente itens elegíveis aparecem nas ofertas.</p>
     ${reviewSection}
+    ${batchReview}
     <div class="merchant-catalog-head"><strong>Meus produtos</strong><span>${configured.length} cadastrado(s)</span></div>
     <div class="merchant-catalog-list">${configuredRows||'<div class="empty card">Sua lista está vazia. Abra “Adicionar produto” abaixo e escolha o que deseja vender.</div>'}</div>
     <details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">

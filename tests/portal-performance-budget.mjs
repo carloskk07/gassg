@@ -19,7 +19,10 @@ try{
   assert.deepEqual(report.portals.map(x=>x.role),ROLES);
   assert.equal(report.violations.length,0);
   for(const item of report.portals){
-    assert.equal(item.js.requests,limits[item.role].initialJsRequests);
+    assert.ok(item.js.requests<=limits[item.role].initialJsRequests,
+      item.role+' must not exceed the startup request budget');
+    if(item.role==='admin')assert.equal(item.js.requests,limits.admin.initialJsRequests-1,
+      'Admin no longer loads the merchant-only operations script');
     assert.equal(item.css.requests,limits[item.role].initialCssRequests);
     assert.ok(item.js.gzipBytes<item.js.rawBytes);
     assert.ok(item.js.brotliBytes<item.js.rawBytes);

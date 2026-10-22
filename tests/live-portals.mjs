@@ -80,14 +80,18 @@ for(const {role,path:dir} of built){
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
   // A customer/merchant release must neither execute, precache nor ship
   // privileged administration UI modules. The admin release keeps them.
-  // Only the partner and administration portals ship the heavy merchant
-  // operations module; public visitors still have the public merchant landing.
+  // Only the revenda portal ships privileged merchant operations.
+  // Admin and public visitors share the separate merchant acquisition landing.
   const merchantScript='<script defer src="./js/merchant.js?v=test-sha"></script>';
   const merchantCache="'./js/merchant.js?v=test-sha'";
-  const hasPartnerOperations=role!=='customer';
+  const hasPartnerOperations=role==='merchant';
   assert.equal(html.includes(merchantScript),hasPartnerOperations,role+' HTML: merchant.js');
   assert.equal(sw.includes(merchantCache),hasPartnerOperations,role+' PWA cache: merchant.js');
   assert.equal(fs.existsSync(path.join(dir,'js','merchant.js')),hasPartnerOperations,role+' shipped merchant.js');
+  assert.equal(fs.existsSync(path.join(dir,'js','merchant-price-batch.js')),hasPartnerOperations,
+    role+' must isolate deferred merchant price confirmation from other portals');
+  assert.ok(!html.includes('src="./js/merchant-price-batch.js?v=test-sha"'),
+    role+' must never load the optional batch confirmation on startup');
   assert.ok(html.includes('src="./js/growth.js?v=test-sha"'),role+' public merchant landing must remain available');
   assert.equal(
     fs.readFileSync(path.join(dir,'js','growth.js'),'utf8'),
@@ -225,9 +229,10 @@ for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   assert.ok(!cfSw.includes("'"+lazyActivation+"'"));
   assert.equal(fs.existsSync(path.join(publishDir,'js','admin-activations.js')),cfg.role==='admin');
   assert.ok(cfHtml.includes('src="'+cfAsset+'"'),projectName+' must pin actual Cloudflare scripts');
-  const includesMerchant=cfg.role!=='customer';
+  const includesMerchant=cfg.role==='merchant';
   assert.equal(cfHtml.includes('src="./js/merchant.js?v=1234567890123456789012345678901234567890"'),includesMerchant);
   assert.equal(fs.existsSync(path.join(publishDir,'js','merchant.js')),includesMerchant);
+  assert.equal(fs.existsSync(path.join(publishDir,'js','merchant-price-batch.js')),includesMerchant);
   assert.equal(cfSw.includes("'./js/merchant.js?v=1234567890123456789012345678901234567890'"),includesMerchant);
   assert.ok(cfSw.includes("'"+cfAsset+"'"),projectName+' must precache the same scripts');
   const runtime=fs.readFileSync(path.join(publishDir,'js','runtime-config.js'),'utf8');

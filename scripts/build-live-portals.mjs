@@ -163,11 +163,11 @@ function patchIndex(html,portal,sourceSha){
   patched=replaceMeta(patched,'property','og:description',identity.description);
   patched=replaceMeta(patched,'name','twitter:title',identity.socialTitle);
   patched=replaceMeta(patched,'name','twitter:description',identity.description);
-  // Dedicated public/merchant bundles must not load admin code. The admin
-  // portal keeps the full legacy dependency graph until it is split safely.
-  if(role==='customer'){
+  // Each deployed portal runs only its own operations. The public landing
+  // remains in growth.js, while merchant.js belongs to the merchant portal.
+  if(role!=='merchant'){
     const merchantTag='<script defer src="./js/merchant.js"></script>';
-    if(!patched.includes(merchantTag))throw new Error('Missing customer merchant script for isolation');
+    if(!patched.includes(merchantTag))throw new Error('Missing merchant operations script for isolation');
     patched=patched.replace(merchantTag,'');
   }
   if(role==='admin'){
@@ -236,9 +236,9 @@ function patchServiceWorker(raw,sourceSha,role){
   if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
   if(!['customer','merchant','admin'].includes(role))throw new Error('Invalid portal cache role');
   let scoped=next;
-  if(role==='customer'){
+  if(role!=='merchant'){
     const merchantEntry=",'./js/merchant.js'";
-    if(!scoped.includes(merchantEntry))throw new Error('Missing customer merchant precache entry');
+    if(!scoped.includes(merchantEntry))throw new Error('Missing merchant operations precache entry');
     scoped=scoped.replace(merchantEntry,'');
   }
   if(role==='admin'){
@@ -366,11 +366,11 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.mkdirSync(target,{recursive:true});
     for(const file of STATIC_FILES)fs.copyFileSync(path.join(ROOT,file),path.join(target,file));
     for(const dir of STATIC_DIRS)copyDir(path.join(ROOT,dir),path.join(target,dir));
-    // The customer portal uses commercial merchant landings, but it must not
-    // download, evaluate or cache the large partner operations interface.
-    // The revenda and admin portals retain their existing dependency graph.
-    if(role==='customer'){
-      fs.rmSync(path.join(target,'js','merchant.js'));
+    // Heavy merchant operations and the optional price confirmation flow
+    // are only shipped to the revenda portal, never customer or admin.
+    if(role!=='merchant'){
+      fs.rmSync(path.join(target,'js','merchant.js'),{force:true});
+      fs.rmSync(path.join(target,'js','merchant-price-batch.js'),{force:true});
     }
     // Discovery is customer-only and fetched on navigation, never in privileged bundles.
     if(role!=='customer'){
