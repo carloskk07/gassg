@@ -26,12 +26,18 @@ const headers={
 const health=await fetch(base+'/auth/v1/health',{signal:AbortSignal.timeout(25000)});
 assert.equal(health.status,200,'local Auth health must be available');
 for(const slug of ['create-order','merchant-orders','get-order']){
-  const res=await fetch(base+'/functions/v1/'+slug,{
-    method:'POST',
-    headers,
-    body:JSON.stringify({quoteId:'00000000-0000-4000-8000-000000000001'}),
-    signal:AbortSignal.timeout(45000)
-  });
+  let res;
+  for(let attempt=0;attempt<8;attempt++){
+    res=await fetch(base+'/functions/v1/'+slug,{
+      method:'POST',
+      headers,
+      body:JSON.stringify({quoteId:'00000000-0000-4000-8000-000000000001'}),
+      signal:AbortSignal.timeout(45000)
+    });
+    if(![502,503,504].includes(res.status))break;
+    if(attempt===7)break;
+    await new Promise(resolve=>setTimeout(resolve,2000));
+  }
   const body=await res.json();
   assert.equal(res.status,401,slug+' must deny use of anon JWT as a user session');
   assert.equal(body.error,'UNAUTHORIZED',
