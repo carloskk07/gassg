@@ -470,11 +470,16 @@ Deno.serve(async(req:Request)=>{
     if(existingError)throw existingError;
 
     if(existing?.br_code&&["active","completed"].includes(existing.status)){
-      // Never repeat a structurally invalid or expired active BR Code after a
-      // retry; a browser must not advertise a stale payment as newly payable.
+      // An older release might have persisted a deadline reset by a retry.
+      // Re-derive the maximum lifetime from the original DB creation stamp.
+      const originalDeadline=mercadoPagoPixDeadline(null,null,String(existing.created_at??""));
+      const savedExpiration=Date.parse(String(existing.expires_at??""));
       if(existing.status==="active"&&(
         !validatePixBrCode(existing.br_code,{expectedAmountCents}).valid
-        ||!existing.expires_at||Date.parse(existing.expires_at)<=Date.now()
+        ||!originalDeadline
+        ||!Number.isFinite(savedExpiration)
+        ||savedExpiration>Date.parse(originalDeadline)
+        ||savedExpiration<=Date.now()
       )){
         throw new DomainError("PIX_EXISTING_CHARGE_NOT_PAYABLE",
           "O Pix anterior está inválido ou expirado. Atualize o financeiro para gerar uma nova cobrança.",409);
