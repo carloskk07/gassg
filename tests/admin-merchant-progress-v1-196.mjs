@@ -24,7 +24,7 @@ const merchant={
  compliance:{cnpj_status:'verified',anp_status:'verified'},
  representationReview:{owner_user_id:user,merchant_cnpj:cnpj,
    expires_at:new Date(now+30*24*3600000).toISOString(),revoked_at:null},
- readiness:{offerReady:true,nextAction:'ready'}
+ readiness:{offerReady:true,nextAction:'ready',cnpjVerificationCurrent:true,anpVerificationCurrent:true}
 };
 let role='operations';
 const rt={status:'ready',lastSyncAt:new Date(now-2000).toISOString()};
@@ -55,7 +55,7 @@ assert.ok(html.includes("aria-valuenow='7'"));
 assert.ok(html.includes('width:100%'));
 assert.ok(html.includes('Ofertável segundo o servidor'));
 for(const label of [
- 'Responsável vinculado','CNPJ verificado','Exigência ANP verificada',
+ 'Responsável vinculado','CNPJ vigente','Exigência ANP vigente',
  'Representação legal vigente','Cadastro operacional ativo','Revenda online',
  'Oferta disponível','Estes marcos são informativos'
 ])assert.ok(html.includes(label),'Missing milestone: '+label);
@@ -69,6 +69,21 @@ const noAnp={...merchant,compliance:{...merchant.compliance,anp_status:'not_requ
 assert.equal(ctx.snapshot(noAnp,now).done,7);
 assert.ok(ctx.view(noAnp).includes('Não exigida conforme registro de compliance'));
 
+
+const staleCnpj={...merchant,readiness:{...merchant.readiness,cnpjVerificationCurrent:false}};
+assert.equal(ctx.snapshot(staleCnpj,now).steps.find(s=>s.key==='cnpj').status,'pending');
+assert.equal(ctx.snapshot(staleCnpj,now).ready,false);
+assert.ok(ctx.view(staleCnpj).includes('Reconfirmar CNPJ'));
+const staleAnp={...merchant,readiness:{...merchant.readiness,anpVerificationCurrent:false}};
+assert.equal(ctx.snapshot(staleAnp,now).steps.find(s=>s.key==='anp').status,'pending');
+assert.equal(ctx.snapshot(staleAnp,now).ready,false);
+assert.ok(ctx.view(staleAnp).includes('Revalidar ANP'));
+const noLongerExempt={...noAnp,readiness:{...merchant.readiness,anpVerificationCurrent:false}};
+assert.equal(ctx.snapshot(noLongerExempt,now).steps.find(s=>s.key==='anp').status,'pending');
+const missingServerEvidence={...merchant,readiness:{offerReady:true,nextAction:'ready'}};
+assert.equal(ctx.snapshot(missingServerEvidence,now).steps.find(s=>s.key==='cnpj').status,'unknown');
+assert.equal(ctx.snapshot(missingServerEvidence,now).steps.find(s=>s.key==='anp').status,'unknown');
+assert.equal(ctx.snapshot(missingServerEvidence,now).ready,false);
 const expired={...merchant,representationReview:{...merchant.representationReview,expires_at:new Date(now-1000).toISOString()}};
 const sExpired=ctx.snapshot(expired,now);
 assert.equal(sExpired.done,5);
