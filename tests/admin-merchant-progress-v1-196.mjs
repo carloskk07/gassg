@@ -138,6 +138,15 @@ assert.ok(ctx.view(merchant).includes('Evolução da revenda'));
 role='superadmin';
 assert.ok(ctx.view(merchant).includes('Evolução da revenda'));
 
+// Admin 360 reuses the exact seven-step widget: no second readiness rules.
+const detailSource=source.slice(source.indexOf("}else if(d.type==='merchant'){"),
+ source.indexOf("}else if(d.type==='customer'){"));
+assert.ok(detailSource.includes('adminMerchantProgressView((Array.isArray(adminRuntime.data?.merchants)'),
+ 'Merchant 360 must reuse the list readiness evidence');
+assert.ok(detailSource.includes('.find(x=>x?.id===m.id)'),
+ 'Never display progress from another company');
+assert.ok(detailSource.indexOf('adminMerchantProgressView(')<detailSource.indexOf('<h3>Operação'),
+ 'Surface readiness before the merchant detail sections');
 const card=fn('adminMerchantCard');
 assert.ok(card.includes('adminMerchantProgressView(m)'));
 assert.ok(card.includes('admin-partner-work-merchant-'));
