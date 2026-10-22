@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/isolated-supabase-integration.yml'
       - 'tests/isolated-supabase-commerce-smoke.mjs'
+      - 'tests/isolated-supabase-http-smoke.mjs'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
       - 'supabase/functions/create-order/**'
@@ -95,9 +96,13 @@ jobs:
           print('Ephemeral migration files:',len(files),'local timestamp adjustments:',normalized)
           assert len({p.name[:14] for p in root.glob('*.sql')})==len(files)
           PY
-          supabase db start
+          # Lean stack only: Auth, gateway, Data API, Edge and Postgres.
+          # Does NOT open the commercial project or include any PSP account.
+          supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
+      - name: Verify local Auth and actual Edge HTTP authentication guards
+        run: node tests/isolated-supabase-http-smoke.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
