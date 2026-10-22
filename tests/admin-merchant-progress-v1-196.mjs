@@ -67,7 +67,7 @@ assert.ok(!html.includes('onclick='));
 
 const noAnp={...merchant,compliance:{...merchant.compliance,anp_status:'not_required'}};
 assert.equal(ctx.snapshot(noAnp,now).done,7);
-assert.ok(ctx.view(noAnp).includes('Não exigida conforme registro de compliance'));
+assert.ok(ctx.view(noAnp).includes('ANP não exigida para o catálogo ativo'));
 
 
 const staleCnpj={...merchant,readiness:{...merchant.readiness,cnpjVerificationCurrent:false}};
