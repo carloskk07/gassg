@@ -105,6 +105,19 @@ VALUES
 ('00000000-0000-4000-8000-000000000021', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', false, false),
 ('00000000-0000-4000-8000-000000000024', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', false, false);
 
+-- Only this local transaction may flip the synthetic launch flag. All
+-- required governance columns are filled with an in-transaction fixture
+-- identity; ROLLBACK restores PRELAUNCH and removes the actor.
+UPDATE public.platform_launch_control
+SET commerce_enabled=true,
+    operation_mode='LIVE',
+    enabled_at=clock_timestamp(),
+    enabled_by='00000000-0000-4000-8000-000000000021'::uuid,
+    portals_source_sha=repeat('f',40),
+    mode_source_sha=repeat('f',40),
+    customer_portal_ok=true,merchant_portal_ok=true,admin_portal_ok=true
+WHERE singleton=true;
+
 INSERT INTO public.merchants(id,name,cnpj,status,online)
 VALUES (
  '00000000-0000-4000-8000-000000000022',
@@ -195,6 +208,8 @@ assert.equal(sql('select count(*) from public.orders'),'0',
   'positive transaction must be rolled back');
 assert.equal(sql('select count(*) from public.merchants'),'0',
   'fake merchant must never persist');
+assert.equal(sql("select count(*) from public.platform_launch_control where commerce_enabled"),'0',
+  'local LIVE flag must be rolled back to PRELAUNCH');
 assert.equal(sql("select count(*) from auth.users where id='00000000-0000-4000-8000-000000000021'"),'0',
   'fake customer must never persist');
 assert.equal(sql('select count(*) from public.order_events'),'0',
