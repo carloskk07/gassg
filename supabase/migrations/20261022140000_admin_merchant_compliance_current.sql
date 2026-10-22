@@ -148,7 +148,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 -- Preserve restricted RPC execution; this does not grant customer access.
 revoke all on function public.admin_merchant_readiness_snapshot(uuid) from public,anon,authenticated;
