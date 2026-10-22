@@ -24,6 +24,42 @@ export function mercadoPagoConfigured(accessToken){
   return token.length>=20&&!/[\u0000-\u001f\u007f\s]/.test(token);
 }
 /**
+ * Conservative deadline for a Mercado Pago Pix requested with P1D.
+ * The database charge creation is mandatory: an idempotent POST or a later
+ * GET must never renew a previously issued Pix simply by being retried.
+ * Return null (fail closed) if the persistent anchor is unavailable or old.
+ *
+ * This does not confirm provider payability, settlement or beneficiary.
+ */
+export function mercadoPagoPixDeadline(order,payment,chargeCreatedAt,nowMs=Date.now()){
+  const ms=value=>{
+    if(typeof value!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/i.test(value))return null;
+    const parsed=Date.parse(value);
+    return Number.isFinite(parsed)?parsed:null;
+  };
+  const anchor=ms(chargeCreatedAt);
+  if(anchor===null||!Number.isFinite(nowMs))return null;
+  // Provider creation timestamps are supplementary; the persisted anchor is
+  // authoritative as the upper bound when the PSP response omits dates.
+  const starts=[
+    anchor,
+    ms(payment?.created_date),ms(payment?.date_created),
+    ms(order?.created_date),ms(order?.date_created)
+  ].filter(value=>value!==null);
+  const absoluteDeadlines=[
+    ms(payment?.date_of_expiration),ms(payment?.expiration_date),
+    ms(payment?.expires_at),ms(order?.expiration_date),ms(order?.expires_at)
+  ].filter(value=>value!==null);
+  const expiry=Math.min(
+    ...starts.map(value=>value+86_400_000),
+    ...absoluteDeadlines
+  );
+  // A near-expired code cannot be reliably offered to a customer.
+  if(!Number.isFinite(expiry)||expiry<=nowMs+60_000)return null;
+  return new Date(expiry).toISOString();
+}
+
+/**
  * @param {string} path
  * @param {{
  *   accessToken: string,

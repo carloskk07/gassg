@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {validatePixBrCode} from '../supabase/functions/_shared/pix-brcode.js';
+import {mercadoPagoPixDeadline} from '../supabase/functions/_shared/mercadopago.js';
 
 const tlv=(id,value)=>{
   assert.ok(value.length<=99);
@@ -41,12 +42,48 @@ assert.equal(validatePixBrCode(valid+'\n').valid,false);
 assert.equal(validatePixBrCode(valid.slice(0,-8)+'6204FFFF').valid,false);
 assert.equal(validatePixBrCode('https://mercadopago.com.br/payments/test').valid,false);
 
+// The same provider order may be returned again for an idempotent POST.
+ // Repeated recovery must not extend a Pix lifetime or re-offer a paid QR.
+const baseNow=Date.parse('2026-10-22T18:00:00.000Z');
+const hour=60*60*1000;
+const preparedAt=new Date(baseNow-2*hour).toISOString();
+const expectedDeadline=new Date(baseNow+22*hour).toISOString();
+const orderWithoutDates={};
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{},preparedAt,baseNow),expectedDeadline);
+assert.equal(mercadoPagoPixDeadline({created_date:new Date(baseNow).toISOString()}, {},preparedAt,baseNow),expectedDeadline,
+  'provider GET time cannot extend the persisted issuance deadline');
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{},preparedAt,baseNow+4*hour),expectedDeadline,
+  'time passing between retries must never reset the deadline');
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{},preparedAt,baseNow+23*hour),null,
+  'expired issued charge cannot be made payable after idempotent recovery');
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{},null,baseNow),null,
+  'missing persisted issuance anchor must fail closed');
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{},'not-a-time',baseNow),null);
+const earlierProviderDate=new Date(baseNow-3*hour).toISOString();
+assert.equal(mercadoPagoPixDeadline({created_date:earlierProviderDate},{},preparedAt,baseNow),
+  new Date(baseNow+21*hour).toISOString(),'earlier provider creation restricts expiry');
+const earlierExpiry=new Date(baseNow+hour).toISOString();
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{date_of_expiration:earlierExpiry},preparedAt,baseNow),
+  earlierExpiry,'shorter provider expiry must win');
+assert.equal(mercadoPagoPixDeadline(orderWithoutDates,{date_of_expiration:new Date(baseNow+30000).toISOString()},preparedAt,baseNow),null,
+  'do not advertise almost-expired QR codes');
+assert.equal(mercadoPagoPixDeadline({}, {},new Date(baseNow-25*hour).toISOString(),baseNow),null);
+
 const edge=fs.readFileSync(new URL('../supabase/functions/merchant-billing-pix/index.ts',import.meta.url),'utf8');
 const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
 assert.match(edge,/validatePixBrCode\(brCode,\{expectedAmountCents\}\)/);
 assert.match(edge,/validatePixBrCode\(existing\.br_code,\{expectedAmountCents\}\)/);
 assert.match(edge,/PIX_PROVIDER_BR_CODE_INVALID/);
+assert.match(edge,/mercadoPagoPixDeadline\(order,payment,chargeCreatedAt\)/);
+assert.match(edge,/end_to_end_id,created_at/);
+assert.match(edge,/String\(existing\?\.created_at\?\?""\)/);
+assert.match(edge,/PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED/);
+assert.match(edge,/PIX_PROVIDER_ALREADY_PROCESSED/);
+assert.match(edge,/const originalDeadline=mercadoPagoPixDeadline\(null,null,String\(existing\.created_at\?\?""\)\)/);
+assert.match(edge,/savedExpiration>Date\.parse\(originalDeadline\)/);
+assert.match(edge,/!Number\.isFinite\(savedExpiration\)/);
+assert.doesNotMatch(edge,/expiresAt:new Date\(Date\.now\(\)\+86400_000\)/);
 assert.match(merchant,/merchantBillingPixChargeExpired\(charge\)/);
 assert.match(backend,/charge\?\.status==='completed'/);
 assert.match(backend,/charge\.expiresAt/);
@@ -70,4 +107,4 @@ const fn=new Function('globalThis','merchantBillingPixChargeExpired','toast','na
 await fn('request-test');
 assert.equal(copied,0);
 assert.match(notice,/expirado ou indisponível/);
-console.log('PASS: BR Code TLV, CRC16, valor, expiração e cópia protegida (sem transação real)');
+console.log('PASS: BR Code, expiry anchored to persistent issuance, idempotent retry and copy guard (no real payment)');

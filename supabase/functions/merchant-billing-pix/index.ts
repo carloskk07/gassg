@@ -15,7 +15,8 @@ import {
   readMercadoPagoJson,
   safeMercadoPagoUrl,
   mercadoPagoQrDataUri,
-  moneyToCents
+  moneyToCents,
+  mercadoPagoPixDeadline
 } from "../_shared/mercadopago.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -237,7 +238,7 @@ function mpPayment(order:any){
     &&String(p?.payment_method?.type??"").toLowerCase()==="bank_transfer"
   )??payments[0]??null;
 }
-function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmountCents:number){
+function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmountCents:number,chargeCreatedAt:string){
   const orderId=cleanText(order?.id,240);
   const externalReference=String(order?.external_reference??"").trim();
   const amountCents=moneyToCents(order?.total_amount);
@@ -254,15 +255,26 @@ function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmount
     ||String(method?.type??"").toLowerCase()!=="bank_transfer"){
     throw new Error("MERCADOPAGO_PAYMENT_METHOD_MISMATCH");
   }
-  if(!["action_required","processing","processed"].includes(status)){
+  if(status==="processed"||String(payment?.status??"").trim().toLowerCase()==="processed"){
+    // An idempotent retry may find an already processed order; never
+    // re-offer its QR. The webhook remains the credit/settlement authority.
+    throw new DomainError("PIX_PROVIDER_ALREADY_PROCESSED",
+      "O Mercado Pago já processou este Pix. Aguarde a conciliação no financeiro.",409);
+  }
+  if(!["action_required","processing"].includes(status)){
     throw new Error("MERCADOPAGO_ORDER_NOT_PAYABLE");
   }
-  if(status!=="processed"&&(!brCode||brCode.length<20)){
+  if(!brCode||brCode.length<20){
     throw new Error("MERCADOPAGO_QR_NOT_READY");
   }
   if(brCode&&!validatePixBrCode(brCode,{expectedAmountCents}).valid){
     throw new DomainError("PIX_PROVIDER_BR_CODE_INVALID",
       "O Mercado Pago retornou um código Pix inválido. Nenhum QR será disponibilizado para pagamento.",502);
+  }
+  const expiresAt=mercadoPagoPixDeadline(order,payment,chargeCreatedAt);
+  if(!expiresAt){
+    throw new DomainError("PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED",
+      "O Pix anterior venceu ou não possui prazo verificável. Revise a cobrança no financeiro.",409);
   }
   return {
     provider:"mercadopago",
@@ -275,14 +287,15 @@ function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmount
     qrCodeImage:null,
     qrCodeDataUri:mercadoPagoQrDataUri(method?.qr_code_base64),
     paymentLinkUrl:safeMercadoPagoUrl(method?.ticket_url),
-    expiresAt:new Date(Date.now()+86400_000).toISOString()
+    expiresAt
   };
 }
 async function createMercadoPagoOrder(
   accessToken:string,
   correlationId:string,
   expectedAmountCents:number,
-  payerEmail:string
+  payerEmail:string,
+  chargeCreatedAt:string
 ){
   const amount=(expectedAmountCents/100).toFixed(2);
   const response=await mercadoPagoFetch("/v1/orders",{
@@ -309,7 +322,7 @@ async function createMercadoPagoOrder(
   let order=data;
   for(let attempt=0;attempt<3;attempt++){
     try{
-      return {ok:true,status:response.status,charge:normalizeMercadoPagoOrder(order,correlationId,expectedAmountCents)};
+      return {ok:true,status:response.status,charge:normalizeMercadoPagoOrder(order,correlationId,expectedAmountCents,chargeCreatedAt)};
     }catch(error){
       if(!(error instanceof Error)||error.message!=="MERCADOPAGO_QR_NOT_READY")throw error;
       const orderId=String(order?.id??"").trim();
@@ -450,18 +463,23 @@ Deno.serve(async(req:Request)=>{
 
     const {data:existing,error:existingError}=await admin
       .from("merchant_billing_provider_charges")
-      .select("id,payment_request_id,provider,correlation_id,provider_charge_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id")
+      .select("id,payment_request_id,provider,correlation_id,provider_charge_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id,created_at")
       .eq("id",chargeId)
       .eq("merchant_id",merchantId)
       .maybeSingle();
     if(existingError)throw existingError;
 
     if(existing?.br_code&&["active","completed"].includes(existing.status)){
-      // Never repeat a structurally invalid or expired active BR Code after a
-      // retry; a browser must not advertise a stale payment as newly payable.
+      // An older release might have persisted a deadline reset by a retry.
+      // Re-derive the maximum lifetime from the original DB creation stamp.
+      const originalDeadline=mercadoPagoPixDeadline(null,null,String(existing.created_at??""));
+      const savedExpiration=Date.parse(String(existing.expires_at??""));
       if(existing.status==="active"&&(
         !validatePixBrCode(existing.br_code,{expectedAmountCents}).valid
-        ||!existing.expires_at||Date.parse(existing.expires_at)<=Date.now()
+        ||!originalDeadline
+        ||!Number.isFinite(savedExpiration)
+        ||savedExpiration>Date.parse(originalDeadline)
+        ||savedExpiration<=Date.now()
       )){
         throw new DomainError("PIX_EXISTING_CHARGE_NOT_PAYABLE",
           "O Pix anterior está inválido ou expirado. Atualize o financeiro para gerar uma nova cobrança.",409);
@@ -487,7 +505,8 @@ Deno.serve(async(req:Request)=>{
         mercadoPagoAccessToken,
         correlationId,
         expectedAmountCents,
-        email
+        email,
+        String(existing?.created_at??"")
       );
       if(!created.ok){
         await admin.rpc("merchant_billing_provider_charge_record_error",{
