@@ -34,8 +34,9 @@ for(const selector of [
  '.home-saving-headlines','.tamao-action-now','.tamao-club-shop-now',
  '.merchant-demand-grid','@media(max-width:800px)'
 ])assert.ok(marketingCss.includes(selector),'missing '+selector);
-assert.match(index,/Compare preços de gás, água e essenciais/);
-assert.match(index,/um novo canal para alcançar clientes e receber pedidos/i);
+assert.match(index,/Encontre gás, água e essenciais/,'SEO must still describe real local products');
+assert.match(index,/oportunidades para revendas/i,'SEO still presents merchant benefits');
+assert.doesNotMatch(index,/<nav aria-label="Conheça o TAMÃO">/,'do not restore a competing preboot menu');
 assert.doesNotMatch(index,/Cupons já à venda|garantia de economia|vendas garantidas/i);
 
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-savings-'));
