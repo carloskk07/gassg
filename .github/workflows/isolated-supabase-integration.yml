@@ -43,8 +43,19 @@ jobs:
           docker info --format '{{.ServerVersion}}'
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client >/dev/null
-      - name: Boot ephemeral Postgres and apply all canonical project migrations
+      - name: Boot ephemeral Postgres using canonical baseline followed by migrations
         run: |
+          # This project predates migration-managed bootstrap. The repo's
+          # canonical supabase/schema.sql is the initial database, and the
+          # earliest checked-in migration reconciles it. Put a copy only in
+          # this disposable runner: never create a duplicate in Git or push it.
+          first="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort | head -n 1)"
+          test "$first" = "supabase/migrations/20261001070000_reconcile_runtime_v1_4.sql"
+          test -s supabase/schema.sql
+          ephemeral="supabase/migrations/20261001065000_local_baseline_from_schema.sql"
+          test ! -e "$ephemeral"
+          cp supabase/schema.sql "$ephemeral"
+          trap 'rm -f "$ephemeral"' EXIT
           supabase db start
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
