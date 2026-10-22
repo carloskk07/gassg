@@ -3536,6 +3536,7 @@ function adminPilotNextActionCopy(p){
     activate_merchant:'As bases estão prontas. Ative a revenda no painel administrativo.',
     go_online:'A revenda está ativa; o responsável precisa entrar no portal e colocá-la online.',
     refresh_heartbeat:'A revenda está online, mas precisa renovar a presença no portal para ficar ofertável.',
+    check_city_launch:'A revenda ainda não aparece no motor público de cotações. Confira autorização comercial da plataforma e da cidade, modo operacional e demais condições do servidor, sem liberar automaticamente.',
     ready:'Revenda pronta e ofertável agora.',
     none:'Este parceiro não possui próxima ação operacional.'
   })[next]||'Revise o estado do parceiro antes de continuar.';
