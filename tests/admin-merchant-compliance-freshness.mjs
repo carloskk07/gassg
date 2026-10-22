@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const migration=read('supabase/migrations/20261022140000_admin_merchant_compliance_current.sql');
+const migration=read('supabase/migrations/20261022155032_admin_merchant_compliance_current.sql');
 const admin=read('js/admin.js'),edge=read('supabase/functions/admin-ops/index.ts');
 assert.match(migration,/CREATE OR REPLACE FUNCTION public\.admin_merchant_readiness_snapshot\(/);
 assert.match(migration,/perform public\.require_platform_admin\(p_actor_user_id\)/);
