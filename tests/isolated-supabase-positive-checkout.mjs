@@ -145,6 +145,44 @@ assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot dup
 assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='CHARCOAL2'"),'4','one item must be reserved exactly once');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='MERCHANT_ACCEPTED'"),'1','replay cannot duplicate acceptance event');
 
+const dispatched=await call('merchant-action',owner.token,{
+ orderId:first.body.orderId,action:'dispatch',expectedVersion:nowCustomer.body.version
+},{'Idempotency-Key':'ci-dispatch-'+randomUUID()});
+assert.equal(dispatched.status,200,'dispatch failed: '+JSON.stringify(dispatched.body).slice(0,450));
+assert.equal(dispatched.body.status,'OUT_FOR_DELIVERY');
+const dispatchedCustomer=await call('get-order',buyer.token,{orderId:first.body.orderId});
+assert.equal(dispatchedCustomer.status,200);
+assert.equal(dispatchedCustomer.body.status,'OUT_FOR_DELIVERY');
+assert.match(String(dispatchedCustomer.body.deliveryPin||''),/^[0-9]{4}$/,
+ 'the buyer must receive an actual four-digit delivery PIN');
+const arriving=await call('merchant-action',owner.token,{
+ orderId:first.body.orderId,action:'arriving',expectedVersion:dispatchedCustomer.body.version
+},{'Idempotency-Key':'ci-arriving-'+randomUUID()});
+assert.equal(arriving.status,200,'arriving failed: '+JSON.stringify(arriving.body).slice(0,450));
+assert.equal(arriving.body.status,'ARRIVING');
+const settleKey='ci-delivery-settle-'+randomUUID();
+const deliveryBody={
+ orderId:first.body.orderId,pin:dispatchedCustomer.body.deliveryPin,
+ expectedVersion:arriving.body.version,paymentConfirmed:true
+};
+const settled=await call('complete-delivery',owner.token,deliveryBody,{'Idempotency-Key':settleKey});
+assert.equal(settled.status,200,'settlement failed: '+JSON.stringify(settled.body).slice(0,460));
+assert.equal(settled.body.ok,true);
+assert.equal(settled.body.status,'SETTLED');
+assert.equal(settled.body.paymentConfirmationMethod,'merchant_attestation',
+ 'cash receipt is only a merchant statement, never a bank receipt');
+const settleReplay=await call('complete-delivery',owner.token,deliveryBody,{'Idempotency-Key':settleKey});
+assert.equal(settleReplay.status,200,'delivery idempotent replay');
+assert.equal(settleReplay.body.orderId,settled.body.orderId);
+const finalCustomer=await call('get-order',buyer.token,{orderId:first.body.orderId});
+assert.equal(finalCustomer.status,200);
+assert.equal(finalCustomer.body.status,'SETTLED');
+assert.equal(finalCustomer.body.deliveryPin,null,'consumed PIN must not be exposed');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='SETTLED'"),'1');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='DELIVERED'"),'1');
+assert.equal(sql('SELECT count(*) FROM public.orders'),'1','delivery replay cannot create orders');
+
+
 assert.equal(sql('SELECT count(*) FROM public.wallet_entries'),'0');
 assert.equal(sql('SELECT count(*) FROM public.merchant_billing_payment_events'),'0');
-console.log('PASS: LOCAL quote -> checkout -> replay -> buyer get-order -> merchant dashboard -> accept/replay -> buyer new state; IDOR blocked, cash only, zero PSP/rewards.');
+console.log('PASS: LOCAL quote -> real checkout -> owner dashboard -> accept -> dispatch -> arriving -> delivery PIN -> SETTLED/replay, IDOR blocked, cash attestation only, zero PSP.');
