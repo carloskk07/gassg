@@ -74,12 +74,12 @@ denied("begin; set local role authenticated; select count(*) from public.orders;
 assert.equal(sql('select count(*) from public.platform_launch_control where commerce_enabled'),'0',
   'fresh local instance must start with commerce disabled');
 const closedCall=[
- "begin",
+ "begin;",
  "select public.create_order_from_quote_v8(",
  "'00000000-0000-4000-8000-000000000001'::uuid,",
  "'00000000-0000-4000-8000-000000000002'::uuid,",
  "'pix',false,'isolated-closed-test-001',",
- "'"+'a'.repeat(64)+"')",
+ "'"+'a'.repeat(64)+"');",
  "rollback"
 ].join(' ');
 let closedError=null;
