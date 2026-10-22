@@ -39,4 +39,59 @@ for(const table of ['orders','order_items','merchants']){
 }
 
 
-console.log('PASS: Postgres local, migrações canônicas, RLS sob anon, RPC financeira sem revenda e banco limpo. Auth/Edge requerem etapa posterior.');
+// Verify the live server-only contract on REAL PostgreSQL roles and grants.
+// The Edge server accesses RPCs as service_role; web users must not call
+// SECURITY DEFINER order/payment authorities through the Data API.
+for(const fn of [
+  'create_order_from_quote_v8',
+  'merchant_order_action',
+  'customer_order_action',
+  'merchant_delivery_payment_allowed'
+]){
+  assert.equal(sql(`select exists(
+    select 1 from pg_proc p
+    where p.pronamespace='public'::regnamespace and p.proname='${fn}'
+      and p.prosecdef
+      and not has_function_privilege('anon',p.oid,'EXECUTE')
+      and not has_function_privilege('authenticated',p.oid,'EXECUTE')
+      and has_function_privilege('service_role',p.oid,'EXECUTE')
+  )`),'t',fn+' must remain server-only (both anonymous and signed-in users denied)');
+}
+const denied=source=>{
+  let thrown=null;
+  try{sql(source)}catch(error){thrown=error}
+  assert.ok(thrown,'expected PostgreSQL to deny the privileged operation');
+  const detail=String(thrown.stderr||thrown.message||'');
+  assert.match(detail,/permission denied/i,
+    'request must be denied by PostgreSQL permissions, not by missing tables');
+};
+denied("begin; set local role anon; select public.merchant_delivery_payment_allowed('00000000-0000-4000-8000-000000000001'::uuid,'pix'); rollback;");
+denied("begin; set local role authenticated; select count(*) from public.orders; rollback;");
+
+// Execute the *actual* order authority with a deliberately nonexistent
+// customer and quote. Production must stay PRELAUNCH and reject before
+// any quote lookup, payment capture or writes.
+assert.equal(sql('select count(*) from public.platform_launch_control where commerce_enabled'),'0',
+  'fresh local instance must start with commerce disabled');
+const closedCall=[
+ "begin;",
+ "select public.create_order_from_quote_v8(",
+ "'00000000-0000-4000-8000-000000000001'::uuid,",
+ "'00000000-0000-4000-8000-000000000002'::uuid,",
+ "'pix',false,'isolated-closed-test-001',",
+ "'"+'a'.repeat(64)+"');",
+ "rollback"
+].join(' ');
+let closedError=null;
+try{sql(closedCall)}catch(error){closedError=error}
+assert.ok(closedError,'disabled commerce must not accept any new order');
+assert.match(String(closedError.stderr||closedError.message||''),/COMMERCE_NOT_ENABLED/,
+  'actual create_order_from_quote_v8 must refuse commerce in PRELAUNCH');
+assert.equal(sql('select count(*) from public.orders'),'0',
+  'authorization probes must never create an order');
+assert.equal(sql('select count(*) from public.action_requests'),'0',
+  'rejected order must not retain an idempotency record');
+assert.equal(sql('select count(*) from public.wallet_entries'),'0',
+  'rejected checkout must never credit rewards');
+
+console.log('PASS: isolated Postgres, migrations, RLS, real permission-denied probes and PRELAUNCH checkout block; no financial writes.');
