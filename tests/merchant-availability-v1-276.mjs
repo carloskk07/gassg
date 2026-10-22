@@ -100,6 +100,11 @@ ctxState.merchant.acceptsCitywide=false;
 assert.match(ctx.draw(ctxState,opts),/Atendimento na cidade desativado/);
 ctxState.merchant.acceptsCitywide=true;
 assert.match(ctx.draw(ctxState,{...opts,freshness:{deliveryFresh:false}}),/Taxa de entrega precisa de confirmação/);
+assert.match(ctx.draw(ctxState,{...opts,freshness:{deliveryFresh:false}}),/merchantLiveReconfirmDelivery\(\)/);
+ctxState.merchant.memberRole='operator';
+assert.doesNotMatch(ctx.draw(ctxState,{...opts,freshness:{deliveryFresh:false}}),/merchantLiveReconfirmDelivery\(\)/);
+ctxState.merchant.memberRole='owner';
+
 
 // Exactly one online control in the live portal, above the order list; no role elevation or duplicate backend path.
 assert.equal((js.match(/id="merchant-online-toggle"/g)||[]).length,1);
