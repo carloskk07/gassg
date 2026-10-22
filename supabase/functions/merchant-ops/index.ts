@@ -990,15 +990,25 @@ Deno.serve(async(req:Request)=>{
         .from("merchants")
         .update({online,last_seen_at:now})
         .eq("id",merchantId);
-      if(online)onlineUpdate=onlineUpdate.eq("accepts_citywide",true);
+      if(online){
+        // Admin may suspend this merchant or the owner may change delivery
+        // settings while the above async preflight is still running. Only
+        // update a row that STILL satisfies the authoritative row-level gate.
+        // Do not restrict turning OFF availability: suspension must be easy.
+        const feeCutoff=new Date(Date.now()-24*60*60*1000).toISOString();
+        onlineUpdate=onlineUpdate
+          .eq("status","active")
+          .eq("accepts_citywide",true)
+          .gte("delivery_fee_confirmed_at",feeCutoff);
+      }
       const {data,error}=await onlineUpdate
         .select("online,last_seen_at")
         .maybeSingle();
       if(error)throw error;
       if(!data&&online){
         throw new DomainError(
-          "DELIVERY_AREA_REQUIRED",
-          "A área de entrega mudou em outra ação. Atualize o painel antes de ficar online.",
+          "MERCHANT_READINESS_CHANGED",
+          "O cadastro ou a entrega mudou durante a verificação. Atualize o painel antes de ficar online.",
           409
         );
       }
