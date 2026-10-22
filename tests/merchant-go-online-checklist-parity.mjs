@@ -187,7 +187,7 @@ const applyFinalUpdate=async ({online,row}={})=>{
  return {row,original,filters,result,error};
 };
 const freshTime=new Date().toISOString();
-const baseline=()=>({status:'active',online:false,accepts_citywide:true,
+const baseline=()=>({id:'merchant-a',status:'active',online:false,accepts_citywide:true,
  delivery_fee_confirmed_at:freshTime,last_seen_at:'2026-10-22T20:00:00Z'});
 const clean=await applyFinalUpdate({online:true,row:baseline()});
 assert.equal(clean.error,null);
