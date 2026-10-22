@@ -748,13 +748,15 @@ function merchantsLanding(){
     <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
     <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
-    <p class="muted page-lead">Sua revenda mais visível. Coloque seus produtos diante de pessoas que procuram gás, água e outros essenciais na sua região. Ganhe uma nova oportunidade de receber pedidos, conquistar clientes e estimular novas compras, sem abandonar o balcão, o telefone ou o WhatsApp. <strong>Você continua no controle. Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
+    <p class="muted page-lead">Sua revenda mais visível. Mostre preços de gás, água e essenciais a quem procura na cidade. Receba pedidos organizados sem abandonar o balcão ou o WhatsApp. <strong>Você continua no controle. Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
+      ${internalPilot?'':`<a class="secondary merchant-demo-link" href="https://carloskk07.github.io/gassg/#merchants" target="_blank" rel="noopener noreferrer nofollow" aria-label="Experimentar demonstração isolada do TAMÃO em uma nova aba">Ver pedido e entrega na prática — demonstração ↗</a>`}
       <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'})">Ver quanto custa vender</button>
       ${portal?'<button type="button" class="merchant-panel-link" onclick="go(\'merchant\')">Voltar ao meu painel ↗</button>':String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim()?'<button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>':''}
     </div>
+    ${internalPilot?'':`<p class="merchant-demo-note">Demonstração com dados ilustrativos e pedidos simulados. Não gera vendas, recebimentos, cupons pagos ou comissões reais.</p>`}
     </div>
     <aside class="merchant-landing-premium-visual" aria-label="Recursos para organizar o dia a dia da revenda">
       <span class="merchant-visual-kicker">SEU NEGÓCIO. SUA ROTINA.</span>
@@ -798,7 +800,7 @@ function merchantsLanding(){
     </div>
     <div class="merchant-commercial-strip merchant-value-strip">
       <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
-      <p><strong>O modelo atual não tem mensalidade.</strong> A taxa do TAMÃO só é cobrada sobre pedidos concluídos. O cliente paga diretamente à sua revenda, que continua responsável pelos próprios custos e impostos.</p>
+      <p><strong>O modelo atual não tem mensalidade.</strong> A taxa do TAMÃO só é cobrada sobre pedidos concluídos. O cliente paga à revenda, que mantém seus custos e impostos.</p>
     </div>
 
     ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do TAMÃO.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
@@ -807,19 +809,19 @@ function merchantsLanding(){
 
     <section class="merchant-demand-story" aria-label="O que sua revenda ganha com o TAMÃO">
       <div class="merchant-demand-heading"><span class="section-kicker">VISIBILIDADE QUE PODE VIRAR PEDIDOS</span><h2>Não espere o cliente já conhecer sua revenda para vender.</h2>
-        <p>Ao participar do TAMÃO, sua empresa pode aparecer nas buscas de consumidores de sua área atendida, receber solicitações de pedidos e expor produtos complementares. Cada nova descoberta é uma oportunidade de conquistar pedidos e ganhar espaço na sua região.</p></div>
+        <p>Apareça nas consultas da sua região e mostre gás, água e produtos complementares na mesma cesta. Você decide quando pode atender.</p></div>
       <div class="merchant-demand-grid">
-        <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua revenda ganha outra vitrine para consultas por região e produtos.</p></article>
-        <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Solicitações organizadas em um painel, com aceite sob seu controle.</p></article>
+        <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua vitrine aparece em mais consultas da região.</p></article>
+        <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Pedidos organizados; você decide o aceite.</p></article>
         <article><span aria-hidden="true">🔁</span><strong>Mais motivos para o cliente voltar</strong><p>Histórico e benefícios de campanhas elegíveis podem apoiar a recompra.</p></article>
       </div>
-      <p class="merchant-demand-note">Sua revenda mantém autonomia para decidir preços, estoque e participação em ações comerciais.</p>
+      <p class="merchant-demand-note">Preços, estoque e promoções continuam sob seu controle.</p>
     </section>
-    <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Não é preciso mudar o jeito que sua revenda já vende. O TAMÃO acrescenta um caminho para o consumidor encontrá-la e consultar o que você realmente pode entregar.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Amplie sua vitrine sem mudar sua operação: o cliente encontra o que você pode entregar.</p></div></div>
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">📈</div><h3>Mais oportunidades de venda</h3><p class="muted tiny">Seja uma opção para quem consulta gás e itens essenciais na área atendida pela sua empresa.</p></div>
-        <div class="card"><div class="feature-icon">🧺</div><h3>Mais valor em cada entrega</h3><p class="muted tiny">Apresente água, carvão, lenha, gelo e outros produtos compatíveis da sua loja na mesma jornada de compra.</p></div>
-        <div class="card"><div class="feature-icon">🔁</div><h3>Clientes que podem voltar</h3><p class="muted tiny">O histórico de compras pode ajudar o cliente a lembrar quando está na hora de repor o que costuma pedir.</p></div>
+        <div class="card"><div class="feature-icon">🧺</div><h3>Mais valor em cada entrega</h3><p class="muted tiny">Ofereça água, carvão, lenha e gelo na mesma cesta de compra.</p></div>
+        <div class="card"><div class="feature-icon">🔁</div><h3>Clientes que podem voltar</h3><p class="muted tiny">O histórico ajuda o cliente a recomprar quando precisar.</p></div>
       </div>
       <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
     </section>
@@ -827,7 +829,7 @@ function merchantsLanding(){
     <section class="section merchant-business-intro">
       <div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS</span>
       <h2>Pedidos, números e relacionamento no mesmo lugar.</h2>
-      <p>Você administra a rotina e entende melhor o que acontece com as vendas do TAMÃO. Sem perder a autonomia do seu negócio.</p></div></div>
+      <p>Acompanhe pedidos, entregas e resultados em um só lugar.</p></div></div>
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">🛒</div><h3>Venda do seu jeito</h3>
           <p class="muted tiny">Seus produtos, preços, estoque e entregas continuam sob seu controle. Novos pedidos chegam organizados ao painel.</p></div>

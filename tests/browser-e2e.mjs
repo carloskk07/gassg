@@ -326,10 +326,27 @@ await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.
 assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);
 await auditDom('refer');
 
+// Existing presentation laboratory must be reachable from the merchant
+// marketing page without enabling the real customer checkout or permissions.
+await evaluate("go('merchants')");
+await waitFor("document.querySelector('a.merchant-demo-link')","merchant demonstration entry");
+const demoLink=JSON.parse(await evaluate("JSON.stringify((()=>{const a=document.querySelector('a.merchant-demo-link');return {href:a.href,target:a.target,rel:a.rel,text:a.textContent}})())"));
+assert.equal(demoLink.href,'https://carloskk07.github.io/gassg/#merchants');
+assert.equal(demoLink.target,'_blank');
+assert.match(demoLink.rel,/noopener/);
+assert.match(demoLink.rel,/noreferrer/);
+assert.match(demoLink.text,/demonstração/);
+assert.match(await text(),/pedidos simulados/i);
+assert.equal(await evaluate("liveRequested()"),false,
+ 'browser demonstration must not initialize the real checkout');
+await auditDom('merchant demo entry');
+
 // Internal pilot on GitHub Pages reuses the proven simulation engine with a
 // single JR supplier. Exercise the complete customer ↔ merchant path separately.
 await evaluate("globalThis.CHAMA_INTERNAL_PILOT=true; reset(); render()");
 await waitFor("document.body.innerText.includes('AMBIENTE INTERNO') && document.body.innerText.includes('Gas e Lenheira do JR')","internal pilot home");
+assert.equal(await evaluate("document.querySelector('a.merchant-demo-link')===null"),true,
+ 'the internal pilot must not link to itself as a separate demonstration');
 body=await text();
 assert.match(body,/115,90/);
 assert.match(body,/AMBIENTE INTERNO/);
