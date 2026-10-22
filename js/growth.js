@@ -778,7 +778,10 @@ function merchantsLanding(){
         <div class="merchant-conversion-proof" aria-label="Como começar">
           <span><b>01</b> Acesse com seu e-mail</span><span><b>02</b> Cadastre a empresa</span><span><b>03</b> Prepare seu catálogo</span>
         </div>
-        <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
+        <div class="merchant-conversion-cta-row">
+          <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
+          <button type="button" class="secondary merchant-live-share-cta" onclick="shareTamaoGrowthInvite('merchant')">Convidar outra revenda ↗</button>
+        </div>
       </div>
       <details class="merchant-secondary-lead" open><summary>Quero anunciar meu comércio com nome e WhatsApp</summary>
         ${prelaunchMerchantLeadSection()}
