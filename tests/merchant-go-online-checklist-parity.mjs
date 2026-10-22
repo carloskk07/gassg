@@ -140,4 +140,78 @@ assert.match(permissionFailure.error.message,/DB_UNAVAILABLE/);
 const unrelatedMethod=await evaluated({allowed:{card_debit:true}});
 assert.equal(unrelatedMethod.accepted,false,'only canonical method names are eligible');
 
-console.log('PASS — setup parity plus canonical merchant_delivery_payment_allowed RPC; unavailable/mismatched routes blocked.');
+
+// Exercise the ACTUAL final update block with mutable in-memory DB state.
+// These scenarios model a concurrent Admin suspension or delivery edit after
+// preflight but before the online=true write. No live merchant is mutated.
+const finalStart=ops.indexOf('      let onlineUpdate=admin',setOnline);
+const finalEnd=ops.indexOf('    if(action==="catalog-history")',finalStart);
+assert.ok(finalStart>setOnline&&finalEnd>finalStart);
+const finalBlock=ops.slice(finalStart,finalEnd);
+assert.match(finalBlock,/\.eq\("status","active"\)/,
+ 'online write must conditionally match an active merchant');
+assert.match(finalBlock,/\.gte\("delivery_fee_confirmed_at",feeCutoff\)/,
+ 'delivery fee must remain fresh at the moment of writing');
+assert.match(finalBlock,/MERCHANT_READINESS_CHANGED/);
+const applyFinalUpdate=async ({online,row}={})=>{
+ const filters=[],original={...row};
+ const query={
+  eq:(column,value)=>{filters.push({column,op:'eq',value});return query;},
+  gte:(column,value)=>{filters.push({column,op:'gte',value});return query;},
+  select:()=>query,
+  maybeSingle:async ()=>{
+   const matches=filters.every(f=>f.op==='eq'
+    ?row[f.column]===f.value
+    :String(row[f.column]??'')>=String(f.value));
+   if(matches){
+    row.online=online;
+    row.last_seen_at='2026-10-22T21:00:00Z';
+   }
+   return {data:matches?{online:row.online,last_seen_at:row.last_seen_at}:null,error:null};
+  }
+ };
+ class DomainFault extends Error {
+  constructor(code,message,status){super(message);this.code=code;this.status=status}
+ }
+ const sandbox=vm.createContext({
+  admin:{from:name=>{assert.equal(name,'merchants');return {update:data=>{
+    assert.equal(data.online,online);return query;
+  }};}},merchantId:'merchant-a',online,now:'2026-10-22T21:00:00Z',
+  Date,DomainError:DomainFault,json:(body,status)=>({body,status})
+ });
+ let result=null,error=null;
+ try {
+  result=await vm.runInContext('(async()=>{'+finalBlock+'})()',sandbox);
+ }catch(e){error=e}
+ return {row,original,filters,result,error};
+};
+const freshTime=new Date().toISOString();
+const baseline=()=>({status:'active',online:false,accepts_citywide:true,
+ delivery_fee_confirmed_at:freshTime,last_seen_at:'2026-10-22T20:00:00Z'});
+const clean=await applyFinalUpdate({online:true,row:baseline()});
+assert.equal(clean.error,null);
+assert.equal(clean.result.status,200);
+assert.equal(clean.row.online,true);
+assert.ok(clean.filters.some(f=>f.column==='status'&&f.value==='active'));
+assert.ok(clean.filters.some(f=>f.column==='delivery_fee_confirmed_at'&&f.op==='gte'));
+const adminSuspended=await applyFinalUpdate({online:true,row:{...baseline(),status:'suspended'}});
+assert.equal(adminSuspended.row.online,false,'a concurrent suspension must not be resurrected');
+assert.equal(adminSuspended.error?.code,'MERCHANT_READINESS_CHANGED');
+assert.equal(adminSuspended.error?.status,409);
+const movedOutsideArea=await applyFinalUpdate({online:true,row:{...baseline(),accepts_citywide:false}});
+assert.equal(movedOutsideArea.row.online,false);
+assert.equal(movedOutsideArea.error?.code,'MERCHANT_READINESS_CHANGED');
+const staleDelivery=await applyFinalUpdate({online:true,row:{...baseline(),
+ delivery_fee_confirmed_at:'2020-01-01T00:00:00Z'}});
+assert.equal(staleDelivery.row.online,false);
+assert.equal(staleDelivery.error?.code,'MERCHANT_READINESS_CHANGED');
+const switchOff=await applyFinalUpdate({online:false,row:{...baseline(),
+ status:'suspended',online:true,accepts_citywide:false,
+ delivery_fee_confirmed_at:'2020-01-01T00:00:00Z'}});
+assert.equal(switchOff.error,null);
+assert.equal(switchOff.row.online,false,
+ 'a suspended merchant must always be able to switch availability OFF');
+assert.equal(switchOff.filters.length,1,
+ 'do not add activation preconditions to the emergency OFF action');
+
+console.log('PASS — setup parity plus canonical merchant_delivery_payment_allowed RPC; route and concurrent-activation checks verified.');
