@@ -20,7 +20,7 @@ const complete=(n,city,uf)=>({
  compliance:{cnpj_status:'verified',anp_status:'verified'},
  representationReview:{owner_user_id:owner,merchant_cnpj:'12345678000199',
    revoked_at:null,expires_at:new Date(now+30*86400000).toISOString()},
- readiness:{offerReady:true,nextAction:'ready'}
+ readiness:{offerReady:true,nextAction:'ready',cnpjVerificationCurrent:true,anpVerificationCurrent:true}
 });
 let role='operations',rendered=0,focused=0,scrolled=0;
 const data={merchants:[
