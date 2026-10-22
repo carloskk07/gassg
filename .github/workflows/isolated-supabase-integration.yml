@@ -1,0 +1,103 @@
+name: TAMÃO isolated Supabase integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/isolated-supabase-integration.yml'
+      - 'tests/isolated-supabase-commerce-smoke.mjs'
+      - 'supabase/config.toml'
+      - 'supabase/migrations/**'
+      - 'supabase/functions/create-order/**'
+      - 'supabase/functions/merchant-orders/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tamao-isolated-supabase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    # No production Supabase project id, host, secrets, provider credentials
+    # or GitHub OIDC tokens may be passed into this job.
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_DB_PASSWORD: ''
+    steps:
+      - uses: actions/checkout@v6
+      - name: Pin Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Verify disposable local setup
+        run: |
+          test -f supabase/config.toml
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          supabase --version
+          docker info --format '{{.ServerVersion}}'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+      - name: Boot ephemeral Postgres using canonical baseline followed by migrations
+        run: |
+          # This project predates migration-managed bootstrap. The repo's
+          # canonical supabase/schema.sql is the initial database, and the
+          # earliest checked-in migration reconciles it. Put a copy only in
+          # this disposable runner: never create a duplicate in Git or push it.
+          first="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort | head -n 1)"
+          test "$first" = "supabase/migrations/20261001070000_reconcile_runtime_v1_4.sql"
+          test -s supabase/schema.sql
+          ephemeral="supabase/migrations/20261001065000_local_baseline_from_schema.sql"
+          test ! -e "$ephemeral"
+          cp supabase/schema.sql "$ephemeral"
+          trap 'rm -f "$ephemeral"' EXIT
+          # Some committed historical files share a 14-digit migration
+          # version. Normalize only this runner's filenames, preserving
+          # exact SQL bytes and original sorted execution order. Never
+          # publish these synthetic local versions or compare them to
+          # hosted production migration-history identifiers.
+          python3 - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from shutil import move
+          import re
+          root=Path('supabase/migrations')
+          files=sorted(root.glob('*.sql'))
+          if len(files)<200:
+              raise RuntimeError('Unexpectedly short migration chain')
+          staged=[]
+          previous=None
+          normalized=0
+          with TemporaryDirectory() as tmp:
+              for source in files:
+                  match=re.fullmatch(r'(\d{14})_(.+)\.sql',source.name)
+                  if not match:
+                      raise RuntimeError('Migration filename not canonical: '+source.name)
+                  # Migration version is a 14-digit sortable identifier,
+                  # not necessarily a valid calendar time (historical
+                  # filenames may use seconds > 59). Keep names monotonic.
+                  original=int(match.group(1))
+                  effective=original if previous is None or original>previous else previous+1
+                  previous=effective
+                  name=f'{effective:014d}'+'_'+match.group(2)+'.sql'
+                  if name!=source.name:
+                      normalized+=1
+                  target=Path(tmp)/source.name
+                  move(source,target)
+                  staged.append((target,root/name))
+              for source,target in staged:
+                  move(source,target)
+          print('Ephemeral migration files:',len(files),'local timestamp adjustments:',normalized)
+          assert len({p.name[:14] for p in root.glob('*.sql')})==len(files)
+          PY
+          supabase db start
+      - name: Verify real schema, RLS, missing merchant and clean local orders
+        run: node tests/isolated-supabase-commerce-smoke.mjs
+      - name: Destroy disposable local containers even on test failure
+        if: always()
+        run: supabase stop --no-backup || true
