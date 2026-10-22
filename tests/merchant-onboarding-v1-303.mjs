@@ -89,4 +89,39 @@ for(const marker of [
  '@media(max-width:550px)','.merchant-workspace #merchant-live-orders'
 ])assert.ok(css.includes(marker),'missing responsive CSS '+marker);
 assert.ok(ci.includes('node tests/merchant-onboarding-v1-303.mjs'));
+// ANP applies to active GLP and GLP cylinders, not to unrelated products.
+// Exercise the exact production predicate, not a test-only replacement.
+const complianceStart=live.indexOf('  const compliance=m.compliance||{};');
+const complianceEnd=live.indexOf('  const cnpjWhen=',complianceStart);
+assert.ok(complianceStart>=0&&complianceEnd>complianceStart,'merchant compliance decision present');
+const complianceSource=live.slice(complianceStart,complianceEnd);
+const checkCompliance=(catalog,compliance)=>{
+ const {hasGlp,complianceReady}=vm.runInNewContext(
+  '(function(){'+complianceSource+';return {hasGlp,complianceReady};})()',
+  {rt:{catalog},m:{compliance}}
+ );
+ return {hasGlp,complianceReady};
+};
+const verified={cnpjCurrent:true,anpCurrent:false};
+for(const item of ['WATER20','WOOD','CHARCOAL_5KG','ICE_BAR_10KG']){
+ const value=checkCompliance([{active:true,productCode:item}],verified);
+ assert.equal(value.hasGlp,false,item+' should not require ANP');
+ assert.equal(value.complianceReady,true,item+' may satisfy this UI compliance gate without ANP');
+}
+assert.equal(checkCompliance([{active:false,productCode:'P13'}],verified).complianceReady,true,
+ 'inactive GLP must not impose ANP on active non-GLP catalog');
+for(const item of ['P13','P13_CONTAINER','P90_CONTAINER']){
+ const value=checkCompliance([{active:true,productCode:item}],verified);
+ assert.equal(value.hasGlp,true,item+' remains regulated');
+ assert.equal(value.complianceReady,false,item+' cannot pass without ANP');
+ assert.equal(checkCompliance([{active:true,productCode:item}],
+  {cnpjCurrent:true,anpCurrent:true}).complianceReady,true);
+}
+assert.equal(checkCompliance([{active:true,productCode:'CUSTOM_ITEM',deliveryClass:'regulated_glp'}],
+ verified).complianceReady,false,'backend-regulated delivery classes must still require ANP');
+assert.equal(checkCompliance([{active:true,productCode:'WATER20'}],
+ {cnpjCurrent:false,anpCurrent:true}).complianceReady,false,'CNPJ remains mandatory');
+assert.ok(live.includes('hasGlp&&!anpCurrent?'),
+ 'non-GLP stores must not display a fictitious expired ANP warning');
+
 console.log('V1.303 PASS — merchant tasks and orders first, owner-only guidance, admin control and retained operations.');
