@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261022043000_admin_merchant_offer_coherence.sql');
+const sql=read('supabase/migrations/20261022043642_admin_merchant_offer_coherence.sql');
 const edge=read('supabase/functions/admin-ops/index.ts');
 const ci=read('.github/workflows/audit.yml');
 const fn=sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.admin_merchant_readiness_snapshot('));
