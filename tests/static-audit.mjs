@@ -1489,7 +1489,7 @@ assert.ok(!merchantOpsSource.includes('.update({price_confirmed_at:now,last_seen
 assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_at'),'painel precisa receber freshness por SKU');
 assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
 assert.ok(merchantOpsSource.includes('p_expected_updated_at:expectedUpdatedAt')&&catalogRetryAuthority.includes('v_catalog.updated_at is distinct from p_expected_updated_at'),'edição de catálogo existente precisa usar controle otimista pelo updated_at visto pela revenda');
-assert.ok(merchantOpsSource.includes('if(online)onlineUpdate=onlineUpdate.eq("accepts_citywide",true)'),'ficar online precisa revalidar a área de entrega no mesmo UPDATE para fechar corrida entre abas');
+assert.ok(merchantOpsSource.includes('.eq("status","active")')&&merchantOpsSource.includes('.eq("accepts_citywide",true)')&&merchantOpsSource.includes('.gte("delivery_fee_confirmed_at",feeCutoff)'),'ficar online precisa revalidar status ativo, area e taxa de entrega no UPDATE contra corrida entre abas');
 const onlineAreaInvariant=read('supabase/migrations/20261006024500_online_delivery_area_invariant_v1_70_19.sql');
 assert.ok(onlineAreaInvariant.includes('check (not online or accepts_citywide is true)'),'banco precisa proibir estado online sem cobertura aceita pelo matching atual');
 assert.ok(merchantOpsSource.includes('CATALOG_VERSION_CONFLICT')&&merchantOpsSource.includes('merchant_catalog_action'),'conflito de catálogo precisa falhar 409 pela autoridade server-side');
