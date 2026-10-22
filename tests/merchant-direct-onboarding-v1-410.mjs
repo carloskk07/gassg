@@ -94,7 +94,7 @@ assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
  'merchant sign-up remains the primary conversion action');
 assert.match(css,/\.merchant-conversion-intro>.merchant-share:focus-visible/,
  'keyboard focus stays visible on both CTAs');
-assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-cta-row/,
+assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-intro/,
  'sharing and signup use responsive full-width controls on mobile');
 const startInvite=growth.indexOf('function tamaoGrowthInviteUrl(');
 const endInvite=growth.indexOf('\nasync function shareTamaoGrowthInvite(',startInvite);
