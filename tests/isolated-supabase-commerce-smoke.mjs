@@ -94,4 +94,127 @@ assert.equal(sql('select count(*) from public.action_requests'),'0',
 assert.equal(sql('select count(*) from public.wallet_entries'),'0',
   'rejected checkout must never credit rewards');
 
-console.log('PASS: isolated Postgres, migrations, RLS, real permission-denied probes and PRELAUNCH checkout block; no financial writes.');
+
+// First POSITIVE, persisted SQL journey against actual TAMÃO business code.
+// Only synthetic actors and an already-offered *local* cash order are inserted.
+// It never passes through checkout or a PSP, and every write is ROLLED BACK.
+const cancellationTransaction = String.raw`
+BEGIN;
+INSERT INTO auth.users (id, instance_id, aud, role, is_sso_user, is_anonymous)
+VALUES
+('00000000-0000-4000-8000-000000000021', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', false, false),
+('00000000-0000-4000-8000-000000000024', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', false, false);
+
+-- Only this local transaction may flip the synthetic launch flag. All
+-- required governance columns are filled with an in-transaction fixture
+-- identity; ROLLBACK restores PRELAUNCH and removes the actor.
+UPDATE public.platform_launch_control
+SET commerce_enabled=true,
+    operation_mode='LIVE',
+    enabled_at=clock_timestamp(),
+    enabled_by='00000000-0000-4000-8000-000000000021'::uuid,
+    portals_source_sha=repeat('f',40),
+    mode_source_sha=repeat('f',40),
+    customer_portal_ok=true,merchant_portal_ok=true,admin_portal_ok=true
+WHERE singleton=true;
+
+INSERT INTO public.merchants(id,name,cnpj,status,online)
+VALUES (
+ '00000000-0000-4000-8000-000000000022',
+ 'Revenda Ficticia CI',
+ '00000000000001',
+ 'pending',
+ false
+);
+
+-- A real order INSERT is protected by guard_new_order_delivery_payment.
+-- The fixture must satisfy that guard; bypassing it would invalidate the test.
+INSERT INTO public.merchant_payment_methods(merchant_id,payment_method,active)
+VALUES('00000000-0000-4000-8000-000000000022','cash',true);
+INSERT INTO public.merchant_payment_routes(
+ merchant_id,payment_method,provider,channel,verification_mode,active
+) VALUES(
+ '00000000-0000-4000-8000-000000000022',
+ 'cash','manual','delivery','merchant_confirmed',true
+);
+
+INSERT INTO public.orders(
+ id,public_code,customer_id,merchant_id,status,address_text,
+ payment_method,gross_total_cents,total_cents,attempted_merchant_ids,
+ offer_expires_at
+) VALUES(
+ '00000000-0000-4000-8000-000000000023',
+ 'SIMULADO-CANCEL-CI',
+ '00000000-0000-4000-8000-000000000021',
+ '00000000-0000-4000-8000-000000000022',
+ 'OFFERED_TO_MERCHANT',
+ 'Endereco ficticio de teste local',
+ 'cash',2500,2500,
+ ARRAY['00000000-0000-4000-8000-000000000022'::uuid],
+ clock_timestamp()+interval '3 minutes'
+);
+
+DO $check$
+DECLARE
+ first_result jsonb;
+ replay_result jsonb;
+BEGIN
+ first_result := public.customer_order_action(
+   '00000000-0000-4000-8000-000000000021'::uuid,
+   '00000000-0000-4000-8000-000000000023'::uuid,
+   'cancel-before-accept',
+   1,'isolated-cancel-before-accept-001',repeat('a',64)
+ );
+ IF first_result->>'status' IS DISTINCT FROM 'CANCELLED'
+    OR (first_result->>'version')::int IS DISTINCT FROM 2 THEN
+   RAISE EXCEPTION 'CANCEL_RESULT_INVALID';
+ END IF;
+ IF (SELECT status<>'CANCELLED' OR version<>2 FROM public.orders
+       WHERE id='00000000-0000-4000-8000-000000000023') THEN
+   RAISE EXCEPTION 'CANCEL_DB_TRANSITION_INVALID';
+ END IF;
+ IF (SELECT count(*) FROM public.order_events
+       WHERE order_id='00000000-0000-4000-8000-000000000023'
+       AND event_type='CANCELLED')<>1 THEN
+   RAISE EXCEPTION 'CANCEL_EVENT_COUNT_INVALID';
+ END IF;
+ replay_result := public.customer_order_action(
+   '00000000-0000-4000-8000-000000000021'::uuid,
+   '00000000-0000-4000-8000-000000000023'::uuid,
+   'cancel-before-accept',
+   1,'isolated-cancel-before-accept-001',repeat('a',64)
+ );
+ IF replay_result IS DISTINCT FROM first_result THEN
+   RAISE EXCEPTION 'CANCEL_IDEMPOTENCY_INVALID';
+ END IF;
+ IF (SELECT count(*) FROM public.order_events
+       WHERE order_id='00000000-0000-4000-8000-000000000023'
+       AND event_type='CANCELLED')<>1 THEN
+   RAISE EXCEPTION 'CANCEL_DUPLICATED_EVENT';
+ END IF;
+ IF (SELECT count(*) FROM public.wallet_entries)>0
+    OR (SELECT count(*) FROM public.order_reward_grants)>0 THEN
+   RAISE EXCEPTION 'CANCEL_CREATED_REWARDS_WITHOUT_PAYMENT';
+ END IF;
+END $check$;
+SELECT (SELECT status='CANCELLED' AND version=2 FROM public.orders
+        WHERE id='00000000-0000-4000-8000-000000000023');
+ROLLBACK;
+`;
+const cancellationOutput=sql(cancellationTransaction);
+assert.ok(cancellationOutput.split('\n').includes('t'),
+  'real local customer cancellation must mutate and expose status CANCELLED');
+assert.equal(sql('select count(*) from public.orders'),'0',
+  'positive transaction must be rolled back');
+assert.equal(sql('select count(*) from public.merchants'),'0',
+  'fake merchant must never persist');
+assert.equal(sql("select count(*) from public.platform_launch_control where commerce_enabled"),'0',
+  'local LIVE flag must be rolled back to PRELAUNCH');
+assert.equal(sql("select count(*) from auth.users where id='00000000-0000-4000-8000-000000000021'"),'0',
+  'fake customer must never persist');
+assert.equal(sql('select count(*) from public.order_events'),'0',
+  'cancellation history must be rolled back');
+assert.equal(sql('select count(*) from public.wallet_entries'),'0',
+  'no ledger entry survives isolated test');
+
+console.log('PASS: isolated SQL permissions, PRELAUNCH refusal, real customer cancellation/idempotency, transaction rollback; no PSP.');
