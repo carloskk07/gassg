@@ -92,6 +92,28 @@ assert.equal((merchantLanding.match(/shareTamaoGrowthInvite\('merchant'\)/g)||[]
 assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
  merchantLanding.indexOf("shareTamaoGrowthInvite('merchant')"),
  'merchant sign-up remains the primary conversion action');
+
+const demoUrl='https://carloskk07.github.io/gassg/#merchants';
+assert.ok(merchantLanding.includes('href="'+demoUrl+'"'),
+ 'merchant landing must offer direct access to the existing isolated GH Pages walkthrough');
+assert.match(merchantLanding,/merchant-demo-link" href=/,
+ 'presentation link must use navigation, not grant merchant authorization');
+assert.match(merchantLanding,/target="_blank" rel="noopener noreferrer nofollow"/,
+ 'the isolated demonstration must not inherit opener privileges');
+assert.match(merchantLanding,/Pedidos simulados|pedidos simulados/,
+ 'the merchant demo must be explicitly identified as noncommercial');
+assert.match(merchantLanding,/internalPilot\?'':/,
+ 'hide the outbound demonstration link from the pilot itself');
+assert.match(css,/\.merchant-landing-premium \.merchant-demo-link:focus-visible/,
+ 'the presentation link needs a visible keyboard focus indicator');
+const demoRuntime=read('js/runtime-config.js');
+const backendSource=read('js/backend.js');
+assert.match(demoRuntime,/chamaHost==='carloskk07.github.io'/);
+assert.match(demoRuntime,/globalThis\.__CHAMA_TEST__=true/,
+ 'the GH Pages pilot must use the same isolated local simulator flags');
+assert.match(backendSource,/requested:globalThis\.__CHAMA_TEST__===true\s*\? false/,
+ 'isolated pilot must not activate the live customer backend');
+
 assert.match(css,/\.merchant-conversion-intro>.merchant-share:focus-visible/,
  'keyboard focus stays visible on both CTAs');
 assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-intro/,
