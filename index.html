@@ -27,20 +27,15 @@
 </head>
 <body>
   <div id="app">
-    <section class="tamao-preboot" aria-label="Apresentação do TAMÃO">
+    <section class="tamao-preboot" aria-label="Carregamento inicial do TAMÃO">
       <div class="tamao-preboot-brand"><img src="./icons/icon.svg" alt="" width="42" height="42"><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></div>
-      <div class="tamao-preboot-content">
-        <span class="tamao-preboot-eyebrow">GÁS, ÁGUA E ESSENCIAIS PERTO DE VOCÊ</span>
-        <h1>Faltou em casa? <em>Tá na mão.</em></h1>
-        <p>Compare preços de gás, água e essenciais, consulte opções para seu CEP e acompanhe seu cashback no Clube. Para revendas, um novo canal para alcançar clientes e receber pedidos na região.</p>
-        <nav aria-label="Conheça o TAMÃO">
-          <a class="tamao-preboot-primary" href="/?entrada=gas">Consultar produtos →</a>
-          <a href="/?entrada=indicar">Indicações</a>
-          <a href="/?entrada=revenda">Para revendas</a>
-          <a href="/?entrada=marca">Para marcas</a>
-        </nav>
-        <noscript><p>Ative o JavaScript no navegador para consultar produtos, fazer pedidos ou cadastrar sua empresa.</p></noscript>
+      <div class="tamao-preboot-content" role="status" aria-live="polite">
+        <span class="tamao-preboot-eyebrow">COTAÇÕES E SERVIÇOS DA SUA CIDADE</span>
+        <h1>Preparando o TAMÃO</h1>
+        <p>Carregando preços, serviços e vantagens disponíveis.</p>
+        <div class="tamao-preboot-placeholders" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
+      <noscript><p>Ative o JavaScript no navegador para consultar produtos, fazer pedidos ou cadastrar sua empresa.</p></noscript>
     </section>
   </div>
   <div id="toast" class="toast" aria-live="polite"></div>

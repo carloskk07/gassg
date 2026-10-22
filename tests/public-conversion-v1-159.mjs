@@ -41,8 +41,8 @@ for(const [src,fragment] of [
  [acquisition,'Me avise quando puder pedir'],
  [acquisition,'Autorizo o TAMÃO a entrar em contato'],
  [acquisition,'Quero anunciar no TAMÃO'],
- [html,'Faltou em casa? <em>Tá na mão.</em>'],
- [html,'consulte preço e entrega por CEP'],
+ [html,'aria-label="Carregamento inicial do TAMÃO"'],
+ [html,'Carregando preços, serviços e vantagens disponíveis.'],
  [css,'@media(prefers-reduced-motion:reduce)'],
  [css,':focus-visible'],
  [css,'.hero-emotional-promise'],
@@ -51,6 +51,10 @@ for(const [src,fragment] of [
 ]){
  assert.ok(src.includes(fragment),'Missing safe persuasive contract: '+fragment);
 }
+// The real, persuasive home lives in customer.js. The HTML bootstrap is intentionally neutral.
+assert.doesNotMatch(html,/<nav aria-label="Conheça o TAMÃO">/);
+assert.doesNotMatch(html,/<em>Tá na mão\.<\/em>/);
+assert.ok(customer.includes('Faltou em casa?')&&customer.includes('Tá na mão.'),'Real customer hero must retain its promise');
 assert.ok(
  growth.includes("DEFAULT_MERCHANT_PILOT_FEE_RATE=0.075")
  &&growth.includes("currentCommercialRate('platformFeeBps'")
