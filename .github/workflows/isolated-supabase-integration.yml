@@ -1,0 +1,53 @@
+name: TAMÃO isolated Supabase integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/isolated-supabase-integration.yml'
+      - 'tests/isolated-supabase-commerce-smoke.mjs'
+      - 'supabase/config.toml'
+      - 'supabase/migrations/**'
+      - 'supabase/functions/create-order/**'
+      - 'supabase/functions/merchant-orders/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tamao-isolated-supabase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    # No production Supabase project id, host, secrets, provider credentials
+    # or GitHub OIDC tokens may be passed into this job.
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_DB_PASSWORD: ''
+    steps:
+      - uses: actions/checkout@v6
+      - name: Pin Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Verify disposable local setup
+        run: |
+          test -f supabase/config.toml
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+          supabase --version
+          docker info --format '{{.ServerVersion}}'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+      - name: Boot isolated Supabase Auth, Postgres and Edge from project migrations
+        run: |
+          supabase start
+      - name: Verify actual database RLS, Auth and Edge authorization
+        run: node tests/isolated-supabase-commerce-smoke.mjs
+      - name: Destroy disposable local containers even on test failure
+        if: always()
+        run: supabase stop --no-backup || true
