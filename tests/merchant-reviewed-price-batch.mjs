@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const source=read('js/merchant.js'),ci=read('.github/workflows/audit.yml');
-new vm.Script(source,{filename:'js/merchant.js'});
+const merchant=read('js/merchant.js'),source=read('js/merchant-price-batch.js'),ci=read('.github/workflows/audit.yml');
+new vm.Script(merchant,{filename:'js/merchant.js'});
+new vm.Script(source,{filename:'js/merchant-price-batch.js'});
 const start=source.indexOf('let merchantBulkPriceBusy=false;');
 const end=source.indexOf('\nasync function merchantLiveSaveProduct(',start);
 assert.ok(start>0&&end>start,'batch uses the existing catalog update API');
@@ -13,14 +14,20 @@ assert.doesNotMatch(functionSource,/merchantInvoke\s*\(|\.rpc\s*\(|fetch\s*\(/,
  'no new server call or unaudited mutation');
 assert.match(functionSource,/await merchantUpdateProductLive\(/,
  'commit each reviewed SKU through the existing protected path');
-assert.match(source,/\$\{batchReview\}/,'catalog renders the explicit review controls');
-assert.match(source,/id="merchant-review-price-/,'each selected SKU has its own checkbox');
-assert.match(source,/function merchantCatalogMarkEdited\(/,
+assert.match(merchant,/\$\{batchReview\}/,'catalog renders the explicit review controls');
+assert.match(merchant,/id="merchant-review-price-/,'each selected SKU has its own checkbox');
+assert.match(merchant,/function merchantCatalogMarkEdited\(/,
  'unsaved edits remain visible and independently saved');
-assert.match(source,/if\(merchantBulkPriceBusy\)return toast\(/,
+assert.match(merchant,/typeof merchantBulkPriceBusy!=='undefined'/,
  'per-item save is suspended while a reviewed batch runs');
 assert.match(ci,/node tests\/merchant-reviewed-price-batch\.mjs/);
 
+
+assert.match(merchant,/function merchantPriceBatchStart\(/,'deferred handler present');
+assert.match(merchant,/merchant-price-batch\.js/,'load only after the user clicks');
+assert.match(merchant,/merchantPriceBatchStart\(\)/,'button uses the deferred handler');
+assert.doesNotMatch(merchant,/async function merchantLiveConfirmReviewedPrices\(/,
+ 'bulk mutation logic must not inflate Admin initial script');
 const old='2026-10-10T12:00:00.000Z';
 const item=(code,{range=false}={})=>({
  productCode:code,productName:code,active:true,availableStock:5,
