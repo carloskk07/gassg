@@ -96,7 +96,11 @@ display:block;margin:35px auto 0;min-height:48px;border:1px solid rgba(255,255,2
 .home-editorial-choice,.home-editorial-all{transition:none}.home-editorial-choice:hover{filter:none}.home-editorial-gas.home-editorial-choice:hover{transform:rotate(-8deg)}.home-editorial-water.home-editorial-choice:hover{transform:rotate(9deg)}}/* TAMÃO V1.374 — visual */
 .merchant-conversion-start{
 display:grid;gap:clamp(14px,2.2vw,23px);margin:clamp(17px,3vw,30px) 0 clamp(22px,3vw,33px);padding:clamp(17px,3.2vw,30px);background:linear-gradient(137deg,#ebf7ee,#fffdfa 67%,#e7f4eb);border:1px solid #cbe2d3;border-radius:28px;box-shadow:0 17px 37px rgba(19,79,47,.07);
-}.merchant-conversion-intro{min-width:0}.merchant-conversion-intro h2{
+}.merchant-conversion-cta-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:18px}
+.merchant-conversion-cta-row>button{min-height:46px;max-width:100%;white-space:normal}
+.merchant-conversion-cta-row>button:focus-visible{outline:3px solid #c7871e;outline-offset:3px}
+@media(max-width:620px){.merchant-conversion-cta-row{display:grid;grid-template-columns:minmax(0,1fr)}.merchant-conversion-cta-row>button{width:100%}}
+.merchant-conversion-intro{min-width:0}.merchant-conversion-intro h2{
 max-width:25ch;font-size:clamp(25px,3.2vw,37px);line-height:1.12;margin:7px 0 10px;color:#133e2d;letter-spacing:-.045em;text-wrap:balance;
 }.merchant-conversion-intro p{max-width:65ch;color:#4c6e5a;font-size:14px;line-height:1.6;margin:0}.merchant-conversion-proof{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}.merchant-conversion-proof>span{
 display:flex;align-items:center;gap:7px;min-height:35px;background:#fff;border:1px solid #dae8df;border-radius:12px;font-size:12px;font-weight:850;color:#25523a;padding:7px 10px;
