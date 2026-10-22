@@ -65,6 +65,7 @@ const create=[
 "INSERT INTO public.postal_code_validation_cache(postal_code,city,state,provider,service_area_allowed,street,neighborhood) VALUES("+q(postalCode)+",'São Gabriel','RS','viacep',true,'Rua Ficticia CI','Centro') ON CONFLICT(postal_code) DO UPDATE SET service_area_allowed=true,verified_at=clock_timestamp(),street=excluded.street;",
 "INSERT INTO public.merchants(id,name,cnpj,status,online,accepts_citywide,last_seen_at,delivery_fee_cents,delivery_fee_confirmed_at) VALUES("+q(merchantId)+"::uuid,'Revenda Simulada CI',"+q(cnpj)+",'pending',false,true,clock_timestamp(),400,clock_timestamp());",
 "INSERT INTO public.merchant_members(merchant_id,user_id,member_role,active) VALUES("+q(merchantId)+"::uuid,"+q(owner.id)+"::uuid,'owner',true);",
+"INSERT INTO public.merchant_business_details(merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text) VALUES("+q(merchantId)+"::uuid,'Empresa Simulada CI','Revenda Simulada CI','Titular Sintetico','11999999999','11999999999',"+q(postalCode)+",'São Gabriel','RS','Rua Ficticia CI, 10');",
 "INSERT INTO public.merchant_compliance(merchant_id,cnpj_status,cnpj_verified_at,anp_status) VALUES("+q(merchantId)+"::uuid,'verified',clock_timestamp(),'not_required');",
 "INSERT INTO public.merchant_representation_reviews(merchant_id,owner_user_id,merchant_cnpj,authority_kind,evidence_reference,verified_by,expires_at) VALUES("+q(merchantId)+"::uuid,"+q(owner.id)+"::uuid,"+q(cnpj)+",'legal_representative','CI-LOCAL-TEST-NO-REAL-DOCUMENT',"+q(owner.id)+"::uuid,clock_timestamp()+interval '1 day');",
 "INSERT INTO public.merchant_payment_methods(merchant_id,payment_method,active) VALUES("+q(merchantId)+"::uuid,'cash',true);",
@@ -75,6 +76,7 @@ const create=[
 ].join('\n');
 sql(create);
 assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['CHARCOAL2']::text[])"),'t');
+assert.ok(sql("SELECT "+q(merchantId)+"::uuid=ANY(public.market_city_offer_scope('São Gabriel','RS'))")==='t','synthetic merchant must pass the REAL city offer scope');
 const quoteCmd="SELECT public.create_quote_snapshot_v3("+
  q(buyer.id)+"::uuid,"+q(merchantId)+"::uuid,"+q(postalCode)+
  ",'10',400,25,45,clock_timestamp()+interval '5 minutes',"+
