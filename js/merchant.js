@@ -1396,8 +1396,11 @@ function merchantPaymentConnectionsView(rt){
 function merchantSetupSnapshot(rt){
   const m=rt?.merchant||{};
   const stock=Array.isArray(rt?.catalog)?rt.catalog:[];
-  const offered=stock.filter(item=>item?.active===true&&Number(item.availableStock)>0&&
-    Number(item.priceCents)>0&&merchantTimestampFresh(item.priceConfirmedAt));
+  const stocked=stock.filter(item=>item?.active===true&&Number(item.availableStock)>0);
+  const offered=stocked.filter(item=>Number(item.priceCents)>0&&
+    merchantTimestampFresh(item.priceConfirmedAt));
+  // merchant-ops/set-online requires every active stocked SKU to be fresh.
+  const productsReady=stocked.length>0&&offered.length===stocked.length;
   const delivery=m.acceptsCitywide===true&&merchantTimestampFresh(m.deliveryFeeConfirmedAt);
   const methods=m.paymentMethods||{};
   const enabled=['pix','card','cash'].filter(key=>methods[key]===true);
@@ -1406,8 +1409,8 @@ function merchantSetupSnapshot(rt){
     route?.active===true&&matches(String(route.paymentMethod||'')));
   return [
     {key:'products',title:'Produtos e preços',
-      detail:offered.length?offered.length+' produto(s) com preço atual e estoque':'Informe os preços e os estoques',
-      done:offered.length>0},
+      detail:stocked.length?offered.length+' de '+stocked.length+' produto(s) com estoque e preço confirmado em 24h':'Informe os preços e os estoques',
+      done:productsReady},
     {key:'delivery',title:'Entregas',
       detail:delivery?'Área e taxa de entrega confirmadas':'Escolha sua área, taxa e prazo de entrega',
       done:delivery},
@@ -2199,8 +2202,9 @@ function merchantLivePage(){
   if(m.acceptsCitywide===false)freshnessProblems.push('atendimento na cidade desativado');
   if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
   if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
-  if(!Object.values(paymentMethods).some(Boolean))freshnessProblems.push('nenhuma forma de pagamento confirmada');
-  const commercialReady=freshness.allFresh&&m.acceptsCitywide!==false&&Object.values(paymentMethods).some(Boolean);
+  const paymentReady=merchantSetupSnapshot(rt).find(step=>step.key==='payment')?.done===true;
+  if(!paymentReady)freshnessProblems.push('confirme a forma de pagamento e a rota de recebimento');
+  const commercialReady=freshness.allFresh&&m.acceptsCitywide===true&&paymentReady;
   const freshnessNotice=!commercialReady
     ? '<div class="notice danger" style="margin-top:12px"><strong>Ainda falta confirmar alguns dados para vender.</strong><br>'+esc(freshnessProblems.join(' • '))+'. Sua revenda aparece nas consultas quando tiver área de atendimento, frete, preços e estoque confirmados.</div>'
     : '';
