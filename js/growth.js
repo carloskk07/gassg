@@ -748,7 +748,7 @@ function merchantsLanding(){
     <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
     <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
-    <p class="muted page-lead">Mostre seus preços de gás, água e essenciais a quem já procura na sua cidade. Receba pedidos organizados sem abandonar o balcão ou o WhatsApp. <strong>Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
+    <p class="muted page-lead">Sua revenda mais visível. Mostre preços de gás, água e essenciais a quem procura na cidade. Receba pedidos organizados sem abandonar o balcão ou o WhatsApp. <strong>Você continua no controle. Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
@@ -811,8 +811,8 @@ function merchantsLanding(){
       <div class="merchant-demand-heading"><span class="section-kicker">VISIBILIDADE QUE PODE VIRAR PEDIDOS</span><h2>Não espere o cliente já conhecer sua revenda para vender.</h2>
         <p>Apareça nas consultas da sua região e mostre gás, água e produtos complementares na mesma cesta. Você decide quando pode atender.</p></div>
       <div class="merchant-demand-grid">
-        <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua revenda ganha outra vitrine para consultas por região e produtos.</p></article>
-        <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Solicitações organizadas em um painel, com aceite sob seu controle.</p></article>
+        <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua vitrine aparece em mais consultas da região.</p></article>
+        <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Pedidos organizados; você decide o aceite.</p></article>
         <article><span aria-hidden="true">🔁</span><strong>Mais motivos para o cliente voltar</strong><p>Histórico e benefícios de campanhas elegíveis podem apoiar a recompra.</p></article>
       </div>
       <p class="merchant-demand-note">Preços, estoque e promoções continuam sob seu controle.</p>
@@ -821,7 +821,7 @@ function merchantsLanding(){
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">📈</div><h3>Mais oportunidades de venda</h3><p class="muted tiny">Seja uma opção para quem consulta gás e itens essenciais na área atendida pela sua empresa.</p></div>
         <div class="card"><div class="feature-icon">🧺</div><h3>Mais valor em cada entrega</h3><p class="muted tiny">Ofereça água, carvão, lenha e gelo na mesma cesta de compra.</p></div>
-        <div class="card"><div class="feature-icon">🔁</div><h3>Clientes que podem voltar</h3><p class="muted tiny">O histórico de compras pode ajudar o cliente a lembrar quando está na hora de repor o que costuma pedir.</p></div>
+        <div class="card"><div class="feature-icon">🔁</div><h3>Clientes que podem voltar</h3><p class="muted tiny">O histórico ajuda o cliente a recomprar quando precisar.</p></div>
       </div>
       <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
     </section>
