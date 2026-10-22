@@ -91,10 +91,10 @@ assert.ok(audit.includes('node tests/merchant-go-online-checklist-parity.mjs'));
 // must use the canonical SQL payment authority rather than count any route.
 const setOnline=ops.indexOf('if(action==="set-online")');
 const paymentBegin=ops.indexOf('        const paymentEligibility=await Promise.all(',setOnline);
-const paymentEnd=ops.indexOf('        const {data:available,error:availableError}',paymentBegin);
-assert.ok(paymentBegin>setOnline&&paymentEnd>paymentBegin,
+const paymentGateEnd=ops.indexOf('        const {data:available,error:availableError}',paymentBegin);
+assert.ok(paymentBegin>setOnline&&paymentGateEnd>paymentBegin,
  'merchant online must check delivery payment authorization before inventory');
-const paymentGate=ops.slice(paymentBegin,paymentEnd);
+const paymentGate=ops.slice(paymentBegin,paymentGateEnd);
 assert.match(paymentGate,/merchant_delivery_payment_allowed/);
 assert.doesNotMatch(paymentGate,/paymentRouteCount|merchant_payment_routes.+count/,
  'mere route existence cannot authorize operation');
