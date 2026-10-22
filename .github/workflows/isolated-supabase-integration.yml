@@ -43,10 +43,10 @@ jobs:
           docker info --format '{{.ServerVersion}}'
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client >/dev/null
-      - name: Boot isolated Supabase Auth, Postgres and Edge from project migrations
+      - name: Boot ephemeral Postgres and apply all canonical project migrations
         run: |
-          supabase start
-      - name: Verify actual database RLS, Auth and Edge authorization
+          supabase db start
+      - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
