@@ -752,9 +752,11 @@ function merchantsLanding(){
     <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
+      ${internalPilot?'':`<a class="secondary merchant-demo-link" href="https://carloskk07.github.io/gassg/#merchants" target="_blank" rel="noopener noreferrer nofollow" aria-label="Experimentar demonstração isolada do TAMÃO em uma nova aba">Ver pedido e entrega na prática — demonstração ↗</a>`}
       <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'})">Ver quanto custa vender</button>
       ${portal?'<button type="button" class="merchant-panel-link" onclick="go(\'merchant\')">Voltar ao meu painel ↗</button>':String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim()?'<button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>':''}
     </div>
+    ${internalPilot?'':`<p class="merchant-demo-note">Demonstração com dados ilustrativos e pedidos simulados. Não gera vendas, recebimentos, cupons pagos ou comissões reais.</p>`}
     </div>
     <aside class="merchant-landing-premium-visual" aria-label="Recursos para organizar o dia a dia da revenda">
       <span class="merchant-visual-kicker">SEU NEGÓCIO. SUA ROTINA.</span>
