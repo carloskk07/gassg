@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261022150000_admin_offer_scope_authority.sql');
+const sql=read('supabase/migrations/20261022123404_admin_offer_scope_authority.sql');
 const original=read('supabase/migrations/20261022043642_admin_merchant_offer_coherence.sql');
 const admin=read('js/admin.js');
 const audit=read('.github/workflows/audit.yml');
