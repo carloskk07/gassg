@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const migration=read('supabase/migrations/20261022134500_merchant_enablement_all_stocked_prices.sql');
+const migration=read('supabase/migrations/20261022131211_merchant_enablement_all_stocked_prices.sql');
 const old=read('supabase/migrations/20261010200000_merchant_guided_enablement_v1_158.sql');
 const edge=read('supabase/functions/merchant-ops/index.ts');
 assert.match(migration,/CREATE OR REPLACE FUNCTION public\.merchant_enablement_diagnostic_v1_158\(/);
