@@ -178,7 +178,7 @@ const applyFinalUpdate=async ({online,row}={})=>{
   admin:{from:name=>{assert.equal(name,'merchants');return {update:data=>{
     assert.equal(data.online,online);return query;
   }};}},merchantId:'merchant-a',online,now:'2026-10-22T21:00:00Z',
-  Date,DomainError:DomainFault,json:(body,status)=>({body,status})
+  Date,origin:null,DomainError:DomainFault,json:(body,status)=>({body,status})
  });
  let result=null,error=null;
  try {
