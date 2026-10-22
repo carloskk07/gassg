@@ -236,9 +236,9 @@ function patchServiceWorker(raw,sourceSha,role){
   if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
   if(!['customer','merchant','admin'].includes(role))throw new Error('Invalid portal cache role');
   let scoped=next;
-  if(role==='customer'){
+  if(role!=='merchant'){
     const merchantEntry=",'./js/merchant.js'";
-    if(!scoped.includes(merchantEntry))throw new Error('Missing customer merchant precache entry');
+    if(!scoped.includes(merchantEntry))throw new Error('Missing merchant operations precache entry');
     scoped=scoped.replace(merchantEntry,'');
   }
   if(role==='admin'){
