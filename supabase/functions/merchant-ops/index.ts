@@ -944,16 +944,23 @@ Deno.serve(async(req:Request)=>{
           );
         }
 
-        const {count:paymentRouteCount,error:paymentRouteError}=await admin
-          .from("merchant_payment_routes")
-          .select("*",{count:"exact",head:true})
-          .eq("merchant_id",merchantId)
-          .eq("active",true);
-        if(paymentRouteError)throw paymentRouteError;
-        if(!paymentRouteCount){
+        // Presence of any active route is not enough: it could be an
+        // online-only checkout, an inactive payment method, or an unverified
+        // device. Use the SAME server authority as Admin/quote readiness.
+        const paymentEligibility=await Promise.all(
+          ["cash","pix","card"].map(async paymentMethod=>{
+            const {data:allowed,error}=await admin.rpc(
+              "merchant_delivery_payment_allowed",
+              {p_merchant_id:merchantId,p_payment_method:paymentMethod}
+            );
+            if(error)throw error;
+            return allowed===true;
+          })
+        );
+        if(!paymentEligibility.some(Boolean)){
           throw new DomainError(
             "PAYMENT_METHOD_REQUIRED",
-            "Ative pelo menos uma forma de recebimento antes de ficar online.",
+            "Ative uma forma de pagamento válida para entrega antes de ficar online.",
             409
           );
         }

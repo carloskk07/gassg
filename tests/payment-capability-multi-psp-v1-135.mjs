@@ -104,8 +104,9 @@ assert.ok(
 assert.ok(
   merchantOps.includes('"update-payment-routes"')
   &&merchantOps.includes('merchant_payment_routes_action')
-  &&merchantOps.includes('.from("merchant_payment_routes")'),
-  'merchant-ops precisa governar rotas e usar rotas ativas no gate online'
+  &&merchantOps.includes('merchant_delivery_payment_allowed')
+  &&merchantOps.includes('p_payment_method:paymentMethod'),
+  'merchant-ops must govern routes and ask canonical authorization before online'
 );
 
 assert.ok(
