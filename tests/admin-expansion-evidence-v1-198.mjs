@@ -22,7 +22,7 @@ const valid=(n,city,state)=>({
   compliance:{cnpj_status:'verified',anp_status:'verified'},
   representationReview:{owner_user_id:owner,merchant_cnpj:cnpj,revoked_at:null,
     expires_at:new Date(now+7*86400000).toISOString()},
-  readiness:{offerReady:true,nextAction:'ready'}
+  readiness:{offerReady:true,nextAction:'ready',cnpjVerificationCurrent:true,anpVerificationCurrent:true}
 });
 const data={merchants:[
   valid(1,'São Gabriel','RS'),
