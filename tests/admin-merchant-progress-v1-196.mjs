@@ -138,6 +138,48 @@ assert.ok(ctx.view(merchant).includes('Evolução da revenda'));
 role='superadmin';
 assert.ok(ctx.view(merchant).includes('Evolução da revenda'));
 
+// Admin 360 reuses the same seven-step source; catalogue/freight ages are read-only.
+vm.runInContext(fn('adminMerchant360ReadinessView')+
+ '\nthis.admin360=adminMerchant360ReadinessView;',ctx);
+rt.data={merchants:[merchant]};
+const detail={
+ type:'merchant',
+ merchant:{id:merchant.id,name:merchant.name,delivery_fee_confirmed_at:new Date(now-2*3600000).toISOString()},
+ catalog:[
+  {product_code:'P13',active:true,available_stock:4,price_cents:10990,
+   price_confirmed_at:new Date(now-2*86400000).toISOString()},
+  {product_code:'WATER20',active:true,available_stock:6,price_cents:1590,
+   price_confirmed_at:new Date(now-3600000).toISOString()},
+  {product_code:'WOOD',active:false,available_stock:10,price_cents:2000,
+   price_confirmed_at:new Date(now-60000).toISOString()}
+ ],
+ payments:[{active:true},{active:false}]
+};
+let admin360=ctx.admin360(detail,now);
+assert.match(admin360,/Evolução da revenda/,'reuse seven steps');
+assert.match(admin360,/Preços confirmados em 24h/);
+assert.match(admin360,/1 de 2/,'only one current price among stocked listings');
+assert.match(admin360,/Reconfirmar/,'stale delivery needs review');
+assert.match(admin360,/Meios de pagamento ativos/);
+assert.match(admin360,/Meios ativos não garantem rota financeira elegível/);
+assert.doesNotMatch(admin360,/onclick=|adminPerform\(|adminSetMerchantStatus\(/);
+detail.merchant.delivery_fee_confirmed_at=new Date(now-900000).toISOString();
+admin360=ctx.admin360(detail,now);
+assert.match(admin360,/Confirmada em 24h/);
+rt.data={merchants:[]};
+assert.match(ctx.admin360(detail,now),/Etapas sem confirmação nesta sessão/);
+assert.doesNotMatch(ctx.admin360(detail,now),/Evolução da revenda/);
+rt.data={merchants:[{...merchant,id:'33333333-3333-4333-8333-333333333333'}]};
+assert.match(ctx.admin360(detail,now),/Etapas sem confirmação nesta sessão/,
+ 'a different company must not satisfy a merchant-specific progress view');
+rt.data={merchants:[merchant]};
+role='finance';
+assert.equal(ctx.admin360(detail,now),'','never disclose partner progress to finance-only role');
+role='operations';
+assert.equal(ctx.admin360({type:'order',merchant:detail.merchant},now),'');
+assert.ok(source.includes('${adminMerchant360ReadinessView(d)}'),
+ 'merchant 360 drawer must render the reuse of existing readiness');
+
 const card=fn('adminMerchantCard');
 assert.ok(card.includes('adminMerchantProgressView(m)'));
 assert.ok(card.includes('admin-partner-work-merchant-'));
