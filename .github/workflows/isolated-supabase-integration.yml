@@ -7,6 +7,7 @@ on:
       - '.github/workflows/isolated-supabase-integration.yml'
       - 'tests/isolated-supabase-commerce-smoke.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
+      - 'tests/isolated-supabase-positive-checkout.mjs'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
       - 'supabase/functions/create-order/**'
@@ -103,6 +104,8 @@ jobs:
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: Verify local Auth and actual Edge HTTP authentication guards
         run: node tests/isolated-supabase-http-smoke.mjs
+      - name: Verify real quote to create-order to get-order against disposable database
+        run: node tests/isolated-supabase-positive-checkout.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
