@@ -15,7 +15,8 @@ async function merchantLiveConfirmReviewedPrices(){
     Number.isSafeInteger(p.priceCents)&&p.priceCents>0&&p.priceCents<=1000000&&
     Number.isSafeInteger(p.availableStock)&&p.availableStock>0&&
     !merchantTimestampFresh(p.priceConfirmedAt));
-  const chosen=eligible.filter(p=>document.getElementById('merchant-review-price-'+p.productCode)?.checked===true);
+  const chosen=eligible.filter(p=>document.getElementById('merchant-review-price-'+p.productCode)?.checked===true)
+    .map(p=>({...p})); // immutable snapshot: later refreshes cannot move the baseline
   if(!chosen.length)return toast('Marque os preços e estoques que você conferiu.');
   if(chosen.length>12)return toast('Confira até 12 produtos por vez.');
   for(const p of chosen){
