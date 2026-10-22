@@ -1579,3 +1579,11 @@ Na página `#club`, visitante sem sessão autenticada e `liveReady` não deve ve
 
 
 **Conciliação pós-aplicação da PR #538:** o SQL foi aplicado com sucesso no Supabase em `20261022131211` (`merchant_enablement_all_stocked_prices`). Verificou-se em `pg_get_functiondef` a checagem de todo SKU ativo com estoque, a oferta regulatoriamente elegível, a autoridade `market_city_offer_scope` e a ACL restrita a `postgres`/`service_role`. O nome do arquivo SQL versionado será ajustado de `20261022134500` para `20261022131211` mantendo **bytes idênticos**, e a suíte de regressão passará a apontar ao arquivo canônico. Não executar DDL novamente na reconciliação. Plataforma permanece PRELAUNCH, Carlos Santos pending/offline, 3 SKUs estocados/0 preços recentes. 
+
+
+### 22/10/2026 — CNPJ e ANP no Admin só concluídos com validade atual atestada pelo banco
+
+- **Inconsistência:** `adminMerchantProgressSnapshot` tratava status registrado `cnpj_status='verified'` e `anp_status='verified'/'not_required'` como evidência válida indefinidamente, mesmo com vencimento segundo `merchant_compliance_policy` (CNPJ 30 dias, ANP 7 dias atualmente) ou GLP ativado após a dispensa inicial.
+- **Correção `fix/admin-compliance-current-evidence-20261022`, base `b547f7f`:** a RPC read-only `admin_merchant_readiness_snapshot` emite `cnpjVerificationCurrent` e `anpVerificationCurrent` usando `merchant_cnpj_compliance_current` e `merchant_anp_compliance_current`. O checklist só apresenta `Concluído` quando status e booleano de validade do servidor concordam. Vencido vira pendente; campo ausente vira desconhecido. Não há prazo hardcoded no JS. `admin-ops` já transmite `readiness` por ID e não precisa de endpoint novo.
+- **Segurança:** permanece exigência `require_platform_admin`, `SECURITY DEFINER` e `EXECUTE` restrito ao `service_role`; sem mudança de pedidos, pagamentos, cidade, status da revenda ou compliance gravado. Executar migração somente após Audit/merge, verificar SQL/ACL e conciliar número da versão do Supabase.
+- **Testes:** V1.196 ampliado para status verified vencido, `not_required` que deixou de valer para GLP, resposta legacy sem flags, e casos positivos; teste SQL dedicado valida RPC/ACL. Auditar e atestar os três portais antes de marcar publicado.
