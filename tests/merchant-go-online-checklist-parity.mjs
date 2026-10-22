@@ -145,7 +145,8 @@ assert.equal(unrelatedMethod.accepted,false,'only canonical method names are eli
 // These scenarios model a concurrent Admin suspension or delivery edit after
 // preflight but before the online=true write. No live merchant is mutated.
 const finalStart=ops.indexOf('      let onlineUpdate=admin',setOnline);
-const finalEnd=ops.indexOf('    if(action==="catalog-history")',finalStart);
+const finalEnd=ops.indexOf('      return json({ok:true,...data},200,origin);',finalStart)+
+  '      return json({ok:true,...data},200,origin);'.length;
 assert.ok(finalStart>setOnline&&finalEnd>finalStart);
 const finalBlock=ops.slice(finalStart,finalEnd);
 assert.match(finalBlock,/\.eq\("status","active"\)/,
