@@ -86,4 +86,58 @@ assert.ok(ops.includes('if(stale.length)')&&ops.includes('PRICE_CONFIRMATION_REQ
 assert.ok(ops.includes('PAYMENT_METHOD_REQUIRED'),
  'merchant-ops still requires active receiving routes');
 assert.ok(audit.includes('node tests/merchant-go-online-checklist-parity.mjs'));
-console.log('PASS — setup and go-online use every active stocked SKU, active receiving route, explicit area and server gates.');
+
+// Actual merchant-ops availability gate, extracted from production code,
+// must use the canonical SQL payment authority rather than count any route.
+const setOnline=ops.indexOf('if(action==="set-online")');
+const paymentBegin=ops.indexOf('        const paymentEligibility=await Promise.all(',setOnline);
+const paymentEnd=ops.indexOf('        const {data:available,error:availableError}',paymentBegin);
+assert.ok(paymentBegin>setOnline&&paymentEnd>paymentBegin,
+ 'merchant online must check delivery payment authorization before inventory');
+const paymentGate=ops.slice(paymentBegin,paymentEnd);
+assert.match(paymentGate,/merchant_delivery_payment_allowed/);
+assert.doesNotMatch(paymentGate,/paymentRouteCount|merchant_payment_routes.+count/,
+ 'mere route existence cannot authorize operation');
+const gates=['cash','pix','card'];
+assert.ok(gates.every(key=>paymentGate.includes('"'+key+'"')));
+const evaluated=async ({allowed={},errors={}}={})=>{
+ const called=[];
+ class TestDomainError extends Error {
+  constructor(code,message,status){super(message);this.code=code;this.status=status}
+ }
+ const merchantId='b384e055-f469-4635-9b3b-4a80af1c814b';
+ const ctx=vm.createContext({
+  merchantId,Promise,Boolean,DomainError:TestDomainError,
+  admin:{rpc:async (name,params)=>{
+   called.push({name,params});
+   const method=params.p_payment_method;
+   return {data:allowed[method]??false,error:errors[method]??null};
+  }}
+ });
+ try{
+  await vm.runInContext('(async()=>{'+paymentGate+'return true;})()',ctx);
+  return {accepted:true,called};
+ }catch(error){
+  return {accepted:false,called,error};
+ }
+};
+const validPix=await evaluated({allowed:{pix:true}});
+assert.equal(validPix.accepted,true,'Pix with server authorization can be offered');
+assert.equal(validPix.called.length,3,'check every delivery method');
+assert.ok(validPix.called.every(call=>call.name==='merchant_delivery_payment_allowed'));
+assert.ok(validPix.called.every(call=>call.params.p_merchant_id==='b384e055-f469-4635-9b3b-4a80af1c814b'));
+const validCard=await evaluated({allowed:{card:true}});
+assert.equal(validCard.accepted,true,'SQL authority can validate card_credit/card_debit behind card');
+const noDelivery=await evaluated({allowed:{}});
+assert.equal(noDelivery.accepted,false,'active online-only route cannot authorize delivery');
+assert.equal(noDelivery.error.code,'PAYMENT_METHOD_REQUIRED');
+assert.equal(noDelivery.error.status,409);
+const noActiveMethod=await evaluated({allowed:{pix:'true'}});
+assert.equal(noActiveMethod.accepted,false,'truthy non-boolean must fail closed');
+const permissionFailure=await evaluated({errors:{pix:new Error('DB_UNAVAILABLE')},allowed:{card:true}});
+assert.equal(permissionFailure.accepted,false,'SQL failure cannot become online permission');
+assert.match(permissionFailure.error.message,/DB_UNAVAILABLE/);
+const unrelatedMethod=await evaluated({allowed:{card_debit:true}});
+assert.equal(unrelatedMethod.accepted,false,'only canonical method names are eligible');
+
+console.log('PASS — setup parity plus canonical merchant_delivery_payment_allowed RPC; unavailable/mismatched routes blocked.');
