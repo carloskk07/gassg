@@ -2020,7 +2020,10 @@ function merchantAvailabilityPanel(rt,options){
     '<small>Em andamento nesta operação</small></div></div>'+
     (manager?'<div class="merchant-availability-actions">'+
       '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'stock\')">Ajustar estoque e preços</button>'+
-      '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Ajustar entregas</button></div>':'')+
+      '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Ajustar entregas</button>'+
+      (options.freshness?.deliveryFresh===false&&m.acceptsCitywide===true
+        ?'<button type="button" class="secondary small" onclick="merchantLiveReconfirmDelivery()"'+
+          (pending?' disabled':'')+'>Confirmar taxa atual</button>':'')+'</div>':'')+
     '</section>';
 }
 // V1.303: first-use guidance never grants commercial or financial permission.
@@ -3642,6 +3645,53 @@ async function merchantLiveSaveP13(){
   const stock=Number(document.querySelector('#live-p13-stock')?.value);
   if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
   try{await merchantUpdateProductLive('P13',Math.round(price*100),stock,true);toast('Preço e estoque confirmados')}catch(e){toast(String(e?.message||e))}
+}
+// Owner/manager attests the *existing* freight terms. Never change fee,
+// ETA or coverage merely to make the freshness gate turn green.
+async function merchantLiveReconfirmDelivery(){
+  const rt=globalThis.merchantRuntime||{},m=rt.merchant||{};
+  if(rt.status!=='ready'||rt.actionPending===true||
+     !['owner','manager'].includes(String(m.memberRole||''))||!m.merchantId)return false;
+  const fee=Number(m.deliveryFeeCents),eta=Number(m.baseEtaMinutes);
+  if(!Number.isSafeInteger(fee)||fee<0||fee>100000||
+     !Number.isInteger(eta)||eta<5||eta>180||m.acceptsCitywide!==true){
+    toast('Revise primeiro a taxa, o prazo e o atendimento na cidade em Ajustar entregas.');
+    return false;
+  }
+  if(!m.configUpdatedAt){
+    toast('Atualize os dados da revenda antes de confirmar a entrega.');
+    return false;
+  }
+  const feeField=document.getElementById('live-delivery-fee');
+  const etaField=document.getElementById('live-eta');
+  const cityField=document.getElementById('live-citywide');
+  if(!feeField||!etaField||!cityField||
+     Math.round(Number(feeField.value)*100)!==fee||
+     Number(etaField.value)!==eta||cityField.checked!==true){
+    toast('Há alterações de entrega ainda não salvas. Use Salvar logística antes de confirmar.');
+    return false;
+  }
+  const id=m.merchantId,version=m.configUpdatedAt;
+  if(typeof confirm!=='function'||!confirm('Você conferiu hoje a taxa de '+BRL.format(fee/100)+
+    ', o prazo de '+eta+' minutos e o atendimento na cidade? Confirmar os valores atuais?'))return false;
+  const current=globalThis.merchantRuntime||{};
+  if(current.status!=='ready'||current.actionPending===true||
+     current.merchant?.merchantId!==id||current.merchant?.configUpdatedAt!==version){
+    toast('O cadastro mudou. Atualize a revenda antes de confirmar a entrega.');
+    return false;
+  }
+  try{
+    await merchantUpdateLogisticsLive(fee,eta,true);
+    const verified=globalThis.merchantRuntime||{},fresh=verified.merchant||{};
+    if(verified.status==='ready'&&fresh.merchantId===id&&
+       fresh.deliveryFeeCents===fee&&fresh.baseEtaMinutes===eta&&
+       fresh.acceptsCitywide===true&&merchantTimestampFresh(fresh.deliveryFeeConfirmedAt)){
+      toast('Taxa, prazo e área de entrega reconfirmados no sistema.');
+      return true;
+    }
+    toast('O servidor respondeu, mas a confirmação não foi reconferida. Atualize a situação.');
+    return false;
+  }catch(e){toast(String(e?.message||e));return false;}
 }
 async function merchantLiveSaveLogistics(){
   const fee=Number(document.querySelector('#live-delivery-fee')?.value);
