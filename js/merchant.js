@@ -3576,7 +3576,73 @@ async function merchantLiveToggleOnline(online){
   try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
 }
 const merchantCatalogSaving=new Set();
+// Each price is individually reviewed by the merchant and committed with the
+// existing per-SKU optimistic version check and audit trail. Partial is not all.
+let merchantBulkPriceBusy=false;
+async function merchantLiveConfirmReviewedPrices(){
+  const rt=globalThis.merchantRuntime||{};
+  if(merchantBulkPriceBusy||rt.actionPending===true||rt.status!=='ready'||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
+  if(merchantQuickHasDrafts(rt)){
+    toast('Salve ou descarte primeiro os ajustes rápidos que ainda estão pendentes.');
+    return;
+  }
+  const codeOk=code=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code);
+  const eligible=(rt.catalog||[]).filter(p=>
+    p.active===true&&codeOk(String(p.productCode||''))&&
+    Number.isSafeInteger(p.priceCents)&&p.priceCents>0&&p.priceCents<=1000000&&
+    Number.isSafeInteger(p.availableStock)&&p.availableStock>0&&
+    !merchantTimestampFresh(p.priceConfirmedAt));
+  const chosen=eligible.filter(p=>document.getElementById('merchant-review-price-'+p.productCode)?.checked===true);
+  if(!chosen.length)return toast('Marque os preços e estoques que você conferiu.');
+  if(chosen.length>12)return toast('Confira até 12 produtos por vez.');
+  for(const p of chosen){
+    const code=p.productCode;
+    const number=id=>Number(document.getElementById(id+'-'+code)?.value);
+    const mode=String(document.getElementById('live-pricing-mode-'+code)?.value||'');
+    const strategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'');
+    const unchanged=Math.round(number('live-price')*100)===p.priceCents&&
+      number('live-stock')===p.availableStock&&
+      document.getElementById('live-active-'+code)?.checked===true&&
+      mode===(p.pricingMode||'fixed')&&
+      (mode!=='range'||(Math.round(number('live-min-price')*100)===p.minPriceCents&&
+        Math.round(number('live-max-price')*100)===p.maxPriceCents&&
+        strategy===(p.pricingStrategy||'balanced')));
+    if(!unchanged||!Number.isFinite(Date.parse(String(p.updatedAt||'')))){
+      toast('Existem alterações ainda não salvas ou dados antigos em '+code+'. Salve esse produto antes de confirmar em conjunto.');
+      return;
+    }
+  }
+  if(typeof confirm!=='function'||!confirm('Confirmar que você conferiu os preços e estoques salvos de '+chosen.length+' produto(s)? Cada produto será registrado separadamente.'))return;
+  merchantBulkPriceBusy=true;
+  let completed=0,reason='';
+  const merchantId=String(rt.merchant?.merchantId||'');
+  try{
+    for(const p of chosen){
+      const now=globalThis.merchantRuntime||{};
+      const current=(now.catalog||[]).find(x=>x.productCode===p.productCode);
+      if(now.status!=='ready'||now.merchant?.merchantId!==merchantId||
+         !['owner','manager'].includes(String(now.merchant?.memberRole||''))||
+         now.actionPending===true||!current||current.updatedAt!==p.updatedAt||
+         current.priceCents!==p.priceCents||current.availableStock!==p.availableStock||
+         current.active!==true)throw new Error('O cadastro mudou. Atualize e revise os produtos restantes.');
+      await merchantUpdateProductLive(p.productCode,p.priceCents,p.availableStock,true);
+      const refreshed=(globalThis.merchantRuntime?.catalog||[]).find(x=>x.productCode===p.productCode);
+      if(!refreshed||refreshed.priceCents!==p.priceCents||
+         refreshed.availableStock!==p.availableStock||
+         !merchantTimestampFresh(refreshed.priceConfirmedAt))
+        throw new Error('Confirmação sem leitura atualizada. Revise a situação antes de continuar.');
+      completed++;
+    }
+  }catch(error){reason=String(error?.message||error||'Erro ao confirmar');}
+  finally{merchantBulkPriceBusy=false;}
+  toast(reason
+    ?completed+' de '+chosen.length+' preço(s) reconfirmado(s). Interrompido: '+reason
+    :completed+' preço(s) reconfirmado(s) e verificado(s) no servidor.');
+}
+
 async function merchantLiveSaveProduct(code){
+  if(merchantBulkPriceBusy)return toast('Aguarde a confirmação dos preços selecionados.');
   if(merchantCatalogSaving.has(code))return;
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
@@ -4224,6 +4290,23 @@ function merchantLiveCatalog(){
     :'<div class="merchant-catalog-all-clear"><strong>Sem pendências nos produtos ativos.</strong>'+
       '<span>'+(!configured.length?'Adicione seu primeiro produto para começar.':'Você pode revisar preços e estoques quando precisar.')+'</span></div>';
 
+  const batchChoices=review.filter(item=>item.active&&item.availableStock>0&&
+    item.priceCents>0&&!merchantTimestampFresh(item.priceConfirmedAt));
+  const batchReview=batchChoices.length
+    ?'<section class="card flat form-stack" aria-label="Conferir preços salvos">'+
+      '<h2>Confirmar preços já cadastrados</h2>'+
+      '<p class="tiny muted">Confira os valores e o estoque salvos abaixo. Marque somente os produtos que você verificou hoje. Ajustes ainda não salvos devem ser feitos no produto antes desta confirmação.</p>'+
+      batchChoices.slice(0,12).map(item=>'<label class="check-row"><input type="checkbox" id="merchant-review-price-'+
+        item.productCode+'"><span><strong>'+esc(item.productName)+'</strong><small>'+
+        BRL.format(item.priceCents/100)+' • estoque '+Number(item.availableStock)+
+        ' • '+(item.pricingMode==='range'?'faixa de preço mantida':'preço fixo')+
+        '</small></span></label>').join('')+
+      '<button type="button" class="primary full" onclick="merchantLiveConfirmReviewedPrices()"'+
+      (merchantBulkPriceBusy||rt.actionPending?' disabled':'')+
+      '>Confirmar preços revisados</button>'+
+      '<small class="muted">Cada item é salvo com controle de versão e conferido novamente no servidor. Se um falhar, os seguintes não são enviados.</small>'+
+      '</section>'
+    :'';
   const addableProducts=merchantCatalogAvailableChoices(rt);
   const addableCategories=[...new Set(addableProducts.map(item=>item.categoryName))];
   const addRegistered=addableProducts.length
@@ -4276,6 +4359,7 @@ function merchantLiveCatalog(){
     <span class="section-kicker">MINHA LOJA</span><h1 class="page-title">Produtos da minha revenda</h1>
     <p class="muted">Comece pelos produtos que já cadastrou: toque para informar preço e estoque. Cada SKU possui sua própria confirmação de preço; somente itens elegíveis aparecem nas ofertas.</p>
     ${reviewSection}
+    ${batchReview}
     <div class="merchant-catalog-head"><strong>Meus produtos</strong><span>${configured.length} cadastrado(s)</span></div>
     <div class="merchant-catalog-list">${configuredRows||'<div class="empty card">Sua lista está vazia. Abra “Adicionar produto” abaixo e escolha o que deseja vender.</div>'}</div>
     <details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">
