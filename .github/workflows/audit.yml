@@ -484,6 +484,8 @@ jobs:
         run: node tests/merchant-category-chooser-v1-172.mjs
       - name: Daily merchant catalog maintenance V1.173 regression
         run: node tests/merchant-catalog-maintenance-v1-173.mjs
+      - name: Merchant explicit multi-SKU price reconfirmation safety
+        run: node tests/merchant-reviewed-price-batch.mjs
       - name: Merchant order priority queue V1.174 regression
         run: node tests/merchant-order-quick-queue-v1-174.mjs
       - name: Guided delivery team assignment V1.175 regression
