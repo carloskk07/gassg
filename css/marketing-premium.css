@@ -435,3 +435,9 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .tamao-club-visitor-grid h2{font-size:19px;line-height:1.24;margin:13px 0 8px}
 .tamao-club-visitor-grid p{font-size:13px;line-height:1.6}
 @media(max-width:600px){.tamao-club-visitor-hero{padding:24px 19px;border-radius:18px}.tamao-club-visitor-actions button{width:100%}}
+
+/* Partner presentation: reuse the isolated GitHub Pages walkthrough. */
+.merchant-landing-premium .merchant-demo-link{display:inline-flex;align-items:center;justify-content:center;min-height:46px;text-align:center;padding:11px 15px;border:1px solid #b7d6c5;border-radius:13px;background:#f2faf4;color:#16563d;font-weight:800;text-decoration:none;line-height:1.35}
+.merchant-landing-premium .merchant-demo-link:hover{background:#e1f3e8;border-color:#88b9a1}
+.merchant-landing-premium .merchant-demo-link:focus-visible{outline:3px solid #bb7d1c;outline-offset:3px}
+.merchant-landing-premium .merchant-demo-note{margin:12px 0 0;color:#395c4a;font-size:12px;line-height:1.5}
