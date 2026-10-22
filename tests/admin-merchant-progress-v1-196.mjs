@@ -160,7 +160,7 @@ assert.ok(!source.includes('admin_finance_merchant_performance_v1_190'));
 // controls, not invent an alternate verifier or auto-approve a partner.
 vm.runInContext(fn('adminMerchantReturnToControls')+
  '\nthis.goControls=adminMerchantReturnToControls;',ctx);
-assert.ok(source.includes("adminMerchantReturnToControls('\\${esc(m.id)}')"),
+assert.ok(source.includes("adminMerchantReturnToControls('${esc(m.id)}')"),
  '360 includes the correct merchant-specific review action');
 const originalRole=role;
 const originalData=rt.data;
