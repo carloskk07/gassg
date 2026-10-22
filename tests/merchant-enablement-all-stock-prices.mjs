@@ -22,7 +22,7 @@ for(const term of ['stocked.merchant_id=t.id','stocked.active and stocked.availa
 assert.ok(migration.includes('public.merchant_basket_compliance_current(t.id,array[ci.product_code])'),
  'retain one lawful offer in addition to freshness of all stocked SKUs');
 for(const term of ['merchant_representative_verification_current','merchant_financial_sales_allowed',
- 'merchant_payment_routes','merchant_allowed_in_operation_mode','market_city_offer_scope','c.authoritative_offer_ready']){
+ 'merchant_delivery_payment_allowed','merchant_allowed_in_operation_mode','market_city_offer_scope','c.authoritative_offer_ready']){
  assert.ok(migration.includes(term),'existing diagnostic gate removed '+term);
 }
 assert.ok(migration.includes("revoke all on function public.merchant_enablement_diagnostic_v1_158(uuid,uuid) from public, anon, authenticated"));
