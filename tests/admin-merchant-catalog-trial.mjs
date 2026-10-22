@@ -101,6 +101,30 @@ assert.equal(ctx.basket(detail,{WATER20:2.5},0).ok,false,'fractional SKU');
 assert.equal(ctx.basket(detail,{WATER20:1},null).ok,false,'invalid discount not silently zeroed');
 assert.equal(ctx.calc(detail,'WATER20',1,null).ok,false,'single-item discount invalid');
 assert.equal(ctx.basket(detail,{WATER20:21},0).ok,false,'qty over 20');
+// Mixed-load check is GLP plus non-GLP, not simply two gas SKUs.
+const synthetic=(code)=>({product_code:code,product_name:code,price_cents:1000,
+ available_stock:12,active:true,price_confirmed_at:'2026-10-15T17:00:00Z'});
+for(const code of ['P1','P19','P90','P13_CONTAINER','P90_CONTAINER']){
+ const sample={...detail,catalog:[synthetic(code),synthetic('WATER20')]};
+ assert.equal(ctx.basket(sample,{[code]:1,WATER20:1},0).mixedLoadRequiresVerification,true,
+  'regulated GLP family + water requires mixed-load capability: '+code);
+}
+for(const code of ['P91','P0','P13_CONTAINERS']){
+ const sample={...detail,catalog:[synthetic(code),synthetic('WATER20')]};
+ assert.equal(ctx.basket(sample,{[code]:1,WATER20:1},0).mixedLoadRequiresVerification,false,
+  'noncanonical code must not be silently treated as P1-P90 gas: '+code);
+}
+const twoGas={...detail,catalog:[synthetic('P13'),synthetic('P45_CONTAINER')]};
+assert.equal(ctx.basket(twoGas,{P13:1,P45_CONTAINER:1},0).mixedLoadRequiresVerification,false,
+ 'two regulated items alone are not a mixed GLP/general delivery');
+runtime.data={productRegistry:{products:[
+ {product_code:'CUSTOM_GLPG',active:true,delivery_class:'regulated_glp'},
+ {product_code:'WATER20',active:true,delivery_class:'household_general'}
+]}};
+const registered={...detail,catalog:[synthetic('CUSTOM_GLPG'),synthetic('WATER20')]};
+assert.equal(ctx.basket(registered,{CUSTOM_GLPG:1,WATER20:1},0).mixedLoadRequiresVerification,true,
+ 'admin registry delivery class also governs a registered regulated SKU');
+runtime.data=null;
 detail.deliveryCapabilities=[{capability_code:'regulated_glp_mixed_load_verified',active:true}];
 assert.equal(ctx.basket(detail,{P13:1,WATER20:1},0).mixedLoadRequiresVerification,false,
  'verified mixed-load capability is reflected, not minted');
