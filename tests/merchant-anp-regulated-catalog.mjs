@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const get=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=get('supabase/migrations/20261022170000_merchant_anp_regulated_catalog.sql');
+const sql=get('supabase/migrations/20261022171223_merchant_anp_regulated_catalog.sql');
 const source=get('js/merchant.js');
 const orders=get('supabase/functions/merchant-orders/index.ts');
 const workflow=get('.github/workflows/audit.yml');
