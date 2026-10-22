@@ -48,14 +48,14 @@ for(const fn of [
   'customer_order_action',
   'merchant_delivery_payment_allowed'
 ]){
-  assert.equal(sql(\`select exists(
+  assert.equal(sql(`select exists(
     select 1 from pg_proc p
-    where p.pronamespace='public'::regnamespace and p.proname='\${fn}'
+    where p.pronamespace='public'::regnamespace and p.proname='${fn}'
       and p.prosecdef
       and not has_function_privilege('anon',p.oid,'EXECUTE')
       and not has_function_privilege('authenticated',p.oid,'EXECUTE')
       and has_function_privilege('service_role',p.oid,'EXECUTE')
-  )\`),'t',fn+' must remain server-only (both anonymous and signed-in users denied)');
+  )`),'t',fn+' must remain server-only (both anonymous and signed-in users denied)');
 }
 const denied=source=>{
   let thrown=null;
