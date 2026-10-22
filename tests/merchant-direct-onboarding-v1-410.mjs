@@ -83,6 +83,30 @@ assert.ok(merchantUi.includes("signupEntry?'Cadastre sua revenda no TAMÃO'") &&
  merchantUi.includes("signupEntry?'Continuar meu cadastro →'"),
  'signup visitors must see onboarding, not existing-partner login copy');
 assert.ok(growth.includes('class="primary merchant-live-signup-cta"'));
+const merchantLanding=growth.slice(growth.indexOf('function merchantsLanding(){'),
+ growth.indexOf('\nfunction merchantJoin(){'));
+assert.ok(merchantLanding.includes('class="secondary merchant-live-share-cta"'),
+ 'merchants can invite a second business directly from the registration section');
+assert.equal((merchantLanding.match(/shareTamaoGrowthInvite\('merchant'\)/g)||[]).length,1,
+ 'reuse the single existing share flow without duplicate invitations');
+assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
+ merchantLanding.indexOf("shareTamaoGrowthInvite('merchant')"),
+ 'merchant sign-up remains the primary conversion action');
+assert.match(css,/\.merchant-conversion-cta-row>button:focus-visible/,
+ 'keyboard focus stays visible on both CTAs');
+assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-cta-row/,
+ 'sharing and signup stack on mobile');
+const startInvite=growth.indexOf('function tamaoGrowthInviteUrl(');
+const endInvite=growth.indexOf('\nasync function shareTamaoGrowthInvite(',startInvite);
+assert.ok(startInvite>=0&&endInvite>startInvite);
+const invites=vm.createContext({state:{user:{referralCode:'ABCDE1'}},encodeURIComponent});
+vm.runInContext(growth.slice(startInvite,endInvite)+';this.invite=tamaoGrowthInviteUrl;',invites);
+assert.equal(invites.invite('merchant'),'https://tamao.com.br/?ref=ABCDE1#merchants',
+ 'merchant share enters the existing landing with attributable signup');
+invites.state.user.referralCode='';
+assert.equal(invites.invite('merchant'),'https://tamao.com.br/#merchants',
+ 'visitors may share the merchant entry without signing in or inventing referral codes');
+
 assert.ok(growth.includes('class="merchant-secondary-lead" open'),
  'visible two-field contact must be expanded on first visit');
 assert.ok(growth.includes('Quero anunciar meu comércio com nome e WhatsApp'),
