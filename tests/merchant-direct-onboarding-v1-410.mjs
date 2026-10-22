@@ -85,17 +85,17 @@ assert.ok(merchantUi.includes("signupEntry?'Cadastre sua revenda no TAMÃO'") &&
 assert.ok(growth.includes('class="primary merchant-live-signup-cta"'));
 const merchantLanding=growth.slice(growth.indexOf('function merchantsLanding(){'),
  growth.indexOf('\nfunction merchantJoin(){'));
-assert.ok(merchantLanding.includes('class="secondary merchant-live-share-cta"'),
+assert.ok(merchantLanding.includes('class="secondary merchant-share"'),
  'merchants can invite a second business directly from the registration section');
 assert.equal((merchantLanding.match(/shareTamaoGrowthInvite\('merchant'\)/g)||[]).length,1,
  'reuse the single existing share flow without duplicate invitations');
 assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
  merchantLanding.indexOf("shareTamaoGrowthInvite('merchant')"),
  'merchant sign-up remains the primary conversion action');
-assert.match(css,/\.merchant-conversion-cta-row>button:focus-visible/,
+assert.match(css,/\.merchant-conversion-intro>.merchant-share:focus-visible/,
  'keyboard focus stays visible on both CTAs');
 assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-cta-row/,
- 'sharing and signup stack on mobile');
+ 'sharing and signup use responsive full-width controls on mobile');
 const startInvite=growth.indexOf('function tamaoGrowthInviteUrl(');
 const endInvite=growth.indexOf('\nasync function shareTamaoGrowthInvite(',startInvite);
 assert.ok(startInvite>=0&&endInvite>startInvite);
