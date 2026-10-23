@@ -159,8 +159,12 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   console.log('PASS: real Chrome buyer, merchant and authorized Admin read the SAME localhost order; unauthorized buyer denied merchant and Admin; no remote backend requests.');
  }finally{
   if(ws){for(const [,p] of pending){clearTimeout(p.timer);p.reject(Error('Browser cleanup'))}ws.close()}
-  chrome.kill('SIGTERM');
+  // Chrome launches helper processes that can recreate profile files even
+  // after the parent exits. Terminate this disposable process group first.
+  try{if(chrome.pid)process.kill(-chrome.pid,'SIGTERM')}catch{chrome.kill('SIGTERM')}
   await new Promise(done=>{if(chrome.exitCode!==null||chrome.signalCode!==null)return done();chrome.once('exit',done);setTimeout(done,2000).unref()});
+  try{if(chrome.pid)process.kill(-chrome.pid,'SIGKILL')}catch{}
+  await sleep(450);
   await new Promise(done=>server.close(done));
   fs.rmSync(profile,{recursive:true,force:true,maxRetries:12,retryDelay:250});
  }
