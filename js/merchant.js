@@ -1395,40 +1395,28 @@ function merchantPaymentConnectionsView(rt){
 /* V1.170 — checklist visual; only server authorization determines if sales are enabled. */
 // Existing business details table: owner declaration, not regulator/Admin approval.
 function merchantBusinessProfileView(rt){
-  const m=rt?.merchant||{};
-  if(m.memberRole!=='owner'||m.status!=='pending')return '';
+  if(rt?.merchant?.memberRole!=='owner'||rt.merchant.status!=='pending')return '';
   const d=rt.businessDetails||{};
-  const data=[
-    ['legalName','Razão social',180,'text'],
-    ['tradeName','Nome fantasia',120,'text'],
-    ['responsibleName','Responsável',120,'text'],
-    ['phone','Telefone com DDD (somente números)',13,'tel'],
-    ['whatsapp','WhatsApp com DDD (somente números)',13,'tel'],
-    ['postalCode','CEP (8 dígitos)',8,'text'],
-    ['city','Cidade',120,'text'],
-    ['state','UF (2 letras)',2,'text'],
-    ['addressText','Endereço comercial completo',240,'text']
+  const fields=[
+    ['legalName','Razão social',180],['tradeName','Nome fantasia',120],
+    ['responsibleName','Responsável',120],['phone','Telefone com DDD',13],
+    ['whatsapp','WhatsApp',13],['postalCode','CEP',8],
+    ['city','Cidade',120],['state','UF',2],
+    ['addressText','Endereço completo',240]
   ];
-  const row=([key,label,max,type])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+esc(label)+'</label>'+
-    '<input class="input" id="merchant-business-'+key+'" type="'+type+'" maxlength="'+max+
+  const input=([key,label,max])=>
+    '<div class="input-wrap"><label for="merchant-business-'+key+'">'+label+'</label>'+
+    '<input id="merchant-business-'+key+'" class="input" maxlength="'+max+
     '" value="'+esc(String(d[key]||''))+'" autocomplete="off"></div>';
-  return '<section class="card flat" id="merchant-business-profile" aria-label="Dados da empresa">'+
-    '<div class="section-head"><div><span class="section-kicker">CADASTRO DA REVENDA</span>'+
-    '<h3>Dados da empresa e localização</h3><p class="tiny muted">'+
-    (rt.businessDetails?'Revise os dados declarados antes da análise do TAMÃO.':
-    'Complete os dados reais para que o Admin possa analisar esta revenda.')+
-    '</p></div><span class="status-pill '+(rt.businessDetails?'online':'offline')+'">'+
-    (rt.businessDetails?'Informados':'A preencher')+'</span></div>'+
+  return '<section class="card flat" id="merchant-business-profile">'+
+    '<h3>Dados da empresa e localização</h3>'+
+    '<p class="tiny muted">'+(rt.businessDetails?'Dados declarados — sujeitos à revisão do TAMÃO.':
+     'Informe os dados reais da empresa para análise do TAMÃO.')+'</p>'+
     '<details '+(!rt.businessDetails?'open':'')+'><summary>Informar ou revisar cadastro</summary>'+
-    '<div class="form-stack" style="margin-top:12px">'+
-    '<div class="field-row">'+data.slice(0,2).map(row).join('')+'</div>'+
-    '<div class="field-row">'+data.slice(2,4).map(row).join('')+'</div>'+
-    '<div class="field-row">'+data.slice(4,6).map(row).join('')+'</div>'+
-    '<div class="field-row">'+data.slice(6,8).map(row).join('')+'</div>'+
-    data.slice(8).map(row).join('')+
-    '<p class="tiny muted">A declaração não altera a aprovação de CNPJ, ANP, documentos ou a disponibilidade para vendas. Informe somente dados verdadeiros.</p>'+
-    '<button type="button" class="primary" onclick="merchantLiveSaveBusinessProfile()" '+(rt.actionPending?'disabled':'')+
-    '>Salvar dados da empresa</button></div></details></section>';
+    '<div class="grid cards-2">'+fields.map(input).join('')+'</div>'+
+    '<p class="tiny muted">Não aprova CNPJ, ANP nem habilita vendas.</p>'+
+    '<button type="button" class="primary" onclick="merchantLiveSaveBusinessProfile()" '+
+    (rt.actionPending?'disabled':'')+'>Salvar dados da empresa</button></details></section>';
 }
 async function merchantLiveSaveBusinessProfile(){
   const rt=globalThis.merchantRuntime||{};
