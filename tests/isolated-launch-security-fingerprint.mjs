@@ -29,9 +29,9 @@ const baseline=read();
 // Compare canonical catalog objects by table when local/hosted fingerprints
 // differ. These hashes contain no customer data and do not modify any table.
 const migration=fs.readFileSync(new URL('../supabase/migrations/20261023154000_launch_acl_exact_fingerprint.sql',import.meta.url),'utf8');
-const scan=migration.match(/AS \\$scan\\$\\n([\\s\\S]*?)\\n\\$scan\\$/)?.[1];
+const scan=migration.match(/AS \$scan\$\n([\s\S]*?)\n\$scan\$/)?.[1];
 assert.ok(scan,'reviewed migration scanner must be present');
-const prefix=scan.slice(0,scan.indexOf('\\nSELECT jsonb_build_object('));
+const prefix=scan.slice(0,scan.indexOf('\nSELECT jsonb_build_object('));
 assert.ok(prefix.startsWith('WITH t AS ('),'catalog statement must be well formed');
 const tableRows=JSON.parse(sql("SET search_path TO pg_catalog,public; "+prefix+
  " SELECT coalesce(jsonb_agg(jsonb_build_object('name',relname,"+
