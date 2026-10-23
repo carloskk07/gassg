@@ -180,9 +180,9 @@ assert.equal(sql("SELECT COUNT(*) FROM public.merchant_business_details WHERE me
 const saved=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':ownerProfileKey});
 assert.equal(saved.status,200,'authorized owner profile write: '+JSON.stringify(saved.body).slice(0,200));
 assert.equal(saved.body.action,'update-business-details');
-const replay=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':ownerProfileKey});
-assert.equal(replay.status,200);
-assert.deepEqual(replay.body,saved.body,'ambiguous retries must not duplicate or mutate business details');
+const businessReplay=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':ownerProfileKey});
+assert.equal(businessReplay.status,200);
+assert.deepEqual(businessReplay.body,saved.body,'ambiguous retries must not duplicate or mutate business details');
 const stale=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':randomUUID()});
 assert.equal(stale.status,409,'stale config version must not overwrite verified owner input');
 const confirmed=await call('merchant-orders',owner.token,{merchantId:pendingMerchantId});
