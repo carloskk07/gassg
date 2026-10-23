@@ -239,7 +239,7 @@ const uiEnd=admin.indexOf('async function adminFinanceLabReadinessFromUi(',uiSta
 assert.ok(uiStart>0&&uiEnd>uiStart);
 const uiState={financeLab:{providerCheckingId:null,providerCheck:null,providerCheckError:null}};
 let uiCalls=0;
-const uiCtx=vm.createContext({
+const verifyUiCtx=vm.createContext({
   adminRuntime:uiState,adminReady:()=>true,adminCurrentRole:()=> 'superadmin',
   render:()=>{},String,
   adminInvoke:async payload=>{
@@ -247,12 +247,12 @@ const uiCtx=vm.createContext({
     return {...evidence};
   }
 });
-vm.runInContext(admin.slice(uiStart,uiEnd)+';this.providerCheck=adminFinanceLabVerifyProviderFromUi;',uiCtx);
-await uiCtx.providerCheck(id);
+vm.runInContext(admin.slice(uiStart,uiEnd)+';this.providerCheck=adminFinanceLabVerifyProviderFromUi;',verifyUiCtx);
+await verifyUiCtx.providerCheck(id);
 assert.equal(uiCalls,1);
 assert.equal(uiState.financeLab.providerCheck?.chargeId,id);
 assert.equal(uiState.financeLab.providerCheckingId,null);
-await uiCtx.providerCheck('arbitrary-path');
+await verifyUiCtx.providerCheck('arbitrary-path');
 assert.equal(uiCalls,1,'client rejects bad identifiers');
 console.log('PASS: superadmin live PSP GET is read-only, matched, rate limited and fail-closed; no real charge.');
 
