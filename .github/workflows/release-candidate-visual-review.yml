@@ -283,11 +283,40 @@ jobs:
           set -euo pipefail
           mkdir -p release-review-screenshots
           node scripts/release-portal-readiness.mjs
+      - name: Capture public mobile views in a clean, logged-out browser
+        # Diagnostic only; logged-out GET pages, never merchant/customer
+        # credentials, POST requests, production configuration or deployment.
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          mkdir -p release-review-screenshots
+          for role in customer merchant admin; do
+            case "$role" in
+              customer) URL="https://tamao.com.br/" ;;
+              merchant) URL="https://parceiro.tamao.com.br/" ;;
+              admin) URL="https://admin.tamao.com.br/" ;;
+            esac
+            OUT="release-review-screenshots/LIVE-${role}-390.png"
+            timeout 35 "$CHROME" --headless=new --no-sandbox \
+              --disable-gpu --disable-dev-shm-usage --hide-scrollbars \
+              --window-size=390,844 --virtual-time-budget=3000 \
+              --user-data-dir="/tmp/tamao-live-${role}-$GITHUB_RUN_ID" \
+              --screenshot="$OUT" "$URL" \
+              >"/tmp/tamao-live-${role}.log" 2>&1
+            test -s "$OUT"
+            test "$(wc -c < "$OUT")" -gt 4000
+            printf 'Public logged-out screenshot: %s (%s bytes)\n' "$role" "$(wc -c < "$OUT")"
+          done
       - name: Preserve independent read-only evidence for the launch gate
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tamao-live-portal-observation-${{ github.run_id }}
-          path: release-review-screenshots/LIVE-PORTALS-OBSERVED.json
+          path: |
+            release-review-screenshots/LIVE-PORTALS-OBSERVED.json
+            release-review-screenshots/LIVE-*-390.png
           if-no-files-found: warn
           retention-days: 14
