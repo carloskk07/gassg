@@ -12,7 +12,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
  assert.ok(anon.length>20);
- for(const actor of [buyer,owner]){
+ for(const actor of [buyer,owner,adminActor]){
   assert.ok(actor.session?.access_token?.length>100);
   assert.ok(typeof actor.session?.refresh_token==='string'&&actor.session.refresh_token.length>0,'refresh token required');
   assert.equal(actor.session.user?.id,actor.id);
