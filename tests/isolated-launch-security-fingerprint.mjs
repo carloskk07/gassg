@@ -13,6 +13,11 @@ const sql=q=>execFileSync('psql',[
 ],{encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},timeout:60000,
  stdio:['ignore','pipe','pipe']}).trim();
 const read=()=>JSON.parse(sql("SELECT public.platform_launch_acl_posture_v1()"));
+// Diagnose migration/catalog divergence BEFORE the first assertion. No secrets.
+console.log('LOCAL_MIGRATION_VERSION',
+ sql("SELECT coalesce(string_agg(version,','),'NONE') FROM supabase_migrations.schema_migrations WHERE version='20261023154000'"));
+console.log('LOCAL_ACL_FUNCTIONS',
+ sql("SELECT coalesce(string_agg(proname,','),'NONE') FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('tamao_launch_acl_posture_v1','platform_launch_readiness')"));
 const baseline=read();
 assert.deepEqual(baseline,{
  tableDigest:'b2217c55d0acd0b5d576724941c50c93',
