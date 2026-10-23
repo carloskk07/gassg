@@ -44,7 +44,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(4179,'127.0.0.1',resolve)});
  const which=execFileSync('sh',['-c','command -v google-chrome || command -v chromium || command -v chromium-browser'],{encoding:'utf8'}).trim();
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
- const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+ const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore',detached:true});
  let ws,seq=0;
  const pending=new Map(),violations=[],merchantAccessStatuses=[],adminReadStatuses=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
