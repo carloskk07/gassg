@@ -258,4 +258,36 @@ jobs:
           }
           Write-Host $result
 
-
+  live-portal-observation:
+    # Observe the three real public domains on ordinary PRs and explicit manual
+    # runs. This is diagnostic, never a deployment or a production release gate.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only checkout
+        uses: actions/checkout@v6
+      - name: Resolve current official main SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE_MAIN_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$LIVE_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
+          echo "TAMAO_EXPECTED_LIVE_SHA=$LIVE_MAIN_SHA" >> "$GITHUB_ENV"
+          echo "Comparing public portal manifests with official main $LIVE_MAIN_SHA"
+      - name: Observe real public manifests without publishing or changing production
+        continue-on-error: true
+        env:
+          TAMAO_REPORT_FILE: release-review-screenshots/LIVE-PORTALS-OBSERVED.json
+        run: |
+          set -euo pipefail
+          mkdir -p release-review-screenshots
+          node scripts/release-portal-readiness.mjs
+      - name: Preserve independent read-only evidence for the launch gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-live-portal-observation-${{ github.run_id }}
+          path: release-review-screenshots/LIVE-PORTALS-OBSERVED.json
+          if-no-files-found: warn
+          retention-days: 14
