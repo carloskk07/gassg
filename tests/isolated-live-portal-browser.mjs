@@ -94,6 +94,9 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
    if(msg.method==='Network.responseReceived'&&String(msg.params?.response?.url||'').startsWith(api+'/functions/v1/merchant-orders')){
     merchantAccessStatuses.push(msg.params.response.status);
    }
+   if(msg.method==='Network.responseReceived'&&String(msg.params?.response?.url||'').startsWith(api+'/functions/v1/admin-ops')){
+    adminReadStatuses.push(msg.params.response.status);
+   }
    if(msg.id&&pending.has(msg.id)){
     const {resolve,reject,timer}=pending.get(msg.id);clearTimeout(timer);pending.delete(msg.id);
     if(msg.error)reject(Error(JSON.stringify(msg.error)));else resolve(msg.result);
