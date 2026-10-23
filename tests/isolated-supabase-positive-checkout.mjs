@@ -270,5 +270,63 @@ assert.equal(regrant.alreadyGranted,true);
 assert.equal(sql("SELECT count(*) FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'1');
 assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND bucket='commission_pending'"),'1');
 console.log('PASS: local referral attributed and qualified; fee/benefit/contribution ledger reconciled; commission pending hold; no payout claim/PSP; regrant idempotent.');
+
+// TEST THE NEXT FINANCIAL STATE USING THE EXACT CANONICAL RPC, NOT AN
+// ARTIFICIAL "available" wallet insertion. Time manipulation below is local
+// to the ephemeral Postgres runner (no production flags or payouts touched).
+const holdHours=Number(sql("SELECT commission_hold_hours_snapshot FROM public.orders WHERE id="+q(orderId)+"::uuid"));
+assert.ok(Number.isInteger(holdHours)&&holdHours>=24,'actual configured hold must remain nontrivial');
+const holdWindow=JSON.parse(sql("SELECT json_build_object('settled',settled_at,'available',"+
+ "(SELECT commission_available_at FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid))::text FROM public.orders WHERE id="+q(orderId)+"::uuid"));
+const holdDelta=(new Date(holdWindow.available).getTime()-new Date(holdWindow.settled).getTime())/(60*60*1000);
+assert.ok(Math.abs(holdDelta-holdHours)<0.002,
+ 'commission hold starts at real local settlement, never at order creation');
+assert.equal(sql("SELECT risk_status FROM public.referral_reward_reviews WHERE order_id="+q(orderId)+"::uuid"),'clear',
+ 'synthetic referral should be risk-cleared before testing review gate');
+assert.equal(sql("SELECT has_function_privilege('anon','public.process_reward_maturation()','EXECUTE')"),'f',
+ 'maturation function must stay unavailable to anonymous users');
+assert.equal(sql("SELECT has_function_privilege('authenticated','public.process_reward_maturation()','EXECUTE')"),'f',
+ 'normal signed-in users must not directly release their own commissions');
+const maturationCount=()=>Number(sql("SELECT (public.process_reward_maturation()->>'maturedCommissions')::integer"));
+assert.equal(maturationCount(),0,'not-yet-due commission cannot mature');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND bucket='commission_available'"),'0',
+ 'a nonmatured commission is not available for payout');
+
+// Advance ONLY this dummy grant's due date, not clock, global reward policy,
+// or the underlying order's financial timestamps. Simulate risk review while
+// due; the true worker must leave both pending and available balances alone.
+sql("UPDATE public.order_reward_grants SET commission_available_at=clock_timestamp()-interval '1 hour' WHERE order_id="+q(orderId)+"::uuid;");
+sql("UPDATE public.referral_reward_reviews SET risk_status='review_required',"+
+ "risk_reasons='[\"ci_requires_review\"]'::jsonb WHERE order_id="+q(orderId)+"::uuid;");
+assert.equal(maturationCount(),0,'risk-review-required commission stays blocked even after due');
+assert.equal(sql("SELECT matured_at IS NULL FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'t');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND bucket='commission_available'"),'0');
+
+// The risk assessor for the synthetic transaction originally returned clear;
+// restore that same local state without pretending a real operator approved a
+// suspicious reward. Real reviewed claims must use existing Admin authority.
+sql("UPDATE public.referral_reward_reviews SET risk_status='clear',risk_reasons='[]'::jsonb WHERE order_id="+q(orderId)+"::uuid;");
+assert.equal(maturationCount(),1,'clear, due, settled fictitious commission matures exactly once');
+assert.equal(sql("SELECT matured_at IS NOT NULL FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'t');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND user_id="+q(outsider.id)+"::uuid AND bucket='commission_pending' AND entry_type='referral_pending_release' AND amount_cents=-"+reward.referral_pending_cents),'1',
+ 'release must debit pending balance exactly once');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND user_id="+q(outsider.id)+"::uuid AND bucket='commission_available' AND entry_type='referral_available' AND amount_cents="+reward.referral_pending_cents),'1',
+ 'release must credit available balance exactly once');
+const netBalances=sql("SELECT coalesce(sum(amount_cents) FILTER (WHERE bucket='commission_pending'),0)::text || ':' || "+
+ "coalesce(sum(amount_cents) FILTER (WHERE bucket='commission_available'),0)::text FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND user_id="+q(outsider.id)+"::uuid");
+assert.equal(netBalances,'0:'+reward.referral_pending_cents,
+ 'maturation only moves internal balance from pending to available');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid AND event_type='COMMISSION_AVAILABLE'"),'1');
+assert.equal(maturationCount(),0,'maturation re-run must not release or emit twice');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND entry_type IN ('referral_pending_release','referral_available')"),'2',
+ 'repeated maturation cannot double credit internal wallet');
+assert.equal(sql('SELECT count(*) FROM public.platform_referral_payout_claims_v1_263'),'0',
+ 'an internally available commission is NOT an externally claimed payout');
+assert.equal(sql('SELECT count(*) FROM public.platform_referral_payout_proofs_v1_264'),'0',
+ 'internal maturation cannot produce a bank payment proof');
+assert.equal(sql('SELECT count(*) FROM public.merchant_billing_payment_events'),'0',
+ 'fake merchant cash confirmation cannot create a real billing settlement');
+console.log('PASS: canonical commission hold/risk gates, due maturation and replay; internal pending->available only, zero external payment proofs.');
+
 console.log('PASS: local canonical quote -> HTTP checkout -> merchant accept -> dispatch -> PIN shown only to buyer -> arrival -> wrong PIN rejected -> merchant-attested cash settlement -> replay unchanged; zero external PSP.');
 
