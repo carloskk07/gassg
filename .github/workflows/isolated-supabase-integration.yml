@@ -7,6 +7,7 @@ on:
       - '.github/workflows/isolated-supabase-integration.yml'
       - 'tests/isolated-supabase-commerce-smoke.mjs'
       - 'tests/isolated-full-schema-browser-acl.mjs'
+      - 'tests/isolated-launch-security-fingerprint.mjs'
       - 'tests/isolated-discovery-privileged-rpc.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
@@ -112,6 +113,8 @@ jobs:
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
+      - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes
+        run: node tests/isolated-launch-security-fingerprint.mjs
       - name: Verify local Auth and actual Edge HTTP authentication guards
         run: node tests/isolated-supabase-http-smoke.mjs
       - name: Verify real quote to create-order to get-order against disposable database
