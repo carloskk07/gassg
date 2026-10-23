@@ -167,6 +167,18 @@ SELECT count(*) FROM pg_class c WHERE c.relname='ci_browser_acl_probe'
  AND has_table_privilege('authenticated',c.oid,'SELECT');
 ROLLBACK;`);
 assert.ok(newTable.split(/\s+/).includes('1'),'new browser table grant must be detectable');
+const newColumn=sql(`BEGIN;
+CREATE TABLE public.ci_column_probe(id integer, private_note text);
+REVOKE ALL ON public.ci_column_probe FROM PUBLIC,anon,authenticated;
+GRANT SELECT(private_note) ON public.ci_column_probe TO authenticated;
+SELECT count(*) FROM pg_attribute a
+ WHERE a.attrelid='public.ci_column_probe'::regclass
+ AND a.attname='private_note'
+ AND has_column_privilege('authenticated',a.attrelid,a.attnum,'SELECT')
+ AND NOT has_table_privilege('authenticated',a.attrelid,'SELECT');
+ROLLBACK;`);
+assert.ok(newColumn.split(/\s+/).includes('1'),
+ 'column-only browser grant must be detected even if table ACL reports none');
 const newDefiner=sql(`BEGIN;
 CREATE FUNCTION public.ci_unreviewed_definer() RETURNS integer LANGUAGE sql
  SECURITY DEFINER SET search_path=pg_catalog AS 'SELECT 1';
