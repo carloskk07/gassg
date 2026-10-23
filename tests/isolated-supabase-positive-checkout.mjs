@@ -160,7 +160,7 @@ assert.equal(authorizedAdmin.status,200,'Admin HTTP summary: '+JSON.stringify(au
 assert.ok(authorizedAdmin.body.controlOrders?.some(o=>o.id===first.body.orderId),
  'authorized Admin must see the same real local accepted order');
 // Observe the SAME local persisted order through the canonical browser UI.
-await verifyIsolatedLivePortals({api:base,anon,buyer,owner,orderId:first.body.orderId,merchantId});
+await verifyIsolatedLivePortals({api:base,anon,buyer,owner,adminActor,orderId:first.body.orderId,merchantId});
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
 assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='CHARCOAL2'"),'4','one item must be reserved exactly once');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='MERCHANT_ACCEPTED'"),'1','replay cannot duplicate acceptance event');
