@@ -147,7 +147,7 @@ const fields={
  state:'rs',addressText:'Rua Sintetica CI, 10'
 };
 const saves=[],toasts=[];
-const bizRt={merchant:{memberRole:'owner',status:'pending'},businessDetails:null};
+const bizRt={merchant:{memberRole:'owner',status:'pending',businessDetails:null}};
 const businessVm=vm.createContext({
  globalThis:{merchantRuntime:bizRt},
  esc:v=>String(v).replaceAll('&','&amp;').replaceAll('<','&lt;')
@@ -158,15 +158,14 @@ const businessVm=vm.createContext({
    return Object.hasOwn(fields,key)?{value:fields[key]}:null;
  }},
  merchantSaveBusinessDetailsLive:async details=>{
-   saves.push(details);bizRt.businessDetails={...details};
+   saves.push(details);bizRt.merchant.businessDetails={...details};
  }
 });
 vm.runInContext(formSrc,businessVm);
 assert.match(businessVm.profile({merchant:{memberRole:'owner',status:'pending'},businessDetails:null}),/Dados da empresa e localização/);
 assert.equal(businessVm.profile({merchant:{memberRole:'manager',status:'pending'}}),'');
 assert.equal(businessVm.profile({merchant:{memberRole:'owner',status:'active'}}),'');
-const escaped=businessVm.profile({merchant:{memberRole:'owner',status:'pending'},
- businessDetails:{tradeName:'"&<script>alert(1)</script>'}});
+const escaped=businessVm.profile({merchant:{memberRole:'owner',status:'pending',businessDetails:{tradeName:'"&<script>alert(1)</script>'}}});
 assert.ok(escaped.includes('&quot;&amp;&lt;script&gt;')&&!escaped.includes('<script>'));
 await businessVm.save();
 assert.equal(saves.length,1);
