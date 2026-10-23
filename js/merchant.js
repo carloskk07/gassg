@@ -2128,7 +2128,7 @@ function merchantFirstRunView(rt,canGoOnline){
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<div class="merchant-first-run-actions">'+cta+
     '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
-    '(m.memberRole==='owner'&&!rt.businessDetails?.city?
+    (rt?.merchant?.memberRole==='owner'&&!rt.businessDetails?.city?
       '<button type="button" class="secondary" onclick="merchantBusinessProfileFocus()">Completar dados e endereço da revenda →</button>':'')+
     '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
     '</section>';
