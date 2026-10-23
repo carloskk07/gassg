@@ -1411,7 +1411,7 @@ function merchantSetupSnapshot(rt){
   const business=m.businessDetails||{};
   const profileComplete=Boolean(business.city&&business.state&&business.postalCode&&business.addressText);
   return [
-    ...(owner?[{key:'business',title:'Dados e endereço',
+    ...(owner&&m.status==='pending'?[{key:'business',title:'Dados e endereço',
       detail:profileComplete?'Dados informados, aguardando conferência do TAMÃO':
         'Informe o endereço e os dados reais da empresa para análise',
       done:profileComplete}]:[]),

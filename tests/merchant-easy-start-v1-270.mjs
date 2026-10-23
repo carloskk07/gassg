@@ -20,7 +20,7 @@ const mp=provider('mercadopago','Mercado Pago');
 const stone=provider('stone','Stone');
 const asaas=provider('asaas','<Asaas>');
 const base={
- merchant:{memberRole:'owner',paymentMethods:{pix:true,card:false,cash:false}},
+ merchant:{memberRole:'owner',status:'pending',paymentMethods:{pix:true,card:false,cash:false}},
  paymentProviders:[mp,stone,asaas],
  paymentRoutes:[],
  receivingAccounts:[]

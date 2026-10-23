@@ -187,12 +187,16 @@ assert.ok(!guided.setup(manager).includes('Dados e endereço'));
 assert.ok(guided.first(manager,false).includes('0 de 3 configurados'));
 assert.ok(!guided.setup(manager).includes("merchantSetupGo('business')"));
 
+const activeNoEdit={...incomplete,merchant:{...incomplete.merchant,status:'active'}};
+assert.equal(guided.snapshot(activeNoEdit).length,3,'approved merchant must not be offered an impossible identity step');
+assert.ok(!guided.setup(activeNoEdit).includes("merchantSetupGo('business')"));
+assert.ok(!guided.first(activeNoEdit,false).includes("merchantSetupGo('business')"));
 const blockedApproved=bsc.profile({merchant:{memberRole:'owner',status:'active',
  businessDetails:{legalName:'Empresa Legal',city:'São Gabriel'}}});
 assert.ok(blockedApproved.includes('solicite revisão ao TAMÃO'));
 assert.ok(!blockedApproved.includes('merchantBusinessProfileSaveFromUi()'));
 assert.ok(ownerOps.includes('MERCHANT_BUSINESS_REVIEW_REQUIRED'));
-const reviewGuard=read('supabase/migrations/20261023224000_merchant_business_review_after_activation.sql');
+const reviewGuard=read('supabase/migrations/20261023231017_merchant_business_review_after_activation.sql');
 assert.ok(reviewGuard.includes("v_merchant.status<>'pending'"));
 assert.ok(reviewGuard.includes('MERCHANT_BUSINESS_GUARD_BASELINE_DRIFT_BLOCKED'));
 
