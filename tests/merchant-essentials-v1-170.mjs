@@ -18,7 +18,9 @@ const stale='2020-01-01T00:00:00Z';
 const fresh=value=>Boolean(value&&value!==stale);
 const runtime={
  status:'ready',merchant:{merchantId:'merchant-1',memberRole:'owner',acceptsCitywide:true,
-  deliveryFeeConfirmedAt:now,paymentMethods:{pix:true,card:false,cash:false}},
+  deliveryFeeConfirmedAt:now,paymentMethods:{pix:true,card:false,cash:false},
+  businessDetails:{city:'São Gabriel',state:'RS',postalCode:'97300000',
+    addressText:'Endereço informado para análise pelo proprietário'}},
  catalog:[{productCode:'P13',productName:'Botijão 13 kg',priceCents:12000,availableStock:5,active:true,priceConfirmedAt:now}],
  paymentRoutes:[{paymentMethod:'pix',active:true}]
 };
@@ -32,11 +34,17 @@ const sandbox=vm.createContext(base);
 vm.runInContext(['merchantSetupSnapshot','merchantSetupView','merchantRevealControl','merchantSetupGo','merchantCatalogAvailableChoices','merchantCatalogGasOptions','merchantLiveCatalog']
  .map(extract).join('\n')+';this.snapshot=merchantSetupSnapshot;this.renderSetup=merchantSetupView;this.renderCatalog=merchantLiveCatalog;this.show=merchantRevealControl;this.goSetup=merchantSetupGo;',sandbox);
 const evaluate=expr=>vm.runInContext(expr,sandbox);
+const missingOwnerAddress={...runtime,merchant:{...runtime.merchant,businessDetails:null}};
+const missingGuide=sandbox.renderSetup(missingOwnerAddress);
+assert.match(missingGuide,/Seu próximo passo: Dados e endereço/);
+assert.match(missingGuide,/3 de 4 preenchidos/);
 const steps=JSON.parse(evaluate('JSON.stringify(snapshot(globalThis.merchantRuntime))'));
-assert.equal(steps.length,3);
-assert.equal(steps.filter(step=>step.done).length,3,'All 3 setup fields from genuine local state');
+assert.equal(steps.length,4);
+assert.equal(steps.filter(step=>step.done).length,4,
+ 'All 4 owner setup steps are filled but business address is still self-declared');
 const view=sandbox.renderSetup(runtime);
-assert.ok(view.includes('3 de 3 preenchidos'));
+assert.ok(view.includes('4 de 4 preenchidos'));
+assert.ok(view.includes('Dados informados, aguardando conferência'));
 assert.ok(view.includes('Esses ajustes não liberam vendas automaticamente'));
 assert.ok(!view.includes('Ativada automaticamente'),'No auto activation promise');
 assert.ok(view.includes("merchantSetupGo('products')")&&view.includes("merchantSetupGo('delivery')")&&view.includes("merchantSetupGo('payment')"));
@@ -48,14 +56,14 @@ runtime.merchant.memberRole='owner';
 runtime.catalog[0].priceConfirmedAt=stale;
 runtime.merchant.deliveryFeeConfirmedAt=stale;
 runtime.paymentRoutes[0].active=false;
-assert.equal(sandbox.snapshot(runtime).filter(s=>s.done).length,0,'Expired stock/delivery and inactive route should not be counted ready');
-assert.ok(sandbox.renderSetup(runtime).includes('0 de 3 preenchidos'));
+assert.equal(sandbox.snapshot(runtime).filter(s=>s.done).length,1,'Self-declared business address is still filled; expired operations not ready');
+assert.ok(sandbox.renderSetup(runtime).includes('1 de 4 preenchidos'));
 runtime.catalog[0].active=false;
 runtime.catalog[0].priceConfirmedAt=now;
-assert.equal(sandbox.snapshot(runtime)[0].done,false,'Inactive SKU cannot count as configured');
+assert.equal(sandbox.snapshot(runtime).find(s=>s.key==='products').done,false,'Inactive SKU cannot count as configured');
 runtime.catalog[0].active=true;
 runtime.catalog[0].availableStock=0;
-assert.equal(sandbox.snapshot(runtime)[0].done,false,'Zero stock cannot count as available');
+assert.equal(sandbox.snapshot(runtime).find(s=>s.key==='products').done,false,'Zero stock cannot count as available');
 runtime.catalog[0].availableStock=5;
 runtime.merchant.deliveryFeeConfirmedAt=now;
 runtime.paymentRoutes[0].active=true;
@@ -71,6 +79,9 @@ assert.equal(sandbox.show('#live-payment-pix'),true);
 assert.equal(inner.open,true,'Inner collapsed section opened');
 assert.equal(root.open,true,'Outer collapsed section opened');
 assert.equal(field.focused,true,'Control focused');
+sandbox.merchantBusinessProfileFocus=()=>{navigation='business-form';};
+sandbox.goSetup('business');
+assert.equal(navigation,'business-form','Owner guided address uses existing form');
 sandbox.goSetup('products');
 assert.equal(navigation,'catalog','Product setup uses existing catalog route');
 sandbox.goSetup('unknown');
@@ -102,4 +113,4 @@ assert.ok(page.includes('merchantLiveSaveScheduling()'),'Scheduling retained');
 assert.ok(ui.includes("if(key==='inventory'){go('catalog');return}"));
 assert.ok(ui.includes('if(!merchantRevealControl(selectors[key]))'),'Existing diagnostics can reveal collapsed settings');
 assert.ok(css.includes('.merchant-essentials-grid')&&css.includes('@media(max-width:520px)'));
-console.log('V1.170: three verified setup steps, role isolation, stale/route gates, collapsed focus, catalog security and mobile layout passed.');
+console.log('V1.170: owner address plus three operation steps, role isolation, stale/route gates, collapsed focus and safe catalog passed.');
