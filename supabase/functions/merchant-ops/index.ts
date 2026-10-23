@@ -88,6 +88,14 @@ async function applyMerchantConfig(admin:any,{
   });
   if(error){
     const message=String(error.message??error);
+    if(message.includes("MERCHANT_PROFILE_LOCKED")){
+      throw new DomainError("MERCHANT_PROFILE_LOCKED",
+        "Dados comerciais de revenda ativa exigem revisão administrativa.",409);
+    }
+    if(message.includes("INVALID_BUSINESS_PROFILE")){
+      throw new DomainError("INVALID_BUSINESS_PROFILE",
+        "Confira os campos reais do cadastro da revenda.",400);
+    }
     if(message.includes("CONFIG_VERSION_REQUIRED")){
       throw new DomainError("CONFIG_VERSION_REQUIRED","Atualize o painel antes de salvar esta configuração.",409);
     }
