@@ -39,9 +39,9 @@ WITH t AS (
 )
 SELECT jsonb_build_object(
  'tableDigest',
- (SELECT md5(coalesce(jsonb_agg(jsonb_build_object(
-  'name',relname,'rls',relrowsecurity,'table',tbl,'columns',col,'policies',policies)
-  ORDER BY relname),'[]'::jsonb)::text)
+ (SELECT md5(coalesce(string_agg(
+  md5(jsonb_build_object('name',relname,'rls',relrowsecurity,'table',tbl,
+     'columns',col,'policies',policies)::text), '|' ORDER BY relname COLLATE "C"),''))
   FROM t WHERE tbl<>'[]'::jsonb OR col<>'[]'::jsonb),
  'rpcDigest',
  (SELECT md5(coalesce(jsonb_agg(jsonb_build_object(
@@ -132,7 +132,7 @@ $old$;
   -- The fingerprints were computed from the commercial database on
   -- 23 October 2026 using the same catalog query as the function above.
   if (public.tamao_launch_acl_posture_v1()->>'tableDigest')
-     is distinct from 'b2217c55d0acd0b5d576724941c50c93' then
+     is distinct from '67838fe06fa43d7692e12d8e11a3de91' then
     v_security:=array_append(v_security,'browser_sensitive_table_acl');
   end if;
 
