@@ -133,4 +133,54 @@ assert.equal(checkCompliance([{active:true,productCode:'REGULATED_CUSTOM'}],veri
 assert.equal(checkCompliance([{active:true,productCode:'REGULATED_CUSTOM'}],
  {cnpjCurrent:true,anpCurrent:true}).complianceReady,true);
 
+// A permanently authenticated owner can complete the EXISTING missing
+// merchant_business_details record; no auto KYC or LIVE activation follows.
+const startSave=merchant.indexOf('async function merchantLiveSaveBusinessProfile(');
+const endSave=merchant.indexOf('\\n}',startSave);
+assert.ok(startSave>=0&&endSave>startSave);
+const formSrc=cut('merchantBusinessProfileView')+'\\n'+merchant.slice(startSave,endSave+2)+
+ ';this.profile=merchantBusinessProfileView;this.save=merchantLiveSaveBusinessProfile;';
+const fields={
+ legalName:'Empresa Ficticia CI',tradeName:'Revenda Sintetica CI',
+ responsibleName:'Responsavel CI',phone:'(11) 99999-9999',
+ whatsapp:'(11) 99999-9998',postalCode:'97300-000',city:'Sao Gabriel',
+ state:'rs',addressText:'Rua Sintetica CI, 10'
+};
+const saves=[],toasts=[];
+const bizRt={merchant:{memberRole:'owner',status:'pending'},businessDetails:null};
+const businessVm=vm.createContext({
+ globalThis:{merchantRuntime:bizRt},
+ esc:v=>String(v).replaceAll('&','&amp;').replaceAll('<','&lt;')
+  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'),
+ toast:v=>toasts.push(v),confirm:()=>true,
+ document:{getElementById:id=>{
+   const key=id.replace('merchant-business-','');
+   return Object.hasOwn(fields,key)?{value:fields[key]}:null;
+ }},
+ merchantSaveBusinessDetailsLive:async details=>{
+   saves.push(details);bizRt.businessDetails={...details};
+ }
+});
+vm.runInContext(formSrc,businessVm);
+assert.match(businessVm.profile({merchant:{memberRole:'owner',status:'pending'},businessDetails:null}),/Dados da empresa e localização/);
+assert.equal(businessVm.profile({merchant:{memberRole:'manager',status:'pending'}}),'');
+assert.equal(businessVm.profile({merchant:{memberRole:'owner',status:'active'}}),'');
+const escaped=businessVm.profile({merchant:{memberRole:'owner',status:'pending'},
+ businessDetails:{tradeName:'"&<script>alert(1)</script>'}});
+assert.ok(escaped.includes('&quot;&amp;&lt;script&gt;')&&!escaped.includes('<script>'));
+await businessVm.save();
+assert.equal(saves.length,1);
+assert.equal(saves[0].postalCode,'97300000');
+assert.equal(saves[0].phone,'11999999999');
+assert.equal(saves[0].state,'RS');
+assert.ok(toasts.some(x=>x.includes('registrados para análise')));
+bizRt.merchant.memberRole='manager';
+await businessVm.save();
+assert.equal(saves.length,1,'a manager must never submit legal identity changes');
+bizRt.merchant.memberRole='owner';
+bizRt.merchant.status='active';
+await businessVm.save();
+assert.equal(saves.length,1,'an active merchant cannot silently replace verified legal data');
+assert.ok(merchant.includes('${merchantBusinessProfileView(rt)}'),
+ 'form must be mounted in the existing real merchant portal');
 console.log('V1.303 PASS — merchant tasks and orders first, owner-only guidance, admin control and retained operations.');
