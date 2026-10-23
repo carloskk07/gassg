@@ -89,11 +89,11 @@ assert.ok(!sandbox.draw({...rt,merchant:{...rt.merchant,status:'pending',online:
  .includes('Salvar dados da revenda'),'online merchant cannot edit business identity');
 assert.ok(backend.includes("merchantConfigMutation('update-business-profile',profile)"),
  'new registration must reuse canonical CAS idempotent config authority');
-const edge=read('supabase/functions/merchant-ops/index.ts');
+const merchantOpsEdge=read('supabase/functions/merchant-ops/index.ts');
 const orders=read('supabase/functions/merchant-orders/index.ts');
 const migration=read('supabase/migrations/20261023213000_merchant_pending_business_profile.sql');
 for(const term of ["update-business-profile","MERCHANT_PROFILE_LOCKED","merchant_config_action"]){
- assert.ok(edge.includes(term),'missing real authenticated Edge action '+term);
+ assert.ok(merchantOpsEdge.includes(term),'missing real authenticated Edge action '+term);
  assert.ok(migration.includes(term),'missing canonical database guard '+term);
 }
 assert.ok(migration.includes("v_merchant.status<>'pending' or v_merchant.online"));
