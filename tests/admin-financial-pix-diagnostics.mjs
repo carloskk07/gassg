@@ -104,7 +104,7 @@ assert.match(admin,/Diagnosticar cobranças PIX e webhooks/);
 assert.match(admin,/Evento aplicado/);
 assert.match(admin,/Evento ignorado/);
 assert.match(admin,/Sem evento registrado/);
-assert.match(admin,/Webhook recebido não comprova pagamento/);
+assert.match(admin,/Mesmo uma ordem processada requer conciliação e prova independente de recebimento/);
 assert.match(edge,/displayableInPortal/);
 const start=admin.indexOf('async function adminFinanceLabDiagnoseChargesFromUi(');
 const end=admin.indexOf('async function adminFinanceLabReadinessFromUi(',start);
