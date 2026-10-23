@@ -6803,25 +6803,66 @@ function adminEnablementCheckRow(check){
         check?.scope==='realtime'?'Condição temporária':'Configuração da revenda')+'</small></div>'+
     '<span class="status-pill '+(ok?'online':'offline')+'">'+(ok?'Conforme':'Pendente')+'</span></div>';
 }
+// One canonical read-only diagnostic powers all three worklists. In
+// particular, platform PRELAUNCH is not a merchant fault, and the final quote
+// authority is an outcome rather than a task somebody can mark as complete.
+function adminEnablementActionPlan(checks){
+  const groups={admin:[],merchant:[],platform:[],system:[]};
+  for(const check of Array.isArray(checks)?checks:[]){
+    if(!check||check.ok===true)continue;
+    const key=String(check.key||'');
+    const scope=String(check.scope||'');
+    const owner=String(check.owner||'');
+    const group=key==='quote_authority'||owner==='system'?'system':
+      scope==='global'||scope==='city'?'platform':
+      owner==='merchant'?'merchant':
+      owner==='admin'?'admin':'system';
+    groups[group].push(check);
+  }
+  return groups;
+}
 function adminEnablementMerchantCard(entry){
   const checks=Array.isArray(entry?.checks)?entry.checks:[];
   const failed=checks.filter(x=>x?.ok!==true);
+  const plan=adminEnablementActionPlan(checks);
   const ready=entry?.ready===true;
   const name=String(entry?.merchant_name||'Revenda');
   const state=String(entry?.state||'');
   const city=String(entry?.city||'');
-  const main=failed.find(x=>x.key!=='quote_authority')||failed[0]||null;
+  const main=plan.admin[0]||plan.merchant[0]||plan.platform[0]||plan.system[0]||null;
   const location=city&&state?city+' / '+state:'Município ainda não informado';
+  const merchantId=String(entry?.merchant_id||'');
+  const canOpenControls=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(merchantId)
+    &&typeof adminRoleCanSection==='function'&&adminRoleCanSection('partners')
+    &&Array.isArray(adminRuntime?.data?.merchants)
+    &&adminRuntime.data.merchants.some(m=>m?.id===merchantId);
+  const makeWorklist=(title,items,detail)=>items.length?
+    '<div class="notice" style="margin-top:8px"><strong>'+title+' ('+items.length+')</strong>'+
+      '<p class="tiny muted">'+detail+'</p>'+
+      '<div class="list" style="margin-top:8px">'+items.map(adminEnablementCheckRow).join('')+'</div></div>':'';
   return '<article class="card flat" style="margin-bottom:12px">'+
     '<div class="section-head"><div><span class="section-kicker">'+esc(location)+'</span><h3>'+esc(name)+'</h3>'+
       '<p class="tiny muted">CNPJ '+esc(entry?.cnpj||'não confirmado')+' • Cadastro '+esc(entry?.merchant_status||'desconhecido')+'</p></div>'+
       '<span class="status-pill '+(ready?'online':'offline')+'">'+(ready?'Apta para cotação':failed.length+' bloqueio(s)')+'</span></div>'+
     (main&&!ready?'<p class="tiny"><strong>Próxima ação:</strong> '+esc(main.action||'Revisar habilitação')+'</p>':
        '<p class="tiny"><strong>Verificação atual:</strong> todos os requisitos do motor de cotações foram satisfeitos neste instante.</p>')+
+    (canOpenControls&&plan.admin.length?
+      '<button class="secondary small" type="button" onclick="adminMerchantReturnToControls(\''+esc(merchantId)+'\')">Abrir validações desta revenda no Admin</button>':
+      '')+
+    (!ready?'<div aria-label="Responsabilidades pela habilitação">'+
+      makeWorklist('Admin: cadastro e autorização',plan.admin,
+        'Revise este cadastro nos controles existentes, sem aprovar documentos automaticamente.')+
+      makeWorklist('Revenda: informações operacionais',plan.merchant,
+        'Solicite ao responsável a confirmação de dados reais no painel da própria revenda.')+
+      makeWorklist('Plataforma e cidade',plan.platform,
+        'Controles gerais não podem ser resolvidos alterando esta revenda.')+
+      (plan.system.length?'<p class="tiny muted" style="margin-top:8px">A cotação final continua condicionada à aprovação de todos os requisitos pelo servidor.</p>':'')+
+      '</div>':'')+
     '<details><summary>Verificar todos os '+checks.length+' requisitos ('+failed.length+' pendente(s))</summary>'+
       '<div class="list" style="margin-top:12px">'+checks.map(adminEnablementCheckRow).join('')+'</div></details>'+
     '</article>';
 }
+
 function adminEnablementSection(d){
   const items=Array.isArray(adminRuntime.enablementMerchants)?adminRuntime.enablementMerchants:[];
   const loaded=adminRuntime.enablementLoaded===true;
