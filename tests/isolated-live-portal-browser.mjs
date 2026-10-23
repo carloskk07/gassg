@@ -44,7 +44,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(4179,'127.0.0.1',resolve)});
  const which=execFileSync('sh',['-c','command -v google-chrome || command -v chromium || command -v chromium-browser'],{encoding:'utf8'}).trim();
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
- const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore',detached:true});
+ const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore',detached:true});
  let ws,seq=0;
  const pending=new Map(),violations=[],merchantAccessStatuses=[],adminReadStatuses=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
@@ -71,15 +71,23 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
  }
  try{
   let target;
-  for(let n=0;n<90;n++){
+  // Chrome allocates its own localhost CDP port. A fixed port can collide
+  // with another browser and creates intermittent CI startup failures.
+  const portFile=path.join(profile,'DevToolsActivePort');
+  for(let n=0;n<160;n++){
    try{
-    const pages=await(await fetch('http://127.0.0.1:9229/json/list')).json();
-    target=pages.find(p=>p.type==='page'&&p.webSocketDebuggerUrl);
-    if(target)break;
+    const port=Number(fs.readFileSync(portFile,'utf8').trim().split(/\s+/)[0]);
+    if(Number.isSafeInteger(port)&&port>0&&port<65536){
+     const pages=await(await fetch('http://127.0.0.1:'+port+'/json/list',
+       {signal:AbortSignal.timeout(1100)})).json();
+     target=pages.find(p=>p.type==='page'&&p.webSocketDebuggerUrl);
+     if(target)break;
+    }
    }catch{}
+   if(chrome.exitCode!==null||chrome.signalCode!==null)break;
    await sleep(250);
   }
-  assert.ok(target,'Chrome CDP unavailable');
+  assert.ok(target,'Chrome CDP unavailable; browser exit='+chrome.exitCode+' signal='+chrome.signalCode);
   ws=new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>reject(Error('Chrome websocket refused')),10000);
