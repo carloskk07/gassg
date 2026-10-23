@@ -53,9 +53,13 @@ assert.ok(ui.includes('Sem liberações automáticas.'));
 assert.ok(!ui.includes("adminPerform('merchant-enablement'"));
 const cut=(source,name)=>{const begin=source.indexOf('function '+name+'(');assert.ok(begin>=0);const end=source.indexOf('\n}',begin);assert.ok(end>begin);return source.slice(begin,end+2);};
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
-const sandbox={esc};
+const merchantId='11111111-2222-4333-8444-555555555555';
+const sandbox={esc,adminRoleCanSection:()=>true,
+ adminRuntime:{data:{merchants:[{id:merchantId}]}}};
 vm.runInNewContext(cut(ui,'adminEnablementCheckRow')+
-  '\n'+cut(ui,'adminEnablementMerchantCard')+';this.card=adminEnablementMerchantCard;',sandbox);
+ '\n'+cut(ui,'adminEnablementActionPlan')+
+ '\n'+cut(ui,'adminEnablementMerchantCard')+
+ ';this.card=adminEnablementMerchantCard;this.plan=adminEnablementActionPlan;',sandbox);
 const output=sandbox.card({merchant_name:'<img src=x onerror=alert(1)>',city:'Santa Maria',
   state:'RS',cnpj:'12345678000190',merchant_status:'pending',ready:false,
   checks:[{key:'payment_route',label:'<script>alert(1)</script>',ok:false,
@@ -66,6 +70,44 @@ assert.ok(output.includes('&lt;svg onload=alert(1)&gt;'));
 assert.ok(!output.includes('<script>')&&!output.includes('<img'));
 assert.ok(output.includes('1 bloqueio(s)'));
 assert.ok(output.includes('Próxima ação'));
+assert.ok(output.includes('Revenda: informações operacionais'));
+assert.ok(!output.includes('Abrir validações desta revenda no Admin'),
+ 'an unverified merchant id must never create a navigation action');
+const realistic=sandbox.card({merchant_id:merchantId,merchant_name:'Revenda de teste',
+ merchant_status:'pending',ready:false,checks:[
+  {key:'global_commerce',owner:'admin',scope:'global',ok:false,
+   label:'Operação comercial',action:'Rever o modo de lançamento'},
+  {key:'merchant_status',owner:'admin',scope:'merchant',ok:false,
+   label:'Cadastro',action:'Validar cadastro e autorização'},
+  {key:'payment_method',owner:'merchant',scope:'merchant',ok:true,
+   label:'Pagamento',action:'Ativar pagamento'},
+  {key:'inventory',owner:'merchant',scope:'merchant',ok:false,
+   label:'Estoque',action:'Confirmar preço e estoque'},
+  {key:'quote_authority',owner:'system',scope:'realtime',ok:false,
+   label:'Cotação',action:'O sistema valida a oferta'}
+ ]});
+assert.ok(realistic.includes('Admin: cadastro e autorização (1)'));
+assert.ok(realistic.includes('Revenda: informações operacionais (1)'));
+assert.ok(realistic.includes('Plataforma e cidade (1)'));
+assert.ok(realistic.includes('Abrir validações desta revenda no Admin'));
+assert.ok(realistic.includes("adminMerchantReturnToControls('"+merchantId+"')"),
+ 'navigation must reuse the audited Admin controls for exactly this merchant');
+assert.ok(!realistic.includes('Ativar pagamento'),
+ 'a verified payment method must not be presented as a pending action');
+assert.ok(realistic.indexOf('Validar cadastro e autorização')<realistic.indexOf('Rever o modo de lançamento'),
+ 'prioritize actionable merchant work before the platform global gate');
+assert.ok(!realistic.includes("adminPerform("),'diagnostic stays read-only');
+const grouped=sandbox.plan([{key:'global_commerce',owner:'admin',scope:'global',ok:false},
+ {key:'online',owner:'merchant',scope:'realtime',ok:false},
+ {key:'quote_authority',owner:'system',scope:'realtime',ok:false}]);
+assert.equal(grouped.platform.length,1);
+assert.equal(grouped.merchant.length,1);
+assert.equal(grouped.system.length,1);
+sandbox.adminRoleCanSection=()=>false;
+assert.ok(!sandbox.card({merchant_id:merchantId,ready:false,checks:[
+ {key:'merchant_status',ok:false,owner:'admin',scope:'merchant'}
+]}).includes('Abrir validações desta revenda no Admin'),
+ 'readonly users without Partner permission must not see inaccessible actions');
 const done=sandbox.card({merchant_name:'Revenda Exemplo',city:'São Gabriel',state:'RS',
   merchant_status:'active',ready:true,checks:[{key:'stock',label:'Estoque',ok:true}]});
 assert.ok(done.includes('Apta para cotação'));
