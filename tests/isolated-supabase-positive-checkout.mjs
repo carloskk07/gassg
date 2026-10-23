@@ -306,7 +306,24 @@ assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(
 // restore that same local state without pretending a real operator approved a
 // suspicious reward. Real reviewed claims must use existing Admin authority.
 sql("UPDATE public.referral_reward_reviews SET risk_status='clear',risk_reasons='[]'::jsonb WHERE order_id="+q(orderId)+"::uuid;");
-assert.equal(maturationCount(),1,'clear, due, settled fictitious commission matures exactly once');
+// The local merchant merely attested to receiving cash from the BUYER.
+// TAMÃO has not yet received its fee. This is the critical funding gap.
+assert.equal(sql("SELECT status FROM public.platform_receivables WHERE order_id="+q(orderId)+"::uuid"),'open',
+ 'delivery settlement must not count TAMÃO fee receivable as collected');
+assert.equal(maturationCount(),0,'due, risk-cleared commission must stay pending while fee receivable is OPEN');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND bucket='commission_available'"),'0');
+assert.equal(sql("SELECT matured_at IS NULL FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'t',
+ 'maturation timestamp cannot advance without financial coverage');
+
+// Fake payment proof ONLY inside the disposable runner, intentionally marked
+// CI and NOT created through any PSP. Exercise the existing invoice lifecycle.
+// Production must require its ordinary authorized admin reconciliation.
+sql("UPDATE public.platform_receivables SET status='paid',paid_at=clock_timestamp(),resolved_by="+
+ q(owner.id)+"::uuid,resolution_reference='ci-local-fee-record-not-bank-proof' "+
+ "WHERE order_id="+q(orderId)+"::uuid AND status='open';");
+assert.equal(sql("SELECT status FROM public.platform_receivables WHERE order_id="+q(orderId)+"::uuid"),'paid',
+ 'local invoice must be explicitly resolved before maturity');
+assert.equal(maturationCount(),1,'paid fee, risk clear and due release one internal commission');
 assert.equal(sql("SELECT matured_at IS NOT NULL FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'t');
 assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND user_id="+q(outsider.id)+"::uuid AND bucket='commission_pending' AND entry_type='referral_pending_release' AND amount_cents=-"+reward.referral_pending_cents),'1',
  'release must debit pending balance exactly once');
