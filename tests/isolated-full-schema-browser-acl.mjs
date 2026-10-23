@@ -115,7 +115,7 @@ SELECT count(*) FROM pg_class c WHERE c.relname='ci_browser_acl_probe'
  AND c.relnamespace='public'::regnamespace
  AND has_table_privilege('authenticated',c.oid,'SELECT');
 ROLLBACK;`);
-assert.ok(newTable.split(/\\s+/).includes('1'),'new browser table grant must be detectable');
+assert.ok(newTable.split(/\s+/).includes('1'),'new browser table grant must be detectable');
 const newDefiner=sql(`BEGIN;
 CREATE FUNCTION public.ci_unreviewed_definer() RETURNS integer LANGUAGE sql
  SECURITY DEFINER SET search_path=pg_catalog AS 'SELECT 1';
@@ -124,6 +124,6 @@ GRANT EXECUTE ON FUNCTION public.ci_unreviewed_definer() TO authenticated;
 SELECT count(*) FROM pg_proc p WHERE p.oid='public.ci_unreviewed_definer()'::regprocedure
  AND p.prosecdef AND has_function_privilege('authenticated',p.oid,'EXECUTE');
 ROLLBACK;`);
-assert.ok(newDefiner.split(/\\s+/).includes('1'),'new privileged RPC grant must be detectable');
+assert.ok(newDefiner.split(/\s+/).includes('1'),'new privileged RPC grant must be detectable');
 assert.equal(sql("SELECT count(*) FROM public.orders"),'0');
 console.log('PASS: complete migrations ACL inventory and RLS policies; exact privileged RPC signatures; dangerous new-grant probes detected; no production or commercial data.');
