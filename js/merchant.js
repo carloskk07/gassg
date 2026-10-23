@@ -1491,6 +1491,72 @@ function merchantEnablementCheckView(check){
       '<span class="status-pill '+(ok?'online':'offline')+'">'+(ok?'Conforme':'Pendente')+'</span>'+
     '</div></div>';
 }
+async function merchantUpdateBusinessProfileLive(profile){
+  const merchant=globalThis.merchantRuntime?.merchant;
+  if(merchant?.status!=='pending'||merchant.online===true||
+    !['owner','manager'].includes(merchant.memberRole))
+    throw new Error('Somente o responsável de um cadastro pendente pode atualizar os dados.');
+  if(globalThis.merchantRuntime.actionPending)throw new Error('Existe uma operação em andamento.');
+  globalThis.merchantRuntime.actionPending=true;
+  try{
+    const data=await merchantConfigMutation('update-business-profile',profile);
+    if(data?.ok!==true||data?.businessProfileSaved!==true||
+      data?.requiresAdminReview!==true||data?.merchantStatus!=='pending'||
+      data?.online!==false)throw new Error('A gravação não foi confirmada.');
+    await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
+    return true;
+  }finally{
+    globalThis.merchantRuntime.actionPending=false;
+    render();
+  }
+}
+// Private, pending-only self-service. Saving is NOT an Admin approval.
+function merchantBusinessProfileSection(m,pending=false){
+  if(m?.status!=='pending'||m.online===true||
+     !['owner','manager'].includes(m.memberRole))return '';
+  const labels=[
+    ['legalName','Razão social',180],['tradeName','Nome fantasia',120],
+    ['responsibleName','Responsável',120],['phone','Telefone (DDD)',13],
+    ['whatsapp','WhatsApp (DDD)',13],['postalCode','CEP',8],
+    ['city','Município',120],['state','UF',2],['addressText','Endereço',240]
+  ];
+  const inputs=labels.map(([key,label,max])=>
+    '<label class="input-wrap">'+label+
+    '<input class="input" id="merchant-business-'+key+
+    '" maxlength="'+max+'" required value="'+esc(m.businessProfile?.[key]||'')+
+    '"></label>').join('');
+  return '<div class="card flat" id="merchant-business-profile">'+
+    '<h3>Dados da minha revenda</h3>'+
+    '<p class="tiny muted">Informe os dados reais. Salvar não valida CNPJ, ANP ou representação, nem libera vendas. A equipe TAMÃO revisa o cadastro.</p>'+
+    '<div class="grid cards-2">'+inputs+'</div>'+
+    '<button type="button" class="primary" onclick="merchantBusinessProfileSaveFromUi()"'+
+    (pending?' disabled':'')+'>Salvar dados da revenda</button></div>';
+}
+async function merchantBusinessProfileSaveFromUi(){
+  const m=globalThis.merchantRuntime?.merchant;
+  if(m?.status!=='pending'||m.online===true||
+     !['owner','manager'].includes(m.memberRole))return;
+  const fields=['legalName','tradeName','responsibleName','phone',
+    'whatsapp','postalCode','city','state','addressText'];
+  const values={};
+  for(const key of fields){
+    const el=document.getElementById('merchant-business-'+key);
+    if(!el)return toast('Atualize o cadastro.');
+    if(!el.checkValidity()){el.reportValidity?.();el.focus?.();return;}
+    values[key]=String(el.value||'').trim();
+  }
+  values.state=values.state.toUpperCase();
+  if(!/^\d{10,13}$/.test(values.phone)||!/^\d{10,13}$/.test(values.whatsapp)||
+     !/^\d{8}$/.test(values.postalCode)||!/^[A-Z]{2}$/.test(values.state)||
+     values.city.length<2||values.addressText.length<5)
+    return toast('Confira telefone, WhatsApp, CEP, UF, cidade e endereço.');
+  try{
+    await merchantUpdateBusinessProfileLive(values);
+    toast('Cadastro salvo. A revisão do TAMÃO continua necessária.');
+  }catch(error){toast(String(error?.message||error));}
+}
+
 function merchantEnablementAssistantView(rt){
   const m=rt?.merchant;
   if(!m||!['owner','manager'].includes(String(m.memberRole||'')))return '';
@@ -1514,6 +1580,7 @@ function merchantEnablementAssistantView(rt){
       '<p>Confira o que ainda falta para sua empresa aparecer nas consultas. Algumas etapas dependem da análise do TAMÃO.</p></div>'+
       '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
         (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
+    merchantBusinessProfileSection(m,rt.actionPending===true)+
     '<div class="card flat">'+
       '<div class="status-bar"><strong>'+esc(state)+'</strong><span class="status-pill '+(ready&&!outdated?'online':'offline')+'">'+
         (diagnostic?missing.length+' pendência(s)':'Aguardando consulta')+'</span></div>'+

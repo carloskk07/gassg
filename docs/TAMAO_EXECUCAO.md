@@ -14,6 +14,20 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Checkpoint 23/10/2026 — cadastro comercial pendente preenchível pelo responsável (sem autoativação)
+
+**Autoridade recuperada:** `main=a9f26e086f5cc32da06c25ec869856ab4aa1517e`, PR #576 integrada e **SHA dos portais comerciais já reconciliado ao mesmo commit**, `platform_launch_readiness()`: `READY_WITH_WARNINGS`, `securityBlockers=[]`, `PRELAUNCH`, `commerce_enabled=false`, 0 pedidos. Diário, escopo e arquitetura consultados.
+
+**Causa raiz confirmada em SQL somente leitura:** a única revenda, de teste **Carlos Santos**, tem owner ativo, 3 pagamentos ativos (`cash/card/pix` como formas declaradas) e três SKUs ativos com preço positivo/estoque (Gás P13, Água 20 L, Lenha; 10 unidades cada); os preços foram confirmados em 15/10/2026 e estão vencidos. A relação `merchant_business_details` NÃO possui linha para essa revenda. Portanto o campo `location` do diagnóstico canônico não poderia ser completado no painel existente por um responsável, nem deve ser preenchido com geografia presumida.
+
+**Primeira pendência implementada nesta branch `feat/merchant-selfservice-business-profile`:** formulário no assistente **existente** `js/merchant.js`, visível exclusivamente para owner/manager de revenda `pending` e offline. Campos reais obrigatórios de razão social, nome fantasia, responsável, telefone/WhatsApp, CEP, cidade, UF e endereço. `merchant-orders` devolve detalhes privados **somente** ao owner/manager; operador/entregador não recebe. A ação `merchant-ops/update-business-profile` valida conteúdo no Edge e chama a RPC canônica `merchant_config_action` que já possui controle transacional por `updated_at` e `action_requests` idempotente. Nova migração SQL amplia **a mesma RPC, sem segunda autoridade**, com *guard* do MD5 atual `cc392dd12b374584254017f2b5bd9f97`: falhar fechado sob drift, sem revogar política, sem habilitar LIVE. SQL só grava dados submetidos voluntariamente pelo responsável quando status `pending`, `online=false` e **zero pedidos anteriores**; proíbe mudança unilateral de localização de revenda já ativa; não declara CNPJ/ANP/representação verificados e não atualiza artificialmente o preço/estoque/heartbeat.
+
+**Provas propostas:** módulo `tests/isolated-merchant-business-profile.mjs` integrado à suíte **canônica Supabase descartável**: usa dois JWTs reais do Auth local, salva uma revenda pendente sem detalhes, nega outsider, rejeita dados inválidos sem persistência, prova replay idempotente, recusa gravação com `updated_at` velho e trava após ativação, preservando `pending` até a ação explícita do Admin. `tests/merchant-guided-enablement-v1-158.mjs` cobre renderer owner/manager, proteção de dados pessoais, HTML escaping, ausência de criação de segundo cadastro e guardas. Todo dado de teste é fictício e isolado; não existe conta real criada.
+
+**Regra de conclusão:** PR DRAFT até Audit, integração real Auth/Edge/PostgREST isolado e revisão pública aprovados no mesmo HEAD; aplicar ao Supabase hospedado só depois de testes e preservando `PRELAUNCH`/`commerce_enabled=false`. Esta mudança **não** resolve confirmação de preços/entrega, validação do cadastro pelo Admin, Pix PSP real, conciliação/estorno e distribuição de renda. Não tomar método de pagamento marcado `pix` como confirmação de recebimento.
+
+---
+
 ## Checkpoint 23/10/2026 — reduzir atrito para a primeira revenda real, sem fingir homologação
 
 **Base verificada:** `main=aaa6e8fec2a114467bc8880fe4115340dffe8a36`, [PR #575](https://github.com/carloskk07/gassg/pull/575) integrada; `platform_launch_readiness()` em `READY_WITH_WARNINGS`, `securityBlockers=[]`, `PRELAUNCH`, `commerce_enabled=false`; 0 pedidos reais, revendas online e pagamentos. `market_supply_status().realSupplyConfigured=false`.

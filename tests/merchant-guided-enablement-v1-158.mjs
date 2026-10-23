@@ -64,10 +64,11 @@ function excerpt(source,signature){
 }
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const sandbox={esc,formatDateTime:()=> '10/10/2026'};
-vm.runInNewContext(excerpt(ui,'function merchantEnablementCheckView(')+
+vm.runInNewContext(excerpt(ui,'function merchantBusinessProfileSection(')+
+ '\n'+excerpt(ui,'function merchantEnablementCheckView(')+
  '\n'+excerpt(ui,'function merchantEnablementAssistantView(')+
  ';this.draw=merchantEnablementAssistantView;',sandbox);
-const rt={merchant:{merchantId:'c1',memberRole:'owner'},enablement:{
+const rt={merchant:{merchantId:'c1',memberRole:'owner',status:'pending',online:false},enablement:{
  merchant_id:'c1',ready:false,checked_at:new Date().toISOString(),checks:[
   {key:'payment_route',label:'<script>alert(1)</script>',ok:false,
    owner:'merchant',action:'<img src=x onerror=alert(1)>',scope:'merchant'},
@@ -75,6 +76,35 @@ const rt={merchant:{merchantId:'c1',memberRole:'owner'},enablement:{
   {key:'online',label:'Disponibilidade',ok:true,owner:'merchant',action:'',scope:'realtime'}]
  }};
 const html=sandbox.draw(rt);
+assert.ok(html.includes('Dados da minha revenda'),
+ 'pending owner can complete existing registration without second signup');
+assert.ok(!html.includes('Salvar dados da revenda') || html.includes('não valida CNPJ'));
+const profileHtml=sandbox.draw({...rt,merchant:{...rt.merchant,businessProfile:{
+ legalName:'Revenda <script>alert(1)</script>',city:'São Gabriel',state:'RS'}}});
+assert.ok(profileHtml.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+assert.ok(!profileHtml.includes('<script>'),'private registration must be HTML escaped');
+assert.ok(!sandbox.draw({...rt,merchant:{...rt.merchant,status:'active'}})
+ .includes('Salvar dados da revenda'),'active merchant cannot self-edit approved business data');
+assert.ok(!sandbox.draw({...rt,merchant:{...rt.merchant,status:'pending',online:true}})
+ .includes('Salvar dados da revenda'),'online merchant cannot edit business identity');
+assert.ok(ui.includes("merchantConfigMutation('update-business-profile',profile)"),
+ 'new registration must reuse canonical CAS idempotent config authority');
+const merchantOpsEdge=read('supabase/functions/merchant-ops/index.ts');
+const orders=read('supabase/functions/merchant-orders/index.ts');
+const migration=read('supabase/migrations/20261023213000_merchant_pending_business_profile.sql');
+for(const term of ["update-business-profile","MERCHANT_PROFILE_LOCKED","merchant_config_action"]){
+ assert.ok(merchantOpsEdge.includes(term),'missing real authenticated Edge action '+term);
+ assert.ok(migration.includes(term),'missing canonical database guard '+term);
+}
+assert.ok(migration.includes("v_merchant.status<>'pending' or v_merchant.online"));
+assert.ok(migration.includes('or exists(select 1 from public.orders where merchant_id=p_merchant_id)'));
+assert.ok(migration.includes('on conflict (merchant_id) do update'));
+assert.ok(migration.includes('MERCHANT_CONFIG_BASELINE_DRIFT_BLOCKED'),
+ 'never overwrite unknown later merchant security logic');
+assert.ok(orders.includes('const canSeeProfile=["owner","manager"].includes(selected.member_role)'),
+ 'private business info must not leak to driver/operator');
+assert.ok(!migration.includes("set status='active'"),'cannot auto-activate by submitting form');
+
 assert.ok(html.includes('O que sua revenda pode resolver'));
 assert.ok(html.includes('Validações e condições adicionais'));
 assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
