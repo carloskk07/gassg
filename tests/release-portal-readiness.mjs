@@ -79,6 +79,14 @@ assert.match(visualWorkflow,/Administração protegida/);
 assert.match(visualWorkflow,/painel da revenda/);
 assert.match(visualWorkflow,/Just a moment/);
 assert.match(visualWorkflow,/LIVE-\*-390\.html/);
+assert.match(visualWorkflow,/FIRST_VISIT_TURNSTILE_BLOCKED/,
+ 'public first-time visitor cannot be obscured by a CAPTCHA modal');
+assert.match(visualWorkflow,/data-chama-turnstile/,
+ 'live DOM must check the actual Turnstile modal attribute');
+const turnstileHelper=fs.readFileSync(new URL('../js/turnstile.js',import.meta.url),'utf8');
+assert.match(turnstileHelper,/wrap\.dataset\.chamaTurnstile='1'/,
+ 'live DOM detection must match the real dynamically inserted challenge');
+
 assert.ok(visualWorkflow.indexOf('LIVE_DOM_RENDER_VERIFIED=')>visualWorkflow.indexOf('test "$(wc -c < "$OUT")"'),
  'browser DOM validation must accompany the PNG size gate');
 
