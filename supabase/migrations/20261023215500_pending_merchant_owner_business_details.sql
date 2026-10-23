@@ -101,6 +101,15 @@ BEGIN
 
   update public.action_requests
   set result_json=v_result$action$);
+  -- A stale optimistic version is a durable 409 business conflict, not a
+  -- PostgreSQL serialization failure (40001) that client libraries may retry.
+  -- Preserve the existing message used by merchant-ops for HTTP 409.
+  IF strpos(ddl,
+    'raise exception ''CONFIG_VERSION_CONFLICT'' using errcode=''40001'';')=0
+  THEN RAISE EXCEPTION 'MERCHANT_CONFIG_CONFLICT_BASELINE_DRIFT'; END IF;
+  ddl:=replace(ddl,
+    'raise exception ''CONFIG_VERSION_CONFLICT'' using errcode=''40001'';',
+    'raise exception ''CONFIG_VERSION_CONFLICT'' using errcode=''P0001'';');
   EXECUTE ddl;
 END $migration$;
 
