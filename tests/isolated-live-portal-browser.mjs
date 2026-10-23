@@ -157,6 +157,12 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(orderCardVisible,true,'the actual Admin orders UI must render this local order card');
   assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
   assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
+  // Click the EXISTING Tower of Control button, retaining the canonical
+  // adminPerform -> admin-ops -> admin_order_control_action transaction.
+  const didClickNote=await evaluate("(()=>{const card=Array.from(document.querySelectorAll('.order-card')).find(x=>x.querySelector('.order-id')?.textContent.trim()===(adminRuntime.data?.controlOrders?.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code||''));const btn=Array.from(card?.querySelectorAll('button')||[]).find(x=>x.textContent.includes('Registrar observação'));if(!btn)return false;window.prompt=()=> 'Observacao de teste CI sem dados reais';btn.click();return true})()");
+  assert.equal(didClickNote,true,'the Admin note must be submitted from the actual order card button');
+  await wait("adminRuntime.status==='ready'&&adminRuntime.actionPending===false&&adminRuntime.data?.recentAudit?.some(x=>x.action==='order-control-note'&&x.target_id==="+JSON.stringify(orderId)+")",
+    'Admin button must persist its audited note',50000);
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
   console.log('PASS: real Chrome buyer, merchant and authorized Admin read the SAME localhost order; unauthorized buyer denied merchant and Admin; no remote backend requests.');
  }finally{
