@@ -117,7 +117,7 @@ assert.ok(done.includes('Conforme'));
 const merchantPortal=read('js/merchant.js');
 const ownerOps=read('supabase/functions/merchant-ops/index.ts');
 const readOrders=read('supabase/functions/merchant-orders/index.ts');
-const profileMigration=read('supabase/migrations/20261023223000_merchant_self_service_business_details.sql');
+const profileMigration=read('supabase/migrations/20261023222508_merchant_self_service_business_details.sql');
 const bsc={esc};
 vm.runInNewContext(cut(merchantPortal,'merchantBusinessProfileView')+
  ';this.profile=merchantBusinessProfileView;',bsc);
