@@ -23,7 +23,7 @@ console.log('LOCAL_ACL_DETAILS',
 console.log('LOCAL_ACL_REGPROCEDURE',
  sql("SELECT coalesce(to_regprocedure('public.tamao_launch_acl_posture_v1()')::text,'NULL')"));
 console.log('LOCAL_ACL_CATALOG_DETAILS',
- sql("SELECT coalesce(string_agg(p.oid::regprocedure::text||':args='||p.pronargs||':kind='||p.prokind||':exec='||has_function_privilege(current_user,p.oid,'EXECUTE'),'|'),'NONE') FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='tamao_launch_acl_posture_v1'"));
+ sql("SELECT coalesce(string_agg(p.oid::regprocedure::text||':args='||p.pronargs||':kind='||p.prokind::text||':exec='||has_function_privilege(current_user,p.oid,'EXECUTE'),'|'),'NONE') FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='tamao_launch_acl_posture_v1'"));
 const baseline=read();
 assert.deepEqual(baseline,{
  tableDigest:'b2217c55d0acd0b5d576724941c50c93',
