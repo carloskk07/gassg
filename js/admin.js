@@ -45,7 +45,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
-  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null},
+  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null,providerCheckingId:null,providerCheck:null,providerCheckError:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
   clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
@@ -4733,6 +4733,29 @@ async function adminFinanceLabDiagnoseChargesFromUi(){
   }finally{state.chargesLoading=false;render();}
 }
 
+async function adminFinanceLabVerifyProviderFromUi(chargeId){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'
+    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(chargeId||'')))return;
+  const state=adminRuntime.financeLab;
+  if(state.providerCheckingId)return;
+  state.providerCheckingId=String(chargeId);
+  state.providerCheck=null;state.providerCheckError=null;render();
+  try{
+    const proof=await adminInvoke({
+      action:'finance-lab-provider-verify',chargeId:String(chargeId)
+    });
+    if(proof?.ok!==true||proof.source!=='mercadopago_order_lookup_v1'
+      ||proof.readOnly!==true||proof.chargeId!==String(chargeId)
+      ||proof.identifiersAndAmountMatched!==true
+      ||proof.settlementVerified!==false||proof.creditIssued!==false
+      ||proof.financialActionTaken!==false){
+      throw new Error('O provedor não retornou uma conferência segura da cobrança.');
+    }
+    state.providerCheck=proof;
+  }catch(e){state.providerCheckError={chargeId:String(chargeId),message:String(e?.message||e)};}
+  finally{state.providerCheckingId=null;render();}
+}
+
 async function adminFinanceLabReadinessFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const state=adminRuntime.financeLab;
@@ -4924,8 +4947,21 @@ function adminFinanceLabView(d){
           ' • aplicados '+esc(String(item.webhook?.appliedCount??0))+
           ' • ignorados '+esc(String(item.webhook?.ignoredCount??0))+'</div>'+
           '<small>Diagnóstico: '+esc((item.issues||[]).join(', ')||'Sem divergência estrutural detectada')+'</small>'+
+          (item.provider==='mercadopago'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(item.chargeId||''))
+            ?'<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabVerifyProviderFromUi(\''+esc(String(item.chargeId))+'\')" '+(state.providerCheckingId?'disabled':'')+'>'+
+              (state.providerCheckingId===item.chargeId?'Consultando Mercado Pago…':'Conferir esta cobrança no Mercado Pago')+'</button></div>'
+            :'')+
+          (state.providerCheck?.chargeId===item.chargeId
+            ?'<div class="notice"><strong>Consulta direta Mercado Pago</strong> • '+esc(formatDateTime(state.providerCheck.checkedAt))+
+              '<div class="order-line">Ordem: '+esc(state.providerCheck.providerOrderStatus)+
+              ' • Pix: '+esc(state.providerCheck.providerPaymentStatus)+'</div>'+
+              '<small>'+esc(state.providerCheck.nextStep)+'</small>'+
+              '<small>Identidade e valor conferidos. Sem crédito, repasse ou comprovação de liquidação.</small></div>'
+            :'')+
+          (state.providerCheckError?.chargeId===item.chargeId
+            ?'<div class="notice danger" role="alert">'+esc(state.providerCheckError.message)+'</div>':'')+
           '</div>').join(''):(state.charges?'<small>Nenhuma cobrança disponível para diagnóstico.</small>':'')}
-        <small class="muted">Webhook recebido não comprova pagamento nem autoriza crédito. Os registros exibidos são evidências internas, não consulta online ao PSP; a confirmação depende da conciliação legítima.</small>
+        <small class="muted">O diagnóstico usa registros internos. A conferência direta consulta uma única ordem no Mercado Pago, sem criar pagamentos, modificar o banco ou liberar créditos. Mesmo uma ordem processada requer conciliação e prova independente de recebimento.</small>
         <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
         <div class="order-actions">
           <button class="secondary small" onclick="adminCheckBillingProviderHealth()">Testar conexão com PSP</button>

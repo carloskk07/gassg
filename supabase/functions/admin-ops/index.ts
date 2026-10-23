@@ -737,6 +737,97 @@ async function adminFinanceLabChargeDiagnostics(admin:any){
     note:"Webhook recebido não comprova pagamento. Conciliação depende de evento aplicado e prova do PSP."};
 }
 
+// Finance Lab: read-only check of ONE locally recorded Pix against the PSP.
+// Never credit, approve, reconcile or mutate records from a GET result.
+async function adminFinanceLabVerifyProviderCharge(admin:any,actorId:string,body:any){
+  const chargeId=String(body?.chargeId??"").trim();
+  if(!UUID_RE.test(chargeId)){
+    throw new DomainError("FINANCE_LAB_CHARGE_ID_INVALID",
+      "Selecione uma cobrança válida do diagnóstico financeiro.",400);
+  }
+  await enforceApiQuota(admin,{
+    userId:actorId,actionName:"admin-finance-provider-verify",
+    limit:6,windowSeconds:60
+  });
+  const {data:charge,error:chargeError}=await admin
+    .from("merchant_billing_provider_charges")
+    .select("id,payment_request_id,provider,provider_charge_id,provider_transaction_id,correlation_id,amount_cents,status")
+    .eq("id",chargeId).maybeSingle();
+  if(chargeError)throw new DomainError("FINANCE_LAB_CHARGE_UNAVAILABLE",
+    "Não foi possível consultar a cobrança registrada.",503);
+  if(!charge)throw new DomainError("FINANCE_LAB_CHARGE_NOT_FOUND",
+    "Cobrança não encontrada.",404);
+  if(charge.provider!=="mercadopago"){
+    throw new DomainError("FINANCE_LAB_PROVIDER_NOT_SUPPORTED",
+      "A conferência direta disponível é exclusiva do Mercado Pago.",409);
+  }
+  const orderId=String(charge.provider_charge_id??"").trim();
+  if(!/^[A-Za-z0-9_-]{6,160}$/.test(orderId)){
+    throw new DomainError("FINANCE_LAB_PROVIDER_ORDER_MISSING",
+      "A cobrança não tem identificação de ordem validável no provedor.",409);
+  }
+  const {data:request,error:requestError}=await admin
+    .from("merchant_billing_payment_requests")
+    .select("id,status,expected_amount_cents")
+    .eq("id",charge.payment_request_id).maybeSingle();
+  if(requestError||!request){
+    throw new DomainError("FINANCE_LAB_REQUEST_UNAVAILABLE",
+      "A solicitação financeira não pôde ser conferida.",503);
+  }
+  const amount=Number(charge.amount_cents);
+  if(!Number.isSafeInteger(amount)||amount<=0
+    ||amount!==Number(request.expected_amount_cents)){
+    throw new DomainError("FINANCE_LAB_LOCAL_AMOUNT_MISMATCH",
+      "O valor da cobrança diverge da solicitação; requer revisão humana.",409);
+  }
+  const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  if(!mercadoPagoConfigured(token)){
+    throw new DomainError("FINANCE_LAB_PROVIDER_NOT_CONFIGURED",
+      "A consulta ao provedor não está configurada.",503);
+  }
+  const response=await mercadoPagoFetch(
+    "/v1/orders/"+encodeURIComponent(orderId),
+    {accessToken:token,method:"GET",timeoutMs:8000}
+  );
+  if(!response.ok)throw new DomainError("FINANCE_LAB_PROVIDER_LOOKUP_FAILED",
+    "O Mercado Pago não confirmou o estado da ordem nesta consulta.",503);
+  const order=await readMercadoPagoJson(response);
+  const payment=Array.isArray(order?.transactions?.payments)
+    ?order.transactions.payments.find((p:any)=>
+      String(p?.payment_method?.id??"").toLowerCase()==="pix"
+      &&String(p?.payment_method?.type??"").toLowerCase()==="bank_transfer")
+    :null;
+  // Reconcile identity, amount and transaction before reporting ANY provider
+  // state. A returned order ID alone is not enough for financial evidence.
+  if(String(order?.id??"")!==orderId
+    ||String(order?.external_reference??"")!==String(charge.correlation_id??"")
+    ||moneyToCents(order?.total_amount)!==amount
+    ||!payment
+    ||(charge.provider_transaction_id!=null
+      &&String(payment.id??"")!==String(charge.provider_transaction_id))){
+    throw new DomainError("FINANCE_LAB_PROVIDER_IDENTITY_MISMATCH",
+      "Os identificadores ou valores do provedor divergem da cobrança registrada.",409);
+  }
+  const providerOrderStatus=String(order.status??"unknown").slice(0,60);
+  const providerPaymentStatus=String(payment.status??"unknown").slice(0,60);
+  const processed=providerOrderStatus.toLowerCase()==="processed"
+    ||providerPaymentStatus.toLowerCase()==="processed";
+  return {
+    ok:true,source:"mercadopago_order_lookup_v1",readOnly:true,
+    chargeId,provider:"mercadopago",checkedAt:new Date().toISOString(),
+    localChargeStatus:String(charge.status??"unknown").slice(0,40),
+    localRequestStatus:String(request.status??"unknown").slice(0,40),
+    providerOrderStatus,providerPaymentStatus,
+    providerProcessed:processed,
+    identifiersAndAmountMatched:true,
+    // Provider state alone is NOT an account statement, webhook or payout.
+    settlementVerified:false,creditIssued:false,financialActionTaken:false,
+    nextStep:processed
+      ?"Conferir webhook, recebimento e conciliação antes de qualquer crédito."
+      :"Aguardar o provedor; não reutilizar Pix vencido nem antecipar crédito."
+  };
+}
+
 async function adminFinanceLabReadiness(admin:any,actorId:string){
   const config=adminFinanceLabConfig();
   const {data,error}=await admin.from("platform_admin_audit")
@@ -5801,6 +5892,13 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode diagnosticar cobranças.",403);
       }
       return json(await adminFinanceLabChargeDiagnostics(admin),200,origin);
+    }
+    if(action==="finance-lab-provider-verify"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o superadmin pode consultar esta cobrança no provedor.",403);
+      }
+      return json(await adminFinanceLabVerifyProviderCharge(admin,user.id,body),200,origin);
     }
     if(action==="finance-lab-readiness"||action==="finance-lab-sandbox-check"){
       if(String(adminAccess.admin_role)!=="superadmin"){
