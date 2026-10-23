@@ -56,8 +56,16 @@ const h=ctx.merchantPaymentConnectionsView(active);
 assert.match(h.slice(0,h.indexOf('<details class="merchant-psp-optional')),/AUTOMAÇÃO ATIVA/);
 assert.doesNotMatch(h.slice(0,h.indexOf('<details class="merchant-psp-optional')),/INTEGRAÇÃO VERIFICADA/);
 
-const empty={...base,merchant:{...base.merchant,acceptsCitywide:false},
+const ownerMissingAddress={...base,merchant:{...base.merchant,acceptsCitywide:false},
  catalog:[]};
+assert.match(ctx.merchantSetupView(ownerMissingAddress),/Seu próximo passo: Dados e endereço/);
+assert.match(ctx.merchantSetupView(ownerMissingAddress),/0 de 4 preenchidos/);
+const empty={...base,merchant:{...base.merchant,acceptsCitywide:false,
+ businessDetails:{city:'São Gabriel',state:'RS',postalCode:'97300000',
+  addressText:'Endereço declarado pelo proprietário'}},
+ catalog:[]};
+assert.match(ctx.merchantSetupView(empty),/Dados informados, aguardando conferência/);
+assert.match(ctx.merchantSetupView(empty),/1 de 4 preenchidos/);
 assert.match(ctx.merchantSetupView(empty),/Seu próximo passo: Produtos e preços/);
 assert.match(ctx.merchantSetupView(empty),/Continuar configuração/);
 const withProduct={...empty,catalog:[{
@@ -70,6 +78,9 @@ const complete={...withDelivery,paymentRoutes:[{paymentMethod:'pix',active:true}
 assert.doesNotMatch(ctx.merchantSetupView(complete),/Continuar configuração/);
 assert.match(ctx.merchantSetupView(complete),/A habilitação para receber pedidos depende das verificações/);
 assert.equal(ctx.merchantSetupView({...complete,merchant:{...complete.merchant,memberRole:'driver'}}),'');
+const manager={...ownerMissingAddress,merchant:{...ownerMissingAddress.merchant,memberRole:'manager'}};
+assert.match(ctx.merchantSetupView(manager),/0 de 3 preenchidos/);
+assert.doesNotMatch(ctx.merchantSetupView(manager),/Dados e endereço/);
 assert.match(src,/Salvar como recebo/);
 assert.match(src,/merchantManualPaymentRoute\('pix'\)/);
 assert.match(src,/merchantManualPaymentRoute\('card'\)/);
