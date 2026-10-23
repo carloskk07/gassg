@@ -253,6 +253,16 @@ Deno.serve(async(req:Request)=>{
     if(merchantError)throw merchantError;
     if(!merchant)return json({error:"MERCHANT_NOT_FOUND"},404,origin);
 
+    // Private registration details are visible only to owner/manager,
+    // never the delivery-driver or public visitor response.
+    const canSeeProfile=["owner","manager"].includes(selected.member_role);
+    const {data:businessProfile,error:businessProfileError}=canSeeProfile
+      ?await admin.from("merchant_business_details")
+        .select("legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,updated_at")
+        .eq("merchant_id",selected.merchant_id).maybeSingle()
+      :{data:null,error:null};
+    if(businessProfileError)throw businessProfileError;
+
     const {data:catalog,error:catalogError}=await admin
       .from("catalog_items")
       .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
@@ -735,6 +745,18 @@ Deno.serve(async(req:Request)=>{
         maxActiveOrders:Number(merchant.max_active_orders??8),
         deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
         configUpdatedAt:merchant.updated_at,
+        businessProfile:businessProfile?{
+          legalName:businessProfile.legal_name,
+          tradeName:businessProfile.trade_name,
+          responsibleName:businessProfile.responsible_name,
+          phone:businessProfile.phone,
+          whatsapp:businessProfile.whatsapp,
+          postalCode:businessProfile.postal_code,
+          city:businessProfile.city,
+          state:businessProfile.state,
+          addressText:businessProfile.address_text,
+          updatedAt:businessProfile.updated_at
+        }:null,
         performance:{
           completedOrders:Number(performance?.completed_orders??0),
           completionRate:performance?.completion_rate==null?null:Number(performance.completion_rate),
