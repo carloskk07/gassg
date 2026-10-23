@@ -147,6 +147,49 @@ async function call(slug,token,body,extra={}){
  });
  return {status:res.status,body:await res.json()};
 }
+// Reuse the actual merchant-ops / merchant-orders Auth and idempotency path.
+// This is a disposable owner's self-declaration, NOT regulatory verification.
+const profileBefore=await call('merchant-orders',owner.token,{merchantId});
+assert.equal(profileBefore.status,200,'owner snapshot before business profile update');
+assert.equal(profileBefore.body.businessDetails?.city,'São Gabriel');
+const businessUpdate={
+ merchantId,action:'update-business-details',
+ expectedUpdatedAt:profileBefore.body.merchant.configUpdatedAt,
+ legalName:'Empresa Ficticia CI',tradeName:'Revenda Ficticia CI',
+ responsibleName:'Proprietario Sintetico',phone:'11988887777',whatsapp:'11988887777',
+ postalCode:'97300000',city:'São Gabriel',state:'RS',
+ addressText:'Rua Ficticia CI numero 40'
+};
+const illegalAddress=await call('merchant-ops',buyer.token,businessUpdate,
+ {'Idempotency-Key':'ci-profile-buyer-'+randomUUID()});
+assert.equal(illegalAddress.status,403,'non-member cannot change merchant company data');
+assert.equal(illegalAddress.body.error,'MERCHANT_ACCESS_DENIED');
+const invalidAddress=await call('merchant-ops',owner.token,
+ {...businessUpdate,postalCode:'wrong'},
+ {'Idempotency-Key':'ci-profile-invalid-'+randomUUID()});
+assert.equal(invalidAddress.status,400,'address validation rejects malformed CEP');
+assert.equal(invalidAddress.body.error,'INVALID_BUSINESS_PROFILE');
+const profileKey='ci-merchant-profile-'+randomUUID();
+const acceptedProfile=await call('merchant-ops',owner.token,businessUpdate,
+ {'Idempotency-Key':profileKey});
+assert.equal(acceptedProfile.status,200,'authenticated owner save: '+JSON.stringify(acceptedProfile.body).slice(0,450));
+assert.equal(acceptedProfile.body.pendingAdministrativeVerification,true);
+const repeatedProfile=await call('merchant-ops',owner.token,businessUpdate,
+ {'Idempotency-Key':profileKey});
+assert.equal(repeatedProfile.status,200,'identical idempotent replay must be safe');
+assert.deepEqual(repeatedProfile.body,acceptedProfile.body);
+const profileAfter=await call('merchant-orders',owner.token,{merchantId});
+assert.equal(profileAfter.status,200);
+assert.equal(profileAfter.body.businessDetails?.addressText,businessUpdate.addressText);
+assert.equal(profileAfter.body.businessDetails?.responsibleName,businessUpdate.responsibleName);
+assert.equal(profileAfter.body.businessDetails?.postalCode,'97300000');
+assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE action_name='merchant-config:update-business-details' AND completed_at IS NOT NULL"),'1');
+assert.equal(sql("SELECT status||':'||online::text FROM public.merchants WHERE id="+q(merchantId)+"::uuid"),'active:true',
+ 'self-declaration must not change existing status or online state');
+assert.equal(sql("SELECT count(*) FROM public.merchant_representation_reviews WHERE merchant_id="+q(merchantId)+"::uuid"),'1',
+ 'business data update must not overwrite representation review');
+console.log('PASS: owner-only business profile self-service saved once by versioned merchant config; buyer/invalid input denied; no merchant approval or payment changed.');
+
 const first=await call('create-order',buyer.token,request,{'Idempotency-Key':idempotency});
 assert.equal(first.status,201,'checkout error: '+JSON.stringify(first.body).slice(0,500));
 assert.match(first.body.orderId,/^[0-9a-f-]{36}$/i);
