@@ -106,7 +106,7 @@ assert.match(edge,/PIX_PROVIDER_ALREADY_PROCESSED/);
 assert.match(edge,/const expiresAt=parseIso\(charge\.expiresDate\)/);
 assert.match(edge,/Date\.parse\(expiresAt\)<=Date\.now\(\)\+60_000/);
 const expiryMigration=fs.readFileSync(new URL(
-  '../supabase/migrations/20261023233500_pix_provider_expiry_fail_closed.sql',
+  '../supabase/migrations/20261023233436_pix_provider_expiry_fail_closed.sql',
   import.meta.url),'utf8');
 assert.ok(expiryMigration.includes('PIX_PROVIDER_CHARGE_EXPIRY_REQUIRED'));
 assert.ok(expiryMigration.includes('PIX_CHARGE_EXPIRY_BASELINE_DRIFT_BLOCKED'));
