@@ -121,9 +121,9 @@ const profileMigration=read('supabase/migrations/20261023223000_merchant_self_se
 const bsc={esc};
 vm.runInNewContext(cut(merchantPortal,'merchantBusinessProfileView')+
  ';this.profile=merchantBusinessProfileView;',bsc);
-const escapedProfile=bsc.profile({merchant:{memberRole:'owner'},actionPending:false,
+const escapedProfile=bsc.profile({merchant:{memberRole:'owner',
  businessDetails:{legalName:'Empresa <script>alert(1)</script>',
- city:'São Gabriel',state:'RS',postalCode:'97300000',addressText:'Rua de Teste'}});
+ city:'São Gabriel',state:'RS',postalCode:'97300000',addressText:'Rua de Teste'}},actionPending:false});
 assert.ok(escapedProfile.includes('Empresa &lt;script&gt;alert(1)&lt;/script&gt;'));
 assert.ok(!escapedProfile.includes('<script>'));
 assert.ok(escapedProfile.includes('merchantBusinessProfileSaveFromUi()'));
