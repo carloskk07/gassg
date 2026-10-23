@@ -44,8 +44,13 @@ jobs:
           test -z "${SUPABASE_DB_PASSWORD:-}"
           supabase --version
           docker info --format '{{.ServerVersion}}'
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client >/dev/null
+          # Ubuntu runners commonly include psql already. Avoid an unconditional
+          # apt network call that can stall the entire isolated test job.
+          if ! command -v psql >/dev/null 2>&1; then
+            timeout 150s sudo apt-get update -qq
+            timeout 120s sudo apt-get install -y -qq postgresql-client >/dev/null
+          fi
+          psql --version
       - name: Boot ephemeral Postgres using canonical baseline followed by migrations
         run: |
           # This project predates migration-managed bootstrap. The repo's

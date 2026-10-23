@@ -207,6 +207,20 @@ assert.equal(buyerAfterWrong.body.version,buyerArriving.body.version+1,'wrong PI
 assert.equal(sql("SELECT pin_failures FROM public.orders WHERE id="+q(orderId)+"::uuid"),'1');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid AND event_type='PIN_FAILED'"),'1');
 
+// E2E authorization at settlement: knowing the correct PIN is NOT a
+// substitute for membership in the order's assigned merchant.
+for(const [role,actor] of [['buyer',buyer],['unrelated referrer',outsider]]){
+ const forbidden=await call('complete-delivery',actor.token,{
+  orderId,pin:deliveryPin,expectedVersion:buyerAfterWrong.body.version,
+  paymentConfirmed:true
+ },{'Idempotency-Key':'ci-foreign-delivery-'+randomUUID()});
+ assert.equal(forbidden.status,403,role+' must not settle an order even with its PIN');
+ assert.equal(forbidden.body.error,'MERCHANT_ACCESS_DENIED');
+ assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(orderId)+"::uuid"),
+  'ARRIVING','denied completion must not change the order status');
+ assert.equal(sql("SELECT consumed_at IS NULL FROM public.order_delivery_secrets WHERE order_id="+q(orderId)+"::uuid"),
+  't','denied completion must not consume the legitimate PIN');
+}
 const completeBody={orderId,pin:deliveryPin,
  expectedVersion:buyerAfterWrong.body.version,paymentConfirmed:true};
 const completeKey='ci-complete-'+randomUUID();
@@ -220,6 +234,10 @@ const finalBuyer=await call('get-order',buyer.token,{orderId});
 assert.equal(finalBuyer.status,200);
 assert.equal(finalBuyer.body.status,'SETTLED');
 assert.equal(finalBuyer.body.deliveryPin,null,'consumed PIN must never be exposed');
+const foreignAfterSettlement=await call('get-order',outsider.token,{orderId});
+assert.equal(foreignAfterSettlement.status,404,'settled orders must remain private from unrelated authenticated users');
+assert.equal(foreignAfterSettlement.body.error,'ORDER_NOT_FOUND');
+
 assert.equal(sql("SELECT consumed_at IS NOT NULL FROM public.order_delivery_secrets WHERE order_id="+q(orderId)+"::uuid"),'t');
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1');
 for(const event of ['OUT_FOR_DELIVERY','ARRIVING','PIN_FAILED','PAYMENT_CONFIRMED','DELIVERED','SETTLED']){
