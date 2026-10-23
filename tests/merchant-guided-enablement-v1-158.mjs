@@ -87,7 +87,7 @@ assert.ok(!sandbox.draw({...rt,merchant:{...rt.merchant,status:'active'}})
  .includes('Salvar dados da revenda'),'active merchant cannot self-edit approved business data');
 assert.ok(!sandbox.draw({...rt,merchant:{...rt.merchant,status:'pending',online:true}})
  .includes('Salvar dados da revenda'),'online merchant cannot edit business identity');
-assert.ok(backend.includes("merchantConfigMutation('update-business-profile',profile)"),
+assert.ok(ui.includes("merchantConfigMutation('update-business-profile',profile)"),
  'new registration must reuse canonical CAS idempotent config authority');
 const merchantOpsEdge=read('supabase/functions/merchant-ops/index.ts');
 const orders=read('supabase/functions/merchant-orders/index.ts');
