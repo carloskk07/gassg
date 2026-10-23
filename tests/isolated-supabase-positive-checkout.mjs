@@ -160,6 +160,19 @@ const businessUpdate={
  postalCode:'97300000',city:'São Gabriel',state:'RS',
  addressText:'Rua Ficticia CI numero 40'
 };
+// An already-approved merchant must not repurpose old compliance/representation
+// evidence by changing its legal identity or operating location.
+const reviewedEdit=await call('merchant-ops',owner.token,businessUpdate,
+ {'Idempotency-Key':'ci-reviewed-profile-'+randomUUID()});
+assert.equal(reviewedEdit.status,409,'active merchant identity edits require independent review');
+assert.equal(reviewedEdit.body.error,'MERCHANT_BUSINESS_REVIEW_REQUIRED');
+assert.equal(sql("SELECT city FROM public.merchant_business_details WHERE merchant_id="+q(merchantId)+"::uuid"),'São Gabriel');
+// Local-only regression: merchant starts in pending mode to simulate genuine
+// preapproval self-service. Restore approved state BEFORE quote checkout.
+sql("UPDATE public.merchants SET status='pending',online=false,updated_at=clock_timestamp() WHERE id="+q(merchantId)+"::uuid");
+const preapproval=await call('merchant-orders',owner.token,{merchantId});
+assert.equal(preapproval.status,200);
+businessUpdate.expectedUpdatedAt=preapproval.body.merchant.configUpdatedAt;
 const illegalAddress=await call('merchant-ops',buyer.token,businessUpdate,
  {'Idempotency-Key':'ci-profile-buyer-'+randomUUID()});
 assert.equal(illegalAddress.status,403,'non-member cannot change merchant company data');
@@ -184,11 +197,14 @@ assert.equal(profileAfter.body.merchant?.businessDetails?.addressText,businessUp
 assert.equal(profileAfter.body.merchant?.businessDetails?.responsibleName,businessUpdate.responsibleName);
 assert.equal(profileAfter.body.merchant?.businessDetails?.postalCode,'97300000');
 assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE action_name='merchant-config:update-business-details' AND completed_at IS NOT NULL"),'1');
-assert.equal(sql("SELECT status||':'||online::text FROM public.merchants WHERE id="+q(merchantId)+"::uuid"),'active:true',
- 'self-declaration must not change existing status or online state');
+assert.equal(sql("SELECT status||':'||online::text FROM public.merchants WHERE id="+q(merchantId)+"::uuid"),'pending:false',
+ 'self-declaration must not approve the merchant or bring it online');
 assert.equal(sql("SELECT count(*) FROM public.merchant_representation_reviews WHERE merchant_id="+q(merchantId)+"::uuid"),'1',
  'business data update must not overwrite representation review');
-console.log('PASS: owner-only business profile self-service saved once by versioned merchant config; buyer/invalid input denied; no merchant approval or payment changed.');
+sql("UPDATE public.merchants SET status='active',online=true,updated_at=clock_timestamp() WHERE id="+q(merchantId)+"::uuid");
+assert.equal(sql("SELECT status||':'||online::text FROM public.merchants WHERE id="+q(merchantId)+"::uuid"),'active:true',
+ 'restore disposable merchant before checkout smoke');
+console.log('PASS: pending owner saves a business profile exactly once; active owner edit requires review; buyer/invalid input refused; checkout fixture restored.');
 
 const first=await call('create-order',buyer.token,request,{'Idempotency-Key':idempotency});
 assert.equal(first.status,201,'checkout error: '+JSON.stringify(first.body).slice(0,500));
