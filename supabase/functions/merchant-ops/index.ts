@@ -1250,8 +1250,8 @@ Deno.serve(async(req:Request)=>{
       if(role!=="owner")throw new DomainError("MERCHANT_OWNER_REQUIRED","Somente o proprietário pode declarar dados cadastrais.",403);
       const field=(key:string,min:number,max:number)=>{
         if(typeof body[key]!=="string")throw new DomainError("INVALID_BUSINESS_DETAILS","Preencha todos os dados da empresa.",400);
-        const value=body[key].trim().replace(/\\s+/g," ");
-        if(value.length<min||value.length>max||/[\\u0000-\\u001F\\u007F]/.test(value))
+        const value=body[key].trim().replace(/\s+/g," ");
+        if(value.length<min||value.length>max||/[\u0000-\u001F\u007F]/.test(value))
           throw new DomainError("INVALID_BUSINESS_DETAILS","Dados da empresa fora do formato permitido.",400);
         return value;
       };
