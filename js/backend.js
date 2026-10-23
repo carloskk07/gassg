@@ -2827,28 +2827,6 @@ async function merchantConfigMutation(action,payload={}){
   }
 }
 
-async function merchantUpdateBusinessProfileLive(profile){
-  const merchant=merchantRuntime.merchant;
-  if(!merchant||merchant.status!=='pending'||merchant.online===true||
-    !['owner','manager'].includes(String(merchant.memberRole||''))){
-    throw new Error('Cadastro só pode ser atualizado pelo responsável enquanto a revenda está pendente e offline.');
-  }
-  if(merchantRuntime.actionPending)throw new Error('Existe uma configuração em andamento.');
-  merchantRuntime.actionPending=true;
-  try{
-    const data=await merchantConfigMutation('update-business-profile',profile);
-    if(data?.ok!==true||data?.businessProfileSaved!==true||
-      data?.requiresAdminReview!==true||data?.merchantStatus!=='pending'||
-      data?.online!==false)throw new Error('A confirmação do cadastro não foi recebida.');
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-    return true;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
-}
-
 async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,acceptsCitywide){
   merchantRuntime.actionPending=true;render();
   try{
