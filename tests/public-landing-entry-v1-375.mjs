@@ -59,8 +59,12 @@ for(const flags of [{admin:true},{merchant:true},{test:true},{internal:true}]){
 }
 assert.ok(bootstrap.includes('tamaoPublicEntryRoute();\n    render();'),
  'resolve first navigation before marketing analytics initial render');
-assert.ok(bootstrap.includes('if(globalThis.liveRequested?.()){'),
- 'backend initialization/availability guard unchanged');
+assert.ok(
+ bootstrap.includes("if(globalThis.liveRequested?.()&&(['order','tracking'].includes(route())")
+ &&bootstrap.includes('await backendInit();')
+ &&bootstrap.includes("backendInit().then(()=>render())"),
+ 'checkout and returning sessions must still authenticate; homepage viewing may not trigger Turnstile'
+);
 
 const hStart=customer.indexOf('  const publicEntryKind=');
 const hEnd=customer.indexOf('  const discoveryTiles=',hStart);

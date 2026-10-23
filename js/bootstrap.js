@@ -202,6 +202,10 @@ function render(){
 window.addEventListener('hashchange',()=>{
   render();
   announcePublicPageNavigation();
+  if(['order','tracking'].includes(route())&&globalThis.liveRequested?.()
+    &&!['loading','ready'].includes(liveRuntime.status)){
+    backendInit().then(()=>render()).catch(()=>{});
+  }
 });
 window.addEventListener('storage',e=>{
   if([STORAGE,LEGACY_STORAGE].includes(e.key)){state=load();render()}
@@ -219,9 +223,7 @@ window.addEventListener('online',()=>{
   }
 });
 
-// The public visitor can see the real home after deferred scripts load, without
-// waiting for media. Protected portal callback consumption remains in the load
-// handler before the first admin/merchant render.
+
 window.addEventListener('DOMContentLoaded',()=>{
   if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
   tamaoPublicEntryRoute();
@@ -248,7 +250,8 @@ window.addEventListener('load',async()=>{
   }else{
     tamaoPublicEntryRoute();
     render();
-    if(globalThis.liveRequested?.()){
+    if(globalThis.liveRequested?.()&&(['order','tracking'].includes(route())
+      ||/"access_token"\s*:/.test(localStorage.getItem('chama-sg-customer-auth-v2')||''))){
       await backendInit();
       if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
         try{await liveRefreshOffers({silent:true})}catch{}
