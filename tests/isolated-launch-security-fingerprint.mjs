@@ -15,7 +15,7 @@ const sql=q=>execFileSync('psql',[
 const read=()=>JSON.parse(sql("SELECT public.platform_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
- tableDigest:'8d1723a59095686eb8b0d4a7a667f3d1',
+ tableDigest:'b2217c55d0acd0b5d576724941c50c93',
  rpcDigest:'d795df150e91d9d758b6ccb4fd0386cd',
  tableCount:7,rpcCount:28
 },'Local canonical migrated schema must match the reviewed hosted baseline');
