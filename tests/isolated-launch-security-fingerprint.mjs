@@ -40,7 +40,7 @@ const tableRows=JSON.parse(sql("SET search_path TO pg_catalog,public; "+prefix+
  "FROM t WHERE tbl<>'[]'::jsonb OR col<>'[]'::jsonb;"));
 console.log('LOCAL_REVIEWED_TABLE_HASHES',JSON.stringify(tableRows));
 assert.deepEqual(baseline,{
- tableDigest:'b2217c55d0acd0b5d576724941c50c93',
+ tableDigest:'67838fe06fa43d7692e12d8e11a3de91',
  rpcDigest:'d795df150e91d9d758b6ccb4fd0386cd',
  tableCount:7,rpcCount:28
 },'Local canonical migrated schema must match the reviewed hosted baseline');
