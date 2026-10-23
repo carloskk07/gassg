@@ -68,7 +68,7 @@ vm.runInNewContext(excerpt(ui,'function merchantBusinessProfileSection(')+
  '\n'+excerpt(ui,'function merchantEnablementCheckView(')+
  '\n'+excerpt(ui,'function merchantEnablementAssistantView(')+
  ';this.draw=merchantEnablementAssistantView;',sandbox);
-const rt={merchant:{merchantId:'c1',memberRole:'owner'},enablement:{
+const rt={merchant:{merchantId:'c1',memberRole:'owner',status:'pending',online:false},enablement:{
  merchant_id:'c1',ready:false,checked_at:new Date().toISOString(),checks:[
   {key:'payment_route',label:'<script>alert(1)</script>',ok:false,
    owner:'merchant',action:'<img src=x onerror=alert(1)>',scope:'merchant'},
