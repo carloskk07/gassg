@@ -843,8 +843,7 @@ function merchantBillingPixChargeExpired(charge){
   if(String(charge.status||'')==='expired')return true;
   const expiresAt=Date.parse(String(charge.expiresAt||''));
   return String(charge.status||'')==='active'
-    &&Number.isFinite(expiresAt)
-    &&expiresAt<=Date.now();
+    &&(!Number.isFinite(expiresAt)||expiresAt<=Date.now());
 }
 
 function merchantBillingPixChargeView(request){
@@ -863,10 +862,11 @@ function merchantBillingPixChargeView(request){
   }
 
   if(expired){
-    const expiredAt=charge.expiredAt
-      ?new Date(charge.expiredAt).toLocaleString('pt-BR')
-      :expiry;
-    return `<div class="notice risk" style="margin-top:8px"><strong>Pix expirado.</strong><br>Este QR não deve mais ser usado${expiredAt?' • expirou em '+esc(expiredAt):''}. A solicitação financeira continua pendente; gere um novo Pix. Nenhum crédito ou quitação ocorreu por causa da expiração.</div>`;
+    const expiryKnown=Number.isFinite(Date.parse(String(charge.expiresAt||'')));
+    const expiredAt=expiryKnown
+      ?(charge.expiredAt?new Date(charge.expiredAt).toLocaleString('pt-BR'):expiry)
+      :null;
+    return `<div class="notice risk" style="margin-top:8px"><strong>${expiryKnown?'Pix expirado.':'Prazo do Pix não confirmado.'}</strong><br>Este QR não deve mais ser usado${expiredAt?' • expirou em '+esc(expiredAt):''}. A solicitação financeira continua pendente; gere um novo Pix. Nenhum crédito ou quitação ocorreu por causa da expiração.</div>`;
   }
 
   if(preparing){

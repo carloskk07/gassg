@@ -88,6 +88,30 @@ assert.match(merchant,/merchantBillingPixChargeExpired\(charge\)/);
 assert.match(backend,/charge\?\.status==='completed'/);
 assert.match(backend,/charge\.expiresAt/);
 
+// Unknown provider expiry must be non-payable even if a stale row claims "active".
+const expiryStart=merchant.indexOf('function merchantBillingPixChargeExpired(');
+const expiryEnd=merchant.indexOf('\nfunction merchantBillingPixChargeView(',expiryStart);
+assert.ok(expiryStart>=0&&expiryEnd>expiryStart);
+const expiryGuard=new Function(merchant.slice(expiryStart,expiryEnd)+
+  ';return merchantBillingPixChargeExpired;')();
+assert.equal(expiryGuard({status:'active',expiresAt:null}),true);
+assert.equal(expiryGuard({status:'active',expiresAt:'not-a-date'}),true);
+assert.equal(expiryGuard({status:'active',expiresAt:'2000-01-01T00:00:00Z'}),true);
+assert.equal(expiryGuard({status:'active',expiresAt:'2099-01-01T00:00:00Z'}),false);
+assert.equal(expiryGuard({status:'completed',expiresAt:null}),false);
+assert.match(merchant,/Prazo do Pix não confirmado/);
+
+assert.match(edge,/if\(status==="COMPLETED"\)/);
+assert.match(edge,/PIX_PROVIDER_ALREADY_PROCESSED/);
+assert.match(edge,/const expiresAt=parseIso\(charge\.expiresDate\)/);
+assert.match(edge,/Date\.parse\(expiresAt\)<=Date\.now\(\)\+60_000/);
+const expiryMigration=fs.readFileSync(new URL(
+  '../supabase/migrations/20261023233500_pix_provider_expiry_fail_closed.sql',
+  import.meta.url),'utf8');
+assert.ok(expiryMigration.includes('PIX_PROVIDER_CHARGE_EXPIRY_REQUIRED'));
+assert.ok(expiryMigration.includes('PIX_CHARGE_EXPIRY_BASELINE_DRIFT_BLOCKED'));
+assert.ok(!expiryMigration.includes('UPDATE public.platform_launch_control'));
+
 // User cannot copy a known-expired or cancelled provider code.
 const start=merchant.indexOf('async function merchantCopyBillingPixCode(');
 const end=merchant.indexOf('\nasync function ',start+16);
