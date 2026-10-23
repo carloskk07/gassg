@@ -88,6 +88,15 @@ async function applyMerchantConfig(admin:any,{
   });
   if(error){
     const message=String(error.message??error);
+    if(message.includes("MERCHANT_OWNER_REQUIRED")){
+      throw new DomainError("MERCHANT_OWNER_REQUIRED","Somente o proprietário pode declarar os dados cadastrais.",403);
+    }
+    if(message.includes("MERCHANT_PROFILE_LOCKED")){
+      throw new DomainError("MERCHANT_PROFILE_LOCKED","Cadastro já analisado ou ativo: solicite uma revisão pelo Admin.",409);
+    }
+    if(message.includes("INVALID_BUSINESS_DETAILS")){
+      throw new DomainError("INVALID_BUSINESS_DETAILS","Revise os dados da empresa, cidade, UF, CEP e contatos.",400);
+    }
     if(message.includes("CONFIG_VERSION_REQUIRED")){
       throw new DomainError("CONFIG_VERSION_REQUIRED","Atualize o painel antes de salvar esta configuração.",409);
     }
@@ -117,7 +126,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","update-business-details","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -1233,6 +1242,34 @@ Deno.serve(async(req:Request)=>{
         req,userId:user.id,merchantId,action,
         expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),
         payload
+      });
+      return json(data,200,origin);
+    }
+
+    if(action==="update-business-details"){
+      if(role!=="owner")throw new DomainError("MERCHANT_OWNER_REQUIRED","Somente o proprietário pode declarar dados cadastrais.",403);
+      const field=(key:string,min:number,max:number)=>{
+        if(typeof body[key]!=="string")throw new DomainError("INVALID_BUSINESS_DETAILS","Preencha todos os dados da empresa.",400);
+        const value=body[key].trim().replace(/\\s+/g," ");
+        if(value.length<min||value.length>max||/[\\u0000-\\u001F\\u007F]/.test(value))
+          throw new DomainError("INVALID_BUSINESS_DETAILS","Dados da empresa fora do formato permitido.",400);
+        return value;
+      };
+      const payload={
+        legalName:field("legalName",2,180),tradeName:field("tradeName",2,120),
+        responsibleName:field("responsibleName",2,120),
+        phone:field("phone",10,13),whatsapp:field("whatsapp",10,13),
+        postalCode:field("postalCode",8,8),city:field("city",2,120),
+        state:field("state",2,2),addressText:field("addressText",5,240)
+      };
+      if(!/^[0-9]{10,13}$/.test(payload.phone)||
+        !/^[0-9]{10,13}$/.test(payload.whatsapp)||
+        !/^[0-9]{8}$/.test(payload.postalCode)||
+        !/^[A-Z]{2}$/.test(payload.state))
+        throw new DomainError("INVALID_BUSINESS_DETAILS","Informe CEP, UF e telefones válidos.",400);
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),payload
       });
       return json(data,200,origin);
     }
