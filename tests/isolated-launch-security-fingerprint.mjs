@@ -26,6 +26,7 @@ console.log('LOCAL_ACL_REGPROCEDURE',
 console.log('LOCAL_ACL_CATALOG_DETAILS',
  sql("SELECT coalesce(string_agg(p.oid::regprocedure::text||':args='||p.pronargs||':kind='||p.prokind::text||':exec='||has_function_privilege(current_user,p.oid,'EXECUTE'),'|'),'NONE') FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='tamao_launch_acl_posture_v1'"));
 const baseline=read();
+console.log('ACTUAL_ACL_SCANNER_PARTS',JSON.stringify(baseline));
 // Compare canonical catalog objects by table when local/hosted fingerprints
 // differ. These hashes contain no customer data and do not modify any table.
 const migration=fs.readFileSync(new URL('../supabase/migrations/20261023154000_launch_acl_exact_fingerprint.sql',import.meta.url),'utf8');
