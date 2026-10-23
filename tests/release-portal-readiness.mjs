@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {PORTAL_ORIGINS,inspectLivePortals} from '../scripts/release-portal-readiness.mjs';
 
 const live='9ee0547aaaf2ac8b1ca742dab16984f025ca3548';
