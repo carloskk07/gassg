@@ -77,6 +77,41 @@ const create=[
 'COMMIT;'
 ].join('\n');
 sql(create);
+
+// Full-migration RLS behavior with *real local Auth actors*: an unpublished
+// professional detail belongs to the owner only. Run the fixture inside a
+// rollback-only transaction, without changing production or checkout data.
+const privateListingId=randomUUID();
+const privateDraft=sql(`BEGIN;
+INSERT INTO public.discovery_listings(
+ id,owner_id,vertical,status,title,description,state_code,city_key,city_name,whatsapp_e164
+) VALUES (
+ ${q(privateListingId)}::uuid,${q(owner.id)}::uuid,'professionals','draft',
+ 'Teste privado CI','Detalhes privados e não publicados de teste CI',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999'
+);
+INSERT INTO public.discovery_professional_details(listing_id,occupation,service_area)
+VALUES(${q(privateListingId)}::uuid,'Eletricista','Zona de teste CI');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub',${q(owner.id)},true);
+SELECT count(*) FROM public.discovery_professional_details
+ WHERE listing_id=${q(privateListingId)}::uuid;
+SELECT set_config('request.jwt.claim.sub',${q(buyer.id)},true);
+SELECT count(*) FROM public.discovery_professional_details
+ WHERE listing_id=${q(privateListingId)}::uuid;
+UPDATE public.discovery_professional_details SET occupation='Acesso indevido'
+ WHERE listing_id=${q(privateListingId)}::uuid;
+SELECT count(*) FROM public.discovery_professional_details
+ WHERE listing_id=${q(privateListingId)}::uuid;
+SET LOCAL ROLE anon;
+SELECT count(*) FROM public.discovery_professional_details
+ WHERE listing_id=${q(privateListingId)}::uuid;
+ROLLBACK;`);
+assert.deepEqual(privateDraft.split('\\n').filter(line=>/^[01]$/.test(line)),
+ ['1','0','0','0'],
+ 'owner may read private detail; buyer may neither read nor update, anon may not read');
+assert.equal(sql("SELECT count(*) FROM public.discovery_listings WHERE id="+q(privateListingId)+"::uuid"),'0',
+ 'cross-user test data must always roll back');
 // This temporary admin membership exists only in the local disposable database.
 sql("INSERT INTO public.platform_admins(user_id,admin_role,active) VALUES("+q(adminActor.id)+"::uuid,'superadmin',true);");
 assert.equal(sql("SELECT count(*) FROM public.platform_admins WHERE user_id="+q(adminActor.id)+"::uuid AND active"),'1');
