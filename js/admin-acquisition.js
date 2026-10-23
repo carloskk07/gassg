@@ -6839,7 +6839,9 @@ function adminEnablementMerchantCard(entry){
   const makeWorklist=(title,items,detail)=>items.length?
     '<div class="notice" style="margin-top:8px"><strong>'+title+' ('+items.length+')</strong>'+
       '<p class="tiny muted">'+detail+'</p>'+
-      '<div class="list" style="margin-top:8px">'+items.map(adminEnablementCheckRow).join('')+'</div></div>':'';
+      '<div class="list" style="margin-top:8px">'+items.slice(0,2).map(adminEnablementCheckRow).join('')+'</div>'+
+      (items.length>2?'<p class="tiny muted">Mais '+(items.length-2)+' requisito(s) no detalhamento completo abaixo.</p>':'')+
+      '</div>':'';
   return '<article class="card flat" style="margin-bottom:12px">'+
     '<div class="section-head"><div><span class="section-kicker">'+esc(location)+'</span><h3>'+esc(name)+'</h3>'+
       '<p class="tiny muted">CNPJ '+esc(entry?.cnpj||'não confirmado')+' • Cadastro '+esc(entry?.merchant_status||'desconhecido')+'</p></div>'+
