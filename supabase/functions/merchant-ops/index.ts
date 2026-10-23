@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","update-business-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -1234,6 +1234,35 @@ Deno.serve(async(req:Request)=>{
         expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),
         payload
       });
+      return json(data,200,origin);
+    }
+
+    if(action==="update-business-profile"){
+      if(!canManage(role))throw new DomainError(
+        "MERCHANT_ACCESS_DENIED","Somente responsável ou gerente pode cadastrar os dados da revenda.",403
+      );
+      // Real data supplied by the merchant, never synthesized from marketing
+      // geo defaults. Atomic server RPC also enforces pending+offline, CAS,
+      // idempotency and no completed/active order history.
+      const fields=["legalName","tradeName","responsibleName","phone",
+        "whatsapp","postalCode","city","state","addressText"] as const;
+      const payload:Record<string,string>={};
+      for(const field of fields){
+        if(typeof body[field]!=="string"||String(body[field]).length>260){
+          throw new DomainError("INVALID_BUSINESS_PROFILE","Preencha os dados comerciais completos.",400);
+        }
+        payload[field]=String(body[field]).trim();
+      }
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),payload
+      });
+      if(data?.ok!==true||data?.businessProfileSaved!==true||
+        data?.requiresAdminReview!==true||data?.merchantStatus!=="pending"||
+        data?.online!==false){
+        throw new DomainError("MERCHANT_PROFILE_UNVERIFIED",
+          "A atualização não foi confirmada pelo servidor.",503);
+      }
       return json(data,200,origin);
     }
 
