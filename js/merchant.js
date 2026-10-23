@@ -1407,7 +1407,14 @@ function merchantSetupSnapshot(rt){
   const matches=key=>enabled.includes(key)||(['card_credit','card_debit'].includes(key)&&enabled.includes('card'));
   const routed=Array.isArray(rt?.paymentRoutes)&&rt.paymentRoutes.some(route=>
     route?.active===true&&matches(String(route.paymentMethod||'')));
+  const owner=String(m.memberRole||'')==='owner';
+  const business=m.businessDetails||{};
+  const profileComplete=Boolean(business.city&&business.state&&business.postalCode&&business.addressText);
   return [
+    ...(owner&&m.status==='pending'?[{key:'business',title:'Dados e endereço',
+      detail:profileComplete?'Dados informados, aguardando conferência do TAMÃO':
+        'Informe o endereço e os dados reais da empresa para análise',
+      done:profileComplete}]:[]),
     {key:'products',title:'Produtos e preços',
       detail:stocked.length?offered.length+' de '+stocked.length+' produto(s) com estoque e preço confirmado em 24h':'Informe os preços e os estoques',
       done:productsReady},
@@ -1428,7 +1435,7 @@ function merchantSetupView(rt){
     '<div class="merchant-essentials-heading"><div><span class="section-kicker">COMECE PELO ESSENCIAL</span>'+
     '<h2>Prepare sua revenda para vender</h2>'+
     '<p>Produtos, entregas e recebimentos. Você pode revisar cada informação quando precisar.</p></div>'+
-    '<span class="merchant-essentials-count">'+done+' de 3 preenchidos</span></div>'+
+    '<span class="merchant-essentials-count">'+done+' de '+steps.length+' preenchidos</span></div>'+
     (next?'<div class="merchant-essentials-next"><strong>Seu próximo passo: '+esc(next.title)+'</strong>'+
       '<button type="button" class="primary" onclick="merchantSetupGo(\''+next.key+'\')">Continuar configuração</button></div>':
       '<p class="tiny muted">Informações básicas preenchidas. A habilitação para receber pedidos depende das verificações do TAMÃO.</p>')+
@@ -1534,6 +1541,7 @@ async function merchantBusinessProfileSaveFromUi(){
   }catch(e){toast(String(e?.message||e));}
 }
 function merchantSetupGo(key){
+  if(key==='business'){merchantBusinessProfileFocus();return;}
   if(key==='products'){go('catalog');return;}
   const selectors={delivery:'#live-delivery-fee',payment:'#live-payment-pix'};
   if(!Object.prototype.hasOwnProperty.call(selectors,key))return;
@@ -2145,12 +2153,10 @@ function merchantFirstRunView(rt,canGoOnline){
   return '<section id="merchant-first-run" class="merchant-first-run" aria-label="Guia para começar a vender">'+
     '<div class="merchant-first-run-head"><div><span class="section-kicker">PRIMEIROS PASSOS</span>'+
     '<h2>'+esc(title)+'</h2><p>'+esc(lead)+'</p></div>'+
-    '<span class="merchant-first-run-count">'+model.completed+' de 3 configurados</span></div>'+
+    '<span class="merchant-first-run-count">'+model.completed+' de '+model.steps.length+' configurados</span></div>'+
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<div class="merchant-first-run-actions">'+cta+
     '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
-    (rt?.merchant?.memberRole==='owner'&&rt.merchant?.status==='pending'&&!rt.merchant?.businessDetails?.city?
-      '<button type="button" class="secondary" onclick="merchantBusinessProfileFocus()">Completar dados e endereço da revenda →</button>':'')+
     '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
     '</section>';
 }
@@ -2367,7 +2373,7 @@ function merchantLivePage(){
     </div></details>
 
 
-    <details id="merchant-workspace-setup" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
+    <details id="merchant-workspace-setup" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Endereço, produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
       ${merchantSetupView(rt)}
     </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">

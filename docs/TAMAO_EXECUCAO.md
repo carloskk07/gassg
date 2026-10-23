@@ -24,7 +24,22 @@
 
 **Regressão isolada:** `tests/isolated-supabase-positive-checkout.mjs` simula (somente Postgres local) revenda inicialmente aprovada recusando edição (HTTP 409 `MERCHANT_BUSINESS_REVIEW_REQUIRED`), transfere para `pending` na fixture descartável, testa comprador 403, CEP inválido 400, gravação legítima owner 200 e replay idempotente, preserva `pending/offline`, restaura estado da fixture antes de testar o pedido sintético ponta a ponta; contratos de UI verificam o formulário indisponível a revenda ativa. Produção não tem endereços preenchidos nem revenda ativa; seguir `PRELAUNCH`.
 
-**Gates:** ainda exige Audit, Supabase Auth/Edge/Postgres efêmero e revisão sem deploy SUCCESS no SHA final antes de integrar, e somente depois migração/Edge real com reconciliação do histórico. `OP-MERCHANT`, `OP-ORDER`, `OP-PIX` e `OP-REFERRAL` ainda não são homologados.
+**Conciliação com a `main`:** PR #582 integrada em `445efa2467f6187c714b590aea3ad93d30583379`; esta correção continua na mesma PR #581, preservando o passo inicial de endereço para owners `pending`. Owners `active` não terão CTA de edição impossibilitado; decisão de revisão permanece administrativa. **Gates:** ainda exige Audit, Supabase Auth/Edge/Postgres efêmero e revisão sem deploy SUCCESS no SHA final antes de integrar, e somente depois migração/Edge real com reconciliação do histórico. `OP-MERCHANT`, `OP-ORDER`, `OP-PIX` e `OP-REFERRAL` ainda não são homologados.
+
+
+---
+
+## Checkpoint 23/10/2026 — endereço da revenda como primeiro passo do próprio owner
+
+**Continuidade conferida:** `main=cc66ead2a75a4d483be2be89c8dc1c6d74ff809e`. PR #579 já mesclada, owner pode salvar dados e endereço pelo formulário e Edge/RPC canônicos; a migration empresarial foi conciliada com a versão Supabase `20261023222508`. Banco comercial atesta os portais no mesmo SHA e mantém `READY_WITH_WARNINGS`, `securityBlockers=[]`, `PRELAUNCH`, `commerce_enabled=false`, pedidos=0. **Nenhuma informação empresarial foi de fato enviada pelo owner** (`merchant_business_details` continua 0); preços com confirmação recente=0, pagamentos de cobrança=0, payouts comprovados=0.
+
+**Lacuna de experiência encontrada:** o fluxo principal `merchantFirstRunView` / `merchantSetupView` mostrava apenas três etapas fixas (Produtos, Entregas, Recebimentos), apesar de a revenda Carlos Santos ainda não ter endereço e a UI de dados empresariais existir em Configurações. Um atalho isolado repetia o CTA, mas o guia não incorporava esse requisito. Isso induzia o usuário a começar por preços sem completar a informação crítica que só o owner pode prestar.
+
+**Correção no fluxo já existente, sem camada nova:** branch `feat/merchant-owner-profile-first-run` adiciona `Dados e endereço` **como primeiro passo somente para owner permanente**, apontando por `merchantSetupGo('business')` para o formulário **já implementado** `merchantBusinessProfileFocus` (abre os `<details>` ancestrais). Usa o snapshot do mesmo portal para indicar somente dados **autodeclarados, sujeitos a conferência**, sem declarar CNPJ/ANP verificado; contador passa a ser calculado por `steps.length`, em vez de fixo `3`. Manager mantém 3 etapas, sem acesso a identidade empresarial reservada ao proprietário. Remove botão redundante do primeiro uso e ajusta legenda do acordeão existente. Não altera Edge, RPC, status, preço, estoque, frete, método, pagamentos, mapas ou privilégios.
+
+**Teste proposto:** estende o contrato `tests/merchant-enablement-v1-157.mjs` para conferir ordem de etapas, primeiro CTA funcional, direcionamento protegido, declaração pendente de conferência, manager sem acesso, contadores corretos e prevenção de duplicação/autoaprovação. **Exigir Audit e visual/portais SUCCESS no HEAD final antes de merge**, observando orçamento do JS compartilhado.
+
+**Próxima dependência externa real:** owner preencher os nove dados autênticos no site publicado; validar CNPJ/representação/ANP pelo Admin; confirmar preços reais de P13/Água/Lenha, estoque, taxa e disponibilidade; pagamento Pix deve ser validado por PSP/webhook/conciliação, jamais presumido do método cadastrado. Nunca usar valores falsos para transformar `READY_WITH_WARNINGS` em `LIVE`. `OP-MERCHANT`, `OP-ORDER`, `OP-PIX`, `OP-REFERRAL` continuam NÃO HOMOLOGADOS.
 
 ---
 
