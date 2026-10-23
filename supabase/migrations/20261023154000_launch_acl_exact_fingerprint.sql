@@ -52,6 +52,10 @@ SELECT jsonb_build_object(
 );
 $scan$;
 REVOKE ALL ON FUNCTION public.tamao_launch_acl_posture_v1() FROM PUBLIC,anon,authenticated;
+-- Supabase migrations run under supabase_admin; the non-superuser postgres
+-- maintenance role needs explicit EXECUTE to inspect the catalog. Never
+-- grant the scanner to anon or authenticated.
+GRANT EXECUTE ON FUNCTION public.tamao_launch_acl_posture_v1() TO postgres;
 -- This pure catalog scanner runs under the *existing* SECURITY DEFINER
 -- readiness function. No direct browser EXECUTE is granted.
 
