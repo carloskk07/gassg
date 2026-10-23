@@ -1281,7 +1281,6 @@ const merchantRuntime={
   client:null,
   session:null,
   merchant:null,
-  businessDetails:null,
   memberships:[],
   ownApplications:[],
   ownApplicationsLoaded:false,
@@ -2058,7 +2057,6 @@ async function merchantSignOut(){
   if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
   merchantRuntime.session=null;
   merchantRuntime.merchant=null;
-  merchantRuntime.businessDetails=null;
   merchantRuntime.memberships=[];
   merchantRuntime.ownApplications=[];
   merchantRuntime.ownApplicationsLoaded=false;
@@ -2102,7 +2100,6 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     if(seq!==merchantRuntime.refreshSeq)return data;
     const previousMerchantId=String(merchantRuntime.merchant?.merchantId||'');
     merchantRuntime.merchant=data.merchant??null;
-    merchantRuntime.businessDetails=merchantRuntime.merchant?.memberRole==='owner'?data.businessDetails??null:null;
     if(previousMerchantId!==String(merchantRuntime.merchant?.merchantId||''))merchantClearEnablement();
     merchantRuntime.memberships=data.memberships??[];
     merchantRuntime.deliveryTeam=data.deliveryTeam??[];
@@ -2147,7 +2144,6 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       merchantRuntime.status='no-access';
       merchantClearEnablement();
       merchantRuntime.merchant=null;
-  merchantRuntime.businessDetails=null;
       merchantRuntime.orders=[];
       merchantRuntime.supportSummary=null;
       merchantRuntime.deliveryTeam=[];
@@ -2831,23 +2827,6 @@ async function merchantConfigMutation(action,payload={}){
   }
 }
 
-async function merchantUpdateBusinessDetailsLive(payload){
-  if(merchantRuntime.status!=='ready'||merchantRuntime.merchant?.memberRole!=='owner')
-    throw new Error('Somente o proprietário pode atualizar o endereço cadastral');
-  merchantRuntime.actionPending=true;render();
-  try{
-    const result=await merchantConfigMutation('update-business-details',payload);
-    if(result?.ok!==true||result?.action!=='update-business-details'||
-      result?.pendingAdministrativeVerification!==true)
-      throw new Error('Não foi possível confirmar o salvamento do cadastro');
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-    return result;
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
-}
-
 async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,acceptsCitywide){
   merchantRuntime.actionPending=true;render();
   try{
@@ -3038,7 +3017,6 @@ async function merchantPoll(){
         merchantRuntime.status='unauthenticated';
         merchantRuntime.session=null;
         merchantRuntime.merchant=null;
-  merchantRuntime.businessDetails=null;
         merchantRuntime.orders=[];
         merchantRuntime.supportSummary=null;
         merchantRuntime.catalog=[];
