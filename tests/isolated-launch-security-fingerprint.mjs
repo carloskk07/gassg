@@ -18,6 +18,12 @@ console.log('LOCAL_MIGRATION_VERSION',
  sql("SELECT coalesce(string_agg(version,','),'NONE') FROM supabase_migrations.schema_migrations WHERE version='20261023154000'"));
 console.log('LOCAL_ACL_FUNCTIONS',
  sql("SELECT coalesce(string_agg(proname,','),'NONE') FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('tamao_launch_acl_posture_v1','platform_launch_readiness')"));
+console.log('LOCAL_ACL_DETAILS',
+ sql("SELECT current_user||' db='||current_database()||' path='||current_setting('search_path')"));
+console.log('LOCAL_ACL_REGPROCEDURE',
+ sql("SELECT coalesce(to_regprocedure('public.tamao_launch_acl_posture_v1()')::text,'NULL')"));
+console.log('LOCAL_ACL_CATALOG_DETAILS',
+ sql("SELECT coalesce(string_agg(p.oid::regprocedure::text||':args='||p.pronargs||':kind='||p.prokind||':exec='||has_function_privilege(current_user,p.oid,'EXECUTE'),'|'),'NONE') FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='tamao_launch_acl_posture_v1'"));
 const baseline=read();
 assert.deepEqual(baseline,{
  tableDigest:'b2217c55d0acd0b5d576724941c50c93',
