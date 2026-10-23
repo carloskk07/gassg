@@ -46,7 +46,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
  const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  let ws,seq=0;
- const pending=new Map(),violations=[],merchantAccessStatuses=[];
+ const pending=new Map(),violations=[],merchantAccessStatuses=[],adminReadStatuses=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
  function send(method,params={}){
   const id=++seq;
