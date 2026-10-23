@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {verifyIsolatedLivePortals} from './isolated-live-portal-browser.mjs';
+import {verifyIsolatedPrivilegedRpc} from './isolated-discovery-privileged-rpc.mjs';
 
 // Positive quote -> checkout -> read in a DISPOSABLE local Supabase stack.
 // Synthetic cash-on-delivery only. No billing provider, Pix or paid rewards.
@@ -115,6 +116,7 @@ assert.equal(sql("SELECT count(*) FROM public.discovery_listings WHERE id="+q(pr
 // This temporary admin membership exists only in the local disposable database.
 sql("INSERT INTO public.platform_admins(user_id,admin_role,active) VALUES("+q(adminActor.id)+"::uuid,'superadmin',true);");
 assert.equal(sql("SELECT count(*) FROM public.platform_admins WHERE user_id="+q(adminActor.id)+"::uuid AND active"),'1');
+await verifyIsolatedPrivilegedRpc({base,anon,sql,q,owner,buyer,outsider,adminActor});
 // Outsider is a *local-only* citizen referrer. This is no bank identity or
 // real commission; the referral code is accepted through canonical checkout.
 const promoCode='REFCI123';
