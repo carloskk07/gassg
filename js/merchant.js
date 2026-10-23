@@ -1457,9 +1457,26 @@ function merchantRevealControl(selector){
 }
 // Permanent owner may complete missing commercial address, but this is
 // self-declared information: it NEVER confirms CNPJ/representation/ANP.
+async function merchantUpdateBusinessDetailsLive(payload){
+  if(merchantRuntime.status!=='ready'||merchantRuntime.merchant?.memberRole!=='owner')
+    throw new Error('Somente o proprietário pode atualizar o endereço cadastral');
+  merchantRuntime.actionPending=true;render();
+  try{
+    const result=await merchantConfigMutation('update-business-details',payload);
+    if(result?.ok!==true||result?.action!=='update-business-details'||
+      result?.pendingAdministrativeVerification!==true)
+      throw new Error('Não foi possível confirmar o salvamento do cadastro');
+    await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
+    return result;
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
 function merchantBusinessProfileView(rt){
   if(rt?.merchant?.memberRole!=='owner')return '';
-  const b=rt.businessDetails||{};
+  const b=rt.merchant?.businessDetails||{};
   const completed=!!(b.city&&b.state&&b.postalCode&&b.addressText);
   const fields=[
     ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
@@ -2128,7 +2145,7 @@ function merchantFirstRunView(rt,canGoOnline){
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<div class="merchant-first-run-actions">'+cta+
     '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
-    (rt?.merchant?.memberRole==='owner'&&!rt.businessDetails?.city?
+    (rt?.merchant?.memberRole==='owner'&&!rt.merchant?.businessDetails?.city?
       '<button type="button" class="secondary" onclick="merchantBusinessProfileFocus()">Completar dados e endereço da revenda →</button>':'')+
     '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
     '</section>';
