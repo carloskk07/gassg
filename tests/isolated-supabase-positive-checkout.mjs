@@ -151,7 +151,7 @@ async function call(slug,token,body,extra={}){
 // This is a disposable owner's self-declaration, NOT regulatory verification.
 const profileBefore=await call('merchant-orders',owner.token,{merchantId});
 assert.equal(profileBefore.status,200,'owner snapshot before business profile update');
-assert.equal(profileBefore.body.businessDetails?.city,'São Gabriel');
+assert.equal(profileBefore.body.merchant?.businessDetails?.city,'São Gabriel');
 const businessUpdate={
  merchantId,action:'update-business-details',
  expectedUpdatedAt:profileBefore.body.merchant.configUpdatedAt,
@@ -180,9 +180,9 @@ assert.equal(repeatedProfile.status,200,'identical idempotent replay must be saf
 assert.deepEqual(repeatedProfile.body,acceptedProfile.body);
 const profileAfter=await call('merchant-orders',owner.token,{merchantId});
 assert.equal(profileAfter.status,200);
-assert.equal(profileAfter.body.businessDetails?.addressText,businessUpdate.addressText);
-assert.equal(profileAfter.body.businessDetails?.responsibleName,businessUpdate.responsibleName);
-assert.equal(profileAfter.body.businessDetails?.postalCode,'97300000');
+assert.equal(profileAfter.body.merchant?.businessDetails?.addressText,businessUpdate.addressText);
+assert.equal(profileAfter.body.merchant?.businessDetails?.responsibleName,businessUpdate.responsibleName);
+assert.equal(profileAfter.body.merchant?.businessDetails?.postalCode,'97300000');
 assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE action_name='merchant-config:update-business-details' AND completed_at IS NOT NULL"),'1');
 assert.equal(sql("SELECT status||':'||online::text FROM public.merchants WHERE id="+q(merchantId)+"::uuid"),'active:true',
  'self-declaration must not change existing status or online state');
