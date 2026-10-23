@@ -78,7 +78,8 @@ sql(create);
 // Outsider is a *local-only* citizen referrer. This is no bank identity or
 // real commission; the referral code is accepted through canonical checkout.
 const promoCode='REFCI123';
-sql("INSERT INTO public.profiles(user_id,referral_code) VALUES("+q(outsider.id)+"::uuid,"+q(promoCode)+");");
+sql("UPDATE public.profiles SET referral_code="+q(promoCode)+" WHERE user_id="+q(outsider.id)+"::uuid;");
+assert.equal(sql("SELECT referral_code FROM public.profiles WHERE user_id="+q(outsider.id)+"::uuid"),promoCode,'local Auth user already has an auto-created profile');
 assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['CHARCOAL2']::text[])"),'t');
 assert.ok(sql("SELECT "+q(merchantId)+"::uuid=ANY(public.market_city_offer_scope('São Gabriel','RS'))")==='t','synthetic merchant must pass the REAL city offer scope');
 const quoteCmd="SELECT public.create_quote_snapshot_v3("+
