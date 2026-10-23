@@ -141,6 +141,20 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(denied.orders,0,'denied buyer must not see merchant orders');
   assert.ok(merchantAccessStatuses.includes(403),'real merchant-orders response must be 403');
   assert.ok(!denied.visible.includes(orderId),'the merchant portal must not show the protected order ID');
+  // Actual third portal: standard authenticated Admin session, canonical
+  // admin-auth bootstrap check and admin-ops summary against localhost.
+  await evaluate("(()=>{sessionStorage.setItem('chama-sg-admin-auth-v1',"+
+    JSON.stringify(JSON.stringify(adminActor.session))+
+    ");sessionStorage.setItem('tamao-admin-section','orders');return true})()");
+  adminReadStatuses.length=0;
+  await navigate(origin+'/?admin=1#admin');
+  await wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&Array.isArray(adminRuntime.data?.controlOrders)&&adminRuntime.data.controlOrders.some(o=>o.id==="+JSON.stringify(orderId)+")",
+    'Admin Tower of Control must load the exact local order',55000);
+  const adminView=JSON.parse(await evaluate("JSON.stringify({status:adminRuntime.status,role:adminRuntime.data?.currentAdmin?.admin_role,orders:adminRuntime.data?.controlOrders?.length,match:adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+"),visible:document.querySelector('#app')?.innerText.slice(0,5000)})"));
+  assert.equal(adminView.role,'superadmin','Admin UI must use its real membership role');
+  assert.equal(adminView.match,true);
+  assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
+  assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
   console.log('PASS: Chrome merchant+buyer render the same local order; authenticated buyer gets 403 and no merchant orders; zero remote backend requests.');
  }finally{
