@@ -2110,7 +2110,6 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.receivingAccounts=Array.isArray(data.receivingAccounts)?data.receivingAccounts:[];
     merchantRuntime.paymentProviders=Array.isArray(data.paymentProviders)?data.paymentProviders:[];
     merchantRuntime.paymentRoutes=Array.isArray(data.paymentRoutes)?data.paymentRoutes:[];
-    merchantRuntime.businessDetails=['owner','manager'].includes(String(data.merchant?.memberRole||''))?data.businessDetails??null:null;
     merchantRuntime.paymentRouteVersion=Number(data.paymentRouteVersion||1);
     merchantRuntime.orders=data.orders??[];
     merchantRuntime.supportSummary=data.supportSummary??null;
@@ -2825,22 +2824,6 @@ async function merchantConfigMutation(action,payload={}){
       await merchantRefresh({silent:true});
     }
     throw error;
-  }
-}
-
-async function merchantSaveBusinessDetailsLive(details){
-  if(merchantRuntime.merchant?.memberRole!=='owner')
-    throw new Error('Somente o proprietário pode declarar os dados da empresa');
-  if(merchantRuntime.merchant?.status!=='pending')
-    throw new Error('Cadastro já analisado: solicite revisão administrativa');
-  if(merchantRuntime.actionPending)return;
-  merchantRuntime.actionPending=true;render();
-  try{
-    await merchantConfigMutation('update-business-details',details);
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-  }finally{
-    merchantRuntime.actionPending=false;render();
   }
 }
 
