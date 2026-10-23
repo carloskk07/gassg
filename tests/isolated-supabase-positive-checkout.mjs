@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {verifyIsolatedLivePortals} from './isolated-live-portal-browser.mjs';
 
 // Positive quote -> checkout -> read in a DISPOSABLE local Supabase stack.
 // Synthetic cash-on-delivery only. No billing provider, Pix or paid rewards.
@@ -49,7 +50,7 @@ async function createActor(kind){
  assert.equal(login.status,200,'real local Auth login '+kind);
  const session=await login.json();
  assert.equal(session.user?.id,user.id);
- return {id:user.id,token:session.access_token};
+ return {id:user.id,token:session.access_token,session};
 }
 const buyer=await createActor('buyer');
 const owner=await createActor('owner');
@@ -146,6 +147,8 @@ const nowCustomer=await call('get-order',buyer.token,{orderId:first.body.orderId
 assert.equal(nowCustomer.status,200);
 assert.equal(nowCustomer.body.status,'PREPARING');
 assert.equal(nowCustomer.body.version,own.body.version+1);
+// Observe the SAME local persisted order through the canonical browser UI.
+await verifyIsolatedLivePortals({api:base,anon,buyer,owner,orderId:first.body.orderId,merchantId});
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
 assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='CHARCOAL2'"),'4','one item must be reserved exactly once');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='MERCHANT_ACCEPTED'"),'1','replay cannot duplicate acceptance event');
