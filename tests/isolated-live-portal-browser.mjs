@@ -156,7 +156,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
   assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
-  console.log('PASS: Chrome merchant+buyer render the same local order; authenticated buyer gets 403 and no merchant orders; zero remote backend requests.');
+  console.log('PASS: real Chrome buyer, merchant and authorized Admin read the SAME localhost order; unauthorized buyer denied merchant and Admin; no remote backend requests.');
  }finally{
   if(ws){for(const [,p] of pending){clearTimeout(p.timer);p.reject(Error('Browser cleanup'))}ws.close()}
   chrome.kill('SIGTERM');
