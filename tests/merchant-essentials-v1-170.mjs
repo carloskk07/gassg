@@ -17,7 +17,7 @@ const now=new Date().toISOString();
 const stale='2020-01-01T00:00:00Z';
 const fresh=value=>Boolean(value&&value!==stale);
 const runtime={
- status:'ready',merchant:{merchantId:'merchant-1',memberRole:'owner',acceptsCitywide:true,
+ status:'ready',merchant:{merchantId:'merchant-1',memberRole:'owner',status:'pending',acceptsCitywide:true,
   deliveryFeeConfirmedAt:now,paymentMethods:{pix:true,card:false,cash:false},
   businessDetails:{city:'São Gabriel',state:'RS',postalCode:'97300000',
     addressText:'Endereço informado para análise pelo proprietário'}},

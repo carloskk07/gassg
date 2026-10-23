@@ -26,6 +26,8 @@ vm.runInContext(take('merchantTimestampFresh')+'\n'+take('merchantLiveFreshness'
  '\n'+take('merchantSetupSnapshot')+
  '\nthis.snapshot=merchantSetupSnapshot;this.freshness=merchantLiveFreshness;',sandbox);
 let steps=Array.from(sandbox.snapshot(rt));
+assert.equal(steps.length,3,'active merchant must not see a frozen business identity setup CTA');
+assert.ok(!steps.some(s=>s.key==='business'),'approved merchant identity changes require admin review');
 const product=()=>Array.from(sandbox.snapshot(rt)).find(x=>x.key==='products');
 const payment=()=>Array.from(sandbox.snapshot(rt)).find(x=>x.key==='payment');
 assert.equal(steps.find(x=>x.key==='products').done,false,'one fresh SKU cannot certify all active stocked SKUs');
