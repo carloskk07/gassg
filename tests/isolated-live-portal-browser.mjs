@@ -46,7 +46,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
  const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  let ws,seq=0;
- const pending=new Map(),violations=[];
+ const pending=new Map(),violations=[],merchantAccessStatuses=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
  function send(method,params={}){
   const id=++seq;
@@ -91,6 +91,9 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
    if(msg.method==='Network.requestWillBeSent'&&/\.supabase\.co/i.test(msg.params?.request?.url||'')){
     violations.push('Remote Supabase was requested');
    }
+   if(msg.method==='Network.responseReceived'&&String(msg.params?.response?.url||'').startsWith(api+'/functions/v1/merchant-orders')){
+    merchantAccessStatuses.push(msg.params.response.status);
+   }
    if(msg.id&&pending.has(msg.id)){
     const {resolve,reject,timer}=pending.get(msg.id);clearTimeout(timer);pending.delete(msg.id);
     if(msg.error)reject(Error(JSON.stringify(msg.error)));else resolve(msg.result);
@@ -102,7 +105,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
    "localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");"+
    "sessionStorage.setItem('chama-sg-merchant-auth-v1',"+JSON.stringify(JSON.stringify(owner.session))+");"+
    "})();";
-  await send('Page.addScriptToEvaluateOnNewDocument',{source:init});
+  const {identifier:authFixture}=await send('Page.addScriptToEvaluateOnNewDocument',{source:init});
   const navigate=async url=>{
    await send('Page.navigate',{url});
    await wait("document.readyState==='complete'&&!!document.querySelector('#app')",'page load',16000);
@@ -117,8 +120,26 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
   const buyerState=JSON.parse(await evaluate("JSON.stringify({status:liveRuntime.status,orderId:liveRuntime.order?.orderId,visible:document.querySelector('#app')?.innerText.slice(0,4000)})"));
   assert.equal(buyerState.status,'ready');assert.equal(buyerState.orderId,orderId);
   assert.ok(buyerState.visible.length>110,'buyer must see a useful rendered tracking screen');
+
+  // Switch ONLY the disposable browser's merchant session to the actual
+  // buyer's local Auth token. Without this gate the prior owner fixture
+  // would silently grant access again after Page.navigate.
+  await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:authFixture});
+  const swapped=await evaluate("(()=>{sessionStorage.setItem('chama-sg-merchant-auth-v1',"+
+    JSON.stringify(JSON.stringify(buyer.session))+
+    ");localStorage.removeItem('chama-merchant-selected-v1');return true})()");
+  assert.equal(swapped,true,'browser session fixture must switch to buyer');
+  merchantAccessStatuses.length=0;
+  await navigate(origin+'/?merchant=1#merchant');
+  await wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='no-access'&&merchantRuntime.orders.length===0",
+    'customer must not access the merchant order screen');
+  const denied=JSON.parse(await evaluate("JSON.stringify({status:merchantRuntime.status,reason:merchantRuntime.accessReason,orders:merchantRuntime.orders.length,visible:document.querySelector('#app')?.innerText.slice(0,4000)})"));
+  assert.equal(denied.reason,'NO_MERCHANT_ACCESS','merchant-orders must reject customer session');
+  assert.equal(denied.orders,0,'denied buyer must not see merchant orders');
+  assert.ok(merchantAccessStatuses.includes(403),'real merchant-orders response must be 403');
+  assert.ok(!denied.visible.includes(orderId),'the merchant portal must not show the protected order ID');
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
-  console.log('PASS: actual Chrome merchant portal and customer tracking render the same real local order; no remote backend requests.');
+  console.log('PASS: Chrome merchant+buyer render the same local order; authenticated buyer gets 403 and no merchant orders; zero remote backend requests.');
  }finally{
   if(ws){for(const [,p] of pending){clearTimeout(p.timer);p.reject(Error('Browser cleanup'))}ws.close()}
   chrome.kill('SIGTERM');
