@@ -107,7 +107,7 @@ SET LOCAL ROLE anon;
 SELECT count(*) FROM public.discovery_professional_details
  WHERE listing_id=${q(privateListingId)}::uuid;
 ROLLBACK;`);
-assert.deepEqual(privateDraft.split('\\n').filter(line=>/^[01]$/.test(line)),
+assert.deepEqual(privateDraft.split(/\s+/).filter(line=>/^[01]$/.test(line)),
  ['1','0','0','0'],
  'owner may read private detail; buyer may neither read nor update, anon may not read');
 assert.equal(sql("SELECT count(*) FROM public.discovery_listings WHERE id="+q(privateListingId)+"::uuid"),'0',
