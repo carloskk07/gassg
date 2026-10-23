@@ -1393,6 +1393,72 @@ function merchantPaymentConnectionsView(rt){
 }
 
 /* V1.170 — checklist visual; only server authorization determines if sales are enabled. */
+// Existing business details table: owner declaration, not regulator/Admin approval.
+function merchantBusinessProfileView(rt){
+  if(rt?.merchant?.memberRole!=='owner'||rt.merchant.status!=='pending')return '';
+  const d=rt.merchant.businessDetails||{};
+  const fields=[
+    ['legalName','Razão social',180],['tradeName','Nome fantasia',120],
+    ['responsibleName','Responsável',120],['phone','Telefone com DDD',13],
+    ['whatsapp','WhatsApp',13],['postalCode','CEP',8],
+    ['city','Cidade',120],['state','UF',2],
+    ['addressText','Endereço completo',240]
+  ];
+  const input=([key,label,max])=>
+    '<div class="input-wrap"><label for="merchant-business-'+key+'">'+label+'</label>'+
+    '<input id="merchant-business-'+key+'" class="input" maxlength="'+max+
+    '" value="'+esc(String(d[key]||''))+'" autocomplete="off"></div>';
+  return '<section class="card flat" id="merchant-business-profile">'+
+    '<h3>Dados da empresa e localização</h3>'+
+    '<p class="tiny muted">'+(rt.merchant.businessDetails?'Dados declarados — sujeitos à revisão do TAMÃO.':
+     'Informe os dados reais da empresa para análise do TAMÃO.')+'</p>'+
+    '<details '+(!rt.merchant.businessDetails?'open':'')+'><summary>Informar ou revisar cadastro</summary>'+
+    '<div class="grid cards-2">'+fields.map(input).join('')+'</div>'+
+    '<p class="tiny muted">Não aprova CNPJ, ANP nem habilita vendas.</p>'+
+    '<button type="button" class="primary" onclick="merchantLiveSaveBusinessProfile()" '+
+    (rt.actionPending?'disabled':'')+'>Salvar dados da empresa</button></details></section>';
+}
+async function merchantSaveBusinessDetailsLive(details){
+  if(merchantRuntime.merchant?.memberRole!=='owner')
+    throw new Error('Somente o proprietário pode declarar os dados da empresa');
+  if(merchantRuntime.merchant?.status!=='pending')
+    throw new Error('Cadastro já analisado: solicite revisão administrativa');
+  if(merchantRuntime.actionPending)return;
+  merchantRuntime.actionPending=true;render();
+  try{
+    await merchantConfigMutation('update-business-details',details);
+    await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
+async function merchantLiveSaveBusinessProfile(){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.merchant?.memberRole!=='owner'||rt.merchant?.status!=='pending')return toast('Cadastro sujeito à revisão administrativa.');
+  const keys=['legalName','tradeName','responsibleName','phone','whatsapp','postalCode','city','state','addressText'];
+  const details={};
+  for(const key of keys){
+    const input=document.getElementById('merchant-business-'+key);
+    if(!input)return toast('Formulário de cadastro incompleto. Atualize o painel.');
+    const raw=String(input.value||'').trim();
+    details[key]=['phone','whatsapp','postalCode'].includes(key)?raw.replace(/\D/g,''):raw.replace(/\s+/g,' ');
+  }
+  details.state=details.state.toUpperCase();
+  if(keys.some(key=>!details[key])||!/^\d{8}$/.test(details.postalCode)||
+    !/^\d{10,13}$/.test(details.phone)||!/^\d{10,13}$/.test(details.whatsapp)||
+    !/^[A-Z]{2}$/.test(details.state))
+    return toast('Confira o endereço, CEP, UF e telefones antes de salvar.');
+  if(!confirm('Confirmar que os dados comerciais informados são verdadeiros e deverão ser verificados pelo TAMÃO?'))return;
+  try{
+    await merchantSaveBusinessDetailsLive(details);
+    const saved=globalThis.merchantRuntime?.merchant?.businessDetails;
+    if(!saved||keys.some(k=>saved[k]!==details[k]))
+      return toast('O servidor respondeu, mas a gravação ainda não foi reconfirmada. Atualize o painel.');
+    toast('Dados registrados para análise, sem ativar a revenda.');
+  }catch(e){toast(String(e?.message||e))}
+}
 function merchantSetupSnapshot(rt){
   const m=rt?.merchant||{};
   const stock=Array.isArray(rt?.catalog)?rt.catalog:[];
@@ -2324,6 +2390,7 @@ function merchantLivePage(){
 
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAlertControl()}
+      ${merchantBusinessProfileView(rt)}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
       ${merchantEnablementAssistantView(rt)}
     </details>

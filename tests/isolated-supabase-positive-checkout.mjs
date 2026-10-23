@@ -147,6 +147,66 @@ async function call(slug,token,body,extra={}){
  });
  return {status:res.status,body:await res.json()};
 }
+// First-merchant onboarding uses the SAME permanent Auth + merchant-config
+// RPC as logistics, but does not allow an owner to self-approve. This second
+// pending merchant exists solely in the disposable local Postgres.
+const pendingMerchantId=randomUUID();
+sql("INSERT INTO public.merchants(id,name,cnpj,status,online) VALUES("+
+  q(pendingMerchantId)+"::uuid,'Revenda Pendente Sintetica CI','00000000000001','pending',false);"+
+  "INSERT INTO public.merchant_members(merchant_id,user_id,member_role,active) VALUES("+
+  q(pendingMerchantId)+"::uuid,"+q(owner.id)+"::uuid,'owner',true);");
+const beforeProfile=await call('merchant-orders',owner.token,{merchantId:pendingMerchantId});
+assert.equal(beforeProfile.status,200,'owner must access pending merchant without fictitious approval');
+assert.equal(beforeProfile.body.merchant.status,'pending');
+assert.equal(beforeProfile.body.merchant.businessDetails,null,'missing business row must be shown as missing');
+const details={
+ legalName:'Empresa Sintetica CI',tradeName:'Revenda Pendente Sintetica CI',
+ responsibleName:'Responsavel Sintetico CI',phone:'11999999999',
+ whatsapp:'11999999998',postalCode:'97300000',
+ city:'Sao Gabriel',state:'RS',addressText:'Rua Sintetica CI, 10'
+};
+const pendingPayload={
+ merchantId:pendingMerchantId,action:'update-business-details',
+ expectedUpdatedAt:beforeProfile.body.merchant.configUpdatedAt,...details
+};
+const ownerProfileKey=randomUUID();
+const refused=await call('merchant-ops',buyer.token,pendingPayload,{'Idempotency-Key':randomUUID()});
+assert.equal(refused.status,403,'buyer cannot forge a pending merchant business declaration');
+const invalid=await call('merchant-ops',owner.token,{...pendingPayload,postalCode:'999'},
+ {'Idempotency-Key':randomUUID()});
+assert.equal(invalid.status,400,'invalid CEP rejected before any SQL mutation');
+assert.equal(sql("SELECT COUNT(*) FROM public.merchant_business_details WHERE merchant_id="+
+ q(pendingMerchantId)+"::uuid"),'0');
+const saved=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':ownerProfileKey});
+assert.equal(saved.status,200,'authorized owner profile write: '+JSON.stringify(saved.body).slice(0,200));
+assert.equal(saved.body.action,'update-business-details');
+const businessReplay=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':ownerProfileKey});
+assert.equal(businessReplay.status,200);
+assert.deepEqual(businessReplay.body,saved.body,'ambiguous retries must not duplicate or mutate business details');
+const stale=await call('merchant-ops',owner.token,pendingPayload,{'Idempotency-Key':randomUUID()});
+assert.equal(stale.status,409,'stale config version must not overwrite verified owner input');
+const confirmed=await call('merchant-orders',owner.token,{merchantId:pendingMerchantId});
+assert.equal(confirmed.status,200);
+for(const [key,value] of Object.entries(details))
+ assert.equal(confirmed.body.merchant.businessDetails?.[key],value,
+  'same authenticated owner must see persistently stored '+key);
+assert.equal(Object.hasOwn(confirmed.body.merchant.businessDetails,'adminNotes'),false);
+assert.equal(confirmed.body.merchant.status,'pending',
+ 'company self-declaration must never auto-approve the merchant');
+assert.equal(confirmed.body.merchant.online,false);
+assert.equal(sql("SELECT count(*) FROM public.merchant_compliance WHERE merchant_id="+
+ q(pendingMerchantId)+"::uuid"),'0',
+ 'merchant must never self-verify CNPJ/ANP through this action');
+assert.equal(sql("SELECT COUNT(*) FROM public.action_requests WHERE user_id="+q(owner.id)+
+ "::uuid AND action_name='merchant-config:update-business-details' AND completed_at IS NOT NULL"),'1',
+ 'retry must produce a single completed canonical idempotency result');
+const unrelated=await call('merchant-orders',buyer.token,{merchantId:pendingMerchantId});
+assert.equal(unrelated.status,403,'buyer cannot read pending merchant business details');
+sql("DELETE FROM public.merchant_members WHERE merchant_id="+q(pendingMerchantId)+
+ "::uuid; DELETE FROM public.merchants WHERE id="+q(pendingMerchantId)+"::uuid;");
+console.log('PASS: real local owner declares missing business details exactly once; buyer denied; no self-approval or changes to financial status.');
+
+// Existing authentic local checkout remains unchanged.
 const first=await call('create-order',buyer.token,request,{'Idempotency-Key':idempotency});
 assert.equal(first.status,201,'checkout error: '+JSON.stringify(first.body).slice(0,500));
 assert.match(first.body.orderId,/^[0-9a-f-]{36}$/i);

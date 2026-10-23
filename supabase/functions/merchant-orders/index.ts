@@ -253,6 +253,24 @@ Deno.serve(async(req:Request)=>{
     if(merchantError)throw merchantError;
     if(!merchant)return json({error:"MERCHANT_NOT_FOUND"},404,origin);
 
+    // Contact and legal-declaration fields belong only to the authenticated
+    // management of this SAME merchant. Never expose admin notes or PII to
+    // the driver/operator/buyer portal.
+    let businessDetails:any=null;
+    if(["owner","manager"].includes(selected.member_role)){
+      const {data,error}=await admin.from("merchant_business_details")
+        .select("legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,updated_at")
+        .eq("merchant_id",selected.merchant_id)
+        .maybeSingle();
+      if(error)throw error;
+      if(data)businessDetails={
+        legalName:data.legal_name,tradeName:data.trade_name,
+        responsibleName:data.responsible_name,phone:data.phone,
+        whatsapp:data.whatsapp,postalCode:data.postal_code,city:data.city,
+        state:data.state,addressText:data.address_text,updatedAt:data.updated_at
+      };
+    }
+
     const {data:catalog,error:catalogError}=await admin
       .from("catalog_items")
       .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
@@ -724,6 +742,7 @@ Deno.serve(async(req:Request)=>{
         merchantId:merchant.id,
         name:merchant.name,
         memberRole:selected.member_role,
+        businessDetails,
         status:merchant.status,
         online:merchant.online,
         trustScore:merchant.trust_score,
