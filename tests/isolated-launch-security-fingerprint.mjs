@@ -32,7 +32,7 @@ const blocked=(query,code)=>{
  const output=sql('BEGIN; '+query+
   " SELECT (public.platform_launch_readiness()->'securityBlockers') ? '"+
   code+"'; ROLLBACK;");
- assert.equal(output.split(/\\s+/).find(x=>x==='t'||x==='f'),'t',
+ assert.equal(output.split(/\s+/).find(x=>x==='t'||x==='f'),'t',
   'A new grant, weakened policy or function MUST restore the launch block '+code);
  assert.deepEqual(read(),baseline,'transaction rollback must restore exact ACL');
 };
