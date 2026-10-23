@@ -136,9 +136,9 @@ assert.equal(checkCompliance([{active:true,productCode:'REGULATED_CUSTOM'}],
 // A permanently authenticated owner can complete the EXISTING missing
 // merchant_business_details record; no auto KYC or LIVE activation follows.
 const startSave=merchant.indexOf('async function merchantLiveSaveBusinessProfile(');
-const endSave=merchant.indexOf('\\n}',startSave);
+const endSave=merchant.indexOf('\n}',startSave);
 assert.ok(startSave>=0&&endSave>startSave);
-const formSrc=cut('merchantBusinessProfileView')+'\\n'+merchant.slice(startSave,endSave+2)+
+const formSrc=cut('merchantBusinessProfileView')+'\n'+merchant.slice(startSave,endSave+2)+
  ';this.profile=merchantBusinessProfileView;this.save=merchantLiveSaveBusinessProfile;';
 const fields={
  legalName:'Empresa Ficticia CI',tradeName:'Revenda Sintetica CI',
