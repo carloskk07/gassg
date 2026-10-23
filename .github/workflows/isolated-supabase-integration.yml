@@ -7,6 +7,7 @@ on:
       - '.github/workflows/isolated-supabase-integration.yml'
       - 'tests/isolated-supabase-commerce-smoke.mjs'
       - 'tests/isolated-full-schema-browser-acl.mjs'
+      - 'tests/isolated-discovery-privileged-rpc.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
       - 'tests/isolated-live-portal-browser.mjs'
