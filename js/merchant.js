@@ -1491,6 +1491,26 @@ function merchantEnablementCheckView(check){
       '<span class="status-pill '+(ok?'online':'offline')+'">'+(ok?'Conforme':'Pendente')+'</span>'+
     '</div></div>';
 }
+async function merchantUpdateBusinessProfileLive(profile){
+  const merchant=globalThis.merchantRuntime?.merchant;
+  if(merchant?.status!=='pending'||merchant.online===true||
+    !['owner','manager'].includes(merchant.memberRole))
+    throw new Error('Somente o responsável de um cadastro pendente pode atualizar os dados.');
+  if(globalThis.merchantRuntime.actionPending)throw new Error('Existe uma operação em andamento.');
+  globalThis.merchantRuntime.actionPending=true;
+  try{
+    const data=await merchantConfigMutation('update-business-profile',profile);
+    if(data?.ok!==true||data?.businessProfileSaved!==true||
+      data?.requiresAdminReview!==true||data?.merchantStatus!=='pending'||
+      data?.online!==false)throw new Error('A gravação não foi confirmada.');
+    await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
+    return true;
+  }finally{
+    globalThis.merchantRuntime.actionPending=false;
+    render();
+  }
+}
 // Private, pending-only self-service. Saving is NOT an Admin approval.
 function merchantBusinessProfileSection(m,pending=false){
   if(m?.status!=='pending'||m.online===true||
