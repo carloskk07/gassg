@@ -199,9 +199,42 @@ function render(){
     if(app)app.innerHTML='<main class="shell page"><div class="notice danger"><strong>Não foi possível carregar esta tela.</strong><br>Recarregue a página. Se o problema continuar, tente novamente mais tarde.</div></main>';
   }finally{renderLock=false}
 }
+// Public pages must never demand an anonymous Supabase identity merely for
+// viewing the catalog. Turnstile is appropriate after an explicit order /
+// tracking action, and a returning session may still refresh in background.
+function tamaoCustomerAuthNeeded(){
+  if(['order','tracking'].includes(route()))return true;
+  try{
+    const stored=JSON.parse(localStorage.getItem('chama-sg-customer-auth-v2')||'null');
+    return Boolean(stored?.access_token&&stored?.refresh_token);
+  }catch{return false}
+}
+let tamaoCustomerInitPending=null;
+function tamaoCustomerInitWhenNeeded(){
+  if(!globalThis.liveRequested?.()||
+    globalThis.adminPortalRequested?.()||
+    globalThis.merchantPortalRequested?.()||
+    !tamaoCustomerAuthNeeded())return Promise.resolve(false);
+  if(globalThis.liveReady?.())return Promise.resolve(true);
+  if(tamaoCustomerInitPending)return tamaoCustomerInitPending;
+  tamaoCustomerInitPending=(async()=>{
+    const ready=await backendInit();
+    if(ready&&route()==='order'&&state.address&&hasCartItems()){
+      try{await liveRefreshOffers({silent:true})}catch{}
+    }
+    render();
+    return ready;
+  })().finally(()=>{tamaoCustomerInitPending=null});
+  return tamaoCustomerInitPending;
+}
 window.addEventListener('hashchange',()=>{
   render();
   announcePublicPageNavigation();
+  // A person choosing to order or track explicitly starts secure Auth.
+  // No CAPTCHA is opened merely because they visited the home/marketing pages.
+  tamaoCustomerInitWhenNeeded().catch(error=>{
+    console.warn('Autenticação do cliente indisponível',error);
+  });
 });
 window.addEventListener('storage',e=>{
   if([STORAGE,LEGACY_STORAGE].includes(e.key)){state=load();render()}
@@ -248,13 +281,9 @@ window.addEventListener('load',async()=>{
   }else{
     tamaoPublicEntryRoute();
     render();
-    if(globalThis.liveRequested?.()){
-      await backendInit();
-      if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
-        try{await liveRefreshOffers({silent:true})}catch{}
-      }
-      render();
-    }
+    // Do not open an anti-bot dialog on a first-time public home visit.
+    // The secure checkout path and returning stored sessions stay authenticated.
+    await tamaoCustomerInitWhenNeeded();
   }
   if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
     try{
