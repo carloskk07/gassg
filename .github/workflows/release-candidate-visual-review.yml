@@ -327,6 +327,11 @@ jobs:
           assert.match(dom,/<main\b|id="app"/i,'no application root');
           assert.doesNotMatch(dom,/Just a moment\.\.\.|Checking your browser|ERR_NAME_NOT_RESOLVED/i,
             'browser screenshot is a challenge/error, not the TAMÃO UI');
+          // Turnstile dynamically adds this modal to document.body only
+          // when an anonymous login is requested. First visits to every
+          // public portal must stay visible without a challenge overlay.
+          assert.doesNotMatch(dom,/<div[^>]*\bdata-chama-turnstile=["']?1["']?/i,
+            'FIRST_VISIT_TURNSTILE_BLOCKED: CAPTCHA covered a public first visit');
           if(role==='customer'){
             assert.match(dom,/tamao-quote-first/,
               'customer home must show real price/consultation UI without first-login gate');
