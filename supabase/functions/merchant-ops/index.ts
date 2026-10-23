@@ -140,6 +140,12 @@ Deno.serve(async(req:Request)=>{
     if(action==="update-business-details"){
       if(role!=="owner")throw new DomainError("MERCHANT_ACCESS_DENIED",
         "Somente o proprietário pode informar os dados cadastrais.",403);
+      const {data:merchantState,error:merchantStateError}=await admin
+        .from("merchants").select("status").eq("id",merchantId).maybeSingle();
+      if(merchantStateError)throw merchantStateError;
+      if(merchantState?.status!=="pending")
+        throw new DomainError("MERCHANT_BUSINESS_REVIEW_REQUIRED",
+          "A revenda já passou pela fase de cadastro. Solicite revisão para alterar dados de identificação ou endereço.",409);
       const rules=[
         ["legalName",3,160],["tradeName",2,140],
         ["responsibleName",3,120],["phone",10,11],
