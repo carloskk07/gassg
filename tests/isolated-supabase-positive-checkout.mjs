@@ -55,6 +55,7 @@ async function createActor(kind){
 const buyer=await createActor('buyer');
 const owner=await createActor('owner');
 const outsider=await createActor('outsider');
+const adminActor=await createActor('admin');
 const merchantId='00000000-0000-4000-8000-000000000026';
 const cnpj='00000000000000'; // explicit fictitious test identifier, never a genuine verification
 const postalCode='97300000';
@@ -76,6 +77,9 @@ const create=[
 'COMMIT;'
 ].join('\n');
 sql(create);
+// This temporary admin membership exists only in the local disposable database.
+sql("INSERT INTO public.platform_admins(user_id,admin_role,active) VALUES("+q(adminActor.id)+"::uuid,'superadmin',true);");
+assert.equal(sql("SELECT count(*) FROM public.platform_admins WHERE user_id="+q(adminActor.id)+"::uuid AND active"),'1');
 // Outsider is a *local-only* citizen referrer. This is no bank identity or
 // real commission; the referral code is accepted through canonical checkout.
 const promoCode='REFCI123';
@@ -147,8 +151,16 @@ const nowCustomer=await call('get-order',buyer.token,{orderId:first.body.orderId
 assert.equal(nowCustomer.status,200);
 assert.equal(nowCustomer.body.status,'PREPARING');
 assert.equal(nowCustomer.body.version,own.body.version+1);
+// Exercise the canonical Admin API with real local Auth, not a bypass.
+const rejectedAdmin=await call('admin-ops',buyer.token,{action:'summary'});
+assert.equal(rejectedAdmin.status,403,'buyers cannot read Admin summary');
+assert.equal(rejectedAdmin.body.error,'ADMIN_ACCESS_DENIED');
+const authorizedAdmin=await call('admin-ops',adminActor.token,{action:'summary'});
+assert.equal(authorizedAdmin.status,200,'Admin HTTP summary: '+JSON.stringify(authorizedAdmin.body).slice(0,420));
+assert.ok(authorizedAdmin.body.controlOrders?.some(o=>o.id===first.body.orderId),
+ 'authorized Admin must see the same real local accepted order');
 // Observe the SAME local persisted order through the canonical browser UI.
-await verifyIsolatedLivePortals({api:base,anon,buyer,owner,orderId:first.body.orderId,merchantId});
+await verifyIsolatedLivePortals({api:base,anon,buyer,owner,adminActor,orderId:first.body.orderId,merchantId});
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
 assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='CHARCOAL2'"),'4','one item must be reserved exactly once');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='MERCHANT_ACCEPTED'"),'1','replay cannot duplicate acceptance event');

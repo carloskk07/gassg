@@ -7,12 +7,12 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,merchantId}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
  assert.ok(anon.length>20);
- for(const actor of [buyer,owner]){
+ for(const actor of [buyer,owner,adminActor]){
   assert.ok(actor.session?.access_token?.length>100);
   assert.ok(typeof actor.session?.refresh_token==='string'&&actor.session.refresh_token.length>0,'refresh token required');
   assert.equal(actor.session.user?.id,actor.id);
@@ -44,9 +44,9 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(4179,'127.0.0.1',resolve)});
  const which=execFileSync('sh',['-c','command -v google-chrome || command -v chromium || command -v chromium-browser'],{encoding:'utf8'}).trim();
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
- const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
+ const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore',detached:true});
  let ws,seq=0;
- const pending=new Map(),violations=[],merchantAccessStatuses=[];
+ const pending=new Map(),violations=[],merchantAccessStatuses=[],adminReadStatuses=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
  function send(method,params={}){
   const id=++seq;
@@ -94,6 +94,9 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
    if(msg.method==='Network.responseReceived'&&String(msg.params?.response?.url||'').startsWith(api+'/functions/v1/merchant-orders')){
     merchantAccessStatuses.push(msg.params.response.status);
    }
+   if(msg.method==='Network.responseReceived'&&String(msg.params?.response?.url||'').startsWith(api+'/functions/v1/admin-ops')){
+    adminReadStatuses.push(msg.params.response.status);
+   }
    if(msg.id&&pending.has(msg.id)){
     const {resolve,reject,timer}=pending.get(msg.id);clearTimeout(timer);pending.delete(msg.id);
     if(msg.error)reject(Error(JSON.stringify(msg.error)));else resolve(msg.result);
@@ -138,13 +141,33 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
   assert.equal(denied.orders,0,'denied buyer must not see merchant orders');
   assert.ok(merchantAccessStatuses.includes(403),'real merchant-orders response must be 403');
   assert.ok(!denied.visible.includes(orderId),'the merchant portal must not show the protected order ID');
+  // Actual third portal: standard authenticated Admin session, canonical
+  // admin-auth bootstrap check and admin-ops summary against localhost.
+  await evaluate("(()=>{sessionStorage.setItem('chama-sg-admin-auth-v1',"+
+    JSON.stringify(JSON.stringify(adminActor.session))+
+    ");sessionStorage.setItem('tamao-admin-section','orders');return true})()");
+  adminReadStatuses.length=0;
+  await navigate(origin+'/?admin=1#admin');
+  await wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&Array.isArray(adminRuntime.data?.controlOrders)&&adminRuntime.data.controlOrders.some(o=>o.id==="+JSON.stringify(orderId)+")",
+    'Admin Tower of Control must load the exact local order',55000);
+  const adminView=JSON.parse(await evaluate("JSON.stringify({status:adminRuntime.status,role:adminRuntime.data?.currentAdmin?.admin_role,orders:adminRuntime.data?.controlOrders?.length,match:adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+"),visible:document.querySelector('#app')?.innerText.slice(0,5000)})"));
+  assert.equal(adminView.role,'superadmin','Admin UI must use its real membership role');
+  assert.equal(adminView.match,true);
+  const orderCardVisible=await evaluate("Array.from(document.querySelectorAll('.order-card .order-id')).some(el=>el.textContent.trim()===(adminRuntime.data?.controlOrders?.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code||''))");
+  assert.equal(orderCardVisible,true,'the actual Admin orders UI must render this local order card');
+  assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
+  assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
-  console.log('PASS: Chrome merchant+buyer render the same local order; authenticated buyer gets 403 and no merchant orders; zero remote backend requests.');
+  console.log('PASS: real Chrome buyer, merchant and authorized Admin read the SAME localhost order; unauthorized buyer denied merchant and Admin; no remote backend requests.');
  }finally{
   if(ws){for(const [,p] of pending){clearTimeout(p.timer);p.reject(Error('Browser cleanup'))}ws.close()}
-  chrome.kill('SIGTERM');
+  // Chrome launches helper processes that can recreate profile files even
+  // after the parent exits. Terminate this disposable process group first.
+  try{if(chrome.pid)process.kill(-chrome.pid,'SIGTERM')}catch{chrome.kill('SIGTERM')}
   await new Promise(done=>{if(chrome.exitCode!==null||chrome.signalCode!==null)return done();chrome.once('exit',done);setTimeout(done,2000).unref()});
+  try{if(chrome.pid)process.kill(-chrome.pid,'SIGKILL')}catch{}
+  await sleep(450);
   await new Promise(done=>server.close(done));
-  fs.rmSync(profile,{recursive:true,force:true});
+  fs.rmSync(profile,{recursive:true,force:true,maxRetries:12,retryDelay:250});
  }
 }
