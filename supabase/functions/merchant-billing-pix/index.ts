@@ -181,7 +181,18 @@ function normalizeWooviCharge(data:any,correlationId:string,expectedAmountCents:
   const brCode=cleanText(charge.brCode??data?.brCode,8192);
   if(correlation!==correlationId)throw new Error("WOOVI_CORRELATION_MISMATCH");
   if(!Number.isSafeInteger(amount)||amount!==expectedAmountCents)throw new Error("WOOVI_AMOUNT_MISMATCH");
-  if(!["ACTIVE","COMPLETED"].includes(status))throw new Error("WOOVI_CHARGE_NOT_ACTIVE");
+  if(status==="COMPLETED"){
+    // Already paid at the provider: webhook/reconciliation owns settlement.
+    // Never turn a recovered, processed Pix into another payable QR.
+    throw new DomainError("PIX_PROVIDER_ALREADY_PROCESSED",
+      "O provedor já processou este Pix. Aguarde a conciliação no financeiro.",409);
+  }
+  if(status!=="ACTIVE")throw new Error("WOOVI_CHARGE_NOT_ACTIVE");
+  const expiresAt=parseIso(charge.expiresDate);
+  if(!expiresAt||Date.parse(expiresAt)<=Date.now()+60_000){
+    throw new DomainError("PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED",
+      "O prazo informado pelo provedor Pix está ausente ou expirado. Não utilize este QR.",409);
+  }
   if(!brCode||brCode.length<20)throw new Error("WOOVI_BR_CODE_MISSING");
   if(!validatePixBrCode(brCode,{expectedAmountCents}).valid){
     throw new DomainError("PIX_PROVIDER_BR_CODE_INVALID",
@@ -203,7 +214,7 @@ function normalizeWooviCharge(data:any,correlationId:string,expectedAmountCents:
     qrCodeImage:safeWooviUrl(charge.qrCodeImage,"image"),
     qrCodeDataUri:null,
     paymentLinkUrl:safeWooviUrl(charge.paymentLinkUrl,"payment"),
-    expiresAt:parseIso(charge.expiresDate)
+    expiresAt
   };
 }
 async function getWooviCharge(base:string,appId:string,correlationId:string,expectedAmountCents:number){

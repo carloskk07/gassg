@@ -88,6 +88,68 @@ assert.match(merchant,/merchantBillingPixChargeExpired\(charge\)/);
 assert.match(backend,/charge\?\.status==='completed'/);
 assert.match(backend,/charge\.expiresAt/);
 
+// Unknown provider expiry must be non-payable even if a stale row claims "active".
+const expiryStart=merchant.indexOf('function merchantBillingPixChargeExpired(');
+const expiryEnd=merchant.indexOf('\nfunction merchantBillingPixChargeView(',expiryStart);
+assert.ok(expiryStart>=0&&expiryEnd>expiryStart);
+const expiryGuard=new Function(merchant.slice(expiryStart,expiryEnd)+
+  ';return merchantBillingPixChargeExpired;')();
+assert.equal(expiryGuard({status:'active',expiresAt:null}),true);
+assert.equal(expiryGuard({status:'active',expiresAt:'not-a-date'}),true);
+assert.equal(expiryGuard({status:'active',expiresAt:'2000-01-01T00:00:00Z'}),true);
+assert.equal(expiryGuard({status:'active',expiresAt:'2099-01-01T00:00:00Z'}),false);
+assert.equal(expiryGuard({status:'completed',expiresAt:null}),false);
+assert.match(merchant,/Prazo do Pix não confirmado/);
+
+assert.match(edge,/if\(status==="COMPLETED"\)/);
+assert.match(edge,/PIX_PROVIDER_ALREADY_PROCESSED/);
+assert.match(edge,/const expiresAt=parseIso\(charge\.expiresDate\)/);
+assert.match(edge,/Date\.parse\(expiresAt\)<=Date\.now\(\)\+60_000/);
+const expiryMigration=fs.readFileSync(new URL(
+  '../supabase/migrations/20261023233500_pix_provider_expiry_fail_closed.sql',
+  import.meta.url),'utf8');
+assert.ok(expiryMigration.includes('PIX_PROVIDER_CHARGE_EXPIRY_REQUIRED'));
+assert.ok(expiryMigration.includes('PIX_CHARGE_EXPIRY_BASELINE_DRIFT_BLOCKED'));
+assert.ok(!expiryMigration.includes('UPDATE public.platform_launch_control'));
+
+// Execute the ACTUAL Woovi normalization logic against isolated fake PSP
+// responses. No provider request, real identifier, balance or charge is made.
+const wooviStart=edge.indexOf('function normalizeWooviCharge(');
+const wooviEnd=edge.indexOf('\nasync function getWooviCharge(',wooviStart);
+assert.ok(wooviStart>=0&&wooviEnd>wooviStart);
+const wooviSource=edge.slice(wooviStart,wooviEnd)
+  .replace('data:any,correlationId:string,expectedAmountCents:number',
+    'data,correlationId,expectedAmountCents');
+class FakeDomainError extends Error{
+  constructor(code,message,status){super(message);this.code=code;this.status=status}
+}
+const normalizeWoovi=new Function(
+  'DomainError','parseIso','cleanText','validatePixBrCode','safeWooviUrl',
+  wooviSource+';return normalizeWooviCharge;'
+)(
+  FakeDomainError,
+  v=>v&&Number.isFinite(Date.parse(String(v)))?new Date(v).toISOString():null,
+  (v,max)=>typeof v==='string'&&v.length>0&&v.length<=max?v:null,
+  validatePixBrCode,
+  ()=>null
+);
+const later=new Date(Date.now()+3600000).toISOString();
+const fakeCharge={charge:{
+  correlationID:'test-woovi-only',value:30000,status:'ACTIVE',
+  brCode:valid,globalID:'fake-provider-charge',expiresDate:later
+}};
+assert.equal(normalizeWoovi(fakeCharge,'test-woovi-only',30000).expiresAt,later);
+const fakeWooviError=(charge,expectedCode)=>assert.throws(
+  ()=>normalizeWoovi({charge},'test-woovi-only',30000),
+  e=>e instanceof FakeDomainError&&e.code===expectedCode
+);
+fakeWooviError({...fakeCharge.charge,status:'COMPLETED'},'PIX_PROVIDER_ALREADY_PROCESSED');
+fakeWooviError({...fakeCharge.charge,expiresDate:null},'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+fakeWooviError({...fakeCharge.charge,expiresDate:'unparseable'},'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+fakeWooviError({...fakeCharge.charge,expiresDate:'2020-01-01T00:00:00Z'},'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+fakeWooviError({...fakeCharge.charge,expiresDate:new Date(Date.now()+30000).toISOString()},
+  'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+
 // User cannot copy a known-expired or cancelled provider code.
 const start=merchant.indexOf('async function merchantCopyBillingPixCode(');
 const end=merchant.indexOf('\nasync function ',start+16);
