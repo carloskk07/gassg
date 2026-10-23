@@ -1476,6 +1476,9 @@ async function merchantUpdateBusinessDetailsLive(payload){
 
 function merchantBusinessProfileView(rt){
   if(rt?.merchant?.memberRole!=='owner')return '';
+  if(rt.merchant?.status!=='pending')
+    return '<div class="notice"><strong>Dados cadastrais sujeitos à revisão.</strong><br>'+
+      'Esta revenda já saiu da fase de cadastro inicial. Para alterar identificação ou endereço, solicite revisão ao TAMÃO; nenhuma aprovação existente é reutilizada automaticamente.</div>';
   const b=rt.merchant?.businessDetails||{};
   const completed=!!(b.city&&b.state&&b.postalCode&&b.addressText);
   const fields=[
@@ -1506,6 +1509,7 @@ async function merchantBusinessProfileSaveFromUi(){
   const rt=globalThis.merchantRuntime||{};
   if(rt?.status!=='ready'||rt?.merchant?.memberRole!=='owner'||rt.actionPending)
     return toast('Somente o proprietário pode salvar o cadastro');
+  if(rt.merchant.status!=='pending')return toast('Solicite revisão ao TAMÃO antes de mudar os dados da revenda já habilitada.');
   const keys=['legalName','tradeName','responsibleName','phone','whatsapp',
     'postalCode','city','state','addressText'];
   const payload={};
@@ -2145,7 +2149,7 @@ function merchantFirstRunView(rt,canGoOnline){
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<div class="merchant-first-run-actions">'+cta+
     '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
-    (rt?.merchant?.memberRole==='owner'&&!rt.merchant?.businessDetails?.city?
+    (rt?.merchant?.memberRole==='owner'&&rt.merchant?.status==='pending'&&!rt.merchant?.businessDetails?.city?
       '<button type="button" class="secondary" onclick="merchantBusinessProfileFocus()">Completar dados e endereço da revenda →</button>':'')+
     '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
     '</section>';
