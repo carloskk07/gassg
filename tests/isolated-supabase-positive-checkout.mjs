@@ -147,4 +147,90 @@ assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(fi
 
 assert.equal(sql('SELECT count(*) FROM public.wallet_entries'),'0');
 assert.equal(sql('SELECT count(*) FROM public.merchant_billing_payment_events'),'0');
-console.log('PASS: LOCAL quote -> checkout -> replay -> buyer get-order -> merchant dashboard -> accept/replay -> buyer new state; IDOR blocked, cash only, zero PSP/rewards.');
+
+// The official dispatch must generate a secret PIN; only the customer can
+// read it through get-order. Payment is LOCAL fictitious cash-on-delivery.
+const orderId=first.body.orderId;
+const dispatchBody={orderId,action:'dispatch',expectedVersion:nowCustomer.body.version};
+const dispatchKey='ci-dispatch-'+randomUUID();
+const dispatched=await call('merchant-action',owner.token,dispatchBody,{'Idempotency-Key':dispatchKey});
+assert.equal(dispatched.status,200,'dispatch: '+JSON.stringify(dispatched.body).slice(0,420));
+assert.equal(dispatched.body.status,'OUT_FOR_DELIVERY');
+assert.equal(dispatched.body.version,nowCustomer.body.version+1);
+const dispatchReplay=await call('merchant-action',owner.token,dispatchBody,{'Idempotency-Key':dispatchKey});
+assert.equal(dispatchReplay.status,200,'dispatch idempotent replay');
+assert.deepEqual(dispatchReplay.body,dispatched.body);
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid AND event_type='OUT_FOR_DELIVERY'"),'1');
+const buyerDispatch=await call('get-order',buyer.token,{orderId});
+assert.equal(buyerDispatch.status,200);
+assert.equal(buyerDispatch.body.status,'OUT_FOR_DELIVERY');
+const deliveryPin=buyerDispatch.body.deliveryPin;
+assert.match(deliveryPin,/^[0-9]{4}$/,'only buyer learns the PIN from own authenticated API');
+const merchantDispatch=await call('get-order',owner.token,{orderId});
+assert.equal(merchantDispatch.status,200);
+assert.equal(merchantDispatch.body.role,'merchant');
+assert.equal(merchantDispatch.body.deliveryPin,null,'merchant must NOT read delivery PIN through get-order');
+const outsiderDispatch=await call('get-order',outsider.token,{orderId});
+assert.equal(outsiderDispatch.status,404,'outsider may not discover active delivery');
+
+const arrivingBody={orderId,action:'arriving',expectedVersion:buyerDispatch.body.version};
+const arrived=await call('merchant-action',owner.token,arrivingBody,
+ {'Idempotency-Key':'ci-arriving-'+randomUUID()});
+assert.equal(arrived.status,200,'arriving: '+JSON.stringify(arrived.body).slice(0,420));
+assert.equal(arrived.body.status,'ARRIVING');
+const buyerArriving=await call('get-order',buyer.token,{orderId});
+assert.equal(buyerArriving.status,200);
+assert.equal(buyerArriving.body.status,'ARRIVING');
+assert.equal(buyerArriving.body.deliveryPin,deliveryPin,'PIN stays stable through arrival');
+
+const wrongPin=deliveryPin==='0000'?'0001':'0000';
+const wrongBody={orderId,pin:wrongPin,expectedVersion:buyerArriving.body.version,paymentConfirmed:true};
+const wrongKey='ci-invalid-pin-'+randomUUID();
+const wrong=await call('complete-delivery',owner.token,wrongBody,{'Idempotency-Key':wrongKey});
+assert.equal(wrong.status,422,'wrong PIN must be rejected');
+assert.equal(wrong.body.ok,false);
+assert.equal(wrong.body.error,'INVALID_PIN');
+const wrongReplay=await call('complete-delivery',owner.token,wrongBody,{'Idempotency-Key':wrongKey});
+assert.equal(wrongReplay.status,422,'wrong PIN idempotent retry remains rejected');
+const buyerAfterWrong=await call('get-order',buyer.token,{orderId});
+assert.equal(buyerAfterWrong.status,200);
+assert.equal(buyerAfterWrong.body.status,'ARRIVING','wrong PIN does not settle');
+assert.equal(buyerAfterWrong.body.version,buyerArriving.body.version+1,'wrong PIN increments failure version exactly once');
+assert.equal(sql("SELECT pin_failures FROM public.orders WHERE id="+q(orderId)+"::uuid"),'1');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid AND event_type='PIN_FAILED'"),'1');
+
+const completeBody={orderId,pin:deliveryPin,
+ expectedVersion:buyerAfterWrong.body.version,paymentConfirmed:true};
+const completeKey='ci-complete-'+randomUUID();
+const completed=await call('complete-delivery',owner.token,completeBody,{'Idempotency-Key':completeKey});
+assert.equal(completed.status,200,'complete local cash delivery: '+JSON.stringify(completed.body).slice(0,480));
+assert.equal(completed.body.ok,true);
+assert.equal(completed.body.status,'SETTLED');
+assert.equal(completed.body.paymentConfirmationMethod,'merchant_attestation',
+ 'only an in-runner merchant cash attestation, NOT an external PSP receipt');
+const finalBuyer=await call('get-order',buyer.token,{orderId});
+assert.equal(finalBuyer.status,200);
+assert.equal(finalBuyer.body.status,'SETTLED');
+assert.equal(finalBuyer.body.deliveryPin,null,'consumed PIN must never be exposed');
+assert.equal(sql("SELECT consumed_at IS NOT NULL FROM public.order_delivery_secrets WHERE order_id="+q(orderId)+"::uuid"),'t');
+assert.equal(sql('SELECT count(*) FROM public.orders'),'1');
+for(const event of ['OUT_FOR_DELIVERY','ARRIVING','PIN_FAILED','PAYMENT_CONFIRMED','DELIVERED','SETTLED']){
+ assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid AND event_type="+q(event)),'1',
+  'each actual transition should create exactly one '+event+' event');
+}
+// Existing financial hooks may legitimately append LOCAL rewards. Their
+// exact values must remain unchanged on idempotent delivery replay.
+const beforeReplay=sql("SELECT (SELECT count(*) FROM public.wallet_entries)::text || ':' || (SELECT count(*) FROM public.order_reward_grants)::text || ':' || (SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid)::text");
+const completeReplay=await call('complete-delivery',owner.token,completeBody,{'Idempotency-Key':completeKey});
+assert.equal(completeReplay.status,200,'completed order must replay safely');
+assert.deepEqual(completeReplay.body,completed.body);
+const afterReplay=sql("SELECT (SELECT count(*) FROM public.wallet_entries)::text || ':' || (SELECT count(*) FROM public.order_reward_grants)::text || ':' || (SELECT count(*) FROM public.order_events WHERE order_id="+q(orderId)+"::uuid)::text");
+assert.equal(afterReplay,beforeReplay,'a repeated completion cannot duplicate any wallet/reward/event');
+assert.equal(sql('SELECT count(*) FROM public.merchant_sale_payment_attempts'),'0',
+ 'no external provider checkout was created');
+assert.equal(sql('SELECT count(*) FROM public.merchant_billing_payment_events'),'0',
+ 'no external billing payment was registered');
+assert.equal(sql('SELECT count(*) FROM public.merchant_billing_provider_charges'),'0',
+ 'no Pix charge or payment link was issued');
+console.log('PASS: local canonical quote -> HTTP checkout -> merchant accept -> dispatch -> PIN shown only to buyer -> arrival -> wrong PIN rejected -> merchant-attested cash settlement -> replay unchanged; zero external PSP.');
+
