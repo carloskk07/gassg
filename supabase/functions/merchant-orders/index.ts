@@ -736,11 +736,11 @@ Deno.serve(async(req:Request)=>{
       };
     }
     return json({
-      businessDetails,
       merchant:{
         merchantId:merchant.id,
         name:merchant.name,
         memberRole:selected.member_role,
+        businessDetails,
         status:merchant.status,
         online:merchant.online,
         trustScore:merchant.trust_score,
