@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
+import fs from 'node:fs';
 
 // Full migrated Supabase on disposable localhost only. This suite must never
 // use production project credentials or activate the commercial marketplace.
@@ -25,6 +26,19 @@ console.log('LOCAL_ACL_REGPROCEDURE',
 console.log('LOCAL_ACL_CATALOG_DETAILS',
  sql("SELECT coalesce(string_agg(p.oid::regprocedure::text||':args='||p.pronargs||':kind='||p.prokind::text||':exec='||has_function_privilege(current_user,p.oid,'EXECUTE'),'|'),'NONE') FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='tamao_launch_acl_posture_v1'"));
 const baseline=read();
+// Compare canonical catalog objects by table when local/hosted fingerprints
+// differ. These hashes contain no customer data and do not modify any table.
+const migration=fs.readFileSync(new URL('../supabase/migrations/20261023154000_launch_acl_exact_fingerprint.sql',import.meta.url),'utf8');
+const scan=migration.match(/AS \\$scan\\$\\n([\\s\\S]*?)\\n\\$scan\\$/)?.[1];
+assert.ok(scan,'reviewed migration scanner must be present');
+const prefix=scan.slice(0,scan.indexOf('\\nSELECT jsonb_build_object('));
+assert.ok(prefix.startsWith('WITH t AS ('),'catalog statement must be well formed');
+const tableRows=JSON.parse(sql("SET search_path TO pg_catalog,public; "+prefix+
+ " SELECT coalesce(jsonb_agg(jsonb_build_object('name',relname,"+
+ "'hash',md5(jsonb_build_object('name',relname,'rls',relrowsecurity,'table',tbl,'columns',col,'policies',policies)::text),"+
+ "'policyHashes',policies) ORDER BY relname),'[]'::jsonb) "+
+ "FROM t WHERE tbl<>'[]'::jsonb OR col<>'[]'::jsonb;"));
+console.log('LOCAL_REVIEWED_TABLE_HASHES',JSON.stringify(tableRows));
 assert.deepEqual(baseline,{
  tableDigest:'b2217c55d0acd0b5d576724941c50c93',
  rpcDigest:'d795df150e91d9d758b6ccb4fd0386cd',
