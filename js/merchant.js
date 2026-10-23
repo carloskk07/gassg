@@ -1439,11 +1439,11 @@ async function merchantLiveSaveBusinessProfile(){
     const input=document.getElementById('merchant-business-'+key);
     if(!input)return toast('Formulário de cadastro incompleto. Atualize o painel.');
     const raw=String(input.value||'').trim();
-    details[key]=['phone','whatsapp','postalCode'].includes(key)?raw.replace(/\\D/g,''):raw.replace(/\\s+/g,' ');
+    details[key]=['phone','whatsapp','postalCode'].includes(key)?raw.replace(/\D/g,''):raw.replace(/\s+/g,' ');
   }
   details.state=details.state.toUpperCase();
-  if(keys.some(key=>!details[key])||!/^\\d{8}$/.test(details.postalCode)||
-    !/^\\d{10,13}$/.test(details.phone)||!/^\\d{10,13}$/.test(details.whatsapp)||
+  if(keys.some(key=>!details[key])||!/^\d{8}$/.test(details.postalCode)||
+    !/^\d{10,13}$/.test(details.phone)||!/^\d{10,13}$/.test(details.whatsapp)||
     !/^[A-Z]{2}$/.test(details.state))
     return toast('Confira o endereço, CEP, UF e telefones antes de salvar.');
   if(!confirm('Confirmar que os dados comerciais informados são verdadeiros e deverão ser verificados pelo TAMÃO?'))return;
