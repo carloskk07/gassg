@@ -75,6 +75,11 @@ const create=[
 'COMMIT;'
 ].join('\n');
 sql(create);
+// Outsider is a *local-only* citizen referrer. This is no bank identity or
+// real commission; the referral code is accepted through canonical checkout.
+const promoCode='REFCI123';
+sql("UPDATE public.profiles SET referral_code="+q(promoCode)+" WHERE user_id="+q(outsider.id)+"::uuid;");
+assert.equal(sql("SELECT referral_code FROM public.profiles WHERE user_id="+q(outsider.id)+"::uuid"),promoCode,'local Auth user already has an auto-created profile');
 assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['CHARCOAL2']::text[])"),'t');
 assert.ok(sql("SELECT "+q(merchantId)+"::uuid=ANY(public.market_city_offer_scope('São Gabriel','RS'))")==='t','synthetic merchant must pass the REAL city offer scope');
 const quoteCmd="SELECT public.create_quote_snapshot_v3("+
@@ -89,7 +94,7 @@ sql("UPDATE public.quotes SET payment_method_requested='cash',payment_timing_req
 const idempotency='ci-http-checkout-'+randomUUID();
 const request={
  quoteId:quote.quoteId,paymentMethod:'cash',useCashback:false,
- customerPhone:'11999999999'
+ referralCode:promoCode,customerPhone:'11999999999'
 };
 async function call(slug,token,body,extra={}){
  const res=await fetch(base+'/functions/v1/'+slug,{
@@ -232,5 +237,38 @@ assert.equal(sql('SELECT count(*) FROM public.merchant_billing_payment_events'),
  'no external billing payment was registered');
 assert.equal(sql('SELECT count(*) FROM public.merchant_billing_provider_charges'),'0',
  'no Pix charge or payment link was issued');
+
+// The LOCAL successful checkout and merchant-attested settlement must build
+// a truthful internal unit-economics ledger. It is NOT proof of bank payout.
+const qualified=sql("SELECT qualified_order_id="+q(orderId)+"::uuid FROM public.referrals WHERE referred_user_id="+q(buyer.id)+"::uuid AND referrer_user_id="+q(outsider.id)+"::uuid");
+assert.equal(qualified,'t','real canonical checkout must attribute this buyer to their local referrer');
+assert.equal(sql("SELECT count(*) FROM public.referrals WHERE referred_user_id="+q(buyer.id)+"::uuid"),'1');
+const rewardRaw=sql("SELECT row_to_json(g)::text FROM public.order_reward_grants g WHERE g.order_id="+q(orderId)+"::uuid");
+assert.ok(rewardRaw,'a settled local order must create exactly one reward grant');
+const reward=JSON.parse(rewardRaw);
+assert.equal(reward.referrer_user_id,outsider.id);
+assert.ok(reward.platform_fee_cents>0,'local settlement must have a fee-backed incentive budget');
+assert.ok(reward.referral_pending_cents>0,'local referral must have a positive pending incentive');
+assert.ok(reward.cashback_cents>=0);
+assert.equal(reward.platform_fee_cents,
+ reward.variable_cost_reserve_cents+reward.cashback_cents+
+ reward.referral_pending_cents+reward.platform_contribution_cents,
+ 'revenue must exactly fund cost reserve + incentives + contribution');
+assert.ok(reward.platform_contribution_cents>=reward.minimum_contribution_cents,
+ 'platform keeps its floor contribution after paying for benefits');
+assert.ok(new Date(reward.commission_available_at).getTime()>Date.now(),
+ 'pending referral must respect the configured hold period');
+assert.equal(sql("SELECT count(*) FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'1');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND user_id="+q(outsider.id)+"::uuid AND bucket='commission_pending' AND entry_type='referral_pending' AND amount_cents="+reward.referral_pending_cents),'1');
+assert.equal(sql("SELECT count(*) FROM public.platform_receivables WHERE order_id="+q(orderId)+"::uuid AND platform_fee_cents="+reward.platform_fee_cents),'1',
+ 'fee must be booked as an internal receivable, not misrepresented as already paid');
+assert.equal(sql("SELECT count(*) FROM public.platform_referral_payout_claims_v1_263"),'0',
+ 'pending commissions have NO payment proof or external payout claim');
+// Independent retry of the existing canonical reward authority must be safe.
+const regrant=JSON.parse(sql("SELECT public.grant_order_rewards("+q(orderId)+"::uuid)::text"));
+assert.equal(regrant.alreadyGranted,true);
+assert.equal(sql("SELECT count(*) FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'1');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND bucket='commission_pending'"),'1');
+console.log('PASS: local referral attributed and qualified; fee/benefit/contribution ledger reconciled; commission pending hold; no payout claim/PSP; regrant idempotent.');
 console.log('PASS: local canonical quote -> HTTP checkout -> merchant accept -> dispatch -> PIN shown only to buyer -> arrival -> wrong PIN rejected -> merchant-attested cash settlement -> replay unchanged; zero external PSP.');
 
