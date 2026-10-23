@@ -55,6 +55,7 @@ async function createActor(kind){
 const buyer=await createActor('buyer');
 const owner=await createActor('owner');
 const outsider=await createActor('outsider');
+const adminActor=await createActor('admin');
 const merchantId='00000000-0000-4000-8000-000000000026';
 const cnpj='00000000000000'; // explicit fictitious test identifier, never a genuine verification
 const postalCode='97300000';
