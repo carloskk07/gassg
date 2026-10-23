@@ -4,7 +4,7 @@
 -- new privileges, policy weakening or modified privileged RPCs block launch.
 -- All other commercial, offer, payment and portal gates remain untouched.
 CREATE OR REPLACE FUNCTION public.tamao_launch_acl_posture_v1()
-RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path='pg_catalog,public'
+RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog, public
 AS $scan$
 WITH t AS (
  SELECT c.oid,c.relname,c.relrowsecurity,
@@ -47,8 +47,6 @@ SELECT jsonb_build_object(
  (SELECT md5(coalesce(jsonb_agg(jsonb_build_object(
   'signature',sig,'anon',an,'auth',au,'config',proconfig,'body',src)
   ORDER BY sig),'[]'::jsonb)::text) FROM f),
- 'tablePartHashes',(SELECT coalesce(jsonb_agg(jsonb_build_object('name',relname,'hash',md5(jsonb_build_object('name',relname,'rls',relrowsecurity,'table',tbl,'columns',col,'policies',policies)::text)) ORDER BY relname COLLATE "C"),'[]'::jsonb) FROM t WHERE tbl<>'[]'::jsonb OR col<>'[]'::jsonb),
- 'scanPath',current_setting('search_path'),
  'tableCount',(SELECT count(*) FROM t WHERE tbl<>'[]'::jsonb OR col<>'[]'::jsonb),
  'rpcCount',(SELECT count(*) FROM f)
 );
