@@ -9,6 +9,7 @@ on:
       - 'tests/isolated-full-schema-browser-acl.mjs'
       - 'tests/isolated-launch-security-fingerprint.mjs'
       - 'tests/isolated-discovery-privileged-rpc.mjs'
+      - 'tests/isolated-merchant-business-profile.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
       - 'tests/isolated-live-portal-browser.mjs'
@@ -16,6 +17,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/functions/create-order/**'
       - 'supabase/functions/merchant-orders/**'
+      - 'supabase/functions/merchant-ops/**'
   workflow_dispatch:
 
 permissions:
