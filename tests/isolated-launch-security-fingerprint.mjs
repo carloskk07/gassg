@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import fs from 'node:fs';
 
 // Full migrated Supabase on disposable localhost only. This suite must never
 // use production project credentials or activate the commercial marketplace.
@@ -14,32 +13,7 @@ const sql=q=>execFileSync('psql',[
 ],{encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},timeout:60000,
  stdio:['ignore','pipe','pipe']}).trim();
 const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
-// Diagnose migration/catalog divergence BEFORE the first assertion. No secrets.
-console.log('LOCAL_MIGRATION_VERSION',
- sql("SELECT coalesce(string_agg(version,','),'NONE') FROM supabase_migrations.schema_migrations WHERE version='20261023154000'"));
-console.log('LOCAL_ACL_FUNCTIONS',
- sql("SELECT coalesce(string_agg(proname,','),'NONE') FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('tamao_launch_acl_posture_v1','platform_launch_readiness')"));
-console.log('LOCAL_ACL_DETAILS',
- sql("SELECT current_user||' db='||current_database()||' path='||current_setting('search_path')"));
-console.log('LOCAL_ACL_REGPROCEDURE',
- sql("SELECT coalesce(to_regprocedure('public.tamao_launch_acl_posture_v1()')::text,'NULL')"));
-console.log('LOCAL_ACL_CATALOG_DETAILS',
- sql("SELECT coalesce(string_agg(p.oid::regprocedure::text||':args='||p.pronargs||':kind='||p.prokind::text||':exec='||has_function_privilege(current_user,p.oid,'EXECUTE'),'|'),'NONE') FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='tamao_launch_acl_posture_v1'"));
 const baseline=read();
-console.log('ACTUAL_ACL_SCANNER_PARTS',JSON.stringify(baseline));
-// Compare canonical catalog objects by table when local/hosted fingerprints
-// differ. These hashes contain no customer data and do not modify any table.
-const migration=fs.readFileSync(new URL('../supabase/migrations/20261023154000_launch_acl_exact_fingerprint.sql',import.meta.url),'utf8');
-const scan=migration.match(/AS \$scan\$\n([\s\S]*?)\n\$scan\$/)?.[1];
-assert.ok(scan,'reviewed migration scanner must be present');
-const prefix=scan.slice(0,scan.indexOf('\nSELECT jsonb_build_object('));
-assert.ok(prefix.startsWith('WITH t AS ('),'catalog statement must be well formed');
-const tableRows=JSON.parse(sql("SET search_path TO pg_catalog,public; "+prefix+
- " SELECT coalesce(jsonb_agg(jsonb_build_object('name',relname,"+
- "'hash',md5(jsonb_build_object('name',relname,'rls',relrowsecurity,'table',tbl,'columns',col,'policies',policies)::text),"+
- "'policyHashes',policies) ORDER BY relname),'[]'::jsonb) "+
- "FROM t WHERE tbl<>'[]'::jsonb OR col<>'[]'::jsonb;"));
-console.log('LOCAL_REVIEWED_TABLE_HASHES',JSON.stringify(tableRows));
 assert.deepEqual(baseline,{
  tableDigest:'67838fe06fa43d7692e12d8e11a3de91',
  rpcDigest:'d795df150e91d9d758b6ccb4fd0386cd',
