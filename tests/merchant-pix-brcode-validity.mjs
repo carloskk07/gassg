@@ -112,6 +112,44 @@ assert.ok(expiryMigration.includes('PIX_PROVIDER_CHARGE_EXPIRY_REQUIRED'));
 assert.ok(expiryMigration.includes('PIX_CHARGE_EXPIRY_BASELINE_DRIFT_BLOCKED'));
 assert.ok(!expiryMigration.includes('UPDATE public.platform_launch_control'));
 
+// Execute the ACTUAL Woovi normalization logic against isolated fake PSP
+// responses. No provider request, real identifier, balance or charge is made.
+const wooviStart=edge.indexOf('function normalizeWooviCharge(');
+const wooviEnd=edge.indexOf('\nasync function getWooviCharge(',wooviStart);
+assert.ok(wooviStart>=0&&wooviEnd>wooviStart);
+const wooviSource=edge.slice(wooviStart,wooviEnd)
+  .replace('data:any,correlationId:string,expectedAmountCents:number',
+    'data,correlationId,expectedAmountCents');
+class FakeDomainError extends Error{
+  constructor(code,message,status){super(message);this.code=code;this.status=status}
+}
+const normalizeWoovi=new Function(
+  'DomainError','parseIso','cleanText','validatePixBrCode','safeWooviUrl',
+  wooviSource+';return normalizeWooviCharge;'
+)(
+  FakeDomainError,
+  v=>v&&Number.isFinite(Date.parse(String(v)))?new Date(v).toISOString():null,
+  (v,max)=>typeof v==='string'&&v.length>0&&v.length<=max?v:null,
+  validatePixBrCode,
+  ()=>null
+);
+const later=new Date(Date.now()+3600000).toISOString();
+const fakeCharge={charge:{
+  correlationID:'test-woovi-only',value:30000,status:'ACTIVE',
+  brCode:valid,globalID:'fake-provider-charge',expiresDate:later
+}};
+assert.equal(normalizeWoovi(fakeCharge,'test-woovi-only',30000).expiresAt,later);
+const fakeWooviError=(charge,expectedCode)=>assert.throws(
+  ()=>normalizeWoovi({charge},'test-woovi-only',30000),
+  e=>e instanceof FakeDomainError&&e.code===expectedCode
+);
+fakeWooviError({...fakeCharge.charge,status:'COMPLETED'},'PIX_PROVIDER_ALREADY_PROCESSED');
+fakeWooviError({...fakeCharge.charge,expiresDate:null},'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+fakeWooviError({...fakeCharge.charge,expiresDate:'unparseable'},'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+fakeWooviError({...fakeCharge.charge,expiresDate:'2020-01-01T00:00:00Z'},'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+fakeWooviError({...fakeCharge.charge,expiresDate:new Date(Date.now()+30000).toISOString()},
+  'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
+
 // User cannot copy a known-expired or cancelled provider code.
 const start=merchant.indexOf('async function merchantCopyBillingPixCode(');
 const end=merchant.indexOf('\nasync function ',start+16);
