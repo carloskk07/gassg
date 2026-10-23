@@ -158,7 +158,7 @@ sql("INSERT INTO public.merchants(id,name,cnpj,status,online) VALUES("+
 const beforeProfile=await call('merchant-orders',owner.token,{merchantId:pendingMerchantId});
 assert.equal(beforeProfile.status,200,'owner must access pending merchant without fictitious approval');
 assert.equal(beforeProfile.body.merchant.status,'pending');
-assert.equal(beforeProfile.body.businessDetails,null,'missing business row must be shown as missing');
+assert.equal(beforeProfile.body.merchant.businessDetails,null,'missing business row must be shown as missing');
 const details={
  legalName:'Empresa Sintetica CI',tradeName:'Revenda Pendente Sintetica CI',
  responsibleName:'Responsavel Sintetico CI',phone:'11999999999',
@@ -188,9 +188,9 @@ assert.equal(stale.status,409,'stale config version must not overwrite verified 
 const confirmed=await call('merchant-orders',owner.token,{merchantId:pendingMerchantId});
 assert.equal(confirmed.status,200);
 for(const [key,value] of Object.entries(details))
- assert.equal(confirmed.body.businessDetails?.[key],value,
+ assert.equal(confirmed.body.merchant.businessDetails?.[key],value,
   'same authenticated owner must see persistently stored '+key);
-assert.equal(Object.hasOwn(confirmed.body.businessDetails,'adminNotes'),false);
+assert.equal(Object.hasOwn(confirmed.body.merchant.businessDetails,'adminNotes'),false);
 assert.equal(confirmed.body.merchant.status,'pending',
  'company self-declaration must never auto-approve the merchant');
 assert.equal(confirmed.body.merchant.online,false);
