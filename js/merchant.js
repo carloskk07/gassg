@@ -1491,63 +1491,49 @@ function merchantEnablementCheckView(check){
       '<span class="status-pill '+(ok?'online':'offline')+'">'+(ok?'Conforme':'Pendente')+'</span>'+
     '</div></div>';
 }
-// Complete business registration by the accountable person in the existing
-// portal, not by creating a second merchant or silently approving compliance.
-// All values are read from the private, owner-only merchant-orders response.
-function merchantBusinessProfileSection(merchant,pending=false){
-  if(!merchant||merchant.status!=='pending'||merchant.online===true||
-    !['owner','manager'].includes(String(merchant.memberRole||'')))return '';
-  const profile=merchant.businessProfile||{};
-  const fields=[
-    ['legalName','Razão social','text',180],
-    ['tradeName','Nome fantasia','text',120],
-    ['responsibleName','Nome do responsável','text',120],
-    ['phone','Telefone com DDD (somente números)','tel',13],
-    ['whatsapp','WhatsApp com DDD (somente números)','tel',13],
-    ['postalCode','CEP comercial (8 números)','text',8],
-    ['city','Município','text',120],
-    ['state','UF (duas letras)','text',2],
-    ['addressText','Endereço do estabelecimento','text',240]
+// Private, pending-only self-service. Saving is NOT an Admin approval.
+function merchantBusinessProfileSection(m,pending=false){
+  if(m?.status!=='pending'||m.online===true||
+     !['owner','manager'].includes(m.memberRole))return '';
+  const labels=[
+    ['legalName','Razão social',180],['tradeName','Nome fantasia',120],
+    ['responsibleName','Responsável',120],['phone','Telefone (DDD)',13],
+    ['whatsapp','WhatsApp (DDD)',13],['postalCode','CEP',8],
+    ['city','Município',120],['state','UF',2],['addressText','Endereço',240]
   ];
-  const inputs=fields.map(([key,label,type,max])=>
-    '<div class="input-wrap"><label for="merchant-business-'+key+'">'+label+'</label>'+
-    '<input class="input" id="merchant-business-'+key+'" type="'+type+'" maxlength="'+max+
-      '" required autocomplete="off" value="'+esc(profile[key]||'')+'"></div>').join('');
-  return '<div class="card flat" style="margin:12px 0" id="merchant-business-profile">'+
+  const inputs=labels.map(([key,label,max])=>
+    '<label class="input-wrap">'+label+
+    '<input class="input" id="merchant-business-'+key+
+    '" maxlength="'+max+'" required value="'+esc(m.businessProfile?.[key]||'')+
+    '"></label>').join('');
+  return '<div class="card flat" id="merchant-business-profile">'+
     '<h3>Dados da minha revenda</h3>'+
-    '<p class="tiny muted">Preencha os dados reais do estabelecimento uma única vez. Você pode corrigir enquanto o cadastro estiver pendente. Salvar não valida CNPJ, ANP, representação ou libera vendas; o TAMÃO faz a conferência separadamente.</p>'+
-    '<div class="grid cards-2" style="margin-top:12px">'+inputs+'</div>'+
+    '<p class="tiny muted">Informe os dados reais. Salvar não valida CNPJ, ANP ou representação, nem libera vendas. A equipe TAMÃO revisa o cadastro.</p>'+
+    '<div class="grid cards-2">'+inputs+'</div>'+
     '<button type="button" class="primary" onclick="merchantBusinessProfileSaveFromUi()"'+
-      (pending?' disabled':'')+'>Salvar dados da revenda</button>'+
-    '<small class="muted">Apenas o responsável ou gerente visualiza estas informações.</small>'+
-    '</div>';
+    (pending?' disabled':'')+'>Salvar dados da revenda</button></div>';
 }
 async function merchantBusinessProfileSaveFromUi(){
   const m=globalThis.merchantRuntime?.merchant;
-  if(!m||m.status!=='pending'||m.online===true||
-    !['owner','manager'].includes(String(m.memberRole||'')))return;
-  const keys=['legalName','tradeName','responsibleName','phone','whatsapp',
-    'postalCode','city','state','addressText'];
-  const input=key=>document.getElementById('merchant-business-'+key);
-  if(keys.some(key=>!input(key)))return toast('Atualize o painel e abra o cadastro novamente.');
-  for(const key of keys){
-    if(!input(key).checkValidity()){
-      input(key).reportValidity?.();
-      input(key).focus?.();
-      return;
-    }
+  if(m?.status!=='pending'||m.online===true||
+     !['owner','manager'].includes(m.memberRole))return;
+  const fields=['legalName','tradeName','responsibleName','phone',
+    'whatsapp','postalCode','city','state','addressText'];
+  const values={};
+  for(const key of fields){
+    const el=document.getElementById('merchant-business-'+key);
+    if(!el)return toast('Atualize o cadastro.');
+    if(!el.checkValidity()){el.reportValidity?.();el.focus?.();return;}
+    values[key]=String(el.value||'').trim();
   }
-  const profile=Object.fromEntries(keys.map(key=>[key,String(input(key).value||'').trim()]));
-  profile.state=profile.state.toUpperCase();
-  if(!/^\d{10,13}$/.test(profile.phone)||!/^\d{10,13}$/.test(profile.whatsapp)||
-    !/^\d{8}$/.test(profile.postalCode)||
-    !/^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/.test(profile.state)||
-    profile.city.length<2||profile.addressText.length<5){
-    return toast('Confira telefone, WhatsApp, CEP, UF, município e endereço.');
-  }
+  values.state=values.state.toUpperCase();
+  if(!/^\d{10,13}$/.test(values.phone)||!/^\d{10,13}$/.test(values.whatsapp)||
+     !/^\d{8}$/.test(values.postalCode)||!/^[A-Z]{2}$/.test(values.state)||
+     values.city.length<2||values.addressText.length<5)
+    return toast('Confira telefone, WhatsApp, CEP, UF, cidade e endereço.');
   try{
-    await merchantUpdateBusinessProfileLive(profile);
-    toast('Cadastro salvo. A liberação comercial depende da análise do TAMÃO.');
+    await merchantUpdateBusinessProfileLive(values);
+    toast('Cadastro salvo. A revisão do TAMÃO continua necessária.');
   }catch(error){toast(String(error?.message||error));}
 }
 
