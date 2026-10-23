@@ -121,7 +121,7 @@ const profileMigration=read('supabase/migrations/20261023222508_merchant_self_se
 const bsc={esc};
 vm.runInNewContext(cut(merchantPortal,'merchantBusinessProfileView')+
  ';this.profile=merchantBusinessProfileView;',bsc);
-const escapedProfile=bsc.profile({merchant:{memberRole:'owner',
+const escapedProfile=bsc.profile({merchant:{memberRole:'owner',status:'pending',
  businessDetails:{legalName:'Empresa <script>alert(1)</script>',
  city:'São Gabriel',state:'RS',postalCode:'97300000',addressText:'Rua de Teste'}},actionPending:false});
 assert.ok(escapedProfile.includes('Empresa &lt;script&gt;alert(1)&lt;/script&gt;'));
@@ -186,5 +186,14 @@ assert.equal(guided.snapshot(manager).length,3,
 assert.ok(!guided.setup(manager).includes('Dados e endereço'));
 assert.ok(guided.first(manager,false).includes('0 de 3 configurados'));
 assert.ok(!guided.setup(manager).includes("merchantSetupGo('business')"));
+
+const blockedApproved=bsc.profile({merchant:{memberRole:'owner',status:'active',
+ businessDetails:{legalName:'Empresa Legal',city:'São Gabriel'}}});
+assert.ok(blockedApproved.includes('solicite revisão ao TAMÃO'));
+assert.ok(!blockedApproved.includes('merchantBusinessProfileSaveFromUi()'));
+assert.ok(ownerOps.includes('MERCHANT_BUSINESS_REVIEW_REQUIRED'));
+const reviewGuard=read('supabase/migrations/20261023224000_merchant_business_review_after_activation.sql');
+assert.ok(reviewGuard.includes("v_merchant.status<>'pending'"));
+assert.ok(reviewGuard.includes('MERCHANT_BUSINESS_GUARD_BASELINE_DRIFT_BLOCKED'));
 
 console.log('V1.157 passou: SQL restrito, equivalência operacional, sem ativação, painel XSS e status reais');

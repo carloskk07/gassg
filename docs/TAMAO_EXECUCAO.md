@@ -14,6 +14,21 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Checkpoint 23/10/2026 — proteger aprovação existente contra alteração cadastral unilateral
+
+**Partida verificada:** [PR #580](https://github.com/carloskk07/gassg/pull/580) integrada à `main` em `cc66ead2a75a4d483be2be89c8dc1c6d74ff809e`. CI do HEAD `4799f64cdafe24c1f81c81bf873cbcf5dcc23188`: Audit #40033826715, integração isolada #40033826664 e revisão pública #40033826638, todos SUCCESS. `20261023222508_merchant_self_service_business_details.sql` corresponde byte-exato à migração já instalada, sem reexecução ou redundância.
+
+**Análise de segurança adicional:** o autoatendimento de `merchant_business_details` criado na PR #579 permite editar razão social, responsável, CEP, cidade, UF e endereço. Não há trigger que invalide automaticamente aprovação documental/ANP quando esses dados mudam, só uma trigger de descoberta de cidade. Uma revenda **já `active`** poderia reutilizar uma confirmação legal/regulatória antiga com novos dados autodeclarados. Isso não equivale a vazamento, mas é risco de integridade e conformidade comercial; não aceitá-lo na operação real.
+
+**Correção objetiva na branch `fix/preapproval-only-merchant-identity-edits`:** a mesma ação `update-business-details` agora exige no **Edge** a situação `pending` do cadastro associado ao JWT owner e na função **canônica** `merchant_config_action` revalida `v_merchant.status='pending'` dentro da transação/versionamento antes de gravar. A nova migração `20261023224000_merchant_business_review_after_activation.sql` adiciona só esse gate à função instalada com substituição byte-exata e fail-closed contra drift. Não concede RPC a browser, não altera tributos, status, CNPJ, review, preço, ordens ou modos globais. UI só permite abrir o editor durante `pending`; parceiros ativos recebem orientação explícita para pedir revisão ao TAMÃO. Não há fluxo ou formulário paralelo.
+
+**Regressão isolada:** `tests/isolated-supabase-positive-checkout.mjs` simula (somente Postgres local) revenda inicialmente aprovada recusando edição (HTTP 409 `MERCHANT_BUSINESS_REVIEW_REQUIRED`), transfere para `pending` na fixture descartável, testa comprador 403, CEP inválido 400, gravação legítima owner 200 e replay idempotente, preserva `pending/offline`, restaura estado da fixture antes de testar o pedido sintético ponta a ponta; contratos de UI verificam o formulário indisponível a revenda ativa. Produção não tem endereços preenchidos nem revenda ativa; seguir `PRELAUNCH`.
+
+**Conciliação com a `main`:** PR #582 integrada em `445efa2467f6187c714b590aea3ad93d30583379`; esta correção continua na mesma PR #581, preservando o passo inicial de endereço para owners `pending`. Owners `active` não terão CTA de edição impossibilitado; decisão de revisão permanece administrativa. **Gates:** ainda exige Audit, Supabase Auth/Edge/Postgres efêmero e revisão sem deploy SUCCESS no SHA final antes de integrar, e somente depois migração/Edge real com reconciliação do histórico. `OP-MERCHANT`, `OP-ORDER`, `OP-PIX` e `OP-REFERRAL` ainda não são homologados.
+
+
+---
+
 ## Checkpoint 23/10/2026 — endereço da revenda como primeiro passo do próprio owner
 
 **Continuidade conferida:** `main=cc66ead2a75a4d483be2be89c8dc1c6d74ff809e`. PR #579 já mesclada, owner pode salvar dados e endereço pelo formulário e Edge/RPC canônicos; a migration empresarial foi conciliada com a versão Supabase `20261023222508`. Banco comercial atesta os portais no mesmo SHA e mantém `READY_WITH_WARNINGS`, `securityBlockers=[]`, `PRELAUNCH`, `commerce_enabled=false`, pedidos=0. **Nenhuma informação empresarial foi de fato enviada pelo owner** (`merchant_business_details` continua 0); preços com confirmação recente=0, pagamentos de cobrança=0, payouts comprovados=0.
