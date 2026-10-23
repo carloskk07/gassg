@@ -159,8 +159,25 @@ const authorizedAdmin=await call('admin-ops',adminActor.token,{action:'summary'}
 assert.equal(authorizedAdmin.status,200,'Admin HTTP summary: '+JSON.stringify(authorizedAdmin.body).slice(0,420));
 assert.ok(authorizedAdmin.body.controlOrders?.some(o=>o.id===first.body.orderId),
  'authorized Admin must see the same real local accepted order');
+// Unauthorized customer cannot write an administrative note either.
+const forbiddenNote=await call('admin-ops',buyer.token,{
+ action:'order-control',orderId:first.body.orderId,controlAction:'note',
+ expectedVersion:nowCustomer.body.version,reason:'CI buyer attempted forged Admin note'
+},{'Idempotency-Key':'ci-buyer-forged-admin-'+randomUUID()});
+assert.equal(forbiddenNote.status,403);
+assert.equal(forbiddenNote.body.error,'ADMIN_ACCESS_DENIED');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='ADMIN_NOTE'"),'0');
 // Observe the SAME local persisted order through the canonical browser UI.
 await verifyIsolatedLivePortals({api:base,anon,buyer,owner,adminActor,orderId:first.body.orderId,merchantId});
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND actor_user_id="+q(adminActor.id)+"::uuid AND event_type='ADMIN_NOTE'"),'1',
+ 'Admin note button must append a single legitimate order audit event');
+assert.equal(sql("SELECT count(*) FROM public.platform_admin_audit WHERE actor_user_id="+q(adminActor.id)+"::uuid AND action='order-control-note' AND target_id="+q(first.body.orderId)),'1',
+ 'Admin note must be recorded in the platform audit log');
+assert.equal(sql("SELECT count(*) FROM public.action_requests WHERE user_id="+q(adminActor.id)+"::uuid AND action_name='admin-order:note' AND completed_at IS NOT NULL"),'1',
+ 'Admin note must complete exactly one idempotent action');
+assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(first.body.orderId)+"::uuid"),'PREPARING',
+ 'a note must not change customer-visible order state');
+
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
 assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='CHARCOAL2'"),'4','one item must be reserved exactly once');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='MERCHANT_ACCEPTED'"),'1','replay cannot duplicate acceptance event');
