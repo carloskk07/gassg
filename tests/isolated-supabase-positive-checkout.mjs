@@ -159,6 +159,14 @@ const authorizedAdmin=await call('admin-ops',adminActor.token,{action:'summary'}
 assert.equal(authorizedAdmin.status,200,'Admin HTTP summary: '+JSON.stringify(authorizedAdmin.body).slice(0,420));
 assert.ok(authorizedAdmin.body.controlOrders?.some(o=>o.id===first.body.orderId),
  'authorized Admin must see the same real local accepted order');
+// Unauthorized customer cannot write an administrative note either.
+const forbiddenNote=await call('admin-ops',buyer.token,{
+ action:'order-control',orderId:first.body.orderId,controlAction:'note',
+ expectedVersion:nowCustomer.body.version,reason:'CI buyer attempted forged Admin note'
+},{'Idempotency-Key':'ci-buyer-forged-admin-'+randomUUID()});
+assert.equal(forbiddenNote.status,403);
+assert.equal(forbiddenNote.body.error,'ADMIN_ACCESS_DENIED');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='ADMIN_NOTE'"),'0');
 // Observe the SAME local persisted order through the canonical browser UI.
 await verifyIsolatedLivePortals({api:base,anon,buyer,owner,adminActor,orderId:first.body.orderId,merchantId});
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
