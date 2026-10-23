@@ -140,4 +140,51 @@ assert.ok(profileMigration.includes('pendingAdministrativeVerification'));
 assert.ok(!profileMigration.includes('UPDATE public.platform_launch_control'));
 assert.ok(!profileMigration.includes("status='active'"));
 assert.ok(merchantPortal.includes('O envio não aprova CNPJ'));
+
+const guideCalls=[];
+const guided={
+ esc,merchantTimestampFresh:()=>false,
+ merchantBusinessProfileFocus:()=>guideCalls.push('business'),
+ go:key=>guideCalls.push('go:'+key),
+ merchantRevealControl:selector=>{guideCalls.push('reveal:'+selector);return true;},
+ toast:message=>guideCalls.push('toast:'+message)
+};
+vm.runInNewContext(cut(merchantPortal,'merchantSetupSnapshot')+
+ '\n'+cut(merchantPortal,'merchantSetupView')+
+ '\n'+cut(merchantPortal,'merchantSetupGo')+
+ '\n'+cut(merchantPortal,'merchantFirstRunModel')+
+ '\n'+cut(merchantPortal,'merchantFirstRunView')+
+ ';this.snapshot=merchantSetupSnapshot;this.setup=merchantSetupView;this.goto=merchantSetupGo;this.first=merchantFirstRunView;',guided);
+const incomplete={status:'ready',merchant:{memberRole:'owner',merchantId:merchantId,
+ status:'pending',businessDetails:null,paymentMethods:{cash:true},acceptsCitywide:false},
+ catalog:[],paymentRoutes:[]};
+const firstSteps=guided.snapshot(incomplete);
+assert.equal(firstSteps.length,4,'owner needs address as an actual first setup step');
+assert.equal(firstSteps[0].key,'business');
+assert.equal(firstSteps[0].done,false);
+const freshGuide=guided.first(incomplete,false);
+assert.ok(freshGuide.includes('0 de 4 configurados'));
+assert.ok(freshGuide.includes("merchantSetupGo('business')"));
+assert.ok(freshGuide.includes('Informe o endereço e os dados reais'));
+assert.equal((freshGuide.match(/merchantBusinessProfileFocus/g)||[]).length,0,
+ 'do not duplicate the profile CTA outside the canonical setup step');
+assert.ok(guided.setup(incomplete).includes('0 de 4 preenchidos'));
+guided.goto('business');
+assert.deepEqual(guideCalls,['business'],'address CTA reuses the existing protected owner form');
+const declared={...incomplete,merchant:{...incomplete.merchant,businessDetails:{
+ city:'São Gabriel',state:'RS',postalCode:'97300000',addressText:'Rua informada pelo proprietário'
+}}};
+const declaredSteps=guided.snapshot(declared);
+assert.equal(declaredSteps[0].done,true);
+assert.match(declaredSteps[0].detail,/aguardando conferência/);
+assert.ok(guided.setup(declared).includes('1 de 4 preenchidos'));
+assert.ok(!guided.setup(declared).includes('Aprovado pela ANP'),
+ 'self-declared business address cannot authorize regulated commerce');
+const manager={...incomplete,merchant:{...incomplete.merchant,memberRole:'manager'}};
+assert.equal(guided.snapshot(manager).length,3,
+ 'manager must not receive an action reserved for the permanent owner');
+assert.ok(!guided.setup(manager).includes('Dados e endereço'));
+assert.ok(guided.first(manager,false).includes('0 de 3 configurados'));
+assert.ok(!guided.setup(manager).includes("merchantSetupGo('business')"));
+
 console.log('V1.157 passou: SQL restrito, equivalência operacional, sem ativação, painel XSS e status reais');
