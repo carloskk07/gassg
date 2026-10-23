@@ -151,6 +151,14 @@ const nowCustomer=await call('get-order',buyer.token,{orderId:first.body.orderId
 assert.equal(nowCustomer.status,200);
 assert.equal(nowCustomer.body.status,'PREPARING');
 assert.equal(nowCustomer.body.version,own.body.version+1);
+// Exercise the canonical Admin API with real local Auth, not a bypass.
+const rejectedAdmin=await call('admin-ops',buyer.token,{action:'summary'});
+assert.equal(rejectedAdmin.status,403,'buyers cannot read Admin summary');
+assert.equal(rejectedAdmin.body.error,'ADMIN_ACCESS_DENIED');
+const authorizedAdmin=await call('admin-ops',adminActor.token,{action:'summary'});
+assert.equal(authorizedAdmin.status,200,'Admin HTTP summary: '+JSON.stringify(authorizedAdmin.body).slice(0,420));
+assert.ok(authorizedAdmin.body.controlOrders?.some(o=>o.id===first.body.orderId),
+ 'authorized Admin must see the same real local accepted order');
 // Observe the SAME local persisted order through the canonical browser UI.
 await verifyIsolatedLivePortals({api:base,anon,buyer,owner,orderId:first.body.orderId,merchantId});
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
