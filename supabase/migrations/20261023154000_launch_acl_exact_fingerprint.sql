@@ -21,7 +21,7 @@ WITH t AS (
     AND NOT has_table_privilege(r.x,c.oid,p.x)) col,
   (SELECT coalesce(jsonb_agg(
     md5(pol.polname||':'||pol.polcmd::text||':'||pol.polpermissive::text||':'||
-        pol.polroles::text||':'||coalesce(pg_get_expr(pol.polqual,pol.polrelid),'')||':'||
+        (SELECT coalesce(string_agg(coalesce(r.rolname,'PUBLIC'),',' ORDER BY coalesce(r.rolname,'PUBLIC')),'') FROM unnest(pol.polroles) AS role_oid LEFT JOIN pg_roles r ON r.oid=role_oid)||':'||coalesce(pg_get_expr(pol.polqual,pol.polrelid),'')||':'||
         coalesce(pg_get_expr(pol.polwithcheck,pol.polrelid),''))
     ORDER BY pol.polname),'[]'::jsonb)
    FROM pg_policy pol WHERE pol.polrelid=c.oid) policies
@@ -128,7 +128,7 @@ $old$;
   -- The fingerprints were computed from the commercial database on
   -- 23 October 2026 using the same catalog query as the function above.
   if (public.tamao_launch_acl_posture_v1()->>'tableDigest')
-     is distinct from '8d1723a59095686eb8b0d4a7a667f3d1' then
+     is distinct from 'b2217c55d0acd0b5d576724941c50c93' then
     v_security:=array_append(v_security,'browser_sensitive_table_acl');
   end if;
 
