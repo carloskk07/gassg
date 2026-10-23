@@ -153,6 +153,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   const adminView=JSON.parse(await evaluate("JSON.stringify({status:adminRuntime.status,role:adminRuntime.data?.currentAdmin?.admin_role,orders:adminRuntime.data?.controlOrders?.length,match:adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+"),visible:document.querySelector('#app')?.innerText.slice(0,5000)})"));
   assert.equal(adminView.role,'superadmin','Admin UI must use its real membership role');
   assert.equal(adminView.match,true);
+  const orderCardVisible=await evaluate("Array.from(document.querySelectorAll('.order-card .order-id')).some(el=>el.textContent.trim()===(adminRuntime.data?.controlOrders?.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code||''))");
+  assert.equal(orderCardVisible,true,'the actual Admin orders UI must render this local order card');
   assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
   assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
