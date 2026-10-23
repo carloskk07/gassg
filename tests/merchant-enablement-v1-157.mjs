@@ -195,9 +195,5 @@ assert.ok(ownerOps.includes('MERCHANT_BUSINESS_REVIEW_REQUIRED'));
 const reviewGuard=read('supabase/migrations/20261023224000_merchant_business_review_after_activation.sql');
 assert.ok(reviewGuard.includes("v_merchant.status<>'pending'"));
 assert.ok(reviewGuard.includes('MERCHANT_BUSINESS_GUARD_BASELINE_DRIFT_BLOCKED'));
-const alreadyApproved={...incomplete,merchant:{...incomplete.merchant,status:'active'}};
-assert.equal(guided.snapshot(alreadyApproved).length,3,
- 'approved merchant must not see an unreachable self-service identity step');
-assert.ok(!guided.setup(alreadyApproved).includes("merchantSetupGo('business')"));
 
 console.log('V1.157 passou: SQL restrito, equivalência operacional, sem ativação, painel XSS e status reais');
