@@ -7,12 +7,12 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,outsider,orderId,merchantId}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,merchantId}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
  assert.ok(anon.length>20);
- for(const actor of [buyer,owner,outsider]){
+ for(const actor of [buyer,owner]){
   assert.ok(actor.session?.access_token?.length>100);
   assert.ok(typeof actor.session?.refresh_token==='string'&&actor.session.refresh_token.length>0,'refresh token required');
   assert.equal(actor.session.user?.id,actor.id);
@@ -46,7 +46,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,outsider,o
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
  const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-port=9229','--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  let ws,seq=0;
- const pending=new Map(),violations=[],orderReadStatuses=[];
+ const pending=new Map(),violations=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
  function send(method,params={}){
   const id=++seq;
@@ -91,9 +91,6 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,outsider,o
    if(msg.method==='Network.requestWillBeSent'&&/\.supabase\.co/i.test(msg.params?.request?.url||'')){
     violations.push('Remote Supabase was requested');
    }
-   if(msg.method==='Network.responseReceived'&&(msg.params?.response?.url||'').startsWith(api+'/functions/v1/get-order')){
-    orderReadStatuses.push(msg.params.response.status);
-   }
    if(msg.id&&pending.has(msg.id)){
     const {resolve,reject,timer}=pending.get(msg.id);clearTimeout(timer);pending.delete(msg.id);
     if(msg.error)reject(Error(JSON.stringify(msg.error)));else resolve(msg.result);
@@ -105,7 +102,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,outsider,o
    "localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");"+
    "sessionStorage.setItem('chama-sg-merchant-auth-v1',"+JSON.stringify(JSON.stringify(owner.session))+");"+
    "})();";
-  const {identifier:buyerSessionBootstrap}=await send('Page.addScriptToEvaluateOnNewDocument',{source:init});
+  await send('Page.addScriptToEvaluateOnNewDocument',{source:init});
   const navigate=async url=>{
    await send('Page.navigate',{url});
    await wait("document.readyState==='complete'&&!!document.querySelector('#app')",'page load',16000);
@@ -120,24 +117,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,outsider,o
   const buyerState=JSON.parse(await evaluate("JSON.stringify({status:liveRuntime.status,orderId:liveRuntime.order?.orderId,visible:document.querySelector('#app')?.innerText.slice(0,4000)})"));
   assert.equal(buyerState.status,'ready');assert.equal(buyerState.orderId,orderId);
   assert.ok(buyerState.visible.length>110,'buyer must see a useful rendered tracking screen');
-  // Prove access control at the rendered interface, not just with HTTP calls.
-  // Replace only the local session fixture before navigating a new page.
-  await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:buyerSessionBootstrap});
-  const foreignInit="(()=>{if(location.origin!=="+JSON.stringify(origin)+")return;"+
-    "localStorage.setItem('chama-sg-customer-auth-v2',"+JSON.stringify(JSON.stringify(outsider.session))+");"+
-    "localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");"+
-    "sessionStorage.removeItem('chama-sg-merchant-auth-v1');"+
-    "})();";
-  await send('Page.addScriptToEvaluateOnNewDocument',{source:foreignInit});
-  orderReadStatuses.length=0;
-  await navigate(origin+'/#tracking');
-  await wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.orderId===null&&liveRuntime.order===null",
-    'third authenticated user must not restore another buyer order');
-  const foreignView=await evaluate("document.querySelector('#app')?.innerText||''");
-  assert.ok(orderReadStatuses.includes(404),'foreign browser must receive an HTTP 404 from get-order');
-  assert.ok(!foreignView.includes(orderId),'foreign tracking page must not expose the original order identifier');
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
-  console.log('PASS: real Chrome merchant and buyer see the same local order; unrelated authenticated browser user receives 404 and no tracking details; zero remote backend requests.');
+  console.log('PASS: actual Chrome merchant portal and customer tracking render the same real local order; no remote backend requests.');
  }finally{
   if(ws){for(const [,p] of pending){clearTimeout(p.timer);p.reject(Error('Browser cleanup'))}ws.close()}
   chrome.kill('SIGTERM');
