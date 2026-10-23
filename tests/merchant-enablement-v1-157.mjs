@@ -112,4 +112,32 @@ const done=sandbox.card({merchant_name:'Revenda Exemplo',city:'São Gabriel',sta
   merchant_status:'active',ready:true,checks:[{key:'stock',label:'Estoque',ok:true}]});
 assert.ok(done.includes('Apta para cotação'));
 assert.ok(done.includes('Conforme'));
+// A first merchant must be able to supply a REAL address without receiving
+// automatic compliance, ANP, status, or payment approval.
+const merchantPortal=read('js/merchant.js');
+const ownerOps=read('supabase/functions/merchant-ops/index.ts');
+const readOrders=read('supabase/functions/merchant-orders/index.ts');
+const profileMigration=read('supabase/migrations/20261023223000_merchant_self_service_business_details.sql');
+const bsc={esc};
+vm.runInNewContext(cut(merchantPortal,'merchantBusinessProfileView')+
+ ';this.profile=merchantBusinessProfileView;',bsc);
+const escapedProfile=bsc.profile({merchant:{memberRole:'owner',
+ businessDetails:{legalName:'Empresa <script>alert(1)</script>',
+ city:'São Gabriel',state:'RS',postalCode:'97300000',addressText:'Rua de Teste'}},actionPending:false});
+assert.ok(escapedProfile.includes('Empresa &lt;script&gt;alert(1)&lt;/script&gt;'));
+assert.ok(!escapedProfile.includes('<script>'));
+assert.ok(escapedProfile.includes('merchantBusinessProfileSaveFromUi()'));
+assert.equal(bsc.profile({merchant:{memberRole:'manager'},businessDetails:{}}),'',
+ 'manager must not view the owner identity form');
+assert.equal(bsc.profile({merchant:{memberRole:'driver'},businessDetails:{}}),'',
+ 'driver must not view the owner identity form');
+assert.ok(ownerOps.includes('if(action==="update-business-details")'));
+assert.ok(ownerOps.includes('if(role!=="owner")'));
+assert.ok(readOrders.includes('if(selected.member_role==="owner")'));
+assert.ok(profileMigration.includes("if v_role<>'owner'"));
+assert.ok(profileMigration.includes('MERCHANT_CONFIG_BASELINE_DRIFT_BLOCKED'));
+assert.ok(profileMigration.includes('pendingAdministrativeVerification'));
+assert.ok(!profileMigration.includes('UPDATE public.platform_launch_control'));
+assert.ok(!profileMigration.includes("status='active'"));
+assert.ok(merchantPortal.includes('O envio não aprova CNPJ'));
 console.log('V1.157 passou: SQL restrito, equivalência operacional, sem ativação, painel XSS e status reais');

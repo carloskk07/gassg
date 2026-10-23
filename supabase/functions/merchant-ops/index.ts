@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-business-details","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,39 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    // Auth belongs to this merchant, but only the permanent owner may
+    // supply its legal/contact address. The submission is SELF-DECLARED,
+    // never a compliance approval or online availability signal.
+    if(action==="update-business-details"){
+      if(role!=="owner")throw new DomainError("MERCHANT_ACCESS_DENIED",
+        "Somente o proprietário pode informar os dados cadastrais.",403);
+      const rules=[
+        ["legalName",3,160],["tradeName",2,140],
+        ["responsibleName",3,120],["phone",10,11],
+        ["whatsapp",10,11],["postalCode",8,8],
+        ["city",2,100],["state",2,2],["addressText",8,260]
+      ] as const;
+      const payload:Record<string,string>={};
+      for(const [key,min,max] of rules){
+        if(typeof body[key]!=="string"||body[key]!==body[key].trim())
+          throw new DomainError("INVALID_BUSINESS_PROFILE","Confira os dados cadastrais.",400);
+        const value=body[key].trim();
+        if(value.length<min||value.length>max||/[\r\n<>]/.test(value))
+          throw new DomainError("INVALID_BUSINESS_PROFILE","Confira os dados cadastrais.",400);
+        payload[key]=value;
+      }
+      if(!/^[0-9]{10,11}$/.test(payload.phone)||
+        !/^[0-9]{10,11}$/.test(payload.whatsapp)||
+        !/^[0-9]{8}$/.test(payload.postalCode)||
+        !/^[A-Z]{2}$/.test(payload.state))
+        throw new DomainError("INVALID_BUSINESS_PROFILE",
+          "Use telefone e CEP com somente números e UF com duas letras.",400);
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),payload
+      });
+      return json(data,200,origin);
+    }
     if(action==="ads-return-execution"){
       if(!["owner","manager"].includes(String(role))||body.operation!=="view")
         throw new DomainError("ADS_RETURN_EXECUTION_MERCHANT_DENIED","Histórico restrito à gestão da revenda.",403);

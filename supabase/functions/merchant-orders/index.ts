@@ -719,11 +719,28 @@ Deno.serve(async(req:Request)=>{
       });
     }
 
+    let businessDetails:any=null;
+    if(selected.member_role==="owner"){
+      const {data:business,error:businessError}=await admin
+        .from("merchant_business_details")
+        .select("legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,updated_at")
+        .eq("merchant_id",selected.merchant_id)
+        .maybeSingle();
+      if(businessError)throw businessError;
+      if(business)businessDetails={
+        legalName:business.legal_name,tradeName:business.trade_name,
+        responsibleName:business.responsible_name,phone:business.phone,
+        whatsapp:business.whatsapp,postalCode:business.postal_code,
+        city:business.city,state:business.state,addressText:business.address_text,
+        updatedAt:business.updated_at
+      };
+    }
     return json({
       merchant:{
         merchantId:merchant.id,
         name:merchant.name,
         memberRole:selected.member_role,
+        businessDetails,
         status:merchant.status,
         online:merchant.online,
         trustScore:merchant.trust_score,
