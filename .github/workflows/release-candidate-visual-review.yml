@@ -308,7 +308,38 @@ jobs:
               >"/tmp/tamao-live-${role}.log" 2>&1
             test -s "$OUT"
             test "$(wc -c < "$OUT")" -gt 4000
-            printf 'Public logged-out screenshot: %s (%s bytes)\n' "$role" "$(wc -c < "$OUT")"
+            # A PNG can be an error page, blocked challenge or blank startup.
+            # Read actual rendered DOM in another fresh, logged-out session.
+            DOM="release-review-screenshots/LIVE-${role}-390.html"
+            timeout 35 "$CHROME" --headless=new --no-sandbox \
+              --disable-gpu --disable-dev-shm-usage \
+              --window-size=390,844 --virtual-time-budget=5000 \
+              --user-data-dir="/tmp/tamao-live-dom-${role}-$GITHUB_RUN_ID" \
+              --dump-dom "$URL" > "$DOM" 2>"/tmp/tamao-live-${role}-dom.log"
+            PORTAL_ROLE="$role" PORTAL_DOM="$DOM" node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const role=process.env.PORTAL_ROLE;
+          const dom=fs.readFileSync(process.env.PORTAL_DOM,'utf8');
+          assert.ok(['customer','merchant','admin'].includes(role));
+          assert.match(dom,new RegExp('data-chama-portal="'+role+'"'),
+            'live browser rendered a different portal or challenge');
+          assert.match(dom,/<main\b|id="app"/i,'no application root');
+          assert.doesNotMatch(dom,/Just a moment\.\.\.|Checking your browser|ERR_NAME_NOT_RESOLVED/i,
+            'browser screenshot is a challenge/error, not the TAMÃO UI');
+          if(role==='customer'){
+            assert.match(dom,/tamao-quote-first/,
+              'customer home must show real price/consultation UI without first-login gate');
+          }else if(role==='merchant'){
+            assert.match(dom,/Entrar no painel|Entre com seu e-mail|painel da revenda/i,
+              'merchant must render the actual signed-out entry UI');
+          }else{
+            assert.match(dom,/Administração protegida|E-mail administrativo/i,
+              'admin must render protected signed-out entry UI');
+          }
+          console.log('LIVE_DOM_RENDER_VERIFIED='+role);
+          NODE
+            printf 'Public logged-out screenshot and DOM: %s (%s bytes)\n' "$role" "$(wc -c < "$OUT")"
           done
       - name: Preserve independent read-only evidence for the launch gate
         if: always()
@@ -318,5 +349,6 @@ jobs:
           path: |
             release-review-screenshots/LIVE-PORTALS-OBSERVED.json
             release-review-screenshots/LIVE-*-390.png
+            release-review-screenshots/LIVE-*-390.html
           if-no-files-found: warn
           retention-days: 14

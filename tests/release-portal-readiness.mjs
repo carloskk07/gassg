@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {PORTAL_ORIGINS,inspectLivePortals} from '../scripts/release-portal-readiness.mjs';
 
 const live='9ee0547aaaf2ac8b1ca742dab16984f025ca3548';
@@ -65,4 +66,20 @@ await assert.rejects(
  ()=>inspectLivePortals({candidateSha:'not-a-sha',fetcher:mockFetch()}),
  /40-character Git SHA/
 );
+
+// Published screenshots are NOT evidence merely because Chrome wrote a PNG.
+// The existing read-only review workflow must inspect real hydrated DOM and
+// reject a challenge or an empty/mismatched customer, merchant or admin UI.
+const visualWorkflow=fs.readFileSync(new URL('../.github/workflows/release-candidate-visual-review.yml',import.meta.url),'utf8');
+assert.match(visualWorkflow,/--dump-dom/);
+assert.match(visualWorkflow,/LIVE_DOM_RENDER_VERIFIED=/);
+assert.match(visualWorkflow,/data-chama-portal/);
+assert.match(visualWorkflow,/tamao-quote-first/);
+assert.match(visualWorkflow,/Administração protegida/);
+assert.match(visualWorkflow,/painel da revenda/);
+assert.match(visualWorkflow,/Just a moment/);
+assert.match(visualWorkflow,/LIVE-\*-390\.html/);
+assert.ok(visualWorkflow.indexOf('LIVE_DOM_RENDER_VERIFIED=')>visualWorkflow.indexOf('test "$(wc -c < "$OUT")"'),
+ 'browser DOM validation must accompany the PNG size gate');
+
 console.log('Release readiness: live three-portal SHA equality, baseline match, candidate not deployed, role/origin/source validation and fail-closed errors passed.');
