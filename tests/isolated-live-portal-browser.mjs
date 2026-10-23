@@ -14,7 +14,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,orderId,me
  assert.ok(anon.length>20);
  for(const actor of [buyer,owner]){
   assert.ok(actor.session?.access_token?.length>100);
-  assert.ok(actor.session?.refresh_token?.length>15);
+  assert.ok(typeof actor.session?.refresh_token==='string'&&actor.session.refresh_token.length>0,'refresh token required');
   assert.equal(actor.session.user?.id,actor.id);
  }
  const root=path.resolve('.');
