@@ -56,6 +56,57 @@ for(const row of rows){
  for(const policy of e.policies)
    assert.ok(row.policies.includes(policy),row.table+' lost '+policy);
 }
+// Column-level GRANTs are NOT reported by has_table_privilege(). These
+// narrow SELECT/INSERT/UPDATE grants are deliberate, but a newly exposed
+// column is a data leak risk even when the table-level inventory is unchanged.
+const columns=JSON.parse(sql(`
+SELECT coalesce(jsonb_agg(jsonb_build_object(
+ 'table',tab,'rls',rls,'grants',grants) ORDER BY tab),'[]'::jsonb)
+FROM (
+ SELECT c.relname AS tab,c.relrowsecurity AS rls,
+ jsonb_agg(role.r||':'||perm.p||':'||a.attname
+   ORDER BY role.r,perm.p,a.attname) AS grants
+ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+ CROSS JOIN (VALUES ('anon'),('authenticated')) role(r)
+ CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')) perm(p)
+ WHERE n.nspname='public' AND c.relkind IN ('r','p')
+ AND has_column_privilege(role.r,c.oid,a.attnum,perm.p)
+ AND NOT has_table_privilege(role.r,c.oid,perm.p)
+ GROUP BY c.relname,c.relrowsecurity
+) t`));
+const publishedColumns=[
+ 'city_key','city_name','created_at','description','id','photo_urls',
+ 'public_area','published_at','state_code','status','title','updated_at',
+ 'vertical','whatsapp_e164'
+];
+const listingInsert=[
+ 'city_key','city_name','description','photo_urls','public_area',
+ 'state_code','title','vertical','whatsapp_e164'
+];
+const listingUpdate=[
+ 'city_key','city_name','description','photo_urls','public_area',
+ 'state_code','title','updated_at','whatsapp_e164'
+];
+const expectedColumns={
+ discovery_documents:['kind','listing_id','object_path']
+  .map(col=>'authenticated:INSERT:'+col),
+ discovery_listings:[
+  ...publishedColumns.flatMap(col=>['anon:SELECT:'+col,'authenticated:SELECT:'+col]),
+  ...listingInsert.map(col=>'authenticated:INSERT:'+col),
+  ...listingUpdate.map(col=>'authenticated:UPDATE:'+col)
+ ],
+ discovery_vertical_cities:
+  ['city_key','city_name','enabled','state_code','vertical']
+  .flatMap(col=>['anon:SELECT:'+col,'authenticated:SELECT:'+col])
+};
+assert.deepEqual(columns.map(x=>x.table).sort(),Object.keys(expectedColumns).sort(),
+ 'Unreviewed column-level browser privilege on a public table');
+for(const row of columns){
+ assert.equal(row.rls,true,row.table+' column grants without RLS');
+ assert.deepEqual(row.grants,expectedColumns[row.table].sort(),
+  row.table+' unexpectedly grants a column or removes a scoped grant');
+}
 const expectedFunctions=[
  'claim_my_pilot_partner_invite(p_application_id uuid, p_token text)',
  'discovery_admin_city_matrix(p_limit integer)',
