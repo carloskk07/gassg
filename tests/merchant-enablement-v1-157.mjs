@@ -63,7 +63,7 @@ vm.runInNewContext(cut(ui,'adminEnablementCheckRow')+
 const output=sandbox.card({merchant_name:'<img src=x onerror=alert(1)>',city:'Santa Maria',
   state:'RS',cnpj:'12345678000190',merchant_status:'pending',ready:false,
   checks:[{key:'payment_route',label:'<script>alert(1)</script>',ok:false,
-    action:'<svg onload=alert(1)>',scope:'merchant'}]});
+    action:'<svg onload=alert(1)>',owner:'merchant',scope:'merchant'}]});
 assert.ok(output.includes('&lt;img src=x onerror=alert(1)&gt;'));
 assert.ok(output.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
 assert.ok(output.includes('&lt;svg onload=alert(1)&gt;'));
