@@ -162,6 +162,6 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   chrome.kill('SIGTERM');
   await new Promise(done=>{if(chrome.exitCode!==null||chrome.signalCode!==null)return done();chrome.once('exit',done);setTimeout(done,2000).unref()});
   await new Promise(done=>server.close(done));
-  fs.rmSync(profile,{recursive:true,force:true});
+  fs.rmSync(profile,{recursive:true,force:true,maxRetries:12,retryDelay:250});
  }
 }
