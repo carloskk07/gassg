@@ -1393,6 +1393,68 @@ function merchantPaymentConnectionsView(rt){
 }
 
 /* V1.170 — checklist visual; only server authorization determines if sales are enabled. */
+// Existing business details table: owner declaration, not regulator/Admin approval.
+function merchantBusinessProfileView(rt){
+  const m=rt?.merchant||{};
+  if(m.memberRole!=='owner'||m.status!=='pending')return '';
+  const d=rt.businessDetails||{};
+  const data=[
+    ['legalName','Razão social',180,'text'],
+    ['tradeName','Nome fantasia',120,'text'],
+    ['responsibleName','Responsável',120,'text'],
+    ['phone','Telefone com DDD (somente números)',13,'tel'],
+    ['whatsapp','WhatsApp com DDD (somente números)',13,'tel'],
+    ['postalCode','CEP (8 dígitos)',8,'text'],
+    ['city','Cidade',120,'text'],
+    ['state','UF (2 letras)',2,'text'],
+    ['addressText','Endereço comercial completo',240,'text']
+  ];
+  const row=([key,label,max,type])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+esc(label)+'</label>'+
+    '<input class="input" id="merchant-business-'+key+'" type="'+type+'" maxlength="'+max+
+    '" value="'+esc(String(d[key]||''))+'" autocomplete="off"></div>';
+  return '<section class="card flat" id="merchant-business-profile" aria-label="Dados da empresa">'+
+    '<div class="section-head"><div><span class="section-kicker">CADASTRO DA REVENDA</span>'+
+    '<h3>Dados da empresa e localização</h3><p class="tiny muted">'+
+    (rt.businessDetails?'Revise os dados declarados antes da análise do TAMÃO.':
+    'Complete os dados reais para que o Admin possa analisar esta revenda.')+
+    '</p></div><span class="status-pill '+(rt.businessDetails?'online':'offline')+'">'+
+    (rt.businessDetails?'Informados':'A preencher')+'</span></div>'+
+    '<details '+(!rt.businessDetails?'open':'')+'><summary>Informar ou revisar cadastro</summary>'+
+    '<div class="form-stack" style="margin-top:12px">'+
+    '<div class="field-row">'+data.slice(0,2).map(row).join('')+'</div>'+
+    '<div class="field-row">'+data.slice(2,4).map(row).join('')+'</div>'+
+    '<div class="field-row">'+data.slice(4,6).map(row).join('')+'</div>'+
+    '<div class="field-row">'+data.slice(6,8).map(row).join('')+'</div>'+
+    data.slice(8).map(row).join('')+
+    '<p class="tiny muted">A declaração não altera a aprovação de CNPJ, ANP, documentos ou a disponibilidade para vendas. Informe somente dados verdadeiros.</p>'+
+    '<button type="button" class="primary" onclick="merchantLiveSaveBusinessProfile()" '+(rt.actionPending?'disabled':'')+
+    '>Salvar dados da empresa</button></div></details></section>';
+}
+async function merchantLiveSaveBusinessProfile(){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.merchant?.memberRole!=='owner'||rt.merchant?.status!=='pending')return toast('Cadastro sujeito à revisão administrativa.');
+  const keys=['legalName','tradeName','responsibleName','phone','whatsapp','postalCode','city','state','addressText'];
+  const details={};
+  for(const key of keys){
+    const input=document.getElementById('merchant-business-'+key);
+    if(!input)return toast('Formulário de cadastro incompleto. Atualize o painel.');
+    const raw=String(input.value||'').trim();
+    details[key]=['phone','whatsapp','postalCode'].includes(key)?raw.replace(/\\D/g,''):raw.replace(/\\s+/g,' ');
+  }
+  details.state=details.state.toUpperCase();
+  if(keys.some(key=>!details[key])||!/^\\d{8}$/.test(details.postalCode)||
+    !/^\\d{10,13}$/.test(details.phone)||!/^\\d{10,13}$/.test(details.whatsapp)||
+    !/^[A-Z]{2}$/.test(details.state))
+    return toast('Confira o endereço, CEP, UF e telefones antes de salvar.');
+  if(!confirm('Confirmar que os dados comerciais informados são verdadeiros e deverão ser verificados pelo TAMÃO?'))return;
+  try{
+    await merchantSaveBusinessDetailsLive(details);
+    const saved=globalThis.merchantRuntime?.businessDetails;
+    if(!saved||keys.some(k=>saved[k]!==details[k]))
+      return toast('O servidor respondeu, mas a gravação ainda não foi reconfirmada. Atualize o painel.');
+    toast('Dados registrados para análise, sem ativar a revenda.');
+  }catch(e){toast(String(e?.message||e))}
+}
 function merchantSetupSnapshot(rt){
   const m=rt?.merchant||{};
   const stock=Array.isArray(rt?.catalog)?rt.catalog:[];
@@ -2324,6 +2386,7 @@ function merchantLivePage(){
 
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAlertControl()}
+      ${merchantBusinessProfileView(rt)}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
       ${merchantEnablementAssistantView(rt)}
     </details>
