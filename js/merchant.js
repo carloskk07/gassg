@@ -1455,6 +1455,63 @@ function merchantRevealControl(selector){
   el.focus?.({preventScroll:true});
   return true;
 }
+// Permanent owner may complete missing commercial address, but this is
+// self-declared information: it NEVER confirms CNPJ/representation/ANP.
+function merchantBusinessProfileView(rt){
+  if(rt?.merchant?.memberRole!=='owner')return '';
+  const b=rt.businessDetails||{};
+  const completed=!!(b.city&&b.state&&b.postalCode&&b.addressText);
+  const fields=[
+    ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
+    ['responsibleName','Responsável',120],['phone','Telefone (DDD + número)',11],
+    ['whatsapp','WhatsApp (DDD + número)',11],['postalCode','CEP (8 dígitos)',8],
+    ['city','Cidade',100],['state','UF (2 letras)',2],['addressText','Endereço completo',260]
+  ];
+  return '<details id="merchant-business-profile" class="merchant-settings-drawer"'+
+    (completed?'':' open')+'><summary>Dados e endereço da minha revenda'+
+    '<span>'+(completed?'Informações declaradas • sujeitas à conferência':
+      'Complete o endereço para análise do cadastro')+'</span></summary>'+
+    '<div class="card flat form-stack"><p class="tiny muted">Informe seus dados reais. '+ 
+      'O envio não aprova CNPJ, representação, documentação, ANP ou vendas. '+ 
+      'O TAMÃO precisa conferir os requisitos aplicáveis.</p>'+
+    fields.map(([key,label,max])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+
+      esc(label)+'</label><input id="merchant-business-'+key+'" class="input"'+
+      ' autocomplete="off" maxlength="'+max+'" required value="'+esc(String(b[key]||''))+'"></div>').join('')+
+    '<button class="primary" type="button"'+(rt.actionPending?' disabled':'')+
+      ' onclick="merchantBusinessProfileSaveFromUi()">Salvar meus dados para conferência</button>'+
+    '</div></details>';
+}
+function merchantBusinessProfileFocus(){
+  if(!merchantRevealControl('#merchant-business-legalName'))
+    toast('Não foi possível abrir o cadastro da revenda. Atualize o painel.');
+}
+async function merchantBusinessProfileSaveFromUi(){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt?.status!=='ready'||rt?.merchant?.memberRole!=='owner'||rt.actionPending)
+    return toast('Somente o proprietário pode salvar o cadastro');
+  const keys=['legalName','tradeName','responsibleName','phone','whatsapp',
+    'postalCode','city','state','addressText'];
+  const payload={};
+  for(const key of keys){
+    const el=document.getElementById('merchant-business-'+key);
+    if(!el)return toast('Atualize o painel antes de informar os dados');
+    const raw=String(el.value||'').trim();
+    payload[key]=key==='state'?raw.toUpperCase():raw;
+  }
+  if(payload.legalName.length<3||payload.tradeName.length<2||
+    payload.responsibleName.length<3||payload.city.length<2||
+    payload.addressText.length<8||!/^[0-9]{10,11}$/.test(payload.phone)||
+    !/^[0-9]{10,11}$/.test(payload.whatsapp)||
+    !/^[0-9]{8}$/.test(payload.postalCode)||
+    !/^[A-Z]{2}$/.test(payload.state))
+    return toast('Revise razão social, endereço, cidade, UF, CEP e telefones.');
+  try{
+    const result=await merchantUpdateBusinessDetailsLive(payload);
+    if(result?.pendingAdministrativeVerification!==true)
+      throw new Error('O cadastro não confirmou a necessidade de validação.');
+    toast('Dados salvos. A conferência da revenda continua pendente no TAMÃO.');
+  }catch(e){toast(String(e?.message||e));}
+}
 function merchantSetupGo(key){
   if(key==='products'){go('catalog');return;}
   const selectors={delivery:'#live-delivery-fee',payment:'#live-payment-pix'};
@@ -2071,6 +2128,8 @@ function merchantFirstRunView(rt,canGoOnline){
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<div class="merchant-first-run-actions">'+cta+
     '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
+    '(m.memberRole==='owner'&&!rt.businessDetails?.city?
+      '<button type="button" class="secondary" onclick="merchantBusinessProfileFocus()">Completar dados e endereço da revenda →</button>':'')+
     '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
     '</section>';
 }
@@ -2323,6 +2382,7 @@ function merchantLivePage(){
     </div></details>
 
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantBusinessProfileView(rt)}
       ${merchantAlertControl()}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
       ${merchantEnablementAssistantView(rt)}
