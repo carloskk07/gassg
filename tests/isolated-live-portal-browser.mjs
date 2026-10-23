@@ -76,7 +76,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   const portFile=path.join(profile,'DevToolsActivePort');
   for(let n=0;n<160;n++){
    try{
-    const port=Number(fs.readFileSync(portFile,'utf8').split('\\n')[0]);
+    const port=Number(fs.readFileSync(portFile,'utf8').trim().split(/\s+/)[0]);
     if(Number.isSafeInteger(port)&&port>0&&port<65536){
      const pages=await(await fetch('http://127.0.0.1:'+port+'/json/list',
        {signal:AbortSignal.timeout(1100)})).json();
