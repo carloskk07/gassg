@@ -106,6 +106,8 @@ jobs:
         run: node tests/coupon-atomic-checkout-contract.mjs
       - name: Admin coupon finance read-only UI and permission regression
         run: node tests/admin-clube-finance-status.mjs
+      - name: Admin disabled coupon draft and atomic audit gate
+        run: node tests/admin-coupon-draft-guard.mjs
       - name: Mercado Pago released-money CSV matching and coupon funding proof (read only)
         run: node tests/coupon-mp-release-evidence.mjs
       - name: Superadmin verified-net receipt registration and account isolation
