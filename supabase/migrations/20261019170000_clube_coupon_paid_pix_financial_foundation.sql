@@ -127,6 +127,270 @@ revoke all on function public.clube_coupon_paid_payment_verify(uuid,text,text,in
 grant execute on function public.clube_coupon_paid_payment_verify(uuid,text,text,integer)
  to service_role;
 
+-- Finance-only second phase. A trusted reconciler must FIRST verify the
+-- NET amount against an independent PSP release/account-money report and
+-- match the private evidence reference. SQL cannot authenticate that reference
+-- by itself; NEVER expose this service_role RPC directly to a customer.
+create or replace function public.clube_coupon_paid_funding_finalize(
+ p_invoice_id uuid,p_provider_order_id text,p_net_proceeds_cents integer,
+ p_evidence_ref text
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $
+declare
+ v_invoice public.clube_coupon_paid_invoices%rowtype;
+ v_replayed boolean;
+ v_issued integer;
+begin
+ select * into v_invoice from public.clube_coupon_paid_invoices
+  where id=p_invoice_id for update;
+ if not found or v_invoice.provider_order_id is distinct from p_provider_order_id
+    or v_invoice.status<>'paid' or v_invoice.paid_at is null
+    or v_invoice.provider_payment_id is null
+ then raise exception 'COUPON_FUNDING_PAYMENT_NOT_VERIFIED' using errcode='42501'; end if;
+ if p_net_proceeds_cents is null or p_net_proceeds_cents>v_invoice.sale_price_cents
+    or p_net_proceeds_cents::bigint<
+      v_invoice.coupon_face_cents::bigint*v_invoice.coupons_per_pack::bigint
+ then raise exception 'COUPON_NET_FUNDS_INSUFFICIENT' using errcode='42501'; end if;
+ if p_evidence_ref is null
+    or p_evidence_ref !~ '^[A-Za-z0-9][A-Za-z0-9:_./-]{11,255}
+-- vouchers require operator settlement review (never auto-credit or hide debt).
+create or replace function public.clube_coupon_paid_payment_refund(
+ p_invoice_id uuid,p_provider_order_id text
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $$
+declare v_invoice public.clube_coupon_paid_invoices%rowtype;
+declare v_redeemed integer;
+begin
+ select * into v_invoice from public.clube_coupon_paid_invoices
+ where id=p_invoice_id for update;
+ if not found or v_invoice.provider_order_id is distinct from p_provider_order_id
+ then raise exception 'COUPON_REFUND_BINDING_MISMATCH';end if;
+ select count(*) into v_redeemed from public.clube_coupon_paid_issuances
+ where invoice_id=v_invoice.id and status in ('reserved','redeemed');
+ if v_redeemed>0 then
+  update public.clube_coupon_paid_invoices set status='review_required',updated_at=clock_timestamp()
+  where id=v_invoice.id;
+  update public.clube_coupon_paid_issuances
+  set status='review_required',reserved_quote_id=null,reserved_at=null
+  where invoice_id=v_invoice.id and status in ('issued','reserved');
+  return pg_catalog.jsonb_build_object('ok',false,'reviewRequired',true);
+ end if;
+ update public.clube_coupon_paid_invoices
+ set status='refunded',refunded_at=clock_timestamp(),updated_at=clock_timestamp()
+ where id=v_invoice.id and status<>'refunded';
+ update public.clube_coupon_paid_issuances set status='void'
+ where invoice_id=v_invoice.id and status='issued';
+ return pg_catalog.jsonb_build_object('ok',true,'refunded',true);
+end
+$$;
+revoke all on function public.clube_coupon_paid_payment_refund(uuid,text)
+ from public,anon,authenticated;
+grant execute on function public.clube_coupon_paid_payment_refund(uuid,text)
+ to service_role;
+
+
+-- Partial refunds, chargebacks or inconsistent credit events cannot be
+-- treated as a full refund. Hold all unspent vouchers for finance review.
+create or replace function public.clube_coupon_paid_payment_review(
+ p_invoice_id uuid,p_provider_order_id text
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $$
+declare v_invoice public.clube_coupon_paid_invoices%rowtype;
+begin
+ select * into v_invoice from public.clube_coupon_paid_invoices
+ where id=p_invoice_id for update;
+ if not found or v_invoice.provider_order_id is distinct from p_provider_order_id
+ then raise exception 'COUPON_REVIEW_BINDING_MISMATCH';end if;
+ update public.clube_coupon_paid_invoices
+ set status='review_required',updated_at=clock_timestamp()
+ where id=v_invoice.id;
+ update public.clube_coupon_paid_issuances
+ set status='review_required',reserved_quote_id=null,reserved_at=null
+ where invoice_id=v_invoice.id and status in ('issued','reserved');
+ return pg_catalog.jsonb_build_object('ok',false,'reviewRequired',true);
+end
+$$;
+revoke all on function public.clube_coupon_paid_payment_review(uuid,text)
+ from public,anon,authenticated;
+grant execute on function public.clube_coupon_paid_payment_review(uuid,text)
+ to service_role;
+
+
+-- Vouchers are reserved to an existing, unconsumed customer's quote.
+-- Reserved is NOT redeemed: customer still owes the original quote amount
+-- until an atomic merchant-compensated order path is separately homologated.
+alter table public.clube_coupon_paid_issuances
+  add column reserved_quote_id uuid,
+  add column reserved_at timestamptz,
+  add constraint coupon_reservation_state_integrity check(
+    (status='reserved' and reserved_quote_id is not null and reserved_at is not null)
+    or (status<>'reserved' and reserved_quote_id is null and reserved_at is null)
+  );
+create unique index clube_coupon_one_reservation_per_quote
+ on public.clube_coupon_paid_issuances(reserved_quote_id)
+ where reserved_quote_id is not null;
+
+-- The service-role caller must use the already verified JWT user ID.
+-- Lock order mirrors refunds: invoice, issuance, quote. This serializes a
+-- refund with a reservation and disallows a double-spend across two tabs.
+create or replace function public.clube_coupon_paid_quote_reserve(
+ p_customer_user_id uuid,p_voucher_id uuid,p_quote_id uuid
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $$
+declare
+ v_invoice_id uuid;
+ v_invoice public.clube_coupon_paid_invoices%rowtype;
+ v_voucher public.clube_coupon_paid_issuances%rowtype;
+ v_quote record;
+begin
+ if p_customer_user_id is null or p_voucher_id is null or p_quote_id is null
+ then raise exception 'COUPON_RESERVATION_INPUT_INVALID' using errcode='22023'; end if;
+ select invoice_id into v_invoice_id from public.clube_coupon_paid_issuances
+ where id=p_voucher_id;
+ if not found then raise exception 'COUPON_NOT_FOUND' using errcode='P0002'; end if;
+ select * into v_invoice from public.clube_coupon_paid_invoices
+ where id=v_invoice_id for update;
+ if not found or v_invoice.customer_user_id<>p_customer_user_id
+ then raise exception 'COUPON_NOT_OWNED' using errcode='42501'; end if;
+ select * into v_voucher from public.clube_coupon_paid_issuances
+ where id=p_voucher_id for update;
+ if not found or v_voucher.invoice_id<>v_invoice.id
+    or v_voucher.customer_user_id<>p_customer_user_id
+ then raise exception 'COUPON_OWNER_MISMATCH' using errcode='42501'; end if;
+ if v_invoice.status<>'paid' or v_invoice.paid_at is null
+    or v_invoice.provider_payment_id is null
+    or v_invoice.provider_order_id is null
+ then raise exception 'COUPON_PAYMENT_UNVERIFIED' using errcode='42501'; end if;
+ if not exists(
+   select 1 from public.clube_coupon_paid_packages p
+   where p.package_key=v_invoice.package_key
+     and p.funding_verified and p.legal_terms_verified
+     and p.redeem_settlement_verified
+ ) then raise exception 'COUPON_FUNDING_UNVERIFIED' using errcode='42501'; end if;
+ -- Cover the entire face-value liability with PSP-verified NET funds,
+ -- never merely with the gross amount printed on the Pix receipt.
+ if v_invoice.net_proceeds_verified_at is null
+    or v_invoice.net_proceeds_evidence_ref is null
+    or v_invoice.net_proceeds_cents::bigint<
+      v_invoice.coupon_face_cents::bigint*v_invoice.coupons_per_pack::bigint
+ then raise exception 'COUPON_NET_FUNDS_UNVERIFIED' using errcode='42501'; end if;
+ if v_voucher.face_cents<>v_invoice.coupon_face_cents
+    or v_voucher.expires_at<=clock_timestamp()
+ then raise exception 'COUPON_EXPIRED_OR_CHANGED' using errcode='40001'; end if;
+ select customer_id,gross_total_cents,consumed_at,expires_at
+ into v_quote from public.quotes
+ where id=p_quote_id for share;
+ if not found or v_quote.customer_id<>p_customer_user_id
+ then raise exception 'COUPON_QUOTE_NOT_OWNED' using errcode='42501'; end if;
+ if v_quote.consumed_at is not null or v_quote.expires_at<=clock_timestamp()
+ then raise exception 'COUPON_QUOTE_STALE' using errcode='40001'; end if;
+ if v_quote.gross_total_cents<v_voucher.face_cents
+ then raise exception 'COUPON_EXCEEDS_QUOTE' using errcode='22023'; end if;
+ if v_voucher.status='reserved' and v_voucher.reserved_quote_id=p_quote_id
+ then return pg_catalog.jsonb_build_object(
+   'ok',true,'reserved',true,'replayed',true,
+   'voucherId',v_voucher.id,'quoteId',p_quote_id,
+   'faceCents',v_voucher.face_cents,'appliedCents',0);
+ end if;
+ if v_voucher.status<>'issued' or v_voucher.reserved_quote_id is not null
+ then raise exception 'COUPON_NOT_AVAILABLE' using errcode='40001'; end if;
+ if exists(select 1 from public.clube_coupon_paid_issuances c
+    where c.reserved_quote_id=p_quote_id)
+ then raise exception 'COUPON_QUOTE_ALREADY_RESERVED' using errcode='23505'; end if;
+ update public.clube_coupon_paid_issuances
+ set status='reserved',reserved_quote_id=p_quote_id,reserved_at=clock_timestamp()
+ where id=v_voucher.id;
+ return pg_catalog.jsonb_build_object(
+   'ok',true,'reserved',true,'replayed',false,
+   'voucherId',v_voucher.id,'quoteId',p_quote_id,
+   'faceCents',v_voucher.face_cents,'appliedCents',0);
+end
+$$;
+revoke all on function public.clube_coupon_paid_quote_reserve(uuid,uuid,uuid)
+ from public,anon,authenticated;
+grant execute on function public.clube_coupon_paid_quote_reserve(uuid,uuid,uuid)
+ to service_role;
+
+-- Release is allowed only before order submission; an invoice in financial
+-- review cannot have its coupon released to be used elsewhere.
+create or replace function public.clube_coupon_paid_quote_release(
+ p_customer_user_id uuid,p_voucher_id uuid,p_quote_id uuid
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $$
+declare
+ v_invoice_id uuid;
+ v_invoice public.clube_coupon_paid_invoices%rowtype;
+ v_voucher public.clube_coupon_paid_issuances%rowtype;
+ v_quote record;
+begin
+ select invoice_id into v_invoice_id from public.clube_coupon_paid_issuances
+ where id=p_voucher_id;
+ if not found then raise exception 'COUPON_NOT_FOUND' using errcode='P0002'; end if;
+ select * into v_invoice from public.clube_coupon_paid_invoices
+ where id=v_invoice_id for update;
+ if not found or v_invoice.customer_user_id is distinct from p_customer_user_id
+ then raise exception 'COUPON_NOT_OWNED' using errcode='42501'; end if;
+ select * into v_voucher from public.clube_coupon_paid_issuances
+ where id=p_voucher_id for update;
+ if not found or v_voucher.customer_user_id is distinct from p_customer_user_id
+ then raise exception 'COUPON_NOT_OWNED' using errcode='42501'; end if;
+ if v_invoice.status<>'paid' then
+   raise exception 'COUPON_PAYMENT_UNVERIFIED' using errcode='42501';
+ end if;
+ if v_voucher.status='issued' and v_voucher.reserved_quote_id is null
+ then return pg_catalog.jsonb_build_object('ok',true,'released',true,'replayed',true); end if;
+ if v_voucher.status<>'reserved' or v_voucher.reserved_quote_id is distinct from p_quote_id
+ then raise exception 'COUPON_RESERVATION_MISMATCH' using errcode='40001'; end if;
+ select consumed_at into v_quote from public.quotes
+ where id=p_quote_id for share;
+ if not found or v_quote.consumed_at is not null
+ then raise exception 'COUPON_QUOTE_ALREADY_CONSUMED' using errcode='40001'; end if;
+ update public.clube_coupon_paid_issuances
+ set status='issued',reserved_quote_id=null,reserved_at=null
+ where id=v_voucher.id;
+ return pg_catalog.jsonb_build_object('ok',true,'released',true,'replayed',false);
+end
+$$;
+revoke all on function public.clube_coupon_paid_quote_release(uuid,uuid,uuid)
+ from public,anon,authenticated;
+grant execute on function public.clube_coupon_paid_quote_release(uuid,uuid,uuid)
+ to service_role;
+
+ then raise exception 'COUPON_PROVIDER_NET_EVIDENCE_REQUIRED' using errcode='22023'; end if;
+ if not exists(select 1 from public.clube_coupon_paid_packages p
+    where p.package_key=v_invoice.package_key and p.funding_verified
+     and p.legal_terms_verified and p.redeem_settlement_verified)
+ then raise exception 'COUPON_FUNDING_UNVERIFIED' using errcode='42501'; end if;
+ v_replayed:=v_invoice.net_proceeds_verified_at is not null;
+ if v_replayed and (
+   v_invoice.net_proceeds_cents is distinct from p_net_proceeds_cents
+   or v_invoice.net_proceeds_evidence_ref is distinct from p_evidence_ref)
+ then raise exception 'COUPON_NET_EVIDENCE_REPLAY_CONFLICT' using errcode='23505'; end if;
+ if not v_replayed then
+  update public.clube_coupon_paid_invoices
+   set net_proceeds_cents=p_net_proceeds_cents,
+       net_proceeds_verified_at=clock_timestamp(),
+       net_proceeds_evidence_ref=p_evidence_ref,
+       updated_at=clock_timestamp()
+  where id=v_invoice.id;
+ end if;
+ insert into public.clube_coupon_paid_issuances
+  (invoice_id,ordinal,customer_user_id,face_cents,expires_at)
+ select v_invoice.id,g,v_invoice.customer_user_id,v_invoice.coupon_face_cents,
+        clock_timestamp()+pg_catalog.make_interval(days=>v_invoice.valid_days)
+ from pg_catalog.generate_series(1,v_invoice.coupons_per_pack) as g
+ on conflict (invoice_id,ordinal) do nothing;
+ select count(*) into v_issued from public.clube_coupon_paid_issuances
+  where invoice_id=v_invoice.id;
+ return pg_catalog.jsonb_build_object('ok',true,'replayed',v_replayed,
+   'invoiceId',v_invoice.id,'issued',v_issued);
+end
+$;
+revoke all on function public.clube_coupon_paid_funding_finalize(uuid,text,integer,text)
+ from public,anon,authenticated;
+grant execute on function public.clube_coupon_paid_funding_finalize(uuid,text,integer,text)
+ to service_role;
+
 -- Refunded purchases invalidate unused vouchers; previously redeemed
 -- vouchers require operator settlement review (never auto-credit or hide debt).
 create or replace function public.clube_coupon_paid_payment_refund(
