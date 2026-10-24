@@ -5275,6 +5275,8 @@ async function adminClubeReleaseRegisterNet(){
     if(result?.source!=='coupon_mp_released_net_registration_v1'||
        result.ok!==true||result.invoiceId!==invoiceId||
        result.netEvidenceRegistered!==true||
+       result.auditRecorded!==true||
+       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(result.auditId||''))||
        result.moneyMoved!==false||result.couponFundingApplied!==false||
        result.merchantPayoutVerified!==false||
        result.couponsAvailableForCheckout!==false||
@@ -5340,6 +5342,7 @@ function adminClubeReleaseReportsView(){
     ${registration?.netEvidenceRegistered===true?'<p role="status" class="notice"><strong>Comprovante líquido registrado na fatura.</strong> Valor R$ '+
       esc((registration.netCents/100).toFixed(2))+
       (registration.replayed===true?' (registro idempotente já existente)':'')+
+      '. Protocolo de auditoria: '+esc(registration.auditId)+
       '. Isso NÃO comprova repasse à revenda nem libera o checkout.</p>':''}
     ${evidence?.available===true?'<p role="status" class="notice">'+
       (evidence.eligible===true?
