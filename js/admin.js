@@ -5193,7 +5193,14 @@ async function adminClubeReleaseReportsRefresh(){
 }
 // Finance-only on-demand inspection: neither UI nor Edge applies net funding.
 function adminClubeReleaseInvoiceChanged(value){
-  adminRuntime.clubeFinance.releaseInvoiceId=String(value??"").trim();
+  const state=adminRuntime.clubeFinance;
+  const next=String(value??"").trim();
+  if(state.releaseInvoiceId!==next){
+    state.releaseEvidence=null;
+    state.releaseEvidenceError=null;
+    state.releaseRegistration=null;
+  }
+  state.releaseInvoiceId=next;
 }
 async function adminClubeReleaseInspect(index){
   if(!['superadmin','finance'].includes(adminCurrentRole())||
@@ -5210,6 +5217,7 @@ async function adminClubeReleaseInspect(index){
     st.releaseEvidence=null;st.releaseEvidenceFor=userId;render();return;
   }
   Object.assign(st,{releaseEvidence:null,releaseEvidenceError:null,
+    releaseRegistration:null,
     releaseEvidencePending:true,releaseEvidenceFor:userId});
   render();
   try{
@@ -5227,9 +5235,58 @@ async function adminClubeReleaseInspect(index){
         result.netCents<=0||!result.evidenceReference))
       throw Error('O extrato não passou na validação da resposta financeira.');
     st.releaseEvidence=result;
+    st.releaseEvidenceInvoiceId=invoiceId;
+    st.releaseEvidenceReportFileName=report.fileName;
   }catch(e){
     if(String(adminRuntime.session?.user?.id||'')===userId)
       st.releaseEvidenceError=String(e?.message||'Não foi possível conferir a liberação.');
+  }finally{
+    st.releaseEvidencePending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
+async function adminClubeReleaseRegisterNet(){
+  // Explicit superadmin authorization, after inspecting the SAME invoice.
+  // The server MUST fetch the provider and CSV again and compare evidence.
+  if(adminCurrentRole()!=='superadmin'||adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const preview=st.releaseEvidenceFor===userId?st.releaseEvidence:null;
+  const invoiceId=String(st.releaseInvoiceId||'').trim();
+  const reportFileName=String(st.releaseEvidenceReportFileName||'');
+  if(!userId||st.releaseEvidencePending||
+     !preview||preview.eligible!==true||preview.providerReportChecked!==true||
+     invoiceId!==st.releaseEvidenceInvoiceId||!reportFileName||
+     !Number.isSafeInteger(preview.netCents)||preview.netCents<=0||
+     !preview.evidenceReference)return;
+  if(!globalThis.confirm('Registrar no financeiro o valor líquido conferido no Mercado Pago? Isso NÃO transfere dinheiro à revenda nem habilita vendas de cupons.'))return;
+  st.releaseEvidencePending=true;
+  st.releaseEvidenceError=null;
+  st.releaseRegistration=null;
+  render();
+  try{
+    const result=await adminInvoke({
+      action:'clube-coupon-mp-funding-finalize',invoiceId,reportFileName,
+      expectedNetCents:preview.netCents,
+      expectedEvidenceReference:preview.evidenceReference,
+      confirmation:'CONFIRMAR_LIQUIDO'
+    });
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(result?.source!=='coupon_mp_released_net_registration_v1'||
+       result.ok!==true||result.invoiceId!==invoiceId||
+       result.netEvidenceRegistered!==true||
+       result.moneyMoved!==false||result.couponFundingApplied!==false||
+       result.merchantPayoutVerified!==false||
+       result.couponsAvailableForCheckout!==false||
+       result.netCents!==preview.netCents||
+       result.evidenceReference!==preview.evidenceReference)
+      throw Error('Registro líquido não confirmado; examine novamente o financeiro.');
+    st.releaseRegistration=result;
+    st.releaseEvidence=null;
+    st.releaseEvidenceFor=userId;
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId)
+      st.releaseEvidenceError=String(error?.message||'A liberação não pôde ser registrada.');
   }finally{
     st.releaseEvidencePending=false;
     if(String(adminRuntime.session?.user?.id||'')===userId)render();
@@ -5249,6 +5306,11 @@ function adminClubeReleaseReportsView(){
     item.status==='processed'&&item.currency==='BRL'&&item.test===false&&item.fileName):[];
   const evidence=state.releaseEvidenceFor===userId?state.releaseEvidence:null;
   const evidenceError=state.releaseEvidenceFor===userId?state.releaseEvidenceError:null;
+  const registration=state.releaseEvidenceFor===userId?state.releaseRegistration:null;
+  const canRegister=adminCurrentRole()==='superadmin'&&
+    evidence?.eligible===true&&evidence?.providerReportChecked===true&&
+    state.releaseEvidenceInvoiceId===String(state.releaseInvoiceId||'').trim()&&
+    Boolean(state.releaseEvidenceReportFileName);
   return `<div class="card flat admin-clube-mp-extracts" aria-label="Extratos Mercado Pago">
     <h4>Extratos de liberação do Mercado Pago</h4>
     <p>Consulte os relatórios gerados na conta do TAMÃO, sem criar pagamentos.</p>
@@ -5275,12 +5337,19 @@ function adminClubeReleaseReportsView(){
         (state.releaseEvidencePending?'disabled':'')+'>Conferir CSV '+esc(report.generatedAt?.slice(0,10)||'processado')+'</button>').join(''):''}
     ${evidenceError?'<p role="alert" class="notice danger">'+esc(evidenceError)+'</p>':''}
     ${evidence?.available===false?'<p role="status" class="notice">Conferência indisponível: '+esc(evidence.reason||'sem estrutura financeira')+'</p>':''}
+    ${registration?.netEvidenceRegistered===true?'<p role="status" class="notice"><strong>Comprovante líquido registrado na fatura.</strong> Valor R$ '+
+      esc((registration.netCents/100).toFixed(2))+
+      (registration.replayed===true?' (registro idempotente já existente)':'')+
+      '. Isso NÃO comprova repasse à revenda nem libera o checkout.</p>':''}
     ${evidence?.available===true?'<p role="status" class="notice">'+
       (evidence.eligible===true?
        'Liberação líquida localizada no Mercado Pago: R$ '+esc((evidence.netCents/100).toFixed(2))+
        '. Referência para revisão: '+esc(evidence.evidenceReference):
        'Sem prova suficiente: '+esc(evidence.reason||'não conciliado'))+
       '. Nenhum crédito aplicado; repasse à revenda ainda não comprovado.</p>':''}
+    ${canRegister?'<button type="button" class="secondary" onclick="adminClubeReleaseRegisterNet()" '+
+      (state.releaseEvidencePending?'disabled':'')+
+      '>Registrar líquido conferido na fatura (superadmin)</button>':''}
     <p class="tiny muted">Listar relatórios não confirma o PIX líquido, nem o pagamento à revenda. Antes de liberar cupons, confira a transação e as tarifas no relatório de Liberações.</p>
   </div>`;
 }
