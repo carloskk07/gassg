@@ -38,6 +38,10 @@ DECLARE
  v_count integer;
 BEGIN
   IF has_function_privilege('anon',
+     'public.clube_coupon_paid_funding_finalize(uuid,text,integer,text)','EXECUTE')
+     OR has_function_privilege('authenticated',
+     'public.clube_coupon_paid_funding_finalize(uuid,text,integer,text)','EXECUTE')
+     OR has_function_privilege('anon',
      'public.clube_coupon_paid_quote_reserve(uuid,uuid,uuid)','EXECUTE')
      OR has_function_privilege('authenticated',
      'public.clube_coupon_paid_quote_reserve(uuid,uuid,uuid)','EXECUTE')
@@ -85,8 +89,36 @@ BEGIN
     (v_user,'quote_funded',gen_random_uuid(),1000,500,2,60,
      'quote-provider-order','awaiting_payment')
   RETURNING id INTO v_invoice;
+  -- Gross payment does not issue vouchers without verified NET funding.
   PERFORM public.clube_coupon_paid_payment_verify(
     v_invoice,'quote-provider-order','quote-provider-payment',1000);
+  SELECT count(*) INTO v_count FROM public.clube_coupon_paid_issuances
+   WHERE invoice_id=v_invoice;
+  IF v_count<>0 THEN RAISE EXCEPTION 'GROSS_PAYMENT_ISSUED_UNFUNDED_VOUCHERS'; END IF;
+  BEGIN
+    PERFORM public.clube_coupon_paid_funding_finalize(
+      v_invoice,'quote-provider-order',999,'fixture:net-receipt-001');
+    RAISE EXCEPTION 'COUPON_UNDERFUNDED_NET_ACCEPTED';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  SELECT count(*) INTO v_count FROM public.clube_coupon_paid_issuances
+   WHERE invoice_id=v_invoice;
+  IF v_count<>0 THEN RAISE EXCEPTION 'UNDERFUNDED_VOUCHERS_ISSUED'; END IF;
+  v_result:=public.clube_coupon_paid_funding_finalize(
+      v_invoice,'quote-provider-order',1000,'fixture:net-receipt-001');
+  IF (v_result->>'issued')::integer<>2
+    OR (v_result->>'replayed')::boolean IS DISTINCT FROM false
+  THEN RAISE EXCEPTION 'FUNDED_ISSUANCE_FAILED'; END IF;
+  v_result:=public.clube_coupon_paid_funding_finalize(
+      v_invoice,'quote-provider-order',1000,'fixture:net-receipt-001');
+  IF (v_result->>'replayed')::boolean IS DISTINCT FROM true
+  THEN RAISE EXCEPTION 'NET_FUNDING_REPLAY_NOT_IDEMPOTENT'; END IF;
+  BEGIN
+    PERFORM public.clube_coupon_paid_funding_finalize(
+      v_invoice,'quote-provider-order',1000,'fixture:different-evidence');
+    RAISE EXCEPTION 'CONFLICTING_NET_EVIDENCE_ACCEPTED';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
 
   SELECT id INTO v_first FROM public.clube_coupon_paid_issuances
    WHERE invoice_id=v_invoice AND ordinal=1;
