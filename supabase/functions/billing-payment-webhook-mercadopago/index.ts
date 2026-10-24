@@ -550,8 +550,12 @@ async function handlePaidCouponOrder(
    p_payment_id:String(pix.id??""),p_amount_cents:amount
   });
   if(error)throw error;
+  // A verified gross Pix is NOT spendable coupon backing. Issuances
+  // require separate independent PSP net-receipt reconciliation.
+  const issued=Number(data?.issued??0);
   return json({ok:true,route:"coupon_funding",provider:"mercadopago",
-   status:"paid",replayed:data?.replayed===true},200);
+   status:"paid",replayed:data?.replayed===true,issuedCoupons:issued,
+   fundingPending:issued===0},200);
  }
  if(["expired","canceled","failed"].includes(providerStatus)){
   const next=providerStatus==="expired"?"expired":"cancelled";
