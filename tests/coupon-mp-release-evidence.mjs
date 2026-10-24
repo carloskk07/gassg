@@ -101,8 +101,19 @@ assert.match(admin,/providerReportChecked:true/);
 assert.match(admin,/fileName:typeof item\?\.file_name/);
 const route=admin.slice(admin.indexOf('if(action==="clube-coupon-mp-release-inspect")'),
  admin.indexOf('if(action==="clube-coupon-mp-release-reports")'));
-assert.doesNotMatch(route,/method:"POST"|\.update\(|\.insert\(|\.delete\(|\.rpc\(/,
- 'provider reconciliation diagnostic must remain read-only');
+assert.doesNotMatch(route,/method:"POST"|\.update\(|\.insert\(|\.delete\(/,
+ 'provider reconciliation must not write directly to finance tables');
+assert.match(route,/const finalize=action==="clube-coupon-mp-funding-finalize"/);
+assert.match(route,/if\(finalize\&\&String\(adminAccess\.admin_role\)!=="superadmin"\)/);
+assert.match(route,/if\(finalize\)\{[\s\S]*?\.rpc\("clube_coupon_paid_net_proceeds_verify"/,
+ 'the existing finance RPC must only run within the explicit finalization branch');
+assert.match(route,/expectedNetCents/);
+assert.match(route,/expectedEvidenceReference/);
+assert.match(route,/confirmation!=="CONFIRMAR_LIQUIDO"/);
+assert.match(route,/netEvidenceRegistered:true/);
+assert.match(route,/couponsAvailableForCheckout:false/);
+assert.match(route,/couponFundingApplied:false/);
+assert.match(route,/merchantPayoutVerified:false/);
 assert.match(ui,/adminClubeReleaseInspect\(index\)/);
 assert.match(ui,/coupon_mp_released_net_evidence_v1/);
 assert.match(ui,/Nenhum crédito aplicado; repasse à revenda ainda não comprovado/);
