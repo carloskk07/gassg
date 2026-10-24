@@ -526,11 +526,13 @@ async function handlePaidCouponOrder(
  // order AND payment before keeping already-paid vouchers spendable.
  const providerStates=[providerStatus,paymentStatus,providerDetail,paymentDetail];
  const reversalStates=["refunded","partially_refunded","charged_back","chargeback",
-   "disputed","in_mediation","reimbursed","canceled","cancelled","failed","expired"];
+   "disputed","in_mediation","reimbursed"];
+ const failedStates=["canceled","cancelled","failed","expired"];
  const hasRefund=refunds.some((r:any)=>
   ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
   ||providerStates.some(state=>reversalStates.includes(state))
-  ||(invoice.status==="paid"&&(providerStatus!=="processed"||
+  ||(invoice.status==="paid"&&(providerStates.some(state=>failedStates.includes(state))||
+    providerStatus!=="processed"||
     !["processed","accredited","approved"].includes(paymentStatus)||
     (providerDetail!==""&&providerDetail!=="accredited")||
     (paymentDetail!==""&&paymentDetail!=="accredited")));
