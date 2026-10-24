@@ -202,4 +202,59 @@ assert.match(webhook,/handlePlatformBillingOrder/,
  'legacy platform billing reconciliation must be preserved');
 assert.doesNotMatch(coupon,/create-order|\bstatus:'paid'\b|status:"paid"/i,
  'generating a Pix must not auto-confirm or generate an order');
-console.log('PASS: signed coupon Pix, gross-vs-net voucher presentation, idempotent webhook/refund, user scope and sales gate off.');
+// Exercise the REAL webhook coupon handler in a no-network VM. A PSP may
+// mark the PIX payment refunded/disputed while its parent Order still says
+// processed and refunds[] is missing: previously this left vouchers spendable.
+const couponHandlerStart=webhook.indexOf('async function handlePaidCouponOrder(');
+const couponHandlerEnd=webhook.indexOf('async function handleWebhookProbe(',couponHandlerStart);
+assert.ok(couponHandlerStart>=0&&couponHandlerEnd>couponHandlerStart);
+const couponHandlerJs=webhook.slice(couponHandlerStart,couponHandlerEnd)
+ .replace('admin:any,dataId:string,invoice:any,accessToken:string',
+  'admin,dataId,invoice,accessToken')
+ .replaceAll('(r:any)','(r)')
+ .replaceAll('(total:number,r:any)','(total,r)');
+let currentPspOrder,calledRpcs=[];
+const invoiceForWebhook={id:'invoice-1',status:'paid',sale_price_cents:1500};
+const mockAdmin={rpc:async(name)=>{calledRpcs.push(name);return {data:{},error:null};}};
+const webhookSandbox=vm.createContext({
+  String,Number,Array,Date,
+  mercadoPagoConfigured:()=>true,
+  fetchProviderOrder:async()=>({response:{ok:true},data:currentPspOrder}),
+  billingPixPayment:order=>order.transactions.payments[0],
+  moneyToCents:value=>Math.round(Number(value)*100),
+  json:(body,status=200)=>({body,status})
+});
+new vm.Script(couponHandlerJs,{filename:'coupon-webhook-handler.ts'}).runInContext(webhookSandbox);
+const decide=async(paymentStatus,orderStatus='processed',refunds=[],priorStatus='paid')=>{
+  calledRpcs=[];
+  currentPspOrder={id:'order-1',external_reference:'invoice-1',
+    total_amount:'15.00',status:orderStatus,
+    transactions:{payments:[{id:'payment-1',status:paymentStatus,
+      payment_method:{id:'pix',type:'bank_transfer'}}],refunds}};
+  const result=await webhookSandbox.handlePaidCouponOrder(mockAdmin,'order-1',
+    {...invoiceForWebhook,status:priorStatus},'test-only-token');
+  assert.equal(result.status,200);
+  assert.equal(calledRpcs.length,1,'exactly one accounting decision per callback');
+  return {route:calledRpcs[0],status:result.body.status};
+};
+for(const state of ['refunded','partially_refunded','charged_back',
+ 'disputed','in_mediation','canceled','failed','expired']){
+ const result=await decide(state);
+ assert.equal(result.route,'clube_coupon_paid_payment_review',
+  'PSP payment status must force finance review even if parent order is processed');
+ assert.equal(result.status,'review_required');
+}
+const validRefund=[{id:'refund-1',status:'processed',amount:'15.00'}];
+assert.equal((await decide('refunded','processed',validRefund)).route,
+ 'clube_coupon_paid_payment_refund','verified full refund may close the invoice');
+for(const conflict of ['charged_back','partially_refunded','disputed']){
+ assert.equal((await decide(conflict,'processed',validRefund)).route,
+ 'clube_coupon_paid_payment_review','refund amount cannot override contradictory PSP status');
+}
+assert.equal((await decide('processed','partially_refunded')).route,
+ 'clube_coupon_paid_payment_review','order-only partial refund must hold the vouchers');
+assert.equal((await decide('processing')).route,
+ 'clube_coupon_paid_payment_review','a previously paid invoice regressing to pending must be held');
+assert.equal((await decide('processed')).route,
+ 'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
+console.log('PASS: signed coupon Pix and real webhook handler refund/dispute inconsistencies are fail-closed.');
