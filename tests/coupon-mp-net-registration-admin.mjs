@@ -30,7 +30,9 @@ const state={
    invoiceId,reportFileName:'report-20261024.csv',expectedNetCents:1100,
    expectedEvidenceReference,confirmation:'CONFIRMAR_LIQUIDO'});
   return {source:'coupon_mp_released_net_registration_v1',ok:true,
-   invoiceId,netEvidenceRegistered:true,netCents:1100,evidenceReference:expectedEvidenceReference,
+   invoiceId,netEvidenceRegistered:true,
+   auditRecorded:true,auditId:'44444444-4444-4444-8444-444444444444',
+   netCents:1100,evidenceReference:expectedEvidenceReference,
    couponFundingApplied:false,moneyMoved:false,merchantPayoutVerified:false,
    couponsAvailableForCheckout:false,replayed:false};
  },
@@ -51,6 +53,7 @@ authAllowed=true;
 await ctx.register();
 assert.equal(calls,1);
 assert.equal(state.adminRuntime.clubeFinance.releaseRegistration.netEvidenceRegistered,true);
+assert.equal(state.adminRuntime.clubeFinance.releaseRegistration.auditRecorded,true);
 assert.equal(state.adminRuntime.clubeFinance.releaseEvidence,null);
 await ctx.register();
 assert.equal(calls,1,'no stale replay without new inspection');
@@ -74,7 +77,10 @@ assert.equal(st.releaseEvidence,null,'changing invoice invalidates the preview')
 assert.equal(st.releaseRegistration,null,'changing invoice clears any prior confirmation');
 assert.match(edge,/const finalize=action==="clube-coupon-mp-funding-finalize"/);
 assert.match(edge,/if\(finalize&&String\(adminAccess\.admin_role\)!=="superadmin"\)/);
-assert.match(edge,/clube_coupon_paid_net_proceeds_verify/);
+assert.match(edge,/clube_coupon_paid_net_proceeds_verify_audited/);
+assert.match(edge,/p_actor_user_id:user\.id/);
+assert.match(edge,/registered\?\.auditRecorded!==true/);
+assert.match(edge,/auditId:registered\.auditId/);
 assert.match(edge,/inspection\.netCents!==body\.expectedNetCents/);
 assert.match(edge,/inspection\.evidenceReference!==body\.expectedEvidenceReference/);
 assert.match(edge,/p_provider_order_id:invoice\.provider_order_id/);
