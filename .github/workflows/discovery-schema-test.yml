@@ -19,6 +19,8 @@ on:
       - 'tests/coupon-atomic-checkout-postgres-17.sql'
       - 'supabase/migrations/20261024123000_coupon_net_receipt_admin_audit.sql'
       - 'tests/coupon-net-receipt-admin-audit-postgres-17.sql'
+      - 'supabase/migrations/20261024160000_clube_coupon_paid_package_draft_admin.sql'
+      - 'tests/coupon-package-draft-admin-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   push:
     branches: [main, feat/unified-discovery-tamao, feat/mobility-live-tracking]
@@ -32,6 +34,8 @@ on:
       - 'tests/mobility-db-integration.sql'
       - 'supabase/migrations/20261024123000_coupon_net_receipt_admin_audit.sql'
       - 'tests/coupon-net-receipt-admin-audit-postgres-17.sql'
+      - 'supabase/migrations/20261024160000_clube_coupon_paid_package_draft_admin.sql'
+      - 'tests/coupon-package-draft-admin-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
 
@@ -94,3 +98,5 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-postgres-17.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024123000_coupon_net_receipt_admin_audit.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-net-receipt-admin-audit-postgres-17.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024160000_clube_coupon_paid_package_draft_admin.sql
+          psql -v ON_ERROR_STOP=1 -f tests/coupon-package-draft-admin-postgres-17.sql
