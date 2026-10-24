@@ -67,3 +67,11 @@ revoke all on function public.clube_coupon_paid_net_proceeds_verify_audited(
 grant execute on function public.clube_coupon_paid_net_proceeds_verify_audited(
  uuid,text,integer,text,uuid
 ) to service_role;
+
+-- Once the authorized atomic route is installed, the original 4-argument
+-- funding RPC must remain callable only by the DB owner (including this
+-- SECURITY DEFINER adapter). service_role cannot bypass the actor audit.
+revoke execute on function public.clube_coupon_paid_net_proceeds_verify(
+ uuid,text,integer,text
+) from service_role;
+
