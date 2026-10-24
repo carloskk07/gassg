@@ -120,3 +120,71 @@ const safeHtml=view.draw({...pending,merchant:{...pending.merchant,businessDraft
 assert.doesNotMatch(safeHtml,/<svg onload/);
 assert.match(safeHtml,/&lt;svg/);
 console.log('PASS owner-only prior application suggestion is read-only, identity-bound, non-authoritative and safely rendered');
+
+
+// Poll redraw regression: owner must be able to finish the legal/contact form
+// without losing manual changes when the entire dashboard HTML is replaced.
+const draftStart=merchant.indexOf('let merchantBusinessUnsavedDraft=null;');
+const draftEnd=merchant.indexOf('function merchantBusinessProfileFocus(){',draftStart);
+assert.ok(draftStart>0&&draftEnd>draftStart);
+const source=merchant.slice(draftStart,draftEnd);
+const userId='11111111-1111-4111-8111-111111111111';
+const merchantId='22222222-2222-4222-8222-222222222222';
+const ownerRt={status:'ready',actionPending:false,
+ session:{user:{id:userId}},
+ merchant:{merchantId,memberRole:'owner',status:'pending',
+  businessDetails:null,businessDraft:result}};
+const inputValues={
+ legalName:'Razao confirmada',
+ tradeName:'Revenda confirmada',
+ responsibleName:'Responsavel confirmado',
+ phone:'55999998888',whatsapp:'55999998888',
+ postalCode:'97300000',city:'Sao Gabriel',state:'RS',
+ addressText:'Rua confirmada 123'
+};
+const draftCtx=vm.createContext({
+ String,globalThis:{merchantRuntime:ownerRt},
+ document:{getElementById(id){const field=id.replace('merchant-business-','');
+   return Object.hasOwn(inputValues,field)?{value:inputValues[field]}:null;}},
+ esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+});
+vm.runInContext(source+
+  ';this.changed=merchantBusinessProfileChanged;this.draw=merchantBusinessProfileView;'+
+  'this.currentDraft=()=>merchantBusinessUnsavedDraft;'+
+  'this.clear=()=>{merchantBusinessUnsavedDraft=null}',draftCtx);
+assert.match(draftCtx.draw(ownerRt),/value="Comercio Exemplo Ltda"/);
+assert.equal(draftCtx.changed(),true);
+const reRendered=draftCtx.draw(ownerRt);
+assert.match(reRendered,/value="Razao confirmada"/);
+assert.match(reRendered,/value="97300000"/);
+assert.match(reRendered,/value="Sao Gabriel"/);
+assert.match(reRendered,/ajustes ainda não foram salvos/);
+assert.match(reRendered,/oninput="merchantBusinessProfileChanged\(\)"/);
+assert.equal(draftCtx.currentDraft().key,userId+'::'+merchantId);
+const secondOwner={...ownerRt,session:{user:{id:'33333333-3333-4333-8333-333333333333'}}};
+assert.doesNotMatch(draftCtx.draw(secondOwner),/Razao confirmada/,
+ 'an unrelated owner must not see the previous owner draft');
+const secondMerchant={...ownerRt,merchant:{...ownerRt.merchant,
+ merchantId:'44444444-4444-4444-8444-444444444444'}};
+assert.doesNotMatch(draftCtx.draw(secondMerchant),/Razao confirmada/,
+ 'unsaved details must not cross merchant identities');
+const manager={...ownerRt,merchant:{...ownerRt.merchant,memberRole:'manager'}};
+assert.equal(draftCtx.changed.call(null),true,
+ 'original owner context can still edit their own draft');
+draftCtx.globalThis.merchantRuntime=manager;
+assert.equal(draftCtx.changed(),false);
+assert.equal(draftCtx.draw(manager),'');
+draftCtx.globalThis.merchantRuntime=ownerRt;
+ownerRt.merchant.businessDetails={legalName:'Razao salva',tradeName:'Revenda salva',
+ responsibleName:'Responsavel salvo',phone:'55999998888',whatsapp:'55999998888',
+ postalCode:'97300000',city:'Sao Gabriel',state:'RS',addressText:'Rua salva 123'};
+assert.match(draftCtx.draw(ownerRt),/value="Razao salva"/);
+assert.equal(draftCtx.currentDraft(),null,'server-saved details supersede local draft');
+ownerRt.merchant.businessDetails=null;
+assert.doesNotMatch(draftCtx.draw(ownerRt),/Razao confirmada/,
+ 'no old draft after successful persistence');
+assert.match(merchant,/merchantBusinessUnsavedDraft=null;\s+await merchantSignOut\(/,
+ 'sign-out must clear in-memory owner legal data');
+assert.match(merchant,/const savedKey=merchantBusinessDraftKey\(merchantRuntime\)/,
+ 'acknowledged save must clear draft only after server refresh');
+console.log('PASS: unsaved owner form survives background redraw and is isolated by owner and merchant');

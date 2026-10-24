@@ -1474,11 +1474,43 @@ async function merchantUpdateBusinessDetailsLive(payload){
       result?.pendingAdministrativeVerification!==true)
       throw new Error('Não foi possível confirmar o salvamento do cadastro');
     await merchantRefresh({silent:true});
+    const savedKey=merchantBusinessDraftKey(merchantRuntime);
+    if(merchantBusinessUnsavedDraft?.key===savedKey)
+      merchantBusinessUnsavedDraft=null;
     merchantEnablementAfterChange();
     return result;
   }finally{
     merchantRuntime.actionPending=false;render();
   }
+}
+
+// Preserve an owner's unsaved form during background redraws in RAM only.
+// Never store company/contact fields in browser storage or telemetry.
+let merchantBusinessUnsavedDraft=null;
+const merchantBusinessProfileFields=[
+  'legalName','tradeName','responsibleName','phone','whatsapp',
+  'postalCode','city','state','addressText'
+];
+function merchantBusinessDraftKey(rt){
+  const ownerId=String(rt?.session?.user?.id||'');
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return rt?.status==='ready'&&rt?.merchant?.memberRole==='owner'
+    &&rt?.merchant?.status==='pending'&&uuid.test(ownerId)&&uuid.test(merchantId)
+    ?ownerId+'::'+merchantId:'';
+}
+function merchantBusinessProfileChanged(){
+  const rt=globalThis.merchantRuntime||{};
+  const key=merchantBusinessDraftKey(rt);
+  if(!key||rt.merchant.businessDetails)return false;
+  const values={};
+  for(const field of merchantBusinessProfileFields){
+    const el=document.getElementById('merchant-business-'+field);
+    if(!el)return false;
+    values[field]=String(el.value??'').slice(0,260);
+  }
+  merchantBusinessUnsavedDraft={key,values};
+  return true;
 }
 
 function merchantBusinessProfileView(rt){
@@ -1491,7 +1523,12 @@ function merchantBusinessProfileView(rt){
     &&rt.merchant?.businessDraft?.suggested===true
     &&rt.merchant?.businessDraft?.verified===false
     ?rt.merchant.businessDraft:null;
-  const b=saved||suggestion||{};
+  const draftKey=merchantBusinessDraftKey(rt);
+  if(saved&&merchantBusinessUnsavedDraft?.key===draftKey)
+    merchantBusinessUnsavedDraft=null;
+  const unsaved=draftKey&&merchantBusinessUnsavedDraft?.key===draftKey
+    ?merchantBusinessUnsavedDraft.values:null;
+  const b=saved||unsaved||suggestion||{};
   const completed=!!(saved?.city&&saved?.state&&saved?.postalCode&&saved?.addressText);
   const fields=[
     ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
@@ -1504,6 +1541,7 @@ function merchantBusinessProfileView(rt){
     '<span>'+(completed?'Informações declaradas • sujeitas à conferência':
       'Complete o endereço para análise do cadastro')+'</span></summary>'+
     '<div class="card flat form-stack">'+
+    (unsaved?'<p class="tiny muted">Seus ajustes ainda não foram salvos. O preenchimento foi mantido nesta aba durante a atualização do painel.</p>':'')+
     (suggestion&&!saved
       ?'<p class="tiny muted"><strong>Dados sugeridos do seu cadastro anterior.</strong> '+
         'Confira razão social, responsável, telefone, WhatsApp e endereço antes de salvar. '+
@@ -1514,7 +1552,7 @@ function merchantBusinessProfileView(rt){
       'O TAMÃO precisa conferir os requisitos aplicáveis.</p>'+
     fields.map(([key,label,max])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+
       esc(label)+'</label><input id="merchant-business-'+key+'" class="input"'+
-      ' autocomplete="off" maxlength="'+max+'" required value="'+esc(String(b[key]||''))+'"></div>').join('')+
+      ' autocomplete="off" maxlength="'+max+'" required oninput="merchantBusinessProfileChanged()" value="'+esc(String(b[key]||''))+'"></div>').join('')+
     '<button class="primary" type="button"'+(rt.actionPending?' disabled':'')+
       ' onclick="merchantBusinessProfileSaveFromUi()">Salvar meus dados para conferência</button>'+
     '</div></details>';
@@ -4068,6 +4106,7 @@ async function merchantLiveDeliver(id){
 async function merchantLiveLogout(){
   if(!merchantQuickConfirmLeave())return;
   merchantQuickDrafts.clear();
+  merchantBusinessUnsavedDraft=null;
   await merchantSignOut();toast('Sessão encerrada');
 }
 
