@@ -49,7 +49,7 @@ assert.equal(stress.marginCents,-12,'no future orders can finance obligations');
 assert.equal(stress.saleEnabled,false);
 assert.equal(stress.realPspFeeVerified,false);
 fields.price='15,00';
-assert.equal(ctx.stress().marginCents,288,'show estimated upside, never guaranteed');
+assert.equal(ctx.stress().marginCents,285,'rounded fee at R$15 is R$0,15, not R$0,12; no guaranteed profit');
 fields.feeBps='10001';
 assert.equal(ctx.stress().valid,false,'out-of-bounds fee invalid');
 fields.feeBps='99';
