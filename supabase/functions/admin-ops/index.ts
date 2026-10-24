@@ -2611,9 +2611,12 @@ Deno.serve(async(req:Request)=>{
         if(missingTable(packageResult.error)){
           return json({source:"clube_coupon_finance_status_v1",readOnly:true,
             schemaInstalled:false,coverage:"unavailable",
-            salesEnabled:false,checkoutEnabled:false,
+            salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+            checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
             packageCount:null,invoiceCount:null,voucherCount:null,
-            pendingNetCount:null,refundReviewCount:null,
+            pendingNetCount:null,unavailableVoucherCount:null,
+            unbackedConsumptionCount:null,financialIntegrityRisk:null,
+            refundReviewCount:null,
             merchantSettlementPendingCount:null,unfundedOfferCount:null,
             paymentsChecked:false,reason:"COUPON_FINANCE_SCHEMA_NOT_INSTALLED"
           },200,origin);
@@ -2622,10 +2625,10 @@ Deno.serve(async(req:Request)=>{
       }
       const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
-          .select("status,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
+           .select("id,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
           .limit(101),
         admin.from("clube_coupon_paid_issuances")
-          .select("status").limit(101),
+           .select("invoice_id,status").limit(101),
         admin.from("clube_coupon_paid_order_applications")
           .select("order_id").limit(26)
       ]);
@@ -2636,9 +2639,12 @@ Deno.serve(async(req:Request)=>{
       if(stageUnavailable){
         return json({source:"clube_coupon_finance_status_v1",readOnly:true,
           schemaInstalled:false,coverage:"unavailable",
-          salesEnabled:false,checkoutEnabled:false,
+          salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+            checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
           packageCount:null,invoiceCount:null,voucherCount:null,
-          pendingNetCount:null,refundReviewCount:null,
+          pendingNetCount:null,unavailableVoucherCount:null,
+            unbackedConsumptionCount:null,financialIntegrityRisk:null,
+            refundReviewCount:null,
           merchantSettlementPendingCount:null,unfundedOfferCount:null,
           paymentsChecked:false,reason:"COUPON_CHECKOUT_SCHEMA_INCOMPLETE"
         },200,origin);
@@ -2654,8 +2660,35 @@ Deno.serve(async(req:Request)=>{
       const invoiceRows=invoiceResult.data||[];
       const voucherRows=voucherResult.data||[];
       const packages=packageResult.data||[];
+      // Keep financial indicators consistent with coupon-credit-pix:
+      // a gross approved Pix is never proof of net proceeds after fees.
+      const couponNetCovered=(row:any)=>{
+        const face=row?.coupon_face_cents;
+        const count=row?.coupons_per_pack;
+        const net=row?.net_proceeds_cents;
+        const ref=String(row?.net_proceeds_reference??"").trim();
+        return row?.status==="paid"&&Boolean(row?.paid_at)&&
+          Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
+          Number.isSafeInteger(face)&&face>0&&
+          Number.isSafeInteger(count)&&count>0&&
+          Number.isSafeInteger(net)&&net>=face*count&&
+          net<=row.sale_price_cents&&
+          Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
+          ref.length>=8;
+      };
+      const invoiceById=new Map(invoiceRows.map((row:any)=>[String(row.id),row]));
       const pendingNet=invoiceRows.filter((row:any)=>
-        row.status==="paid" && !row.net_proceeds_verified_at).length;
+        row.status==="paid"&&!couponNetCovered(row)).length;
+      // Gross-paid invoices can produce issuance records before settlement:
+      // unbacked 'issued' is expected, but MUST NOT be reported as spendable.
+      const unavailableVouchers=voucherRows.filter((row:any)=>
+        row.status==="issued"&&
+        !couponNetCovered(invoiceById.get(String(row.invoice_id)))).length;
+      // A reserved or spent voucher without evidence is a real accounting
+      // anomaly. This panel is read-only; it cannot silently repair balances.
+      const unbackedConsumption=voucherRows.filter((row:any)=>
+        ["reserved","redeemed"].includes(row.status)&&
+        !couponNetCovered(invoiceById.get(String(row.invoice_id)))).length;
       const financialReviews=invoiceRows.filter((row:any)=>
         row.status==="review_required").length+
         voucherRows.filter((row:any)=>row.status==="review_required").length;
@@ -2682,15 +2715,19 @@ Deno.serve(async(req:Request)=>{
       return json({
         source:"clube_coupon_finance_status_v1",
         readOnly:true,schemaInstalled:true,
-        coverage:bounded||failedSettlement>0?"partial":"bounded_under_limits",
+        coverage:bounded||failedSettlement>0||unbackedConsumption>0
+          ?"partial":"bounded_under_limits",
         salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
         checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
         packageCount:packages.length,invoiceCount:invoiceRows.length,
         voucherCount:voucherRows.length,
         issuedCount:voucherRows.filter((v:any)=>v.status==="issued").length,
         redeemedCount:voucherRows.filter((v:any)=>v.status==="redeemed").length,
-        pendingNetCount:pendingNet,
-        refundReviewCount:financialReviews,
+        pendingNetCount:bounded?null:pendingNet,
+        unavailableVoucherCount:bounded?null:unavailableVouchers,
+        unbackedConsumptionCount:bounded?null:unbackedConsumption,
+        financialIntegrityRisk:bounded?null:unbackedConsumption>0,
+        refundReviewCount:bounded?null:financialReviews,
         unfundedOfferCount:unfunded,
         merchantSettlementPendingCount:failedSettlement?null:pendingSettlement,
         missingSettlementEvidenceCount:failedSettlement,
