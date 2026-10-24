@@ -92,7 +92,10 @@ err=null;
 const uiStart=merchant.indexOf('function merchantBusinessProfileView(rt){');
 const uiEnd=merchant.indexOf('function merchantBusinessProfileFocus(){',uiStart);
 assert.ok(uiStart>=0&&uiEnd>uiStart);
-const htmlCode=merchant.slice(uiStart,uiEnd);
+const uiPrelude=merchant.indexOf('let merchantBusinessUnsavedDraft=null;');
+assert.ok(uiPrelude>=0&&uiPrelude<uiStart,
+ 'the owner renderer requires its real in-memory draft controller');
+const htmlCode=merchant.slice(uiPrelude,uiEnd);
 const view=vm.createContext({
   esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 });
