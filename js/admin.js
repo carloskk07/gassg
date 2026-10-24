@@ -3874,6 +3874,23 @@ function adminOpenMerchantNetworkRecord(id){
   });
 }
 
+// A pending partner may already have a permanent owner and payment methods.
+// Missing self-declared business details are an owner action, not a reason to
+// create a duplicate merchant or infer legal/commercial approval.
+function adminMerchantMissingProfileNotice(m){
+  if(m?.status!=='pending'||!Object.prototype.hasOwnProperty.call(m,'businessDetails')
+    ||m.businessDetails!==null)return '';
+  const ownerLinked=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(String(m.activeOwnerUserId||''));
+  return '<div class="notice" role="status"><strong>Cadastro empresarial ainda não enviado</strong><br>'+
+    (ownerLinked
+      ?'O proprietário já está vinculado. Não é necessário criar outra revenda ou conta. '
+      :'Vincule primeiro o proprietário responsável por esta revenda. ')+
+    'No <a href="https://parceiro.tamao.com.br" target="_blank" rel="noopener noreferrer">Portal do Parceiro</a>, '+
+    'o proprietário deve abrir “Dados e endereço da minha revenda”, conferir as sugestões do cadastro anterior, '+
+    'completar CEP, cidade e UF e clicar em “Salvar meus dados para conferência”. '+
+    '<small>Isso não aprova CNPJ/ANP, não confirma representação, preço, estoque ou entrega e não ativa vendas.</small></div>';
+}
 function adminMerchantCard(m){
   const c=m.compliance||{};
   const readiness=m.readiness||null;
@@ -3900,6 +3917,7 @@ function adminMerchantCard(m){
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
     ${adminMerchantProgressView(m)}
+    ${adminMerchantMissingProfileNotice(m)}
     ${readiness?`<div class="notice ${readiness.offerReady?'success':''}" style="margin-top:10px"><strong>${readiness.offerReady?'Revenda ofertável':'Próximo passo operacional'}</strong><br>${esc(adminPilotNextActionCopy({onboarding:{nextAction:readiness.nextAction}}))}</div>`:''}
     ${m.businessDetails?`<div class="order-line"><strong>Responsável:</strong> ${esc(m.businessDetails.responsible_name)} • ${esc(m.businessDetails.city)}/${esc(m.businessDetails.state)} • WhatsApp ${esc(m.businessDetails.whatsapp)}</div>`:''}
     <div class="field-row" style="margin-top:12px">

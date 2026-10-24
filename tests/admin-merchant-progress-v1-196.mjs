@@ -220,4 +220,33 @@ rt.data=originalData;
 rt.section=originalSection;
 role=originalRole;
 
+
+// Operator guidance reuses the existing merchant card; it must never create a
+// second merchant, fabricate readiness or expose the owner's company data.
+vm.runInContext(fn('adminMerchantMissingProfileNotice')+
+  '\nthis.missingProfile=adminMerchantMissingProfileNotice;',ctx);
+const pendingOwner={...pending,businessDetails:null,activeOwnerUserId:user};
+const missingHtml=ctx.missingProfile(pendingOwner);
+assert.match(missingHtml,/Cadastro empresarial ainda não enviado/);
+assert.match(missingHtml,/O proprietário já está vinculado/);
+assert.match(missingHtml,/parceiro\.tamao\.com\.br/);
+assert.match(missingHtml,/completar CEP, cidade e UF/);
+assert.match(missingHtml,/Isso não aprova CNPJ\/ANP/);
+assert.doesNotMatch(missingHtml,/onclick=/,'guidance is read-only');
+assert.doesNotMatch(missingHtml,/approve-merchant|activate-merchant/);
+assert.equal(ctx.missingProfile({...pendingOwner,businessDetails:{city:'São Gabriel'}}),'',
+  'registered business details must not be flagged as missing');
+assert.equal(ctx.missingProfile({...pendingOwner,status:'active'}),'',
+  'do not mislabel an already active merchant');
+const legacyNoField={...pendingOwner};
+delete legacyNoField.businessDetails;
+assert.equal(ctx.missingProfile(legacyNoField),'',
+  'missing snapshot metadata is not proof the profile is absent');
+assert.match(ctx.missingProfile({...pendingOwner,activeOwnerUserId:null}),
+ /Vincule primeiro o proprietário/);
+assert.doesNotMatch(ctx.missingProfile({...pendingOwner,activeOwnerUserId:null}),
+ /O proprietário já está vinculado/);
+assert.ok(card.includes('adminMerchantMissingProfileNotice(m)'),
+  'existing authorized partner card must surface precise owner next step');
+
 console.log('V1.196: seven evidence-specific milestones; unknown, mismatch, revoked, expired, stale, no-writing, role and mobile styles passed.');
