@@ -31,8 +31,14 @@ assert.match(edge,/p_voucher_id:couponVoucherId/);
 assert.match(edge,/couponVoucherId\?\{couponVoucherId\}:\{\}/);
 assert.match(edge,/create_order_from_quote_v8/);
 assert.match(invoiceEdge,/couponCheckoutEnabled:/);
-assert.match(invoiceEdge,/net_proceeds_verified_at!=null/);
-assert.match(invoiceEdge,/net_proceeds_cents>=row.coupon_face_cents\*row.coupons_per_pack/);
+assert.ok(invoiceEdge.includes('function couponInvoiceNetCovered(row:any)'),
+ 'coupon UI should use the same NET-funding predicate for replay and voucher list');
+assert.ok(invoiceEdge.includes('Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))'),
+ 'invoice must not expose benefits before provider net amount verification');
+assert.ok(invoiceEdge.includes('net>=face*count'),
+ 'voucher presentation must enforce full face-value coverage');
+assert.ok(invoiceEdge.includes('.filter((row:any)=>couponInvoiceNetCovered(row))'),
+ 'my-vouchers history and public invoice must use the same verified backing');
 assert.match(backend,/couponVoucherId:couponVoucher.voucherId/);
 assert.match(backend,/if\(couponIntent&&!couponVoucher\)/);
 assert.match(customer,/clubePaidCouponCheckoutPanel\(\)/);
