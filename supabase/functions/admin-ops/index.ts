@@ -2709,7 +2709,8 @@ Deno.serve(async(req:Request)=>{
           failedSettlement++;continue;
         }
         if(["MERCHANT_REIMBURSEMENT_MISSING","MERCHANT_REIMBURSEMENT_MISMATCH",
-          "MERCHANT_REIMBURSEMENT_DUE","CANCELLATION_REVIEW","REVERSAL_REVIEW",
+          "MERCHANT_REIMBURSEMENT_DUE","MERCHANT_PAYOUT_UNVERIFIED",
+          "CANCELLATION_REVIEW","REVERSAL_REVIEW",
           "FINANCIAL_REVIEW"].includes(data.status))pendingSettlement++;
       }
       return json({
