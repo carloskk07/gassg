@@ -1467,15 +1467,29 @@ function merchantRevealControl(selector){
 async function merchantUpdateBusinessDetailsLive(payload){
   if(merchantRuntime.status!=='ready'||merchantRuntime.merchant?.memberRole!=='owner')
     throw new Error('Somente o proprietário pode atualizar o endereço cadastral');
+  const submittedKey=merchantBusinessDraftKey(merchantRuntime);
+  const submittedMerchantId=String(merchantRuntime.merchant?.merchantId||'');
+  if(!submittedKey)throw new Error('Sessão do proprietário indisponível. Entre novamente.');
   merchantRuntime.actionPending=true;render();
   try{
     const result=await merchantConfigMutation('update-business-details',payload);
     if(result?.ok!==true||result?.action!=='update-business-details'||
       result?.pendingAdministrativeVerification!==true)
       throw new Error('Não foi possível confirmar o salvamento do cadastro');
-    await merchantRefresh({silent:true});
-    const savedKey=merchantBusinessDraftKey(merchantRuntime);
-    if(merchantBusinessUnsavedDraft?.key===savedKey)
+    const refreshed=await merchantRefresh({silent:true});
+    // An RPC acknowledgement is not proof that the owner's saved record was
+    // read back. merchantRefresh may resolve null (expired session/no access)
+    // or return an obsolete response after a competing refresh.
+    if(merchantBusinessDraftKey(merchantRuntime)!==submittedKey||
+      String(refreshed?.merchant?.merchantId||'')!==submittedMerchantId||
+      refreshed?.merchant?.memberRole!=='owner'||
+      refreshed?.merchant?.status!=='pending'||
+      !merchantBusinessProfileMatches(refreshed?.merchant?.businessDetails,payload)||
+      !merchantBusinessProfileMatches(merchantRuntime.merchant?.businessDetails,payload)){
+      throw new Error('O envio foi recebido, mas não foi possível conferir os dados salvos. Atualize o painel antes de tentar novamente.');
+    }
+    if(merchantBusinessUnsavedDraft?.key===submittedKey&&
+      merchantBusinessProfileMatches(refreshed.merchant.businessDetails,merchantBusinessUnsavedDraft.values))
       merchantBusinessUnsavedDraft=null;
     merchantEnablementAfterChange();
     return result;
@@ -1499,10 +1513,15 @@ function merchantBusinessDraftKey(rt){
     &&rt?.merchant?.status==='pending'&&uuid.test(ownerId)&&uuid.test(merchantId)
     ?ownerId+'::'+merchantId:'';
 }
+function merchantBusinessProfileMatches(saved,values){
+  return Boolean(saved&&values&&merchantBusinessProfileFields.every(field=>
+    typeof saved[field]==='string'&&typeof values[field]==='string'&&
+    saved[field]===values[field]));
+}
 function merchantBusinessProfileChanged(){
   const rt=globalThis.merchantRuntime||{};
   const key=merchantBusinessDraftKey(rt);
-  if(!key||rt.merchant.businessDetails)return false;
+  if(!key)return false;
   const values={};
   for(const field of merchantBusinessProfileFields){
     const el=document.getElementById('merchant-business-'+field);
@@ -1524,11 +1543,12 @@ function merchantBusinessProfileView(rt){
     &&rt.merchant?.businessDraft?.verified===false
     ?rt.merchant.businessDraft:null;
   const draftKey=merchantBusinessDraftKey(rt);
-  if(saved&&merchantBusinessUnsavedDraft?.key===draftKey)
+  if(saved&&merchantBusinessUnsavedDraft?.key===draftKey&&
+    merchantBusinessProfileMatches(saved,merchantBusinessUnsavedDraft.values))
     merchantBusinessUnsavedDraft=null;
   const unsaved=draftKey&&merchantBusinessUnsavedDraft?.key===draftKey
     ?merchantBusinessUnsavedDraft.values:null;
-  const b=saved||unsaved||suggestion||{};
+  const b=unsaved||saved||suggestion||{};
   const completed=!!(saved?.city&&saved?.state&&saved?.postalCode&&saved?.addressText);
   const fields=[
     ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
@@ -1582,6 +1602,10 @@ async function merchantBusinessProfileSaveFromUi(){
     !/^[0-9]{8}$/.test(payload.postalCode)||
     !/^[A-Z]{2}$/.test(payload.state))
     return toast('Revise razão social, endereço, cidade, UF, CEP e telefones.');
+  // Also capture browser-autofilled values that did not fire an input event.
+  // A failed readback must keep this draft available for review/retry.
+  if(!merchantBusinessProfileChanged())
+    return toast('Não foi possível preservar seus dados. Atualize o painel antes de salvar.');
   try{
     const result=await merchantUpdateBusinessDetailsLive(payload);
     if(result?.pendingAdministrativeVerification!==true)
