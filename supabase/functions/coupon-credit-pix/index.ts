@@ -5,7 +5,7 @@ import {
   safeMercadoPagoUrl,mercadoPagoQrDataUri,moneyToCents,mercadoPagoPixDeadline
 } from "../_shared/mercadopago.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
-import {enforceApiQuota,readJsonBody} from "../_shared/domain.js";
+import {enforceApiQuota,readJsonBody,platformCommerceAllowed} from "../_shared/domain.js";
 
 // Uses the SAME MERCADOPAGO_ACCESS_TOKEN as merchant-billing-pix. New coupons
 // cannot be sold unless verified funding, legal terms and merchant settlement
@@ -162,8 +162,12 @@ Deno.serve(async(req:Request)=>{
           voucherId:row.id,invoiceId:row.invoice_id,ordinal:row.ordinal,
           faceCents:row.face_cents,status:row.status,expiresAt:row.expires_at
         })),
-      couponSalesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
-      couponCheckoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"
+      couponSalesEnabled:
+        Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"&&
+        await platformCommerceAllowed(admin),
+      couponCheckoutEnabled:
+        Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"&&
+        await platformCommerceAllowed(admin)
     },200,origin);
   }
   if(operation!=="purchase")return respond({error:"COUPON_ACTION_INVALID"},400,origin);
@@ -171,6 +175,10 @@ Deno.serve(async(req:Request)=>{
   // been validated end-to-end, even if credentials already exist.
   if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")
     return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
+  // A private coupon flag can never override the central PRELAUNCH/PAUSED
+  // switch. Reject before inserting any invoice or calling the Pix provider.
+  if(!await platformCommerceAllowed(admin))
+    return respond({error:"COMMERCE_NOT_ENABLED"},423,origin);
   if(!mercadoPagoConfigured(MP_TOKEN))
     return respond({error:"MERCADOPAGO_NOT_CONFIGURED"},503,origin);
   const packageKey=String(body.packageKey||"");
