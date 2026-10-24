@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {
   mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,
-  safeMercadoPagoUrl,mercadoPagoQrDataUri,moneyToCents
+  safeMercadoPagoUrl,mercadoPagoQrDataUri,moneyToCents,mercadoPagoPixDeadline
 } from "../_shared/mercadopago.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
 import {enforceApiQuota,readJsonBody} from "../_shared/domain.js";
@@ -35,11 +35,51 @@ function findPix(order:any){
  return payments.find((p:any)=>p?.payment_method?.id==="pix"
    &&p?.payment_method?.type==="bank_transfer")??null;
 }
+// Fail closed for old/prepared invoices and stale idempotent retries.
+// Never show a stored BR code after the provider-backed deadline or the
+// conservative 24-hour ceiling from the durable invoice creation time.
+function couponInvoiceCanPresent(row:any,nowMs=Date.now()){
+ if(row?.status!=="awaiting_payment")return false;
+ const anchor=Date.parse(String(row?.created_at??""));
+ const expiry=Date.parse(String(row?.expires_at??""));
+ return Number.isFinite(anchor)&&Number.isFinite(expiry)
+   &&Number.isFinite(nowMs)&&expiry<=anchor+86_400_000
+   &&expiry>nowMs+60_000
+   &&typeof row?.pix_br_code==="string"&&row.pix_br_code.length>=30;
+}
+function couponProviderPixPayable(order:any,payment:any){
+ const status=String(order?.status??"").trim().toLowerCase();
+ const payStatus=String(payment?.status??"").trim().toLowerCase();
+ return ["action_required","processing"].includes(status)
+   &&["","pending","in_process","action_required","processing"].includes(payStatus);
+}
 function publicInvoice(row:any){
+ const payable=couponInvoiceCanPresent(row);
  return {invoiceId:row.id,status:row.status,amountCents:row.sale_price_cents,
-   provider:"mercadopago",pixCode:row.status==="awaiting_payment"?row.pix_br_code:null,
-   paymentUrl:row.status==="awaiting_payment"?row.payment_url:null,
+   provider:"mercadopago",pixCode:payable?row.pix_br_code:null,
+   paymentUrl:payable?row.payment_url:null,pixPayable:payable,
    expiresAt:row.expires_at??null,issuedCoupons:row.status==="paid"?row.coupons_per_pack:0};
+}
+// A replay cannot trust the local invoice alone: payment may have been
+// processed/cancelled at Mercado Pago while the webhook is still delayed.
+async function couponPixStillPayable(invoice:any){
+ if(!couponInvoiceCanPresent(invoice)||!invoice.provider_order_id
+   ||!invoice.provider_payment_id)return false;
+ const result=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(String(invoice.provider_order_id)),
+   {accessToken:MP_TOKEN});
+ if(!result.ok)return false;
+ const order=await readMercadoPagoJson(result);
+ const payment=findPix(order);
+ const code=String(payment?.payment_method?.qr_code??"");
+ const deadline=mercadoPagoPixDeadline(order,payment,invoice.created_at);
+ return String(order?.id??"")===String(invoice.provider_order_id)
+   &&String(order?.external_reference??"")===String(invoice.id)
+   &&moneyToCents(order?.total_amount)===invoice.sale_price_cents
+   &&String(payment?.id??"")===String(invoice.provider_payment_id)
+   &&couponProviderPixPayable(order,payment)
+   &&deadline!==null&&Date.parse(String(invoice.expires_at))<=Date.parse(deadline)
+   &&code===invoice.pix_br_code
+   &&validatePixBrCode(code,{expectedAmountCents:invoice.sale_price_cents}).valid;
 }
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
@@ -148,7 +188,13 @@ Deno.serve(async(req:Request)=>{
      invoice.coupons_per_pack!==pkg.coupons_per_pack){
    return respond({error:"COUPON_REQUEST_REPLAY_CONFLICT"},409,origin);
   }
-  if(invoice.status!=="prepared")return respond({ok:true,...publicInvoice(invoice)},200,origin);
+  if(invoice.status!=="prepared"){
+   if(invoice.status==="awaiting_payment"&&!await couponPixStillPayable(invoice))
+     return respond({ok:false,error:"COUPON_PIX_REVIEW_REQUIRED",
+       ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
+       recheckRequired:true},409,origin);
+   return respond({ok:true,...publicInvoice(invoice)},200,origin);
+  }
   const amount=(Number(invoice.sale_price_cents)/100).toFixed(2);
   const orderRequest={
    type:"online",total_amount:amount,external_reference:invoice.id,
@@ -169,11 +215,15 @@ Deno.serve(async(req:Request)=>{
    if(order?.id&&order.external_reference===invoice.id&&
      moneyToCents(order.total_amount)===invoice.sale_price_cents&&
      payment?.id&&rawCode){
+    if(!couponProviderPixPayable(order,payment))
+     throw new Error("MERCADOPAGO_COUPON_ORDER_NOT_PAYABLE");
+    const expiresAt=mercadoPagoPixDeadline(order,payment,invoice.created_at);
+    if(!expiresAt)throw new Error("MERCADOPAGO_COUPON_PIX_EXPIRED_OR_UNVERIFIED");
     if(!validatePixBrCode(rawCode,{expectedAmountCents:invoice.sale_price_cents}).valid)
      throw new Error("MERCADOPAGO_COUPON_PIX_INVALID");
     const patch={provider_order_id:String(order.id),provider_payment_id:String(payment.id),
      pix_br_code:rawCode,payment_url:safeMercadoPagoUrl(payment.payment_method.ticket_url),
-     status:"awaiting_payment",expires_at:new Date(Date.now()+86400000).toISOString(),
+     status:"awaiting_payment",expires_at:expiresAt,
      updated_at:new Date().toISOString()};
     const {data:committed,error:commitError}=await admin.from("clube_coupon_paid_invoices")
      .update(patch).eq("id",invoice.id).eq("status","prepared").select("*").maybeSingle();
