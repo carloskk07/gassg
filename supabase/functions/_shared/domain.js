@@ -325,3 +325,19 @@ export function shouldLockPin(failures,maxFailures=5){
   const count=asPositiveInt(failures,'pinFailures',{min:0,max:1000});
   return count>=maxFailures;
 }
+
+// Shared final commerce kill-switch for paid coupons. This does not create
+// offers, register payments or infer readiness from a cached website build.
+// In PRELAUNCH/PAUSED, or if the control cannot be read, fail closed. PILOT
+// and LIVE are the only commercial modes under the existing DB constraint.
+// The caller must still enforce its own coupon env flag, package eligibility,
+// net settlement and role/merchant gates independently.
+export async function platformCommerceAllowed(serviceClient){
+  try{
+    const {data,error}=await serviceClient.from("platform_launch_control")
+      .select("commerce_enabled,operation_mode")
+      .eq("singleton",true).maybeSingle();
+    return !error&&data?.commerce_enabled===true&&
+      ["PILOT","LIVE"].includes(data.operation_mode);
+  }catch{return false;}
+}
