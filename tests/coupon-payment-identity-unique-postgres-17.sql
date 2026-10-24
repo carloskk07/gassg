@@ -32,38 +32,48 @@ BEGIN
    RAISE EXCEPTION 'COUPON_PENDING_INVOICES_FORBIDDEN';
  END IF;
 
- UPDATE public.clube_coupon_paid_invoices
- SET provider_payment_id='mp-identity-payment-1' WHERE id=first_invoice;
+ -- Exercise the ACTUAL payment verification RPC so a conflict aborts
+ -- voucher issuance as well as the provider payment binding.
+ PERFORM public.clube_coupon_paid_payment_verify(
+   first_invoice,'identity-provider-order-A','mp-identity-payment-1',1500);
  BEGIN
-  UPDATE public.clube_coupon_paid_invoices
-  SET provider_payment_id='mp-identity-payment-1' WHERE id=second_invoice;
+  PERFORM public.clube_coupon_paid_payment_verify(
+   second_invoice,'identity-provider-order-B','mp-identity-payment-1',1500);
  EXCEPTION WHEN unique_violation THEN unique_payment_rejected:=true;
  END;
  IF NOT unique_payment_rejected THEN
    RAISE EXCEPTION 'COUPON_PSP_PAYMENT_REUSED_ACROSS_INVOICES';
  END IF;
+ IF (SELECT status FROM public.clube_coupon_paid_invoices
+      WHERE id=second_invoice)<>'awaiting_payment' OR
+    (SELECT count(*) FROM public.clube_coupon_paid_issuances
+      WHERE invoice_id=second_invoice)<>0 THEN
+   RAISE EXCEPTION 'COUPON_PAYMENT_CONFLICT_ISSUED_VOUCHERS';
+ END IF;
+ PERFORM public.clube_coupon_paid_payment_verify(
+   second_invoice,'identity-provider-order-B','mp-identity-payment-2',1500);
 
- UPDATE public.clube_coupon_paid_invoices SET
- provider_payment_id='mp-identity-payment-2' WHERE id=second_invoice;
- UPDATE public.clube_coupon_paid_invoices SET
- net_proceeds_cents=1100,
- net_proceeds_reference='mp-release:identity-report.csv:mp-identity-payment-1',
- net_proceeds_verified_at=clock_timestamp() WHERE id=first_invoice;
+ -- The ordinary finance RPC is privileged. The existing Admin wrapper
+ -- authenticates the actor/MP report before invoking this method.
+ PERFORM public.clube_coupon_paid_net_proceeds_verify(
+   first_invoice,'identity-provider-order-A',1100,
+   'mp-release:identity-report.csv:mp-identity-payment-1');
  BEGIN
-  UPDATE public.clube_coupon_paid_invoices SET
-  net_proceeds_cents=1100,
-  net_proceeds_reference='mp-release:identity-report.csv:mp-identity-payment-1',
-  net_proceeds_verified_at=clock_timestamp() WHERE id=second_invoice;
+  PERFORM public.clube_coupon_paid_net_proceeds_verify(
+   second_invoice,'identity-provider-order-B',1100,
+   'mp-release:identity-report.csv:mp-identity-payment-1');
  EXCEPTION WHEN unique_violation THEN unique_release_rejected:=true;
  END;
  IF NOT unique_release_rejected THEN
    RAISE EXCEPTION 'COUPON_NET_RECEIPT_REUSED_ACROSS_INVOICES';
  END IF;
-
- UPDATE public.clube_coupon_paid_invoices SET
- net_proceeds_cents=1100,
- net_proceeds_reference='mp-release:identity-report.csv:mp-identity-payment-2',
- net_proceeds_verified_at=clock_timestamp() WHERE id=second_invoice;
+ IF (SELECT net_proceeds_reference FROM public.clube_coupon_paid_invoices
+     WHERE id=second_invoice) IS NOT NULL THEN
+   RAISE EXCEPTION 'COUPON_RELEASE_CONFLICT_REGISTERED_PROOF';
+ END IF;
+ PERFORM public.clube_coupon_paid_net_proceeds_verify(
+   second_invoice,'identity-provider-order-B',1100,
+   'mp-release:identity-report.csv:mp-identity-payment-2');
  IF (SELECT count(distinct provider_payment_id)
   FROM public.clube_coupon_paid_invoices
   WHERE id IN (first_invoice,second_invoice))<>2 OR
