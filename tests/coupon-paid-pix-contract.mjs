@@ -32,6 +32,29 @@ assert.match(migration,/unique\(customer_user_id,request_id\)/,
  'idempotency must isolate customers');
 assert.match(migration,/unique\(invoice_id,ordinal\)/,
  'coupon issuance idempotent per ordinal');
+assert.match(migration,/net_proceeds_cents integer check\(/,
+ 'schema must contain net proceeds used by the customer voucher reader');
+assert.match(migration,/net_proceeds_verified_at timestamptz/,
+ 'available funds require an independent verification time');
+assert.match(migration,/coupon_net_proceeds_evidence_complete/,
+ 'net amount without audit evidence is invalid');
+assert.match(migration,/create or replace function public\.clube_coupon_paid_funding_finalize\(/);
+assert.match(migration,/revoke all on function public\.clube_coupon_paid_funding_finalize/);
+assert.match(migration,/grant execute on function public\.clube_coupon_paid_funding_finalize[\s\S]*?to service_role/);
+const grossVerify=migration.slice(
+ migration.indexOf('create or replace function public.clube_coupon_paid_payment_verify('),
+ migration.indexOf('revoke all on function public.clube_coupon_paid_payment_verify('));
+assert.ok(grossVerify.length>0);
+assert.doesNotMatch(grossVerify,/insert into public\.clube_coupon_paid_issuances/i,
+ 'gross approved Pix must NEVER automatically issue spendable benefits');
+assert.match(grossVerify,/'fundingPending',true/,
+ 'verified payment must remain pending until net proceeds reconciliation');
+assert.match(quotePg,/GROSS_PAYMENT_ISSUED_UNFUNDED_VOUCHERS/);
+assert.match(quotePg,/COUPON_UNDERFUNDED_NET_ACCEPTED/);
+assert.match(quotePg,/NET_FUNDING_REPLAY_NOT_IDEMPOTENT/);
+assert.match(coupon,/row\.net_proceeds_evidence_ref!=null/);
+assert.match(webhook,/fundingPending:issued===0/,
+ 'webhook must not report issued benefits when only gross payment was confirmed');
 assert.match(migration,/where id=p_invoice_id for update/,
  'credit verification and refunds need row locking');
 assert.match(migration,/on conflict \(invoice_id,ordinal\) do nothing/,
@@ -46,8 +69,8 @@ assert.match(migration,/v_quote.customer_id<>p_customer_user_id/,
  'a customer may not bind vouchers to another person\'s quote');
 assert.match(migration,/v_quote.gross_total_cents<v_voucher.face_cents/,
  'voucher may not exceed current quote');
-assert.match(migration,/v_invoice.sale_price_cents::bigint</,
- 'reservation requires lastro integral do pacote');
+assert.match(migration,/v_invoice.net_proceeds_cents::bigint</,
+ 'reservation requires provider-verified NET funding, not gross price');
 assert.ok(migration.includes("'appliedCents',0"),
  'a reservation is not a redeemed discount');
 for(const fn of ['clube_coupon_paid_quote_reserve','clube_coupon_paid_quote_release']){
@@ -175,4 +198,4 @@ assert.match(webhook,/handlePlatformBillingOrder/,
  'legacy platform billing reconciliation must be preserved');
 assert.doesNotMatch(coupon,/create-order|\bstatus:'paid'\b|status:"paid"/i,
  'generating a Pix must not auto-confirm or generate an order');
-console.log('PASS: coupon Pix same MP account, signed webhook, idempotent credit, refund, user-scoped billing and sales gate off.');
+console.log('PASS: coupon Pix verifies gross payments separately from reconciled net-funded issuance; signed webhook, refund and sales gate remain protected.');
