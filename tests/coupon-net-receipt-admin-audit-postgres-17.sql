@@ -136,5 +136,8 @@ BEGIN
    or not has_function_privilege('service_role',
    'public.clube_coupon_paid_net_proceeds_verify_audited(uuid,text,integer,text,uuid)',
    'EXECUTE')
+   or has_function_privilege('service_role',
+   'public.clube_coupon_paid_net_proceeds_verify(uuid,text,integer,text)',
+   'EXECUTE')
  THEN RAISE EXCEPTION 'COUPON_AUDITED_RPC_ACL_FAILURE';END IF;
 END $coupon_audit_acl$;
