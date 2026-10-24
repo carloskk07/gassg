@@ -22,6 +22,7 @@ on:
       - 'supabase/migrations/20261024160000_clube_coupon_paid_package_draft_admin.sql'
       - 'tests/coupon-package-draft-admin-postgres-17.sql'
       - 'supabase/migrations/20261024185000_coupon_external_payment_single_use.sql'
+      - 'supabase/migrations/20261024191700_coupon_reservation_net_proceeds_guard.sql'
       - 'tests/coupon-payment-identity-unique-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   push:
@@ -39,6 +40,7 @@ on:
       - 'supabase/migrations/20261024160000_clube_coupon_paid_package_draft_admin.sql'
       - 'tests/coupon-package-draft-admin-postgres-17.sql'
       - 'supabase/migrations/20261024185000_coupon_external_payment_single_use.sql'
+      - 'supabase/migrations/20261024191700_coupon_reservation_net_proceeds_guard.sql'
       - 'tests/coupon-payment-identity-unique-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
@@ -99,6 +101,7 @@ jobs:
           # This stubbed checkout exists only inside this ephemeral PG17 job.
           psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-fixture-postgres-17.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024191700_coupon_reservation_net_proceeds_guard.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-atomic-checkout-postgres-17.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024123000_coupon_net_receipt_admin_audit.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-net-receipt-admin-audit-postgres-17.sql
