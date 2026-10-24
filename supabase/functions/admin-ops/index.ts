@@ -2534,12 +2534,29 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
-    if(action==="clube-coupon-mp-release-inspect"){
-      // Finance-only, read-only evidence. No RPC to settle coupons, debit
-      // wallets, reimburse merchants or change sales configuration.
-      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+    if(action==="clube-coupon-mp-release-inspect"||
+       action==="clube-coupon-mp-funding-finalize"){
+      // One fresh, authenticated PSP/CSV verification for both paths.
+      // Inspection stays read-only. Only superadmin may explicitly persist
+      // the proof via the ALREADY installed, idempotent finance RPC.
+      const finalize=action==="clube-coupon-mp-funding-finalize";
+      if(finalize&&String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o superadministrador pode registrar o dinheiro líquido.",403);
+      if(!finalize&&
+         !["superadmin","finance"].includes(String(adminAccess.admin_role)))
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "A conferência do dinheiro líquido exige perfil financeiro.",403);
+      if(finalize){
+        if(body.confirmation!=="CONFIRMAR_LIQUIDO"||
+           !Number.isSafeInteger(body.expectedNetCents)||
+           body.expectedNetCents<=0||
+           typeof body.expectedEvidenceReference!=="string"||
+           body.expectedEvidenceReference.length<8||
+           body.expectedEvidenceReference.length>240)
+          throw new DomainError("COUPON_NET_CONFIRMATION_REQUIRED",
+            "Conferência prévia e confirmação explícita são obrigatórias.",400);
+      }
       const invoiceId=String(body.invoiceId??"").trim();
       const fileName=String(body.reportFileName??"").trim();
       if(!UUID_RE.test(invoiceId)||
@@ -2547,7 +2564,9 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("COUPON_RELEASE_INPUT_INVALID",
           "Informe uma fatura e um relatório CSV válidos.",400);
       await enforceApiQuota(admin,{
-        userId:user.id,actionName:"admin-mp-coupon-release-inspect",
+        userId:user.id,actionName:finalize
+          ?"admin-mp-coupon-funding-finalize"
+          :"admin-mp-coupon-release-inspect",
         limit:3,windowSeconds:600
       });
       const {data:invoice,error:invoiceError}=await admin
@@ -2630,6 +2649,40 @@ Deno.serve(async(req:Request)=>{
       const inspection=couponReleasedNetEvidence(csv,{
         invoice,order,reportFileName:fileName
       });
+      if(finalize){
+        // No client-supplied amount/reference may authorize receipt. They
+        // only detect changes from the previous read-only inspection.
+        // Refetching BOTH the live order and the official CSV prevents
+        // acceptance of a stale preview after an intervening refund.
+        if(!inspection.eligible||
+           inspection.netCents!==body.expectedNetCents||
+           inspection.evidenceReference!==body.expectedEvidenceReference)
+          throw new DomainError("COUPON_NET_EVIDENCE_CHANGED",
+            "O extrato ou a situação do Pix mudou. Faça nova conferência.",409);
+        const {data:registered,error:registerError}=await admin
+          .rpc("clube_coupon_paid_net_proceeds_verify",{
+            p_invoice_id:invoice.id,
+            p_provider_order_id:invoice.provider_order_id,
+            p_net_cents:inspection.netCents,
+            p_reference:inspection.evidenceReference
+          });
+        if(registerError)throw registerError;
+        if(registered?.ok!==true||
+           String(registered?.invoiceId)!==invoice.id)
+          throw new DomainError("COUPON_NET_RPC_UNCONFIRMED",
+            "Registro do líquido não confirmado no banco.",503);
+        return json({
+          source:"coupon_mp_released_net_registration_v1",
+          ok:true,invoiceId:invoice.id,netCents:inspection.netCents,
+          evidenceReference:inspection.evidenceReference,
+          replayed:registered.replayed===true,
+          netEvidenceRegistered:true,
+          readOnly:false,moneyMoved:false,
+          couponFundingApplied:false,merchantPayoutVerified:false,
+          couponsAvailableForCheckout:false,
+          checkedAt:new Date().toISOString()
+        },200,origin);
+      }
       return json({...inspection,available:true,
         // A line in a released-money report is independent PSP evidence of
         // net receipt, never bank transfer to the merchant or redemption.
