@@ -225,11 +225,14 @@ const webhookSandbox=vm.createContext({
   json:(body,status=200)=>({body,status})
 });
 new vm.Script(couponHandlerJs,{filename:'coupon-webhook-handler.ts'}).runInContext(webhookSandbox);
-const decide=async(paymentStatus,orderStatus='processed',refunds=[],priorStatus='paid')=>{
+const decide=async(paymentStatus,orderStatus='processed',refunds=[],priorStatus='paid',
+  details={})=>{
   calledRpcs=[];
   currentPspOrder={id:'order-1',external_reference:'invoice-1',
     total_amount:'15.00',status:orderStatus,
+    status_detail:details.order??'accredited',
     transactions:{payments:[{id:'payment-1',status:paymentStatus,
+      status_detail:details.payment??'accredited',
       payment_method:{id:'pix',type:'bank_transfer'}}],refunds}};
   const result=await webhookSandbox.handlePaidCouponOrder(mockAdmin,'order-1',
     {...invoiceForWebhook,status:priorStatus},'test-only-token');
@@ -255,6 +258,15 @@ assert.equal((await decide('processed','partially_refunded')).route,
  'clube_coupon_paid_payment_review','order-only partial refund must hold the vouchers');
 assert.equal((await decide('processing')).route,
  'clube_coupon_paid_payment_review','a previously paid invoice regressing to pending must be held');
+assert.equal((await decide('processed','processed',[],'paid',
+ {order:'partially_refunded'})).route,
+ 'clube_coupon_paid_payment_review','order processed + partially_refunded detail is NOT funded');
+assert.equal((await decide('processed','processed',[],'paid',
+ {payment:'partially_refunded'})).route,
+ 'clube_coupon_paid_payment_review','payment processed + partially_refunded detail is NOT funded');
+assert.equal((await decide('processed','processed',validRefund,'paid',
+ {payment:'partially_refunded'})).route,
+ 'clube_coupon_paid_payment_review','partial detail conflicts with alleged complete refund');
 assert.equal((await decide('processed')).route,
  'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
 console.log('PASS: signed coupon Pix and real webhook handler refund/dispute inconsistencies are fail-closed.');
