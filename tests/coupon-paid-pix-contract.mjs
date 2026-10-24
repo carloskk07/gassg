@@ -19,7 +19,7 @@ for(const table of ['clube_coupon_paid_packages','clube_coupon_paid_invoices','c
  assert.match(migration,new RegExp('alter table public\\.'+table+' enable row level security'));
  assert.match(migration,new RegExp('revoke all on public\\.'+table+' from public,anon,authenticated'));
 }
-assert.match(netMigration,/create or replace function public\\.clube_coupon_paid_net_proceeds_verify\\(/,
+assert.ok(netMigration.includes('create or replace function public.clube_coupon_paid_net_proceeds_verify('),
  'reuse the existing settlement verifier; do not create a second financial motor');
 assert.match(netMigration,/net_proceeds_reference is null/,
  'the atomic checkout must require independently reconciled provider net evidence');
