@@ -91,7 +91,7 @@ for(const invalid of [
 ])assert.throws(()=>parseReleasedMoneyCsv(invalid));
 
 assert.match(admin,/import \{couponReleasedNetEvidence\} from "\.\/coupon-release-evidence\.js"/);
-assert.match(admin,/if\(action==="clube-coupon-mp-release-inspect"\)/);
+assert.match(admin,/if\(action==="clube-coupon-mp-release-inspect"\|\|/);
 assert.match(admin,/admin-mp-coupon-release-inspect/);
 assert.match(admin,/from\("clube_coupon_paid_invoices"\)/);
 assert.match(admin,/encodeURIComponent\(fileName\)/);
@@ -99,7 +99,7 @@ assert.match(admin,/mercadoPagoFetch\("\/v1\/account\/release_report\/list"/);
 assert.match(admin,/mercadoPagoFetch\("\/v1\/account\/release_report\/"\+encodeURIComponent\(fileName\)/);
 assert.match(admin,/providerReportChecked:true/);
 assert.match(admin,/fileName:typeof item\?\.file_name/);
-const route=admin.slice(admin.indexOf('if(action==="clube-coupon-mp-release-inspect")'),
+const route=admin.slice(admin.indexOf('if(action==="clube-coupon-mp-release-inspect"||'),
  admin.indexOf('if(action==="clube-coupon-mp-release-reports")'));
 assert.doesNotMatch(route,/method:"POST"|\.update\(|\.insert\(|\.delete\(/,
  'provider reconciliation must not write directly to finance tables');
