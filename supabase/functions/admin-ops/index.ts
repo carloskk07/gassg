@@ -2603,7 +2603,7 @@ Deno.serve(async(req:Request)=>{
       const matching=listing.filter((item:any)=>String(item?.file_name??"")===fileName);
       if(matching.length!==1||
          String(matching[0]?.status??"").toLowerCase()!=="processed"||
-         matching[0]?.is_test===true||
+         (finalize?matching[0]?.is_test!==false:matching[0]?.is_test===true)||
          String(matching[0]?.currency_id??"")!=="BRL")
         throw new DomainError("MP_RELEASE_FILE_UNVERIFIED",
           "O relatório não está validado na conta TAMÃO.",409);
