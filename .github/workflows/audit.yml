@@ -612,6 +612,8 @@ jobs:
         run: node tests/release-customer-comments-20261021.mjs
       - name: One-step merchant signup and referral attribution V1.410
         run: node tests/merchant-direct-onboarding-v1-410.mjs
+      - name: Owner-only merchant application prefill, no auto-verification
+        run: node tests/merchant-business-approved-draft.mjs
       - name: Pix BR Code format and expired-code safeguards
         run: node tests/merchant-pix-brcode-validity.mjs
       - name: Admin financial lab and safe sandbox contract
