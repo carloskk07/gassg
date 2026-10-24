@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql');
@@ -70,6 +71,76 @@ assert.match(coupon,/sale_price_cents:pkg.sale_price_cents/,
  'price must come from server package, never client request');
 assert.match(coupon,/validatePixBrCode\(rawCode,\{expectedAmountCents:invoice.sale_price_cents\}\)/,
  'never return invalid Pix payload');
+assert.match(coupon,/mercadoPagoPixDeadline\(order,payment,invoice.created_at\)/,
+ 'coupon Pix must use durable invoice creation, not retry time, for expiry');
+assert.doesNotMatch(coupon,/expires_at:\s*new Date\(Date.now\(\)\s*\+\s*86400000\)/,
+ 'retry must not invent 24 more hours of Pix validity');
+assert.match(coupon,/expires_at:expiresAt/,
+ 'persist only deadline confirmed by the provider-constrained helper');
+assert.match(coupon,/couponProviderPixPayable\(order,payment\)/,
+ 'processed, refunded or cancelled provider orders cannot issue Pix QR');
+assert.match(coupon,/invoice.status==="awaiting_payment"&&!await couponPixStillPayable\(invoice\)/,
+ 'idempotent retry must recheck the PSP before returning stored QR');
+assert.match(coupon,/COUPON_PIX_REVIEW_REQUIRED/,
+ 'unverified/processed replay must fail closed without offering another QR');
+assert.match(coupon,/Date.parse\(String\(invoice.expires_at\)\)<=Date.parse\(deadline\)/,
+ 'never return code after more restrictive current provider expiry');
+
+// Execute the actual small presentation and read-only PSP verification helpers
+// with controlled data; do not create Pix or make network requests in CI.
+const h0=coupon.indexOf('function couponInvoiceCanPresent(');
+const h1=coupon.indexOf('Deno.serve(',h0);
+assert.ok(h0>0&&h1>h0,'missing coupon presentation helper boundaries');
+const helperCode=coupon.slice(h0,h1).replace(/:any(?=[,)])/g,'');
+const now=Date.now();
+const iso=offset=>new Date(now+offset).toISOString();
+const brCode='00020101021226800014br.gov.bcb.pix1234567890';
+const invoice={id:'inv-1',status:'awaiting_payment',sale_price_cents:1500,
+ created_at:iso(-3600000),expires_at:iso(1800000),pix_br_code:brCode,
+ payment_url:'https://example.invalid/pay',provider_order_id:'mp-order-1',
+ provider_payment_id:'mp-payment-1',coupons_per_pack:2};
+const providerOrder={id:'mp-order-1',external_reference:'inv-1',
+ total_amount:'15.00',status:'action_required',
+ transactions:{payments:[{id:'mp-payment-1',status:'pending',
+  payment_method:{id:'pix',type:'bank_transfer',qr_code:brCode}}]}};
+let providerData=structuredClone(providerOrder),deadline=iso(2400000),getCount=0;
+const sandbox=vm.createContext({
+ Date,String,Number,Array,encodeURIComponent,
+ MP_TOKEN:'synthetic-never-used',
+ mercadoPagoFetch:async()=>{getCount++;return {ok:true};},
+ readMercadoPagoJson:async()=>providerData,
+ findPix:order=>order?.transactions?.payments?.[0]??null,
+ mercadoPagoPixDeadline:()=>deadline,
+ moneyToCents:value=>Math.round(Number(value)*100),
+ validatePixBrCode:()=>({valid:true})
+});
+new vm.Script(helperCode,{filename:'coupon-credit-pix-helpers.ts'}).runInContext(sandbox);
+assert.equal(sandbox.couponInvoiceCanPresent(invoice,now),true);
+assert.equal(sandbox.publicInvoice(invoice).pixCode,brCode);
+assert.equal(sandbox.publicInvoice(invoice).issuedCoupons,0);
+assert.equal(await sandbox.couponPixStillPayable(invoice),true);
+assert.equal(getCount,1,'one GET verification on positive replay');
+providerData={...providerOrder,status:'processed'};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,'processed order cannot reuse QR');
+providerData={...providerOrder,transactions:{payments:[{...providerOrder.transactions.payments[0],status:'processed'}]}};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,'processed payment cannot reuse QR');
+providerData={...providerOrder,external_reference:'different'};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,'wrong external reference');
+providerData={...providerOrder,total_amount:'20.00'};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,'wrong amount');
+providerData=structuredClone(providerOrder);
+deadline=iso(1200000);
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,'PSP shortened expiry');
+assert.equal(sandbox.couponInvoiceCanPresent({...invoice,expires_at:iso(90000000)},now),false,
+ 'persisted Pix cannot outlive 24h from original invoice');
+assert.equal(sandbox.couponInvoiceCanPresent({...invoice,created_at:null},now),false);
+assert.equal(sandbox.couponInvoiceCanPresent({...invoice,expires_at:iso(20000)},now),false,
+ 'near-expired code must be withheld');
+assert.equal(sandbox.publicInvoice({...invoice,status:'paid'}).pixCode,null,
+ 'paid invoice must never be offered for repayment');
+assert.equal(sandbox.publicInvoice({...invoice,status:'paid'}).issuedCoupons,2);
+assert.equal(sandbox.publicInvoice({...invoice,expires_at:iso(20000)}).pixCode,null);
+
 assert.match(shared,/export async function verifyMercadoPagoWebhook/);
 assert.match(webhook,/verifyMercadoPagoWebhook\(req,webhookSecret,dataId\)/,
  'signature must be checked before any financial action');
