@@ -519,16 +519,21 @@ async function handlePaidCouponOrder(
  const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
  const providerStatus=String(order?.status??"").trim().toLowerCase();
  const paymentStatus=String(pix?.status??"").trim().toLowerCase();
- // Some PSP notifications expose refund/dispute status on the payment before
- // the parent order or its refunds[] catches up. An already-paid voucher must
- // be held for review, never silently left spendable on that callback.
+ const providerDetail=String(order?.status_detail??"").trim().toLowerCase();
+ const paymentDetail=String(pix?.status_detail??"").trim().toLowerCase();
+ // Mercado Pago also reports partial refunds as status='processed' with
+ // status_detail='partially_refunded'. Inspect BOTH levels of the provider
+ // order AND payment before keeping already-paid vouchers spendable.
+ const providerStates=[providerStatus,paymentStatus,providerDetail,paymentDetail];
  const reversalStates=["refunded","partially_refunded","charged_back","chargeback",
-   "disputed","in_mediation","canceled","cancelled","failed","expired"];
+   "disputed","in_mediation","reimbursed","canceled","cancelled","failed","expired"];
  const hasRefund=refunds.some((r:any)=>
   ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
-  ||reversalStates.includes(providerStatus)||reversalStates.includes(paymentStatus)
+  ||providerStates.some(state=>reversalStates.includes(state))
   ||(invoice.status==="paid"&&(providerStatus!=="processed"||
-    !["processed","accredited","approved"].includes(paymentStatus)));
+    !["processed","accredited","approved"].includes(paymentStatus)||
+    (providerDetail!==""&&providerDetail!=="accredited")||
+    (paymentDetail!==""&&paymentDetail!=="accredited")));
  if(hasRefund){
   const refunded=refunds.reduce((total:number,r:any)=>{
     if(!["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
@@ -538,10 +543,9 @@ async function handlePaidCouponOrder(
   // A partial refund, status inconsistency or chargeback needs manual
   // allocation review. It may never be treated as a full paid voucher.
   const unsafeToClassifyFull=["partially_refunded","charged_back","chargeback",
-    "disputed","in_mediation","canceled","cancelled","failed","expired"];
+    "disputed","in_mediation","reimbursed","canceled","cancelled","failed","expired"];
   const fullRefund=refunded===Number(invoice.sale_price_cents)&&
-    refunded>0&&!unsafeToClassifyFull.includes(providerStatus)
-    &&!unsafeToClassifyFull.includes(paymentStatus);
+    refunded>0&&!providerStates.some(state=>unsafeToClassifyFull.includes(state));
   const rpc=fullRefund?"clube_coupon_paid_payment_refund":
     "clube_coupon_paid_payment_review";
   const {data,error}=await admin.rpc(rpc,{
