@@ -78,7 +78,13 @@ assert.equal(unsafe.legalName,'');
 assert.equal(unsafe.responsibleName,'');
 assert.equal(unsafe.phone,'');
 assert.equal(unsafe.whatsapp,'');
-assert.equal(unsafe.addressText,'');
+assert.equal(unsafe.addressText,'Rua de exemplo, 123',
+  'unsafe application address falls back to existing merchant address, still unverified');
+const noSafeAddress=await ctx.suggest(db,id,{
+  ...merchantRec,address_text:'<script>bad address</script>'
+},'owner',false);
+assert.equal(noSafeAddress.addressText,'',
+  'unsafe application and fallback addresses must both be ignored');
 err={message:'connection down'};
 assert.equal(await ctx.suggest(db,id,merchantRec,'owner',false),null,
   'draft lookup failure must not block merchant orders');
