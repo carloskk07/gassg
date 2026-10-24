@@ -30,7 +30,9 @@ function publicLandingJump(sectionId){
   return true;
 }
 
-// Carteira autenticada; vendas bloqueadas.
+// Paid coupons share the customer's authenticated Supabase session.
+// The history is read-only; a purchase/resgate button is intentionally absent
+// until funded voucher settlement is authorized in the back end.
 const clubePaidCouponView={
   userId:null,status:'idle',purchases:[],vouchers:[],error:null,
   checkoutEnabled:false
@@ -132,9 +134,7 @@ function clubePaidCouponPanel(){
       '<small>Validade: '+esc(expire(item.expiresAt))+'</small></article>').join('')
     :'';
   const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
-    ?clubePaidCouponView.purchases.some(p=>p.fundingPending)
-      ?'<p role="status" class="notice">Pagamento confirmado. Cupons em conferência financeira.</p>'
-      :'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
+    ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
   const issue=valid&&status==='failed'
     ?'<p role="alert" class="notice danger">Não conseguimos consultar seus cupons agora. Tente novamente.</p>':'';
   return '<section class="section" aria-label="Meus cupons TAMÃO">'+
