@@ -4,6 +4,7 @@ import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql');
+const netMigration=read('supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql');
 const billing=read('supabase/functions/merchant-billing-pix/index.ts');
 const coupon=read('supabase/functions/coupon-credit-pix/index.ts');
 const webhook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
@@ -18,6 +19,12 @@ for(const table of ['clube_coupon_paid_packages','clube_coupon_paid_invoices','c
  assert.match(migration,new RegExp('alter table public\\.'+table+' enable row level security'));
  assert.match(migration,new RegExp('revoke all on public\\.'+table+' from public,anon,authenticated'));
 }
+assert.ok(netMigration.includes('create or replace function public.clube_coupon_paid_net_proceeds_verify('),
+ 'reuse the existing settlement verifier; do not create a second financial motor');
+assert.match(netMigration,/net_proceeds_reference is null/,
+ 'the atomic checkout must require independently reconciled provider net evidence');
+assert.match(coupon,/paidIds=new Set/,
+ 'read-only vouchers list must require invoice funding coverage');
 assert.match(migration,/not sale_enabled or \(/,
  'unapproved financial packages must not go on sale');
 assert.match(migration,/funding_verified and legal_terms_verified and redeem_settlement_verified/,
@@ -144,7 +151,27 @@ assert.equal(sandbox.couponInvoiceCanPresent({...invoice,expires_at:iso(20000)},
  'near-expired code must be withheld');
 assert.equal(sandbox.publicInvoice({...invoice,status:'paid'}).pixCode,null,
  'paid invoice must never be offered for repayment');
-assert.equal(sandbox.publicInvoice({...invoice,status:'paid'}).issuedCoupons,2);
+const unpaidFunds={...invoice,status:'paid',paid_at:iso(-120000),
+ coupon_face_cents:500,coupons_per_pack:2,
+ provider_order_id:'mp-order-1',provider_payment_id:'mp-payment-1'};
+assert.equal(sandbox.publicInvoice(unpaidFunds).issuedCoupons,0,
+ 'gross-paid receipt must not advertise financially uncovered vouchers');
+assert.equal(sandbox.publicInvoice(unpaidFunds).fundingPending,true);
+const netFunded={...unpaidFunds,net_proceeds_cents:1200,
+ net_proceeds_verified_at:iso(-60000),
+ net_proceeds_reference:'mp-released-money:123'};
+assert.equal(sandbox.publicInvoice(netFunded).issuedCoupons,2);
+assert.equal(sandbox.publicInvoice(netFunded).fundingPending,false);
+for(const mutation of [
+ {net_proceeds_cents:999}, {net_proceeds_cents:1600},
+ {net_proceeds_verified_at:null}, {net_proceeds_reference:null},
+ {provider_payment_id:null}, {paid_at:null}
+]){
+ assert.equal(sandbox.publicInvoice({...netFunded,...mutation}).issuedCoupons,0,
+  'missing net proof, insufficient funding or wrong state must hide vouchers');
+}
+assert.equal(sandbox.publicInvoice({...netFunded,status:'refunded'}).issuedCoupons,0,
+ 'refund must hide purchased voucher availability');
 assert.equal(sandbox.publicInvoice({...invoice,expires_at:iso(20000)}).pixCode,null);
 assert.equal(sandbox.couponInvoiceCanPresent({...invoice,pix_br_code:null},now),false,
  'masked replay cannot offer a QR even if original invoice has remaining time');
@@ -175,4 +202,4 @@ assert.match(webhook,/handlePlatformBillingOrder/,
  'legacy platform billing reconciliation must be preserved');
 assert.doesNotMatch(coupon,/create-order|\bstatus:'paid'\b|status:"paid"/i,
  'generating a Pix must not auto-confirm or generate an order');
-console.log('PASS: coupon Pix same MP account, signed webhook, idempotent credit, refund, user-scoped billing and sales gate off.');
+console.log('PASS: signed coupon Pix, gross-vs-net voucher presentation, idempotent webhook/refund, user scope and sales gate off.');

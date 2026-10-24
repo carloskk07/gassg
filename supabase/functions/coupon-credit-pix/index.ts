@@ -53,12 +53,32 @@ function couponProviderPixPayable(order:any,payment:any){
  return ["action_required","processing"].includes(status)
    &&["","pending","in_process","action_required","processing"].includes(payStatus);
 }
+// A paid gross Pix is NOT a voucher that can be spent. The existing
+// 20261019180000 checkout migration requires PSP-reconciled NET proceeds,
+// provider binding and evidence before using that voucher for an order.
+function couponInvoiceNetCovered(row:any){
+ const face=Number(row?.coupon_face_cents);
+ const count=Number(row?.coupons_per_pack);
+ const net=row?.net_proceeds_cents;
+ const ref=String(row?.net_proceeds_reference??"").trim();
+ return row?.status==="paid"&&Boolean(row?.paid_at)&&
+   Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
+   Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
+   Number.isSafeInteger(net)&&net>=face*count&&
+   net<=row.sale_price_cents&&
+   Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
+   ref.length>=8;
+}
 function publicInvoice(row:any){
  const payable=couponInvoiceCanPresent(row);
+ const covered=couponInvoiceNetCovered(row);
  return {invoiceId:row.id,status:row.status,amountCents:row.sale_price_cents,
    provider:"mercadopago",pixCode:payable?row.pix_br_code:null,
    paymentUrl:payable?row.payment_url:null,pixPayable:payable,
-   expiresAt:row.expires_at??null,issuedCoupons:row.status==="paid"?row.coupons_per_pack:0};
+   // Paid receipt is not proof the vouchers are spendable; show zero until
+   // the same funding conditions used by the atomic checkout are satisfied.
+   expiresAt:row.expires_at??null,issuedCoupons:covered?row.coupons_per_pack:0,
+   fundingPending:row.status==="paid"&&!covered};
 }
 // A replay cannot trust the local invoice alone: payment may have been
 // processed/cancelled at Mercado Pago while the webhook is still delayed.
@@ -116,15 +136,12 @@ Deno.serve(async(req:Request)=>{
     });
     const {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,status,sale_price_cents,created_at,paid_at,net_proceeds_cents,net_proceeds_verified_at,coupon_face_cents,coupons_per_pack")
+      .select("id,package_key,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError)throw invoiceError;
     const paidIds=new Set((invoices||[])
-      .filter((row:any)=>row.status==="paid"&&
-        row.net_proceeds_verified_at!=null&&
-        Number.isSafeInteger(row.net_proceeds_cents)&&
-        row.net_proceeds_cents>=row.coupon_face_cents*row.coupons_per_pack)
+      .filter((row:any)=>couponInvoiceNetCovered(row))
       .map((row:any)=>String(row.id)));
     const {data:rows,error:issuanceError}=await admin
       .from("clube_coupon_paid_issuances")
@@ -137,7 +154,8 @@ Deno.serve(async(req:Request)=>{
       purchases:(invoices||[]).map((row:any)=>({
         invoiceId:row.id,packageKey:row.package_key,status:row.status,
         amountCents:row.sale_price_cents,createdAt:row.created_at,
-        paidAt:row.paid_at
+        paidAt:row.paid_at,
+        fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row)
       })),
       vouchers:(rows||[]).filter((row:any)=>paidIds.has(String(row.invoice_id)))
         .map((row:any)=>({
