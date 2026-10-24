@@ -1548,7 +1548,7 @@ function merchantBusinessProfileView(rt){
     merchantBusinessUnsavedDraft=null;
   const unsaved=draftKey&&merchantBusinessUnsavedDraft?.key===draftKey
     ?merchantBusinessUnsavedDraft.values:null;
-  const b=saved||unsaved||suggestion||{};
+  const b=unsaved||saved||suggestion||{};
   const completed=!!(saved?.city&&saved?.state&&saved?.postalCode&&saved?.addressText);
   const fields=[
     ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
