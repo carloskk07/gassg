@@ -5235,9 +5235,10 @@ function adminClubeFinanceView(){
   const entries=readyCount?[
     ['Pacotes cadastrados',data.packageCount],
     ['Faturas de cupons',data.invoiceCount],
-    ['Cupons emitidos',data.issuedCount],
+    ['Cupons registrados (não significa disponíveis)',data.issuedCount],
     ['Cupons utilizados',data.redeemedCount],
-    ['Pagamentos sem líquido comprovado',data.pendingNetCount],
+    ['Faturas pagas sem cobertura líquida registrada',data.pendingNetCount],
+    ['Cupons registrados aguardando lastro',data.unavailableVoucherCount],
     ['Cupons e faturas em revisão',data.refundReviewCount],
     ['Obrigações de revendas pendentes',data.merchantSettlementPendingCount]
   ]:[];
@@ -5252,7 +5253,9 @@ function adminClubeFinanceView(){
     ${issue?'<div role="alert" class="notice danger">'+esc(issue)+'</div>':''}
     ${!sameUser||!data?'<p class="tiny muted">Use a consulta para verificar as condições financeiras atuais.</p>':''}
     ${schemaMissing?'<div class="notice" role="status"><strong>Cupons pagos ainda não instalados.</strong><br>O financeiro continua protegido; faltam etapas de implantação e homologação.</div>':''}
-    ${incomplete&&!schemaMissing?'<div class="notice" role="status"><strong>Informação incompleta.</strong><br>Há registros além do limite ou uma reconciliação sem evidência. Não use esta consulta para autorizar vendas.</div>':''}
+    ${schemaMissing&&(data?.salesEnabled||data?.checkoutEnabled)?'<div role="alert" class="notice danger"><strong>Configuração incoerente:</strong> vendas ou cupons habilitados sem banco financeiro completo. Suspenda esta operação.</div>':''}
+    ${data?.financialIntegrityRisk===true?'<div role="alert" class="notice danger"><strong>Anomalia financeira:</strong> reserva ou uso de cupom sem lastro registrado. Suspenda e revise a conciliação.</div>':''}
+    ${incomplete&&!schemaMissing?'<div class="notice" role="status"><strong>Informação incompleta.</strong><br>Há registros além do limite, uso de cupom sem lastro ou conciliação sem evidência. Não use esta consulta para autorizar vendas.</div>':''}
     ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
       '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
        esc(amount(value))+'</strong></div>').join('')+'</div>':''}
