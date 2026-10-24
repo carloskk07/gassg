@@ -88,6 +88,10 @@ alter table public.platform_admin_audit drop constraint coupon_draft_audit_rejec
 
 DO $draft_acl$
 BEGIN
+ if has_table_privilege('service_role','public.clube_coupon_paid_packages','INSERT')
+ or has_table_privilege('service_role','public.clube_coupon_paid_packages','UPDATE')
+ or not has_table_privilege('service_role','public.clube_coupon_paid_packages','SELECT')
+ then raise exception 'COUPON_DRAFT_DIRECT_PACKAGE_WRITE_BYPASS';end if;
  if has_function_privilege('anon',
    'public.clube_coupon_paid_package_draft_create(uuid,text,text,integer,integer,integer,integer)','EXECUTE')
  or has_function_privilege('authenticated',
