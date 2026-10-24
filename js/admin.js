@@ -5168,7 +5168,8 @@ async function adminClubeReleaseReportsRefresh(){
   const state=adminRuntime.clubeFinance;
   if(state.reportsPending)return;
   Object.assign(state,{reports:null,reportsPending:true,
-    reportsError:null,reportsFor:userId,reportsAt:null});
+    reportsError:null,reportsFor:userId,reportsAt:null,
+    releaseEvidence:null,releaseEvidenceError:null,releaseEvidenceFor:null});
   render();
   try{
     const reply=await adminInvoke({action:'clube-coupon-mp-release-reports'});
@@ -5190,6 +5191,50 @@ async function adminClubeReleaseReportsRefresh(){
     if(String(adminRuntime.session?.user?.id||'')===userId)render();
   }
 }
+// Finance-only on-demand inspection: neither UI nor Edge applies net funding.
+function adminClubeReleaseInvoiceChanged(value){
+  adminRuntime.clubeFinance.releaseInvoiceId=String(value??"").trim();
+}
+async function adminClubeReleaseInspect(index){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+    adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const invoiceId=String(st.releaseInvoiceId??"").trim();
+  const report=st.reportsFor===userId?st.reports?.reports?.[index]:null;
+  if(!userId||st.releaseEvidencePending)return;
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(invoiceId)||
+    !report||report.status!=='processed'||report.currency!=='BRL'||
+    report.test!==false||!report.fileName){
+    st.releaseEvidenceError='Informe uma fatura válida e escolha um CSV processado em BRL.';
+    st.releaseEvidence=null;st.releaseEvidenceFor=userId;render();return;
+  }
+  Object.assign(st,{releaseEvidence:null,releaseEvidenceError:null,
+    releaseEvidencePending:true,releaseEvidenceFor:userId});
+  render();
+  try{
+    const result=await adminInvoke({
+      action:'clube-coupon-mp-release-inspect',
+      invoiceId,reportFileName:report.fileName
+    });
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(result?.source!=='coupon_mp_released_net_evidence_v1'||
+      result.readOnly!==true||result.moneyMoved!==false||
+      result.merchantPayoutVerified!==false||
+      result.couponFundingApplied!==false||
+      typeof result.available!=='boolean'||
+      result.eligible===true&&(!Number.isSafeInteger(result.netCents)||
+        result.netCents<=0||!result.evidenceReference))
+      throw Error('O extrato não passou na validação da resposta financeira.');
+    st.releaseEvidence=result;
+  }catch(e){
+    if(String(adminRuntime.session?.user?.id||'')===userId)
+      st.releaseEvidenceError=String(e?.message||'Não foi possível conferir a liberação.');
+  }finally{
+    st.releaseEvidencePending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
 function adminClubeReleaseReportsView(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const state=adminRuntime.clubeFinance||{};
@@ -5200,6 +5245,10 @@ function adminClubeReleaseReportsView(){
   const count=data?.available===true?Number(data.listedCount):null;
   const processed=data?.available===true?data.reports.filter(item=>
      item.status==='processed'&&item.currency==='BRL'&&item.test!==true).length:null;
+  const reports=data?.available===true?data.reports.filter(item=>
+    item.status==='processed'&&item.currency==='BRL'&&item.test===false&&item.fileName):[];
+  const evidence=state.releaseEvidenceFor===userId?state.releaseEvidence:null;
+  const evidenceError=state.releaseEvidenceFor===userId?state.releaseEvidenceError:null;
   return `<div class="card flat admin-clube-mp-extracts" aria-label="Extratos Mercado Pago">
     <h4>Extratos de liberação do Mercado Pago</h4>
     <p>Consulte os relatórios gerados na conta do TAMÃO, sem criar pagamentos.</p>
@@ -5216,6 +5265,22 @@ function adminClubeReleaseReportsView(){
        ' processados em BRL, fora do ambiente de teste.</p>':''}
     ${data?.coverage==='partial'?'<p class="notice">Lista parcial: há relatórios adicionais que não foram analisados.</p>':''}
     ${data?.available===true&&data.reports.length===0?'<p class="muted">Nenhum relatório gerado foi encontrado na conta consultada.</p>':''}
+    ${reports.length?'<label for="admin-clube-release-invoice">ID da fatura de cupom pago</label>'+
+      '<input id="admin-clube-release-invoice" class="input" type="text" maxlength="36" autocomplete="off" '+
+      'placeholder="UUID da fatura" value="'+esc(state.releaseInvoiceId||'')+'" '+
+      'oninput="adminClubeReleaseInvoiceChanged(this.value)">'+
+      '<p class="tiny muted">Conferir somente a fatura indicada, sem divulgar dados do extrato.</p>'+
+      reports.slice(0,5).map((report)=>'<button type="button" class="secondary" '+
+        'onclick="adminClubeReleaseInspect('+data.reports.indexOf(report)+')" '+
+        (state.releaseEvidencePending?'disabled':'')+'>Conferir CSV '+esc(report.generatedAt?.slice(0,10)||'processado')+'</button>').join(''):''}
+    ${evidenceError?'<p role="alert" class="notice danger">'+esc(evidenceError)+'</p>':''}
+    ${evidence?.available===false?'<p role="status" class="notice">Conferência indisponível: '+esc(evidence.reason||'sem estrutura financeira')+'</p>':''}
+    ${evidence?.available===true?'<p role="status" class="notice">'+
+      (evidence.eligible===true?
+       'Liberação líquida localizada no Mercado Pago: R$ '+esc((evidence.netCents/100).toFixed(2))+
+       '. Referência para revisão: '+esc(evidence.evidenceReference):
+       'Sem prova suficiente: '+esc(evidence.reason||'não conciliado'))+
+      '. Nenhum crédito aplicado; repasse à revenda ainda não comprovado.</p>':''}
     <p class="tiny muted">Listar relatórios não confirma o PIX líquido, nem o pagamento à revenda. Antes de liberar cupons, confira a transação e as tarifas no relatório de Liberações.</p>
   </div>`;
 }
