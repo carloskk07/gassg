@@ -2760,6 +2760,45 @@ Deno.serve(async(req:Request)=>{
       },200,origin);
     }
 
+    if(action==="clube-coupon-package-draft-create"){
+      // INTERNAL PRELAUNCH DRAFT ONLY. No checkout, provider call, flags,
+      // vouchers or merchant transfer. DB atomically audits the actor.
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o superadministrador prepara pacotes de cupons.",403);
+      const key=String(body.packageKey??"").trim();
+      const title=String(body.title??"").trim();
+      const fields=["salePriceCents","couponFaceCents","couponsPerPack","validDays"];
+      if(!/^[a-z][a-z0-9_]{2,39}$/.test(key)||
+         title.length<6||title.length>120||
+         fields.some(field=>!Number.isSafeInteger(body[field]))||
+         body.salePriceCents<100||body.salePriceCents>1000000||
+         body.couponFaceCents<100||body.couponFaceCents>1000000||
+         body.couponsPerPack<1||body.couponsPerPack>15||
+         body.validDays<1||body.validDays>365||
+         body.salePriceCents<body.couponFaceCents*body.couponsPerPack)
+        throw new DomainError("COUPON_DRAFT_INVALID",
+          "O pacote precisa cobrir integralmente os cupons, antes das taxas.",400);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:"admin-coupon-draft-create",limit:3,windowSeconds:3600});
+      const {data,error}=await admin.rpc("clube_coupon_paid_package_draft_create",{
+        p_actor_user_id:user.id,p_package_key:key,p_title:title,
+        p_sale_price_cents:body.salePriceCents,
+        p_coupon_face_cents:body.couponFaceCents,
+        p_coupons_per_pack:body.couponsPerPack,
+        p_valid_days:body.validDays
+      });
+      if(error)throw error;
+      if(data?.ok!==true||data?.source!=="clube_coupon_paid_package_draft_v1"||
+         data?.packageKey!==key||data?.saleEnabled!==false||
+         data?.fundingVerified!==false||data?.costCoverageVerified!==false||
+         data?.moneyMoved!==false||!UUID_RE.test(String(data?.auditId??"")))
+        throw new DomainError("COUPON_DRAFT_NOT_CONFIRMED",
+          "O pacote interno não teve confirmação de auditoria.",503);
+      return json({...data,readOnly:false,checkoutEnabled:false,
+        requiresIndependentNetAndMerchantProof:true},200,origin);
+    }
+
     if(action==="clube-coupon-finance-status"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED",
