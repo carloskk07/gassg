@@ -191,7 +191,8 @@ Deno.serve(async(req:Request)=>{
   if(invoice.status!=="prepared"){
    if(invoice.status==="awaiting_payment"&&!await couponPixStillPayable(invoice))
      return respond({ok:false,error:"COUPON_PIX_REVIEW_REQUIRED",
-       ...publicInvoice({...invoice,status:"requires_review"})},409,origin);
+       ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
+       recheckRequired:true},409,origin);
    return respond({ok:true,...publicInvoice(invoice)},200,origin);
   }
   const amount=(Number(invoice.sale_price_cents)/100).toFixed(2);
