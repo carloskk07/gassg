@@ -2660,14 +2660,17 @@ Deno.serve(async(req:Request)=>{
           throw new DomainError("COUPON_NET_EVIDENCE_CHANGED",
             "O extrato ou a situação do Pix mudou. Faça nova conferência.",409);
         const {data:registered,error:registerError}=await admin
-          .rpc("clube_coupon_paid_net_proceeds_verify",{
+          .rpc("clube_coupon_paid_net_proceeds_verify_audited",{
             p_invoice_id:invoice.id,
             p_provider_order_id:invoice.provider_order_id,
             p_net_cents:inspection.netCents,
-            p_reference:inspection.evidenceReference
+            p_reference:inspection.evidenceReference,
+            p_actor_user_id:user.id
           });
         if(registerError)throw registerError;
         if(registered?.ok!==true||
+           registered?.auditRecorded!==true||
+           !UUID_RE.test(String(registered?.auditId??""))||
            String(registered?.invoiceId)!==invoice.id)
           throw new DomainError("COUPON_NET_RPC_UNCONFIRMED",
             "Registro do líquido não confirmado no banco.",503);
@@ -2676,6 +2679,7 @@ Deno.serve(async(req:Request)=>{
           ok:true,invoiceId:invoice.id,netCents:inspection.netCents,
           evidenceReference:inspection.evidenceReference,
           replayed:registered.replayed===true,
+          auditRecorded:true,auditId:registered.auditId,
           netEvidenceRegistered:true,
           readOnly:false,moneyMoved:false,
           couponFundingApplied:false,merchantPayoutVerified:false,
