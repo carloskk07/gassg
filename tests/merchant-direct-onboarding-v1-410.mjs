@@ -1,3 +1,4 @@
+import './merchant-business-approved-draft.mjs'; // Same-owner approved-application prefill regression; Audit already invokes this suite.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
