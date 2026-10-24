@@ -10,7 +10,7 @@ const start=admin.indexOf('function adminClubeDraftEconomicsPreview(){');
 const end=admin.indexOf('async function adminClubeFinanceRefresh(){',start);
 assert.ok(start>0&&end>start);
 assert.match(admin,/Cenário inicial conservador: 0% de patrocínio e 0% de taxa incremental/);
-assert.match(admin,/'0,99% é uma referência pública/);
+assert.match(admin,/0,99% é uma referência pública/);
 const id='11111111-1111-4111-8111-111111111111';
 const fields={'key':'piloto_tamao','title':'Pacote interno piloto',
  'price':'12,00','face':'5,00','count':'2','days':'60',
