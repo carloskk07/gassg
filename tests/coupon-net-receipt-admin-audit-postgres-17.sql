@@ -98,7 +98,7 @@ END $coupon_actor_fixture$;
 -- Force a reject at the audit insert, and verify that the existing finance
 -- RPC did NOT leave the new invoice half-registered.
 alter table public.platform_admin_audit add constraint
- coupon_audit_reject_test_action check(action<>'coupon_net_receipt_registered');
+ coupon_audit_reject_test_action check(action<>'coupon_net_receipt_registered') not valid;
 
 DO $coupon_atomic_audit_reject$
 DECLARE
