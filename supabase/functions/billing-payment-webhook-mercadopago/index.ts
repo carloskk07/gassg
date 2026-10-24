@@ -517,10 +517,18 @@ async function handlePaidCouponOrder(
  // Refunds and chargebacks outrank 'processed' on any replay. A paid coupon
  // is never left spendable after a verified refund without an explicit hold.
  const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
+ const providerStatus=String(order?.status??"").trim().toLowerCase();
+ const paymentStatus=String(pix?.status??"").trim().toLowerCase();
+ // Some PSP notifications expose refund/dispute status on the payment before
+ // the parent order or its refunds[] catches up. An already-paid voucher must
+ // be held for review, never silently left spendable on that callback.
+ const reversalStates=["refunded","partially_refunded","charged_back","chargeback",
+   "disputed","in_mediation","canceled","cancelled","failed","expired"];
  const hasRefund=refunds.some((r:any)=>
   ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
-  ||["refunded","partially_refunded","charged_back","chargeback",
-      "disputed","in_mediation"].includes(String(order?.status??"").toLowerCase());
+  ||reversalStates.includes(providerStatus)||reversalStates.includes(paymentStatus)
+  ||(invoice.status==="paid"&&(providerStatus!=="processed"||
+    !["processed","accredited","approved"].includes(paymentStatus)));
  if(hasRefund){
   const refunded=refunds.reduce((total:number,r:any)=>{
     if(!["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
@@ -529,9 +537,11 @@ async function handlePaidCouponOrder(
   },0);
   // A partial refund, status inconsistency or chargeback needs manual
   // allocation review. It may never be treated as a full paid voucher.
+  const unsafeToClassifyFull=["partially_refunded","charged_back","chargeback",
+    "disputed","in_mediation","canceled","cancelled","failed","expired"];
   const fullRefund=refunded===Number(invoice.sale_price_cents)&&
-    refunded>0&&!["charged_back","chargeback","disputed","in_mediation"]
-      .includes(String(order?.status??"").toLowerCase());
+    refunded>0&&!unsafeToClassifyFull.includes(providerStatus)
+    &&!unsafeToClassifyFull.includes(paymentStatus);
   const rpc=fullRefund?"clube_coupon_paid_payment_refund":
     "clube_coupon_paid_payment_review";
   const {data,error}=await admin.rpc(rpc,{
@@ -542,9 +552,8 @@ async function handlePaidCouponOrder(
    status:fullRefund?"refunded":"review_required",
    reviewRequired:!fullRefund||data?.reviewRequired===true},200);
  }
- const providerStatus=String(order?.status??"").toLowerCase();
  if(providerStatus==="processed"&&
-    ["processed","accredited","approved"].includes(String(pix?.status??"").toLowerCase())){
+    ["processed","accredited","approved"].includes(paymentStatus)){
   const {data,error}=await admin.rpc("clube_coupon_paid_payment_verify",{
    p_invoice_id:invoice.id,p_provider_order_id:dataId,
    p_payment_id:String(pix.id??""),p_amount_cents:amount
