@@ -30,7 +30,7 @@ function publicLandingJump(sectionId){
   return true;
 }
 
-// Carteira autenticada de cupons, sem venda não homologada.
+// Carteira autenticada; vendas bloqueadas.
 const clubePaidCouponView={
   userId:null,status:'idle',purchases:[],vouchers:[],error:null,
   checkoutEnabled:false
@@ -133,7 +133,7 @@ function clubePaidCouponPanel(){
     :'';
   const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
     ?clubePaidCouponView.purchases.some(p=>p.fundingPending)
-      ?'<p role="status" class="notice">Pagamento confirmado. Cupons em conferência financeira, ainda indisponíveis.</p>'
+      ?'<p role="status" class="notice">Pagamento confirmado. Cupons em conferência financeira.</p>'
       :'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
   const issue=valid&&status==='failed'
     ?'<p role="alert" class="notice danger">Não conseguimos consultar seus cupons agora. Tente novamente.</p>':'';
