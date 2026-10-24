@@ -58,7 +58,10 @@ function publicInvoice(row:any){
  return {invoiceId:row.id,status:row.status,amountCents:row.sale_price_cents,
    provider:"mercadopago",pixCode:payable?row.pix_br_code:null,
    paymentUrl:payable?row.payment_url:null,pixPayable:payable,
-   expiresAt:row.expires_at??null,issuedCoupons:row.status==="paid"?row.coupons_per_pack:0};
+   expiresAt:row.expires_at??null,
+   // Purchase replay does not have a voucher count. The user-scoped
+   // my-vouchers read is the authority after net-funding reconciliation.
+   issuedCoupons:row.status==="paid"?null:0};
 }
 // A replay cannot trust the local invoice alone: payment may have been
 // processed/cancelled at Mercado Pago while the webhook is still delayed.
@@ -116,13 +119,13 @@ Deno.serve(async(req:Request)=>{
     });
     const {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,status,sale_price_cents,created_at,paid_at,net_proceeds_cents,net_proceeds_verified_at,coupon_face_cents,coupons_per_pack")
+      .select("id,package_key,status,sale_price_cents,created_at,paid_at,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_evidence_ref,coupon_face_cents,coupons_per_pack")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError)throw invoiceError;
     const paidIds=new Set((invoices||[])
       .filter((row:any)=>row.status==="paid"&&
-        row.net_proceeds_verified_at!=null&&
+        row.net_proceeds_verified_at!=null&&row.net_proceeds_evidence_ref!=null&&
         Number.isSafeInteger(row.net_proceeds_cents)&&
         row.net_proceeds_cents>=row.coupon_face_cents*row.coupons_per_pack)
       .map((row:any)=>String(row.id)));
