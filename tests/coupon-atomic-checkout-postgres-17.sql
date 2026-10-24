@@ -45,6 +45,20 @@ begin
  values(v_user,400,v_merchant,clock_timestamp()+interval '15 minutes')
  returning id into v_small_quote;
 
+ -- Independent reservation RPC previously accepted gross-approved Pix
+ -- even while NET remained unknown. That must fail without reserving the
+ -- quote or affecting wallet/account money.
+ begin
+  perform public.clube_coupon_paid_quote_reserve(
+   v_user,v_voucher,v_quote);
+  raise exception 'GROSS_ONLY_COUPON_RESERVATION_ALLOWED';
+ exception when insufficient_privilege then null;
+ end;
+ select count(*) into v_count from public.clube_coupon_paid_issuances
+ where id=v_voucher and status='reserved';
+ if v_count<>0 then
+  raise exception 'NET_UNVERIFIED_VOUCHER_WAS_RESERVED';end if;
+
  -- Paid but unverified NET funds may NEVER create cashback or an order.
  begin
   perform public.clube_coupon_paid_create_order(
@@ -64,6 +78,14 @@ begin
  end;
  perform public.clube_coupon_paid_net_proceeds_verify(
    v_invoice,'checkout-provider-order',1100,'mp-net-validated-0001');
+ -- Once the SAME invoice has verified net proceeds, normal reservation
+ -- works, and a release restores the original status without money.
+ v_result:=public.clube_coupon_paid_quote_reserve(v_user,v_voucher,v_quote);
+ if (v_result->>'reserved')::boolean is distinct from true
+ then raise exception 'NET_BACKED_VOUCHER_RESERVATION_DENIED';end if;
+ v_result:=public.clube_coupon_paid_quote_release(v_user,v_voucher,v_quote);
+ if (v_result->>'released')::boolean is distinct from true
+ then raise exception 'NET_BACKED_VOUCHER_RELEASE_DENIED';end if;
  begin
   perform public.clube_coupon_paid_net_proceeds_verify(
    v_invoice,'checkout-provider-order',1100,'different-reconciliation-evidence');
