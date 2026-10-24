@@ -2828,7 +2828,8 @@ Deno.serve(async(req:Request)=>{
       }
       const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
-           .select("id,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
+           .select("id,created_at,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
+          .order("created_at",{ascending:false})
           .limit(101),
         admin.from("clube_coupon_paid_issuances")
            .select("invoice_id,status").limit(101),
@@ -2882,6 +2883,24 @@ Deno.serve(async(req:Request)=>{
       const invoiceById=new Map(invoiceRows.map((row:any)=>[String(row.id),row]));
       const pendingNet=invoiceRows.filter((row:any)=>
         row.status==="paid"&&!couponNetCovered(row)).length;
+      // Finance-only work queue: the existing invoice scan returns only
+      // IDs, status, and amount; no customer PII, payment IDs, PSP secrets
+      // or authority to issue vouchers. The list is explicitly bounded and
+      // never treated as proof that a payment was settled.
+      const invoiceWorkQueue=invoiceRows
+        .filter((row:any)=>row.status==="review_required"||
+          (row.status==="paid"&&!couponNetCovered(row)))
+        .sort((a:any,b:any)=>
+          (a.status==="review_required"?0:1)-
+          (b.status==="review_required"?0:1)||
+          String(b.created_at??"").localeCompare(String(a.created_at??"")))
+        .slice(0,12).map((row:any)=>({
+          invoiceId:String(row.id),
+          status:row.status,
+          needsNetProof:row.status==="paid",
+          salePriceCents:row.sale_price_cents,
+          createdAt:row.created_at
+        }));
       // Gross-paid invoices can produce issuance records before settlement:
       // unbacked 'issued' is expected, but MUST NOT be reported as spendable.
       const unavailableVouchers=voucherRows.filter((row:any)=>
@@ -2924,6 +2943,7 @@ Deno.serve(async(req:Request)=>{
         salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
         checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
         packageCount:packages.length,invoiceCount:invoiceRows.length,
+        invoiceWorkQueue,invoiceWorkQueueCoverage:bounded?"partial":"bounded_complete",
         voucherCount:voucherRows.length,
         issuedCount:voucherRows.filter((v:any)=>v.status==="issued").length,
         redeemedCount:voucherRows.filter((v:any)=>v.status==="redeemed").length,
