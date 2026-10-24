@@ -86,7 +86,7 @@ for(const invalid of [
  header+'\n'+release()+',extra\n',
  header.replace('SOURCE_ID','DATE')+'\n'+release()+'\n',
  header+'\n"a,b',
- header+'\n'+release().replace('payment-1','"bad"')+'\n',
+ header+'\n'+release().replace('payment-1','bad"quote')+'\n',
  'X'.repeat(1_000_001)
 ])assert.throws(()=>parseReleasedMoneyCsv(invalid));
 
