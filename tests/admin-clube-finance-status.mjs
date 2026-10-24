@@ -19,6 +19,15 @@ assert.doesNotMatch(edge.slice(edge.indexOf('if(action==="clube-coupon-mp-releas
 assert.match(edge,/\["superadmin","finance"\]/);
 assert.match(edge,/clube_coupon_paid_order_reconciliation/);
 assert.match(edge,/paymentsChecked:false/);
+assert.match(edge,/invoiceWorkQueueCoverage:bounded\?"partial":"bounded_complete"/);
+assert.match(edge,/invoiceWorkQueue,invoiceWorkQueueCoverage/);
+assert.match(edge,/\.order\("created_at",\{ascending:false\}\)/);
+const queueBlock=edge.slice(edge.indexOf('const invoiceWorkQueue='),
+ edge.indexOf('const unavailableVouchers=',edge.indexOf('const invoiceWorkQueue=')));
+assert.match(queueBlock,/\.slice\(0,12\)/,'invoice IDs are bounded');
+assert.match(queueBlock,/needsNetProof:row.status==="paid"/);
+assert.doesNotMatch(queueBlock,/customer_user_id|provider_payment_id:|provider_order_id:|email:/,
+ 'Admin work queue must not reveal customer identity or provider credentials');
 assert.match(edge,/COUPON_FINANCE_SCHEMA_NOT_INSTALLED/);
 assert.match(edge,/COUPON_CHECKOUT_SCHEMA_INCOMPLETE/);
 // Execute the actual read-only Admin funding predicate, not a copied formula.
@@ -106,13 +115,26 @@ payload={source:'clube_coupon_finance_status_v1',readOnly:true,
  packageCount:1,invoiceCount:3,voucherCount:6,issuedCount:2,
  redeemedCount:4,pendingNetCount:1,unavailableVoucherCount:2,
  unbackedConsumptionCount:0,financialIntegrityRisk:false,refundReviewCount:2,
- merchantSettlementPendingCount:1};
+ merchantSettlementPendingCount:1,
+ invoiceWorkQueueCoverage:'bounded_complete',
+ invoiceWorkQueue:[
+  {invoiceId:'88888888-8888-4888-8888-888888888888',status:'paid',
+   needsNetProof:true,salePriceCents:1200,createdAt:'2026-10-24T12:00:00Z'},
+  {invoiceId:'99999999-9999-4999-8999-999999999999',status:'review_required',
+   needsNetProof:false,salePriceCents:1300,createdAt:'2026-10-24T10:00:00Z'}
+ ]};
 await ctx.query();
 assert.match(ctx.page(),/Pacotes cadastrados/);
 assert.match(ctx.page(),/Faturas de cupons/);
 assert.match(ctx.page(),/Obrigações de revendas pendentes/);
 assert.match(ctx.page(),/Cupons registrados aguardando lastro/);
 assert.match(ctx.page(),/Faturas pagas sem cobertura líquida registrada/);
+assert.match(ctx.mpPage(),/Selecionar fatura 88888888/);
+assert.match(ctx.mpPage(),/Pix pago, líquido pendente/);
+assert.match(ctx.mpPage(),/Revisão financeira obrigatória/);
+assert.doesNotMatch(ctx.mpPage(),/Selecionar fatura 99999999/);
+assert.doesNotMatch(ctx.mpPage(),/88888888-8888-4888-8888-888888888888.*@/,
+ 'Never expose a customer email in invoice work queue');
 assert.doesNotMatch(ctx.page(),/Anomalia financeira/);
 payload.financialIntegrityRisk=true;
 payload.unbackedConsumptionCount=1;
@@ -124,8 +146,10 @@ payload.unbackedConsumptionCount=0;
 assert.match(ctx.page(),/não confere o extrato de liberação/);
 assert.ok(renders>0);
 payload.coverage='partial';
+payload.invoiceWorkQueueCoverage='partial';
 await ctx.query();
 assert.match(ctx.page(),/Informação incompleta/);
+assert.match(ctx.mpPage(),/Fila parcial/);
 assert.doesNotMatch(ctx.page(),/Pacotes cadastrados<\/small><strong>1/);
 payload.readOnly=false;
 await ctx.query();
@@ -178,4 +202,6 @@ role='finance';
 runtime.session.user.id='33333333-3333-4333-8333-333333333333';
 assert.doesNotMatch(ctx.mpPage(),/mercadopago-offline/);
 assert.doesNotMatch(ctx.mpPage(),/2 relatórios listados/);
+assert.doesNotMatch(ctx.mpPage(),/Selecionar fatura 88888888/,
+ 'An old user session must not expose the previous finance queue');
 console.log('PASS: finance Admin checked net evidence, shortfall, danger, migration mismatch, read-only MP releases and account isolation.');
