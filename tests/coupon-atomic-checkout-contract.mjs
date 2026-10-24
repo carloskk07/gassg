@@ -9,9 +9,19 @@ const backend=read('js/backend.js');
 const edge=read('supabase/functions/create-order/index.ts');
 const invoiceEdge=read('supabase/functions/coupon-credit-pix/index.ts');
 const migration=read('supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql');
+const reserveGuard=read('supabase/migrations/20261024191700_coupon_reservation_net_proceeds_guard.sql');
 const receipt=read('supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql');
 
 for(const source of [growth,customer,backend])new vm.Script(source);
+assert.match(reserveGuard,/create or replace function public\.clube_coupon_paid_quote_reserve/);
+assert.match(reserveGuard,/COUPON_NET_PROCEEDS_UNVERIFIED/);
+assert.match(reserveGuard,/v_invoice\.net_proceeds_cents::bigint</);
+assert.match(reserveGuard,/v_invoice\.coupon_face_cents::bigint\*v_invoice\.coupons_per_pack::bigint/);
+assert.match(reserveGuard,/v_invoice\.net_proceeds_verified_at is null/);
+assert.match(reserveGuard,/v_invoice\.net_proceeds_reference is null/);
+assert.match(reserveGuard,/grant execute on function public\.clube_coupon_paid_quote_reserve\(uuid,uuid,uuid\)/);
+assert.doesNotMatch(reserveGuard,/insert into public\.wallet_entries|create table public|update public\.orders/i,
+ 'net reservation gate cannot mint cashback, orders, or a parallel ledger');
 assert.match(migration,/function public.clube_coupon_paid_create_order/);
 assert.match(migration,/pg_advisory_xact_lock/);
 assert.match(migration,/public.create_order_from_quote_v8\(/);
