@@ -24,6 +24,14 @@ assert.match(migration,/insert into public.clube_coupon_paid_order_applications/
 assert.match(migration,/couponAppliedCents/);
 assert.match(migration,/quoted_merchant_id/);
 assert.match(migration,/clube_coupon_paid_net_proceeds_verify/);
+assert.match(migration,/MERCHANT_PAYOUT_UNVERIFIED/,
+ 'bookkeeping paid is not independent merchant settlement');
+assert.doesNotMatch(migration,/then 'MERCHANT_REIMBURSED'/,
+ 'bank reimbursement must not be reported as completed without external proof');
+assert.match(migration,/'merchantExternalSettlementVerified',false/,
+ 'read-only coupon report must explicitly deny external payout attestation');
+assert.match(read('supabase/functions/admin-ops/index.ts'),/MERCHANT_PAYOUT_UNVERIFIED/,
+ 'existing Admin must count unverified merchant reimbursements as pending');
 assert.match(receipt,/clube_coupon_paid_quote_reserve/);
 assert.match(edge,/CLUBE_COUPON_CHECKOUT_ENABLED/);
 assert.match(edge,/clube_coupon_paid_create_order/);

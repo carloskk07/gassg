@@ -271,8 +271,11 @@ begin
  when v_order.status='SETTLED' and
    v_merchant_payment.cashback_cents<>v_order.cashback_reserved_cents
      then 'MERCHANT_REIMBURSEMENT_MISMATCH'
+ -- Internal 'paid' is only an operator/accounting entry, not an
+ -- independent bank/provider settlement proof. Until the existing TAMÃO
+ -- financial-evidence workflow verifies an external payout, fail closed.
  when v_order.status='SETTLED' and
-   v_merchant_payment.status='paid' then 'MERCHANT_REIMBURSED'
+   v_merchant_payment.status='paid' then 'MERCHANT_PAYOUT_UNVERIFIED'
  when v_order.status='SETTLED' and
    v_merchant_payment.status='open' then 'MERCHANT_REIMBURSEMENT_DUE'
  when v_order.status='CANCELLED' and
@@ -292,6 +295,7 @@ begin
   'currentMerchantId',v_order.merchant_id,
   'merchantReimbursementCents',v_merchant_payment.cashback_cents,
   'merchantReimbursementStatus',v_merchant_payment.status,
+  'merchantExternalSettlementVerified',false,
   'returnedCashbackCents',v_release_cents);
 end
 $$;

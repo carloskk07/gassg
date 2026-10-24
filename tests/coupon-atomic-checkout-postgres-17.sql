@@ -132,8 +132,9 @@ begin
  update public.merchant_cashback_reimbursements set status='paid'
  where order_id=v_order;
  v_result:=public.clube_coupon_paid_order_reconciliation(v_order);
- if v_result->>'status'<>'MERCHANT_REIMBURSED'
- then raise exception 'COUPON_MERCHANT_PAID_NOT_VISIBLE';end if;
+ if v_result->>'status'<>'MERCHANT_PAYOUT_UNVERIFIED'
+   or (v_result->>'merchantExternalSettlementVerified')::boolean is distinct from false
+ then raise exception 'COUPON_INTERNAL_PAID_MISTAKEN_FOR_BANK_PROOF';end if;
 
  v_result:=public.clube_coupon_paid_create_order(
   v_user,v_quote,v_voucher,'pix','coupon-checkout-1','sha-1',
