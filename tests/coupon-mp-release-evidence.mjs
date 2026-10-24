@@ -105,12 +105,14 @@ assert.doesNotMatch(route,/method:"POST"|\.update\(|\.insert\(|\.delete\(/,
  'provider reconciliation must not write directly to finance tables');
 assert.match(route,/const finalize=action==="clube-coupon-mp-funding-finalize"/);
 assert.match(route,/if\(finalize\&\&String\(adminAccess\.admin_role\)!=="superadmin"\)/);
-assert.match(route,/if\(finalize\)\{[\s\S]*?\.rpc\("clube_coupon_paid_net_proceeds_verify"/,
+assert.match(route,/if\(finalize\)\{[\s\S]*?\.rpc\("clube_coupon_paid_net_proceeds_verify_audited"/,
  'the existing finance RPC must only run within the explicit finalization branch');
 assert.match(route,/expectedNetCents/);
 assert.match(route,/expectedEvidenceReference/);
 assert.match(route,/confirmation!=="CONFIRMAR_LIQUIDO"/);
 assert.match(route,/netEvidenceRegistered:true/);
+assert.match(route,/p_actor_user_id:user\.id/);
+assert.match(route,/auditRecorded:true/);
 assert.match(route,/couponsAvailableForCheckout:false/);
 assert.match(route,/couponFundingApplied:false/);
 assert.match(route,/merchantPayoutVerified:false/);
