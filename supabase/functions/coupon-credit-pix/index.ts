@@ -154,7 +154,8 @@ Deno.serve(async(req:Request)=>{
       purchases:(invoices||[]).map((row:any)=>({
         invoiceId:row.id,packageKey:row.package_key,status:row.status,
         amountCents:row.sale_price_cents,createdAt:row.created_at,
-        paidAt:row.paid_at
+        paidAt:row.paid_at,
+        fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row)
       })),
       vouchers:(rows||[]).filter((row:any)=>paidIds.has(String(row.invoice_id)))
         .map((row:any)=>({
