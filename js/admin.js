@@ -5131,6 +5131,55 @@ async function adminClubeCouponPreviewFromUi(){
 }
 /* Clube TAMÃO — consulta do estado financeiro, sem cobrança nem ativação.
  * Totalizadores limitados ou migração ausente nunca equivalem a aprovação. */
+async function adminClubeDraftCreate(){
+  if(adminCurrentRole()!=='superadmin'||adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance;
+  if(st.draftPending)return;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const val=id=>String(document.getElementById('admin-coupon-draft-'+id)?.value||'').trim();
+  const packageKey=val('key'),title=val('title');
+  const salePriceCents=adminGrowthMoneyInputCents(val('price'));
+  const couponFaceCents=adminGrowthMoneyInputCents(val('face'));
+  const count=val('count'),days=val('days');
+  const couponsPerPack=/^[1-9][0-9]?$/.test(count)?Number(count):NaN;
+  const validDays=/^[1-9][0-9]{0,2}$/.test(days)?Number(days):NaN;
+  if(!/^[a-z][a-z0-9_]{2,39}$/.test(packageKey)||
+     title.length<6||title.length>120||
+     !Number.isSafeInteger(salePriceCents)||salePriceCents<100||
+     !Number.isSafeInteger(couponFaceCents)||couponFaceCents<100||
+     !Number.isSafeInteger(couponsPerPack)||couponsPerPack>15||
+     !Number.isSafeInteger(validDays)||validDays>365||
+     salePriceCents<couponFaceCents*couponsPerPack){
+    st.draftError='Revise o identificador, os valores e a cobertura total dos cupons.';
+    st.draftResult=null;render();return;
+  }
+  const input={packageKey,title,salePriceCents,couponFaceCents,couponsPerPack,validDays};
+  if(!globalThis.confirm('Criar pacote interno NÃO VENDÁVEL para análise financeira? Isso não habilita Pix, descontos ou repasses.'))return;
+  Object.assign(st,{draftPending:true,draftError:null,draftResult:null});
+  render();
+  try{
+    const reply=await adminInvoke({action:'clube-coupon-package-draft-create',...input});
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(reply?.source!=='clube_coupon_paid_package_draft_v1'||
+       reply?.ok!==true||reply?.packageKey!==packageKey||
+       reply?.saleEnabled!==false||reply?.fundingVerified!==false||
+       reply?.costCoverageVerified!==false||reply?.moneyMoved!==false||
+       reply?.checkoutEnabled!==false||
+       !/^[0-9a-f-]{36}$/i.test(String(reply?.auditId||'')))
+       throw new Error('Criação do rascunho não foi confirmada pelo financeiro.');
+    st.draftResult=reply;
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId)
+      st.draftError=String(error?.message||'Não foi possível preparar o pacote.');
+  }finally{
+    st.draftPending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId){
+      render();
+      if(st.draftResult)adminClubeFinanceRefresh();
+    }
+  }
+}
+
 async function adminClubeFinanceRefresh(){
   if(!['superadmin','finance'].includes(adminCurrentRole())||
     adminRuntime.status!=='ready')return;
@@ -5393,6 +5442,25 @@ function adminClubeFinanceView(){
     ${schemaMissing&&(data?.salesEnabled||data?.checkoutEnabled)?'<div role="alert" class="notice danger"><strong>Configuração incoerente:</strong> vendas ou cupons habilitados sem banco financeiro completo. Suspenda esta operação.</div>':''}
     ${data?.financialIntegrityRisk===true?'<div role="alert" class="notice danger"><strong>Anomalia financeira:</strong> reserva ou uso de cupom sem lastro registrado. Suspenda e revise a conciliação.</div>':''}
     ${incomplete&&!schemaMissing?'<div class="notice" role="status"><strong>Informação incompleta.</strong><br>Há registros além do limite, uso de cupom sem lastro ou conciliação sem evidência. Não use esta consulta para autorizar vendas.</div>':''}
+    ${adminCurrentRole()==='superadmin'?'<div class="card flat admin-coupon-draft" aria-label="Preparação interna de cupons">'+
+      '<h4>Preparar pacote de cupons (somente rascunho)</h4>'+
+      '<p>O pacote não aparecerá à venda. A diferença entre preço e valor de face é apenas uma reserva bruta, não lucro confirmado.</p>'+
+      '<div class="grid cards-3">'+
+      '<label>Identificador<input id="admin-coupon-draft-key" class="input" placeholder="piloto_sg" maxlength="40" autocomplete="off"></label>'+
+      '<label>Descrição<input id="admin-coupon-draft-title" class="input" placeholder="Pacote piloto interno" maxlength="120" autocomplete="off"></label>'+
+      '<label>Preço do pacote (R$)<input id="admin-coupon-draft-price" class="input" inputmode="decimal" placeholder="12,00"></label>'+
+      '<label>Valor de cada cupom (R$)<input id="admin-coupon-draft-face" class="input" inputmode="decimal" placeholder="5,00"></label>'+
+      '<label>Quantidade<input id="admin-coupon-draft-count" class="input" inputmode="numeric" placeholder="2"></label>'+
+      '<label>Validade (dias)<input id="admin-coupon-draft-days" class="input" inputmode="numeric" placeholder="60"></label>'+
+      '</div>'+
+      '<button class="secondary" type="button" onclick="adminClubeDraftCreate()" '+
+      (state.draftPending?'disabled':'')+'>Preparar rascunho auditado</button>'+
+      (state.draftError?'<p role="alert" class="notice danger">'+esc(state.draftError)+'</p>':'')+
+      (state.draftResult?.ok===true?'<p role="status" class="notice">Rascunho salvo com auditoria: '+
+         esc(state.draftResult.packageKey)+'. Reserva bruta: R$ '+
+         esc((state.draftResult.grossBufferCents/100).toFixed(2))+
+         '. Falta comprovar tarifas, lastro líquido, termos e repasse; venda desativada.</p>':'')+
+      '</div>':''}
     ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
       '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
        esc(amount(value))+'</strong></div>').join('')+'</div>':''}
