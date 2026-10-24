@@ -5408,6 +5408,14 @@ function adminClubeReleaseReportsView(){
     item.status==='processed'&&item.currency==='BRL'&&item.test===false&&item.fileName):[];
   const evidence=state.releaseEvidenceFor===userId?state.releaseEvidence:null;
   const evidenceError=state.releaseEvidenceFor===userId?state.releaseEvidenceError:null;
+  const financeData=state.loadedFor===userId?state.data:null;
+  const invoiceQueue=financeData?.schemaInstalled===true&&
+    Array.isArray(financeData.invoiceWorkQueue)
+    ?financeData.invoiceWorkQueue.slice(0,12).filter(item=>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(item.invoiceId||''))&&
+      ['paid','review_required'].includes(item.status)&&
+      Number.isSafeInteger(item.salePriceCents)&&item.salePriceCents>=0)
+    :[];
   const registration=state.releaseEvidenceFor===userId?state.releaseRegistration:null;
   const canRegister=adminCurrentRole()==='superadmin'&&
     evidence?.eligible===true&&evidence?.providerReportChecked===true&&
@@ -5429,6 +5437,19 @@ function adminClubeReleaseReportsView(){
        ' processados em BRL, fora do ambiente de teste.</p>':''}
     ${data?.coverage==='partial'?'<p class="notice">Lista parcial: há relatórios adicionais que não foram analisados.</p>':''}
     ${data?.available===true&&data.reports.length===0?'<p class="muted">Nenhum relatório gerado foi encontrado na conta consultada.</p>':''}
+    ${invoiceQueue.length?'<div class="admin-coupon-pending-invoices" role="group" aria-label="Faturas pendentes de conciliação">'+
+      '<h5>Faturas a conferir</h5>'+
+      (financeData?.invoiceWorkQueueCoverage==='partial'
+        ?'<p class="tiny muted">Fila parcial: consulte o histórico financeiro para outras faturas.</p>':'')+
+      invoiceQueue.map(item=>item.needsNetProof===true&&item.status==='paid'
+        ?'<button type="button" class="secondary" '+
+          'onclick="adminClubeReleaseInvoiceChanged(\\''+item.invoiceId+'\\');render()" '+
+          (state.releaseEvidencePending?'disabled':'')+
+          '>Selecionar fatura '+esc(item.invoiceId.slice(0,8))+
+          ' • Pix pago, líquido pendente • R$ '+esc((item.salePriceCents/100).toFixed(2))+'</button>'
+        :'<p class="tiny muted">Fatura '+esc(item.invoiceId.slice(0,8))+
+          ' • Revisão financeira obrigatória; não conciliar como pagamento regular.</p>').join('')+
+      '<p class="tiny muted">Esta fila não certifica pagamentos. Exige extrato oficial e conferência independente.</p></div>':''}
     ${reports.length?'<label for="admin-clube-release-invoice">ID da fatura de cupom pago</label>'+
       '<input id="admin-clube-release-invoice" class="input" type="text" maxlength="36" autocomplete="off" '+
       'placeholder="UUID da fatura" value="'+esc(state.releaseInvoiceId||'')+'" '+
