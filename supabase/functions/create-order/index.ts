@@ -6,7 +6,8 @@ import {
   validateIdempotencyKey,
   requestFingerprint,
   readJsonBody,
-  enforceApiQuota
+  enforceApiQuota,
+  platformCommerceAllowed
 } from "../_shared/domain.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -204,6 +205,12 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(SUPABASE_URL, SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
+    // Defense in depth. Ordinary checkout continues using its established
+    // DB gate; the special prepaid-coupon rail must additionally respect
+    // the central commercial switch, independent of its own env flag.
+    if(couponVoucherId&&!await platformCommerceAllowed(admin))
+      throw new DomainError("COMMERCE_NOT_ENABLED",
+        "A operação comercial do TAMÃO ainda não está liberada.",423);
     await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
     const baseOrderArgs={

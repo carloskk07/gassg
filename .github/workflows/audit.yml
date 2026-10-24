@@ -98,6 +98,8 @@ jobs:
         run: node tests/discovery-owner-journey.mjs
       - name: Regional wood, charcoal and ice units
         run: node tests/regional-product-units.mjs
+      - name: Central commerce kill-switch for paid coupon Pix and checkout
+        run: node tests/coupon-global-operation-gate.mjs
       - name: Coupon Mercado Pago signed settlement contract
         run: node tests/coupon-paid-pix-contract.mjs
       - name: Authenticated Clube voucher viewer

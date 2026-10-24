@@ -14,7 +14,10 @@ assert.match(edge,/\.eq\("customer_user_id",user.id\)/);
 assert.ok(edge.indexOf('if(operation==="my-vouchers")')<
  edge.indexOf('if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")'),
  'read my own history while sales are disabled');
-assert.match(edge,/couponSalesEnabled:Deno.env.get/);
+assert.match(edge,/couponSalesEnabled:\s*Deno\.env\.get/);
+assert.match(edge,/couponCheckoutEnabled:\s*Deno\.env\.get/);
+assert.match(edge,/await platformCommerceAllowed\(admin\)/,
+  'voucher history must not advertise paid coupon sales during PRELAUNCH');
 assert.doesNotMatch(ui.slice(from,to),/onclick="[^"]*(?:Buy|Comprar|merchantBillingCreate)/,
  'no dead payment button until server can settle coupons');
 
