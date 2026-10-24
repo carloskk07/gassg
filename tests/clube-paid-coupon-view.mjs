@@ -39,6 +39,13 @@ await ctx.refresh();
 assert.equal(calls,1);
 assert.match(ctx.panel(),/ainda não possui cupons/);
 assert.ok(rendered>0);
+payload={ok:true,source:'clube_coupon_paid_my_vouchers_v1',
+ purchases:[{invoiceId:'pending-1',status:'paid',fundingPending:true}],vouchers:[]};
+await ctx.refresh();
+assert.match(ctx.panel(),/Pagamento confirmado/);
+assert.match(ctx.panel(),/conferência financeira/);
+assert.doesNotMatch(ctx.panel(),/ainda não possui cupons/,
+ 'a customer who paid but awaits PSP net funding must see a precise hold status');
 payload={ok:true,source:'clube_coupon_paid_my_vouchers_v1',purchases:[{invoiceId:'i1'}],
  vouchers:[{voucherId:'v1',invoiceId:'i1',ordinal:1,faceCents:500,
   status:'issued',expiresAt:'2026-11-10T10:00:00Z'}]};
@@ -52,4 +59,4 @@ payload={ok:false};
 await ctx.refresh();
 assert.match(ctx.panel(),/Não conseguimos consultar seus cupons/);
 assert.doesNotMatch(ctx.panel(),/R\$\s*5,00/);
-console.log('PASS: wallet UI, user separation, zero coupons, failed backend, safe sales-off read.');
+console.log('PASS: wallet UI, funding hold, user separation, empty purchases, backend failure, safe sales-off read.');
