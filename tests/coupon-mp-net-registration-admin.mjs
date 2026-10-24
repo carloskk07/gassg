@@ -78,6 +78,8 @@ assert.match(edge,/clube_coupon_paid_net_proceeds_verify/);
 assert.match(edge,/inspection\.netCents!==body\.expectedNetCents/);
 assert.match(edge,/inspection\.evidenceReference!==body\.expectedEvidenceReference/);
 assert.match(edge,/p_provider_order_id:invoice\.provider_order_id/);
+assert.match(edge,/finalize\?matching\[0\]\?\.is_test!==false/,
+ 'recording money requires a real, explicitly non-test Mercado Pago report');
 assert.match(edge,/replayed:registered\.replayed===true/);
 assert.match(edge,/couponFundingApplied:false,merchantPayoutVerified:false/);
 assert.match(readOnlyTest,/provider reconciliation must not write directly/);
