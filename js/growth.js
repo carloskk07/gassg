@@ -30,9 +30,7 @@ function publicLandingJump(sectionId){
   return true;
 }
 
-// Paid coupons share the customer's authenticated Supabase session.
-// The history is read-only; a purchase/resgate button is intentionally absent
-// until funded voucher settlement is authorized in the back end.
+// Carteira autenticada de cupons, sem venda não homologada.
 const clubePaidCouponView={
   userId:null,status:'idle',purchases:[],vouchers:[],error:null,
   checkoutEnabled:false
@@ -133,12 +131,10 @@ function clubePaidCouponPanel(){
       '<p> Cupom '+esc(String(item.ordinal))+' · '+esc(labels[item.status]||'Em análise')+'</p>'+
       '<small>Validade: '+esc(expire(item.expiresAt))+'</small></article>').join('')
     :'';
-  const pendingFunding=valid&&status==='ready'&&
-    clubePaidCouponView.purchases.some(p=>p.status==='paid'&&p.fundingPending===true);
-  const fundingNotice=pendingFunding
-    ?'<p role="status" class="notice">Pagamento confirmado. Os cupons dessa compra ainda aguardam a conferência financeira e não estão disponíveis para uso.</p>':'';
-  const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length&&!pendingFunding
-    ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
+  const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
+    ?clubePaidCouponView.purchases.some(p=>p.fundingPending)
+      ?'<p role="status" class="notice">Pagamento confirmado. Cupons em conferência financeira, ainda indisponíveis.</p>'
+      :'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
   const issue=valid&&status==='failed'
     ?'<p role="alert" class="notice danger">Não conseguimos consultar seus cupons agora. Tente novamente.</p>':'';
   return '<section class="section" aria-label="Meus cupons TAMÃO">'+
@@ -148,7 +144,7 @@ function clubePaidCouponPanel(){
     '<button class="secondary" type="button" onclick="clubePaidCouponsRefresh()" '+
       (status==='loading'?'disabled':'')+'>'+
       (status==='loading'?'Consultando…':'Consultar meus cupons')+'</button></div>'+
-    issue+fundingNotice+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
+    issue+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
     '</section>';
 }
 async function clubePaidCouponsRefresh(){
