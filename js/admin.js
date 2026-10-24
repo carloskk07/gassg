@@ -5131,6 +5131,52 @@ async function adminClubeCouponPreviewFromUi(){
 }
 /* Clube TAMÃO — consulta do estado financeiro, sem cobrança nem ativação.
  * Totalizadores limitados ou migração ausente nunca equivalem a aprovação. */
+// Conservative check of a NOT-FOR-SALE draft. It uses editable fee
+// hypotheses, never the account's actual PSP rate or a promise of earnings.
+// Reserve every coupon's face value even if redemptions occur months apart.
+function adminClubeDraftEconomicsPreview(){
+  const input=id=>String(document.getElementById('admin-coupon-draft-'+id)?.value??'').trim();
+  const price=adminGrowthMoneyInputCents(input('price'));
+  const face=adminGrowthMoneyInputCents(input('face'));
+  const countText=input('count');
+  const count=/^[1-9][0-9]?$/.test(countText)?Number(countText):null;
+  const feeText=input('feeBps');
+  const feeBps=/^(?:0|[1-9][0-9]{0,4})$/.test(feeText)?Number(feeText):null;
+  const fixed=adminGrowthMoneyInputCents(input('extraFee'));
+  const perRedemption=adminGrowthMoneyInputCents(input('redCost'));
+  const marginReserve=adminGrowthMoneyInputCents(input('minMargin'));
+  const valid=Number.isSafeInteger(price)&&price>=100&&
+    Number.isSafeInteger(face)&&face>=100&&
+    Number.isSafeInteger(count)&&count>=1&&count<=15&&
+    Number.isSafeInteger(feeBps)&&feeBps>=0&&feeBps<=1500&&
+    Number.isSafeInteger(fixed)&&Number.isSafeInteger(perRedemption)&&
+    Number.isSafeInteger(marginReserve);
+  let result={valid:false,marginCents:null,totalFaceCents:null,
+    pspCostCents:null,redemptionCostCents:null,conservative:true,
+    saleEnabled:false,realPspFeeVerified:false};
+  if(valid){
+    const totalFace=face*count;
+    const pspCost=Math.ceil(price*feeBps/10000)+fixed;
+    const operations=perRedemption*count;
+    const margin=price-totalFace-pspCost-operations-marginReserve;
+    result={valid:true,marginCents:margin,totalFaceCents:totalFace,
+      pspCostCents:pspCost,redemptionCostCents:operations,
+      conservative:true,saleEnabled:false,realPspFeeVerified:false};
+  }
+  const node=document.getElementById('admin-coupon-draft-risk');
+  if(node){
+    if(!result.valid)node.textContent='Preencha o preço, os cupons e os custos para ver o risco antes de salvar o rascunho.';
+    else{
+      const brl=cents=>'R$ '+(Math.abs(cents)/100).toFixed(2).replace('.',',');
+      node.textContent=(result.marginCents<0?'DÉFICIT ESTIMADO: ':'Folga estimada: ')+
+        brl(result.marginCents)+'. Reserva integral de cupons: '+brl(result.totalFaceCents)+
+        '; custos Pix estimados: '+brl(result.pspCostCents)+
+        '; custos por resgate: '+brl(result.redemptionCostCents)+
+        '. A taxa efetiva da conta não foi consultada. Não autoriza vendas.';
+    }
+  }
+  return result;
+}
 async function adminClubeDraftCreate(){
   if(adminCurrentRole()!=='superadmin'||adminRuntime.status!=='ready')return;
   const st=adminRuntime.clubeFinance;
@@ -5154,7 +5200,12 @@ async function adminClubeDraftCreate(){
     st.draftResult=null;render();return;
   }
   const input={packageKey,title,salePriceCents,couponFaceCents,couponsPerPack,validDays};
-  if(!globalThis.confirm('Criar pacote interno NÃO VENDÁVEL para análise financeira? Isso não habilita Pix, descontos ou repasses.'))return;
+  const stress=adminClubeDraftEconomicsPreview();
+  const stressNotice=stress.valid?(stress.marginCents<0
+    ?' A simulação aponta DÉFICIT se todos os cupons forem usados.'
+    :' A simulação tem folga hipotética, sem confirmar tarifas, custos ou dinheiro líquido.')
+    :' As tarifas e os custos não foram conferidos.';
+  if(!globalThis.confirm('Criar pacote interno NÃO VENDÁVEL para análise financeira? Isso não habilita Pix, descontos ou repasses.'+stressNotice))return;
   Object.assign(st,{draftPending:true,draftError:null,draftResult:null});
   render();
   try{
@@ -5445,14 +5496,21 @@ function adminClubeFinanceView(){
     ${adminCurrentRole()==='superadmin'?'<div class="card flat admin-coupon-draft" aria-label="Preparação interna de cupons">'+
       '<h4>Preparar pacote de cupons (somente rascunho)</h4>'+
       '<p>O pacote não aparecerá à venda. A diferença entre preço e valor de face é apenas uma reserva bruta, não lucro confirmado.</p>'+
-      '<div class="grid cards-3">'+
+      '<div class="grid cards-3" oninput="adminClubeDraftEconomicsPreview()">'+
       '<label>Identificador<input id="admin-coupon-draft-key" class="input" placeholder="piloto_sg" maxlength="40" autocomplete="off"></label>'+
       '<label>Descrição<input id="admin-coupon-draft-title" class="input" placeholder="Pacote piloto interno" maxlength="120" autocomplete="off"></label>'+
       '<label>Preço do pacote (R$)<input id="admin-coupon-draft-price" class="input" inputmode="decimal" placeholder="12,00"></label>'+
       '<label>Valor de cada cupom (R$)<input id="admin-coupon-draft-face" class="input" inputmode="decimal" placeholder="5,00"></label>'+
       '<label>Quantidade<input id="admin-coupon-draft-count" class="input" inputmode="numeric" placeholder="2"></label>'+
       '<label>Validade (dias)<input id="admin-coupon-draft-days" class="input" inputmode="numeric" placeholder="60"></label>'+
+      '<label>Pix referência em pontos-base (99 = 0,99%)<input id="admin-coupon-draft-feeBps" class="input" inputmode="numeric" value="99" maxlength="4"></label>'+
+      '<label>Tarifa extra estimada (R$)<input id="admin-coupon-draft-extraFee" class="input" inputmode="decimal" value="0,00"></label>'+
+      '<label>Custo por uso do cupom (R$)<input id="admin-coupon-draft-redCost" class="input" inputmode="decimal" value="0,50"></label>'+
+      '<label>Reserva de segurança do pacote (R$)<input id="admin-coupon-draft-minMargin" class="input" inputmode="decimal" value="1,00"></label>'+
       '</div>'+
+      '<p id="admin-coupon-draft-risk" class="tiny muted" role="status">Calcule o risco preenchendo os valores. Todos os cupons devem estar reservados, mesmo se resgatados em datas diferentes.</p>'+
+      '<p class="tiny muted">0,99% é uma referência pública do Checkout Pix; a taxa e os custos da conta TAMÃO ainda dependem de conferência independente no Mercado Pago. Nenhuma premissa acima é garantia de receita.</p>'+
+      '<button class="secondary" type="button" onclick="adminClubeDraftEconomicsPreview()">Conferir custo estimado</button>'+
       '<button class="secondary" type="button" onclick="adminClubeDraftCreate()" '+
       (state.draftPending?'disabled':'')+'>Preparar rascunho auditado</button>'+
       (state.draftError?'<p role="alert" class="notice danger">'+esc(state.draftError)+'</p>':'')+
@@ -5486,8 +5544,8 @@ function adminClubeCouponPreviewView(){
     ['minimumContributionCents','Margem mínima por pedido (R$)','0,00']
   ];
   const rates=[
-    ['feeBps','Taxa TAMÃO em pontos-base (750 = 7,5%)','750'],
-    ['merchantSponsorBps','Parte da revenda (10000 = 100%)','10000'],
+    ['feeBps','Taxa TAMÃO em pontos-base (750 = 7,5%)','0'],
+    ['merchantSponsorBps','Parte da revenda (10000 = 100%)','0'],
     ['brandSponsorBps','Parte da marca patrocinadora (0 a 10000)','0']
   ];
   const d=x.data;
@@ -5511,7 +5569,7 @@ function adminClubeCouponPreviewView(){
         <input class="input" inputmode="numeric" id="admin-clube-${key}"
           autocomplete="off" maxlength="5" value="${value(key,def)}"></div>`).join('')}
       </div>
-      <p class="tiny muted">Revenda e marca: financiamento hipotético, ainda sem compromisso assinado. Parte residual do desconto será custo do TAMÃO. A taxa é calculada apenas sobre o pedido já descontado.</p>
+      <p class="tiny muted">Cenário inicial conservador: 0% de patrocínio e 0% de taxa incremental não comprovados. Ajuste somente para estudar contratos hipotéticos; a parcela não financiada do desconto é custo do TAMÃO. A taxa, se informada, considera o pedido descontado e não é receita garantida.</p>
       <button type="button" class="secondary" onclick="adminClubeCouponPreviewFromUi()"
         ${x.pending?'disabled':''}>${x.pending?'Conferindo…':'Simular sem vender cupons'}</button>
       ${x.error?'<div class="notice danger">'+esc(x.error)+'</div>':''}
