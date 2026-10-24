@@ -269,4 +269,26 @@ assert.equal((await decide('processed','processed',validRefund,'paid',
  'clube_coupon_paid_payment_review','partial detail conflicts with alleged complete refund');
 assert.equal((await decide('processed')).route,
  'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
-console.log('PASS: signed coupon Pix and real webhook handler refund/dispute inconsistencies are fail-closed.');
+// An ordinary unpaid canceled order must retain the original lifecycle
+// instead of being incorrectly promoted to manual financial review.
+currentPspOrder={id:'order-1',external_reference:'invoice-1',
+ total_amount:'15.00',status:'canceled',status_detail:'canceled',
+ transactions:{payments:[{id:'payment-1',status:'canceled',
+  status_detail:'canceled',payment_method:{id:'pix',type:'bank_transfer'}}],refunds:[]}};
+let unpaidUpdate=null;
+const unpaidAdmin={
+ rpc:async()=>{throw new Error('unpaid cancellation must not call reversal RPC');},
+ from:table=>{
+  assert.equal(table,'clube_coupon_paid_invoices');
+  return {update:patch=>{
+   unpaidUpdate=patch.status;
+   return {eq:()=>({in:async()=>({error:null})})};
+  }};
+ }
+};
+const unpaidCancellation=await webhookSandbox.handlePaidCouponOrder(unpaidAdmin,'order-1',
+ {...invoiceForWebhook,status:'awaiting_payment'},'test-only-token');
+assert.equal(unpaidCancellation.body.status,'canceled');
+assert.equal(unpaidUpdate,'cancelled',
+ 'unpaid Pix cancellation must still use the existing local invoice transition');
+console.log('PASS: signed coupon Pix, payment-status/detail reversal holds, and unpaid cancellation preserved.');
