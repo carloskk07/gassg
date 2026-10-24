@@ -119,7 +119,12 @@ const ownerOps=read('supabase/functions/merchant-ops/index.ts');
 const readOrders=read('supabase/functions/merchant-orders/index.ts');
 const profileMigration=read('supabase/migrations/20261023222508_merchant_self_service_business_details.sql');
 const bsc={esc};
-vm.runInNewContext(cut(merchantPortal,'merchantBusinessProfileView')+
+const formPreludeStart=merchantPortal.indexOf('let merchantBusinessUnsavedDraft=null;');
+const formPreludeEnd=merchantPortal.indexOf('function merchantBusinessProfileView(rt){',formPreludeStart);
+assert.ok(formPreludeStart>=0&&formPreludeEnd>formPreludeStart,
+ 'business form requires the real owner-scoped in-memory draft helpers');
+vm.runInNewContext(merchantPortal.slice(formPreludeStart,formPreludeEnd)+
+ '\n'+cut(merchantPortal,'merchantBusinessProfileView')+
  ';this.profile=merchantBusinessProfileView;',bsc);
 const escapedProfile=bsc.profile({merchant:{memberRole:'owner',status:'pending',
  businessDetails:{legalName:'Empresa <script>alert(1)</script>',
