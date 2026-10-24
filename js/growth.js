@@ -133,7 +133,11 @@ function clubePaidCouponPanel(){
       '<p> Cupom '+esc(String(item.ordinal))+' · '+esc(labels[item.status]||'Em análise')+'</p>'+
       '<small>Validade: '+esc(expire(item.expiresAt))+'</small></article>').join('')
     :'';
-  const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
+  const pendingFunding=valid&&status==='ready'&&
+    clubePaidCouponView.purchases.some(p=>p.status==='paid'&&p.fundingPending===true);
+  const fundingNotice=pendingFunding
+    ?'<p role="status" class="notice">Pagamento confirmado. Os cupons dessa compra ainda aguardam a conferência financeira e não estão disponíveis para uso.</p>':'';
+  const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length&&!pendingFunding
     ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
   const issue=valid&&status==='failed'
     ?'<p role="alert" class="notice danger">Não conseguimos consultar seus cupons agora. Tente novamente.</p>':'';
@@ -144,7 +148,7 @@ function clubePaidCouponPanel(){
     '<button class="secondary" type="button" onclick="clubePaidCouponsRefresh()" '+
       (status==='loading'?'disabled':'')+'>'+
       (status==='loading'?'Consultando…':'Consultar meus cupons')+'</button></div>'+
-    issue+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
+    issue+fundingNotice+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
     '</section>';
 }
 async function clubePaidCouponsRefresh(){
