@@ -83,6 +83,12 @@ assert.match(coupon,/invoice.status==="awaiting_payment"&&!await couponPixStillP
  'idempotent retry must recheck the PSP before returning stored QR');
 assert.match(coupon,/COUPON_PIX_REVIEW_REQUIRED/,
  'unverified/processed replay must fail closed without offering another QR');
+assert.match(coupon,/pix_br_code:null,payment_url:null/,
+ 'PSP rejected replay must mask both persisted payment routes');
+assert.match(coupon,/recheckRequired:true/,
+ 'PSP rejected replay must request reconciliation explicitly');
+assert.doesNotMatch(coupon,/status:"requires_review"/,
+ 'never pretend a locally unverified invoice has a new persisted billing status');
 assert.match(coupon,/Date.parse\(String\(invoice.expires_at\)\)<=Date.parse\(deadline\)/,
  'never return code after more restrictive current provider expiry');
 
@@ -140,6 +146,8 @@ assert.equal(sandbox.publicInvoice({...invoice,status:'paid'}).pixCode,null,
  'paid invoice must never be offered for repayment');
 assert.equal(sandbox.publicInvoice({...invoice,status:'paid'}).issuedCoupons,2);
 assert.equal(sandbox.publicInvoice({...invoice,expires_at:iso(20000)}).pixCode,null);
+assert.equal(sandbox.couponInvoiceCanPresent({...invoice,pix_br_code:null},now),false,
+ 'masked replay cannot offer a QR even if original invoice has remaining time');
 
 assert.match(shared,/export async function verifyMercadoPagoWebhook/);
 assert.match(webhook,/verifyMercadoPagoWebhook\(req,webhookSecret,dataId\)/,
