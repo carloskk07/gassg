@@ -181,13 +181,100 @@ draftCtx.globalThis.merchantRuntime=ownerRt;
 ownerRt.merchant.businessDetails={legalName:'Razao salva',tradeName:'Revenda salva',
  responsibleName:'Responsavel salvo',phone:'55999998888',whatsapp:'55999998888',
  postalCode:'97300000',city:'Sao Gabriel',state:'RS',addressText:'Rua salva 123'};
-assert.match(draftCtx.draw(ownerRt),/value="Razao salva"/);
-assert.equal(draftCtx.currentDraft(),null,'server-saved details supersede local draft');
+assert.match(draftCtx.draw(ownerRt),/value="Razao confirmada"/,
+ 'an unrelated prior saved profile MUST NOT overwrite an unsaved correction');
+assert.equal(draftCtx.currentDraft().key,userId+'::'+merchantId,
+ 'do not discard corrected contact information just because older details exist');
+assert.equal(draftCtx.changed(),true,
+ 'owner must be able to edit an existing pending business profile');
+ownerRt.merchant.businessDetails={...inputValues};
+assert.match(draftCtx.draw(ownerRt),/value="Razao confirmada"/);
+assert.equal(draftCtx.currentDraft(),null,
+ 'only the exact server-read values may clear unsaved corrections');
+inputValues.legalName='Razao corrigida novamente';
+assert.equal(draftCtx.changed(),true);
+assert.match(draftCtx.draw(ownerRt),/value="Razao corrigida novamente"/,
+ 'a second edit of a saved profile also survives a poll redraw');
 ownerRt.merchant.businessDetails=null;
-assert.doesNotMatch(draftCtx.draw(ownerRt),/Razao confirmada/,
- 'no old draft after successful persistence');
+assert.equal(draftCtx.currentDraft()?.values?.legalName,'Razao corrigida novamente');
+draftCtx.clear();
+assert.doesNotMatch(draftCtx.draw(ownerRt),/Razao corrigida novamente/,
+ 'a discarded draft must not be restored');
 assert.match(merchant,/merchantBusinessUnsavedDraft=null;\s+await merchantSignOut\(/,
  'sign-out must clear in-memory owner legal data');
-assert.match(merchant,/const savedKey=merchantBusinessDraftKey\(merchantRuntime\)/,
- 'acknowledged save must clear draft only after server refresh');
+assert.match(merchant,/const submittedKey=merchantBusinessDraftKey\(merchantRuntime\)/,
+ 'remember the same authenticated owner and merchant when saving');
+assert.match(merchant,/!merchantBusinessProfileMatches\(refreshed\?\.merchant\?\.businessDetails,payload\)/,
+ 'RPC acknowledgement alone must never count as a saved business profile');
+assert.match(merchant,/if\(!merchantBusinessProfileChanged\(\)\)/,
+ 'capture the entire valid form including autofill before a rendering refresh');
+
+// Run the real mutation helper with a simulated RPC response and server readback.
+// A successful mutation acknowledgement is insufficient without owner-bound,
+// byte-equivalent persisted data; no live owner or production data is altered.
+const saveStart=merchant.indexOf('async function merchantUpdateBusinessDetailsLive(payload){');
+assert.ok(saveStart>0&&saveStart<draftStart);
+const submitRt={status:'ready',actionPending:false,
+ session:{user:{id:userId}},
+ merchant:{merchantId,memberRole:'owner',status:'pending',
+  businessDetails:null,businessDraft:result}};
+const submitted={
+ legalName:'Empresa aprovada somente como declaração',
+ tradeName:'Comercio de teste',responsibleName:'Responsavel de teste',
+ phone:'55999998888',whatsapp:'55999998888',postalCode:'97300000',
+ city:'Sao Gabriel',state:'RS',addressText:'Rua de teste, 123'
+};
+let readback='none',writes=0,enablementCalls=0,renderCalls=0;
+const saveCtx=vm.createContext({
+ String,merchantRuntime:submitRt,globalThis:{merchantRuntime:submitRt},
+ merchantConfigMutation:async(action,data)=>{
+   assert.equal(action,'update-business-details');
+   assert.equal(data.legalName,submitted.legalName);
+   writes++;
+   return {ok:true,action,pendingAdministrativeVerification:true};
+ },
+ merchantRefresh:async()=>{
+   if(readback==='none')return null; // including unauthenticated/no-access cases
+   const stored={...submitted,city:readback==='stale'?'Cidade diferente':submitted.city};
+   if(readback==='match')submitRt.merchant.businessDetails=stored;
+   return {merchant:{...submitRt.merchant,businessDetails:stored,
+     merchantId:readback==='other-merchant'?secondMerchant.merchant.merchantId:merchantId}};
+ },
+ merchantEnablementAfterChange:()=>{enablementCalls++;},
+ render:()=>{renderCalls++;},
+ document:{getElementById(id){
+   const key=id.replace('merchant-business-','');
+   return Object.hasOwn(submitted,key)?{value:submitted[key]}:null;
+ }},
+ esc:s=>String(s)
+});
+vm.runInContext(merchant.slice(saveStart,draftEnd)+
+ ';this.saveBusiness=merchantUpdateBusinessDetailsLive;'+
+ 'this.captureBusiness=merchantBusinessProfileChanged;'+
+ 'this.businessDraft=()=>merchantBusinessUnsavedDraft;',saveCtx);
+assert.equal(saveCtx.captureBusiness(),true);
+await assert.rejects(()=>saveCtx.saveBusiness(submitted),/não foi possível conferir os dados salvos/i,
+ 'RPC ack + absent readback must NOT be shown as successful');
+assert.equal(submitRt.actionPending,false);
+assert.equal(saveCtx.businessDraft()?.values?.legalName,submitted.legalName,
+ 'retain draft when the backend read cannot verify persistence');
+assert.equal(enablementCalls,0);
+readback='stale';
+await assert.rejects(()=>saveCtx.saveBusiness(submitted),/não foi possível conferir os dados salvos/i,
+ 'stale server profile cannot be displayed as just saved');
+assert.ok(saveCtx.businessDraft(),'retains draft after stale read');
+readback='other-merchant';
+await assert.rejects(()=>saveCtx.saveBusiness(submitted),/não foi possível conferir os dados salvos/i,
+ 'server data from another merchant can never certify this save');
+readback='match';
+const savedResponse=await saveCtx.saveBusiness(submitted);
+assert.equal(savedResponse.pendingAdministrativeVerification,true);
+assert.equal(submitRt.merchant.businessDetails.city,submitted.city);
+assert.equal(saveCtx.businessDraft(),null,'clear only after exact owner-bound readback');
+assert.equal(enablementCalls,1);
+assert.equal(renderCalls,8,'every mutation must restore the controls');
+assert.equal(writes,4);
+assert.equal(submitRt.actionPending,false);
+console.log('PASS: exact persisted owner business profile gates UI success, preserves corrected drafts on failed/stale readback');
+
 console.log('PASS: unsaved owner form survives background redraw and is isolated by owner and merchant');
