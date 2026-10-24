@@ -1486,8 +1486,13 @@ function merchantBusinessProfileView(rt){
   if(rt.merchant?.status!=='pending')
     return '<div class="notice"><strong>Dados cadastrais sujeitos à revisão.</strong><br>'+
       'Esta revenda já saiu da fase de cadastro inicial. Para alterar identificação ou endereço, solicite revisão ao TAMÃO; nenhuma aprovação existente é reutilizada automaticamente.</div>';
-  const b=rt.merchant?.businessDetails||{};
-  const completed=!!(b.city&&b.state&&b.postalCode&&b.addressText);
+  const saved=rt.merchant?.businessDetails||null;
+  const suggestion=rt.merchant?.businessDraft?.source==='previous_owner_application'
+    &&rt.merchant?.businessDraft?.suggested===true
+    &&rt.merchant?.businessDraft?.verified===false
+    ?rt.merchant.businessDraft:null;
+  const b=saved||suggestion||{};
+  const completed=!!(saved?.city&&saved?.state&&saved?.postalCode&&saved?.addressText);
   const fields=[
     ['legalName','Razão social',160],['tradeName','Nome do estabelecimento',140],
     ['responsibleName','Responsável',120],['phone','Telefone (DDD + número)',11],
@@ -1498,7 +1503,13 @@ function merchantBusinessProfileView(rt){
     (completed?'':' open')+'><summary>Dados e endereço da minha revenda'+
     '<span>'+(completed?'Informações declaradas • sujeitas à conferência':
       'Complete o endereço para análise do cadastro')+'</span></summary>'+
-    '<div class="card flat form-stack"><p class="tiny muted">Informe seus dados reais. '+ 
+    '<div class="card flat form-stack">'+
+    (suggestion&&!saved
+      ?'<p class="tiny muted"><strong>Dados sugeridos do seu cadastro anterior.</strong> '+
+        'Confira razão social, responsável, telefone, WhatsApp e endereço antes de salvar. '+
+        'Complete CEP, cidade e UF. Nenhum campo foi aprovado automaticamente.</p>'
+      :'')+
+    '<p class="tiny muted">Informe e confirme seus dados reais. '+ 
       'O envio não aprova CNPJ, representação, documentação, ANP ou vendas. '+ 
       'O TAMÃO precisa conferir os requisitos aplicáveis.</p>'+
     fields.map(([key,label,max])=>'<div class="input-wrap"><label for="merchant-business-'+key+'">'+

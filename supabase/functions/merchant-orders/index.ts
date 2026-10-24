@@ -34,6 +34,42 @@ const MERCHANT_PRIMARY_ORIGINS=new Set([
   MERCHANT_ALLOWED_ORIGIN
 ].filter(Boolean));
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Owner-only convenience: suggest fields previously self-declared in this
+// exact owner's approved application for this same CNPJ. Never write, verify,
+// activate or make these values authoritative without explicit owner submission.
+async function merchantBusinessDraftFromApprovedApplication(
+  admin:any,userId:string,merchant:any,role:string,hasStoredProfile:boolean
+){
+  if(role!=="owner"||hasStoredProfile||merchant?.status!=="pending"
+    ||!/^[0-9]{14}$/.test(String(merchant?.cnpj??""))
+    ||!String(userId??""))return null;
+  const {data:application,error}=await admin.from("merchant_applications")
+    .select("company_name,responsible_name,phone,address_text")
+    .eq("applicant_user_id",userId)
+    .eq("cnpj",merchant.cnpj)
+    .eq("status","approved")
+    .order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(error||!application)return null; // Draft availability cannot break operations.
+  const text=(value:any,min:number,max:number)=>{
+    const s=typeof value==="string"?value.trim():"";
+    return s.length>=min&&s.length<=max&&!/[\r\n<>]/.test(s)?s:"";
+  };
+  const phone=String(application.phone??"").replace(/\D/g,"");
+  const phoneDigits=/^[0-9]{10,11}$/.test(phone)?phone:"";
+  return {
+    source:"previous_owner_application",
+    suggested:true,verified:false,
+    legalName:text(application.company_name,3,160),
+    tradeName:text(merchant.name,2,140),
+    responsibleName:text(application.responsible_name,3,120),
+    phone:phoneDigits,
+    whatsapp:phoneDigits, // Suggestion only; owner must confirm the number.
+    postalCode:"",city:"",state:"",
+    addressText:text(application.address_text,8,260)
+      ||text(merchant.address_text,8,260)
+  };
+}
+
 const ACTIVE_STATUSES=[
   "OFFERED_TO_MERCHANT","MERCHANT_ACCEPTED","PREPARING","AT_RISK",
   "OUT_FOR_DELIVERY","ARRIVING"
@@ -247,7 +283,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,accepts_scheduled_orders,max_active_orders,last_seen_at,updated_at")
+      .select("id,name,cnpj,address_text,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,accepts_scheduled_orders,max_active_orders,last_seen_at,updated_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -720,6 +756,7 @@ Deno.serve(async(req:Request)=>{
     }
 
     let businessDetails:any=null;
+    let businessDraft:any=null;
     if(selected.member_role==="owner"){
       const {data:business,error:businessError}=await admin
         .from("merchant_business_details")
@@ -734,6 +771,8 @@ Deno.serve(async(req:Request)=>{
         city:business.city,state:business.state,addressText:business.address_text,
         updatedAt:business.updated_at
       };
+      businessDraft=await merchantBusinessDraftFromApprovedApplication(
+        admin,user.id,merchant,selected.member_role,Boolean(businessDetails));
     }
     return json({
       merchant:{
@@ -741,6 +780,7 @@ Deno.serve(async(req:Request)=>{
         name:merchant.name,
         memberRole:selected.member_role,
         businessDetails,
+        businessDraft,
         status:merchant.status,
         online:merchant.online,
         trustScore:merchant.trust_score,
