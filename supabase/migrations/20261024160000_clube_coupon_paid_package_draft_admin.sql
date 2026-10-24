@@ -1,6 +1,11 @@
 -- TAMÃO: create one NON-SELLABLE paid-coupon draft, atomically audited.
 -- Reuses the existing coupon package table and platform_admin_audit;
 -- creates no product for sale, payment, voucher, balance or second ledger.
+-- The original foundation granted service_role direct package writes.
+-- Close that unlogged bypass: only the audited SECURITY DEFINER RPC can
+-- prepare drafts. An activation workflow will require its own audit later.
+revoke insert,update on public.clube_coupon_paid_packages from service_role;
+
 create or replace function public.clube_coupon_paid_package_draft_create(
  p_actor_user_id uuid,
  p_package_key text,
