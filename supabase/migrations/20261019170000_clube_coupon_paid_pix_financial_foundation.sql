@@ -40,10 +40,21 @@ create table if not exists public.clube_coupon_paid_invoices (
   payment_url text,
   expires_at timestamptz,
   paid_at timestamptz,
+  -- Never infer net coverage from a gross Mercado Pago order.
+  net_proceeds_cents integer check(net_proceeds_cents between 0 and sale_price_cents),
+  net_proceeds_verified_at timestamptz,
+  net_proceeds_evidence_ref text,
   refunded_at timestamptz,
   created_at timestamptz not null default clock_timestamp(),
   updated_at timestamptz not null default clock_timestamp(),
-  constraint coupon_invoice_dedupe unique(customer_user_id,request_id)
+  constraint coupon_invoice_dedupe unique(customer_user_id,request_id),
+  constraint coupon_net_proceeds_evidence_complete check(
+    (net_proceeds_cents is null and net_proceeds_verified_at is null
+      and net_proceeds_evidence_ref is null)
+    or (net_proceeds_cents is not null and net_proceeds_verified_at is not null
+      and net_proceeds_evidence_ref is not null
+      and length(pg_catalog.btrim(net_proceeds_evidence_ref)) between 12 and 256)
+  )
 );
 create index if not exists clube_coupon_paid_invoices_customer_idx
  on public.clube_coupon_paid_invoices(customer_user_id,created_at desc);
@@ -93,7 +104,10 @@ begin
    raise exception 'COUPON_PAYMENT_PROOF_MISMATCH';
  end if;
  if v_invoice.status='paid' then
-   return pg_catalog.jsonb_build_object('ok',true,'replayed',true,'invoiceId',v_invoice.id);
+   return pg_catalog.jsonb_build_object('ok',true,'replayed',true,
+     'invoiceId',v_invoice.id,'issued',
+     (select count(*) from public.clube_coupon_paid_issuances
+      where invoice_id=v_invoice.id));
  end if;
  if v_invoice.status not in ('awaiting_payment','prepared') then
    raise exception 'COUPON_PAYMENT_STATE_INVALID';
@@ -102,14 +116,10 @@ begin
   set status='paid',paid_at=clock_timestamp(),provider_payment_id=p_payment_id,
       updated_at=clock_timestamp()
   where id=v_invoice.id;
- insert into public.clube_coupon_paid_issuances
-  (invoice_id,ordinal,customer_user_id,face_cents,expires_at)
- select v_invoice.id,g,v_invoice.customer_user_id,v_invoice.coupon_face_cents,
-        clock_timestamp()+pg_catalog.make_interval(days=>v_invoice.valid_days)
- from pg_catalog.generate_series(1,v_invoice.coupons_per_pack) as g
- on conflict (invoice_id,ordinal) do nothing;
+ -- A payment can be valid while PSP fees/liquidity remain unverified.
+ -- Record it, without issuing any spendable vouchers until net reconciliation.
  return pg_catalog.jsonb_build_object('ok',true,'replayed',false,
-   'invoiceId',v_invoice.id,'issued',v_invoice.coupons_per_pack);
+   'invoiceId',v_invoice.id,'issued',0,'fundingPending',true);
 end
 $$;
 revoke all on function public.clube_coupon_paid_payment_verify(uuid,text,text,integer)
