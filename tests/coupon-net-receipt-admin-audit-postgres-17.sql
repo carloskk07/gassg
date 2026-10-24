@@ -107,7 +107,7 @@ DECLARE
  v_result jsonb;
  v_net integer;
 BEGIN
- select id into v_admin from public.platform_admins
+ select user_id into v_admin from public.platform_admins
  where active=true and admin_role='superadmin' limit 1;
  select id into v_id from public.clube_coupon_paid_invoices
  where provider_order_id='audit-test-order-rollback' limit 1;
