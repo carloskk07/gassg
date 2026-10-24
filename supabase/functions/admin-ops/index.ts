@@ -13,6 +13,7 @@ import { mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,safeMercadoP
 import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
+import {couponReleasedNetEvidence} from "./coupon-release-evidence.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -112,7 +113,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports",
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports","clube-coupon-mp-release-inspect",
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
@@ -2533,6 +2534,109 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
+    if(action==="clube-coupon-mp-release-inspect"){
+      // Finance-only, read-only evidence. No RPC to settle coupons, debit
+      // wallets, reimburse merchants or change sales configuration.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A conferência do dinheiro líquido exige perfil financeiro.",403);
+      const invoiceId=String(body.invoiceId??"").trim();
+      const fileName=String(body.reportFileName??"").trim();
+      if(!UUID_RE.test(invoiceId)||
+         !/^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv$/.test(fileName))
+        throw new DomainError("COUPON_RELEASE_INPUT_INVALID",
+          "Informe uma fatura e um relatório CSV válidos.",400);
+      await enforceApiQuota(admin,{
+        userId:user.id,actionName:"admin-mp-coupon-release-inspect",
+        limit:3,windowSeconds:600
+      });
+      const {data:invoice,error:invoiceError}=await admin
+        .from("clube_coupon_paid_invoices")
+        .select("id,status,paid_at,provider_order_id,provider_payment_id,sale_price_cents,coupon_face_cents,coupons_per_pack")
+        .eq("id",invoiceId).maybeSingle();
+      if(invoiceError&&["42P01","PGRST205"].includes(String(invoiceError.code??"")))
+        return json({source:"coupon_mp_released_net_evidence_v1",
+          readOnly:true,eligible:false,moneyMoved:false,
+          merchantPayoutVerified:false,couponFundingApplied:false,
+          available:false,reason:"COUPON_FINANCE_SCHEMA_NOT_INSTALLED"},200,origin);
+      if(invoiceError)throw invoiceError;
+      if(!invoice||invoice.status!=="paid"||!invoice.paid_at||
+         !invoice.provider_order_id||!invoice.provider_payment_id)
+        return json({source:"coupon_mp_released_net_evidence_v1",
+          readOnly:true,eligible:false,moneyMoved:false,
+          merchantPayoutVerified:false,couponFundingApplied:false,
+          available:false,reason:"COUPON_PAID_PROOF_NOT_FOUND"},200,origin);
+      const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+      if(!mercadoPagoConfigured(token))
+        throw new DomainError("MERCADOPAGO_NOT_CONFIGURED",
+          "A conta recebedora TAMÃO não está configurada.",503);
+      // Only download an exact CSV returned by the authenticated account
+      // itself, never arbitrary user-selected paths or remote URLs.
+      const listResponse=await mercadoPagoFetch("/v1/account/release_report/list",{
+        accessToken:token,method:"GET",timeoutMs:8000
+      });
+      if(!listResponse.ok)throw new DomainError("MP_RELEASE_LIST_UNAVAILABLE",
+        "Não foi possível consultar os relatórios na conta TAMÃO.",503);
+      const listing=await readMercadoPagoJson(listResponse);
+      if(!Array.isArray(listing)||listing.length>50)
+        throw new DomainError("MP_RELEASE_LIST_INCOMPLETE",
+          "A listagem é parcial. Não é possível conferir este documento com segurança.",409);
+      const matching=listing.filter((item:any)=>String(item?.file_name??"")===fileName);
+      if(matching.length!==1||
+         String(matching[0]?.status??"").toLowerCase()!=="processed"||
+         matching[0]?.is_test===true||
+         String(matching[0]?.currency_id??"")!=="BRL")
+        throw new DomainError("MP_RELEASE_FILE_UNVERIFIED",
+          "O relatório não está validado na conta TAMÃO.",409);
+      const [providerResponse,reportResponse]=await Promise.all([
+        mercadoPagoFetch("/v1/orders/"+encodeURIComponent(invoice.provider_order_id),{
+          accessToken:token,method:"GET",timeoutMs:8000
+        }),
+        mercadoPagoFetch("/v1/account/release_report/"+encodeURIComponent(fileName),{
+          accessToken:token,method:"GET",timeoutMs:10000
+        })
+      ]);
+      if(!providerResponse.ok||!reportResponse.ok)
+        throw new DomainError("MP_RELEASE_PROVIDER_UNAVAILABLE",
+          "Ordem ou extrato oficial indisponíveis para conferência.",503);
+      const order=await readMercadoPagoJson(providerResponse);
+      const contentType=String(reportResponse.headers.get("content-type")??"");
+      if(contentType.includes("spreadsheet")||contentType.includes("excel")||
+         contentType.includes("application/json"))
+        throw new DomainError("MP_RELEASE_EXPECTED_CSV",
+          "O relatório não retornou um CSV de liberação verificável.",409);
+      const length=Number(reportResponse.headers.get("content-length")??0);
+      if(length>1000000||!reportResponse.body)
+        throw new DomainError("MP_RELEASE_CSV_TOO_LARGE",
+          "O relatório excede o limite de conferência segura.",409);
+      const reader=reportResponse.body.getReader();
+      let received=0;
+      const chunks:Uint8Array[]=[];
+      try{
+        while(true){
+          const {done,value}=await reader.read();
+          if(done)break;
+          received+=value.byteLength;
+          if(received>1000000)
+            throw new DomainError("MP_RELEASE_CSV_TOO_LARGE",
+              "O relatório excede o limite de conferência segura.",409);
+          chunks.push(value);
+        }
+      }finally{reader.releaseLock();}
+      const bytes=new Uint8Array(received);
+      let offset=0;
+      for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+      const csv=new TextDecoder("utf-8",{fatal:true}).decode(bytes);
+      const inspection=couponReleasedNetEvidence(csv,{
+        invoice,order,reportFileName:fileName
+      });
+      return json({...inspection,available:true,
+        // A line in a released-money report is independent PSP evidence of
+        // net receipt, never bank transfer to the merchant or redemption.
+        providerReportChecked:true,checkedAt:new Date().toISOString()
+      },200,origin);
+    }
+
     if(action==="clube-coupon-mp-release-reports"){
       // Read-only on the existing TAMÃO Mercado Pago receiving account:
       // GET /v1/account/release_report/list. No creation, downloads,
@@ -2576,6 +2680,9 @@ Deno.serve(async(req:Request)=>{
             ?status:"unknown",
           currency:currency==="BRL"?"BRL":null,
           test:item?.is_test===true,
+          fileName:typeof item?.file_name==="string"&&
+            /^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv$/.test(item.file_name)
+            ?item.file_name:null,
           generatedAt:Number.isFinite(Date.parse(generated))
             ?new Date(generated).toISOString():null,
           periodStart:Number.isFinite(Date.parse(started))
