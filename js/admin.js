@@ -5443,7 +5443,7 @@ function adminClubeReleaseReportsView(){
         ?'<p class="tiny muted">Fila parcial: consulte o histórico financeiro para outras faturas.</p>':'')+
       invoiceQueue.map(item=>item.needsNetProof===true&&item.status==='paid'
         ?'<button type="button" class="secondary" '+
-          'onclick="adminClubeReleaseInvoiceChanged(\\''+item.invoiceId+'\\');render()" '+
+          'onclick="adminClubeReleaseInvoiceChanged(&quot;'+item.invoiceId+'&quot;);render()" '+
           (state.releaseEvidencePending?'disabled':'')+
           '>Selecionar fatura '+esc(item.invoiceId.slice(0,8))+
           ' • Pix pago, líquido pendente • R$ '+esc((item.salePriceCents/100).toFixed(2))+'</button>'
