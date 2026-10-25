@@ -2051,6 +2051,21 @@ async function summary(admin:any,actorUserId:string){
     .from("market_city_interests").select("city,state,last_seen_at")
     .not("city","is",null).order("last_seen_at",{ascending:false}).limit(1000);
   if(marketCityInterestError)throw marketCityInterestError;
+  // A finance row must never offer a manual paid action for an existing
+  // funded coupon. Resolve only the bounded open-order IDs already displayed.
+  // If lookup fails, fail closed rather than label an unknown order payable.
+  const openReimbursementOrderIds=(reimbursements.data??[])
+    .map((row:any)=>String(row.order_id));
+  const couponOrigin=openReimbursementOrderIds.length
+    ?await admin.from("clube_coupon_paid_order_applications")
+      .select("order_id").in("order_id",openReimbursementOrderIds)
+    :{data:[],error:null};
+  if(couponOrigin.error)
+    throw new DomainError("COUPON_REIMBURSEMENT_CLASSIFICATION_UNAVAILABLE",
+      "Não foi possível verificar o vínculo de cupons com as obrigações financeiras.",503);
+  const couponReimbursementOrders=new Set(
+    (couponOrigin.data??[]).map((row:any)=>String(row.order_id))
+  );
   const currentAdmin=(platformAdmins.data??[]).find((x:any)=>x.user_id===actorUserId)??null;
   const actorRole=String(currentAdmin?.admin_role||"superadmin");
   const pilotPartners=await admin
@@ -2484,7 +2499,9 @@ async function summary(admin:any,actorUserId:string){
     })),
     finance:{
       receivables:receivables.data??[],
-      cashbackReimbursements:reimbursements.data??[],
+      cashbackReimbursements:(reimbursements.data??[]).map((row:any)=>({
+        ...row,couponBacked:couponReimbursementOrders.has(String(row.order_id))
+      })),
       adjustments:adjustments.data??[]
     },
     currentAdmin,

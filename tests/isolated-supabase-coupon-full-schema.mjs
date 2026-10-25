@@ -222,6 +222,17 @@ assert.equal(stillDue.status,'MERCHANT_REIMBURSEMENT_DUE',
 assert.equal(stillDue.merchantExternalSettlementVerified,false);
 assert.equal(sql("SELECT status FROM public.merchant_cashback_reimbursements WHERE "+
  "order_id="+q(orderRef)+"::uuid"),'open');
+// Direct database writes with privileged access must not bypass the RPC
+// or silently declare the coupon-backed merchant paid / offset.
+expectDenied("UPDATE public.merchant_cashback_reimbursements "+
+ "SET status='paid',paid_at=clock_timestamp() WHERE order_id="+
+ q(orderRef)+"::uuid;",'COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED');
+expectDenied("UPDATE public.merchant_cashback_reimbursements "+
+ "SET status='offset',offset_at=clock_timestamp() WHERE order_id="+
+ q(orderRef)+"::uuid;",'COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED');
+assert.equal(sql("SELECT status FROM public.merchant_cashback_reimbursements WHERE "+
+ "order_id="+q(orderRef)+"::uuid"),'open',
+ 'direct table updates must preserve the outstanding merchant debt');
 assert.equal(sql("SELECT count(*) FROM public.platform_admin_audit WHERE "+
  "target_id="+q(orderRef)+" AND action='financial_paid' AND "+
  "target_type='cashback_reimbursement'"),'0');
