@@ -942,29 +942,46 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   const method=payment?.payment_method??{};
   const brCode=String(method?.qr_code??"");
   const sandboxUrl=safeMercadoPagoUrl(method?.ticket_url);
-  // A test credential MUST produce explicitly non-live evidence. Fail closed
-  // when provider response cannot prove sandbox status.
+  // Never infer sandbox from a test-named token alone: require non-live
+  // metadata or an actual /sandbox/ URL from Mercado Pago.
   const verifiedSandbox=order?.live_mode===false
     ||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/"));
-  const valid=validatePixBrCode(brCode,{expectedAmountCents:amount});
+  const valid=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount})
+    :{valid:false,reason:"PIX_BR_CODE_MISSING"};
   const returnedAmount=moneyToCents(order?.total_amount);
-  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount
-    ||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order?.id||""))){
+  const orderStatus=String(order?.status??"").toLowerCase();
+  const paymentStatus=String(payment?.status??"").toLowerCase();
+  const providerTestApproved=orderStatus==="processed"
+    &&["approved","processed"].includes(paymentStatus);
+  const pixMethod=method?.id==="pix"&&method?.type==="bank_transfer";
+  // The provider's documented APRO test can be auto-approved before its
+  // response reaches us. That response can have no QR code. Accept a
+  // NON-PAYABLE result only with explicit sandbox proof and BOTH final states.
+  // Incomplete orders still need a valid, amount-bound Pix BR Code.
+  if(!verifiedSandbox||!pixMethod||returnedAmount!==amount
+    ||String(order?.external_reference??"")!==externalReference
+    ||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order?.id??""))
+    ||!(valid.valid||(!brCode&&providerTestApproved))){
     throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX",
-      "O provedor não confirmou o ambiente de TESTE ou devolveu PIX/valor inválido. Nenhum código será exibido.",409);
+      "O provedor não confirmou ambiente de TESTE, referência, pagamento ou valor. Nenhum Pix será exibido.",409);
   }
   const {error:auditError}=await admin.from("platform_admin_audit").insert({
     actor_user_id:actorId,action:"finance_lab_sandbox_pix_created",
     target_type:"financial_lab_sandbox",target_id:String(order.id).slice(0,240),
     metadata:{provider:"mercadopago",amountCents:amount,mode:"sandbox",
-      externalReference,providerStatus:String(order?.status??"unknown").slice(0,80)}
+      externalReference,providerStatus:String(order?.status??"unknown").slice(0,80),
+      testApproved:providerTestApproved,pixCodeAvailable:valid.valid===true}
   });
   if(auditError)throw auditError;
   return {ok:true,mode:"sandbox",provider:"mercadopago",amountCents:amount,
     orderId:String(order.id),
     reference:externalReference,orderStatus:String(order?.status??"unknown"),
-    brCode,expiresAt:null,paymentLinkUrl:sandboxUrl,
-    message:"PIX exclusivo do ambiente de TESTE; não é uma cobrança bancária pagável e não concede créditos."};
+    paymentStatus:String(payment?.status??"unknown"),providerTestApproved,
+    pixCodeAvailable:valid.valid===true,credited:false,
+    brCode:valid.valid===true?brCode:"",expiresAt:null,paymentLinkUrl:sandboxUrl,
+    message:providerTestApproved
+      ?"Mercado Pago aprovou o cenário APRO de TESTE. Resultado NÃO PAGÁVEL e sem crédito TAMÃO."
+      :"Pix exclusivamente de TESTE; não pagável por bancos reais e sem créditos TAMÃO."};
 }
 
 async function billingProviderHealth(admin:any){
