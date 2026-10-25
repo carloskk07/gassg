@@ -82,6 +82,13 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
   };
   const reversed=["refunded","partially_refunded","charged_back","chargeback",
     "disputed","in_mediation","canceled","failed"];
+  // Parent orders and their Pix payments may remain "processed" while
+  // status_detail already reports a partial refund or a dispute. Mirror the
+  // existing signed webhook's fail-closed rules before registering NET funds.
+  const detailsSafe=[order?.status_detail,pix?.status_detail].every(value=>{
+    const detail=String(value??"").trim().toLowerCase();
+    return detail===""||detail==="accredited";
+  });
   if(String(order?.id??"")!==String(invoice.provider_order_id)||
     String(order?.external_reference??"")!==String(invoice.id)||
     cents(order?.total_amount)!==invoice.sale_price_cents||
@@ -91,7 +98,8 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
     String(pix?.payment_method?.type??"")!=="bank_transfer"||
     !["processed","accredited","approved"].includes(String(pix.status??"").toLowerCase())||
     (Array.isArray(order?.transactions?.refunds)&&order.transactions.refunds.length>0)||
-    [order?.status,pix?.status].some(v=>reversed.includes(String(v??"").toLowerCase())))
+    [order?.status,pix?.status].some(v=>reversed.includes(String(v??"").toLowerCase()))||
+    !detailsSafe)
     return empty("COUPON_PROVIDER_BINDING_UNVERIFIED");
   const parsed=parseReleasedMoneyCsv(csv);
   const matches=parsed.rows.filter(row=>
