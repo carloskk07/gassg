@@ -5291,6 +5291,52 @@ async function adminClubeReleaseReportsRefresh(){
     if(String(adminRuntime.session?.user?.id||'')===userId)render();
   }
 }
+// Finance-only PSP credit inspection. It never closes a merchant reimbursement.
+function adminClubePayoutInputChanged(field,value){
+  if(!['payoutOrderId','payoutBatchId','payoutTransactionId'].includes(field))return;
+  const s=adminRuntime.clubeFinance,v=String(value??'').trim();
+  if(s[field]!==v){s.payoutEvidence=null;s.payoutError=null;s.payoutFor=null;}
+  s[field]=v;
+}
+async function adminClubePayoutInspect(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const s=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId||s.payoutPending)return;
+  const orderId=String(s.payoutOrderId||'').trim();
+  const payoutId=String(s.payoutBatchId||'').trim();
+  const transactionId=String(s.payoutTransactionId||'').trim();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)||
+     !/^POP[A-Za-z0-9]{12,60}$/.test(payoutId)||
+     !/^TOP[A-Za-z0-9]{12,60}$/.test(transactionId)){
+    Object.assign(s,{payoutFor:userId,payoutEvidence:null,payoutError:'Informe UUID do pedido e IDs POP/TOP válidos.'});
+    render();return;
+  }
+  Object.assign(s,{payoutPending:true,payoutFor:userId,payoutEvidence:null,payoutError:null});
+  render();
+  try{
+    const r=await adminInvoke({action:'clube-coupon-mp-payout-inspect',orderId,payoutId,transactionId});
+    if(String(adminRuntime.session?.user?.id||'')!==userId)return;
+    if(r?.source!=='coupon_merchant_payout_inspection_v1'||
+       r.readOnly!==true||r.moneyMoved!==false||
+       typeof r.available!=='boolean'||
+       typeof r.providerTransactionAccredited!=='boolean'||
+       r.merchantBeneficiaryVerified!==false||
+       r.merchantExternalSettlementVerified!==false||
+       r.eligibleForFinancialWrite!==false||
+       (r.providerTransactionAccredited===true&&
+        r.reason!=='COUPON_PAYOUT_BENEFICIARY_IDENTITY_REQUIRED'))
+       throw Error('Conferência do provedor sem garantias financeiras.');
+    s.payoutEvidence=r;
+  }catch(e){
+    if(String(adminRuntime.session?.user?.id||'')===userId)
+      s.payoutError=String(e?.message||'Não foi possível consultar o repasse.');
+  }finally{
+    s.payoutPending=false;
+    if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
 // Finance-only on-demand inspection: neither UI nor Edge applies net funding.
 function adminClubeReleaseInvoiceChanged(value){
   const state=adminRuntime.clubeFinance;
@@ -5474,6 +5520,43 @@ function adminClubeReleaseReportsView(){
     ${canRegister?'<button type="button" class="secondary" onclick="adminClubeReleaseRegisterNet()" '+
       (state.releaseEvidencePending?'disabled':'')+
       '>Registrar líquido conferido na fatura (superadmin)</button>':''}
+    <div class="admin-coupon-payout-inspect" role="group" aria-label="Conferência do repasse à revenda">
+      <h5>Repasse da revenda • consulta sem movimentação</h5>
+      <p class="tiny muted">Apenas consulta oficial ao Mercado Pago. Não transfere recursos nem baixa obrigações.</p>
+      <label for="admin-clube-payout-order">UUID do pedido</label>
+      <input class="input" id="admin-clube-payout-order" type="text" maxlength="36"
+        autocomplete="off" placeholder="UUID do pedido" value="${esc(state.payoutOrderId||'')}"
+        oninput="adminClubePayoutInputChanged('payoutOrderId',this.value)"
+        ${state.payoutPending?'disabled':''}>
+      <label for="admin-clube-payout-batch">Lote do Mercado Pago (POP)</label>
+      <input class="input" id="admin-clube-payout-batch" type="text" maxlength="63"
+        autocomplete="off" placeholder="POP…" value="${esc(state.payoutBatchId||'')}"
+        oninput="adminClubePayoutInputChanged('payoutBatchId',this.value)"
+        ${state.payoutPending?'disabled':''}>
+      <label for="admin-clube-payout-transaction">Transação (TOP)</label>
+      <input class="input" id="admin-clube-payout-transaction" type="text" maxlength="63"
+        autocomplete="off" placeholder="TOP…" value="${esc(state.payoutTransactionId||'')}"
+        oninput="adminClubePayoutInputChanged('payoutTransactionId',this.value)"
+        ${state.payoutPending?'disabled':''}>
+      <button type="button" class="secondary" onclick="adminClubePayoutInspect()"
+        ${state.payoutPending?'disabled':''}>
+        ${state.payoutPending?'Consultando…':'Conferir crédito de repasse'}
+      </button>
+      ${state.payoutFor===userId&&state.payoutError
+        ?'<p class="notice danger" role="alert">'+esc(state.payoutError)+'</p>':''}
+      ${state.payoutFor===userId&&state.payoutEvidence
+        ?'<p class="notice" role="status">'+
+           (state.payoutEvidence.providerTransactionAccredited===true
+             ?'<strong>Provedor informa crédito no destino.</strong> '
+             :'<strong>Crédito não confirmado pelo provedor.</strong> ')+
+           'Beneficiário da revenda NÃO verificado. Quitação externa NÃO comprovada. '+
+           'Escrita financeira BLOQUEADA. Motivo: '+
+           esc(state.payoutEvidence.reason||'sem prova')+
+           (Number.isSafeInteger(state.payoutEvidence.observedCents)
+             ?' • Valor informado R$ '+esc((state.payoutEvidence.observedCents/100).toFixed(2)):'')+
+           '</p>':''}
+      <p class="tiny muted">Mesmo success/accredited não identifica o recebedor. Sem prova independente da titularidade, nenhuma dívida pode ser quitada.</p>
+    </div>
     <p class="tiny muted">Listar relatórios não confirma o PIX líquido, nem o pagamento à revenda. Antes de liberar cupons, confira a transação e as tarifas no relatório de Liberações.</p>
   </div>`;
 }
