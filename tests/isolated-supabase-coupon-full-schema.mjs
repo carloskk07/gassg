@@ -110,6 +110,126 @@ const beforeRefund=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconci
  q(order.orderId)+"::uuid)::text;"));
 assert.equal(beforeRefund.status,'ORDER_IN_PROGRESS');
 assert.equal(beforeRefund.merchantExternalSettlementVerified,false);
+// Coupon-created orders must reach the REAL merchant settlement/accounting
+// authority, not merely pass an isolated mock checkout. Re-authenticate the
+// existing LOCAL fixture's buyer and merchant owner through localhost GoTrue:
+// their original random passwords aren't shared across CI Node processes.
+// No hosted Supabase URL, provider token or secret is accepted or logged.
+const localRaw=execFileSync('supabase',['status','-o','env'],{
+ encoding:'utf8',timeout:30000,stdio:['ignore','pipe','pipe']
+});
+const local=Object.fromEntries(localRaw.split('\n').map(line=>{
+ const match=line.match(/^([A-Z_]+)=(.*)$/);
+ return match?[match[1],match[2].replace(/^["']|["']$/g,'')]:null;
+}).filter(Boolean));
+const api=local.API_URL||local.SUPABASE_URL||'';
+const publishable=local.ANON_KEY||local.SUPABASE_ANON_KEY||'';
+const service=local.SERVICE_ROLE_KEY||local.SUPABASE_SERVICE_ROLE_KEY||'';
+assert.match(api,/^http:\/\/(?:127\.0\.0\.1|localhost):54321\/?$/);
+assert.ok(publishable.length>25&&service.length>25);
+const owner=sql("SELECT user_id FROM public.merchant_members WHERE merchant_id="+
+ q(merchant)+"::uuid AND member_role='owner' AND active=true LIMIT 1;");
+assert.match(owner,/^[0-9a-f-]{36}$/i);
+async function localActorSession(userId){
+ const password='LocalCouponCI!'+randomUUID();
+ const updated=await fetch(api+'/auth/v1/admin/users/'+userId,{
+  method:'PUT',
+  headers:{apikey:service,Authorization:'Bearer '+service,
+   'Content-Type':'application/json'},
+  body:JSON.stringify({password}),
+  signal:AbortSignal.timeout(30000)
+ });
+ assert.equal(updated.status,200,'disposable GoTrue test password update');
+ const login=await fetch(api+'/auth/v1/token?grant_type=password',{
+  method:'POST',headers:{apikey:publishable,'Content-Type':'application/json'},
+  body:JSON.stringify({
+   email:sql("SELECT email FROM auth.users WHERE id="+q(userId)+"::uuid;"),
+   password
+  }),signal:AbortSignal.timeout(30000)
+ });
+ assert.equal(login.status,200,'disposable GoTrue real login');
+ const data=await login.json();
+ assert.equal(data.user.id,userId);
+ return data.access_token;
+}
+const buyerToken=await localActorSession(user);
+const ownerToken=await localActorSession(owner);
+async function callEdge(slug,token,body,key){
+ const response=await fetch(api+'/functions/v1/'+slug,{
+  method:'POST',
+  headers:{apikey:publishable,Authorization:'Bearer '+token,
+   Origin:'http://localhost:5173','Content-Type':'application/json',
+   ...(key?{'Idempotency-Key':key}:{})},
+  body:JSON.stringify(body),signal:AbortSignal.timeout(45000)
+ });
+ return {status:response.status,body:await response.json()};
+}
+const orderRef=order.orderId;
+const created=await callEdge('get-order',buyerToken,{orderId:orderRef});
+assert.equal(created.status,200,'buyer must read coupon-backed order');
+assert.equal(created.body.status,'OFFERED_TO_MERCHANT');
+const accepted=await callEdge('merchant-action',ownerToken,
+ {orderId:orderRef,action:'accept',expectedVersion:created.body.version},
+ 'ci-coupon-accept-'+randomUUID());
+assert.equal(accepted.status,200,'coupon order accepted by actual merchant API');
+assert.equal(accepted.body.status,'PREPARING');
+const dispatched=await callEdge('merchant-action',ownerToken,
+ {orderId:orderRef,action:'dispatch',expectedVersion:accepted.body.version},
+ 'ci-coupon-dispatch-'+randomUUID());
+assert.equal(dispatched.status,200,'coupon order dispatched by actual merchant API');
+assert.equal(dispatched.body.status,'OUT_FOR_DELIVERY');
+const buyerDispatch=await callEdge('get-order',buyerToken,{orderId:orderRef});
+assert.equal(buyerDispatch.status,200);
+assert.match(buyerDispatch.body.deliveryPin,/^[0-9]{4}$/);
+const arriving=await callEdge('merchant-action',ownerToken,
+ {orderId:orderRef,action:'arriving',expectedVersion:buyerDispatch.body.version},
+ 'ci-coupon-arriving-'+randomUUID());
+assert.equal(arriving.status,200,'coupon order arrival must be operational');
+assert.equal(arriving.body.status,'ARRIVING');
+const completedBody={orderId:orderRef,pin:buyerDispatch.body.deliveryPin,
+ expectedVersion:arriving.body.version,paymentConfirmed:true};
+const completeKey='ci-coupon-complete-'+randomUUID();
+const settled=await callEdge('complete-delivery',ownerToken,completedBody,completeKey);
+assert.equal(settled.status,200,
+ 'coupon order settlement: '+JSON.stringify(settled.body).slice(0,420));
+assert.equal(settled.body.status,'SETTLED');
+assert.equal(settled.body.paymentConfirmationMethod,'merchant_attestation',
+ 'buyer-paid residual cash is ONLY locally attested, not a bank confirmation');
+const settlementAgain=await callEdge('complete-delivery',ownerToken,
+ completedBody,completeKey);
+assert.equal(settlementAgain.status,200);
+assert.deepEqual(settlementAgain.body,settled.body,
+ 'idempotent delivery may never create another merchant debt');
+assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements "+
+ "WHERE order_id="+q(orderRef)+"::uuid AND merchant_id="+q(merchant)+
+ "::uuid AND cashback_cents="+amounts.cashback+" AND status='open'"),'1',
+ 'real settlement must create exactly one merchant reimbursement obligation');
+const due=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)::text;"));
+assert.equal(due.status,'MERCHANT_REIMBURSEMENT_DUE');
+assert.equal(due.merchantReimbursementCents,amounts.cashback);
+assert.equal(due.merchantExternalSettlementVerified,false);
+const finance=JSON.parse(sql("SELECT public.admin_financial_action("+
+ q(admin)+"::uuid,'cashback_reimbursement',"+q(orderRef)+
+ "::uuid,'paid','CI-INTERNAL-ACCOUNTING-NOT-BANK-PROOF')::text;"));
+assert.equal(finance.ok,true);
+assert.equal(finance.item.status,'paid');
+const unverified=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)::text;"));
+assert.equal(unverified.status,'MERCHANT_PAYOUT_UNVERIFIED',
+ 'internal paid status must not be reported as external cash transfer');
+assert.equal(unverified.merchantExternalSettlementVerified,false);
+assert.equal(sql("SELECT count(*) FROM public.platform_admin_audit WHERE "+
+ "target_id="+q(orderRef)+" AND action='financial_paid' AND "+
+ "target_type='cashback_reimbursement'"),'1');
+expectDenied("SELECT public.admin_financial_action("+
+ q(admin)+"::uuid,'cashback_reimbursement',"+q(orderRef)+
+ "::uuid,'paid','CI-REPLAY-CANNOT-PAY-AGAIN')::text;",'FINANCIAL_ITEM_NOT_OPEN');
+assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements WHERE "+
+ "order_id="+q(orderRef)+"::uuid"),'1');
+assert.equal(sql("SELECT count(*) FROM public.platform_referral_payout_proofs_v1_264"),'0',
+ 'merchant administrative bookkeeping cannot mint third-party bank payout proof');
+console.log('PASS: real coupon order accepted, delivered with PIN and internally settled; merchant reimbursement due -> internal paid -> payout UNVERIFIED; no bank claim.');
 const refund=JSON.parse(sql("SELECT public.clube_coupon_paid_payment_refund("+
  q(invoice)+"::uuid,"+q(providerOrder)+")::text;"));
 assert.equal(refund.reviewRequired,true);
