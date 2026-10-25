@@ -228,16 +228,19 @@ window.addEventListener('online',()=>{
 
 
 window.addEventListener('DOMContentLoaded',()=>{
-  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+  if(globalThis.adminPortalRequested?.()){
+    const init=adminBackendInit();
+    if(route()!=='admin')go('admin');
+    render();
+    init.then(render).catch(()=>{adminRuntime.status='unavailable';render()});
+    return;
+  }
+  if(globalThis.merchantPortalRequested?.())return;
   tamaoPublicEntryRoute();
   render();
 });
 window.addEventListener('load',async()=>{
-  if(globalThis.adminPortalRequested?.()){
-    await adminBackendInit();
-    if(route()!=='admin')go('admin');
-    render();
-  }else if(globalThis.merchantPortalRequested?.()){
+  if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
     const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.());
     const returningToSignup=new URLSearchParams(location.search).get('signup')==='1';
@@ -247,7 +250,7 @@ window.addEventListener('load',async()=>{
       go('merchant');
     }
     render();
-  }else{
+  }else if(!globalThis.adminPortalRequested?.()){
     tamaoPublicEntryRoute();
     render();
     if(globalThis.liveRequested?.()&&(['order','tracking'].includes(route())
