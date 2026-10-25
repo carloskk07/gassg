@@ -14,6 +14,23 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Checkpoint 25/10/2026 — credenciais ausentes no Laboratório Pix + diagnóstico Admin (PR #640)
+
+**Incidente relatado pelo superadmin:** `O provedor de testes ainda não está configurado. Use Verificar requisitos.` ao solicitar Pix oficial no Admin > Financeiro > Laboratório. O código da Edge `admin-ops` v194 foi examinado: `adminFinanceLabConfig` exige `FINANCE_LAB_SANDBOX_ENABLED=true`, `MERCADOPAGO_TEST_ACCESS_TOKEN` válido, `FINANCE_LAB_TEST_PAYER_EMAIL` em formato de e-mail e token do ambiente de teste **diferente** de `MERCADOPAGO_ACCESS_TOKEN` produção. O teste Pix do Mercado Pago é oficialmente de R$ 50,00 com pagador `APRO`, sem transação bancária real, como documentado em `https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/integration-test/pix`.
+
+**Evidência das Secret Names:** página autenticada `https://supabase.com/dashboard/project/lgugwujpunhslavewffd/functions/secrets` confirma que a *NOME* `MERCADOPAGO_ACCESS_TOKEN` está configurada, mas **NÃO constam** `FINANCE_LAB_SANDBOX_ENABLED`, `MERCADOPAGO_TEST_ACCESS_TOKEN`, `FINANCE_LAB_TEST_PAYER_EMAIL`. Nenhum valor de segredo foi lido, exportado, substituído ou armazenado em repositório. A Edge não pode usar token real como substituto: falharia no isolamento. A conexão Opera não oferece escrita em formulários da dashboard; Supabase MCP não possui gestão de segredos. Configuração dos três campos depende de inserção pelo proprietário **diretamente no painel autenticado Supabase**.
+
+**Correção de UX integrada:** [PR #640](https://github.com/carloskk07/gassg/pull/640), squash SHA `71875918bb7acedea858d2929ea6ac95dd9063fe`; Audit SUCCESS na PR #40227759876, Build SUCCESS #40227759855, visual review SUCCESS #40227759873. Somente `js/admin.js` mudou: o Admin exibe os **quatro estados booleanos efetivos** já retornados pelo endpoint `finance-lab-readiness` e os **nomes** de segredos pendentes, nunca os valores. Inclui link direto à área privada de secrets e bloqueia chamada ao PSP se faltarem pré-requisitos. Ampliado teste `tests/admin-financial-lab.mjs` com 4 flags false, texto, acesso sem segredos e ausência de POST ao PSP. Sem mudar Edge, banco, RLS, segurança, lançamento, quotas ou valores.
+
+**Próxima ação segura:** na **aplicação já existente** do Mercado Pago Developers, selecionar ambiente Teste e obter o seu **Access Token de TESTE**, sem compartilhar por chat; em Supabase > Edge Functions > Secrets, configurar:
+- `FINANCE_LAB_SANDBOX_ENABLED` = `true`;
+- `MERCADOPAGO_TEST_ACCESS_TOKEN` = token privado exclusivamente de TESTE da mesma aplicação;
+- `FINANCE_LAB_TEST_PAYER_EMAIL` = `test_payer@example.com` (pagador de exemplo da documentação oficial, permitido para teste APRO).
+
+Depois usar Admin > Financeiro > Laboratório > **Verificar requisitos**. Somente se `configured=true` e quatro flags true gerar **uma** ordem de TESTE R$ 50,00, validar resposta `mode=sandbox` e comprovante `credited=false`. E2E real ainda pendente. Não ativar `commerce_enabled`, não reutilizar token de produção e não afirmar Pix pago/estornado sem provas externas.
+
+---
+
 ## Checkpoint 25/10/2026 — fechamento de fuga de QR Pix vencido após commit (PR #639)
 
 **Retomada real:** `main=e6ed3a57911f1c21c5705f827f7193f05ab26650` antes da correção; Supabase `lgugwujpunhslavewffd` com `PRELAUNCH`, `commerce_enabled=false`, portais alinhados, zero pedidos, zero wallet_entries, zero faturas/pacotes cupons. Existe **uma** cobrança Pix Mercado Pago antiga (`expired`, valor de R$ 300,00, sem `completed_at`) ligada a uma solicitação `pending`. É evidência de cobrança **não paga**; não cancelar, reembolsar nem converter status manualmente sem autoridade financeira comprovada. Sem sessão Admin autenticada no conector, continua impossível atestar laboratório completo E2E.
