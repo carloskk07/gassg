@@ -138,6 +138,8 @@ jobs:
         run: node tests/pilot-operational-journey-v1-403.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
+      - name: Admin email provider refusal never claims successful delivery
+        run: node tests/admin-auth-email-delivery.mjs
       - name: Admin control plane V1.133 regression contract
         run: node tests/admin-control-plane-v1-133.mjs
       - name: Admin command center V1.134 regression contract
