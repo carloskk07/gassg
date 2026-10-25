@@ -346,6 +346,29 @@ async function createMercadoPagoOrder(
   }
   throw new Error("MERCADOPAGO_QR_NOT_READY");
 }
+// The provider may settle or expire a charge between prepare/create and the
+// DB commit. Never return a QR from a non-payable committed row.
+function assertPayableCommittedCharge(charge:any,expectedAmountCents:number){
+  const status=String(charge?.status??"").trim().toLowerCase();
+  if(status!=="active"){
+    throw new DomainError(
+      status==="completed"?"PIX_PROVIDER_ALREADY_PROCESSED":"PIX_COMMITTED_CHARGE_NOT_PAYABLE",
+      status==="completed"
+        ?"Este Pix já foi processado. Confira a conciliação antes de gerar outra cobrança."
+        :"A cobrança deixou de estar ativa durante a geração. Atualize o financeiro e solicite um novo Pix.",
+      409
+    );
+  }
+  const amount=Number(charge?.amountCents);
+  const expiry=Date.parse(String(charge?.expiresAt??""));
+  if(!Number.isSafeInteger(amount)||amount!==expectedAmountCents
+    ||!Number.isFinite(expiry)||expiry<=Date.now()+60_000
+    ||!validatePixBrCode(String(charge?.brCode??""),{expectedAmountCents}).valid){
+    throw new DomainError("PIX_COMMITTED_CHARGE_NOT_PAYABLE",
+      "O Pix confirmado no servidor não possui código, valor ou vencimento utilizável. Nenhum QR será exibido.",409);
+  }
+  return charge;
+}
 function publicCharge(row:any){
   if(!row)return null;
   return {
@@ -355,9 +378,11 @@ function publicCharge(row:any){
     correlationId:row.correlation_id,
     amountCents:Number(row.amount_cents||0),
     status:row.status,
-    brCode:row.br_code??null,
-    qrCodeDataUri:row.qr_code_data_uri??null,
-    paymentLinkUrl:row.payment_link_url??null,
+    // Paid/cancelled/expired charges retain provider evidence in the database,
+    // but their previously issued payment credentials must not be re-offered.
+    brCode:row.status==="active"?row.br_code??null:null,
+    qrCodeDataUri:row.status==="active"?row.qr_code_data_uri??null:null,
+    paymentLinkUrl:row.status==="active"?row.payment_link_url??null:null,
     expiresAt:row.expires_at??null,
     completedAt:row.completed_at??null,
     paidAmountCents:row.paid_amount_cents==null?null:Number(row.paid_amount_cents),
@@ -592,6 +617,8 @@ Deno.serve(async(req:Request)=>{
         409
       );
     }
+
+    assertPayableCommittedCharge(committed,expectedAmountCents);
 
     return json({
       ok:true,
