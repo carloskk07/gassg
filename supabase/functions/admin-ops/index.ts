@@ -14,7 +14,7 @@ import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 import {couponReleasedNetEvidence} from "./coupon-release-evidence.js";
-import {couponMerchantPayoutEvidence} from "./coupon-merchant-payout-evidence.js";
+import {couponMerchantPayoutEvidence,couponMerchantRecipientReadiness} from "./coupon-merchant-payout-evidence.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -2588,11 +2588,27 @@ Deno.serve(async(req:Request)=>{
           merchantExternalSettlementVerified:false,eligibleForFinancialWrite:false,
           reason:"COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE"
         },200,origin);
-      const {data:invoice,error:invoiceError}=await admin
-        .from("clube_coupon_paid_invoices")
-        .select("id,status,net_proceeds_verified_at")
-        .eq("id",application.invoice_id).maybeSingle();
-      if(invoiceError)throw invoiceError;
+      // Derive merchant readiness from the existing records ONLY, never
+      // from user-supplied CNPJ or PSP JSON. A verified checkout connection
+      // is not evidence of Pix payout recipient ownership.
+      const [invoiceResult,merchantResult,merchantAccountResult]=await Promise.all([
+        admin.from("clube_coupon_paid_invoices")
+          .select("id,status,net_proceeds_verified_at")
+          .eq("id",application.invoice_id).maybeSingle(),
+        admin.from("merchants").select("id,cnpj")
+          .eq("id",order.merchant_id).maybeSingle(),
+        admin.from("merchant_payment_provider_accounts")
+          .select("merchant_id,provider,provider_account_id,status,connection_mode,verification_level,connected_at,revoked_at")
+          .eq("merchant_id",order.merchant_id)
+          .eq("provider","mercadopago").maybeSingle()
+      ]);
+      for(const result of [invoiceResult,merchantResult,merchantAccountResult])
+        if(result.error)throw result.error;
+      const invoice=invoiceResult.data;
+      const recipientReadiness=couponMerchantRecipientReadiness({
+        merchant:merchantResult.data,
+        account:merchantAccountResult.data
+      });
       const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
       if(!mercadoPagoConfigured(token))
         return json({
@@ -2600,7 +2616,7 @@ Deno.serve(async(req:Request)=>{
           readOnly:true,available:false,moneyMoved:false,
           providerTransactionAccredited:false,merchantBeneficiaryVerified:false,
           merchantExternalSettlementVerified:false,eligibleForFinancialWrite:false,
-          reason:"MERCADOPAGO_NOT_CONFIGURED"
+          reason:"MERCADOPAGO_NOT_CONFIGURED",recipientReadiness
         },200,origin);
       const response=await mercadoPagoFetch(
         "/v1/payouts/"+payoutId+"/transactions/"+transactionId,{
@@ -2616,7 +2632,8 @@ Deno.serve(async(req:Request)=>{
         ...couponMerchantPayoutEvidence({
           payoutId,transactionId,transaction,reimbursement,application,order,invoice
         }),
-        available:true,providerCheckedAt:new Date().toISOString()
+        available:true,providerCheckedAt:new Date().toISOString(),
+        recipientReadiness
       },200,origin);
     }
 
