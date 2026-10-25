@@ -5336,6 +5336,11 @@ async function adminClubePayoutInspect(){
        r.merchantBeneficiaryVerified!==false||
        r.merchantExternalSettlementVerified!==false||
        r.eligibleForFinancialWrite!==false||
+       (r.recipientReadiness!=null&&(
+         r.recipientReadiness.payoutRecipientVerified!==false||
+         r.recipientReadiness.independentBankCreditVerified!==false||
+         r.recipientReadiness.eligibleForFinancialWrite!==false||
+         !Array.isArray(r.recipientReadiness.blockingReasons)))||
        (r.providerTransactionAccredited===true&&
         r.reason!=='COUPON_PAYOUT_BENEFICIARY_IDENTITY_REQUIRED'))
        throw Error('Conferência do provedor sem garantias financeiras.');
@@ -5561,7 +5566,14 @@ function adminClubeReleaseReportsView(){
              ?'<strong>Provedor informa crédito no destino.</strong> '
              :'<strong>Crédito não confirmado pelo provedor.</strong> ')+
            'Beneficiário da revenda NÃO verificado. Quitação externa NÃO comprovada. '+
-           'Escrita financeira BLOQUEADA. Motivo: '+
+           'Escrita financeira BLOQUEADA. '+
+           (state.payoutEvidence.recipientReadiness
+             ?'CNPJ cadastrado: '+(state.payoutEvidence.recipientReadiness.legalDocumentOnFile===true?'sim':'não')+
+               ' • Conta Mercado Pago conectada/validada: '+
+               (state.payoutEvidence.recipientReadiness.merchantProviderAccountConnected===true?'sim':'não')+
+               ' (não prova destinatário do Pix). '
+             :'')+
+           'Motivo: '+
            esc(state.payoutEvidence.reason||'sem prova')+
            (Number.isSafeInteger(state.payoutEvidence.observedCents)
              ?' • Valor informado R$ '+esc((state.payoutEvidence.observedCents/100).toFixed(2)):'')+

@@ -67,3 +67,42 @@ export function couponMerchantPayoutEvidence({
   eligibleForFinancialWrite:false
  };
 }
+
+// Connection readiness is NOT proof that the credited payout went to this
+// merchant. A sale/checkout provider account can differ from a Pix recipient.
+// Return only booleans. Never expose merchant CNPJ, payout keys, tokens,
+// provider_account_id, metadata or arbitrary PSP recipient claims.
+export function couponMerchantRecipientReadiness({merchant,account}={}){
+ const merchantId=String(merchant?.id??"");
+ const legalId=String(merchant?.cnpj??"").replace(/[^0-9]/g,"");
+ const legalDocumentOnFile=!!merchantId&&legalId.length===14;
+ const merchantProviderAccountPresent=!!merchantId&&
+   String(account?.merchant_id??"")===merchantId&&
+   account?.provider==="mercadopago";
+ const merchantProviderAccountConnected=merchantProviderAccountPresent&&
+   account?.status==="active"&&
+   account?.verification_level==="provider"&&
+   ["oauth","api_credentials"].includes(String(account?.connection_mode??""))&&
+   typeof account?.provider_account_id==="string"&&
+   account.provider_account_id.trim().length>=2&&
+   Number.isFinite(Date.parse(String(account?.connected_at??"")))&&
+   !account?.revoked_at;
+ const blockingReasons=[
+   ...(!legalDocumentOnFile?["COUPON_PAYOUT_MERCHANT_LEGAL_ID_MISSING"]:[]),
+   ...(!merchantProviderAccountPresent?["COUPON_PAYOUT_MERCHANT_PROVIDER_ACCOUNT_MISSING"]:
+       !merchantProviderAccountConnected?["COUPON_PAYOUT_MERCHANT_PROVIDER_ACCOUNT_NOT_VERIFIED"]:[]),
+   "COUPON_PAYOUT_BENEFICIARY_IDENTITY_REQUIRED",
+   "COUPON_PAYOUT_INDEPENDENT_BANK_CREDIT_PROOF_REQUIRED"
+ ];
+ return {
+   // Status of EXISTING merchant onboarding, never payout identity.
+   legalDocumentOnFile,merchantProviderAccountPresent,
+   merchantProviderAccountConnected:Boolean(merchantProviderAccountConnected),
+   // No provider-backed statement naming the Pix payee and matching the
+   // order-specific transaction has been ingested in this read-only path.
+   payoutRecipientVerified:false,
+   independentBankCreditVerified:false,
+   eligibleForFinancialWrite:false,
+   blockingReasons
+ };
+}
