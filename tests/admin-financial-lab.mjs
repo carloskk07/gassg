@@ -12,7 +12,7 @@ const section=admin.slice(start,end);
 const state={preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,
  readiness:null,readinessLoading:false,status:null};
 const nodes={'admin-finance-lab-value':{value:'12,35'},'admin-finance-lab-kind':{value:'invoice'}};
-let requests=[],refreshes=0,confirmation=true;
+let requests=[],refreshes=0,confirmation=true,autoApprovedTest=false;
 const ctx=vm.createContext({
   adminRuntime:{financeLab:state,providerHealth:null},adminReady:()=>true,
   adminCurrentRole:()=> 'superadmin',
@@ -33,7 +33,10 @@ const ctx=vm.createContext({
       orderId:data.orderId,amountCents:5000,orderStatus:'processed',
       paymentStatus:'approved',checkedAt:new Date().toISOString(),credited:false};
     return {ok:true,mode:'sandbox',amountCents:data.amountCents,
-      orderId:'ORD01ABC23456789012345',brCode:'012345678901234567890123456789012345',
+      orderId:'ORD01ABC23456789012345',
+      pixCodeAvailable:!autoApprovedTest,providerTestApproved:autoApprovedTest,
+      credited:false,
+      brCode:autoApprovedTest?'':'012345678901234567890123456789012345',
       reference:'lab-test'};
   },
   toast:()=>{},
@@ -74,6 +77,14 @@ assert.match(ctx.lab.view({merchantBilling:{}}),/PIX sandbox/);
 await ctx.lab.check('ORD01ABC23456789012345');
 assert.equal(state.status.orderStatus,'processed');
 assert.equal(state.status.credited,false);
+// Mercado Pago can auto-approve its APRO test BEFORE returning a QR code.
+autoApprovedTest=true;
+await ctx.lab.sandbox();
+assert.equal(state.sandbox.providerTestApproved,true);
+assert.equal(state.sandbox.brCode,'');
+assert.match(ctx.lab.view({merchantBilling:{}}),/Cenário APRO aprovado em teste/);
+assert.doesNotMatch(ctx.lab.view({merchantBilling:{}}),/Copiar código de teste/,
+ 'an already-approved simulated Pix must not display a copyable QR');
 const afterCheck=requests.length;
 confirmation=false;
 await ctx.lab.sandbox();
@@ -107,4 +118,94 @@ assert.match(sandboxCheck,/\.order\("created_at",\{ascending:false\}\)\.limit\(1
   'repeated idempotent audit rows must not break a status lookup');
 
 assert.doesNotMatch(section,/merchant_billing_payment_requests|merchant_fee_credit_ledger|wallet_entries/);
+
+// Exercise the production provider-response verification with synthetic
+// provider output (never an actual charge). Test both official valid paths:
+// pending with Pix QR; auto-approved APRO response WITHOUT any QR.
+const functionStart=server.indexOf('async function adminFinanceLabSandboxPix(');
+const functionEnd=server.indexOf('\nasync function ',functionStart+10);
+assert.ok(functionStart>0&&functionEnd>functionStart);
+const actualSource=server.slice(functionStart,functionEnd)
+  .replace('admin:any,actorId:string,body:any,req:Request','admin,actorId,body,req')
+  .replace('(x:any)=>','(x)=>');
+const ref='tamao-finlab-finlab-qa-id-12345';
+let apiResult={},providerCalls=[],auditInserted=[],brChecks=0;
+const brCode='012345678901234567890123456789012345';
+const sandboxBase={
+ id:'ORD01ABC23456789012345',live_mode:false,total_amount:'50.00',
+ external_reference:ref,status:'action_required',
+ transactions:{payments:[{id:'PAY01ABC23456789012345',
+   status:'action_required',payment_method:{id:'pix',type:'bank_transfer',
+     qr_code:brCode,ticket_url:'https://www.mercadopago.com.br/sandbox/payments/123'}}]}
+};
+const sandboxContext=vm.createContext({
+ URL,Number,Date,String,Array,
+ FINANCE_LAB_PIX_TEST_AMOUNT_CENTS:5000,
+ adminFinanceLabConfig:()=>({ready:true,token:'test-only',payerEmail:'payer@example.com'}),
+ mercadoPagoFetch:async(path,opts)=>{
+   providerCalls.push({path,opts});
+   return {ok:true,status:200};
+ },
+ readMercadoPagoJson:async()=>apiResult,
+ safeMercadoPagoUrl:raw=>typeof raw==='string'&&raw.startsWith('https://www.mercadopago.com.br/sandbox/')?raw:null,
+ validatePixBrCode:(raw,opts)=>{
+   brChecks++;return {valid:raw===brCode&&opts.expectedAmountCents===5000};
+ },
+ moneyToCents:v=>Math.round(Number(v)*100),
+ DomainError:class DomainError extends Error{constructor(code,msg,status){super(msg);this.code=code;this.status=status;}}
+});
+vm.runInContext(actualSource+';this.createTestPix=adminFinanceLabSandboxPix;',sandboxContext);
+const auditDb={from(name){
+ assert.equal(name,'platform_admin_audit');
+ return {insert:async data=>{auditInserted.push(data);return {error:null}}};
+}};
+const request={headers:{get:()=> 'finlab-qa-id-12345'}};
+apiResult=structuredClone(sandboxBase);
+let created=await sandboxContext.createTestPix(auditDb,'11111111-1111-4111-8111-111111111111',
+ {amountCents:5000},request);
+assert.equal(created.ok,true);
+assert.equal(created.pixCodeAvailable,true);
+assert.equal(created.providerTestApproved,false);
+assert.equal(created.credited,false);
+assert.equal(created.brCode,brCode);
+assert.equal(providerCalls[0].path,'/v1/orders');
+assert.equal(providerCalls[0].opts.body.external_reference,ref);
+assert.equal(providerCalls[0].opts.idempotencyKey,'finlab-qa-id-12345');
+assert.equal(providerCalls[0].opts.body.payer.first_name,'APRO');
+apiResult=structuredClone(sandboxBase);
+apiResult.status='processed';
+apiResult.transactions.payments[0].status='approved';
+delete apiResult.transactions.payments[0].payment_method.qr_code;
+delete apiResult.transactions.payments[0].payment_method.ticket_url;
+created=await sandboxContext.createTestPix(auditDb,'11111111-1111-4111-8111-111111111111',
+ {amountCents:5000},request);
+assert.equal(created.ok,true);
+assert.equal(created.providerTestApproved,true);
+assert.equal(created.pixCodeAvailable,false);
+assert.equal(created.brCode,'');
+assert.equal(created.credited,false);
+assert.match(created.message,/TESTE/);
+const approvedSnapshot=structuredClone(apiResult);
+const beforeRejected=auditInserted.length;
+for(const bad of [
+ {...approvedSnapshot,external_reference:'tamao-finlab-another-order'},
+ {...approvedSnapshot,total_amount:'49.00'},
+ {...approvedSnapshot,live_mode:true},
+ {...approvedSnapshot,transactions:{payments:[{
+    ...approvedSnapshot.transactions.payments[0],status:'action_required'}]}},
+ {...approvedSnapshot,transactions:{payments:[{
+    ...approvedSnapshot.transactions.payments[0],payment_method:{id:'pix',type:'credit_card'}}]}}
+]){
+ apiResult=bad;
+ await assert.rejects(sandboxContext.createTestPix(auditDb,
+   '11111111-1111-4111-8111-111111111111',
+   {amountCents:5000},request),{code:'FINANCE_LAB_NOT_VERIFIED_SANDBOX'});
+}
+assert.equal(auditInserted.length,beforeRejected,
+ 'invalid provider identities/status must not create a sandbox audit');
+assert.ok(brChecks>=1);
+assert.match(server,/String\(order\?\.external_reference\?\?""\)!==externalReference/);
+assert.match(server,/providerTestApproved/);
+assert.match(server,/credited:false/);
+
 console.log('PASS admin lab: arbitrary invoice simulation, official sandbox preset, authorization, status');
