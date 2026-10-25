@@ -11,6 +11,7 @@ on:
       - 'tests/isolated-discovery-privileged-rpc.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
+      - 'tests/isolated-supabase-coupon-full-schema.mjs'
       - 'tests/isolated-live-portal-browser.mjs'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
@@ -119,6 +120,8 @@ jobs:
         run: node tests/isolated-supabase-http-smoke.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
+      - name: Verify REAL coupon payment, audited net and v8 checkout on disposable full schema
+        run: node tests/isolated-supabase-coupon-full-schema.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
