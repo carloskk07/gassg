@@ -109,7 +109,7 @@ assert.ok(segment.includes('.limit(500)'),'Query must be bounded');
 assert.ok(ops.includes('interruptedOrders:interruptedSaleOrders.data??[]'));
 assert.ok(ops.includes('reviewSampleLimited:(merchantSaleAttempts.data??[]).length>=500'));
 assert.equal((ops.match(/attempts:\[\],interruptedOrders:\[\],reviewSampleLimited:false/g)||[]).length,3,'RBAC redacts operations/support/compliance');
-assert.ok(js.includes('${adminInterruptedSalePaymentWatch(d)}'),'Finance section calls panel');
+assert.ok(js.includes("adminFinanceRenderPart('Pagamentos interrompidos',()=>adminInterruptedSalePaymentWatch(d))"),'Finance section calls protected panel');
 assert.ok(js.includes("for(const row of adminInterruptedSalePaymentRows(d).filter(x=>x.kind!=='refunded').slice(0,10))"),'Attention center surfaces review cases');
 assert.ok(css.includes('.admin-sale-refund-watch'));
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-sale-refund-watch-v1-182.mjs'));
