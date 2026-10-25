@@ -14,6 +14,23 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Decisão 25/10/2026 — SendPulse Free como SMTP transacional de autenticação
+
+**Escolha aprovada:** substituir exclusivamente o transporte de e-mails de `Supabase Auth` pelo **SendPulse SMTP Free**, sem trocar Supabase Auth, Edge `admin-auth`, Turnstile, RBAC, templates ou base de usuários. Fontes oficiais SendPulse (`https://sendpulse.com/br/knowledge-base/smtp/setup-smtp-server` e `/smtp/limits`) confirmam até **12.000 mensagens/mês, 400/dia e 50/hora**, com 2 domínios no gratuito (sujeito a regras atuais do fornecedor). A documentação do Supabase `https://supabase.com/docs/guides/auth/auth-smtp` exige SMTP próprio para superar os 2 e-mails/h do serviço padrão; inicialmente o limite de Auth após ativação é 30/h, que fica abaixo do limite SendPulse de 50/h.
+
+**Inspeção da conta, sem alterar credenciais:** o Opera conectado está autenticado na SendPulse, com menu SMTP e indicação de plano `Gratuito`, porém a página `https://login.sendpulse.com/smtp/` redireciona para `/smtp/welcome/` oferecendo **“Preencher o formulário”**. O formulário `https://login.sendpulse.com/smtp/questionary/` possui campos obrigatórios: e-mail remetente em domínio próprio (provedor não aceita Gmail como endereço De), finalidade do SMTP, origem da coleta de e-mails e política de cancelamento de inscrição. Os campos ainda não foram preenchidos, não há comprovante de domínio remetente autenticado, credenciais SMTP nem entrega real. Não confundir plano exibido como “Gratuito” com SMTP ativo/homologado.
+
+**Configuração necessária e sequencial, sem inventar DNS/segredos:**
+1. Titular conclui o formulário SendPulse de boa-fé, indicando **“Mensagens transacionais”** para links de autenticação e somente endereços de pessoas que solicitaram autenticação/serviço. As perguntas sobre coleta e descadastro devem refletir o uso real (e-mails essenciais não equivalem a marketing). Utilizar uma caixa/remetente efetivamente controlado no domínio `tamao.com.br` ou subdomínio específico (não presume existência de `no-reply`).
+2. Na SendPulse, cadastrar/verificar domínio e remetente; publicar os valores reais de SPF/DKIM/DMARC solicitados pelo provedor via administração DNS, sem sobrescrever registro SPF preexistente e sem enviar segredos ao GitHub/chat.
+3. Obter na própria SendPulse SMTP > Painel os valores de **Servidor SMTP, porta (587 TLS, quando disponível), login e senha**. Inserir diretamente nos campos privados de [Supabase Auth → SMTP](https://supabase.com/dashboard/project/lgugwujpunhslavewffd/auth/smtp), ativar SMTP customizado, preservar `mailer_autoconfirm=false`, não habilitar cadastro/admin automático.
+4. Ajustar no Supabase Auth → Rate Limits o limite *global* de e-mails para **no máximo 30/h inicialmente**, respeitando também SendPulse 50/h e 400/dia. Manter quotas existentes da Edge (por IP e por e-mail), captcha e status uniforme não enumerável.
+5. Solicitar **uma** mensagem de login da conta administrativa autorizada, verificar recebimento e login real, logs do Supabase/SendPulse, domínio autenticado e retorno à aba Financeiro. Tratar retry, bounce e erros de limite como indisponibilidade, nunca sucesso. Acompanhar estoque diário de envios se aumentar a audiência.
+
+**Estado de conclusão:** **AGUARDANDO ONBOARDING DO FORNECEDOR, VERIFICAÇÃO DE DOMÍNIO E CONFIGURAÇÃO SMTP PRIVADA**. Nenhum dado sensível foi exposto, nenhuma configuração de Supabase foi alterada nesta decisão, não há link real homologado. Não criar outro sistema de autenticação, não abrir comércio/benefícios por esse motivo e não sugerir novas revendas. Continuar Pix/cupons após recuperar login com segurança.
+
+---
+
 ## Checkpoint 25/10/2026 — recuperação do acesso administrativo por e-mail (PR #638)
 
 **Evidência de produção:** o login Admin `admin.tamao.com.br` passou a renderizar e o Financeiro foi isolado nas PRs #635–#637, mas o operador ficou sem receber o link mágico. Supabase Auth `auth_logs` em 25/10 registrou `over_email_send_rate_limit` (HTTP 429) às 16:12:28 e 16:13:35 UTC e também `Email link is invalid or has expired`. O painel Auth → Rate Limits indicava **2 e-mails/hora**; o SMTP customizado não estava configurado. Isso é dependência de infraestrutura de envio, **não** motivo para alterar RBAC, habilitar comércio ou fabricar acesso.
