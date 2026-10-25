@@ -267,6 +267,21 @@ payoutFail=true;
 await ctx.payoutQuery();
 assert.match(ctx.mpPage(),/payout-offline/);
 payoutFail=false;
+payoutPayload={...payoutPayload,
+ recipientReadiness:{legalDocumentOnFile:true,merchantProviderAccountPresent:true,
+  merchantProviderAccountConnected:true,payoutRecipientVerified:false,
+  independentBankCreditVerified:false,eligibleForFinancialWrite:false,
+  blockingReasons:['COUPON_PAYOUT_BENEFICIARY_IDENTITY_REQUIRED']}};
+await ctx.payoutQuery();
+assert.match(ctx.mpPage(),/CNPJ cadastrado: sim/);
+assert.match(ctx.mpPage(),/Conta Mercado Pago conectada\/validada: sim/);
+assert.match(ctx.mpPage(),/não prova destinatário do Pix/);
+assert.match(ctx.mpPage(),/Quitação externa NÃO comprovada/);
+payoutPayload={...payoutPayload,
+ recipientReadiness:{...payoutPayload.recipientReadiness,payoutRecipientVerified:true}};
+await ctx.payoutQuery();
+assert.match(ctx.mpPage(),/sem garantias financeiras/,
+ 'forged recipient verification may never be accepted by Admin');
 assert.doesNotMatch(ctx.mpPage(),/mercadopago-access-token/i,
  'do not leak PSP secrets');
 
