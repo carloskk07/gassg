@@ -110,6 +110,24 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
   if(matches.length!==1)return empty(matches.length>1?
     "COUPON_RELEASE_AMBIGUOUS":"COUPON_RELEASE_NOT_FOUND",parsed.rowsExamined);
   const row=matches[0];
+  // Mercado Pago's official released-money report can include a separate
+  // chargeback, mediation, reversal or other debit for the same payment
+  // alongside its original positive "release/payment" row. A single matching
+  // credit is NOT sufficient to establish net proceeds if the SAME report
+  // also contains another financial movement linked to this invoice/payment.
+  // Exclude unrelated customers and report aggregate/balance summary rows.
+  const paymentId=String(invoice.provider_payment_id);
+  const invoiceId=String(invoice.id);
+  const conflictingMovement=parsed.rows.some(other=>{
+    if(other===row)return false;
+    const correlated=other.SOURCE_ID===paymentId||
+      other.EXTERNAL_REFERENCE===invoiceId;
+    if(!correlated)return false;
+    const type=other.RECORD_TYPE.toLowerCase();
+    return ["release","block","unblock"].includes(type);
+  });
+  if(conflictingMovement)
+    return empty("COUPON_RELEASE_CONFLICTING_MOVEMENT",parsed.rowsExamined);
   const gross=releasedMoneyCents(row.GROSS_AMOUNT);
   const net=releasedMoneyCents(row.NET_CREDIT_AMOUNT);
   const debit=releasedMoneyCents(row.NET_DEBIT_AMOUNT);
