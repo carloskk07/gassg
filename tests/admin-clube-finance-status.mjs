@@ -63,6 +63,7 @@ const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);
 
+let payoutCalls=0,payoutPayload=null,payoutFail=false;
 let role='finance';
 let calls=0,mpCalls=0,renders=0,payload=null,fail=false,
  mpPayload=null,mpFail=false;
@@ -81,6 +82,11 @@ const state={
      if(mpFail)throw Error('mercadopago-offline');
      return mpPayload;
    }
+   if(action==='clube-coupon-mp-payout-inspect'){
+     payoutCalls++;
+     if(payoutFail)throw Error('payout-offline');
+     return payoutPayload;
+   }
    assert.equal(action,'clube-coupon-finance-status');
    calls++;
    if(fail)throw Error('not-available');
@@ -93,7 +99,8 @@ const state={
 const ctx=vm.createContext(state);
 vm.runInContext(admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
- ';this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;',ctx);
+ ';this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
+ ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
 
 assert.match(ctx.page(),/Conferir situação dos cupons/);
 payload={source:'clube_coupon_finance_status_v1',readOnly:true,
@@ -204,4 +211,53 @@ assert.doesNotMatch(ctx.mpPage(),/mercadopago-offline/);
 assert.doesNotMatch(ctx.mpPage(),/2 relatórios listados/);
 assert.doesNotMatch(ctx.mpPage(),/Selecionar fatura 88888888/,
  'An old user session must not expose the previous finance queue');
-console.log('PASS: finance Admin checked net evidence, shortfall, danger, migration mismatch, read-only MP releases and account isolation.');
+// Exercise the actual Admin -> existing read-only PSP payout action, not a decorative form.
+assert.match(ctx.mpPage(),/Conferir crédito de repasse/);
+assert.match(ctx.mpPage(),/beneficiário/i);
+await ctx.payoutQuery();
+assert.equal(payoutCalls,0,'invalid payout identifiers must not call the backend');
+assert.match(ctx.mpPage(),/UUID do pedido e IDs POP\/TOP válidos/);
+const newOrder='44444444-4444-4444-8444-444444444444';
+ctx.payoutChanged('payoutOrderId',newOrder);
+ctx.payoutChanged('payoutBatchId','POP01KKYN1QY2SS1MKAY4KP6SSRCT');
+ctx.payoutChanged('payoutTransactionId','TOP01KKYN1QY2SS1MKAY4G9DV5NK9');
+assert.doesNotMatch(ctx.mpPage(),/IDs POP\/TOP válidos/,'editing IDs clears stale result');
+payoutPayload={source:'coupon_merchant_payout_inspection_v1',readOnly:true,
+ moneyMoved:false,available:true,providerTransactionAccredited:true,
+ merchantBeneficiaryVerified:false,merchantExternalSettlementVerified:false,
+ eligibleForFinancialWrite:false,reason:'COUPON_PAYOUT_BENEFICIARY_IDENTITY_REQUIRED',
+ observedCents:700};
+await ctx.payoutQuery();
+assert.equal(payoutCalls,1);
+assert.match(ctx.mpPage(),/Provedor informa crédito no destino/);
+assert.match(ctx.mpPage(),/Quitação externa NÃO comprovada/);
+assert.match(ctx.mpPage(),/Escrita financeira BLOQUEADA/);
+assert.match(ctx.mpPage(),/7\.00/);
+payoutPayload={...payoutPayload,merchantExternalSettlementVerified:true};
+await ctx.payoutQuery();
+assert.match(ctx.mpPage(),/sem garantias financeiras/,
+ 'never trust a server response that unexpectedly claims merchant receipt');
+payoutPayload={...payoutPayload,merchantExternalSettlementVerified:false,
+ eligibleForFinancialWrite:true};
+await ctx.payoutQuery();
+assert.match(ctx.mpPage(),/sem garantias financeiras/);
+payoutPayload={...payoutPayload,eligibleForFinancialWrite:false,
+ providerTransactionAccredited:false,reason:'COUPON_PAYOUT_NOT_ACCREDITED'};
+await ctx.payoutQuery();
+assert.match(ctx.mpPage(),/Crédito não confirmado pelo provedor/);
+const beforeBlocked=payoutCalls;
+role='readonly';
+await ctx.payoutQuery();
+assert.equal(payoutCalls,beforeBlocked,'nonfinancial admins cannot query payout');
+assert.equal(ctx.mpPage(),'');
+role='finance';
+runtime.session.user.id='55555555-5555-4555-8555-555555555555';
+assert.doesNotMatch(ctx.mpPage(),/Crédito não confirmado pelo provedor/,
+ 'new authenticated session must not see previous account payout result');
+payoutFail=true;
+await ctx.payoutQuery();
+assert.match(ctx.mpPage(),/payout-offline/);
+payoutFail=false;
+assert.doesNotMatch(ctx.mpPage(),/mercadopago-access-token/i,
+ 'do not leak PSP secrets');
+console.log('PASS: finance Admin checked net evidence, shortfall, danger, migration mismatch, read-only MP releases account isolation and merchant payout segregation.');
