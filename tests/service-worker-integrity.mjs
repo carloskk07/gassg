@@ -93,6 +93,19 @@ fetchImpl=async()=>new Response('erro temporário',{status:503,headers:{'content
 const cssRes=await dispatchFetch(cssReq);
 assert.equal(await cssRes.text(),'body{display:block}','5xx deve cair no cache bom do asset');
 
+// 4.1) Versioned bundle uses the exact installed snapshot without an HTTP
+// roundtrip. Runtime-config and unversioned assets must remain network-first.
+const pinnedReq={method:'GET',url:'https://tamao.com.br/js/admin.js?v=stable-source-sha',mode:'same-origin'};
+store.set(pinnedReq.url,new Response('window.adminPage=function(){}',{status:200}));
+fetchImpl=async()=>{throw new Error('Cache-first should not use the network for a pinned snapshot')};
+const cachedAdmin=await dispatchFetch(pinnedReq);
+assert.equal(await cachedAdmin.text(),'window.adminPage=function(){}');
+const runtimeReq={method:'GET',url:'https://tamao.com.br/js/runtime-config.js?v=stable-source-sha',mode:'same-origin'};
+store.set(runtimeReq.url,new Response('old-config',{status:200}));
+fetchImpl=async()=>new Response('new-config',{status:200});
+const runtimeRes=await dispatchFetch(runtimeReq);
+assert.equal(await runtimeRes.text(),'new-config','Runtime configuration may not be pinned in stale cache');
+
 // 5) A rede do SW deve ignorar HTTP cache para reduzir bundle obsoleto pós-deploy.
 assert.match(source,/fetch\(req,\{cache:'no-store'\}\)/);
 assert.match(source,/contentType\.includes\('text\/html'\)/);
