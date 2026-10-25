@@ -169,4 +169,54 @@ const fn=new Function('globalThis','merchantBillingPixChargeExpired','toast','na
 await fn('request-test');
 assert.equal(copied,0);
 assert.match(notice,/expirado ou indisponível/);
+
+// A successful provider POST is not proof the DB commit is still active.
+// Exercise the actual production fail-closed guard with synthetic valid Pix.
+const guardStart=edge.indexOf('function assertPayableCommittedCharge(');
+const guardEnd=edge.indexOf('function publicCharge(',guardStart);
+assert.ok(guardStart>0&&guardEnd>guardStart,'post-commit guard must exist');
+const guardSource=edge.slice(guardStart,guardEnd)
+  .replace('charge:any,expectedAmountCents:number','charge,expectedAmountCents');
+const assertPayable=new Function('DomainError','validatePixBrCode',
+  guardSource+';return assertPayableCommittedCharge;')(
+  FakeDomainError,validatePixBrCode);
+const fresh={status:'active',amountCents:30000,brCode:valid,
+  expiresAt:new Date(Date.now()+3600000).toISOString()};
+assert.strictEqual(assertPayable(fresh,30000),fresh);
+for(const state of ['expired','cancelled','completed','preparing','unknown']){
+  assert.throws(()=>assertPayable({...fresh,status:state},30000),
+    e=>e instanceof FakeDomainError &&
+      (state==='completed'?e.code==='PIX_PROVIDER_ALREADY_PROCESSED'
+        :e.code==='PIX_COMMITTED_CHARGE_NOT_PAYABLE'),
+    'charge state '+state+' must never expose a payable QR');
+}
+for(const rejected of [
+  {...fresh,amountCents:29999},
+  {...fresh,brCode:'INVALID_BR_CODE'},
+  {...fresh,expiresAt:null},
+  {...fresh,expiresAt:'not-a-date'},
+  {...fresh,expiresAt:new Date(Date.now()-1000).toISOString()},
+  {...fresh,expiresAt:new Date(Date.now()+30000).toISOString()}
+]){
+  assert.throws(()=>assertPayable(rejected,30000),
+    e=>e instanceof FakeDomainError&&e.code==='PIX_COMMITTED_CHARGE_NOT_PAYABLE',
+    'invalid committed QR must be blocked');
+}
+const publicStart=edge.indexOf('function publicCharge(');
+const publicEnd=edge.indexOf('function chargeComment(',publicStart);
+assert.ok(publicStart>0&&publicEnd>publicStart);
+const publicSource=edge.slice(publicStart,publicEnd).replace('row:any','row');
+const safePublic=new Function(publicSource+';return publicCharge;')();
+for(const state of ['completed','expired','cancelled','preparing']){
+  const exposed=safePublic({id:'test',status:state,br_code:valid,
+    qr_code_data_uri:'PRIVATE_QR_IMAGE',payment_link_url:'https://example.test/pay'});
+  assert.equal(exposed.brCode,null,'never return previously paid or expired Pix');
+  assert.equal(exposed.qrCodeDataUri,null);
+  assert.equal(exposed.paymentLinkUrl,null);
+}
+assert.equal(safePublic({status:'active',br_code:valid}).brCode,valid);
+assert.match(edge,/assertPayableCommittedCharge\(committed,expectedAmountCents\);/);
+assert.ok(edge.indexOf('assertPayableCommittedCharge(committed,expectedAmountCents)')>
+  edge.indexOf('merchant_billing_provider_charge_commit'));
+
 console.log('PASS: BR Code, expiry anchored to persistent issuance, idempotent retry and copy guard (no real payment)');
