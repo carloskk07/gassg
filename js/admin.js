@@ -333,7 +333,7 @@ async function adminSendLogin(email){
       redirectTo:redirect.toString()
     });
 
-    adminRuntime.notice=String(result?.message||'Se este e-mail estiver autorizado, o link de acesso será enviado.');
+    adminRuntime.notice=String(result?.message||'A solicitação foi processada, mas a entrega do link não foi confirmada.');
     adminRuntime.status='unauthenticated';
     return result;
   }catch(error){
@@ -3344,13 +3344,13 @@ function adminLoginView(){
     <span class="eyebrow">CENTRAL DE CONTROLE</span>
     <h1 class="page-title">Administração protegida</h1>
     <p class="muted">Acesso exclusivo para contas permanentes previamente autorizadas no banco.</p>
-    ${adminRuntime.notice?`<div class="notice success" style="margin-top:14px">${esc(adminRuntime.notice)}</div>`:''}
+    ${adminRuntime.notice?`<div class="notice" role="status" style="margin-top:14px">${esc(adminRuntime.notice)}</div>`:''}
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:14px">${esc(adminRuntime.error)}</div>`:''}
     <form class="card flat form-stack" style="margin-top:16px" onsubmit="event.preventDefault();adminLoginFromUi()">
       <div class="input-wrap"><label for="admin-email">E-mail administrativo</label><input id="admin-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com" required></div>
       <button type="submit" class="primary" ${adminRuntime.actionPending?'disabled aria-busy="true"':''}>${adminRuntime.actionPending?'Processando…':'Enviar link de acesso'}</button>
     </form>
-    <div class="notice" style="margin-top:14px">Este link apenas autentica a identidade. O acesso administrativo só é concedido a contas previamente autorizadas no servidor.</div>
+    <div class="notice" style="margin-top:14px">Uma confirmação nesta tela não comprova a entrega do e-mail. O envio depende do provedor e pode estar temporariamente limitado. Evite solicitações repetidas. O acesso administrativo exige autorização prévia no servidor.</div>
   </section>`);
 }
 
