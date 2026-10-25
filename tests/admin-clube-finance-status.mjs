@@ -269,4 +269,40 @@ assert.match(ctx.mpPage(),/payout-offline/);
 payoutFail=false;
 assert.doesNotMatch(ctx.mpPage(),/mercadopago-access-token/i,
  'do not leak PSP secrets');
+
+// Reimbursement rows show the real coupon origin, not a generic fake Paid
+// button. Missing status intentionally fails closed for stale Admin state.
+const reimbursementUiFrom=admin.indexOf('function adminReimbursementRow(x){');
+const reimbursementUiTo=admin.indexOf('function adminAdjustmentRow(x){',reimbursementUiFrom);
+assert.ok(reimbursementUiFrom>0&&reimbursementUiTo>reimbursementUiFrom);
+const reimbursementCtx=vm.createContext({
+  esc:v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'),
+  adminMerchantName:()=> 'Revenda de teste',
+  adminMoney:cents=>'R$ '+(cents/100).toFixed(2)
+});
+new vm.Script(admin.slice(reimbursementUiFrom,reimbursementUiTo)+
+ ';this.item=adminReimbursementRow;', {filename:'admin-reimbursement-ui.js'}).runInContext(reimbursementCtx);
+const sampleReimbursement={order_id:'11111111-1111-4111-8111-111111111111',
+ merchant_id:'22222222-2222-4222-8222-222222222222',cashback_cents:500};
+const couponPendingHtml=reimbursementCtx.item({...sampleReimbursement,couponBacked:true});
+assert.match(couponPendingHtml,/aguardando identidade do recebedor e crédito bancário comprovado/);
+assert.doesNotMatch(couponPendingHtml,/onclick="adminFinancial/);
+assert.doesNotMatch(reimbursementCtx.item(sampleReimbursement),/onclick="adminFinancial/,
+ 'missing backend classification must not re-enable a paid action');
+const legacyHtml=reimbursementCtx.item({...sampleReimbursement,couponBacked:false});
+assert.match(legacyHtml,/Registrar quitação/);
+assert.match(legacyHtml,/onclick="adminFinancial/);
+const originBlock=edge.slice(edge.indexOf('const openReimbursementOrderIds='),
+ edge.indexOf('const currentAdmin=',edge.indexOf('const openReimbursementOrderIds=')));
+assert.match(originBlock,/clube_coupon_paid_order_applications/);
+assert.match(originBlock,/COUPON_REIMBURSEMENT_CLASSIFICATION_UNAVAILABLE/);
+assert.match(edge,/couponBacked:couponReimbursementOrders\.has\(String\(row\.order_id\)\)/,
+ 'backend must derive coupon origin from canonical finance facts');
+const tableGuard=read('supabase/migrations/20261025143000_coupon_reimbursement_status_table_guard.sql');
+assert.match(tableGuard,/create or replace function public\.validate_cashback_reimbursement_fact\(\)/i);
+assert.match(tableGuard,/new\.status in \('paid','offset'\)/);
+assert.match(tableGuard,/clube_coupon_paid_order_applications/);
+assert.match(tableGuard,/COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED/);
+assert.match(tableGuard,/before insert or update of order_id,merchant_id,cashback_cents,due_at,status,paid_at,offset_at/);
+
 console.log('PASS: finance Admin checked net evidence, shortfall, danger, migration mismatch, read-only MP releases account isolation and merchant payout segregation.');
