@@ -60,3 +60,23 @@ assert.equal(ctx.sectionActive('finance'),true);
 granted.delete('finance');
 assert.equal(ctx.sectionActive('finance'),false,'Unauthorized finance cannot render');
 console.log('Administrative active-only panel and finance workspace isolation passed.');
+
+// Summary must launch independent datasets before awaiting earlier results.
+// Financial evidence remains in the same full, authorization-scoped response.
+const ops=fs.readFileSync(new URL('../supabase/functions/admin-ops/index.ts',import.meta.url),'utf8');
+const summarySlice=ops.slice(ops.indexOf('async function summary('),ops.indexOf('\nDeno.serve('));
+for(const pair of [
+  ['marketCityInterestsPromise','const [apps,merchants,compliance'],
+  ['pilotPartnerInvitesPromise','const pilotPartners=await'],
+  ['merchantBusinessDetailsPromise','const pilotPartners=await'],
+  ['productCategoriesPromise','const commercialPolicy=await'],
+  ['productProfilesPromise','const commercialPolicy=await'],
+  ['supportMetricsPromise','const controlOrders=await'],
+  ['growthApplicationFunnelPromise','admin_growth_network_overview_v1_227']
+]){
+  assert.ok(summarySlice.indexOf(pair[0])>=0&&summarySlice.indexOf(pair[0])<summarySlice.indexOf(pair[1]),
+    'Independent summary fetch must start without a sequential wait: '+pair[0]);
+}
+for(const originalResponseField of ['pilotPartners:', 'marketCityInterests:', 'merchantReadiness:', 'merchantBilling:', 'finance:', 'currentAdmin,']){
+  assert.ok(summarySlice.includes(originalResponseField),'Preserve original Admin response contract: '+originalResponseField);
+}
