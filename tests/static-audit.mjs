@@ -366,7 +366,7 @@ assert.ok(bootAdminStartup.includes('const init=adminBackendInit()')
 const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
 assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
-assert.ok(adminAuthSource.includes('Se este e-mail estiver autorizado, o link de acesso será enviado.'),'request de login deve responder genericamente para evitar enumeração');
+assert.ok(adminAuthSource.includes('function unverifiedLoginResponse(origin:string)')&&adminAuthSource.includes('deliveryConfirmed:false')&&adminAuthSource.includes('Por segurança, não confirmamos autorização nem entrega do e-mail.')&&(adminAuthSource.match(/return unverifiedLoginResponse\(origin\);/g)||[]).length===3&&!adminAuthSource.includes('o link de acesso será enviado.'),'request de login deve responder uniformemente, sem fingir entrega nem enumerar contas');
 assert.ok(adminAuthSource.includes('captchaToken')&&adminAuthSource.includes('CAPTCHA_REQUIRED'),'bootstrap sem identidade precisa continuar protegido por anti-bot');
 assert.ok(adminAuthSource.includes('clientIp(req)')&&adminAuthSource.includes('admin-auth-request-ip'),'request-link admin precisa limitar a origem de rede antes de avaliar o e-mail');
 assert.ok(adminAuthSource.includes('consume_hashed_api_quota')&&adminAuthSource.includes('enforceHashedQuota'),'quota pré-auth não pode depender de user_id/auth.users');
