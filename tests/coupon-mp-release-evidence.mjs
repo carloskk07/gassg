@@ -48,6 +48,34 @@ assert.equal(valid.merchantPayoutVerified,false);
 assert.equal(valid.couponFundingApplied,false);
 assert.equal(valid.moneyMoved,false);
 
+// The provider's gross order can remain processed while a reversal is
+// already reflected only in status_detail. Without this guard the release
+// report looked eligible and the superadmin could register spendable NET.
+for(const detail of ['partially_refunded','refunded','charged_back','disputed',
+ 'in_mediation','reimbursed','canceled','failed','unknown_provider_state']){
+ for(const level of ['order','payment']){
+  const altered=structuredClone(order);
+  if(level==='order')altered.status_detail=detail;
+  else altered.transactions.payments[0].status_detail=detail;
+  const result=inspect(csv,invoice,altered);
+  assert.equal(result.eligible,false,`${level}.status_detail=${detail} must block funding`);
+  assert.equal(result.reason,'COUPON_PROVIDER_BINDING_UNVERIFIED');
+  assert.equal(result.netCents,null,'reversed funding cannot return NET cents');
+  assert.equal(result.evidenceReference,null,'reversed funding cannot return proof');
+  assert.equal(result.couponFundingApplied,false);
+  assert.equal(result.moneyMoved,false);
+ }
+}
+// Mercado Pago may omit details or report normal accreditation. Neither
+// is a refund; preserve read-only reconciliation for a genuine clean Pix.
+for(const level of ['order','payment']){
+ const ordinary=structuredClone(order);
+ if(level==='order')ordinary.status_detail='accredited';
+ else ordinary.transactions.payments[0].status_detail='accredited';
+ assert.equal(inspect(csv,invoice,ordinary).eligible,true,
+  `${level} normal accreditation must remain payable`);
+}
+
 for(const invalid of [
  [header+'\n'+release({SOURCE_ID:'wrong'})+'\n','COUPON_RELEASE_NOT_FOUND'],
  [header+'\n'+release({EXTERNAL_REFERENCE:'other'})+'\n','COUPON_RELEASE_NOT_FOUND'],
