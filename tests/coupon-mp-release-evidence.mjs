@@ -48,6 +48,44 @@ assert.equal(valid.merchantPayoutVerified,false);
 assert.equal(valid.couponFundingApplied,false);
 assert.equal(valid.moneyMoved,false);
 
+// MP's released-money report may contain a positive release followed by
+// chargeback/mediation or another correlated debit. An exact positive payment
+// line alone cannot safely collateralize vouchers in that same report.
+const reportWith=(extra)=>header+'\n'+release()+'\n'+extra+'\n';
+const correlatedMovements=[
+ release({RECORD_TYPE:'release',DESCRIPTION:'chargeback',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'11.00',
+  GROSS_AMOUNT:'-12.00',EXTERNAL_REFERENCE:''}),
+ release({SOURCE_ID:'dispute-op-2',RECORD_TYPE:'block',
+  DESCRIPTION:'mediation',NET_CREDIT_AMOUNT:'0.00',
+  NET_DEBIT_AMOUNT:'5.00',GROSS_AMOUNT:'-5.00'}),
+ release({SOURCE_ID:'chargeback-op-3',RECORD_TYPE:'release',
+  DESCRIPTION:'chargeback',NET_CREDIT_AMOUNT:'0.00',
+  NET_DEBIT_AMOUNT:'11.00',GROSS_AMOUNT:'-12.00'}),
+ release({RECORD_TYPE:'unblock',DESCRIPTION:'mediation_cancel',
+  NET_CREDIT_AMOUNT:'11.00',NET_DEBIT_AMOUNT:'0.00'})
+];
+for(const extra of correlatedMovements){
+ const result=inspect(reportWith(extra));
+ assert.equal(result.eligible,false,'a second correlated MP movement cannot fund coupons');
+ assert.equal(result.reason,'COUPON_RELEASE_CONFLICTING_MOVEMENT');
+ assert.equal(result.netCents,null);
+ assert.equal(result.evidenceReference,null);
+ assert.equal(result.moneyMoved,false);
+}
+// A refund, block or balance change for another customer's payment MUST NOT
+// taint this invoice. Global report summary/balance rows are not transfers.
+const unrelated=release({SOURCE_ID:'other-payment',
+ EXTERNAL_REFERENCE:'other-invoice',DESCRIPTION:'chargeback',
+ NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'11.00',GROSS_AMOUNT:'-12.00'});
+const balance=release({SOURCE_ID:'payment-1',RECORD_TYPE:'available_balance',
+ DESCRIPTION:'pre_payout_id',NET_CREDIT_AMOUNT:'0.00',
+ NET_DEBIT_AMOUNT:'0.00',GROSS_AMOUNT:'0.00'});
+assert.equal(inspect(reportWith(unrelated)).eligible,true,
+ 'independent customer movements must remain independent');
+assert.equal(inspect(reportWith(balance)).eligible,true,
+ 'aggregate balance rows must not be mistaken for a new release');
+
 // The provider's gross order can remain processed while a reversal is
 // already reflected only in status_detail. Without this guard the release
 // report looked eligible and the superadmin could register spendable NET.
