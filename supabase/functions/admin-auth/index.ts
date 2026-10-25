@@ -82,6 +82,16 @@ function safeRedirect(value:unknown,origin:string){
   url.hash="";
   return url.toString();
 }
+// An anonymous caller must never learn whether an admin email exists, nor
+// infer account eligibility from the delivery provider's rate-limit response.
+// A handled request is NOT evidence of a delivered magic link.
+function unverifiedLoginResponse(origin:string){
+  return json({
+    ok:true,
+    deliveryConfirmed:false,
+    message:"Solicitação processada. Por segurança, não confirmamos autorização nem entrega do e-mail. Se a conta estiver autorizada e o envio disponível, confira sua caixa de entrada. Evite tentativas repetidas."
+  },200,origin);
+}
 async function requestLoginLink(req:Request,origin:string,body:any){
   const email=normalizeEmail(body?.email);
   const captchaToken=String(body?.captchaToken??"").trim();
@@ -113,11 +123,11 @@ async function requestLoginLink(req:Request,origin:string,body:any){
   });
   if(modeError){
     console.error("admin-auth login mode failed",String(modeError.code??"RPC_ERROR"));
-    return json({ok:true,message:"Se este e-mail estiver autorizado, o link de acesso será enviado."},200,origin);
+    return unverifiedLoginResponse(origin);
   }
 
   if(!["existing_admin","bootstrap_reserved"].includes(String(mode??""))){
-    return json({ok:true,message:"Se este e-mail estiver autorizado, o link de acesso será enviado."},200,origin);
+    return unverifiedLoginResponse(origin);
   }
 
   // Only an authorized/reserved address can consume the stricter salted email quota.
@@ -143,7 +153,7 @@ async function requestLoginLink(req:Request,origin:string,body:any){
     console.error("admin-auth otp failed",String(error.code??error.status??"AUTH_ERROR"));
   }
 
-  return json({ok:true,message:"Se este e-mail estiver autorizado, o link de acesso será enviado."},200,origin);
+  return unverifiedLoginResponse(origin);
 }
 async function claimBootstrap(req:Request,origin:string){
   const authHeader=req.headers.get("Authorization");
