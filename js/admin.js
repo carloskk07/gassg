@@ -4733,6 +4733,18 @@ function adminFinanceLabCents(value){
   return Number.isSafeInteger(cents)&&cents>=1&&cents<=100000000?cents:null;
 }
 
+// No credentials or secret values ever leave the Supabase environment.
+// These boolean checks are supplied by admin-ops for superadmins only.
+function adminFinanceLabPrerequisiteChecks(readiness){
+  const flags=readiness?.prerequisites||{};
+  return [
+    {key:'enabled',label:'Laboratório de testes habilitado',setting:'FINANCE_LAB_SANDBOX_ENABLED'},
+    {key:'tokenConfigured',label:'Access Token de TESTE cadastrado',setting:'MERCADOPAGO_TEST_ACCESS_TOKEN'},
+    {key:'payerConfigured',label:'E-mail pagador de TESTE cadastrado',setting:'FINANCE_LAB_TEST_PAYER_EMAIL'},
+    {key:'distinctToken',label:'Token de TESTE diferente do de produção',setting:'isolamento do token'}
+  ].map(item=>({...item,ready:flags[item.key]===true}));
+}
+
 async function adminFinanceLabDiagnoseChargesFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const state=adminRuntime.financeLab;
@@ -4826,7 +4838,14 @@ async function adminFinanceLabSandboxPixFromUi(){
   if(state.pending)return;
   const amountCents=5000; // MP's documented Pix test is fixed at R$ 50.
   if(state.readiness?.configured!==true){
-    state.error='O provedor de testes ainda não está configurado. Use Verificar requisitos.';
+    const pending=state.readiness
+      ?adminFinanceLabPrerequisiteChecks(state.readiness).filter(item=>!item.ready)
+      :[];
+    state.error=pending.length
+      ?'O provedor de testes ainda não está configurado. Pendências: '+
+        pending.map(item=>item.setting).join(', ')+
+        '. Configure em Supabase > Edge Functions > Secrets e use Verificar requisitos.'
+      :'O provedor de testes ainda não está configurado. Use Verificar requisitos.';
     render();return;
   }
   if(!confirm('Criar Pix oficial de TESTE de R$ 50,00? O Mercado Pago usa um valor pré-definido; não será pagável por bancos nem criará créditos.'))return;
@@ -4939,8 +4958,15 @@ function adminFinanceLabView(d){
         <div class="order-line"><strong>Provedor configurado:</strong> ${esc(String(ingress.activeBillingProvider||'Não informado'))}</div>
         <h4 style="margin-top:12px">Prontidão do sandbox</h4>
         <div class="order-line"><strong>Gerador:</strong> ${state.readiness?.configured===true?'Pronto para teste oficial':'Configuração de testes ainda não comprovada'}</div>
-        <div class="order-line"><strong>Isolamento:</strong> ${state.readiness?.prerequisites?.distinctToken===true?'Token separado da produção':'Token de teste não confirmado'}</div>
-        <div class="order-line"><strong>Pagador de teste:</strong> ${state.readiness?.prerequisites?.payerConfigured===true?'Configurado':'Pendente'}</div>
+        ${state.readiness?.prerequisites
+          ?adminFinanceLabPrerequisiteChecks(state.readiness).map(item=>
+            '<div class="order-line"><strong>'+esc(item.label)+':</strong> '+
+            (item.ready?'Configurado':'Pendente')+
+            (item.ready?'':' <code>'+esc(item.setting)+'</code>')+'</div>').join('')
+          :'<p class="muted tiny">Use Verificar requisitos para consultar as quatro condições reais do servidor.</p>'}
+        ${state.readiness?.configured===false?'<p class="muted tiny">Configure apenas os segredos de TESTE em '+
+          '<a href="https://supabase.com/dashboard/project/lgugwujpunhslavewffd/functions/secrets" target="_blank" rel="noopener noreferrer">Supabase Edge Functions → Secrets</a>. '+
+          'Nunca cole tokens nesta tela nem substitua o token de produção.</p>':''}
         <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabReadinessFromUi()" ${state.readinessLoading?'disabled':''}>${state.readinessLoading?'Verificando…':'Verificar requisitos do sandbox'}</button></div>
         ${state.status?'<div class="notice" role="status">Ordem de TESTE '+esc(state.status.orderId)+
           ' • '+esc(state.status.orderStatus)+' / '+esc(state.status.paymentStatus)+
