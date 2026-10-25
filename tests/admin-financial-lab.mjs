@@ -27,7 +27,7 @@ const ctx=vm.createContext({
     requests.push({data,opt});
     if(data.action==='finance-lab-readiness')return {
       ok:true,mode:'sandbox',configured:true,officialTestAmountCents:5000,
-      recentTests:[],prerequisites:{distinctToken:true,payerConfigured:true}
+      recentTests:[],prerequisites:{enabled:true,tokenConfigured:true,distinctToken:true,payerConfigured:true}
     };
     if(data.action==='finance-lab-sandbox-check')return {ok:true,mode:'sandbox',
       orderId:data.orderId,amountCents:5000,orderStatus:'processed',
@@ -44,7 +44,7 @@ const ctx=vm.createContext({
 });
 vm.runInContext(section+';this.lab={cents:adminFinanceLabCents,preview:adminFinanceLabPreviewFromUi,'+
   'sandbox:adminFinanceLabSandboxPixFromUi,view:adminFinanceLabView,'+
-  'readiness:adminFinanceLabReadinessFromUi,check:adminFinanceLabCheckOrderFromUi}',ctx);
+  'readiness:adminFinanceLabReadinessFromUi,check:adminFinanceLabCheckOrderFromUi,prerequisites:adminFinanceLabPrerequisiteChecks}',ctx);
 assert.equal(ctx.lab.cents('0,01'),1);
 assert.equal(ctx.lab.cents('1.234,56'),null,'grouped thousands are deliberately unaccepted to prevent ambiguity');
 assert.equal(ctx.lab.cents('999999,99'),99999999);
@@ -63,6 +63,28 @@ assert.match(html,/Gerar Pix oficial de teste \(R\$ 50,00\)/);
 await ctx.lab.sandbox();
 assert.equal(requests.length,0,'sandbox unavailable before readiness');
 assert.match(state.error,/ainda não está configurado/);
+// A superadmin can identify missing secret NAMES, never the values.
+const noCredentials={
+  configured:false,prerequisites:{
+    enabled:false,tokenConfigured:false,payerConfigured:false,distinctToken:false
+  }
+};
+state.readiness=noCredentials;
+const missing=ctx.lab.prerequisites(noCredentials);
+assert.equal(missing.length,4);
+assert.ok(missing.every(x=>x.ready===false));
+const detail=ctx.lab.view({merchantBilling:{}});
+for(const key of ['FINANCE_LAB_SANDBOX_ENABLED','MERCADOPAGO_TEST_ACCESS_TOKEN',
+  'FINANCE_LAB_TEST_PAYER_EMAIL','isolamento do token']){
+  assert.match(detail,new RegExp(key));
+}
+assert.match(detail,/Supabase Edge Functions/);
+assert.doesNotMatch(detail,/SUPER_SECRET_TEST_VALUE|test_token_value/);
+await ctx.lab.sandbox();
+assert.equal(requests.length,0,'missing test credentials must block provider call');
+assert.match(state.error,/MERCADOPAGO_TEST_ACCESS_TOKEN/);
+assert.match(state.error,/FINANCE_LAB_TEST_PAYER_EMAIL/);
+state.readiness=null;
 await ctx.lab.readiness();
 assert.equal(requests.length,1);
 assert.equal(state.readiness.configured,true);
