@@ -5295,6 +5295,13 @@ async function adminClubeReleaseReportsRefresh(){
 function adminClubePayoutInputChanged(field,value){
   if(!['payoutOrderId','payoutBatchId','payoutTransactionId'].includes(field))return;
   const s=adminRuntime.clubeFinance,v=String(value??'').trim();
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId)return;
+  if(s.payoutInputFor!==userId){
+    for(const key of ['payoutOrderId','payoutBatchId','payoutTransactionId'])s[key]='';
+    s.payoutInputFor=userId;
+    s.payoutEvidence=null;s.payoutError=null;s.payoutFor=null;
+  }
   if(s[field]!==v){s.payoutEvidence=null;s.payoutError=null;s.payoutFor=null;}
   s[field]=v;
 }
@@ -5304,6 +5311,10 @@ async function adminClubePayoutInspect(){
   const s=adminRuntime.clubeFinance;
   const userId=String(adminRuntime.session?.user?.id||'');
   if(!userId||s.payoutPending)return;
+  if(s.payoutInputFor!==userId){
+    Object.assign(s,{payoutFor:userId,payoutEvidence:null,payoutError:'Informe identificadores desta sessão.'});
+    render();return;
+  }
   const orderId=String(s.payoutOrderId||'').trim();
   const payoutId=String(s.payoutBatchId||'').trim();
   const transactionId=String(s.payoutTransactionId||'').trim();
@@ -5525,17 +5536,17 @@ function adminClubeReleaseReportsView(){
       <p class="tiny muted">Apenas consulta oficial ao Mercado Pago. Não transfere recursos nem baixa obrigações.</p>
       <label for="admin-clube-payout-order">UUID do pedido</label>
       <input class="input" id="admin-clube-payout-order" type="text" maxlength="36"
-        autocomplete="off" placeholder="UUID do pedido" value="${esc(state.payoutOrderId||'')}"
+        autocomplete="off" placeholder="UUID do pedido" value="${esc(state.payoutInputFor===userId?state.payoutOrderId:'')}"
         oninput="adminClubePayoutInputChanged('payoutOrderId',this.value)"
         ${state.payoutPending?'disabled':''}>
       <label for="admin-clube-payout-batch">Lote do Mercado Pago (POP)</label>
       <input class="input" id="admin-clube-payout-batch" type="text" maxlength="63"
-        autocomplete="off" placeholder="POP…" value="${esc(state.payoutBatchId||'')}"
+        autocomplete="off" placeholder="POP…" value="${esc(state.payoutInputFor===userId?state.payoutBatchId:'')}"
         oninput="adminClubePayoutInputChanged('payoutBatchId',this.value)"
         ${state.payoutPending?'disabled':''}>
       <label for="admin-clube-payout-transaction">Transação (TOP)</label>
       <input class="input" id="admin-clube-payout-transaction" type="text" maxlength="63"
-        autocomplete="off" placeholder="TOP…" value="${esc(state.payoutTransactionId||'')}"
+        autocomplete="off" placeholder="TOP…" value="${esc(state.payoutInputFor===userId?state.payoutTransactionId:'')}"
         oninput="adminClubePayoutInputChanged('payoutTransactionId',this.value)"
         ${state.payoutPending?'disabled':''}>
       <button type="button" class="secondary" onclick="adminClubePayoutInspect()"
