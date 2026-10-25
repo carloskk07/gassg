@@ -14,6 +14,7 @@ import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 import {couponReleasedNetEvidence} from "./coupon-release-evidence.js";
+import {couponMerchantPayoutEvidence} from "./coupon-merchant-payout-evidence.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -113,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports","clube-coupon-mp-release-inspect",
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports","clube-coupon-mp-release-inspect","clube-coupon-mp-payout-inspect",
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
@@ -2533,6 +2534,74 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="clube-coupon-mp-payout-inspect"){
+      // Mercado Pago Payouts READ ONLY. No POST /v1/payouts, no refund,
+      // no transfer and no privileged finance RPC. Strictly separate the
+      // provider's "success/accredited" from proof of the merchant payee.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A conferência de repasses exige perfil financeiro.",403);
+      const orderId=String(body.orderId??"").trim();
+      const payoutId=String(body.payoutId??"").trim();
+      const transactionId=String(body.transactionId??"").trim();
+      if(!UUID_RE.test(orderId)||
+         !/^POP[A-Za-z0-9]{12,60}$/.test(payoutId)||
+         !/^TOP[A-Za-z0-9]{12,60}$/.test(transactionId))
+        throw new DomainError("COUPON_PAYOUT_INPUT_INVALID",
+          "Informe pedido, lote e transação Mercado Pago válidos.",400);
+      await enforceApiQuota(admin,{
+        userId:user.id,actionName:"admin-coupon-mp-payout-inspect",
+        limit:5,windowSeconds:600
+      });
+      const [orderResult,applicationResult,reimbursementResult]=await Promise.all([
+        admin.from("orders").select("id,status,financial_state,financial_reversed_at,merchant_id,cashback_reserved_cents").eq("id",orderId).maybeSingle(),
+        admin.from("clube_coupon_paid_order_applications").select("order_id,invoice_id,quoted_merchant_id,face_cents").eq("order_id",orderId).maybeSingle(),
+        admin.from("merchant_cashback_reimbursements").select("order_id,merchant_id,cashback_cents,status").eq("order_id",orderId).maybeSingle()
+      ]);
+      for(const result of [orderResult,applicationResult,reimbursementResult])
+        if(result.error)throw result.error;
+      const order=orderResult.data,application=applicationResult.data;
+      const reimbursement=reimbursementResult.data;
+      if(!order||!application||!reimbursement)
+        return json({
+          source:"coupon_merchant_payout_inspection_v1",
+          readOnly:true,moneyMoved:false,available:false,
+          providerTransactionAccredited:false,merchantBeneficiaryVerified:false,
+          merchantExternalSettlementVerified:false,eligibleForFinancialWrite:false,
+          reason:"COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE"
+        },200,origin);
+      const {data:invoice,error:invoiceError}=await admin
+        .from("clube_coupon_paid_invoices")
+        .select("id,status,net_proceeds_verified_at")
+        .eq("id",application.invoice_id).maybeSingle();
+      if(invoiceError)throw invoiceError;
+      const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+      if(!mercadoPagoConfigured(token))
+        return json({
+          source:"coupon_merchant_payout_inspection_v1",
+          readOnly:true,available:false,moneyMoved:false,
+          providerTransactionAccredited:false,merchantBeneficiaryVerified:false,
+          merchantExternalSettlementVerified:false,eligibleForFinancialWrite:false,
+          reason:"MERCADOPAGO_NOT_CONFIGURED"
+        },200,origin);
+      const response=await mercadoPagoFetch(
+        "/v1/payouts/"+payoutId+"/transactions/"+transactionId,{
+          accessToken:token,method:"GET",timeoutMs:8000
+        });
+      if(!response.ok)throw new DomainError("COUPON_PAYOUT_PROVIDER_UNAVAILABLE",
+        "A transação de repasse não pôde ser consultada no Mercado Pago.",503);
+      const transaction=await readMercadoPagoJson(response);
+      if(transaction?.payout_id&&String(transaction.payout_id)!==payoutId)
+        throw new DomainError("COUPON_PAYOUT_BATCH_MISMATCH",
+          "A transação retornada pertence a outro lote.",409);
+      return json({
+        ...couponMerchantPayoutEvidence({
+          payoutId,transactionId,transaction,reimbursement,application,order,invoice
+        }),
+        available:true,providerCheckedAt:new Date().toISOString()
+      },200,origin);
+    }
 
     if(action==="clube-coupon-mp-release-inspect"||
        action==="clube-coupon-mp-funding-finalize"){
