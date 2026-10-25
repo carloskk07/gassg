@@ -139,8 +139,8 @@ for(const {role,path:dir} of built){
       'Admin must render even without customer, merchant or discovery functions');
     // Missing admin script is an explicit protected-module error, not a
     // fallback into an unrelated public page on the privileged hostname.
-    delete context.adminPage;
-    vm.runInNewContext(renderCode[0]+'\nrender();',context,{timeout:1000});
+    const missingAdmin={...context,adminPage:undefined};
+    vm.runInNewContext(renderCode[0]+'\nrender();',missingAdmin,{timeout:1000});
     assert.match(app.innerHTML,/Administração indisponível/);
     const adminSource=fs.readFileSync(path.join(dir,'js','admin.js'),'utf8');
     assert.match(adminSource,/adminActivationLoadOnDemand\(\)/);
