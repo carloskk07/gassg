@@ -213,9 +213,11 @@ const couponHandlerJs=webhook.slice(couponHandlerStart,couponHandlerEnd)
   'admin,dataId,invoice,accessToken')
  .replaceAll('(r:any)','(r)')
  .replaceAll('(total:number,r:any)','(total,r)');
-let currentPspOrder,calledRpcs=[];
+let currentPspOrder,calledRpcs=[],providerRpcResult={};
 const invoiceForWebhook={id:'invoice-1',status:'paid',sale_price_cents:1500};
-const mockAdmin={rpc:async(name)=>{calledRpcs.push(name);return {data:{},error:null};}};
+const mockAdmin={rpc:async(name)=>{
+ calledRpcs.push(name);return {data:providerRpcResult,error:null};
+}};
 const webhookSandbox=vm.createContext({
   String,Number,Array,Date,
   mercadoPagoConfigured:()=>true,
@@ -248,8 +250,22 @@ for(const state of ['refunded','partially_refunded','charged_back',
  assert.equal(result.status,'review_required');
 }
 const validRefund=[{id:'refund-1',status:'processed',amount:'15.00'}];
-assert.equal((await decide('refunded','processed',validRefund)).route,
- 'clube_coupon_paid_payment_refund','verified full refund may close the invoice');
+providerRpcResult={ok:true,refunded:true,replayed:false};
+const completedRefund=await decide('refunded','processed',validRefund);
+assert.equal(completedRefund.route,'clube_coupon_paid_payment_refund',
+ 'verified full refund may call the existing SQL refund RPC');
+assert.equal(completedRefund.status,'refunded',
+ 'clean reconciled full refund is reported as completed');
+providerRpcResult={ok:false,refunded:false,reviewRequired:true};
+const heldRefund=await decide('refunded','processed',validRefund);
+assert.equal(heldRefund.route,'clube_coupon_paid_payment_refund');
+assert.equal(heldRefund.status,'review_required',
+ 'PSP full refund is NOT financially closed if SQL finds a reserved/redeemed coupon');
+providerRpcResult={ok:true,refunded:true,replayed:true};
+const idempotentRefund=await decide('refunded','processed',validRefund);
+assert.equal(idempotentRefund.status,'refunded',
+ 'already-settled clean full refund stays idempotent');
+providerRpcResult={};
 for(const conflict of ['charged_back','partially_refunded','disputed']){
  assert.equal((await decide(conflict,'processed',validRefund)).route,
  'clube_coupon_paid_payment_review','refund amount cannot override contradictory PSP status');
