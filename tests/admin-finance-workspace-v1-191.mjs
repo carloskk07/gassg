@@ -111,4 +111,42 @@ assert.ok(css.includes('.admin-finance-areas'));
 assert.ok(css.includes('.admin-finance-area:focus-visible'));
 assert.ok(css.includes('@media(max-width:340px)'));
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-finance-workspace-v1-191.mjs'));
+// One renderer must never blank all authenticated Admin navigation.
+const errors=[],diagnostics={};
+const partContext=vm.createContext({
+  console:{error:(...args)=>errors.push(args)},
+  globalThis:diagnostics,
+  esc:s=>String(s).replaceAll('<','&lt;')
+});
+vm.runInContext(extract('adminFinanceRenderPart')+
+  '\nthis.part=adminFinanceRenderPart;',partContext);
+assert.equal(partContext.part('Resumo financeiro',()=>'<section>R$ 0,00</section>'),
+  '<section>R$ 0,00</section>');
+const fallback=partContext.part('Laboratório',()=>{throw new TypeError('Falha local')});
+assert.ok(fallback.includes('Laboratório indisponível'));
+assert.ok(fallback.includes('demais áreas continuam acessíveis'));
+assert.equal(diagnostics.__lastFinanceRenderError.area,'Laboratório');
+assert.equal(diagnostics.__lastFinanceRenderError.type,'TypeError');
+assert.equal(errors.length,1);
+for(const [name,call] of [
+  ['Resumo financeiro','adminFinanceOverview(d)'],
+  ['Controle gerencial','adminFinanceManagementView(d)'],
+  ['Histórico financeiro','adminFinanceHistoryView()'],
+  ['Financeiro por revenda','adminMerchantFinanceView()'],
+  ['Pagamentos interrompidos','adminInterruptedSalePaymentWatch(d)'],
+  ['Cobranças','adminMerchantBillingSection(d)'],
+  ['Laboratório','adminFinanceLabView(d)'],
+  ['Política comercial','adminCommercialPolicySection(d)'],
+  ['Benefícios da Rede','adminGrowthBenefitPreviewView()'],
+  ['Prévia de cupons','adminClubeCouponPreviewView()'],
+  ['Clube financeiro','adminClubeFinanceView()'],
+  ['Navegação financeira','adminFinanceWorkspaceNav()'],
+  ['Prioridades financeiras','adminFinanceDailyPrioritiesView(d)'],
+  ['Fila financeira','adminFinanceTriageView(d)']
+]){
+  assert.ok(src.includes("adminFinanceRenderPart('"+name+"',()=>"+call+")"),
+    'The finance renderer must be isolated: '+name);
+}
+assert.ok(!src.includes('adminFinanceRenderPart('+"\x27"+'Cobranças'+"\x27"+',()=>adminPerform('),
+  'Panel rendering must not create a financial transaction');
 console.log('V1.191 passed: four workspaces, RBAC, navigation focus, no financial changes, retained content, mobile layout.');

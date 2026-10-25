@@ -75,7 +75,7 @@ assert.ok(html.includes('R$ 5,00'));
 assert.ok(html.includes('R$ 2,00'));
 assert.ok(!html.includes('R$ 9.100,00'),'Do not blend merchant sales into platform receipts');
 assert.ok(!html.includes('R$ 500,00'),'Pending payments are not confirmed receipts');
-assert.ok(source.includes('    $'+'{adminFinanceManagementView(d)}'));
+assert.ok(source.includes("adminFinanceRenderPart('Controle gerencial',()=>adminFinanceManagementView(d))"));
 assert.ok(!html.includes('onclick='),'Management summary must stay read-only');
 const withoutMetrics={...d,businessMetrics:null,merchantBilling:{...d.merchantBilling,metrics:null,reconciliation:null}};
 const missing=ctx.snapshot(withoutMetrics);

@@ -58,7 +58,7 @@ assert.match(edge,/unavailableVoucherCount:bounded\?null:unavailableVouchers/);
 assert.match(edge,/financialIntegrityRisk:bounded\?null:unbackedConsumption>0/);
 assert.match(edge,/coverage:bounded\|\|failedSettlement>0\|\|unbackedConsumption>0/);
 assert.match(edge,/salesEnabled:Deno\.env\.get\("CLUBE_COUPON_PAID_SALES_ENABLED"\)==="true"/);
-assert.match(admin,/\$\{adminClubeFinanceView\(\)\}/);
+assert.match(admin,/\$\{adminFinanceRenderPart\('Clube financeiro',\(\)=>adminClubeFinanceView\(\)\)\}/);
 const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);

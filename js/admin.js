@@ -5002,6 +5002,15 @@ function adminFinanceLabView(d){
   </section>`;
 }
 
+function adminFinanceRenderPart(name,renderPart){
+  try{return renderPart()}
+  catch(error){
+    console.error('Falha no Financeiro: '+name,error);
+    globalThis.__lastFinanceRenderError={area:name,type:String(error?.name||'Error')};
+    return '<section class="section"><div class="notice danger"><strong>'+esc(name)+
+      ' indisponível.</strong> As demais áreas continuam acessíveis. Verifique o diagnóstico no console.</div></section>';
+  }
+}
 function adminFinanceWorkspaceCurrent(){
   const selected=String(adminRuntime.financeWorkspace||'summary');
   return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)
@@ -7879,14 +7888,14 @@ function adminPage(){
   // Only the selected finance workspace is assembled and retained.
   const financeSelection=sectionActive('finance')?adminFinanceWorkspaceCurrent():'summary';
   const financeSummaryContent=(sectionActive('finance')&&financeSelection==='summary')?(`
-    ${adminFinanceOverview(d)}
-    ${adminFinanceManagementView(d)}
-    ${adminFinanceHistoryView()}
-    ${adminMerchantFinanceView()}
+    ${adminFinanceRenderPart('Resumo financeiro',()=>adminFinanceOverview(d))}
+    ${adminFinanceRenderPart('Controle gerencial',()=>adminFinanceManagementView(d))}
+    ${adminFinanceRenderPart('Histórico financeiro',()=>adminFinanceHistoryView())}
+    ${adminFinanceRenderPart('Financeiro por revenda',()=>adminMerchantFinanceView())}
 `):'';
   const financeBillingContent=(sectionActive('finance')&&financeSelection==='billing')?(`
-    ${adminInterruptedSalePaymentWatch(d)}
-    ${adminMerchantBillingSection(d)}
+    ${adminFinanceRenderPart('Pagamentos interrompidos',()=>adminInterruptedSalePaymentWatch(d))}
+    ${adminFinanceRenderPart('Cobranças',()=>adminMerchantBillingSection(d))}
 `):'';
   const financeReconciliationContent=(sectionActive('finance')&&financeSelection==='reconciliation')?(`
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
@@ -7899,23 +7908,23 @@ function adminPage(){
     </section>
 `):'';
   const financePolicyContent=(sectionActive('finance')&&financeSelection==='policy')?(`
-    ${adminCommercialPolicySection(d)}
-    ${adminGrowthBenefitPreviewView()}
-    ${adminClubeCouponPreviewView()}
-    ${adminClubeFinanceView()}
+    ${adminFinanceRenderPart('Política comercial',()=>adminCommercialPolicySection(d))}
+    ${adminFinanceRenderPart('Benefícios da Rede',()=>adminGrowthBenefitPreviewView())}
+    ${adminFinanceRenderPart('Prévia de cupons',()=>adminClubeCouponPreviewView())}
+    ${adminFinanceRenderPart('Clube financeiro',()=>adminClubeFinanceView())}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
 `):'';
   const financeAreas={
     summary:financeSummaryContent,
     billing:financeBillingContent,
-    lab:sectionActive('finance')&&financeSelection==='lab'?adminFinanceLabView(d):'',
+    lab:sectionActive('finance')&&financeSelection==='lab'?adminFinanceRenderPart('Laboratório',()=>adminFinanceLabView(d)):'',
     reconciliation:financeReconciliationContent,
     policy:financePolicyContent
   };
   const financeContent=(sectionActive('finance'))?(`
-    ${adminFinanceWorkspaceNav()}
-    ${adminFinanceDailyPrioritiesView(d)}
-    ${adminFinanceTriageView(d)}
+    ${adminFinanceRenderPart('Navegação financeira',()=>adminFinanceWorkspaceNav())}
+    ${adminFinanceRenderPart('Prioridades financeiras',()=>adminFinanceDailyPrioritiesView(d))}
+    ${adminFinanceRenderPart('Fila financeira',()=>adminFinanceTriageView(d))}
     <div id='admin-finance-workspace-panel' class='admin-finance-workspace-panel'
       aria-label='Área financeira selecionada'>
       ${financeAreas[financeSelection]}

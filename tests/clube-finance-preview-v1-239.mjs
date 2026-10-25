@@ -39,7 +39,7 @@ assert.ok(edge.includes('data?.sponsorVerified!==false'));
 assert.ok(edge.includes('data?.noCouponIssued!==true'));
 assert.ok(ui.includes('function adminClubeCouponPreviewView()'));
 assert.ok(ui.includes('async function adminClubeCouponPreviewFromUi()'));
-assert.ok(ui.includes('${adminClubeCouponPreviewView()}'));
+assert.ok(ui.includes("adminFinanceRenderPart('Prévia de cupons',()=>adminClubeCouponPreviewView())"));
 assert.ok(ui.includes("identity===String(adminRuntime.session?.user?.id||'')"));
 assert.ok(boot.includes('adminClubeCouponPreviewFromUi'));
 assert.ok(ci.includes('node tests/clube-finance-preview-v1-239.mjs'));
