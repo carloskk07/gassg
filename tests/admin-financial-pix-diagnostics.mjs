@@ -198,8 +198,34 @@ providerOrder={...providerOrder,status:'processed',transactions:{
   payments:[{...providerOrder.transactions.payments[0],status:'processed'}]}};
 const processed=await pctx.verify(providerDb,'test-admin-actor',{chargeId:id});
 assert.equal(processed.providerProcessed,true);
+assert.equal(processed.providerAdverseState,false);
 assert.equal(processed.settlementVerified,false);
 assert.match(processed.nextStep,/conciliação/);
+// Financially contradictory PSP responses are NOT proof of completed payment.
+// A partially refunded order may retain a previously processed transaction.
+const consistent=structuredClone(providerOrder);
+const consistentPayment=consistent.transactions.payments[0];
+for(const [name,inconsistent,adverse] of [
+  ['order still pending',{...consistent,status:'action_required'},false],
+  ['Pix still pending',{...consistent,transactions:{payments:[
+    {...consistentPayment,status:'action_required'}]}},false],
+  ['order refunded',{...consistent,status:'refunded'},true],
+  ['Pix refunded',{...consistent,transactions:{payments:[
+    {...consistentPayment,status:'refunded'}]}},true],
+  ['order partially refunded',{...consistent,status_detail:'partially_refunded'},true],
+  ['Pix chargeback',{...consistent,transactions:{payments:[
+    {...consistentPayment,status_detail:'charged_back'}]}},true]
+]){
+  providerOrder=inconsistent;
+  const checked=await pctx.verify(providerDb,'test-admin-actor',{chargeId:id});
+  assert.equal(checked.providerProcessed,false,name+' must not be called processed');
+  assert.equal(checked.providerAdverseState,adverse,name+' adverse state');
+  assert.equal(checked.settlementVerified,false);
+  assert.equal(checked.creditIssued,false);
+  assert.equal(checked.financialActionTaken,false);
+  if(adverse)assert.match(checked.nextStep,/Investigar/,name);
+}
+providerOrder=consistent;
 for(const tampered of [
  {...providerOrder,external_reference:'other-request'},
  {...providerOrder,total_amount:'1000.00'},
