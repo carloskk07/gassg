@@ -1,0 +1,98 @@
+{
+  "brand": "TAMÃO",
+  "origin": "Supabase Auth Email Templates — hosted dashboard (not auto-applied by GitHub)",
+  "source": "https://supabase.com/dashboard/project/lgugwujpunhslavewffd/auth/templates",
+  "templates": [
+    {
+      "slug": "magic-link-or-otp",
+      "subject": "TAMÃO | Seu link de acesso",
+      "type": "auth",
+      "file": "magic-link-or-otp.html",
+      "requiredVariable": "{{ .ConfirmationURL }}"
+    },
+    {
+      "slug": "confirm-sign-up",
+      "subject": "TAMÃO | Confirme seu cadastro",
+      "type": "auth",
+      "file": "confirm-sign-up.html",
+      "requiredVariable": "{{ .ConfirmationURL }}"
+    },
+    {
+      "slug": "invite-user",
+      "subject": "TAMÃO | Você recebeu um convite",
+      "type": "auth",
+      "file": "invite-user.html",
+      "requiredVariable": "{{ .ConfirmationURL }}"
+    },
+    {
+      "slug": "reset-password",
+      "subject": "TAMÃO | Redefina sua senha",
+      "type": "auth",
+      "file": "reset-password.html",
+      "requiredVariable": "{{ .ConfirmationURL }}"
+    },
+    {
+      "slug": "change-email-address",
+      "subject": "TAMÃO | Confirme a troca de e-mail",
+      "type": "auth",
+      "file": "change-email-address.html",
+      "requiredVariable": "{{ .ConfirmationURL }}"
+    },
+    {
+      "slug": "reauthentication",
+      "subject": "TAMÃO | Código de verificação",
+      "type": "auth",
+      "file": "reauthentication.html",
+      "requiredVariable": "{{ .Token }}"
+    },
+    {
+      "slug": "password-changed",
+      "subject": "TAMÃO | Sua senha foi alterada",
+      "type": "notification",
+      "file": "password-changed.html",
+      "requiredVariable": null
+    },
+    {
+      "slug": "email-address-changed",
+      "subject": "TAMÃO | Seu e-mail foi alterado",
+      "type": "notification",
+      "file": "email-address-changed.html",
+      "requiredVariable": null
+    },
+    {
+      "slug": "phone-number-changed",
+      "subject": "TAMÃO | Seu telefone foi alterado",
+      "type": "notification",
+      "file": "phone-number-changed.html",
+      "requiredVariable": null
+    },
+    {
+      "slug": "sign-in-method-linked",
+      "subject": "TAMÃO | Novo método de acesso vinculado",
+      "type": "notification",
+      "file": "sign-in-method-linked.html",
+      "requiredVariable": null
+    },
+    {
+      "slug": "sign-in-method-removed",
+      "subject": "TAMÃO | Método de acesso removido",
+      "type": "notification",
+      "file": "sign-in-method-removed.html",
+      "requiredVariable": null
+    },
+    {
+      "slug": "mfa-method-added",
+      "subject": "TAMÃO | Verificação de segurança ativada",
+      "type": "notification",
+      "file": "mfa-method-added.html",
+      "requiredVariable": null
+    },
+    {
+      "slug": "mfa-method-removed",
+      "subject": "TAMÃO | Verificação de segurança removida",
+      "type": "notification",
+      "file": "mfa-method-removed.html",
+      "requiredVariable": null
+    }
+  ]
+}
