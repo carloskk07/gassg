@@ -23,7 +23,7 @@ on:
       - 'tests/coupon-package-draft-admin-postgres-17.sql'
       - 'supabase/migrations/20261024185000_coupon_external_payment_single_use.sql'
       - 'supabase/migrations/20261024191700_coupon_reservation_net_proceeds_guard.sql'
-      - 'supabase/migrations/20261024224500_coupon_refund_review_replay_guard.sql'
+      - 'supabase/migrations/20261025015437_coupon_refund_review_replay_guard.sql'
       - 'tests/coupon-payment-identity-unique-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   push:
@@ -42,7 +42,7 @@ on:
       - 'tests/coupon-package-draft-admin-postgres-17.sql'
       - 'supabase/migrations/20261024185000_coupon_external_payment_single_use.sql'
       - 'supabase/migrations/20261024191700_coupon_reservation_net_proceeds_guard.sql'
-      - 'supabase/migrations/20261024224500_coupon_refund_review_replay_guard.sql'
+      - 'supabase/migrations/20261025015437_coupon_refund_review_replay_guard.sql'
       - 'tests/coupon-payment-identity-unique-postgres-17.sql'
       - '.github/workflows/discovery-schema-test.yml'
   workflow_dispatch:
@@ -110,5 +110,5 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024160000_clube_coupon_paid_package_draft_admin.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-package-draft-admin-postgres-17.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024185000_coupon_external_payment_single_use.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261024224500_coupon_refund_review_replay_guard.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025015437_coupon_refund_review_replay_guard.sql
           psql -v ON_ERROR_STOP=1 -f tests/coupon-payment-identity-unique-postgres-17.sql
