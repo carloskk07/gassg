@@ -812,21 +812,36 @@ async function adminFinanceLabVerifyProviderCharge(admin:any,actorId:string,body
   }
   const providerOrderStatus=String(order.status??"unknown").slice(0,60);
   const providerPaymentStatus=String(payment.status??"unknown").slice(0,60);
-  const processed=providerOrderStatus.toLowerCase()==="processed"
-    ||providerPaymentStatus.toLowerCase()==="processed";
+  const providerOrderStatusDetail=String(order.status_detail??"").slice(0,80);
+  const providerPaymentStatusDetail=String(payment.status_detail??"").slice(0,80);
+  // An order and its Pix transaction must agree. A refunded/charged-back or
+  // partially-refunded order must never be described as fully processed simply
+  // because one nested transaction retains its old "processed" status.
+  const adverseStates=new Set(["refunded","partially_refunded","charged_back",
+    "canceled","cancelled","failed","expired"]);
+  const providerAdverseState=[
+    providerOrderStatus,providerPaymentStatus,
+    providerOrderStatusDetail,providerPaymentStatusDetail
+  ].some(value=>adverseStates.has(value.toLowerCase()));
+  const processed=!providerAdverseState
+    &&providerOrderStatus.toLowerCase()==="processed"
+    &&providerPaymentStatus.toLowerCase()==="processed";
   return {
     ok:true,source:"mercadopago_order_lookup_v1",readOnly:true,
     chargeId,provider:"mercadopago",checkedAt:new Date().toISOString(),
     localChargeStatus:String(charge.status??"unknown").slice(0,40),
     localRequestStatus:String(request.status??"unknown").slice(0,40),
     providerOrderStatus,providerPaymentStatus,
-    providerProcessed:processed,
+    providerOrderStatusDetail,providerPaymentStatusDetail,
+    providerProcessed:processed,providerAdverseState,
     identifiersAndAmountMatched:true,
     // Provider state alone is NOT an account statement, webhook or payout.
     settlementVerified:false,creditIssued:false,financialActionTaken:false,
-    nextStep:processed
-      ?"Conferir webhook, recebimento e conciliação antes de qualquer crédito."
-      :"Aguardar o provedor; não reutilizar Pix vencido nem antecipar crédito."
+    nextStep:providerAdverseState
+      ?"Há falha, cancelamento, devolução ou contestação no PSP. Investigar antes de qualquer crédito."
+      :processed
+        ?"Conferir webhook, recebimento e conciliação antes de qualquer crédito."
+        :"Aguardar confirmação consistente da ordem e do Pix; não antecipar crédito."
   };
 }
 
