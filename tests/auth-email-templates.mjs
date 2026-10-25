@@ -29,7 +29,7 @@ for(const t of templates){
   assert.ok(variables.every(v=>['ConfirmationURL','Token','NewEmail','OldEmail','Provider','FactorType'].includes(v)),
     'Only documented Go template variables: '+t.slug);
   if(t.requiredVariable){
-    const variable=RegExp('\\{\\{\\s*\\.'+t.requiredVariable.match(/[A-Za-z]+$/)[0]+'\\s*\\}\\}','g');
+    const variable=RegExp('\\{\\{\\s*\\.'+(/\.\s*([A-Za-z]+)\s*\}\}/.exec(t.requiredVariable)||[])[1]+'\\s*\\}\\}','g');
     assert.equal((html.match(variable)||[]).length,1,'Exactly one intended variable: '+t.slug);
   }
   if(t.type==='auth'&&t.slug!=='reauthentication'){
