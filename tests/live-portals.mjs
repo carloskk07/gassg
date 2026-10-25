@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
+import vm from 'node:vm';
 import path from 'node:path';
 import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
@@ -122,6 +123,25 @@ for(const {role,path:dir} of built){
   const bootstrap=fs.readFileSync(path.join(dir,'js','bootstrap.js'),'utf8');
   assert.ok(bootstrap.includes("typeof adminPage==='function'"),'Bootstrap needs optional admin references');
   if(role==='admin'){
+    // Execute the actual released bootstrap render against the dedicated
+    // admin role. Missing customer-only route functions must never blank it.
+    const renderCode=bootstrap.match(/let renderLock=false;[\s\S]*?(?=\nwindow\.addEventListener\('hashchange')/);
+    assert.ok(renderCode,'Admin render function must exist in release');
+    const app={innerHTML:''};
+    const context={
+      globalThis:{CHAMA_PORTAL_ROLE:'admin'},
+      document:{querySelector(selector){assert.equal(selector,'#app');return app}},
+      adminPage(){return '<section>Admin principal carregado</section>'},
+      console:{error(error){throw new Error('Unexpected admin render error: '+error)}}
+    };
+    vm.runInNewContext(renderCode[0]+'\nrender();',context,{timeout:1000});
+    assert.equal(app.innerHTML,'<section>Admin principal carregado</section>',
+      'Admin must render even without customer, merchant or discovery functions');
+    // Missing admin script is an explicit protected-module error, not a
+    // fallback into an unrelated public page on the privileged hostname.
+    delete context.adminPage;
+    vm.runInNewContext(renderCode[0]+'\nrender();',context,{timeout:1000});
+    assert.match(app.innerHTML,/Administração indisponível/);
     const adminSource=fs.readFileSync(path.join(dir,'js','admin.js'),'utf8');
     assert.match(adminSource,/adminActivationLoadOnDemand\(\)/);
     assert.match(adminSource,/adminActivationModuleUrl/);
