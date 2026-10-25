@@ -175,7 +175,19 @@ function render(){
   if(renderLock)return;
   renderLock=true;
   try{
-    if(!globalThis.adminPortalRequested?.())housekeeping();
+    // The admin release is a dedicated origin. Do not construct unrelated
+    // customer/merchant route handlers before choosing its protected page:
+    // one missing optional public script must not blank the control plane.
+    const adminRequested=String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()==='admin'
+      ||globalThis.adminPortalRequested?.()===true;
+    if(adminRequested){
+      const app=document.querySelector('#app');
+      if(app)app.innerHTML=typeof adminPage==='function'
+        ?adminPage()
+        :'<main class="shell page"><div class="notice danger"><strong>Administração indisponível.</strong> Recarregue a página para carregar o módulo administrativo.</div></main>';
+      return;
+    }
+    housekeeping();
     // An OTP response can temporarily contain #access_token=... in place of
     // #advertise. Keep the advertiser workspace visible, not the home/menu,
     // while its lazy SDK safely finishes the auth callback.
