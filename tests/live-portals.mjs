@@ -123,6 +123,32 @@ for(const {role,path:dir} of built){
   const bootstrap=fs.readFileSync(path.join(dir,'js','bootstrap.js'),'utf8');
   assert.ok(bootstrap.includes("typeof adminPage==='function'"),'Bootstrap needs optional admin references');
   if(role==='admin'){
+    // DOM readiness must paint the protected Admin immediately, without
+    // waiting for a CDN SDK, auth network, images or the window load event.
+    const startupCode=bootstrap.match(/window\.addEventListener\('DOMContentLoaded',\(\)=>\{[\s\S]*?\n\}\);/);
+    assert.ok(startupCode,'Admin DOM startup hook must exist');
+    let fireDomReady,renderCount=0,initCount=0,redirectedTo='';
+    let completeAuth;
+    const pendingAuth=new Promise(resolve=>{completeAuth=resolve});
+    const startupContext={
+      window:{addEventListener:(_type,callback)=>{fireDomReady=callback}},
+      globalThis:{adminPortalRequested:()=>true},
+      adminBackendInit:()=>{initCount++;return pendingAuth},
+      route:()=> 'home',
+      go:route=>{redirectedTo=route},
+      render:()=>{renderCount++}
+    };
+    vm.runInNewContext(startupCode[0],startupContext,{timeout:1000});
+    fireDomReady();
+    assert.equal(initCount,1,'Admin auth must start once on DOM ready');
+    assert.equal(redirectedTo,'admin','Admin route must be selected');
+    assert.equal(renderCount,1,'Admin must paint before authentication settles');
+    completeAuth(false);
+    await pendingAuth;
+    await Promise.resolve();
+    assert.equal(renderCount,2,'Admin must paint the authenticated or error result');
+    assert.equal((bootstrap.match(/adminBackendInit\(\)/g)||[]).length,1,
+      'Window load must not launch a second Admin authentication');
     // Execute the actual released bootstrap render against the dedicated
     // admin role. Missing customer-only route functions must never blank it.
     const renderCode=bootstrap.match(/let renderLock=false;[\s\S]*?(?=\nwindow\.addEventListener\('hashchange')/);
