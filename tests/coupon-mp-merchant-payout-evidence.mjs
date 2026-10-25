@@ -101,7 +101,7 @@ for(const [overrides,reason] of [
 // Assert production wiring: finance permission, GET-only PSP, rate limit,
 // invoice + reimbursement + application from trusted service-role DB, and
 // no override to a verified beneficiary or privileged financial write.
-assert.ok(admin.includes('import {couponMerchantPayoutEvidence} from "./coupon-merchant-payout-evidence.js";'));
+assert.ok(admin.includes('import {couponMerchantPayoutEvidence,couponMerchantRecipientReadiness} from "./coupon-merchant-payout-evidence.js";'));
 assert.ok(admin.includes('"clube-coupon-mp-payout-inspect"'));
 const i=admin.indexOf('if(action==="clube-coupon-mp-payout-inspect"){');
 const e=admin.indexOf('if(action==="clube-coupon-mp-release-inspect"||',i);
