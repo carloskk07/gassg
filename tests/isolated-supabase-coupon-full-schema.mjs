@@ -209,27 +209,31 @@ const due=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("
 assert.equal(due.status,'MERCHANT_REIMBURSEMENT_DUE');
 assert.equal(due.merchantReimbursementCents,amounts.cashback);
 assert.equal(due.merchantExternalSettlementVerified,false);
-const finance=JSON.parse(sql("SELECT public.admin_financial_action("+
- q(admin)+"::uuid,'cashback_reimbursement',"+q(orderRef)+
- "::uuid,'paid','CI-INTERNAL-ACCOUNTING-NOT-BANK-PROOF')::text;"));
-assert.equal(finance.ok,true);
-assert.equal(finance.item.status,'paid');
-const unverified=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
- q(orderRef)+"::uuid)::text;"));
-assert.equal(unverified.status,'MERCHANT_PAYOUT_UNVERIFIED',
- 'internal paid status must not be reported as external cash transfer');
-assert.equal(unverified.merchantExternalSettlementVerified,false);
-assert.equal(sql("SELECT count(*) FROM public.platform_admin_audit WHERE "+
- "target_id="+q(orderRef)+" AND action='financial_paid' AND "+
- "target_type='cashback_reimbursement'"),'1');
+// This used to accept an internal "paid" entry without beneficiary proof.
+ // A coupon-backed liability must now remain OPEN, even for superadmin/RPC.
 expectDenied("SELECT public.admin_financial_action("+
  q(admin)+"::uuid,'cashback_reimbursement',"+q(orderRef)+
- "::uuid,'paid','CI-REPLAY-CANNOT-PAY-AGAIN')::text;",'FINANCIAL_ITEM_NOT_OPEN');
+ "::uuid,'paid','CI-INTERNAL-ACCOUNTING-NOT-BANK-PROOF')::text;",
+ 'COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED');
+const stillDue=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)::text;"));
+assert.equal(stillDue.status,'MERCHANT_REIMBURSEMENT_DUE',
+ 'manual reference must not discharge coupon merchant debt');
+assert.equal(stillDue.merchantExternalSettlementVerified,false);
+assert.equal(sql("SELECT status FROM public.merchant_cashback_reimbursements WHERE "+
+ "order_id="+q(orderRef)+"::uuid"),'open');
+assert.equal(sql("SELECT count(*) FROM public.platform_admin_audit WHERE "+
+ "target_id="+q(orderRef)+" AND action='financial_paid' AND "+
+ "target_type='cashback_reimbursement'"),'0');
+expectDenied("SELECT public.admin_financial_action("+
+ q(admin)+"::uuid,'cashback_reimbursement',"+q(orderRef)+
+ "::uuid,'paid','CI-REPLAY-CANNOT-PAY-AGAIN')::text;",
+ 'COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED');
 assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements WHERE "+
  "order_id="+q(orderRef)+"::uuid"),'1');
 assert.equal(sql("SELECT count(*) FROM public.platform_referral_payout_proofs_v1_264"),'0',
  'merchant administrative bookkeeping cannot mint third-party bank payout proof');
-console.log('PASS: real coupon order accepted, delivered with PIN and internally settled; merchant reimbursement due -> internal paid -> payout UNVERIFIED; no bank claim.');
+console.log('PASS: real coupon settlement creates merchant liability; manual paid/replay DENIED, due remains OPEN, no bank claim.');
 const refund=JSON.parse(sql("SELECT public.clube_coupon_paid_payment_refund("+
  q(invoice)+"::uuid,"+q(providerOrder)+")::text;"));
 assert.equal(refund.reviewRequired,true);
