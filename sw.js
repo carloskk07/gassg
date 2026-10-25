@@ -23,6 +23,12 @@ async function networkFirst(req,cacheKey=req){
   }
 }
 
+async function versionedAssetCacheFirst(req){
+  const cache=await caches.open(CACHE);
+  const saved=await cache.match(req);
+  return saved||networkFirst(req);
+}
+
 async function navigationNetworkFirst(req){
   const cache=await caches.open(CACHE);
   try{
@@ -52,6 +58,14 @@ self.addEventListener('fetch',event=>{
   if(url.origin!==self.location.origin){event.respondWith(fetch(req));return}
   if(req.mode==='navigate'){
     event.respondWith(navigationNetworkFirst(req));
+    return;
+  }
+  // Release build pins all static assets to its source SHA. Serve a matching
+  // installed snapshot immediately on repeated visits; network-first remains
+  // mandatory for HTML, unversioned URLs and dynamic runtime configuration.
+  if(url.searchParams.has('v')&&/^\/(?:js|css)\/[A-Za-z0-9._/-]+$/.test(url.pathname)
+    &&url.pathname!=='/js/runtime-config.js'){
+    event.respondWith(versionedAssetCacheFirst(req));
     return;
   }
   event.respondWith(networkFirst(req));
