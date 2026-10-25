@@ -175,10 +175,13 @@ function render(){
   if(renderLock)return;
   renderLock=true;
   try{
-    if(!globalThis.adminPortalRequested?.())housekeeping();
-    // An OTP response can temporarily contain #access_token=... in place of
-    // #advertise. Keep the advertiser workspace visible, not the home/menu,
-    // while its lazy SDK safely finishes the auth callback.
+    if(globalThis.CHAMA_PORTAL_ROLE==='admin'||globalThis.adminPortalRequested?.()){
+      const app=document.querySelector('#app');
+      if(app)app.innerHTML=typeof adminPage==='function'?adminPage():
+        '<main class="shell page"><div class="notice danger">Administração indisponível. Recarregue a página.</div></main>';
+      return;
+    }
+    housekeeping();
     const r=discoveryOwnerReturnPending()?'advertise':
       mobilityReturnIntent()?'mobility':route();
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
@@ -237,9 +240,6 @@ window.addEventListener('load',async()=>{
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
     const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.());
-    // A new revenda may have no invite: resume its actual signup after the
-    // OTP callback instead of stranding the owner on the generic login panel.
-    // This only changes navigation; it never grants merchant permissions.
     const returningToSignup=new URLSearchParams(location.search).get('signup')==='1';
     if((invitedPartner||returningToSignup)&&globalThis.merchantRuntime?.status==='no-access'){
       if(route()!=='merchant-join')go('merchant-join');
@@ -278,9 +278,6 @@ Object.assign(window,{
   go,setMode,openSponsorContact,publicLandingJump,startOrder,quickProduct,homeChooseProduct,startHomeBrowse,homeFilterProducts,homeDiscoverFocus,buyerCartFilter,customerCheckoutFocusStep,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
   confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,shareTamaoGrowthInvite,activateCashAccount,joinMerchant,merchantPickOwnApplicationFromUi,reset,homeRefreshQuotePrices
 });
-// The customer portal must not resolve partner function identifiers while
-// registering inline event handlers. Partner/admin portals keep their full
-// existing action set and route map.
 if(typeof merchantPage==='function')Object.assign(window,{
   selectMerchant,toggleOnline,merchantUpdate,merchantAction,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,merchantWorkspaceJump,
@@ -293,8 +290,6 @@ if(typeof merchantPage==='function')Object.assign(window,{
   merchantClubeTermsLoadFromUi,merchantClubeTermsReplyFromUi,
   merchantLiveLogout
 });
-// Admin modules are deliberately absent from the customer/merchant bundles.
-// Never evaluate admin-only callback identifiers on those origins.
 if(typeof adminPage==='function')Object.assign(window,{
   adminLoginFromUi,adminRetryBootstrapFromUi,adminRefresh,adminSignOut,adminFinanceLabPreviewFromUi,adminFinanceLabSandboxPixFromUi,adminFinanceLabCopySandboxPixFromUi,adminFinanceLabReadinessFromUi,adminFinanceLabCheckOrderFromUi,adminFinanceLabDiagnoseChargesFromUi,adminFinanceLabVerifyProviderFromUi,adminSetFinanceWorkspace,adminCheckBillingProviderHealth,adminLoadGovernanceGates,adminGovernanceChangeCityPause,adminGovernanceChangeCityCommerce,adminPushReliabilityLoadFromUi,adminApproveApplication,adminRejectApplication,adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder,adminGrowthBenefitPreviewFromUi,adminClubeCouponPreviewFromUi,adminClubeLaunchReadinessLoadFromUi,adminClubeInterestLoadFromUi,adminClubeCampaignLoadFromUi,adminClubeCampaignReviewFromUi,adminClubeTermsLoadFromUi,adminClubeTermsSaveFromUi,adminOwnerFundingLoadFromUi,adminOwnerFundingSaveFromUi,adminOwnerEvidenceLoadFromUi,adminOwnerEvidenceSubmitFromUi,adminOwnerEvidenceReviewFromUi,adminOwnerBudgetLoadFromUi,adminOwnerBudgetAllocateFromUi,adminOwnerBudgetReleaseFromUi,
   ...(typeof adminOwnerFinanceLoadFromUi==='function'?{
