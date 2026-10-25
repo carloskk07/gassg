@@ -215,7 +215,7 @@ let portalResults=await probePortals();
 if(REQUIRE_LIVE_PORTALS&&EXPECTED_SOURCE_SHA){
   const propagationAttempts=Math.max(
     7,
-    Math.min(30,Number(process.env.TAMAO_PORTAL_PROPAGATION_ATTEMPTS||25)||25)
+    Math.min(60,Number(process.env.TAMAO_PORTAL_PROPAGATION_ATTEMPTS||25)||25)
   );
   for(let attempt=1;attempt<=propagationAttempts;attempt++){
     const expectedReady=portalResults.every(

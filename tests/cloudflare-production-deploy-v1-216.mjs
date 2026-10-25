@@ -6,6 +6,8 @@ const workflow=read('.github/workflows/cloudflare-production-deploy.yml');
 const builder=read('scripts/build-cloudflare-portal.mjs');
 const docs=read('CLOUDFLARE_PORTALS.md');
 const audit=read('.github/workflows/audit.yml');
+const readiness=read('.github/workflows/launch-readiness.yml');
+const remoteProbe=read('tests/remote-admin-readiness.mjs');
 
 assert.match(workflow,/name: TAMÃO Cloudflare official production deploy/);
 assert.match(workflow,/push:\s*\n\s*branches: \[main\]/);
@@ -55,6 +57,16 @@ assert.match(workflow,/NATIVE_PUBLISH_STATUS: \$\{\{ steps\.native-check\.outcom
 assert.match(workflow,/NATIVE_PUBLISH_STATUS.*==.*success/);
 assert.match(workflow,/alreadyCurrent=true/);
 assert.match(workflow,/No Cloudflare token or duplicate upload required/);
+// Native Cloudflare Git integration is primary. A slow auto-deploy must be
+// allowed to complete before optional GitHub API-secret fallback is discussed.
+assert.match(workflow,/TAMAO_PORTAL_PROPAGATION_ATTEMPTS: '49'/);
+assert.match(readiness,/TAMAO_PORTAL_PROPAGATION_ATTEMPTS: '49'/);
+assert.match(remoteProbe,/Math\.min\(60,Number\(process\.env\.TAMAO_PORTAL_PROPAGATION_ATTEMPTS/);
+assert.match(workflow,/Optional direct-upload fallback cannot run/);
+assert.match(workflow,/Check existing Pages builds and deploy status first/);
+assert.doesNotMatch(workflow,/::error::Cloudflare deployment credentials missing: set /);
+assert.match(workflow,/timeout-minutes: 14/);
+assert.match(readiness,/timeout-minutes: 14/);
 assert.match(workflow,/alreadyCurrent=false/);
 assert.match(workflow,/TAMAO_REQUIRE_LIVE_PORTALS: '1'/);
 assert.match(workflow,/TAMAO_EXPECTED_SOURCE_SHA: \$\{\{ github\.sha \}\}/);
