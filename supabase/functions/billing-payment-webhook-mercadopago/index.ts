@@ -563,6 +563,15 @@ async function handlePaidCouponOrder(
    status:reviewRequired?"review_required":"refunded",
    reviewRequired},200);
  }
+ // Never resurrect a previously refunded invoice or release a finance-review
+ // hold when a delayed provider replay reports "processed" with no reversal
+ // details. The reversal above still receives priority when fresh proof exists.
+ // The original signed Order ID/amount/Pix binding was checked above.
+ if(invoice.status==="review_required"||invoice.status==="refunded"){
+  return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+   status:invoice.status,reviewRequired:invoice.status==="review_required",
+   replayed:true},200);
+ }
  if(providerStatus==="processed"&&
     ["processed","accredited","approved"].includes(paymentStatus)){
   const {data,error}=await admin.rpc("clube_coupon_paid_payment_verify",{
