@@ -14,6 +14,16 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Checkpoint 25/10/2026 — identidade dos e-mails de autenticação (PR #645)
+
+**Evidência de partida:** Gmail recebeu e-mail de link seguro gerado pelo Supabase/Auth com o remetente `TAMÃO <contato@tamao.com.br>`, enviado via SendPulse `smtp-pulse.com`. O assunto e corpo do Magic link/OTP continuam no modelo inglês padrão do Supabase. O usuário autorizou padronizar os e-mails com a identidade TAMÃO em pt-BR. A infraestrutura de envio existente (SendPulse SMTP, Supabase Auth, domínio remetente) não deve ser duplicada ou substituída.
+
+**Implementação versionada, não publicação fictícia:** [PR #645](https://github.com/carloskk07/gassg/pull/645) adiciona `supabase/email-templates/`: **6 fluxos de autenticação e 7 notificações de segurança já existentes** na instalação hospedada; `manifest.json` documenta assunto em português, arquivo e variável oficial; cada HTML usa tabela responsiva, CSS inline, TAMÃO verde, marca e instruções claras sem recursos externos. Preserva link de uso único `{{ .ConfirmationURL }}` nos fluxos próprios, código `{{ .Token }}` somente em reautenticação e `{{ .NewEmail }}` / `{{ .OldEmail }}` / `{{ .Provider }}` / `{{ .FactorType }}` nas notificações certas. Testes `tests/auth-email-templates.mjs` incluídos no workflow `Audit`, sem tráfego real, sem escrever no banco, sem alterar segurança da autenticação.
+
+**Regra de conclusão:** os arquivos em GitHub **não alteram** templates Auth hospedados automaticamente. Os conectores disponíveis permitem GitHub e consulta Supabase, mas não fornecem operação de salvar os temas e a conexão Opera (leitura de abas, sem edição) estava indisponível durante a conferência. Não alegar que os e-mails dos usuários estão personalizados em produção sem salvar os modelos no painel autorizado `https://supabase.com/dashboard/project/lgugwujpunhslavewffd/auth/templates` e comprovar novo e-mail (assunto, conteúdo, uso único do link e remetente). Notificações de segurança existentes não devem ser ligadas sem decisão explícita. Guia de aplicação em `supabase/email-templates/README.md`. **Status:** fonte proposta/validada em CI; publicação no Auth e homologação de entrega pendentes.
+
+---
+
 ## Checkpoint 25/10/2026 — Admin lento, otimização e bloqueio de deploy (PRs #642–#643)
 
 **Evidência do incidente:** imagem do operador com `Não foi possível carregar o painel` / `A conexão demorou demais`; navegador usa timeout de 15 s. Consulta a 91 chamadas autenticadas `admin-ops` nas últimas 24 h: 200 HTTP, mediana **5.029 ms**, P95 **8.198 ms**, máximo **11.201 ms**. Não inferir PSP indisponível desses dados.
