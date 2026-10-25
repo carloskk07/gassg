@@ -78,4 +78,27 @@ assert.match(action,/mercadoPagoFetch\(/);
 assert.doesNotMatch(action,/(?:\.rpc\(|\.insert\(|\.update\(|\.delete\(|method:"POST")/);
 assert.ok(audit.includes('node tests/coupon-mp-merchant-payout-evidence.mjs'),
  'CI must not silently omit Payouts safety regression');
-console.log('PASS: MP payouts GET credited status vs merchant identity separation, amounts, refunds, mismatches and read-only admin route.');
+// No manual shortcut can mark a coupon-financed merchant reimbursement paid.
+// Both the exposed Admin Edge and the privileged RPC must fail closed.
+const settlementGuard=read('supabase/migrations/20261025130000_coupon_reimbursement_bank_proof_guard.sql');
+const cashbackBranch=settlementGuard.slice(
+  settlementGuard.indexOf("elsif p_kind='cashback_reimbursement' then"),
+  settlementGuard.indexOf("elsif p_kind='settlement_adjustment' then")
+);
+assert.match(cashbackBranch,/clube_coupon_paid_order_applications/);
+assert.match(cashbackBranch,/COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED/);
+assert.ok(cashbackBranch.indexOf('COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED')<
+ cashbackBranch.indexOf('update public.merchant_cashback_reimbursements'),
+ 'the bank proof guard must execute BEFORE setting cashback reimbursed as paid');
+assert.match(settlementGuard,/grant execute on function public\.admin_financial_action\(uuid,text,uuid,text,text\)\s+to service_role;/);
+assert.match(settlementGuard,/revoke all on function public\.admin_financial_action\(uuid,text,uuid,text,text\)\s+from public, anon, authenticated;/);
+const edgeFinancial=admin.slice(
+ admin.indexOf('}else if(action==="financial-action"){'),
+ admin.indexOf('}else if(action==="merchant-billing-action"){')
+);
+assert.match(edgeFinancial,/clube_coupon_paid_order_applications/);
+assert.match(edgeFinancial,/COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED/);
+assert.ok(edgeFinancial.indexOf('COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED')<
+ edgeFinancial.indexOf('payload={'), 'reject manual coupon paid before calling financial RPC');
+
+console.log('PASS: MP payouts GET credited status vs merchant identity separation, amounts, refunds, mismatches and read-only admin route plus coupon manual-settlement fail-closed.');

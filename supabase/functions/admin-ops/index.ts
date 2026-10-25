@@ -7386,6 +7386,19 @@ Deno.serve(async(req:Request)=>{
       if(!allowed[kind]?.includes(financialAction)){
         throw new DomainError("INVALID_FINANCIAL_ACTION","Ação financeira inválida.",400);
       }
+      // A manually supplied reference is NOT an external payment proof.
+      // The DB RPC independently enforces the same coupon-specific gate.
+      if(kind==="cashback_reimbursement"&&financialAction==="paid"){
+        const targetId=uuid(body.targetId,"target");
+        const {data:couponApplication,error:couponGuardError}=await admin
+          .from("clube_coupon_paid_order_applications")
+          .select("order_id")
+          .eq("order_id",targetId).maybeSingle();
+        if(couponGuardError)throw couponGuardError;
+        if(couponApplication)
+          throw new DomainError("COUPON_REIMBURSEMENT_EXTERNAL_PROOF_REQUIRED",
+            "Reembolso de cupom exige beneficiário verificado e prova externa de crédito. A referência manual não quita a revenda.",409);
+      }
       payload={
         kind,
         targetId:uuid(body.targetId,"target"),
