@@ -213,7 +213,7 @@ assert.doesNotMatch(ctx.mpPage(),/Selecionar fatura 88888888/,
  'An old user session must not expose the previous finance queue');
 // Exercise the actual Admin -> existing read-only PSP payout action, not a decorative form.
 assert.match(ctx.mpPage(),/Conferir crédito de repasse/);
-assert.match(ctx.mpPage(),/beneficiário/i);
+assert.match(ctx.mpPage(),/recebedor/i);
 await ctx.payoutQuery();
 assert.equal(payoutCalls,0,'invalid payout identifiers must not call the backend');
 assert.match(ctx.mpPage(),/UUID do pedido e IDs POP\/TOP válidos/);
