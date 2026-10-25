@@ -554,9 +554,14 @@ async function handlePaidCouponOrder(
    p_invoice_id:invoice.id,p_provider_order_id:dataId
   });
   if(error)throw error;
+  // A full provider refund can STILL require manual merchant compensation
+  // when a voucher was reserved/redeemed. Never tell the caller it is
+  // financially closed if the authoritative SQL RPC retained the review.
+  const reviewRequired=!fullRefund||data?.reviewRequired===true||
+    data?.ok===false||data?.refunded===false;
   return json({ok:true,route:"coupon_funding",provider:"mercadopago",
-   status:fullRefund?"refunded":"review_required",
-   reviewRequired:!fullRefund||data?.reviewRequired===true},200);
+   status:reviewRequired?"review_required":"refunded",
+   reviewRequired},200);
  }
  if(providerStatus==="processed"&&
     ["processed","accredited","approved"].includes(paymentStatus)){
