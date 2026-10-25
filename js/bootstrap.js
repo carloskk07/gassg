@@ -175,16 +175,10 @@ function render(){
   if(renderLock)return;
   renderLock=true;
   try{
-    // The admin release is a dedicated origin. Do not construct unrelated
-    // customer/merchant route handlers before choosing its protected page:
-    // one missing optional public script must not blank the control plane.
-    const adminRequested=String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()==='admin'
-      ||globalThis.adminPortalRequested?.()===true;
-    if(adminRequested){
+    if(globalThis.CHAMA_PORTAL_ROLE==='admin'||globalThis.adminPortalRequested?.()){
       const app=document.querySelector('#app');
-      if(app)app.innerHTML=typeof adminPage==='function'
-        ?adminPage()
-        :'<main class="shell page"><div class="notice danger"><strong>Administração indisponível.</strong> Recarregue a página para carregar o módulo administrativo.</div></main>';
+      if(app)app.innerHTML=typeof adminPage==='function'?adminPage():
+        '<main class="shell page"><div class="notice danger">Administração indisponível. Recarregue a página.</div></main>';
       return;
     }
     housekeeping();
