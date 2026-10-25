@@ -140,6 +140,8 @@ jobs:
         run: node tests/static-audit.mjs
       - name: Admin email provider refusal never claims successful delivery
         run: node tests/admin-auth-email-delivery.mjs
+      - name: Branded email templates contract (existing Supabase Auth)
+        run: node tests/auth-email-templates.mjs
       - name: Admin control plane V1.133 regression contract
         run: node tests/admin-control-plane-v1-133.mjs
       - name: Admin command center V1.134 regression contract
