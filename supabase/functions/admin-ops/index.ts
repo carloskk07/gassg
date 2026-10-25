@@ -2256,6 +2256,18 @@ async function summary(admin:any,actorUserId:string){
     if(result.error)throw result.error;
   }
 
+  const supportMetricsPromise=Promise.all([
+    admin.from("support_cases")
+      .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
+      .in("status",["open","in_review","resolved"])
+      .order("updated_at",{ascending:false})
+      .limit(100),
+    admin.rpc("platform_business_metrics"),
+    admin.rpc("platform_launch_readiness"),
+    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId}),
+    admin.rpc("admin_merchant_readiness_snapshot",{p_actor_user_id:actorUserId})
+  ]);
+
   // V1.182: bounded, read-only financial review for interrupted buyer payments.
   // Access is inherited from the privileged summary; never expose to operational roles.
   const saleAttemptIds=[...new Set((merchantSaleAttempts.data??[])
@@ -2270,17 +2282,6 @@ async function summary(admin:any,actorUserId:string){
     : {data:[],error:null};
   if(interruptedSaleOrders.error)throw interruptedSaleOrders.error;
 
-  const supportMetricsPromise=Promise.all([
-    admin.from("support_cases")
-      .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
-      .in("status",["open","in_review","resolved"])
-      .order("updated_at",{ascending:false})
-      .limit(100),
-    admin.rpc("platform_business_metrics"),
-    admin.rpc("platform_launch_readiness"),
-    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId}),
-    admin.rpc("admin_merchant_readiness_snapshot",{p_actor_user_id:actorUserId})
-  ]);
   const controlOrders=await admin
     .from("orders")
     .select("id,public_code,status,customer_id,merchant_id,proposed_merchant_id,supplier_name_snapshot,payment_method,gross_total_cents,total_cents,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,version,address_text,postal_code,address_complement,delivery_reference,customer_phone_digits,created_at,updated_at")
