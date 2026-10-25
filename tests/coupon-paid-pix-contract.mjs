@@ -285,6 +285,39 @@ assert.equal((await decide('processed','processed',validRefund,'paid',
  'clube_coupon_paid_payment_review','partial detail conflicts with alleged complete refund');
 assert.equal((await decide('processed')).route,
  'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
+
+// Once a clean refund or a refund requiring merchant compensation is
+// durably recorded, a stale "processed" PSP snapshot MUST NOT invoke the
+// payment-verify RPC (SQL rejects it and the webhook formerly returned 500).
+// This is idempotent acknowledgement, never a new issuance or receipt.
+for(const terminal of ['review_required','refunded']){
+ for(const stale of ['processed','processing','canceled']){
+  calledRpcs=[];
+  currentPspOrder={id:'order-1',external_reference:'invoice-1',
+   total_amount:'15.00',status:stale,status_detail:'accredited',
+   transactions:{payments:[{id:'payment-1',status:stale,
+    status_detail:'accredited',payment_method:{id:'pix',type:'bank_transfer'}}],
+    refunds:[]}};
+  const response=await webhookSandbox.handlePaidCouponOrder(
+   mockAdmin,'order-1',{...invoiceForWebhook,status:terminal},'test-only-token');
+  assert.equal(response.status,200,'terminal replay is acknowledged, not retried forever');
+  assert.equal(response.body.status,terminal,'durable financial state must win');
+  assert.equal(response.body.replayed,true);
+  assert.equal(response.body.reviewRequired,terminal==='review_required');
+  assert.equal(calledRpcs.length,0,
+   'stale PSP replay must not run payment-verification or any finance mutation');
+ }
+}
+// Explicit new reversal proof still takes the normal higher-priority
+// accounting path, even when the invoice was already under manual review.
+providerRpcResult={ok:false,refunded:false,reviewRequired:true};
+const reviewedRefund=await decide('refunded','processed',validRefund,'review_required');
+assert.equal(reviewedRefund.route,'clube_coupon_paid_payment_refund');
+assert.equal(reviewedRefund.status,'review_required');
+providerRpcResult={ok:true,refunded:true,replayed:true};
+const settledRefund=await decide('refunded','processed',validRefund,'refunded');
+assert.equal(settledRefund.route,'clube_coupon_paid_payment_refund');
+assert.equal(settledRefund.status,'refunded');
 // An ordinary unpaid canceled order must retain the original lifecycle
 // instead of being incorrectly promoted to manual financial review.
 currentPspOrder={id:'order-1',external_reference:'invoice-1',
