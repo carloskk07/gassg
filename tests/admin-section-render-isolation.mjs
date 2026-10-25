@@ -60,3 +60,39 @@ assert.equal(ctx.sectionActive('finance'),true);
 granted.delete('finance');
 assert.equal(ctx.sectionActive('finance'),false,'Unauthorized finance cannot render');
 console.log('Administrative active-only panel and finance workspace isolation passed.');
+
+// Real startup: known superadmins skip redundant bootstrap claim, while first
+// access uses the existing secure claim only after server access denial.
+const initStart=admin.indexOf('async function adminBackendInit(){');
+const initEnd=admin.indexOf('\nasync function adminAccessToken()',initStart);
+assert.ok(initStart>=0&&initEnd>initStart);
+const adminInit=admin.slice(initStart,initEnd);
+async function startupScenario(firstStatus,claimOutcome='claimed'){
+  const runtime={requested:true,status:'disabled',client:null,session:null,data:null};
+  let summaries=0,claims=0;
+  const auth={getSession:async()=>({data:{session:{access_token:'token',user:{is_anonymous:false}}},error:null})};
+  const scope={
+    adminRuntime:runtime,
+    adminOriginSafe:()=>true,
+    loadSupabaseBrowser:async()=>({createClient:()=>({auth})}),
+    CHAMA_BACKEND:{url:'https://example.invalid',publishableKey:'public-test'},
+    sessionStorage:{},
+    globalThis:{captureSupabaseImplicitSessionFromUrl:()=>null,clearSupabaseAuthFragment:()=>{}},
+    adminRefresh:async()=>{
+      summaries++;
+      if(firstStatus==='offline')throw Object.assign(new Error('network unavailable'),{code:'NETWORK_TIMEOUT'});
+      runtime.status=firstStatus==='ready'||claims>0&&claimOutcome==='claimed'?'ready':'no-access';
+      runtime.data=runtime.status==='ready'?{currentAdmin:{admin_role:'superadmin'}}:null;
+    },
+    adminClaimBootstrap:async()=>{claims++;if(claimOutcome==='error')throw new Error('bootstrap refused');}
+  };
+  vm.runInNewContext(adminInit+'\nthis.init=adminBackendInit;',scope);
+  await scope.init();
+  return {summaries,claims,status:runtime.status};
+}
+assert.deepEqual(await startupScenario('ready'),{summaries:1,claims:0,status:'ready'},
+  'Returning admin must not wait for a bootstrap claim');
+assert.deepEqual(await startupScenario('denied'),{summaries:2,claims:1,status:'ready'},
+  'First-time admin must keep authorized bootstrap flow');
+assert.deepEqual(await startupScenario('offline'),{summaries:1,claims:0,status:'unavailable'},
+  'Network outages must never trigger privileged bootstrap claim');
