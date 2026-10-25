@@ -126,7 +126,8 @@ const functionStart=server.indexOf('async function adminFinanceLabSandboxPix(');
 const functionEnd=server.indexOf('\nasync function ',functionStart+10);
 assert.ok(functionStart>0&&functionEnd>functionStart);
 const actualSource=server.slice(functionStart,functionEnd)
-  .replace('admin:any,actorId:string,body:any,req:Request','admin,actorId,body,req');
+  .replace('admin:any,actorId:string,body:any,req:Request','admin,actorId,body,req')
+  .replace('(x:any)=>','(x)=>');
 const ref='tamao-finlab-finlab-qa-id-12345';
 let apiResult={},providerCalls=[],auditInserted=[],brChecks=0;
 const brCode='012345678901234567890123456789012345';
