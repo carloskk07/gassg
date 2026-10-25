@@ -64,7 +64,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 revoke all on function public.validate_cashback_reimbursement_fact()
 from public, anon, authenticated;
