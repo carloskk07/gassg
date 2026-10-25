@@ -1,7 +1,7 @@
 # TAMÃO — Diário Oficial de Execução Técnica
 
 **Iniciativa:** TAMÃO — Expansão Integrada e Consolidação para Produção  
-**Última atualização:** 2026-10-24  
+**Última atualização:** 2026-10-25  
 **Repositório:** `carloskk07/gassg`  
 **Branch de integração:** `feat/unified-discovery-tamao`  
 **Branch oficial:** `main`  
@@ -2538,3 +2538,20 @@ Na página `#club`, visitante sem sessão autenticada e `liveReady` não deve ve
 
 **Estado honesto da Regra de Conclusão Operacional:** proteção de reembolso corrigida, CI PG17/Supabase e deploy/ACL observados; **OP-PIX, OP-COUPON, OP-CASHBACK e OP-REFERRAL continuam NÃO HOMOLOGADOS de ponta a ponta**. Zero comprovantes de recebimento líquido, pedido, uso de cupom e repasse bancário real. Próxima prioridade: seguir os testes isolados existentes para PSP/webhook/baixa de Pix/refund com observações assinadas e evidência de extrato, depois concluir cupons e compensação/saques sob autorização apropriada; não exigir nova revenda para engenharia, não interpretar pagamento solicitado como receita e não criar novo motor.
 
+
+
+### 25/10/2026 — OP-PIX: extrato líquido Mercado Pago bloqueado por status_detail de reversão
+
+**Continuidade e prioridade:** execução financeira real (Pix → PSP → recebimento líquido → cupom → pedido → compensação → cashback/rede/pagamento). Sem captar revendas nem criar estrutura redundante. A correção anterior de reembolso repetido permanece ativa no webhook v8, migração remota `20261025015437`, e a `main` antes desta etapa era `22a7ac67dca940f60ef4e6f1ee0c94918a666db9`.
+
+**Nova falha concreta no fluxo financeiro:** a inspeção e finalização administrativa de comprovação líquida usam `admin-ops/coupon-release-evidence.js` para cruzar fatura `paid`, Order Pix **consultada na conta autorizada Mercado Pago** e CSV oficial `/v1/account/release_report/{file_name}`. Esse validador exigia `order.status=processed`, `payment.status=processed/accredited/approved`, ausência de `refunds[]`, valor bruto exato e líquido >= valor facial dos vouchers, **mas ignorava os dois `status_detail`**. Assim, enquanto o webhook assinado ainda não tivesse processado uma contestação ou estorno parcial, um Order `processed` com `status_detail=partially_refunded` no Order ou pagamento poderia ser classificado `eligible=true` para registro do líquido. O registro exigia confirmação superadmin e extrato oficial, mas a guarda da verificação PSP não era equivalente à do webhook.
+
+**Código integrado:** [PR #624](https://github.com/carloskk07/gassg/pull/624), merge squash **`b94de771479d354f4884ed118f53922c797351dc`**. Modificados apenas `supabase/functions/admin-ops/coupon-release-evidence.js` e `tests/coupon-mp-release-evidence.mjs`. Agora detalhes do Order e do pagamento são **fail-closed**: somente ausente/vazio ou `accredited` é aceito; `partially_refunded`, `refunded`, `charged_back`, `disputed`, `in_mediation`, `reimbursed`, falhas e outros estados não reconhecidos devolvem `COUPON_PROVIDER_BINDING_UNVERIFIED`, sem `netCents` ou `evidenceReference`. Fluxo de inspeção e finalização existente é reutilizado sem outra conta, novo schema, saldo ou RPC.
+
+**Qualidade/testes:** [Audit da PR PASS #40156839798](https://github.com/carloskk07/gassg/actions/runs/40156839798), incluindo etapa real `Mercado Pago released-money CSV matching and coupon funding proof (read only)` PASS; [Visual review PASS #40156839788](https://github.com/carloskk07/gassg/actions/runs/40156839788). Testes isolados injetaram detalhes negativos no Order e no Pix separadamente (estorno parcial/total, contestação, estado desconhecido), exigindo `eligible=false` e inexistência de referência de líquido, e mantiveram o caminho positivo de pagamento com `accredited`. Sem simular dinheiro como movimentado e sem consulta autenticada a extrato real no CI.
+
+**Implantação:** a Edge **`admin-ops` v187 ACTIVE** foi inspecionada antes de atualizar, com entrypoint e helper byte a byte iguais à revisão-base da `main`; **nove arquivos** na função real. Foi publicada somente a versão do helper corrigida, preservando os outros oito arquivos originais (inclusive as dependências compartilhadas) e o mesmo `verify_jwt=false`, com autenticação do usuário/admin no entrypoint. Pós-publicação, leitura `get_edge_function` mostrou **v188 ACTIVE**, nove arquivos e helper/entrypoint byte a byte iguais ao merge na `main`. Nenhum deploy paralelo ou mutação de banco.
+
+**SQL read-only pós-implantação:** `clube_coupon_paid_invoices=0`, `clube_coupon_paid_issuances=0`, `clube_coupon_paid_order_applications=0`, `orders=0`, `platform_referral_payout_proofs_v1_264=0`. `platform_launch_control.operation_mode=PRELAUNCH`, `commerce_enabled=false`; banco Supabase `ACTIVE_HEALTHY`. Não foram criados Pix, vouchers, saques, pedidos ou receita. O workflow oficial de `main` após o merge estava rodando no início do registro; verificar sua conclusão na próxima continuação.
+
+**Regra de Conclusão Operacional:** correção da inspeção PSP/CSV e deploy v188 **verificados tecnicamente**; o fluxo financeiro de ponta a ponta **continua NÃO HOMOLOGADO** por falta de pagamento autorizado externo, extrato líquido confirmado e compensação ao recebedor final. Próxima prioridade prática: exercitar em ambiente isolado fluxo completo de webhook+extrato/registro líquido+reserva de cupom+pedido+reversão, testar consistência de autenticação e conciliação de crédito/cashback/comissões, depois exigir comprovantes reais para declarar qualquer pagamento/receita. Não exigir captação de revendas para executar testes e correções nem abrir venda automaticamente.
