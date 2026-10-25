@@ -93,7 +93,13 @@ for(const {role,path:dir} of built){
     role+' must isolate deferred merchant price confirmation from other portals');
   assert.ok(!html.includes('src="./js/merchant-price-batch.js?v=test-sha"'),
     role+' must never load the optional batch confirmation on startup');
-  assert.ok(html.includes('src="./js/growth.js?v=test-sha"'),role+' public merchant landing must remain available');
+  assert.equal(html.includes('src="./js/growth.js?v=test-sha"'),role!=='admin',
+     role+' must not load public referral JS on the protected Admin');
+   for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
+     const asset='./js/'+module+'.js?v=test-sha';
+     assert.equal(html.includes('src="'+asset+'"'),role!=='admin',role+' public-only HTML '+module);
+     assert.equal(sw.includes("'"+asset+"'"),role!=='admin',role+' public-only precache '+module);
+   }
   assert.equal(
     fs.readFileSync(path.join(dir,'js','growth.js'),'utf8'),
     compactReleasedGrowthComments(fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8')),
@@ -151,6 +157,12 @@ for(const {role,path:dir} of built){
       'Window load must not launch a second Admin authentication');
     // Execute the actual released bootstrap render against the dedicated
     // admin role. Missing customer-only route functions must never blank it.
+    const publicExports=bootstrap.match(/if\(globalThis\.CHAMA_PORTAL_ROLE!=='admin'\)Object\.assign\(window,\{[\s\S]*?\n\}\);/);
+    assert.ok(publicExports,'Public bootstrap exports must be origin-gated');
+    const onlyAdmin={globalThis:{CHAMA_PORTAL_ROLE:'admin'},window:{}};
+    vm.runInNewContext(publicExports[0],onlyAdmin,{timeout:1000});
+    assert.deepEqual(Object.keys(onlyAdmin.window),[],
+      'Protected Admin must boot without storefront or referral global functions');
     const renderCode=bootstrap.match(/let renderLock=false;[\s\S]*?(?=\nwindow\.addEventListener\('hashchange')/);
     assert.ok(renderCode,'Admin render function must exist in release');
     const app={innerHTML:''};
