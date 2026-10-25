@@ -174,6 +174,13 @@ function patchIndex(html,portal,sourceSha){
     const lazyTag='<script defer src="./js/admin-activations.js"></script>';
     if(!patched.includes(lazyTag))throw new Error('Admin activation module missing');
     patched=patched.replace(lazyTag,'');
+    // The protected portal must not parse storefront, referral or editorial JS.
+    // Their public APIs are only exported by bootstrap on non-admin origins.
+    for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
+      const tag='<script defer src="./js/'+module+'.js"></script>';
+      if(!patched.includes(tag))throw new Error('Missing public-only script: '+module);
+      patched=patched.replace(tag,'');
+    }
   }
   if(role!=='admin'){
     for(const module of ['admin-acquisition','admin','admin-activations']){
@@ -245,6 +252,11 @@ function patchServiceWorker(raw,sourceSha,role){
     const lazyEntry=",'./js/admin-activations.js'";
     if(!scoped.includes(lazyEntry))throw new Error('Missing admin activations precache entry');
     scoped=scoped.replace(lazyEntry,'');
+    for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
+      const entry=",'./js/"+module+".js'";
+      if(!scoped.includes(entry))throw new Error('Missing public-only PWA entry: '+module);
+      scoped=scoped.replace(entry,'');
+    }
   }
   if(role!=='admin'){
     // Only the administrative bundle may precache privileged UI modules.

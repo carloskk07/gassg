@@ -21,8 +21,8 @@ try{
   for(const item of report.portals){
     assert.ok(item.js.requests<=limits[item.role].initialJsRequests,
       item.role+' must not exceed the startup request budget');
-    if(item.role==='admin')assert.equal(item.js.requests,limits.admin.initialJsRequests-1,
-      'Admin no longer loads the merchant-only operations script');
+    if(item.role==='admin')assert.equal(item.js.requests,limits.admin.initialJsRequests-7,
+      'Admin must exclude merchant operations and six public-only modules from startup');
     assert.equal(item.css.requests,limits[item.role].initialCssRequests);
     assert.ok(item.js.gzipBytes<item.js.rawBytes);
     assert.ok(item.js.brotliBytes<item.js.rawBytes);

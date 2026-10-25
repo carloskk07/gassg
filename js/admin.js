@@ -158,6 +158,15 @@ async function adminBackendInit(){
       return false;
     }
 
+    // A returning authorized admin needs only one summary request. Bootstrap
+    // claim is reserved for a confirmed access-denied identity, never as an
+    // unconditional network roundtrip on every page load or session refresh.
+    await adminRefresh({silent:true});
+    if(adminRuntime.status==='ready'){
+      adminRuntime.bootstrapError=null;
+      return true;
+    }
+    if(adminRuntime.status!=='no-access')return false;
     let bootstrapFailure=null;
     try{
       await adminClaimBootstrap();
