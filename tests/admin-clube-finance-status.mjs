@@ -216,7 +216,7 @@ assert.match(ctx.mpPage(),/Conferir crédito de repasse/);
 assert.match(ctx.mpPage(),/recebedor/i);
 await ctx.payoutQuery();
 assert.equal(payoutCalls,0,'invalid payout identifiers must not call the backend');
-assert.match(ctx.mpPage(),/UUID do pedido e IDs POP\/TOP válidos/);
+assert.match(ctx.mpPage(),/Informe identificadores desta sessão/);
 const newOrder='44444444-4444-4444-8444-444444444444';
 ctx.payoutChanged('payoutOrderId',newOrder);
 ctx.payoutChanged('payoutBatchId','POP01KKYN1QY2SS1MKAY4KP6SSRCT');
@@ -254,6 +254,15 @@ role='finance';
 runtime.session.user.id='55555555-5555-4555-8555-555555555555';
 assert.doesNotMatch(ctx.mpPage(),/Crédito não confirmado pelo provedor/,
  'new authenticated session must not see previous account payout result');
+assert.doesNotMatch(ctx.mpPage(),/POP01KKYN1QY2SS1MKAY4KP6SSRCT/,
+ 'new admin user cannot see another session payout IDs');
+const oldPayoutCalls=payoutCalls;
+await ctx.payoutQuery();
+assert.equal(payoutCalls,oldPayoutCalls,
+ 'new session must not use the previous user\'s payout identifiers');
+ctx.payoutChanged('payoutOrderId',newOrder);
+ctx.payoutChanged('payoutBatchId','POP01KKYN1QY2SS1MKAY4KP6SSRCT');
+ctx.payoutChanged('payoutTransactionId','TOP01KKYN1QY2SS1MKAY4G9DV5NK9');
 payoutFail=true;
 await ctx.payoutQuery();
 assert.match(ctx.mpPage(),/payout-offline/);
