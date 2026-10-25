@@ -4841,7 +4841,12 @@ async function adminFinanceLabSandboxPixFromUi(){
     },{idempotencyKey:state.idempotencyKey});
     if(result?.ok!==true||result.mode!=='sandbox'||result.amountCents!==5000
       ||typeof result.orderId!=='string'||!result.orderId
-      ||typeof result.brCode!=='string'||result.brCode.length<30){
+      ||result.credited!==false||typeof result.brCode!=='string'
+      ||typeof result.pixCodeAvailable!=='boolean'
+      ||typeof result.providerTestApproved!=='boolean'
+      ||!(result.pixCodeAvailable===true&&result.brCode.length>=30
+        ||result.providerTestApproved===true
+           &&result.pixCodeAvailable===false&&result.brCode.length===0)){
       throw new Error('O provedor não confirmou a ordem em ambiente de testes.');
     }
     state.sandbox=result;
@@ -4913,9 +4918,12 @@ function adminFinanceLabView(d){
         ${sandbox?`<div class="card flat" style="margin-top:12px">
           <span class="status-pill">MERCADO PAGO • TESTE</span>
           <h3>PIX sandbox — ${adminMoney(sandbox.amountCents)}</h3>
-          <p class="muted tiny">Este é um código de homologação do provedor, não pagável por bancos reais. Não gera crédito no TAMÃO.</p>
-          <div class="input-wrap"><label>BR Code de teste</label><textarea class="input" readonly rows="3">${esc(sandbox.brCode)}</textarea></div>
-          <div class="order-actions"><button class="secondary small" onclick="adminFinanceLabCopySandboxPixFromUi()">Copiar código de teste</button>
+          <p class="muted tiny">Resultado exclusivo do ambiente de TESTE, não pagável por bancos reais. Não gera crédito no TAMÃO.</p>
+          ${sandbox.brCode
+            ?`<div class="input-wrap"><label>BR Code de teste</label><textarea class="input" readonly rows="3">${esc(sandbox.brCode)}</textarea></div>`
+            :'<p class="notice" role="status">Cenário APRO aprovado em teste. O provedor não devolveu QR Code nesta resposta; nenhum código pagável foi criado.</p>'}
+          <div class="order-actions">
+          ${sandbox.brCode?'<button class="secondary small" onclick="adminFinanceLabCopySandboxPixFromUi()">Copiar código de teste</button>':''}
           ${sandbox.paymentLinkUrl?'<a class="ghost small" target="_blank" rel="noopener noreferrer" href="'+esc(sandbox.paymentLinkUrl)+'">Abrir página de teste</a>':''}</div>
           <small>Referência: ${esc(sandbox.reference||'—')} • ${esc(sandbox.orderStatus||'—')}</small>
           <button type="button" class="secondary small" onclick="adminFinanceLabCheckOrderFromUi('${esc(sandbox.orderId||'')}')" ${state.pending?'disabled':''}>Consultar status no Mercado Pago</button>
