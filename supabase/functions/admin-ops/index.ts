@@ -2010,6 +2010,9 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
 }
 
 async function summary(admin:any,actorUserId:string){
+  const marketCityInterestsPromise=admin.from("market_city_interests")
+    .select("city,state,last_seen_at")
+    .not("city","is",null).order("last_seen_at",{ascending:false}).limit(1000);
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,pilot_partner_draft_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
@@ -2079,9 +2082,7 @@ async function summary(admin:any,actorUserId:string){
   for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]){
     if(result.error)throw result.error;
   }
-  const {data:marketCityInterests,error:marketCityInterestError}=await admin
-    .from("market_city_interests").select("city,state,last_seen_at")
-    .not("city","is",null).order("last_seen_at",{ascending:false}).limit(1000);
+  const {data:marketCityInterests,error:marketCityInterestError}=await marketCityInterestsPromise;
   if(marketCityInterestError)throw marketCityInterestError;
   // A finance row must never offer a manual paid action for an existing
   // funded coupon. Resolve only the bounded open-order IDs already displayed.
@@ -2100,17 +2101,19 @@ async function summary(admin:any,actorUserId:string){
   );
   const currentAdmin=(platformAdmins.data??[]).find((x:any)=>x.user_id===actorUserId)??null;
   const actorRole=String(currentAdmin?.admin_role||"superadmin");
+  const pilotPartnerInvitesPromise=admin.from("pilot_partner_invites")
+    .select("id,draft_id,expires_at,claimed_at,claimed_user_id,application_id,revoked_at,created_at")
+    .order("created_at",{ascending:false}).limit(200);
+  const merchantBusinessDetailsPromise=admin.from("merchant_business_details")
+    .select("merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,admin_notes,updated_at")
+    .limit(100);
   const pilotPartners=await admin
     .from("pilot_partner_drafts")
     .select("id,display_name,proposed_product_code,proposed_delivered_price_cents,delivery_included,price_status,onboarding_status,merchant_id,pricing_mode,min_delivered_price_cents,preferred_delivered_price_cents,max_delivered_price_cents,pricing_strategy,notes,created_at,updated_at")
     .order("created_at",{ascending:true})
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;
-  const pilotPartnerInvites=await admin
-    .from("pilot_partner_invites")
-    .select("id,draft_id,expires_at,claimed_at,claimed_user_id,application_id,revoked_at,created_at")
-    .order("created_at",{ascending:false})
-    .limit(200);
+  const pilotPartnerInvites=await pilotPartnerInvitesPromise;
   if(pilotPartnerInvites.error)throw pilotPartnerInvites.error;
   const invitesByDraft=new Map<string,any[]>();
   for(const invite of pilotPartnerInvites.data??[]){
@@ -2122,10 +2125,7 @@ async function summary(admin:any,actorUserId:string){
     if(!application.pilot_partner_draft_id||applicationByDraft.has(application.pilot_partner_draft_id))continue;
     applicationByDraft.set(application.pilot_partner_draft_id,application);
   }
-  const merchantBusinessDetails=await admin
-    .from("merchant_business_details")
-    .select("merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,admin_notes,updated_at")
-    .limit(100);
+  const merchantBusinessDetails=await merchantBusinessDetailsPromise;
   if(merchantBusinessDetails.error)throw merchantBusinessDetails.error;
   const [ownerMembers,representationReviews]=await Promise.all([
     admin.from("merchant_members")
@@ -2140,23 +2140,19 @@ async function summary(admin:any,actorUserId:string){
   ]);
   if(ownerMembers.error||representationReviews.error)throw ownerMembers.error||representationReviews.error;
 
+  const productCategoriesPromise=admin.from("product_categories")
+    .select("category_key,category_name,active,sort_order,updated_at,updated_by")
+    .order("sort_order",{ascending:true}).order("category_name",{ascending:true});
+  const productProfilesPromise=admin.from("product_delivery_profiles")
+    .select("product_code,product_name,category_key,delivery_class,requires_isolated_delivery,customer_visible,merchant_add_allowed,active,sort_order,updated_at,updated_by")
+    .order("sort_order",{ascending:true}).order("product_name",{ascending:true}).limit(500);
   const commercialPolicy=await admin
     .from("reward_policy")
     .select("policy_key,active,platform_fee_bps,variable_cost_bps,minimum_contribution_bps,cashback_bps,direct_referral_bps,commission_hold_hours,policy_version,updated_at,updated_by,last_change_reason")
     .eq("policy_key","default")
     .single();
   if(commercialPolicy.error)throw commercialPolicy.error;
-  const [productCategories,productProfiles]=await Promise.all([
-    admin.from("product_categories")
-      .select("category_key,category_name,active,sort_order,updated_at,updated_by")
-      .order("sort_order",{ascending:true})
-      .order("category_name",{ascending:true}),
-    admin.from("product_delivery_profiles")
-      .select("product_code,product_name,category_key,delivery_class,requires_isolated_delivery,customer_visible,merchant_add_allowed,active,sort_order,updated_at,updated_by")
-      .order("sort_order",{ascending:true})
-      .order("product_name",{ascending:true})
-      .limit(500)
-  ]);
+  const [productCategories,productProfiles]=await Promise.all([productCategoriesPromise,productProfilesPromise]);
   if(productCategories.error)throw productCategories.error;
   if(productProfiles.error)throw productProfiles.error;
 
@@ -2260,6 +2256,18 @@ async function summary(admin:any,actorUserId:string){
     if(result.error)throw result.error;
   }
 
+  const supportMetricsPromise=Promise.all([
+    admin.from("support_cases")
+      .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
+      .in("status",["open","in_review","resolved"])
+      .order("updated_at",{ascending:false})
+      .limit(100),
+    admin.rpc("platform_business_metrics"),
+    admin.rpc("platform_launch_readiness"),
+    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId}),
+    admin.rpc("admin_merchant_readiness_snapshot",{p_actor_user_id:actorUserId})
+  ]);
+
   // V1.182: bounded, read-only financial review for interrupted buyer payments.
   // Access is inherited from the privileged summary; never expose to operational roles.
   const saleAttemptIds=[...new Set((merchantSaleAttempts.data??[])
@@ -2294,17 +2302,7 @@ async function summary(admin:any,actorUserId:string){
     controlItemsByOrder.get(item.order_id)!.push(item);
   }
 
-  const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics,merchantReadiness]=await Promise.all([
-    admin.from("support_cases")
-      .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
-      .in("status",["open","in_review","resolved"])
-      .order("updated_at",{ascending:false})
-      .limit(100),
-    admin.rpc("platform_business_metrics"),
-    admin.rpc("platform_launch_readiness"),
-    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId}),
-    admin.rpc("admin_merchant_readiness_snapshot",{p_actor_user_id:actorUserId})
-  ]);
+  const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics,merchantReadiness]=await supportMetricsPromise;
   if(supportCases.error)throw supportCases.error;
   if(businessMetrics.error)throw businessMetrics.error;
   if(launchReadiness.error)throw launchReadiness.error;
@@ -2344,6 +2342,10 @@ async function summary(admin:any,actorUserId:string){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
     capabilitiesByMerchant.get(cap.merchant_id)!.push(cap);
   }
+  const growthApplicationFunnelPromise=
+    ['superadmin','operations','readonly','compliance'].includes(actorRole)
+      ?admin.rpc("admin_growth_application_funnel_v1_229",{p_actor_user_id:actorUserId})
+      :Promise.resolve({data:null,error:null});
   // V1.227: aggregate only; a CRM stage is not a verified paid order.
   // Missing proof stays unavailable, never as an invented zero-count result.
   let growthNetwork:any={available:false,valid:false};
@@ -2372,9 +2374,7 @@ async function summary(admin:any,actorUserId:string){
   let growthApplicationFunnel:any={available:false,valid:false};
   if(['superadmin','operations','readonly','compliance'].includes(actorRole)){
     try{
-      const {data,error}=await admin.rpc("admin_growth_application_funnel_v1_229",{
-        p_actor_user_id:actorUserId
-      });
+      const {data,error}=await growthApplicationFunnelPromise;
       const counters=['applicationsAttributed','contactCandidatesUnverified',
         'applicationsApproved','approvedCnpjOwnerMatches','activeMatchedMerchants',
         'invitedByMerchants','invitedByCustomers'];
