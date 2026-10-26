@@ -11,8 +11,9 @@ const secret='sandbox-proof-secret-for-cryptographic-test-only';
 const dataId='TAMAO-WEBHOOK-PROBE-2ecb9e18-8f2a-4447-b1ec-4535d5f28d05';
 const timestamp=String(Date.now());
 const buildRequest=({id=dataId,requestId='mp-simulator-req-123',
-   key=secret,signatureOverride=null,headerRequestId=true}={})=>{
-  const canonical='id:'+id.toLowerCase()+';'+
+   key=secret,signatureOverride=null,headerRequestId=true,
+   manifestIdCase='lowercase'}={})=>{
+  const canonical='id:'+(manifestIdCase==='raw'?id:id.toLowerCase())+';'+
     (headerRequestId?'request-id:'+requestId+';':'')+
     'ts:'+timestamp+';';
   const digest=createHmac('sha256',key).update(canonical).digest('hex');
@@ -23,7 +24,19 @@ const buildRequest=({id=dataId,requestId='mp-simulator-req-123',
 };
 
 assert.equal(await verifyMercadoPagoWebhook(buildRequest(),secret,dataId),true,
- 'valid normal simulator with ID and request-id must verify');
+ 'valid lowercase manifest remains compatible');
+assert.equal(await verifyMercadoPagoWebhook(
+  buildRequest({manifestIdCase:'raw'}),secret,dataId),true,
+ 'official SDK raw uppercase Data ID manifest must verify');
+assert.equal(await verifyMercadoPagoWebhook(
+  buildRequest({manifestIdCase:'raw',headerRequestId:false}),secret,dataId),true,
+ 'official SDK raw uppercase Data ID also verifies without request-id');
+assert.equal(await verifyMercadoPagoWebhook(
+  buildRequest({manifestIdCase:'raw',key:'untrusted-raw-case-secret'}),secret,dataId),false,
+ 'raw-case manifest still requires the exact HMAC secret');
+assert.equal(await verifyMercadoPagoWebhook(
+  buildRequest({manifestIdCase:'raw'}),secret,'TAMAO-WEBHOOK-PROBE-3ecb9e18-8f2a-4447-b1ec-4535d5f28d05'),false,
+ 'raw-case signed resource ID must match the received resource ID');
 assert.equal(await verifyMercadoPagoWebhook(
   buildRequest({headerRequestId:false}),secret,dataId),true,
  'valid signature without optional x-request-id must be verified, not rejected');
