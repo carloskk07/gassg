@@ -274,12 +274,12 @@ const rejectedEmail=classify({errors:[{
 }]},400);
 assert.equal(rejectedEmail.providerCode,'property_value');
 assert.equal(rejectedEmail.providerField,'payer.email');
-assert.match(rejectedEmail.message,/payer\\.email/);
+assert.match(rejectedEmail.message,/payer\.email/);
 assert.ok(!JSON.stringify(rejectedEmail).includes('private.user@example.invalid'));
 const invalidTestEmail=classify({code:'invalid_email_for_sandbox',
  message:'Email must contain @testuser.com'},400);
 assert.equal(invalidTestEmail.providerCode,'invalid_email_for_sandbox');
-assert.match(invalidTestEmail.message,/payer\\.email/);
+assert.match(invalidTestEmail.message,/payer\.email/);
 assert.equal(invalidTestEmail.providerField,null,
  'do not claim provider disclosed a specific field path when it did not');
 const rejectedExpiration=classify({errors:[{code:'property_value',
