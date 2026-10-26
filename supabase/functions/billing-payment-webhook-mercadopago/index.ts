@@ -442,10 +442,66 @@ async function handlePlatformBillingOrder(
   );
 
   if(["processed","refunded"].includes(status)){
+    // A signed webhook is not evidence of settlement by itself. Ingest only
+    // after querying the PSP and checking BOTH the order and Pix transaction.
+    // Never mistake a sandbox payment or a non-Pix first transaction for money.
+    const payment=billingPixPayment(order);
+    const paymentStatus=String(payment?.status??"").trim().toLowerCase();
+    const paymentDetail=String(payment?.status_detail??"").trim().toLowerCase();
+    const method=payment?.payment_method??{};
+    const paymentAmount=payment?.amount==null?Number(charge.amount_cents)
+      :moneyToCents(payment.amount);
+    if(order?.live_mode===false||(order?.currency_id&&order.currency_id!=="BRL")
+      ||String(method.id??"").toLowerCase()!=="pix"
+      ||String(method.type??"").toLowerCase()!=="bank_transfer"
+      ||!String(payment?.id??"").trim()
+      ||paymentAmount!==Number(charge.amount_cents)){
+      await admin.rpc("merchant_billing_provider_charge_record_error",{
+        p_charge_id:charge.id,p_error_code:"MERCADOPAGO_PAYMENT_BINDING_MISMATCH"
+      });
+      return json({error:"MERCADOPAGO_PAYMENT_BINDING_MISMATCH"},409);
+    }
+
+    const verifiedRefunds=(Array.isArray(order?.transactions?.refunds)
+      ?order.transactions.refunds:[]).filter((refund:any)=>
+        String(refund?.status??"").toLowerCase()==="processed"
+        &&Boolean(String(refund?.id??"").trim())
+        &&Boolean(moneyToCents(refund?.amount)));
+    const refundTotal=verifiedRefunds.reduce((sum:number,refund:any)=>
+      sum+(moneyToCents(refund?.amount)??0),0);
+    const adverse=["refunded","partially_refunded","charged_back","chargeback",
+      "disputed","in_mediation","reimbursed","failed","canceled","expired"];
+    const reversalObserved=status==="refunded"||refundTotal>0
+      ||adverse.includes(statusDetail)||adverse.includes(paymentDetail)
+      ||adverse.includes(paymentStatus);
+    if(reversalObserved){
+      // Never create a NEW positive payment event from a refunded or disputed
+      // snapshot. Verified provider refund IDs enter the existing quarantine/
+      // recovery RPC (which can match prior events); otherwise require review.
+      if(refundTotal===0||refundTotal>Number(charge.amount_cents)){
+        await admin.rpc("merchant_billing_provider_charge_record_error",{
+          p_charge_id:charge.id,p_error_code:"MERCADOPAGO_REVERSAL_REVIEW_REQUIRED"
+        });
+        return json({error:"MERCADOPAGO_REVERSAL_REVIEW_REQUIRED"},409);
+      }
+      const refunds=await ingestPlatformRefunds(
+        admin,order,"mp-order:"+orderId,occurredAt
+      );
+      return json({
+        ok:true,route:"platform_billing",provider:"mercadopago",orderId,
+        status,statusDetail,refundsProcessed:refunds.length,
+        paymentResult:null,reviewRequired:true,tamaoReceivesPlatformBilling:false
+      },200);
+    }
+    if(status!=="processed"||paymentStatus!=="processed"
+      ||(statusDetail&&statusDetail!=="accredited")
+      ||(paymentDetail&&paymentDetail!=="accredited")){
+      await admin.rpc("merchant_billing_provider_charge_record_error",{
+        p_charge_id:charge.id,p_error_code:"MERCADOPAGO_PAYMENT_NOT_ACCREDITED"
+      });
+      return json({error:"MERCADOPAGO_PAYMENT_NOT_ACCREDITED"},409);
+    }
     const original=await ingestPlatformPayment(admin,order,charge,occurredAt);
-    const refunds=await ingestPlatformRefunds(
-      admin,order,original.reconciliationKey,occurredAt
-    );
     return json({
       ok:true,
       route:"platform_billing",
@@ -454,7 +510,7 @@ async function handlePlatformBillingOrder(
       status,
       statusDetail,
       paymentResult:original.data,
-      refundsProcessed:refunds.length,
+      refundsProcessed:0,
       tamaoReceivesPlatformBilling:true
     },200);
   }
