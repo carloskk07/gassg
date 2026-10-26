@@ -4881,7 +4881,15 @@ async function adminFinanceLabSandboxPixFromUi(){
     state.status=null;
     state.idempotencyKey=null; // a subsequent, explicitly confirmed test is a new order
     adminFinanceLabReadinessFromUi().catch(()=>{});
-  }catch(e){state.error=String(e?.message||e);}
+  }catch(e){
+    // A definitive 400/401/403 rejection created no usable order. A corrected
+    // manual test needs a new key; ambiguous network/5xx results retain it.
+    if(e?.code==='FINANCE_LAB_SANDBOX_PROVIDER_REJECTED'
+      &&[400,401,403].includes(Number(e?.data?.apiStatus))){
+      state.idempotencyKey=null;
+    }
+    state.error=String(e?.message||e);
+  }
   finally{state.pending=false;render();}
 }
 async function adminFinanceLabCopySandboxPixFromUi(){
