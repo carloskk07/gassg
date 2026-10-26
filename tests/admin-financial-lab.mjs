@@ -167,7 +167,12 @@ assert.ok(functionStart>0&&functionEnd>functionStart);
 const actualSource=server.slice(functionStart,functionEnd)
   .replace('admin:any,actorId:string,body:any,req:Request','admin,actorId,body,req')
   .replace('(x:any)=>','(x)=>');
-const ref='tamao-finlab-finlab-qa-id-12345';
+const ref='tamao-finlab-'+'a'.repeat(40);
+assert.match(ref,/^[A-Za-z0-9_-]{1,64}$/,'Mercado Pago must accept reference characters and length');
+assert.equal(ref.length,53);
+const legacyReference='tamao-finlab-finance-lab-pix:12345678-1234-4123-8123-123456789012';
+assert.equal(legacyReference.length,65,'regression: old browser UUID produced overlong reference');
+assert.doesNotMatch(legacyReference,/^[A-Za-z0-9_-]{1,64}$/,'old reference had a forbidden colon');
 let apiResult={},providerCalls=[],auditInserted=[],brChecks=0;
 const brCode='012345678901234567890123456789012345';
 const sandboxBase={
@@ -180,6 +185,7 @@ const sandboxBase={
 const sandboxContext=vm.createContext({
  URL,Number,Date,String,Array,
  FINANCE_LAB_PIX_TEST_AMOUNT_CENTS:5000,
+ sha256Hex:async value=>{assert.equal(value,'finlab-qa-id-12345');return 'a'.repeat(64);},
  adminFinanceLabConfig:()=>({ready:true,token:'test-only',payerEmail:'payer@example.com'}),
  mercadoPagoFetch:async(path,opts)=>{
    providerCalls.push({path,opts});
@@ -209,6 +215,7 @@ assert.equal(created.credited,false);
 assert.equal(created.brCode,brCode);
 assert.equal(providerCalls[0].path,'/v1/orders');
 assert.equal(providerCalls[0].opts.body.external_reference,ref);
+assert.match(providerCalls[0].opts.body.external_reference,/^[A-Za-z0-9_-]{1,64}$/);
 assert.equal(providerCalls[0].opts.idempotencyKey,'finlab-qa-id-12345');
 assert.equal(providerCalls[0].opts.body.payer.first_name,'APRO');
 apiResult=structuredClone(sandboxBase);
@@ -267,6 +274,34 @@ assert.ok(!JSON.stringify(denied).includes('APP_USR_SECRET'));
 const invalidPayer=classify({errors:[{code:'property_value',message:'PRIVATE_EMAIL'}]},400);
 assert.equal(invalidPayer.providerCode,'property_value');
 assert.match(invalidPayer.message,/e-mail pagador/);
+// Classify provider field names without returning sensitive error descriptions.
+const rejectedEmail=classify({errors:[{
+ code:'property_value',
+ message:"Invalid value for payer.email: private.user@example.invalid"
+}]},400);
+assert.equal(rejectedEmail.providerCode,'property_value');
+assert.equal(rejectedEmail.providerField,'payer.email');
+assert.match(rejectedEmail.message,/payer\.email/);
+assert.ok(!JSON.stringify(rejectedEmail).includes('private.user@example.invalid'));
+const invalidTestEmail=classify({code:'invalid_email_for_sandbox',
+ message:'Email must contain @testuser.com'},400);
+assert.equal(invalidTestEmail.providerCode,'invalid_email_for_sandbox');
+assert.match(invalidTestEmail.message,/payer\.email/);
+assert.equal(invalidTestEmail.providerField,null,
+ 'do not claim provider disclosed a specific field path when it did not');
+const rejectedExpiration=classify({errors:[{code:'property_value',
+ message:'expiration_time is invalid; secret=user-private'}]},400);
+assert.equal(rejectedExpiration.providerField,'expiration_time');
+assert.match(rejectedExpiration.message,/expiration_time/);
+assert.ok(!JSON.stringify(rejectedExpiration).includes('user-private'));
+const unrecognized=classify({errors:[{code:'property_value',
+ message:'invalid secret privatepayer@not-disclosable.invalid'}]},400);
+assert.equal(unrecognized.providerField,null);
+assert.ok(!JSON.stringify(unrecognized).includes('privatepayer'));
+const invalidExternal=classify({errors:[{code:'property_value',
+ message:'external_reference must contain only letters, numbers and underscores'}]},400);
+assert.equal(invalidExternal.providerField,'external_reference');
+assert.match(invalidExternal.message,/external_reference/);
 const forbidden=classify({code:'forbidden'},403);
 assert.match(forbidden.message,/permissões/);
 const maxed=classify({code:'usage_quota_exceeded'},429);

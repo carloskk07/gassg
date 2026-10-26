@@ -647,7 +647,7 @@ function adminFinanceLabConfig(){
 function adminFinanceLabProviderRejection(order:any,status:number){
   const apiStatus=Number.isInteger(status)&&status>=400&&status<=599?status:502;
   const allowed=new Set([
-    "invalid_credentials","forbidden","property_value","required_properties",
+    "invalid_credentials","forbidden","property_value","invalid_email_for_sandbox","required_properties",
     "unsupported_properties","minimum_properties","json_syntax_error",
     "invalid_order_type","order_builder_without_transactions",
     "invalid_header_value","invalid_header","failed",
@@ -662,8 +662,32 @@ function adminFinanceLabProviderRejection(order:any,status:number){
     ...(Array.isArray(order?.cause)?order.cause.slice(0,5).map((item:any)=>item?.code):[])
   ];
   const providerCode=codes.find(code=>typeof code==="string"&&allowed.has(code))??null;
+  // Examine only provider error DESCRIPTIONS for a small set of known field
+  // names. Never return arbitrary descriptions or submitted values: they may
+  // include buyer e-mail, external reference or other sensitive information.
+  const descriptions=[
+    order?.message,order?.error_description,
+    typeof order?.error==="object"?order.error?.message:null,
+    ...(Array.isArray(order?.errors)?order.errors.slice(0,5).map((item:any)=>item?.message):[]),
+    ...(Array.isArray(order?.cause)?order.cause.slice(0,5).map((item:any)=>item?.description??item?.message):[])
+  ].filter(value=>typeof value==="string");
+  const description=descriptions.join(" ").slice(0,2500);
+  const providerField=/(?:\b|[^\w.])payer\.email\b/i.test(description)
+    ||/\b(?:payer|buyer)\b.{0,40}\bemail\b/i.test(description)
+    ||/\bemail\b.{0,40}\b(?:payer|buyer)\b/i.test(description)
+    ?"payer.email"
+    :/\bpayer\.first_name\b/i.test(description)?"payer.first_name"
+    :/\bconfig\.location\.state_id\b/i.test(description)?"config.location.state_id"
+    :/\bexpiration_time\b/i.test(description)?"expiration_time"
+    :/\bprocessing_mode\b/i.test(description)?"processing_mode"
+    :/\bexternal_reference\b/i.test(description)?"external_reference"
+    :null;
   const guidance=apiStatus===400
-    ?"A API rejeitou os dados da ordem; confira o e-mail pagador de TESTE e as propriedades exigidas."
+    ?providerField==="payer.email"||providerCode==="invalid_email_for_sandbox"
+      ?"O Mercado Pago rejeitou payer.email. Confira o e-mail da conta compradora de TESTE, as restrições do domínio e se ele é aceito nesta aplicação."
+      :providerField
+        ?"O Mercado Pago rejeitou o campo "+providerField+". Verifique o valor enviado e os valores permitidos pela Orders API."
+        :"A API rejeitou um valor da ordem, mas não identificou publicamente qual campo. Confira o e-mail pagador de TESTE e as propriedades exigidas."
     :apiStatus===401
       ?"A API não aceitou o Access Token de TESTE; confirme a credencial da aplicação usada no Checkout Transparente via Orders."
     :apiStatus===403
@@ -678,7 +702,7 @@ function adminFinanceLabProviderRejection(order:any,status:number){
       ?"O Mercado Pago apresentou uma falha temporária. Confira o histórico antes de iniciar uma nova ordem."
       :"A operação foi recusada pelo provedor; consulte a autorização, o cenário de teste e o código retornado.";
   return {
-    apiStatus,providerCode,
+    apiStatus,providerCode,providerField,
     message:"Mercado Pago: HTTP "+apiStatus+(providerCode?" ("+providerCode+")":"")+". "+guidance
   };
 }
@@ -973,7 +997,9 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   if(key.length<12||key.length>100||!/^[a-zA-Z0-9._:-]+$/.test(key)){
     throw new DomainError("INVALID_IDEMPOTENCY_KEY","Informe uma chave de operação válida.",400);
   }
-  const externalReference="tamao-finlab-"+key;
+  // Orders API external_reference: 1-64 chars; letters, digits, "_" and "-" only.
+  // Hash the full idempotency key: stable on retry, no lossy punctuation rewrite.
+  const externalReference="tamao-finlab-"+(await sha256Hex(key)).slice(0,40);
   const formatted=(amount/100).toFixed(2);
   const response=await mercadoPagoFetch("/v1/orders",{
     accessToken:config.token,method:"POST",idempotencyKey:key,
@@ -990,7 +1016,7 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   if(!response.ok){
     const diagnosis=adminFinanceLabProviderRejection(order,response.status);
     // Safe operational evidence only: never log token, payer, body or response.
-    console.warn("FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",diagnosis.apiStatus,diagnosis.providerCode??"unknown");
+    console.warn("FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",diagnosis.apiStatus,diagnosis.providerCode??"unknown",diagnosis.providerField??"unspecified");
     return {ok:false,mode:"sandbox",provider:"mercadopago",
       error:"FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",
       ...diagnosis};
