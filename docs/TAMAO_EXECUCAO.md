@@ -14,6 +14,15 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## 26/10/2026 — Continuidade: venda da revenda sem falsa aprovação por PSP divergente
+
+- **Base real:** `main=ca490158b4109939a6899483447ade26c2617a6d` após PR #651; Supabase `lgugwujpunhslavewffd` mantém 0 `merchant_sale_payment_attempts` e 0 contas `merchant_payment_provider_accounts`. RPC `apply_merchant_sale_payment_event` delega a `apply_merchant_sale_payment_event_v2`, que transforma `processed` em `approved` e emite prova de venda verificada — operação potencialmente financeira que não deve aceitar estado ambíguo.
+- **Falha concreta no webhook existente** `billing-payment-webhook-mercadopago` (mesma função já publicada): `merchantProviderStatus` escolhia a palavra `processed` com prioridade maior do que `failed`, `canceled` e `action_required`. Se `order.status=processed` e `payment.status=failed`, o handler poderia invocar `apply_merchant_sale_payment_event` com `processed`, gerando aprovação de venda sem prova conjunta. Também não rejeitava explicitamente `live_mode=false` nem detalhes de chargeback sem refund quantificado.
+- **Correção proposta, sem novas estruturas:** no `handleMerchantSaleOrder`, exigir `order.status=processed` e `payment.status=processed` simultaneamente para qualquer aplicação positiva, bloquear detalhes de estorno/contestação, pagamento com valor contraditório, `live_mode=false`, moeda contraditória e reembolso acumulado maior que o valor da venda. Salvar `review_required` com erro controlado, sem chamada de aplicação positiva, preservando a rota existente de refund integral e quarentena de refund parcial.
+- **Regressão:** `tests/mercadopago-merchant-sale-dual-status.mjs` executa o handler real em VM com PSP e DB sintéticos; cobre sucesso, pending, failed, canceled, disputa, refund parcial/integral, moeda, sandbox, valor divergente e ID de pagamento ausente. Workflow Audit atualizado para impedir regressão.
+- **Publicação permitida apenas após CI:** integrar PR, comparar fonte publicada com `main`, atualizar somente o index.ts na função existente `billing-payment-webhook-mercadopago` e preservar demais dependências/verify_jwt. **Zero créditos, zero pagamentos, zero contas OAuth criados por esta etapa.**
+- **Gate ainda não homologado:** prova remota de webhook HMAC gerada pelo Mercado Pago, recebimento real legítimo e conciliação, pagamento comercial, estorno, benefícios e repasses. Não interpretar um teste sintético como pagamento real.
+
 ## 26/10/2026 — Próximo gate: confirmação Pix real no webhook Mercado Pago (PR em teste)
 
 - **Prova operacional de partida:** consulta Pix sandbox da ordem `ORDTST01M5V8V62X22CE39A0CHJPC27X` feita pelo operador às 02h24 BRT retornou `processed / processed`; registro de PR #650 tem esse checkpoint. **Somente simulação**.

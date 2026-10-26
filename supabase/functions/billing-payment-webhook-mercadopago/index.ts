@@ -239,7 +239,66 @@ async function handleMerchantSaleOrder(
   const payment=primaryPayment(order);
   const paymentId=String(payment?.id??"").trim()||null;
   const refundTotalCents=refundedCents(order);
+  const orderState=String(order?.status??"").trim().toLowerCase();
+  const paymentState=String(payment?.status??"").trim().toLowerCase();
+  const detailStates=[
+    String(order?.status_detail??"").trim().toLowerCase(),
+    String(payment?.status_detail??"").trim().toLowerCase()
+  ];
+  const adverseDetails=["refunded","partially_refunded","charged_back",
+    "chargeback","disputed","in_mediation","reimbursed","failed"];
+  const saleEvidenceConflicted=order?.live_mode===false
+    ||(order?.currency_id&&order.currency_id!=="BRL")
+    ||refundTotalCents>Number(attempt.amount_cents);
+  if(saleEvidenceConflicted){
+    const now=new Date().toISOString();
+    const {error:reviewError}=await admin
+      .from("merchant_sale_payment_attempts")
+      .update({
+        status:"review_required",
+        last_error_code:"MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT",
+        last_error_at:now,
+        updated_at:now
+      })
+      .eq("id",attempt.id)
+      .neq("status","refunded");
+    if(reviewError)throw reviewError;
+    return json({
+      ok:true,route:"merchant_sale",provider:"mercadopago",orderId,
+      salePaymentStatus:"review_required",
+      reason:"MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT",
+      tamaoReceivesSaleProceeds:false
+    },200);
+  }
+
   let status=merchantProviderStatus(order,payment);
+  // A successful ORDER by itself is not a successful PAYMENT. The two PSP
+  // objects can diverge; a prior helper prioritized "processed" over "failed".
+  // Never call the SQL approval RPC on inconsistent or reversed evidence.
+  if(status==="processed"&&(
+    orderState!=="processed"||paymentState!=="processed"
+    ||detailStates.some((value:string)=>adverseDetails.includes(value))
+    ||(payment?.amount!=null
+      &&moneyToCents(payment.amount)!==Number(attempt.amount_cents))
+  )){
+    const now=new Date().toISOString();
+    const {error:reviewError}=await admin
+      .from("merchant_sale_payment_attempts")
+      .update({
+        status:"review_required",
+        last_error_code:"MERCHANT_PROVIDER_PAYMENT_STATUS_CONFLICT",
+        last_error_at:now,updated_at:now
+      })
+      .eq("id",attempt.id)
+      .neq("status","refunded");
+    if(reviewError)throw reviewError;
+    return json({
+      ok:true,route:"merchant_sale",provider:"mercadopago",orderId,
+      salePaymentStatus:"review_required",
+      reason:"MERCHANT_PROVIDER_PAYMENT_STATUS_CONFLICT",
+      tamaoReceivesSaleProceeds:false
+    },200);
+  }
 
   if(refundTotalCents>=Number(attempt.amount_cents)){
     status="refunded";
