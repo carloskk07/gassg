@@ -156,6 +156,8 @@ jobs:
         run: node tests/portal-oidc-propagation-v1-219.mjs
       - name: Mercado Pago webhook remote proof V1.137 regression contract
         run: node tests/mp-webhook-remote-proof-v1-137.mjs
+      - name: Mercado Pago platform billing dual-status security regression
+        run: node tests/mercadopago-platform-billing-dual-status.mjs
       - name: Merchant multi-PSP manual fallback V1.138 regression contract
         run: node tests/merchant-psp-manual-fallback-v1-138.mjs
       - name: Admin PSP adoption radar V1.139 regression contract
