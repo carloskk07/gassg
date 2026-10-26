@@ -672,14 +672,14 @@ function adminFinanceLabProviderRejection(order:any,status:number){
     ...(Array.isArray(order?.cause)?order.cause.slice(0,5).map((item:any)=>item?.description??item?.message):[])
   ].filter(value=>typeof value==="string");
   const description=descriptions.join(" ").slice(0,2500);
-  const providerField=/(?:\\b|[^\\w.])payer\\.email\\b/i.test(description)
-    ||/\\b(?:payer|buyer)\\b.{0,40}\\bemail\\b/i.test(description)
-    ||/\\bemail\\b.{0,40}\\b(?:payer|buyer)\\b/i.test(description)
+  const providerField=/(?:\b|[^\w.])payer\.email\b/i.test(description)
+    ||/\b(?:payer|buyer)\b.{0,40}\bemail\b/i.test(description)
+    ||/\bemail\b.{0,40}\b(?:payer|buyer)\b/i.test(description)
     ?"payer.email"
-    :/\\bpayer\\.first_name\\b/i.test(description)?"payer.first_name"
-    :/\\bconfig\\.location\\.state_id\\b/i.test(description)?"config.location.state_id"
-    :/\\bexpiration_time\\b/i.test(description)?"expiration_time"
-    :/\\bprocessing_mode\\b/i.test(description)?"processing_mode"
+    :/\bpayer\.first_name\b/i.test(description)?"payer.first_name"
+    :/\bconfig\.location\.state_id\b/i.test(description)?"config.location.state_id"
+    :/\bexpiration_time\b/i.test(description)?"expiration_time"
+    :/\bprocessing_mode\b/i.test(description)?"processing_mode"
     :null;
   const guidance=apiStatus===400
     ?providerField==="payer.email"||providerCode==="invalid_email_for_sandbox"
