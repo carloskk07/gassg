@@ -629,6 +629,31 @@ async function handlePaidCouponOrder(
     String(pix?.payment_method?.type??"")!=="bank_transfer"){
   return json({error:"COUPON_ORDER_BINDING_MISMATCH"},409);
  }
+ // Do not create paid coupon liabilities from a sandbox Order, a missing
+ // payment identity, or a Pix amount contradicting the invoice. On a coupon
+ // already marked paid, freeze available benefits through the EXISTING
+ // financial-review RPC. Do not create any payment or refund evidence.
+ const unsafePaymentProof=order?.live_mode===false
+   ||!String(pix?.id??"").trim()
+   ||(pix?.amount!=null
+     &&moneyToCents(pix.amount)!==Number(invoice.sale_price_cents));
+ if(unsafePaymentProof){
+  if(invoice.status==="paid"){
+   const {error}=await admin.rpc("clube_coupon_paid_payment_review",{
+    p_invoice_id:invoice.id,p_provider_order_id:dataId
+   });
+   if(error)throw error;
+   return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+    status:"review_required",reviewRequired:true,
+    reason:"COUPON_PROVIDER_PROOF_UNVERIFIED"},200);
+  }
+  if(invoice.status==="refunded"||invoice.status==="review_required"){
+   return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+    status:invoice.status,replayed:true,
+    reviewRequired:invoice.status==="review_required"},200);
+  }
+  return json({error:"COUPON_PROVIDER_PROOF_UNVERIFIED"},409);
+ }
  // Refunds and chargebacks outrank 'processed' on any replay. A paid coupon
  // is never left spendable after a verified refund without an explicit hold.
  const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
@@ -648,7 +673,7 @@ async function handlePaidCouponOrder(
   ||providerStates.some(state=>reversalStates.includes(state))
   ||(invoice.status==="paid"&&(providerStates.some(state=>failedStates.includes(state))||
     providerStatus!=="processed"||
-    !["processed","accredited","approved"].includes(paymentStatus)||
+    paymentStatus!=="processed"||
     (providerDetail!==""&&providerDetail!=="accredited")||
     (paymentDetail!==""&&paymentDetail!=="accredited")));
  if(hasRefund){
@@ -687,8 +712,9 @@ async function handlePaidCouponOrder(
    status:invoice.status,reviewRequired:invoice.status==="review_required",
    replayed:true},200);
  }
- if(providerStatus==="processed"&&
-    ["processed","accredited","approved"].includes(paymentStatus)){
+ if(providerStatus==="processed"&&paymentStatus==="processed"&&
+    (!providerDetail||providerDetail==="accredited")&&
+    (!paymentDetail||paymentDetail==="accredited")){
   const {data,error}=await admin.rpc("clube_coupon_paid_payment_verify",{
    p_invoice_id:invoice.id,p_provider_order_id:dataId,
    p_payment_id:String(pix.id??""),p_amount_cents:amount
