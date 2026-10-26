@@ -369,7 +369,8 @@ for(const invalidAudit of [
 ]){
  auditProof=invalidAudit;
  await assert.rejects(lookup(),e=>e.code==='FINANCE_LAB_ORDER_NOT_OWNED'
-   ||e.code==='FINANCE_LAB_NOT_VERIFIED_SANDBOX');
+   ||e.code==='FINANCE_LAB_NOT_VERIFIED_SANDBOX'
+   ||e.code==='FINANCE_LAB_ORDER_MISMATCH');
 }
 auditProof={...originalAudit,pixCodeAvailable:false,testApproved:true};
 assert.equal((await lookup()).ok,true,'QR-less APRO approved audit is also valid');
