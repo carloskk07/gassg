@@ -323,6 +323,11 @@ assert.equal(proofStatus.paymentStatus,'approved');
 assert.equal(proofStatus.settlementVerified,false,'test-approved is never real payout');
 assert.equal(proofStatus.credited,false);
 
+// Some GET representations omit redundant payment_method.type.
+delete getBody.transactions.payments[0].payment_method.type;
+proofStatus=await lookup();
+assert.equal(proofStatus.ok,true,'missing optional Pix type is allowed after audited creation');
+getBody.transactions.payments[0].payment_method.type='bank_transfer';
 getBody.live_mode=false;
 proofStatus=await lookup();
 assert.equal(proofStatus.environmentProof,'provider_non_live');
