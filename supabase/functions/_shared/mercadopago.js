@@ -159,14 +159,16 @@ export async function verifyMercadoPagoWebhook(req,secret,dataId){
   const key=String(secret??"").trim();
   const requestId=String(req.headers.get("x-request-id")??"").trim();
   const signature=String(req.headers.get("x-signature")??"").trim();
-  const normalizedId=String(dataId??"").trim().toLowerCase();
-  if(key.length<16||!signature||!normalizedId)return false;
+  // The official Mercado Pago SDK builds its HMAC manifest with the raw
+  // query data.id, preserving case. The legacy TAMÃO validator lowercased
+  // *all* resource IDs, breaking signed uppercase simulator probe IDs.
+  const rawId=String(dataId??"").trim();
+  if(key.length<16||!signature||!rawId)return false;
   const {ts,v1}=parseSignatureHeader(signature);
   if(!/^\d{9,16}$/.test(ts)||!v1||!/^[0-9a-f]{64}$/i.test(v1))return false;
   // Mercado Pago's signed manifest omits request-id when the provider
   // has not included x-request-id. The ID and timestamp remain HMAC-bound.
   // Requiring request-id unconditionally rejected valid simulator variants.
-  const manifest=`id:${normalizedId};${requestId?`request-id:${requestId};`:""}ts:${ts};`;
   const cryptoKey=await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(key),
@@ -174,10 +176,21 @@ export async function verifyMercadoPagoWebhook(req,secret,dataId){
     false,
     ["sign"]
   );
-  const digest=await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    new TextEncoder().encode(manifest)
-  );
-  return constantTimeEqualHex(bytesToHex(new Uint8Array(digest)),v1.toLowerCase());
+  // Prefer the exact SDK manifest. Retain the prior lowercase variant only
+  // for compatibility with Mercado Pago's documented normalized-ID examples.
+  // Neither variant can pass without a genuine HMAC under the configured key.
+  const ids=rawId.toLowerCase()===rawId?[rawId]:[rawId,rawId.toLowerCase()];
+  let matched=0;
+  for(const id of ids){
+    const manifest=`id:${id};${requestId?`request-id:${requestId};`:""}ts:${ts};`;
+    const digest=await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      new TextEncoder().encode(manifest)
+    );
+    matched|=Number(constantTimeEqualHex(
+      bytesToHex(new Uint8Array(digest)),v1.toLowerCase()
+    ));
+  }
+  return matched!==0;
 }
