@@ -255,6 +255,119 @@ assert.match(server,/providerTestApproved/);
 assert.match(server,/credited:false/);
 
 
+// Status GET regression: Mercado Pago's Orders GET can omit the sandbox
+// URL and live_mode after the POST already proved sandbox and wrote audit.
+// A prior verified creation record plus exact ID, reference, amount and Pix
+// method is sufficient to READ the status, never to settle/issue a credit.
+const checkStart=server.indexOf('async function adminFinanceLabCheckSandboxOrder(');
+const checkEnd=server.indexOf('async function adminFinanceLabSandboxPix(',checkStart);
+assert.ok(checkStart>0&&checkEnd>checkStart);
+const checkSource=server.slice(checkStart,checkEnd)
+  .replace('admin:any,actorId:string,body:any','admin,actorId,body')
+  .replaceAll('(x:any)=>','(x)=>');
+const actorId='11111111-1111-4111-8111-111111111111';
+const originalAudit=structuredClone(auditInserted[0].metadata);
+let getBody=structuredClone(sandboxBase),auditProof=originalAudit;
+const getCalls=[];
+const lookupContext=vm.createContext({
+ URL,Number,String,Array,Date,
+ FINANCE_LAB_PIX_TEST_AMOUNT_CENTS:5000,
+ adminFinanceLabConfig:()=>({ready:true,token:'TEST_ONLY'}),
+ mercadoPagoFetch:async(path,opts)=>{
+   assert.equal(path,'/v1/orders/'+sandboxBase.id);
+   assert.equal(opts.method,'GET');
+   assert.equal(opts.accessToken,'TEST_ONLY');
+   getCalls.push(path);
+   return {ok:true,status:200};
+ },
+ readMercadoPagoJson:async()=>getBody,
+ moneyToCents:v=>Math.round(Number(v)*100),
+ safeMercadoPagoUrl:raw=>typeof raw==='string'
+   &&raw.startsWith('https://www.mercadopago.com.br/')?raw:null,
+ DomainError:class DomainError extends Error {
+   constructor(code,message,status){super(message);this.code=code;this.status=status;}
+ }
+});
+vm.runInContext(checkSource+'\nthis.checkStatus=adminFinanceLabCheckSandboxOrder;',lookupContext);
+const lookupDb={from(table){
+ assert.equal(table,'platform_admin_audit');
+ return {
+   select(fields){assert.equal(fields,'target_id,metadata');return this;},
+   eq(field,value){if(field==='actor_user_id')assert.equal(value,actorId);return this;},
+   order(field,opts){assert.equal(field,'created_at');assert.equal(opts.ascending,false);return this;},
+   limit(n){assert.equal(n,1);return this;},
+   maybeSingle:async()=>({data:{target_id:sandboxBase.id,metadata:auditProof},error:null})
+ };
+}};
+const lookup=()=>lookupContext.checkStatus(lookupDb,actorId,{orderId:sandboxBase.id});
+delete getBody.live_mode;
+delete getBody.transactions.payments[0].payment_method.ticket_url;
+let proofStatus=await lookup();
+assert.equal(proofStatus.ok,true,'read GET with missing sandbox markers using verified creation audit');
+assert.equal(proofStatus.orderStatus,'action_required');
+assert.equal(proofStatus.paymentStatus,'action_required');
+assert.equal(proofStatus.environmentProof,'audited_sandbox_creation');
+assert.equal(proofStatus.paymentSimulated,true);
+assert.equal(proofStatus.settlementVerified,false);
+assert.equal(proofStatus.credited,false);
+assert.equal(getCalls.length,1,'read provider exactly once; no new order');
+
+getBody.status='processed';
+getBody.transactions.payments[0].status='approved';
+proofStatus=await lookup();
+assert.equal(proofStatus.orderStatus,'processed');
+assert.equal(proofStatus.paymentStatus,'approved');
+assert.equal(proofStatus.settlementVerified,false,'test-approved is never real payout');
+assert.equal(proofStatus.credited,false);
+
+getBody.live_mode=false;
+proofStatus=await lookup();
+assert.equal(proofStatus.environmentProof,'provider_non_live');
+delete getBody.live_mode;
+getBody.transactions.payments[0].payment_method.ticket_url=
+  'https://www.mercadopago.com.br/sandbox/payments/123';
+proofStatus=await lookup();
+assert.equal(proofStatus.environmentProof,'provider_sandbox_ticket');
+delete getBody.transactions.payments[0].payment_method.ticket_url;
+
+const legitimateRead=structuredClone(getBody);
+for(const bad of [
+ {...legitimateRead,live_mode:true},
+ {...legitimateRead,id:'OTHERORDER123456'},
+ {...legitimateRead,external_reference:'tamao-finlab-'+'f'.repeat(40)},
+ {...legitimateRead,total_amount:'49.00'},
+ {...legitimateRead,transactions:{payments:[]}},
+ {...legitimateRead,transactions:{payments:[{
+   ...legitimateRead.transactions.payments[0],
+   payment_method:{id:'pix',type:'credit_card'}
+ }]}},
+ {...legitimateRead,transactions:{payments:[{
+   ...legitimateRead.transactions.payments[0],
+   payment_method:{id:'pix',type:'bank_transfer',
+     ticket_url:'https://www.mercadopago.com.br/checkout/live/123'}
+ }]}}
+]){
+ getBody=bad;
+ await assert.rejects(lookup(),e=>e?.code==='FINANCE_LAB_ORDER_MISMATCH'
+   ||e?.code==='FINANCE_LAB_NOT_VERIFIED_SANDBOX');
+}
+getBody=legitimateRead;
+for(const invalidAudit of [
+ {...originalAudit,provider:'not-mercadopago'},
+ {...originalAudit,mode:'production'},
+ {...originalAudit,pixCodeAvailable:false,testApproved:false},
+ {...originalAudit,externalReference:'wrong'},
+ {...originalAudit,amountCents:4999}
+]){
+ auditProof=invalidAudit;
+ await assert.rejects(lookup(),e=>e.code==='FINANCE_LAB_ORDER_NOT_OWNED'
+   ||e.code==='FINANCE_LAB_NOT_VERIFIED_SANDBOX');
+}
+auditProof={...originalAudit,pixCodeAvailable:false,testApproved:true};
+assert.equal((await lookup()).ok,true,'QR-less APRO approved audit is also valid');
+auditProof=originalAudit;
+assert.ok(getCalls.length>2);
+
 const classificationStart=server.indexOf('function adminFinanceLabProviderRejection(');
 const classificationEnd=server.indexOf('// Historical Pix diagnosis:',classificationStart);
 assert.ok(classificationStart>0&&classificationEnd>classificationStart);
