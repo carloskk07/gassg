@@ -14,6 +14,16 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Checkpoint 26/10/2026 — Recusa Pix sandbox Mercado Pago sem código diagnóstico (PR #646)
+
+**Evidência da falha do usuário:** após corrigir isolamento de token, o Financeiro > Laboratório passou a permitir `Gerar Pix oficial de teste (R$ 50,00)`, mas o Mercado Pago recusou a ordem e a tela mostrou mensagem genérica. Supabase `function_edge_logs` evidenciou **POST /functions/v1/admin-ops HTTP 502 em 26/10/2026 às 03:15:31 UTC**, sem identificar o HTTP/código subjacente do Mercado Pago. O backend em `supabase/functions/admin-ops/index.ts` descartava o erro JSON e só devolvia texto que culpa token/valor. O valor `50.00`, `payer.first_name=APRO`, `pix/bank_transfer` e o processamento automático enviados pelo código já coincidem com o teste Pix por Orders API documentado pelo provedor. **Não alterar tokens ou valores por suposição**; a causa exata ainda depende de uma próxima resposta classificada do PSP.
+
+**PR #646 — alteração cirúrgica:** no fluxo existente, a recusa retorna `apiStatus`, `providerCode` escolhido exclusivamente de uma allowlist e mensagem com orientação por classe (400/401/402/403/409/423/429/5xx); resposta bruta, e-mail, token, QR e dados pessoais não são registrados nem enviados ao cliente. O navegador descarta uma chave de idempotência somente após rejeições definitivas **400, 401 e 403**; após 402/conflitos/rate-limit/erro 5xx/timeout, conserva a chave para impedir novas ordens inadvertidas. Testes ampliados no `tests/admin-financial-lab.mjs`. Não cria estruturas, valores financeiros, migrações, novos provedores nem altera credenciais reais.
+
+**Regra de conclusão:** publicar no Supabase a versão completa já integrada de `admin-ops`, conferir arquivo idêntico à `main`, confirmar publicação Cloudflare das páginas e testes. Só depois testar manualmente **uma** tentativa de Pix sandbox com conta e credencial já configuradas, ler código/HTTP real e corrigir o fator identificado. **Não declarar Pix sandbox, liquidação, conciliação nem ganhos homologados por um teste automatizado.**
+
+---
+
 ## Checkpoint 25/10/2026 — identidade dos e-mails de autenticação (PR #645)
 
 **Evidência de partida:** Gmail recebeu e-mail de link seguro gerado pelo Supabase/Auth com o remetente `TAMÃO <contato@tamao.com.br>`, enviado via SendPulse `smtp-pulse.com`. O assunto e corpo do Magic link/OTP continuam no modelo inglês padrão do Supabase. O usuário autorizou padronizar os e-mails com a identidade TAMÃO em pt-BR. A infraestrutura de envio existente (SendPulse SMTP, Supabase Auth, domínio remetente) não deve ser duplicada ou substituída.

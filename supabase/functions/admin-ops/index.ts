@@ -641,6 +641,47 @@ function adminFinanceLabConfig(){
     ready:enabled&&tokenConfigured&&payerConfigured&&distinctToken,
     token,payerEmail};
 }
+// Only vetted status/code pairs may reach the superadmin or structured logs.
+// Never return raw Mercado Pago messages: they can contain personal data,
+// external references, request payloads or credential-like values.
+function adminFinanceLabProviderRejection(order:any,status:number){
+  const apiStatus=Number.isInteger(status)&&status>=400&&status<=599?status:502;
+  const allowed=new Set([
+    "invalid_credentials","forbidden","property_value","required_properties",
+    "unsupported_properties","minimum_properties","json_syntax_error",
+    "invalid_order_type","order_builder_without_transactions",
+    "invalid_header_value","invalid_header","failed",
+    "idempotency_key_already_used","resource_locked","usage_quota_exceeded",
+    "idempotency_validation_failed","internal_error",
+    "PA_UNAUTHORIZED_RESULT_FROM_POLICIES"
+  ]);
+  const codes=[
+    order?.code,
+    typeof order?.error==="object"?order.error?.code:order?.error,
+    ...(Array.isArray(order?.errors)?order.errors.slice(0,5).map((item:any)=>item?.code):[]),
+    ...(Array.isArray(order?.cause)?order.cause.slice(0,5).map((item:any)=>item?.code):[])
+  ];
+  const providerCode=codes.find(code=>typeof code==="string"&&allowed.has(code))??null;
+  const guidance=apiStatus===400
+    ?"A API rejeitou os dados da ordem; confira o e-mail pagador de TESTE e as propriedades exigidas."
+    :apiStatus===401
+      ?"A API não aceitou o Access Token de TESTE; confirme a credencial da aplicação usada no Checkout Transparente via Orders."
+    :apiStatus===403
+      ?"A aplicação não tem autorização para esta operação ou a conta tem restrições; confira as permissões da integração."
+    :apiStatus===402
+      ?"Uma transação da ordem foi rejeitada; confira o código do provedor antes de tentar novamente."
+    :apiStatus===409||apiStatus===423
+      ?"A requisição foi bloqueada por idempotência/conflito. Confira no Mercado Pago antes de iniciar outra tentativa."
+    :apiStatus===429
+      ?"Limite de requisições atingido; aguarde antes de repetir o teste."
+    :apiStatus>=500
+      ?"O Mercado Pago apresentou uma falha temporária. Confira o histórico antes de iniciar uma nova ordem."
+      :"A operação foi recusada pelo provedor; consulte a autorização, o cenário de teste e o código retornado.";
+  return {
+    apiStatus,providerCode,
+    message:"Mercado Pago: HTTP "+apiStatus+(providerCode?" ("+providerCode+")":"")+". "+guidance
+  };
+}
 // Historical Pix diagnosis: read-only; never expose BR Code or payer data.
 // This cannot prove that a PSP/bank will accept a charge. It diagnoses local
 // format, value, expiration and mismatched bookkeeping evidence only.
@@ -947,9 +988,12 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   });
   const order=await readMercadoPagoJson(response);
   if(!response.ok){
-    return {ok:false,mode:"sandbox",provider:"mercadopago",apiStatus:response.status,
+    const diagnosis=adminFinanceLabProviderRejection(order,response.status);
+    // Safe operational evidence only: never log token, payer, body or response.
+    console.warn("FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",diagnosis.apiStatus,diagnosis.providerCode??"unknown");
+    return {ok:false,mode:"sandbox",provider:"mercadopago",
       error:"FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",
-      message:"O Mercado Pago recusou a ordem de teste. Confira as credenciais de TESTE e o valor permitido pelo provedor."};
+      ...diagnosis};
   }
   const payment=Array.isArray(order?.transactions?.payments)
     ?order.transactions.payments.find((x:any)=>String(x?.payment_method?.id??"").toLowerCase()==="pix")

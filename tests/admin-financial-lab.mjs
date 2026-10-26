@@ -12,7 +12,7 @@ const section=admin.slice(start,end);
 const state={preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,
  readiness:null,readinessLoading:false,status:null};
 const nodes={'admin-finance-lab-value':{value:'12,35'},'admin-finance-lab-kind':{value:'invoice'}};
-let requests=[],refreshes=0,confirmation=true,autoApprovedTest=false;
+let requests=[],refreshes=0,confirmation=true,autoApprovedTest=false,sandboxFailure=null;
 const ctx=vm.createContext({
   adminRuntime:{financeLab:state,providerHealth:null},adminReady:()=>true,
   adminCurrentRole:()=> 'superadmin',
@@ -25,6 +25,12 @@ const ctx=vm.createContext({
   adminIdempotency:()=> 'lab:test-id-1234567890',
   adminInvoke:async(data,opt)=>{
     requests.push({data,opt});
+    if(data.action==='finance-lab-sandbox-pix'&&sandboxFailure){
+      const error=new Error('Mercado Pago: HTTP '+sandboxFailure.apiStatus);
+      error.code='FINANCE_LAB_SANDBOX_PROVIDER_REJECTED';
+      error.data=sandboxFailure;
+      throw error;
+    }
     if(data.action==='finance-lab-readiness')return {
       ok:true,mode:'sandbox',configured:true,officialTestAmountCents:5000,
       recentTests:[],prerequisites:{enabled:true,tokenConfigured:true,distinctToken:true,payerConfigured:true}
@@ -111,6 +117,17 @@ const afterCheck=requests.length;
 confirmation=false;
 await ctx.lab.sandbox();
 assert.equal(requests.length,afterCheck,'declined confirmation cannot call provider');
+// Explicit provider rejection may rotate a key only if refusal is definitive.
+confirmation=true;
+sandboxFailure={apiStatus:401};
+await ctx.lab.sandbox();
+assert.equal(state.idempotencyKey,null,'Definite 401 refusal permits a fresh manual test');
+assert.match(state.error,/HTTP 401/);
+sandboxFailure={apiStatus:500};
+await ctx.lab.sandbox();
+assert.equal(state.idempotencyKey,'lab:test-id-1234567890',
+  'Ambiguous 5xx must retain idempotency key to prevent duplicate orders');
+sandboxFailure=null;
 
 assert.match(boot,/adminFinanceLabSandboxPixFromUi/);
 assert.match(boot,/adminFinanceLabPreviewFromUi/);
@@ -229,5 +246,40 @@ assert.ok(brChecks>=1);
 assert.match(server,/String\(order\?\.external_reference\?\?""\)!==externalReference/);
 assert.match(server,/providerTestApproved/);
 assert.match(server,/credited:false/);
+
+
+const classificationStart=server.indexOf('function adminFinanceLabProviderRejection(');
+const classificationEnd=server.indexOf('// Historical Pix diagnosis:',classificationStart);
+assert.ok(classificationStart>0&&classificationEnd>classificationStart);
+const classifySource=server.slice(classificationStart,classificationEnd)
+  .replace('order:any,status:number','order,status')
+  .replaceAll('(item:any)=>','(item)=>');
+const classifyContext=vm.createContext({});
+vm.runInContext(classifySource+'\nthis.classify=adminFinanceLabProviderRejection;',classifyContext);
+const classify=classifyContext.classify;
+const denied=classify({error:'invalid_credentials',message:'PRIVATE_PAYER@example.invalid',token:'APP_USR_SECRET'},401);
+assert.equal(denied.apiStatus,401);
+assert.equal(denied.providerCode,'invalid_credentials');
+assert.match(denied.message,/Access Token de TESTE/);
+assert.match(denied.message,/HTTP 401/);
+assert.ok(!JSON.stringify(denied).includes('PRIVATE_PAYER'));
+assert.ok(!JSON.stringify(denied).includes('APP_USR_SECRET'));
+const invalidPayer=classify({errors:[{code:'property_value',message:'PRIVATE_EMAIL'}]},400);
+assert.equal(invalidPayer.providerCode,'property_value');
+assert.match(invalidPayer.message,/e-mail pagador/);
+const forbidden=classify({code:'forbidden'},403);
+assert.match(forbidden.message,/permissões/);
+const maxed=classify({code:'usage_quota_exceeded'},429);
+assert.match(maxed.message,/Limite de requisições/);
+const unsafe=classify({code:'exposed_secret_12345',error:'PRIVATE_SECRET_MESSAGE',cause:[{code:'PRIVATE_PAYER_ID'}]},402);
+assert.equal(unsafe.providerCode,null);
+assert.match(unsafe.message,/HTTP 402/);
+assert.ok(!JSON.stringify(unsafe).includes('PRIVATE_'));
+const uncertain=classify({},500);
+assert.match(uncertain.message,/histórico/);
+assert.match(server,/console\.warn\("FINANCE_LAB_SANDBOX_PROVIDER_REJECTED",diagnosis\.apiStatus,diagnosis\.providerCode/);
+assert.doesNotMatch(server.slice(server.indexOf('async function adminFinanceLabSandboxPix('),server.indexOf('async function billingProviderHealth(')),/console\.warn\([^\n]*config\.token/);
+assert.match(admin,/\[400,401,403\]\.includes\(Number\(e\?\.data\?\.apiStatus\)\)/);
+assert.match(admin,/e\?\.code==='FINANCE_LAB_SANDBOX_PROVIDER_REJECTED'/);
 
 console.log('PASS admin lab: arbitrary invoice simulation, official sandbox preset, authorization, status');
