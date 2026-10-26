@@ -967,16 +967,39 @@ async function adminFinanceLabCheckSandboxOrder(admin:any,actorId:string,body:an
       "Os dados retornados pelo provedor não correspondem à ordem auditada.",409);
   }
   const payments=Array.isArray(order?.transactions?.payments)?order.transactions.payments:[];
-  const payment=payments.find((x:any)=>String(x?.payment_method?.id??"").toLowerCase()==="pix");
-  const sandboxUrl=safeMercadoPagoUrl(payment?.payment_method?.ticket_url);
-  if(!(order?.live_mode===false||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/")))){
-    throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX","A consulta não comprovou ambiente de teste.",409);
+  const payment=payments.find((x:any)=>
+    String(x?.payment_method?.id??"").toLowerCase()==="pix"
+    &&String(x?.payment_method?.type??"").toLowerCase()==="bank_transfer");
+  // The Orders API may omit live_mode and the ticket_url from a later GET,
+  // even though both parties were already verified at order creation.
+  // This audit is issued ONLY after a non-live flag or actual /sandbox/
+  // ticket, valid Pix BR code (or approved APRO), amount and reference.
+  // Never reclassify an arbitrary order as sandbox based on ID/token name.
+  const trustedCreation=proof?.metadata?.provider==="mercadopago"
+    &&proof?.metadata?.mode==="sandbox"
+    &&proof?.metadata?.pixCodeAvailable===true
+    &&/^tamao-finlab-[a-f0-9]{40}$/.test(String(proof?.metadata?.externalReference??""));
+  const ticket=String(payment?.payment_method?.ticket_url??"").trim();
+  const sandboxUrl=safeMercadoPagoUrl(ticket);
+  const ticketProvesSandbox=Boolean(sandboxUrl
+    &&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/"));
+  const getterExplicitlyLive=order?.live_mode===true;
+  const ticketExplicitlyNotSandbox=Boolean(ticket&&!ticketProvesSandbox);
+  if(!trustedCreation||!payment||getterExplicitlyLive
+    ||(ticketExplicitlyNotSandbox&&order?.live_mode!==false)){
+    throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX",
+      "A consulta não comprovou a identidade e o ambiente de teste da ordem.",409);
   }
   return {ok:true,mode:"sandbox",orderId,
     amountCents:FINANCE_LAB_PIX_TEST_AMOUNT_CENTS,
     orderStatus:String(order?.status||"unknown").slice(0,80),
     paymentStatus:String(payment?.status||"unknown").slice(0,80),
     paymentStatusDetail:String(payment?.status_detail||"").slice(0,100),
+    // The test provenance is the authenticated, identity-matched server-side
+    // creation audit. A simulated PSP approval is not settlement or receipt.
+    environmentProof:order?.live_mode===false?"provider_non_live"
+      :ticketProvesSandbox?"provider_sandbox_ticket":"audited_sandbox_creation",
+    paymentSimulated:true,settlementVerified:false,
     checkedAt:new Date().toISOString(),
     credited:false
   };
