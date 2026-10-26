@@ -12,6 +12,11 @@ const hhmm=(d=new Date())=>d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const roundMoney=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Shared classic-script formatter: admin, merchant and customer portals load core.js.
+function formatDateTime(v){
+  const d=new Date(v);if(Number.isNaN(d.getTime()))return 'não confirmada';
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
 const normalizeCnpj=v=>String(v||'').toUpperCase().replace(/[^0-9A-Z]/g,'');
 const isValidCnpjShape=v=>/^[0-9A-Z]{12}[0-9]{2}$/.test(normalizeCnpj(v));
 const uid=()=>{
