@@ -4827,7 +4827,8 @@ async function adminFinanceLabCheckOrderFromUi(orderId){
   try{
     const data=await adminInvoke({action:'finance-lab-sandbox-check',orderId:String(orderId)});
     if(data?.ok!==true||data.mode!=='sandbox'||data.orderId!==String(orderId)
-      ||data.credited!==false)throw new Error('A consulta não comprovou a condição de teste.');
+      ||data.credited!==false||data.paymentSimulated!==true
+      ||data.settlementVerified!==false)throw new Error('A consulta não comprovou a condição de teste.');
     state.status=data;
   }catch(e){state.error=String(e?.message||e);state.status=null;}
   finally{state.pending=false;render();}
@@ -4997,7 +4998,7 @@ function adminFinanceLabView(d){
         ${state.status?'<div class="notice" role="status">Ordem de TESTE '+esc(state.status.orderId)+
           ' • '+esc(state.status.orderStatus)+' / '+esc(state.status.paymentStatus)+
           ' • consultada '+esc(formatDateTime(state.status.checkedAt))+
-          '. Nenhum crédito concedido.</div>':''}
+          '. Simulação do Mercado Pago: não comprova recebimento de dinheiro real nem concede créditos.</div>':''}
         ${state.readiness?.recentTests?.length?'<h4>Últimas ordens de TESTE</h4>'+
           state.readiness.recentTests.slice(0,6).map(t=>'<div class="order-line">'+
             esc(t.orderId)+' • '+esc(t.providerStatus)+' • '+esc(formatDateTime(t.createdAt))+
