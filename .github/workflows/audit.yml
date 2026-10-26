@@ -156,6 +156,8 @@ jobs:
         run: node tests/portal-oidc-propagation-v1-219.mjs
       - name: Mercado Pago webhook remote proof V1.137 regression contract
         run: node tests/mp-webhook-remote-proof-v1-137.mjs
+      - name: Mercado Pago optional request ID signature and safe diagnostics
+        run: node tests/mercadopago-webhook-optional-request-id.mjs
       - name: Mercado Pago platform billing dual-status security regression
         run: node tests/mercadopago-platform-billing-dual-status.mjs
       - name: Mercado Pago merchant sale dual-status security regression

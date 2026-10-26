@@ -832,7 +832,28 @@ Deno.serve(async(req:Request)=>{
     }
 
     const signed=await verifyMercadoPagoWebhook(req,webhookSecret,dataId);
-    if(!signed)return json({error:"INVALID_MERCADOPAGO_SIGNATURE"},401);
+    if(!signed){
+      // Log only non-sensitive signature SHAPE for server-issued test probes.
+      // Never log the secret, x-signature, x-request-id, HMAC, buyer, or body.
+      // Real payment requests retain the same fail-closed HTTP 401 behavior.
+      if(WEBHOOK_PROBE_RE.test(dataId)){
+        const header=String(req.headers.get("x-signature")??"");
+        const signatureParts=header.split(",").map(x=>x.trim());
+        const ts=signatureParts.find(x=>x.startsWith("ts="))?.slice(3)??"";
+        const v1=signatureParts.find(x=>x.startsWith("v1="))?.slice(3)??"";
+        console.warn("MERCADOPAGO_PROBE_HMAC_REJECTED",JSON.stringify({
+          signaturePresent:Boolean(header),
+          requestIdPresent:Boolean(req.headers.get("x-request-id")),
+          queryDataIdPresent:url.searchParams.has("data.id"),
+          signatureShapeValid:/^\d{9,16}$/.test(ts)
+            &&/^[0-9a-f]{64}$/i.test(v1),
+          reason:!header?"missing_signature"
+            :!/^\d{9,16}$/.test(ts)||!/^[0-9a-f]{64}$/i.test(v1)
+              ?"invalid_signature_shape":"hmac_mismatch"
+        }));
+      }
+      return json({error:"INVALID_MERCADOPAGO_SIGNATURE"},401);
+    }
 
     const topic=String(
       url.searchParams.get("type")
