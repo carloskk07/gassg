@@ -286,6 +286,71 @@ assert.equal((await decide('processed','processed',validRefund,'paid',
 assert.equal((await decide('processed')).route,
  'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
 
+// A test-approved Mercado Pago Order does not prove a production receipt.
+// A paid invoice must become review_required rather than remain spendable;
+// an unpaid invoice must not issue vouchers from incomplete Pix evidence.
+for(const [name,change] of [
+ ['explicit sandbox Order',order=>{order.live_mode=false;}],
+ ['Pix transaction amount mismatch',order=>{order.transactions.payments[0].amount='14.00';}],
+ ['Pix transaction missing identity',order=>{order.transactions.payments[0].id='';}]
+]){
+ calledRpcs=[];
+ currentPspOrder={id:'order-1',external_reference:'invoice-1',
+  live_mode:true,total_amount:'15.00',status:'processed',
+  status_detail:'accredited',
+  transactions:{payments:[{id:'payment-1',amount:'15.00',
+   status:'processed',status_detail:'accredited',
+   payment_method:{id:'pix',type:'bank_transfer'}}],refunds:[]}};
+ change(currentPspOrder);
+ const protectedPaid=await webhookSandbox.handlePaidCouponOrder(
+  mockAdmin,'order-1',{...invoiceForWebhook,status:'paid'},'test-only-token');
+ assert.equal(protectedPaid.status,200,name+' must return existing review route');
+ assert.equal(protectedPaid.body.status,'review_required',name);
+ assert.equal(protectedPaid.body.reviewRequired,true,name);
+ assert.deepEqual(calledRpcs,['clube_coupon_paid_payment_review'],
+  name+' cannot call payment verification or issue fresh vouchers');
+
+ calledRpcs=[];
+ const protectedUnpaid=await webhookSandbox.handlePaidCouponOrder(
+  mockAdmin,'order-1',{...invoiceForWebhook,status:'awaiting_payment'},'test-only-token');
+ assert.equal(protectedUnpaid.status,409,name+' must reject unproven new purchase');
+ assert.equal(protectedUnpaid.body.error,'COUPON_PROVIDER_PROOF_UNVERIFIED',name);
+ assert.equal(calledRpcs.length,0,name+' cannot credit');
+}
+for(const suspectPaymentState of ['approved','accredited']){
+ calledRpcs=[];
+ currentPspOrder={id:'order-1',external_reference:'invoice-1',
+  live_mode:true,total_amount:'15.00',status:'processed',
+  status_detail:'accredited',transactions:{payments:[{
+   id:'payment-1',amount:'15.00',status:suspectPaymentState,
+   status_detail:'accredited',payment_method:{id:'pix',type:'bank_transfer'}
+  }],refunds:[]}};
+ const paid=await webhookSandbox.handlePaidCouponOrder(
+  mockAdmin,'order-1',{...invoiceForWebhook,status:'paid'},'test-only-token');
+ assert.equal(paid.body.status,'review_required',
+  'non-processed Pix must hold a previously paid invoice');
+ assert.deepEqual(calledRpcs,['clube_coupon_paid_payment_review']);
+ calledRpcs=[];
+ const pending=await webhookSandbox.handlePaidCouponOrder(
+  mockAdmin,'order-1',{...invoiceForWebhook,status:'awaiting_payment'},'test-only-token');
+ assert.equal(pending.status,200);
+ assert.equal(pending.body.pending,true);
+ assert.equal(calledRpcs.length,0,'unprocessed Pix cannot issue a coupon');
+}
+calledRpcs=[];
+currentPspOrder={id:'order-1',external_reference:'invoice-1',
+ live_mode:true,total_amount:'15.00',status:'processed',
+ status_detail:'accredited',transactions:{payments:[{
+  id:'payment-1',amount:'15.00',status:'processed',
+  status_detail:'accredited',payment_method:{id:'pix',type:'bank_transfer'}
+ }],refunds:[]}};
+const validPay=await webhookSandbox.handlePaidCouponOrder(
+ mockAdmin,'order-1',{...invoiceForWebhook,status:'awaiting_payment'},'test-only-token');
+assert.equal(validPay.status,200,'legitimate non-sandbox order must remain issuable');
+assert.equal(validPay.body.status,'paid');
+assert.deepEqual(calledRpcs,['clube_coupon_paid_payment_verify']);
+
+
 // Once a clean refund or a refund requiring merchant compensation is
 // durably recorded, a stale "processed" PSP snapshot MUST NOT invoke the
 // payment-verify RPC (SQL rejects it and the webhook formerly returned 500).
