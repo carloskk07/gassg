@@ -12,7 +12,7 @@ const section=admin.slice(start,end);
 const state={preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,
  readiness:null,readinessLoading:false,status:null};
 const nodes={'admin-finance-lab-value':{value:'12,35'},'admin-finance-lab-kind':{value:'invoice'}};
-let requests=[],refreshes=0,confirmation=true,autoApprovedTest=false;
+let requests=[],refreshes=0,confirmation=true,autoApprovedTest=false,sandboxFailure=null;
 const ctx=vm.createContext({
   adminRuntime:{financeLab:state,providerHealth:null},adminReady:()=>true,
   adminCurrentRole:()=> 'superadmin',
@@ -25,6 +25,12 @@ const ctx=vm.createContext({
   adminIdempotency:()=> 'lab:test-id-1234567890',
   adminInvoke:async(data,opt)=>{
     requests.push({data,opt});
+    if(data.action==='finance-lab-sandbox-pix'&&sandboxFailure){
+      const error=new Error('Mercado Pago: HTTP '+sandboxFailure.apiStatus);
+      error.code='FINANCE_LAB_SANDBOX_PROVIDER_REJECTED';
+      error.data=sandboxFailure;
+      throw error;
+    }
     if(data.action==='finance-lab-readiness')return {
       ok:true,mode:'sandbox',configured:true,officialTestAmountCents:5000,
       recentTests:[],prerequisites:{enabled:true,tokenConfigured:true,distinctToken:true,payerConfigured:true}
@@ -111,6 +117,17 @@ const afterCheck=requests.length;
 confirmation=false;
 await ctx.lab.sandbox();
 assert.equal(requests.length,afterCheck,'declined confirmation cannot call provider');
+// Explicit provider rejection may rotate a key only if refusal is definitive.
+confirmation=true;
+sandboxFailure={apiStatus:401};
+await ctx.lab.sandbox();
+assert.equal(state.idempotencyKey,null,'Definite 401 refusal permits a fresh manual test');
+assert.match(state.error,/HTTP 401/);
+sandboxFailure={apiStatus:500};
+await ctx.lab.sandbox();
+assert.equal(state.idempotencyKey,'lab:test-id-1234567890',
+  'Ambiguous 5xx must retain idempotency key to prevent duplicate orders');
+sandboxFailure=null;
 
 assert.match(boot,/adminFinanceLabSandboxPixFromUi/);
 assert.match(boot,/adminFinanceLabPreviewFromUi/);
