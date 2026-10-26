@@ -845,10 +845,10 @@ Deno.serve(async(req:Request)=>{
           signaturePresent:Boolean(header),
           requestIdPresent:Boolean(req.headers.get("x-request-id")),
           queryDataIdPresent:url.searchParams.has("data.id"),
-          signatureShapeValid:/^\\d{9,16}$/.test(ts)
+          signatureShapeValid:/^\d{9,16}$/.test(ts)
             &&/^[0-9a-f]{64}$/i.test(v1),
           reason:!header?"missing_signature"
-            :!/^\\d{9,16}$/.test(ts)||!/^[0-9a-f]{64}$/i.test(v1)
+            :!/^\d{9,16}$/.test(ts)||!/^[0-9a-f]{64}$/i.test(v1)
               ?"invalid_signature_shape":"hmac_mismatch"
         }));
       }
