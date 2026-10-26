@@ -13,7 +13,7 @@ const pureBegin=webhook.indexOf('function orderPayments(');
 const pureEnd=webhook.indexOf('async function fetchProviderOrder(',pureBegin);
 assert.ok(begin>0&&end>begin&&pureBegin>0&&pureEnd>pureBegin);
 const stripTypes=source=>source
-  .replace(/\b(admin|attempt|dataId|body|encryptionKey|order|payment|sum|item|p):(?:any|string|number)\b/g,'')
+  .replace(/\b(admin|attempt|dataId|body|encryptionKey|order|payment|sum|item|p):(?:any|string|number)\b/g,'$1')
   .replace(/\(p:any\)/g,'(p)');
 const realSource=stripTypes(webhook.slice(pureBegin,pureEnd)+
   '\n'+webhook.slice(begin,end));
