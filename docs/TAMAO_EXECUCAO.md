@@ -14,6 +14,14 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## Continuação 26/10/2026 — HTTP 400 property_value no sandbox (correção proposta)
+
+- **Evidência da produção:** function_logs do Supabase lgugwujpunhslavewffd registrou FINANCE_LAB_SANDBOX_PROVIDER_REJECTED 400 property_value às **03:36:16 UTC** e **03:43:22 UTC**. Isso não atesta Pix pago nem crédito emitido.
+- **Inspeção do backend após PR #646:** POST /v1/orders já usa R$ 50,00, type=online, processing_mode=automatic, pix/bank_transfer e payer.first_name=APRO, de acordo com os parâmetros centrais da documentação de teste Pix. payer.email vem da variável FINANCE_LAB_TEST_PAYER_EMAIL, validada apenas por formato. Os logs não contêm o campo específico recusado; não inferir como fato.
+- **Correção limitada nesta branch:** extrair de descrições do PSP apenas nomes de propriedades previamente autorizadas (payer.email, payer.first_name, config.location.state_id, expiration_time, processing_mode). Nunca retornar ou registrar valores/e-mails, mensagens livres, tokens ou payload original. Aceitar código invalid_email_for_sandbox e testar ausência de vazamento.
+- **Sem alterações em segredos, valores financeiros, ledger, cobranças comerciais ou ativações.**
+- **Gate:** validar CI na SHA final; revisão de segurança; implantar Edge completo com controle; repetir o teste com comprador de TESTE permitido e reexaminar campo reportado. A recusa HTTP 400 permanece operacionalmente não resolvida enquanto o PSP não aceitar a ordem.
+
 ## Checkpoint 26/10/2026 — Recusa Pix sandbox Mercado Pago sem código diagnóstico (PR #646)
 
 **Evidência da falha do usuário:** após corrigir isolamento de token, o Financeiro > Laboratório passou a permitir `Gerar Pix oficial de teste (R$ 50,00)`, mas o Mercado Pago recusou a ordem e a tela mostrou mensagem genérica. Supabase `function_edge_logs` evidenciou **POST /functions/v1/admin-ops HTTP 502 em 26/10/2026 às 03:15:31 UTC**, sem identificar o HTTP/código subjacente do Mercado Pago. O backend em `supabase/functions/admin-ops/index.ts` descartava o erro JSON e só devolvia texto que culpa token/valor. O valor `50.00`, `payer.first_name=APRO`, `pix/bank_transfer` e o processamento automático enviados pelo código já coincidem com o teste Pix por Orders API documentado pelo provedor. **Não alterar tokens ou valores por suposição**; a causa exata ainda depende de uma próxima resposta classificada do PSP.
