@@ -4827,7 +4827,8 @@ async function adminFinanceLabCheckOrderFromUi(orderId){
   try{
     const data=await adminInvoke({action:'finance-lab-sandbox-check',orderId:String(orderId)});
     if(data?.ok!==true||data.mode!=='sandbox'||data.orderId!==String(orderId)
-      ||data.credited!==false)throw new Error('A consulta não comprovou a condição de teste.');
+      ||data.credited!==false||data.paymentSimulated!==true
+      ||data.settlementVerified!==false)throw new Error('A consulta não comprovou a condição de teste.');
     state.status=data;
   }catch(e){state.error=String(e?.message||e);state.status=null;}
   finally{state.pending=false;render();}
@@ -4970,7 +4971,7 @@ function adminFinanceLabView(d){
           <div class="order-actions">
           ${sandbox.brCode?'<button class="secondary small" onclick="adminFinanceLabCopySandboxPixFromUi()">Copiar código de teste</button>':''}
           ${sandbox.paymentLinkUrl?'<a class="ghost small" target="_blank" rel="noopener noreferrer" href="'+esc(sandbox.paymentLinkUrl)+'">Abrir página de teste</a>':''}</div>
-          <small>Referência: ${esc(sandbox.reference||'—')} • ${esc(sandbox.orderStatus||'—')}</small>
+          <small>Referência: ${esc(sandbox.reference||'—')} • status na emissão: ${esc(sandbox.orderStatus||'—')}</small>
           <button type="button" class="secondary small" onclick="adminFinanceLabCheckOrderFromUi('${esc(sandbox.orderId||'')}')" ${state.pending?'disabled':''}>Consultar status no Mercado Pago</button>
         </div>`:''}
       </div>
@@ -4997,10 +4998,10 @@ function adminFinanceLabView(d){
         ${state.status?'<div class="notice" role="status">Ordem de TESTE '+esc(state.status.orderId)+
           ' • '+esc(state.status.orderStatus)+' / '+esc(state.status.paymentStatus)+
           ' • consultada '+esc(formatDateTime(state.status.checkedAt))+
-          '. Nenhum crédito concedido.</div>':''}
+          '. Simulação do Mercado Pago: não comprova recebimento de dinheiro real nem concede créditos.</div>':''}
         ${state.readiness?.recentTests?.length?'<h4>Últimas ordens de TESTE</h4>'+
           state.readiness.recentTests.slice(0,6).map(t=>'<div class="order-line">'+
-            esc(t.orderId)+' • '+esc(t.providerStatus)+' • '+esc(formatDateTime(t.createdAt))+
+            esc(t.orderId)+' • na emissão: '+esc(t.providerStatus)+' • '+esc(formatDateTime(t.createdAt))+
             ' <button type="button" class="ghost small" onclick="adminFinanceLabCheckOrderFromUi(&quot;'+esc(t.orderId)+'&quot;)">Consultar</button></div>').join('')
           :'<small>Nenhuma ordem de teste comprovada nesta consulta.</small>'}
         <h4>Auditoria dos PIX já emitidos</h4>
