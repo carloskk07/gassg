@@ -23,6 +23,14 @@
 - **Sem alterações em segredos, valores financeiros, ledger, cobranças comerciais ou ativações.**
 - **Gate:** validar CI na SHA final; revisão de segurança; implantar Edge completo com controle; repetir o teste com comprador de TESTE permitido e reexaminar campo reportado. A recusa HTTP 400 permanece operacionalmente não resolvida enquanto o PSP não aceitar a ordem.
 
+## 26/10/2026 — Admin timeout após publicação e consulta read-only resiliente
+
+- **Evidência visual:** Admin em admin.tamao.com.br exibe "Control plane administrativo indisponível", "Não foi possível carregar o painel" e "A conexão demorou demais. Verifique sua internet e tente novamente." A mensagem é produzida pela exceção `NETWORK_TIMEOUT` do `chamaFetch` em `js/backend.js`, com limite global de 15.000 ms; `adminRefresh` coloca a sessão em `unavailable` quando `action:summary` falha. O banner de `js/core.js` reflete esse estado, não é diagnóstico adicional de PSP.
+- **Evidência read-only no Supabase real:** `admin-ops` v205 registrado em `function_edge_logs` com chamadas POST `200` às 04:20:01 (7.572 ms), 04:20:14 (5.269 ms), 04:20:30 (5.696 ms). Comprimento de payload `20` bytes é compatível com `{"action":"summary"}`; nenhuma dessas chamadas comprovou tempo excedido no servidor. O incidente pode decorrer de picos intermitentes de rede/carga, não há prova de queda geral do Supabase ou defeito do Mercado Pago.
+- **Correção restrita ao cliente:** `adminInvoke` usa 25.000 ms só para `action==='summary'` (read-only), mantendo 15.000 ms globais para outras ações. `adminRefresh` usa `retryAmbiguousOnce` existente somente para essa consulta, uma única repetição após timeout, erro de rede ou 5xx, nunca para 401/403. Erro terminal continua fail-closed (`unavailable`); texto deixa de culpar a internet sem prova. Não alterou autenticação, RBAC, APIs de escrita, provedores, idempotência, saldo, checkout, segredo ou estrutura SQL.
+- **Regressão:** `tests/admin-summary-transport-recovery.mjs` exercita o código real em VM e simula falha seguida de sucesso, falha persistente, 401/403 sem retry, preservação de idempotency key e timeout original para Pix. Incluído como gate no Audit.
+- **Publicação:** PR draft até Audit + build dos três portais + smoke/revisão visual no HEAD. Após merge, atestar o portal Admin publicado e recuperar sessão autenticada; não declarar problema resolvido em navegador sem E2E autenticado ou confirmação do operador.
+
 ## 26/10/2026 — Renderização do Financeiro indisponível (fila e laboratório)
 
 - **Evidência visual:** Admin > Financeiro > Laboratório mostrava "Fila financeira indisponível" e "Laboratório indisponível"; a navegação, prioridades e indicadores ainda funcionavam. Esses textos são produzidos pelo catch de renderização `adminFinanceRenderPart` em `js/admin.js`, e não atestam falha de rede/PSP.

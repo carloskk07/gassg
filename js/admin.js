@@ -213,12 +213,15 @@ async function adminInvoke(body={},options={}){
     'Authorization':'Bearer '+token
   };
   if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
+  // Only the read-only administrative snapshot needs a longer bounded
+  // timeout: it queries several subsystems. Never extend/retry PSP writes.
+  const readTimeoutMs=body?.action==='summary'?25000:undefined;
   const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
     method:'POST',
     headers,
     body:JSON.stringify(body),
     cache:'no-store'
-  });
+  },readTimeoutMs);
   let data=null;
   try{data=await response.json()}catch{}
   if(!response.ok){
@@ -412,7 +415,11 @@ async function adminRefresh({silent=false}={}){
   const seq=++adminRuntime.refreshSeq;
   if(!silent)render();
   try{
-    const data=await adminInvoke({action:'summary'});
+    // A summary is safe to retry once after a transient network/5xx failure.
+    // Access denials and invalid sessions are never retried.
+    const data=await globalThis.retryAmbiguousOnce(
+      ()=>adminInvoke({action:'summary'})
+    );
     if(seq!==adminRuntime.refreshSeq)return data;
     adminRuntime.data=data;
     adminRuntime.status='ready';
@@ -487,7 +494,9 @@ async function adminRefresh({silent=false}={}){
       return null;
     }
     adminRuntime.status='unavailable';
-    adminRuntime.error=String(error?.message||error);
+    adminRuntime.error=error?.code==='NETWORK_TIMEOUT'
+      ?'A consulta administrativa excedeu o tempo limite, mesmo após nova tentativa. A conexão ou o servidor podem estar lentos. Tente novamente.'
+      :String(error?.message||error);
     throw error;
   }finally{
     if(!silent)render();
