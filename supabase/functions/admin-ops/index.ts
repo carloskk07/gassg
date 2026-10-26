@@ -680,6 +680,7 @@ function adminFinanceLabProviderRejection(order:any,status:number){
     :/\bconfig\.location\.state_id\b/i.test(description)?"config.location.state_id"
     :/\bexpiration_time\b/i.test(description)?"expiration_time"
     :/\bprocessing_mode\b/i.test(description)?"processing_mode"
+    :/\bexternal_reference\b/i.test(description)?"external_reference"
     :null;
   const guidance=apiStatus===400
     ?providerField==="payer.email"||providerCode==="invalid_email_for_sandbox"
@@ -996,7 +997,9 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   if(key.length<12||key.length>100||!/^[a-zA-Z0-9._:-]+$/.test(key)){
     throw new DomainError("INVALID_IDEMPOTENCY_KEY","Informe uma chave de operação válida.",400);
   }
-  const externalReference="tamao-finlab-"+key;
+  // Orders API external_reference: 1-64 chars; letters, digits, "_" and "-" only.
+  // Hash the full idempotency key: stable on retry, no lossy punctuation rewrite.
+  const externalReference="tamao-finlab-"+(await sha256Hex(key)).slice(0,40);
   const formatted=(amount/100).toFixed(2);
   const response=await mercadoPagoFetch("/v1/orders",{
     accessToken:config.token,method:"POST",idempotencyKey:key,
