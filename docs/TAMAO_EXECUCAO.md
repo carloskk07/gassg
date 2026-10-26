@@ -14,6 +14,15 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## 26/10/2026 — Próximo gate: confirmação Pix real no webhook Mercado Pago (PR em teste)
+
+- **Prova operacional de partida:** consulta Pix sandbox da ordem `ORDTST01M5V8V62X22CE39A0CHJPC27X` feita pelo operador às 02h24 BRT retornou `processed / processed`; registro de PR #650 tem esse checkpoint. **Somente simulação**.
+- **Estado financeiro real lido no Supabase:** `orders=0`, `wallet_entries=0`, `merchant_billing_payment_events=0`, `merchant_sale_payment_events=0`, `payment_webhook_probes=0`; existe uma cobrança `merchant_billing_provider_charges` Mercado Pago de R$ 300,00 **expired** e solicitação associada **pending**, sem recebimento. Isso impede afirmar E2E comercial homologado.
+- **Defeito de segurança identificado no código existente:** `billing-payment-webhook-mercadopago/index.ts`, `handlePlatformBillingOrder`, considerava `order.status=processed` suficiente para invocar `ingest_merchant_billing_payment_event`, mesmo com a transação Pix `action_required`, `failed` ou não-Pix selecionada por fallback do primeiro pagamento. Em `refunded`, ainda registrava primeiro novo evento positivo antes de reversões.
+- **Mudança pontual proposta:** exigir ordem `processed` + transação **Pix/bank_transfer** `processed`, com ID, valor e `status_detail` compatíveis; recusar explicitamente `live_mode=false` (não aceitar saldo a partir de sandbox), moeda/valor/tipo contraditórios. Nos casos com estorno, contestação ou refund provado, usar somente o RPC **já existente** de ingestão/quarentena de reembolso, **sem criar novo evento financeiro positivo**; se dados de reversão forem ausentes ou incoerentes, marcar erro de análise e não creditar. Assinatura HMAC, fluxo de cobrança, roles, cobranças e tabelas existentes preservados.
+- **Regressão executada pelo CI da PR:** teste `tests/mercadopago-platform-billing-dual-status.mjs` invoca a implementação real em VM com PSP sintetizado: ordem/Pix processados, Pix pendente, Pix falho, não-Pix, sandbox, moeda/valor trocados, contestação, refund total/parcial e reembolso excessivo; nenhuma chamada de PSP real.
+- **Regra de produção:** não alterar segredo, não emitir/confirmar cobrança de R$ 300,00 vencida, não chamar RPC manual de crédito, não abrir benefícios. Após CI e revisão, atualizar exclusivamente função webhook existente, preservando dependências e `verify_jwt`. Gate real E2E permanece: webhook autenticamente recebido, conta beneficiária/valor consultados, evento conciliação efetivo, estorno e repasses verificados.
+
 ## 26/10/2026 — Consulta Pix sandbox GET com erro 409 apesar de criação autenticada
 
 - **Evidência do usuário:** laboratório lista ordens do Mercado Pago TESTE de R$ 50,00 com `action_required` e BR Code e ticket `/sandbox/` verificados, mas botão Consultar retorna "A consulta não comprovou ambiente de teste".
