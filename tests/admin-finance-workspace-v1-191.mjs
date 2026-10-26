@@ -149,4 +149,51 @@ for(const [name,call] of [
 }
 assert.ok(!src.includes('adminFinanceRenderPart('+"\x27"+'Cobranças'+"\x27"+',()=>adminPerform('),
   'Panel rendering must not create a financial transaction');
+// Browser regression: the Admin portal deliberately does not load merchant.js.
+// The shared formatter must exist in core.js and BOTH failing Finance panels
+// must render from real functions without merchant-only globals.
+const coreScript=read('js/core.js');
+const merchantScript=read('js/merchant.js');
+const coreFormatter=coreScript.match(/function formatDateTime\(v\)\{[\s\S]*?\n\}/)?.[0];
+assert.ok(coreFormatter,'shared core.js must declare the classic-script date formatter');
+assert.doesNotMatch(merchantScript,/function formatDateTime\(/,
+  'merchant.js must reuse core.js and not shadow the formatter');
+const rootHtml=read('index.html');
+assert.ok(rootHtml.indexOf('js/core.js')>0
+  &&rootHtml.indexOf('js/core.js')<rootHtml.indexOf('js/admin.js')
+  &&rootHtml.indexOf('js/core.js')<rootHtml.indexOf('js/merchant.js'),
+  'shared date helper must load before each portal module');
+const dNow=new Date().toISOString();
+const financeFixture={
+  merchantBilling:{
+    paymentRequests:[{id:'12345678-1234-4123-8123-123456789012',status:'pending',
+      merchant_id:'b',expected_amount_cents:300,requested_at:dNow}],
+    paymentEvents:[],refunds:[],statements:[],
+    providerCharges:[],paymentIngress:{activeBillingProvider:'mercadopago'}
+  }
+};
+const financeRuntime={
+  lastSyncAt:dNow,status:'ready',data:{merchants:[]},providerHealth:null,
+  financeLab:{readiness:{configured:true,recentTests:[{orderId:'TEST_ORDER_123456',
+    providerStatus:'action_required',createdAt:dNow}],
+    prerequisites:{enabled:true,tokenConfigured:true,payerConfigured:true,distinctToken:true}}}
+};
+const financeContext=vm.createContext({
+  Date,Number,String,Object,Set,Map,
+  adminRuntime:financeRuntime,adminRoleCanSection:()=>true,
+  adminCurrentRole:()=> 'superadmin',adminMerchantName:()=> 'Revenda de teste',
+  adminMoney:amount=>'R$ '+(Number(amount)/100).toFixed(2),
+  esc:value=>String(value??'').replace(/[&<>"]/g,''),
+});
+vm.runInContext(coreFormatter+'\n'+[
+ 'adminFinanceDailyPriorities','adminFinanceTriageRecords','adminFinanceTriageView',
+ 'adminFinanceLabPrerequisiteChecks','adminFinanceLabView'
+].map(extract).join('\n')+
+ '\nthis.runFinanceViews=(d)=>[adminFinanceTriageView(d),adminFinanceLabView(d)];',financeContext);
+const [renderedTriage,renderedLab]=financeContext.runFinanceViews(financeFixture);
+assert.match(renderedTriage,/Conferência sem procurar registros/);
+assert.match(renderedLab,/Testar sem entrar em uma revenda/);
+assert.match(renderedLab,/TEST_ORDER_123456/);
+assert.doesNotMatch(renderedTriage+renderedLab,/indisponível.*diagnóstico no console/);
+
 console.log('V1.191 passed: four workspaces, RBAC, navigation focus, no financial changes, retained content, mobile layout.');

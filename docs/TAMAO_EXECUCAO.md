@@ -23,6 +23,15 @@
 - **Sem alterações em segredos, valores financeiros, ledger, cobranças comerciais ou ativações.**
 - **Gate:** validar CI na SHA final; revisão de segurança; implantar Edge completo com controle; repetir o teste com comprador de TESTE permitido e reexaminar campo reportado. A recusa HTTP 400 permanece operacionalmente não resolvida enquanto o PSP não aceitar a ordem.
 
+## 26/10/2026 — Renderização do Financeiro indisponível (fila e laboratório)
+
+- **Evidência visual:** Admin > Financeiro > Laboratório mostrava "Fila financeira indisponível" e "Laboratório indisponível"; a navegação, prioridades e indicadores ainda funcionavam. Esses textos são produzidos pelo catch de renderização `adminFinanceRenderPart` em `js/admin.js`, e não atestam falha de rede/PSP.
+- **Evidência dos logs:** `admin-ops` devolvia POST HTTP 200 em 26/10/2026 às 04:04–04:06 UTC, sem exceções de função nos logs; as chamadas HTTP não comprovam renderização em navegador.
+- **Causa demonstrada na fonte:** `adminFinanceTriageView` chama `formatDateTime(lastSyncAt)`, assim como o laboratório para ordens recentes. A única declaração de `formatDateTime` estava em `js/merchant.js`, removida deliberadamente do portal Admin pelo gerador de portais. Resultado: `ReferenceError` no navegador, isolado pelo error boundary.
+- **Correção proposta:** mover a implementação *existente* de `formatDateTime` para `js/core.js`, carregado antes de Admin/Revenda, e remover a declaração redundante em `merchant.js`. Sem nova função paralela nem mudança semântica das datas.
+- **Regressão incluída:** teste real das duas funções renderizadoras em VM sem `merchant.js`, inclusive ordem sandbox recente, exige formatação na camada compartilhada e verifica isolamento de scripts.
+- **Gate:** Audit, build/smoke dos três portais e revisão de deploy no SHA final; depois conferir que as mensagens de indisponibilidade desaparecem no Admin real. **Nenhuma ação financeira, migração ou credencial alterada**. Status operacional do Pix sandbox permanece separado deste bug de interface.
+
 ## Checkpoint 26/10/2026 — Recusa Pix sandbox Mercado Pago sem código diagnóstico (PR #646)
 
 **Evidência da falha do usuário:** após corrigir isolamento de token, o Financeiro > Laboratório passou a permitir `Gerar Pix oficial de teste (R$ 50,00)`, mas o Mercado Pago recusou a ordem e a tela mostrou mensagem genérica. Supabase `function_edge_logs` evidenciou **POST /functions/v1/admin-ops HTTP 502 em 26/10/2026 às 03:15:31 UTC**, sem identificar o HTTP/código subjacente do Mercado Pago. O backend em `supabase/functions/admin-ops/index.ts` descartava o erro JSON e só devolvia texto que culpa token/valor. O valor `50.00`, `payer.first_name=APRO`, `pix/bank_transfer` e o processamento automático enviados pelo código já coincidem com o teste Pix por Orders API documentado pelo provedor. **Não alterar tokens ou valores por suposição**; a causa exata ainda depende de uma próxima resposta classificada do PSP.

@@ -4602,10 +4602,7 @@ function merchantMetrics(){
   const completion=accepted?delivered/accepted:0;
   return shell(`<section class="page"><h1 class="page-title">Desempenho</h1><div class="merchant-kpis"><div class="kpi"><span class="label">${internalPilot?'Trust simulado':'Trust Score'}</span><strong>${m.trust}/100</strong></div><div class="kpi"><span class="label">Aceitos</span><strong>${accepted}</strong></div><div class="kpi"><span class="label">Entregues</span><strong>${delivered}</strong></div><div class="kpi"><span class="label">Conclusão</span><strong>${accepted?Math.round(completion*100)+'%':'—'}</strong></div></div><section class="section"><div class="card flat"><h3>O que mais pesa no Trust Score</h3><div class="list"><div class="list-row"><strong>Entregas dentro do ETA</strong><span>25%</span></div><div class="list-row"><strong>Conclusão após aceite</strong><span>20%</span></div><div class="list-row"><strong>Integridade dos status</strong><span>15%</span></div><div class="list-row"><strong>Integridade de preço</strong><span>15%</span></div></div></div></section></section>`)
 }
-function formatDateTime(v){
-  const d=new Date(v);if(Number.isNaN(d.getTime()))return 'não confirmada';
-  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-}
+// formatDateTime is supplied by core.js for all portal roles.
 
 globalThis.merchantRequestBillingPackageFromUi=merchantRequestBillingPackageFromUi;
 globalThis.merchantNotifyStatementPaidFromUi=merchantNotifyStatementPaidFromUi;
