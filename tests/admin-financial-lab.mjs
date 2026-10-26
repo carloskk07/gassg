@@ -267,6 +267,30 @@ assert.ok(!JSON.stringify(denied).includes('APP_USR_SECRET'));
 const invalidPayer=classify({errors:[{code:'property_value',message:'PRIVATE_EMAIL'}]},400);
 assert.equal(invalidPayer.providerCode,'property_value');
 assert.match(invalidPayer.message,/e-mail pagador/);
+// Classify provider field names without returning sensitive error descriptions.
+const rejectedEmail=classify({errors:[{
+ code:'property_value',
+ message:"Invalid value for payer.email: private.user@example.invalid"
+}]},400);
+assert.equal(rejectedEmail.providerCode,'property_value');
+assert.equal(rejectedEmail.providerField,'payer.email');
+assert.match(rejectedEmail.message,/payer\\.email/);
+assert.ok(!JSON.stringify(rejectedEmail).includes('private.user@example.invalid'));
+const invalidTestEmail=classify({code:'invalid_email_for_sandbox',
+ message:'Email must contain @testuser.com'},400);
+assert.equal(invalidTestEmail.providerCode,'invalid_email_for_sandbox');
+assert.match(invalidTestEmail.message,/payer\\.email/);
+assert.equal(invalidTestEmail.providerField,null,
+ 'do not claim provider disclosed a specific field path when it did not');
+const rejectedExpiration=classify({errors:[{code:'property_value',
+ message:'expiration_time is invalid; secret=user-private'}]},400);
+assert.equal(rejectedExpiration.providerField,'expiration_time');
+assert.match(rejectedExpiration.message,/expiration_time/);
+assert.ok(!JSON.stringify(rejectedExpiration).includes('user-private'));
+const unrecognized=classify({errors:[{code:'property_value',
+ message:'invalid secret privatepayer@not-disclosable.invalid'}]},400);
+assert.equal(unrecognized.providerField,null);
+assert.ok(!JSON.stringify(unrecognized).includes('privatepayer'));
 const forbidden=classify({code:'forbidden'},403);
 assert.match(forbidden.message,/permissões/);
 const maxed=classify({code:'usage_quota_exceeded'},429);
