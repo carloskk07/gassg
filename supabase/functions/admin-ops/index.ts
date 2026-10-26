@@ -977,7 +977,7 @@ async function adminFinanceLabCheckSandboxOrder(admin:any,actorId:string,body:an
   // Never reclassify an arbitrary order as sandbox based on ID/token name.
   const trustedCreation=proof?.metadata?.provider==="mercadopago"
     &&proof?.metadata?.mode==="sandbox"
-    &&proof?.metadata?.pixCodeAvailable===true
+    &&(proof?.metadata?.pixCodeAvailable===true||proof?.metadata?.testApproved===true)
     &&/^tamao-finlab-[a-f0-9]{40}$/.test(String(proof?.metadata?.externalReference??""));
   const ticket=String(payment?.payment_method?.ticket_url??"").trim();
   const sandboxUrl=safeMercadoPagoUrl(ticket);
