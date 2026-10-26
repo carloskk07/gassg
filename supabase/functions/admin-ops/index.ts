@@ -969,7 +969,8 @@ async function adminFinanceLabCheckSandboxOrder(admin:any,actorId:string,body:an
   const payments=Array.isArray(order?.transactions?.payments)?order.transactions.payments:[];
   const payment=payments.find((x:any)=>
     String(x?.payment_method?.id??"").toLowerCase()==="pix"
-    &&String(x?.payment_method?.type??"").toLowerCase()==="bank_transfer");
+    &&(!x?.payment_method?.type
+      ||String(x.payment_method.type).toLowerCase()==="bank_transfer"));
   // The Orders API may omit live_mode and the ticket_url from a later GET,
   // even though both parties were already verified at order creation.
   // This audit is issued ONLY after a non-live flag or actual /sandbox/
