@@ -160,10 +160,13 @@ export async function verifyMercadoPagoWebhook(req,secret,dataId){
   const requestId=String(req.headers.get("x-request-id")??"").trim();
   const signature=String(req.headers.get("x-signature")??"").trim();
   const normalizedId=String(dataId??"").trim().toLowerCase();
-  if(key.length<16||!requestId||!signature||!normalizedId)return false;
+  if(key.length<16||!signature||!normalizedId)return false;
   const {ts,v1}=parseSignatureHeader(signature);
   if(!/^\d{9,16}$/.test(ts)||!v1||!/^[0-9a-f]{64}$/i.test(v1))return false;
-  const manifest=`id:${normalizedId};request-id:${requestId};ts:${ts};`;
+  // Mercado Pago's signed manifest omits request-id when the provider
+  // has not included x-request-id. The ID and timestamp remain HMAC-bound.
+  // Requiring request-id unconditionally rejected valid simulator variants.
+  const manifest=`id:${normalizedId};${requestId?`request-id:${requestId};`:""}ts:${ts};`;
   const cryptoKey=await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(key),
