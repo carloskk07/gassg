@@ -37,7 +37,8 @@ const ctx=vm.createContext({
     };
     if(data.action==='finance-lab-sandbox-check')return {ok:true,mode:'sandbox',
       orderId:data.orderId,amountCents:5000,orderStatus:'processed',
-      paymentStatus:'approved',checkedAt:new Date().toISOString(),credited:false};
+      paymentStatus:'approved',checkedAt:new Date().toISOString(),credited:false,
+      paymentSimulated:true,settlementVerified:false};
     return {ok:true,mode:'sandbox',amountCents:data.amountCents,
       orderId:'ORD01ABC23456789012345',
       pixCodeAvailable:!autoApprovedTest,providerTestApproved:autoApprovedTest,
@@ -105,6 +106,8 @@ assert.match(ctx.lab.view({merchantBilling:{}}),/PIX sandbox/);
 await ctx.lab.check('ORD01ABC23456789012345');
 assert.equal(state.status.orderStatus,'processed');
 assert.equal(state.status.credited,false);
+assert.match(ctx.lab.view({merchantBilling:{}}),/não comprova recebimento de dinheiro real/);
+
 // Mercado Pago can auto-approve its APRO test BEFORE returning a QR code.
 autoApprovedTest=true;
 await ctx.lab.sandbox();
