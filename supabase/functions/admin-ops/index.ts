@@ -1138,9 +1138,14 @@ async function adminFinanceLabLiveHistory(admin:any,actorId:string){
   }));
 }
 async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
-  const provider=await mercadoPagoBillingProviderHealth(admin);
+  // Audit history must not disappear when the PSP health check is unavailable.
   const recent=await adminFinanceLabLiveHistory(admin,actorId);
+  let provider:any=null;
+  let providerCheckFailed=false;
+  try{provider=await mercadoPagoBillingProviderHealth(admin);}
+  catch{providerCheckFailed=true;}
   return {ok:true,mode:"live",provider:"mercadopago",readOnly:true,
+    providerCheckFailed,
     accountBound:provider?.accountBound===true,
     providerReady:provider?.ok===true&&provider?.chargeReady===true,
     webhookConfigured:provider?.receiveReady===true,
