@@ -45,7 +45,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
-  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null,providerCheckingId:null,providerCheck:null,providerCheckError:null},
+  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null,providerCheckingId:null,providerCheck:null,providerCheckError:null,live:null,liveStatus:null,liveReadiness:null,liveReadinessLoading:false,livePending:false,liveError:null,liveKey:null,liveAmountCents:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
   clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
@@ -4909,6 +4909,83 @@ async function adminFinanceLabCopySandboxPixFromUi(){
   try{await navigator.clipboard.writeText(data.brCode);toast('Código do ambiente de TESTE copiado — não pagável em bancos.');}
   catch{toast('Não foi possível copiar o PIX de teste.');}
 }
+// REAL Pix is operator-initiated only. No automatic payment or credit.
+async function adminFinanceLabLiveReadinessFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const lab=adminRuntime.financeLab;
+  if(lab.liveReadinessLoading)return;
+  lab.liveReadinessLoading=true;lab.liveError=null;render();
+  try{
+    const data=await adminInvoke({action:'finance-lab-live-readiness'});
+    if(data?.ok!==true||data.mode!=='live'||data.readOnly!==true)
+      throw new Error('Prontidão do Pix real não comprovada.');
+    lab.liveReadiness=data;
+  }catch(e){lab.liveReadiness=null;lab.liveError=String(e?.message||e);}
+  finally{lab.liveReadinessLoading=false;render();}
+}
+async function adminFinanceLabLiveCreateFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const lab=adminRuntime.financeLab;
+  if(lab.livePending)return;
+  if(lab.liveReadiness?.providerReady!==true||lab.liveReadiness.accountBound!==true
+    ||lab.liveReadiness.remoteWebhookVerified!==true){
+    lab.liveError='Verifique a conta e a assinatura do webhook antes de emitir Pix real.';
+    render();return;
+  }
+  const cents=adminFinanceLabCents(document.getElementById('admin-finance-lab-live-amount')?.value);
+  if(cents==null||cents<100||cents>500){
+    lab.liveError='O Pix controlado precisa ter valor entre R$ 1,00 e R$ 5,00.';
+    render();return;
+  }
+  const response=globalThis.prompt?.('Este Pix será REAL, pagável por bancos. Confira o beneficiário no aplicativo bancário. Digite GERAR PIX REAL para autorizar a EMISSÃO:');
+  if(response!=='GERAR PIX REAL')return;
+  if(lab.liveAmountCents!==cents||!lab.liveKey){
+    lab.liveKey=adminIdempotency('finance-lab-live-pix');lab.liveAmountCents=cents;
+  }
+  lab.livePending=true;lab.liveError=null;render();
+  try{
+    const data=await adminInvoke({action:'finance-lab-live-pix',amountCents:cents,
+      authorization:'GERAR_PIX_REAL'},{idempotencyKey:lab.liveKey});
+    if(data?.ok!==true||data.mode!=='live'||data.amountCents!==cents
+      ||!data.orderId||!data.brCode||data.credited!==false||data.settlementVerified!==false)
+      throw new Error('A emissão do Pix real não foi confirmada. Confira a situação antes de repetir.');
+    lab.live=data;lab.liveStatus=null;lab.liveKey=null;lab.liveAmountCents=null;
+    adminFinanceLabLiveReadinessFromUi().catch(()=>{});
+  }catch(e){lab.liveError=String(e?.message||e);}
+  finally{lab.livePending=false;render();}
+}
+async function adminFinanceLabLiveCheckFromUi(orderId){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const lab=adminRuntime.financeLab;
+  if(lab.livePending||!/^[A-Za-z0-9_-]{10,120}$/.test(String(orderId||'')))return;
+  lab.livePending=true;lab.liveError=null;render();
+  try{
+    const data=await adminInvoke({action:'finance-lab-live-check',orderId});
+    if(data?.ok!==true||data.mode!=='live'||data.orderId!==orderId
+      ||data.credited!==false||data.settlementVerified!==false)
+      throw new Error('A ordem real não foi comprovada pelo provedor.');
+    lab.liveStatus=data;
+    if(lab.live?.orderId===orderId&&data.brCode)lab.live.brCode=data.brCode;
+  }catch(e){lab.liveError=String(e?.message||e);}
+  finally{lab.livePending=false;render();}
+}
+async function adminFinanceLabLiveCopyFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const lab=adminRuntime.financeLab;
+  const order=lab.live;
+  if(order?.mode!=='live'||!order.brCode)return;
+  if(lab.liveStatus?.orderId===order.orderId
+    &&(lab.liveStatus.orderStatus!=='action_required'
+      ||lab.liveStatus.paymentStatus!=='action_required')){
+    toast('Este Pix deixou de estar pendente. Não reutilize o código.');return;
+  }
+  if(Date.parse(String(order.expiresAt||''))<=Date.now()){
+    toast('Pix vencido. Não copie o código.');return;
+  }
+  try{await navigator.clipboard.writeText(order.brCode);toast('Pix REAL copiado. Verifique beneficiário e valor no banco.');}
+  catch{toast('Não foi possível copiar o código Pix.');}
+}
+
 function adminFinanceLabView(d){
   if(adminCurrentRole()!=='superadmin')return '<div class="notice">Laboratório disponível ao administrador principal.</div>';
   const state=adminRuntime.financeLab||{};
@@ -4974,6 +5051,25 @@ function adminFinanceLabView(d){
           <small>Referência: ${esc(sandbox.reference||'—')} • status na emissão: ${esc(sandbox.orderStatus||'—')}</small>
           <button type="button" class="secondary small" onclick="adminFinanceLabCheckOrderFromUi('${esc(sandbox.orderId||'')}')" ${state.pending?'disabled':''}>Consultar status no Mercado Pago</button>
         </div>`:''}
+      </div>
+      <div class="card flat"><h3>Pix REAL controlado — homologação</h3>
+        <p class="muted tiny">Apenas superadmin. Não ativa comércio, vendas, benefícios ou créditos. A emissão gera Pix pagável somente após confirmação explícita.</p>
+        <div class="order-actions"><button class="secondary small" type="button"
+          onclick="adminFinanceLabLiveReadinessFromUi()" ${state.liveReadinessLoading?'disabled':''}>
+          ${state.liveReadinessLoading?'Verificando…':'Verificar conta e webhook de produção'}</button></div>
+        ${state.liveReadiness?'<div class="order-line">Conta vinculada: '+(state.liveReadiness.providerReady&&state.liveReadiness.accountBound?'Sim':'Não')+' • Assinatura externa: '+(state.liveReadiness.remoteWebhookVerified?'Verificada':'Pendente')+'</div>':''}
+        <label for="admin-finance-lab-live-amount">Valor do Pix REAL — R$ 1,00 a R$ 5,00</label>
+        <input class="input" id="admin-finance-lab-live-amount" type="text" maxlength="4"
+          value="${esc(state.liveAmountCents?String((state.liveAmountCents/100).toFixed(2)).replace('.',','):'2,00')}">
+        <div class="order-actions"><button class="primary small" type="button"
+          onclick="adminFinanceLabLiveCreateFromUi()"
+          ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
+          ${state.livePending?'Consultando provedor…':'Emitir Pix REAL com confirmação'}</button></div>
+        <small>Uma emissão a cada 25 horas. Repetir uma tentativa incerta reutiliza a mesma chave. Antes de pagar, confira o nome do beneficiário no aplicativo do banco.</small>
+        ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
+        ${state.live?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div><div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
+        ${state.liveReadiness?.recent?.length?'<h4>Emissões reais auditadas</h4>'+state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Consultar</button></div>').join(''):''}
+        ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small><p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
       </div>
       <div class="card flat"><h3>Verificações integradas</h3>
         <div class="merchant-kpis">

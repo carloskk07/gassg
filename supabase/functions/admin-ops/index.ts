@@ -9,7 +9,7 @@ import {
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
-import { mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
+import { mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents,mercadoPagoPixDeadline } from "../_shared/mercadopago.js";
 import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
@@ -1109,6 +1109,243 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
     message:providerTestApproved
       ?"Mercado Pago aprovou o cenário APRO de TESTE. Resultado NÃO PAGÁVEL e sem crédito TAMÃO."
       :"Pix exclusivamente de TESTE; não pagável por bancos reais e sem créditos TAMÃO."};
+}
+
+// ADMIN FINANCIAL LAB — a real Pix for manual, supervised validation only.
+// This is NOT a sale, package payment, receipt, wallet credit or settlement.
+// A deterministic primary key in the EXISTING admin audit provides durable
+// idempotency across HTTP retries, even when the Mercado Pago reply is lost.
+const FINANCE_LAB_LIVE_MIN_CENTS=100;
+const FINANCE_LAB_LIVE_MAX_CENTS=500;
+const FINANCE_LAB_LIVE_REFERENCE_PREFIX="tamao-finlab-live-";
+function adminFinanceLabLiveAuditId(digest:string){
+  return digest.slice(0,8)+"-"+digest.slice(8,12)+"-4"+
+    digest.slice(13,16)+"-8"+digest.slice(17,20)+"-"+digest.slice(20,32);
+}
+async function adminFinanceLabLiveHistory(admin:any,actorId:string){
+  const {data,error}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_created")
+    .order("created_at",{ascending:false}).limit(6);
+  if(error)throw error;
+  return (data||[]).filter((row:any)=>
+    /^[A-Za-z0-9_-]{10,120}$/.test(String(row.target_id||""))
+    &&row.metadata?.mode==="live"
+  ).map((row:any)=>({
+    orderId:String(row.target_id),amountCents:Number(row.metadata?.amountCents),
+    createdAt:row.created_at
+  }));
+}
+async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
+  const provider=await mercadoPagoBillingProviderHealth(admin);
+  const recent=await adminFinanceLabLiveHistory(admin,actorId);
+  return {ok:true,mode:"live",provider:"mercadopago",readOnly:true,
+    accountBound:provider?.accountBound===true,
+    providerReady:provider?.ok===true&&provider?.chargeReady===true,
+    webhookConfigured:provider?.receiveReady===true,
+    remoteWebhookVerified:provider?.remoteWebhookRegistrationVerified===true,
+    recent,allowedAmountMinCents:FINANCE_LAB_LIVE_MIN_CENTS,
+    allowedAmountMaxCents:FINANCE_LAB_LIVE_MAX_CENTS,
+    noCommercialActivation:true,checkedAt:new Date().toISOString()};
+}
+async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body:any,req:Request){
+  const amount=body?.amountCents;
+  if(!Number.isSafeInteger(amount)
+    ||amount<FINANCE_LAB_LIVE_MIN_CENTS||amount>FINANCE_LAB_LIVE_MAX_CENTS
+    ||body?.authorization!=="GERAR_PIX_REAL"){
+    throw new DomainError("FINANCE_LAB_LIVE_CONSENT_REQUIRED",
+      "Confirme expressamente um Pix real entre R$ 1,00 e R$ 5,00.",400);
+  }
+  const payerEmail=String(email||"").trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)){
+    throw new DomainError("FINANCE_LAB_LIVE_PAYER_REQUIRED",
+      "A conta de administrador precisa de e-mail válido.",409);
+  }
+  const key=String(req.headers.get("Idempotency-Key")||"").trim();
+  if(key.length<12||key.length>100||!/^[a-zA-Z0-9._:-]+$/.test(key)){
+    throw new DomainError("INVALID_IDEMPOTENCY_KEY",
+      "Chave de emissão de Pix ausente ou inválida.",400);
+  }
+  await enforceApiQuota(admin,{userId:actorId,
+    actionName:"admin-finance-live-pix-create",limit:3,windowSeconds:3600});
+  const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")||"").trim();
+  if(!mercadoPagoConfigured(token)
+    ||String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")||"").trim().length<16){
+    throw new DomainError("FINANCE_LAB_LIVE_NOT_CONFIGURED",
+      "As credenciais de produção e o webhook devem estar configurados.",503);
+  }
+  const digest=await sha256Hex(actorId+"|"+key);
+  const intentId=adminFinanceLabLiveAuditId(digest);
+  const reference=FINANCE_LAB_LIVE_REFERENCE_PREFIX+digest.slice(0,40);
+  const since=new Date(Date.now()-25*60*60*1000).toISOString();
+  // Never create a second operational Pix while another operator-issued
+  // intent is inside its 24-hour payment window. Ambiguous PSP responses
+  // must be retried with the SAME key, not replaced with a new order.
+  const {data:intents,error:intentsError}=await admin.from("platform_admin_audit")
+    .select("id,target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_intent")
+    .gte("created_at",since)
+    .order("created_at",{ascending:false}).limit(12);
+  if(intentsError)throw intentsError;
+  if((intents||[]).some((item:any)=>item.id!==intentId)){
+    throw new DomainError("FINANCE_LAB_LIVE_ALREADY_ISSUED",
+      "Já há emissão real recente. Consulte a anterior antes de gerar outra.",409);
+  }
+  const intent=(intents||[]).find((item:any)=>item.id===intentId);
+  if(intent&&(intent.target_id!==reference
+    ||Number(intent.metadata?.amountCents)!==amount)){
+    throw new DomainError("FINANCE_LAB_LIVE_IDEMPOTENCY_CONFLICT",
+      "Esta tentativa já foi usada com outro valor.",409);
+  }
+  const readiness=await mercadoPagoBillingProviderHealth(admin);
+  if(readiness?.ok!==true||readiness.accountBound!==true
+    ||readiness.remoteWebhookRegistrationVerified!==true){
+    throw new DomainError("FINANCE_LAB_LIVE_PROVIDER_NOT_READY",
+      "Conta de produção ou prova recente do webhook não foram confirmadas.",409);
+  }
+  if(!intent){
+    const {error:audited}=await admin.from("platform_admin_audit").insert({
+      id:intentId,actor_user_id:actorId,action:"finance_lab_live_pix_intent",
+      target_type:"financial_lab_live",target_id:reference,
+      metadata:{provider:"mercadopago",mode:"live",amountCents:amount}
+    });
+    if(audited&&audited.code!=="23505")throw audited;
+  }
+  const formatted=(amount/100).toFixed(2);
+  const response=await mercadoPagoFetch("/v1/orders",{
+    accessToken:token,method:"POST",idempotencyKey:"tamao-live-"+digest.slice(0,48),
+    body:{type:"online",total_amount:formatted,external_reference:reference,
+      processing_mode:"automatic",
+      transactions:{payments:[{amount:formatted,
+        payment_method:{id:"pix",type:"bank_transfer"}}]},
+      payer:{email:payerEmail}}
+  });
+  const order=await readMercadoPagoJson(response);
+  if(!response.ok){
+    const diagnosis=adminFinanceLabProviderRejection(order,response.status);
+    return {ok:false,mode:"live",provider:"mercadopago",
+      error:"FINANCE_LAB_LIVE_PROVIDER_REJECTED",...diagnosis};
+  }
+  const payment=Array.isArray(order?.transactions?.payments)
+    ?order.transactions.payments.find((p:any)=>
+      p?.payment_method?.id==="pix"&&p?.payment_method?.type==="bank_transfer"):null;
+  const brCode=String(payment?.payment_method?.qr_code||"");
+  const ticket=safeMercadoPagoUrl(payment?.payment_method?.ticket_url);
+  const expiresAt=mercadoPagoPixDeadline(order,payment,new Date().toISOString());
+  const valid=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount}):
+    {valid:false};
+  if(order?.live_mode!==true
+    ||String(order?.id||"").length<10||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order.id))
+    ||String(order.external_reference||"")!==reference
+    ||moneyToCents(order.total_amount)!==amount
+    ||(order.currency_id&&order.currency_id!=="BRL")
+    ||!String(payment?.id||"").trim()
+    ||(payment?.amount!=null&&moneyToCents(payment.amount)!==amount)
+    ||String(order?.status||"").toLowerCase()!=="action_required"
+    ||String(payment?.status||"").toLowerCase()!=="action_required"
+    ||!valid.valid||!expiresAt
+    ||(ticket&&new URL(ticket).pathname.toLowerCase().includes("/sandbox/"))){
+    throw new DomainError("FINANCE_LAB_LIVE_RESPONSE_UNVERIFIED",
+      "O provedor não comprovou Pix REAL pendente, identidade, valor e validade. Nada será exibido.",409);
+  }
+  const createdId=adminFinanceLabLiveAuditId(
+    await sha256Hex("tamao-live-created|"+String(order.id)));
+  const {error:createdError}=await admin.from("platform_admin_audit").insert({
+    id:createdId,actor_user_id:actorId,action:"finance_lab_live_pix_created",
+    target_type:"financial_lab_live",target_id:String(order.id),
+    metadata:{provider:"mercadopago",mode:"live",amountCents:amount,
+      externalReference:reference,paymentId:String(payment.id),
+      expiresAt,liveModeConfirmed:true}
+  });
+  if(createdError&&createdError.code!=="23505")throw createdError;
+  return {ok:true,mode:"live",provider:"mercadopago",amountCents:amount,
+    orderId:String(order.id),paymentId:String(payment.id),expiresAt,
+    brCode, paymentLinkUrl:ticket,providerStatus:"action_required",
+    settlementVerified:false,webhookVerified:false,credited:false,
+    warning:"PIX REAL. Confira nome e conta beneficiária no aplicativo do banco antes de pagar."};
+}
+async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
+  const orderId=String(body?.orderId||"").trim();
+  if(!/^[A-Za-z0-9_-]{10,120}$/.test(orderId)){
+    throw new DomainError("FINANCE_LAB_LIVE_ORDER_INVALID","ID da ordem inválido.",400);
+  }
+  const {data:proof,error}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at").eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_created").eq("target_id",orderId)
+    .limit(1).maybeSingle();
+  if(error)throw error;
+  if(!proof||proof.metadata?.mode!=="live"||
+    proof.metadata?.liveModeConfirmed!==true){
+    throw new DomainError("FINANCE_LAB_LIVE_ORDER_NOT_OWNED",
+      "Esta ordem não pertence à homologação real deste administrador.",403);
+  }
+  const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")||"").trim();
+  if(!mercadoPagoConfigured(token)){
+    throw new DomainError("FINANCE_LAB_LIVE_NOT_CONFIGURED",
+      "Credencial de produção indisponível.",503);
+  }
+  const response=await mercadoPagoFetch(
+    "/v1/orders/"+encodeURIComponent(orderId),{accessToken:token,method:"GET"});
+  if(!response.ok)throw new DomainError("FINANCE_LAB_LIVE_LOOKUP_FAILED",
+    "O provedor não respondeu à consulta da cobrança real.",503);
+  const order=await readMercadoPagoJson(response);
+  const payments=Array.isArray(order?.transactions?.payments)?order.transactions.payments:[];
+  const payment=payments.find((p:any)=>String(p?.id||"")===String(proof.metadata.paymentId)
+    &&p?.payment_method?.id==="pix"&&p?.payment_method?.type==="bank_transfer");
+  const amount=Number(proof.metadata.amountCents);
+  if(order?.live_mode===false||String(order?.id||"")!==orderId
+    ||String(order?.external_reference||"")!==String(proof.metadata.externalReference)
+    ||moneyToCents(order?.total_amount)!==amount||!payment
+    ||(order?.currency_id&&order.currency_id!=="BRL")
+    ||(payment.amount!=null&&moneyToCents(payment.amount)!==amount)){
+    throw new DomainError("FINANCE_LAB_LIVE_IDENTITY_MISMATCH",
+      "Ordem, ambiente, Pix ou valor divergem da emissão auditada.",409);
+  }
+  const orderStatus=String(order?.status||"unknown").toLowerCase();
+  const paymentStatus=String(payment?.status||"unknown").toLowerCase();
+  const details=[order?.status_detail,payment?.status_detail]
+    .map(x=>String(x||"").toLowerCase());
+  const adverse=new Set(["refunded","partially_refunded","charged_back",
+    "chargeback","disputed","in_mediation","reimbursed","canceled","failed","expired"]);
+  const reversal=Array.isArray(order?.transactions?.refunds)
+    &&order.transactions.refunds.length>0
+    ||[orderStatus,paymentStatus,...details].some(x=>adverse.has(x));
+  const paymentAmountMatched=payment.amount!=null
+    &&moneyToCents(payment.amount)===amount;
+  const processed=!reversal&&paymentAmountMatched
+    &&orderStatus==="processed"&&paymentStatus==="processed"
+    &&details.every(x=>!x||x==="accredited");
+  const {data:events,error:eventError}=await admin.from("platform_admin_audit")
+    .select("metadata,created_at").eq("action","finance_lab_live_pix_webhook")
+    .eq("target_id",orderId).order("created_at",{ascending:false}).limit(10);
+  if(eventError)throw eventError;
+  const witnessed=Array.isArray(events)&&events.length>0;
+  // The latest signed snapshot supersedes older paid observations after
+  // refunds or disputes; never let a stale positive callback dominate.
+  const latestSigned=(events||[])[0]??null;
+  const webhookProcessed=latestSigned?.metadata?.providerProcessed===true
+    &&latestSigned?.metadata?.reversal!==true;
+  const brCode=String(payment?.payment_method?.qr_code||"");
+  const expiry=Date.parse(String(proof.metadata.expiresAt||""));
+  const validBr=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount}):{valid:false};
+  const payable=!processed&&!reversal&&orderStatus==="action_required"
+    &&paymentStatus==="action_required"&&validBr.valid
+    &&Number.isFinite(expiry)&&expiry>Date.now()+60_000;
+  return {ok:true,mode:"live",orderId,amountCents:amount,
+    orderStatus,paymentStatus,providerProcessed:processed,
+    paymentAmountMatched,webhookSeen:witnessed,webhookProcessed,
+    reversalObserved:reversal,
+    brCode:payable?brCode:"",expiresAt:proof.metadata.expiresAt,
+    checkedAt:new Date().toISOString(),
+    // A paid PSP status and an authenticated callback are not a bank statement.
+    settlementVerified:false,credited:false,
+    nextStep:reversal?"Revisar estorno, cancelamento ou contestação.":
+      processed&&webhookProcessed?"Conferir o extrato de recebimento e conciliar; não creditar automaticamente.":
+      processed?"Aguardar notificação assinada e conciliar, sem crédito.": 
+      payable?"Confira o beneficiário no aplicativo bancário antes de pagar.":
+      "Ordem pendente, encerrada ou expirada; não reutilizar Pix antigo."};
 }
 
 async function billingProviderHealth(admin:any){
@@ -6394,6 +6631,20 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="billing-provider-health"){
       return json(await billingProviderHealth(admin),200,origin);
+    }
+    if(action==="finance-lab-live-readiness"||action==="finance-lab-live-check"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente superadmin pode consultar o Pix real controlado.",403);
+      const result=action==="finance-lab-live-readiness"
+        ?await adminFinanceLabLiveReadiness(admin,user.id)
+        :await adminFinanceLabLiveCheck(admin,user.id,body);
+      return json(result,200,origin);
+    }
+    if(action==="finance-lab-live-pix"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente superadmin pode emitir Pix real controlado.",403);
+      const result=await adminFinanceLabLivePix(admin,user.id,String(user.email||""),body,req);
+      return json(result,result.ok===true?200:502,origin);
     }
     if(action==="finance-lab-charge-diagnostics"){
       if(String(adminAccess.admin_role)!=="superadmin"){

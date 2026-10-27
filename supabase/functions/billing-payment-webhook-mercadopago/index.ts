@@ -800,6 +800,64 @@ async function handleWebhookProbe(
   },200);
 }
 
+// A provider-signed Admin laboratory Pix must never enter the merchant
+// accounting, cashback, coupon or wallet paths. We only register immutable,
+// deduplicated evidence in the EXISTING platform audit for later reconciliation.
+async function handleFinancialLabLiveOrder(admin:any,orderId:string,proof:any){
+  const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")||"").trim();
+  if(!mercadoPagoConfigured(token)){
+    return json({error:"FINANCE_LAB_LIVE_PROVIDER_NOT_CONFIGURED"},503);
+  }
+  const {response,data:order}=await fetchProviderOrder(token,orderId);
+  if(!response.ok)return json({error:"FINANCE_LAB_LIVE_PROVIDER_NOT_AVAILABLE"},503);
+  const payment=Array.isArray(order?.transactions?.payments)
+    ?order.transactions.payments.find((p:any)=>
+      String(p?.id||"")===String(proof.metadata?.paymentId||"")
+      &&p?.payment_method?.id==="pix"&&p?.payment_method?.type==="bank_transfer"):null;
+  const amount=Number(proof.metadata?.amountCents);
+  if(proof.metadata?.mode!=="live"||proof.metadata?.liveModeConfirmed!==true
+    ||!Number.isSafeInteger(amount)||amount<100||amount>500
+    ||order?.live_mode===false||String(order?.id||"")!==orderId
+    ||String(order?.external_reference||"")!==String(proof.metadata?.externalReference||"")
+    ||moneyToCents(order?.total_amount)!==amount
+    ||(order?.currency_id&&order.currency_id!=="BRL")
+    ||!payment||(payment.amount!=null&&moneyToCents(payment.amount)!==amount)){
+    return json({error:"FINANCE_LAB_LIVE_PROVIDER_PROOF_MISMATCH"},409);
+  }
+  const orderStatus=String(order?.status||"unknown").trim().toLowerCase();
+  const paymentStatus=String(payment.status||"unknown").trim().toLowerCase();
+  const details=[order?.status_detail,payment?.status_detail]
+    .map(x=>String(x||"").trim().toLowerCase());
+  const adverse=new Set(["refunded","partially_refunded","charged_back",
+    "chargeback","disputed","in_mediation","reimbursed","canceled","failed","expired"]);
+  const reversal=(Array.isArray(order?.transactions?.refunds)
+    &&order.transactions.refunds.length>0)
+    ||[orderStatus,paymentStatus,...details].some(s=>adverse.has(s));
+  const paymentAmountMatched=payment.amount!=null
+    &&moneyToCents(payment.amount)===amount;
+  const processed=!reversal&&paymentAmountMatched
+    &&orderStatus==="processed"&&paymentStatus==="processed"
+    &&details.every(x=>!x||x==="accredited");
+  const digest=await billingEvidenceHash(
+    "finlab-live-webhook|"+orderId+"|"+orderStatus+"|"+paymentStatus+
+      "|"+String(reversal)+"|"+String(processed));
+  const auditId=digest.slice(0,8)+"-"+digest.slice(8,12)+"-4"+
+    digest.slice(13,16)+"-8"+digest.slice(17,20)+"-"+digest.slice(20,32);
+  const {error}=await admin.from("platform_admin_audit").insert({
+    id:auditId,actor_user_id:proof.actor_user_id,
+    action:"finance_lab_live_pix_webhook",target_type:"financial_lab_live",
+    target_id:orderId,
+    metadata:{mode:"live",provider:"mercadopago",signed:true,
+      orderStatus,paymentStatus,reversal,providerProcessed:processed,
+      amountCents:amount,credited:false}
+  });
+  if(error&&error.code!=="23505")throw error;
+  return json({ok:true,route:"finance_lab_live_pix",signatureVerified:true,
+    providerProcessed:processed,reversalObserved:reversal,
+    settlementVerified:false,credited:false,
+    financialMutationAttempted:false},200);
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405);
 
@@ -873,6 +931,17 @@ Deno.serve(async(req:Request)=>{
     // succeeded above, and the RPC can only consume a short-lived admin probe.
     if(WEBHOOK_PROBE_RE.test(dataId)){
       return await handleWebhookProbe(admin,req,dataId,topic,body);
+    }
+
+    // A REAL, operator-authorized laboratory order has its own audit binding.
+    // Do not route these payments to merchant billing or funded benefits.
+    const {data:labProof,error:labError}=await admin.from("platform_admin_audit")
+      .select("actor_user_id,target_id,metadata")
+      .eq("action","finance_lab_live_pix_created")
+      .eq("target_id",dataId).limit(1).maybeSingle();
+    if(labError)throw labError;
+    if(labProof){
+      return await handleFinancialLabLiveOrder(admin,dataId,labProof);
     }
 
     // Route by an exact local provider-order binding first. This allows one

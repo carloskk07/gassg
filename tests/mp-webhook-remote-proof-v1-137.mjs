@@ -65,7 +65,8 @@ assert.ok(
   'webhook deve consumir prova assinada sem alegar pagamento'
 );
 const helperStart=webhook.indexOf('async function handleWebhookProbe');
-const helperEnd=webhook.indexOf('Deno.serve',helperStart);
+const labRoute=webhook.indexOf('async function handleFinancialLabLiveOrder(',helperStart);
+const helperEnd=labRoute>helperStart?labRoute:webhook.indexOf('Deno.serve',helperStart);
 const helper=webhook.slice(helperStart,helperEnd);
 for(const forbidden of [
   'fetchProviderOrder',
