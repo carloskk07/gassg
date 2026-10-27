@@ -1,3 +1,10 @@
+## 27/10/2026 — Homologação isolada de cancelamento real de cupom (PR em validação)
+
+- **Ponto de partida:** PR #673 integrada em `main=6eb4b920f3f4e76751c54376380ad986c2870ad1`. Audit 368 SUCCESS, revisão visual SUCCESS, integração Supabase descartável **SUCCESS** `40581211406` após atualização da CLI para 2.122.0 e fallback de registros. SQL dos cupons já testado em banco completo, porém faltava o caminho de cancelamento após expedição.
+- **Ampliação do único teste E2E existente:** em `tests/isolated-supabase-coupon-full-schema.mjs`, preservar toda a cobertura atual de liquidação, obrigação de reembolso, estorno e trava de repasses. Adicionar cenário independente com segunda fatura fictícia local, líquido auditado, voucher, cotação, pedido v8, aceite e despacho pela Edge real `merchant-action`, cancelamento pela RPC canônica `admin_cancel_dispatched_order` e devolução de cashback ao comprador.
+- **Prova de isolamento do titular:** após confirmar `CUSTOMER_CREDIT_RETURNED`, executar numa transação local com `ROLLBACK` uma adulteração de teste que atribui o mesmo crédito à carteira de outro usuário. A RPC `clube_coupon_paid_order_reconciliation` deve retornar `CANCELLATION_REVIEW` e voltar a `CUSTOMER_CREDIT_RETURNED` após rollback, comprovando efetividade em esquema completo da correção #671.
+- **Restrições:** todo dado e Pix sintético é exclusivo do Supabase descartável com credenciais locais vazias; não executar pedidos, movimentos ou estornos em produção, não alterar código financeiro, trigger, migrations ou repasses. CI Audit + revisão visual + integração completa obrigatórios antes da publicação. Homologação bancária externa ainda pendente.
+
 ## 27/10/2026 — Desbloqueio da integração real de cupons no PostgreSQL isolado (PR em validação)
 
 - **Estado inicial:** `main=5ef71a6795a6b3662cfc5eac590743b9df289284` (#672), Cliente/Parceiro/Admin atestados no mesmo SHA; `PRELAUNCH`, `commerce_enabled=false`, 0 cupons, 0 faturas, 0 aplicações e 0 carteira/reembolsos. A migration do resgate/cancelamento `20261027202737` está aplicada com ACL `service_role` exclusiva.
