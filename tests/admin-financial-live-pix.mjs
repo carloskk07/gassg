@@ -63,12 +63,15 @@ const db={from(table){
     select(){return this},
     eq(field,value){filters.push([field,value]);return this},
     gte(field,value){filters.push([field,value,'gte']);return this},
-    order(){return this},
+    order(_field,opts){this.desc=opts?.ascending===false;return this},
     limit(n){count=n;return this},
     async maybeSingle(){const found=rows.filter(r=>matches(r,filters));
       return {data:found[0]??null,error:null};},
-    then(resolve,reject){return Promise.resolve({data:rows.filter(r=>matches(r,filters)).slice(0,count),
-      error:null}).then(resolve,reject);},
+    then(resolve,reject){
+      const found=rows.filter(r=>matches(r,filters));
+      return Promise.resolve({data:(this.desc?found.reverse():found).slice(0,count),
+        error:null}).then(resolve,reject);
+    },
     async insert(row){operations.push({action:row.action,id:row.id});
       if(rows.some(x=>x.id===row.id))return {error:{code:'23505'}};
       rows.push({...row,created_at:new Date().toISOString()});
@@ -184,6 +187,7 @@ assert.equal(reversed.body.providerProcessed,false);
 checked=await ctx.live.check(db,actorId,{orderId});
 assert.equal(checked.reversalObserved,true);
 assert.equal(checked.providerProcessed,false);
+assert.equal(checked.webhookProcessed,false,'newest refund evidence outranks prior signed paid webhook');
 assert.equal(checked.settlementVerified,false);
 assert.equal(checked.credited,false);
 currentOrder={...currentOrder,external_reference:'OTHER'};
