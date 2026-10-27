@@ -343,7 +343,7 @@ assert.match(edge,/action==="finance-lab-live-recover"/);
 const qrVendor=read('js/qr-generator.js');
 assert.match(qrVendor,/Copyright \(c\) 2009 Kazuhiko Arase/);
 assert.match(qrVendor,/MIT License/);
-const qrContext=vm.createContext({});
+const qrContext=vm.createContext({URL});
 vm.runInContext(qrVendor,qrContext);
 assert.equal(typeof qrContext.qrcode,'function');
 const samplePix='00020101021226840014br.gov.bcb.pix2562pix.example.invalid/id/12345678901052040000530398654042.005802BR5920TAMAO HOMOLOGACAO6009SAO GABRIEL62070503***6304ABCD';
