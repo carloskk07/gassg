@@ -86,7 +86,10 @@ const ctx=vm.createContext({
   Date,URL,Number,Math,Array,String,Set,Boolean,
   DomainError,sha256Hex:async s=>hash(s),
   enforceApiQuota:async()=>{},
-  mercadoPagoBillingProviderHealth:async()=>liveHealth,
+  mercadoPagoBillingProviderHealth:async()=>{
+    if(liveHealth==='offline')throw new Error('provider offline');
+    return liveHealth;
+  },
   mercadoPagoConfigured:s=>s==='mock_production_access_token',
   Deno:{env:{get:name=>({
     MERCADOPAGO_ACCESS_TOKEN:'mock_production_access_token',
@@ -124,6 +127,19 @@ assert.equal(created.settlementVerified,false);
 assert.equal(created.credited,false);
 assert.equal(created.brCode,'VALID_DUMMY_QR');
 assert.equal(created.amountCents,200);
+const recentWithHealthyProvider=await ctx.live.ready(db,actorId);
+assert.equal(recentWithHealthyProvider.recent.length,1);
+assert.equal(recentWithHealthyProvider.recent[0].orderId,orderId);
+liveHealth='offline';
+const recentWithProviderDown=await ctx.live.ready(db,actorId);
+assert.equal(recentWithProviderDown.recent.length,1,
+  'existing issued Pix must remain visible when provider health is offline');
+assert.equal(recentWithProviderDown.providerCheckFailed,true);
+assert.equal(recentWithProviderDown.providerReady,false);
+assert.equal(recentWithProviderDown.accountBound,false);
+assert.equal(providerCalls.length,1,'reading history must not generate payment');
+liveHealth={ok:true,chargeReady:true,accountBound:true,
+  remoteWebhookRegistrationVerified:true,receiveReady:true};
 assert.deepEqual(operations.map(x=>x.action),[
   'finance_lab_live_pix_intent','finance_lab_live_pix_created']);
 const replay=await ctx.live.create(db,actorId,actorEmail,consent,req);
@@ -343,6 +359,10 @@ assert.match(ui,/adminFinanceLabLiveScheduleExpiry\(lab\.live\)/,
 assert.match(ui,/state\.live&&adminFinanceLabLiveIsPayable\(state\.live,state\.liveStatus\)/);
 assert.match(ui,/adminFinanceLabLoadQrEncoder\(\)/);
 assert.match(ui,/Abrir Pix \/ consultar ordem/);
+assert.match(ui,/Emissões reais auditadas<\/h4>/);
+assert.match(ui,/Atualizar emissões/);
+assert.match(ui,/adminFinanceLabLiveReadinessFromUi\(\)\.catch\(\(\)=>\{\}\)/,
+  'open lab should fetch original issued orders without POST');
 const portalBuild=read('scripts/build-live-portals.mjs');
 assert.match(portalBuild,/if\(role!=='admin'\)fs\.rmSync\(path\.join\(target,'js','qr-generator\.js'\)/);
 assert.match(ui,/adminFinanceLabLiveCheckFromUi/);
