@@ -63,7 +63,19 @@ const correlatedMovements=[
   DESCRIPTION:'chargeback',NET_CREDIT_AMOUNT:'0.00',
   NET_DEBIT_AMOUNT:'11.00',GROSS_AMOUNT:'-12.00'}),
  release({RECORD_TYPE:'unblock',DESCRIPTION:'mediation_cancel',
-  NET_CREDIT_AMOUNT:'11.00',NET_DEBIT_AMOUNT:'0.00'})
+  NET_CREDIT_AMOUNT:'11.00',NET_DEBIT_AMOUNT:'0.00'}),
+ // Official and future provider event types must also be treated as
+ // potentially financial when linked to the SAME Pix or invoice.
+ release({RECORD_TYPE:'refund',DESCRIPTION:'payment_refunded',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'4.00',GROSS_AMOUNT:'-4.00'}),
+ release({RECORD_TYPE:'chargeback',DESCRIPTION:'dispute',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'11.00',GROSS_AMOUNT:'-12.00'}),
+ release({RECORD_TYPE:'adjustment',DESCRIPTION:'debit_adjustment',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'1.00',GROSS_AMOUNT:'-1.00'}),
+ release({RECORD_TYPE:'reversal',DESCRIPTION:'reverse_credit',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'11.00',GROSS_AMOUNT:'-12.00'}),
+ release({RECORD_TYPE:'unrecognized_future_type',DESCRIPTION:'unknown',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'1.00',GROSS_AMOUNT:'-1.00'})
 ];
 for(const extra of correlatedMovements){
  const result=inspect(reportWith(extra));
@@ -85,6 +97,21 @@ assert.equal(inspect(reportWith(unrelated)).eligible,true,
  'independent customer movements must remain independent');
 assert.equal(inspect(reportWith(balance)).eligible,true,
  'aggregate balance rows must not be mistaken for a new release');
+for(const type of ['available_balance','summary','total']){
+ const nonzero=release({RECORD_TYPE:type,DESCRIPTION:'aggregate',
+  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'1.00',
+  GROSS_AMOUNT:'0.00'});
+ const flagged=inspect(reportWith(nonzero));
+ assert.equal(flagged.eligible,false,
+  'correlated aggregate with non-zero movement is not safe evidence');
+ assert.equal(flagged.reason,'COUPON_RELEASE_CONFLICTING_MOVEMENT');
+}
+// Unrelated refunds of other customer invoices remain independent.
+const unrelatedRefund=release({SOURCE_ID:'unrelated-payment',
+ EXTERNAL_REFERENCE:'other-invoice',RECORD_TYPE:'refund',
+ DESCRIPTION:'payment_refunded',NET_CREDIT_AMOUNT:'0.00',
+ NET_DEBIT_AMOUNT:'11.00',GROSS_AMOUNT:'-12.00'});
+assert.equal(inspect(reportWith(unrelatedRefund)).eligible,true);
 
 // Net receipt is NOT proven by the Order's gross total alone: the
 // independent processed Pix transaction must have the exact amount in BRL
