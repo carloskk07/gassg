@@ -188,6 +188,7 @@ const reversed=await hookCtx.ingestLab(db,orderId,proof);
 assert.equal(reversed.body.reversalObserved,true);
 assert.equal(reversed.body.providerProcessed,false);
 checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.brCode,'','reversed Pix must not expose a payable code');
 assert.equal(checked.reversalObserved,true);
 assert.equal(checked.providerProcessed,false);
 assert.equal(checked.webhookProcessed,false,'newest refund evidence outranks prior signed paid webhook');
@@ -226,6 +227,11 @@ assert.equal(providerCalls.every(x=>x.method==='GET'),true,
 assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,1);
 recovered=await ctx.live.recover(db,actorId);
 assert.equal(recovered.alreadyBound,true,'recovery must not duplicate PSP audit');
+assert.equal(recovered.brCode,'VALID_DUMMY_QR',
+  'a previously recovered pending Pix must reopen with its same validated BR Code');
+assert.equal(recovered.orderStatus,'action_required');
+assert.equal(recovered.paymentStatus,'action_required');
+assert.equal(recovered.readOnlyProvider,true);
 assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,1);
 // Clear only the created proof to simulate an interrupted first issuance.
 rows=rows.filter(x=>x.action!=='finance_lab_live_pix_created');
@@ -286,5 +292,38 @@ assert.match(ui,/Consultar Pix existente pelo ID/);
 assert.match(ui,/adminFinanceLabLiveRecoverFromUi/);
 assert.match(ui,/Recuperar Pix real já emitido/);
 assert.match(edge,/action==="finance-lab-live-recover"/);
+
+// QR artwork is computed LOCALLY from exactly the same BR Code that a bank
+// receives in copy/paste. No remote image endpoint and no third-party script.
+const qrVendor=read('js/qr-generator.js');
+assert.match(qrVendor,/Copyright \(c\) 2009 Kazuhiko Arase/);
+assert.match(qrVendor,/MIT License/);
+const qrContext=vm.createContext({});
+vm.runInContext(qrVendor,qrContext);
+assert.equal(typeof qrContext.qrcode,'function');
+const samplePix='00020101021226840014br.gov.bcb.pix2562pix.example.invalid/id/12345678901052040000530398654042.005802BR5920TAMAO HOMOLOGACAO6009SAO GABRIEL62070503***6304ABCD';
+const img=qrContext.qrcode(0,'M');
+img.addData(samplePix,'Byte');img.make();
+const svg=img.createSvgTag({cellSize:4,margin:16,scalable:true});
+assert.match(svg,/^<svg\b/);
+assert.match(svg,/<path\b/);
+assert.ok(img.getModuleCount()>20,'QR encodes complete payment payload');
+assert.ok(img.isDark(0,0)===true,'QR matrix includes finder patterns');
+const qrHelperStart=ui.indexOf('let adminFinanceLabQrLoader=null;');
+const qrHelperEnd=ui.indexOf('// REAL Pix is operator-initiated only.',qrHelperStart);
+assert.ok(qrHelperStart>0&&qrHelperEnd>qrHelperStart);
+vm.runInContext(ui.slice(qrHelperStart,qrHelperEnd)+
+  ';this.renderCode=adminFinanceLabLiveQrBlock;',qrContext);
+const generated=qrContext.renderCode({brCode:samplePix});
+assert.match(generated,/<svg\b/);
+assert.match(generated,/QR Code Pix REAL/);
+assert.doesNotMatch(generated,/https?:\/\/|<script/i);
+assert.equal(qrContext.renderCode({brCode:''}),'',
+  'a nonpayable/empty Pix has no QR');
+assert.match(ui,/adminFinanceLabLoadQrEncoder\(\)/);
+assert.match(ui,/Abrir Pix \/ consultar ordem/);
+const portalBuild=read('scripts/build-live-portals.mjs');
+assert.match(portalBuild,/if\(role!=='admin'\)fs\.rmSync\(path\.join\(target,'js','qr-generator\.js'\)/);
+assert.match(ui,/adminFinanceLabLiveCheckFromUi/);
 
 console.log('PASS Admin REAL Pix laboratory: explicit superadmin consent, 1-5 BRL, locked creation, deterministic idempotency, signed callback audit, order readback, reversal quarantine, zero credits, lost-response recovery, no duplicate PSP charge.');
