@@ -19,7 +19,7 @@ const invoice={
 const order={
  id:'order-1',external_reference:invoice.id,total_amount:'12.00',
  currency_id:'BRL',status:'processed',
- transactions:{payments:[{id:'payment-1',status:'processed',
+ transactions:{payments:[{id:'payment-1',amount:'12.00',status:'processed',
   payment_method:{id:'pix',type:'bank_transfer'}}],refunds:[]}
 };
 const header=['DATE','SOURCE_ID','EXTERNAL_REFERENCE','RECORD_TYPE','DESCRIPTION',
@@ -85,6 +85,38 @@ assert.equal(inspect(reportWith(unrelated)).eligible,true,
  'independent customer movements must remain independent');
 assert.equal(inspect(reportWith(balance)).eligible,true,
  'aggregate balance rows must not be mistaken for a new release');
+
+// Net receipt is NOT proven by the Order's gross total alone: the
+// independent processed Pix transaction must have the exact amount in BRL
+// and must not be explicitly marked as a sandbox/test payment.
+for(const invalid of [
+ {pix:{amount:undefined}}, {pix:{amount:null}},
+ {pix:{amount:'11.99'}}, {pix:{amount:'0.00'}},
+ {pix:{amount:'12.01'}}, {pix:{amount:'not-a-number'}},
+ {pix:{live_mode:false}}, {pix:{currency_id:'USD'}},
+ {pix:{currency:'USD'}}, {order:{live_mode:false}},
+ {order:{currency:'USD'}}
+]){
+ const altered=structuredClone(order);
+ Object.assign(altered,invalid.order??{});
+ Object.assign(altered.transactions.payments[0],invalid.pix??{});
+ const evidence=inspect(csv,invoice,altered);
+ assert.equal(evidence.eligible,false,
+  'release funding must reject invalid Pix amount, mode, or currency: '+JSON.stringify(invalid));
+ assert.equal(evidence.reason,'COUPON_PROVIDER_BINDING_UNVERIFIED');
+ assert.equal(evidence.netCents,null);
+ assert.equal(evidence.evidenceReference,null);
+ assert.equal(evidence.couponFundingApplied,false);
+ assert.equal(evidence.moneyMoved,false);
+}
+const credited=structuredClone(order);
+credited.live_mode=true;
+credited.currency='BRL';
+credited.transactions.payments[0].live_mode=true;
+credited.transactions.payments[0].currency='BRL';
+credited.transactions.payments[0].currency_id='BRL';
+assert.equal(inspect(csv,invoice,credited).eligible,true,
+ 'matching BRL Pix amount and genuine production flags still pass');
 
 // The provider's gross order can remain processed while a reversal is
 // already reflected only in status_detail. Without this guard the release
