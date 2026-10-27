@@ -110,6 +110,8 @@ jobs:
         run: node tests/isolated-supabase-registry-fallback-contract.mjs
       - name: Cancelled coupon refund must return to the correct customer's wallet
         run: node tests/coupon-return-owner-contract.mjs
+      - name: Coupon cancellation cashback provenance and duplicate-return guard
+        run: node tests/coupon-cancel-return-provenance-contract.mjs
       - name: Admin coupon finance read-only UI and permission regression
         run: node tests/admin-clube-finance-status.mjs
       - name: Admin disabled coupon draft and atomic audit gate
