@@ -106,6 +106,8 @@ jobs:
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation
         run: node tests/coupon-atomic-checkout-contract.mjs
+      - name: Cancelled coupon refund must return to the correct customer's wallet
+        run: node tests/coupon-return-owner-contract.mjs
       - name: Admin coupon finance read-only UI and permission regression
         run: node tests/admin-clube-finance-status.mjs
       - name: Admin disabled coupon draft and atomic audit gate
