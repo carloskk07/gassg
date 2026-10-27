@@ -5176,6 +5176,17 @@ async function adminFinanceLabLiveCopyFromUi(){
   catch{toast('Não foi possível copiar o código Pix.');}
 }
 
+function adminFinanceLabLiveHistoryLabel(item){
+  // This reflects only the latest signed callback, NOT bank settlement.
+  switch(item?.webhookEvidence){
+    case 'psp_processed':return 'Último webhook assinado: pagamento processado no PSP';
+    case 'reversal':return 'ATENÇÃO: reversão ou estorno observado no webhook';
+    case 'pending':return 'Último webhook assinado: pagamento ainda não processado';
+    case 'unverified':return 'Evidência inconsistente — verificar no Mercado Pago';
+    case 'unavailable':return 'Histórico de webhooks indisponível — consultar ordem';
+    default:return 'Sem confirmação de pagamento no webhook auditado';
+  }
+}
 function adminFinanceLabView(d){
   if(adminCurrentRole()!=='superadmin')return '<div class="notice">Laboratório disponível ao administrador principal.</div>';
   const state=adminRuntime.financeLab||{};
@@ -5267,14 +5278,14 @@ function adminFinanceLabView(d){
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
         ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>'+adminFinanceLabLiveQrBlock(state.live)+(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':'')+'<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         <div class="section-head"><div><h4>Emissões reais auditadas</h4>
-          <p class="muted tiny">Histórico desta conta administrativa. Consultar ordem não emite novo Pix.</p></div>
+          <p class="muted tiny">Último webhook assinado registrado por ordem (pode estar desatualizado). Consulte o PSP para status atual; isso não comprova liquidação bancária nem emite outro Pix.</p></div>
           <button type="button" class="secondary small" onclick="adminFinanceLabLiveReadinessFromUi()"
             ${state.liveReadinessLoading?'disabled':''}>${state.liveReadinessLoading?'Atualizando…':'Atualizar emissões'}</button></div>
         ${state.liveReadinessLoading&&!state.liveReadiness
           ?'<p role="status" class="muted">Carregando emissões auditadas…</p>'
           :state.liveReadiness
             ?(state.liveReadiness.recent.length
-              ?state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Abrir Pix / consultar ordem</button></div>').join('')
+              ?state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+'<div class="muted tiny">'+esc(adminFinanceLabLiveHistoryLabel(item))+(item.webhookObservedAt?' • '+esc(formatDateTime(item.webhookObservedAt)):'')+'</div> <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">'+(item.webhookEvidence==='psp_processed'||item.webhookEvidence==='reversal'?'Consultar situação atual':'Abrir Pix / consultar ordem')+'</button></div>').join('')
               :'<p class="muted tiny">Nenhuma emissão real auditada nesta conta.</p>')
             :'<p class="muted tiny">Histórico ainda não carregado. Clique em Atualizar emissões — sem gerar nova cobrança.</p>'}
         ${state.liveReadiness?.providerCheckFailed
