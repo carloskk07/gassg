@@ -381,6 +381,13 @@ async function adminSignOut(){
   adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
   adminRuntime.merchantFinance={data:null,loading:false,error:null,checkedAt:null};
+  // Clear previous account's payment details before a new login.
+  adminFinanceLabLiveScheduleExpiry(null);
+  adminRuntime.financeLab={preview:null,sandbox:null,amountCents:null,
+    idempotencyKey:null,pending:false,error:null,readiness:null,
+    readinessLoading:false,live:null,liveStatus:null,liveReadiness:null,
+    liveReadinessLoading:false,livePending:false,liveError:null,liveKey:null,
+    liveAmountCents:null};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -3291,6 +3298,9 @@ function adminSetSection(section){
     adminOwnerFinanceLoadOnDemand().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
+  if(next==='finance'&&adminFinanceWorkspaceCurrent()==='lab'
+    &&adminCurrentRole()==='superadmin')
+    adminFinanceLabLiveReadinessFromUi().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
     document.getElementById('admin-current-section-title')?.focus({preventScroll:true});
@@ -4998,15 +5008,24 @@ function adminFinanceLabLiveScheduleExpiry(order){
 async function adminFinanceLabLiveReadinessFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
-  if(lab.liveReadinessLoading)return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(lab.liveReadinessLoading||!actor)return;
   lab.liveReadinessLoading=true;lab.liveError=null;render();
   try{
     const data=await adminInvoke({action:'finance-lab-live-readiness'});
-    if(data?.ok!==true||data.mode!=='live'||data.readOnly!==true)
-      throw new Error('Prontidão do Pix real não comprovada.');
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==actor)return;
+    if(data?.ok!==true||data.mode!=='live'||data.readOnly!==true
+      ||!Array.isArray(data.recent))
+      throw new Error('Histórico auditado do Pix real indisponível.');
     lab.liveReadiness=data;
-  }catch(e){lab.liveReadiness=null;lab.liveError=String(e?.message||e);}
-  finally{lab.liveReadinessLoading=false;render();}
+  }catch(e){
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===actor){
+      lab.liveReadiness=null;lab.liveError=String(e?.message||e);
+    }
+  }finally{
+    lab.liveReadinessLoading=false;
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===actor)render();
+  }
 }
 async function adminFinanceLabLiveCreateFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
@@ -5220,7 +5239,19 @@ function adminFinanceLabView(d){
           onclick="adminFinanceLabLiveRecoverByIdFromUi()" ${state.livePending?'disabled':''}>Consultar Pix existente pelo ID — não cria outro</button></div>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
         ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>${adminFinanceLabLiveQrBlock(state.live)}<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
-        ${state.liveReadiness?.recent?.length?'<h4>Emissões reais auditadas</h4>'+state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Abrir Pix / consultar ordem</button></div>').join(''):''}
+        <div class="section-head"><div><h4>Emissões reais auditadas</h4>
+          <p class="muted tiny">Histórico desta conta administrativa. Consultar ordem não emite novo Pix.</p></div>
+          <button type="button" class="secondary small" onclick="adminFinanceLabLiveReadinessFromUi()"
+            ${state.liveReadinessLoading?'disabled':''}>${state.liveReadinessLoading?'Atualizando…':'Atualizar emissões'}</button></div>
+        ${state.liveReadinessLoading&&!state.liveReadiness
+          ?'<p role="status" class="muted">Carregando emissões auditadas…</p>'
+          :state.liveReadiness
+            ?(state.liveReadiness.recent.length
+              ?state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Abrir Pix / consultar ordem</button></div>').join('')
+              :'<p class="muted tiny">Nenhuma emissão real auditada nesta conta.</p>')
+            :'<p class="muted tiny">Histórico ainda não carregado. Clique em Atualizar emissões — sem gerar nova cobrança.</p>'}
+        ${state.liveReadiness?.providerCheckFailed
+          ?'<div class="notice">Histórico carregado, mas o Mercado Pago não respondeu à verificação de prontidão. Nenhuma cobrança foi emitida.</div>':''}
         ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small><p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
       </div>
       <div class="card flat"><h3>Verificações integradas</h3>
@@ -5343,7 +5374,11 @@ function adminSetFinanceWorkspace(workspace){
     ||(key==='lab'&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   render();
-  if(key==='lab')adminFinanceLabReadinessFromUi().catch(()=>{});
+  if(key==='lab'){
+    adminFinanceLabReadinessFromUi().catch(()=>{});
+    // Existing receipts are read-only and do not depend on a new Pix.
+    adminFinanceLabLiveReadinessFromUi().catch(()=>{});
+  }
   requestAnimationFrame(()=>{
     document.getElementById('admin-finance-switch-'+key)?.focus({preventScroll:true});
     document.getElementById('admin-finance-workspace-panel')?.scrollIntoView({

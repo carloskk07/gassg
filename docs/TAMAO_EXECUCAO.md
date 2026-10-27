@@ -1,3 +1,10 @@
+## 27/10/2026 — Correção de histórico Pix invisível no Admin (PR em validação)
+
+- **Relato:** o proprietário não encontra “Emissões reais auditadas” no Financeiro. Na produção `main=233f77bb7fe55524a5bfa08a0bcb6da1c4105b98`; Cloudflare/CI/reconciliação concluídos e `platform_launch_control.portals_source_sha` coincide. Uma emissão real auditada de R$ 2,00 permanece no banco (`ORD01M5XP7MVJ4WKY3ADSYJ4FM86A`) para superadmin ativo; `commerce_enabled=false`.
+- **Causa técnica:** o HTML só mostrava o histórico se `state.liveReadiness.recent` estivesse preenchido, mas ao abrir o Laboratório o front-end invocava apenas prontidão do sandbox; a chamada que carrega emissões reais não era automática. O backend dependia de resposta bem-sucedida do health do Mercado Pago antes de consultar o histórico do próprio banco.
+- **Correção:** sempre mostrar cabeçalho/estado do histórico no subpainel Laboratório, carregar automaticamente ao abrir, oferecer atualização manual somente leitura, preservar isolamento por ator administrativo, limpar dados Pix locais no logout e recuperar histórico mesmo se a saúde do PSP estiver indisponível (marcando prontidão negativa, jamais autorizando cobranças).
+- **Gates:** executar Audit, build, visual, integrar somente após aprovação; publicar função `admin-ops` existente com dependências e flags intactas, conferir SHA dos portais. Não gerar cobrança, crédito, saque, cupom, mudança de credencial ou conciliação fictícia. Pagamento original segue pendente de GET ao PSP e evidência financeira independente.
+
 # TAMÃO — Diário Oficial de Execução Técnica
 
 **Iniciativa:** TAMÃO — Expansão Integrada e Consolidação para Produção  

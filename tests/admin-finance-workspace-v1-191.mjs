@@ -16,7 +16,7 @@ const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=(\[[^\n]+\]);/);
 assert.ok(declaration,'Finance workspace allowlist required');
 const keys=JSON.parse(declaration[1]).map(x=>x.id);
 assert.equal(keys.join('|'),'summary|billing|lab|reconciliation|policy');
-let role='finance',repaints=0,focuses=[],scrolls=[];
+let role='finance',repaints=0,focuses=[],scrolls=[],liveLoads=0;
 const rt={financeWorkspace:'summary'};
 const document={
   getElementById:id=>{
@@ -33,6 +33,7 @@ const ctx=vm.createContext({
   adminRoleCanSection:key=>key==='finance'&&['superadmin','finance'].includes(role),
   render:()=>repaints++,
   adminFinanceLabReadinessFromUi:async()=>{},
+  adminFinanceLabLiveReadinessFromUi:async()=>{liveLoads++;},
   requestAnimationFrame:fn=>fn(),document
 });
 vm.runInContext('const ADMIN_FINANCE_WORKSPACES='+declaration[1]+';\n'
@@ -77,11 +78,13 @@ assert.ok(ctx.nav().includes('Laboratório'));
 assert.equal((ctx.nav().match(/aria-pressed=/g)||[]).length,5);
 ctx.select('lab');
 assert.equal(rt.financeWorkspace,'lab');
+assert.equal(liveLoads,1,'entering the authorized lab fetches audited Pix history once');
 role='finance';
 assert.equal(ctx.current(),'summary','Non-superadmin must not stay inside financial lab');
 const beforeLab=repaints;
 ctx.select('lab');
 assert.equal(repaints,beforeLab,'Only superadmin can enter the financial lab');
+assert.equal(liveLoads,1,'non-superadmin never loads private real Pix history');
 role='superadmin';
 const from=src.indexOf('  const financeSummaryContent=');
 const until=src.indexOf('  const incidentsContent=',from);
