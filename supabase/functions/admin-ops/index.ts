@@ -3148,8 +3148,8 @@ Deno.serve(async(req:Request)=>{
         limit:5,windowSeconds:600
       });
       const [orderResult,applicationResult,reimbursementResult]=await Promise.all([
-        admin.from("orders").select("id,status,financial_state,financial_reversed_at,merchant_id,cashback_reserved_cents").eq("id",orderId).maybeSingle(),
-        admin.from("clube_coupon_paid_order_applications").select("order_id,invoice_id,quoted_merchant_id,face_cents").eq("order_id",orderId).maybeSingle(),
+        admin.from("orders").select("id,status,financial_state,financial_reversed_at,merchant_id,customer_id,gross_total_cents,total_cents,cashback_reserved_cents").eq("id",orderId).maybeSingle(),
+        admin.from("clube_coupon_paid_order_applications").select("order_id,invoice_id,voucher_id,customer_user_id,quoted_merchant_id,face_cents,net_proceeds_reference,original_order_cashback_cents,original_order_total_cents").eq("order_id",orderId).maybeSingle(),
         admin.from("merchant_cashback_reimbursements").select("order_id,merchant_id,cashback_cents,status").eq("order_id",orderId).maybeSingle()
       ]);
       for(const result of [orderResult,applicationResult,reimbursementResult])
@@ -3167,10 +3167,13 @@ Deno.serve(async(req:Request)=>{
       // Derive merchant readiness from the existing records ONLY, never
       // from user-supplied CNPJ or PSP JSON. A verified checkout connection
       // is not evidence of Pix payout recipient ownership.
-      const [invoiceResult,merchantResult,merchantAccountResult]=await Promise.all([
+      const [invoiceResult,voucherResult,merchantResult,merchantAccountResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
-          .select("id,status,net_proceeds_verified_at")
+          .select("id,status,paid_at,provider_order_id,provider_payment_id,customer_user_id,sale_price_cents,coupon_face_cents,coupons_per_pack,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at")
           .eq("id",application.invoice_id).maybeSingle(),
+        admin.from("clube_coupon_paid_issuances")
+          .select("id,invoice_id,customer_user_id,face_cents,status,redeemed_order_id")
+          .eq("id",application.voucher_id).maybeSingle(),
         admin.from("merchants").select("id,cnpj")
           .eq("id",order.merchant_id).maybeSingle(),
         admin.from("merchant_payment_provider_accounts")
@@ -3178,7 +3181,7 @@ Deno.serve(async(req:Request)=>{
           .eq("merchant_id",order.merchant_id)
           .eq("provider","mercadopago").maybeSingle()
       ]);
-      for(const result of [invoiceResult,merchantResult,merchantAccountResult])
+      for(const result of [invoiceResult,voucherResult,merchantResult,merchantAccountResult])
         if(result.error)throw result.error;
       const invoice=invoiceResult.data;
       const recipientReadiness=couponMerchantRecipientReadiness({
@@ -3206,7 +3209,8 @@ Deno.serve(async(req:Request)=>{
           "A transação retornada pertence a outro lote.",409);
       return json({
         ...couponMerchantPayoutEvidence({
-          payoutId,transactionId,transaction,reimbursement,application,order,invoice
+          payoutId,transactionId,transaction,reimbursement,application,order,invoice,
+          voucher:voucherResult.data
         }),
         available:true,providerCheckedAt:new Date().toISOString(),
         recipientReadiness
