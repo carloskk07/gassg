@@ -869,7 +869,10 @@ async function adminFinanceLabVerifyProviderCharge(admin:any,actorId:string,body
   if(String(order?.id??"")!==orderId
     ||String(order?.external_reference??"")!==String(charge.correlation_id??"")
     ||moneyToCents(order?.total_amount)!==amount
+    ||(order?.currency_id&&String(order.currency_id).toUpperCase()!=="BRL")
     ||!payment
+    ||!String(payment.id??"").trim()
+    ||(payment.amount!=null&&moneyToCents(payment.amount)!==amount)
     ||(charge.provider_transaction_id!=null
       &&String(payment.id??"")!==String(charge.provider_transaction_id))){
     throw new DomainError("FINANCE_LAB_PROVIDER_IDENTITY_MISMATCH",
@@ -882,13 +885,25 @@ async function adminFinanceLabVerifyProviderCharge(admin:any,actorId:string,body
   // An order and its Pix transaction must agree. A refunded/charged-back or
   // partially-refunded order must never be described as fully processed simply
   // because one nested transaction retains its old "processed" status.
+  // A status-only snapshot is never a settlement proof. A sandbox order,
+  // unquantified Pix payment, or refund/chargeback evidence must not be
+  // presented as a clean processed payment in the superadmin laboratory.
+  const providerSandbox=order?.live_mode===false;
+  const refundPresent=Array.isArray(order?.transactions?.refunds)
+    &&order.transactions.refunds.length>0;
+  const paymentAmountMatched=payment.amount!=null
+    &&moneyToCents(payment.amount)===amount;
   const adverseStates=new Set(["refunded","partially_refunded","charged_back",
+    "chargeback","disputed","in_mediation","reimbursed",
     "canceled","cancelled","failed","expired"]);
-  const providerAdverseState=[
+  const providerAdverseState=refundPresent||[
     providerOrderStatus,providerPaymentStatus,
     providerOrderStatusDetail,providerPaymentStatusDetail
-  ].some(value=>adverseStates.has(value.toLowerCase()));
-  const processed=!providerAdverseState
+  ].some(value=>adverseStates.has(value.toLowerCase().trim()));
+  const detailsAccredited=[providerOrderStatusDetail,providerPaymentStatusDetail]
+    .every(value=>!value||value.toLowerCase().trim()==="accredited");
+  const processed=!providerSandbox&&!providerAdverseState
+    &&paymentAmountMatched&&detailsAccredited
     &&providerOrderStatus.toLowerCase()==="processed"
     &&providerPaymentStatus.toLowerCase()==="processed";
   return {
@@ -899,14 +914,17 @@ async function adminFinanceLabVerifyProviderCharge(admin:any,actorId:string,body
     providerOrderStatus,providerPaymentStatus,
     providerOrderStatusDetail,providerPaymentStatusDetail,
     providerProcessed:processed,providerAdverseState,
+    providerSandbox,refundPresent,paymentAmountMatched,
     identifiersAndAmountMatched:true,
     // Provider state alone is NOT an account statement, webhook or payout.
     settlementVerified:false,creditIssued:false,financialActionTaken:false,
-    nextStep:providerAdverseState
-      ?"Há falha, cancelamento, devolução ou contestação no PSP. Investigar antes de qualquer crédito."
-      :processed
-        ?"Conferir webhook, recebimento e conciliação antes de qualquer crédito."
-        :"Aguardar confirmação consistente da ordem e do Pix; não antecipar crédito."
+    nextStep:providerSandbox
+      ?"Ordem de TESTE: não comprova recebimento nem autoriza crédito real."
+      :providerAdverseState
+        ?"Há falha, cancelamento, devolução ou contestação no PSP. Investigar antes de qualquer crédito."
+        :processed
+          ?"Conferir webhook, recebimento e conciliação antes de qualquer crédito."
+          :"Aguardar confirmação consistente da ordem e do Pix; não antecipar crédito."
   };
 }
 
