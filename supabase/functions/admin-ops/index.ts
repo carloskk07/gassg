@@ -1473,14 +1473,23 @@ async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
   const brCode=String(payment?.payment_method?.qr_code||"");
   const expiry=Date.parse(String(proof.metadata.expiresAt||""));
   const validBr=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount}):{valid:false};
-  const payable=!processed&&!reversal&&orderStatus==="action_required"
-    &&paymentStatus==="action_required"&&validBr.valid
+  // The PSP's official ticket can display its ORIGINAL payment QR when GET
+  // omits qr_code. Never manufacture a BR Code or create a replacement order.
+  // An explicitly sandbox/foreign ticket invalidates any payment display.
+  const ticketRaw=String(payment?.payment_method?.ticket_url||"").trim();
+  const ticket=safeMercadoPagoUrl(ticketRaw);
+  const ticketPath=ticket?new URL(ticket).pathname.toLowerCase():"";
+  const ticketContradicts=!!ticketRaw&&(!ticket||ticketPath.includes("/sandbox/"));
+  const pending=!processed&&!reversal&&!ticketContradicts&&paymentAmountMatched
+    &&orderStatus==="action_required"&&paymentStatus==="action_required"
     &&Number.isFinite(expiry)&&expiry>Date.now()+60_000;
+  const payable=pending&&validBr.valid;
+  const paymentLinkUrl=pending&&ticket?ticket:null;
   return {ok:true,mode:"live",orderId,amountCents:amount,
     orderStatus,paymentStatus,providerProcessed:processed,
     paymentAmountMatched,webhookSeen:witnessed,webhookProcessed,
     reversalObserved:reversal,
-    brCode:payable?brCode:"",expiresAt:proof.metadata.expiresAt,
+    brCode:payable?brCode:"",paymentLinkUrl,expiresAt:proof.metadata.expiresAt,
     checkedAt:new Date().toISOString(),
     // A paid PSP status and an authenticated callback are not a bank statement.
     settlementVerified:false,credited:false,
@@ -1488,7 +1497,8 @@ async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
       processed&&webhookProcessed?"Conferir o extrato de recebimento e conciliar; não creditar automaticamente.":
       processed?"Aguardar notificação assinada e conciliar, sem crédito.": 
       payable?"Confira o beneficiário no aplicativo bancário antes de pagar.":
-      "Ordem pendente, encerrada ou expirada; não reutilizar Pix antigo."};
+      paymentLinkUrl?"Abra o Pix original no Mercado Pago para ver o QR Code oficial. Confira beneficiário e valor no banco antes de pagar.":
+      "Não há QR Code ou link de pagamento validado para esta ordem. Não reutilize Pix antigo nem emita cobrança duplicada."};
 }
 
 async function billingProviderHealth(admin:any){
