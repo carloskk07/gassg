@@ -5046,6 +5046,25 @@ function adminFinanceLabView(d){
           <button type="button" class="secondary small" onclick="adminFinanceLabCheckOrderFromUi('${esc(sandbox.orderId||'')}')" ${state.pending?'disabled':''}>Consultar status no Mercado Pago</button>
         </div>`:''}
       </div>
+      <div class="card flat"><h3>Pix REAL controlado — homologação</h3>
+        <p class="muted tiny">Apenas superadmin. Não ativa comércio, vendas, benefícios ou créditos. A emissão gera Pix pagável somente após confirmação explícita.</p>
+        <div class="order-actions"><button class="secondary small" type="button"
+          onclick="adminFinanceLabLiveReadinessFromUi()" ${state.liveReadinessLoading?'disabled':''}>
+          ${state.liveReadinessLoading?'Verificando…':'Verificar conta e webhook de produção'}</button></div>
+        ${state.liveReadiness?'<div class="order-line">Conta vinculada: '+(state.liveReadiness.providerReady&&state.liveReadiness.accountBound?'Sim':'Não')+' • Assinatura externa: '+(state.liveReadiness.remoteWebhookVerified?'Verificada':'Pendente')+'</div>':''}
+        <label for="admin-finance-lab-live-amount">Valor do Pix REAL — R$ 1,00 a R$ 5,00</label>
+        <input class="input" id="admin-finance-lab-live-amount" type="text" maxlength="4"
+          value="${esc(state.liveAmountCents?String((state.liveAmountCents/100).toFixed(2)).replace('.',','):'2,00')}">
+        <div class="order-actions"><button class="primary small" type="button"
+          onclick="adminFinanceLabLiveCreateFromUi()"
+          ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
+          ${state.livePending?'Consultando provedor…':'Emitir Pix REAL com confirmação'}</button></div>
+        <small>Uma emissão a cada 25 horas. Repetir uma tentativa incerta reutiliza a mesma chave. Antes de pagar, confira o nome do beneficiário no aplicativo do banco.</small>
+        ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
+        ${state.live?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div><div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
+        ${state.liveReadiness?.recent?.length?'<h4>Emissões reais auditadas</h4>'+state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Consultar</button></div>').join(''):''}
+        ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small><p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
+      </div>
       <div class="card flat"><h3>Verificações integradas</h3>
         <div class="merchant-kpis">
           <div class="kpi"><span class="label">PIX ativos</span><strong>${pending}</strong></div>
