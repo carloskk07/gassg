@@ -165,7 +165,8 @@ assert.doesNotMatch(section,/merchant_billing_payment_requests|merchant_fee_cred
 // provider output (never an actual charge). Test both official valid paths:
 // pending with Pix QR; auto-approved APRO response WITHOUT any QR.
 const functionStart=server.indexOf('async function adminFinanceLabSandboxPix(');
-const functionEnd=server.indexOf('\nasync function ',functionStart+10);
+const liveSection=server.indexOf('\n// ADMIN FINANCIAL LAB —',functionStart);
+const functionEnd=liveSection>functionStart?liveSection:server.indexOf('\nasync function ',functionStart+10);
 assert.ok(functionStart>0&&functionEnd>functionStart);
 const actualSource=server.slice(functionStart,functionEnd)
   .replace('admin:any,actorId:string,body:any,req:Request','admin,actorId,body,req')
