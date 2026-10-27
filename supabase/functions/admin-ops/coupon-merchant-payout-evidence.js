@@ -25,7 +25,7 @@ function cents(value){
  return Number.isSafeInteger(amount)&&amount>0?amount:null;
 }
 export function couponMerchantPayoutEvidence({
- payoutId,transactionId,transaction,reimbursement,application,order,invoice
+ payoutId,transactionId,transaction,reimbursement,application,order,invoice,voucher
 }){
  const expectedId=String(transactionId??"");
  const expectedOrder=String(order?.id??"");
@@ -38,17 +38,43 @@ export function couponMerchantPayoutEvidence({
   transactionId:expectedId,
   expectedCents:Number.isSafeInteger(expectedReimbursement)?expectedReimbursement:null,
   observedCents:receivedCents,providerStatus:state,providerStatusDetail:detail};
- if(!reimbursement||!application||!order||!invoice
+ // The payout status is only meaningful after the complete, immutable
+ // coupon provenance matches: original customer, redeemed voucher, verified
+ // net source and the EXACT merchant/order reimbursement amounts. A provider
+ // transaction cannot compensate for a missing or disputed funding source.
+ const face=Number(application?.face_cents);
+ const net=Number(invoice?.net_proceeds_cents);
+ const obligation=Number(invoice?.coupon_face_cents)*Number(invoice?.coupons_per_pack);
+ const fundsValid=Number.isSafeInteger(net)&&net>0&&
+   Number.isSafeInteger(obligation)&&obligation>0&&
+   net>=obligation&&net<=Number(invoice?.sale_price_cents);
+ if(!reimbursement||!application||!order||!invoice||!voucher
   ||String(reimbursement.order_id)!==expectedOrder
   ||String(application.order_id)!==expectedOrder
   ||String(application.invoice_id)!==String(invoice.id)
+  ||String(application.voucher_id)!==String(voucher.id)
+  ||String(voucher.invoice_id)!==String(invoice.id)
+  ||String(voucher.redeemed_order_id)!==expectedOrder
+  ||voucher.status!=="redeemed"
+  ||String(application.customer_user_id)!==String(order.customer_id)
+  ||String(voucher.customer_user_id)!==String(order.customer_id)
+  ||String(invoice.customer_user_id)!==String(order.customer_id)
   ||String(reimbursement.merchant_id)!==String(order.merchant_id)
   ||String(application.quoted_merchant_id)!==String(order.merchant_id)
   ||Number(reimbursement.cashback_cents)!==Number(order.cashback_reserved_cents)
-  ||Number(application.face_cents)>expectedReimbursement
+  ||Number(application.original_order_cashback_cents)!==Number(order.cashback_reserved_cents)
+  ||Number(application.original_order_total_cents)!==Number(order.total_cents)
+  ||!Number.isSafeInteger(face)||face<=0
+  ||face!==Number(voucher.face_cents)||face!==Number(invoice.coupon_face_cents)
+  ||face>expectedReimbursement
+  ||!fundsValid||!invoice.paid_at
+  ||!invoice.provider_order_id||!invoice.provider_payment_id
+  ||!invoice.net_proceeds_verified_at
+  ||!invoice.net_proceeds_reference
+  ||String(application.net_proceeds_reference)!==String(invoice.net_proceeds_reference)
   ||order.status!=="SETTLED"||order.financial_state!=="settled"
   ||order.financial_reversed_at
-  ||invoice.status!=="paid"||!invoice.net_proceeds_verified_at)
+  ||invoice.status!=="paid")
    return fail("COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE",safe);
  if(!expectedId||!expectedOrder||String(transaction?.id??"")!==expectedId
   ||!ref||ref!==expectedOrder

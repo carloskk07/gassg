@@ -8,15 +8,28 @@ const admin=read('supabase/functions/admin-ops/index.ts');
 const audit=read('.github/workflows/audit.yml');
 const id='11111111-1111-4111-8111-111111111111';
 const merchant='22222222-2222-4222-8222-222222222222';
+const customer='44444444-4444-4444-8444-444444444444';
+const voucherId='55555555-5555-4555-8555-555555555555';
+const invoiceId='33333333-3333-4333-8333-333333333333';
+const netRef='mp-release:release-report-prod.csv:payment-1';
 const base={
  payoutId:'POP01KKYN1QY2SS1MKAY4KP6SSRCT',
  transactionId:'TOP01KKYN1QY2SS1MKAY4G9DV5NK9',
- order:{id,merchant_id:merchant,status:'SETTLED',financial_state:'settled',
-  financial_reversed_at:null,cashback_reserved_cents:700},
- application:{order_id:id,invoice_id:'33333333-3333-4333-8333-333333333333',
-  quoted_merchant_id:merchant,face_cents:500},
- invoice:{id:'33333333-3333-4333-8333-333333333333',
-  status:'paid',net_proceeds_verified_at:'2026-10-25T03:00:00Z'},
+ order:{id,merchant_id:merchant,customer_id:customer,status:'SETTLED',
+  financial_state:'settled',financial_reversed_at:null,
+  gross_total_cents:1500,total_cents:800,cashback_reserved_cents:700},
+ application:{order_id:id,invoice_id:invoiceId,voucher_id:voucherId,
+  customer_user_id:customer,quoted_merchant_id:merchant,face_cents:500,
+  original_order_cashback_cents:700,original_order_total_cents:800,
+  net_proceeds_reference:netRef},
+ invoice:{id:invoiceId,customer_user_id:customer,
+  status:'paid',paid_at:'2026-10-25T02:00:00Z',
+  provider_order_id:'ORD12345',provider_payment_id:'payment-1',
+  sale_price_cents:1200,coupon_face_cents:500,coupons_per_pack:2,
+  net_proceeds_cents:1100,net_proceeds_reference:netRef,
+  net_proceeds_verified_at:'2026-10-25T03:00:00Z'},
+ voucher:{id:voucherId,invoice_id:invoiceId,customer_user_id:customer,
+  face_cents:500,status:'redeemed',redeemed_order_id:id},
  reimbursement:{order_id:id,merchant_id:merchant,cashback_cents:700,status:'open'},
  transaction:{id:'TOP01KKYN1QY2SS1MKAY4G9DV5NK9',external_reference:id,
   status:'success',status_detail:'accredited',amount:{value:'7.00',currency:'BRL'}}
@@ -90,7 +103,23 @@ for(const [overrides,reason] of [
  [{invoice:{...base.invoice,status:'review_required'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
  [{reimbursement:{...base.reimbursement,merchant_id:'other'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
  [{application:{...base.application,quoted_merchant_id:'other'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
- [{application:{...base.application,face_cents:701}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE']
+ [{application:{...base.application,face_cents:701}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{application:{...base.application,customer_user_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{order:{...base.order,customer_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{invoice:{...base.invoice,customer_user_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{application:{...base.application,voucher_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{voucher:{...base.voucher,redeemed_order_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{voucher:{...base.voucher,status:'issued'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{voucher:{...base.voucher,invoice_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{voucher:{...base.voucher,customer_user_id:merchant}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{voucher:{...base.voucher,face_cents:400}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{application:{...base.application,net_proceeds_reference:'other'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{invoice:{...base.invoice,net_proceeds_reference:null}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{invoice:{...base.invoice,net_proceeds_cents:999}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{invoice:{...base.invoice,net_proceeds_cents:1300}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{invoice:{...base.invoice,provider_payment_id:null}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{application:{...base.application,original_order_cashback_cents:500}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
+ [{application:{...base.application,original_order_total_cents:801}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE']
 ]){
  const r=check(overrides);
  assert.equal(r.reason,reason,JSON.stringify(overrides));
@@ -115,6 +144,13 @@ assert.match(action,/admin\.from\("merchant_cashback_reimbursements"\)/);
 assert.match(action,/admin\.from\("merchant_payment_provider_accounts"\)/);
 assert.match(action,/admin\.from\("merchants"\)/);
 assert.match(action,/recipientReadiness/);
+assert.match(action,/admin\.from\("clube_coupon_paid_issuances"\)/,
+ 'payout inspection must check actual redeemed voucher');
+assert.match(action,/\.eq\("id",application\.voucher_id\)\.maybeSingle\(\)/);
+assert.match(action,/voucher:voucherResult\.data/);
+assert.match(action,/net_proceeds_reference,original_order_cashback_cents,original_order_total_cents/);
+assert.match(action,/customer_user_id,sale_price_cents,coupon_face_cents,coupons_per_pack,net_proceeds_cents/);
+assert.match(action,/merchant_id,customer_id,gross_total_cents,total_cents,cashback_reserved_cents/);
 assert.doesNotMatch(action,/access_token_ciphertext|refresh_token_ciphertext|credential_bundle_ciphertext|\.select\("\*"\)/,
  'payout readiness must NEVER fetch or reveal provider secrets or extra merchant fields');
 assert.match(action,/mercadoPagoFetch\(/);
