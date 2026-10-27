@@ -80,7 +80,7 @@ let actorEmail='admin@example.com';
 let liveHealth={ok:true,chargeReady:true,accountBound:true,
   remoteWebhookRegistrationVerified:true,receiveReady:true};
 const ctx=vm.createContext({
-  Date,Number,Math,Array,String,Set,Boolean,
+  Date,URL,Number,Math,Array,String,Set,Boolean,
   DomainError,sha256Hex:async s=>hash(s),
   enforceApiQuota:async()=>{},
   mercadoPagoBillingProviderHealth:async()=>liveHealth,
