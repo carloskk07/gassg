@@ -44,7 +44,7 @@ const key='test-live-pix-idempotency-12345678';
 let rows=[],operations=[],responses=[],providerCalls=[];
 const orderId='ORD01LIVEFINLAB00000012';
 const paymentId='PAY01LIVEFINLAB00012';
-let currentOrder=null;
+let currentOrder=null,searchItems=[];
 function getOrder(reference){
   return {id:orderId,live_mode:true,external_reference:reference,
     total_amount:'2.00',currency_id:'BRL',status:'action_required',
@@ -99,6 +99,9 @@ const ctx=vm.createContext({
       currentOrder=order;
       return {ok:true,order};
     }
+    if(path.startsWith('/v1/orders?')){
+      return {ok:true,order:{data:searchItems}};
+    }
     return {ok:true,order:currentOrder};
   },
   readMercadoPagoJson:async response=>response.order,
@@ -107,7 +110,7 @@ const ctx=vm.createContext({
   validatePixBrCode:s=>({valid:s==='VALID_DUMMY_QR'}),
   mercadoPagoPixDeadline:()=>new Date(Date.now()+23*3600_000).toISOString()
 });
-vm.runInContext(source+';this.live={ready:adminFinanceLabLiveReadiness,create:adminFinanceLabLivePix,check:adminFinanceLabLiveCheck};',ctx);
+vm.runInContext(source+';this.live={ready:adminFinanceLabLiveReadiness,create:adminFinanceLabLivePix,check:adminFinanceLabLiveCheck,recover:adminFinanceLabRecoverLivePix};',ctx);
 const req={headers:{get:k=>k==='Idempotency-Key'?key:null}};
 const consent={amountCents:amount,authorization:'GERAR_PIX_REAL'};
 const snapshot=await ctx.live.ready(db,actorId);
@@ -195,4 +198,62 @@ const mismatch=await hookCtx.ingestLab(db,orderId,proof);
 assert.equal(mismatch.status,409);
 assert.equal(rows.length,5);
 assert.equal(providerCalls.filter(x=>x.method==='POST').length,2);
-console.log('PASS Admin REAL Pix laboratory: explicit superadmin consent, 1-5 BRL, locked creation, deterministic idempotency, signed callback audit, order readback, reversal quarantine, zero credits.');
+
+// Production Orders may omit live_mode; explicit false still blocks.
+rows=[];operations=[];providerCalls=[];
+const recoveryReference='tamao-finlab-live-'+hash('unpaid-existing-order').slice(0,40);
+await db.from('platform_admin_audit').insert({
+  id:'11111111-1111-4111-8111-111111111111',
+  actor_user_id:actorId,action:'finance_lab_live_pix_intent',
+  target_type:'financial_lab_live',target_id:recoveryReference,
+  metadata:{provider:'mercadopago',mode:'live',amountCents:200}
+});
+currentOrder=getOrder(recoveryReference);
+delete currentOrder.live_mode; // official automatic Orders responses may omit
+searchItems=[{id:orderId,external_reference:recoveryReference}];
+assert.equal((await ctx.live.recover(db,'22222222-2222-4222-8222-222222222222')).found,false,
+  'another admin must not recover this payment');
+let recovered=await ctx.live.recover(db,actorId);
+assert.equal(recovered.ok,true);
+assert.equal(recovered.found,true);
+assert.equal(recovered.recovered,true);
+assert.equal(recovered.orderId,orderId);
+assert.equal(recovered.brCode,'VALID_DUMMY_QR');
+assert.equal(recovered.settlementVerified,false);
+assert.equal(recovered.credited,false);
+assert.equal(providerCalls.every(x=>x.method==='GET'),true,
+  'recovery must never POST a new payment order');
+assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,1);
+recovered=await ctx.live.recover(db,actorId);
+assert.equal(recovered.alreadyBound,true,'recovery must not duplicate PSP audit');
+assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,1);
+// Clear only the created proof to simulate an interrupted first issuance.
+rows=rows.filter(x=>x.action!=='finance_lab_live_pix_created');
+currentOrder={...getOrder(recoveryReference),live_mode:false};
+await assert.rejects(()=>ctx.live.recover(db,actorId),
+  e=>e.code==='FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED',
+  'explicit sandbox must fail closed');
+currentOrder=getOrder(recoveryReference);
+delete currentOrder.live_mode;
+currentOrder.transactions.payments[0].payment_method.ticket_url=
+  'https://www.mercadopago.com.br/sandbox/payments/123/ticket';
+await assert.rejects(()=>ctx.live.recover(db,actorId),
+  e=>e.code==='FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED',
+  'sandbox ticket must never be emitted as live Pix');
+currentOrder=getOrder(recoveryReference);
+delete currentOrder.live_mode;
+currentOrder.transactions.payments[0].amount='3.00';
+await assert.rejects(()=>ctx.live.recover(db,actorId),
+  e=>e.code==='FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED');
+currentOrder=getOrder(recoveryReference);
+searchItems=[{id:orderId,external_reference:recoveryReference},
+  {id:'ORD02ANOTHERORDERID',external_reference:recoveryReference}];
+assert.equal((await ctx.live.recover(db,actorId)).found,false,
+  'multiple orders with the same reference must not be ambiguously selected');
+assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,0);
+assert.equal(providerCalls.every(x=>x.method==='GET'),true);
+assert.match(ui,/adminFinanceLabLiveRecoverFromUi/);
+assert.match(ui,/Recuperar Pix real já emitido/);
+assert.match(edge,/action==="finance-lab-live-recover"/);
+
+console.log('PASS Admin REAL Pix laboratory: explicit superadmin consent, 1-5 BRL, locked creation, deterministic idempotency, signed callback audit, order readback, reversal quarantine, zero credits, lost-response recovery, no duplicate PSP charge.');
