@@ -4971,8 +4971,14 @@ async function adminFinanceLabLiveCheckFromUi(orderId){
 }
 async function adminFinanceLabLiveCopyFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
-  const order=adminRuntime.financeLab.live;
+  const lab=adminRuntime.financeLab;
+  const order=lab.live;
   if(order?.mode!=='live'||!order.brCode)return;
+  if(lab.liveStatus?.orderId===order.orderId
+    &&(lab.liveStatus.orderStatus!=='action_required'
+      ||lab.liveStatus.paymentStatus!=='action_required')){
+    toast('Este Pix deixou de estar pendente. Não reutilize o código.');return;
+  }
   if(Date.parse(String(order.expiresAt||''))<=Date.now()){
     toast('Pix vencido. Não copie o código.');return;
   }
