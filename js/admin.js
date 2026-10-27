@@ -4956,8 +4956,8 @@ function adminFinanceLabLiveQrBlock(order){
   if(!svg)return '<p class="muted tiny">QR Code carregando. O copia e cola permanece disponível abaixo.</p>';
   return '<div class="input-wrap"><label>QR Code Pix REAL — escaneie pelo aplicativo do banco</label>'+
     '<div role="img" aria-label="QR Code do mesmo Pix real do copia e cola" '+
-    'style="width:min(100%,290px);margin:10px auto;background:white;padding:10px;border-radius:12px;">'+
-    svg+'</div></div>';
+    'style="width:min(100%,290px);aspect-ratio:1/1;margin:10px auto;background:white;padding:10px;border-radius:12px;">'+
+    svg.replace('<svg ','<svg width="100%" height="100%" ')+'</div></div>';
 }
 
 // REAL Pix is operator-initiated only. No automatic payment or credit.
