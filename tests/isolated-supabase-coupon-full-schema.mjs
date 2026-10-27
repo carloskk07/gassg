@@ -209,6 +209,22 @@ const due=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("
 assert.equal(due.status,'MERCHANT_REIMBURSEMENT_DUE');
 assert.equal(due.merchantReimbursementCents,amounts.cashback);
 assert.equal(due.merchantExternalSettlementVerified,false);
+// A reimbursement explicitly REVERSED while its parent order still says
+// SETTLED is contradictory. Never misreport it as ORDER_IN_PROGRESS.
+// Probe only in the disposable full-schema database and undo with ROLLBACK.
+const reversedDebt=sql("BEGIN; UPDATE public.merchant_cashback_reimbursements "+
+ "SET status='reversed',reversed_at=clock_timestamp() WHERE order_id="+
+ q(orderRef)+"::uuid AND status='open'; "+
+ "SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)->>'status'; ROLLBACK;");
+assert.equal(reversedDebt,'REVERSAL_REVIEW',
+ 'a reversed merchant obligation must remain flagged for reconciliation');
+const originalDebt=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)::text;"));
+assert.equal(originalDebt.status,'MERCHANT_REIMBURSEMENT_DUE',
+ 'rollback must leave real merchant debt OPEN');
+assert.equal(sql("SELECT status FROM public.merchant_cashback_reimbursements WHERE "+
+ "order_id="+q(orderRef)+"::uuid"),'open');
 // This used to accept an internal "paid" entry without beneficiary proof.
  // A coupon-backed liability must now remain OPEN, even for superadmin/RPC.
 expectDenied("SELECT public.admin_financial_action("+
