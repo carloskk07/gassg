@@ -47,6 +47,31 @@ const recipientBase={
 };
 const recipientOk=couponMerchantRecipientReadiness(recipientBase);
 assert.equal(recipientOk.legalDocumentOnFile,true);
+// The first alphanumeric CNPJ issued by Receita Federal in July 2026 is
+// 00.000.000/E08G-12. DB already accepts this 12+2 form; the admin
+// payout readiness must not erase its letters and flag it as missing.
+for(const cnpj of ['00000000E08G12','00.000.000/E08G-12',
+                    '00.000.000/e08g-12']){
+ const report=couponMerchantRecipientReadiness({
+  ...recipientBase,merchant:{...recipientBase.merchant,cnpj}
+ });
+ assert.equal(report.legalDocumentOnFile,true,cnpj);
+ assert.equal(report.blockingReasons.includes('COUPON_PAYOUT_MERCHANT_LEGAL_ID_MISSING'),false,cnpj);
+ assert.equal(report.payoutRecipientVerified,false);
+ assert.equal(report.independentBankCreditVerified,false);
+ assert.equal(report.eligibleForFinancialWrite,false);
+ assert.doesNotMatch(JSON.stringify(report),/E08G|00000000/i,
+  'no alphanumeric CNPJ characters may leak to Admin evidence');
+}
+for(const cnpj of ['00000000E08G1A','00000000E08G1','00000000E08G123',
+ '00000000E08G--12','00000000E08G_12','ABCDEF1234567X',null]){
+ const report=couponMerchantRecipientReadiness({
+  ...recipientBase,merchant:{...recipientBase.merchant,cnpj}
+ });
+ assert.equal(report.legalDocumentOnFile,false,String(cnpj));
+ assert.ok(report.blockingReasons.includes('COUPON_PAYOUT_MERCHANT_LEGAL_ID_MISSING'));
+ assert.equal(report.eligibleForFinancialWrite,false);
+}
 assert.equal(recipientOk.merchantProviderAccountPresent,true);
 assert.equal(recipientOk.merchantProviderAccountConnected,true);
 assert.equal(recipientOk.payoutRecipientVerified,false);

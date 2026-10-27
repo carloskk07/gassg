@@ -100,8 +100,16 @@ export function couponMerchantPayoutEvidence({
 // provider_account_id, metadata or arbitrary PSP recipient claims.
 export function couponMerchantRecipientReadiness({merchant,account}={}){
  const merchantId=String(merchant?.id??"");
- const legalId=String(merchant?.cnpj??"").replace(/[^0-9]/g,"");
- const legalDocumentOnFile=!!merchantId&&legalId.length===14;
+ // Brazil began issuing alphanumeric CNPJs in July 2026. The database
+ // already accepts 12 ASCII letters/digits followed by 2 check digits.
+ // Never strip letters from an issued CNPJ or mislabel it as absent.
+ // This is document-on-file readiness ONLY, not validated legal ownership
+ // or independent evidence of the Pix payout beneficiary.
+ const legalId=String(merchant?.cnpj??"").trim().toUpperCase();
+ const rawCnpj=/^[A-Z0-9]{12}[0-9]{2}$/;
+ const maskedCnpj=/^[A-Z0-9]{2}\.[A-Z0-9]{3}\.[A-Z0-9]{3}\/[A-Z0-9]{4}-[0-9]{2}$/;
+ const legalDocumentOnFile=!!merchantId&&
+   (rawCnpj.test(legalId)||maskedCnpj.test(legalId));
  const merchantProviderAccountPresent=!!merchantId&&
    String(account?.merchant_id??"")===merchantId&&
    account?.provider==="mercadopago";
