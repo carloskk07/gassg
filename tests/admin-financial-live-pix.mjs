@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
+import {safeMercadoPagoUrl} from '../supabase/functions/_shared/mercadopago.js';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const edge=read('supabase/functions/admin-ops/index.ts');
 const hook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
@@ -109,7 +110,7 @@ const ctx=vm.createContext({
   },
   readMercadoPagoJson:async response=>response.order,
   moneyToCents:v=>Math.round(Number(v)*100),
-  safeMercadoPagoUrl:s=>s,
+  safeMercadoPagoUrl,
   validatePixBrCode:s=>({valid:s==='VALID_DUMMY_QR'}),
   mercadoPagoPixDeadline:()=>new Date(Date.now()+23*3600_000).toISOString()
 });
@@ -165,6 +166,34 @@ assert.equal(checked.providerProcessed,false);
 assert.equal(checked.webhookSeen,false);
 assert.equal(checked.settlementVerified,false);
 assert.equal(checked.credited,false);
+assert.equal(checked.paymentLinkUrl,'https://www.mercadopago.com.br/payments/ticket',
+  'the audit-bound provider GET exposes the SAME official ticket');
+const pendingBeforeTicketTest=currentOrder;
+currentOrder={...pendingBeforeTicketTest,transactions:{payments:[
+  {...pendingBeforeTicketTest.transactions.payments[0],payment_method:{
+    ...pendingBeforeTicketTest.transactions.payments[0].payment_method,qr_code:''}}]}};
+const ticketOnly=await ctx.live.check(db,actorId,{orderId});
+assert.equal(ticketOnly.brCode,'','never fabricate a lost Pix payload');
+assert.equal(ticketOnly.paymentLinkUrl,'https://www.mercadopago.com.br/payments/ticket',
+  'original PSP payment page remains usable without locally stored BR code');
+assert.equal(ticketOnly.providerProcessed,false);
+assert.equal(ticketOnly.credited,false);
+assert.equal(providerCalls.every(x=>x.method==='POST'||x.method==='GET'),true);
+currentOrder={...pendingBeforeTicketTest,transactions:{payments:[
+  {...pendingBeforeTicketTest.transactions.payments[0],payment_method:{
+    ...pendingBeforeTicketTest.transactions.payments[0].payment_method,
+    ticket_url:'https://www.mercadopago.com.br/sandbox/payments/one'}}]}};
+const sandboxTicket=await ctx.live.check(db,actorId,{orderId});
+assert.equal(sandboxTicket.paymentLinkUrl,null);
+assert.equal(sandboxTicket.brCode,'','sandbox ticket must veto even a valid BR Code');
+currentOrder={...pendingBeforeTicketTest,transactions:{payments:[
+  {...pendingBeforeTicketTest.transactions.payments[0],payment_method:{
+    ...pendingBeforeTicketTest.transactions.payments[0].payment_method,
+    ticket_url:'https://example.invalid/redirect'}}]}};
+const foreignTicket=await ctx.live.check(db,actorId,{orderId});
+assert.equal(foreignTicket.paymentLinkUrl,null);
+assert.equal(foreignTicket.brCode,'','foreign ticket must veto payment display');
+currentOrder=pendingBeforeTicketTest;
 await assert.rejects(()=>ctx.live.check(db,'22222222-2222-4222-8222-222222222222',{orderId}),
   e=>e.code==='FINANCE_LAB_LIVE_ORDER_NOT_OWNED');
 let proof=rows.find(x=>x.action==='finance_lab_live_pix_created');
@@ -314,7 +343,7 @@ assert.match(edge,/action==="finance-lab-live-recover"/);
 const qrVendor=read('js/qr-generator.js');
 assert.match(qrVendor,/Copyright \(c\) 2009 Kazuhiko Arase/);
 assert.match(qrVendor,/MIT License/);
-const qrContext=vm.createContext({});
+const qrContext=vm.createContext({URL});
 vm.runInContext(qrVendor,qrContext);
 assert.equal(typeof qrContext.qrcode,'function');
 const samplePix='00020101021226840014br.gov.bcb.pix2562pix.example.invalid/id/12345678901052040000530398654042.005802BR5920TAMAO HOMOLOGACAO6009SAO GABRIEL62070503***6304ABCD';
@@ -329,7 +358,7 @@ const qrHelperStart=ui.indexOf('let adminFinanceLabQrLoader=null;');
 const qrHelperEnd=ui.indexOf('// REAL Pix is operator-initiated only.',qrHelperStart);
 assert.ok(qrHelperStart>0&&qrHelperEnd>qrHelperStart);
 vm.runInContext(ui.slice(qrHelperStart,qrHelperEnd)+
-  ';this.renderCode=adminFinanceLabLiveQrBlock;this.isPayable=adminFinanceLabLiveIsPayable;',qrContext);
+  ';this.renderCode=adminFinanceLabLiveQrBlock;this.isPayable=adminFinanceLabLiveIsPayable;this.originalTicket=adminFinanceLabLiveOriginalTicketUrl;',qrContext);
 const generated=qrContext.renderCode({brCode:samplePix});
 assert.match(generated,/<svg\b/);
 assert.match(generated,/QR Code Pix REAL/);
@@ -359,6 +388,20 @@ assert.match(ui,/adminFinanceLabLiveScheduleExpiry\(lab\.live\)/,
 assert.match(ui,/state\.live&&adminFinanceLabLiveIsPayable\(state\.live,state\.liveStatus\)/);
 assert.match(ui,/adminFinanceLabLoadQrEncoder\(\)/);
 assert.match(ui,/Abrir Pix \/ consultar ordem/);
+const linkOrder={mode:'live',orderId:'ORD01LIVEFINLAB00000012',
+  expiresAt:'2026-10-27T12:03:00Z',
+  paymentLinkUrl:'https://www.mercadopago.com.br/payments/ticket'};
+assert.equal(qrContext.originalTicket(linkOrder,null,fixedNow),linkOrder.paymentLinkUrl);
+assert.equal(qrContext.originalTicket({...linkOrder,
+  paymentLinkUrl:'https://mercadopago.com.br.evil.invalid/unsafe'},null,fixedNow),'');
+assert.equal(qrContext.originalTicket({...linkOrder,
+  paymentLinkUrl:'https://www.mercadopago.com.br/sandbox/payments/ticket'},null,fixedNow),'');
+assert.equal(qrContext.originalTicket(linkOrder,{...linkOrder,
+  orderStatus:'processed',paymentStatus:'processed'},fixedNow),'');
+assert.equal(qrContext.originalTicket({...linkOrder,expiresAt:'2026-10-27T12:00:20Z'},
+  null,fixedNow),'');
+assert.match(ui,/Abrir QR Code oficial no Mercado Pago/);
+assert.match(ui,/Tentar desenhar QR novamente/);
 assert.match(ui,/Emissões reais auditadas<\/h4>/);
 assert.match(ui,/Atualizar emissões/);
 assert.match(ui,/adminFinanceLabLiveReadinessFromUi\(\)\.catch\(\(\)=>\{\}\)/,
