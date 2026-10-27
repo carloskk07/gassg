@@ -92,9 +92,16 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
   if(String(order?.id??"")!==String(invoice.provider_order_id)||
     String(order?.external_reference??"")!==String(invoice.id)||
     cents(order?.total_amount)!==invoice.sale_price_cents||
+    // The Order total is not independent proof of the specific Pix amount.
+    // Both amounts must match the invoice before net funds may be registered.
+    !pix||cents(pix?.amount)!==invoice.sale_price_cents||
+    order?.live_mode===false||pix?.live_mode===false||
     (order?.currency_id&&order.currency_id!=="BRL")||
+    (order?.currency&&order.currency!=="BRL")||
+    (pix?.currency_id&&pix.currency_id!=="BRL")||
+    (pix?.currency&&pix.currency!=="BRL")||
     String(order?.status??"").toLowerCase()!=="processed"||
-    !pix||String(pix?.payment_method?.id??"")!=="pix"||
+    String(pix?.payment_method?.id??"")!=="pix"||
     String(pix?.payment_method?.type??"")!=="bank_transfer"||
     !["processed","accredited","approved"].includes(String(pix.status??"").toLowerCase())||
     (Array.isArray(order?.transactions?.refunds)&&order.transactions.refunds.length>0)||
