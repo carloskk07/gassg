@@ -50,7 +50,18 @@ function couponInvoiceCanPresent(row:any,nowMs=Date.now()){
 function couponProviderPixPayable(order:any,payment:any){
  const status=String(order?.status??"").trim().toLowerCase();
  const payStatus=String(payment?.status??"").trim().toLowerCase();
- return ["action_required","processing"].includes(status)
+ // The order total is NOT proof that its individual Pix is for that amount.
+ // Require the independently supplied PSP transaction amount on fresh issue
+ // AND on idempotent re-open. The Orders API documents payment.amount.
+ return order?.live_mode!==false
+   &&(!order?.currency_id||order.currency_id==="BRL")
+   &&(!order?.currency||order.currency==="BRL")
+   &&Boolean(String(payment?.id??"").trim())
+   &&payment?.payment_method?.id==="pix"
+   &&payment?.payment_method?.type==="bank_transfer"
+   &&moneyToCents(payment?.amount)!==null
+   &&moneyToCents(payment?.amount)===moneyToCents(order?.total_amount)
+   &&["action_required","processing"].includes(status)
    &&["","pending","in_process","action_required","processing"].includes(payStatus);
 }
 // A paid gross Pix is NOT a voucher that can be spent. The existing

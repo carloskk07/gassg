@@ -86,6 +86,13 @@ assert.match(coupon,/expires_at:expiresAt/,
  'persist only deadline confirmed by the provider-constrained helper');
 assert.match(coupon,/couponProviderPixPayable\(order,payment\)/,
  'processed, refunded or cancelled provider orders cannot issue Pix QR');
+assert.match(coupon,/moneyToCents\(payment\?\.amount\)===moneyToCents\(order\?\.total_amount\)/,
+ 'each coupon Pix must explicitly match its own transaction amount and Order total');
+assert.match(webhook,/moneyToCents\(pix\?\.amount\)!==Number\(invoice.sale_price_cents\)/,
+ 'signed webhook may never issue paid benefits without matching Pix amount');
+// Keep the original replay guard contract visible:
+assert.match(coupon,/couponProviderPixPayable\(order,payment\)/,
+ 'processed, refunded or cancelled provider orders cannot issue Pix QR');
 assert.match(coupon,/invoice.status==="awaiting_payment"&&!await couponPixStillPayable\(invoice\)/,
  'idempotent retry must recheck the PSP before returning stored QR');
 assert.match(coupon,/COUPON_PIX_REVIEW_REQUIRED/,
@@ -114,7 +121,7 @@ const invoice={id:'inv-1',status:'awaiting_payment',sale_price_cents:1500,
  provider_payment_id:'mp-payment-1',coupons_per_pack:2};
 const providerOrder={id:'mp-order-1',external_reference:'inv-1',
  total_amount:'15.00',status:'action_required',
- transactions:{payments:[{id:'mp-payment-1',status:'pending',
+ transactions:{payments:[{id:'mp-payment-1',amount:'15.00',status:'pending',
   payment_method:{id:'pix',type:'bank_transfer',qr_code:brCode}}]}};
 let providerData=structuredClone(providerOrder),deadline=iso(2400000),getCount=0;
 const sandbox=vm.createContext({
@@ -132,6 +139,22 @@ assert.equal(sandbox.couponInvoiceCanPresent(invoice,now),true);
 assert.equal(sandbox.publicInvoice(invoice).pixCode,brCode);
 assert.equal(sandbox.publicInvoice(invoice).issuedCoupons,0);
 assert.equal(await sandbox.couponPixStillPayable(invoice),true);
+assert.equal(sandbox.couponProviderPixPayable(providerOrder,providerOrder.transactions.payments[0]),true);
+const exactPayment=providerOrder.transactions.payments[0];
+for(const invalid of [
+ {...providerOrder.transactions.payments[0],amount:undefined},
+ {...providerOrder.transactions.payments[0],amount:null},
+ {...providerOrder.transactions.payments[0],amount:'14.00'},
+ {...providerOrder.transactions.payments[0],amount:'0'},
+ {...providerOrder.transactions.payments[0],id:''}
+]){
+ assert.equal(sandbox.couponProviderPixPayable(providerOrder,invalid),false,
+  'the original Order total never substitutes an explicit matching Pix amount');
+}
+assert.equal(sandbox.couponProviderPixPayable({...providerOrder,live_mode:false},exactPayment),false,
+ 'explicit sandbox Order must not present an alleged real customer Pix');
+assert.equal(sandbox.couponProviderPixPayable({...providerOrder,currency_id:'USD'},exactPayment),false);
+assert.equal(sandbox.couponProviderPixPayable({...providerOrder,currency:'USD'},exactPayment),false);
 assert.equal(getCount,1,'one GET verification on positive replay');
 providerData={...providerOrder,status:'processed'};
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'processed order cannot reuse QR');
@@ -141,6 +164,17 @@ providerData={...providerOrder,external_reference:'different'};
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'wrong external reference');
 providerData={...providerOrder,total_amount:'20.00'};
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'wrong amount');
+providerData={...providerOrder,transactions:{payments:[
+ {...providerOrder.transactions.payments[0],amount:undefined}]}};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,
+ 'missing Pix amount is not payable on a retried invoice');
+providerData={...providerOrder,transactions:{payments:[
+ {...providerOrder.transactions.payments[0],amount:'14.00'}]}};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,
+ 'partial Pix amount cannot re-open full-value QR');
+providerData={...providerOrder,live_mode:false};
+assert.equal(await sandbox.couponPixStillPayable(invoice),false,
+ 'explicit sandbox order cannot re-open real Pix');
 providerData=structuredClone(providerOrder);
 deadline=iso(1200000);
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'PSP shortened expiry');
@@ -233,7 +267,7 @@ const decide=async(paymentStatus,orderStatus='processed',refunds=[],priorStatus=
   currentPspOrder={id:'order-1',external_reference:'invoice-1',
     total_amount:'15.00',status:orderStatus,
     status_detail:details.order??'accredited',
-    transactions:{payments:[{id:'payment-1',status:paymentStatus,
+    transactions:{payments:[{id:'payment-1',amount:'15.00',status:paymentStatus,
       status_detail:details.payment??'accredited',
       payment_method:{id:'pix',type:'bank_transfer'}}],refunds}};
   const result=await webhookSandbox.handlePaidCouponOrder(mockAdmin,'order-1',
@@ -292,6 +326,8 @@ assert.equal((await decide('processed')).route,
 for(const [name,change] of [
  ['explicit sandbox Order',order=>{order.live_mode=false;}],
  ['Pix transaction amount mismatch',order=>{order.transactions.payments[0].amount='14.00';}],
+ ['Pix transaction amount omitted',order=>{delete order.transactions.payments[0].amount;}],
+ ['Pix transaction amount null',order=>{order.transactions.payments[0].amount=null;}],
  ['Pix transaction missing identity',order=>{order.transactions.payments[0].id='';}]
 ]){
  calledRpcs=[];
@@ -360,7 +396,7 @@ for(const terminal of ['review_required','refunded']){
   calledRpcs=[];
   currentPspOrder={id:'order-1',external_reference:'invoice-1',
    total_amount:'15.00',status:stale,status_detail:'accredited',
-   transactions:{payments:[{id:'payment-1',status:stale,
+   transactions:{payments:[{id:'payment-1',amount:'15.00',status:stale,
     status_detail:'accredited',payment_method:{id:'pix',type:'bank_transfer'}}],
     refunds:[]}};
   const response=await webhookSandbox.handlePaidCouponOrder(
@@ -387,7 +423,7 @@ assert.equal(settledRefund.status,'refunded');
 // instead of being incorrectly promoted to manual financial review.
 currentPspOrder={id:'order-1',external_reference:'invoice-1',
  total_amount:'15.00',status:'canceled',status_detail:'canceled',
- transactions:{payments:[{id:'payment-1',status:'canceled',
+ transactions:{payments:[{id:'payment-1',amount:'15.00',status:'canceled',
   status_detail:'canceled',payment_method:{id:'pix',type:'bank_transfer'}}],refunds:[]}};
 let unpaidUpdate=null;
 const unpaidAdmin={

@@ -625,6 +625,7 @@ async function handlePaidCouponOrder(
     String(order?.external_reference??"")!==String(invoice.id)||
     amount!==Number(invoice.sale_price_cents)||
     (order?.currency_id&&order.currency_id!=="BRL")||
+    (order?.currency&&order.currency!=="BRL")||
     String(pix?.payment_method?.id??"")!=="pix"||
     String(pix?.payment_method?.type??"")!=="bank_transfer"){
   return json({error:"COUPON_ORDER_BINDING_MISMATCH"},409);
@@ -635,8 +636,9 @@ async function handlePaidCouponOrder(
  // financial-review RPC. Do not create any payment or refund evidence.
  const unsafePaymentProof=order?.live_mode===false
    ||!String(pix?.id??"").trim()
-   ||(pix?.amount!=null
-     &&moneyToCents(pix.amount)!==Number(invoice.sale_price_cents));
+   // A matching Order total alone is insufficient: without a matching
+   // transaction.amount the webhook must NEVER mint paid benefits.
+   ||moneyToCents(pix?.amount)!==Number(invoice.sale_price_cents);
  if(unsafePaymentProof){
   if(invoice.status==="paid"){
    const {error}=await admin.rpc("clube_coupon_paid_payment_review",{
