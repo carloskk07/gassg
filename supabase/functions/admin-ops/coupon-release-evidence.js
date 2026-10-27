@@ -131,7 +131,16 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
       other.EXTERNAL_REFERENCE===invoiceId;
     if(!correlated)return false;
     const type=other.RECORD_TYPE.toLowerCase();
-    return ["release","block","unblock"].includes(type);
+    // All correlated non-summary movements are potentially financial:
+    // refund, chargeback, adjustment, reversal and unknown/new PSP types
+    // MUST NOT silently pass merely because they are not "release".
+    // Only a known zero-valued account summary is not a second movement.
+    const nonFinancialSummary=["available_balance","balance","summary",
+      "opening_balance","closing_balance","total"].includes(type);
+    const zeroSummary=nonFinancialSummary&&[
+      other.NET_CREDIT_AMOUNT,other.NET_DEBIT_AMOUNT,other.GROSS_AMOUNT
+    ].every(value=>releasedMoneyCents(value)===0);
+    return !zeroSummary;
   });
   if(conflictingMovement)
     return empty("COUPON_RELEASE_CONFLICTING_MOVEMENT",parsed.rowsExamined);
