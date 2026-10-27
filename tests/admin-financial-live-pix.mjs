@@ -252,6 +252,37 @@ assert.equal((await ctx.live.recover(db,actorId)).found,false,
   'multiple orders with the same reference must not be ambiguously selected');
 assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,0);
 assert.equal(providerCalls.every(x=>x.method==='GET'),true);
+assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,0);
+const callsBefore=providerCalls.length;
+const byId=await ctx.live.recover(db,actorId,{orderId});
+assert.equal(byId.recovered,true);
+assert.equal(byId.orderId,orderId);
+assert.equal(byId.amountCents,200);
+assert.equal(byId.credited,false);
+assert.equal(providerCalls.length,callsBefore+1,'known order ID performs only one direct GET');
+assert.equal(providerCalls.at(-1).path,'/v1/orders/'+orderId);
+assert.equal(providerCalls.at(-1).method,'GET');
+assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,1);
+rows=rows.filter(x=>x.action!=='finance_lab_live_pix_created');
+currentOrder={...getOrder('different-reference')};
+await assert.rejects(()=>ctx.live.recover(db,actorId,{orderId}),
+  e=>e.code==='FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED',
+  'arbitrary order ID with another reference is not ownership proof');
+currentOrder=getOrder(recoveryReference);
+currentOrder.total_amount='3.00';
+await assert.rejects(()=>ctx.live.recover(db,actorId,{orderId}),
+  e=>e.code==='FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED',
+  'same reference with wrong value must be rejected');
+currentOrder=getOrder(recoveryReference);
+currentOrder.live_mode=false;
+await assert.rejects(()=>ctx.live.recover(db,actorId,{orderId}),
+  e=>e.code==='FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED',
+  'explicit sandbox response must be refused for direct order ID');
+assert.equal(rows.filter(x=>x.action==='finance_lab_live_pix_created').length,0);
+assert.equal(providerCalls.every(x=>x.method==='GET'),true);
+assert.match(ui,/adminFinanceLabLiveRecoverByIdFromUi/);
+assert.match(ui,/Consultar Pix existente pelo ID/);
+
 assert.match(ui,/adminFinanceLabLiveRecoverFromUi/);
 assert.match(ui,/Recuperar Pix real já emitido/);
 assert.match(edge,/action==="finance-lab-live-recover"/);
