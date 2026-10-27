@@ -1236,7 +1236,7 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
   const expiresAt=mercadoPagoPixDeadline(order,payment,new Date().toISOString());
   const valid=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount}):
     {valid:false};
-  if(order?.live_mode!==true
+  if(order?.live_mode===false
     ||String(order?.id||"").length<10||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order.id))
     ||String(order.external_reference||"")!==reference
     ||moneyToCents(order.total_amount)!==amount
@@ -1266,6 +1266,117 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
     settlementVerified:false,webhookVerified:false,credited:false,
     warning:"PIX REAL. Confira nome e conta beneficiária no aplicativo do banco antes de pagar."};
 }
+// Recovery is a GET-only Mercado Pago lookup of a SINGLE previously audited
+// operator intent. It NEVER calls POST /v1/orders or creates a second charge.
+// The matching order must be independently checked by ID and Pix BR payload.
+async function adminFinanceLabRecoverLivePix(admin:any,actorId:string){
+  const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  if(!mercadoPagoConfigured(token)){
+    throw new DomainError("FINANCE_LAB_LIVE_NOT_CONFIGURED",
+      "Credencial de produção indisponível.",503);
+  }
+  const since=new Date(Date.now()-25*3600_000).toISOString();
+  const {data:intents,error:intentsError}=await admin.from("platform_admin_audit")
+    .select("id,target_id,metadata,created_at")
+    .eq("actor_user_id",actorId).eq("action","finance_lab_live_pix_intent")
+    .gte("created_at",since).order("created_at",{ascending:false}).limit(12);
+  if(intentsError)throw intentsError;
+  if(!Array.isArray(intents)||intents.length!==1){
+    return {ok:true,mode:"live",found:false,readOnlyProvider:true,
+      reason:"NO_SINGLE_RECOVERABLE_INTENT",credited:false};
+  }
+  const intent=intents[0];
+  const reference=String(intent.target_id??"");
+  const amount=Number(intent.metadata?.amountCents);
+  if(!/^tamao-finlab-live-[0-9a-f]{40}$/.test(reference)
+    ||intent.metadata?.mode!=="live"||intent.metadata?.provider!=="mercadopago"
+    ||!Number.isSafeInteger(amount)||amount<100||amount>500){
+    throw new DomainError("FINANCE_LAB_LIVE_INTENT_INVALID",
+      "Identidade ou valor da emissão original não foram comprovados.",409);
+  }
+  // An already bound order is never searched/duplicated. Ordinary status
+  // checks remain available through the existing finance-lab-live-check.
+  const {data:previous,error:previousError}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata").eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_created")
+    .order("created_at",{ascending:false}).limit(8);
+  if(previousError)throw previousError;
+  const bound=(previous||[]).find((row:any)=>
+    row.metadata?.externalReference===reference);
+  if(bound){
+    return {ok:true,mode:"live",found:true,alreadyBound:true,
+      orderId:String(bound.target_id),amountCents:amount,
+      credited:false,settlementVerified:false,brCode:"",
+      nextStep:"Ordem já registrada. Consulte o status original."};
+  }
+  const begin=new Date(Date.parse(intent.created_at)-120_000).toISOString();
+  const end=new Date(Date.now()+120_000).toISOString();
+  const query="/v1/orders?begin_date="+encodeURIComponent(begin)
+    +"&end_date="+encodeURIComponent(end)
+    +"&external_reference="+encodeURIComponent(reference)+"&limit=10";
+  const foundResponse=await mercadoPagoFetch(query,{accessToken:token,method:"GET"});
+  if(!foundResponse.ok){
+    throw new DomainError("FINANCE_LAB_LIVE_SEARCH_UNAVAILABLE",
+      "O Mercado Pago não concluiu a busca read-only da cobrança existente.",503);
+  }
+  const result=await readMercadoPagoJson(foundResponse);
+  if(!Array.isArray(result?.data)||result.data.length!==1
+    ||String(result.data[0]?.external_reference??"")!==reference){
+    return {ok:true,mode:"live",found:false,readOnlyProvider:true,
+      reason:"EXACT_ORDER_NOT_FOUND",credited:false};
+  }
+  const id=String(result.data[0]?.id??"");
+  if(!/^[A-Za-z0-9_-]{10,120}$/.test(id)){
+    throw new DomainError("FINANCE_LAB_LIVE_ID_INVALID",
+      "O provedor não informou um ID de ordem válido.",409);
+  }
+  const response=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(id),
+    {accessToken:token,method:"GET"});
+  if(!response.ok)throw new DomainError("FINANCE_LAB_LIVE_ORDER_LOOKUP_FAILED",
+    "O Mercado Pago não confirmou a ordem encontrada.",503);
+  const order=await readMercadoPagoJson(response);
+  const payments=Array.isArray(order?.transactions?.payments)
+    ?order.transactions.payments:[];
+  const payment=payments.find((p:any)=>
+    p?.payment_method?.id==="pix"&&p?.payment_method?.type==="bank_transfer");
+  const brCode=String(payment?.payment_method?.qr_code??"");
+  const ticket=safeMercadoPagoUrl(payment?.payment_method?.ticket_url);
+  const valid=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount})
+    :{valid:false};
+  const expiresAt=mercadoPagoPixDeadline(order,payment,intent.created_at);
+  // The Orders API omits live_mode for automatic Pix. Explicit false is a
+  // veto; production token, original audit, provider lookup and non-sandbox
+  // ticket supply the independent evidence. Unknown/paid/expired are blocked.
+  if(order?.live_mode===false||String(order?.id??"")!==id
+    ||String(order?.external_reference??"")!==reference
+    ||moneyToCents(order?.total_amount)!==amount
+    ||(order?.currency_id&&order.currency_id!=="BRL")
+    ||(order?.currency&&order.currency!=="BRL")
+    ||!payment||!String(payment.id??"").trim()
+    ||(payment.amount!=null&&moneyToCents(payment.amount)!==amount)
+    ||String(order?.status??"").toLowerCase()!=="action_required"
+    ||String(payment?.status??"").toLowerCase()!=="action_required"
+    ||!valid.valid||!expiresAt
+    ||(ticket&&new URL(ticket).pathname.toLowerCase().includes("/sandbox/"))){
+    throw new DomainError("FINANCE_LAB_LIVE_RECOVERY_NOT_VERIFIED",
+      "Ordem localizada, mas o Pix atual não passou na validação. Não efetue pagamento.",409);
+  }
+  const createdId=adminFinanceLabLiveAuditId(
+    await sha256Hex("tamao-live-created|"+id));
+  const {error:recordError}=await admin.from("platform_admin_audit").insert({
+    id:createdId,actor_user_id:actorId,action:"finance_lab_live_pix_created",
+    target_type:"financial_lab_live",target_id:id,
+    metadata:{provider:"mercadopago",mode:"live",amountCents:amount,
+      externalReference:reference,paymentId:String(payment.id),
+      expiresAt,liveModeConfirmed:true,recoveredByProviderLookup:true}
+  });
+  if(recordError&&recordError.code!=="23505")throw recordError;
+  return {ok:true,mode:"live",found:true,recovered:true,orderId:id,
+    amountCents:amount,expiresAt,brCode,providerStatus:"action_required",
+    credited:false,settlementVerified:false,webhookVerified:false,
+    nextStep:"Cobrança original recuperada por consulta GET ao Mercado Pago. Confira o beneficiário no banco; nenhum pagamento foi feito."};
+}
+
 async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
   const orderId=String(body?.orderId||"").trim();
   if(!/^[A-Za-z0-9_-]{10,120}$/.test(orderId)){
@@ -6639,6 +6750,12 @@ Deno.serve(async(req:Request)=>{
         ?await adminFinanceLabLiveReadiness(admin,user.id)
         :await adminFinanceLabLiveCheck(admin,user.id,body);
       return json(result,200,origin);
+    }
+    if(action==="finance-lab-live-recover"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o superadmin pode recuperar um Pix do laboratório.",403);
+      return json(await adminFinanceLabRecoverLivePix(admin,user.id),200,origin);
     }
     if(action==="finance-lab-live-pix"){
       if(String(adminAccess.admin_role)!=="superadmin")
