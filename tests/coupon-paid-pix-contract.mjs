@@ -106,6 +106,10 @@ assert.match(coupon,/invoice.status==="awaiting_payment"&&!await couponPixStillP
  'idempotent retry must recheck the PSP before returning stored QR');
 assert.match(coupon,/COUPON_PIX_REVIEW_REQUIRED/,
  'unverified/processed replay must fail closed without offering another QR');
+assert.match(coupon,/const replay=await couponVerifiedReplay\(invoice\)/,
+ 'normal pending invoice retry must call provider-verified replay');
+assert.match(coupon,/const replay=await couponVerifiedReplay\(existing\)/,
+ 'losing concurrent invoice update must not return an unchecked stored Pix');
 assert.match(coupon,/pix_br_code:null,payment_url:null/,
  'PSP rejected replay must mask both persisted payment routes');
 assert.match(coupon,/recheckRequired:true/,
@@ -213,6 +217,22 @@ assert.equal(await sandbox.couponPixStillPayable(ticketInvoice),true,
 
 providerData={...providerOrder,status:'processed'};
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'processed order cannot reuse QR');
+const staleConcurrent=await sandbox.couponVerifiedReplay(invoice);
+assert.equal(staleConcurrent.ok,false,
+ 'concurrent update must not expose an invoice paid at PSP');
+assert.equal(staleConcurrent.error,'COUPON_PIX_REVIEW_REQUIRED');
+assert.equal(staleConcurrent.pixCode,null,
+ 'concurrent rejected replay must mask the persisted original QR');
+assert.equal(staleConcurrent.paymentUrl,null,
+ 'concurrent rejected replay must mask the persisted original ticket');
+assert.equal(staleConcurrent.recheckRequired,true);
+providerData=structuredClone(providerOrder);
+const freshConcurrent=await sandbox.couponVerifiedReplay(invoice);
+assert.equal(freshConcurrent.ok,true,
+ 'pending concurrent replay can reopen the same verified Order');
+assert.equal(freshConcurrent.pixCode,brCode);
+assert.equal((await sandbox.couponVerifiedReplay({...invoice,status:'prepared'})).ok,false,
+ 'a still-uncommitted invoice cannot be considered a ready Pix');
 providerData={...providerOrder,transactions:{payments:[{...providerOrder.transactions.payments[0],status:'processed'}]}};
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'processed payment cannot reuse QR');
 providerData={...providerOrder,external_reference:'different'};
