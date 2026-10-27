@@ -4954,17 +4954,17 @@ async function adminFinanceLabLiveCreateFromUi(){
   }catch(e){lab.liveError=String(e?.message||e);}
   finally{lab.livePending=false;render();}
 }
-async function adminFinanceLabLiveRecoverFromUi(){
+async function adminFinanceLabLiveRecoverFromUi(orderId=''){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
   if(lab.livePending)return;
   lab.livePending=true;lab.liveError=null;render();
   try{
-    const data=await adminInvoke({action:'finance-lab-live-recover'});
+    const data=await adminInvoke({action:'finance-lab-live-recover',...(orderId?{orderId}:{})});
     if(data?.ok!==true||data.mode!=='live'||data.credited!==false)
       throw new Error('Não foi possível conferir a emissão existente no Mercado Pago.');
     if(!data.found){
-      lab.liveError='Não foi encontrada uma única cobrança real recuperável. Não gere outra até conferir o histórico.';
+      lab.liveError='A busca automática não comprovou uma ordem. Utilize a recuperação pelo ID da notificação oficial; não gere novo Pix.';
     }else if(data.alreadyBound===true){
       lab.liveError='A cobrança já está vinculada. O status pode ser consultado no histórico.';
       lab.liveKey=null;lab.liveAmountCents=null;
@@ -4979,6 +4979,16 @@ async function adminFinanceLabLiveRecoverFromUi(){
     }
   }catch(e){lab.liveError=String(e?.message||e);}
   finally{lab.livePending=false;render();}
+}
+
+async function adminFinanceLabLiveRecoverByIdFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const value=String(document.getElementById('admin-finance-lab-recovery-id')?.value||'').trim();
+  if(!/^[A-Za-z0-9_-]{10,120}$/.test(value)){
+    adminRuntime.financeLab.liveError='Digite o ID exato da Order do Mercado Pago; nenhum pagamento será criado.';
+    render();return;
+  }
+  await adminFinanceLabLiveRecoverFromUi(value);
 }
 
 async function adminFinanceLabLiveCheckFromUi(orderId){
@@ -5096,6 +5106,11 @@ function adminFinanceLabView(d){
           onclick="adminFinanceLabLiveRecoverFromUi()" ${state.livePending?'disabled':''}>
           ${state.livePending?'Conferindo ordem existente…':'Recuperar Pix real já emitido — sem criar outro'}</button></div>
         <small>Após erro na emissão, use <strong>Recuperar Pix real já emitido</strong>. Esta consulta apenas busca a cobrança original no Mercado Pago e não cria outra. Confira sempre o recebedor no banco.</small>
+        <label for="admin-finance-lab-recovery-id">Busca não encontrou? Informe o ID da Order recebido na notificação oficial</label>
+        <input id="admin-finance-lab-recovery-id" class="input" type="text" maxlength="120" autocomplete="off"
+          placeholder="ORD…" aria-label="ID da ordem Mercado Pago para recuperar o Pix existente">
+        <div class="order-actions"><button type="button" class="secondary small"
+          onclick="adminFinanceLabLiveRecoverByIdFromUi()" ${state.livePending?'disabled':''}>Consultar Pix existente pelo ID — não cria outro</button></div>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
         ${state.live?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div><div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         ${state.liveReadiness?.recent?.length?'<h4>Emissões reais auditadas</h4>'+state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Consultar</button></div>').join(''):''}
