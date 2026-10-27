@@ -4960,6 +4960,40 @@ function adminFinanceLabLiveQrBlock(order){
     svg.replace('<svg ','<svg width="100%" height="100%" ')+'</div></div>';
 }
 
+
+function adminFinanceLabLiveIsPayable(order,status=null,now=Date.now()){
+  if(order?.mode!=='live'||typeof order.brCode!=='string'
+    ||order.brCode.length<30)return false;
+  const deadline=Date.parse(String(order.expiresAt||''));
+  if(!Number.isFinite(deadline)||deadline<=now+60_000)return false;
+  if(status?.orderId===order.orderId
+    &&(status.orderStatus!=='action_required'
+      ||status.paymentStatus!=='action_required'
+      ||status.providerProcessed===true||status.reversalObserved===true))return false;
+  return true;
+}
+// Stop showing the QR and copy/paste automatically before its validity ends.
+// This timer does not contact the PSP, emit an order or make money movements.
+let adminFinanceLabLiveExpiryTimer=null;
+function adminFinanceLabLiveScheduleExpiry(order){
+  if(adminFinanceLabLiveExpiryTimer!==null){
+    clearTimeout(adminFinanceLabLiveExpiryTimer);
+    adminFinanceLabLiveExpiryTimer=null;
+  }
+  const deadline=Date.parse(String(order?.expiresAt||''))-60_000;
+  if(!Number.isFinite(deadline))return;
+  adminFinanceLabLiveExpiryTimer=setTimeout(()=>{
+    adminFinanceLabLiveExpiryTimer=null;
+    const lab=adminRuntime.financeLab;
+    if(lab?.live?.orderId!==order.orderId)return;
+    if(!adminFinanceLabLiveIsPayable(lab.live,lab.liveStatus)){
+      lab.live=null;
+      lab.liveError='O Pix não está mais dentro da janela segura de exibição. Consulte a ordem existente; não gere outra cobrança.';
+      render();
+    }
+  },Math.min(Math.max(0,deadline-Date.now())+50,2_147_483_647));
+}
+
 // REAL Pix is operator-initiated only. No automatic payment or credit.
 async function adminFinanceLabLiveReadinessFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
@@ -5001,6 +5035,7 @@ async function adminFinanceLabLiveCreateFromUi(){
       ||!data.orderId||!data.brCode||data.credited!==false||data.settlementVerified!==false)
       throw new Error('A emissão do Pix real não foi confirmada. Confira a situação antes de repetir.');
     lab.live=data;lab.liveStatus=null;lab.liveKey=null;lab.liveAmountCents=null;
+    adminFinanceLabLiveScheduleExpiry(lab.live);
     adminFinanceLabLoadQrEncoder().catch(()=>{});
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
   }catch(e){lab.liveError=String(e?.message||e);}
@@ -5022,11 +5057,13 @@ async function adminFinanceLabLiveRecoverFromUi(orderId=''){
       &&data.expiresAt&&Date.parse(data.expiresAt)>Date.now()+60_000){
       lab.live=data;lab.liveStatus=data.alreadyBound?data:null;
       lab.liveKey=null;lab.liveAmountCents=null;
+      adminFinanceLabLiveScheduleExpiry(lab.live);
       adminFinanceLabLoadQrEncoder().catch(()=>{});
       toast('Ordem original aberta, sem gerar outra cobrança.');
       adminFinanceLabLiveReadinessFromUi().catch(()=>{});
     }else if(data.alreadyBound===true&&data.orderId){
       lab.live=null;lab.liveStatus=data;
+      adminFinanceLabLiveScheduleExpiry(null);
       lab.liveKey=null;lab.liveAmountCents=null;
       lab.liveError='A ordem foi localizada, mas não está com Pix pendente e pagável. Confira o status abaixo.';
     }else{
@@ -5064,9 +5101,11 @@ async function adminFinanceLabLiveCheckFromUi(orderId){
       lab.live={mode:'live',orderId,amountCents:data.amountCents,
         brCode:data.brCode,expiresAt:data.expiresAt,
         credited:false,settlementVerified:false};
+      adminFinanceLabLiveScheduleExpiry(lab.live);
       adminFinanceLabLoadQrEncoder().catch(()=>{});
     }else if(lab.live?.orderId===orderId){
       lab.live=null;
+      adminFinanceLabLiveScheduleExpiry(null);
     }
   }catch(e){lab.liveError=String(e?.message||e);}
   finally{lab.livePending=false;render();}
@@ -5075,7 +5114,10 @@ async function adminFinanceLabLiveCopyFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
   const order=lab.live;
-  if(order?.mode!=='live'||!order.brCode)return;
+  if(!adminFinanceLabLiveIsPayable(order,lab.liveStatus)){
+    toast('Pix não está mais pagável ou vence em menos de um minuto. Consulte a ordem antes de copiar.');
+    return;
+  }
   if(lab.liveStatus?.orderId===order.orderId
     &&(lab.liveStatus.orderStatus!=='action_required'
       ||lab.liveStatus.paymentStatus!=='action_required')){
@@ -5177,7 +5219,7 @@ function adminFinanceLabView(d){
         <div class="order-actions"><button type="button" class="secondary small"
           onclick="adminFinanceLabLiveRecoverByIdFromUi()" ${state.livePending?'disabled':''}>Consultar Pix existente pelo ID — não cria outro</button></div>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
-        ${state.live?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>${adminFinanceLabLiveQrBlock(state.live)}<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
+        ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>${adminFinanceLabLiveQrBlock(state.live)}<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         ${state.liveReadiness?.recent?.length?'<h4>Emissões reais auditadas</h4>'+state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Abrir Pix / consultar ordem</button></div>').join(''):''}
         ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small><p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
       </div>
