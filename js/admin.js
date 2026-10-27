@@ -4922,6 +4922,7 @@ async function adminFinanceLabCopySandboxPixFromUi(){
 // QR is generated locally from the verified BR Code, never by a remote QR API.
 // MIT QR encoder loads on demand from the same versioned TAMÃO deployment.
 let adminFinanceLabQrLoader=null;
+let adminFinanceLabQrLoadFailed=false;
 const adminFinanceLabQrCache={brCode:'',svg:''};
 function adminFinanceLabLiveQrMarkup(brCode){
   if(typeof brCode!=='string'||brCode.length<30||brCode.length>1200
@@ -4937,7 +4938,7 @@ function adminFinanceLabLiveQrMarkup(brCode){
     adminFinanceLabQrCache.brCode=brCode;
     adminFinanceLabQrCache.svg=svg;
     return svg;
-  }catch{return ''}
+  }catch{adminFinanceLabQrLoadFailed=true;return ''}
 }
 function adminFinanceLabLoadQrEncoder(){
   if(typeof globalThis.qrcode==='function')return Promise.resolve(true);
@@ -4954,7 +4955,9 @@ function adminFinanceLabLoadQrEncoder(){
     tag.onerror=()=>resolve(false);
     document.head.appendChild(tag);
   }).then(ready=>{
-    if(ready&&adminRuntime.financeLab?.live?.brCode)render();
+    adminFinanceLabQrLoadFailed=!ready;
+    if(!ready)adminFinanceLabQrLoader=null;
+    if(adminRuntime.financeLab?.live?.brCode)render();
     return ready;
   });
   return adminFinanceLabQrLoader;
@@ -4963,11 +4966,13 @@ function adminFinanceLabLiveQrBlock(order){
   const code=String(order?.brCode||'');
   if(code.length<30)return '';
   const svg=adminFinanceLabLiveQrMarkup(code);
-  if(!svg)return '<p class="muted tiny">QR Code carregando. O copia e cola permanece disponível abaixo.</p>';
+  if(!svg)return adminFinanceLabQrLoadFailed
+    ?'<p class="notice">Não foi possível desenhar o QR neste navegador. Use o link oficial do Mercado Pago ou o copia e cola.</p><button class="secondary small" type="button" onclick="adminFinanceLabLoadQrEncoder()">Tentar desenhar QR novamente</button>'
+    :'<p class="muted tiny">Preparando QR Code local… O copia e cola permanece disponível abaixo.</p>';
   return '<div class="input-wrap"><label>QR Code Pix REAL — escaneie pelo aplicativo do banco</label>'+
     '<div role="img" aria-label="QR Code do mesmo Pix real do copia e cola" '+
     'style="width:min(100%,290px);aspect-ratio:1/1;margin:10px auto;background:white;padding:10px;border-radius:12px;">'+
-    svg.replace('<svg ','<svg width="100%" height="100%" ')+'</div></div>';
+    svg.replace('<svg ','<svg style="width:100%;height:100%;display:block" ')+'</div></div>';
 }
 
 
@@ -5002,6 +5007,27 @@ function adminFinanceLabLiveScheduleExpiry(order){
       render();
     }
   },Math.min(Math.max(0,deadline-Date.now())+50,2_147_483_647));
+}
+
+// An original PSP ticket is safe to open only while the audit-bound Pix
+// remains pending, unreversed and inside the persisted expiration window.
+function adminFinanceLabLiveOriginalTicketUrl(order,status=null,now=Date.now()){
+  if(order?.mode!=='live'||!order.orderId)return '';
+  const expiry=Date.parse(String(order.expiresAt||''));
+  if(!Number.isFinite(expiry)||expiry<=now+60_000)return '';
+  const info=status?.orderId===order.orderId?status:order;
+  if(info.orderStatus&&info.orderStatus!=='action_required'
+    ||info.paymentStatus&&info.paymentStatus!=='action_required'
+    ||info.providerProcessed===true||info.reversalObserved===true)return '';
+  try{
+    const url=new URL(String(order.paymentLinkUrl||''));
+    const host=url.hostname.toLowerCase();
+    if(url.protocol!=='https:'||url.username||url.password
+      ||!(host==='mercadopago.com'||host.endsWith('.mercadopago.com')
+        ||host==='mercadopago.com.br'||host.endsWith('.mercadopago.com.br'))
+      ||url.pathname.toLowerCase().includes('/sandbox/'))return '';
+    return url.toString();
+  }catch{return ''}
 }
 
 // REAL Pix is operator-initiated only. No automatic payment or credit.
@@ -5084,7 +5110,8 @@ async function adminFinanceLabLiveRecoverFromUi(orderId=''){
       lab.live=null;lab.liveStatus=data;
       adminFinanceLabLiveScheduleExpiry(null);
       lab.liveKey=null;lab.liveAmountCents=null;
-      lab.liveError='A ordem foi localizada, mas não está com Pix pendente e pagável. Confira o status abaixo.';
+      lab.liveError=data.paymentLinkUrl?null:
+        'Ordem localizada, mas sem QR Code ou link pagável confirmado. Confira o status abaixo.';
     }else{
       throw new Error('O Pix existente não passou em todas as verificações.');
     }
@@ -5118,8 +5145,8 @@ async function adminFinanceLabLiveCheckFromUi(orderId){
       &&data.paymentStatus==='action_required'
       &&data.expiresAt&&Date.parse(data.expiresAt)>Date.now()+60_000){
       lab.live={mode:'live',orderId,amountCents:data.amountCents,
-        brCode:data.brCode,expiresAt:data.expiresAt,
-        credited:false,settlementVerified:false};
+        brCode:data.brCode,paymentLinkUrl:data.paymentLinkUrl||'',
+        expiresAt:data.expiresAt,credited:false,settlementVerified:false};
       adminFinanceLabLiveScheduleExpiry(lab.live);
       adminFinanceLabLoadQrEncoder().catch(()=>{});
     }else if(lab.live?.orderId===orderId){
@@ -5238,7 +5265,7 @@ function adminFinanceLabView(d){
         <div class="order-actions"><button type="button" class="secondary small"
           onclick="adminFinanceLabLiveRecoverByIdFromUi()" ${state.livePending?'disabled':''}>Consultar Pix existente pelo ID — não cria outro</button></div>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
-        ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>${adminFinanceLabLiveQrBlock(state.live)}<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
+        ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>${adminFinanceLabLiveQrBlock(state.live)}${adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':''}<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         <div class="section-head"><div><h4>Emissões reais auditadas</h4>
           <p class="muted tiny">Histórico desta conta administrativa. Consultar ordem não emite novo Pix.</p></div>
           <button type="button" class="secondary small" onclick="adminFinanceLabLiveReadinessFromUi()"
@@ -5252,7 +5279,7 @@ function adminFinanceLabView(d){
             :'<p class="muted tiny">Histórico ainda não carregado. Clique em Atualizar emissões — sem gerar nova cobrança.</p>'}
         ${state.liveReadiness?.providerCheckFailed
           ?'<div class="notice">Histórico carregado, mas o Mercado Pago não respondeu à verificação de prontidão. Nenhuma cobrança foi emitida.</div>':''}
-        ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small><p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
+        ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small>'+(adminFinanceLabLiveOriginalTicketUrl(state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir QR Code oficial no Mercado Pago</a></div>':'')+'<p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
       </div>
       <div class="card flat"><h3>Verificações integradas</h3>
         <div class="merchant-kpis">
