@@ -1312,17 +1312,21 @@ async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
   const reversal=Array.isArray(order?.transactions?.refunds)
     &&order.transactions.refunds.length>0
     ||[orderStatus,paymentStatus,...details].some(x=>adverse.has(x));
-  const processed=!reversal&&orderStatus==="processed"&&paymentStatus==="processed"
+  const paymentAmountMatched=payment.amount!=null
+    &&moneyToCents(payment.amount)===amount;
+  const processed=!reversal&&paymentAmountMatched
+    &&orderStatus==="processed"&&paymentStatus==="processed"
     &&details.every(x=>!x||x==="accredited");
   const {data:events,error:eventError}=await admin.from("platform_admin_audit")
     .select("metadata,created_at").eq("action","finance_lab_live_pix_webhook")
     .eq("target_id",orderId).order("created_at",{ascending:false}).limit(10);
   if(eventError)throw eventError;
   const witnessed=Array.isArray(events)&&events.length>0;
-  const webhookProcessed=(events||[]).some((event:any)=>
-    event.metadata?.orderStatus==="processed"
-    &&event.metadata?.paymentStatus==="processed"
-    &&event.metadata?.reversal!==true);
+  // The latest signed snapshot supersedes older paid observations after
+  // refunds or disputes; never let a stale positive callback dominate.
+  const latestSigned=(events||[])[0]??null;
+  const webhookProcessed=latestSigned?.metadata?.providerProcessed===true
+    &&latestSigned?.metadata?.reversal!==true;
   const brCode=String(payment?.payment_method?.qr_code||"");
   const expiry=Date.parse(String(proof.metadata.expiresAt||""));
   const validBr=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount}):{valid:false};
@@ -1331,7 +1335,7 @@ async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
     &&Number.isFinite(expiry)&&expiry>Date.now()+60_000;
   return {ok:true,mode:"live",orderId,amountCents:amount,
     orderStatus,paymentStatus,providerProcessed:processed,
-    webhookSeen:witnessed,webhookProcessed,
+    paymentAmountMatched,webhookSeen:witnessed,webhookProcessed,
     reversalObserved:reversal,
     brCode:payable?brCode:"",expiresAt:proof.metadata.expiresAt,
     checkedAt:new Date().toISOString(),
