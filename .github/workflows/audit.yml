@@ -112,6 +112,8 @@ jobs:
         run: node tests/coupon-return-owner-contract.mjs
       - name: Coupon cancellation cashback provenance and duplicate-return guard
         run: node tests/coupon-cancel-return-provenance-contract.mjs
+      - name: Coupon reversed merchant reimbursement cannot be marked credited
+        run: node tests/coupon-merchant-reversal-contract.mjs
       - name: Admin coupon finance read-only UI and permission regression
         run: node tests/admin-clube-finance-status.mjs
       - name: Admin disabled coupon draft and atomic audit gate
