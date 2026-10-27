@@ -1,3 +1,10 @@
+## 27/10/2026 — PR #676 aplicada: cashback devolvido exige motivo e operação original única
+
+- **Produção:** PR #676 integrada à `main=297415f361b3871b43ab3f7481fcec268d65b02f`. Auditoria geral `40587585059` SUCCESS (369 etapas), revisão visual `40587585047` SUCCESS, integração Supabase completo descartável `40587585078` SUCCESS. O E2E comprovou cancelamento real da RPC e recusou crédito de outra carteira, motivo incorreto, referência incorreta e retorno duplicado usando `ROLLBACK`.
+- **Aplicação real:** `apply_migration` retornou `success=true`. `pg_get_functiondef` confirma `v_release_count=1 and v_matching_release_count=1` e `wallet.metadata.reason=orders.risk_reason`, com `anon=false`, `authenticated=false`, `service_role=true`. Hash da nova definição: `24861926b2ec6c55f2af964a56da9ce8`. `PRELAUNCH` / `commerce_enabled=false`; contadores: 0 faturas, 0 vouchers, 0 aplicações, 0 lançamentos em carteira e 0 compensações.
+- **Histórico de migrations:** Supabase aplicou `coupon_cancel_return_provenance_guard` com versão real `20261027213606`. O arquivo da PR #676 tinha prefixo provisório `20261027214500`. Esta PR de rastreabilidade apenas **renomeia os mesmos bytes SQL** para `20261027213606_coupon_cancel_return_provenance_guard.sql` e atualiza a referência do teste para impedir execução duplicada em future `supabase db push`. **Não aplicar SQL novamente** por causa da renomeação.
+- **Entrega comercial:** o diagnóstico de devolução corrigido não autoriza ativar cupons, liberar cashback como dinheiro ou marcar repasse bancário como liquidado. Comprovação independente de recebimento Mercado Pago e titularidade e crédito bancário do beneficiário ainda pendente.
+
 ## 27/10/2026 — Cupom: devolução somente por lançamento original e único do cancelamento (PR em validação)
 
 - **Fonte de verdade:** `main=cfdea04f0937e1fc0140b899d3f463a33dd9ac77` (#675), Edge `admin-ops` v220 ACTIVE, Cliente/Parceiro/Admin atestados; `PRELAUNCH / commerce_enabled=false`. Banco sem faturas, vouchers, aplicações de cupom, lançamentos em carteira ou compensações da revenda. Nenhum incidente real identificado.
