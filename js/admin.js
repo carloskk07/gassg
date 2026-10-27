@@ -4954,6 +4954,33 @@ async function adminFinanceLabLiveCreateFromUi(){
   }catch(e){lab.liveError=String(e?.message||e);}
   finally{lab.livePending=false;render();}
 }
+async function adminFinanceLabLiveRecoverFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const lab=adminRuntime.financeLab;
+  if(lab.livePending)return;
+  lab.livePending=true;lab.liveError=null;render();
+  try{
+    const data=await adminInvoke({action:'finance-lab-live-recover'});
+    if(data?.ok!==true||data.mode!=='live'||data.credited!==false)
+      throw new Error('Não foi possível conferir a emissão existente no Mercado Pago.');
+    if(!data.found){
+      lab.liveError='Não foi encontrada uma única cobrança real recuperável. Não gere outra até conferir o histórico.';
+    }else if(data.alreadyBound===true){
+      lab.liveError='A cobrança já está vinculada. O status pode ser consultado no histórico.';
+      lab.liveKey=null;lab.liveAmountCents=null;
+      if(data.orderId)adminFinanceLabLiveCheckFromUi(data.orderId).catch(()=>{});
+    }else if(typeof data.brCode==='string'&&data.brCode.length>30
+      &&data.recovered===true&&data.settlementVerified===false&&data.orderId){
+      lab.live=data;lab.liveStatus=null;lab.liveKey=null;lab.liveAmountCents=null;
+      toast('Cobrança original recuperada sem emitir um segundo Pix.');
+      adminFinanceLabLiveReadinessFromUi().catch(()=>{});
+    }else{
+      throw new Error('O Pix existente não passou em todas as verificações.');
+    }
+  }catch(e){lab.liveError=String(e?.message||e);}
+  finally{lab.livePending=false;render();}
+}
+
 async function adminFinanceLabLiveCheckFromUi(orderId){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
@@ -5065,7 +5092,10 @@ function adminFinanceLabView(d){
           onclick="adminFinanceLabLiveCreateFromUi()"
           ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
           ${state.livePending?'Consultando provedor…':'Emitir Pix REAL com confirmação'}</button></div>
-        <small>Uma emissão a cada 25 horas. Repetir uma tentativa incerta reutiliza a mesma chave. Antes de pagar, confira o nome do beneficiário no aplicativo do banco.</small>
+        <div class="order-actions"><button class="secondary small" type="button"
+          onclick="adminFinanceLabLiveRecoverFromUi()" ${state.livePending?'disabled':''}>
+          ${state.livePending?'Conferindo ordem existente…':'Recuperar Pix real já emitido — sem criar outro'}</button></div>
+        <small>Após erro na emissão, use <strong>Recuperar Pix real já emitido</strong>. Esta consulta apenas busca a cobrança original no Mercado Pago e não cria outra. Confira sempre o recebedor no banco.</small>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
         ${state.live?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div><div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         ${state.liveReadiness?.recent?.length?'<h4>Emissões reais auditadas</h4>'+state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+' <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">Consultar</button></div>').join(''):''}
