@@ -55,7 +55,8 @@ function getOrder(reference){
 }
 function matches(row,filters){
   return filters.every(([field,value,op])=>op==='gte'
-    ?String(row[field]||'')>=value:row[field]===value);
+    ?String(row[field]||'')>=value:op==='in'
+      ?value.includes(row[field]):row[field]===value);
 }
 const db={from(table){
   assert.equal(table,'platform_admin_audit','lab must not reach any financial ledger');
@@ -63,6 +64,7 @@ const db={from(table){
   const query={
     select(){return this},
     eq(field,value){filters.push([field,value]);return this},
+    in(field,values){filters.push([field,values,'in']);return this},
     gte(field,value){filters.push([field,value,'gte']);return this},
     order(_field,opts){this.desc=opts?.ascending===false;return this},
     limit(n){count=n;return this},
@@ -131,6 +133,8 @@ assert.equal(created.amountCents,200);
 const recentWithHealthyProvider=await ctx.live.ready(db,actorId);
 assert.equal(recentWithHealthyProvider.recent.length,1);
 assert.equal(recentWithHealthyProvider.recent[0].orderId,orderId);
+assert.equal(recentWithHealthyProvider.recent[0].webhookEvidence,'none');
+assert.equal(recentWithHealthyProvider.recent[0].settlementVerified,false);
 liveHealth='offline';
 const recentWithProviderDown=await ctx.live.ready(db,actorId);
 assert.equal(recentWithProviderDown.recent.length,1,
@@ -213,6 +217,9 @@ assert.equal(handled.body.signatureVerified,true);
 assert.equal(handled.body.providerProcessed,false);
 assert.equal(handled.body.financialMutationAttempted,false);
 assert.equal(rows.length,3);
+let evidenceView=await ctx.live.ready(db,actorId);
+assert.equal(evidenceView.recent[0].webhookEvidence,'pending',
+  'signed pending webhook is not a paid receipt');
 await hookCtx.ingestLab(db,orderId,proof);
 assert.equal(rows.length,3,'signed webhook retry must be idempotent');
 currentOrder={...currentOrder,status:'processed',status_detail:'accredited',
@@ -221,6 +228,12 @@ currentOrder={...currentOrder,status:'processed',status_detail:'accredited',
 const approved=await hookCtx.ingestLab(db,orderId,proof);
 assert.equal(approved.body.providerProcessed,true);
 assert.equal(rows.length,4);
+evidenceView=await ctx.live.ready(db,actorId);
+assert.equal(evidenceView.recent[0].webhookEvidence,'psp_processed',
+  'same actor and exact original amount show signed PSP-paid evidence');
+assert.equal(evidenceView.recent[0].settlementVerified,false,
+  'PSP processing alone cannot attest bank settlement');
+assert.ok(evidenceView.recent[0].webhookObservedAt);
 checked=await ctx.live.check(db,actorId,{orderId});
 assert.equal(checked.providerProcessed,true);
 assert.equal(checked.webhookProcessed,true);
@@ -232,6 +245,9 @@ currentOrder={...currentOrder,transactions:{...currentOrder.transactions,
 const reversed=await hookCtx.ingestLab(db,orderId,proof);
 assert.equal(reversed.body.reversalObserved,true);
 assert.equal(reversed.body.providerProcessed,false);
+evidenceView=await ctx.live.ready(db,actorId);
+assert.equal(evidenceView.recent[0].webhookEvidence,'reversal',
+  'later signed reversal supersedes earlier paid webhook');
 checked=await ctx.live.check(db,actorId,{orderId});
 assert.equal(checked.brCode,'','reversed Pix must not expose a payable code');
 assert.equal(checked.reversalObserved,true);
@@ -244,6 +260,28 @@ const mismatch=await hookCtx.ingestLab(db,orderId,proof);
 assert.equal(mismatch.status,409);
 assert.equal(rows.length,5);
 assert.equal(providerCalls.filter(x=>x.method==='POST').length,2);
+const webhookEvidenceBefore=rows.length;
+rows.push({id:'9f98a4ce-8e77-4b33-a357-112233445566',
+  actor_user_id:actorId,action:'finance_lab_live_pix_webhook',
+  target_id:orderId,created_at:new Date(Date.now()+3000).toISOString(),
+  metadata:{signed:false,mode:'live',provider:'mercadopago',
+    amountCents:200,providerProcessed:true,reversal:false,
+    orderStatus:'processed',paymentStatus:'processed'}});
+evidenceView=await ctx.live.ready(db,actorId);
+assert.equal(evidenceView.recent[0].webhookEvidence,'unverified',
+  'newer unsigned snapshot cannot be ignored to show stale paid evidence');
+rows[rows.length-1].metadata.signed=true;
+rows[rows.length-1].metadata.amountCents=999;
+evidenceView=await ctx.live.ready(db,actorId);
+assert.equal(evidenceView.recent[0].webhookEvidence,'unverified',
+  'signed audit with different amount cannot prove a payment');
+rows[rows.length-1].actor_user_id='22222222-2222-4222-8222-222222222222';
+evidenceView=await ctx.live.ready(db,actorId);
+assert.equal(evidenceView.recent[0].webhookEvidence,'reversal',
+  'cross-admin webhook must not contaminate this history');
+assert.equal(rows.length,webhookEvidenceBefore+1);
+assert.equal(providerCalls.filter(x=>x.method==='POST').length,2,
+  'history reconciliation remains read-only and never creates Pix');
 
 // Production Orders may omit live_mode; explicit false still blocks.
 rows=[];operations=[];providerCalls=[];
@@ -403,6 +441,10 @@ assert.equal(qrContext.originalTicket({...linkOrder,expiresAt:'2026-10-27T12:00:
 assert.match(ui,/Abrir QR Code oficial no Mercado Pago/);
 assert.match(ui,/Tentar desenhar QR novamente/);
 assert.match(ui,/Emissões reais auditadas<\/h4>/);
+assert.match(ui,/adminFinanceLabLiveHistoryLabel/);
+assert.match(ui,/Último webhook assinado: pagamento processado no PSP/);
+assert.match(ui,/reversão ou estorno observado no webhook/);
+assert.match(ui,/Consultar situação atual/);
 assert.match(ui,/Atualizar emissões/);
 assert.match(ui,/adminFinanceLabLiveReadinessFromUi\(\)\.catch\(\(\)=>\{\}\)/,
   'open lab should fetch original issued orders without POST');
