@@ -48,7 +48,12 @@ export function couponMerchantPayoutEvidence({
  const fundsValid=Number.isSafeInteger(net)&&net>0&&
    Number.isSafeInteger(obligation)&&obligation>0&&
    net>=obligation&&net<=Number(invoice?.sale_price_cents);
+ // An already reversed or internally marked paid liability is not an
+ // outstanding merchant obligation. A PSP's accredited flag may be valid for
+ // a transaction but must not be represented as eligible matching evidence
+ // for a non-open coupon reimbursement.
  if(!reimbursement||!application||!order||!invoice||!voucher
+  ||reimbursement.status!=="open"
   ||String(reimbursement.order_id)!==expectedOrder
   ||String(application.order_id)!==expectedOrder
   ||String(application.invoice_id)!==String(invoice.id)

@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const read=(p)=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const source=read('supabase/migrations/20261027223000_coupon_merchant_reversal_reconciliation_guard.sql');
+const earlier=read('supabase/migrations/20261027213606_coupon_cancel_return_provenance_guard.sql');
+const provider=read('supabase/functions/admin-ops/coupon-merchant-payout-evidence.js');
+const local=read('tests/isolated-supabase-coupon-full-schema.mjs');
+const audit=read('.github/workflows/audit.yml');
+assert.match(earlier,/when v_order.status='SETTLED' and\s+v_merchant_payment.status='open' then 'MERCHANT_REIMBURSEMENT_DUE'/);
+assert.doesNotMatch(earlier,/v_merchant_payment.status='reversed' then 'REVERSAL_REVIEW'/);
+assert.match(source,/when v_order.status='SETTLED' and\s+v_merchant_payment.status='reversed' then 'REVERSAL_REVIEW'/);
+assert.match(source,/when v_order.financial_reversed_at is not null then 'REVERSAL_REVIEW'/);
+assert.match(source,/v_merchant_payment.status='paid' then 'MERCHANT_PAYOUT_UNVERIFIED'/);
+assert.match(source,/v_merchant_payment.status='open' then 'MERCHANT_REIMBURSEMENT_DUE'/);
+assert.match(source,/v_release_count=1 and v_matching_release_count=1/);
+assert.match(source,/merchantExternalSettlementVerified',false/);
+assert.match(source,/security definer set search_path=pg_catalog/);
+assert.match(source,/revoke all on function public\.clube_coupon_paid_order_reconciliation\(uuid\)\s+from public,anon,authenticated;/);
+assert.match(source,/grant execute on function public\.clube_coupon_paid_order_reconciliation\(uuid\)\s+to service_role;/);
+assert.doesNotMatch(source,/\binsert\s+into\b|\bupdate\s+public\.|\bdelete\s+from\b|\balter\s+table\b|\bcreate\s+table\b/i);
+assert.match(provider,/reimbursement.status!=="open"/);
+assert.match(local,/assert.equal\(reversedDebt,'REVERSAL_REVIEW'/);
+assert.match(local,/assert.equal\(originalDebt.status,'MERCHANT_REIMBURSEMENT_DUE'/);
+assert.match(audit,/node tests\/coupon-merchant-reversal-contract\.mjs/);
+console.log('PASS: reversed coupon merchant obligation cannot be treated as pending or credited; original liability and payout guards preserved.');
