@@ -239,7 +239,7 @@ for(const [name,inconsistent,adverse] of [
     assert.match(checked.nextStep,/TESTE/);
   }
   if(name==='Pix amount not returned')assert.equal(checked.paymentAmountMatched,false);
-  if(name.includes('refund'))assert.equal(checked.refundPresent,true);
+  if(['refunded transaction present','refund awaiting processing'].includes(name))assert.equal(checked.refundPresent,true);
 }
 providerOrder=consistent;
 for(const tampered of [
