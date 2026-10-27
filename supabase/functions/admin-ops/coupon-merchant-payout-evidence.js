@@ -105,9 +105,11 @@ export function couponMerchantRecipientReadiness({merchant,account}={}){
  // Never strip letters from an issued CNPJ or mislabel it as absent.
  // This is document-on-file readiness ONLY, not validated legal ownership
  // or independent evidence of the Pix payout beneficiary.
- const legalId=String(merchant?.cnpj??"").trim().toUpperCase()
-   .replace(/[.\/-]/g,"");
- const legalDocumentOnFile=!!merchantId&&/^[A-Z0-9]{12}[0-9]{2}$/.test(legalId);
+ const legalId=String(merchant?.cnpj??"").trim().toUpperCase();
+ const rawCnpj=/^[A-Z0-9]{12}[0-9]{2}$/;
+ const maskedCnpj=/^[A-Z0-9]{2}\.[A-Z0-9]{3}\.[A-Z0-9]{3}\/[A-Z0-9]{4}-[0-9]{2}$/;
+ const legalDocumentOnFile=!!merchantId&&
+   (rawCnpj.test(legalId)||maskedCnpj.test(legalId));
  const merchantProviderAccountPresent=!!merchantId&&
    String(account?.merchant_id??"")===merchantId&&
    account?.provider==="mercadopago";
