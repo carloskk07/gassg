@@ -1151,7 +1151,7 @@ async function adminFinanceLabLiveHistory(admin:any,actorId:string){
     ...row,webhookEvidence:"unavailable",webhookObservedAt:null,
     settlementVerified:false
   }));
-  const latest=new Map<string,any>();
+  const latest=new Map();
   // Descending time: the newest recorded callback wins over an older paid
   // state, including a later refund/chargeback. Invalid latest proof may NOT
   // be skipped to display a stale paid event.
