@@ -640,6 +640,8 @@ jobs:
         run: node tests/admin-financial-lab.mjs
       - name: Admin read-only PIX charge diagnostics
         run: node tests/admin-financial-pix-diagnostics.mjs
+      - name: Controlled production Pix admin and signed webhook safety contract
+        run: node tests/admin-financial-live-pix.mjs
       - name: V1.378 preserve attributed visits and show distinct visitor visuals
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
