@@ -1129,13 +1129,55 @@ async function adminFinanceLabLiveHistory(admin:any,actorId:string){
     .eq("action","finance_lab_live_pix_created")
     .order("created_at",{ascending:false}).limit(6);
   if(error)throw error;
-  return (data||[]).filter((row:any)=>
+  const recent=(data||[]).filter((row:any)=>
     /^[A-Za-z0-9_-]{10,120}$/.test(String(row.target_id||""))
     &&row.metadata?.mode==="live"
+    &&row.metadata?.liveModeConfirmed===true
+    &&Number.isSafeInteger(Number(row.metadata?.amountCents))
   ).map((row:any)=>({
-    orderId:String(row.target_id),amountCents:Number(row.metadata?.amountCents),
+    orderId:String(row.target_id),amountCents:Number(row.metadata.amountCents),
     createdAt:row.created_at
   }));
+  if(!recent.length)return recent;
+  // Reuse signed, server-side Mercado Pago callbacks in the EXISTING audit.
+  // Never call the PSP or create/settle financial entries while listing orders.
+  const {data:events,error:eventError}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_webhook")
+    .in("target_id",recent.map((row:any)=>row.orderId))
+    .order("created_at",{ascending:false}).limit(120);
+  if(eventError)return recent.map((row:any)=>({
+    ...row,webhookEvidence:"unavailable",webhookObservedAt:null,
+    settlementVerified:false
+  }));
+  const latest=new Map<string,any>();
+  // Descending time: the newest recorded callback wins over an older paid
+  // state, including a later refund/chargeback. Invalid latest proof may NOT
+  // be skipped to display a stale paid event.
+  for(const event of events||[]){
+    const id=String(event.target_id||"");
+    if(!latest.has(id))latest.set(id,event);
+  }
+  return recent.map((row:any)=>{
+    const event=latest.get(row.orderId);
+    const proof=event?.metadata;
+    let webhookEvidence="none";
+    if(event){
+      const verified=proof?.signed===true&&proof?.mode==="live"
+        &&proof?.provider==="mercadopago"
+        &&Number(proof?.amountCents)===row.amountCents
+        &&Number.isFinite(Date.parse(String(event.created_at||"")))
+        &&Date.parse(String(event.created_at))>=Date.parse(String(row.createdAt||""));
+      webhookEvidence=!verified?"unverified":
+        proof.reversal===true?"reversal":
+        proof.reversal===false&&proof.providerProcessed===true
+          &&proof.orderStatus==="processed"&&proof.paymentStatus==="processed"
+          ?"psp_processed":"pending";
+    }
+    return {...row,webhookEvidence,
+      webhookObservedAt:event?.created_at??null,settlementVerified:false};
+  });
 }
 async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
   // Audit history must not disappear when the PSP health check is unavailable.
