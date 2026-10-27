@@ -40,7 +40,10 @@ jobs:
       - name: Pin Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          version: 2.84.2
+          # CLI >=2.109 has multi-registry fallback for throttled images.
+          # 2.84.2 used GHCR exclusively and isolated finance E2E could
+          # not even boot Postgres on shared Actions egress.
+          version: 2.122.0
       - name: Verify disposable local setup
         run: |
           test -f supabase/config.toml
@@ -109,7 +112,12 @@ jobs:
           PY
           # Lean stack only: Auth, gateway, Data API, Edge and Postgres.
           # Does NOT open the commercial project or include any PSP account.
-          supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
+          # setup-cli exports SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io by
+          # default. An explicit override DISABLES the CLI's registry
+          # fallback (ECR -> GHCR -> Docker Hub); remove it ONLY for this
+          # disposable local start. Do not remove payment/auth env safeguards.
+          env -u SUPABASE_INTERNAL_IMAGE_REGISTRY \
+            supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
