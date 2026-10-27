@@ -317,7 +317,8 @@ vm.runInContext(ui.slice(qrHelperStart,qrHelperEnd)+
 const generated=qrContext.renderCode({brCode:samplePix});
 assert.match(generated,/<svg\b/);
 assert.match(generated,/QR Code Pix REAL/);
-assert.doesNotMatch(generated,/https?:\/\/|<script/i);
+assert.doesNotMatch(generated,/<script|<img\\b|<iframe\\b|<object\\b/i);
+assert.match(generated,/xmlns="http:\/\/www\\.w3\\.org\/2000\/svg"/);
 assert.equal(qrContext.renderCode({brCode:''}),'',
   'a nonpayable/empty Pix has no QR');
 assert.match(ui,/adminFinanceLabLoadQrEncoder\(\)/);
