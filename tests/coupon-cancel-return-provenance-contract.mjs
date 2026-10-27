@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261027214500_coupon_cancel_return_provenance_guard.sql');
+const sql=read('supabase/migrations/20261027213606_coupon_cancel_return_provenance_guard.sql');
 const previous=read('supabase/migrations/20261027202737_coupon_reconciliation_return_owner_guard.sql');
 const isolated=read('tests/isolated-supabase-coupon-full-schema.mjs');
 const audit=read('.github/workflows/audit.yml');
