@@ -336,6 +336,39 @@ const rightAgain=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconcili
 assert.equal(rightAgain.status,'CUSTOMER_CREDIT_RETURNED',
  'rollback of synthetic wrong-owner probe must restore original accounting');
 assert.equal(rightAgain.merchantExternalSettlementVerified,false);
-console.log('PASS: real full-schema cancelled coupon order, cashback to buyer, wrong-wallet ROLLBACK probe and replay-safe accounting.');
+// A different cashback release on the RIGHT wallet must not be mistaken
+// for a refund of this voucher. All probes run only on the disposable DB.
+const wrongReason=sql("BEGIN; "+
+ "UPDATE public.wallet_entries SET metadata=jsonb_set(metadata,"+
+ " '{reason}', to_jsonb('unrelated_cashback_credit'::text)) WHERE order_id="+
+ q(cancelOrderId)+"::uuid AND entry_type='cashback_release'; "+
+ "SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)->>'status'; ROLLBACK;");
+assert.equal(wrongReason,'CANCELLATION_REVIEW',
+ 'right account + order alone is not sufficient: wrong refund reason');
+const wrongKey=sql("BEGIN; "+
+ "UPDATE public.wallet_entries SET idempotency_key="+
+ q('unrelated-wallet-event-'+randomUUID())+
+ " WHERE order_id="+q(cancelOrderId)+
+ "::uuid AND entry_type='cashback_release'; "+
+ "SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)->>'status'; ROLLBACK;");
+assert.equal(wrongKey,'CANCELLATION_REVIEW',
+ 'the correct user/amount/reason needs an original cancellation action key');
+const duplicate=sql("BEGIN; INSERT INTO public.wallet_entries("+
+ "user_id,order_id,bucket,entry_type,amount_cents,idempotency_key,metadata)"+
+ " VALUES("+q(user)+"::uuid,"+q(cancelOrderId)+
+ "::uuid,'cashback','cashback_release',"+rightAgain.cashbackReservedCents+","+
+ q('duplicate-local-cancel-'+randomUUID()+':cashback-release')+
+ ",jsonb_build_object('reason','admin_cancelled_after_dispatch')); "+
+ "SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)->>'status'; ROLLBACK;");
+assert.equal(duplicate,'CANCELLATION_REVIEW',
+ 'two cashback returns cannot count as a single verified refund');
+const reverted=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)::text;"));
+assert.equal(reverted.status,'CUSTOMER_CREDIT_RETURNED');
+assert.equal(reverted.returnedCashbackCents,reverted.cashbackReservedCents);
+console.log('PASS: real full-schema cancelled coupon order, buyer only, exact reason/key/amount, duplicate refund excluded; all corruption probes rolled back.');
 
 console.log('PASS: full real schema: gross Pix event -> audited net -> real v8 coupon checkout/cashback -> order replay -> chargeback review; fake local money only.');
