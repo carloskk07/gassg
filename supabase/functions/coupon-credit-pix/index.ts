@@ -141,6 +141,17 @@ async function couponPixStillPayable(invoice:any){
    &&deadline!==null&&Date.parse(String(invoice.expires_at))<=Date.parse(deadline)
    &&!ticketContradicts&&(originalBr||originalLink);
 }
+// Regular retries and concurrent invoice-update losers must both recheck
+// the SAME pending provider Order before presenting stored payment routes.
+async function couponVerifiedReplay(invoice:any){
+ if(invoice.status==="prepared"||
+    (invoice.status==="awaiting_payment"&&!await couponPixStillPayable(invoice))){
+  return {ok:false,error:"COUPON_PIX_REVIEW_REQUIRED",
+    ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
+    recheckRequired:true};
+ }
+ return {ok:true,...publicInvoice(invoice)};
+}
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
  if(origin&&!ORIGINS.has(origin))return respond({error:"ORIGIN_NOT_ALLOWED"},403,origin);
@@ -255,11 +266,8 @@ Deno.serve(async(req:Request)=>{
    return respond({error:"COUPON_REQUEST_REPLAY_CONFLICT"},409,origin);
   }
   if(invoice.status!=="prepared"){
-   if(invoice.status==="awaiting_payment"&&!await couponPixStillPayable(invoice))
-     return respond({ok:false,error:"COUPON_PIX_REVIEW_REQUIRED",
-       ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
-       recheckRequired:true},409,origin);
-   return respond({ok:true,...publicInvoice(invoice)},200,origin);
+   const replay=await couponVerifiedReplay(invoice);
+   return respond(replay,replay.ok?200:409,origin);
   }
   const amount=(Number(invoice.sale_price_cents)/100).toFixed(2);
   const orderRequest={
@@ -303,7 +311,8 @@ Deno.serve(async(req:Request)=>{
       const {data:existing,error:existingError}=await admin.from("clube_coupon_paid_invoices")
        .select("*").eq("id",invoice.id).single();
       if(existingError||!existing)throw existingError??new Error("INVOICE_STATE_CONFLICT");
-      return respond({ok:true,...publicInvoice(existing)},200,origin);
+      const replay=await couponVerifiedReplay(existing);
+      return respond(replay,replay.ok?200:409,origin);
     }
     return respond({ok:true,...publicInvoice(committed),
       qrImageDataUri:rawCode?mercadoPagoQrDataUri(payment.payment_method.qr_code_base64):null},200,origin);
