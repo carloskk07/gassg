@@ -123,6 +123,8 @@ for(const [overrides,reason] of [
  [{transaction:{...base.transaction,amount:{value:'7.001',currency:'BRL'}}},'COUPON_PAYOUT_PROVIDER_BINDING_MISMATCH'],
  [{transaction:{...base.transaction,amount:{value:'7e0',currency:'BRL'}}},'COUPON_PAYOUT_PROVIDER_BINDING_MISMATCH'],
  [{transaction:{...base.transaction,amount:{value:7,currency:'USD'}}},'COUPON_PAYOUT_PROVIDER_BINDING_MISMATCH'],
+ [{transaction:{...base.transaction,live_mode:false}},'COUPON_PAYOUT_PROVIDER_BINDING_MISMATCH'],
+ [{transaction:{...base.transaction,live_mode:true}},'COUPON_PAYOUT_BENEFICIARY_IDENTITY_REQUIRED'],
  [{order:{...base.order,financial_state:'reversed'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
  [{order:{...base.order,financial_reversed_at:'2026-10-25T05:00:00Z'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
  [{invoice:{...base.invoice,status:'review_required'}},'COUPON_PAYOUT_ACCOUNTING_NOT_ELIGIBLE'],
