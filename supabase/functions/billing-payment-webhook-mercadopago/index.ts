@@ -833,10 +833,14 @@ async function handleFinancialLabLiveOrder(admin:any,orderId:string,proof:any){
   const reversal=(Array.isArray(order?.transactions?.refunds)
     &&order.transactions.refunds.length>0)
     ||[orderStatus,paymentStatus,...details].some(s=>adverse.has(s));
-  const processed=!reversal&&orderStatus==="processed"&&paymentStatus==="processed"
+  const paymentAmountMatched=payment.amount!=null
+    &&moneyToCents(payment.amount)===amount;
+  const processed=!reversal&&paymentAmountMatched
+    &&orderStatus==="processed"&&paymentStatus==="processed"
     &&details.every(x=>!x||x==="accredited");
   const digest=await billingEvidenceHash(
-    "finlab-live-webhook|"+orderId+"|"+orderStatus+"|"+paymentStatus+"|"+String(reversal));
+    "finlab-live-webhook|"+orderId+"|"+orderStatus+"|"+paymentStatus+
+      "|"+String(reversal)+"|"+String(processed));
   const auditId=digest.slice(0,8)+"-"+digest.slice(8,12)+"-4"+
     digest.slice(13,16)+"-8"+digest.slice(17,20)+"-"+digest.slice(20,32);
   const {error}=await admin.from("platform_admin_audit").insert({
