@@ -313,7 +313,7 @@ const qrHelperStart=ui.indexOf('let adminFinanceLabQrLoader=null;');
 const qrHelperEnd=ui.indexOf('// REAL Pix is operator-initiated only.',qrHelperStart);
 assert.ok(qrHelperStart>0&&qrHelperEnd>qrHelperStart);
 vm.runInContext(ui.slice(qrHelperStart,qrHelperEnd)+
-  ';this.renderCode=adminFinanceLabLiveQrBlock;',qrContext);
+  ';this.renderCode=adminFinanceLabLiveQrBlock;this.isPayable=adminFinanceLabLiveIsPayable;',qrContext);
 const generated=qrContext.renderCode({brCode:samplePix});
 assert.match(generated,/<svg\b/);
 assert.match(generated,/QR Code Pix REAL/);
@@ -321,6 +321,26 @@ assert.doesNotMatch(generated,/<script|<img\\b|<iframe\\b|<object\\b/i);
 assert.ok(generated.includes('xmlns="http://www.w3.org/2000/svg"'));
 assert.equal(qrContext.renderCode({brCode:''}),'',
   'a nonpayable/empty Pix has no QR');
+
+const fixedNow=Date.parse('2026-10-27T12:00:00Z');
+const validOrder={mode:'live',orderId:'ORD01LIVEFINLAB00000012',
+  brCode:samplePix,expiresAt:'2026-10-27T12:03:00Z'};
+assert.equal(qrContext.isPayable(validOrder,null,fixedNow),true,
+  'original verified Pix is displayable while valid');
+assert.equal(qrContext.isPayable({...validOrder,expiresAt:'2026-10-27T12:00:45Z'},null,fixedNow),false,
+  'hide QR and copy/paste inside the last 60 seconds');
+assert.equal(qrContext.isPayable({...validOrder,expiresAt:''},null,fixedNow),false,
+  'never display an undated payment QR');
+assert.equal(qrContext.isPayable(validOrder,{orderId:validOrder.orderId,
+  orderStatus:'processed',paymentStatus:'processed'},fixedNow),false,
+  'a completed order must not retain a payment QR');
+assert.equal(qrContext.isPayable(validOrder,{orderId:validOrder.orderId,
+  orderStatus:'action_required',paymentStatus:'action_required',
+  reversalObserved:true},fixedNow),false,
+  'a reversed order must never show a QR');
+assert.match(ui,/adminFinanceLabLiveScheduleExpiry\(lab\.live\)/,
+  'schedule hide even without manual refresh');
+assert.match(ui,/state\.live&&adminFinanceLabLiveIsPayable\(state\.live,state\.liveStatus\)/);
 assert.match(ui,/adminFinanceLabLoadQrEncoder\(\)/);
 assert.match(ui,/Abrir Pix \/ consultar ordem/);
 const portalBuild=read('scripts/build-live-portals.mjs');
