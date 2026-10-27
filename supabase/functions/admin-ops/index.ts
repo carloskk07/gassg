@@ -1269,7 +1269,7 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
 // Recovery is a GET-only Mercado Pago lookup of a SINGLE previously audited
 // operator intent. It NEVER calls POST /v1/orders or creates a second charge.
 // The matching order must be independently checked by ID and Pix BR payload.
-async function adminFinanceLabRecoverLivePix(admin:any,actorId:string){
+async function adminFinanceLabRecoverLivePix(admin:any,actorId:string,body:any={}){
   const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
   if(!mercadoPagoConfigured(token)){
     throw new DomainError("FINANCE_LAB_LIVE_NOT_CONFIGURED",
@@ -1309,23 +1309,43 @@ async function adminFinanceLabRecoverLivePix(admin:any,actorId:string){
       credited:false,settlementVerified:false,brCode:"",
       nextStep:"Ordem já registrada. Consulte o status original."};
   }
-  const begin=new Date(Date.parse(intent.created_at)-120_000).toISOString();
-  const end=new Date(Date.now()+120_000).toISOString();
-  const query="/v1/orders?begin_date="+encodeURIComponent(begin)
-    +"&end_date="+encodeURIComponent(end)
-    +"&external_reference="+encodeURIComponent(reference)+"&limit=10";
-  const foundResponse=await mercadoPagoFetch(query,{accessToken:token,method:"GET"});
-  if(!foundResponse.ok){
-    throw new DomainError("FINANCE_LAB_LIVE_SEARCH_UNAVAILABLE",
-      "O Mercado Pago não concluiu a busca read-only da cobrança existente.",503);
+  const requestedId=String(body?.orderId??"").trim();
+  if(requestedId&&!/^[A-Za-z0-9_-]{10,120}$/.test(requestedId)){
+    throw new DomainError("FINANCE_LAB_LIVE_ORDER_INVALID",
+      "O ID da ordem do Mercado Pago é inválido.",400);
   }
-  const result=await readMercadoPagoJson(foundResponse);
-  if(!Array.isArray(result?.data)||result.data.length!==1
-    ||String(result.data[0]?.external_reference??"")!==reference){
-    return {ok:true,mode:"live",found:false,readOnlyProvider:true,
-      reason:"EXACT_ORDER_NOT_FOUND",credited:false};
+  let id=requestedId;
+  if(!id){
+    const begin=new Date(Date.parse(intent.created_at)-120_000).toISOString();
+    const end=new Date(Date.now()+120_000).toISOString();
+    // Official Orders search uses page/page_size, not legacy offset/limit.
+    const query="/v1/orders?begin_date="+encodeURIComponent(begin)
+      +"&end_date="+encodeURIComponent(end)
+      +"&external_reference="+encodeURIComponent(reference)
+      +"&page=1&page_size=20";
+    const foundResponse=await mercadoPagoFetch(query,{accessToken:token,method:"GET"});
+    if(!foundResponse.ok){
+      throw new DomainError("FINANCE_LAB_LIVE_SEARCH_UNAVAILABLE",
+        "O Mercado Pago não concluiu a busca da cobrança. Tente a recuperação pelo ID, sem emitir novo Pix.",503);
+    }
+    const result=await readMercadoPagoJson(foundResponse);
+    if(!Array.isArray(result?.data)){
+      throw new DomainError("FINANCE_LAB_LIVE_SEARCH_INVALID",
+        "A lista de ordens não veio no formato esperado. Recupere pelo ID sem gerar outro Pix.",502);
+    }
+    const matching=result.data.filter((row:any)=>
+      String(row?.external_reference??"")===reference
+      &&/^[A-Za-z0-9_-]{10,120}$/.test(String(row?.id??"")));
+    if(matching.length!==1){
+      return {ok:true,mode:"live",found:false,readOnlyProvider:true,
+        reason:matching.length>1?"AMBIGUOUS_ORDER_SEARCH":"EXACT_ORDER_NOT_FOUND",
+        canRecoverById:true,credited:false};
+    }
+    id=String(matching[0].id);
   }
-  const id=String(result.data[0]?.id??"");
+  // An ID is only a locator, NEVER proof of ownership. The next GET must
+  // match the one audit-bound external_reference and exact amount/method.
+
   if(!/^[A-Za-z0-9_-]{10,120}$/.test(id)){
     throw new DomainError("FINANCE_LAB_LIVE_ID_INVALID",
       "O provedor não informou um ID de ordem válido.",409);
@@ -6755,7 +6775,7 @@ Deno.serve(async(req:Request)=>{
       if(String(adminAccess.admin_role)!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente o superadmin pode recuperar um Pix do laboratório.",403);
-      return json(await adminFinanceLabRecoverLivePix(admin,user.id),200,origin);
+      return json(await adminFinanceLabRecoverLivePix(admin,user.id,body),200,origin);
     }
     if(action==="finance-lab-live-pix"){
       if(String(adminAccess.admin_role)!=="superadmin")
