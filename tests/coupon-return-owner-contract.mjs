@@ -6,28 +6,28 @@ const migration=read('supabase/migrations/20261027202000_coupon_reconciliation_r
 const original=read('supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql');
 const audit=read('.github/workflows/audit.yml');
 
-assert.match(migration,/create or replace function public\\.clube_coupon_paid_order_reconciliation\\(\s*p_order_id uuid/);
+assert.match(migration,/create or replace function public\.clube_coupon_paid_order_reconciliation\(\s*p_order_id uuid/);
 assert.match(migration,/security definer set search_path=pg_catalog/,
  'existing privileged RPC and search path must be preserved');
-assert.match(migration,/where w\\.order_id=p_order_id\s+and w\\.user_id=v_application\\.customer_user_id\s+and w\\.bucket='cashback' and w\\.entry_type='cashback_release'/,
+assert.match(migration,/where w\.order_id=p_order_id\s+and w\.user_id=v_application\.customer_user_id\s+and w\.bucket='cashback' and w\.entry_type='cashback_release'/,
  'a wallet release MUST be credited only to the original coupon customer');
-assert.match(migration,/w\\.metadata->>'invoiceId'=v_invoice\\.id::text\s+and w\\.metadata->>'voucherId'=v_application\\.voucher_id::text/,
+assert.match(migration,/w\.metadata->>'invoiceId'=v_invoice\.id::text\s+and w\.metadata->>'voucherId'=v_application\.voucher_id::text/,
  'seed provenance must include BOTH invoice and voucher binding');
-assert.match(migration,/v_application\\.customer_user_id is distinct from v_order\\.customer_id/);
-assert.match(migration,/v_invoice\\.customer_user_id is distinct from v_order\\.customer_id/);
-assert.match(migration,/v_application\\.original_order_total_cents is distinct from v_order\\.total_cents/);
-assert.match(migration,/v_application\\.original_order_cashback_cents is distinct from v_order\\.cashback_reserved_cents/);
-assert.match(migration,/when v_order\\.status='CANCELLED' and\s+v_release_cents>=v_application\\.original_order_cashback_cents\s+then 'CUSTOMER_CREDIT_RETURNED'/,
+assert.match(migration,/v_application\.customer_user_id is distinct from v_order\.customer_id/);
+assert.match(migration,/v_invoice\.customer_user_id is distinct from v_order\.customer_id/);
+assert.match(migration,/v_application\.original_order_total_cents is distinct from v_order\.total_cents/);
+assert.match(migration,/v_application\.original_order_cashback_cents is distinct from v_order\.cashback_reserved_cents/);
+assert.match(migration,/when v_order\.status='CANCELLED' and\s+v_release_cents>=v_application\.original_order_cashback_cents\s+then 'CUSTOMER_CREDIT_RETURNED'/,
  'existing cancellation status still requires full credit');
 assert.match(migration,/'merchantExternalSettlementVerified',false/,
  'customer refund reporting must never attest merchant bank payout');
-assert.match(migration,/revoke all on function public\\.clube_coupon_paid_order_reconciliation\\(uuid\\)\s+from public,anon,authenticated;/);
-assert.match(migration,/grant execute on function public\\.clube_coupon_paid_order_reconciliation\\(uuid\\)\s+to service_role;/);
-assert.doesNotMatch(migration,/insert into|update public\\.|delete from|alter table|create table|grant execute .*authenticated/i,
+assert.match(migration,/revoke all on function public\.clube_coupon_paid_order_reconciliation\(uuid\)\s+from public,anon,authenticated;/);
+assert.match(migration,/grant execute on function public\.clube_coupon_paid_order_reconciliation\(uuid\)\s+to service_role;/);
+assert.doesNotMatch(migration,/insert into|update public\.|delete from|alter table|create table|grant execute .*authenticated/i,
  'diagnostic SQL migration must not mint cash, create payments or grant public privileges');
-assert.match(original,/from public\\.wallet_entries w\s+where w\\.order_id=p_order_id and w\\.bucket='cashback'/,
+assert.match(original,/from public\.wallet_entries w\s+where w\.order_id=p_order_id and w\.bucket='cashback'/,
  'original bug and reason for targeted migration must remain traceable');
-assert.match(audit,/node tests\\/coupon-return-owner-contract\\.mjs/);
+assert.match(audit,/node tests\/coupon-return-owner-contract\.mjs/);
 
 // Fixture demonstrates precisely the false-positive canceled-refund status:
 // a release tagged to an order but belonging to a DIFFERENT customer.
