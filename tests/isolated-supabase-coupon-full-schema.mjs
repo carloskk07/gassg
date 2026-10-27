@@ -262,4 +262,80 @@ assert.equal(reconciliation.merchantExternalSettlementVerified,false);
 assert.equal(sql("SELECT count(*) FROM public.platform_referral_payout_proofs_v1_264"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
+
+// With an independently funded SECOND local invoice, verify the actual
+// dispatched-order cancellation and cashback return on the same full schema.
+// The first invoice/voucher review assertions above remain unchanged.
+const cancelProviderOrder='CI-LOCAL-CANCEL-ORDER-'+randomUUID();
+const cancelProviderPayment='CI-LOCAL-CANCEL-PAYMENT-'+randomUUID();
+const cancelInvoice=sql("INSERT INTO public.clube_coupon_paid_invoices("+
+ "customer_user_id,package_key,request_id,sale_price_cents,coupon_face_cents,"+
+ "coupons_per_pack,valid_days,provider_order_id,status) VALUES ("+
+ q(user)+"::uuid,"+q(packageKey)+",gen_random_uuid(),1200,500,2,60,"+
+ q(cancelProviderOrder)+",'awaiting_payment') RETURNING id;");
+assert.match(cancelInvoice,/^[0-9a-f-]{36}$/i);
+const cancelledGross=JSON.parse(sql("SELECT public.clube_coupon_paid_payment_verify("+
+ q(cancelInvoice)+"::uuid,"+q(cancelProviderOrder)+","+
+ q(cancelProviderPayment)+",1200)::text;"));
+assert.equal(cancelledGross.issued,2);
+const cancelVoucher=sql("SELECT id FROM public.clube_coupon_paid_issuances WHERE invoice_id="+
+ q(cancelInvoice)+"::uuid ORDER BY ordinal LIMIT 1;");
+assert.match(cancelVoucher,/^[0-9a-f-]{36}$/i);
+const cancelNet=JSON.parse(sql("SELECT public.clube_coupon_paid_net_proceeds_verify_audited("+
+ q(cancelInvoice)+"::uuid,"+q(cancelProviderOrder)+",1100,"+
+ q('CI-LOCAL-CANCEL-NET-'+randomUUID())+","+q(admin)+"::uuid)::text;"));
+assert.equal(cancelNet.ok,true);
+const cancelQuote=JSON.parse(sql(createQuote.replace("repeat('e',64)","repeat('f',64)")));
+assert.equal(cancelQuote.grossTotalCents,2200);
+sql("UPDATE public.quotes SET payment_method_requested='cash',payment_timing_requested='on_delivery' WHERE id="+q(cancelQuote.quoteId)+"::uuid;");
+const cancelKey='ci-coupon-cancel-'+randomUUID();
+const cancelOrder=JSON.parse(sql("SELECT public.clube_coupon_paid_create_order("+
+ q(user)+"::uuid,"+q(cancelQuote.quoteId)+"::uuid,"+q(cancelVoucher)+
+ "::uuid,'cash',"+q(cancelKey)+","+q('c'.repeat(64))+
+ ",null,null,'11999999999')::text;"));
+assert.equal(cancelOrder.couponAppliedCents,500);
+const cancelOrderId=cancelOrder.orderId;
+const cancellationBuyerView=await callEdge('get-order',buyerToken,{orderId:cancelOrderId});
+assert.equal(cancellationBuyerView.status,200);
+const cancellationAccepted=await callEdge('merchant-action',ownerToken,
+ {orderId:cancelOrderId,action:'accept',expectedVersion:cancellationBuyerView.body.version},
+ 'ci-coupon-cancel-accept-'+randomUUID());
+assert.equal(cancellationAccepted.status,200);
+const cancellationDispatched=await callEdge('merchant-action',ownerToken,
+ {orderId:cancelOrderId,action:'dispatch',expectedVersion:cancellationAccepted.body.version},
+ 'ci-coupon-cancel-dispatch-'+randomUUID());
+assert.equal(cancellationDispatched.status,200);
+assert.equal(cancellationDispatched.body.status,'OUT_FOR_DELIVERY');
+const cancellation=JSON.parse(sql("SELECT public.admin_cancel_dispatched_order("+
+ q(admin)+"::uuid,"+q(cancelOrderId)+"::uuid,"+
+ Number(cancellationDispatched.body.version)+","+
+ q('CI isolated coupon cancellation after dispatch')+","+
+ q('ci-cancel-after-dispatch-'+randomUUID())+","+
+ q('d'.repeat(64))+")::text;"));
+assert.equal(cancellation.status,'CANCELLED');
+assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+
+ q(cancelOrderId)+"::uuid AND user_id="+q(user)+"::uuid AND bucket='cashback'"+
+ " AND entry_type='cashback_release'"),'1');
+const rightful=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)::text;"));
+assert.equal(rightful.status,'CUSTOMER_CREDIT_RETURNED',
+ 'customer cashback must be returned after legitimate order cancellation');
+assert.equal(rightful.returnedCashbackCents,rightful.cashbackReservedCents);
+// Transactional corruption probe: point the SAME release at the merchant
+// owner's wallet and verify it cannot falsely clear the buyer's refund.
+// ROLLBACK restores the original entry; no hosted records or money used.
+const wrongOwner=sql("BEGIN; "+
+ "UPDATE public.wallet_entries SET user_id="+q(owner)+"::uuid "+
+ "WHERE order_id="+q(cancelOrderId)+"::uuid AND entry_type='cashback_release'; "+
+ "SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)->>'status'; ROLLBACK;");
+assert.equal(wrongOwner,'CANCELLATION_REVIEW',
+ 'credit to another person can never prove a buyer refund');
+const rightAgain=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(cancelOrderId)+"::uuid)::text;"));
+assert.equal(rightAgain.status,'CUSTOMER_CREDIT_RETURNED',
+ 'rollback of synthetic wrong-owner probe must restore original accounting');
+assert.equal(rightAgain.merchantExternalSettlementVerified,false);
+console.log('PASS: real full-schema cancelled coupon order, cashback to buyer, wrong-wallet ROLLBACK probe and replay-safe accounting.');
+
 console.log('PASS: full real schema: gross Pix event -> audited net -> real v8 coupon checkout/cashback -> order replay -> chargeback review; fake local money only.');
