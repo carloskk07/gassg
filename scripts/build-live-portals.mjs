@@ -402,6 +402,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(path.join(target,'js','admin-owner-finance.js'),owner.ownerFinance,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-expansion.js'),parts.expansion,'utf8');
     }
+    // The QR library is used only by a signed-in superadmin to render a
+    // verified, payable Pix. Do not distribute it to public portal bundles.
+    if(role!=='admin')fs.rmSync(path.join(target,'js','qr-generator.js'),{force:true});
     // Admin implementation must not be distributed with customer/merchant
     // bundles. API authorization still remains strictly server-side.
     if(role!=='admin'){

@@ -1304,10 +1304,17 @@ async function adminFinanceLabRecoverLivePix(admin:any,actorId:string,body:any={
   const bound=(previous||[]).find((row:any)=>
     row.metadata?.externalReference===reference);
   if(bound){
-    return {ok:true,mode:"live",found:true,alreadyBound:true,
-      orderId:String(bound.target_id),amountCents:amount,
-      credited:false,settlementVerified:false,brCode:"",
-      nextStep:"Ordem já registrada. Consulte o status original."};
+    // Re-open the SAME audited order with a fresh read-only provider GET.
+    // Reuse the existing strict payment/expiry checks; never re-issue a Pix.
+    // A paid, refunded or expired order returns status only, no BR Code.
+    const checked=await adminFinanceLabLiveCheck(admin,actorId,{
+      orderId:String(bound.target_id)
+    });
+    return {...checked,found:true,alreadyBound:true,recovered:true,
+      readOnlyProvider:true,providerStatus:checked.paymentStatus,
+      nextStep:checked.brCode
+        ?"Cobrança original reaberta por consulta ao Mercado Pago. Confira o beneficiário no banco antes de pagar."
+        :checked.nextStep};
   }
   const requestedId=String(body?.orderId??"").trim();
   if(requestedId&&!/^[A-Za-z0-9_-]{10,120}$/.test(requestedId)){
