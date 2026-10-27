@@ -1,3 +1,11 @@
+## 27/10/2026 — PR #671 integrada: reconciliação de cancelamento, histórico da migração
+
+- **GitHub:** PR #671 integrada na `main` com `71a4a7c5b6a89e10c602164f808224cddc964944`; Audit e revisão visual SUCCESS. O workflow de Supabase isolado não chegou aos testes de banco porque `ghcr.io/supabase/postgres` recusou downloads por `toomanyrequests` em duas tentativas. Não atribuir aprovação ao teste isolado.
+- **Validação compensatória:** execução SQL `BEGIN`/ `ROLLBACK` da função no PostgreSQL conectado passou, conferindo o filtro `cashback_release` vinculado a `user_id`, ACL `anon=false, authenticated=false, service_role=true`, e hash da função original idêntico antes/depois do rollback. Depois do merge, `apply_migration` retornou `success=true`; nova definição verificada com `owner_guard_position=64`, `voucher_guard_position=1276`, ACL inalterada e zero faturas, vouchers, aplicações, entradas de carteira ou reembolsos.
+- **Histórico real:** Supabase registrou a migração aplicada sob versão `20261027202737`, nome `coupon_reconciliation_return_owner_guard`. O arquivo original da PR tinha prefixo pré-aplicação `20261027202000`. Alinhar agora o **nome do mesmo arquivo SQL sem modificar os bytes**, e atualizar sua referência no teste, para que o identificador no GitHub corresponda ao histórico real e não se tente reaplicar a correção numa futura sincronização. **Esta renomeação não é nova migração de banco.**
+- **Portais:** `platform_launch_control` atestou Cliente, Parceiro e Admin no commit `71a4a7c5b6a89e10c602164f808224cddc964944`; `PRELAUNCH` e `commerce_enabled=false` mantidos. Nenhum dinheiro movimentado nesta correção.
+- **Próximo gate:** homologação com ciclo real de compra de cupom, liberação líquida, pedido, devolução/cancelamento e comprovação de repasse bancário ao titular correto, preservando os bloqueios até provas independentes.
+
 ## 27/10/2026 — Conciliação de pedido cancelado: devolução somente ao comprador (PR em validação)
 
 - **Estado real:** `main=88d6f2c818231d020beb91a4a26f79e129d5ef2d` (#670 integrada), os três portais no mesmo SHA `portals_verified_at=2026-10-27T20:11:55.428029Z`, `PRELAUNCH / commerce_enabled=false`. Não há faturas de cupons, vouchers, aplicações, entradas em carteira ou compensações à revenda; não existe incidente consumado.
