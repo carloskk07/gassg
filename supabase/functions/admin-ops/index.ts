@@ -1140,7 +1140,7 @@ async function adminFinanceLabLiveHistory(admin:any,actorId:string){
 async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
   // Audit history must not disappear when the PSP health check is unavailable.
   const recent=await adminFinanceLabLiveHistory(admin,actorId);
-  let provider:any=null;
+  let provider=null;
   let providerCheckFailed=false;
   try{provider=await mercadoPagoBillingProviderHealth(admin);}
   catch{providerCheckFailed=true;}
