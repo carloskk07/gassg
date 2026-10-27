@@ -35,6 +35,17 @@ function findPix(order:any){
  return payments.find((p:any)=>p?.payment_method?.id==="pix"
    &&p?.payment_method?.type==="bank_transfer")??null;
 }
+// The payment provider can omit QR payload on a later GET while preserving
+// its own official Pix payment page. Accept ONLY the original HTTPS ticket
+// tied to the PSP-confirmed pending Order; never manufacture a BR Code.
+function couponOfficialPixTicket(value:any){
+ const ticket=safeMercadoPagoUrl(value);
+ if(!ticket)return null;
+ const url=new URL(ticket);
+ if(url.hostname.toLowerCase().split(".").includes("sandbox")
+   ||url.pathname.toLowerCase().split("/").includes("sandbox"))return null;
+ return ticket;
+}
 // Fail closed for old/prepared invoices and stale idempotent retries.
 // Never show a stored BR code after the provider-backed deadline or the
 // conservative 24-hour ceiling from the durable invoice creation time.
@@ -42,10 +53,15 @@ function couponInvoiceCanPresent(row:any,nowMs=Date.now()){
  if(row?.status!=="awaiting_payment")return false;
  const anchor=Date.parse(String(row?.created_at??""));
  const expiry=Date.parse(String(row?.expires_at??""));
+ const rawTicket=String(row?.payment_url??"").trim();
+ const ticket=couponOfficialPixTicket(rawTicket);
+ const hasBr=typeof row?.pix_br_code==="string"&&row.pix_br_code.length>=30;
+ // Invalid or sandbox payment URL contradicts even a stored QR.
  return Number.isFinite(anchor)&&Number.isFinite(expiry)
    &&Number.isFinite(nowMs)&&expiry<=anchor+86_400_000
    &&expiry>nowMs+60_000
-   &&typeof row?.pix_br_code==="string"&&row.pix_br_code.length>=30;
+   &&(!rawTicket||Boolean(ticket))&&
+   (hasBr||Boolean(ticket));
 }
 function couponProviderPixPayable(order:any,payment:any){
  const status=String(order?.status??"").trim().toLowerCase();
@@ -85,7 +101,8 @@ function publicInvoice(row:any){
  const covered=couponInvoiceNetCovered(row);
  return {invoiceId:row.id,status:row.status,amountCents:row.sale_price_cents,
    provider:"mercadopago",pixCode:payable?row.pix_br_code:null,
-   paymentUrl:payable?row.payment_url:null,pixPayable:payable,
+   paymentUrl:payable?couponOfficialPixTicket(row.payment_url):null,
+   pixPayable:payable,
    // Paid receipt is not proof the vouchers are spendable; show zero until
    // the same funding conditions used by the atomic checkout are satisfied.
    expiresAt:row.expires_at??null,issuedCoupons:covered?row.coupons_per_pack:0,
@@ -101,16 +118,28 @@ async function couponPixStillPayable(invoice:any){
  if(!result.ok)return false;
  const order=await readMercadoPagoJson(result);
  const payment=findPix(order);
- const code=String(payment?.payment_method?.qr_code??"");
+ const code=String(payment?.payment_method?.qr_code??"").trim();
  const deadline=mercadoPagoPixDeadline(order,payment,invoice.created_at);
+ const originalTicket=couponOfficialPixTicket(invoice.payment_url);
+ const rawRemoteTicket=String(payment?.payment_method?.ticket_url??"").trim();
+ const remoteTicket=couponOfficialPixTicket(rawRemoteTicket);
+ const ticketContradicts=Boolean(rawRemoteTicket)&&(!remoteTicket||
+   Boolean(originalTicket&&remoteTicket!==originalTicket));
+ // If the provider returns a QR different from the original, never reuse
+ // a saved ticket as an alternative to the conflicting BR Code.
+ const brContradicts=Boolean(code&&invoice.pix_br_code&&
+   code!==invoice.pix_br_code);
+ const originalBr=Boolean(code)&&code===invoice.pix_br_code
+   &&validatePixBrCode(code,{expectedAmountCents:invoice.sale_price_cents}).valid;
+ const originalLink=Boolean(originalTicket)&&!brContradicts
+   &&(!rawRemoteTicket||remoteTicket===originalTicket);
  return String(order?.id??"")===String(invoice.provider_order_id)
    &&String(order?.external_reference??"")===String(invoice.id)
    &&moneyToCents(order?.total_amount)===invoice.sale_price_cents
    &&String(payment?.id??"")===String(invoice.provider_payment_id)
    &&couponProviderPixPayable(order,payment)
    &&deadline!==null&&Date.parse(String(invoice.expires_at))<=Date.parse(deadline)
-   &&code===invoice.pix_br_code
-   &&validatePixBrCode(code,{expectedAmountCents:invoice.sale_price_cents}).valid;
+   &&!ticketContradicts&&(originalBr||originalLink);
 }
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
@@ -249,17 +278,22 @@ Deno.serve(async(req:Request)=>{
   for(let attempt=0;attempt<3;attempt++){
    const payment=findPix(order);
    const rawCode=String(payment?.payment_method?.qr_code??"").trim();
+   const rawTicket=String(payment?.payment_method?.ticket_url??"").trim();
+   const ticket=couponOfficialPixTicket(rawTicket);
    if(order?.id&&order.external_reference===invoice.id&&
      moneyToCents(order.total_amount)===invoice.sale_price_cents&&
-     payment?.id&&rawCode){
+     payment?.id&&(rawCode||ticket)){
     if(!couponProviderPixPayable(order,payment))
      throw new Error("MERCADOPAGO_COUPON_ORDER_NOT_PAYABLE");
+    if(rawTicket&&!ticket)
+     throw new Error("MERCADOPAGO_COUPON_TICKET_INVALID");
     const expiresAt=mercadoPagoPixDeadline(order,payment,invoice.created_at);
     if(!expiresAt)throw new Error("MERCADOPAGO_COUPON_PIX_EXPIRED_OR_UNVERIFIED");
-    if(!validatePixBrCode(rawCode,{expectedAmountCents:invoice.sale_price_cents}).valid)
+    if(rawCode&&!validatePixBrCode(rawCode,{expectedAmountCents:invoice.sale_price_cents}).valid)
      throw new Error("MERCADOPAGO_COUPON_PIX_INVALID");
+    if(!rawCode&&!ticket)throw new Error("MERCADOPAGO_COUPON_PIX_UNVERIFIED");
     const patch={provider_order_id:String(order.id),provider_payment_id:String(payment.id),
-     pix_br_code:rawCode,payment_url:safeMercadoPagoUrl(payment.payment_method.ticket_url),
+     pix_br_code:rawCode||null,payment_url:ticket,
      status:"awaiting_payment",expires_at:expiresAt,
      updated_at:new Date().toISOString()};
     const {data:committed,error:commitError}=await admin.from("clube_coupon_paid_invoices")
@@ -272,7 +306,7 @@ Deno.serve(async(req:Request)=>{
       return respond({ok:true,...publicInvoice(existing)},200,origin);
     }
     return respond({ok:true,...publicInvoice(committed),
-      qrImageDataUri:mercadoPagoQrDataUri(payment.payment_method.qr_code_base64)},200,origin);
+      qrImageDataUri:rawCode?mercadoPagoQrDataUri(payment.payment_method.qr_code_base64):null},200,origin);
    }
    const id=String(order?.id??"");
    if(!id)throw new Error("MERCADOPAGO_COUPON_ORDER_INVALID");

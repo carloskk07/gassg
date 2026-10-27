@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {safeMercadoPagoUrl} from '../supabase/functions/_shared/mercadopago.js';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20261019170000_clube_coupon_paid_pix_financial_foundation.sql');
@@ -79,6 +80,14 @@ assert.match(coupon,/sale_price_cents:pkg.sale_price_cents/,
 assert.match(coupon,/validatePixBrCode\(rawCode,\{expectedAmountCents:invoice.sale_price_cents\}\)/,
  'never return invalid Pix payload');
 assert.match(coupon,/mercadoPagoPixDeadline\(order,payment,invoice.created_at\)/,
+ 'PSP-backed deadline stays immutable');
+assert.match(coupon,/function couponOfficialPixTicket\(value:any\)/,
+ 'original provider ticket must be validated');
+assert.match(coupon,/pix_br_code:rawCode\|\|null,payment_url:ticket/,
+ 'ticket-only issuance may not manufacture a fake BR Code');
+assert.match(coupon,/qrImageDataUri:rawCode\?mercadoPagoQrDataUri/,
+ 'a ticket-only Pix must not show an unbound image');
+assert.match(coupon,/mercadoPagoPixDeadline\(order,payment,invoice.created_at\)/,
  'coupon Pix must use durable invoice creation, not retry time, for expiry');
 assert.doesNotMatch(coupon,/expires_at:\s*new Date\(Date.now\(\)\s*\+\s*86400000\)/,
  'retry must not invent 24 more hours of Pix validity');
@@ -108,7 +117,7 @@ assert.match(coupon,/Date.parse\(String\(invoice.expires_at\)\)<=Date.parse\(dea
 
 // Execute the actual small presentation and read-only PSP verification helpers
 // with controlled data; do not create Pix or make network requests in CI.
-const h0=coupon.indexOf('function couponInvoiceCanPresent(');
+const h0=coupon.indexOf('function couponOfficialPixTicket(');
 const h1=coupon.indexOf('Deno.serve(',h0);
 assert.ok(h0>0&&h1>h0,'missing coupon presentation helper boundaries');
 const helperCode=coupon.slice(h0,h1).replace(/:any(?=[,)])/g,'');
@@ -117,7 +126,7 @@ const iso=offset=>new Date(now+offset).toISOString();
 const brCode='00020101021226800014br.gov.bcb.pix1234567890';
 const invoice={id:'inv-1',status:'awaiting_payment',sale_price_cents:1500,
  created_at:iso(-3600000),expires_at:iso(1800000),pix_br_code:brCode,
- payment_url:'https://example.invalid/pay',provider_order_id:'mp-order-1',
+ payment_url:null,provider_order_id:'mp-order-1',
  provider_payment_id:'mp-payment-1',coupons_per_pack:2};
 const providerOrder={id:'mp-order-1',external_reference:'inv-1',
  total_amount:'15.00',status:'action_required',
@@ -125,7 +134,7 @@ const providerOrder={id:'mp-order-1',external_reference:'inv-1',
   payment_method:{id:'pix',type:'bank_transfer',qr_code:brCode}}]}};
 let providerData=structuredClone(providerOrder),deadline=iso(2400000),getCount=0;
 const sandbox=vm.createContext({
- Date,String,Number,Array,encodeURIComponent,
+ Date,String,Number,Array,URL,encodeURIComponent,safeMercadoPagoUrl,
  MP_TOKEN:'synthetic-never-used',
  mercadoPagoFetch:async()=>{getCount++;return {ok:true};},
  readMercadoPagoJson:async()=>providerData,
@@ -137,6 +146,26 @@ const sandbox=vm.createContext({
 new vm.Script(helperCode,{filename:'coupon-credit-pix-helpers.ts'}).runInContext(sandbox);
 assert.equal(sandbox.couponInvoiceCanPresent(invoice,now),true);
 assert.equal(sandbox.publicInvoice(invoice).pixCode,brCode);
+const ticketUrl='https://www.mercadopago.com.br/payments/ticket/abc';
+const ticketInvoice={...invoice,pix_br_code:null,payment_url:ticketUrl};
+assert.equal(sandbox.couponInvoiceCanPresent(ticketInvoice,now),true,
+ 'a valid official original Pix ticket is payable without a stored QR code');
+assert.equal(sandbox.publicInvoice(ticketInvoice).pixCode,null);
+assert.equal(sandbox.publicInvoice(ticketInvoice).paymentUrl,ticketUrl);
+for(const unsafe of [
+ 'https://mercadopago.com.br.evil.example/pay',
+ 'http://www.mercadopago.com.br/payments/ticket',
+ 'https://www.mercadopago.com.br/sandbox/payments/ticket',
+ 'https://sandbox.mercadopago.com.br/payments/ticket',
+ 'javascript:alert(1)'
+]){
+ assert.equal(sandbox.couponOfficialPixTicket(unsafe),null,
+  'unofficial or sandbox ticket must not be clickable');
+ assert.equal(sandbox.couponInvoiceCanPresent({...ticketInvoice,payment_url:unsafe},now),false,
+  'unofficial ticket must not appear as a payable Pix');
+ assert.equal(sandbox.couponInvoiceCanPresent({...invoice,payment_url:unsafe},now),false,
+  'unofficial ticket must veto a stored QR as contradictory payment evidence');
+}
 assert.equal(sandbox.publicInvoice(invoice).issuedCoupons,0);
 assert.equal(await sandbox.couponPixStillPayable(invoice),true);
 assert.equal(sandbox.couponProviderPixPayable(providerOrder,providerOrder.transactions.payments[0]),true);
@@ -156,6 +185,32 @@ assert.equal(sandbox.couponProviderPixPayable({...providerOrder,live_mode:false}
 assert.equal(sandbox.couponProviderPixPayable({...providerOrder,currency_id:'USD'},exactPayment),false);
 assert.equal(sandbox.couponProviderPixPayable({...providerOrder,currency:'USD'},exactPayment),false);
 assert.equal(getCount,1,'one GET verification on positive replay');
+providerData={...providerOrder,transactions:{payments:[
+ {...providerOrder.transactions.payments[0],payment_method:{
+   id:'pix',type:'bank_transfer',qr_code:'',ticket_url:ticketUrl}}]}};
+assert.equal(await sandbox.couponPixStillPayable(ticketInvoice),true,
+ 'official ticket-only original invoice reopens after PSP GET confirms pending/order/amount');
+providerData={...providerOrder,transactions:{payments:[
+ {...providerOrder.transactions.payments[0],payment_method:{
+   id:'pix',type:'bank_transfer',qr_code:''}}]}};
+assert.equal(await sandbox.couponPixStillPayable(ticketInvoice),true,
+ 'PSP GET may omit both QR and ticket: immutable originally verified link remains when payment pending');
+providerData={...providerOrder,transactions:{payments:[
+ {...providerOrder.transactions.payments[0],payment_method:{
+   id:'pix',type:'bank_transfer',qr_code:'',ticket_url:
+      'https://www.mercadopago.com.br/payments/ticket/other'}}]}};
+assert.equal(await sandbox.couponPixStillPayable(ticketInvoice),false,
+ 'changed official ticket must not silently replace original payment');
+providerData={...providerOrder,transactions:{payments:[
+ {...providerOrder.transactions.payments[0],payment_method:{
+   id:'pix',type:'bank_transfer',qr_code:'',ticket_url:
+      'https://www.mercadopago.com.br/sandbox/payments/ticket'}}]}};
+assert.equal(await sandbox.couponPixStillPayable(ticketInvoice),false,
+ 'GET sandbox link vetoes saved ticket');
+providerData=structuredClone(providerOrder);
+assert.equal(await sandbox.couponPixStillPayable(ticketInvoice),true,
+ 'ticket-only invoice remains valid when PSP confirms same pending Pix with fresh BR Code');
+
 providerData={...providerOrder,status:'processed'};
 assert.equal(await sandbox.couponPixStillPayable(invoice),false,'processed order cannot reuse QR');
 providerData={...providerOrder,transactions:{payments:[{...providerOrder.transactions.payments[0],status:'processed'}]}};
