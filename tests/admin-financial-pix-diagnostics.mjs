@@ -142,7 +142,7 @@ let chargeRow={id,payment_request_id:requestId,provider:'mercadopago',
 let requestRow={id:requestId,status:'pending',expected_amount_cents:30000};
 let providerOrder={id:'ORD1234567890',external_reference:correlation,total_amount:'300.00',
   status:'action_required',transactions:{payments:[{
-    id:'PAY1234567890',status:'pending',
+    id:'PAY1234567890',status:'pending',amount:'300.00',
     payment_method:{id:'pix',type:'bank_transfer',qr_code:'PRIVATE_NO_BROWSER'}}]}};
 let readCalls=0,pspCalls=0,quotaCalls=0,providerOk=true;
 const providerDb={from(name){
@@ -198,6 +198,8 @@ providerOrder={...providerOrder,status:'processed',transactions:{
   payments:[{...providerOrder.transactions.payments[0],status:'processed'}]}};
 const processed=await pctx.verify(providerDb,'test-admin-actor',{chargeId:id});
 assert.equal(processed.providerProcessed,true);
+assert.equal(processed.paymentAmountMatched,true);
+assert.equal(processed.providerSandbox,false);
 assert.equal(processed.providerAdverseState,false);
 assert.equal(processed.settlementVerified,false);
 assert.match(processed.nextStep,/conciliação/);
@@ -206,6 +208,14 @@ assert.match(processed.nextStep,/conciliação/);
 const consistent=structuredClone(providerOrder);
 const consistentPayment=consistent.transactions.payments[0];
 for(const [name,inconsistent,adverse] of [
+  ['explicit sandbox processing',{...consistent,live_mode:false},false],
+  ['refunded transaction present',{...consistent,transactions:{...consistent.transactions,refunds:[{id:'REFUND-1',status:'processed',amount:'50.00'}]}},true],
+  ['refund awaiting processing',{...consistent,transactions:{...consistent.transactions,refunds:[{id:'REFUND-PENDING',status:'pending'}]}},true],
+  ['Pix amount not returned',{...consistent,transactions:{payments:[{...consistentPayment,amount:undefined}]}},false],
+  ['order detail inconsistent',{...consistent,status_detail:'waiting_transfer'},false],
+  ['Pix detail inconsistent',{...consistent,transactions:{payments:[{...consistentPayment,status_detail:'waiting_transfer'}]}},false],
+  ['order disputed',{...consistent,status:'disputed'},true],
+  ['payment in mediation',{...consistent,transactions:{payments:[{...consistentPayment,status_detail:'in_mediation'}]}},true],
   ['order still pending',{...consistent,status:'action_required'},false],
   ['Pix still pending',{...consistent,transactions:{payments:[
     {...consistentPayment,status:'action_required'}]}},false],
@@ -224,9 +234,18 @@ for(const [name,inconsistent,adverse] of [
   assert.equal(checked.creditIssued,false);
   assert.equal(checked.financialActionTaken,false);
   if(adverse)assert.match(checked.nextStep,/Investigar/,name);
+  if(name==='explicit sandbox processing'){
+    assert.equal(checked.providerSandbox,true);
+    assert.match(checked.nextStep,/TESTE/);
+  }
+  if(name==='Pix amount not returned')assert.equal(checked.paymentAmountMatched,false);
+  if(['refunded transaction present','refund awaiting processing'].includes(name))assert.equal(checked.refundPresent,true);
 }
 providerOrder=consistent;
 for(const tampered of [
+ {...providerOrder,live_mode:true,currency_id:'USD'},
+ {...providerOrder,transactions:{payments:[{...consistentPayment,amount:'299.99'}]}},
+ {...providerOrder,transactions:{payments:[{...consistentPayment,id:''}]}},
  {...providerOrder,external_reference:'other-request'},
  {...providerOrder,total_amount:'1000.00'},
  {...providerOrder,id:'ORDER-OTHER'},
