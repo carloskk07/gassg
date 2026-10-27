@@ -84,6 +84,9 @@ export function couponMerchantPayoutEvidence({
  if(!expectedId||!expectedOrder||String(transaction?.id??"")!==expectedId
   ||!ref||ref!==expectedOrder
   ||String(transaction?.amount?.currency??"")!=="BRL"
+  // A test/sandbox response must not be described as an externally
+  // accredited merchant payout even when status and amount look valid.
+  ||transaction?.live_mode===false
   ||receivedCents!==expectedReimbursement||!(expectedReimbursement>0))
   return fail("COUPON_PAYOUT_PROVIDER_BINDING_MISMATCH",safe);
  if(state!=="success"||detail!=="accredited")
