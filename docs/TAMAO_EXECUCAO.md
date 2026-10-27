@@ -14,6 +14,14 @@
 
 > Este diário é a autoridade persistente sobre andamento. Para saber o SHA exato que contém sua última edição, consultar o histórico do arquivo no GitHub; um documento não pode registrar de forma autorreferente seu próprio hash de commit. Antes de cada continuação, comparar esta anotação com branch, PR, CI, banco e manifests reais.
 
+## 27/10/2026 — Continuidade após PR #660: proteção contra QR Pix vencido (PR de correção)
+
+- **Fato confirmado:** `main=fe5e15dec33ca08309a9ab4325aaf7b7f0038e7a` (PR #660 integrada); CI Audit, build, readiness, Cloudflare e reconciliador concluídos com sucesso. `platform_launch_control` atesta o mesmo SHA nos três portais, `commerce_enabled=false` e `PRELAUNCH`. Supabase tem `admin-ops` v213 e `billing-payment-webhook-mercadopago` v24 ACTIVE.
+- **Evidência financeira (leitura não mutante):** uma emissão real auditada de R$ 2,00 (`ORD01M5XP7MVJ4WKY3ADSYJ4FM86A`); 1 prova HMAC `payment_webhook_probes.status=verified`, mas `wallet_entries=0`, `merchant_billing_payment_events=0` e `merchant_sale_payment_events=0`. Sem comprovação de liquidação, não afirmar pagamento concluído ou crédito; não gerar nova ordem.
+- **Falha residual comprovada no `js/admin.js`:** o botão Copiar Pix checava expiração, mas o bloco do QR e o textarea eram exibidos incondicionalmente sempre que `state.live` existia, mesmo após o vencimento na ausência de consulta/atualização da página.
+- **Correção proposta nesta PR:** reutilizar o código da ordem original somente se ainda existir janela de mais de 60 segundos e nenhum estado adverso tenha sido observado. Programar ocultação automática no prazo de segurança, bloquear cópia e exibição de QR/copia-e-cola vencidos, exigir nova consulta à **mesma ordem**, sem POST, troca de segredo, criação de cobrança, movimentação financeira ou novo serviço. Adicionar regressões de janela, expiração ausente, Pix processado e reversão.
+- **Validação necessária:** CI da PR, integração controlada, atestação dos portais no novo SHA e teste de reabertura/ocultação em navegador autenticado. **Não** interpretar CI como prova de pagamento. Próximo gate financeiro permanece consultar a mesma Order no Mercado Pago, confirmar webhook assinado e conferir extrato de recebimento antes de qualquer crédito.
+
 ## 26/10/2026 — PR #654 integrada e webhook v22 publicado (homologação externa pendente)
 
 - **GitHub:** PR #654 merged em `35a199eb7f864b48b3a2810e114fc0421d551cb5`. `Audit` SUCCESS (run `40379311927`, incluindo teste HMAC com/sem request-id); `TAMÃO release-candidate visual review` SUCCESS (run `40379311811`).
