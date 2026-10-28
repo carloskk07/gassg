@@ -14,6 +14,7 @@ on:
       - 'assets/**'
       - 'manifest.webmanifest'
       - 'tests/browser-demo-cloud-smoke.mjs'
+      - 'tests/browser-demo-journey.mjs'
   push:
     branches: [main]
     paths:
@@ -21,6 +22,7 @@ on:
       - 'scripts/build-owner-browser-demo.mjs'
       - 'scripts/demo-browser-panel.js'
       - 'tests/browser-demo-cloud-smoke.mjs'
+      - 'tests/browser-demo-journey.mjs'
   workflow_dispatch:
 
 permissions:
@@ -40,6 +42,20 @@ jobs:
         run: node scripts/build-owner-browser-demo.mjs _site
       - name: Browser demo safety contract
         run: node tests/browser-demo-cloud-smoke.mjs
+      - name: Full browser-only checkout and delivery: Client → Revenda → Admin
+        run: |
+          python3 -m http.server 4185 --bind 127.0.0.1 --directory _site > /tmp/tamao-guided-demo.log 2>&1 &
+          SERVER=$!
+          trap 'kill "$SERVER" 2>/dev/null || true' EXIT
+          node tests/browser-demo-journey.mjs
+      - name: Upload walkthrough evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-demo-browser-journey
+          path: test-results/browser-demo-evidence/
+          retention-days: 7
+          if-no-files-found: error
       - name: Chrome render of public demo as an ordinary anonymous visitor
         run: |
           python3 -m http.server 4185 --bind 127.0.0.1 --directory _site >/tmp/tamao-demo-http.log 2>&1 &
