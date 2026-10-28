@@ -1,0 +1,83 @@
+name: TAMÃO browser-only demonstration (GitHub Pages)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/owner-browser-demo-pages.yml'
+      - 'scripts/build-owner-browser-demo.mjs'
+      - 'scripts/demo-browser-panel.js'
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - 'icons/**'
+      - 'assets/**'
+      - 'manifest.webmanifest'
+      - 'tests/browser-demo-cloud-smoke.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/owner-browser-demo-pages.yml'
+      - 'scripts/build-owner-browser-demo.mjs'
+      - 'scripts/demo-browser-panel.js'
+      - 'tests/browser-demo-cloud-smoke.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build safe owner browser demo (NO Supabase, NO local Docker)
+        run: node scripts/build-owner-browser-demo.mjs _site
+      - name: Browser demo safety contract
+        run: node tests/browser-demo-cloud-smoke.mjs
+      - name: Chrome render of public demo as an ordinary anonymous visitor
+        run: |
+          python3 -m http.server 4185 --bind 127.0.0.1 --directory _site >/tmp/tamao-demo-http.log 2>&1 &
+          SERVER=$!
+          trap 'kill "$SERVER" 2>/dev/null || true' EXIT
+          CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$CHROME"
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=1280,900 --virtual-time-budget=4500 \
+            --user-data-dir="/tmp/tamao-web-demo-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --dump-dom "http://127.0.0.1:4185/#home" > /tmp/tamao-demo-home.html
+          grep -Fq "DEMONSTRAÇÃO INTERATIVA" /tmp/tamao-demo-home.html
+          grep -Fq "Admin (resumo)" /tmp/tamao-demo-home.html
+          grep -Fq "Revenda Parceira A" /tmp/tamao-demo-home.html || grep -Fq "Cotações" /tmp/tamao-demo-home.html
+          ! grep -Fq "lgugwujpunhslavewffd" /tmp/tamao-demo-home.html
+
+  deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build the SAME static assets (no secrets, no backend)
+        run: node scripts/build-owner-browser-demo.mjs _site
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload demo only
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy demo (never TAMÃO production)
+        id: deployment
+        uses: actions/deploy-pages@v4
