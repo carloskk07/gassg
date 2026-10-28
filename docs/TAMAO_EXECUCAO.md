@@ -1,3 +1,8 @@
+## 28/10/2026 — Teste E2E do piloto ajustado à navegação progressiva
+
+- A auditoria de navegador de 320/360/390px reproduziu a consequência intencional de `<details>` fechado: não conseguia ver `Faixa automática de preço` antes de abrir as configurações. O teste já testava ativamente alteração de estratégia e os limites P13 reais do cenário interno (115,90/120/125), portanto sua verificação **não pode ser retirada**.
+- Ajustado `tests/browser-e2e.mjs` para exigir que ajustes comecem fechados, abrir explicitamente `.merchant-demo-settings` e somente então conferir o valor e a estratégia de preço. A comprovação da política de faixa e dos preços continua integral. Retestar Audit e Chrome antes do merge.
+
 ## 28/10/2026 — Diagnóstico Chrome: formulários dentro de <details> apareciam fechados
 
 - **Regressão real reproduzida no Chrome mobile da demo:** após mover preços para `<details class="merchant-demo-settings">`, o teste confirmou que `open=false` mas `#m-price` ainda possuía retângulo visível. A causa foi `.merchant-demo-settings-body{display:grid}` do CSS do próprio app, com precedência sobre o estilo nativo de `<details>` fechado.
