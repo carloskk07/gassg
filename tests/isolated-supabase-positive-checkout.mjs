@@ -276,7 +276,7 @@ assert.equal(forbiddenNote.status,403);
 assert.equal(forbiddenNote.body.error,'ADMIN_ACCESS_DENIED');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='ADMIN_NOTE'"),'0');
 // Observe the SAME local persisted order through the canonical browser UI.
-await verifyIsolatedLivePortals({api:base,anon,buyer,owner,adminActor,orderId:first.body.orderId,merchantId});
+await verifyIsolatedLivePortals({api:base,anon,buyer,owner,adminActor,orderId:first.body.orderId,merchantId,captureEvidence:true});
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND actor_user_id="+q(adminActor.id)+"::uuid AND event_type='ADMIN_NOTE'"),'1',
  'Admin note button must append a single legitimate order audit event');
 assert.equal(sql("SELECT count(*) FROM public.platform_admin_audit WHERE actor_user_id="+q(adminActor.id)+"::uuid AND action='order-control-note' AND target_id="+q(first.body.orderId)),'1',
