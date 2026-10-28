@@ -7,7 +7,7 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
@@ -111,6 +111,21 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
    }
   });
   await send('Page.enable');await send('Runtime.enable');await send('Network.enable');
+  const desktopViewport={width:1280,height:960,deviceScaleFactor:1,mobile:false};
+  await send('Emulation.setDeviceMetricsOverride',desktopViewport);
+  const evidenceDir=path.resolve('test-results/isolated-order-evidence');
+  async function saveEvidence(name){
+    if(!captureEvidence)return;
+    assert.match(name,/^[a-z0-9-]+$/,'evidence name must be static and safe');
+    const result=await send('Page.captureScreenshot',{
+      format:'png',fromSurface:true,captureBeyondViewport:false
+    });
+    const png=Buffer.from(result.data||'','base64');
+    assert.ok(png.length>6000,'real Chrome screenshot should not be blank');
+    assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a','evidence must be PNG');
+    fs.mkdirSync(evidenceDir,{recursive:true});
+    fs.writeFileSync(path.join(evidenceDir,name+'.png'),png);
+  }
   const init="(()=>{if(location.origin!=="+JSON.stringify(origin)+")return;"+
    "localStorage.setItem('chama-sg-customer-auth-v2',"+JSON.stringify(JSON.stringify(buyer.session))+");"+
    "localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");"+
@@ -126,11 +141,20 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   const merchant=JSON.parse(await evaluate("JSON.stringify({status:merchantRuntime.status,orders:merchantRuntime.orders.length,match:merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+"),visible:document.querySelector('#app')?.innerText.slice(0,4000)})"));
   assert.equal(merchant.status,'ready');assert.equal(merchant.match,true);
   assert.match(merchant.visible,/Revenda Simulada CI|Pedidos|Preparando|PREPARANDO/i);
+  if(captureEvidence)await evaluate("document.querySelector('#merchant-live-orders')?.scrollIntoView({block:'start'});true");
+  await saveEvidence('01-parceiro-p13-em-preparo');
   await navigate(origin+'/#tracking');
   await wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer tracking');
   const buyerState=JSON.parse(await evaluate("JSON.stringify({status:liveRuntime.status,orderId:liveRuntime.order?.orderId,visible:document.querySelector('#app')?.innerText.slice(0,4000)})"));
   assert.equal(buyerState.status,'ready');assert.equal(buyerState.orderId,orderId);
   assert.ok(buyerState.visible.length>110,'buyer must see a useful rendered tracking screen');
+  await saveEvidence('02-cliente-p13-rastreamento-desktop');
+  if(captureEvidence){
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    await evaluate('window.scrollTo(0,0);true');
+    await saveEvidence('03-cliente-p13-rastreamento-celular');
+    await send('Emulation.setDeviceMetricsOverride',desktopViewport);
+  }
 
   // Switch ONLY the disposable browser's merchant session to the actual
   // buyer's local Auth token. Without this gate the prior owner fixture
@@ -165,6 +189,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(orderCardVisible,true,'the actual Admin orders UI must render this local order card');
   assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
   assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
+  if(captureEvidence)await evaluate("(()=>{const id=adminRuntime.data?.controlOrders?.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code;Array.from(document.querySelectorAll('.order-card')).find(el=>el.querySelector('.order-id')?.textContent.trim()===id)?.scrollIntoView({block:'start'});return true})()");
+  await saveEvidence('04-admin-p13-torre-de-controle');
   // Exercise the real Admin Chrome DOM across all three synthetic
   // perspectives. This remains localhost-only and cannot create a real order.
   const createDemo=await evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.textContent.includes('Criar 3 pedidos fictícios'));if(!b)return false;b.click();return true})()");
@@ -215,6 +241,22 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(await clickDemoRole('Admin — acompanhamento'),true);
   assert.equal(await demoStatus('DEMO-001'),'SETTLED');
   assert.equal(await demoStatus('DEMO-002'),'CANCELLED');
+  if(captureEvidence){
+    await evaluate("document.querySelector('[aria-label=\"Pedidos de demonstração sem operações reais\"]')?.scrollIntoView({block:'start'});true");
+    await saveEvidence('05-admin-simulacao-visual-separada');
+    fs.writeFileSync(path.join(evidenceDir,'LEIA-ME.txt'),[
+      'TAMAO - EVIDENCIA DE PEDIDOS SINTETICOS / APENAS CI LOCAL',
+      'Origem: teste Chrome com Auth, Postgres e Edge descartaveis em 127.0.0.1.',
+      '01: Portal Parceiro real em rota localhost, pedido P13 PREPARING.',
+      '02 e 03: Portal Cliente real em rota localhost, mesmo P13 em desktop/celular.',
+      '04: Portal Admin real em rota localhost, Torre de Controle do mesmo P13.',
+      '05: Simulador VISUAL interno do Admin (nao e pedido SQL).',
+      'Nao e prova de funcionamento independente em tres dominios publicados.',
+      'Nao ha compra, pagamento, Pix, CNPJ, ANP real ou fornecedor real.',
+      'NUNCA usar estas imagens para anunciar estoque ou oferta comercial.',
+      'Artefato temporario para revisao humana; nao contem credenciais nem tokens.'
+    ].join('\n')+'\n','utf8');
+  }
 
   // Click the EXISTING Tower of Control button, retaining the canonical
   // adminPerform -> admin-ops -> admin_order_control_action transaction.

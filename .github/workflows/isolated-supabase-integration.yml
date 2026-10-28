@@ -128,6 +128,14 @@ jobs:
         run: node tests/isolated-supabase-http-smoke.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
+      - name: Upload temporary visual evidence from disposable order tests
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-pedidos-sinteticos-ci
+          path: test-results/isolated-order-evidence/
+          if-no-files-found: error
+          retention-days: 5
       - name: Verify REAL coupon payment, audited net and v8 checkout on disposable full schema
         run: node tests/isolated-supabase-coupon-full-schema.mjs
       - name: Destroy disposable local containers even on test failure

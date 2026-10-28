@@ -1,3 +1,10 @@
+## 28/10/2026 — Prova visual verificável do pedido P13 nos três portais em CI (PR em homologação)
+
+- **Pendência comprovada da issue #493:** a suíte real de Postgres/Auth/Edge/Chrome descartáveis exercitava os três portais, mas não fornecia ao proprietário imagens de suas interfaces para revisão independente. A demo do Admin permanece local no navegador e distinta das APIs.
+- **Mudança restrita à suíte existente:** `tests/isolated-live-portal-browser.mjs` captura telas PNG de Parceiro, Cliente (desktop e celular) e Admin com o **mesmo P13 sintético em PREPARING**, além de uma tela separada do laboratório visual do Admin. Só a primeira jornada P13 gera evidência; nenhuma credencial é gravada, e o código aborta se a captura falhar. O workflow `isolated-supabase-integration.yml` arquiva as imagens por 5 dias (sem novo serviço). `tests/isolated-supabase-positive-checkout.mjs` habilita capturas para a primeira jornada.
+- **Limites declarados no arquivo LEIA-ME:** imagens vêm de 127.0.0.1, Auth/Edge/SQL temporários, sem PSP, dinheiro, CNPJ/ANP ou revenda real. Não provaram persistência compartilhada nos três domínios publicados, nem liquidação bancária; a PR só pode integrar após Audit, integração descartável e revisão visual SUCCESS.
+- **Produção:** preservar PRELAUNCH, `commerce_enabled=false`, zero pedidos comerciais e nenhuma nova API/migração/PSP. O código público dos portais não muda; o artefato temporário é evidência de CI, não oferta para cliente.
+
 ## 28/10/2026 — Demo navegável por perspectiva no Admin, sem serviços extras (PR em homologação)
 
 - **Objetivo principal:** melhorar a utilidade dos três pedidos fictícios já existentes em `Admin → Pedidos`, para que o proprietário acompanhe o **mesmo estado sintético** pelo ângulo de cliente, revenda e administrador sem precisar de novas empresas, CNPJs ou recursos pagos.
