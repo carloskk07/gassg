@@ -243,7 +243,7 @@ async function handleMerchantSaleOrder(
   // A pending, unidentified or foreign refund is NOT proof that merchant
   // proceeds remain intact. The existing event RPC must never approve a sale
   // on a snapshot with unresolved or contradictory refund evidence.
-  const incompleteRefundEvidence=refundRows.some((refund)=>{
+  const incompleteRefundEvidence=refundRows.some((refund:any)=>{
     const state=String(refund?.status??"").trim().toLowerCase();
     return !["processed","approved","refunded"].includes(state)
       ||!String(refund?.id??"").trim()
