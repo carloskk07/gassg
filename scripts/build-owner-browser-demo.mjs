@@ -48,6 +48,12 @@ js=replaceOnce(js,
  "if('serviceWorker'in navigator&&location.protocol.startsWith('http')){",
  "if(false&&'serviceWorker'in navigator&&location.protocol.startsWith('http')){");
 fs.writeFileSync(bootstrap,js);
+// A human-facing demo must not look like an automated test runner.
+const corePath=path.join(output,'js/core.js');
+let core=fs.readFileSync(corePath,'utf8');
+core=replaceOnce(core,'Ambiente isolado de teste automatizado',
+ '🧪 Demonstração interativa • nenhum pedido ou pagamento real');
+fs.writeFileSync(corePath,core);
 // Avoid existing production service workers and speculative third-party fetches.
 const htmlPath=path.join(output,'index.html');
 let html=fs.readFileSync(htmlPath,'utf8');
