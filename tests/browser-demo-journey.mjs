@@ -146,7 +146,53 @@ try{
  await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='SETTLED'",'same order persists on refresh');
  assert.equal((await demoState()).orders.filter(x=>x.id===o.id).length,1);
  assert.deepEqual(forbidden,[],'browser-only demo must never contact commercial backend or PSP');
- console.log('PASS: hosted demo mobile Chrome CLIENT WATER20 -> ADDRESS -> CASH -> ORDER -> ADMIN -> ASSIGNED MERCHANT ACCEPT/DISPATCH/ARRIVING/PIN/SETTLE -> ADMIN RECEIPT -> RELOAD. No commercial API/PSP.');
+
+ // Main product on the SAME hosted UI: start P13 without Docker or any server API.
+ // Keep the completed water order for a shared two-order Admin history.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Começar com gás P13'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='order'&&state.cart?.P13===1&&Object.entries(state.cart).filter(([,qty])=>qty>0).length===1",'guided P13 product and clean cart');
+ await click("(()=>{const a=document.querySelector('#address'),p=document.querySelector('#postal-code'),b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')==='setAddress()');if(!a||!p||!b)return false;a.value='Rua Teste P13, 20';p.value='97300-000';b.click();return true})()");
+ await wait("state.address==='Rua Teste P13, 20'&&document.querySelector('.offer-submit:not(:disabled)')",'P13 quote');
+ await click("(()=>{const s=document.querySelector('#payment-method');if(!s)return false;s.value='cash';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()");
+ await wait("state.checkout.paymentMethod==='cash'&&document.querySelector('.offer-submit:not(:disabled)')",'P13 cash');
+ await click("(()=>{const b=document.querySelector('.offer-submit:not(:disabled)');if(!b)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&window.ChamaTest.getState().orders.at(-1)?.status==='OFFERED_TO_MERCHANT'",'P13 checkout');
+ const gas=(await demoState()).orders.at(-1);
+ assert.notEqual(gas.id,o.id,'P13 must have a new order ID');
+ assert.equal(gas.cart.P13,1);
+ assert.ok(gas.items.some(i=>i.key==='P13'&&i.qty===1),'P13 must be present in the locked order items');
+ assert.equal(gas.paymentMethod,'cash');
+ assert.equal((await demoState()).orders.length,2,'one water and one P13 order only');
+ await snapshot('06-cliente-gas-p13-aguardando.png');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='merchant'&&state.selectedMerchant==="+JSON.stringify(gas.merchantId)+"&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(gas.id)+")",'assigned P13 merchant');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",'P13 accepted');
+ await snapshot('07-revenda-gas-p13-aceito.png');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar saída'));if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='OUT_FOR_DELIVERY'",'P13 dispatched');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Estou chegando'));if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='ARRIVING'",'P13 arriving');
+ // Negative UI: even the correct PIN without payment confirmation must not settle.
+ await click("(()=>{const p=document.querySelector('.pin-input'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!p||!b)return false;p.value="+JSON.stringify(gas.pin)+";b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='ARRIVING'",'cash confirmation required');
+ assert.equal((await demoState()).orders.at(-1).paymentConfirmedAt,undefined);
+ // Negative UI: payment checkbox does not authorize delivery with a wrong PIN.
+ const invalidPin=gas.pin==='0000'?'0001':'0000';
+ await click("(()=>{const p=document.querySelector('.pin-input'),paid=document.querySelector('.order-card input[type=\"checkbox\"]'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!p||!paid||!b)return false;p.value="+JSON.stringify(invalidPin)+";paid.checked=true;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.pinFailures===1",'bad P13 PIN recorded');
+ assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','bad PIN must leave P13 undelivered');
+ // Correct PIN and fictitious cash attestation complete the canonical simulator.
+ await click("(()=>{const p=document.querySelector('.pin-input'),paid=document.querySelector('.order-card input[type=\"checkbox\"]'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!p||!paid||!b)return false;p.value="+JSON.stringify(gas.pin)+";paid.checked=true;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'",'P13 delivered');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
+ await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Concluídos: 2')&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(gas.id)+")&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin compares settled water and P13 orders');
+ await snapshot('08-admin-gas-p13-e-agua-concluidos.png');
+ await send('Page.navigate',{url:base+'#home'});
+ await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='SETTLED'",'P13 survives reload');
+ assert.equal((await demoState()).orders.length,2);
+ assert.deepEqual(forbidden,[],'P13 demo must never contact the production backend or PSP');
+ console.log('PASS: hosted demo mobile Chrome WATER20 + P13 synthetic orders, two completed Admin entries, incorrect PIN and unpaid delivery rejected, reload persisted, zero production API/PSP.');
 }finally{
  for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('closing'))}
  ws?.close();
