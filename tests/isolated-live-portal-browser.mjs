@@ -284,7 +284,9 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         const offer=JSON.parse(await ui.evaluate("JSON.stringify({offers:liveRuntime.offers,visible:document.querySelector('#customer-offers')?.innerText.slice(0,1200)})"));
         assert.ok(offer.offers?.[0]?.quoteId,'UI must use a real SQL quote ID');
         assert.match(offer.visible,/TOTAL COM ENTREGA/i,'offer must display total plus delivery');
-        if(captureEvidence){
+        if(browserCheckoutBuyer){
+          fs.mkdirSync(evidenceDir,{recursive:true});
+          await ui.evaluate("document.querySelector('#customer-offers')?.scrollIntoView({block:'start'});true");
           const shot=await ui.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
           const png=Buffer.from(shot.data||'','base64');assert.ok(png.length>6000);
           fs.writeFileSync(path.join(evidenceDir,'09-cliente-cotacao-real-ui.png'),png);
@@ -300,7 +302,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         assert.equal(created.status,'OFFERED_TO_MERCHANT');
         assert.equal(Number(created.cart?.WATER20||0),0,'basket cleared only after confirmed checkout');
         assert.match(created.visible,/pedido/i);
-        if(captureEvidence){
+        if(browserCheckoutBuyer){
           const shot=await ui.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
           const png=Buffer.from(shot.data||'','base64');assert.ok(png.length>6000);
           fs.writeFileSync(path.join(evidenceDir,'10-cliente-pedido-enviado-ui.png'),png);
