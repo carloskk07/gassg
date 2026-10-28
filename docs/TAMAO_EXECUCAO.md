@@ -1,3 +1,9 @@
+## 28/10/2026 — Home: não adicionar P13 sem escolha do Cliente
+
+- **Defeito real no código:** CTA do painel público de preços chamava `startCustomerAvailability()` → `startHomeOrder()` com `addFeatured=true`. Sem seleção prévia, o cliente recebia gás P13 automaticamente na cesta, mesmo após a simplificação do checkout. Isso contraria o fluxo de escolha livre e atrapalha uma compra de água ou outros itens.
+- **Correção no fluxo existente:** o botão do painel é **Escolher produtos** e chama `startHomeBrowse()`, que utiliza `addFeatured:false`. Preserva cesta e CEP, não cria pedido, não altera cotação, estoque, Auth, banco ou PSP. O botão de selecionar produto na própria cotação continua disponível.
+- **Homologação:** teste de contrato do HTML do painel verifica botão correto e ausência da função que adicionava P13; contrato existente `buyer-catalog-discovery-v1-350.mjs` verifica cesta vazia, seleção preservada e CEP. Audit, browser visual, Pages e empacotamento comercial obrigatórios antes do merge. Última publicação `3a1152d` confirmada nos três domínios após Cloudflare concluir builds fora da primeira janela de verificação.
+
 ## 28/10/2026 — Simplificação comprovável da jornada Cliente (PR em validação)
 
 - **Problema de UX confirmado no código e relato do proprietário:** o checkout orientava **Produtos → Endereço → Contato → Opções**, mas renderizava **Endereço → Contato → Produtos → Opções**. O cliente precisava rolar além do formulário de CEP para encontrar a cesta. Na navegação mobile, **Indicar** tinha acesso direto enquanto o acompanhamento de pedido não tinha botão persistente.
