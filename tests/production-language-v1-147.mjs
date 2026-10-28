@@ -66,7 +66,7 @@ assert.ok(
 assert.ok(
   core.includes('onclick="tamaoOpenAvailability()">Montar cesta')
   &&core.includes("['home','Cotações']")
-  &&core.includes("['availability','🧺','Consultar','market']")
+  &&core.includes("['availability','🧺','Comprar','market']")&&core.includes("['tracking','📦','Pedidos','go']")
   &&core.includes('prelaunchExamplesEnabled?.()===true)return openPrelaunchCustomerLead()')
   &&core.includes("const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região'"),
   'navegação global estável deve consultar disponibilidade no clique, sem linguagem de abertura'
