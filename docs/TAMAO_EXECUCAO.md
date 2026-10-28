@@ -1,3 +1,9 @@
+## 28/10/2026 — GitHub Pages: publicar alterações do frontend após merge
+
+- **Defeito no workflow observado no merge #702:** `.github/workflows/owner-browser-demo-pages.yml` incluía `js/**`, `css/**`, HTML e assets no filtro de PR, mas omitia esses mesmos caminhos de `push` na `main`. O commit da correção do CTA `cd789c9` alterou `js/home-showcase.js`, e por isso a demonstração publicada NÃO recebeu a correção automaticamente, apesar dos testes da PR aprovados.
+- **Correção na configuração existente:** alinhar `push.paths` com os assets públicos já monitorados no PR (`index.html`, `js/**`, `css/**`, `icons/**`, `assets/**`, `manifest.webmanifest`), sem habilitar deploy em PR e sem expor secrets. O workflow de Pages mantém `noindex`, CSP sem backend comercial, smoke Chrome e HTTP público obrigatório.
+- **Regressão:** acrescentar contrato automático para as entradas `push.paths` em `tests/browser-demo-cloud-smoke.mjs`. Validar GitHub Actions e redeploy exato da `main` antes de dizer que a demo ficou atualizada. Site comercial usa Cloudflare separadamente; não confundir os dois.
+
 ## 28/10/2026 — Home: não adicionar P13 sem escolha do Cliente
 
 - **Defeito real no código:** CTA do painel público de preços chamava `startCustomerAvailability()` → `startHomeOrder()` com `addFeatured=true`. Sem seleção prévia, o cliente recebia gás P13 automaticamente na cesta, mesmo após a simplificação do checkout. Isso contraria o fluxo de escolha livre e atrapalha uma compra de água ou outros itens.

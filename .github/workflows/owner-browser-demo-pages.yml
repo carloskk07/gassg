@@ -21,6 +21,12 @@ on:
       - '.github/workflows/owner-browser-demo-pages.yml'
       - 'scripts/build-owner-browser-demo.mjs'
       - 'scripts/demo-browser-panel.js'
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - 'icons/**'
+      - 'assets/**'
+      - 'manifest.webmanifest'
       - 'tests/browser-demo-cloud-smoke.mjs'
       - 'tests/browser-demo-journey.mjs'
   workflow_dispatch:
