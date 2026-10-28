@@ -74,6 +74,7 @@ const create=[
 "INSERT INTO public.merchant_payment_methods(merchant_id,payment_method,active) VALUES("+q(merchantId)+"::uuid,'cash',true);",
 "INSERT INTO public.merchant_payment_routes(merchant_id,payment_method,provider,channel,verification_mode,active) VALUES("+q(merchantId)+"::uuid,'cash','manual','delivery','merchant_confirmed',true);",
 "INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'P13','Gas GLP P13 Somente CI',11590,11590,11590,5,true,clock_timestamp());",
+"INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'CHARCOAL2','Carvao Simulado CI',1800,1800,1800,5,true,clock_timestamp());",
 "INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'WATER20','Agua 20 L Simulada CI',1590,1590,1590,6,true,clock_timestamp());",
 "UPDATE public.merchants SET status='active',online=true WHERE id="+q(merchantId)+"::uuid;",
 'COMMIT;'
