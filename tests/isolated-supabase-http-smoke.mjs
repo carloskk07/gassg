@@ -26,12 +26,32 @@ const headers={
 const health=await fetch(base+'/auth/v1/health',{signal:AbortSignal.timeout(25000)});
 assert.equal(health.status,200,'local Auth health must be available');
 for(const slug of ['create-order','merchant-orders','get-order']){
-  const res=await fetch(base+'/functions/v1/'+slug,{
-    method:'POST',
-    headers,
-    body:JSON.stringify({quoteId:'00000000-0000-4000-8000-000000000001'}),
-    signal:AbortSignal.timeout(45000)
-  });
+  let res;
+  // GitHub's ephemeral Deno edge-runtime sometimes takes >45s to compile
+  // its FIRST endpoint after 200+ Postgres migrations. We can retry a
+  // transport timeout ONLY after local Auth health responds. Never treat
+  // a timeout/502 or a mock as authorization success: the real endpoint
+  // must still return exactly HTTP 401 and its own UNAUTHORIZED code.
+  for(let attempt=1;attempt<=2;attempt++){
+    try{
+      res=await fetch(base+'/functions/v1/'+slug,{
+        method:'POST',headers,
+        body:JSON.stringify({quoteId:'00000000-0000-4000-8000-000000000001'}),
+        signal:AbortSignal.timeout(attempt===1?105000:60000)
+      });
+      break;
+    }catch(e){
+      if(attempt===2||e?.name!=='TimeoutError')throw e;
+      const healthAgain=await fetch(base+'/auth/v1/health',{
+        signal:AbortSignal.timeout(15000)
+      });
+      assert.equal(healthAgain.status,200,
+        'local Auth must stay healthy before retrying an Edge cold start');
+      console.warn('Local disposable Edge cold-start timeout for '+slug+
+        '; retrying the actual authenticated-negative HTTP probe once.');
+    }
+  }
+  assert.ok(res,'Edge endpoint must actually reply');
   const body=await res.json();
   assert.equal(res.status,401,slug+' must deny use of anon JWT as a user session');
   assert.equal(body.error,'UNAUTHORIZED',
