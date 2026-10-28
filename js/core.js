@@ -885,8 +885,6 @@ function shell(content){
   // A public visitor choosing 'Revenda' should see the commercial explanation before the login portal.
   const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"go('merchants')";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
-  // A buyer must always have a direct path back to a previously created order.
-  // A stored commercial reference is not proof of an active/paid order.
   const buyerHasOrder=testDemo?Boolean(activeOrder()):
     Boolean(globalThis.liveRuntime?.orderId||globalThis.liveRuntime?.order);
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
