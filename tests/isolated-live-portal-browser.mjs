@@ -142,7 +142,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(merchant.status,'ready');assert.equal(merchant.match,true);
   assert.match(merchant.visible,/Revenda Simulada CI|Pedidos|Preparando|PREPARANDO/i);
   if(recentClosedOrderId){
-    const closed=JSON.parse(await evaluate("JSON.stringify({rows:merchantRuntime.recentClosedOrders,visible:document.querySelector('.merchant-recent-closed-orders')?.innerText||''})"));
+    const closed=JSON.parse(await evaluate("JSON.stringify({rows:merchantRuntime.merchant?.recentClosedOrders,visible:document.querySelector('.merchant-recent-closed-orders')?.innerText||''})"));
     const match=closed.rows?.find(o=>o.orderId===recentClosedOrderId);
     assert.equal(match?.status,'SETTLED','partner history must retain the completed P13');
     assert.match(closed.visible,/Últimos pedidos encerrados/);
