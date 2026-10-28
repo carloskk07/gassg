@@ -126,6 +126,8 @@ jobs:
         run: node tests/coupon-mp-net-registration-admin.mjs
       - name: Admin merchant catalog dry-run without orders or Pix
         run: node tests/admin-merchant-catalog-trial.mjs
+      - name: Three synthetic Admin order previews with zero backend writes
+        run: node tests/admin-safe-demo-orders.mjs
       - name: Authoritative admin merchant readiness — same SKU and valid payment route
         run: node tests/admin-merchant-offer-coherence.mjs
       - name: Admin offer availability matches public quote authority
