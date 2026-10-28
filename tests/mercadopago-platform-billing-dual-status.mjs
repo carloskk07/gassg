@@ -142,6 +142,26 @@ assert.equal(result.body.error,'MERCADOPAGO_REVERSAL_REVIEW_REQUIRED');
 assert.equal(calls.payment.length,0);
 assert.equal(calls.refund.length,0);
 
+// A processed/accredited order can still carry an unresolved refund.
+// Neither pending refunds nor malformed/foreign refund evidence may credit
+// prepaid merchant balance or be misreported as an executed refund.
+for(const [name,refund] of [
+ ['refund processing',{id:'REFUND-PENDING',status:'processing',amount:'50.00'}],
+ ['refund pending',{id:'REFUND-PENDING2',status:'pending',amount:'50.00'}],
+ ['refund missing ID',{status:'processed',amount:'50.00'}],
+ ['refund missing amount',{id:'REFUND-NO-AMOUNT',status:'processed'}],
+ ['refund for other payment',{id:'REFUND-OTHER',status:'processed',
+   amount:'50.00',transaction_id:'PAY-OTHER'}]
+]){
+ reset();remote.transactions.refunds=[refund];
+ result=await run();
+ assert.equal(result.status,409,name);
+ assert.equal(result.body.error,'MERCADOPAGO_REVERSAL_REVIEW_REQUIRED',name);
+ assert.equal(calls.payment.length,0,name+' cannot grant credit');
+ assert.equal(calls.refund.length,0,name+' cannot claim completed refund');
+ assert.deepEqual(calls.errors,['MERCADOPAGO_REVERSAL_REVIEW_REQUIRED'],name);
+}
+
 reset();remote.transactions.payments=[];
 result=await run();
 assert.equal(result.status,409);
