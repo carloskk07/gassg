@@ -165,6 +165,17 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(orderCardVisible,true,'the actual Admin orders UI must render this local order card');
   assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
   assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
+  // The new demonstration is actually CLICKABLE in the same real Chrome
+  // superadmin portal, but never creates an Order / merchant charge.
+  const createDemo=await evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.textContent.includes('Criar 3 pedidos fictícios'));if(!b)return false;b.click();return true})()");
+  assert.equal(createDemo,true,'superadmin must see the safe test-order action');
+  await wait("document.querySelectorAll('[data-demo-only=\"true\"]').length===3",'three demonstration order cards',15000);
+  const advanceDemo=await evaluate("(()=>{const b=Array.from(document.querySelectorAll('[data-demo-only=\"true\"] button')).find(x=>x.textContent.includes('Avançar etapa fictícia'));if(!b)return false;b.click();return true})()");
+  assert.equal(advanceDemo,true,'demo order must be interactive');
+  const firstDemo=await evaluate("document.querySelector('[data-demo-only=\"true\"]')?.innerText||''");
+  assert.match(firstDemo,/PREPARANDO/,'a demo status advances visually in the real Admin');
+  assert.match(firstDemo,/FICTÍCIO/,'demo status remains visibly synthetic');
+
   // Click the EXISTING Tower of Control button, retaining the canonical
   // adminPerform -> admin-ops -> admin_order_control_action transaction.
   const didClickNote=await evaluate("(()=>{const card=Array.from(document.querySelectorAll('.order-card')).find(x=>x.querySelector('.order-id')?.textContent.trim()===(adminRuntime.data?.controlOrders?.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code||''));const btn=Array.from(card?.querySelectorAll('button')||[]).find(x=>x.textContent.includes('Registrar observação'));if(!btn)return false;window.prompt=()=> 'Observacao de teste CI sem dados reais';btn.click();return true})()");
