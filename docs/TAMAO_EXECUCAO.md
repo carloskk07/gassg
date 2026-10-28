@@ -1,3 +1,9 @@
+## 28/10/2026 — Simulador Revenda: pedidos acima do formulário P13 (PR em validação)
+
+- **Falha observada na UI testada pelo proprietário:** a demo `merchantPage()` mostrava seleção de revenda, 4 indicadores e 6 campos de preço, faixa e estratégia **antes** dos pedidos, sugerindo que precisava preencher tudo para aceitar.
+- **Reorganização:** status de disponibilidade, alerta de preço expirado e fila **Pedidos que exigem ação** no início; configuração de estoque, preços e seleção de revenda em `<details class="merchant-demo-settings">` inicialmente fechado, acessível para quem precisar. Todos os mecanismos de aceite, despacho, chegada, PIN e pagamento fictício mantidos. Isso se aplica à demo, além da simplificação da Revenda comercial da PR #704.
+- **Gates:** novo assert Chrome mobile verifica primeiro pedido visível, preço oculto, sem cliques adicionais para aceitar, além dos E2E WATER20/P13 e Admin. Sem alteração nos dados sintéticos, no sistema financeiro, no Supabase nem nas regras de segurança.
+
 ## 28/10/2026 — Foco do painel da Revenda: menos escolhas simultâneas (PR em validação)
 
 - **Causa visual comprovada no frontend oficial:** a `merchantLivePage()` mostrava ao mesmo tempo cartão de orientação, 5 grandes atalhos (Pedidos, Comece, Resultados, Divulgar, Minha revenda), disponibilidade, resumo, onboarding com 3–4 cartões individuais e uma segunda seção de configuração. Isso multiplica decisões e cliques mesmo quando a atividade principal é aceitar e entregar pedidos.
