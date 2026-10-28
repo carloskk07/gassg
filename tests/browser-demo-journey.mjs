@@ -130,6 +130,7 @@ try{
  await wait("route()==='merchant'&&state.selectedMerchant==="+JSON.stringify(o.merchantId)+"&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'open matching merchant and rendered order');
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",'merchant accept');
+ await wait("document.querySelector('#tamao-demo-progress')?.textContent.includes('3/4')",'guidance advances immediately on merchant accept',2500);
  await wait("(()=>{const card=Array.from(document.querySelectorAll('.order-card')).find(el=>el.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+"));const r=card?.getBoundingClientRect();return !!r&&r.top>=115&&r.top<710})()", 'accepted order must remain visible after merchant render',5000);
  await snapshot('04-revenda-pedido-aceito.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar saída'));if(!b)return false;b.click();return true})()");
