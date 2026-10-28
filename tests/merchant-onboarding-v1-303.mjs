@@ -108,6 +108,10 @@ for(const marker of [
  '.merchant-first-run-extra','.merchant-workspace-more','.merchant-workspace-more-actions',
  '@media(max-width:550px)','.merchant-workspace #merchant-live-orders'
 ])assert.ok(css.includes(marker),'missing responsive CSS '+marker);
+assert.ok(css.includes('.merchant-workspace-more:not([open])>.merchant-workspace-more-actions'),
+ 'secondary merchant links must actually hide when closed despite display:grid');
+assert.ok(css.includes('.merchant-first-run-extra:not([open])>.merchant-first-run-steps'),
+ 'setup checklist must actually hide until explicitly expanded');
 assert.ok(ci.includes('node tests/merchant-onboarding-v1-303.mjs'));
 // ANP applies to active GLP and GLP cylinders, not to unrelated products.
 // Exercise the exact production predicate, not a test-only replacement.
