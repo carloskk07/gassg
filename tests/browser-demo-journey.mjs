@@ -139,6 +139,14 @@ try{
  await wait("route()==='tracking'&&state.mode==='customer'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")&&document.querySelector('#tamao-main')?.innerText.includes('Acompanhe a entrega')",'header Comprar resumes accepted order');
  assert.equal((await demoState()).orders.at(-1).status,'PREPARING','switching customer must not mutate the accepted order');
  await snapshot('04b-cliente-acompanhamento-apos-aceite.png');
+ // Bottom navigation must expose "Pedidos" without searching the home
+ // or creating a duplicate checkout.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.bottom-nav button')).find(x=>x.textContent.includes('Início'));if(!b||!b.getClientRects().length)return false;b.click();return true})()");
+ await wait("route()==='home'",'customer returns home');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.bottom-nav button')).find(x=>x.textContent.includes('Pedidos'));if(!b||!b.getClientRects().length)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")",'buyer finds existing order via bottom nav');
+ assert.equal((await demoState()).orders.length,1,'navigation must not duplicate the order');
+
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
  await wait("route()==='merchant'&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'back to merchant same order');
  // Repeat from the banner Cliente link, not only the original header.
