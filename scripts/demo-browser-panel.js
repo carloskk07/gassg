@@ -144,6 +144,7 @@
     const realAction=globalThis.merchantAction;
     globalThis.merchantAction=(id,action)=>{
       const result=realAction(id,action);
+      updateGuide();
       window.setTimeout(focusAssignedOrder,100);
       return result;
     };
