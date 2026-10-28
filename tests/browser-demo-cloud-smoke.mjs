@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 const out=path.resolve('_site');
+const workflow=fs.readFileSync(new URL('../.github/workflows/owner-browser-demo-pages.yml',import.meta.url),'utf8');
+const pushPaths=workflow.split('  push:')[1]?.split('  workflow_dispatch:')[0]||'';
+for(const asset of ["'js/**'","'css/**'","'index.html'","'icons/**'","'assets/**'","'manifest.webmanifest'"]){
+ assert.ok(pushPaths.includes(asset),'GitHub Pages must republish when '+asset+' changes on main');
+}
+
 const read=name=>fs.readFileSync(path.join(out,name),'utf8');
 const h=read('index.html');
 const runtime=read('js/runtime-config.js');
