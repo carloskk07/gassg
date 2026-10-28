@@ -62,7 +62,7 @@ for(const selector of ['.home-trust-brief','.home-trust-answers','.home-notify-s
   assert.ok(css.includes(selector),'V1.363 responsive clarity element missing: '+selector);
 }
 // V1.364: public and mobile buyer entry must never force P13 into a cart.
-assert.match(core,/\['availability','🧺','Consultar','market'\]/,
+assert.match(core,/\['availability','🧺','Comprar','market'\]/,
  'mobile consult CTA must open product-first browsing or availability notice');
 assert.match(core,/act==='market'\?"tamaoOpenAvailability\(\)"/,
  'bottom nav click must preserve the basket and decide based on current availability');
