@@ -58,7 +58,11 @@ export async function startOwnerLocalDemo({api,anon,customer,merchant,admin,
   try{
     for(const {role,port,actor,route,store,key} of roles){
       const origin='http://127.0.0.1:'+port;
+      // Keep Supabase's own refreshed session across page reloads, but
+      // replace credentials when a brand-new disposable Auth actor starts.
       const sessionScript='(()=>{const s='+JSON.stringify(JSON.stringify(actor.session))+';'
+        +'let old=null;try{old=JSON.parse('+store+'.getItem('+JSON.stringify(key)+')||"null")}catch{};'
+        +'if(old?.user?.id!=='+JSON.stringify(actor.session.user.id)+')'
         +store+'.setItem('+JSON.stringify(key)+',s);})();';
       const server=http.createServer((req,res)=>{
         const headers={'Cache-Control':'no-store, max-age=0',
@@ -76,6 +80,12 @@ export async function startOwnerLocalDemo({api,anon,customer,merchant,admin,
             return res.writeHead(200,{...headers,'Content-Type':MIME['.js']}).end(sessionScript);
           const requested=decodeURIComponent(url.pathname);
           const relative=requested==='/'?'index.html':requested.slice(1);
+          // Never serve .env, .git, tests, SQL, CI artifacts, credentials or
+          // any arbitrary checked-in source file from this loopback server.
+          const publicAsset=/^(?:js|css|icons|assets|images|img|fonts)\/[A-Za-z0-9_./-]+$/.test(relative)
+            &&!relative.split('/').some(segment=>segment==='..'||segment.startsWith('.'));
+          if(!publicAsset&&!['index.html','manifest.webmanifest','favicon.ico'].includes(relative))
+            return res.writeHead(404,headers).end('Not found');
           const full=path.resolve(root,relative);
           if(!full.startsWith(root+path.sep)||!fs.statSync(full).isFile())
             return res.writeHead(404,headers).end('Not found');
