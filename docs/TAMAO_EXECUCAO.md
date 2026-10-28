@@ -1,3 +1,10 @@
+## 28/10/2026 — Evidências visuais com dados fictícios claramente identificados (PR em validação)
+
+- **Defeito observado no artefato #693:** o SQL/Chrome compartilham o mesmo pedido, mas a tela do Cliente mostra OPERAÇÃO ATIVA e o Admin LIVE (porque o banco descartável permite o fluxo), sem faixa explícita de dados fictícios. As capturas Revenda/Admin mostram dashboards sem o pedido em questão.
+- **Correção sem alterar produção:** `scripts/owner-local-demo-server.mjs` injeta em memória uma faixa sticky **DEMONSTRAÇÃO LOCAL — DADOS FICTÍCIOS · NENHUMA VENDA, COBRANÇA OU PIX REAL** acima da aplicação nas três origens localhost. O site comercial não muda.
+- **Prova obrigatória:** Chrome verifica que faixa aparece nos três papéis; parceiro e Admin devem mostrar mesmo código público e Admin abre `Pedidos` pelo menu antes da captura; imagens enquadram pedido, não só dashboard. Preservar e homologar toda a jornada real do pedido entre os portais em Postgres temporário.
+- **Limite:** visual da demonstração local; ainda depende WSL2/Docker/CLI no Windows e não oferece backend persistente na internet.
+
 ## 28/10/2026 — Homologação das três origens locais com navegador real (PR em testes)
 
 - **Cobertura concreta que faltava:** a PR #692 validava URLs, HTML e credenciais por HTTP, mas não abria os três portais reais simultaneamente em Chrome. Isso poderia mascarar falha de Auth, CSP, botões e integração.

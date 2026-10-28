@@ -610,6 +610,8 @@ try{
    assert.deepEqual(status,{ok:true,role,localOnly:true});
    const html=await read('/');
    assert.match(html,/owner-local-session\.js/);
+   assert.match(html,/tamao-owner-demo-ribbon/,'local-only synthetic banner must be in the real page');
+   assert.match(html,/NENHUMA VENDA, COBRANÇA OU PIX REAL/,'fixture cannot present as real commercial order');
    assert.match(html,/noindex,nofollow,noarchive/);
    assert.doesNotMatch(html,/lgugwujpunhslavewffd\.supabase\.co/);
    const script=await read('/js/backend.js');

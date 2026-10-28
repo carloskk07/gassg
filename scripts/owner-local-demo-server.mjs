@@ -44,8 +44,21 @@ export async function startOwnerLocalDemo({api,anon,customer,merchant,admin,
   const cspIndex=exactReplace(index,PRODUCTION_CSP,api)
     .replace('content="index,follow,max-image-preview:large"','content="noindex,nofollow,noarchive"');
   assert.ok(cspIndex.includes('<script src="./js/runtime-config.js"></script>'));
+  // The local SQL harness deliberately uses operation_mode=LIVE to test
+  // canonical business actions. Never allow that internal test flag to look
+  // like real commercial availability in a human-facing rehearsal.
+  const demoRibbon='<aside id="tamao-owner-demo-ribbon" role="status" '+
+    'aria-label="Demonstração fictícia somente neste computador" '+
+    'style="position:sticky;top:0;z-index:99999;box-sizing:border-box;'+
+    'width:100%;padding:10px 14px;text-align:center;background:#ffe2a1;'+
+    'color:#3c2500;border-bottom:2px solid #c88300;line-height:1.45;'+
+    'font:600 13px system-ui,sans-serif">'+
+    '<strong>🧪 DEMONSTRAÇÃO LOCAL — DADOS FICTÍCIOS</strong>'+
+    ' <span>Pedidos, revenda, preços e indicadores são testes. '+
+    'NENHUMA VENDA, COBRANÇA OU PIX REAL.</span></aside>';
   const html=cspIndex.replace('<script src="./js/runtime-config.js"></script>',
-    '<script src="./js/owner-local-session.js"></script>\n  <script src="./js/runtime-config.js"></script>');
+    '<script src="./js/owner-local-session.js"></script>\n  <script src="./js/runtime-config.js"></script>')
+    .replace('<body>','<body>\n  '+demoRibbon);
   const roles=[
     {role:'customer',port:ports[0],actor:customer,route:'/#home',
       store:'localStorage',key:'chama-sg-customer-auth-v2'},
