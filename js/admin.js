@@ -363,6 +363,7 @@ async function adminSignOut(){
   adminRuntime.session=null;
   adminRuntime.data=null;
   adminRuntime.merchantTrial=null;
+  adminOrderDemoState=null; // discard visual-only orders on sign-out
   adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
     reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null};
   adminRuntime.searchQuery='';
