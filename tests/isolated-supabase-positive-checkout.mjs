@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {verifyIsolatedLivePortals} from './isolated-live-portal-browser.mjs';
 import {startOwnerLocalDemo} from '../scripts/owner-local-demo-server.mjs';
+import {verifyOwnerLocalDemoBrowser} from './owner-local-demo-browser.mjs';
 import {verifyIsolatedPrivilegedRpc} from './isolated-discovery-privileged-rpc.mjs';
 
 // Positive quote -> checkout -> read in a DISPOSABLE local Supabase stack.
@@ -591,8 +592,9 @@ console.log('PASS: GLP P13 blocked before CI ANP, then settled via PIN; water ca
 
 // Real frontends, real LOCAL Auth and Postgres, three independent origins.
 // CI proves the owner rehearsal server before an optional human-driven session.
+const demoUiBuyer=await createActor('local-demo-three-portal-browser');
 const rehearsal=await startOwnerLocalDemo({
- api:base,anon,customer:browserCheckoutBuyer,merchant:owner,admin:adminActor
+ api:base,anon,customer:demoUiBuyer,merchant:owner,admin:adminActor
 });
 try{
  const healths=await Promise.all(rehearsal.roles.map(async({role,url})=>{
@@ -626,6 +628,8 @@ try{
    return role;
  }));
  assert.deepEqual(healths,['customer','merchant','admin']);
+ await verifyOwnerLocalDemoBrowser({roles:rehearsal.roles,customerId:demoUiBuyer.id});
+ assert.equal(sql("SELECT count(*) FROM public.orders WHERE customer_id="+q(demoUiBuyer.id)+"::uuid"),'1','owner three-origin browser must create exactly one real local SQL order');
  console.log('PASS: three local owner-demo origins are authenticated, loopback-only and serve only disposable backend URLs.');
 }finally{await rehearsal.close()}
 
