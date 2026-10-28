@@ -63,6 +63,10 @@ for(const marker of [
  'customerEligibleCheckoutOffers(os,{testDemo})'
 ])assert.ok(page.includes(marker),'existing checkout flow lost '+marker);
 assert.ok(page.indexOf('id="delivery-phone"')<page.indexOf('buyer-extra-details'));
+assert.ok(page.indexOf('id="customer-cart"')<page.indexOf('id="customer-address"'),
+  'products must appear before address, matching the first checkout step');
+assert.ok(page.indexOf('id="customer-address"')<page.indexOf('id="customer-contact"'),
+  'address precedes contact information');
 assert.ok(page.indexOf('id="customer-cart"')<page.indexOf('id="customer-offers"'));
 assert.ok(customer.includes('function customerEligibleCheckoutOffers('),'server quote freshness must remain shared');
 assert.ok(bootstrap.includes('customerCheckoutFocusStep,'));

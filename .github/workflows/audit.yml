@@ -841,7 +841,7 @@ jobs:
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
           grep -q "Indique quem compra. Apresente quem vende. Faça sua rede crescer." /tmp/earn.html
-          grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
+          grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
           grep -q "Sua revenda mais visível." /tmp/merchants.html

@@ -849,27 +849,27 @@ function customerCheckoutJourney({hasItems=false,hasAddress=false,hasPhone=false
   let nextKey='',nextTitle='',nextDescription='',nextButton='';
   if(!hasItems){
     nextKey='cart';nextTitle='Escolha o que você precisa';
-    nextDescription='Adicione gás, água ou outros itens disponíveis. Você pode mudar a cesta antes do pedido.';
+    nextDescription='Escolha seus produtos. A cesta pode mudar antes de enviar.';
     nextButton='Ver produtos';
   }else if(!hasAddress){
     nextKey='address';nextTitle='Confirme onde quer receber';
-    nextDescription='Preencha CEP e número. O TAMÃO consulta o endereço e a disponibilidade para essa região.';
+    nextDescription='Informe CEP e número para consultar a entrega.';
     nextButton='Informar endereço';
   }else if(!hasPhone){
     nextKey='contact';nextTitle='Informe um telefone para a entrega';
-    nextDescription='A revenda recebe o telefone somente conforme o fluxo de atendimento do pedido.';
+    nextDescription='Informe um telefone com DDD para a entrega.';
     nextButton='Informar telefone';
   }else if(loadingOffers){
     nextKey='offers';nextTitle='Consultando opções reais';
-    nextDescription='Estamos verificando as revendas que podem atender esta cesta e este endereço.';
+    nextDescription='Buscando opções para seu endereço.';
     nextButton='Ver consulta';
   }else if(!hasOffers){
     nextKey='offers';nextTitle='Confira a disponibilidade';
-    nextDescription='As opções aparecem quando houver preço, prazo e atendimento elegíveis; nenhuma compra é criada pela consulta.';
+    nextDescription='Confira os preços e prazos disponíveis. Consultar não cria pedido.';
     nextButton='Ver opções';
   }else{
     nextKey='offers';nextTitle='Compare e escolha com tranquilidade';
-    nextDescription='Veja total com entrega e prazo. A revenda ainda precisará aceitar o pedido.';
+    nextDescription='Veja total e prazo. A revenda ainda precisará aceitar o pedido.';
     nextButton='Comparar opções';
   }
   const ready=stages.filter(stage=>stage.done).length;
@@ -1002,7 +1002,7 @@ function orderPage(){
     }else if(ready&&os.length&&freshOffers.length===0){
       offerBlock='<div class="empty card offer-expired-notice" role="status"><strong>As opções desta consulta expiraram.</strong><p class="muted tiny">O preço e o prazo podem ter mudado. Consulte novamente para receber opções atualizadas. Nenhum pedido foi enviado.</p><button type="button" class="primary" onclick="liveRefreshOffers().catch(()=>{})">Atualizar opções →</button></div>';
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card"><strong>Ainda não encontramos uma revenda com carga e vasilhame disponíveis para este pedido.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
+      offerBlock='<div class="empty card"><strong>Ainda não encontramos uma revenda com carga e vasilhame disponíveis para este pedido.</strong><br><span class="muted tiny">A revenda precisa ter carga e vasilhame disponíveis.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card"><strong>Ainda não há uma revenda disponível para entregar esses produtos no seu CEP.</strong><p class="muted tiny">Você pode tentar outra combinação ou pedir um aviso quando houver atendimento.</p><div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
     }else if(ready){
@@ -1022,17 +1022,22 @@ function orderPage(){
 
   const paymentBlock=preview
     ? '<div class="notice">As formas de pagamento aparecem quando houver uma opção disponível para esta consulta.</div>'
-    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga diretamente à revenda quando receber. Pagamento antecipado só será oferecido em uma etapa separada, após habilitação financeira.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
+    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga à revenda na entrega. Não há pagamento antecipado nesta etapa.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
 
   const containerBlock=hasGlp
-    ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço da oferta muda conforme existe ou não um recipiente para troca.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você entrega o recipiente compatível e compra somente a carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>O TAMÃO inclui automaticamente um vasilhame do mesmo tamanho para cada carga de GLP.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total considera que haverá um botijão vazio compatível para entregar ao parceiro.</div>'}</div></section>`
+    ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço depende da troca do botijão.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você troca o botijão vazio pela carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>A consulta inclui um vasilhame compatível para cada carga.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total pressupõe a troca do botijão vazio compatível.</div>'}</div></section>`
     : '';
 
-  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Escolha os produtos, confirme o endereço e compare o total com entrega antes de enviar seu pedido.</p>
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Primeiro escolha os produtos. Depois informe onde entregar e confira o total com entrega antes de enviar.</p>
 ${buyerGuide}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
+<section class="section" id="customer-cart"><div class="section-head"><div><h2 tabindex="-1">Sua cesta</h2><p>Escolha os itens. É possível comprar água sem gás.</p></div></div>
+  ${cartNeedsFilter?`<div class="buyer-cart-filter" role="group" aria-label="Filtrar produtos para adicionar">${cartFilterControls}</div>
+  <p id="buyer-cart-feedback" class="buyer-cart-feedback" role="status">${initiallyVisible} produtos em destaque. Os itens da sua cesta continuam à vista.</p>`:''}
+  <div class="card flat buyer-cart-catalog" id="buyer-cart-catalog">${cartRows||'<div class="empty">Nenhum produto configurado para adicionar.</div>'}</div></section>
+
 <div class="card flat form-stack order-address-card" id="customer-address">
   ${testDemo?`<div class="field-row">
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3})$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
@@ -1062,10 +1067,6 @@ ${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-
   <div class="input-wrap"><label for="delivery-notes">Instruções para a entrega</label><textarea id="delivery-notes" class="input" maxlength="240" rows="2" placeholder="Ex.: chamar no portão; cachorro no pátio." onchange="deliveryDetailsChanged()">${esc(state.checkout.deliveryNotes||'')}</textarea><small class="field-help">Evite dados desnecessários. Essas informações ficam vinculadas ao pedido para a operação responsável.</small></div>
   </details>
 </div>`:''}
-<section class="section" id="customer-cart"><div class="section-head"><div><h2 tabindex="-1">Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div>
-  ${cartNeedsFilter?`<div class="buyer-cart-filter" role="group" aria-label="Filtrar produtos para adicionar">${cartFilterControls}</div>
-  <p id="buyer-cart-feedback" class="buyer-cart-feedback" role="status">${initiallyVisible} produtos em destaque. Os itens da sua cesta continuam à vista.</p>`:''}
-  <div class="card flat buyer-cart-catalog" id="buyer-cart-catalog">${cartRows||'<div class="empty">Nenhum produto configurado para adicionar.</div>'}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
 ${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section" id="customer-offers"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
@@ -1163,7 +1164,7 @@ function checkoutOfferComparison(all){
     <div class="comparison-intro">
       <span class="section-kicker">COMPARE COM TRANQUILIDADE</span>
       <h2>${all.length===1?'Sua cotação com benefícios TAMÃO':'Compare '+all.length+' ofertas e seus benefícios'}</h2>
-      <p>Veja o total com entrega e compare com os créditos do seu Clube.</p>
+      <p>Confira o total com entrega.</p>
     </div>
     <div class="tamao-home-coupon-rail">
       <span class="tamao-home-coupon-icon" aria-hidden="true">🎟️</span><div><strong>Tem cupom ou cashback TAMÃO?</strong>
