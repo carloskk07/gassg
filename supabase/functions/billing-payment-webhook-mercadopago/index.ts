@@ -238,6 +238,19 @@ async function handleMerchantSaleOrder(
 
   const payment=primaryPayment(order);
   const paymentId=String(payment?.id??"").trim()||null;
+  const refundRows=Array.isArray(order?.transactions?.refunds)
+    ?order.transactions.refunds:[];
+  // A pending, unidentified or foreign refund is NOT proof that merchant
+  // proceeds remain intact. The existing event RPC must never approve a sale
+  // on a snapshot with unresolved or contradictory refund evidence.
+  const incompleteRefundEvidence=refundRows.some((refund:any)=>{
+    const state=String(refund?.status??"").trim().toLowerCase();
+    return !["processed","approved","refunded"].includes(state)
+      ||!String(refund?.id??"").trim()
+      ||(moneyToCents(refund?.amount)??0)<=0
+      ||(refund?.transaction_id!=null
+        &&String(refund.transaction_id)!==String(paymentId??""));
+  });
   const refundTotalCents=refundedCents(order);
   const orderState=String(order?.status??"").trim().toLowerCase();
   const paymentState=String(payment?.status??"").trim().toLowerCase();
@@ -248,7 +261,9 @@ async function handleMerchantSaleOrder(
   const adverseDetails=["refunded","partially_refunded","charged_back",
     "chargeback","disputed","in_mediation","reimbursed","failed"];
   const saleEvidenceConflicted=order?.live_mode===false
+    ||payment?.live_mode===false
     ||(order?.currency_id&&order.currency_id!=="BRL")
+    ||incompleteRefundEvidence
     ||refundTotalCents>Number(attempt.amount_cents);
   if(saleEvidenceConflicted){
     const now=new Date().toISOString();
@@ -278,8 +293,9 @@ async function handleMerchantSaleOrder(
   if(status==="processed"&&(
     orderState!=="processed"||paymentState!=="processed"
     ||detailStates.some((value:string)=>adverseDetails.includes(value))
-    ||(payment?.amount!=null
-      &&moneyToCents(payment.amount)!==Number(attempt.amount_cents))
+    // A correct Order total cannot substitute an absent Pix transaction
+    // amount. Require the PSP's individual payment amount for approval.
+    ||moneyToCents(payment?.amount)!==Number(attempt.amount_cents)
   )){
     const now=new Date().toISOString();
     const {error:reviewError}=await admin
