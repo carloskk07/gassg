@@ -117,7 +117,7 @@ try{
  assert.match(o.id,/^SG-[A-Z0-9-]+$/);
  assert.ok(o.total>0,'quote must lock a positive total');
  assert.ok(o.pin?.length===4,'synthetic proof-of-delivery PIN');
- assert.ok((await evaluate("document.querySelector('#tamao-demo-progress').textContent")).includes('2/4'));
+ await wait("document.querySelector('#tamao-demo-progress')?.textContent.includes('2/4')",'progress indicator after checkout',4500);
  await snapshot('02-cliente-pedido-aguardando.png');
  // Admin must show this exact ID and never require real login.
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
