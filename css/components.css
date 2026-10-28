@@ -402,3 +402,21 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .merchant-workspace-more:not([open])>.merchant-workspace-more-actions,
 .merchant-first-run-extra:not([open])>.merchant-first-run-steps,
 .merchant-first-run-extra:not([open])>button{display:none}
+
+/* Driver: one operational priority, no duplicated dashboard/settings. */
+.merchant-driver-page{max-width:860px;margin-inline:auto}
+.merchant-driver-header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:0 0 12px}
+.merchant-driver-header .eyebrow{flex-basis:100%}
+.merchant-driver-header h1{flex:1 1 220px;margin:0}
+.merchant-driver-header p{flex-basis:100%;order:3;margin:0}
+.merchant-driver-header button{margin-left:auto;min-height:44px}
+.merchant-driver-priority>.order-card{margin-block:12px}
+.merchant-driver-priority h2{font-size:20px}
+.merchant-driver-tools,.merchant-driver-more{margin:16px 0;border:1px solid #dae7dd;background:#fff;border-radius:16px;overflow:hidden}
+.merchant-driver-tools>summary,.merchant-driver-more>summary{cursor:pointer;padding:15px;font-weight:800;color:#24553d}
+.merchant-driver-tools>summary:focus-visible,.merchant-driver-more>summary:focus-visible{outline:3px solid #4cae80;outline-offset:-3px}
+.merchant-driver-tools-body,.merchant-driver-more-body{display:grid;gap:12px;padding:0 13px 14px}
+.merchant-driver-tools:not([open])>.merchant-driver-tools-body{display:none}
+.merchant-driver-more:not([open])>.merchant-driver-more-body{display:none}
+.merchant-driver-page .merchant-driver-offline p{margin:8px 0 0;font-size:14px}
+@media(max-width:550px){.merchant-driver-header button{width:100%;margin:4px 0 0}.merchant-driver-priority>.order-card{margin-block:9px}}

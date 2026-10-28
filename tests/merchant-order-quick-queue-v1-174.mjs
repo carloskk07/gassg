@@ -84,9 +84,13 @@ assert.equal(messages.at(-1),'Pedido aceito');
 assert.ok(cut('merchantLivePage').includes('merchantOrderQueueView(orders)'));
 assert.ok(cut('merchantLivePage').indexOf('id="merchant-live-orders"')<cut('merchantLivePage').indexOf('merchantSetupView(rt)'),
  'Live orders should appear before long setup details');
-assert.ok(cut('merchantDriverLivePage').indexOf('Pedidos atribuídos a você')<cut('merchantDriverLivePage').indexOf('merchantAlertControl()'),
- 'Assigned driver orders should appear before secondary profile and alert settings');
-assert.ok(cut('merchantDriverLivePage').includes("merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')"));
+const driverPanel=cut('merchantDriverLivePage');
+assert.ok(driverPanel.indexOf('merchant-driver-priority')<driverPanel.indexOf('merchantAlertControl()'),
+ 'Assigned driver orders must appear before secondary profile and alert settings');
+assert.ok(driverPanel.includes('primary.map(merchantLiveOrder)')&&driverPanel.includes('remaining.map(merchantLiveOrder)'),
+ 'Assigned orders must not disappear when redundant queue groups are removed');
+assert.ok(driverPanel.includes('merchantOrderListEvidence(rt)')&&driverPanel.includes('merchantOrderListRecovery(rt)'),
+ 'Old or missing server evidence must block driver order actions');
 assert.ok(backend.includes('merchantRuntime.actionPending=true;'));
 assert.ok(backend.includes('expectedVersion:order.version'));
 assert.ok(css.includes('.merchant-order-queue-stats')&&css.includes('@media(max-width:540px)'));

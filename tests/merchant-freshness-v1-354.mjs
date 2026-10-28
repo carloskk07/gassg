@@ -53,9 +53,7 @@ assert.match(model.recovery({...rt,lastSyncAt:null,orders:[]}),/Não há confirm
 const driverCtx=vm.createContext({
   esc,Date,Math,Number,globalThis:{},
   shell:html=>html,merchantAlertControl:()=>'<div>Alertas</div>',
-  merchantOrderQueueView:()=>
-    '<div class="test-driver-actions"><button onclick="merchantLiveAction(\'x\',\'accept\')">Aceitar</button></div>',
-  merchantDeliveryBoardView:()=>'<div class="test-board-actions"><button>Entregar</button></div>'
+  merchantLiveOrder:()=>'<div class="test-driver-actions"><button>Conferir entrega</button></div>'
 });
 vm.runInContext(cut('merchantOrderListEvidence')+'\n'+cut('merchantOrderListRecovery')+
  '\n'+cut('merchantDriverLivePage')+'\nthis.driver=merchantDriverLivePage;',driverCtx);
@@ -66,13 +64,14 @@ const driver={
 };
 const current=driverCtx.driver(driver);
 assert.match(current,/test-driver-actions/);
-assert.match(current,/test-board-actions/);
+assert.doesNotMatch(current,/test-board-actions/,'driver avoids duplicate delivery dashboards');
 driver.lastSyncAt=new Date(Date.now()-5*60000).toISOString();
 const stale=driverCtx.driver(driver);
 assert.match(stale,/Atualize a lista antes de atender/);
 assert.doesNotMatch(stale,/test-driver-actions|test-board-actions/);
 assert.match(stale,/Atualizar pedidos/);
-assert.match(stale,/Visão restrita por atribuição/);
+assert.match(stale,/Minhas entregas/);
+assert.match(stale,/merchant-driver-tools/,'offline/secondary tools do not grant stale actions');
 const livePage=cut('merchantLivePage');
 assert.match(livePage,/const orderEvidence=merchantOrderListEvidence\(rt\)/);
 assert.match(livePage,/orderEvidence\.fresh\?merchantDailyOverview\(rt,orders\):/);
