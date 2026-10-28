@@ -11,6 +11,16 @@ done
 [[ -f "supabase/schema.sql" && -f "supabase/config.toml" ]] || fail "Abra o projeto completo carloskk07/gassg."
 [[ -z "${SUPABASE_ACCESS_TOKEN:-}" && -z "${SUPABASE_DB_PASSWORD:-}" ]] ||
   fail "Remova SUPABASE_ACCESS_TOKEN e SUPABASE_DB_PASSWORD do terminal; esta demo usa somente localhost."
+# Rejeitar credenciais de PSP reais. O fixture usa somente pagamento
+# fictício na entrega; não existe motivo para receber tokens de provedor.
+for variable in MERCADOPAGO_ACCESS_TOKEN WOOVI_APP_ID WOOVI_API_KEY
+  BILLING_PIX_PROVIDER STRIPE_SECRET_KEY SUPABASE_SERVICE_ROLE_KEY; do
+  [[ -z "${!variable:-}" ]] ||
+    fail "Há uma credencial de pagamento/serviço no ambiente. Abra um terminal limpo para a demo."
+done
+if find supabase -type f \( -name '.env' -o -name '.env.local' -o -name '.env.production' \) -print -quit | grep -q .; then
+  fail "Existe .env em supabase/. Remova arquivos de credenciais do checkout de demonstração."
+fi
 [[ "$(node -p 'Number(process.versions.node.split(".")[0])>=20')" == "true" ]] ||
   fail "Node.js 20 ou superior é obrigatório."
 [[ -d supabase/migrations && ! -L supabase/migrations ]] || fail "Diretório de migrations inválido."
