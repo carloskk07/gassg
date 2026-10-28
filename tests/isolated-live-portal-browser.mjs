@@ -7,7 +7,7 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false,browserCheckoutBuyer=null}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
@@ -180,7 +180,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
     }
     const browser=await connect(browserInfo.webSocketDebuggerUrl);
     try{
-      async function openRole(role,session,url){
+      async function openRole(role,session,url,{trackExisting=true}={}){
         const {browserContextId}=await browser.send('Target.createBrowserContext',{disposeOnDetach:true});
         assert.ok(browserContextId);
         contexts.push(browserContextId);
@@ -202,7 +202,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         const parts=["(()=>{if(location.origin!=="+JSON.stringify(origin)+")return;"];
         if(role==='customer'){
           parts.push("localStorage.setItem('chama-sg-customer-auth-v2',"+JSON.stringify(JSON.stringify(session))+");");
-          parts.push("localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");");
+          if(trackExisting)parts.push("localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");");
         }else{
           const key=role==='merchant'?'chama-sg-merchant-auth-v1':'chama-sg-admin-auth-v1';
           parts.push("sessionStorage.setItem("+JSON.stringify(key)+","+JSON.stringify(JSON.stringify(session))+");");
@@ -259,6 +259,61 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
           +JSON.stringify(orderId)+")?.innerText.includes('A caminho')||merchantRuntime.orders.some(o=>o.orderId==="
           +JSON.stringify(orderId)+"&&o.status==='OUT_FOR_DELIVERY')"),
           'partner must have the updated delivery state');
+      }
+
+      if(browserCheckoutBuyer){
+        assert.equal(exerciseCrossSessionDispatch,true,'run browser checkout after independent dispatch');
+        const ui=await openRole('customer',browserCheckoutBuyer.session,'/#home',{trackExisting:false});
+        await ui.wait("liveRuntime.status==='ready'&&liveRuntime.session?.user?.id==="+JSON.stringify(browserCheckoutBuyer.id),'synthetic buyer ready');
+        assert.equal(await ui.evaluate("!localStorage.getItem('chama-live-order-id-v1')"),true,'browser buyer must have a clean cart/order');
+        // The real public product-first home uses an explicit Água tile;
+        // do not assert an optional secondary browse CTA from another layout.
+        const selectedWater=await ui.evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')?.includes(\"homeChooseProduct('WATER20')\")&&!x.hidden&&!x.closest('[hidden]'));if(!b)return false;b.click();return true})()");
+        assert.equal(selectedWater,true,'public home must show Água 20 L product-first CTA');
+        await ui.wait("route()==='order'&&state.cart?.WATER20===1&&!!document.getElementById('buyer-cart-catalog')",
+          'home Água product tile must open the water-only checkout');
+        const addressEntered=await ui.evaluate("(()=>{const p=document.getElementById('postal-code'),n=document.getElementById('address-number');if(!p||!n)return false;p.value='97300-000';p.dispatchEvent(new Event('input',{bubbles:true}));n.value='10';n.dispatchEvent(new Event('input',{bubbles:true}));return true})()");
+        assert.equal(addressEntered,true,'CEP and number input fields must be rendered');
+        await ui.wait("state.postalCode==='97300000'&&state.addressNumber==='10'",'address input handlers');
+        await ui.wait("!!state.address&&!!document.getElementById('payment-method')",
+          'canonical postal validation provides real address',55000);
+        const choseCash=await ui.evaluate("(()=>{const s=document.getElementById('payment-method');if(!s)return false;s.value='cash';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()");
+        assert.equal(choseCash,true,'cash on delivery form must exist');
+        await ui.wait("state.checkout.paymentMethod==='cash'&&liveRuntime.offers?.length>0&&!!document.querySelector('.offer-submit:not([disabled])')",
+          'real get-offers quote must be actionable',55000);
+        const offer=JSON.parse(await ui.evaluate("JSON.stringify({offers:liveRuntime.offers,visible:document.querySelector('#customer-offers')?.innerText.slice(0,1200)})"));
+        assert.ok(offer.offers?.[0]?.quoteId,'UI must use a real SQL quote ID');
+        assert.match(offer.visible,/TOTAL COM ENTREGA/i,'offer must display total plus delivery');
+        if(browserCheckoutBuyer){
+          fs.mkdirSync(evidenceDir,{recursive:true});
+          await ui.evaluate("document.querySelector('#customer-offers')?.scrollIntoView({block:'start'});true");
+          const shot=await ui.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          const png=Buffer.from(shot.data||'','base64');assert.ok(png.length>6000);
+          fs.writeFileSync(path.join(evidenceDir,'09-cliente-cotacao-real-ui.png'),png);
+        }
+        const phone=await ui.evaluate("(()=>{const i=document.getElementById('delivery-phone');if(!i)return false;i.value='11999999999';i.dispatchEvent(new Event('change',{bubbles:true}));return true})()");
+        assert.equal(phone,true,'customer contact must be shown after address');
+        const submit=await ui.evaluate("(()=>{const b=document.querySelector('.offer-submit:not([disabled])');if(!b)return false;b.click();return true})()");
+        assert.equal(submit,true,'visible checkout submit must be active');
+        await ui.wait("route()==='tracking'&&liveRuntime.order?.status==='OFFERED_TO_MERCHANT'",
+          'browser checkout submitted through actual UI',55000);
+        const created=JSON.parse(await ui.evaluate("JSON.stringify({id:liveRuntime.order?.orderId,status:liveRuntime.order?.status,cart:state.cart,visible:document.querySelector('#app')?.innerText.slice(0,900)})"));
+        assert.match(created.id,/^[a-f0-9]{8}-[a-f0-9-]{27}$/i);
+        assert.equal(created.status,'OFFERED_TO_MERCHANT');
+        assert.equal(Number(created.cart?.WATER20||0),0,'basket cleared only after confirmed checkout');
+        assert.match(created.visible,/pedido/i);
+        if(browserCheckoutBuyer){
+          const shot=await ui.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          const png=Buffer.from(shot.data||'','base64');assert.ok(png.length>6000);
+          fs.writeFileSync(path.join(evidenceDir,'10-cliente-pedido-enviado-ui.png'),png);
+          fs.appendFileSync(path.join(evidenceDir,'LEIA-ME.txt'),
+            '\n09-10: Comprador sintetico faz Home -> Agua -> CEP -> Cotacao -> Pedido -> Rastreio; localhost descartavel.\n');
+        }
+        await merchantPage.navigate(origin+'/?merchant=1#merchant');
+        await merchantPage.wait("merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(created.id)+")",'partner sees new UI order',50000);
+        await adminPage.navigate(origin+'/?admin=1#admin');
+        await adminPage.wait("adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(created.id)+")",'Admin sees new UI order',50000);
+        console.log('PASS: real home CTA -> water cart -> address -> cash quote -> order submitted -> tracking; partner/Admin share new SQL ID.');
       }
       assert.deepEqual(violations,[],'no independent tab may call commercial Supabase');
       console.log('PASS: three simultaneously isolated Chrome Auth contexts share one disposable SQL order'

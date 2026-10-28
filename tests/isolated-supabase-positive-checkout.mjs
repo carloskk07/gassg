@@ -578,10 +578,12 @@ assert.equal(sql("SELECT product_code FROM public.order_items WHERE order_id="+q
  'settled original order must contain regulated gas P13 rather than a mock');
 // The same Chrome portal test now views the second buyer and second accepted
 // order, again with the canonical authenticated Admin, not a mocked screen.
+const browserCheckoutBuyer=await createActor('customer-ui');
 await verifyIsolatedLivePortals({
  api:base,anon,buyer:testBuyer3,owner,adminActor,orderId:activeId,merchantId,
- recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true
+ recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true,browserCheckoutBuyer
 });
+assert.equal(sql("SELECT count(*) FROM public.orders WHERE customer_id="+q(browserCheckoutBuyer.id)+"::uuid"),'1','browser UI must create precisely one customer order');
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');
 console.log('PASS: GLP P13 blocked before CI ANP, then settled via PIN; water cancelled/accepted; canonical Admin statuses; no PSP or production changes.');
