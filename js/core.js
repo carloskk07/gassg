@@ -885,6 +885,10 @@ function shell(content){
   // A public visitor choosing 'Revenda' should see the commercial explanation before the login portal.
   const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"go('merchants')";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
+  // A buyer must always have a direct path back to a previously created order.
+  // A stored commercial reference is not proof of an active/paid order.
+  const buyerHasOrder=testDemo?Boolean(activeOrder()):
+    Boolean(globalThis.liveRuntime?.orderId||globalThis.liveRuntime?.order);
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
   const primaryLinks=[['home','Cotações'],['professionals','Profissionais'],
     ['mobility','Moto e carro'],['rides','Caronas'],['stays','Hospedagens'],['club','Clube']];
@@ -906,7 +910,9 @@ function shell(content){
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal||testDemo
       ? `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`
-      : '<button type="button" class="tamao-header-cta" onclick="tamaoOpenAvailability()">Montar cesta <span aria-hidden="true">→</span></button>';
+      : buyerHasOrder
+        ? '<button type="button" class="tamao-header-cta" onclick="go(\'tracking\')">Meu pedido <span aria-hidden="true">→</span></button>'
+        : '<button type="button" class="tamao-header-cta" onclick="tamaoOpenAvailability()">Montar cesta <span aria-hidden="true">→</span></button>';
   return `<div class="app">
   <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
@@ -932,7 +938,7 @@ function bottomNav(r){
         :[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['merchant-team','👥','Equipe','go'],['catalog','🧺','Catálogo','go']]
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-        :[['home','⌂','Início','go'],['availability','🧺','Consultar','market'],['earn','🤝','Indicar','go'],['club','★','Clube','go'],['merchants','🏪','Vender','go']];
+        :[['home','⌂','Início','go'],['availability','🧺','Comprar','market'],['tracking','📦','Pedidos','go'],['club','★','Clube','go'],['merchants','🏪','Vender','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id||(id==='availability'&&r==='order');
     const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='market'?"tamaoOpenAvailability()":`go('${id}')`;
