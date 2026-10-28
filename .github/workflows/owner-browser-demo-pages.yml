@@ -42,7 +42,7 @@ jobs:
         run: node scripts/build-owner-browser-demo.mjs _site
       - name: Browser demo safety contract
         run: node tests/browser-demo-cloud-smoke.mjs
-      - name: Full browser-only checkout and delivery: Client → Revenda → Admin
+      - name: "Full browser-only checkout and delivery — Client → Revenda → Admin"
         run: |
           python3 -m http.server 4185 --bind 127.0.0.1 --directory _site > /tmp/tamao-guided-demo.log 2>&1 &
           SERVER=$!
