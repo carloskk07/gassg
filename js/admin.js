@@ -7654,6 +7654,79 @@ function adminControlOrderCard(o){
     ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
   </article>`;
 }
+// Explicitly CLIENT-ONLY orders demo for the superadmin. Never persists data.
+// The real canonical checkout/fulfilment is exercised separately in isolated CI.
+const ADMIN_ORDER_DEMO_STEPS=['OFFERED_TO_MERCHANT','PREPARING','OUT_FOR_DELIVERY','ARRIVING','SETTLED'];
+let adminOrderDemoState=null;
+function adminOrderDemoAllowed(){
+  return adminReady()&&adminCurrentRole()==='superadmin'
+    &&adminRuntime.section==='orders'
+    &&!!adminRuntime.session?.user?.id;
+}
+function adminOrderDemoCreate(){
+  if(!adminOrderDemoAllowed())return;
+  adminOrderDemoState={
+    actorId:String(adminRuntime.session.user.id),
+    items:[
+      {id:'DEMO-001',product:'Gás P13',quantity:1,amountCents:11590,step:0},
+      {id:'DEMO-002',product:'Água 20 L',quantity:2,amountCents:3180,step:0},
+      {id:'DEMO-003',product:'Carvão 4 kg',quantity:1,amountCents:2500,step:0}
+    ]
+  };
+  render();
+}
+function adminOrderDemoAdvance(id){
+  if(!adminOrderDemoAllowed()||
+      adminOrderDemoState?.actorId!==String(adminRuntime.session.user.id))return;
+  const order=adminOrderDemoState.items.find(x=>x.id===id);
+  if(!order||order.step>=ADMIN_ORDER_DEMO_STEPS.length-1)return;
+  order.step++;
+  render();
+}
+function adminOrderDemoClear(){
+  if(!adminOrderDemoAllowed())return;
+  adminOrderDemoState=null;
+  render();
+}
+function adminOrderDemoView(){
+  if(!adminOrderDemoAllowed())return '';
+  const mine=adminOrderDemoState?.actorId===String(adminRuntime.session.user.id);
+  const items=mine?adminOrderDemoState.items:[];
+  const cards=items.map(x=>{
+    const status=ADMIN_ORDER_DEMO_STEPS[x.step];
+    const final=x.step===ADMIN_ORDER_DEMO_STEPS.length-1;
+    return '<article class="order-card" data-demo-only="true">'+
+      '<div class="order-head"><div><div class="order-id">'+esc(x.id)+' · FICTÍCIO</div>'+
+      '<strong>'+esc(x.product)+'</strong><small> · '+x.quantity+' unidade(s)</small></div>'+
+      '<span class="status-pill '+(final?'online':'risk')+'">'+esc(adminOrderStatusLabel(status))+'</span></div>'+
+      '<div class="order-line">Valor apenas ilustrativo: <strong>'+adminMoney(x.amountCents)+'</strong></div>'+
+      '<div class="order-line">Etapa '+(x.step+1)+' de '+ADMIN_ORDER_DEMO_STEPS.length+
+      ' · nenhuma revenda foi notificada</div>'+
+      '<div class="order-actions"><button class="secondary small" type="button" '+
+      (final?'disabled':'onclick="adminOrderDemoAdvance(\''+x.id+'\')"')+'>'+
+      (final?'Demonstração concluída':'Avançar etapa fictícia')+'</button></div>'+
+    '</article>';
+  }).join('');
+  return '<section class="section" aria-label="Pedidos de demonstração sem operações reais">'+
+    '<div class="section-head"><div><span class="section-kicker">SIMULAÇÃO ISOLADA DA PRODUÇÃO</span>'+
+    '<h2>Pedidos de teste — sem revendas reais</h2>'+
+    '<p>Crie três pedidos fictícios nesta tela e percorra os estados do pedido. '+
+    'Nenhuma compra, reserva de estoque, cobrança, comissão ou entrega será registrada.</p></div></div>'+
+    '<div class="notice"><strong>NÃO SÃO PEDIDOS REAIS.</strong> '+
+    'Este recurso é uma demonstração visual temporária do Admin. '+
+    'O teste das APIs reais de cliente, revenda e entrega é executado separadamente '+
+    'em um Supabase descartável no CI. Os dados desaparecem ao encerrar a sessão.</div>'+
+    '<div class="order-actions" style="margin-top:12px">'+
+    '<button class="primary" type="button" onclick="adminOrderDemoCreate()">Criar 3 pedidos fictícios</button>'+
+    (items.length?'<button class="ghost" type="button" onclick="adminOrderDemoClear()">Limpar testes</button>':'')+
+    '</div>'+
+    (items.length?'<div style="margin-top:12px">'+cards+'</div>':
+      '<div class="empty card" style="margin-top:12px">Nenhuma simulação nesta sessão. Os pedidos comerciais reais permanecem na Torre de Controle abaixo.</div>')+
+    '<small class="field-help">CNPJs e clientes reais não são usados. Teste integrado auditável: '+
+    '<a href="https://github.com/carloskk07/gassg/actions/workflows/isolated-supabase-integration.yml" target="_blank" rel="noopener noreferrer">GitHub Actions — Supabase isolado</a>.</small>'+
+  '</section>';
+}
+
 function adminControlTower(d){
   const orders=d.controlOrders||[];
   const terminal=new Set(['DELIVERED','SETTLED','CANCELLED']);
@@ -8243,6 +8316,7 @@ function adminPage(){
     </div></section>`):'';
 
   const ordersContent=(sectionActive('orders'))?(`
+    ${adminOrderDemoView()}
     ${adminControlTower({...d,controlOrders})}
     ${adminSupportQueueView(supportCases)}`):'';
 
