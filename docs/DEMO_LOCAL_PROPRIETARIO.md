@@ -1,5 +1,7 @@
 # TAMÃO — demonstração operacional privada no próprio computador
 
+**Identificação obrigatória:** os três portais exibem uma faixa visível **DEMONSTRAÇÃO LOCAL — DADOS FICTÍCIOS**. Se essa faixa não aparecer, **não use o ambiente como demonstração**, pois dados sintéticos podem parecer vendas reais.
+
 **Resultado disponível:** três janelas reais do TAMÃO — Cliente, Parceiro e Admin — com **o mesmo Supabase/Auth/Postgres local**, dados fictícios e solicitações compartilhadas. O navegador abre os sites da aplicação existente, **sem pagar nova hospedagem** e sem falar com o banco comercial. O servidor é local, não pode ser aberto fora deste computador. Esta é uma demonstração operacional **enquanto estiver executando**; ao encerrá-la, os dados locais são descartados.
 
 ## O que é necessário (Windows 10/11)
