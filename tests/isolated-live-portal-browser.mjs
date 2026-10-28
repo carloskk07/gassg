@@ -145,7 +145,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       });
       socket.addEventListener('message',event=>{
         const msg=JSON.parse(String(event.data));
-        if(msg.method==='Network.requestWillBeSent'&&/\\.supabase\\.co/i.test(msg.params?.request?.url||''))
+        if(msg.method==='Network.requestWillBeSent'&&/\.supabase\.co/i.test(msg.params?.request?.url||''))
           violations.push('Independent Chrome context attempted commercial Supabase');
         if(msg.id&&waiting.has(msg.id)){
           const p=waiting.get(msg.id);clearTimeout(p.timer);waiting.delete(msg.id);
