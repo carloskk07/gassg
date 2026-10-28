@@ -133,8 +133,28 @@ try{
  await wait("document.querySelector('#tamao-demo-progress')?.textContent.includes('3/4')",'guidance advances immediately on merchant accept',2500);
  await wait("(()=>{const card=Array.from(document.querySelectorAll('.order-card')).find(el=>el.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+"));const r=card?.getBoundingClientRect();return !!r&&r.top>=115&&r.top<710})()", 'accepted order must remain visible after merchant render',5000);
  await snapshot('04-revenda-pedido-aceito.png');
+ // Regression: the original header 'Comprar' used to reset to home,
+ // hiding the accepted order even though localStorage retained it.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.mode-pill button')).find(x=>x.textContent.trim()==='Comprar');if(!b||!b.getClientRects().length)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&state.mode==='customer'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")&&document.querySelector('#tamao-main')?.innerText.includes('Acompanhe a entrega')",'header Comprar resumes accepted order');
+ assert.equal((await demoState()).orders.at(-1).status,'PREPARING','switching customer must not mutate the accepted order');
+ await snapshot('04b-cliente-acompanhamento-apos-aceite.png');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='merchant'&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'back to merchant same order');
+ // Repeat from the banner Cliente link, not only the original header.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Cliente · acompanhar pedido'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")",'demo banner resumes accepted order');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='merchant'&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'return merchant after customer check');
+
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar saída'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='OUT_FOR_DELIVERY'",'merchant dispatch');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.mode-pill button')).find(x=>x.textContent.trim()==='Comprar');if(!b||!b.getClientRects().length)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")&&document.querySelector('#tamao-main')?.innerText.includes('Código de recebimento')",'customer sees dispatched order and PIN');
+ await snapshot('04c-cliente-entrega-e-pin.png');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='merchant'&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'merchant can continue after buyer checks PIN');
+
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Estou chegando'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='ARRIVING'",'merchant arriving');
  await click("(()=>{const pin=document.querySelector('.pin-input'),paid=document.querySelector('.order-card input[type=\"checkbox\"]'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!pin||!paid||!b)return false;pin.value="+JSON.stringify(o.pin)+";paid.checked=true;b.click();return true})()");
@@ -142,6 +162,11 @@ try{
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Concluídos: 1')&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin completed order');
  await snapshot('05-admin-pedido-concluido.png');
+ // Settled orders must remain available from the Admin's customer perspective.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Ver pedido como Cliente'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")&&document.querySelector('#tamao-main')?.innerText.includes('CONCLUÍDO')",'completed order available to customer');
+ assert.equal((await demoState()).orders.filter(x=>x.id===o.id).length,1);
+
  await send('Page.navigate',{url:base+'#home'});
  await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='SETTLED'",'same order persists on refresh');
  assert.equal((await demoState()).orders.filter(x=>x.id===o.id).length,1);

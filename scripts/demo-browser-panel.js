@@ -60,13 +60,22 @@
     card.scrollIntoView({block:'center',behavior:'instant'});
     return true;
   }
+  // All customer entry points (the demo banner AND the original 'Comprar'
+  // switcher) must resume a saved order instead of dropping back to the home.
+  // Keep this override inside the generated browser-only demo, not production.
+  if(typeof globalThis.setMode==='function'){
+    const setModeOriginal=globalThis.setMode;
+    globalThis.setMode=mode=>{
+      const result=setModeOriginal(mode);
+      if(mode==='customer'&&currentOrder()){
+        globalThis.go?.('tracking');
+      }
+      return result;
+    };
+  }
   function openCustomer(){
     setAdmin(false);
     globalThis.setMode?.('customer');
-    const o=currentOrder();
-    if(o&&['OFFERED_TO_MERCHANT','PREPARING','OUT_FOR_DELIVERY','ARRIVING','SETTLED'].includes(o.status)){
-      globalThis.go?.('tracking');
-    }
     updateGuide();
   }
   function openMerchant(){
@@ -161,7 +170,7 @@
     }
     updateGuide();
   }
-  nav.append(button('Cliente',openCustomer));
+  nav.append(button('Cliente · acompanhar pedido',openCustomer));
   nav.append(button('Começar com gás P13',beginP13));
   nav.append(button('Revenda (pedido)',openMerchant));
   nav.append(button('Admin (resumo)',()=>setAdmin(true)));
