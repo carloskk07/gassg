@@ -13,6 +13,9 @@ on:
       - 'tests/isolated-supabase-positive-checkout.mjs'
       - 'tests/isolated-supabase-coupon-full-schema.mjs'
       - 'tests/isolated-live-portal-browser.mjs'
+      - 'scripts/owner-local-demo-server.mjs'
+      - 'scripts/run-owner-local-demo.sh'
+      - 'INICIAR_DEMO_LOCAL.cmd'
       - 'supabase/config.toml'
       - 'supabase/migrations/**'
       - 'supabase/functions/create-order/**'
@@ -44,6 +47,10 @@ jobs:
           # 2.84.2 used GHCR exclusively and isolated finance E2E could
           # not even boot Postgres on shared Actions egress.
           version: 2.122.0
+      - name: Verify local owner demo launcher scripts
+        run: |
+          bash -n scripts/run-owner-local-demo.sh
+          node --check scripts/owner-local-demo-server.mjs
       - name: Verify disposable local setup
         run: |
           test -f supabase/config.toml

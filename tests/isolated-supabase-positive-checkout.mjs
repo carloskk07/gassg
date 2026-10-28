@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {verifyIsolatedLivePortals} from './isolated-live-portal-browser.mjs';
+import {startOwnerLocalDemo} from '../scripts/owner-local-demo-server.mjs';
 import {verifyIsolatedPrivilegedRpc} from './isolated-discovery-privileged-rpc.mjs';
 
 // Positive quote -> checkout -> read in a DISPOSABLE local Supabase stack.
@@ -587,5 +588,64 @@ assert.equal(sql("SELECT count(*) FROM public.orders WHERE customer_id="+q(brows
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');
 console.log('PASS: GLP P13 blocked before CI ANP, then settled via PIN; water cancelled/accepted; canonical Admin statuses; no PSP or production changes.');
+
+// Real frontends, real LOCAL Auth and Postgres, three independent origins.
+// CI proves the owner rehearsal server before an optional human-driven session.
+const rehearsal=await startOwnerLocalDemo({
+ api:base,anon,customer:browserCheckoutBuyer,merchant:owner,admin:adminActor
+});
+try{
+ const healths=await Promise.all(rehearsal.roles.map(async({role,url})=>{
+   const port=new URL(url).port;
+   const origin='http://127.0.0.1:'+port;
+   const read=async path=>{
+     const res=await fetch(origin+path,{signal:AbortSignal.timeout(8000)});
+     assert.equal(res.status,200,role+' localhost '+path);
+     assert.equal(res.headers.get('cache-control'),'no-store, max-age=0');
+     return res.text();
+   };
+   const status=JSON.parse(await read('/__owner-demo-health'));
+   assert.deepEqual(status,{ok:true,role,localOnly:true});
+   const html=await read('/');
+   assert.match(html,/owner-local-session\.js/);
+   assert.match(html,/noindex,nofollow,noarchive/);
+   assert.doesNotMatch(html,/lgugwujpunhslavewffd\.supabase\.co/);
+   const script=await read('/js/backend.js');
+   assert.match(script,/http:\/\/127\.0\.0\.1:54321/);
+   assert.doesNotMatch(script,/lgugwujpunhslavewffd\.supabase\.co/);
+   const bootstrap=await read('/js/owner-local-session.js');
+   const expected=role==='customer'?'chama-sg-customer-auth-v2':
+     role==='merchant'?'chama-sg-merchant-auth-v1':'chama-sg-admin-auth-v1';
+   assert.ok(bootstrap.includes(expected),role+' local browser session');
+   for(const forbidden of ['chama-sg-customer-auth-v2','chama-sg-merchant-auth-v1','chama-sg-admin-auth-v1'])
+     if(forbidden!==expected)assert.ok(!bootstrap.includes(forbidden),'cross-role credentials leaked to '+role);
+   const missing=await fetch(origin+'/../.git/config');
+   assert.ok(missing.status===404||missing.status===403);
+   const denied=await fetch(origin+'/__owner-demo-health',{method:'POST'});
+   assert.equal(denied.status,405,'owner demo must be read-only HTTP server');
+   return role;
+ }));
+ assert.deepEqual(healths,['customer','merchant','admin']);
+ console.log('PASS: three local owner-demo origins are authenticated, loopback-only and serve only disposable backend URLs.');
+}finally{await rehearsal.close()}
+
+if(process.env.TAMAO_OWNER_LOCAL_DEMO==='1'){
+ // Operator-friendly, persistent WHILE RUNNING rehearsal. No web hosting,
+ // public port, real provider credentials, commercial Supabase or external PSP.
+ const freshBuyer=await createActor('owner-rehearsal');
+ const preview=await startOwnerLocalDemo({
+   api:base,anon,customer:freshBuyer,merchant:owner,admin:adminActor
+ });
+ console.log('\nTAMÃO DEMONSTRAÇÃO PRIVADA LOCAL (SEM MOVIMENTO REAL)');
+ console.log('Abra os três endereços acima em janelas distintas. O banco permanece local');
+ console.log('até interromper o processo com Ctrl+C. Não encaminhe links para terceiros.');
+ try{
+   await new Promise(resolve=>{
+     process.once('SIGINT',resolve);
+     process.once('SIGTERM',resolve);
+   });
+ }finally{await preview.close()}
+}
+
 
 
