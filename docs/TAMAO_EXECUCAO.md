@@ -1,3 +1,9 @@
+## 28/10/2026 — Diagnóstico Chrome: formulários dentro de <details> apareciam fechados
+
+- **Regressão real reproduzida no Chrome mobile da demo:** após mover preços para `<details class="merchant-demo-settings">`, o teste confirmou que `open=false` mas `#m-price` ainda possuía retângulo visível. A causa foi `.merchant-demo-settings-body{display:grid}` do CSS do próprio app, com precedência sobre o estilo nativo de `<details>` fechado.
+- **Correção abrangente dos dois painéis sem nova versão:** definir `display:none` em `.merchant-demo-settings:not([open])>.merchant-demo-settings-body`, `.merchant-workspace-more:not([open])>.merchant-workspace-more-actions` e nos filhos que possuem estilo `display:grid` de `.merchant-first-run-extra:not([open])`. Isso mantém formulário/atalhos ocultos até expansão real sem perder o acesso, e preserva as regras de backend/segurança.
+- **Regressão:** repetir Chrome com assert de que o input de preço não tem área renderizada enquanto os detalhes estão fechados; contratos de CSS protegem o painel comercial.
+
 ## 28/10/2026 — Simulador Revenda: pedidos acima do formulário P13 (PR em validação)
 
 - **Falha observada na UI testada pelo proprietário:** a demo `merchantPage()` mostrava seleção de revenda, 4 indicadores e 6 campos de preço, faixa e estratégia **antes** dos pedidos, sugerindo que precisava preencher tudo para aceitar.
