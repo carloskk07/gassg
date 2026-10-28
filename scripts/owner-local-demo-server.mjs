@@ -82,7 +82,7 @@ export async function startOwnerLocalDemo({api,anon,customer,merchant,admin,
           const relative=requested==='/'?'index.html':requested.slice(1);
           // Never serve .env, .git, tests, SQL, CI artifacts, credentials or
           // any arbitrary checked-in source file from this loopback server.
-          const publicAsset=/^(?:js|css|icons|assets|images|img|fonts)\/[A-Za-z0-9_./-]+$/.test(relative)
+          const publicAsset=/^(?:js|css|icons|assets|images|img|fonts)\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(relative)
             &&!relative.split('/').some(segment=>segment==='..'||segment.startsWith('.'));
           if(!publicAsset&&!['index.html','manifest.webmanifest','favicon.ico'].includes(relative))
             return res.writeHead(404,headers).end('Not found');
