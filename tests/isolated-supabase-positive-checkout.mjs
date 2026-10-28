@@ -74,6 +74,7 @@ const create=[
 "INSERT INTO public.merchant_payment_methods(merchant_id,payment_method,active) VALUES("+q(merchantId)+"::uuid,'cash',true);",
 "INSERT INTO public.merchant_payment_routes(merchant_id,payment_method,provider,channel,verification_mode,active) VALUES("+q(merchantId)+"::uuid,'cash','manual','delivery','merchant_confirmed',true);",
 "INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'CHARCOAL2','Carvao Simulado CI',1800,1800,1800,5,true,clock_timestamp());",
+"INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'WATER20','Agua 20 L Simulada CI',1590,1590,1590,6,true,clock_timestamp());",
 "UPDATE public.merchants SET status='active',online=true WHERE id="+q(merchantId)+"::uuid;",
 'COMMIT;'
 ].join('\n');
@@ -492,4 +493,82 @@ assert.equal(sql('SELECT count(*) FROM public.merchant_billing_payment_events'),
 console.log('PASS: canonical commission hold/risk gates, due maturation and replay; internal pending->available only, zero external payment proofs.');
 
 console.log('PASS: local canonical quote -> HTTP checkout -> merchant accept -> dispatch -> PIN shown only to buyer -> arrival -> wrong PIN rejected -> merchant-attested cash settlement -> replay unchanged; zero external PSP.');
+
+// Additional real HTTP orders in disposable Postgres. These scenarios use
+// synthetic Auth users and existing APIs, never a real merchant, CNPJ, or PSP.
+const testBuyer2=await createActor('multi-cancelled');
+const testBuyer3=await createActor('multi-active');
+async function placeAdditionalTestOrder(actor,productCode,unitCents,quantity,fingerprint){
+ assert.equal(sql("SELECT public.merchant_basket_compliance_current("+
+   q(merchantId)+"::uuid,ARRAY["+q(productCode)+"]::text[])"),'t',
+   'local synthetic product must pass the canonical compliance scope');
+ const rows=[{product_code:productCode,quantity,unit_price_cents:unitCents}];
+ const quoted=JSON.parse(sql("SELECT public.create_quote_snapshot_v3("+
+  q(actor.id)+"::uuid,"+q(merchantId)+"::uuid,"+q(postalCode)+
+  ",'10',400,25,45,clock_timestamp()+interval '5 minutes',"+
+  q(JSON.stringify(rows))+"::jsonb,repeat("+q(fingerprint)+",64));"));
+ assert.match(quoted.quoteId,/^[0-9a-f-]{36}$/i);
+ assert.equal(quoted.grossTotalCents,unitCents*quantity+400);
+ sql("UPDATE public.quotes SET payment_method_requested='cash',payment_timing_requested='on_delivery' WHERE id="+q(quoted.quoteId)+"::uuid;");
+ const req={quoteId:quoted.quoteId,paymentMethod:'cash',useCashback:false,
+  customerPhone:'11999999999'};
+ const key='ci-multi-order-'+randomUUID();
+ const created=await call('create-order',actor.token,req,{'Idempotency-Key':key});
+ assert.equal(created.status,201,'disposable additional checkout: '+JSON.stringify(created.body).slice(0,450));
+ assert.equal(created.body.status,'OFFERED_TO_MERCHANT');
+ const retry=await call('create-order',actor.token,req,{'Idempotency-Key':key});
+ assert.equal(retry.status,201);
+ assert.equal(retry.body.orderId,created.body.orderId,
+  'checkout replay must never duplicate additional test order');
+ return created.body.orderId;
+}
+const cancelledId=await placeAdditionalTestOrder(testBuyer2,'WATER20',1590,2,'b');
+const beforeCancel=await call('get-order',testBuyer2.token,{orderId:cancelledId});
+assert.equal(beforeCancel.status,200);
+const rejectedBuyer=await call('get-order',testBuyer3.token,{orderId:cancelledId});
+assert.equal(rejectedBuyer.status,404,'other buyer cannot access test order');
+const cancelKey='ci-cancel-multi-'+randomUUID();
+const cancelPayload={orderId:cancelledId,action:'cancel-before-accept',
+ expectedVersion:beforeCancel.body.version};
+const cancelled=await call('customer-action',testBuyer2.token,cancelPayload,
+ {'Idempotency-Key':cancelKey});
+assert.equal(cancelled.status,200,'customer cancellation in actual Edge/RPC: '+JSON.stringify(cancelled.body).slice(0,440));
+assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(cancelledId)+"::uuid"),'CANCELLED');
+const cancelReplay=await call('customer-action',testBuyer2.token,cancelPayload,
+ {'Idempotency-Key':cancelKey});
+assert.equal(cancelReplay.status,200);
+assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+
+ q(merchantId)+"::uuid AND product_code='WATER20'"),'6',
+ 'cancel before acceptance cannot reserve synthetic stock');
+
+const activeId=await placeAdditionalTestOrder(testBuyer3,'WATER20',1590,1,'c');
+const activeOwned=await call('get-order',testBuyer3.token,{orderId:activeId});
+const activeAccepted=await call('merchant-action',owner.token,{
+ orderId:activeId,action:'accept',expectedVersion:activeOwned.body.version
+},{'Idempotency-Key':'ci-multi-accept-'+randomUUID()});
+assert.equal(activeAccepted.status,200,'real merchant action must accept extra disposable order');
+assert.equal(activeAccepted.body.status,'PREPARING');
+assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+
+ q(merchantId)+"::uuid AND product_code='WATER20'"),'5',
+ 'acceptance locks exactly one water unit');
+assert.equal(sql("SELECT count(*) FROM public.orders"),'3',
+ 'one settled, one cancelled and one preparing test order must exist only in local Postgres');
+const statusDistribution=sql("SELECT string_agg(status||':'||n::text,',' ORDER BY status) FROM ("+
+ "SELECT status,count(*) n FROM public.orders GROUP BY status) t");
+assert.equal(statusDistribution,'CANCELLED:1,PREPARING:1,SETTLED:1');
+const adminMulti=await call('admin-ops',adminActor.token,{action:'summary'});
+assert.equal(adminMulti.status,200);
+for(const id of [orderId,cancelledId,activeId]){
+ assert.ok(adminMulti.body.controlOrders?.some(x=>x.id===id),
+ 'same Admin endpoint must show the actual local scenario '+id);
+}
+// The same Chrome portal test now views the second buyer and second accepted
+// order, again with the canonical authenticated Admin, not a mocked screen.
+await verifyIsolatedLivePortals({
+ api:base,anon,buyer:testBuyer3,owner,adminActor,orderId:activeId,merchantId
+});
+assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
+assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');
+console.log('PASS: three actual disposable order journeys: SETTLED, CANCELLED, PREPARING; real Admin, buyer and merchant views; no production activity or PSP.');
+
 
