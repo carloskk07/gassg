@@ -1,3 +1,10 @@
+## 28/10/2026 — Correção do retorno Cliente após aceite (PR em validação)
+
+- **Defeito relatado pelo proprietário e identificado no código:** o botão **Comprar** do cabeçalho chama `setMode('customer')` da aplicação, que sempre navega para `#home`. Assim, após o aceite da revenda, o comprador não encontra a tela de acompanhamento, embora o pedido permaneça no estado local. O teste anterior passava de Revenda para Admin, sem voltar ao Cliente durante a entrega.
+- **Correção restrita ao simulador web:** o módulo já existente `scripts/demo-browser-panel.js` intercepta a troca de modo exclusivamente no build GitHub Pages, preserva o pedido e direciona tanto **Comprar** (cabeçalho) quanto **Cliente · acompanhar pedido** (banner) a `#tracking` quando existe pedido, inclusive concluído. A tela canônica apresenta código, status, timeline e PIN somente nas etapas apropriadas. Sem modificar `js/core.js`, frontend comercial, Supabase, modelos financeiros ou APIs.
+- **Gate real:** ampliar o Chrome existente para clicar em **Comprar** depois do aceite e da saída, verificar o mesmo identificador no acompanhamento e o PIN na entrega; voltar à revenda e prosseguir; testar também o botão Cliente da demonstração e retorno de pedido concluído pelo Admin. Impedir criação de pedido duplicado; preservar testes de P13/água, demo segura, Audit e revisão visual.
+- **Publicação:** integrar apenas após sucesso dos testes no HEAD da PR e confirmar deploy GitHub Pages e HTTP público. Estado permanece local ao navegador, não um banco compartilhado nem venda real.
+
 ## 28/10/2026 — P13 demonstrável com atalho e ensaios negativos no navegador (PR em validação)
 
 - **Lacuna concreta após #698:** o primeiro teste completo da demonstração publicada só criava Água 20 L, embora o produto central seja o botijão P13. A jornada do P13 em Supabase efêmero já era validada separadamente; faltava clicar e concluir a experiência sem instalação, com o simulador que está no GitHub Pages.
