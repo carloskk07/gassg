@@ -73,7 +73,7 @@ const create=[
 "INSERT INTO public.merchant_representation_reviews(merchant_id,owner_user_id,merchant_cnpj,authority_kind,evidence_reference,verified_by,expires_at) VALUES("+q(merchantId)+"::uuid,"+q(owner.id)+"::uuid,"+q(cnpj)+",'legal_representative','CI-LOCAL-TEST-NO-REAL-DOCUMENT',"+q(owner.id)+"::uuid,clock_timestamp()+interval '1 day');",
 "INSERT INTO public.merchant_payment_methods(merchant_id,payment_method,active) VALUES("+q(merchantId)+"::uuid,'cash',true);",
 "INSERT INTO public.merchant_payment_routes(merchant_id,payment_method,provider,channel,verification_mode,active) VALUES("+q(merchantId)+"::uuid,'cash','manual','delivery','merchant_confirmed',true);",
-"INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'CHARCOAL2','Carvao Simulado CI',1800,1800,1800,5,true,clock_timestamp());",
+"INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'P13','Gas GLP P13 Somente CI',11590,11590,11590,5,true,clock_timestamp());",
 "INSERT INTO public.catalog_items(merchant_id,product_code,product_name,price_cents,min_price_cents,max_price_cents,available_stock,active,price_confirmed_at) VALUES("+q(merchantId)+"::uuid,'WATER20','Agua 20 L Simulada CI',1590,1590,1590,6,true,clock_timestamp());",
 "UPDATE public.merchants SET status='active',online=true WHERE id="+q(merchantId)+"::uuid;",
 'COMMIT;'
@@ -123,16 +123,26 @@ await verifyIsolatedPrivilegedRpc({base,anon,sql,q,owner,buyer,outsider,adminAct
 const promoCode='REFCI123';
 sql("UPDATE public.profiles SET referral_code="+q(promoCode)+" WHERE user_id="+q(outsider.id)+"::uuid;");
 assert.equal(sql("SELECT referral_code FROM public.profiles WHERE user_id="+q(outsider.id)+"::uuid"),promoCode,'local Auth user already has an auto-created profile');
-assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['CHARCOAL2']::text[])"),'t');
+// Synthetic regulatory evidence exists exclusively inside disposable CI.
+assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['P13']::text[])"),'f',
+ 'GLP P13 must be BLOCKED before ANP validation is current');
+assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['WATER20']::text[])"),'t',
+ 'water can be bought without ANP if CNPJ/owner are otherwise valid');
+// This simulated ANP change occurs ONLY in ephemeral Postgres. No production
+// revenda, CNPJ or regulatory documentation is ever changed.
+sql("UPDATE public.merchant_compliance SET anp_status='verified',anp_verified_at=clock_timestamp(),anp_reference='CI-LOCAL-FAKE-ANP-NOT-REAL' WHERE merchant_id="+q(merchantId)+"::uuid;");
+assert.equal(sql('SELECT public.merchant_anp_verification_current('+q(merchantId)+"::uuid)"),'t');
+assert.equal(sql('SELECT public.merchant_basket_compliance_current('+q(merchantId)+"::uuid,ARRAY['P13']::text[])"),'t',
+ 'real GLP checkout must become eligible only after ephemeral ANP evidence');
 assert.ok(sql("SELECT "+q(merchantId)+"::uuid=ANY(public.market_city_offer_scope('São Gabriel','RS'))")==='t','synthetic merchant must pass the REAL city offer scope');
 const quoteCmd="SELECT public.create_quote_snapshot_v3("+
  q(buyer.id)+"::uuid,"+q(merchantId)+"::uuid,"+q(postalCode)+
  ",'10',400,25,45,clock_timestamp()+interval '5 minutes',"+
- "'[{\"product_code\":\"CHARCOAL2\",\"quantity\":1,\"unit_price_cents\":1800}]'::jsonb,"+
+ "'[{\"product_code\":\"P13\",\"quantity\":1,\"unit_price_cents\":11590}]'::jsonb,"+
  "repeat('e',64));";
 const quote=JSON.parse(sql(quoteCmd));
 assert.match(quote.quoteId,/^[0-9a-f-]{36}$/i);
-assert.equal(quote.grossTotalCents,2200);
+assert.equal(quote.grossTotalCents,11990,'P13 115,90 + entrega 4,00');
 sql("UPDATE public.quotes SET payment_method_requested='cash',payment_timing_requested='on_delivery' WHERE id="+q(quote.quoteId)+"::uuid;");
 const idempotency='ci-http-checkout-'+randomUUID();
 const request={
@@ -276,7 +286,7 @@ assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(first.body.order
  'a note must not change customer-visible order state');
 
 assert.equal(sql('SELECT count(*) FROM public.orders'),'1','accepting cannot duplicate order');
-assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='CHARCOAL2'"),'4','one item must be reserved exactly once');
+assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+q(merchantId)+"::uuid AND product_code='P13'"),'4','one item must be reserved exactly once');
 assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+q(first.body.orderId)+"::uuid AND event_type='MERCHANT_ACCEPTED'"),'1','replay cannot duplicate acceptance event');
 
 assert.equal(sql('SELECT count(*) FROM public.wallet_entries'),'0');
@@ -558,10 +568,13 @@ const statusDistribution=sql("SELECT string_agg(status||':'||n::text,',' ORDER B
 assert.equal(statusDistribution,'CANCELLED:1,PREPARING:1,SETTLED:1');
 const adminMulti=await call('admin-ops',adminActor.token,{action:'summary'});
 assert.equal(adminMulti.status,200);
-for(const id of [orderId,cancelledId,activeId]){
- assert.ok(adminMulti.body.controlOrders?.some(x=>x.id===id),
- 'same Admin endpoint must show the actual local scenario '+id);
+for(const [id,expectedStatus] of [[orderId,'SETTLED'],[cancelledId,'CANCELLED'],[activeId,'PREPARING']]){
+ const row=adminMulti.body.controlOrders?.find(x=>x.id===id);
+ assert.ok(row,'same Admin endpoint must show the actual local scenario '+id);
+ assert.equal(row.status,expectedStatus,'Admin must show the canonical outcome for '+id);
 }
+assert.equal(sql("SELECT product_code FROM public.order_items WHERE order_id="+q(orderId)+"::uuid"),'P13',
+ 'settled original order must contain regulated gas P13 rather than a mock');
 // The same Chrome portal test now views the second buyer and second accepted
 // order, again with the canonical authenticated Admin, not a mocked screen.
 await verifyIsolatedLivePortals({
@@ -569,6 +582,6 @@ await verifyIsolatedLivePortals({
 });
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');
-console.log('PASS: three actual disposable order journeys: SETTLED, CANCELLED, PREPARING; real Admin, buyer and merchant views; no production activity or PSP.');
+console.log('PASS: GLP P13 blocked before CI ANP, then settled via PIN; water cancelled/accepted; canonical Admin statuses; no PSP or production changes.');
 
 
