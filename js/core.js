@@ -936,7 +936,7 @@ function bottomNav(r){
         :[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['merchant-team','👥','Equipe','go'],['catalog','🧺','Catálogo','go']]
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-        :[['home','⌂','Início','go'],['availability','🧺','Comprar','market'],['tracking','📦','Pedidos','go'],['club','★','Clube','go'],['merchants','🏪','Vender','go']];
+        :[['home','⌂','Início','go'],['availability','🧺','Comprar','market'],['tracking','📦','Pedidos','go'],['earn','🤝','Indicar','go'],['club','★','Clube','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id||(id==='availability'&&r==='order');
     const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='market'?"tamaoOpenAvailability()":`go('${id}')`;
