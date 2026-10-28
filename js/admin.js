@@ -363,7 +363,7 @@ async function adminSignOut(){
   adminRuntime.session=null;
   adminRuntime.data=null;
   adminRuntime.merchantTrial=null;
-  adminOrderDemoState=null; // discard visual-only orders on sign-out
+  adminOrderDemoForget(); // also purge the only in-tab synthetic order state
   adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
     reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null};
   adminRuntime.searchQuery='';
@@ -7655,76 +7655,193 @@ function adminControlOrderCard(o){
     ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
   </article>`;
 }
-// Explicitly CLIENT-ONLY orders demo for the superadmin. Never persists data.
-// The real canonical checkout/fulfilment is exercised separately in isolated CI.
+// Browser-only, superadmin-accessible presentation of the order lifecycle.
+// All three perspectives share ONE synthetic in-tab model. This is NOT the
+// production Buyer/Merchant API; canonical APIs are verified by isolated CI.
 const ADMIN_ORDER_DEMO_STEPS=['OFFERED_TO_MERCHANT','PREPARING','OUT_FOR_DELIVERY','ARRIVING','SETTLED'];
+const ADMIN_ORDER_DEMO_KEY='tamao-admin-orders-demo-v2';
+const ADMIN_ORDER_DEMO_TTL_MS=8*60*60*1000;
+const ADMIN_ORDER_DEMO_FIXTURES=[
+  {id:'DEMO-001',product:'Gás P13',quantity:1,amountCents:11590,pin:'4826'},
+  {id:'DEMO-002',product:'Água 20 L',quantity:2,amountCents:3180,pin:'5937'},
+  {id:'DEMO-003',product:'Carvão 4 kg',quantity:1,amountCents:2500,pin:'6148'}
+];
 let adminOrderDemoState=null;
 function adminOrderDemoAllowed(){
   return adminReady()&&adminCurrentRole()==='superadmin'
     &&adminRuntime.section==='orders'
     &&!!adminRuntime.session?.user?.id;
 }
+function adminOrderDemoForget(){
+  adminOrderDemoState=null;
+  try{sessionStorage.removeItem(ADMIN_ORDER_DEMO_KEY)}catch{}
+}
+function adminOrderDemoLoad(){
+  try{
+    const raw=sessionStorage.getItem(ADMIN_ORDER_DEMO_KEY);
+    if(!raw)return null;
+    const saved=JSON.parse(raw);
+    const actorId=String(adminRuntime.session?.user?.id||'');
+    if(saved?.v!==2||saved.actorId!==actorId||
+       !Number.isFinite(saved.expiresAt)||saved.expiresAt<=Date.now()||
+       !Array.isArray(saved.steps)||saved.steps.length!==3||
+       !Array.isArray(saved.cancelled)||saved.cancelled.length!==3){
+      adminOrderDemoForget();return null;
+    }
+    return {
+      actorId,viewRole:['admin','customer','merchant'].includes(saved.viewRole)?saved.viewRole:'admin',
+      items:ADMIN_ORDER_DEMO_FIXTURES.map((f,i)=>({
+        ...f,step:Number.isInteger(saved.steps[i])&&saved.steps[i]>=0&&
+          saved.steps[i]<ADMIN_ORDER_DEMO_STEPS.length?saved.steps[i]:0,
+        cancelled:saved.cancelled[i]===true,error:''
+      }))
+    };
+  }catch{return null}
+}
+function adminOrderDemoCurrent(){
+  if(!adminOrderDemoAllowed())return null;
+  const actorId=String(adminRuntime.session.user.id);
+  if(adminOrderDemoState?.actorId!==actorId)adminOrderDemoState=adminOrderDemoLoad();
+  return adminOrderDemoState;
+}
+function adminOrderDemoSave(){
+  const state=adminOrderDemoState;
+  if(!state)return;
+  try{
+    sessionStorage.setItem(ADMIN_ORDER_DEMO_KEY,JSON.stringify({
+      v:2,actorId:state.actorId,expiresAt:Date.now()+ADMIN_ORDER_DEMO_TTL_MS,
+      viewRole:state.viewRole,steps:state.items.map(x=>x.step),
+      cancelled:state.items.map(x=>x.cancelled===true)
+    }));
+  }catch{}
+}
 function adminOrderDemoCreate(){
   if(!adminOrderDemoAllowed())return;
   adminOrderDemoState={
-    actorId:String(adminRuntime.session.user.id),
-    items:[
-      {id:'DEMO-001',product:'Gás P13',quantity:1,amountCents:11590,step:0},
-      {id:'DEMO-002',product:'Água 20 L',quantity:2,amountCents:3180,step:0},
-      {id:'DEMO-003',product:'Carvão 4 kg',quantity:1,amountCents:2500,step:0}
-    ]
+    actorId:String(adminRuntime.session.user.id),viewRole:'admin',
+    items:ADMIN_ORDER_DEMO_FIXTURES.map(f=>({...f,step:0,cancelled:false,error:''}))
   };
-  render();
+  adminOrderDemoSave();render();
 }
+function adminOrderDemoSelectRole(role){
+  const state=adminOrderDemoCurrent();
+  if(!state||!['admin','customer','merchant'].includes(role))return;
+  state.viewRole=role;state.items.forEach(x=>x.error='');
+  adminOrderDemoSave();render();
+}
+// The original Admin shortcut is intentionally only a VISUAL step advance.
 function adminOrderDemoAdvance(id){
-  if(!adminOrderDemoAllowed()||
-      adminOrderDemoState?.actorId!==String(adminRuntime.session.user.id))return;
-  const order=adminOrderDemoState.items.find(x=>x.id===id);
-  if(!order||order.step>=ADMIN_ORDER_DEMO_STEPS.length-1)return;
-  order.step++;
-  render();
+  const state=adminOrderDemoCurrent();
+  if(!state||state.viewRole!=='admin')return;
+  const order=state.items.find(x=>x.id===id);
+  if(!order||order.cancelled||order.step>=ADMIN_ORDER_DEMO_STEPS.length-1)return;
+  order.step++;adminOrderDemoSave();render();
+}
+function adminOrderDemoAction(id,action){
+  const state=adminOrderDemoCurrent();
+  if(!state)return;
+  const order=state.items.find(x=>x.id===id);
+  if(!order||order.cancelled||order.step===4)return;
+  const status=ADMIN_ORDER_DEMO_STEPS[order.step];
+  const customer=state.viewRole==='customer';
+  const merchant=state.viewRole==='merchant';
+  if(customer&&action==='cancel'&&['OFFERED_TO_MERCHANT','PREPARING'].includes(status)){
+    order.cancelled=true;
+  }else if(merchant&&action==='accept'&&status==='OFFERED_TO_MERCHANT'){
+    order.step=1;
+  }else if(merchant&&action==='reject'&&status==='OFFERED_TO_MERCHANT'){
+    order.cancelled=true;
+  }else if(merchant&&action==='dispatch'&&status==='PREPARING'){
+    order.step=2;
+  }else if(merchant&&action==='arriving'&&status==='OUT_FOR_DELIVERY'){
+    order.step=3;
+  }else if(merchant&&action==='complete'&&status==='ARRIVING'){
+    const pin=String(document.getElementById('admin-order-demo-pin-'+id)?.value||'').trim();
+    const attested=document.getElementById('admin-order-demo-paid-'+id)?.checked===true;
+    if(pin!==order.pin||!attested){
+      order.error=pin!==order.pin?'PIN fictício incorreto. Veja o código na visão Cliente.':
+        'Confirme o recebimento fictício na entrega.';
+      render();return;
+    }
+    order.step=4;
+  }else{return}
+  order.error='';
+  adminOrderDemoSave();render();
 }
 function adminOrderDemoClear(){
   if(!adminOrderDemoAllowed())return;
-  adminOrderDemoState=null;
-  render();
+  adminOrderDemoForget();render();
 }
 function adminOrderDemoView(){
   if(!adminOrderDemoAllowed())return '';
-  const mine=adminOrderDemoState?.actorId===String(adminRuntime.session.user.id);
-  const items=mine?adminOrderDemoState.items:[];
-  const cards=items.map(x=>{
-    const status=ADMIN_ORDER_DEMO_STEPS[x.step];
-    const final=x.step===ADMIN_ORDER_DEMO_STEPS.length-1;
-    return '<article class="order-card" data-demo-only="true">'+
-      '<div class="order-head"><div><div class="order-id">'+esc(x.id)+' · FICTÍCIO</div>'+
+  const state=adminOrderDemoCurrent();
+  const items=state?.items||[];
+  const viewRole=state?.viewRole||'admin';
+  const roleNames={customer:'Cliente fictício',merchant:'Revenda fictícia',admin:'Admin — acompanhamento'};
+  const actions=items.map(x=>{
+    const status=x.cancelled?'CANCELLED':ADMIN_ORDER_DEMO_STEPS[x.step];
+    const terminal=x.cancelled||x.step===ADMIN_ORDER_DEMO_STEPS.length-1;
+    let buttons='';
+    if(!terminal){
+      if(viewRole==='admin'){
+        buttons='<button class="secondary small" type="button" onclick="adminOrderDemoAdvance(\''+x.id+'\')">Avançar etapa fictícia</button>';
+      }else if(viewRole==='customer'&&x.step<=1){
+        buttons='<button class="secondary small" type="button" onclick="adminOrderDemoAction(\''+x.id+'\',\'cancel\')">Cancelar pedido fictício</button>';
+      }else if(viewRole==='merchant'){
+        if(x.step===0){
+          buttons='<button class="primary small" type="button" onclick="adminOrderDemoAction(\''+x.id+'\',\'accept\')">Aceitar pedido</button>'+
+            '<button class="ghost small" type="button" onclick="adminOrderDemoAction(\''+x.id+'\',\'reject\')">Recusar</button>';
+        }else if(x.step===1){
+          buttons='<button class="secondary small" type="button" onclick="adminOrderDemoAction(\''+x.id+'\',\'dispatch\')">Saiu para entrega</button>';
+        }else if(x.step===2){
+          buttons='<button class="secondary small" type="button" onclick="adminOrderDemoAction(\''+x.id+'\',\'arriving\')">Chegando ao cliente</button>';
+        }else if(x.step===3){
+          buttons='<div class="form-grid">'+
+            '<label class="input-wrap">PIN do cliente (simulação)<input class="input" id="admin-order-demo-pin-'+x.id+'" inputmode="numeric" type="text" maxlength="4" autocomplete="off" placeholder="4 dígitos"></label>'+
+            '<label class="input-wrap"><input id="admin-order-demo-paid-'+x.id+'" type="checkbox"> Pagamento fictício recebido na entrega</label></div>'+
+            '<button class="primary small" type="button" onclick="adminOrderDemoAction(\''+x.id+'\',\'complete\')">Confirmar entrega fictícia</button>';
+        }
+      }
+    }
+    const step=x.cancelled?'Cancelado':(x.step+1)+' de '+ADMIN_ORDER_DEMO_STEPS.length;
+    const buyerPin=viewRole==='customer'&&!terminal&&x.step>=2?
+      '<div class="order-line">Código de entrega fictício (só na visão Cliente): <strong>'+x.pin+'</strong></div>':'';
+    const statusText=status==='CANCELLED'?'Cancelado':adminOrderStatusLabel(status);
+    return '<article class="order-card" data-demo-only="true" data-demo-status="'+status+'">'+
+      '<div class="order-head"><div><div class="order-id">'+x.id+' · FICTÍCIO</div>'+
       '<strong>'+esc(x.product)+'</strong><small> · '+x.quantity+' unidade(s)</small></div>'+
-      '<span class="status-pill '+(final?'online':'risk')+'">'+esc(adminOrderStatusLabel(status))+'</span></div>'+
-      '<div class="order-line">Valor apenas ilustrativo: <strong>'+adminMoney(x.amountCents)+'</strong></div>'+
-      '<div class="order-line">Etapa '+(x.step+1)+' de '+ADMIN_ORDER_DEMO_STEPS.length+
-      ' · nenhuma revenda foi notificada</div>'+
-      '<div class="order-actions"><button class="secondary small" type="button" '+
-      (final?'disabled':'onclick="adminOrderDemoAdvance(\''+x.id+'\')"')+'>'+
-      (final?'Demonstração concluída':'Avançar etapa fictícia')+'</button></div>'+
+      '<span class="status-pill '+(terminal&&!x.cancelled?'online':'risk')+'">'+esc(statusText)+'</span></div>'+
+      '<div class="order-line">Produto: <strong>'+adminMoney(x.amountCents)+
+      '</strong> · entrega ilustrativa: '+adminMoney(400)+'</div>'+
+      '<div class="order-line">Total fictício: <strong>'+adminMoney(x.amountCents+400)+'</strong></div>'+
+      '<div class="order-line">Etapa: '+step+' · nenhuma revenda foi notificada</div>'+
+      buyerPin+(x.error?'<p class="notice danger" role="alert">'+esc(x.error)+'</p>':'')+
+      '<div class="order-actions">'+(terminal?(x.cancelled?'Demonstração cancelada':'Demonstração concluída'):buttons)+'</div>'+
     '</article>';
   }).join('');
+  const tabs=state?['customer','merchant','admin'].map(r=>
+    '<button class="'+(viewRole===r?'primary':'secondary')+' small" type="button" '+
+    'aria-pressed="'+(viewRole===r)+'" onclick="adminOrderDemoSelectRole(\''+r+'\')">'+
+    roleNames[r]+'</button>').join(''):'';
   return '<section class="section" aria-label="Pedidos de demonstração sem operações reais">'+
-    '<div class="section-head"><div><span class="section-kicker">SIMULAÇÃO ISOLADA DA PRODUÇÃO</span>'+
+    '<div class="section-head"><div><span class="section-kicker">LABORATÓRIO VISUAL SEM OPERAÇÕES REAIS</span>'+
     '<h2>Pedidos de teste — sem revendas reais</h2>'+
-    '<p>Crie três pedidos fictícios nesta tela e percorra os estados do pedido. '+
-    'Nenhuma compra, reserva de estoque, cobrança, comissão ou entrega será registrada.</p></div></div>'+
-    '<div class="notice"><strong>NÃO SÃO PEDIDOS REAIS.</strong> '+
-    'Este recurso é uma demonstração visual temporária do Admin. '+
-    'O teste das APIs reais de cliente, revenda e entrega é executado separadamente '+
-    'em um Supabase descartável no CI. Os dados desaparecem ao encerrar a sessão.</div>'+
+    '<p>Simule cliente, revenda e administrador acompanhando os mesmos três pedidos fictícios, sem criar dados comerciais.</p></div></div>'+
+    '<div class="notice"><strong>NÃO SÃO PEDIDOS REAIS.</strong> As três visões abaixo são apenas '+
+    'uma representação local no navegador do Admin, NÃO os outros dois portais reais. '+
+    'Os pedidos verdadeiros das APIs são testados separadamente em Supabase descartável. '+
+    'A simulação fica nesta aba por até 8 horas e é apagada ao sair do Admin.</div>'+
     '<div class="order-actions" style="margin-top:12px">'+
     '<button class="primary" type="button" onclick="adminOrderDemoCreate()">Criar 3 pedidos fictícios</button>'+
     (items.length?'<button class="ghost" type="button" onclick="adminOrderDemoClear()">Limpar testes</button>':'')+
     '</div>'+
-    (items.length?'<div style="margin-top:12px">'+cards+'</div>':
-      '<div class="empty card" style="margin-top:12px">Nenhuma simulação nesta sessão. Os pedidos comerciais reais permanecem na Torre de Controle abaixo.</div>')+
-    '<small class="field-help">CNPJs e clientes reais não são usados. Teste integrado auditável: '+
-    '<a href="https://github.com/carloskk07/gassg/actions/workflows/isolated-supabase-integration.yml" target="_blank" rel="noopener noreferrer">GitHub Actions — Supabase isolado</a>.</small>'+
+    (items.length?'<div class="card flat" style="margin-top:12px"><strong>Alternar perspectiva da mesma operação</strong>'+
+      '<div class="order-actions" style="margin-top:8px">'+tabs+'</div>'+
+      '<p class="tiny muted">Visão atual: '+roleNames[viewRole]+'. Na visão Revenda, aceite, despache e conclua usando o PIN mostrado ao Cliente; também é possível cancelar e recusar.</p></div>'+
+      '<div style="margin-top:12px">'+actions+'</div>':
+      '<div class="empty card" style="margin-top:12px">Nenhuma simulação nesta aba. Pedidos comerciais reais aparecem separadamente na Torre de Controle abaixo.</div>')+
+    '<small class="field-help">Os valores são exemplos, não ofertas ou pagamentos. '+
+    '<a href="https://github.com/carloskk07/gassg/actions/workflows/isolated-supabase-integration.yml" target="_blank" rel="noopener noreferrer">Ver testes das APIs reais no GitHub</a>.</small>'+
   '</section>';
 }
 
