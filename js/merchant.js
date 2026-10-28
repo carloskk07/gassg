@@ -2436,7 +2436,7 @@ function merchantLivePage(){
       </details>
       ${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}
     </section>
-    ${merchantRecentClosedOrdersView(rt.recentClosedOrders,orderEvidence.fresh)}
+    ${merchantRecentClosedOrdersView(m.recentClosedOrders,orderEvidence.fresh)}
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
