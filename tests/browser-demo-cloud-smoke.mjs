@@ -27,6 +27,9 @@ assert.ok(panel.includes('s.selectedMerchant=o.merchantId'));
 assert.ok(panel.includes('focusAssignedOrder'));
 assert.ok(read('js/core.js').includes('Demonstração interativa • nenhum pedido ou pagamento real'));
 assert.ok(!read('js/core.js').includes('Ambiente isolado de teste automatizado'));
+assert.ok(read('js/merchant.js').includes('Simulação: aceitar este pedido não cria venda, entrega ou compromisso real.'));
+assert.ok(!read('js/merchant.js').includes('Aceitar significa assumir compromisso real de atendimento.'));
+
 
 assert.ok(panel.includes('Continuar na Revenda'));
 assert.ok(panel.includes('sem cadastro, Pix ou cobrança real'));
