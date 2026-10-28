@@ -69,7 +69,7 @@ function couponProviderPixPayable(order:any,payment:any){
  // The order total is NOT proof that its individual Pix is for that amount.
  // Require the independently supplied PSP transaction amount on fresh issue
  // AND on idempotent re-open. The Orders API documents payment.amount.
- return order?.live_mode!==false
+ return order?.live_mode!==false&&payment?.live_mode!==false
    &&(!order?.currency_id||order.currency_id==="BRL")
    &&(!order?.currency||order.currency==="BRL")
    &&Boolean(String(payment?.id??"").trim())

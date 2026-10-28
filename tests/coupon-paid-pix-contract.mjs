@@ -186,6 +186,8 @@ for(const invalid of [
 }
 assert.equal(sandbox.couponProviderPixPayable({...providerOrder,live_mode:false},exactPayment),false,
  'explicit sandbox Order must not present an alleged real customer Pix');
+assert.equal(sandbox.couponProviderPixPayable(providerOrder,{...exactPayment,live_mode:false}),false,
+ 'explicit sandbox Pix transaction must not be presented as production QR');
 assert.equal(sandbox.couponProviderPixPayable({...providerOrder,currency_id:'USD'},exactPayment),false);
 assert.equal(sandbox.couponProviderPixPayable({...providerOrder,currency:'USD'},exactPayment),false);
 assert.equal(getCount,1,'one GET verification on positive replay');
@@ -400,6 +402,7 @@ assert.equal((await decide('processed')).route,
 // an unpaid invoice must not issue vouchers from incomplete Pix evidence.
 for(const [name,change] of [
  ['explicit sandbox Order',order=>{order.live_mode=false;}],
+ ['explicit sandbox Pix',order=>{order.transactions.payments[0].live_mode=false;}],
  ['Pix transaction amount mismatch',order=>{order.transactions.payments[0].amount='14.00';}],
  ['Pix transaction amount omitted',order=>{delete order.transactions.payments[0].amount;}],
  ['Pix transaction amount null',order=>{order.transactions.payments[0].amount=null;}],

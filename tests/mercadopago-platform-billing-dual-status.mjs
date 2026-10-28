@@ -98,6 +98,9 @@ for(const [name,change,expected] of [
   ['Pix with contradictory method',o=>o.transactions.payments[0].payment_method.type='credit_card','MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
   ['missing transaction id',o=>o.transactions.payments[0].id='', 'MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
   ['wrong transaction amount',o=>o.transactions.payments[0].amount='299.99','MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
+  ['missing transaction amount',o=>{delete o.transactions.payments[0].amount;},'MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
+  ['null transaction amount',o=>{o.transactions.payments[0].amount=null;},'MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
+  ['sandbox Pix transaction',o=>{o.transactions.payments[0].live_mode=false;},'MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
   ['sandbox order',o=>o.live_mode=false,'MERCADOPAGO_PAYMENT_BINDING_MISMATCH'],
   ['wrong currency',o=>o.currency_id='USD','MERCADOPAGO_PAYMENT_BINDING_MISMATCH']
 ]){
