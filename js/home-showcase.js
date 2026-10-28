@@ -169,7 +169,7 @@ function homeRegionalPriceBoard(region){
    '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
   (real.length?'<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p>':'')+
   '<div class="city-price-controls">'+
-   '<button type="button" class="primary" onclick="startCustomerAvailability()">Comparar preços e benefícios →</button>'+
+   '<button type="button" class="primary" onclick="startHomeBrowse()">Escolher produtos →</button>'+
    (globalThis.liveReady?.()===true?
      '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
    '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+

@@ -22,6 +22,11 @@ vm.runInContext(home+';this.renderQuote=homeRegionalPriceBoard;',ctx);
 const local=ctx.renderQuote({city:'São Gabriel',state:'RS'});
 assert.match(local,/Tamão São Gabriel\/RS/);
 assert.match(local,/Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço/);
+assert.match(local,/onclick="startHomeBrowse\(\)">Escolher produtos/,
+ 'board must open product-first checkout without silently selecting gas');
+assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
+ 'generic quote CTA cannot add default P13');
+
 assert.equal((local.match(/class="city-price-research-item"/g)||[]).length,3);
 assert.equal((local.match(/class="city-price-product-pick"/g)||[]).length,3);
 for(const code of ['P13','WATER20','WOOD']){
