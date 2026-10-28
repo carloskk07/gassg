@@ -149,7 +149,20 @@
       return result;
     };
   }
+  function beginP13(){
+    setAdmin(false);
+    globalThis.setMode?.('customer');
+    const o=currentOrder();
+    if(o&&!['CANCELLED','SETTLED','DELIVERED','REJECTED'].includes(o.status)){
+      globalThis.go?.('tracking');
+    }else{
+      // Existing public checkout and price comparison, with synthetic stock only.
+      globalThis.startOrder?.('P13');
+    }
+    updateGuide();
+  }
   nav.append(button('Cliente',openCustomer));
+  nav.append(button('Começar com gás P13',beginP13));
   nav.append(button('Revenda (pedido)',openMerchant));
   nav.append(button('Admin (resumo)',()=>setAdmin(true)));
   nav.append(button('Reiniciar',()=>{
