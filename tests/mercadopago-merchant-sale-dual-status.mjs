@@ -13,7 +13,7 @@ const pureBegin=webhook.indexOf('function orderPayments(');
 const pureEnd=webhook.indexOf('async function fetchProviderOrder(',pureBegin);
 assert.ok(begin>0&&end>begin&&pureBegin>0&&pureEnd>pureBegin);
 const stripTypes=source=>source
-  .replace(/\b(admin|attempt|dataId|body|encryptionKey|order|payment|sum|item|p|value):(?:any|string|number)\b/g,'$1')
+  .replace(/\b(admin|attempt|dataId|body|encryptionKey|order|payment|sum|item|refund|p|value):(?:any|string|number)\b/g,'$1')
   .replace(/\(p:any\)/g,'(p)');
 const realSource=stripTypes(webhook.slice(pureBegin,pureEnd)+
   '\n'+webhook.slice(begin,end));
@@ -101,6 +101,34 @@ const cases=[
   ['processed order with wrong payment amount',
     o=>o.transactions.payments[0].amount='250.00',
     'MERCHANT_PROVIDER_PAYMENT_STATUS_CONFLICT'],
+  ['processed order without Pix transaction amount',
+    o=>{delete o.transactions.payments[0].amount;},
+    'MERCHANT_PROVIDER_PAYMENT_STATUS_CONFLICT'],
+  ['processed order with null Pix transaction amount',
+    o=>{o.transactions.payments[0].amount=null;},
+    'MERCHANT_PROVIDER_PAYMENT_STATUS_CONFLICT'],
+  ['sandbox Pix transaction cannot approve a real merchant sale',
+    o=>o.transactions.payments[0].live_mode=false,
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
+  ['refund processing while order still processed',
+    o=>o.transactions.refunds=[{id:'R-PENDING',status:'processing',amount:'50.00'}],
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
+  ['refund pending while order still processed',
+    o=>o.transactions.refunds=[{id:'R-PENDING2',status:'pending',amount:'50.00'}],
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
+  ['refund amount present but status missing',
+    o=>o.transactions.refunds=[{id:'R-UNKNOWN',amount:'50.00'}],
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
+  ['processed refund without ID',
+    o=>o.transactions.refunds=[{status:'processed',amount:'50.00'}],
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
+  ['processed refund without amount',
+    o=>o.transactions.refunds=[{id:'R-NOAMOUNT',status:'processed'}],
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
+  ['processed refund tied to a different Pix',
+    o=>o.transactions.refunds=[{id:'R-FOREIGN',status:'processed',
+      amount:'50.00',transaction_id:'SOME-OTHER-PAYMENT'}],
+    'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
   ['sandbox order cannot mark merchant sale paid',
     o=>o.live_mode=false,'MERCHANT_PROVIDER_SALE_EVIDENCE_CONFLICT'],
   ['provider currency conflict',
