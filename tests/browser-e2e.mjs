@@ -369,6 +369,9 @@ await waitFor("location.hash==='#merchant' && document.body.innerText.includes('
 
 // JR now starts with the confirmed commercial range. Change only the
 // simulated strategy to prove that the engine remains inside the authorized bounds.
+assert.equal(await evaluate("document.querySelector('.merchant-demo-settings')?.open"),false,
+ 'pricing is secondary in the merchant demo and starts collapsed');
+await evaluate("document.querySelector('.merchant-demo-settings').open=true");
 await waitFor("document.body.innerText.includes('Faixa automática de preço')","pilot confirmed pricing range visible");
 await evaluate("document.querySelector('#m-pricing-strategy').value='volume'; merchantUpdate('JR-PILOT')");
 assert.deepEqual(

@@ -1,3 +1,20 @@
+## 28/10/2026 — Teste E2E do piloto ajustado à navegação progressiva
+
+- A auditoria de navegador de 320/360/390px reproduziu a consequência intencional de `<details>` fechado: não conseguia ver `Faixa automática de preço` antes de abrir as configurações. O teste já testava ativamente alteração de estratégia e os limites P13 reais do cenário interno (115,90/120/125), portanto sua verificação **não pode ser retirada**.
+- Ajustado `tests/browser-e2e.mjs` para exigir que ajustes comecem fechados, abrir explicitamente `.merchant-demo-settings` e somente então conferir o valor e a estratégia de preço. A comprovação da política de faixa e dos preços continua integral. Retestar Audit e Chrome antes do merge.
+
+## 28/10/2026 — Diagnóstico Chrome: formulários dentro de <details> apareciam fechados
+
+- **Regressão real reproduzida no Chrome mobile da demo:** após mover preços para `<details class="merchant-demo-settings">`, o teste confirmou que `open=false` mas `#m-price` ainda possuía retângulo visível. A causa foi `.merchant-demo-settings-body{display:grid}` do CSS do próprio app, com precedência sobre o estilo nativo de `<details>` fechado.
+- **Correção abrangente dos dois painéis sem nova versão:** definir `display:none` em `.merchant-demo-settings:not([open])>.merchant-demo-settings-body`, `.merchant-workspace-more:not([open])>.merchant-workspace-more-actions` e nos filhos que possuem estilo `display:grid` de `.merchant-first-run-extra:not([open])`. Isso mantém formulário/atalhos ocultos até expansão real sem perder o acesso, e preserva as regras de backend/segurança.
+- **Regressão:** repetir Chrome com assert de que o input de preço não tem área renderizada enquanto os detalhes estão fechados; contratos de CSS protegem o painel comercial.
+
+## 28/10/2026 — Simulador Revenda: pedidos acima do formulário P13 (PR em validação)
+
+- **Falha observada na UI testada pelo proprietário:** a demo `merchantPage()` mostrava seleção de revenda, 4 indicadores e 6 campos de preço, faixa e estratégia **antes** dos pedidos, sugerindo que precisava preencher tudo para aceitar.
+- **Reorganização:** status de disponibilidade, alerta de preço expirado e fila **Pedidos que exigem ação** no início; configuração de estoque, preços e seleção de revenda em `<details class="merchant-demo-settings">` inicialmente fechado, acessível para quem precisar. Todos os mecanismos de aceite, despacho, chegada, PIN e pagamento fictício mantidos. Isso se aplica à demo, além da simplificação da Revenda comercial da PR #704.
+- **Gates:** novo assert Chrome mobile verifica primeiro pedido visível, preço oculto, sem cliques adicionais para aceitar, além dos E2E WATER20/P13 e Admin. Sem alteração nos dados sintéticos, no sistema financeiro, no Supabase nem nas regras de segurança.
+
 ## 28/10/2026 — Foco do painel da Revenda: menos escolhas simultâneas (PR em validação)
 
 - **Causa visual comprovada no frontend oficial:** a `merchantLivePage()` mostrava ao mesmo tempo cartão de orientação, 5 grandes atalhos (Pedidos, Comece, Resultados, Divulgar, Minha revenda), disponibilidade, resumo, onboarding com 3–4 cartões individuais e uma segunda seção de configuração. Isso multiplica decisões e cliques mesmo quando a atividade principal é aceitar e entregar pedidos.

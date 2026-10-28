@@ -384,3 +384,21 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .merchant-first-run-extra>summary{cursor:pointer;color:#286b49;font-size:13px;font-weight:760;padding:7px 4px}
 .merchant-first-run-extra>.merchant-first-run-steps{margin-bottom:13px}
 @media(max-width:560px){.merchant-workspace-more-actions{grid-template-columns:1fr}.merchant-workspace-more-actions .merchant-workspace-shortcut{min-height:58px}.merchant-workspace .merchant-workspace-shortcut{min-height:75px}}
+
+/* Browser-only merchant demo: keep the active order above optional pricing forms. */
+.merchant-demo-availability{display:flex;justify-content:flex-end;margin:10px 0}
+.merchant-demo-availability button{min-height:43px}
+.merchant-demo-settings{margin:14px 0;border:1px solid #d5e5d9;border-radius:17px;background:#fff;overflow:hidden}
+.merchant-demo-settings>summary{cursor:pointer;padding:15px 17px;font-weight:780;color:#275e40;list-style:none}
+.merchant-demo-settings>summary::-webkit-details-marker{display:none}
+.merchant-demo-settings>summary::after{content:'+';float:right;font-size:18px}
+.merchant-demo-settings[open]>summary::after{content:'−'}
+.merchant-demo-settings-body{padding:0 12px 14px;display:grid;gap:10px}
+.merchant-demo-settings-body>.section{margin:0}
+@media(max-width:550px){.merchant-demo-availability button{width:100%}.merchant-demo-settings>summary{padding:14px}}
+
+/* Explicit closed-state visibility: author grid/flex styles must not override <details>. */
+.merchant-demo-settings:not([open])>.merchant-demo-settings-body,
+.merchant-workspace-more:not([open])>.merchant-workspace-more-actions,
+.merchant-first-run-extra:not([open])>.merchant-first-run-steps,
+.merchant-first-run-extra:not([open])>button{display:none}
