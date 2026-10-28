@@ -396,6 +396,25 @@ assert.equal((await decide('processed','processed',validRefund,'paid',
  'clube_coupon_paid_payment_review','partial detail conflicts with alleged complete refund');
 assert.equal((await decide('processed')).route,
  'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
+// A refund can still be pending while both PSP statuses say accredited.
+// Freeze paid benefits and deny fresh issuance until accounting review.
+for(const [name,refund] of [
+ ['processing refund',{id:'refund-in-process',status:'processing',amount:'15.00'}],
+ ['pending refund',{id:'refund-pending',status:'pending',amount:'15.00'}],
+ ['unknown refund',{id:'refund-unknown',status:'unknown',amount:'15.00'}],
+ ['missing refund ID',{status:'processed',amount:'15.00'}],
+ ['missing refund amount',{id:'refund-no-amount',status:'processed'}],
+ ['other Pix refund',{id:'refund-other',status:'processed',amount:'15.00',
+   transaction_id:'wrong-pix-id'}]
+]){
+ providerRpcResult={ok:false,reviewRequired:true,refunded:false};
+ for(const invoiceState of ['paid','awaiting_payment']){
+  const attempt=await decide('processed','processed',[refund],invoiceState);
+  assert.equal(attempt.route,'clube_coupon_paid_payment_review',name+' '+invoiceState);
+  assert.equal(attempt.status,'review_required',name+' '+invoiceState);
+ }
+}
+providerRpcResult={};
 
 // A test-approved Mercado Pago Order does not prove a production receipt.
 // A paid invoice must become review_required rather than remain spendable;
