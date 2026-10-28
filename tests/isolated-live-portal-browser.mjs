@@ -7,7 +7,7 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
@@ -70,7 +70,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   throw Error('Portal did not render real state '+label+': '+info);
  }
  try{
-  let target;
+  let target,browserDebugPort;
   // Chrome allocates its own localhost CDP port. A fixed port can collide
   // with another browser and creates intermittent CI startup failures.
   const portFile=path.join(profile,'DevToolsActivePort');
@@ -81,7 +81,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
      const pages=await(await fetch('http://127.0.0.1:'+port+'/json/list',
        {signal:AbortSignal.timeout(1100)})).json();
      target=pages.find(p=>p.type==='page'&&p.webSocketDebuggerUrl);
-     if(target)break;
+     if(target){browserDebugPort=port;break;}
     }
    }catch{}
    if(chrome.exitCode!==null||chrome.signalCode!==null)break;
@@ -126,6 +126,152 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
     fs.mkdirSync(evidenceDir,{recursive:true});
     fs.writeFileSync(path.join(evidenceDir,name+'.png'),png);
   }
+
+  // Chrome's separate off-the-record BrowserContexts are genuinely isolated
+  // (cookies, localStorage and sessionStorage). Unlike changing credentials in
+  // a single tab, these can stay open simultaneously against ONE real local DB.
+  async function verifyIndependentContexts(){
+    assert.ok(Number.isInteger(browserDebugPort)&&browserDebugPort>0);
+    const browserInfo=await(await fetch('http://127.0.0.1:'+browserDebugPort+'/json/version',
+      {signal:AbortSignal.timeout(5000)})).json();
+    assert.ok(browserInfo.webSocketDebuggerUrl,'Chrome browser endpoint missing');
+    const contexts=[],pages=[];
+    async function connect(url){
+      const socket=new WebSocket(url),waiting=new Map();let counter=0;
+      await new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(Error('Isolated CDP socket timeout')),10000);
+        socket.addEventListener('open',()=>{clearTimeout(timer);resolve()},{once:true});
+        socket.addEventListener('error',reject,{once:true});
+      });
+      socket.addEventListener('message',event=>{
+        const msg=JSON.parse(String(event.data));
+        if(msg.method==='Network.requestWillBeSent'&&/\.supabase\.co/i.test(msg.params?.request?.url||''))
+          violations.push('Independent Chrome context attempted commercial Supabase');
+        if(msg.id&&waiting.has(msg.id)){
+          const p=waiting.get(msg.id);clearTimeout(p.timer);waiting.delete(msg.id);
+          if(msg.error)p.reject(Error(JSON.stringify(msg.error)));else p.resolve(msg.result);
+        }
+      });
+      const sendIsolated=(method,params={})=>new Promise((resolve,reject)=>{
+        const id=++counter;
+        const timer=setTimeout(()=>{waiting.delete(id);reject(Error('Isolated CDP timeout '+method))},15000);
+        waiting.set(id,{resolve,reject,timer});
+        socket.send(JSON.stringify({id,method,params}));
+      });
+      const evaluateIsolated=async expression=>{
+        const r=await sendIsolated('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
+        if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);
+        return r.result?.value;
+      };
+      const waitIsolated=async(expression,label,limit=48000)=>{
+        const until=Date.now()+limit;
+        while(Date.now()<until){
+          try{if(await evaluateIsolated(expression))return}catch{}
+          await sleep(250);
+        }
+        const diag=await evaluateIsolated("JSON.stringify({text:document.body.innerText.slice(0,180),status:typeof merchantRuntime==='undefined'?null:merchantRuntime.status,customer:typeof liveRuntime==='undefined'?null:liveRuntime.status,admin:typeof adminRuntime==='undefined'?null:adminRuntime.status})").catch(e=>String(e));
+        throw Error('Independent browser failed '+label+': '+diag);
+      };
+      return {socket,send:sendIsolated,evaluate:evaluateIsolated,wait:waitIsolated,
+        navigate:async url=>{
+          await sendIsolated('Page.navigate',{url});
+          await waitIsolated("document.readyState==='complete'&&!!document.querySelector('#app')",'page loaded',20000);
+        },close:()=>{for(const p of waiting.values()){clearTimeout(p.timer);p.reject(Error('CDP cleanup'))}waiting.clear();socket.close()}};
+    }
+    const browser=await connect(browserInfo.webSocketDebuggerUrl);
+    try{
+      async function openRole(role,session,url){
+        const {browserContextId}=await browser.send('Target.createBrowserContext',{disposeOnDetach:true});
+        assert.ok(browserContextId);
+        contexts.push(browserContextId);
+        const {targetId}=await browser.send('Target.createTarget',{url:'about:blank',browserContextId});
+        let endpoint;
+        for(let n=0;n<80;n++){
+          const list=await(await fetch('http://127.0.0.1:'+browserDebugPort+'/json/list',
+            {signal:AbortSignal.timeout(3000)})).json();
+          endpoint=list.find(x=>x.id===targetId&&x.webSocketDebuggerUrl)?.webSocketDebuggerUrl;
+          if(endpoint)break;
+          await sleep(150);
+        }
+        assert.ok(endpoint,'Independent Chrome target missing for '+role);
+        const page=await connect(endpoint);pages.push(page);
+        await page.send('Page.enable');
+        await page.send('Runtime.enable');
+        await page.send('Network.enable');
+        await page.send('Emulation.setDeviceMetricsOverride',desktopViewport);
+        const parts=["(()=>{if(location.origin!=="+JSON.stringify(origin)+")return;"];
+        if(role==='customer'){
+          parts.push("localStorage.setItem('chama-sg-customer-auth-v2',"+JSON.stringify(JSON.stringify(session))+");");
+          parts.push("localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");");
+        }else{
+          const key=role==='merchant'?'chama-sg-merchant-auth-v1':'chama-sg-admin-auth-v1';
+          parts.push("sessionStorage.setItem("+JSON.stringify(key)+","+JSON.stringify(JSON.stringify(session))+");");
+          if(role==='admin')parts.push("sessionStorage.setItem('tamao-admin-section','orders');");
+        }
+        parts.push("})();");
+        await page.send('Page.addScriptToEvaluateOnNewDocument',{source:parts.join('')});
+        await page.navigate(origin+url);
+        // Only this role's authentication exists in its isolated context.
+        const auth=JSON.parse(await page.evaluate("JSON.stringify({customer:!!localStorage.getItem('chama-sg-customer-auth-v2'),merchant:!!sessionStorage.getItem('chama-sg-merchant-auth-v1'),admin:!!sessionStorage.getItem('chama-sg-admin-auth-v1')})"));
+        assert.deepEqual(auth,{customer:role==='customer',merchant:role==='merchant',admin:role==='admin'},
+          'Credential leakage across independent '+role+' browser context');
+        return page;
+      }
+      const merchantPage=await openRole('merchant',owner.session,'/?merchant=1#merchant');
+      await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
+      const buyerPage=await openRole('customer',buyer.session,'/#tracking');
+      await buyerPage.wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer sees canonical order');
+      const adminPage=await openRole('admin',adminActor.session,'/?admin=1#admin');
+      await adminPage.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'Admin sees canonical order',55000);
+      const code=await merchantPage.evaluate("merchantRuntime.orders.find(o=>o.orderId==="+JSON.stringify(orderId)+")?.publicCode");
+      assert.ok(typeof code==='string'&&code.length>3);
+      assert.equal(await adminPage.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code"),code,
+        'separate Admin browser must show merchant order public code');
+      assert.ok((await buyerPage.evaluate("document.querySelector('#app')?.innerText||''")).length>110);
+      if(captureEvidence){
+        for(const [page,name] of [[merchantPage,'06-parceiro-sessao-independente'],
+          [buyerPage,'07-cliente-sessao-independente'],
+          [adminPage,'08-admin-sessao-independente']]){
+          const shot=await page.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          const png=Buffer.from(shot.data||'','base64');
+          assert.ok(png.length>6000&&png.subarray(0,8).toString('hex')==='89504e470d0a1a0a');
+          fs.writeFileSync(path.join(evidenceDir,name+'.png'),png);
+        }
+        fs.appendFileSync(path.join(evidenceDir,'LEIA-ME.txt'),
+          '\\n06-08: Tres contextos Chrome incognitos independentes; Auth isolado, mesmo pedido SQL temporario.\\n'+
+          'NAO sao tres dominios publicos nem uma demonstracao com backend persistente.\\n');
+      }
+      if(exerciseCrossSessionDispatch){
+        const didClick=await merchantPage.evaluate("(()=>{const card=document.getElementById('merchant-order-card-'+"
+          +JSON.stringify(orderId)+");const button=Array.from(card?.querySelectorAll('button')||[]).find(b=>b.textContent.includes('Confirmar saída')&&!b.disabled);if(!button)return false;button.click();return true})()");
+        assert.equal(didClick,true,'independent partner must click real dispatch button');
+        await merchantPage.wait("merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="
+          +JSON.stringify(orderId)+"&&o.status==='OUT_FOR_DELIVERY')",'real merchant dispatch confirmed',50000);
+        await buyerPage.navigate(origin+'/#tracking');
+        await buyerPage.wait("liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="
+          +JSON.stringify(orderId)+"&&liveRuntime.order.status==='OUT_FOR_DELIVERY'",
+          'separate buyer sees merchant dispatch',45000);
+        await adminPage.navigate(origin+'/?admin=1#admin');
+        await adminPage.wait("adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="
+          +JSON.stringify(orderId)+"&&o.status==='OUT_FOR_DELIVERY')",
+          'separate Admin sees merchant dispatch',50000);
+        assert.ok(await merchantPage.evaluate("!!document.querySelector('#merchant-order-card-'+"
+          +JSON.stringify(orderId)+")?.innerText.includes('A caminho')||merchantRuntime.orders.some(o=>o.orderId==="
+          +JSON.stringify(orderId)+"&&o.status==='OUT_FOR_DELIVERY')"),
+          'partner must have the updated delivery state');
+      }
+      assert.deepEqual(violations,[],'no independent tab may call commercial Supabase');
+      console.log('PASS: three simultaneously isolated Chrome Auth contexts share one disposable SQL order'
+        +(exerciseCrossSessionDispatch?' and observe a real partner DOM dispatch in buyer/Admin':'')+'.');
+    }finally{
+      for(const page of pages)page.close();
+      for(const context of contexts.reverse()){
+        try{await browser.send('Target.disposeBrowserContext',{browserContextId:context})}catch{}
+      }
+      browser.close();
+    }
+  }
+
   const init="(()=>{if(location.origin!=="+JSON.stringify(origin)+")return;"+
    "localStorage.setItem('chama-sg-customer-auth-v2',"+JSON.stringify(JSON.stringify(buyer.session))+");"+
    "localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");"+
@@ -263,7 +409,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       'Nao e prova de funcionamento independente em tres dominios publicados.',
       'Nao ha compra, pagamento, Pix, CNPJ, ANP real ou fornecedor real.',
       'NUNCA usar estas imagens para anunciar estoque ou oferta comercial.',
-      'Artefato temporario para revisao humana; nao contem credenciais nem tokens.'
+      'Artefato temporario para revisao humana; nao contem credenciais nem tokens.',
+      '06-08: Tres sessoes reais isoladas em contextos incognitos do Chrome, mesmo pedido SQL temporario.'
     ].join('\n')+'\n','utf8');
   }
 
@@ -273,6 +420,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(didClickNote,true,'the Admin note must be submitted from the actual order card button');
   await wait("adminRuntime.status==='ready'&&adminRuntime.actionPending===false&&adminRuntime.data?.recentAudit?.some(x=>x.action==='order-control-note'&&x.target_id==="+JSON.stringify(orderId)+")",
     'Admin button must persist its audited note',50000);
+  await verifyIndependentContexts();
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
   console.log('PASS: real Chrome buyer, merchant and authorized Admin read the SAME localhost order; unauthorized buyer denied merchant and Admin; no remote backend requests.');
  }finally{

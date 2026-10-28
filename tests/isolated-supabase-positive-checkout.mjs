@@ -580,7 +580,7 @@ assert.equal(sql("SELECT product_code FROM public.order_items WHERE order_id="+q
 // order, again with the canonical authenticated Admin, not a mocked screen.
 await verifyIsolatedLivePortals({
  api:base,anon,buyer:testBuyer3,owner,adminActor,orderId:activeId,merchantId,
- recentClosedOrderId:orderId
+ recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true
 });
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');

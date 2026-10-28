@@ -1,3 +1,10 @@
+## 28/10/2026 — Três sessões realmente independentes com um pedido SQL isolado (PR em homologação)
+
+- **Lacuna comprovada da #493:** o teste Chrome do P13 alternava os papéis em uma mesma aba, com troca manual de sessão. Três páginas com sessões independentes, abertas ao mesmo tempo, ainda não eram provadas.
+- **Mudança estritamente nos testes existentes:** `tests/isolated-live-portal-browser.mjs` passa a abrir três contextos incógnitos distintos do **mesmo Chrome** (cada um com storage, cookies e Auth independentes) e usar o mesmo pedido SQL da suíte Supabase descartável. Cada papel vê sua tela real e seu pedido, sem acesso às credenciais dos outros. O P13 em preparação gera três novas capturas para revisão. No segundo pedido ativo de água, a revenda aciona a **saída pelo botão real**, e os outros dois contextos recarregam e precisam receber o estado `OUT_FOR_DELIVERY`.
+- **Isolamento:** navegador em `127.0.0.1:4179`, Auth/Edge/Postgres temporários em `127.0.0.1:54321`, sem rede com projeto comercial, sem token de produção e sem saída financeira. Preserve controles de acesso, PIN, histórico e artefatos existentes. Nenhuma API, migração ou infraestrutura adicional.
+- **Limite importante:** são três sessões independentes **na origem localhost**, não três domínios externos nem um serviço de demo persistente que o proprietário possa abrir remotamente. Só integrar após Audit, teste real isolado, build e revisão visual aprovados; preservar `PRELAUNCH` e contadores zerados.
+
 ## 28/10/2026 — Continuidade da entrega: revenda precisa ver o próprio pedido concluído (PR em validação)
 
 - **Bloqueio no produto:** `merchant-orders` retornava apenas estados ativos; a revenda perdia o registro individual ao receber `SETTLED`, apesar de cliente e Admin conservarem o pedido. Métricas agregadas não permitem conferir qual pedido foi concluído.
