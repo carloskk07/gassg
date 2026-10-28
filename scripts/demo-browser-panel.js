@@ -51,6 +51,15 @@
     return [...orders].reverse().find(o=>!['CANCELLED','SETTLED','DELIVERED'].includes(o.status))
       ||orders.at(-1)||null;
   }
+  function focusAssignedOrder(){
+    const o=currentOrder();
+    if(!o||!['merchant','merchant-orders'].includes(location.hash.replace('#','')))return false;
+    const card=Array.from(document.querySelectorAll('.order-card')).find(el=>
+      el.querySelector('.order-id')?.textContent.includes(o.id));
+    if(!card)return false;
+    card.scrollIntoView({block:'center',behavior:'instant'});
+    return true;
+  }
   function openCustomer(){
     setAdmin(false);
     globalThis.setMode?.('customer');
@@ -74,6 +83,7 @@
     }
     globalThis.setMode?.('merchant');
     updateGuide();
+    window.setTimeout(focusAssignedOrder,100);
   }
   function updateGuide(){
     const o=currentOrder();
@@ -127,6 +137,16 @@
     if(adminOpen)adminRenderedFingerprint='';
     if(adminOpen){drawAdmin();panel.querySelector('button')?.focus()}
     else nav.querySelector('button')?.focus();
+  }
+  // The canonical merchant page re-renders after every action. Keep the
+  // affected order visible instead of jumping back to the top of the page.
+  if(typeof globalThis.merchantAction==='function'){
+    const realAction=globalThis.merchantAction;
+    globalThis.merchantAction=(id,action)=>{
+      const result=realAction(id,action);
+      window.setTimeout(focusAssignedOrder,100);
+      return result;
+    };
   }
   nav.append(button('Cliente',openCustomer));
   nav.append(button('Revenda (pedido)',openMerchant));
