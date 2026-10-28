@@ -7,7 +7,7 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
@@ -141,6 +141,15 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   const merchant=JSON.parse(await evaluate("JSON.stringify({status:merchantRuntime.status,orders:merchantRuntime.orders.length,match:merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+"),visible:document.querySelector('#app')?.innerText.slice(0,4000)})"));
   assert.equal(merchant.status,'ready');assert.equal(merchant.match,true);
   assert.match(merchant.visible,/Revenda Simulada CI|Pedidos|Preparando|PREPARANDO/i);
+  if(recentClosedOrderId){
+    const closed=JSON.parse(await evaluate("JSON.stringify({rows:merchantRuntime.recentClosedOrders,visible:document.querySelector('.merchant-recent-closed-orders')?.innerText||''})"));
+    const match=closed.rows?.find(o=>o.orderId===recentClosedOrderId);
+    assert.equal(match?.status,'SETTLED','partner history must retain the completed P13');
+    assert.match(closed.visible,/Últimos pedidos encerrados/);
+    assert.ok(closed.visible.includes(match.publicCode),'closed order must be visible in partner UI');
+    assert.ok(!Object.hasOwn(match,'customerPhone')&&!Object.hasOwn(match,'address'),
+      'closed history must exclude buyer contact fields');
+  }
   if(captureEvidence)await evaluate("document.querySelector('#merchant-live-orders')?.scrollIntoView({block:'start'});true");
   await saveEvidence('01-parceiro-p13-em-preparo');
   await navigate(origin+'/#tracking');
