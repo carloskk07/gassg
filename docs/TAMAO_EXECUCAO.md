@@ -1,3 +1,10 @@
+## 28/10/2026 — Homologação das três origens locais com navegador real (PR em testes)
+
+- **Cobertura concreta que faltava:** a PR #692 validava URLs, HTML e credenciais por HTTP, mas não abria os três portais reais simultaneamente em Chrome. Isso poderia mascarar falha de Auth, CSP, botões e integração.
+- **Teste funcional real:** `tests/owner-local-demo-browser.mjs` entra no `127.0.0.1:4179` como novo comprador Auth, abre `:4180` como revenda e `:4181` como Admin, cada um em contexto Chrome isolado; verifica sessões exclusivas, abre Água 20 L na home, preenche CEP e telefone fictícios, obtém cotação real, seleciona dinheiro na entrega e cria pedido pelo botão. A revenda precisa encontrá-lo e clicar Aceitar pedido; cliente e Admin precisam ler mesmo ID e estado `PREPARING`. Não usa mocks nem requests à nuvem.
+- **Evidência:** três PNGs dos portais locais no artefato de CI existente, sem credenciais; exatamente um pedido SQL local novo. Nenhum pagamento ou estoque de produção.
+- **Limite:** testado no GitHub Ubuntu/Chrome, não em WSL/Docker Windows reais. A persistência dura enquanto o programa está aberto; a demo remota privada continua pendente.
+
 ## 28/10/2026 — Primeiro acesso pessoal a três portais reais com estado compartilhado em localhost (PR em homologação)
 
 - **Pendente da issue #493:** a suíte tinha três sessões reais e pedido SQL comum, mas só era executável por robô no GitHub Actions. Não havia um botão ou procedimento que o proprietário pudesse usar na própria máquina sem revenda/cadastro/infra de nuvem.
