@@ -1,3 +1,10 @@
+## 28/10/2026 — P13 demonstrável com atalho e ensaios negativos no navegador (PR em validação)
+
+- **Lacuna concreta após #698:** o primeiro teste completo da demonstração publicada só criava Água 20 L, embora o produto central seja o botijão P13. A jornada do P13 em Supabase efêmero já era validada separadamente; faltava clicar e concluir a experiência sem instalação, com o simulador que está no GitHub Pages.
+- **Mudança mínima:** o banner exclusivo da demonstração web recebeu **Começar com gás P13**, que usa `startOrder('P13')` e o checkout existentes, preservando pedido ativo ao orientar para o rastreamento. O portal comercial e o backend não mudam.
+- **Prova obrigatória antes de merge:** estender o Chrome do workflow atual para dois pedidos diferentes no mesmo navegador (Água 20L, depois P13), cotação, dinheiro na entrega, revenda responsável, aceite, despacho, chegada, PIN errado, tentativa sem confirmação fictícia de pagamento, entrega legítima, Admin com ambos concluídos, reload e zero acessos aos PSPs ou Supabase comercial. Capturas PNG e relatório permanecem no mesmo artefato.
+- **Não confundir:** demonstração pública **estática**, sem sincronismo entre dispositivos/usuários, sem autenticação comercial, venda, liquidação, Pix ou comissão. A prova real das APIs com três papéis continua no CI isolado descartável. Não criar projeto em nuvem, banco persistente ou custo adicional sem autorização.
+
 ## 28/10/2026 — Jornada completa em GitHub Pages sem instalação
 
 - **Falha observada no código:** após cotar em uma revenda diferente de A, a navegação de demonstração mantinha `selectedMerchant` antigo. A revenda aberta não encontrava o pedido da outra revenda, embora ele existisse em localStorage.
