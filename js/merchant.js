@@ -762,26 +762,45 @@ function merchantAlertControl(){
 
 function merchantDriverLivePage(rt){
   const m=rt.merchant||{};
-  const orders=rt.orders||[];
-  const orderEvidence=merchantOrderListEvidence(rt);
+  const orders=Array.isArray(rt.orders)?rt.orders:[];
+  const evidence=merchantOrderListEvidence(rt);
   const name=String(m.memberDisplayName||'').trim();
-  return shell(`<section class="page">
-    <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
-    <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
-    ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
-    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${orderEvidence.fresh?merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.'):merchantOrderListRecovery(rt)}</section>
-    ${merchantAlertControl()}
-    <div class="card flat form-stack" style="margin-top:14px">
-      <h3>Seu nome operacional</h3>
-      <div class="input-wrap"><label for="driver-display-name">Como aparecer para a equipe</label><input id="driver-display-name" class="input" maxlength="60" value="${esc(name)}" placeholder="Ex.: João"></div>
-      <small class="field-help">Esse nome é usado dentro da operação. O cliente não recebe sua identidade por este painel.</small>
-      <button class="secondary" onclick="merchantLiveSaveMemberProfile()">Salvar nome</button>
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar entregas</button><button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
-    </div>
-
+  const offline=typeof navigator!=='undefined'&&navigator.onLine===false;
+  // The authorized server snapshot determines which orders a driver can see.
+  // Never turn a local offline observation or PIN into a confirmed delivery.
+  const priority={ARRIVING:0,OUT_FOR_DELIVERY:1,PREPARING:2,AT_RISK:3};
+  const ordered=[...orders].sort((a,b)=>
+    (priority[String(a?.status||'')]??4)-(priority[String(b?.status||'')]??4));
+  const primary=ordered.slice(0,3);
+  const remaining=ordered.slice(3);
+  return shell(`<section class="page merchant-driver-page">
+    <header class="merchant-driver-header"><span class="eyebrow">ÁREA DO ENTREGADOR</span>
+      <h1 class="page-title">Minhas entregas</h1>
+      <p class="muted">${evidence.fresh?ordered.length+' pedido(s) atribuído(s) a você':'A lista de entregas precisa ser atualizada.'}</p>
+      <button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar entregas</button>
+    </header>
+    ${offline?'<div class="notice danger merchant-driver-offline" role="status"><strong>Sem conexão detectada</strong><p>Você pode realizar a entrega física, mas o TAMÃO não consegue confirmar o PIN nem o pagamento neste momento. A entrega continuará pendente no sistema até uma confirmação online. Não feche a tela antes de reconectar; o modo de salvamento offline ainda não está disponível.</p></div>':''}
+    ${evidence.fresh?
+      (ordered.length?
+        '<section class="section merchant-driver-priority"><h2>Próximas entregas</h2>'+
+        primary.map(merchantLiveOrder).join('')+
+        (remaining.length?'<details class="merchant-driver-more"><summary>Ver outras '+remaining.length+' entrega(s)</summary>'+
+          '<div class="merchant-driver-more-body">'+remaining.map(merchantLiveOrder).join('')+'</div></details>':'')+'</section>'
+        :'<div class="empty card">Nenhuma entrega atribuída a você agora.</div>')
+      :merchantOrderListRecovery(rt)}
+    <details class="merchant-driver-tools"><summary>Alertas e meus dados</summary>
+      <div class="merchant-driver-tools-body">
+        ${merchantAlertControl()}
+        <div class="card flat form-stack">
+          <h3>Nome para a equipe</h3>
+          <div class="input-wrap"><label for="driver-display-name">Meu nome</label><input id="driver-display-name" class="input" maxlength="60" value="${esc(name)}" placeholder="Ex.: João"></div>
+          <button type="button" class="secondary" onclick="merchantLiveSaveMemberProfile()">Salvar nome</button>
+          <button type="button" class="ghost" onclick="merchantLiveLogout()">Sair da conta</button>
+        </div>
+      </div>
+    </details>
   </section>`);
 }
-
 function merchantTeamPage(){
   const rt=globalThis.merchantRuntime||{};
   const m=rt.merchant;
