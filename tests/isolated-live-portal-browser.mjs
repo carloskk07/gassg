@@ -255,7 +255,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       'Nao ha compra, pagamento, Pix, CNPJ, ANP real ou fornecedor real.',
       'NUNCA usar estas imagens para anunciar estoque ou oferta comercial.',
       'Artefato temporario para revisao humana; nao contem credenciais nem tokens.'
-    ].join('\\n')+'\\n','utf8');
+    ].join('\n')+'\n','utf8');
   }
 
   // Click the EXISTING Tower of Control button, retaining the canonical
