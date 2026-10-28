@@ -1,3 +1,11 @@
+## 27/10/2026 — Homologação operacional do produto principal: pedido P13 sem revenda real (PR em execução)
+
+- **Objetivo concreto:** não depender de cadastro de parceiro externo para comprovar pedido de gás P13. Reutilizar integralmente a suíte já existente `tests/isolated-supabase-positive-checkout.mjs` em Postgres/Auth/Edge descartáveis, sem API duplicada nem alteração de schema/produção.
+- **Falha de cobertura descoberta:** a primeira jornada que atravessava aceite, despacho, PIN e liquidação usava **carvão sintético**, não GLP P13, apesar de ser o produto principal do TAMÃO. Havia testes isolados regulatórios de GLP, mas sem cruzar o P13 até o pedido concluído na mesma integração canônica.
+- **Mudança focada:** primeira jornada E2E passa a cotar/comprar P13 por R$ 115,90 + R$ 4,00 de entrega fictícia e confirmar pagamento na entrega. ANP começa `pending` e o predicado canônico `merchant_basket_compliance_current` deve barrar P13; água segue elegível; somente no Postgres efêmero do CI é inserido carimbo ANP **explicitamente falso**, provando liberação controlada no teste. Verificar o mesmo P13 em `order_items` e estados `SETTLED`, `CANCELLED`, `PREPARING` em `admin-ops`. Permanecem verificados cancelamento, caixa, estoque, autoridade, idempotência, PIN e não emissão de Pix.
+- **Não realizar:** inserir CNPJs reais aleatórios, forjar documentação, habilitar revenda pendente ou gerar pedido/pagamento em produção. `PRELAUNCH`, `commerce_enabled=false` e contadores comerciais devem permanecer intactos.
+- **Evidência de publicação:** só considerar concluído depois que o pipeline de Supabase descartável, Audit e revisão visual passarem no mesmo HEAD da PR. Se falhar, corrigir o defeito do teste ou implementação real, sem publicar às cegas.
+
 ## 27/10/2026 — Demonstração de pedidos sem revenda real — novo marco operacional (PR em homologação)
 
 - **Decisão explícita do proprietário:** fazer testes de pedidos internamente e demonstrá-los no Admin, sem solicitar busca de revendas nem copiar CNPJs de empresas reais. Dados reais públicos de CNPJ não autorizam simulação da identidade dessas empresas, pedidos em nome delas ou comunicação com seus canais.
