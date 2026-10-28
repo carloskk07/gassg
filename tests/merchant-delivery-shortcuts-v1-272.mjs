@@ -82,4 +82,45 @@ assert.match(css,/\.merchant-order-queue-stat:focus-visible/);
 assert.match(css,/\.merchant-delivery-shortcut/);
 assert.match(css,/@media\(max-width:540px\)/);
 assert.match(audit,/node tests\/merchant-delivery-shortcuts-v1-272.mjs/);
+
+const driverCtx=vm.createContext({
+  navigator:{onLine:false},esc,
+  shell:html=>html,merchantOrderListEvidence:()=>({fresh:true}),
+  merchantLiveOrder:o=>'<article data-driver-order="'+esc(o.orderId)+'"></article>',
+  merchantAlertControl:()=>'<aside>Alertas avançados</aside>',
+  merchantOrderListRecovery:()=>'<div>Atualize antes de confirmar</div>'
+});
+vm.runInContext(cut('merchantDriverLivePage')+';this.driver=merchantDriverLivePage;',driverCtx);
+const driverOrders=[
+ {orderId:'preparing',status:'PREPARING'},
+ {orderId:'arriving',status:'ARRIVING'},
+ {orderId:'onroad',status:'OUT_FOR_DELIVERY'},
+ {orderId:'later',status:'AT_RISK'}
+];
+const driverData={merchant:{name:'Minha revenda',memberDisplayName:'Ana'},orders:driverOrders};
+let driverPage=driverCtx.driver(driverData);
+assert.match(driverPage,/Minhas entregas/);
+assert.match(driverPage,/Sem conexão detectada/);
+assert.match(driverPage,/não consegue confirmar o PIN nem o pagamento/);
+assert.match(driverPage,/entrega continuará pendente no sistema/);
+assert.match(driverPage,/modo de salvamento offline ainda não está disponível/);
+assert.ok(driverPage.indexOf('data-driver-order="arriving"')<
+ driverPage.indexOf('data-driver-order="onroad"'));
+assert.ok(driverPage.indexOf('data-driver-order="onroad"')<
+ driverPage.indexOf('data-driver-order="preparing"'));
+assert.match(driverPage,/<details class="merchant-driver-more">/);
+assert.match(driverPage,/<details class="merchant-driver-tools">/);
+assert.match(driverPage,/Atualizar entregas/);
+assert.ok(driverPage.indexOf('merchant-driver-priority')<driverPage.indexOf('merchant-driver-tools'));
+assert.ok(!driverPage.includes('merchantLiveDeliver('),'offline view must never settle without server');
+assert.ok(!driverPage.includes('offlineSaved'),'must never claim a queued receipt');
+assert.match(css,/\\.merchant-driver-tools:not\\(\\[open\\]\\)>\\.merchant-driver-tools-body\\{display:none\\}/);
+assert.match(css,/\\.merchant-driver-more:not\\(\\[open\\]\\)>\\.merchant-driver-more-body\\{display:none\\}/);
+driverCtx.navigator.onLine=true;
+driverPage=driverCtx.driver(driverData);
+assert.doesNotMatch(driverPage,/Sem conexão detectada/);
+driverCtx.merchantOrderListEvidence=()=>({fresh:false});
+driverPage=driverCtx.driver(driverData);
+assert.match(driverPage,/Atualize antes de confirmar/);
+assert.doesNotMatch(driverPage,/data-driver-order=/,'stale server snapshot cannot expose actions');
 console.log('V1.272 PASS: one-tap queue groups and authorized delivery map/phone, no hidden transaction actions.');
