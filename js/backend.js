@@ -1304,6 +1304,7 @@ const merchantRuntime={
   paymentRoutes:[],
   paymentRouteVersion:1,
   orders:[],
+  recentClosedOrders:null,
   supportSummary:null,
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
   actionPending:false,
@@ -2076,6 +2077,7 @@ async function merchantSignOut(){
   merchantRuntime.paymentRoutes=[];
   merchantRuntime.paymentRouteVersion=1;
   merchantRuntime.orders=[];
+  merchantRuntime.recentClosedOrders=null;
   merchantRuntime.supportSummary=null;
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
@@ -2112,6 +2114,10 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.paymentRoutes=Array.isArray(data.paymentRoutes)?data.paymentRoutes:[];
     merchantRuntime.paymentRouteVersion=Number(data.paymentRouteVersion||1);
     merchantRuntime.orders=data.orders??[];
+    // null is not an empty history: older Edge deployments may omit this
+    // field. Do not misleadingly claim "no completed orders" in that case.
+    merchantRuntime.recentClosedOrders=Array.isArray(data.recentClosedOrders)
+      ?data.recentClosedOrders:null;
     merchantRuntime.supportSummary=data.supportSummary??null;
     merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
@@ -2145,6 +2151,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       merchantClearEnablement();
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
+      merchantRuntime.recentClosedOrders=null;
       merchantRuntime.supportSummary=null;
       merchantRuntime.deliveryTeam=[];
       merchantRuntime.team=null;
