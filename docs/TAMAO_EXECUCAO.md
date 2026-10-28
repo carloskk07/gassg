@@ -1,3 +1,10 @@
+## 28/10/2026 — Continuidade da entrega: revenda precisa ver o próprio pedido concluído (PR em validação)
+
+- **Bloqueio no produto:** `merchant-orders` retornava apenas estados ativos; a revenda perdia o registro individual ao receber `SETTLED`, apesar de cliente e Admin conservarem o pedido. Métricas agregadas não permitem conferir qual pedido foi concluído.
+- **Ajuste no fluxo existente:** `merchant-orders` retorna somente cinco resumos de pedidos finais do merchant autorizado (sem endereço, telefone, PIN, itens ou informações do cliente), separados da fila ativa. A UI da revenda mostra a seção "Últimos pedidos encerrados", exclusivamente leitura; `js/backend.js` descarta histórico após logout, mudança de acesso ou quando resposta não apresenta esse campo.
+- **Homologação:** manter a suíte Supabase descartável com o P13 `SETTLED` e um pedido de água ativo. Testar via Chrome que a revenda ainda encontra o P13 na lista de encerrados, sem misturá-lo à fila de ações, e que Admin conserva o mesmo ID. Nenhuma tabela, Edge nova ou cobrança.
+- **Após gates:** verificar código efetivo da Edge comercial `merchant-orders` antes de qualquer publicação, preservar JWT/arquivos e não mexer em `PRELAUNCH`. Se servidor ainda não estiver compatível, não declarar histórico da revenda operacional na produção.
+
 ## 28/10/2026 — Prova visual verificável do pedido P13 nos três portais em CI (PR em homologação)
 
 - **Pendência comprovada da issue #493:** a suíte real de Postgres/Auth/Edge/Chrome descartáveis exercitava os três portais, mas não fornecia ao proprietário imagens de suas interfaces para revisão independente. A demo do Admin permanece local no navegador e distinta das APIs.
