@@ -523,23 +523,31 @@ async function handlePlatformBillingOrder(
       return json({error:"MERCADOPAGO_PAYMENT_BINDING_MISMATCH"},409);
     }
 
-    const verifiedRefunds=(Array.isArray(order?.transactions?.refunds)
-      ?order.transactions.refunds:[]).filter((refund:any)=>
+    // In-flight, incomplete or foreign refunds cannot prove settled gross
+    // proceeds. Quarantine contradictory evidence without crediting balance.
+    const refundRows=Array.isArray(order?.transactions?.refunds)
+      ?order.transactions.refunds:[];
+    const verifiedRefunds=refundRows.filter((refund:any)=>
         String(refund?.status??"").toLowerCase()==="processed"
         &&Boolean(String(refund?.id??"").trim())
-        &&Boolean(moneyToCents(refund?.amount)));
+        &&(moneyToCents(refund?.amount)??0)>0
+        &&(!refund?.transaction_id||
+          String(refund.transaction_id)===String(payment?.id??"")));
+    const incompleteRefundEvidence=refundRows.length!==verifiedRefunds.length;
     const refundTotal=verifiedRefunds.reduce((sum:number,refund:any)=>
       sum+(moneyToCents(refund?.amount)??0),0);
     const adverse=["refunded","partially_refunded","charged_back","chargeback",
       "disputed","in_mediation","reimbursed","failed","canceled","expired"];
     const reversalObserved=status==="refunded"||refundTotal>0
+      ||incompleteRefundEvidence
       ||adverse.includes(statusDetail)||adverse.includes(paymentDetail)
       ||adverse.includes(paymentStatus);
     if(reversalObserved){
       // Never create a NEW positive payment event from a refunded or disputed
       // snapshot. Verified provider refund IDs enter the existing quarantine/
       // recovery RPC (which can match prior events); otherwise require review.
-      if(refundTotal===0||refundTotal>Number(charge.amount_cents)){
+      if(incompleteRefundEvidence||refundTotal===0
+        ||refundTotal>Number(charge.amount_cents)){
         await admin.rpc("merchant_billing_provider_charge_record_error",{
           p_charge_id:charge.id,p_error_code:"MERCADOPAGO_REVERSAL_REVIEW_REQUIRED"
         });
@@ -672,8 +680,15 @@ async function handlePaidCouponOrder(
  const reversalStates=["refunded","partially_refunded","charged_back","chargeback",
    "disputed","in_mediation","reimbursed"];
  const failedStates=["canceled","cancelled","failed","expired"];
- const hasRefund=refunds.some((r:any)=>
-  ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
+ // A pending or incomplete refund cannot be treated as if there were none.
+ // Require every refund to be completed, positive and tied to this Pix
+ // before the existing SQL full-refund route can be considered.
+ const refundEvidenceIncomplete=refunds.some((r:any)=>
+   !["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase())
+   ||!String(r?.id??"").trim()
+   ||(moneyToCents(r?.amount)??0)<=0
+   ||(r?.transaction_id!=null&&String(r.transaction_id)!==String(pix?.id??"")));
+ const hasRefund=refunds.length>0
   ||providerStates.some(state=>reversalStates.includes(state))
   ||(invoice.status==="paid"&&(providerStates.some(state=>failedStates.includes(state))||
     providerStatus!=="processed"||
@@ -690,8 +705,9 @@ async function handlePaidCouponOrder(
   // allocation review. It may never be treated as a full paid voucher.
   const unsafeToClassifyFull=["partially_refunded","charged_back","chargeback",
     "disputed","in_mediation","reimbursed","canceled","cancelled","failed","expired"];
-  const fullRefund=refunded===Number(invoice.sale_price_cents)&&
-    refunded>0&&!providerStates.some(state=>unsafeToClassifyFull.includes(state));
+  const fullRefund=!refundEvidenceIncomplete
+    &&refunded===Number(invoice.sale_price_cents)
+    &&refunded>0&&!providerStates.some(state=>unsafeToClassifyFull.includes(state));
   const rpc=fullRefund?"clube_coupon_paid_payment_refund":
     "clube_coupon_paid_payment_review";
   const {data,error}=await admin.rpc(rpc,{
