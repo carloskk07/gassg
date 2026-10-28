@@ -1,3 +1,10 @@
+## 28/10/2026 — Checkout real pelo navegador público no Supabase isolado (PR em homologação)
+
+- **Falha de cobertura da issue #493:** até aqui as cotações e ordens vinham de SQL/HTTP, e o Chrome só abria o acompanhamento de um pedido pronto. Não havia prova da jornada `home -> cesta -> CEP -> cotação -> enviar pedido -> rastreio` com botões e formulários reais.
+- **Mudança sem arquitetura paralela:** em `tests/isolated-live-portal-browser.mjs`, abrir quarto contexto incógnito com comprador novo do Auth temporário, clicar na home, incluir água sem gás, preencher CEP/número, escolher dinheiro, carregar `get-offers`, informar contato e clicar o botão `Enviar pedido para confirmação`. O Postgres precisa conter exatamente uma ordem desse comprador, e Parceiro/Admin devem observar o mesmo ID em sessões próprias.
+- **Evidência:** duas capturas extras no artefato CI existente; não usar faturas, Pix, notificações ou revendas reais.
+- **Limite declarado:** o banco e o Chrome são efêmeros e localhost; não é um serviço privado persistente que o proprietário possa abrir remotamente. Publicar somente após os gates de integração/auditoria/revisão visual.
+
 ## 28/10/2026 — Três sessões realmente independentes com um pedido SQL isolado (PR em homologação)
 
 - **Lacuna comprovada da #493:** o teste Chrome do P13 alternava os papéis em uma mesma aba, com troca manual de sessão. Três páginas com sessões independentes, abertas ao mesmo tempo, ainda não eram provadas.
