@@ -21,6 +21,8 @@ assert.ok(!backend.includes('lgugwujpunhslavewffd'));
 assert.ok(!backend.includes('sb_publishable_'));
 assert.ok(panel.includes('Admin (resumo)'));
 assert.ok(panel.includes('Revenda (pedido)'));
+assert.ok(panel.includes('Começar com gás P13'));
+assert.ok(panel.includes("startOrder?.('P13')"));
 assert.ok(panel.includes('currentOrder()'));
 assert.ok(panel.includes('1/4 · Cliente'));
 assert.ok(panel.includes('s.selectedMerchant=o.merchantId'));
