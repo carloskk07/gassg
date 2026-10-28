@@ -128,6 +128,13 @@ try{
  // the chosen offer need not correspond to the previously selected A.
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
  await wait("route()==='merchant'&&state.selectedMerchant==="+JSON.stringify(o.merchantId)+"&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'open matching merchant and rendered order');
+ // The merchant demo must focus on the order, not display pricing inputs first.
+ const simpleMerchant=await evaluate("(()=>{const settings=document.querySelector('.merchant-demo-settings');const order=Array.from(document.querySelectorAll('h2')).find(x=>x.textContent.includes('Pedidos que exigem ação'));const accept=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));return {closed:!!settings&&!settings.open,orderFirst:!!order&&!!settings&&Boolean(order.compareDocumentPosition(settings)&Node.DOCUMENT_POSITION_FOLLOWING),acceptVisible:!!accept&&accept.getClientRects().length>0,pricingHidden:document.querySelector('#m-price')?.getClientRects().length===0}})()");
+ assert.ok(simpleMerchant.closed,'demo pricing must start collapsed');
+ assert.ok(simpleMerchant.orderFirst,'order queue must precede pricing fields');
+ assert.ok(simpleMerchant.acceptVisible,'merchant can accept without expanding setup');
+ assert.ok(simpleMerchant.pricingHidden,'price fields must be hidden until requested');
+ await snapshot('03b-revenda-pedido-pendente-simples.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",'merchant accept');
  await wait("document.querySelector('#tamao-demo-progress')?.textContent.includes('3/4')",'guidance advances immediately on merchant accept',2500);
