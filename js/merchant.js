@@ -2227,9 +2227,10 @@ function merchantFirstRunView(rt,canGoOnline){
     '<div class="merchant-first-run-head"><div><span class="section-kicker">PRIMEIROS PASSOS</span>'+
     '<h2>'+esc(title)+'</h2><p>'+esc(lead)+'</p></div>'+
     '<span class="merchant-first-run-count">'+model.completed+' de '+model.steps.length+' configurados</span></div>'+
+    '<div class="merchant-first-run-actions">'+cta+'</div>'+
+    '<details class="merchant-first-run-extra"><summary>Ver todas as etapas ('+model.steps.length+')</summary>'+
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
-    '<div class="merchant-first-run-actions">'+cta+
-    '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
+    '<button type="button" class="secondary small" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></details>'+
     '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
     '</section>';
 }
@@ -2412,9 +2413,13 @@ function merchantLivePage(){
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
       <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">🧺</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Estoque, preços e disponibilidade':'Prepare sua operação'}</small></button>
-      ${manage?'<button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump(\'finance\')"><span class="merchant-shortcut-icon" aria-hidden="true">▥</span><strong>Resultados</strong><small>Vendas e financeiro</small></button>':''}
-      ${manage?'<button type="button" class="merchant-workspace-shortcut merchant-shortcut-growth" onclick="merchantWorkspaceJump(\'growth\')"><span class="merchant-shortcut-icon" aria-hidden="true">↗</span><strong>Divulgar e indicar</strong><small>Rede, campanhas e parcerias</small></button>':''}
-      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('settings')"><span class="merchant-shortcut-icon" aria-hidden="true">⚙</span><strong>Minha revenda</strong><small>Equipe, alertas e opções</small></button>
+      <details class="merchant-workspace-more"><summary>Mais opções: financeiro, divulgação e configurações</summary>
+        <div class="merchant-workspace-more-actions">
+          ${manage?'<button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump(\'finance\')"><strong>Resultados e financeiro</strong><small>Vendas e cobranças</small></button>':''}
+          ${manage?'<button type="button" class="merchant-workspace-shortcut merchant-shortcut-growth" onclick="merchantWorkspaceJump(\'growth\')"><strong>Divulgar e indicar</strong><small>Rede e campanhas</small></button>':''}
+          <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('settings')"><strong>Minha revenda</strong><small>Equipe, alertas e opções</small></button>
+        </div>
+      </details>
     </nav>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
