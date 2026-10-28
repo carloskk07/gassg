@@ -47,6 +47,12 @@ assert.match(page,/merchantSetupGo\('products'\)/);
 assert.match(page,/merchantSetupGo\('delivery'\)/);
 assert.match(page,/merchantSetupGo\('payment'\)/);
 assert.match(page,/merchantWorkspaceJump\('setup'\)/);
+assert.match(page,/<details class="merchant-first-run-extra">/,'other setup steps should be collapsed');
+assert.match(page,/<summary>Ver todas as etapas \(3\)<\/summary>/);
+assert.ok(page.indexOf('merchant-first-run-actions')<page.indexOf('merchant-first-run-extra'),
+  'show one direct next step before optional setup checklist');
+assert.doesNotMatch(page,/<details class="merchant-first-run-extra"[^>]*\sopen/);
+
 assert.match(page,/Aprovações, módulos estratégicos e autorizações financeiras/);
 assert.doesNotMatch(page,/merchantLiveToggleOnline|adminSetMerchantStatus|Ativada automaticamente/);
 assert.equal(ctx.view(rt,true),'','no onboarding when operation is already eligible');
@@ -83,9 +89,23 @@ assert.match(live,/merchantLiveSaveScheduling\(\)/);
 assert.match(live,/merchantLiveSaveCapacity\(\)/);
 assert.match(live,/merchantEnablementAssistantView\(rt\)/);
 assert.match(live,/id="merchant-workspace-setup"/);
+const quickStart=live.indexOf('<nav class="merchant-workspace-shortcuts"');
+const quickEnd=live.indexOf('</nav>',quickStart);
+assert.ok(quickStart>=0&&quickEnd>quickStart,'merchant shortcuts must be a single accessible nav');
+const quick=live.slice(quickStart,quickEnd);
+assert.match(quick,/<details class="merchant-workspace-more">/);
+assert.match(quick,/<summary>Mais opções: financeiro, divulgação e configurações<\/summary>/);
+assert.ok(quick.indexOf("merchantWorkspaceJump('orders')")<quick.indexOf('<details class="merchant-workspace-more">'));
+assert.ok(quick.indexOf("merchantWorkspaceJump('start')")<quick.indexOf('<details class="merchant-workspace-more">'));
+assert.match(quick,/merchantWorkspaceJump\(\\'finance\\'\)/);
+assert.match(quick,/merchantWorkspaceJump\(\\'growth\\'\)/);
+assert.match(quick,/merchantWorkspaceJump\('settings'\)/);
+assert.ok(!quick.includes('<details class="merchant-workspace-more" open'),'secondary areas closed initially');
+
 assert.doesNotMatch(live,/<details id="merchant-workspace-setup" class="merchant-workspace-section"\$\{!canGoOnline/);
 for(const marker of [
  '.merchant-first-run','.merchant-first-run-steps','.merchant-first-run-actions',
+ '.merchant-first-run-extra','.merchant-workspace-more','.merchant-workspace-more-actions',
  '@media(max-width:550px)','.merchant-workspace #merchant-live-orders'
 ])assert.ok(css.includes(marker),'missing responsive CSS '+marker);
 assert.ok(ci.includes('node tests/merchant-onboarding-v1-303.mjs'));
