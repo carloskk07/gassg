@@ -812,6 +812,10 @@ Deno.serve(async(req:Request)=>{
           positiveFeedbackRate:performance?.positive_feedback_rate==null?null:Number(performance.positive_feedback_rate)
         },
         lastSeenAt:merchant.last_seen_at,
+      recentClosedOrders:(recentClosedOrders??[]).map((o)=>({
+        orderId:o.id,publicCode:o.public_code,status:o.status,
+        totalCents:o.total_cents,updatedAt:o.updated_at
+      })),
         compliance:{
           cnpjStatus:compliance?.cnpj_status??"pending",
           anpStatus:compliance?.anp_status??"pending",
@@ -857,10 +861,6 @@ Deno.serve(async(req:Request)=>{
         updatedAt:item.updated_at
       })),
       supportSummary:{version:1,scope:"merchant-active-orders",maxRows:100},
-      recentClosedOrders:(recentClosedOrders??[]).map((o)=>({
-        orderId:o.id,publicCode:o.public_code,status:o.status,
-        totalCents:o.total_cents,updatedAt:o.updated_at
-      })),
       orders:(orders??[]).map((o)=>({
         orderId:o.id,
         publicCode:o.public_code,
