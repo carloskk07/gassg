@@ -508,9 +508,11 @@ async function handlePlatformBillingOrder(
     const paymentStatus=String(payment?.status??"").trim().toLowerCase();
     const paymentDetail=String(payment?.status_detail??"").trim().toLowerCase();
     const method=payment?.payment_method??{};
-    const paymentAmount=payment?.amount==null?Number(charge.amount_cents)
-      :moneyToCents(payment.amount);
-    if(order?.live_mode===false||(order?.currency_id&&order.currency_id!=="BRL")
+    // The provider Order total and our expected charge are NOT independent
+    // proof of the individual Pix transaction amount. Absent amount fails closed.
+    const paymentAmount=moneyToCents(payment?.amount);
+    if(order?.live_mode===false||payment?.live_mode===false
+      ||(order?.currency_id&&order.currency_id!=="BRL")
       ||String(method.id??"").toLowerCase()!=="pix"
       ||String(method.type??"").toLowerCase()!=="bank_transfer"
       ||!String(payment?.id??"").trim()
@@ -634,7 +636,7 @@ async function handlePaidCouponOrder(
  // payment identity, or a Pix amount contradicting the invoice. On a coupon
  // already marked paid, freeze available benefits through the EXISTING
  // financial-review RPC. Do not create any payment or refund evidence.
- const unsafePaymentProof=order?.live_mode===false
+ const unsafePaymentProof=order?.live_mode===false||pix?.live_mode===false
    ||!String(pix?.id??"").trim()
    // A matching Order total alone is insufficient: without a matching
    // transaction.amount the webhook must NEVER mint paid benefits.
