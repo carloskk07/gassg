@@ -111,6 +111,16 @@ export async function verifyOwnerLocalDemoBrowser({roles,customerId}){
     await merchant.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'",'merchant Auth',52000);
     const admin=await openRole('admin',canonical[2]);
     await admin.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&Array.isArray(adminRuntime.data?.controlOrders)",'Admin Auth',52000);
+    // A local SQL fixture intentionally has commerce_enabled=true so the
+    // real checkout works. Every human-facing role MUST display the clear
+    // synthetic-data banner, otherwise LIVE badges could mislead the owner.
+    for(const [name,page] of [['cliente',buyer],['revenda',merchant],['admin',admin]]){
+      const ribbon=await page.evaluate("(()=>{const el=document.getElementById('tamao-owner-demo-ribbon');if(!el)return null;const r=el.getBoundingClientRect();return {text:el.innerText,visible:r.height>20&&r.width>300}})()");
+      assert.ok(ribbon?.visible,name+' needs a visible local demonstration label');
+      assert.match(ribbon.text,/DEMONSTRAÇÃO LOCAL/);
+      assert.match(ribbon.text,/DADOS FICTÍCIOS/);
+      assert.match(ribbon.text,/NENHUMA VENDA, COBRANÇA OU PIX REAL/);
+    }
     const contextsAuth=[
       await buyer.evaluate("JSON.stringify({customer:!!localStorage.getItem('chama-sg-customer-auth-v2'),merchant:!!sessionStorage.getItem('chama-sg-merchant-auth-v1'),admin:!!sessionStorage.getItem('chama-sg-admin-auth-v1')})"),
       await merchant.evaluate("JSON.stringify({customer:!!localStorage.getItem('chama-sg-customer-auth-v2'),merchant:!!sessionStorage.getItem('chama-sg-merchant-auth-v1'),admin:!!sessionStorage.getItem('chama-sg-admin-auth-v1')})"),
@@ -157,14 +167,29 @@ export async function verifyOwnerLocalDemoBrowser({roles,customerId}){
     await admin.wait("adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="
       +JSON.stringify(orderId)+"&&o.status==='PREPARING')",'Admin sees acceptance',55000);
     assert.deepEqual(forbidden,[],'browser must not access remote Supabase');
+    // Screenshot proof must actually show the same order. An admin dashboard
+    // at the top or a merchant hero cannot be called evidence of this order.
+    const code=await merchant.evaluate("merchantRuntime.orders.find(o=>o.orderId==="+JSON.stringify(orderId)+")?.publicCode");
+    assert.ok(typeof code==='string'&&code.length>4,'merchant public order code missing');
+    const adminCode=await admin.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code");
+    assert.equal(adminCode,code,'Admin/merchant public code must agree');
+    const selectedOrders=await admin.evaluate("(()=>{const button=Array.from(document.querySelectorAll('.admin-nav-item')).find(b=>b.getAttribute('onclick')?.includes(\"adminSetSection('orders')\"));if(!button)return false;button.click();return true})()");
+    assert.equal(selectedOrders,true,'owner demo Admin must open Pedidos through actual navigation');
+    await admin.wait("adminRuntime.section==='orders'&&Array.from(document.querySelectorAll('.order-card .order-id')).some(x=>x.textContent.trim()==="+JSON.stringify(code)+")",'Admin must render canonical order card',17000);
     const dir=path.resolve('test-results/isolated-order-evidence');
     fs.mkdirSync(dir,{recursive:true});
     for(const [page,name,expression] of [
-      [buyer,'11-demo-local-cliente-pedido','document.querySelector("#app")?.scrollIntoView({block:"start"});true'],
-      [merchant,'12-demo-local-revenda-pedido','document.getElementById("merchant-order-card-"+'+JSON.stringify(orderId)+')?.scrollIntoView({block:"start"});true'],
-      [admin,'13-demo-local-admin-pedido','Array.from(document.querySelectorAll(".order-card")).find(x=>x.innerText.includes('+JSON.stringify(orderId)+'))?.scrollIntoView({block:"start"});true']
+      [buyer,'11-demo-local-cliente-pedido',
+        "(()=>{const el=document.querySelector('.page');if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});return true})()"],
+      [merchant,'12-demo-local-revenda-pedido',
+        "(()=>{const el=document.getElementById('merchant-order-card-'+"
+          +JSON.stringify(orderId)+");if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});return true})()"],
+      [admin,'13-demo-local-admin-pedido',
+        "(()=>{const el=Array.from(document.querySelectorAll('.order-card')).find(card=>card.querySelector('.order-id')?.textContent.trim()==="
+          +JSON.stringify(code)+");if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});return true})()"]
     ]){
-      await page.evaluate(expression);
+      assert.equal(await page.evaluate(expression),true,'screenshot must target a rendered order '+name);
+      await page.evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))");
       const shot=await page.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
       const png=Buffer.from(shot.data||'','base64');
       assert.ok(png.length>6000);
