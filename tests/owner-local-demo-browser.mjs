@@ -180,16 +180,25 @@ export async function verifyOwnerLocalDemoBrowser({roles,customerId}){
     fs.mkdirSync(dir,{recursive:true});
     for(const [page,name,expression] of [
       [buyer,'11-demo-local-cliente-pedido',
-        "(()=>{const el=document.querySelector('.page');if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});return true})()"],
+        "(()=>{const el=document.querySelector('.page');if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});window.scrollBy({top:-165,behavior:'instant'});return true})()"],
       [merchant,'12-demo-local-revenda-pedido',
         "(()=>{const el=document.getElementById('merchant-order-card-'+"
-          +JSON.stringify(orderId)+");if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});return true})()"],
+          +JSON.stringify(orderId)+");if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});window.scrollBy({top:-165,behavior:'instant'});return true})()"],
       [admin,'13-demo-local-admin-pedido',
         "(()=>{const el=Array.from(document.querySelectorAll('.order-card')).find(card=>card.querySelector('.order-id')?.textContent.trim()==="
-          +JSON.stringify(code)+");if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});return true})()"]
+          +JSON.stringify(code)+");if(!el)return false;el.scrollIntoView({block:'start',behavior:'instant'});window.scrollBy({top:-165,behavior:'instant'});return true})()"]
     ]){
       assert.equal(await page.evaluate(expression),true,'screenshot must target a rendered order '+name);
       await page.evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))");
+      // Sticky navigation and local-demo ribbon cover the top ~110px. The
+      // target order's public code must be visible in the captured viewport.
+      if(name!=='11-demo-local-cliente-pedido'){
+        const region=name==='12-demo-local-revenda-pedido'
+          ? "document.getElementById('merchant-order-card-'+"+JSON.stringify(orderId)+")"
+          : "Array.from(document.querySelectorAll('.order-card')).find(card=>card.querySelector('.order-id')?.textContent.trim()==="+JSON.stringify(code)+")";
+        const top=await page.evaluate("(()=>{const el="+region+";return el?.querySelector('.order-id')?.getBoundingClientRect().top??-1})()");
+        assert.ok(top>95&&top<630,'screenshot must reveal the public order code below sticky navigation: '+name+' top='+top);
+      }
       const shot=await page.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
       const png=Buffer.from(shot.data||'','base64');
       assert.ok(png.length>6000);
