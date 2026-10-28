@@ -266,12 +266,12 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         const ui=await openRole('customer',browserCheckoutBuyer.session,'/#home',{trackExisting:false});
         await ui.wait("liveRuntime.status==='ready'&&liveRuntime.session?.user?.id==="+JSON.stringify(browserCheckoutBuyer.id),'synthetic buyer ready');
         assert.equal(await ui.evaluate("!localStorage.getItem('chama-live-order-id-v1')"),true,'browser buyer must have a clean cart/order');
-        const started=await ui.evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')?.includes('startHomeBrowse()'));if(!b)return false;b.click();return true})()");
-        assert.equal(started,true,'public home must offer a browse CTA');
-        await ui.wait("route()==='order'&&!!document.getElementById('buyer-cart-catalog')",'public home -> checkout');
-        const added=await ui.evaluate("(()=>{const b=Array.from(document.querySelectorAll('#buyer-cart-catalog button')).find(x=>x.getAttribute('onclick')?.includes(\"qty('WATER20',1)\"));if(!b)return false;b.click();return true})()");
-        assert.equal(added,true,'cart should permit water without compulsory gas');
-        await ui.wait("state.cart?.WATER20===1",'water added through browser cart');
+        // The real public product-first home uses an explicit Água tile;
+        // do not assert an optional secondary browse CTA from another layout.
+        const selectedWater=await ui.evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')?.includes(\"homeChooseProduct('WATER20')\")&&!x.hidden&&!x.closest('[hidden]'));if(!b)return false;b.click();return true})()");
+        assert.equal(selectedWater,true,'public home must show Água 20 L product-first CTA');
+        await ui.wait("route()==='order'&&state.cart?.WATER20===1&&!!document.getElementById('buyer-cart-catalog')",
+          'home Água product tile must open the water-only checkout');
         const addressEntered=await ui.evaluate("(()=>{const p=document.getElementById('postal-code'),n=document.getElementById('address-number');if(!p||!n)return false;p.value='97300-000';p.dispatchEvent(new Event('input',{bubbles:true}));n.value='10';n.dispatchEvent(new Event('input',{bubbles:true}));return true})()");
         assert.equal(addressEntered,true,'CEP and number input fields must be rendered');
         await ui.wait("state.postalCode==='97300000'&&state.addressNumber==='10'",'address input handlers');
