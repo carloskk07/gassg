@@ -20,6 +20,18 @@ assert.ok(backend.includes("publishableKey:'public-demo-disabled'"));
 assert.ok(!backend.includes('lgugwujpunhslavewffd'));
 assert.ok(!backend.includes('sb_publishable_'));
 assert.ok(panel.includes('Admin (resumo)'));
+assert.ok(panel.includes('Revenda (pedido)'));
+assert.ok(panel.includes('currentOrder()'));
+assert.ok(panel.includes('1/4 · Cliente'));
+assert.ok(panel.includes('s.selectedMerchant=o.merchantId'));
+assert.ok(panel.includes('focusAssignedOrder'));
+assert.ok(read('js/core.js').includes('Demonstração interativa • nenhum pedido ou pagamento real'));
+assert.ok(!read('js/core.js').includes('Ambiente isolado de teste automatizado'));
+assert.ok(read('js/merchant.js').includes('Simulação: aceitar este pedido não cria venda, entrega ou compromisso real.'));
+assert.ok(!read('js/merchant.js').includes('Aceitar significa assumir compromisso real de atendimento.'));
+
+
+assert.ok(panel.includes('Continuar na Revenda'));
 assert.ok(panel.includes('sem cadastro, Pix ou cobrança real'));
 assert.ok(panel.includes('ChamaTest?.getState'));
 assert.ok(read('robots.txt').includes('Disallow: /'));

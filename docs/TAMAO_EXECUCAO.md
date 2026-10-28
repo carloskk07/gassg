@@ -1,3 +1,10 @@
+## 28/10/2026 — Jornada completa em GitHub Pages sem instalação
+
+- **Falha observada no código:** após cotar em uma revenda diferente de A, a navegação de demonstração mantinha `selectedMerchant` antigo. A revenda aberta não encontrava o pedido da outra revenda, embora ele existisse em localStorage.
+- **Correção:** o painel identifica último pedido ativo e abre automaticamente a revenda responsável pelo pedido, somente no simulador. Inclui guia `1/4 Cliente → 2/4 Revenda → 3/4 Entrega/PIN → 4/4 Admin` e links para navegação. A visão Admin atualiza somente após mudanças, sem perder foco/rolagem.
+- **Chrome E2E obrigatório antes de publicar:** `tests/browser-demo-journey.mjs` testa UI real Água 20L, endereço fictício, cotação, dinheiro na entrega, pedido, Admin, Revenda, aceite, saída, chegada, PIN, entrega, Admin concluído e persistência após recarregar. Capturas de cada estágio no artefato `tamao-demo-browser-journey`. Bloqueia requisições a backend comercial e PSP.
+- **Limites:** demo estática pública, mesmo navegador e localStorage, sem sincronização de usuários, sem autenticação Admin verdadeira, sem Pix/finanças ou qualquer venda real. Nenhum programa local ou Docker.
+
 ## 28/10/2026 — Decisão do proprietário: demonstração via link web, sem Docker nem Windows
 
 - **Decisão irreversível para a entrega desta issue:** proprietário recusou instalar Docker ou usar scripts/arquivos no Windows. O caminho WSL2/localhost das PRs #692–695 deixa de ser a entrega prioritária, embora sua suíte CI continue útil como prova técnica.
