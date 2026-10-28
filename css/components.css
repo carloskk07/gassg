@@ -396,3 +396,9 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .merchant-demo-settings-body{padding:0 12px 14px;display:grid;gap:10px}
 .merchant-demo-settings-body>.section{margin:0}
 @media(max-width:550px){.merchant-demo-availability button{width:100%}.merchant-demo-settings>summary{padding:14px}}
+
+/* Explicit closed-state visibility: author grid/flex styles must not override <details>. */
+.merchant-demo-settings:not([open])>.merchant-demo-settings-body,
+.merchant-workspace-more:not([open])>.merchant-workspace-more-actions,
+.merchant-first-run-extra:not([open])>.merchant-first-run-steps,
+.merchant-first-run-extra:not([open])>button{display:none}
