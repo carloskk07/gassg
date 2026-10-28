@@ -2436,6 +2436,7 @@ function merchantLivePage(){
       </details>
       ${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}
     </section>
+    ${merchantRecentClosedOrdersView(m.recentClosedOrders,orderEvidence.fresh)}
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
@@ -2869,6 +2870,34 @@ function merchantFocusOrderGroup(group){
   element.focus?.({preventScroll:true});
   return true;
 }
+// Closing a delivery must remain independently verifiable by the partner.
+// Read-only; no mutation controls or sensitive buyer/delivery details.
+function merchantRecentClosedOrdersView(rows,fresh){
+  if(!fresh||!Array.isArray(rows))return '';
+  const allowed=new Set(['SETTLED','CANCELLED','DELIVERED']);
+  const safe=rows.filter(x=>x&&allowed.has(x.status)&&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.orderId||''))).slice(0,5);
+  const names={SETTLED:'Concluído',DELIVERED:'Entregue',CANCELLED:'Cancelado'};
+  const entries=safe.map(o=>{
+    const cents=Number(o.totalCents);
+    const validTotal=(typeof o.totalCents==='number'||
+      (typeof o.totalCents==='string'&&/^\d+$/.test(o.totalCents)))&&
+      Number.isSafeInteger(cents)&&cents>=0&&cents<=1000000000;
+    const date=merchantOrderEventDate(o.updatedAt);
+    const when=date?date.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'Horário indisponível';
+    return '<div class="list-row merchant-closed-order-row" data-closed-order-id="'+esc(o.orderId)+'">'+
+      '<div><strong>'+esc(String(o.publicCode||'Pedido'))+'</strong><small> · '+esc(when)+'</small></div>'+
+      '<span>'+esc(names[o.status])+'</span>'+
+      '<strong>'+(validTotal?BRL.format(cents/100):'Valor indisponível')+'</strong></div>';
+  }).join('');
+  return '<section class="section merchant-recent-closed-orders" aria-label="Últimos pedidos encerrados">'+
+    '<div class="section-head"><div><h2>Últimos pedidos encerrados</h2>'+
+    '<p>Confira até cinco resultados recentes. Pedidos encerrados não ficam na fila de atendimento.</p></div></div>'+
+    (entries||'<div class="empty card">Nenhum pedido encerrado encontrado nesta revenda.</div>')+
+    '<small class="field-help">Histórico limitado aos cinco mais recentes desta revenda; não é comprovante bancário.</small>'+
+    '</section>';
+}
+
 function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta revenda.'){
   const all=Array.isArray(orders)?orders:[];
   if(!all.length)return '<div class="empty card">'+esc(emptyCopy)+'</div>';

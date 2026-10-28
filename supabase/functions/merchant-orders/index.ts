@@ -362,6 +362,17 @@ Deno.serve(async(req:Request)=>{
       .order("created_at",{ascending:true})
       .limit(100);
     if(ordersError)throw ordersError;
+    // Read-only, merchant-scoped closure proof. Terminal orders leave the
+    // active queue, but the partner must still be able to verify the outcome.
+    // Never return delivery address, phone, PIN or other customer PII here.
+    const {data:recentClosedOrders,error:recentClosedError}=await admin
+      .from("orders")
+      .select("id,public_code,status,total_cents,updated_at")
+      .eq("merchant_id",selected.merchant_id)
+      .in("status",["SETTLED","CANCELLED","DELIVERED"])
+      .order("updated_at",{ascending:false})
+      .limit(5);
+    if(recentClosedError)throw recentClosedError;
 
     const ids=(orders??[]).map((o)=>o.id);
     let items:any[]=[];
@@ -801,6 +812,10 @@ Deno.serve(async(req:Request)=>{
           positiveFeedbackRate:performance?.positive_feedback_rate==null?null:Number(performance.positive_feedback_rate)
         },
         lastSeenAt:merchant.last_seen_at,
+      recentClosedOrders:(recentClosedOrders??[]).map((o)=>({
+        orderId:o.id,publicCode:o.public_code,status:o.status,
+        totalCents:o.total_cents,updatedAt:o.updated_at
+      })),
         compliance:{
           cnpjStatus:compliance?.cnpj_status??"pending",
           anpStatus:compliance?.anp_status??"pending",
