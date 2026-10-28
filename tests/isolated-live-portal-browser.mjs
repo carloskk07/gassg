@@ -165,16 +165,56 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   assert.equal(orderCardVisible,true,'the actual Admin orders UI must render this local order card');
   assert.ok(adminReadStatuses.includes(200),'Chrome must receive a successful canonical admin-ops summary');
   assert.ok(adminView.visible.length>110,'Admin portal must render useful content');
-  // The new demonstration is actually CLICKABLE in the same real Chrome
-  // superadmin portal, but never creates an Order / merchant charge.
+  // Exercise the real Admin Chrome DOM across all three synthetic
+  // perspectives. This remains localhost-only and cannot create a real order.
   const createDemo=await evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.textContent.includes('Criar 3 pedidos fictícios'));if(!b)return false;b.click();return true})()");
   assert.equal(createDemo,true,'superadmin must see the safe test-order action');
   await wait("document.querySelectorAll('[data-demo-only=\"true\"]').length===3",'three demonstration order cards',15000);
-  const advanceDemo=await evaluate("(()=>{const b=Array.from(document.querySelectorAll('[data-demo-only=\"true\"] button')).find(x=>x.textContent.includes('Avançar etapa fictícia'));if(!b)return false;b.click();return true})()");
-  assert.equal(advanceDemo,true,'demo order must be interactive');
-  const firstDemo=await evaluate("document.querySelector('[data-demo-only=\"true\"]')?.innerText||''");
-  assert.match(firstDemo,/PREPARANDO/,'a demo status advances visually in the real Admin');
-  assert.match(firstDemo,/FICTÍCIO/,'demo status remains visibly synthetic');
+  const clickDemoRole=label=>evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.textContent.trim()==="+JSON.stringify(label)+");if(!b)return false;b.click();return true})()");
+  const demoCardExpression=id=>"Array.from(document.querySelectorAll('[data-demo-only=\"true\"]')).find(x=>x.querySelector('.order-id')?.textContent.includes("+JSON.stringify(id)+"))";
+  const demoStatus=id=>evaluate("(()=>{const c="+demoCardExpression(id)+";return c?.getAttribute('data-demo-status')||null})()");
+  const demoText=id=>evaluate("(()=>{const c="+demoCardExpression(id)+";return c?.innerText||''})()");
+  const clickDemoAction=(id,label)=>evaluate("(()=>{const c="+demoCardExpression(id)+";const b=Array.from(c?.querySelectorAll('button')||[]).find(x=>x.textContent.includes("+JSON.stringify(label)+"));if(!b)return false;b.click();return true})()");
+  assert.equal(await demoStatus('DEMO-001'),'OFFERED_TO_MERCHANT');
+  assert.equal(await clickDemoRole('Revenda fictícia'),true);
+  assert.equal(await clickDemoAction('DEMO-001','Aceitar pedido'),true);
+  assert.equal(await demoStatus('DEMO-001'),'PREPARING');
+  assert.equal(await clickDemoAction('DEMO-001','Saiu para entrega'),true);
+  assert.equal(await demoStatus('DEMO-001'),'OUT_FOR_DELIVERY');
+  assert.equal(await clickDemoAction('DEMO-001','Chegando ao cliente'),true);
+  assert.equal(await demoStatus('DEMO-001'),'ARRIVING');
+  assert.doesNotMatch(await demoText('DEMO-001'),/Código de entrega fictício \(só na visão Cliente\)/,
+    'merchant perspective must not reveal the customer PIN');
+  assert.equal(await clickDemoRole('Cliente fictício'),true);
+  const customerPin=await evaluate("(()=>{const c="+demoCardExpression('DEMO-001')+";return c?.innerText.match(/Código de entrega fictício[^\\n]*?(\\d{4})/)?.[1]||''})()");
+  assert.match(customerPin,/^\d{4}$/,'the real Chrome customer perspective must show a 4-digit demo PIN');
+  assert.equal(await clickDemoRole('Revenda fictícia'),true);
+  const setDemoPayment=pin=>evaluate("(()=>{const p=document.getElementById('admin-order-demo-pin-DEMO-001');const paid=document.getElementById('admin-order-demo-paid-DEMO-001');if(!p||!paid)return false;p.value="+JSON.stringify(pin)+";paid.checked=true;return true})()");
+  assert.equal(await setDemoPayment('0000'),true);
+  assert.equal(await clickDemoAction('DEMO-001','Confirmar entrega fictícia'),true);
+  assert.equal(await demoStatus('DEMO-001'),'ARRIVING','wrong PIN must never settle the simulated order');
+  assert.match(await demoText('DEMO-001'),/PIN fictício incorreto/);
+  assert.equal(await setDemoPayment(customerPin),true);
+  assert.equal(await clickDemoAction('DEMO-001','Confirmar entrega fictícia'),true);
+  assert.equal(await demoStatus('DEMO-001'),'SETTLED');
+  assert.match(await demoText('DEMO-001'),/Demonstração concluída/);
+
+  // Reload the EXISTING Admin, not a parallel demo page; session-scoped
+  // synthetic state must survive, without creating a commercial DB row.
+  await navigate(origin+'/?admin=1#admin');
+  await wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&document.querySelectorAll('[data-demo-only=\"true\"]').length===3",
+    'demo restored after Admin reload',40000);
+  assert.equal(await demoStatus('DEMO-001'),'SETTLED','the same fictitious order must remain settled after reload');
+  assert.equal(await clickDemoRole('Cliente fictício'),true);
+  assert.equal(await clickDemoAction('DEMO-002','Cancelar pedido fictício'),true);
+  assert.equal(await demoStatus('DEMO-002'),'CANCELLED');
+  assert.equal(await clickDemoRole('Revenda fictícia'),true);
+  assert.equal(await clickDemoAction('DEMO-002','Aceitar pedido'),false,
+    'revenda cannot accept an order cancelled by the fictitious customer');
+  assert.equal(await demoStatus('DEMO-002'),'CANCELLED');
+  assert.equal(await clickDemoRole('Admin — acompanhamento'),true);
+  assert.equal(await demoStatus('DEMO-001'),'SETTLED');
+  assert.equal(await demoStatus('DEMO-002'),'CANCELLED');
 
   // Click the EXISTING Tower of Control button, retaining the canonical
   // adminPerform -> admin-ops -> admin_order_control_action transaction.
