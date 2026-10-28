@@ -32,6 +32,7 @@
     el.addEventListener('click',fn);return el;
   };
   let adminOpen=false;
+  let adminRenderedFingerprint='';
   const dialog=document.createElement('div');dialog.className='tamao-demo-dialog';
   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
   dialog.setAttribute('aria-label','Admin demonstrativo, dados fictícios');
@@ -90,6 +91,9 @@
     progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço fictício e simule o pedido.';
   }
   function drawAdmin(){
+    const signature=JSON.stringify((read()?.orders||[]).map(o=>[o.id,o.merchantId,o.status,o.total]));
+    if(signature===adminRenderedFingerprint&&panel.childElementCount)return;
+    adminRenderedFingerprint=signature;
     panel.replaceChildren();
     panel.append(make('h2','Admin — resumo de pedidos simulados'));
     panel.append(make('p','Projeção local de leitura dos pedidos criados no mesmo navegador. Não é o Admin autenticado nem o banco de produção.'));
@@ -120,6 +124,7 @@
   }
   function setAdmin(open){
     adminOpen=Boolean(open);dialog.dataset.open=String(adminOpen);
+    if(adminOpen)adminRenderedFingerprint='';
     if(adminOpen){drawAdmin();panel.querySelector('button')?.focus()}
     else nav.querySelector('button')?.focus();
   }
