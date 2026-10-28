@@ -68,6 +68,7 @@ jobs:
       contents: read
       pages: write
       id-token: write
+      issues: write
     steps:
       - uses: actions/checkout@v6
       - name: Build the SAME static assets (no secrets, no backend)
@@ -81,3 +82,32 @@ jobs:
       - name: Deploy demo (never TAMÃO production)
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify published link via public HTTP
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          case "$PAGE_URL" in
+            https://carloskk07.github.io/gassg/*) ;;
+            *) echo "Unexpected Pages origin: $PAGE_URL"; exit 1;;
+          esac
+          curl --fail --silent --show-error --location --retry 10 \
+            --retry-all-errors --retry-delay 3 --connect-timeout 10 --max-time 25 \
+            "$PAGE_URL" -o /tmp/tamao-demo-page.html
+          curl --fail --silent --show-error --location --retry 6 \
+            --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 25 \
+            "${PAGE_URL}js/demo-browser-panel.js" -o /tmp/tamao-demo-script.js
+          grep -Fq "Demonstração interativa (sem vendas reais)" /tmp/tamao-demo-page.html
+          grep -Fq "DEMONSTRAÇÃO INTERATIVA" /tmp/tamao-demo-script.js
+      - name: Record VERIFIED link only after public response
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          {
+            echo "🧪 **TAMÃO — demonstração web publicada e verificada por HTTP:** $PAGE_URL"
+            echo
+            echo "Não requer Docker, Windows nem instalação. Cliente e Revenda são simulações no mesmo navegador; Admin é resumo de leitura, não o Admin real. Sem sincronização entre aparelhos, banco comercial, Pix ou cobrança."
+            echo
+            echo "Deploy do commit $GITHUB_SHA, com HTTP público conferido após publicação."
+          } > /tmp/tamao-demo-deploy-comment.md
+          gh issue comment 493 --repo carloskk07/gassg --body-file /tmp/tamao-demo-deploy-comment.md
