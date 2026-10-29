@@ -94,7 +94,7 @@ const cardCtx=vm.createContext({globalThis:{merchantRuntime:role},esc,
  merchantDeliveryCandidates:()=>[],merchantDeliveryMemberLabel:()=> 'Entregador',
  merchantOrderAttentionCard:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderProgressView:()=> '',
  merchantDeliveryShortcuts:()=>'',merchantFormatPhone:v=>String(v)});
-vm.runInContext(cut('merchantLiveOrder'),cardCtx);
+vm.runInContext(cut('merchantOrderBenefitDisclosure')+'\n'+cut('merchantLiveOrder'),cardCtx);
 const card=o=>cardCtx.merchantLiveOrder({...order(91,'OFFERED_TO_MERCHANT'),items:[],
  totalCents:15000,paymentMethod:'pix',...o});
 const expired=card({offerExpiresAt:when(-3)});
