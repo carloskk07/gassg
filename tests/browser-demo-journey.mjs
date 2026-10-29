@@ -167,13 +167,24 @@ try{
  await click("(()=>{const b=Array.from(document.querySelectorAll('.mode-pill button')).find(x=>x.textContent.trim()==='Comprar');if(!b||!b.getClientRects().length)return false;b.click();return true})()");
  await wait("route()==='tracking'&&document.querySelector('#tamao-main')?.innerText.includes("+JSON.stringify(o.id)+")&&document.querySelector('#tamao-main')?.innerText.includes('Código de recebimento')",'customer sees dispatched order and PIN');
  await snapshot('04c-cliente-entrega-e-pin.png');
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
- await wait("route()==='merchant'&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(o.id)+")",'merchant can continue after buyer checks PIN');
-
- await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Estou chegando'));if(!b)return false;b.click();return true})()");
- await wait("window.ChamaTest.getState().orders.at(-1)?.status==='ARRIVING'",'merchant arriving');
- await click("(()=>{const pin=document.querySelector('.pin-input'),paid=document.querySelector('.order-card input[type=\"checkbox\"]'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!pin||!paid||!b)return false;pin.value="+JSON.stringify(o.pin)+";paid.checked=true;b.click();return true})()");
- await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'",'merchant delivery with PIN and cash confirmation');
+ // Owner can now operate the same order as a DRIVER, not return to the
+ // merchant's settings. This is explicitly an online-only synthetic screen.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador (simulação)'));if(!b)return false;b.click();return true})()");
+ await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Entregador — uma entrega por vez')&&document.querySelector('.tamao-demo-panel')?.textContent.includes("+JSON.stringify(o.id)+")",'driver sees only its synthetic active order');
+ assert.ok(!(await evaluate("document.querySelector('.tamao-demo-panel').textContent")).includes(o.pin),
+  'driver must ask customer for PIN, never display it in driver panel');
+ await snapshot('04d-entregador-entrega-atribuida.png');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Cheguei ao endereço'));if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='ARRIVING'&&!!document.getElementById('tamao-demo-driver-pin')",'driver arrival uses same existing simulator order transition');
+ await snapshot('04e-entregador-confirmar-pin.png');
+ // Negative path: the real existing simulator refuses completion until both
+ // customer PIN and an explicit synthetic cash receipt are present.
+ await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));if(!p||!b)return false;p.value="+JSON.stringify(o.pin)+";b.click();return true})()");
+ await wait("document.getElementById('tamao-demo-driver-status')?.textContent.includes('Confirme o recebimento')",'driver cannot settle without fictitious cash confirmation');
+ assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','missing synthetic cash checkbox never settles');
+ await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),c=document.getElementById('tamao-demo-driver-paid'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));if(!p||!c||!b)return false;p.value="+JSON.stringify(o.pin)+";c.checked=true;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'&&document.querySelector('.tamao-demo-panel')?.textContent.includes('Entrega fictícia concluída')",'driver delivers with same PIN and cash rules');
+ assert.equal((await demoState()).orders.at(-1).rewardsGranted,true,'same canonical simulator grants fictional benefits once');
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Concluídos: 1')&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin completed order');
  await snapshot('05-admin-pedido-concluido.png');
