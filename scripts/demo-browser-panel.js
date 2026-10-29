@@ -490,6 +490,12 @@
   tools.append(heading,detail,nav);
   tools.append(progress);
   updateGuide();
+  const onConnectionChange=()=>{
+    driverRenderedFingerprint='';
+    if(driverOpen)drawDriver();
+  };
+  window.addEventListener('online',onConnectionChange);
+  window.addEventListener('offline',onConnectionChange);
   window.setInterval(()=>{updateGuide();if(adminOpen)drawAdmin();if(driverOpen)drawDriver()},1800);
   host.append(tools);
   document.body.append(dialog);
