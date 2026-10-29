@@ -19,6 +19,7 @@
     '.tamao-demo-panel .demo-order{border:1px solid #ccd8d0;border-radius:10px;margin:10px 0;padding:12px;display:grid;gap:3px}',
     '.tamao-demo-panel .demo-amount{font-size:20px;font-weight:750}.tamao-demo-panel button{padding:9px 14px;border:1px solid #256f51;border-radius:8px;background:#effaf2;color:#134932;cursor:pointer}',
     '.tamao-demo-panel .demo-stats{display:flex;gap:12px;flex-wrap:wrap}.tamao-demo-panel .demo-stats span{padding:10px;background:#ecf5f0;border-radius:9px}',
+    '.tamao-demo-driver-form{display:grid;gap:12px;max-width:460px}.tamao-demo-driver-form label{display:grid;gap:5px;font-weight:650}.tamao-demo-driver-form input[type=text]{width:100%;padding:11px;font:inherit;border:1px solid #879e93;border-radius:8px}.tamao-demo-driver-check{display:flex!important;align-items:center;gap:8px}.tamao-demo-driver-check input{width:20px;height:20px}.tamao-demo-driver-status{font-weight:650;color:#69451b}',
     '@media(max-width:600px){.tamao-demo-tools{justify-content:center}.tamao-demo-tools>div{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}.tamao-demo-tools>span{font-size:11px}}'
   ].join('\n');
   document.head.appendChild(style);
@@ -32,7 +33,8 @@
     el.addEventListener('click',fn);return el;
   };
   let adminOpen=false;
-  let adminRenderedFingerprint='';
+  let driverOpen=false,driverOrderId=null,driverError='';
+  let adminRenderedFingerprint='',driverRenderedFingerprint='';
   const dialog=document.createElement('div');dialog.className='tamao-demo-dialog';
   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
   dialog.setAttribute('aria-label','Admin demonstrativo, dados fictícios');
@@ -100,9 +102,9 @@
     const steps={
       OFFERED_TO_MERCHANT:'2/4 · Pedido enviado. Abra Revenda e clique Aceitar pedido.',
       MERCHANT_ACCEPTED:'3/4 · Revenda confirmou. Clique Confirmar saída.',
-      PREPARING:'3/4 · Revenda aceitou. Confirme saída, chegada e o PIN do Cliente.',
-      OUT_FOR_DELIVERY:'3/4 · Em entrega. Na Revenda, clique Estou chegando.',
-      ARRIVING:'3/4 · Na Revenda, confira o PIN do Cliente e confirme pagamento fictício.',
+      PREPARING:'3/4 · Revenda aceitou. Confirme a saída; depois abra Entregador.',
+      OUT_FOR_DELIVERY:'3/4 · Em entrega. Abra Entregador e registre a chegada.',
+      ARRIVING:'3/4 · No Entregador, informe o PIN e confirme recebimento fictício.',
       SETTLED:'4/4 · Pedido fictício concluído! Confira o resumo no Admin.',
       DELIVERED:'4/4 · Pedido fictício entregue! Confira o resumo no Admin.',
       CANCELLED:'Pedido fictício cancelado. Reinicie para testar novamente.'
@@ -141,8 +143,87 @@
     panel.append(make('span',' '));
     panel.append(button('Fechar Admin demonstrativo',()=>setAdmin(false)));
   }
+  function drawDriver(){
+    const order=read()?.orders?.find(o=>o.id===driverOrderId)||null;
+    const fingerprint=JSON.stringify([order?.id,order?.status,order?.pinFailures,driverError]);
+    if(fingerprint===driverRenderedFingerprint&&panel.childElementCount)return;
+    driverRenderedFingerprint=fingerprint;
+    panel.replaceChildren();
+    panel.append(make('h2','Entregador — uma entrega por vez'));
+    panel.append(make('p','Somente demonstração com pedido fictício. No TAMÃO real, a atribuição depende da conta autorizada da revenda.'));
+    if(!order){
+      panel.append(make('p','Nenhuma entrega selecionada. Crie um pedido no Cliente e confirme a saída pela Revenda.'));
+    }else{
+      const card=make('article','');card.className='demo-order';
+      card.append(make('strong','Pedido '+(order.publicCode||order.id)));
+      card.append(make('span','Situação: '+String(order.status||'indefinido')));
+      card.append(make('span','Endereço fictício: '+String(order.address||'Não informado')));
+      card.append(make('span','Total fictício: '+money(order.total)));
+      panel.append(card);
+      if(order.status==='OUT_FOR_DELIVERY'){
+        panel.append(make('p','Uma ação: ao chegar ao endereço, registre a chegada.'));
+        panel.append(button('Cheguei ao endereço',()=>{
+          const r=globalThis.ChamaTest?.arrivingOrder?.(order.id);
+          if(r?.ok!==true)driverError=String(r?.error||'Chegada não confirmada');
+          else driverError='';
+          globalThis.render?.();updateGuide();driverRenderedFingerprint='';drawDriver();
+        }));
+      }else if(order.status==='ARRIVING'){
+        const form=make('div','');form.className='tamao-demo-driver-form';
+        const label=make('label','Código de 4 dígitos informado pelo Cliente');
+        const pin=document.createElement('input');pin.id='tamao-demo-driver-pin';
+        pin.type='text';pin.inputMode='numeric';pin.maxLength=4;
+        pin.autocomplete='off';pin.pattern='[0-9]{4}';
+        label.append(pin);form.append(label);
+        const paidLabel=make('label','');paidLabel.className='tamao-demo-driver-check';
+        const paid=document.createElement('input');paid.type='checkbox';paid.id='tamao-demo-driver-paid';
+        paidLabel.append(paid,document.createTextNode('Recebi o pagamento fictício do pedido'));
+        form.append(paidLabel);
+        form.append(button('Concluir entrega simulada',()=>{
+          const r=globalThis.ChamaTest?.deliverOrder?.(order.id,pin.value,paid.checked);
+          if(r?.ok!==true){
+            driverError=String(r?.error||'Entrega não confirmada');
+            const status=document.getElementById('tamao-demo-driver-status');
+            if(status)status.textContent=driverError;
+            pin.value='';pin.focus();
+            return;
+          }
+          driverError='';
+          pin.value='';paid.checked=false;
+          globalThis.render?.();updateGuide();driverRenderedFingerprint='';drawDriver();
+        }));
+        panel.append(form);
+        panel.append(make('p','O código aparece no acompanhamento do Cliente. Não é enviado por este demonstrativo a nenhuma revenda ou banco.'));
+      }else if(['SETTLED','DELIVERED'].includes(order.status)){
+        panel.append(make('p','✓ Entrega fictícia concluída. Cliente e Admin mostram o mesmo pedido.'));
+        panel.append(button('Conferir no Cliente',openCustomer));
+        panel.append(make('span',' '));
+        panel.append(button('Conferir no Admin',()=>setAdmin(true)));
+      }else{
+        panel.append(make('p','Esta etapa pertence à Revenda: aceite o pedido e confirme a saída antes da entrega.'));
+        panel.append(button('Ir para a Revenda',openMerchant));
+      }
+    }
+    const status=make('p',driverError);
+    status.id='tamao-demo-driver-status';status.className='tamao-demo-driver-status';
+    status.setAttribute('role','status');panel.append(status);
+    panel.append(make('p','Sem sinal: este demonstrativo online não registra comprovantes offline. Esse recurso é testado separadamente no Android emulado e permanece em homologação.'));
+    panel.append(button('Fechar',()=>setDriver(false)));
+  }
+  function setDriver(open){
+    driverOpen=Boolean(open);adminOpen=false;
+    dialog.dataset.open=String(driverOpen);
+    if(driverOpen){
+      driverOrderId=currentOrder()?.id||null;
+      driverError='';driverRenderedFingerprint='';
+      dialog.setAttribute('aria-label','Entregador demonstrativo, dados fictícios');
+      drawDriver();
+      panel.querySelector('button')?.focus();
+    }else nav.querySelector('button')?.focus();
+  }
   function setAdmin(open){
-    adminOpen=Boolean(open);dialog.dataset.open=String(adminOpen);
+    adminOpen=Boolean(open);driverOpen=false;dialog.dataset.open=String(adminOpen);
+    if(adminOpen)dialog.setAttribute('aria-label','Admin demonstrativo, dados fictícios');
     if(adminOpen)adminRenderedFingerprint='';
     if(adminOpen){drawAdmin();panel.querySelector('button')?.focus()}
     else nav.querySelector('button')?.focus();
@@ -173,6 +254,7 @@
   nav.append(button('Cliente · acompanhar pedido',openCustomer));
   nav.append(button('Começar com gás P13',beginP13));
   nav.append(button('Revenda (pedido)',openMerchant));
+  nav.append(button('Entregador (simulação)',()=>setDriver(true)));
   nav.append(button('Admin (resumo)',()=>setAdmin(true)));
   nav.append(button('Reiniciar',()=>{
     if(confirm('Apagar apenas os pedidos e valores fictícios desta demonstração no navegador?')){
@@ -180,12 +262,12 @@
     }
   }));
   dialog.append(panel);
-  dialog.addEventListener('click',e=>{if(e.target===dialog)setAdmin(false)});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&adminOpen)setAdmin(false)});
+  dialog.addEventListener('click',e=>{if(e.target===dialog){if(driverOpen)setDriver(false);else setAdmin(false)}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen)setAdmin(false)}});
   tools.append(heading,detail,nav);
   tools.append(progress);
   updateGuide();
-  window.setInterval(()=>{updateGuide();if(adminOpen)drawAdmin()},1800);
+  window.setInterval(()=>{updateGuide();if(adminOpen)drawAdmin();if(driverOpen)drawDriver()},1800);
   host.append(tools);
   document.body.append(dialog);
 })();
