@@ -5371,6 +5371,10 @@ function adminPublicRequestCard(x){
       '<div class="tiny muted">Protocolo '+esc(protocol)+' • '+esc(status)+'</div></div>',
       '<small>'+new Date(x.created_at).toLocaleString('pt-BR')+'</small></div>',
       x.request_kind==='privacy'?'<div class="list-row"><span>Direito/assunto</span><strong>'+esc(adminPrivacyActionLabel(x.privacy_action))+'</strong></div>':'',
+      x.request_kind==='support'&&/tamao_help=(revenda|cliente)/.test(String(x.landing_path||''))
+        ?'<div class="tiny muted"><strong>Origem do relato:</strong> '+
+          (String(x.landing_path).includes('tamao_help=revenda')?'Revenda':'Cliente')+
+          ' • módulo '+esc((String(x.landing_path).match(/[?&]modulo=([a-z-]{1,24})/)||[])[1]||'não identificado')+'</div>':'',
       '<div class="list-row"><span>Canal</span><strong>'+esc(x.contact_channel==='email'?'E-mail':'WhatsApp')+'</strong></div>',
       '<p class="muted tiny" style="white-space:pre-wrap">'+esc(x.message||'')+'</p>',
       x.resolution_note?'<p class="muted tiny"><strong>Resolução:</strong> '+esc(x.resolution_note)+'</p>':'',
@@ -5378,6 +5382,28 @@ function adminPublicRequestCard(x){
       adminPublicRequestActionButtons(x),
     '</article>'
   ].join('');
+}
+// Same protected admin records and status actions, now also visible where
+// operations staff triage errors. No public GitHub issue or PII export.
+function adminProblemReportsSection(data){
+  const rows=(Array.isArray(data?.publicRequests)?data.publicRequests:[])
+    .filter(x=>x?.request_kind==='support')
+    .sort((a,b)=>{
+      const pending=x=>['new','in_review'].includes(x?.status)?0:1;
+      return pending(a)-pending(b)||
+        String(b.created_at||'').localeCompare(String(a.created_at||''));
+    });
+  const awaiting=rows.filter(x=>['new','in_review'].includes(x.status)).length;
+  return '<section class="section admin-problem-reports" id="admin-problem-reports">'+
+    '<div class="section-head"><div><span class="section-kicker">QUALIDADE • SUPORTE</span>'+
+    '<h2>Erros e pedidos de ajuda</h2>'+
+    '<p>Relatos enviados por clientes e revendas no formulário público. Atualização pelo Admin, sem correção automática por IA.</p></div>'+
+    '<span class="status-pill '+(awaiting?'risk':'online')+'">'+awaiting+' pendente(s)</span></div>'+
+    '<div class="order-actions"><button type="button" class="secondary small" onclick="adminRefresh()">Atualizar relatos</button></div>'+
+    '<div class="grid cards-3" style="margin-top:14px">'+
+    (rows.length?rows.slice(0,30).map(adminPublicRequestCard).join(''):
+      '<div class="empty card">Nenhum relato de ajuda recebido nesta amostra administrativa.</div>')+
+    '</div><small class="field-help">A fila apresenta apenas solicitações recebidas pelo servidor e devolvidas ao Admin, até 30 neste painel. Evite copiar dados pessoais para tickets públicos.</small></section>';
 }
 function adminPublicRequestsSection(data){
   const requests=Array.isArray(data?.publicRequests)?data.publicRequests:[];

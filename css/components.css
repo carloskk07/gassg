@@ -420,3 +420,8 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .merchant-driver-more:not([open])>.merchant-driver-more-body{display:none}
 .merchant-driver-page .merchant-driver-offline p{margin:8px 0 0;font-size:14px}
 @media(max-width:550px){.merchant-driver-header button{width:100%;margin:4px 0 0}.merchant-driver-priority>.order-card{margin-block:9px}}
+
+/* Public help is always reachable without covering the order/action controls. */
+.tamao-help-shortcut{position:fixed;right:16px;bottom:86px;z-index:65;display:inline-flex;align-items:center;justify-content:center;max-width:calc(100vw - 32px);padding:10px 14px;border-radius:999px;background:#124e3c;color:#fff!important;border:2px solid #fff;box-shadow:0 3px 14px #082c2555;font-size:13px;font-weight:750;text-decoration:none;line-height:1.25}
+.tamao-help-shortcut:focus-visible{outline:3px solid #d69d2c;outline-offset:3px}
+@media(min-width:760px){.tamao-help-shortcut{bottom:18px}}

@@ -666,6 +666,8 @@ jobs:
         run: node tests/buyer-tracking-proof-v1-382.mjs
       - name: V1.383 verified stages after merchant acceptance
         run: node tests/customer-post-acceptance-v1-383.mjs
+      - name: V1.493 customer/merchant help and real Admin error intake
+        run: node tests/real-help-report-intake-v1-493.mjs
       - name: V1.384 customer support status and duplicate prevention
         run: node tests/customer-care-clarity-v1-384.mjs
       - name: V1.385 admin queue triage, role-safe case actions and mobile filters

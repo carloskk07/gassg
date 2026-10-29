@@ -152,7 +152,7 @@ function contactPage(){
       '<article class="trust-card"><span>🔐</span><h3>Privacidade / LGPD</h3><p>Acesso, correção, eliminação, informações ou revogação de autorização.</p></article>'+
     '</div>'+
     '<section class="legal-card public-contact-card"><div class="field-row">'+
-      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support">Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
+      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support" '+(['cliente','revenda'].includes(new URLSearchParams(location.search).get('tamao_help'))?'selected':'')+'>Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
       '<div class="input-wrap" id="privacy-action-wrap" hidden><label for="public-privacy-action">Direito ou assunto de privacidade</label><select id="public-privacy-action" class="input">'+contactPrivacyOptions()+'</select></div>'+
     '</div>'+
     '<div class="field-row"><div class="input-wrap"><label for="public-contact-name">Seu nome</label><input id="public-contact-name" class="input" maxlength="120" autocomplete="name" placeholder="Nome"></div>'+
