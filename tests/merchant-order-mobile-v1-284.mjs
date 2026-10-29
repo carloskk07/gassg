@@ -8,6 +8,10 @@ new vm.Script(src,{filename:'merchant.js'});
 const at=src.indexOf('function merchantLiveOrder('),end=src.indexOf('\n}',at);
 assert.ok(at>0&&end>at);
 const source=src.slice(at,end+2);
+const benefitAt=src.indexOf('function merchantOrderBenefitDisclosure(');
+const benefitEnd=src.indexOf('\n}',benefitAt);
+assert.ok(benefitAt>0&&benefitEnd>benefitAt);
+const benefitSource=src.slice(benefitAt,benefitEnd+2);
 const escapeText=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
   .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const runtime={merchant:{memberRole:'owner'},orders:[],actionPending:false,deliveryTeam:[]};
@@ -19,7 +23,7 @@ const ctx=vm.createContext({
   merchantDeliveryShortcuts:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderAttentionCard:()=> '',
   merchantOrderProgressView:()=>'<details class="merchant-order-progress"><summary>Acompanhar etapas</summary></details>'
 });
-vm.runInContext(source+'\nthis.card=merchantLiveOrder;',ctx);
+vm.runInContext(benefitSource+'\n'+source+'\nthis.card=merchantLiveOrder;',ctx);
 const id='11111111-1111-4111-8111-111111111111';
 const minutes=n=>new Date(Date.now()+n*60000).toISOString();
 const order={
@@ -39,6 +43,58 @@ assert.doesNotMatch(html,/Rua sigilosa/);
 assert.ok(html.indexOf('merchant-order-compact-meta')<html.indexOf('merchant-order-action-fieldset'));
 assert.match(html,/merchant-order-progress/,'Existing milestone drawer preserved');
 assert.match(html,/merchant-order-total/);
+assert.doesNotMatch(html,/merchant-benefit-disclosure/,'normal order must stay compact');
+// Live order: merchant receives a real gross/payable/cashback snapshot,
+// but the order contains NO documented sponsor, fee waiver or compensation.
+const discounted={...order,grossTotalCents:13000,cashbackReservedCents:750,totalCents:12250};
+html=ctx.card(discounted);
+for(const value of [
+ 'merchant-benefit-disclosure','Cashback usado pelo cliente','R$ 130.00',
+ 'R$ 7.50','R$ 122.50','Financiamento e compensação da revenda: não comprovados',
+ 'Taxa TAMÃO e patrocínio','Patrocínio:','não comprovado',
+ 'Desconto ou isenção da taxa TAMÃO:'
+])assert.ok(html.includes(value),'missing live order financing disclosure: '+value);
+assert.ok(html.indexOf('merchant-benefit-disclosure')<html.indexOf('merchant-order-action-fieldset'),
+ 'partner must see discount explanation BEFORE accepting');
+assert.doesNotMatch(html,/Patrocínio: confirmado|Reembolso garantido|Isenção aprovada/);
+assert.ok(html.includes('Pagamento: Pix'));
+html=ctx.card({...discounted,grossTotalCents:'13000',cashbackReservedCents:'750',totalCents:'12250'});
+assert.match(html,/Cashback usado pelo cliente/,'numeric-string cents must be recognized');
+html=ctx.card({...discounted,totalCents:11500});
+assert.match(html,/Valores divergentes/,'inconsistent gross, benefit, payable must be visible');
+html=ctx.card({...discounted,grossTotalCents:null});
+assert.match(html,/Dados incompletos/);
+assert.doesNotMatch(html,/Preço antes dos benefícios: <strong>R\$ 0.00/,'missing gross not zero');
+html=ctx.card({...discounted,cashbackReservedCents:0,totalCents:13000});
+assert.doesNotMatch(html,/merchant-benefit-disclosure/,'no benefit must not clutter mobile layout');
+// Same disclosure is on the actual in-browser merchant simulator, not just live Auth.
+const demoAt=src.indexOf('function merchantOrder(o){');
+const demoEnd=src.indexOf('\n}',demoAt);
+assert.ok(demoAt>0&&demoEnd>demoAt);
+const demoCtx=vm.createContext({
+ Date,esc:escapeText,BRL:{format:x=>'R$ '+Number(x).toFixed(2)},
+ statusCopy:{OFFERED_TO_MERCHANT:['Recebido','']},
+ paymentLabel:()=> 'Dinheiro',
+ products:{P13:{name:'Gás P13'}}
+});
+vm.runInContext(benefitSource+'\n'+src.slice(demoAt,demoEnd+2)+
+ '\nthis.card=merchantOrder;',demoCtx);
+const demoOrder={id:'SG-TEST',status:'OFFERED_TO_MERCHANT',
+ offerExpiresAt:minutes(10),items:[{qty:1,name:'Gás P13'}],
+ cart:{P13:1},grossTotal:120,cashbackReserved:7.5,total:112.5,
+ address:'Rua Fictícia',paymentMethod:'cash'};
+const demoHtml=demoCtx.card(demoOrder);
+for(const value of ['R$ 120.00','R$ 7.50','R$ 112.50',
+ 'Financiamento e compensação da revenda: não comprovados',
+ 'nenhum dinheiro ou crédito real é movimentado neste simulador']){
+ assert.ok(demoHtml.includes(value),'missing actual simulator disclosure '+value);
+}
+assert.ok(demoHtml.indexOf('merchant-benefit-disclosure')<
+ demoHtml.indexOf('Aceitar pedido'),'financing summary precedes merchant acceptance');
+assert.doesNotMatch(demoCtx.card({...demoOrder,cashbackReserved:0,total:120}),
+ /merchant-benefit-disclosure/);
+assert.doesNotMatch(benefitSource,/\.rpc\(|\.insert\(|\.update\(|merchantCompleteDeliveryLive\(/,
+ 'the disclosure is read-only and does not create a refund, fee adjustment or promotion');
 order.offerExpiresAt=minutes(-5);
 html=ctx.card(order);
 assert.match(html,/horário já passou/);
