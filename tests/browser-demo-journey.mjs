@@ -300,6 +300,10 @@ try{
  await wait("route()==='order'&&state.cart.P13===1",'third P13 checkout available');
  await click("(()=>{const a=document.querySelector('#address'),p=document.querySelector('#postal-code'),b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')==='setAddress()');if(!a||!p||!b)return false;a.value='Rua Teste Terceiro, 30';p.value='97300-000';b.click();return true})()");
  await wait("state.address==='Rua Teste Terceiro, 30'&&document.querySelector('.offer-submit:not(:disabled)')",'third P13 quote');
+ // Redeem available simulated cashback so abandoning the unfinished order
+ // must demonstrably refund the reserved amount (not merely zero).
+ await click("(()=>{const box=Array.from(document.querySelectorAll('input[type=checkbox]')).find(x=>x.getAttribute('onchange')?.includes('toggleCashback('));if(!box||!box.getClientRects().length)return false;box.click();return true})()");
+ await wait('state.checkout.useCashback===true','third P13 uses synthetic cashback');
  await click("(()=>{const b=document.querySelector('.offer-submit:not(:disabled)');if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='OFFERED_TO_MERCHANT'",'third P13 order created');
  const third=(await demoState()).orders.at(-1);
@@ -310,6 +314,7 @@ try{
  const beforeAbandon=await demoState();
  const unfinishedOrder=beforeAbandon.orders.at(-1);
  assert.equal(unfinishedOrder.inventoryReserved,true,'third order must have actual reserved synthetic inventory');
+ assert.ok(unfinishedOrder.cashbackReserved>0,'third order must reserve actual synthetic cashback');
  const stockBefore=beforeAbandon.merchants.find(m=>m.id===unfinishedOrder.merchantId).inventory.P13;
  const cashbackBefore=beforeAbandon.user.cashback;
  await send('Page.navigate',{url:base+'#home'});
