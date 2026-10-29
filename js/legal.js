@@ -61,18 +61,6 @@ function termsPage(){
   );
 }
 
-// Only harmless page context is carried into support; never copy a session,
-// URL query, checkout, PIN, logs or bank details into a public ticket.
-function contactProblemContext(){
-  const p=new URLSearchParams(location.search);
-  const role=p.get('tamao_help');
-  if(!['cliente','revenda'].includes(role))return null;
-  const module=String(p.get('modulo')||'').trim();
-  const allowed=new Set(['home','learn','earn','order','tracking','club','refer','merchants','sponsors',
-    'professionals','rides','stays','mobility','advertise','merchant','merchant-orders',
-    'merchant-team','catalog','merchant-metrics','merchant-join','availability']);
-  return {role,module:allowed.has(module)?module:'outro'};
-}
 function contactPrivacyOptions(){
   return '<option value="">Selecione</option><option value="confirmation">Confirmar se há tratamento</option><option value="access">Acessar meus dados</option><option value="correction">Corrigir meus dados</option><option value="deletion">Solicitar eliminação</option><option value="information">Informações sobre uso/compartilhamento</option><option value="revocation">Revogar autorização</option><option value="other">Outro assunto de privacidade</option>';
 }
@@ -114,10 +102,7 @@ async function submitPublicRequest(){
   const contactChannel=String(document.querySelector('#public-contact-channel')?.value||'whatsapp');
   const contactValue=String(document.querySelector('#public-contact-value')?.value||'').trim();
   const typedMessage=String(document.querySelector('#public-request-message')?.value||'').trim();
-  const help=typeof contactProblemContext==='function'?contactProblemContext():null;
-  const prefix=uiKind==='sponsor'?'[Parcerias e patrocínios] ':
-    uiKind==='support'&&help?'[Problema TAMÃO | '+help.role+' | módulo '+help.module+'] ':'';
-  const message=(prefix+typedMessage).slice(0,2000);
+  const message=((uiKind==='sponsor'?'[Parcerias e patrocínios] ':'')+typedMessage).slice(0,2000);
   const website=String(document.querySelector('#public-request-website')?.value||'');
   const acknowledged=document.querySelector('#public-request-ack')?.checked===true;
 
@@ -128,7 +113,7 @@ async function submitPublicRequest(){
     const digits=contactValue.replace(/\D/g,'');
     if(digits.length<10||digits.length>13)return toast('Informe um WhatsApp válido com DDD');
   }
-  if(typedMessage.length<10)return toast('Explique sua solicitação em pelo menos 10 caracteres');
+  if(message.length<10)return toast('Explique sua solicitação em pelo menos 10 caracteres');
   if(!acknowledged)return toast('Confirme o uso dos dados para responder à solicitação');
   if(!globalThis.publicRequestSubmit)return toast('Canal temporariamente indisponível');
 
@@ -154,12 +139,11 @@ async function submitPublicRequest(){
 }
 
 function contactPage(){
-  const help=typeof contactProblemContext==='function'?contactProblemContext():null;
   return shell(
     legalHero(
       'CONTATO • CANAL OFICIAL',
       'Fale com o TAMÃO',
-      help?'Conte o problema que encontrou no TAMÃO. O relato recebe protocolo e chega à fila de atendimento do Admin.':'Use este canal para parcerias de marca, dúvidas gerais, suporte e solicitações relacionadas aos seus dados pessoais.'
+      'Use este canal para parcerias de marca, dúvidas gerais, suporte e solicitações relacionadas aos seus dados pessoais.'
     )+
     legalNav()+
     '<div class="contact-purpose-grid">'+
@@ -167,15 +151,14 @@ function contactPage(){
       '<article class="trust-card"><span>🛟</span><h3>Suporte</h3><p>Suporte para pedidos, corridas, cadastros e problemas de uso.</p></article>'+
       '<article class="trust-card"><span>🔐</span><h3>Privacidade / LGPD</h3><p>Acesso, correção, eliminação, informações ou revogação de autorização.</p></article>'+
     '</div>'+
-    (help?'<div class="notice" role="status"><strong>Reportar problema</strong> • '+esc(help.role==='revenda'?'Revenda':'Cliente')+' / '+esc(help.module)+'. Descreva o erro e o que você estava tentando fazer. Não envie senha, PIN, código de acesso ou dados bancários. O atendimento não é uma correção automática.</div>':'')+
     '<section class="legal-card public-contact-card"><div class="field-row">'+
-      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support" '+(help?'selected':'')+'>Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
+      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support" '+(['cliente','revenda'].includes(new URLSearchParams(location.search).get('tamao_help'))?'selected':'')+'>Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
       '<div class="input-wrap" id="privacy-action-wrap" hidden><label for="public-privacy-action">Direito ou assunto de privacidade</label><select id="public-privacy-action" class="input">'+contactPrivacyOptions()+'</select></div>'+
     '</div>'+
     '<div class="field-row"><div class="input-wrap"><label for="public-contact-name">Seu nome</label><input id="public-contact-name" class="input" maxlength="120" autocomplete="name" placeholder="Nome"></div>'+
       '<div class="input-wrap"><label for="public-contact-channel">Como prefere receber resposta?</label><select id="public-contact-channel" class="input" onchange="contactChannelChanged()"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select></div></div>'+
     '<div class="input-wrap"><label for="public-contact-value">Seu contato</label><input id="public-contact-value" class="input" type="tel" inputmode="tel" maxlength="180" autocomplete="tel" placeholder="(55) 99999-9999"></div>'+
-    '<div class="input-wrap"><label for="public-request-message">Mensagem</label><textarea id="public-request-message" class="input" rows="5" maxlength="2000" placeholder="'+(help?'Qual problema apareceu? O que você tentou fazer e o que aconteceu?':'Conte o que você precisa. Evite enviar senha, código de autenticação ou dados bancários.')+'"></textarea></div>'+
+    '<div class="input-wrap"><label for="public-request-message">Mensagem</label><textarea id="public-request-message" class="input" rows="5" maxlength="2000" placeholder="Conte o que você precisa. Evite enviar senha, código de autenticação ou dados bancários."></textarea></div>'+
     '<input id="public-request-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">'+
     '<label class="check-row lead-consent"><input id="public-request-ack" type="checkbox"><span><strong>Entendo que estes dados serão usados para responder à minha solicitação.</strong><small>Em pedidos de privacidade, o TAMÃO poderá solicitar confirmação de identidade antes de fornecer, corrigir ou excluir dados.</small></span></label>'+
     '<button id="public-request-submit" class="primary full" onclick="submitPublicRequest()">Enviar solicitação</button>'+
