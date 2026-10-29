@@ -5374,7 +5374,7 @@ function adminPublicRequestCard(x){
       x.request_kind==='support'&&/tamao_help=(revenda|cliente)/.test(String(x.landing_path||''))
         ?'<div class="tiny muted"><strong>Origem do relato:</strong> '+
           (String(x.landing_path).includes('tamao_help=revenda')?'Revenda':'Cliente')+
-          ' • módulo '+esc((String(x.landing_path).match(/(?:\\?|&)modulo=([a-z-]{1,24})/)||[])[1]||'não identificado')+'</div>':'',
+          ' • módulo '+esc((String(x.landing_path).match(/[?&]modulo=([a-z-]{1,24})/)||[])[1]||'não identificado')+'</div>':'',
       '<div class="list-row"><span>Canal</span><strong>'+esc(x.contact_channel==='email'?'E-mail':'WhatsApp')+'</strong></div>',
       '<p class="muted tiny" style="white-space:pre-wrap">'+esc(x.message||'')+'</p>',
       x.resolution_note?'<p class="muted tiny"><strong>Resolução:</strong> '+esc(x.resolution_note)+'</p>':'',
