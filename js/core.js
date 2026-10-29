@@ -882,7 +882,6 @@ function shell(content){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
-  // A public visitor choosing 'Revenda' should see the commercial explanation before the login portal.
   const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"go('merchants')";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
   const buyerHasOrder=testDemo?Boolean(activeOrder()):
