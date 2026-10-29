@@ -27,7 +27,7 @@ const ctx=vm.createContext({
  merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
  paymentLabel:()=> 'Dinheiro',formatDeliveryWindow:()=>'',merchantFormatPhone:()=>''
 });
-vm.runInContext(code+'\nthis.render=merchantLiveOrder;',ctx);
+vm.runInContext(js.slice(js.indexOf('function merchantOrderBenefitDisclosure('),begin)+'\n'+code+'\nthis.render=merchantLiveOrder;',ctx);
 const base={
  status:'PREPARING',orderId:'00000000-0000-4000-8000-000000000390',
  publicCode:'TAM-390',addressVisible:false,paymentMethod:'cash',
