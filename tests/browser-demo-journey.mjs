@@ -189,6 +189,8 @@ try{
  await snapshot('04f-entregador-criptografia-sem-internet.png');
  await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:1000000,uploadThroughput:1000000});
  await wait('navigator.onLine===true','browser must report online after device capability check',10000);
+ await wait("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));return !!b&&!b.disabled})()",
+  'driver completion UI must also be reenabled after reconnection',8000);
  assert.deepEqual(forbidden,[],'offline device check must never call commercial API or PSP');
  // Negative path: the real existing simulator refuses completion until both
  // customer PIN and an explicit synthetic cash receipt are present.
