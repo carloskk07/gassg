@@ -22,7 +22,7 @@ const ctx=vm.createContext({
  merchantDeliveryShortcuts:()=>'',merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
  paymentLabel:()=> 'Dinheiro',formatDeliveryWindow:()=>'',merchantFormatPhone:()=>''
 });
-vm.runInContext(code+'\nthis.render=merchantLiveOrder;',ctx);
+vm.runInContext(merchant.slice(merchant.indexOf('function merchantOrderBenefitDisclosure('),a)+'\n'+code+'\nthis.render=merchantLiveOrder;',ctx);
 const base={
  status:'PREPARING',orderId:'00000000-0000-4000-8000-000000000391',
  publicCode:'TAM-391',addressVisible:false,paymentMethod:'cash',

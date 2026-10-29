@@ -91,7 +91,7 @@ const cardCtx=vm.createContext({
  merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
  merchantFormatPhone:v=>String(v)
 });
-vm.runInContext(cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
+vm.runInContext(cut('merchantOrderBenefitDisclosure')+'\n'+cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
 const order={orderId:id,publicCode:'TAM-12',status:'ARRIVING',items:[],
  totalCents:12000,paymentMethod:'pix',deliveryDetailsVisible:false,addressVisible:false};
 let markup=cardCtx.card(order);

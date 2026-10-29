@@ -3441,6 +3441,46 @@ function merchantUnifiedOpsBoard(rt,orders){
     '</section>';
 }
 
+// Read-only disclosure: an order never proves sponsorship or a fee waiver.
+function merchantOrderBenefitDisclosure(o,demo=false){
+  const valid=v=>{
+    const n=Number(v);
+    return (typeof v==='number'||typeof v==='string'&&/^[0-9]+$/.test(v))&&
+      Number.isSafeInteger(n)&&n>=0&&n<=1e9?n:null;
+  };
+  const fromMoney=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0
+    ?valid(Math.round(v*100)):null;
+  const gross=demo?fromMoney(o?.grossTotal):valid(o?.grossTotalCents);
+  const used=demo?fromMoney(o?.cashbackReserved):valid(o?.cashbackReservedCents);
+  const pay=demo?fromMoney(o?.total):valid(o?.totalCents);
+  if(gross===null&&used===null)return '';
+  if(used===0&&(gross===null||gross===pay))return '';
+  if(used===null&&gross===pay)return '';
+  const fmt=n=>n===null?'não informado':BRL.format(n/100);
+  const mismatch=gross!==null&&used!==null&&pay!==null&&gross-pay!==used;
+  const incomplete=gross===null||used===null||pay===null;
+  const heading=mismatch?'Composição do benefício precisa de conferência':
+    incomplete?'Valores do benefício ainda incompletos':
+      'Cashback usado pelo cliente: − '+fmt(used);
+  return '<aside class="notice merchant-benefit-disclosure" aria-label="Detalhamento do cashback e financiamento do pedido">'+
+    '<strong>'+esc(heading)+'</strong>'+
+    '<div class="tiny">Preço antes dos benefícios: <strong>'+fmt(gross)+
+    '</strong> • Cashback utilizado: <strong>− '+fmt(used)+
+    '</strong> • Cliente paga: <strong>'+fmt(pay)+'</strong></div>'+
+    (mismatch?'<p class="tiny"><strong>Valores divergentes: o cashback não fecha com o preço e o total. Confira antes de aceitar.</strong></p>':
+      incomplete?'<p class="tiny"><strong>Dados incompletos. Atualize antes de aceitar.</strong></p>':'')+
+    '<div class="tiny"><strong>Financiamento e compensação da revenda: não comprovados neste pedido.</strong></div>'+
+    '<details class="merchant-benefit-funding"><summary>Quem paga o cashback? Taxa TAMÃO e patrocínio</summary>'+
+    '<p class="tiny">'+(used>0?'O cliente utilizou saldo cashback'+(demo?' fictício':'')+'. ':
+      'A diferença de preço não está identificada como cashback. ')+
+    'A origem desse benefício (TAMÃO, patrocinador ou outra) não está comprovada nesta ordem.</p>'+
+    '<p class="tiny"><strong>Desconto ou isenção da taxa TAMÃO:</strong> não discriminado. '+
+    '<strong>Patrocínio:</strong> não comprovado. '+
+    '<strong>Reembolso à revenda:</strong> não comprovado.</p>'+
+    '<p class="tiny">Cobrar do cliente somente o total indicado. Não assumir repasse ou desconto de taxa garantido; '+
+    (demo?'nenhum dinheiro ou crédito real é movimentado neste simulador.':
+      'a compensação exige registros e conciliação separados.')+'</p></details></aside>';
+}
 function merchantLiveOrder(o){
   // V1.391 — A missing quantity is not zero or a displayable NaN.
   // This is read-only: server items/prices and all order actions stay authoritative.
@@ -3607,6 +3647,7 @@ function merchantLiveOrder(o){
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line merchant-order-item-list">${items||'Itens não confirmados nesta consulta'}</div>${itemReviewNote}</div><div class="merchant-order-total"><strong class="${hasTotal?'':'merchant-order-total-unverified'}">${esc(total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${compactMeta}
+    ${typeof merchantOrderBenefitDisclosure==='function'?merchantOrderBenefitDisclosure(o):''}
     ${merchantOrderAttentionCard(o)}
     ${typeof merchantSupportForOrder==='function'?merchantSupportForOrder(o):''}
     ${merchantIncidentRiskGuide(o)}
@@ -4235,7 +4276,7 @@ function merchantOrder(o){
     actions=`<label class="sr-only" for="pin-${o.id}">PIN de entrega</label><input id="pin-${o.id}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="paid-${o.id}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para concluir o pedido.</small></span></label><button class="primary small" onclick="merchantAction('${o.id}','deliver')">Confirmar entrega</button>`;
   }
   const addressLine=o.status==='OFFERED_TO_MERCHANT'?'📍 Endereço protegido até o aceite':'📍 '+esc(o.address);
-  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div><div class="order-line">${addressLine}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
+  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>${typeof merchantOrderBenefitDisclosure==='function'?merchantOrderBenefitDisclosure(o,true):''}<div class="order-line">${addressLine}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
 }
 function selectMerchant(id){if(merchantById(id)){state.selectedMerchant=id;save();render()}}
 function toggleOnline(id){

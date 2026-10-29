@@ -221,6 +221,10 @@ try{
  await wait("state.address==='Rua Teste P13, 20'&&document.querySelector('.offer-submit:not(:disabled)')",'P13 quote');
  await click("(()=>{const s=document.querySelector('#payment-method');if(!s)return false;s.value='cash';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()");
  await wait("state.checkout.paymentMethod==='cash'&&document.querySelector('.offer-submit:not(:disabled)')",'P13 cash');
+ // Exercise the real visible cashback switch. The displayed gross, reserved
+ // benefit and payable must remain the SAME locked simulator order.
+ await click("(()=>{const input=Array.from(document.querySelectorAll('input[type=checkbox]')).find(e=>e.getAttribute('onchange')?.includes('toggleCashback('));if(!input||!input.getClientRects().length)return false;input.click();return true})()");
+ await wait("state.checkout.useCashback===true&&document.querySelector('.offer-submit:not(:disabled)')",'cashback activated in customer checkout');
  await click("(()=>{const b=document.querySelector('.offer-submit:not(:disabled)');if(!b)return false;b.click();return true})()");
  await wait("route()==='tracking'&&window.ChamaTest.getState().orders.at(-1)?.status==='OFFERED_TO_MERCHANT'",'P13 checkout');
  const gas=(await demoState()).orders.at(-1);
@@ -228,10 +232,21 @@ try{
  assert.equal(gas.cart.P13,1);
  assert.ok(gas.items.some(i=>i.key==='P13'&&i.qty===1),'P13 must be present in the locked order items');
  assert.equal(gas.paymentMethod,'cash');
+ assert.ok(gas.cashbackReserved>0,'actual simulated P13 order must redeem a positive cashback balance');
+ assert.equal(Math.round(gas.grossTotal*100)-Math.round(gas.cashbackReserved*100),
+   Math.round(gas.total*100),'locked order gross = payable + used cashback');
  assert.equal((await demoState()).orders.length,2,'one water and one P13 order only');
  await snapshot('06-cliente-gas-p13-aguardando.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
  await wait("route()==='merchant'&&state.selectedMerchant==="+JSON.stringify(gas.merchantId)+"&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(gas.id)+")",'assigned P13 merchant');
+ await wait("document.querySelector('.merchant-benefit-disclosure')?.textContent.includes('Cashback usado pelo cliente')",
+   'visible partner cashback explanation before acceptance');
+ const partnerDisclosure=await evaluate("document.querySelector('.merchant-benefit-disclosure')?.innerText");
+ for(const snippet of ['Cashback usado pelo cliente','Preço antes dos benefícios',
+   'Cliente paga','Financiamento e compensação da revenda: não comprovados']){
+   assert.ok(partnerDisclosure.includes(snippet),'partner disclosure must contain '+snippet);
+ }
+ await snapshot('06b-revenda-cashback-fonte-nao-comprovada.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",'P13 accepted');
  await snapshot('07-revenda-gas-p13-aceito.png');

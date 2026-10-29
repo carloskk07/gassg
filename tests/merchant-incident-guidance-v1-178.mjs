@@ -79,7 +79,7 @@ const cardCtx=vm.createContext({globalThis:{merchantRuntime:rt},esc,
  merchantDeliveryMemberLabel:()=> '',merchantFormatPhone:v=>String(v),merchantDeliveryShortcuts:()=>''});
 vm.runInContext(['merchantDeliveryCandidates','merchantOrderEventDate','merchantOrderScheduleDate',
  'merchantOrderProgressView','merchantOrderAttention','merchantOrderAttentionCard',
- 'merchantIncidentAdvice','merchantIncidentRiskGuide','merchantLiveOrder']
+ 'merchantIncidentAdvice','merchantIncidentRiskGuide','merchantOrderBenefitDisclosure','merchantLiveOrder']
  .map(extract).join('\n')+';this.card=merchantLiveOrder;',cardCtx);
 const o={orderId:id,status:'PREPARING',items:[],totalCents:12000,
  paymentMethod:'pix',addressVisible:false,deliveryDetailsVisible:false,version:2};

@@ -71,7 +71,7 @@ const cardCtx=vm.createContext({
  merchantDeliveryShortcuts:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderAttentionCard:()=> '',
  merchantOrderProgressView:()=>'<details><summary>Acompanhar etapas</summary></details>'
 });
-vm.runInContext(cut('merchantLiveOrder')+'\nthis.card=merchantLiveOrder;',cardCtx);
+vm.runInContext(cut('merchantOrderBenefitDisclosure')+'\n'+cut('merchantLiveOrder')+'\nthis.card=merchantLiveOrder;',cardCtx);
 const order={orderId:uuid(1),status:'OFFERED_TO_MERCHANT',publicCode:'TAM-353',
  paymentMethod:'pix',items:[{quantity:1,productName:'Água 20 L'}],totalCents:12000,
  address:'Rua privada',addressVisible:false,deliveryDetailsVisible:false};
