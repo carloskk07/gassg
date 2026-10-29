@@ -389,7 +389,7 @@
           globalThis.render?.();updateGuide();driverRenderedFingerprint='';drawDriver();
         });
         complete.disabled=navigator.onLine===false||localProofAvailable||localProofBusy;
-        if(!localProofAvailable)form.append(complete);
+        if(!localProofAvailable&&navigator.onLine!==false)form.append(complete);
         if(navigator.onLine===false&&!localProofAvailable){
           const save=button('Guardar comprovante sem internet',()=>performLocalProof('save',order,pin.value,paid.checked));
           save.id='tamao-demo-offline-save';save.disabled=localProofBusy;form.append(save);
