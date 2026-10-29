@@ -8380,6 +8380,8 @@ function adminPage(){
   const platformAdmins=d.platformAdmins||[];
   const supportCases=d.supportCases||[];
   const openSupportCases=supportCases.filter(x=>['open','in_review'].includes(x.status));
+  const pendingHelpReports=(Array.isArray(d.publicRequests)?d.publicRequests:[])
+    .filter(x=>x.request_kind==='support'&&['new','in_review'].includes(x.status)).length;
   const controlOrders=d.controlOrders||[];
   const metrics=d.businessMetrics||{};
   const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
@@ -8436,7 +8438,8 @@ function adminPage(){
   const ordersContent=(sectionActive('orders'))?(`
     ${adminOrderDemoView()}
     ${adminControlTower({...d,controlOrders})}
-    ${adminSupportQueueView(supportCases)}`):'';
+    ${adminSupportQueueView(supportCases)}
+    ${adminProblemReportsSection(d)}`):'';
 
   const customersContent=(sectionActive('customers'))?(adminCustomersSection(d)):'';
 
@@ -8531,7 +8534,7 @@ function adminPage(){
       <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Control Plane</small></div></div>
       <div class="admin-nav-group">Operação</div>
       ${adminMenuButton('overview','Visão geral','⌂')}
-      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
+      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length+pendingHelpReports))}
       ${adminMenuButton('customers','Clientes','◎')}
       ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
       ${adminMenuButton('prospects','Prospectos','⌕')}
