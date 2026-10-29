@@ -3441,63 +3441,45 @@ function merchantUnifiedOpsBoard(rt,orders){
     '</section>';
 }
 
-// One monetary explanation for both the merchant's synthetic card and
-// the authenticated order. Order snapshots do NOT establish sponsorship,
-// reduced TAMÃO fees or a reimbursement owed to the merchant.
-function merchantOrderBenefitDisclosure(o,simulated=false){
-  const cents=v=>{
-    if(typeof v!=='number'&&!(typeof v==='string'&&/^[0-9]+$/.test(v)))return null;
+// Read-only disclosure: an order never proves sponsorship or a fee waiver.
+function merchantOrderBenefitDisclosure(o,demo=false){
+  const valid=v=>{
     const n=Number(v);
-    return Number.isSafeInteger(n)&&n>=0&&n<=1000000000?n:null;
+    return (typeof v==='number'||typeof v==='string'&&/^[0-9]+$/.test(v))&&
+      Number.isSafeInteger(n)&&n>=0&&n<=1e9?n:null;
   };
-  const moneyCents=v=>{
-    if(typeof v!=='number'||!Number.isFinite(v)||v<0)return null;
-    const n=Math.round(v*100);
-    return Number.isSafeInteger(n)&&n<=1000000000?n:null;
-  };
-  const gross=simulated?moneyCents(o?.grossTotal):cents(o?.grossTotalCents);
-  const cashback=simulated?moneyCents(o?.cashbackReserved):cents(o?.cashbackReservedCents);
-  const total=simulated?moneyCents(o?.total):cents(o?.totalCents);
-  // A legacy order with no gross/benefit data must not invent a discount.
-  if(gross===null&&cashback===null)return '';
-  // Without a benefit there is nothing extra to explain on the compact card.
-  if(cashback===0&&gross!==null&&total===gross)return '';
-  if(cashback===0&&(gross===null||total===null))return '';
-  if(cashback===null&&gross!==null&&total===gross)return '';
-  const money=n=>BRL.format(n/100);
-  const available=gross!==null&&cashback!==null&&total!==null;
-  const delta=available?gross-total:null;
-  const correct=available&&delta>=0&&delta===cashback;
-  const incomplete=!available;
-  const unexpected=available&&!correct;
-  const benefitAmount=cashback!==null&&cashback>0?money(cashback):'não confirmado';
-  const quick=unexpected?'Composição do benefício precisa de conferência':
+  const fromMoney=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0
+    ?valid(Math.round(v*100)):null;
+  const gross=demo?fromMoney(o?.grossTotal):valid(o?.grossTotalCents);
+  const used=demo?fromMoney(o?.cashbackReserved):valid(o?.cashbackReservedCents);
+  const pay=demo?fromMoney(o?.total):valid(o?.totalCents);
+  if(gross===null&&used===null)return '';
+  if(used===0&&(gross===null||gross===pay))return '';
+  if(used===null&&gross===pay)return '';
+  const fmt=n=>n===null?'não informado':BRL.format(n/100);
+  const mismatch=gross!==null&&used!==null&&pay!==null&&gross-pay!==used;
+  const incomplete=gross===null||used===null||pay===null;
+  const heading=mismatch?'Composição do benefício precisa de conferência':
     incomplete?'Valores do benefício ainda incompletos':
-    'Cashback usado pelo cliente: − '+benefitAmount;
-  const status=correct?'': '<p class="tiny"><strong>'+
-    (unexpected?'Valores divergentes: preço original − cashback não corresponde ao total cobrado. ':
-      'Dados incompletos: valor original, cashback ou total não confirmado. ')+
-    'Confira os valores antes de aceitar.</strong></p>';
+      'Cashback usado pelo cliente: − '+fmt(used);
   return '<aside class="notice merchant-benefit-disclosure" aria-label="Detalhamento do cashback e financiamento do pedido">'+
-    '<strong>'+esc(quick)+'</strong>'+
-    '<div class="tiny">Preço antes dos benefícios: <strong>'+(gross!==null?money(gross):'não informado')+
-    '</strong> • Cashback utilizado: <strong>'+(cashback!==null?'− '+money(cashback):'não informado')+
-    '</strong> • Cliente paga: <strong>'+(total!==null?money(total):'não confirmado')+'</strong></div>'+
-    status+
+    '<strong>'+esc(heading)+'</strong>'+
+    '<div class="tiny">Preço antes dos benefícios: <strong>'+fmt(gross)+
+    '</strong> • Cashback utilizado: <strong>− '+fmt(used)+
+    '</strong> • Cliente paga: <strong>'+fmt(pay)+'</strong></div>'+
+    (mismatch?'<p class="tiny"><strong>Valores divergentes: o cashback não fecha com o preço e o total. Confira antes de aceitar.</strong></p>':
+      incomplete?'<p class="tiny"><strong>Dados incompletos. Atualize antes de aceitar.</strong></p>':'')+
     '<div class="tiny"><strong>Financiamento e compensação da revenda: não comprovados neste pedido.</strong></div>'+
     '<details class="merchant-benefit-funding"><summary>Quem paga o cashback? Taxa TAMÃO e patrocínio</summary>'+
-    '<p class="tiny">'+(cashback!==null&&cashback>0
-      ?'O cashback abatido é saldo utilizado pelo cliente'+(simulated?' nesta simulação':'')+'. '
-      :'Há uma diferença de preço que não está identificada como cashback. ')+
-      'A ordem não informa se o benefício foi financiado pelo TAMÃO, por um patrocinador ou por outra origem. Nenhuma dessas fontes deve ser presumida.</p>'+
-    '<p class="tiny"><strong>Desconto ou isenção da taxa TAMÃO:</strong> não discriminado no pedido. '+
-      '<strong>Patrocínio:</strong> não comprovado. '+
-      '<strong>Reembolso ou complemento à revenda:</strong> não comprovado.</p>'+
-    '<p class="tiny">O total a receber do cliente é o indicado acima. '+
-      'Não trate a diferença como repasse garantido nem como desconto automático em taxas; '+
-      (simulated?'nenhum dinheiro ou crédito real é movimentado neste simulador.':
-        'a conferência financeira exige registros autorizados e conciliação separada.')+
-      '</p></details></aside>';
+    '<p class="tiny">'+(used>0?'O cliente utilizou saldo cashback'+(demo?' fictício':'')+'. ':
+      'A diferença de preço não está identificada como cashback. ')+
+    'A origem desse benefício (TAMÃO, patrocinador ou outra) não está comprovada nesta ordem.</p>'+
+    '<p class="tiny"><strong>Desconto ou isenção da taxa TAMÃO:</strong> não discriminado. '+
+    '<strong>Patrocínio:</strong> não comprovado. '+
+    '<strong>Reembolso à revenda:</strong> não comprovado.</p>'+
+    '<p class="tiny">Cobrar do cliente somente o total indicado. Não assumir repasse ou desconto de taxa garantido; '+
+    (demo?'nenhum dinheiro ou crédito real é movimentado neste simulador.':
+      'a compensação exige registros e conciliação separados.')+'</p></details></aside>';
 }
 function merchantLiveOrder(o){
   // V1.391 — A missing quantity is not zero or a displayable NaN.
