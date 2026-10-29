@@ -35,6 +35,7 @@
   let adminOpen=false;
   let driverOpen=false,driverOrderId=null,driverError='';
   let deviceCheckBusy=false,deviceCheckResult='';
+  let localProofBusy=false,localProofMessage='',localProofAvailable=false;
   let adminRenderedFingerprint='',driverRenderedFingerprint='';
   const dialog=document.createElement('div');dialog.className='tamao-demo-dialog';
   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
@@ -211,9 +212,135 @@
       driverRenderedFingerprint='';if(driverOpen)drawDriver();
     }
   }
+  // Demonstration-only, encrypted receipt, never an authenticated TAMÃO ACK.
+  // It uses the SAME fictitious order as the original browser simulator and
+  // only calls ChamaTest. It does not implement the commercial PR #707 flow.
+  const PROOF_DB='tamao-demo-local-delivery-v1';
+  const PROOF_TTL=4*60*60*1000;
+  async function proofStore(mode,action){
+    if(!globalThis.isSecureContext||!globalThis.indexedDB||!globalThis.crypto?.subtle)
+      throw new Error('O navegador não oferece armazenamento protegido');
+    const db=await new Promise((resolve,reject)=>{
+      const request=indexedDB.open(PROOF_DB,1);
+      request.onupgradeneeded=()=>request.result.createObjectStore('proofs',{keyPath:'id'});
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||new Error('Armazenamento não disponível'));
+      request.onblocked=()=>reject(new Error('Feche outra aba de teste'));
+    });
+    try{
+      return await new Promise((resolve,reject)=>{
+        const tx=db.transaction('proofs',mode);
+        const request=action(tx.objectStore('proofs'));
+        let result;
+        request.onsuccess=()=>{result=request.result};
+        request.onerror=()=>reject(request.error||new Error('Leitura ou gravação falhou'));
+        tx.onabort=()=>reject(tx.error||new Error('Gravação interrompida'));
+        tx.onerror=()=>reject(tx.error||new Error('Armazenamento falhou'));
+        tx.oncomplete=()=>resolve(result);
+      });
+    }finally{db.close()}
+  }
+  const readProof=id=>proofStore('readonly',store=>store.get(id));
+  const eraseProof=id=>proofStore('readwrite',store=>store.delete(id));
+  const clearProofs=()=>proofStore('readwrite',store=>store.clear());
+  const sameOrder=(a,b)=>a?.id===b?.id&&a?.merchantId===b?.merchantId&&
+    a?.status==='ARRIVING'&&Number(a.total)===Number(b.total);
+  async function checkSavedProof(id){
+    try{
+      const r=await readProof(id);
+      if(driverOpen&&driverOrderId===id){
+        localProofAvailable=Boolean(r&&r.expiresAt>Date.now());
+        driverRenderedFingerprint='';drawDriver();
+      }
+    }catch(error){
+      if(driverOpen&&driverOrderId===id){
+        localProofMessage='Não foi possível ler o comprovante: '+String(error.message||error);
+        driverRenderedFingerprint='';drawDriver();
+      }
+    }
+  }
+  async function saveLocalProof(order,pin,paid){
+    if(navigator.onLine!==false)
+      throw new Error('Ative o modo avião para testar o registro sem sinal.');
+    if(order?.status!=='ARRIVING'||!read()?.orders?.some(x=>sameOrder(x,order)))
+      throw new Error('A entrega fictícia já mudou.');
+    if(!/^[0-9]{4}$/.test(String(pin||''))||paid!==true)
+      throw new Error('Informe o PIN e confirme o recebimento fictício.');
+    const old=await readProof(order.id);
+    if(old&&old.expiresAt>Date.now())
+      throw new Error('Já existe um comprovante protegido. Use o registro pendente.');
+    const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    if(key.extractable!==false)throw new Error('A chave não está protegida');
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const createdAt=Date.now();
+    const data=new TextEncoder().encode(JSON.stringify({
+      id:order.id,merchantId:order.merchantId,total:order.total,pin,paid,createdAt
+    }));
+    const cipher=await crypto.subtle.encrypt({
+      name:'AES-GCM',iv,additionalData:new TextEncoder().encode('tamao-demo-only:'+order.id)
+    },key,data);
+    if(navigator.onLine!==false||!sameOrder(
+       read()?.orders?.find(x=>x.id===order.id),order))
+      throw new Error('A conexão ou o pedido mudou. Tente novamente.');
+    // The durable write is acknowledged only after the IDB transaction commits.
+    await proofStore('readwrite',store=>store.put({
+      id:order.id,createdAt,expiresAt:createdAt+PROOF_TTL,
+      key,iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(cipher))
+    }));
+  }
+  async function replayLocalProof(order){
+    if(navigator.onLine===false)throw new Error('Reative a internet para continuar.');
+    const row=await readProof(order.id);
+    if(!row)throw new Error('Não existe comprovante protegido.');
+    if(!Number.isFinite(row.expiresAt)||row.expiresAt<=Date.now()){
+      await eraseProof(order.id);
+      throw new Error('O comprovante expirou. Faça uma nova conferência.');
+    }
+    const current=read()?.orders?.find(x=>x.id===order.id);
+    if(!sameOrder(current,order))
+      throw new Error('O pedido mudou. Não foi concluído automaticamente.');
+    const clear=await crypto.subtle.decrypt({
+      name:'AES-GCM',iv:new Uint8Array(row.iv),
+      additionalData:new TextEncoder().encode('tamao-demo-only:'+order.id)
+    },row.key,new Uint8Array(row.ciphertext));
+    const data=JSON.parse(new TextDecoder().decode(clear));
+    if(data.id!==order.id||data.merchantId!==order.merchantId||
+      Number(data.total)!==Number(order.total)||data.paid!==true||
+      !/^[0-9]{4}$/.test(String(data.pin||''))||data.createdAt!==row.createdAt)
+      throw new Error('Dados do comprovante inválidos.');
+    if(!sameOrder(read()?.orders?.find(x=>x.id===order.id),order))
+      throw new Error('O pedido mudou antes da conferência.');
+    const result=globalThis.ChamaTest?.deliverOrder?.(order.id,data.pin,true);
+    if(result?.ok!==true)throw new Error('O simulador recusou o PIN ou o recebimento.');
+    if(read()?.orders?.find(x=>x.id===order.id)?.status!=='SETTLED')
+      throw new Error('Não houve confirmação no simulador.');
+    await eraseProof(order.id);
+    globalThis.render?.();updateGuide();
+  }
+  async function performLocalProof(action,order,pin='',paid=false){
+    if(localProofBusy)return;
+    localProofBusy=true;localProofMessage='Conferindo dados locais…';
+    driverRenderedFingerprint='';drawDriver();
+    try{
+      if(action==='save'){
+        await saveLocalProof(order,pin,paid);
+        localProofAvailable=true;
+        localProofMessage='✓ Comprovante fictício criptografado neste aparelho. Pedido ainda pendente, sem nenhuma confirmação no servidor.';
+      }else{
+        await replayLocalProof(order);
+        localProofAvailable=false;
+        localProofMessage='✓ Concluído apenas no simulador deste navegador. Nenhum servidor ou Pix foi acionado.';
+      }
+      driverError='';
+    }catch(error){
+      localProofMessage='Pendente: '+String(error?.message||error);
+    }finally{
+      localProofBusy=false;driverRenderedFingerprint='';drawDriver();
+    }
+  }
   function drawDriver(){
     const order=read()?.orders?.find(o=>o.id===driverOrderId)||null;
-    const fingerprint=JSON.stringify([order?.id,order?.status,order?.pinFailures,driverError,deviceCheckBusy,deviceCheckResult]);
+    const fingerprint=JSON.stringify([order?.id,order?.status,order?.pinFailures,driverError,deviceCheckBusy,deviceCheckResult,localProofBusy,localProofMessage,localProofAvailable,navigator.onLine]);
     if(fingerprint===driverRenderedFingerprint&&panel.childElementCount)return;
     driverRenderedFingerprint=fingerprint;
     panel.replaceChildren();
@@ -247,7 +374,8 @@
         const paid=document.createElement('input');paid.type='checkbox';paid.id='tamao-demo-driver-paid';
         paidLabel.append(paid,document.createTextNode('Recebi o pagamento fictício do pedido'));
         form.append(paidLabel);
-        form.append(button('Concluir entrega simulada',()=>{
+        const complete=button('Concluir entrega simulada',()=>{
+          if(navigator.onLine===false){driverError='Sem sinal: guarde o comprovante local, sem concluir a entrega.';driverRenderedFingerprint='';drawDriver();return;}
           const r=globalThis.ChamaTest?.deliverOrder?.(order.id,pin.value,paid.checked);
           if(r?.ok!==true){
             driverError=String(r?.error||'Entrega não confirmada');
@@ -259,7 +387,13 @@
           driverError='';
           pin.value='';paid.checked=false;
           globalThis.render?.();updateGuide();driverRenderedFingerprint='';drawDriver();
-        }));
+        });
+        complete.disabled=navigator.onLine===false||localProofAvailable||localProofBusy;
+        if(!localProofAvailable&&navigator.onLine!==false)form.append(complete);
+        if(navigator.onLine===false&&!localProofAvailable){
+          const save=button('Guardar comprovante sem internet',()=>performLocalProof('save',order,pin.value,paid.checked));
+          save.id='tamao-demo-offline-save';save.disabled=localProofBusy;form.append(save);
+        }
         panel.append(form);
         panel.append(make('p','O código aparece no acompanhamento do Cliente. Não é enviado por este demonstrativo a nenhuma revenda ou banco.'));
       }else if(['SETTLED','DELIVERED'].includes(order.status)){
@@ -272,10 +406,19 @@
         panel.append(button('Ir para a Revenda',openMerchant));
       }
     }
+    if(order&&localProofAvailable){
+      panel.append(make('p','Comprovante local protegido. Nenhum pedido ou pagamento foi concluído no servidor.'));
+      if(navigator.onLine!==false){
+        const sync=button('Conferir comprovante no simulador',()=>performLocalProof('replay',order));
+        sync.id='tamao-demo-offline-replay';sync.disabled=localProofBusy;panel.append(sync);
+      }else panel.append(make('p','Sem sinal: reative a conexão para fazer a conferência fictícia.'));
+    }
+    const localStatus=make('p',localProofMessage);
+    localStatus.id='tamao-demo-offline-status';localStatus.setAttribute('role','status');panel.append(localStatus);
     const status=make('p',driverError);
     status.id='tamao-demo-driver-status';status.className='tamao-demo-driver-status';
     status.setAttribute('role','status');panel.append(status);
-    panel.append(make('p','Sem sinal: este demonstrativo online não registra comprovantes offline. Esse recurso é testado separadamente no Android emulado e permanece em homologação.'));
+    panel.append(make('p','Sem sinal: o demonstrativo pode guardar apenas um comprovante fictício criptografado. Não sincroniza com servidor real, e recarregar a página sem internet não funciona nesta demonstração. A entrega comercial offline continua em homologação.'));
     const deviceButton=button('Verificar armazenamento protegido deste aparelho',runDeviceCheck);
     deviceButton.id='tamao-demo-device-check';
     deviceButton.disabled=deviceCheckBusy;
@@ -293,7 +436,8 @@
     dialog.dataset.open=String(driverOpen);
     if(driverOpen){
       driverOrderId=currentOrder()?.id||null;
-      driverError='';deviceCheckResult='';driverRenderedFingerprint='';
+      driverError='';deviceCheckResult='';localProofMessage='';localProofAvailable=false;driverRenderedFingerprint='';
+      if(driverOrderId)void checkSavedProof(driverOrderId);
       dialog.setAttribute('aria-label','Entregador demonstrativo, dados fictícios');
       drawDriver();
       panel.querySelector('button')?.focus();
@@ -337,6 +481,7 @@
   nav.append(button('Reiniciar',()=>{
     if(confirm('Apagar apenas os pedidos e valores fictícios desta demonstração no navegador?')){
       setAdmin(false);globalThis.reset?.();
+      void clearProofs().catch(()=>{});
     }
   }));
   dialog.append(panel);
@@ -345,6 +490,12 @@
   tools.append(heading,detail,nav);
   tools.append(progress);
   updateGuide();
+  const onConnectionChange=()=>{
+    driverRenderedFingerprint='';
+    if(driverOpen)drawDriver();
+  };
+  window.addEventListener('online',onConnectionChange);
+  window.addEventListener('offline',onConnectionChange);
   window.setInterval(()=>{updateGuide();if(adminOpen)drawAdmin();if(driverOpen)drawDriver()},1800);
   host.append(tools);
   document.body.append(dialog);

@@ -188,6 +188,9 @@ try{
    true,'device check must delete encrypted probe and its key');
  await snapshot('04f-entregador-criptografia-sem-internet.png');
  await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:1000000,uploadThroughput:1000000});
+ await wait('navigator.onLine===true','browser must report online after device capability check',10000);
+ await wait("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));return !!b&&!b.disabled})()",
+  'driver completion UI must also be reenabled after reconnection',8000);
  assert.deepEqual(forbidden,[],'offline device check must never call commercial API or PSP');
  // Negative path: the real existing simulator refuses completion until both
  // customer PIN and an explicit synthetic cash receipt are present.
@@ -245,9 +248,31 @@ try{
  await click("(()=>{const p=document.querySelector('.pin-input'),paid=document.querySelector('.order-card input[type=\"checkbox\"]'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!p||!paid||!b)return false;p.value="+JSON.stringify(invalidPin)+";paid.checked=true;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.pinFailures===1",'bad P13 PIN recorded');
  assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','bad PIN must leave P13 undelivered');
- // Correct PIN and fictitious cash attestation complete the canonical simulator.
- await click("(()=>{const p=document.querySelector('.pin-input'),paid=document.querySelector('.order-card input[type=\"checkbox\"]'),b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Confirmar entrega'));if(!p||!paid||!b)return false;p.value="+JSON.stringify(gas.pin)+";paid.checked=true;b.click();return true})()");
- await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'",'P13 delivered');
+ // Exercise a synthetic encrypted receipt on the SAME P13 order and mobile UI,
+ // first with the network truly offline; never call a commercial backend.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador (simulação)'));if(!b)return false;b.click();return true})()");
+ await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.textContent.includes("+JSON.stringify(gas.id)+")",'P13 driver panel');
+ await send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+ await wait("document.getElementById('tamao-demo-offline-save')&&!document.querySelector('.tamao-demo-panel button')?.textContent.includes('Concluir entrega simulada')",'driver offline-only save action',5500);
+ await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),paid=document.getElementById('tamao-demo-driver-paid'),b=document.getElementById('tamao-demo-offline-save');if(!p||!paid||!b)return false;p.value="+JSON.stringify(gas.pin)+";paid.checked=true;b.click();return true})()");
+ await wait("document.getElementById('tamao-demo-offline-status')?.textContent.includes('criptografado neste aparelho')",'encrypted local receipt',12000);
+ assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','offline receipt must not settle order');
+ assert.equal(await evaluate("(async()=>{const db=await new Promise((ok,bad)=>{const r=indexedDB.open('tamao-demo-local-delivery-v1');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error)});const proof=await new Promise((ok,bad)=>{const r=db.transaction('proofs','readonly').objectStore('proofs').get("+JSON.stringify(gas.id)+");r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error)});db.close();return !!proof&&proof.key?.extractable===false&&proof.ciphertext.length>20&&!JSON.stringify(proof).includes("+JSON.stringify(gas.pin)+")})()"),
+   true,'IndexedDB must store opaque ciphertext and nonextractable key, not a plaintext PIN');
+ await snapshot('09-entregador-gas-comprovante-pendente-offline.png');
+ assert.deepEqual(forbidden,[],'offline receipt must never contact PSP or commercial API');
+ await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:1000000,uploadThroughput:1000000});
+ // Reload on a networked connection verifies actual durable IndexedDB storage,
+ // not merely a JS variable in the same renderer.
+ await send('Page.navigate',{url:base+'#home'});
+ await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='ARRIVING'",'P13 order still pending after reload');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador (simulação)'));if(!b)return false;b.click();return true})()");
+ await wait("!!document.getElementById('tamao-demo-offline-replay')",'local receipt survives reload',12000);
+ assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','proof not applied automatically on reload');
+ await click("(()=>{const b=document.getElementById('tamao-demo-offline-replay');if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'&&document.getElementById('tamao-demo-offline-status')?.textContent.includes('Concluído apenas no simulador')",'P13 delivery simulated after explicit manual replay',12000);
+ assert.equal(await evaluate("new Promise((ok,bad)=>{const r=indexedDB.open('tamao-demo-local-delivery-v1');r.onsuccess=()=>{const db=r.result;const q=db.transaction('proofs','readonly').objectStore('proofs').get("+JSON.stringify(gas.id)+");q.onsuccess=()=>{ok(q.result===undefined);db.close()};q.onerror=()=>bad(q.error)};r.onerror=()=>bad(r.error)})"),
+   true,'receipt must be removed only after simulated completion');
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Concluídos: 2')&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(gas.id)+")&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin compares settled water and P13 orders');
  await snapshot('08-admin-gas-p13-e-agua-concluidos.png');
