@@ -294,6 +294,66 @@ try{
  await send('Page.navigate',{url:base+'#home'});
  await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='SETTLED'",'P13 survives reload');
  assert.equal((await demoState()).orders.length,2);
+ // Regression: a previously accepted synthetic order survives a browser reload
+ // and must not trap the owner on tracking or require erasing all test history.
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Começar com gás P13'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='order'&&state.cart.P13===1",'third P13 checkout available');
+ await click("(()=>{const a=document.querySelector('#address'),p=document.querySelector('#postal-code'),b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')==='setAddress()');if(!a||!p||!b)return false;a.value='Rua Teste Terceiro, 30';p.value='97300-000';b.click();return true})()");
+ await wait("state.address==='Rua Teste Terceiro, 30'&&document.querySelector('.offer-submit:not(:disabled)')",'third P13 quote');
+ // Redeem available simulated cashback so abandoning the unfinished order
+ // must demonstrably refund the reserved amount (not merely zero).
+ await click("(()=>{const box=Array.from(document.querySelectorAll('input[type=checkbox]')).find(x=>x.getAttribute('onchange')?.includes('toggleCashback('));if(!box||!box.getClientRects().length)return false;box.click();return true})()");
+ await wait('state.checkout.useCashback===true','third P13 uses synthetic cashback');
+ await click("(()=>{const b=document.querySelector('.offer-submit:not(:disabled)');if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='OFFERED_TO_MERCHANT'",'third P13 order created');
+ const third=(await demoState()).orders.at(-1);
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='merchant'&&state.selectedMerchant==="+JSON.stringify(third.merchantId),'third merchant');
+ await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",'third P13 accepted and inventory reserved');
+ const beforeAbandon=await demoState();
+ const unfinishedOrder=beforeAbandon.orders.at(-1);
+ assert.equal(unfinishedOrder.inventoryReserved,true,'third order must have actual reserved synthetic inventory');
+ assert.ok(unfinishedOrder.cashbackReserved>0,'third order must reserve actual synthetic cashback');
+ const stockBefore=beforeAbandon.merchants.find(m=>m.id===unfinishedOrder.merchantId).inventory.P13;
+ const cashbackBefore=beforeAbandon.user.cashback;
+ await send('Page.navigate',{url:base+'#home'});
+ await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='PREPARING'",'accepted order preserved across page reload');
+ await wait("Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).some(b=>b.textContent.includes('Novo pedido de teste'))",
+   'prominent restart action for an existing test order');
+ // Refusing the explicit confirmation must not alter any existing order.
+ await click("(()=>{window.confirm=()=>false;const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Novo pedido de teste'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",
+   'declining restart preserves order and tracking');
+ assert.equal((await demoState()).orders.length,3,'no duplicate after declining restart');
+ // Accept only in the browser-only test. The normal browser still shows
+ // a real confirmation and never closes an order automatically.
+ await click("(()=>{window.confirm=()=>true;const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Novo pedido de teste'));if(!b)return false;b.click();return true})()");
+ await wait("route()==='order'&&window.ChamaTest.getState().orders.at(-1)?.status==='CANCELLED'&&state.cart.P13===1",
+   'accepted restart cancels only the synthetic order and opens the real checkout');
+ const afterAbandon=await demoState();
+ assert.equal(afterAbandon.orders.length,3,'old synthetic orders remain in history');
+ assert.equal(afterAbandon.orders[0].status,'SETTLED');
+ assert.equal(afterAbandon.orders[1].status,'SETTLED');
+ assert.equal(afterAbandon.orders[2].id,unfinishedOrder.id);
+ assert.equal(afterAbandon.orders[2].inventoryReserved,false,'reservation released');
+ assert.equal(afterAbandon.merchants.find(m=>m.id===unfinishedOrder.merchantId).inventory.P13,
+   stockBefore+1,'synthetic inventory returned once');
+ assert.equal(afterAbandon.user.cashback,cashbackBefore+unfinishedOrder.cashbackReserved,
+   'unused synthetic cashback restored without creating money');
+ assert.ok(afterAbandon.orders[2].events.some(e=>e.title==='Teste encerrado para novo pedido'),
+   'history states explicit cancellation rather than falsely marking delivery');
+ assert.equal(afterAbandon.orders[2].paymentConfirmedAt,undefined);
+ await snapshot('10-novo-pedido-apos-teste-pendente.png');
+ // A fresh order is actually possible, not only a visit to the checkout.
+ await wait("document.querySelector('.offer-submit:not(:disabled)')",'restart checkout offers available');
+ await click("(()=>{const b=document.querySelector('.offer-submit:not(:disabled)');if(!b)return false;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='OFFERED_TO_MERCHANT'",'fourth P13 order created');
+ const fresh=(await demoState());
+ assert.equal(fresh.orders.length,4,'one new order, previous history preserved');
+ assert.equal(fresh.orders[2].status,'CANCELLED','previous cancelled order cannot block again');
+ assert.deepEqual(forbidden,[],'repeat checkout must not contact backend or PSP');
+
  assert.deepEqual(forbidden,[],'P13 demo must never contact the production backend or PSP');
  console.log('PASS: hosted demo mobile Chrome WATER20 + P13 synthetic orders, two completed Admin entries, incorrect PIN and unpaid delivery rejected, reload persisted, zero production API/PSP.');
 }finally{

@@ -32,6 +32,7 @@
     const el=document.createElement('button');el.type='button';el.textContent=label;
     el.addEventListener('click',fn);return el;
   };
+  let startOrderButton=null;
   let adminOpen=false;
   let driverOpen=false,driverOrderId=null,driverError='';
   let deviceCheckBusy=false,deviceCheckResult='';
@@ -112,6 +113,10 @@
       CANCELLED:'Pedido fictício cancelado. Reinicie para testar novamente.'
     };
     progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço fictício e simule o pedido.';
+    if(startOrderButton){
+      const open=(read()?.orders||[]).some(o=>['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
+      startOrderButton.textContent=open?'Novo pedido de teste (gás P13)':'Começar com gás P13';
+    }
   }
   function drawAdmin(){
     const signature=JSON.stringify((read()?.orders||[]).map(o=>[o.id,o.merchantId,o.status,o.total]));
@@ -461,20 +466,75 @@
       return result;
     };
   }
+  // Only this hosted browser simulator can end an unfinished fictitious test.
+  // Real orders, money, ledger and server-side transitions are never touched.
+  function endOpenDemoOrders(){
+    const api=globalThis.ChamaTest;
+    if(globalThis.__CHAMA_TEST__!==true||globalThis.TAMAO_BROWSER_DEMO!==true||!api)
+      return {ok:false,error:'Encerramento disponível apenas no simulador'};
+    const s=read(),open=(s?.orders||[]).filter(o=>
+      ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
+    if(!s||open.some(o=>o.deliveredAt||o.paymentConfirmedAt||
+        o.inventoryReserved===true&&!s.merchants?.some(m=>m.id===o.merchantId)))
+      return {ok:false,error:'Pedido não pode ser encerrado com segurança. Use Reiniciar para zerar somente os testes.'};
+    for(const o of open){
+      if(o.inventoryReserved===true){
+        const m=s.merchants.find(x=>x.id===o.merchantId);
+        for(const [code,qty] of Object.entries(o.cart||{})){
+          const units=Number(qty);
+          if(Number.isSafeInteger(units)&&units>0)
+            m.inventory[code]=(Number(m.inventory[code])||0)+units;
+        }
+        o.inventoryReserved=false;
+      }
+      if(o.cashbackReserved>0&&!o.cashbackRestored){
+        s.user.cashback=Math.round((Number(s.user.cashback)+Number(o.cashbackReserved))*100)/100;
+        o.cashbackRestored=true;
+      }
+      o.status='CANCELLED';
+      o.demoAbandonedAt=new Date().toISOString();
+      if(!Array.isArray(o.events))o.events=[];
+      o.events.push({status:'CANCELLED',time:o.demoAbandonedAt,
+        title:'Teste encerrado para novo pedido',
+        desc:'Simulação encerrada sem entrega, cobrança ou pagamento real.'});
+    }
+    s.cart=api.normalizeCart({});
+    s.checkout.useCashback=false;
+    s.checkout.cashTenderCents=null;
+    api.setState(s);
+    if(api.getState().orders.some(o=>open.some(p=>p.id===o.id&&o.status!=='CANCELLED')))
+      return {ok:false,error:'Não foi possível confirmar encerramento do teste'};
+    return {ok:true,ended:open.length};
+  }
   function beginP13(){
     setAdmin(false);
-    globalThis.setMode?.('customer');
-    const o=currentOrder();
-    if(o&&!['CANCELLED','SETTLED','DELIVERED','REJECTED'].includes(o.status)){
-      globalThis.go?.('tracking');
-    }else{
-      // Existing public checkout and price comparison, with synthetic stock only.
-      globalThis.startOrder?.('P13');
+    const existing=(read()?.orders||[]).filter(o=>
+      ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
+    if(existing.length){
+      const answer=confirm('Existe um pedido fictício em andamento. Encerrar este teste e começar outro? O histórico será mantido, e o cashback e estoque reservados serão devolvidos. Nenhum pedido real será alterado.');
+      if(!answer){
+        globalThis.setMode?.('customer');
+        globalThis.go?.('tracking');
+        updateGuide();
+        return;
+      }
     }
+    const result=endOpenDemoOrders();
+    if(result?.ok!==true){
+      alert(result?.error||'Não foi possível preparar outro pedido fictício.');
+      updateGuide();
+      return;
+    }
+    // Any encrypted local proof belongs to the abandoned fictional order.
+    if(existing.length)void clearProofs().catch(()=>{});
+    globalThis.setMode?.('customer');
+    // Existing checkout and price comparison, with synthetic stock only.
+    globalThis.startOrder?.('P13');
     updateGuide();
   }
   nav.append(button('Cliente · acompanhar pedido',openCustomer));
-  nav.append(button('Começar com gás P13',beginP13));
+  startOrderButton=button('Começar com gás P13',beginP13);
+  nav.append(startOrderButton);
   nav.append(button('Revenda (pedido)',openMerchant));
   nav.append(button('Entregador (simulação)',()=>setDriver(true)));
   nav.append(button('Admin (resumo)',()=>setAdmin(true)));
