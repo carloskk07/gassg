@@ -57,7 +57,7 @@ const orderContext=vm.createContext({
   merchantDeliveryMemberLabel:()=> 'Responsável',
   merchantDeliveryShortcuts:()=>''
 });
-vm.runInContext(functionSource(merchant,'merchantDeliveryCandidates')+'\n'+functionSource(merchant,'merchantOrderEventDate')+'\n'+functionSource(merchant,'merchantOrderScheduleDate')+'\n'+functionSource(merchant,'merchantOrderProgressView')+'\n'+functionSource(merchant,'merchantOrderAttention')+'\n'+functionSource(merchant,'merchantOrderAttentionCard')+'\n'+functionSource(merchant,'merchantIncidentAdvice')+'\n'+functionSource(merchant,'merchantIncidentRiskGuide')+'\n'+functionSource(merchant,'merchantLiveOrder')+';this.drawMerchantOrder=merchantLiveOrder;',orderContext);
+vm.runInContext(functionSource(merchant,'merchantDeliveryCandidates')+'\n'+functionSource(merchant,'merchantOrderEventDate')+'\n'+functionSource(merchant,'merchantOrderScheduleDate')+'\n'+functionSource(merchant,'merchantOrderProgressView')+'\n'+functionSource(merchant,'merchantOrderAttention')+'\n'+functionSource(merchant,'merchantOrderAttentionCard')+'\n'+functionSource(merchant,'merchantIncidentAdvice')+'\n'+functionSource(merchant,'merchantIncidentRiskGuide')+'\n'+functionSource(merchant,'merchantOrderBenefitDisclosure')+'\n'+functionSource(merchant,'merchantLiveOrder')+';this.drawMerchantOrder=merchantLiveOrder;',orderContext);
 const draw=status=>orderContext.drawMerchantOrder({
   orderId:'00000000-0000-4000-8000-000000000013',publicCode:'TAM-13',
   status,items:[{quantity:1,productName:'Botijão 13 kg'}],
