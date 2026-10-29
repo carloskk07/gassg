@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import assert from #node:assert/strict/;
 import fs from 'node:fs';
 import vm from 'node:vm';
 
@@ -68,8 +68,8 @@ assert.match(admin,/activeOrderAttention\+openSupportCases\.length\+pendingHelpR
 // copy magic-link tokens, invite parameters or a full referrer to the Admin.
 const attrCtx=vm.createContext({URL,URLSearchParams});
 const helperNames=['safePublicRequestLandingPath','safePublicRequestReferrer'];
-const helpers=helperNames.map(name=>cut(endpoint,name).replace(/:unknown\\b|:string\\b/g,''));
-vm.runInContext(helpers.join('\\n')+
+const helpers=helperNames.map(name=>cut(endpoint,name).replaceAll(':unknown','').replaceAll(':string',''));
+vm.runInContext(helpers.join('\n')+
   ';this.safePath=safePublicRequestLandingPath;this.safeRef=safePublicRequestReferrer;',attrCtx);
 const sensitive='/?tamao_help=revenda&modulo=merchant-orders&access_token=SENSITIVE&pilot=INVITE#secret';
 const cleaned=attrCtx.safePath(sensitive,'support');
@@ -84,8 +84,8 @@ assert.equal(attrCtx.safePath('/?tamao_help=cliente&modulo=%3Cscript%3E','suppor
   '/?tamao_help=cliente#contact');
 assert.equal(attrCtx.safeRef('https://tamao.com.br/recover?token=SENSITIVE#hash'),'https://tamao.com.br');
 assert.equal(attrCtx.safeRef('javascript:alert(1)'),null);
-assert.match(endpoint,/referrer:safePublicRequestReferrer\\(attribution.referrer\\)/);
-assert.match(endpoint,/landing_path:safePublicRequestLandingPath\\(attribution.landingPath,requestKind\\)/);
+assert.ok(endpoint.includes('referrer:safePublicRequestReferrer(attribution.referrer)'));
+assert.ok(endpoint.includes('landing_path:safePublicRequestLandingPath(attribution.landingPath,requestKind)'));
 console.log('PASS: submitted report attribution is sanitized server-side, including untrusted clients.');
 
 console.log('PASS: protected complaint intake available on every real client and merchant page, filtered admin triage and original legal safeguards.');
