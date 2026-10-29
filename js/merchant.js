@@ -3446,7 +3446,7 @@ function merchantUnifiedOpsBoard(rt,orders){
 // reduced TAMÃO fees or a reimbursement owed to the merchant.
 function merchantOrderBenefitDisclosure(o,simulated=false){
   const cents=v=>{
-    if(typeof v!=='number'&&!(typeof v==='string'&&/^\\d+$/.test(v)))return null;
+    if(typeof v!=='number'&&!(typeof v==='string'&&/^[0-9]+$/.test(v)))return null;
     const n=Number(v);
     return Number.isSafeInteger(n)&&n>=0&&n<=1000000000?n:null;
   };
@@ -3484,9 +3484,10 @@ function merchantOrderBenefitDisclosure(o,simulated=false){
     status+
     '<div class="tiny"><strong>Financiamento e compensação da revenda: não comprovados neste pedido.</strong></div>'+
     '<details class="merchant-benefit-funding"><summary>Quem paga o cashback? Taxa TAMÃO e patrocínio</summary>'+
-    '<p class="tiny">O valor abatido é saldo de cashback usado pelo cliente'+
-      (simulated?' nesta simulação':'')+
-      '. A ordem não informa se esse saldo foi financiado pelo TAMÃO, por um patrocinador ou por outra origem. Nenhuma dessas fontes deve ser presumida.</p>'+
+    '<p class="tiny">'+(cashback!==null&&cashback>0
+      ?'O cashback abatido é saldo utilizado pelo cliente'+(simulated?' nesta simulação':'')+'. '
+      :'Há uma diferença de preço que não está identificada como cashback. ')+
+      'A ordem não informa se o benefício foi financiado pelo TAMÃO, por um patrocinador ou por outra origem. Nenhuma dessas fontes deve ser presumida.</p>'+
     '<p class="tiny"><strong>Desconto ou isenção da taxa TAMÃO:</strong> não discriminado no pedido. '+
       '<strong>Patrocínio:</strong> não comprovado. '+
       '<strong>Reembolso ou complemento à revenda:</strong> não comprovado.</p>'+
