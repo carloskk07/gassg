@@ -3458,6 +3458,8 @@ function merchantOrderBenefitDisclosure(o,simulated=false){
   const gross=simulated?moneyCents(o?.grossTotal):cents(o?.grossTotalCents);
   const cashback=simulated?moneyCents(o?.cashbackReserved):cents(o?.cashbackReservedCents);
   const total=simulated?moneyCents(o?.total):cents(o?.totalCents);
+  // A legacy order with no gross/benefit data must not invent a discount.
+  if(gross===null&&cashback===null)return '';
   // Without a benefit there is nothing extra to explain on the compact card.
   if(cashback===0&&gross!==null&&total===gross)return '';
   if(cashback===0&&(gross===null||total===null))return '';
