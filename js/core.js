@@ -678,6 +678,34 @@ function customerCancel(id){
   }
   return {ok:false,error:'A entrega já saiu; o cancelamento automático não é mais permitido'};
 }
+// Test-only explicit abandonment: preserve the history and restore fictional
+// inventory/cashback before another synthetic checkout. Never available live.
+function endOpenDemoOrders(){
+  if(globalThis.__CHAMA_TEST__!==true)
+    return {ok:false,error:'Operação exclusiva da demonstração'};
+  const open=state.orders.filter(isLiveOrder);
+  if(open.some(o=>o.deliveredAt||o.paymentConfirmedAt))
+    return {ok:false,error:'Há uma entrega já confirmada; confira o histórico antes de reiniciar'};
+  if(open.some(o=>!ALLOWED[o.status]?.has('CANCELLED')))
+    return {ok:false,error:'Há um pedido com estado inválido. Use Reiniciar para limpar somente a demonstração.'};
+  for(const o of open){
+    if(o.inventoryReserved===true){
+      releaseInventory(merchantById(o.merchantId),o.cart);
+      o.inventoryReserved=false;
+    }
+    const r=transition(o,'CANCELLED','Teste encerrado para novo pedido',
+      'O pedido fictício foi encerrado pelo usuário sem entregar ou cobrar.');
+    if(!r.ok)return r;
+    restoreCashback(o);
+    o.demoAbandonedAt=nowIso();
+  }
+  state.cart=normalizeCart({});
+  state.checkout.useCashback=false;
+  state.checkout.cashTenderCents=null;
+  // Keep prior synthetic orders, customer identity, address and merchant settings.
+  if(!save())return {ok:false,error:'Não foi possível salvar o novo estado no navegador'};
+  return {ok:true,ended:open.length};
+}
 function acceptOrder(id){
   const o=orderById(id); if(!o||o.status!=='OFFERED_TO_MERCHANT')return {ok:false,error:'Pedido não está aguardando aceite'};
   if(Date.parse(o.offerExpiresAt||'')<=Date.now()){
@@ -950,7 +978,7 @@ parseReferral();
 if(globalThis.__CHAMA_TEST__){
   globalThis.ChamaTest={
     freshSeed,normalizeState,normalizeCart,ensureProductDefinition,glpKgForProductCode,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
-    createOrderForMerchant,acceptOrder,rejectOrder,failAcceptedOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
+    createOrderForMerchant,acceptOrder,rejectOrder,failAcceptedOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,endOpenDemoOrders,
     reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
     hasCartItems,esc,housekeeping,normalizeCnpj,isValidCnpjShape,
     getState:()=>state,setState:s=>{state=normalizeState(s);save();}
