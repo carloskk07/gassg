@@ -114,7 +114,7 @@ async function submitPublicRequest(){
   const contactChannel=String(document.querySelector('#public-contact-channel')?.value||'whatsapp');
   const contactValue=String(document.querySelector('#public-contact-value')?.value||'').trim();
   const typedMessage=String(document.querySelector('#public-request-message')?.value||'').trim();
-  const help=contactProblemContext();
+  const help=typeof contactProblemContext==='function'?contactProblemContext():null;
   const prefix=uiKind==='sponsor'?'[Parcerias e patrocínios] ':
     uiKind==='support'&&help?'[Problema TAMÃO | '+help.role+' | módulo '+help.module+'] ':'';
   const message=(prefix+typedMessage).slice(0,2000);
@@ -154,7 +154,7 @@ async function submitPublicRequest(){
 }
 
 function contactPage(){
-  const help=contactProblemContext();
+  const help=typeof contactProblemContext==='function'?contactProblemContext():null;
   return shell(
     legalHero(
       'CONTATO • CANAL OFICIAL',
