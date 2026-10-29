@@ -66,7 +66,7 @@ const cardCtx=vm.createContext({globalThis:{merchantRuntime:{merchant:{memberRol
  merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),merchantDeliveryMemberLabel:()=> '',
  merchantFormatPhone:x=>String(x),merchantDeliveryCandidates:()=>[],
  merchantOrderAttentionCard:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderProgressView:()=>''});
-vm.runInContext(cut('merchantDeliveryShortcuts')+'\n'+cut('merchantLiveOrder'),cardCtx);
+vm.runInContext(cut('merchantDeliveryShortcuts')+'\n'+cut('merchantOrderBenefitDisclosure')+'\n'+cut('merchantLiveOrder'),cardCtx);
 const base={orderId:id,publicCode:'TAM-123',items:[],paymentMethod:'pix',totalCents:10000};
 assert.doesNotMatch(cardCtx.merchantLiveOrder({...base,...authorized,addressVisible:false}),/Abrir rota|Ligar para cliente/);
 assert.doesNotMatch(cardCtx.merchantLiveOrder({...base,...authorized,deliveryDetailsVisible:false}),/Abrir rota|Ligar para cliente/);
