@@ -58,6 +58,32 @@ function normalizeContact(channel:string,value:unknown){
   return phone;
 }
 
+
+// Only the report's known UI context reaches Admin; never retain URL
+// tokens, invite links, authentication fragments or external deep links.
+function safePublicRequestLandingPath(raw:unknown,kind:string){
+  const fallback='/#contact';
+  if(kind!=='support')return fallback;
+  try{
+    const url=new URL(String(raw??''),'https://tamao.com.br');
+    if(url.origin!=='https://tamao.com.br'||url.pathname!=='/')return fallback;
+    const role=url.searchParams.get('tamao_help');
+    if(role!=='revenda'&&role!=='cliente')return fallback;
+    const moduleName=String(url.searchParams.get('modulo')||'');
+    const hints=new URLSearchParams();
+    hints.set('tamao_help',role);
+    if(/^[a-z][a-z0-9-]{0,23}$/.test(moduleName))hints.set('modulo',moduleName);
+    return '/?'+hints.toString()+'#contact';
+  }catch{return fallback}
+}
+// Referrers may carry magic links or access tokens. Only origin is useful.
+function safePublicRequestReferrer(raw:unknown){
+  try{
+    const url=new URL(String(raw??''));
+    return url.protocol==='https:'||url.protocol==='http:'?url.origin:null;
+  }catch{return null}
+}
+
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
   if(req.method==="OPTIONS"){
@@ -124,8 +150,8 @@ Deno.serve(async(req:Request)=>{
       source:clean(attribution.source,80),
       medium:clean(attribution.medium,80),
       campaign:clean(attribution.campaign,120),
-      referrer:clean(attribution.referrer,500),
-      landing_path:clean(attribution.landingPath,240)
+      referrer:safePublicRequestReferrer(attribution.referrer),
+      landing_path:safePublicRequestLandingPath(attribution.landingPath,requestKind)
     };
     const requestHash=await sha256Hex(JSON.stringify(normalized));
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});

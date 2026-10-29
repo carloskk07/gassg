@@ -62,4 +62,30 @@ assert.doesNotMatch(html,/Pedido privado|Publicidade/);
 assert.match(html,/adminRefresh\(\)/);
 assert.match(admin,/adminProblemReportsSection\(d\)/);
 assert.match(admin,/activeOrderAttention\+openSupportCases\.length\+pendingHelpReports/);
+
+
+// Security regression: a support report must retain role/module but never
+// copy magic-link tokens, invite parameters or a full referrer to the Admin.
+const attrCtx=vm.createContext({URL,URLSearchParams});
+const helperNames=['safePublicRequestLandingPath','safePublicRequestReferrer'];
+const helpers=helperNames.map(name=>cut(endpoint,name).replaceAll(':unknown','').replaceAll(':string',''));
+vm.runInContext(helpers.join('\n')+
+  ';this.safePath=safePublicRequestLandingPath;this.safeRef=safePublicRequestReferrer;',attrCtx);
+const sensitive='/?tamao_help=revenda&modulo=merchant-orders&access_token=SENSITIVE&pilot=INVITE#secret';
+const cleaned=attrCtx.safePath(sensitive,'support');
+assert.equal(cleaned,'/?tamao_help=revenda&modulo=merchant-orders#contact');
+assert.doesNotMatch(cleaned,/SENSITIVE|INVITE|access_token|pilot/);
+assert.equal(attrCtx.safePath('/?tamao_help=cliente&modulo=tracking&token=PRIVATE','support'),
+  '/?tamao_help=cliente&modulo=tracking#contact');
+assert.equal(attrCtx.safePath('/?tamao_help=revenda&modulo=merchant-orders','privacy'),'#/contact'.replace('#/contact','/#contact'));
+assert.equal(attrCtx.safePath('/?tamao_help=admin&modulo=orders','support'),'/'+'#contact');
+assert.equal(attrCtx.safePath('https://other.example/?tamao_help=revenda','support'),'/'+'#contact');
+assert.equal(attrCtx.safePath('/?tamao_help=cliente&modulo=%3Cscript%3E','support'),
+  '/?tamao_help=cliente#contact');
+assert.equal(attrCtx.safeRef('https://tamao.com.br/recover?token=SENSITIVE#hash'),'https://tamao.com.br');
+assert.equal(attrCtx.safeRef('javascript:alert(1)'),null);
+assert.ok(endpoint.includes('referrer:safePublicRequestReferrer(attribution.referrer)'));
+assert.ok(endpoint.includes('landing_path:safePublicRequestLandingPath(attribution.landingPath,requestKind)'));
+console.log('PASS: submitted report attribution is sanitized server-side, including untrusted clients.');
+
 console.log('PASS: protected complaint intake available on every real client and merchant page, filtered admin triage and original legal safeguards.');
