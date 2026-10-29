@@ -3647,7 +3647,7 @@ function merchantLiveOrder(o){
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line merchant-order-item-list">${items||'Itens não confirmados nesta consulta'}</div>${itemReviewNote}</div><div class="merchant-order-total"><strong class="${hasTotal?'':'merchant-order-total-unverified'}">${esc(total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${compactMeta}
-    ${merchantOrderBenefitDisclosure(o)}
+    ${typeof merchantOrderBenefitDisclosure==='function'?merchantOrderBenefitDisclosure(o):''}
     ${merchantOrderAttentionCard(o)}
     ${typeof merchantSupportForOrder==='function'?merchantSupportForOrder(o):''}
     ${merchantIncidentRiskGuide(o)}
@@ -4276,7 +4276,7 @@ function merchantOrder(o){
     actions=`<label class="sr-only" for="pin-${o.id}">PIN de entrega</label><input id="pin-${o.id}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="paid-${o.id}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para concluir o pedido.</small></span></label><button class="primary small" onclick="merchantAction('${o.id}','deliver')">Confirmar entrega</button>`;
   }
   const addressLine=o.status==='OFFERED_TO_MERCHANT'?'📍 Endereço protegido até o aceite':'📍 '+esc(o.address);
-  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>${merchantOrderBenefitDisclosure(o,true)}<div class="order-line">${addressLine}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
+  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>${typeof merchantOrderBenefitDisclosure==='function'?merchantOrderBenefitDisclosure(o,true):''}<div class="order-line">${addressLine}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
 }
 function selectMerchant(id){if(merchantById(id)){state.selectedMerchant=id;save();render()}}
 function toggleOnline(id){
