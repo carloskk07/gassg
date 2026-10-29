@@ -308,9 +308,9 @@ try{
  await click("(()=>{const b=Array.from(document.querySelectorAll('.order-card button')).find(x=>x.textContent.includes('Aceitar pedido'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",'third P13 accepted and inventory reserved');
  const beforeAbandon=await demoState();
- const pending=beforeAbandon.orders.at(-1);
- assert.equal(pending.inventoryReserved,true,'third order must have actual reserved synthetic inventory');
- const stockBefore=beforeAbandon.merchants.find(m=>m.id===pending.merchantId).inventory.P13;
+ const unfinishedOrder=beforeAbandon.orders.at(-1);
+ assert.equal(unfinishedOrder.inventoryReserved,true,'third order must have actual reserved synthetic inventory');
+ const stockBefore=beforeAbandon.merchants.find(m=>m.id===unfinishedOrder.merchantId).inventory.P13;
  const cashbackBefore=beforeAbandon.user.cashback;
  await send('Page.navigate',{url:base+'#home'});
  await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='PREPARING'",'accepted order preserved across page reload');
@@ -330,11 +330,11 @@ try{
  assert.equal(afterAbandon.orders.length,3,'old synthetic orders remain in history');
  assert.equal(afterAbandon.orders[0].status,'SETTLED');
  assert.equal(afterAbandon.orders[1].status,'SETTLED');
- assert.equal(afterAbandon.orders[2].id,pending.id);
+ assert.equal(afterAbandon.orders[2].id,unfinishedOrder.id);
  assert.equal(afterAbandon.orders[2].inventoryReserved,false,'reservation released');
- assert.equal(afterAbandon.merchants.find(m=>m.id===pending.merchantId).inventory.P13,
+ assert.equal(afterAbandon.merchants.find(m=>m.id===unfinishedOrder.merchantId).inventory.P13,
    stockBefore+1,'synthetic inventory returned once');
- assert.equal(afterAbandon.user.cashback,cashbackBefore+pending.cashbackReserved,
+ assert.equal(afterAbandon.user.cashback,cashbackBefore+unfinishedOrder.cashbackReserved,
    'unused synthetic cashback restored without creating money');
  assert.ok(afterAbandon.orders[2].events.some(e=>e.title==='Teste encerrado para novo pedido'),
    'history states explicit cancellation rather than falsely marking delivery');
