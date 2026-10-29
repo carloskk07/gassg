@@ -920,6 +920,7 @@ function shell(content){
     ${switcher}
   </div></header>
   <main id="tamao-main" class="shell" tabindex="-1">${content}</main>
+  ${!adminPortal&&!testDemo&&r!=='contact'?`<a class="tamao-help-shortcut" href="https://tamao.com.br/?tamao_help=${merchantPortal?'revenda':'cliente'}&modulo=${encodeURIComponent(r)}#contact">Ajuda / Reportar erro</a>`:''}
   ${siteFooter({adminPortal})}
   ${bottomNav(r)}
   </div>`;
