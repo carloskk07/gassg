@@ -34,6 +34,7 @@
   };
   let adminOpen=false;
   let driverOpen=false,driverOrderId=null,driverError='';
+  let deviceCheckBusy=false,deviceCheckResult='';
   let adminRenderedFingerprint='',driverRenderedFingerprint='';
   const dialog=document.createElement('div');dialog.className='tamao-demo-dialog';
   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
@@ -143,9 +144,76 @@
     panel.append(make('span',' '));
     panel.append(button('Fechar Admin demonstrativo',()=>setAdmin(false)));
   }
+  // This is a phone/browser capability check only, NOT the protected
+  // offline-delivery workflow. It never stores a real order, PIN or payment.
+  // Separate short-lived IndexedDB storage avoids production's receipt DB.
+  async function verifyEncryptedDeviceStorage(){
+    if(!globalThis.isSecureContext||!globalThis.crypto?.subtle||
+       !globalThis.crypto?.getRandomValues||!globalThis.indexedDB)
+      throw new Error('Navegador sem criptografia ou armazenamento seguro');
+    const db=await new Promise((resolve,reject)=>{
+      const req=indexedDB.open('tamao-demo-device-crypto-check-v1',1);
+      req.onupgradeneeded=()=>{
+        if(!req.result.objectStoreNames.contains('checks'))
+          req.result.createObjectStore('checks',{keyPath:'id'});
+      };
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error||new Error('Armazenamento bloqueado'));
+      req.onblocked=()=>reject(new Error('Feche outras abas de teste e tente novamente'));
+    });
+    const transact=(mode,perform)=>new Promise((resolve,reject)=>{
+      const tx=db.transaction('checks',mode);
+      let result;
+      const request=perform(tx.objectStore('checks'));
+      request.onsuccess=()=>{result=request.result};
+      request.onerror=()=>reject(request.error||new Error('Falha no armazenamento'));
+      tx.onabort=()=>reject(tx.error||new Error('Gravação interrompida'));
+      tx.onerror=()=>reject(tx.error||new Error('Falha ao guardar teste'));
+      tx.oncomplete=()=>resolve(result);
+    });
+    try{
+      const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+      if(key.extractable!==false)throw new Error('Chave de teste exportável');
+      const iv=crypto.getRandomValues(new Uint8Array(12));
+      const challenge=crypto.getRandomValues(new Uint8Array(24));
+      const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,challenge);
+      await transact('readwrite',store=>store.put({
+        id:'probe',key,iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(encrypted))
+      }));
+      // Open a NEW transaction: writing alone does not prove readable storage.
+      const saved=await transact('readonly',store=>store.get('probe'));
+      if(!saved?.key||saved.key.extractable!==false||!Array.isArray(saved.ciphertext))
+        throw new Error('O navegador não preservou a chave protegida');
+      const decrypted=new Uint8Array(await crypto.subtle.decrypt(
+        {name:'AES-GCM',iv:new Uint8Array(saved.iv)},
+        saved.key,new Uint8Array(saved.ciphertext)
+      ));
+      if(decrypted.length!==challenge.length||!decrypted.every((v,i)=>v===challenge[i]))
+        throw new Error('Não foi possível recuperar os dados criptografados');
+    }finally{
+      // The check leaves no proof, customer data, PIN or encryption key behind.
+      try{await transact('readwrite',store=>store.delete('probe'))}catch{}
+      db.close();
+    }
+  }
+  async function runDeviceCheck(){
+    if(deviceCheckBusy)return;
+    deviceCheckBusy=true;
+    deviceCheckResult='Verificando a criptografia e o armazenamento local…';
+    driverRenderedFingerprint='';if(driverOpen)drawDriver();
+    try{
+      await verifyEncryptedDeviceStorage();
+      deviceCheckResult='✓ Aprovado neste navegador: dados fictícios criptografados foram gravados, recuperados e apagados. Não comprova entrega offline real.';
+    }catch(error){
+      deviceCheckResult='Não aprovado neste navegador: '+String(error?.message||'armazenamento indisponível')+'. Nenhum pedido foi alterado.';
+    }finally{
+      deviceCheckBusy=false;
+      driverRenderedFingerprint='';if(driverOpen)drawDriver();
+    }
+  }
   function drawDriver(){
     const order=read()?.orders?.find(o=>o.id===driverOrderId)||null;
-    const fingerprint=JSON.stringify([order?.id,order?.status,order?.pinFailures,driverError]);
+    const fingerprint=JSON.stringify([order?.id,order?.status,order?.pinFailures,driverError,deviceCheckBusy,deviceCheckResult]);
     if(fingerprint===driverRenderedFingerprint&&panel.childElementCount)return;
     driverRenderedFingerprint=fingerprint;
     panel.replaceChildren();
@@ -208,6 +276,16 @@
     status.id='tamao-demo-driver-status';status.className='tamao-demo-driver-status';
     status.setAttribute('role','status');panel.append(status);
     panel.append(make('p','Sem sinal: este demonstrativo online não registra comprovantes offline. Esse recurso é testado separadamente no Android emulado e permanece em homologação.'));
+    const deviceButton=button('Verificar armazenamento protegido deste aparelho',runDeviceCheck);
+    deviceButton.id='tamao-demo-device-check';
+    deviceButton.disabled=deviceCheckBusy;
+    panel.append(deviceButton);
+    const deviceStatus=make('p',deviceCheckResult);
+    deviceStatus.id='tamao-demo-device-status';
+    deviceStatus.setAttribute('role','status');
+    deviceStatus.setAttribute('aria-live','polite');
+    panel.append(deviceStatus);
+    panel.append(make('p','Teste de compatibilidade: depois de abrir a página no celular, você pode ativar modo avião e tocar no botão acima sem recarregar a página. Não confirma pedidos, pagamento ou sincronização com a revenda.'));
     panel.append(button('Fechar',()=>setDriver(false)));
   }
   function setDriver(open){
@@ -215,7 +293,7 @@
     dialog.dataset.open=String(driverOpen);
     if(driverOpen){
       driverOrderId=currentOrder()?.id||null;
-      driverError='';driverRenderedFingerprint='';
+      driverError='';deviceCheckResult='';driverRenderedFingerprint='';
       dialog.setAttribute('aria-label','Entregador demonstrativo, dados fictícios');
       drawDriver();
       panel.querySelector('button')?.focus();

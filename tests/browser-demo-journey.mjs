@@ -177,6 +177,18 @@ try{
  await click("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Cheguei ao endereço'));if(!b)return false;b.click();return true})()");
  await wait("window.ChamaTest.getState().orders.at(-1)?.status==='ARRIVING'&&!!document.getElementById('tamao-demo-driver-pin')",'driver arrival uses same existing simulator order transition');
  await snapshot('04e-entregador-confirmar-pin.png');
+ // Verify actual IndexedDB + non-extractable WebCrypto AES-GCM on a mobile
+ // Chromium viewport with NETWORK DISABLED, without changing any order.
+ await send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+ await click("(()=>{const b=document.getElementById('tamao-demo-device-check');if(!b||!b.getClientRects().length)return false;b.click();return true})()");
+ await wait("document.getElementById('tamao-demo-device-status')?.textContent.includes('Aprovado neste navegador')",
+   'Chrome WebCrypto and IndexedDB while offline',12000);
+ assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','device check must never complete delivery');
+ assert.equal(await evaluate("new Promise((resolve,reject)=>{const req=indexedDB.open('tamao-demo-device-crypto-check-v1',1);req.onsuccess=()=>{const db=req.result;const tx=db.transaction('checks','readonly');const check=tx.objectStore('checks').get('probe');check.onsuccess=()=>{resolve(check.result===undefined);db.close()};check.onerror=()=>reject(check.error)};req.onerror=()=>reject(req.error)})"),
+   true,'device check must delete encrypted probe and its key');
+ await snapshot('04f-entregador-criptografia-sem-internet.png');
+ await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:1000000,uploadThroughput:1000000});
+ assert.deepEqual(forbidden,[],'offline device check must never call commercial API or PSP');
  // Negative path: the real existing simulator refuses completion until both
  // customer PIN and an explicit synthetic cash receipt are present.
  await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));if(!p||!b)return false;p.value="+JSON.stringify(o.pin)+";b.click();return true})()");
