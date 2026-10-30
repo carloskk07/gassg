@@ -46,20 +46,29 @@ assert.match(html,/merchant-order-total/);
 assert.doesNotMatch(html,/merchant-benefit-disclosure/,'normal order must stay compact');
 // Live order: merchant receives a real gross/payable/cashback snapshot,
 // but the order contains NO documented sponsor, fee waiver or compensation.
-const discounted={...order,grossTotalCents:13000,cashbackReservedCents:750,totalCents:12250};
+const discounted={...order,grossTotalCents:13000,cashbackReservedCents:750,couponAppliedCents:0,totalCents:12250};
 html=ctx.card(discounted);
 for(const value of [
- 'merchant-benefit-disclosure','Cashback usado pelo cliente','R$ 130.00',
- 'R$ 7.50','R$ 122.50','Financiamento e compensação da revenda: não comprovados',
- 'Taxa TAMÃO e patrocínio','Patrocínio:','não comprovado',
+ 'merchant-benefit-disclosure','Benefícios usados pelo cliente','R$ 130.00',
+ 'R$ 7.50','R$ 122.50','Compensação à revenda: não comprovada',
+ 'Taxa TAMÃO e reembolso','Patrocínio:','não comprovado',
  'Desconto ou isenção da taxa TAMÃO:'
 ])assert.ok(html.includes(value),'missing live order financing disclosure: '+value);
 assert.ok(html.indexOf('merchant-benefit-disclosure')<html.indexOf('merchant-order-action-fieldset'),
  'partner must see discount explanation BEFORE accepting');
 assert.doesNotMatch(html,/Patrocínio: confirmado|Reembolso garantido|Isenção aprovada/);
 assert.ok(html.includes('Pagamento: Pix'));
+assert.match(html,/Cupom pago Clube TAMÃO aplicado: <strong>R\$ 0\.00<\/strong>/,
+ 'ordinary cashback cannot be represented as a paid coupon');
+html=ctx.card({...discounted,couponAppliedCents:500});
+assert.match(html,/Cupom pago Clube TAMÃO aplicado: <strong>R\$ 5\.00<\/strong>/);
+assert.match(html,/Cashback de outros saldos: <strong>R\$ 2\.50<\/strong>/);
+assert.match(html,/NÃO confirma que a revenda já recebeu o reembolso/);
+html=ctx.card({...discounted,couponAppliedCents:800});
+assert.match(html,/Origem dos benefícios inconsistente ou indisponível/,
+ 'a claimed coupon greater than all reserved benefits must fail closed');
 html=ctx.card({...discounted,grossTotalCents:'13000',cashbackReservedCents:'750',totalCents:'12250'});
-assert.match(html,/Cashback usado pelo cliente/,'numeric-string cents must be recognized');
+assert.match(html,/Benefícios usados pelo cliente/,'numeric-string cents must be recognized');
 html=ctx.card({...discounted,totalCents:11500});
 assert.match(html,/Valores divergentes/,'inconsistent gross, benefit, payable must be visible');
 html=ctx.card({...discounted,grossTotalCents:null});
@@ -85,7 +94,7 @@ const demoOrder={id:'SG-TEST',status:'OFFERED_TO_MERCHANT',
  address:'Rua Fictícia',paymentMethod:'cash'};
 const demoHtml=demoCtx.card(demoOrder);
 for(const value of ['R$ 120.00','R$ 7.50','R$ 112.50',
- 'Financiamento e compensação da revenda: não comprovados',
+ 'Compensação à revenda: não comprovada',
  'nenhum dinheiro ou crédito real é movimentado neste simulador']){
  assert.ok(demoHtml.includes(value),'missing actual simulator disclosure '+value);
 }
