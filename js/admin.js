@@ -362,6 +362,7 @@ async function adminSignOut(){
   if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.session=null;
   adminRuntime.data=null;
+  adminRuntime.helpReportPager=null;
   adminRuntime.merchantTrial=null;
   adminOrderDemoForget(); // also purge the only in-tab synthetic order state
   adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
@@ -450,6 +451,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+  adminRuntime.helpReportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
@@ -475,6 +477,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+  adminRuntime.helpReportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
