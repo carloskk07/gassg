@@ -241,6 +241,7 @@ const liveRuntime={
   // V1.352: recorded only when get-order succeeds (not when offers/profile sync).
   orderCheckedAt:null,
   orderCheckedId:null,
+  terminalSupportAttemptAt:0,
   offerRequestSeq:0,
   orderRequestSeq:0,
   financialSyncSeq:0,
@@ -1022,9 +1023,7 @@ async function liveOpenSupportCase(category,message=''){
     category:String(category||'other'),
     message:String(message||'').trim()
   },{idempotencyKey}));
-  // The API may confirm case creation while the follow-up order read fails.
-  // Preserve the acknowledged outcome and ask for a refresh instead of
-  // reporting submission failure or triggering needless duplicate attempts.
+  // A confirmed support case remains registered even if the refresh fails.
   let refreshPending=false;
   try{
     await liveGetOrder(order.orderId,{silent:true});
@@ -1254,8 +1253,14 @@ async function livePoll(){
     }
     if(liveRuntime.order?.orderId===liveRuntime.orderId&&
       ["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
-      if(changed)render();
-      return;
+      // Only pending support needs follow-up after the order is terminal.
+      const open=liveRuntime.order.supportCases?.some(c=>
+        ['open','in_review'].includes(c?.status));
+      if(!open||Date.now()-liveRuntime.terminalSupportAttemptAt<60000){
+        if(changed)render();
+        return;
+      }
+      liveRuntime.terminalSupportAttemptAt=Date.now();
     }
     const requestedOrderId=liveRuntime.orderId;
     try{
@@ -2974,8 +2979,7 @@ function merchantPollingIntervalMs(orders,online){
   return online===true?15000:60000;
 }
 
-// The merchant must not become permanently stranded in "unavailable" after a
-// temporary transport failure. Recovery is bounded and NEVER executes an order action.
+// Bounded recovery never mutates an order.
 function merchantRecoveryDelayMs(failures){
   const n=Math.max(1,Math.min(5,Number.isSafeInteger(failures)?failures:1));
   return Math.min(60000,5000*2**(n-1));

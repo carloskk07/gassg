@@ -3,32 +3,8 @@ name: TAMÃO isolated Supabase integration
 on:
   pull_request:
     branches: [main]
-    paths:
-      - '.github/workflows/isolated-supabase-integration.yml'
-      - 'js/backend.js'
-      - 'tests/customer-active-order-switch-v1-493.mjs'
-      - 'tests/isolated-supabase-commerce-smoke.mjs'
-      - 'tests/isolated-full-schema-browser-acl.mjs'
-      - 'tests/isolated-launch-security-fingerprint.mjs'
-      - 'tests/isolated-discovery-privileged-rpc.mjs'
-      - 'tests/isolated-supabase-http-smoke.mjs'
-      - 'tests/isolated-supabase-positive-checkout.mjs'
-      - 'tests/isolated-refund-provider-anchor-audit.mjs'
-      - 'tests/isolated-support-positive-journey.mjs'
-      - 'tests/isolated-referral-payout-lifecycle.mjs'
-      - 'tests/isolated-supabase-coupon-full-schema.mjs'
-      - 'tests/isolated-live-portal-browser.mjs'
-      - 'tests/owner-local-demo-browser.mjs'
-      - 'tests/owner-local-launcher-safety.mjs'
-      - 'scripts/owner-local-demo-server.mjs'
-      - 'scripts/run-owner-local-demo.sh'
-      - 'INICIAR_DEMO_LOCAL.cmd'
-      - 'supabase/config.toml'
-      - 'supabase/migrations/**'
-      - 'supabase/functions/create-order/**'
-      - 'supabase/functions/merchant-orders/**'
-      - 'supabase/functions/submit-public-request/**'
-      - 'tests/support-http-handler-journey-v1-493.mjs'
+  # Run real disposable Auth/Edge/SQL tests for EVERY PR to main. Filtering
+  # by file path used to miss changes in admin-ops, payments and customer care.
   # #493: proactively exercise the real Auth/Edge/SQL journeys on a
   # disposable runner even if nobody commits or manually starts a test.
   # The public-repo standard Ubuntu runner does not access production secrets.
