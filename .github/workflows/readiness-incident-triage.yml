@@ -1,12 +1,14 @@
 name: TAMÃO readiness incident triage
 
-# Existing readiness checks run every 20 minutes. When two runs fail for
-# the same verified main SHA, open one sanitized GitHub issue for review.
-# This job never touches commerce, Supabase, user reports or production deploys.
+# Existing readiness checks run every 20 minutes and disposable full-stack
+# integration runs daily. Two readiness failures or one isolated E2E failure
+# on current main create separate sanitized GitHub issues for review.
+# No commerce, user reports, secrets, database writes or production deploys.
 on:
   workflow_run:
     workflows:
       - TAMÃO launch readiness
+      - TAMÃO isolated Supabase integration
     types:
       - completed
 
@@ -45,6 +47,7 @@ jobs:
           TRIGGER_EVENT: ${{ github.event_name }}
           TRIGGER_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
           TRIGGER_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TRIGGER_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
           TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
           TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
           TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
