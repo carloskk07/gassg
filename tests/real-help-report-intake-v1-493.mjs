@@ -88,6 +88,77 @@ assert.ok(endpoint.includes('referrer:safePublicRequestReferrer(attribution.refe
 assert.ok(endpoint.includes('landing_path:safePublicRequestLandingPath(attribution.landingPath,requestKind)'));
 console.log('PASS: submitted report attribution is sanitized server-side, including untrusted clients.');
 
+
+
+// Commercial support queue: role-specific data minimization and a separate
+// high-priority query prevent more recent marketing enquiries from burying help.
+const adminEdge=read('supabase/functions/admin-ops/index.ts');
+assert.match(adminEdge,/support:new Set\(\[[^\]]*"public-request-status"/,
+  'support operators can update public help cases');
+const summaryScopeStart=adminEdge.indexOf('function scopeAdminSummary(');
+const scopedRole=adminEdge.slice(adminEdge.indexOf('if(role==="support"){',summaryScopeStart),
+  adminEdge.indexOf('if(role==="compliance"){',summaryScopeStart));
+assert.match(scopedRole,/publicRequests:\(data\.publicRequests\?\?\[\]\)\.filter/,
+  'support summary must exclude privacy and general requests before returning JSON');
+assert.match(scopedRole,/request_kind==="support"/);
+
+const scopedExec=vm.createContext({});
+vm.runInContext('function scopeForSupport(data){const role="support",adminSelf=[];\n'+
+  scopedRole.replaceAll('(m:any)','(m)').replaceAll('(x:any)','(x)')+
+  '\n}this.scope=scopeForSupport;',scopedExec);
+const redacted=scopedExec.scope({merchants:[],publicRequests:[
+  {id:'case-a',request_kind:'support',message:'Pedido não acompanha'},
+  {id:'case-private',request_kind:'privacy',message:'Documento e dados privados'},
+  {id:'case-general',request_kind:'general',message:'Consulta comercial'}
+]});
+assert.equal(redacted.publicRequests.length,1);
+assert.equal(redacted.publicRequests[0].id,'case-a');
+assert.doesNotMatch(JSON.stringify(redacted),/case-private|Documento e dados privados|case-general/);
+
+assert.match(adminEdge,/if\(action==="public-request-status"&&adminAccess\.admin_role==="support"\)/);
+assert.match(adminEdge,/check\.data\?\.request_kind!=="support"/,
+  'an operator cannot resolve a privacy request by forging a POST');
+const priorityStart=adminEdge.indexOf('const pendingSupportPromise=admin.from("public_requests")');
+const priorityEnd=adminEdge.indexOf(';',priorityStart);
+const priorityQuery=adminEdge.slice(priorityStart,priorityEnd+1);
+assert.match(priorityQuery,/\.eq\("request_kind","support"\)/);
+assert.match(priorityQuery,/\.in\("status",\["new","in_review"\]\)/);
+assert.match(priorityQuery,/\{count:"exact"\}/);
+assert.match(priorityQuery,/\.limit\(30\)/);
+assert.match(adminEdge,/pendingHelpReportTotal:pendingSupport\.count/,
+  'total count must be independent of sample size');
+const mergeSource=cut(adminEdge,'mergePriorityHelpRequests')
+ .replace('recent:any[],pending:any[]','recent,pending')
+ .replace('new Set<string>()','new Set()')
+ .replace('(x:any)=>','(x)=>');
+const mergeCtx=vm.createContext({});
+vm.runInContext(mergeSource+';this.merge=mergePriorityHelpRequests;',mergeCtx);
+const unresolved={id:'support-0',request_kind:'support',status:'new'};
+const recent=[...Array.from({length:200},(_,i)=>({id:'general-'+i,request_kind:'general'})),
+  unresolved];
+const priority=[unresolved,{id:'support-1',request_kind:'support',status:'in_review'}];
+const combined=Array.from(mergeCtx.merge(recent,priority));
+assert.equal(combined[0].id,'support-0');
+assert.equal(combined[1].id,'support-1');
+assert.equal(combined.filter(x=>x.id==='support-0').length,1,'dedup rows between queues');
+assert.equal(combined.length,202);
+const supportCtx=vm.createContext({adminCurrentRole:()=> 'support'});
+vm.runInContext(cut(acquisition,'adminPublicRequestActionButtons')+
+ ';this.actions=adminPublicRequestActionButtons;',supportCtx);
+assert.equal(supportCtx.actions({request_kind:'privacy',status:'new',id:'example'}),'');
+assert.match(supportCtx.actions({request_kind:'support',status:'new',id:'example'}),/Em análise/);
+const prioritizedCtx=vm.createContext({adminPublicRequestCard:x=>'<div>'+esc(x.id)+'</div>'});
+vm.runInContext(cut(acquisition,'adminProblemReportsSection')+
+ ';this.view=adminProblemReportsSection;',prioritizedCtx);
+const prioritized=prioritizedCtx.view({publicRequests:[
+ {id:'support-0',request_kind:'support',status:'new',created_at:'2026-10-28T01:00:00Z'},
+ {id:'support-1',request_kind:'support',status:'in_review',created_at:'2026-10-29T01:00:00Z'}
+],pendingHelpReportTotal:75});
+assert.match(prioritized,/75 pendente\(s\)/);
+assert.match(prioritized,/Há 73 pendente\(s\) além desta amostra/);
+assert.match(admin,/pendingHelpReportTotal/,'navigation displays true server backlog');
+console.log('PASS: support-only role scope, permission gate and independent prioritized report backlog.');
+
 console.log('PASS: protected complaint intake available on every real client and merchant page, filtered admin triage and original legal safeguards.');
 
 

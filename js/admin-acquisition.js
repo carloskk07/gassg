@@ -1678,6 +1678,7 @@ function adminPublicRequestStatusLabel(value){
   return ({new:'NOVA',in_review:'EM ANÁLISE',resolved:'RESOLVIDA',closed:'ENCERRADA'})[value]||String(value||'').toUpperCase();
 }
 function adminPublicRequestActionButtons(x){
+  if(adminCurrentRole()==='support'&&x.request_kind!=='support')return '';
   const status=String(x.status||'new');
   if(status==='closed')return '';
   const buttons=[];
@@ -5393,7 +5394,9 @@ function adminProblemReportsSection(data){
       return pending(a)-pending(b)||
         String(b.created_at||'').localeCompare(String(a.created_at||''));
     });
-  const awaiting=rows.filter(x=>['new','in_review'].includes(x.status)).length;
+  const shownPending=rows.filter(x=>['new','in_review'].includes(x.status)).length;
+  const awaiting=Number.isSafeInteger(data?.pendingHelpReportTotal)&&data.pendingHelpReportTotal>=0
+    ?data.pendingHelpReportTotal:shownPending;
   return '<section class="section admin-problem-reports" id="admin-problem-reports">'+
     '<div class="section-head"><div><span class="section-kicker">QUALIDADE • SUPORTE</span>'+
     '<h2>Erros e pedidos de ajuda</h2>'+
@@ -5403,7 +5406,9 @@ function adminProblemReportsSection(data){
     '<div class="grid cards-3" style="margin-top:14px">'+
     (rows.length?rows.slice(0,30).map(adminPublicRequestCard).join(''):
       '<div class="empty card">Nenhum relato de ajuda recebido nesta amostra administrativa.</div>')+
-    '</div><small class="field-help">A fila apresenta apenas solicitações recebidas pelo servidor e devolvidas ao Admin, até 30 neste painel. Evite copiar dados pessoais para tickets públicos.</small></section>';
+    '</div><small class="field-help">Exibindo até 30 relatos priorizados. '+
+    (awaiting>shownPending?'Há '+(awaiting-shownPending)+' pendente(s) além desta amostra; resolva os mais recentes e atualize para acessar os próximos. ':'')+
+    'Evite copiar dados pessoais para tickets públicos.</small></section>';
 }
 function adminPublicRequestsSection(data){
   const requests=Array.isArray(data?.publicRequests)?data.publicRequests:[];
