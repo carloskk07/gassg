@@ -162,5 +162,106 @@ assert.equal(row,'/?tamao_help=revenda&modulo=merchant-orders#contact|https://ex
 assert.equal(localSql("select count(*) from public.public_requests where request_idempotency_key='"+reportKey+"'"),'1');
 console.log('PASS local real Edge support intake, one protocol/replay, CORS denial, no token leakage or duplicate.');
 
+
+// Verify authorized Admin support lifecycle using REAL local Auth, database
+// and Edge. Entire stack is ephemeral; no production accounts or requests.
+const localAdminActors=[];
+const authAdminActor=async role=>{
+  const email='ci-'+role+'-'+randomUUID()+'@example.com',password='LocalOnly!'+randomUUID();
+  const create=await fetch(base+'/auth/v1/admin/users',{
+    method:'POST',headers:adminHeaders,
+    body:JSON.stringify({email,password,email_confirm:true}),signal:AbortSignal.timeout(30000)
+  });
+  assert.ok([200,201].includes(create.status),'local '+role+' user created');
+  const user=await create.json(),id=user.id||user.user?.id;
+  assert.match(id,/^[0-9a-f-]{36}$/i);
+  localAdminActors.push(id);
+  const login=await fetch(base+'/auth/v1/token?grant_type=password',{
+    method:'POST',headers:{apikey:anon,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password}),signal:AbortSignal.timeout(30000)
+  });
+  assert.equal(login.status,200);
+  const session=await login.json();
+  assert.ok(session.access_token?.length>100);
+  localSql("insert into public.platform_admins(user_id,admin_role,active) values ('"+
+    id+"','"+role+"',true)");
+  return session.access_token;
+};
+try{
+  const supportToken=await authAdminActor('support');
+  const financeToken=await authAdminActor('finance');
+  // 72 older help requests + one real local Edge intake above. More recent
+  // general/privacy cases must never hide pending help from the Admin.
+  localSql("insert into public.public_requests("+
+    "request_kind,contact_name,contact_channel,contact_value,message,"+
+    "acknowledged_at,ip_hash,status,created_at) "+
+    "select case when n<=72 then 'support' when n<=292 then 'general' else 'privacy' end,"+
+    "'CI synthetic '||n,'email','ci-'||n||'@example.com',"+
+    "'Synthetic support regression item '||n,clock_timestamp(),repeat('a',64),"+
+    "case when n%3=0 then 'in_review' else 'new' end,"+
+    "clock_timestamp()+(case when n<=72 then n-1000 else n end)*interval '1 second' "+
+    "from generate_series(1,322) n");
+  const supportCount=Number(localSql("select count(*) from public.public_requests "+
+    "where request_kind='support' and status in ('new','in_review')"));
+  assert.equal(supportCount,73);
+  const adminReq=async(token,body)=>{
+    const response=await fetch(base+'/functions/v1/admin-ops',{
+      method:'POST',headers:{...headers,Authorization:'Bearer '+token,
+        'Idempotency-Key':'ci-admin-'+randomUUID()},
+      body:JSON.stringify(body),signal:AbortSignal.timeout(150000)
+    });
+    return {status:response.status,body:await response.json()};
+  };
+  const first=await adminReq(supportToken,{action:'support-reports-page',page:0});
+  assert.equal(first.status,200,'support role reads first page via real Edge');
+  assert.equal(first.body.source,'admin_support_reports_page_v1');
+  assert.equal(first.body.readOnly,true);
+  assert.equal(first.body.total,supportCount);
+  assert.equal(first.body.items.length,30);
+  assert.ok(first.body.items.every(r=>r.request_kind==='support'&&
+    ['new','in_review'].includes(r.status)));
+  const second=await adminReq(supportToken,{action:'support-reports-page',page:1});
+  assert.equal(second.status,200);
+  assert.equal(second.body.items.length,30);
+  assert.ok(!second.body.items.some(r=>first.body.items.some(x=>x.id===r.id)));
+  const last=await adminReq(supportToken,{action:'support-reports-page',page:2});
+  assert.equal(last.status,200);
+  assert.equal(last.body.items.length,13);
+  const denied=await adminReq(financeToken,{action:'support-reports-page',page:0});
+  assert.equal(denied.status,403,'finance role cannot access support contacts');
+  const malformed=await adminReq(supportToken,{action:'support-reports-page',page:-1});
+  assert.equal(malformed.status,400);
+  const privacyId=localSql("select id from public.public_requests "+
+    "where request_kind='privacy' limit 1");
+  assert.match(privacyId,/^[0-9a-f-]{36}$/i);
+  const privacyEdit=await adminReq(supportToken,{
+    action:'public-request-status',requestId:privacyId,
+    status:'resolved',resolutionNote:'CI forbidden privacy resolution'
+  });
+  assert.equal(privacyEdit.status,403,'support cannot resolve privacy requests');
+  const supportId=last.body.items[0].id;
+  const update=await adminReq(supportToken,{
+    action:'public-request-status',requestId:supportId,status:'resolved',
+    resolutionNote:'CI support case resolved on disposable database'
+  });
+  assert.equal(update.status,200,'support operator resolves help cases');
+  assert.equal(localSql("select status from public.public_requests where id='"+
+    supportId+"'"),'resolved');
+  assert.notEqual(localSql("select status from public.public_requests where id='"+
+    privacyId+"'"),'resolved');
+  const after=await adminReq(supportToken,{action:'support-reports-page',page:2});
+  assert.equal(after.status,200);
+  assert.equal(after.body.total,supportCount-1);
+  assert.equal(after.body.items.length,12);
+  console.log('PASS local real Admin Edge: 3 support pages, finance/privacy denied, resolution persisted.');
+}finally{
+  for(const id of localAdminActors){
+    const del=await fetch(base+'/auth/v1/admin/users/'+id,{
+      method:'DELETE',headers:adminHeaders,signal:AbortSignal.timeout(30000)
+    });
+    assert.ok([200,204].includes(del.status),'ephemeral admin identity deleted');
+  }
+}
+
 console.log('PASS local Auth login, real user Edge authorization and fictitious identity cleanup; no orders/credits.');
 
