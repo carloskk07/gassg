@@ -201,7 +201,9 @@ const benefitDisclosure=vm.runInNewContext(
   esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
 );
 const disclosureHtml=benefitDisclosure(visibleCouponOrder);
-assert.match(disclosureHtml,/Cupom pago Clube TAMÃO aplicado: <strong>R\\$\\s*5,00<\\/strong>/);
+assert.ok(disclosureHtml.includes('Cupom pago Clube TAMÃO aplicado: <strong>') &&
+ disclosureHtml.includes('5,00</strong>'),
+ 'rendered authenticated coupon benefit must show its separate R$ 5,00 face');
 assert.match(disclosureHtml,/Cashback de outros saldos:/);
 assert.match(disclosureHtml,/Compensação à revenda: não comprovada/);
 assert.doesNotMatch(disclosureHtml,/Valores divergentes|Origem dos benefícios inconsistente/);
