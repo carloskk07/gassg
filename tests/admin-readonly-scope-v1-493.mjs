@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const edge=read('supabase/functions/admin-ops/index.ts');
-const js=src=>src.replace(/:any\b|:string\b/g,'');
+const js=src=>src.replace(/:any\b|:string\b/g,'').replaceAll('new Set<string>()','new Set()');
 const extract=(start,end)=>{
   const a=edge.indexOf(start),b=edge.indexOf(end,a+start.length);
   assert.ok(a>=0&&b>a,'missing edge fixture '+start);
