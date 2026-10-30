@@ -100,4 +100,37 @@ assert.ok(css.includes('.admin-managerial-grid'));
 assert.ok(css.includes('@media(max-width:420px)'));
 assert.ok(read('.github/workflows/audit.yml')
   .includes('node tests/admin-finance-management-v1-187.mjs'));
+// #493: A real production warning-only state (pending payment >24h, zero
+// critical issues) must not be shown as a red "0 crítico(s)" alarm. Distinguish
+// warning, critical and unverified states using the existing renderer.
+const reconCtx=vm.createContext({adminMoney:dollar,esc:escape,
+  adminMerchantName:()=> 'Revenda de teste'});
+vm.runInContext(cut('adminBillingReconciliationMessage')+'\n'+
+  cut('adminBillingReconciliationView')+
+  '\nthis.reconcile=adminBillingReconciliationView;',reconCtx);
+const reconciled=extra=>reconCtx.reconcile(extra);
+const warningOnly=reconciled({
+  healthy:false,issueCount:1,criticalCount:0,warningCount:1,
+  issues:[{severity:'warning',issueType:'pending_payment_review_over_24h',
+    merchantId:'ci-test',entityId:'ci-pending',expectedCents:30000,
+    actualCents:0,ageHours:364}]
+});
+assert.match(warningOnly,/class="status-pill risk">1 alerta\(s\)<\/span>/,
+  'a warning-only state must be amber and state the real warning count');
+assert.doesNotMatch(warningOnly,/class="status-pill offline">0 crítico/,
+  'warning-only state must not be a red zero-critical badge');
+assert.match(warningOnly,/Aviso de pagamento sem conciliação exata/);
+const critical=reconciled({
+  healthy:false,issueCount:2,criticalCount:1,warningCount:1,
+  issues:[{severity:'critical',issueType:'account_ledger_balance_mismatch'}]
+});
+assert.match(critical,/class="status-pill offline">1 crítico\(s\) • 1 alerta\(s\)/);
+const clear=reconciled({healthy:true,issueCount:0,criticalCount:0,warningCount:0,issues:[]});
+assert.match(clear,/class="status-pill online">ÍNTEGRA/);
+assert.match(clear,/Conciliação fechada/);
+const unverified=reconciled({healthy:false,issueCount:0,criticalCount:0,warningCount:0,issues:[]});
+assert.match(unverified,/class="status-pill risk">Conferência necessária/);
+assert.doesNotMatch(unverified,/Conciliação fechada/,
+  'empty UI sample is not proof of financial health');
+
 console.log('V1.187: financial sources, dedup, null safety, sampled receipts, role isolation, and mobile CSS passed.');

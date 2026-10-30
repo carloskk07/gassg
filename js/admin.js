@@ -6244,7 +6244,13 @@ function adminBillingReconciliationView(reconciliation){
   const issues=Array.isArray(reconciliation.issues)?reconciliation.issues:[];
   const critical=Number(reconciliation.criticalCount||0);
   const warnings=Number(reconciliation.warningCount||0);
-  const healthy=reconciliation.healthy===true&&critical===0&&warnings===0;
+  const issueCount=Number(reconciliation.issueCount||0);
+  const healthy=reconciliation.healthy===true&&critical===0&&warnings===0&&issueCount===0;
+  const severityClass=critical>0?'offline':warnings>0?'risk':healthy?'online':'risk';
+  const severityLabel=critical>0
+    ?critical+' crítico(s)'+(warnings?' • '+warnings+' alerta(s)':'')
+    :warnings>0?warnings+' alerta(s)'
+    :healthy?'ÍNTEGRA':'Conferência necessária';
   const issueRows=issues.map(issue=>{
     const severity=String(issue.severity||'warning');
     const merchant=adminMerchantName(issue.merchantId);
@@ -6257,9 +6263,11 @@ function adminBillingReconciliationView(reconciliation){
     return `<div class="list-row"><div><strong>${esc(adminBillingReconciliationMessage(issue))}</strong><br><small>${esc(merchant)} • ${esc(issue.entityId||'—')}${Number.isFinite(age)?' • '+age.toLocaleString('pt-BR',{maximumFractionDigits:1})+'h':''}</small>${amountDiff}</div><span class="status-pill ${severity==='critical'?'offline':'risk'}">${severity==='critical'?'CRÍTICO':'ATENÇÃO'}</span></div>`;
   }).join('');
   return `<div class="card flat" style="margin-bottom:16px">
-    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento, fechamentos D+1, refunds e obrigações de recuperação.</p></div><span class="status-pill ${healthy?'online':'offline'}">${healthy?'ÍNTEGRA':critical+' crítico(s)'}</span></div>
+    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento, fechamentos D+1, refunds e obrigações de recuperação.</p></div><span class="status-pill ${severityClass}">${esc(severityLabel)}</span></div>
     <div class="tiny muted">Divergências: ${Number(reconciliation.issueCount||0)} • críticas: ${critical} • alertas: ${warnings} • pagamentos aguardando revisão há mais de 24h: ${Number(reconciliation.stalePendingReviewCount||0)} • recuperações abertas >24h: ${Number(reconciliation.refundRecoveryOpenSlaBreachCount||0)}</div>
-    ${issueRows?`<div class="list" style="margin-top:10px">${issueRows}</div>`:'<div class="notice success" style="margin-top:10px"><strong>Conciliação fechada.</strong><br>Nenhuma divergência encontrada entre os registros financeiros auditados.</div>'}
+    ${issueRows?`<div class="list" style="margin-top:10px">${issueRows}</div>`:healthy
+      ?'<div class="notice success" style="margin-top:10px"><strong>Conciliação fechada.</strong><br>Nenhuma divergência encontrada entre os registros financeiros auditados.</div>'
+      :'<div class="notice" style="margin-top:10px"><strong>Conferência necessária.</strong><br>A ausência de linhas na amostra não comprova conciliação íntegra. Atualize os dados e verifique os alertas.</div>'}
     ${Number(reconciliation.issueCount||0)>issues.length?`<div class="tiny muted" style="margin-top:8px">Mostrando as primeiras ${issues.length} divergências de ${Number(reconciliation.issueCount||0)}.</div>`:''}
   </div>`;
 }
