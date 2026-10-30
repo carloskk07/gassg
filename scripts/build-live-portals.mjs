@@ -358,6 +358,24 @@ export function compactReleasedGrowthComments(source){
  return released;
 }
 
+// Keep the audited merchant source readable. Its initial release-only bundle
+// omits standalone implementation comments, just like the existing growth
+// compactor; no source AST, string literal or executable statement is removed.
+export function compactReleasedMerchantComments(source){
+  if(typeof source!=='string')throw new TypeError('Expected merchant source');
+  if(!source.includes('function merchantDriverLivePage(')
+     ||!source.includes('async function merchantLiveDeliver(')
+     ||!source.includes('async function merchantLiveLogout('))
+    throw new Error('Missing canonical merchant delivery contracts');
+  const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
+  if(comments.length<60)throw new Error('Merchant comments compaction contract changed');
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  if(Buffer.byteLength(source,'utf8')-Buffer.byteLength(released,'utf8')<3000)
+    throw new Error('Merchant startup savings no longer validated');
+  validateClassicScriptSyntax(released,'emitted merchant.js');
+  return released;
+}
+
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
   validateAllPublicScripts();
@@ -433,6 +451,11 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
       const homeQuote=path.join(target,'js','home-showcase.js');
       fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
+    }
+    if(role==='merchant'){
+      const merchantFile=path.join(target,'js','merchant.js');
+      fs.writeFileSync(merchantFile,
+        compactReleasedMerchantComments(fs.readFileSync(merchantFile,'utf8')),'utf8');
     }
     // All three portals ship the shared growth module; compact each identical
     // release copy so customer, merchant and admin budgets remain unchanged.
