@@ -1,8 +1,20 @@
 const CACHE='tamao-sg-v1.413';
-const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./css/marketing-premium.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/home-showcase.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/admin-activations.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
+const AUTH_SDK_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
+const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./css/marketing-premium.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/home-showcase.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/merchant-offline-delivery.js','./js/admin-acquisition.js','./js/admin.js','./js/admin-activations.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
 
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(async cache=>{
+    await cache.addAll(ASSETS);
+    // Offline startup needs this public, SRI-pinned SDK, never auth tokens.
+    // A CDN outage must not block installing the application's own shell.
+    const abort=new AbortController();
+    const timeout=setTimeout(()=>abort.abort(),3500);
+    try{
+      const request=new Request(AUTH_SDK_URL,{mode:'cors'});
+      const response=await fetch(request,{signal:abort.signal});
+      if(response.ok&&response.type==='cors')await cache.put(request,response);
+    }catch{}finally{clearTimeout(timeout)}
+  }).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
@@ -55,7 +67,9 @@ self.addEventListener('fetch',event=>{
   const req=event.request;
   if(req.method!=='GET')return;
   const url=new URL(req.url);
-  if(url.origin!==self.location.origin){event.respondWith(fetch(req));return}
+  if(url.origin!==self.location.origin){
+    event.respondWith(url.href===AUTH_SDK_URL?networkFirst(req):fetch(req));return
+  }
   if(req.mode==='navigate'){
     event.respondWith(navigationNetworkFirst(req));
     return;

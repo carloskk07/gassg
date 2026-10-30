@@ -1299,6 +1299,7 @@ const merchantRuntime={
   paymentRoutes:[],
   paymentRouteVersion:1,
   orders:[],
+  recentClosedDeliveries:[],
   supportSummary:null,
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
   actionPending:false,
@@ -1895,7 +1896,7 @@ async function merchantBackendInit(){
 
     await merchantRefresh({silent:true});
     if(merchantRuntime.status==='no-access'){
-      // Failing this auxiliary read must never turn a valid login into an error.
+      // Auxiliary read cannot invalidate login.
       try{await merchantLoadOwnApplications()}catch(error){
         merchantRuntime.applicationFetchError=String(error?.message||error);
       }
@@ -2014,10 +2015,7 @@ async function merchantSendLogin(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
-  // Supabase implicit auth owns the URL fragment while returning access tokens.
-  // Pilot invite state is already persisted separately, so keep this hash empty.
-  // Preserve the choice to JOIN across the emailed OTP link and devices;
-  // Supabase reserves the fragment for auth tokens, so use a harmless query flag.
+  // Supabase owns the OTP fragment; carry the registration intent in the query.
   if(typeof route==='function'&&route()==='merchant-join')
     redirect.searchParams.set('signup','1');
   merchantPilotInviteToken();
@@ -2034,7 +2032,12 @@ async function merchantSendLogin(email){
   render();
 }
 
+function merchantOfflineGuard(denied){
+  const u=merchantRuntime.session?.user?.id,m=merchantRuntime.merchant?.merchantId||merchantRuntime.selectedMerchantId;
+  if(u&&m)localStorage[denied?'setItem':'removeItem']('tamao-offline-denied:'+u+':'+m,'1');
+}
 async function merchantSignOut(){
+  merchantOfflineGuard(true);
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
   merchantPushRuntime.checked=false;
   merchantPushRuntime.available=false;
@@ -2042,11 +2045,11 @@ async function merchantSignOut(){
   merchantPushRuntime.diagnostic=null;
   merchantPushRuntime.deviceHealth=null;
   merchantPushRuntime.healthError=null;
-  // Drop any in-flight refresh response before asynchronous sign-out.
+  // Invalidate pending reads on sign-out.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
   merchantRuntime.recoveryFailures=0;
-  // Invalidate in-flight history immediately; never retain another person's audit in a shared browser.
+  // Never expose another account's audit.
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
   if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
@@ -2071,6 +2074,7 @@ async function merchantSignOut(){
   merchantRuntime.paymentRoutes=[];
   merchantRuntime.paymentRouteVersion=1;
   merchantRuntime.orders=[];
+  merchantRuntime.recentClosedDeliveries=[];
   merchantRuntime.supportSummary=null;
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
@@ -2107,11 +2111,15 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.paymentRoutes=Array.isArray(data.paymentRoutes)?data.paymentRoutes:[];
     merchantRuntime.paymentRouteVersion=Number(data.paymentRouteVersion||1);
     merchantRuntime.orders=data.orders??[];
+    // Terminal proof stays bound to a fresh driver response.
+    merchantRuntime.recentClosedDeliveries=data.merchant?.memberRole==='driver'&&
+      Array.isArray(data.recentClosedDeliveries)?data.recentClosedDeliveries:[];
     merchantRuntime.supportSummary=data.supportSummary??null;
     merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
     if(merchantRuntime.selectedMerchantId)localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
     merchantRuntime.status='ready';
+    merchantOfflineGuard(data.merchant?.memberRole!=='driver');
     merchantRuntime.error=null;
     merchantRuntime.accessReason=null;
     merchantRuntime.recoveryFailures=0;
@@ -2128,6 +2136,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       && error?.status===403
       && ['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code);
     if(staleSelected&&recoverSelection){
+      merchantOfflineGuard(true);
       merchantRuntime.selectedMerchantId=null;
       localStorage.removeItem('chama-merchant-selected-v1');
       return merchantRefresh({silent:true,recoverSelection:false});
@@ -2136,10 +2145,12 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       error?.code==='NO_MERCHANT_ACCESS'
       || error?.status===403&&['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code)
     ){
+      merchantOfflineGuard(true);
       merchantRuntime.status='no-access';
       merchantClearEnablement();
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
+      merchantRuntime.recentClosedDeliveries=[];
       merchantRuntime.supportSummary=null;
       merchantRuntime.deliveryTeam=[];
       merchantRuntime.team=null;
@@ -2152,6 +2163,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       return null;
     }
     if(error?.status===401){
+      merchantOfflineGuard(true);
       merchantRuntime.status='unauthenticated';
       merchantRuntime.session=null;
       merchantClearEnablement();
@@ -2186,11 +2198,7 @@ async function merchantSelectLive(merchantId){
   await merchantRefresh();
 }
 
-// V1.330: an acknowledged server mutation is independent of the follow-up
-// merchant-orders read. Never offer stale action buttons if that read fails.
-// V1.360: positive HTTP acknowledgement cannot override action-specific
-// evidence that the requested transition did not occur. A verified server
-// rescue is a distinct outcome, not successful acceptance or departure.
+// A server ACK is not permission to use stale action buttons; rescue differs from success.
 async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   const merchantReplyActionConsistent=(reply,{action='',orderId=''}={})=>{
     if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
@@ -2201,9 +2209,7 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
     if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
       .some(key=>reply[key]===true);
-    // V1.361: a successful HTTP reply can still describe a transition other
-    // than the one requested. When the RPC includes a state, require it to
-    // match the explicit action; missing status remains legacy-compatible.
+    // Validate action-specific reply status; legacy replies may omit it.
     const expectedStates={
       accept:['MERCHANT_ACCEPTED','PREPARING'],
       reject:['OFFERED_TO_MERCHANT','REASSIGNING','REQUOTE_REQUIRED','CANCELLED'],
@@ -2225,13 +2231,9 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
     return !indicators.some(key=>reply[key]===false)&&
       !['dispatched','arrived','delivered','completed','assigned'].some(key=>reply[key]===false);
   };
-  // An HTTP 200 does not necessarily mean the RPC confirmed the mutation.
-  // Preserve ambiguity: a blank/negative reply must never trigger a success
-  // toast, and the operator must check the current order before trying again.
+  // HTTP 200 is not a confirmed mutation.
   const structured=reply!==null&&typeof reply==='object'&&!Array.isArray(reply);
-  // The RPCs return either an explicit positive marker, a legacy versioned
-  // order acknowledgement, or a documented automatic rescue. Objects without
-  // any of these are NOT proof that an order transitioned.
+  // Require explicit success, versioned ACK or rescue.
   const affirmative=structured&&(
     reply.ok===true||reply.success===true||reply.autoRescued===true||
     (typeof reply.orderId==='string'
@@ -2250,8 +2252,7 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   }
   try{
     const snapshot=await merchantRefresh({silent:true});
-    // merchantRefresh can finish after a newer refresh and return a discarded
-    // snapshot. Require this exact snapshot to have been applied to the UI.
+    // Ignore snapshots discarded by a newer refresh.
     if(merchantRuntime.status==='ready'
       &&snapshot?.merchant
       &&Array.isArray(snapshot.orders)
@@ -2259,6 +2260,7 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
       &&merchantRuntime.orders===snapshot.orders)return true;
   }catch{}
   merchantRuntime.orders=[];
+  merchantRuntime.recentClosedDeliveries=[];
   merchantRuntime.supportSummary=null;
   if(['no-access','unauthenticated'].includes(merchantRuntime.status))return false;
   merchantRuntime.status='unavailable';
@@ -2467,7 +2469,7 @@ async function merchantUpdateMemberProfileLive(displayName){
   }
 }
 
-async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
+async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed,resumeIdempotencyKey){
   if(merchantRuntime.actionPending)return;
   const order=merchantVerifiedActionOrder(orderId,{action:'complete-delivery'});
   if(paymentConfirmed!==true)throw new Error('Confirme o recebimento do pagamento');
@@ -2475,18 +2477,21 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
   merchantRuntime.actionPending=true;
   merchantRuntime.error=null;
   render();
+  const idempotencyKey=liveIdempotency('complete-delivery');
+  const retryKey=/^complete-delivery:[\w-]{16,96}$/.test(resumeIdempotencyKey||'')
+    ?resumeIdempotencyKey:idempotencyKey;
   try{
-    const idempotencyKey=liveIdempotency('complete-delivery');
     const result=await retryAmbiguousOnce(()=>merchantInvoke('complete-delivery',{
       orderId,
       pin:String(pin),
       expectedVersion:order.version,
       paymentConfirmed:true
-    },{idempotencyKey}));
+    },{idempotencyKey:retryKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
     await merchantRefreshAfterConfirmedMutation(result,{action:'complete-delivery',orderId});
     return result;
   }catch(error){
+    if(error&&typeof error==='object')error.deliveryIdempotencyKey=retryKey;
     merchantRuntime.error=String(error?.message||error);
     try{await merchantRefresh({silent:true})}catch{}
     throw error;
@@ -3013,6 +3018,7 @@ async function merchantPoll(){
         merchantRuntime.session=null;
         merchantRuntime.merchant=null;
         merchantRuntime.orders=[];
+        merchantRuntime.recentClosedDeliveries=[];
         merchantRuntime.supportSummary=null;
         merchantRuntime.catalog=[];
         merchantRuntime.deliveryTeam=[];

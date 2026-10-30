@@ -9,6 +9,7 @@ const launcher=fs.readFileSync(path.join(repo,'scripts/run-owner-local-demo.sh')
 assert.match(launcher,/git -C "\$repo" archive --format=tar HEAD \| tar -xf - -C "\$workspace"/);
 assert.match(launcher,/com\.docker\.network\.bridge\.host_binding_ipv4=127\.0\.0\.1/);
 assert.match(launcher,/supabase start --network-id "\$network"/);
+assert.doesNotMatch(launcher,/sort\s*\|\s*head\s+-n\s*1/,'canonical migration check must not risk SIGPIPE with pipefail');
 assert.doesNotMatch(launcher,/rm -rf -- supabase\/migrations/,'never rewrite original checkout');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-launcher-guard-'));
 const fixture=path.join(tmp,'checkout'),bin=path.join(tmp,'fakebin'),scratch=path.join(tmp,'scratch');

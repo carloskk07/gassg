@@ -7,12 +7,12 @@ import {spawn,execFileSync} from 'node:child_process';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false,browserCheckoutBuyer=null}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false,driverActor=null,browserCheckoutBuyer=null}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
  assert.ok(anon.length>20);
- for(const actor of [buyer,owner,adminActor]){
+ for(const actor of [buyer,owner,adminActor,...(driverActor?[driverActor]:[])]){
   assert.ok(actor.session?.access_token?.length>100);
   assert.ok(typeof actor.session?.refresh_token==='string'&&actor.session.refresh_token.length>0,'refresh token required');
   assert.equal(actor.session.user?.id,actor.id);
@@ -314,6 +314,69 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         await adminPage.navigate(origin+'/?admin=1#admin');
         await adminPage.wait("adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(created.id)+")",'Admin sees new UI order',50000);
         console.log('PASS: real home CTA -> water cart -> address -> cash quote -> order submitted -> tracking; partner/Admin share new SQL ID.');
+      }
+      if(driverActor){
+        assert.equal(exerciseCrossSessionDispatch,true,'driver proof requires the canonical dispatch');
+        const driverPage=await openRole('merchant',driverActor.session,'/?merchant=1#merchant');
+        await driverPage.send('Emulation.setDeviceMetricsOverride',
+          {width:390,height:844,deviceScaleFactor:1,mobile:true});
+        await driverPage.wait("merchantRuntime.status==='ready'&&merchantRuntime.merchant?.memberRole==='driver'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+"&&o.status==='OUT_FOR_DELIVERY'&&o.assignedDeliveryUserId==="+JSON.stringify(driverActor.id)+")",
+          'actual driver Auth sees assigned delivery',55000);
+        await driverPage.wait("typeof merchantOfflineDeliveryCacheAssignments==='function'",
+          'real driver portal loads AES-GCM offline module',30000);
+        assert.equal(await driverPage.evaluate('merchantOfflineDeliveryCacheAssignments()'),true,
+          'authorized real Edge snapshot must encrypt its assignment');
+        const deliveryPin=await buyerPage.evaluate("liveRuntime.order?.deliveryPin||''");
+        assert.match(deliveryPin,/^[0-9]{4}$/,'only authenticated buyer sees the real temporary PIN');
+        // Isolate only the driver's Chrome target: buyer and Admin remain online.
+        await driverPage.send('Network.emulateNetworkConditions',
+          {offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+        await driverPage.evaluate('merchantRefresh().catch(()=>null);true');
+        await driverPage.wait("merchantRuntime.status==='unavailable'&&navigator.onLine===false",
+          'driver sees real local network outage',25000);
+        await driverPage.wait("!!document.getElementById('live-pin-"+orderId+"')&&!!document.getElementById('live-paid-"+orderId+"')",
+          'offline driver local-only form is navigable',20000);
+        const staged=await driverPage.evaluate("(()=>{const pin=document.getElementById('live-pin-"+orderId+"');const paid=document.getElementById('live-paid-"+orderId+"');const button=document.getElementById('live-deliver-submit-"+orderId+"');if(!pin||!paid||!button)return false;pin.value="+JSON.stringify(deliveryPin)+";paid.checked=true;merchantOfflineConfirmationChanged("+JSON.stringify(orderId)+");if(button.disabled)return false;button.click();return true})()");
+        assert.equal(staged,true,'real offline UI stages after customer PIN and simulated cash receipt');
+        await driverPage.wait("document.getElementById('live-deliver-submit-"+orderId+"')?.textContent.includes('Comprovante guardado')",
+          'real driver encrypted proof remains locally pending',30000);
+        await driverPage.wait("document.querySelector('.merchant-driver-receipts')?.hidden===false",
+          'pending proof appears automatically without another disclosure click',15000);
+        assert.equal(await driverPage.evaluate('document.getElementById("live-pin-"+'+JSON.stringify(orderId)+').disabled'),true);
+        const saveDriverEvidence=async name=>{
+          // Captured AFTER saving: the PIN input is cleared by the real UI.
+          assert.match(name,/^1[12]-[a-z0-9-]+$/);
+          await driverPage.evaluate("document.getElementById('merchant-offline-receipts')?.scrollIntoView({block:'center'});true");
+          const shot=await driverPage.send('Page.captureScreenshot',
+            {format:'png',fromSurface:true,captureBeyondViewport:false});
+          const png=Buffer.from(shot.data||'','base64');
+          assert.ok(png.length>6000&&png.subarray(0,8).toString('hex')==='89504e470d0a1a0a');
+          fs.mkdirSync(evidenceDir,{recursive:true});
+          fs.writeFileSync(path.join(evidenceDir,name+'.png'),png);
+        };
+        await saveDriverEvidence('11-entregador-comprovante-offline-pendente');
+        assert.equal(await buyerPage.evaluate("liveRuntime.order.status"),'OUT_FOR_DELIVERY',
+          'offline staging never changes the server-visible buyer order');
+        await driverPage.send('Network.emulateNetworkConditions',
+          {offline:false,latency:0,downloadThroughput:1000000,uploadThroughput:1000000});
+        await driverPage.evaluate('merchantOfflineDeliveryReconcile('+JSON.stringify(orderId)+');true');
+        await driverPage.wait("merchantRuntime.status==='ready'&&merchantRuntime.recentClosedDeliveries?.some(o=>o.orderId==="+JSON.stringify(orderId)+"&&o.status==='SETTLED'&&o.assignedDeliveryUserId==="+JSON.stringify(driverActor.id)+")",
+          'real Edge assigned-driver PIN reconciliation confirmed',55000);
+        await driverPage.wait("document.getElementById('merchant-offline-receipts')?.textContent.includes('Nenhum comprovante local pendente')",
+          'only authenticated terminal proof clears encrypted receipt',35000);
+        await driverPage.wait("document.querySelector('.merchant-driver-receipts')?.hidden===true",
+          'empty receipt panel disappears after authorized server ACK',15000);
+        assert.equal(await driverPage.evaluate('merchantRuntime.orders.some(o=>o.orderId==='+JSON.stringify(orderId)+')'),false,
+          'settled order is absent from driver active orders');
+        await saveDriverEvidence('12-entregador-conciliacao-confirmada');
+        await buyerPage.navigate(origin+'/#tracking');
+        await buyerPage.wait("liveRuntime.order?.orderId==="+JSON.stringify(orderId)+"&&liveRuntime.order.status==='SETTLED'",
+          'buyer sees the same settled SQL order after actual driver recovery',50000);
+        await adminPage.navigate(origin+'/?admin=1#admin');
+        await adminPage.wait("adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+"&&o.status==='SETTLED')",
+          'Admin sees driver delivery final status from real local database',50000);
+        assert.deepEqual(violations,[],'real driver browser cannot reach the commercial Supabase');
+        console.log('PASS: real Auth driver 390px Chrome offline staged PIN, actual Edge arriving/delivery, minimal terminal proof, buyer/Admin settled and zero remote calls.');
       }
       assert.deepEqual(violations,[],'no independent tab may call commercial Supabase');
       console.log('PASS: three simultaneously isolated Chrome Auth contexts share one disposable SQL order'

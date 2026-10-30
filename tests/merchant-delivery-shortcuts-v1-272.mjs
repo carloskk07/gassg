@@ -87,6 +87,7 @@ const driverCtx=vm.createContext({
   navigator:{onLine:false},esc,
   shell:html=>html,merchantOrderListEvidence:()=>({fresh:true}),
   merchantLiveOrder:o=>'<article data-driver-order="'+esc(o.orderId)+'"></article>',
+  merchantDriverOfflineQueue:()=>'',merchantDriverOfflineAllowed:()=>true,
   merchantAlertControl:()=>'<aside>Alertas avançados</aside>',
   merchantOrderListRecovery:()=>'<div>Atualize antes de confirmar</div>'
 });
@@ -101,9 +102,27 @@ const driverData={merchant:{name:'Minha revenda',memberDisplayName:'Ana'},orders
 let driverPage=driverCtx.driver(driverData);
 assert.match(driverPage,/Minhas entregas/);
 assert.match(driverPage,/Sem conexão detectada/);
-assert.match(driverPage,/não consegue confirmar o PIN nem o pagamento/);
-assert.match(driverPage,/entrega continuará pendente no sistema/);
-assert.match(driverPage,/modo de salvamento offline ainda não está disponível/);
+assert.match(driverPage,/só serão confirmados no TAMÃO após validação online/);
+assert.match(driverPage,/guarde o comprovante/);
+driverCtx.merchantDriverOfflineAllowed=()=>false;
+assert.match(driverCtx.driver(driverData),/Entre novamente online/);
+assert.doesNotMatch(driverCtx.driver(driverData),/data-driver-order=/,'expired offline session cannot show driver addresses');
+driverCtx.merchantDriverOfflineAllowed=()=>true;
+assert.match(driverPage,/<section class="merchant-driver-receipts" hidden aria-label="Comprovantes aguardando confirmação">/,
+ 'empty receipt panel must not distract the driver');
+assert.doesNotMatch(driverPage,/Comprovantes pendentes neste aparelho/,
+ 'the automatic pending-proof list needs no extra disclosure button');
+assert.match(driverPage,/Sem entregas protegidas disponíveis/);
+assert.match(driverPage,/A lista de entregas precisa ser atualizada/);
+assert.doesNotMatch(driverPage,/data-driver-order=/,'offline without a saved queue must never render normal server actions');
+// If encrypted assignments were restored, only the local staging surface is shown.
+driverCtx.merchantDriverOfflineQueue=()=>'<section class="merchant-driver-local-queue">Guardar comprovante pendente</section>';
+driverPage=driverCtx.driver(driverData);
+assert.match(driverPage,/Guardar comprovante pendente/);
+assert.doesNotMatch(driverPage,/data-driver-order=/,'offline with a recovered queue must not duplicate online action cards');
+driverCtx.merchantDriverOfflineQueue=()=>'';
+driverCtx.navigator.onLine=true;
+driverPage=driverCtx.driver(driverData);
 assert.ok(driverPage.indexOf('data-driver-order="arriving"')<
  driverPage.indexOf('data-driver-order="onroad"'));
 assert.ok(driverPage.indexOf('data-driver-order="onroad"')<
@@ -116,9 +135,12 @@ assert.ok(!driverPage.includes('merchantLiveDeliver('),'offline view must never 
 assert.ok(!driverPage.includes('offlineSaved'),'must never claim a queued receipt');
 assert.ok(css.includes('.merchant-driver-tools:not([open])>.merchant-driver-tools-body{display:none}'));
 assert.ok(css.includes('.merchant-driver-more:not([open])>.merchant-driver-more-body{display:none}'));
-driverCtx.navigator.onLine=true;
-driverPage=driverCtx.driver(driverData);
 assert.doesNotMatch(driverPage,/Sem conexão detectada/);
+// A backend 503/unavailable state is also offline for delivery decisions,
+// even if navigator reports connectivity and an old snapshot looks fresh.
+driverPage=driverCtx.driver({...driverData,status:'unavailable'});
+assert.doesNotMatch(driverPage,/data-driver-order=/,'unavailable backend cannot expose former action cards');
+assert.match(driverPage,/Sem entregas protegidas disponíveis/);
 driverCtx.merchantOrderListEvidence=()=>({fresh:false});
 driverPage=driverCtx.driver(driverData);
 assert.match(driverPage,/Atualize antes de confirmar/);

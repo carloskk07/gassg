@@ -67,7 +67,9 @@ git -C "$repo" archive --format=tar HEAD | tar -xf - -C "$workspace"
 cd "$workspace"
 [[ -f "supabase/schema.sql" && -f "tests/isolated-supabase-positive-checkout.mjs" ]] ||
   fail "O commit Git atual não contém os arquivos necessários."
-first="$(find supabase/migrations -maxdepth 1 -name '*.sql' -type f | LC_ALL=C sort | head -n 1)"
+# Under pipefail, head can close the pipe while sort still writes and cause SIGPIPE (141).
+# sed reads the entire sorted stream, retaining the same canonical first filename.
+first="$(find supabase/migrations -maxdepth 1 -name '*.sql' -type f | LC_ALL=C sort | sed -n '1p')"
 [[ "$first" == "supabase/migrations/20261001070000_reconcile_runtime_v1_4.sql" ]] ||
   fail "A versão das migrations não é a cadeia canônica homologada."
 cp supabase/schema.sql supabase/migrations/20261001065000_local_baseline_from_schema.sql

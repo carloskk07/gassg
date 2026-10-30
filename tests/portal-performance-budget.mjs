@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildLivePortals} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,compactReleasedMerchantComments} from '../scripts/build-live-portals.mjs';
 import {auditPortalBudgets,measurePortalBundle,readBudgets,ROLES} from '../scripts/portal-performance-budget.mjs';
 
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-perf-'));
@@ -28,6 +28,20 @@ try{
     assert.ok(item.js.brotliBytes<item.js.rawBytes);
     assert.ok(item.css.gzipBytes<item.css.rawBytes);
   }
+  const merchantSource=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
+  const merchantBuilt=fs.readFileSync(path.join(dir,'merchant','js','merchant.js'),'utf8');
+  assert.equal(merchantBuilt,compactReleasedMerchantComments(merchantSource),
+    'production merchant JavaScript must be the compacted canonical source');
+  assert.ok(Buffer.byteLength(merchantSource)-Buffer.byteLength(merchantBuilt)>3000,
+    'merchant release must save enough bytes without raising startup limits');
+  for(const contract of ['function merchantDriverLivePage(',
+     'async function merchantLiveDeliver(','function merchantLiveOrder(']){
+    assert.ok(merchantBuilt.includes(contract),'must preserve '+contract);
+  }
+  assert.equal(fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8'),
+    merchantSource,'release compaction must leave repository source untouched');
+  assert.throws(()=>compactReleasedMerchantComments('not a merchant script'),
+    /Missing canonical merchant/);
   const roleDir=path.join(dir,'customer'),m=report.portals[0];
   assert.throws(()=>measurePortalBundle(roleDir,{limits:{customer:{
     ...limits.customer,initialJsBytes:m.js.rawBytes-1

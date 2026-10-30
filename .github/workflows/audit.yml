@@ -372,6 +372,10 @@ jobs:
         run: node tests/merchant-daily-focus-v1-271.mjs
       - name: Test merchant queue and delivery shortcuts V1.272
         run: node tests/merchant-delivery-shortcuts-v1-272.mjs
+      - name: Driver AES-GCM offline receipt and manual server replay regression
+        run: node tests/merchant-offline-delivery.mjs
+      - name: Real Chrome mobile offline receipt and restart regression
+        run: node tests/browser-driver-offline.mjs
       - name: Test multi-delivery quick board V1.273
         run: node tests/merchant-multi-delivery-board-v1-273.mjs
       - name: Test merchant urgent work and compact routine queue V1.274

@@ -1,0 +1,60 @@
+name: TAMÃO Android emulator offline delivery (isolated)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-driver-offline.yml'
+      - 'tests/android-driver-offline.mjs'
+      - 'tests/driver-offline-fixture.mjs'
+      - 'tests/browser-driver-offline.mjs'
+      - 'js/merchant-offline-delivery.js'
+      - 'sw.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tamao-android-offline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_DB_PASSWORD: ''
+    steps:
+      - uses: actions/checkout@v6
+      - name: Ensure tests have valid syntax and no hosted credentials
+        run: |
+          node --check tests/driver-offline-fixture.mjs
+          node --check tests/browser-driver-offline.mjs
+          node --check tests/android-driver-offline.mjs
+          test -z "${SUPABASE_ACCESS_TOKEN:-}"
+          test -z "${SUPABASE_DB_PASSWORD:-}"
+      - name: Enable Android emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Real Android Chrome AES-GCM + service worker offline regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 3072M
+          emulator-boot-timeout: 600
+          script: node tests/android-driver-offline.mjs
+      - name: Upload emulator screenshots or startup diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-entregador-android-emulado
+          path: test-results/android-driver-offline/
+          if-no-files-found: warn
+          retention-days: 5

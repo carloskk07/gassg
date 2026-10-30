@@ -33,10 +33,19 @@ for(const asset of swAssets){
 
 const customer=read('js/customer.js');
 const merchant=read('js/merchant.js');
+const driverOffline=read('js/merchant-offline-delivery.js');
+assert.ok(merchant.includes("replace('/js/merchant.js','/js/merchant-offline-delivery.js')"),'driver offline helper must load from the same pinned version as the merchant portal');
+assert.ok(sw.includes("'./js/merchant-offline-delivery.js'"),'encrypted driver helper must be cached by official PWA');
+assert.ok(driverOffline.includes("name:'AES-GCM'")&&driverOffline.includes("extractable===false")===false,'driver receipts must use authenticated encryption with a non-extractable key');
+assert.ok(driverOffline.includes('merchantCompleteDeliveryLive')&&driverOffline.includes('authorizedOrder(id,{fresh:true})'),'offline replay must return to canonical server action and reread assignment/version');
 const growth=read('js/growth.js');
 const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
+const pinnedSdk=backend.match(/const SUPABASE_BROWSER_URL='([^']+)'/)?.[1];
+const cachedSdk=sw.match(/const AUTH_SDK_URL='([^']+)'/)?.[1];
+assert.ok(pinnedSdk&&pinnedSdk===cachedSdk,'offline PWA may cache only the exact SRI-pinned public Auth SDK');
+assert.ok(sw.includes("url.href===AUTH_SDK_URL?networkFirst(req):fetch(req)"),'only pinned public SDK is cached cross-origin');
 const analytics=read('js/analytics.js');
 const acquisition=read('js/acquisition.js');
 const adminAcquisition=read('js/admin-acquisition.js');
