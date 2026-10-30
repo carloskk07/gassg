@@ -668,6 +668,10 @@ jobs:
         run: node tests/customer-post-acceptance-v1-383.mjs
       - name: V1.493 customer/merchant help and real Admin error intake
         run: node tests/real-help-report-intake-v1-493.mjs
+      - name: V1.493 real support Edge HTTP handler and Admin triage in isolation
+        run: node tests/support-http-handler-journey-v1-493.mjs
+      - name: V1.493 remote help endpoint safe invalid-input smoke (no writes)
+        run: node tests/remote-help-intake-validation-v1-493.mjs
       - name: V1.493 readonly Admin source-side privacy and denied financial reads
         run: node tests/admin-readonly-scope-v1-493.mjs
       - name: V1.384 customer support status and duplicate prevention

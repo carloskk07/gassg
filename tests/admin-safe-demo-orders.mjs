@@ -100,8 +100,25 @@ assert.equal((lab.view().match(/data-demo-only="true"/g)||[]).length,3,
 lab.role('customer');lab.role('merchant');
 assert.doesNotMatch(lab.view(),/Código de entrega fictício \(só na visão Cliente\)/);
 const storageSnapshot=stored.get('tamao-admin-orders-demo-v2');
-assert.doesNotMatch(storageSnapshot,/4826|5937|6148|11590|Gás P13/,
- 'storage may contain only step indices and generic synthetic status, not PIN or catalog');
+const parsedSnapshot=JSON.parse(storageSnapshot);
+assert.deepEqual(Object.keys(parsedSnapshot).sort(),
+ ['v','actorId','expiresAt','viewRole','steps','cancelled'].sort(),
+ 'the only persisted fields are version, actor, expiry and generic demo progression');
+assert.equal(parsedSnapshot.v,2);
+assert.equal(parsedSnapshot.actorId,state.session.user.id);
+assert.ok(Number.isFinite(parsedSnapshot.expiresAt)&&parsedSnapshot.expiresAt>Date.now(),
+ 'expiry is a timestamp, not a sensitive PIN or product price');
+assert.ok(['admin','customer','merchant'].includes(parsedSnapshot.viewRole));
+assert.deepEqual(parsedSnapshot.steps.map(x=>Number.isSafeInteger(x)&&x>=0&&x<=4),
+ [true,true,true],'persist only bounded step indices');
+assert.deepEqual(parsedSnapshot.cancelled.map(x=>typeof x==='boolean'),
+ [true,true,true],'persist only cancellation flags');
+// A PIN or catalog field is forbidden regardless of its digits: a timestamp
+// may coincidentally contain a four-digit substring matching a synthetic PIN.
+for(const forbiddenField of ['pin','product','quantity','amountCents','customer','payment','orders','items']){
+ assert.equal(Object.hasOwn(parsedSnapshot,forbiddenField),false,
+   'forbidden persisted demo data: '+forbiddenField);
+}
 state.session.user.id='22222222-2222-4222-8222-222222222222';
 assert.doesNotMatch(lab.view(),/DEMO-002/,'new account must not inherit past account demo');
 lab.create();
