@@ -85,6 +85,19 @@ rejected(claim(owner,ref1,amount,'2026-01-01'),'PAYOUT_GRANT_NOT_ELIGIBLE');
 assert.equal(scalar("count(*) FROM public.platform_referral_payout_claims_v1_263"),'0',
  'all denied actions must be atomic');
 
+// Regression of a real authority gap: a matured internal commission does
+// not authorize an external payout report after its funding receivable is
+// reopened. This simulates a contradictory snapshot ONLY in an uncommitted
+// transaction; the connection rolls back on the expected RPC rejection.
+const reopenedReceivable="UPDATE public.platform_receivables SET status='open',"+
+ "paid_at=NULL,waived_at=NULL,reversed_at=NULL,resolved_by=NULL,"+
+ "resolution_reference=NULL WHERE order_id="+order+";";
+rejected("BEGIN; "+reopenedReceivable+" "+claim(owner,'CI-UNFUNDED-'+randomUUID())+
+ "ROLLBACK;",'PAYOUT_GRANT_NOT_ELIGIBLE');
+assert.equal(scalar("status FROM public.platform_receivables WHERE order_id="+order),
+ 'paid','failed claim must not modify the source fee receivable');
+assert.equal(scalar("count(*) FROM public.platform_referral_payout_claims_v1_263"),'0');
+
 const first=JSON.parse(sql(claim(owner,ref1)));
 assert.equal(first.alreadyRecorded,false);
 assert.equal(first.bankVerified,false);
@@ -109,6 +122,18 @@ assert.equal(listed.metrics.activeClaims,1);
 assert.equal(listed.metrics.reportedEligibleNowCents,amount);
 assert.equal(listed.metrics.activeWithoutProofFingerprint,1);
 assert.equal(listed.rows.find(row=>row.claimId===first.claimId).voided,false);
+
+// A historic active claim must cease being displayed as eligible when
+// the originating receivable loses coverage, even if the grant row still
+// carries matured_at. No changes are persisted by the DB transaction.
+const reopenedRead=Number(sql("BEGIN; "+reopenedReceivable+
+ " SELECT (public.admin_owner_referral_payout_claims_v1_263("+
+ q(owner)+"::uuid,"+q(month)+"::date)->'metrics'->>"+
+ q('reportedNowIneligibleCents')+")::bigint; ROLLBACK;"));
+assert.equal(reopenedRead,amount,
+ 'Admin must recheck paid fee when labeling owner payout claim eligible');
+assert.equal(scalar("status FROM public.platform_receivables WHERE order_id="+order),'paid');
+assert.equal(read(owner).metrics.reportedEligibleNowCents,amount);
 
 const voidIt=(actor,id,reason)=>"SELECT public.admin_owner_referral_payout_void_v1_263("+
  q(actor)+"::uuid,"+q(id)+"::uuid,"+q(reason)+")::text;";
