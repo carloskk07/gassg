@@ -32,7 +32,7 @@ const details={open:false,querySelector:sel=>sel==='summary'?{focus:()=>focus++}
  scrollIntoView:config=>{scroll++;assert.equal(config.block,'center')}};
 const esc=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const ctx=vm.createContext({adminRuntime:state,Date,Number,String,Object,Array,Map,Set,Intl,Math,esc,
- adminCurrentRole:()=>role,adminRoleCanSection:key=>key==='prospects'&&['operations','superadmin','compliance','readonly'].includes(role),
+ adminCurrentRole:()=>role,adminRoleCanSection:key=>key==='prospects'&&['operations','superadmin','compliance'].includes(role),
  requestAnimationFrame:callback=>callback(),document:{getElementById:id=>id==='prospect-editor-'+cn(1)?details:null},toast:()=>{}});
 vm.runInContext(['adminProspectFollowupSnapshot','adminProspectFollowupUi','adminProspectFollowupView','adminOpenProspectFollowup'].map(fn).join('\n')+
  '\nthis.snapshot=adminProspectFollowupSnapshot;this.view=adminProspectFollowupView;this.open=adminOpenProspectFollowup;',ctx);
@@ -48,7 +48,7 @@ assert.ok(html.includes('Atrasada &lt;ABC&gt;'));assert.ok(!html.includes('Atras
 assert.ok(!html.includes('adminPerform('));assert.ok(!html.includes('adminSaveProspect('));
 ctx.open(cn(1));assert.equal(details.open,true);assert.equal(focus,1);assert.equal(scroll,1);
 ctx.open('not-id');ctx.open(cn(7));assert.equal(focus,1);
-role='readonly';assert.ok(ctx.view(report).includes('disabled title="Apenas leitura neste perfil"'));
+role='readonly';assert.equal(ctx.view(report),'','readonly cannot open commercial prospect followups');
 ctx.open(cn(1));assert.equal(focus,1);
 role='finance';assert.equal(ctx.view(report),'');ctx.open(cn(1));assert.equal(focus,1);
 role='compliance';assert.ok(ctx.view(report).includes('Contatos para acompanhar'));
