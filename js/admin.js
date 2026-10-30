@@ -432,6 +432,12 @@ async function adminRefresh({silent=false}={}){
     if(seq!==adminRuntime.refreshSeq)return data;
     adminRuntime.data=data;
     adminRuntime.status='ready';
+    // Saved tabs can outlive a role change: never leave a read-only user
+    // on a tab whose server data is now forbidden by the RBAC policy.
+    if(!adminRoleCanSection(adminRuntime.section)){
+      adminRuntime.section=adminFirstSectionForRole();
+      try{sessionStorage.setItem('tamao-admin-section',adminRuntime.section)}catch{}
+    }
     adminRuntime.error=null;
     adminRuntime.lastSyncAt=new Date().toISOString();
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
@@ -2993,15 +2999,15 @@ const ADMIN_SECTION_ROLES={
   orders:new Set(['superadmin','operations','finance','support']),
   customers:new Set(['superadmin','operations','finance','support']),
   partners:new Set(['superadmin','operations','compliance']),
-  prospects:new Set(['superadmin','readonly','operations','compliance']),
-  enablement:new Set(['superadmin','readonly','operations','compliance']),
+  prospects:new Set(['superadmin','operations','compliance']),
+  enablement:new Set(['superadmin','operations','compliance']),
   catalog:new Set(['superadmin','operations']),
   finance:new Set(['superadmin','finance']),
   alerts:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   audit:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   system:new Set(['superadmin','readonly','operations']),
-  activations:new Set(['superadmin','readonly','operations']),
+  activations:new Set(['superadmin','operations']),
   discovery:new Set(['superadmin'])
 };
 function adminRoleCanSection(section,role=adminCurrentRole()){
