@@ -41,7 +41,7 @@ let plan={merchantId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',companyName:'Loja fi
 const runtime={session:{user:{id:'owner'}},governance:{}};
 const env=vm.createContext({
  adminRuntime:runtime,adminReady:()=>allowed,adminCurrentRole:()=>role,
- adminRoleCanSection:s=>['superadmin','operations','readonly'].includes(role),
+ adminRoleCanSection:s=>['superadmin','operations'].includes(role),
  adminInvoke:async({action})=>{
    calls.push(action);
    if(action==='ads-sales-plans')return {source:'admin_ads_sales_plans_v1_309',readOnly:true,
@@ -85,7 +85,9 @@ assert.equal(plan.durationDays,14);
 assert.equal(plan.stage,'ready_for_contact');
 assert.ok(calls.some(x=>x.action==='ads-sales-plan-save'));
 assert.match(env.salesView(),/99,00/);
-role='readonly';assert.equal(await env.reload({force:true})!=null,true);
+role='readonly';const beforeReadonly=calls.length;
+assert.equal(await env.reload({force:true}),null,'readonly must not query restricted Ads evidence');
+assert.equal(calls.length,beforeReadonly,'no Ads backend calls for readonly');
 assert.doesNotMatch(env.salesView(),/Salvar planejamento/);
 assert.equal(await env.savePlan(plan.merchantId),false);
 role='support';assert.equal(env.salesView(),'');
