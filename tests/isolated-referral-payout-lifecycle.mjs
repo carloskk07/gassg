@@ -174,6 +174,8 @@ const providerTarget=(actor)=>"public.admin_owner_payout_provider_target_v1_265(
  q(actor)+"::uuid,"+q(corrected.claimId)+"::uuid)";
 const providerRead=(actor)=>"public.admin_owner_payout_provider_read_v1_265("+
  q(actor)+"::uuid,"+q(month)+"::date)";
+const providerPage=(actor)=>"public.admin_owner_payout_provider_page_v1_336("+
+ q(actor)+"::uuid,"+q(month)+"::date,0)";
 const payoutId='POP'+randomUUID().replaceAll('-','').slice(0,16).toUpperCase();
 const transactionId='TOP'+randomUUID().replaceAll('-','').slice(0,16).toUpperCase();
 const recordProvider=(digest)=>
@@ -197,6 +199,12 @@ assert.equal(priorProviderRead.providerSuccessClaims,1);
 assert.equal(priorProviderRead.bankSettlementVerified,false);
 assert.equal(priorProviderRead.providerTransactionIsBeneficiaryProof,false);
 assert.equal(priorProviderRead.rows.find(row=>row.claimId===corrected.claimId).successNow,true);
+const firstPage=json(providerPage(owner));
+assert.equal(firstPage.providerSuccessClaims,1);
+assert.equal(firstPage.rows.find(row=>row.claimId===corrected.claimId).successNow,true);
+assert.equal(firstPage.pageOffset,0);
+assert.equal(firstPage.bankSettlementVerified,false);
+assert.equal(firstPage.providerTransactionIsBeneficiaryProof,false);
 assert.equal(scalar("count(*) FROM public.platform_referral_provider_observations_v1_265 "+
  "WHERE claim_id="+q(corrected.claimId)+"::uuid"),'1');
 
@@ -210,7 +218,8 @@ const unfunded=JSON.parse(sql("BEGIN; "+reopenedReceivable+
  " SELECT jsonb_build_object("+
  "'target',"+providerTarget(owner)+","+
  "'newObservation',"+recordProvider('b'.repeat(64))+","+
- "'report',"+providerRead(owner)+")::text; ROLLBACK;"));
+ "'report',"+providerRead(owner)+","+
+ "'page',"+providerPage(owner)+")::text; ROLLBACK;"));
 assert.equal(unfunded.target.eligible,false,
  'provider target must not endorse a matured but unpaid commission');
 assert.equal(unfunded.newObservation.eligibleNow,false);
@@ -218,6 +227,11 @@ assert.equal(unfunded.newObservation.providerTransactionSuccess,false,
  'provider success label must not override missing TAMÃO receivable funding');
 assert.equal(unfunded.newObservation.bankSettlementVerified,false);
 assert.equal(unfunded.newObservation.transferExecuted,false);
+assert.equal(unfunded.page.providerSuccessClaims,0,
+ 'all 30-row provider pages must drop unfunded success labels');
+assert.equal(unfunded.page.rows.find(row=>row.claimId===corrected.claimId).successNow,false);
+assert.equal(unfunded.page.rows.find(row=>row.claimId===corrected.claimId).historicalProviderSuccessObserved,true);
+assert.equal(unfunded.page.bankSettlementVerified,false);
 assert.equal(unfunded.report.providerSuccessClaims,0,
  'provider summary must recheck the platform fee, not just historic grant');
 const unfundedRow=unfunded.report.rows.find(row=>row.claimId===corrected.claimId);
