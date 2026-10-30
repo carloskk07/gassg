@@ -28,6 +28,7 @@ function setup(){
   error:null,actionPending:false,pollPending:false,
   orderRequestSeq:0,financialSyncSeq:0,
   lastFinancialSyncAttemptAt:0,lastFinancialSyncAt:0,
+  terminalSupportAttemptAt:0,
   marketStatus:{commerceEnabled:false},cityPriceSnapshot:null
  };
  saved.set('test-tracked-order',OLD);
@@ -127,6 +128,63 @@ assert.equal(late404.runtime.orderId,NEXT);
 assert.equal(late404.saved.get('test-tracked-order'),NEXT);
 assert.equal(late404.runtime.order,null);
 
+// A terminal delivery may still have an open support case. Admin status
+// changes must become visible to the customer without manual refresh.
+const review=setup();
+review.runtime.order.supportCases=[{category:'late',status:'open'}];
+review.setGetOrder(async id=>({
+ orderId:id,status:'SETTLED',version:7,
+ supportCases:[{category:'late',status:'resolved'}]
+}));
+await review.ctx.poll();
+assert.equal(review.calls.filter(x=>x.name==='get-order').length,1);
+assert.equal(review.runtime.order.supportCases[0].status,'resolved');
+assert.equal(review.runtime.orderCheckedId,OLD);
+await review.ctx.poll();
+assert.equal(review.calls.filter(x=>x.name==='get-order').length,1,
+ 'resolved support should stop terminal polling');
+
+// Unresolved support is checked no more often than once a minute, regardless
+// of the regular 5-second customer scheduler. No new timer or API is created.
+const bounded=setup();
+bounded.runtime.order.supportCases=[{category:'delivery',status:'open'}];
+bounded.setGetOrder(async id=>({
+ orderId:id,status:'CANCELLED',version:7,
+ supportCases:[{category:'delivery',status:'in_review'}]
+}));
+await bounded.ctx.poll();
+await bounded.ctx.poll();
+assert.equal(bounded.calls.filter(x=>x.name==='get-order').length,1,
+ 'pending terminal support must be rate-bounded');
+bounded.runtime.terminalSupportAttemptAt=Date.now()-61000;
+await bounded.ctx.poll();
+assert.equal(bounded.calls.filter(x=>x.name==='get-order').length,2,
+ 'unresolved support is refreshed after the bounded window');
+
+// Even with an outage, the support refresh is bounded and does not silently
+// erase the verified terminal order or falsely mark the case resolved.
+const outage=setup();
+outage.runtime.order.supportCases=[{category:'other',status:'in_review'}];
+outage.setGetOrder(async()=>{throw new Error('network unavailable')});
+await outage.ctx.poll();
+await outage.ctx.poll();
+assert.equal(outage.calls.filter(x=>x.name==='get-order').length,1);
+assert.equal(outage.runtime.orderId,OLD);
+assert.equal(outage.runtime.order.supportCases[0].status,'in_review');
+assert.match(outage.runtime.error,/network unavailable/);
+
+// PRs touching any financial/admin/customer/merchant module must exercise
+// the existing disposable end-to-end suite, not only a short path allowlist.
+const workflow=fs.readFileSync(new URL('../.github/workflows/isolated-supabase-integration.yml',import.meta.url),'utf8');
+const prGate=workflow.slice(workflow.indexOf('  pull_request:'),
+ workflow.indexOf('\n  schedule:'));
+assert.match(prGate,/branches: \[main\]/);
+assert.doesNotMatch(prGate,/\n\s+paths(?:-ignore)?:/,
+ 'no money-related PR may silently bypass the disposable integration gate');
+assert.match(workflow,/SUPABASE_ACCESS_TOKEN: ''/);
+assert.match(workflow,/SUPABASE_DB_PASSWORD: ''/);
+assert.match(workflow,/cron: '23 4 \* \* \*'/);
+
 // The browser route remains connected to the original shared 5-second
 // scheduler: no extra polling loop, shadow order API or production writes.
 const boot=fs.readFileSync(new URL('../js/bootstrap.js',import.meta.url),'utf8');
@@ -136,4 +194,4 @@ assert.ok(!source.includes('merchant-action'));
 assert.ok(!source.includes('adminPerform'));
 const audit=fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8');
 assert.ok(audit.includes('node tests/customer-active-order-switch-v1-493.mjs'));
-console.log('PASS: real customer-summary active-order promotion, old snapshot removal, polling, delayed result and 404 recovery.');
+console.log('PASS: active-order recovery, terminal support tracking, bounded network retry and universal disposable E2E on PRs.');
