@@ -2051,7 +2051,11 @@ async function adminSearch(admin:any,rawQuery:unknown,role:string){
       : ["finance","support"].includes(role)
         ? new Set(["order","merchant","customer"])
         : new Set(["order","merchant","customer","application","lead","request"]);
-  return {query,results:results.filter((x:any)=>allowedTypes.has(x.type)).slice(0,40)};
+  const visible=results.filter((x:any)=>allowedTypes.has(x.type)).slice(0,40);
+  return {query,results:role==="readonly"?visible.map((x:any)=>({
+    type:x.type,id:x.id,title:x.title,status:x.status,updatedAt:x.updatedAt,
+    subtitle:"Revenda • "+String(x.status||"—")
+  })):visible};
 }
 async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown,role:string){
   const type=String(entityType??"").trim().toLowerCase();
@@ -2149,6 +2153,9 @@ async function adminAuditSearch(admin:any,body:any,role:string){
     .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
     .order("created_at",{ascending:false})
     .limit(limit);
+  if(body.actorUserId&&role==="readonly")
+    throw new DomainError("ADMIN_PERMISSION_DENIED",
+      "Este perfil não consulta registros por identidade administrativa.",403);
   if(body.actorUserId)query=query.eq("actor_user_id",uuid(body.actorUserId,"actor"));
   if(body.action)query=query.eq("action",cleanText(body.action,{min:2,max:80,name:"ação"}));
   if(body.targetType)query=query.eq("target_type",cleanText(body.targetType,{min:2,max:80,name:"tipo de alvo"}));
@@ -2168,8 +2175,10 @@ async function adminAuditSearch(admin:any,body:any,role:string){
   const rows=(result.data??[]).filter((row:any)=>{
     if(!adminRoleAuditMatch(role,row))return false;
     if(!q)return true;
-    return [row.action,row.target_type,row.target_id,row.actor_user_id,JSON.stringify(row.metadata||{})]
-      .some(v=>String(v||"").toLowerCase().includes(q));
+    const fields=role==="readonly"
+      ?[row.action,row.target_type]
+      :[row.action,row.target_type,row.target_id,row.actor_user_id,JSON.stringify(row.metadata||{})];
+    return fields.some(v=>String(v||"").toLowerCase().includes(q));
   });
   return {results:role==="readonly"?rows.map((r:any)=>({
     id:r.id,action:r.action,target_type:r.target_type,created_at:r.created_at
