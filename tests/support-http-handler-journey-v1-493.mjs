@@ -122,6 +122,15 @@ res=await ask({contentType:'text/plain'});
 assert.equal(res.status,415);assert.equal(res.body.error,'INVALID_CONTENT_TYPE');
 res=await ask({body:'broken-json'});
 assert.equal(res.status,400);assert.equal(res.body.error,'INVALID_JSON');
+// Real handler previously threw on JSON null, returning a misleading 500.
+// Reject every non-object body before consent, quota and database operations.
+for(const invalidShape of ['null','[]','"hello"','true','42']){
+  const before=counters();
+  res=await ask({body:invalidShape});
+  assert.equal(res.status,400,'non-object JSON must be a client error');
+  assert.equal(res.body.error,'INVALID_PAYLOAD');
+  noMutation(before,'invalid request shape '+invalidShape);
+}
 res=await ask({body:'{}'});
 assert.equal(res.status,400);assert.equal(res.body.error,'ACK_REQUIRED');
 res=await ask({body:payload({requestKind:'privileged'}),key:'test-invalid-kind-001'});
