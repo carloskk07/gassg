@@ -101,6 +101,20 @@ const scopedRole=adminEdge.slice(adminEdge.indexOf('if(role==="support"){',summa
 assert.match(scopedRole,/publicRequests:\(data\.publicRequests\?\?\[\]\)\.filter/,
   'support summary must exclude privacy and general requests before returning JSON');
 assert.match(scopedRole,/request_kind==="support"/);
+
+const scopedExec=vm.createContext({});
+vm.runInContext('function scopeForSupport(data){const role="support",adminSelf=[];\n'+
+  scopedRole.replaceAll('(m:any)','(m)').replaceAll('(x:any)','(x)')+
+  '\n}this.scope=scopeForSupport;',scopedExec);
+const redacted=scopedExec.scope({merchants:[],publicRequests:[
+  {id:'case-a',request_kind:'support',message:'Pedido não acompanha'},
+  {id:'case-private',request_kind:'privacy',message:'Documento e dados privados'},
+  {id:'case-general',request_kind:'general',message:'Consulta comercial'}
+]});
+assert.equal(redacted.publicRequests.length,1);
+assert.equal(redacted.publicRequests[0].id,'case-a');
+assert.doesNotMatch(JSON.stringify(redacted),/case-private|Documento e dados privados|case-general/);
+
 assert.match(adminEdge,/if\(action==="public-request-status"&&adminAccess\.admin_role==="support"\)/);
 assert.match(adminEdge,/check\.data\?\.request_kind!=="support"/,
   'an operator cannot resolve a privacy request by forging a POST');
