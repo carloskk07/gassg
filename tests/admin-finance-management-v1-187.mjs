@@ -115,7 +115,7 @@ const warningOnly=reconciled({
     merchantId:'ci-test',entityId:'ci-pending',expectedCents:30000,
     actualCents:0,ageHours:364}]
 });
-assert.match(warningOnly,/class="status-pill risk">1 alerta\\(s\\)<\\/span>/,
+assert.match(warningOnly,/class="status-pill risk">1 alerta\(s\)<\/span>/,
   'a warning-only state must be amber and state the real warning count');
 assert.doesNotMatch(warningOnly,/class="status-pill offline">0 crítico/,
   'warning-only state must not be a red zero-critical badge');
@@ -124,7 +124,7 @@ const critical=reconciled({
   healthy:false,issueCount:2,criticalCount:1,warningCount:1,
   issues:[{severity:'critical',issueType:'account_ledger_balance_mismatch'}]
 });
-assert.match(critical,/class="status-pill offline">1 crítico\\(s\\) • 1 alerta\\(s\\)/);
+assert.match(critical,/class="status-pill offline">1 crítico\(s\) • 1 alerta\(s\)/);
 const clear=reconciled({healthy:true,issueCount:0,criticalCount:0,warningCount:0,issues:[]});
 assert.match(clear,/class="status-pill online">ÍNTEGRA/);
 assert.match(clear,/Conciliação fechada/);
