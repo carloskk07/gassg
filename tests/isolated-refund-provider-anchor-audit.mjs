@@ -92,7 +92,7 @@ begin
   where issue->>'severity'='critical'
     and issue->>'issueType'='refund_provider_anchor_request_conflict'
     and issue->>'entityId'=v_refund::text
-    and issue->>'merchantId'=to_jsonb(v_merchant)::text #>> '{}';
+    and issue->>'merchantId'=v_merchant::text;
   if v_count<>1 then
     raise exception 'CONFLICT_MISSING_OR_DUPLICATED: %',v_count;
   end if;
