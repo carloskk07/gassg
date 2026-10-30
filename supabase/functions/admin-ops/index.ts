@@ -2219,8 +2219,18 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
   let publication:any={available:portalRole,valid:false};
   const tasks=[];
   if(operationalRole)tasks.push((async()=>{
-    const r=await fetchCount(()=>admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]));
-    support={available:true,valid:r.valid,open:r.count};
+    // Combine existing order tickets and the new public Help/Reportar erro
+    // inbox; one alert, two independently validated counts, no PII.
+    const [cases,reports]=await Promise.all([
+      fetchCount(()=>admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"])),
+      fetchCount(()=>admin.from("public_requests").select("id",{count:"exact",head:true})
+        .eq("request_kind","support").in("status",["new","in_review"]))
+    ]);
+    const valid=cases.valid&&reports.valid;
+    support={available:true,valid,
+      open:valid?cases.count+reports.count:null,
+      cases:cases.valid?cases.count:null,
+      reports:reports.valid?reports.count:null};
   })());
   if(financeRole)tasks.push((async()=>{
     const [rewards,accounting]=await Promise.all([
@@ -2458,11 +2468,13 @@ async function adminSystemHealth(admin:any){
   const now=new Date();
   const heartbeatCutoff=now.getTime()-15*60*1000;
   const priceCutoff=now.getTime()-24*60*60*1000;
-  const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants,githubPublication,latestPortalAttestation]=await Promise.all([
+  const [portals,readiness,paymentProvider,openSupport,openHelpReports,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants,githubPublication,latestPortalAttestation]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
     billingProviderHealth(admin),
     admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
+    admin.from("public_requests").select("id",{count:"exact",head:true})
+      .eq("request_kind","support").in("status",["new","in_review"]),
     admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("platform_receivables").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
@@ -2473,7 +2485,7 @@ async function adminSystemHealth(admin:any){
       .select("source_sha,attestation_source,run_id,run_attempt,verified_at")
       .order("verified_at",{ascending:false}).limit(1).maybeSingle()
   ]);
-  for(const result of [readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]){
+  for(const result of [readiness,openSupport,openHelpReports,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]){
     if(result.error)throw result.error;
   }
   const publication=publicationSummary({
@@ -2491,8 +2503,11 @@ async function adminSystemHealth(admin:any){
     const ts=Date.parse(String(m.price_confirmed_at??""));
     return !Number.isFinite(ts)||ts<priceCutoff;
   }).length;
+  if(!Number.isSafeInteger(openHelpReports.count)||openHelpReports.count<0)
+    throw new DomainError("HELP_REPORT_HEALTH_UNAVAILABLE","Não foi possível contar relatos pendentes com segurança.",503);
   const queues={
     openSupport:Number(openSupport.count||0),
+    pendingHelpReports:openHelpReports.count,
     rewardFailures:Number(rewardDebt.count||0),
     accountingFailures:Number(accountingDebt.count||0),
     overdueReceivables:Number(overdueReceivables.count||0),
