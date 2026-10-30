@@ -123,5 +123,44 @@ const localSql=command=>execFileSync('psql',[
 assert.equal(localSql('select count(*) from public.orders'),'0');
 assert.equal(localSql('select count(*) from public.wallet_entries'),'0');
 assert.equal(localSql("select count(*) from auth.users where id='"+uid+"'"),'0');
+
+// Real local support intake: one report, same-key replay, protected URL
+// attribution and no new case on conflict. The whole database is destroyed.
+const reportKey='ci-support-'+randomUUID();
+const reportBody={
+  requestKind:'support',contactName:'Teste descartável CI',
+  contactChannel:'email',contactValue:'qa@example.com',
+  message:'Teste de regressão isolado: falha de acompanhamento de pedido',
+  acknowledged:true,website:'',
+  attribution:{
+    landingPath:'/?tamao_help=revenda&modulo=merchant-orders&access_token=PRIVATE#secret',
+    referrer:'https://example.com/redirect?token=PRIVATE'
+  }
+};
+const sendSupport=async(body,key=reportKey,origin=headers.Origin)=>{
+  const res=await fetch(base+'/functions/v1/submit-public-request',{
+    method:'POST',headers:{...headers,Origin:origin,'Idempotency-Key':key},
+    body:JSON.stringify(body),signal:AbortSignal.timeout(60000)
+  });
+  return {status:res.status,reply:await res.json()};
+};
+const submitted=await sendSupport(reportBody);
+assert.equal(submitted.status,201,'real disposable support Edge must persist case');
+assert.match(submitted.reply.protocol,/^[A-F0-9]{8}$/);
+const replay=await sendSupport(reportBody);
+assert.equal(replay.status,200,'same request key returns previous receipt');
+assert.equal(replay.reply.protocol,submitted.reply.protocol,'replay must keep original protocol');
+assert.equal(replay.reply.replayed,true);
+const conflicting=await sendSupport({...reportBody,message:'Outra descrição do mesmo erro'});
+assert.equal(conflicting.status,409,'same key with different content is rejected');
+assert.equal(conflicting.reply.error,'IDEMPOTENCY_CONFLICT');
+const denied=await sendSupport(reportBody,'ci-denied-'+randomUUID(),'https://other.example');
+assert.equal(denied.status,403,'external origin must not submit reports');
+assert.equal(denied.reply.error,'ORIGIN_NOT_ALLOWED');
+const row=localSql("select landing_path||'|'||referrer from public.public_requests where request_idempotency_key='"+reportKey+"'");
+assert.equal(row,'/?tamao_help=revenda&modulo=merchant-orders#contact|https://example.com');
+assert.equal(localSql("select count(*) from public.public_requests where request_idempotency_key='"+reportKey+"'"),'1');
+console.log('PASS local real Edge support intake, one protocol/replay, CORS denial, no token leakage or duplicate.');
+
 console.log('PASS local Auth login, real user Edge authorization and fictitious identity cleanup; no orders/credits.');
 
