@@ -27,6 +27,11 @@ on:
       - 'supabase/functions/merchant-orders/**'
       - 'supabase/functions/submit-public-request/**'
       - 'tests/support-http-handler-journey-v1-493.mjs'
+  # #493: proactively exercise the real Auth/Edge/SQL journeys on a
+  # disposable runner even if nobody commits or manually starts a test.
+  # The public-repo standard Ubuntu runner does not access production secrets.
+  schedule:
+    - cron: '23 4 * * *'
   workflow_dispatch:
 
 permissions:
