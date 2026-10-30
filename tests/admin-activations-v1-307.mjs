@@ -122,7 +122,7 @@ assert.match(view,/Publicidade TAMÃO/);
 assert.match(view,/Não confirmado/);
 assert.doesNotMatch(view,/Exibição bloqueada/);
 role='readonly';runtime.governance.role=role;
-view=env.view({});assert.match(view,/não confirmada/);
+view=env.view({});assert.equal(view,'','readonly cannot see the restricted activation desk');
 const requestsBeforeReadonly=calls.length;
 assert.equal(await env.load({force:true}),null,'readonly cannot fetch forbidden activation sources');
 assert.equal(calls.length,requestsBeforeReadonly,'readonly cannot issue the 23 protected reads');
