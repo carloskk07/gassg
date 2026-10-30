@@ -12,6 +12,7 @@ on:
       - 'tests/isolated-supabase-http-smoke.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
       - 'tests/isolated-support-positive-journey.mjs'
+      - 'tests/isolated-referral-payout-lifecycle.mjs'
       - 'tests/isolated-supabase-coupon-full-schema.mjs'
       - 'tests/isolated-live-portal-browser.mjs'
       - 'tests/owner-local-demo-browser.mjs'
@@ -147,6 +148,8 @@ jobs:
           path: test-results/isolated-order-evidence/
           if-no-files-found: error
           retention-days: 5
+      - name: Verify real referral payout declaration, void and finance authority without bank claims
+        run: node tests/isolated-referral-payout-lifecycle.mjs
       - name: Verify real local HTTP Ajuda intake through protected Admin resolution
         run: node tests/isolated-support-positive-journey.mjs
       - name: Verify REAL coupon payment, audited net and v8 checkout on disposable full schema
