@@ -114,4 +114,78 @@ assert.ok(edge.includes('role==="readonly"?rows.map'));
 assert.ok(edge.includes('if(action==="incident-list")'));
 assert.ok(edge.includes('if(adminAccess.admin_role==="readonly")'));
 assert.ok(edge.includes('if(body.actorUserId&&role==="readonly")'));
+
+// The frontend must never offer workspaces that the same role cannot query.
+// A saved tab from a former role must be recovered after a new summary loads.
+const frontend=read('js/admin.js');
+const activations=read('js/admin-activations.js');
+const cutClient=(start,end)=>{
+  const a=frontend.indexOf(start),b=frontend.indexOf(end,a+start.length);
+  assert.ok(a>=0&&b>a,'missing admin frontend code '+start);
+  return frontend.slice(a,b);
+};
+let currentRole='readonly',renderCount=0,requests=0;
+const savedSections=[];
+const uiRuntime={client:{},session:{user:{id:'readonly-test'}},section:'prospects',
+  refreshSeq:0,status:'ready',data:null};
+const uiCtx=vm.createContext({
+  Date,Set,Array,Object,String,Promise,
+  adminRuntime:uiRuntime,
+  adminCurrentRole:()=>currentRole,
+  adminReady:()=>true,
+  adminInvoke:async()=>{requests++;return {currentAdmin:{admin_role:currentRole}}},
+  retryAmbiguousOnce:async fn=>fn(),
+  render:()=>renderCount++,
+  queueMicrotask:fn=>fn(),
+  sessionStorage:{setItem:(key,value)=>savedSections.push([key,value])},
+  adminEnsureProviderHealth:async()=>null,
+  adminLoadGovernanceGates:async()=>null,
+  requestAnimationFrame:()=>{},
+  adminNavIcon:()=>'<svg></svg>',
+  esc:value=>String(value),
+});
+const policyClient=cutClient('const ADMIN_SECTION_ROLES=', '\nfunction adminSectionMeta(');
+const refreshClient=cutClient('async function adminRefresh(', '\nasync function ');
+const navigationClient=cutClient('function adminSetSection(section){', '\nfunction adminPanel(');
+vm.runInContext(policyClient+'\n'+refreshClient+'\n'+navigationClient+
+  '\nthis.can=adminRoleCanSection;this.goto=adminSetSection;this.menu=adminMenuButton;this.refresh=adminRefresh;',
+  uiCtx);
+const forbiddenTabs=['prospects','enablement','activations'];
+for(const section of forbiddenTabs){
+  assert.equal(uiCtx.can(section,'readonly'),false,section+' forbidden for readonly');
+  assert.equal(uiCtx.menu(section,section,'·'),'','readonly menu hides '+section);
+  uiCtx.goto(section);
+  assert.equal(uiRuntime.section,'overview','readonly navigation must recover to overview');
+}
+assert.equal(requests,0,'forbidden tabs must not trigger a server fetch');
+for(const tab of ['overview','alerts','incidents','audit','system'])
+  assert.equal(uiCtx.can(tab,'readonly'),true,'preserve authorized '+tab);
+for(const tab of ['prospects','enablement','activations'])
+  assert.equal(uiCtx.can(tab,'superadmin'),true,'preserve superadmin '+tab);
+for(const tab of ['prospects','enablement','activations'])
+  assert.equal(uiCtx.can(tab,'operations'),true,'preserve operator '+tab);
+for(const tab of ['prospects','enablement'])
+  assert.equal(uiCtx.can(tab,'compliance'),true,'preserve compliance '+tab);
+for(const section of forbiddenTabs){
+  uiRuntime.section=section;
+  await uiCtx.refresh({silent:true});
+  assert.equal(uiRuntime.section,'overview','saved forbidden tab '+section+' must be reset after login');
+  assert.equal(savedSections.at(-1)[1],'overview','persist safe tab on role change');
+}
+assert.equal(requests,3,'safe summary reads only; no restricted lazy queries');
+const activationStart=activations.indexOf('async function adminActivationLoad(');
+const activationEnd=activations.indexOf('\n}',activationStart);
+assert.ok(activationStart>=0&&activationEnd>activationStart);
+const activationCtx=vm.createContext({Date,Promise,adminRuntime:uiRuntime,
+  adminCurrentRole:()=>currentRole,adminReady:()=>true,
+  adminRoleCanSection:(section,role)=>uiCtx.can(section,role),
+  render:()=>renderCount++,adminInvoke:async()=>{requests++;throw Error('unauthorized request')}});
+vm.runInContext(activations.slice(0,activations.indexOf('\nasync function adminActivationLoad('))+
+  '\n'+activations.slice(activationStart,activationEnd+2)+
+  '\nthis.load=adminActivationLoad;',activationCtx);
+assert.equal(await activationCtx.load({force:true}),null,
+  'even a direct activation loader invocation must never fetch for readonly');
+assert.equal(requests,3,'activation loader must not hit 23 restricted endpoints');
+console.log('PASS: frontend RBAC aligned with backend, old tab recovers, privileged loaders not called.');
+
 console.log('PASS: readonly never receives contacts, addresses, PSP identifiers, finance, incidents or audit metadata; reads remain scoped.');
