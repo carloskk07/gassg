@@ -6228,6 +6228,7 @@ function adminBillingReconciliationMessage(issue){
     matched_payment_approval_sla_over_2h:'Pagamento já conciliado aguarda confirmação do Financeiro há mais de 2 horas.',
     payment_event_review_sla_over_4h:'Evento de pagamento permanece em revisão há mais de 4 horas.',
     refund_review_recovery_mismatch:'Refund ligado não possui obrigação de recuperação exata e coerente.',
+    refund_provider_anchor_request_conflict:'O estorno está associado a uma cobrança, mas o pagamento identificado pelo provedor aponta para outra. Conferir antes de conciliar ou liberar valores.',
     refund_recovery_request_mismatch:'Obrigação de recuperação diverge da solicitação financeira vinculada.',
     resolved_refund_without_recovered_obligation:'Refund foi marcado como recuperado sem obrigação + pagamento aprovados.',
     recovered_obligation_refund_not_resolved:'Obrigação foi recuperada, mas o refund não foi encerrado de forma coerente.',
