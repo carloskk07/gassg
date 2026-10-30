@@ -2212,7 +2212,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
   const financeRole=["superadmin","finance"].includes(role);
   const captureRole=["superadmin","operations","compliance","readonly"].includes(role);
   const portalRole=["superadmin","operations","readonly"].includes(role);
-  let support={available:operationalRole,valid:false,open:null};
+  let support:{available:boolean;valid:boolean;open:number|null;cases:number|null;reports:number|null}={available:operationalRole,valid:false,open:null,cases:null,reports:null};
   let finance={available:financeRole,valid:false,rewardFailures:null,accountingFailures:null};
   let capture={available:captureRole,valid:false,health:null};
   let portals={available:portalRole,valid:false,verified:false};
