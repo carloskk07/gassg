@@ -11,6 +11,7 @@ on:
       - 'tests/isolated-discovery-privileged-rpc.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
+      - 'tests/isolated-refund-provider-anchor-audit.mjs'
       - 'tests/isolated-support-positive-journey.mjs'
       - 'tests/isolated-referral-payout-lifecycle.mjs'
       - 'tests/isolated-supabase-coupon-full-schema.mjs'
@@ -140,6 +141,8 @@ jobs:
         run: node tests/isolated-supabase-http-smoke.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
+      - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
+        run: node tests/isolated-refund-provider-anchor-audit.mjs
       - name: Upload temporary visual evidence from disposable order tests
         if: success()
         uses: actions/upload-artifact@v4
