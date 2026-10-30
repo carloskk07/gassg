@@ -505,26 +505,21 @@ async function prelaunchLeadSubmit(payload){
   });
 }
 
+let pendingPublicRequest=null;
 async function publicRequestSubmit(payload){
-  const body={...payload,attribution:prelaunchAttribution()};
-  const idempotencyKey=liveIdempotency('public-request');
-  return retryAmbiguousOnce(async()=>{
-    const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/submit-public-request',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey,'Idempotency-Key':idempotencyKey},
-      body:JSON.stringify(body),
-      cache:'no-store'
-    });
-    let data=null;
-    try{data=await response.json()}catch{}
-    if(!response.ok){
-      const error=new Error(data?.message||data?.error||('HTTP '+response.status));
-      error.code=data?.error||'HTTP_'+response.status;
-      error.status=response.status;
-      throw error;
-    }
-    return data;
-  });
+ const body=JSON.stringify({...payload,attribution:prelaunchAttribution()});
+ const key=pendingPublicRequest?.body===body?pendingPublicRequest.key:liveIdempotency('public-request');
+ pendingPublicRequest={body,key};
+ const data=await retryAmbiguousOnce(async()=>{
+  const res=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/submit-public-request',{
+   method:'POST',headers:{'Content-Type':'application/json',apikey:CHAMA_BACKEND.publishableKey,'Idempotency-Key':key},body,cache:'no-store'});
+  const json=await res.json().catch(()=>null);
+  if(!res.ok)throw Object.assign(new Error(json?.message||json?.error||'HTTP '+res.status),
+   {code:json?.error||'HTTP_'+res.status,status:res.status});
+  return json;
+ });
+ if(pendingPublicRequest?.key===key)pendingPublicRequest=null;
+ return data;
 }
 
 function liveCartItems(){
