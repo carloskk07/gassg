@@ -71,10 +71,10 @@ const before=scalar("(SELECT count(*) FROM public.wallet_entries)::text || ':' |
  "(SELECT count(*) FROM public.platform_referral_payout_proofs_v1_264)::text || ':' || "+
  "(SELECT count(*) FROM public.merchant_billing_payment_events)::text || ':' || "+
  "(SELECT count(*) FROM public.order_reward_grants)::text");
-const claim=(actor,reference,amountCents=amount,paidOn=today,orderId=reward.order_id)=> 
+const claim=(actor,reference,amountCents=amount,paidOn=today,orderId=reward.order_id,provider='pix')=>
  "SELECT public.admin_owner_referral_payout_record_v1_263("+
  q(actor)+"::uuid,"+q(orderId)+"::uuid,"+amountCents+
- ",'pix',"+q(reference)+","+q(paidOn)+"::date,NULL)::text;";
+ ","+q(provider)+","+q(reference)+","+q(paidOn)+"::date,NULL)::text;";
 const ref1='CI-LOCAL-PAYOUT-'+randomUUID();
 const ref2='CI-LOCAL-REPLACEMENT-'+randomUUID();
 assert.equal(scalar("count(*) FROM public.platform_referral_payout_claims_v1_263"),'0');
@@ -150,10 +150,10 @@ assert.equal(scalar("count(*) FROM public.platform_referral_payout_voids_v1_263 
 
 rejected(claim(owner,ref1),'PAYOUT_REFERENCE_ALREADY_USED',
  'voided reference can never be recycled');
-const corrected=JSON.parse(sql(claim(owner,ref2)));
+const corrected=JSON.parse(sql(claim(owner,ref2,amount,today,reward.order_id,'mercado_pago')));
 assert.equal(corrected.alreadyRecorded,false);
 assert.notEqual(corrected.claimId,first.claimId);
-const correctedReplay=JSON.parse(sql(claim(owner,ref2)));
+const correctedReplay=JSON.parse(sql(claim(owner,ref2,amount,today,reward.order_id,'mercado_pago')));
 assert.equal(correctedReplay.alreadyRecorded,true);
 assert.equal(correctedReplay.claimId,corrected.claimId);
 const final=read(owner);
@@ -167,6 +167,87 @@ assert.equal(final.rows.some(row=>row.claimId===corrected.claimId&&row.voided===
 assert.equal(final.bankSettlementVerified,false);
 assert.equal(final.externalPayoutMeasured,false);
 assert.equal(final.externalPaidBenefitsCents,null);
+// Provider GET observations are immutable and NEVER beneficiary/bank proof.
+// Test the REAL existing RPCs with fictional provider transaction IDs on
+// the same full-schema claim, without any HTTP request to Mercado Pago.
+const providerTarget=(actor)=>"public.admin_owner_payout_provider_target_v1_265("+
+ q(actor)+"::uuid,"+q(corrected.claimId)+"::uuid)";
+const providerRead=(actor)=>"public.admin_owner_payout_provider_read_v1_265("+
+ q(actor)+"::uuid,"+q(month)+"::date)";
+const providerPage=(actor)=>"public.admin_owner_payout_provider_page_v1_336("+
+ q(actor)+"::uuid,"+q(month)+"::date,0)";
+const payoutId='POP'+randomUUID().replaceAll('-','').slice(0,16).toUpperCase();
+const transactionId='TOP'+randomUUID().replaceAll('-','').slice(0,16).toUpperCase();
+const recordProvider=(digest)=>
+ "public.admin_owner_payout_provider_record_v1_265("+
+ q(owner)+"::uuid,"+q(corrected.claimId)+"::uuid,"+
+ q(payoutId)+","+q(transactionId)+","+q(ref2)+","+amount+
+ ",'success','accredited',clock_timestamp(),"+q(digest)+")";
+const initialTarget=json(providerTarget(owner));
+assert.equal(initialTarget.active,true);
+assert.equal(initialTarget.eligible,true);
+assert.equal(initialTarget.bankVerified,false);
+assert.equal(initialTarget.recipientVerified,false);
+const initialProvider=json(recordProvider('a'.repeat(64)));
+assert.equal(initialProvider.providerTransactionSuccess,true,
+  'only this synthetic local observation matches an internally eligible claim');
+assert.equal(initialProvider.bankSettlementVerified,false);
+assert.equal(initialProvider.recipientVerified,false);
+assert.equal(initialProvider.transferExecuted,false);
+const priorProviderRead=json(providerRead(owner));
+assert.equal(priorProviderRead.providerSuccessClaims,1);
+assert.equal(priorProviderRead.bankSettlementVerified,false);
+assert.equal(priorProviderRead.providerTransactionIsBeneficiaryProof,false);
+assert.equal(priorProviderRead.rows.find(row=>row.claimId===corrected.claimId).successNow,true);
+const firstPage=json(providerPage(owner));
+assert.equal(firstPage.providerSuccessClaims,1);
+assert.equal(firstPage.rows.find(row=>row.claimId===corrected.claimId).successNow,true);
+assert.equal(firstPage.pageOffset,0);
+assert.equal(firstPage.bankSettlementVerified,false);
+assert.equal(firstPage.providerTransactionIsBeneficiaryProof,false);
+assert.equal(scalar("count(*) FROM public.platform_referral_provider_observations_v1_265 "+
+ "WHERE claim_id="+q(corrected.claimId)+"::uuid"),'1');
+
+// Re-open the SAME underlying paid fee in a rolled-back transaction.
+// New server-side PSP observations must be archived but cannot be marked
+// compatible when the funding/reconciliation authority is no longer valid.
+// Previously both target and record returned eligible=true; reporting
+// showed a false positive even though the owner claim view was already
+// fixed in PR #728.
+const unfunded=JSON.parse(sql("BEGIN; "+reopenedReceivable+
+ " SELECT jsonb_build_object("+
+ "'target',"+providerTarget(owner)+","+
+ "'newObservation',"+recordProvider('b'.repeat(64))+","+
+ "'report',"+providerRead(owner)+","+
+ "'page',"+providerPage(owner)+")::text; ROLLBACK;"));
+assert.equal(unfunded.target.eligible,false,
+ 'provider target must not endorse a matured but unpaid commission');
+assert.equal(unfunded.newObservation.eligibleNow,false);
+assert.equal(unfunded.newObservation.providerTransactionSuccess,false,
+ 'provider success label must not override missing TAMÃO receivable funding');
+assert.equal(unfunded.newObservation.bankSettlementVerified,false);
+assert.equal(unfunded.newObservation.transferExecuted,false);
+assert.equal(unfunded.page.providerSuccessClaims,0,
+ 'all 30-row provider pages must drop unfunded success labels');
+assert.equal(unfunded.page.rows.find(row=>row.claimId===corrected.claimId).successNow,false);
+assert.equal(unfunded.page.rows.find(row=>row.claimId===corrected.claimId).historicalProviderSuccessObserved,true);
+assert.equal(unfunded.page.bankSettlementVerified,false);
+assert.equal(unfunded.report.providerSuccessClaims,0,
+ 'provider summary must recheck the platform fee, not just historic grant');
+const unfundedRow=unfunded.report.rows.find(row=>row.claimId===corrected.claimId);
+assert.equal(unfundedRow.successNow,false);
+assert.equal(unfundedRow.historicalProviderSuccessObserved,true,
+ 'historic PSP observation must survive loss of current eligibility');
+assert.equal(unfunded.report.bankSettlementVerified,false);
+assert.equal(scalar("status FROM public.platform_receivables WHERE order_id="+order),'paid',
+ 'reopened fee was isolated inside ROLLBACK');
+assert.equal(scalar("count(*) FROM public.platform_referral_provider_observations_v1_265 "+
+ "WHERE claim_id="+q(corrected.claimId)+"::uuid"),'1',
+ 'unfunded synthetic observation was rolled back, never persisted');
+assert.equal(json(providerRead(owner)).providerSuccessClaims,1,
+ 'after rollback original matching evidence remains visible as unverified');
+console.log('PASS: financial funding drift downgrades provider target, observation and summary without deleting history or claiming bank settlement.');
+
 const after=scalar("(SELECT count(*) FROM public.wallet_entries)::text || ':' || "+
  "(SELECT count(*) FROM public.platform_referral_payout_proofs_v1_264)::text || ':' || "+
  "(SELECT count(*) FROM public.merchant_billing_payment_events)::text || ':' || "+
