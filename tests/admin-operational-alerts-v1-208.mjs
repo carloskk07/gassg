@@ -196,7 +196,7 @@ const pendingHealth=await healthCtx.getHealth(healthAdmin(2));
 assert.equal(pendingHealth.status,'degraded','two new website reports must visibly degrade health');
 assert.equal(pendingHealth.queues.pendingHelpReports,2);
 assert.equal(pendingHealth.queues.openSupport,0);
-await assert.rejects(()=>healthCtx.getHealth(healthAdmin(0,{message:'DATABASE_UNAVAILABLE'})),
+await assert.rejects(()=>healthCtx.getHealth(healthAdmin(0,new Error('DATABASE_UNAVAILABLE'))),
  /DATABASE_UNAVAILABLE/,'unknown inbox count must never report healthy');
 console.log('PASS: pending public website reports reach Admin health and one operational alert, without PII.');
 console.log('V1.208 PASS: role separation, no leakage across sessions, fresh server reads, uncertain source gaps, first-run safety, incident/support/financial scoping, no mutations.');
