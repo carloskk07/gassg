@@ -89,3 +89,52 @@ assert.ok(endpoint.includes('landing_path:safePublicRequestLandingPath(attributi
 console.log('PASS: submitted report attribution is sanitized server-side, including untrusted clients.');
 
 console.log('PASS: protected complaint intake available on every real client and merchant page, filtered admin triage and original legal safeguards.');
+
+
+// A browser may lose the response after Supabase has saved a support case.
+// A second click must replay the original request key, not create another row.
+assert.match(backend,/let pendingPublicRequest=null;/);
+const attempts=[];
+let transport='outage',seq=0;
+const intakeCtx=vm.createContext({
+  CHAMA_BACKEND:{url:'https://example.invalid',publishableKey:'public-test-key'},
+  prelaunchAttribution:()=>({source:'tamao',landingPath:'/?tamao_help=cliente#contact'}),
+  liveIdempotency:prefix=>prefix+':test-'+(++seq),
+  retryAmbiguousOnce:async operation=>{
+    try{return await operation()}
+    catch(error){
+      if(error.status===503)return operation();
+      throw error;
+    }
+  },
+  chamaFetch:async(url,init)=>{
+    attempts.push({url,key:init.headers['Idempotency-Key'],body:JSON.parse(init.body)});
+    if(transport==='outage')return {ok:false,status:503,json:async()=>({error:'TEMPORARY'})};
+    return {ok:true,status:200,json:async()=>({ok:true,protocol:'TEST1234',replayed:true})};
+  }
+});
+vm.runInContext('let pendingPublicRequest=null;\n'+cut(backend,'publicRequestSubmit')+
+  ';this.send=publicRequestSubmit;',intakeCtx);
+const draft={requestKind:'support',contactName:'Pessoa de teste',
+  contactChannel:'email',contactValue:'qa@example.com',
+  message:'Falha temporária no acompanhamento do pedido',
+  website:'',acknowledged:true};
+await assert.rejects(()=>intakeCtx.send(draft),/TEMPORARY/);
+assert.equal(attempts.length,2,'internal retry must be attempted');
+assert.equal(attempts[0].key,attempts[1].key,'internal retry must keep same key');
+transport='ok';
+assert.equal((await intakeCtx.send(draft)).protocol,'TEST1234');
+assert.equal(attempts[2].key,attempts[0].key,
+  'second user click after ambiguous failure must replay original key');
+await intakeCtx.send(draft);
+assert.notEqual(attempts[3].key,attempts[2].key,
+  'confirmed success should free key for a separate later report');
+transport='outage';
+await assert.rejects(()=>intakeCtx.send({...draft,message:'Erro A'}),/TEMPORARY/);
+const failedKey=attempts.at(-1).key;
+transport='ok';
+await intakeCtx.send({...draft,message:'Erro B'});
+assert.notEqual(attempts.at(-1).key,failedKey,
+  'changed report content must not be sent under an earlier idempotency key');
+assert.equal(attempts[0].body.requestKind,'support');
+console.log('PASS: ambiguous timeout/server error replays the same support request key across clicks.');
