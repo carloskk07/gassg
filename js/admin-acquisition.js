@@ -1696,6 +1696,7 @@ async function adminSetPublicRequestStatus(requestId,status){
   if(!confirm(status==='in_review'?'Colocar esta solicitação em análise?':status==='resolved'?'Marcar esta solicitação como resolvida?':'Encerrar esta solicitação?'))return;
   try{
     await adminPerform('public-request-status',{requestId,status,resolutionNote});
+    adminRuntime.helpReportPager=null; // Do not keep stale resolved rows across changes.
     toast(status==='in_review'?'Solicitação em análise':status==='resolved'?'Solicitação resolvida':'Solicitação encerrada');
   }catch(e){toast(String(e?.message||e))}
 }
@@ -5386,8 +5387,51 @@ function adminPublicRequestCard(x){
 }
 // Same protected admin records and status actions, now also visible where
 // operations staff triage errors. No public GitHub issue or PII export.
+// Keep report pages only in the active admin session; never persist PII.
+function adminHelpPager(){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!actor)return {page:0,items:null,total:null,loading:false,error:null};
+  if(adminRuntime.helpReportPager?.actor!==actor)
+    adminRuntime.helpReportPager={actor,page:0,items:null,total:null,loading:false,error:null};
+  return adminRuntime.helpReportPager;
+}
+async function adminHelpReportsPage(page){
+  if(!adminReady()||!adminRoleCanSection('orders')||
+     !Number.isSafeInteger(page)||page<0||page>10000)return;
+  const pager=adminHelpPager();
+  if(pager.loading)return;
+  const actor=pager.actor,session=adminRuntime.session;
+  pager.loading=true;pager.error=null;render();
+  try{
+    if(page===0){
+      pager.page=0;pager.items=null;pager.total=null;
+      await adminRefresh({silent:true});
+    }else{
+      const result=await globalThis.retryAmbiguousOnce(
+        ()=>adminInvoke({action:'support-reports-page',page}));
+      if(result?.source!=='admin_support_reports_page_v1'||result.readOnly!==true||
+         result.page!==page||result.pageSize!==30||
+         !Number.isSafeInteger(result.total)||result.total<0||
+         !Array.isArray(result.items)||result.items.length>30||
+         result.items.some(x=>x?.request_kind!=='support'||
+           !['new','in_review'].includes(x.status)))
+        throw new Error('Página de relatos inválida');
+      if(adminRuntime.session!==session||adminHelpPager().actor!==actor)return;
+      pager.page=page;pager.items=result.items;pager.total=result.total;
+    }
+  }catch(error){
+    if(adminRuntime.session===session&&adminHelpPager().actor===actor)
+      pager.error=String(error?.message||'Não foi possível consultar os relatos');
+  }finally{
+    if(adminRuntime.session===session&&adminHelpPager().actor===actor){
+      pager.loading=false;render();
+    }
+  }
+}
 function adminProblemReportsSection(data){
-  const rows=(Array.isArray(data?.publicRequests)?data.publicRequests:[])
+  const pager=adminHelpPager();
+  const current=pager.page>0&&Array.isArray(pager.items);
+  const rows=(current?pager.items:(Array.isArray(data?.publicRequests)?data.publicRequests:[]))
     .filter(x=>x?.request_kind==='support')
     .sort((a,b)=>{
       const pending=x=>['new','in_review'].includes(x?.status)?0:1;
@@ -5395,20 +5439,28 @@ function adminProblemReportsSection(data){
         String(b.created_at||'').localeCompare(String(a.created_at||''));
     });
   const shownPending=rows.filter(x=>['new','in_review'].includes(x.status)).length;
-  const awaiting=Number.isSafeInteger(data?.pendingHelpReportTotal)&&data.pendingHelpReportTotal>=0
-    ?data.pendingHelpReportTotal:shownPending;
+  const awaiting=current?pager.total:
+    Number.isSafeInteger(data?.pendingHelpReportTotal)&&data.pendingHelpReportTotal>=0
+      ?data.pendingHelpReportTotal:shownPending;
+  const maxPage=Math.max(1,Math.ceil(awaiting/30));
+  const page=current?pager.page:0;
   return '<section class="section admin-problem-reports" id="admin-problem-reports">'+
     '<div class="section-head"><div><span class="section-kicker">QUALIDADE • SUPORTE</span>'+
     '<h2>Erros e pedidos de ajuda</h2>'+
     '<p>Relatos enviados por clientes e revendas no formulário público. Atualização pelo Admin, sem correção automática por IA.</p></div>'+
     '<span class="status-pill '+(awaiting?'risk':'online')+'">'+awaiting+' pendente(s)</span></div>'+
-    '<div class="order-actions"><button type="button" class="secondary small" onclick="adminRefresh()">Atualizar relatos</button></div>'+
+    '<div class="order-actions"><button type="button" class="secondary small" onclick="adminHelpReportsPage('+page+')" '+(pager.loading?'disabled':'')+'>Atualizar relatos</button></div>'+
     '<div class="grid cards-3" style="margin-top:14px">'+
     (rows.length?rows.slice(0,30).map(adminPublicRequestCard).join(''):
       '<div class="empty card">Nenhum relato de ajuda recebido nesta amostra administrativa.</div>')+
-    '</div><small class="field-help">Exibindo até 30 relatos priorizados. '+
-    (awaiting>shownPending?'Há '+(awaiting-shownPending)+' pendente(s) além desta amostra; resolva os mais recentes e atualize para acessar os próximos. ':'')+
-    'Evite copiar dados pessoais para tickets públicos.</small></section>';
+    '</div><div class="order-actions" aria-label="Paginação dos relatos de suporte">'+
+    '<button type="button" class="secondary small" onclick="adminHelpReportsPage('+(page-1)+')" '+(page===0||pager.loading?'disabled':'')+'>Anterior</button>'+
+    '<span class="tiny muted" role="status">Página '+(page+1)+' de '+maxPage+'</span>'+
+    '<button type="button" class="secondary small" onclick="adminHelpReportsPage('+(page+1)+')" '+((page+1)>=maxPage||pager.loading?'disabled':'')+'>Próximos</button></div>'+
+    (pager.error?'<p class="lead-result error" role="alert">'+esc(pager.error)+'</p>':'')+
+    '<small class="field-help">Exibindo até 30 relatos. '+
+    (!current&&awaiting>shownPending?'Há '+(awaiting-shownPending)+' pendente(s) além desta amostra. ':'')+
+    'Use Anterior e Próximos para consultar pendências antigas. Evite copiar dados pessoais para tickets públicos.</small></section>';
 }
 function adminPublicRequestsSection(data){
   const requests=Array.isArray(data?.publicRequests)?data.publicRequests:[];

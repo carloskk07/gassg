@@ -47,7 +47,8 @@ assert.match(endpoint,/request_idempotency_key/);
 assert.match(endpoint,/acknowledged_at/);
 assert.match(endpoint,/\.from\("public_requests"\)/);
 
-const queueCtx=vm.createContext({adminPublicRequestCard:x=>'<article>'+esc(x.message)+'</article>'});
+const queueCtx=vm.createContext({adminPublicRequestCard:x=>'<article>'+esc(x.message)+'</article>',
+ adminHelpPager:()=>({page:0,items:null,total:null,loading:false,error:null})});
 vm.runInContext(cut(acquisition,'adminProblemReportsSection')+';this.queue=adminProblemReportsSection;',queueCtx);
 const rows=[
  {request_kind:'support',status:'in_review',created_at:'2026-10-29T15:00:00Z',message:'Revenda: erro'},
@@ -59,7 +60,7 @@ const html=queueCtx.queue({publicRequests:rows});
 assert.match(html,/2 pendente\(s\)/);
 assert.ok(html.indexOf('Cliente: problema')<html.indexOf('Revenda: erro'));
 assert.doesNotMatch(html,/Pedido privado|Publicidade/);
-assert.match(html,/adminRefresh\(\)/);
+assert.match(html,/adminHelpReportsPage\(0\)/);
 assert.match(admin,/adminProblemReportsSection\(d\)/);
 assert.match(admin,/activeOrderAttention\+openSupportCases\.length\+pendingHelpReports/);
 
@@ -147,7 +148,8 @@ vm.runInContext(cut(acquisition,'adminPublicRequestActionButtons')+
  ';this.actions=adminPublicRequestActionButtons;',supportCtx);
 assert.equal(supportCtx.actions({request_kind:'privacy',status:'new',id:'example'}),'');
 assert.match(supportCtx.actions({request_kind:'support',status:'new',id:'example'}),/Em análise/);
-const prioritizedCtx=vm.createContext({adminPublicRequestCard:x=>'<div>'+esc(x.id)+'</div>'});
+const prioritizedCtx=vm.createContext({adminPublicRequestCard:x=>'<div>'+esc(x.id)+'</div>',
+  adminHelpPager:()=>({page:0,items:null,total:null,loading:false,error:null})});
 vm.runInContext(cut(acquisition,'adminProblemReportsSection')+
  ';this.view=adminProblemReportsSection;',prioritizedCtx);
 const prioritized=prioritizedCtx.view({publicRequests:[
@@ -156,7 +158,75 @@ const prioritized=prioritizedCtx.view({publicRequests:[
 ],pendingHelpReportTotal:75});
 assert.match(prioritized,/75 pendente\(s\)/);
 assert.match(prioritized,/Há 73 pendente\(s\) além desta amostra/);
+assert.match(prioritized,/Página 1 de 3/);
+assert.match(prioritized,/adminHelpReportsPage\(1\)/);
 assert.match(admin,/pendingHelpReportTotal/,'navigation displays true server backlog');
+
+
+// Pagination must be server-backed, role restricted, session scoped and
+// never leak previously loaded customer contacts after admin logout.
+const pagerRuntime={session:{user:{id:'admin-a'}},helpReportPager:null};
+let pageCall=null,renderCount=0,summaryRefreshes=0;
+const pagingCtx=vm.createContext({
+  adminRuntime:pagerRuntime,
+  adminReady:()=>true,
+  adminRoleCanSection:section=>section==='orders',
+  adminInvoke:async body=>{
+    pageCall=body;
+    return {source:'admin_support_reports_page_v1',readOnly:true,
+      page:body.page,pageSize:30,total:78,
+      items:[{id:'report-31',request_kind:'support',status:'new',
+        contact_value:'private@example.com',created_at:'2026-10-29T01:00:00Z'}]};
+  },
+  adminRefresh:async()=>{summaryRefreshes++;},
+  render:()=>{renderCount++;},
+  globalThis:{retryAmbiguousOnce:op=>op()}
+});
+vm.runInContext(cut(acquisition,'adminHelpPager')+'\nasync '+
+ cut(acquisition,'adminHelpReportsPage')+
+ ';this.pager=adminHelpPager;this.load=adminHelpReportsPage;',pagingCtx);
+await pagingCtx.load(1);
+assert.equal(pageCall.action,'support-reports-page');
+assert.equal(pageCall.page,1);
+assert.equal(pagerRuntime.helpReportPager.page,1);
+assert.equal(pagerRuntime.helpReportPager.total,78);
+assert.equal(pagerRuntime.helpReportPager.items[0].id,'report-31');
+assert.ok(renderCount>0);
+const secondPageCtx=vm.createContext({
+  adminHelpPager:()=>pagerRuntime.helpReportPager,
+  adminPublicRequestCard:x=>'<div>'+esc(x.id)+'</div>',
+  esc
+});
+vm.runInContext(cut(acquisition,'adminProblemReportsSection')+
+  ';this.view=adminProblemReportsSection;',secondPageCtx);
+const secondPage=secondPageCtx.view({publicRequests:[
+  {id:'report-1',request_kind:'support',status:'new'}],pendingHelpReportTotal:78});
+assert.match(secondPage,/Página 2 de 3/);
+assert.match(secondPage,/report-31/);
+assert.doesNotMatch(secondPage,/report-1</);
+assert.match(secondPage,/adminHelpReportsPage\(2\)/);
+assert.match(secondPage,/adminHelpReportsPage\(0\)/);
+await pagingCtx.load(0);
+assert.equal(summaryRefreshes,1);
+assert.equal(pagerRuntime.helpReportPager.page,0);
+assert.equal(pagerRuntime.helpReportPager.items,null);
+await pagingCtx.load(-1);
+assert.equal(summaryRefreshes,1,'invalid page must not trigger network');
+pagerRuntime.session={user:{id:'admin-b'}};
+assert.equal(pagingCtx.pager().page,0);
+assert.equal(pagingCtx.pager().items,null,
+  'new account must not receive previous account PII');
+const adminEdgeRead=adminEdge.slice(adminEdge.indexOf('if(action==="support-reports-page"){'),
+  adminEdge.indexOf('if(action==="clube-coupon-mp-payout-inspect"){'));
+assert.match(adminEdgeRead,/superadmin","operations","support/);
+assert.match(adminEdgeRead,/ADMIN_PERMISSION_DENIED/);
+assert.match(adminEdgeRead,/\.eq\("request_kind","support"\)/);
+assert.match(adminEdgeRead,/\.in\("status",\["new","in_review"\]\)/);
+assert.match(adminEdgeRead,/\.range\(page\*30,page\*30\+29\)/);
+assert.match(adminEdgeRead,/readOnly:true/);
+assert.match(admin,/adminRuntime.helpReportPager=null/);
+console.log('PASS: all pending support pages accessible with authorization and account isolation.');
+
 console.log('PASS: support-only role scope, permission gate and independent prioritized report backlog.');
 
 console.log('PASS: protected complaint intake available on every real client and merchant page, filtered admin triage and original legal safeguards.');
