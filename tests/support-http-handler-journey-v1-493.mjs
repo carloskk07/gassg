@@ -17,6 +17,7 @@ new vm.Script(source,{filename:'submit-public-request/index.ts (TS types strippe
 
 const requests=new Map();
 let nextId=1,quotaEnabled=true,quotaCalls=0,dbReads=0,dbInserts=0;
+const quotaBuckets=new Map();
 let forcedDbError=false,handler=null;
 const counters=()=>({dbReads,dbInserts,quotaCalls});
 const diff=(before,kind)=>counters()[kind]-before[kind];
@@ -51,10 +52,15 @@ const db={
   },
   async rpc(name,args){
     assert.equal(name,'consume_prelaunch_lead_quota');
-    assert.equal(args.p_action_name,'submit-public-request');
+    assert.ok(['submit-public-request','submit-public-request-contact'].includes(args.p_action_name));
     assert.equal(args.p_limit,5);
+    assert.equal(args.p_window_seconds,3600);
+    assert.match(args.p_ip_hash,/^[a-f0-9]{64}$/);
     quotaCalls++;
-    return {data:quotaEnabled?{allowed:true}:{allowed:false,retryAfterSeconds:123},
+    const bucket=args.p_action_name+':'+args.p_ip_hash;
+    const count=(quotaBuckets.get(bucket)||0)+1;
+    quotaBuckets.set(bucket,count);
+    return {data:{allowed:quotaEnabled&&count<=args.p_limit,retryAfterSeconds:123},
       error:null};
   }
 };
@@ -155,7 +161,7 @@ res=await ask({body:payload({}),key:validKey});
 assert.equal(res.status,201);assert.equal(res.body.ok,true);
 assert.equal(res.body.replayed,false);
 assert.equal(diff(beforeSubmit,'dbInserts'),1,'one and only one stored support request');
-assert.equal(diff(beforeSubmit,'quotaCalls'),1);
+assert.equal(diff(beforeSubmit,'quotaCalls'),2,'one independent IP and one contact quota');
 const record=requests.get(validKey);
 assert.equal(record.status,'new');
 assert.equal(record.request_kind,'support');
@@ -199,6 +205,37 @@ assert.equal(diff(beforeWhatsapp,'dbInserts'),1);
 const whatsapp=requests.get('support-whatsapp-000004');
 assert.equal(whatsapp.contact_value,'55999999999');
 assert.equal(whatsapp.landing_path,'/?tamao_help=cliente&modulo=tracking#contact');
+
+// A script can claim a different IP in each direct request. Six requests using
+// one normalized contact must still hit the second rate-limit bucket. The
+// honeypot, idempotent retries and other contacts keep their original behavior.
+const spoofedContact='reused-contact@example.invalid';
+const beforeSpoof=counters();
+for(let attempt=1;attempt<=6;attempt++){
+  const key='support-spoofed-ip-'+String(attempt).padStart(4,'0');
+  const spoof=await ask({
+    body:payload({contactValue:spoofedContact}),
+    key,
+    headers:{'cf-connecting-ip':'203.0.113.'+attempt,
+      'x-forwarded-for':'192.0.2.'+attempt}
+  });
+  assert.equal(spoof.status,attempt<=5?201:429,
+    'rotating untrusted IP cannot bypass normalized contact quota');
+  if(attempt===6)assert.equal(spoof.body.error,'RATE_LIMITED');
+}
+assert.equal(diff(beforeSpoof,'dbInserts'),5,'the sixth same-contact report is not written');
+const anotherContact=await ask({
+  body:payload({contactValue:'different-contact@example.invalid'}),
+  key:'support-independent-contact-01',
+  headers:{'cf-connecting-ip':'198.51.100.91'}
+});
+assert.equal(anotherContact.status,201,'another contact is not blocked by the repeated contact');
+const afterSpoof=counters();
+const replaySpoof=await ask({body:payload({contactValue:spoofedContact}),
+  key:'support-spoofed-ip-0001',
+  headers:{'cf-connecting-ip':'203.0.113.111'}});
+assert.equal(replaySpoof.status,200,'idempotent retry still returns its original protocol');
+noMutation(afterSpoof,'contact quota idempotent replay');
 
 // The real Admin page reads support records from the same public_requests table.
 // It must display a pending count without leaking a privacy/general request.

@@ -195,6 +195,24 @@ Deno.serve(async(req:Request)=>{
       return json({error:"RATE_LIMITED",message:"Muitas solicitações em pouco tempo. Tente novamente mais tarde.",retryAfterSeconds:quota?.retryAfterSeconds||3600},429,origin);
     }
 
+    // IP request headers may be client-supplied on direct API calls. A second,
+    // independent quota prevents swapping a claimed IP on every submission to
+    // flood the Admin queue using the same contact. Only a keyed SHA-256 hash
+    // reaches the rate-limit table, never a raw email or phone number.
+    // Replays of a confirmed idempotency key were handled before either quota.
+    const contactHash=await sha256Hex(SECRET_KEY.slice(0,32)+":contact:"+
+      contactChannel+":"+contactValue);
+    const {data:contactQuota,error:contactQuotaError}=await admin.rpc("consume_prelaunch_lead_quota",{
+      p_ip_hash:contactHash,
+      p_action_name:"submit-public-request-contact",
+      p_limit:5,
+      p_window_seconds:3600
+    });
+    if(contactQuotaError)throw contactQuotaError;
+    if(contactQuota?.allowed!==true){
+      return json({error:"RATE_LIMITED",message:"Muitas solicitações em pouco tempo. Tente novamente mais tarde.",retryAfterSeconds:contactQuota?.retryAfterSeconds||3600},429,origin);
+    }
+
     const payload={
       ...normalized,
       acknowledged_at:new Date().toISOString(),

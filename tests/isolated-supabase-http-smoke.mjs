@@ -331,5 +331,32 @@ try{
   }
 }
 
+// Exercise the actual Edge HTTP + PostgreSQL quota RPC. Only synthetic
+// contacts are used, and this entire database is destroyed after the CI job.
+const abuseContact='ci-quota@example.invalid';
+const abuseIpStatuses=[];
+for(let n=1;n<=6;n++){
+  const res=await fetch(base+'/functions/v1/submit-public-request',{
+    method:'POST',
+    headers:{...headers,
+      'Idempotency-Key':'ci-abuse-'+randomUUID(),
+      'cf-connecting-ip':'203.0.113.'+n,
+      'x-forwarded-for':'192.0.2.'+n},
+    body:JSON.stringify({...reportBody,contactValue:abuseContact}),
+    signal:AbortSignal.timeout(60000)
+  });
+  const answer=await res.json();
+  abuseIpStatuses.push(res.status);
+  if(n===6)assert.equal(answer.error,'RATE_LIMITED');
+}
+assert.deepEqual(abuseIpStatuses,[201,201,201,201,201,429],
+  'same contact must be throttled even when a client claims a new IP every time');
+assert.equal(localSql("select count(*) from public.public_requests where contact_value='"+
+  abuseContact+"'"),'5','only five same-contact requests may be persisted');
+assert.equal(localSql("select count(*) from public.prelaunch_lead_rate_limits "+
+  "where action_name='submit-public-request-contact' and request_count=6"),'1',
+  'hashed contact bucket must enforce the sixth request at the real SQL level');
+console.log('PASS local HTTP/IP spoof regression: one hashed contact quota, five reports max; no production traffic.');
+
 console.log('PASS local Auth login, real user Edge authorization and fictitious identity cleanup; no orders/credits.');
 

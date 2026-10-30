@@ -25,6 +25,8 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/functions/create-order/**'
       - 'supabase/functions/merchant-orders/**'
+      - 'supabase/functions/submit-public-request/**'
+      - 'tests/support-http-handler-journey-v1-493.mjs'
   workflow_dispatch:
 
 permissions:
