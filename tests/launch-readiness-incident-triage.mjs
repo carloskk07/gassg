@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict';
+import {triageReadinessIncident} from '../scripts/triage-launch-readiness-incident.mjs';
+
+const REPO='carloskk07/gassg';
+const SHA='a'.repeat(40);
+const SECOND='b'.repeat(40);
+const TITLE='TAMÃO | falhas recorrentes na prontidão da produção';
+const makeRun=(id,conclusion,sha=SHA,date='2026-10-30T12:00:00Z')=>({
+  id,conclusion,status:'completed',head_sha:sha,head_branch:'main',
+  head_repository:{full_name:REPO},created_at:date
+});
+const failed=[
+  makeRun(100,'failure',SHA,'2026-10-30T12:00:00Z'),
+  makeRun(99,'timed_out',SHA,'2026-10-30T11:40:00Z')
+];
+const baseEnv={
+  GH_TOKEN:'token-for-tests-not-a-secret',
+  TRIGGER_EVENT:'workflow_run',TRIGGER_REPO:REPO,TRIGGER_BRANCH:'main',
+  TRIGGER_SHA:SHA,TRIGGER_RUN_ID:'100',TRIGGER_CONCLUSION:'failure'
+};
+function setup({runs=failed,issues=[],mainSha=SHA,historyError=false}={}){
+  const calls=[],created=[];
+  const request=async(url,options={})=>{
+    const path=new URL(url).pathname;
+    const method=options.method||'GET';
+    calls.push({path,method,body:options.body});
+    let data={};
+    if(path==='/repos/'+REPO+'/branches/main')data={commit:{sha:mainSha}};
+    else if(path.endsWith('/runs')) {
+      if(historyError)return {ok:false,status:502};
+      data={workflow_runs:runs};
+    }else if(path==='/search/issues')data={items:issues};
+    else if(path==='/repos/'+REPO+'/issues'&&method==='POST'){
+      const item=JSON.parse(options.body);
+      created.push(item);
+      data={number:701};
+    }else throw Error('Unexpected GitHub API call '+method+' '+path);
+    return {ok:true,status:200,json:async()=>data};
+  };
+  return {calls,created,request};
+}
+async function check(config={},env=baseEnv){
+  const box=setup(config);
+  const output=await triageReadinessIncident({env,request:box.request});
+  return {...box,output};
+}
+const invalid=await check({}, {...baseEnv,TRIGGER_REPO:'other/repo'});
+assert.equal(invalid.output.status,'skipped_untrusted_or_successful_trigger');
+assert.equal(invalid.calls.length,0);
+for(const bad of [
+  {...baseEnv,TRIGGER_CONCLUSION:'success'},
+  {...baseEnv,TRIGGER_SHA:'invalid'},
+  {...baseEnv,TRIGGER_RUN_ID:'not-a-number'},
+  {...baseEnv,TRIGGER_BRANCH:'dev'},
+  {...baseEnv,TRIGGER_EVENT:'pull_request'}
+]){
+  const r=await check({},bad);
+  assert.equal(r.calls.length,0,'untrusted events never touch API');
+}
+let r=await check({mainSha:SECOND});
+assert.equal(r.output.status,'skipped_superseded_main');
+assert.equal(r.created.length,0);
+r=await check({runs:[failed[0],makeRun(99,'success')]});
+assert.equal(r.output.status,'waiting_for_second_consecutive_failure');
+assert.equal(r.created.length,0);
+r=await check({runs:[failed[1],failed[0]]});
+assert.equal(r.output.status,'created_issue','sort by date, not array order');
+r=await check({runs:[makeRun(101,'failure',SHA,'2026-10-30T12:20:00Z'),...failed]});
+assert.equal(r.output.status,'skipped_not_latest');
+assert.equal(r.created.length,0);
+r=await check({runs:[failed[0]]});
+assert.equal(r.output.status,'waiting_for_second_consecutive_failure');
+r=await check({issues:[{number:71,state:'open',title:TITLE}]});
+assert.equal(r.output.status,'existing_issue');
+assert.equal(r.output.number,71);
+assert.equal(r.created.length,0,'no duplicate issue');
+r=await check({issues:[{number:71,state:'closed',title:TITLE},{number:72,state:'open',title:'Other'}]});
+assert.equal(r.output.status,'created_issue');
+assert.equal(r.created.length,1);
+const {title,body}=r.created[0];
+assert.equal(title,TITLE);
+assert.match(body,/actions\/runs\/100/);
+assert.match(body,/actions\/runs\/99/);
+assert.match(body,/#493/);
+assert.doesNotMatch(body,/token-for-tests|Authorization|support_cases|contact_value/);
+assert.equal(r.calls.filter(x=>x.path==='/repos/'+REPO+'/branches/main').length,2,
+  'recheck main before creating incident');
+assert.ok(r.calls.every(x=>x.path.startsWith('/repos/'+REPO+'/')||x.path==='/search/issues'),
+  'no database, production API or extra service touched');
+await assert.rejects(
+  triageReadinessIncident({env:baseEnv,request:setup({historyError:true}).request}),
+  /GITHUB_API_GET_HTTP_502/
+);
+console.log('PASS: incident auto-triage uses two failures, exact main SHA, dedup, privacy and no production writes.');
