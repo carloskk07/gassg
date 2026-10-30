@@ -29,7 +29,7 @@ const post=async(slug,body,key,token,origin)=>{
  return {status:res.status,data:await res.json()};
 };
 async function actor(kind){
- const email='tamao-ci-'+kind+'-'+randomUUID()+'@example.invalid';
+ const email='tamao-ci-'+kind+'-'+randomUUID()+'@example.com';
  const password='Local!'+randomUUID();
  const created=await fetch(base+'/auth/v1/admin/users',{method:'POST',headers:{
   apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},
