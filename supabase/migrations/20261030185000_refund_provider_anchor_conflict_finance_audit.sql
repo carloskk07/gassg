@@ -617,5 +617,4 @@ begin
     'issues',v_issues
   );
 end;
-$function$
-
+$function$;
