@@ -205,10 +205,10 @@ try{
   const supportCount=Number(localSql("select count(*) from public.public_requests "+
     "where request_kind='support' and status in ('new','in_review')"));
   assert.equal(supportCount,73);
-  const adminReq=async(token,body)=>{
+  const adminReq=async(token,body,idempotencyKey=null)=>{
     const response=await fetch(base+'/functions/v1/admin-ops',{
       method:'POST',headers:{...headers,Authorization:'Bearer '+token,
-        'Idempotency-Key':'ci-admin-'+randomUUID()},
+        'Idempotency-Key':idempotencyKey||'ci-admin-'+randomUUID()},
       body:JSON.stringify(body),signal:AbortSignal.timeout(150000)
     });
     return {status:response.status,body:await response.json()};
@@ -274,20 +274,50 @@ try{
   });
   assert.equal(privacyEdit.status,403,'support cannot resolve privacy requests');
   const supportId=last.body.items[0].id;
-  const update=await adminReq(supportToken,{
-    action:'public-request-status',requestId:supportId,status:'resolved',
-    resolutionNote:'CI support case resolved on disposable database'
+  const auditCount=()=>Number(localSql(
+    "select count(*) from public.platform_admin_audit where action='public-request-status'"+
+    " and target_id='"+supportId+"'"));
+  const beforeAudit=auditCount();
+  const review=await adminReq(supportToken,{
+    action:'public-request-status',requestId:supportId,status:'in_review'
   });
+  assert.equal(review.status,200,'support operator can assume review');
+  assert.equal(localSql("select status from public.public_requests where id='"+
+    supportId+"'"),'in_review');
+  const during=await adminReq(supportToken,{action:'support-reports-page',page:2});
+  assert.equal(during.status,200);
+  assert.equal(during.body.total,supportCount,'in_review remains pending');
+  assert.ok(during.body.items.some(x=>x.id===supportId&&x.status==='in_review'));
+  assert.equal(auditCount(),beforeAudit+1,'review transition must be audited');
+  const resolveKey='ci-admin-resolve-'+randomUUID();
+  const resolutionNote='CI support case resolved on disposable database';
+  const resolvePayload={
+    action:'public-request-status',requestId:supportId,status:'resolved',
+    resolutionNote
+  };
+  const update=await adminReq(supportToken,resolvePayload,resolveKey);
   assert.equal(update.status,200,'support operator resolves help cases');
+  assert.equal(update.body.status,'resolved');
   assert.equal(localSql("select status from public.public_requests where id='"+
     supportId+"'"),'resolved');
+  assert.equal(localSql("select resolution_note from public.public_requests where id='"+
+    supportId+"'"),resolutionNote,'resolution note must persist');
+  assert.equal(localSql("select resolved_at is not null from public.public_requests where id='"+
+    supportId+"'"),'t','resolution timestamp must persist');
+  assert.equal(auditCount(),beforeAudit+2,'resolution must add exactly one audit event');
+  const replayResolution=await adminReq(supportToken,resolvePayload,resolveKey);
+  assert.equal(replayResolution.status,200,'same idempotency key must replay success');
+  assert.deepEqual(replayResolution.body,update.body,
+    'replayed response must match the original audit-backed resolution');
+  assert.equal(auditCount(),beforeAudit+2,
+    'retry after lost response must never duplicate an audit event');
   assert.notEqual(localSql("select status from public.public_requests where id='"+
     privacyId+"'"),'resolved');
   const after=await adminReq(supportToken,{action:'support-reports-page',page:2});
   assert.equal(after.status,200);
   assert.equal(after.body.total,supportCount-1);
   assert.equal(after.body.items.length,12);
-  console.log('PASS local real Admin Edge: 3 support pages, finance/privacy denied, resolution persisted.');
+  console.log('PASS local real Admin Edge: 3 support pages, finance/privacy denied, review and resolution audited, idempotent retry.');
 }finally{
   // Platform audit deliberately RESTRICTs deleting actors. Only on the
   // DISPOSABLE CI database, purge those synthetic audit entries first.
