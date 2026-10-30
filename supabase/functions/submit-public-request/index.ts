@@ -101,6 +101,11 @@ Deno.serve(async(req:Request)=>{
     if(raw.length>16000)return json({error:"PAYLOAD_TOO_LARGE",message:"Dados excedem o limite."},413,origin);
     let body:any;
     try{body=JSON.parse(raw)}catch{return json({error:"INVALID_JSON",message:"Dados inválidos."},400,origin)}
+    // A JSON scalar, null or array is not a support request. Reject before
+    // touching fields or quotas rather than misreporting an internal failure.
+    if(!body||typeof body!=="object"||Array.isArray(body)){
+      return json({error:"INVALID_PAYLOAD",message:"Dados inválidos."},400,origin);
+    }
     if(clean(body.website,200))return json({ok:true,accepted:true},202,origin);
     if(body.acknowledged!==true){
       return json({error:"ACK_REQUIRED",message:"Confirme que os dados serão usados para responder à sua solicitação."},400,origin);
