@@ -3481,24 +3481,33 @@ function merchantOrderBenefitDisclosure(o,demo=false){
   if(gross===null&&used===null)return '';
   if(used===0&&(gross===null||gross===pay))return '';
   if(used===null&&gross===pay)return '';
+  // The existing paid-coupon checkout seeds coupon face into the cashback
+  // wallet BEFORE reserving the full balance. It must be split using the
+  // merchant-authorized server-side application, not inferred from price.
+  const coupon=demo?0:valid(o?.couponAppliedCents);
+  const otherCashback=coupon!==null&&used!==null&&coupon<=used?used-coupon:null;
   const fmt=n=>n===null?'não informado':BRL.format(n/100);
   const mismatch=gross!==null&&used!==null&&pay!==null&&gross-pay!==used;
   const incomplete=gross===null||used===null||pay===null;
+  const sourceConflict=otherCashback===null;
   const heading=mismatch?'Composição do benefício precisa de conferência':
-    incomplete?'Valores do benefício ainda incompletos':
-      'Cashback usado pelo cliente: − '+fmt(used);
-  return '<aside class="notice merchant-benefit-disclosure" aria-label="Detalhamento do cashback e financiamento do pedido">'+
+    incomplete||sourceConflict?'Valores do benefício ainda incompletos':
+      'Benefícios usados pelo cliente: − '+fmt(used);
+  return '<aside class="notice merchant-benefit-disclosure" aria-label="Detalhamento dos benefícios e financiamento do pedido">'+
     '<strong>'+esc(heading)+'</strong>'+
     '<div class="tiny">Preço antes dos benefícios: <strong>'+fmt(gross)+
-    '</strong> • Cashback utilizado: <strong>− '+fmt(used)+
+    '</strong> • Benefícios utilizados: <strong>− '+fmt(used)+
     '</strong> • Cliente paga: <strong>'+fmt(pay)+'</strong></div>'+
-    (mismatch?'<p class="tiny"><strong>Valores divergentes: o cashback não fecha com o preço e o total. Confira antes de aceitar.</strong></p>':
-      incomplete?'<p class="tiny"><strong>Dados incompletos. Atualize antes de aceitar.</strong></p>':'')+
-    '<div class="tiny"><strong>Financiamento e compensação da revenda: não comprovados neste pedido.</strong></div>'+
-    '<details class="merchant-benefit-funding"><summary>Quem paga o cashback? Taxa TAMÃO e patrocínio</summary>'+
-    '<p class="tiny">'+(used>0?'O cliente utilizou saldo cashback'+(demo?' fictício':'')+'. ':
-      'A diferença de preço não está identificada como cashback. ')+
-    'A origem desse benefício (TAMÃO, patrocinador ou outra) não está comprovada nesta ordem.</p>'+
+    '<div class="tiny">Cupom pago Clube TAMÃO aplicado: <strong>'+fmt(coupon)+
+    '</strong> • Cashback de outros saldos: <strong>'+fmt(otherCashback)+'</strong></div>'+
+    (mismatch?'<p class="tiny"><strong>Valores divergentes: os benefícios não fecham com preço e total. Atualize antes de aceitar.</strong></p>':
+      incomplete?'<p class="tiny"><strong>Dados incompletos. Atualize antes de aceitar.</strong></p>':
+      sourceConflict?'<p class="tiny"><strong>Origem dos benefícios inconsistente ou indisponível. Atualize antes de aceitar.</strong></p>':'')+
+    '<div class="tiny"><strong>Compensação à revenda: não comprovada neste pedido.</strong></div>'+
+    '<details class="merchant-benefit-funding"><summary>Quem financia os benefícios? Taxa TAMÃO e reembolso</summary>'+
+    (coupon!==null&&coupon>0
+      ?'<p class="tiny">O cupom do Clube TAMÃO está vinculado a este pedido por registro financeiro próprio. Isso NÃO confirma que a revenda já recebeu o reembolso.</p>'
+      :'<p class="tiny">Nenhum cupom pago identificado nesta consulta. A origem do cashback comum (TAMÃO, patrocinador ou outra) não está comprovada por este pedido.</p>')+
     '<p class="tiny"><strong>Desconto ou isenção da taxa TAMÃO:</strong> não discriminado. '+
     '<strong>Patrocínio:</strong> não comprovado. '+
     '<strong>Reembolso à revenda:</strong> não comprovado.</p>'+
