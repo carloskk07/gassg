@@ -1,0 +1,51 @@
+name: TAMÃO readiness incident triage
+
+# Existing readiness checks run every 20 minutes. When two runs fail for
+# the same verified main SHA, open one sanitized GitHub issue for review.
+# This job never touches commerce, Supabase, user reports or production deploys.
+on:
+  workflow_run:
+    workflows:
+      - TAMÃO launch readiness
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: tamao-readiness-incident-triage
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: >-
+      github.repository == 'carloskk07/gassg' &&
+      github.event.workflow_run.head_repository.full_name == 'carloskk07/gassg' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      (github.event.workflow_run.conclusion == 'failure' ||
+       github.event.workflow_run.conclusion == 'timed_out')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify automatic incident gate
+        run: node tests/launch-readiness-incident-triage.mjs
+      - name: Open one privacy-safe incident for recurring failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER_EVENT: ${{ github.event_name }}
+          TRIGGER_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          TRIGGER_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: node scripts/triage-launch-readiness-incident.mjs
