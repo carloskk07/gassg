@@ -1825,7 +1825,10 @@ function scopeAdminSummary(role:string,data:any){
     return {
       currentAdmin:current?{user_id:current.user_id,active:current.active,
         admin_role:current.admin_role}:null,
-      platformAdmins:adminSelf,
+      platformAdmins:current?[{
+        user_id:current.user_id,active:current.active,
+        admin_role:current.admin_role
+      }]:[],
       applications:[],pilotPartners:[],merchantReadiness:[],
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,status:m.status,online:m.online,
