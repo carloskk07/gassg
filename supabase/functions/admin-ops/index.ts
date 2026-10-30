@@ -104,7 +104,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3151,6 +3151,28 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="support-reports-page"){
+      // The first 30 pending reports are in the summary; pages after that
+      // remain available on demand. Never expose privacy/general requests.
+      if(!["superadmin","operations","support"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Seu perfil não pode consultar relatos de suporte.",403);
+      const page=Number(body.page);
+      if(!Number.isSafeInteger(page)||page<0||page>10000)
+        throw new DomainError("INVALID_SUPPORT_PAGE","Página de suporte inválida.",400);
+      const {data,count,error}=await admin.from("public_requests")
+        .select("id,request_kind,privacy_action,contact_name,contact_channel,contact_value,message,status,resolution_note,resolved_at,source,medium,campaign,referrer,landing_path,created_at,updated_at",{count:"exact"})
+        .eq("request_kind","support")
+        .in("status",["new","in_review"])
+        .order("created_at",{ascending:false})
+        .order("id",{ascending:true})
+        .range(page*30,page*30+29);
+      if(error)throw new DomainError("SUPPORT_PAGE_UNAVAILABLE",
+        "Não foi possível consultar os relatos de suporte.",503);
+      return json({source:"admin_support_reports_page_v1",readOnly:true,
+        page,pageSize:30,total:count??0,items:data??[]},200,origin);
+    }
 
     if(action==="clube-coupon-mp-payout-inspect"){
       // Mercado Pago Payouts READ ONLY. No POST /v1/payouts, no refund,
