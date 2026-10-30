@@ -137,4 +137,66 @@ const injectedNames=names.map(extract).join('\n');
 assert.ok(!injectedNames.includes('adminPerform('),'Only a read-only diagnostic');
 assert.ok(read('css/components.css').includes('.admin-ops-alert-item'));
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-operational-alerts-v1-208.mjs'));
+
+// New Help/Reportar erro submissions must affect the existing health and
+// operational alert source without creating a second alert or disclosing PII.
+const publicHelpGroups={...quiet,support:{available:true,valid:true,open:3,cases:1,reports:2}};
+const publicHelpAlerts=ctxt.model(publicHelpGroups).alerts;
+assert.equal(publicHelpAlerts.length,1);
+assert.equal(publicHelpAlerts[0].id,'support');
+assert.match(publicHelpAlerts[0].title,/3 atendimento\(s\) pendente\(s\)/);
+assert.match(publicHelpAlerts[0].detail,/1 chamado\(s\) de pedido/);
+assert.match(publicHelpAlerts[0].detail,/2 relato\(s\) do site/);
+assert.doesNotMatch(publicHelpAlerts[0].detail,/email|telefone|mensagem/i);
+assert.ok(ctxt.model({...quiet,support:{available:true,valid:false,open:null,cases:1,reports:null}})
+ .unavailable.includes('Atendimentos'), 'unavailable public reports must not be shown as zero');
+const healthStart=edge.indexOf('async function adminSystemHealth(');
+const healthEnd=edge.indexOf('\n}\n',healthStart);
+assert.ok(healthStart>0&&healthEnd>healthStart,'health function must exist');
+const healthSource=edge.slice(healthStart,healthEnd+2).replace(/:any\b/g,'');
+assert.match(healthSource,/admin\.from\("public_requests"\)\.select\("id",\{count:"exact",head:true\}\)/);
+assert.match(healthSource,/\.eq\("request_kind","support"\)\.in\("status",\["new","in_review"\]\)/);
+assert.match(healthSource,/pendingHelpReports:openHelpReports\.count/);
+const alertsStart=edge.indexOf('async function adminOperationalAlerts(');
+const alertsEnd=edge.indexOf('\nasync function adminIncidentList(',alertsStart);
+const alertsSource=edge.slice(alertsStart,alertsEnd);
+assert.match(alertsSource,/const \[cases,reports\]=await Promise\.all/);
+assert.match(alertsSource,/open:valid\?cases\.count\+reports\.count:null/);
+const healthCtx=vm.createContext({
+  Date,Number,Promise,Object,Array,
+  DomainError:class extends Error{constructor(code,message,status){super(message);this.code=code;this.status=status;}},
+  verifyLivePortals:async()=>({ok:true}),
+  billingProviderHealth:async()=>({ok:true}),
+  publicationGithubEvidence:async()=>({headSha:'f'.repeat(40),runs:[],error:null}),
+  publicationSummary:()=>({status:'healthy'})
+});
+vm.runInContext(healthSource+';this.getHealth=adminSystemHealth;',healthCtx);
+function healthAdmin(pendingReports,reportError=null){
+ const resultFor=table=>table==='merchants'?{data:[],error:null}
+  :table==='platform_portal_attestations'?{data:null,error:null}
+  :{count:table==='public_requests'?pendingReports:0,error:reportError&&table==='public_requests'?reportError:null};
+ return {
+  rpc:async()=>({data:{operationMode:'PRELAUNCH',commerceEnabled:false,securityBlockers:[]},error:null}),
+  from:table=>{
+   const result=resultFor(table);
+   const q={
+    select(){return this},in(){return this},eq(){return this},
+    is(){return this},lt(){return this},order(){return this},limit(){return this},
+    maybeSingle(){return Promise.resolve(result)},
+    then(ok,fail){return Promise.resolve(result).then(ok,fail)}
+   };
+   return q;
+  }
+ };
+}
+const baselineHealth=await healthCtx.getHealth(healthAdmin(0));
+assert.equal(baselineHealth.status,'healthy');
+assert.equal(baselineHealth.queues.pendingHelpReports,0);
+const pendingHealth=await healthCtx.getHealth(healthAdmin(2));
+assert.equal(pendingHealth.status,'degraded','two new website reports must visibly degrade health');
+assert.equal(pendingHealth.queues.pendingHelpReports,2);
+assert.equal(pendingHealth.queues.openSupport,0);
+await assert.rejects(()=>healthCtx.getHealth(healthAdmin(0,new Error('DATABASE_UNAVAILABLE'))),
+ /DATABASE_UNAVAILABLE/,'unknown inbox count must never report healthy');
+console.log('PASS: pending public website reports reach Admin health and one operational alert, without PII.');
 console.log('V1.208 PASS: role separation, no leakage across sessions, fresh server reads, uncertain source gaps, first-run safety, incident/support/financial scoping, no mutations.');
