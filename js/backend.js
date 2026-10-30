@@ -874,9 +874,7 @@ async function liveCreateOrder(quoteId){
       go('tracking');
       toast('Pedido registrado. Não envie novamente; atualize o acompanhamento.');
     }else{
-      // An ambiguous network result may have produced a new active order.
-      // Check only a DIFFERENT authoritative active order. Never treat an
-      // older tracked order as a successful recovery or erase this basket.
+      // Only a different active server order can recover an ambiguous checkout.
       let newlyDiscoveredActiveOrder=false;
       try{
         await liveSyncFinancialProfile({force:true});
@@ -905,10 +903,8 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(!liveReady()||!orderId)return null;
   const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
-  // A slower response for a superseded order must not overwrite the
-  // current tracking identity after customer-summary discovers another order.
-  if(seq<liveRuntime.orderRequestSeq&&
-     liveRuntime.orderId&&liveRuntime.orderId!==orderId)return liveRuntime.order;
+  if(seq<liveRuntime.orderRequestSeq&&liveRuntime.orderId&&
+      liveRuntime.orderId!==orderId)return liveRuntime.order;
   const current=liveRuntime.order;
   if(current?.orderId===order.orderId&&Number(current.version)>Number(order.version))return current;
   if(seq<liveRuntime.orderRequestSeq&&current?.orderId===order.orderId&&Number(current.version)>=Number(order.version))return current;
@@ -1086,23 +1082,18 @@ async function liveSyncFinancialProfile({force=false}={}){
     liveRuntime.qualifiedReferralCount=Math.max(0,Number(summary?.qualifiedReferralCount||0));
     liveRuntime.comparisonSavingsCents=Math.max(0,Number(summary?.comparisonSavingsCents||0));
     liveRuntime.cashbackEarnedCents=Math.max(0,Number(summary?.cashbackEarnedCents||0));
-    // #493: customer-summary can report a new active order after the last
-    // tracked order was settled/cancelled (including another browser tab).
-    // Never keep the OLD order/PIN/status visible under the NEW order ID.
     let activeOrderChanged=false;
     if(summary?.activeOrderId){
-      const activeId=String(summary.activeOrderId);
-      activeOrderChanged=liveRuntime.orderId!==activeId;
-      if(activeOrderChanged||liveRuntime.order&&liveRuntime.order.orderId!==activeId){
-        // Reject any older get-order reply already in flight for the prior ID.
+      const id=String(summary.activeOrderId);
+      activeOrderChanged=liveRuntime.orderId!==id;
+      if(activeOrderChanged||liveRuntime.order&&liveRuntime.order.orderId!==id){
         liveRuntime.orderRequestSeq++;
         liveRuntime.order=null;
-        liveRuntime.orderCheckedAt=null;
-        liveRuntime.orderCheckedId=null;
+        liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
         liveRuntime.error=null;
       }
-      liveRuntime.orderId=activeId;
-      localStorage.setItem(CHAMA_BACKEND.orderStorageKey,activeId);
+      liveRuntime.orderId=id;
+      localStorage.setItem(CHAMA_BACKEND.orderStorageKey,id);
     }
     liveRuntime.lastFinancialSyncAt=Date.now();
     save();
@@ -1261,10 +1252,8 @@ async function livePoll(){
       if(changed)render();
       return;
     }
-    // Only a terminal snapshot of THIS order can suppress polling.
-    // If the summary promoted a different active order, fetch its facts.
     if(liveRuntime.order?.orderId===liveRuntime.orderId&&
-       ["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
+      ["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
       if(changed)render();
       return;
     }
@@ -1273,8 +1262,6 @@ async function livePoll(){
       await liveGetOrder(requestedOrderId,{silent:true});
       render();
     }catch(error){
-      // An earlier request may fail after a newer order became authoritative.
-      // Do not clear that newer order's tracking/storage on an old 404.
       if(requestedOrderId!==liveRuntime.orderId){render();return;}
       if(error?.status===404){
         localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
@@ -1507,10 +1494,7 @@ function merchantPushKeyBytes(base64url){
   const bytes=atob(encoded+'='.repeat((4-encoded.length%4)%4));
   return Uint8Array.from(bytes,char=>char.charCodeAt(0));
 }
-// V1.290: device-only diagnostics. Never reads or displays subscription
-// endpoint/keys or claims the provider delivered a notification.
-// V1.293: local browser checks plus authenticated, read-only server summary.
-// A push gateway acceptance or voluntary report is not a verified delivery.
+// Push diagnostics: local plus authenticated read-only; not delivery proof.
 async function merchantPushDiagnoseLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
     throw new Error('Entre na revenda antes de verificar o aparelho.');
@@ -2293,9 +2277,7 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   return false;
 }
 
-// V1.355 — fail closed at the instant an order action is attempted.
-// A rendered button is not evidence that the merchant-orders snapshot is still current.
-// The server still checks identity, role, order version and transition after this guard.
+// Server rechecks role, order version and transition despite UI guards.
 function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
   const rt=merchantRuntime;
   const merchantId=String(rt?.merchant?.merchantId||'');
@@ -2984,10 +2966,7 @@ async function merchantHeartbeat(){
   }
 }
 
-// Apenas pedidos aguardando o parceiro exigem polling de 5s.
-// Entregas em andamento mantêm 10s; revenda online sem pedido usa 15s.
-// Com operação offline e sem pedidos, o painel economiza chamadas usando 60s.
-// Não altera o heartbeat (60s) nem a elegibilidade no servidor (10 min).
+// Poll: oferta 5s, entrega 10s, online 15s, offline 60s; heartbeat preservado.
 function merchantPollingIntervalMs(orders,online){
   const list=Array.isArray(orders)?orders:[];
   if(list.some(order=>String(order?.status||'')==='OFFERED_TO_MERCHANT'))return 5000;
