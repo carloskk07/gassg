@@ -190,6 +190,7 @@ const authAdminActor=async role=>{
 try{
   const supportToken=await authAdminActor('support');
   const financeToken=await authAdminActor('finance');
+  const readonlyToken=await authAdminActor('readonly');
   // 72 older help requests + one real local Edge intake above. More recent
   // general/privacy cases must never hide pending help from the Admin.
   localSql("insert into public.public_requests("+
@@ -212,6 +213,39 @@ try{
     });
     return {status:response.status,body:await response.json()};
   };
+  // The local read-only operator cannot bypass UI menus to inspect
+  // financial wallets, personal entity details or private support reports.
+  const readonlyDenied=await Promise.all([
+    adminReq(readonlyToken,{action:'owner-wallet-reconciliation'}),
+    adminReq(readonlyToken,{action:'entity-detail',entityType:'customer',
+      entityId:'00000000-0000-4000-8000-000000000000'}),
+    adminReq(readonlyToken,{action:'support-reports-page',page:0}),
+    adminReq(readonlyToken,{action:'merchant-payment-preflight',
+      merchantId:'00000000-0000-4000-8000-000000000000'})
+  ]);
+  assert.ok(readonlyDenied.every(r=>r.status===403),
+    'readonly role cannot access financial, personal or support endpoints');
+  const readonlyAudit=await adminReq(readonlyToken,{action:'audit-search',limit:20});
+  assert.equal(readonlyAudit.status,200);
+  assert.ok(Array.isArray(readonlyAudit.body.results));
+  assert.ok(readonlyAudit.body.results.every(row=>
+    !('metadata' in row)&&!('actor_user_id' in row)&&!('target_id' in row)));
+  const readonlyIncident=await adminReq(readonlyToken,{action:'incident-list'});
+  assert.equal(readonlyIncident.status,200);
+  assert.ok((readonlyIncident.body.incidents||[]).every(row=>
+    !('description' in row)&&!('resolution_note' in row)));
+  const readonlySummary=await adminReq(readonlyToken,{action:'summary'});
+  assert.equal(readonlySummary.status,200,
+    'readonly role must retain sanitized operational summary');
+  assert.equal(readonlySummary.body.currentAdmin.admin_role,'readonly');
+  assert.deepEqual(readonlySummary.body.publicRequests,[]);
+  assert.deepEqual(readonlySummary.body.controlOrders,[]);
+  assert.deepEqual(readonlySummary.body.prelaunchLeads,[]);
+  assert.deepEqual(readonlySummary.body.merchantBilling.paymentEvents,[]);
+  assert.ok(!JSON.stringify(readonlySummary.body).includes('ci-1@example.com'),
+    'private synthetic request contacts never reach readonly');
+  console.log('PASS local real Edge readonly: summary safe, financial and personal endpoints denied.');
+
   const first=await adminReq(supportToken,{action:'support-reports-page',page:0});
   assert.equal(first.status,200,'support role reads first page via real Edge');
   assert.equal(first.body.source,'admin_support_reports_page_v1');

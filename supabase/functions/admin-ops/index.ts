@@ -124,7 +124,18 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   readonly:new Set()
 };
+const READONLY_ALLOWED_READS=new Set([
+  "summary","search","system-health","audit-search","incident-list",
+  "governance-gates","operational-alerts","merchant-enablement",
+  "prospect-intelligence","expansion-notifications","expansion-radar",
+  "commercial-history-list","commercial-activation"
+]);
 function requireAdminAction(role:string,action:string){
+  // Read-only means least-privilege, NOT arbitrary access to 100+ financial,
+  // payout, owner-wallet or personally identifiable read endpoints.
+  if(role==="readonly"&&!READONLY_ALLOWED_READS.has(action))
+    throw new DomainError("ADMIN_PERMISSION_DENIED",
+      "Este perfil não pode consultar os detalhes solicitados.",403);
   if(ADMIN_READ_ACTIONS.has(action))return;
   const allowed=ADMIN_ROLE_ACTIONS[role]??new Set<string>();
   if(allowed.has("*")||allowed.has(action))return;
@@ -1745,7 +1756,7 @@ async function wooviBillingProviderHealth(){
 }
 
 function adminRoleCanViewEntity(role:string,type:string){
-  if(["superadmin","readonly","operations","finance","support"].includes(role)){
+  if(["superadmin","operations","finance","support"].includes(role)){
     return ["order","merchant","customer"].includes(type);
   }
   if(role==="compliance")return type==="merchant";
@@ -1760,7 +1771,8 @@ function redactOrderForFinance(order:any){
   return copy;
 }
 function scopeEntityDetail(role:string,result:any){
-  if(["superadmin","readonly"].includes(role))return result;
+  if(role==="superadmin")return result;
+  if(role==="readonly")return null;
   if(result?.type==="order"){
     if(role==="finance"){
       return {...result,order:redactOrderForFinance(result.order),support:[],audit:[]};
@@ -1792,9 +1804,63 @@ function scopeEntityDetail(role:string,result:any){
   return result;
 }
 function scopeAdminSummary(role:string,data:any){
-  if(["superadmin","readonly"].includes(role))return data;
+  if(role==="superadmin")return data;
   const current=data.currentAdmin??null;
   const adminSelf=current?[current]:[];
+  if(role==="readonly"){
+    // Allowlisted response: no raw orders, addresses, customer contacts,
+    // payment IDs, merchant credentials, private reports or audit metadata.
+    // Preserve only high-level operational indicators and authorized identity.
+    const metricFields=(raw:any)=>{
+      if(!raw||typeof raw!=="object"||Array.isArray(raw))return {};
+      return Object.fromEntries(Object.entries(raw).filter(([key,value])=>
+        /^[a-zA-Z][a-zA-Z0-9_]{0,60}$/.test(key)&&
+        (typeof value==="boolean"||
+          typeof value==="number"&&Number.isFinite(value))
+      ));
+    };
+    const safeAudit=(data.recentAudit??[]).map((a:any)=>({
+      id:a.id,action:a.action,target_type:a.target_type,created_at:a.created_at
+    }));
+    return {
+      currentAdmin:current?{user_id:current.user_id,active:current.active,
+        admin_role:current.admin_role}:null,
+      platformAdmins:current?[{
+        user_id:current.user_id,active:current.active,
+        admin_role:current.admin_role
+      }]:[],
+      applications:[],pilotPartners:[],merchantReadiness:[],
+      merchants:(data.merchants??[]).map((m:any)=>({
+        id:m.id,name:m.name,status:m.status,online:m.online,
+        last_seen_at:m.last_seen_at
+      })),
+      businessMetrics:metricFields(data.businessMetrics),
+      launchReadiness:metricFields(data.launchReadiness),
+      acquisitionMetrics:metricFields(data.acquisitionMetrics),
+      marketCityInterests:(data.marketCityInterests??[]).map((x:any)=>({
+        city:x.city,state:x.state,last_seen_at:x.last_seen_at
+      })),
+      growthNetwork:{available:false,valid:false},
+      growthApplicationFunnel:{available:false,valid:false},
+      merchantPayments:{globalDirectPaymentsEnabled:false,providerCatalog:[],
+        routes:[],verifications:[],attempts:[],interruptedOrders:[]},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],
+        paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],
+        webhookProbes:[],paymentAccounts:[],paymentIngress:null,
+        metrics:null,reconciliation:null},
+      productRegistry:{categories:[],products:[]},
+      commercialPolicy:null,supportCases:[],controlOrders:[],
+      finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
+      prelaunchLeads:[],publicRequests:[],pendingHelpReportTotal:0,
+      pendingHelpReportSampleLimited:false,
+      rewardFailures:[],accountingFailures:[],referralReviews:[],
+      incidents:(data.incidents??[]).map((x:any)=>({
+        id:x.id,severity:x.severity,status:x.status,source:x.source,
+        created_at:x.created_at,updated_at:x.updated_at
+      })),
+      recentAudit:safeAudit
+    };
+  }
   if(role==="operations"){
     return {
       ...data,
@@ -1983,10 +2049,16 @@ async function adminSearch(admin:any,rawQuery:unknown,role:string){
   }
   const allowedTypes=role==="compliance"
     ? new Set(["merchant","application","lead"])
-    : ["finance","support"].includes(role)
-      ? new Set(["order","merchant","customer"])
-      : new Set(["order","merchant","customer","application","lead","request"]);
-  return {query,results:results.filter((x:any)=>allowedTypes.has(x.type)).slice(0,40)};
+    : role==="readonly"
+      ? new Set(["merchant"])
+      : ["finance","support"].includes(role)
+        ? new Set(["order","merchant","customer"])
+        : new Set(["order","merchant","customer","application","lead","request"]);
+  const visible=results.filter((x:any)=>allowedTypes.has(x.type)).slice(0,40);
+  return {query,results:role==="readonly"?visible.map((x:any)=>({
+    type:x.type,id:x.id,title:x.title,status:x.status,updatedAt:x.updatedAt,
+    subtitle:"Revenda • "+String(x.status||"—")
+  })):visible};
 }
 async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown,role:string){
   const type=String(entityType??"").trim().toLowerCase();
@@ -2084,6 +2156,9 @@ async function adminAuditSearch(admin:any,body:any,role:string){
     .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
     .order("created_at",{ascending:false})
     .limit(limit);
+  if(body.actorUserId&&role==="readonly")
+    throw new DomainError("ADMIN_PERMISSION_DENIED",
+      "Este perfil não consulta registros por identidade administrativa.",403);
   if(body.actorUserId)query=query.eq("actor_user_id",uuid(body.actorUserId,"actor"));
   if(body.action)query=query.eq("action",cleanText(body.action,{min:2,max:80,name:"ação"}));
   if(body.targetType)query=query.eq("target_type",cleanText(body.targetType,{min:2,max:80,name:"tipo de alvo"}));
@@ -2103,10 +2178,14 @@ async function adminAuditSearch(admin:any,body:any,role:string){
   const rows=(result.data??[]).filter((row:any)=>{
     if(!adminRoleAuditMatch(role,row))return false;
     if(!q)return true;
-    return [row.action,row.target_type,row.target_id,row.actor_user_id,JSON.stringify(row.metadata||{})]
-      .some(v=>String(v||"").toLowerCase().includes(q));
+    const fields=role==="readonly"
+      ?[row.action,row.target_type]
+      :[row.action,row.target_type,row.target_id,row.actor_user_id,JSON.stringify(row.metadata||{})];
+    return fields.some(v=>String(v||"").toLowerCase().includes(q));
   });
-  return {results:rows,limit};
+  return {results:role==="readonly"?rows.map((r:any)=>({
+    id:r.id,action:r.action,target_type:r.target_type,created_at:r.created_at
+  })):rows,limit};
 }
 /* V1.208 — all groups are checked from the service-role database per request.
    No incident text, identifiers or customer data leave this diagnostic endpoint. */
@@ -6930,7 +7009,13 @@ Deno.serve(async(req:Request)=>{
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
     if(action==="incident-list"){
-      return json(await adminIncidentList(admin),200,origin);
+      const data=await adminIncidentList(admin);
+      if(adminAccess.admin_role==="readonly")
+        return json({...data,incidents:(data.incidents??[]).map((x:any)=>({
+          id:x.id,severity:x.severity,status:x.status,source:x.source,
+          created_at:x.created_at,updated_at:x.updated_at
+        }))},200,origin);
+      return json(data,200,origin);
     }
     if(action==="merchant-payment-preflight"){
       const merchantId=uuid(body.merchantId,"merchant");
