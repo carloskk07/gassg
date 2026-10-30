@@ -1093,7 +1093,7 @@ async function liveSyncFinancialProfile({force=false}={}){
         liveRuntime.error=null;
       }
       liveRuntime.orderId=id;
-      localStorage.setItem(CHAMA_BACKEND.orderStorageKey,id);
+      localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId);
     }
     liveRuntime.lastFinancialSyncAt=Date.now();
     save();
