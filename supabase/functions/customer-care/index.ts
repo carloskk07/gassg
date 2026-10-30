@@ -175,18 +175,28 @@ Deno.serve(async(req:Request)=>{
       throw createError;
     }
 
-    const {error:eventError}=await admin.from("order_events").insert({
-      order_id:order.id,
-      actor_user_id:user.id,
-      actor_type:"customer",
-      event_type:"SUPPORT_CASE_OPENED",
-      title:"Ajuda solicitada",
-      detail:"O cliente registrou um problema para acompanhamento.",
-      metadata:{supportCaseId:created.id,category}
-    });
-    if(eventError)throw eventError;
+    // The support case has already been committed. An auxiliary timeline
+    // failure must never turn its acknowledged creation into HTTP 500: a user
+    // might retry or believe that no one received the request.
+    let timelineRecorded=false;
+    try{
+      const {error:eventError}=await admin.from("order_events").insert({
+        order_id:order.id,
+        actor_user_id:user.id,
+        actor_type:"customer",
+        event_type:"SUPPORT_CASE_OPENED",
+        title:"Ajuda solicitada",
+        detail:"O cliente registrou um problema para acompanhamento.",
+        metadata:{supportCaseId:created.id,category}
+      });
+      if(eventError)console.error("customer-care timeline unavailable after saved case");
+      else timelineRecorded=true;
+    }catch{
+      // No contact, order, PIN or diagnostic object is written to public logs.
+      console.error("customer-care timeline unavailable after saved case");
+    }
 
-    return json({ok:true,case:created},201,origin);
+    return json({ok:true,case:created,timelineRecorded},201,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
     console.error("customer-care failed",error instanceof Error?error.message:String(error));
