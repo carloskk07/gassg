@@ -239,11 +239,11 @@ try{
  await snapshot('06-cliente-gas-p13-aguardando.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Revenda (pedido)'));if(!b)return false;b.click();return true})()");
  await wait("route()==='merchant'&&state.selectedMerchant==="+JSON.stringify(gas.merchantId)+"&&document.querySelector('.order-id')?.textContent.includes("+JSON.stringify(gas.id)+")",'assigned P13 merchant');
- await wait("document.querySelector('.merchant-benefit-disclosure')?.textContent.includes('Cashback usado pelo cliente')",
+ await wait("document.querySelector('.merchant-benefit-disclosure')?.textContent.includes('Benefícios usados pelo cliente')",
    'visible partner cashback explanation before acceptance');
  const partnerDisclosure=await evaluate("document.querySelector('.merchant-benefit-disclosure')?.innerText");
- for(const snippet of ['Cashback usado pelo cliente','Preço antes dos benefícios',
-   'Cliente paga','Financiamento e compensação da revenda: não comprovados']){
+ for(const snippet of ['Benefícios usados pelo cliente','Preço antes dos benefícios',
+   'Cliente paga','Cupom pago Clube TAMÃO aplicado','Compensação à revenda: não comprovada']){
    assert.ok(partnerDisclosure.includes(snippet),'partner disclosure must contain '+snippet);
  }
  await snapshot('06b-revenda-cashback-fonte-nao-comprovada.png');
