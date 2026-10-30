@@ -57,6 +57,10 @@ const ctx=vm.createContext({
   },
   adminEnsureProviderHealth:async()=>{},
   adminCurrentRole:()=> 'superadmin',
+  // The production adminRefresh also validates the saved tab against RBAC.
+  // This transport-only fixture represents a superadmin on a permitted tab.
+  adminRoleCanSection:()=>true,
+  adminFirstSectionForRole:()=> 'overview',
   queueMicrotask:()=>{},setTimeout:fn=>{fn();return 1;},
   globalThis:null
 });
