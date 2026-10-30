@@ -32,7 +32,7 @@ assert.ok(anp.includes('https://revendedoresapi.anp.gov.br/v1/glp'),'somente hos
 assert.ok(anp.includes('ANP_RESPONSE_FORMAT_UNKNOWN'),'formato desconhecido não é contabilizado como zero');
 assert.ok(anp.includes('upsert_anp_prospect_batch'),'reimportação preserva estágio via RPC SQL protegido');
 assert.ok(adminOps.includes('sourceStatus:refresh?.status')&&adminOps.includes('warning='),'falha remota explícita');
-assert.match(admin,/prospects:new Set\(\['superadmin','readonly','operations','compliance'\]\)/);
+assert.match(admin,/prospects:new Set\(\['superadmin','operations','compliance'\]\)/);
 assert.ok(admin.includes("adminMenuButton('prospects','Prospectos'"));
 assert.ok(admin.includes("adminPanel('prospects',sectionActive('prospects')?(typeof adminProspectsSection==='function'?adminProspectsSection(d):adminExpansionFallbackView()):'')"),
   'A área de prospectos precisa permanecer acessível sem renderizar quando estiver oculta ou não autorizada');
