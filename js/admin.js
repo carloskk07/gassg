@@ -1729,8 +1729,13 @@ function adminOperationalAlertModel(groups){
   const sup=groups.support;
   if(sup?.available===true){
     if(sup.valid===true&&clean(sup.open)!==null){
-      if(sup.open>0)add('support','medium',sup.open+' atendimento(s) pendente(s)',
-        'Chamados abertos ou em análise. Conferir a fila de pedidos.','orders');
+      if(sup.open>0){
+        const cases=clean(sup.cases),reports=clean(sup.reports);
+        const detail=cases!==null&&reports!==null&&cases+reports===sup.open
+          ?cases+' chamado(s) de pedido • '+reports+' relato(s) do site. Conferir a fila de pedidos.'
+          :'Chamados abertos ou em análise. Conferir a fila de pedidos.';
+        add('support','medium',sup.open+' atendimento(s) pendente(s)',detail,'orders');
+      }
     }else unavailable.push('Atendimentos');
   }
   const fin=groups.finance;
