@@ -72,7 +72,7 @@ assert.equal(ctx.scopeEntity('readonly',{type:'order',address_text:sensitive}),n
 assert.equal(ctx.scopeEntity('superadmin',{type:'order',address_text:sensitive}).address_text,sensitive);
 const policy=extract('const READONLY_ALLOWED_READS=', '\n/* V1.184');
 const policyCtx=vm.createContext({
-  ADMIN_READ_ACTIONS:new Set(['summary','search','entity-detail','incident-list','owner-wallet-reconciliation','audit-search','merchant-payment-preflight']),
+  ADMIN_READ_ACTIONS:new Set(['summary','search','entity-detail','incident-list','owner-wallet-reconciliation','audit-search','merchant-payment-preflight','merchant-enablement','prospect-intelligence']),
   ADMIN_ROLE_ACTIONS:{superadmin:new Set(['*']),readonly:new Set()},
   DomainError:class extends Error{constructor(code,message,status){super(message);this.code=code;this.status=status;}}
 });
@@ -80,10 +80,35 @@ vm.runInContext(policy+';this.requireAction=requireAdminAction;',policyCtx);
 for(const action of ['summary','search','incident-list','audit-search'])
   assert.doesNotThrow(()=>policyCtx.requireAction('readonly',action));
 for(const action of ['entity-detail','owner-wallet-reconciliation',
-  'merchant-payment-preflight','financial-action','public-request-status'])
+  'merchant-payment-preflight','financial-action','public-request-status',
+  'merchant-enablement','prospect-intelligence'])
   assert.throws(()=>policyCtx.requireAction('readonly',action),
     err=>err.code==='ADMIN_PERMISSION_DENIED'&&err.status===403);
 assert.doesNotThrow(()=>policyCtx.requireAction('superadmin','owner-wallet-reconciliation'));
+for(const action of ['merchant-enablement','prospect-intelligence']){
+  assert.doesNotThrow(()=>policyCtx.requireAction('operations',action),
+    'operations must retain its existing commercial tools');
+  assert.doesNotThrow(()=>policyCtx.requireAction('superadmin',action),
+    'superadmin must retain its existing commercial tools');
+}
+const merchantHandler=extract('if(action==="merchant-enablement"){',
+  '\n    if(action==="operational-alerts"){');
+const prospectHandler=extract('if(action==="prospect-intelligence"){',
+  '\n    if(action==="expansion-notifications"){');
+for(const [name,handler] of [['merchant-enablement',merchantHandler],
+  ['prospect-intelligence',prospectHandler]]){
+  assert.doesNotMatch(handler,/"readonly"/,
+    name+' must reject readonly at the handler, not just the routing policy');
+  assert.match(handler,/"superadmin","operations","compliance"/,
+    name+' remains available to authorized commercial operators');
+}
+assert.match(prospectHandler,/prospectIntelligence\(admin,body\.city,body\.state,body\.force===true\)/,
+  'prospect refresh must remain unreachable by readonly');
+const authorization=edge.indexOf('requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);');
+const firstHandler=edge.indexOf('if(action==="merchant-enablement"){');
+assert.ok(authorization>=0&&firstHandler>authorization,
+  'read-only deny gate must execute before commercial endpoint handlers');
+
 assert.ok(edge.includes('role==="readonly"?visible.map'));
 assert.ok(edge.includes('role==="readonly"?rows.map'));
 assert.ok(edge.includes('if(action==="incident-list")'));

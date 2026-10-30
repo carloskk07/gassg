@@ -126,8 +126,8 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
 };
 const READONLY_ALLOWED_READS=new Set([
   "summary","search","system-health","audit-search","incident-list",
-  "governance-gates","operational-alerts","merchant-enablement",
-  "prospect-intelligence","expansion-notifications","expansion-radar",
+  "governance-gates","operational-alerts",
+  "expansion-notifications","expansion-radar",
   "commercial-history-list","commercial-activation"
 ]);
 function requireAdminAction(role:string,action:string){
@@ -3848,7 +3848,8 @@ Deno.serve(async(req:Request)=>{
       return json(data,200,origin);
     }
     if(action==="merchant-enablement"){
-      if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
+      // Includes CNPJ and internal compliance checks; never serve readonly roles.
+      if(!["superadmin","operations","compliance"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem autorização para consultar habilitação.",403);
       }
       // Admin-only diagnostic, never a mutation or an alternate authority for checkout.
@@ -3886,7 +3887,8 @@ Deno.serve(async(req:Request)=>{
       return json({cities:data||[],criterion:"operational_priority_v1",automatedMarketActivation:false},200,origin);
     }
     if(action==="prospect-intelligence"){
-      if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
+      // Includes private CRM notes and may refresh prospect records on force=true.
+      if(!["superadmin","operations","compliance"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar prospectos.",403);
       }
       return json(await prospectIntelligence(admin,body.city,body.state,body.force===true),200,origin);
