@@ -58,7 +58,8 @@ for(const bad of [
   {...baseEnv,TRIGGER_RUN_ID:'not-a-number'},
   {...baseEnv,TRIGGER_BRANCH:'dev'},
   {...baseEnv,TRIGGER_EVENT:'pull_request'},
-  {...baseEnv,TRIGGER_WORKFLOW_NAME:'Untrusted workflow'}
+  {...baseEnv,TRIGGER_WORKFLOW_NAME:'Untrusted workflow'},
+  {...baseEnv,TRIGGER_WORKFLOW_NAME:'__proto__'}
 ]){
   const r=await check({},bad);
   assert.equal(r.calls.length,0,'untrusted events never touch API');
