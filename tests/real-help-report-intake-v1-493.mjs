@@ -60,7 +60,7 @@ const html=queueCtx.queue({publicRequests:rows});
 assert.match(html,/2 pendente\(s\)/);
 assert.ok(html.indexOf('Cliente: problema')<html.indexOf('Revenda: erro'));
 assert.doesNotMatch(html,/Pedido privado|Publicidade/);
-assert.match(html,/adminRefresh\(\)/);
+assert.match(html,/adminHelpReportsPage\(0\)/);
 assert.match(admin,/adminProblemReportsSection\(d\)/);
 assert.match(admin,/activeOrderAttention\+openSupportCases\.length\+pendingHelpReports/);
 
