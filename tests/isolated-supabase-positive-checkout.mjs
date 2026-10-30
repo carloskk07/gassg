@@ -561,6 +561,17 @@ const activeAccepted=await call('merchant-action',owner.token,{
 },{'Idempotency-Key':'ci-multi-accept-'+randomUUID()});
 assert.equal(activeAccepted.status,200,'real merchant action must accept extra disposable order');
 assert.equal(activeAccepted.body.status,'PREPARING');
+// Reuse this disposable real-Auth driver for the isolated Chrome PWA route.
+// Assignment is performed by the canonical merchant-action RPC before dispatch.
+const deliveryActor=await createActor('delivery-revocation');
+sql("INSERT INTO public.merchant_members(merchant_id,user_id,member_role,active) VALUES("+
+ q(merchantId)+"::uuid,"+q(deliveryActor.id)+"::uuid,'driver',true)");
+const assignedForBrowser=await call('merchant-action',owner.token,{
+ orderId:activeId,action:'assign-delivery',expectedVersion:activeAccepted.body.version,
+ deliveryUserId:deliveryActor.id
+},{'Idempotency-Key':'ci-assign-driver-browser-'+randomUUID()});
+assert.equal(assignedForBrowser.status,200,'canonical driver assignment: '+JSON.stringify(assignedForBrowser.body).slice(0,400));
+assert.equal(assignedForBrowser.body.assignedDeliveryUserId,deliveryActor.id);
 assert.equal(sql("SELECT available_stock FROM public.catalog_items WHERE merchant_id="+
  q(merchantId)+"::uuid AND product_code='WATER20'"),'5',
  'acceptance locks exactly one water unit');
@@ -583,9 +594,11 @@ assert.equal(sql("SELECT product_code FROM public.order_items WHERE order_id="+q
 const browserCheckoutBuyer=await createActor('customer-ui');
 await verifyIsolatedLivePortals({
  api:base,anon,buyer:testBuyer3,owner,adminActor,orderId:activeId,merchantId,
- recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true,browserCheckoutBuyer
+ recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true,driverActor:deliveryActor,browserCheckoutBuyer
 });
 assert.equal(sql("SELECT count(*) FROM public.orders WHERE customer_id="+q(browserCheckoutBuyer.id)+"::uuid"),'1','browser UI must create precisely one customer order');
+assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(activeId)+"::uuid"),'SETTLED',
+ 'driver offline staged PIN must settle the assigned order through authentic Edge after reconnection');
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');
 assert.equal(sql("SELECT count(*) FROM public.merchant_billing_payment_events"),'0');
 console.log('PASS: GLP P13 blocked before CI ANP, then settled via PIN; water cancelled/accepted; canonical Admin statuses; no PSP or production changes.');
@@ -634,6 +647,50 @@ try{
  assert.equal(sql("SELECT count(*) FROM public.orders WHERE customer_id="+q(demoUiBuyer.id)+"::uuid"),'1','owner three-origin browser must create exactly one real local SQL order');
  console.log('PASS: three local owner-demo origins are authenticated, loopback-only and serve only disposable backend URLs.');
 }finally{await rehearsal.close()}
+
+// Revocation uses the real local Supabase Auth token and the existing
+// merchant-orders Edge function. No fake token, backend replacement or
+// commercial account: the whole CI database is destroyed after the job.
+const assignedDriver=await call('merchant-orders',deliveryActor.token,{merchantId});
+assert.equal(assignedDriver.status,200,'active local driver must read an authorized merchant snapshot');
+assert.equal(assignedDriver.body.merchant?.memberRole,'driver','role must come from backend, not JWT metadata');
+assert.equal(assignedDriver.body.recentClosedDeliveries?.some(o=>o.orderId===activeId),true,
+ 'delivery settled in real isolated Chrome must appear only for this assigned driver');
+// Synthetic fixture only, after the P13 order has fully settled in this
+// disposable database. This assigns historical attribution solely to test
+// the actual driver-only terminal response; no production order is altered.
+sql("UPDATE public.orders SET assigned_delivery_user_id="+q(deliveryActor.id)+
+ "::uuid,updated_at=clock_timestamp() WHERE id="+q(orderId)+
+ "::uuid AND merchant_id="+q(merchantId)+"::uuid AND status='SETTLED'");
+const terminalDriver=await call('merchant-orders',deliveryActor.token,{merchantId});
+assert.equal(terminalDriver.status,200,'driver can consult PII-free closure proof on local Auth');
+assert.equal(terminalDriver.body.orders?.some(o=>o.orderId===orderId),false,
+ 'completed order must not appear in active driver assignments');
+const closed=terminalDriver.body.recentClosedDeliveries?.find(o=>o.orderId===orderId);
+assert.ok(closed,'server must attest the completed order to its assigned driver');
+assert.equal(closed.status,'SETTLED');
+assert.equal(closed.version,Number(sql("SELECT version FROM public.orders WHERE id="+q(orderId)+"::uuid")));
+assert.equal(closed.assignedDeliveryUserId,deliveryActor.id);
+assert.deepEqual(Object.keys(closed).sort(),['assignedDeliveryUserId','orderId','status','version'].sort(),
+ 'terminal proof must never leak customer address, contact, PIN, payment or contents');
+sql("UPDATE public.merchant_members SET active=false WHERE merchant_id="+
+ q(merchantId)+"::uuid AND user_id="+q(deliveryActor.id)+"::uuid");
+const revokedDriver=await call('merchant-orders',deliveryActor.token,{merchantId});
+assert.equal(revokedDriver.status,403,'revoked local driver must lose orders with the SAME valid token');
+assert.ok(['NO_MERCHANT_ACCESS','MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(revokedDriver.body.error),
+ 'revocation is a business 403, never an expired Auth token or stale cached grant');
+sql("UPDATE public.merchant_members SET active=true,member_role='operator' WHERE merchant_id="+
+ q(merchantId)+"::uuid AND user_id="+q(deliveryActor.id)+"::uuid");
+const demotedDriver=await call('merchant-orders',deliveryActor.token,{merchantId});
+assert.equal(demotedDriver.status,200,'demoted member may retain limited merchant access');
+assert.equal(demotedDriver.body.merchant?.memberRole,'operator','backend role change disallows offline driver recovery');
+sql("UPDATE public.merchant_members SET member_role='driver' WHERE merchant_id="+
+ q(merchantId)+"::uuid AND user_id="+q(deliveryActor.id)+"::uuid");
+const restoredDriver=await call('merchant-orders',deliveryActor.token,{merchantId});
+assert.equal(restoredDriver.status,200);
+assert.equal(restoredDriver.body.merchant?.memberRole,'driver',
+ 'only an authenticated fresh server snapshot may re-authorize driver offline scope');
+console.log('PASS: real disposable Supabase Auth driver -> revoke -> demote -> restore; unchanged JWT never overrides current server membership.');
 
 if(process.env.TAMAO_OWNER_LOCAL_DEMO==='1'){
  // Operator-friendly, persistent WHILE RUNNING rehearsal. No web hosting,

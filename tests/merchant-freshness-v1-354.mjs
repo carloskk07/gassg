@@ -51,9 +51,10 @@ assert.match(model.recovery({...rt,lastSyncAt:new Date(Date.now()-300000).toISOS
 assert.match(model.recovery({...rt,lastSyncAt:null,orders:[]}),/Não há confirmação recente/);
 
 const driverCtx=vm.createContext({
-  esc,Date,Math,Number,globalThis:{},
+  esc,Date,Math,Number,globalThis:{},navigator:{onLine:true},
   shell:html=>html,merchantAlertControl:()=>'<div>Alertas</div>',
-  merchantLiveOrder:()=>'<div class="test-driver-actions"><button>Conferir entrega</button></div>'
+  merchantLiveOrder:()=>'<div class="test-driver-actions"><button>Conferir entrega</button></div>',
+  merchantDriverOfflineQueue:()=>''
 });
 vm.runInContext(cut('merchantOrderListEvidence')+'\n'+cut('merchantOrderListRecovery')+
  '\n'+cut('merchantDriverLivePage')+'\nthis.driver=merchantDriverLivePage;',driverCtx);

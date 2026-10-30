@@ -760,34 +760,55 @@ function merchantAlertControl(){
   </div>`;
 }
 
+function merchantLoadOfflineReceiptModule(){
+  if(globalThis.merchantOfflineDeliveryRestore||document.getElementById('tamao-offline-module'))return;
+  const script=document.createElement('script');
+  script.id='tamao-offline-module';
+  script.src=(document.querySelector('script[src*="/js/merchant.js"]')?.src||'./js/merchant.js')
+    .replace('/js/merchant.js','/js/merchant-offline-delivery.js');
+  script.onload=()=>{
+    globalThis.merchantOfflineDeliveryCacheAssignments?.().catch(()=>{});
+    globalThis.merchantOfflineDeliveryRestore?.().then(render,render);
+  };
+  script.onerror=()=>{script.remove();toast('Sem acesso aos comprovantes locais.')};
+  document.head.append(script);
+}
 function merchantDriverLivePage(rt){
+  if(globalThis.queueMicrotask){
+    queueMicrotask(merchantLoadOfflineReceiptModule);
+    queueMicrotask(()=>globalThis.merchantOfflineDeliveryShowPending?.());
+    if(rt.status==='ready')queueMicrotask(()=>globalThis.merchantOfflineDeliveryCacheAssignments?.().catch(()=>{}));
+  }
   const m=rt.merchant||{};
   const orders=Array.isArray(rt.orders)?rt.orders:[];
   const evidence=merchantOrderListEvidence(rt);
   const name=String(m.memberDisplayName||'').trim();
-  const offline=typeof navigator!=='undefined'&&navigator.onLine===false;
-  // The authorized server snapshot determines which orders a driver can see.
-  // Never turn a local offline observation or PIN into a confirmed delivery.
+  const offline=(typeof navigator!=='undefined'&&navigator.onLine===false)||rt.status==='unavailable';
+  if(offline&&!globalThis.merchantDriverOfflineAllowed?.(rt))
+    return shell('<section class="page"><h1>Entre novamente online</h1><p>Sessão vencida ou acesso revogado. Entregas protegidas.</p><button onclick="merchantLiveRefresh()">Reconectar</button></section>');
+  // Only a current server snapshot can authorize delivery actions.
   const priority={ARRIVING:0,OUT_FOR_DELIVERY:1,PREPARING:2,AT_RISK:3};
   const ordered=[...orders].sort((a,b)=>
     (priority[String(a?.status||'')]??4)-(priority[String(b?.status||'')]??4));
   const primary=ordered.slice(0,3);
   const remaining=ordered.slice(3);
+  const offlineQueue=offline?globalThis.merchantDriverOfflineQueue?.(rt)||'':'';
   return shell(`<section class="page merchant-driver-page">
     <header class="merchant-driver-header"><span class="eyebrow">ÁREA DO ENTREGADOR</span>
       <h1 class="page-title">Minhas entregas</h1>
-      <p class="muted">${evidence.fresh?ordered.length+' pedido(s) atribuído(s) a você':'A lista de entregas precisa ser atualizada.'}</p>
+      <p class="muted">${!offline&&evidence.fresh?ordered.length+' pedido(s) atribuído(s) a você':'A lista de entregas precisa ser atualizada.'}</p>
       <button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar entregas</button>
     </header>
-    ${offline?'<div class="notice danger merchant-driver-offline" role="status"><strong>Sem conexão detectada</strong><p>Você pode realizar a entrega física, mas o TAMÃO não consegue confirmar o PIN nem o pagamento neste momento. A entrega continuará pendente no sistema até uma confirmação online. Não feche a tela antes de reconectar; o modo de salvamento offline ainda não está disponível.</p></div>':''}
-    ${evidence.fresh?
+    ${offline?'<div class="notice danger merchant-driver-offline" role="status"><strong>Sem conexão detectada</strong><p>Sem sinal: informe PIN e recebimento e guarde o comprovante. A entrega e o pagamento só serão confirmados no TAMÃO após validação online.</p></div>':''}
+    <section class="merchant-driver-receipts" hidden aria-label="Comprovantes aguardando confirmação"><div id="merchant-offline-receipts" role="status" aria-live="polite"></div></section>
+    ${offline?(offlineQueue||'<div class="empty card">Sem entregas protegidas disponíveis neste aparelho. Reconecte para atualizar.</div>'):(evidence.fresh?
       (ordered.length?
         '<section class="section merchant-driver-priority"><h2>Próximas entregas</h2>'+
         primary.map(merchantLiveOrder).join('')+
         (remaining.length?'<details class="merchant-driver-more"><summary>Ver outras '+remaining.length+' entrega(s)</summary>'+
           '<div class="merchant-driver-more-body">'+remaining.map(merchantLiveOrder).join('')+'</div></details>':'')+'</section>'
         :'<div class="empty card">Nenhuma entrega atribuída a você agora.</div>')
-      :merchantOrderListRecovery(rt)}
+      :merchantOrderListRecovery(rt))}
     <details class="merchant-driver-tools"><summary>Alertas e meus dados</summary>
       <div class="merchant-driver-tools-body">
         ${merchantAlertControl()}
@@ -2348,6 +2369,10 @@ function merchantLivePage(){
   }
   if(rt.status==='unauthenticated')return merchantLiveLoginView();
   if(rt.status==='no-access')return merchantLiveNoAccess();
+  if(rt.status==='unavailable'&&navigator.onLine===false&&rt.session?.access_token&&
+     globalThis.queueMicrotask)queueMicrotask(merchantLoadOfflineReceiptModule);
+  if(rt.status==='unavailable'&&rt.merchant?.memberRole==='driver'&&
+     rt.session?.access_token)return merchantDriverLivePage(rt);
   if(rt.status!=='ready'||!rt.merchant){
     return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível confirmar os pedidos atuais.</strong><br>${esc(rt.error||'Tente novamente.')}</div><p class="tiny muted">Se a conexão falhou temporariamente, o TAMÃO tenta consultar novamente. Até recuperar a sincronização, ações em pedidos ficam indisponíveis nesta tela.</p><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente agora</button></section>`);
   }
@@ -3640,7 +3665,8 @@ function merchantLiveOrder(o){
         <input id="live-pin-${o.orderId}" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{4}" maxlength="4" class="input pin-input" placeholder="4 dígitos" aria-describedby="live-delivery-guide-${o.orderId}" oninput="merchantDeliveryConfirmationChanged('${o.orderId}')">
         <small>O código será verificado pelo sistema ao confirmar.</small></div>
       <div id="live-delivery-guide-${o.orderId}" class="merchant-delivery-confirmation-guide" aria-live="polite">Confirme o recebimento e digite o PIN de 4 dígitos informado pelo cliente.</div>
-      <button type="button" id="live-deliver-submit-${o.orderId}" class="primary merchant-delivery-submit" disabled onclick="merchantLiveDeliver('${o.orderId}')">Confirmar entrega</button>
+      <button type="button" id="live-deliver-submit-${o.orderId}" class="primary merchant-delivery-submit" disabled onclick="merchantLiveDeliver('${o.orderId}')">${currentRole==='driver'&&typeof navigator!=='undefined'&&navigator.onLine===false?'Guardar comprovante (pendente)':'Confirmar entrega'}</button>
+      ${currentRole==='driver'?'<small>Sem internet, o comprovante fica protegido neste aparelho. O pedido só termina depois da confirmação online.</small>':''}
     </div>`;
   }
 
@@ -4219,7 +4245,23 @@ async function merchantLiveDeliver(id){
     document.getElementById('live-pin-'+id)?.focus?.();
     return toast('Informe os 4 dígitos do PIN do cliente.');
   }
-  try{await merchantCompleteDeliveryLive(id,state.pin,true);merchantPostActionConfirmation('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
+  if(globalThis.merchantRuntime?.merchant?.memberRole==='driver'&&navigator.onLine===false){
+    if(!globalThis.merchantOfflineDeliverySaveFromUi){
+      merchantLoadOfflineReceiptModule();
+      return toast('Preparando comprovante protegido. Tente novamente.');
+    }
+    return globalThis.merchantOfflineDeliverySaveFromUi(id,state);
+  }
+  try{await merchantCompleteDeliveryLive(id,state.pin,true);merchantPostActionConfirmation('Entrega e pagamento confirmados')}
+  catch(e){
+    if(globalThis.merchantRuntime?.merchant?.memberRole==='driver'&&
+       typeof isAmbiguousTransportError==='function'&&isAmbiguousTransportError(e)&&
+       typeof globalThis.merchantOfflineDeliverySaveFromUi==='function'){
+      toast('A conexão não confirmou a entrega. Guardando comprovante como pendente.');
+      return globalThis.merchantOfflineDeliverySaveFromUi(id,{...state,idempotencyKey:e.deliveryIdempotencyKey});
+    }
+    toast(String(e?.message||e));
+  }
 }
 async function merchantLiveLogout(){
   if(!merchantQuickConfirmLeave())return;

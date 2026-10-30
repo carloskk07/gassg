@@ -191,6 +191,21 @@ Deno.serve(async(req:Request)=>{
         .limit(100);
       if(driverOrdersError)throw driverOrdersError;
 
+      // An assigned order disappears from the active driver queue once delivered.
+      // Return a separate, short-lived and PII-free terminal proof so a saved
+      // offline receipt can be reconciled against the REAL server version.
+      // Never include the customer's PIN, phone, address, payment or contents.
+      const {data:recentClosedDeliveries,error:recentClosedDeliveriesError}=await admin
+        .from("orders")
+        .select("id,status,version,assigned_delivery_user_id")
+        .eq("merchant_id",selected.merchant_id)
+        .eq("assigned_delivery_user_id",user.id)
+        .in("status",["DELIVERED","SETTLED"])
+        .gte("updated_at",new Date(Date.now()-12*60*60*1000).toISOString())
+        .order("updated_at",{ascending:false})
+        .limit(100);
+      if(recentClosedDeliveriesError)throw recentClosedDeliveriesError;
+
       const driverIds=(driverOrders??[]).map((o)=>o.id);
       let driverItems:any[]=[];
       if(driverIds.length){
@@ -231,6 +246,12 @@ Deno.serve(async(req:Request)=>{
         }],
         deliveryTeam:[],
         catalog:[],
+        recentClosedDeliveries:(recentClosedDeliveries??[]).map((o)=>({
+          orderId:o.id,
+          status:o.status,
+          version:o.version,
+          assignedDeliveryUserId:o.assigned_delivery_user_id
+        })),
         orders:(driverOrders??[]).map((o)=>({
           orderId:o.id,
           publicCode:o.public_code,
