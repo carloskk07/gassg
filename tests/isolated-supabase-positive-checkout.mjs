@@ -245,6 +245,8 @@ assert.equal(merchantView.body.merchant?.merchantId,merchantId);
 const offered=merchantView.body.orders?.find(x=>x.orderId===first.body.orderId);
 assert.ok(offered,'the new order must be visible in the authenticated merchant panel');
 assert.equal(offered.status,'OFFERED_TO_MERCHANT');
+assert.equal(offered.couponAppliedCents,0,
+ 'ordinary orders must report zero paid Clube coupons, never inferred from the cashback wallet');
 assert.equal(offered.addressVisible,false,'pre-accept PII remains hidden');
 const outsiderMerchant=await call('merchant-orders',outsider.token,{merchantId});
 assert.equal(outsiderMerchant.status,403);

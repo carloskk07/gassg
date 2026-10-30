@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import fs from 'node:fs';
+import vm from 'node:vm';
 
 // Runs AFTER isolated-supabase-positive-checkout.mjs in the SAME disposable
 // Supabase. This calls REAL coupon and order RPCs against the full migration
@@ -165,6 +167,52 @@ async function callEdge(slug,token,body,key){
  return {status:response.status,body:await response.json()};
 }
 const orderRef=order.orderId;
+
+// Verify the actual authenticated merchant-orders endpoint (not a SQL-only
+// or frontend-only mock). Coupon face is a subset of cashback_reserved_cents:
+// it may not be presented as ordinary earned cashback or a bank reimbursement.
+const merchantCouponView=await callEdge('merchant-orders',ownerToken,{merchantId:merchant});
+assert.equal(merchantCouponView.status,200,
+ 'merchant-orders must disclose the authorized coupon: '+JSON.stringify(merchantCouponView.body).slice(0,350));
+const visibleCouponOrder=(merchantCouponView.body.orders||[]).find(x=>x.orderId===orderRef);
+assert.ok(visibleCouponOrder,'active coupon order must appear in authorized partner queue');
+assert.equal(visibleCouponOrder.cashbackReservedCents,amounts.cashback);
+assert.equal(visibleCouponOrder.couponAppliedCents,500);
+assert.equal(visibleCouponOrder.totalCents,amounts.total);
+assert.equal(visibleCouponOrder.grossTotalCents,amounts.gross);
+assert.equal(visibleCouponOrder.customerUserId,undefined,
+ 'merchant must never receive coupon purchaser identifiers');
+assert.equal(visibleCouponOrder.couponVoucherId,undefined,
+ 'merchant must never receive private coupon redemption identifiers');
+const deniedCouponMerchant=await callEdge('merchant-orders',buyerToken,{merchantId:merchant});
+assert.equal(deniedCouponMerchant.status,403,
+ 'unrelated buyer must not enumerate the partner-only coupon breakdown');
+
+// Execute the real DOM disclosure function with the real merchant API object,
+// not a copy of its accounting logic. It must split the paid coupon and any
+// other cashback, without claiming the merchant has been reimbursed.
+const merchantJs=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
+const disclosureStart=merchantJs.indexOf('function merchantOrderBenefitDisclosure(o,demo=false){');
+const disclosureEnd=merchantJs.indexOf('\nfunction merchantLiveOrder(o){',disclosureStart);
+assert.ok(disclosureStart>=0&&disclosureEnd>disclosureStart);
+const benefitDisclosure=vm.runInNewContext(
+ merchantJs.slice(disclosureStart,disclosureEnd)+';merchantOrderBenefitDisclosure',
+ {BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
+  esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
+);
+const disclosureHtml=benefitDisclosure(visibleCouponOrder);
+assert.ok(disclosureHtml.includes('Cupom pago Clube TAMÃO aplicado: <strong>') &&
+ disclosureHtml.includes('5,00</strong>'),
+ 'rendered authenticated coupon benefit must show its separate R$ 5,00 face');
+assert.match(disclosureHtml,/Cashback de outros saldos:/);
+assert.match(disclosureHtml,/Compensação à revenda: não comprovada/);
+assert.doesNotMatch(disclosureHtml,/Valores divergentes|Origem dos benefícios inconsistente/);
+assert.doesNotMatch(disclosureHtml,/Cashback usado pelo cliente: −/);
+const contradictoryHtml=benefitDisclosure({...visibleCouponOrder,
+ couponAppliedCents:amounts.cashback+1});
+assert.match(contradictoryHtml,/Origem dos benefícios inconsistente ou indisponível/);
+assert.match(contradictoryHtml,/Cashback de outros saldos: <strong>não informado/);
+
 const created=await callEdge('get-order',buyerToken,{orderId:orderRef});
 assert.equal(created.status,200,'buyer must read coupon-backed order');
 assert.equal(created.body.status,'OFFERED_TO_MERCHANT');
