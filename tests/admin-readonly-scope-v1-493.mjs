@@ -84,9 +84,9 @@ for(const action of ['entity-detail','owner-wallet-reconciliation',
   assert.throws(()=>policyCtx.requireAction('readonly',action),
     err=>err.code==='ADMIN_PERMISSION_DENIED'&&err.status===403);
 assert.doesNotThrow(()=>policyCtx.requireAction('superadmin','owner-wallet-reconciliation'));
-assert.match(edge,/role==="readonly"\\?visible.map|role==="readonly"\\?visible.map/);
-assert.match(edge,/role==="readonly"\\?rows.map/);
-assert.match(edge,/if\\(action==="incident-list"\\)/);
-assert.match(edge,/if\\(adminAccess.admin_role==="readonly"\\)/);
-assert.match(edge,/if\\(body.actorUserId&&role==="readonly"\\)/);
+assert.ok(edge.includes('role==="readonly"?visible.map'));
+assert.ok(edge.includes('role==="readonly"?rows.map'));
+assert.ok(edge.includes('if(action==="incident-list")'));
+assert.ok(edge.includes('if(adminAccess.admin_role==="readonly")'));
+assert.ok(edge.includes('if(body.actorUserId&&role==="readonly")'));
 console.log('PASS: readonly never receives contacts, addresses, PSP identifiers, finance, incidents or audit metadata; reads remain scoped.');
