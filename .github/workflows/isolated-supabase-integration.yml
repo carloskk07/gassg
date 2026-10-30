@@ -10,6 +10,7 @@ on:
       - 'tests/isolated-launch-security-fingerprint.mjs'
       - 'tests/isolated-discovery-privileged-rpc.mjs'
       - 'tests/isolated-supabase-http-smoke.mjs'
+      - 'tests/isolated-supabase-support-e2e.mjs'
       - 'tests/isolated-supabase-positive-checkout.mjs'
       - 'tests/isolated-supabase-coupon-full-schema.mjs'
       - 'tests/isolated-live-portal-browser.mjs'
@@ -136,6 +137,8 @@ jobs:
         run: node tests/isolated-launch-security-fingerprint.mjs
       - name: Verify local Auth and actual Edge HTTP authentication guards
         run: node tests/isolated-supabase-http-smoke.mjs
+      - name: Verify real support intake, protocol, Auth, Admin queue and audited resolution on disposable full schema
+        run: node tests/isolated-supabase-support-e2e.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
       - name: Upload temporary visual evidence from disposable order tests
