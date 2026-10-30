@@ -2,7 +2,10 @@
 const adminActivationDesk={data:null,actor:null,role:null,checkedAt:null,loading:false,error:null};
 async function adminActivationLoad({force=false}={}){
   const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
-  if(!adminReady()||!actor||!['superadmin','operations','readonly'].includes(role))return null;
+  // Keep lazy data loaders aligned with the effective administrative RBAC.
+  // The 23 commercial read endpoints are not authorized for readonly users.
+  if(!adminReady()||!actor||!['superadmin','operations'].includes(role)
+    ||!adminRoleCanSection('activations',role))return null;
   if(adminActivationDesk.loading)return null;
   if(!force&&adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
      Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000)return adminActivationDesk.data;
