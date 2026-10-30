@@ -55,8 +55,8 @@ const esc=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const ctx=vm.createContext({
   adminRuntime:rt,Date,Number,Math,Map,Set,Object,String,esc,
-  adminRoleCanSection:key=>['superadmin','operations','compliance','readonly'].includes(role)
-    &&(key==='prospects'||key==='partners'&&role!=='readonly'),
+  adminRoleCanSection:key=>['superadmin','operations','compliance'].includes(role)
+    &&(key==='prospects'||key==='partners'),
   adminPilotNextActionCopy:()=> 'Conferir próximo passo',
   adminProspectSelectCity:key=>prospectSelections.push(key),
   adminSetSection:next=>{sections.push(next);rt.section=next;renders++;},
@@ -173,7 +173,7 @@ const actionCount=prospectSelections.length;
 ctx.open('RS:sao-gabriel','prospects');
 assert.equal(prospectSelections.length,actionCount);
 role='readonly';
-assert.ok(ctx.view(data).includes('Da demanda à revenda disponível'));
+assert.equal(ctx.view(data),'','readonly cannot open the now restricted commercial bridge');
 ctx.open('RS:sao-gabriel','partners');
 assert.equal(sections.length,oldSections,'Readonly cannot open protected Partner area');
 role='operations';

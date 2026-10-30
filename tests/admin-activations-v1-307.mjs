@@ -7,7 +7,7 @@ const src=read('js/admin-activations.js'),admin=read('js/admin.js');
 const html=read('index.html'),styles=read('css/components.css');
 new vm.Script(src,{filename:'admin-activations.js'});
 assert.ok(html.includes('js/admin-activations.js'));
-assert.ok(admin.includes("activations:new Set(['superadmin','readonly','operations'])"));
+assert.ok(admin.includes("activations:new Set(['superadmin','operations'])"));
 assert.ok(admin.includes("typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView()"));
 assert.ok(admin.includes("adminMenuButton('activations','Ativações'"));
 assert.ok(admin.includes("if(next==='activations')adminActivationLoadOnDemand()"));
@@ -96,7 +96,7 @@ const runtime={
 };
 const env=vm.createContext({
   adminRuntime:runtime,adminCurrentRole:()=>role,adminReady:()=>show,
-  adminRoleCanSection:s=>['superadmin','operations','readonly'].includes(role)&&
+  adminRoleCanSection:s=>['superadmin','operations'].includes(role)&&
     (role==='superadmin'||s!=='finance'),adminInvoke:async({action})=>{
       calls.push(action);return providers[action];
   },adminLoadGovernanceGates:async()=>{runtime.governance.loadedFor=user;runtime.governance.role=role;return governance},
@@ -122,8 +122,11 @@ assert.match(view,/Publicidade TAMÃO/);
 assert.match(view,/Não confirmado/);
 assert.doesNotMatch(view,/Exibição bloqueada/);
 role='readonly';runtime.governance.role=role;
-view=env.view({});assert.match(view,/não confirmada/);
-await env.load({force:true});view=env.view({});
+view=env.view({});assert.equal(view,'','readonly cannot see the restricted activation desk');
+const requestsBeforeReadonly=calls.length;
+assert.equal(await env.load({force:true}),null,'readonly cannot fetch forbidden activation sources');
+assert.equal(calls.length,requestsBeforeReadonly,'readonly cannot issue the 23 protected reads');
+view=env.view({});
 assert.ok(!view.includes("adminActivationGo('payments')"),'readonly must not navigate into finance');
 role='support';assert.equal(await env.load({force:true}),null);
 assert.equal(env.view({}),'');

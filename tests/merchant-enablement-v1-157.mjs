@@ -36,8 +36,8 @@ assert.ok(backend.includes('"merchant-enablement"'));
 assert.ok(backend.includes('admin.rpc("admin_merchant_enablement_v1_157",{p_limit:80})'));
 assert.ok(backend.includes('readOnly:true'));
 assert.ok(backend.includes('source:"market_city_offer_scope"'));
-assert.ok(backend.includes('["superadmin","operations","compliance","readonly"]'));
-for(const str of ["enablement:new Set(['superadmin','readonly','operations','compliance'])",
+assert.ok(backend.includes('if(!["superadmin","operations","compliance"].includes(String(adminAccess.admin_role)))'));
+for(const str of ["enablement:new Set(['superadmin','operations','compliance'])",
   "adminMenuButton('enablement','Habilitação'",
   "adminPanel('enablement',sectionActive('enablement')?(typeof adminEnablementSection==='function'?adminEnablementSection(d):adminExpansionFallbackView()):'')",
   "if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch"]){
