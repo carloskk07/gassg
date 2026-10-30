@@ -63,6 +63,8 @@ jobs:
             and .readiness.portalsSourceSha == $sha
             and (.portals | length) == 3
           '
+      - name: Live support intake validation (no reports created)
+        run: node tests/remote-help-intake-validation-v1-493.mjs
       - name: Direct merchant payment kill-switch gate
         run: node tests/remote-direct-payment-kill-switch.mjs
       - name: Mercado Pago PSP runtime configuration gate
