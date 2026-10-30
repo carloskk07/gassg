@@ -95,8 +95,9 @@ console.log('PASS: submitted report attribution is sanitized server-side, includ
 const adminEdge=read('supabase/functions/admin-ops/index.ts');
 assert.match(adminEdge,/support:new Set\(\[[^\]]*"public-request-status"/,
   'support operators can update public help cases');
-const scopedRole=adminEdge.slice(adminEdge.indexOf('if(role==="support"){'),
-  adminEdge.indexOf('if(role==="compliance"){'));
+const summaryScopeStart=adminEdge.indexOf('function scopeAdminSummary(');
+const scopedRole=adminEdge.slice(adminEdge.indexOf('if(role==="support"){',summaryScopeStart),
+  adminEdge.indexOf('if(role==="compliance"){',summaryScopeStart));
 assert.match(scopedRole,/publicRequests:\(data\.publicRequests\?\?\[\]\)\.filter/,
   'support summary must exclude privacy and general requests before returning JSON');
 assert.match(scopedRole,/request_kind==="support"/);
