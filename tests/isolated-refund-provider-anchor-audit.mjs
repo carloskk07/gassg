@@ -104,6 +104,8 @@ begin
   ) then raise exception 'IMMUTABLE_REFUND_FACT_CHANGED'; end if;
 end;
 $audit_fixture$;
+-- Force every deferred financial provenance/ledger trigger before rollback.
+SET CONSTRAINTS ALL IMMEDIATE;
 SELECT 'ISOLATED_REFUND_ANCHOR_CONFLICT_PASS';
 ROLLBACK;
 `;
