@@ -407,6 +407,35 @@ Deno.serve(async(req:Request)=>{
       items=data??[];
     }
 
+    // #493 — The paid Clube TAMÃO coupon is added to the ordinary cashback
+    // wallet before order creation. Never mislabel its face value as ordinary
+    // cashback. Only query the order IDs already authorized for this merchant;
+    // voucher/payment/buyer IDs, provider references and bank data stay secret.
+    const couponByOrder=new Map<string,number|null>();
+    if(ids.length){
+      const {data:couponRows,error:couponError}=await admin
+        .from("clube_coupon_paid_order_applications")
+        .select("order_id,quoted_merchant_id,face_cents,original_order_cashback_cents,original_order_total_cents")
+        .eq("quoted_merchant_id",selected.merchant_id)
+        .in("order_id",ids);
+      if(couponError)throw couponError;
+      const orderById=new Map((orders??[]).map((order)=>[order.id,order]));
+      for(const row of couponRows??[]){
+        const order:any=orderById.get(row.order_id);
+        if(!order)continue;
+        const face=Number(row.face_cents);
+        const cashback=Number(order.cashback_reserved_cents);
+        const valid=Number.isSafeInteger(face)&&face>0
+          &&Number.isSafeInteger(cashback)&&face<=cashback
+          &&Number(row.original_order_cashback_cents)===cashback
+          &&Number(row.original_order_total_cents)===Number(order.total_cents)
+          &&row.quoted_merchant_id===selected.merchant_id;
+        // Duplicate/contradictory records never produce a fictitious split.
+        couponByOrder.set(row.order_id,
+          !couponByOrder.has(row.order_id)&&valid?face:null);
+      }
+    }
+
     // V1.386 — Private, read-only merchant support summary. The service
     // role query is scoped by BOTH the authenticated member's selected
     // merchant and the order IDs already authorized for this response.
@@ -901,6 +930,7 @@ Deno.serve(async(req:Request)=>{
         comparisonSavingsCents:Number(o.comparison_savings_cents??0),
         grossTotalCents:o.gross_total_cents,
         cashbackReservedCents:o.cashback_reserved_cents,
+        couponAppliedCents:couponByOrder.has(o.id)?couponByOrder.get(o.id):0,
         totalCents:o.total_cents,
         supplierName:o.supplier_name_snapshot,
         riskReason:o.risk_reason,
