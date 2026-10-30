@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/isolated-supabase-integration.yml'
+      - 'js/backend.js'
+      - 'tests/customer-active-order-switch-v1-493.mjs'
       - 'tests/isolated-supabase-commerce-smoke.mjs'
       - 'tests/isolated-full-schema-browser-acl.mjs'
       - 'tests/isolated-launch-security-fingerprint.mjs'

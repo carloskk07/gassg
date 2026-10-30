@@ -41,6 +41,8 @@ jobs:
         run: node tests/woovi-webhook-crypto.mjs
       - name: Buyer checkout ambiguous-response regression
         run: node tests/customer-checkout-ambiguous-recovery.mjs
+      - name: V1.493 customer active order tracking switch and delayed reply regression
+        run: node tests/customer-active-order-switch-v1-493.mjs
       - name: Marketplace simulations
         run: node tests/simulations.mjs
       - name: Expert deterministic fuzz
