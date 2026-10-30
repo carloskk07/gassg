@@ -47,7 +47,8 @@ assert.match(endpoint,/request_idempotency_key/);
 assert.match(endpoint,/acknowledged_at/);
 assert.match(endpoint,/\.from\("public_requests"\)/);
 
-const queueCtx=vm.createContext({adminPublicRequestCard:x=>'<article>'+esc(x.message)+'</article>'});
+const queueCtx=vm.createContext({adminPublicRequestCard:x=>'<article>'+esc(x.message)+'</article>',
+ adminHelpPager:()=>({page:0,items:null,total:null,loading:false,error:null})});
 vm.runInContext(cut(acquisition,'adminProblemReportsSection')+';this.queue=adminProblemReportsSection;',queueCtx);
 const rows=[
  {request_kind:'support',status:'in_review',created_at:'2026-10-29T15:00:00Z',message:'Revenda: erro'},
