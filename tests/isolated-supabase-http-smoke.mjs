@@ -255,6 +255,10 @@ try{
   assert.equal(after.body.items.length,12);
   console.log('PASS local real Admin Edge: 3 support pages, finance/privacy denied, resolution persisted.');
 }finally{
+  // Platform audit deliberately RESTRICTs deleting actors. Only on the
+  // DISPOSABLE CI database, purge those synthetic audit entries first.
+  if(localAdminActors.length)localSql("delete from public.platform_admin_audit where actor_user_id in ("+
+    localAdminActors.map(id=>"'"+id+"'").join(',')+")");
   for(const id of localAdminActors){
     const del=await fetch(base+'/auth/v1/admin/users/'+id,{
       method:'DELETE',headers:adminHeaders,signal:AbortSignal.timeout(30000)
