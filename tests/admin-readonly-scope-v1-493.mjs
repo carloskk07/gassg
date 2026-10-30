@@ -72,7 +72,7 @@ assert.equal(ctx.scopeEntity('readonly',{type:'order',address_text:sensitive}),n
 assert.equal(ctx.scopeEntity('superadmin',{type:'order',address_text:sensitive}).address_text,sensitive);
 const policy=extract('const READONLY_ALLOWED_READS=', '\n/* V1.184');
 const policyCtx=vm.createContext({
-  ADMIN_READ_ACTIONS:new Set(['summary','search','entity-detail','incident-list','owner-wallet-reconciliation','audit-search','merchant-payment-preflight']),
+  ADMIN_READ_ACTIONS:new Set(['summary','search','entity-detail','incident-list','owner-wallet-reconciliation','audit-search','merchant-payment-preflight','merchant-enablement','prospect-intelligence']),
   ADMIN_ROLE_ACTIONS:{superadmin:new Set(['*']),readonly:new Set()},
   DomainError:class extends Error{constructor(code,message,status){super(message);this.code=code;this.status=status;}}
 });
