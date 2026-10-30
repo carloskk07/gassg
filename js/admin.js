@@ -8380,8 +8380,10 @@ function adminPage(){
   const platformAdmins=d.platformAdmins||[];
   const supportCases=d.supportCases||[];
   const openSupportCases=supportCases.filter(x=>['open','in_review'].includes(x.status));
-  const pendingHelpReports=(Array.isArray(d.publicRequests)?d.publicRequests:[])
-    .filter(x=>x.request_kind==='support'&&['new','in_review'].includes(x.status)).length;
+  const pendingHelpReports=Number.isSafeInteger(d.pendingHelpReportTotal)&&d.pendingHelpReportTotal>=0
+    ?d.pendingHelpReportTotal
+    :(Array.isArray(d.publicRequests)?d.publicRequests:[])
+      .filter(x=>x.request_kind==='support'&&['new','in_review'].includes(x.status)).length;
   const controlOrders=d.controlOrders||[];
   const metrics=d.businessMetrics||{};
   const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
