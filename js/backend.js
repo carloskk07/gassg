@@ -505,10 +505,17 @@ async function prelaunchLeadSubmit(payload){
   });
 }
 
+// Reuse the same server idempotency key after a lost response or timeout.
+// Only one draft is held in memory. Never persist contact details to storage.
+let pendingPublicRequest=null;
 async function publicRequestSubmit(payload){
   const body={...payload,attribution:prelaunchAttribution()};
-  const idempotencyKey=liveIdempotency('public-request');
-  return retryAmbiguousOnce(async()=>{
+  const fingerprint=JSON.stringify(body);
+  if(!pendingPublicRequest||pendingPublicRequest.fingerprint!==fingerprint){
+    pendingPublicRequest={fingerprint,key:liveIdempotency('public-request')};
+  }
+  const idempotencyKey=pendingPublicRequest.key;
+  const result=await retryAmbiguousOnce(async()=>{
     const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/submit-public-request',{
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey,'Idempotency-Key':idempotencyKey},
@@ -525,6 +532,11 @@ async function publicRequestSubmit(payload){
     }
     return data;
   });
+  // A confirmed HTTP response is the only safe moment to release this key.
+  // If the previous attempt committed but its response was lost, the next
+  // click must replay that same request rather than create a duplicate.
+  if(pendingPublicRequest?.key===idempotencyKey)pendingPublicRequest=null;
+  return result;
 }
 
 function liveCartItems(){
