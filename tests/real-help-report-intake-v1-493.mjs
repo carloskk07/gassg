@@ -113,7 +113,7 @@ const intakeCtx=vm.createContext({
     return {ok:true,status:200,json:async()=>({ok:true,protocol:'TEST1234',replayed:true})};
   }
 });
-vm.runInContext('let pendingPublicRequest=null;\n'+cut(backend,'publicRequestSubmit')+
+vm.runInContext('let pendingPublicRequest=null;\nasync '+cut(backend,'publicRequestSubmit')+
   ';this.send=publicRequestSubmit;',intakeCtx);
 const draft={requestKind:'support',contactName:'Pessoa de teste',
   contactChannel:'email',contactValue:'qa@example.com',
