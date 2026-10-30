@@ -33,7 +33,8 @@ export async function triageReadinessIncident({env,request,report=()=>{}}){
     outcome:env.TRIGGER_CONCLUSION,
     id:Number(env.TRIGGER_RUN_ID)
   };
-  const mode=WORKFLOWS[proof.workflow];
+  const mode=Object.hasOwn(WORKFLOWS,String(proof.workflow))
+    ?WORKFLOWS[proof.workflow]:null;
   if(proof.event!=='workflow_run'||proof.repo!==REPO||!mode||
     proof.branch!=='main'||!SHA.test(String(proof.sha||''))||
     !Number.isSafeInteger(proof.id)||proof.id<=0||!BAD.has(proof.outcome)){
