@@ -117,7 +117,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
     "growth-benefit-preview","commercial-policy","clube-coupon-preview","clube-coupon-finance-status","clube-coupon-mp-release-reports","clube-coupon-mp-release-inspect","clube-coupon-mp-payout-inspect",
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
-  support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
+  support:new Set(["order-control","support-case-status","public-request-status","incident-action","operational-alert-ack"]),
   compliance:new Set(["clube-campaign-review",
     "growth-referral-review","ads-campaign-review","ads-preview-issue","ads-preview-confirm","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
@@ -1863,6 +1863,7 @@ function scopeAdminSummary(role:string,data:any){
       rewardFailures:[],accountingFailures:[],referralReviews:[],
       platformAdmins:adminSelf,
       prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},growthApplicationFunnel:{available:false,valid:false},
+      publicRequests:(data.publicRequests??[]).filter((x:any)=>x.request_kind==="support"),
       recentAudit:[]
     };
   }
@@ -2553,10 +2554,29 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
     commerceAutomaticallyActivated:false};
 }
 
+// Never let unrelated newer marketing/privacy enquiries push an unresolved
+// customer or merchant incident out of the bounded operational snapshot.
+function mergePriorityHelpRequests(recent:any[],pending:any[]){
+  const ids=new Set<string>();
+  return [...pending,...recent].filter((x:any)=>{
+    if(!x?.id||ids.has(String(x.id)))return false;
+    ids.add(String(x.id));
+    return true;
+  });
+}
+
 async function summary(admin:any,actorUserId:string){
   const marketCityInterestsPromise=admin.from("market_city_interests")
     .select("city,state,last_seen_at")
     .not("city","is",null).order("last_seen_at",{ascending:false}).limit(1000);
+  // Keep the existing 200-row general inbox, but query unresolved help
+  // independently (and count ALL pending cases) so they stay actionable.
+  const pendingSupportPromise=admin.from("public_requests")
+    .select("id,request_kind,privacy_action,contact_name,contact_channel,contact_value,message,status,resolution_note,resolved_at,source,medium,campaign,referrer,landing_path,created_at,updated_at",{count:"exact"})
+    .eq("request_kind","support")
+    .in("status",["new","in_review"])
+    .order("created_at",{ascending:false})
+    .limit(30);
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,pilot_partner_draft_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
@@ -2628,6 +2648,8 @@ async function summary(admin:any,actorUserId:string){
   }
   const {data:marketCityInterests,error:marketCityInterestError}=await marketCityInterestsPromise;
   if(marketCityInterestError)throw marketCityInterestError;
+  const pendingSupport=await pendingSupportPromise;
+  if(pendingSupport.error)throw pendingSupport.error;
   // A finance row must never offer a manual paid action for an existing
   // funded coupon. Resolve only the bounded open-order IDs already displayed.
   // If lookup fails, fail closed rather than label an unknown order payable.
@@ -3087,7 +3109,9 @@ async function summary(admin:any,actorUserId:string){
     acquisitionMetrics:acquisitionMetrics.data??{},
     growthNetwork,
     growthApplicationFunnel,
-    publicRequests:publicRequests.data??[],
+    publicRequests:mergePriorityHelpRequests(publicRequests.data??[],pendingSupport.data??[]),
+    pendingHelpReportTotal:pendingSupport.count??(pendingSupport.data??[]).length,
+    pendingHelpReportSampleLimited:Number(pendingSupport.count??0)>(pendingSupport.data??[]).length,
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
     referralReviews:(referralReviews.data??[]).map((x:any)=>{
@@ -8218,6 +8242,17 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_ACTION","Ação administrativa inválida.",400);
     }
 
+    // Support operators may resolve ONLY help reports. Privacy requests
+    // contain sensitive rights/identity information and remain restricted.
+    if(action==="public-request-status"&&adminAccess.admin_role==="support"){
+      const check=await admin.from("public_requests")
+        .select("request_kind").eq("id",payload.requestId).maybeSingle();
+      if(check.error)throw new DomainError("SUPPORT_REQUEST_SCOPE_UNAVAILABLE",
+        "Não foi possível conferir o tipo da solicitação.",503);
+      if(check.data?.request_kind!=="support")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "O perfil de suporte só pode alterar chamados de ajuda.",403);
+    }
     const requestHash=await requestFingerprint("admin-ops:"+action,payload);
 
     if(action==="merchant-billing-provider-cancel-retry"){
