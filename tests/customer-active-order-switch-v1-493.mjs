@@ -173,6 +173,72 @@ assert.equal(outage.runtime.orderId,OLD);
 assert.equal(outage.runtime.order.supportCases[0].status,'in_review');
 assert.match(outage.runtime.error,/network unavailable/);
 
+// Access revoked while polling must remove the previous customer's order.
+// A temporary server outage does not authorize erasing the tracked ID.
+for(const deniedStatus of [401,403,404]){
+ const revoked=setup();
+ revoked.runtime.order.status='PREPARING';
+ revoked.setGetOrder(async()=>{
+  throw Object.assign(new Error('access denied'),{status:deniedStatus});
+ });
+ await revoked.ctx.poll();
+ assert.equal(revoked.runtime.orderId,null);
+ assert.equal(revoked.runtime.order,null);
+ assert.equal(revoked.runtime.orderCheckedId,null);
+ assert.equal(revoked.runtime.orderCheckedAt,null);
+ assert.equal(revoked.saved.has('test-tracked-order'),false);
+}
+const retryable=setup();
+retryable.runtime.order.status='PREPARING';
+retryable.setGetOrder(async()=>{
+ throw Object.assign(new Error('temporarily unavailable'),{status:503});
+});
+await retryable.ctx.poll();
+assert.equal(retryable.runtime.orderId,OLD);
+assert.equal(retryable.saved.get('test-tracked-order'),OLD);
+assert.match(retryable.runtime.error,/temporarily unavailable/);
+// Exercise the real startup function: a temporary get-order failure on
+// reload must keep the ID, then a successful retry restores the snapshot.
+const initRuntime={requested:true,status:'disabled',orderId:null,order:null,
+ orderCheckedAt:null,orderCheckedId:null,error:null};
+const savedAtInit=new Map([['test-tracked-order',OLD]]);
+let startupStatus=503;
+const liveSession={access_token:'fixture-session'};
+const testClient={auth:{getSession:async()=>({data:{session:liveSession},error:null})}};
+const initCtx=vm.createContext({
+ liveRuntime:initRuntime,CHAMA_BACKEND:{url:'https://example.invalid',
+  publishableKey:'fixture',orderStorageKey:'test-tracked-order'},
+ localStorage:{getItem:k=>savedAtInit.get(k)||null,
+  setItem:(k,v)=>savedAtInit.set(k,v),removeItem:k=>savedAtInit.delete(k)},
+ customerOriginSafe:()=>true,
+ loadSupabaseBrowser:async()=>({createClient:()=>testClient}),
+ chamaFetch:()=>{},liveSyncFinancialProfile:async()=>false,
+ liveSyncMarketStatus:async()=>null,liveRefreshCityPriceBoard:async()=>null,
+ route:()=> 'home',render:()=>{},console:{warn:()=>{}},
+ liveGetOrder:async()=>{
+  if(startupStatus)throw Object.assign(new Error('unavailable'),{status:startupStatus});
+  initRuntime.order={orderId:OLD,status:'PREPARING',version:1};
+  initRuntime.orderCheckedId=OLD;
+ },Date
+});
+vm.runInContext(between('async function backendInit(','\nasync function liveAccessToken(')+
+ '\nthis.start=backendInit;',initCtx);
+assert.equal(await initCtx.start(),true);
+assert.equal(initRuntime.orderId,OLD);
+assert.equal(savedAtInit.get('test-tracked-order'),OLD);
+assert.equal(initRuntime.order,null);
+assert.equal(initRuntime.orderCheckedId,null);
+assert.match(initRuntime.error,/Não foi possível atualizar seu pedido/);
+startupStatus=0;
+await initCtx.liveGetOrder();
+assert.equal(initRuntime.order?.orderId,OLD);
+assert.equal(initRuntime.orderCheckedId,OLD);
+
+// Reload must distinguish an HTTP denial from a retryable request failure.
+const initCode=between('async function backendInit(','\nasync function liveAccessToken(');
+assert.match(initCode,/\[401,403,404\]\.includes\(e\?\.status\)/);
+assert.match(initCode,/liveRuntime\.error='Não foi possível atualizar seu pedido/);
+
 // PRs touching any financial/admin/customer/merchant module must exercise
 // the existing disposable end-to-end suite, not only a short path allowlist.
 const workflow=fs.readFileSync(new URL('../.github/workflows/isolated-supabase-integration.yml',import.meta.url),'utf8');
