@@ -1331,6 +1331,7 @@ const merchantRuntime={
   lastHeartbeatAt:0,
   lastPollAt:0,
   refreshSeq:0,
+  accessEpoch:0,
   pollPending:false,
   recoveryFailures:0,
   nextRecoveryAt:0,
@@ -2009,8 +2010,15 @@ function merchantEnablementAfterChange(){
 }
 
 async function merchantLoadOwnApplications(){
-  if(!merchantRuntime.session?.access_token)return [];
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantRuntime.session?.access_token||!userId)return [];
+  const epoch=merchantRuntime.accessEpoch;
   const result=await merchantInvoke('submit-merchant-application',{action:'my-applications'});
+  // A late response must never repopulate a previous account after logout,
+  // access revocation or switching merchants.
+  if(epoch!==merchantRuntime.accessEpoch||
+     userId!==String(merchantRuntime.session?.user?.id||'')||
+     !['ready','no-access'].includes(merchantRuntime.status))return [];
   merchantRuntime.ownApplications=Array.isArray(result?.applications)?result.applications:[];
   merchantRuntime.ownApplicationsLoaded=true;
   merchantRuntime.applicationFetchError=null;
@@ -2055,6 +2063,7 @@ function merchantOfflineGuard(denied){
 // Drop merchant-scoped data whenever authorization or merchant selection changes.
 // The next server response, not an old browser snapshot, restores this state.
 function merchantClearProtectedSnapshot(){
+  merchantRuntime.accessEpoch=(merchantRuntime.accessEpoch||0)+1;
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
   merchantClearEnablement();
@@ -2356,20 +2365,30 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
 }
 
 async function merchantTeamLoadLive({silent=false}={}){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantId||!userId||!merchantReady())throw new Error('Revenda não selecionada');
   if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
     throw new Error('Seu papel não pode gerenciar a equipe');
   }
+  const epoch=merchantRuntime.accessEpoch;
   merchantRuntime.teamLoading=true;
   if(!silent)render();
   try{
     const data=await merchantInvoke('merchant-team',{merchantId,action:'list'});
+    if(epoch!==merchantRuntime.accessEpoch||!merchantReady()||
+       String(merchantRuntime.session?.user?.id||'')!==userId||
+       String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       !['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+      throw new Error('O acesso à revenda mudou. Atualize a equipe.');
+    }
     merchantRuntime.team=data??{actorRole:null,members:[],pendingInvites:[]};
     return merchantRuntime.team;
   }finally{
-    merchantRuntime.teamLoading=false;
-    if(!silent)render();
+    if(epoch===merchantRuntime.accessEpoch){
+      merchantRuntime.teamLoading=false;
+      if(!silent)render();
+    }
   }
 }
 
