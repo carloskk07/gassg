@@ -63,7 +63,7 @@ assert.match(html,/3 pendente\(s\)/);
 assert.match(html,/Aguardam análise<\/small><strong>2/);
 assert.match(html,/Em análise<\/small><strong>1/);
 assert.match(html,/Resolvidos exibidos<\/small><strong>1/);
-assert.match(html,/até 100 recentes/);
+assert.match(html,/até 100 atendimentos pendentes mais antigos/);
 assert.match(html,/Dados consultados: há 2 min/);
 assert.match(html,/3 atendimento\(s\) exibido\(s\)/);
 assert.match(html,/adminSupportQueueApplyFilter\(\)/);
@@ -132,8 +132,8 @@ for(const token of ['.admin-support-queue-kpis',
  '@media(prefers-reduced-motion:reduce)'])
  assert.ok(css.includes(token),'missing responsive triage rule '+token);
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes(
- '.in("status",["open","in_review","resolved"])'),
- 'limited case list must be server-backed and not expose new data');
+ '.in("status",["open","in_review"])'),
+ 'pending support queue must be server-backed and independently paged');
 assert.ok(read('.github/workflows/audit.yml').includes(
  'node tests/admin-support-triage-v1-385.mjs'));
 console.log('TAMÃO V1.385 PASS — prioritized support queue, limited results, keyboard/mobile filters, role controls, privacy and no new admin mutations.');
