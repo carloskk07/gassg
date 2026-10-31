@@ -197,6 +197,43 @@ await retryable.ctx.poll();
 assert.equal(retryable.runtime.orderId,OLD);
 assert.equal(retryable.saved.get('test-tracked-order'),OLD);
 assert.match(retryable.runtime.error,/temporarily unavailable/);
+// Exercise the real startup function: a temporary get-order failure on
+// reload must keep the ID, then a successful retry restores the snapshot.
+const initRuntime={requested:true,status:'disabled',orderId:null,order:null,
+ orderCheckedAt:null,orderCheckedId:null,error:null};
+const savedAtInit=new Map([['test-tracked-order',OLD]]);
+let startupStatus=503;
+const liveSession={access_token:'fixture-session'};
+const testClient={auth:{getSession:async()=>({data:{session:liveSession},error:null})}};
+const initCtx=vm.createContext({
+ liveRuntime:initRuntime,CHAMA_BACKEND:{url:'https://example.invalid',
+  publishableKey:'fixture',orderStorageKey:'test-tracked-order'},
+ localStorage:{getItem:k=>savedAtInit.get(k)||null,
+  setItem:(k,v)=>savedAtInit.set(k,v),removeItem:k=>savedAtInit.delete(k)},
+ customerOriginSafe:()=>true,
+ loadSupabaseBrowser:async()=>({createClient:()=>testClient}),
+ chamaFetch:()=>{},liveSyncFinancialProfile:async()=>false,
+ liveSyncMarketStatus:async()=>null,liveRefreshCityPriceBoard:async()=>null,
+ route:()=> 'home',render:()=>{},console:{warn:()=>{}},
+ liveGetOrder:async()=>{
+  if(startupStatus)throw Object.assign(new Error('unavailable'),{status:startupStatus});
+  initRuntime.order={orderId:OLD,status:'PREPARING',version:1};
+  initRuntime.orderCheckedId=OLD;
+ },Date
+});
+vm.runInContext(between('async function backendInit(','\nasync function liveAccessToken(')+
+ '\nthis.start=backendInit;',initCtx);
+assert.equal(await initCtx.start(),true);
+assert.equal(initRuntime.orderId,OLD);
+assert.equal(savedAtInit.get('test-tracked-order'),OLD);
+assert.equal(initRuntime.order,null);
+assert.equal(initRuntime.orderCheckedId,null);
+assert.match(initRuntime.error,/Não foi possível atualizar seu pedido/);
+startupStatus=0;
+await initCtx.liveGetOrder();
+assert.equal(initRuntime.order?.orderId,OLD);
+assert.equal(initRuntime.orderCheckedId,OLD);
+
 // Reload must distinguish an HTTP denial from a retryable request failure.
 const initCode=between('async function backendInit(','\nasync function liveAccessToken(');
 assert.match(initCode,/\[401,403,404\]\.includes\(e\?\.status\)/);
