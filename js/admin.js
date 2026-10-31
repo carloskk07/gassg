@@ -4805,7 +4805,8 @@ function adminFinanceLabPrerequisiteChecks(readiness){
 async function adminFinanceLabDiagnoseChargesFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const state=adminRuntime.financeLab;
-  if(state.chargesLoading)return;
+  if(state.chargesLoading||state.providerBatchPending||state.providerCheckingId)return;
+  const actor=String(adminRuntime.session?.user?.id||'');
   state.chargesLoading=true;state.chargesError=null;render();
   try{
     const result=await adminInvoke({action:'finance-lab-charge-diagnostics'});
@@ -4813,13 +4814,18 @@ async function adminFinanceLabDiagnoseChargesFromUi(){
       !Array.isArray(result.charges)||result.charges.length>20){
       throw new Error('O diagnóstico não confirmou os registros financeiros.');
     }
+    if(!adminReady()||adminCurrentRole()!=='superadmin'||adminRuntime.financeLab!==state
+      ||String(adminRuntime.session?.user?.id||'')!==actor)return;
     state.charges=result;
     state.providerChecks={};state.providerCheckErrors={};state.providerBatchResult=null;
     state.providerCheck=null;state.providerCheckError=null;
   }catch(e){
-    state.chargesError=String(e?.message||e);
-    state.charges=null;
-  }finally{state.chargesLoading=false;render();}
+    if(adminReady()&&adminCurrentRole()==='superadmin'&&adminRuntime.financeLab===state
+      &&String(adminRuntime.session?.user?.id||'')===actor){
+      state.chargesError=String(e?.message||e);
+      state.charges=null;
+    }
+  }finally{if(adminRuntime.financeLab===state){state.chargesLoading=false;render();}}
 }
 
 const ADMIN_FINANCE_CHARGE_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -5434,7 +5440,7 @@ function adminFinanceLabView(d){
           :'<small>Nenhuma ordem de teste comprovada nesta consulta.</small>'}
         <h4>Auditoria dos PIX já emitidos</h4>
         <p class="muted tiny">Verifica código, valor, vencimento e registros de webhook das últimas 20 cobranças, sem criar PIX ou pagamentos e sem expor chaves.</p>
-        <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabDiagnoseChargesFromUi()" ${state.chargesLoading?'disabled':''}>
+        <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabDiagnoseChargesFromUi()" ${state.chargesLoading||state.providerBatchPending||state.providerCheckingId?'disabled':''}>
           ${state.chargesLoading?'Conferindo cobranças…':'Diagnosticar cobranças PIX e webhooks'}
         </button>
         <button type="button" class="secondary small" onclick="adminFinanceLabVerifyPendingBatchFromUi()"
