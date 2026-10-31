@@ -60,8 +60,7 @@ function fixture(respond){
       removeItem:key=>store.delete(key)
     }
   });
-  vm.runInContext(source+'\nthis.ops={refresh:merchantRefresh,select:merchantSelectLive,clear:merchantClearProtectedSnapshot,
- loadTeam:merchantTeamLoadLive,loadApplications:merchantLoadOwnApplications};',ctx);
+  vm.runInContext(source+'\nthis.ops={refresh:merchantRefresh,select:merchantSelectLive,clear:merchantClearProtectedSnapshot,loadTeam:merchantTeamLoadLive,loadApplications:merchantLoadOwnApplications};',ctx);
   return {rt,push,alerts,ctx,calls,writes,store,renderStates};
 }
 const http=(status,code)=>Object.assign(Error('Server denied'),{status,code});
