@@ -409,8 +409,7 @@ async function backendInit(){
     await liveSyncFinancialProfile();
     try{await liveSyncMarketStatus({force:true})}
     catch(e){console.warn('Estado do mercado real indisponível',e)}
-    // Do not hold the initial public render while waiting for optional price
-    // aggregation. Verified facts replace references as soon as they arrive.
+    // Price aggregation is optional; never block the initial render.
     liveRefreshCityPriceBoard({force:true})
       .then(data=>{if(data&&route()==='home')render()})
       .catch(e=>console.warn('Vitrine regional aguardando preços verificados',e));
@@ -419,9 +418,12 @@ async function backendInit(){
       try{await liveGetOrder(liveRuntime.orderId,{silent:true})}
       catch(e){
         console.warn('Pedido live anterior não pôde ser restaurado',e);
-        localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
-        liveRuntime.orderId=null;
         liveRuntime.order=null;
+        liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
+        if([401,403,404].includes(e?.status)){
+          localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+          liveRuntime.orderId=null;
+        }else liveRuntime.error='Não foi possível atualizar seu pedido. Tente novamente.';
       }
     }
     return true;
@@ -1268,10 +1270,11 @@ async function livePoll(){
       render();
     }catch(error){
       if(requestedOrderId!==liveRuntime.orderId){render();return;}
-      if(error?.status===404){
+      if([401,403,404].includes(error?.status)){
         localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
         liveRuntime.orderId=null;
         liveRuntime.order=null;
+        liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
         liveRuntime.error=null;
         render();
       }else{
