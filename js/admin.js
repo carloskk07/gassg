@@ -4900,7 +4900,7 @@ async function adminFinanceLabVerifyPendingBatchFromUi(){
           throw new Error('Conferência externa sem prova verificável.');
         state.providerChecks[charge.chargeId]=proof;
         state.providerBatchResult.checked++;
-        if((proof.providerProcessed&&charge.status!=='completed')
+        if((proof.providerProcessed&&(charge.status!=='completed'||charge.requestStatus==='pending'))
           ||(proof.providerAdverseState&&charge.status==='completed'))
           state.providerBatchResult.discrepancies++;
       }catch(error){
@@ -5463,7 +5463,7 @@ function adminFinanceLabView(d){
             :'')+
           ((state.providerChecks?.[item.chargeId]||state.providerCheck?.chargeId===item.chargeId&&state.providerCheck)
             ?(()=>{const proof=state.providerChecks?.[item.chargeId]||state.providerCheck;
-              const inconsistent=proof.providerProcessed===true&&item.status!=='completed'
+              const inconsistent=proof.providerProcessed===true&&(item.status!=='completed'||item.requestStatus==='pending')
                 ||proof.providerAdverseState===true&&item.status==='completed';
               return '<div class="notice'+(inconsistent?' danger':'')+'"><strong>Conferência direta Mercado Pago</strong> • '+esc(formatDateTime(proof.checkedAt))+
                 '<div class="order-line">Ordem: '+esc(proof.providerOrderStatus)+
