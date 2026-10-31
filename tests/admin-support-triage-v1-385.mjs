@@ -48,7 +48,7 @@ const ctx=vm.createContext({
  adminRuntime:{lastSyncAt:newer}
 });
 vm.runInContext(source+'\nthis.sort=adminSupportQueueSort;this.board=adminSupportQueueView;'+
- '\nthis.card=adminSupportCaseCard;this.apply=adminSupportQueueApplyFilter;'+
+ '\nthis.card=adminSupportCaseCard;this.apply=adminSupportQueueApplyFilter;this.loadMore=adminSupportLoadMore;'+
  '\nthis.date=adminSupportCaseDate;',ctx);
 const ordered=Array.from(ctx.sort(rows)).map(x=>x.id);
 assert.deepEqual(ordered.slice(0,3),[caseId(3),caseId(4),caseId(1)],
@@ -121,6 +121,51 @@ controls.search.value='Atraso';controls.filter.value='pending';ctx.apply();
 assert.equal(nodes.filter(n=>!n.hidden).length,2);
 controls.filter.value='invalid';ctx.apply();
 assert.equal(ctx.board(rows).includes('<option value="pending" selected>'),true);
+
+
+// Commercial support queues must include the oldest 100 pending cases
+// before resolved ones and must offer a read-only path to later tickets.
+const fullPending=Array.from({length:100},(_,i)=>({
+ ...rows[2],id:caseId(1000+i),order_id:caseId(2000+i)
+}));
+ctx.adminRuntime.status='ready';
+ctx.adminRuntime.session={user:{id:'operator-A'}};
+ctx.adminRuntime.data={supportCases:fullPending,supportCasesPendingTotal:105};
+role='support';
+let calls=0;
+ctx.render=()=>{};
+ctx.adminInvoke=async({action,page})=>{
+ assert.equal(action,'support-cases-page');assert.equal(page,1);calls++;
+ return {source:'admin_support_cases_page_v1_493',readOnly:true,page:1,pageSize:100,total:105,
+ items:Array.from({length:5},(_,i)=>({
+  ...rows[2],id:caseId(5000+i),order_id:caseId(6000+i)
+ }))};
+};
+html=ctx.board(fullPending);
+assert.match(html,/105 pendente\(s\)/);
+assert.match(html,/Carregar mais atendimentos pendentes/);
+assert.match(html,/100 de 105 pendentes carregados/);
+await ctx.loadMore();
+assert.equal(calls,1);
+assert.equal(ctx.adminRuntime.supportPager.items.length,5);
+html=ctx.board(fullPending);
+assert.doesNotMatch(html,/Carregar mais atendimentos pendentes/);
+assert.match(html,/105 pendente\(s\)/);
+// Pending replies must be ignored after a session switch.
+let finish;
+ctx.adminRuntime.data.supportCasesPendingTotal=106;
+ctx.adminRuntime.lastSyncAt='2026-10-18T12:00:00.000Z';
+ctx.board(fullPending);
+ctx.adminInvoke=()=>new Promise(resolve=>finish=resolve);
+const inFlight=ctx.loadMore();
+ctx.adminRuntime.session={user:{id:'operator-B'}};
+ctx.board(fullPending);
+finish({source:'admin_support_cases_page_v1_493',readOnly:true,page:1,
+ pageSize:100,total:106,items:[{...rows[2],id:caseId(8000)}]});
+await inFlight;
+assert.equal(ctx.adminRuntime.supportPager.items.length,0,
+ 'old operator cannot refill support data after identity switch');
+assert.equal(ctx.adminRuntime.supportPager.loading,false);
 
 const page=admin.slice(admin.indexOf('function adminPage(){'),
  admin.indexOf('\nfunction adminFilterRegistry(',admin.indexOf('function adminPage(){')));
