@@ -33,6 +33,7 @@ const rejected=(query,reason)=>{
 const reward=JSON.parse(sql(
   "SELECT row_to_json(r)::text FROM ("+
   "SELECT g.order_id,g.referrer_user_id,g.referral_pending_cents,g.matured_at,"+
+  "(g.matured_at at time zone 'America/Sao_Paulo')::date AS matured_local_day,"+
   "g.reversed_at,o.financial_state,r.status as receivable_status "+
   "FROM public.order_reward_grants g "+
   "JOIN public.orders o ON o.id=g.order_id "+
@@ -55,8 +56,10 @@ assert.match(owner,/^[0-9a-f-]{36}$/i);
 assert.match(buyer,/^[0-9a-f-]{36}$/i);
 const today=scalar("(clock_timestamp() at time zone 'America/Sao_Paulo')::date");
 const month=today.slice(0,7)+'-01';
-assert.ok(today>=String(reward.matured_at).slice(0,10),
-  'claim date cannot predate maturity');
+assert.ok(today>=String(reward.matured_local_day),
+  'claim date cannot predate maturity in the business timezone');
+assert.equal(scalar("(timestamptz '2026-10-31 02:00:00+00' at time zone 'America/Sao_Paulo')::date"),
+  '2026-10-30','UTC midnight must not advance São Paulo payout date');
 for(const role of ['anon','authenticated']){
   assert.equal(scalar("has_function_privilege("+q(role)+
    ",'public.admin_owner_referral_payout_record_v1_263(uuid,uuid,bigint,text,text,date,text)','EXECUTE')"),'f',
