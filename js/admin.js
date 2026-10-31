@@ -46,7 +46,7 @@ const adminRuntime={
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
   supportPager:null,
-  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null,providerCheckingId:null,providerCheck:null,providerCheckError:null,live:null,liveStatus:null,liveReadiness:null,liveReadinessLoading:false,livePending:false,liveError:null,liveKey:null,liveAmountCents:null},
+  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null,providerCheckingId:null,providerCheck:null,providerCheckError:null,providerChecks:{},providerCheckErrors:{},providerBatchPending:false,providerBatchResult:null,live:null,liveStatus:null,liveReadiness:null,liveReadinessLoading:false,livePending:false,liveError:null,liveKey:null,liveAmountCents:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
   clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
@@ -4814,33 +4814,115 @@ async function adminFinanceLabDiagnoseChargesFromUi(){
       throw new Error('O diagnóstico não confirmou os registros financeiros.');
     }
     state.charges=result;
+    state.providerChecks={};state.providerCheckErrors={};state.providerBatchResult=null;
+    state.providerCheck=null;state.providerCheckError=null;
   }catch(e){
     state.chargesError=String(e?.message||e);
     state.charges=null;
   }finally{state.chargesLoading=false;render();}
 }
 
+const ADMIN_FINANCE_CHARGE_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function adminFinanceProviderProofValid(proof,id){
+  return proof?.ok===true&&proof.source==='mercadopago_order_lookup_v1'
+    &&proof.readOnly===true&&proof.chargeId===id
+    &&proof.identifiersAndAmountMatched===true
+    &&proof.settlementVerified===false&&proof.creditIssued===false
+    &&proof.financialActionTaken===false
+    &&typeof proof.providerProcessed==='boolean'
+    &&typeof proof.providerAdverseState==='boolean';
+}
+function adminFinanceProviderReviewCandidates(state){
+  const rows=Array.isArray(state?.charges?.charges)?state.charges.charges:[];
+  // Do not request the PSP for cancelled charges or general historical rows.
+  // Prioritize unresolved money questions and limit to five GETs per review.
+  return rows.filter(x=>x?.provider==='mercadopago'
+    &&ADMIN_FINANCE_CHARGE_UUID.test(String(x.chargeId||''))
+    &&['preparing','active','expired','completed'].includes(x.status)
+    &&(x.requestStatus==='pending'
+      ||(x.issues||[]).includes('SETTLEMENT_EVENT_NOT_FOUND')))
+    .sort((a,b)=>{
+      const rank=x=>x.requestStatus==='pending'&&x.status==='expired'?0
+        :x.requestStatus==='pending'?1:2;
+      return rank(a)-rank(b)||String(a.chargeId).localeCompare(String(b.chargeId));
+    }).slice(0,5);
+}
 async function adminFinanceLabVerifyProviderFromUi(chargeId){
   if(!adminReady()||adminCurrentRole()!=='superadmin'
-    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(chargeId||'')))return;
+    ||!ADMIN_FINANCE_CHARGE_UUID.test(String(chargeId||'')))return;
   const state=adminRuntime.financeLab;
-  if(state.providerCheckingId)return;
+  if(state.providerCheckingId||state.providerBatchPending)return;
+  const actor=String(adminRuntime.session?.user?.id||'');
   state.providerCheckingId=String(chargeId);
-  state.providerCheck=null;state.providerCheckError=null;render();
+  state.providerCheck=null;state.providerCheckError=null;
+  if(state.providerChecks)delete state.providerChecks[chargeId];
+  if(state.providerCheckErrors)delete state.providerCheckErrors[chargeId];
+  render();
   try{
     const proof=await adminInvoke({
       action:'finance-lab-provider-verify',chargeId:String(chargeId)
     });
-    if(proof?.ok!==true||proof.source!=='mercadopago_order_lookup_v1'
-      ||proof.readOnly!==true||proof.chargeId!==String(chargeId)
-      ||proof.identifiersAndAmountMatched!==true
-      ||proof.settlementVerified!==false||proof.creditIssued!==false
-      ||proof.financialActionTaken!==false){
+    if(!adminReady()||adminCurrentRole()!=='superadmin'
+      ||adminRuntime.financeLab!==state||adminRuntime.session?.user?.id!==actor)return;
+    if(!adminFinanceProviderProofValid(proof,String(chargeId)))
       throw new Error('O provedor não retornou uma conferência segura da cobrança.');
-    }
     state.providerCheck=proof;
-  }catch(e){state.providerCheckError={chargeId:String(chargeId),message:String(e?.message||e)};}
-  finally{state.providerCheckingId=null;render();}
+    state.providerChecks??={};
+    state.providerChecks[chargeId]=proof;
+  }catch(e){
+    if(adminReady()&&adminRuntime.financeLab===state
+       &&adminRuntime.session?.user?.id===actor)
+      state.providerCheckError={chargeId:String(chargeId),message:String(e?.message||e)};
+  }finally{
+    if(adminRuntime.financeLab===state){state.providerCheckingId=null;render();}
+  }
+}
+// A bounded, read-only recovery review for provider notifications that may be
+// delayed. Never POST to the PSP, invoke settlement RPCs, or infer bank receipt.
+async function adminFinanceLabVerifyPendingBatchFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const state=adminRuntime.financeLab;
+  if(state.providerBatchPending||state.providerCheckingId||state.chargesLoading)return;
+  const candidates=adminFinanceProviderReviewCandidates(state);
+  if(!candidates.length)return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  state.providerBatchPending=true;
+  state.providerBatchResult={checked:0,errors:0,discrepancies:0,total:candidates.length};
+  state.providerChecks={};state.providerCheckErrors={};
+  state.providerCheck=null;state.providerCheckError=null;
+  render();
+  try{
+    for(const charge of candidates){
+      if(!adminReady()||adminCurrentRole()!=='superadmin'
+        ||adminRuntime.financeLab!==state||adminRuntime.session?.user?.id!==actor)break;
+      try{
+        const proof=await adminInvoke({
+          action:'finance-lab-provider-verify',chargeId:charge.chargeId
+        });
+        if(!adminReady()||adminCurrentRole()!=='superadmin'
+          ||adminRuntime.financeLab!==state||adminRuntime.session?.user?.id!==actor)break;
+        if(!adminFinanceProviderProofValid(proof,charge.chargeId))
+          throw new Error('Conferência externa sem prova verificável.');
+        state.providerChecks[charge.chargeId]=proof;
+        state.providerBatchResult.checked++;
+        if((proof.providerProcessed&&(charge.status!=='completed'||charge.requestStatus==='pending'))
+          ||(proof.providerAdverseState&&charge.status==='completed'))
+          state.providerBatchResult.discrepancies++;
+      }catch(error){
+        if(!adminReady()||adminRuntime.financeLab!==state
+          ||adminRuntime.session?.user?.id!==actor)break;
+        state.providerCheckErrors[charge.chargeId]=String(error?.message||error);
+        state.providerBatchResult.errors++;
+      }
+      render();
+    }
+  }finally{
+    if(adminRuntime.financeLab===state){
+      state.providerBatchPending=false;
+      state.providerBatchResult.checkedAt=new Date().toISOString();
+      render();
+    }
+  }
 }
 
 async function adminFinanceLabReadinessFromUi(){
@@ -5354,7 +5436,15 @@ function adminFinanceLabView(d){
         <p class="muted tiny">Verifica código, valor, vencimento e registros de webhook das últimas 20 cobranças, sem criar PIX ou pagamentos e sem expor chaves.</p>
         <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabDiagnoseChargesFromUi()" ${state.chargesLoading?'disabled':''}>
           ${state.chargesLoading?'Conferindo cobranças…':'Diagnosticar cobranças PIX e webhooks'}
+        </button>
+        <button type="button" class="secondary small" onclick="adminFinanceLabVerifyPendingBatchFromUi()"
+          ${state.providerBatchPending||state.providerCheckingId||!adminFinanceProviderReviewCandidates(state).length?'disabled':''}>
+          ${state.providerBatchPending?'Conferindo no PSP…':'Conferir pendências no Mercado Pago (até 5)'}
         </button></div>
+        ${state.providerBatchResult?'<div class="notice" role="status">Conferência externa somente leitura: '+
+          state.providerBatchResult.checked+' ordem(ns) verificadas, '+
+          state.providerBatchResult.discrepancies+' divergência(s) entre PSP e registro local, '+
+          state.providerBatchResult.errors+' consulta(s) inconclusiva(s). Sem baixa financeira automática.</div>':''}
         ${state.chargesError?'<div class="notice danger" role="alert">'+esc(state.chargesError)+'</div>':''}
         ${state.charges?'<div role="status"><small>Conferência: '+esc(formatDateTime(state.charges.checkedAt))+' • últimas '+state.charges.count+' cobranças, sem movimentação de dinheiro.</small></div>':''}
         ${state.charges?.charges?.length?state.charges.charges.slice(0,8).map(item=>
@@ -5376,15 +5466,19 @@ function adminFinanceLabView(d){
             ?'<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabVerifyProviderFromUi(\''+esc(String(item.chargeId))+'\')" '+(state.providerCheckingId?'disabled':'')+'>'+
               (state.providerCheckingId===item.chargeId?'Consultando Mercado Pago…':'Conferir esta cobrança no Mercado Pago')+'</button></div>'
             :'')+
-          (state.providerCheck?.chargeId===item.chargeId
-            ?'<div class="notice"><strong>Consulta direta Mercado Pago</strong> • '+esc(formatDateTime(state.providerCheck.checkedAt))+
-              '<div class="order-line">Ordem: '+esc(state.providerCheck.providerOrderStatus)+
-              ' • Pix: '+esc(state.providerCheck.providerPaymentStatus)+'</div>'+
-              '<small>'+esc(state.providerCheck.nextStep)+'</small>'+
-              '<small>Identidade e valor conferidos. Sem crédito, repasse ou comprovação de liquidação.</small></div>'
+          ((state.providerChecks?.[item.chargeId]||state.providerCheck?.chargeId===item.chargeId&&state.providerCheck)
+            ?(()=>{const proof=state.providerChecks?.[item.chargeId]||state.providerCheck;
+              const inconsistent=proof.providerProcessed===true&&(item.status!=='completed'||item.requestStatus==='pending')
+                ||proof.providerAdverseState===true&&item.status==='completed';
+              return '<div class="notice'+(inconsistent?' danger':'')+'"><strong>Conferência direta Mercado Pago</strong> • '+esc(formatDateTime(proof.checkedAt))+
+                '<div class="order-line">Ordem: '+esc(proof.providerOrderStatus)+
+                ' • Pix: '+esc(proof.providerPaymentStatus)+'</div>'+
+                (inconsistent?'<strong>ATENÇÃO: PSP e registro local divergentes. Exige análise; não baixar automaticamente.</strong>':'')+
+                '<small>'+esc(proof.nextStep)+'</small>'+
+                '<small>Sem crédito, repasse ou comprovação de liquidação. Identidade e valor conferidos na consulta.</small></div>';})()
             :'')+
-          (state.providerCheckError?.chargeId===item.chargeId
-            ?'<div class="notice danger" role="alert">'+esc(state.providerCheckError.message)+'</div>':'')+
+          (state.providerCheckErrors?.[item.chargeId]||state.providerCheckError?.chargeId===item.chargeId
+            ?'<div class="notice danger" role="alert">'+esc(state.providerCheckErrors?.[item.chargeId]||state.providerCheckError?.message)+'</div>':'')+
           '</div>').join(''):(state.charges?'<small>Nenhuma cobrança disponível para diagnóstico.</small>':'')}
         <small class="muted">O diagnóstico usa registros internos. A conferência direta consulta uma única ordem no Mercado Pago, sem criar pagamentos, modificar o banco ou liberar créditos. Mesmo uma ordem processada requer conciliação e prova independente de recebimento.</small>
         <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
