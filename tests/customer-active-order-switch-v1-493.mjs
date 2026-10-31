@@ -204,7 +204,8 @@ const initRuntime={requested:true,status:'disabled',orderId:null,order:null,
 const savedAtInit=new Map([['test-tracked-order',OLD]]);
 let startupStatus=503;
 const liveSession={access_token:'fixture-session'};
-const testClient={auth:{getSession:async()=>({data:{session:liveSession},error:null})}};
+const testClient={auth:{getSession:async()=>({data:{session:liveSession},error:null}),
+ onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}};
 const initCtx=vm.createContext({
  liveRuntime:initRuntime,CHAMA_BACKEND:{url:'https://example.invalid',
   publishableKey:'fixture',orderStorageKey:'test-tracked-order'},

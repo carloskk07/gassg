@@ -257,6 +257,31 @@ function customerOriginSafe(){
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
+// A different authenticated customer must never inherit balances, delivery
+// details or a pending response from the previous browser account.
+function liveForgetAccount(){
+  if(liveRuntime.status==='loading')return;
+  liveRuntime.status='loading';
+  liveRuntime.session=null;
+  liveRuntime.orderRequestSeq++;
+  liveRuntime.financialSyncSeq++;
+  liveRuntime.offerRequestSeq++;
+  liveRuntime.marketStatusSeq++;
+  liveRuntime.order=null;liveRuntime.orderId=null;
+  liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
+  liveRuntime.offers=[];liveRuntime.lastCityCheck=null;
+  liveRuntime.lastOrderTemplate=null;liveRuntime.reorderPrediction=null;
+  liveRuntime.referredCount=liveRuntime.qualifiedReferralCount=0;
+  liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
+  state.user=freshSeed().user;
+  state.address='';state.postalCode='';state.addressNumber='';
+  for(const key of ['customerPhoneDigits','addressComplement','deliveryReference','deliveryNotes'])
+    state.checkout[key]='';
+  state.checkout.useCashback=false;state.checkout.cashTenderCents=null;
+  localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+  save();
+  location.reload();
+}
 function liveBanner(){
   if(!liveRuntime.requested)return 'demo';
   if(liveRuntime.status==='ready')return 'live';
@@ -404,12 +429,15 @@ async function backendInit(){
 
     liveRuntime.session=session;
     liveRuntime.status='ready';
+    client.auth.onAuthStateChange((_event,next)=>{
+      if(liveRuntime.status==='ready'&&liveRuntime.session?.user?.id&&
+         liveRuntime.session.user.id!==next?.user?.id)liveForgetAccount();
+    });
     liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
     await liveSyncFinancialProfile();
     try{await liveSyncMarketStatus({force:true})}
     catch(e){console.warn('Estado do mercado real indisponível',e)}
-    // Price aggregation is optional; never block the initial render.
     liveRefreshCityPriceBoard({force:true})
       .then(data=>{if(data&&route()==='home')render()})
       .catch(e=>console.warn('Vitrine regional aguardando preços verificados',e));
@@ -437,7 +465,13 @@ async function backendInit(){
 
 async function liveAccessToken(){
   if(!liveRuntime.client)throw new Error('Cliente Supabase indisponível');
+  const userId=liveRuntime.session?.user?.id;
   const {data:{session},error}=await liveRuntime.client.auth.getSession();
+  if(userId&&(!session?.user?.id||session.user.id!==userId||
+    liveRuntime.status!=='ready')){
+    liveForgetAccount();
+    throw new Error('Conta alterada. Atualize para continuar.');
+  }
   if(error||!session?.access_token)throw error||new Error('Sessão expirada');
   liveRuntime.session=session;
   return session.access_token;
@@ -581,8 +615,6 @@ function liveOfferRequestFingerprint(){
       ?state.checkout.deliveryWindowEnd:null
   });
 }
-// Called as soon as the user edits either address field. Invalidate in-flight
-// responses before debounce so old quotes cannot confirm a different address.
 function liveInvalidateOfferAddressDraft(){
   clearTimeout(liveOfferTimer);
   liveOfferTimer=null;
@@ -600,8 +632,6 @@ function liveInvalidateOfferAddressDraft(){
 }
 function liveRenderAfterAutomaticOffers(fingerprint){
   if(route()!=='order'||liveOfferRequestFingerprint()!==fingerprint)return;
-  // Preserve caret and keyboard on mobile even if a provider answers while the
-  // customer is still typing. Never reinsert raw input text into HTML.
   const focused=document.activeElement;
   const focusId=['postal-code','address-number'].includes(focused?.id)?focused.id:null;
   const caret=focusId&&Number.isInteger(focused.selectionStart)?focused.selectionStart:null;
@@ -660,7 +690,6 @@ async function liveRefreshOffers({silent=false}={}){
     return [];
   }
   const postalCodeSnapshot=String(state.postalCode||'');
-  // City offer evidence is tied to the exact validated CEP, never to a global market total.
   if(liveRuntime.lastCityCheck?.postalCode!==postalCodeSnapshot)liveRuntime.lastCityCheck=null;
   const addressNumberSnapshot=String(state.addressNumber||'').trim().toUpperCase();
   const itemsSnapshot=liveCartItems();
@@ -723,8 +752,6 @@ async function liveRefreshOffers({silent=false}={}){
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
-    // A sponsored editorial card is never a quote and never enters sorting,
-    // checkout, recommendation labels, or the seller selection algorithm.
     const paid=data?.sponsoredSlot;
     if(liveRuntime.offers.length>0&&paid&&paid.label==='Patrocinado'
        &&paid.nonBillable===true&&typeof paid.title==='string'
@@ -843,9 +870,6 @@ async function liveCreateOrder(quoteId){
     const result=await retryAmbiguousOnce(
       ()=>liveInvoke('create-order',payload,{idempotencyKey})
     );
-    // The server registers the campaign against the authenticated order
-    // without changing creation, settlement or payment behavior.
-    // A tracking error must never turn an existing order into a checkout failure.
 
 
     const receivedOrderId=String(result?.orderId||'');
@@ -854,7 +878,6 @@ async function liveCreateOrder(quoteId){
     }
     confirmedOrderId=receivedOrderId;
     liveRuntime.orderId=confirmedOrderId;
-    // Never show the prior order's details if the new order cannot be loaded.
     if(liveRuntime.order?.orderId!==confirmedOrderId)liveRuntime.order=null;
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,confirmedOrderId);
     state.cart=normalizeCart({});
@@ -904,8 +927,10 @@ async function liveCreateOrder(quoteId){
 
 async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(!liveReady()||!orderId)return null;
+  const userId=liveRuntime.session?.user?.id;
   const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  if(userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return null;
   if(seq<liveRuntime.orderRequestSeq&&liveRuntime.orderId&&
       liveRuntime.orderId!==orderId)return liveRuntime.order;
   const current=liveRuntime.order;
@@ -1025,7 +1050,6 @@ async function liveOpenSupportCase(category,message=''){
     category:String(category||'other'),
     message:String(message||'').trim()
   },{idempotencyKey}));
-  // A confirmed support case remains registered even if the refresh fails.
   let refreshPending=false;
   try{
     await liveGetOrder(order.orderId,{silent:true});
@@ -1065,9 +1089,11 @@ async function liveSyncFinancialProfile({force=false}={}){
     cashbackEarnedCents:liveRuntime.cashbackEarnedCents
   });
   const seq=++liveRuntime.financialSyncSeq;
+  const userId=liveRuntime.session?.user?.id;
   try{
     const summary=await liveInvoke('customer-summary',{});
-    if(seq!==liveRuntime.financialSyncSeq)return false;
+    if(seq!==liveRuntime.financialSyncSeq||
+       userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
     state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
@@ -1198,7 +1224,6 @@ async function liveRefreshCityPriceBoard({force=false}={}){
   const fresh=liveRuntime.cityPriceSnapshot;
   if(!force&&fresh&&fresh.city===city&&fresh.state===uf&&
      Date.now()-liveRuntime.lastCityPriceBoardAt<CUSTOMER_CITY_BOARD_REFRESH_MS)return fresh;
-  // Calling this RPC never sends CEP or street address and never creates an order.
   const {data,error}=await liveRuntime.client.rpc('public_city_price_board_v1_341',{
     p_city:city,p_state:uf
   });
@@ -1826,8 +1851,6 @@ async function merchantPushDisableLive(){
       revoked=true;
     }catch{}
   }
-  // Local unsubscribe prevents delivery to this browser even if offline
-  // and the server-side revocation must be retried independently.
   const local=await subscription.unsubscribe().catch(()=>false);
   merchantPushRuntime.subscribed=false;
   merchantPushRuntime.testResult=null;
@@ -2757,7 +2780,6 @@ async function merchantCatalogHistoryLive(merchantId){
   return data.events.slice(0,30);
 }
 
-// V1.281: paginated audit records only through merchant-ops; no direct table grants.
 async function merchantCatalogHistoryPageLive(merchantId,options={}){
   const current=merchantRuntime.merchant;
   if(!current||String(current.merchantId||'')!==String(merchantId||'')||
@@ -2942,7 +2964,6 @@ async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
 async function merchantSubmitApplicationLive(payload){
   if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
   const result=await retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
-  // Keep the returned application on screen, even if the subsequent refresh fails.
   if(result?.applicationId){
     merchantRuntime.ownApplications=[{
       id:result.applicationId,cnpj:String(result.cnpj||payload.cnpj),
@@ -2988,7 +3009,6 @@ function merchantPollingIntervalMs(orders,online){
   return online===true?15000:60000;
 }
 
-// Bounded recovery never mutates an order.
 function merchantRecoveryDelayMs(failures){
   const n=Math.max(1,Math.min(5,Number.isSafeInteger(failures)?failures:1));
   return Math.min(60000,5000*2**(n-1));
