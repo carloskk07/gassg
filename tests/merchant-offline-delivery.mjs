@@ -546,7 +546,12 @@ guardCtx.guard(true);
 assert.equal(localStorage.getItem(denyKey),'1','revocation persisted for this user/merchant');
 guardCtx.guard(false);
 assert.equal(localStorage.getItem(denyKey),null,'authorized fresh read clears the lock');
-assert.match(backendSrc,/if\(error\?\.status===401\)\{\s*merchantOfflineGuard\(true\)/,'401 must set revocation marker');
+const expired=backendSrc.slice(backendSrc.indexOf('if(error?.status===401||error?.message'),
+  backendSrc.indexOf('merchantRuntime.status=\'unavailable\';',backendSrc.indexOf('if(error?.status===401||error?.message')));
+assert.ok(expired.includes('merchantOfflineGuard(true)')&&
+  expired.includes('merchantClearProtectedSnapshot()')&&
+  expired.includes("merchantRuntime.status='unauthenticated'"),
+  '401 and locally expired session must revoke offline access and purge snapshots');
 assert.match(backendSrc,/merchantRuntime\.status='no-access'/,'403 must leave driver panel inaccessible');
 assert.match(backendSrc,/merchantOfflineGuard\(data\.merchant\?\.memberRole!=='driver'\)/,'only the confirmed driver role clears revoked state');
 
