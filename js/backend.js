@@ -257,6 +257,29 @@ function customerOriginSafe(){
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
+// A different authenticated customer must never inherit balances, delivery
+// details or a pending response from the previous browser account.
+function liveForgetAccount(){
+  if(liveRuntime.status==='loading')return;
+  liveRuntime.status='loading';
+  liveRuntime.session=null;
+  liveRuntime.orderRequestSeq++;
+  liveRuntime.financialSyncSeq++;
+  liveRuntime.offerRequestSeq++;
+  liveRuntime.marketStatusSeq++;
+  liveRuntime.order=null;liveRuntime.orderId=null;
+  liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
+  liveRuntime.offers=[];liveRuntime.lastCityCheck=null;
+  liveRuntime.lastOrderTemplate=null;liveRuntime.reorderPrediction=null;
+  liveRuntime.referredCount=liveRuntime.qualifiedReferralCount=0;
+  liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
+  state.user=freshSeed().user;
+  state.address='';state.postalCode='';state.addressNumber='';
+  state.checkout.customerPhoneDigits='';
+  localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+  save();
+  location.reload();
+}
 function liveBanner(){
   if(!liveRuntime.requested)return 'demo';
   if(liveRuntime.status==='ready')return 'live';
@@ -404,6 +427,10 @@ async function backendInit(){
 
     liveRuntime.session=session;
     liveRuntime.status='ready';
+    client.auth.onAuthStateChange((_event,next)=>{
+      if(liveRuntime.status==='ready'&&liveRuntime.session?.user?.id&&
+         liveRuntime.session.user.id!==next?.user?.id)liveForgetAccount();
+    });
     liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
     await liveSyncFinancialProfile();
@@ -437,7 +464,13 @@ async function backendInit(){
 
 async function liveAccessToken(){
   if(!liveRuntime.client)throw new Error('Cliente Supabase indisponível');
+  const userId=liveRuntime.session?.user?.id;
   const {data:{session},error}=await liveRuntime.client.auth.getSession();
+  if(userId&&(!session?.user?.id||session.user.id!==userId||
+    liveRuntime.status!=='ready')){
+    liveForgetAccount();
+    throw new Error('Conta alterada. Atualize para continuar.');
+  }
   if(error||!session?.access_token)throw error||new Error('Sessão expirada');
   liveRuntime.session=session;
   return session.access_token;
@@ -904,8 +937,10 @@ async function liveCreateOrder(quoteId){
 
 async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(!liveReady()||!orderId)return null;
+  const userId=liveRuntime.session?.user?.id;
   const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  if(userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return null;
   if(seq<liveRuntime.orderRequestSeq&&liveRuntime.orderId&&
       liveRuntime.orderId!==orderId)return liveRuntime.order;
   const current=liveRuntime.order;
@@ -1065,9 +1100,11 @@ async function liveSyncFinancialProfile({force=false}={}){
     cashbackEarnedCents:liveRuntime.cashbackEarnedCents
   });
   const seq=++liveRuntime.financialSyncSeq;
+  const userId=liveRuntime.session?.user?.id;
   try{
     const summary=await liveInvoke('customer-summary',{});
-    if(seq!==liveRuntime.financialSyncSeq)return false;
+    if(seq!==liveRuntime.financialSyncSeq||
+       userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
     state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
