@@ -173,6 +173,35 @@ assert.equal(outage.runtime.orderId,OLD);
 assert.equal(outage.runtime.order.supportCases[0].status,'in_review');
 assert.match(outage.runtime.error,/network unavailable/);
 
+// Access revoked while polling must remove the previous customer's order.
+// A temporary server outage does not authorize erasing the tracked ID.
+for(const deniedStatus of [401,403,404]){
+ const revoked=setup();
+ revoked.runtime.order.status='PREPARING';
+ revoked.setGetOrder(async()=>{
+  throw Object.assign(new Error('access denied'),{status:deniedStatus});
+ });
+ await revoked.ctx.poll();
+ assert.equal(revoked.runtime.orderId,null);
+ assert.equal(revoked.runtime.order,null);
+ assert.equal(revoked.runtime.orderCheckedId,null);
+ assert.equal(revoked.runtime.orderCheckedAt,null);
+ assert.equal(revoked.saved.has('test-tracked-order'),false);
+}
+const retryable=setup();
+retryable.runtime.order.status='PREPARING';
+retryable.setGetOrder(async()=>{
+ throw Object.assign(new Error('temporarily unavailable'),{status:503});
+});
+await retryable.ctx.poll();
+assert.equal(retryable.runtime.orderId,OLD);
+assert.equal(retryable.saved.get('test-tracked-order'),OLD);
+assert.match(retryable.runtime.error,/temporarily unavailable/);
+// Reload must distinguish an HTTP denial from a retryable request failure.
+const initCode=between('async function backendInit(','\nasync function liveAccessToken(');
+assert.match(initCode,/\[401,403,404\]\.includes\(e\?\.status\)/);
+assert.match(initCode,/liveRuntime\.error='Não foi possível atualizar seu pedido/);
+
 // PRs touching any financial/admin/customer/merchant module must exercise
 // the existing disposable end-to-end suite, not only a short path allowlist.
 const workflow=fs.readFileSync(new URL('../.github/workflows/isolated-supabase-integration.yml',import.meta.url),'utf8');
