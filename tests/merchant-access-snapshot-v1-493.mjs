@@ -198,12 +198,14 @@ for(const error of [http(401,'UNAUTHORIZED'),Error('Sessão da revenda expirada'
 {
   let release;
   const pending=new Promise(resolve=>release=resolve);
-  const s=fixture(()=>pending);
+  const s=fixture(name=>name==='merchant-team'?pending:
+    {merchant:{merchantId:'old-merchant',memberRole:'driver'},orders:[]});
   const team=s.ctx.ops.loadTeam({silent:true});
-  s.rt.merchant={merchantId:'old-merchant',memberRole:'driver'};
+  await s.ctx.ops.refresh({silent:true});
   release({members:[{name:'PRIVATE OWNER RECORD'}]});
   await assert.rejects(()=>team,/acesso à revenda mudou/i);
-  assert.equal(s.rt.team?.members?.[0],undefined);
+  assert.equal(s.rt.team,null);
+  assert.equal(s.rt.merchant.memberRole,'driver');
 }
 // Healthy reads still work; a signed-in user without a merchant may view only
 // their own onboarding applications.
