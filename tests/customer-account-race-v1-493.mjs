@@ -32,7 +32,9 @@ function fixture(){
   cashbackDebt:0,commissionAvailable:10,commissionPending:20,
   purchases:5,reversedPurchases:0,cashEarningEligible:true,identityType:'verified'},
   address:'PRIVATE STREET',postalCode:'12345678',addressNumber:'9',
-  checkout:{customerPhoneDigits:'51999999999'}};
+  checkout:{customerPhoneDigits:'51999999999',addressComplement:'Apt 4',
+   deliveryReference:'PRIVATE REFERENCE',deliveryNotes:'PRIVATE NOTE',
+   useCashback:true,cashTenderCents:15000}};
  let tokenResult=async()=>({data:{session:{user,access_token:'old-token'}},error:null});
  rt.client.auth.getSession=()=>tokenResult();
  const ctx=vm.createContext({
@@ -88,6 +90,11 @@ function fixture(){
  assert.equal(s.state.user.name,'');
  assert.equal(s.state.address,'');
  assert.equal(s.state.checkout.customerPhoneDigits,'');
+ assert.equal(s.state.checkout.addressComplement,'');
+ assert.equal(s.state.checkout.deliveryReference,'');
+ assert.equal(s.state.checkout.deliveryNotes,'');
+ assert.equal(s.state.checkout.useCashback,false);
+ assert.equal(s.state.checkout.cashTenderCents,null);
  assert.equal(s.local.has('order-key'),false);
  assert.equal(s.reloads.length,1);
  assert.equal(s.saves.length,1);
