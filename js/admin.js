@@ -5447,7 +5447,7 @@ function adminFinanceLabView(d){
           state.providerBatchResult.errors+' consulta(s) inconclusiva(s). Sem baixa financeira automática.</div>':''}
         ${state.chargesError?'<div class="notice danger" role="alert">'+esc(state.chargesError)+'</div>':''}
         ${state.charges?'<div role="status"><small>Conferência: '+esc(formatDateTime(state.charges.checkedAt))+' • últimas '+state.charges.count+' cobranças, sem movimentação de dinheiro.</small></div>':''}
-        ${state.charges?.charges?.length?state.charges.charges.slice(0,8).map(item=>
+        ${state.charges?.charges?.length?state.charges.charges.slice(0,state.providerBatchResult?20:8).map(item=>
           '<div class="card flat" style="margin-top:8px">'+
           '<strong>'+esc(String(item.provider||'PSP'))+' • '+esc(String(item.status||'—'))+'</strong>'+
           '<div class="order-line">Valor: '+(item.amountCents!=null?adminMoney(item.amountCents):'não identificado')+
@@ -5463,7 +5463,7 @@ function adminFinanceLabView(d){
           ' • ignorados '+esc(String(item.webhook?.ignoredCount??0))+'</div>'+
           '<small>Diagnóstico: '+esc((item.issues||[]).join(', ')||'Sem divergência estrutural detectada')+'</small>'+
           (item.provider==='mercadopago'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(item.chargeId||''))
-            ?'<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabVerifyProviderFromUi(\''+esc(String(item.chargeId))+'\')" '+(state.providerCheckingId?'disabled':'')+'>'+
+            ?'<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabVerifyProviderFromUi(\''+esc(String(item.chargeId))+'\')" '+(state.providerCheckingId||state.providerBatchPending?'disabled':'')+'>'+
               (state.providerCheckingId===item.chargeId?'Consultando Mercado Pago…':'Conferir esta cobrança no Mercado Pago')+'</button></div>'
             :'')+
           ((state.providerChecks?.[item.chargeId]||state.providerCheck?.chargeId===item.chargeId&&state.providerCheck)
