@@ -11,13 +11,14 @@ const take=(name)=>{
   assert.ok(end>start,'Unterminated '+name);
   return backend.slice(start,end+2);
 };
-const source=['merchantClearProtectedSnapshot','merchantRefresh','merchantSelectLive'].map(take).join('\n');
+const source=['merchantClearProtectedSnapshot','merchantRefresh','merchantSelectLive',
+ 'merchantLoadOwnApplications','merchantTeamLoadLive'].map(take).join('\n');
 new vm.Script(source,{filename:'merchant-access-snapshot'});
 
 function fixture(respond){
   const writes=[], calls=[], renderStates=[], store=new Map([['chama-merchant-selected-v1','old-merchant']]);
   const rt={
-    requested:true,status:'ready',client:{},refreshSeq:0,
+    requested:true,status:'ready',client:{},refreshSeq:0,accessEpoch:0,
     session:{user:{id:'user-1'},access_token:'old-session'},
     selectedMerchantId:'old-merchant',
     merchant:{merchantId:'old-merchant',memberRole:'owner',name:'OLD PRIVATE'},
@@ -41,6 +42,7 @@ function fixture(respond){
   const alerts={knownOrderIds:new Set(['old-private-order'])};
   const ctx=vm.createContext({
     merchantRuntime:rt,merchantPushRuntime:push,merchantAlerts:alerts,
+    merchantReady:()=>rt.status==='ready',
     merchantInvoke:async(...args)=>{calls.push(args);return respond(...args)},
     merchantOfflineGuard:denied=>writes.push(['offline-guard',denied]),
     merchantClearEnablement:()=>{
@@ -58,7 +60,8 @@ function fixture(respond){
       removeItem:key=>store.delete(key)
     }
   });
-  vm.runInContext(source+'\nthis.ops={refresh:merchantRefresh,select:merchantSelectLive,clear:merchantClearProtectedSnapshot};',ctx);
+  vm.runInContext(source+'\nthis.ops={refresh:merchantRefresh,select:merchantSelectLive,clear:merchantClearProtectedSnapshot,
+ loadTeam:merchantTeamLoadLive,loadApplications:merchantLoadOwnApplications};',ctx);
   return {rt,push,alerts,ctx,calls,writes,store,renderStates};
 }
 const http=(status,code)=>Object.assign(Error('Server denied'),{status,code});
@@ -145,5 +148,76 @@ for(const error of [http(401,'UNAUTHORIZED'),Error('Sessão da revenda expirada'
   assert.equal(s.rt.orders.length,1);
   assert.equal(s.ctx.merchantHistoryRequestId,undefined);
 }
+
+// A completed read from the old user must not restore private applications
+// after a signout or a revoked membership.
+{
+  let release;
+  const pending=new Promise(resolve=>release=resolve);
+  const s=fixture(()=>pending);
+  const read=s.ctx.ops.loadApplications();
+  s.ctx.ops.clear();
+  s.rt.session=null;
+  s.rt.status='unauthenticated';
+  release({applications:[{id:'old-account-private-application'}]});
+  assert.equal((await read).length,0);
+  assert.equal(s.rt.ownApplications.length,0);
+  assert.equal(s.rt.ownApplicationsLoaded,false);
+}
+// A real 403 must invalidate auxiliary reads already in flight.
+{
+  let release;
+  const pending=new Promise(resolve=>release=resolve);
+  const s=fixture((name)=>{
+    if(name==='submit-merchant-application')return pending;
+    throw http(403,'MERCHANT_ACCESS_DENIED');
+  });
+  const read=s.ctx.ops.loadApplications();
+  await s.ctx.ops.refresh({silent:true,recoverSelection:false});
+  release({applications:[{id:'revoked-private-record'}]});
+  assert.equal((await read).length,0);
+  assert.equal(s.rt.ownApplications.length,0);
+  assert.equal(s.rt.status,'no-access');
+}
+// A team response from the previous merchant must not refill the new account.
+{
+  let release;
+  const pending=new Promise(resolve=>release=resolve);
+  const s=fixture((name)=>name==='merchant-team'?pending:
+    {merchant:{merchantId:'other-merchant',memberRole:'owner'},orders:[]});
+  const team=s.ctx.ops.loadTeam({silent:true});
+  const switched=s.ctx.ops.select('other-merchant');
+  await switched;
+  release({members:[{name:'OLD PRIVATE TEAM MEMBER'}]});
+  await assert.rejects(()=>team,/acesso à revenda mudou/i);
+  assert.equal(s.rt.team,null);
+  assert.equal(s.rt.teamLoading,false);
+  assert.equal(s.rt.merchant.merchantId,'other-merchant');
+}
+// Even without an explicit account switch, a role downgrade invalidates
+// owner-only team data already requested.
+{
+  let release;
+  const pending=new Promise(resolve=>release=resolve);
+  const s=fixture(()=>pending);
+  const team=s.ctx.ops.loadTeam({silent:true});
+  s.rt.merchant={merchantId:'old-merchant',memberRole:'driver'};
+  release({members:[{name:'PRIVATE OWNER RECORD'}]});
+  await assert.rejects(()=>team,/acesso à revenda mudou/i);
+  assert.equal(s.rt.team?.members?.[0],undefined);
+}
+// Healthy reads still work; a signed-in user without a merchant may view only
+// their own onboarding applications.
+{
+  const s=fixture((name)=>name==='merchant-team'
+    ?{members:[{name:'Authorized'}]}
+    :{applications:[{id:'mine'}]});
+  assert.equal((await s.ctx.ops.loadTeam({silent:true})).members[0].name,'Authorized');
+  assert.equal((await s.ctx.ops.loadApplications()).length,1);
+  s.ctx.ops.clear();
+  s.rt.status='no-access';
+  assert.equal((await s.ctx.ops.loadApplications()).length,1);
+}
+
 assert.ok(audit.includes('node tests/merchant-access-snapshot-v1-493.mjs'));
 console.log('TAMÃO #493 PASS — 401/403 session purge, account switching, stale-selector rescue and 503 fail closed.');
