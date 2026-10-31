@@ -45,6 +45,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
+  supportPager:null,
   financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null,providerCheckingId:null,providerCheck:null,providerCheckError:null,live:null,liveStatus:null,liveReadiness:null,liveReadinessLoading:false,livePending:false,liveError:null,liveKey:null,liveAmountCents:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
@@ -363,6 +364,7 @@ async function adminSignOut(){
   adminRuntime.session=null;
   adminRuntime.data=null;
   adminRuntime.helpReportPager=null;
+  adminRuntime.supportPager=null;
   adminRuntime.merchantTrial=null;
   adminOrderDemoForget(); // also purge the only in-tab synthetic order state
   adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
@@ -458,6 +460,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
   adminRuntime.helpReportPager=null;
+  adminRuntime.supportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
@@ -484,6 +487,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.session=null;
       adminRuntime.data=null;
   adminRuntime.helpReportPager=null;
+  adminRuntime.supportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
@@ -7406,6 +7410,45 @@ function adminAccountingFailureCard(x){
 // limited to the order-scoped facts returned by the privileged admin API.
 let adminSupportQueueFilter='pending';
 let adminSupportQueueSearch='';
+function adminSupportPagerState(){
+  const id=String(adminRuntime.session?.user?.id||'');
+  if(adminRuntime.status!=='ready'||!id)return null;
+  const key=id+'|'+String(adminCurrentRole())+'|'+String(adminRuntime.lastSyncAt||'');
+  if(adminRuntime.supportPager?.key!==key){
+    adminRuntime.supportPager={key,page:1,items:[],total:null,hasMore:null,loading:false,error:null};
+  }
+  return adminRuntime.supportPager;
+}
+async function adminSupportLoadMore(){
+  const pager=adminSupportPagerState();
+  if(!pager||pager.loading||pager.hasMore===false||
+     !['superadmin','operations','support'].includes(adminCurrentRole()))return;
+  const page=pager.page;
+  pager.loading=true;pager.error=null;render();
+  try{
+    const result=await adminInvoke({action:'support-cases-page',page});
+    if(result?.source!=='admin_support_cases_page_v1_493'||result.readOnly!==true||
+       result.page!==page||result.pageSize!==100||
+       !Number.isSafeInteger(result.total)||result.total<0||
+       !Array.isArray(result.items)||result.items.length>100||
+       !result.items.every(x=>/^[0-9a-f-]{36}$/i.test(String(x?.id||''))&&
+         ['open','in_review'].includes(x?.status)))
+      throw new Error('A página de atendimentos não foi validada.');
+    if(adminRuntime.supportPager!==pager||adminRuntime.status!=='ready')return;
+    const seen=new Set([...(adminRuntime.data?.supportCases||[]),...pager.items].map(x=>x.id));
+    pager.items.push(...result.items.filter(x=>!seen.has(x.id)));
+    pager.total=result.total;
+    pager.hasMore=(page+1)*100<result.total&&result.items.length===100;
+    pager.page++;
+  }catch(error){
+    if(adminRuntime.supportPager===pager&&adminRuntime.status==='ready')
+      pager.error=String(error?.message||'Falha ao carregar atendimentos.');
+  }finally{
+    if(adminRuntime.supportPager===pager){
+      pager.loading=false;render();
+    }
+  }
+}
 const ADMIN_SUPPORT_CATEGORIES={
   late:'Atraso',wrong_item:'Produto incorreto',
   price_payment:'Preço ou pagamento',no_show:'Entrega não apareceu',
@@ -7511,8 +7554,11 @@ function adminSupportQueueMatches(item,filter,search){
     filter===item?.status)&&(!query||terms.includes(query));
 }
 function adminSupportQueueView(cases){
-  const sorted=adminSupportQueueSort(cases);
+  const pager=adminSupportPagerState();
+  const sorted=adminSupportQueueSort([...(cases||[]),...(pager?.items||[])]);
   const pending=sorted.filter(x=>['open','in_review'].includes(x?.status));
+  const pendingTotal=Number(pager?.total??adminRuntime.data?.supportCasesPendingTotal??pending.length);
+  const more=pager?.hasMore===false?false:pendingTotal>pending.length;
   const open=pending.filter(x=>x.status==='open').length;
   const review=pending.length-open;
   const resolved=sorted.filter(x=>x?.status==='resolved').length;
@@ -7524,7 +7570,7 @@ function adminSupportQueueView(cases){
     '<div class="section-head"><div><span class="section-kicker">ATENDIMENTO</span>'+
     '<h2>Fila de solicitações dos clientes</h2>'+
     '<p>Priorize chamados abertos e em análise. Cada atendimento permanece vinculado ao pedido e às decisões auditadas.</p></div>'+
-    '<span class="status-pill '+(pending.length?'risk':'online')+'">'+pending.length+' pendente(s)</span></div>'+
+    '<span class="status-pill '+(pendingTotal?'risk':'online')+'">'+pendingTotal+' pendente(s)</span></div>'+
     '<div class="admin-support-queue-kpis">'+
       '<div><small>Aguardam análise</small><strong>'+open+'</strong></div>'+
       '<div><small>Em análise</small><strong>'+review+'</strong></div>'+
@@ -7540,7 +7586,7 @@ function adminSupportQueueView(cases){
       '<div class="input-wrap"><label for="admin-support-search">Localizar atendimento</label>'+
       '<input id="admin-support-search" class="input" maxlength="120" value="'+esc(q)+
       '" placeholder="Pedido, assunto ou situação" oninput="adminSupportQueueApplyFilter()"></div>'+
-    '</div><p class="admin-support-queue-disclosure">Lista limitada aos registros retornados pelo servidor (até 100 recentes). Os filtros não consultam todo o histórico. Dados consultados: '+
+    '</div><p class="admin-support-queue-disclosure">Primeiro os até 100 atendimentos pendentes mais antigos, depois até 30 resolvidos recentes. Os filtros agem sobre os registros carregados. Dados consultados: '+
       esc(adminRelativeTime(adminRuntime.lastSyncAt))+'.</p>'+
     '<div id="admin-support-visible-count" role="status" aria-live="polite">'+initial+
       ' atendimento(s) exibido(s)</div></div>'+
@@ -7548,7 +7594,12 @@ function adminSupportQueueView(cases){
       sorted.map(x=>adminSupportCaseCard(x,{visible:adminSupportQueueMatches(x,filter,q)})).join('')+
       '<div id="admin-support-no-match" class="empty card" '+(initial?'hidden':'')+
         '>Nenhum atendimento corresponde aos filtros carregados.</div>'+
-    '</div></section>';
+    '</div>'+
+    (more?'<div class="card flat"><button type="button" class="secondary" onclick="adminSupportLoadMore()" '+
+      (pager?.loading?'disabled':'')+'>'+(pager?.loading?'Carregando':'Carregar mais atendimentos pendentes')+
+      '</button><small> '+pending.length+' de '+pendingTotal+' pendentes carregados</small></div>':'')+
+    (pager?.error?'<p class="notice danger" role="alert">'+esc(pager.error)+'</p>':'')+
+    '</section>';
 }
 
 function adminProductionRequirementLabel(code){
