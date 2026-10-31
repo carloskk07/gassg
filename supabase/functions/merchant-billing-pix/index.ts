@@ -262,6 +262,25 @@ function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmount
   if(externalReference!==correlationId)throw new Error("MERCADOPAGO_CORRELATION_MISMATCH");
   if(amountCents!==expectedAmountCents)throw new Error("MERCADOPAGO_AMOUNT_MISMATCH");
   if(!paymentId)throw new Error("MERCADOPAGO_PAYMENT_ID_MISSING");
+  // A payable Order must also contain an independently matching, still
+  // pending Pix transaction. The aggregate order total alone is insufficient.
+  const paymentAmount=moneyToCents(payment?.amount);
+  const paymentStatus=String(payment?.status??"").trim().toLowerCase();
+  const orderDetail=String(order?.status_detail??"").trim().toLowerCase();
+  const paymentDetail=String(payment?.status_detail??"").trim().toLowerCase();
+  if(order?.live_mode===false||payment?.live_mode===false
+    ||(order?.currency_id&&order.currency_id!=="BRL")
+    ||(order?.currency&&order.currency!=="BRL")
+    ||paymentAmount!==expectedAmountCents
+    ||!["","pending","in_process","action_required","processing"].includes(paymentStatus)
+    ||["refunded","partially_refunded","charged_back","chargeback","disputed",
+      "in_mediation","failed","canceled","cancelled","expired"].includes(orderDetail)
+    ||["refunded","partially_refunded","charged_back","chargeback","disputed",
+      "in_mediation","failed","canceled","cancelled","expired"].includes(paymentDetail)
+    ||(Array.isArray(order?.transactions?.refunds)&&order.transactions.refunds.length>0)){
+    throw new DomainError("PIX_PROVIDER_PAYMENT_PROOF_INVALID",
+      "O pagamento Pix retornado pelo provedor não está apto ou diverge do valor solicitado.",409);
+  }
   if(String(method?.id??"").toLowerCase()!=="pix"
     ||String(method?.type??"").toLowerCase()!=="bank_transfer"){
     throw new Error("MERCADOPAGO_PAYMENT_METHOD_MISMATCH");
@@ -346,6 +365,64 @@ async function createMercadoPagoOrder(
   }
   throw new Error("MERCADOPAGO_QR_NOT_READY");
 }
+// Persisted charges are NOT proof of current provider payability. Always
+// re-query the same external resource on an idempotent replay, then compare
+// both the PSP transaction and the original QR before showing it again.
+// Fail closed on a provider outage; never create a second charge on this path.
+async function assertStoredChargeStillPayable(
+  row:any,provider:string,expectedAmountCents:number,
+  mpAccessToken:string,wooviAppId:string
+){
+  const providerChargeId=String(row?.provider_charge_id??"").trim();
+  const correlationId=String(row?.correlation_id??"").trim();
+  if(!providerChargeId||!UUID_RE.test(correlationId)){
+    throw new DomainError("PIX_PROVIDER_RECHECK_MISMATCH",
+      "O vínculo da cobrança Pix original está incompleto. Solicite revisão do financeiro.",409);
+  }
+  let current:any=null;
+  try{
+    if(provider==="mercadopago"){
+      const response=await mercadoPagoFetch(
+        "/v1/orders/"+encodeURIComponent(providerChargeId),
+        {accessToken:mpAccessToken}
+      );
+      if(!response.ok)throw new Error("PIX_PROVIDER_RECHECK_HTTP_"+response.status);
+      current=normalizeMercadoPagoOrder(
+        await readMercadoPagoJson(response),correlationId,
+        expectedAmountCents,String(row.created_at??"")
+      );
+    }else if(provider==="woovi"){
+      const result=await getWooviCharge(
+        wooviBase(),wooviAppId,correlationId,expectedAmountCents
+      );
+      if(!result.found)throw new Error("PIX_PROVIDER_RECHECK_HTTP_"+result.status);
+      current=result.charge;
+    }else{
+      throw new Error("PIX_PROVIDER_RECHECK_UNSUPPORTED");
+    }
+  }catch(error){
+    if(error instanceof DomainError)throw error;
+    throw new DomainError("PIX_PROVIDER_RECHECK_UNAVAILABLE",
+      "Não foi possível confirmar se o Pix ainda pode ser pago. Tente atualizar o financeiro.",503);
+  }
+  const savedExpiry=Date.parse(String(row.expires_at??""));
+  const currentExpiry=Date.parse(String(current?.expiresAt??""));
+  if(String(row.provider??"")!==provider
+    ||current.provider!==provider||current.status!=="active"
+    ||current.providerChargeId!==providerChargeId
+    ||String(row.provider_transaction_id??"")!==String(current.providerTransactionId??"")
+    ||!String(row.provider_transaction_id??"").trim()
+    ||current.correlationId!==correlationId
+    ||current.amountCents!==expectedAmountCents
+    ||String(row.br_code??"")!==current.brCode
+    ||!Number.isFinite(savedExpiry)||!Number.isFinite(currentExpiry)
+    ||savedExpiry>currentExpiry||currentExpiry<=Date.now()+60_000){
+    throw new DomainError("PIX_PROVIDER_RECHECK_MISMATCH",
+      "O Pix salvo difere do estado atual do provedor. Não reutilize o código; revise a cobrança.",409);
+  }
+  return row;
+}
+
 // The provider may settle or expire a charge between prepare/create and the
 // DB commit. Never return a QR from a non-payable committed row.
 function assertPayableCommittedCharge(charge:any,expectedAmountCents:number){
@@ -499,7 +576,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:existing,error:existingError}=await admin
       .from("merchant_billing_provider_charges")
-      .select("id,payment_request_id,provider,correlation_id,provider_charge_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id,created_at")
+      .select("id,payment_request_id,provider,correlation_id,provider_charge_id,provider_transaction_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id,created_at")
       .eq("id",chargeId)
       .eq("merchant_id",merchantId)
       .maybeSingle();
@@ -519,6 +596,11 @@ Deno.serve(async(req:Request)=>{
       )){
         throw new DomainError("PIX_EXISTING_CHARGE_NOT_PAYABLE",
           "O Pix anterior está inválido ou expirado. Atualize o financeiro para gerar uma nova cobrança.",409);
+      }
+      if(existing.status==="active"){
+        await assertStoredChargeStillPayable(
+          existing,provider,expectedAmountCents,mercadoPagoAccessToken,wooviAppId
+        );
       }
       return json({ok:true,paymentRequestId,recovered:true,charge:publicCharge(existing)},200,origin);
     }
