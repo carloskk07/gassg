@@ -107,8 +107,17 @@ assert.match(orderView,/merchantSupportForOrder\(o\)/);
 assert.doesNotMatch(frontend.slice(start,end),/fetch\(|adminPerform\(|merchantPerformAction\(/);
 assert.match(backend,/supportSummary:null/);
 assert.match(backend,/merchantRuntime\.supportSummary=data\.supportSummary\?\?null/);
-assert.ok((backend.match(/merchantRuntime\.supportSummary=null;/g)||[]).length>=3,
- 'clear scoped support projection on logout and access failures');
+const purge=backend.slice(backend.indexOf('function merchantClearProtectedSnapshot(){'),
+  backend.indexOf('async function merchantSignOut(){'));
+assert.match(purge,/merchantRuntime\\.supportSummary=null;/,
+ 'protected merchant data must include support cases');
+const signout=backend.slice(backend.indexOf('async function merchantSignOut(){'),
+  backend.indexOf('async function merchantRefresh(',backend.indexOf('async function merchantSignOut(){')));
+assert.ok(signout.includes('merchantClearProtectedSnapshot();'),
+ 'logout must reuse the same privacy cleanup');
+assert.ok((backend.match(/merchantRuntime\\.supportSummary=null;/g)||[]).length>=2,
+ 'shared purge and failed mutation must clear support data');
+
 for(const style of ['.merchant-support-overview','.merchant-order-support',
  '.merchant-order-support summary:focus-visible','@media(max-width:620px)',
  '@media(max-width:370px)'])
