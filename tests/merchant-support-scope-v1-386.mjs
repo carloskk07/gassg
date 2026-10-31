@@ -109,13 +109,13 @@ assert.match(backend,/supportSummary:null/);
 assert.match(backend,/merchantRuntime\.supportSummary=data\.supportSummary\?\?null/);
 const purge=backend.slice(backend.indexOf('function merchantClearProtectedSnapshot(){'),
   backend.indexOf('async function merchantSignOut(){'));
-assert.match(purge,/merchantRuntime\\.supportSummary=null;/,
+assert.ok(purge.includes('merchantRuntime.supportSummary=null;'),
  'protected merchant data must include support cases');
 const signout=backend.slice(backend.indexOf('async function merchantSignOut(){'),
   backend.indexOf('async function merchantRefresh(',backend.indexOf('async function merchantSignOut(){')));
 assert.ok(signout.includes('merchantClearProtectedSnapshot();'),
  'logout must reuse the same privacy cleanup');
-assert.ok((backend.match(/merchantRuntime\\.supportSummary=null;/g)||[]).length>=2,
+assert.ok(backend.split('merchantRuntime.supportSummary=null;').length>=3,
  'shared purge and failed mutation must clear support data');
 
 for(const style of ['.merchant-support-overview','.merchant-order-support',
