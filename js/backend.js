@@ -2121,6 +2121,10 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     const data=await merchantInvoke('merchant-orders',body);
     if(seq!==merchantRuntime.refreshSeq)return data;
     const previousMerchantId=String(merchantRuntime.merchant?.merchantId||'');
+    const previousRole=String(merchantRuntime.merchant?.memberRole||'');
+    if(previousMerchantId&&(
+      previousMerchantId!==String(data.merchant?.merchantId||'')||
+      previousRole!==String(data.merchant?.memberRole||'')))merchantClearProtectedSnapshot();
     merchantRuntime.merchant=data.merchant??null;
     if(previousMerchantId!==String(merchantRuntime.merchant?.merchantId||''))merchantClearEnablement();
     merchantRuntime.memberships=data.memberships??[];
