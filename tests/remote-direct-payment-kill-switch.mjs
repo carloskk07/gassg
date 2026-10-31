@@ -44,6 +44,14 @@ try{
     );
   }
 
+  // Do not let a browser cache a checkout-denial across origin or session.
+  assert.equal(response.headers.get('cache-control'),'no-store',
+    'payment responses must never be cached');
+  assert.equal(response.headers.get('access-control-allow-origin'),CUSTOMER_ORIGIN,
+    'payment-origin isolation must remain enforced');
+  assert.match(response.headers.get('vary')||'',/Origin/i,
+    'an intermediate cache cannot mix browser origins');
+
   const report={
     ok:
       response.status===503
