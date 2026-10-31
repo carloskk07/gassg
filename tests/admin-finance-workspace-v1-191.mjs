@@ -12,6 +12,8 @@ const extract=name=>{
   assert.ok(j>i,'Missing end '+name);
   return src.slice(i,j+2);
 };
+const providerUuid=src.split('\n').find(line=>line.startsWith('const ADMIN_FINANCE_CHARGE_UUID='));
+assert.ok(providerUuid,'Finance charge identity helper required');
 const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=(\[[^\n]+\]);/);
 assert.ok(declaration,'Finance workspace allowlist required');
 const keys=JSON.parse(declaration[1]).map(x=>x.id);
@@ -188,9 +190,9 @@ const financeContext=vm.createContext({
   adminMoney:amount=>'R$ '+(Number(amount)/100).toFixed(2),
   esc:value=>String(value??'').replace(/[&<>"]/g,''),
 });
-vm.runInContext(coreFormatter+'\n'+[
+vm.runInContext(coreFormatter+'\n'+providerUuid+'\n'+[
  'adminFinanceDailyPriorities','adminFinanceTriageRecords','adminFinanceTriageView',
- 'adminFinanceLabPrerequisiteChecks','adminFinanceLabView'
+ 'adminFinanceLabPrerequisiteChecks','adminFinanceProviderReviewCandidates','adminFinanceLabView'
 ].map(extract).join('\n')+
  '\nthis.runFinanceViews=(d)=>[adminFinanceTriageView(d),adminFinanceLabView(d)];',financeContext);
 const [renderedTriage,renderedLab]=financeContext.runFinanceViews(financeFixture);
