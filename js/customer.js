@@ -968,8 +968,6 @@ function orderPage(){
   let liveNotice='';
   if(internalPilot){
     liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Ambiente interno.</strong><br>Esta jornada não gera venda, cobrança, entrega ou alteração no banco operacional.</div>';
-  }else if(!testDemo&&preview){
-    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Disponibilidade ainda não confirmada para esta região.</strong><br>Informe seus dados para receber um aviso quando houver atendimento.</div>';
   }else if(!testDemo&&liveMode&&!ready){
     const message=liveRuntime?.status==='loading'
       ? 'Preparando a consulta…'
@@ -1021,7 +1019,7 @@ function orderPage(){
   });
 
   const paymentBlock=preview
-    ? '<div class="notice">As formas de pagamento aparecem quando houver uma opção disponível para esta consulta.</div>'
+    ? '<div class="empty card">Escolha os produtos e consulte a disponibilidade para ver as formas de pagamento aceitas.</div>'
     : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga à revenda na entrega. Não há pagamento antecipado nesta etapa.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
 
   const containerBlock=hasGlp
