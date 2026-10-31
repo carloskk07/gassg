@@ -104,7 +104,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2917,11 +2917,16 @@ async function summary(admin:any,actorUserId:string){
   }
 
   const supportMetricsPromise=Promise.all([
+    // The oldest unresolved cases must not disappear behind recent resolved
+    // tickets. Count the entire live backlog and page beyond this sample.
+    admin.from("support_cases")
+      .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at",{count:"exact"})
+      .in("status",["open","in_review"])
+      .order("created_at",{ascending:true}).order("id",{ascending:true})
+      .limit(100),
     admin.from("support_cases")
       .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
-      .in("status",["open","in_review","resolved"])
-      .order("updated_at",{ascending:false})
-      .limit(100),
+      .eq("status","resolved").order("updated_at",{ascending:false}).limit(30),
     admin.rpc("platform_business_metrics"),
     admin.rpc("platform_launch_readiness"),
     admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId}),
@@ -2962,8 +2967,9 @@ async function summary(admin:any,actorUserId:string){
     controlItemsByOrder.get(item.order_id)!.push(item);
   }
 
-  const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics,merchantReadiness]=await supportMetricsPromise;
-  if(supportCases.error)throw supportCases.error;
+  const [supportPending,supportResolved,businessMetrics,launchReadiness,acquisitionMetrics,merchantReadiness]=await supportMetricsPromise;
+  if(supportPending.error)throw supportPending.error;
+  if(supportResolved.error)throw supportResolved.error;
   if(businessMetrics.error)throw businessMetrics.error;
   if(launchReadiness.error)throw launchReadiness.error;
   if(acquisitionMetrics.error)throw acquisitionMetrics.error;
@@ -3184,7 +3190,8 @@ async function summary(admin:any,actorUserId:string){
       categories:productCategories.data??[],
       products:productProfiles.data??[]
     },
-    supportCases:supportCases.data??[],
+    supportCases:[...(supportPending.data??[]),...(supportResolved.data??[])],
+    supportCasesPendingTotal:supportPending.count??(supportPending.data??[]).length,
     controlOrders:(controlOrders.data??[]).map((o:any)=>({
       ...o,
       items:controlItemsByOrder.get(o.id)??[]
@@ -3245,6 +3252,24 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="support-cases-page"){
+      if(!["superadmin","operations","support"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Seu perfil não pode consultar atendimentos de clientes.",403);
+      const page=Number(body.page);
+      if(!Number.isSafeInteger(page)||page<1||page>10000)
+        throw new DomainError("INVALID_SUPPORT_PAGE","Página de atendimento inválida.",400);
+      const {data,count,error}=await admin.from("support_cases")
+        .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at",{count:"exact"})
+        .in("status",["open","in_review"])
+        .order("created_at",{ascending:true}).order("id",{ascending:true})
+        .range(page*100,page*100+99);
+      if(error)throw new DomainError("SUPPORT_PAGE_UNAVAILABLE",
+        "Não foi possível carregar mais atendimentos.",503);
+      return json({source:"admin_support_cases_page_v1_493",readOnly:true,
+        page,pageSize:100,total:count??0,items:data??[]},200,origin);
+    }
 
     if(action==="support-reports-page"){
       // The first 30 pending reports are in the summary; pages after that
