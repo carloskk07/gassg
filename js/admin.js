@@ -108,6 +108,7 @@ async function adminBackendInit(){
     return adminRuntime.status==='ready';
   }
 
+  const initSeq=adminRuntime.refreshSeq;
   adminRuntime.status='loading';
   adminRuntime.error=null;
   try{
@@ -139,6 +140,7 @@ async function adminBackendInit(){
       session=restored.data.session??null;
       error=null;
     }
+    if(initSeq!==adminRuntime.refreshSeq)return false;
     if(error)throw error;
 
     if(session?.access_token){
@@ -193,7 +195,12 @@ async function adminBackendInit(){
 
 async function adminAccessToken(){
   if(!adminRuntime.client)throw new Error('Cliente administrativo indisponível');
+  const epoch=adminRuntime.refreshSeq;
+  const userId=adminRuntime.session?.user?.id;
   const {data:{session},error}=await adminRuntime.client.auth.getSession();
+  if(epoch!==adminRuntime.refreshSeq||adminRuntime.status==='unauthenticated'||
+     userId&&userId!==session?.user?.id)
+    throw new Error('A sessão administrativa mudou. Entre novamente.');
   if(error||!session?.access_token)throw error||new Error('Sessão administrativa expirada');
   if(session.user?.is_anonymous===true)throw new Error('Conta permanente obrigatória');
   adminRuntime.session=session;
@@ -359,9 +366,12 @@ async function adminSendLogin(email){
 }
 
 async function adminSignOut(){
-  if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
+  // Revoke every in-flight privileged read before the asynchronous sign-out.
+  adminRuntime.refreshSeq++;
+  adminRuntime.status='unauthenticated';
   adminRuntime.session=null;
   adminRuntime.data=null;
+  if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.helpReportPager=null;
   adminRuntime.merchantTrial=null;
   adminOrderDemoForget(); // also purge the only in-tab synthetic order state
