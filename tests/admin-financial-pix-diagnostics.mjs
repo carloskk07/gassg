@@ -279,10 +279,10 @@ assert.match(edge.slice(handler,handler+440),/adminAccess.admin_role\)!=="supera
 assert.match(bootstrap,/adminFinanceLabVerifyProviderFromUi/);
 assert.match(admin,/Conferir esta cobrança no Mercado Pago/);
 assert.match(admin,/Sem crédito, repasse ou comprovação de liquidação/);
-const uiStart=admin.indexOf('async function adminFinanceLabVerifyProviderFromUi(');
+const uiStart=admin.indexOf('const ADMIN_FINANCE_CHARGE_UUID=');
 const uiEnd=admin.indexOf('async function adminFinanceLabReadinessFromUi(',uiStart);
 assert.ok(uiStart>0&&uiEnd>uiStart);
-const uiState={financeLab:{providerCheckingId:null,providerCheck:null,providerCheckError:null}};
+const uiState={session:{user:{id:'test-admin-actor'}},financeLab:{providerCheckingId:null,providerCheck:null,providerCheckError:null}};
 let uiCalls=0;
 const verifyUiCtx=vm.createContext({
   adminRuntime:uiState,adminReady:()=>true,adminCurrentRole:()=> 'superadmin',
