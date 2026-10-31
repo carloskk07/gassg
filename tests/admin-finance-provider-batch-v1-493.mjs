@@ -8,7 +8,10 @@ const start=source.indexOf('const ADMIN_FINANCE_CHARGE_UUID=');
 const end=source.indexOf('\nasync function adminFinanceLabReadinessFromUi(',start);
 assert.ok(start>0&&end>start,'Read-only PSP review helpers must be contiguous');
 const code=source.slice(start,end);
-new vm.Script(code,{filename:'admin-finance-pix-review-batch'});
+const diagnoseStart=source.indexOf('async function adminFinanceLabDiagnoseChargesFromUi(){');
+assert.ok(diagnoseStart>0&&diagnoseStart<start);
+const diagnoseCode=source.slice(diagnoseStart,start);
+new vm.Script(diagnoseCode+code,{filename:'admin-finance-pix-review-batch'});
 const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const row=(n,status,requestStatus,issues=[])=>({
  chargeId:id(n),status,requestStatus,issues,provider:'mercadopago'
@@ -41,7 +44,7 @@ function setup(items=rows){
   adminInvoke:async payload=>{calls.push(payload);return provider(payload)},
   Date,String,Number,Array,Object,Error
  });
- vm.runInContext(code+'\nthis.review={candidates:adminFinanceProviderReviewCandidates,'+
+ vm.runInContext(diagnoseCode+'\n'+code+'\nthis.review={diagnose:adminFinanceLabDiagnoseChargesFromUi,candidates:adminFinanceProviderReviewCandidates,'+
  'batch:adminFinanceLabVerifyPendingBatchFromUi,'+
  'single:adminFinanceLabVerifyProviderFromUi,'+
  'valid:adminFinanceProviderProofValid}',ctx);
@@ -112,6 +115,37 @@ function setup(items=rows){
  assert.equal(a.calls.length,1,'single PSP check preserved');
  assert.equal(a.rt.financeLab.providerChecks[id(1)].chargeId,id(1));
 }
+// A new diagnosis cannot overwrite in-flight PSP batch state.
+{
+ const a=setup([row(1,'expired','pending')]);
+ let finish;
+ a.setProvider(()=>new Promise(resolve=>finish=resolve));
+ const pending=a.ctx.review.batch();
+ assert.equal(a.calls.length,1);
+ const rejectedRefresh=a.ctx.review.diagnose();
+ assert.equal(a.calls.length,1,'diagnosis must not race an in-flight PSP batch');
+ await rejectedRefresh;
+ assert.equal(a.rt.financeLab.providerBatchPending,true);
+ finish({ok:true,source:'mercadopago_order_lookup_v1',readOnly:true,
+  chargeId:id(1),identifiersAndAmountMatched:true,settlementVerified:false,
+  creditIssued:false,financialActionTaken:false,
+  providerProcessed:true,providerAdverseState:false});
+ await pending;
+ assert.equal(a.rt.financeLab.providerBatchResult.checked,1);
+}
+// Late diagnostic responses cannot populate a different operator session.
+{
+ const a=setup([row(1,'expired','pending')]);
+ let finish;
+ a.setProvider(()=>new Promise(resolve=>finish=resolve));
+ const pending=a.ctx.review.diagnose();
+ assert.equal(a.calls[0].action,'finance-lab-charge-diagnostics');
+ a.rt.session={user:{id:'operator-B'}};
+ finish({ok:true,readOnly:true,charges:[row(2,'completed','approved')]});
+ await pending;
+ assert.equal(a.rt.financeLab.charges.charges[0].chargeId,id(1),
+  'late diagnosis may not overwrite another operator account');
+}
 // A failed second PSP lookup must not leave the prior successful result
 // visible as if it were the current authority.
 {
@@ -127,6 +161,12 @@ const financeUi=source.slice(source.indexOf('function adminFinanceLabView(d){'),
  source.indexOf('function adminFinanceLabView(d){')+19000);
 assert.match(financeUi,/adminFinanceLabVerifyPendingBatchFromUi\(\)/);
 assert.match(financeUi,/divergentes|divergência|divergentes/i);
+assert.match(financeUi,/\.slice\(0,state\.providerBatchResult\?20:8\)/,
+  'after a batch, all provider-reviewed charges must remain visible beyond the initial eight');
+assert.match(financeUi,/state\.providerCheckingId\|\|state\.providerBatchPending\?'disabled'/,
+  'manual PSP buttons must stay disabled during the batch, not silently ignore clicks');
+assert.match(financeUi,/state\.chargesLoading\|\|state\.providerBatchPending\|\|state\.providerCheckingId\?'disabled'/,
+  'charge refresh must be disabled during an active PSP verification');
 assert.doesNotMatch(code,/adminPerform\(|merchant-billing-payment-event|merchant-billing-action|create-billing/);
 assert.ok(workflow.includes('node tests/admin-finance-provider-batch-v1-493.mjs'));
 console.log('TAMÃO #493 PASS — bounded authenticated read-only Pix PSP review, inconsistencies, safe failures and account isolation.');
