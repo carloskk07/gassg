@@ -127,6 +127,10 @@ const financeUi=source.slice(source.indexOf('function adminFinanceLabView(d){'),
  source.indexOf('function adminFinanceLabView(d){')+19000);
 assert.match(financeUi,/adminFinanceLabVerifyPendingBatchFromUi\(\)/);
 assert.match(financeUi,/divergentes|divergência|divergentes/i);
+assert.match(financeUi,/\.slice\(0,state\.providerBatchResult\?20:8\)/,
+  'after a batch, all provider-reviewed charges must remain visible beyond the initial eight');
+assert.match(financeUi,/state\.providerCheckingId\|\|state\.providerBatchPending\?'disabled'/,
+  'manual PSP buttons must stay disabled during the batch, not silently ignore clicks');
 assert.doesNotMatch(code,/adminPerform\(|merchant-billing-payment-event|merchant-billing-action|create-billing/);
 assert.ok(workflow.includes('node tests/admin-finance-provider-batch-v1-493.mjs'));
 console.log('TAMÃO #493 PASS — bounded authenticated read-only Pix PSP review, inconsistencies, safe failures and account isolation.');
