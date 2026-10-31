@@ -275,7 +275,9 @@ function liveForgetAccount(){
   liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
   state.user=freshSeed().user;
   state.address='';state.postalCode='';state.addressNumber='';
-  state.checkout.customerPhoneDigits='';
+  for(const key of ['customerPhoneDigits','addressComplement','deliveryReference','deliveryNotes'])
+    state.checkout[key]='';
+  state.checkout.useCashback=false;state.checkout.cashTenderCents=null;
   localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
   save();
   location.reload();
