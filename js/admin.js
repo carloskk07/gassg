@@ -4815,6 +4815,7 @@ async function adminFinanceLabDiagnoseChargesFromUi(){
     }
     state.charges=result;
     state.providerChecks={};state.providerCheckErrors={};state.providerBatchResult=null;
+    state.providerCheck=null;state.providerCheckError=null;
   }catch(e){
     state.chargesError=String(e?.message||e);
     state.charges=null;
@@ -4853,7 +4854,10 @@ async function adminFinanceLabVerifyProviderFromUi(chargeId){
   if(state.providerCheckingId||state.providerBatchPending)return;
   const actor=String(adminRuntime.session?.user?.id||'');
   state.providerCheckingId=String(chargeId);
-  state.providerCheck=null;state.providerCheckError=null;render();
+  state.providerCheck=null;state.providerCheckError=null;
+  if(state.providerChecks)delete state.providerChecks[chargeId];
+  if(state.providerCheckErrors)delete state.providerCheckErrors[chargeId];
+  render();
   try{
     const proof=await adminInvoke({
       action:'finance-lab-provider-verify',chargeId:String(chargeId)
@@ -4885,6 +4889,7 @@ async function adminFinanceLabVerifyPendingBatchFromUi(){
   state.providerBatchPending=true;
   state.providerBatchResult={checked:0,errors:0,discrepancies:0,total:candidates.length};
   state.providerChecks={};state.providerCheckErrors={};
+  state.providerCheck=null;state.providerCheckError=null;
   render();
   try{
     for(const charge of candidates){
