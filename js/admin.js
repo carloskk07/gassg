@@ -5475,7 +5475,7 @@ function adminFinanceLabView(d){
                 ' • Pix: '+esc(proof.providerPaymentStatus)+'</div>'+
                 (inconsistent?'<strong>ATENÇÃO: PSP e registro local divergentes. Exige análise; não baixar automaticamente.</strong>':'')+
                 '<small>'+esc(proof.nextStep)+'</small>'+
-                '<small>Identidade e valor conferidos; não comprova liquidação bancária nem autoriza crédito.</small></div>';})()
+                '<small>Sem crédito, repasse ou comprovação de liquidação. Identidade e valor conferidos na consulta.</small></div>';})()
             :'')+
           (state.providerCheckErrors?.[item.chargeId]||state.providerCheckError?.chargeId===item.chargeId
             ?'<div class="notice danger" role="alert">'+esc(state.providerCheckErrors?.[item.chargeId]||state.providerCheckError?.message)+'</div>':'')+
