@@ -145,5 +145,5 @@ for(const error of [http(401,'UNAUTHORIZED'),Error('Sessão da revenda expirada'
   assert.equal(s.rt.orders.length,1);
   assert.equal(s.ctx.merchantHistoryRequestId,undefined);
 }
-assert.match(audit,/node tests\\/merchant-access-snapshot-v1-493\\.mjs/);
+assert.ok(audit.includes('node tests/merchant-access-snapshot-v1-493.mjs'));
 console.log('TAMÃO #493 PASS — 401/403 session purge, account switching, stale-selector rescue and 503 fail closed.');
