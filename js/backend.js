@@ -1331,6 +1331,7 @@ const merchantRuntime={
   lastHeartbeatAt:0,
   lastPollAt:0,
   refreshSeq:0,
+  accessEpoch:0,
   pollPending:false,
   recoveryFailures:0,
   nextRecoveryAt:0,
@@ -1477,8 +1478,6 @@ function merchantDisableAlertsLive(){
   return {enabled:false};
 }
 
-// V1.286 — Web Push is independent of the existing on-page alert preference.
-// Registration never silently occurs; a separate explicit user gesture is required.
 const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null,testPending:false,reportPending:false,testResult:null,healthPending:false,deviceHealth:null,healthError:null};
 function merchantPushStatus(){
   return {
@@ -1502,7 +1501,6 @@ function merchantPushKeyBytes(base64url){
   const bytes=atob(encoded+'='.repeat((4-encoded.length%4)%4));
   return Uint8Array.from(bytes,char=>char.charCodeAt(0));
 }
-// Push diagnostics: local plus authenticated read-only; not delivery proof.
 async function merchantPushDiagnoseLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
     throw new Error('Entre na revenda antes de verificar o aparelho.');
@@ -1566,7 +1564,6 @@ async function merchantPushCheckLive(){
     merchantPushRuntime.checking=false;
   }
 }
-// Check local push diagnostics before querying the server.
 async function merchantPushDiagnoseServerLive(){
   if(merchantPushRuntime.healthPending)return false;
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
@@ -1723,7 +1720,6 @@ async function merchantPushSelfTestLive(){
     render();
   }
 }
-// V1.292: read and report only the current user's own device, never assert delivery.
 async function merchantPushLatestTestLive(){
   if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
     throw new Error('Aguarde a operação de teste em andamento.');
@@ -1785,7 +1781,6 @@ async function merchantPushReportTestLive(report){
     return true;
   }finally{merchantPushRuntime.reportPending=false;render();}
 }
-// V1.295: a correction cannot mutate the earlier voluntary observation.
 async function merchantPushCorrectChromeWarningLive(){
   if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
     throw new Error('Aguarde a operação de teste em andamento.');
@@ -2009,8 +2004,13 @@ function merchantEnablementAfterChange(){
 }
 
 async function merchantLoadOwnApplications(){
-  if(!merchantRuntime.session?.access_token)return [];
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantRuntime.session?.access_token||!userId)return [];
+  const epoch=merchantRuntime.accessEpoch;
   const result=await merchantInvoke('submit-merchant-application',{action:'my-applications'});
+  if(epoch!==merchantRuntime.accessEpoch||
+     userId!==String(merchantRuntime.session?.user?.id||'')||
+     !['ready','no-access'].includes(merchantRuntime.status))return [];
   merchantRuntime.ownApplications=Array.isArray(result?.applications)?result.applications:[];
   merchantRuntime.ownApplicationsLoaded=true;
   merchantRuntime.applicationFetchError=null;
@@ -2031,7 +2031,6 @@ async function merchantSendLogin(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
-  // Supabase owns the OTP fragment; carry the registration intent in the query.
   if(typeof route==='function'&&route()==='merchant-join')
     redirect.searchParams.set('signup','1');
   merchantPilotInviteToken();
@@ -2055,6 +2054,7 @@ function merchantOfflineGuard(denied){
 // Drop merchant-scoped data whenever authorization or merchant selection changes.
 // The next server response, not an old browser snapshot, restores this state.
 function merchantClearProtectedSnapshot(){
+  merchantRuntime.accessEpoch=(merchantRuntime.accessEpoch||0)+1;
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
   merchantClearEnablement();
@@ -2095,7 +2095,6 @@ function merchantClearProtectedSnapshot(){
 async function merchantSignOut(){
   merchantOfflineGuard(true);
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
-  // Invalidate pending reads on sign-out; no account may reuse a prior snapshot.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
   merchantRuntime.recoveryFailures=0;
@@ -2122,6 +2121,10 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     const data=await merchantInvoke('merchant-orders',body);
     if(seq!==merchantRuntime.refreshSeq)return data;
     const previousMerchantId=String(merchantRuntime.merchant?.merchantId||'');
+    const previousRole=String(merchantRuntime.merchant?.memberRole||'');
+    if(previousMerchantId&&(
+      previousMerchantId!==String(data.merchant?.merchantId||'')||
+      previousRole!==String(data.merchant?.memberRole||'')))merchantClearProtectedSnapshot();
     merchantRuntime.merchant=data.merchant??null;
     if(previousMerchantId!==String(merchantRuntime.merchant?.merchantId||''))merchantClearEnablement();
     merchantRuntime.memberships=data.memberships??[];
@@ -2197,10 +2200,6 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 
 async function merchantSelectLive(merchantId){
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
-  merchantPushRuntime.checked=false;
-  merchantPushRuntime.available=false;
-  merchantPushRuntime.merchantId=null;
-  merchantPushRuntime.diagnostic=null;
   merchantOfflineGuard(true);
   merchantClearProtectedSnapshot();
   merchantRuntime.status='loading';
@@ -2356,20 +2355,30 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
 }
 
 async function merchantTeamLoadLive({silent=false}={}){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantId||!userId||!merchantReady())throw new Error('Revenda não selecionada');
   if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
     throw new Error('Seu papel não pode gerenciar a equipe');
   }
+  const epoch=merchantRuntime.accessEpoch;
   merchantRuntime.teamLoading=true;
   if(!silent)render();
   try{
     const data=await merchantInvoke('merchant-team',{merchantId,action:'list'});
+    if(epoch!==merchantRuntime.accessEpoch||!merchantReady()||
+       String(merchantRuntime.session?.user?.id||'')!==userId||
+       String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       !['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+      throw new Error('O acesso à revenda mudou. Atualize a equipe.');
+    }
     merchantRuntime.team=data??{actorRole:null,members:[],pendingInvites:[]};
     return merchantRuntime.team;
   }finally{
-    merchantRuntime.teamLoading=false;
-    if(!silent)render();
+    if(epoch===merchantRuntime.accessEpoch){
+      merchantRuntime.teamLoading=false;
+      if(!silent)render();
+    }
   }
 }
 
@@ -2972,7 +2981,6 @@ async function merchantHeartbeat(){
   }
 }
 
-// Poll: oferta 5s, entrega 10s, online 15s, offline 60s; heartbeat preservado.
 function merchantPollingIntervalMs(orders,online){
   const list=Array.isArray(orders)?orders:[];
   if(list.some(order=>String(order?.status||'')==='OFFERED_TO_MERCHANT'))return 5000;
@@ -2986,16 +2994,12 @@ function merchantRecoveryDelayMs(failures){
   return Math.min(60000,5000*2**(n-1));
 }
 function merchantCanRecover(){
-  // Reconnect also covers first boot, when loading auth/session previously failed.
-  // Origin validation remains inside merchantBackendInit().
   return merchantRuntime.requested===true&&merchantRuntime.status==='unavailable';
 }
 async function merchantPoll(){
   const recovering=merchantCanRecover();
   if(!merchantReady()&&!recovering)return;
   if(merchantRuntime.actionPending||merchantRuntime.pollPending)return;
-  // Browser background timers are best-effort. Only keep polling hidden tabs
-  // when the merchant explicitly enabled alerts on this device.
   if(document.visibilityState==='hidden'&&!merchantAlerts.enabled)return;
   const now=Date.now();
   if(recovering){
@@ -3013,10 +3017,8 @@ async function merchantPoll(){
       if(merchantRuntime.merchant?.online===true||activeOrders)await merchantHeartbeat();
     }
     if(recovering&&!merchantRuntime.client){
-      // Bootstrap failed before auth client initialization.
       await merchantBackendInit();
     }else if(recovering&&!merchantRuntime.session?.access_token){
-      // A temporary getSession failure must not strand the portal permanently.
       const seq=merchantRuntime.refreshSeq;
       const {data,error}=await merchantRuntime.client.auth.getSession();
       if(seq!==merchantRuntime.refreshSeq||merchantRuntime.status!=='unavailable')return;
@@ -3048,8 +3050,6 @@ async function merchantPoll(){
     render();
   }finally{merchantRuntime.pollPending=false}
 }
-// Recheck promptly when the operator comes back or browser reconnects.
-// No automatic acceptance, dispatch, payment, or any order transitions occur.
 async function merchantWakeSync(reason='visible'){
   if(!['visible','online'].includes(reason))return false;
   if(!merchantReady()&&!merchantCanRecover())return false;
