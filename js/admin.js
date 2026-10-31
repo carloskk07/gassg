@@ -371,7 +371,6 @@ async function adminSignOut(){
   adminRuntime.status='unauthenticated';
   adminRuntime.session=null;
   adminRuntime.data=null;
-  if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.helpReportPager=null;
   adminRuntime.merchantTrial=null;
   adminOrderDemoForget(); // also purge the only in-tab synthetic order state
@@ -427,6 +426,7 @@ async function adminSignOut(){
   adminRuntime.bootstrapStatus=null;
   adminRuntime.bootstrapError=null;
   render();
+  if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
 }
 
 async function adminRefresh({silent=false}={}){
