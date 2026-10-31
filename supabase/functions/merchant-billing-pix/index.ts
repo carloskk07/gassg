@@ -411,7 +411,8 @@ async function assertStoredChargeStillPayable(
     ||current.provider!==provider||current.status!=="active"
     ||current.providerChargeId!==providerChargeId
     ||String(row.provider_transaction_id??"")!==String(current.providerTransactionId??"")
-    ||!String(row.provider_transaction_id??"").trim()
+    ||(provider==="mercadopago"&&!String(row.provider_transaction_id??"").trim())
+    ||Number(row.amount_cents)!==expectedAmountCents
     ||current.correlationId!==correlationId
     ||current.amountCents!==expectedAmountCents
     ||String(row.br_code??"")!==current.brCode
