@@ -238,7 +238,7 @@ const liveRuntime={
   lastFinancialSyncAt:0,
   lastFinancialSyncAttemptAt:0,
   lastSyncAt:null,
-  // V1.352: recorded only when get-order succeeds (not when offers/profile sync).
+  // Tracking proof requires a successful get-order.
   orderCheckedAt:null,
   orderCheckedId:null,
   terminalSupportAttemptAt:0,
@@ -1566,8 +1566,7 @@ async function merchantPushCheckLive(){
     merchantPushRuntime.checking=false;
   }
 }
-// V1.293: server-side per-device diagnostics are requested only after local checks.
-// Kept separate so local device diagnostics remain usable without network access.
+// Check local push diagnostics before querying the server.
 async function merchantPushDiagnoseServerLive(){
   if(merchantPushRuntime.healthPending)return false;
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
@@ -1673,7 +1672,7 @@ async function merchantPushEnableLive(){
     throw error;
   }
 }
-// V1.291: manual one-device test. It never changes an order or enables Cron.
+// Push test cannot alter orders or enable Cron.
 function merchantPushFriendlyError(error){
   const code=String(error?.data?.code||error?.code||'');
   const messages={
