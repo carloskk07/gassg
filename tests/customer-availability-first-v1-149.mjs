@@ -41,4 +41,12 @@ assert.match(match[0],/return startHomeOrder\(\)/,
   'primeiro CTA apenas seleciona produtos; nenhuma compra é criada');
 assert.doesNotMatch(match[0],/liveCreateOrder|checkout\(/,
   'consulta de vitrine não pode iniciar pagamento nem pedido');
+assert.doesNotMatch(source,/Disponibilidade ainda não confirmada para esta região\./,
+  'não repetir um aviso genérico antes de o consumidor informar seu CEP');
+assert.match(source,/Ainda não encontramos uma revenda que entregue neste CEP\./,
+  'a indisponibilidade realmente comprovada na consulta ainda deve ser explicada');
+assert.match(source,/Pedidos temporariamente indisponíveis\./,
+  'bloqueios de compra reais precisam continuar visíveis e operacionais');
+assert.ok(!source.includes('<div class="notice">As formas de pagamento aparecem quando houver uma opção'),
+  'sem oferta não exibir uma advertência de lançamento no lugar das formas de pagamento');
 console.log('V1.149: abrir vitrine mesmo sem revendas, sem criar pedido, e conferir CEP depois.');
