@@ -29,6 +29,15 @@ let failure=false,refreshStarted=false;
 const sandbox={
  Date:FakeDate,document:doc,merchantRuntime,merchantAlerts:{enabled:false},
  merchantReady:()=>merchantRuntime.status==='ready',
+ merchantOfflineGuard:()=>events.push('offline-guard'),
+ merchantClearProtectedSnapshot:()=>{
+   merchantRuntime.merchant=null;merchantRuntime.orders=[];merchantRuntime.catalog=[];
+   merchantRuntime.availableProducts=[];merchantRuntime.deliveryTeam=[];
+   merchantRuntime.recentClosedDeliveries=[];merchantRuntime.supportSummary=null;
+   merchantRuntime.billing=null;merchantRuntime.receivingAccounts=[];
+   merchantRuntime.paymentRoutes=[];merchantRuntime.paymentProviders=[];
+   merchantRuntime.memberships=[];merchantRuntime.team=null;
+ },
  merchantHeartbeat:async()=>{events.push('heartbeat')},
  merchantRefresh:async()=>{
   events.push('refresh');refreshStarted=true;
