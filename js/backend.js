@@ -2095,43 +2095,13 @@ function merchantClearProtectedSnapshot(){
 async function merchantSignOut(){
   merchantOfflineGuard(true);
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
-  merchantPushRuntime.checked=false;
-  merchantPushRuntime.available=false;
-  merchantPushRuntime.merchantId=null;
-  merchantPushRuntime.diagnostic=null;
-  merchantPushRuntime.deviceHealth=null;
-  merchantPushRuntime.healthError=null;
-  // Invalidate pending reads on sign-out.
+  // Invalidate pending reads on sign-out; no account may reuse a prior snapshot.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
   merchantRuntime.recoveryFailures=0;
-  // Never expose another account's audit.
-  globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
-  globalThis.merchantCatalogHistoryState=null;
+  merchantClearProtectedSnapshot();
   if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
   merchantRuntime.session=null;
-  merchantRuntime.merchant=null;
-  merchantRuntime.memberships=[];
-  merchantRuntime.ownApplications=[];
-  merchantRuntime.ownApplicationsLoaded=false;
-  merchantRuntime.applicationFetchError=null;
-  merchantRuntime.selectedApplicationId=null;
-  merchantRuntime.newApplicationMode=false;
-  merchantRuntime.deliveryTeam=[];
-  merchantRuntime.team=null;
-  merchantRuntime.teamLoading=false;
-  merchantClearEnablement();
-  merchantRuntime.catalog=[];
-  merchantRuntime.availableProducts=[];
-  merchantRuntime.billing=null;
-  merchantRuntime.receivingAccount=null;
-  merchantRuntime.receivingAccounts=[];
-  merchantRuntime.paymentProviders=[];
-  merchantRuntime.paymentRoutes=[];
-  merchantRuntime.paymentRouteVersion=1;
-  merchantRuntime.orders=[];
-  merchantRuntime.recentClosedDeliveries=[];
-  merchantRuntime.supportSummary=null;
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
   merchantRuntime.status='unauthenticated';
@@ -2139,8 +2109,6 @@ async function merchantSignOut(){
   merchantRuntime.notice=null;
   merchantRuntime.lastPollAt=0;
   merchantRuntime.accessReason=null;
-  merchantRuntime.heartbeatError=null;
-  merchantAlerts.knownOrderIds=new Set();
   render();
 }
 
