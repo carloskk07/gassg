@@ -2052,24 +2052,12 @@ function merchantOfflineGuard(denied){
   const u=merchantRuntime.session?.user?.id,m=merchantRuntime.merchant?.merchantId||merchantRuntime.selectedMerchantId;
   if(u&&m)localStorage[denied?'setItem':'removeItem']('tamao-offline-denied:'+u+':'+m,'1');
 }
-async function merchantSignOut(){
-  merchantOfflineGuard(true);
-  if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
-  merchantPushRuntime.checked=false;
-  merchantPushRuntime.available=false;
-  merchantPushRuntime.merchantId=null;
-  merchantPushRuntime.diagnostic=null;
-  merchantPushRuntime.deviceHealth=null;
-  merchantPushRuntime.healthError=null;
-  // Invalidate pending reads on sign-out.
-  merchantRuntime.refreshSeq++;
-  merchantRuntime.nextRecoveryAt=0;
-  merchantRuntime.recoveryFailures=0;
-  // Never expose another account's audit.
+// Drop merchant-scoped data whenever authorization or merchant selection changes.
+// The next server response, not an old browser snapshot, restores this state.
+function merchantClearProtectedSnapshot(){
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
-  if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
-  merchantRuntime.session=null;
+  merchantClearEnablement();
   merchantRuntime.merchant=null;
   merchantRuntime.memberships=[];
   merchantRuntime.ownApplications=[];
@@ -2080,7 +2068,6 @@ async function merchantSignOut(){
   merchantRuntime.deliveryTeam=[];
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
-  merchantClearEnablement();
   merchantRuntime.catalog=[];
   merchantRuntime.availableProducts=[];
   merchantRuntime.billing=null;
@@ -2092,6 +2079,29 @@ async function merchantSignOut(){
   merchantRuntime.orders=[];
   merchantRuntime.recentClosedDeliveries=[];
   merchantRuntime.supportSummary=null;
+  merchantRuntime.lastSyncAt=null;
+  merchantRuntime.heartbeatError=null;
+  merchantAlerts.knownOrderIds=new Set();
+  merchantPushRuntime.checked=false;
+  merchantPushRuntime.available=false;
+  merchantPushRuntime.publicKey=null;
+  merchantPushRuntime.subscribed=false;
+  merchantPushRuntime.merchantId=null;
+  merchantPushRuntime.diagnostic=null;
+  merchantPushRuntime.deviceHealth=null;
+  merchantPushRuntime.healthError=null;
+  merchantPushRuntime.testResult=null;
+}
+async function merchantSignOut(){
+  merchantOfflineGuard(true);
+  if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
+  // Invalidate pending reads on sign-out; no account may reuse a prior snapshot.
+  merchantRuntime.refreshSeq++;
+  merchantRuntime.nextRecoveryAt=0;
+  merchantRuntime.recoveryFailures=0;
+  merchantClearProtectedSnapshot();
+  if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
+  merchantRuntime.session=null;
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
   merchantRuntime.status='unauthenticated';
@@ -2099,8 +2109,6 @@ async function merchantSignOut(){
   merchantRuntime.notice=null;
   merchantRuntime.lastPollAt=0;
   merchantRuntime.accessReason=null;
-  merchantRuntime.heartbeatError=null;
-  merchantAlerts.knownOrderIds=new Set();
   render();
 }
 
@@ -2153,6 +2161,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       && ['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code);
     if(staleSelected&&recoverSelection){
       merchantOfflineGuard(true);
+      merchantClearProtectedSnapshot();
+      merchantRuntime.status='loading';
       merchantRuntime.selectedMerchantId=null;
       localStorage.removeItem('chama-merchant-selected-v1');
       return merchantRefresh({silent:true,recoverSelection:false});
@@ -2162,27 +2172,17 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       || error?.status===403&&['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code)
     ){
       merchantOfflineGuard(true);
+      merchantClearProtectedSnapshot();
       merchantRuntime.status='no-access';
-      merchantClearEnablement();
-      merchantRuntime.merchant=null;
-      merchantRuntime.orders=[];
-      merchantRuntime.recentClosedDeliveries=[];
-      merchantRuntime.supportSummary=null;
-      merchantRuntime.deliveryTeam=[];
-      merchantRuntime.team=null;
-      merchantRuntime.teamLoading=false;
-      merchantRuntime.catalog=[];
-      merchantRuntime.availableProducts=[];
-      merchantRuntime.billing=null;
       merchantRuntime.error=null;
       merchantRuntime.accessReason=error?.code||'NO_MERCHANT_ACCESS';
       return null;
     }
-    if(error?.status===401){
+    if(error?.status===401||error?.message==='Sessão da revenda expirada'||error?.message==='Conta permanente obrigatória'){
       merchantOfflineGuard(true);
+      merchantClearProtectedSnapshot();
       merchantRuntime.status='unauthenticated';
       merchantRuntime.session=null;
-      merchantClearEnablement();
       merchantRuntime.error='Sua sessão expirou. Entre novamente.';
       merchantRuntime.accessReason=null;
       return null;
@@ -2201,10 +2201,9 @@ async function merchantSelectLive(merchantId){
   merchantPushRuntime.available=false;
   merchantPushRuntime.merchantId=null;
   merchantPushRuntime.diagnostic=null;
-  merchantAlerts.knownOrderIds=new Set();
-  merchantRuntime.team=null;
-  merchantRuntime.teamLoading=false;
-  merchantClearEnablement();
+  merchantOfflineGuard(true);
+  merchantClearProtectedSnapshot();
+  merchantRuntime.status='loading';
   merchantRuntime.selectedMerchantId=String(merchantId||'')||null;
   if(merchantRuntime.selectedMerchantId){
     localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
@@ -3024,16 +3023,10 @@ async function merchantPoll(){
       if(error)throw error;
       const session=data?.session;
       if(!session?.access_token||session.user?.is_anonymous===true){
+        merchantOfflineGuard(true);
+        merchantClearProtectedSnapshot();
         merchantRuntime.status='unauthenticated';
         merchantRuntime.session=null;
-        merchantRuntime.merchant=null;
-        merchantRuntime.orders=[];
-        merchantRuntime.recentClosedDeliveries=[];
-        merchantRuntime.supportSummary=null;
-        merchantRuntime.catalog=[];
-        merchantRuntime.deliveryTeam=[];
-        merchantRuntime.billing=null;
-        merchantAlerts.knownOrderIds=new Set();
         render();
       }else{
         merchantRuntime.session=session;
