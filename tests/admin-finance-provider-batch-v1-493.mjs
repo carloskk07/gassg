@@ -112,6 +112,17 @@ function setup(items=rows){
  assert.equal(a.calls.length,1,'single PSP check preserved');
  assert.equal(a.rt.financeLab.providerChecks[id(1)].chargeId,id(1));
 }
+// A failed second PSP lookup must not leave the prior successful result
+// visible as if it were the current authority.
+{
+ const a=setup([row(1,'expired','pending')]);
+ a.rt.financeLab.providerChecks[id(1)]={chargeId:id(1),providerProcessed:true};
+ a.setProvider(async()=>{throw Error('PSP offline')});
+ await a.ctx.review.single(id(1));
+ assert.equal(a.rt.financeLab.providerChecks[id(1)],undefined);
+ assert.equal(a.rt.financeLab.providerCheckError.chargeId,id(1));
+ assert.match(a.rt.financeLab.providerCheckError.message,/PSP offline/);
+}
 const financeUi=source.slice(source.indexOf('function adminFinanceLabView(d){'),
  source.indexOf('function adminFinanceLabView(d){')+19000);
 assert.match(financeUi,/adminFinanceLabVerifyPendingBatchFromUi\(\)/);
