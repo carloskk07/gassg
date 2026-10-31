@@ -219,4 +219,134 @@ assert.match(edge,/assertPayableCommittedCharge\(committed,expectedAmountCents\)
 assert.ok(edge.indexOf('assertPayableCommittedCharge(committed,expectedAmountCents)')>
   edge.indexOf('merchant_billing_provider_charge_commit'));
 
+
+// Exercise the actual Mercado Pago charge normalization and saved-QR provider
+// recheck (synthetic provider responses only; no PSP or commercial mutation).
+const mpStart=edge.indexOf('function normalizeMercadoPagoOrder(');
+const mpEnd=edge.indexOf('\nasync function createMercadoPagoOrder(',mpStart);
+const mpNormalizeSource=edge.slice(mpStart,mpEnd).replace(
+  'order:any,correlationId:string,expectedAmountCents:number,chargeCreatedAt:string',
+  'order,correlationId,expectedAmountCents,chargeCreatedAt'
+);
+assert.ok(mpStart>0&&mpEnd>mpStart);
+const cents=v=>{
+  if(v==null||v==='')return null;
+  const n=Number(v)*100;
+  return Number.isSafeInteger(n)?n:null;
+};
+const clean=(v,max)=>typeof v==='string'&&v.length>0&&v.length<=max?v:null;
+const normalizeMp=new Function('DomainError','cleanText','moneyToCents',
+  'validatePixBrCode','mercadoPagoPixDeadline','mercadoPagoQrDataUri','safeMercadoPagoUrl',
+  mpNormalizeSource+';return normalizeMercadoPagoOrder;')(
+  FakeDomainError,clean,cents,validatePixBrCode,mercadoPagoPixDeadline,
+  ()=>null,()=>null
+);
+const testCorrelation='11111111-1111-4111-8111-111111111111';
+const testAnchor=new Date(Date.now()-60_000).toISOString();
+const mpOrder={
+  id:'TEST-ORDER-001',external_reference:testCorrelation,
+  total_amount:'300.00',currency_id:'BRL',status:'action_required',live_mode:true,
+  transactions:{payments:[{
+    id:'TEST-PAYMENT-001',amount:'300.00',status:'pending',live_mode:true,
+    payment_method:{id:'pix',type:'bank_transfer',qr_code:valid}
+  }],refunds:[]}
+};
+const normalized=normalizeMp(mpOrder,testCorrelation,30000,testAnchor);
+assert.equal(normalized.status,'active');
+assert.equal(normalized.providerTransactionId,'TEST-PAYMENT-001');
+for(const [name,mutate] of [
+  ['individual transaction amount missing',x=>{delete x.transactions.payments[0].amount;}],
+  ['individual transaction amount smaller',x=>{x.transactions.payments[0].amount='299.99';}],
+  ['sandbox order',x=>{x.live_mode=false;}],
+  ['sandbox payment',x=>{x.transactions.payments[0].live_mode=false;}],
+  ['foreign currency',x=>{x.currency_id='USD';}],
+  ['failed Pix with payable order',x=>{x.transactions.payments[0].status='failed';}],
+  ['refunded Pix with payable order',x=>{x.transactions.payments[0].status_detail='refunded';}],
+  ['pending reversal with payable order',x=>{x.transactions.refunds=[{status:'pending'}];}]
+]){
+  const candidate=structuredClone(mpOrder);mutate(candidate);
+  assert.throws(()=>normalizeMp(candidate,testCorrelation,30000,testAnchor),
+    e=>e.code==='PIX_PROVIDER_PAYMENT_PROOF_INVALID',name);
+}
+
+const savedStart=edge.indexOf('async function assertStoredChargeStillPayable(');
+const savedEnd=edge.indexOf('// The provider may settle or expire a charge',savedStart);
+assert.ok(savedStart>0&&savedEnd>savedStart,'provider recheck implementation');
+const savedSource=edge.slice(savedStart,savedEnd)
+  .replace('row:any,provider:string,expectedAmountCents:number,',
+    'row,provider,expectedAmountCents,')
+  .replace('mpAccessToken:string,wooviAppId:string',
+    'mpAccessToken,wooviAppId')
+  .replace('let current:any=null;','let current=null;');
+let currentMp=structuredClone(mpOrder),lookupOk=true;
+let mpReads=0,wooviReads=0;
+let wooviResult={found:true,status:200,charge:null};
+const recheck=new Function('DomainError','UUID_RE','mercadoPagoFetch',
+  'readMercadoPagoJson','normalizeMercadoPagoOrder','getWooviCharge','wooviBase',
+  savedSource+';return assertStoredChargeStillPayable;')(
+  FakeDomainError,
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  async()=>{mpReads++;return {ok:lookupOk,status:lookupOk?200:503};},
+  async()=>currentMp,
+  normalizeMp,
+  async()=>{wooviReads++;return wooviResult;},
+  ()=> 'https://api.woovi.com'
+);
+const stored={
+  status:'active',provider:'mercadopago',provider_charge_id:mpOrder.id,
+  provider_transaction_id:mpOrder.transactions.payments[0].id,
+  correlation_id:testCorrelation,amount_cents:30000,br_code:valid,
+  created_at:testAnchor,
+  expires_at:new Date(Date.now()+3_600_000).toISOString()
+};
+assert.equal(await recheck(stored,'mercadopago',30000,'fake-mp-token',''),stored);
+assert.equal(mpReads,1,'reopen persisted Pix must reach provider');
+const expectRecheckError=async(code,mutate)=>{
+  currentMp=structuredClone(mpOrder);lookupOk=true;
+  const local={...stored};
+  mutate(currentMp,local);
+  await assert.rejects(
+    recheck(local,'mercadopago',30000,'fake-mp-token',''),
+    e=>e.code===code,code
+  );
+};
+await expectRecheckError('PIX_PROVIDER_ALREADY_PROCESSED',x=>{
+  x.status='processed';x.transactions.payments[0].status='processed';
+});
+await expectRecheckError('PIX_PROVIDER_PAYMENT_PROOF_INVALID',x=>{
+  x.transactions.payments[0].amount='301.00';
+});
+await expectRecheckError('PIX_PROVIDER_RECHECK_MISMATCH',x=>{
+  x.transactions.payments[0].id='OTHER-PAYMENT';
+});
+await expectRecheckError('PIX_PROVIDER_RECHECK_MISMATCH',(x,l)=>{
+  l.br_code=buildPix({amount:'299.99'});
+});
+await expectRecheckError('PIX_PROVIDER_RECHECK_MISMATCH',(x,l)=>{
+  l.expires_at=new Date(Date.now()+25*hour).toISOString();
+});
+await expectRecheckError('PIX_PROVIDER_RECHECK_MISMATCH',(x,l)=>{
+  l.amount_cents=20000;
+});
+await expectRecheckError('PIX_PROVIDER_RECHECK_UNAVAILABLE',()=>{lookupOk=false;});
+currentMp=structuredClone(mpOrder);lookupOk=true;
+const wooviStored={...stored,provider:'woovi',provider_charge_id:'WOOVI-CHARGE-001',
+  provider_transaction_id:null};
+wooviResult.charge={provider:'woovi',status:'active',
+  providerChargeId:'WOOVI-CHARGE-001',providerTransactionId:null,
+  correlationId:testCorrelation,amountCents:30000,brCode:valid,
+  expiresAt:new Date(Date.now()+4*hour).toISOString()};
+assert.equal(await recheck(wooviStored,'woovi',30000,'','fake-woovi-key'),wooviStored);
+assert.equal(wooviReads,1,'Woovi must be queried on persisted replay too');
+wooviResult.charge={...wooviResult.charge,status:'completed'};
+await assert.rejects(recheck(wooviStored,'woovi',30000,'','fake-woovi-key'),
+  e=>e.code==='PIX_PROVIDER_RECHECK_MISMATCH');
+wooviResult.charge={...wooviResult.charge,status:'active',providerChargeId:'FOREIGN'};
+await assert.rejects(recheck(wooviStored,'woovi',30000,'','fake-woovi-key'),
+  e=>e.code==='PIX_PROVIDER_RECHECK_MISMATCH');
+assert.match(edge,/await assertStoredChargeStillPayable\(/);
+assert.ok(edge.indexOf('await assertStoredChargeStillPayable(')>
+  edge.indexOf('if(existing?.br_code&&["active","completed"].includes(existing.status))'));
+assert.match(edge,/provider_transaction_id,amount_cents,status,br_code/);
+
 console.log('PASS: BR Code, expiry anchored to persistent issuance, idempotent retry and copy guard (no real payment)');
