@@ -11,7 +11,7 @@ const sql=query=>execFileSync('psql',[
  '--command='+query],{encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},
  timeout:60000,stdio:['ignore','pipe','pipe']}).trim();
 assert.equal(sql('select current_database()'),'postgres');
-const tables=['mobility_push_subscriptions','mobility_push_outbox','mobility_push_deliveries'];
+const tables=['mobility_push_subscriptions','mobility_push_outbox','mobility_push_deliveries','mobility_push_rollout'];
 for(const table of tables){
  const info=JSON.parse(sql(`select jsonb_build_object(
   'rls',c.relrowsecurity,
@@ -49,6 +49,8 @@ const state=JSON.parse(sql(`select jsonb_build_object(
  'subscriptions',(select count(*) from public.mobility_push_subscriptions),
  'outbox',(select count(*) from public.mobility_push_outbox),
  'deliveries',(select count(*) from public.mobility_push_deliveries))`));
+assert.equal(sql("select enabled from public.mobility_push_rollout where id"),'f',
+ 'new mobility sender stays disabled until separate explicit approval');
 assert.deepEqual(state,{subscriptions:0,outbox:0,deliveries:0},
  'migrations create no synthetic commercial or push records');
 console.log('PASS: real isolated PostgreSQL driver push RLS, RPC grants, trigger and empty outbox');
