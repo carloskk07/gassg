@@ -22,8 +22,6 @@ function rememberMarketRegion(region,postalCode){
 
 const TAMAO_HOME_REGION_KEY='tamao-home-region-v1-341';
 function homeMarketRegion(){
-  // An explicit visitor choice overrides older CEP cache until the next
-  // successfully validated CEP refreshes this choice.
   try{
     const saved=JSON.parse(localStorage.getItem(TAMAO_HOME_REGION_KEY)||'null');
     if(/^[A-Z]{2}$/.test(String(saved?.state||''))&&
@@ -49,8 +47,6 @@ function homeChooseMarketCity(){
 }
 
 let homeQuoteRefreshInFlight=false;
-// Refreshes the read-only city quote panel without creating an order or
-// changing the verified delivery address, cart, or merchant permissions.
 async function homeRefreshQuotePrices(){
   if(homeQuoteRefreshInFlight)return false;
   if(globalThis.liveReady?.()!==true||typeof globalThis.liveRefreshCityPriceBoard!=='function'){
@@ -62,8 +58,6 @@ async function homeRefreshQuotePrices(){
   try{
     const latest=await globalThis.liveRefreshCityPriceBoard({force:true});
     const current=homeMarketRegion();
-    // A city change while the request is pending must never show a
-    // success message about prices belonging to a previous city.
     if(!latest||current.city!==selected.city||current.state!==selected.state||
        latest.city!==selected.city||latest.state!==selected.state)return false;
     render();
@@ -92,6 +86,11 @@ function markPrelaunchLeadSent(type){
     const value=type==='customer'?leadPostalDigits(document.querySelector('#prelaunch-postal')?.value||state.postalCode||''):'1';
     localStorage.setItem('tamao-prelaunch-'+type+'-sent-v1',value);
   }catch{}
+}
+function reopenPrelaunchLead(type){
+  if(!['customer','merchant'].includes(type))return;
+  try{localStorage.removeItem('tamao-prelaunch-'+type+'-sent-v1')}catch{}
+  render();
 }
 function leadCheckedValues(name){
   return [...document.querySelectorAll('input[name="'+name+'"]:checked')].map(el=>String(el.value||''));
@@ -175,7 +174,7 @@ function prelaunchCustomerLeadSection(){
   const verifiedRegion=rememberedMarketRegion();
   const friendlyCity=verifiedRegion?esc(verifiedRegion.city):'sua região';
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu pedido de aviso para '+friendlyCity+' foi recebido.</h2><p>Seu WhatsApp já está cadastrado para este CEP. Quando houver atendimento, poderemos avisar você por lá.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu pedido de aviso para '+friendlyCity+' foi recebido.</h2><p>Seu WhatsApp já está cadastrado para este CEP. Quando houver atendimento, poderemos avisar você por lá.</p></div><button class="secondary" onclick="reopenPrelaunchLead(\'customer\')">Atualizar meus interesses</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
@@ -240,7 +239,7 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div><button class="secondary" onclick="reopenPrelaunchLead(\'merchant\')">Cadastrar outra empresa</button></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',

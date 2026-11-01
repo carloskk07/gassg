@@ -530,6 +530,8 @@ jobs:
         run: node tests/first-visit-clarity-v1-167.mjs
       - name: Mobile lead form accessibility V1.168 regression
         run: node tests/mobile-lead-forms-v1-168.mjs
+      - name: V1.493 commercial contact handler and repeatable merchant/customer requests
+        run: node tests/commercial-lead-repeat-and-handler-v1-493.mjs
       - name: Simple merchant signup and order next step V1.169 regression
         run: node tests/merchant-simple-flow-v1-169.mjs
       - name: Guided merchant essentials V1.170 regression

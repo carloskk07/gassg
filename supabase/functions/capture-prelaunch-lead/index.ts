@@ -97,6 +97,9 @@ Deno.serve(async(req:Request)=>{
     if(raw.length>16000)return json({error:"PAYLOAD_TOO_LARGE",message:"Dados excedem o limite."},413,origin);
     let body:any;
     try{body=JSON.parse(raw)}catch{return json({error:"INVALID_JSON",message:"Dados inválidos."},400,origin)}
+    if(!body||typeof body!=="object"||Array.isArray(body)){
+      return json({error:"INVALID_PAYLOAD",message:"Dados inválidos."},400,origin);
+    }
 
     if(clean(body.website,200))return json({ok:true,accepted:true},202,origin);
 
@@ -105,7 +108,7 @@ Deno.serve(async(req:Request)=>{
       return json({error:"INVALID_LEAD_TYPE",message:"Tipo de cadastro inválido."},400,origin);
     }
     if(body.consent!==true){
-      return json({error:"CONSENT_REQUIRED",message:"Confirme a autorização de contato para entrar na lista."},400,origin);
+      return json({error:"CONSENT_REQUIRED",message:"Confirme a autorização para entrar em contato."},400,origin);
     }
 
     const phone=digits(body.phone);
@@ -264,7 +267,7 @@ Deno.serve(async(req:Request)=>{
       referralCaptured,
       message:leadType==="merchant"
         ?"Contato recebido. Podemos conversar sobre seu anúncio pelo WhatsApp informado."
-        :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
+        :"Interesse registrado. Poderemos avisar pelo WhatsApp quando houver atendimento no seu CEP."
     },reused||replayed?200:201,origin);
   }catch(error){
     console.error("capture-prelaunch-lead failed",error instanceof Error?error.message:String(error));
