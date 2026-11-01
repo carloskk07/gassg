@@ -328,8 +328,12 @@ export function compactReleasedCustomerComments(source){
     return '';
   });
   if(n!==expected.length)throw new Error('Customer compaction marker count changed');
-  validateClassicScriptSyntax(output,'emitted customer.js');
-  return output;
+  // Retain documentation in the canonical source, omit comment-only lines from released JS.
+  const remaining=[...output.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
+  if(remaining.length<18)throw new Error('Customer remaining-comment contract changed');
+  const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  validateClassicScriptSyntax(released,'emitted customer.js');
+  return released;
 }
 
 // Production copy only: retain documented research/offer guard comments in
@@ -446,9 +450,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
     }
-    if(role==='customer'){
+    // Both Cliente and Revenda share customer.js at startup; compact only
+    // their isolated release copies, retaining documentation in the source.
+    if(role!=='admin'){
       const entry=path.join(target,'js','customer.js');
       fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
+    }
+    if(role==='customer'){
       const homeQuote=path.join(target,'js','home-showcase.js');
       fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
     }
