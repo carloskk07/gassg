@@ -116,8 +116,8 @@ assert.deepEqual(routeActions,['go:merchants','scroll','focus'],
 for(const piece of [
   "id=\"home-address\"", "onkeydown=\"if(event.key==='Enter')",
   "Falta apenas informar o número",
-  "Ainda não há uma revenda disponível para entregar esses produtos no seu CEP.",
-  "Me avise quando houver disponibilidade",
+  "Nenhuma entrega disponível para esta cesta neste momento.",
+  "Solicitar atendimento",
   "O servidor confirma rua, bairro e atendimento para o CEP informado",
   'openPrelaunchMerchantLead()'
 ])assert.ok(customer.includes(piece),'Missing seamless buyer journey: '+piece);
