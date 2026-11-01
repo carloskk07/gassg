@@ -403,10 +403,18 @@ Deno.serve(async(req:Request)=>{
     }
     // Reuse the same signed worker/verified VAPID sender, but a distinct
     // service-role-only claim validates driver, current listing and expiry.
-    const {data:mobilityRows,error:mobilityError}=await admin.rpc(
-      "mobility_push_claim_due",{p_limit:4});
-    if(mobilityError)throw new Error("MOBILITY_PUSH_CLAIM_FAILED");
-    const mobilitySummary={attempted:0,providerAccepted:0,gone:0,retry:0,expired:0,
+    // An independent fail-closed rollout gate prevents a merchant VAPID
+    // activation from silently enabling notifications for taxi drivers.
+    const {data:gate,error:gateError}=await admin.from("mobility_push_rollout")
+      .select("enabled").eq("id",true).maybeSingle();
+    const mobilityEnabled=!gateError&&gate?.enabled===true;
+    let mobilityRows:MobilityClaimed[]=[];
+    if(mobilityEnabled){
+      const {data,error}=await admin.rpc("mobility_push_claim_due",{p_limit:4});
+      if(error)throw new Error("MOBILITY_PUSH_CLAIM_FAILED");
+      mobilityRows=(data??[]) as MobilityClaimed[];
+    }
+    const mobilitySummary={enabled:mobilityEnabled,attempted:0,providerAccepted:0,gone:0,retry:0,expired:0,
       permanentFailure:0,unresolved:0};
     for(const row of (mobilityRows??[]) as MobilityClaimed[]){
       mobilitySummary.attempted++;
