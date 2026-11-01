@@ -350,4 +350,61 @@ assert.ok(edge.indexOf('await assertStoredChargeStillPayable(')>
   edge.indexOf('if(existing?.br_code&&["active","completed"].includes(existing.status))'));
 assert.match(edge,/provider_transaction_id,amount_cents,status,br_code/);
 
+
+// A read-only merchant-orders refresh must NOT expose the saved active QR:
+// the backend may only display payment credentials after the on-demand PSP GET.
+const merchantOrdersSource=fs.readFileSync(new URL(
+  '../supabase/functions/merchant-orders/index.ts',import.meta.url),'utf8');
+const pixMapStart=merchantOrdersSource.indexOf('pixCharge:(()=>{');
+const pixMapEnd=merchantOrdersSource.indexOf('providerCharges:(billingProviderCharges',pixMapStart);
+assert.ok(pixMapStart>0&&pixMapEnd>pixMapStart);
+const pixMapSource=merchantOrdersSource.slice(pixMapStart,pixMapEnd);
+for(const key of ['brCode:null','qrCodeDataUri:null','paymentLinkUrl:null']){
+  assert.ok(pixMapSource.includes(key),'merchant read snapshot hides '+key);
+}
+assert.doesNotMatch(pixMapSource,/brCode:charge\.br_code/);
+const backendSource=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
+const livePixStart=backendSource.indexOf('async function merchantCreateBillingPixLive(');
+const livePixEnd=backendSource.indexOf('async function merchantRequestBillingPackageLive(',livePixStart);
+assert.ok(livePixStart>0&&livePixEnd>livePixStart);
+const livePixSource=backendSource.slice(livePixStart,livePixEnd);
+assert.match(livePixSource,/await merchantRefresh\(\{silent:true\}\)/);
+assert.match(livePixSource,/persisted\.id!==charge\.id/);
+assert.match(livePixSource,/persisted\.correlationId!==charge\.correlationId/);
+assert.match(livePixSource,/Number\(persisted\.amountCents\)!==Number\(charge\.amountCents\)/);
+assert.match(livePixSource,/providerVerified:true/);
+
+const viewStart=merchant.indexOf('function merchantBillingPixChargeView(');
+const viewEnd=merchant.indexOf('function merchantBillingLiveView(',viewStart);
+assert.ok(viewStart>0&&viewEnd>viewStart);
+const viewSource=merchant.slice(viewStart,viewEnd);
+const viewRuntime={merchant:{memberRole:'owner'},actionPending:false};
+const billingView=new Function('globalThis','merchantBillingPixChargeExpired','BRL','esc',
+  viewSource+';return merchantBillingPixChargeView;')(
+    {merchantRuntime:viewRuntime},expiryGuard,
+    new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),v=>String(v)
+  );
+const unverifiedRequest={id:'request-123',requestKind:'package_purchase',
+  planKey:'basic',expectedAmountCents:30000,pixCharge:{
+    status:'active',amountCents:30000,brCode:valid,
+    expiresAt:new Date(Date.now()+hour).toISOString(),
+    providerVerified:false
+  }};
+const unverifiedHtml=billingView(unverifiedRequest);
+assert.match(unverifiedHtml,/Conferir e mostrar Pix/);
+assert.doesNotMatch(unverifiedHtml,/Pix copia e cola|QR ATIVO|<textarea|<img/);
+const verifiedHtml=billingView({...unverifiedRequest,
+  pixCharge:{...unverifiedRequest.pixCharge,providerVerified:true}});
+assert.match(verifiedHtml,/Pix copia e cola/);
+assert.match(verifiedHtml,/Copiar código Pix/);
+
+// Copying an unverified ACTIVE code is forbidden just as an expired one is.
+state.billing.paymentRequests[0].pixCharge={
+  status:'active',brCode:valid,expiresAt:new Date(Date.now()+hour).toISOString(),
+  providerVerified:false
+};
+copied=0;
+await fn('request-test');
+assert.equal(copied,0,'no copy of an active-but-unverified stored QR');
+
 console.log('PASS: BR Code, expiry anchored to persistent issuance, idempotent retry and copy guard (no real payment)');
