@@ -278,7 +278,7 @@ window.addEventListener('load',async()=>{
 });
 
 if(globalThis.CHAMA_PORTAL_ROLE!=='admin')Object.assign(window,{
-  go,setMode,openSponsorContact,publicLandingJump,startOrder,quickProduct,homeChooseProduct,startHomeBrowse,homeFilterProducts,homeDiscoverFocus,buyerCartFilter,customerCheckoutFocusStep,requestUnavailableDelivery,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
+  go,setMode,openSponsorContact,publicLandingJump,startOrder,quickProduct,homeChooseProduct,startHomeBrowse,homeFilterProducts,homeDiscoverFocus,buyerCartFilter,customerCheckoutFocusStep,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
   confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,shareTamaoGrowthInvite,activateCashAccount,joinMerchant,merchantPickOwnApplicationFromUi,reset,homeRefreshQuotePrices
 });
 if(typeof merchantPage==='function')Object.assign(window,{
