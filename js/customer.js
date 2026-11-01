@@ -929,6 +929,15 @@ function buyerCartFilter(group){
     ' Os itens da sua cesta continuam à vista.';
   return true;
 }
+function requestUnavailableDelivery(){
+ const items=Object.entries(state.cart||{}).filter(([,q])=>Number(q)>0)
+  .map(([code,q])=>q+' x '+(products[code]?.name||code)).join('; ');
+ globalThis.tamaoCartRequestDraft=('[Consulta de atendimento] Produtos: '+items+
+  '. CEP: '+String(state.postalCode||'')+
+  '. Confirme a disponibilidade e o valor. Não é pedido nem cobrança.').slice(0,2000);
+ go('contact');
+}
+globalThis.requestUnavailableDelivery=requestUnavailableDelivery;
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -980,7 +989,7 @@ function orderPage(){
   let offerBlock='';
   if(hasItems&&hasAddress){
     if(preview){
-      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode solicitar atendimento sem finalizar uma compra.<div class="order-actions"><button class="primary small" onclick="globalThis.tamaoCartRequestDraft=true;go(\'contact\')">Solicitar atendimento →</button></div></div>';
+      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode solicitar atendimento sem finalizar uma compra.<div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div></div>';
     }else if(testDemo&&freshOffers.length){
       offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.loadingOffers){
@@ -990,7 +999,7 @@ function orderPage(){
     }else if(ready&&freshOffers.length){
       offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
-      offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.<div class="order-actions"><button class="secondary small" onclick="globalThis.tamaoCartRequestDraft=true;go(\'contact\')">Solicitar atendimento →</button></div></div>';
+      offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.<div class="order-actions"><button class="secondary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div></div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.paymentMethodUnavailable){
@@ -1002,7 +1011,7 @@ function orderPage(){
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card"><strong>Ainda não encontramos uma revenda com carga e vasilhame disponíveis para este pedido.</strong><br><span class="muted tiny">A revenda precisa ter carga e vasilhame disponíveis.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card"><strong>Nenhuma entrega disponível para esta cesta neste momento.</strong><p class="muted tiny">Você pode solicitar atendimento ou consultar novamente. Não gera compra nem cobrança.</p><div class="order-actions"><button class="primary small" onclick="globalThis.tamaoCartRequestDraft=true;go(\'contact\')">Solicitar atendimento →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
+      offerBlock='<div class="empty card"><strong>Nenhuma entrega disponível para esta cesta neste momento.</strong><p class="muted tiny">Você pode solicitar atendimento ou consultar novamente. Não gera compra nem cobrança.</p><div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
