@@ -326,20 +326,17 @@ await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.
 assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);
 await auditDom('refer');
 
-// Existing presentation laboratory must be reachable from the merchant
-// marketing page without enabling the real customer checkout or permissions.
+// Commercial merchant acquisition leads to actual authenticated signup.
+// The isolated demo stays in its own test origin; do not advertise it as a
+// buyer/merchant production checkout or navigate away from the test browser.
 await evaluate("go('merchants')");
-await waitFor("document.querySelector('a.merchant-demo-link')","merchant demonstration entry");
-const demoLink=JSON.parse(await evaluate("JSON.stringify((()=>{const a=document.querySelector('a.merchant-demo-link');return {href:a.href,target:a.target,rel:a.rel,text:a.textContent}})())"));
-assert.equal(demoLink.href,'https://carloskk07.github.io/gassg/#merchants');
-assert.equal(demoLink.target,'_blank');
-assert.match(demoLink.rel,/noopener/);
-assert.match(demoLink.rel,/noreferrer/);
-assert.match(demoLink.text,/demonstração/);
-assert.match(await text(),/pedidos simulados/i);
+await waitFor("document.querySelector('.merchant-landing-premium') && document.querySelector('button[onclick=\\\"openMerchantPortal(true)\\\"]')","merchant commercial registration entry");
+assert.equal(await evaluate("document.querySelector('a.merchant-demo-link')===null"),true,
+ 'public merchant acquisition must not expose the separate test simulator');
+assert.match(await text(),/Cadastrar minha revenda/);
 assert.equal(await evaluate("liveRequested()"),false,
- 'browser demonstration must not initialize the real checkout');
-await auditDom('merchant demo entry');
+ 'isolated QA page must never initialize real checkout');
+await auditDom('merchant commercial entry');
 
 // Internal pilot on GitHub Pages reuses the proven simulation engine with a
 // single JR supplier. Exercise the complete customer ↔ merchant path separately.
