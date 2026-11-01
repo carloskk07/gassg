@@ -69,9 +69,12 @@ Deno.serve(async req=>{
    if(error||!cfg)return fail("UNAVAILABLE",503,origin);
    const {data:sender,error:senderError}=await admin.rpc("merchant_push_sender_credentials");
    if(senderError)return fail("UNAVAILABLE",503,origin);
+   const {data:rollout,error:rolloutError}=await admin.from("mobility_push_rollout")
+    .select("enabled").eq("id",true).maybeSingle();
    const available=cfg.available===true&&keyValid(cfg.publicKey,87,87);
    return respond({available,publicKey:available?cfg.publicKey:null,
-    senderEnabled:sender?.enabled===true,testMode:cfg.testMode!==false},200,origin);
+    senderEnabled:!rolloutError&&rollout?.enabled===true&&sender?.enabled===true,
+    testMode:cfg.testMode!==false},200,origin);
   }
   if(!endpointValid(body.endpoint))return fail("INVALID_ENDPOINT",400,origin);
   const endpointHash=await hash(body.endpoint);
