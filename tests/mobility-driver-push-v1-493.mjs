@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const js=read('js/mobility.js'),sw=read('sw.js'),
- sql=read('supabase/migrations/20261101234000_mobility_driver_push_outbox_v1_493.sql'),
+ sql=read('supabase/migrations/20261101233340_mobility_driver_push_outbox_v1_493.sql'),
  edge=read('supabase/functions/mobility-push-registration/index.ts'),
  sender=read('supabase/functions/merchant-push-delivery/index.ts');
 new vm.Script(js);new vm.Script(sw);
