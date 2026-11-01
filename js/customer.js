@@ -989,7 +989,7 @@ function orderPage(){
   let offerBlock='';
   if(hasItems&&hasAddress){
     if(preview){
-      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode solicitar atendimento sem finalizar uma compra.<div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div></div>';
+      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode solicitar atendimento sem finalizar uma compra.<div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
     }else if(testDemo&&freshOffers.length){
       offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.loadingOffers){
