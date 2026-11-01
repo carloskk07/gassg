@@ -25,6 +25,48 @@ vm.runInNewContext(legal.slice(cStart,cEnd)+'\nthis.html=contactPage();',form);
 assert.match(form.html,/2 x Gás P13/);
 assert.match(form.html,/1 x Água 20 L/);
 assert.match(form.html,/97300000/);
+// Checkout's in-memory cart request must appear in the priority support queue.
+// Previously the option defaulted to 'general' because no tamao_help URL param
+// was added by go('contact'), so Admin's support-only triage missed this request.
+assert.match(form.html,/<option value="support" selected>Suporte<\/option>/);
+const normal={...form,globalThis:{tamaoCartRequestDraft:null}};
+vm.runInNewContext(legal.slice(cStart,cEnd)+'\nthis.html=contactPage();',normal);
+assert.doesNotMatch(normal.html,/<option value="support" selected>/,
+  'ordinary contact must remain general by default');
+const help={...form,globalThis:{tamaoCartRequestDraft:null},location:{search:'?tamao_help=revenda'}};
+vm.runInNewContext(legal.slice(cStart,cEnd)+'\nthis.html=contactPage();',help);
+assert.match(help.html,/<option value="support" selected>Suporte<\/option>/,
+  'existing help deep links must continue to select support');
+
+const nodes={
+  '#public-request-submit':{disabled:false,textContent:'Enviar solicitação'},
+  '#public-request-result':{textContent:'',className:''},
+  '#public-request-kind':{value:'support'},
+  '#public-privacy-action':{value:''},
+  '#public-contact-name':{value:'Cliente Teste'},
+  '#public-contact-channel':{value:'email'},
+  '#public-contact-value':{value:'fixture@example.invalid'},
+  '#public-request-message':{value:draft},
+  '#public-request-website':{value:''},
+  '#public-request-ack':{checked:true}
+};
+let submitted=null;
+const sendCtx={
+  document:{querySelector:selector=>nodes[selector]||null},
+  globalThis:{tamaoCartRequestDraft:draft,publicRequestSubmit:async payload=>{
+    submitted=payload;return {ok:true,protocol:'DEADBEEF',message:'Recebida'};
+  }},
+  toast:message=>{throw new Error('unexpected validation error: '+message)}
+};
+const submitStart=legal.indexOf('async function submitPublicRequest(){');
+assert.ok(submitStart>=0&&submitStart<cStart);
+vm.runInNewContext(legal.slice(submitStart,cStart)+'\nthis.submit=submitPublicRequest;',sendCtx);
+await sendCtx.submit();
+assert.equal(submitted.requestKind,'support','the actual contact submission must reach support triage');
+assert.match(submitted.message,/2 x Gás P13/);
+assert.equal(submitted.acknowledged,true);
+assert.equal(sendCtx.globalThis.tamaoCartRequestDraft,null);
+assert.match(nodes['#public-request-result'].textContent,/DEADBEEF/);
 const order=customer.slice(customer.indexOf('function orderPage(){'),customer.indexOf('function cartRow('));
 assert.equal(order.split('requestUnavailableDelivery()').length-1,3);
 assert.match(order,/Nenhuma entrega disponível para esta cesta/);
