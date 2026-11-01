@@ -878,6 +878,33 @@ function merchantTeamPage(){
   </section>`);
 }
 
+// Only a freshly verified PSP response may unlock an active Pix in the
+// current merchant session; every regular refresh clears this transient proof.
+function merchantAcceptVerifiedBillingPix(result,merchantId){
+  const charge=result?.charge||null;
+  const rt=globalThis.merchantRuntime;
+  if(!rt||!charge||charge.status!=='active'
+    ||rt.merchant?.merchantId!==merchantId
+    ||!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
+  const request=(rt.billing?.paymentRequests||[])
+    .find(r=>r.id===result.paymentRequestId);
+  const persisted=request?.pixCharge||null;
+  if(!persisted||persisted.status!=='active'
+    ||persisted.id!==charge.id
+    ||persisted.provider!==charge.provider
+    ||persisted.correlationId!==charge.correlationId
+    ||Number(persisted.amountCents)!==Number(charge.amountCents)
+    ||persisted.expiresAt!==charge.expiresAt
+    ||typeof charge.brCode!=='string'||charge.brCode.length<30)return false;
+  request.pixCharge={...persisted,brCode:charge.brCode,
+    qrCodeDataUri:charge.qrCodeDataUri??null,
+    paymentLinkUrl:charge.paymentLinkUrl??null,
+    providerVerified:true};
+  render();
+  return true;
+}
+globalThis.merchantAcceptVerifiedBillingPix=merchantAcceptVerifiedBillingPix;
+
 function merchantBillingPixChargeExpired(charge){
   if(!charge)return false;
   if(String(charge.status||'')==='expired')return true;
