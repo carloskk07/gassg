@@ -6,7 +6,7 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const ownerSource=read('js/discovery-owner.js');
 const publicSource=read('js/discovery.js');
 const adminSource=read('js/admin.js');
-const migration=read('supabase/migrations/20261101214800_discovery_ride_driver_public_portrait_v1_493.sql');
+const migration=read('supabase/migrations/20261101213115_discovery_ride_driver_public_portrait_v1_493.sql');
 const uuid='11111111-1111-4111-8111-111111111111';
 const listing='22222222-2222-4222-8222-222222222222';
 const portraitId='33333333-3333-4333-8333-333333333333';
