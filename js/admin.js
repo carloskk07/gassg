@@ -2768,6 +2768,8 @@ function adminDiscoveryView(){
     d.items.map(x=>{
       const id=String(x.id||'');
       const photo=adminDiscoveryImage(Array.isArray(x.photo_urls)?x.photo_urls[0]:'');
+      const driverPortraitReview=x.vertical==='professionals'&&
+        /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(x.occupation||''));
       const hint=x.vertical==='professionals'?x.occupation:
         x.vertical==='rides'?(String(x.departure_city||'')+' → '+String(x.destination_city||'')):
         ('Hospedagem para até '+String(x.guests||'')+' hóspedes');
@@ -2780,7 +2782,9 @@ function adminDiscoveryView(){
         '<p>Nenhum documento privado anexado. Avalie as exigências legais antes de publicar.</p>';
       return '<article class="card flat" style="margin-block:12px;padding:18px">'+
         '<h3>'+esc(x.title)+'</h3><small>'+esc(x.vertical)+' • '+esc(x.city_name)+' / '+esc(x.state_code)+'</small>'+
-        (photo?'<img src="'+esc(photo)+'" alt="Foto de anúncio para revisão" loading="lazy" style="width:100%;max-width:260px;aspect-ratio:16/9;object-fit:cover;border-radius:12px;margin-top:12px">':'')+
+        (photo?'<img src="'+esc(photo)+'" alt="'+(driverPortraitReview?'Foto principal do motorista a conferir':'Foto de anúncio para revisão')+'" loading="lazy" style="width:100%;max-width:260px;aspect-ratio:'+(driverPortraitReview?'1/1':'16/9')+';object-fit:cover;border-radius:12px;margin-top:12px">':'')+
+        (driverPortraitReview?
+         '<p class="tiny muted"><strong>Conferência obrigatória do motorista:</strong> a primeira foto precisa mostrar o rosto real, atual e descoberto do anunciante. Compare com os documentos e confirme as exigências aplicáveis antes de aprovar; a foto não é uma verificação automática de identidade.</p>':'')+
         '<p>'+esc(x.description)+'</p><p><strong>'+esc(hint||'')+'</strong></p>'+
         '<p>'+ (canPublish?'Modalidade habilitada nesta cidade.':
           'Modalidade ainda desabilitada nesta cidade — publicar permanece bloqueado.')+'</p>'+
