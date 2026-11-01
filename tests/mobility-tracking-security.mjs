@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const sql=fs.readFileSync(new URL('../supabase/migrations/20261021030000_mobility_live_tracking.sql',import.meta.url),'utf8');
 const category=fs.readFileSync(new URL(
- '../supabase/migrations/20261101213000_mobility_service_category_integrity_v1_493.sql',
+ '../supabase/migrations/20261101211234_mobility_service_category_integrity_v1_493.sql',
  import.meta.url),'utf8');
 assert.match(category,/create trigger mobility_enforce_service_category[\s\S]*?before insert or update of service,listing_id,driver_id/);
 assert.match(category,/when d\.occupation ~\* '[^']*motot[^']*' then 'moto'/);
