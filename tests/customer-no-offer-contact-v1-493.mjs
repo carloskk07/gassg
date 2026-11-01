@@ -68,10 +68,26 @@ assert.equal(submitted.acknowledged,true);
 assert.equal(sendCtx.globalThis.tamaoCartRequestDraft,null);
 assert.match(nodes['#public-request-result'].textContent,/DEADBEEF/);
 const order=customer.slice(customer.indexOf('function orderPage(){'),customer.indexOf('function cartRow('));
-assert.equal(order.split('requestUnavailableDelivery()').length-1,3);
+assert.equal(order.split('requestUnavailableDelivery()').length-1,6,
+  'support remains reachable after paused commerce, no offers, unavailable backend and quote errors');
 assert.match(order,/Nenhuma entrega disponível para esta cesta/);
 assert.match(order,/Pedidos temporariamente indisponíveis/);
 assert.match(order,/Não gera compra nem cobrança/);
+// Quote/CEP transport errors must retain the existing non-transactional support path
+// even before the server confirms the canonical street. Failed quote != failed support.
+assert.match(order,/Não foi possível validar o endereço ou consultar as ofertas agora/);
+assert.match(order,/ready&&Boolean\(liveRuntime\.error\)/);
+assert.match(order,/liveRuntime\?\.status==='unavailable'/);
+const fetchErrorBranch=order.slice(order.indexOf('}else if(ready&&liveRuntime.error){'),
+  order.indexOf('}else if(ready&&freshOffers.length){'));
+assert.match(fetchErrorBranch,/Solicitar atendimento →/);
+assert.match(fetchErrorBranch,/Tentar novamente/);
+assert.match(fetchErrorBranch,/não cria compra nem cobrança/i);
+assert.match(order,/CEP, disponibilidade e valores ainda precisam ser confirmados/);
+assert.match(order,/!testDemo&&liveMode/);
+assert.ok(!order.slice(order.indexOf('Não foi possível validar o endereço ou consultar as ofertas agora'),
+  order.indexOf('Não gera compra nem cobrança.',order.indexOf('Não foi possível validar o endereço ou consultar as ofertas agora')))
+  .includes('liveCreateOrder('),'outage fallback must not place an order');
 assert.ok(legal.includes('globalThis.publicRequestSubmit('),'existing endpoint only');
 assert.ok(legal.includes('globalThis.tamaoCartRequestDraft=null;'),'clear after successful submit');
 assert.ok(customer.includes('globalThis.requestUnavailableDelivery=requestUnavailableDelivery;'));

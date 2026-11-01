@@ -995,7 +995,7 @@ function orderPage(){
     }else if(ready&&liveRuntime.loadingOffers){
       offerBlock='<div class="empty card">Procurando opções para sua cesta…</div>';
     }else if(ready&&liveRuntime.error){
-      offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
+      offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<div class="order-actions"><button class="secondary small" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div><small>Não cria compra nem cobrança.</small></div>`;
     }else if(ready&&freshOffers.length){
       offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
@@ -1015,7 +1015,10 @@ function orderPage(){
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
-      offerBlock='<div class="empty card">Não foi possível consultar as opções agora.</div>';
+      offerBlock='<div class="empty card">Não foi possível consultar as opções agora.'+
+        (!testDemo&&liveMode&&liveRuntime?.status==='unavailable'
+          ?'<div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div><small>Não gera compra nem cobrança.</small>'
+          :'')+'</div>';
     }
   }
 
@@ -1076,7 +1079,11 @@ ${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-
 </div>`:''}
 ${deliveryScheduleBlock()}
 ${containerBlock}
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section" id="customer-offers"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section" id="customer-offers"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?(
+  !testDemo&&liveMode&&((ready&&Boolean(liveRuntime.error))||(!ready&&liveRuntime?.status==='unavailable'))
+    ?'<div class="notice danger"><strong>Não foi possível validar o endereço ou consultar as ofertas agora.</strong><p>CEP, disponibilidade e valores ainda precisam ser confirmados.</p><div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div><small>Não gera compra nem cobrança.</small></div>'
+    :'<div class="notice">Informe o endereço para ver preço e prazo.</div>'
+  ):!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
