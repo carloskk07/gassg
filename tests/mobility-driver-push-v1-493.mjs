@@ -100,6 +100,13 @@ permission='denied';s.error='';subscription=null;
 assert.equal(await ctx.mobilityEnableRemoteAlerts(),false);
 assert.equal(calls.filter(c=>c.action==='subscribe').length,1);
 assert.match(s.error,/Permissão/);
+// A registration that never becomes ready must fail instead of leaving the
+// enroll button indefinitely blocked on real phones.
+const realReady=ctx.navigator.serviceWorker.ready,realTimer=ctx.setTimeout;
+ctx.navigator.serviceWorker.ready=new Promise(()=>{});
+ctx.setTimeout=fn=>{Promise.resolve().then(fn);return 1};
+await assert.rejects(ctx.mobilityReadyPushWorker(),/PUSH_WORKER_TIMEOUT/);
+ctx.setTimeout=realTimer;ctx.navigator.serviceWorker.ready=realReady;
 
 // The real SW handles a remote driver push with generic content and safe route.
 const handlers={};
