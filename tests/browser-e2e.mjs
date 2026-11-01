@@ -330,7 +330,7 @@ await auditDom('refer');
 // The isolated demo stays in its own test origin; do not advertise it as a
 // buyer/merchant production checkout or navigate away from the test browser.
 await evaluate("go('merchants')");
-await waitFor("document.querySelector('.merchant-landing-premium') && document.querySelector('button[onclick=\\\"openMerchantPortal(true)\\\"]')","merchant commercial registration entry");
+await waitFor("document.querySelector('.merchant-landing-premium') && [...document.querySelectorAll('button')].some(b=>b.getAttribute('onclick')==='openMerchantPortal(true)')","merchant commercial registration entry");
 assert.equal(await evaluate("document.querySelector('a.merchant-demo-link')===null"),true,
  'public merchant acquisition must not expose the separate test simulator');
 assert.match(await text(),/Cadastrar minha revenda/);
