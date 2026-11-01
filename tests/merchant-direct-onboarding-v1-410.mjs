@@ -99,7 +99,7 @@ assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
 assert.ok(!['merchant-demo-link','merchant-demo-note','carloskk07.github.io/gassg'].some(
  marker=>merchantLanding.includes(marker)),
  'the live merchant landing must not present a simulator as the commercial service');
-assert.match(merchantLanding,/openMerchantPortal\\(true\\)/,
+assert.ok(merchantLanding.includes('openMerchantPortal(true)'),
  'the existing authenticated commercial signup remains the primary CTA');
 const demoRuntime=read('js/runtime-config.js');
 const backendSource=read('js/backend.js');
