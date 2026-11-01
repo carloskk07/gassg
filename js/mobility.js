@@ -549,6 +549,7 @@ async function mobilityRecoverTransition(action,selected,epoch,userId){
   if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected||
     error||!data||data.id!==selected||
     !['rider','driver'].includes(data.role)||
+    (action!=='cancel'&&data.role!=='driver')||
     data.status!==mobilityTransitionOutcome[action])return null;
   return data;
  }catch(_){return null}
