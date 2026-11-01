@@ -305,6 +305,9 @@ type MobilityClaimed={delivery_id:number;lease_token:string;endpoint_url:string;
  p256dh:string;auth_secret:string;expires_at:string};
 async function deliverMobility(admin:any,row:MobilityClaimed,credentials:VapidCredentials){
  let outcome="retry",status:number|null=null,code:string|null=null;
+ const notice={kind:"mobility_request",title:"Nova solicitação no TAMÃO",
+  body:"Abra seus atendimentos para consultar uma nova chamada.",
+  tag:"tamao-mobility-push",url:"/?mobility=1#mobility"};
  const seconds=Math.floor((Date.parse(row.expires_at)-Date.now())/1000);
  if(!Number.isFinite(seconds)||seconds<=0){outcome="expired";code="EXPIRED"}
  else if(!validPushEndpoint(row.endpoint_url)){
@@ -313,11 +316,7 @@ async function deliverMobility(admin:any,row:MobilityClaimed,credentials:VapidCr
   try{
    const accepted=await sendPushNotification({
     endpoint:row.endpoint_url,keys:{p256dh:row.p256dh,auth:row.auth_secret}
-   },{
-    kind:"mobility_request",title:"Nova solicitação no TAMÃO",
-    body:"Abra seus atendimentos para consultar uma nova chamada.",
-    tag:"tamao-mobility-push",url:"/?mobility=1#mobility"
-   },{
+   },notice,{
     publicKey:credentials.publicKey,privateKey:credentials.privateKey,subject:credentials.subject
    },{ttl:Math.max(1,Math.min(90,seconds)),timeoutMs:8000,urgency:"high"});
    outcome=accepted?"provider_accepted":"gone";
