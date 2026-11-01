@@ -2,6 +2,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const sql=fs.readFileSync(new URL('../supabase/migrations/20261021030000_mobility_live_tracking.sql',import.meta.url),'utf8');
+const category=fs.readFileSync(new URL(
+ '../supabase/migrations/20261101211234_mobility_service_category_integrity_v1_493.sql',
+ import.meta.url),'utf8');
+assert.match(category,/create trigger mobility_enforce_service_category[\s\S]*?before insert or update of service,listing_id,driver_id/);
+assert.match(category,/when d\.occupation ~\* '[^']*motot[^']*' then 'moto'/);
+assert.match(category,/when d\.occupation ~\* '[^']*(motorista|taxista)[^']*' then 'carro'/);
+assert.match(category,/v_category is distinct from new\.service/);
+assert.match(category,/l\.owner_id=new\.driver_id/);
+assert.match(category,/l\.status='published'/);
+assert.match(category,/revoke all on function public\.mobility_service_category_guard\(\)/);
+assert.doesNotMatch(category,/grant execute on function public\.mobility_service_category_guard/);
+
 for(const fn of [
  'mobility_create_request','mobility_transition','mobility_start_position',
  'mobility_publish_position','mobility_stop_position','mobility_snapshot',

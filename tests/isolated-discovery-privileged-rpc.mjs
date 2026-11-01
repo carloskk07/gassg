@@ -20,11 +20,16 @@ export async function verifyIsolatedPrivilegedRpc({base,anon,sql,q,owner,buyer,o
   return {status:res.status,data};
  }
  const rpc=(name,token,args={})=>rest('rpc/'+name,token,args);
- // Fixture: a PRIVATE professional listing and a private mobility request.
- // INSERT is performed by the disposable local Postgres admin, never a browser.
- // The listing is never approved/published or linked to a real driver.
+ // Fixture: a PRIVATE professional listing plus a participant-only request.
+ // The new database guard requires a valid published and city-enabled
+ // provider AT INSERT time. Publish ONLY in this throwaway DB, insert the
+ // request, immediately withdraw the listing before any HTTP calls. Thus the
+ // existing test still proves that a private listing is never discoverable.
+ sql("INSERT INTO public.discovery_vertical_cities(vertical,state_code,city_key,city_name,enabled) "+
+  "VALUES('professionals','RS','sao-gabriel','São Gabriel',true) "+
+  "ON CONFLICT(vertical,state_code,city_key) DO UPDATE SET enabled=true;");
  sql("INSERT INTO public.discovery_listings(id,owner_id,vertical,status,title,description,state_code,city_key,city_name,whatsapp_e164) "+
-  "VALUES("+q(listingId)+"::uuid,"+q(owner.id)+"::uuid,'professionals','draft','Mototaxi sintético CI',"+
+  "VALUES("+q(listingId)+"::uuid,"+q(owner.id)+"::uuid,'professionals','published','Mototaxi sintético CI',"+
   "'Ficha particular do condutor sintético para teste de autenticação',"+
   "'RS','sao-gabriel','São Gabriel','+5555999999999');");
  try {
@@ -33,6 +38,9 @@ export async function verifyIsolatedPrivilegedRpc({base,anon,sql,q,owner,buyer,o
   sql("INSERT INTO public.mobility_requests(id,rider_id,driver_id,listing_id,service,origin_area,destination_area,expires_at) "+
    "VALUES("+q(requestId)+"::uuid,"+q(buyer.id)+"::uuid,"+q(owner.id)+"::uuid,"+q(listingId)+
    "::uuid,'moto','Origem sintética','Destino sintético',clock_timestamp()+interval '10 minutes');");
+  // Simulate withdrawal by the moderator: the request stays participant-only,
+  // while no other citizen may browse or book an unpublished provider.
+  sql("UPDATE public.discovery_listings SET status='draft' WHERE id="+q(listingId)+"::uuid;");
   const ownerListings=await rpc('discovery_my_listings',owner.token);
   const foreignListings=await rpc('discovery_my_listings',buyer.token);
   assert.equal(ownerListings.status,200,'owner listing RPC: '+JSON.stringify(ownerListings).slice(0,250));
