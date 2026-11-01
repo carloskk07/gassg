@@ -299,7 +299,7 @@ async function mobilityEnableRemoteAlerts(){
    s.pushEnabled=true;
    s.noticeOptIn=true;
    s.pendingDriverIds=mobilityDriverPending(s.items).map(x=>x.id);
-   s.notice=result.senderEnabled===true?
+   s.notice=config.senderEnabled===true && result.testMode===false?
     'Aparelho cadastrado. Confirme o recebimento de uma chamada de teste antes de depender dos avisos remotos.':
     'Aparelho cadastrado para testes. O emissor remoto continua desligado até a homologação.';
   }catch(error){
@@ -519,6 +519,19 @@ async function mobilityLogout(){
  try{
   // Server revocation must precede auth sign-out while an access token exists.
   if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
+  if(navigator.serviceWorker?.ready){
+   try{
+    const registration=await Promise.race([
+     navigator.serviceWorker.ready,
+     new Promise((_,reject)=>setTimeout(()=>reject(Error('PUSH_TIMEOUT')),1800))]);
+    const subscription=await registration.pushManager?.getSubscription();
+    if(subscription){
+     await mobilityPushApi('unsubscribe',{endpoint:subscription.endpoint},
+      s.sessionEpoch,s.user.id);
+     await subscription.unsubscribe();
+    }
+   }catch(_){/* An offline push service must not prevent account sign-out. */}
+  }
   const r=await s.client.auth.signOut();
   if(r?.error)throw r.error;
   mobilityClearSession();
