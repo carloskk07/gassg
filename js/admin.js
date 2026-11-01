@@ -2768,8 +2768,8 @@ function adminDiscoveryView(){
     d.items.map(x=>{
       const id=String(x.id||'');
       const photo=adminDiscoveryImage(Array.isArray(x.photo_urls)?x.photo_urls[0]:'');
-      const driverPortraitReview=x.vertical==='professionals'&&
-        /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(x.occupation||''));
+      const driverPortraitReview=x.vertical==='rides'||(x.vertical==='professionals'&&
+        /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(x.occupation||'')));
       const hint=x.vertical==='professionals'?x.occupation:
         x.vertical==='rides'?(String(x.departure_city||'')+' → '+String(x.destination_city||'')):
         ('Hospedagem para até '+String(x.guests||'')+' hóspedes');
