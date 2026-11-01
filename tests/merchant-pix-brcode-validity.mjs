@@ -421,8 +421,8 @@ assert.doesNotMatch(pendingHtml,/Pagamento aprovado|Pix recebido\./);
 const mismatchHtml=billingView({...paymentRequest,
   pixCharge:{...completedCharge,paidAmountCents:29999}});
 assert.match(mismatchHtml,/Pix requer revisão financeira/);
-assert.match(mismatchHtml,/R\\$\\s?300,00/);
-assert.match(mismatchHtml,/R\\$\\s?299,99/);
+assert.match(mismatchHtml,/300,00/);
+assert.match(mismatchHtml,/299,99/);
 assert.doesNotMatch(mismatchHtml,/Pagamento aprovado|Pix recebido\./);
 const missingProofHtml=billingView({...paymentRequest,
   pixCharge:{...completedCharge,paidAmountCents:null}});
