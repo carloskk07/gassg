@@ -127,6 +127,7 @@ const expectedFunctions=[
  'discovery_submit_report(p_listing_id uuid, p_reason text, p_details text)',
  'discovery_transition_listing(p_listing_id uuid, p_next_status text, p_reason text)',
  'discovery_unlink_listing_photo(p_listing_id uuid, p_photo_path text)',
+ 'discovery_update_ride_seats(p_listing_id uuid, p_seats_available integer)',
  'discovery_verified_account()',
  'mobility_create_request(p_listing_id uuid, p_service text, p_origin_area text, p_destination_area text)',
  'mobility_my_requests()',
