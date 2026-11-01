@@ -737,7 +737,7 @@ async function discoveryOwnerSave(ev){
     s.error='Selecione apenas uma foto do rosto do motorista.';render();return false;
   }
   if(sendForReview&&isPassengerDriver&&!portrait.length&&!keys.length){
-    s.error='Para anunciar transporte de passageiros, inclua uma foto do motorista no campo específico.';
+    s.error='Para anunciar transporte de passageiros, inclua uma foto de rosto do motorista no campo específico.';
     render();return false;
   }
   const mime={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
