@@ -408,6 +408,37 @@ const verifiedHtml=billingView({...unverifiedRequest,
 assert.match(verifiedHtml,/Pix copia e cola/);
 assert.match(verifiedHtml,/Copiar código Pix/);
 
+// An actual provider-completed charge can have a different amount or an
+// unresolved request. The merchant view must not label it as paid/settled.
+const completedCharge={id:'fake-charge',status:'completed',
+  amountCents:30000,paidAmountCents:30000,endToEndId:'FAKE-END-TO-END'};
+const paymentRequest={id:'request-test',expectedAmountCents:30000,
+  status:'pending',receivedAmountCents:null,pixCharge:completedCharge};
+const pendingHtml=billingView(paymentRequest);
+assert.match(pendingHtml,/Pagamento identificado pelo provedor/);
+assert.match(pendingHtml,/Aguardando conciliação financeira/);
+assert.doesNotMatch(pendingHtml,/Pagamento aprovado|Pix recebido\./);
+const mismatchHtml=billingView({...paymentRequest,
+  pixCharge:{...completedCharge,paidAmountCents:29999}});
+assert.match(mismatchHtml,/Pix requer revisão financeira/);
+assert.match(mismatchHtml,/300,00/);
+assert.match(mismatchHtml,/299,99/);
+assert.doesNotMatch(mismatchHtml,/Pagamento aprovado|Pix recebido\./);
+const missingProofHtml=billingView({...paymentRequest,
+  pixCharge:{...completedCharge,paidAmountCents:null}});
+assert.match(missingProofHtml,/Pix requer revisão financeira/);
+assert.match(missingProofHtml,/não confirmado/);
+const cancelledHtml=billingView({...paymentRequest,
+  status:'cancelled'});
+assert.match(cancelledHtml,/Pix requer revisão financeira/);
+const approvedHtml=billingView({...paymentRequest,
+  status:'approved',receivedAmountCents:30000});
+assert.match(approvedHtml,/Pagamento aprovado no Financeiro TAMÃO/);
+const approvedMismatch=billingView({...paymentRequest,
+  status:'approved',receivedAmountCents:29999});
+assert.match(approvedMismatch,/Aguardando conciliação financeira/);
+assert.doesNotMatch(approvedMismatch,/Pagamento aprovado no Financeiro TAMÃO/);
+
 // Copying an unverified ACTIVE code is forbidden just as an expired one is.
 state.billing.paymentRequests[0].pixCharge={
   status:'active',brCode:valid,expiresAt:new Date(Date.now()+hour).toISOString(),
