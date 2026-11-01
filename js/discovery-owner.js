@@ -446,9 +446,22 @@ function discoveryOwnerPage(){
         'Encontre '+String(x.title||'').slice(0,120)+' no TAMÃO: '+publicLink
       )+'" target="_blank" rel="noopener noreferrer">Compartilhar no WhatsApp</a>':'';
     const pause=x.status==='published'?'<button type="button" onclick="discoveryOwnerPause(\''+id+'\')">Pausar anúncio</button>':'';
+    const seatInfo=x.vertical==='rides'&&x.status==='published'?x.liveSeats:null;
+    const total=Number(seatInfo?.seats_total),available=Number(seatInfo?.seats_available);
+    const canUpdate=seatInfo&&Number.isInteger(total)&&total>=1&&total<=8&&
+      Number.isInteger(available)&&available>=0&&available<=total&&
+      Date.parse(String(seatInfo.departure_at||''))>Date.now();
+    const seats=canUpdate?
+      '<form class="discovery-ride-seats" onsubmit="return discoveryOwnerUpdateRideSeats(event,\''+id+'\')">'+
+      '<label>Vagas disponíveis agora (de '+total+') <input type="number" name="seats" min="0" max="'+total+
+      '" step="1" required value="'+available+'"></label>'+
+      '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Atualizar vagas</button>'+
+      '<p class="tiny muted">Zero vagas retira a carona da busca. O TAMÃO não confirma reservas nem recebe pagamentos de caronas.</p></form>':
+      x.vertical==='rides'&&x.status==='published'?
+      '<p class="tiny muted">Vagas indisponíveis para edição; confira o horário ou atualize a página.</p>':'';
     return '<article class="discovery-owner-item"><strong>'+esc(x.title)+'</strong>'+
       '<small>'+esc(x.vertical)+' · '+esc(x.city_name)+' / '+esc(x.state_code)+' · '+esc(x.status)+'</small>'+
-      '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div></article>';
+      '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div>'+seats+'</article>';
   }).join('');
   const kind=s.editor?.vertical||s.kind;
   const d=s.editor||(kind==='professionals'&&preset?{occupation:preset.name}:{});
@@ -558,11 +571,53 @@ function discoveryOwnerRetryInit(){
   if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerRefresh(){
-  const s=discoveryOwner;if(!s.client||!s.user)return;
+  const s=discoveryOwner;if(!s.client||!s.user)return false;
+  const ownerId=s.user.id;
   const {data,error}=await s.client.rpc('discovery_my_listings');
+  if(s.user?.id!==ownerId)return false;
   if(error)throw error;
   if(!Array.isArray(data))throw Error('Invalid owner listings response');
-  s.items=data.filter(x=>x&&/^[a-f0-9-]{36}$/.test(String(x.id||'')));
+  const items=data.filter(x=>x&&/^[a-f0-9-]{36}$/.test(String(x.id||'')));
+  const rideIds=items.filter(x=>x.vertical==='rides'&&x.status==='published').map(x=>x.id);
+  if(!rideIds.length){s.items=items;return true;}
+  // The owner's authenticated RLS view returns only these approved rides.
+  const seats=await s.client.from('discovery_ride_details')
+    .select('listing_id,seats_total,seats_available,departure_at').in('listing_id',rideIds);
+  if(s.user?.id!==ownerId)return false;
+  if(seats.error||!Array.isArray(seats.data))throw seats.error||Error('Invalid seats response');
+  const byId=new Map(seats.data.filter(x=>rideIds.includes(x.listing_id)).map(x=>[x.listing_id,x]));
+  s.items=items.map(x=>byId.has(x.id)?{...x,liveSeats:byId.get(x.id)}:x);
+  return true;
+}
+async function discoveryOwnerUpdateRideSeats(ev,id){
+ ev?.preventDefault?.();
+ const s=discoveryOwner,listing=s.items.find(x=>x.id===id);
+ const total=Number(listing?.liveSeats?.seats_total);
+ const raw=String(new FormData(ev.target).get('seats')??'').trim();
+ if(s.busy||!s.client||!s.user||listing?.vertical!=='rides'||listing?.status!=='published'||
+  !Number.isInteger(total)||total<1||total>8||!/^(?:0|[1-8])$/.test(raw)||Number(raw)>total){
+  s.error='Informe uma quantidade de vagas entre zero e a capacidade do veículo.';
+  if(discoveryOwnerRoute())render();
+  return false;
+ }
+ const ownerId=s.user.id,available=Number(raw);
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const result=await s.client.rpc('discovery_update_ride_seats',{
+   p_listing_id:id,p_seats_available:available
+  });
+  if(s.user?.id!==ownerId)return false;
+  if(result.error||result.data!==available)throw result.error||Error('Seat count not confirmed');
+  const current=await discoveryOwnerRefresh();
+  if(s.user?.id!==ownerId)return false;
+  if(!current||s.items.find(x=>x.id===id)?.liveSeats?.seats_available!==available)
+   throw Error('Readback unavailable');
+  s.notice=available===0?'Carona sem vagas: retirada das buscas públicas.':
+   'Vagas atualizadas. Os visitantes verão a quantidade informada.';
+ }catch(e){if(s.user?.id===ownerId)s.error=discoveryOwnerError(e);}
+ if(s.user?.id!==ownerId)return false;
+ s.busy=false;if(discoveryOwnerRoute())render();
+ return false;
 }
 function discoveryOwnerError(error){
   if(error?.message==='DOCUMENT_CLEANUP_UNCONFIRMED')return 'O comprovante pode ter ficado pendente no armazenamento. Não reenvie este arquivo até o suporte conferir a situação.';
@@ -591,7 +646,7 @@ async function discoveryOwnerLogin(ev){
 async function discoveryOwnerLogout(){
   const s=discoveryOwner;if(!s.client)return;
   await s.client.auth.signOut();
-  s.user=null;s.items=[];s.editor=null;s.pendingPhotoRemovals=[];s.notice='';s.error='';
+  s.user=null;s.items=[];s.editor=null;s.pendingPhotoRemovals=[];s.notice='';s.error='';s.busy=false;
   if(discoveryOwnerRoute())render();
 }
 function discoveryOwnerNew(){discoveryOwner.editor=null;discoveryOwner.notice='';discoveryOwner.error='';render();}

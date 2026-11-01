@@ -103,6 +103,8 @@ jobs:
           node tests/mobility-session-refresh-isolation-v1-493.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
+      - name: Carona published capacity owner-only update and session guard
+        run: node tests/discovery-live-seat-management-v1-493.mjs
       - name: Regional wood, charcoal and ice units
         run: node tests/regional-product-units.mjs
       - name: Central commerce kill-switch for paid coupon Pix and checkout

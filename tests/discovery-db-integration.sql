@@ -43,6 +43,7 @@ insert into public.platform_admins(user_id,active,admin_role)
  values ('00000000-0000-0000-0000-000000000033',true,'superadmin');
 
 \i supabase/migrations/20261018131000_discovery_shared_verticals.sql
+\i supabase/migrations/20261101195756_discovery_live_ride_seat_management_v1_493.sql
 
 -- Newly-installed verticals never activate existing product marketplace.
 select count(*) as unactivated_cities from public.discovery_vertical_cities;
@@ -574,6 +575,66 @@ begin
    p_vertical=>'rides',p_property_type=>'inn');
  if n<>0 then raise exception 'CROSS_VERTICAL_FILTER_LEAK';end if;
 end $filter_contract$;
+-- Store the synthetic ID in a session GUC: psql does not interpolate
+-- colon variables inside dollar-quoted PL/pgSQL blocks.
+select set_config('tamao.test.live_ride_id', :'filter_ride_id', false);
+-- Live seat changes are allowed ONLY for the verified owner of the same
+-- already-reviewed future carona. Zero hides it; restoring re-exposes it.
+do $anon_cannot_change_ride$
+begin
+ begin
+  perform public.discovery_update_ride_seats(current_setting('tamao.test.live_ride_id')::uuid,0);
+  raise exception 'ANON_CHANGED_SEATS';
+ exception when insufficient_privilege then null;end;
+end $anon_cannot_change_ride$;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $stranger_cannot_change_ride$
+begin
+ begin
+  perform public.discovery_update_ride_seats(current_setting('tamao.test.live_ride_id')::uuid,0);
+  raise exception 'STRANGER_CHANGED_SEATS';
+ exception when insufficient_privilege then null;end;
+end $stranger_cannot_change_ride$;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $ride_seat_capacity$
+begin
+ begin
+  perform public.discovery_update_ride_seats(current_setting('tamao.test.live_ride_id')::uuid,5);
+  raise exception 'ABOVE_TOTAL_CAPACITY_ALLOWED';
+ exception when invalid_parameter_value then null;end;
+ begin
+  perform public.discovery_update_ride_seats(current_setting('tamao.test.live_ride_id')::uuid,-1);
+  raise exception 'NEGATIVE_AVAILABLE_SEATS_ALLOWED';
+ exception when invalid_parameter_value then null;end;
+ if public.discovery_update_ride_seats(current_setting('tamao.test.live_ride_id')::uuid,0)<>0
+ then raise exception 'ZERO_SEATS_UPDATE_FAILED';end if;
+end $ride_seat_capacity$;
+set role anon;
+reset request.jwt.claim.sub;
+do $ride_hidden_when_full$
+declare n int;
+begin
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'rides',p_listing_id=>current_setting('tamao.test.live_ride_id')::uuid);
+ if n<>0 then raise exception 'FULL_CARONA_STILL_PUBLIC';end if;
+end $ride_hidden_when_full$;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $ride_reopen$
+begin
+ if public.discovery_update_ride_seats(current_setting('tamao.test.live_ride_id')::uuid,2)<>2
+ then raise exception 'RESTORE_CAPACITY_FAILED';end if;
+end $ride_reopen$;
+set role anon;
+reset request.jwt.claim.sub;
+do $ride_reappears$
+declare n int;
+begin
+ select count(*) into n from public.discovery_public_search(
+   p_vertical=>'rides',p_listing_id=>current_setting('tamao.test.live_ride_id')::uuid,p_min_seats=>2);
+ if n<>1 then raise exception 'RESTORED_CARONA_NOT_PUBLIC';end if;
+end $ride_reappears$;
 rollback;
 set role anon;
 reset request.jwt.claim.sub;
