@@ -181,3 +181,15 @@ revoke all on function public.mobility_push_resolve_delivery(bigint,uuid,text,in
  from public,anon,authenticated;
 grant execute on function public.mobility_push_resolve_delivery(bigint,uuid,text,integer,text)
  to service_role;
+
+-- Separate launch gate: configuring merchant VAPID can never activate
+-- motorist closed-app delivery without an explicit independent authorization.
+create table public.mobility_push_rollout(
+ id boolean primary key default true check(id),
+ enabled boolean not null default false,
+ reviewed_at timestamptz
+);
+insert into public.mobility_push_rollout(id,enabled) values(true,false);
+alter table public.mobility_push_rollout enable row level security;
+revoke all on public.mobility_push_rollout from public,anon,authenticated;
+grant select on public.mobility_push_rollout to service_role;
