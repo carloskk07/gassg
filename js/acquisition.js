@@ -93,6 +93,11 @@ function markPrelaunchLeadSent(type){
     localStorage.setItem('tamao-prelaunch-'+type+'-sent-v1',value);
   }catch{}
 }
+function reopenPrelaunchLead(type){
+  if(!['customer','merchant'].includes(type))return;
+  try{localStorage.removeItem('tamao-prelaunch-'+type+'-sent-v1')}catch{}
+  render();
+}
 function leadCheckedValues(name){
   return [...document.querySelectorAll('input[name="'+name+'"]:checked')].map(el=>String(el.value||''));
 }
@@ -175,7 +180,7 @@ function prelaunchCustomerLeadSection(){
   const verifiedRegion=rememberedMarketRegion();
   const friendlyCity=verifiedRegion?esc(verifiedRegion.city):'sua região';
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu pedido de aviso para '+friendlyCity+' foi recebido.</h2><p>Seu WhatsApp já está cadastrado para este CEP. Quando houver atendimento, poderemos avisar você por lá.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu pedido de aviso para '+friendlyCity+' foi recebido.</h2><p>Seu WhatsApp já está cadastrado para este CEP. Quando houver atendimento, poderemos avisar você por lá.</p></div><button class="secondary" onclick="reopenPrelaunchLead(\'customer\')">Atualizar meus interesses</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
@@ -240,7 +245,7 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div><button class="secondary" onclick="reopenPrelaunchLead(\'merchant\')">Cadastrar outra empresa</button></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
