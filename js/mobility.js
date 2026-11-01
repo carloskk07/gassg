@@ -8,7 +8,9 @@
 
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
- mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0};
+ mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0,
+ intentPortraitId:'',intentPortraitKey:'',intentPortraitLoading:false,
+ selectedPortraitId:'',selectedPortraitKey:'',selectedPortraitCheckedAt:0};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const mobilityStates={
  requested:'Aguardando resposta do anunciante',accepted:'Aceita pelo motorista',
@@ -34,6 +36,81 @@ function mobilityLabel(row){
 }
 function mobilityService(mode){return mode==='moto'?'moto':'carro';}
 function mobilityStatus(row){return mobilityStates[row?.status]||'Status indisponível';}
+function mobilityPortraitUrl(path){
+ const key=String(path||'');
+ if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(key))return '';
+ const base=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'');
+ if(!/^https:\/\/[^/]+$/.test(base))return '';
+ return base+'/storage/v1/object/public/tamao-discovery-photos/'+
+  key.split('/').map(encodeURIComponent).join('/');
+}
+function mobilityPortraitHtml(path){
+ const url=mobilityPortraitUrl(path);
+ if(!url)return '<p class="mobility-gps-note" role="status">Foto do motorista não disponível. Confira o anúncio e confirme a identidade antes de embarcar.</p>';
+ return '<figure class="mobility-driver-portrait">'+
+  '<img src="'+esc(url)+'" alt="Foto de rosto enviada pelo motorista no anúncio" loading="lazy" decoding="async">'+
+  '<figcaption>Foto enviada pelo anunciante. Confira se a pessoa que chegou corresponde à imagem. A foto não comprova identidade, habilitação ou licença.</figcaption></figure>';
+}
+function mobilityTransportPhotoRow(item,listingId,mode){
+ if(!item||String(item.id)!==listingId||item.vertical!=='professionals')return '';
+ const occupation=String(item.occupation||'');
+ const matches=mode==='moto'?/(motot[aá]xi|moto.?taxi)/i.test(occupation):
+  mode==='carro'?/(motorista|t[aá]xi|taxista)/i.test(occupation):false;
+ if(!matches||!Array.isArray(item.photo_urls))return '';
+ const key=item.photo_urls[0];
+ return mobilityPortraitUrl(key)?key:'';
+}
+// Discovery only returns currently published, moderated and city-enabled
+// listings. Ignore remote image URLs, unverifiable occupations and raw IDs.
+async function mobilityPublicPortrait(listingId,mode){
+ const s=mobilityRuntime;
+ if(!mobilityId.test(String(listingId||''))||!['moto','carro'].includes(mode))return '';
+ const {data,error}=await s.client.rpc('discovery_public_search',{
+  p_listing_id:listingId,p_vertical:'professionals',p_limit:1
+ });
+ if(error)throw error;
+ if(!Array.isArray(data)||data.length!==1)return '';
+ return mobilityTransportPhotoRow(data[0],listingId,mode);
+}
+async function mobilityLoadIntentPortrait(intent){
+ const s=mobilityRuntime;
+ if(!intent||!s.client||s.intentPortraitLoading)return;
+ const epoch=s.sessionEpoch;
+ s.intentPortraitId=intent.id;s.intentPortraitKey='';s.intentPortraitLoading=true;
+ try{
+  const key=await mobilityPublicPortrait(intent.id,intent.mode);
+  if(s.sessionEpoch===epoch&&mobilityIntent()?.id===intent.id)
+   s.intentPortraitKey=key;
+ }catch(_){/* The page shows an explicit unavailable-photo notice. */}
+ finally{
+  if(s.sessionEpoch===epoch&&s.intentPortraitId===intent.id){
+   s.intentPortraitLoading=false;
+   if(mobilityRoute())render();
+  }
+ }
+}
+// Authenticated RLS selects the participant's linked professional listing.
+// Then the public RPC confirms current moderation before the photo is shown.
+async function mobilityLoadSelectedPortrait(selected,mode,latest){
+ const s=mobilityRuntime;
+ const epoch=s.sessionEpoch,userId=s.user?.id;
+ try{
+  const ref=await s.client.from('mobility_requests')
+   .select('listing_id').eq('id',selected).maybeSingle();
+  if(!latest()||s.user?.id!==userId||s.sessionEpoch!==epoch||s.id!==selected)return false;
+  if(ref.error)throw ref.error;
+  const key=await mobilityPublicPortrait(String(ref.data?.listing_id||''),mode);
+  if(!latest()||s.user?.id!==userId||s.sessionEpoch!==epoch||s.id!==selected)return false;
+  s.selectedPortraitKey=key;s.selectedPortraitId=selected;
+  s.selectedPortraitCheckedAt=Date.now();
+  return true;
+ }catch(_){
+  if(latest()&&s.sessionEpoch===epoch&&s.id===selected){
+   s.selectedPortraitKey='';s.selectedPortraitId='';
+  }
+  return false;
+ }
+}
 function mobilityFormatDate(value){
  const t=Date.parse(String(value||''));
  return Number.isFinite(t)?new Date(t).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';
@@ -140,6 +217,7 @@ function mobilityResumeRequest(items){
   active.find(x=>x.role==='driver');
  if(!selected)return false;
  s.id=selected.id;s.detail=null;s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+ s.selectedPortraitId='';s.selectedPortraitKey='';s.selectedPortraitCheckedAt=0;
  return true;
 }
 function mobilityAction(action,label,kind='secondary'){
@@ -172,6 +250,8 @@ function mobilityDetailPanel(row){
  if(!terminal&&!(driver&&status==='requested'))actions+=mobilityAction('cancel','Cancelar solicitação');
  return '<section class="mobility-active" aria-label="Atendimento selecionado">'+
   '<h2>'+mobilityLabel(row)+'</h2><p class="mobility-status">'+esc(mobilityStatus(row))+'</p>'+
+  (!driver?mobilityPortraitHtml(mobilityRuntime.selectedPortraitId===row.id?
+    mobilityRuntime.selectedPortraitKey:''):'')+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
   '<p class="tiny muted">Este pedido não garante disponibilidade, preço nem transporte. Combine condições com o anunciante.</p>'+
   '<p><a class="mobility-report-link" href="/#contact"'+
@@ -198,6 +278,7 @@ function mobilityPage(){
  if(s.phase==='failed')return shell('<section class="section mobility-page">'+top+error+
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
  if(!s.user)return shell('<section class="section mobility-page">'+top+
+  (intent?mobilityPortraitHtml(s.intentPortraitId===intent.id?s.intentPortraitKey:''):'')+
   '<p>Entre com seu e-mail para enviar pedidos ou atender solicitações de seus anúncios. Não mostraremos posições sem autenticação.</p>'+
   '<p><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar</a>'+
   ' · <a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar</a></p>'+
@@ -226,6 +307,8 @@ function mobilityPage(){
   (!s.noticeOptIn?'<button type="button" onclick="mobilityEnableAlerts()">Ativar avisos do navegador nesta página</button>':
     '<p role="status">Avisos opcionais ativados nesta sessão.</p>')+'</section>'+
   '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
+  (intent&&!hasOngoingRider?mobilityPortraitHtml(
+    s.intentPortraitId===intent.id?s.intentPortraitKey:''):'')+
   form+mobilityDetailPanel(s.detail)+
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
@@ -263,6 +346,7 @@ async function mobilityInit(){
    url.searchParams.delete('mobility');url.hash='mobility';
    history.replaceState(null,'',url.pathname+url.search+url.hash);
   }
+  if(mobilityIntent())await mobilityLoadIntentPortrait(mobilityIntent());
   if(s.user)await mobilityRefresh();
  }catch(_){s.phase='failed';s.error='Não foi possível acessar as solicitações. Tente mais tarde.';}
  if(mobilityRoute())render();
@@ -277,6 +361,8 @@ function mobilityClearSession(){
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';
+ s.intentPortraitId='';s.intentPortraitKey='';s.intentPortraitLoading=false;
+ s.selectedPortraitId='';s.selectedPortraitKey='';s.selectedPortraitCheckedAt=0;
  s.error='';s.notice='';s.busy=false;
  if(mobilityRoute())render();
 }
@@ -314,6 +400,10 @@ function mobilityAfterRender(){
   return;
  }
  if(s.phase==='idle'){mobilityInit();return}
+ if(s.phase==='ready'&&s.client&&mobilityIntent()&&
+   s.intentPortraitId!==mobilityIntent().id&&!s.intentPortraitLoading){
+  mobilityLoadIntentPortrait(mobilityIntent());
+ }
  if(s.phase==='ready'&&s.user&&s.poll===null){
   s.poll=setInterval(()=>{if(mobilityRoute()&&document.visibilityState!=='hidden')mobilityRefresh(true)},10000);
  }
@@ -369,6 +459,7 @@ async function mobilityRefresh(silent=false){
     if(s.watch!==null||s.gpsPending)mobilityStopTracking();
     s.id='';s.detail=null;s.items=s.items.filter(item=>item?.id!==selected);
     s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+    s.selectedPortraitId='';s.selectedPortraitKey='';s.selectedPortraitCheckedAt=0;
     mobilityUpdateMap(null);
     changed=true;
    }else{
@@ -377,6 +468,11 @@ async function mobilityRefresh(silent=false){
     const prevPosition=JSON.stringify(oldPosition);
     s.detail=next;
     changed=changed||prevStatus!==next.status;
+    if(next.role==='rider'&&(s.selectedPortraitId!==selected||
+      Date.now()-s.selectedPortraitCheckedAt>60000)){
+     if(await mobilityLoadSelectedPortrait(selected,next.service,latest))changed=true;
+     if(!latest()||s.id!==selected)return false;
+    }
     if((s.watch!==null||s.gpsPending)&&(next.status!=='en_route'||next.role!=='driver'))mobilityStopTracking();
     if(prevPosition!==JSON.stringify(next.position||null)){
      // Revoked GPS always removes the iframe. An unchanged request updates
@@ -403,6 +499,8 @@ function mobilityFocus(id){
  if(!mobilityId.test(String(id||''))||!mobilityRuntime.items.some(x=>x.id===id))return false;
  if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
  mobilityRuntime.id=id;mobilityRuntime.detail=null;mobilityRuntime.mapConsent=false;
+ mobilityRuntime.selectedPortraitId='';mobilityRuntime.selectedPortraitKey='';
+ mobilityRuntime.selectedPortraitCheckedAt=0;
  mobilityRuntime.mapKey='';mobilityRefresh();return true;
 }
 async function mobilityCreate(event){
