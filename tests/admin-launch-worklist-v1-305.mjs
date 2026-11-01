@@ -46,6 +46,19 @@ assert.equal(result.portalsVerified,true);
 assert.equal(result.readyForAdminReview,false);
 const view=ctx.view({launchReadiness:waiting});
 assert.match(view,/0 de 4 requisitos comprovados/);
+const pendingMerchantView=ctx.view({launchReadiness:waiting,merchants:[{status:'pending'}]});
+assert.match(pendingMerchantView,/Já existe revenda cadastrada em análise/);
+assert.match(pendingMerchantView,/antes de cadastrar outra/);
+assert.match(pendingMerchantView,/Confira o vínculo existente/);
+assert.match(pendingMerchantView,/Confira os meios já cadastrados/);
+assert.match(pendingMerchantView,/Não homologa Pix, cobranças, cupons, cashback, comissões, repasses ou estornos/);
+assert.doesNotMatch(pendingMerchantView,/Cadastre uma revenda, valide seus produtos/);
+assert.doesNotMatch(pendingMerchantView,/onclick="adminSetOperationMode/);
+assert.equal(ctx.model(waiting,[{status:'pending'}]).completed,0,
+  'pending merchant must not mark any commercial requirement as approved');
+const activeButNotEligible=ctx.view({launchReadiness:waiting,merchants:[{status:'active'}]});
+assert.match(activeButNotEligible,/Cadastre uma revenda, valide seus produtos/,
+  'never infer eligibility from a merchant list alone');
 assert.match(view,/Primeira revenda com oferta real/);
 assert.match(view,/Responsável operacional/);
 assert.match(view,/Recebimento da revenda/);
