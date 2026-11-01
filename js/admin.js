@@ -8319,19 +8319,29 @@ function adminGovernanceView(){
 }
 // V1.305 — real business readiness, distinct from portal publication.
 // No local checkboxes, optimism, or alternative activation path.
-function adminLaunchWorklistModel(readiness){
+function adminLaunchWorklistModel(readiness,merchants=[]){
   const r=readiness&&typeof readiness==='object'?readiness:{};
   const count=(key)=>Number.isSafeInteger(r[key])&&r[key]>=0?r[key]:null;
   const supply=r.supply&&typeof r.supply==='object'?r.supply:null;
+  // A pending merchant is NOT an approved offer. It is, however, evidence
+  // that asking the owner to register ANOTHER merchant may duplicate work.
+  const pendingMerchantExists=Array.isArray(merchants)&&
+    merchants.some(m=>m?.status==='pending');
   const checks=[
     {key:'real_supply_required',title:'Primeira revenda com oferta real',
-      detail:'Cadastre uma revenda, valide seus produtos e confirme um catálogo vendável.',
+      detail:pendingMerchantExists
+        ?'Já existe revenda cadastrada em análise. Revise elegibilidade, documentação e catálogo antes de cadastrar outra.'
+        :'Cadastre uma revenda, valide seus produtos e confirme um catálogo vendável.',
       section:'partners',ready:supply?.realSupplyConfigured===true&&count('configuredMerchantCount')>0},
     {key:'merchant_owner_required',title:'Responsável operacional',
-      detail:'Vincule um responsável ativo e verifique a representação da empresa.',
+      detail:pendingMerchantExists
+        ?'Este indicador só conta revendas elegíveis. Confira o vínculo existente e a representação antes de adicionar outro responsável.'
+        :'Vincule um responsável ativo e verifique a representação da empresa.',
       section:'partners',ready:count('ownerReadyMerchantCount')>0},
     {key:'merchant_payment_required',title:'Recebimento da revenda',
-      detail:'Defina uma forma de recebimento compatível com a habilitação da empresa.',
+      detail:pendingMerchantExists
+        ?'Este indicador só conta revendas elegíveis. Confira os meios já cadastrados e sua habilitação antes de duplicá-los.'
+        :'Defina uma forma de recebimento compatível com a habilitação da empresa.',
       section:'enablement',ready:count('paymentReadyMerchantCount')>0},
     {key:'offerable_supply_required',title:'Preço, estoque e entrega confirmados',
       detail:'A revenda precisa estar apta a atender agora, com disponibilidade atualizada.',
@@ -8356,7 +8366,7 @@ function adminLaunchWorklistModel(readiness){
 function adminLaunchWorklist(d){
   const role=adminCurrentRole();
   if(!['superadmin','operations','readonly'].includes(role))return '';
-  const model=adminLaunchWorklistModel(d?.launchReadiness);
+  const model=adminLaunchWorklistModel(d?.launchReadiness,d?.merchants);
   const next=model.next;
   const canAccess=(s)=>adminRoleCanSection(s);
   const steps=model.checks.map((step,i)=>{
@@ -8378,7 +8388,7 @@ function adminLaunchWorklist(d){
   }else if(model.readyForAdminReview){
     summary='As verificações desta consulta permitem solicitar a decisão administrativa. Isso ainda não ativa vendas.';
   }else{
-    summary='Resolva os itens pendentes antes de considerar a abertura comercial. Publicação dos portais não libera pedidos.';
+    summary='Resolva os itens pendentes antes de considerar a abertura comercial. Revenda cadastrada não é revenda habilitada; publicação não libera pedidos.';
   }
   const nextAction=next&&canAccess(next.section)?
     '<button type="button" class="primary" onclick="adminSetSection(\''+next.section+'\')">Resolver próxima etapa →</button>':
@@ -8397,7 +8407,8 @@ function adminLaunchWorklist(d){
       '<p class="tiny">Próximo passo: '+esc(next?.title||'revisar as condições de liberação')+'.</p>')+
     nextAction+'</div>'+
     '<details class="admin-launch-evidence"><summary>O que falta para liberar com segurança?</summary>'+
-    '<p>Este quadro mostra pré-requisitos comerciais. A operação global exige confirmação administrativa, ausência de bloqueios de segurança e portais verificados. Testes reais de compra e entrega devem ser executados somente quando as empresas e as cidades estiverem habilitadas.</p>'+
+    '<p>Este quadro mostra apenas quatro requisitos para considerar a abertura. Não homologa Pix, cobranças, cupons, cashback, comissões, repasses ou estornos. Essas operações exigem provas independentes e autorização por módulo.</p>'+
+    '<p>A operação global exige confirmação administrativa, ausência de bloqueios de segurança e portais verificados. Testes reais de compra e entrega só são legítimos com empresas e cidades habilitadas.</p>'+
     '<p>Portais: '+(model.portalsVerified?'verificados':'sem confirmação completa')+
     ' • Bloqueios de segurança: '+model.blockerCount+
     ' • Ativação automática: não.</p></details>'+
