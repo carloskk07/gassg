@@ -54,8 +54,11 @@ function mobilityPortraitHtml(path){
 function mobilityTransportPhotoRow(item,listingId,mode){
  if(!item||String(item.id)!==listingId||item.vertical!=='professionals')return '';
  const occupation=String(item.occupation||'');
- const matches=mode==='moto'?/(motot[aá]xi|moto.?taxi)/i.test(occupation):
-  mode==='carro'?/(motorista|t[aá]xi|taxista)/i.test(occupation):false;
+ const isMotorcycle=/(motot[aá]xi|moto.?taxi)/i.test(occupation);
+ // Never present a mototaxi photo as evidence for a CAR request merely
+ // because the word "mototáxi" contains the substring "táxi".
+ const matches=mode==='moto'?isMotorcycle:
+  mode==='carro'?!isMotorcycle&&/(motorista|t[aá]xi|taxista)/i.test(occupation):false;
  if(!matches||!Array.isArray(item.photo_urls))return '';
  const key=item.photo_urls[0];
  return mobilityPortraitUrl(key)?key:'';
