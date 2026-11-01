@@ -660,6 +660,8 @@ jobs:
         run: node tests/merchant-direct-onboarding-v1-410.mjs
       - name: Pix BR Code format and expired-code safeguards
         run: node tests/merchant-pix-brcode-validity.mjs
+      - name: Mercado Pago cancellation requires individual pending Pix proof
+        run: node tests/provider-charge-cancel-payment-evidence-v1-493.mjs
       - name: Admin financial lab and safe sandbox contract
         run: node tests/admin-financial-lab.mjs
       - name: Admin read-only PIX charge diagnostics

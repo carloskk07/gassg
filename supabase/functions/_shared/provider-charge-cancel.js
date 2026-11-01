@@ -71,6 +71,66 @@ async function fetchMercadoPagoOrder(accessToken,providerChargeId){
   return {response,data};
 }
 
+// A terminal-looking Order is not proof that its individual Pix was
+// cancelled. A single paid/foreign/ambiguous transaction must quarantine
+// cancellation instead of letting a stale Order state hide received money.
+function mercadoPagoPixCancelEvidence(order,expectedAmountCents){
+  const payments=order?.transactions?.payments;
+  if(!Array.isArray(payments)||payments.length!==1){
+    return {ok:false,reason:"MERCADOPAGO_CANCEL_PIX_NOT_UNIQUE"};
+  }
+  const payment=payments[0];
+  const method=payment?.payment_method??{};
+  const expected=Number(expectedAmountCents);
+  const currencies=[order?.currency_id,order?.currency]
+    .filter(x=>x!=null).map(x=>String(x).toUpperCase());
+  const receivedTotal=order?.total_paid_amount==null
+    ?0:Number(order.total_paid_amount);
+  if(!String(payment?.id??"").trim()
+    ||moneyToCents(payment?.amount)!==expected
+    ||String(method.id??"").toLowerCase()!=="pix"
+    ||String(method.type??"").toLowerCase()!=="bank_transfer"
+    ||currencies.some(x=>x!=="BRL")
+    ||!Number.isFinite(receivedTotal)||receivedTotal<0
+    ||order?.live_mode===false||payment?.live_mode===false){
+    return {ok:false,reason:"MERCADOPAGO_CANCEL_PIX_BINDING_MISMATCH"};
+  }
+  if(Array.isArray(order?.transactions?.refunds)&&order.transactions.refunds.length>0){
+    return {ok:false,reason:"MERCADOPAGO_CANCEL_REFUND_REVIEW_REQUIRED"};
+  }
+  const orderStatus=String(order?.status??"").trim().toLowerCase();
+  const paymentStatus=String(payment?.status??"").trim().toLowerCase();
+  const details=[
+    String(order?.status_detail??"").trim().toLowerCase(),
+    String(payment?.status_detail??"").trim().toLowerCase()
+  ];
+  const received=["processed","approved","refunded","partially_refunded",
+    "charged_back","chargeback","disputed","in_mediation","reimbursed"];
+  if(received.includes(orderStatus)||received.includes(paymentStatus)
+    ||details.some(x=>received.includes(x))
+    ||Number(order?.total_paid_amount??0)>0){
+    return {ok:false,reason:"MERCADOPAGO_PAYMENT_ALREADY_RECEIVED"};
+  }
+  // Failed or reversed statuses are not a clean prepaid charge either.
+  if(details.some(x=>["failed","canceled","cancelled","expired"].includes(x))
+    &&!["canceled","cancelled","expired"].includes(orderStatus)){
+    return {ok:false,reason:"MERCADOPAGO_CANCEL_STATUS_CONFLICT"};
+  }
+  if(["canceled","cancelled","expired"].includes(orderStatus)){
+    if(!["canceled","cancelled","expired","failed"].includes(paymentStatus)){
+      return {ok:false,reason:"MERCADOPAGO_CANCEL_STATUS_CONFLICT"};
+    }
+    return {ok:true,terminal:true};
+  }
+  // Mercado Pago documents cancellation only for created/action_required
+  // Orders; "processing" is not a safe POST /cancel state.
+  if(["created","action_required"].includes(orderStatus)
+    &&["pending","in_process","action_required","processing"].includes(paymentStatus)){
+    return {ok:true,terminal:false};
+  }
+  return {ok:false,reason:"MERCADOPAGO_CANCEL_STATUS_CONFLICT"};
+}
+
 async function cancelMercadoPagoCharge(providerChargeId,correlationId,amountCents){
   const accessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
   if(!mercadoPagoConfigured(accessToken)){
@@ -95,16 +155,16 @@ async function cancelMercadoPagoCharge(providerChargeId,correlationId,amountCent
 
     const providerCorrelation=String(data?.external_reference??"").trim();
     const providerAmount=moneyToCents(data?.total_amount);
-    if(providerCorrelation!==expectedCorrelation||providerAmount!==expectedAmount){
+    if(String(data?.id??"").trim()!==orderId
+      ||providerCorrelation!==expectedCorrelation||providerAmount!==expectedAmount){
       return {ok:false,reason:"MERCADOPAGO_CANCEL_BINDING_MISMATCH",httpStatus:409};
     }
 
-    let status=String(data?.status??"").trim().toLowerCase();
-    const totalPaid=Number(data?.total_paid_amount??0);
-    if(["processed","approved"].includes(status)||totalPaid>0){
-      return {ok:false,reason:"MERCADOPAGO_PAYMENT_ALREADY_RECEIVED",httpStatus:409};
+    const verified=mercadoPagoPixCancelEvidence(data,expectedAmount);
+    if(!verified.ok){
+      return {ok:false,reason:verified.reason,httpStatus:409};
     }
-    if(["canceled","cancelled","expired","refunded"].includes(status)){
+    if(verified.terminal){
       return {ok:true,reason:null,httpStatus:200};
     }
 
@@ -135,18 +195,19 @@ async function cancelMercadoPagoCharge(providerChargeId,correlationId,amountCent
       };
     }
     if(
-      String(data?.external_reference??"").trim()!==expectedCorrelation
+      String(data?.id??"").trim()!==orderId
+      ||String(data?.external_reference??"").trim()!==expectedCorrelation
       ||moneyToCents(data?.total_amount)!==expectedAmount
     ){
       return {ok:false,reason:"MERCADOPAGO_CANCEL_VERIFY_MISMATCH",httpStatus:409};
     }
 
-    status=String(data?.status??"").trim().toLowerCase();
-    if(["canceled","cancelled","expired","refunded"].includes(status)){
-      return {ok:true,reason:null,httpStatus:200};
+    const afterCancel=mercadoPagoPixCancelEvidence(data,expectedAmount);
+    if(!afterCancel.ok){
+      return {ok:false,reason:afterCancel.reason,httpStatus:409};
     }
-    if(["processed","approved"].includes(status)||Number(data?.total_paid_amount??0)>0){
-      return {ok:false,reason:"MERCADOPAGO_PAYMENT_ALREADY_RECEIVED",httpStatus:409};
+    if(afterCancel.terminal){
+      return {ok:true,reason:null,httpStatus:200};
     }
     return {ok:false,reason:"MERCADOPAGO_CANCEL_NOT_CONFIRMED",httpStatus:409};
   }catch(error){
