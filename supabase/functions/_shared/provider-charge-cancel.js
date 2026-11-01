@@ -122,7 +122,9 @@ function mercadoPagoPixCancelEvidence(order,expectedAmountCents){
     }
     return {ok:true,terminal:true};
   }
-  if(["action_required","processing"].includes(orderStatus)
+  // Mercado Pago documents cancellation only for created/action_required
+  // Orders; "processing" is not a safe POST /cancel state.
+  if(["created","action_required"].includes(orderStatus)
     &&["pending","in_process","action_required","processing"].includes(paymentStatus)){
     return {ok:true,terminal:false};
   }
