@@ -128,6 +128,7 @@ async function submitPublicRequest(){
       result.textContent=(data?.message||'Solicitação recebida.')+(data?.protocol?' Protocolo: '+data.protocol+'.':'');
       result.className='lead-result success';
     }
+    globalThis.tamaoCartRequestDraft=null;
     if(button)button.textContent='Solicitação enviada ✓';
   }catch(error){
     if(result){
@@ -142,8 +143,8 @@ function contactPage(){
   return shell(
     legalHero(
       'CONTATO • CANAL OFICIAL',
-      'Fale com o TAMÃO',
-      'Use este canal para parcerias de marca, dúvidas gerais, suporte e solicitações relacionadas aos seus dados pessoais.'
+      globalThis.tamaoCartRequestDraft?.message?'Solicitar atendimento':'Fale com o TAMÃO',
+      globalThis.tamaoCartRequestDraft?.message?'Envie sua consulta de produtos e receba uma resposta pelo contato informado. Ainda não é um pedido.':'Use este canal para parcerias de marca, dúvidas gerais, suporte e solicitações relacionadas aos seus dados pessoais.'
     )+
     legalNav()+
     '<div class="contact-purpose-grid">'+
@@ -158,7 +159,7 @@ function contactPage(){
     '<div class="field-row"><div class="input-wrap"><label for="public-contact-name">Seu nome</label><input id="public-contact-name" class="input" maxlength="120" autocomplete="name" placeholder="Nome"></div>'+
       '<div class="input-wrap"><label for="public-contact-channel">Como prefere receber resposta?</label><select id="public-contact-channel" class="input" onchange="contactChannelChanged()"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select></div></div>'+
     '<div class="input-wrap"><label for="public-contact-value">Seu contato</label><input id="public-contact-value" class="input" type="tel" inputmode="tel" maxlength="180" autocomplete="tel" placeholder="(55) 99999-9999"></div>'+
-    '<div class="input-wrap"><label for="public-request-message">Mensagem</label><textarea id="public-request-message" class="input" rows="5" maxlength="2000" placeholder="Conte o que você precisa. Evite enviar senha, código de autenticação ou dados bancários."></textarea></div>'+
+    '<div class="input-wrap"><label for="public-request-message">Mensagem</label><textarea id="public-request-message" class="input" rows="5" maxlength="2000" placeholder="Conte o que você precisa. Evite enviar senha, código de autenticação ou dados bancários.">'+esc(String(globalThis.tamaoCartRequestDraft?.message||''))+'</textarea></div>'+
     '<input id="public-request-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">'+
     '<label class="check-row lead-consent"><input id="public-request-ack" type="checkbox"><span><strong>Entendo que estes dados serão usados para responder à minha solicitação.</strong><small>Em pedidos de privacidade, o TAMÃO poderá solicitar confirmação de identidade antes de fornecer, corrigir ou excluir dados.</small></span></label>'+
     '<button id="public-request-submit" class="primary full" onclick="submitPublicRequest()">Enviar solicitação</button>'+
