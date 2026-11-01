@@ -510,6 +510,50 @@ function mobilityFocus(id){
  mobilityRuntime.selectedPortraitCheckedAt=0;
  mobilityRuntime.mapKey='';mobilityRefresh();return true;
 }
+// The network can lose an ACK after Supabase committed the request. We only
+// recover a fresh, exact-match row visible to this authenticated rider through
+// the existing participant RLS. A guess or an old similar trip is never proof.
+async function mobilityRecoverCreatedRequest(intent,origin,destination,started,epoch,userId){
+ const s=mobilityRuntime;
+ if(s.sessionEpoch!==epoch||s.user?.id!==userId||!s.client)return '';
+ try{
+  const {data,error}=await s.client.from('mobility_requests')
+   .select('id,rider_id,listing_id,service,origin_area,destination_area,created_at')
+   .eq('rider_id',userId)
+   .eq('listing_id',intent.id)
+   .eq('service',intent.mode)
+   .eq('origin_area',origin)
+   .eq('destination_area',destination)
+   .gte('created_at',new Date(started-10000).toISOString())
+   .order('created_at',{ascending:false})
+   .limit(2);
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||error||
+    !Array.isArray(data)||data.length!==1)return '';
+  const row=data[0],when=Date.parse(String(row?.created_at||''));
+  if(row?.rider_id!==userId||row?.listing_id!==intent.id||
+    row?.service!==intent.mode||row?.origin_area!==origin||
+    row?.destination_area!==destination||!mobilityId.test(String(row?.id||''))||
+    !Number.isFinite(when)||when<started-10000||when>Date.now()+60000)return '';
+  return row.id;
+ }catch(_){return ''}
+}
+const mobilityTransitionOutcome=Object.freeze({
+ accept:'accepted',depart:'en_route',arrive:'arrived',
+ finish:'completed',reject:'rejected',cancel:'cancelled'
+});
+async function mobilityRecoverTransition(action,selected,epoch,userId){
+ const s=mobilityRuntime;
+ if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return null;
+ try{
+  const {data,error}=await s.client.rpc('mobility_snapshot',{p_request_id:selected});
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected||
+    error||!data||data.id!==selected||
+    !['rider','driver'].includes(data.role)||
+    (action!=='cancel'&&data.role!=='driver')||
+    data.status!==mobilityTransitionOutcome[action])return null;
+  return data;
+ }catch(_){return null}
+}
 async function mobilityCreate(event){
  event.preventDefault();
  const s=mobilityRuntime,intent=mobilityIntent(),form=new FormData(event.target);
@@ -518,7 +562,7 @@ async function mobilityCreate(event){
  if(origin.length<3||origin.length>120||destination.length<3||destination.length>120){
   s.error='Informe origem e destino aproximados.';render();return false;
  }
- const epoch=s.sessionEpoch,userId=s.user.id;
+ const epoch=s.sessionEpoch,userId=s.user.id,started=Date.now();
  s.busy=true;s.error='';
  try{
   const r=await s.client.rpc('mobility_create_request',{
@@ -528,7 +572,19 @@ async function mobilityCreate(event){
   if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
   s.id=r.data;s.notice='Solicitação enviada. Aguarde o aceite do anunciante.';
   await mobilityRefresh();
- }catch(_){if(s.sessionEpoch===epoch&&s.user?.id===userId)s.error='Não foi possível solicitar. O anunciante pode estar indisponível ou já haver uma solicitação sua.'}
+ }catch(_){
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
+  const recovered=await mobilityRecoverCreatedRequest(
+   intent,origin,destination,started,epoch,userId);
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
+  if(recovered){
+   s.id=recovered;s.error='';
+   s.notice='Solicitação localizada e confirmada no servidor. Acompanhe o atendimento.';
+   await mobilityRefresh();
+  }else{
+   s.error='Não foi possível confirmar o envio. Atualize os atendimentos antes de tentar novamente: a solicitação pode já ter sido registrada.';
+  }
+ }
  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
  s.busy=false;render();return false;
 }
@@ -546,7 +602,19 @@ async function mobilityTransition(action){
   if(r.error)throw r.error;
   s.notice='Situação atualizada: '+(mobilityStates[r.data]||'consulte o atendimento')+'.';
   await mobilityRefresh();
- }catch(_){if(s.sessionEpoch===epoch&&s.user?.id===userId&&s.id===selected)s.error='Não foi possível atualizar. Revise o estado da solicitação.'}
+ }catch(_){
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  const confirmed=await mobilityRecoverTransition(action,selected,epoch,userId);
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  if(confirmed){
+   s.detail=confirmed;s.error='';
+   s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
+   if(confirmed.status!=='en_route')mobilityUpdateMap(null);
+   await mobilityRefresh();
+  }else{
+   s.error='Não foi possível confirmar a alteração. Atualize os atendimentos antes de repetir: a ação pode já ter sido registrada.';
+  }
+ }
  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
  s.busy=false;render();return false;
 }
