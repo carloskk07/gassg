@@ -28,6 +28,8 @@ const client={auth:{
 },rpc:async(name,args)=>{
  called.push([name,args]);
  if(failRefresh&&name==='mobility_my_requests')throw Error('simulated connectivity loss');
+ if(name==='mobility_my_requests')return {data:[],error:null};
+ if(name==='mobility_snapshot')return {data:null,error:null};
  if(name==='mobility_start_position'&&holdStart)
   return new Promise(resolve=>{resolveHeldStart=resolve});
  return {data:true,error:null};
