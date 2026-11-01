@@ -2587,29 +2587,10 @@ async function merchantPaymentConnectLive(provider='mercadopago',action='status'
       return result;
     }
     await merchantRefresh({silent:true});
-    // The merchant-orders snapshot intentionally hides unverified stored QR
-    // credentials. Reveal the fresh, PSP-rechecked response only in this
-    // authenticated session, bound to the SAME request, merchant and charge.
-    const request=(merchantRuntime.billing?.paymentRequests||[])
-      .find(r=>r.id===result?.paymentRequestId);
-    const persisted=request?.pixCharge||null;
-    if(merchantRuntime.merchant?.merchantId!==merchantId
-      ||!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))
-      ||!persisted||persisted.status!=='active'
-      ||persisted.id!==charge.id
-      ||persisted.provider!==charge.provider
-      ||persisted.correlationId!==charge.correlationId
-      ||Number(persisted.amountCents)!==Number(charge.amountCents)
-      ||persisted.expiresAt!==charge.expiresAt){
+    // Merchant-only detail stays outside the shared customer startup bundle.
+    if(globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId)!==true){
       throw new Error('A cobrança mudou durante a conferência. Atualize o financeiro antes de pagar.');
     }
-    request.pixCharge={...persisted,
-      brCode:charge.brCode,
-      qrCodeDataUri:charge.qrCodeDataUri??null,
-      paymentLinkUrl:charge.paymentLinkUrl??null,
-      providerVerified:true
-    };
-    render();
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
