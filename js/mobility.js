@@ -9,7 +9,7 @@
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0,
- intentPortraitId:'',intentPortraitKey:'',intentPortraitLoading:false,
+ intentPortraitId:'',intentPortraitMode:'',intentPortraitKey:'',intentPortraitLoading:false,
  selectedPortraitId:'',selectedPortraitKey:'',selectedPortraitCheckedAt:0};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const mobilityStates={
@@ -79,14 +79,17 @@ async function mobilityLoadIntentPortrait(intent){
  const s=mobilityRuntime;
  if(!intent||!s.client||s.intentPortraitLoading)return;
  const epoch=s.sessionEpoch;
- s.intentPortraitId=intent.id;s.intentPortraitKey='';s.intentPortraitLoading=true;
+ s.intentPortraitId=intent.id;s.intentPortraitMode=intent.mode;
+ s.intentPortraitKey='';s.intentPortraitLoading=true;
  try{
   const key=await mobilityPublicPortrait(intent.id,intent.mode);
-  if(s.sessionEpoch===epoch&&mobilityIntent()?.id===intent.id)
+  if(s.sessionEpoch===epoch&&mobilityIntent()?.id===intent.id&&
+     mobilityIntent()?.mode===intent.mode)
    s.intentPortraitKey=key;
  }catch(_){/* The page shows an explicit unavailable-photo notice. */}
  finally{
-  if(s.sessionEpoch===epoch&&s.intentPortraitId===intent.id){
+  if(s.sessionEpoch===epoch&&s.intentPortraitId===intent.id&&
+     s.intentPortraitMode===intent.mode){
    s.intentPortraitLoading=false;
    if(mobilityRoute())render();
   }
@@ -281,7 +284,7 @@ function mobilityPage(){
  if(s.phase==='failed')return shell('<section class="section mobility-page">'+top+error+
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
  if(!s.user)return shell('<section class="section mobility-page">'+top+
-  (intent?mobilityPortraitHtml(s.intentPortraitId===intent.id?s.intentPortraitKey:''):'')+
+  (intent?mobilityPortraitHtml(s.intentPortraitId===intent.id&&s.intentPortraitMode===intent.mode?s.intentPortraitKey:''):'')+
   '<p>Entre com seu e-mail para enviar pedidos ou atender solicitações de seus anúncios. Não mostraremos posições sem autenticação.</p>'+
   '<p><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar</a>'+
   ' · <a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar</a></p>'+
@@ -311,7 +314,7 @@ function mobilityPage(){
     '<p role="status">Avisos opcionais ativados nesta sessão.</p>')+'</section>'+
   '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
   (intent&&!hasOngoingRider?mobilityPortraitHtml(
-    s.intentPortraitId===intent.id?s.intentPortraitKey:''):'')+
+    s.intentPortraitId===intent.id&&s.intentPortraitMode===intent.mode?s.intentPortraitKey:''):'')+
   form+mobilityDetailPanel(s.detail)+
   '<section aria-label="Minhas solicitações"><h2>Minhas solicitações e atendimentos</h2>'+
   (s.items.length?'<div class="mobility-list">'+s.items.map(mobilityListCard).join('')+'</div>':
@@ -364,7 +367,7 @@ function mobilityClearSession(){
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';
- s.intentPortraitId='';s.intentPortraitKey='';s.intentPortraitLoading=false;
+ s.intentPortraitId='';s.intentPortraitMode='';s.intentPortraitKey='';s.intentPortraitLoading=false;
  s.selectedPortraitId='';s.selectedPortraitKey='';s.selectedPortraitCheckedAt=0;
  s.error='';s.notice='';s.busy=false;
  if(mobilityRoute())render();
@@ -404,7 +407,8 @@ function mobilityAfterRender(){
  }
  if(s.phase==='idle'){mobilityInit();return}
  if(s.phase==='ready'&&s.client&&mobilityIntent()&&
-   s.intentPortraitId!==mobilityIntent().id&&!s.intentPortraitLoading){
+   (s.intentPortraitId!==mobilityIntent().id||
+   s.intentPortraitMode!==mobilityIntent().mode)&&!s.intentPortraitLoading){
   mobilityLoadIntentPortrait(mobilityIntent());
  }
  if(s.phase==='ready'&&s.user&&s.poll===null){
