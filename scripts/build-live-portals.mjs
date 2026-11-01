@@ -450,9 +450,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
     }
-    if(role==='customer'){
+    // Both Cliente and Revenda share customer.js at startup; compact only
+    // their isolated release copies, retaining documentation in the source.
+    if(role!=='admin'){
       const entry=path.join(target,'js','customer.js');
       fs.writeFileSync(entry,compactReleasedCustomerComments(fs.readFileSync(entry,'utf8')),'utf8');
+    }
+    if(role==='customer'){
       const homeQuote=path.join(target,'js','home-showcase.js');
       fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
     }
