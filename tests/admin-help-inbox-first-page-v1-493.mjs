@@ -45,6 +45,9 @@ const ctx=vm.createContext({
   Number,Array,String,Math,Date,Set
 });
 vm.runInContext(code+';this.api={adminHelpPager,adminHelpReportsPage,adminProblemReportsSection};',ctx);
+const adminShell=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
+assert.match(adminShell,/if\\(next==='orders'&&\\['superadmin','operations','support'\\]\\.includes\\(adminCurrentRole\\(\\)\\)\\)/);
+assert.match(adminShell,/if\\(adminRuntime\\.section==='orders'&&\\['superadmin','operations','support'\\]\\.includes\\(adminCurrentRole\\(\\)\\)\\)/);
 assert.ok(renders===0);
 await ctx.api.adminHelpReportsPage(0);
 assert.deepEqual(invocations,[0],'first page must query authoritative server');
