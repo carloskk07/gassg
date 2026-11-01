@@ -370,6 +370,11 @@ assert.ok(livePixStart>0&&livePixEnd>livePixStart);
 const livePixSource=backendSource.slice(livePixStart,livePixEnd);
 assert.match(livePixSource,/await merchantRefresh\(\{silent:true\}\)/);
 assert.match(livePixSource,/merchantAcceptVerifiedBillingPix/);
+const connectStart=backendSource.indexOf('async function merchantPaymentConnectLive(');
+const connectEnd=backendSource.indexOf('async function merchantUpdatePaymentRoutesLive(',connectStart);
+assert.ok(connectStart>0&&connectEnd>connectStart);
+assert.doesNotMatch(backendSource.slice(connectStart,connectEnd),
+  /merchantAcceptVerifiedBillingPix/,'OAuth connection must never be gated by Pix verification');
 const acceptStart=merchant.indexOf('function merchantAcceptVerifiedBillingPix(');
 const acceptEnd=merchant.indexOf('function merchantBillingPixChargeExpired(',acceptStart);
 assert.ok(acceptStart>0&&acceptEnd>acceptStart);
