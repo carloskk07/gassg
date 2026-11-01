@@ -17,7 +17,7 @@ assert.match(draft,/1 x Água 20 L/);
 assert.match(draft,/97300000/);
 assert.match(draft,/Não é pedido nem cobrança/);
 assert.ok(draft.length<=2000);
-const cStart=legal.indexOf('function contactPage(){'),cEnd=legal.indexOf('\nglobalThis.privacyPage=',cStart);
+const cStart=legal.indexOf('function contactDefaultsToSupport(){'),cEnd=legal.indexOf('\nglobalThis.privacyPage=',cStart);
 assert.ok(cStart>=0&&cEnd>cStart,'existing contact page');
 const form={state:context.state,products:context.products,globalThis:context.globalThis,
  location:{search:''},URLSearchParams,shell:x=>x,legalHero:()=>'',legalNav:()=>'',legalClose:()=>'',contactPrivacyOptions:()=>'',esc:x=>String(x).replace(/</g,'&lt;')};
