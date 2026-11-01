@@ -624,9 +624,13 @@ Deno.serve(async(req:Request)=>{
               correlationId:charge.correlation_id,
               amountCents:Number(charge.amount_cents||0),
               status:charge.status,
-              brCode:charge.br_code??null,
-              qrCodeDataUri:charge.qr_code_data_uri??null,
-              paymentLinkUrl:charge.payment_link_url??null,
+              // merchant-orders is a read-only snapshot. An "active" DB row
+              // may have settled/expired at the PSP after its last webhook.
+              // Do not expose stored payment credentials before an explicit
+              // provider recheck via merchant-billing-pix.
+              brCode:null,
+              qrCodeDataUri:null,
+              paymentLinkUrl:null,
               expiresAt:charge.expires_at??null,
               expiredAt:charge.expired_at??null,
               completedAt:charge.completed_at??null,
