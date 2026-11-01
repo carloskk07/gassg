@@ -878,6 +878,33 @@ function merchantTeamPage(){
   </section>`);
 }
 
+// Only a freshly verified PSP response may unlock an active Pix in the
+// current merchant session; every regular refresh clears this transient proof.
+function merchantAcceptVerifiedBillingPix(result,merchantId){
+  const charge=result?.charge||null;
+  const rt=globalThis.merchantRuntime;
+  if(!rt||!charge||charge.status!=='active'
+    ||rt.merchant?.merchantId!==merchantId
+    ||!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
+  const request=(rt.billing?.paymentRequests||[])
+    .find(r=>r.id===result.paymentRequestId);
+  const persisted=request?.pixCharge||null;
+  if(!persisted||persisted.status!=='active'
+    ||persisted.id!==charge.id
+    ||persisted.provider!==charge.provider
+    ||persisted.correlationId!==charge.correlationId
+    ||Number(persisted.amountCents)!==Number(charge.amountCents)
+    ||persisted.expiresAt!==charge.expiresAt
+    ||typeof charge.brCode!=='string'||charge.brCode.length<30)return false;
+  request.pixCharge={...persisted,brCode:charge.brCode,
+    qrCodeDataUri:charge.qrCodeDataUri??null,
+    paymentLinkUrl:charge.paymentLinkUrl??null,
+    providerVerified:true};
+  render();
+  return true;
+}
+globalThis.merchantAcceptVerifiedBillingPix=merchantAcceptVerifiedBillingPix;
+
 function merchantBillingPixChargeExpired(charge){
   if(!charge)return false;
   if(String(charge.status||'')==='expired')return true;
@@ -914,6 +941,25 @@ function merchantBillingPixChargeView(request){
   }
 
   if(!active)return '';
+
+  if(charge.providerVerified!==true||!charge.brCode){
+    const role=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
+    const permitted=['owner','manager'].includes(role);
+    const kind=String(request.requestKind||'');
+    const target=kind==='package_purchase'&&request.planKey
+      ? "merchantCreateBillingPackagePixFromUi('"+esc(request.planKey)+"')"
+      :kind==='statement_payment'&&request.statementId
+        ? "merchantCreateStatementPixFromUi('"+esc(request.statementId)+"')"
+        :kind==='refund_recovery'&&request.refundRecoveryId
+          ? "merchantCreateRefundRecoveryPixFromUi('"+esc(request.refundRecoveryId)+"')"
+          :null;
+    const action=permitted&&target
+      ? '<button class="secondary small" style="margin-top:8px" onclick="'+target+'"'+
+        (globalThis.merchantRuntime?.actionPending?' disabled':'')+
+        '>Conferir e mostrar Pix</button>'
+      : '';
+    return `<div class="notice" style="margin-top:8px"><strong>Pix aguardando conferência.</strong><br>O código salvo não é exibido sem verificar novamente o estado no provedor.${action}</div>`;
+  }
 
   const qr=charge.qrCodeDataUri
     ? `<div style="margin-top:10px;text-align:center"><img src="${esc(charge.qrCodeDataUri)}" alt="QR Code Pix TAMÃO" width="220" height="220" loading="lazy" style="max-width:100%;height:auto"></div>`
@@ -1155,6 +1201,9 @@ async function merchantCopyBillingPixCode(paymentRequestId){
   const charge=request?.pixCharge;
   if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
     return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
+  }
+  if(charge.providerVerified!==true){
+    return toast('Conferência do Pix necessária. Use “Conferir e mostrar Pix” antes de copiar.');
   }
   const code=String(charge.brCode||'');
   if(!code)return toast('Código Pix indisponível');
