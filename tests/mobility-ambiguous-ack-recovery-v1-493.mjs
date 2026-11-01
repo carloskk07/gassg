@@ -38,7 +38,7 @@ const client={
    expires_at:new Date(Date.now()+600000).toISOString(),
    origin:form.fields.origin,destination:form.fields.destination}],error:null};
   if(name==='mobility_snapshot')return {data:{
-   id:request,role:'rider',service:'moto',status:snapshotStatus,
+   id:request,role:snapshotStatus==='requested'?'rider':'driver',service:'moto',status:snapshotStatus,
    origin:form.fields.origin,destination:form.fields.destination,
    expires_at:new Date(Date.now()+600000).toISOString(),position:null
   },error:null};
@@ -128,6 +128,13 @@ snapshotStatus='cancelled';
 assert.equal(await ctx.mobilityRecoverTransition('accept',request,s.sessionEpoch,rider),null);
 // A different account and unknown ride are never a confirmation.
 snapshotStatus='accepted';
+// A passenger cannot get a false acknowledgement of a driver's acceptance.
+const originalRpc=client.rpc;
+client.rpc=async(name,args)=>name==='mobility_snapshot'
+ ?{data:{id:request,role:'rider',status:'accepted'},error:null}
+ :originalRpc(name,args);
+assert.equal(await ctx.mobilityRecoverTransition('accept',request,s.sessionEpoch,rider),null);
+client.rpc=originalRpc;
 s.user={id:other};
 assert.equal(await ctx.mobilityRecoverTransition('accept',request,s.sessionEpoch,rider),null);
 s.user={id:rider};s.id=listing;
