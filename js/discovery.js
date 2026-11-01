@@ -258,13 +258,18 @@ function discoveryPublicGallery(item){
  const photos=[...new Set(keys.filter(key=>typeof key==='string').map(discoveryPublicPhotoUrl).filter(Boolean))].slice(0,8);
  if(!photos.length)return '';
  const title=String(item?.title||'Anúncio').slice(0,100);
+ const isPassengerDriver=item?.vertical==='professionals'&&
+   /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(item?.occupation||''));
  const main='<img class="discovery-photo" src="'+esc(photos[0])+'" alt="'+
-   esc('Foto principal de '+title)+'" loading="lazy" decoding="async">';
- if(photos.length===1)return '<div class="discovery-gallery">'+main+'</div>';
+   esc(isPassengerDriver?'Foto do motorista informada no anúncio: '+title:'Foto principal de '+title)+
+   '" loading="lazy" decoding="async">';
+ const portraitNote=isPassengerDriver?
+   '<p class="tiny muted">Foto do motorista fornecida pelo anunciante. Compare o rosto da pessoa que chegar com esta imagem. A foto, sozinha, não comprova a identidade nem a habilitação profissional.</p>':'';
+ if(photos.length===1)return '<div class="discovery-gallery">'+main+portraitNote+'</div>';
  const extra=photos.slice(1).map((url,i)=>
   '<img src="'+esc(url)+'" alt="'+esc('Foto '+(i+2)+' de '+title)+
   '" loading="lazy" decoding="async">').join('');
- return '<div class="discovery-gallery">'+main+
+ return '<div class="discovery-gallery">'+main+portraitNote+
   '<details class="discovery-gallery-more"><summary>Ver mais '+(photos.length-1)+
   (photos.length===2?' foto':' fotos')+'</summary>'+
   '<div class="discovery-gallery-grid">'+extra+'</div></details></div>';
