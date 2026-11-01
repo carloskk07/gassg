@@ -41,6 +41,7 @@ function fixture({read,deferredSignOut=false,getSession}={}){
     adminInvoke:()=>read?read.promise:Promise.resolve({supportCases:[]}),
     queueMicrotask:()=>{},
     adminRoleCanSection:()=>true,
+    adminCurrentRole:()=> 'superadmin',
     adminFirstSectionForRole:()=> 'overview'
   });
   vm.runInContext(isolated+
