@@ -236,10 +236,11 @@ const cents=v=>{
 };
 const clean=(v,max)=>typeof v==='string'&&v.length>0&&v.length<=max?v:null;
 const normalizeMp=new Function('DomainError','cleanText','moneyToCents',
-  'validatePixBrCode','mercadoPagoPixDeadline','mercadoPagoQrDataUri','safeMercadoPagoUrl',
+  'validatePixBrCode','mercadoPagoPixDeadline','mercadoPagoQrDataUri','safeMercadoPagoUrl','mpPayment',
   mpNormalizeSource+';return normalizeMercadoPagoOrder;')(
   FakeDomainError,clean,cents,validatePixBrCode,mercadoPagoPixDeadline,
-  ()=>null,()=>null
+  ()=>null,()=>null,
+  order=>(order?.transactions?.payments||[]).find(p=>p.payment_method?.id==='pix')??null
 );
 const testCorrelation='11111111-1111-4111-8111-111111111111';
 const testAnchor=new Date(Date.now()-60_000).toISOString();
