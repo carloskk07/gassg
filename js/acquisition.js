@@ -22,8 +22,6 @@ function rememberMarketRegion(region,postalCode){
 
 const TAMAO_HOME_REGION_KEY='tamao-home-region-v1-341';
 function homeMarketRegion(){
-  // An explicit visitor choice overrides older CEP cache until the next
-  // successfully validated CEP refreshes this choice.
   try{
     const saved=JSON.parse(localStorage.getItem(TAMAO_HOME_REGION_KEY)||'null');
     if(/^[A-Z]{2}$/.test(String(saved?.state||''))&&
@@ -49,8 +47,6 @@ function homeChooseMarketCity(){
 }
 
 let homeQuoteRefreshInFlight=false;
-// Refreshes the read-only city quote panel without creating an order or
-// changing the verified delivery address, cart, or merchant permissions.
 async function homeRefreshQuotePrices(){
   if(homeQuoteRefreshInFlight)return false;
   if(globalThis.liveReady?.()!==true||typeof globalThis.liveRefreshCityPriceBoard!=='function'){
@@ -62,8 +58,6 @@ async function homeRefreshQuotePrices(){
   try{
     const latest=await globalThis.liveRefreshCityPriceBoard({force:true});
     const current=homeMarketRegion();
-    // A city change while the request is pending must never show a
-    // success message about prices belonging to a previous city.
     if(!latest||current.city!==selected.city||current.state!==selected.state||
        latest.city!==selected.city||latest.state!==selected.state)return false;
     render();
