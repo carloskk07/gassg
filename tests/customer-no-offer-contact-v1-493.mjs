@@ -8,7 +8,7 @@ assert.ok(start>=0&&end>start,'existing contact page available');
 const ctx={state:{cart:{P13:2,WATER20:1},postalCode:'97300000'},
   products:{P13:{name:'Gás P13'},WATER20:{name:'Água 20 L'}},
   globalThis:{tamaoCartRequestDraft:true},location:{search:''},URLSearchParams,
-  shell:x=>x,legalHero:()=>'',legalNav:()=>'',legalClose:()=>'',contactPrivacyOptions:()=>'',esc:x=>String(x).replace(/</g,'&lt;')};
+  shell:x=>x,legalHero:(k,title,lead)=>title+lead,legalNav:()=>'',legalClose:()=>'',contactPrivacyOptions:()=>'',esc:x=>String(x).replace(/</g,'&lt;')};
 vm.runInNewContext(legal.slice(start,end)+'\nthis.html=contactPage();',ctx);
 assert.match(ctx.html,/Solicitar atendimento/);
 assert.match(ctx.html,/2 x Gás P13/);
