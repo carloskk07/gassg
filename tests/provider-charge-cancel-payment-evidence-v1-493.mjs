@@ -87,7 +87,10 @@ const scenarios=[
   ['missing payments',o=>o.transactions.payments=[],'MERCADOPAGO_CANCEL_PIX_NOT_UNIQUE'],
   ['missing payment status',o=>delete o.transactions.payments[0].status,'MERCADOPAGO_CANCEL_STATUS_CONFLICT'],
   ['wrong external reference',o=>o.external_reference='other','MERCADOPAGO_CANCEL_BINDING_MISMATCH'],
-  ['wrong order amount',o=>o.total_amount='299.99','MERCADOPAGO_CANCEL_BINDING_MISMATCH']
+  ['wrong returned Order identity',o=>o.id='FOREIGN-ORDER','MERCADOPAGO_CANCEL_BINDING_MISMATCH'],
+  ['wrong order amount',o=>o.total_amount='299.99','MERCADOPAGO_CANCEL_BINDING_MISMATCH'],
+  ['contradictory currency',o=>o.currency='USD','MERCADOPAGO_CANCEL_PIX_BINDING_MISMATCH'],
+  ['malformed received money',o=>o.total_paid_amount='NaN','MERCADOPAGO_CANCEL_PIX_BINDING_MISMATCH']
 ];
 for(const [name,mutate,reason] of scenarios)await blocked(name,mutate,reason);
 
