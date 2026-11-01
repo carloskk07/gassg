@@ -44,6 +44,7 @@ insert into public.platform_admins(user_id,active,admin_role)
 
 \i supabase/migrations/20261018131000_discovery_shared_verticals.sql
 \i supabase/migrations/20261101195756_discovery_live_ride_seat_management_v1_493.sql
+\i supabase/migrations/20261101214800_discovery_ride_driver_public_portrait_v1_493.sql
 
 -- Newly-installed verticals never activate existing product marketplace.
 select count(*) as unactivated_cities from public.discovery_vertical_cities;
@@ -430,8 +431,9 @@ select public.discovery_transition_listing(
  'Reativação autorizada após conclusão das denúncias');
 reset role;
 
--- Carona sem foto não bloqueia o anúncio; outros tipos exigem foto real.
--- Tudo dentro de uma transação descartada após o teste.
+-- Caronas now require a published driver face photograph, just like
+-- professional passenger transport. Both RPC review and forged direct status
+-- updates must fail closed. The entire fixture is rolled back.
 reset role;
 begin;
 set role authenticated;
@@ -447,7 +449,26 @@ insert into public.discovery_ride_details(
  departure_at,seats_total,seats_available)
 values(:'ride_without_photo'::uuid,'RS','São Gabriel','RS','Bagé',
  now()+interval '3 days',3,3);
-select public.discovery_transition_listing(:'ride_without_photo'::uuid,'review');
+select set_config('tamao.test.ride_without_photo', :'ride_without_photo',true);
+do $ride_portrait_required$
+begin
+ begin
+  perform public.discovery_transition_listing(
+    current_setting('tamao.test.ride_without_photo')::uuid,'review');
+  raise exception 'CARONA_WITHOUT_FACE_ENTERED_REVIEW';
+ exception when sqlstate '22023' then null;end;
+end $ride_portrait_required$;
+reset role;
+do $ride_direct_guard$
+begin
+ begin
+  update public.discovery_listings set status='published'
+   where id=current_setting('tamao.test.ride_without_photo')::uuid;
+  raise exception 'DIRECT_PUBLISHED_CARONA_WITHOUT_PHOTO';
+ exception when sqlstate '22023' then null;end;
+end $ride_direct_guard$;
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
 insert into public.discovery_listings(
  vertical,title,description,state_code,city_key,city_name,whatsapp_e164,photo_urls)
 values('professionals','Prestador sem foto bloqueado',
