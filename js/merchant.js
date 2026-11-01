@@ -925,7 +925,23 @@ function merchantBillingPixChargeView(request){
   const preparing=status==='preparing';
 
   if(completed){
-    return `<div class="notice success" style="margin-top:8px"><strong>Pix recebido.</strong><br>${amount} confirmado pelo provedor${charge.endToEndId?' • EndToEndId '+esc(charge.endToEndId):''}. O Financeiro fará a confirmação final antes de liberar crédito ou quitar o fechamento.</div>`;
+    const expected=Number(request.expectedAmountCents);
+    const reported=charge.paidAmountCents==null?null:Number(charge.paidAmountCents);
+    const exact=Number.isSafeInteger(expected)&&expected>0
+      &&Number.isSafeInteger(reported)&&reported===expected;
+    const expectedLabel=Number.isSafeInteger(expected)&&expected>0
+      ?BRL.format(expected/100):'não confirmado';
+    const receivedLabel=Number.isSafeInteger(reported)&&reported>0
+      ?BRL.format(reported/100):'não confirmado';
+    if(!exact||String(request.status||'')==='cancelled'){
+      return `<div class="notice risk" style="margin-top:8px"><strong>Pix requer revisão financeira.</strong><br>Valor solicitado: ${esc(expectedLabel)}. Valor informado pelo provedor: ${esc(receivedLabel)}. Esta cobrança não comprova quitação nem libera crédito. Confira a divergência com o Financeiro.</div>`;
+    }
+    const approved=String(request.status||'')==='approved'
+      &&Number(request.receivedAmountCents)===expected;
+    if(!approved){
+      return `<div class="notice" style="margin-top:8px"><strong>Pagamento identificado pelo provedor.</strong><br>${esc(receivedLabel)} informado para esta cobrança${charge.endToEndId?' • EndToEndId '+esc(charge.endToEndId):''}. Aguardando conciliação financeira; crédito e quitação ainda não estão confirmados.</div>`;
+    }
+    return `<div class="notice success" style="margin-top:8px"><strong>Pagamento aprovado no Financeiro TAMÃO.</strong><br>${esc(receivedLabel)} registrado para esta solicitação${charge.endToEndId?' • EndToEndId '+esc(charge.endToEndId):''}.</div>`;
   }
 
   if(expired){
