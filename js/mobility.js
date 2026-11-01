@@ -367,7 +367,8 @@ async function mobilityRefresh(silent=false){
     // A revoked, deleted or unauthorized request must never leave an old
     // passenger location on screen or permanently block a new request.
     if(s.watch!==null||s.gpsPending)mobilityStopTracking();
-    s.id='';s.detail=null;s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+    s.id='';s.detail=null;s.items=s.items.filter(item=>item?.id!==selected);
+    s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
     mobilityUpdateMap(null);
     changed=true;
    }else{
