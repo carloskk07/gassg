@@ -68,12 +68,17 @@ reset();remote.status='canceled';remote.transactions.payments[0].status='cancele
 r=await invoke();
 assert.equal(r.ok,true);
 assert.equal(posts(),0);
+reset();remote.status='created';
+r=await invoke();
+assert.equal(r.ok,true,'created Order with pending Pix is cancelable');
+assert.equal(posts(),1);
 
 const scenarios=[
   ['pending Order, processed Pix',o=>o.transactions.payments[0].status='processed','MERCADOPAGO_PAYMENT_ALREADY_RECEIVED'],
   ['cancelled Order, processed Pix',o=>{o.status='canceled';o.transactions.payments[0].status='processed';},'MERCADOPAGO_PAYMENT_ALREADY_RECEIVED'],
   ['cancelled Order, pending Pix',o=>o.status='canceled','MERCADOPAGO_CANCEL_STATUS_CONFLICT'],
   ['processed Order, pending Pix',o=>o.status='processed','MERCADOPAGO_PAYMENT_ALREADY_RECEIVED'],
+  ['processing Order, pending Pix',o=>o.status='processing','MERCADOPAGO_CANCEL_STATUS_CONFLICT'],
   ['paid amount despite pending status',o=>o.total_paid_amount=300,'MERCADOPAGO_PAYMENT_ALREADY_RECEIVED'],
   ['provider refund in flight',o=>o.transactions.refunds=[{status:'processing',amount:'50.00'}],'MERCADOPAGO_CANCEL_REFUND_REVIEW_REQUIRED'],
   ['adverse Pix status_detail',o=>o.transactions.payments[0].status_detail='charged_back','MERCADOPAGO_PAYMENT_ALREADY_RECEIVED'],
