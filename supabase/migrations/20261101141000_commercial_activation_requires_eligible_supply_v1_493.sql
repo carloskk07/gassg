@@ -275,7 +275,7 @@ begin
     'supply',v_supply
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_operation_mode_action(p_actor_user_id uuid, p_mode text, p_reason text, p_source_sha text, p_idempotency_key text, p_request_hash text)
@@ -432,5 +432,5 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
