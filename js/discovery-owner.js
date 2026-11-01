@@ -491,6 +491,10 @@ function discoveryOwnerPage(){
     discoveryOwnerField('public_area','Bairro ou área aproximada (opcional)',d.public_area,'text','maxlength="140"')+
     discoveryOwnerField('whatsapp_e164','WhatsApp com DDI (ex.: +5555999999999)',d.whatsapp_e164,'tel','required pattern="\\+[1-9][0-9]{7,14}"')+
     discoveryOwnerTypeFields(kind,d)+
+    (kind==='professionals'?
+      '<label>Foto do rosto do motorista (para mototáxi, táxi ou motorista de carro)'+
+      '<input id="discovery-owner-driver-portrait" type="file" accept="image/jpeg,image/png,image/webp"></label>'+
+      '<p class="tiny muted">A primeira foto pública do anúncio de moto ou carro deve mostrar claramente seu rosto, sem capacete nem óculos escuros. Envie uma foto sua, atual, com autorização para exibição pública; ela será mostrada a quem solicitar a corrida. A foto não equivale à verificação oficial de identidade.</p>':'')+
     '<label>'+(kind==='rides'?'Fotos da carona (opcionais, até 5 MB)':'Fotos públicas do anúncio (JPG, PNG ou WebP, até 5 MB)')+'<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
     '<label>Comprovantes para análise privada (PDF ou imagem, até 10 MB; máximo de 4 por envio)<input id="discovery-owner-documents" name="documents" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple></label>'+
     '<p class="tiny muted">Comprovantes não aparecem no anúncio: somente você e o superadministrador podem consultar esses arquivos. Envie apenas documentos necessários.</p>'+
@@ -720,11 +724,24 @@ async function discoveryOwnerSave(ev){
   const vertical=s.editor?.vertical||get('vertical');
   if(!Object.hasOwn(discoveryOwnerTables,vertical))return false;
   const files=Array.from(document.getElementById('discovery-owner-photos')?.files||[]);
+  const portrait=vertical==='professionals'
+    ?Array.from(document.getElementById('discovery-owner-driver-portrait')?.files||[]):[];
+  const isPassengerDriver=vertical==='professionals'&&
+    /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(get('occupation'));
   const documents=Array.from(document.getElementById('discovery-owner-documents')?.files||[]);
   let keys=Array.isArray(s.editor?.photo_urls)?s.editor.photo_urls.slice():[];
-  if(files.length+keys.length>18){s.error='No máximo 18 fotos por anúncio.';render();return false;}
+  if(files.length+portrait.length+keys.length>18){
+    s.error='No máximo 18 fotos por anúncio.';render();return false;
+  }
+  if(portrait.length>1){
+    s.error='Selecione apenas uma foto do rosto do motorista.';render();return false;
+  }
+  if(sendForReview&&isPassengerDriver&&!portrait.length&&!keys.length){
+    s.error='Para anunciar moto ou carro, inclua primeiro sua foto de rosto no campo específico.';
+    render();return false;
+  }
   const mime={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
-  if(files.some(x=>!mime[x.type]||x.size<1||x.size>5242880)){
+  if([...portrait,...files].some(x=>!mime[x.type]||x.size<1||x.size>5242880)){
     s.error='Use JPG, PNG ou WebP, com até 5 MB por imagem.';render();return false;
   }
   const documentMime={'application/pdf':'pdf',...mime};
@@ -779,15 +796,18 @@ async function discoveryOwnerSave(ev){
     // upload before calling the network: a timeout can hide a committed object.
     const attemptedPhotos=[];
     try{
-      for(const file of files){
+      // A dedicated driver portrait always becomes the first approved public
+      // image. Existing other photographs stay behind it in the gallery.
+      for(const file of [...portrait,...files]){
         const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
         attemptedPhotos.push(key);
         const result=await client.storage.from('tamao-discovery-photos')
           .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
         if(result.error)throw result.error;
-        keys.push(key);
+        if(portrait.includes(file))keys.unshift(key);
+        else keys.push(key);
       }
-      if(files.length){
+      if(portrait.length||files.length){
         const written=await client.from('discovery_listings').update({photo_urls:keys}).eq('id',id);
         if(written.error)throw written.error;
       }
