@@ -7,11 +7,14 @@ const js=read('js/mobility.js'),sw=read('sw.js'),
  edge=read('supabase/functions/mobility-push-registration/index.ts'),
  sender=read('supabase/functions/merchant-push-delivery/index.ts');
 new vm.Script(js);new vm.Script(sw);
-for(const table of ['mobility_push_subscriptions','mobility_push_outbox','mobility_push_deliveries']){
+for(const table of ['mobility_push_subscriptions','mobility_push_outbox','mobility_push_deliveries','mobility_push_rollout']){
  assert.match(sql,new RegExp('alter table public\\.'+table+' enable row level security'));
  assert.match(sql,new RegExp('revoke all on public\\.'+table+' from public,anon,authenticated'));
 }
 assert.match(sql,/create trigger mobility_push_new_request after insert on public.mobility_requests/);
+assert.match(sql,/insert into public.mobility_push_rollout\(id,enabled\) values\(true,false\)/);
+assert.match(sender,/const mobilityEnabled=!gateError&&gate\?\.enabled===true/);
+assert.match(edge,/rollout\?\.enabled===true/);
 assert.match(sql,/on conflict\(request_id\) do nothing/);
 assert.match(sql,/s.registered_at<=o.created_at/);
 assert.match(sql,/r.status='requested' and r.expires_at>v_now/);
