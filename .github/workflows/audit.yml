@@ -558,6 +558,8 @@ jobs:
         run: node tests/merchant-incident-guidance-v1-178.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
+      - name: V1.493 address verification continues while commerce is paused
+        run: node tests/get-offers-address-when-paused-v1-493.mjs
       - name: Customer availability-first V1.149 regression contract
         run: node tests/customer-availability-first-v1-149.mjs
       - name: Adaptive polling and quota budget V1.150 regression contract
