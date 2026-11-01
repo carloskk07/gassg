@@ -88,7 +88,8 @@ BEGIN
 
   -- Emergency pause must remain possible even if the supplier goes offline.
   UPDATE public.platform_launch_control
-    SET operation_mode='LIVE',commerce_enabled=true WHERE singleton;
+    SET operation_mode='LIVE',commerce_enabled=true,
+        mode_source_sha=repeat('a',40) WHERE singleton;
   v_result:=public.admin_operation_mode_action(
     v_actor,'PAUSED','Ensaio CI: pausa segura',
     null,'ci-pause-'||gen_random_uuid()::text,repeat('c',64));
