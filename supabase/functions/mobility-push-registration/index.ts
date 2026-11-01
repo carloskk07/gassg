@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
+import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
 
 // Device enrollment only. The commercial/merchant push tables are unrelated.
 // All session and eligibility checks are server-side, using a real Auth user.
@@ -54,20 +55,15 @@ Deno.serve(async req=>{
  const token=req.headers.get("Authorization");
  if(!token?.startsWith("Bearer ")||token.length>5000)return fail("UNAUTHORIZED",401,origin);
  try{
-  const raw=await req.text();
-  if(raw.length>4600)return fail("INVALID_REQUEST",400,origin);
-  const body=JSON.parse(raw);
+  const body=await readJsonBody(req,{maxBytes:4600});
   if(!body||typeof body!=="object"||Array.isArray(body)||
    !["config","subscribe","unsubscribe"].includes(body.action))return fail("INVALID_REQUEST",400,origin);
   const auth=createClient(URL_BASE,PUBLIC_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:{user},error:userError}=await auth.auth.getUser(token.slice(7));
   if(userError||!user||user.is_anonymous)return fail("UNAUTHORIZED",401,origin);
   const admin=createClient(URL_BASE,SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:quota,error:quotaErr}=await admin.rpc("consume_api_quota",{
-   p_user_id:user.id,p_action_name:"mobility-push-register",p_limit:20,p_window_seconds:60
-  });
-  if(quotaErr)return fail("UNAVAILABLE",503,origin);
-  if(quota?.allowed!==true)return fail("RATE_LIMITED",429,origin);
+  await enforceApiQuota(admin,{userId:user.id,
+   actionName:"mobility-push-register",limit:20,windowSeconds:60});
   if(body.action==="config"){
    const {data:cfg,error}=await admin.rpc("merchant_push_public_config");
    if(error||!cfg)return fail("UNAVAILABLE",503,origin);
@@ -111,5 +107,8 @@ Deno.serve(async req=>{
   return respond({ok:true,active:true,
    senderEnabled:false, // Do not infer delivery from enrollment.
    testMode:cfg.testMode!==false},200,origin);
- }catch{return fail("UNAVAILABLE",503,origin)}
+ }catch(error){
+  if(error instanceof DomainError)return fail(error.code,error.status,origin);
+  return fail("UNAVAILABLE",503,origin);
+ }
 });
