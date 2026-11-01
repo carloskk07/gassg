@@ -2587,10 +2587,8 @@ async function merchantPaymentConnectLive(provider='mercadopago',action='status'
       return result;
     }
     await merchantRefresh({silent:true});
-    // Merchant-only detail stays outside the shared customer startup bundle.
-    if(globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId)!==true){
-      throw new Error('A cobrança mudou durante a conferência. Atualize o financeiro antes de pagar.');
-    }
+    if(!globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId))
+      throw new Error('Pix alterado. Atualize o financeiro.');
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
