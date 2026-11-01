@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const customer=read('js/customer.js'),legal=read('js/legal.js'),audit=read('.github/workflows/audit.yml');
+const customer=read('js/customer.js'),legal=read('js/legal.js'),core=read('js/core.js'),audit=read('.github/workflows/audit.yml');
 const start=customer.indexOf('function requestUnavailableDelivery(){');
 const end=customer.indexOf('globalThis.requestUnavailableDelivery=requestUnavailableDelivery;',start);
 assert.ok(start>=0&&end>start,'customer-specific intake handoff');
@@ -68,7 +68,7 @@ assert.equal(submitted.acknowledged,true);
 assert.equal(sendCtx.globalThis.tamaoCartRequestDraft,null);
 assert.match(nodes['#public-request-result'].textContent,/DEADBEEF/);
 const order=customer.slice(customer.indexOf('function orderPage(){'),customer.indexOf('function cartRow('));
-assert.equal(order.split('requestUnavailableDelivery()').length-1,6,
+assert.equal(order.split('requestUnavailableDelivery()').length-1,7,
   'support remains reachable after paused commerce, no offers, unavailable backend and quote errors');
 assert.match(order,/Nenhuma entrega disponível para esta cesta/);
 assert.match(order,/Pedidos temporariamente indisponíveis/);
@@ -84,6 +84,26 @@ assert.match(fetchErrorBranch,/Solicitar atendimento →/);
 assert.match(fetchErrorBranch,/Tentar novamente/);
 assert.match(fetchErrorBranch,/não cria compra nem cobrança/i);
 assert.match(order,/CEP, disponibilidade e valores ainda precisam ser confirmados/);
+assert.match(order,/if\(hasItems&&!hasAddress&&!testDemo&&preview\)/,
+  'customer may request protected human support without a verified street');
+const earlyRequest=order.slice(order.indexOf('if(hasItems&&!hasAddress&&!testDemo&&preview)'),
+  order.indexOf('if(hasItems&&hasAddress)'));
+assert.match(earlyRequest,/Solicitar atendimento →/);
+assert.match(earlyRequest,/sem compra ou cobrança/);
+assert.doesNotMatch(earlyRequest,/liveCreateOrder|liveRequestQuote/);
+const availabilityStart=core.indexOf('function tamaoOpenAvailability(){');
+const availabilityEnd=core.indexOf('\nfunction shell(',availabilityStart);
+assert.ok(availabilityStart>=0&&availabilityEnd>availabilityStart);
+const goCtx={globalThis:{prelaunchExamplesEnabled:()=>true},callCount:0,
+ startHomeBrowse:()=>{goCtx.callCount++;return 'cart';},
+ openPrelaunchCustomerLead:()=>{throw new Error('commercial basket must not redirect to lead collection');}};
+vm.runInNewContext(core.slice(availabilityStart,availabilityEnd)+
+ '\nthis.open=tamaoOpenAvailability;',goCtx);
+assert.equal(goCtx.open(),'cart');
+goCtx.globalThis.prelaunchExamplesEnabled=()=>false;
+assert.equal(goCtx.open(),'cart');
+assert.equal(goCtx.callCount,2,'product-first entry works both with and without eligible merchants');
+
 assert.match(order,/!testDemo&&liveMode/);
 assert.ok(!order.slice(order.indexOf('Não foi possível validar o endereço ou consultar as ofertas agora'),
   order.indexOf('Não gera compra nem cobrança.',order.indexOf('Não foi possível validar o endereço ou consultar as ofertas agora')))

@@ -94,19 +94,13 @@ assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
  merchantLanding.indexOf("shareTamaoGrowthInvite('merchant')"),
  'merchant sign-up remains the primary conversion action');
 
-const demoUrl='https://carloskk07.github.io/gassg/#merchants';
-assert.ok(merchantLanding.includes('href="'+demoUrl+'"'),
- 'merchant landing must offer direct access to the existing isolated GH Pages walkthrough');
-assert.match(merchantLanding,/merchant-demo-link" href=/,
- 'presentation link must use navigation, not grant merchant authorization');
-assert.match(merchantLanding,/target="_blank" rel="noopener noreferrer nofollow"/,
- 'the isolated demonstration must not inherit opener privileges');
-assert.match(merchantLanding,/Pedidos simulados|pedidos simulados/,
- 'the merchant demo must be explicitly identified as noncommercial');
-assert.match(merchantLanding,/internalPilot\?'':/,
- 'hide the outbound demonstration link from the pilot itself');
-assert.match(css,/\.merchant-landing-premium \.merchant-demo-link:focus-visible/,
- 'the presentation link needs a visible keyboard focus indicator');
+// Commercial acquisition must lead to the REAL registration, not a
+// simulator. The isolated GH Pages demo remains available privately for QA.
+assert.ok(!['merchant-demo-link','merchant-demo-note','carloskk07.github.io/gassg'].some(
+ marker=>merchantLanding.includes(marker)),
+ 'the live merchant landing must not present a simulator as the commercial service');
+assert.ok(merchantLanding.includes('openMerchantPortal(true)'),
+ 'the existing authenticated commercial signup remains the primary CTA');
 const demoRuntime=read('js/runtime-config.js');
 const backendSource=read('js/backend.js');
 assert.match(demoRuntime,/chamaHost==='carloskk07.github.io'/);

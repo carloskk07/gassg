@@ -987,6 +987,10 @@ function orderPage(){
   }
 
   let offerBlock='';
+  // No supplier: enable a support request without creating an order.
+  if(hasItems&&!hasAddress&&!testDemo&&preview){
+    offerBlock='<div class="notice" role="status"><strong>Precisa destes produtos?</strong><br>Informe seu endereço para consultar a entrega. Se preferir, envie a cesta ao atendimento TAMÃO e receba uma resposta sobre disponibilidade e valor.<div class="order-actions"><button type="button" class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div><small>Solicitação sem compra ou cobrança. O preço final ainda não foi confirmado.</small></div>';
+  }
   if(hasItems&&hasAddress){
     if(preview){
       offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode solicitar atendimento sem finalizar uma compra.<div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';

@@ -874,7 +874,7 @@ function siteFooter({adminPortal=false}={}){
   return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'professionals\')">Profissionais</button><button onclick="go(\'rides\')">Caronas</button><button onclick="go(\'stays\')">Hospedagens</button><button onclick="go(\'mobility\')">Minhas corridas</button><button onclick="go(\'advertise\')">Anunciar</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav>'+editorial+'</div></footer>';
 }
 function tamaoOpenAvailability(){
-  if(globalThis.prelaunchExamplesEnabled?.()===true)return openPrelaunchCustomerLead();
+  // Checkout still requires a server-verified merchant.
   return startHomeBrowse();
 }
 function shell(content){

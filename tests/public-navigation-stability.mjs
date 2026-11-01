@@ -7,8 +7,12 @@ const mobile=core.split('function bottomNav(r){')[1]?.split('function setMode(m)
 assert.ok(shell&&mobile);
 assert.doesNotMatch(shell,/prelaunchPublic|Quero comprar|Quero vender/);
 assert.doesNotMatch(mobile,/prelaunchPublic|early-access/);
-assert.match(core,/function tamaoOpenAvailability\(\)/);
-assert.match(core,/prelaunchExamplesEnabled\?\.\(\)===true\)return openPrelaunchCustomerLead\(\)/);
+const availabilitySource=core.slice(core.indexOf('function tamaoOpenAvailability(){'),
+ core.indexOf('function shell(',core.indexOf('function tamaoOpenAvailability(){')));
+assert.ok(availabilitySource.includes('return startHomeBrowse();'),
+ 'both live and unserved locations must be able to enter the cart');
+assert.ok(!availabilitySource.includes('openPrelaunchCustomerLead('),
+ 'public shop actions must not be diverted to waitlist');
 assert.match(shell,/onclick="tamaoOpenAvailability\(\)"/);
 assert.match(mobile,/\['availability','🧺','Comprar','market'\]/);
 assert.match(mobile,/\['tracking','📦','Pedidos','go'\]/);
