@@ -207,11 +207,13 @@ assert.doesNotMatch(secondPage,/report-1</);
 assert.match(secondPage,/adminHelpReportsPage\(2\)/);
 assert.match(secondPage,/adminHelpReportsPage\(0\)/);
 await pagingCtx.load(0);
-assert.equal(summaryRefreshes,1);
+assert.equal(summaryRefreshes,0,'first page must use protected query, not mixed summary');
+assert.equal(pageCall.action,'support-reports-page');
+assert.equal(pageCall.page,0);
 assert.equal(pagerRuntime.helpReportPager.page,0);
-assert.equal(pagerRuntime.helpReportPager.items,null);
+assert.equal(pagerRuntime.helpReportPager.items[0].id,'report-31');
 await pagingCtx.load(-1);
-assert.equal(summaryRefreshes,1,'invalid page must not trigger network');
+assert.equal(summaryRefreshes,0,'invalid page must not trigger network');
 pagerRuntime.session={user:{id:'admin-b'}};
 assert.equal(pagingCtx.pager().page,0);
 assert.equal(pagingCtx.pager().items,null,

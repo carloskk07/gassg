@@ -463,6 +463,8 @@ async function adminRefresh({silent=false}={}){
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
+    if(adminRuntime.section==='orders'&&['superadmin','operations','support'].includes(adminCurrentRole()))
+      queueMicrotask(()=>adminHelpReportsPage(0).catch(()=>{}));
     return data;
   }catch(error){
     if(seq!==adminRuntime.refreshSeq)return null;
@@ -3322,6 +3324,8 @@ function adminSetSection(section){
   if(next==='activations')adminActivationLoadOnDemand().catch(()=>{});
   if(next==='discovery')adminDiscoveryLoad().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
+  if(next==='orders'&&['superadmin','operations','support'].includes(adminCurrentRole()))
+    adminHelpReportsPage(0).catch(()=>{});
   if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
   if(next==='partners'&&adminCurrentRole()==='superadmin')
     adminOwnerFinanceLoadOnDemand().catch(()=>{});

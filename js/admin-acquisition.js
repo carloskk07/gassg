@@ -5403,22 +5403,20 @@ async function adminHelpReportsPage(page){
   const actor=pager.actor,session=adminRuntime.session;
   pager.loading=true;pager.error=null;render();
   try{
-    if(page===0){
-      pager.page=0;pager.items=null;pager.total=null;
-      await adminRefresh({silent:true});
-    }else{
-      const result=await globalThis.retryAmbiguousOnce(
-        ()=>adminInvoke({action:'support-reports-page',page}));
-      if(result?.source!=='admin_support_reports_page_v1'||result.readOnly!==true||
-         result.page!==page||result.pageSize!==30||
-         !Number.isSafeInteger(result.total)||result.total<0||
-         !Array.isArray(result.items)||result.items.length>30||
-         result.items.some(x=>x?.request_kind!=='support'||
-           !['new','in_review'].includes(x.status)))
-        throw new Error('Página de relatos inválida');
-      if(adminRuntime.session!==session||adminHelpPager().actor!==actor)return;
-      pager.page=page;pager.items=result.items;pager.total=result.total;
-    }
+    // The general admin summary is only a latest-200 mixed-kind sample.
+    // Fetch page zero from the same authoritative pending-support query as
+    // later pages, or an older pending report can become invisible.
+    const result=await globalThis.retryAmbiguousOnce(
+      ()=>adminInvoke({action:'support-reports-page',page}));
+    if(result?.source!=='admin_support_reports_page_v1'||result.readOnly!==true||
+       result.page!==page||result.pageSize!==30||
+       !Number.isSafeInteger(result.total)||result.total<0||
+       !Array.isArray(result.items)||result.items.length>30||
+       result.items.some(x=>x?.request_kind!=='support'||
+         !['new','in_review'].includes(x.status)))
+      throw new Error('Página de relatos inválida');
+    if(adminRuntime.session!==session||adminHelpPager().actor!==actor)return;
+    pager.page=page;pager.items=result.items;pager.total=result.total;
   }catch(error){
     if(adminRuntime.session===session&&adminHelpPager().actor===actor)
       pager.error=String(error?.message||'Não foi possível consultar os relatos');
@@ -5430,7 +5428,7 @@ async function adminHelpReportsPage(page){
 }
 function adminProblemReportsSection(data){
   const pager=adminHelpPager();
-  const current=pager.page>0&&Array.isArray(pager.items);
+  const current=Array.isArray(pager.items);
   const rows=(current?pager.items:(Array.isArray(data?.publicRequests)?data.publicRequests:[]))
     .filter(x=>x?.request_kind==='support')
     .sort((a,b)=>{
