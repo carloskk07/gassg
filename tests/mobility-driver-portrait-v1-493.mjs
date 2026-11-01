@@ -131,7 +131,7 @@ const ownerCtx={
  document:{getElementById:id=>id==='discovery-owner-photos'?{files:galleryFiles}:
   id==='discovery-owner-driver-portrait'?{files:portraitFiles}:
   id==='discovery-owner-documents'?{files:[]}:null},
- discoveryOwner:state,render:()=>renderCount++,
+ discoveryOwner:state,discoveryOwnerTables:{professionals:'discovery_professional_details'},render:()=>renderCount++,
  discoveryOwnerRoute:()=>true,discoveryOwnerCitySlug:()=> 'sao-gabriel',
  discoveryOwnerDetails:()=>({occupation:'Mototáxi'}),
  discoveryOwnerRefresh:async()=>{},discoveryOwnerError:e=>String(e),
