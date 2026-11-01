@@ -692,6 +692,8 @@ jobs:
         run: node tests/real-help-report-intake-v1-493.mjs
       - name: V1.493 real support Edge HTTP handler and Admin triage in isolation
         run: node tests/support-http-handler-journey-v1-493.mjs
+      - name: V1.493 authoritative first page for protected help inbox
+        run: node tests/admin-help-inbox-first-page-v1-493.mjs
       - name: Persisted support case acknowledgement and timeline failure isolation
         run: node tests/customer-care-event-integrity-v1-493.mjs
       - name: V1.493 remote help endpoint safe invalid-input smoke (no writes)
