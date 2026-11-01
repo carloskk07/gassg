@@ -915,6 +915,25 @@ function merchantBillingPixChargeView(request){
 
   if(!active)return '';
 
+  if(charge.providerVerified!==true||!charge.brCode){
+    const role=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
+    const permitted=['owner','manager'].includes(role);
+    const kind=String(request.requestKind||'');
+    const target=kind==='package_purchase'&&request.planKey
+      ? "merchantCreateBillingPackagePixFromUi('"+esc(request.planKey)+"')"
+      :kind==='statement_payment'&&request.statementId
+        ? "merchantCreateStatementPixFromUi('"+esc(request.statementId)+"')"
+        :kind==='refund_recovery'&&request.refundRecoveryId
+          ? "merchantCreateRefundRecoveryPixFromUi('"+esc(request.refundRecoveryId)+"')"
+          :null;
+    const action=permitted&&target
+      ? '<button class="secondary small" style="margin-top:8px" onclick="'+target+'"'+
+        (globalThis.merchantRuntime?.actionPending?' disabled':'')+
+        '>Conferir e mostrar Pix</button>'
+      : '';
+    return `<div class="notice" style="margin-top:8px"><strong>Pix aguardando conferência.</strong><br>O código salvo não é exibido sem verificar novamente o estado no provedor.${action}</div>`;
+  }
+
   const qr=charge.qrCodeDataUri
     ? `<div style="margin-top:10px;text-align:center"><img src="${esc(charge.qrCodeDataUri)}" alt="QR Code Pix TAMÃO" width="220" height="220" loading="lazy" style="max-width:100%;height:auto"></div>`
     : '';
@@ -1153,8 +1172,9 @@ async function merchantCopyBillingPixCode(paymentRequestId){
   const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
     .find(r=>r.id===paymentRequestId);
   const charge=request?.pixCharge;
-  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
-    return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
+  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)
+    ||charge.providerVerified!==true){
+    return toast('Conferência do Pix necessária. Use “Conferir e mostrar Pix” antes de copiar.');
   }
   const code=String(charge.brCode||'');
   if(!code)return toast('Código Pix indisponível');
