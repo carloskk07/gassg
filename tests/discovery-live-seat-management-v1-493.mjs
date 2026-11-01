@@ -82,7 +82,7 @@ assert.equal(s.user,null);
 assert.equal(s.items.length,0);
 const audit=read('.github/workflows/audit.yml');
 assert.ok(audit.includes('node tests/discovery-live-seat-management-v1-493.mjs'));
-const migration=read('supabase/migrations/20261101220000_discovery_live_ride_seat_management.sql');
+const migration=read('supabase/migrations/20261101195756_discovery_live_ride_seat_management_v1_493.sql');
 assert.match(migration,/for update of l,r/);
 assert.match(migration,/l.owner_id=v_actor/);
 assert.match(migration,/l.status='published'/);
