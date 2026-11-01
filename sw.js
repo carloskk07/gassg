@@ -108,11 +108,21 @@ self.addEventListener('push',event=>{
 
 self.addEventListener('notificationclick',event=>{
   event.notification?.close();
-  const target=new URL('./?merchant=1#merchant',self.registration.scope).href;
+  // Only these two fixed routes are permitted; never follow a URL supplied
+  // by an arbitrary push payload. Existing merchant alerts retain their route.
+  const mobility=event.notification?.data?.url==='./?mobility=1#mobility';
+  const target=new URL(mobility?'./?mobility=1#mobility':'./?merchant=1#merchant',
+    self.registration.scope).href;
   event.waitUntil(
     self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{
       for(const client of windows){
-        if(client.url.includes('merchant=1')){
+        // A reopened mobile mobility page may remove its query parameter.
+        const page=new URL(client.url);
+        const base=new URL('./',self.registration.scope);
+        const matchingRoute=mobility?
+          (page.searchParams.get('mobility')==='1'||page.hash==='#mobility'):
+          page.searchParams.get('merchant')==='1';
+        if(page.origin===base.origin&&page.pathname.startsWith(base.pathname)&&matchingRoute){
           try{await client.focus()}catch{}
           try{await client.navigate(target)}catch{}
           return;
