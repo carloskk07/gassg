@@ -96,7 +96,8 @@ assert.ok(merchantLanding.indexOf("openMerchantPortal(true)")<
 
 // Commercial acquisition must lead to the REAL registration, not a
 // simulator. The isolated GH Pages demo remains available privately for QA.
-assert.doesNotMatch(merchantLanding,/merchant-demo-link|merchant-demo-note|carloskk07\\.github\\.io\\/gassg/,
+assert.ok(!['merchant-demo-link','merchant-demo-note','carloskk07.github.io/gassg'].some(
+ marker=>merchantLanding.includes(marker)),
  'the live merchant landing must not present a simulator as the commercial service');
 assert.match(merchantLanding,/openMerchantPortal\\(true\\)/,
  'the existing authenticated commercial signup remains the primary CTA');
