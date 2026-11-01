@@ -63,8 +63,20 @@ assert.equal(ctx.mobilityTransportPhotoRow(published,listingId,'moto'),validKey)
 assert.equal(await ctx.mobilityPublicPortrait(listingId,'moto'),validKey);
 await ctx.mobilityLoadIntentPortrait({id:listingId,mode:'moto'});
 assert.equal(s.intentPortraitKey,validKey);
+assert.equal(s.intentPortraitMode,'moto');
 assert.match(ctx.mobilityPage(),/Foto de rosto enviada pelo motorista/);
 assert.match(ctx.mobilityPage(),/A foto não comprova identidade/);
+// A pasted car link using the SAME motorbike listing may never reuse its
+// motorcycle portrait under the car label, even without a page reload.
+ctx.location.search='?corrida='+listingId+'&modalidade=carro';
+ctx.mobilityAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(s.intentPortraitMode,'carro');
+assert.equal(s.intentPortraitKey,'');
+assert.doesNotMatch(ctx.mobilityPage(),/Foto de rosto enviada pelo motorista/);
+ctx.location.search='?corrida='+listingId+'&modalidade=moto';
+await ctx.mobilityLoadIntentPortrait({id:listingId,mode:'moto'});
+assert.equal(s.intentPortraitKey,validKey);
 s.id=rideId;
 await ctx.mobilityRefresh();
 assert.equal(s.selectedPortraitId,rideId);
