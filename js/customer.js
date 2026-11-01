@@ -929,6 +929,22 @@ function buyerCartFilter(group){
     ' Os itens da sua cesta continuam à vista.';
   return true;
 }
+function requestUnavailableDelivery(){
+  const items=Object.entries(state.cart||{})
+    .filter(([code,quantity])=>products[code]&&Number.isInteger(Number(quantity))&&Number(quantity)>0)
+    .slice(0,30)
+    .map(([code,quantity])=>Number(quantity)+' × '+customerProductName(code,products[code]));
+  if(!items.length)return toast('Adicione produtos à cesta antes de solicitar atendimento');
+  const cep=String(state.postalCode||'').replace(/\D/g,'').slice(0,8);
+  const number=String(state.addressNumber||'').replace(/[^0-9a-z]/gi,'').slice(0,7);
+  const locality=cep.length===8?'CEP '+cep.slice(0,5)+'-'+cep.slice(5)+(number?', número '+number:''):'Endereço a confirmar';
+  globalThis.tamaoCartRequestDraft={
+    message:('[Consulta de atendimento]\nProdutos: '+items.join('; ')+'\nEntrega: '+locality+
+      '\nGostaria de confirmar a disponibilidade e o valor total destes produtos. '+
+      'Entendo que isto é uma solicitação de contato, sem pedido, reserva ou cobrança.').slice(0,2000)
+  };
+  go('contact');
+}
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -980,7 +996,7 @@ function orderPage(){
   let offerBlock='';
   if(hasItems&&hasAddress){
     if(preview){
-      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
+      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode solicitar atendimento sem finalizar uma compra.<div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
     }else if(testDemo&&freshOffers.length){
       offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.loadingOffers){
@@ -990,7 +1006,7 @@ function orderPage(){
     }else if(ready&&freshOffers.length){
       offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
-      offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.</div>';
+      offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.<div class="order-actions"><button class="secondary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div></div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.paymentMethodUnavailable){
@@ -1002,7 +1018,7 @@ function orderPage(){
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card"><strong>Ainda não encontramos uma revenda com carga e vasilhame disponíveis para este pedido.</strong><br><span class="muted tiny">A revenda precisa ter carga e vasilhame disponíveis.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card"><strong>Ainda não há uma revenda disponível para entregar esses produtos no seu CEP.</strong><p class="muted tiny">Você pode tentar outra combinação ou pedir um aviso quando houver atendimento.</p><div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
+      offerBlock='<div class="empty card"><strong>Nenhuma entrega disponível para esta cesta neste momento.</strong><p class="muted tiny">Você pode solicitar uma resposta da equipe ou consultar novamente. A solicitação não gera compra nem cobrança.</p><div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
