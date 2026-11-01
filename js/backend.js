@@ -2587,8 +2587,6 @@ async function merchantPaymentConnectLive(provider='mercadopago',action='status'
       return result;
     }
     await merchantRefresh({silent:true});
-    if(!globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId))
-      throw new Error('Pix alterado. Atualize o financeiro.');
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2708,6 +2706,8 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
       throw new Error('O Pix não ficou disponível para pagamento. Atualize o financeiro e gere um novo código.');
     }
     await merchantRefresh({silent:true});
+    if(!globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId))
+      throw new Error('Pix alterado. Atualize o financeiro.');
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
