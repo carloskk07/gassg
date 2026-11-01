@@ -68,7 +68,8 @@ assert.equal(submitted.acknowledged,true);
 assert.equal(sendCtx.globalThis.tamaoCartRequestDraft,null);
 assert.match(nodes['#public-request-result'].textContent,/DEADBEEF/);
 const order=customer.slice(customer.indexOf('function orderPage(){'),customer.indexOf('function cartRow('));
-assert.equal(order.split('requestUnavailableDelivery()').length-1,3);
+assert.equal(order.split('requestUnavailableDelivery()').length-1,6,
+  'support remains reachable after paused commerce, no offers, unavailable backend and quote errors');
 assert.match(order,/Nenhuma entrega disponível para esta cesta/);
 assert.match(order,/Pedidos temporariamente indisponíveis/);
 assert.match(order,/Não gera compra nem cobrança/);
@@ -81,7 +82,7 @@ const fetchErrorBranch=order.slice(order.indexOf('}else if(ready&&liveRuntime.er
   order.indexOf('}else if(ready&&freshOffers.length){'));
 assert.match(fetchErrorBranch,/Solicitar atendimento →/);
 assert.match(fetchErrorBranch,/Tentar novamente/);
-assert.match(fetchErrorBranch,/Não cria compra nem cobrança/);
+assert.match(fetchErrorBranch,/não cria compra nem cobrança/i);
 assert.match(order,/CEP, disponibilidade e valores ainda precisam ser confirmados/);
 assert.match(order,/!testDemo&&liveMode/);
 assert.ok(!order.slice(order.indexOf('Não foi possível validar o endereço ou consultar as ofertas agora'),
