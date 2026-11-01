@@ -44,7 +44,7 @@ insert into public.platform_admins(user_id,active,admin_role)
 
 \i supabase/migrations/20261018131000_discovery_shared_verticals.sql
 \i supabase/migrations/20261101195756_discovery_live_ride_seat_management_v1_493.sql
-\i supabase/migrations/20261101214800_discovery_ride_driver_public_portrait_v1_493.sql
+\i supabase/migrations/20261101213115_discovery_ride_driver_public_portrait_v1_493.sql
 
 -- Newly-installed verticals never activate existing product marketplace.
 select count(*) as unactivated_cities from public.discovery_vertical_cities;
