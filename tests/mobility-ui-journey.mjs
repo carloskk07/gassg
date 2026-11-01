@@ -45,7 +45,8 @@ assert.equal(typeof signedOutListener,'function',
  'The test must register real onAuthStateChange through mobilityInit');
 assert.match(ctx.mobilityPage(),/Solicitar uma moto/);
 assert.match(ctx.mobilityPage(),/Pedidos para motoristas: 0 aguardando resposta/);
-assert.match(ctx.mobilityPage(),/não há avisos push com o aplicativo fechado/);
+assert.match(ctx.mobilityPage(),/Chamadas com aplicativo fechado dependem de inscrição/);
+assert.match(ctx.mobilityPage(),/Ativar avisos com o aplicativo fechado/);
 assert.equal(noticePermissionCalls,0,'Never ask OS permission without click');
 assert.equal(await ctx.mobilityEnableAlerts(),true);
 assert.equal(noticePermissionCalls,1);

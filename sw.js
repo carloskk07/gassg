@@ -91,17 +91,18 @@ self.addEventListener('push',event=>{
   let payload=null;
   try{payload=event.data?.json()??null}catch{}
   const kind=payload?.kind;
-  if(!['new_offer','assigned_delivery','test'].includes(kind))return;
+  if(!['new_offer','assigned_delivery','test','mobility_request'].includes(kind))return;
   const isDriver=kind==='assigned_delivery';
   const isTest=kind==='test';
+  const isMobility=kind==='mobility_request';
   event.waitUntil(self.registration.showNotification(
-    isTest?'Teste de notificação TAMÃO':isDriver?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO',{
-      body:isTest?'Você solicitou este aviso no Portal das Revendas TAMÃO.':isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
+    isTest?'Teste de notificação TAMÃO':isMobility?'Nova solicitação no TAMÃO':isDriver?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO',{
+      body:isTest?'Você solicitou este aviso no Portal das Revendas TAMÃO.':isMobility?'Abra seus atendimentos para consultar uma nova chamada.':isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
       icon:'./icons/icon.svg',
       badge:'./icons/icon.svg',
       tag:'tamao-merchant-push-'+kind,
       // A user-triggered test should not repeatedly buzz like a campaign.\n      renotify:!isTest,
-      data:{url:'./?merchant=1#merchant'}
+      data:{url:isMobility?'./?mobility=1#mobility':'./?merchant=1#merchant'}
     }
   ));
 });

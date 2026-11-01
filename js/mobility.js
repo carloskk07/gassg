@@ -8,6 +8,7 @@
 
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
+ pushEnabled:false,pushBusy:false,
  mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0,
  intentPortraitId:'',intentPortraitMode:'',intentPortraitKey:'',intentPortraitLoading:false,
  selectedPortraitId:'',selectedPortraitKey:'',selectedPortraitCheckedAt:0};
@@ -234,6 +235,124 @@ async function mobilityEnableAlerts(){
   render();return false;
  }
 }
+// Explicit, authenticated Web Push enrollment for published professional drivers.
+// Foreground alerts remain independent. No URL, route, name or GPS is sent.
+async function mobilityPushApi(action,payload,epoch,userId){
+ const s=mobilityRuntime,valid=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ if(!valid())throw Error('SESSION_CHANGED');
+ const {data,error}=await s.client.auth.getSession();
+ if(!valid()||error||data?.session?.user?.id!==userId||
+  !data.session.access_token)throw Error('SESSION_CHANGED');
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),9000);
+ try{
+  const response=await fetch(CHAMA_BACKEND.url.replace(/\/+$/,'')+
+   '/functions/v1/mobility-push-registration',{
+   method:'POST',cache:'no-store',signal:controller.signal,
+   headers:{Authorization:'Bearer '+data.session.access_token,
+    apikey:CHAMA_BACKEND.publishableKey,'Content-Type':'application/json'},
+   body:JSON.stringify({action,...payload})
+  });
+  if(!valid())throw Error('SESSION_CHANGED');
+  const result=await response.json();
+  if(!response.ok||!result||typeof result!=='object')
+   throw Error(typeof result?.error==='string'?result.error:'PUSH_UNAVAILABLE');
+  return result;
+ }finally{clearTimeout(timeout)}
+}
+function mobilityPushKey(publicKey){
+ if(!/^[A-Za-z0-9_-]{87}$/.test(publicKey))throw Error('PUSH_KEY_INVALID');
+ return Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')+'='),c=>c.charCodeAt(0));
+}
+async function mobilityReadyPushWorker(){
+ if(!navigator.serviceWorker?.ready)throw Error('PUSH_UNSUPPORTED');
+ let timer;
+ try{
+  return await Promise.race([
+   navigator.serviceWorker.ready,
+   new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('PUSH_WORKER_TIMEOUT')),7000)})
+  ]);
+ }finally{clearTimeout(timer)}
+}
+async function mobilityEnableRemoteAlerts(){
+ const s=mobilityRuntime;
+ if(!mobilityRoute()||!s.user||s.pushBusy)return false;
+ const epoch=s.sessionEpoch,userId=s.user.id;
+ const valid=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ s.pushBusy=true;s.error='';
+ try{
+  if(!globalThis.isSecureContext||!globalThis.Notification||!navigator.serviceWorker||
+    typeof globalThis.PushManager==='undefined')throw Error('PUSH_UNSUPPORTED');
+  const permission=await globalThis.Notification.requestPermission();
+  if(!valid())return false;
+  if(permission!=='granted')throw Error('PUSH_DENIED');
+  const config=await mobilityPushApi('config',{},epoch,userId);
+  if(!config.available||!config.publicKey)throw Error('PUSH_NOT_READY');
+  const key=mobilityPushKey(config.publicKey);
+  const registration=await mobilityReadyPushWorker();
+  if(!valid())return false;
+  if(!registration?.active||!registration.pushManager)throw Error('PUSH_UNSUPPORTED');
+  let subscription=await registration.pushManager.getSubscription(),created=false;
+  if(subscription){
+   const old=subscription.options?.applicationServerKey;
+   if(!old||!new Uint8Array(old).every((x,i)=>key[i]===x)||
+      new Uint8Array(old).length!==key.length)throw Error('PUSH_KEY_CHANGED');
+  }else{
+   subscription=await registration.pushManager.subscribe({
+    userVisibleOnly:true,applicationServerKey:key});
+   created=true;
+  }
+  if(!valid())return false;
+  try{
+   const result=await mobilityPushApi('subscribe',{
+    endpoint:subscription.endpoint,keys:subscription.toJSON().keys},epoch,userId);
+   if(!valid())return false;
+   s.pushEnabled=true;
+   s.noticeOptIn=true;
+   s.pendingDriverIds=mobilityDriverPending(s.items).map(x=>x.id);
+   s.notice=config.senderEnabled===true && result.testMode===false?
+    'Aparelho cadastrado. Confirme o recebimento de uma chamada de teste antes de depender dos avisos remotos.':
+    'Aparelho cadastrado para testes. O emissor remoto continua desligado até a homologação.';
+  }catch(error){
+   if(created)await subscription.unsubscribe().catch(()=>{});
+   throw error;
+  }
+  return true;
+ }catch(error){
+  if(valid()){
+   const reason=String(error?.message||'');
+   s.error=reason==='DRIVER_NOT_PUBLISHED'?
+    'Para receber chamadas, é necessário um anúncio de motorista publicado e aprovado.':
+    reason==='PUSH_DENIED'?'Permissão de notificações recusada neste aparelho.':
+    reason==='PUSH_KEY_CHANGED'?'Já existe uma inscrição com outra chave neste aparelho. Reconfigure os avisos do navegador.':
+    reason==='PUSH_UNSUPPORTED'?'Este navegador não suporta avisos com o aplicativo fechado.':
+    'Não foi possível cadastrar o aparelho. Confira a conexão e tente novamente.';
+  }
+  return false;
+ }finally{
+  if(valid()){s.pushBusy=false;if(mobilityRoute())render()}
+ }
+}
+async function mobilityDisableRemoteAlerts(){
+ const s=mobilityRuntime;
+ if(!s.user||s.pushBusy)return false;
+ const epoch=s.sessionEpoch,userId=s.user.id;
+ const valid=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ s.pushBusy=true;
+ try{
+  const subscription=await (await mobilityReadyPushWorker()).pushManager.getSubscription();
+  if(!valid())return false;
+  if(subscription){
+   await mobilityPushApi('unsubscribe',{endpoint:subscription.endpoint},epoch,userId);
+   if(!valid())return false;
+   await subscription.unsubscribe();
+  }
+  s.pushEnabled=false;s.error='';s.notice='Avisos remotos desativados neste aparelho.';
+  return true;
+ }catch(_){
+  if(valid())s.error='Não foi possível desativar os avisos remotos. Confira a conexão.';
+  return false;
+ }finally{if(valid()){s.pushBusy=false;if(mobilityRoute())render()}}
+}
 // Restore only a currently authorized, nonexpired rider/driver request.
  // An old completed ride must never become the default map or block a new ride.
 function mobilityActiveRequest(item){
@@ -337,7 +456,9 @@ function mobilityPage(){
   ' <button type="button" onclick="mobilityLogout()">Sair e parar localização</button></p>'+
   '<section class="mobility-driver-inbox" aria-label="Avisos de solicitações recebidas">'+
   '<strong>Pedidos para motoristas: '+mobilityDriverPending(s.items).length+' aguardando resposta</strong>'+
-  '<p class="tiny muted">Para receber pedidos, deixe esta área aberta. A atualização ocorre enquanto a página estiver visível; não há avisos push com o aplicativo fechado.</p>'+
+  '<p class="tiny muted">Chamadas com aplicativo fechado dependem de inscrição do motorista, envio ativo e teste real no aparelho. Até lá, acompanhe aqui.</p>'+
+  (s.pushEnabled?'<button type="button" onclick="mobilityDisableRemoteAlerts()">Desativar avisos remotos</button>':
+   '<button type="button" onclick="mobilityEnableRemoteAlerts()"'+(s.pushBusy?' disabled':'')+'>Ativar avisos com o aplicativo fechado</button>')+
   (!s.noticeOptIn?'<button type="button" onclick="mobilityEnableAlerts()">Ativar avisos do navegador nesta página</button>':
     '<p role="status">Avisos opcionais ativados nesta sessão.</p>')+'</section>'+
   '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
@@ -395,6 +516,7 @@ function mobilityClearSession(){
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';
+ s.pushEnabled=false;s.pushBusy=false;
  s.intentPortraitId='';s.intentPortraitMode='';s.intentPortraitKey='';s.intentPortraitLoading=false;
  s.selectedPortraitId='';s.selectedPortraitKey='';s.selectedPortraitCheckedAt=0;
  s.error='';s.notice='';s.busy=false;
@@ -407,6 +529,19 @@ async function mobilityLogout(){
  try{
   // Server revocation must precede auth sign-out while an access token exists.
   if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
+  if(navigator.serviceWorker?.ready){
+   try{
+    const registration=await Promise.race([
+     navigator.serviceWorker.ready,
+     new Promise((_,reject)=>setTimeout(()=>reject(Error('PUSH_TIMEOUT')),1800))]);
+    const subscription=await registration.pushManager?.getSubscription();
+    if(subscription){
+     await mobilityPushApi('unsubscribe',{endpoint:subscription.endpoint},
+      s.sessionEpoch,s.user.id);
+     await subscription.unsubscribe();
+    }
+   }catch(_){/* An offline push service must not prevent account sign-out. */}
+  }
   const r=await s.client.auth.signOut();
   if(r?.error)throw r.error;
   mobilityClearSession();

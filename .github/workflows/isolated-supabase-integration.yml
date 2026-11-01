@@ -118,6 +118,8 @@ jobs:
             supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
+      - name: Verify real driver push RLS, role gates and empty transactional outbox
+        run: node tests/isolated-mobility-push.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes

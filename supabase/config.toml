@@ -100,3 +100,6 @@ verify_jwt = false
 # TAMÃO Ads V1.316 — provider HMAC, recent timestamp and API-verified payment inbox; no JWT session.
 [functions.ads-payment-webhook-mercadopago]
 verify_jwt = false
+
+[functions.mobility-push-registration]
+verify_jwt = false
