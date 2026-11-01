@@ -211,17 +211,9 @@ Deno.serve(async (req: Request) => {
       throw new DomainError("INVALID_PRODUCT","Uma categoria solicitada está pausada.",400);
     }
 
-    const {data:launchStatus,error:launchStatusError}=await admin.rpc("commerce_launch_status");
-    if(launchStatusError)throw launchStatusError;
-    if(launchStatus?.commerceEnabled!==true){
-      return json({
-        offers:[],
-        commerceLaunchBlocked:true,
-        launchMode:String(launchStatus?.operationMode??"PRELAUNCH").toLowerCase()
-      },200,origin);
-    }
-    const operationMode=String(launchStatus?.operationMode??"LIVE").trim().toUpperCase();
-
+    // A paused commercial checkout must still validate the customer's address
+    // so the existing no-offer contact journey can receive a usable CEP/city.
+    // This read-only step never creates quotes, orders, credit or stock changes.
     const postal=await validateServicePostalCode(admin,body.postalCode);
     const address=canonicalAddress(postal,addressNumber);
     const addressMeta={
@@ -234,6 +226,18 @@ Deno.serve(async (req: Request) => {
       serviceCity:postal.city,
       serviceState:postal.state
     };
+
+    const {data:launchStatus,error:launchStatusError}=await admin.rpc("commerce_launch_status");
+    if(launchStatusError)throw launchStatusError;
+    if(launchStatus?.commerceEnabled!==true){
+      return json({
+        offers:[],
+        commerceLaunchBlocked:true,
+        launchMode:String(launchStatus?.operationMode??"PRELAUNCH").toLowerCase(),
+        ...addressMeta
+      },200,origin);
+    }
+    const operationMode=String(launchStatus?.operationMode??"LIVE").trim().toUpperCase();
 
     // Never allow another municipality's merchant into candidate selection.
     // This gate validates current compliance, heartbeat, stock and city pause.
