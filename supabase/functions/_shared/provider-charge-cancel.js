@@ -82,12 +82,17 @@ function mercadoPagoPixCancelEvidence(order,expectedAmountCents){
   const payment=payments[0];
   const method=payment?.payment_method??{};
   const expected=Number(expectedAmountCents);
-  const currency=String(order?.currency_id??order?.currency??"BRL").toUpperCase();
+  const currencies=[order?.currency_id,order?.currency]
+    .filter(x=>x!=null).map(x=>String(x).toUpperCase());
+  const receivedTotal=order?.total_paid_amount==null
+    ?0:Number(order.total_paid_amount);
   if(!String(payment?.id??"").trim()
     ||moneyToCents(payment?.amount)!==expected
     ||String(method.id??"").toLowerCase()!=="pix"
     ||String(method.type??"").toLowerCase()!=="bank_transfer"
-    ||currency!=="BRL"||order?.live_mode===false||payment?.live_mode===false){
+    ||currencies.some(x=>x!=="BRL")
+    ||!Number.isFinite(receivedTotal)||receivedTotal<0
+    ||order?.live_mode===false||payment?.live_mode===false){
     return {ok:false,reason:"MERCADOPAGO_CANCEL_PIX_BINDING_MISMATCH"};
   }
   if(Array.isArray(order?.transactions?.refunds)&&order.transactions.refunds.length>0){
@@ -148,7 +153,8 @@ async function cancelMercadoPagoCharge(providerChargeId,correlationId,amountCent
 
     const providerCorrelation=String(data?.external_reference??"").trim();
     const providerAmount=moneyToCents(data?.total_amount);
-    if(providerCorrelation!==expectedCorrelation||providerAmount!==expectedAmount){
+    if(String(data?.id??"").trim()!==orderId
+      ||providerCorrelation!==expectedCorrelation||providerAmount!==expectedAmount){
       return {ok:false,reason:"MERCADOPAGO_CANCEL_BINDING_MISMATCH",httpStatus:409};
     }
 
@@ -187,7 +193,8 @@ async function cancelMercadoPagoCharge(providerChargeId,correlationId,amountCent
       };
     }
     if(
-      String(data?.external_reference??"").trim()!==expectedCorrelation
+      String(data?.id??"").trim()!==orderId
+      ||String(data?.external_reference??"").trim()!==expectedCorrelation
       ||moneyToCents(data?.total_amount)!==expectedAmount
     ){
       return {ok:false,reason:"MERCADOPAGO_CANCEL_VERIFY_MISMATCH",httpStatus:409};
