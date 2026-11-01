@@ -1199,8 +1199,10 @@ async function merchantCopyBillingPixCode(paymentRequestId){
   const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
     .find(r=>r.id===paymentRequestId);
   const charge=request?.pixCharge;
-  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)
-    ||charge.providerVerified!==true){
+  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
+    return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
+  }
+  if(charge.providerVerified!==true){
     return toast('Conferência do Pix necessária. Use “Conferir e mostrar Pix” antes de copiar.');
   }
   const code=String(charge.brCode||'');
