@@ -258,8 +258,8 @@ function discoveryPublicGallery(item){
  const photos=[...new Set(keys.filter(key=>typeof key==='string').map(discoveryPublicPhotoUrl).filter(Boolean))].slice(0,8);
  if(!photos.length)return '';
  const title=String(item?.title||'Anúncio').slice(0,100);
- const isPassengerDriver=item?.vertical==='professionals'&&
-   /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(item?.occupation||''));
+ const isPassengerDriver=item?.vertical==='rides'||(item?.vertical==='professionals'&&
+   /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(item?.occupation||'')));
  const main='<img class="discovery-photo" src="'+esc(photos[0])+'" alt="'+
    esc(isPassengerDriver?'Foto do motorista informada no anúncio: '+title:'Foto principal de '+title)+
    '" loading="lazy" decoding="async">';
