@@ -266,6 +266,11 @@ function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmount
   // pending Pix transaction. The aggregate order total alone is insufficient.
   const paymentAmount=moneyToCents(payment?.amount);
   const paymentStatus=String(payment?.status??"").trim().toLowerCase();
+  if(status==="processed"||paymentStatus==="processed"){
+    // An idempotent retry must never re-offer a Pix already paid at the PSP.
+    throw new DomainError("PIX_PROVIDER_ALREADY_PROCESSED",
+      "O Mercado Pago já processou este Pix. Aguarde a conciliação no financeiro.",409);
+  }
   const orderDetail=String(order?.status_detail??"").trim().toLowerCase();
   const paymentDetail=String(payment?.status_detail??"").trim().toLowerCase();
   if(order?.live_mode===false||payment?.live_mode===false
@@ -284,12 +289,6 @@ function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmount
   if(String(method?.id??"").toLowerCase()!=="pix"
     ||String(method?.type??"").toLowerCase()!=="bank_transfer"){
     throw new Error("MERCADOPAGO_PAYMENT_METHOD_MISMATCH");
-  }
-  if(status==="processed"||String(payment?.status??"").trim().toLowerCase()==="processed"){
-    // An idempotent retry may find an already processed order; never
-    // re-offer its QR. The webhook remains the credit/settlement authority.
-    throw new DomainError("PIX_PROVIDER_ALREADY_PROCESSED",
-      "O Mercado Pago já processou este Pix. Aguarde a conciliação no financeiro.",409);
   }
   if(!["action_required","processing"].includes(status)){
     throw new Error("MERCADOPAGO_ORDER_NOT_PAYABLE");
