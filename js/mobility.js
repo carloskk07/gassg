@@ -8,7 +8,7 @@
 
 const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
- mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:''};
+ mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const mobilityStates={
  requested:'Aguardando resposta do anunciante',accepted:'Aceita pelo motorista',
@@ -269,6 +269,8 @@ async function mobilityInit(){
 }
 function mobilityClearSession(){
  const s=mobilityRuntime;
+ // Invalidate responses already in flight before erasing another user's data.
+ s.sessionEpoch++;s.refreshSeq++;
  if(s.watch!==null||s.gpsPending)mobilityStopTracking();
  const frame=document.getElementById?.('mobility-map');
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
@@ -337,8 +339,9 @@ async function mobilityLogin(event){
 async function mobilityRefresh(silent=false){
  const s=mobilityRuntime;
  if(!s.client||!s.user)return false;
- // Refreshes may be throttled when backgrounded. Expire a cached marker
- // immediately when the next foreground check runs, even if the RPC fails.
+ const seq=++s.refreshSeq,sessionEpoch=s.sessionEpoch,userId=s.user.id;
+ const latest=()=>s.refreshSeq===seq&&s.sessionEpoch===sessionEpoch&&s.user?.id===userId;
+ // Never display expired GPS, including when connectivity has been lost.
  if(s.detail?.position&&!mobilityFreshPosition(s.detail)){
   s.detail={...s.detail,position:null};
   mobilityUpdateMap(s.detail);
@@ -346,34 +349,46 @@ async function mobilityRefresh(silent=false){
  }
  try{
   const {data,error}=await s.client.rpc('mobility_my_requests');
+  if(!latest())return false;
   if(error)throw error;
-  const items=Array.isArray(data)?data:[];
-  if(items.length>30)throw Error('Invalid response');
+  if(!Array.isArray(data)||data.length>30)throw Error('Invalid request list');
+  const items=data;
   mobilityNotifyNewPending(items);
   const before=JSON.stringify(s.items);s.items=items;
   let changed=before!==JSON.stringify(items);
   if(mobilityResumeRequest(items))changed=true;
   if(s.id){
-   const res=await s.client.rpc('mobility_snapshot',{p_request_id:s.id});
+   const selected=s.id;
+   const res=await s.client.rpc('mobility_snapshot',{p_request_id:selected});
+   if(!latest()||s.id!==selected)return false;
    if(res.error)throw res.error;
    const next=res.data||null;
-   const prevStatus=s.detail?.status;
-   const oldPosition=s.detail?.position||null;
-   const prevPosition=JSON.stringify(oldPosition);
-   s.detail=next;
-   changed=changed||prevStatus!==next?.status;
-   if((s.watch!==null||s.gpsPending)&&(next?.status!=='en_route'||next?.role!=='driver'))mobilityStopTracking();
-   if(prevPosition!==JSON.stringify(next?.position||null)){
-    // An iframe from a revoked/stale GPS point must not survive a silent poll.
-    // Re-render when tracking starts or ends, otherwise refresh only the marker.
-    if(Boolean(oldPosition)!==Boolean(next?.position))changed=true;
-    else if(!changed)mobilityUpdateMap(next);
+   if(!next||next.id!==selected||!['rider','driver'].includes(next.role)){
+    // A revoked, deleted or unauthorized request must never leave an old
+    // passenger location on screen or permanently block a new request.
+    if(s.watch!==null||s.gpsPending)mobilityStopTracking();
+    s.id='';s.detail=null;s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
+    mobilityUpdateMap(null);
+    changed=true;
+   }else{
+    const prevStatus=s.detail?.status;
+    const oldPosition=s.detail?.position||null;
+    const prevPosition=JSON.stringify(oldPosition);
+    s.detail=next;
+    changed=changed||prevStatus!==next.status;
+    if((s.watch!==null||s.gpsPending)&&(next.status!=='en_route'||next.role!=='driver'))mobilityStopTracking();
+    if(prevPosition!==JSON.stringify(next.position||null)){
+     // Revoked GPS always removes the iframe. An unchanged request updates
+     // only its marker, avoiding unnecessary full-page rerenders.
+     if(Boolean(oldPosition)!==Boolean(next.position))changed=true;
+     else if(!changed)mobilityUpdateMap(next);
+    }
    }
   }
-  if(!silent||changed)if(mobilityRoute())render();
+  if((!silent||changed)&&mobilityRoute())render();
   return true;
  }catch(_){
-  // A network outage never authorizes keeping an old map on screen.
+  if(!latest())return false;
   if(s.detail?.position){
    s.detail={...s.detail,position:null};
    mobilityUpdateMap(s.detail);
@@ -397,29 +412,35 @@ async function mobilityCreate(event){
  if(origin.length<3||origin.length>120||destination.length<3||destination.length>120){
   s.error='Informe origem e destino aproximados.';render();return false;
  }
+ const epoch=s.sessionEpoch,userId=s.user.id;
  s.busy=true;s.error='';
  try{
   const r=await s.client.rpc('mobility_create_request',{
    p_listing_id:intent.id,p_service:intent.mode,p_origin_area:origin,p_destination_area:destination
   });
   if(r.error||!mobilityId.test(String(r.data||'')))throw r.error||Error('invalid id');
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
   s.id=r.data;s.notice='Solicitação enviada. Aguarde o aceite do anunciante.';
   await mobilityRefresh();
- }catch(_){s.error='Não foi possível solicitar. O anunciante pode estar indisponível ou já haver uma solicitação sua.'}
+ }catch(_){if(s.sessionEpoch===epoch&&s.user?.id===userId)s.error='Não foi possível solicitar. O anunciante pode estar indisponível ou já haver uma solicitação sua.'}
+ if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
  s.busy=false;render();return false;
 }
 async function mobilityTransition(action){
  const s=mobilityRuntime;
  if(!s.client||!s.user||s.busy||!mobilityId.test(s.id)||!
   ['accept','depart','arrive','finish','reject','cancel'].includes(action))return false;
+ const epoch=s.sessionEpoch,userId=s.user.id,selected=s.id;
  s.busy=true;s.error='';render();
  try{
   if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
   const r=await s.client.rpc('mobility_transition',{p_request_id:s.id,p_action:action});
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
   if(r.error)throw r.error;
   s.notice='Situação atualizada: '+(mobilityStates[r.data]||'consulte o atendimento')+'.';
   await mobilityRefresh();
- }catch(_){s.error='Não foi possível atualizar. Revise o estado da solicitação.'}
+ }catch(_){if(s.sessionEpoch===epoch&&s.user?.id===userId&&s.id===selected)s.error='Não foi possível atualizar. Revise o estado da solicitação.'}
+ if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
  s.busy=false;render();return false;
 }
 function mobilityOpenMap(){
@@ -514,7 +535,10 @@ async function mobilityStopTracking(){
  return true;
 }
 document.addEventListener('visibilitychange',()=>{
- if(document.visibilityState!=='hidden')return;
+ if(document.visibilityState!=='hidden'){
+  if(mobilityRoute()&&mobilityRuntime.user)mobilityRefresh(true).catch(()=>{});
+  return;
+ }
  if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
  // No retained coordinates in the third-party map on backgrounding.
  const frame=document.getElementById?.('mobility-map');
@@ -523,6 +547,9 @@ document.addEventListener('visibilitychange',()=>{
  if(mobilityRuntime.detail?.position){
   mobilityRuntime.detail={...mobilityRuntime.detail,position:null};
  }
+});
+globalThis.addEventListener?.('online',()=>{
+ if(mobilityRoute()&&mobilityRuntime.user)mobilityRefresh(true).catch(()=>{});
 });
 globalThis.addEventListener?.('offline',()=>{
  if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
