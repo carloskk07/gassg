@@ -8,7 +8,11 @@ assert.ok(shell&&mobile);
 assert.doesNotMatch(shell,/prelaunchPublic|Quero comprar|Quero vender/);
 assert.doesNotMatch(mobile,/prelaunchPublic|early-access/);
 assert.match(core,/function tamaoOpenAvailability\(\)/);
-assert.match(core,/prelaunchExamplesEnabled\?\.\(\)===true\)return openPrelaunchCustomerLead\(\)/);
+assert.match(core,/function tamaoOpenAvailability\\(\\)\\{[\\s\\S]*?return startHomeBrowse\\(\\);/);
+assert.doesNotMatch(core.slice(core.indexOf('function tamaoOpenAvailability(){'),
+ core.indexOf('function shell(',core.indexOf('function tamaoOpenAvailability(){'))),
+ /openPrelaunchCustomerLead\\(\\)/,
+ 'public shop actions must not be diverted to waitlist');
 assert.match(shell,/onclick="tamaoOpenAvailability\(\)"/);
 assert.match(mobile,/\['availability','🧺','Comprar','market'\]/);
 assert.match(mobile,/\['tracking','📦','Pedidos','go'\]/);
