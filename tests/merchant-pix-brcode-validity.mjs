@@ -369,10 +369,15 @@ const livePixEnd=backendSource.indexOf('async function merchantRequestBillingPac
 assert.ok(livePixStart>0&&livePixEnd>livePixStart);
 const livePixSource=backendSource.slice(livePixStart,livePixEnd);
 assert.match(livePixSource,/await merchantRefresh\(\{silent:true\}\)/);
-assert.match(livePixSource,/persisted\.id!==charge\.id/);
-assert.match(livePixSource,/persisted\.correlationId!==charge\.correlationId/);
-assert.match(livePixSource,/Number\(persisted\.amountCents\)!==Number\(charge\.amountCents\)/);
-assert.match(livePixSource,/providerVerified:true/);
+assert.match(livePixSource,/merchantAcceptVerifiedBillingPix/);
+const acceptStart=merchant.indexOf('function merchantAcceptVerifiedBillingPix(');
+const acceptEnd=merchant.indexOf('function merchantBillingPixChargeExpired(',acceptStart);
+assert.ok(acceptStart>0&&acceptEnd>acceptStart);
+const acceptSource=merchant.slice(acceptStart,acceptEnd);
+assert.match(acceptSource,/persisted\.id!==charge\.id/);
+assert.match(acceptSource,/persisted\.correlationId!==charge\.correlationId/);
+assert.match(acceptSource,/Number\(persisted\.amountCents\)!==Number\(charge\.amountCents\)/);
+assert.match(acceptSource,/providerVerified:true/);
 
 const viewStart=merchant.indexOf('function merchantBillingPixChargeView(');
 const viewEnd=merchant.indexOf('function merchantBillingLiveView(',viewStart);
