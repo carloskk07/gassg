@@ -100,6 +100,7 @@ jobs:
           node tests/mobility-tracking-security.mjs
           node tests/mobility-ui-journey.mjs
           node tests/mobility-report-support.mjs
+          node tests/mobility-session-refresh-isolation-v1-493.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
       - name: Regional wood, charcoal and ice units
