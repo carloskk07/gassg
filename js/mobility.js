@@ -263,6 +263,16 @@ function mobilityPushKey(publicKey){
  if(!/^[A-Za-z0-9_-]{87}$/.test(publicKey))throw Error('PUSH_KEY_INVALID');
  return Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')+'='),c=>c.charCodeAt(0));
 }
+async function mobilityReadyPushWorker(){
+ if(!navigator.serviceWorker?.ready)throw Error('PUSH_UNSUPPORTED');
+ let timer;
+ try{
+  return await Promise.race([
+   navigator.serviceWorker.ready,
+   new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('PUSH_WORKER_TIMEOUT')),7000)})
+  ]);
+ }finally{clearTimeout(timer)}
+}
 async function mobilityEnableRemoteAlerts(){
  const s=mobilityRuntime;
  if(!mobilityRoute()||!s.user||s.pushBusy)return false;
@@ -278,7 +288,7 @@ async function mobilityEnableRemoteAlerts(){
   const config=await mobilityPushApi('config',{},epoch,userId);
   if(!config.available||!config.publicKey)throw Error('PUSH_NOT_READY');
   const key=mobilityPushKey(config.publicKey);
-  const registration=await navigator.serviceWorker.ready;
+  const registration=await mobilityReadyPushWorker();
   if(!valid())return false;
   if(!registration?.active||!registration.pushManager)throw Error('PUSH_UNSUPPORTED');
   let subscription=await registration.pushManager.getSubscription(),created=false;
@@ -329,7 +339,7 @@ async function mobilityDisableRemoteAlerts(){
  const valid=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
  s.pushBusy=true;
  try{
-  const subscription=await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+  const subscription=await (await mobilityReadyPushWorker()).pushManager.getSubscription();
   if(!valid())return false;
   if(subscription){
    await mobilityPushApi('unsubscribe',{endpoint:subscription.endpoint},epoch,userId);
