@@ -69,7 +69,7 @@ const form={checkValidity:()=>true};
 const submit=()=>ownerCtx.discoveryOwnerSave({preventDefault(){},
  target:form,submitter:{name:'finish',value:'review'}});
 assert.equal(await submit(),false);
-assert.match(s.error,/foto do motorista/);
+assert.match(s.error,/foto de rosto do motorista/);
 assert.equal(writes.length,0,'photoless driver review cannot make ANY database writes');
 const face={type:'image/jpeg',size:1200},car={type:'image/png',size:1800};
 files={portrait:[face],gallery:[car]};
