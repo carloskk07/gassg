@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 \i supabase/migrations/20261021030000_mobility_live_tracking.sql
-\i supabase/migrations/20261101213000_mobility_service_category_integrity_v1_493.sql
+\i supabase/migrations/20261101211234_mobility_service_category_integrity_v1_493.sql
 insert into public.discovery_vertical_cities(vertical,state_code,city_key,city_name,enabled)
 values('professionals','RS','sao-gabriel','São Gabriel',true)
 on conflict(vertical,state_code,city_key) do update set enabled=true;
