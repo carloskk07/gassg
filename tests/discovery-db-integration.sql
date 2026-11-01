@@ -43,7 +43,7 @@ insert into public.platform_admins(user_id,active,admin_role)
  values ('00000000-0000-0000-0000-000000000033',true,'superadmin');
 
 \i supabase/migrations/20261018131000_discovery_shared_verticals.sql
-\i supabase/migrations/20261101220000_discovery_live_ride_seat_management.sql
+\i supabase/migrations/20261101195756_discovery_live_ride_seat_management_v1_493.sql
 
 -- Newly-installed verticals never activate existing product marketplace.
 select count(*) as unactivated_cities from public.discovery_vertical_cities;
