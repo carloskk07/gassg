@@ -162,8 +162,37 @@ function mobilityListCard(item){
   '<p>'+esc(String(item.origin||'').slice(0,120))+' → '+esc(String(item.destination||'').slice(0,120))+'</p>'+
   '<button type="button" onclick="mobilityFocus(\''+item.id+'\')">Ver '+(open?'andamento':'detalhes')+'</button></article>';
 }
-// Browsers can alert only while this dashboard is open. This is not push
-// delivery, and never sends coordinates, trip addresses or driver identity.
+// Foreground only: the server does not send closed-app push for mobility.
+// Chrome Android rejects new Notification(); use the active Service Worker.
+// Never place trip addresses, GPS, names or request IDs on the lock screen.
+function mobilityDriverAlertAllowed(epoch,userId,incoming){
+ const s=mobilityRuntime;
+ return s.sessionEpoch===epoch&&s.user?.id===userId&&s.noticeOptIn&&
+  document.visibilityState!=='hidden'&&
+  globalThis.Notification?.permission==='granted'&&
+  Array.isArray(s.pendingDriverIds)&&incoming.some(id=>s.pendingDriverIds.includes(id));
+}
+async function mobilityShowVisibleDriverAlert(epoch,userId,incoming){
+ const title='Novo pedido de moto ou carro no TAMÃO';
+ const options={body:'Abra a área de mobilidade para consultar a solicitação.',
+  tag:'tamao-mobility-pending',icon:'./icons/icon.svg',badge:'./icons/icon.svg',
+  data:{url:'./?mobility=1#mobility'}};
+ if(!mobilityDriverAlertAllowed(epoch,userId,incoming))return false;
+ const worker=globalThis.navigator?.serviceWorker;
+ if(worker?.controller&&typeof worker.getRegistration==='function'){
+  try{
+   const registration=await worker.getRegistration();
+   if(!mobilityDriverAlertAllowed(epoch,userId,incoming))return false;
+   if(registration?.active&&typeof registration.showNotification==='function'){
+    await registration.showNotification(title,options);
+    return true;
+   }
+  }catch(_){/* Fallback only while this account still has an active request. */}
+ }
+ if(!mobilityDriverAlertAllowed(epoch,userId,incoming))return false;
+ try{new globalThis.Notification(title,options);return true}
+ catch(_){return false}
+}
 function mobilityDriverPending(items){
  return (Array.isArray(items)?items:[]).filter(item=>item?.role==='driver'&&
   item.status==='requested'&&mobilityId.test(String(item.id||''))&&
@@ -177,9 +206,8 @@ function mobilityNotifyNewPending(items){
    !globalThis.Notification||globalThis.Notification.permission!=='granted')return;
  const incoming=next.filter(id=>!previous.includes(id));
  if(incoming.length){
-  try{new globalThis.Notification('Novo pedido de moto ou carro no TAMÃO',{
-    body:'Abra a área de mobilidade para consultar a solicitação.'});}
-  catch(_){/* No permission or platform support: in-page inbox still works. */}
+  // Never notify after logout, hiding, permission revocation or a newer inbox.
+  void mobilityShowVisibleDriverAlert(s.sessionEpoch,s.user?.id,incoming);
  }
 }
 async function mobilityEnableAlerts(){
