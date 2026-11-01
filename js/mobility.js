@@ -435,7 +435,8 @@ async function mobilityTransition(action){
  s.busy=true;s.error='';render();
  try{
   if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
-  const r=await s.client.rpc('mobility_transition',{p_request_id:s.id,p_action:action});
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  const r=await s.client.rpc('mobility_transition',{p_request_id:selected,p_action:action});
   if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
   if(r.error)throw r.error;
   s.notice='Situação atualizada: '+(mobilityStates[r.data]||'consulte o atendimento')+'.';
