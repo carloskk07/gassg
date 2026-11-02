@@ -44,6 +44,15 @@
     return !!who&&!!now&&now.rt===who.rt&&now.scope===who.scope&&
       now.session===who.session&&now.accessToken===who.accessToken;
   }
+  // Token rotation from Supabase Auth may accompany an online refresh.
+  // Reconciliation may continue for the SAME authorized participant, while
+  // the server must still verify a fresh assigned order before each mutation.
+  // Local encryption and storage remain bound to the exact original session.
+  function sameParticipant(who){
+    const now=identity();
+    return !!who&&!!now&&now.rt===who.rt&&now.userId===who.userId&&
+      now.merchantId===who.merchantId&&now.scope===who.scope;
+  }
   function authorizedOrder(id,{fresh=false}={}){
     const who=identity();
     if(fresh&&who?.rt.status!=='ready')return null;
@@ -388,9 +397,9 @@
       // No local state can authorize the arriving or delivery mutations.
       // Both actions require a freshly reloaded server-assigned order.
       await globalThis.merchantRefresh({silent:true});
-      if(!sameIdentity(who))return;
+      if(!sameParticipant(who))return;
       const receipt=await recover(who,id);
-      if(!sameIdentity(who))return;
+      if(!sameParticipant(who))return;
       if(deliveredOnServer(id,who,receipt)){
         // Lost ACK: the server has already confirmed the exact next version.
         // Do not send PIN or arrival a second time.
@@ -406,7 +415,7 @@
           await globalThis.merchantPerformAction(id,'arriving');
           // An arriving ACK is insufficient without a fresh authorized state.
           await globalThis.merchantRefresh({silent:true});
-          if(!sameIdentity(who))return;
+          if(!sameParticipant(who))return;
           current=authorizedOrder(id,{fresh:true});
         }
         // If an earlier arrival ACK was lost, its exact next version may
@@ -417,9 +426,9 @@
       }else if(current.order.status!=='ARRIVING'||current.order.version!==receipt.version){
         throw new Error('Versão do pedido mudou. A confirmação requer revisão da revenda.');
       }
-      if(!sameIdentity(who))return;
+      if(!sameParticipant(who))return;
       const acknowledged=await globalThis.merchantCompleteDeliveryLive(id,receipt.pin,true,receipt.idempotencyKey);
-      if(!sameIdentity(who))return;
+      if(!sameParticipant(who))return;
       // The canonical helper may return a positive HTTP ACK even when its
       // follow-up merchant-orders refresh fails. Do NOT clear the proof until
       // the authenticated snapshot confirms the exact completed version.
