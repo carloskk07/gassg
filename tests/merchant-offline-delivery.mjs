@@ -598,7 +598,7 @@ rt.session={access_token:'other-test-session',
 resumeOpen();
 await delayedPanel;
 assert.equal(host.children.length,0,'late storage callback must not render a former account proof');
-assert.equal(host.parentElement.hidden,true,'changed account must not reveal a former driver's queue');
+assert.equal(host.parentElement.hidden,true,"changed account must not reveal a former driver's queue");
 
 // Pause at the AES-GCM boundary: a proof started under driver A must not be
 // persisted when driver B becomes authenticated before encryption returns.
