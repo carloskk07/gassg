@@ -110,6 +110,8 @@ jobs:
           node tests/mobility-category-continuity-v1-493.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
+      - name: Advertiser cross-tab auth and stale private editor isolation
+        run: node tests/discovery-owner-auth-isolation-v1-493.mjs
       - name: Carona driver photo-before-contact and moderation guard
         run: node tests/discovery-ride-driver-portrait-v1-493.mjs
       - name: Carona published capacity owner-only update and session guard

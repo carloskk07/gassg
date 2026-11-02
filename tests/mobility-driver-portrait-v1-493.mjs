@@ -146,7 +146,7 @@ const ownerCtx={
  discoveryOwner:state,discoveryOwnerTables:{professionals:'discovery_professional_details'},render:()=>renderCount++,
  discoveryOwnerRoute:()=>true,discoveryOwnerCitySlug:()=> 'sao-gabriel',
  discoveryOwnerDetails:()=>({occupation:'Mototáxi'}),
- discoveryOwnerRefresh:async()=>{},discoveryOwnerError:e=>String(e),
+ discoveryOwnerRefresh:async()=>true,discoveryOwnerError:e=>String(e),
  crypto:{randomUUID:()=>imageId}
 };
 const isolated=ownSrc.slice(begin,end);
