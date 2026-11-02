@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const get=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const sql=get('supabase/migrations/20261102040000_mobility_accept_push_category_continuity_v1_493.sql');
+assert.match(sql,/create function public\.mobility_driver_category_current\(/);
+assert.match(sql,/when d\.occupation ~\* '\(motot\[aá\]xi\|moto\.\?taxi\)' then 'moto'/);
+assert.match(sql,/when d\.occupation ~\* '\(motorista\|t\[aá\]xi\|taxista\)' then 'carro'/);
+assert.match(sql,/revoke all on function public\.mobility_driver_category_current\(uuid,uuid,text\)/);
+assert.match(sql,/create trigger mobility_accept_matching_category/);
+assert.match(sql,/when \(old\.status='requested' and new\.status='accepted'\)/);
+assert.match(sql,/MOBILITY_PROVIDER_UNAVAILABLE/);
+assert.equal((sql.match(/public\.mobility_driver_category_current\(r\.listing_id,o\.driver_id,r\.service\)/g)||[]).length,3,
+ 'must recheck in outbox insert, due lease, and final pre-send authorization');
+assert.match(sql,/create or replace function public\.mobility_push_claim_due/);
+assert.match(sql,/create or replace function public\.mobility_push_delivery_allowed/);
+assert.match(sql,/grant execute on function public\.mobility_push_claim_due\(integer\) to service_role/);
+assert.match(sql,/grant execute on function public\.mobility_push_delivery_allowed\(bigint,uuid\)/);
+assert.doesNotMatch(sql,/grant execute.*to authenticated/i);
+assert.match(get('tests/isolated-mobility-push.mjs'),/RETAGGED_DRIVER_CLAIMED_PUSH/);
+assert.match(get('tests/isolated-mobility-push.mjs'),/MOTO_ACCEPTED_AFTER_DRIVER_CHANGED_TO_CAR/);
+assert.match(get('tests/isolated-mobility-push.mjs'),/RESTORED_DRIVER_NOT_ALLOWED_PRE_SEND/);
+assert.match(get('.github/workflows/audit.yml'),/node tests\/mobility-category-continuity-v1-493\.mjs/);
+console.log('PASS: published, same-category driver on accept + three-stage Web Push eligibility; RPC grants fail closed');
