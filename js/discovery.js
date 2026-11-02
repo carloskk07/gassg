@@ -362,8 +362,7 @@ function discoveryPrepareInquiry(anchor){
   const raw=String(box?.querySelector?.('[name="service"]')?.value||'');
   const service=raw.replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim();
   const day=String(box?.querySelector?.('[name="preferred_day"]')?.value||'').trim();
-  const validDay=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
-    Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  const validDay=discoveryValidCalendarDate;
   const mode=String(box?.dataset?.service||'');
   const mobility=Object.hasOwn(discoveryServiceShortcuts,mode)?mode:'';
   if(mobility){
@@ -373,7 +372,7 @@ function discoveryPrepareInquiry(anchor){
     if(origin.length<3||origin.length>120||destination.length<3||destination.length>120)
       return invalid('Informe origem e destino aproximados, de 3 a 120 caracteres.');
     if(service.length>350)return invalid('Detalhes excedem 350 caracteres.');
-    if(day&&(!validDay(day)||Date.parse(day)<Date.now()-86400000))
+    if(day&&(!validDay(day)||day<discoveryTodayLocal()))
       return invalid('Informe uma data válida, a partir de hoje.');
     const request={moto:'uma corrida de moto',carro:'uma corrida de carro',
       fretes:'um frete',entregas:'uma entrega'}[mobility];
@@ -386,7 +385,7 @@ function discoveryPrepareInquiry(anchor){
   }else{
     if(service.length<10||service.length>500)
       return invalid('Descreva o serviço em 10 a 500 caracteres.');
-    if(day&&(!validDay(day)||Date.parse(day)<Date.now()-86400000))
+    if(day&&(!validDay(day)||day<discoveryTodayLocal()))
       return invalid('Informe uma data válida, a partir de hoje.');
     message='Olá! Encontrei seu anúncio de serviço no TAMÃO: '+title+
       '. Gostaria de solicitar um orçamento. Serviço: '+service+
@@ -404,10 +403,9 @@ function discoveryPrepareInquiry(anchor){
   const checkin=String(box?.querySelector?.('[name="checkin"]')?.value||'');
   const checkout=String(box?.querySelector?.('[name="checkout"]')?.value||'');
   const guests=number('guests');
-  const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
-    Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+  const validDate=discoveryValidCalendarDate;
   if(!validDate(checkin)||!validDate(checkout)||checkout<=checkin||
-     Date.parse(checkin)<Date.now()-86400000)
+     checkin<discoveryTodayLocal())
     return invalid('Informe entrada e saída válidas, com saída após a entrada.');
   if(!Number.isInteger(guests)||guests<1||guests>limit)
     return invalid('Informe uma quantidade de hóspedes válida.');
