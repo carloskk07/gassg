@@ -16,6 +16,10 @@ const client={rpc(name,args){
  calls.push({name,args});
  if(pending[name]){const p=gate();pending[name].push(p);return p.promise}
  return Promise.resolve({data:true,error:null});
+},from(table){
+ assert.equal(table,'mobility_requests');
+ return {select(){return this},eq(){return this},
+  maybeSingle:async()=>({data:null,error:new Error('simulated portrait revalidation failure')})};
 }};
 const handler={};
 let renders=0;
@@ -137,6 +141,37 @@ assert.equal(await offline,false);
 assert.equal(s.detail.driver_whatsapp,null,'Network failures must drop cached contact');
 assert.ok(renders>beforeLoss,'Failed silent refresh must hide contact visibly');
 assert.doesNotMatch(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp/);
+
+// A cached public portrait must disappear if its periodic revalidation
+// fails without changing the ride status or the participant's inbox.
+s.user=userA;s.id=rideA;s.items=[{...mk(rideA),status:'accepted',position:null}];
+s.detail={...s.items[0],driver_whatsapp:null};
+const portrait='11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.jpg';
+s.selectedPortraitId=rideA;s.selectedPortraitKey=portrait;
+s.selectedPortraitCheckedAt=Date.now()-61000;
+assert.match(ctx.mobilityPage(),/class="mobility-driver-portrait"/);
+const beforePortraitFailure=renders;
+const portraitFailure=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',[{...s.items[0]}]);
+await flush();
+resolve('mobility_snapshot',{...s.detail});
+assert.equal(await portraitFailure,true);
+assert.equal(s.selectedPortraitKey,'');
+assert.ok(renders>beforePortraitFailure,'Quiet poll must redraw after portrait revalidation fails');
+assert.doesNotMatch(ctx.mobilityPage(),/class="mobility-driver-portrait"/);
+
+// Connectivity loss with only a cached portrait (no GPS/contact) must also
+// remove it from the current DOM, instead of displaying stale authorization.
+s.selectedPortraitId=rideA;s.selectedPortraitKey=portrait;
+s.selectedPortraitCheckedAt=Date.now();
+assert.match(ctx.mobilityPage(),/class="mobility-driver-portrait"/);
+const beforePortraitOffline=renders;
+const portraitOffline=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',null,new Error('simulated offline read'));
+assert.equal(await portraitOffline,false);
+assert.equal(s.selectedPortraitKey,'');
+assert.ok(renders>beforePortraitOffline,'Offline refresh must redraw and remove cached portrait');
+assert.doesNotMatch(ctx.mobilityPage(),/class="mobility-driver-portrait"/);
 
 // Returning to the app or reconnecting refreshes the authorized inbox.
 s.user=userB;
