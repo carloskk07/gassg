@@ -114,9 +114,13 @@ begin
  row:=public.mobility_snapshot(current_setting('tamao.ci.moto_completed')::uuid);
  if row->>'status'<>'completed' or row->'position'<>'null'::jsonb
  then raise exception 'COMPLETED_RIDE_GPS_LEAK_OR_STATUS';end if;
- if (select count(*) from public.mobility_live_positions
-     where request_id=current_setting('tamao.ci.moto_completed')::uuid)<>0
- then raise exception 'COMPLETED_RIDE_GPS_NOT_PURGED';end if;
+ -- Rider must NEVER gain direct read privileges to live GPS storage.
+ -- The server-side snapshot is the only authorized way to see any point.
+ begin
+  perform 1 from public.mobility_live_positions
+   where request_id=current_setting('tamao.ci.moto_completed')::uuid;
+  raise exception 'RIDER_DIRECT_GPS_READ_ALLOWED';
+ exception when insufficient_privilege then null;end;
 end $probe$;
 
 -- REJECT is a distinct terminal path: no GPS and no subsequent acceptance.
