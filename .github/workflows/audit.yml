@@ -89,6 +89,8 @@ jobs:
         run: node tests/public-discovery-polish-20261021.mjs
       - name: Public discovery journeys, HTML escaping and PWA assets
         run: node tests/discovery-public-journeys.mjs
+      - name: Mobility, carpool and lodging calendar eligibility
+        run: node tests/discovery-transport-calendar-safety-v1-493.mjs
       - name: Discovery favorites and verified-current shortlist
         run: node tests/discovery-saved-shortlist.mjs
       - name: Discovery loaded-listing sort per vertical, invalid data and mobile accessibility
