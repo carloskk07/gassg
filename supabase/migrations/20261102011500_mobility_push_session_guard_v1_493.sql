@@ -22,8 +22,8 @@ declare v_now timestamptz:=clock_timestamp();
 begin
  update public.mobility_push_outbox ob set state='expired'
  where ob.state='pending' and ob.expires_at<=v_now;
- insert into public.mobility_push_deliveries(outbox_id,subscription_id)
- select o.id,s.id from public.mobility_push_outbox o
+ insert into public.mobility_push_deliveries(outbox_id,subscription_id,next_attempt_at)
+ select o.id,s.id,v_now from public.mobility_push_outbox o
  join public.mobility_requests r on r.id=o.request_id
  join public.discovery_listings l on l.id=r.listing_id
  join public.discovery_vertical_cities c on c.vertical='professionals'
