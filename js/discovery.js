@@ -218,11 +218,38 @@ function discoveryExploreCards(){
     '<button type="button" onclick="go(\''+key+'\')">'+v[2]+' <strong>'+v[0]+'</strong><span>Ver anúncios e oportunidades →</span></button>'
   ).join('')+'</div></section>';
 }
+// The word "táxi" also appears in "mototáxi": never route a motorbike
+// listing to the car-trip flow or prepare a mismatched service inquiry.
+function discoveryProfessionalTransportKind(occupation){
+ const label=String(occupation||'').normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/moto[\s-]*taxi/.test(label))return 'moto';
+ if(/motorista|taxista|(?:^|[^a-z])taxi(?:$|[^a-z])/.test(label))return 'carro';
+ return '';
+}
+function discoveryTodayLocal(){
+ const today=new Date();
+ return String(today.getFullYear()).padStart(4,'0')+'-'+
+  String(today.getMonth()+1).padStart(2,'0')+'-'+
+  String(today.getDate()).padStart(2,'0');
+}
+function discoveryValidCalendarDate(value){
+ return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&
+  Number.isFinite(Date.parse(value))&&
+  new Date(value).toISOString().slice(0,10)===value;
+}
+function discoveryRideAvailable(item){
+ const departure=Date.parse(String(item?.departure_at||''));
+ const seats=Number(item?.seats_available);
+ return Number.isFinite(departure)&&departure>Date.now()&&
+  Number.isInteger(seats)&&seats>=1&&seats<=8;
+}
 function discoveryWhatsApp(item){
   const phone=String(item.whatsapp_e164||'');
   if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
   const title=String(item.title||'').trim().slice(0,80);
   const kind=String(item.vertical||'');
+  if(kind==='rides'&&!discoveryRideAvailable(item))return '';
   const opening=kind==='rides'?'Olá! Vi sua carona anunciada no TAMÃO: ':
     kind==='stays'?'Olá! Vi sua hospedagem anunciada no TAMÃO: ':
     'Olá! Vi seu serviço anunciado no TAMÃO: ';
@@ -281,9 +308,12 @@ function discoveryInquiryForm(item,kind){
  if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
  const title=esc(String(item?.title||'').slice(0,80));
  const mode=kind==='professionals'?discoveryState('professionals').service:'';
- const mobility=Object.hasOwn(discoveryServiceShortcuts,mode)?mode:'';
+ const requested=Object.hasOwn(discoveryServiceShortcuts,mode)?mode:'';
+ const mobility=['moto','carro'].includes(requested)&&
+  discoveryProfessionalTransportKind(item?.occupation)!==requested?'':requested;
  const count=kind==='professionals'?0:Number(kind==='rides'?item.seats_available:item.guests);
  if(kind!=='professionals'&&(!Number.isInteger(count)||count<1||count>(kind==='rides'?8:80)))return '';
+ if(kind==='rides'&&!discoveryRideAvailable(item))return '';
  const mobilityInputs=
   '<label>Origem aproximada<input name="origin" required minlength="3" maxlength="120" placeholder="Bairro ou ponto de referência"></label>'+
   '<label>Destino aproximado<input name="destination" required minlength="3" maxlength="120" placeholder="Bairro ou região de destino"></label>'+
@@ -298,7 +328,9 @@ function discoveryInquiryForm(item,kind){
   '<label>Saída desejada<input name="checkout" type="date" required></label>'+
   '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
  return '<details class="discovery-inquiry" data-phone="'+esc(phone)+
-  '" data-kind="'+kind+'" data-service="'+mobility+'" data-title="'+title+'" data-max="'+count+'">'+
+  '" data-kind="'+kind+'" data-service="'+mobility+'" data-title="'+title+
+  '" data-departure="'+(kind==='rides'?esc(String(item.departure_at||'').slice(0,45)):'')+
+  '" data-max="'+count+'">'+
   '<summary>'+(kind==='professionals'?(mobility?
      (mobility==='moto'||mobility==='carro'?'Consultar trajeto e corrida':
       mobility==='fretes'?'Consultar frete':'Consultar entrega'):'Pedir orçamento com detalhes'):
@@ -321,6 +353,11 @@ function discoveryPrepareInquiry(anchor){
     (kind!=='professionals'&&limit<1))return false;
  const number=name=>Number(box?.querySelector?.('[name="'+name+'"]')?.value);
  let message='';
+ if(kind==='rides'){
+  const departure=Date.parse(String(box?.dataset?.departure||''));
+  if(!Number.isFinite(departure)||departure<=Date.now())
+   return invalid('A saída desta carona já passou. Atualize a busca para consultar outras vagas.');
+ }
  if(kind==='professionals'){
   const raw=String(box?.querySelector?.('[name="service"]')?.value||'');
   const service=raw.replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim();
@@ -499,8 +536,7 @@ function discoveryCard(item,kind){
   const intent=kind==='professionals'?discoveryState('professionals').service:'';
   const trackedService=['moto','carro'].includes(intent)?intent:'';
   const trackingLink=trackedService&&discoveryListingIdPattern.test(id)&&
-    ((trackedService==='moto'&&/motot[aá]xi|moto.?taxi/i.test(String(item.occupation||'')))||
-     (trackedService==='carro'&&/motorista|t[aá]xi|taxista/i.test(String(item.occupation||''))))
+   discoveryProfessionalTransportKind(item.occupation)===trackedService
    ?'/?corrida='+id+'&modalidade='+trackedService+'#mobility':'';
   return '<article class="discovery-result">'+
     gallery+
@@ -510,6 +546,8 @@ function discoveryCard(item,kind){
     '<div class="discovery-actions">'+
     (trackingLink?'<a href="'+trackingLink+'" class="discovery-ride-track">Solicitar e acompanhar no mapa ↗</a>':'')+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
+    (kind==='rides'&&!discoveryRideAvailable(item)?
+      '<p class="tiny muted" role="status">Saída encerrada ou sem vagas atuais. Atualize a busca para consultar caronas disponíveis.</p>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
     (canSave?'<button type="button" class="discovery-save" aria-pressed="'+saved+'" onclick="discoveryToggleSaved(\''+id+'\')">'+(saved?'★ Salvo':'☆ Salvar anúncio')+'</button>':'')+
     (saved?'<button type="button" class="discovery-pick" data-id="'+id+'" aria-pressed="'+compared+'" onclick="discoveryPickForComparison(this.dataset.id)">'+(compared?'✓ Comparando':'⇄ Selecionar comparação')+'</button>':'')+
