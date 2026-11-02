@@ -720,6 +720,8 @@ jobs:
         run: node tests/customer-care-clarity-v1-384.mjs
       - name: V1.385 admin queue triage, role-safe case actions and mobile filters
         run: node tests/admin-support-triage-v1-385.mjs
+      - name: Public help report to Admin review and resolution with authoritative queue readback
+        run: node tests/admin-public-support-end-to-end-v1-493.mjs
       - name: V1.386 merchant-specific customer support summary
         run: node tests/merchant-support-scope-v1-386.mjs
       - name: V1.387 merchant support attention and visible order queue
