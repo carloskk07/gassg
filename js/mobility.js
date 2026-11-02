@@ -683,10 +683,15 @@ async function mobilityRefresh(silent=false){
     changed=true;
    }else{
     const prevStatus=s.detail?.status;
+    const prevRole=s.detail?.role;
+    const prevContact=s.detail?.driver_whatsapp||null;
     const oldPosition=s.detail?.position||null;
     const prevPosition=JSON.stringify(oldPosition);
     s.detail=next;
-    changed=changed||prevStatus!==next.status;
+    // A driver's public contact can be revoked without a trip-status
+    // change. Even a silent poll must redraw to remove the old link.
+    changed=changed||prevStatus!==next.status||prevRole!==next.role||
+     prevContact!==(next.driver_whatsapp||null);
     if(next.role==='rider'&&(s.selectedPortraitId!==selected||
       Date.now()-s.selectedPortraitCheckedAt>60000)){
      if(await mobilityLoadSelectedPortrait(selected,next.service,latest))changed=true;
@@ -705,8 +710,10 @@ async function mobilityRefresh(silent=false){
   return true;
  }catch(_){
   if(!latest())return false;
-  if(s.detail?.position){
-   s.detail={...s.detail,position:null};
+  if(s.detail?.position||s.detail?.driver_whatsapp){
+   // A failed participant read must not leave a previously authorized
+   // contact (or GPS point) clickable; only a new snapshot can restore it.
+   s.detail={...s.detail,position:null,driver_whatsapp:null};
    mobilityUpdateMap(s.detail);
    if(mobilityRoute())render();
   }
