@@ -956,10 +956,17 @@ globalThis.addEventListener?.('online',()=>{
  if(mobilityRoute()&&mobilityRuntime.user)mobilityRefresh(true).catch(()=>{});
 });
 globalThis.addEventListener?.('offline',()=>{
- if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
- if(mobilityRuntime.detail?.position){
-  mobilityRuntime.detail={...mobilityRuntime.detail,position:null};
-  mobilityUpdateMap(mobilityRuntime.detail);
-  if(mobilityRoute())render();
+ const s=mobilityRuntime;
+ if(s.watch!==null||s.gpsPending)mobilityStopTracking();
+ const hadPrivateData=Boolean(s.detail?.position||s.detail?.driver_whatsapp||s.selectedPortraitKey);
+ if(hadPrivateData){
+  // The offline event may arrive well before the next periodic RPC. Never
+  // leave a cached driver contact, portrait or map visible as if current.
+  s.detail={...s.detail,position:null,driver_whatsapp:null};
+  s.selectedPortraitKey='';s.selectedPortraitId='';s.selectedPortraitCheckedAt=0;
+  mobilityUpdateMap(s.detail);
  }
+ const firstFailure=Boolean(s.user)&&!s.syncUnavailable;
+ if(s.user)s.syncUnavailable=true;
+ if((firstFailure||hadPrivateData)&&mobilityRoute())render();
 });
