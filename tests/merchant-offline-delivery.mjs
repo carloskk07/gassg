@@ -624,6 +624,7 @@ const delayedEncryption={
 const saveCtx={...ctx,merchantRuntime:rt,crypto:delayedEncryption};
 saveCtx.globalThis=saveCtx;
 vm.runInNewContext(source,saveCtx,{filename:'merchant-offline-delivery.js'});
+const oldButtonText=savedButton.textContent;
 const delayedSave=saveCtx.merchantOfflineDeliverySaveFromUi(orderId);
 await encryptEntered;
 rt.session={access_token:'other-test-session',
@@ -632,7 +633,7 @@ resumeEncrypt();
 await delayedSave;
 assert.equal(rows.receipts.size,0,'a changed session cannot commit a pending proof');
 assert.equal(pinField.value,'6789','an obsolete callback must not clear the current form');
-assert.notEqual(savedButton.textContent,'Comprovante guardado (pendente)',
- 'an obsolete callback must not show a false staged success');
+assert.equal(savedButton.textContent,oldButtonText,
+ 'an obsolete callback must not change the current form state');
 
 console.log('PASS: encrypted offline receipts and restricted stale-snapshot UI; no merchant/financial writes until verified server ACK.');
