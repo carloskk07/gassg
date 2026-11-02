@@ -12,7 +12,7 @@ const listing=(id,label)=>({id,vertical:'professionals',status:'draft',
  city_name:'São Gabriel',whatsapp_e164:'+555599998888',photo_urls:[]});
 const gate=()=>{let resolve;const promise=new Promise(r=>{resolve=r});return {promise,resolve}};
 let authEvent, signOutError=null, renderCount=0;
-const pendingLists=[],pendingDetails=[];
+const pendingLists=[],pendingDetails=[],pendingTransitions=[];
 const client={
  auth:{
   getUser:async()=>({data:{user:ownerA},error:null}),
@@ -20,6 +20,9 @@ const client={
   signOut:async()=>signOutError?{error:signOutError}:{error:null}
  },
  rpc(name){
+  if(name==='discovery_transition_listing'){
+    const p=gate();pendingTransitions.push(p);return p.promise;
+  }
   assert.equal(name,'discovery_my_listings');
   const p=gate();pendingLists.push(p);return p.promise;
  },
@@ -90,6 +93,21 @@ assert.equal(await newRefresh,true);
 older.resolve({data:[listing(bId,'Stale B')],error:null});
 assert.equal(await oldRefresh,false);
 assert.equal(s.items[0].title,'Newest B');
+
+// Submission can commit server-side just before logout; a late ACK
+// must not claim review success or resurrect private records in the UI.
+const submission=ctx.discoveryOwnerSubmit(bId);
+assert.equal(pendingTransitions.length,1);
+authEvent('SIGNED_OUT',null);
+release(pendingTransitions,'review');
+await submission;
+assert.equal(s.user,null);
+assert.equal(s.items.length,0);
+assert.equal(s.notice,'');
+authEvent('SIGNED_IN',{user:ownerB});
+await flush();
+release(pendingLists,[listing(bId,'Private listing B')]);
+await flush();
 
 // The selected editor's details must not reappear after a remote logout.
 const opening=ctx.discoveryOwnerOpen(bId);
