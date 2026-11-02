@@ -640,22 +640,23 @@ async function discoveryOwnerUpdateRideSeats(ev,id){
   if(discoveryOwnerRoute())render();
   return false;
  }
- const ownerId=s.user.id,available=Number(raw);
+ const ownerId=s.user.id,epoch=s.sessionEpoch,available=Number(raw);
+ const same=()=>discoveryOwnerSessionValid(epoch,ownerId);
  s.busy=true;s.error='';s.notice='';
  try{
   const result=await s.client.rpc('discovery_update_ride_seats',{
    p_listing_id:id,p_seats_available:available
   });
-  if(s.user?.id!==ownerId)return false;
+  if(!same())return false;
   if(result.error||result.data!==available)throw result.error||Error('Seat count not confirmed');
   const current=await discoveryOwnerRefresh();
-  if(s.user?.id!==ownerId)return false;
+  if(!same())return false;
   if(!current||s.items.find(x=>x.id===id)?.liveSeats?.seats_available!==available)
    throw Error('Readback unavailable');
   s.notice=available===0?'Carona sem vagas: retirada das buscas públicas.':
    'Vagas atualizadas. Os visitantes verão a quantidade informada.';
- }catch(e){if(s.user?.id===ownerId)s.error=discoveryOwnerError(e);}
- if(s.user?.id!==ownerId)return false;
+ }catch(e){if(same())s.error=discoveryOwnerError(e);}
+ if(!same())return false;
  s.busy=false;if(discoveryOwnerRoute())render();
  return false;
 }
