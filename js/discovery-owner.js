@@ -893,7 +893,9 @@ async function discoveryOwnerSave(ev){
       throw photoError;
     }
     if(!same())return false;
-    if(!await discoveryOwnerRefresh()||!same())return false;
+    const fresh=await discoveryOwnerRefresh();
+    if(!same())return false;
+    if(!fresh)throw Error('Owner readback unavailable');
     s.editor=null;
     if(sendForReview){
       const sent=await client.rpc('discovery_transition_listing',{
@@ -905,7 +907,9 @@ async function discoveryOwnerSave(ev){
         s.notice='Rascunho salvo, mas ainda não enviado para análise.';
         s.error=discoveryOwnerError(sent.error);
       }else{
-        if(!await discoveryOwnerRefresh()||!same())return false;
+        const verified=await discoveryOwnerRefresh();
+        if(!same())return false;
+        if(!verified)throw Error('Owner readback unavailable');
         s.notice='Anúncio salvo e enviado para análise. A publicação depende da aprovação do TAMÃO.';
       }
     }else{
@@ -947,7 +951,9 @@ async function discoveryOwnerRemovePhoto(photoPath){
       throw Error('PHOTO_UNLINK_UNCONFIRMED');
     // Independently read back the owner-scoped state before deleting bytes.
     // Storage RLS separately forbids deleting any photo still referenced.
-    if(!await discoveryOwnerRefresh()||!same())return;
+    const refreshed=await discoveryOwnerRefresh();
+    if(!same())return;
+    if(!refreshed)throw Error('Owner readback unavailable');
     const persisted=s.items.find(item=>item.id===d.id);
     // A second editor may add/remove OTHER images after the RPC commits.
     // Only the target's absence is required; comparing whole arrays would
@@ -1039,7 +1045,9 @@ async function discoveryOwnerSubmit(id){
     });
     if(!same())return;
     if(error)throw error;
-    if(!await discoveryOwnerRefresh()||!same())return;
+    const refreshed=await discoveryOwnerRefresh();
+    if(!same())return;
+    if(!refreshed)throw Error('Owner readback unavailable');
     s.notice='Anúncio enviado para revisão.';
   }catch(e){if(same())s.error=discoveryOwnerError(e);}
   if(!same())return;
@@ -1058,7 +1066,9 @@ async function discoveryOwnerPause(id){
     });
     if(!same())return;
     if(error)throw error;
-    if(!await discoveryOwnerRefresh()||!same())return;
+    const refreshed=await discoveryOwnerRefresh();
+    if(!same())return;
+    if(!refreshed)throw Error('Owner readback unavailable');
     s.notice='Anúncio pausado.';
   }catch(e){if(same())s.error=discoveryOwnerError(e);}
   if(!same())return;
