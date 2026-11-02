@@ -127,6 +127,62 @@ begin
   from public.mobility_push_deliveries where state='leased' limit 1)
  then raise exception 'ACTIVE_SESSION_NOT_AUTHORIZED_PRE_SEND';end if;
 end $test$;
+-- Reclassify the still-published motorcycle listing to a CAR. The
+-- existing pending moto request must no longer be deliverable or accept-able.
+UPDATE auth.users SET email_confirmed_at=clock_timestamp()
+ WHERE id='bbbbbbbb-0000-4000-8000-000000000551';
+UPDATE public.discovery_professional_details SET occupation='Motorista de carro / táxi'
+ WHERE listing_id='dddddddd-0000-4000-8000-000000000551';
+DO $test$
+begin
+ if public.mobility_driver_category_current(
+  'dddddddd-0000-4000-8000-000000000551',
+  'bbbbbbbb-0000-4000-8000-000000000551','moto')
+ then raise exception 'MOTO_CATEGORY_INCORRECTLY_ACTIVE_AFTER_CAR_RETAG';end if;
+ if public.mobility_push_delivery_allowed(
+    (select id from public.mobility_push_deliveries limit 1),
+    (select lease_token from public.mobility_push_deliveries limit 1))
+ then raise exception 'RETAGGED_DRIVER_WOULD_RECEIVE_LEASED_PUSH';end if;
+end $test$;
+UPDATE public.mobility_push_deliveries SET state='retry',
+ next_attempt_at=clock_timestamp()-interval '1 minute',
+ leased_until=null,lease_token=null;
+DO $test$
+declare v_total integer;
+begin
+ select count(*) into v_total from public.mobility_push_claim_due(4);
+ if v_total<>0 then raise exception 'RETAGGED_DRIVER_CLAIMED_PUSH_%',v_total;end if;
+end $test$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub='bbbbbbbb-0000-4000-8000-000000000551';
+DO $test$
+begin
+ begin
+  perform public.mobility_transition(
+   (select id from public.mobility_requests where origin_area='Região de teste' limit 1),
+   'accept');
+  raise exception 'MOTO_ACCEPTED_AFTER_DRIVER_CHANGED_TO_CAR';
+ exception when insufficient_privilege then null;end;
+end $test$;
+RESET ROLE;
+DO $test$
+begin
+ if (select status from public.mobility_requests where origin_area='Região de teste' limit 1)<>'requested'
+ then raise exception 'CROSSMODE_ACCEPT_CHANGED_RIDE_STATE';end if;
+end $test$;
+-- Restore correct occupation: the same valid pending request can now
+-- be selected for delivery, instead of being permanently blocked.
+UPDATE public.discovery_professional_details SET occupation='Mototáxi'
+ WHERE listing_id='dddddddd-0000-4000-8000-000000000551';
+DO $test$
+declare v_total integer;
+begin
+ select count(*) into v_total from public.mobility_push_claim_due(4);
+ if v_total<>1 then raise exception 'RESTORED_DRIVER_NOT_ELIGIBLE_%',v_total;end if;
+ if not (select public.mobility_push_delivery_allowed(id,lease_token)
+  from public.mobility_push_deliveries where state='leased' limit 1)
+ then raise exception 'RESTORED_DRIVER_NOT_ALLOWED_PRE_SEND';end if;
+end $test$;
 -- Simulate another browser tab or the Auth server revoking this login.
 DELETE FROM auth.sessions WHERE id='cccccccc-0000-4000-8000-000000000551';
 DO $test$
