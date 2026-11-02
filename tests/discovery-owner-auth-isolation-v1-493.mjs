@@ -83,9 +83,12 @@ assert.doesNotMatch(ctx.discoveryOwnerPage(),/Private listing A/);
 // Two reads for the SAME owner may complete out of order: latest wins.
 const oldRefresh=ctx.discoveryOwnerRefresh();
 const newRefresh=ctx.discoveryOwnerRefresh();
-release(pendingLists,[listing(bId,'Newest B')]);
-assert.equal(await oldRefresh,false);
+assert.equal(pendingLists.length,2);
+const older=pendingLists.shift(),newer=pendingLists.shift();
+newer.resolve({data:[listing(bId,'Newest B')],error:null});
 assert.equal(await newRefresh,true);
+older.resolve({data:[listing(bId,'Stale B')],error:null});
+assert.equal(await oldRefresh,false);
 assert.equal(s.items[0].title,'Newest B');
 
 // The selected editor's details must not reappear after a remote logout.
