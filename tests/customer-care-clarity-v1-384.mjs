@@ -151,20 +151,20 @@ const bEnd=backend.indexOf('const CUSTOMER_FINANCIAL_REFRESH_MS',bStart);
 assert.ok(bStart>=0&&bEnd>bStart);
 const code=backend.slice(bStart,bEnd);
 const calls=[];
-const serverOrder={orderId:'order-384'};
+const serverOrder={orderId:'order-384',supportCases:[{id:'c384',status:'open'}]};
 let refreshFailure=false;
 const bg=vm.createContext({
- liveRuntime:{order:serverOrder,error:null},
+ liveRuntime:{order:serverOrder,session:{user:{id:'customer-384'}},error:null},
  liveIdempotency:()=> 'case:uuid384',
  retryAmbiguousOnce:async fn=>fn(),
  liveInvoke:async(name,payload,opts)=>{
   calls.push({name,payload,opts});
   return {ok:true,case:{id:'c384',status:'open',category:'late'}};
  },
- liveGetOrder:async()=>{if(refreshFailure)throw Error('failed refresh')},
+ liveGetOrder:async()=>{if(refreshFailure)throw Error('failed refresh');return serverOrder},
  render:()=>calls.push({name:'render'})
 });
-vm.runInContext(code,bg);
+vm.runInContext(read('js/customer-care-replay.js')+'\n'+code,bg);
 const good=await vm.runInContext("liveOpenSupportCase('late','Precisa de ajuda')",bg);
 assert.equal(good.refreshPending,false);
 assert.equal(good.case.status,'open');

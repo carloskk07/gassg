@@ -260,6 +260,7 @@ function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 // A different authenticated customer must never inherit balances, delivery
 // details or a pending response from the previous browser account.
 function liveForgetAccount(){
+  globalThis.customerSupportReplayReset?.();
   if(liveRuntime.status==='loading')return;
   liveRuntime.status='loading';
   liveRuntime.session=null;
@@ -1041,24 +1042,16 @@ async function liveSubmitFeedback(rating,tags=[]){
 }
 
 async function liveOpenSupportCase(category,message=''){
-  const order=liveRuntime.order;
-  if(!order)throw new Error('Pedido não encontrado');
-  const idempotencyKey=liveIdempotency('customer-care');
-  const result=await retryAmbiguousOnce(()=>liveInvoke('customer-care',{
-    action:'open-case',
-    orderId:order.orderId,
-    category:String(category||'other'),
-    message:String(message||'').trim()
-  },{idempotencyKey}));
-  let refreshPending=false;
-  try{
-    await liveGetOrder(order.orderId,{silent:true});
-  }catch(error){
-    refreshPending=true;
-    liveRuntime.error='Não foi possível atualizar os atendimentos. Consulte novamente.';
-  }
-  render();
-  return {...result,refreshPending};
+  if(!globalThis.customerSupportReplaySubmit)await new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
+      .replace('/js/backend.js','/js/customer-care-replay.js');
+    s.onload=resolve;s.onerror=()=>reject(Error('Atendimento indisponível. Tente novamente.'));
+    document.head.appendChild(s);
+  });
+  return globalThis.customerSupportReplaySubmit(category,message,{
+    liveRuntime,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,render
+  });
 }
 
 const CUSTOMER_FINANCIAL_REFRESH_MS=5*60*1000;
