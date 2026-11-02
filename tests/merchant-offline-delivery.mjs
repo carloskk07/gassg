@@ -636,4 +636,41 @@ assert.equal(pinField.value,'6789','an obsolete callback must not clear the curr
 assert.equal(savedButton.textContent,oldButtonText,
  'an obsolete callback must not change the current form state');
 
+
+// A legitimate Supabase token refresh can happen exactly as offline
+// connectivity returns. Reconciliation must still proceed for the same
+// authenticated driver and merchant, while checking the assigned order.
+rt.status='ready';rt.merchant=validMerchant;rt.selectedMerchantId=merchantId;
+rt.orders=[{...validOrders[0],status:'ARRIVING',version:3,assignedDeliveryUserId:userId}];
+rt.lastSyncAt=new Date().toISOString();rt.recentClosedDeliveries=[];
+rt.session={access_token:'before-rotation',
+ expires_at:Math.floor(Date.now()/1000)+3600,user:{id:userId,is_anonymous:false}};
+rows.receipts.clear();pinField.value='6789';ctx.navigator.onLine=false;
+await afterReload.merchantOfflineDeliverySaveFromUi(orderId);
+assert.equal(rows.receipts.size,1,'token rotation test begins with staged encrypted proof');
+let rotations=0,verifiedDeliveries=0;
+ctx.navigator.onLine=true;
+afterReload.merchantRefresh=async()=>{
+ rotations++;
+ rt.session={access_token:'rotated-token-'+rotations,
+  expires_at:Math.floor(Date.now()/1000)+3600,user:{id:userId,is_anonymous:false}};
+ rt.lastSyncAt=new Date().toISOString();rt.status='ready';
+ rt.recentClosedDeliveries=rt.orders.filter(o=>o.status==='DELIVERED').map(o=>({
+  orderId:o.orderId,status:o.status,version:o.version,
+  assignedDeliveryUserId:o.assignedDeliveryUserId
+ }));
+ return {ok:true};
+};
+afterReload.merchantCompleteDeliveryLive=async(id,pin,paid)=>{
+ assert.equal(id,orderId);assert.equal(pin,'6789');assert.equal(paid,true);
+ verifiedDeliveries++;
+ rt.orders[0].status='DELIVERED';rt.orders[0].version=4;
+ await afterReload.merchantRefresh();
+ return true;
+};
+await afterReload.merchantOfflineDeliveryReconcile(orderId);
+assert.equal(verifiedDeliveries,1,'same participant may reconcile after token refresh');
+assert.ok(rotations>=2,'authorized server readbacks still occur after token refresh');
+assert.equal(rows.receipts.size,0,'verified delivery must remove only the acknowledged local proof');
+
 console.log('PASS: encrypted offline receipts and restricted stale-snapshot UI; no merchant/financial writes until verified server ACK.');
