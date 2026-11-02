@@ -694,8 +694,11 @@ async function mobilityRefresh(silent=false){
      prevContact!==(next.driver_whatsapp||null);
     if(next.role==='rider'&&(s.selectedPortraitId!==selected||
       Date.now()-s.selectedPortraitCheckedAt>60000)){
+     const previousPortrait=s.selectedPortraitKey;
      if(await mobilityLoadSelectedPortrait(selected,next.service,latest))changed=true;
      if(!latest()||s.id!==selected)return false;
+     // Revalidation may withdraw a photo without changing the trip state.
+     if(previousPortrait!==s.selectedPortraitKey)changed=true;
     }
     if((s.watch!==null||s.gpsPending)&&(next.status!=='en_route'||next.role!=='driver'))mobilityStopTracking();
     if(prevPosition!==JSON.stringify(next.position||null)){
@@ -710,10 +713,11 @@ async function mobilityRefresh(silent=false){
   return true;
  }catch(_){
   if(!latest())return false;
-  if(s.detail?.position||s.detail?.driver_whatsapp){
-   // A failed participant read must not leave a previously authorized
-   // contact (or GPS point) clickable; only a new snapshot can restore it.
+  if(s.detail?.position||s.detail?.driver_whatsapp||s.selectedPortraitKey){
+   // On participant read failure, remote contact, GPS and portrait must
+   // disappear from the screen until a fresh authorization succeeds.
    s.detail={...s.detail,position:null,driver_whatsapp:null};
+   s.selectedPortraitKey='';s.selectedPortraitId='';s.selectedPortraitCheckedAt=0;
    mobilityUpdateMap(s.detail);
    if(mobilityRoute())render();
   }
