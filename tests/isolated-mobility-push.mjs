@@ -105,7 +105,24 @@ begin
   'cccccccc-0000-4000-8000-000000000551',repeat('f',64))
  then raise exception 'CONSENTED_SESSION_NOT_RECOGNIZED';end if;
  select count(*) into v_total from public.mobility_push_claim_due(4);
- if v_total<>1 then raise exception 'ACTIVE_SESSION_NOT_CLAIMED_%',v_total;end if;
+ if v_total<>1 then
+  raise exception 'ACTIVE_SESSION_NOT_CLAIMED_%; outbox=%, subs=%, deliveries=%, sessions=%, pending=%, listing=%, eligible=%, session_join=%',
+   v_total,
+   (select count(*) from public.mobility_push_outbox),
+   (select count(*) from public.mobility_push_subscriptions),
+   (select count(*) from public.mobility_push_deliveries),
+   (select count(*) from auth.sessions where id='cccccccc-0000-4000-8000-000000000551'),
+   (select count(*) from public.mobility_requests where status='requested' and expires_at>clock_timestamp()),
+   (select count(*) from public.discovery_listings where id='dddddddd-0000-4000-8000-000000000551' and status='published'),
+   (select count(*) from public.mobility_push_outbox o
+     join public.mobility_requests r on r.id=o.request_id
+     join public.discovery_listings l on l.id=r.listing_id
+     join public.discovery_vertical_cities c on c.vertical='professionals' and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
+     join public.mobility_push_subscriptions sub on sub.driver_id=o.driver_id and sub.active and sub.registered_at<=o.created_at
+     where o.state='pending' and r.status='requested'),
+   (select count(*) from public.mobility_push_subscriptions sub
+     join auth.sessions ses on ses.id=sub.auth_session_id and ses.user_id=sub.driver_id);
+ end if;
  if not (select public.mobility_push_delivery_allowed(id,lease_token)
   from public.mobility_push_deliveries where state='leased' limit 1)
  then raise exception 'ACTIVE_SESSION_NOT_AUTHORIZED_PRE_SEND';end if;
