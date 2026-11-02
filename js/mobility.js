@@ -408,6 +408,22 @@ function mobilityReport(id){
  go('contact');
  return false;
 }
+// The listing WhatsApp is publicly advertised, but this handoff appears
+// only after server-confirmed acceptance and only to the requesting rider.
+// Never expose rider contact, GPS or a stale/expired/withdrawn number.
+function mobilityAcceptedContactHtml(row){
+ const phone=String(row?.driver_whatsapp||'');
+ const until=Date.parse(String(row?.expires_at||''));
+ if(row?.role!=='rider'||!['accepted','en_route','arrived'].includes(row.status)||
+  !Number.isFinite(until)||until<=Date.now()||
+  !/^\+[1-9][0-9]{9,14}$/.test(phone))return '';
+ const mode=row.service==='moto'?'moto':'carro';
+ const message='Olá! Minha solicitação de '+mode+
+  ' pelo TAMÃO foi aceita. Podemos confirmar o atendimento e combinar as condições?';
+ const url='https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent(message);
+ return '<p class="mobility-contact"><a href="'+esc(url)+
+  '" target="_blank" rel="noopener noreferrer">Conversar com o motorista no WhatsApp</a></p>';
+}
 function mobilityDetailPanel(row){
  if(!row)return '';
  const driver=row.role==='driver',status=row.status,terminal=!['requested','accepted','en_route','arrived'].includes(status);
@@ -431,6 +447,7 @@ function mobilityDetailPanel(row){
     mobilityRuntime.selectedPortraitKey:''):'')+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
   '<p class="tiny muted">Este pedido não garante disponibilidade, preço nem transporte. Combine condições com o anunciante.</p>'+
+  mobilityAcceptedContactHtml(row)+
   '<p><a class="mobility-report-link" href="/#contact"'+
   (mobilityId.test(String(row.id||''))?' onclick="return mobilityReport(\''+row.id+'\')"':'')+
   '>Relatar problema com este atendimento</a>'+
