@@ -34,7 +34,7 @@ assert.match(guard,/alter column auth_session_id set not null/);
 assert.match(guard,/sess\.not_after is null or sess\.not_after>v_now/);
 assert.match(guard,/mobility_push_device_is_active/);
 assert.match(guard,/mobility_push_delivery_allowed/);
-assert.match(sender,/admin\.rpc\("mobility_push_delivery_allowed"/);
+assert.match(sender,/admin\.rpc\(\s*"mobility_push_delivery_allowed"/);
 assert.match(sender,/if\(authorized!==true\)\{outcome="expired"/);
 assert.match(guard,/grant execute on function public\.mobility_push_device_is_active\(uuid,uuid,text\)/);
 assert.match(edge,/auth\.getUser\(token.slice\(7\)\)/);
