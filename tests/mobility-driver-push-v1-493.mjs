@@ -28,7 +28,7 @@ assert.match(edge,/auth\.getUser\(token.slice\(7\)\)/);
 assert.match(edge,/user.is_anonymous/);
 assert.match(edge,/eq\("owner_id",user.id\)/);
 assert.match(edge,/eq\("status","published"\)/);
-const guard=read('supabase/migrations/20261102011500_mobility_push_session_guard_v1_493.sql');
+const guard=read('supabase/migrations/20261102020502_mobility_push_session_guard_v1_493.sql');
 assert.equal((guard.match(/join auth\.sessions sess/g)||[]).length,2);
 assert.match(guard,/where ob\.state='pending' and ob\.expires_at<=v_now/);
 assert.match(guard,/insert into public\.mobility_push_deliveries\(outbox_id,subscription_id,next_attempt_at\)/);
