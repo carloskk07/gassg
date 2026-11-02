@@ -773,6 +773,8 @@ async function discoveryOwnerSave(ev){
   ev?.preventDefault?.();
   const s=discoveryOwner;
   if(s.busy||!s.user||!s.client)return false;
+  const epoch=s.sessionEpoch,userId=s.user.id;
+  const same=()=>discoveryOwnerSessionValid(epoch,userId);
   const form=ev?.target; if(!form||!form.checkValidity())return false;
   // A single click may save the full draft and request review. The server
   // remains authoritative: this does NOT approve or publish the listing.
@@ -817,25 +819,31 @@ async function discoveryOwnerSave(ev){
     if(!id){
       const result=await client.from('discovery_listings')
         .insert({...data,vertical,photo_urls:[]}).select('id').single();
+      if(!same())return false;
       if(result.error)throw result.error;
       id=result.data?.id;
     }else{
       const result=await client.from('discovery_listings').update(data).eq('id',id);
+      if(!same())return false;
       if(result.error)throw result.error;
     }
     if(!/^[a-f0-9-]{36}$/.test(String(id||'')))throw Error('Invalid inserted listing ID');
     const details=discoveryOwnerDetails(vertical,f);
     const saved=await client.from(discoveryOwnerTables[vertical])
       .upsert({listing_id:id,...details},{onConflict:'listing_id'});
+    if(!same())return false;
     if(saved.error)throw saved.error;
     for(const file of documents){
-      const key=s.user.id+'/'+id+'/'+crypto.randomUUID()+'.'+documentMime[file.type];
+      if(!same())return false;
+      const key=userId+'/'+id+'/'+crypto.randomUUID()+'.'+documentMime[file.type];
       const upload=await client.storage.from('tamao-discovery-documents')
         .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
+      if(!same())return false;
       if(upload.error)throw upload.error;
       try{
         const registered=await client.from('discovery_documents')
           .insert({listing_id:id,kind:'supporting',object_path:key});
+        if(!same())return false;
         if(registered.error)throw registered.error;
       }catch(registerError){
         // Storage and PostgREST are separate transactions. Compensate a
@@ -856,16 +864,19 @@ async function discoveryOwnerSave(ev){
       // A dedicated driver portrait always becomes the first approved public
       // image. Existing other photographs stay behind it in the gallery.
       for(const file of [...portrait,...files]){
-        const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
+        if(!same())return false;
+        const key=userId+'/'+crypto.randomUUID()+'.'+mime[file.type];
         attemptedPhotos.push(key);
         const result=await client.storage.from('tamao-discovery-photos')
           .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+        if(!same())return false;
         if(result.error)throw result.error;
         if(portrait.includes(file))keys.unshift(key);
         else keys.push(key);
       }
       if(portrait.length||files.length){
         const written=await client.from('discovery_listings').update({photo_urls:keys}).eq('id',id);
+        if(!same())return false;
         if(written.error)throw written.error;
       }
     }catch(photoError){
@@ -881,29 +892,33 @@ async function discoveryOwnerSave(ev){
       if(!cleanupConfirmed)throw Error('PHOTO_CLEANUP_UNCONFIRMED');
       throw photoError;
     }
-    await discoveryOwnerRefresh();
+    if(!same())return false;
+    if(!await discoveryOwnerRefresh()||!same())return false;
     s.editor=null;
     if(sendForReview){
       const sent=await client.rpc('discovery_transition_listing',{
         p_listing_id:id,p_next_status:'review',p_reason:'Envio pelo anunciante após salvar'
       });
+      if(!same())return false;
       if(sent.error){
         // Keep the saved draft rather than pretending the review succeeded.
         s.notice='Rascunho salvo, mas ainda não enviado para análise.';
         s.error=discoveryOwnerError(sent.error);
       }else{
-        await discoveryOwnerRefresh();
+        if(!await discoveryOwnerRefresh()||!same())return false;
         s.notice='Anúncio salvo e enviado para análise. A publicação depende da aprovação do TAMÃO.';
       }
     }else{
       s.notice='Rascunho salvo. Você pode enviá-lo para revisão.';
     }
   }catch(e){
+    if(!same())return false;
     s.error=discoveryOwnerError(e);
     if(id){
       try{await discoveryOwnerRefresh();}catch{}
     }
   }
+  if(!same())return false;
   s.busy=false;if(discoveryOwnerRoute())render();
   return false;
 }
