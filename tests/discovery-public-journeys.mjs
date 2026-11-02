@@ -306,8 +306,16 @@ assert.match(professionalInquiry,/name="service" required minlength="10" maxleng
 assert.doesNotMatch(professionalInquiry,/Reserva confirmada|Pagar no TAMÃO/);
 assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'not-phone'},'professionals'),'');
 function makeInquiry(kind,values,max=3,mode=''){
+ // The visitor can only submit a form tied to a listing returned by the
+ // current public search. Build the complete verified result fixture.
+ current=kind;
+ const listing={id:publicId,vertical:kind,title:'Anúncio exemplo',
+  whatsapp_e164:'+555599998888',seats_available:max,guests:max,
+  departure_at:'2030-07-05T12:00:00Z',
+  occupation:mode==='carro'?'Motorista de carro / táxi':'Mototáxi'};
+ Object.assign(sandbox.discoveryState(kind),{status:'ready',items:[listing]});
  const feedback={textContent:''};
- const box={dataset:{phone:'+555599998888',kind,service:mode,title:'Anúncio exemplo',
+ const box={dataset:{listingId:publicId,phone:'+555599998888',kind,service:mode,title:'Anúncio exemplo',
  departure:'2030-07-05T12:00:00Z',max:String(max)},
  querySelector:sel=>sel==='.discovery-inquiry-feedback'?feedback:
   Object.hasOwn(values,(sel.match(/\[name="([^"]+)"\]/)||[])[1])?
