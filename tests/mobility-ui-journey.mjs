@@ -257,4 +257,30 @@ ctx.mobilityClearSession();
 assert.equal(s.reportId,'','Signing out clears pending support context');
 ctx.document.getElementById=domBeforeReport;ctx.route=routeBeforeReport;ctx.location.hash='#mobility';
 
+// The only contact exposed is the existing PUBLIC listing WhatsApp, and
+// only after acceptance. Neither rider contact nor GPS enters the URL.
+const later=new Date(Date.now()+600000).toISOString();
+const accepted={
+ id:listing,role:'rider',status:'accepted',service:'moto',expires_at:later,
+ driver_whatsapp:'+555599998888',listing_title:'Mototáxi de testes',
+ origin:'Centro',destination:'Vila Sul'
+};
+const acceptedLink=ctx.mobilityAcceptedContactHtml(accepted);
+assert.match(acceptedLink,/https:\/\/wa\.me\/555599998888\?text=/);
+assert.match(ctx.mobilityDetailPanel(accepted),/Conversar com o motorista no WhatsApp/);
+assert.match(acceptedLink,/noopener noreferrer/);
+assert.doesNotMatch(acceptedLink,/Centro|Vila Sul|bbbbbbbb-bbbb|latitude|longitude|30\.33/);
+for(const bad of [
+ {...accepted,status:'requested'}, {...accepted,status:'completed'},
+ {...accepted,status:'cancelled'}, {...accepted,status:'rejected'},
+ {...accepted,status:'expired'}, {...accepted,role:'driver'},
+ {...accepted,expires_at:new Date(Date.now()-5000).toISOString()},
+ {...accepted,driver_whatsapp:null},
+ {...accepted,driver_whatsapp:'+555 599998888'},
+ {...accepted,driver_whatsapp:'javascript:alert(1)'}
+])assert.equal(ctx.mobilityAcceptedContactHtml(bad),'',
+ 'no contact for nonaccepted, unauthorized, expired or malformed listing');
+assert.doesNotMatch(ctx.mobilityDetailPanel({...accepted,status:'requested'}),
+ /Conversar com o motorista no WhatsApp/);
+
 console.log('PASS: GPS privacy and consent, active rider resume, duplicate request prevention, driver onboarding');

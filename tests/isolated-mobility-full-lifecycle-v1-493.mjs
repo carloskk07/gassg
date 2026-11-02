@@ -49,6 +49,8 @@ begin
  row:=public.mobility_snapshot(current_setting('tamao.ci.moto_completed')::uuid);
  if row->>'role'<>'rider' or row->>'status'<>'requested' or row->>'service'<>'moto'
  then raise exception 'RIDER_REQUEST_NOT_VISIBLE';end if;
+ if row->'driver_whatsapp'<>'null'::jsonb
+ then raise exception 'UNACCEPTED_DRIVER_PHONE_EXPOSED';end if;
  inbox:=public.mobility_my_requests();
  if jsonb_array_length(inbox)<>1 or inbox->0->>'status'<>'requested'
  then raise exception 'RIDER_INBOX_NOT_UPDATED';end if;
@@ -76,6 +78,8 @@ begin
  then raise exception 'DRIVER_ACCEPT_FAILED';end if;
  if public.mobility_transition(current_setting('tamao.ci.moto_completed')::uuid,'depart')<>'en_route'
  then raise exception 'DRIVER_DEPART_FAILED';end if;
+ if public.mobility_snapshot(current_setting('tamao.ci.moto_completed')::uuid)->'driver_whatsapp'<>'null'::jsonb
+ then raise exception 'DRIVER_ROLE_RECEIVED_RIDER_CONTACT_FIELD';end if;
  begin
   perform public.mobility_publish_position(current_setting('tamao.ci.moto_completed')::uuid,-30.31,-54.31,18);
   raise exception 'GPS_WITHOUT_OPT_IN_ALLOWED';
@@ -93,6 +97,8 @@ begin
  row:=public.mobility_snapshot(current_setting('tamao.ci.moto_completed')::uuid);
  if row->>'status'<>'en_route' or (row->'position'->>'lat')::double precision<>-30.31
  then raise exception 'RIDER_MISSING_LIVE_DRIVER_POSITION';end if;
+ if row->>'driver_whatsapp'<>'+5555999999999'
+ then raise exception 'ACCEPTED_RIDER_MISSING_PUBLIC_DRIVER_WHATSAPP';end if;
  begin
   perform public.mobility_publish_position(current_setting('tamao.ci.moto_completed')::uuid,-30.32,-54.32,19);
   raise exception 'RIDER_FORGED_GPS';
@@ -114,6 +120,8 @@ begin
  row:=public.mobility_snapshot(current_setting('tamao.ci.moto_completed')::uuid);
  if row->>'status'<>'completed' or row->'position'<>'null'::jsonb
  then raise exception 'COMPLETED_RIDE_GPS_LEAK_OR_STATUS';end if;
+ if row->'driver_whatsapp'<>'null'::jsonb
+ then raise exception 'COMPLETED_RIDER_CONTACT_RETAINED';end if;
  -- Rider must NEVER gain direct read privileges to live GPS storage.
  -- The server-side snapshot is the only authorized way to see any point.
  begin
@@ -180,6 +188,8 @@ begin
  then raise exception 'RIDER_ENROUTE_CANCEL_FAILED';end if;
  if public.mobility_snapshot(current_setting('tamao.ci.car_cancel_enroute')::uuid)->'position'<>'null'::jsonb
  then raise exception 'CANCELLED_CAR_GPS_LEAKED';end if;
+ if public.mobility_snapshot(current_setting('tamao.ci.car_cancel_enroute')::uuid)->'driver_whatsapp'<>'null'::jsonb
+ then raise exception 'CANCELLED_CAR_CONTACT_RETAINED';end if;
 end $probe$;
 SET LOCAL request.jwt.claim.sub='aaaaaaaa-1000-4000-8000-000000000901';
 DO $probe$

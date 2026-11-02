@@ -16,7 +16,7 @@ const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
  tableDigest:'67838fe06fa43d7692e12d8e11a3de91',
- rpcDigest:'820687783f9ba7ff7891facb891067f6',
+ rpcDigest:'a02c14df99ce4f9ecfc761a7d92c24b1',
  tableCount:7,rpcCount:29
 },'Local canonical migrated schema must match the reviewed hosted baseline');
 const ready=()=>JSON.parse(sql("SELECT public.platform_launch_readiness()"));
@@ -49,6 +49,8 @@ blocked("CREATE FUNCTION public.ci_unreviewed_launch() RETURNS integer LANGUAGE 
  'admin_rpc_browser_exposure');
 blocked('ALTER TABLE public.discovery_documents DISABLE ROW LEVEL SECURITY;',
  'sensitive_table_rls_disabled');
+blocked('ALTER FUNCTION public.mobility_snapshot(uuid) SET search_path TO public;',
+ 'admin_rpc_browser_exposure');
 assert.equal(sql("SELECT operation_mode FROM public.platform_launch_control WHERE singleton"),'PRELAUNCH');
 assert.equal(sql("SELECT commerce_enabled FROM public.platform_launch_control WHERE singleton"),'f');
-console.log('PASS: current reviewed browser ACL and privileged RPC fingerprints no longer give false security blocks; 5 dangerous changes still fail closed; business launch stays PRELAUNCH.');
+console.log('PASS: current reviewed browser ACL and privileged RPC fingerprints no longer give false security blocks; 6 dangerous changes still fail closed; business launch stays PRELAUNCH.');
