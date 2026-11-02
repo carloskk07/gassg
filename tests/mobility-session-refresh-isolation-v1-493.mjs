@@ -109,6 +109,35 @@ resolve('mobility_transition','arrived');
 assert.equal(await transition,false);
 assert.equal(s.id,'');assert.equal(s.notice,'');
 
+// A public driver number can disappear from the authorized RPC snapshot
+// without any change to the ride state or inbox. Quiet polling MUST remove
+// the stale link on the current screen; a reconnect failure must fail closed.
+s.user=userA;s.id=rideA;s.items=[{...mk(rideA),status:'accepted'}];
+s.detail={...s.items[0],driver_whatsapp:'+555599998888'};
+assert.match(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp/);
+const beforeRevocation=renders;
+const silentRevocation=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',[{...s.items[0]}]);
+await flush();
+resolve('mobility_snapshot',{...s.detail,driver_whatsapp:null});
+assert.equal(await silentRevocation,true);
+assert.equal(s.detail.driver_whatsapp,null);
+assert.ok(renders>beforeRevocation,'A quiet poll must redraw the revoked contact');
+assert.doesNotMatch(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp/);
+const restore=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',[{...s.items[0]}]);
+await flush();
+resolve('mobility_snapshot',{...s.detail,driver_whatsapp:'+555599998888'});
+assert.equal(await restore,true);
+assert.match(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp/);
+const beforeLoss=renders;
+const offline=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',null,new Error('simulated offline read'));
+assert.equal(await offline,false);
+assert.equal(s.detail.driver_whatsapp,null,'Network failures must drop cached contact');
+assert.ok(renders>beforeLoss,'Failed silent refresh must hide contact visibly');
+assert.doesNotMatch(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp/);
+
 // Returning to the app or reconnecting refreshes the authorized inbox.
 s.user=userB;
 doc.visibilityState='visible';handler.visibilitychange();
