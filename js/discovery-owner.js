@@ -774,7 +774,7 @@ async function discoveryOwnerSave(ev){
   const s=discoveryOwner;
   if(s.busy||!s.user||!s.client)return false;
   const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>discoveryOwnerSessionValid(epoch,userId);
+  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   const form=ev?.target; if(!form||!form.checkValidity())return false;
   // A single click may save the full draft and request review. The server
   // remains authoritative: this does NOT approve or publish the listing.
@@ -933,7 +933,7 @@ async function discoveryOwnerRemovePhoto(photoPath){
     !discoveryOwnerPhotoUrl(key)||!key.startsWith(s.user.id+'/')||
     !Array.isArray(d.photo_urls)||!d.photo_urls.includes(key))return;
   const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>discoveryOwnerSessionValid(epoch,userId);
+  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   s.busy=true;s.error='';s.notice='';
   try{
     // The authenticated RPC locks the draft and removes only this photo.
@@ -976,7 +976,7 @@ async function discoveryOwnerRetryPhotoCleanup(){
   const s=discoveryOwner;
   if(s.busy||!s.user||!s.client||!s.pendingPhotoRemovals.length)return;
   const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>discoveryOwnerSessionValid(epoch,userId);
+  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   s.busy=true;s.error='';s.notice='';
   const pending=[];
   for(const key of s.pendingPhotoRemovals){
@@ -1006,7 +1006,7 @@ async function discoveryOwnerRemoveDocument(docId){
     !String(doc.object_path||'').startsWith(expected)||
     !/^[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(String(doc.object_path).slice(expected.length)))return;
   const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>discoveryOwnerSessionValid(epoch,userId);
+  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   s.busy=true;s.error='';s.notice='';
   try{
     // Storage API deletes the real bytes; direct SQL deletion of storage.objects
@@ -1031,7 +1031,7 @@ async function discoveryOwnerSubmit(id){
   if(s.busy||!entry||!['draft','rejected','paused'].includes(entry.status))return;
   if(!s.user)return;
   const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>discoveryOwnerSessionValid(epoch,userId);
+  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   s.busy=true;s.error='';s.notice='';
   try{
     const {error}=await s.client.rpc('discovery_transition_listing',{
@@ -1050,7 +1050,7 @@ async function discoveryOwnerPause(id){
   if(s.busy||entry?.status!=='published')return;
   if(!s.user)return;
   const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>discoveryOwnerSessionValid(epoch,userId);
+  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   s.busy=true;s.error='';s.notice='';
   try{
     const {error}=await s.client.rpc('discovery_transition_listing',{
