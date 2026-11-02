@@ -55,7 +55,8 @@ assert.deepEqual(state,{subscriptions:0,outbox:0,deliveries:0},
  'migrations create no synthetic commercial or push records');
 const col=sql("select is_nullable from information_schema.columns where table_schema='public' and table_name='mobility_push_subscriptions' and column_name='auth_session_id'");
 assert.equal(col,'NO','driver push must be session-bound');
-for(const signature of ['mobility_push_device_is_active(uuid,uuid,text)']){
+for(const signature of ['mobility_push_device_is_active(uuid,uuid,text)',
+ 'mobility_push_delivery_allowed(bigint,uuid)']){
  const rights=JSON.parse(sql(`select jsonb_build_object(
   'anon',has_function_privilege('anon','public.${signature}','EXECUTE'),
   'authenticated',has_function_privilege('authenticated','public.${signature}','EXECUTE'),
@@ -105,9 +106,18 @@ begin
  then raise exception 'CONSENTED_SESSION_NOT_RECOGNIZED';end if;
  select count(*) into v_total from public.mobility_push_claim_due(4);
  if v_total<>1 then raise exception 'ACTIVE_SESSION_NOT_CLAIMED_%',v_total;end if;
+ if not (select public.mobility_push_delivery_allowed(id,lease_token)
+  from public.mobility_push_deliveries where state='leased' limit 1)
+ then raise exception 'ACTIVE_SESSION_NOT_AUTHORIZED_PRE_SEND';end if;
 end $test$;
 -- Simulate another browser tab or the Auth server revoking this login.
 DELETE FROM auth.sessions WHERE id='cccccccc-0000-4000-8000-000000000551';
+DO $test$
+begin
+ if (select public.mobility_push_delivery_allowed(id,lease_token)
+     from public.mobility_push_deliveries where state='leased' limit 1)
+ then raise exception 'REVOKED_SESSION_WOULD_SEND_AFTER_LEASE';end if;
+end $test$;
 UPDATE public.mobility_push_deliveries set state='retry',
  next_attempt_at=clock_timestamp()-interval '1 minute',
  leased_until=null,lease_token=null;
