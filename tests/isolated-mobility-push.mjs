@@ -65,7 +65,7 @@ for(const signature of ['mobility_push_device_is_active(uuid,uuid,text)']){
 
 // Transactional real-Postgres regression: no external Web Push or production
 // users. This changes only disposable CI records and always rolls them back.
-const revokedSessionProbe=String.raw\`
+const revokedSessionProbe=String.raw`
 BEGIN;
 INSERT INTO auth.users (id,instance_id,aud,role,is_sso_user,is_anonymous)
 VALUES
@@ -122,7 +122,7 @@ begin
  if v_total<>0 then raise exception 'REVOKED_SESSION_RECEIVED_PUSH_%',v_total;end if;
 end $test$;
 ROLLBACK;
-\`;
+`;
 sql(revokedSessionProbe);
 assert.equal(sql('select count(*) from public.mobility_push_subscriptions'),'0',
  'test must roll back synthetic subscriptions');
