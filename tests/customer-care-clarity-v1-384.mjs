@@ -164,7 +164,7 @@ const bg=vm.createContext({
  liveGetOrder:async()=>{if(refreshFailure)throw Error('failed refresh');return serverOrder},
  render:()=>calls.push({name:'render'})
 });
-vm.runInContext(code,bg);
+vm.runInContext(read('js/customer-care-replay.js')+'\n'+code,bg);
 const good=await vm.runInContext("liveOpenSupportCase('late','Precisa de ajuda')",bg);
 assert.equal(good.refreshPending,false);
 assert.equal(good.case.status,'open');
