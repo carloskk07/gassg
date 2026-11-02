@@ -30,6 +30,8 @@ assert.match(edge,/eq\("owner_id",user.id\)/);
 assert.match(edge,/eq\("status","published"\)/);
 const guard=read('supabase/migrations/20261102011500_mobility_push_session_guard_v1_493.sql');
 assert.equal((guard.match(/join auth\.sessions sess/g)||[]).length,2);
+assert.match(guard,/where ob\.state='pending' and ob\.expires_at<=v_now/);
+assert.doesNotMatch(guard,/where state='pending' and expires_at<=v_now/);
 assert.match(guard,/alter column auth_session_id set not null/);
 assert.match(guard,/sess\.not_after is null or sess\.not_after>v_now/);
 assert.match(guard,/mobility_push_device_is_active/);
