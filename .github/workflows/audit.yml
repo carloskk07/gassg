@@ -107,6 +107,7 @@ jobs:
           node tests/mobility-ambiguous-ack-recovery-v1-493.mjs
           node tests/mobility-android-foreground-alert-v1-493.mjs
           node tests/mobility-driver-push-v1-493.mjs
+          node tests/mobility-category-continuity-v1-493.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
       - name: Carona driver photo-before-contact and moderation guard
