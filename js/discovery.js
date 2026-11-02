@@ -274,6 +274,23 @@ function discoveryConfirmRideContact(anchor){
   if(discoveryKind()==='rides')render();
   return false;
 }
+// Direct WhatsApp contact is a handoff, not a booking. Confirm that this
+// still refers to the loaded public listing when the visitor clicks,
+// including a revoked number or a listing removed by a newer search.
+function discoveryConfirmDirectContact(anchor){
+  const kind=discoveryKind(),id=String(anchor?.dataset?.listingId||'').toLowerCase();
+  if(kind==='rides')return discoveryConfirmRideContact(anchor);
+  if(!['professionals','stays'].includes(kind))return false;
+  const state=discoveryState(kind);
+  const current=(state.status==='ready'||state.status==='loading-more')&&
+    discoveryListingIdPattern.test(id)&&state.items.find(row=>
+      String(row?.id||'').toLowerCase()===id&&row.vertical===kind);
+  if(current&&discoveryWhatsApp(current)===String(anchor?.href||''))return true;
+  anchor?.removeAttribute?.('href');
+  state.savedNotice='Este anúncio ou contato mudou. Atualize a busca antes de conversar.';
+  if(discoveryKind()===kind)render();
+  return false;
+}
 function discoverySharedListingId(){
  const search=String(globalThis.location?.search||'').slice(0,700);
  const match=search.match(/(?:^\?|&)listing=([0-9a-f-]{36})(?:&|$)/i);
@@ -343,7 +360,8 @@ function discoveryInquiryForm(item,kind){
   '<label>Entrada desejada<input name="checkin" type="date" required></label>'+
   '<label>Saída desejada<input name="checkout" type="date" required></label>'+
   '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
- return '<details class="discovery-inquiry" data-phone="'+esc(phone)+
+ return '<details class="discovery-inquiry" data-listing-id="'+esc(String(item?.id||'').toLowerCase())+
+  '" data-phone="'+esc(phone)+
   '" data-kind="'+kind+'" data-service="'+mobility+'" data-title="'+title+
   '" data-departure="'+(kind==='rides'?esc(String(item.departure_at||'').slice(0,45)):'')+
   '" data-max="'+count+'">'+
@@ -363,7 +381,11 @@ function discoveryPrepareInquiry(anchor){
  const title=String(box?.dataset?.title||'').slice(0,80);
  const limit=Number(box?.dataset?.max);
  const feedback=box?.querySelector?.('.discovery-inquiry-feedback');
- const invalid=message=>{if(feedback)feedback.textContent=message;return false};
+ const invalid=message=>{
+   anchor?.removeAttribute?.('href');
+   if(feedback)feedback.textContent=message;
+   return false;
+ };
  if(!/^\+[1-9][0-9]{7,14}$/.test(phone)||!title||
     !Number.isInteger(limit)||limit<0||limit>80||
     (kind!=='professionals'&&limit<1))return false;
@@ -374,6 +396,26 @@ function discoveryPrepareInquiry(anchor){
   if(!Number.isFinite(departure)||departure<=Date.now())
    return invalid('A saída desta carona já passou. Atualize a busca para consultar outras vagas.');
  }
+ // The form may have remained open while another search or a seat/photo/
+ // contact edit changed the listing. A stale form must never launch the old
+ // phone, title, seat count, or a different driver's service.
+ const listingId=String(box?.dataset?.listingId||'').toLowerCase();
+ const state=['professionals','rides','stays'].includes(kind)?discoveryState(kind):null;
+ const current=state&&discoveryKind()===kind&&
+   ['ready','loading-more'].includes(state.status)&&
+   discoveryListingIdPattern.test(listingId)
+     ?state.items.find(row=>String(row?.id||'').toLowerCase()===listingId&&row.vertical===kind)
+     :null;
+ const currentMax=kind==='rides'?Number(current?.seats_available):
+   kind==='stays'?Number(current?.guests):0;
+ if(!current||String(current.whatsapp_e164||'')!==phone||
+    String(current.title||'').slice(0,80)!==title||
+    (kind!=='professionals'&&(!Number.isInteger(currentMax)||currentMax!==limit))||
+    (kind==='rides'&&(!discoveryRideAvailable(current)||
+      String(current.departure_at||'').slice(0,45)!==String(box?.dataset?.departure||'')))||
+    (kind==='professionals'&&['moto','carro'].includes(String(box?.dataset?.service||''))&&
+      discoveryProfessionalTransportKind(current.occupation)!==box.dataset.service))
+   return invalid('Este anúncio, contato ou disponibilidade mudou. Atualize a busca antes de consultar.');
  if(kind==='professionals'){
   const raw=String(box?.querySelector?.('[name="service"]')?.value||'');
   const service=raw.replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim();
@@ -560,7 +602,7 @@ function discoveryCard(item,kind){
     '<div class="discovery-actions">'+
     (trackingLink?'<a href="'+trackingLink+'" class="discovery-ride-track">Solicitar e acompanhar no mapa ↗</a>':'')+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank"'+
-      (kind==='rides'?' data-listing-id="'+id+'" onclick="return discoveryConfirmRideContact(this)"':'')+
+      (canSave?' data-listing-id="'+esc(id)+'" onclick="return '+(kind==='rides'?'discoveryConfirmRideContact':'discoveryConfirmDirectContact')+'(this)"':'')+
       '>'+actionText+'</a>':'')+
     (kind==='rides'&&!discoveryRideAvailable(item)?
       '<p class="tiny muted" role="status">Saída encerrada ou sem vagas atuais. Atualize a busca para consultar caronas disponíveis.</p>':'')+
