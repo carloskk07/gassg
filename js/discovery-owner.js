@@ -932,6 +932,8 @@ async function discoveryOwnerRemovePhoto(photoPath){
     !['draft','rejected'].includes(d.status)||
     !discoveryOwnerPhotoUrl(key)||!key.startsWith(s.user.id+'/')||
     !Array.isArray(d.photo_urls)||!d.photo_urls.includes(key))return;
+  const epoch=s.sessionEpoch,userId=s.user.id;
+  const same=()=>discoveryOwnerSessionValid(epoch,userId);
   s.busy=true;s.error='';s.notice='';
   try{
     // The authenticated RPC locks the draft and removes only this photo.
@@ -939,12 +941,13 @@ async function discoveryOwnerRemovePhoto(photoPath){
     const updated=await s.client.rpc('discovery_unlink_listing_photo',{
       p_listing_id:d.id,p_photo_path:key
     });
+    if(!same())return;
     if(updated.error)throw updated.error;
     if(!Array.isArray(updated.data)||updated.data.includes(key))
       throw Error('PHOTO_UNLINK_UNCONFIRMED');
     // Independently read back the owner-scoped state before deleting bytes.
     // Storage RLS separately forbids deleting any photo still referenced.
-    await discoveryOwnerRefresh();
+    if(!await discoveryOwnerRefresh()||!same())return;
     const persisted=s.items.find(item=>item.id===d.id);
     // A second editor may add/remove OTHER images after the RPC commits.
     // Only the target's absence is required; comparing whole arrays would
@@ -955,31 +958,37 @@ async function discoveryOwnerRemovePhoto(photoPath){
     d.photo_urls=persisted.photo_urls.slice();
     try{
       const cleaned=await s.client.storage.from('tamao-discovery-photos').remove([key]);
+      if(!same())return;
       if(cleaned.error)throw cleaned.error;
       s.notice='Foto retirada do anúncio e do armazenamento.';
     }catch{
+      if(!same())return;
       s.pendingPhotoRemovals=[...new Set([...s.pendingPhotoRemovals,key])];
       const savedLocally=discoveryOwnerPersistPendingPhotoRemovals();
       s.error='A foto saiu do anúncio, mas o arquivo ainda precisa ser removido. Use “Repetir limpeza de fotos pendentes”.'+
         (savedLocally?'':' A pendência não pôde ser guardada para a próxima visita.');
     }
-  }catch(e){
-    s.error=discoveryOwnerError(e);
-  }
+  }catch(e){if(same())s.error=discoveryOwnerError(e);}
+  if(!same())return;
   s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerRetryPhotoCleanup(){
   const s=discoveryOwner;
   if(s.busy||!s.user||!s.client||!s.pendingPhotoRemovals.length)return;
+  const epoch=s.sessionEpoch,userId=s.user.id;
+  const same=()=>discoveryOwnerSessionValid(epoch,userId);
   s.busy=true;s.error='';s.notice='';
   const pending=[];
   for(const key of s.pendingPhotoRemovals){
+    if(!same())return;
     if(!discoveryOwnerPhotoUrl(key)||!key.startsWith(s.user.id+'/'))continue;
     try{
       const cleaned=await s.client.storage.from('tamao-discovery-photos').remove([key]);
+      if(!same())return;
       if(cleaned.error)throw cleaned.error;
-    }catch{pending.push(key);}
+    }catch{if(same())pending.push(key);}
   }
+  if(!same())return;
   s.pendingPhotoRemovals=pending;
   const savedLocally=discoveryOwnerPersistPendingPhotoRemovals();
   if(pending.length){
@@ -996,45 +1005,62 @@ async function discoveryOwnerRemoveDocument(docId){
   if(!doc||!/^[0-9a-f-]{36}$/.test(String(doc.id||''))||
     !String(doc.object_path||'').startsWith(expected)||
     !/^[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(String(doc.object_path).slice(expected.length)))return;
+  const epoch=s.sessionEpoch,userId=s.user.id;
+  const same=()=>discoveryOwnerSessionValid(epoch,userId);
   s.busy=true;s.error='';s.notice='';
   try{
     // Storage API deletes the real bytes; direct SQL deletion of storage.objects
     // would strand the file. Keep metadata if either operation fails for retry.
     const removed=await s.client.storage.from('tamao-discovery-documents').remove([doc.object_path]);
+    if(!same())return;
     if(removed.error)throw removed.error;
     const deleted=await s.client.from('discovery_documents').delete()
       .eq('id',doc.id).eq('listing_id',d.id).select('id');
+    if(!same())return;
     if(deleted.error)throw deleted.error;
     if(!Array.isArray(deleted.data)||deleted.data.length!==1)
       throw Error('Document metadata cleanup not confirmed');
     s.editor.documents=s.editor.documents.filter(x=>x.id!==docId);
     s.notice='Comprovante removido do rascunho.';
-  }catch(e){s.error=discoveryOwnerError(e);}
+  }catch(e){if(same())s.error=discoveryOwnerError(e);}
+  if(!same())return;
   s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerSubmit(id){
   const s=discoveryOwner,entry=s.items.find(x=>x.id===id);
   if(s.busy||!entry||!['draft','rejected','paused'].includes(entry.status))return;
+  if(!s.user)return;
+  const epoch=s.sessionEpoch,userId=s.user.id;
+  const same=()=>discoveryOwnerSessionValid(epoch,userId);
   s.busy=true;s.error='';s.notice='';
   try{
     const {error}=await s.client.rpc('discovery_transition_listing',{
       p_listing_id:id,p_next_status:'review',p_reason:'Envio pelo anunciante'
     });
+    if(!same())return;
     if(error)throw error;
-    await discoveryOwnerRefresh();s.notice='Anúncio enviado para revisão.';
-  }catch(e){s.error=discoveryOwnerError(e);}
+    if(!await discoveryOwnerRefresh()||!same())return;
+    s.notice='Anúncio enviado para revisão.';
+  }catch(e){if(same())s.error=discoveryOwnerError(e);}
+  if(!same())return;
   s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerPause(id){
   const s=discoveryOwner,entry=s.items.find(x=>x.id===id);
   if(s.busy||entry?.status!=='published')return;
+  if(!s.user)return;
+  const epoch=s.sessionEpoch,userId=s.user.id;
+  const same=()=>discoveryOwnerSessionValid(epoch,userId);
   s.busy=true;s.error='';s.notice='';
   try{
     const {error}=await s.client.rpc('discovery_transition_listing',{
       p_listing_id:id,p_next_status:'paused',p_reason:'Pausa solicitada pelo anunciante'
     });
+    if(!same())return;
     if(error)throw error;
-    await discoveryOwnerRefresh();s.notice='Anúncio pausado.';
-  }catch(e){s.error=discoveryOwnerError(e);}
+    if(!await discoveryOwnerRefresh()||!same())return;
+    s.notice='Anúncio pausado.';
+  }catch(e){if(same())s.error=discoveryOwnerError(e);}
+  if(!same())return;
   s.busy=false;if(discoveryOwnerRoute())render();
 }
