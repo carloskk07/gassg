@@ -267,7 +267,8 @@ for(const [kind,cta,keyword] of [
 ]){
  const entry={vertical:kind,id:publicId,title:'Oferta <teste>',description:'Contato direto',
    city_name:'São Gabriel',state_code:'RS',public_area:'Centro <teste>',
-   whatsapp_e164:'+555599998888'};
+   whatsapp_e164:'+555599998888',
+   seats_available:3,departure_at:'2030-07-05T12:00:00Z'};
  const html=sandbox.discoveryCard(entry,kind);
  assert.match(html,new RegExp(cta));
  assert.match(html,/Região: Centro &lt;teste&gt;/);
@@ -282,7 +283,8 @@ assert.equal(sandbox.discoveryWhatsApp({vertical:'stays',whatsapp_e164:'javascri
 
 // Contact requests contain only prospective intent, not reservations or billing.
 const rideInquiry=sandbox.discoveryInquiryForm({
- title:'Carona São Gabriel',whatsapp_e164:'+555599998888',seats_available:3
+ title:'Carona São Gabriel',whatsapp_e164:'+555599998888',seats_available:3,
+ departure_at:'2030-07-05T12:00:00Z'
 },'rides');
 const stayInquiry=sandbox.discoveryInquiryForm({
  title:'Casa para férias',whatsapp_e164:'+555599998888',guests:6
@@ -305,7 +307,8 @@ assert.doesNotMatch(professionalInquiry,/Reserva confirmada|Pagar no TAMÃO/);
 assert.equal(sandbox.discoveryInquiryForm({whatsapp_e164:'not-phone'},'professionals'),'');
 function makeInquiry(kind,values,max=3,mode=''){
  const feedback={textContent:''};
- const box={dataset:{phone:'+555599998888',kind,service:mode,title:'Anúncio exemplo',max:String(max)},
+ const box={dataset:{phone:'+555599998888',kind,service:mode,title:'Anúncio exemplo',
+ departure:'2030-07-05T12:00:00Z',max:String(max)},
  querySelector:sel=>sel==='.discovery-inquiry-feedback'?feedback:
   Object.hasOwn(values,(sel.match(/\[name="([^"]+)"\]/)||[])[1])?
     {value:values[(sel.match(/\[name="([^"]+)"\]/)||[])[1]]}:null};
@@ -340,7 +343,8 @@ for(const [mode,description] of [
  const s=sandbox.discoveryState('professionals');
  s.service=mode;
  const html=sandbox.discoveryInquiryForm({
-   title:'Prestador de mobilidade',whatsapp_e164:'+555599998888'
+   title:'Prestador de mobilidade',whatsapp_e164:'+555599998888',
+   occupation:mode==='moto'?'Mototáxi':mode==='carro'?'Motorista de carro / táxi':'Entregador'
  },'professionals');
  assert.match(html,/name="origin" required/);
  assert.match(html,/name="destination" required/);
