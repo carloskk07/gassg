@@ -78,7 +78,7 @@ grant execute on function public.mobility_push_claim_due(integer) to service_rol
 -- send. Requires both the exact session and matching endpoint credential.
 create function public.mobility_push_device_is_active(
  p_driver uuid,p_session uuid,p_endpoint_hash text)
-returns boolean language sql stable security definer set search_path=pg_catalog
+returns boolean language sql volatile security definer set search_path=pg_catalog
 as $fn$
  select exists(
   select 1 from public.mobility_push_subscriptions sub
@@ -100,7 +100,7 @@ grant execute on function public.mobility_push_device_is_active(uuid,uuid,text)
 -- This closes the window after leasing but before the 4/8-second provider call.
 create function public.mobility_push_delivery_allowed(
  p_delivery_id bigint,p_lease_token uuid)
-returns boolean language sql stable security definer set search_path=pg_catalog
+returns boolean language sql volatile security definer set search_path=pg_catalog
 as $fn$
  select exists(
   select 1 from public.mobility_push_deliveries d
