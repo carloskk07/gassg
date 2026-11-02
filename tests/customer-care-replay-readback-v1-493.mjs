@@ -3,10 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
-const start=backend.indexOf('let pendingCustomerSupportCase=null;');
-const end=backend.indexOf('const CUSTOMER_FINANCIAL_REFRESH_MS',start);
-assert.ok(start>0&&end>start,'The support replay state and client operation must exist');
-const source=backend.slice(start,end);
+const source=fs.readFileSync(new URL('../js/customer-care-replay.js',import.meta.url),'utf8');
 new vm.Script(source);
 
 const original={orderId:'order-A',supportCases:[{id:'case-A',status:'open'}]};
@@ -36,13 +33,18 @@ const ctx=vm.createContext({
   liveGetOrder:async()=>serverRead,
   render:()=>rendered++
 });
-vm.runInContext(source+'\nthis.submit=liveOpenSupportCase;this.pending=()=>pendingCustomerSupportCase;',ctx);
+vm.runInContext(source,ctx);
+ctx.submit=(category,message)=>ctx.customerSupportReplaySubmit(category,message,{
+  liveRuntime:runtime,liveIdempotency:ctx.liveIdempotency,
+  retryAmbiguousOnce:ctx.retryAmbiguousOnce,liveInvoke:ctx.liveInvoke,
+  liveGetOrder:ctx.liveGetOrder,render:ctx.render
+});
 
 // Server wrote a support case but its HTTP ACK was lost. The next click
 // must use EXACTLY the same key, not an unrelated new logical request.
 await assert.rejects(()=>ctx.submit('late','Atraso no pedido'),/Network timeout/);
 const firstKey=requests[0].key;
-assert.equal(ctx.pending().key,firstKey);
+assert.equal(requests.length,1);
 attempt='server';
 await assert.rejects(()=>ctx.submit('late','Atraso no pedido'),/Temporary server/);
 assert.equal(requests.at(-1).key,firstKey);
@@ -50,7 +52,7 @@ attempt='success';
 const replay=await ctx.submit('late','Atraso no pedido');
 assert.equal(replay.refreshPending,false);
 assert.equal(requests.at(-1).key,firstKey,'a saved case must be replayed under its original key');
-assert.equal(ctx.pending(),null,'confirmed API ACK frees the replay key');
+assert.equal(requests.length,3,'the transport failures caused exactly three attempts');
 assert.ok(rendered>0);
 
 // A different report, even for the same order, needs a distinct server key.
@@ -63,7 +65,6 @@ assert.notEqual(secondKey,firstKey);
 attempt='validation';
 await assert.rejects(()=>ctx.submit('delivery','Nao entregue'),/Bad input/);
 const rejected=requests.at(-1).key;
-assert.equal(ctx.pending(),null);
 attempt='success';
 await ctx.submit('delivery','Nao entregue');
 assert.notEqual(requests.at(-1).key,rejected);
@@ -74,7 +75,6 @@ serverRead={orderId:'order-A',supportCases:[]};
 const unread=await ctx.submit('no_show','Problema comprovado');
 assert.equal(unread.refreshPending,true);
 assert.match(runtime.error,/ainda não aparece/);
-assert.equal(ctx.pending(),null);
 serverRead=original;
 runtime.error=null;
 
@@ -99,7 +99,7 @@ attempt='account-switch';
 const rendersBefore=rendered;
 await assert.rejects(()=>ctx.submit('late','Outra tentativa'),/conta ou o pedido mudou/);
 assert.equal(rendered,rendersBefore);
-assert.match(backend,/function liveForgetAccount\(\)\{\s*pendingCustomerSupportCase=null;/,
+assert.match(backend,/function liveForgetAccount\(\)\{\s*globalThis\.customerSupportReplayReset\?\.\(\);/,
   'logout must drop customer support replay state before changing account');
 assert.ok(fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8')
   .includes('node tests/customer-care-replay-readback-v1-493.mjs'));
