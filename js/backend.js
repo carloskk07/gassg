@@ -260,7 +260,7 @@ function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 // A different authenticated customer must never inherit balances, delivery
 // details or a pending response from the previous browser account.
 function liveForgetAccount(){
-  pendingCustomerSupportCase=null;
+  globalThis.customerSupportReplayReset?.();
   if(liveRuntime.status==='loading')return;
   liveRuntime.status='loading';
   liveRuntime.session=null;
@@ -1044,63 +1044,17 @@ async function liveSubmitFeedback(rating,tags=[]){
 // Keep the same server idempotency key when the case may have been saved
 // but the HTTP acknowledgement was lost. Scope the in-memory draft to its
 // authenticated customer and exact request, never to another login/order.
-let pendingCustomerSupportCase=null;
 async function liveOpenSupportCase(category,message=''){
-  const order=liveRuntime.order;
-  if(!order)throw new Error('Pedido não encontrado');
-  const actor=String(liveRuntime.session?.user?.id||'');
-  if(!actor)throw new Error('Sessão do cliente indisponível. Atualize o pedido.');
-  const payload={
-    action:'open-case',
-    orderId:order.orderId,
-    category:String(category||'other'),
-    message:String(message||'').trim()
-  };
-  const fingerprint=JSON.stringify(payload);
-  const previous=pendingCustomerSupportCase;
-  const idempotencyKey=previous?.actor===actor&&previous.fingerprint===fingerprint
-    ?previous.key:liveIdempotency('customer-care');
-  pendingCustomerSupportCase={actor,fingerprint,key:idempotencyKey};
-  let result;
-  try{
-    result=await retryAmbiguousOnce(()=>liveInvoke('customer-care',payload,{idempotencyKey}));
-    if(result?.ok!==true||!result?.case?.id)
-      throw new Error('Não foi possível confirmar o protocolo de atendimento. Consulte novamente.');
-  }catch(error){
-    // Transport/5xx may be an acknowledged server write; preserve the key.
-    // A definitive validation/auth/conflict error must not poison later attempts.
-    const status=Number(error?.status);
-    if(Number.isInteger(status)&&status>=400&&
-      ![408,429,500,502,503,504].includes(status)&&
-      pendingCustomerSupportCase?.key===idempotencyKey)
-      pendingCustomerSupportCase=null;
-    throw error;
-  }
-  if(pendingCustomerSupportCase?.key===idempotencyKey)pendingCustomerSupportCase=null;
-  if(String(liveRuntime.session?.user?.id||'')!==actor||
-     String(liveRuntime.order?.orderId||'')!==payload.orderId)
-    throw new Error('A conta ou o pedido mudou. Consulte o acompanhamento atual.');
-  let refreshPending=false;
-  try{
-    const verified=await liveGetOrder(payload.orderId,{silent:true});
-    if(String(liveRuntime.session?.user?.id||'')!==actor||
-       String(liveRuntime.order?.orderId||'')!==payload.orderId)
-      throw new Error('A conta ou o pedido mudou. Consulte o acompanhamento atual.');
-    if(verified?.orderId!==payload.orderId||
-       !Array.isArray(verified.supportCases)||
-       !verified.supportCases.some(item=>item?.id===result.case.id)){
-      refreshPending=true;
-      liveRuntime.error='O relato foi registrado, mas ainda não aparece na consulta do pedido. Atualize o acompanhamento.';
-    }
-  }catch(error){
-    if(String(liveRuntime.session?.user?.id||'')!==actor||
-       String(liveRuntime.order?.orderId||'')!==payload.orderId)
-      throw new Error('A conta ou o pedido mudou. Consulte o acompanhamento atual.');
-    refreshPending=true;
-    liveRuntime.error='Não foi possível atualizar os atendimentos. Consulte novamente.';
-  }
-  render();
-  return {...result,refreshPending};
+  if(!globalThis.customerSupportReplaySubmit)await new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
+      .replace('/js/backend.js','/js/customer-care-replay.js');
+    s.onload=resolve;s.onerror=()=>reject(Error('Atendimento indisponível. Tente novamente.'));
+    document.head.appendChild(s);
+  });
+  return globalThis.customerSupportReplaySubmit(category,message,{
+    liveRuntime,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,render
+  });
 }
 
 const CUSTOMER_FINANCIAL_REFRESH_MS=5*60*1000;
