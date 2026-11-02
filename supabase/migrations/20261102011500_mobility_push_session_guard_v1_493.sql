@@ -73,3 +73,23 @@ begin
 end $fn$;
 revoke all on function public.mobility_push_claim_due(integer) from public,anon,authenticated;
 grant execute on function public.mobility_push_claim_due(integer) to service_role;
+
+-- Safe read for existing device, not a new enrollment and never a provider
+-- send. Requires both the exact session and matching endpoint credential.
+create function public.mobility_push_device_is_active(
+ p_driver uuid,p_session uuid,p_endpoint_hash text)
+returns boolean language sql stable security definer set search_path=pg_catalog
+as $fn$
+ select exists(
+  select 1 from public.mobility_push_subscriptions sub
+  join auth.sessions ses on ses.id=sub.auth_session_id
+   and ses.user_id=sub.driver_id
+   and (ses.not_after is null or ses.not_after>clock_timestamp())
+  where sub.driver_id=p_driver and sub.auth_session_id=p_session
+   and sub.endpoint_hash=p_endpoint_hash and sub.active and sub.revoked_at is null
+ )
+$fn$;
+revoke all on function public.mobility_push_device_is_active(uuid,uuid,text)
+ from public,anon,authenticated;
+grant execute on function public.mobility_push_device_is_active(uuid,uuid,text)
+ to service_role;
