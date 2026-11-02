@@ -93,3 +93,38 @@ revoke all on function public.mobility_push_device_is_active(uuid,uuid,text)
  from public,anon,authenticated;
 grant execute on function public.mobility_push_device_is_active(uuid,uuid,text)
  to service_role;
+
+
+-- A lease is not lasting authorization. Recheck the exact assigned session,
+-- current ride state and public listing immediately before EVERY HTTP send.
+-- This closes the window after leasing but before the 4/8-second provider call.
+create function public.mobility_push_delivery_allowed(
+ p_delivery_id bigint,p_lease_token uuid)
+returns boolean language sql stable security definer set search_path=pg_catalog
+as $fn$
+ select exists(
+  select 1 from public.mobility_push_deliveries d
+  join public.mobility_push_outbox o on o.id=d.outbox_id
+  join public.mobility_requests r on r.id=o.request_id
+   and r.driver_id=o.driver_id and r.status='requested'
+   and r.expires_at>clock_timestamp()
+  join public.discovery_listings l on l.id=r.listing_id
+   and l.owner_id=o.driver_id and l.vertical='professionals'
+   and l.status='published'
+  join public.discovery_vertical_cities c on c.vertical='professionals'
+   and c.state_code=l.state_code and c.city_key=l.city_key and c.enabled
+  join public.mobility_push_subscriptions sub on sub.id=d.subscription_id
+   and sub.driver_id=o.driver_id and sub.active and sub.revoked_at is null
+   and sub.registered_at<=o.created_at
+  join auth.sessions ses on ses.id=sub.auth_session_id
+   and ses.user_id=sub.driver_id
+   and (ses.not_after is null or ses.not_after>clock_timestamp())
+  where d.id=p_delivery_id and d.lease_token=p_lease_token
+   and d.state='leased' and d.leased_until>clock_timestamp()
+   and o.state='pending' and o.expires_at>clock_timestamp()
+ )
+$fn$;
+revoke all on function public.mobility_push_delivery_allowed(bigint,uuid)
+ from public,anon,authenticated;
+grant execute on function public.mobility_push_delivery_allowed(bigint,uuid)
+ to service_role;
