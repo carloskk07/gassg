@@ -26,8 +26,9 @@ begin
  into v_rpc;
  if v_rpc is null or
   pg_catalog.strpos(v_rpc,'''driver_whatsapp''')=0 or
-  pg_catalog.strpos(v_rpc,'''accepted'', ''en_route'', ''arrived''')=0 or
-  pg_catalog.strpos(v_rpc,'r.rider_id = (SELECT auth.uid()')=0 or
+  pg_catalog.strpos(v_rpc,'accepted')=0 or
+  pg_catalog.strpos(v_rpc,'auth.uid()')=0 or
+  pg_catalog.strpos(v_rpc,'whatsapp_e164')=0 or
   pg_catalog.strpos(v_rpc,'public.mobility_driver_category_current')=0
  then raise exception 'MOBILITY_CONTACT_SNAPSHOT_NOT_REVIEWED'
   using errcode='42501';end if;
