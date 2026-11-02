@@ -74,6 +74,7 @@ assert.ok(read('js/legal.js').includes('function contactPage()'));
 assert.ok(read('js/mobility.js').includes("Relatar problema com este atendimento"));
 s.id=listing;
 s.detail={id:listing,role:'rider',status:'en_route',origin:'Centro',destination:'Vila',
+ expires_at:new Date(Date.now()+120000).toISOString(),
  position:{lat:-30.33,lon:-54.32,accuracy_m:30,updated_at:new Date().toISOString()}};
 assert.match(ctx.mobilityPage(),/Mostrar o mapa do motorista/);
 assert.match(ctx.mobilityPage(),/Relatar problema com este atendimento/);
@@ -93,6 +94,13 @@ s.detail.position={...validPosition,updated_at:new Date(Date.now()+20000).toISOS
 assert.equal(ctx.mobilityFreshPosition(s.detail),null,
  'Future timestamp outside clock-skew tolerance is not trustworthy');
 s.detail.position=validPosition;
+// A still-fresh packet cannot be displayed after the trip itself expires.
+s.detail.expires_at=new Date(Date.now()-5000).toISOString();
+assert.equal(ctx.mobilityFreshPosition(s.detail),null,
+ 'GPS must be unavailable after request expiry even with a fresh packet');
+assert.doesNotMatch(ctx.mobilityPage(),/<iframe/,
+ 'expired tracking must not leave an embedded third-party map');
+s.detail.expires_at=new Date(Date.now()+120000).toISOString();
 s.detail.position=null;assert.doesNotMatch(ctx.mobilityPage(),/<iframe/);
 let deletedSrc=0,removedFrame=0;
 const previousLookup=ctx.document.getElementById;
@@ -108,6 +116,7 @@ assert.equal(ctx.mobilityMapUrl({lat:null,lon:0}),'',
 assert.equal(ctx.mobilityMapUrl({lat:'-30.3',lon:-54.3}),'',
  'Untrusted string coordinates cannot enter the map URL');
 s.detail={id:listing,role:'rider',status:'en_route',origin:'Centro',destination:'Vila',
+ expires_at:new Date(Date.now()+120000).toISOString(),
  position:{...validPosition,updated_at:new Date(Date.now()-50000).toISOString()}};
 failRefresh=true;
 await ctx.mobilityRefresh(true);
