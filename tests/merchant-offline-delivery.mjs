@@ -555,4 +555,84 @@ assert.ok(expired.includes('merchantOfflineGuard(true)')&&
 assert.match(backendSrc,/merchantRuntime\.status='no-access'/,'403 must leave driver panel inaccessible');
 assert.match(backendSrc,/merchantOfflineGuard\(data\.merchant\?\.memberRole!=='driver'\)/,'only the confirmed driver role clears revoked state');
 
+
+// Auth continuity: a role cached in JS is not enough for an anonymous Auth
+// session to stage or show encrypted receipts, regardless of role label.
+rows.receipts.clear();
+rt.status='ready';rt.merchant=validMerchant;rt.selectedMerchantId=merchantId;
+rt.orders=[{...validOrders[0],status:'ARRIVING',version:3,assignedDeliveryUserId:userId}];
+rt.lastSyncAt=new Date().toISOString();rt.actionPending=false;
+rt.session={access_token:'test-not-a-real-token',
+ expires_at:Math.floor(Date.now()/1000)+3600,user:{id:userId,is_anonymous:true}};
+pinField.value='6789';
+await afterReload.merchantOfflineDeliverySaveFromUi(orderId);
+assert.equal(rows.receipts.size,0,'anonymous auth must not stage a delivery even with cached driver role');
+assert.equal(afterReload.merchantDriverOfflineQueue(rt),'',
+ 'anonymous auth cannot see the offline delivery form');
+rt.session={access_token:'test-not-a-real-token',
+ expires_at:Math.floor(Date.now()/1000)+3600,user:{id:userId,is_anonymous:false}};
+pinField.value='6789';
+await afterReload.merchantOfflineDeliverySaveFromUi(orderId);
+assert.equal(rows.receipts.size,1,'authorized driver can still stage a local encrypted proof');
+
+// Force the IndexedDB open callback to complete only after switching accounts,
+// reproducing a stale showPending() promise in another browser tab.
+let resumeOpen,notifyOpen;
+const openEntered=new Promise(resolve=>{notifyOpen=resolve});
+const delayedIndexedDB={open(name,version){
+ const inner=indexedDB.open(name,version);
+ const outer={get result(){return inner.result},get error(){return inner.error},
+  onsuccess:null,onerror:null,onupgradeneeded:null,onblocked:null};
+ inner.onupgradeneeded=()=>outer.onupgradeneeded?.();
+ inner.onerror=()=>outer.onerror?.();
+ inner.onsuccess=()=>{resumeOpen=()=>outer.onsuccess?.();notifyOpen()};
+ return outer;
+}};
+const pendingCtx={...ctx,merchantRuntime:rt,indexedDB:delayedIndexedDB};
+pendingCtx.globalThis=pendingCtx;
+vm.runInNewContext(source,pendingCtx,{filename:'merchant-offline-delivery.js'});
+const delayedPanel=pendingCtx.merchantOfflineDeliveryShowPending();
+await openEntered;
+rt.session={access_token:'other-test-session',
+ expires_at:Math.floor(Date.now()/1000)+3600,user:{id:otherId}};
+resumeOpen();
+await delayedPanel;
+assert.equal(host.children.length,0,'late storage callback must not render a former account proof');
+assert.equal(host.parentElement.hidden,true,'changed account must not reveal a former driver's queue');
+
+// Pause at the AES-GCM boundary: a proof started under driver A must not be
+// persisted when driver B becomes authenticated before encryption returns.
+rt.session={access_token:'test-not-a-real-token',
+ expires_at:Math.floor(Date.now()/1000)+3600,user:{id:userId,is_anonymous:false}};
+rows.receipts.clear();
+pinField.value='6789';
+let resumeEncrypt,notifyEncrypt;
+const encryptEntered=new Promise(resolve=>{notifyEncrypt=resolve});
+const delayedEncryption={
+ getRandomValues:array=>webcrypto.getRandomValues(array),
+ randomUUID:()=>webcrypto.randomUUID(),
+ subtle:{
+  encrypt:async(...args)=>{
+   notifyEncrypt();
+   await new Promise(resolve=>{resumeEncrypt=resolve});
+   return webcrypto.subtle.encrypt(...args);
+  },
+  decrypt:(...args)=>webcrypto.subtle.decrypt(...args),
+  generateKey:(...args)=>webcrypto.subtle.generateKey(...args)
+ }
+};
+const saveCtx={...ctx,merchantRuntime:rt,crypto:delayedEncryption};
+saveCtx.globalThis=saveCtx;
+vm.runInNewContext(source,saveCtx,{filename:'merchant-offline-delivery.js'});
+const delayedSave=saveCtx.merchantOfflineDeliverySaveFromUi(orderId);
+await encryptEntered;
+rt.session={access_token:'other-test-session',
+ expires_at:Math.floor(Date.now()/1000)+3600,user:{id:otherId}};
+resumeEncrypt();
+await delayedSave;
+assert.equal(rows.receipts.size,0,'a changed session cannot commit a pending proof');
+assert.equal(pinField.value,'6789','an obsolete callback must not clear the current form');
+assert.notEqual(savedButton.textContent,'Comprovante guardado (pendente)',
+ 'an obsolete callback must not show a false staged success');
+
 console.log('PASS: encrypted offline receipts and restricted stale-snapshot UI; no merchant/financial writes until verified server ACK.');
