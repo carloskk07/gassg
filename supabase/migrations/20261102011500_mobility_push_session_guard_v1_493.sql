@@ -20,8 +20,8 @@ language plpgsql volatile security definer set search_path=pg_catalog as $fn$
 declare v_now timestamptz:=clock_timestamp();
  v_limit integer:=least(greatest(coalesce(p_limit,4),1),8);
 begin
- update public.mobility_push_outbox set state='expired'
- where state='pending' and expires_at<=v_now;
+ update public.mobility_push_outbox ob set state='expired'
+ where ob.state='pending' and ob.expires_at<=v_now;
  insert into public.mobility_push_deliveries(outbox_id,subscription_id)
  select o.id,s.id from public.mobility_push_outbox o
  join public.mobility_requests r on r.id=o.request_id
