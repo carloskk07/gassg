@@ -54,8 +54,14 @@ for(const [requested,occupation,expected] of [
 }
 ctx.discoveryState('professionals').service='';
 function inquiry(values,mode='stays',departure=''){
+ kind=mode;
+ const state=ctx.discoveryState(mode);
+ state.status='ready';
+ state.items=[{id:uuid,vertical:mode,title:'Anúncio de teste',
+  whatsapp_e164:'+555599998888',guests:3,seats_available:3,
+  departure_at:departure,occupation:'Mototáxi'}];
  const feedback={textContent:''};
- const box={dataset:{phone:'+555599998888',kind:mode,service:'moto',
+ const box={dataset:{listingId:uuid,phone:'+555599998888',kind:mode,service:'moto',
   departure,title:'Anúncio de teste',max:'3'},
   querySelector(selector){
    if(selector==='.discovery-inquiry-feedback')return feedback;
