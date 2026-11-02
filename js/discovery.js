@@ -258,6 +258,22 @@ function discoveryWhatsApp(item){
     ' Gostaria de solicitar um orçamento e confirmar a disponibilidade.';
   return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent(opening+title+'.'+question);
 }
+// A ride card can stay open across its departure time, or outlive a
+// refreshed/withdrawn listing. Recheck the loaded row at the precise click
+// instead of trusting a WhatsApp href minted when the card was rendered.
+function discoveryConfirmRideContact(anchor){
+  const id=String(anchor?.dataset?.listingId||'').toLowerCase();
+  const state=discoveryState('rides');
+  const current=(state.status==='ready'||state.status==='loading-more')&&
+    state.items.find(row=>row?.id===id&&row.vertical==='rides');
+  if(discoveryKind()==='rides'&&discoveryListingIdPattern.test(id)&&
+     current&&discoveryRideAvailable(current)&&
+     discoveryWhatsApp(current)===String(anchor?.href||''))return true;
+  if(anchor?.removeAttribute)anchor.removeAttribute('href');
+  state.savedNotice='Esta carona pode ter saído ou mudado. Atualize a busca para consultar vagas.';
+  if(discoveryKind()==='rides')render();
+  return false;
+}
 function discoverySharedListingId(){
  const search=String(globalThis.location?.search||'').slice(0,700);
  const match=search.match(/(?:^\?|&)listing=([0-9a-f-]{36})(?:&|$)/i);
@@ -543,7 +559,9 @@ function discoveryCard(item,kind){
     '<p>'+esc(item.description)+'</p>'+
     '<div class="discovery-actions">'+
     (trackingLink?'<a href="'+trackingLink+'" class="discovery-ride-track">Solicitar e acompanhar no mapa ↗</a>':'')+
-    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">'+actionText+'</a>':'')+
+    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank"'+
+      (kind==='rides'?' data-listing-id="'+id+'" onclick="return discoveryConfirmRideContact(this)"':'')+
+      '>'+actionText+'</a>':'')+
     (kind==='rides'&&!discoveryRideAvailable(item)?
       '<p class="tiny muted" role="status">Saída encerrada ou sem vagas atuais. Atualize a busca para consultar caronas disponíveis.</p>':'')+
     (share?'<a href="'+esc(share)+'" class="discovery-direct-link" aria-label="Abrir link direto deste anúncio">Abrir anúncio ↗</a>':'')+
