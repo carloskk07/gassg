@@ -28,7 +28,17 @@ assert.match(edge,/auth\.getUser\(token.slice\(7\)\)/);
 assert.match(edge,/user.is_anonymous/);
 assert.match(edge,/eq\("owner_id",user.id\)/);
 assert.match(edge,/eq\("status","published"\)/);
-assert.match(edge,/eq\("driver_id",user.id\)\.eq\("endpoint_hash",endpointHash\)/);
+const guard=read('supabase/migrations/20261102011500_mobility_push_session_guard_v1_493.sql');
+assert.equal((guard.match(/join auth\.sessions sess/g)||[]).length,2);
+assert.match(guard,/alter column auth_session_id set not null/);
+assert.match(guard,/sess\.not_after is null or sess\.not_after>v_now/);
+assert.match(guard,/mobility_push_device_is_active/);
+assert.match(guard,/grant execute on function public\.mobility_push_device_is_active\(uuid,uuid,text\)/);
+assert.match(edge,/auth\.getUser\(token.slice\(7\)\)/);
+assert.match(edge,/authenticatedSessionId\(token.slice\(7\),user.id\)/);
+assert.match(edge,/auth_session_id:sessionId/);
+assert.match(edge,/mobility_push_device_is_active/);
+assert.match(edge,/\.eq\("auth_session_id",sessionId\)/);
 assert.match(edge,/\.upsert\(\{/);
 assert.match(sender,/if\(!credentials\)/);
 assert.match(sender,/mobility_push_claim_due/);
@@ -77,6 +87,8 @@ const ctx={console,URL,URLSearchParams,Date,Uint8Array,atob,AbortController,
    ok:true,active:true,testMode:true})};
   if(body.action==='unsubscribe')return {ok:true,json:async()=>({
    ok:true,active:false})};
+  if(body.action==='status')return {ok:true,json:async()=>({
+   active:remoteEnabled})};
   throw Error('unexpected action');
  }};
 ctx.globalThis=ctx;
@@ -107,6 +119,20 @@ ctx.navigator.serviceWorker.ready=new Promise(()=>{});
 ctx.setTimeout=fn=>{Promise.resolve().then(fn);return 1};
 await assert.rejects(ctx.mobilityReadyPushWorker(),/PUSH_WORKER_TIMEOUT/);
 ctx.setTimeout=realTimer;ctx.navigator.serviceWorker.ready=realReady;
+
+// Reopening the PWA must restore only the current account's existing
+// subscription without asking permission or subscribing automatically.
+ctx.navigator.serviceWorker.getRegistration=async()=>registration;
+subscription=sub;remoteEnabled=true;s.pushEnabled=false;
+const registeredBefore=registered,subscribesBefore=calls.filter(x=>x.action==='subscribe').length;
+assert.equal(await ctx.mobilityRestoreRemoteAlerts(),true);
+assert.equal(s.pushEnabled,true);
+assert.equal(registered,registeredBefore);
+assert.equal(calls.filter(x=>x.action==='subscribe').length,subscribesBefore);
+assert.equal(calls.at(-1).action,'status');
+remoteEnabled=false;s.pushEnabled=true;
+assert.equal(await ctx.mobilityRestoreRemoteAlerts(),false);
+assert.equal(s.pushEnabled,false,'revoked/other account is not restored');
 
 // The real SW handles a remote driver push with generic content and safe route.
 const handlers={};
