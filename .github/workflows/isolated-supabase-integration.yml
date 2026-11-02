@@ -120,6 +120,8 @@ jobs:
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: Verify real driver push RLS, role gates and empty transactional outbox
         run: node tests/isolated-mobility-push.mjs
+      - name: Prove five real moto and car participant journeys with cancellation expiry and GPS cleanup
+        run: node tests/isolated-mobility-full-lifecycle-v1-493.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes
