@@ -101,5 +101,29 @@ for(const unavailable of [
  assert.doesNotMatch(ctx.discoveryCard(unavailable,'rides'),/Consultar vagas pelo WhatsApp|Preparar consulta no WhatsApp/);
  assert.match(ctx.discoveryCard(unavailable,'rides'),/Saída encerrada ou sem vagas/);
 }
+// A direct carpool WhatsApp link must not remain actionable if the
+// departure passes while its original card is still open.
+const rideState=ctx.discoveryState('rides');
+rideState.status='ready';rideState.items=[ride];
+assert.match(ctx.discoveryCard(ride,'rides'),/onclick="return discoveryConfirmRideContact\(this\)"/);
+const oldContact=ctx.discoveryWhatsApp(ride);
+const direct={href:oldContact,dataset:{listingId:uuid},
+ removeAttribute(name){if(name==='href')this.href=''}};
+assert.equal(ctx.discoveryConfirmRideContact(direct),true);
+BrazilNightDate.now=()=>Date.parse('2026-11-02T02:30:00Z');
+assert.equal(ctx.discoveryConfirmRideContact(direct),false,
+ 'a cached link must be rejected after the carpool departure time');
+assert.equal(direct.href,'','a rejected link loses its stale destination');
+assert.match(rideState.savedNotice,/Atualize a busca/);
+// Even if the ride is still in the future, a refreshed phone or an
+// unloaded listing must not allow an old contact URL to be opened.
+rideState.items=[{...ride,departure_at:'2026-11-02T04:00:00Z',
+ whatsapp_e164:'+555598887777'}];
+const revoked={href:oldContact,dataset:{listingId:uuid},
+ removeAttribute(name){if(name==='href')this.href=''}};
+assert.equal(ctx.discoveryConfirmRideContact(revoked),false);
+rideState.items=[];
+assert.equal(ctx.discoveryConfirmRideContact(revoked),false);
+
 assert.match(read('.github/workflows/audit.yml'),/node tests\/discovery-transport-calendar-safety-v1-493\.mjs/);
 console.log('PASS: moto/car modal purity, stale carpool contacts denied, São Paulo date-only stays and professional quotes');

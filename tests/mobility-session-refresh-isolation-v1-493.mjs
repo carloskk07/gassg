@@ -173,6 +173,47 @@ assert.equal(s.selectedPortraitKey,'');
 assert.ok(renders>beforePortraitOffline,'Offline refresh must redraw and remove cached portrait');
 assert.doesNotMatch(ctx.mobilityPage(),/class="mobility-driver-portrait"/);
 
+// A silent polling failure without cached phone/GPS/portrait still leaves
+// a materially stale ride status. Warn immediately and clear only after a
+// fresh successful authorized participant read.
+s.user=userA;s.id=rideA;s.items=[{...mk(rideA,'driver'),position:null}];
+s.detail={...s.items[0],driver_whatsapp:null,position:null};
+s.syncUnavailable=false;
+const beforeSyncFailure=renders;
+const disconnected=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',null,new Error('temporary network loss'));
+assert.equal(await disconnected,false);
+assert.equal(s.syncUnavailable,true);
+assert.ok(renders>beforeSyncFailure,'Silent polling failures must render a visible warning');
+assert.match(ctx.mobilityPage(),/Sem atualização do servidor/);
+const beforeSyncRecovery=renders;
+const reconnected=ctx.mobilityRefresh(true);
+resolve('mobility_my_requests',[{...s.items[0]}]);
+await flush();
+resolve('mobility_snapshot',{...s.detail});
+assert.equal(await reconnected,true);
+assert.equal(s.syncUnavailable,false);
+assert.ok(renders>beforeSyncRecovery,'Restored participant sync must remove warning');
+assert.doesNotMatch(ctx.mobilityPage(),/Sem atualização do servidor/);
+
+// Offline OS events are observable before any RPC fails. The UI must
+// immediately hide previously authorized contacts/portraits and warn.
+s.user=userA;s.id=rideA;
+s.items=[{...mk(rideA),status:'accepted',position:null}];
+s.detail={...s.items[0],driver_whatsapp:'+555599998888'};
+s.selectedPortraitId=rideA;s.selectedPortraitKey=portrait;
+s.selectedPortraitCheckedAt=Date.now();
+assert.match(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp/);
+assert.match(ctx.mobilityPage(),/class="mobility-driver-portrait"/);
+const beforeOfflineEvent=renders;
+handler.offline();
+assert.equal(s.syncUnavailable,true);
+assert.equal(s.detail.driver_whatsapp,null);
+assert.equal(s.selectedPortraitKey,'');
+assert.ok(renders>beforeOfflineEvent);
+assert.doesNotMatch(ctx.mobilityPage(),/Conversar com o motorista no WhatsApp|class="mobility-driver-portrait"/);
+assert.match(ctx.mobilityPage(),/Sem atualização do servidor/);
+
 // Returning to the app or reconnecting refreshes the authorized inbox.
 s.user=userB;
 doc.visibilityState='visible';handler.visibilitychange();

@@ -6,7 +6,7 @@
  document.head.appendChild(link);
 })();
 
-const mobilityRuntime={phase:'idle',client:null,user:null,items:[],detail:null,
+const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,items:[],detail:null,
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  pushEnabled:false,pushBusy:false,
  mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0,
@@ -135,7 +135,9 @@ function mobilityMapUrl(pos){
 // Enforce the backend's 45-second expiry independently in the browser.
  // A lost connection must not leave an obsolete vehicle marker visible.
 function mobilityFreshPosition(row){
- if(row?.status!=='en_route'||!row.position)return null;
+ const expires=Date.parse(String(row?.expires_at||''));
+ if(row?.status!=='en_route'||!row.position||!Number.isFinite(expires)||
+    expires<=Date.now())return null;
  const time=Date.parse(String(row.position.updated_at||''));
  const age=Date.now()-time;
  if(!Number.isFinite(time)||age< -10000||age>=45000)return null;
@@ -468,6 +470,7 @@ function mobilityPage(){
  '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>'+(intent?'':discover);
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
  const error=s.error?'<p class="notice danger" role="alert">'+esc(s.error)+'</p>':'';
+ const stale=s.syncUnavailable?'<p class="notice danger" role="status">Sem atualização do servidor. Estado da corrida, motorista e informações podem estar desatualizados. Confira sua conexão e toque em Atualizar atendimentos.</p>':'';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section mobility-page">'+top+'<p role="status">Preparando sua área segura…</p></section>');
  if(s.phase==='failed')return shell('<section class="section mobility-page">'+top+error+
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
@@ -491,7 +494,7 @@ function mobilityPage(){
   '<label>Origem aproximada<input name="origin" minlength="3" maxlength="120" required placeholder="Bairro ou região"></label>'+
   '<label>Destino aproximado<input name="destination" minlength="3" maxlength="120" required placeholder="Bairro ou região"></label>'+
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Enviar solicitação ao anunciante</button></form></section>':'';
- return shell('<section class="section mobility-page">'+top+note+error+
+ return shell('<section class="section mobility-page">'+top+note+error+stale+
   '<p class="mobility-account">Conta: '+esc(String(s.user.email||'verificada').slice(0,254))+
   ' <button type="button" onclick="mobilityRefresh()">Atualizar atendimentos</button>'+
   ' <button type="button" onclick="mobilityLogout()">Sair e parar localização</button></p>'+
@@ -564,7 +567,7 @@ function mobilityClearSession(){
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
- s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';
+ s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';s.syncUnavailable=false;
  s.pushEnabled=false;s.pushBusy=false;
  s.intentPortraitId='';s.intentPortraitMode='';s.intentPortraitKey='';s.intentPortraitLoading=false;
  s.selectedPortraitId='';s.selectedPortraitKey='';s.selectedPortraitCheckedAt=0;
@@ -665,6 +668,7 @@ async function mobilityRefresh(silent=false){
   mobilityNotifyNewPending(items);
   const before=JSON.stringify(s.items);s.items=items;
   let changed=before!==JSON.stringify(items);
+  if(s.syncUnavailable){s.syncUnavailable=false;changed=true}
   if(mobilityResumeRequest(items))changed=true;
   if(s.id){
    const selected=s.id;
@@ -713,15 +717,17 @@ async function mobilityRefresh(silent=false){
   return true;
  }catch(_){
   if(!latest())return false;
-  if(s.detail?.position||s.detail?.driver_whatsapp||s.selectedPortraitKey){
-   // On participant read failure, remote contact, GPS and portrait must
-   // disappear from the screen until a fresh authorization succeeds.
+  const firstFailure=!s.syncUnavailable;
+  s.syncUnavailable=true;
+  const hadPrivateData=Boolean(s.detail?.position||s.detail?.driver_whatsapp||s.selectedPortraitKey);
+  if(hadPrivateData){
+   // Participant reads failed. Stale contact, portrait and GPS are erased.
    s.detail={...s.detail,position:null,driver_whatsapp:null};
    s.selectedPortraitKey='';s.selectedPortraitId='';s.selectedPortraitCheckedAt=0;
    mobilityUpdateMap(s.detail);
-   if(mobilityRoute())render();
   }
-  if(!silent){s.error='Não foi possível atualizar. Confira a conexão.';render()}
+  if(!silent)s.error='Não foi possível atualizar. Confira a conexão.';
+  if((firstFailure||hadPrivateData||!silent)&&mobilityRoute())render();
   return false;
  }
 }
@@ -950,10 +956,17 @@ globalThis.addEventListener?.('online',()=>{
  if(mobilityRoute()&&mobilityRuntime.user)mobilityRefresh(true).catch(()=>{});
 });
 globalThis.addEventListener?.('offline',()=>{
- if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
- if(mobilityRuntime.detail?.position){
-  mobilityRuntime.detail={...mobilityRuntime.detail,position:null};
-  mobilityUpdateMap(mobilityRuntime.detail);
-  if(mobilityRoute())render();
+ const s=mobilityRuntime;
+ if(s.watch!==null||s.gpsPending)mobilityStopTracking();
+ const hadPrivateData=Boolean(s.detail?.position||s.detail?.driver_whatsapp||s.selectedPortraitKey);
+ if(hadPrivateData){
+  // The offline event may arrive well before the next periodic RPC. Never
+  // leave a cached driver contact, portrait or map visible as if current.
+  s.detail={...s.detail,position:null,driver_whatsapp:null};
+  s.selectedPortraitKey='';s.selectedPortraitId='';s.selectedPortraitCheckedAt=0;
+  mobilityUpdateMap(s.detail);
  }
+ const firstFailure=Boolean(s.user)&&!s.syncUnavailable;
+ if(s.user)s.syncUnavailable=true;
+ if((firstFailure||hadPrivateData)&&mobilityRoute())render();
 });
