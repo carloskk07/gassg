@@ -1703,7 +1703,7 @@ async function adminSetPublicRequestStatus(requestId,status){
     // to that stale sample after changing a ticket's authoritative status.
     // Discard any older in-flight page and reload the protected queue now.
     adminRuntime.helpReportPager={actor,page:0,items:[],total:null,loading:false,error:null};
-    await adminHelpReportsPage(0);
+    await adminHelpReportsPage(0,{force:true});
     if(adminRuntime.session!==session||String(adminRuntime.session?.user?.id||'')!==actor)return;
     if(adminHelpPager().error){
       toast('Status registrado no servidor. Não foi possível atualizar a fila; use Atualizar relatos.');
@@ -5407,12 +5407,14 @@ function adminHelpPager(){
     adminRuntime.helpReportPager={actor,page:0,items:null,total:null,loading:false,error:null};
   return adminRuntime.helpReportPager;
 }
-async function adminHelpReportsPage(page){
+async function adminHelpReportsPage(page,{force=false}={}){
   if(!adminReady()||!adminRoleCanSection('orders')||
      !Number.isSafeInteger(page)||page<0||page>10000)return;
   const pager=adminHelpPager();
-  if(pager.loading)return;
+  if(pager.loading&&!force)return;
   const actor=pager.actor,session=adminRuntime.session;
+  const seq=(pager.requestSeq||0)+1;
+  pager.requestSeq=seq;
   pager.loading=true;pager.error=null;render();
   try{
     // The general admin summary is only a latest-200 mixed-kind sample.
@@ -5428,13 +5430,15 @@ async function adminHelpReportsPage(page){
          !['new','in_review'].includes(x.status)))
       throw new Error('Página de relatos inválida');
     if(adminRuntime.session!==session||adminHelpPager()!==pager||
-       pager.actor!==actor)return;
+       pager.actor!==actor||pager.requestSeq!==seq)return;
     pager.page=page;pager.items=result.items;pager.total=result.total;
   }catch(error){
-    if(adminRuntime.session===session&&adminHelpPager()===pager&&pager.actor===actor)
+    if(adminRuntime.session===session&&adminHelpPager()===pager&&
+       pager.actor===actor&&pager.requestSeq===seq)
       pager.error=String(error?.message||'Não foi possível consultar os relatos');
   }finally{
-    if(adminRuntime.session===session&&adminHelpPager()===pager&&pager.actor===actor){
+    if(adminRuntime.session===session&&adminHelpPager()===pager&&
+       pager.actor===actor&&pager.requestSeq===seq){
       pager.loading=false;render();
     }
   }
