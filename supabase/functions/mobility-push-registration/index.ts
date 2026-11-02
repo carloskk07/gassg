@@ -11,6 +11,19 @@ const PUBLIC_KEY=pub.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SERVICE_KEY=sec.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const ORIGINS=new Set(["https://tamao.com.br"]);
 const B64=/^[A-Za-z0-9_-]+$/;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+// getUser() already verifies the JWT. Decode only the session identity and
+// never trust session_id from a browser-supplied JSON body.
+function authenticatedSessionId(token:string,userId:string):string|null{
+ try{
+  const parts=token.split(".");
+  if(parts.length!==3||!parts[1]||parts[1].length>8192)return null;
+  const b64=parts[1].replace(/-/g,"+").replace(/_/g,"/");
+  const claims=JSON.parse(atob(b64+"=".repeat((4-b64.length%4)%4)));
+  return claims.sub===userId&&typeof claims.session_id==="string"&&
+    UUID.test(claims.session_id)?claims.session_id:null;
+ }catch{return null}
+}
 function allowed(origin:string|null){
  return !origin||ORIGINS.has(origin)||/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
@@ -57,10 +70,12 @@ Deno.serve(async req=>{
  try{
   const body=await readJsonBody(req,{maxBytes:4600});
   if(!body||typeof body!=="object"||Array.isArray(body)||
-   !["config","subscribe","unsubscribe"].includes(body.action))return fail("INVALID_REQUEST",400,origin);
+   !["config","subscribe","unsubscribe","status"].includes(body.action))return fail("INVALID_REQUEST",400,origin);
   const auth=createClient(URL_BASE,PUBLIC_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:{user},error:userError}=await auth.auth.getUser(token.slice(7));
   if(userError||!user||user.is_anonymous)return fail("UNAUTHORIZED",401,origin);
+  const sessionId=authenticatedSessionId(token.slice(7),user.id);
+  if(!sessionId)return fail("SESSION_UNAVAILABLE",401,origin);
   const admin=createClient(URL_BASE,SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
   await enforceApiQuota(admin,{userId:user.id,
    actionName:"mobility-push-register",limit:20,windowSeconds:60});
@@ -78,10 +93,17 @@ Deno.serve(async req=>{
   }
   if(!endpointValid(body.endpoint))return fail("INVALID_ENDPOINT",400,origin);
   const endpointHash=await hash(body.endpoint);
+  if(body.action==="status"){
+   const {data,error}=await admin.rpc("mobility_push_device_is_active",{
+    p_driver:user.id,p_session:sessionId,p_endpoint_hash:endpointHash
+   });
+   return error?fail("UNAVAILABLE",503,origin):respond({active:data===true},200,origin);
+  }
   if(body.action==="unsubscribe"){
    const {error}=await admin.from("mobility_push_subscriptions")
     .update({active:false,revoked_at:new Date().toISOString()})
-    .eq("driver_id",user.id).eq("endpoint_hash",endpointHash);
+    .eq("driver_id",user.id).eq("auth_session_id",sessionId)
+    .eq("endpoint_hash",endpointHash);
    return error?fail("UNAVAILABLE",503,origin):respond({ok:true,active:false},200,origin);
   }
   const keys=body.keys;
@@ -102,7 +124,8 @@ Deno.serve(async req=>{
   if(active.length>=4&&!active.some((s:{endpoint_hash:string})=>s.endpoint_hash===endpointHash))
    return fail("DEVICE_LIMIT",429,origin);
   const {error:writeError}=await admin.from("mobility_push_subscriptions").upsert({
-   driver_id:user.id,endpoint_hash:endpointHash,endpoint_url:body.endpoint,
+   driver_id:user.id,auth_session_id:sessionId,
+   endpoint_hash:endpointHash,endpoint_url:body.endpoint,
    p256dh:keys.p256dh,auth_secret:keys.auth,
    active:true,registered_at:new Date().toISOString(),revoked_at:null
   },{onConflict:"endpoint_hash"});
