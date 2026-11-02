@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const get=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=get('supabase/migrations/20261102040000_mobility_accept_push_category_continuity_v1_493.sql');
+const sql=get('supabase/migrations/20261102024326_mobility_accept_push_category_continuity_v1_493.sql');
 assert.match(sql,/create function public\.mobility_driver_category_current\(/);
 assert.match(sql,/when d\.occupation ~\* '\(motot\[aá\]xi\|moto\.\?taxi\)' then 'moto'/);
 assert.match(sql,/when d\.occupation ~\* '\(motorista\|t\[aá\]xi\|taxista\)' then 'carro'/);
