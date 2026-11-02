@@ -1041,9 +1041,6 @@ async function liveSubmitFeedback(rating,tags=[]){
   return result;
 }
 
-// Keep the same server idempotency key when the case may have been saved
-// but the HTTP acknowledgement was lost. Scope the in-memory draft to its
-// authenticated customer and exact request, never to another login/order.
 async function liveOpenSupportCase(category,message=''){
   if(!globalThis.customerSupportReplaySubmit)await new Promise((resolve,reject)=>{
     const s=document.createElement('script');
