@@ -388,7 +388,9 @@
       // No local state can authorize the arriving or delivery mutations.
       // Both actions require a freshly reloaded server-assigned order.
       await globalThis.merchantRefresh({silent:true});
+      if(!sameIdentity(who))return;
       const receipt=await recover(who,id);
+      if(!sameIdentity(who))return;
       if(deliveredOnServer(id,who,receipt)){
         // Lost ACK: the server has already confirmed the exact next version.
         // Do not send PIN or arrival a second time.
@@ -404,6 +406,7 @@
           await globalThis.merchantPerformAction(id,'arriving');
           // An arriving ACK is insufficient without a fresh authorized state.
           await globalThis.merchantRefresh({silent:true});
+          if(!sameIdentity(who))return;
           current=authorizedOrder(id,{fresh:true});
         }
         // If an earlier arrival ACK was lost, its exact next version may
@@ -414,7 +417,9 @@
       }else if(current.order.status!=='ARRIVING'||current.order.version!==receipt.version){
         throw new Error('Versão do pedido mudou. A confirmação requer revisão da revenda.');
       }
+      if(!sameIdentity(who))return;
       const acknowledged=await globalThis.merchantCompleteDeliveryLive(id,receipt.pin,true,receipt.idempotencyKey);
+      if(!sameIdentity(who))return;
       // The canonical helper may return a positive HTTP ACK even when its
       // follow-up merchant-orders refresh fails. Do NOT clear the proof until
       // the authenticated snapshot confirms the exact completed version.
@@ -430,17 +435,25 @@
     }
   }
   async function showPending(){
+    const seq=++pendingViewSeq,who=identity();
     const host=document.getElementById('merchant-offline-receipts');
     if(!host)return;
     const section=host.parentElement?.classList?.contains('merchant-driver-receipts')
       ?host.parentElement:null;
-    if(!identity()){
+    if(!who){
+      host.replaceChildren();
       if(section)section.hidden=true;
       return;
     }
     host.replaceChildren();
     try{
       const records=await pending();
+      if(seq!==pendingViewSeq)return;
+      if(!sameIdentity(who)){
+        host.replaceChildren();
+        if(section)section.hidden=true;
+        return;
+      }
       const stagedIds=new Set(records.map(r=>r.orderId));
       for(const order of Array.isArray(globalThis.merchantRuntime?.orders)?globalThis.merchantRuntime.orders:[])
         if(UUID.test(String(order?.orderId||'')))
@@ -472,6 +485,12 @@
         host.appendChild(block);
       }
     }catch(error){
+      if(seq!==pendingViewSeq)return;
+      if(!sameIdentity(who)){
+        host.replaceChildren();
+        if(section)section.hidden=true;
+        return;
+      }
       if(section)section.hidden=false;
       host.textContent='Não foi possível ler os comprovantes protegidos: '+String(error?.message||error);
     }
