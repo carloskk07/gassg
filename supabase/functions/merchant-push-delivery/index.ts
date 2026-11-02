@@ -313,7 +313,15 @@ async function deliverMobility(admin:any,row:MobilityClaimed,credentials:VapidCr
  else if(!validPushEndpoint(row.endpoint_url)){
   outcome="failed";code="ENDPOINT_NOT_ALLOWED";
  }else{
-  try{
+  // Claiming a lease does not grant perpetual permission. A concurrent
+  // logout, cancelled ride or city suspension must stop network dispatch.
+  const {data:authorized,error:authError}=await admin.rpc(
+   "mobility_push_delivery_allowed",{
+    p_delivery_id:row.delivery_id,p_lease_token:row.lease_token
+   });
+  if(authError)throw new Error("MOBILITY_PUSH_PRE_SEND_AUTH_FAILED");
+  if(authorized!==true){outcome="expired";code="NO_LONGER_AUTHORIZED"}
+  else try{
    const accepted=await sendPushNotification({
     endpoint:row.endpoint_url,keys:{p256dh:row.p256dh,auth:row.auth_secret}
    },notice,{

@@ -273,6 +273,30 @@ async function mobilityReadyPushWorker(){
   ]);
  }finally{clearTimeout(timer)}
 }
+// Restore only a previously consented enrollment; never request a new
+// notification permission or silently create a subscription on page load.
+async function mobilityRestoreRemoteAlerts(){
+ const s=mobilityRuntime;
+ if(!s.user||s.pushBusy||!globalThis.isSecureContext||
+   globalThis.Notification?.permission!=='granted'||
+   !navigator.serviceWorker?.getRegistration)return false;
+ const epoch=s.sessionEpoch,userId=s.user.id,
+  valid=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ s.pushBusy=true;
+ try{
+  const registration=await navigator.serviceWorker.getRegistration();
+  if(!valid()||!registration?.active||!registration.pushManager)return false;
+  const subscription=await registration.pushManager.getSubscription();
+  if(!valid()||!subscription?.endpoint)return false;
+  const status=await mobilityPushApi('status',{endpoint:subscription.endpoint},epoch,userId);
+  if(!valid())return false;
+  s.pushEnabled=status.active===true;
+  return s.pushEnabled;
+ }catch(_){return false}
+ finally{
+  if(valid()){s.pushBusy=false;if(mobilityRoute())render()}
+ }
+}
 async function mobilityEnableRemoteAlerts(){
  const s=mobilityRuntime;
  if(!mobilityRoute()||!s.user||s.pushBusy)return false;
@@ -492,7 +516,10 @@ async function mobilityInit(){
       next.id!==s.user?.id){
     mobilityClearSession();
     s.user=next;
-    if(mobilityRoute())mobilityRefresh();
+    if(mobilityRoute()){
+     void mobilityRefresh();
+     void mobilityRestoreRemoteAlerts();
+    }
    }
   });
   s.phase='ready';
@@ -502,7 +529,12 @@ async function mobilityInit(){
    history.replaceState(null,'',url.pathname+url.search+url.hash);
   }
   if(mobilityIntent())await mobilityLoadIntentPortrait(mobilityIntent());
-  if(s.user)await mobilityRefresh();
+  if(s.user){
+   await mobilityRefresh();
+   // The currently authenticated session is rechecked server-side. A
+   // different tab signing out cannot retain the old notification consent.
+   void mobilityRestoreRemoteAlerts();
+  }
  }catch(_){s.phase='failed';s.error='Não foi possível acessar as solicitações. Tente mais tarde.';}
  if(mobilityRoute())render();
 }
