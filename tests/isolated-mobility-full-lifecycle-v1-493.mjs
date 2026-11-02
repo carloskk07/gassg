@@ -29,10 +29,10 @@ ON CONFLICT(vertical,state_code,city_key) DO UPDATE SET enabled=true;
 INSERT INTO public.discovery_listings(id,owner_id,vertical,status,title,description,
  state_code,city_key,city_name,whatsapp_e164) VALUES
  ('dddddddd-1000-4000-8000-000000000901','aaaaaaaa-1000-4000-8000-000000000901',
- 'professionals','published','Mototáxi isolado','Oferta CI sem pessoas reais',
+ 'professionals','published','Mototáxi isolado','Atendimento sintético em área restrita, exclusivo para verificar o funcionamento das solicitações de moto e carro em banco de dados descartável.',
  'RS','sao-gabriel','São Gabriel','+5555999999999'),
  ('dddddddd-1000-4000-8000-000000000902','aaaaaaaa-1000-4000-8000-000000000901',
- 'professionals','published','Motorista de carro isolado','Oferta CI sem pessoas reais',
+ 'professionals','published','Motorista de carro isolado','Atendimento sintético em área restrita, exclusivo para verificar o funcionamento das solicitações de moto e carro em banco de dados descartável.',
  'RS','sao-gabriel','São Gabriel','+5555999999999');
 INSERT INTO public.discovery_professional_details(listing_id,occupation,service_area) VALUES
  ('dddddddd-1000-4000-8000-000000000901','Mototáxi','Centro'),
