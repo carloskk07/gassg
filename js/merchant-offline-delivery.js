@@ -9,7 +9,7 @@
   const MAX_SNAPSHOT_AGE_MS=4*60*60*1000;
   const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const pendingSync=new Set();
-  let lastCachedSync=0,lastCachedScope='';
+  let lastCachedSync=0,lastCachedScope='',pendingViewSeq=0;
   const encoder=new TextEncoder(),decoder=new TextDecoder();
   const sessionValid=s=>Number.isSafeInteger(s?.expires_at)&&s.expires_at*1000>Date.now();
 
@@ -30,10 +30,28 @@
     const userId=String(rt.session?.user?.id||'');
     const merchantId=String(rt.merchant?.merchantId||'');
     if(globalThis.__CHAMA_TEST__===true||!['ready','unavailable'].includes(rt.status)||
-       rt.merchant?.memberRole!=='driver'||!UUID.test(userId)||!UUID.test(merchantId)||
+       rt.merchant?.memberRole!=='driver'||rt.session?.user?.is_anonymous===true||
+       !UUID.test(userId)||!UUID.test(merchantId)||
        !rt.session?.access_token||!sessionValid(rt.session))return null;
     if(localStorage.getItem('tamao-offline-denied:'+userId+':'+merchantId)==='1')return null;
-    return {rt,userId,merchantId,scope:userId+':'+merchantId};
+    return {rt,userId,merchantId,scope:userId+':'+merchantId,
+      session:rt.session,accessToken:rt.session.access_token};
+  }
+  // Async IndexedDB or WebCrypto operations must not outlive the session
+  // that originally authorized them, even if another user logs in later.
+  function sameIdentity(who){
+    const now=identity();
+    return !!who&&!!now&&now.rt===who.rt&&now.scope===who.scope&&
+      now.session===who.session&&now.accessToken===who.accessToken;
+  }
+  // Token rotation from Supabase Auth may accompany an online refresh.
+  // Reconciliation may continue for the SAME authorized participant, while
+  // the server must still verify a fresh assigned order before each mutation.
+  // Local encryption and storage remain bound to the exact original session.
+  function sameParticipant(who){
+    const now=identity();
+    return !!who&&!!now&&now.rt===who.rt&&now.userId===who.userId&&
+      now.merchantId===who.merchantId&&now.scope===who.scope;
   }
   function authorizedOrder(id,{fresh=false}={}){
     const who=identity();
@@ -147,9 +165,11 @@
     const ciphertext=await crypto.subtle.encrypt({
       name:'AES-GCM',iv,additionalData:encoder.encode(who.scope+':assignments:2')
     },key,payload);
+    if(!sameIdentity(who)||who.rt.status!=='ready')return false;
     await write('assignments',{
       id:who.scope,expiresAt,iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(ciphertext))
     });
+    if(!sameIdentity(who))return false;
     lastCachedSync=checkedAt;lastCachedScope=who.scope;
     return true;
   }
@@ -223,33 +243,38 @@
       address:order.addressVisible===true?String(order.address||'').slice(0,350):''
     }));
     const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad},key,content);
+    if(!sameIdentity(verified))throw new Error('A sessão mudou. Reabra a entrega na conta correta.');
     const receiptId=itemId(scope,id);
     const entry={id:receiptId,scope,orderId:id,version:order.version,
       savedAt,expiresAt,iv:Array.from(iv),ciphertext:Array.from(new Uint8Array(ciphertext))};
     await receiptTransaction(receiptId,(store,existing)=>{
+      if(!sameIdentity(verified))
+        throw new Error('A sessão mudou antes de guardar o comprovante.');
       if(existing&&Number(existing.expiresAt)>Date.now())
         throw new Error('Já existe comprovante pendente para este pedido. Confira ou descarte antes de substituir.');
       store.put(entry);
     });
-    return true;
+    return sameIdentity(verified);
   }
   async function pending(){
     const who=identity();
     if(!who)return [];
     const all=await inStore('receipts','readonly',store=>store.getAll());
+    if(!sameIdentity(who))return [];
     const current=[];
     for(const item of all){
       if(item.scope!==who.scope)continue;
       if(item.expiresAt<=Date.now()){
         // Do not erase a newer receipt written by another tab after getAll.
+        if(!sameIdentity(who))return [];
         await receiptTransaction(item.id,(store,current)=>{
-          if(current&&Number(current.expiresAt)<=Date.now())store.delete(item.id);
+          if(sameIdentity(who)&&current&&Number(current.expiresAt)<=Date.now())store.delete(item.id);
         });
         continue;
       }
       current.push({orderId:item.orderId,version:item.version,savedAt:item.savedAt,receiptIv:item.iv});
     }
-    return current.sort((a,b)=>a.savedAt-b.savedAt);
+    return sameIdentity(who)?current.sort((a,b)=>a.savedAt-b.savedAt):[];
   }
   async function recover(who,id){
     const row=await read('receipts',itemId(who.scope,id));
@@ -298,7 +323,9 @@
     const data=previousInput&&typeof previousInput==='object'?previousInput:
       globalThis.merchantDeliveryConfirmationState?.(id);
     try{
-      await save(id,data?.pin,data?.paid,data?.idempotencyKey);
+      const who=identity();
+      const saved=await save(id,data?.pin,data?.paid,data?.idempotencyKey);
+      if(!saved||!sameIdentity(who))return;
       const field=document.getElementById('live-pin-'+id);
       if(field)field.value='';
       localReceiptFormState(id,true);
@@ -314,11 +341,12 @@
       return;
     }
     if(typeof confirm!=='function'||!confirm('Excluir o comprovante local? A entrega continuará pendente no servidor.'))return;
+    if(!sameIdentity(who))return;
     const receiptId=itemId(who.scope,id);
     // Bind the UI button to the IV that it displayed, not a row read later.
     // A second tab can replace the proof between rendering and this click.
     await receiptTransaction(receiptId,(store,current)=>{
-      if(current?.scope===who.scope&&Array.isArray(current.iv)&&
+      if(sameIdentity(who)&&current?.scope===who.scope&&Array.isArray(current.iv)&&
          current.iv.length===selectedIv.length&&
          current.iv.every((byte,i)=>byte===selectedIv[i]))
         store.delete(receiptId);
@@ -369,7 +397,9 @@
       // No local state can authorize the arriving or delivery mutations.
       // Both actions require a freshly reloaded server-assigned order.
       await globalThis.merchantRefresh({silent:true});
+      if(!sameParticipant(who))return;
       const receipt=await recover(who,id);
+      if(!sameParticipant(who))return;
       if(deliveredOnServer(id,who,receipt)){
         // Lost ACK: the server has already confirmed the exact next version.
         // Do not send PIN or arrival a second time.
@@ -385,6 +415,7 @@
           await globalThis.merchantPerformAction(id,'arriving');
           // An arriving ACK is insufficient without a fresh authorized state.
           await globalThis.merchantRefresh({silent:true});
+          if(!sameParticipant(who))return;
           current=authorizedOrder(id,{fresh:true});
         }
         // If an earlier arrival ACK was lost, its exact next version may
@@ -395,7 +426,9 @@
       }else if(current.order.status!=='ARRIVING'||current.order.version!==receipt.version){
         throw new Error('Versão do pedido mudou. A confirmação requer revisão da revenda.');
       }
+      if(!sameParticipant(who))return;
       const acknowledged=await globalThis.merchantCompleteDeliveryLive(id,receipt.pin,true,receipt.idempotencyKey);
+      if(!sameParticipant(who))return;
       // The canonical helper may return a positive HTTP ACK even when its
       // follow-up merchant-orders refresh fails. Do NOT clear the proof until
       // the authenticated snapshot confirms the exact completed version.
@@ -411,17 +444,25 @@
     }
   }
   async function showPending(){
+    const seq=++pendingViewSeq,who=identity();
     const host=document.getElementById('merchant-offline-receipts');
     if(!host)return;
     const section=host.parentElement?.classList?.contains('merchant-driver-receipts')
       ?host.parentElement:null;
-    if(!identity()){
+    if(!who){
+      host.replaceChildren();
       if(section)section.hidden=true;
       return;
     }
     host.replaceChildren();
     try{
       const records=await pending();
+      if(seq!==pendingViewSeq)return;
+      if(!sameIdentity(who)){
+        host.replaceChildren();
+        if(section)section.hidden=true;
+        return;
+      }
       const stagedIds=new Set(records.map(r=>r.orderId));
       for(const order of Array.isArray(globalThis.merchantRuntime?.orders)?globalThis.merchantRuntime.orders:[])
         if(UUID.test(String(order?.orderId||'')))
@@ -453,6 +494,12 @@
         host.appendChild(block);
       }
     }catch(error){
+      if(seq!==pendingViewSeq)return;
+      if(!sameIdentity(who)){
+        host.replaceChildren();
+        if(section)section.hidden=true;
+        return;
+      }
       if(section)section.hidden=false;
       host.textContent='Não foi possível ler os comprovantes protegidos: '+String(error?.message||error);
     }
@@ -472,7 +519,8 @@
     const elapsed=Date.now()-last;
     const userId=String(rt?.session?.user?.id||'');
     if(!['ready','unavailable'].includes(String(rt?.status||''))||
-       rt?.merchant?.memberRole!=='driver'||!rt?.session?.access_token||
+       rt?.merchant?.memberRole!=='driver'||rt?.session?.user?.is_anonymous===true||
+       !rt?.session?.access_token||
        !sessionValid(rt.session)||
        localStorage.getItem('tamao-offline-denied:'+userId+':'+rt.merchant.merchantId)==='1'||
        !/^[0-9a-f-]{36}$/i.test(userId)||!Number.isFinite(elapsed)||
