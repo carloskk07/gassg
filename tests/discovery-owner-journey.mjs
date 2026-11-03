@@ -19,6 +19,7 @@ let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoW
 let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false,simulateAfterRpcChange=false;
 let simulateReviewFailure=false,simulateMetadataDeleteFailure=false,simulateMetadataDeleteAckLoss=false;
 let simulateMetadataDeleteThrow=false,simulateRegistrationAckLoss=false,simulateUploadTimeout=false;
+let simulateUnverifiedAccount=false;
 const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 const afterRpcPhotoKey=userId+'/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
@@ -43,6 +44,7 @@ const client={
   signOut:async()=>{user=null;return {error:null}}
  },
  rpc:async(name,args)=>{
+  if(name==='discovery_verified_account')return {data:!simulateUnverifiedAccount,error:null};
   if(name==='discovery_my_listings'){
    if(simulateAfterRpcChange&&records[0]){
     records[0].photo_urls.push(afterRpcPhotoKey);
@@ -434,6 +436,11 @@ assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
 assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals[0],privateDocPath);
 assert.equal(ctx.discoveryOwnerReadPendingDocumentRemovals(userId)[0],privateDocPath,
  'cleanup must survive a closed page and preserve the owner scope');
+simulateUnverifiedAccount=true;
+await ctx.discoveryOwnerRetryDocumentCleanup();
+assert.equal(removed.length,0,'unverified owner must not delete a privately referenced file');
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,1);
+simulateUnverifiedAccount=false;
 await ctx.discoveryOwnerSubmit(id);
 assert.equal(records[0].status,'draft','cannot submit review while private byte cleanup is pending');
 assert.match(ctx.__discoveryOwnerTestState.error,/Conclua a limpeza/);
