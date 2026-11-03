@@ -108,7 +108,7 @@ for(const [method,action] of [
  assert.ok(source.includes('merchantScopedOrderMutation(scope,'+action+',orderId'),method);
 }
 assert.match(pick('merchantScopedOrderMutation'),
- /merchantRefreshAfterConfirmedMutation\\(result,\\{action,orderId,scope\\}\\)/);
+ /merchantRefreshAfterConfirmedMutation\(result,\{action,orderId,scope\}\)/);
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.ok===false/);
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.success===false/);
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.error/);
