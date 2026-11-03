@@ -2602,9 +2602,11 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
     },{idempotencyKey}));
     if(!same())throw new Error('A sessão mudou durante a emissão/recuperação do Pix.');
     const charge=result?.charge;
-    if(result?.merchantId!==merchantId||!result.paymentRequestId||
-       !['active','completed'].includes(charge?.status))
-      throw new Error('A cobrança retornada não corresponde à revenda.');
+    if(result?.ok!==true||!result.paymentRequestId||
+       !['active','completed'].includes(charge?.status)||
+       charge.paymentRequestId!==result.paymentRequestId||
+       !Number.isSafeInteger(Number(charge.amountCents)))
+      throw new Error('A cobrança retornada não corresponde à solicitação.');
     const readStarted=Date.now();
     const fresh=await merchantRefresh({silent:true});
     if(!same())throw new Error('O acesso à revenda mudou durante a consulta do Pix.');
@@ -2613,8 +2615,10 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
        Date.parse(String(merchantRuntime.lastSyncAt||''))<readStarted)
       throw new Error('A consulta do Pix não foi aplicada. Atualize antes de utilizar o código.');
     const row=(fresh.billing?.paymentRequests||[]).find(r=>r.id===result.paymentRequestId);
-    if(!row||row.expectedAmountCents!==result.expectedAmountCents||
+    if(!row||row.expectedAmountCents!==Number(charge.amountCents)||
        row.pixCharge?.id!==charge.id||
+       row.pixCharge?.provider!==charge.provider||
+       row.pixCharge?.correlationId!==charge.correlationId||
        row.pixCharge?.status!==charge.status)
       throw new Error('A cobrança mudou no provedor. Confira o Financeiro antes de pagar.');
     if(charge.status==='completed'){
