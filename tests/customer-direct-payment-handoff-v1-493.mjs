@@ -109,11 +109,20 @@ for(const changed of [{changeAccount:true},{changeOrder:true}]){
  const x=setup({reads:[proof({url:MP_URL,paymentStatus:'checkout_ready'})],
   onRead:({rt})=>{
    rt.session={user:{id:'buyer-two'}};
+   rt.authGeneration=(rt.authGeneration||0)+1;
    rt.session={user:{id:'buyer-one'}};
   }});
  assert.equal(await x.go(),false);
  assert.equal(x.nav.href,null);
  assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+// A harmless Supabase getSession renewal returns a NEW session object for
+// the SAME authenticated generation; this must not block a valid payment.
+{
+ const x=setup({reads:[proof({url:MP_URL,paymentStatus:'checkout_ready'})],
+  onRead:({rt})=>{rt.session={user:{id:'buyer-one'}};}});
+ assert.equal(await x.go(),true);
+ assert.equal(x.nav.href,MP_URL);
 }
 // An old checkout's finally must not unlock a newly active action after
 // the identity changes while its authenticated read is in flight.
