@@ -17,7 +17,7 @@ function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
   amountCents:amount,provider,fundsOwner:owner,tamaoReceivesSaleProceeds:tamReceives,expiresAt}};
 }
 function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,checkoutUrl:MP_URL},
- error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false}={}){
+ error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false}={}){
  const calls=[],toasts=[],renders=[],nav={href:null};
  const rt={requested:true,status:'ready',session:{user:{id:'buyer-one'}},
    orderId:ORDER,order:{orderId:ORDER},actionPending:pending,error:null};
@@ -41,8 +41,11 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
    const value=reads[Math.min(readIndex++,reads.length-1)];
    if(value instanceof Error)throw value;
    if(value?.orderId===rt.orderId){
-     rt.order=value;rt.orderCheckedId=value.orderId;
-     rt.orderCheckedAt=new Date().toISOString();
+     rt.order=value;
+     if(!staleProof){
+       rt.orderCheckedId=value.orderId;
+       rt.orderCheckedAt=new Date().toISOString();
+     }
    }
    return value;
   },
@@ -82,6 +85,14 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
  const writes=x.calls.filter(c=>c.name==='order-payment-checkout');
  assert.equal(writes.length,2,'bounded transport retry reuses same key');
  assert.equal(writes[0].options.idempotencyKey,writes[1].options.idempotencyKey);
+}
+// A cached order without a newly committed get-order proof is not enough,
+// even when a visible Mercado Pago link appears valid.
+{
+ const x=setup({staleProof:true,reads:[proof({url:MP_URL,paymentStatus:'checkout_ready'})]});
+ assert.equal(await x.go(),false);
+ assert.equal(x.nav.href,null);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
 }
 // A customer who switches account/order while the payment API is pending
 // must never be sent to a checkout associated with the old principal.
