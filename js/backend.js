@@ -2508,12 +2508,21 @@ async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das 
   }
 }
 
+// Never mistake a received RPC ACK for a financial request visible to this
+// revenda. This guard is also used across refresh and account/role changes.
+function merchantBillingSameActor(actor,merchantId,epoch){
+  return !!actor&&merchantReady()&&merchantRuntime.accessEpoch===epoch&&
+    String(merchantRuntime.session?.user?.id||'')===actor&&
+    String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+    ['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''));
+}
 async function merchantBillingRequestLive(action,payload={}){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
-    throw new Error('Seu papel não pode operar cobranças e pacotes');
-  }
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const actor=String(merchantRuntime.session?.user?.id||'');
+  const epoch=merchantRuntime.accessEpoch;
+  const same=()=>merchantBillingSameActor(actor,merchantId,epoch);
+  if(!same())throw new Error('Atualize o acesso da revenda antes de operar o Financeiro.');
+  if(merchantRuntime.actionPending)throw new Error('Aguarde a operação financeira em andamento.');
   const allowed=['request-billing-package','notify-billing-payment','notify-refund-recovery-payment','cancel-billing-request'];
   if(!allowed.includes(action))throw new Error('Ação financeira inválida');
   merchantRuntime.actionPending=true;
@@ -2522,19 +2531,44 @@ async function merchantBillingRequestLive(action,payload={}){
   try{
     const idempotencyKey=liveIdempotency('merchant-billing');
     const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,
-      action,
-      ...payload
+      merchantId,action,...payload
     },{idempotencyKey}));
-    await merchantRefresh({silent:true});
+    if(!same())throw new Error('A sessão da revenda mudou durante a ação financeira.');
+    if(result?.ok!==true||result.merchantId!==merchantId||
+       !result.paymentRequestId||!Number.isSafeInteger(Number(result.expectedAmountCents))||
+       Number(result.expectedAmountCents)<=0)
+      throw new Error('A resposta não comprovou a solicitação financeira.');
+    const readStarted=Date.now();
+    const fresh=await merchantRefresh({silent:true});
+    if(!same())throw new Error('O acesso à revenda mudou durante a conferência.');
+    if(!fresh||merchantRuntime.billing!==fresh.billing||
+       String(fresh.merchant?.merchantId||'')!==merchantId||
+       !Number.isFinite(Date.parse(String(merchantRuntime.lastSyncAt||'')))||
+       Date.parse(merchantRuntime.lastSyncAt)<readStarted)
+      throw new Error('A solicitação não foi confirmada na atualização. Confira o Financeiro antes de repetir.');
+    const row=(fresh.billing?.paymentRequests||[]).find(x=>x.id===result.paymentRequestId);
+    const target=action==='request-billing-package'
+      ?row?.planKey===payload.planKey&&row?.requestKind==='package_purchase'
+      :action==='notify-billing-payment'
+        ?row?.statementId===payload.statementId&&row?.requestKind==='statement_payment'
+        :action==='notify-refund-recovery-payment'
+          ?row?.refundRecoveryId===payload.refundRecoveryId&&row?.requestKind==='refund_recovery'
+          :row?.id===payload.paymentRequestId;
+    const state=action==='cancel-billing-request'
+      ?row?.status==='cancelled'&&result.status==='cancelled'
+      :['pending','approved'].includes(row?.status)&&
+        ['pending','approved'].includes(result.status);
+    if(!row||!target||!state||row.requestKind!==result.requestKind||
+       Number(row.expectedAmountCents)!==Number(result.expectedAmountCents)||
+       (action!=='cancel-billing-request'&&
+         String(row.merchantReference||'')!==String(payload.reference||'')))
+      throw new Error('O registro financeiro não confirmou esta operação. Confira antes de repetir.');
     return result;
   }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
+    if(same())merchantRuntime.error=String(error?.message||error);
     throw error;
   }finally{
-    merchantRuntime.actionPending=false;
-    render();
+    if(same()){merchantRuntime.actionPending=false;render();}
   }
 }
 
