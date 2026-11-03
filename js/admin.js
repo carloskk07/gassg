@@ -9732,16 +9732,61 @@ async function adminFinancial(kind,targetId,financialAction){
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminReverseOrder(){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const same=()=>adminFinanceDecisionScope(actor);
   const orderId=document.querySelector('#admin-reverse-order')?.value.trim()||'';
   const reason=document.querySelector('#admin-reverse-reason')?.value.trim()||'';
   const reference=document.querySelector('#admin-reverse-ref')?.value.trim()||'';
-  if(!orderId||reason.length<3)return toast('Informe pedido e motivo');
-  if(!confirm('Esta ação estornará benefícios e recebíveis do pedido. Confirmar?'))return;
-  if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))return toast('Reversão cancelada');
+  if(!same()||adminRuntime.actionPending||
+     adminRuntime.reverseOrderPending?.actor===actor)
+    return toast('Atualize o acesso ou conclua a ação financeira em andamento.');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)
+     ||reason.length<3)return toast('Informe o UUID do pedido e o motivo');
+  const lock={actor,orderId};
+  adminRuntime.reverseOrderPending=lock;
   try{
-    await adminPerform('reverse-order',{orderId,reason,reference});
-    toast('Reversão financeira registrada');
-  }catch(e){toast(String(e?.message||e))}
+    // This authenticated entity detail is authoritative even if the order is
+    // outside the 120 most recently updated rows in the regular Admin summary.
+    let original=null;
+    try{original=await adminInvoke({action:'entity-detail',entityType:'order',entityId:orderId})}catch{}
+    if(!same())return;
+    const baseline=original?.order;
+    if(original?.type!=='order'||original.id!==orderId||
+       baseline?.id!==orderId||baseline.status!=='SETTLED'||
+       baseline.financial_state!=='settled'||!baseline.settled_at)
+      return toast('Pedido não está comprovadamente liquidado. Consulte os detalhes antes de reverter.');
+    if(!confirm('Esta ação estornará benefícios e recebíveis do pedido. Confirmar?'))return;
+    if(!same())return;
+    if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))
+      return toast('Reversão cancelada');
+    if(!same())return;
+    // A lost ACK is ambiguous: never issue a second independent reversal.
+    // Recover the actual financial state through a read-only exact-order GET.
+    try{await adminPerform('reverse-order',{orderId,reason,reference})}catch{}
+    if(!same())return;
+    let proof=null;
+    try{proof=await adminInvoke({action:'entity-detail',entityType:'order',entityId:orderId})}catch{}
+    if(!same())return;
+    const order=proof?.order,finance=proof?.finance;
+    const matching=proof?.type==='order'&&proof.id===orderId&&
+      order?.id===orderId&&order.merchant_id===baseline.merchant_id&&
+      Number(order.total_cents)===Number(baseline.total_cents)&&
+      order.status==='SETTLED'&&order.financial_state==='reversed'&&
+      Number.isFinite(Date.parse(String(order.financial_reversed_at||'')))&&
+      finance&&Array.isArray(finance.adjustments)&&
+      (!finance.receivable||finance.receivable.order_id===orderId&&finance.receivable.status==='reversed')&&
+      (!finance.reimbursement||finance.reimbursement.order_id===orderId&&finance.reimbursement.status==='reversed')&&
+      finance.adjustments.every(x=>x.order_id===orderId&&
+        x.merchant_id===order.merchant_id&&
+        Number.isSafeInteger(Number(x.amount_cents))&&Number(x.amount_cents)>=0);
+    if(matching){
+      toast('Reversão financeira registrada e confirmada no pedido e nos lançamentos consultados.');
+    }else{
+      toast('Reversão sem confirmação atual do pedido e dos lançamentos. Consulte o histórico antes de repetir; não presuma que a operação falhou.');
+    }
+  }finally{
+    if(adminRuntime.reverseOrderPending===lock)adminRuntime.reverseOrderPending=null;
+  }
 }
 
 globalThis.adminRuntime=adminRuntime;
