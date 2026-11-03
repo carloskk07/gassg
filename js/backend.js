@@ -2401,9 +2401,9 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed,resumeI
   if(merchantRuntime.actionPending)return;
   const order=merchantVerifiedActionOrder(orderId,{action:'complete-delivery'});
   if(paymentConfirmed!==true)throw new Error('Confirme o recebimento do pagamento');
-  if(!/^\\d{4}$/.test(String(pin||'')))throw new Error('Informe o PIN de 4 dígitos');
+  if(!/^\d{4}$/.test(String(pin||'')))throw new Error('Informe o PIN de 4 dígitos');
   const scope=merchantOrderActionScope(),idempotencyKey=liveIdempotency('complete-delivery');
-  const retryKey=/^complete-delivery:[\\w-]{16,96}$/.test(resumeIdempotencyKey||'')
+  const retryKey=/^complete-delivery:[\w-]{16,96}$/.test(resumeIdempotencyKey||'')
     ?resumeIdempotencyKey:idempotencyKey;
   return merchantScopedOrderMutation(scope,'complete-delivery',orderId,
     async()=>{
