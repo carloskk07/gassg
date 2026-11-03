@@ -163,7 +163,7 @@ for(const patch of [
  x.rt.session={user:{id:'actor-B'}};
  x.rt.billing={paymentRequests:[]};
  wait.resolve(base);
- await assert.rejects(pending,/sessão da revenda mudou/i);
+ await assert.rejects(pending,/sessão mudou durante a ação financeira/i);
  assert.equal(x.rt.billing.paymentRequests.length,0);
  assert.equal(x.rt.actionPending,true,'old callback cannot clear new actor pending action');
 }
