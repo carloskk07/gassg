@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
+const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
 const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
  'merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction',
  'merchantAssignDeliveryLive','merchantCompleteDeliveryLive','merchantSelectLive','merchantSignOut'];
@@ -10,9 +11,10 @@ function pick(name){
  const plain=!['merchantRefreshAfterConfirmedMutation','merchantPerformAction',
  'merchantAssignDeliveryLive','merchantCompleteDeliveryLive','merchantSelectLive','merchantSignOut'].includes(name);
  const head=(plain?'function ':'async function ')+name+'(';
- const start=backend.indexOf(head),end=backend.indexOf('\n}',start);
+ const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
+ const start=src.indexOf(head),end=src.indexOf('\n}',start);
  assert.ok(start>=0&&end>start,'missing production function '+name);
- return backend.slice(start,end+2);
+ return src.slice(start,end+2);
 }
 const production=names.map(pick).join('\n');
 new vm.Script(production);
