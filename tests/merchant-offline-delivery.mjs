@@ -445,12 +445,12 @@ const networkContext=vm.createContext({
  },
  merchantRefresh:async()=>null
 });
-const merchantSource=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
+const merchantRoleSource=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
 const helperNames=['merchantOrderActionScope','merchantOrderActionScopeMatches',
  'merchantOrderActionScopeLost','merchantScopedOrderMutation'];
 const realHelpers=helperNames.map(name=>{
  const key=(name==='merchantScopedOrderMutation'?'async function ':'function ')+name+'(';
- const src=name==='merchantScopedOrderMutation'?backendSrc:merchantSource;
+ const src=name==='merchantScopedOrderMutation'?backendSrc:merchantRoleSource;
  const i=src.indexOf(key),j=src.indexOf('\n}',i);
  assert.ok(i>=0&&j>i,'missing merchant offline replay dependency '+name);
  return src.slice(i,j+2);
