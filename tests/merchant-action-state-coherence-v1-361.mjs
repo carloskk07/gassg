@@ -4,10 +4,10 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const backend=read('js/backend.js'),merchant=read('js/merchant.js'),ci=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
-const start=backend.indexOf('async function merchantRefreshAfterConfirmedMutation(');
-const end=backend.indexOf('\n}',start);
+const start=merchant.indexOf('async function merchantRefreshAfterConfirmedMutation(');
+const end=merchant.indexOf('\n}',start);
 assert.ok(start>0&&end>start,'acknowledgement gate not found');
-const source=backend.slice(start,end+2);
+const source=merchant.slice(start,end+2);
 const orderId='11111111-1111-4111-8111-111111111111';
 const examples=[
  ['accept correct first stage','accept',{ok:true,status:'MERCHANT_ACCEPTED'},true],
