@@ -192,7 +192,7 @@ for(const change of [
  gate.resolve({ok:true});
  await p;
 }
-assert.match(edge,/entityType,entityId/);
+assert.match(edge,/adminEntityDetail\(admin,body\.entityType,body\.entityId/);
 assert.match(edge,/financial_state,financial_reversed_at/);
 assert.match(migration,/set financial_state='reversed'/);
 assert.match(migration,/update public\.order_reward_grants/);
