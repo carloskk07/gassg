@@ -40,7 +40,10 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
    calls.push({name:'get-order',id,opts});
    const value=reads[Math.min(readIndex++,reads.length-1)];
    if(value instanceof Error)throw value;
-   if(value?.orderId===rt.orderId)rt.order=value;
+   if(value?.orderId===rt.orderId){
+     rt.order=value;rt.orderCheckedId=value.orderId;
+     rt.orderCheckedAt=new Date().toISOString();
+   }
    return value;
   },
   toast:x=>toasts.push(String(x)),
