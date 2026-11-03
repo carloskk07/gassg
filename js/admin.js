@@ -446,8 +446,11 @@ async function adminRefresh({silent=false}={}){
       ()=>adminInvoke({action:'summary'})
     );
     if(seq!==adminRuntime.refreshSeq)return data;
+    const previousRole=adminRuntime.data?.currentAdmin?.admin_role;
     adminRuntime.data=data;
     adminRuntime.status='ready';
+    if(previousRole&&previousRole!==data?.currentAdmin?.admin_role)
+      adminPurgeSensitiveReads();
     // Saved tabs can outlive a role change: never leave a read-only user
     // on a tab whose server data is now forbidden by the RBAC policy.
     if(!adminRoleCanSection(adminRuntime.section)){
@@ -475,6 +478,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminPurgeSensitiveReads();
   adminRuntime.helpReportPager=null;
   adminRuntime.supportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
@@ -502,6 +506,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+      adminPurgeSensitiveReads();
   adminRuntime.helpReportPager=null;
   adminRuntime.supportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
@@ -597,6 +602,21 @@ function adminLoginFromUi(){
 }
 
 
+function adminPurgeSensitiveReads(){
+  adminRuntime.searchRequest=null;
+  adminRuntime.searchPending=false;
+  adminRuntime.searchQuery='';
+  adminRuntime.searchResults=[];
+  adminRuntime.detailRequest=null;
+  adminRuntime.detailPending=false;
+  adminRuntime.detail=null;
+  adminRuntime.auditRequest=null;
+  adminRuntime.auditPending=false;
+  adminRuntime.auditResults=null;
+  adminRuntime.healthRequest=null;
+  adminRuntime.healthPending=false;
+  adminRuntime.health=null;
+}
 function adminSensitiveReadCurrent(session,role){
   return !!session?.user?.id&&adminReady()&&
     adminRuntime.session===session&&adminCurrentRole()===role;
