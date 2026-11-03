@@ -138,13 +138,15 @@ assert.equal(switched.messages.length,0);
 // The visible UI must forward the actual rendered order id from each
 // cancel/requote action, not silently use whichever order is selected later.
 for(const expected of [
- /onclick="cancelPending\('\$\{esc\(o\.orderId\)\}'\)"/,
- /onclick="cancelBeforeDispatch\('\$\{esc\(o\.orderId\)\}'\)"/,
- /onclick="confirmRequote\(\\''\+actionId\+'\\'\)"/,
- /await liveCustomerAction\('accept-requote',id\)/,
- /await liveCustomerAction\('cancel-before-dispatch',id\)/,
- /await liveCustomerAction\('cancel-before-accept',id\)/
-])assert.match(customer,expected,'UI callback must retain order identity');
+ 'onclick="cancelPending(this.dataset.orderId)"',
+ 'onclick="cancelBeforeDispatch(this.dataset.orderId)"',
+ 'onclick="confirmRequote(this.dataset.orderId)"',
+ 'data-order-id="${esc(o.orderId)}"',
+ "await liveCustomerAction('accept-requote',id)",
+ "await liveCustomerAction('cancel-before-dispatch',id)",
+ "await liveCustomerAction('cancel-before-accept',id)"
+])assert.ok(customer.includes(expected),'UI callback must retain protected order identity: '+expected);
+assert.doesNotMatch(customer,/onclick="confirmRequote\('00000000/);
 assert.ok(backend.includes("liveCustomerScript('customer-order-action')"));
 assert.match(backend,/customerActionSubmit\(action,orderId,/);
 assert.match(read('.github/workflows/audit.yml'),/node tests\/customer-action-exact-order-v1-493\.mjs/);
