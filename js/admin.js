@@ -674,17 +674,32 @@ function adminOpenSearchResult(type,id){
   toast('Registro localizado na área de parceiros e solicitações');
 }
 async function adminOpenEntity(entityType,entityId){
-  if(adminRuntime.detailPending)return;
+  if(adminRuntime.detailPending||!adminReady())return;
+  const session=adminRuntime.session,role=adminCurrentRole();
+  const type=String(entityType),id=String(entityId),ticket={};
+  adminRuntime.detailRequest=ticket;
   adminRuntime.detailPending=true;
-  adminRuntime.detail={loading:true,type:String(entityType),id:String(entityId)};
+  adminRuntime.detail={loading:true,type,id};
   render();
+  const current=()=>adminRuntime.detailRequest===ticket&&
+    adminSensitiveReadCurrent(session,role)&&
+    adminRuntime.detail?.loading===true&&
+    adminRuntime.detail.type===type&&adminRuntime.detail.id===id;
   try{
-    adminRuntime.detail=await adminInvoke({action:'entity-detail',entityType,entityId});
+    const result=await adminInvoke({action:'entity-detail',entityType:type,entityId:id});
+    if(!current())return;
+    if(!result||result.type!==type||
+       (result.id!==id&&!(type==='order'&&result.order?.public_code===id)))
+      throw new Error('A consulta retornou outro registro. Atualize e tente novamente.');
+    adminRuntime.detail=result;
   }catch(error){
-    adminRuntime.detail={error:String(error?.message||error||'Não foi possível carregar os detalhes.'),type:String(entityType),id:String(entityId)};
+    if(!current())return;
+    adminRuntime.detail={error:String(error?.message||error||'Não foi possível carregar os detalhes.'),type,id};
   }finally{
-    adminRuntime.detailPending=false;
-    render();
+    if(adminRuntime.detailRequest===ticket){
+      adminRuntime.detailPending=false;
+      if(adminSensitiveReadCurrent(session,role))render();
+    }
   }
 }
 // Admin 360 is consultative. Return to the existing audited review controls
@@ -714,6 +729,8 @@ function adminMerchantReturnToControls(merchantId){
   return true;
 }
 function adminCloseDetail(){
+  adminRuntime.detailRequest=null;
+  adminRuntime.detailPending=false;
   adminRuntime.detail=null;
   render();
 }
