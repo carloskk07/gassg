@@ -4,7 +4,7 @@
  */
 const discoveryOwner={
   client:null,phase:'idle',user:null,items:[],editor:null,kind:'professionals',
-  notice:'',error:'',busy:false,pendingPhotoRemovals:[],serviceIntent:'',
+  notice:'',error:'',busy:false,pendingPhotoRemovals:[],pendingDocumentRemovals:[],serviceIntent:'',
   sessionEpoch:0,refreshSeq:0
 };
 const discoveryOwnerTables={
@@ -39,6 +39,39 @@ function discoveryOwnerPersistPendingPhotoRemovals(){
     else globalThis.localStorage?.removeItem(name);
     return Boolean(globalThis.localStorage);
   }catch{return false;}
+}
+// PostgREST ledger and Storage are not one transaction: persist orphan
+// cleanup per owner, and never delete a still-referenced document.
+function discoveryOwnerPendingDocumentStorageKey(ownerId){
+ return discoveryOwnerPendingStorageKey(ownerId)?'tamao-document-cleanup-v1:'+ownerId:'';
+}
+function discoveryOwnerValidDocumentKey(key,ownerId){
+ return Boolean(discoveryOwnerPendingDocumentStorageKey(ownerId))&&typeof key==='string'&&
+  new RegExp('^'+ownerId+'/[0-9a-f-]{36}/[0-9a-f-]{36}[.](?:pdf|jpg|jpeg|png|webp)$').test(key);
+}
+function discoveryOwnerReadPendingDocumentRemovals(ownerId){
+ const name=discoveryOwnerPendingDocumentStorageKey(ownerId);
+ if(!name)return [];
+ try{
+  const rows=JSON.parse(globalThis.localStorage?.getItem(name)||'[]');
+  return Array.isArray(rows)?[...new Set(rows.filter(path=>
+   discoveryOwnerValidDocumentKey(path,ownerId)))].slice(0,1800):[];
+ }catch{return [];}
+}
+function discoveryOwnerPersistPendingDocumentRemovals(){
+ const s=discoveryOwner,name=discoveryOwnerPendingDocumentStorageKey(s.user?.id);
+ if(!name)return false;
+ try{
+  if(s.pendingDocumentRemovals.length)
+   globalThis.localStorage?.setItem(name,JSON.stringify(s.pendingDocumentRemovals.slice(0,1800)));
+  else globalThis.localStorage?.removeItem(name);
+  return Boolean(globalThis.localStorage);
+ }catch{return false;}
+}
+function discoveryOwnerHasPendingDocuments(listingId){
+ const s=discoveryOwner;
+ return Boolean(s.user?.id&&listingId)&&s.pendingDocumentRemovals.some(path=>
+  path.startsWith(s.user.id+'/'+listingId+'/'));
 }
 const discoveryOwnerStates=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT',
   'MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
@@ -439,7 +472,10 @@ function discoveryOwnerPage(){
     if(!/^[a-f0-9-]{36}$/.test(id))return '';
     const canEdit=['draft','rejected','paused'].includes(x.status);
     const edit=canEdit?'<button type="button" onclick="discoveryOwnerOpen(\''+id+'\')">Editar</button>':'';
-    const review=canEdit?'<button type="button" onclick="discoveryOwnerSubmit(\''+id+'\')">Enviar para revisão</button>':'';
+    const needsCleanup=discoveryOwnerHasPendingDocuments(id);
+    const review=canEdit?'<button type="button" onclick="discoveryOwnerSubmit(\''+id+'\')"'+
+      (needsCleanup?' disabled title="Conclua a limpeza dos comprovantes pendentes"':'')+
+      '>Enviar para revisão</button>':'';
     const publicLink=discoveryOwnerPublishedLink(x);
     const share=publicLink?
       '<a class="secondary" href="'+esc(publicLink)+'" target="_blank" rel="noopener noreferrer">Ver anúncio</a>'+
@@ -515,10 +551,15 @@ function discoveryOwnerPage(){
         return '<div class="discovery-owner-photo"><img src="'+esc(url)+'" loading="lazy" alt="Foto '+(i+1)+' do anúncio">'+
           (removable?'<button type="button" onclick="discoveryOwnerRemovePhoto(&quot;'+esc(p)+'&quot;)">Remover foto '+(i+1)+'</button>':'')+'</div>';
       }).join('')+'</div>':'')+
+    (s.pendingDocumentRemovals.length?'<div class="discovery-owner-documents" role="status">'+
+      '<p>Há '+s.pendingDocumentRemovals.length+' comprovante(s) para terminar de limpar. O anúncio afetado não pode ser enviado para revisão enquanto isso.</p>'+
+      '<button type="button" onclick="discoveryOwnerRetryDocumentCleanup()"'+(s.busy?' disabled':'')+
+      '>Repetir limpeza de comprovantes</button></div>':'')+
     (s.pendingPhotoRemovals.length?'<button type="button" onclick="discoveryOwnerRetryPhotoCleanup()">'+
       'Repetir limpeza de '+s.pendingPhotoRemovals.length+' foto(s) pendente(s)</button>':'')+
     '<div class="discovery-owner-actions">'+
-      '<button type="submit" name="finish" value="review" class="primary"'+(s.busy?' disabled':'')+
+      '<button type="submit" name="finish" value="review" class="primary"'+
+        (s.busy||discoveryOwnerHasPendingDocuments(s.editor?.id)?' disabled':'')+
         '>Salvar e enviar para análise</button>'+
       '<button type="submit" name="finish" value="draft" class="secondary"'+(s.busy?' disabled':'')+
         '>Somente salvar rascunho</button></div>'+
@@ -537,7 +578,7 @@ function discoveryOwnerPage(){
 function discoveryOwnerClearPrivateState(){
   const s=discoveryOwner;
   s.sessionEpoch++;s.refreshSeq++;
-  s.user=null;s.items=[];s.editor=null;s.pendingPhotoRemovals=[];
+  s.user=null;s.items=[];s.editor=null;s.pendingPhotoRemovals=[];s.pendingDocumentRemovals=[];
   s.notice='';s.error='';s.busy=false;
 }
 function discoveryOwnerSessionValid(epoch,userId){
@@ -573,6 +614,7 @@ async function discoveryOwnerInit(){
         discoveryOwnerClearPrivateState();
         s.user=session.user;
         s.pendingPhotoRemovals=discoveryOwnerReadPendingPhotoRemovals(s.user.id);
+        s.pendingDocumentRemovals=discoveryOwnerReadPendingDocumentRemovals(s.user.id);
         const epoch=s.sessionEpoch,userId=s.user.id;
         // Avoid awaiting Supabase network calls inside its auth callback.
         Promise.resolve().then(()=>discoveryOwnerRefresh()).catch(()=>{
@@ -586,6 +628,7 @@ async function discoveryOwnerInit(){
     });
     if(s.user){
       s.pendingPhotoRemovals=discoveryOwnerReadPendingPhotoRemovals(s.user.id);
+      s.pendingDocumentRemovals=discoveryOwnerReadPendingDocumentRemovals(s.user.id);
       await discoveryOwnerRefresh();
     }
   }catch(e){s.phase='failed';s.error='Não foi possível conectar ao cadastro. Verifique a conexão e tente novamente.';}
@@ -779,6 +822,11 @@ async function discoveryOwnerSave(ev){
   // A single click may save the full draft and request review. The server
   // remains authoritative: this does NOT approve or publish the listing.
   const sendForReview=ev?.submitter?.name==='finish'&&ev.submitter.value==='review';
+  if(sendForReview&&s.editor?.id&&(s.pendingDocumentRemovals||[]).some(key=>
+    key.startsWith(userId+'/'+s.editor.id+'/'))){
+    s.error='Termine a limpeza dos comprovantes pendentes antes de enviar o anúncio para revisão.';
+    render();return false;
+  }
   const f=new FormData(form),get=n=>String(f.get(n)||'').trim();
   const vertical=s.editor?.vertical||get('vertical');
   if(!Object.hasOwn(discoveryOwnerTables,vertical))return false;
@@ -836,26 +884,54 @@ async function discoveryOwnerSave(ev){
     for(const file of documents){
       if(!same())return false;
       const key=userId+'/'+id+'/'+crypto.randomUUID()+'.'+documentMime[file.type];
-      const upload=await client.storage.from('tamao-discovery-documents')
-        .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
+      // Lease the unregistered upload before writing bytes: if either API
+      // commits and its ACK is lost, next login can reconcile safely.
+      s.pendingDocumentRemovals=[...new Set([...s.pendingDocumentRemovals,key])];
+      discoveryOwnerPersistPendingDocumentRemovals();
+      let upload;
+      try{
+        upload=await client.storage.from('tamao-discovery-documents')
+          .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
+      }catch(_){throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');}
       if(!same())return false;
-      if(upload.error)throw upload.error;
+      if(upload.error)throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
+      let registrationError=null;
       try{
         const registered=await client.from('discovery_documents')
           .insert({listing_id:id,kind:'supporting',object_path:key});
         if(!same())return false;
-        if(registered.error)throw registered.error;
-      }catch(registerError){
-        // Storage and PostgREST are separate transactions. Compensate a
-        // failed metadata insert via Storage API to avoid an orphaned file.
+        registrationError=registered.error||null;
+      }catch(e){registrationError=e;}
+      if(!same())return false;
+      if(registrationError){
+        // The insert may have succeeded server-side even after a timeout.
+        // Only fresh, owner-scoped readback can justify deleting its bytes.
+        let lookup=null;
+        try{
+          lookup=await client.from('discovery_documents').select('id')
+            .eq('object_path',key).maybeSingle();
+        }catch(_){/* Keep the durable retry key; do not guess. */}
+        if(!same())return false;
+        if(lookup?.error||!lookup)
+          throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
+        if(lookup.data?.id){
+          // A registered file is valid; never compensate a successful write.
+          s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==key);
+          discoveryOwnerPersistPendingDocumentRemovals();
+          continue;
+        }
+        if(lookup.data!==null)throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
         try{
           const cleanup=await client.storage.from('tamao-discovery-documents').remove([key]);
+          if(!same())return false;
           if(cleanup.error)throw cleanup.error;
-        }catch{
-          throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
-        }
-        throw registerError;
+        }catch(_){throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');}
+        s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==key);
+        discoveryOwnerPersistPendingDocumentRemovals();
+        throw registrationError;
       }
+      s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==key);
+      discoveryOwnerPersistPendingDocumentRemovals();
     }
     // Storage and PostgREST cannot share one transaction. Track each attempted
     // upload before calling the network: a timeout can hide a committed object.
@@ -1004,38 +1080,108 @@ async function discoveryOwnerRetryPhotoCleanup(){
   s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerRemoveDocument(docId){
-  const s=discoveryOwner,d=s.editor;
-  if(s.busy||!s.user||!s.client||!d?.id||!['draft','rejected'].includes(d.status))return;
-  const doc=(d.documents||[]).find(x=>x.id===docId);
-  const expected=s.user.id+'/'+d.id+'/';
-  if(!doc||!/^[0-9a-f-]{36}$/.test(String(doc.id||''))||
-    !String(doc.object_path||'').startsWith(expected)||
-    !/^[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(String(doc.object_path).slice(expected.length)))return;
-  const epoch=s.sessionEpoch,userId=s.user.id;
-  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
-  s.busy=true;s.error='';s.notice='';
-  try{
-    // Storage API deletes the real bytes; direct SQL deletion of storage.objects
-    // would strand the file. Keep metadata if either operation fails for retry.
-    const removed=await s.client.storage.from('tamao-discovery-documents').remove([doc.object_path]);
-    if(!same())return;
-    if(removed.error)throw removed.error;
-    const deleted=await s.client.from('discovery_documents').delete()
-      .eq('id',doc.id).eq('listing_id',d.id).select('id');
-    if(!same())return;
-    if(deleted.error)throw deleted.error;
-    if(!Array.isArray(deleted.data)||deleted.data.length!==1)
-      throw Error('Document metadata cleanup not confirmed');
-    s.editor.documents=s.editor.documents.filter(x=>x.id!==docId);
-    s.notice='Comprovante removido do rascunho.';
-  }catch(e){if(same())s.error=discoveryOwnerError(e);}
+ const s=discoveryOwner,d=s.editor;
+ if(s.busy||!s.user||!s.client||!d?.id||!['draft','rejected'].includes(d.status))return;
+ const doc=(d.documents||[]).find(x=>x.id===docId);
+ const epoch=s.sessionEpoch,userId=s.user.id;
+ if(!doc||!/^[0-9a-f-]{36}$/.test(String(doc.id||''))||
+  !discoveryOwnerValidDocumentKey(doc.object_path,userId)||
+  !doc.object_path.startsWith(userId+'/'+d.id+'/'))return;
+ const same=()=>discoveryOwnerSessionValid(epoch,userId);
+ s.busy=true;s.error='';s.notice='';
+ try{
+  // Private document SELECT RLS requires a verified account. Without this
+  // check an invisible row might look absent and trigger an unsafe deletion.
+  const identity=await s.client.rpc('discovery_verified_account');
   if(!same())return;
-  s.busy=false;if(discoveryOwnerRoute())render();
+  if(identity.error||identity.data!==true)throw Error('DOCUMENT_ACCOUNT_UNVERIFIED');
+  // Unlink first: deleting Storage first can strand a broken Admin record.
+  // Fresh readback also resolves a lost PostgREST DELETE acknowledgement.
+  let unlinkFailure=null;
+  try{
+   const deleted=await s.client.from('discovery_documents').delete()
+    .eq('id',doc.id).eq('listing_id',d.id).select('id');
+   unlinkFailure=deleted.error||null;
+  }catch(e){unlinkFailure=e;}
+  if(!same())return;
+  const checked=await s.client.from('discovery_documents').select('id')
+   .eq('id',doc.id).eq('listing_id',d.id).maybeSingle();
+  if(!same())return;
+  // null means confirmed absent. Undefined/malformed data is NOT evidence.
+  if(checked.error||checked.data!==null)
+   throw unlinkFailure||Error('DOCUMENT_UNLINK_UNCONFIRMED');
+  d.documents=d.documents.filter(x=>x.id!==docId);
+  // Persist before Storage: the file removal may commit but lose its ACK.
+  s.pendingDocumentRemovals=[...new Set([...s.pendingDocumentRemovals,doc.object_path])];
+  const persisted=discoveryOwnerPersistPendingDocumentRemovals();
+  try{
+   const cleaned=await s.client.storage.from('tamao-discovery-documents').remove([doc.object_path]);
+   if(!same())return;
+   if(cleaned.error)throw cleaned.error;
+   s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==doc.object_path);
+   discoveryOwnerPersistPendingDocumentRemovals();
+   s.notice='Comprovante retirado do rascunho e do armazenamento.';
+  }catch(_){
+   if(!same())return;
+   s.error='O comprovante saiu do anúncio, mas a limpeza do arquivo não foi confirmada. Use “Repetir limpeza de comprovantes”.'+
+    (persisted?'':' A pendência não pôde ser guardada para a próxima visita.');
+  }
+ }catch(e){if(same())s.error=discoveryOwnerError(e);}
+ if(!same())return;
+ s.busy=false;if(discoveryOwnerRoute())render();
+}
+async function discoveryOwnerRetryDocumentCleanup(){
+ const s=discoveryOwner;
+ if(s.busy||!s.user||!s.client||!s.pendingDocumentRemovals.length)return;
+ const epoch=s.sessionEpoch,userId=s.user.id;
+ const same=()=>discoveryOwnerSessionValid(epoch,userId);
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const identity=await s.client.rpc('discovery_verified_account');
+  if(!same())return;
+  if(identity.error||identity.data!==true)throw Error('DOCUMENT_ACCOUNT_UNVERIFIED');
+ }catch(_){
+  if(same()){
+   s.error='Não foi possível confirmar a conta verificada para limpar os comprovantes. Entre novamente e tente mais tarde.';
+   s.busy=false;if(discoveryOwnerRoute())render();
+  }
+  return;
+ }
+ const pending=[];
+ for(const key of s.pendingDocumentRemovals){
+  if(!same())return;
+  if(!discoveryOwnerValidDocumentKey(key,userId))continue;
+  try{
+   // Do not remove bytes reattached by a second verified browser session.
+   const ledger=await s.client.from('discovery_documents').select('id')
+    .eq('object_path',key).limit(1);
+   if(!same())return;
+   if(ledger.error||!Array.isArray(ledger.data)){pending.push(key);continue;}
+   // Another session may have committed the metadata and lost its ACK.
+   // A registered file is not an orphan and must NEVER be deleted.
+   if(ledger.data.length)continue;
+   const removed=await s.client.storage.from('tamao-discovery-documents').remove([key]);
+   if(!same())return;
+   if(removed.error)throw removed.error;
+  }catch(_){if(same())pending.push(key);}
+ }
+ if(!same())return;
+ s.pendingDocumentRemovals=pending;
+ const persisted=discoveryOwnerPersistPendingDocumentRemovals();
+ if(pending.length)
+  s.error='Ainda existem comprovantes com limpeza não confirmada. Confira a conexão e tente novamente; se persistir, procure o suporte antes de enviar o anúncio para revisão.'+
+   (persisted?'':' A pendência não pôde ser guardada para a próxima visita.');
+ else s.notice='Limpeza de comprovantes pendentes confirmada.';
+ s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerSubmit(id){
   const s=discoveryOwner,entry=s.items.find(x=>x.id===id);
   if(s.busy||!entry||!['draft','rejected','paused'].includes(entry.status))return;
   if(!s.user)return;
+  if(discoveryOwnerHasPendingDocuments(id)){
+    s.error='Conclua a limpeza dos comprovantes deste anúncio antes de solicitar revisão.';
+    if(discoveryOwnerRoute())render();return;
+  }
   const epoch=s.sessionEpoch,userId=s.user.id;
   const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
   s.busy=true;s.error='';s.notice='';
