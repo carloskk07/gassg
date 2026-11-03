@@ -7,7 +7,7 @@ const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf
 const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantScopedOrderMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 function pick(name){
   const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
-  const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
+  const src=name==='merchantRefreshAfterConfirmedMutation'||name.startsWith('merchantOrderActionScope')?merchant:backend;
   const start=src.indexOf((plain?'function ':'async function ')+name+'(');
   const end=src.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing implementation '+name);
