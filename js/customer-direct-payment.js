@@ -83,7 +83,10 @@
      if(!same())return false;
      // For an ambiguous network/5xx error, recover ONLY a link visible
      // in a second authenticated read for the exact order and amount.
-     const ambiguous=mutationStarted&&(!Number.isInteger(error?.status)||error.status>=500);
+     const ambiguous=mutationStarted&&(
+       error instanceof TypeError||['TypeError','TimeoutError','AbortError'].includes(error?.name)||
+       Number.isInteger(error?.status)&&error.status>=500
+     );
      if(ambiguous){
        let checked=null;
        try{checked=await liveGetOrder(id,{silent:true})}catch{}
