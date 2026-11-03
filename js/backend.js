@@ -1001,29 +1001,25 @@ async function liveStartMerchantPayment(){
   }
 }
 
-let liveCustomerActionLoader=null;
+const liveCustomerScripts=Object.create(null);
+async function liveCustomerScript(name){
+  if(!liveCustomerScripts[name])liveCustomerScripts[name]=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
+      .replace('/js/backend.js','/js/'+name+'.js');
+    script.onload=resolve;script.onerror=()=>reject(Error('Não foi possível carregar este atendimento.'));
+    document.head.appendChild(script);
+  }).catch(error=>{delete liveCustomerScripts[name];throw error});
+  await liveCustomerScripts[name];
+}
 async function liveCustomerAction(action,orderId){
   try{
-    if(!globalThis.customerActionSubmit){
-      if(!liveCustomerActionLoader)liveCustomerActionLoader=new Promise((resolve,reject)=>{
-        const script=document.createElement('script');
-        script.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
-          .replace('/js/backend.js','/js/customer-order-action.js');
-        script.onload=resolve;
-        script.onerror=()=>reject(Error('Não foi possível carregar a confirmação do pedido.'));
-        document.head.appendChild(script);
-      }).finally(()=>{liveCustomerActionLoader=null});
-      await liveCustomerActionLoader;
-    }
-    if(typeof globalThis.customerActionSubmit!=='function')
-      throw Error('A confirmação do pedido não está disponível.');
+    if(!globalThis.customerActionSubmit)await liveCustomerScript('customer-order-action');
     return await globalThis.customerActionSubmit(action,orderId,{
       liveRuntime,liveReady,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,toast,render
     });
   }catch(error){
-    liveRuntime.error=String(error?.message||error);
-    toast(liveRuntime.error);
-    return false;
+    liveRuntime.error=String(error?.message||error);toast(liveRuntime.error);return false;
   }
 }
 
@@ -1044,13 +1040,7 @@ async function liveSubmitFeedback(rating,tags=[]){
 }
 
 async function liveOpenSupportCase(category,message=''){
-  if(!globalThis.customerSupportReplaySubmit)await new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
-      .replace('/js/backend.js','/js/customer-care-replay.js');
-    s.onload=resolve;s.onerror=()=>reject(Error('Atendimento indisponível. Tente novamente.'));
-    document.head.appendChild(s);
-  });
+  if(!globalThis.customerSupportReplaySubmit)await liveCustomerScript('customer-care-replay');
   return globalThis.customerSupportReplaySubmit(category,message,{
     liveRuntime,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,render
   });
