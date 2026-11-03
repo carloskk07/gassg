@@ -140,7 +140,7 @@ sandbox.merchantBackendInit=async()=>{
 clock+=60000;await poll();
 assert.ok(events.includes('bootstrap'),'pre-client bootstrap failure must retry');
 
-assert.match(src,/merchantRuntime\.refreshSeq\+\+;\n  merchantRuntime\.nextRecoveryAt=0;/);
+assert.match(src,/async function merchantSignOut\(\)\{\n  const signOutEpoch=\+\+merchantRuntime\.accessEpoch;\n  merchantRuntime\.refreshSeq\+\+;/);
 assert.match(src,/if\(seq!==merchantRuntime\.refreshSeq\)return data/);
 assert.match(bootstrap,/window\.addEventListener\('online'/);
 assert.match(bootstrap,/document\.addEventListener\('visibilitychange'/);
