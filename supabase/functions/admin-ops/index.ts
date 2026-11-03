@@ -2160,7 +2160,8 @@ async function adminAuditSearch(admin:any,body:any,role:string){
     throw new DomainError("ADMIN_PERMISSION_DENIED",
       "Este perfil não consulta registros por identidade administrativa.",403);
   if(body.actorUserId)query=query.eq("actor_user_id",uuid(body.actorUserId,"actor"));
-  if(body.action)query=query.eq("action",cleanText(body.action,{min:2,max:80,name:"ação"}));
+  // body.action routes the endpoint; auditAction alone filters audit rows.
+  if(body.auditAction)query=query.eq("action",cleanText(body.auditAction,{min:2,max:80,name:"ação"}));
   if(body.targetType)query=query.eq("target_type",cleanText(body.targetType,{min:2,max:80,name:"tipo de alvo"}));
   if(body.from){
     const from=new Date(String(body.from));
