@@ -3,9 +3,10 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
-const names=['merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
+const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 function pick(name){
-  const start=backend.indexOf((name==='merchantVerifiedActionOrder'?'function ':'async function ')+name+'(');
+  const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
+  const start=backend.indexOf((plain?'function ':'async function ')+name+'(');
   const end=backend.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing implementation '+name);
   return backend.slice(start,end+2);
