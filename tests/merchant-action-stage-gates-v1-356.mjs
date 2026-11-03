@@ -11,7 +11,7 @@ const cut=(name,async=false)=>{
  return backend.slice(at,end+2);
 };
 const source=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
- 'merchantVerifiedActionOrder','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']
+ 'merchantVerifiedActionOrder','merchantScopedOrderMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']
  .map((name,i)=>cut(name,i>=4)).join('\n');
 const uuid='11111111-1111-4111-8111-111111111111';
 const deliveryId='22222222-2222-4222-8222-222222222222';
