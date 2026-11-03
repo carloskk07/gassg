@@ -69,7 +69,8 @@ function fixture(){
   adminRoleCanSection:key=>key==='finance'&&['finance','superadmin'].includes(role),
   adminMoney:n=>'R$ '+(n/100).toFixed(2),
   adminPaymentMethodLabel:x=>x,
-  prompt:()=>{throw Error('unexpected prompt')},
+  prompt:(question)=>String(question).includes('Motivo da rejeição')
+    ?'Recebimento nao localizado na conciliacao':'',
   confirm:text=>confirmHandler(text),
   toast:text=>messages.push(String(text)),
   adminPerform:async(action,decision)=>{
