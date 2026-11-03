@@ -11,7 +11,7 @@ function pick(name){
  const plain=!['merchantRefreshAfterConfirmedMutation','merchantPerformAction',
  'merchantAssignDeliveryLive','merchantCompleteDeliveryLive','merchantSelectLive','merchantSignOut','merchantScopedOrderMutation'].includes(name);
  const head=(plain?'function ':'async function ')+name+'(';
- const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
+ const src=name==='merchantRefreshAfterConfirmedMutation'||name.startsWith('merchantOrderActionScope')?merchant:backend;
  const start=src.indexOf(head),end=src.indexOf('\n}',start);
  assert.ok(start>=0&&end>start,'missing production function '+name);
  return src.slice(start,end+2);
