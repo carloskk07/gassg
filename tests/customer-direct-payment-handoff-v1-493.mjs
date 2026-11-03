@@ -102,6 +102,8 @@ for(const invalid of [
  proof({amount:12501,url:URL}),proof({owner:'platform',url:URL}),
  proof({tamReceives:true,url:URL}),proof({provider:'other',url:URL}),
  proof({available:false,url:URL}),
+ proof({url:URL,paymentStatus:'review_required'}),
+ proof({url:URL,paymentStatus:'refunded'}),
  proof({url:'https://www.mercadopago.com.br.evil.net/pay',paymentStatus:'checkout_ready'}),
  proof({url:'https://mercadopago.com@evil.net/pay',paymentStatus:'checkout_ready'}),
  proof({url:URL,paymentStatus:'checkout_ready',expiresAt:'2020-01-01T00:00:00Z'})
