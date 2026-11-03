@@ -2508,8 +2508,6 @@ async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das 
   }
 }
 
-// Never mistake a received RPC ACK for a financial request visible to this
-// revenda. This guard is also used across refresh and account/role changes.
 function merchantBillingSameActor(actor,merchantId,epoch){
   return !!actor&&merchantReady()&&merchantRuntime.accessEpoch===epoch&&
     String(merchantRuntime.session?.user?.id||'')===actor&&
@@ -2533,7 +2531,7 @@ async function merchantBillingRequestLive(action,payload={}){
     const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
       merchantId,action,...payload
     },{idempotencyKey}));
-    if(!same())throw new Error('A sessão da revenda mudou durante a ação financeira.');
+    if(!same())throw new Error('A sessão mudou durante a ação financeira.');
     if(result?.ok!==true||result.merchantId!==merchantId||
        !result.paymentRequestId||!Number.isSafeInteger(Number(result.expectedAmountCents))||
        Number(result.expectedAmountCents)<=0)
@@ -2562,7 +2560,7 @@ async function merchantBillingRequestLive(action,payload={}){
        Number(row.expectedAmountCents)!==Number(result.expectedAmountCents)||
        (action!=='cancel-billing-request'&&
          String(row.merchantReference||'')!==String(payload.reference||'')))
-      throw new Error('O registro financeiro não confirmou esta operação. Confira antes de repetir.');
+      throw new Error('O registro financeiro não confirmou a ação. Consulte antes de repetir.');
     return result;
   }catch(error){
     if(same())merchantRuntime.error=String(error?.message||error);
@@ -2600,13 +2598,13 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
       statementId:statement,
       refundRecoveryId:recovery
     },{idempotencyKey}));
-    if(!same())throw new Error('A sessão mudou durante a emissão/recuperação do Pix.');
+    if(!same())throw new Error('A sessão mudou durante a emissão do Pix.');
     const charge=result?.charge;
     if(result?.ok!==true||!result.paymentRequestId||
        !['active','completed'].includes(charge?.status)||
        charge.paymentRequestId!==result.paymentRequestId||
        !Number.isSafeInteger(Number(charge.amountCents)))
-      throw new Error('A cobrança retornada não corresponde à solicitação.');
+      throw new Error('Cobrança Pix divergente da solicitação.');
     const readStarted=Date.now();
     const fresh=await merchantRefresh({silent:true});
     if(!same())throw new Error('O acesso à revenda mudou durante a consulta do Pix.');
