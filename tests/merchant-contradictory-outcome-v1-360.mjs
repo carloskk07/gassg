@@ -7,10 +7,11 @@ const merchant=read('js/merchant.js');
 const ci=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
 const cut=name=>{
-  const at=backend.indexOf('async function '+name+'(');
-  const end=backend.indexOf('\n}',at);
+  const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
+  const at=src.indexOf('async function '+name+'(');
+  const end=src.indexOf('\n}',at);
   assert.ok(at>=0&&end>at,'missing '+name);
-  return backend.slice(at,end+2);
+  return src.slice(at,end+2);
 };
 const id='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
 const cases=[
@@ -53,9 +54,10 @@ for(const [description,reply,action,accepted] of cases){
     assert.equal(refreshes,0,description+' must not be treated as post-mutation acknowledgement');
   }
 }
-assert.match(cut('merchantPerformAction'),/merchantRefreshAfterConfirmedMutation\(result,\{action,orderId\}\)/);
-assert.match(cut('merchantAssignDeliveryLive'),/merchantRefreshAfterConfirmedMutation\(result,\{action:'assign-delivery',orderId\}\)/);
-assert.match(cut('merchantCompleteDeliveryLive'),/merchantRefreshAfterConfirmedMutation\(result,\{action:'complete-delivery',orderId\}\)/);
+for(const [method,action] of [
+ ['merchantPerformAction','action'],['merchantAssignDeliveryLive',"'assign-delivery'"],
+ ['merchantCompleteDeliveryLive',"'complete-delivery'"]
+])assert.ok(cut(method).includes('merchantScopedOrderMutation(scope,'+action+',orderId'));
 assert.match(merchant,/if\(result\?\.autoRescued===true\)/,
   'server-authoritative automatic rescue remains a non-success UI outcome');
 assert.ok(ci.includes('node tests/merchant-contradictory-outcome-v1-360.mjs'));

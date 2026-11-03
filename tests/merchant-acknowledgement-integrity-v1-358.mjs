@@ -8,12 +8,15 @@ const merchant=read('js/merchant.js');
 const audit=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
 const pick=name=>{
-  const key=(name==='merchantVerifiedActionOrder'?'function ':'async function ')+name+'(';
-  const start=backend.indexOf(key),end=backend.indexOf('\n}',start);
+  const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
+  const src=name==='merchantRefreshAfterConfirmedMutation'||name.startsWith('merchantOrderActionScope')?merchant:backend;
+  const key=(plain?'function ':'async function ')+name+'(';
+  const start=src.indexOf(key),end=src.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing function '+name);
-  return backend.slice(start,end+2);
+  return src.slice(start,end+2);
 };
-const names=['merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation',
+const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
+  'merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantScopedOrderMutation',
   'merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 const block=names.map(pick).join('\n');
 const orderId='11111111-1111-4111-8111-111111111111';
@@ -96,12 +99,16 @@ const autoRescue=fixture({reply:{autoRescued:true,rescueReason:'offer_expired'}}
 assert.equal((await autoRescue.ctx.perform(orderId,'accept')).autoRescued,true,
   'server-confirmed auto-reassignment is not misread as a failed response');
 
-// No action should omit the server reply when requesting post-mutation reconciliation.
-for(const method of ['merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']){
+// All entry points must use the same scope-aware reader, including delivery.
+for(const [method,action] of [
+ ['merchantPerformAction','action'],['merchantAssignDeliveryLive',"'assign-delivery'"],
+ ['merchantCompleteDeliveryLive',"'complete-delivery'"]
+]){
  const source=pick(method);
- assert.match(source,/merchantRefreshAfterConfirmedMutation\(result,\{action(?:,|:)/,method);
- assert.doesNotMatch(source,/merchantRefreshAfterConfirmedMutation\(\)/,method);
+ assert.ok(source.includes('merchantScopedOrderMutation(scope,'+action+',orderId'),method);
 }
+assert.match(pick('merchantScopedOrderMutation'),
+ /merchantRefreshAfterConfirmedMutation\(result,\{action,orderId,scope\}\)/);
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.ok===false/);
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.success===false/);
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.error/);

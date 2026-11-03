@@ -3,12 +3,15 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
-const names=['merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
+const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
+const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantScopedOrderMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 function pick(name){
-  const start=backend.indexOf((name==='merchantVerifiedActionOrder'?'function ':'async function ')+name+'(');
-  const end=backend.indexOf('\n}',start);
+  const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
+  const src=name==='merchantRefreshAfterConfirmedMutation'||name.startsWith('merchantOrderActionScope')?merchant:backend;
+  const start=src.indexOf((plain?'function ':'async function ')+name+'(');
+  const end=src.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing implementation '+name);
-  return backend.slice(start,end+2);
+  return src.slice(start,end+2);
 }
 const functions=names.map(pick).join('\n');
 new vm.Script(functions,{filename:'merchant-mutation-refresh-regression'});

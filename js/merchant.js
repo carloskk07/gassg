@@ -4253,6 +4253,105 @@ async function merchantLiveSaveScheduling(){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function merchantRefreshAfterConfirmedMutation(reply,context={}){
+  if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+    throw merchantOrderActionScopeLost();
+  const merchantReplyActionConsistent=(reply,{action='',orderId=''}={})=>{
+    if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
+    const rescue=reply.autoRescued===true;
+    if(typeof reply.orderId==='string'&&orderId&&reply.orderId!==orderId)return false;
+    if(reply.orderId!=null&&
+       (typeof reply.orderId!=='string'||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
+    if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
+      .some(key=>reply[key]===true);
+    // Validate action-specific reply status; legacy replies may omit it.
+    const expectedStates={
+      accept:['MERCHANT_ACCEPTED','PREPARING'],
+      reject:['OFFERED_TO_MERCHANT','REASSIGNING','REQUOTE_REQUIRED','CANCELLED'],
+      dispatch:['OUT_FOR_DELIVERY'],
+      arriving:['ARRIVING'],
+      'complete-delivery':['DELIVERED','SETTLED'],
+      'cannot-fulfill':['REASSIGNING','OFFERED_TO_MERCHANT','REQUOTE_REQUIRED','CANCELLED'],
+      'assign-delivery':['PREPARING','AT_RISK']
+    };
+    if(Object.prototype.hasOwnProperty.call(expectedStates,action)
+       &&Object.prototype.hasOwnProperty.call(reply,'status')
+       &&(!expectedStates[action].includes(reply.status)))return false;
+    const negativeFields={
+      accept:['accepted'],dispatch:['dispatched'],arriving:['arriving','arrived'],
+      'complete-delivery':['delivered','completed'],
+      'assign-delivery':['assigned']
+    };
+    const indicators=negativeFields[action]||[];
+    return !indicators.some(key=>reply[key]===false)&&
+      !['dispatched','arrived','delivered','completed','assigned'].some(key=>reply[key]===false);
+  };
+  // HTTP 200 is not a confirmed mutation.
+  const structured=reply!==null&&typeof reply==='object'&&!Array.isArray(reply);
+  // Require explicit success, versioned ACK or rescue.
+  const affirmative=structured&&(
+    reply.ok===true||reply.success===true||reply.autoRescued===true||
+    (typeof reply.orderId==='string'
+      &&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)
+      &&Number.isSafeInteger(reply.version)&&reply.version>=1
+      &&typeof reply.status==='string'&&reply.status.length>0)
+  );
+  const rejected=!affirmative||
+    !merchantReplyActionConsistent(reply,context)||
+    (structured&&(
+      reply.ok===false||reply.success===false||
+      (typeof reply.error==='string'&&reply.error.trim().length>0)
+    ));
+  if(rejected){
+    throw new Error('O servidor não confirmou esta ação. Confira os pedidos atualizados antes de tentar novamente.');
+  }
+  try{
+    const snapshot=await merchantRefresh({silent:true});
+    if(context.scope&&!merchantOrderActionScopeMatches(context.scope,{requireReady:false}))
+      throw merchantOrderActionScopeLost();
+    // Ignore snapshots discarded by a newer refresh.
+    if(merchantRuntime.status==='ready'
+      &&snapshot?.merchant
+      &&Array.isArray(snapshot.orders)
+      &&merchantRuntime.merchant===snapshot.merchant
+      &&merchantRuntime.orders===snapshot.orders)return true;
+  }catch(error){
+    if(context.scope&&!merchantOrderActionScopeMatches(context.scope,{requireReady:false}))
+      throw merchantOrderActionScopeLost();
+  }
+  if(context.scope&&!merchantOrderActionScopeMatches(context.scope,{requireReady:false}))
+    throw merchantOrderActionScopeLost();
+  merchantRuntime.orders=[];
+  merchantRuntime.recentClosedDeliveries=[];
+  merchantRuntime.supportSummary=null;
+  if(['no-access','unauthenticated'].includes(merchantRuntime.status))return false;
+  merchantRuntime.status='unavailable';
+  merchantRuntime.error='O servidor respondeu à solicitação, mas não conseguimos atualizar os pedidos. Atualize o painel antes de fazer outra ação.';
+  return false;
+}
+
+function merchantOrderActionScope(){
+  return {
+    merchantId:String(merchantRuntime.merchant?.merchantId||''),
+    userId:String(merchantRuntime.session?.user?.id||''),
+    accessEpoch:Number(merchantRuntime.accessEpoch||0)
+  };
+}
+function merchantOrderActionScopeMatches(scope,{requireReady=true}={}){
+  return Boolean(scope?.merchantId)&&
+    (!requireReady||merchantRuntime.status==='ready')&&
+    merchantRuntime.merchant?.merchantId===scope.merchantId&&
+    (!merchantRuntime.selectedMerchantId||
+      merchantRuntime.selectedMerchantId===scope.merchantId)&&
+    String(merchantRuntime.session?.user?.id||'')===scope.userId&&
+    Number(merchantRuntime.accessEpoch||0)===scope.accessEpoch;
+}
+function merchantOrderActionScopeLost(){
+  return new Error('A conta ou a revenda mudou durante a ação. Consulte os pedidos da operação atual antes de continuar.');
+}
+
+
 // V1.357 — a server acknowledgement and a refreshed order list are separate facts.
 // If the post-mutation read fails, do not imply that the screen shows a verified new state.
 function merchantPostActionConfirmation(confirmedText){

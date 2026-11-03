@@ -435,7 +435,7 @@ const finish=backendSrc.indexOf('\n}',begin);
 assert.ok(begin>=0&&finish>begin);
 const sent=[];
 const networkContext=vm.createContext({
- merchantRuntime:{status:'ready',actionPending:false,error:null},
+ merchantRuntime:{status:'ready',merchant:{merchantId:'offline-shop'},actionPending:false,error:null},
  merchantVerifiedActionOrder:()=>({version:3}),
  render:()=>{},liveIdempotency:()=> 'complete-delivery:12345678-1234-4234-8234-123456789abc',
  retryAmbiguousOnce:f=>f(),
@@ -445,7 +445,18 @@ const networkContext=vm.createContext({
  },
  merchantRefresh:async()=>null
 });
-vm.runInContext(backendSrc.slice(begin,finish+2)+';this.complete=merchantCompleteDeliveryLive;',networkContext);
+const merchantRoleSource=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
+const helperNames=['merchantOrderActionScope','merchantOrderActionScopeMatches',
+ 'merchantOrderActionScopeLost','merchantScopedOrderMutation'];
+const realHelpers=helperNames.map(name=>{
+ const key=(name==='merchantScopedOrderMutation'?'async function ':'function ')+name+'(';
+ const src=name==='merchantScopedOrderMutation'?backendSrc:merchantRoleSource;
+ const i=src.indexOf(key),j=src.indexOf('\n}',i);
+ assert.ok(i>=0&&j>i,'missing merchant offline replay dependency '+name);
+ return src.slice(i,j+2);
+}).join('\n');
+vm.runInContext(realHelpers+'\n'+backendSrc.slice(begin,finish+2)+
+ ';this.complete=merchantCompleteDeliveryLive;',networkContext);
 let retryKey='';
 await assert.rejects(async()=>{
  try{await networkContext.complete(orderId,'6789',true)}

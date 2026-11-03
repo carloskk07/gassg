@@ -2026,6 +2026,7 @@ function merchantOfflineGuard(denied){
 // The next server response, not an old browser snapshot, restores this state.
 function merchantClearProtectedSnapshot(){
   merchantRuntime.accessEpoch=(merchantRuntime.accessEpoch||0)+1;
+  merchantRuntime.actionPending=false;
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
   merchantClearEnablement();
@@ -2064,9 +2065,12 @@ function merchantClearProtectedSnapshot(){
   merchantPushRuntime.testResult=null;
 }
 async function merchantSignOut(){
+  const signOutEpoch=++merchantRuntime.accessEpoch;
+  merchantRuntime.refreshSeq++;
+  merchantRuntime.actionPending=true;
   merchantOfflineGuard(true);
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
-  merchantRuntime.refreshSeq++;
+  if(signOutEpoch!==merchantRuntime.accessEpoch)return;
   merchantRuntime.nextRecoveryAt=0;
   merchantRuntime.recoveryFailures=0;
   merchantClearProtectedSnapshot();
@@ -2170,7 +2174,11 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 }
 
 async function merchantSelectLive(merchantId){
+  const switchEpoch=++merchantRuntime.accessEpoch;
+  merchantRuntime.refreshSeq++;
+  merchantRuntime.actionPending=true;
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
+  if(switchEpoch!==merchantRuntime.accessEpoch)return;
   merchantOfflineGuard(true);
   merchantClearProtectedSnapshot();
   merchantRuntime.status='loading';
@@ -2184,74 +2192,6 @@ async function merchantSelectLive(merchantId){
 }
 
 // A server ACK is not permission to use stale action buttons; rescue differs from success.
-async function merchantRefreshAfterConfirmedMutation(reply,context={}){
-  const merchantReplyActionConsistent=(reply,{action='',orderId=''}={})=>{
-    if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
-    const rescue=reply.autoRescued===true;
-    if(typeof reply.orderId==='string'&&orderId&&reply.orderId!==orderId)return false;
-    if(reply.orderId!=null&&
-       (typeof reply.orderId!=='string'||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
-    if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
-      .some(key=>reply[key]===true);
-    // Validate action-specific reply status; legacy replies may omit it.
-    const expectedStates={
-      accept:['MERCHANT_ACCEPTED','PREPARING'],
-      reject:['OFFERED_TO_MERCHANT','REASSIGNING','REQUOTE_REQUIRED','CANCELLED'],
-      dispatch:['OUT_FOR_DELIVERY'],
-      arriving:['ARRIVING'],
-      'complete-delivery':['DELIVERED','SETTLED'],
-      'cannot-fulfill':['REASSIGNING','OFFERED_TO_MERCHANT','REQUOTE_REQUIRED','CANCELLED'],
-      'assign-delivery':['PREPARING','AT_RISK']
-    };
-    if(Object.prototype.hasOwnProperty.call(expectedStates,action)
-       &&Object.prototype.hasOwnProperty.call(reply,'status')
-       &&(!expectedStates[action].includes(reply.status)))return false;
-    const negativeFields={
-      accept:['accepted'],dispatch:['dispatched'],arriving:['arriving','arrived'],
-      'complete-delivery':['delivered','completed'],
-      'assign-delivery':['assigned']
-    };
-    const indicators=negativeFields[action]||[];
-    return !indicators.some(key=>reply[key]===false)&&
-      !['dispatched','arrived','delivered','completed','assigned'].some(key=>reply[key]===false);
-  };
-  // HTTP 200 is not a confirmed mutation.
-  const structured=reply!==null&&typeof reply==='object'&&!Array.isArray(reply);
-  // Require explicit success, versioned ACK or rescue.
-  const affirmative=structured&&(
-    reply.ok===true||reply.success===true||reply.autoRescued===true||
-    (typeof reply.orderId==='string'
-      &&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)
-      &&Number.isSafeInteger(reply.version)&&reply.version>=1
-      &&typeof reply.status==='string'&&reply.status.length>0)
-  );
-  const rejected=!affirmative||
-    !merchantReplyActionConsistent(reply,context)||
-    (structured&&(
-      reply.ok===false||reply.success===false||
-      (typeof reply.error==='string'&&reply.error.trim().length>0)
-    ));
-  if(rejected){
-    throw new Error('O servidor não confirmou esta ação. Confira os pedidos atualizados antes de tentar novamente.');
-  }
-  try{
-    const snapshot=await merchantRefresh({silent:true});
-    // Ignore snapshots discarded by a newer refresh.
-    if(merchantRuntime.status==='ready'
-      &&snapshot?.merchant
-      &&Array.isArray(snapshot.orders)
-      &&merchantRuntime.merchant===snapshot.merchant
-      &&merchantRuntime.orders===snapshot.orders)return true;
-  }catch{}
-  merchantRuntime.orders=[];
-  merchantRuntime.recentClosedDeliveries=[];
-  merchantRuntime.supportSummary=null;
-  if(['no-access','unauthenticated'].includes(merchantRuntime.status))return false;
-  merchantRuntime.status='unavailable';
-  merchantRuntime.error='O servidor respondeu à solicitação, mas não conseguimos atualizar os pedidos. Atualize o painel antes de fazer outra ação.';
-  return false;
-}
 
 // Server rechecks role, order version and transition despite UI guards.
 function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
@@ -2300,29 +2240,41 @@ function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
   return order;
 }
 
-async function merchantPerformAction(orderId,action,reason='other_operational'){
-  if(merchantRuntime.actionPending)return;
-  const order=merchantVerifiedActionOrder(orderId,{action});
+// One confirmation boundary for every merchant order mutation, including PIN delivery.
+async function merchantScopedOrderMutation(scope,action,orderId,invoke,annotateError){
   merchantRuntime.actionPending=true;
   merchantRuntime.error=null;
   render();
   try{
-    const body={orderId,action,expectedVersion:order.version};
-    if(action==='cannot-fulfill')body.reason=reason;
-    const idempotencyKey=liveIdempotency('merchant-action');
-    const result=await retryAmbiguousOnce(
-      ()=>merchantInvoke('merchant-action',body,{idempotencyKey})
-    );
-    await merchantRefreshAfterConfirmedMutation(result,{action,orderId});
+    const result=await invoke();
+    if(!merchantOrderActionScopeMatches(scope))throw merchantOrderActionScopeLost();
+    await merchantRefreshAfterConfirmedMutation(result,{action,orderId,scope});
+    if(!merchantOrderActionScopeMatches(scope,{requireReady:false}))
+      throw merchantOrderActionScopeLost();
     return result;
   }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
+    if(annotateError)annotateError(error);
+    if(merchantOrderActionScopeMatches(scope,{requireReady:false})){
+      merchantRuntime.error=String(error?.message||error);
+      try{await merchantRefresh({silent:true})}catch{}
+    }
     throw error;
   }finally{
-    merchantRuntime.actionPending=false;
-    render();
+    if(merchantOrderActionScopeMatches(scope,{requireReady:false})){
+      merchantRuntime.actionPending=false;
+      render();
+    }
   }
+}
+
+async function merchantPerformAction(orderId,action,reason='other_operational'){
+  if(merchantRuntime.actionPending)return;
+  const order=merchantVerifiedActionOrder(orderId,{action});
+  const scope=merchantOrderActionScope(),idempotencyKey=liveIdempotency('merchant-action');
+  const body={orderId,action,expectedVersion:order.version};
+  if(action==='cannot-fulfill')body.reason=reason;
+  return merchantScopedOrderMutation(scope,action,orderId,
+    ()=>retryAmbiguousOnce(()=>merchantInvoke('merchant-action',body,{idempotencyKey})));
 }
 
 async function merchantTeamLoadLive({silent=false}={}){
@@ -2419,29 +2371,12 @@ async function merchantAssignDeliveryLive(orderId,deliveryUserId){
   if(merchantRuntime.actionPending)return;
   const order=merchantVerifiedActionOrder(orderId,{action:'assign-delivery'});
   if(!deliveryUserId)throw new Error('Escolha um responsável pela entrega');
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  try{
-    const idempotencyKey=liveIdempotency('merchant-action');
-    const result=await retryAmbiguousOnce(
-      ()=>merchantInvoke('merchant-action',{
-        orderId,
-        action:'assign-delivery',
-        expectedVersion:order.version,
-        deliveryUserId:String(deliveryUserId)
-      },{idempotencyKey})
-    );
-    await merchantRefreshAfterConfirmedMutation(result,{action:'assign-delivery',orderId});
-    return result;
-  }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
-    throw error;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
+  const scope=merchantOrderActionScope(),idempotencyKey=liveIdempotency('merchant-action');
+  return merchantScopedOrderMutation(scope,'assign-delivery',orderId,
+    ()=>retryAmbiguousOnce(()=>merchantInvoke('merchant-action',{
+      orderId,action:'assign-delivery',expectedVersion:order.version,
+      deliveryUserId:String(deliveryUserId)
+    },{idempotencyKey})));
 }
 
 async function merchantUpdateMemberProfileLive(displayName){
@@ -2467,31 +2402,19 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed,resumeI
   const order=merchantVerifiedActionOrder(orderId,{action:'complete-delivery'});
   if(paymentConfirmed!==true)throw new Error('Confirme o recebimento do pagamento');
   if(!/^\d{4}$/.test(String(pin||'')))throw new Error('Informe o PIN de 4 dígitos');
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  const idempotencyKey=liveIdempotency('complete-delivery');
+  const scope=merchantOrderActionScope(),idempotencyKey=liveIdempotency('complete-delivery');
   const retryKey=/^complete-delivery:[\w-]{16,96}$/.test(resumeIdempotencyKey||'')
     ?resumeIdempotencyKey:idempotencyKey;
-  try{
-    const result=await retryAmbiguousOnce(()=>merchantInvoke('complete-delivery',{
-      orderId,
-      pin:String(pin),
-      expectedVersion:order.version,
-      paymentConfirmed:true
-    },{idempotencyKey:retryKey}));
-    if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
-    await merchantRefreshAfterConfirmedMutation(result,{action:'complete-delivery',orderId});
-    return result;
-  }catch(error){
-    if(error&&typeof error==='object')error.deliveryIdempotencyKey=retryKey;
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
-    throw error;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
+  return merchantScopedOrderMutation(scope,'complete-delivery',orderId,
+    async()=>{
+      const result=await retryAmbiguousOnce(()=>merchantInvoke('complete-delivery',{
+        orderId,pin:String(pin),expectedVersion:order.version,paymentConfirmed:true
+      },{idempotencyKey:retryKey}));
+      if(result?.ok===false)
+        throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
+      return result;
+    },
+    error=>{if(error&&typeof error==='object')error.deliveryIdempotencyKey=retryKey;});
 }
 
 async function merchantPaymentConnectLive(provider='mercadopago',action='status'){

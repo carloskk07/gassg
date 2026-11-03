@@ -43,7 +43,7 @@ for(const [description,reply,accepted] of [
       rt.orders=data.orders;rt.merchant=data.merchant;rt.status='ready';
       return data;
     }});
-  vm.runInContext(cut(backend,'merchantRefreshAfterConfirmedMutation',true)+
+  vm.runInContext(cut(merchant,'merchantRefreshAfterConfirmedMutation',true)+
     '\nthis.check=merchantRefreshAfterConfirmedMutation;',ctx);
   if(accepted){
     assert.equal(await ctx.check(reply),true,description);
@@ -81,7 +81,7 @@ assert.ok(!cut(merchant,'merchantLiveAction',true).includes('merchantInvoke('),
   'UI never performs extra business requests to interpret the response');
 assert.ok(sql.includes("'autoRescued',true")&&sql.includes("'dispatched',false"),
   'guard a real server-authoritative rescue response, not an invented case');
-assert.match(backend,/const affirmative=structured/);
+assert.match(merchant,/const affirmative=structured/);
 assert.match(merchant,/if\(result\?\.autoRescued===true\)/);
 assert.ok(audit.includes('node tests/merchant-outcome-proof-v1-359.mjs'));
 console.log('TAMÃO V1.359 PASS — '+tested.length+' response shapes, dispatch auto-rescue, positive acknowledgements and no false departure.');
