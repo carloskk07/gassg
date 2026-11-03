@@ -9760,8 +9760,9 @@ async function adminReverseOrder(){
     if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))
       return toast('Reversão cancelada');
     if(!same())return;
-    let mutationError=null;
-    try{await adminPerform('reverse-order',{orderId,reason,reference})}catch(error){mutationError=error}
+    // A lost ACK is ambiguous: never issue a second independent reversal.
+    // Recover the actual financial state through a read-only exact-order GET.
+    try{await adminPerform('reverse-order',{orderId,reason,reference})}catch{}
     if(!same())return;
     let proof=null;
     try{proof=await adminInvoke({action:'entity-detail',entityType:'order',entityId:orderId})}catch{}
