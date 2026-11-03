@@ -9698,16 +9698,30 @@ async function adminSetMerchantFlex(merchantId){
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminResolveDailyStatement(merchantId,statementId,billingAction){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceDecisionScope(actor))
+    return toast('Atualize o acesso financeiro antes de abonar um fechamento.');
   if(billingAction!=='waive-statement'){
     return toast('Quitação D+1 exige uma solicitação de pagamento informada pela revenda.');
   }
+  const statement=(adminRuntime.data?.merchantBilling?.statements||[])
+    .find(x=>x.id===statementId&&x.merchant_id===merchantId);
+  if(!statement||!['open','overdue'].includes(statement.status))
+    return toast('O fechamento mudou. Atualize o Financeiro antes de abonar.');
   const reference=prompt('Motivo/referência do abono:')||'';
   if(reference.trim().length<3)return toast('Informe a referência');
   if(!confirm('Abonar este fechamento diário?'))return;
-  try{
-    await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
-    toast('Fechamento diário abonado');
-  }catch(e){toast(String(e?.message||e))}
+  const current=(adminRuntime.data?.merchantBilling?.statements||[])
+    .find(x=>x.id===statementId&&x.merchant_id===merchantId);
+  if(!current||!['open','overdue'].includes(current.status)||
+     Number(current.amount_due_cents)!==Number(statement.amount_due_cents))
+    return toast('O fechamento mudou durante a confirmação. Atualize antes de decidir.');
+  const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-action',
+    {merchantId,statementId,billingAction,reference},'statements',statementId,
+    row=>row.status==='waived'&&row.merchant_id===merchantId&&
+      row.paid_at==null&&!!row.waived_at&&
+      Number(row.amount_due_cents)===Number(statement.amount_due_cents));
+  adminFinanceDecisionMessage(outcome,'Fechamento diário abonado e confirmado na consulta financeira');
 }
 
 async function adminFinancial(kind,targetId,financialAction){
