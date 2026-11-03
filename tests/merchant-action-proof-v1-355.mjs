@@ -8,9 +8,10 @@ const audit=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
 const cut=(name,async=false)=>{
   const before=(async?'async ':'')+'function '+name+'(';
-  const start=backend.indexOf(before),end=backend.indexOf('\n}',start);
+  const src=name.startsWith('merchantOrderActionScope')?merchant:backend;
+  const start=src.indexOf(before),end=src.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'Missing '+name);
-  return backend.slice(start,end+2);
+  return src.slice(start,end+2);
 };
 const module=[
  cut('merchantOrderActionScope'),cut('merchantOrderActionScopeMatches'),cut('merchantOrderActionScopeLost'),
