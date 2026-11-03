@@ -24,12 +24,12 @@
    liveInvoke,liveGetOrder,toast,render,location
  }){
    const id=String(orderId||''),userId=String(rt.session?.user?.id||'');
-   // A session object identifies this authentication generation. Comparing
-   // only the user ID allows an old payment response after logout/login of
-   // the SAME buyer to redirect the newer session (an ABA race).
-   const sessionAtStart=rt.session;
-   const token={id,userId,session:sessionAtStart};
-   const sameContext=()=>liveReady()&&rt.session===sessionAtStart&&
+   // SDK getSession may replace its session object on every request. Use the
+   // logout/auth-reset generation instead, so a legitimate token refresh
+   // stays valid while logout/login of the SAME buyer rejects late replies.
+   const authGeneration=Number(rt.authGeneration||0);
+   const token={id,userId,authGeneration};
+   const sameContext=()=>liveReady()&&Number(rt.authGeneration||0)===authGeneration&&
      rt.session?.user?.id===userId&&rt.orderId===id&&rt.order?.orderId===id;
    const same=()=>sameContext()&&rt.customerDirectPaymentToken===token;
    if(rt.actionPending)return false;
@@ -122,10 +122,11 @@
      toast(rt.error);return false;
    }finally{
      // A late response cannot unlock another payment/order/account action.
-     // Authentication reset is responsible for clearing state after logout.
+     // Authentication reset invalidates the generation and owns logout cleanup.
      if(rt.customerDirectPaymentToken===token){
        rt.customerDirectPaymentToken=null;
-       if(rt.session===sessionAtStart&&rt.orderId===id&&rt.order?.orderId===id){
+       if(Number(rt.authGeneration||0)===authGeneration&&
+          rt.session?.user?.id===userId&&rt.orderId===id&&rt.order?.orderId===id){
          rt.actionPending=false;
          render();
        }
