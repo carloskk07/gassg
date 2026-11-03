@@ -9400,7 +9400,50 @@ async function adminAddPlatformAdmin(){
   }catch(e){toast(String(e?.message||e))}
 }
 
+// A financial mutation is not confirmed by its HTTP ACK. Only a newly
+// installed, same-operator finance summary may prove its terminal result.
+function adminFinanceDecisionScope(actor){
+  return !!actor&&adminReady()&&adminRoleCanSection('finance')&&
+    String(adminRuntime.session?.user?.id||'')===actor;
+}
+async function adminFinanceDecisionProof(actor,action,payload,collection,id,check){
+  const same=()=>adminFinanceDecisionScope(actor);
+  if(!same()||adminRuntime.actionPending||
+     adminRuntime.financeDecisionPending?.actor===actor)
+    return {confirmed:false,blocked:true};
+  const lock={actor};
+  adminRuntime.financeDecisionPending=lock;
+  let operationError=null;
+  try{
+    try{await adminPerform(action,payload)}catch(error){operationError=error}
+    if(!same())return {changedAccount:true};
+    const requestedAt=Date.now();
+    let fresh=null;
+    try{fresh=await adminRefresh({silent:true})}catch{}
+    if(!same())return {changedAccount:true};
+    const checked=Date.parse(String(adminRuntime.lastSyncAt||''));
+    if(!fresh||adminRuntime.data!==fresh||
+       !Number.isFinite(checked)||checked<requestedAt||checked>Date.now()+2000)
+      return {confirmed:false,operationError};
+    const row=(fresh.merchantBilling?.[collection]||[]).find(x=>x.id===id);
+    return {confirmed:!!row&&check(row,fresh),row,operationError};
+  }finally{
+    if(adminRuntime.financeDecisionPending===lock)
+      adminRuntime.financeDecisionPending=null;
+  }
+}
+function adminFinanceDecisionMessage(result,success){
+  if(result?.changedAccount)return;
+  if(result?.confirmed)return toast(success);
+  toast(result?.blocked
+    ?'Há outra ação financeira em andamento ou o acesso mudou. Atualize antes de decidir.'
+    :'A decisão financeira não foi confirmada na consulta atual. Confira o registro antes de repetir; não presuma que a operação falhou.');
+}
+
 async function adminResolveBillingRefund(refundId,refundAction){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceDecisionScope(actor))
+    return toast('Atualize o acesso financeiro antes de resolver um refund.');
   const billing=adminRuntime.data?.merchantBilling||{};
   const refund=(billing.refunds||[]).find(x=>x.id===refundId);
   if(!refund)return toast('Refund financeiro não encontrado');
@@ -9415,14 +9458,13 @@ async function adminResolveBillingRefund(refundId,refundAction){
     const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
     if(reference.trim().length<3)return toast('Informe a referência da resolução');
     if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
-    try{
-      await adminPerform('merchant-billing-refund',{
-        refundId,
-        refundAction:'dismiss-unrelated',
-        reference
-      });
-      toast('Refund encerrado como não relacionado');
-    }catch(e){toast(String(e?.message||e))}
+    const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-refund',
+      {refundId,refundAction:'dismiss-unrelated',reference},'refunds',refundId,
+      row=>row.status==='ignored_unrelated'&&
+        !row.payment_request_id&&!row.merchant_id&&
+        row.provider_event_id===refund.provider_event_id&&
+        Number(row.amount_cents)===Number(refund.amount_cents));
+    adminFinanceDecisionMessage(outcome,'Refund encerrado como não relacionado e confirmado na consulta financeira');
     return;
   }
 
@@ -9439,14 +9481,14 @@ async function adminResolveBillingRefund(refundId,refundAction){
     const reference=prompt('Referência para reconhecer que este valor excede a exposição original e não deve virar dívida:')||'';
     if(reference.trim().length<3)return toast('Informe a referência da resolução');
     if(!confirm('Reconhecer este refund como excesso acima do pagamento original? O fato do PSP permanecerá auditável, mas nenhum valor adicional será cobrado da revenda.'))return;
-    try{
-      await adminPerform('merchant-billing-refund',{
-        refundId,
-        refundAction:'dismiss-excess',
-        reference
-      });
-      toast('Excesso do PSP reconhecido sem criar dívida adicional');
-    }catch(e){toast(String(e?.message||e))}
+    const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-refund',
+      {refundId,refundAction:'dismiss-excess',reference},'refunds',refundId,
+      row=>row.status==='resolved_excess'&&
+        row.payment_request_id===refund.payment_request_id&&
+        row.merchant_id===refund.merchant_id&&
+        row.provider_event_id===refund.provider_event_id&&
+        Number(row.amount_cents)===Number(refund.amount_cents));
+    adminFinanceDecisionMessage(outcome,'Excesso do PSP reconhecido sem criar dívida adicional; registro confirmado');
     return;
   }
 
@@ -9454,6 +9496,9 @@ async function adminResolveBillingRefund(refundId,refundAction){
 }
 
 async function adminBillingPaymentEventAction(paymentEventId,eventAction){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceDecisionScope(actor))
+    return toast('Atualize o acesso financeiro antes de revisar eventos.');
   const event=(adminRuntime.data?.merchantBilling?.paymentEvents||[]).find(x=>x.id===paymentEventId);
   if(!event)return toast('Evento financeiro não encontrado');
   if(eventAction==='ignore'){
@@ -9461,17 +9506,31 @@ async function adminBillingPaymentEventAction(paymentEventId,eventAction){
     const reason=prompt('Motivo para ignorar este evento financeiro:')||'';
     if(reason.trim().length<3)return toast('Informe o motivo');
     if(!confirm('Ignorar este evento sem apagar seu histórico? Ele continuará auditável.'))return;
-    try{
-      await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason});
-      toast('Evento encerrado como ignorado');
-    }catch(e){toast(String(e?.message||e))}
+    const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-payment-event',
+      {paymentEventId,eventAction,reason},'paymentEvents',paymentEventId,
+      row=>row.status==='ignored'&&row.payment_request_id==null&&
+        row.provider===event.provider&&
+        row.provider_event_id===event.provider_event_id&&
+        Number(row.amount_cents)===Number(event.amount_cents));
+    adminFinanceDecisionMessage(outcome,'Evento encerrado como ignorado e confirmado na consulta financeira');
     return;
   }
   if(eventAction!=='recheck')return toast('Ação financeira inválida');
-  try{
-    await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
-    toast('Conciliação reprocessada');
-  }catch(e){toast(String(e?.message||e))}
+  const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-payment-event',
+    {paymentEventId,eventAction,reason:null},'paymentEvents',paymentEventId,
+    row=>row.provider===event.provider&&
+      row.provider_event_id===event.provider_event_id&&
+      Number(row.amount_cents)===Number(event.amount_cents));
+  if(outcome?.changedAccount)return;
+  if(!outcome?.confirmed)return adminFinanceDecisionMessage(outcome,'Conciliação reprocessada');
+  const status=String(outcome.row.status||'');
+  if(status==='review_required'){
+    toast('Evento consultado: permanece em revisão; nenhum crédito ou quitação confirmado.');
+  }else if(['matched_exact','applied','already_applied'].includes(status)){
+    toast('Evento reconciliado e confirmado no painel. Confira a solicitação antes de atribuir quitação.');
+  }else{
+    toast('Evento consultado com estado '+status+'. Confira o Financeiro antes de prosseguir.');
+  }
 }
 
 async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null,review=null){
@@ -9639,16 +9698,30 @@ async function adminSetMerchantFlex(merchantId){
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminResolveDailyStatement(merchantId,statementId,billingAction){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceDecisionScope(actor))
+    return toast('Atualize o acesso financeiro antes de abonar um fechamento.');
   if(billingAction!=='waive-statement'){
     return toast('Quitação D+1 exige uma solicitação de pagamento informada pela revenda.');
   }
+  const statement=(adminRuntime.data?.merchantBilling?.statements||[])
+    .find(x=>x.id===statementId&&x.merchant_id===merchantId);
+  if(!statement||!['open','overdue'].includes(statement.status))
+    return toast('O fechamento mudou. Atualize o Financeiro antes de abonar.');
   const reference=prompt('Motivo/referência do abono:')||'';
   if(reference.trim().length<3)return toast('Informe a referência');
   if(!confirm('Abonar este fechamento diário?'))return;
-  try{
-    await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
-    toast('Fechamento diário abonado');
-  }catch(e){toast(String(e?.message||e))}
+  const current=(adminRuntime.data?.merchantBilling?.statements||[])
+    .find(x=>x.id===statementId&&x.merchant_id===merchantId);
+  if(!current||!['open','overdue'].includes(current.status)||
+     Number(current.amount_due_cents)!==Number(statement.amount_due_cents))
+    return toast('O fechamento mudou durante a confirmação. Atualize antes de decidir.');
+  const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-action',
+    {merchantId,statementId,billingAction,reference},'statements',statementId,
+    row=>row.status==='waived'&&row.merchant_id===merchantId&&
+      row.paid_at==null&&!!row.waived_at&&
+      Number(row.amount_due_cents)===Number(statement.amount_due_cents));
+  adminFinanceDecisionMessage(outcome,'Fechamento diário abonado e confirmado na consulta financeira');
 }
 
 async function adminFinancial(kind,targetId,financialAction){
