@@ -54,9 +54,10 @@ for(const [description,reply,action,accepted] of cases){
     assert.equal(refreshes,0,description+' must not be treated as post-mutation acknowledgement');
   }
 }
-assert.match(cut('merchantPerformAction'),/merchantRefreshAfterConfirmedMutation\(result,\{action,orderId,scope\}\)/);
-assert.match(cut('merchantAssignDeliveryLive'),/merchantRefreshAfterConfirmedMutation\(result,\{action:'assign-delivery',orderId,scope\}\)/);
-assert.match(cut('merchantCompleteDeliveryLive'),/merchantRefreshAfterConfirmedMutation\(result,\{action:'complete-delivery',orderId,scope\}\)/);
+for(const [method,action] of [
+ ['merchantPerformAction','action'],['merchantAssignDeliveryLive',"'assign-delivery'"],
+ ['merchantCompleteDeliveryLive',"'complete-delivery'"]
+])assert.ok(cut(method).includes('merchantScopedOrderMutation(scope,'+action+',orderId'));
 assert.match(merchant,/if\(result\?\.autoRescued===true\)/,
   'server-authoritative automatic rescue remains a non-success UI outcome');
 assert.ok(ci.includes('node tests/merchant-contradictory-outcome-v1-360.mjs'));
