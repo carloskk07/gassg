@@ -142,9 +142,9 @@ for(const expected of [
  'onclick="cancelBeforeDispatch(this.dataset.orderId)"',
  'onclick="confirmRequote(this.dataset.orderId)"',
  'data-order-id="${esc(o.orderId)}"',
- "await liveCustomerAction('accept-requote',id)",
- "await liveCustomerAction('cancel-before-dispatch',id)",
- "await liveCustomerAction('cancel-before-accept',id)"
+ "return liveCustomerAction('accept-requote',id)",
+ "return liveCustomerAction('cancel-before-dispatch',id)",
+ "return liveCustomerAction('cancel-before-accept',id)"
 ])assert.ok(customer.includes(expected),'UI callback must retain protected order identity: '+expected);
 assert.doesNotMatch(customer,/onclick="confirmRequote\('00000000/);
 assert.ok(backend.includes("liveCustomerScript('customer-order-action')"));
