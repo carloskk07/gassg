@@ -14,7 +14,7 @@ const cut=(name,async=false)=>{
 };
 const module=[
  cut('merchantOrderActionScope'),cut('merchantOrderActionScopeMatches'),cut('merchantOrderActionScopeLost'),
- cut('merchantVerifiedActionOrder'),cut('merchantPerformAction',true),
+ cut('merchantVerifiedActionOrder'),cut('merchantScopedOrderMutation',true),cut('merchantPerformAction',true),
  cut('merchantAssignDeliveryLive',true),cut('merchantCompleteDeliveryLive',true)
 ].join('\n');
 const id='11111111-1111-4111-8111-111111111111';
