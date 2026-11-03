@@ -38,9 +38,10 @@
    render();
    let accepted=null;
    try{
+     const idempotencyKey=liveIdempotency('customer-action');
      const reply=await retryAmbiguousOnce(()=>liveInvoke('customer-action',{
        orderId:expected,action,expectedVersion:version
-     },{idempotencyKey:liveIdempotency('customer-action')}));
+     },{idempotencyKey}));
      if(!same())return false;
      // Real customer_order_action RPC returns exactly {orderId,status,version}.
      // HTTP 200 alone or a response for a different order is not success.
