@@ -210,6 +210,8 @@ for(const corrupt of [
  const x=fixture(),gate=deferred();
  x.read(async()=>gate.promise);
  const pending=x.decide();
+ await Promise.resolve();
+ await Promise.resolve();
  assert.equal(x.reads.length,1);
  x.rt.session={user:{id:'operator-B'}};
  const before=x.messages.length;
