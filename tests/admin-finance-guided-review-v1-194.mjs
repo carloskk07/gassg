@@ -22,7 +22,7 @@ const evidence={id:eventId,status:'matched_exact',payment_request_id:requestId,
  provider:'mercadopago',provider_event_id:'mp_event_123',amount_cents:expected,
  payment_method:'pix',reconciliation_key:'E1234567890987654321'};
 const bill={paymentRequests:[request],paymentEvents:[]};
-const rt={status:'ready',lastSyncAt:new Date().toISOString(),data:{merchantBilling:bill}};
+const rt={status:'ready',session:{user:{id:'finance-reviewer-194'}},lastSyncAt:new Date().toISOString(),data:{merchantBilling:bill}};
 let role='finance',actions=[],toasts=[],confirms=[],prompts=0,confirmation=true;
 const money=n=>'R$ '+(n/100).toFixed(2).replace('.',',');
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
@@ -35,6 +35,8 @@ const root={querySelector:sel=>{
 }};
 const ctx=vm.createContext({
  adminRuntime:rt,adminMoney:money,esc,Date,Number,
+ adminReady:()=>rt.status==='ready',
+ adminRefresh:async()=>{rt.lastSyncAt=new Date().toISOString();return rt.data;},
  adminRoleCanSection:key=>key==='finance'&&['finance','superadmin'].includes(role),
  adminMerchantName:()=> 'Revenda Alfa',adminPaymentMethodLabel:x=>x,
  adminPerform:async(action,body)=>actions.push({action,body}),
