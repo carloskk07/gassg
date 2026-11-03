@@ -32,11 +32,20 @@
      toast(rt.error);render();return false;
    }
    rt.actionPending=true;rt.error=null;render();
+   const readFresh=async()=>{
+     const requestedAt=Date.now();
+     const order=await liveGetOrder(id,{silent:true});
+     const checkedAt=Date.parse(String(rt.orderCheckedAt||''));
+     if(rt.orderCheckedId!==id||!Number.isFinite(checkedAt)||
+        checkedAt<requestedAt||checkedAt>Date.now()+2000)
+       throw Error('O pedido não recebeu uma atualização confirmada. Confira antes de pagar.');
+     return order;
+   };
    let mutationStarted=false;
    try{
      // An old DOM or provider link cannot authorize a payment:
      // get-order must confirm the current customer, merchant and amount.
-     let order=await liveGetOrder(id,{silent:true});
+     let order=await readFresh();
      if(!same())return false;
      if(!validPayment(order,id))
        throw Error('O pagamento online deste pedido não está confirmado. Atualize o acompanhamento.');
@@ -62,7 +71,7 @@
        const expectedUrl=reply?.alreadyPaid===true?null:String(reply.checkoutUrl||'');
        if(reply?.alreadyPaid!==true&&!safeUrl(expectedUrl))
          throw Error('O checkout retornou um endereço de pagamento inválido.');
-       order=await liveGetOrder(id,{silent:true});
+       order=await readFresh();
        if(!same())return false;
        if(reply.alreadyPaid===true){
          if(order?.onlinePayment?.status!=='approved')
@@ -89,7 +98,7 @@
      );
      if(ambiguous){
        let checked=null;
-       try{checked=await liveGetOrder(id,{silent:true})}catch{}
+       try{checked=await readFresh()}catch{}
        if(!same())return false;
        if(validPayment(checked,id)&&reusableCheckout(checked.onlinePayment)&&
           safeUrl(checked.onlinePayment.checkoutUrl)&&
