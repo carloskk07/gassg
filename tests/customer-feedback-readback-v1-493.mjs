@@ -7,10 +7,11 @@ const backend=read('js/backend.js');
 const customer=read('js/customer.js');
 const edge=read('supabase/functions/customer-care/index.ts');
 const getter=read('supabase/functions/get-order/index.ts');
-const start=backend.indexOf('async function liveSubmitFeedback(');
-const end=backend.indexOf('\nasync function liveOpenSupportCase(',start);
-assert.ok(start>0&&end>start,'feedback operation must remain in the canonical backend');
-const code=backend.slice(start,end);
+const code=read('js/customer-feedback-confirmation.js');
+assert.match(backend,/liveCustomerScript\('customer-feedback-confirmation'\)/,
+ 'feedback confirmation must be loaded only when requested by the buyer');
+assert.match(backend,/customerFeedbackConfirmSubmit\(rating,tags,/,
+ 'canonical buyer API must delegate to the scoped feedback flow');
 new vm.Script(code);
 const A='11111111-1111-4111-8111-111111111111';
 const B='22222222-2222-4222-8222-222222222222';
@@ -57,7 +58,7 @@ function fixture({mode='success',readback='applied',delay=null,existing=null}={}
   },
   render:()=>renders.push({actor:rt.session?.user?.id,order:rt.orderId})
  });
- vm.runInContext(code+'\nthis.submit=liveSubmitFeedback;',ctx);
+ vm.runInContext(code+'\nthis.submit=(n)=>customerFeedbackConfirmSubmit(n,[],{liveRuntime,liveReady,isAmbiguousTransportError,liveInvoke,liveGetOrder,render});',ctx);
  return {rt,calls,renders,submit:(n=5)=>ctx.submit(n),
   mode:v=>currentMode=v,read:v=>currentRead=v};
 }
