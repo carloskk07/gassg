@@ -13,6 +13,7 @@ const cut=(name,async=false)=>{
   return backend.slice(start,end+2);
 };
 const module=[
+ cut('merchantOrderActionScope'),cut('merchantOrderActionScopeMatches'),cut('merchantOrderActionScopeLost'),
  cut('merchantVerifiedActionOrder'),cut('merchantPerformAction',true),
  cut('merchantAssignDeliveryLive',true),cut('merchantCompleteDeliveryLive',true)
 ].join('\n');
