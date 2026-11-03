@@ -215,6 +215,7 @@ const liveRuntime={
   lastOfferFingerprint:null,
   lastOfferCheckedAt:0,
   actionPending:false,
+  customerDecisionToken:null,
   error:null,
   deliveryCompatibilityBlocked:false,
   commerceLaunchBlocked:false,
@@ -257,10 +258,11 @@ function customerOriginSafe(){
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
-// A different authenticated customer must never inherit balances, delivery
-// details or a pending response from the previous browser account.
+// Isolate private state on customer account changes.
 function liveForgetAccount(){
   globalThis.customerSupportReplayReset?.();
+  liveRuntime.customerDecisionToken=null;
+  liveRuntime.actionPending=false;
   if(liveRuntime.status==='loading')return;
   liveRuntime.status='loading';
   liveRuntime.session=null;
@@ -931,12 +933,18 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   const userId=liveRuntime.session?.user?.id;
   const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  if(!order||String(order.orderId||'')!==String(orderId))
+    throw new Error('A consulta retornou outro pedido. Atualize o acompanhamento.');
   if(userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return null;
   if(seq<liveRuntime.orderRequestSeq&&liveRuntime.orderId&&
       liveRuntime.orderId!==orderId)return liveRuntime.order;
   const current=liveRuntime.order;
   if(current?.orderId===order.orderId&&Number(current.version)>Number(order.version))return current;
   if(seq<liveRuntime.orderRequestSeq&&current?.orderId===order.orderId&&Number(current.version)>=Number(order.version))return current;
+  if(liveRuntime.orderId&&liveRuntime.orderId!==order.orderId&&liveRuntime.customerDecisionToken){
+    liveRuntime.customerDecisionToken=null;
+    liveRuntime.actionPending=false;
+  }
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
   liveRuntime.error=null;
@@ -1061,6 +1069,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     if(summary?.activeOrderId){
       const id=String(summary.activeOrderId);
       activeOrderChanged=liveRuntime.orderId!==id;
+      if(activeOrderChanged&&liveRuntime.customerDecisionToken){
+        liveRuntime.customerDecisionToken=null;
+        liveRuntime.actionPending=false;
+      }
       if(activeOrderChanged||liveRuntime.order&&liveRuntime.order.orderId!==id){
         liveRuntime.orderRequestSeq++;
         liveRuntime.order=null;
@@ -2022,8 +2034,7 @@ function merchantOfflineGuard(denied){
   const u=merchantRuntime.session?.user?.id,m=merchantRuntime.merchant?.merchantId||merchantRuntime.selectedMerchantId;
   if(u&&m)localStorage[denied?'setItem':'removeItem']('tamao-offline-denied:'+u+':'+m,'1');
 }
-// Drop merchant-scoped data whenever authorization or merchant selection changes.
-// The next server response, not an old browser snapshot, restores this state.
+// Invalidate protected data when merchant access changes.
 function merchantClearProtectedSnapshot(){
   merchantRuntime.accessEpoch=(merchantRuntime.accessEpoch||0)+1;
   merchantRuntime.actionPending=false;
@@ -2210,8 +2221,7 @@ function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
   }
   const order=(Array.isArray(rt.orders)?rt.orders:[]).find(o=>o?.orderId===orderId);
   if(!order)throw new Error('Pedido não encontrado nesta revenda. Atualize os pedidos.');
-  // An old tab may still contain the earlier accept/reject buttons after expiry.
-  // Unknown/expired response windows cannot be used, even if the UI hasn't rerendered.
+  // Deny expired offer actions even in an outdated tab.
   if(['accept','reject'].includes(action)){
     const raw=String(order.offerExpiresAt||'');
     const deadline=Date.parse(raw);
@@ -2221,8 +2231,7 @@ function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
       throw new Error('O prazo de resposta não está válido. Atualize os pedidos.');
     }
   }
-  // V1.356 — an old DOM can still hold a button after a newer stage was
-  // applied. Reject impossible transitions before opening a mutating RPC.
+  // Deny stale stage transitions before RPC.
   const permittedStatuses={
     dispatch:['PREPARING','AT_RISK'],
     arriving:['OUT_FOR_DELIVERY'],
@@ -2563,8 +2572,7 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
       statementId:statement,
       refundRecoveryId:recovery
     },{idempotencyKey}));
-    // Refuse to announce a successful new Pix unless the server has proved
-    // an active code with a future expiry. A stale QR is not a payment option.
+    // Accept Pix only with valid, unexpired server proof.
     const charge=result?.charge;
     if(charge?.status==='completed'){
       await merchantRefresh({silent:true});
@@ -2969,8 +2977,7 @@ function openMerchantPortal(signup=false){
   const destination=new URL(href);
   const ref=typeof growthAttributionCode==='function'?growthAttributionCode():'';
   if(/^[A-Z0-9]{5,40}$/.test(ref)){
-    // Browser storage is origin-scoped. Transfer only the code, never a
-    // customer token, via the dedicated official merchant portal link.
+    // Pass only the invite code to the official merchant origin.
     destination.searchParams.set('ref',ref);
   }
   if(signup===true)destination.hash='merchant-join';
