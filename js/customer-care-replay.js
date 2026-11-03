@@ -8,7 +8,7 @@
     liveRuntime,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,render
   }){
     const order=liveRuntime.order;
-    if(!order)throw new Error('Pedido não encontrado');
+    if(!order||liveRuntime.orderId!==order.orderId)throw new Error('Atualize o pedido selecionado antes de registrar um problema.');
     const actor=String(liveRuntime.session?.user?.id||'');
     if(!actor)throw new Error('Sessão do cliente indisponível. Atualize o pedido.');
     const payload={
@@ -36,14 +36,24 @@
     }
     if(pending?.key===key)pending=null;
     const sameContext=()=>String(liveRuntime.session?.user?.id||'')===actor&&
-      String(liveRuntime.order?.orderId||'')===payload.orderId;
+      String(liveRuntime.order?.orderId||'')===payload.orderId&&
+      String(liveRuntime.orderId||'')===payload.orderId;
     if(!sameContext())throw new Error('A conta ou o pedido mudou. Consulte o acompanhamento atual.');
     let refreshPending=false;
     try{
+      const readStartedAt=Date.now();
       const verified=await liveGetOrder(payload.orderId,{silent:true});
       if(!sameContext())throw new Error('A conta ou o pedido mudou. Consulte o acompanhamento atual.');
-      if(verified?.orderId!==payload.orderId||
-         !Array.isArray(verified.supportCases)||
+      // An obsolete read may return the expected case but be discarded by
+      // the canonical order loader. Only a NEW read installed in the current
+      // authenticated tracking can confirm that the case is visible.
+      const checkedAt=Date.parse(String(liveRuntime.orderCheckedAt||''));
+      const applied=verified?.orderId===payload.orderId&&
+        liveRuntime.order===verified&&
+        liveRuntime.orderCheckedId===payload.orderId&&
+        Number.isFinite(checkedAt)&&checkedAt>=readStartedAt&&
+        checkedAt<=Date.now()+2000;
+      if(!applied||!Array.isArray(verified.supportCases)||
          !verified.supportCases.some(item=>item?.id===result.case.id)){
         refreshPending=true;
         liveRuntime.error='O relato foi registrado, mas ainda não aparece na consulta do pedido. Atualize o acompanhamento.';
