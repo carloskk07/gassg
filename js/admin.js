@@ -9441,6 +9441,9 @@ function adminFinanceDecisionMessage(result,success){
 }
 
 async function adminResolveBillingRefund(refundId,refundAction){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceDecisionScope(actor))
+    return toast('Atualize o acesso financeiro antes de resolver um refund.');
   const billing=adminRuntime.data?.merchantBilling||{};
   const refund=(billing.refunds||[]).find(x=>x.id===refundId);
   if(!refund)return toast('Refund financeiro não encontrado');
@@ -9455,14 +9458,13 @@ async function adminResolveBillingRefund(refundId,refundAction){
     const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
     if(reference.trim().length<3)return toast('Informe a referência da resolução');
     if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
-    try{
-      await adminPerform('merchant-billing-refund',{
-        refundId,
-        refundAction:'dismiss-unrelated',
-        reference
-      });
-      toast('Refund encerrado como não relacionado');
-    }catch(e){toast(String(e?.message||e))}
+    const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-refund',
+      {refundId,refundAction:'dismiss-unrelated',reference},'refunds',refundId,
+      row=>row.status==='ignored_unrelated'&&
+        !row.payment_request_id&&!row.merchant_id&&
+        row.provider_event_id===refund.provider_event_id&&
+        Number(row.amount_cents)===Number(refund.amount_cents));
+    adminFinanceDecisionMessage(outcome,'Refund encerrado como não relacionado e confirmado na consulta financeira');
     return;
   }
 
@@ -9479,14 +9481,14 @@ async function adminResolveBillingRefund(refundId,refundAction){
     const reference=prompt('Referência para reconhecer que este valor excede a exposição original e não deve virar dívida:')||'';
     if(reference.trim().length<3)return toast('Informe a referência da resolução');
     if(!confirm('Reconhecer este refund como excesso acima do pagamento original? O fato do PSP permanecerá auditável, mas nenhum valor adicional será cobrado da revenda.'))return;
-    try{
-      await adminPerform('merchant-billing-refund',{
-        refundId,
-        refundAction:'dismiss-excess',
-        reference
-      });
-      toast('Excesso do PSP reconhecido sem criar dívida adicional');
-    }catch(e){toast(String(e?.message||e))}
+    const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-refund',
+      {refundId,refundAction:'dismiss-excess',reference},'refunds',refundId,
+      row=>row.status==='resolved_excess'&&
+        row.payment_request_id===refund.payment_request_id&&
+        row.merchant_id===refund.merchant_id&&
+        row.provider_event_id===refund.provider_event_id&&
+        Number(row.amount_cents)===Number(refund.amount_cents));
+    adminFinanceDecisionMessage(outcome,'Excesso do PSP reconhecido sem criar dívida adicional; registro confirmado');
     return;
   }
 
