@@ -1549,8 +1549,8 @@ assert.ok(backend.includes("liveCustomerScript('customer-order-action')")&&
   customerDecision.includes("()=>liveInvoke('customer-action'")&&
   customerDecision.includes('},{idempotencyKey}));'),
   'ação do cliente precisa reutilizar a mesma chave idempotente no retry, inclusive no módulo adiado');
-assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
-assert.ok(backend.includes("const idempotencyKey=liveIdempotency('complete-delivery')"),'conclusão de entrega precisa fixar a chave antes do retry');
+assert.ok(backend.includes("idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
+assert.ok(backend.includes("idempotencyKey=liveIdempotency('complete-delivery')")&&backend.includes('merchantScopedOrderMutation(scope,'),'conclusão de entrega precisa fixar a chave antes do retry');
 assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');
 assert.ok(backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),'cadastro de parceiro precisa sobreviver a timeout/ACK perdido');
 assert.ok(backend.includes("retryAmbiguousOnce(\n      ()=>merchantInvoke('merchant-ops',{merchantId,action:'set-online'"),'toggle online deve repetir uma vez falha de transporte ambígua');
