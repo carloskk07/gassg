@@ -381,6 +381,10 @@ async function adminSignOut(){
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   adminRuntime.searchPending=false;
+  adminRuntime.searchRequest=null;
+  adminRuntime.detailRequest=null;
+  adminRuntime.healthRequest=null;
+  adminRuntime.auditRequest=null;
   adminRuntime.detail=null;
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
@@ -735,16 +739,24 @@ function adminCloseDetail(){
   render();
 }
 async function adminLoadSystemHealth({force=false}={}){
-  if(adminRuntime.healthPending||(!force&&adminRuntime.health))return;
+  if(!adminReady()||!adminRoleCanSection('system')||
+     adminRuntime.healthPending||(!force&&adminRuntime.health))return;
+  const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
+  adminRuntime.healthRequest=ticket;
   adminRuntime.healthPending=true;
   render();
+  const current=()=>adminRuntime.healthRequest===ticket&&
+    adminSensitiveReadCurrent(session,role)&&adminRoleCanSection('system');
   try{
-    adminRuntime.health=await adminInvoke({action:'system-health'});
+    const result=await adminInvoke({action:'system-health'});
+    if(current())adminRuntime.health=result;
   }catch(error){
-    adminRuntime.health={status:'critical',error:String(error?.message||error||'Diagnóstico indisponível'),checkedAt:new Date().toISOString()};
+    if(current())adminRuntime.health={status:'critical',error:String(error?.message||error||'Diagnóstico indisponível'),checkedAt:new Date().toISOString()};
   }finally{
-    adminRuntime.healthPending=false;
-    render();
+    if(adminRuntime.healthRequest===ticket){
+      adminRuntime.healthPending=false;
+      if(current())render();
+    }
   }
 }
 
@@ -1697,22 +1709,28 @@ function adminIncidentCenter(d){
   </section>`;
 }
 async function adminAuditSearch(){
-  if(adminRuntime.auditPending)return;
+  if(adminRuntime.auditPending||!adminReady()||!adminRoleCanSection('audit'))return;
+  const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
   const query=document.getElementById('admin-audit-query')?.value.trim()||'';
   const action=document.getElementById('admin-audit-action')?.value.trim()||'';
   const targetType=document.getElementById('admin-audit-target')?.value.trim()||'';
   const from=document.getElementById('admin-audit-from')?.value||'';
   const to=document.getElementById('admin-audit-to')?.value||'';
+  adminRuntime.auditRequest=ticket;
   adminRuntime.auditPending=true;
   render();
+  const current=()=>adminRuntime.auditRequest===ticket&&
+    adminSensitiveReadCurrent(session,role)&&adminRoleCanSection('audit');
   try{
     const result=await adminInvoke({action:'audit-search',query,action:action||null,targetType:targetType||null,from:from||null,to:to||null,limit:200});
-    adminRuntime.auditResults=result?.results||[];
+    if(current())adminRuntime.auditResults=Array.isArray(result?.results)?result.results:[];
   }catch(e){
-    adminRuntime.error=String(e?.message||e);
+    if(current())adminRuntime.error=String(e?.message||e);
   }finally{
-    adminRuntime.auditPending=false;
-    render();
+    if(adminRuntime.auditRequest===ticket){
+      adminRuntime.auditPending=false;
+      if(current())render();
+    }
   }
 }
 function adminAuditView(d){
