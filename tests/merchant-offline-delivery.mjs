@@ -449,11 +449,11 @@ const helperNames=['merchantOrderActionScope','merchantOrderActionScopeMatches',
  'merchantOrderActionScopeLost','merchantScopedOrderMutation'];
 const realHelpers=helperNames.map(name=>{
  const key=(name==='merchantScopedOrderMutation'?'async function ':'function ')+name+'(';
- const i=backendSrc.indexOf(key),j=backendSrc.indexOf('\\n}',i);
+ const i=backendSrc.indexOf(key),j=backendSrc.indexOf('\n}',i);
  assert.ok(i>=0&&j>i,'missing merchant offline replay dependency '+name);
  return backendSrc.slice(i,j+2);
-}).join('\\n');
-vm.runInContext(realHelpers+'\\n'+backendSrc.slice(begin,finish+2)+
+}).join('\n');
+vm.runInContext(realHelpers+'\n'+backendSrc.slice(begin,finish+2)+
  ';this.complete=merchantCompleteDeliveryLive;',networkContext);
 let retryKey='';
 await assert.rejects(async()=>{
