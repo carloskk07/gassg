@@ -9400,6 +9400,46 @@ async function adminAddPlatformAdmin(){
   }catch(e){toast(String(e?.message||e))}
 }
 
+// A financial mutation is not confirmed by its HTTP ACK. Only a newly
+// installed, same-operator finance summary may prove its terminal result.
+function adminFinanceDecisionScope(actor){
+  return !!actor&&adminReady()&&adminRoleCanSection('finance')&&
+    String(adminRuntime.session?.user?.id||'')===actor;
+}
+async function adminFinanceDecisionProof(actor,action,payload,collection,id,check){
+  const same=()=>adminFinanceDecisionScope(actor);
+  if(!same()||adminRuntime.actionPending||
+     adminRuntime.financeDecisionPending?.actor===actor)
+    return {confirmed:false,blocked:true};
+  const lock={actor};
+  adminRuntime.financeDecisionPending=lock;
+  let operationError=null;
+  try{
+    try{await adminPerform(action,payload)}catch(error){operationError=error}
+    if(!same())return {changedAccount:true};
+    const requestedAt=Date.now();
+    let fresh=null;
+    try{fresh=await adminRefresh({silent:true})}catch{}
+    if(!same())return {changedAccount:true};
+    const checked=Date.parse(String(adminRuntime.lastSyncAt||''));
+    if(!fresh||adminRuntime.data!==fresh||
+       !Number.isFinite(checked)||checked<requestedAt||checked>Date.now()+2000)
+      return {confirmed:false,operationError};
+    const row=(fresh.merchantBilling?.[collection]||[]).find(x=>x.id===id);
+    return {confirmed:!!row&&check(row,fresh),row,operationError};
+  }finally{
+    if(adminRuntime.financeDecisionPending===lock)
+      adminRuntime.financeDecisionPending=null;
+  }
+}
+function adminFinanceDecisionMessage(result,success){
+  if(result?.changedAccount)return;
+  if(result?.confirmed)return toast(success);
+  toast(result?.blocked
+    ?'Há outra ação financeira em andamento ou o acesso mudou. Atualize antes de decidir.'
+    :'A decisão financeira não foi confirmada na consulta atual. Confira o registro antes de repetir; não presuma que a operação falhou.');
+}
+
 async function adminResolveBillingRefund(refundId,refundAction){
   const billing=adminRuntime.data?.merchantBilling||{};
   const refund=(billing.refunds||[]).find(x=>x.id===refundId);
