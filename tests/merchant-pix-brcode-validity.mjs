@@ -85,7 +85,8 @@ assert.match(edge,/savedExpiration>Date\.parse\(originalDeadline\)/);
 assert.match(edge,/!Number\.isFinite\(savedExpiration\)/);
 assert.doesNotMatch(edge,/expiresAt:new Date\(Date\.now\(\)\+86400_000\)/);
 assert.match(merchant,/merchantBillingPixChargeExpired\(charge\)/);
-assert.match(backend,/charge\?\.status==='completed'/);
+assert.match(backend,/charge\.status==='completed'/);
+assert.match(backend,/row\.pixCharge\.paidAmountCents/);
 assert.match(backend,/charge\.expiresAt/);
 
 // Unknown provider expiry must be non-payable even if a stale row claims "active".
