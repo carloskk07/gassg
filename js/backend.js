@@ -2239,7 +2239,7 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   }
   try{
     const snapshot=await merchantRefresh({silent:true});
-    if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+    if(context.scope&&!merchantOrderActionScopeMatches(context.scope,{requireReady:false}))
       throw merchantOrderActionScopeLost();
     // Ignore snapshots discarded by a newer refresh.
     if(merchantRuntime.status==='ready'
@@ -2248,10 +2248,10 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
       &&merchantRuntime.merchant===snapshot.merchant
       &&merchantRuntime.orders===snapshot.orders)return true;
   }catch(error){
-    if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+    if(context.scope&&!merchantOrderActionScopeMatches(context.scope,{requireReady:false}))
       throw merchantOrderActionScopeLost();
   }
-  if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+  if(context.scope&&!merchantOrderActionScopeMatches(context.scope,{requireReady:false}))
     throw merchantOrderActionScopeLost();
   merchantRuntime.orders=[];
   merchantRuntime.recentClosedDeliveries=[];
