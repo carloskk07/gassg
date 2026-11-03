@@ -2185,6 +2185,8 @@ async function merchantSelectLive(merchantId){
 
 // A server ACK is not permission to use stale action buttons; rescue differs from success.
 async function merchantRefreshAfterConfirmedMutation(reply,context={}){
+  if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+    throw merchantOrderActionScopeLost();
   const merchantReplyActionConsistent=(reply,{action='',orderId=''}={})=>{
     if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
     const rescue=reply.autoRescued===true;
@@ -2237,13 +2239,20 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   }
   try{
     const snapshot=await merchantRefresh({silent:true});
+    if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+      throw merchantOrderActionScopeLost();
     // Ignore snapshots discarded by a newer refresh.
     if(merchantRuntime.status==='ready'
       &&snapshot?.merchant
       &&Array.isArray(snapshot.orders)
       &&merchantRuntime.merchant===snapshot.merchant
       &&merchantRuntime.orders===snapshot.orders)return true;
-  }catch{}
+  }catch(error){
+    if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+      throw merchantOrderActionScopeLost();
+  }
+  if(context.scope&&!merchantOrderActionScopeMatches(context.scope))
+    throw merchantOrderActionScopeLost();
   merchantRuntime.orders=[];
   merchantRuntime.recentClosedDeliveries=[];
   merchantRuntime.supportSummary=null;
@@ -2251,6 +2260,26 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   merchantRuntime.status='unavailable';
   merchantRuntime.error='O servidor respondeu à solicitação, mas não conseguimos atualizar os pedidos. Atualize o painel antes de fazer outra ação.';
   return false;
+}
+
+function merchantOrderActionScope(){
+  return {
+    merchantId:String(merchantRuntime.merchant?.merchantId||''),
+    userId:String(merchantRuntime.session?.user?.id||''),
+    accessEpoch:Number(merchantRuntime.accessEpoch||0)
+  };
+}
+function merchantOrderActionScopeMatches(scope,{requireReady=true}={}){
+  return Boolean(scope?.merchantId)&&
+    (!requireReady||merchantRuntime.status==='ready')&&
+    merchantRuntime.merchant?.merchantId===scope.merchantId&&
+    (!merchantRuntime.selectedMerchantId||
+      merchantRuntime.selectedMerchantId===scope.merchantId)&&
+    String(merchantRuntime.session?.user?.id||'')===scope.userId&&
+    Number(merchantRuntime.accessEpoch||0)===scope.accessEpoch;
+}
+function merchantOrderActionScopeLost(){
+  return new Error('A conta ou a revenda mudou durante a ação. Consulte os pedidos da operação atual antes de continuar.');
 }
 
 // Server rechecks role, order version and transition despite UI guards.
