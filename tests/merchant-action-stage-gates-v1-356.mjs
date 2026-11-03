@@ -3,12 +3,13 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const backend=read('js/backend.js'),audit=read('.github/workflows/audit.yml');
+const backend=read('js/backend.js'),merchant=read('js/merchant.js'),audit=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
 const cut=(name,async=false)=>{
- const at=backend.indexOf((async?'async ':'')+'function '+name+'('),end=backend.indexOf('\n}',at);
+ const src=name.startsWith('merchantOrderActionScope')?merchant:backend;
+ const at=src.indexOf((async?'async ':'')+'function '+name+'('),end=src.indexOf('\n}',at);
  assert.ok(at>=0&&end>at,'missing '+name);
- return backend.slice(at,end+2);
+ return src.slice(at,end+2);
 };
 const source=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
  'merchantVerifiedActionOrder','merchantScopedOrderMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']
