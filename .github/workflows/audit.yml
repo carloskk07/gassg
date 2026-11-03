@@ -252,6 +252,8 @@ jobs:
         run: node tests/admin-billing-decision-readback-v1-493.mjs
       - name: Financial D+1 waiver, refund and PSP event applied readback #493
         run: node tests/admin-finance-resolution-readback-v1-493.mjs
+      - name: Admin general finance manual payment and waiver exact ledger proof #493
+        run: node tests/admin-general-finance-ledger-proof-v1-493.mjs
       - name: Reversed order has exact finance and account scoped proof #493
         run: node tests/admin-reversal-readback-v1-493.mjs
       - name: Partner onboarding worklist V1.195 regression
