@@ -1001,27 +1001,29 @@ async function liveStartMerchantPayment(){
   }
 }
 
-async function liveCustomerAction(action){
-  const order=liveRuntime.order;
-  if(!order||liveRuntime.actionPending)return;
-  liveRuntime.actionPending=true;
-  render();
+let liveCustomerActionLoader=null;
+async function liveCustomerAction(action,orderId){
   try{
-    const idempotencyKey=liveIdempotency('customer-action');
-    await retryAmbiguousOnce(()=>liveInvoke('customer-action',{
-      orderId:order.orderId,
-      action,
-      expectedVersion:order.version
-    },{idempotencyKey}));
-    await liveGetOrder(order.orderId,{silent:true});
-    toast(action==='accept-requote'?'Nova condição aceita':'Pedido cancelado');
+    if(!globalThis.customerActionSubmit){
+      if(!liveCustomerActionLoader)liveCustomerActionLoader=new Promise((resolve,reject)=>{
+        const script=document.createElement('script');
+        script.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
+          .replace('/js/backend.js','/js/customer-order-action.js');
+        script.onload=resolve;
+        script.onerror=()=>reject(Error('Não foi possível carregar a confirmação do pedido.'));
+        document.head.appendChild(script);
+      }).finally(()=>{liveCustomerActionLoader=null});
+      await liveCustomerActionLoader;
+    }
+    if(typeof globalThis.customerActionSubmit!=='function')
+      throw Error('A confirmação do pedido não está disponível.');
+    return await globalThis.customerActionSubmit(action,orderId,{
+      liveRuntime,liveReady,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,toast,render
+    });
   }catch(error){
     liveRuntime.error=String(error?.message||error);
     toast(liveRuntime.error);
-    try{await liveGetOrder(order.orderId,{silent:true})}catch{}
-  }finally{
-    liveRuntime.actionPending=false;
-    render();
+    return false;
   }
 }
 
