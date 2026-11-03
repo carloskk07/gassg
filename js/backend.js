@@ -215,6 +215,7 @@ const liveRuntime={
   lastOfferFingerprint:null,
   lastOfferCheckedAt:0,
   actionPending:false,
+  customerDecisionToken:null,
   error:null,
   deliveryCompatibilityBlocked:false,
   commerceLaunchBlocked:false,
@@ -261,6 +262,8 @@ function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 // details or a pending response from the previous browser account.
 function liveForgetAccount(){
   globalThis.customerSupportReplayReset?.();
+  liveRuntime.customerDecisionToken=null;
+  liveRuntime.actionPending=false;
   if(liveRuntime.status==='loading')return;
   liveRuntime.status='loading';
   liveRuntime.session=null;
@@ -931,12 +934,18 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   const userId=liveRuntime.session?.user?.id;
   const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  if(!order||String(order.orderId||'')!==String(orderId))
+    throw new Error('A consulta retornou outro pedido. Atualize o acompanhamento.');
   if(userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return null;
   if(seq<liveRuntime.orderRequestSeq&&liveRuntime.orderId&&
       liveRuntime.orderId!==orderId)return liveRuntime.order;
   const current=liveRuntime.order;
   if(current?.orderId===order.orderId&&Number(current.version)>Number(order.version))return current;
   if(seq<liveRuntime.orderRequestSeq&&current?.orderId===order.orderId&&Number(current.version)>=Number(order.version))return current;
+  if(liveRuntime.orderId&&liveRuntime.orderId!==order.orderId&&liveRuntime.customerDecisionToken){
+    liveRuntime.customerDecisionToken=null;
+    liveRuntime.actionPending=false;
+  }
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
   liveRuntime.error=null;
@@ -1061,6 +1070,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     if(summary?.activeOrderId){
       const id=String(summary.activeOrderId);
       activeOrderChanged=liveRuntime.orderId!==id;
+      if(activeOrderChanged&&liveRuntime.customerDecisionToken){
+        liveRuntime.customerDecisionToken=null;
+        liveRuntime.actionPending=false;
+      }
       if(activeOrderChanged||liveRuntime.order&&liveRuntime.order.orderId!==id){
         liveRuntime.orderRequestSeq++;
         liveRuntime.order=null;
