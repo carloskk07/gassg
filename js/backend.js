@@ -263,6 +263,7 @@ function liveForgetAccount(){
   globalThis.customerSupportReplayReset?.();
   liveRuntime.customerDecisionToken=null;
   liveRuntime.customerFeedbackToken=null;
+  liveRuntime.customerDirectPaymentToken=null;
   liveRuntime.actionPending=false;
   if(liveRuntime.status==='loading')return;
   liveRuntime.status='loading';
