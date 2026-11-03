@@ -246,6 +246,8 @@ jobs:
         run: node tests/admin-finance-oneclick-v1-193.mjs
       - name: Guided evidence payment review V1.194 regression
         run: node tests/admin-finance-guided-review-v1-194.mjs
+      - name: Financial request approval and rejection with fresh authenticated readback #493
+        run: node tests/admin-billing-decision-readback-v1-493.mjs
       - name: Partner onboarding worklist V1.195 regression
         run: node tests/admin-partner-worklist-v1-195.mjs
       - name: Merchant evidence progress V1.196 regression

@@ -9475,6 +9475,14 @@ async function adminBillingPaymentEventAction(paymentEventId,eventAction){
 }
 
 async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null,review=null){
+  // Financial review belongs to exactly the account that opened the form.
+  // A prompt or network response from an old operator may not authorize a
+  // decision or display a successful settlement in the next session.
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const scope=()=>!!actor&&adminReady()&&adminRoleCanSection('finance')&&
+    String(adminRuntime.session?.user?.id||'')===actor;
+  if(!scope()||adminRuntime.actionPending)
+    return toast('Aguarde a operação atual ou atualize a sessão financeira.');
   const billing=adminRuntime.data?.merchantBilling||{};
   const request=(billing.paymentRequests||[]).find(x=>x.id===paymentRequestId);
   if(!request)return toast('Solicitação financeira não encontrada');
@@ -9550,19 +9558,61 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
   const message=approve
     ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+approvalEffect
     : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
-  if(!confirm(message))return;
+  if(!confirm(message)||!scope())return;
+  // Do not send a decision prepared for a request that changed while the
+  // confirmation dialog was open, even when the same account remains active.
+  const current=(adminRuntime.data?.merchantBilling?.paymentRequests||[])
+    .find(x=>x.id===paymentRequestId);
+  if(!current||current.status!=='pending'||
+      Number(current.expected_amount_cents)!==expectedCents)
+    return toast('A solicitação mudou. Atualize o financeiro antes de decidir.');
+  const expectedStatus=approve?'approved':'rejected';
+  const decision={
+    paymentRequestId,requestAction,reference,receivedAmountCents,
+    paymentMethod,reconciliationKey,paymentEventId:reconciledEvent?.id??null
+  };
+  // A successful RPC response is not proof that the current finance panel
+  // received and installed the matching authenticated request state.
+  // On an ambiguous transport failure, recover by summary GET only.
+  async function confirmedByFreshSummary(){
+    if(!scope())return false;
+    const started=Date.now();
+    let fresh=null;
+    try{fresh=await adminRefresh({silent:true})}catch{}
+    if(!scope())return false;
+    const checked=Date.parse(String(adminRuntime.lastSyncAt||''));
+    if(!fresh||adminRuntime.data!==fresh||!Number.isFinite(checked)||
+        checked<started||checked>Date.now()+2000)return false;
+    const row=(fresh.merchantBilling?.paymentRequests||[])
+      .find(x=>x.id===paymentRequestId);
+    if(!row||row.status!==expectedStatus||
+        Number(row.expected_amount_cents)!==expectedCents)return false;
+    if(!approve)return true;
+    return Number(row.received_amount_cents)===receivedAmountCents&&
+      String(row.payment_method||'')===paymentMethod&&
+      String(row.reconciliation_key||'')===reconciliationKey&&
+      (!decision.paymentEventId||
+        String(row.provider_payment_event_id||'')===decision.paymentEventId);
+  }
+  let operationError=null;
   try{
-    await adminPerform('merchant-billing-payment-request',{
-      paymentRequestId,
-      requestAction,
-      reference,
-      receivedAmountCents,
-      paymentMethod,
-      reconciliationKey,
-      paymentEventId:reconciledEvent?.id??null
-    });
-    toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
-  }catch(e){toast(String(e?.message||e))}
+    // Existing server RPC is idempotent; do not create a second write here.
+    const accepted=await adminPerform('merchant-billing-payment-request',decision);
+    if(accepted==null&&!adminRuntime.actionPending)
+      operationError=new Error('O servidor não retornou confirmação da decisão.');
+  }catch(error){operationError=error;}
+  if(!scope())return;
+  const proven=await confirmedByFreshSummary();
+  if(!scope())return;
+  if(proven){
+    toast(approve?'Pagamento confirmado e conciliado no painel atualizado':'Rejeição confirmada no painel atualizado');
+  }else{
+    // A failed read is NOT a failed financial mutation. Do not encourage
+    // blind retries, which might create duplicate or conflicting records.
+    toast(operationError
+      ?'Não foi possível confirmar o resultado da decisão financeira. Atualize a solicitação antes de qualquer nova tentativa.'
+      :'Decisão enviada, mas não confirmada na leitura atual. Atualize a solicitação antes de qualquer nova tentativa.');
+  }
 }
 async function adminSaveBillingPlan(planKey,expectedVersion){
   const safeId=String(planKey).replace(/[^a-z0-9_-]/gi,'');
