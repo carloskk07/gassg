@@ -822,7 +822,8 @@ async function discoveryOwnerSave(ev){
   // A single click may save the full draft and request review. The server
   // remains authoritative: this does NOT approve or publish the listing.
   const sendForReview=ev?.submitter?.name==='finish'&&ev.submitter.value==='review';
-  if(sendForReview&&discoveryOwnerHasPendingDocuments(s.editor?.id)){
+  if(sendForReview&&s.editor?.id&&(s.pendingDocumentRemovals||[]).some(key=>
+    key.startsWith(userId+'/'+s.editor.id+'/'))){
     s.error='Termine a limpeza dos comprovantes pendentes antes de enviar o anúncio para revisão.';
     render();return false;
   }
