@@ -17,7 +17,7 @@ const actionToStatus={
 let renderCount=0;
 function fixture({action='cancel-before-accept',orderId=OLD,from='OFFERED_TO_MERCHANT',
  version=7, reply=null,readResult=null,throwAction=null,throwRead=null,
- pending=false,delayedAction=null,changeAccount=false}={}){
+ pending=false,delayedAction=null,changeAccount=false,skipApplyRead=false,changeDuringRead=false}={}){
  const calls=[],messages=[],session={user:{id:'buyer-one'}};
  const rt={status:'ready',session,orderId,order:{orderId,status:from,version},
   actionPending:pending,error:null};
@@ -40,7 +40,16 @@ function fixture({action='cancel-before-accept',orderId=OLD,from='OFFERED_TO_MER
    calls.push({name:'get-order',id});
    if(throwRead)throw throwRead;
    const actual=readResult===null?{orderId:id,status:expected,version:version+1}:readResult;
-   if(actual&&actual.orderId===rt.orderId)rt.order=actual;
+   if(changeDuringRead){
+    rt.session={user:{id:'buyer-two'}};rt.orderId=NEW;
+    rt.order={orderId:NEW,status:'PREPARING',version:5};
+    rt.actionPending=true;
+   }
+   if(!skipApplyRead&&actual&&actual.orderId===rt.orderId){
+     rt.order=actual;
+     rt.orderCheckedId=actual.orderId;
+     rt.orderCheckedAt=new Date().toISOString();
+   }
    return actual;
   },
   render:()=>renderCount++,toast:x=>messages.push(x)
@@ -124,9 +133,35 @@ assert.equal(progressed.rt.error,null);
 // Interrupted network response is not positive evidence: refresh, but no
 // second submission under another idempotency key.
 const ambiguous=fixture({throwAction:new TypeError('ACK lost')});
-assert.equal(await ambiguous.submit(),false);
+assert.equal(await ambiguous.submit(),true);
 assert.equal(ambiguous.calls.filter(c=>c.name==='customer-action').length,1);
-assert.match(ambiguous.messages.join(' '),/ACK lost/);
+assert.match(ambiguous.messages.join(' '),/estado atual do pedido foi confirmado/i);
+assert.doesNotMatch(ambiguous.messages.join(' '),/Cancelamento confirmado no pedido/);
+// An un-applied readback, even if the returned object is correct, is not
+// proof that the tracking page has the new state.
+const staleProof=fixture({skipApplyRead:true});
+assert.equal(await staleProof.submit(),false);
+assert.match(staleProof.messages.join(' '),/não repita a ação/i);
+assert.equal(staleProof.rt.order.status,'OFFERED_TO_MERCHANT');
+
+const lateRead=fixture({changeDuringRead:true});
+assert.equal(await lateRead.submit(),false);
+assert.equal(lateRead.rt.actionPending,true,'old action cannot unlock the new account');
+assert.equal(lateRead.rt.orderId,NEW);
+assert.equal(lateRead.messages.length,0,'old account cannot toast in new context');
+
+const noProofAfterTimeout=fixture({throwAction:new TypeError('ACK lost'),skipApplyRead:true});
+assert.equal(await noProofAfterTimeout.submit(),false);
+assert.match(noProofAfterTimeout.messages.join(' '),/resposta foi interrompida/i);
+assert.equal(noProofAfterTimeout.calls.filter(x=>x.name==='customer-action').length,1);
+
+// A definitive backend rejection cannot be relabelled as a customer success
+// solely because a later read happens to show the desired status.
+const rejected=Object.assign(new Error('ORDER_VERSION_CONFLICT'),{status:409});
+const denied=fixture({throwAction:rejected});
+assert.equal(await denied.submit(),false);
+assert.doesNotMatch(denied.messages.join(' '),/estado atual do pedido foi confirmado/i);
+
 // Switching account/order during server response must never report success
 // or issue a readback in the new account for the old order.
 const switched=fixture({changeAccount:true});
