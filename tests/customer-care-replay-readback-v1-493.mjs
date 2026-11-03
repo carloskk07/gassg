@@ -7,9 +7,9 @@ const source=fs.readFileSync(new URL('../js/customer-care-replay.js',import.meta
 new vm.Script(source);
 
 const original={orderId:'order-A',supportCases:[{id:'case-A',status:'open'}]};
-const runtime={order:original,session:{user:{id:'user-A'}},error:null};
+const runtime={order:original,orderId:'order-A',session:{user:{id:'user-A'}},error:null};
 const requests=[];
-let index=0,attempt='network',serverRead=original,rendered=0;
+let index=0,attempt='network',serverRead=original,rendered=0,installReadback=true,changeAccountDuringRead=false;
 const ctx=vm.createContext({
   liveRuntime:runtime,
   liveIdempotency:()=> 'case-key-'+(++index),
@@ -30,7 +30,21 @@ const ctx=vm.createContext({
     }
     return {ok:true,case:{id:'case-A',status:'open'}};
   },
-  liveGetOrder:async()=>serverRead,
+  liveGetOrder:async(orderId)=>{
+    if(changeAccountDuringRead){
+      runtime.session={user:{id:'user-B'}};
+      runtime.orderId='order-B';
+      runtime.order={orderId:'order-B',supportCases:[]};
+      changeAccountDuringRead=false;
+    }
+    if(installReadback&&serverRead?.orderId===orderId){
+      runtime.order=serverRead;
+      runtime.orderId=orderId;
+      runtime.orderCheckedId=orderId;
+      runtime.orderCheckedAt=new Date().toISOString();
+    }
+    return serverRead;
+  },
   render:()=>rendered++
 });
 vm.runInContext(source,ctx);
@@ -78,6 +92,31 @@ assert.match(runtime.error,/ainda não aparece/);
 serverRead=original;
 runtime.error=null;
 
+// A server response can contain the case without ever being installed in
+// tracking (e.g. a stale/overlapping get-order). It must not be shown as
+// confirmed just because its JSON payload contains the correct ID.
+installReadback=false;
+serverRead={orderId:'order-A',supportCases:[{id:'case-A',status:'open'}]};
+const discarded=await ctx.submit('price_payment','Consulta descartada');
+assert.equal(discarded.refreshPending,true);
+assert.match(runtime.error,/ainda não aparece/);
+installReadback=true;
+runtime.error=null;
+const fresh=await ctx.submit('price_payment','Segunda consulta aplicada');
+assert.equal(fresh.refreshPending,false);
+assert.equal(runtime.order,serverRead);
+assert.equal(runtime.orderCheckedId,'order-A');
+
+// If the account changes during the authenticated read, never render a
+// success for the new account or reuse the old request's private tracking.
+const beforeReadSwitch=rendered;
+changeAccountDuringRead=true;
+await assert.rejects(()=>ctx.submit('delivery','Mudanca durante consulta'),/conta ou o pedido mudou/);
+assert.equal(rendered,beforeReadSwitch);
+runtime.session={user:{id:'user-A'}};
+runtime.orderId='order-A';
+runtime.order=original;
+
 // Neither an old pending key nor a late successful response may be used
 // by another authenticated customer or by a different order.
 attempt='network';
@@ -85,6 +124,7 @@ await assert.rejects(()=>ctx.submit('other','Relato privado'),/Network timeout/)
 const keyBeforeSwitch=requests.at(-1).key;
 runtime.session={user:{id:'user-B'}};
 runtime.order={orderId:'order-B',supportCases:[]};
+runtime.orderId='order-B';
 attempt='success';
 serverRead={orderId:'order-B',supportCases:[{id:'case-A'}]};
 await ctx.submit('other','Relato privado');
@@ -95,6 +135,7 @@ assert.equal(requests.at(-1).body.orderId,'order-B');
 // on that account, regardless of the server already persisting the old case.
 runtime.session={user:{id:'user-A'}};
 runtime.order=original;
+runtime.orderId='order-A';
 attempt='account-switch';
 const rendersBefore=rendered;
 await assert.rejects(()=>ctx.submit('late','Outra tentativa'),/conta ou o pedido mudou/);
@@ -103,4 +144,4 @@ assert.match(backend,/function liveForgetAccount\(\)\{\s*globalThis\.customerSup
   'logout must drop customer support replay state before changing account');
 assert.ok(fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8')
   .includes('node tests/customer-care-replay-readback-v1-493.mjs'));
-console.log('PASS #493 customer support: lost ACK replay, definite failure, exact request, account isolation, server readback.');
+console.log('PASS #493 customer support: lost ACK replay, definite failure, exact request, applied readback, concurrent account isolation.');
