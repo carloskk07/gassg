@@ -115,8 +115,9 @@ const signout=backend.slice(backend.indexOf('async function merchantSignOut(){')
   backend.indexOf('async function merchantRefresh(',backend.indexOf('async function merchantSignOut(){')));
 assert.ok(signout.includes('merchantClearProtectedSnapshot();'),
  'logout must reuse the same privacy cleanup');
-assert.ok(backend.split('merchantRuntime.supportSummary=null;').length>=3,
- 'shared purge and failed mutation must clear support data');
+assert.ok(backend.includes('merchantRuntime.supportSummary=null;')&&
+ frontend.includes('merchantRuntime.supportSummary=null;'),
+ 'shared purge and merchant-only failed mutation must clear support data');
 
 for(const style of ['.merchant-support-overview','.merchant-order-support',
  '.merchant-order-support summary:focus-visible','@media(max-width:620px)',
