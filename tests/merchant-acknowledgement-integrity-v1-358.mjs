@@ -9,7 +9,7 @@ const audit=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
 const pick=name=>{
   const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
-  const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
+  const src=name==='merchantRefreshAfterConfirmedMutation'||name.startsWith('merchantOrderActionScope')?merchant:backend;
   const key=(plain?'function ':'async function ')+name+'(';
   const start=src.indexOf(key),end=src.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing function '+name);
