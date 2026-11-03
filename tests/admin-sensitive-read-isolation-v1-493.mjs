@@ -30,7 +30,7 @@ function fixture(){
   adminReady:()=>rt.requested&&rt.status==='ready',
   adminCurrentRole:()=>rt.data?.currentAdmin?.admin_role||'superadmin',
   adminRoleCanSection:k=>rt.data?.currentAdmin?.admin_role==='superadmin'&&['audit','system'].includes(k),
-  document:{getElementById:()=>({value:'q'})},
+  document:{getElementById:id=>({value:id==='admin-audit-action'?'merchant_activated':'q'})},
   render:()=>renders.push(rt.status),
   adminInvoke:async args=>{
    calls.push(args);
@@ -66,6 +66,10 @@ function fixture(){
  assert.equal(x.rt.detail.order.customer_phone_digits,'PRIVATE-PHONE-'+A);
  await x.ctx.actions.audit();
  assert.equal(x.rt.auditResults[0].secret,'PRIVATE-AUDIT');
+ const auditRequest=x.calls.find(c=>c.action==='audit-search');
+ assert.ok(auditRequest,'audit operation must reach the correct server endpoint');
+ assert.equal(auditRequest.auditAction,'merchant_activated',
+  'audit action filter cannot override the endpoint action');
  await x.ctx.actions.health();
  assert.equal(x.rt.health.secret,'PRIVATE-PSP');
 }
@@ -157,5 +161,10 @@ for(const [action,call] of operations){
 }
 assert.match(js,/if\(previousRole&&previousRole!==data\?\.currentAdmin\?\.admin_role\)/);
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-sensitive-read-isolation-v1-493.mjs'));
-assert.ok(read('supabase/functions/admin-ops/index.ts').includes('function scopeEntityDetail('));
+const edge=read('supabase/functions/admin-ops/index.ts');
+assert.ok(edge.includes('function scopeEntityDetail('));
+assert.ok(edge.includes('if(body.auditAction)query=query.eq("action",'),
+ 'backend must filter using auditAction rather than endpoint action');
+assert.ok(!edge.includes('if(body.action)query=query.eq("action",'));
+assert.match(js,/action:'audit-search',query,auditAction:auditAction\|\|null/);
 console.log('PASS #493: Admin private search, detail 360, audit and system health do not leak after account switch, RBAC demotion, close or concurrent reads.');
