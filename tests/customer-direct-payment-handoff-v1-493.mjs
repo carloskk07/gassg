@@ -17,7 +17,7 @@ function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
   amountCents:amount,provider,fundsOwner:owner,tamaoReceivesSaleProceeds:tamReceives,expiresAt}};
 }
 function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,checkoutUrl:MP_URL},
- error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false}={}){
+ error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false,staleProof=false,onRead=null}={}){
  const calls=[],toasts=[],renders=[],nav={href:null};
  const rt={requested:true,status:'ready',session:{user:{id:'buyer-one'}},
    orderId:ORDER,order:{orderId:ORDER},actionPending:pending,error:null};
@@ -39,6 +39,7 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
   liveGetOrder:async (id,opts)=>{
    calls.push({name:'get-order',id,opts});
    const value=reads[Math.min(readIndex++,reads.length-1)];
+   if(onRead)await onRead({rt,id,readIndex});
    if(value instanceof Error)throw value;
    if(value?.orderId===rt.orderId){
      rt.order=value;
@@ -101,6 +102,33 @@ for(const changed of [{changeAccount:true},{changeOrder:true}]){
  assert.equal(await x.go(),false);
  assert.equal(x.nav.href,null);
  assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,1);
+}
+// A logout/login ABA with the very same buyer ID must invalidate the
+// older checkout attempt, even when the returned order and URL look valid.
+{
+ const x=setup({reads:[proof({url:MP_URL,paymentStatus:'checkout_ready'})],
+  onRead:({rt})=>{
+   rt.session={user:{id:'buyer-two'}};
+   rt.session={user:{id:'buyer-one'}};
+  }});
+ assert.equal(await x.go(),false);
+ assert.equal(x.nav.href,null);
+ assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,0);
+}
+// An old checkout's finally must not unlock a newly active action after
+// the identity changes while its authenticated read is in flight.
+{
+ const newAction={id:'new-action'};
+ const x=setup({reads:[proof({url:MP_URL,paymentStatus:'checkout_ready'})],
+  onRead:({rt})=>{
+   rt.session={user:{id:'buyer-two'}};
+   rt.customerDirectPaymentToken=newAction;
+   rt.actionPending=true;
+  }});
+ assert.equal(await x.go(),false);
+ assert.equal(x.nav.href,null);
+ assert.equal(x.rt.actionPending,true);
+ assert.equal(x.rt.customerDirectPaymentToken,newAction);
 }
 // An old DOM button from a different tracked order cannot read or create a checkout.
 {
