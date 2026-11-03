@@ -3,13 +3,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const backend=read('js/backend.js');
+const moduleSource=read('js/merchant-billing-flow.js');
 const orders=read('supabase/functions/merchant-orders/index.ts');
 const billing=read('supabase/functions/merchant-ops/index.ts');
 const pixHandler=read('supabase/functions/merchant-billing-pix/index.ts');
-const start=backend.indexOf('function merchantBillingSameActor(');
-const end=backend.indexOf('async function merchantRequestBillingPackageLive(',start);
+const start=moduleSource.indexOf('function merchantBillingSameActor(');
+const end=moduleSource.indexOf('globalThis.merchantBillingSameActor=',start);
 assert.ok(start>0&&end>start);
-const source=backend.slice(start,end);
+const source=moduleSource.slice(start,end);
 new vm.Script(source);
 const M='11111111-1111-4111-8111-111111111111';
 const REQUEST='22222222-2222-4222-8222-222222222222';
@@ -78,7 +79,7 @@ function setup({response=base,row={...baseRow},posted,refresh,epoch=1}={}){
    return true;
  };
  vm.runInContext(source+
-  '\nthis.ops={request:merchantBillingRequestLive,pix:merchantCreateBillingPixLive,scope:merchantBillingSameActor};',ctx);
+  '\nthis.ops={request:merchantBillingRequestImpl,pix:merchantCreateBillingPixImpl,scope:merchantBillingSameActor};',ctx);
  return {rt,ctx,calls,renders,toasts,
   setPost:fn=>doPost=fn,setRefresh:fn=>doRefresh=fn,
   request:(act='request-billing-package',payload={planKey:'credit_300',
@@ -227,6 +228,8 @@ for(const patch of [
 assert.match(orders,/\.limit\(30\)/,'finance sample bounded; absent rows are not proof');
 assert.match(billing,/merchant_billing_request_action/,'existing idempotent RPC remains authority');
 assert.match(pixHandler,/merchant_billing_pix_charge_prepare_provider/);
-assert.match(backend,/if\(!fresh\|\|merchantRuntime\.billing!==fresh\.billing/);
+assert.match(moduleSource,/if\(!fresh\|\|merchantRuntime\.billing!==fresh\.billing/);
+assert.match(backend,/merchantLoadBillingFlow/);
+assert.match(read('scripts/build-live-portals.mjs'),/merchant-billing-flow\.js/);
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/merchant-finance-exact-readback-v1-493.mjs'));
 console.log('PASS #493 partner financial lifecycle: 4 requests, original Pix, exact readback, no false success, account/role changes and lost ACK.');
