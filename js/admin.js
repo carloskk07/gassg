@@ -9496,6 +9496,9 @@ async function adminResolveBillingRefund(refundId,refundAction){
 }
 
 async function adminBillingPaymentEventAction(paymentEventId,eventAction){
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceDecisionScope(actor))
+    return toast('Atualize o acesso financeiro antes de revisar eventos.');
   const event=(adminRuntime.data?.merchantBilling?.paymentEvents||[]).find(x=>x.id===paymentEventId);
   if(!event)return toast('Evento financeiro não encontrado');
   if(eventAction==='ignore'){
@@ -9503,17 +9506,31 @@ async function adminBillingPaymentEventAction(paymentEventId,eventAction){
     const reason=prompt('Motivo para ignorar este evento financeiro:')||'';
     if(reason.trim().length<3)return toast('Informe o motivo');
     if(!confirm('Ignorar este evento sem apagar seu histórico? Ele continuará auditável.'))return;
-    try{
-      await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason});
-      toast('Evento encerrado como ignorado');
-    }catch(e){toast(String(e?.message||e))}
+    const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-payment-event',
+      {paymentEventId,eventAction,reason},'paymentEvents',paymentEventId,
+      row=>row.status==='ignored'&&row.payment_request_id==null&&
+        row.provider===event.provider&&
+        row.provider_event_id===event.provider_event_id&&
+        Number(row.amount_cents)===Number(event.amount_cents));
+    adminFinanceDecisionMessage(outcome,'Evento encerrado como ignorado e confirmado na consulta financeira');
     return;
   }
   if(eventAction!=='recheck')return toast('Ação financeira inválida');
-  try{
-    await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
-    toast('Conciliação reprocessada');
-  }catch(e){toast(String(e?.message||e))}
+  const outcome=await adminFinanceDecisionProof(actor,'merchant-billing-payment-event',
+    {paymentEventId,eventAction,reason:null},'paymentEvents',paymentEventId,
+    row=>row.provider===event.provider&&
+      row.provider_event_id===event.provider_event_id&&
+      Number(row.amount_cents)===Number(event.amount_cents));
+  if(outcome?.changedAccount)return;
+  if(!outcome?.confirmed)return adminFinanceDecisionMessage(outcome,'Conciliação reprocessada');
+  const status=String(outcome.row.status||'');
+  if(status==='review_required'){
+    toast('Evento consultado: permanece em revisão; nenhum crédito ou quitação confirmado.');
+  }else if(['matched_exact','applied','already_applied'].includes(status)){
+    toast('Evento reconciliado e confirmado no painel. Confira a solicitação antes de atribuir quitação.');
+  }else{
+    toast('Evento consultado com estado '+status+'. Confira o Financeiro antes de prosseguir.');
+  }
 }
 
 async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null,review=null){
