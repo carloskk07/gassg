@@ -11,7 +11,7 @@ const take=name=>{
   assert.ok(end>match.index,'unterminated '+name);
   return source.slice(match.index,end+2);
 };
-const isolated=['adminAccessToken','adminSignOut','adminRefresh'].map(take).join('\n');
+const isolated=['adminAccessToken','adminSignOut','adminRefresh','adminPurgeSensitiveReads'].map(take).join('\n');
 new vm.Script(isolated,{filename:'admin-account-isolation'});
 
 function deferred(){
