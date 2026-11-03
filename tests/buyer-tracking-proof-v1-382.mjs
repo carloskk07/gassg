@@ -40,35 +40,35 @@ assert.equal(run('customerTrackingTotal({totalCents:-10})'),null);
 assert.equal(run('customerTrackingTotal({totalCents:12000})'),120);
 assert.equal(run('customerTrackingTotal({totalCents:0})'),0,
  'explicit confirmed zero is different from missing evidence');
-const quoteBase={status:'REQUOTE_REQUIRED'};
+const quoteBase={status:'REQUOTE_REQUIRED',orderId:'00000000-0000-4000-8000-000000000382'};
 const proposal=(previous,proposed,remaining,evidenceKind='recent')=>
  run('customerRequoteDecision('+JSON.stringify(quoteBase)+','+
    JSON.stringify(previous)+','+JSON.stringify(proposed)+','+
    JSON.stringify(remaining)+',{evidence:{kind:'+JSON.stringify(evidenceKind)+'}})');
 let html=proposal(120,132,90);
 assert.match(html,/Aceitar proposta de R\$ 132,00/);
-assert.match(html,/onclick="confirmRequote\(\)" >/);
+assert.match(html,/onclick="confirmRequote\(this\.dataset\.orderId\)" >/);
 assert.match(html,/customer-requote-proof verified/);
 for(const remaining of [null,0,-1]){
  html=proposal(120,132,remaining);
- assert.match(html,/onclick="confirmRequote\(\)" disabled/);
+ assert.match(html,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
  assert.match(html,/Atualizar proposta/);
  assert.match(html,/customer-requote-proof needs-refresh/);
  assert.doesNotMatch(html,/NaN segundos|undefined segundos/);
 }
 assert.match(proposal(120,132,null),/Não foi possível verificar o prazo/);
 html=proposal(120,132,45,'stale');
-assert.match(html,/onclick="confirmRequote\(\)" disabled/);
+assert.match(html,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 assert.match(html,/consulta recente/);
 html=proposal(null,132,45);
 assert.match(html,/Valor anterior <strong>Não confirmado/);
-assert.match(html,/onclick="confirmRequote\(\)" disabled/);
+assert.match(html,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 assert.equal(proposal(120,null,45),'');
 assert.equal(proposal(120,0,45),'');
 assert.equal(proposal(120,NaN,45),'',
  'malformed proposed total cannot generate an approval card');
 runtime.actionPending=true;
-assert.match(proposal(120,132,45),/onclick="confirmRequote\(\)" disabled/);
+assert.match(proposal(120,132,45),/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 runtime.actionPending=false;
 const action=(remaining,proposal=13200,kind='recent')=>
  run('customerTrackingPrimaryAction({status:"REQUOTE_REQUIRED",proposedTotalCents:'+
@@ -98,24 +98,24 @@ function render(status,{totalCents=12000,proposedTotalCents=null,offerExpiresAt=
 }
 let markup=render('REQUOTE_REQUIRED',{proposedTotalCents:13500,offerExpiresAt:'unknown'});
 assert.match(markup,/Não foi possível verificar o prazo/);
-assert.match(markup,/onclick="confirmRequote\(\)" disabled/);
+assert.match(markup,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 assert.doesNotMatch(markup,/href="#customer-requote-decision"/);
 assert.doesNotMatch(markup,/NaN segundos/);
 markup=render('REQUOTE_REQUIRED',{proposedTotalCents:13500});
 assert.match(markup,/Atualizar proposta/);
-assert.match(markup,/onclick="confirmRequote\(\)" disabled/);
+assert.match(markup,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 markup=render('REQUOTE_REQUIRED',{proposedTotalCents:13500,
  offerExpiresAt:new Date(Date.now()+90_000).toISOString()});
 assert.match(markup,/href="#customer-requote-decision"/);
-assert.match(markup,/onclick="confirmRequote\(\)" >/);
+assert.match(markup,/onclick="confirmRequote\(this\.dataset\.orderId\)" >/);
 markup=render('REQUOTE_REQUIRED',{proposedTotalCents:13500,
  offerExpiresAt:new Date(Date.now()+90_000).toISOString(),
  evidenceTime:new Date(Date.now()-8*60_000).toISOString()});
-assert.match(markup,/onclick="confirmRequote\(\)" disabled/);
+assert.match(markup,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 assert.match(markup,/Atualizar pedido/);
 markup=render('REQUOTE_REQUIRED',{proposedTotalCents:13500,
  offerExpiresAt:new Date(Date.now()+90_000).toISOString(),error:'offline'});
-assert.match(markup,/onclick="confirmRequote\(\)" disabled/);
+assert.match(markup,/onclick="confirmRequote\(this\.dataset\.orderId\)" disabled/);
 assert.match(markup,/Acompanhamento temporariamente sem conexão/);
 
 markup=render('OFFERED_TO_MERCHANT',{offerExpiresAt:'bad-deadline'});
