@@ -74,7 +74,7 @@
        order=await readFresh();
        if(!same())return false;
        if(reply.alreadyPaid===true){
-         if(order?.onlinePayment?.status!=='approved')
+         if(!validPayment(order,id)||order.onlinePayment.status!=='approved')
            throw Error('Pagamento informado, mas ainda não confirmado no acompanhamento.');
          toast('Pagamento já confirmado no pedido atualizado.');
          return true;
@@ -106,7 +106,7 @@
          location.href=checked.onlinePayment.checkoutUrl;
          return true;
        }
-       if(checked?.onlinePayment?.status==='approved'&&checked.orderId===id){
+       if(validPayment(checked,id)&&checked.onlinePayment.status==='approved'){
          toast('Pagamento confirmado na consulta atualizada.');
          return true;
        }
