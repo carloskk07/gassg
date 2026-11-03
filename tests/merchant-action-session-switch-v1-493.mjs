@@ -5,11 +5,11 @@ import vm from 'node:vm';
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
 const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
 const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
- 'merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction',
+ 'merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantScopedOrderMutation','merchantPerformAction',
  'merchantAssignDeliveryLive','merchantCompleteDeliveryLive','merchantSelectLive','merchantSignOut'];
 function pick(name){
  const plain=!['merchantRefreshAfterConfirmedMutation','merchantPerformAction',
- 'merchantAssignDeliveryLive','merchantCompleteDeliveryLive','merchantSelectLive','merchantSignOut'].includes(name);
+ 'merchantAssignDeliveryLive','merchantCompleteDeliveryLive','merchantSelectLive','merchantSignOut','merchantScopedOrderMutation'].includes(name);
  const head=(plain?'function ':'async function ')+name+'(';
  const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
  const start=src.indexOf(head),end=src.indexOf('\n}',start);
