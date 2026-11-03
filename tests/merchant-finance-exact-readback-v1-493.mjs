@@ -213,10 +213,12 @@ for(const patch of [
 }
 {
  const x=setup({response:pix,row:pixRow()}),wait=gate();
- x.setRefresh(()=>wait.promise);
+ let readStarted=false;
+ x.setRefresh(()=>{readStarted=true;return wait.promise;});
  const pending=x.createPix();
- // Ensure provider returned and authenticated GET is in progress.
- for(let k=0;k<20&&x.calls.length===0;k++)await Promise.resolve();
+ // Switch after the authenticated GET starts, not before PSP creation resolves.
+ for(let k=0;k<40&&!readStarted;k++)await Promise.resolve();
+ assert.equal(readStarted,true,'revalidation GET must begin');
  x.rt.session={user:{id:'actor-B'}};
  x.rt.accessEpoch++;
  wait.resolve({merchant:{merchantId:M},billing:{paymentRequests:[pixRow()]}});
