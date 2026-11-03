@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8');
 const take=name=>{
-  const match=source.match(new RegExp('async function '+name+'\\('));
+  const match=source.match(new RegExp('(?:async )?function '+name+'\\('));
   assert.ok(match,'missing '+name);
   const end=source.indexOf('\n}',match.index);
   assert.ok(end>match.index,'unterminated '+name);
