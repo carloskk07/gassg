@@ -2573,11 +2573,12 @@ async function merchantBillingRequestLive(action,payload={}){
 }
 
 async function merchantCreateBillingPixLive({planKey=null,statementId=null,refundRecoveryId=null}={}){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
-    throw new Error('Seu papel não pode gerar cobranças Pix');
-  }
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const actor=String(merchantRuntime.session?.user?.id||'');
+  const epoch=merchantRuntime.accessEpoch;
+  const same=()=>merchantBillingSameActor(actor,merchantId,epoch);
+  if(!same())throw new Error('A sessão da revenda precisa ser atualizada antes de gerar Pix.');
+  if(merchantRuntime.actionPending)throw new Error('Já existe uma operação financeira em andamento.');
   const plan=planKey==null?null:String(planKey).trim().toLowerCase();
   const statement=statementId==null?null:String(statementId).trim();
   const recovery=refundRecoveryId==null?null:String(refundRecoveryId).trim();
@@ -2599,29 +2600,41 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null,refun
       statementId:statement,
       refundRecoveryId:recovery
     },{idempotencyKey}));
-    // Accept Pix only with valid, unexpired server proof.
+    if(!same())throw new Error('A sessão mudou durante a emissão/recuperação do Pix.');
     const charge=result?.charge;
-    if(charge?.status==='completed'){
-      await merchantRefresh({silent:true});
+    if(result?.merchantId!==merchantId||!result.paymentRequestId||
+       !['active','completed'].includes(charge?.status))
+      throw new Error('A cobrança retornada não corresponde à revenda.');
+    const readStarted=Date.now();
+    const fresh=await merchantRefresh({silent:true});
+    if(!same())throw new Error('O acesso à revenda mudou durante a consulta do Pix.');
+    if(!fresh||merchantRuntime.billing!==fresh.billing||
+       fresh.merchant?.merchantId!==merchantId||
+       Date.parse(String(merchantRuntime.lastSyncAt||''))<readStarted)
+      throw new Error('A consulta do Pix não foi aplicada. Atualize antes de utilizar o código.');
+    const row=(fresh.billing?.paymentRequests||[]).find(r=>r.id===result.paymentRequestId);
+    if(!row||row.expectedAmountCents!==result.expectedAmountCents||
+       row.pixCharge?.id!==charge.id||
+       row.pixCharge?.status!==charge.status)
+      throw new Error('A cobrança mudou no provedor. Confira o Financeiro antes de pagar.');
+    if(charge.status==='completed'){
+      if(!Number.isSafeInteger(row.pixCharge.paidAmountCents)||
+         row.pixCharge.paidAmountCents!==row.expectedAmountCents)
+        throw new Error('Pagamento identificado no provedor, mas o valor precisa de conferência financeira.');
       return {...result,alreadyReceived:true};
     }
-    if(charge?.status!=='active'||typeof charge.brCode!=='string'
-      ||charge.brCode.length<30||!Number.isFinite(Date.parse(charge.expiresAt))
-      ||Date.parse(charge.expiresAt)<=Date.now()){
-      await merchantRefresh({silent:true});
-      throw new Error('O Pix não ficou disponível para pagamento. Atualize o financeiro e gere um novo código.');
-    }
-    await merchantRefresh({silent:true});
-    if(!globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId))
-      throw new Error('Pix alterado. Atualize o financeiro.');
+    if(typeof charge.brCode!=='string'||charge.brCode.length<30||
+       !Number.isFinite(Date.parse(charge.expiresAt))||
+       Date.parse(charge.expiresAt)<=Date.now())
+      throw new Error('O Pix está indisponível ou expirou. Consulte a cobrança original antes de tentar novamente.');
+    if(!globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId)||!same())
+      throw new Error('Pix não confirmado para esta sessão. Atualize o Financeiro.');
     return result;
   }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
+    if(same())merchantRuntime.error=String(error?.message||error);
     throw error;
   }finally{
-    merchantRuntime.actionPending=false;
-    render();
+    if(same()){merchantRuntime.actionPending=false;render();}
   }
 }
 
