@@ -1001,13 +1001,13 @@ async function liveStartMerchantPayment(){
   }
 }
 
-const liveCustomerScripts=Object.create(null);
+const liveCustomerScripts={};
 async function liveCustomerScript(name){
   if(!liveCustomerScripts[name])liveCustomerScripts[name]=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
     script.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
       .replace('/js/backend.js','/js/'+name+'.js');
-    script.onload=resolve;script.onerror=()=>reject(Error('Não foi possível carregar este atendimento.'));
+    script.onload=resolve;script.onerror=()=>reject(Error('Módulo indisponível.'));
     document.head.appendChild(script);
   }).catch(error=>{delete liveCustomerScripts[name];throw error});
   await liveCustomerScripts[name];
