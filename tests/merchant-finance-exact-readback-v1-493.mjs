@@ -87,7 +87,7 @@ function setup({response=base,row={...baseRow},posted,refresh,epoch=1}={}){
   createPix:()=>ctx.ops.pix({planKey:'credit_300'})
  };
 }
-const expectUnconfirmed=async(fn,match=/não foi confirmad|não confirmou|não corresponde|não foi aplicada|consulta do Pix|A cobrança mudou|alterado/i)=>{
+const expectUnconfirmed=async(fn,match=/não foi confirmad|não confirmou|não corresponde|não foi aplicada|consulta do Pix|A cobrança mudou|alterado|pendente com outra referência/i)=>{
  await assert.rejects(fn,err=>match.test(String(err.message)));
 };
 {
@@ -148,9 +148,42 @@ for(const patch of [
 }
 {
  const x=setup();x.setPost(async()=>{throw Error('HTTP ACK lost')});
- await assert.rejects(()=>x.request(),/HTTP ACK lost/);
- assert.equal(x.calls.length,1,'no extra financial write');
+ let gets=0;
+ x.setRefresh(async()=>{gets++;return {merchant:{merchantId:M,memberRole:'owner'},billing:{
+  paymentRequests:[{...baseRow}]}}});
+ await assert.rejects(()=>x.request(),/Resposta da cobrança perdida.*registro compatível/);
+ assert.equal(x.calls.length,1,'ambiguous write must not generate a new POST');
+ assert.equal(gets,1,'ambiguous ACK recovered through a read-only GET');
  assert.equal(x.rt.actionPending,false);
+}
+{
+ const x=setup();x.setPost(async()=>{throw Error('HTTP ACK lost')});
+ x.setRefresh(async()=>({merchant:{merchantId:M,memberRole:'owner'},billing:{
+   paymentRequests:[]}}));
+ await assert.rejects(()=>x.request(),/Não foi possível confirmar o envio.*nenhum segundo envio/);
+ assert.equal(x.calls.length,1);
+ assert.equal(x.rt.billing.paymentRequests.length,0);
+}
+{
+ const x=setup();x.setPost(async()=>{throw Error('HTTP ACK lost')});
+ x.setRefresh(async()=>{throw Error('read timeout')});
+ await assert.rejects(()=>x.request(),/Sem resposta confiável.*não gere outra cobrança automaticamente/);
+ assert.equal(x.calls.length,1);
+}
+{
+ const x=setup();x.setPost(async()=>{throw Object.assign(new Error('INVALID_REQUEST'),{status:422})});
+ let gets=0;x.setRefresh(async()=>{gets++;return null});
+ await assert.rejects(()=>x.request(),/INVALID_REQUEST/);
+ assert.equal(gets,0,'explicit validation denial does not need recovery GET');
+ assert.equal(x.calls.length,1);
+}
+{
+ // DB returns the pre-existing pending package when the operator submits
+ // another reference. The newer reference is NOT in the database.
+ const x=setup({row:{...baseRow,merchantReference:'OLD-BANK-REFERENCE'}});
+ await assert.rejects(()=>x.request(),/Já existe solicitação pendente com outra referência/);
+ assert.equal(x.calls.length,1);
+ assert.equal(x.rt.billing.paymentRequests[0].merchantReference,'OLD-BANK-REFERENCE');
 }
 {
  const x=setup(),wait=gate();
@@ -227,6 +260,8 @@ for(const patch of [
 }
 assert.match(orders,/\.limit\(30\)/,'finance sample bounded; absent rows are not proof');
 assert.match(billing,/merchant_billing_request_action/,'existing idempotent RPC remains authority');
+assert.match(moduleSource,/Resposta da cobrança perdida/);
+assert.match(moduleSource,/postError&&httpStatus>=400&&httpStatus<500/);
 assert.match(pixHandler,/merchant_billing_pix_charge_prepare_provider/);
 
 // The first financial click loads the module only in the partner portal.

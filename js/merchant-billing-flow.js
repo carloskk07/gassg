@@ -20,35 +20,64 @@ async function merchantBillingRequestImpl(action,payload={}){
   render();
   try{
     const idempotencyKey=liveIdempotency('merchant-billing');
-    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,action,...payload
-    },{idempotencyKey}));
+    let result=null,postError=null;
+    try{
+      result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+        merchantId,action,...payload
+      },{idempotencyKey}));
+    }catch(error){postError=error}
     if(!same())throw new Error('A sessão mudou durante a ação financeira.');
-    if(result?.ok!==true||result.merchantId!==merchantId||
-       !result.paymentRequestId||!Number.isSafeInteger(Number(result.expectedAmountCents))||
-       Number(result.expectedAmountCents)<=0)
-      throw new Error('A resposta não comprovou a solicitação financeira.');
+    // Explicit 4xx authorization/validation errors are not ambiguous writes.
+    const httpStatus=Number(postError?.status||0);
+    if(postError&&httpStatus>=400&&httpStatus<500&&
+       postError?.code!=='NETWORK_TIMEOUT')throw postError;
     const readStarted=Date.now();
-    const fresh=await merchantRefresh({silent:true});
+    let fresh=null;
+    try{fresh=await merchantRefresh({silent:true})}catch(error){
+      if(postError)throw new Error('Sem resposta confiável da solicitação. Consulte o Financeiro antes de repetir; não gere outra cobrança automaticamente.');
+      throw error;
+    }
     if(!same())throw new Error('O acesso à revenda mudou durante a conferência.');
     if(!fresh||merchantRuntime.billing!==fresh.billing||
        String(fresh.merchant?.merchantId||'')!==merchantId||
        !Number.isFinite(Date.parse(String(merchantRuntime.lastSyncAt||'')))||
        Date.parse(merchantRuntime.lastSyncAt)<readStarted)
       throw new Error('A solicitação não foi confirmada na atualização. Confira o Financeiro antes de repetir.');
-    const row=(fresh.billing?.paymentRequests||[]).find(x=>x.id===result.paymentRequestId);
-    const target=action==='request-billing-package'
+    const target=row=>action==='request-billing-package'
       ?row?.planKey===payload.planKey&&row?.requestKind==='package_purchase'
       :action==='notify-billing-payment'
         ?row?.statementId===payload.statementId&&row?.requestKind==='statement_payment'
         :action==='notify-refund-recovery-payment'
           ?row?.refundRecoveryId===payload.refundRecoveryId&&row?.requestKind==='refund_recovery'
           :row?.id===payload.paymentRequestId;
+    if(postError){
+      // Neither a missing HTTP ACK nor a similar row proves that this POST
+      // committed. Never generate another idempotency key or claim a credit.
+      const matches=(fresh.billing?.paymentRequests||[]).filter(row=>
+        target(row)&&(action==='cancel-billing-request'
+          ?row.status==='cancelled'
+          :['pending','approved'].includes(row.status)&&
+            row.merchantReference===payload.reference));
+      if(matches.length===1)
+        throw new Error('Resposta da cobrança perdida. Existe registro compatível no Financeiro ('+
+          matches[0].id+'). Consulte a solicitação antes de repetir; nenhum segundo envio foi feito.');
+      throw new Error('Não foi possível confirmar o envio. Atualize o Financeiro e confira a pendência antes de repetir; nenhum segundo envio foi feito.');
+    }
+    if(result?.ok!==true||result.merchantId!==merchantId||
+       !result.paymentRequestId||!Number.isSafeInteger(Number(result.expectedAmountCents))||
+       Number(result.expectedAmountCents)<=0)
+      throw new Error('A resposta não comprovou a solicitação financeira.');
+    const row=(fresh.billing?.paymentRequests||[]).find(x=>x.id===result.paymentRequestId);
     const state=action==='cancel-billing-request'
       ?row?.status==='cancelled'&&result.status==='cancelled'
       :['pending','approved'].includes(row?.status)&&
         ['pending','approved'].includes(result.status);
-    if(!row||!target||!state||row.requestKind!==result.requestKind||
+    if(row&&target(row)&&state&&row.requestKind===result.requestKind&&
+       Number(row.expectedAmountCents)===Number(result.expectedAmountCents)&&
+       action!=='cancel-billing-request'&&
+       String(row.merchantReference||'')!==String(payload.reference||''))
+      throw new Error('Já existe solicitação pendente com outra referência. A nova referência não foi registrada; consulte o Financeiro antes de pagar ou tentar novamente.');
+    if(!row||!target(row)||!state||row.requestKind!==result.requestKind||
        Number(row.expectedAmountCents)!==Number(result.expectedAmountCents)||
        (action!=='cancel-billing-request'&&
          String(row.merchantReference||'')!==String(payload.reference||'')))
