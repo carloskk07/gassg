@@ -24,6 +24,7 @@ function fixture(){
   order:{orderId:OLD,deliveryPin:'PRIVATE PIN',status:'OUT_FOR_DELIVERY',version:3},
   orderId:OLD,orderCheckedAt:'2026-10-31T00:00:00Z',orderCheckedId:OLD,
   orderRequestSeq:0,financialSyncSeq:0,offerRequestSeq:0,marketStatusSeq:0,
+  customerDirectPaymentToken:{private:true},
   offers:[{private:true}],lastCityCheck:{private:true},
   lastOrderTemplate:{address:'PRIVATE'},reorderPrediction:{private:true},
   referredCount:2,qualifiedReferralCount:1,comparisonSavingsCents:100,
@@ -82,6 +83,7 @@ function fixture(){
  await assert.rejects(()=>s.ctx.ops.token(),/Conta alterada/);
  assert.equal(s.rt.status,'loading');
  assert.equal(s.rt.session,null);
+ assert.equal(s.rt.customerDirectPaymentToken,null,'logout revokes pending checkout token');
  assert.equal(s.rt.order,null);
  assert.equal(s.rt.orderId,null);
  assert.equal(s.rt.lastOrderTemplate,null);
