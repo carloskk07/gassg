@@ -145,7 +145,7 @@ for(const expected of [
  /await liveCustomerAction\('cancel-before-dispatch',id\)/,
  /await liveCustomerAction\('cancel-before-accept',id\)/
 ])assert.match(customer,expected,'UI callback must retain order identity');
-assert.match(backend,/liveCustomerScript\\('customer-order-action'\\)/);
+assert.ok(backend.includes("liveCustomerScript('customer-order-action')"));
 assert.match(backend,/customerActionSubmit\(action,orderId,/);
 assert.match(read('.github/workflows/audit.yml'),/node tests\/customer-action-exact-order-v1-493\.mjs/);
 console.log('PASS #493 customer action: exact order/phase/version, confirmed response + readback, stale DOM denial, ambiguous ACK and account switch.');
