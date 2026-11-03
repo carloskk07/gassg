@@ -24,13 +24,20 @@
    liveInvoke,liveGetOrder,toast,render,location
  }){
    const id=String(orderId||''),userId=String(rt.session?.user?.id||'');
-   const same=()=>liveReady()&&rt.session?.user?.id===userId&&
-     rt.orderId===id&&rt.order?.orderId===id;
+   // A session object identifies this authentication generation. Comparing
+   // only the user ID allows an old payment response after logout/login of
+   // the SAME buyer to redirect the newer session (an ABA race).
+   const sessionAtStart=rt.session;
+   const token={id,userId,session:sessionAtStart};
+   const sameContext=()=>liveReady()&&rt.session===sessionAtStart&&
+     rt.session?.user?.id===userId&&rt.orderId===id&&rt.order?.orderId===id;
+   const same=()=>sameContext()&&rt.customerDirectPaymentToken===token;
    if(rt.actionPending)return false;
-   if(!UUID.test(id)||!userId||!same()){
+   if(!UUID.test(id)||!userId||!sameContext()){
      rt.error='O pedido selecionado mudou. Atualize o acompanhamento antes de pagar.';
      toast(rt.error);render();return false;
    }
+   rt.customerDirectPaymentToken=token;
    rt.actionPending=true;rt.error=null;render();
    const readFresh=async()=>{
      const requestedAt=Date.now();
@@ -114,8 +121,15 @@
      rt.error='Não foi possível confirmar o pagamento deste pedido. Confira o andamento antes de tentar novamente.';
      toast(rt.error);return false;
    }finally{
-     rt.actionPending=false;
-     render();
+     // A late response cannot unlock another payment/order/account action.
+     // Authentication reset is responsible for clearing state after logout.
+     if(rt.customerDirectPaymentToken===token){
+       rt.customerDirectPaymentToken=null;
+       if(rt.session===sessionAtStart&&rt.orderId===id&&rt.order?.orderId===id){
+         rt.actionPending=false;
+         render();
+       }
+     }
    }
  };
 })();
