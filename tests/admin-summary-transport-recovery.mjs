@@ -14,6 +14,7 @@ const fragment=(start,end,source=admin)=>{
 };
 const call=fragment('async function adminInvoke(', 'async function adminAuthInvoke(');
 const refresh=fragment('async function adminRefresh(', 'async function adminPerform(');
+const purge=fragment('function adminPurgeSensitiveReads(', 'function adminSensitiveReadCurrent(');
 const retry=fragment('function isAmbiguousTransportError(', 'const MERCHANT_PILOT_INVITE_STORAGE',backend);
 assert.match(backend,/const CHAMA_NETWORK_TIMEOUT_MS=15000/);
 assert.match(call,/body\?\.action==='summary'\?25000:undefined/);
@@ -65,7 +66,7 @@ const ctx=vm.createContext({
   globalThis:null
 });
 ctx.globalThis=ctx;
-vm.runInContext(retry+'\nthis.retryAmbiguousOnce=retryAmbiguousOnce;\n'+refresh+
+vm.runInContext(retry+'\nthis.retryAmbiguousOnce=retryAmbiguousOnce;\n'+purge+'\n'+refresh+
   '\nthis.adminRefresh=adminRefresh;',ctx);
 const recovered=await ctx.adminRefresh({silent:true});
 assert.equal(calls,2,'a transient NETWORK_TIMEOUT is retried exactly once');
