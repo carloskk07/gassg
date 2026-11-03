@@ -1596,7 +1596,7 @@ function customerNextAction(status){
 // A revised price is a decision, never an automatically paid amount.
 function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds,{evidence}={}){
   if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<=0)return '';
-  const actionId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(order.orderId||''))?order.orderId:'';
+  const actionId=String(order.orderId||'');
   const expired=remainingSeconds===0;
   const unknown=remainingSeconds==null||!Number.isFinite(remainingSeconds)||remainingSeconds<0;
   const unverified=evidence?.kind!=='recent';
