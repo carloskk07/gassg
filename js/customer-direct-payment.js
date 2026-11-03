@@ -16,6 +16,7 @@
     payment.fundsOwner==='merchant'&&payment.tamaoReceivesSaleProceeds===false&&
     payment.provider==='mercadopago'&&payment.available===true;
  }
+ const reusableCheckout=payment=>['checkout_ready','pending'].includes(payment?.status);
  const notExpired=payment=>!payment?.expiresAt||
    Number.isFinite(Date.parse(payment.expiresAt))&&Date.parse(payment.expiresAt)>Date.now()+1000;
  globalThis.customerDirectPaymentStart=async function(orderId,{
@@ -46,7 +47,7 @@
      }
      let url=payment.checkoutUrl;
      if(url){
-       if(!safeUrl(url)||!notExpired(payment))
+       if(!reusableCheckout(payment)||!safeUrl(url)||!notExpired(payment))
          throw Error('O link de pagamento não está válido. Atualize o pedido.');
      }else{
        if(payment.canStart!==true)
@@ -69,7 +70,8 @@
          toast('Pagamento já confirmado no pedido atualizado.');
          return true;
        }
-       if(!validPayment(order,id)||!safeUrl(order.onlinePayment.checkoutUrl)||
+       if(!validPayment(order,id)||!reusableCheckout(order.onlinePayment)||
+          !safeUrl(order.onlinePayment.checkoutUrl)||
           order.onlinePayment.checkoutUrl!==expectedUrl||!notExpired(order.onlinePayment))
          throw Error('O link criado ainda não foi confirmado no pedido. Não inicie outra tentativa.');
        url=expectedUrl;
@@ -86,7 +88,8 @@
        let checked=null;
        try{checked=await liveGetOrder(id,{silent:true})}catch{}
        if(!same())return false;
-       if(validPayment(checked,id)&&safeUrl(checked.onlinePayment.checkoutUrl)&&
+       if(validPayment(checked,id)&&reusableCheckout(checked.onlinePayment)&&
+          safeUrl(checked.onlinePayment.checkoutUrl)&&
           notExpired(checked.onlinePayment)){
          location.href=checked.onlinePayment.checkoutUrl;
          return true;
