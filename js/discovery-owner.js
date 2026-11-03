@@ -1090,6 +1090,11 @@ async function discoveryOwnerRemoveDocument(docId){
  const same=()=>discoveryOwnerSessionValid(epoch,userId);
  s.busy=true;s.error='';s.notice='';
  try{
+  // Private document SELECT RLS requires a verified account. Without this
+  // check an invisible row might look absent and trigger an unsafe deletion.
+  const identity=await s.client.rpc('discovery_verified_account');
+  if(!same())return;
+  if(identity.error||identity.data!==true)throw Error('DOCUMENT_ACCOUNT_UNVERIFIED');
   // Unlink first: deleting Storage first can strand a broken Admin record.
   // Fresh readback also resolves a lost PostgREST DELETE acknowledgement.
   let unlinkFailure=null;
@@ -1131,6 +1136,17 @@ async function discoveryOwnerRetryDocumentCleanup(){
  const epoch=s.sessionEpoch,userId=s.user.id;
  const same=()=>discoveryOwnerSessionValid(epoch,userId);
  s.busy=true;s.error='';s.notice='';
+ try{
+  const identity=await s.client.rpc('discovery_verified_account');
+  if(!same())return;
+  if(identity.error||identity.data!==true)throw Error('DOCUMENT_ACCOUNT_UNVERIFIED');
+ }catch(_){
+  if(same()){
+   s.error='Não foi possível confirmar a conta verificada para limpar os comprovantes. Entre novamente e tente mais tarde.';
+   s.busy=false;if(discoveryOwnerRoute())render();
+  }
+  return;
+ }
  const pending=[];
  for(const key of s.pendingDocumentRemovals){
   if(!same())return;
