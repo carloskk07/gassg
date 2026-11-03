@@ -7,7 +7,7 @@ const backend=read('js/backend.js'),ui=read('js/customer.js');
 new vm.Script(script);new vm.Script(backend);new vm.Script(ui);
 const ORDER='11111111-1111-4111-8111-111111111111';
 const OTHER='22222222-2222-4222-8222-222222222222';
-const URL='https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=real-synthetic-fixture';
+const MP_URL='https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=real-synthetic-fixture';
 let seq=0;
 function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
  url=null,available=true,canStart=true,amount=12500,owner='merchant',
@@ -16,7 +16,7 @@ function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
  onlinePayment:{status:paymentStatus,available,canStart,checkoutUrl:url,
   amountCents:amount,provider,fundsOwner:owner,tamaoReceivesSaleProceeds:tamReceives,expiresAt}};
 }
-function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,checkoutUrl:URL},
+function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,checkoutUrl:MP_URL},
  error=null,changeAccount=false,changeOrder=false,pending=false,retryTwice=false}={}){
  const calls=[],toasts=[],renders=[],nav={href:null};
  const rt={requested:true,status:'ready',session:{user:{id:'buyer-one'}},
@@ -53,18 +53,18 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
 }
 // Existing link: only navigates after a fresh, exact-order, same-account read.
 {
- const x=setup({reads:[proof({url:URL,paymentStatus:'checkout_ready',canStart:false})]});
+ const x=setup({reads:[proof({url:MP_URL,paymentStatus:'checkout_ready',canStart:false})]});
  assert.equal(await x.go(),true);
- assert.equal(x.nav.href,URL);
+ assert.equal(x.nav.href,MP_URL);
  assert.deepEqual(x.calls.map(x=>x.name),['get-order']);
  assert.equal(x.rt.actionPending,false);
 }
 // New checkout: one exact-order read, versioned provider RPC, second readback
 // of the same link before the browser can leave the first-party page.
 {
- const x=setup({reads:[proof(),proof({url:URL,paymentStatus:'checkout_ready'})]});
+ const x=setup({reads:[proof(),proof({url:MP_URL,paymentStatus:'checkout_ready'})]});
  assert.equal(await x.go(),true);
- assert.equal(x.nav.href,URL);
+ assert.equal(x.nav.href,MP_URL);
  assert.deepEqual(x.calls.map(x=>x.name),['get-order','order-payment-checkout','get-order']);
  assert.equal(x.calls[1].body.orderId,ORDER);
  assert.match(x.calls[1].options.idempotencyKey,/^merchant-sale-payment:/);
@@ -72,10 +72,10 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
 // ACK lost after the PSP checkout may have committed: authenticated readback
 // may recover only the exact order's stored link, no extra payment attempt.
 {
- const x=setup({reads:[proof(),proof({url:URL,paymentStatus:'checkout_ready'})],
+ const x=setup({reads:[proof(),proof({url:MP_URL,paymentStatus:'checkout_ready'})],
   error:new TypeError('lost ACK'),retryTwice:true});
  assert.equal(await x.go(),true);
- assert.equal(x.nav.href,URL);
+ assert.equal(x.nav.href,MP_URL);
  const writes=x.calls.filter(c=>c.name==='order-payment-checkout');
  assert.equal(writes.length,2,'bounded transport retry reuses same key');
  assert.equal(writes[0].options.idempotencyKey,writes[1].options.idempotencyKey);
@@ -83,7 +83,7 @@ function setup({initial=proof(),reads=[proof()],reply={ok:true,orderId:ORDER,che
 // A customer who switches account/order while the payment API is pending
 // must never be sent to a checkout associated with the old principal.
 for(const changed of [{changeAccount:true},{changeOrder:true}]){
- const x=setup({...changed,reads:[proof(),proof({url:URL,paymentStatus:'checkout_ready'})]});
+ const x=setup({...changed,reads:[proof(),proof({url:MP_URL,paymentStatus:'checkout_ready'})]});
  assert.equal(await x.go(),false);
  assert.equal(x.nav.href,null);
  assert.equal(x.calls.filter(c=>c.name==='order-payment-checkout').length,1);
@@ -97,16 +97,16 @@ for(const changed of [{changeAccount:true},{changeOrder:true}]){
  assert.match(x.toasts.join(' '),/pedido selecionado mudou/i);
 }
 for(const invalid of [
- proof({id:OTHER}),proof({status:'CANCELLED',url:URL}),
- proof({status:'REASSIGNING',url:URL}),proof({paymentTiming:'on_delivery',url:URL}),
- proof({amount:12501,url:URL}),proof({owner:'platform',url:URL}),
- proof({tamReceives:true,url:URL}),proof({provider:'other',url:URL}),
- proof({available:false,url:URL}),
- proof({url:URL,paymentStatus:'review_required'}),
- proof({url:URL,paymentStatus:'refunded'}),
+ proof({id:OTHER}),proof({status:'CANCELLED',url:MP_URL}),
+ proof({status:'REASSIGNING',url:MP_URL}),proof({paymentTiming:'on_delivery',url:MP_URL}),
+ proof({amount:12501,url:MP_URL}),proof({owner:'platform',url:MP_URL}),
+ proof({tamReceives:true,url:MP_URL}),proof({provider:'other',url:MP_URL}),
+ proof({available:false,url:MP_URL}),
+ proof({url:MP_URL,paymentStatus:'review_required'}),
+ proof({url:MP_URL,paymentStatus:'refunded'}),
  proof({url:'https://www.mercadopago.com.br.evil.net/pay',paymentStatus:'checkout_ready'}),
  proof({url:'https://mercadopago.com@evil.net/pay',paymentStatus:'checkout_ready'}),
- proof({url:URL,paymentStatus:'checkout_ready',expiresAt:'2020-01-01T00:00:00Z'})
+ proof({url:MP_URL,paymentStatus:'checkout_ready',expiresAt:'2020-01-01T00:00:00Z'})
 ]){
  const x=setup({reads:[invalid]});
  assert.equal(await x.go(),false,JSON.stringify(invalid));
@@ -120,11 +120,11 @@ for(const invalid of [
 }
 // An unrelated or inconsistent API response cannot become a redirect.
 for(const reply of [
- {},{ok:true,orderId:OTHER,checkoutUrl:URL},
+ {},{ok:true,orderId:OTHER,checkoutUrl:MP_URL},
  {ok:true,orderId:ORDER,checkoutUrl:'https://evil.net/checkout'},
- {ok:false,orderId:ORDER,checkoutUrl:URL}
+ {ok:false,orderId:ORDER,checkoutUrl:MP_URL}
 ]){
- const x=setup({reply,reads:[proof(),proof({url:URL,paymentStatus:'checkout_ready'})]});
+ const x=setup({reply,reads:[proof(),proof({url:MP_URL,paymentStatus:'checkout_ready'})]});
  assert.equal(await x.go(),false);
  assert.equal(x.nav.href,null);
 }
@@ -132,9 +132,9 @@ for(const reply of [
 // an expired link or missing server read is not proof to redirect.
 for(const second of [
  proof({url:'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=OTHER',paymentStatus:'checkout_ready'}),
- proof({url:URL,paymentStatus:'checkout_ready',amount:12501}),
- proof({url:URL,paymentStatus:'checkout_ready',available:false}),
- proof({url:URL,paymentStatus:'checkout_ready',expiresAt:'2020-01-01T00:00:00Z'}),
+ proof({url:MP_URL,paymentStatus:'checkout_ready',amount:12501}),
+ proof({url:MP_URL,paymentStatus:'checkout_ready',available:false}),
+ proof({url:MP_URL,paymentStatus:'checkout_ready',expiresAt:'2020-01-01T00:00:00Z'}),
  new TypeError('get-order failed')
 ]){
  const x=setup({reads:[proof(),second]});
@@ -145,7 +145,7 @@ for(const second of [
 // Rejected RPC (e.g. 409) must not treat an older link as authority.
 {
  const error=Object.assign(Error('Payment route denied'),{status:409});
- const x=setup({error,reads:[proof(),proof({url:URL,paymentStatus:'checkout_ready'})]});
+ const x=setup({error,reads:[proof(),proof({url:MP_URL,paymentStatus:'checkout_ready'})]});
  assert.equal(await x.go(),false);
  assert.equal(x.nav.href,null);
 }
