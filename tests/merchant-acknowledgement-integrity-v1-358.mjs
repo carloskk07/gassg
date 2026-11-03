@@ -8,12 +8,15 @@ const merchant=read('js/merchant.js');
 const audit=read('.github/workflows/audit.yml');
 new vm.Script(backend,{filename:'backend.js'});
 const pick=name=>{
-  const key=(name==='merchantVerifiedActionOrder'?'function ':'async function ')+name+'(';
-  const start=backend.indexOf(key),end=backend.indexOf('\n}',start);
+  const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
+  const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
+  const key=(plain?'function ':'async function ')+name+'(';
+  const start=src.indexOf(key),end=src.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing function '+name);
-  return backend.slice(start,end+2);
+  return src.slice(start,end+2);
 };
-const names=['merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation',
+const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
+  'merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation',
   'merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 const block=names.map(pick).join('\n');
 const orderId='11111111-1111-4111-8111-111111111111';
