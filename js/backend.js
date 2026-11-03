@@ -260,6 +260,9 @@ function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
 // Isolate private state on customer account changes.
 function liveForgetAccount(){
+  // Increment even if the client is already loading, to invalidate every
+  // in-flight checkout/read from the previous authenticated generation.
+  liveRuntime.authGeneration=(liveRuntime.authGeneration||0)+1;
   globalThis.customerSupportReplayReset?.();
   liveRuntime.customerDecisionToken=null;
   liveRuntime.customerFeedbackToken=null;
