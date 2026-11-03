@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
 const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
-const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
+const names=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantScopedOrderMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 function pick(name){
   const plain=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost','merchantVerifiedActionOrder'].includes(name);
   const src=name==='merchantRefreshAfterConfirmedMutation'?merchant:backend;
