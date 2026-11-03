@@ -593,27 +593,41 @@ function adminLoginFromUi(){
 }
 
 
+function adminSensitiveReadCurrent(session,role){
+  return !!session?.user?.id&&adminReady()&&
+    adminRuntime.session===session&&adminCurrentRole()===role;
+}
 async function adminRunSearch(query){
   const value=String(query||'').trim();
   if(value.length<2){
+    adminRuntime.searchRequest=null;
+    adminRuntime.searchPending=false;
     adminRuntime.searchQuery='';
     adminRuntime.searchResults=[];
     render();
     return;
   }
-  if(adminRuntime.searchPending)return;
+  if(adminRuntime.searchPending||!adminReady())return;
+  const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
+  adminRuntime.searchRequest=ticket;
   adminRuntime.searchPending=true;
   adminRuntime.searchQuery=value;
   render();
+  const current=()=>adminRuntime.searchRequest===ticket&&
+    adminRuntime.searchQuery===value&&adminSensitiveReadCurrent(session,role);
   try{
     const result=await adminInvoke({action:'search',query:value});
+    if(!current())return;
     adminRuntime.searchResults=Array.isArray(result?.results)?result.results:[];
   }catch(error){
+    if(!current())return;
     adminRuntime.searchResults=[];
     adminRuntime.error=String(error?.message||error||'Falha na busca administrativa');
   }finally{
-    adminRuntime.searchPending=false;
-    render();
+    if(adminRuntime.searchRequest===ticket){
+      adminRuntime.searchPending=false;
+      if(current())render();
+    }
   }
 }
 function adminSearchFromUi(){
@@ -621,6 +635,8 @@ function adminSearchFromUi(){
   return adminRunSearch(input?.value||'');
 }
 function adminClearSearch(){
+  adminRuntime.searchRequest=null;
+  adminRuntime.searchPending=false;
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   render();
