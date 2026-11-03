@@ -1001,27 +1001,25 @@ async function liveStartMerchantPayment(){
   }
 }
 
-async function liveCustomerAction(action){
-  const order=liveRuntime.order;
-  if(!order||liveRuntime.actionPending)return;
-  liveRuntime.actionPending=true;
-  render();
+const liveCustomerScripts={};
+async function liveCustomerScript(name){
+  if(!liveCustomerScripts[name])liveCustomerScripts[name]=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
+      .replace('/js/backend.js','/js/'+name+'.js');
+    script.onload=resolve;script.onerror=()=>reject(Error('Módulo indisponível.'));
+    document.head.appendChild(script);
+  }).catch(error=>{delete liveCustomerScripts[name];throw error});
+  await liveCustomerScripts[name];
+}
+async function liveCustomerAction(action,orderId){
   try{
-    const idempotencyKey=liveIdempotency('customer-action');
-    await retryAmbiguousOnce(()=>liveInvoke('customer-action',{
-      orderId:order.orderId,
-      action,
-      expectedVersion:order.version
-    },{idempotencyKey}));
-    await liveGetOrder(order.orderId,{silent:true});
-    toast(action==='accept-requote'?'Nova condição aceita':'Pedido cancelado');
+    if(!globalThis.customerActionSubmit)await liveCustomerScript('customer-order-action');
+    return await globalThis.customerActionSubmit(action,orderId,{
+      liveRuntime,liveReady,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,toast,render
+    });
   }catch(error){
-    liveRuntime.error=String(error?.message||error);
-    toast(liveRuntime.error);
-    try{await liveGetOrder(order.orderId,{silent:true})}catch{}
-  }finally{
-    liveRuntime.actionPending=false;
-    render();
+    liveRuntime.error=String(error?.message||error);toast(liveRuntime.error);return false;
   }
 }
 
@@ -1042,13 +1040,7 @@ async function liveSubmitFeedback(rating,tags=[]){
 }
 
 async function liveOpenSupportCase(category,message=''){
-  if(!globalThis.customerSupportReplaySubmit)await new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src=(document.querySelector('script[src*="/js/backend.js"]')?.src||'./js/backend.js')
-      .replace('/js/backend.js','/js/customer-care-replay.js');
-    s.onload=resolve;s.onerror=()=>reject(Error('Atendimento indisponível. Tente novamente.'));
-    document.head.appendChild(s);
-  });
+  if(!globalThis.customerSupportReplaySubmit)await liveCustomerScript('customer-care-replay');
   return globalThis.customerSupportReplaySubmit(category,message,{
     liveRuntime,liveIdempotency,retryAmbiguousOnce,liveInvoke,liveGetOrder,render
   });

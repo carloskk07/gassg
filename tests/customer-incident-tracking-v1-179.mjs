@@ -78,7 +78,7 @@ assert.ok(html.includes('R$ 120,00'));
 assert.ok(html.includes('Aceitar proposta de R$ 135,00'));
 assert.ok(!html.includes('Revenda Antiga'),'Old supplier stays hidden until accepted');
 assert.ok(html.includes('Não é necessário pagar uma diferença sem aprovar'));
-assert.ok(html.includes('onclick="confirmRequote()"'));
+assert.ok(html.includes('onclick="confirmRequote(this.dataset.orderId)"'));
 assert.ok(!html.includes('staffing_issue'));
 
 ctxData.actionPending=true;

@@ -1543,7 +1543,12 @@ assert.ok(backend.includes("merchantPilotInviteToken();\n  redirect.hash=''"),'m
 assert.ok(backend.includes('clearMerchantPilotInviteToken();')&&backend.includes("raw.includes('PILOT_INVITE_EXPIRED')"),'claim concluído ou convite terminal inválido deve apagar o segredo transitório');
 assert.ok(!growth.includes("new URLSearchParams(location.search).get('pilot')"),'UI de parceria não pode reler token piloto da query string');
 assert.ok(growth.includes('globalThis.merchantPilotInviteToken?.()')&&growth.includes('globalThis.clearMerchantPilotInviteToken?.()'),'UI deve consumir a autoridade sanitizada de convite do runtime');
-assert.ok(backend.includes("const idempotencyKey=liveIdempotency('customer-action')")&&backend.includes("()=>liveInvoke('customer-action'"),'ação do cliente precisa reutilizar a mesma chave idempotente no retry');
+const customerDecision=read('js/customer-order-action.js');
+assert.ok(backend.includes("liveCustomerScript('customer-order-action')")&&
+  customerDecision.includes("const idempotencyKey=liveIdempotency('customer-action')")&&
+  customerDecision.includes("()=>liveInvoke('customer-action'")&&
+  customerDecision.includes('},{idempotencyKey}));'),
+  'ação do cliente precisa reutilizar a mesma chave idempotente no retry, inclusive no módulo adiado');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('complete-delivery')"),'conclusão de entrega precisa fixar a chave antes do retry');
 assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');

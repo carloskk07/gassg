@@ -1596,11 +1596,12 @@ function customerNextAction(status){
 // A revised price is a decision, never an automatically paid amount.
 function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds,{evidence}={}){
   if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<=0)return '';
+  const actionId=String(order.orderId||'');
   const expired=remainingSeconds===0;
   const unknown=remainingSeconds==null||!Number.isFinite(remainingSeconds)||remainingSeconds<0;
   const unverified=evidence?.kind!=='recent';
   const validPrevious=previousTotal!=null&&Number.isFinite(previousTotal)&&previousTotal>=0;
-  const canDecide=!expired&&!unknown&&!unverified&&validPrevious
+  const canDecide=!!actionId&&!expired&&!unknown&&!unverified&&validPrevious
     &&!globalThis.liveRuntime?.actionPending;
   const deadline=expired
     ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
@@ -1617,10 +1618,10 @@ function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeco
     '</div>'+
     '<p class="customer-requote-proof '+(canDecide?'verified':'needs-refresh')+'" role="status">O novo valor não é aceito automaticamente. '+esc(deadline)+'</p>'+
     '<div class="order-actions">'+
-      '<button class="primary small" onclick="confirmRequote()" '+
+      '<button class="primary small" data-order-id="'+esc(actionId)+'" onclick="confirmRequote(this.dataset.orderId)" '+
         (canDecide?'':'disabled')+
         '>Aceitar proposta de '+BRL.format(proposedTotal)+'</button>'+
-      '<button class="secondary small" onclick="cancelPending()" '+
+      '<button class="secondary small" data-order-id="'+esc(actionId)+'" onclick="cancelPending(this.dataset.orderId)" '+
         (globalThis.liveRuntime?.actionPending?'disabled':'')+
         '>Cancelar pedido</button>'+
       '<button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar proposta</button>'+
@@ -2164,8 +2165,8 @@ ${o.status==='AT_RISK'?'<div class="notice" style="margin-top:14px"><strong>Acom
 
 <section class="section" id="customer-history"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})" ${liveRuntime.actionPending?'disabled':''}>Atualizar status</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
 ${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success" id="customer-delivery-code"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Confira os itens e o valor combinado. Só compartilhe o código após receber e conferir a entrega.</div>`:''}
-${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
-${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
+${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" data-order-id="${esc(o.orderId)}" onclick="cancelPending(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
+${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" data-order-id="${esc(o.orderId)}" onclick="cancelBeforeDispatch(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
 ${careBlock}
 </section>`);
 }
@@ -2210,25 +2211,16 @@ function eventTimeline(o){
 }
 function paymentLabel(v){return v==='card'?'Cartão':v==='cash'?'Dinheiro':'Pix'}
 async function confirmRequote(id){
-  if(globalThis.liveRequested?.()){
-    await liveCustomerAction('accept-requote');
-    return;
-  }
+  if(globalThis.liveRequested?.())return liveCustomerAction('accept-requote',id);
   const r=acceptRequote(id);toast(r.ok?'Nova cotação enviada à revenda':r.error);render();
 }
 async function cancelBeforeDispatch(id){
-  if(globalThis.liveRequested?.()){
-    await liveCustomerAction('cancel-before-dispatch');
-    return;
-  }
+  if(globalThis.liveRequested?.())return liveCustomerAction('cancel-before-dispatch',id);
   const r=customerCancel(id);
   toast(r.ok?'Pedido cancelado antes da saída':r.error);
   render();
 }
 async function cancelPending(id){
-  if(globalThis.liveRequested?.()){
-    await liveCustomerAction('cancel-before-accept');
-    return;
-  }
+  if(globalThis.liveRequested?.())return liveCustomerAction('cancel-before-accept',id);
   const r=customerCancel(id);toast(r.ok?'Pedido cancelado':r.error);render();
 }
