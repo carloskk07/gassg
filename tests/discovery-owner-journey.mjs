@@ -17,7 +17,7 @@ const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
 let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false,simulateAfterRpcChange=false;
-let simulateReviewFailure=false;
+let simulateReviewFailure=false,simulateMetadataDeleteFailure=false,simulateMetadataDeleteAckLoss=false;
 const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 const afterRpcPhotoKey=userId+'/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
@@ -90,8 +90,10 @@ const client={
   };},
   delete(){assert.equal(name,'discovery_documents');const filter={};
    const q={eq(k,v){filter[k]=v;return q;},async select(){
+    if(simulateMetadataDeleteFailure)return {data:null,error:new Error('DB rejected delete')};
     const i=privateDocs.findIndex(d=>d.id===filter.id&&d.listing_id===filter.listing_id);
-    return {data:i>=0?[privateDocs.splice(i,1)[0]]:[],error:null};
+    const data=i>=0?[privateDocs.splice(i,1)[0]]:[];
+    return simulateMetadataDeleteAckLoss?{data:null,error:new Error('DELETE reply lost')}:{data,error:null};
    }};return q;
   },
   upsert:async (data,config)=>{writes.push([name,'upsert',data,config]);return {error:null};},
@@ -104,10 +106,22 @@ const client={
     const item=records.find(r=>r.id===id);if(item)Object.assign(item,data);
     return {error:null};
   }};},
-  select(_columns){return {eq(_key,_id){return {
-   data:name==='discovery_documents'?privateDocs.filter(d=>d.listing_id===_id):[],
-   error:null,maybeSingle:async()=>({data:{occupation:'Eletricista',service_area:'São Gabriel'},error:null})
-  };}};}
+  select(_columns){
+   const filter={};
+   const query={
+    eq(k,v){filter[k]=v;return query;},
+    async maybeSingle(){
+     if(name==='discovery_documents')
+      return {data:privateDocs.find(d=>Object.entries(filter).every(([k,v])=>d[k]===v))||null,error:null};
+     return {data:{occupation:'Eletricista',service_area:'São Gabriel'},error:null};
+    },
+    async limit(n){return {data:privateDocs.filter(d=>Object.entries(filter).every(([k,v])=>d[k]===v)).slice(0,n),error:null};},
+    get data(){return name==='discovery_documents'?
+     privateDocs.filter(d=>Object.entries(filter).every(([k,v])=>d[k]===v)):[];},
+    get error(){return null}
+   };
+   return query;
+  }
  };},
  storage:{from(bucket){assert.ok(['tamao-discovery-photos','tamao-discovery-documents'].includes(bucket));return{
   upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});return {data:{path:key},error:null};},
@@ -406,16 +420,46 @@ assert.equal(records[0].status,'draft','paused item must reopen into new reviewe
 assert.ok(transitions.some(x=>x.p_next_status==='draft'));
 assert.match(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
 assert.equal(privateDocs.length,1);
+const privateDocId=privateDocs[0].id, privateDocPath=privateDocs[0].object_path;
 simulateRemovalOutage=true;
-await ctx.discoveryOwnerRemoveDocument(privateDocs[0].id);
-assert.equal(privateDocs.length,1,'network error must retain private metadata');
+await ctx.discoveryOwnerRemoveDocument(privateDocId);
+assert.equal(privateDocs.length,0,'metadata must be removed FIRST, even if Storage is offline');
 assert.equal(removed.length,0,'failed Storage removal cannot be recorded as successful');
-assert.match(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
+assert.match(ctx.discoveryOwnerPage(),/Repetir limpeza de comprovantes/);
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals[0],privateDocPath);
+assert.equal(ctx.discoveryOwnerReadPendingDocumentRemovals(userId)[0],privateDocPath,
+ 'cleanup must survive a closed page and preserve the owner scope');
+await ctx.discoveryOwnerSubmit(id);
+assert.equal(records[0].status,'draft','cannot submit review while private byte cleanup is pending');
+assert.match(ctx.__discoveryOwnerTestState.error,/Conclua a limpeza/);
+// Recover safely after connectivity resumes: recheck ledger before removing bytes.
 simulateRemovalOutage=false;
-await ctx.discoveryOwnerRemoveDocument(privateDocs[0].id);
-assert.equal(privateDocs.length,0,'draft document metadata must be removed');
-assert.equal(removed.length,1,'private bytes must be deleted via Storage API');
+await ctx.discoveryOwnerRetryDocumentCleanup();
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
+assert.equal(ctx.discoveryOwnerReadPendingDocumentRemovals(userId).length,0);
+assert.equal(removed.length,1,'private bytes must be deleted through Storage API');
 assert.equal(removed[0],uploads[0].key);
+
+// A database failure must never delete Storage bytes first or show success.
+const secondDocument={id:'44444444-4444-4444-4444-444444444444',
+ listing_id:id,kind:'supporting',object_path:userId+'/'+id+'/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf'};
+privateDocs.push(secondDocument);
+ctx.__discoveryOwnerTestState.editor.documents.push(secondDocument);
+simulateMetadataDeleteFailure=true;
+await ctx.discoveryOwnerRemoveDocument(secondDocument.id);
+assert.equal(privateDocs.length,1,'DB rejection must preserve document metadata');
+assert.equal(removed.length,1,'Storage file must not be deleted on failed DB unlink');
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
+simulateMetadataDeleteFailure=false;
+// An ACK can disappear AFTER the server committed: authenticated readback wins.
+simulateMetadataDeleteAckLoss=true;
+await ctx.discoveryOwnerRemoveDocument(secondDocument.id);
+simulateMetadataDeleteAckLoss=false;
+assert.equal(privateDocs.length,0);
+assert.equal(removed.length,2);
+assert.equal(removed[1],secondDocument.object_path);
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
 
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/EXAMPLE_NONEXISTENT_WORD/);
