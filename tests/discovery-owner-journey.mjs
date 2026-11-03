@@ -18,6 +18,7 @@ let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},r
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
 let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false,simulateAfterRpcChange=false;
 let simulateReviewFailure=false,simulateMetadataDeleteFailure=false,simulateMetadataDeleteAckLoss=false;
+let simulateMetadataDeleteThrow=false,simulateRegistrationAckLoss=false,simulateUploadTimeout=false;
 const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 const afterRpcPhotoKey=userId+'/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
@@ -78,7 +79,7 @@ const client={
     if(simulateRegistrationFailure)return Promise.resolve({error:new Error('DB unavailable')});
     writes.push([name,'insert',data]);
     privateDocs.push({...data,id:'33333333-3333-3333-3333-333333333333'});
-    return Promise.resolve({error:null});
+    return Promise.resolve({error:simulateRegistrationAckLoss?new Error('INSERT reply lost'):null});
    }
    return {
    select(column){assert.equal(column,'id');return {single:async()=>{
@@ -93,6 +94,7 @@ const client={
     if(simulateMetadataDeleteFailure)return {data:null,error:new Error('DB rejected delete')};
     const i=privateDocs.findIndex(d=>d.id===filter.id&&d.listing_id===filter.listing_id);
     const data=i>=0?[privateDocs.splice(i,1)[0]]:[];
+    if(simulateMetadataDeleteThrow)throw Error('Connection closed AFTER commit');
     return simulateMetadataDeleteAckLoss?{data:null,error:new Error('DELETE reply lost')}:{data,error:null};
    }};return q;
   },
@@ -124,7 +126,9 @@ const client={
   }
  };},
  storage:{from(bucket){assert.ok(['tamao-discovery-photos','tamao-discovery-documents'].includes(bucket));return{
-  upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});return {data:{path:key},error:null};},
+  upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});
+   if(simulateUploadTimeout&&bucket==='tamao-discovery-documents')throw Error('Storage upload ACK lost');
+   return {data:{path:key},error:null};},
   remove:async(paths)=>{
    if(simulateRemovalOutage)return {data:null,error:new Error('Network unavailable')};
    removed.push(...paths);return {data:paths,error:null};}
@@ -462,6 +466,18 @@ assert.equal(removed[1],secondDocument.object_path);
 assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
 
+// A throw after DB commit must also reconcile, not delete the wrong file.
+const thirdDocument={id:'55555555-5555-4555-8555-555555555555',
+ listing_id:id,kind:'supporting',object_path:userId+'/'+id+'/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.pdf'};
+privateDocs.push(thirdDocument);
+ctx.__discoveryOwnerTestState.editor.documents.push(thirdDocument);
+simulateMetadataDeleteThrow=true;
+await ctx.discoveryOwnerRemoveDocument(thirdDocument.id);
+simulateMetadataDeleteThrow=false;
+assert.equal(privateDocs.length,0);
+assert.equal(removed.at(-1),thirdDocument.object_path);
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
+
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/EXAMPLE_NONEXISTENT_WORD/);
 selectedFiles=[{type:'text/html',size:100}];
 ctx.discoveryOwnerNew();
@@ -499,6 +515,34 @@ assert.equal(privateDocs.length,0);
 assert.match(ctx.discoveryOwnerPage(),/pode ter ficado pendente no armazenamento/);
 simulateRemovalOutage=false;
 simulateRegistrationFailure=false;
+assert.ok(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length>0,
+ 'failed upload compensation must remain in durable cleanup queue');
+await ctx.discoveryOwnerRetryDocumentCleanup();
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
+assert.equal(ctx.discoveryOwnerReadPendingDocumentRemovals(userId).length,0);
+
+// Storage timeout after accepted bytes must be recoverable without metadata.
+simulateUploadTimeout=true;
+ctx.discoveryOwnerNew();
+const beforeUnknownUpload=removed.length;
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+simulateUploadTimeout=false;
+assert.equal(removed.length,beforeUnknownUpload,'unknown upload must not be treated as deleted');
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,1);
+await ctx.discoveryOwnerRetryDocumentCleanup();
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
+assert.equal(removed.length,beforeUnknownUpload+1);
+
+// A lost PostgREST INSERT ACK must keep the file linked, never compensate it.
+simulateRegistrationAckLoss=true;
+ctx.discoveryOwnerNew();
+const beforeRegistered=removed.length;
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+simulateRegistrationAckLoss=false;
+assert.equal(removed.length,beforeRegistered,'verified registered document must not be deleted');
+assert.equal(ctx.__discoveryOwnerTestState.pendingDocumentRemovals.length,0);
+assert.ok(privateDocs.some(d=>d.object_path===uploads.at(-1).key));
+privateDocs.length=0; // Clear synthetic isolated fixture for following tests.
 
 // Photos linked in a failed database write must be cleaned up by the
 // Storage API. Never delete the already referenced original photo.
