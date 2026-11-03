@@ -114,7 +114,8 @@ for(const action of Object.keys(statuses)){
 {
  const pending=deferred(),x=fixture({action:'dispatch',blockRefresh:pending});
  const first=x.execute();
- assert.equal(x.refreshCount,1);
+ for(let i=0;i<12&&x.refreshCount===0;i++)await Promise.resolve();
+ assert.equal(x.refreshCount,1,'server readback must be in flight before session changes');
  x.swapToB({newPending:true});
  pending.resolve();
  await assert.rejects(first,/conta ou a revenda mudou/);
