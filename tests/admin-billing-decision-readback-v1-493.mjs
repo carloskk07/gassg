@@ -210,8 +210,10 @@ for(const corrupt of [
  const x=fixture(),gate=deferred();
  x.read(async()=>gate.promise);
  const pending=x.decide();
- await Promise.resolve();
- await Promise.resolve();
+ // The decision awaits the RPC before starting its independent GET.
+ // Drain bounded microtasks so the race is inserted DURING the read,
+ // instead of changing accounts before that read starts.
+ for(let i=0;i<16&&x.reads.length===0;i++)await Promise.resolve();
  assert.equal(x.reads.length,1);
  x.rt.session={user:{id:'operator-B'}};
  const before=x.messages.length;
