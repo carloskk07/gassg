@@ -80,13 +80,13 @@ const requote=orderFor('REQUOTE_REQUIRED',{
 assert.ok(requote.includes('Valor anterior')&&requote.includes('R$ 120,00'));
 assert.ok(requote.includes('Nova proposta')&&requote.includes('R$ 132,50'));
 assert.ok(requote.includes('Aceitar proposta de R$ 132,50'));
-assert.ok(requote.includes('onclick="confirmRequote()"'));
+assert.ok(requote.includes('data-order-id="00000000-0000-4000-8000-000000000042" onclick="confirmRequote(this.dataset.orderId)"'));
 assert.ok(!requote.includes('confirmRequote(\'00000000'),'Server identifiers must not enter inline JS');
 const expired=orderFor('REQUOTE_REQUIRED',{
  proposedTotalCents:13250,offerExpiresAt:new Date(Date.now()-10000).toISOString()
 });
 assert.ok(expired.includes('O prazo indicado terminou'));
-assert.ok(expired.includes('onclick="confirmRequote()" disabled'));
+assert.ok(expired.includes('onclick="confirmRequote(this.dataset.orderId)" disabled'));
 assert.ok(expired.includes('Atualizar proposta'),'Customer must be able to refresh an expired requote');
 const dispatched=orderFor('OUT_FOR_DELIVERY',{deliveryPin:'4931'});
 assert.ok(dispatched.includes('Código de recebimento: 4931'));
