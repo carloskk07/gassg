@@ -72,6 +72,7 @@ assert.equal(mercadoPagoPixDeadline({}, {},new Date(baseNow-25*hour).toISOString
 const edge=fs.readFileSync(new URL('../supabase/functions/merchant-billing-pix/index.ts',import.meta.url),'utf8');
 const merchant=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'utf8');
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
+const financeModule=fs.readFileSync(new URL('../js/merchant-billing-flow.js',import.meta.url),'utf8');
 assert.match(edge,/validatePixBrCode\(brCode,\{expectedAmountCents\}\)/);
 assert.match(edge,/validatePixBrCode\(existing\.br_code,\{expectedAmountCents\}\)/);
 assert.match(edge,/PIX_PROVIDER_BR_CODE_INVALID/);
@@ -85,8 +86,9 @@ assert.match(edge,/savedExpiration>Date\.parse\(originalDeadline\)/);
 assert.match(edge,/!Number\.isFinite\(savedExpiration\)/);
 assert.doesNotMatch(edge,/expiresAt:new Date\(Date\.now\(\)\+86400_000\)/);
 assert.match(merchant,/merchantBillingPixChargeExpired\(charge\)/);
-assert.match(backend,/charge\?\.status==='completed'/);
-assert.match(backend,/charge\.expiresAt/);
+assert.match(financeModule,/charge\.status==='completed'/);
+assert.match(financeModule,/row\.pixCharge\.paidAmountCents/);
+assert.match(financeModule,/charge\.expiresAt/);
 
 // Unknown provider expiry must be non-payable even if a stale row claims "active".
 const expiryStart=merchant.indexOf('function merchantBillingPixChargeExpired(');
@@ -364,10 +366,10 @@ for(const key of ['brCode:null','qrCodeDataUri:null','paymentLinkUrl:null']){
 }
 assert.doesNotMatch(pixMapSource,/brCode:charge\.br_code/);
 const backendSource=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
-const livePixStart=backendSource.indexOf('async function merchantCreateBillingPixLive(');
-const livePixEnd=backendSource.indexOf('async function merchantRequestBillingPackageLive(',livePixStart);
+const livePixStart=financeModule.indexOf('async function merchantCreateBillingPixImpl(');
+const livePixEnd=financeModule.indexOf('globalThis.merchantBillingSameActor=',livePixStart);
 assert.ok(livePixStart>0&&livePixEnd>livePixStart);
-const livePixSource=backendSource.slice(livePixStart,livePixEnd);
+const livePixSource=financeModule.slice(livePixStart,livePixEnd);
 assert.match(livePixSource,/await merchantRefresh\(\{silent:true\}\)/);
 assert.match(livePixSource,/merchantAcceptVerifiedBillingPix/);
 const connectStart=backendSource.indexOf('async function merchantPaymentConnectLive(');

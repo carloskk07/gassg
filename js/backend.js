@@ -2508,87 +2508,43 @@ async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das 
   }
 }
 
-async function merchantBillingRequestLive(action,payload={}){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
-    throw new Error('Seu papel não pode operar cobranças e pacotes');
-  }
-  const allowed=['request-billing-package','notify-billing-payment','notify-refund-recovery-payment','cancel-billing-request'];
-  if(!allowed.includes(action))throw new Error('Ação financeira inválida');
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  try{
-    const idempotencyKey=liveIdempotency('merchant-billing');
-    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,
-      action,
-      ...payload
-    },{idempotencyKey}));
-    await merchantRefresh({silent:true});
-    return result;
-  }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
-    throw error;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
+// Partner finance checks are loaded only after a financial action is chosen.
+let merchantBillingFlowLoader=null;
+function merchantBillingScope(){
+  return [merchantRuntime.session?.user?.id||'',
+    merchantRuntime.merchant?.merchantId||'',
+    merchantRuntime.accessEpoch].join(':');
 }
-
+async function merchantLoadBillingFlow(){
+  if(globalThis.merchantBillingRequestImpl&&globalThis.merchantCreateBillingPixImpl)return;
+  if(merchantBillingFlowLoader)return merchantBillingFlowLoader;
+  merchantBillingFlowLoader=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    const src=document.querySelector('script[src*="/js/merchant.js"]')?.src||'';
+    let version='';
+    try{version=new URL(src,location.href).searchParams.get('v')||''}catch{}
+    script.src='./js/merchant-billing-flow.js'+
+      (/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
+    script.onload=()=>{
+      if(globalThis.merchantBillingRequestImpl&&globalThis.merchantCreateBillingPixImpl)resolve();
+      else{merchantBillingFlowLoader=null;reject(new Error('Módulo financeiro indisponível.'));}
+    };
+    script.onerror=()=>{merchantBillingFlowLoader=null;reject(new Error('Não foi possível carregar a conferência financeira.'));};
+    document.head.appendChild(script);
+  });
+  return merchantBillingFlowLoader;
+}
+async function merchantBillingRequestLive(action,payload={}){
+  const scope=merchantBillingScope();
+  await merchantLoadBillingFlow();
+  if(scope!==merchantBillingScope())throw new Error('O acesso da revenda mudou. Confira antes de repetir.');
+  return globalThis.merchantBillingRequestImpl(action,payload);
+}
 async function merchantCreateBillingPixLive({planKey=null,statementId=null,refundRecoveryId=null}={}){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
-    throw new Error('Seu papel não pode gerar cobranças Pix');
-  }
-  const plan=planKey==null?null:String(planKey).trim().toLowerCase();
-  const statement=statementId==null?null:String(statementId).trim();
-  const recovery=refundRecoveryId==null?null:String(refundRecoveryId).trim();
-  if([plan,statement,recovery].filter(v=>v!=null).length!==1){
-    throw new Error('Informe exatamente uma cobrança financeira');
-  }
-  if(plan!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(plan))throw new Error('Pacote de crédito inválido');
-  if(statement!=null&&!statement)throw new Error('Fechamento diário inválido');
-  if(recovery!=null&&!recovery)throw new Error('Obrigação de recuperação inválida');
-
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  try{
-    const idempotencyKey=liveIdempotency('merchant-billing-pix');
-    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-billing-pix',{
-      merchantId,
-      planKey:plan,
-      statementId:statement,
-      refundRecoveryId:recovery
-    },{idempotencyKey}));
-    // Accept Pix only with valid, unexpired server proof.
-    const charge=result?.charge;
-    if(charge?.status==='completed'){
-      await merchantRefresh({silent:true});
-      return {...result,alreadyReceived:true};
-    }
-    if(charge?.status!=='active'||typeof charge.brCode!=='string'
-      ||charge.brCode.length<30||!Number.isFinite(Date.parse(charge.expiresAt))
-      ||Date.parse(charge.expiresAt)<=Date.now()){
-      await merchantRefresh({silent:true});
-      throw new Error('O Pix não ficou disponível para pagamento. Atualize o financeiro e gere um novo código.');
-    }
-    await merchantRefresh({silent:true});
-    if(!globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId))
-      throw new Error('Pix alterado. Atualize o financeiro.');
-    return result;
-  }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
-    throw error;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
+  const scope=merchantBillingScope();
+  await merchantLoadBillingFlow();
+  if(scope!==merchantBillingScope())throw new Error('O acesso da revenda mudou. Confira antes de gerar Pix.');
+  return globalThis.merchantCreateBillingPixImpl({planKey,statementId,refundRecoveryId});
 }
 
 async function merchantRequestBillingPackageLive(planKey,reference){

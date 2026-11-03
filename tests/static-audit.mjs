@@ -42,6 +42,7 @@ const growth=read('js/growth.js');
 const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
+const merchantBillingFlow=read('js/merchant-billing-flow.js');
 const pinnedSdk=backend.match(/const SUPABASE_BROWSER_URL='([^']+)'/)?.[1];
 const cachedSdk=sw.match(/const AUTH_SDK_URL='([^']+)'/)?.[1];
 assert.ok(pinnedSdk&&pinnedSdk===cachedSdk,'offline PWA may cache only the exact SRI-pinned public Auth SDK');
@@ -881,7 +882,7 @@ assert.ok(merchant.includes('EndToEndId')&&merchant.includes('EndToEndId bancár
 assert.ok(merchantOpsBillingSource.includes('request-billing-package')&&merchantOpsBillingSource.includes('notify-billing-payment')&&merchantOpsBillingSource.includes('merchant_billing_request_action'),'portal da revenda precisa criar avisos financeiros pela autoridade idempotente');
 assert.ok(merchantOpsBillingSource.includes('MERCHANT_FINANCE_PERMISSION_DENIED')&&merchantOpsBillingSource.includes('canManage(role)'),'somente owner/manager pode solicitar pacote ou informar pagamento');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_payment_requests')&&merchantOrdersBillingSource.includes('paymentRequests:'),'snapshot financeiro da revenda precisa expor suas solicitações recentes');
-assert.ok(backend.includes('merchantRequestBillingPackageLive')&&backend.includes('merchantNotifyBillingPaymentLive')&&backend.includes("liveIdempotency('merchant-billing')"),'cliente da revenda precisa enviar solicitações financeiras com retry idempotente');
+assert.ok(backend.includes('merchantRequestBillingPackageLive')&&backend.includes('merchantNotifyBillingPaymentLive')&&merchantBillingFlow.includes("liveIdempotency('merchant-billing')"),'cliente da revenda precisa enviar solicitações financeiras com retry idempotente');
 assert.ok(merchant.includes('Informar pagamento e solicitar ativação')&&merchant.includes('merchantRequestBillingPackageFromUi'),'UI da revenda precisa permitir solicitar pacote sem criar crédito');
 assert.ok(merchant.includes('Informar pagamento')&&merchant.includes('merchantNotifyStatementPaidFromUi'),'UI da revenda precisa permitir informar pagamento de fechamento');
 assert.ok(merchant.includes('Pix com conciliação automática.')&&merchant.includes('crédito ou quitação só acontecem após a confirmação financeira'),'UI precisa deixar claro que gerar/receber Pix não movimenta crédito sem confirmação financeira');
@@ -1053,7 +1054,7 @@ assert.ok(
 assert.ok(adminOpsSource.includes('WOOVI_APP_ID')&&adminOpsSource.includes('chargeReady')&&adminOpsSource.includes('receiveReady'),'PSP LIVE precisa exigir tanto criação de cobrança quanto webhook de recebimento');
 assert.ok(adminOpsSource.includes('providerCharges:billingProviderCharges.data??[]')&&adminOpsSource.includes('provider_correlation_id'),'Financeiro precisa receber cobranças geradas e correlação de eventos');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_provider_charges')&&merchantOrdersBillingSource.includes('pixProviderReady')&&merchantOrdersBillingSource.includes('pixCharge:'),'snapshot da revenda precisa entregar QR/charge somente a owner/manager');
-assert.ok(backend.includes('merchantCreateBillingPixLive')&&backend.includes("liveIdempotency('merchant-billing-pix')")&&backend.includes("'merchant-billing-pix'"),'cliente da revenda precisa gerar cobrança por Edge idempotente dedicada');
+assert.ok(backend.includes('merchantCreateBillingPixLive')&&merchantBillingFlow.includes("liveIdempotency('merchant-billing-pix')")&&merchantBillingFlow.includes("'merchant-billing-pix'"),'cliente da revenda precisa gerar cobrança por Edge idempotente dedicada');
 assert.ok(merchant.includes('Gerar Pix e solicitar ativação')&&merchant.includes('Pagar com Pix')&&merchant.includes('Pix copia e cola')&&merchant.includes('merchantCopyBillingPixCode'),'portal deve tornar o Pix gerado o caminho principal sem remover fallback manual');
 assert.ok(admin.includes('Cobranças Pix geradas pelo TAMÃO')&&admin.includes('provider_charge_correlation_and_amount'),'Financeiro precisa distinguir cobrança correlacionada do fallback manual');
 assert.ok(pspHealthEventDedup.includes("'superseded'")&&pspHealthEventDedup.includes('sibling_provider_event_same_transaction'),'v1.91 precisa ter estado terminal explícito para notificação irmã benigna do PSP');
@@ -1294,7 +1295,7 @@ assert.ok(admin.includes('Refund ligado não possui obrigação de recuperação
 assert.ok(merchantBillingPixSource.includes('refundRecoveryId')&&merchantBillingPixSource.includes('REFUND_RECOVERY_NOT_PAYABLE'),'Edge Pix precisa aceitar e traduzir obrigação de recuperação');
 assert.ok(providerCancelMerchantOps.includes('notify-refund-recovery-payment')&&providerCancelMerchantOps.includes('submit-refund-recovery'),'fallback manual da recuperação precisa usar merchant-ops e a mesma autoridade financeira');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_refund_recoveries')&&merchantOrdersBillingSource.includes('refundRecoveries:'),'snapshot financeiro da revenda precisa carregar suas obrigações sem expor tabela ao browser');
-assert.ok(backend.includes('merchantNotifyRefundRecoveryPaidLive')&&backend.includes('refundRecoveryId:recovery'),'cliente precisa suportar Pix e fallback manual para recuperação');
+assert.ok(backend.includes('merchantNotifyRefundRecoveryPaidLive')&&merchantBillingFlow.includes('refundRecoveryId:recovery'),'cliente precisa suportar Pix e fallback manual para recuperação');
 assert.ok(merchant.includes('Pagar recuperação com Pix')&&merchant.includes('referência administrativa sozinha não encerra o caso')&&merchant.includes('merchantCreateRefundRecoveryPixFromUi'),'portal da revenda precisa apresentar a obrigação como pagamento real, não anotação');
 assert.ok(adminOpsSource.includes('billingRefundRecoveriesPromise')&&adminOpsSource.includes('refund_recovery_id'),'Financeiro precisa receber obrigação + vínculo da solicitação');
 assert.ok(admin.includes('Obrigação de recuperação')&&admin.includes('Refund ligado só pode ser recuperado por pagamento aprovado')&&admin.includes('Reconhecer excesso do PSP'),'admin precisa exigir pagamento para exposição real e permitir apenas reconhecimento explícito do excesso sem dívida');

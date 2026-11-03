@@ -692,6 +692,8 @@ jobs:
         run: node tests/merchant-direct-onboarding-v1-410.mjs
       - name: Pix BR Code format and expired-code safeguards
         run: node tests/merchant-pix-brcode-validity.mjs
+      - name: Merchant financial requests and Pix original readback across accounts #493
+        run: node tests/merchant-finance-exact-readback-v1-493.mjs
       - name: Mercado Pago cancellation requires individual pending Pix proof
         run: node tests/provider-charge-cancel-payment-evidence-v1-493.mjs
       - name: Admin financial lab and safe sandbox contract
