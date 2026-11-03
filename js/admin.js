@@ -1732,7 +1732,7 @@ async function adminAuditSearch(){
   if(adminRuntime.auditPending||!adminReady()||!adminRoleCanSection('audit'))return;
   const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
   const query=document.getElementById('admin-audit-query')?.value.trim()||'';
-  const action=document.getElementById('admin-audit-action')?.value.trim()||'';
+  const auditAction=document.getElementById('admin-audit-action')?.value.trim()||'';
   const targetType=document.getElementById('admin-audit-target')?.value.trim()||'';
   const from=document.getElementById('admin-audit-from')?.value||'';
   const to=document.getElementById('admin-audit-to')?.value||'';
@@ -1742,7 +1742,7 @@ async function adminAuditSearch(){
   const current=()=>adminRuntime.auditRequest===ticket&&
     adminSensitiveReadCurrent(session,role)&&adminRoleCanSection('audit');
   try{
-    const result=await adminInvoke({action:'audit-search',query,action:action||null,targetType:targetType||null,from:from||null,to:to||null,limit:200});
+    const result=await adminInvoke({action:'audit-search',query,auditAction:auditAction||null,targetType:targetType||null,from:from||null,to:to||null,limit:200});
     if(current())adminRuntime.auditResults=Array.isArray(result?.results)?result.results:[];
   }catch(e){
     if(current())adminRuntime.error=String(e?.message||e);
