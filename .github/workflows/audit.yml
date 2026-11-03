@@ -47,6 +47,8 @@ jobs:
         run: node tests/customer-active-order-switch-v1-493.mjs
       - name: Buyer decision exact-order cancellation and requote lifecycle
         run: node tests/customer-action-exact-order-v1-493.mjs
+      - name: Buyer cancellation and requote applied readback and account authority
+        run: node tests/customer-decision-readback-auth-v1-493.mjs
       - name: Buyer direct seller-payment verified handoff and ambiguous recovery
         run: node tests/customer-direct-payment-handoff-v1-493.mjs
       - name: V1.493 customer session change must purge private orders and balances
