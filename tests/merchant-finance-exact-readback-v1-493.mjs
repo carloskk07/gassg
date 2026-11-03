@@ -228,6 +228,69 @@ for(const patch of [
 assert.match(orders,/\.limit\(30\)/,'finance sample bounded; absent rows are not proof');
 assert.match(billing,/merchant_billing_request_action/,'existing idempotent RPC remains authority');
 assert.match(pixHandler,/merchant_billing_pix_charge_prepare_provider/);
+
+// The first financial click loads the module only in the partner portal.
+// Changing operator while the JS is in flight must not execute the old click
+// under another user's credentials, even if both belong to the same merchant.
+const loaderStart=backend.indexOf('let merchantBillingFlowLoader=null;');
+const loaderEnd=backend.indexOf('async function merchantRequestBillingPackageLive(',loaderStart);
+assert.ok(loaderStart>0&&loaderEnd>loaderStart);
+const loaderScript=backend.slice(loaderStart,loaderEnd);
+new vm.Script(loaderScript);
+function loaderFixture(){
+ const scripts=[],called=[];
+ const rt={session:{user:{id:'actor-A'}},merchant:{merchantId:M},accessEpoch:7};
+ const ctx=vm.createContext({
+  merchantRuntime:rt,
+  document:{
+   createElement:()=>({}),
+   querySelector:()=>({src:'https://parceiro.tamao.com.br/js/merchant.js?v=latest-verified'}),
+   head:{appendChild:script=>scripts.push(script)}
+  },
+  location:{href:'https://parceiro.tamao.com.br/'},
+  URL,encodeURIComponent,Error,String
+ });
+ ctx.globalThis=ctx;
+ vm.runInContext(loaderScript+'\nthis.lazy={request:merchantBillingRequestLive,pix:merchantCreateBillingPixLive};',ctx);
+ return {ctx,rt,scripts,called};
+}
+{
+ const x=loaderFixture();
+ const pending=x.ctx.lazy.request('request-billing-package',{planKey:'credit_300'});
+ assert.equal(x.scripts.length,1,'script requested after click, not on initial page');
+ assert.match(x.scripts[0].src,/merchant-billing-flow\.js\?v=latest-verified/);
+ x.ctx.merchantBillingRequestImpl=async()=>{x.called.push('old click');return base;};
+ x.ctx.merchantCreateBillingPixImpl=async()=>pix;
+ x.rt.session={user:{id:'actor-B'}};
+ x.scripts[0].onload();
+ await assert.rejects(pending,/acesso da revenda mudou/i);
+ assert.equal(x.called.length,0);
+}
+{
+ const x=loaderFixture();
+ const p1=x.ctx.lazy.request('request-billing-package',{planKey:'credit_300'});
+ const p2=x.ctx.lazy.pix({planKey:'credit_300'});
+ assert.equal(x.scripts.length,1,'concurrent first clicks share one JS download');
+ x.ctx.merchantBillingRequestImpl=async()=>{x.called.push('request');return base;};
+ x.ctx.merchantCreateBillingPixImpl=async()=>{x.called.push('pix');return pix;};
+ x.scripts[0].onload();
+ assert.equal((await p1).paymentRequestId,REQUEST);
+ assert.equal((await p2).paymentRequestId,REQUEST);
+ assert.equal(x.called.length,2);
+}
+{
+ const x=loaderFixture();
+ const fail=x.ctx.lazy.request('request-billing-package',{planKey:'credit_300'});
+ x.scripts[0].onerror();
+ await assert.rejects(fail,/carregar a conferência financeira/);
+ const retry=x.ctx.lazy.request('request-billing-package',{planKey:'credit_300'});
+ assert.equal(x.scripts.length,2,'download failure can be retried safely');
+ x.ctx.merchantBillingRequestImpl=async()=>base;
+ x.ctx.merchantCreateBillingPixImpl=async()=>pix;
+ x.scripts[1].onload();
+ assert.equal((await retry).paymentRequestId,REQUEST);
+}
+
 assert.match(moduleSource,/if\(!fresh\|\|merchantRuntime\.billing!==fresh\.billing/);
 assert.match(backend,/merchantLoadBillingFlow/);
 assert.match(read('scripts/build-live-portals.mjs'),/merchant-billing-flow\.js/);
