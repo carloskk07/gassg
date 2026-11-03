@@ -5156,32 +5156,43 @@ function adminFinanceLabLiveOriginalTicketUrl(order,status=null,now=Date.now()){
 }
 
 // REAL Pix is operator-initiated only. No automatic payment or credit.
+// A financial PSP result belongs only to the authenticated superadmin and
+// the exact laboratory state that started the request. No stale response
+// may restore an old Pix QR, error or copy confirmation in another session.
+function adminFinanceLabLiveActorCurrent(lab,actor){
+  return !!actor&&adminReady()&&adminCurrentRole()==='superadmin'&&
+    adminRuntime.financeLab===lab&&
+    String(adminRuntime.session?.user?.id||'')===actor;
+}
 async function adminFinanceLabLiveReadinessFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
   const actor=String(adminRuntime.session?.user?.id||'');
-  if(lab.liveReadinessLoading||!actor)return;
+  if(lab.liveReadinessLoading||!adminFinanceLabLiveActorCurrent(lab,actor))return;
   lab.liveReadinessLoading=true;lab.liveError=null;render();
   try{
     const data=await adminInvoke({action:'finance-lab-live-readiness'});
-    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==actor)return;
+    if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
     if(data?.ok!==true||data.mode!=='live'||data.readOnly!==true
       ||!Array.isArray(data.recent))
       throw new Error('Histórico auditado do Pix real indisponível.');
     lab.liveReadiness=data;
   }catch(e){
-    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===actor){
+    if(adminFinanceLabLiveActorCurrent(lab,actor)){
       lab.liveReadiness=null;lab.liveError=String(e?.message||e);
     }
   }finally{
-    lab.liveReadinessLoading=false;
-    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===actor)render();
+    if(adminFinanceLabLiveActorCurrent(lab,actor)){
+      lab.liveReadinessLoading=false;
+      render();
+    }
   }
 }
 async function adminFinanceLabLiveCreateFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
-  if(lab.livePending)return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceLabLiveActorCurrent(lab,actor)||lab.livePending)return;
   if(lab.liveReadiness?.providerReady!==true||lab.liveReadiness.accountBound!==true
     ||lab.liveReadiness.remoteWebhookVerified!==true){
     lab.liveError='Verifique a conta e a assinatura do webhook antes de emitir Pix real.';
@@ -5193,7 +5204,7 @@ async function adminFinanceLabLiveCreateFromUi(){
     render();return;
   }
   const response=globalThis.prompt?.('Este Pix será REAL, pagável por bancos. Confira o beneficiário no aplicativo bancário. Digite GERAR PIX REAL para autorizar a EMISSÃO:');
-  if(response!=='GERAR PIX REAL')return;
+  if(response!=='GERAR PIX REAL'||!adminFinanceLabLiveActorCurrent(lab,actor))return;
   if(lab.liveAmountCents!==cents||!lab.liveKey){
     lab.liveKey=adminIdempotency('finance-lab-live-pix');lab.liveAmountCents=cents;
   }
@@ -5201,6 +5212,7 @@ async function adminFinanceLabLiveCreateFromUi(){
   try{
     const data=await adminInvoke({action:'finance-lab-live-pix',amountCents:cents,
       authorization:'GERAR_PIX_REAL'},{idempotencyKey:lab.liveKey});
+    if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
     if(data?.ok!==true||data.mode!=='live'||data.amountCents!==cents
       ||!data.orderId||!data.brCode||data.credited!==false||data.settlementVerified!==false)
       throw new Error('A emissão do Pix real não foi confirmada. Confira a situação antes de repetir.');
@@ -5208,16 +5220,28 @@ async function adminFinanceLabLiveCreateFromUi(){
     adminFinanceLabLiveScheduleExpiry(lab.live);
     adminFinanceLabLoadQrEncoder().catch(()=>{});
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
-  }catch(e){lab.liveError=String(e?.message||e);}
-  finally{lab.livePending=false;render();}
+  }catch(e){
+    if(adminFinanceLabLiveActorCurrent(lab,actor))lab.liveError=String(e?.message||e);
+  }finally{
+    if(adminFinanceLabLiveActorCurrent(lab,actor)){lab.livePending=false;render();}
+  }
 }
 async function adminFinanceLabLiveRecoverFromUi(orderId=''){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
-  if(lab.livePending)return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceLabLiveActorCurrent(lab,actor)||lab.livePending)return;
   lab.livePending=true;lab.liveError=null;render();
   try{
     const data=await adminInvoke({action:'finance-lab-live-recover',...(orderId?{orderId}:{})});
+    if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
+    // Never install a recovered PSP order different from the identifier
+    // explicitly requested by the operator. Even read-only endpoints may
+    // return a stale/contradictory payload after a network interruption.
+    if(data?.found&&(
+      !/^[A-Za-z0-9_-]{10,120}$/.test(String(data.orderId||''))||
+      orderId&&data.orderId!==orderId))
+      throw new Error('A consulta retornou outra ordem. Confira o ID antes de prosseguir.');
     if(data?.ok!==true||data.mode!=='live'||data.credited!==false)
       throw new Error('Não foi possível conferir a emissão existente no Mercado Pago.');
     if(!data.found){
@@ -5240,8 +5264,11 @@ async function adminFinanceLabLiveRecoverFromUi(orderId=''){
     }else{
       throw new Error('O Pix existente não passou em todas as verificações.');
     }
-  }catch(e){lab.liveError=String(e?.message||e);}
-  finally{lab.livePending=false;render();}
+  }catch(e){
+    if(adminFinanceLabLiveActorCurrent(lab,actor))lab.liveError=String(e?.message||e);
+  }finally{
+    if(adminFinanceLabLiveActorCurrent(lab,actor)){lab.livePending=false;render();}
+  }
 }
 
 async function adminFinanceLabLiveRecoverByIdFromUi(){
@@ -5257,10 +5284,13 @@ async function adminFinanceLabLiveRecoverByIdFromUi(){
 async function adminFinanceLabLiveCheckFromUi(orderId){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
-  if(lab.livePending||!/^[A-Za-z0-9_-]{10,120}$/.test(String(orderId||'')))return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceLabLiveActorCurrent(lab,actor)||lab.livePending||
+    !/^[A-Za-z0-9_-]{10,120}$/.test(String(orderId||'')))return;
   lab.livePending=true;lab.liveError=null;render();
   try{
     const data=await adminInvoke({action:'finance-lab-live-check',orderId});
+    if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
     if(data?.ok!==true||data.mode!=='live'||data.orderId!==orderId
       ||data.credited!==false||data.settlementVerified!==false)
       throw new Error('A ordem real não foi comprovada pelo provedor.');
@@ -5278,12 +5308,17 @@ async function adminFinanceLabLiveCheckFromUi(orderId){
       lab.live=null;
       adminFinanceLabLiveScheduleExpiry(null);
     }
-  }catch(e){lab.liveError=String(e?.message||e);}
-  finally{lab.livePending=false;render();}
+  }catch(e){
+    if(adminFinanceLabLiveActorCurrent(lab,actor))lab.liveError=String(e?.message||e);
+  }finally{
+    if(adminFinanceLabLiveActorCurrent(lab,actor)){lab.livePending=false;render();}
+  }
 }
 async function adminFinanceLabLiveCopyFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
   const order=lab.live;
   if(!adminFinanceLabLiveIsPayable(order,lab.liveStatus)){
     toast('Pix não está mais pagável ou vence em menos de um minuto. Consulte a ordem antes de copiar.');
@@ -5297,8 +5332,14 @@ async function adminFinanceLabLiveCopyFromUi(){
   if(Date.parse(String(order.expiresAt||''))<=Date.now()){
     toast('Pix vencido. Não copie o código.');return;
   }
-  try{await navigator.clipboard.writeText(order.brCode);toast('Pix REAL copiado. Verifique beneficiário e valor no banco.');}
-  catch{toast('Não foi possível copiar o código Pix.');}
+  try{
+    await navigator.clipboard.writeText(order.brCode);
+    if(adminFinanceLabLiveActorCurrent(lab,actor)&&lab.live===order)
+      toast('Pix REAL copiado. Verifique beneficiário e valor no banco.');
+  }catch{
+    if(adminFinanceLabLiveActorCurrent(lab,actor))
+      toast('Não foi possível copiar o código Pix.');
+  }
 }
 
 function adminFinanceLabLiveHistoryLabel(item){
