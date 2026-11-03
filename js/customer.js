@@ -2130,9 +2130,9 @@ function liveTracking(){
         : onlinePayment.status==='review_required'
           ? '<div class="notice danger" style="margin-top:14px"><strong>Pagamento em revisão.</strong><br>O pedido fica protegido até o TAMÃO confirmar o estado diretamente no provedor.</div>'
           : onlinePayment.checkoutUrl
-            ? `<div class="notice" style="margin-top:14px"><strong>Pagamento direto à revenda disponível.</strong><br>O valor vai direto para a conta Mercado Pago do parceiro; o TAMÃO apenas valida a transação.<div class="order-actions"><button class="primary small" onclick="liveStartMerchantPayment()" ${liveRuntime.actionPending?'disabled':''}>Continuar pagamento</button></div></div>`
+            ? `<div class="notice" style="margin-top:14px"><strong>Pagamento direto à revenda disponível.</strong><br>O valor vai direto para a conta Mercado Pago do parceiro; o TAMÃO apenas valida a transação.<div class="order-actions"><button class="primary small" data-order-id="${esc(o.orderId)}" onclick="liveStartMerchantPayment(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Continuar pagamento</button></div></div>`
             : onlinePayment.canStart===true
-              ? `<div class="notice" style="margin-top:14px"><strong>Pague direto à revenda.</strong><br>Você será levado ao Mercado Pago do parceiro. O TAMÃO não recebe nem repassa o valor do pedido.<div class="order-actions"><button class="primary small" onclick="liveStartMerchantPayment()" ${liveRuntime.actionPending?'disabled':''}>Pagar com Mercado Pago</button></div></div>`
+              ? `<div class="notice" style="margin-top:14px"><strong>Pague direto à revenda.</strong><br>Você será levado ao Mercado Pago do parceiro. O TAMÃO não recebe nem repassa o valor do pedido.<div class="order-actions"><button class="primary small" data-order-id="${esc(o.orderId)}" onclick="liveStartMerchantPayment(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Pagar com Mercado Pago</button></div></div>`
               : '<div class="notice" style="margin-top:14px"><strong>Aguardando confirmação do pagamento.</strong><br>Atualize o pedido para consultar novamente o estado informado pelo provedor.</div>'
     : '';
 
