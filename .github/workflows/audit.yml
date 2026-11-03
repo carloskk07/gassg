@@ -180,6 +180,8 @@ jobs:
         run: node tests/admin-summary-transport-recovery.mjs
       - name: Admin session isolation across logout and late protected reads #493
         run: node tests/admin-session-race-v1-493.mjs
+      - name: Admin private search detail audit and diagnostics session isolation #493
+        run: node tests/admin-sensitive-read-isolation-v1-493.mjs
       - name: Admin pending Pix provider proof batch (read-only and isolated)
         run: node tests/admin-finance-provider-batch-v1-493.mjs
       - name: Admin email provider refusal never claims successful delivery

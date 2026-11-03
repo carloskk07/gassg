@@ -381,6 +381,10 @@ async function adminSignOut(){
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   adminRuntime.searchPending=false;
+  adminRuntime.searchRequest=null;
+  adminRuntime.detailRequest=null;
+  adminRuntime.healthRequest=null;
+  adminRuntime.auditRequest=null;
   adminRuntime.detail=null;
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
@@ -442,8 +446,11 @@ async function adminRefresh({silent=false}={}){
       ()=>adminInvoke({action:'summary'})
     );
     if(seq!==adminRuntime.refreshSeq)return data;
+    const previousRole=adminRuntime.data?.currentAdmin?.admin_role;
     adminRuntime.data=data;
     adminRuntime.status='ready';
+    if(previousRole&&previousRole!==data?.currentAdmin?.admin_role)
+      adminPurgeSensitiveReads();
     // Saved tabs can outlive a role change: never leave a read-only user
     // on a tab whose server data is now forbidden by the RBAC policy.
     if(!adminRoleCanSection(adminRuntime.section)){
@@ -471,6 +478,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminPurgeSensitiveReads();
   adminRuntime.helpReportPager=null;
   adminRuntime.supportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
@@ -498,6 +506,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+      adminPurgeSensitiveReads();
   adminRuntime.helpReportPager=null;
   adminRuntime.supportPager=null;
       adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
@@ -593,27 +602,56 @@ function adminLoginFromUi(){
 }
 
 
+function adminPurgeSensitiveReads(){
+  adminRuntime.searchRequest=null;
+  adminRuntime.searchPending=false;
+  adminRuntime.searchQuery='';
+  adminRuntime.searchResults=[];
+  adminRuntime.detailRequest=null;
+  adminRuntime.detailPending=false;
+  adminRuntime.detail=null;
+  adminRuntime.auditRequest=null;
+  adminRuntime.auditPending=false;
+  adminRuntime.auditResults=null;
+  adminRuntime.healthRequest=null;
+  adminRuntime.healthPending=false;
+  adminRuntime.health=null;
+}
+function adminSensitiveReadCurrent(session,role){
+  return !!session?.user?.id&&adminReady()&&
+    adminRuntime.session===session&&adminCurrentRole()===role;
+}
 async function adminRunSearch(query){
   const value=String(query||'').trim();
   if(value.length<2){
+    adminRuntime.searchRequest=null;
+    adminRuntime.searchPending=false;
     adminRuntime.searchQuery='';
     adminRuntime.searchResults=[];
     render();
     return;
   }
-  if(adminRuntime.searchPending)return;
+  if(adminRuntime.searchPending||!adminReady())return;
+  const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
+  adminRuntime.searchRequest=ticket;
   adminRuntime.searchPending=true;
   adminRuntime.searchQuery=value;
   render();
+  const current=()=>adminRuntime.searchRequest===ticket&&
+    adminRuntime.searchQuery===value&&adminSensitiveReadCurrent(session,role);
   try{
     const result=await adminInvoke({action:'search',query:value});
+    if(!current())return;
     adminRuntime.searchResults=Array.isArray(result?.results)?result.results:[];
   }catch(error){
+    if(!current())return;
     adminRuntime.searchResults=[];
     adminRuntime.error=String(error?.message||error||'Falha na busca administrativa');
   }finally{
-    adminRuntime.searchPending=false;
-    render();
+    if(adminRuntime.searchRequest===ticket){
+      adminRuntime.searchPending=false;
+      if(current())render();
+    }
   }
 }
 function adminSearchFromUi(){
@@ -621,6 +659,8 @@ function adminSearchFromUi(){
   return adminRunSearch(input?.value||'');
 }
 function adminClearSearch(){
+  adminRuntime.searchRequest=null;
+  adminRuntime.searchPending=false;
   adminRuntime.searchQuery='';
   adminRuntime.searchResults=[];
   render();
@@ -658,17 +698,32 @@ function adminOpenSearchResult(type,id){
   toast('Registro localizado na área de parceiros e solicitações');
 }
 async function adminOpenEntity(entityType,entityId){
-  if(adminRuntime.detailPending)return;
+  if(adminRuntime.detailPending||!adminReady())return;
+  const session=adminRuntime.session,role=adminCurrentRole();
+  const type=String(entityType),id=String(entityId),ticket={};
+  adminRuntime.detailRequest=ticket;
   adminRuntime.detailPending=true;
-  adminRuntime.detail={loading:true,type:String(entityType),id:String(entityId)};
+  adminRuntime.detail={loading:true,type,id};
   render();
+  const current=()=>adminRuntime.detailRequest===ticket&&
+    adminSensitiveReadCurrent(session,role)&&
+    adminRuntime.detail?.loading===true&&
+    adminRuntime.detail.type===type&&adminRuntime.detail.id===id;
   try{
-    adminRuntime.detail=await adminInvoke({action:'entity-detail',entityType,entityId});
+    const result=await adminInvoke({action:'entity-detail',entityType:type,entityId:id});
+    if(!current())return;
+    if(!result||result.type!==type||
+       (result.id!==id&&!(type==='order'&&result.order?.public_code===id)))
+      throw new Error('A consulta retornou outro registro. Atualize e tente novamente.');
+    adminRuntime.detail=result;
   }catch(error){
-    adminRuntime.detail={error:String(error?.message||error||'Não foi possível carregar os detalhes.'),type:String(entityType),id:String(entityId)};
+    if(!current())return;
+    adminRuntime.detail={error:String(error?.message||error||'Não foi possível carregar os detalhes.'),type,id};
   }finally{
-    adminRuntime.detailPending=false;
-    render();
+    if(adminRuntime.detailRequest===ticket){
+      adminRuntime.detailPending=false;
+      if(adminSensitiveReadCurrent(session,role))render();
+    }
   }
 }
 // Admin 360 is consultative. Return to the existing audited review controls
@@ -698,20 +753,30 @@ function adminMerchantReturnToControls(merchantId){
   return true;
 }
 function adminCloseDetail(){
+  adminRuntime.detailRequest=null;
+  adminRuntime.detailPending=false;
   adminRuntime.detail=null;
   render();
 }
 async function adminLoadSystemHealth({force=false}={}){
-  if(adminRuntime.healthPending||(!force&&adminRuntime.health))return;
+  if(!adminReady()||!adminRoleCanSection('system')||
+     adminRuntime.healthPending||(!force&&adminRuntime.health))return;
+  const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
+  adminRuntime.healthRequest=ticket;
   adminRuntime.healthPending=true;
   render();
+  const current=()=>adminRuntime.healthRequest===ticket&&
+    adminSensitiveReadCurrent(session,role)&&adminRoleCanSection('system');
   try{
-    adminRuntime.health=await adminInvoke({action:'system-health'});
+    const result=await adminInvoke({action:'system-health'});
+    if(current())adminRuntime.health=result;
   }catch(error){
-    adminRuntime.health={status:'critical',error:String(error?.message||error||'Diagnóstico indisponível'),checkedAt:new Date().toISOString()};
+    if(current())adminRuntime.health={status:'critical',error:String(error?.message||error||'Diagnóstico indisponível'),checkedAt:new Date().toISOString()};
   }finally{
-    adminRuntime.healthPending=false;
-    render();
+    if(adminRuntime.healthRequest===ticket){
+      adminRuntime.healthPending=false;
+      if(current())render();
+    }
   }
 }
 
@@ -1664,22 +1729,28 @@ function adminIncidentCenter(d){
   </section>`;
 }
 async function adminAuditSearch(){
-  if(adminRuntime.auditPending)return;
+  if(adminRuntime.auditPending||!adminReady()||!adminRoleCanSection('audit'))return;
+  const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
   const query=document.getElementById('admin-audit-query')?.value.trim()||'';
-  const action=document.getElementById('admin-audit-action')?.value.trim()||'';
+  const auditAction=document.getElementById('admin-audit-action')?.value.trim()||'';
   const targetType=document.getElementById('admin-audit-target')?.value.trim()||'';
   const from=document.getElementById('admin-audit-from')?.value||'';
   const to=document.getElementById('admin-audit-to')?.value||'';
+  adminRuntime.auditRequest=ticket;
   adminRuntime.auditPending=true;
   render();
+  const current=()=>adminRuntime.auditRequest===ticket&&
+    adminSensitiveReadCurrent(session,role)&&adminRoleCanSection('audit');
   try{
-    const result=await adminInvoke({action:'audit-search',query,action:action||null,targetType:targetType||null,from:from||null,to:to||null,limit:200});
-    adminRuntime.auditResults=result?.results||[];
+    const result=await adminInvoke({action:'audit-search',query,auditAction:auditAction||null,targetType:targetType||null,from:from||null,to:to||null,limit:200});
+    if(current())adminRuntime.auditResults=Array.isArray(result?.results)?result.results:[];
   }catch(e){
-    adminRuntime.error=String(e?.message||e);
+    if(current())adminRuntime.error=String(e?.message||e);
   }finally{
-    adminRuntime.auditPending=false;
-    render();
+    if(adminRuntime.auditRequest===ticket){
+      adminRuntime.auditPending=false;
+      if(current())render();
+    }
   }
 }
 function adminAuditView(d){

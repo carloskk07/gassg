@@ -5,13 +5,13 @@ import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
 const audit=fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8');
 const take=name=>{
-  const match=source.match(new RegExp('async function '+name+'\\('));
+  const match=source.match(new RegExp('(?:async )?function '+name+'\\('));
   assert.ok(match,'missing '+name);
   const end=source.indexOf('\n}',match.index);
   assert.ok(end>match.index,'unterminated '+name);
   return source.slice(match.index,end+2);
 };
-const isolated=['adminAccessToken','adminSignOut','adminRefresh'].map(take).join('\n');
+const isolated=['adminAccessToken','adminSignOut','adminRefresh','adminPurgeSensitiveReads'].map(take).join('\n');
 new vm.Script(isolated,{filename:'admin-account-isolation'});
 
 function deferred(){
