@@ -262,6 +262,7 @@ function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 function liveForgetAccount(){
   globalThis.customerSupportReplayReset?.();
   liveRuntime.customerDecisionToken=null;
+  liveRuntime.customerFeedbackToken=null;
   liveRuntime.actionPending=false;
   if(liveRuntime.status==='loading')return;
   liveRuntime.status='loading';
@@ -995,19 +996,11 @@ async function liveCustomerAction(action,orderId){
 }
 
 async function liveSubmitFeedback(rating,tags=[]){
-  const order=liveRuntime.order;
-  if(!order||order.status!=='SETTLED')throw new Error('A avaliação fica disponível após a conclusão');
-  const value=Number(rating);
-  if(![1,5].includes(value))throw new Error('Avaliação inválida');
-  const result=await retryAmbiguousOnce(()=>liveInvoke('customer-care',{
-    action:'feedback',
-    orderId:order.orderId,
-    rating:value,
-    tags:Array.isArray(tags)?tags:[]
-  }));
-  await liveGetOrder(order.orderId,{silent:true});
-  render();
-  return result;
+  if(!globalThis.customerFeedbackConfirmSubmit)
+    await liveCustomerScript('customer-feedback-confirmation');
+  return globalThis.customerFeedbackConfirmSubmit(rating,tags,{
+    liveRuntime,liveReady,isAmbiguousTransportError,liveInvoke,liveGetOrder,render
+  });
 }
 
 async function liveOpenSupportCase(category,message=''){

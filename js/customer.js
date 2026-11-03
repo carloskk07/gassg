@@ -1975,6 +1975,9 @@ function customerSupportCategoryChanged(){
     :'Descreva o que aconteceu. O registro ficará vinculado a este pedido.';
 }
 function liveCustomerCareBlock(o){
+  const feedbackToken=globalThis.liveRuntime?.customerFeedbackToken;
+  const feedbackPending=feedbackToken?.actor===globalThis.liveRuntime?.session?.user?.id&&
+    feedbackToken?.orderId===o.orderId;
   const evidence=customerTrackingReadEvidence(o,{
     checkedAt:globalThis.liveRuntime?.orderCheckedAt,
     checkedId:globalThis.liveRuntime?.orderCheckedId,
@@ -1990,8 +1993,10 @@ function liveCustomerCareBlock(o){
       :'<div class="card flat" style="margin-top:14px"><strong>Tudo certo com a entrega?</strong>'+
         '<p class="muted tiny">Uma resposta curta ajuda a melhorar a seleção de parceiros.</p>'+
         '<div class="order-actions">'+
-        '<button class="secondary small" onclick="submitDeliveryFeedbackFromUi(5)">👍 Tudo certo</button>'+
-        '<button class="ghost small" onclick="submitDeliveryFeedbackFromUi(1)">👎 Tive problema</button>'+
+        '<button class="secondary small" onclick="submitDeliveryFeedbackFromUi(5)" '+
+          (feedbackPending?'disabled':'')+'>👍 Tudo certo</button>'+
+        '<button class="ghost small" onclick="submitDeliveryFeedbackFromUi(1)" '+
+          (feedbackPending?'disabled':'')+'>👎 Tive problema</button>'+
         '</div></div>'
     :'';
   return feedback+'<div class="card flat support-card customer-care-panel" id="customer-care" style="margin-top:14px">'+
@@ -2022,8 +2027,9 @@ function liveCustomerCareBlock(o){
 
 async function submitDeliveryFeedbackFromUi(rating){
   try{
-    await liveSubmitFeedback(rating);
-    toast(rating===5?'Obrigado pela avaliação':'Avaliação registrada. Se precisar, abra um atendimento abaixo.');
+    const confirmed=await liveSubmitFeedback(rating);
+    if(confirmed===true)
+      toast(rating===5?'Obrigado pela avaliação':'Avaliação registrada. Se precisar, abra um atendimento abaixo.');
   }catch(error){toast(String(error?.message||error))}
 }
 async function openSupportCaseFromUi(){
