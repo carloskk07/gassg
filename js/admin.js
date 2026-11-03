@@ -9795,12 +9795,106 @@ async function adminResolveDailyStatement(merchantId,statementId,billingAction){
   adminFinanceDecisionMessage(outcome,'Fechamento diário abonado e confirmado na consulta financeira');
 }
 
+// A summary contains only OPEN items. A resolved item disappears after a
+// successful action, so approval must be proven through an exact order detail,
+// never through absence from the pending queue or a successful HTTP ACK.
+function adminFinancialLedgerRecord(source,kind,targetId){
+  if(kind==='platform_receivable')
+    return (source?.receivables||[]).find(x=>x.order_id===targetId)||null;
+  if(kind==='cashback_reimbursement')
+    return (source?.cashbackReimbursements||[]).find(x=>x.order_id===targetId)||null;
+  if(kind==='settlement_adjustment')
+    return (source?.adjustments||[]).find(x=>x.id===targetId)||null;
+  return null;
+}
+function adminFinancialDetailRecord(detail,kind,targetId,orderId){
+  if(detail?.type!=='order'||detail.id!==orderId||
+     detail.order?.id!==orderId)return null;
+  const finance=detail.finance||{};
+  if(kind==='platform_receivable')return finance.receivable?.order_id===orderId?finance.receivable:null;
+  if(kind==='cashback_reimbursement')return finance.reimbursement?.order_id===orderId?finance.reimbursement:null;
+  if(kind==='settlement_adjustment')
+    return (finance.adjustments||[]).find(x=>x.id===targetId&&x.order_id===orderId)||null;
+  return null;
+}
+function adminFinancialSameFact(row,base,kind,expectedStatus){
+  const key=kind==='platform_receivable'?'platform_fee_cents':
+    kind==='cashback_reimbursement'?'cashback_cents':'amount_cents';
+  if(!row||!base||row.status!==expectedStatus||
+     row.merchant_id!==base.merchant_id||row.order_id!==base.order_id||
+     !Number.isSafeInteger(Number(base[key]))||
+     Number(row[key])!==Number(base[key]))return false;
+  if(kind==='settlement_adjustment'&&
+     (row.id!==base.id||row.direction!==base.direction||
+      row.adjustment_type!==base.adjustment_type))return false;
+  return true;
+}
 async function adminFinancial(kind,targetId,financialAction){
-  const reference=prompt('Referência da conciliação (opcional):')||'';
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const same=()=>adminFinanceDecisionScope(actor);
+  const allowed=kind==='platform_receivable'?['paid','waived']:
+    kind==='cashback_reimbursement'?['paid']:
+    kind==='settlement_adjustment'?['paid','waived']:[];
+  if(!same()||adminRuntime.actionPending||adminRuntime.financeDecisionPending)
+    return toast('Atualize o acesso ou conclua a ação financeira em andamento.');
+  if(!allowed.includes(financialAction))
+    return toast('Ação financeira inválida. Atualize o painel.');
+  const base=adminFinancialLedgerRecord(adminRuntime.data?.finance,kind,targetId);
+  if(!base||base.status!=='open'||!base.order_id||
+     (kind==='cashback_reimbursement'&&base.couponBacked!==false))
+    return toast('Lançamento não está aberto ou a origem não foi verificada. Atualize o Financeiro.');
+  const snapshot={...base};
+  const lock={actor,kind,targetId};
+  adminRuntime.financeDecisionPending=lock;
   try{
-    await adminPerform('financial-action',{kind,targetId,financialAction,reference});
-    toast('Conciliação registrada');
-  }catch(e){toast(String(e?.message||e))}
+    const referenceRaw=prompt(financialAction==='paid'
+      ?'Referência do comprovante externo conferido (obrigatória; não é validação automática do banco):'
+      :'Justificativa auditável do abono (obrigatória):');
+    if(referenceRaw==null)return;
+    const reference=String(referenceRaw).trim();
+    if(reference.length<3||reference.length>240)
+      return toast('Informe referência auditável de 3 a 240 caracteres.');
+    if(!confirm(financialAction==='paid'
+      ?'Você conferiu o recebimento ou crédito fora do TAMÃO? Esta ação registrará uma quitação manual, sem comprovação bancária automática.'
+      :'Confirmar abono contábil desta obrigação? O valor será dispensado sem registrar pagamento.'))return;
+    if(!same())return;
+    const command=(financialAction==='paid'?'PAGO ':'ABONAR ')+targetId;
+    if(!adminRequireTypedConfirmation(command,'Confirmação reforçada da decisão financeira.'))return;
+    if(!same())return;
+    // Read the exact order once before writing. This catches a stale tab,
+    // including changes that occurred during either confirmation prompt.
+    let current=null;
+    try{current=await adminInvoke({action:'entity-detail',entityType:'order',entityId:snapshot.order_id})}catch{}
+    if(!same())return;
+    const before=adminFinancialDetailRecord(current,kind,targetId,snapshot.order_id);
+    if(!adminFinancialSameFact(before,snapshot,kind,'open'))
+      return toast('O lançamento mudou ou não pode ser conferido. Atualize o Financeiro antes de decidir.');
+    let result=null;
+    try{result=await adminPerform('financial-action',{kind,targetId,financialAction,reference})}catch{}
+    if(!same())return;
+    let detail=null;
+    try{detail=await adminInvoke({action:'entity-detail',entityType:'order',entityId:snapshot.order_id})}catch{}
+    if(!same())return;
+    const applied=adminFinancialDetailRecord(detail,kind,targetId,snapshot.order_id);
+    const terminal=adminFinancialSameFact(applied,snapshot,kind,financialAction)&&
+      applied.resolved_by===actor&&
+      applied.resolution_reference===reference&&
+      (kind==='settlement_adjustment'
+        ?Number.isFinite(Date.parse(String(applied.settled_at||'')))
+        :financialAction==='paid'
+          ?Number.isFinite(Date.parse(String(applied.paid_at||'')))
+          :Number.isFinite(Date.parse(String(applied.waived_at||''))));
+    if(terminal){
+      toast(financialAction==='paid'
+        ?'Quitação manual confirmada no registro contábil. Não equivale a comprovante bancário automático.'
+        :'Abono confirmado no registro contábil e vinculado à sua referência.');
+    }else{
+      toast('Resultado financeiro não confirmado no detalhe do pedido. Consulte o histórico antes de repetir; não presuma que a ação falhou.');
+    }
+  }finally{
+    if(adminRuntime.financeDecisionPending===lock)
+      adminRuntime.financeDecisionPending=null;
+  }
 }
 async function adminReverseOrder(){
   const actor=String(adminRuntime.session?.user?.id||'');
