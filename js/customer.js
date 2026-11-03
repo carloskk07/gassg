@@ -2211,25 +2211,16 @@ function eventTimeline(o){
 }
 function paymentLabel(v){return v==='card'?'Cartão':v==='cash'?'Dinheiro':'Pix'}
 async function confirmRequote(id){
-  if(globalThis.liveRequested?.()){
-    await liveCustomerAction('accept-requote',id);
-    return;
-  }
+  if(globalThis.liveRequested?.())return liveCustomerAction('accept-requote',id);
   const r=acceptRequote(id);toast(r.ok?'Nova cotação enviada à revenda':r.error);render();
 }
 async function cancelBeforeDispatch(id){
-  if(globalThis.liveRequested?.()){
-    await liveCustomerAction('cancel-before-dispatch',id);
-    return;
-  }
+  if(globalThis.liveRequested?.())return liveCustomerAction('cancel-before-dispatch',id);
   const r=customerCancel(id);
   toast(r.ok?'Pedido cancelado antes da saída':r.error);
   render();
 }
 async function cancelPending(id){
-  if(globalThis.liveRequested?.()){
-    await liveCustomerAction('cancel-before-accept',id);
-    return;
-  }
+  if(globalThis.liveRequested?.())return liveCustomerAction('cancel-before-accept',id);
   const r=customerCancel(id);toast(r.ok?'Pedido cancelado':r.error);render();
 }
