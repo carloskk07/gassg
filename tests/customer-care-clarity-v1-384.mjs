@@ -154,14 +154,22 @@ const calls=[];
 const serverOrder={orderId:'order-384',supportCases:[{id:'c384',status:'open'}]};
 let refreshFailure=false;
 const bg=vm.createContext({
- liveRuntime:{order:serverOrder,session:{user:{id:'customer-384'}},error:null},
+ liveRuntime:{order:serverOrder,orderId:'order-384',session:{user:{id:'customer-384'}},error:null},
  liveIdempotency:()=> 'case:uuid384',
  retryAmbiguousOnce:async fn=>fn(),
  liveInvoke:async(name,payload,opts)=>{
   calls.push({name,payload,opts});
   return {ok:true,case:{id:'c384',status:'open',category:'late'}};
  },
- liveGetOrder:async()=>{if(refreshFailure)throw Error('failed refresh');return serverOrder},
+ liveGetOrder:async()=>{
+  if(refreshFailure)throw Error('failed refresh');
+  // Mimic the real authenticated get-order loader: a returned JSON alone
+  // cannot prove that this order was installed in the current tracking.
+  bg.liveRuntime.order=serverOrder;
+  bg.liveRuntime.orderCheckedId='order-384';
+  bg.liveRuntime.orderCheckedAt=new Date().toISOString();
+  return serverOrder;
+ },
  render:()=>calls.push({name:'render'})
 });
 vm.runInContext(read('js/customer-care-replay.js')+'\n'+code,bg);
