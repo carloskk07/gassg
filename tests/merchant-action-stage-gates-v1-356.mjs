@@ -10,8 +10,9 @@ const cut=(name,async=false)=>{
  assert.ok(at>=0&&end>at,'missing '+name);
  return backend.slice(at,end+2);
 };
-const source=['merchantVerifiedActionOrder','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']
- .map((name,i)=>cut(name,i!==0)).join('\n');
+const source=['merchantOrderActionScope','merchantOrderActionScopeMatches','merchantOrderActionScopeLost',
+ 'merchantVerifiedActionOrder','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']
+ .map((name,i)=>cut(name,i>=4)).join('\n');
 const uuid='11111111-1111-4111-8111-111111111111';
 const deliveryId='22222222-2222-4222-8222-222222222222';
 const now=Date.now();
