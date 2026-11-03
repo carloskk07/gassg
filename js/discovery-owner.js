@@ -884,26 +884,54 @@ async function discoveryOwnerSave(ev){
     for(const file of documents){
       if(!same())return false;
       const key=userId+'/'+id+'/'+crypto.randomUUID()+'.'+documentMime[file.type];
-      const upload=await client.storage.from('tamao-discovery-documents')
-        .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
+      // Lease the unregistered upload before writing bytes: if either API
+      // commits and its ACK is lost, next login can reconcile safely.
+      s.pendingDocumentRemovals=[...new Set([...s.pendingDocumentRemovals,key])];
+      discoveryOwnerPersistPendingDocumentRemovals();
+      let upload;
+      try{
+        upload=await client.storage.from('tamao-discovery-documents')
+          .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
+      }catch(_){throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');}
       if(!same())return false;
-      if(upload.error)throw upload.error;
+      if(upload.error)throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
+      let registrationError=null;
       try{
         const registered=await client.from('discovery_documents')
           .insert({listing_id:id,kind:'supporting',object_path:key});
         if(!same())return false;
-        if(registered.error)throw registered.error;
-      }catch(registerError){
-        // Storage and PostgREST are separate transactions. Compensate a
-        // failed metadata insert via Storage API to avoid an orphaned file.
+        registrationError=registered.error||null;
+      }catch(e){registrationError=e;}
+      if(!same())return false;
+      if(registrationError){
+        // The insert may have succeeded server-side even after a timeout.
+        // Only fresh, owner-scoped readback can justify deleting its bytes.
+        let lookup=null;
+        try{
+          lookup=await client.from('discovery_documents').select('id')
+            .eq('object_path',key).maybeSingle();
+        }catch(_){/* Keep the durable retry key; do not guess. */}
+        if(!same())return false;
+        if(lookup?.error||!lookup)
+          throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
+        if(lookup.data?.id){
+          // A registered file is valid; never compensate a successful write.
+          s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==key);
+          discoveryOwnerPersistPendingDocumentRemovals();
+          continue;
+        }
+        if(lookup.data!==null)throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
         try{
           const cleanup=await client.storage.from('tamao-discovery-documents').remove([key]);
+          if(!same())return false;
           if(cleanup.error)throw cleanup.error;
-        }catch{
-          throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
-        }
-        throw registerError;
+        }catch(_){throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');}
+        s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==key);
+        discoveryOwnerPersistPendingDocumentRemovals();
+        throw registrationError;
       }
+      s.pendingDocumentRemovals=s.pendingDocumentRemovals.filter(x=>x!==key);
+      discoveryOwnerPersistPendingDocumentRemovals();
     }
     // Storage and PostgREST cannot share one transaction. Track each attempted
     // upload before calling the network: a timeout can hide a committed object.
@@ -1064,13 +1092,19 @@ async function discoveryOwnerRemoveDocument(docId){
  try{
   // Unlink first: deleting Storage first can strand a broken Admin record.
   // Fresh readback also resolves a lost PostgREST DELETE acknowledgement.
-  await s.client.from('discovery_documents').delete()
-   .eq('id',doc.id).eq('listing_id',d.id).select('id');
+  let unlinkFailure=null;
+  try{
+   const deleted=await s.client.from('discovery_documents').delete()
+    .eq('id',doc.id).eq('listing_id',d.id).select('id');
+   unlinkFailure=deleted.error||null;
+  }catch(e){unlinkFailure=e;}
   if(!same())return;
   const checked=await s.client.from('discovery_documents').select('id')
    .eq('id',doc.id).eq('listing_id',d.id).maybeSingle();
   if(!same())return;
-  if(checked.error||checked.data)throw Error('DOCUMENT_UNLINK_UNCONFIRMED');
+  // null means confirmed absent. Undefined/malformed data is NOT evidence.
+  if(checked.error||checked.data!==null)
+   throw unlinkFailure||Error('DOCUMENT_UNLINK_UNCONFIRMED');
   d.documents=d.documents.filter(x=>x.id!==docId);
   // Persist before Storage: the file removal may commit but lose its ACK.
   s.pendingDocumentRemovals=[...new Set([...s.pendingDocumentRemovals,doc.object_path])];
@@ -1106,9 +1140,10 @@ async function discoveryOwnerRetryDocumentCleanup(){
    const ledger=await s.client.from('discovery_documents').select('id')
     .eq('object_path',key).limit(1);
    if(!same())return;
-   if(ledger.error||!Array.isArray(ledger.data)||ledger.data.length){
-    pending.push(key);continue;
-   }
+   if(ledger.error||!Array.isArray(ledger.data)){pending.push(key);continue;}
+   // Another session may have committed the metadata and lost its ACK.
+   // A registered file is not an orphan and must NEVER be deleted.
+   if(ledger.data.length)continue;
    const removed=await s.client.storage.from('tamao-discovery-documents').remove([key]);
    if(!same())return;
    if(removed.error)throw removed.error;
