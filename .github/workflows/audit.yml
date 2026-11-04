@@ -585,6 +585,8 @@ jobs:
         run: node tests/merchant-availability-payment-routes-lease-v1-493.mjs
       - name: Merchant config operational settings full readback and account lease
         run: node tests/merchant-config-settings-account-proof-v1-493.mjs
+      - name: Merchant application owner readback and no-repeat ambiguous submission
+        run: node tests/merchant-application-submission-readback-v1-493.mjs
       - name: Merchant provider OAuth and disconnect exact readback across session changes
         run: node tests/merchant-provider-connect-session-proof-v1-493.mjs
       - name: Merchant self-profile identity and dispatch name proof
