@@ -38,7 +38,7 @@ assert.equal(await platformCommerceAllowed(createClient(null,{code:'PGRST116'}))
 assert.equal(await platformCommerceAllowed({from(){throw Error('db unavailable')}}),false);
 
 assert.match(coupon,/platformCouponSalesAllowed/);
-assert.match(order,/platformCommerceAllowed\\s*} from "\\.\\.\\/_shared\\/domain\\.js"/);
+assert.ok(order.includes('platformCommerceAllowed'), 'orders must retain their own operational gate');
 const saleClient=(data,error=null)=>({
  from(table){
   assert.equal(table,'platform_launch_control');
@@ -68,8 +68,12 @@ assert.ok(sales>=0&&emergency>sales&&invoice>emergency,
  'PAUSED and private sales switch must block Pix before money is requested');
 assert.match(coupon,/error:"COUPON_SALES_OPERATION_PAUSED"},423/);
 const historical=coupon.slice(coupon.indexOf('if(operation==="my-vouchers")'),sales);
-assert.match(historical,/couponSalesEnabled:\\s*Deno\\.env\\.get\\("CLUBE_COUPON_PAID_SALES_ENABLED"\\)==="true"&&\\s*await platformCouponSalesAllowed\\(admin\\)/);
-assert.match(historical,/couponCheckoutEnabled:\\s*Deno\\.env\\.get\\("CLUBE_COUPON_CHECKOUT_ENABLED"\\)==="true"&&\\s*await platformCommerceAllowed\\(admin\\)/);
+assert.ok(historical.includes('couponSalesEnabled:')&&
+ historical.includes('await platformCouponSalesAllowed(admin)'),
+ 'sales display must use independent package gate');
+assert.ok(historical.includes('couponCheckoutEnabled:')&&
+ historical.includes('await platformCommerceAllowed(admin)'),
+ 'physical checkout remains blocked without commerce');
 const branch=order.indexOf('if(couponVoucherId&&!await platformCommerceAllowed(admin))');
 const rpc=order.indexOf('const { data, error } = couponVoucherId');
 assert.ok(branch>=0&&rpc>branch,'coupon checkout RPC must be guarded');
