@@ -5661,6 +5661,9 @@ function adminSetFinanceWorkspace(workspace){
     ||(key==='lab'&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   render();
+  if(key==='policy'&&adminCurrentRole()==='superadmin'){
+    adminCouponCommercialRefresh().catch(()=>{});
+  }
   if(key==='lab'){
     adminFinanceLabReadinessFromUi().catch(()=>{});
     // Existing receipts are read-only and do not depend on a new Pix.
