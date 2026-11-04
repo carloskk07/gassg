@@ -18,20 +18,13 @@ assert.doesNotMatch(rendered,/city-price-shopping-steps|tamao-quote-benefits/,
  'Avoid repeated buying steps and benefit cards inside quotation.');
 assert.equal((rendered.match(/class="tamao-home-coupon-rail"/g)||[]).length,1,
  'A single quote-board coupon action remains');
-assert.equal((rendered.match(/name="tamao-city-quote"/g)||[]).length,3,
- 'one native exclusive product accordion across reference products');
-assert.match(rendered,/city-price-product-icon/);
-assert.match(rendered,/homeQuoteSyncPostal\(this\)/);
-assert.match(rendered,/homeQuoteAdjustQuantity\('P13',-1\)/);
-assert.match(rendered,/homeQuoteAdjustQuantity\('P13',1\)/);
+assert.equal((rendered.match(/name="tamao-city-quote"/g)||[]).length,0,
+ 'do not open product cards with unverified market-reference prices');
+assert.doesNotMatch(rendered,/city-price-product-icon|homeQuoteSyncPostal\(this\)|city-price-quick-add/,
+ 'buy controls only appear for current validated merchant prices');
 assert.match(rendered,/2 unidades selecionadas/);
 assert.match(rendered,/2× Água 20 L/);
 assert.match(rendered,/Ver cesta e consultar/);
-for(const sku of ['P13','WATER20','WOOD']){
- assert.ok(rendered.includes("homeQuoteQuickAdd('"+sku+"')"),
-  'One-click basket control must exist for '+sku);
-}
-assert.equal((rendered.match(/class="secondary small city-price-quick-add"/g)||[]).length,3);
 assert.doesNotMatch(rendered,/subtotal.*R\$|economia garantida/i);
 const empty=htmlCtx.basket({});
 assert.match(empty,/button[^>]*disabled/);
