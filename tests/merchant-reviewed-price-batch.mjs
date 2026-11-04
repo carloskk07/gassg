@@ -37,9 +37,10 @@ const item=(code,{range=false}={})=>({
  priceConfirmedAt:old,updatedAt:old
 });
 const rt={status:'ready',merchant:{merchantId:'merchant-1',memberRole:'owner'},
+ selectedMerchantId:'merchant-1',session:{user:{id:'actor-A'}},accessEpoch:2,
  actionPending:false,catalog:[item('P13',{range:true}),item('WATER20')]};
 const inputs={};const notifications=[],writes=[];
-let allow=true,drafts=false,failAt=null,changeNext=false;
+let allow=true,drafts=false,failAt=null,changeNext=false,writeBarrier=null;
 const loadInputs=()=>{
  for(const p of rt.catalog){
   const c=p.productCode;
@@ -60,6 +61,7 @@ const context=vm.createContext({
  merchantQuickHasDrafts:()=>drafts,
  merchantUpdateProductLive:async(code,price,stock,active)=>{
   writes.push({code,price,stock,active});
+  if(writeBarrier)await writeBarrier.promise;
   if(failAt===code)throw new Error('CATALOG_VERSION_CONFLICT');
   const found=rt.catalog.find(p=>p.productCode===code);
   found.priceConfirmedAt=new Date().toISOString();
@@ -122,6 +124,27 @@ await context.run();
 assert.equal(writes.length,countBefore+1,'never write 2nd SKU when its version changed');
 assert.match(notifications.at(-1),/1 de 2 preço\(s\) reconfirmado\(s\)/);
 assert.match(notifications.at(-1),/cadastro mudou/);
+// An old bulk confirmation must never continue under another account that
+// happens to manage the SAME merchant. In-flight first ACK is not consent
+// to confirm a second SKU in actor B's authenticated session.
+rt.catalog=[item('P13',{range:true}),item('WATER20')];
+rt.merchant.memberRole='manager';
+changeNext=false;
+loadInputs();
+inputs['merchant-review-price-P13'].checked=true;
+inputs['merchant-review-price-WATER20'].checked=true;
+let release;
+writeBarrier={promise:new Promise(resolve=>release=resolve)};
+const beforeActorSwitch=writes.length,notificationsBefore=notifications.length;
+const oldActorConfirmation=context.run();
+assert.equal(writes.length,beforeActorSwitch+1,'first SKU reaches canonical write only once');
+rt.accessEpoch++;rt.session={user:{id:'actor-B'}};rt.actionPending=true;
+release();writeBarrier=null;
+await oldActorConfirmation;
+assert.equal(writes.length,beforeActorSwitch+1,'operator switch must never confirm second SKU');
+assert.equal(rt.actionPending,true,'old batch cannot unlock next account');
+assert.equal(notifications.length,notificationsBefore,'do not show old operator outcome to another account');
+rt.actionPending=false;
 rt.merchant.memberRole='manager';
 rt.status='unauthenticated';
 const noAuth=writes.length;
