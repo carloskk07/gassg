@@ -238,7 +238,7 @@ assert.ok(!quoteBoard.includes('Os preços reais substituem as referências auto
 assert.ok(quoteBoard.includes('snapshot.real===true'),'only verified data may become an offer');
 assert.ok(quoteBoard.includes('snapshot.notAQuote===true'),'regional data is not a quote');
 assert.ok(quoteBoard.includes('real.length?liveCards:') &&
- quoteBoard.includes('As ofertas serão exibidas quando houver revendas disponíveis'),
+ quoteBoard.includes('Ainda não há preços confirmados de revendas'),
  'never substitute unverified research for approved merchant offers');
 assert.match(customer,/tamao-home-checkout-compare/);
 assert.match(customer,/tamao-home-coupon-rail/);
@@ -254,7 +254,7 @@ for(const selector of ['.tamao-home-coupon-rail','.tamao-home-checkout-compare']
 }
 assert.ok(!components.includes('.tamao-quote-benefit-grid'),
   'retired quote-only benefit cards must not add orphaned CSS');
-assert.ok(customer.includes('tamaoHomeBenefits({compact:true})'),
+assert.ok(customer.includes('${couponBanner}'),
   'Club and Network remain available once in the public home');
 
 // Evaluate the actual offer card with a confirmed quote and a test balance;
