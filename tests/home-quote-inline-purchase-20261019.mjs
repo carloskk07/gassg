@@ -22,7 +22,7 @@ vm.runInContext(home+';this.renderQuote=homeRegionalPriceBoard;',ctx);
 const local=ctx.renderQuote({city:'São Gabriel',state:'RS'});
 assert.match(local,/Tamão São Gabriel\/RS/);
 assert.match(local,/Comece pelos produtos logo abaixo/);
-assert.match(local,/onclick="startHomeBrowse\(\)">Escolher produtos/,
+assert.match(local,/onclick="homeDiscoverFocus\(\)">Ver produtos/,
  'board must open product-first checkout without silently selecting gas');
 assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
  'generic quote CTA cannot add default P13');
