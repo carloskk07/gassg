@@ -1,6 +1,30 @@
 -- TAMÃO V1.819 — activation of owner-funded digital coupon sales without
 -- requiring a merchant to exist. A real seller signs public disclosures.
 -- No record represents a completed Pix, bank deposit or merchant payout.
+-- Immutable supplier disclosure belongs to the PURCHASE, not just today's
+-- merchant-facing seller configuration. Earlier invoices remain unchanged.
+ALTER TABLE public.clube_coupon_paid_invoices
+ ADD COLUMN seller_name text,
+ ADD COLUMN seller_tax_document text,
+ ADD COLUMN seller_address text,
+ ADD COLUMN seller_support_email text;
+CREATE FUNCTION public.clube_coupon_invoice_seller_immutable_v1_819()
+ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $
+BEGIN
+ IF NEW.seller_name IS DISTINCT FROM OLD.seller_name OR
+    NEW.seller_tax_document IS DISTINCT FROM OLD.seller_tax_document OR
+    NEW.seller_address IS DISTINCT FROM OLD.seller_address OR
+    NEW.seller_support_email IS DISTINCT FROM OLD.seller_support_email THEN
+   RAISE EXCEPTION 'COUPON_SELLER_SNAPSHOT_IMMUTABLE'
+     USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $;
+CREATE TRIGGER clube_coupon_invoice_seller_immutable_v1_819
+ BEFORE UPDATE ON public.clube_coupon_paid_invoices
+ FOR EACH ROW EXECUTE FUNCTION public.clube_coupon_invoice_seller_immutable_v1_819();
+REVOKE ALL ON FUNCTION public.clube_coupon_invoice_seller_immutable_v1_819()
+ FROM PUBLIC,anon,authenticated;
+
 CREATE TABLE public.clube_coupon_commercial_release_v1_819(
  package_key text PRIMARY KEY REFERENCES public.clube_coupon_paid_packages(package_key),
  enabled boolean NOT NULL DEFAULT false,
@@ -67,7 +91,7 @@ BEGIN
     OR NOT pkg.sponsored_by_owner OR NOT pkg.funding_verified
     OR pkg.sale_enabled THEN
    RAISE EXCEPTION 'COUPON_PACKAGE_RELEASE_NOT_READY' USING ERRCODE='42501'; END IF;
- IF pool.authorized_cents<10000 OR pool.owner_guaranteed_cents<10000
+ IF pool.benefit_key IS NULL OR pool.authorized_cents<10000 OR pool.owner_guaranteed_cents<10000
     OR pool.encumbered_cents>8500
     OR pool.owner_guaranteed_at IS NULL
  THEN RAISE EXCEPTION 'COUPON_OWNER_BUDGET_NOT_READY' USING ERRCODE='42501'; END IF;
