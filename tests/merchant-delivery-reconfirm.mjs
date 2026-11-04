@@ -4,6 +4,7 @@ import vm from 'node:vm';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const source=read('js/merchant.js'),backend=read('js/backend.js'),
+  mutations=read('js/merchant-mutations.js'),
   edge=read('supabase/functions/merchant-ops/index.ts'),
   ci=read('.github/workflows/audit.yml');
 new vm.Script(source,{filename:'js/merchant.js'});
@@ -15,7 +16,11 @@ assert.match(handler,/await merchantUpdateLogisticsLive\(fee,eta,true\)/);
 assert.doesNotMatch(handler,/set-online|merchantSetOnlineLive|\.rpc\(|merchantInvoke\(|fetch\(/,
  'reconfirmation must only reuse the existing logistics mutation');
 assert.match(backend,/async function merchantUpdateLogisticsLive\(/);
-assert.match(backend,/await merchantConfigMutation\('update-logistics'/);
+assert.match(mutations,/async function merchantConfigSettingsMutateImpl\(/);
+assert.match(mutations,/action==='update-logistics'/);
+assert.match(mutations,/expectedUpdatedAt/);
+assert.match(mutations,/merchantConfigSettingsProof/);
+assert.match(backend,/merchantLoadMutations\(\)/);
 assert.match(backend,/expectedUpdatedAt/);
 assert.match(edge,/if\(action==="update-logistics"\)/);
 assert.match(ci,/node tests\/merchant-delivery-reconfirm\.mjs/);
