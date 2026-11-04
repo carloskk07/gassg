@@ -131,27 +131,8 @@ function homeRegionalPriceBoard(region){
  // recorded in the test merchant catalog on 15/10/2026. They are not
  // current inventory, availability, the price of a verified merchant,
  // or three competitive offers. Only verified RPC data is an offer.
- const localResearch=localP13?[
-   {code:'P13',label:'Gás P13 • 13 kg',priceCents:11590},
-   {code:'WATER20',label:'Água • 20 L',priceCents:1590},
-   {code:'WOOD',label:'Lenha • unidade informada',priceCents:2500}
- ]:[];
- const references=localP13?
-   '<article class="city-price-card reference city-price-reference-summary">'+
-   '<div class="city-price-reference-copy">'+
-   '<span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
-   '<div class="city-price-name">Pesquisa de preços em São Gabriel</div>'+
-   '<p>Pesquisa local informada em 15/10/2026.</p></div>'+
-   '<div class="city-price-research-grid city-price-reference-amount">'+localResearch.map(item=>
-      '<div class="city-price-research-item">'+homeQuoteProductPicker({
-       code:item.code,label:item.label,price:BRL.format(item.priceCents/100),reference:true
-      })+'</div>'
-   ).join('')+'</div>'+
-   '<p class="city-price-reference-note">Referência de mercado, não é oferta de revenda. Consulte pelo CEP para confirmar preço e entrega.</p>'+
-   '</article>':
-   '<div class="city-price-empty">Explore os produtos e consulte as ofertas de '+esc(place)+
-   '.</div>';
- const cards=real.length?liveCards:references;
+ const cards=real.length?liveCards:
+   '<div class="city-price-empty">As ofertas serão exibidas quando houver revendas disponíveis para '+esc(place)+'. Consulte seu CEP para verificar a disponibilidade.</div>';
  const copy='Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço.';
  return '<section class="city-price-board tamao-quote-first" aria-label="Painel de preços e vantagens de sua cidade">'+
   '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
