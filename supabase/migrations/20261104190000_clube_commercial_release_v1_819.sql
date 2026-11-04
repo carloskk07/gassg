@@ -9,7 +9,7 @@ ALTER TABLE public.clube_coupon_paid_invoices
  ADD COLUMN seller_address text,
  ADD COLUMN seller_support_email text;
 CREATE FUNCTION public.clube_coupon_invoice_seller_immutable_v1_819()
- RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $
+ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $coupon_immutable$
 BEGIN
  IF NEW.seller_name IS DISTINCT FROM OLD.seller_name OR
     NEW.seller_tax_document IS DISTINCT FROM OLD.seller_tax_document OR
@@ -18,7 +18,7 @@ BEGIN
    RAISE EXCEPTION 'COUPON_SELLER_SNAPSHOT_IMMUTABLE'
      USING ERRCODE='23514'; END IF;
  RETURN NEW;
-END $;
+END $coupon_immutable$;
 CREATE TRIGGER clube_coupon_invoice_seller_immutable_v1_819
  BEFORE UPDATE ON public.clube_coupon_paid_invoices
  FOR EACH ROW EXECUTE FUNCTION public.clube_coupon_invoice_seller_immutable_v1_819();
