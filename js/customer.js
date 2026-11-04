@@ -741,7 +741,7 @@ ${couponBanner}
     <div class="home-benefits-shortcuts" aria-label="Mais motivos para conhecer o TAMÃO">
       <span>✓ Sua cesta, suas escolhas</span>
       <span>✓ Acompanhamento após o aceite</span>
-      <button type="button" onclick="go('earn')">🎁 Clube e indicações <span aria-hidden="true">→</span></button>
+      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
     </div>
     <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
       <span>O que você precisa hoje?</span>
