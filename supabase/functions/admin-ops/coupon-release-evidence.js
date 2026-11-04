@@ -60,7 +60,7 @@ export function parseReleasedMoneyCsv(source){
   return {rows:output,rowsExamined:output.length};
 }
 
-export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
+export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,sponsorVerified=false}){
   // Strong three-way bind: local invoice -> authenticated PSP order -> MP
   // released money CSV. A matching net line is NOT merchant bank settlement.
   const empty=(reason,rowsExamined=0)=>({source:"coupon_mp_released_net_evidence_v1",
@@ -152,7 +152,12 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName}){
     gross!==invoice.sale_price_cents||net===null||net<=0||
     net>gross||debit!==0||!validDate)
     return empty("COUPON_RELEASE_VALUES_UNVERIFIED",parsed.rowsExamined);
-  if(net<invoice.coupon_face_cents*invoice.coupons_per_pack)
+  // A bank-reconciled, full-face founder escrow may cover the difference.
+  // sponsorVerified comes ONLY from the authenticated server's SQL RPC,
+  // never from browser input or a client-supplied amount.
+  const obligation=invoice.coupon_face_cents*invoice.coupons_per_pack;
+  if(net<obligation&&!(sponsorVerified===true&&
+       invoice.sponsor_covered_cents===obligation))
     return empty("COUPON_RELEASE_NET_INSUFFICIENT",parsed.rowsExamined);
   // The official file and provider payment ID together identify evidence,
   // but no net-funding RPC is called by this read-only diagnostic.

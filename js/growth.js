@@ -2,112 +2,111 @@ const DEFAULT_REFERRAL_PILOT_RATE=0.02;
 const DEFAULT_MERCHANT_PILOT_FEE_RATE=0.075;
 
 function currentCommercialRate(field,fallback){
-  const policy=globalThis.liveRuntime?.marketStatus?.commercialPolicy;
-  const raw=policy&&typeof policy==='object'?Number(policy[field]):NaN;
-  if(Number.isFinite(raw)&&raw>=0&&raw<=5000)return raw/10000;
-  return fallback;
+const policy=globalThis.liveRuntime?.marketStatus?.commercialPolicy;
+const raw=policy&&typeof policy==='object'?Number(policy[field]):NaN;
+if(Number.isFinite(raw)&&raw>=0&&raw<=5000)return raw/10000;
+return fallback;
 }
 function referralPilotRate(){
-  return currentCommercialRate('directReferralBps',DEFAULT_REFERRAL_PILOT_RATE);
+return currentCommercialRate('directReferralBps',DEFAULT_REFERRAL_PILOT_RATE);
 }
 function merchantPilotFeeRate(){
-  return currentCommercialRate('platformFeeBps',DEFAULT_MERCHANT_PILOT_FEE_RATE);
+return currentCommercialRate('platformFeeBps',DEFAULT_MERCHANT_PILOT_FEE_RATE);
 }
 function policyPercent(rate){
-  const pct=Math.round(Math.max(0,Number(rate)||0)*10000)/100;
-  return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+const pct=Math.round(Math.max(0,Number(rate)||0)*10000)/100;
+return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 }
 
 
 // V1.365: accessible, local jumps keep visitors on their chosen public page.
 // Whitelist prevents arbitrary DOM selectors or external navigation.
 function publicLandingJump(sectionId){
-  if(!['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
-  const section=document.getElementById(sectionId);
-  if(!section)return false;
-  section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
-  section.focus({preventScroll:true});
-  return true;
+if(!['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
+const section=document.getElementById(sectionId);
+if(!section)return false;
+section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
+section.focus({preventScroll:true});
+return true;
 }
 
 // Paid coupons share the customer's authenticated Supabase session.
-// The history is read-only; a purchase/resgate button is intentionally absent
-// until funded voucher settlement is authorized in the back end.
+// Club purchase buttons live in deferred catalog; wallet is read-only.
 const clubePaidCouponView={
-  userId:null,status:'idle',purchases:[],vouchers:[],error:null,
-  checkoutEnabled:false
+userId:null,status:'idle',purchases:[],vouchers:[],error:null,
+checkoutEnabled:false
 };
 const clubePaidCheckoutSelection={userId:null,voucherId:null};
 function clubePaidCouponOptions(){
-  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(!userId||clubePaidCouponView.userId!==userId||
-     clubePaidCouponView.status!=='ready'||
-     clubePaidCouponView.checkoutEnabled!==true)return [];
-  const now=Date.now();
-  return clubePaidCouponView.vouchers.filter(v=>
-    v.status==='issued'&&
-    /^[0-9a-f-]{36}$/i.test(String(v.voucherId||''))&&
-    Number.isSafeInteger(Number(v.faceCents))&&v.faceCents>0&&
-    Number.isFinite(Date.parse(v.expiresAt))&&
-    Date.parse(v.expiresAt)>now
-  );
+const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+if(!userId||clubePaidCouponView.userId!==userId||
+   clubePaidCouponView.status!=='ready'||
+   clubePaidCouponView.checkoutEnabled!==true)return [];
+const now=Date.now();
+return clubePaidCouponView.vouchers.filter(v=>
+  v.status==='issued'&&
+  /^[0-9a-f-]{36}$/i.test(String(v.voucherId||''))&&
+  Number.isSafeInteger(Number(v.faceCents))&&v.faceCents>0&&
+  Number.isFinite(Date.parse(v.expiresAt))&&
+  Date.parse(v.expiresAt)>now
+);
 }
 function clubePaidCouponSelectedIntent(){
-  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
-  return userId&&clubePaidCheckoutSelection.userId===userId?
-    clubePaidCheckoutSelection.voucherId:null;
+const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+return userId&&clubePaidCheckoutSelection.userId===userId?
+  clubePaidCheckoutSelection.voucherId:null;
 }
 function clubePaidCouponVoucherForQuote(quoteTotalCents){
-  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(clubePaidCheckoutSelection.userId!==userId||!userId||
-    state.checkout.useCashback!==true)return null;
-  const balanceCents=Math.round(Math.max(0,Number(state.user?.cashback||0))*100);
-  const voucher=clubePaidCouponOptions().find(v=>
-    v.voucherId===clubePaidCheckoutSelection.voucherId);
-  if(!voucher||!Number.isSafeInteger(quoteTotalCents)||
-    quoteTotalCents<balanceCents+voucher.faceCents)return null;
-  return voucher;
+const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+if(clubePaidCheckoutSelection.userId!==userId||!userId||
+  state.checkout.useCashback!==true)return null;
+const balanceCents=Math.round(Math.max(0,Number(state.user?.cashback||0))*100);
+const voucher=clubePaidCouponOptions().find(v=>
+  v.voucherId===clubePaidCheckoutSelection.voucherId);
+if(!voucher||!Number.isSafeInteger(quoteTotalCents)||
+  quoteTotalCents<balanceCents+voucher.faceCents)return null;
+return voucher;
 }
 function clubePaidCouponCheckoutPanel(){
-  if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
-  const userId=String(globalThis.liveRuntime.session.user.id);
-  const valid=clubePaidCouponView.userId===userId;
-  const options=clubePaidCouponOptions();
-  const current=clubePaidCheckoutSelection.userId===userId?
-    clubePaidCheckoutSelection.voucherId:null;
-  const select=options.length?
-    '<label for="tamao-paid-coupon">Cupom pré-pago</label>'+
-    '<select id="tamao-paid-coupon" onchange="clubeChoosePaidCheckoutVoucher(this.value)">'+
-    '<option value="">Sem cupom de compra</option>'+
-    options.map(v=>'<option value="'+esc(v.voucherId)+'" '+
-      (current===v.voucherId?'selected':'')+'>'+
-      esc(BRL.format(v.faceCents/100))+' • válido até '+
-      esc(new Date(v.expiresAt).toLocaleDateString('pt-BR'))+'</option>').join('')+
-    '</select><small>O desconto só é confirmado ao criar o pedido.</small>':'';
-  return '<div class="tamao-checkout-voucher-picker">'+
-   '<strong>Cupons da sua conta</strong>'+
-   '<p>Confira os benefícios válidos para sua compra.</p>'+
-   (select||'<p class="muted">'+(valid&&clubePaidCouponView.status==='loading'?
-     'Consultando cupons…':'Sem cupons pré-pagos disponíveis para aplicar.')+'</p>')+
-   '<button type="button" class="secondary" onclick="clubePaidCouponsRefresh()" '+
-   (valid&&clubePaidCouponView.status==='loading'?'disabled':'')+
-   '>Atualizar meus cupons</button></div>';
+if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
+const userId=String(globalThis.liveRuntime.session.user.id);
+const valid=clubePaidCouponView.userId===userId;
+const options=clubePaidCouponOptions();
+const current=clubePaidCheckoutSelection.userId===userId?
+  clubePaidCheckoutSelection.voucherId:null;
+const select=options.length?
+  '<label for="tamao-paid-coupon">Cupom pré-pago</label>'+
+  '<select id="tamao-paid-coupon" onchange="clubeChoosePaidCheckoutVoucher(this.value)">'+
+  '<option value="">Sem cupom de compra</option>'+
+  options.map(v=>'<option value="'+esc(v.voucherId)+'" '+
+    (current===v.voucherId?'selected':'')+'>'+
+    esc(BRL.format(v.faceCents/100))+' • válido até '+
+    esc(new Date(v.expiresAt).toLocaleDateString('pt-BR'))+'</option>').join('')+
+  '</select><small>O desconto só é confirmado ao criar o pedido.</small>':'';
+return '<div class="tamao-checkout-voucher-picker">'+
+ '<strong>Cupons da sua conta</strong>'+
+ '<p>Confira os benefícios válidos para sua compra.</p>'+
+ (select||'<p class="muted">'+(valid&&clubePaidCouponView.status==='loading'?
+   'Consultando cupons…':'Sem cupons pré-pagos disponíveis para aplicar.')+'</p>')+
+ '<button type="button" class="secondary" onclick="clubePaidCouponsRefresh()" '+
+ (valid&&clubePaidCouponView.status==='loading'?'disabled':'')+
+ '>Atualizar meus cupons</button></div>';
 }
 function clubeChoosePaidCheckoutVoucher(id){
-  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(!userId)return;
-  if(id&&!clubePaidCouponOptions().some(v=>v.voucherId===id)){
-    toast('Este cupom não está disponível. Atualize sua carteira.');
-    return;
-  }
-  clubePaidCheckoutSelection.userId=userId;
-  clubePaidCheckoutSelection.voucherId=id||null;
-  if(id){state.checkout.useCashback=true;save();}
-  render();
+const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+if(!userId)return;
+if(id&&!clubePaidCouponOptions().some(v=>v.voucherId===id)){
+  toast('Este cupom não está disponível. Atualize sua carteira.');
+  return;
+}
+clubePaidCheckoutSelection.userId=userId;
+clubePaidCheckoutSelection.voucherId=id||null;
+if(id){state.checkout.useCashback=true;save();}
+render();
 }
 function clubeClearPaidCheckoutVoucher(){
-  clubePaidCheckoutSelection.userId=null;
-  clubePaidCheckoutSelection.voucherId=null;
+clubePaidCheckoutSelection.userId=null;
+clubePaidCheckoutSelection.voucherId=null;
 }
 
 function clubePaidCouponPanel(){
@@ -174,6 +173,9 @@ async function clubePaidCouponsRefresh(){
 
 function club(){
   const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id));
+  if(globalThis.document&&!globalThis.cshop){
+    globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
+  }
   if(!member)return shell(`<section class="page tamao-club-visitor">
     <div class="tamao-club-visitor-hero">
       <span class="eyebrow">CLUBE TAMÃO</span>
@@ -208,6 +210,7 @@ function club(){
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     ${clubePaidCouponPanel()}
+    ${typeof clubeCouponShopPanel==='function'?clubeCouponShopPanel():''}
     <section class="tamao-club-shop-now" aria-label="Usar as vantagens do Clube">
       <div><span class="section-kicker">SEU CLUBE NA PRÁTICA</span>
         <h2>Compare, faça seu pedido e acompanhe o que você economizou.</h2>

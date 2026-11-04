@@ -36,6 +36,23 @@ const base={
 };
 const check=(overrides={})=>couponMerchantPayoutEvidence(
  {...base,...overrides});
+// V1.807: provider status inspection accepts a legitimately subsidized
+// package only with full-face, server-confirmed escrow. It still never
+// asserts proof of the merchant Pix recipient or closes the liability.
+const subsidyInvoice={...base.invoice,sale_price_cents:890,
+  coupon_face_cents:500,coupons_per_pack:3,sponsor_covered_cents:1500,
+  net_proceeds_cents:840};
+assert.equal(check({invoice:subsidyInvoice}).providerTransactionAccredited,false);
+const subsidyVerified=check({invoice:subsidyInvoice,sponsorVerified:true});
+assert.equal(subsidyVerified.providerTransactionAccredited,true);
+assert.equal(subsidyVerified.merchantBeneficiaryVerified,false);
+assert.equal(subsidyVerified.merchantExternalSettlementVerified,false);
+assert.equal(subsidyVerified.eligibleForFinancialWrite,false);
+assert.equal(check({invoice:{...subsidyInvoice,sponsor_covered_cents:1499},
+ sponsorVerified:true}).providerTransactionAccredited,false);
+assert.match(admin,/sponsorVerified=await couponOwnerSponsorVerified\(admin,invoice\)/,
+ 'payout inspector must confirm bank escrow via server RPC');
+
 // An onboarded checkout/payments account is NOT a payout beneficiary proof.
 const recipientBase={
  merchant:{id:merchant,cnpj:'12345678000190'},

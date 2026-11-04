@@ -104,7 +104,19 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+// Recheck immutable sponsor commitment in SQL, never a caller's flag.
+async function couponOwnerSponsorVerified(admin:any,invoice:any){
+  const face=Number(invoice?.coupon_face_cents)*Number(invoice?.coupons_per_pack);
+  if(!invoice||invoice.status!=="paid"||
+     !Number.isSafeInteger(face)||face<1||face>10000||
+     Number(invoice.sponsor_covered_cents)!==face)return false;
+  const {data,error}=await admin.rpc("clube_coupon_sponsor_covered_v1_807",{
+    p_invoice:invoice.id,p_required:face
+  });
+  if(error)throw error;
+  return data===true;
+}
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3335,7 +3347,7 @@ Deno.serve(async(req:Request)=>{
       // is not evidence of Pix payout recipient ownership.
       const [invoiceResult,voucherResult,merchantResult,merchantAccountResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
-          .select("id,status,paid_at,provider_order_id,provider_payment_id,customer_user_id,sale_price_cents,coupon_face_cents,coupons_per_pack,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at")
+          .select("id,status,paid_at,provider_order_id,provider_payment_id,customer_user_id,sale_price_cents,coupon_face_cents,coupons_per_pack,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sponsor_covered_cents")
           .eq("id",application.invoice_id).maybeSingle(),
         admin.from("clube_coupon_paid_issuances")
           .select("id,invoice_id,customer_user_id,face_cents,status,redeemed_order_id")
@@ -3354,6 +3366,7 @@ Deno.serve(async(req:Request)=>{
         merchant:merchantResult.data,
         account:merchantAccountResult.data
       });
+      const sponsorVerified=await couponOwnerSponsorVerified(admin,invoice);
       const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
       if(!mercadoPagoConfigured(token))
         return json({
@@ -3376,7 +3389,7 @@ Deno.serve(async(req:Request)=>{
       return json({
         ...couponMerchantPayoutEvidence({
           payoutId,transactionId,transaction,reimbursement,application,order,invoice,
-          voucher:voucherResult.data
+          sponsorVerified,voucher:voucherResult.data
         }),
         available:true,providerCheckedAt:new Date().toISOString(),
         recipientReadiness
@@ -3420,7 +3433,7 @@ Deno.serve(async(req:Request)=>{
       });
       const {data:invoice,error:invoiceError}=await admin
         .from("clube_coupon_paid_invoices")
-        .select("id,status,paid_at,provider_order_id,provider_payment_id,sale_price_cents,coupon_face_cents,coupons_per_pack")
+        .select("id,status,paid_at,provider_order_id,provider_payment_id,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
         .eq("id",invoiceId).maybeSingle();
       if(invoiceError&&["42P01","PGRST205"].includes(String(invoiceError.code??"")))
         return json({source:"coupon_mp_released_net_evidence_v1",
@@ -3495,8 +3508,9 @@ Deno.serve(async(req:Request)=>{
       let offset=0;
       for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
       const csv=new TextDecoder("utf-8",{fatal:true}).decode(bytes);
+      const sponsorVerified=await couponOwnerSponsorVerified(admin,invoice);
       const inspection=couponReleasedNetEvidence(csv,{
-        invoice,order,reportFileName:fileName
+        invoice,order,reportFileName:fileName,sponsorVerified
       });
       if(finalize){
         // No client-supplied amount/reference may authorize receipt. They
@@ -6142,6 +6156,43 @@ Deno.serve(async(req:Request)=>{
          data.cashMoved!==false||typeof data.replayed!=="boolean")
          throw new DomainError("OWNER_EVIDENCE_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
       return json(data,200,origin);
+    }
+    if(action==="clube-sponsor-status"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas finanças pode consultar o custeio.",403);
+      const {data,error}=await admin.from("platform_clube_sponsor_pool_v1_807")
+        .select("benefit_key,authorized_cents,reconciled_cents,encumbered_cents,version,updated_at")
+        .eq("benefit_key","clube_coupons").maybeSingle();
+      if(error)throw error;
+      if(!data||data.benefit_key!=="clube_coupons"||
+         data.authorized_cents!==10000||
+         !Number.isSafeInteger(data.reconciled_cents)||
+         !Number.isSafeInteger(data.encumbered_cents)||
+         data.reconciled_cents<0||data.reconciled_cents>10000||
+         data.encumbered_cents<0||data.encumbered_cents>data.reconciled_cents)
+        throw new DomainError("COUPON_SPONSOR_POOL_UNVERIFIED","Saldo de patrocínio não validado.",503);
+      return json({ok:true,source:"clube_coupon_owner_sponsor_v1_807",
+        authorizedCents:data.authorized_cents,
+        reconciledCents:data.reconciled_cents,
+        encumberedCents:data.encumbered_cents,
+        remainingCents:data.reconciled_cents-data.encumbered_cents,
+        version:data.version,updatedAt:data.updated_at,
+        bankApiConfirmed:false,readOnly:true,noCharge:true},200,origin);
+    }
+    if(action==="clube-sponsor-reconcile"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode conciliar o patrocínio.",403);
+      const {data,error}=await admin.rpc("admin_clube_sponsor_reconcile_owner_v1_807",{
+        p_actor:user.id,p_contribution:uuid(body.contributionId,"contributionId"),
+        p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.ok!==true||typeof data.replayed!=="boolean"||
+         !Number.isSafeInteger(data.creditedCents)||data.creditedCents<1||
+         data.creditedCents>10000||!Number.isSafeInteger(data.poolVersion))
+        throw new DomainError("COUPON_SPONSOR_RECONCILIATION_UNVERIFIED","Conciliação do patrocínio não verificada.",503);
+      return json({...data,source:"clube_coupon_owner_sponsor_reconcile_v1_807",
+        noCharge:true,bankApiConfirmed:false},200,origin);
     }
     if(action==="owner-funding-pulse"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))

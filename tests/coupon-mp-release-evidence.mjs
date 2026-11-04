@@ -47,6 +47,24 @@ assert.equal(valid.evidenceReference,'mp-release:release-report-prod-20261024.cs
 assert.equal(valid.merchantPayoutVerified,false);
 assert.equal(valid.couponFundingApplied,false);
 assert.equal(valid.moneyMoved,false);
+// V1.807: prepaid coupons may be price-subsidized only when the authenticated
+// Admin has independently verified the full-face founder escrow in Postgres.
+const sponsorInvoice={...invoice,sale_price_cents:890,coupons_per_pack:3,
+  sponsor_covered_cents:1500};
+const sponsorOrder={...order,total_amount:'8.90',
+  transactions:{payments:[{...order.transactions.payments[0],amount:'8.90'}],refunds:[]}};
+const sponsorCsv=header+'\n'+release({GROSS_AMOUNT:'8.90',
+ NET_CREDIT_AMOUNT:'8.40',NET_DEBIT_AMOUNT:'0.00'})+'\n';
+const inspectSponsor=(inv=sponsorInvoice,sponsorVerified=false)=>
+ couponReleasedNetEvidence(sponsorCsv,{invoice:inv,order:sponsorOrder,
+  reportFileName:'release-report-prod-20261024.csv',sponsorVerified});
+assert.equal(inspectSponsor().eligible,false,'discounted package without bank escrow fails');
+assert.equal(inspectSponsor(sponsorInvoice,true).eligible,true,'verified founder escrow covers face');
+assert.equal(inspectSponsor({...sponsorInvoice,sponsor_covered_cents:1499},true).eligible,false);
+assert.equal(inspectSponsor({...sponsorInvoice,sponsor_covered_cents:0},true).eligible,false);
+assert.match(admin,/sponsorVerified=await couponOwnerSponsorVerified\(admin,invoice\)/,
+ 'server must recheck bank escrow; client must not authorize the flag');
+
 
 // MP's released-money report may contain a positive release followed by
 // chargeback/mediation or another correlated debit. An exact positive payment
