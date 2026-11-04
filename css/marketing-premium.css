@@ -455,23 +455,9 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .tamao-coupon-ticket-top,.tamao-coupon-ticket-bottom{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-weight:850;letter-spacing:.04em}.tamao-coupon-ticket-top span,.tamao-coupon-ticket-caption{font-size:9px;color:#60826b}.tamao-coupon-banner-ticket strong{font-size:64px;letter-spacing:-.1em}.tamao-coupon-banner-ticket strong span{font-size:15px}.tamao-coupon-banner-sticker{position:absolute;right:0;bottom:4px;display:flex;gap:7px;align-items:center;transform:rotate(6deg);background:white;color:#155239;border-radius:13px;padding:11px;font-size:21px}
 @media(max-width:760px){.tamao-coupon-banner{grid-template-columns:1fr;padding:25px 19px;border-radius:20px}.tamao-coupon-banner h2{font-size:clamp(30px,7vw,40px)}.tamao-coupon-banner-actions button{flex:1}.tamao-coupon-banner-scene{min-height:195px;margin-top:10px}.tamao-coupon-banner-ticket{min-height:155px;width:235px;padding:17px}.tamao-coupon-banner-ticket strong{font-size:55px}}@media(max-width:620px){.tamao-coupon-banner-actions button{width:100%;flex:auto}}
 
-/* Verified welcome campaign (#815): shown only after a positive server status. */
+/* Server-gated welcome campaign */
 .tamao-welcome-offer[hidden]{display:none!important}
-.tamao-welcome-offer{
-  margin:18px 0;padding:22px 24px;border-radius:19px;
-  border:1px solid rgba(255,255,255,.32);
-  color:#fff;background:linear-gradient(118deg,#075842 0%,#0d8567 58%,#1b9b7a 100%);
-  box-shadow:0 16px 32px rgba(5,56,44,.19);
-  display:flex;flex-direction:column;align-items:flex-start;gap:9px;
-}
-.tamao-welcome-offer .tamao-welcome-kicker{font-size:.75rem;letter-spacing:.09em;font-weight:850;color:#d1ffe6}
-.tamao-welcome-offer strong{font-size:clamp(1.2rem,2vw,1.8rem);line-height:1.2;color:#fff}
-.tamao-welcome-offer p{font-size:.95rem;margin:0;color:#e5fff4;line-height:1.55}
-.tamao-welcome-offer p b{color:#fff}
-.tamao-welcome-offer button{
-  border:0;border-radius:12px;background:#fff;color:#075c45;
-  font-weight:800;padding:11px 16px;cursor:pointer;
-}
-.tamao-welcome-offer button:focus-visible{outline:3px solid #e9f7ad;outline-offset:3px}
-.tamao-welcome-offer small{font-size:.76rem;color:#d8f4e9;line-height:1.5}
-@media(max-width:620px){.tamao-welcome-offer{padding:17px 16px;border-radius:15px}}
+.tamao-welcome-offer{display:grid;gap:.5rem;padding:1rem;border-radius:1rem;background:linear-gradient(115deg,#075842,#0d8567);color:#fff;margin:1rem 0}
+.tamao-welcome-offer strong{color:#fff;font-size:1.4rem}
+.tamao-welcome-offer p,.tamao-welcome-offer small{color:#e5fff4;margin:0}
+.tamao-welcome-offer button{padding:.7rem 1rem;border:0;border-radius:.7rem;background:#fff;color:#075842;font-weight:800;cursor:pointer;width:max-content;max-width:100%}
