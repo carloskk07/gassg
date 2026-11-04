@@ -443,16 +443,20 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .merchant-landing-premium .merchant-demo-note{margin:12px 0 0;color:#395c4a;font-size:12px;line-height:1.5}
 
 
-/* Clube TAMÃO: visual de cupom ilustrativo, sem oferta fictícia */
-.tamao-coupon-banner{display:grid;grid-template-columns:1.15fr .85fr;align-items:center;gap:24px;position:relative;overflow:hidden;isolation:isolate;margin:23px 0;padding:clamp(24px,4vw,46px);border-radius:26px;color:white;background:radial-gradient(circle at 100% 0,#388f62 0,transparent 44%),linear-gradient(115deg,#073b2d,#116b51);box-shadow:0 18px 40px #053a2d30}
-
-.tamao-coupon-banner-kicker{color:#ddf3a8;font-size:11px;font-weight:900}
-.tamao-coupon-banner h2{font-size:clamp(30px,4vw,48px);letter-spacing:-.05em;line-height:1.08;max-width:18ch;margin:14px 0;color:white;text-wrap:balance}.tamao-coupon-banner h2 em{color:#dcf7ab}.tamao-coupon-banner-copy>p{font-size:14px;color:#e5f3ea}
-.tamao-coupon-banner-tags,.tamao-coupon-banner-actions{display:flex;gap:9px;flex-wrap:wrap;margin:17px 0}.tamao-coupon-banner-tags span{border:1px solid #ffffff50;border-radius:99px;padding:7px 11px;background:#ffffff17;font-size:12px}
-.tamao-coupon-banner-actions button{min-height:46px;padding:11px 15px;border-radius:12px;font-size:13px;cursor:pointer;font-weight:850}.tamao-coupon-banner-main{color:#103f2e;background:#d9f5a3;border:1px solid #d9f5a3}.tamao-coupon-banner-alt{color:white;background:transparent;border:1px solid #ffffff85}.tamao-coupon-banner-actions button:focus-visible{outline:3px solid #ffd26b}
-.tamao-coupon-banner-scene{position:relative;display:grid;place-items:center;min-height:230px}
-.tamao-coupon-banner-ticket{position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:198px;width:min(260px,88%);padding:21px;border-radius:17px;transform:rotate(-8deg);background:linear-gradient(145deg,#faffee,#ddf2d5);color:#0c4d35;box-shadow:0 21px 35px #00291f70}
-.tamao-coupon-ticket-top,.tamao-coupon-ticket-bottom{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-weight:850;letter-spacing:.04em}.tamao-coupon-ticket-top span,.tamao-coupon-ticket-caption{font-size:9px;color:#60826b}.tamao-coupon-banner-ticket strong{font-size:64px;letter-spacing:-.1em}.tamao-coupon-banner-ticket strong span{font-size:15px}.tamao-coupon-banner-sticker{position:absolute;right:0;bottom:4px;display:flex;gap:7px;align-items:center;transform:rotate(6deg);background:white;color:#155239;border-radius:13px;padding:11px;font-size:21px}
-@media(max-width:760px){.tamao-coupon-banner{grid-template-columns:1fr;padding:25px 19px;border-radius:20px}.tamao-coupon-banner h2{font-size:clamp(30px,7vw,40px)}.tamao-coupon-banner-actions button{flex:1}.tamao-coupon-banner-scene{min-height:195px;margin-top:10px}.tamao-coupon-banner-ticket{min-height:155px;width:235px;padding:17px}.tamao-coupon-banner-ticket strong{font-size:55px}}@media(max-width:620px){.tamao-coupon-banner-actions button{width:100%;flex:auto}}
-
+/* Cupom comercial: colunas dimensionadas sem sobreposicao. */
+.tamao-coupon-banner{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);align-items:center;gap:clamp(16px,3vw,32px);position:relative;overflow:hidden;isolation:isolate;margin:18px 0 26px;padding:clamp(20px,3vw,38px);border-radius:22px;color:#fff;background:linear-gradient(125deg,#073b2d,#116b51);box-shadow:0 14px 32px #053a2d25}
+.tamao-coupon-banner-copy,.tamao-coupon-banner-scene{min-width:0;max-width:100%}
+.tamao-coupon-banner-kicker{color:#ddf3a8;font-size:11px;font-weight:900;letter-spacing:.04em}
+.tamao-coupon-banner h2{font-size:clamp(25px,3.1vw,39px);letter-spacing:-.035em;line-height:1.15;max-width:22ch;margin:12px 0;color:#fff;overflow-wrap:break-word}.tamao-coupon-banner h2 em{color:#dcf7ab}
+.tamao-coupon-banner-copy>p{font-size:14px;line-height:1.55;color:#e5f3ea;max-width:58ch}
+.tamao-coupon-banner-tags,.tamao-coupon-banner-actions{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0}.tamao-coupon-banner-tags span{border:1px solid #ffffff50;border-radius:99px;padding:7px 11px;background:#ffffff17;font-size:12px}
+.tamao-coupon-banner-actions button{min-height:44px;max-width:100%;padding:10px 13px;border-radius:11px;font-size:13px;cursor:pointer;font-weight:850;white-space:normal}.tamao-coupon-banner-main{color:#103f2e;background:#d9f5a3;border:1px solid #d9f5a3}.tamao-coupon-banner-alt{color:#fff;background:transparent;border:1px solid #ffffff85}
+.tamao-coupon-banner-actions button:focus-visible{outline:3px solid #ffd26b;outline-offset:3px}
+.tamao-coupon-banner-scene{position:relative;display:grid;place-items:center;min-height:220px;padding:16px}
+.tamao-coupon-banner-ticket{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:15px;min-height:190px;width:min(260px,100%);padding:20px;border-radius:17px;transform:rotate(-3deg);background:linear-gradient(145deg,#faffee,#ddf2d5);color:#0c4d35;box-shadow:0 15px 26px #00291f55}
+.tamao-coupon-ticket-top,.tamao-coupon-ticket-bottom{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-weight:850;letter-spacing:.02em}.tamao-coupon-ticket-top span,.tamao-coupon-ticket-caption{font-size:9px;color:#60826b}
+.tamao-coupon-banner-ticket strong{font-size:clamp(28px,3.4vw,43px);letter-spacing:-.06em;line-height:1.05;overflow-wrap:anywhere}.tamao-coupon-banner-ticket strong span{display:block;font-size:15px;letter-spacing:0;margin-top:5px}
+.tamao-coupon-banner-sticker{position:relative;justify-self:end;display:flex;align-items:center;gap:7px;margin:-8px 0 0;background:#fff;color:#155239;border-radius:12px;padding:8px 11px;font-size:16px}
+@media(max-width:760px){.tamao-coupon-banner{grid-template-columns:minmax(0,1fr);padding:22px 18px;border-radius:18px}.tamao-coupon-banner h2{font-size:clamp(25px,6vw,35px)}.tamao-coupon-banner-scene{display:none}.tamao-coupon-banner-actions button{flex:1 1 175px}}
+@media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
