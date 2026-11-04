@@ -25,7 +25,7 @@ function gate(){
  return {promise:new Promise((ok,no)=>{resolve=ok;reject=no}),resolve,reject};
 }
 function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
-  staleRead=false,wrongRead=false,teamUnavailable=false}={}){
+  staleRead=false,wrongRead=false,teamUnavailable=false,teamMismatch=false}={}){
   const calls=[],events=[];
   const rt={status:'ready',merchant:{merchantId:ID,memberRole:'owner'},
     selectedMerchantId:ID,session:{user:{id:ACTOR}},accessEpoch:9,
@@ -43,7 +43,11 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
       postedBody=body;
       if(postGate)await postGate.promise;
       if(ack)return ack;
-      return name==='merchant-ops'?{product:{productCode:'P13'}}:{status:'updated'};
+      return name==='merchant-ops'?{product:{productCode:'P13'}}:
+       body.action==='invite'?{ok:true,status:'pending',inviteId:'invite-1',
+        email:body.email,memberRole:body.memberRole}:
+       body.action==='revoke-member'?{ok:true,targetUserId:body.targetUserId}:
+       {ok:true,inviteId:body.inviteId,revokedAt:new Date().toISOString()};
     },
     merchantRefresh:async({silent})=>{
       assert.equal(silent,true);
@@ -64,7 +68,15 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
       assert.equal(silent,true);teamReads++;
       if(teamGate)await teamGate.promise;
       if(teamUnavailable)return null;
-      const fresh={members:[{id:'verified-member'}]};
+      const fresh={
+       members:postedBody?.action==='revoke-member'
+        ?[{userId:postedBody.targetUserId,active:teamMismatch}]
+        :[{id:'verified-member',active:true}],
+       pendingInvites:postedBody?.action==='invite'&&!teamMismatch
+        ?[{inviteId:'invite-1',email:postedBody.email,memberRole:postedBody.memberRole}]
+        :postedBody?.action==='revoke-invite'&&teamMismatch
+          ?[{inviteId:postedBody.inviteId}]:[]
+      };
       if(rt.session?.user?.id===ACTOR)rt.team=fresh;
       return fresh;
     }
@@ -147,18 +159,45 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
 {
  const f=setup();
  const result=await f.team();
- assert.equal(result.status,'updated');
+ assert.equal(result.status,'pending');
  assert.equal(f.calls.length,1);
  assert.equal(f.calls[0].body.action,'invite');
  assert.equal(f.refreshes,1);
  assert.equal(f.teamReads,1);
- assert.equal(f.rt.team.members[0].id,'verified-member');
+ assert.equal(f.rt.team.pendingInvites[0].inviteId,'invite-1');
  assert.equal(f.rt.actionPending,false);
 }
 {
  const f=setup({staleRead:true});
  await assert.rejects(()=>f.team(),/cadastro da equipe não foi confirmado/);
  assert.equal(f.rt.actionPending,false);
+}
+{
+ const f=setup({teamMismatch:true});
+ await assert.rejects(()=>f.team(),/não aparece na equipe atual/);
+ assert.equal(f.rt.actionPending,false,'no false invite success from unrelated list');
+}
+{
+ const f=setup();
+ const result=await f.ctx.ops.team('revoke-member',{targetUserId:'member-A'});
+ assert.equal(result.targetUserId,'member-A');
+ assert.equal(f.rt.team.members[0].active,false);
+}
+{
+ const f=setup({teamMismatch:true});
+ await assert.rejects(()=>f.ctx.ops.team('revoke-member',{targetUserId:'member-A'}),
+  /não aparece na equipe atual/);
+}
+{
+ const f=setup();
+ const result=await f.ctx.ops.team('revoke-invite',{inviteId:'invite-1'});
+ assert.equal(result.inviteId,'invite-1');
+ assert.equal(f.rt.team.pendingInvites.length,0);
+}
+{
+ const f=setup({teamMismatch:true});
+ await assert.rejects(()=>f.ctx.ops.team('revoke-invite',{inviteId:'invite-1'}),
+  /não aparece na equipe atual/);
 }
 {
  const f=setup({teamUnavailable:true});
