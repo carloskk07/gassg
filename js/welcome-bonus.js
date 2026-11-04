@@ -15,7 +15,7 @@ function tamaoWelcomeRender(){
   });
 }
 async function tamaoWelcomeRefreshStatus(){
-  const config=globalThis.CHAMA_BACKEND;
+  const config=typeof CHAMA_BACKEND!=='undefined'?CHAMA_BACKEND:null;
   if(!config?.url||!config?.publishableKey)return;
   try{
     const response=await fetch(config.url+'/rest/v1/rpc/welcome_bonus_status_v1_815',{
@@ -45,8 +45,8 @@ async function tamaoWelcomeClaimVerifiedUser(){
     if(error)throw error;
     tamaoWelcomeBonus.lastUser=user.id;
     if(data?.granted===true&&data?.alreadyGranted!==true&&
-       typeof globalThis.liveSyncFinancialProfile==='function'){
-      await globalThis.liveSyncFinancialProfile({force:true});
+       typeof liveSyncFinancialProfile==='function'){
+      await liveSyncFinancialProfile({force:true});
     }
     await tamaoWelcomeRefreshStatus();
   }catch{
