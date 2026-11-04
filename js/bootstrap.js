@@ -299,3 +299,12 @@ if(typeof adminPage==='function')Object.assign(window,{
     adminOwnerFinanceLoadFromUi,adminOwnerFinanceSelectFromUi,adminOwnerFinanceHistoryLoadFromUi,adminOwnerCampaignSignalsLoadFromUi,adminOwnerCampaignSignalsCopyFromUi,adminOwnerCampaignOrdersLoadFromUi,adminOwnerCampaignFeeReceiptsLoadFromUi,adminOwnerBatchLedgerLoadFromUi,adminCampaignCostsLoadFromUi,adminCampaignCostsRecordFromUi,adminCampaignCostsVoidFromUi,adminCampaignReceiptsLoadFromUi,adminCampaignReceiptUploadFromUi,adminCampaignReceiptDownloadFromUi,adminOwnerBridgeLoadFromUi,adminOwnerOrphanAuditLoadFromUi,adminOwnerBenefitsLoadFromUi,adminOwnerOrphanCleanupLoadFromUi,adminOwnerOrphanCleanupDeleteFromUi,adminOwnerWalletReconLoadFromUi,adminOwnerSourceLotsLoadFromUi,adminOwnerReferralTraceLoadFromUi,adminOwnerPayoutReadFromUi,adminOwnerPayoutRecordFromUi,adminOwnerPayoutVoidFromUi,adminOwnerPayoutProofsLoadFromUi,adminOwnerPayoutProofUploadFromUi,adminOwnerPayoutProofVerifyFromUi,adminOwnerPayoutProofViewFromUi,adminOwnerPayoutProviderLoadFromUi,adminOwnerPayoutProviderCheckFromUi,adminOwnerPayoutQueueSetFilterFromUi,adminOwnerPayoutQueuePrepareCheckFromUi,adminPayoutReviewOpenFromUi,adminPayoutReviewRecordFromUi,adminPayoutFollowupLoadFromUi,adminPayoutGlobalLoadFromUi,adminPayoutGlobalOpenMonthFromUi,adminPayoutArchivedLoadFromUi,adminOwnerRecipientProofLoadFromUi,adminOwnerMultiPspLoadFromUi
   }:{} )
 });
+
+/* Optional customer-only campaign: load after interactive content. */
+window.addEventListener('load',()=>{
+  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+  const script=document.createElement('script');
+  script.src='./js/welcome-bonus.js';
+  script.async=true;
+  document.head.append(script);
+},{once:true});

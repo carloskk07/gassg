@@ -27,16 +27,11 @@ assert.match(local,/onclick="startHomeBrowse\(\)">Escolher produtos/,
 assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
  'generic quote CTA cannot add default P13');
 
-assert.equal((local.match(/class="city-price-research-item"/g)||[]).length,3);
-assert.equal((local.match(/class="city-price-product-pick"/g)||[]).length,3);
-for(const code of ['P13','WATER20','WOOD']){
- assert.ok(local.includes('data-city-quote-code="'+code+'"'),'product must open own CEP: '+code);
- assert.ok(local.includes("homeQuoteSelectProduct('"+code+"',true)"),'product must use official checkout: '+code);
- assert.ok(local.includes("homeQuoteQuickAdd('"+code+"')"),'one-tap basket must be displayed: '+code);
-}
-assert.match(local,/Valor de pesquisa, não é oferta/);
-assert.ok(!local.includes('class="city-price-card verified"'));
-assert.ok(!local.includes('PREÇO DE REVENDA'));
+assert.equal((local.match(/class="city-price-research-item"/g)||[]).length,0);
+assert.equal((local.match(/class="city-price-product-pick"/g)||[]).length,0,
+ 'do not create non-purchasable price cards before verified offers');
+assert.match(local,/As ofertas serão exibidas quando houver revendas disponíveis/);
+assert.doesNotMatch(local,/Valor de pesquisa|R\$ 115.90|class="city-price-card verified"|PREÇO DE REVENDA/);
 ctx.globalThis.liveRuntime.cityPriceSnapshot={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
  real:true,notAQuote:true,checkedAt:new Date().toISOString(),

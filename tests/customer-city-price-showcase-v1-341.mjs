@@ -66,36 +66,24 @@ const mkContext=(snapshot=null)=>{
 };
 let env=mkContext();
 let html=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
-assert.match(html,/R\$ 115.90/);
-assert.match(html,/R\$ 15.90/);
-assert.match(html,/R\$ 25.00/);
-assert.match(html,/Pesquisa local informada em 15\/10\/2026/);
-assert.equal((html.match(/class="city-price-research-item"/g)||[]).length,3,
- 'three researched products share one reference, not merchant offer cards');
-assert.equal((html.match(/REFERÊNCIA LOCAL • NÃO É OFERTA/g)||[]).length,1,
- 'a single market reference must not be presented as three seller cards');
-assert.match(html,/city-price-reference-summary/);
+assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/,
+ 'research-only numbers are not merchant offers and must not appear');
+assert.match(html,/As ofertas serão exibidas quando houver revendas disponíveis para São Gabriel\/RS/);
+assert.doesNotMatch(html,/REFERÊNCIA LOCAL|Pesquisa local informada|city-price-research-item/,
+ 'do not advertise example prices');
 assert.match(html,/COTAÇÕES E ECONOMIA/);
-assert.doesNotMatch(html,/Os preços reais substituem as referências automaticamente/,
- 'do not show internal automatic-refresh copy to visitors');
-assert.doesNotMatch(html,/↻ Atualizar cotações/,'do not offer refresh until live RPC is ready');
+assert.doesNotMatch(html,/↻ Atualizar cotações/,'manual refresh requires verified live RPC');
 env.globalThis.liveReady=()=>true;
 let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
-assert.match(whenReady,/homeRefreshQuotePrices\(\)/,
- 'quote board must offer manual refresh when the live RPC is ready');
+assert.match(whenReady,/homeRefreshQuotePrices\(\)/);
 assert.match(html,/Cupons, descontos e Clube/);
-assert.doesNotMatch(html,/Indicar também tem valor/,'Club/Network explanations belong outside the quote panel');
-// UI copy follows the verified #508 homepage; keep contract for real campaigns, not historical wording.
 assert.match(html,/Consulte cupons e cashback da sua conta/);
-assert.doesNotMatch(html,/Diferença de R\$/,'no merchant price spread with reference only');
-assert.match(html,/Referência de mercado, não é oferta de revenda/);
-assert.doesNotMatch(html,/PREÇO DE REVENDA/);
-assert.doesNotMatch(html,/\bCarlos Santos\b/,'test account cannot be presented as a live seller');
-assert.doesNotMatch(html,/city-price-place/,'Do not repeat city in heading and badge');
+assert.doesNotMatch(html,/Diferença de R\$|PREÇO DE REVENDA/);
+assert.doesNotMatch(html,/\bCarlos Santos\b/);
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Outra Cidade",state:"RS",origin:"chosen"})',env);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
-assert.match(html,/Explore os produtos e consulte as ofertas de Outra Cidade/);
+assert.match(html,/As ofertas serão exibidas quando houver revendas disponíveis para Outra Cidade\/RS/);
 assert.match(html,/Ver outra cidade/);
 const real={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',

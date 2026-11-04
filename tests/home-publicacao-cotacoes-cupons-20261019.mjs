@@ -45,10 +45,10 @@ const quoteContext=vm.createContext({
 });
 vm.runInContext(home+';this.priceBoard=homeRegionalPriceBoard;',quoteContext);
 const local=quoteContext.priceBoard({city:'São Gabriel',state:'RS'});
-for(const expected of ['R$ 115.90','R$ 15.90','R$ 25.00','15/10/2026',
-  'REFERÊNCIA LOCAL','não é oferta de revenda','Ver cupons e Clube']){
-  assert.ok(local.includes(expected),'local research missing '+expected);
-}
+assert.match(local,/As ofertas serão exibidas quando houver revendas disponíveis para São Gabriel\/RS/);
+assert.match(local,/Ver cupons e Clube/);
+assert.doesNotMatch(local,/R\$ 115.90|R\$ 15.90|R\$ 25.00|REFERÊNCIA LOCAL|15\/10\/2026/,
+  'historical research must not appear as a public price');
 assert.ok(!local.includes('Os preços reais substituem as referências'));
 assert.ok(!local.includes('class="city-price-card verified"'));
 const elsewhere=quoteContext.priceBoard({city:'Santa Maria',state:'RS'});
