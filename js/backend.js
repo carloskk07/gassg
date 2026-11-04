@@ -2321,7 +2321,8 @@ async function merchantLoadMutations(){
  if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
     globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl&&
     globalThis.merchantConfigSettingsMutateImpl&&
-    globalThis.merchantProviderConnectImpl)return;
+    globalThis.merchantProviderConnectImpl&&
+    globalThis.merchantMemberProfileMutateImpl)return;
  if(merchantMutationLoader)return merchantMutationLoader;
  merchantMutationLoader=new Promise((resolve,reject)=>{
   const script=document.createElement('script');
@@ -2334,7 +2335,8 @@ async function merchantLoadMutations(){
    if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
       globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl&&
     globalThis.merchantConfigSettingsMutateImpl&&
-      globalThis.merchantProviderConnectImpl)resolve();
+      globalThis.merchantProviderConnectImpl&&
+      globalThis.merchantMemberProfileMutateImpl)resolve();
    else{merchantMutationLoader=null;reject(Error('Operações da revenda indisponíveis.'));}
   };
   script.onerror=()=>{
@@ -2397,21 +2399,11 @@ async function merchantAssignDeliveryLive(orderId,deliveryUserId){
 }
 
 async function merchantUpdateMemberProfileLive(displayName){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  const name=String(displayName||'').trim().replace(/\s+/g,' ');
-  if(name.length<2||name.length>60)throw new Error('Informe um nome operacional entre 2 e 60 caracteres');
-  merchantRuntime.actionPending=true;render();
-  try{
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,
-      action:'update-member-profile',
-      displayName:name
-    }));
-    await merchantRefresh({silent:true});
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou revenda mudou antes de atualizar seu perfil.');
+ return globalThis.merchantMemberProfileMutateImpl(displayName);
 }
 
 async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed,resumeIdempotencyKey){
