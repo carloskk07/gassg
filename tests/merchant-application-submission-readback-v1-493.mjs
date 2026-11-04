@@ -46,7 +46,11 @@ function fixture({submitGate=null,readGate=null,submitError=null,receiptOverride
  const ctx=vm.createContext({
   merchantRuntime:rt,Date,String,Error,Number,Array,Object,JSON,
   clearMerchantPilotInviteToken:()=>cleared++,
-  merchantInvoke:async(name,body)=>{
+  merchantInvoke:async(name,body,options={})=>{
+   if(body.action!=='my-applications'){
+    assert.equal(options.expectedUserId,USER,'application may only be sent for initiating owner');
+    assert.equal(options.expectedEpoch,15);
+   }
    assert.equal(name,'submit-merchant-application');
    if(body.action==='my-applications'){
     readCount++;
@@ -188,6 +192,27 @@ for(const patch of [
  block.resolve();
  await assert.rejects(pending,/A conta mudou/);
  assert.equal(f.clears,0,'old applicant cannot clear a newer account invitation');
+}
+// getSession may await a token refresh while another tab replaces the user.
+// The actual HTTP boundary must reject the NEW user's token for OLD payload.
+{
+ const invokeSource=grab('async function merchantInvoke(name,body={},options={}){');
+ const user={session:{user:{id:USER}},accessEpoch:15};
+ const lock=gate();let outbound=0;
+ const isolated=vm.createContext({
+  merchantRuntime:user,
+  merchantAccessToken:async()=>{await lock.promise;return 'new-user-session-token';},
+  CHAMA_BACKEND:{publishableKey:'test-publishable',url:'https://example.invalid'},
+  chamaFetch:async()=>{outbound++;return {ok:true,json:async()=>({ok:true})}},
+  String,Error,JSON,encodeURIComponent
+ });
+ vm.runInContext(invokeSource+';this.send=merchantInvoke;',isolated);
+ const pending=isolated.send('submit-merchant-application',{cnpj:'12345678000199'},
+  {expectedUserId:USER,expectedEpoch:15});
+ user.session={user:{id:'applicant-owner-B'}};user.accessEpoch=16;
+ lock.resolve();
+ await assert.rejects(pending,/Sua conta mudou antes de enviar/);
+ assert.equal(outbound,0,'a refreshed token from account B cannot submit account A details');
 }
 assert.match(edge,/\\.eq\("applicant_user_id",user\.id\)/);
 assert.match(edge,/body\.action==="my-applications"/);
