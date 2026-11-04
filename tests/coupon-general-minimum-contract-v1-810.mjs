@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const sql=read('supabase/migrations/20261104170200_clube_general_coupon_minimum_v1_810.sql');
+const admin=read('supabase/functions/admin-ops/index.ts');
+const edge=read('supabase/functions/coupon-credit-pix/index.ts');
+const growth=read('js/growth.js');
+const shop=read('js/clube-coupon-shop.js');
+const ui=read('js/admin-acquisition.js');
+assert.match(sql,/all_products_3x5_sponsor/);
+assert.match(sql,/5000,false,false,false,false/);
+assert.match(sql,/BEFORE INSERT ON public\.clube_coupon_paid_invoices/);
+assert.match(sql,/NEW\.min_order_cents:=v_min/);
+assert.match(sql,/COUPON_MINIMUM_SNAPSHOT_IMMUTABLE/);
+assert.match(sql,/BEFORE UPDATE OF status,reserved_quote_id ON public\.clube_coupon_paid_issuances/);
+assert.match(sql,/BEFORE INSERT ON public\.clube_coupon_paid_order_applications/);
+assert.match(sql,/COUPON_MINIMUM_ORDER_NOT_MET/g);
+assert.match(sql,/v_total<GREATEST\(v_min,NEW\.face_cents\)/g);
+assert.match(sql,/a?dmin_clube_coupon_general_minimum_set_v1_810/);
+assert.match(sql,/admin_role='superadmin'/);
+assert.match(sql,/IF v_pkg\.sale_enabled THEN/);
+assert.match(sql,/REVOKE ALL ON FUNCTION public\.admin_clube_coupon_general_minimum_set_v1_810/);
+assert.doesNotMatch(sql,/UPDATE public\.platform_launch_control|INSERT INTO public\.clube_coupon_paid_issuances|INSERT INTO public\.wallet_entries/i);
+assert.match(edge,/minOrderCents:p\.min_order_cents,eligibleProducts:"all"/);
+assert.match(edge,/minOrderCents:paidInvoices\.get/);
+assert.match(growth,/quoteTotalCents<Number\(voucher\.minOrderCents\?\?0\)/);
+assert.match(shop,/qualquer produto do catálogo/);
+assert.match(admin,/if\(action==="clube-general-minimum-set"\)/);
+assert.match(admin,/generalCouponMinOrderCents/);
+assert.match(ui,/adminClubeGeneralMinimumFromUi/);
+assert.match(ui,/Cupons para qualquer produto/);
+new vm.Script(growth);
+new vm.Script(shop);
+new vm.Script(ui);
+// Verify non-gas product orders are eligible when total and wallet allow it.
+const a='00000000-0000-4000-8000-000000000011';
+const state={user:{cashback:0},checkout:{useCashback:true}};
+const globalThis={liveRuntime:{session:{user:{id:a}}},liveReady:()=>true};
+const sandbox=vm.createContext({globalThis,state,Date,
+  BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
+  esc:v=>String(v??''),save:()=>{},render:()=>{},toast:()=>{},route:()=> 'order'});
+const part=growth.slice(growth.indexOf('const clubePaidCouponView='),growth.indexOf('function club(){'));
+vm.runInContext(part+`this.__test={view:clubePaidCouponView,selected:clubePaidCheckoutSelection,forQuote:clubePaidCouponVoucherForQuote};`,sandbox);
+const api=sandbox.__test;
+api.view.userId=a;api.view.status='ready';api.view.checkoutEnabled=true;
+api.view.vouchers=[{voucherId:'77777777-7777-4777-8777-777777777777',
+  faceCents:500,minOrderCents:5000,status:'issued',expiresAt:'2028-01-01T00:00:00Z'}];
+api.selected.userId=a;api.selected.voucherId=api.view.vouchers[0].voucherId;
+assert.equal(api.forQuote(4999),null);
+assert.equal(api.forQuote(5000).minOrderCents,5000);
+state.user.cashback=47;
+assert.equal(api.forQuote(5000),null,'wallet+voucher must fit in gross order');
+globalThis.liveRuntime.session.user.id='00000000-0000-4000-8000-000000000022';
+assert.equal(api.forQuote(7000),null,'cross-account voucher use denied');
+console.log('V1.810 PASS — all products, minimum-bound voucher snapshot, server-side reserve/apply and no silent sales activation.');

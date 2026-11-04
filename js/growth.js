@@ -64,7 +64,10 @@ const balanceCents=Math.round(Math.max(0,Number(state.user?.cashback||0))*100);
 const voucher=clubePaidCouponOptions().find(v=>
   v.voucherId===clubePaidCheckoutSelection.voucherId);
 if(!voucher||!Number.isSafeInteger(quoteTotalCents)||
-  quoteTotalCents<balanceCents+voucher.faceCents)return null;
+  (quoteTotalCents<balanceCents+voucher.faceCents||
+   !Number.isSafeInteger(Number(voucher.minOrderCents??0))||
+   Number(voucher.minOrderCents??0)<0||
+   quoteTotalCents<Number(voucher.minOrderCents??0)))return null;
 return voucher;
 }
 function clubePaidCouponCheckoutPanel(){
@@ -81,7 +84,9 @@ const select=options.length?
   options.map(v=>'<option value="'+esc(v.voucherId)+'" '+
     (current===v.voucherId?'selected':'')+'>'+
     esc(BRL.format(v.faceCents/100))+' • válido até '+
-    esc(new Date(v.expiresAt).toLocaleDateString('pt-BR'))+'</option>').join('')+
+    esc(new Date(v.expiresAt).toLocaleDateString('pt-BR'))+
+    (Number(v.minOrderCents)>0?' • pedido mínimo '+esc(BRL.format(v.minOrderCents/100)):'')+
+    '</option>').join('')+
   '</select><small>O desconto só é confirmado ao criar o pedido.</small>':'';
 return '<div class="tamao-checkout-voucher-picker">'+
  '<strong>Cupons da sua conta</strong>'+
@@ -130,7 +135,9 @@ function clubePaidCouponPanel(){
       '<article class="card flat">'+
       '<strong>'+esc(money(item.faceCents))+'</strong>'+
       '<p> Cupom '+esc(String(item.ordinal))+' · '+esc(labels[item.status]||'Em análise')+'</p>'+
-      '<small>Validade: '+esc(expire(item.expiresAt))+'</small></article>').join('')
+      '<small>Validade: '+esc(expire(item.expiresAt))+'</small>'+
+      (Number(item.minOrderCents)>0?'<small> · Pedido mínimo: '+esc(money(item.minOrderCents))+'</small>':'')+
+      '</article>').join('')
     :'';
   const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
     ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
