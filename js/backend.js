@@ -1642,7 +1642,7 @@ async function merchantPushEnableLive(){
   // Never revoke a pre-existing consent when a network response fails.
   // Only clean a newly-created local subscription if it is still the
   // browser's exact subscription. Avoid erasing another actor's enrollment.
-  if(createdNew&&subscription){
+  if(createdNew&&subscription&&current()){
    try{
     const reg=await navigator.serviceWorker.getRegistration('./');
     const still=await reg?.pushManager?.getSubscription();
