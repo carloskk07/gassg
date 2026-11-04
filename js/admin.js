@@ -4858,7 +4858,7 @@ function adminFocusFinanceRecord(kind,id){
 }
 
 /* V1.191 — stable finance workspaces, never change financial authority. */
-const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
+const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e cupons","detail":"Ativar vendas e reversões"}];
 
 /* Finance Lab: admin-only orchestration; mock invoices never enter accounting. */
 function adminFinanceLabCents(value){
