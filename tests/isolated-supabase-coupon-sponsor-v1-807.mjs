@@ -100,7 +100,7 @@ const hash='a'.repeat(64);
 const quote=JSON.parse(sql("SELECT public.create_quote_snapshot_v3("+
   q(buyer)+"::uuid,"+q(merchant)+"::uuid,'97300000','10',400,25,45,"+
   "clock_timestamp()+interval '5 minutes',"+
-  q('[{"product_code":"CHARCOAL2","quantity":1,"unit_price_cents":1800]')+"::jsonb,"+q(hash)+")::text;"));
+  q('[{"product_code":"CHARCOAL2","quantity":1,"unit_price_cents":1800}]')+"::jsonb,"+q(hash)+")::text;"));
 sql("UPDATE public.quotes SET payment_method_requested='cash',payment_timing_requested='on_delivery' WHERE id="+q(quote.quoteId)+"::uuid;");
 const order=JSON.parse(sql("SELECT public.clube_coupon_paid_create_order("+
  q(buyer)+"::uuid,"+q(quote.quoteId)+"::uuid,"+q(ids[0])+"::uuid,'cash',"+
