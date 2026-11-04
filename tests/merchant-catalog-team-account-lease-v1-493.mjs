@@ -188,6 +188,44 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
  assert.equal(f.teamReads,0);
  assert.equal(f.rt.actionPending,true);
 }
+// First-click lazy loading must not replay a click from an old operator under
+// a different user who signs in before the deferred JS finishes loading.
+{
+ const start=backend.indexOf('let merchantMutationLoader=null;');
+ const finish=backend.indexOf('\nasync function merchantTeamInviteLive(',start);
+ const catalogStart=backend.indexOf('async function merchantUpdateProductLive(');
+ const catalogFinish=backend.indexOf('\nasync function merchantConfigMutation(',catalogStart);
+ assert.ok(start>0&&finish>start&&catalogStart>0&&catalogFinish>catalogStart);
+ const source=backend.slice(start,finish)+'\n'+backend.slice(catalogStart,catalogFinish);
+ new vm.Script(source);
+ const scripts=[],called=[];
+ const rt={session:{user:{id:ACTOR}},merchant:{merchantId:ID},accessEpoch:9};
+ const ctx=vm.createContext({
+  merchantRuntime:rt,URL,encodeURIComponent,Error,
+  location:{href:'https://parceiro.tamao.com.br/'},
+  document:{
+   createElement(){return {}},
+   querySelector(){return {src:'https://parceiro.tamao.com.br/js/merchant.js?v=verified-493'}},
+   head:{appendChild(x){scripts.push(x)}}
+  }
+ });
+ ctx.globalThis=ctx;
+ vm.runInContext(source+';this.commit=merchantUpdateProductLive;this.team=merchantTeamMutateLive;',ctx);
+ const first=ctx.commit('P13',12000,3,true);
+ assert.equal(scripts.length,1);
+ assert.match(scripts[0].src,/merchant-mutations\.js\?v=verified-493$/);
+ const second=ctx.team('invite',{email:'member@example.invalid'});
+ assert.equal(scripts.length,1,'concurrent first clicks share one deferred download');
+ ctx.merchantCatalogMutateImpl=async()=>{called.push('catalog');return {ok:true}};
+ ctx.merchantTeamMutateImpl=async()=>{called.push('team');return {ok:true}};
+ rt.session={user:{id:'actor-B'}};rt.accessEpoch++;
+ scripts[0].onload();
+ await assert.rejects(first,/conta ou a revenda mudou/);
+ await assert.rejects(second,/conta ou a revenda mudou/);
+ assert.equal(called.length,0,'old A clicks cannot be sent under B');
+ assert.deepEqual(await ctx.commit('P13',12000,3,true),{ok:true});
+ assert.deepEqual(called,['catalog'],'B can initiate its own new action');
+}
 // Existing UI remains bound to the canonical code rather than a new RPC.
 assert.match(merchant,/await merchantUpdateProductLive\(/);
 assert.match(deferred,/merchantEditableMutationScope\(/);
