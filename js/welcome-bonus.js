@@ -1,6 +1,7 @@
 /* Welcome bonus #815: server is sole authority for the promotion and wallet.
    Absence of an authoritative response is not an available promotion. */
 const tamaoWelcomeBonus={status:null,lastUser:null,lastClaimTryAt:0,inflight:false};
+const tamaoCouponHome={package:null,loading:false};
 function tamaoWelcomeRender(){
   const status=tamaoWelcomeBonus.status;
   const active=status?.active===true &&
@@ -77,7 +78,6 @@ if(document.readyState==='loading'){
 
 /* Only the audited general-purpose package is displayed, as a catalog price.
    Checkout remains controlled by the independently gated coupon-credit-pix API. */
-const tamaoCouponHome={package:null,loading:false};
 function tamaoCouponHomeRender(){
   const p=tamaoCouponHome.package;
   const valid=p?.key==='all_products_3x5_sponsor'&&
