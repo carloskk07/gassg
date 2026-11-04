@@ -3674,7 +3674,8 @@ Deno.serve(async(req:Request)=>{
           guaranteeCents:pool.data?.owner_guaranteed_cents??0,
           reservedCents:pool.data?.encumbered_cents??0,
           providerConfigured:mercadoPagoConfigured(
-            Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??""),
+            Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"")&&
+            String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").startsWith("APP_USR-"),
           privateEmergencyStop:Deno.env.get("CLUBE_COUPON_SALES_EMERGENCY_STOP")==="true",
           commercialEnabled:release.data?.enabled===true&&
             packageResult.data?.sale_enabled===true&&
@@ -3712,7 +3713,7 @@ Deno.serve(async(req:Request)=>{
          "Informe CPF/CNPJ válido, contatos e aceite as obrigações do fornecedor.",400);
       }
       const accessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
-      if(!mercadoPagoConfigured(accessToken))
+      if(!mercadoPagoConfigured(accessToken)||!accessToken.startsWith("APP_USR-"))
         throw new DomainError("COUPON_LIVE_PIX_NOT_CONFIGURED",
           "Configure o token de produção Mercado Pago antes de ativar.",503);
       // A read-only provider profile check is not a charge or settlement
