@@ -30,6 +30,8 @@ function publicLandingJump(sectionId){
   return true;
 }
 
+// Paid coupons share the customer's authenticated Supabase session.
+// Club purchase buttons live in deferred catalog; wallet is read-only.
 const clubePaidCouponView={
   userId:null,status:'idle',purchases:[],vouchers:[],error:null,
   checkoutEnabled:false
@@ -172,8 +174,7 @@ async function clubePaidCouponsRefresh(){
 function club(){
   const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id));
   if(globalThis.document&&!globalThis.cshop){
-    globalThis.cshop=1;
-    import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
+    globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
   }
   if(!member)return shell(`<section class="page tamao-club-visitor">
     <div class="tamao-club-visitor-hero">
