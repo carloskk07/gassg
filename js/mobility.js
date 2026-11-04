@@ -783,6 +783,16 @@ async function mobilityRecoverTransition(action,selected,epoch,userId){
   return data;
  }catch(_){return null}
 }
+// Server ACKs identify a request, but only the current rider's fresh
+// participant snapshot proves the created journey really belongs to them.
+function mobilityCreatedRequestVerified(intent,origin,destination,id,epoch,userId){
+ const s=mobilityRuntime,row=s.detail;
+ return s.sessionEpoch===epoch&&s.user?.id===userId&&s.id===id&&
+  mobilityId.test(String(id||''))&&row?.id===id&&row.role==='rider'&&
+  row.service===intent?.mode&&row.origin===origin&&row.destination===destination&&
+  ['requested','accepted','en_route','arrived','completed','cancelled','rejected','expired']
+   .includes(String(row.status||''));
+}
 async function mobilityCreate(event){
  event.preventDefault();
  const s=mobilityRuntime,intent=mobilityIntent(),form=new FormData(event.target);
@@ -792,29 +802,46 @@ async function mobilityCreate(event){
   s.error='Informe origem e destino aproximados.';render();return false;
  }
  const epoch=s.sessionEpoch,userId=s.user.id,started=Date.now();
- s.busy=true;s.error='';
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ let returnedId='';
+ s.busy=true;s.error='';s.notice='';
  try{
   const r=await s.client.rpc('mobility_create_request',{
    p_listing_id:intent.id,p_service:intent.mode,p_origin_area:origin,p_destination_area:destination
   });
+  if(!same())return false;
   if(r.error||!mobilityId.test(String(r.data||'')))throw r.error||Error('invalid id');
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
-  s.id=r.data;s.notice='Solicitação enviada. Aguarde o aceite do anunciante.';
-  await mobilityRefresh();
+  returnedId=r.data;s.id=returnedId;
+  const fresh=await mobilityRefresh().catch(()=>false);
+  if(!same())return false;
+  if(!fresh||!mobilityCreatedRequestVerified(intent,origin,destination,returnedId,epoch,userId))
+   throw Error('Server request was not verified in an authenticated read');
+  s.error='';
+  s.notice='Solicitação confirmada no servidor. Aguarde o aceite do anunciante.';
  }catch(_){
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
-  const recovered=await mobilityRecoverCreatedRequest(
+  if(!same())return false;
+  // A timeout could occur after COMMIT. Recover via a read-only, exact
+  // listing/rider/route/time match; NEVER replay create_request automatically.
+  const candidate=returnedId||await mobilityRecoverCreatedRequest(
    intent,origin,destination,started,epoch,userId);
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
-  if(recovered){
-   s.id=recovered;s.error='';
-   s.notice='Solicitação localizada e confirmada no servidor. Acompanhe o atendimento.';
-   await mobilityRefresh();
+  if(!same())return false;
+  if(candidate){
+   s.id=candidate;
+   const fresh=await mobilityRefresh().catch(()=>false);
+   if(!same())return false;
+   if(fresh&&mobilityCreatedRequestVerified(intent,origin,destination,candidate,epoch,userId)){
+    s.error='';
+    s.notice='Solicitação localizada e confirmada no servidor. Acompanhe o atendimento.';
+   }else{
+    s.notice='';
+    s.error='O servidor pode ter registrado a solicitação, mas não foi possível conferir o atendimento. Atualize antes de tentar novamente.';
+   }
   }else{
+   s.notice='';
    s.error='Não foi possível confirmar o envio. Atualize os atendimentos antes de tentar novamente: a solicitação pode já ter sido registrada.';
   }
  }
- if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
+ if(!same())return false;
  s.busy=false;render();return false;
 }
 async function mobilityTransition(action){
@@ -822,29 +849,38 @@ async function mobilityTransition(action){
  if(!s.client||!s.user||s.busy||!mobilityId.test(s.id)||!
   ['accept','depart','arrive','finish','reject','cancel'].includes(action))return false;
  const epoch=s.sessionEpoch,userId=s.user.id,selected=s.id;
- s.busy=true;s.error='';render();
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId&&s.id===selected;
+ s.busy=true;s.error='';s.notice='';render();
  try{
   if(s.watch!==null||s.gpsPending)await mobilityStopTracking();
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  if(!same())return false;
   const r=await s.client.rpc('mobility_transition',{p_request_id:selected,p_action:action});
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  if(!same())return false;
   if(r.error)throw r.error;
-  s.notice='Situação atualizada: '+(mobilityStates[r.data]||'consulte o atendimento')+'.';
-  await mobilityRefresh();
- }catch(_){
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  // A successful HTTP status is not a completed ride transition. Read back
+  // the EXACT state from the authenticated rider/driver participant RPC.
   const confirmed=await mobilityRecoverTransition(action,selected,epoch,userId);
-  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+  if(!same())return false;
+  if(!confirmed)throw Error('Unable to verify the updated status');
+  s.detail=confirmed;s.error='';
+  s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
+  if(confirmed.status!=='en_route')mobilityUpdateMap(null);
+  await mobilityRefresh().catch(()=>false);
+ }catch(_){
+  if(!same())return false;
+  const confirmed=await mobilityRecoverTransition(action,selected,epoch,userId);
+  if(!same())return false;
   if(confirmed){
    s.detail=confirmed;s.error='';
    s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
    if(confirmed.status!=='en_route')mobilityUpdateMap(null);
-   await mobilityRefresh();
+   await mobilityRefresh().catch(()=>false);
   }else{
+   s.notice='';
    s.error='Não foi possível confirmar a alteração. Atualize os atendimentos antes de repetir: a ação pode já ter sido registrada.';
   }
  }
- if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.id!==selected)return false;
+ if(!same())return false;
  s.busy=false;render();return false;
 }
 function mobilityOpenMap(){
