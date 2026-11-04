@@ -578,6 +578,8 @@ jobs:
         run: node tests/merchant-catalog-maintenance-v1-173.mjs
       - name: Merchant explicit multi-SKU price reconfirmation safety
         run: node tests/merchant-reviewed-price-batch.mjs
+      - name: Merchant catalog and team mutations stay bound to verified actor and server readback
+        run: node tests/merchant-catalog-team-account-lease-v1-493.mjs
       - name: Merchant order priority queue V1.174 regression
         run: node tests/merchant-order-quick-queue-v1-174.mjs
       - name: Guided delivery team assignment V1.175 regression
