@@ -5229,7 +5229,7 @@ function adminOwnerBatchLedgerSection(){
     '</div>';
 }
 
-// V1.807 — one-time, bank-evidence-backed R$100 of coupon subsidy.
+// V1.808 — owner personally guarantees this R$100 without a fictitious self-transfer.
 let adminClubeSponsorState=null;
 let adminClubeSponsorBusy=false;
 async function adminClubeSponsorLoadFromUi(){
@@ -5242,10 +5242,12 @@ async function adminClubeSponsorLoadFromUi(){
     if(d?.ok!==true||d?.source!=='clube_coupon_owner_sponsor_v1_807'||
        d.authorizedCents!==10000||d.readOnly!==true||d.noCharge!==true||
        !Number.isSafeInteger(d.reconciledCents)||
+       !Number.isSafeInteger(d.ownerGuaranteedCents)||
        !Number.isSafeInteger(d.encumberedCents)||
-       d.remainingCents!==d.reconciledCents-d.encumberedCents||
+       d.remainingCents!==d.reconciledCents+d.ownerGuaranteedCents-d.encumberedCents||
        d.reconciledCents>10000||d.reconciledCents<0||
-       d.encumberedCents<0||d.encumberedCents>d.reconciledCents)
+       d.ownerGuaranteedCents<0||d.reconciledCents+d.ownerGuaranteedCents>10000||
+       d.encumberedCents<0||d.encumberedCents>d.reconciledCents+d.ownerGuaranteedCents)
       throw new Error('Reserva de cupons não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||''))
       adminClubeSponsorState={...d,loadedFor:actor};
@@ -5299,7 +5301,8 @@ function adminClubeSponsorSection(){
     (adminClubeSponsorBusy?'disabled':'')+'>Consultar patrocínio</button></div>'+
     (pool?'<div class="merchant-kpis">'+
       '<div class="kpi"><span class="label">Autorizado</span><strong>'+adminMoney(pool.authorizedCents)+'</strong></div>'+
-      '<div class="kpi"><span class="label">Conferido no extrato</span><strong>'+adminMoney(pool.reconciledCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Garantido pelo proprietário</span><strong>'+adminMoney(pool.ownerGuaranteedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Transferências conferidas</span><strong>'+adminMoney(pool.reconciledCents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Comprometido com cupons</span><strong>'+adminMoney(pool.encumberedCents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Ainda não comprometido</span><strong>'+adminMoney(pool.remainingCents)+'</strong></div>'+
       '</div>':'<p class="muted">Consulte o saldo antes de realizar qualquer nova campanha.</p>')+
@@ -5309,9 +5312,9 @@ function adminClubeSponsorSection(){
       '<button class="secondary small" type="button" onclick="adminClubeSponsorReconcileFromUi(\''+
         esc(String(r.contributionId))+'\')" '+(adminClubeSponsorBusy?'disabled':'')+
       '>Vincular ao teto de cupons</button></article>').join('')+'</div>':'')+
-    '<p class="tiny muted">Só é possível vincular aportes previamente conferidos no extrato. '+
-    'O orçamento planejado não é saldo bancário; vendas exigem liberação comercial, '+
-    'comprovação financeira e aceite da revenda.</p></section>';
+    '<p class="tiny muted">Garantia pessoal do proprietário: obrigação de cobrir o benefício, '+
+    'não depósito bancário e não receita contabilizada. O limite é único, sem duplicar recursos. '+
+    'A venda pública ainda exige revenda apta, contrato e liquidação homologados.</p></section>';
 }
 
 function adminOwnerFinanceWorkspaceSection(){
