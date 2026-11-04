@@ -91,34 +91,6 @@ function tamaoHomeBenefits({compact=false}={}){
   </section>`;
 }
 
-function tamaoHomeCouponBanner(){
- return `<section class="tamao-coupon-banner" aria-label="Clube TAMÃO: cupons, cashback e indicações">
-  <div class="tamao-coupon-banner-copy">
-    <span class="tamao-coupon-banner-kicker"><span aria-hidden="true">✦</span> CLUBE TAMÃO <span class="tamao-coupon-banner-dot" aria-hidden="true"></span> VANTAGENS PARA VOCÊ</span>
-    <h2>Mais motivos para voltar. <em>Mais vantagens para aproveitar.</em></h2>
-    <p>Conheça os cupons para diferentes produtos, descubra como funciona o cashback nas compras elegíveis e compartilhe oportunidades com a Rede TAMÃO.</p>
-    <div class="tamao-coupon-banner-tags" aria-label="Vantagens do Clube">
-      <span>🎟️ Cupons</span><span>💚 Cashback</span><span>🤝 Indicações</span>
-    </div>
-    <div class="tamao-coupon-banner-actions">
-      <button type="button" class="tamao-coupon-banner-main" onclick="go('club')">Explorar cupons e benefícios <span aria-hidden="true">→</span></button>
-      <button type="button" class="tamao-coupon-banner-alt" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
-    </div>
-    <small>Benefícios, pacotes disponíveis e regras de uso são confirmados no Clube e no pedido.</small>
-  </div>
-  <div class="tamao-coupon-banner-scene" aria-hidden="true">
-    <div class="tamao-coupon-banner-glow"></div>
-    <div class="tamao-coupon-banner-ticket">
-      <span class="tamao-coupon-ticket-top">✦ CLUBE TAMÃO <span>EXEMPLO</span></span>
-      <strong>R$ 5<span>OFF</span></strong>
-      <span class="tamao-coupon-ticket-caption">ILUSTRAÇÃO DE CUPOM</span>
-      <div class="tamao-coupon-ticket-bottom"><span>Mais vantagens no TAMÃO</span><b>✦</b></div>
-    </div>
-    <div class="tamao-coupon-banner-sticker">💚 <span>Cashback<br><strong>e benefícios</strong></span></div>
-  </div>
- </section>`;
-}
-
 function customerProductName(code,p=products[code]){
   const kg=glpKgForProductCode(code);
   if(kg!==null)return kg===13?'Botijão de cozinha 13 kg':`Botijão de gás ${kg} kg`;
@@ -525,6 +497,7 @@ function homeBalancedHighlights(entries){
  return head.concat(tail);
 }
 function home(){
+  const couponBanner=globalThis.document?.getElementById('tamao-coupon-home-template')?.innerHTML||'';
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const ready=globalThis.liveReady?.()===true;
@@ -670,7 +643,7 @@ function home(){
   if(!testDemo&&!internalPilot)return shell(`${regionalPriceSection||
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
-    ${tamaoHomeCouponBanner()}
+    ${couponBanner}
     ${homeIntentGuide}
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><span class="section-kicker">MAIS OPÇÕES PARA VOCÊ</span>
@@ -746,7 +719,7 @@ function home(){
     </div>
   </section>`;
   return shell(`${regionalPriceSection}
-${tamaoHomeCouponBanner()}
+${couponBanner}
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
