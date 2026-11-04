@@ -45,7 +45,7 @@ const quoteContext=vm.createContext({
 });
 vm.runInContext(home+';this.priceBoard=homeRegionalPriceBoard;',quoteContext);
 const local=quoteContext.priceBoard({city:'São Gabriel',state:'RS'});
-assert.match(local,/As ofertas serão exibidas quando houver revendas disponíveis para São Gabriel\/RS/);
+assert.match(local,/Ainda não há preços confirmados de revendas para São Gabriel\/RS/);
 assert.match(local,/Ver cupons e Clube/);
 assert.doesNotMatch(local,/R\$ 115.90|R\$ 15.90|R\$ 25.00|REFERÊNCIA LOCAL|15\/10\/2026/,
   'historical research must not appear as a public price');
