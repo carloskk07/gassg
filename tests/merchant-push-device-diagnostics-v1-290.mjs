@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const backend=read('js/backend.js');
+const backend=read('js/backend.js'),diagnostics=read('js/merchant-push-diagnostics.js');
 const merchant=read('js/merchant.js');
 const bootstrap=read('js/bootstrap.js');
 const audit=read('.github/workflows/audit.yml');
@@ -17,7 +17,10 @@ const slice=(name,next)=>{
   assert.ok(a>=0&&b>a,'missing function '+name);
   return backend.slice(a,b);
 };
-const diagnosticSource=slice('merchantPushDiagnoseLive','async function merchantPushCheckLive');
+const diagStart=diagnostics.indexOf('async function merchantPushDiagnoseImpl(){');
+const diagEnd=diagnostics.indexOf('\n}',diagStart);
+assert.ok(diagStart>=0&&diagEnd>diagStart);
+const diagnosticSource=diagnostics.slice(diagStart,diagEnd+2);
 const enableSource=slice('merchantPushEnableLive','async function merchantPushDisableLive');
 const runtime={
   checked:true,checking:false,available:true,publicKey:'dummy-public',
@@ -48,7 +51,7 @@ const env={
 };
 const ctx=vm.createContext(env);
 vm.runInContext(diagnosticSource+'\n'+enableSource+
-  '\nthis.diagnose=merchantPushDiagnoseLive;this.enable=merchantPushEnableLive;',ctx);
+  '\nthis.diagnose=merchantPushDiagnoseImpl;this.enable=merchantPushEnableLive;',ctx);
 
 requestFails=true;events=[];
 await assert.rejects(ctx.enable(),/offline/);
