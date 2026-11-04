@@ -18,7 +18,7 @@ const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=(\[[^\n]+\]);/);
 assert.ok(declaration,'Finance workspace allowlist required');
 const keys=JSON.parse(declaration[1]).map(x=>x.id);
 assert.equal(keys.join('|'),'summary|billing|lab|reconciliation|policy');
-let role='finance',repaints=0,focuses=[],scrolls=[],liveLoads=0;
+let role='finance',repaints=0,focuses=[],scrolls=[],liveLoads=0,couponLoads=0;
 const rt={financeWorkspace:'summary'};
 const document={
   getElementById:id=>{
@@ -34,6 +34,7 @@ const ctx=vm.createContext({
   adminCurrentRole:()=>role,
   adminRoleCanSection:key=>key==='finance'&&['superadmin','finance'].includes(role),
   render:()=>repaints++,
+  adminCouponCommercialRefresh:async()=>{couponLoads++;},
   adminFinanceLabReadinessFromUi:async()=>{},
   adminFinanceLabLiveReadinessFromUi:async()=>{liveLoads++;},
   requestAnimationFrame:fn=>fn(),document
@@ -75,6 +76,8 @@ assert.equal(repaints,before,'Non-finance role cannot navigate');
 role='readonly';
 assert.equal(ctx.nav(),'');
 role='superadmin';
+ctx.select('policy');
+assert.equal(couponLoads,1,'opening coupon rules should fetch the MP seller automatically');
 assert.ok(ctx.nav().includes('CENTRAL FINANCEIRA'));
 assert.ok(ctx.nav().includes('Laboratório'));
 assert.equal((ctx.nav().match(/aria-pressed=/g)||[]).length,5);
