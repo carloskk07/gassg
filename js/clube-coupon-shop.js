@@ -179,6 +179,24 @@ async function clubeCouponCopyPix(){
 }
 
 
+// History is lazy-loaded with the coupon shop and never costs the merchant startup JS.
+function clubeCouponPurchasesPanel(){
+ const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
+return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===String(globalThis.liveRuntime?.session?.user?.id||''))?
+ clubePaidCouponView.purchases.slice(0,20).map(inv=>{
+  const id=String(inv.invoiceId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const request=String(inv.refundStatus||'');
+  const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
+  return '<article class="card flat"><strong>Compra de cupons</strong>'+
+   '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   (request?'<p class="tiny muted">Cancelamento solicitado: '+esc(request)+
+     '. O protocolo não confirma estorno.</p>':
+    allowed?'<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
+      '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
+ }).join(''):'';
+}
+
 // A cancellation is a protocol/request, NOT an immediate Pix reversal.
 async function clubeCouponRefundAsk(invoiceId){
  const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
@@ -208,4 +226,5 @@ async function clubeCouponRefundAsk(invoiceId){
 
 // ESM lazy load: onclick handlers must be available on the customer window.
 Object.assign(globalThis,{clubeCouponShopPanel,clubeCouponShopRefresh,
-  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk});
+  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,
+  clubeCouponPurchasesPanel});

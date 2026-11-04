@@ -25,6 +25,6 @@ assert.match(edge,/refundStatus:refundByInvoice/);
 assert.ok(edge.indexOf('if(operation==="request-refund")')<
  edge.indexOf('if(operation!=="purchase")'), 'refund works when sales disabled');
 assert.match(shop,/clubeCouponRefundAsk/);
-assert.match(growth,/Histórico de pacotes/);
+assert.match(growth,/clubeCouponPurchasesPanel/);
 assert.match(growth,/Solicitar cancelamento \/ reembolso/);
 console.log('V1.814 PASS — authenticated refund request, owned invoice, immutable protocols and transactional coupon freeze.');
