@@ -190,10 +190,16 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
    '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
-   (request?'<p class="tiny muted">Cancelamento solicitado: '+esc(request)+
-     '. O protocolo não confirma estorno.</p>':
-    allowed?'<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
-      '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
+   (request==='refunded'&&inv.status==='refunded'?
+     '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
+    request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
+      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')">Conferir reembolso</button>':
+    allowed?'<label class="tiny">Motivo do cancelamento<select id="clube-refund-reason-'+id+'" class="input">'+
+       '<option value="arrependimento">Desistência / arrependimento</option>'+
+       '<option value="sem_atendimento">Não há revenda para utilizar</option>'+
+       '<option value="outro">Outro motivo</option></select></label>'+
+      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
+       '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
  }).join(''):'';
 }
 
@@ -204,12 +210,12 @@ async function clubeCouponRefundAsk(invoiceId){
     !/^[0-9a-f-]{36}$/i.test(String(invoiceId||'')))return;
  const invoice=clubePaidCouponView.userId===uid&&clubePaidCouponView.status==='ready'?
   clubePaidCouponView.purchases.find(x=>x.invoiceId===invoiceId):null;
- if(!invoice||invoice.refundStatus)return;
- const reason=window.prompt('Motivo do pedido: 1 = arrependimento, 2 = sem atendimento, 3 = outro.','1');
- if(reason===null)return;
- const choice=({'1':'arrependimento','2':'sem_atendimento','3':'outro'})[String(reason).trim()];
- if(!choice)return toast('Selecione 1, 2 ou 3.');
- if(!window.confirm('Confirmar a solicitação de cancelamento deste pacote? O protocolo será registrado; a devolução do Pix requer confirmação do provedor.'))return;
+ if(!invoice||invoice.refundStatus==='refunded')return;
+ const existing=Boolean(invoice.refundStatus);
+ const choice=existing?'outro':String(document.getElementById('clube-refund-reason-'+invoiceId)?.value||'');
+ if(!['arrependimento','sem_atendimento','outro'].includes(choice))
+   return toast('Escolha o motivo do cancelamento.');
+ if(!existing&&!window.confirm('Confirma o cancelamento do pacote? A devolução do Pix só aparece como concluída após confirmação do Mercado Pago.'))return;
  try{
   const result=await liveInvoke('coupon-credit-pix',{action:'request-refund',
     invoiceId,requestId:crypto.randomUUID(),reason:choice});
