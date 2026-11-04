@@ -5240,14 +5240,21 @@ async function adminClubeSponsorLoadFromUi(){
   try{
     const d=await adminInvoke({action:'clube-sponsor-status'});
     if(d?.ok!==true||d?.source!=='clube_coupon_owner_sponsor_v1_807'||
-       d.authorizedCents!==10000||d.readOnly!==true||d.noCharge!==true||
+       !Number.isSafeInteger(d.authorizedCents)||
+       d.authorizedCents<10000||d.authorizedCents>10000000||
+       d.readOnly!==true||d.noCharge!==true||
        !Number.isSafeInteger(d.reconciledCents)||
        !Number.isSafeInteger(d.ownerGuaranteedCents)||
        !Number.isSafeInteger(d.encumberedCents)||
        d.remainingCents!==d.reconciledCents+d.ownerGuaranteedCents-d.encumberedCents||
        d.reconciledCents>10000||d.reconciledCents<0||
-       d.ownerGuaranteedCents<0||d.reconciledCents+d.ownerGuaranteedCents>10000||
-       d.encumberedCents<0||d.encumberedCents>d.reconciledCents+d.ownerGuaranteedCents)
+       d.ownerGuaranteedCents<0||d.ownerGuaranteedCents>10000000||
+       d.reconciledCents+d.ownerGuaranteedCents>d.authorizedCents||
+       d.encumberedCents<0||d.encumberedCents>d.reconciledCents+d.ownerGuaranteedCents||
+       !Number.isSafeInteger(d.potentialGasPacks)||
+       d.potentialGasPacks!==Math.floor(d.remainingCents/1500)||
+       !Number.isSafeInteger(d.potentialWaterPacks)||
+       d.potentialWaterPacks!==Math.floor(d.remainingCents/1000))
       throw new Error('Reserva de cupons não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||''))
       adminClubeSponsorState={...d,loadedFor:actor};
@@ -5290,7 +5297,7 @@ async function adminClubeSponsorReconcileFromUi(contributionId){
 // customers and no merchant is billed by entering this amount.
 let adminClubeTopupAttempt=null;
 function adminClubeParseTopupCents(raw){
-  const match=/^(\\d{1,5})(?:[,.](\\d{1,2}))?$/.exec(String(raw||'').trim());
+  const match=/^(\d{1,5})(?:[,.](\d{1,2}))?$/.exec(String(raw||'').trim());
   if(!match)return null;
   const cents=Number(match[1])*100+Number((match[2]||'').padEnd(2,'0'));
   return Number.isSafeInteger(cents)&&cents>=100&&cents<=1000000?cents:null;
