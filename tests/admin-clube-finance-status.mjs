@@ -56,7 +56,7 @@ assert.equal(finance.netCovered({...sponsored,sponsor_covered_cents:1499}),false
  'partial sponsor coverage may not count as fully funded');
 assert.equal(finance.netCovered({...sponsored,net_proceeds_cents:0}),false,
  'escrow alone does not replace a real paid Pix net report');
-assert.match(edge,/couponOwnerSponsorVerified\\(admin,row\\)/,
+assert.ok(edge.includes('couponOwnerSponsorVerified(admin,row)'),
  'finance must verify each sponsored paid invoice in the real database');
 for(const bad of [
  {status:'awaiting_payment'},{status:'refunded'},{paid_at:null},
