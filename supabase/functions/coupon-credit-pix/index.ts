@@ -91,13 +91,14 @@ function couponInvoiceNetCovered(row:any){
  // SQL independently checks this backing on every order / quote reservation.
  const sponsor=Number(row?.sponsor_covered_cents??0);
  const faceTotal=face*count;
+ const legacyNetCovered=Number.isSafeInteger(net)&&net>=face*count;
  const ref=String(row?.net_proceeds_reference??"").trim();
  return row?.status==="paid"&&Boolean(row?.paid_at)&&
    Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
    Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
    Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
    Number.isSafeInteger(net)&&net>0&&
-   (net>=faceTotal||sponsor===faceTotal)&&
+   (legacyNetCovered||sponsor===faceTotal)&&
    net<=row.sale_price_cents&&
    Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
    ref.length>=8;
