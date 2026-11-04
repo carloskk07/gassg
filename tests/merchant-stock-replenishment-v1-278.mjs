@@ -7,6 +7,7 @@ const js=read('js/merchant.js');
 const css=read('css/components.css');
 const audit=read('.github/workflows/audit.yml');
 const backend=read('js/backend.js');
+const mutations=read('js/merchant-mutations.js');
 new vm.Script(js,{filename:'js/merchant.js'});
 function pick(name,asyncFn=false){
  const a=js.indexOf((asyncFn?'async ':'')+'function '+name+'(');
@@ -132,8 +133,9 @@ assert.match(ctx.view(noAlerts),/Ajustes rápidos para até 6 produtos ativos/);
 assert.doesNotMatch(ctx.view(noAlerts),/Conferência do catálogo/);
 
 assert.match(js,/function merchantQuickStockAdjust\(productCode,change\)/);
-assert.match(backend,/action:'update-product'/);
-assert.match(backend,/expectedUpdatedAt=String\(current.updatedAt\)/);
+assert.match(mutations,/action:'update-product'/);
+assert.match(mutations,/expectedUpdatedAt=String\(current.updatedAt\)/);
+assert.match(backend,/merchantLoadMutations\(\)/);
 assert.match(css,/\.merchant-quick-stepper>button/);
 assert.match(css,/@media\(max-width:340px\)/);
 assert.match(audit,/node tests\/merchant-stock-replenishment-v1-278.mjs/);

@@ -406,6 +406,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.rmSync(path.join(target,'js','merchant.js'),{force:true});
       fs.rmSync(path.join(target,'js','merchant-price-batch.js'),{force:true});
       fs.rmSync(path.join(target,'js','merchant-billing-flow.js'),{force:true});
+      fs.rmSync(path.join(target,'js','merchant-mutations.js'),{force:true});
     }
     // Discovery is customer-only and fetched on navigation, never in privileged bundles.
     if(role!=='customer'){

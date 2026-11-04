@@ -37,19 +37,30 @@ async function merchantLiveConfirmReviewedPrices(){
     }
   }
   if(typeof confirm!=='function'||!confirm('Confirmar que você conferiu os preços e estoques salvos de '+chosen.length+' produto(s)? Cada produto será registrado separadamente.'))return;
+  const merchantId=String(rt.merchant?.merchantId||'');
+  const userId=String(rt.session?.user?.id||'');
+  const epoch=rt.accessEpoch;
+  const same=()=>{
+    const now=globalThis.merchantRuntime||{};
+    return Boolean(userId&&merchantId)&&now.accessEpoch===epoch&&
+      String(now.session?.user?.id||'')===userId&&
+      String(now.merchant?.merchantId||'')===merchantId&&
+      String(now.selectedMerchantId||'')===merchantId&&
+      now.status==='ready'&&['owner','manager'].includes(String(now.merchant?.memberRole||''));
+  };
+  if(!same())return toast('Confirme seu acesso à revenda antes de revisar preços.');
   merchantBulkPriceBusy=true;
   let completed=0,reason='';
-  const merchantId=String(rt.merchant?.merchantId||'');
   try{
     for(const p of chosen){
       const now=globalThis.merchantRuntime||{};
       const current=(now.catalog||[]).find(x=>x.productCode===p.productCode);
-      if(now.status!=='ready'||now.merchant?.merchantId!==merchantId||
-         !['owner','manager'].includes(String(now.merchant?.memberRole||''))||
+      if(!same()||
          now.actionPending===true||!current||current.updatedAt!==p.updatedAt||
          current.priceCents!==p.priceCents||current.availableStock!==p.availableStock||
          current.active!==true)throw new Error('O cadastro mudou. Atualize e revise os produtos restantes.');
       await merchantUpdateProductLive(p.productCode,p.priceCents,p.availableStock,true);
+      if(!same())throw new Error('O operador ou a revenda mudou durante a conferência.');
       const refreshed=(globalThis.merchantRuntime?.catalog||[]).find(x=>x.productCode===p.productCode);
       if(!refreshed||refreshed.priceCents!==p.priceCents||
          refreshed.availableStock!==p.availableStock||
@@ -59,6 +70,7 @@ async function merchantLiveConfirmReviewedPrices(){
     }
   }catch(error){reason=String(error?.message||error||'Erro ao confirmar');}
   finally{merchantBulkPriceBusy=false;}
+  if(!same())return;
   toast(reason
     ?completed+' de '+chosen.length+' preço(s) reconfirmado(s). Interrompido: '+reason
     :completed+' preço(s) reconfirmado(s) e verificado(s) no servidor.');

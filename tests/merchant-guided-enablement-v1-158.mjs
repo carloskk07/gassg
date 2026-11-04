@@ -6,6 +6,7 @@ const sql=read('supabase/migrations/20261010200000_merchant_guided_enablement_v1
 const original=read('supabase/migrations/20261010163000_merchant_enablement_diagnostic_v1_157.sql');
 const edge=read('supabase/functions/merchant-ops/index.ts');
 const backend=read('js/backend.js');
+const deferredMutations=read('js/merchant-mutations.js');
 const ui=read('js/merchant.js');
 assert.ok(sql.includes('function public.merchant_enablement_diagnostic_v1_158(p_actor_user_id uuid,p_merchant_id uuid)'));
 assert.ok(sql.includes('m.id=p_merchant_id'));
@@ -44,7 +45,8 @@ assert.ok(backend.includes('merchantRuntime.enablementSeq++'));
 assert.ok(backend.includes('MERCHANT_ENABLEMENT_CACHE_MS=3*60*1000'));
 assert.ok(backend.includes('&&!merchantRuntime.enablementFetchedAt'),'never repoll diagnostic on every 15s merchant order refresh');
 assert.ok(backend.includes('merchantClearEnablement();'),'logout and merchant switch clear state');
-assert.ok(backend.includes('merchantEnablementAfterChange();'));
+assert.ok(deferredMutations.includes('merchantEnablementAfterChange();'));
+assert.ok(backend.includes('merchantLoadMutations()'));
 assert.ok(backend.includes('merchantLoadEnablement({force:true})'));
 assert.ok(ui.includes('merchantEnablementAssistantView(rt)'));
 assert.ok(ui.includes('merchantEnablementFocus(key)'));
