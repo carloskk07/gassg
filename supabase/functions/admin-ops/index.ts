@@ -120,7 +120,7 @@ async function couponOwnerSponsorVerified(admin:any,invoice:any){
 // the public seller identity. This does NOT replace registry verification.
 function couponSellerTaxDocumentValid(value:unknown){
  const digits=String(value??"");
- if(!/^\\d{11}$|^\\d{14}$/.test(digits)||/^(\\d)\\1+$/.test(digits))return false;
+ if(!/^\d{11}$|^\d{14}$/.test(digits)||/^(\d)\1+$/.test(digits))return false;
  const v=[...digits].map(Number);
  if(v.length===11){
   let sum=0;for(let i=0;i<9;i++)sum+=v[i]*(10-i);
