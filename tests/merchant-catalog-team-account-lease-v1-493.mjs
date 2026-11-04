@@ -6,14 +6,15 @@ import vm from 'node:vm';
 // authenticated refreshes. No real merchant or backend is mutated.
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const backend=read('js/backend.js'),merchant=read('js/merchant.js');
+const deferred=read('js/merchant-mutations.js');
 function pick(name){
   const head=(name.startsWith('merchantEditable')?'function ':'async function ')+name+'(';
-  const start=backend.indexOf(head),end=backend.indexOf('\n}',start);
-  assert.ok(start>=0&&end>start,'production function missing: '+name);
-  return backend.slice(start,end+2);
+  const start=deferred.indexOf(head),end=deferred.indexOf('\n}',start);
+  assert.ok(start>=0&&end>start,'deferred production function missing: '+name);
+  return deferred.slice(start,end+2);
 }
 const script=['merchantEditableMutationScope','merchantEditableMutationSame',
-  'merchantUpdateProductLive','merchantTeamMutateLive'].map(pick).join('\n');
+  'merchantCatalogMutateImpl','merchantTeamMutateImpl'].map(pick).join('\n');
 new vm.Script(script);
 const ID='11111111-1111-4111-8111-111111111111',ACTOR='actor-A';
 const initial=()=>({productCode:'P13',priceCents:11500,availableStock:4,
@@ -69,7 +70,7 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
     }
   });
   vm.runInContext(script+
-    '\nthis.ops={catalog:merchantUpdateProductLive,team:merchantTeamMutateLive};',ctx);
+    '\nthis.ops={catalog:merchantCatalogMutateImpl,team:merchantTeamMutateImpl};',ctx);
   const switchActor=({newLock=true}={})=>{
     rt.accessEpoch++;
     rt.session={user:{id:'actor-B'}};
@@ -189,7 +190,10 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
 }
 // Existing UI remains bound to the canonical code rather than a new RPC.
 assert.match(merchant,/await merchantUpdateProductLive\(/);
-assert.match(backend,/merchantEditableMutationScope\(/);
+assert.match(deferred,/merchantEditableMutationScope\(/);
+assert.match(backend,/merchantLoadMutations\(/);
+assert.match(backend,/merchantMutationScopeKey\(/);
+assert.match(backend,/merchant-mutations\.js/);
 assert.match(read('.github/workflows/audit.yml'),
  /node tests\/merchant-catalog-team-account-lease-v1-493\.mjs/);
 console.log('PASS: merchant catalog/team account lease, exact-price readback, role denial, stale ACK, double submit and no new-actor unlock');
