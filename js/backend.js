@@ -1578,8 +1578,7 @@ async function merchantPushEnableLive(){
   throw new Error('O cadastro push não está disponível neste aparelho.');
  if(merchantPushRuntime.togglePending)
   throw new Error('Aguarde a alteração das notificações terminar.');
- // Capture before the asynchronous browser permission prompt. Otherwise a
- // click from A could register a push subscription under account B.
+ // Bind the browser permission to the original account.
  const merchantId=String(merchantRuntime.merchant.merchantId);
  const userId=String(merchantRuntime.session?.user?.id||'');
  const epoch=Number(merchantRuntime.accessEpoch||0);
@@ -1639,9 +1638,7 @@ async function merchantPushEnableLive(){
   merchantPushRuntime.subscribed=true;
   render();return true;
  }catch(error){
-  // Never revoke a pre-existing consent when a network response fails.
-  // Only clean a newly-created local subscription if it is still the
-  // browser's exact subscription. Avoid erasing another actor's enrollment.
+  // Clean only this actor's newly-created local subscription.
   if(createdNew&&subscription&&current()){
    try{
     const reg=await navigator.serviceWorker.getRegistration('./');
@@ -1808,19 +1805,27 @@ async function merchantPushDisableLive(){
    merchantPushRuntime.subscribed=false;
    render();return true;
   }
-  const reply=await merchantInvoke('merchant-push-registration',{
-   action:'unsubscribe',merchantId,endpoint:subscription.endpoint
-  });
+  let reply=null,remoteError=null;
+  try{
+   reply=await merchantInvoke('merchant-push-registration',{
+    action:'unsubscribe',merchantId,endpoint:subscription.endpoint
+   });
+  }catch(error){remoteError=error;}
   if(!current())throw new Error('A conta mudou durante a revogação dos alertas.');
-  if(reply?.ok!==true||reply.active!==false)
-   throw new Error('A revogação dos alertas não foi confirmada pelo servidor.');
+  const remote=reply?.ok===true&&reply.active===false;
+  // Stop delivery locally even when the remote ACK is lost. Never report success.
   const local=await subscription.unsubscribe().catch(()=>false);
   if(!current())throw new Error('A conta mudou antes de concluir a revogação.');
-  merchantPushRuntime.subscribed=false;
-  merchantPushRuntime.testResult=null;
-  merchantPushRuntime.deviceHealth=null;
-  merchantPushRuntime.healthError=null;
-  render();
+  if(remote||local){
+   merchantPushRuntime.subscribed=false;
+   merchantPushRuntime.testResult=null;
+   merchantPushRuntime.deviceHealth=null;
+   merchantPushRuntime.healthError=null;
+   render();
+  }
+  if(!remote)throw new Error(local
+   ?'Alertas removidos deste aparelho, mas a revogação no servidor não foi confirmada.'
+   :'Nem o servidor nem o navegador confirmaram a revogação dos alertas.');
   if(!local)
    throw new Error('Servidor revogado, mas o navegador não confirmou a exclusão. Verifique as notificações do aparelho.');
   return true;
