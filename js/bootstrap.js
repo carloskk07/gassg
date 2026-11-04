@@ -170,22 +170,6 @@ function discoveryOwnerRequestModule(){
   script.onerror=()=>{discoveryOwnerModuleError=true;render();};
   document.head.appendChild(script);
 }
-// Paid coupon catalog is a deferred customer-only experience, not startup JS.
-let clubeCouponShopScriptRequested=false;
-let clubeCouponShopScriptFailed=false;
-function clubeCouponShopRequestModule(){
-  if(route()!=='club'||clubeCouponShopScriptRequested||
-     clubeCouponShopScriptFailed||typeof clubeCouponShopPanel==='function'||
-     globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
-  clubeCouponShopScriptRequested=true;
-  const script=document.createElement('script');
-  const version=document.querySelector('script[src*="/js/bootstrap.js"]')?.src
-    .match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
-  script.src='./js/clube-coupon-shop.js'+version;
-  script.onload=()=>render();
-  script.onerror=()=>{clubeCouponShopScriptFailed=true;render();};
-  document.head.appendChild(script);
-}
 let renderLock=false;
 function render(){
   if(renderLock)return;
@@ -211,7 +195,6 @@ function render(){
     queueMicrotask(()=>discoveryOwnerRequestModule());
     queueMicrotask(()=>globalThis.mobilityAfterRender?.());
     queueMicrotask(()=>mobilityRequestModule());
-    queueMicrotask(()=>clubeCouponShopRequestModule());
   }catch(e){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);
