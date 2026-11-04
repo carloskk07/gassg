@@ -6161,21 +6161,27 @@ Deno.serve(async(req:Request)=>{
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas finanças pode consultar o custeio.",403);
       const {data,error}=await admin.from("platform_clube_sponsor_pool_v1_807")
-        .select("benefit_key,authorized_cents,reconciled_cents,encumbered_cents,version,updated_at")
+        .select("benefit_key,authorized_cents,reconciled_cents,owner_guaranteed_cents,owner_guarantee_source,encumbered_cents,version,updated_at")
         .eq("benefit_key","clube_coupons").maybeSingle();
       if(error)throw error;
       if(!data||data.benefit_key!=="clube_coupons"||
          data.authorized_cents!==10000||
          !Number.isSafeInteger(data.reconciled_cents)||
+         !Number.isSafeInteger(data.owner_guaranteed_cents)||
          !Number.isSafeInteger(data.encumbered_cents)||
          data.reconciled_cents<0||data.reconciled_cents>10000||
-         data.encumbered_cents<0||data.encumbered_cents>data.reconciled_cents)
+         data.owner_guaranteed_cents<0||
+         data.reconciled_cents+data.owner_guaranteed_cents>10000||
+         data.encumbered_cents<0||
+         data.encumbered_cents>data.reconciled_cents+data.owner_guaranteed_cents)
         throw new DomainError("COUPON_SPONSOR_POOL_UNVERIFIED","Saldo de patrocínio não validado.",503);
       return json({ok:true,source:"clube_coupon_owner_sponsor_v1_807",
         authorizedCents:data.authorized_cents,
         reconciledCents:data.reconciled_cents,
+        ownerGuaranteedCents:data.owner_guaranteed_cents,
+        ownerGuaranteeSource:data.owner_guarantee_source,
         encumberedCents:data.encumbered_cents,
-        remainingCents:data.reconciled_cents-data.encumbered_cents,
+        remainingCents:data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents,
         version:data.version,updatedAt:data.updated_at,
         bankApiConfirmed:false,readOnly:true,noCharge:true},200,origin);
     }
