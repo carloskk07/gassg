@@ -16,8 +16,8 @@ const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
  tableDigest:'67838fe06fa43d7692e12d8e11a3de91',
- rpcDigest:'a02c14df99ce4f9ecfc761a7d92c24b1',
- tableCount:7,rpcCount:29
+ rpcDigest:'b55e7fa5756e6e673985163573731ad4',
+ tableCount:7,rpcCount:31
 },'Local canonical migrated schema must match the reviewed hosted baseline');
 const ready=()=>JSON.parse(sql("SELECT public.platform_launch_readiness()"));
 const launch=ready();
