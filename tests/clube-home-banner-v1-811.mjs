@@ -10,9 +10,9 @@ const start=html.indexOf('<template id="tamao-coupon-home-template">');
 const end=html.indexOf('</template>',start);
 assert.ok(start>0&&end>start,'static banner template exists');
 const markup=html.slice(start,end);
-for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'ILUSTRAÇÃO DE CUPOM','EXEMPLO','confirmados no Clube'])
+for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'CUPONS • CASHBACK • INDICAÇÕES','BENEFÍCIOS','confirmados no Clube'])
  assert.ok(markup.includes(term),'banner missing: '+term);
-for(const claim of ['Comprar agora','Compre seu pacote','Desconto garantido','Cupom disponível','Compre por Pix'])
+for(const claim of ['ILUSTRAÇÃO DE CUPOM','EXEMPLO','R$ 5','Comprar agora','Compre seu pacote','Desconto garantido','Cupom disponível','Compre por Pix'])
  assert.ok(!markup.includes(claim),'cannot advertise sales before approval: '+claim);
 assert.equal((markup.match(/<section /g)||[]).length,1);
 assert.match(markup,/class="tamao-coupon-banner"/);
