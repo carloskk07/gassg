@@ -5319,8 +5319,7 @@ async function adminClubeSponsorTopupFromUi(){
      return;
   // Retain this key on timeout: a replay is safe, a new key could double count.
   if(!adminClubeTopupAttempt||adminClubeTopupAttempt.actor!==actor||
-     adminClubeTopupAttempt.cents!==cents||
-     adminClubeTopupAttempt.version!==pool.version)
+     adminClubeTopupAttempt.cents!==cents)
     adminClubeTopupAttempt={
       actor,cents,version:pool.version,requestId:crypto.randomUUID()
     };
