@@ -531,3 +531,82 @@ async function merchantProviderConnectImpl(provider='mercadopago',action='status
  }
 }
 globalThis.merchantProviderConnectImpl=merchantProviderConnectImpl;
+
+
+// Operational member profile is available to owners, managers, operators and
+// drivers. A profile ACK is not the identity actually displayed by dispatch.
+function merchantMemberProfileScope(){
+ const rt=merchantRuntime;
+ const actor=String(rt.session?.user?.id||'');
+ const merchantId=String(rt.merchant?.merchantId||'');
+ const role=String(rt.merchant?.memberRole||'');
+ if(rt.status!=='ready'||!actor||!merchantId||
+    String(rt.selectedMerchantId||'')!==merchantId||
+    !['owner','manager','operator','driver'].includes(role))
+  throw Error('Atualize seu acesso à revenda antes de salvar o nome operacional.');
+ return {actor,merchantId,role,epoch:rt.accessEpoch};
+}
+function merchantMemberProfileSame(scope){
+ const rt=merchantRuntime;
+ return !!scope&&rt.status==='ready'&&rt.accessEpoch===scope.epoch&&
+  String(rt.session?.user?.id||'')===scope.actor&&
+  String(rt.merchant?.merchantId||'')===scope.merchantId&&
+  String(rt.selectedMerchantId||'')===scope.merchantId&&
+  String(rt.merchant?.memberRole||'')===scope.role;
+}
+async function merchantMemberProfileMutateImpl(displayName){
+ const scope=merchantMemberProfileScope();
+ const same=()=>merchantMemberProfileSame(scope);
+ const rt=merchantRuntime;
+ if(rt.actionPending)throw Error('Aguarde a operação da revenda terminar.');
+ const name=String(displayName||'').trim().replace(/\s+/g,' ');
+ if(name.length<2||name.length>60||/[\u0000-\u001f\u007f]/.test(name))
+  throw Error('Informe um nome operacional entre 2 e 60 caracteres.');
+ const token={scope};rt.profileNameActionToken=token;
+ rt.actionPending=true;rt.error=null;render();
+ try{
+  let ack=null,ambiguous=null;
+  try{
+   // Do not repeat the profile POST after an ambiguous ACK: an authenticated
+   // readback can prove the desired state without a second mutation.
+   ack=await merchantInvoke('merchant-ops',{
+    merchantId:scope.merchantId,action:'update-member-profile',displayName:name
+   });
+  }catch(error){
+   const status=Number(error?.status||0);
+   if(status>=400&&status<500&&status!==408)
+    throw error;
+   if(status>=500||status===408||
+      ['TypeError','TimeoutError','AbortError'].includes(String(error?.name||''))||
+      error?.code==='NETWORK_TIMEOUT')ambiguous=error;
+   else throw error;
+  }
+  if(!same())throw Error('A conta ou a revenda mudou durante a alteração do nome.');
+  if(!ambiguous&&(ack?.ok!==true||ack.displayName!==name||
+     ack.memberRole!==scope.role))
+   throw Error('O servidor não confirmou o nome operacional solicitado.');
+  const started=Date.now();
+  const fresh=await merchantRefresh({silent:true});
+  if(!same())throw Error('A conta ou a revenda mudou durante a conferência do nome.');
+  const member=Array.isArray(fresh?.deliveryTeam)?
+   fresh.deliveryTeam.filter(row=>row?.userId===scope.actor&&row?.memberRole===scope.role):[];
+  if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
+     rt.deliveryTeam!==fresh.deliveryTeam||
+     !Number.isFinite(Date.parse(String(rt.lastSyncAt||'')))||
+     Date.parse(rt.lastSyncAt)<started||member.length!==1||
+     member[0].displayName!==name)
+   throw Error('O nome operacional não foi confirmado na equipe atualizada. Consulte antes de repetir.');
+  return ambiguous?{ok:true,displayName:name,memberRole:scope.role,
+   reconciledAfterNetworkError:true}:ack;
+ }catch(error){
+  if(same())rt.error=String(error?.message||error);
+  throw error;
+ }finally{
+  if(rt.profileNameActionToken===token&&rt.accessEpoch===scope.epoch&&
+     String(rt.session?.user?.id||'')===scope.actor&&
+     String(rt.selectedMerchantId||'')===scope.merchantId){
+   rt.profileNameActionToken=null;rt.actionPending=false;render();
+  }
+ }
+}
+globalThis.merchantMemberProfileMutateImpl=merchantMemberProfileMutateImpl;

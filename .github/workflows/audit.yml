@@ -587,6 +587,8 @@ jobs:
         run: node tests/merchant-config-settings-account-proof-v1-493.mjs
       - name: Merchant provider OAuth and disconnect exact readback across session changes
         run: node tests/merchant-provider-connect-session-proof-v1-493.mjs
+      - name: Merchant self-profile identity and dispatch name proof
+        run: node tests/merchant-profile-name-exact-readback-v1-493.mjs
       - name: Merchant order priority queue V1.174 regression
         run: node tests/merchant-order-quick-queue-v1-174.mjs
       - name: Guided delivery team assignment V1.175 regression
