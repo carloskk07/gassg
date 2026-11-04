@@ -1,3 +1,4 @@
+const deferredMutations=read('js/merchant-mutations.js');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -171,7 +172,7 @@ rt.actionPending=false;
 // Browser tab protection is only installed once, never in a render callback.
 assert.match(js,/window\.addEventListener\('beforeunload'/);
 assert.match(js,/event\.returnValue=''/);
-assert.match(backend,/expectedUpdatedAt=String\(current.updatedAt\)/);
+assert.match(deferredMutations,/expectedUpdatedAt=String\(current.updatedAt\)/);
 assert.match(css,/\.merchant-quick-recent-list/);
 assert.match(audit,/node tests\/merchant-protected-drafts-v1-279.mjs/);
 console.log('V1.279 PASS: unsaved drafts survive renders, require exit confirmation, respect merchant versions, and show truthful timestamps.');
