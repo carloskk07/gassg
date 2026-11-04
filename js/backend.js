@@ -2658,6 +2658,10 @@ function merchantPilotInviteErrorMessage(error){
 
 async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
   if(!merchantRuntime.client)throw new Error('Cliente da revenda indisponível');
+  const actor=String(merchantRuntime.session?.user?.id||''),epoch=merchantRuntime.accessEpoch;
+  if(!actor)throw Error('Entre na conta responsável pelo cadastro antes de vincular o convite.');
+  const same=()=>merchantRuntime.accessEpoch===epoch&&
+    String(merchantRuntime.session?.user?.id||'')===actor;
   const application=String(applicationId||'').trim();
   const token=String(pilotInviteToken||'').trim();
   if(!application||!/^[A-Za-z0-9_-]{20,240}$/.test(token))return null;
@@ -2665,6 +2669,7 @@ async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
     p_application_id:application,
     p_token:token
   });
+  if(!same())throw Error('A conta mudou durante o vínculo do convite.');
   if(error){
     const raw=String(error?.message||error?.details||error?.hint||error||'');
     if(
@@ -2672,9 +2677,10 @@ async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
       ||raw.includes('PILOT_INVITE_REVOKED')
       ||raw.includes('PILOT_INVITE_ALREADY_CLAIMED')
       ||raw.includes('INVALID_PILOT_INVITE')
-    )clearMerchantPilotInviteToken();
+    )if(same())clearMerchantPilotInviteToken();
     throw new Error(merchantPilotInviteErrorMessage(error));
   }
+  if(!same())throw Error('A conta mudou durante a confirmação do convite.');
   clearMerchantPilotInviteToken();
   return data??null;
 }
