@@ -364,7 +364,7 @@ Deno.serve(async(req:Request)=>{
     return respond({ok:true,source:"clube_coupon_refund_request_v1_814",
       invoiceId:data.invoiceId,requestId:data.requestId,
       status:remoteRefundVerified?"refunded":data.status,receivedAt:data.receivedAt,
-      refundConfirmed:remoteRefundVerified
+      refundConfirmed:remoteRefundVerified||data.refundConfirmed===true
     },200,origin);
   }
   if(operation==="catalog"){
