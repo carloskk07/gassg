@@ -301,7 +301,8 @@ Deno.serve(async(req:Request)=>{
           minOrderCents:paidInvoices.get(String(row.invoice_id))?.min_order_cents??0
         })),
       couponSalesEnabled:
-        Boolean(await couponSaleRelease(admin))&&await platformCouponSalesAllowed(admin),
+        Boolean(await couponSaleRelease(admin))&&mercadoPagoConfigured(MP_TOKEN)&&
+        MP_TOKEN.startsWith("APP_USR-")&&await platformCouponSalesAllowed(admin),
       couponCheckoutEnabled:
         Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"&&
         await platformCommerceAllowed(admin)
@@ -396,7 +397,8 @@ Deno.serve(async(req:Request)=>{
   if(operation==="catalog"){
     // Only a signed owner release + actual backing may be shown as an offer.
     const release=await couponSaleRelease(admin);
-    const enabled=Boolean(release)&&await platformCouponSalesAllowed(admin);
+    const enabled=Boolean(release)&&mercadoPagoConfigured(MP_TOKEN)&&
+      MP_TOKEN.startsWith("APP_USR-")&&await platformCouponSalesAllowed(admin);
     if(!enabled)return respond({ok:true,source:"clube_paid_catalog_v1_807",
       packages:[],couponSalesEnabled:false},200,origin);
     const {data:packages,error:catalogError}=await admin
@@ -477,8 +479,8 @@ Deno.serve(async(req:Request)=>{
   // This does NOT relax redemption or the ordinary physical-order gate.
   if(!await platformCouponSalesAllowed(admin))
     return respond({error:"COUPON_SALES_OPERATION_PAUSED"},423,origin);
-  if(!mercadoPagoConfigured(MP_TOKEN))
-    return respond({error:"MERCADOPAGO_NOT_CONFIGURED"},503,origin);
+  if(!mercadoPagoConfigured(MP_TOKEN)||!MP_TOKEN.startsWith("APP_USR-"))
+    return respond({error:"MERCADOPAGO_LIVE_NOT_CONFIGURED"},503,origin);
   const packageKey=String(body.packageKey||"");
   const requestId=String(body.requestId||"");
   if(packageKey!==release.package_key)
