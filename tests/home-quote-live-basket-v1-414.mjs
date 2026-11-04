@@ -13,7 +13,7 @@ const htmlCtx=vm.createContext({products,state,globalThis:{liveRuntime:{},liveRe
 vm.runInContext(home+';this.board=homeRegionalPriceBoard;this.basket=homeQuoteBasketMarkup;',htmlCtx);
 let rendered=htmlCtx.board({city:'São Gabriel',state:'RS'});
 assert.match(rendered,/Tamão São Gabriel\/RS/);
-assert.match(rendered,/Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço/);
+assert.match(rendered,/Comece pelos produtos logo abaixo/);
 assert.doesNotMatch(rendered,/city-price-shopping-steps|tamao-quote-benefits/,
  'Avoid repeated buying steps and benefit cards inside quotation.');
 assert.equal((rendered.match(/class="tamao-home-coupon-rail"/g)||[]).length,1,

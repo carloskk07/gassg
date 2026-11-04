@@ -60,6 +60,7 @@ async function readDOM(){
   firstVisit:!!document.querySelector('.home-first-visit'),
   benefitPanels:document.querySelectorAll('.tamao-perks-panel').length,
   compactPerks:document.querySelectorAll('.tamao-value-compact .tamao-perks-panel').length,
+  campaignBanners:document.querySelectorAll('.tamao-coupon-banner').length,
   visibleCatalogue:document.querySelectorAll('.home-discover-tile:not([hidden])').length
  }})())`;
  const res=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
@@ -105,8 +106,8 @@ try{
    if(!data.heading)issues.push(name+' '+size.width+': empty heading');
    if(data.brokenImages.length)issues.push(name+' '+size.width+': broken images '+data.brokenImages.join(','));
    if(name!=='home'&&data.savingsScene!==1)issues.push(name+' '+size.width+': expected one distinct visual benefit scene');
-   if(name==='home'&&data.benefitPanels!==2)issues.push(name+' '+size.width+': expected two benefit panels, found '+data.benefitPanels+' (firstVisit='+data.firstVisit+')');
-   if(name==='home'&&data.firstVisit&&data.compactPerks!==2)issues.push(name+' '+size.width+': first-visit must use compact panel');
+   if(name==='home'&&data.campaignBanners!==1)issues.push(name+' '+size.width+': expected one Club campaign banner');
+   if(name==='home'&&data.benefitPanels!==0)issues.push(name+' '+size.width+': redundant benefit panels remain');
    if(name==='home'&&data.visibleCatalogue===0)issues.push(name+' '+size.width+': catalogue missing');
   }
  }
