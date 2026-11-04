@@ -165,6 +165,33 @@ async function couponVerifiedReplay(invoice:any){
  }
  return {ok:true,...publicInvoice(invoice)};
 }
+// Independent GET proof of a completed, full Mercado Pago Orders API refund.
+// A successful refund POST, mutable invoice flag or unverified provider status
+// cannot substitute for this exact Pix/order/amount/refund binding.
+function couponFullRefundVerified(order:any,invoice:any){
+ const payment=findPix(order);
+ const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
+ if(!invoice||!payment||!refunds.length||order?.live_mode===false||
+    payment?.live_mode===false||String(order?.id??"")!==String(invoice.provider_order_id)||
+    String(order?.external_reference??"")!==String(invoice.id)||
+    moneyToCents(order?.total_amount)!==Number(invoice.sale_price_cents)||
+    moneyToCents(payment?.amount)!==Number(invoice.sale_price_cents)||
+    String(payment?.id??"")!==String(invoice.provider_payment_id)||
+    payment?.payment_method?.id!=="pix"||
+    payment?.payment_method?.type!=="bank_transfer")return false;
+ let total=0;
+ for(const refund of refunds){
+  if(!["processed","approved","refunded"].includes(String(refund?.status??"").toLowerCase())||
+     !String(refund?.id??"").trim()||
+     String(refund?.transaction_id??"")!==String(invoice.provider_payment_id))
+    return false;
+  const amount=moneyToCents(refund?.amount);
+  if(amount===null||amount<=0)return false;
+  total+=amount;
+ }
+ return total===Number(invoice.sale_price_cents);
+}
+
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
  if(origin&&!ORIGINS.has(origin))return respond({error:"ORIGIN_NOT_ALLOWED"},403,origin);
@@ -317,18 +344,7 @@ Deno.serve(async(req:Request)=>{
               const fresh=await mercadoPagoFetch(endpoint,{accessToken:MP_TOKEN});
               if(fresh.ok){
                 const proof=await readMercadoPagoJson(fresh);
-                const p=findPix(proof);
-                const refunds=Array.isArray(proof?.transactions?.refunds)?
-                  proof.transactions.refunds:[];
-                const complete=refunds.length>0&&refunds.every((r:any)=>
-                  ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase())&&
-                  Boolean(String(r?.id??"").trim())&&
-                  (!r?.transaction_id||String(r.transaction_id)===String(invoice.provider_payment_id)));
-                const amount=refunds.reduce((n:number,r:any)=>n+(moneyToCents(r?.amount)??0),0);
-                if(complete&&amount===invoice.sale_price_cents&&
-                  String(proof?.id??"")===orderId&&
-                  String(proof?.external_reference??"")===invoiceId&&
-                  String(p?.id??"")===String(invoice.provider_payment_id)){
+                if(couponFullRefundVerified(proof,invoice)){
                   const done=await admin.rpc("clube_coupon_paid_payment_refund",{
                     p_invoice_id:invoiceId,p_provider_order_id:orderId
                   });
