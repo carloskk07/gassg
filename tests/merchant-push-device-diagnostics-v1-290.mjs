@@ -41,7 +41,7 @@ const env={
   merchantReady:()=>ready,
   merchantPushStatus:()=>({supported:true}),
   merchantPushKeyBytes:()=>new Uint8Array([1,2,3]),
-  merchantInvoke:async()=>{events.push('register-server');if(requestFails)throw Error('offline');return {ok:true}},
+  merchantInvoke:async()=>{events.push('register-server');if(requestFails)throw Error('offline');return {ok:true,active:true}},
   navigator:{serviceWorker:{ready:Promise.resolve(reg),getRegistration:async()=>reg}},
   Notification:{permission:'granted'},PushManager:class{},isSecureContext:true,
   render:()=>events.push('render'),Date,Uint8Array,Error
@@ -94,7 +94,8 @@ assert.match(merchant,/Verificar este aparelho/);
 assert.match(merchant,/Esta verificação é local/);
 assert.match(merchant,/merchantPushDiagnoseFromUi/);
 assert.match(bootstrap,/merchantPushDiagnoseFromUi/);
-assert.match(backend,/if\(createdNew\)await subscription.unsubscribe/);
+assert.match(backend,/if\(createdNew&&subscription\)/);
+assert.match(backend,/reply\?\.ok!==true\|\|reply.active!==true/);
 assert.doesNotMatch(diagnosticSource,/\.rpc\(|console\.log|endpoint_url|\.endpoint|\.keys\.auth/);
 assert.match(audit,/node tests\/merchant-push-device-diagnostics-v1-290.mjs/);
 console.log('V1.290 PASS — device-only diagnostics, key matching, subscription reuse and no false delivery claims.');
