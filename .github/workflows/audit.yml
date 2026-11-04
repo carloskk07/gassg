@@ -149,6 +149,8 @@ jobs:
         run: node tests/coupon-refund-mp-proof-v1-815.mjs
       - name: V1.816 buyer coupon-shop autoload and pre-sale disclosure
         run: node tests/clube-coupon-autoload-v1-816.mjs
+      - name: V1.817 evidence-based owner-backed coupon funding (no fake bank deposit)
+        run: node tests/clube-owner-guarantee-readiness-v1-817.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation
