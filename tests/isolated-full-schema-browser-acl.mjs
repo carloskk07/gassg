@@ -138,7 +138,8 @@ const expectedFunctions=[
  'mobility_transition(p_request_id uuid, p_action text)',
  'public_city_price_board_v1_341(p_city text, p_state text)',
  'claim_welcome_bonus_v1_815()',
- 'welcome_bonus_status_v1_815()'
+ 'welcome_bonus_status_v1_815()',
+ 'clube_coupon_home_prices_v1_820()'
 ].sort();
 const qFunctions=`
 SELECT coalesce(jsonb_agg(jsonb_build_object(
@@ -155,7 +156,7 @@ const fns=JSON.parse(sql(qFunctions));
 assert.deepEqual(fns.map(x=>x.signature).sort(),expectedFunctions,
  'An unknown SECURITY DEFINER or overload was granted to the browser');
 for(const fn of fns){
- assert.equal(fn.anon,fn.signature==='welcome_bonus_status_v1_815()',
+ assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()'].includes(fn.signature),
   fn.signature+' unexpected public EXECUTE privilege');
  assert.equal(fn.auth,true,fn.signature+' lacks intended authenticated access');
  assert.equal(fn.safeSearchPath,true,fn.signature+' has an unsafe search_path');

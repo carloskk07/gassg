@@ -61,12 +61,31 @@
     <span class="tamao-coupon-banner-kicker"><span aria-hidden="true">✦</span> CLUBE TAMÃO <span class="tamao-coupon-banner-dot" aria-hidden="true"></span> CUPONS E DESCONTOS</span>
     <h2>Cupons TAMÃO. <em>Mais economia nas suas compras.</em></h2>
     <p>Consulte os pacotes de cupons disponíveis, confira as condições e aproveite descontos em compras elegíveis. Você também pode acompanhar cashback e indicações no Clube.</p>
+    <aside class="tamao-coupon-price-board" hidden aria-label="Preço cadastrado do pacote geral de cupons" style="margin:18px 0;padding:17px 19px;background:#f3ffe9;border:1px solid #c4e8ba;border-radius:15px;color:#174d36;max-width:100%;box-sizing:border-box">
+      <span style="font-size:12px;font-weight:850;letter-spacing:.03em">PACOTE GERAL · TODOS OS PRODUTOS ELEGÍVEIS</span>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:9px 0">
+        <strong data-coupon-price style="font-size:clamp(26px,4vw,37px);line-height:1.12;color:#104832"></strong>
+        <span data-coupon-face style="font-weight:800;color:#135a40"></span>
+      </div>
+      <p data-coupon-minimum style="margin:6px 0;font-weight:700;color:#20583e"></p>
+      <small data-coupon-availability style="display:block;margin-top:8px;font-size:12px;line-height:1.5;color:#355946"></small>
+    </aside>
     <div class="tamao-welcome-offer" hidden style="padding:1rem 1.2rem;border-radius:1rem;background:linear-gradient(120deg,#075842,#0d8567);color:#fff;margin:1rem 0;box-shadow:0 10px 24px #074b382e" aria-label="Bônus de boas-vindas TAMÃO">
       <span class="tamao-welcome-kicker">🎁 PRESENTE DE BOAS-VINDAS</span>
       <strong>Ganhe R$ 1 ao criar sua conta no TAMÃO!</strong>
       <p>Para novos cadastros com e-mail confirmado. <b><span data-welcome-remaining>100</span> vagas restantes</b> nesta campanha limitada.</p>
-      <button type="button" onclick="go('club')">Quero participar <span aria-hidden="true">→</span></button>
-      <small>Crédito promocional para compras elegíveis, sem saque ou transferência. Uma concessão por conta elegível.</small>
+      <div class="tamao-coupon-banner-actions" style="margin:12px 0 8px">
+        <button type="button" class="tamao-coupon-banner-main" onclick="tamaoWelcomeShowSignup()">Criar conta e ganhar R$ 1 <span aria-hidden="true">→</span></button>
+      </div>
+      <form class="tamao-welcome-signup" hidden onsubmit="return tamaoWelcomeRegister(event)" style="padding:12px 0;max-width:440px">
+        <label for="tamao-welcome-email" style="display:block;font-weight:700;margin:0 0 7px">Seu e-mail para confirmar o cadastro</label>
+        <input id="tamao-welcome-email" name="email" type="email" autocomplete="email" required maxlength="160" class="input" placeholder="voce@email.com" style="display:block;width:100%;max-width:100%;box-sizing:border-box;margin-bottom:10px">
+        <div class="tamao-coupon-banner-actions" style="margin:0 0 8px">
+          <button type="submit" class="tamao-coupon-banner-main">Enviar confirmação por e-mail</button>
+        </div>
+        <p data-welcome-signup-status role="status" style="margin:6px 0;color:#eefee9"></p>
+      </form>
+      <small style="display:block;line-height:1.55">Crédito promocional para compras elegíveis, sem saque ou transferência. Uma concessão por conta elegível, após confirmação do cadastro.</small>
     </div>
     <div class="tamao-coupon-banner-tags" aria-label="Vantagens do Clube">
       <span>🎟️ Cupons</span><span>💚 Cashback</span><span>🤝 Indicações</span>
