@@ -13,6 +13,7 @@ const portraitId='33333333-3333-4333-8333-333333333333';
 const galleryId='44444444-4444-4444-8444-444444444444';
 const esc=x=>String(x??'').replaceAll('<','&lt;');
 let files={portrait:[],gallery:[]},uploads=[],writes=[],transitions=[],rpcList=[],uuidCount=0;
+let savedListing=null;
 const values={
  vertical:'rides',title:'Carona São Gabriel a Bagé',
  description:'Trajeto eventual a combinar diretamente com os passageiros.',
@@ -24,11 +25,11 @@ const values={
 const stateClient={
  from(table){
   if(table==='discovery_listings')return {
-   insert(data){writes.push(['insert',data]);return {select(col){
+   insert(data){writes.push(['insert',data]);savedListing={id:listing,status:'draft',...data};return {select(col){
     assert.equal(col,'id');return {single:async()=>({data:{id:listing},error:null})};
    }};},
    update(data){writes.push(['update',data]);return {
-    eq:async()=>({error:null})
+    eq:async()=>{if(savedListing)Object.assign(savedListing,data);return {error:null}}
    }}
   };
   assert.equal(table,'discovery_ride_details');
@@ -40,8 +41,12 @@ const stateClient={
  }},
  rpc:async(name,args)=>{
   rpcList.push(name);
-  if(name==='discovery_my_listings')return {data:[],error:null};
-  if(name==='discovery_transition_listing'){transitions.push(args);return {data:'review',error:null}}
+  if(name==='discovery_my_listings')return {data:savedListing?[{...savedListing}]:[],error:null};
+  if(name==='discovery_transition_listing'){
+   transitions.push(args);
+   if(savedListing)savedListing.status=args.p_next_status;
+   return {data:args.p_next_status,error:null};
+  }
   throw Error('Unexpected RPC '+name);
  }
 };
