@@ -497,6 +497,7 @@ function homeBalancedHighlights(entries){
  return head.concat(tail);
 }
 function home(){
+  const couponBanner=globalThis.document?.getElementById('tamao-coupon-home-template')?.innerHTML||'';
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const ready=globalThis.liveReady?.()===true;
@@ -642,6 +643,7 @@ function home(){
   if(!testDemo&&!internalPilot)return shell(`${regionalPriceSection||
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
+    ${couponBanner}
     ${homeIntentGuide}
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><span class="section-kicker">MAIS OPÇÕES PARA VOCÊ</span>
@@ -717,6 +719,7 @@ function home(){
     </div>
   </section>`;
   return shell(`${regionalPriceSection}
+${couponBanner}
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
@@ -724,11 +727,7 @@ function home(){
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
     <p class="hero-lead"><strong>Compare preços e conheça as vantagens do TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. Veja referências da sua cidade e consulte ofertas e entrega pelo CEP.</p>
-    <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
-      <span>💰 Veja o valor antes de comprar</span>
-      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
-      <button type="button" onclick="go('merchants')">🏪 Sua revenda pode conquistar novos clientes <span aria-hidden="true">→</span></button>
-    </div>
+
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
       ${conciseHome?'<div class="starter-product starter-product-explore"><div class="starter-product-icon" aria-hidden="true">🧺</div><div><span class="starter-label">COMECE PELA SUA ESCOLHA</span><strong>Gás, água e outros essenciais</strong><small>Escolha livre • Consulta por CEP</small></div><div class="starter-price"><small>SEU PRÓXIMO PASSO</small><b>Ver produtos</b></div></div>':`<div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>`}
@@ -742,7 +741,7 @@ function home(){
     <div class="home-benefits-shortcuts" aria-label="Mais motivos para conhecer o TAMÃO">
       <span>✓ Sua cesta, suas escolhas</span>
       <span>✓ Acompanhamento após o aceite</span>
-      <button type="button" onclick="go('earn')">🎁 Clube e indicações <span aria-hidden="true">→</span></button>
+      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
     </div>
     <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
       <span>O que você precisa hoje?</span>
