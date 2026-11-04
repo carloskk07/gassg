@@ -148,7 +148,9 @@ function clubeCouponShopPanel(){
   const payment=purchase?'<article class="card flat form-stack">'+
     '<strong>Pagamento do seu pacote</strong>'+
     '<p>Valor: '+esc(money(purchase.amountCents))+' • Situação: '+
-     esc(purchase.status||'Em conferência')+'</p>'+
+     esc(purchase.status==='paid'&&purchase.fundingPending===true?
+       'Pagamento identificado; cupons aguardam conciliação financeira':
+       purchase.status||'Em conferência')+'</p>'+
     (purchase.pixPayable===true?(qrImage+
       (validCode?'<label>Código Pix copia e cola<textarea readonly rows="3" class="input">'+
         esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()">Copiar código Pix</button>':'')+
@@ -217,12 +219,17 @@ async function clubeCouponBuy(packageKey){
     const previous=clubePaidCouponView.purchases.find(x=>
       x.packageKey===packageKey&&
       ['prepared','awaiting_payment'].includes(String(x.status)));
-    if(previous?.invoiceId){
+    if(previous?.invoiceId&&previous.status!=='prepared'){
       await clubeCouponCheckInvoice(previous.invoiceId,true);
       return;
     }
+    // An interrupted prepared invoice is retried with its OWN immutable UUID,
+    // never a second invoice, even after a page reload.
+    if(previous?.status==='prepared'&&
+       !/^[0-9a-f-]{36}$/i.test(String(previous.requestId||'')))
+      throw Error('COUPON_PREPARED_REPLAY_KEY_MISSING');
     if(!clubeCouponShopState.attempts[packageKey])
-      clubeCouponShopState.attempts[packageKey]=crypto.randomUUID();
+      clubeCouponShopState.attempts[packageKey]=previous?.requestId||crypto.randomUUID();
     const requestId=clubeCouponShopState.attempts[packageKey];
     const result=await liveInvoke('coupon-credit-pix',{
       action:'purchase',packageKey,requestId
