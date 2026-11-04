@@ -165,6 +165,33 @@ async function couponVerifiedReplay(invoice:any){
  }
  return {ok:true,...publicInvoice(invoice)};
 }
+// Independent GET proof of a completed, full Mercado Pago Orders API refund.
+// A successful refund POST, mutable invoice flag or unverified provider status
+// cannot substitute for this exact Pix/order/amount/refund binding.
+function couponFullRefundVerified(order:any,invoice:any){
+ const payment=findPix(order);
+ const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
+ if(!invoice||!payment||!refunds.length||order?.live_mode===false||
+    payment?.live_mode===false||String(order?.id??"")!==String(invoice.provider_order_id)||
+    String(order?.external_reference??"")!==String(invoice.id)||
+    moneyToCents(order?.total_amount)!==Number(invoice.sale_price_cents)||
+    moneyToCents(payment?.amount)!==Number(invoice.sale_price_cents)||
+    String(payment?.id??"")!==String(invoice.provider_payment_id)||
+    payment?.payment_method?.id!=="pix"||
+    payment?.payment_method?.type!=="bank_transfer")return false;
+ let total=0;
+ for(const refund of refunds){
+  if(!["processed","approved","refunded"].includes(String(refund?.status??"").toLowerCase())||
+     !String(refund?.id??"").trim()||
+     String(refund?.transaction_id??"")!==String(invoice.provider_payment_id))
+    return false;
+  const amount=moneyToCents(refund?.amount);
+  if(amount===null||amount<=0)return false;
+  total+=amount;
+ }
+ return total===Number(invoice.sale_price_cents);
+}
+
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
  if(origin&&!ORIGINS.has(origin))return respond({error:"ORIGIN_NOT_ALLOWED"},403,origin);
@@ -213,6 +240,13 @@ Deno.serve(async(req:Request)=>{
       invoiceError=legacy.error;
     }
     if(invoiceError)throw invoiceError;
+    const {data:refunds,error:refundError}=await admin
+      .from("clube_coupon_refund_requests_v1_814")
+      .select("invoice_id,status,request_id,received_at")
+      .eq("customer_user_id",user.id)
+      .order("received_at",{ascending:false}).limit(25);
+    if(refundError)throw refundError;
+    const refundByInvoice=new Map((refunds||[]).map((r:any)=>[String(r.invoice_id),r]));
     const paidInvoices=new Map((invoices||[])
       .filter((row:any)=>couponInvoiceNetCovered(row))
       .map((row:any)=>[String(row.id),row]));
@@ -229,7 +263,9 @@ Deno.serve(async(req:Request)=>{
         invoiceId:row.id,packageKey:row.package_key,requestId:row.request_id,status:row.status,
         amountCents:row.sale_price_cents,createdAt:row.created_at,
         paidAt:row.paid_at,
-        fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row)
+        fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
+        refundStatus:refundByInvoice.get(String(row.id))?.status??null,
+        refundRequestedAt:refundByInvoice.get(String(row.id))?.received_at??null
       })),
       vouchers:(rows||[]).filter((row:any)=>paidIds.has(String(row.invoice_id)))
         .map((row:any)=>({
@@ -243,6 +279,92 @@ Deno.serve(async(req:Request)=>{
       couponCheckoutEnabled:
         Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"&&
         await platformCommerceAllowed(admin)
+    },200,origin);
+  }
+  if(operation==="request-refund"){
+    const invoiceId=String(body.invoiceId??"");
+    const requestId=String(body.requestId??"");
+    const reason=String(body.reason??"");
+    if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId)||
+       !["arrependimento","sem_atendimento","outro"].includes(reason))
+      return respond({error:"COUPON_REFUND_INVALID_INPUT"},400,origin);
+    await enforceApiQuota(admin,{
+      userId:user.id,actionName:"coupon-refund-request",limit:4,windowSeconds:3600
+    });
+    const {data,error}=await admin.rpc("clube_coupon_refund_request_v1_814",{
+      p_customer:user.id,p_invoice:invoiceId,p_request:requestId,p_reason:reason
+    });
+    if(error){
+      if(error.code==="42501")return respond({error:"COUPON_REFUND_NOT_OWNED"},403,origin);
+      throw error;
+    }
+    if(data?.ok!==true||data?.invoiceId!==invoiceId||
+       !UUID_RE.test(String(data?.requestId??""))||
+       !["requested","in_review","refunded","closed"].includes(String(data?.status??"")))
+      return respond({error:"COUPON_REFUND_NOT_CONFIRMED"},503,origin);
+    // If the paid package has NO used/reserved vouchers, attempt a full
+    // provider refund with the same immutable request UUID. A second request
+    // replays exactly the same Mercado Pago idempotency key.
+    // Never return 'refunded' from a POST acknowledgement alone.
+    let remoteRefundVerified=false;
+    if(data.status==="requested"&&mercadoPagoConfigured(MP_TOKEN)){
+      try{
+        const {data:invoice,error:invoiceErr}=await admin.from("clube_coupon_paid_invoices")
+          .select("id,status,customer_user_id,sale_price_cents,provider_order_id,provider_payment_id")
+          .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
+        if(invoiceErr)throw invoiceErr;
+        if(invoice?.status==="paid"&&invoice?.provider_order_id&&invoice?.provider_payment_id){
+          const {data:vouchers,error:voucherErr}=await admin.from("clube_coupon_paid_issuances")
+            .select("status").eq("invoice_id",invoiceId).limit(20);
+          if(voucherErr)throw voucherErr;
+          const eligible=Array.isArray(vouchers)&&vouchers.length>0&&
+            vouchers.every((v:any)=>v.status==="issued"||v.status==="void");
+          if(eligible){
+            const orderId=String(invoice.provider_order_id);
+            const endpoint="/v1/orders/"+encodeURIComponent(orderId);
+            const load=await mercadoPagoFetch(endpoint,{accessToken:MP_TOKEN});
+            if(load.ok){
+              const order=await readMercadoPagoJson(load);
+              const payment=findPix(order);
+              const correctlyBound=order?.live_mode!==false&&payment?.live_mode!==false&&
+                String(order?.id??"")===orderId&&
+                String(order?.external_reference??"")===invoiceId&&
+                moneyToCents(order?.total_amount)===invoice.sale_price_cents&&
+                String(payment?.id??"")===String(invoice.provider_payment_id)&&
+                moneyToCents(payment?.amount)===invoice.sale_price_cents&&
+                order?.status==="processed"&&payment?.status==="processed";
+              const hasRefunds=Array.isArray(order?.transactions?.refunds)&&
+                order.transactions.refunds.length>0;
+              if(correctlyBound&&!hasRefunds){
+                await mercadoPagoFetch(endpoint+"/refund",{
+                  accessToken:MP_TOKEN,method:"POST",
+                  idempotencyKey:String(data.requestId)
+                });
+              }
+              const fresh=await mercadoPagoFetch(endpoint,{accessToken:MP_TOKEN});
+              if(fresh.ok){
+                const proof=await readMercadoPagoJson(fresh);
+                if(couponFullRefundVerified(proof,invoice)){
+                  const done=await admin.rpc("clube_coupon_paid_payment_refund",{
+                    p_invoice_id:invoiceId,p_provider_order_id:orderId
+                  });
+                  if(done.error)throw done.error;
+                  remoteRefundVerified=done.data?.ok===true&&done.data?.refunded===true;
+                }
+              }
+            }
+          }
+        }
+      }catch(error){
+        // Never turn a confirmed cancellation request into HTTP failure:
+        // network/PSP ambiguity must be reviewed, not labelled as refunded.
+        console.warn("coupon refund provider review required",String((error as any)?.message??error));
+      }
+    }
+    return respond({ok:true,source:"clube_coupon_refund_request_v1_814",
+      invoiceId:data.invoiceId,requestId:data.requestId,
+      status:remoteRefundVerified?"refunded":data.status,receivedAt:data.receivedAt,
+      refundConfirmed:remoteRefundVerified||data.refundConfirmed===true
     },200,origin);
   }
   if(operation==="catalog"){
@@ -295,6 +417,18 @@ Deno.serve(async(req:Request)=>{
       .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
     if(invoiceError)throw invoiceError;
     if(!invoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    // A pending cancellation freezes even a previously saved/reopened Pix.
+    // The original provider charge may still require refund/reconciliation,
+    // but the customer must not be instructed to pay it again.
+    const {data:refund,error:refundError}=await admin
+      .from("clube_coupon_refund_requests_v1_814")
+      .select("status").eq("invoice_id",invoice.id)
+      .eq("customer_user_id",user.id).maybeSingle();
+    if(refundError)throw refundError;
+    if(refund&&refund.status!=="closed")
+      return respond({error:"COUPON_REFUND_REQUESTED",invoiceId:invoice.id,
+        status:invoice.status,pixCode:null,paymentUrl:null,pixPayable:false,
+        refundStatus:refund.status},409,origin);
     if(invoice.status==="prepared"||invoice.status==="awaiting_payment"){
       const replay=await couponVerifiedReplay(invoice);
       return respond(replay,replay.ok?200:409,origin);
@@ -349,6 +483,14 @@ Deno.serve(async(req:Request)=>{
   const {data:invoice,error:readError}=await admin.from("clube_coupon_paid_invoices")
    .select("*").eq("customer_user_id",user.id).eq("request_id",requestId).single();
   if(readError||!invoice)throw readError??new Error("INVOICE_NOT_FOUND");
+  const {data:refund,error:refundError}=await admin
+    .from("clube_coupon_refund_requests_v1_814")
+    .select("status").eq("invoice_id",invoice.id)
+    .eq("customer_user_id",user.id).maybeSingle();
+  if(refundError)throw refundError;
+  if(refund&&refund.status!=="closed")
+    return respond({error:"COUPON_REFUND_REQUESTED",invoiceId:invoice.id,
+      pixCode:null,paymentUrl:null,pixPayable:false},409,origin);
   if(invoice.package_key!==packageKey||invoice.sale_price_cents!==pkg.sale_price_cents||
      invoice.coupon_face_cents!==pkg.coupon_face_cents||
      invoice.coupons_per_pack!==pkg.coupons_per_pack){

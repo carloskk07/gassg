@@ -116,7 +116,7 @@ function clubePaidCouponPanel(){
 const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
 if(!userId||typeof liveReady!=='function'||!liveReady())
 return '<section class="section"><h2>Seus cupons TAMÃO</h2>'+
-'<p>Entre na sua conta para consultar seus cupons e benefícios.</p></section>';
+'<p>Entre para ver seus cupons.</p></section>';
 const valid=clubePaidCouponView.userId===userId;
 const status=valid?clubePaidCouponView.status:'idle';
 const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
@@ -137,6 +137,7 @@ const cards=valid&&status==='ready'
 (Number(item.minOrderCents)>0?'<small> · Mín.: '+esc(money(item.minOrderCents))+'</small>':'')+
 '</article>').join('')
 :'';
+const invoices=globalThis.clubeCouponPurchasesPanel?.()||'';
 const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
 ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
 const issue=valid&&status==='failed'
@@ -144,11 +145,12 @@ const issue=valid&&status==='failed'
 return '<section class="section" aria-label="Meus cupons TAMÃO">'+
 '<div class="section-head"><div><span class="section-kicker">SEUS BENEFÍCIOS</span>'+
 '<h2>Meus cupons TAMÃO</h2>'+
-'<p>Consulte seus cupons por valor, validade e situação.</p></div>'+
+'<p>Confira valor e validade de cada cupom.</p></div>'+
 '<button class="secondary" type="button" onclick="clubePaidCouponsRefresh()" '+
 (status==='loading'?'disabled':'')+'>'+
 (status==='loading'?'Consultando…':'Consultar meus cupons')+'</button></div>'+
 issue+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
+(invoices?'<h3>Histórico de pacotes</h3><div class="grid cards-2">'+invoices+'</div>':'')+
 '</section>';
 }
 async function clubePaidCouponsRefresh(){

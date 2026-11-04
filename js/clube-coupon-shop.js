@@ -179,6 +179,58 @@ async function clubeCouponCopyPix(){
 }
 
 
+// History is lazy-loaded with the coupon shop and never costs the merchant startup JS.
+function clubeCouponPurchasesPanel(){
+ const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
+return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===String(globalThis.liveRuntime?.session?.user?.id||''))?
+ clubePaidCouponView.purchases.slice(0,20).map(inv=>{
+  const id=String(inv.invoiceId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const request=String(inv.refundStatus||'');
+  const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
+  return '<article class="card flat"><strong>Compra de cupons</strong>'+
+   '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   (request==='refunded'&&inv.status==='refunded'?
+     '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
+    request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
+      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')">Conferir reembolso</button>':
+    allowed?'<label class="tiny">Motivo do cancelamento<select id="clube-refund-reason-'+id+'" class="input">'+
+       '<option value="arrependimento">Desistência / arrependimento</option>'+
+       '<option value="sem_atendimento">Não há revenda para utilizar</option>'+
+       '<option value="outro">Outro motivo</option></select></label>'+
+      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
+       '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
+ }).join(''):'';
+}
+
+// A cancellation is a protocol/request, NOT an immediate Pix reversal.
+async function clubeCouponRefundAsk(invoiceId){
+ const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
+ if(!uid||!globalThis.liveReady?.()||
+    !/^[0-9a-f-]{36}$/i.test(String(invoiceId||'')))return;
+ const invoice=clubePaidCouponView.userId===uid&&clubePaidCouponView.status==='ready'?
+  clubePaidCouponView.purchases.find(x=>x.invoiceId===invoiceId):null;
+ if(!invoice||invoice.refundStatus==='refunded')return;
+ const existing=Boolean(invoice.refundStatus);
+ const choice=existing?'outro':String(document.getElementById('clube-refund-reason-'+invoiceId)?.value||'');
+ if(!['arrependimento','sem_atendimento','outro'].includes(choice))
+   return toast('Escolha o motivo do cancelamento.');
+ if(!existing&&!window.confirm('Confirma o cancelamento do pacote? A devolução do Pix só aparece como concluída após confirmação do Mercado Pago.'))return;
+ try{
+  const result=await liveInvoke('coupon-credit-pix',{action:'request-refund',
+    invoiceId,requestId:crypto.randomUUID(),reason:choice});
+  if(result?.ok!==true||result?.source!=='clube_coupon_refund_request_v1_814'||
+     result?.invoiceId!==invoiceId)throw Error('COUPON_REFUND_REQUEST_UNVERIFIED');
+  if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
+  toast('Pedido recebido. Protocolo: '+String(result.requestId).slice(0,8)+'. Aguardando análise do reembolso.');
+  await clubePaidCouponsRefresh();
+ }catch{
+  if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
+   toast('Não foi possível registrar o pedido. Consulte seu histórico e tente novamente.');
+ }
+}
+
 // ESM lazy load: onclick handlers must be available on the customer window.
 Object.assign(globalThis,{clubeCouponShopPanel,clubeCouponShopRefresh,
-  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix});
+  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,
+  clubeCouponPurchasesPanel});

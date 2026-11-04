@@ -154,6 +154,8 @@ jobs:
         run: node tests/isolated-supabase-coupon-topups-v1-809.mjs
       - name: V1.810 real PostgreSQL any-product min order, budget and atomic checkout
         run: node tests/isolated-supabase-coupon-general-v1-810.mjs
+      - name: V1.814 PostgreSQL verified owner-scoped cancellation and frozen voucher
+        run: node tests/isolated-supabase-coupon-refund-v1-814.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
