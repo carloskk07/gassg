@@ -3662,8 +3662,38 @@ Deno.serve(async(req:Request)=>{
         ]);
         if(release.error||packageResult.error||pool.error)
           throw release.error||packageResult.error||pool.error;
+        // Reuse identity from the *live payment recipient*, never invent it.
+        // The profile is visible only to the authenticated superadmin.
+        let providerSeller:null|{name:string,taxDocument:string,supportEmail:string,address:string}=null;
+        const mpToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+        if(mercadoPagoConfigured(mpToken)&&mpToken.startsWith("APP_USR-")){
+          try{
+            const probe=await mercadoPagoFetch("/users/me",{
+              accessToken:mpToken,method:"GET",timeoutMs:8000
+            });
+            if(probe.ok){
+              const mp=await readMercadoPagoJson(probe);
+              if(String(mp?.id??"").trim()&&mp?.site_id==="MLB"&&mp?.test_user!==true){
+                const candidateName=[mp?.first_name,mp?.last_name]
+                  .map(x=>String(x??"").trim()).filter(Boolean).join(" ").slice(0,150);
+                const candidateTax=String(mp?.identification?.number??"").replace(/\D/g,"");
+                const candidateEmail=String(mp?.email??"").trim().toLowerCase();
+                // Address is a separate merchant disclosure; a Pix profile
+                // does not prove that the home address is a business address.
+                providerSeller={
+                  name:candidateName.length>=5?candidateName:"",
+                  taxDocument:couponSellerTaxDocumentValid(candidateTax)?candidateTax:"",
+                  supportEmail:/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(candidateEmail)
+                    ?candidateEmail.slice(0,180):"",
+                  address:""
+                };
+              }
+            }
+          }catch(_err){/* A temporary PSP outage cannot expose unverified data. */}
+        }
         return json({ok:true,source:"clube_commercial_release_status_v1_819",
           packageKey:key,enabled:release.data?.enabled===true,
+          providerSeller,profileFromMercadoPago:providerSeller!==null,
           seller:release.data?{
             name:release.data.seller_name,
             taxDocument:release.data.seller_tax_document,
@@ -3728,6 +3758,14 @@ Deno.serve(async(req:Request)=>{
          ownerProfile?.site_id!=="MLB"||ownerProfile?.test_user===true)
         throw new DomainError("COUPON_PROVIDER_NOT_BRAZIL_LIVE",
           "A conta de cobrança não foi identificada como operação brasileira real.",503);
+      // Where MP supplies a validated CPF/CNPJ, the contract must refer to
+      // this very account, rather than to an unrelated person.
+      const mpTaxDocument=String(ownerProfile?.identification?.number??"")
+        .replace(/\D/g,"");
+      if(couponSellerTaxDocumentValid(mpTaxDocument)&&
+         mpTaxDocument!==taxDocument)
+        throw new DomainError("COUPON_SELLER_DOCUMENT_MISMATCH",
+          "O CPF/CNPJ informado não corresponde ao titular da conta Mercado Pago.",400);
       const {data,error}=await admin.rpc(
         "admin_clube_coupon_commercial_release_v1_819",{
         p_actor:user.id,p_seller_name:name,

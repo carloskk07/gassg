@@ -5661,6 +5661,9 @@ function adminSetFinanceWorkspace(workspace){
     ||(key==='lab'&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   render();
+  if(key==='policy'&&adminCurrentRole()==='superadmin'){
+    adminCouponCommercialRefresh().catch(()=>{});
+  }
   if(key==='lab'){
     adminFinanceLabReadinessFromUi().catch(()=>{});
     // Existing receipts are read-only and do not depend on a new Pix.
@@ -6338,12 +6341,11 @@ async function adminCouponCommercialRelease(){
   const sellerTaxDocument=read('clube-seller-tax').replace(/[.\/\-\s]/g,'');
   const sellerAddress=read('clube-seller-address');
   const sellerSupportEmail=read('clube-seller-support').toLowerCase();
-  const terms=['refund','reimbursement','nomerchant','disclosure'].every(
-    key=>document.getElementById('clube-accept-'+key)?.checked===true);
+  const terms=document.getElementById('clube-accept-all')?.checked===true;
   const status=document.getElementById('clube-commercial-result');
   if(sellerName.length<5||![11,14].includes(sellerTaxDocument.length)||
      sellerAddress.length<20||!/^.+@[^@]+\.[^@]+$/.test(sellerSupportEmail)||!terms){
-    if(status)status.textContent='Complete a identificação do vendedor e confirme os quatro termos.';
+    if(status)status.textContent='Confira os dados do recebedor, informe o contato/endereço faltante e aceite as condições comerciais.';
     return;
   }
   if(!globalThis.crypto?.randomUUID)return toast('Identificador seguro não disponível.');
@@ -6405,10 +6407,26 @@ function adminCouponCommercialReleaseView(){
   const d=adminCouponCommercial.loadedFor===uid?adminCouponCommercial.data:null;
   const active=d?.commercialEnabled===true&&d?.providerConfigured===true&&
     d?.privateEmergencyStop!==true;
-  const field=(id,label,type,autocomplete='off')=>'<div class="input-wrap">'+
+  const provider=d?.profileFromMercadoPago===true?d?.providerSeller:null;
+  const owner=provider&&typeof provider==='object'?provider:{};
+  const providerName=String(owner.name||'').trim();
+  const providerDoc=String(owner.taxDocument||'').replace(/\D/g,'');
+  const recipientIdentified=providerName.length>=5&&
+    /^[0-9]{11}$|^[0-9]{14}$/.test(providerDoc);
+  const field=(id,label,type,value='')=>'<div class="input-wrap">'+
     '<label for="'+id+'">'+label+'</label>'+
     '<input class="input" type="'+type+'" id="'+id+
-    '" autocomplete="'+autocomplete+'" required maxlength="260"></div>';
+    '" autocomplete="off" required maxlength="260" value="'+esc(value)+'"></div>';
+  const merchantIdentity=recipientIdentified?(
+     '<div class="card flat" style="margin:0 0 12px">'+
+     '<strong>Recebedor identificado no Mercado Pago</strong>'+
+     '<p style="margin:6px 0 0">'+esc(providerName)+
+     ' • CPF/CNPJ com final '+esc(providerDoc.slice(-4))+'</p>'+
+     '<input type="hidden" id="clube-seller-name" value="'+esc(providerName)+'">'+
+     '<input type="hidden" id="clube-seller-tax" value="'+esc(providerDoc)+'">'+
+     '</div>'
+  ):field('clube-seller-name','Nome do titular da conta Mercado Pago','text',providerName)+
+    field('clube-seller-tax','CPF/CNPJ do recebedor','text',providerDoc);
   return '<section class="section" aria-label="Ativação comercial dos cupons TAMÃO">'+
    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • VENDA DE CUPONS</span>'+
    '<h3>Ativar venda do pacote geral</h3>'+
@@ -6419,17 +6437,16 @@ function adminCouponCommercialReleaseView(){
      '<div class="card flat form-stack">'+
       (d?.providerConfigured===false?'<p class="tiny muted">Configure no servidor o Mercado Pago de produção para receber o Pix.</p>':'')+
       (d?.privateEmergencyStop===true?'<p class="tiny muted">O controle de emergência de cupons está ativo no servidor.</p>':'')+
-      '<p>Identifique o responsável legal que receberá os pagamentos e ficará disponível aos compradores.</p>'+
+      '<p>O vendedor é identificado pela conta de recebimento do Mercado Pago. Confirme somente o endereço comercial e o contato de atendimento necessários para a oferta.</p>'+
+      (d?.profileFromMercadoPago===false?'<p class="tiny muted">Não foi possível recuperar os dados do titular no Mercado Pago. Informe-os para identificação.</p>':'')+
+      merchantIdentity+
       '<div class="grid cards-2">'+
-       field('clube-seller-name','Nome completo ou razão social do vendedor','text')+
-       field('clube-seller-tax','CPF ou CNPJ válido','text')+
-       field('clube-seller-address','Endereço comercial completo','text')+
-       field('clube-seller-support','E-mail de suporte aos clientes','email')+
+       field('clube-seller-address','Endereço comercial para contato','text',String(d?.seller?.address||''))+
+       field('clube-seller-support','E-mail de atendimento ao consumidor','email',String(d?.seller?.supportEmail||owner.supportEmail||''))+
       '</div>'+
-      '<label class="check-row"><input type="checkbox" id="clube-accept-refund"><span>Aceito as regras de cancelamento e reembolso de pacotes não utilizados.</span></label>'+
-      '<label class="check-row"><input type="checkbox" id="clube-accept-reimbursement"><span>Assumo o ressarcimento às revendas pelos descontos efetivamente aceitos e conciliados.</span></label>'+
-      '<label class="check-row"><input type="checkbox" id="clube-accept-nomerchant"><span>Autorizo a venda dos pacotes mesmo sem revenda disponível, respeitando os direitos de cancelamento.</span></label>'+
-      '<label class="check-row"><input type="checkbox" id="clube-accept-disclosure"><span>Autorizo divulgar aos compradores a identificação e os contatos do vendedor informados acima.</span></label>'+
+      '<label class="check-row"><input type="checkbox" id="clube-accept-all"><span>'+
+       'Confirmo a identidade e os contatos do vendedor; aceito a divulgação desses dados aos compradores, as regras de cancelamento e reembolso, o ressarcimento às revendas pelos descontos utilizados e a venda de pacotes mesmo antes da entrada de revendas, respeitando os direitos dos consumidores.'+
+      '</span></label>'+
       '<button id="clube-commercial-release-button" class="primary" type="button" onclick="adminCouponCommercialRelease()">Ativar vendas com Pix</button>'+
       '<p class="tiny muted" role="status" id="clube-commercial-result"></p>'+
      '</div>')+'</section>';
