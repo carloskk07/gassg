@@ -5,7 +5,8 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261015225000_push_chrome_spam_warning_v1_295.sql');
 const edge=read('supabase/functions/merchant-push-self-test/index.ts');
-const sw=read('sw.js'),backend=read('js/backend.js');
+const sw=read('sw.js'),backend=read('js/backend.js'),
+  diagnostics=read('js/merchant-push-diagnostics.js');
 const merchant=read('js/merchant.js'),admin=read('js/admin.js');
 const bootstrap=read('js/bootstrap.js'),audit=read('.github/workflows/audit.yml');
 for(const [name,s] of [['sw.js',sw],['backend.js',backend],['merchant.js',merchant],['admin.js',admin],['bootstrap.js',bootstrap]])
@@ -49,7 +50,7 @@ for(const marker of ['merchantPushCorrectChromeWarningLive','action:\'correct-sp
  'reportedWarning:count(\'reportedWarning\')',
  'latestReport:[\'seen\',\'not_seen\',\'spam_warning\']',
  'globalThis.merchantPushCorrectChromeWarningLive'])
- assert.ok(backend.includes(marker),'missing browser support '+marker);
+ assert.ok((backend+diagnostics).includes(marker),'missing browser support '+marker);
 for(const marker of ['Apareceu com aviso de possível spam',
  'Na verdade, apareceu com aviso do Chrome','Marcar como seguro',
  'Chrome controla essa classificação',
@@ -87,8 +88,8 @@ push.deviceHealth={latestReport:'spam_warning',reportedSeen:0,reportedNotSeen:0,
 assert.match(ctx.view(),/Marcar como seguro/);
 assert.match(ctx.view(),/Aviso de spam: 1/);
 
-const lo=backend.indexOf('async function merchantPushCorrectChromeWarningLive(){');
-const hi=backend.indexOf('\nasync function merchantPushDisableLive(){',lo);
+const lo=diagnostics.indexOf('async function merchantPushCorrectChromeWarningImpl(){');
+const hi=diagnostics.indexOf('\n}',lo);
 assert.ok(lo>=0&&hi>lo);
 let methodCalls=[];
 const runtime={testPending:false,reportPending:false,deviceHealth:null,
@@ -106,7 +107,7 @@ const env=vm.createContext({
    pushManager:{getSubscription:async()=>({endpoint:'private-device-endpoint'})}
  })}},render:()=>{},Error,String
 });
-vm.runInContext(backend.slice(lo,hi)+'\nthis.correct=merchantPushCorrectChromeWarningLive;',env);
+vm.runInContext(diagnostics.slice(lo,hi+2)+'\nthis.correct=merchantPushCorrectChromeWarningImpl;',env);
 assert.equal(await env.correct(),true);
 assert.equal(runtime.testResult.deviceReport,'spam_warning');
 assert.equal(runtime.testResult.previousReport,'not_seen');

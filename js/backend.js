@@ -1482,174 +1482,183 @@ function merchantPushKeyBytes(base64url){
   const bytes=atob(encoded+'='.repeat((4-encoded.length%4)%4));
   return Uint8Array.from(bytes,char=>char.charCodeAt(0));
 }
-async function merchantPushDiagnoseLive(){
-  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
-    throw new Error('Entre na revenda antes de verificar o aparelho.');
-  const merchantId=String(merchantRuntime.merchant.merchantId);
-  const supported=merchantPushStatus().supported;
-  const permission=typeof Notification==='undefined'?'unsupported':Notification.permission;
-  let workerReady=false,localSubscription=false,keyMatches=false;
-  if(supported){
-    const reg=await navigator.serviceWorker.getRegistration('./');
-    workerReady=!!reg?.active;
-    if(reg?.pushManager){
-      const sub=await reg.pushManager.getSubscription();
-      localSubscription=!!sub;
-      if(sub&&merchantPushRuntime.publicKey){
-        const current=sub.options?.applicationServerKey;
-        const wanted=merchantPushKeyBytes(merchantPushRuntime.publicKey);
-        const stored=current?new Uint8Array(current):new Uint8Array();
-        keyMatches=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
-      }
-    }
-  }
-  if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
-  merchantPushRuntime.diagnostic={
-    merchantId,supported,secure:typeof isSecureContext!=='undefined'&&isSecureContext===true,
-    permission,workerReady,localSubscription,keyMatches,
-    checkedAt:new Date().toISOString()
+let merchantPushDiagnosticsLoader=null;
+async function merchantLoadPushDiagnostics(){
+ if(globalThis.merchantPushDiagnoseImpl&&globalThis.merchantPushDiagnoseServerImpl&&
+    globalThis.merchantPushCorrectChromeWarningImpl)return;
+ if(!merchantPushDiagnosticsLoader)merchantPushDiagnosticsLoader=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  const src=document.querySelector('script[src*="/js/merchant.js"]')?.src||'';
+  let v='';
+  try{v=new URL(src,location.href).searchParams.get('v')||''}catch(_){}
+  script.src='./js/merchant-push-diagnostics.js'+
+   (/^[A-Za-z0-9._-]{1,120}$/.test(v)?'?v='+encodeURIComponent(v):'');
+  script.onload=()=>{
+   if(globalThis.merchantPushDiagnoseImpl&&globalThis.merchantPushDiagnoseServerImpl&&
+      globalThis.merchantPushCorrectChromeWarningImpl)resolve();
+   else{merchantPushDiagnosticsLoader=null;reject(Error('Diagnóstico de notificações indisponível.'));}
   };
-  render();
-  return true;
+  script.onerror=()=>{
+   merchantPushDiagnosticsLoader=null;
+   reject(Error('Não foi possível carregar o diagnóstico de notificações.'));
+  };
+  document.head.appendChild(script);
+ });
+ return merchantPushDiagnosticsLoader;
+}
+function merchantPushActorKey(){
+ return [merchantRuntime.session?.user?.id||'',merchantRuntime.merchant?.merchantId||'',
+  merchantRuntime.accessEpoch||0].join(':');
+}
+async function merchantPushDiagnoseLive(){
+ const actor=merchantPushActorKey();
+ await merchantLoadPushDiagnostics();
+ if(actor!==merchantPushActorKey())throw Error('A conta mudou durante o diagnóstico.');
+ return globalThis.merchantPushDiagnoseImpl();
 }
 async function merchantPushCheckLive(){
-  if(merchantPushRuntime.checking)return false;
-  if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
-    merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
-    merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;
-    merchantPushRuntime.deviceHealth=null;merchantPushRuntime.healthError=null;return false;
+ if(merchantPushRuntime.checking)return false;
+ if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
+  merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
+  merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;
+  merchantPushRuntime.deviceHealth=null;merchantPushRuntime.healthError=null;return false;
+ }
+ const merchantId=String(merchantRuntime.merchant.merchantId);
+ const userId=String(merchantRuntime.session?.user?.id||'');
+ const selected=String(merchantRuntime.selectedMerchantId||'');
+ const epoch=Number(merchantRuntime.accessEpoch||0);
+ const current=()=>merchantReady()&&
+  String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+  String(merchantRuntime.session?.user?.id||'')===userId&&
+  Number(merchantRuntime.accessEpoch||0)===epoch&&
+  String(merchantRuntime.selectedMerchantId||'')===selected;
+ if(!userId)return false;
+ const token={merchantId,userId,epoch};
+ merchantPushRuntime.checkToken=token;
+ merchantPushRuntime.checking=true;
+ try{
+  const result=await merchantInvoke('merchant-push-registration',{action:'config',merchantId});
+  if(!current())return false;
+  merchantPushRuntime.checked=true;
+  merchantPushRuntime.available=result?.available===true&&typeof result.publicKey==='string';
+  merchantPushRuntime.publicKey=merchantPushRuntime.available?result.publicKey:null;
+  merchantPushRuntime.testMode=result?.testMode!==false;
+  merchantPushRuntime.merchantId=merchantId;
+  if(merchantPushRuntime.available&&merchantPushStatus().supported){
+   const reg=await navigator.serviceWorker.ready;
+   if(!current())return false;
+   const subscription=await reg.pushManager.getSubscription();
+   if(!current())return false;
+   merchantPushRuntime.subscribed=!!subscription;
+  }else merchantPushRuntime.subscribed=false;
+  render();return merchantPushRuntime.available;
+ }catch{
+  if(current()){
+   merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
+   merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
   }
-  merchantPushRuntime.checking=true;
-  const merchantId=String(merchantRuntime.merchant.merchantId);
-  try{
-    const result=await merchantInvoke('merchant-push-registration',{action:'config',merchantId});
-    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
-    merchantPushRuntime.checked=true;
-    merchantPushRuntime.available=result?.available===true&&typeof result.publicKey==='string';
-    merchantPushRuntime.publicKey=merchantPushRuntime.available?result.publicKey:null;
-    merchantPushRuntime.testMode=result?.testMode!==false;
-    merchantPushRuntime.merchantId=merchantId;
-    if(merchantPushRuntime.available&&merchantPushStatus().supported){
-      const reg=await navigator.serviceWorker.ready;
-      if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
-      merchantPushRuntime.subscribed=!!(await reg.pushManager.getSubscription());
-    }else merchantPushRuntime.subscribed=false;
-    render();return merchantPushRuntime.available;
-  }catch{
-    if(String(merchantRuntime.merchant?.merchantId||'')===merchantId){
-      merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
-      merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
-    }
-    return false;
-  }finally{
-    merchantPushRuntime.checking=false;
+  return false;
+ }finally{
+  if(merchantPushRuntime.checkToken===token){
+   merchantPushRuntime.checkToken=null;
+   merchantPushRuntime.checking=false;
   }
+ }
 }
 async function merchantPushDiagnoseServerLive(){
-  if(merchantPushRuntime.healthPending)return false;
-  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
-    throw new Error('Entre na revenda antes de verificar o aparelho.');
-  const merchantId=String(merchantRuntime.merchant.merchantId);
-  const userId=String(merchantRuntime.session?.user?.id||'');
-  merchantPushRuntime.healthPending=true;
-  merchantPushRuntime.deviceHealth=null;
-  merchantPushRuntime.healthError=null;
-  render();
-  const current=()=>merchantReady()&&
-    String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
-    String(merchantRuntime.session?.user?.id||'')===userId;
-  try{
-    await merchantPushDiagnoseLive();
-    if(!current())return false;
-    const device=merchantPushRuntime.diagnostic;
-    if(device?.permission!=='granted'||!device.workerReady||
-      !device.localSubscription||!device.keyMatches)return true;
-    const reg=await navigator.serviceWorker.getRegistration('./');
-    const subscription=await reg?.pushManager?.getSubscription();
-    if(!subscription?.endpoint)return true;
-    try{
-      const result=await merchantInvoke('merchant-push-self-test',{
-        action:'diagnose-tests',merchantId,endpoint:subscription.endpoint
-      });
-      if(!current())return false;
-      if(result?.diagnosis?.registered===true){
-        const raw=result.diagnosis;
-        const count=k=>Number.isInteger(raw[k])&&raw[k]>=0?Math.min(raw[k],100000):0;
-        const states=['provider_accepted','gateway_rejected','reserved','expired','failed'];
-        const codes=['SUBSCRIPTION_GONE','GATEWAY_UNAVAILABLE','GATEWAY_REJECTED',
-          'NETWORK_ERROR','PUSH_TEST_FAILED','SENDER_UNAVAILABLE'];
-        merchantPushRuntime.deviceHealth={
-          merchantId,userId,registered:true,tests:count('tests'),
-          providerAccepted:count('providerAccepted'),
-          providerFailed:count('providerFailed'),reportedSeen:count('reportedSeen'),
-          reportedNotSeen:count('reportedNotSeen'),reportedWarning:count('reportedWarning'),
-          latestState:states.includes(raw.latestState)?raw.latestState:null,
-          latestFailureCode:codes.includes(raw.latestFailureCode)?raw.latestFailureCode:null,
-          latestReport:['seen','not_seen','spam_warning'].includes(raw.latestReport)?raw.latestReport:null,
-          checkedAt:new Date().toISOString()
-        };
-      }
-    }catch(error){
-      if(!current())return false;
-      merchantPushRuntime.healthError={merchantId,userId,
-        code:String(error?.data?.code||error?.code||'RESULT_UNAVAILABLE').slice(0,60)};
-    }
-    render();
-    return true;
-  }finally{merchantPushRuntime.healthPending=false;render();}
+ const actor=merchantPushActorKey();
+ await merchantLoadPushDiagnostics();
+ if(actor!==merchantPushActorKey())throw Error('A conta mudou durante o diagnóstico.');
+ return globalThis.merchantPushDiagnoseServerImpl();
 }
 async function merchantPushEnableLive(){
-  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
-    throw new Error('Entre na revenda antes de ativar o push.');
-  if(!merchantPushRuntime.available||!merchantPushStatus().supported)
-    throw new Error('O cadastro push não está disponível neste aparelho.');
+ if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
+  throw new Error('Entre na revenda antes de ativar o push.');
+ if(!merchantPushRuntime.available||!merchantPushStatus().supported)
+  throw new Error('O cadastro push não está disponível neste aparelho.');
+ if(merchantPushRuntime.togglePending)
+  throw new Error('Aguarde a alteração das notificações terminar.');
+ // Bind the browser permission to the original account.
+ const merchantId=String(merchantRuntime.merchant.merchantId);
+ const userId=String(merchantRuntime.session?.user?.id||'');
+ const epoch=Number(merchantRuntime.accessEpoch||0);
+ const selected=String(merchantRuntime.selectedMerchantId||'');
+ const key=String(merchantPushRuntime.publicKey||'');
+ const current=()=>merchantReady()&&
+  String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+  String(merchantRuntime.session?.user?.id||'')===userId&&
+  Number(merchantRuntime.accessEpoch||0)===epoch&&
+  String(merchantRuntime.selectedMerchantId||'')===selected&&
+  String(merchantPushRuntime.publicKey||'')===key;
+ if(!userId||!key)throw new Error('Atualize a sessão e a chave de notificações.');
+ const token={merchantId,userId,epoch};
+ merchantPushRuntime.toggleToken=token;
+ merchantPushRuntime.togglePending=true;
+ render();
+ let subscription=null,createdNew=false;
+ try{
   if(Notification.permission!=='granted'){
-    const permission=await Notification.requestPermission();
-    if(permission!=='granted')throw new Error('Permissão de notificação não concedida.');
+   const permission=await Notification.requestPermission();
+   if(!current())throw new Error('A conta mudou durante a autorização de notificações.');
+   if(permission!=='granted')throw new Error('Permissão de notificação não concedida.');
   }
-  const merchantId=String(merchantRuntime.merchant.merchantId);
-  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!current())throw new Error('A conta mudou antes do cadastro de notificações.');
   const reg=await navigator.serviceWorker.ready;
-  const wanted=merchantPushKeyBytes(merchantPushRuntime.publicKey);
-  let subscription=await reg.pushManager.getSubscription();
-  let createdNew=false;
+  if(!current())throw new Error('A conta mudou antes do cadastro de notificações.');
+  const wanted=merchantPushKeyBytes(key);
+  subscription=await reg.pushManager.getSubscription();
+  if(!current())throw new Error('A conta mudou durante a verificação do aparelho.');
   if(subscription){
-    const old=subscription.options?.applicationServerKey;
-    const stored=old?new Uint8Array(old):new Uint8Array();
-    const sameKey=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
-    if(!sameKey){
-      if(!await subscription.unsubscribe())throw new Error('Não foi possível renovar a inscrição antiga.');
-      subscription=null;
-    }
+   const old=subscription.options?.applicationServerKey;
+   const stored=old?new Uint8Array(old):new Uint8Array();
+   const sameKey=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
+   if(!sameKey){
+    if(!await subscription.unsubscribe())throw new Error('Não foi possível renovar a inscrição antiga.');
+    if(!current())throw new Error('A conta mudou durante a renovação de notificações.');
+    subscription=null;
+   }
   }
   if(!subscription){
-    subscription=await reg.pushManager.subscribe({
-      userVisibleOnly:true,applicationServerKey:wanted
-    });
-    createdNew=true;
+   subscription=await reg.pushManager.subscribe({
+    userVisibleOnly:true,applicationServerKey:wanted
+   });
+   createdNew=true;
   }
-  try{
-    const json=subscription.toJSON();
-    if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)
-      throw new Error('Navegador não devolveu as chaves de push.');
-    await merchantInvoke('merchant-push-registration',{
-      action:'subscribe',merchantId,endpoint:json.endpoint,
-      keys:{p256dh:json.keys.p256dh,auth:json.keys.auth}
-    });
-    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
-       String(merchantRuntime.session?.user?.id||'')!==userId){
-      await subscription.unsubscribe();throw new Error('A sessão mudou durante a ativação.');
-    }
-    merchantPushRuntime.subscribed=true;
-    render();return true;
-  }catch(error){
-    // Never destroy an existing valid subscription merely because
-    // this server registration request failed.
-    if(createdNew)await subscription.unsubscribe().catch(()=>{});
-    merchantPushRuntime.subscribed=!createdNew;
-    throw error;
+  if(!current())throw new Error('A conta mudou durante o cadastro do aparelho.');
+  const json=subscription.toJSON();
+  if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)
+   throw new Error('Navegador não devolveu as chaves de push.');
+  const reply=await merchantInvoke('merchant-push-registration',{
+   action:'subscribe',merchantId,endpoint:json.endpoint,
+   keys:{p256dh:json.keys.p256dh,auth:json.keys.auth}
+  });
+  if(!current())throw new Error('A conta mudou durante a ativação.');
+  if(reply?.ok!==true||reply.active!==true)
+   throw new Error('A inscrição deste aparelho não foi confirmada pelo servidor.');
+  merchantPushRuntime.subscribed=true;
+  render();return true;
+ }catch(error){
+  // Clean only this actor's newly-created local subscription.
+  if(createdNew&&subscription&&current()){
+   try{
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const still=await reg?.pushManager?.getSubscription();
+    if(still?.endpoint===subscription.endpoint)await subscription.unsubscribe();
+   }catch(_){}
   }
+  if(current())merchantPushRuntime.subscribed=!createdNew;
+  throw error;
+ }finally{
+  if(merchantPushRuntime.toggleToken===token&&
+     Number(merchantRuntime.accessEpoch||0)===epoch&&
+     String(merchantRuntime.session?.user?.id||'')===userId){
+   merchantPushRuntime.toggleToken=null;
+   merchantPushRuntime.togglePending=false;
+   render();
+  }
+ }
 }
+
 // Push test cannot alter orders or enable Cron.
 function merchantPushFriendlyError(error){
   const code=String(error?.data?.code||error?.code||'');
@@ -1763,59 +1772,74 @@ async function merchantPushReportTestLive(report){
   }finally{merchantPushRuntime.reportPending=false;render();}
 }
 async function merchantPushCorrectChromeWarningLive(){
-  if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
-    throw new Error('Aguarde a operação de teste em andamento.');
-  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
-  const userId=String(merchantRuntime.session?.user?.id||'');
-  const last=merchantPushStatus().testResult;
-  if(!merchantReady()||!merchantPushRuntime.subscribed||!last?.runId||
-    last.providerAccepted!==true||!['seen','not_seen'].includes(last.deviceReport))
-    throw new Error('Consulte o último teste registrado antes de corrigir o relato.');
-  merchantPushRuntime.reportPending=true;render();
-  try{
-    const reg=await navigator.serviceWorker.getRegistration('./');
-    const subscription=await reg?.pushManager?.getSubscription();
-    if(!subscription?.endpoint)throw new Error('Inscrição não encontrada neste navegador.');
-    const result=await merchantInvoke('merchant-push-self-test',{
-      action:'correct-spam-warning',merchantId,endpoint:subscription.endpoint,
-      runId:last.runId
-    });
-    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
-       String(merchantRuntime.session?.user?.id||'')!==userId)return false;
-    if(result?.correctionRecorded!==true||result?.receiptKind!=='manual_user_report'||
-       result?.deviceReport!=='spam_warning')
-      throw new Error('Não foi possível registrar a correção do relato.');
-    if(merchantPushRuntime.testResult?.runId===last.runId){
-      merchantPushRuntime.testResult.previousReport=last.deviceReport;
-      merchantPushRuntime.testResult.deviceReport='spam_warning';
-    }
-    merchantPushRuntime.deviceHealth=null;render();return true;
-  }finally{merchantPushRuntime.reportPending=false;render();}
+ const actor=merchantPushActorKey();
+ await merchantLoadPushDiagnostics();
+ if(actor!==merchantPushActorKey())throw Error('A conta mudou antes de corrigir o relato.');
+ return globalThis.merchantPushCorrectChromeWarningImpl();
 }
 async function merchantPushDisableLive(){
+ if(merchantPushRuntime.togglePending)
+  throw new Error('Aguarde a alteração das notificações terminar.');
+ const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+ const userId=String(merchantRuntime.session?.user?.id||'');
+ const epoch=Number(merchantRuntime.accessEpoch||0);
+ const selected=String(merchantRuntime.selectedMerchantId||'');
+ const current=()=>merchantReady()&&
+  String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+  String(merchantRuntime.session?.user?.id||'')===userId&&
+  Number(merchantRuntime.accessEpoch||0)===epoch&&
+  String(merchantRuntime.selectedMerchantId||'')===selected;
+ if(!current()||!merchantId||!userId)
+  throw new Error('Entre na revenda para revogar os alertas no servidor.');
+ const token={merchantId,userId,epoch};
+ merchantPushRuntime.toggleToken=token;
+ merchantPushRuntime.togglePending=true;
+ render();
+ try{
   const reg=typeof navigator.serviceWorker==='undefined'?null:
-    await navigator.serviceWorker.getRegistration('./');
+   await navigator.serviceWorker.getRegistration('./');
+  if(!current())throw new Error('A conta mudou durante a consulta dos alertas.');
   const subscription=reg?await reg.pushManager.getSubscription():null;
-  if(!subscription){merchantPushRuntime.subscribed=false;return true;}
-  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
-  let revoked=false;
-  if(merchantReady()&&merchantId){
-    try{
-      await merchantInvoke('merchant-push-registration',{
-        action:'unsubscribe',merchantId,endpoint:subscription.endpoint
-      });
-      revoked=true;
-    }catch{}
+  if(!current())throw new Error('A conta mudou durante a consulta dos alertas.');
+  if(!subscription){
+   merchantPushRuntime.subscribed=false;
+   render();return true;
   }
+  let reply=null,remoteError=null;
+  try{
+   reply=await merchantInvoke('merchant-push-registration',{
+    action:'unsubscribe',merchantId,endpoint:subscription.endpoint
+   });
+  }catch(error){remoteError=error;}
+  if(!current())throw new Error('A conta mudou durante a revogação dos alertas.');
+  const remote=reply?.ok===true&&reply.active===false;
+  // Stop delivery locally even when the remote ACK is lost. Never report success.
   const local=await subscription.unsubscribe().catch(()=>false);
-  merchantPushRuntime.subscribed=false;
-  merchantPushRuntime.testResult=null;
-  merchantPushRuntime.deviceHealth=null;
-  merchantPushRuntime.healthError=null;
-  render();
-  if(!revoked)throw new Error('Alertas push interrompidos no navegador; a revogação no servidor não pôde ser confirmada.');
-  return local;
+  if(!current())throw new Error('A conta mudou antes de concluir a revogação.');
+  if(remote||local){
+   merchantPushRuntime.subscribed=false;
+   merchantPushRuntime.testResult=null;
+   merchantPushRuntime.deviceHealth=null;
+   merchantPushRuntime.healthError=null;
+   render();
+  }
+  if(!remote)throw new Error(local
+   ?'Alertas removidos deste aparelho, mas a revogação no servidor não foi confirmada.'
+   :'Nem o servidor nem o navegador confirmaram a revogação dos alertas.');
+  if(!local)
+   throw new Error('Servidor revogado, mas o navegador não confirmou a exclusão. Verifique as notificações do aparelho.');
+  return true;
+ }finally{
+  if(merchantPushRuntime.toggleToken===token&&
+     Number(merchantRuntime.accessEpoch||0)===epoch&&
+     String(merchantRuntime.session?.user?.id||'')===userId){
+   merchantPushRuntime.toggleToken=null;
+   merchantPushRuntime.togglePending=false;
+   render();
+  }
+ }
 }
+
 function merchantOriginSafe(){
   if(['localhost','127.0.0.1'].includes(location.hostname))return true;
   const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim();
@@ -2039,6 +2063,10 @@ function merchantOfflineGuard(denied){
 // Invalidate protected data when merchant access changes.
 function merchantClearProtectedSnapshot(){
   merchantRuntime.accessEpoch=(merchantRuntime.accessEpoch||0)+1;
+  merchantPushRuntime.toggleToken=null;
+  merchantPushRuntime.togglePending=false;
+  merchantPushRuntime.checkToken=null;
+  merchantPushRuntime.checking=false;
   merchantRuntime.actionPending=false;
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
@@ -2079,6 +2107,8 @@ function merchantClearProtectedSnapshot(){
 }
 async function merchantSignOut(){
   const signOutEpoch=++merchantRuntime.accessEpoch;
+  merchantPushRuntime.toggleToken=null;
+  merchantPushRuntime.togglePending=false;
   merchantRuntime.refreshSeq++;
   merchantRuntime.actionPending=true;
   merchantOfflineGuard(true);
@@ -2188,6 +2218,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 
 async function merchantSelectLive(merchantId){
   const switchEpoch=++merchantRuntime.accessEpoch;
+  merchantPushRuntime.toggleToken=null;
+  merchantPushRuntime.togglePending=false;
   merchantRuntime.refreshSeq++;
   merchantRuntime.actionPending=true;
   if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});

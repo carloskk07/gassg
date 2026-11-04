@@ -459,6 +459,8 @@ jobs:
         run: node tests/merchant-vapid-pilot-v1-289.mjs
       - name: Test merchant device diagnostics V1.290
         run: node tests/merchant-push-device-diagnostics-v1-290.mjs
+      - name: Merchant push full lifecycle with session-bound device and verified server ACK
+        run: node tests/merchant-push-session-lifecycle-v1-493.mjs
       - name: Test one-device manual push with provider-only result V1.291
         run: node tests/merchant-push-self-test-v1-291.mjs
       - name: Test manual device receipt and last-test retrieval V1.292
