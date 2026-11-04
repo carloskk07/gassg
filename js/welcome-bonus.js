@@ -1,6 +1,6 @@
 /* Welcome bonus #815: server is sole authority for the promotion and wallet.
    Absence of an authoritative response is not an available promotion. */
-const tamaoWelcomeBonus={status:null,lastUser:null,inflight:false};
+const tamaoWelcomeBonus={status:null,lastUser:null,lastClaimTryAt:0,inflight:false};
 function tamaoWelcomeRender(){
   const status=tamaoWelcomeBonus.status;
   const active=status?.active===true &&
@@ -42,6 +42,9 @@ async function tamaoWelcomeClaimVerifiedUser(){
   if(!runtime?.client||runtime.status!=='ready'||!session?.access_token||
      !user?.id||user.is_anonymous===true||!user.email||
      !user.email_confirmed_at||tamaoWelcomeBonus.lastUser===user.id)return;
+  if(tamaoWelcomeBonus.status?.active!==true ||
+     Date.now()-tamaoWelcomeBonus.lastClaimTryAt<60000)return;
+  tamaoWelcomeBonus.lastClaimTryAt=Date.now();
   tamaoWelcomeBonus.inflight=true;
   try{
     const {data,error}=await runtime.client.rpc('claim_welcome_bonus_v1_815');
