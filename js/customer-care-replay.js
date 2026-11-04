@@ -36,10 +36,17 @@
        inFlight.authGeneration===authGeneration)
       throw new Error('Um atendimento deste pedido já está em andamento. Aguarde a consulta.');
     const previous=pending;
-    const reusable=previous?.actor===actor&&previous?.fingerprint===fingerprint&&
-      previous?.scope===scope&&previous?.authGeneration===authGeneration;
+    // After a verified server ACK the browser may redraw and clear the
+    // textarea. Recover that SAME case by order/category, without another POST.
+    // Before ACK, replay requires the exact original payload and key.
+    const reusable=previous?.actor===actor&&
+      previous?.scope===scope&&previous?.authGeneration===authGeneration&&
+      (previous?.caseId
+        ?previous.orderId===payload.orderId&&previous.category===payload.category
+        :previous?.fingerprint===fingerprint);
     const entry=reusable?previous:{
-      actor,fingerprint,scope,authGeneration,
+      actor,orderId:payload.orderId,category:payload.category,
+      fingerprint,scope,authGeneration,
       key:liveIdempotency('customer-care'),caseId:null,result:null
     };
     pending=entry;
