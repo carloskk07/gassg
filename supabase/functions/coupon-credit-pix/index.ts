@@ -275,12 +275,80 @@ Deno.serve(async(req:Request)=>{
        !UUID_RE.test(String(data?.requestId??""))||
        !["requested","in_review","refunded","closed"].includes(String(data?.status??"")))
       return respond({error:"COUPON_REFUND_NOT_CONFIRMED"},503,origin);
+    // If the paid package has NO used/reserved vouchers, attempt a full
+    // provider refund with the same immutable request UUID. A second request
+    // replays exactly the same Mercado Pago idempotency key.
+    // Never return 'refunded' from a POST acknowledgement alone.
+    let remoteRefundVerified=false;
+    if(data.status==="requested"&&mercadoPagoConfigured(MP_TOKEN)){
+      try{
+        const {data:invoice,error:invoiceErr}=await admin.from("clube_coupon_paid_invoices")
+          .select("id,status,customer_user_id,sale_price_cents,provider_order_id,provider_payment_id")
+          .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
+        if(invoiceErr)throw invoiceErr;
+        if(invoice?.status==="paid"&&invoice?.provider_order_id&&invoice?.provider_payment_id){
+          const {data:vouchers,error:voucherErr}=await admin.from("clube_coupon_paid_issuances")
+            .select("status").eq("invoice_id",invoiceId).limit(20);
+          if(voucherErr)throw voucherErr;
+          const eligible=Array.isArray(vouchers)&&vouchers.length>0&&
+            vouchers.every((v:any)=>v.status==="issued"||v.status==="void");
+          if(eligible){
+            const orderId=String(invoice.provider_order_id);
+            const endpoint="/v1/orders/"+encodeURIComponent(orderId);
+            const load=await mercadoPagoFetch(endpoint,{accessToken:MP_TOKEN});
+            if(load.ok){
+              const order=await readMercadoPagoJson(load);
+              const payment=findPix(order);
+              const correctlyBound=order?.live_mode!==false&&payment?.live_mode!==false&&
+                String(order?.id??"")===orderId&&
+                String(order?.external_reference??"")===invoiceId&&
+                moneyToCents(order?.total_amount)===invoice.sale_price_cents&&
+                String(payment?.id??"")===String(invoice.provider_payment_id)&&
+                moneyToCents(payment?.amount)===invoice.sale_price_cents&&
+                order?.status==="processed"&&payment?.status==="processed";
+              const hasRefunds=Array.isArray(order?.transactions?.refunds)&&
+                order.transactions.refunds.length>0;
+              if(correctlyBound&&!hasRefunds){
+                await mercadoPagoFetch(endpoint+"/refund",{
+                  accessToken:MP_TOKEN,method:"POST",
+                  idempotencyKey:String(data.requestId)
+                });
+              }
+              const fresh=await mercadoPagoFetch(endpoint,{accessToken:MP_TOKEN});
+              if(fresh.ok){
+                const proof=await readMercadoPagoJson(fresh);
+                const p=findPix(proof);
+                const refunds=Array.isArray(proof?.transactions?.refunds)?
+                  proof.transactions.refunds:[];
+                const complete=refunds.length>0&&refunds.every((r:any)=>
+                  ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase())&&
+                  Boolean(String(r?.id??"").trim())&&
+                  (!r?.transaction_id||String(r.transaction_id)===String(invoice.provider_payment_id)));
+                const amount=refunds.reduce((n:number,r:any)=>n+(moneyToCents(r?.amount)??0),0);
+                if(complete&&amount===invoice.sale_price_cents&&
+                  String(proof?.id??"")===orderId&&
+                  String(proof?.external_reference??"")===invoiceId&&
+                  String(p?.id??"")===String(invoice.provider_payment_id)){
+                  const done=await admin.rpc("clube_coupon_paid_payment_refund",{
+                    p_invoice_id:invoiceId,p_provider_order_id:orderId
+                  });
+                  if(done.error)throw done.error;
+                  remoteRefundVerified=done.data?.ok===true&&done.data?.refunded===true;
+                }
+              }
+            }
+          }
+        }
+      }catch(error){
+        // Never turn a confirmed cancellation request into HTTP failure:
+        // network/PSP ambiguity must be reviewed, not labelled as refunded.
+        console.warn("coupon refund provider review required",String((error as any)?.message??error));
+      }
+    }
     return respond({ok:true,source:"clube_coupon_refund_request_v1_814",
       invoiceId:data.invoiceId,requestId:data.requestId,
-      status:data.status,receivedAt:data.receivedAt,
-      // A protocol is NOT a provider refund. A separate signed MP event
-      // and financial review are required to mark refundConfirmed.
-      refundConfirmed:data.refundConfirmed===true
+      status:remoteRefundVerified?"refunded":data.status,receivedAt:data.receivedAt,
+      refundConfirmed:remoteRefundVerified
     },200,origin);
   }
   if(operation==="catalog"){
