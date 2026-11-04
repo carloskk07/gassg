@@ -727,11 +727,7 @@ ${couponBanner}
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
     <p class="hero-lead"><strong>Compare preços e conheça as vantagens do TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. Veja referências da sua cidade e consulte ofertas e entrega pelo CEP.</p>
-    <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
-      <span>💰 Veja o valor antes de comprar</span>
-      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
-      <button type="button" onclick="go('merchants')">🏪 Sua revenda pode conquistar novos clientes <span aria-hidden="true">→</span></button>
-    </div>
+
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
       ${conciseHome?'<div class="starter-product starter-product-explore"><div class="starter-product-icon" aria-hidden="true">🧺</div><div><span class="starter-label">COMECE PELA SUA ESCOLHA</span><strong>Gás, água e outros essenciais</strong><small>Escolha livre • Consulta por CEP</small></div><div class="starter-price"><small>SEU PRÓXIMO PASSO</small><b>Ver produtos</b></div></div>':`<div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>`}
