@@ -46,7 +46,9 @@ assert.match(edge,/if\(operation==="invoice-status"\)/);
 assert.match(edge,/\.eq\("customer_user_id",user.id\)/);
 assert.ok(edge.indexOf('.insert(details)')<edge.indexOf('mercadoPagoFetch("/v1/orders"'),
  'sponsor reservation must precede ANY provider charge');
-assert.match(edge,/CLUBE_COUPON_PAID_SALES_ENABLED/);
+assert.match(edge,/clube_coupon_commercial_release_v1_819/);
+assert.match(edge,/couponSaleRelease\(admin\)/,
+ 'a public sponsored offer requires signed owner commercial authorization');
 assert.match(edge,/platformCommerceAllowed\(admin\)/);
 assert.match(edge,/couponInvoiceNetCovered\(row:any\)/);
 assert.match(edge,/sponsor_covered_cents/);
