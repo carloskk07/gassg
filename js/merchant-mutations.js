@@ -415,3 +415,119 @@ async function merchantConfigSettingsMutateImpl(action,requested){
  }
 }
 globalThis.merchantConfigSettingsMutateImpl=merchantConfigSettingsMutateImpl;
+
+
+// Merchant PSP lifecycle: OAuth must never navigate after a merchant switch,
+// and disconnect/status must be confirmed against the current authenticated
+// merchant-orders snapshot, not merely a successful HTTP response.
+function merchantProviderConnectionSaved(account,provider,rt){
+ if(!account||account.provider!==provider||account.fundsOwner!=='merchant'||
+    account.tamaoReceivesSaleProceeds!==false||
+    account.connected!==(account.status==='active'))return false;
+ const entries=rt.receivingAccounts;
+ if(!Array.isArray(entries))return false;
+ const saved=entries.filter(entry=>entry?.provider===provider);
+ if(saved.length>1)return false;
+ if(account.status==='not_connected'){
+  return saved.length===0;
+ }
+ const row=saved[0];
+ if(!row||row.provider!==provider||row.status!==account.status||
+    row.connected!==account.connected||
+    row.fundsOwner!=='merchant'||row.tamaoReceivesSaleProceeds!==false||
+    String(row.providerAccountId||'')!==String(account.providerAccountId||''))return false;
+ return true;
+}
+function merchantProviderAuthorizeUrl(provider,ack){
+ if(ack?.ok!==true||ack.provider!==provider||
+    ack.fundsOwner!=='merchant'||ack.tamaoReceivesSaleProceeds!==false)
+  throw Error('O servidor não confirmou a autorização para esta revenda.');
+ const hosts=provider==='mercadopago'?['auth.mercadopago.com']:
+  provider==='pagbank'?
+    ['connect.pagseguro.uol.com.br','connect.sandbox.pagseguro.uol.com.br']:[];
+ let url=null;
+ try{url=new URL(String(ack.authorizationUrl||''))}catch(_){}
+ const expiry=Date.parse(String(ack.expiresAt||''));
+ if(!url||url.protocol!=='https:'||!hosts.includes(url.hostname)||
+    url.port||url.username||url.password||url.hash||
+    url.pathname!==(provider==='mercadopago'?'/authorization':'/oauth2/authorize')||
+    url.searchParams.get('response_type')!=='code'||
+    !/^[A-Za-z0-9_-]{20,160}$/.test(String(url.searchParams.get('state')||''))||
+    !/^[A-Za-z0-9_-]{5,160}$/.test(String(url.searchParams.get('client_id')||''))||
+    !Number.isFinite(expiry)||expiry<=Date.now()||expiry>Date.now()+15*60*1000)
+  throw Error('A autorização do provedor não é válida ou expirou. Inicie novamente.');
+ return url.toString();
+}
+async function merchantProviderConnectImpl(provider='mercadopago',action='status'){
+ const p=String(provider||'').trim().toLowerCase();
+ const a=String(action||'status').trim().toLowerCase();
+ if(!/^[a-z][a-z0-9_]{1,39}$/.test(p))throw Error('Provedor de pagamento inválido.');
+ if(!['status','start','disconnect'].includes(a))throw Error('Ação de conexão inválida.');
+ const scope=merchantEditableMutationScope();
+ const same=()=>merchantEditableMutationSame(scope);
+ const rt=merchantRuntime;
+ if(rt.actionPending)throw Error('Aguarde a operação de recebimento em andamento.');
+ const token={scope};rt.paymentConnectionActionToken=token;
+ rt.actionPending=true;rt.error=null;render();
+ try{
+  // This endpoint is not an idempotent POST contract. On a lost ACK,
+  // read-only reconciliation is safer than repeating OAuth initiation.
+  const ack=await merchantInvoke('merchant-payment-connect',{
+    merchantId:scope.merchantId,provider:p,action:a
+  });
+  if(!same())throw Error('A conta ou revenda mudou durante a conexão de pagamentos.');
+  if(a==='start'){
+   const authorization=merchantProviderAuthorizeUrl(p,ack);
+   if(!same())throw Error('A conta ou revenda mudou antes de autorizar o provedor.');
+   location.href=authorization;
+   return ack;
+  }
+  if(ack?.ok!==true)throw Error('O servidor não confirmou a consulta financeira.');
+  if(a==='status'){
+   if(ack.provider?.key!==p||ack.provider?.fundsFlow!=='merchant_direct'&&
+      ack.provider?.fundsFlow!=='merchant'||!ack.account||
+      ack.account.provider!==p||ack.account.fundsOwner!=='merchant'||
+      ack.account.tamaoReceivesSaleProceeds!==false)
+    throw Error('A resposta não corresponde à conta de recebimento consultada.');
+  }else{
+   const result=ack.result;
+   if(result?.ok!==true||result.merchantId!==scope.merchantId||
+      result.provider!==p||!['revoked','not_connected'].includes(result.status)||
+      result.fundsOwner!=='merchant'||result.tamaoReceivesSaleProceeds===true)
+    throw Error('A desconexão não foi comprovada pelo servidor.');
+  }
+  const started=Date.now();
+  const fresh=await merchantRefresh({silent:true});
+  if(!same())throw Error('A conta ou revenda mudou durante a conferência do provedor.');
+  if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
+     rt.receivingAccounts!==fresh.receivingAccounts||
+     !Number.isFinite(Date.parse(String(rt.lastSyncAt||'')))||
+     Date.parse(rt.lastSyncAt)<started)
+   throw Error('Não foi possível confirmar o provedor no painel atualizado.');
+  if(a==='status'){
+   if(!merchantProviderConnectionSaved(ack.account,p,rt))
+    throw Error('O estado do provedor não corresponde à revenda atualizada.');
+  }else{
+   const current=rt.receivingAccounts.filter(row=>row?.provider===p);
+   if(current.length>1||current.some(row=>row.connected===true||
+      row.status==='active')||
+      (ack.result.status==='revoked'&&
+        (current.length!==1||current[0].status!=='revoked'))||
+      (ack.result.status==='not_connected'&&current.length!==0))
+    throw Error('A conexão não foi confirmada como desativada. Consulte antes de repetir.');
+   merchantEnablementAfterChange();
+  }
+  return ack;
+ }catch(error){
+  if(same())rt.error=String(error?.message||error);
+  throw error;
+ }finally{
+  if(rt.paymentConnectionActionToken===token&&rt.accessEpoch===scope.epoch&&
+     String(rt.session?.user?.id||'')===scope.actor&&
+     String(rt.selectedMerchantId||'')===scope.merchantId){
+   rt.paymentConnectionActionToken=null;
+   rt.actionPending=false;render();
+  }
+ }
+}
+globalThis.merchantProviderConnectImpl=merchantProviderConnectImpl;
