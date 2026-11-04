@@ -151,7 +151,7 @@ const bEnd=backend.indexOf('const CUSTOMER_FINANCIAL_REFRESH_MS',bStart);
 assert.ok(bStart>=0&&bEnd>bStart);
 const code=backend.slice(bStart,bEnd);
 const calls=[];
-const serverOrder={orderId:'order-384',supportCases:[{id:'c384',status:'open'}]};
+const serverOrder={orderId:'order-384',supportCases:[{id:'c384',category:'late',status:'open'}]};
 let refreshFailure=false;
 const bg=vm.createContext({
  liveRuntime:{order:serverOrder,orderId:'order-384',session:{user:{id:'customer-384'}},error:null},
@@ -159,7 +159,7 @@ const bg=vm.createContext({
  retryAmbiguousOnce:async fn=>fn(),
  liveInvoke:async(name,payload,opts)=>{
   calls.push({name,payload,opts});
-  return {ok:true,case:{id:'c384',status:'open',category:'late'}};
+  return {ok:true,case:{id:'c384',order_id:payload.orderId,status:'open',category:payload.category}};
  },
  liveGetOrder:async()=>{
   if(refreshFailure)throw Error('failed refresh');
