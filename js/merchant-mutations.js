@@ -46,8 +46,24 @@ async function merchantTeamMutateImpl(action,payload={}){
       throw new Error('O cadastro da equipe não foi confirmado em uma consulta atualizada.');
     const team=await merchantTeamLoadLive({silent:true});
     if(!same())throw new Error('A conta ou a revenda mudou durante a conferência da equipe.');
-    if(!team||merchantRuntime.team!==team)
+    if(result?.ok!==true||!team||merchantRuntime.team!==team||
+       !Array.isArray(team.members)||!Array.isArray(team.pendingInvites))
       throw new Error('Não foi possível confirmar a equipe atualizada. Consulte novamente antes de repetir.');
+    // Verify the exact mutation, not just an unrelated successful list read.
+    const member=team.members.find(m=>m?.userId===payload.targetUserId);
+    const verified=action==='invite'
+      ?(result.status==='pending'&&team.pendingInvites.some(i=>
+          i.inviteId===result.inviteId&&i.email===result.email&&
+          i.memberRole===result.memberRole)||
+        ['pending','linked'].includes(result.status)&&team.members.some(m=>
+          m.email===result.email&&m.memberRole===result.memberRole&&m.active===true))
+      :action==='revoke-member'
+        ?result.targetUserId===payload.targetUserId&&
+          !(member?.active===true)
+        :result.inviteId===payload.inviteId&&
+          team.pendingInvites.every(i=>i?.inviteId!==payload.inviteId);
+    if(!verified)
+      throw new Error('A alteração não aparece na equipe atual. Atualize a lista antes de tentar novamente.');
     return result;
   }catch(error){
     if(same()){
