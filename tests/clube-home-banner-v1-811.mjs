@@ -10,12 +10,12 @@ const start=html.indexOf('<template id="tamao-coupon-home-template">');
 const end=html.indexOf('</template>',start);
 assert.ok(start>0&&end>start,'static banner template exists');
 const markup=html.slice(start,end);
-for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'CUPONS • CASHBACK • INDICAÇÕES','BENEFÍCIOS','confirmados no Clube'])
+for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'DESCONTOS EM COMPRAS ELEGÍVEIS','CUPONS','confirmados no Clube'])
  assert.ok(markup.includes(term),'banner missing: '+term);
 for(const claim of ['ILUSTRAÇÃO DE CUPOM','EXEMPLO','R$ 5','Comprar agora','Compre seu pacote','Desconto garantido','Cupom disponível','Compre por Pix'])
  assert.ok(!markup.includes(claim),'cannot advertise sales before approval: '+claim);
 assert.equal((markup.match(/<section /g)||[]).length,1);
 assert.match(markup,/class="tamao-coupon-banner"/);
-assert.ok(css.includes('.tamao-coupon-banner-ticket')&&css.includes('@media(max-width:620px)'),'voucher must be responsive');
+assert.ok(css.includes('.tamao-coupon-banner-ticket')&&css.includes('@media(max-width:760px)'),'voucher must be responsive');
 assert.ok(start>html.indexOf('<div id="toast"'),'banner template must survive app route rendering');
 console.log('V1.811 PASS — truthful, responsive campaign banner as static HTML, two home routes and no merchant JS cost.');
