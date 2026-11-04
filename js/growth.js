@@ -137,6 +137,19 @@ const cards=valid&&status==='ready'
 (Number(item.minOrderCents)>0?'<small> · Mín.: '+esc(money(item.minOrderCents))+'</small>':'')+
 '</article>').join('')
 :'';
+const invoices=valid&&status==='ready'?
+ clubePaidCouponView.purchases.slice(0,20).map(inv=>{
+  const id=String(inv.invoiceId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const request=String(inv.refundStatus||'');
+  const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
+  return '<article class="card flat"><strong>Compra de cupons</strong>'+
+   '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   (request?'<p class="tiny muted">Cancelamento solicitado: '+esc(request)+
+     '. O protocolo não confirma estorno.</p>':
+    allowed?'<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
+      '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
+ }).join(''):'';
 const empty=valid&&status==='ready'&&!clubePaidCouponView.vouchers.length
 ?'<p class="muted">Você ainda não possui cupons confirmados.</p>':'';
 const issue=valid&&status==='failed'
@@ -149,6 +162,7 @@ return '<section class="section" aria-label="Meus cupons TAMÃO">'+
 (status==='loading'?'disabled':'')+'>'+
 (status==='loading'?'Consultando…':'Consultar meus cupons')+'</button></div>'+
 issue+empty+(cards?'<div class="grid cards-3">'+cards+'</div>':'')+
+(invoices?'<h3>Histórico de pacotes</h3><div class="grid cards-2">'+invoices+'</div>':'')+
 '</section>';
 }
 async function clubePaidCouponsRefresh(){

@@ -213,6 +213,13 @@ Deno.serve(async(req:Request)=>{
       invoiceError=legacy.error;
     }
     if(invoiceError)throw invoiceError;
+    const {data:refunds,error:refundError}=await admin
+      .from("clube_coupon_refund_requests_v1_814")
+      .select("invoice_id,status,request_id,received_at")
+      .eq("customer_user_id",user.id)
+      .order("received_at",{ascending:false}).limit(25);
+    if(refundError)throw refundError;
+    const refundByInvoice=new Map((refunds||[]).map((r:any)=>[String(r.invoice_id),r]));
     const paidInvoices=new Map((invoices||[])
       .filter((row:any)=>couponInvoiceNetCovered(row))
       .map((row:any)=>[String(row.id),row]));
@@ -229,7 +236,9 @@ Deno.serve(async(req:Request)=>{
         invoiceId:row.id,packageKey:row.package_key,requestId:row.request_id,status:row.status,
         amountCents:row.sale_price_cents,createdAt:row.created_at,
         paidAt:row.paid_at,
-        fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row)
+        fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
+        refundStatus:refundByInvoice.get(String(row.id))?.status??null,
+        refundRequestedAt:refundByInvoice.get(String(row.id))?.received_at??null
       })),
       vouchers:(rows||[]).filter((row:any)=>paidIds.has(String(row.invoice_id)))
         .map((row:any)=>({
@@ -243,6 +252,35 @@ Deno.serve(async(req:Request)=>{
       couponCheckoutEnabled:
         Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"&&
         await platformCommerceAllowed(admin)
+    },200,origin);
+  }
+  if(operation==="request-refund"){
+    const invoiceId=String(body.invoiceId??"");
+    const requestId=String(body.requestId??"");
+    const reason=String(body.reason??"");
+    if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId)||
+       !["arrependimento","sem_atendimento","outro"].includes(reason))
+      return respond({error:"COUPON_REFUND_INVALID_INPUT"},400,origin);
+    await enforceApiQuota(admin,{
+      userId:user.id,actionName:"coupon-refund-request",limit:4,windowSeconds:3600
+    });
+    const {data,error}=await admin.rpc("clube_coupon_refund_request_v1_814",{
+      p_customer:user.id,p_invoice:invoiceId,p_request:requestId,p_reason:reason
+    });
+    if(error){
+      if(error.code==="42501")return respond({error:"COUPON_REFUND_NOT_OWNED"},403,origin);
+      throw error;
+    }
+    if(data?.ok!==true||data?.invoiceId!==invoiceId||
+       !UUID_RE.test(String(data?.requestId??""))||
+       !["requested","in_review","refunded","closed"].includes(String(data?.status??"")))
+      return respond({error:"COUPON_REFUND_NOT_CONFIRMED"},503,origin);
+    return respond({ok:true,source:"clube_coupon_refund_request_v1_814",
+      invoiceId:data.invoiceId,requestId:data.requestId,
+      status:data.status,receivedAt:data.receivedAt,
+      // A protocol is NOT a provider refund. A separate signed MP event
+      // and financial review are required to mark refundConfirmed.
+      refundConfirmed:data.refundConfirmed===true
     },200,origin);
   }
   if(operation==="catalog"){

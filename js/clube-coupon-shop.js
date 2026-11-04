@@ -179,6 +179,33 @@ async function clubeCouponCopyPix(){
 }
 
 
+// A cancellation is a protocol/request, NOT an immediate Pix reversal.
+async function clubeCouponRefundAsk(invoiceId){
+ const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
+ if(!uid||!globalThis.liveReady?.()||
+    !/^[0-9a-f-]{36}$/i.test(String(invoiceId||'')))return;
+ const invoice=clubePaidCouponView.userId===uid&&clubePaidCouponView.status==='ready'?
+  clubePaidCouponView.purchases.find(x=>x.invoiceId===invoiceId):null;
+ if(!invoice||invoice.refundStatus)return;
+ const reason=window.prompt('Motivo do pedido: 1 = arrependimento, 2 = sem atendimento, 3 = outro.','1');
+ if(reason===null)return;
+ const choice=({'1':'arrependimento','2':'sem_atendimento','3':'outro'})[String(reason).trim()];
+ if(!choice)return toast('Selecione 1, 2 ou 3.');
+ if(!window.confirm('Confirmar a solicitação de cancelamento deste pacote? O protocolo será registrado; a devolução do Pix requer confirmação do provedor.'))return;
+ try{
+  const result=await liveInvoke('coupon-credit-pix',{action:'request-refund',
+    invoiceId,requestId:crypto.randomUUID(),reason:choice});
+  if(result?.ok!==true||result?.source!=='clube_coupon_refund_request_v1_814'||
+     result?.invoiceId!==invoiceId)throw Error('COUPON_REFUND_REQUEST_UNVERIFIED');
+  if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
+  toast('Pedido recebido. Protocolo: '+String(result.requestId).slice(0,8)+'. Aguardando análise do reembolso.');
+  await clubePaidCouponsRefresh();
+ }catch{
+  if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
+   toast('Não foi possível registrar o pedido. Consulte seu histórico e tente novamente.');
+ }
+}
+
 // ESM lazy load: onclick handlers must be available on the customer window.
 Object.assign(globalThis,{clubeCouponShopPanel,clubeCouponShopRefresh,
-  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix});
+  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk});
