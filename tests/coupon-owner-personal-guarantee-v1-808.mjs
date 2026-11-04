@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
-const migration=read('supabase/migrations/20261104071000_clube_owner_personal_guarantee_v1_808.sql');
+const migration=read('supabase/migrations/20261104170000_clube_owner_personal_guarantee_v1_808.sql');
 const edge=read('supabase/functions/coupon-credit-pix/index.ts');
 const admin=read('supabase/functions/admin-ops/index.ts');
 const ui=read('js/admin-acquisition.js');
