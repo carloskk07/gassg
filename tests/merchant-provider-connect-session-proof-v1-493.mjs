@@ -114,7 +114,7 @@ function fixture({actionStatus='active',postGate=null,readGate=null,
 }
 {
  const f=fixture({staleRead:true});
- await assert.rejects(()=>f.invoke('mercadopago','status'),/não foi possível confirmar/);
+ await assert.rejects(()=>f.invoke('mercadopago','status'),/não foi possível confirmar/i);
 }
 {
  const f=fixture();
@@ -134,7 +134,7 @@ function fixture({actionStatus='active',postGate=null,readGate=null,
 }
 {
  const f=fixture({staleRead:true});
- await assert.rejects(()=>f.invoke('mercadopago','disconnect'),/não foi possível confirmar/);
+ await assert.rejects(()=>f.invoke('mercadopago','disconnect'),/não foi possível confirmar/i);
  assert.equal(f.enablements,0);
 }
 {
