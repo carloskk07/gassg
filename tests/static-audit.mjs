@@ -1915,7 +1915,7 @@ assert.ok(pilotInviteIndexes.includes('pilot_partner_invites_claimed_user_idx')&
 const pilotClaimFallback=read('supabase/migrations/20261004193000_pilot_partner_claim_fallback_v1_69_3.sql');
 assert.ok(pilotClaimFallback.includes('auth.uid()')&&pilotClaimFallback.includes('claim_pilot_partner_invite'),'fallback autenticado precisa derivar a identidade do JWT e reutilizar a autoridade interna');
 assert.ok(pilotClaimFallback.includes('revoke all on function public.claim_my_pilot_partner_invite(uuid,text)')&&pilotClaimFallback.includes('grant execute on function public.claim_my_pilot_partner_invite(uuid,text)')&&pilotClaimFallback.includes('to authenticated'),'somente authenticated pode executar o wrapper estreito de claim');
-assert.ok(backend.includes("merchantRuntime.client.rpc('claim_my_pilot_partner_invite'")&&backend.includes('!result?.pilotPartner&&result?.applicationId'),'frontend precisa usar o wrapper somente como fallback quando a Edge ainda não retornou o vínculo');
+assert.ok(backend.includes("merchantRuntime.client.rpc('claim_my_pilot_partner_invite'")&&backend.includes('pilotInviteToken&&!response.pilotPartner&&response.applicationId'),'frontend precisa usar o wrapper somente como fallback quando a Edge ainda não retornou o vínculo');
 
 
 console.log('First merchant pilot safety audit passou.');
