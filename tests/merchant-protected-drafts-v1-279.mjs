@@ -1,9 +1,9 @@
-const deferredMutations=read('js/merchant-mutations.js');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const deferredMutations=read('js/merchant-mutations.js');
 const js=read('js/merchant.js'),css=read('css/components.css'),
  audit=read('.github/workflows/audit.yml'),backend=read('js/backend.js');
 new vm.Script(js,{filename:'merchant.js'});
