@@ -214,7 +214,7 @@ for(const patch of [
  await assert.rejects(pending,/Sua conta mudou antes de enviar/);
  assert.equal(outbound,0,'a refreshed token from account B cannot submit account A details');
 }
-assert.match(edge,/\\.eq\("applicant_user_id",user\.id\)/);
+assert.ok(edge.includes('.eq("applicant_user_id",user.id)'), 'applicant list must remain filtered by authenticated owner');
 assert.match(edge,/body\.action==="my-applications"/);
 assert.match(backend,/merchantSubmitApplicationLive\(payload\)/);
 assert.doesNotMatch(grab('async function merchantSubmitApplicationLive(payload){'),
