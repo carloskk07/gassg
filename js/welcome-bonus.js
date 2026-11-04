@@ -95,8 +95,8 @@ function tamaoCouponHomeRender(){
       '[data-coupon-face]':p.couponCount+' cupons de '+fmt.format(p.faceCents/100),
       '[data-coupon-minimum]':'Para pedidos a partir de '+fmt.format(p.minOrderCents/100)+' • validade de '+p.validDays+' dias após emissão',
       '[data-coupon-availability]':p.databaseReleased===true
-        ?'Preço cadastrado. Consulte no Clube se a compra por Pix está disponível.'
-        :'Preço do pacote cadastrado. A venda ainda não está liberada; nenhum pagamento pode ser solicitado.'
+        ?'Confira e compre seu pacote com Pix pelo Clube TAMÃO.'
+        :'Use os cupons em compras elegíveis após a emissão, conforme as condições do Clube TAMÃO.'
     };
     for(const [selector,value] of Object.entries(updates)){
       const el=node.querySelector(selector);

@@ -10,6 +10,17 @@ const start=html.indexOf('<template id="tamao-coupon-home-template">');
 const end=html.indexOf('</template>',start);
 assert.ok(start>0&&end>start,'static banner template exists');
 const markup=html.slice(start,end);
+const admin=get('js/admin.js'), adminOps=get('supabase/functions/admin-ops/index.ts');
+new vm.Script(admin);
+assert.ok(admin.includes("clube-coupon-commercial-status"),'Founder can check real commercial release');
+assert.ok(admin.includes("clube-coupon-commercial-release"),'Founder can authorize sale via existing verified server');
+assert.ok(admin.includes("clube-coupon-commercial-suspend"),'Founder can suspend new sales');
+assert.ok(admin.includes("acceptRefund:true,acceptMerchantReimbursement:true"),'Explicit financial terms required');
+assert.ok(admin.includes("clube-accept-disclosure"),'Public seller disclosure requires express consent');
+assert.ok(adminOps.includes("COUPON_RELEASE_OWNER_ATTESTATION_REQUIRED"),'Server must reject missing seller identity');
+assert.doesNotMatch(bonus,/Preço do pacote cadastrado\. A venda ainda não está liberada/,'No internal activation warning in homepage');
+assert.ok(bonus.includes("p.databaseReleased===true"),'Only show commercial purchase guidance after DB release');
+
 for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'DESCONTOS EM COMPRAS ELEGÍVEIS','CUPONS','confirmados no Clube'])
  assert.ok(markup.includes(term),'banner missing: '+term);
 for(const claim of ['ILUSTRAÇÃO DE CUPOM','EXEMPLO','R$ 5','Comprar agora','Compre seu pacote','Desconto garantido','Cupom disponível','Compre por Pix'])

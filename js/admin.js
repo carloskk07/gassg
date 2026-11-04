@@ -4858,7 +4858,7 @@ function adminFocusFinanceRecord(kind,id){
 }
 
 /* V1.191 — stable finance workspaces, never change financial authority. */
-const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
+const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e cupons","detail":"Ativar vendas e reversões"}];
 
 /* Finance Lab: admin-only orchestration; mock invoices never enter accounting. */
 function adminFinanceLabCents(value){
@@ -6299,6 +6299,140 @@ function adminClubeFinanceView(){
       '. Uso no pedido: '+(data.checkoutEnabled===true?'indicado como habilitado':'não habilitado')+
       '. Antes de comercializar, confira a liquidação real no provedor e a homologação completa.</div>':''}
   </section>`;
+}
+
+
+/* A genuine one-time commercial release, approved by the signed-in founder.
+   The public home must never collect/store a supplier's CPF/CNPJ. */
+const adminCouponCommercial={busy:false,data:null,loadedFor:null,requestId:null};
+async function adminCouponCommercialRefresh(){
+  if(adminCouponCommercial.busy||!adminReady()||
+     adminCurrentRole()!=='superadmin')return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!actor)return;
+  adminCouponCommercial.busy=true;
+  try{
+    const data=await adminInvoke({action:'clube-coupon-commercial-status'});
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==actor)return;
+    if(data?.ok!==true||data?.source!=='clube_commercial_release_status_v1_819'||
+       data?.packageKey!=='all_products_3x5_sponsor'||
+       typeof data.providerConfigured!=='boolean'||
+       typeof data.commercialEnabled!=='boolean')
+      throw Error('Estado comercial não confirmado');
+    adminCouponCommercial.data=data;
+    adminCouponCommercial.loadedFor=actor;
+    render();
+  }catch{
+    toast('Não foi possível conferir a situação comercial dos cupons.');
+  }finally{
+    adminCouponCommercial.busy=false;
+  }
+}
+async function adminCouponCommercialRelease(){
+  if(adminCouponCommercial.busy||!adminReady()||
+     adminCurrentRole()!=='superadmin')return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(!actor)return;
+  const read=id=>String(document.getElementById(id)?.value||'').trim();
+  const sellerName=read('clube-seller-name');
+  const sellerTaxDocument=read('clube-seller-tax').replace(/[.\/\-\s]/g,'');
+  const sellerAddress=read('clube-seller-address');
+  const sellerSupportEmail=read('clube-seller-support').toLowerCase();
+  const terms=['refund','reimbursement','nomerchant','disclosure'].every(
+    key=>document.getElementById('clube-accept-'+key)?.checked===true);
+  const status=document.getElementById('clube-commercial-result');
+  if(sellerName.length<5||![11,14].includes(sellerTaxDocument.length)||
+     sellerAddress.length<20||!/^.+@[^@]+\.[^@]+$/.test(sellerSupportEmail)||!terms){
+    if(status)status.textContent='Complete a identificação do vendedor e confirme os quatro termos.';
+    return;
+  }
+  if(!globalThis.crypto?.randomUUID)return toast('Identificador seguro não disponível.');
+  const requestId=adminCouponCommercial.requestId||crypto.randomUUID();
+  adminCouponCommercial.requestId=requestId;
+  adminCouponCommercial.busy=true;
+  const button=document.getElementById('clube-commercial-release-button');
+  if(button)button.disabled=true;
+  if(status)status.textContent='Conferindo conta recebedora e registrando a liberação…';
+  try{
+    const result=await adminInvoke({
+      action:'clube-coupon-commercial-release',requestId,
+      sellerName,sellerTaxDocument,sellerAddress,sellerSupportEmail,
+      acceptRefund:true,acceptMerchantReimbursement:true,
+      acceptNoMerchantYet:true,acceptPublicSellerDisclosure:true,
+      termsVersion:'clube_coupon_terms_v1_813'
+    },{idempotencyKey:'clube-commercial:'+requestId});
+    if(result?.ok!==true||result?.source!=='clube_commercial_release_v1_819'||
+       result?.commercialEnabled!==true||
+       result?.packageKey!=='all_products_3x5_sponsor'||
+       result?.moneyMoved!==false)
+      throw Error('O servidor não confirmou a ativação.');
+    adminCouponCommercial.requestId=null;
+    adminCouponCommercial.data=null;
+    toast('Venda do pacote geral liberada e registrada no servidor.');
+    adminCouponCommercial.busy=false;
+    await adminCouponCommercialRefresh();
+  }catch(error){
+    const code=String(error?.message||'');
+    if(status)status.textContent=/COUPON_LIVE_PIX_NOT_CONFIGURED|COUPON_PROVIDER_PROFILE_NOT_VERIFIED|COUPON_PROVIDER_NOT_BRAZIL_LIVE/i.test(code)
+      ?'A conta de cobrança Mercado Pago precisa ser confirmada no servidor.'
+      :'Não foi possível comprovar a liberação. Confira os dados e consulte o estado comercial.';
+  }finally{
+    adminCouponCommercial.busy=false;
+    if(button)button.disabled=false;
+  }
+}
+async function adminCouponCommercialSuspend(){
+  if(adminCouponCommercial.busy||!adminReady()||
+     adminCurrentRole()!=='superadmin'||!globalThis.crypto?.randomUUID)return;
+  if(!window.confirm('Confirma suspender novas compras de cupons? Isso não cancela os direitos de clientes anteriores.'))return;
+  adminCouponCommercial.busy=true;
+  try{
+    const result=await adminInvoke({
+      action:'clube-coupon-commercial-suspend',requestId:crypto.randomUUID()
+    });
+    if(result?.ok!==true||result?.source!=='clube_commercial_release_v1_819'||
+       result?.commercialEnabled!==false)throw Error('Suspensão não confirmada');
+    adminCouponCommercial.data=null;
+    adminCouponCommercial.busy=false;
+    toast('Novas compras suspensas.');
+    await adminCouponCommercialRefresh();
+  }catch{toast('Não foi possível confirmar a suspensão. Confira o estado comercial.');}
+  finally{adminCouponCommercial.busy=false;}
+}
+function adminCouponCommercialReleaseView(){
+  if(adminCurrentRole()!=='superadmin')return '';
+  const uid=String(adminRuntime.session?.user?.id||'');
+  const d=adminCouponCommercial.loadedFor===uid?adminCouponCommercial.data:null;
+  const active=d?.commercialEnabled===true&&d?.providerConfigured===true&&
+    d?.privateEmergencyStop!==true;
+  const field=(id,label,type,autocomplete='off')=>'<div class="input-wrap">'+
+    '<label for="'+id+'">'+label+'</label>'+
+    '<input class="input" type="'+type+'" id="'+id+
+    '" autocomplete="'+autocomplete+'" required maxlength="260"></div>';
+  return '<section class="section" aria-label="Ativação comercial dos cupons TAMÃO">'+
+   '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • VENDA DE CUPONS</span>'+
+   '<h3>Ativar venda do pacote geral</h3>'+
+   '<p>3 cupons de R$ 5 por R$ 8,90, válidos para pedidos de qualquer produto elegível a partir de R$ 50.</p></div>'+
+   '<button type="button" class="secondary small" onclick="adminCouponCommercialRefresh()">Conferir situação</button></div>'+
+   (active?'<div class="notice success"><strong>Venda comercial autorizada.</strong> O checkout Pix mantém a verificação individual de cada compra.</div>'+
+     '<button class="secondary" type="button" onclick="adminCouponCommercialSuspend()">Suspender novas compras</button>':
+     '<div class="card flat form-stack">'+
+      (d?.providerConfigured===false?'<p class="tiny muted">Configure no servidor o Mercado Pago de produção para receber o Pix.</p>':'')+
+      (d?.privateEmergencyStop===true?'<p class="tiny muted">O controle de emergência de cupons está ativo no servidor.</p>':'')+
+      '<p>Identifique o responsável legal que receberá os pagamentos e ficará disponível aos compradores.</p>'+
+      '<div class="grid cards-2">'+
+       field('clube-seller-name','Nome completo ou razão social do vendedor','text')+
+       field('clube-seller-tax','CPF ou CNPJ válido','text')+
+       field('clube-seller-address','Endereço comercial completo','text')+
+       field('clube-seller-support','E-mail de suporte aos clientes','email')+
+      '</div>'+
+      '<label class="check-row"><input type="checkbox" id="clube-accept-refund"><span>Aceito as regras de cancelamento e reembolso de pacotes não utilizados.</span></label>'+
+      '<label class="check-row"><input type="checkbox" id="clube-accept-reimbursement"><span>Assumo o ressarcimento às revendas pelos descontos efetivamente aceitos e conciliados.</span></label>'+
+      '<label class="check-row"><input type="checkbox" id="clube-accept-nomerchant"><span>Autorizo a venda dos pacotes mesmo sem revenda disponível, respeitando os direitos de cancelamento.</span></label>'+
+      '<label class="check-row"><input type="checkbox" id="clube-accept-disclosure"><span>Autorizo divulgar aos compradores a identificação e os contatos do vendedor informados acima.</span></label>'+
+      '<button id="clube-commercial-release-button" class="primary" type="button" onclick="adminCouponCommercialRelease()">Ativar vendas com Pix</button>'+
+      '<p class="tiny muted" role="status" id="clube-commercial-result"></p>'+
+     '</div>')+'</section>';
 }
 
 function adminClubeCouponPreviewView(){
@@ -8800,6 +8934,7 @@ function adminPage(){
   const financePolicyContent=(sectionActive('finance')&&financeSelection==='policy')?(`
     ${adminFinanceRenderPart('Política comercial',()=>adminCommercialPolicySection(d))}
     ${adminFinanceRenderPart('Benefícios da Rede',()=>adminGrowthBenefitPreviewView())}
+    ${adminFinanceRenderPart('Venda do Clube',()=>adminCouponCommercialReleaseView())}
     ${adminFinanceRenderPart('Prévia de cupons',()=>adminClubeCouponPreviewView())}
     ${adminFinanceRenderPart('Clube financeiro',()=>adminClubeFinanceView())}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>

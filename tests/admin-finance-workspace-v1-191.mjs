@@ -44,7 +44,7 @@ vm.runInContext('const ADMIN_FINANCE_WORKSPACES='+declaration[1]+';\n'
   +'\nthis.current=adminFinanceWorkspaceCurrent;this.nav=adminFinanceWorkspaceNav;this.select=adminSetFinanceWorkspace;',ctx);
 let html=ctx.nav();
 assert.ok(html.includes('CENTRAL FINANCEIRA'));
-for(const label of ['Resumo','Cobranças','Conciliação','Regras e reversões'])
+for(const label of ['Resumo','Cobranças','Conciliação','Regras e cupons'])
   assert.ok(html.includes(label),'Missing finance work area '+label);
 assert.equal((html.match(/aria-pressed=/g)||[]).length,4);
 assert.ok(html.includes("aria-pressed='true'"));
