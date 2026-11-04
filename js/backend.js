@@ -2318,7 +2318,8 @@ function merchantMutationScopeKey(){
  return [rt.session?.user?.id||'',rt.merchant?.merchantId||'',rt.accessEpoch].join(':');
 }
 async function merchantLoadMutations(){
- if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl)return;
+ if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
+    globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl)return;
  if(merchantMutationLoader)return merchantMutationLoader;
  merchantMutationLoader=new Promise((resolve,reject)=>{
   const script=document.createElement('script');
@@ -2328,7 +2329,8 @@ async function merchantLoadMutations(){
   script.src='./js/merchant-mutations.js'+
    (/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
   script.onload=()=>{
-   if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl)resolve();
+   if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
+      globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl)resolve();
    else{merchantMutationLoader=null;reject(Error('Operações da revenda indisponíveis.'));}
   };
   script.onerror=()=>{
@@ -2481,40 +2483,11 @@ async function merchantPaymentConnectLive(provider='mercadopago',action='status'
 }
 
 async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das formas de recebimento'){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
-    throw new Error('Seu papel não pode configurar recebimentos');
-  }
-  if(!Array.isArray(routes)||routes.length<1||routes.length>30){
-    throw new Error('Configure ao menos uma forma de recebimento válida');
-  }
-  const expectedVersion=Number(merchantRuntime.paymentRouteVersion||1);
-  const cleanReason=String(reason||'').trim().replace(/\s+/g,' ');
-  if(cleanReason.length<3||cleanReason.length>1000)throw new Error('Motivo da alteração inválido');
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  try{
-    const idempotencyKey=liveIdempotency('merchant-payment-routes');
-    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,
-      action:'update-payment-routes',
-      expectedVersion,
-      routes,
-      reason:cleanReason
-    },{idempotencyKey}));
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-    return result;
-  }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
-    throw error;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de salvar as formas de recebimento.');
+ return globalThis.merchantPaymentRoutesMutateImpl(routes,reason);
 }
 
 // Partner finance checks are loaded only after a financial action is chosen.
@@ -2590,18 +2563,11 @@ async function merchantCancelBillingRequestLive(paymentRequestId){
 }
 
 async function merchantSetOnlineLive(online){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  merchantRuntime.actionPending=true;render();
-  try{
-    await retryAmbiguousOnce(
-      ()=>merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true})
-    );
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de alterar a disponibilidade.');
+ return globalThis.merchantOnlineMutateImpl(online);
 }
 
 // V1.280 — read-only, authenticated history; no browser access to the protected table.

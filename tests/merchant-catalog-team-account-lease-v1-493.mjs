@@ -257,6 +257,8 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
  assert.equal(scripts.length,1,'concurrent first clicks share one deferred download');
  ctx.merchantCatalogMutateImpl=async()=>{called.push('catalog');return {ok:true}};
  ctx.merchantTeamMutateImpl=async()=>{called.push('team');return {ok:true}};
+ ctx.merchantOnlineMutateImpl=async()=>({ok:true,online:true});
+ ctx.merchantPaymentRoutesMutateImpl=async()=>({ok:true});
  rt.session={user:{id:'actor-B'}};rt.accessEpoch++;
  scripts[0].onload();
  await assert.rejects(first,/conta ou a revenda mudou/);
