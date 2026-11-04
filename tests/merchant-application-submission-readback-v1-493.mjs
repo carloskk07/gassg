@@ -90,7 +90,7 @@ function fixture({submitGate=null,readGate=null,submitError=null,receiptOverride
 }
 {
  const f=fixture({receiptOverride:{...receipt,applicationId:'another-company-application'}});
- await assert.rejects(()=>f.submit(),/não foi confirmad/i);
+ await assert.rejects(()=>f.submit(),/não foram confirmados/i);
  assert.equal(f.reads,1,'wrong application ID cannot be reconciled from a different row');
 }
 for(const patch of [
