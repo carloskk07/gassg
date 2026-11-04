@@ -148,6 +148,8 @@ jobs:
         run: node tests/isolated-support-positive-journey.mjs
       - name: Verify REAL coupon payment, audited net and v8 checkout on disposable full schema
         run: node tests/isolated-supabase-coupon-full-schema.mjs
+      - name: V1.807 disposable PostgreSQL owner-sponsored coupon race, Pix net and v8 redemption
+        run: node tests/isolated-supabase-coupon-sponsor-v1-807.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
