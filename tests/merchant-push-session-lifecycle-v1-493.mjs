@@ -137,10 +137,10 @@ function setup({permission='granted',initialSubscription=false,
 }
 {
  const f=setup({initialSubscription:true,serverReply:{ok:true,active:true}});
- await assert.rejects(()=>f.api.disable(),/não foi confirmada pelo servidor/);
- assert.equal(f.events.includes('browser-unsubscribe'),false,
-  'a failed server revoke must not remove the local subscription');
- assert.equal(f.push.subscribed,true);
+ await assert.rejects(()=>f.api.disable(),/revogação no servidor não foi confirmada/);
+ assert.equal(f.events.includes('browser-unsubscribe'),true,
+  'when server revoke fails, stop private device delivery locally without claiming success');
+ assert.equal(f.push.subscribed,false);
  assert.equal(f.push.togglePending,false);
 }
 {
