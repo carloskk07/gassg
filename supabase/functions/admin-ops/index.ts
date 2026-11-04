@@ -3675,10 +3675,10 @@ Deno.serve(async(req:Request)=>{
           reservedCents:pool.data?.encumbered_cents??0,
           providerConfigured:mercadoPagoConfigured(
             Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??""),
-          privateEmergencyStop:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="false",
+          privateEmergencyStop:Deno.env.get("CLUBE_COUPON_SALES_EMERGENCY_STOP")==="true",
           commercialEnabled:release.data?.enabled===true&&
             packageResult.data?.sale_enabled===true&&
-            Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="false"
+            Deno.env.get("CLUBE_COUPON_SALES_EMERGENCY_STOP")!=="true"
         },200,origin);
       }
       const requestId=uuid(body.requestId,"requestId");
@@ -3798,7 +3798,7 @@ Deno.serve(async(req:Request)=>{
         .maybeSingle();
       if(releaseError)throw releaseError;
       const couponSalesEnabled=release?.enabled===true&&
-        Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="false";
+        Deno.env.get("CLUBE_COUPON_SALES_EMERGENCY_STOP")!=="true";
       // Read only. Empty is NOT a green light to enable coupon sales.
       const missingTable=(error:any)=>["PGRST205","42P01"].includes(
         String(error?.code||""));
