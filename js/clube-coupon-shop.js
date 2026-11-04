@@ -1,13 +1,20 @@
-// V1.807: packages are shown ONLY when the provider, merchant-settlement,
-// sponsor backing and central commerce gates have all been verified server-side.
+// The signed-in buyer sees only packages explicitly released by the server.
+// A failed commercial preflight never manufactures a public offer.
 const clubeCouponShopState={
   userId:null,status:'idle',packages:[],error:null,busy:false,
-  attempts:{},purchase:null
+  attempts:{},purchase:null,autoQueuedFor:null
 };
 function clubeCouponShopPanel(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return '';
   const s=clubeCouponShopState.userId===uid?clubeCouponShopState:null;
+  // Fetch once on opening the Clube, with no extra user click. Never request
+  // an invoice/Pix here; the buyer must explicitly choose and accept terms.
+  if((!s||s.status==='idle')&&!clubeCouponShopState.busy&&
+     clubeCouponShopState.autoQueuedFor!==uid){
+    clubeCouponShopState.autoQueuedFor=uid;
+    Promise.resolve().then(()=>clubeCouponShopRefresh());
+  }
   const money=n=>BRL.format((Number(n)||0)/100);
   const offers=(s?.status==='ready'?s.packages:[]).map(p=>{
     const key=String(p.packageKey||'');
@@ -51,15 +58,18 @@ function clubeCouponShopPanel(){
        esc(String(purchase.invoiceId||''))+'\')" '+(s?.busy?'disabled':'')+
        '>Conferir pagamento e cupons</button></article>':'';
   const empty=s?.status==='ready'&&s.packages.length===0
-    ?'<p class="muted">Confira novamente mais tarde os pacotes e suas condições. Os cupons emitidos continuam disponíveis em sua conta.</p>':'';
+    ?'<p class="muted">Não há pacotes liberados para compra neste momento. Você ainda pode consultar cupons já emitidos na sua conta.</p>':'';
   const error=s?.status==='failed'?'<p class="notice danger">Não foi possível consultar os pacotes. Tente novamente.</p>':'';
+  const loading=(!s||s.status==='idle'||s.status==='loading'||s.busy)&&!purchase
+    ?'<p class="tiny muted" role="status">Conferindo pacotes disponíveis…</p>':'';
   return '<section class="section" aria-label="Comprar cupons TAMÃO">'+
    '<div class="section-head"><div><h2>Pacotes de cupons</h2>'+
-   '<p>Escolha um pacote disponível e pague com Pix. Os cupons são vinculados à sua conta.</p></div>'+
+   '<p>Escolha um pacote disponível e pague com Pix. Os cupons são vinculados à sua conta.</p>'+
+   '<p class="tiny muted">A compra de cupons não reserva produtos ou entrega. O desconto só pode ser usado quando houver revenda atendendo seu CEP. Sem atendimento disponível, você poderá solicitar cancelamento e reembolso no histórico do Clube.</p></div>'+
    '<button type="button" class="secondary small" onclick="clubeCouponShopRefresh()" '+
    (s?.busy?'disabled':'')+'>Consultar pacotes</button></div>'+
    (offers?'<div class="grid cards-2">'+offers+'</div>':'')+
-   error+empty+payment+'</section>';
+   loading+error+empty+payment+'</section>';
 }
 async function clubeCouponShopRefresh(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');

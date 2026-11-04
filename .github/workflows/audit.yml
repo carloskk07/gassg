@@ -147,6 +147,8 @@ jobs:
         run: node tests/clube-coupon-refund-request-v1-814.mjs
       - name: V1.815 real provider full refund verification and idempotent buyer reversal
         run: node tests/coupon-refund-mp-proof-v1-815.mjs
+      - name: V1.816 buyer coupon-shop autoload and pre-sale disclosure
+        run: node tests/clube-coupon-autoload-v1-816.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation
