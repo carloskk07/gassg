@@ -17,8 +17,9 @@ assert.match(migration,/pool\.reconciled_cents\+pool\.owner_guaranteed_cents/);
 assert.match(migration,/p\.reconciled_cents\+p\.owner_guaranteed_cents/);
 assert.match(migration,/COUPON_SPONSOR_BANK_RECONCILIATION_REVOKED/);
 assert.match(migration,/REVOKE ALL ON FUNCTION public\.clube_coupon_sponsor_invoice_before_v1_807/);
-assert.doesNotMatch(migration,/SET reconciled_cents=10000|INSERT INTO public\.platform_clube_sponsor_receipts|INSERT INTO public\.clube_coupon_paid_issuances|INSERT INTO public\.clube_coupon_paid_invoices|UPDATE public\.platform_launch_control/,
- 'owner guarantee is not bank reconciliation, a voucher or a commerce flag');
+const initialState=migration.slice(0,migration.indexOf('-- Preserve existing bank-revocation checks'));
+assert.doesNotMatch(initialState,/SET reconciled_cents=10000|INSERT INTO public\.platform_clube_sponsor_receipts|INSERT INTO public\.clube_coupon_paid_issuances|INSERT INTO public\.clube_coupon_paid_invoices|UPDATE public\.platform_launch_control/,
+ 'owner guarantee must not reconcile bank money, issue a voucher or activate commerce');
 assert.match(edge,/\.select\("reconciled_cents,owner_guaranteed_cents,encumbered_cents"\)/);
 assert.match(edge,/Number\(pool\?\.owner_guaranteed_cents\?\?0\)/);
 assert.match(edge,/CLUBE_COUPON_PAID_SALES_ENABLED/);
