@@ -3698,12 +3698,12 @@ Deno.serve(async(req:Request)=>{
           commercialEnabled:false,moneyMoved:false},200,origin);
       }
       const name=cleanText(body.sellerName,{min:5,max:150,name:"titular"});
-      const taxDocument=String(body.sellerTaxDocument??"").replace(/[.\\/\-\\s]/g,"");
+      const taxDocument=String(body.sellerTaxDocument??"").replace(/[.\/\-\s]/g,"");
       const address=cleanText(body.sellerAddress,{min:20,max:260,name:"endereço"});
       const supportEmail=cleanText(body.sellerSupportEmail,
         {min:6,max:180,name:"email de suporte"}).toLowerCase();
       if(!couponSellerTaxDocumentValid(taxDocument)||
-         !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(supportEmail)||
+         !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(supportEmail)||
          body.acceptRefund!==true||body.acceptMerchantReimbursement!==true||
          body.acceptNoMerchantYet!==true||
          body.acceptPublicSellerDisclosure!==true||
