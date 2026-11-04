@@ -1554,7 +1554,12 @@ assert.ok(backend.includes("liveCustomerScript('customer-order-action')")&&
 assert.ok(backend.includes("idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("idempotencyKey=liveIdempotency('complete-delivery')")&&backend.includes('merchantScopedOrderMutation(scope,'),'conclusão de entrega precisa fixar a chave antes do retry');
 assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');
-assert.ok(backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),'cadastro de parceiro precisa sobreviver a timeout/ACK perdido');
+assert.ok(backend.includes("response=await merchantInvoke('submit-merchant-application',payload,")&&
+  backend.includes('{expectedUserId:actor,expectedEpoch:epoch}')&&
+  backend.includes('const list=await merchantLoadOwnApplications()')&&
+  backend.includes('reconciledAfterNetworkError:true')&&
+  !backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),
+  'cadastro de parceiro recupera ACK perdido só por leitura autenticada, sem duplicar POST nem inventar solicitação');
 assert.ok(merchantMutations.includes("retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{")&&merchantMutations.includes("action:'set-online',online:desired"),'toggle online deve repetir uma vez falha de transporte ambígua');
 assert.ok(merchant.includes('result?.autoRescued'),'UI da revenda precisa distinguir aceite real de rescue automático');
 assert.ok(merchant.includes('stock_changed_before_accept'),'UI deve explicar corrida de estoque sem falso aceite');
@@ -1911,7 +1916,7 @@ assert.ok(pilotInviteIndexes.includes('pilot_partner_invites_claimed_user_idx')&
 const pilotClaimFallback=read('supabase/migrations/20261004193000_pilot_partner_claim_fallback_v1_69_3.sql');
 assert.ok(pilotClaimFallback.includes('auth.uid()')&&pilotClaimFallback.includes('claim_pilot_partner_invite'),'fallback autenticado precisa derivar a identidade do JWT e reutilizar a autoridade interna');
 assert.ok(pilotClaimFallback.includes('revoke all on function public.claim_my_pilot_partner_invite(uuid,text)')&&pilotClaimFallback.includes('grant execute on function public.claim_my_pilot_partner_invite(uuid,text)')&&pilotClaimFallback.includes('to authenticated'),'somente authenticated pode executar o wrapper estreito de claim');
-assert.ok(backend.includes("merchantRuntime.client.rpc('claim_my_pilot_partner_invite'")&&backend.includes('!result?.pilotPartner&&result?.applicationId'),'frontend precisa usar o wrapper somente como fallback quando a Edge ainda não retornou o vínculo');
+assert.ok(backend.includes("merchantRuntime.client.rpc('claim_my_pilot_partner_invite'")&&backend.includes('pilotInviteToken&&!response.pilotPartner&&response.applicationId'),'frontend precisa usar o wrapper somente como fallback quando a Edge ainda não retornou o vínculo');
 
 
 console.log('First merchant pilot safety audit passou.');
