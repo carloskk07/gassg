@@ -116,7 +116,7 @@ assert.ok(live.indexOf('merchantAvailabilityPanel(rt,')<live.indexOf('merchant-l
 assert.match(js,/function merchantAvailabilityGo\(key\)/);
 assert.match(js,/merchantRevealControl\('#live-delivery-fee'\)/);
 assert.match(backend,/async function merchantSetOnlineLive\(online\)/);
-assert.match(backend,/action:'set-online',online:online===true/);
+assert.match(mutations,/action:'set-online',online:desired/);
 assert.match(mutations,/action:'update-product'/);
 assert.match(mutations,/actionPending=true;render\(\)/);
 assert.match(backend,/merchantLoadMutations\(\)/);
