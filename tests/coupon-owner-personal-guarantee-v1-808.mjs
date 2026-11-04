@@ -22,13 +22,13 @@ assert.doesNotMatch(initialState,/SET reconciled_cents=10000|INSERT INTO public\
  'owner guarantee must not reconcile bank money, issue a voucher or activate commerce');
 assert.match(edge,/\.select\("reconciled_cents,owner_guaranteed_cents,encumbered_cents"\)/);
 assert.match(edge,/Number\(pool\?\.owner_guaranteed_cents\?\?0\)/);
-assert.match(edge,/CLUBE_COUPON_PAID_SALES_ENABLED/);
+assert.match(edge,/clube_coupon_commercial_release_v1_819/);
 assert.match(edge,/platformCommerceAllowed\(admin\)/);
 assert.match(admin,/ownerGuaranteedCents:data\.owner_guaranteed_cents/);
 assert.match(admin,/remainingCents:data\.reconciled_cents\+data\.owner_guaranteed_cents-data\.encumbered_cents/);
 assert.match(admin,/data\.reconciled_cents\+data\.owner_guaranteed_cents>data\.authorized_cents/);
 assert.match(ui,/Garantido pelo proprietário/);
 assert.match(ui,/não depósito bancário e não receita contabilizada/);
-assert.match(ui,/A venda pública ainda exige revenda apta/);
+assert.match(ui,/O resgate do desconto exige revenda apta/);
 assert.match(migration,/AND reconciled_cents=0 AND encumbered_cents=0/);
 console.log('PASS V1.808 — personal guarantee independent of bank, R$100 initial guarantee and audited optional budget topups, sales still closed.');
