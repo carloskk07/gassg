@@ -132,8 +132,10 @@ function homeRegionalPriceBoard(region){
  // current inventory, availability, the price of a verified merchant,
  // or three competitive offers. Only verified RPC data is an offer.
  const cards=real.length?liveCards:
-   '<div class="city-price-empty">As ofertas serão exibidas quando houver revendas disponíveis para '+esc(place)+'. Consulte seu CEP para verificar a disponibilidade.</div>';
- const copy='Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço.';
+   '<div class="city-price-empty"><strong>Consulte a disponibilidade para seu endereço</strong><p>Ainda não há preços confirmados de revendas para '+esc(place)+'. Escolha os produtos logo abaixo e informe seu CEP para consultar atendimento.</p></div>';
+ const copy=real.length
+   ?'Veja preços informados por revendas e confirme o total e a entrega pelo CEP.'
+   :'Comece pelos produtos logo abaixo. Selecione o que precisa e consulte a entrega pelo CEP.';
  return '<section class="city-price-board tamao-quote-first" aria-label="Painel de preços e vantagens de sua cidade">'+
   '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
    '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
@@ -150,7 +152,7 @@ function homeRegionalPriceBoard(region){
    '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
   (real.length?'<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p>':'')+
   '<div class="city-price-controls">'+
-   '<button type="button" class="primary" onclick="startHomeBrowse()">Escolher produtos →</button>'+
+   '<button type="button" class="primary" onclick="homeDiscoverFocus()">Ver produtos →</button>'+
    (globalThis.liveReady?.()===true?
      '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
    '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+
