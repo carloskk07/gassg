@@ -2048,6 +2048,8 @@ async function openSupportCaseFromUi(){
   customerSupportCategoryChanged();
   try{
     const result=await liveOpenSupportCase(category,message);
+    // A response discarded after account/order changes is not confirmation.
+    if(!result)return;
     toast(result?.alreadyOpen
       ?'Esse tipo de problema já estava em acompanhamento.'
       :result?.refreshPending
