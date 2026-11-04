@@ -48,7 +48,7 @@ function clubeCouponShopPanel(){
        esc(String(purchase.invoiceId||''))+'\')" '+(s?.busy?'disabled':'')+
        '>Conferir pagamento e cupons</button></article>':'';
   const empty=s?.status==='ready'&&s.packages.length===0
-    ?'<p class="muted">Não há pacotes disponíveis para compra neste momento.</p>':'';
+    ?'<p class="muted">Confira novamente mais tarde os pacotes e suas condições. Os cupons emitidos continuam disponíveis em sua conta.</p>':'';
   const error=s?.status==='failed'?'<p class="notice danger">Não foi possível consultar os pacotes. Tente novamente.</p>':'';
   return '<section class="section" aria-label="Comprar cupons TAMÃO">'+
    '<div class="section-head"><div><h2>Pacotes de cupons</h2>'+
