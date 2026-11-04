@@ -5229,7 +5229,7 @@ function adminOwnerBatchLedgerSection(){
     '</div>';
 }
 
-// V1.807 — one-time, bank-evidence-backed R$100 of coupon subsidy.
+// V1.808 — owner personally guarantees this R$100 without a fictitious self-transfer.
 let adminClubeSponsorState=null;
 let adminClubeSponsorBusy=false;
 async function adminClubeSponsorLoadFromUi(){
@@ -5240,12 +5240,21 @@ async function adminClubeSponsorLoadFromUi(){
   try{
     const d=await adminInvoke({action:'clube-sponsor-status'});
     if(d?.ok!==true||d?.source!=='clube_coupon_owner_sponsor_v1_807'||
-       d.authorizedCents!==10000||d.readOnly!==true||d.noCharge!==true||
+       !Number.isSafeInteger(d.authorizedCents)||
+       d.authorizedCents<10000||d.authorizedCents>10000000||
+       d.readOnly!==true||d.noCharge!==true||
        !Number.isSafeInteger(d.reconciledCents)||
+       !Number.isSafeInteger(d.ownerGuaranteedCents)||
        !Number.isSafeInteger(d.encumberedCents)||
-       d.remainingCents!==d.reconciledCents-d.encumberedCents||
+       d.remainingCents!==d.reconciledCents+d.ownerGuaranteedCents-d.encumberedCents||
        d.reconciledCents>10000||d.reconciledCents<0||
-       d.encumberedCents<0||d.encumberedCents>d.reconciledCents)
+       d.ownerGuaranteedCents<0||d.ownerGuaranteedCents>10000000||
+       d.reconciledCents+d.ownerGuaranteedCents>d.authorizedCents||
+       d.encumberedCents<0||d.encumberedCents>d.reconciledCents+d.ownerGuaranteedCents||
+       !Number.isSafeInteger(d.potentialGasPacks)||
+       d.potentialGasPacks!==Math.floor(d.remainingCents/1500)||
+       !Number.isSafeInteger(d.potentialWaterPacks)||
+       d.potentialWaterPacks!==Math.floor(d.remainingCents/1000))
       throw new Error('Reserva de cupons não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||''))
       adminClubeSponsorState={...d,loadedFor:actor};
@@ -5283,6 +5292,63 @@ async function adminClubeSponsorReconcileFromUi(contributionId){
       toast(String(err?.message||'Não foi possível conciliar o patrocínio.'));
   }finally{adminClubeSponsorBusy=false;render();}
 }
+// The superadmin chooses a NEW amount; the backend, not the browser, increases
+// one shared full-face coupon-coverage budget. No vouchers are issued to fictitious
+// customers and no merchant is billed by entering this amount.
+let adminClubeTopupAttempt=null;
+function adminClubeParseTopupCents(raw){
+  const match=/^(\d{1,5})(?:[,.](\d{1,2}))?$/.exec(String(raw||'').trim());
+  if(!match)return null;
+  const cents=Number(match[1])*100+Number((match[2]||'').padEnd(2,'0'));
+  return Number.isSafeInteger(cents)&&cents>=100&&cents<=1000000?cents:null;
+}
+async function adminClubeSponsorTopupFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const pool=adminClubeSponsorState?.loadedFor===actor?adminClubeSponsorState:null;
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminClubeSponsorBusy||
+     !pool||!Number.isSafeInteger(pool.version))return;
+  const input=globalThis.document?.getElementById('adminClubeSponsorTopupValue');
+  const cents=adminClubeParseTopupCents(input?.value);
+  if(cents===null)return toast('Digite um valor entre R$ 1 e R$ 10.000 (ex.: 150,00).');
+  if(pool.authorizedCents+cents>10000000)
+    return toast('O limite total de R$ 100.000 seria ultrapassado.');
+  const amount=adminMoney(cents);
+  if(typeof confirm!=='function'||
+     !confirm('Acrescentar '+amount+' ao orçamento de cupons, sob sua garantia pessoal?\n'+
+       'Isso assume uma obrigação financeira. Não é depósito, recebimento Pix nem emissão de voucher.'))
+     return;
+  // Retain this key on timeout: a replay is safe, a new key could double count.
+  if(!adminClubeTopupAttempt||adminClubeTopupAttempt.actor!==actor||
+     adminClubeTopupAttempt.cents!==cents)
+    adminClubeTopupAttempt={
+      actor,cents,version:pool.version,requestId:crypto.randomUUID()
+    };
+  adminClubeSponsorBusy=true;
+  let result=null;
+  try{
+    result=await adminInvoke({action:'clube-sponsor-topup',
+      amountCents:cents,expectedVersion:adminClubeTopupAttempt.version,
+      requestId:adminClubeTopupAttempt.requestId});
+    if(result?.ok!==true||result.source!=='clube_coupon_owner_topup_v1_809'||
+       result.bankDeposit!==false||result.vouchersIssued!==0||
+       result.creditedCents!==cents||result.noCharge!==true||
+       !Number.isSafeInteger(result.version))
+       throw new Error('Reforço financeiro não confirmado.');
+    if(String(adminRuntime?.session?.user?.id||'')!==actor)return;
+    adminClubeTopupAttempt=null;
+    if(input)input.value='';
+    toast(result.replayed?'O reforço já havia sido registrado.':
+      'Orçamento reforçado em '+amount+'. Cupons serão emitidos quando clientes pagarem.');
+  }catch(err){
+    if(String(adminRuntime?.session?.user?.id||'')===actor)
+      toast('Não houve confirmação. Consulte o saldo e repita o mesmo valor para reconciliar.');
+  }finally{
+    adminClubeSponsorBusy=false;
+    if(String(adminRuntime?.session?.user?.id||'')===actor){
+      await adminClubeSponsorLoadFromUi();
+    }
+  }
+}
 function adminClubeSponsorSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -5293,25 +5359,39 @@ function adminClubeSponsorSection(){
     x.benefitKey==='clube_coupons'&&x.status==='manual_reconciled'&&
     Number.isSafeInteger(x.amountCents)&&x.amountCents>0&&x.amountCents<=10000):[];
   return '<section class="section"><div class="section-head"><div>'+
-    '<h3>Patrocínio único de cupons — R$ 100</h3>'+
-    '<p>Recursos próprios com teto global, sem misturar com as comissões.</p></div>'+
+    '<h3>Orçamento de cupons</h3>'+
+    '<p>Valor inicial R$ 100 e reforços opcionais por sua garantia pessoal. Comissões continuam separadas.</p></div>'+
     '<button class="secondary small" type="button" onclick="adminClubeSponsorLoadFromUi()" '+
     (adminClubeSponsorBusy?'disabled':'')+'>Consultar patrocínio</button></div>'+
     (pool?'<div class="merchant-kpis">'+
       '<div class="kpi"><span class="label">Autorizado</span><strong>'+adminMoney(pool.authorizedCents)+'</strong></div>'+
-      '<div class="kpi"><span class="label">Conferido no extrato</span><strong>'+adminMoney(pool.reconciledCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Garantido pelo proprietário</span><strong>'+adminMoney(pool.ownerGuaranteedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Transferências conferidas</span><strong>'+adminMoney(pool.reconciledCents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Comprometido com cupons</span><strong>'+adminMoney(pool.encumberedCents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Ainda não comprometido</span><strong>'+adminMoney(pool.remainingCents)+'</strong></div>'+
       '</div>':'<p class="muted">Consulte o saldo antes de realizar qualquer nova campanha.</p>')+
+    (pool?'<p class="tiny muted">Capacidade potencial deste mesmo orçamento: até '+
+      Number(pool.potentialGasPacks)+' pacotes de gás (3 cupons de R$ 5) OU '+
+      Number(pool.potentialWaterPacks)+' de água (5 cupons de R$ 2). Não somar os dois totais.</p>':'')+
+    (role==='superadmin'&&pool?'<div class="card flat form-stack">'+
+      '<h4>Acrescentar orçamento e gerar capacidade de cupons</h4>'+
+      '<p class="muted">Digite quanto deseja patrocinar. O limite aumenta e o sistema poderá emitir novos cupons conforme as compras forem confirmadas.</p>'+
+      '<label for="adminClubeSponsorTopupValue">Novo valor em reais</label>'+
+      '<input id="adminClubeSponsorTopupValue" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 100,00" maxlength="8" aria-label="Novo valor do patrocínio de cupons">'+
+      '<button type="button" class="primary small" onclick="adminClubeSponsorTopupFromUi()" '+
+      (adminClubeSponsorBusy?'disabled':'')+'>Confirmar reforço de cupons</button>'+
+      '<p class="tiny muted">De R$ 1 a R$ 10.000 por reforço, teto total R$ 100.000. '+
+      'O reforço não vende nem emite vouchers sozinho; a emissão ocorre após cada compra paga. '+
+      'A venda pública depende de revenda habilitada, termos e liquidação validados.</p></div>':'')+
     (rows.length?'<div class="grid cards-2">'+rows.map(r=>
       '<article class="card flat"><strong>Aporte conferido: '+adminMoney(r.amountCents)+'</strong>'+
       '<p class="tiny muted">Identificador: '+esc(String(r.contributionId))+'</p>'+
       '<button class="secondary small" type="button" onclick="adminClubeSponsorReconcileFromUi(\''+
         esc(String(r.contributionId))+'\')" '+(adminClubeSponsorBusy?'disabled':'')+
       '>Vincular ao teto de cupons</button></article>').join('')+'</div>':'')+
-    '<p class="tiny muted">Só é possível vincular aportes previamente conferidos no extrato. '+
-    'O orçamento planejado não é saldo bancário; vendas exigem liberação comercial, '+
-    'comprovação financeira e aceite da revenda.</p></section>';
+    '<p class="tiny muted">Garantia pessoal do proprietário: obrigação de cobrir o benefício, '+
+    'não depósito bancário e não receita contabilizada. O limite é único, sem duplicar recursos. '+
+    'A venda pública ainda exige revenda apta, contrato e liquidação homologados.</p></section>';
 }
 
 function adminOwnerFinanceWorkspaceSection(){

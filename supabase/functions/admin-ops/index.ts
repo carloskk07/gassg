@@ -6161,23 +6161,67 @@ Deno.serve(async(req:Request)=>{
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas finanças pode consultar o custeio.",403);
       const {data,error}=await admin.from("platform_clube_sponsor_pool_v1_807")
-        .select("benefit_key,authorized_cents,reconciled_cents,encumbered_cents,version,updated_at")
+        .select("benefit_key,authorized_cents,reconciled_cents,owner_guaranteed_cents,owner_guarantee_source,encumbered_cents,version,updated_at")
         .eq("benefit_key","clube_coupons").maybeSingle();
       if(error)throw error;
       if(!data||data.benefit_key!=="clube_coupons"||
-         data.authorized_cents!==10000||
+         !Number.isSafeInteger(data.authorized_cents)||
+         data.authorized_cents<10000||data.authorized_cents>10000000||
          !Number.isSafeInteger(data.reconciled_cents)||
+         !Number.isSafeInteger(data.owner_guaranteed_cents)||
          !Number.isSafeInteger(data.encumbered_cents)||
          data.reconciled_cents<0||data.reconciled_cents>10000||
-         data.encumbered_cents<0||data.encumbered_cents>data.reconciled_cents)
+         data.owner_guaranteed_cents<0||
+         data.owner_guaranteed_cents>10000000||
+         data.reconciled_cents+data.owner_guaranteed_cents>data.authorized_cents||
+         data.encumbered_cents<0||
+         data.encumbered_cents>data.reconciled_cents+data.owner_guaranteed_cents)
         throw new DomainError("COUPON_SPONSOR_POOL_UNVERIFIED","Saldo de patrocínio não validado.",503);
       return json({ok:true,source:"clube_coupon_owner_sponsor_v1_807",
         authorizedCents:data.authorized_cents,
         reconciledCents:data.reconciled_cents,
+        ownerGuaranteedCents:data.owner_guaranteed_cents,
+        ownerGuaranteeSource:data.owner_guarantee_source,
         encumberedCents:data.encumbered_cents,
-        remainingCents:data.reconciled_cents-data.encumbered_cents,
+        remainingCents:data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents,
+        capacityOnly:true,
+        potentialGasPacks:Math.floor((data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents)/1500),
+        potentialWaterPacks:Math.floor((data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents)/1000),
         version:data.version,updatedAt:data.updated_at,
         bankApiConfirmed:false,readOnly:true,noCharge:true},200,origin);
+    }
+    if(action==="clube-sponsor-topup"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o administrador principal pode reforçar o orçamento de cupons.",403);
+      // Exact BRL cents only; never accept a freeform JSON amount, negative
+      // credits, or a string coerced into an integer.
+      const cents=body.amountCents;
+      const expected=body.expectedVersion;
+      if(!Number.isSafeInteger(cents)||cents<100||cents>1000000||
+         !Number.isSafeInteger(expected)||expected<0)
+        throw new DomainError("COUPON_OWNER_TOPUP_INVALID",
+          "Informe um valor entre R$ 1 e R$ 10.000 e atualize o saldo.",400);
+      const {data,error}=await admin.rpc("admin_clube_sponsor_topup_v1_809",{
+        p_actor:user.id,p_amount_cents:cents,
+        p_request:uuid(body.requestId,"requestId"),
+        p_expected_version:expected
+      });
+      if(error)throw error;
+      if(data?.ok!==true||typeof data.replayed!=="boolean"||
+         data.creditedCents!==cents||data.bankDeposit!==false||
+         data.vouchersIssued!==0||
+         !Number.isSafeInteger(data.authorizedCents)||
+         data.authorizedCents<10000||data.authorizedCents>10000000||
+         !Number.isSafeInteger(data.ownerGuaranteedCents)||
+         data.ownerGuaranteedCents<0||data.ownerGuaranteedCents>data.authorizedCents||
+         !Number.isSafeInteger(data.remainingCents)||data.remainingCents<0||
+         !Number.isSafeInteger(data.version))
+        throw new DomainError("COUPON_OWNER_TOPUP_NOT_VERIFIED",
+           "Não foi possível confirmar o reforço do orçamento.",503);
+      return json({...data,source:"clube_coupon_owner_topup_v1_809",
+        commitmentType:"owner_personal_guarantee",noCharge:true,
+        couponCapacityIncreased:true},200,origin);
     }
     if(action==="clube-sponsor-reconcile"){
       if(String(adminAccess.admin_role)!=="superadmin")

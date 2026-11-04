@@ -31,6 +31,12 @@ const merchant='00000000-0000-4000-8000-000000000026';
 assert.match(buyer,/^[0-9a-f-]{36}$/i);
 assert.equal(sql("SELECT operation_mode FROM public.platform_launch_control WHERE singleton=true"),'LIVE');
 assert.equal(getPool(),'0:0');
+assert.equal(sql("SELECT owner_guaranteed_cents FROM public.platform_clube_sponsor_pool_v1_807 WHERE benefit_key='clube_coupons';"),'10000',
+ 'owner assumes R$100 guarantee even without any bank transfer');
+assert.equal(sql("SELECT count(*) FROM public.platform_clube_sponsor_receipts_v1_807"),'0',
+ 'owner guarantee must never counterfeit a deposit');
+// In the disposable CI database ONLY, simulate a revoked guarantee to prove fail-closed.
+sql("UPDATE public.platform_clube_sponsor_pool_v1_807 SET owner_guaranteed_cents=0 WHERE benefit_key='clube_coupons';");
 assert.equal(sql("SELECT sale_enabled::text||':'||sponsored_by_owner::text FROM public.clube_coupon_paid_packages WHERE package_key='gas_3x5_sponsor'"),'false:true');
 for(const key of ['gas_3x5_sponsor','water_5x2_sponsor']){
  sql("UPDATE public.clube_coupon_paid_packages SET funding_verified=true,legal_terms_verified=true,redeem_settlement_verified=true,sale_enabled=true WHERE package_key="+q(key)+";");
@@ -44,32 +50,35 @@ const mk=(key)=>{
 };
 refuse(mk('gas_3x5_sponsor'),'COUPON_SPONSOR_FUNDS_NOT_VERIFIED_OR_EXHAUSTED');
 assert.equal(getPool(),'0:0');
-// A separately bank-reconciled owner contribution must exist in production.
-// This counter is seeded ONLY inside the ephemeral runner to test buying.
-sql("UPDATE public.platform_clube_sponsor_pool_v1_807 SET reconciled_cents=10000 WHERE benefit_key='clube_coupons';");
-assert.equal(getPool(),'10000:0');
+// Restore exactly R$100 of the owner's personal guarantee, not bank cash.
+sql("UPDATE public.platform_clube_sponsor_pool_v1_807 SET owner_guaranteed_cents=10000 WHERE benefit_key='clube_coupons';");
+assert.equal(getPool(),'0:0');
+assert.equal(sql("SELECT owner_guaranteed_cents FROM public.platform_clube_sponsor_pool_v1_807 WHERE benefit_key='clube_coupons';"),'10000');
+refuse("UPDATE public.platform_clube_sponsor_pool_v1_807 SET reconciled_cents=10000 WHERE benefit_key='clube_coupons';",
+ 'clube_sponsor_owner_liability_conservation');
+assert.equal(sql("SELECT reconciled_cents FROM public.platform_clube_sponsor_pool_v1_807 WHERE benefit_key='clube_coupons';"),'0');
 refuse("INSERT INTO public.clube_coupon_paid_invoices(customer_user_id,package_key,request_id,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sponsor_covered_cents)"+
  " VALUES("+q(buyer)+"::uuid,'gas_3x5_sponsor',gen_random_uuid(),890,500,3,180,1500);",
  'COUPON_SPONSOR_CLIENT_CANNOT_SET_CREDIT');
-assert.equal(getPool(),'10000:0');
+assert.equal(getPool(),'0:0');
 const first=sql(mk('gas_3x5_sponsor'));
 assert.match(first,/^[0-9a-f-]{36}$/);
-assert.equal(getPool(),'10000:1500');
+assert.equal(getPool(),'0:1500');
 assert.equal(sql("SELECT sponsor_covered_cents||':'||status FROM public.clube_coupon_paid_invoices WHERE id="+q(first)+"::uuid"),'1500:prepared');
 assert.equal(sql("SELECT face_covered_cents||':'||status FROM public.clube_coupon_sponsor_reservations_v1_807 WHERE invoice_id="+q(first)+"::uuid"),'1500:held');
 refuse("UPDATE public.clube_coupon_paid_invoices SET sponsor_covered_cents=0 WHERE id="+q(first)+"::uuid",
  'COUPON_SPONSOR_IMMUTABLE_INVOICE');
-assert.equal(getPool(),'10000:1500');
+assert.equal(getPool(),'0:1500');
 const water=sql(mk('water_5x2_sponsor'));
 for(let i=0;i<5;i++)sql(mk('gas_3x5_sponsor'));
-assert.equal(getPool(),'10000:10000');
+assert.equal(getPool(),'0:10000');
 refuse(mk('water_5x2_sponsor'),'COUPON_SPONSOR_FUNDS_NOT_VERIFIED_OR_EXHAUSTED');
-assert.equal(getPool(),'10000:10000');
+assert.equal(getPool(),'0:10000');
 assert.equal(sql("SELECT public.clube_coupon_sponsor_covered_v1_807("+q(first)+"::uuid,1500)"),'f',
  'unpaid hold must not count as settled voucher funding');
 // Release ONE abandoned pending invoice and race two competing buyers.
 sql("UPDATE public.clube_coupon_paid_invoices SET status='expired' WHERE id="+q(first)+"::uuid;");
-assert.equal(getPool(),'10000:8500');
+assert.equal(getPool(),'0:8500');
 assert.equal(sql("SELECT status FROM public.clube_coupon_sponsor_reservations_v1_807 WHERE invoice_id="+q(first)+"::uuid"),'released');
 const contenders=await Promise.allSettled([
  concurrentSql(mk('gas_3x5_sponsor')),
@@ -80,7 +89,7 @@ assert.equal(won.length,1,'only one concurrent buyer may acquire last coverage')
 assert.equal(lost.length,1);
 assert.match(String(lost[0].reason.stderr||lost[0].reason.message),
  /COUPON_SPONSOR_FUNDS_NOT_VERIFIED_OR_EXHAUSTED/);
-assert.equal(getPool(),'10000:10000');
+assert.equal(getPool(),'0:10000');
 const paid=won[0].value.stdout.trim();
 assert.match(paid,/^[0-9a-f-]{36}$/);
 const orderId='CI-SPONSOR-ORDER-'+randomUUID(),paymentId='CI-SPONSOR-PIX-'+randomUUID();
@@ -112,5 +121,5 @@ assert.equal(sql("SELECT status FROM public.clube_coupon_paid_issuances WHERE id
 // liability until the merchant/client reconciliation is settled.
 sql("SELECT public.clube_coupon_paid_payment_refund("+q(paid)+"::uuid,"+q(orderId)+")::text;");
 assert.equal(sql("SELECT status FROM public.clube_coupon_sponsor_reservations_v1_807 WHERE invoice_id="+q(paid)+"::uuid"),'captured');
-assert.equal(getPool(),'10000:10000');
+assert.equal(getPool(),'0:10000');
 console.log('V1.807 PASS — zero cash fails closed; full-face escrow; 2 concurrent buyers/1 winner; net Pix, v8 redemption and refund hold.');
