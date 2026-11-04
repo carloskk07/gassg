@@ -21,7 +21,7 @@ create table if not exists public.platform_welcome_grants_v1_815 (
  user_id uuid primary key,
  campaign_key text not null references public.platform_welcome_campaign_v1_815,
  amount_cents integer not null check(amount_cents>0),
- wallet_entry_id uuid not null unique references public.wallet_entries(id),
+ wallet_entry_id uuid not null unique references public.wallet_entries(id) on delete cascade,
  granted_at timestamptz not null default now()
 );
 alter table public.platform_welcome_grants_v1_815 enable row level security;
