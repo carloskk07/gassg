@@ -68,7 +68,7 @@ assert.ok(sales>=0&&emergency>sales&&invoice>emergency,
  'PAUSED and signed owner release must block Pix before money is requested');
 assert.match(coupon,/error:"COUPON_SALES_OPERATION_PAUSED"},423/);
 assert.match(coupon,/if\(!release\)return respond\(\{error:"COUPON_SALES_NOT_ENABLED"/);
-assert.match(coupon,/if\(Deno\.env\.get\("CLUBE_COUPON_PAID_SALES_ENABLED"\)==="false"\)return null/);
+assert.match(coupon,/if\(Deno\.env\.get\("CLUBE_COUPON_SALES_EMERGENCY_STOP"\)==="true"\)return null/);
 assert.ok(coupon.indexOf("couponSaleRelease(admin)")>=0,
  'Only an owner-signed, independently stored release can open coupon payments');
 const historical=coupon.slice(coupon.indexOf('if(operation==="my-vouchers")'),sales);
