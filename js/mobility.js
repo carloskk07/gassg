@@ -812,7 +812,7 @@ async function mobilityCreate(event){
   if(!same())return false;
   if(r.error||!mobilityId.test(String(r.data||'')))throw r.error||Error('invalid id');
   returnedId=r.data;s.id=returnedId;
-  const fresh=await mobilityRefresh();
+  const fresh=await mobilityRefresh().catch(()=>false);
   if(!same())return false;
   if(!fresh||!mobilityCreatedRequestVerified(intent,origin,destination,returnedId,epoch,userId))
    throw Error('Server request was not verified in an authenticated read');
@@ -827,7 +827,7 @@ async function mobilityCreate(event){
   if(!same())return false;
   if(candidate){
    s.id=candidate;
-   const fresh=await mobilityRefresh();
+   const fresh=await mobilityRefresh().catch(()=>false);
    if(!same())return false;
    if(fresh&&mobilityCreatedRequestVerified(intent,origin,destination,candidate,epoch,userId)){
     s.error='';
@@ -865,7 +865,7 @@ async function mobilityTransition(action){
   s.detail=confirmed;s.error='';
   s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
   if(confirmed.status!=='en_route')mobilityUpdateMap(null);
-  await mobilityRefresh();
+  await mobilityRefresh().catch(()=>false);
  }catch(_){
   if(!same())return false;
   const confirmed=await mobilityRecoverTransition(action,selected,epoch,userId);
@@ -874,7 +874,7 @@ async function mobilityTransition(action){
    s.detail=confirmed;s.error='';
    s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
    if(confirmed.status!=='en_route')mobilityUpdateMap(null);
-   await mobilityRefresh();
+   await mobilityRefresh().catch(()=>false);
   }else{
    s.notice='';
    s.error='Não foi possível confirmar a alteração. Atualize os atendimentos antes de repetir: a ação pode já ter sido registrada.';
