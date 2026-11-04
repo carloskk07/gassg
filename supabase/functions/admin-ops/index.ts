@@ -116,6 +116,25 @@ async function couponOwnerSponsorVerified(admin:any,invoice:any){
   if(error)throw error;
   return data===true;
 }
+// Validating check digits avoids storing obvious fictitious CPF/CNPJ as
+// the public seller identity. This does NOT replace registry verification.
+function couponSellerTaxDocumentValid(value:unknown){
+ const digits=String(value??"");
+ if(!/^\\d{11}$|^\\d{14}$/.test(digits)||/^(\\d)\\1+$/.test(digits))return false;
+ const v=[...digits].map(Number);
+ if(v.length===11){
+  let sum=0;for(let i=0;i<9;i++)sum+=v[i]*(10-i);
+  const first=((sum*10)%11)%10;
+  sum=0;for(let i=0;i<10;i++)sum+=v[i]*(11-i);
+  return v[9]===first&&v[10]===((sum*10)%11)%10;
+ }
+ const weights1=[5,4,3,2,9,8,7,6,5,4,3,2];
+ const weights2=[6,...weights1];
+ let sum=v.slice(0,12).reduce((n,x,i)=>n+x*weights1[i],0);
+ const first=sum%11<2?0:11-sum%11;
+ sum=v.slice(0,13).reduce((n,x,i)=>n+x*weights2[i],0);
+ return v[12]===first&&v[13]===(sum%11<2?0:11-sum%11);
+}
 const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
@@ -3621,6 +3640,112 @@ Deno.serve(async(req:Request)=>{
         // specific coupon Pix or seller reimbursement has been reconciled.
         checkedAt:new Date().toISOString()
       },200,origin);
+    }
+
+    if(["clube-coupon-commercial-status","clube-coupon-commercial-release",
+        "clube-coupon-commercial-suspend"].includes(action)){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A ativação comercial de cupons é exclusiva do superadministrador.",403);
+      const key="all_products_3x5_sponsor";
+      if(action==="clube-coupon-commercial-status"){
+        const [release,packageResult,pool]=await Promise.all([
+          admin.from("clube_coupon_commercial_release_v1_819")
+            .select("enabled,seller_name,seller_tax_document,seller_address,seller_support_email,signed_terms_version,signed_at")
+            .eq("package_key",key).maybeSingle(),
+          admin.from("clube_coupon_paid_packages")
+            .select("sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified")
+            .eq("package_key",key).maybeSingle(),
+          admin.from("platform_clube_sponsor_pool_v1_807")
+            .select("authorized_cents,owner_guaranteed_cents,encumbered_cents")
+            .eq("benefit_key","clube_coupons").maybeSingle()
+        ]);
+        if(release.error||packageResult.error||pool.error)
+          throw release.error||packageResult.error||pool.error;
+        return json({ok:true,source:"clube_commercial_release_status_v1_819",
+          packageKey:key,enabled:release.data?.enabled===true,
+          seller:release.data?{
+            name:release.data.seller_name,
+            taxDocument:release.data.seller_tax_document,
+            address:release.data.seller_address,
+            supportEmail:release.data.seller_support_email
+          }:null,
+          package:packageResult.data,
+          guaranteeCents:pool.data?.owner_guaranteed_cents??0,
+          reservedCents:pool.data?.encumbered_cents??0,
+          providerConfigured:mercadoPagoConfigured(
+            Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??""),
+          privateEmergencyStop:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="false",
+          commercialEnabled:release.data?.enabled===true&&
+            packageResult.data?.sale_enabled===true&&
+            Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="false"
+        },200,origin);
+      }
+      const requestId=uuid(body.requestId,"requestId");
+      await enforceApiQuota(admin,{
+        userId:user.id,actionName:"clube-commercial-release",
+        limit:4,windowSeconds:3600
+      });
+      if(action==="clube-coupon-commercial-suspend"){
+        const {data,error}=await admin.rpc("admin_clube_coupon_commercial_suspend_v1_819",{
+          p_actor:user.id,p_request_id:requestId
+        });
+        if(error)throw error;
+        if(data?.ok!==true||data?.salesEnabled!==false)
+          throw new DomainError("COUPON_SUSPEND_UNCONFIRMED",
+           "Não foi possível confirmar a suspensão das vendas.",503);
+        return json({ok:true,source:"clube_commercial_release_v1_819",
+          commercialEnabled:false,moneyMoved:false},200,origin);
+      }
+      const name=cleanText(body.sellerName,{min:5,max:150,name:"titular"});
+      const taxDocument=String(body.sellerTaxDocument??"").replace(/[.\\/\-\\s]/g,"");
+      const address=cleanText(body.sellerAddress,{min:20,max:260,name:"endereço"});
+      const supportEmail=cleanText(body.sellerSupportEmail,
+        {min:6,max:180,name:"email de suporte"}).toLowerCase();
+      if(!couponSellerTaxDocumentValid(taxDocument)||
+         !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(supportEmail)||
+         body.acceptRefund!==true||body.acceptMerchantReimbursement!==true||
+         body.acceptNoMerchantYet!==true||
+         body.acceptPublicSellerDisclosure!==true||
+         body.termsVersion!=="clube_coupon_terms_v1_813"){
+        throw new DomainError("COUPON_RELEASE_OWNER_ATTESTATION_REQUIRED",
+         "Informe CPF/CNPJ válido, contatos e aceite as obrigações do fornecedor.",400);
+      }
+      const accessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+      if(!mercadoPagoConfigured(accessToken))
+        throw new DomainError("COUPON_LIVE_PIX_NOT_CONFIGURED",
+          "Configure o token de produção Mercado Pago antes de ativar.",503);
+      // A read-only provider profile check is not a charge or settlement
+      // proof, but stops obvious sandbox/unusable credentials on release.
+      const probe=await mercadoPagoFetch("/users/me",{
+        accessToken,method:"GET",timeoutMs:8000
+      });
+      if(!probe.ok)throw new DomainError("COUPON_PROVIDER_PROFILE_NOT_VERIFIED",
+          "O Mercado Pago não confirmou a conta de cobrança.",503);
+      const ownerProfile=await readMercadoPagoJson(probe);
+      if(!String(ownerProfile?.id??"").trim()||
+         ownerProfile?.site_id!=="MLB"||ownerProfile?.test_user===true)
+        throw new DomainError("COUPON_PROVIDER_NOT_BRAZIL_LIVE",
+          "A conta de cobrança não foi identificada como operação brasileira real.",503);
+      const {data,error}=await admin.rpc(
+        "admin_clube_coupon_commercial_release_v1_819",{
+        p_actor:user.id,p_seller_name:name,
+        p_seller_tax_document:taxDocument,p_seller_address:address,
+        p_seller_support_email:supportEmail,
+        p_accept_refund:true,p_accept_merchant_reimbursement:true,
+        p_accept_no_merchant_yet:true,p_request_id:requestId
+      });
+      if(error)throw error;
+      if(data?.ok!==true||data?.packageKey!==key||
+         data?.salesEnabled!==true||
+         data?.sellerDisclosureRecorded!==true||
+         data?.moneyMoved!==false)
+        throw new DomainError("COUPON_RELEASE_UNCONFIRMED",
+          "A autorização não foi confirmada no banco.",503);
+      return json({ok:true,source:"clube_commercial_release_v1_819",
+        commercialEnabled:true,packageKey:key,
+        merchantNeededToSell:false,
+        moneyMoved:false,merchantPayoutMade:false},200,origin);
     }
 
     if(action==="clube-coupon-package-draft-create"){
