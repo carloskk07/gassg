@@ -27,7 +27,7 @@ const COUPON_TERMS_VERSION="clube_coupon_terms_v1_813";
 // environment toggle. An explicit value 'false' remains a hard emergency
 // stop; an environment flag alone can NEVER impersonate seller approval.
 async function couponSaleRelease(admin:any){
- if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="false")return null;
+ if(Deno.env.get("CLUBE_COUPON_SALES_EMERGENCY_STOP")==="true")return null;
  const {data,error}=await admin.from("clube_coupon_commercial_release_v1_819")
   .select("package_key,enabled,seller_name,seller_tax_document,seller_address,seller_support_email,signed_terms_version,owner_accepts_refund,owner_accepts_merchant_reimbursement,owner_accepts_no_merchant_yet")
   .eq("package_key","all_products_3x5_sponsor").maybeSingle();
