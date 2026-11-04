@@ -243,10 +243,13 @@ Deno.serve(async(req:Request)=>{
     if(catalogError)throw catalogError;
     const {data:pool,error:poolError}=await admin
       .from("platform_clube_sponsor_pool_v1_807")
-      .select("reconciled_cents,encumbered_cents")
+      .select("reconciled_cents,owner_guaranteed_cents,encumbered_cents")
       .eq("benefit_key","clube_coupons").maybeSingle();
     if(poolError)throw poolError;
+    // The owner personally guarantees the discount out of the same account
+    // receiving customer Pix; this is NOT a bank-reconciled transfer.
     const available=Math.max(0,Number(pool?.reconciled_cents??0)
+      +Number(pool?.owner_guaranteed_cents??0)
       -Number(pool?.encumbered_cents??0));
     const safe=(packages??[]).filter((p:any)=>{
       const face=Number(p.coupon_face_cents)*Number(p.coupons_per_pack);
