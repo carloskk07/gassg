@@ -1513,37 +1513,53 @@ async function merchantPushDiagnoseLive(){
   return true;
 }
 async function merchantPushCheckLive(){
-  if(merchantPushRuntime.checking)return false;
-  if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
-    merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
-    merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;
-    merchantPushRuntime.deviceHealth=null;merchantPushRuntime.healthError=null;return false;
+ if(merchantPushRuntime.checking)return false;
+ if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
+  merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
+  merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;
+  merchantPushRuntime.deviceHealth=null;merchantPushRuntime.healthError=null;return false;
+ }
+ const merchantId=String(merchantRuntime.merchant.merchantId);
+ const userId=String(merchantRuntime.session?.user?.id||'');
+ const selected=String(merchantRuntime.selectedMerchantId||'');
+ const epoch=Number(merchantRuntime.accessEpoch||0);
+ const current=()=>merchantReady()&&
+  String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+  String(merchantRuntime.session?.user?.id||'')===userId&&
+  Number(merchantRuntime.accessEpoch||0)===epoch&&
+  String(merchantRuntime.selectedMerchantId||'')===selected;
+ if(!userId)return false;
+ const token={merchantId,userId,epoch};
+ merchantPushRuntime.checkToken=token;
+ merchantPushRuntime.checking=true;
+ try{
+  const result=await merchantInvoke('merchant-push-registration',{action:'config',merchantId});
+  if(!current())return false;
+  merchantPushRuntime.checked=true;
+  merchantPushRuntime.available=result?.available===true&&typeof result.publicKey==='string';
+  merchantPushRuntime.publicKey=merchantPushRuntime.available?result.publicKey:null;
+  merchantPushRuntime.testMode=result?.testMode!==false;
+  merchantPushRuntime.merchantId=merchantId;
+  if(merchantPushRuntime.available&&merchantPushStatus().supported){
+   const reg=await navigator.serviceWorker.ready;
+   if(!current())return false;
+   const subscription=await reg.pushManager.getSubscription();
+   if(!current())return false;
+   merchantPushRuntime.subscribed=!!subscription;
+  }else merchantPushRuntime.subscribed=false;
+  render();return merchantPushRuntime.available;
+ }catch{
+  if(current()){
+   merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
+   merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
   }
-  merchantPushRuntime.checking=true;
-  const merchantId=String(merchantRuntime.merchant.merchantId);
-  try{
-    const result=await merchantInvoke('merchant-push-registration',{action:'config',merchantId});
-    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
-    merchantPushRuntime.checked=true;
-    merchantPushRuntime.available=result?.available===true&&typeof result.publicKey==='string';
-    merchantPushRuntime.publicKey=merchantPushRuntime.available?result.publicKey:null;
-    merchantPushRuntime.testMode=result?.testMode!==false;
-    merchantPushRuntime.merchantId=merchantId;
-    if(merchantPushRuntime.available&&merchantPushStatus().supported){
-      const reg=await navigator.serviceWorker.ready;
-      if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
-      merchantPushRuntime.subscribed=!!(await reg.pushManager.getSubscription());
-    }else merchantPushRuntime.subscribed=false;
-    render();return merchantPushRuntime.available;
-  }catch{
-    if(String(merchantRuntime.merchant?.merchantId||'')===merchantId){
-      merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
-      merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
-    }
-    return false;
-  }finally{
-    merchantPushRuntime.checking=false;
+  return false;
+ }finally{
+  if(merchantPushRuntime.checkToken===token){
+   merchantPushRuntime.checkToken=null;
+   merchantPushRuntime.checking=false;
   }
+ }
 }
 async function merchantPushDiagnoseServerLive(){
   if(merchantPushRuntime.healthPending)return false;
