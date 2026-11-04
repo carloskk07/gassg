@@ -138,7 +138,11 @@ function publicInvoice(row:any){
    // Paid receipt is not proof the vouchers are spendable; show zero until
    // the same funding conditions used by the atomic checkout are satisfied.
    expiresAt:row.expires_at??null,issuedCoupons:covered?row.coupons_per_pack:0,
-   fundingPending:row.status==="paid"&&!covered};
+   fundingPending:row.status==="paid"&&!covered,
+   seller:row.seller_name?{
+     name:row.seller_name,taxDocument:row.seller_tax_document,
+     address:row.seller_address,supportEmail:row.seller_support_email
+   }:null};
 }
 // A replay cannot trust the local invoice alone: payment may have been
 // processed/cancelled at Mercado Pago while the webhook is still delayed.
@@ -246,7 +250,7 @@ Deno.serve(async(req:Request)=>{
     });
     let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents")
+      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError&&String(invoiceError.code)==="42703"){
@@ -283,6 +287,10 @@ Deno.serve(async(req:Request)=>{
         amountCents:row.sale_price_cents,createdAt:row.created_at,
         paidAt:row.paid_at,
         fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
+        seller:row.seller_name?{
+          name:row.seller_name,taxDocument:row.seller_tax_document,
+          address:row.seller_address,supportEmail:row.seller_support_email
+        }:null,
         refundStatus:refundByInvoice.get(String(row.id))?.status??null,
         refundRequestedAt:refundByInvoice.get(String(row.id))?.received_at??null
       })),
@@ -500,7 +508,11 @@ Deno.serve(async(req:Request)=>{
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
    sale_price_cents:pkg.sale_price_cents,coupon_face_cents:pkg.coupon_face_cents,
    coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days,
-   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString()
+   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString(),
+   seller_name:release.seller_name,
+   seller_tax_document:release.seller_tax_document,
+   seller_address:release.seller_address,
+   seller_support_email:release.seller_support_email
   };
   const {error:insertError}=await admin.from("clube_coupon_paid_invoices").insert(details);
   // A duplicate may be the same request; always re-read and compare snapshots.
