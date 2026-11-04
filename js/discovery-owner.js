@@ -585,6 +585,23 @@ function discoveryOwnerSessionValid(epoch,userId){
   const s=discoveryOwner;
   return s.sessionEpoch===epoch&&s.user?.id===userId;
 }
+function discoveryOwnerVerifiedListing(id,expectedStatus,fields=null,photos=null){
+  const owner=discoveryOwner;
+  const saved=(Array.isArray(owner.items)?owner.items:[]).find(x=>x?.id===id);
+  if(!saved||!Array.isArray(expectedStatus)||!expectedStatus.includes(saved.status))return null;
+  if(fields&&Object.entries(fields).some(([key,value])=>saved[key]!==value))return null;
+  if(photos){
+    if(!Array.isArray(saved.photo_urls)||saved.photo_urls.length!==photos.length||
+       photos.some((key,index)=>saved.photo_urls[index]!==key))return null;
+  }
+  return saved;
+}
+function discoveryOwnerRequireConfirmedListing(id,status,fields=null,photos=null){
+  const confirmed=discoveryOwnerVerifiedListing(id,status,fields,photos);
+  if(!confirmed)throw Object.assign(new Error('LISTING_READBACK_UNCONFIRMED'),
+    {code:'LISTING_READBACK_UNCONFIRMED'});
+  return confirmed;
+}
 async function discoveryOwnerInit(){
   const s=discoveryOwner;if(s.phase!=='idle')return;
   const returningFromOtp=globalThis.discoveryOwnerReturnPending?.()===true;
@@ -704,6 +721,8 @@ async function discoveryOwnerUpdateRideSeats(ev,id){
  return false;
 }
 function discoveryOwnerError(error){
+  if(error?.code==='LISTING_READBACK_UNCONFIRMED'||error?.message==='LISTING_READBACK_UNCONFIRMED')
+    return 'A alteração do anúncio não foi confirmada na consulta atualizada. Confira o estado atual antes de repetir.';
   if(error?.message==='DOCUMENT_CLEANUP_UNCONFIRMED')return 'O comprovante pode ter ficado pendente no armazenamento. Não reenvie este arquivo até o suporte conferir a situação.';
   if(error?.message==='PHOTO_CLEANUP_UNCONFIRMED')return 'O envio das fotos foi interrompido e não foi possível confirmar a limpeza. Confira seu anúncio antes de tentar novamente.';
   const code=String(error?.code||'');
@@ -769,10 +788,14 @@ async function discoveryOwnerOpen(id){
       });
       if(!current())return;
       if(changed.error)throw changed.error;
-      await discoveryOwnerRefresh();
+      const refreshed=await discoveryOwnerRefresh();
       if(!current())return;
+      if(!refreshed)throw Error('Owner readback unavailable');
+      discoveryOwnerRequireConfirmedListing(id,['draft']);
     }
-    const table=discoveryOwnerTables[listing.vertical];
+    const openedListing=listing.status==='paused'
+      ?discoveryOwnerRequireConfirmedListing(id,['draft']):listing;
+    const table=discoveryOwnerTables[openedListing.vertical];
     const {data,error}=await s.client.from(table).select('*').eq('listing_id',id).maybeSingle();
     if(!current())return;
     if(error)throw error;
@@ -780,9 +803,8 @@ async function discoveryOwnerOpen(id){
       .select('id,kind,created_at,object_path').eq('listing_id',id);
     if(!current())return;
     if(documents.error)throw documents.error;
-    s.editor={...listing,...(data||{}),documents:Array.isArray(documents.data)?documents.data:[],
-      status:listing.status==='paused'?'draft':listing.status};
-    s.kind=listing.vertical;
+    s.editor={...openedListing,...(data||{}),documents:Array.isArray(documents.data)?documents.data:[]};
+    s.kind=openedListing.vertical;
   }catch(e){if(current())s.error=discoveryOwnerError(e);}
   if(!current())return;
   s.busy=false;render();
@@ -972,6 +994,8 @@ async function discoveryOwnerSave(ev){
     const fresh=await discoveryOwnerRefresh();
     if(!same())return false;
     if(!fresh)throw Error('Owner readback unavailable');
+    discoveryOwnerRequireConfirmedListing(id,['draft','rejected'],
+      data,(portrait.length||files.length)?keys:null);
     s.editor=null;
     if(sendForReview){
       const sent=await client.rpc('discovery_transition_listing',{
@@ -986,6 +1010,7 @@ async function discoveryOwnerSave(ev){
         const verified=await discoveryOwnerRefresh();
         if(!same())return false;
         if(!verified)throw Error('Owner readback unavailable');
+        discoveryOwnerRequireConfirmedListing(id,['review']);
         s.notice='Anúncio salvo e enviado para análise. A publicação depende da aprovação do TAMÃO.';
       }
     }else{
@@ -1194,6 +1219,7 @@ async function discoveryOwnerSubmit(id){
     const refreshed=await discoveryOwnerRefresh();
     if(!same())return;
     if(!refreshed)throw Error('Owner readback unavailable');
+    discoveryOwnerRequireConfirmedListing(id,['review']);
     s.notice='Anúncio enviado para revisão.';
   }catch(e){if(same())s.error=discoveryOwnerError(e);}
   if(!same())return;
@@ -1215,6 +1241,7 @@ async function discoveryOwnerPause(id){
     const refreshed=await discoveryOwnerRefresh();
     if(!same())return;
     if(!refreshed)throw Error('Owner readback unavailable');
+    discoveryOwnerRequireConfirmedListing(id,['paused']);
     s.notice='Anúncio pausado.';
   }catch(e){if(same())s.error=discoveryOwnerError(e);}
   if(!same())return;

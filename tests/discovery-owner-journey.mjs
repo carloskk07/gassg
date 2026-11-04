@@ -20,6 +20,7 @@ let simulatePhotoUnlinkDenied=false,simulateConcurrentPhotoChange=false,simulate
 let simulateReviewFailure=false,simulateMetadataDeleteFailure=false,simulateMetadataDeleteAckLoss=false;
 let simulateMetadataDeleteThrow=false,simulateRegistrationAckLoss=false,simulateUploadTimeout=false;
 let simulateUnverifiedAccount=false;
+let simulateTransitionAckWithoutCommit=false,simulateListingUpdateAckWithoutCommit=false;
 const concurrentPhotoKey=userId+'/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 const afterRpcPhotoKey=userId+'/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
@@ -70,7 +71,7 @@ const client={
    if(simulateReviewFailure&&args.p_next_status==='review')
      return {data:null,error:{code:'22023',message:'REAL_PHOTO_REQUIRED'}};
    const item=records.find(r=>r.id===args.p_listing_id);
-   if(item)item.status=args.p_next_status;
+   if(item&&!simulateTransitionAckWithoutCommit)item.status=args.p_next_status;
    return {data:args.p_next_status,error:null};
   }
   throw Error('unexpected rpc '+name);
@@ -107,7 +108,9 @@ const client={
     if(name==='discovery_listings'&&data.photo_urls&&simulatePhotoUnlinkDenied)
       return {error:null};
     writes.push([name,'update',data,key,id]);
-    const item=records.find(r=>r.id===id);if(item)Object.assign(item,data);
+    const item=records.find(r=>r.id===id);
+    if(item&&!(name==='discovery_listings'&&simulateListingUpdateAckWithoutCommit))
+      Object.assign(item,data);
     return {error:null};
   }};},
   select(_columns){
@@ -399,6 +402,17 @@ assert.equal(records[0].status,'draft','server denial preserves draft');
 assert.match(ctx.discoveryOwnerPage(),/Rascunho salvo, mas ainda não enviado/);
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Anúncio salvo e enviado para análise/);
 simulateReviewFailure=false;
+// RPC 200 without the requested persisted review status is not proof.
+// A stale read or competing moderation decision cannot claim success.
+simulateTransitionAckWithoutCommit=true;
+await ctx.discoveryOwnerOpen(id);
+await ctx.discoveryOwnerSave({
+ preventDefault(){},target:form,submitter:{name:'finish',value:'review'}
+});
+assert.equal(records[0].status,'draft','acknowledgement does not commit review state');
+assert.match(ctx.discoveryOwnerPage(),/alteração do anúncio não foi confirmada/i);
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Anúncio salvo e enviado para análise/);
+simulateTransitionAckWithoutCommit=false;
 await ctx.discoveryOwnerOpen(id);
 await ctx.discoveryOwnerSave({
  preventDefault(){},target:form,submitter:{name:'finish',value:'review'}
@@ -409,6 +423,11 @@ assert.ok(transitions.some(t=>t.p_next_status==='review'&&t.p_reason==='Envio pe
 assert.equal(uploads.length,2,'reusing saved draft does not reupload previous files');
 // Keep the legacy separated draft/review action usable.
 records[0].status='draft';
+simulateTransitionAckWithoutCommit=true;
+await ctx.discoveryOwnerSubmit(id);
+assert.equal(records[0].status,'draft','separated review must reject unrelated fresh read');
+assert.match(ctx.discoveryOwnerPage(),/alteração do anúncio não foi confirmada/i);
+simulateTransitionAckWithoutCommit=false;
 await ctx.discoveryOwnerSubmit(id);
 assert.equal(records[0].status,'review');
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Compartilhar no WhatsApp/);
@@ -418,14 +437,38 @@ assert.equal(ctx.discoveryOwnerPublishedLink(records[0]),verifiedPublicLink);
 assert.match(ctx.discoveryOwnerPage(),/Compartilhar no WhatsApp/);
 assert.match(ctx.discoveryOwnerPage(),/Ver anúncio/);
 assert.match(ctx.discoveryOwnerPage(),/https:\/\/wa\.me\/\?text=/);
-records[0].status='paused';
+simulateTransitionAckWithoutCommit=true;
+await ctx.discoveryOwnerPause(id);
+assert.equal(records[0].status,'published','pause ACK alone cannot hide public approved listing');
+assert.match(ctx.discoveryOwnerPage(),/alteração do anúncio não foi confirmada/i);
+simulateTransitionAckWithoutCommit=false;
+await ctx.discoveryOwnerPause(id);
+assert.equal(records[0].status,'paused','published listing pauses only after verified owner read');
 assert.equal(ctx.discoveryOwnerPublishedLink(records[0]),'');
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Compartilhar no WhatsApp/);
+simulateTransitionAckWithoutCommit=true;
+await ctx.discoveryOwnerOpen(id);
+assert.equal(records[0].status,'paused','reopen ACK without draft proof cannot open editor');
+assert.equal(ctx.__discoveryOwnerTestState.editor,null);
+assert.match(ctx.discoveryOwnerPage(),/alteração do anúncio não foi confirmada/i);
+simulateTransitionAckWithoutCommit=false;
 await ctx.discoveryOwnerOpen(id);
 assert.equal(records[0].status,'draft','paused item must reopen into new reviewed draft before editing');
+assert.equal(ctx.__discoveryOwnerTestState.editor?.status,'draft');
 assert.ok(transitions.some(x=>x.p_next_status==='draft'));
 assert.match(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
 assert.equal(privateDocs.length,1);
+// A successful row UPDATE with unchanged canonical listing fields must not
+// produce a Saved toast, despite other relations still being accessible.
+const titleBefore=records[0].title;
+formValues.title='Anúncio com título que não persistiu';
+simulateListingUpdateAckWithoutCommit=true;
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+assert.equal(records[0].title,titleBefore);
+assert.match(ctx.discoveryOwnerPage(),/alteração do anúncio não foi confirmada/i);
+assert.doesNotMatch(ctx.discoveryOwnerPage(),/Rascunho salvo\. Você pode enviá-lo para revisão/);
+simulateListingUpdateAckWithoutCommit=false;
+formValues.title=titleBefore;
 const privateDocId=privateDocs[0].id, privateDocPath=privateDocs[0].object_path;
 simulateRemovalOutage=true;
 await ctx.discoveryOwnerRemoveDocument(privateDocId);
