@@ -6,7 +6,7 @@ const home=read('js/home-showcase.js'),customer=read('js/customer.js');
 const css=read('css/marketing-premium.css');
 new vm.Script(home,{filename:'home-showcase.js'});
 new vm.Script(customer,{filename:'customer.js'});
-assert.ok(home.includes("const copy='Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço.'"));
+assert.ok(home.includes('const copy=real.length'));
 assert.ok(home.includes("'<h2>Tamão '+esc(place)"),'localized heading must show TAMÃO city/UF');
 assert.match(css,/\.city-price-product-pick>summary:focus-visible/);
 assert.match(css,/\.city-price-product-fields/);
@@ -21,7 +21,7 @@ const ctx=vm.createContext({
 vm.runInContext(home+';this.renderQuote=homeRegionalPriceBoard;',ctx);
 const local=ctx.renderQuote({city:'São Gabriel',state:'RS'});
 assert.match(local,/Tamão São Gabriel\/RS/);
-assert.match(local,/Clique no produto, coloque seu CEP e consulte as ofertas para o seu endereço/);
+assert.match(local,/Comece pelos produtos logo abaixo/);
 assert.match(local,/onclick="startHomeBrowse\(\)">Escolher produtos/,
  'board must open product-first checkout without silently selecting gas');
 assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
@@ -30,7 +30,7 @@ assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
 assert.equal((local.match(/class="city-price-research-item"/g)||[]).length,0);
 assert.equal((local.match(/class="city-price-product-pick"/g)||[]).length,0,
  'do not create non-purchasable price cards before verified offers');
-assert.match(local,/As ofertas serão exibidas quando houver revendas disponíveis/);
+assert.match(local,/Ainda não há preços confirmados de revendas/);
 assert.doesNotMatch(local,/Valor de pesquisa|R\$ 115.90|class="city-price-card verified"|PREÇO DE REVENDA/);
 ctx.globalThis.liveRuntime.cityPriceSnapshot={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
