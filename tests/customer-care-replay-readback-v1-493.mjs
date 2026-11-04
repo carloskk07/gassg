@@ -142,6 +142,9 @@ assert.equal(await ctx.submit('late','Outra tentativa'),null);
 assert.equal(rendered,rendersBefore);
 assert.match(backend,/function liveForgetAccount\(\)\{\s*globalThis\.customerSupportReplayReset\?\.\(\);/,
   'logout must drop customer support replay state before changing account');
+assert.match(fs.readFileSync(new URL('../js/customer.js',import.meta.url),'utf8'),
+  /const result=await liveOpenSupportCase\(category,message\);[\s\S]{0,150}if\(!result\)return;/,
+  'a discarded old-session response must never display a success toast');
 assert.ok(fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8')
   .includes('node tests/customer-care-replay-readback-v1-493.mjs'));
 
