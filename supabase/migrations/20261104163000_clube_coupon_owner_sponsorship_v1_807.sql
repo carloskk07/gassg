@@ -157,6 +157,15 @@ CREATE TRIGGER clube_coupon_sponsor_invoice_update_v1_807
  BEFORE UPDATE ON public.clube_coupon_paid_invoices
  FOR EACH ROW EXECUTE FUNCTION public.clube_coupon_sponsor_invoice_update_v1_807();
 
+-- Trigger helpers have no legitimate browser/API callers. PostgreSQL grants
+-- EXECUTE to PUBLIC by default; deny the executable RPC surface explicitly.
+REVOKE ALL ON FUNCTION public.clube_coupon_sponsor_invoice_before_v1_807()
+ FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.clube_coupon_sponsor_invoice_after_v1_807()
+ FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.clube_coupon_sponsor_invoice_update_v1_807()
+ FROM PUBLIC,anon,authenticated;
+
 -- Sponsor coverage is strictly invoice-linked, already reconciled and captured.
 -- No arbitrary client-supplied amount is part of the decision.
 CREATE FUNCTION public.clube_coupon_sponsor_covered_v1_807(p_invoice uuid,p_required bigint)
