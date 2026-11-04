@@ -1554,7 +1554,8 @@ assert.ok(backend.includes("liveCustomerScript('customer-order-action')")&&
 assert.ok(backend.includes("idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("idempotencyKey=liveIdempotency('complete-delivery')")&&backend.includes('merchantScopedOrderMutation(scope,'),'conclusão de entrega precisa fixar a chave antes do retry');
 assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');
-assert.ok(backend.includes("response=await merchantInvoke('submit-merchant-application',payload)")&&
+assert.ok(backend.includes("response=await merchantInvoke('submit-merchant-application',payload,")&&
+  backend.includes('{expectedUserId:actor,expectedEpoch:epoch}')&&
   backend.includes('const list=await merchantLoadOwnApplications()')&&
   backend.includes('reconciledAfterNetworkError:true')&&
   !backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),
