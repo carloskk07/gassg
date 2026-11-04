@@ -31,11 +31,11 @@ const h=customer.slice(customer.indexOf('function home(){'),
  customer.indexOf('\nfunction orderPage(){'));
 const regional=h.indexOf('homeRegionalPriceBoard(homeRegion)');
 const catalogue=h.indexOf('class="home-discover tamao-home-catalog"');
-const campaign=h.indexOf('${couponBanner}',catalogue);
+const campaign=h.indexOf('${couponBanner}');
 const services=h.indexOf('tamaoDiscoveryEntryHub()}');
 const lead=h.indexOf('prelaunchCustomerLeadSection()');
-assert.ok(regional>=0&&catalogue>regional&&campaign>catalogue&&services>campaign&&lead>services,
- 'Public flow must be availability -> products -> campaign -> services -> optional lead');
+assert.ok(regional>=0&&campaign>regional&&catalogue>campaign&&services>catalogue&&lead>services,
+ 'Public flow must be availability -> coupon promotion -> products -> services -> optional lead');
 assert.equal((h.match(/tamaoHomeBenefits\\(\\{compact:true\\}\\)/g)||[]).length,0,
  'Do not duplicate Club/Network content beneath the campaign');
 assert.ok(h.includes('if(!testDemo&&!internalPilot)return shell('),
