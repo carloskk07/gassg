@@ -417,6 +417,18 @@ Deno.serve(async(req:Request)=>{
       .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
     if(invoiceError)throw invoiceError;
     if(!invoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    // A pending cancellation freezes even a previously saved/reopened Pix.
+    // The original provider charge may still require refund/reconciliation,
+    // but the customer must not be instructed to pay it again.
+    const {data:refund,error:refundError}=await admin
+      .from("clube_coupon_refund_requests_v1_814")
+      .select("status").eq("invoice_id",invoice.id)
+      .eq("customer_user_id",user.id).maybeSingle();
+    if(refundError)throw refundError;
+    if(refund&&refund.status!=="closed")
+      return respond({error:"COUPON_REFUND_REQUESTED",invoiceId:invoice.id,
+        status:invoice.status,pixCode:null,paymentUrl:null,pixPayable:false,
+        refundStatus:refund.status},409,origin);
     if(invoice.status==="prepared"||invoice.status==="awaiting_payment"){
       const replay=await couponVerifiedReplay(invoice);
       return respond(replay,replay.ok?200:409,origin);
@@ -471,6 +483,14 @@ Deno.serve(async(req:Request)=>{
   const {data:invoice,error:readError}=await admin.from("clube_coupon_paid_invoices")
    .select("*").eq("customer_user_id",user.id).eq("request_id",requestId).single();
   if(readError||!invoice)throw readError??new Error("INVOICE_NOT_FOUND");
+  const {data:refund,error:refundError}=await admin
+    .from("clube_coupon_refund_requests_v1_814")
+    .select("status").eq("invoice_id",invoice.id)
+    .eq("customer_user_id",user.id).maybeSingle();
+  if(refundError)throw refundError;
+  if(refund&&refund.status!=="closed")
+    return respond({error:"COUPON_REFUND_REQUESTED",invoiceId:invoice.id,
+      pixCode:null,paymentUrl:null,pixPayable:false},409,origin);
   if(invoice.package_key!==packageKey||invoice.sale_price_cents!==pkg.sale_price_cents||
      invoice.coupon_face_cents!==pkg.coupon_face_cents||
      invoice.coupons_per_pack!==pkg.coupons_per_pack){
