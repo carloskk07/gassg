@@ -58,11 +58,14 @@ async function tamaoWelcomeClaimVerifiedUser(){
     tamaoWelcomeBonus.inflight=false;
   }
 }
-document.addEventListener('DOMContentLoaded',()=>{
+function tamaoWelcomeBoot(){
   const app=document.getElementById('app');
   if(app)new MutationObserver(tamaoWelcomeRender).observe(app,{childList:true,subtree:true});
   tamaoWelcomeRefreshStatus();
   // Auth can be restored or converted from an anonymous visitor asynchronously.
   setInterval(tamaoWelcomeClaimVerifiedUser,2500);
   setInterval(tamaoWelcomeRefreshStatus,60000);
-});
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',tamaoWelcomeBoot,{once:true});
+}else tamaoWelcomeBoot();
