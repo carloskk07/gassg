@@ -2,7 +2,7 @@
 // The seller enters their OWN legal identity; neither the server nor the
 // assistant guesses it, and no payment is initiated by this page.
 const clubeLaunchState={
- userId:null,status:'idle',pending:false,data:null,error:null,requestId:null
+ userId:null,status:'idle',pending:false,data:null,error:null,requestId:null,form:{},checks:{}
 };
 function adminClubeCommercialPanel(){
  if(adminCurrentRole()!=='superadmin')return '';
@@ -10,7 +10,7 @@ function adminClubeCommercialPanel(){
  if(!uid)return '';
  if(clubeLaunchState.userId!==uid){
   Object.assign(clubeLaunchState,{userId:uid,status:'idle',pending:false,
-    data:null,error:null,requestId:null});
+    data:null,error:null,requestId:null,form:{},checks:{}});
  }
  if(clubeLaunchState.status==='idle'&&!clubeLaunchState.pending){
   clubeLaunchState.status='loading';
@@ -25,10 +25,11 @@ function adminClubeCommercialPanel(){
  const inactive=state.status==='ready'&&!enabled;
  const input=(id,title,placeholder,type='text')=>
   '<label>'+title+'<input id="clube-release-'+id+
-   '" class="input" type="'+type+'" autocomplete="off" maxlength="260" placeholder="'+placeholder+'"></label>';
+   '" class="input" type="'+type+'" autocomplete="off" maxlength="260" placeholder="'+placeholder+
+  '" value="'+esc(String(state.form?.[id]||''))+'"></label>';
  const check=(id,title)=>
   '<label class="check-row"><input id="clube-release-'+id+
-  '" type="checkbox"><span>'+title+'</span></label>';
+  '" type="checkbox" '+(state.checks?.[id]?'checked':'')+'><span>'+title+'</span></label>';
  const form=inactive?'<div class="form-stack">'+
     '<p class="tiny">Para colocar à venda: 3 cupons de R$ 5 por R$ 8,90; pedido mínimo de R$ 50; validade de 180 dias a partir da emissão. Não precisa de revenda cadastrada. A conta que vende precisa ser identificada publicamente.</p>'+
     input('name','Nome civil ou razão social do fornecedor','Nome completo / empresa')+
@@ -88,6 +89,10 @@ async function adminClubeCommercialActivate(){
  const checked=id=>document.getElementById('clube-release-'+id)?.checked===true;
  const sellerName=value('name'),sellerTaxDocument=value('doc'),
        sellerAddress=value('address'),sellerSupportEmail=value('email');
+ clubeLaunchState.form={name:sellerName,doc:sellerTaxDocument,
+  address:sellerAddress,email:sellerSupportEmail};
+ clubeLaunchState.checks=Object.fromEntries(
+  ['identity','terms','refund','merchant','availability'].map(id=>[id,checked(id)]));
  if(!sellerName||!sellerTaxDocument||!sellerAddress||!sellerSupportEmail||
   !['identity','terms','refund','merchant','availability'].every(checked)){
    clubeLaunchState.error='Preencha a identidade do fornecedor e confirme todas as condições.';
@@ -113,7 +118,6 @@ async function adminClubeCommercialActivate(){
  }catch(error){
   if(String(adminRuntime.session?.user?.id||'')===uid){
    clubeLaunchState.error=String(error?.message||error);
-   try{await adminClubeCommercialRefresh()}catch{}
   }
  }finally{
   clubeLaunchState.pending=false;
