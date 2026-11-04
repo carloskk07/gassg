@@ -5,6 +5,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const js=read('js/merchant.js'),css=read('css/components.css');
 const audit=read('.github/workflows/audit.yml'),backend=read('js/backend.js');
+const mutations=read('js/merchant-mutations.js');
 new vm.Script(js,{filename:'js/merchant.js'});
 function take(name,asyncFn=false){
  const start=js.indexOf((asyncFn?'async ':'')+'function '+name+'(');
@@ -160,8 +161,9 @@ const live=js.slice(js.indexOf('function merchantLivePage('),js.indexOf('\nfunct
 assert.ok(live.indexOf('merchantDailyOverview(rt,orders)')<live.indexOf('merchantQuickCatalogView(rt)'),'V1.282 keeps daily order focus above the quick editor');
 assert.equal((live.match(/id="live-p13-price"/g)||[]).length,0);
 assert.match(js,/function merchantQuickCatalogSave\(productCode\)/);
-assert.match(backend,/body\.expectedUpdatedAt=String\(current.updatedAt\)/);
-assert.match(backend,/action:'update-product'/);
+assert.match(mutations,/body\.expectedUpdatedAt=String\(current.updatedAt\)/);
+assert.match(mutations,/action:'update-product'/);
+assert.match(backend,/merchantLoadMutations\(\)/);
 assert.match(css,/\.merchant-quick-product-fields/);
 assert.match(css,/@media\(max-width:600px\)/);
 assert.match(audit,/node tests\/merchant-quick-catalog-v1-277.mjs/);
