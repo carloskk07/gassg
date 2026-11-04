@@ -5,11 +5,13 @@ import {
   safeMercadoPagoUrl,mercadoPagoQrDataUri,moneyToCents,mercadoPagoPixDeadline
 } from "../_shared/mercadopago.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
-import {enforceApiQuota,readJsonBody,platformCommerceAllowed} from "../_shared/domain.js";
+import {enforceApiQuota,readJsonBody,platformCommerceAllowed,platformCouponSalesAllowed} from "../_shared/domain.js";
 
 // Uses the SAME MERCADOPAGO_ACCESS_TOKEN as merchant-billing-pix. New coupons
-// cannot be sold unless verified funding, legal terms and merchant settlement
-// already exist and the release switch was expressly enabled server-side.
+// cannot be sold unless sponsor funding, legal terms and settlement rules
+// have been verified and the private release switch enabled server-side.
+// Merchant enrollment is NOT a prerequisite to prepare or activate package
+// sales; only actual voucher redemption needs an operational merchant.
 // No customer-provided monetary amount, merchant or benefit is trusted.
 const URL_BASE=Deno.env.get("SUPABASE_URL")??"";
 const PUBLISHABLE=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}").default
@@ -17,6 +19,10 @@ const PUBLISHABLE=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}").de
 const SECRET=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}").default
   ??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const MP_TOKEN=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+// Checkout uses a versioned customer acceptance recorded on the invoice.
+// This is not an operator's legal attestation and does not mark a package
+// legally approved merely because a customer checked the box.
+const COUPON_TERMS_VERSION="clube_coupon_terms_v1_813";
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
   "https://tamao-sg-cliente.pages.dev"]);
@@ -233,7 +239,7 @@ Deno.serve(async(req:Request)=>{
         })),
       couponSalesEnabled:
         Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"&&
-        await platformCommerceAllowed(admin),
+        await platformCouponSalesAllowed(admin),
       couponCheckoutEnabled:
         Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"&&
         await platformCommerceAllowed(admin)
@@ -242,7 +248,7 @@ Deno.serve(async(req:Request)=>{
   if(operation==="catalog"){
     // A sales flag alone never creates an offer without real backing.
     const enabled=Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"
-      &&await platformCommerceAllowed(admin);
+      &&await platformCouponSalesAllowed(admin);
     if(!enabled)return respond({ok:true,source:"clube_paid_catalog_v1_807",
       packages:[],couponSalesEnabled:false},200,origin);
     const {data:packages,error:catalogError}=await admin
@@ -274,7 +280,8 @@ Deno.serve(async(req:Request)=>{
         packageKey:p.package_key,title:p.title,
         priceCents:p.sale_price_cents,faceCents:p.coupon_face_cents,
         couponCount:p.coupons_per_pack,validDays:p.valid_days,
-        minOrderCents:p.min_order_cents,eligibleProducts:"all"
+        minOrderCents:p.min_order_cents,eligibleProducts:"all",
+        termsVersion:COUPON_TERMS_VERSION
       }))},200,origin);
   }
   if(operation==="invoice-status"){
@@ -299,10 +306,12 @@ Deno.serve(async(req:Request)=>{
   // been validated end-to-end, even if credentials already exist.
   if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")
     return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
-  // A private coupon flag can never override the central PRELAUNCH/PAUSED
-  // switch. Reject before inserting any invoice or calling the Pix provider.
-  if(!await platformCommerceAllowed(admin))
-    return respond({error:"COMMERCE_NOT_ENABLED"},423,origin);
+  // Sales of a digital coupon package may be prepared and authorized in
+  // PRELAUNCH, even with zero merchants. Global PAUSED remains a hard stop;
+  // the independent private sale flag and each package approval remain required.
+  // This does NOT relax redemption or the ordinary physical-order gate.
+  if(!await platformCouponSalesAllowed(admin))
+    return respond({error:"COUPON_SALES_OPERATION_PAUSED"},423,origin);
   if(!mercadoPagoConfigured(MP_TOKEN))
     return respond({error:"MERCADOPAGO_NOT_CONFIGURED"},503,origin);
   const packageKey=String(body.packageKey||"");
@@ -323,10 +332,16 @@ Deno.serve(async(req:Request)=>{
     (pkg.sponsored_by_owner!==true&&
       pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack))
    return respond({error:"COUPON_PACKAGE_NOT_AVAILABLE"},409,origin);
+  // A purchase is a distinct contract, even before the first merchant joins.
+  // The customer must accept the public coupon conditions before ANY invoice
+  // or Mercado Pago order is created; there is no prechecked consent.
+  if(body.termsAccepted!==true||body.termsVersion!==COUPON_TERMS_VERSION)
+    return respond({error:"COUPON_TERMS_ACCEPTANCE_REQUIRED"},400,origin);
   const details={
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
    sale_price_cents:pkg.sale_price_cents,coupon_face_cents:pkg.coupon_face_cents,
-   coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days
+   coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days,
+   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString()
   };
   const {error:insertError}=await admin.from("clube_coupon_paid_invoices").insert(details);
   // A duplicate may be the same request; always re-read and compare snapshots.

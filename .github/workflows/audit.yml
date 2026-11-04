@@ -141,6 +141,8 @@ jobs:
         run: node tests/coupon-general-minimum-contract-v1-810.mjs
       - name: V1.811 Club homepage marketing banner with truthful coupon readiness
         run: node tests/clube-home-banner-v1-811.mjs
+      - name: V1.813 paid-coupon legal terms opt-in, immutable receipt and independent readiness
+        run: node tests/coupon-terms-acceptance-v1-813.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation

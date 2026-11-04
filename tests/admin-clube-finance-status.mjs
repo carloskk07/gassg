@@ -35,7 +35,8 @@ const helperFrom=edge.indexOf('const couponNetCovered=(row:any)=>');
 const helperTo=edge.indexOf('const invoiceById=',helperFrom);
 assert.ok(helperFrom>=0&&helperTo>helperFrom,'Admin net-coverage helper must exist');
 const helper=edge.slice(helperFrom,helperTo).replace('(row:any)','(row)');
-const finance=vm.createContext({Number,Date,String,Boolean});
+const verifiedSponsorIds=new Set();
+const finance=vm.createContext({Number,Date,String,Boolean,verifiedSponsorIds});
 new vm.Script(helper+';this.netCovered=couponNetCovered;').runInContext(finance);
 const invoice={status:'paid',paid_at:'2026-10-24T05:00:00Z',
  provider_order_id:'ORD-test',provider_payment_id:'PAY-test',
@@ -43,6 +44,20 @@ const invoice={status:'paid',paid_at:'2026-10-24T05:00:00Z',
  net_proceeds_cents:1000,net_proceeds_reference:'mp-report-verified-001',
  net_proceeds_verified_at:'2026-10-24T06:00:00Z'};
 assert.equal(finance.netCovered(invoice),true);
+const sponsored={...invoice,id:'sponsored-invoice-1',sale_price_cents:890,
+ coupon_face_cents:500,coupons_per_pack:3,net_proceeds_cents:840,
+ sponsor_covered_cents:1500};
+assert.equal(finance.netCovered(sponsored),false,
+ 'an invoice field alone cannot establish escrow evidence');
+verifiedSponsorIds.add(sponsored.id);
+assert.equal(finance.netCovered(sponsored),true,
+ 'owner escrow independently verified in PostgreSQL covers net below face');
+assert.equal(finance.netCovered({...sponsored,sponsor_covered_cents:1499}),false,
+ 'partial sponsor coverage may not count as fully funded');
+assert.equal(finance.netCovered({...sponsored,net_proceeds_cents:0}),false,
+ 'escrow alone does not replace a real paid Pix net report');
+assert.ok(edge.includes('couponOwnerSponsorVerified(admin,row)'),
+ 'finance must verify each sponsored paid invoice in the real database');
 for(const bad of [
  {status:'awaiting_payment'},{status:'refunded'},{paid_at:null},
  {provider_order_id:null},{provider_payment_id:null},

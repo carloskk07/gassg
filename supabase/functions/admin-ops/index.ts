@@ -3671,7 +3671,7 @@ Deno.serve(async(req:Request)=>{
       const missingTable=(error:any)=>["PGRST205","42P01"].includes(
         String(error?.code||""));
       const packageResult=await admin.from("clube_coupon_paid_packages")
-        .select("package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sale_price_cents,coupon_face_cents,coupons_per_pack")
+        .select("package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sponsored_by_owner,sale_price_cents,coupon_face_cents,coupons_per_pack")
         .limit(101);
       if(packageResult.error){
         if(missingTable(packageResult.error)){
@@ -3691,7 +3691,7 @@ Deno.serve(async(req:Request)=>{
       }
       const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
-           .select("id,created_at,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack")
+           .select("id,created_at,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
           .order("created_at",{ascending:false})
           .limit(101),
         admin.from("clube_coupon_paid_issuances")
@@ -3729,16 +3729,30 @@ Deno.serve(async(req:Request)=>{
       const packages=packageResult.data||[];
       // Keep financial indicators consistent with coupon-credit-pix:
       // a gross approved Pix is never proof of net proceeds after fees.
+      // Every sponsored invoice must be proven against the immutable escrow
+      // reservation in PostgreSQL, never inferred from the invoice's number.
+      // Bounded scans fail closed when a sponsor proof cannot be fetched.
+      const verifiedSponsorIds=new Set<string>();
+      await Promise.all(invoiceRows.filter((row:any)=>
+        row.status==="paid"&&Number(row.sponsor_covered_cents)>0
+      ).map(async(row:any)=>{
+        if(await couponOwnerSponsorVerified(admin,row))
+          verifiedSponsorIds.add(String(row.id));
+      }));
       const couponNetCovered=(row:any)=>{
         const face=row?.coupon_face_cents;
         const count=row?.coupons_per_pack;
         const net=row?.net_proceeds_cents;
+        const faceTotal=Number(face)*Number(count);
+        const backed=verifiedSponsorIds.has(String(row?.id))&&
+          Number(row?.sponsor_covered_cents)===faceTotal;
         const ref=String(row?.net_proceeds_reference??"").trim();
         return row?.status==="paid"&&Boolean(row?.paid_at)&&
           Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
           Number.isSafeInteger(face)&&face>0&&
           Number.isSafeInteger(count)&&count>0&&
-          Number.isSafeInteger(net)&&net>=face*count&&
+          Number.isSafeInteger(net)&&net>0&&
+          (net>=faceTotal||backed)&&
           net<=row.sale_price_cents&&
           Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
           ref.length>=8;
@@ -3781,7 +3795,8 @@ Deno.serve(async(req:Request)=>{
         pkg.sale_enabled===true&&(
           pkg.funding_verified!==true||pkg.legal_terms_verified!==true||
           pkg.redeem_settlement_verified!==true||
-          pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack)
+          (pkg.sponsored_by_owner!==true&&
+            pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack))
       ).length;
       // A separate query reuses the existing immutable accounting report.
       let pendingSettlement=0;

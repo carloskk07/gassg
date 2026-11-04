@@ -56,7 +56,10 @@ function termsPage(){
     '<section class="legal-card"><h2>6. Conduta do usuário</h2><ul class="legal-list"><li>informar dados de contato e entrega corretos;</li><li>não automatizar ou sobrecarregar formulários e endpoints;</li><li>não tentar acessar áreas administrativas ou dados de terceiros;</li><li>usar o serviço para finalidades lícitas e respeitar regras de segurança de produtos regulados.</li></ul></section>'+
     '<section class="legal-card"><h2>7. Benefícios, cashback e indicação</h2><p>Benefícios só se tornam devidos quando as regras publicadas e os eventos necessários forem cumpridos. Valores, elegibilidade, quarentena e limites podem variar por campanha. Materiais promocionais não devem ser interpretados como promessa de renda.</p></section>'+
     '<section class="legal-card"><h2>8. Disponibilidade e mudanças</h2><p>Recursos podem ser ajustados, pausados ou alterados por segurança, manutenção, disponibilidade regional ou evolução do serviço. Condições de pagamento, cancelamento, atendimento e demais regras aplicáveis são apresentadas nas jornadas correspondentes e podem ser atualizadas de forma prospectiva.</p></section>'+
-    '<section class="legal-card"><h2>9. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
+    '<section class="legal-card"><h2>9. Pacotes de cupons pagos — Clube TAMÃO</h2>'+ 
+    (globalThis.document?.getElementById('tamao-coupon-terms-template')?.innerHTML||
+     '<p>Consulte as condições vigentes do pacote antes de comprar.</p>')+'</section>'+ 
+    '<section class="legal-card"><h2>10. Privacidade e contato</h2><p>O tratamento de dados segue o <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>. Para dúvidas, suporte ou exercício de direitos, use o <button class="text-link" onclick="go(\'contact\')">canal oficial do site</button>.</p></section>'+
     legalClose()
   );
 }
