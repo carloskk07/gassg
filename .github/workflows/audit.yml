@@ -151,6 +151,8 @@ jobs:
         run: node tests/clube-coupon-autoload-v1-816.mjs
       - name: V1.817 evidence-based owner-backed coupon funding (no fake bank deposit)
         run: node tests/clube-owner-guarantee-readiness-v1-817.mjs
+      - name: V1.819 seller-verified commercial coupon sales and emergency suspension
+        run: node tests/clube-commercial-release-v1-819.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation
