@@ -2680,25 +2680,82 @@ async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
 }
 
 async function merchantSubmitApplicationLive(payload){
-  if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
-  const result=await retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
-  if(result?.applicationId){
-    merchantRuntime.ownApplications=[{
-      id:result.applicationId,cnpj:String(result.cnpj||payload.cnpj),
-      company_name:String(result.companyName||payload.companyName||''),
-      responsible_name:String(payload.responsibleName||''),
-      phone:String(payload.phone||''),address_text:String(payload.address||''),
-      status:String(result.status||'pending'),
-      created_at:result.createdAt||new Date().toISOString(),
-      updated_at:result.updatedAt||new Date().toISOString()
-    },...(merchantRuntime.ownApplications||[]).filter(x=>x.id!==result.applicationId)];
-    merchantRuntime.ownApplicationsLoaded=true;
+ const rt=merchantRuntime;
+ const actor=String(rt.session?.user?.id||'');
+ const epoch=rt.accessEpoch;
+ if(!rt.session?.access_token||!actor)
+  throw Error('Entre com seu e-mail antes de enviar o cadastro');
+ if(!['no-access','ready'].includes(rt.status))
+  throw Error('Atualize a sessão da revenda antes de enviar o cadastro.');
+ if(rt.actionPending)throw Error('Aguarde a solicitação anterior terminar.');
+ const same=()=>rt.accessEpoch===epoch&&
+  String(rt.session?.user?.id||'')===actor&&
+  ['no-access','ready'].includes(rt.status);
+ const submitted={
+  cnpj:String(payload?.cnpj||'').toUpperCase().replace(/[^0-9A-Z]/g,''),
+  company_name:String(payload?.companyName||'').trim().replace(/\s+/g,' '),
+  responsible_name:String(payload?.responsibleName||'').trim().replace(/\s+/g,' '),
+  phone:String(payload?.phone||'').replace(/\D/g,''),
+  address_text:String(payload?.address||'').trim().replace(/\s+/g,' ')
+ };
+ const token={epoch,actor};rt.applicationSubmitToken=token;rt.actionPending=true;
+ let response=null,ambiguousError=null;
+ try{
+  // Submission has its own server-side CNPJ ownership authority. A lost ACK
+  // must be recovered via the applicant's authenticated list, never by a
+  // second blind POST that might re-run invites or update a pending record.
+  try{
+   response=await merchantInvoke('submit-merchant-application',payload);
+  }catch(error){
+   if(!same())throw Error('Sua conta mudou durante o cadastro da revenda.');
+   const status=Number(error?.status??0);
+   const code=String(error?.code||'').toUpperCase();
+   const ambiguous=error?.name==='TypeError'||error?.name==='AbortError'||
+     error?.name==='TimeoutError'||status===408||status===429||
+     status>=500||(!status&&!code);
+   if(!ambiguous)throw error;
+   ambiguousError=error;
   }
+  if(!same())throw Error('Sua conta mudou durante o cadastro da revenda.');
+  if(response&&(!response.applicationId||response.status!=='pending'||
+     String(response.cnpj||'').toUpperCase()!==submitted.cnpj||
+     String(response.companyName||'')!==submitted.company_name))
+   throw Error('A resposta do cadastro não corresponde à empresa enviada.');
+  const list=await merchantLoadOwnApplications();
+  if(!same())throw Error('Sua conta mudou durante a conferência do cadastro.');
+  if(!rt.ownApplicationsLoaded||rt.ownApplications!==list||!Array.isArray(list))
+   throw Error('Não foi possível confirmar os cadastros desta conta. Consulte antes de reenviar.');
+  const matching=list.filter(row=>
+   (!response||String(row?.id||'')===String(response.applicationId||''))&&
+   String(row?.cnpj||'').toUpperCase()===submitted.cnpj&&
+   String(row?.company_name||'')===submitted.company_name&&
+   String(row?.responsible_name||'')===submitted.responsible_name&&
+   String(row?.phone||'')===submitted.phone&&
+   String(row?.address_text||'')===submitted.address_text&&
+   row?.status==='pending');
+  if(matching.length!==1)
+   throw Error(ambiguousError
+    ?'A resposta do cadastro foi interrompida e não foi possível comprovar a gravação. Confira a lista antes de reenviar.'
+    :'O cadastro foi recebido, mas os dados salvos não foram confirmados. Confira antes de reenviar.');
+  const saved=matching[0];
+  if(!response)response={
+   applicationId:saved.id,cnpj:saved.cnpj,companyName:saved.company_name,
+   status:saved.status,createdAt:saved.created_at??null,
+   reused:true,reconciledAfterNetworkError:true
+  };
   const pilotInviteToken=String(payload?.pilotInviteToken||'').trim();
-  if(pilotInviteToken&&!result?.pilotPartner&&result?.applicationId){
-    result.pilotPartner=await merchantClaimPilotInviteLive(result.applicationId,pilotInviteToken);
+  if(pilotInviteToken&&!response.pilotPartner&&response.applicationId){
+   if(!same())throw Error('Sua conta mudou antes de vincular o convite.');
+   response.pilotPartner=await merchantClaimPilotInviteLive(response.applicationId,pilotInviteToken);
+   if(!same())throw Error('Sua conta mudou durante o vínculo do convite.');
   }
-  return result;
+  return response;
+ }finally{
+  if(rt.applicationSubmitToken===token&&rt.accessEpoch===epoch&&
+     String(rt.session?.user?.id||'')===actor){
+   rt.applicationSubmitToken=null;rt.actionPending=false;
+  }
+ }
 }
 
 async function merchantHeartbeat(){
