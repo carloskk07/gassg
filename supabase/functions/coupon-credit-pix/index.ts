@@ -19,6 +19,10 @@ const PUBLISHABLE=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}").de
 const SECRET=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}").default
   ??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const MP_TOKEN=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+// Checkout uses a versioned customer acceptance recorded on the invoice.
+// This is not an operator's legal attestation and does not mark a package
+// legally approved merely because a customer checked the box.
+const COUPON_TERMS_VERSION="clube_coupon_terms_v1_813";
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
   "https://tamao-sg-cliente.pages.dev"]);
@@ -276,7 +280,8 @@ Deno.serve(async(req:Request)=>{
         packageKey:p.package_key,title:p.title,
         priceCents:p.sale_price_cents,faceCents:p.coupon_face_cents,
         couponCount:p.coupons_per_pack,validDays:p.valid_days,
-        minOrderCents:p.min_order_cents,eligibleProducts:"all"
+        minOrderCents:p.min_order_cents,eligibleProducts:"all",
+        termsVersion:COUPON_TERMS_VERSION
       }))},200,origin);
   }
   if(operation==="invoice-status"){
@@ -327,10 +332,16 @@ Deno.serve(async(req:Request)=>{
     (pkg.sponsored_by_owner!==true&&
       pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack))
    return respond({error:"COUPON_PACKAGE_NOT_AVAILABLE"},409,origin);
+  // A purchase is a distinct contract, even before the first merchant joins.
+  // The customer must accept the public coupon conditions before ANY invoice
+  // or Mercado Pago order is created; there is no prechecked consent.
+  if(body.termsAccepted!==true||body.termsVersion!==COUPON_TERMS_VERSION)
+    return respond({error:"COUPON_TERMS_ACCEPTANCE_REQUIRED"},400,origin);
   const details={
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
    sale_price_cents:pkg.sale_price_cents,coupon_face_cents:pkg.coupon_face_cents,
-   coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days
+   coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days,
+   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString()
   };
   const {error:insertError}=await admin.from("clube_coupon_paid_invoices").insert(details);
   // A duplicate may be the same request; always re-read and compare snapshots.

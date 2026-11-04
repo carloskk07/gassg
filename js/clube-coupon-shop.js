@@ -18,6 +18,9 @@ function clubeCouponShopPanel(){
      '<p class="tiny muted">Válidos por '+Number(p.validDays)+' dias após a emissão. '+
      'Valem para qualquer produto do catálogo. '+
      (Number(p.minOrderCents)>0?'Pedido mínimo: '+esc(money(p.minOrderCents))+'.':'')+'</p>'+
+     '<label class="check-row"><input type="checkbox" id="clube-coupon-terms-'+key+'">'+
+     '<span>Li e aceito as condições para comprar e usar estes cupons, incluindo validade, valor mínimo, disponibilidade regional e pedidos de cancelamento. '+
+     '<button type="button" class="text-link" onclick="go(\'terms\')">Ler condições completas</button></span></label>'+ 
      '<button type="button" class="primary small" onclick="clubeCouponBuy(\''+
      key+'\')" '+(s.busy?'disabled':'')+'>Comprar com Pix</button></article>';
   }).join('');
@@ -76,7 +79,8 @@ async function clubeCouponShopRefresh(){
       Number.isSafeInteger(p.priceCents)&&p.priceCents>=100&&
       Number.isSafeInteger(p.faceCents)&&p.faceCents>=100&&
       Number.isSafeInteger(p.couponCount)&&p.couponCount>=1&&p.couponCount<=15&&
-      Number.isSafeInteger(p.validDays)&&p.validDays>=1&&p.validDays<=365
+      Number.isSafeInteger(p.validDays)&&p.validDays>=1&&p.validDays<=365&&
+      p.termsVersion==='clube_coupon_terms_v1_813'
     );
     clubeCouponShopState.packages=valid;
     clubeCouponShopState.status='ready';
@@ -96,6 +100,10 @@ async function clubeCouponBuy(packageKey){
   const p=clubeCouponShopState.status==='ready'?
     clubeCouponShopState.packages.find(x=>x.packageKey===packageKey):null;
   if(!p)return toast('Atualize os pacotes antes de comprar.');
+  if(!document.getElementById('clube-coupon-terms-'+packageKey)?.checked)
+    return toast('Leia e aceite as condições do pacote antes de comprar.');
+  if(p.termsVersion!=='clube_coupon_terms_v1_813')
+    return toast('Não foi possível confirmar a versão das condições. Atualize a página.');
   clubeCouponShopState.busy=true;
   if(route()==='club')render();
   try{
@@ -121,7 +129,8 @@ async function clubeCouponBuy(packageKey){
       clubeCouponShopState.attempts[packageKey]=previous?.requestId||crypto.randomUUID();
     const requestId=clubeCouponShopState.attempts[packageKey];
     const result=await liveInvoke('coupon-credit-pix',{
-      action:'purchase',packageKey,requestId
+      action:'purchase',packageKey,requestId,
+      termsAccepted:true,termsVersion:p.termsVersion
     });
     if(result?.ok!==true||!/^[0-9a-f-]{36}$/i.test(String(result.invoiceId||'')))
       throw Error('COUPON_PIX_NOT_CONFIRMED');
