@@ -10,7 +10,10 @@ function tamaoWelcomeRender(){
     node.hidden=!active;
     if(active){
       const count=node.querySelector('[data-welcome-remaining]');
-      if(count)count.textContent=String(Math.min(100,Number(status.remaining)));
+      if(count){
+        const next=String(Math.min(100,Number(status.remaining)));
+        if(count.textContent!==next)count.textContent=next;
+      }
     }
   });
 }
