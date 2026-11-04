@@ -67,8 +67,12 @@ for(const func of ['clube_coupon_paid_payment_verify','clube_coupon_paid_payment
  assert.match(migration,new RegExp('revoke all on function public\\.'+func));
  assert.match(migration,new RegExp('grant execute on function public\\.'+func+'[\\s\\S]*?to service_role'));
 }
-assert.match(coupon,/Deno\.env\.get\("CLUBE_COUPON_PAID_SALES_ENABLED"\)!=="true"/,
- 'hard fail-closed default');
+assert.match(coupon,/async function couponSaleRelease\(admin:any\)/,
+ 'A signed release in the private database must authorize sale.');
+assert.match(coupon,/Deno\.env\.get\("CLUBE_COUPON_SALES_EMERGENCY_STOP"\)==="true"/,
+ 'Explicit private emergency stop remains available.');
+assert.match(coupon,/if\(!release\)return respond\(\{error:"COUPON_SALES_NOT_ENABLED"/,
+ 'Missing owner-approved release must block Pix before any invoice.');
 assert.match(coupon,/Deno\.env\.get\("MERCADOPAGO_ACCESS_TOKEN"\)/,
  'use existing platform account');
 assert.match(billing,/Deno\.env\.get\("MERCADOPAGO_ACCESS_TOKEN"\)/,

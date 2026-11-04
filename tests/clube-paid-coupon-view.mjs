@@ -12,9 +12,9 @@ assert.match(ui.slice(to),/\$\{clubePaidCouponPanel\(\)\}/,'widget is on the Clu
 assert.match(edge,/if\(operation==="my-vouchers"\)/);
 assert.match(edge,/\.eq\("customer_user_id",user.id\)/);
 assert.ok(edge.indexOf('if(operation==="my-vouchers")')<
- edge.indexOf('if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")'),
+ edge.indexOf('if(operation!=="purchase")'),
  'read my own history while sales are disabled');
-assert.match(edge,/couponSalesEnabled:\s*Deno\.env\.get/);
+assert.match(edge,/couponSalesEnabled:\s*Boolean\(await couponSaleRelease\(admin\)\)/);
 assert.match(edge,/couponCheckoutEnabled:\s*Deno\.env\.get/);
 assert.match(edge,/await platformCommerceAllowed\(admin\)/,
   'voucher history must not advertise paid coupon sales during PRELAUNCH');

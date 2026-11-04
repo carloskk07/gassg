@@ -42,7 +42,7 @@ assert.match(api,/data\.vouchersIssued!==0/);
 assert.match(api,/data\.bankDeposit!==false/);
 assert.match(api,/potentialGasPacks:Math\.floor/);
 assert.match(api,/potentialWaterPacks:Math\.floor/);
-assert.match(customer,/CLUBE_COUPON_PAID_SALES_ENABLED/);
+assert.match(customer,/clube_coupon_commercial_release_v1_819/);
 assert.match(customer,/platformCommerceAllowed\(admin\)/);
 assert.match(ui,/adminClubeSponsorTopupFromUi/);
 assert.match(ui,/Confirmar reforço de cupons/);

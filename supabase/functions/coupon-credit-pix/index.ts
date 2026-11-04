@@ -23,6 +23,25 @@ const MP_TOKEN=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
 // This is not an operator's legal attestation and does not mark a package
 // legally approved merely because a customer checked the box.
 const COUPON_TERMS_VERSION="clube_coupon_terms_v1_813";
+// A signed, owner-controlled DB release replaces the absent private
+// environment toggle. An explicit value 'false' remains a hard emergency
+// stop; an environment flag alone can NEVER impersonate seller approval.
+async function couponSaleRelease(admin:any){
+ if(Deno.env.get("CLUBE_COUPON_SALES_EMERGENCY_STOP")==="true")return null;
+ const {data,error}=await admin.from("clube_coupon_commercial_release_v1_819")
+  .select("package_key,enabled,seller_name,seller_tax_document,seller_address,seller_support_email,signed_terms_version,owner_accepts_refund,owner_accepts_merchant_reimbursement,owner_accepts_no_merchant_yet")
+  .eq("package_key","all_products_3x5_sponsor").maybeSingle();
+ if(error)throw error;
+ return data?.enabled===true&&data.signed_terms_version===COUPON_TERMS_VERSION&&
+    data.owner_accepts_refund===true&&data.owner_accepts_merchant_reimbursement===true&&
+    data.owner_accepts_no_merchant_yet===true&&
+    /^\d{11}$|^\d{14}$/.test(String(data.seller_tax_document??""))&&
+    String(data.seller_name??"").trim().length>=5&&
+    String(data.seller_address??"").trim().length>=20&&
+    /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(data.seller_support_email??""))
+  ?data:null;
+}
+
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
   "https://tamao-sg-cliente.pages.dev"]);
@@ -119,7 +138,11 @@ function publicInvoice(row:any){
    // Paid receipt is not proof the vouchers are spendable; show zero until
    // the same funding conditions used by the atomic checkout are satisfied.
    expiresAt:row.expires_at??null,issuedCoupons:covered?row.coupons_per_pack:0,
-   fundingPending:row.status==="paid"&&!covered};
+   fundingPending:row.status==="paid"&&!covered,
+   seller:row.seller_name?{
+     name:row.seller_name,taxDocument:row.seller_tax_document,
+     address:row.seller_address,supportEmail:row.seller_support_email
+   }:null};
 }
 // A replay cannot trust the local invoice alone: payment may have been
 // processed/cancelled at Mercado Pago while the webhook is still delayed.
@@ -227,7 +250,7 @@ Deno.serve(async(req:Request)=>{
     });
     let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents")
+      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError&&String(invoiceError.code)==="42703"){
@@ -264,6 +287,10 @@ Deno.serve(async(req:Request)=>{
         amountCents:row.sale_price_cents,createdAt:row.created_at,
         paidAt:row.paid_at,
         fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
+        seller:row.seller_name?{
+          name:row.seller_name,taxDocument:row.seller_tax_document,
+          address:row.seller_address,supportEmail:row.seller_support_email
+        }:null,
         refundStatus:refundByInvoice.get(String(row.id))?.status??null,
         refundRequestedAt:refundByInvoice.get(String(row.id))?.received_at??null
       })),
@@ -274,8 +301,8 @@ Deno.serve(async(req:Request)=>{
           minOrderCents:paidInvoices.get(String(row.invoice_id))?.min_order_cents??0
         })),
       couponSalesEnabled:
-        Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"&&
-        await platformCouponSalesAllowed(admin),
+        Boolean(await couponSaleRelease(admin))&&mercadoPagoConfigured(MP_TOKEN)&&
+        MP_TOKEN.startsWith("APP_USR-")&&await platformCouponSalesAllowed(admin),
       couponCheckoutEnabled:
         Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true"&&
         await platformCommerceAllowed(admin)
@@ -368,9 +395,10 @@ Deno.serve(async(req:Request)=>{
     },200,origin);
   }
   if(operation==="catalog"){
-    // A sales flag alone never creates an offer without real backing.
-    const enabled=Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"
-      &&await platformCouponSalesAllowed(admin);
+    // Only a signed owner release + actual backing may be shown as an offer.
+    const release=await couponSaleRelease(admin);
+    const enabled=Boolean(release)&&mercadoPagoConfigured(MP_TOKEN)&&
+      MP_TOKEN.startsWith("APP_USR-")&&await platformCouponSalesAllowed(admin);
     if(!enabled)return respond({ok:true,source:"clube_paid_catalog_v1_807",
       packages:[],couponSalesEnabled:false},200,origin);
     const {data:packages,error:catalogError}=await admin
@@ -391,6 +419,7 @@ Deno.serve(async(req:Request)=>{
       +Number(pool?.owner_guaranteed_cents??0)
       -Number(pool?.encumbered_cents??0));
     const safe=(packages??[]).filter((p:any)=>{
+      if(p.package_key!==release?.package_key)return false;
       const face=Number(p.coupon_face_cents)*Number(p.coupons_per_pack);
       return Number.isSafeInteger(face)&&face>0
         &&Number.isSafeInteger(p.sale_price_cents)&&p.sale_price_cents>=100
@@ -398,6 +427,10 @@ Deno.serve(async(req:Request)=>{
     });
     return respond({ok:true,source:"clube_paid_catalog_v1_807",
       couponSalesEnabled:true,
+      seller:safe.length?{
+        name:release.seller_name,taxDocument:release.seller_tax_document,
+        address:release.seller_address,supportEmail:release.seller_support_email
+      }:null,
       packages:safe.map((p:any)=>({
         packageKey:p.package_key,title:p.title,
         priceCents:p.sale_price_cents,faceCents:p.coupon_face_cents,
@@ -436,20 +469,22 @@ Deno.serve(async(req:Request)=>{
     return respond({ok:true,...publicInvoice(invoice)},200,origin);
   }
   if(operation!=="purchase")return respond({error:"COUPON_ACTION_INVALID"},400,origin);
-  // Do not receive money until redemption and merchant compensation have
-  // been validated end-to-end, even if credentials already exist.
-  if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")
-    return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
+  // One valid, owner-signed commercial release is mandatory before Pix.
+  // The explicit environment 'false' remains an emergency override.
+  const release=await couponSaleRelease(admin);
+  if(!release)return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
   // Sales of a digital coupon package may be prepared and authorized in
   // PRELAUNCH, even with zero merchants. Global PAUSED remains a hard stop;
   // the independent private sale flag and each package approval remain required.
   // This does NOT relax redemption or the ordinary physical-order gate.
   if(!await platformCouponSalesAllowed(admin))
     return respond({error:"COUPON_SALES_OPERATION_PAUSED"},423,origin);
-  if(!mercadoPagoConfigured(MP_TOKEN))
-    return respond({error:"MERCADOPAGO_NOT_CONFIGURED"},503,origin);
+  if(!mercadoPagoConfigured(MP_TOKEN)||!MP_TOKEN.startsWith("APP_USR-"))
+    return respond({error:"MERCADOPAGO_LIVE_NOT_CONFIGURED"},503,origin);
   const packageKey=String(body.packageKey||"");
   const requestId=String(body.requestId||"");
+  if(packageKey!==release.package_key)
+    return respond({error:"COUPON_PACKAGE_NOT_RELEASED"},409,origin);
   if(!/^[a-z][a-z0-9_]{2,39}$/.test(packageKey)||!UUID_RE.test(requestId)){
    return respond({error:"COUPON_REQUEST_INVALID"},400,origin);
   }
@@ -475,7 +510,11 @@ Deno.serve(async(req:Request)=>{
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
    sale_price_cents:pkg.sale_price_cents,coupon_face_cents:pkg.coupon_face_cents,
    coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days,
-   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString()
+   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString(),
+   seller_name:release.seller_name,
+   seller_tax_document:release.seller_tax_document,
+   seller_address:release.seller_address,
+   seller_support_email:release.seller_support_email
   };
   const {error:insertError}=await admin.from("clube_coupon_paid_invoices").insert(details);
   // A duplicate may be the same request; always re-read and compare snapshots.

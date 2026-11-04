@@ -6289,6 +6289,10 @@ function adminClubeFinanceView(){
     ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
       '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
        esc(amount(value))+'</strong></div>').join('')+'</div>':''}
+    ${adminCurrentRole()==='superadmin'?(globalThis.adminClubeCommercialPanel?.()||
+    '<div class="card flat form-stack"><h4>Venda comercial de cupons</h4>'+
+    '<p>Ative a oferta de R$ 8,90 com garantia pessoal, identificação do fornecedor e Pix real, sem depender de revenda.</p>'+
+    '<button type="button" class="primary" onclick="import(\'/js/admin-clube-commercial.js\').then(()=>render())">Configurar ativação comercial</button></div>'):''}
     ${adminClubeReleaseReportsView()}
     ${data?'<div class="notice"><strong>Mercado Pago:</strong> esta consulta não confere o extrato de liberação nem comprova repasse bancário. '+
       'Cobrança de cupons: '+(data.salesEnabled===true?'indicada como habilitada na configuração':'não habilitada na configuração')+

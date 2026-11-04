@@ -5431,7 +5431,7 @@ function adminClubeSponsorSection(){
       '>Vincular ao teto de cupons</button></article>').join('')+'</div>':'')+
     '<p class="tiny muted">Garantia pessoal do proprietário: obrigação de cobrir o benefício, '+
     'não depósito bancário e não receita contabilizada. O limite é único, sem duplicar recursos. '+
-    'A venda pública ainda exige revenda apta, contrato e liquidação homologados.</p></section>';
+    'A venda dos cupons exige autorização comercial. O resgate do desconto exige revenda apta e pedido válido.</p></section>';
 }
 
 function adminOwnerFinanceWorkspaceSection(){

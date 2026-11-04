@@ -148,6 +148,8 @@ jobs:
         run: node tests/isolated-support-positive-journey.mjs
       - name: Verify REAL coupon payment, audited net and v8 checkout on disposable full schema
         run: node tests/isolated-supabase-coupon-full-schema.mjs
+      - name: V1.819 owner-signed commercial activation and emergency suspension (rolled back)
+        run: node tests/isolated-supabase-clube-commercial-release-v1-819.mjs
       - name: V1.817 isolated founder guarantee readiness and fail-closed commercial gates
         run: node tests/isolated-supabase-owner-guarantee-v1-817.mjs
       - name: V1.807 disposable PostgreSQL owner-sponsored coupon race, Pix net and v8 redemption

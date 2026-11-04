@@ -1,7 +1,7 @@
 // The signed-in buyer sees only packages explicitly released by the server.
 // A failed commercial preflight never manufactures a public offer.
 const clubeCouponShopState={
-  userId:null,status:'idle',packages:[],error:null,busy:false,
+  userId:null,status:'idle',packages:[],seller:null,error:null,busy:false,
   attempts:{},purchase:null,autoQueuedFor:null
 };
 function clubeCouponShopPanel(){
@@ -26,11 +26,17 @@ function clubeCouponShopPanel(){
      'Valem para qualquer produto do catálogo. '+
      (Number(p.minOrderCents)>0?'Pedido mínimo: '+esc(money(p.minOrderCents))+'.':'')+'</p>'+
      '<label class="check-row"><input type="checkbox" id="clube-coupon-terms-'+key+'">'+
-     '<span>Li e aceito as condições para comprar e usar estes cupons, incluindo validade, valor mínimo, disponibilidade regional e pedidos de cancelamento.</span></label>'+ 
+     '<span>Li e aceito as condições, inclusive que pode não haver revendas na minha região, que a validade começa na emissão e que posso solicitar reembolso de um pacote não utilizado.</span></label>'+ 
      '<button type="button" class="text-link" onclick="go(\'terms\')">Ler condições completas</button>'+ 
      '<button type="button" class="primary small" onclick="clubeCouponBuy(\''+
      key+'\')" '+(s.busy?'disabled':'')+'>Comprar com Pix</button></article>';
   }).join('');
+  const seller=s?.seller;
+  const sellerInfo=seller?'<aside class="card flat form-stack" aria-label="Fornecedor dos cupons">'+
+    '<strong>Quem vende os cupons</strong>'+
+    '<p>'+esc(String(seller.name||''))+' · Documento: '+esc(String(seller.taxDocument||''))+'</p>'+
+    '<p>Endereço: '+esc(String(seller.address||''))+'</p>'+
+    '<p>Atendimento e cancelamentos: '+esc(String(seller.supportEmail||''))+'</p></aside>':'';
   const purchase=s?.purchase;
   const pix=String(purchase?.pixCode||'');
   const validCode=pix.length>=30&&pix.length<=3000;
@@ -69,14 +75,14 @@ function clubeCouponShopPanel(){
    '<button type="button" class="secondary small" onclick="clubeCouponShopRefresh()" '+
    (s?.busy?'disabled':'')+'>Consultar pacotes</button></div>'+
    (offers?'<div class="grid cards-2">'+offers+'</div>':'')+
-   loading+error+empty+payment+'</section>';
+   loading+error+sellerInfo+empty+payment+'</section>';
 }
 async function clubeCouponShopRefresh(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return;
   if(clubeCouponShopState.busy)return;
   if(clubeCouponShopState.userId!==uid)Object.assign(clubeCouponShopState,{
-    userId:uid,status:'idle',packages:[],attempts:{},purchase:null
+    userId:uid,status:'idle',packages:[],seller:null,attempts:{},purchase:null
   });
   clubeCouponShopState.busy=true;
   try{
@@ -93,6 +99,14 @@ async function clubeCouponShopRefresh(){
       p.termsVersion==='clube_coupon_terms_v1_813'
     );
     clubeCouponShopState.packages=valid;
+    clubeCouponShopState.seller=valid.length&&
+      result.seller&&typeof result.seller.name==='string'&&
+      typeof result.seller.taxDocument==='string'&&
+      typeof result.seller.address==='string'&&
+      typeof result.seller.supportEmail==='string'
+      ?result.seller:null;
+    if(valid.length&&!clubeCouponShopState.seller)
+      throw Error('COUPON_SELLER_NOT_DISCLOSED');
     clubeCouponShopState.status='ready';
   }catch(err){
     if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
@@ -198,8 +212,11 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
   const request=String(inv.refundStatus||'');
   const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
+  const seller=inv.seller;
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
    '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   (seller?'<p class="tiny muted">Vendedor: '+esc(String(seller.name||''))+
+      ' · '+esc(String(seller.taxDocument||''))+'</p>':'')+
    (request==='refunded'&&inv.status==='refunded'?
      '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
     request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
