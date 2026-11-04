@@ -61,12 +61,16 @@ for(const mode of ['PAUSED','UNKNOWN']){
 assert.equal(await platformCouponSalesAllowed(saleClient(null)),false);
 assert.equal(await platformCouponSalesAllowed(saleClient(null,{code:'PGRST116'})),false);
 assert.equal(await platformCouponSalesAllowed({from(){throw Error('offline')}}),false);
-const sales=coupon.indexOf('if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")');
+const sales=coupon.indexOf('const release=await couponSaleRelease(admin);',coupon.indexOf('if(operation!=="purchase")'));
 const emergency=coupon.indexOf('if(!await platformCouponSalesAllowed(admin))',sales);
 const invoice=coupon.indexOf('.from("clube_coupon_paid_invoices").insert(details)');
 assert.ok(sales>=0&&emergency>sales&&invoice>emergency,
- 'PAUSED and private sales switch must block Pix before money is requested');
+ 'PAUSED and signed owner release must block Pix before money is requested');
 assert.match(coupon,/error:"COUPON_SALES_OPERATION_PAUSED"},423/);
+assert.match(coupon,/if\(!release\)return respond\(\{error:"COUPON_SALES_NOT_ENABLED"/);
+assert.match(coupon,/if\(Deno\.env\.get\("CLUBE_COUPON_PAID_SALES_ENABLED"\)==="false"\)return null/);
+assert.ok(coupon.indexOf("couponSaleRelease(admin)")>=0,
+ 'Only an owner-signed, independently stored release can open coupon payments');
 const historical=coupon.slice(coupon.indexOf('if(operation==="my-vouchers")'),sales);
 assert.ok(historical.includes('couponSalesEnabled:')&&
  historical.includes('await platformCouponSalesAllowed(admin)'),
