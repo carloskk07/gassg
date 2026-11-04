@@ -173,6 +173,18 @@ async function clubePaidCouponsRefresh(){
 }
 
 function club(){
+  // Download the Pix shop only for an authenticated Clube visit.
+  if(typeof document!=='undefined'&&globalThis.liveReady?.()===true&&
+     typeof clubeCouponShopPanel!=='function'&&!globalThis.__clubeShopRequested){
+    globalThis.__clubeShopRequested=true;
+    queueMicrotask(()=>{
+      const s=document.createElement('script');
+      s.src='./js/clube-coupon-shop.js';
+      s.onload=()=>render();
+      s.onerror=()=>toast('Não foi possível abrir os pacotes. Atualize a página.');
+      document.head.appendChild(s);
+    });
+  }
   const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id));
   if(!member)return shell(`<section class="page tamao-club-visitor">
     <div class="tamao-club-visitor-hero">
