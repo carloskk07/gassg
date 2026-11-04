@@ -24,7 +24,7 @@ assert.match(sql,/REVOKE ALL ON FUNCTION public\.admin_clube_coupon_general_mini
 assert.doesNotMatch(sql,/UPDATE public\.platform_launch_control|INSERT INTO public\.clube_coupon_paid_issuances|INSERT INTO public\.wallet_entries/i);
 assert.match(edge,/minOrderCents:p\.min_order_cents,eligibleProducts:"all"/);
 assert.match(edge,/minOrderCents:paidInvoices\.get/);
-assert.match(growth,/quoteTotalCents<Number\(voucher\.minOrderCents\?\?0\)/);
+assert.match(growth,/quoteTotalCents<Math\.max\(balanceCents\+voucher\.faceCents,min\)/);
 assert.match(shop,/qualquer produto do catálogo/);
 assert.match(admin,/if\(action==="clube-general-minimum-set"\)/);
 assert.match(admin,/generalCouponMinOrderCents/);
