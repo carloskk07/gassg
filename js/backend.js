@@ -2319,7 +2319,8 @@ function merchantMutationScopeKey(){
 }
 async function merchantLoadMutations(){
  if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
-    globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl)return;
+    globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl&&
+    globalThis.merchantConfigSettingsMutateImpl)return;
  if(merchantMutationLoader)return merchantMutationLoader;
  merchantMutationLoader=new Promise((resolve,reject)=>{
   const script=document.createElement('script');
@@ -2330,7 +2331,8 @@ async function merchantLoadMutations(){
    (/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
   script.onload=()=>{
    if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
-      globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl)resolve();
+      globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl&&
+    globalThis.merchantConfigSettingsMutateImpl)resolve();
    else{merchantMutationLoader=null;reject(Error('Operações da revenda indisponíveis.'));}
   };
   script.onerror=()=>{
@@ -2649,59 +2651,48 @@ async function merchantConfigMutation(action,payload={}){
 }
 
 async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,acceptsCitywide){
-  merchantRuntime.actionPending=true;render();
-  try{
-    await merchantConfigMutation('update-logistics',{
-      deliveryFeeCents:Number(deliveryFeeCents),
-      baseEtaMinutes:Number(baseEtaMinutes),
-      acceptsCitywide:acceptsCitywide===true
-    });
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de salvar a entrega.');
+ return globalThis.merchantConfigSettingsMutateImpl('update-logistics',{
+  deliveryFeeCents:Number(deliveryFeeCents),
+  baseEtaMinutes:Number(baseEtaMinutes),
+  acceptsCitywide:acceptsCitywide===true
+ });
 }
 
 async function merchantUpdateCapacityLive(maxActiveOrders){
-  const capacity=Number(maxActiveOrders);
-  if(!Number.isInteger(capacity)||capacity<1||capacity>100)throw new Error('Capacidade precisa ficar entre 1 e 100 pedidos');
-  merchantRuntime.actionPending=true;render();
-  try{
-    await merchantConfigMutation('update-capacity',{maxActiveOrders:capacity});
-    await merchantRefresh({silent:true});
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
+ const capacity=Number(maxActiveOrders);
+ if(!Number.isInteger(capacity)||capacity<1||capacity>100)
+  throw Error('Capacidade precisa ficar entre 1 e 100 pedidos.');
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de salvar a capacidade.');
+ return globalThis.merchantConfigSettingsMutateImpl('update-capacity',{
+  maxActiveOrders:capacity
+ });
 }
 
 async function merchantUpdateSchedulingLive(acceptsScheduledOrders){
-  merchantRuntime.actionPending=true;render();
-  try{
-    await merchantConfigMutation('update-scheduling',{
-      acceptsScheduledOrders:acceptsScheduledOrders===true
-    });
-    await merchantRefresh({silent:true});
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de salvar o agendamento.');
+ return globalThis.merchantConfigSettingsMutateImpl('update-scheduling',{
+  acceptsScheduledOrders:acceptsScheduledOrders===true
+ });
 }
 
 async function merchantUpdatePaymentMethodsLive(methods){
-  const payload={
-    pix:methods?.pix===true,
-    card:methods?.card===true,
-    cash:methods?.cash===true
-  };
-  if(!Object.values(payload).some(Boolean))throw new Error('Ative pelo menos uma forma de pagamento');
-  merchantRuntime.actionPending=true;render();
-  try{
-    await merchantConfigMutation('update-payment-methods',payload);
-    await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
-  }finally{
-    merchantRuntime.actionPending=false;render();
-  }
+ const payload={pix:methods?.pix===true,card:methods?.card===true,cash:methods?.cash===true};
+ if(!Object.values(payload).some(Boolean))throw Error('Ative pelo menos uma forma de pagamento.');
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de salvar pagamentos.');
+ return globalThis.merchantConfigSettingsMutateImpl('update-payment-methods',payload);
 }
 
 function merchantPilotInviteErrorMessage(error){

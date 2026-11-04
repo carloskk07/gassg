@@ -291,3 +291,127 @@ async function merchantPaymentRoutesMutateImpl(routes,reason='Atualização das 
 }
 globalThis.merchantOnlineMutateImpl=merchantOnlineMutateImpl;
 globalThis.merchantPaymentRoutesMutateImpl=merchantPaymentRoutesMutateImpl;
+
+
+// Four owner/manager operational settings share the same optimistic-version
+// authority, but the caller must see the exact committed values afterwards.
+function merchantConfigSettingsProof(action,payload,ack,actual){
+ if(!ack||ack.ok!==true||ack.action!==action||!actual||
+    !Number.isFinite(Date.parse(String(ack.configUpdatedAt||'')))||
+    Date.parse(String(actual.configUpdatedAt||''))!==Date.parse(ack.configUpdatedAt))
+   return false;
+ if(action==='update-logistics'){
+  const desiredFee=payload.deliveryFeeCents,desiredEta=payload.baseEtaMinutes;
+  const desiredArea=payload.acceptsCitywide;
+  const ackClock=Date.parse(String(ack.deliveryFeeConfirmedAt||''));
+  return Number.isInteger(desiredFee)&&Number.isInteger(desiredEta)&&
+   Number(ack.deliveryFeeCents)===desiredFee&&Number(actual.deliveryFeeCents)===desiredFee&&
+   Number(ack.baseEtaMinutes)===desiredEta&&Number(actual.baseEtaMinutes)===desiredEta&&
+   ack.acceptsCitywide===desiredArea&&actual.acceptsCitywide===desiredArea&&
+   Number.isFinite(ackClock)&&
+   Date.parse(String(actual.deliveryFeeConfirmedAt||''))===ackClock&&
+   (!desiredArea?(ack.online===false&&actual.online===false):true);
+ }
+ if(action==='update-capacity')
+  return Number(ack.maxActiveOrders)===payload.maxActiveOrders&&
+   Number(actual.maxActiveOrders)===payload.maxActiveOrders;
+ if(action==='update-scheduling')
+  return ack.acceptsScheduledOrders===payload.acceptsScheduledOrders&&
+   actual.acceptsScheduledOrders===payload.acceptsScheduledOrders;
+ if(action==='update-payment-methods')
+  return ['pix','card','cash'].every(method=>
+   ack.paymentMethods?.[method]===payload[method]&&
+   actual.paymentMethods?.[method]===payload[method]);
+ return false;
+}
+async function merchantConfigSettingsMutateImpl(action,requested){
+ if(!['update-logistics','update-capacity','update-scheduling','update-payment-methods'].includes(action))
+  throw Error('Ação de configuração inválida.');
+ const scope=merchantEditableMutationScope();
+ const same=()=>merchantEditableMutationSame(scope);
+ const rt=merchantRuntime;
+ if(rt.actionPending)throw Error('Aguarde a operação da revenda terminar.');
+ const payload={...requested};
+ if(action==='update-logistics'&&
+    (!Number.isInteger(payload.deliveryFeeCents)||payload.deliveryFeeCents<0||payload.deliveryFeeCents>100000||
+     !Number.isInteger(payload.baseEtaMinutes)||payload.baseEtaMinutes<5||payload.baseEtaMinutes>180||
+     typeof payload.acceptsCitywide!=='boolean'))
+  throw Error('Informe taxa, prazo e área de entrega válidos.');
+ if(action==='update-capacity'&&
+    (!Number.isInteger(payload.maxActiveOrders)||payload.maxActiveOrders<1||payload.maxActiveOrders>100))
+  throw Error('Capacidade precisa ficar entre 1 e 100 pedidos.');
+ if(action==='update-scheduling'&&typeof payload.acceptsScheduledOrders!=='boolean')
+  throw Error('Informe se a revenda aceita agendamentos.');
+ if(action==='update-payment-methods'&&
+    (!['pix','card','cash'].every(m=>typeof payload[m]==='boolean')||
+     !['pix','card','cash'].some(m=>payload[m])))
+  throw Error('Ative pelo menos uma forma de pagamento válida.');
+ const token={scope};rt.configSettingsActionToken=token;
+ rt.actionPending=true;rt.error=null;render();
+ try{
+  let expectedUpdatedAt=String(rt.merchant?.configUpdatedAt||'').trim();
+  if(!expectedUpdatedAt||!Number.isFinite(Date.parse(expectedUpdatedAt))){
+   const fresh=await merchantRefresh({silent:true});
+   if(!same()||!fresh||rt.merchant!==fresh.merchant||
+      fresh.merchant?.merchantId!==scope.merchantId)
+    throw Error('O acesso mudou antes de atualizar a configuração.');
+   expectedUpdatedAt=String(rt.merchant?.configUpdatedAt||'').trim();
+  }
+  if(!expectedUpdatedAt||!Number.isFinite(Date.parse(expectedUpdatedAt)))
+   throw Object.assign(Error('Atualize o painel antes de salvar a configuração.'),{code:'CONFIG_VERSION_REQUIRED'});
+  const idempotencyKey=liveIdempotency('merchant-config');
+  let reply;
+  try{
+   reply=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+    merchantId:scope.merchantId,action,expectedUpdatedAt,...payload
+   },{idempotencyKey}));
+  }catch(error){
+   if(!same())throw Error('A conta ou a revenda mudou durante a configuração.');
+   if(['CONFIG_VERSION_CONFLICT','CONFIG_VERSION_REQUIRED'].includes(String(error?.code||''))){
+    try{await merchantRefresh({silent:true})}catch(_){}
+   }
+   throw error;
+  }
+  if(!same())throw Error('A conta ou a revenda mudou durante a configuração.');
+  if(!merchantConfigSettingsProof(action,payload,reply,{
+    ...rt.merchant,configUpdatedAt:reply?.configUpdatedAt,
+    ...(action==='update-logistics'?{
+      deliveryFeeCents:reply?.deliveryFeeCents,
+      baseEtaMinutes:reply?.baseEtaMinutes,
+      acceptsCitywide:reply?.acceptsCitywide,
+      deliveryFeeConfirmedAt:reply?.deliveryFeeConfirmedAt,
+      online:reply?.online
+    }:action==='update-capacity'?{maxActiveOrders:reply?.maxActiveOrders}:
+      action==='update-scheduling'?{acceptsScheduledOrders:reply?.acceptsScheduledOrders}:
+        {paymentMethods:reply?.paymentMethods})
+   }))
+   throw Error('O servidor não confirmou os valores solicitados para esta configuração.');
+  const started=Date.now();
+  const fresh=await merchantRefresh({silent:true});
+  if(!same())throw Error('A conta ou a revenda mudou durante a conferência da configuração.');
+  if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
+     rt.merchant!==fresh.merchant||
+     !Number.isFinite(Date.parse(String(rt.lastSyncAt||'')))||
+     Date.parse(rt.lastSyncAt)<started||
+     !merchantConfigSettingsProof(action,payload,reply,fresh.merchant))
+   throw Error('A configuração não foi comprovada em uma consulta atualizada. Confira o painel antes de repetir.');
+  if(['update-logistics','update-payment-methods'].includes(action))
+   merchantEnablementAfterChange();
+  return reply;
+ }catch(error){
+  if(same())rt.error=String(error?.message||error);
+  throw error;
+ }finally{
+  // Losing the ready state during a network error is not a reason to leave
+  // the SAME authenticated operator permanently locked out. A new actor has
+  // a different epoch/user/selection and can never have their lock cleared.
+  if(rt.configSettingsActionToken===token&&
+     rt.accessEpoch===scope.epoch&&
+     String(rt.session?.user?.id||'')===scope.actor&&
+     String(rt.selectedMerchantId||'')===scope.merchantId){
+   rt.configSettingsActionToken=null;
+   rt.actionPending=false;render();
+  }
+ }
+}
+globalThis.merchantConfigSettingsMutateImpl=merchantConfigSettingsMutateImpl;

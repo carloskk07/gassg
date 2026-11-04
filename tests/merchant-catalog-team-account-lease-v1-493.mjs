@@ -259,6 +259,7 @@ function setup({postGate=null,refreshGate=null,teamGate=null,ack=null,
  ctx.merchantTeamMutateImpl=async()=>{called.push('team');return {ok:true}};
  ctx.merchantOnlineMutateImpl=async()=>({ok:true,online:true});
  ctx.merchantPaymentRoutesMutateImpl=async()=>({ok:true});
+ ctx.merchantConfigSettingsMutateImpl=async()=>({ok:true});
  rt.session={user:{id:'actor-B'}};rt.accessEpoch++;
  scripts[0].onload();
  await assert.rejects(first,/conta ou a revenda mudou/);
