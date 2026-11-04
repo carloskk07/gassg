@@ -341,3 +341,19 @@ export async function platformCommerceAllowed(serviceClient){
       ["PILOT","LIVE"].includes(data.operation_mode);
   }catch{return false;}
 }
+
+
+// Coupon package sales are a SEPARATE paid digital product. The customer's
+// purchase of the package must not depend on a merchant having registered or
+// on the city's physical-order switch. This checks only the platform emergency
+// PAUSED state. The caller must ALSO require its private paid-sales switch,
+// an audited enabled package, terms and fully reserved sponsor funding.
+// Actual coupon redemption in a physical order still requires
+// platformCommerceAllowed and the live quote/merchant validation.
+export async function platformCouponSalesAllowed(serviceClient){
+  try{
+    const {data,error}=await serviceClient.from("platform_launch_control")
+      .select("operation_mode").eq("singleton",true).maybeSingle();
+    return !error&&["PRELAUNCH","PILOT","LIVE"].includes(data?.operation_mode);
+  }catch{return false;}
+}
