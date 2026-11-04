@@ -574,9 +574,9 @@ async function merchantMemberProfileMutateImpl(displayName){
    });
   }catch(error){
    const status=Number(error?.status||0);
-   if(status>=400&&status<500&&!([408,429].includes(status)))
+   if(status>=400&&status<500&&status!==408)
     throw error;
-   if(status===0||status>=500||status===408||status===429||
+   if(status>=500||status===408||
       ['TypeError','TimeoutError','AbortError'].includes(String(error?.name||''))||
       error?.code==='NETWORK_TIMEOUT')ambiguous=error;
    else throw error;
