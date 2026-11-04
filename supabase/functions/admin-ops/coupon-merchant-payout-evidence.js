@@ -25,7 +25,8 @@ function cents(value){
  return Number.isSafeInteger(amount)&&amount>0?amount:null;
 }
 export function couponMerchantPayoutEvidence({
- payoutId,transactionId,transaction,reimbursement,application,order,invoice,voucher
+ payoutId,transactionId,transaction,reimbursement,application,order,invoice,voucher,
+ sponsorVerified=false
 }){
  const expectedId=String(transactionId??"");
  const expectedOrder=String(order?.id??"");
@@ -45,9 +46,11 @@ export function couponMerchantPayoutEvidence({
  const face=Number(application?.face_cents);
  const net=Number(invoice?.net_proceeds_cents);
  const obligation=Number(invoice?.coupon_face_cents)*Number(invoice?.coupons_per_pack);
+ const sponsored=sponsorVerified===true&&
+   Number(invoice?.sponsor_covered_cents)===obligation;
  const fundsValid=Number.isSafeInteger(net)&&net>0&&
    Number.isSafeInteger(obligation)&&obligation>0&&
-   net>=obligation&&net<=Number(invoice?.sale_price_cents);
+   (net>=obligation||sponsored)&&net<=Number(invoice?.sale_price_cents);
  // An already reversed or internally marked paid liability is not an
  // outstanding merchant obligation. A PSP's accredited flag may be valid for
  // a transaction but must not be represented as eligible matching evidence
