@@ -230,6 +230,6 @@ assert.match(server,/\["config","subscribe","unsubscribe"\]/);
 assert.match(backend,/merchantPushRuntime.toggleToken=null/);
 assert.match(backend,/const permission=await Notification.requestPermission\(\)/);
 assert.match(backend,/reply\?\.ok!==true\|\|reply.active!==true/);
-assert.match(backend,/reply\?\.ok!==true\|\|reply.active!==false/);
+assert.match(backend,/const remote=reply\?\.ok===true&&reply.active===false/);
 assert.match(ci,/node tests\/merchant-push-session-lifecycle-v1-493\.mjs/);
 console.log('PASS: full merchant push lifecycle with session-bound permission, subscribe ACK, revoke ACK, stale responses and browser device proof');
