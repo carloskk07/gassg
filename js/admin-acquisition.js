@@ -1268,91 +1268,6 @@ function adminOwnerEvidenceSection(){
     '</section>';
 }
 
-// V1.807 — one-time, bank-evidence-backed R$100 of coupon subsidy.
-let adminClubeSponsorState=null;
-let adminClubeSponsorBusy=false;
-async function adminClubeSponsorLoadFromUi(){
-  const actor=String(adminRuntime?.session?.user?.id||'');
-  if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole()))||
-     adminClubeSponsorBusy)return;
-  adminClubeSponsorBusy=true;
-  try{
-    const d=await adminInvoke({action:'clube-sponsor-status'});
-    if(d?.ok!==true||d?.source!=='clube_coupon_owner_sponsor_v1_807'||
-       d.authorizedCents!==10000||d.readOnly!==true||d.noCharge!==true||
-       !Number.isSafeInteger(d.reconciledCents)||
-       !Number.isSafeInteger(d.encumberedCents)||
-       d.remainingCents!==d.reconciledCents-d.encumberedCents||
-       d.reconciledCents>10000||d.reconciledCents<0||
-       d.encumberedCents<0||d.encumberedCents>d.reconciledCents)
-      throw new Error('Reserva de cupons não validada.');
-    if(actor===String(adminRuntime?.session?.user?.id||''))
-      adminClubeSponsorState={...d,loadedFor:actor};
-  }catch(err){
-    if(actor===String(adminRuntime?.session?.user?.id||'')){
-      adminClubeSponsorState=null;
-      toast(String(err?.message||'Não foi possível consultar o patrocínio.'));
-    }
-  }finally{adminClubeSponsorBusy=false;render();}
-}
-async function adminClubeSponsorReconcileFromUi(contributionId){
-  const actor=String(adminRuntime?.session?.user?.id||'');
-  const d=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
-  const rec=d?.rows?.find(r=>r.contributionId===contributionId);
-  if(!actor||String(adminCurrentRole())!=='superadmin'||adminClubeSponsorBusy||
-     !rec||rec.benefitKey!=='clube_coupons'||
-     rec.status!=='manual_reconciled'||!Number.isSafeInteger(rec.amountCents)||
-     rec.amountCents<100||rec.amountCents>10000)
-    return toast('Primeiro confira um aporte real de cupons no extrato.');
-  adminClubeSponsorBusy=true;
-  try{
-    const result=await adminInvoke({action:'clube-sponsor-reconcile',
-      contributionId,requestId:crypto.randomUUID()});
-    if(result?.ok!==true||result.source!=='clube_coupon_owner_sponsor_reconcile_v1_807'||
-       result.creditedCents!==rec.amountCents||
-       typeof result.replayed!=='boolean'||result.noCharge!==true)
-       throw new Error('O aporte não foi incorporado ao orçamento.');
-    if(actor===String(adminRuntime?.session?.user?.id||'')){
-      toast(result.replayed?'O aporte já estava registrado.':
-        'Aporte do extrato incorporado ao teto dos cupons.');
-      await adminClubeSponsorLoadFromUi();
-    }
-  }catch(err){
-    if(actor===String(adminRuntime?.session?.user?.id||''))
-      toast(String(err?.message||'Não foi possível conciliar o patrocínio.'));
-  }finally{adminClubeSponsorBusy=false;render();}
-}
-function adminClubeSponsorSection(){
-  const role=String(adminCurrentRole());
-  if(!['superadmin','finance'].includes(role))return '';
-  const actor=String(adminRuntime?.session?.user?.id||'');
-  const pool=adminClubeSponsorState?.loadedFor===actor?adminClubeSponsorState:null;
-  const evidence=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
-  const rows=role==='superadmin'?(evidence?.rows||[]).filter(x=>
-    x.benefitKey==='clube_coupons'&&x.status==='manual_reconciled'&&
-    Number.isSafeInteger(x.amountCents)&&x.amountCents>0&&x.amountCents<=10000):[];
-  return '<section class="section"><div class="section-head"><div>'+
-    '<h3>Patrocínio único de cupons — R$ 100</h3>'+
-    '<p>Recursos próprios com teto global, sem misturar com as comissões.</p></div>'+
-    '<button class="secondary small" type="button" onclick="adminClubeSponsorLoadFromUi()" '+
-    (adminClubeSponsorBusy?'disabled':'')+'>Consultar patrocínio</button></div>'+
-    (pool?'<div class="merchant-kpis">'+
-      '<div class="kpi"><span class="label">Autorizado</span><strong>'+adminMoney(pool.authorizedCents)+'</strong></div>'+
-      '<div class="kpi"><span class="label">Conferido no extrato</span><strong>'+adminMoney(pool.reconciledCents)+'</strong></div>'+
-      '<div class="kpi"><span class="label">Comprometido com cupons</span><strong>'+adminMoney(pool.encumberedCents)+'</strong></div>'+
-      '<div class="kpi"><span class="label">Ainda não comprometido</span><strong>'+adminMoney(pool.remainingCents)+'</strong></div>'+
-      '</div>':'<p class="muted">Consulte o saldo antes de realizar qualquer nova campanha.</p>')+
-    (rows.length?'<div class="grid cards-2">'+rows.map(r=>
-      '<article class="card flat"><strong>Aporte conferido: '+adminMoney(r.amountCents)+'</strong>'+
-      '<p class="tiny muted">Identificador: '+esc(String(r.contributionId))+'</p>'+
-      '<button class="secondary small" type="button" onclick="adminClubeSponsorReconcileFromUi(\''+
-        esc(String(r.contributionId))+'\')" '+(adminClubeSponsorBusy?'disabled':'')+
-      '>Vincular ao teto de cupons</button></article>').join('')+'</div>':'')+
-    '<p class="tiny muted">Só é possível vincular aportes previamente conferidos no extrato. '+
-    'O orçamento planejado não é saldo bancário; vendas exigem liberação comercial, '+
-    'comprovação financeira e aceite da revenda.</p></section>';
-}
-
 // V1.247 — serialised allocation of the founder's planned budget.
 // No allocation is bank cash, payout, invoice or coupon entitlement.
 let adminOwnerBudgetState=null;
@@ -5312,6 +5227,91 @@ function adminOwnerBatchLedgerSection(){
       '<p class="tiny muted">Consulte a competência selecionada para exibir os valores comprovados pelo banco de dados.</p>')+
     '<p class="tiny muted">Este resultado considera apenas extratos com dois ou mais pedidos, sem sobreposição com a conciliação individual da V1.253. Pendências, estornos ou divergências de qualquer linha impedem atribuir o extrato. Nenhuma consulta confere saldo bancário, cria créditos ou calcula ROI.</p>'+
     '</div>';
+}
+
+// V1.807 — one-time, bank-evidence-backed R$100 of coupon subsidy.
+let adminClubeSponsorState=null;
+let adminClubeSponsorBusy=false;
+async function adminClubeSponsorLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole()))||
+     adminClubeSponsorBusy)return;
+  adminClubeSponsorBusy=true;
+  try{
+    const d=await adminInvoke({action:'clube-sponsor-status'});
+    if(d?.ok!==true||d?.source!=='clube_coupon_owner_sponsor_v1_807'||
+       d.authorizedCents!==10000||d.readOnly!==true||d.noCharge!==true||
+       !Number.isSafeInteger(d.reconciledCents)||
+       !Number.isSafeInteger(d.encumberedCents)||
+       d.remainingCents!==d.reconciledCents-d.encumberedCents||
+       d.reconciledCents>10000||d.reconciledCents<0||
+       d.encumberedCents<0||d.encumberedCents>d.reconciledCents)
+      throw new Error('Reserva de cupons não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      adminClubeSponsorState={...d,loadedFor:actor};
+  }catch(err){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminClubeSponsorState=null;
+      toast(String(err?.message||'Não foi possível consultar o patrocínio.'));
+    }
+  }finally{adminClubeSponsorBusy=false;render();}
+}
+async function adminClubeSponsorReconcileFromUi(contributionId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
+  const rec=d?.rows?.find(r=>r.contributionId===contributionId);
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminClubeSponsorBusy||
+     !rec||rec.benefitKey!=='clube_coupons'||
+     rec.status!=='manual_reconciled'||!Number.isSafeInteger(rec.amountCents)||
+     rec.amountCents<100||rec.amountCents>10000)
+    return toast('Primeiro confira um aporte real de cupons no extrato.');
+  adminClubeSponsorBusy=true;
+  try{
+    const result=await adminInvoke({action:'clube-sponsor-reconcile',
+      contributionId,requestId:crypto.randomUUID()});
+    if(result?.ok!==true||result.source!=='clube_coupon_owner_sponsor_reconcile_v1_807'||
+       result.creditedCents!==rec.amountCents||
+       typeof result.replayed!=='boolean'||result.noCharge!==true)
+       throw new Error('O aporte não foi incorporado ao orçamento.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(result.replayed?'O aporte já estava registrado.':
+        'Aporte do extrato incorporado ao teto dos cupons.');
+      await adminClubeSponsorLoadFromUi();
+    }
+  }catch(err){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(err?.message||'Não foi possível conciliar o patrocínio.'));
+  }finally{adminClubeSponsorBusy=false;render();}
+}
+function adminClubeSponsorSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const pool=adminClubeSponsorState?.loadedFor===actor?adminClubeSponsorState:null;
+  const evidence=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
+  const rows=role==='superadmin'?(evidence?.rows||[]).filter(x=>
+    x.benefitKey==='clube_coupons'&&x.status==='manual_reconciled'&&
+    Number.isSafeInteger(x.amountCents)&&x.amountCents>0&&x.amountCents<=10000):[];
+  return '<section class="section"><div class="section-head"><div>'+
+    '<h3>Patrocínio único de cupons — R$ 100</h3>'+
+    '<p>Recursos próprios com teto global, sem misturar com as comissões.</p></div>'+
+    '<button class="secondary small" type="button" onclick="adminClubeSponsorLoadFromUi()" '+
+    (adminClubeSponsorBusy?'disabled':'')+'>Consultar patrocínio</button></div>'+
+    (pool?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Autorizado</span><strong>'+adminMoney(pool.authorizedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Conferido no extrato</span><strong>'+adminMoney(pool.reconciledCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Comprometido com cupons</span><strong>'+adminMoney(pool.encumberedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Ainda não comprometido</span><strong>'+adminMoney(pool.remainingCents)+'</strong></div>'+
+      '</div>':'<p class="muted">Consulte o saldo antes de realizar qualquer nova campanha.</p>')+
+    (rows.length?'<div class="grid cards-2">'+rows.map(r=>
+      '<article class="card flat"><strong>Aporte conferido: '+adminMoney(r.amountCents)+'</strong>'+
+      '<p class="tiny muted">Identificador: '+esc(String(r.contributionId))+'</p>'+
+      '<button class="secondary small" type="button" onclick="adminClubeSponsorReconcileFromUi(\''+
+        esc(String(r.contributionId))+'\')" '+(adminClubeSponsorBusy?'disabled':'')+
+      '>Vincular ao teto de cupons</button></article>').join('')+'</div>':'')+
+    '<p class="tiny muted">Só é possível vincular aportes previamente conferidos no extrato. '+
+    'O orçamento planejado não é saldo bancário; vendas exigem liberação comercial, '+
+    'comprovação financeira e aceite da revenda.</p></section>';
 }
 
 function adminOwnerFinanceWorkspaceSection(){
