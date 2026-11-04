@@ -31,8 +31,6 @@ function publicLandingJump(sectionId){
 }
 
 // Paid coupons share the customer's authenticated Supabase session.
-// The history is read-only; a purchase/resgate button is intentionally absent
-// until funded voucher settlement is authorized in the back end.
 const clubePaidCouponView={
   userId:null,status:'idle',purchases:[],vouchers:[],error:null,
   checkoutEnabled:false
@@ -173,19 +171,11 @@ async function clubePaidCouponsRefresh(){
 }
 
 function club(){
-  // Download the Pix shop only for an authenticated Clube visit.
-  if(typeof document!=='undefined'&&globalThis.liveReady?.()===true&&
-     typeof clubeCouponShopPanel!=='function'&&!globalThis.__clubeShopRequested){
-    globalThis.__clubeShopRequested=true;
-    queueMicrotask(()=>{
-      const s=document.createElement('script');
-      s.src='./js/clube-coupon-shop.js';
-      s.onload=()=>render();
-      s.onerror=()=>toast('Não foi possível abrir os pacotes. Atualize a página.');
-      document.head.appendChild(s);
-    });
-  }
   const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id));
+  if(member&&globalThis.liveReady?.()&&!globalThis.cshop){
+    globalThis.cshop=1;
+    import('/js/clube-coupon-shop.js').then(render).catch(()=>{globalThis.cshop=0;toast('Não foi possível abrir os pacotes.')});
+  }
   if(!member)return shell(`<section class="page tamao-club-visitor">
     <div class="tamao-club-visitor-hero">
       <span class="eyebrow">CLUBE TAMÃO</span>
