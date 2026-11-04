@@ -97,7 +97,7 @@ assert.match(merchant,/Verificar este aparelho/);
 assert.match(merchant,/Esta verificação é local/);
 assert.match(merchant,/merchantPushDiagnoseFromUi/);
 assert.match(bootstrap,/merchantPushDiagnoseFromUi/);
-assert.match(backend,/if\(createdNew&&subscription\)/);
+assert.match(backend,/if\(createdNew&&subscription&&current\(\)\)/);
 assert.match(backend,/reply\?\.ok!==true\|\|reply.active!==true/);
 assert.doesNotMatch(diagnosticSource,/\.rpc\(|console\.log|endpoint_url|\.endpoint|\.keys\.auth/);
 assert.match(audit,/node tests\/merchant-push-device-diagnostics-v1-290.mjs/);
