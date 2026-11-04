@@ -5349,6 +5349,31 @@ async function adminClubeSponsorTopupFromUi(){
     }
   }
 }
+async function adminClubeGeneralMinimumFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const pool=adminClubeSponsorState?.loadedFor===actor?adminClubeSponsorState:null;
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminClubeSponsorBusy||
+     !pool||pool.generalCouponSaleEnabled===true)return;
+  const input=globalThis.document?.getElementById('adminClubeGeneralMinimumValue');
+  const cents=adminClubeParseTopupCents(input?.value);
+  if(cents===null||cents<1000)return toast('Informe um valor mínimo entre R$ 10 e R$ 10.000.');
+  if(typeof confirm!=='function'||!confirm('Aplicar pedido mínimo de '+adminMoney(cents)+
+     ' para futuras compras de cupons gerais? Cupons já pagos não mudam.'))return;
+  adminClubeSponsorBusy=true;
+  try{
+    const result=await adminInvoke({action:'clube-general-minimum-set',minimumCents:cents});
+    if(result?.ok!==true||result.source!=='clube_coupon_general_minimum_v1_810'||
+       result.minimumCents!==cents||result.saleEnabled!==false)
+      throw new Error('Regra não confirmada');
+    if(actor===String(adminRuntime?.session?.user?.id||''))toast('Pedido mínimo atualizado para '+adminMoney(cents)+'.');
+  }catch(err){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast('Não foi possível alterar a regra. Consulte se o pacote está habilitado para venda.');
+  }finally{
+    adminClubeSponsorBusy=false;
+    if(actor===String(adminRuntime?.session?.user?.id||''))await adminClubeSponsorLoadFromUi();
+  }
+}
 function adminClubeSponsorSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -5370,9 +5395,24 @@ function adminClubeSponsorSection(){
       '<div class="kpi"><span class="label">Comprometido com cupons</span><strong>'+adminMoney(pool.encumberedCents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Ainda não comprometido</span><strong>'+adminMoney(pool.remainingCents)+'</strong></div>'+
       '</div>':'<p class="muted">Consulte o saldo antes de realizar qualquer nova campanha.</p>')+
-    (pool?'<p class="tiny muted">Capacidade potencial deste mesmo orçamento: até '+
-      Number(pool.potentialGasPacks)+' pacotes de gás (3 cupons de R$ 5) OU '+
-      Number(pool.potentialWaterPacks)+' de água (5 cupons de R$ 2). Não somar os dois totais.</p>':'')+
+    (pool?'<p class="tiny muted">O mesmo orçamento serve a qualquer produto. Capacidade potencial: até '+
+      Number(pool.potentialGeneralPacks)+' pacotes gerais de 3 cupons de R$ 5, '+
+      'sem duplicar os valores reservados. Não somar os dois totais dos pacotes antigos.</p>':'')+
+    (pool?.generalCouponConfigured?'<div class="card flat form-stack">'+
+      '<h4>Cupons para qualquer produto</h4>'+
+      '<p>Cupons gerais utilizáveis em pedidos com total mínimo de <strong>'+
+      adminMoney(pool.generalCouponMinOrderCents)+'</strong>, independente de gás, água, carvão, lenha, gelo ou outros itens do catálogo.</p>'+
+      (role==='superadmin'&&!pool.generalCouponSaleEnabled?
+        '<label for="adminClubeGeneralMinimumValue">Alterar pedido mínimo (R$)</label>'+
+        '<input id="adminClubeGeneralMinimumValue" type="text" inputmode="decimal" autocomplete="off" value="'+
+        esc((pool.generalCouponMinOrderCents/100).toFixed(2).replace('.',','))+'" maxlength="8">'+
+        '<button type="button" class="secondary small" onclick="adminClubeGeneralMinimumFromUi()" '+
+          (adminClubeSponsorBusy?'disabled':'')+'>Salvar pedido mínimo</button>':
+        '<p class="tiny muted">Para alterar a regra, pause primeiro a venda do pacote.</p>')+
+      '<p class="tiny muted">O valor mínimo só vale para cupons comprados depois da alteração. '+
+      'A oferta geral permanecerá sem vendas até ter condições comerciais homologadas.</p></div>':
+      pool?'<p class="tiny muted">Regras dos cupons gerais aguardam instalação no banco. '+
+       'A gestão do orçamento existente continua disponível.</p>':'')+
     (role==='superadmin'&&pool?'<div class="card flat form-stack">'+
       '<h4>Acrescentar orçamento e gerar capacidade de cupons</h4>'+
       '<p class="muted">Digite quanto deseja patrocinar. O limite aumenta e o sistema poderá emitir novos cupons conforme as compras forem confirmadas.</p>'+

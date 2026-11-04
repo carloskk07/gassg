@@ -137,6 +137,8 @@ jobs:
         run: node tests/coupon-owner-personal-guarantee-v1-808.mjs
       - name: V1.809 admin variable owner-financed coupon topup and form contract
         run: node tests/coupon-owner-topups-contract-v1-809.mjs
+      - name: V1.810 any-product minimum-order coupon and server-side reserve contract
+        run: node tests/coupon-general-minimum-contract-v1-810.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation

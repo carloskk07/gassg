@@ -6177,8 +6177,24 @@ Deno.serve(async(req:Request)=>{
          data.encumbered_cents<0||
          data.encumbered_cents>data.reconciled_cents+data.owner_guaranteed_cents)
         throw new DomainError("COUPON_SPONSOR_POOL_UNVERIFIED","Saldo de patrocínio não validado.",503);
-      return json({ok:true,source:"clube_coupon_owner_sponsor_v1_807",
-        authorizedCents:data.authorized_cents,
+      const {data:general,error:generalError}=await admin
+         .from("clube_coupon_paid_packages")
+         .select("package_key,min_order_cents,sale_enabled")
+         .eq("package_key","all_products_3x5_sponsor").maybeSingle();
+       // The pre-migration Financeiro MUST still allow owner budget reads/topups.
+       // An absent general package or missing column is NOT a reason to hide
+       // already-confirmed sponsorship balances from the superadmin.
+       if(generalError&&String(generalError.code)!=="42703")throw generalError;
+       const generalReady=!generalError&&!!general&&
+         Number.isSafeInteger(general.min_order_cents)&&
+         general.min_order_cents>=1000&&general.min_order_cents<=1000000;
+       return json({ok:true,source:"clube_coupon_owner_sponsor_v1_807",
+         generalCouponConfigured:generalReady,
+         generalCouponMinOrderCents:generalReady?general.min_order_cents:null,
+         generalCouponSaleEnabled:generalReady&&general.sale_enabled===true,
+         potentialGeneralPacks:generalReady?
+           Math.floor((data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents)/1500):0,
+         authorizedCents:data.authorized_cents,
         reconciledCents:data.reconciled_cents,
         ownerGuaranteedCents:data.owner_guaranteed_cents,
         ownerGuaranteeSource:data.owner_guarantee_source,
@@ -6190,7 +6206,25 @@ Deno.serve(async(req:Request)=>{
         version:data.version,updatedAt:data.updated_at,
         bankApiConfirmed:false,readOnly:true,noCharge:true},200,origin);
     }
-    if(action==="clube-sponsor-topup"){
+    if(action==="clube-general-minimum-set"){
+       if(String(adminAccess.admin_role)!=="superadmin")
+         throw new DomainError("ADMIN_PERMISSION_DENIED",
+           "Somente o administrador principal altera a compra mínima.",403);
+       const cents=body.minimumCents;
+       if(!Number.isSafeInteger(cents)||cents<1000||cents>1000000)
+         throw new DomainError("COUPON_MINIMUM_INVALID",
+           "Informe um pedido mínimo entre R$ 10 e R$ 10.000.",400);
+       const {data,error}=await admin.rpc("admin_clube_coupon_general_minimum_set_v1_810",{
+         p_actor:user.id,p_min_order_cents:cents
+       });
+       if(error)throw error;
+       if(data?.ok!==true||data.minimumCents!==cents||
+          data.saleEnabled!==false||typeof data.replayed!=="boolean")
+         throw new DomainError("COUPON_MINIMUM_UNVERIFIED",
+           "Não foi possível confirmar a nova regra.",503);
+       return json({...data,source:"clube_coupon_general_minimum_v1_810"},200,origin);
+     }
+     if(action==="clube-sponsor-topup"){
       if(String(adminAccess.admin_role)!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente o administrador principal pode reforçar o orçamento de cupons.",403);

@@ -16,7 +16,8 @@ function clubeCouponShopPanel(){
      '<p><strong>'+esc(money(p.priceCents))+'</strong> por '+
      Number(p.couponCount)+' cupons de '+esc(money(p.faceCents))+'</p>'+
      '<p class="tiny muted">Válidos por '+Number(p.validDays)+' dias após a emissão. '+
-     'Utilização em compras elegíveis.</p>'+
+     'Valem para qualquer produto do catálogo. '+
+     (Number(p.minOrderCents)>0?'Pedido mínimo: '+esc(money(p.minOrderCents))+'.':'')+'</p>'+
      '<button type="button" class="primary small" onclick="clubeCouponBuy(\''+
      key+'\')" '+(s.busy?'disabled':'')+'>Comprar com Pix</button></article>';
   }).join('');

@@ -192,15 +192,25 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{
       userId:user.id,actionName:"coupon-credit-pix-read",limit:12,windowSeconds:600
     });
-    const {data:invoices,error:invoiceError}=await admin
+    let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
+      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
+    if(invoiceError&&String(invoiceError.code)==="42703"){
+      // Old invoices remain readable until the V1.810 migration is deployed.
+      const legacy=await admin.from("clube_coupon_paid_invoices")
+        .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
+        .eq("customer_user_id",user.id)
+        .order("created_at",{ascending:false}).limit(25);
+      invoices=(legacy.data??[]).map((row:any)=>({...row,min_order_cents:0}));
+      invoiceError=legacy.error;
+    }
     if(invoiceError)throw invoiceError;
-    const paidIds=new Set((invoices||[])
+    const paidInvoices=new Map((invoices||[])
       .filter((row:any)=>couponInvoiceNetCovered(row))
-      .map((row:any)=>String(row.id)));
+      .map((row:any)=>[String(row.id),row]));
+    const paidIds=new Set(paidInvoices.keys());
     const {data:rows,error:issuanceError}=await admin
       .from("clube_coupon_paid_issuances")
       .select("id,invoice_id,ordinal,face_cents,status,expires_at")
@@ -218,7 +228,8 @@ Deno.serve(async(req:Request)=>{
       vouchers:(rows||[]).filter((row:any)=>paidIds.has(String(row.invoice_id)))
         .map((row:any)=>({
           voucherId:row.id,invoiceId:row.invoice_id,ordinal:row.ordinal,
-          faceCents:row.face_cents,status:row.status,expiresAt:row.expires_at
+          faceCents:row.face_cents,status:row.status,expiresAt:row.expires_at,
+          minOrderCents:paidInvoices.get(String(row.invoice_id))?.min_order_cents??0
         })),
       couponSalesEnabled:
         Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"&&
@@ -236,7 +247,7 @@ Deno.serve(async(req:Request)=>{
       packages:[],couponSalesEnabled:false},200,origin);
     const {data:packages,error:catalogError}=await admin
       .from("clube_coupon_paid_packages")
-      .select("package_key,title,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sponsored_by_owner")
+      .select("package_key,title,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sponsored_by_owner,min_order_cents")
       .eq("sale_enabled",true).eq("funding_verified",true)
       .eq("legal_terms_verified",true).eq("redeem_settlement_verified",true)
       .order("package_key").limit(20);
@@ -262,7 +273,8 @@ Deno.serve(async(req:Request)=>{
       packages:safe.map((p:any)=>({
         packageKey:p.package_key,title:p.title,
         priceCents:p.sale_price_cents,faceCents:p.coupon_face_cents,
-        couponCount:p.coupons_per_pack,validDays:p.valid_days
+        couponCount:p.coupons_per_pack,validDays:p.valid_days,
+        minOrderCents:p.min_order_cents,eligibleProducts:"all"
       }))},200,origin);
   }
   if(operation==="invoice-status"){
@@ -300,7 +312,7 @@ Deno.serve(async(req:Request)=>{
   }
   await enforceApiQuota(admin,{userId:user.id,actionName:"coupon-credit-pix",limit:5,windowSeconds:3600});
   const {data:pkg,error:packageError}=await admin.from("clube_coupon_paid_packages")
-    .select("package_key,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sponsored_by_owner")
+    .select("package_key,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sponsored_by_owner,min_order_cents")
     .eq("package_key",packageKey).maybeSingle();
   if(packageError)throw packageError;
   if(!pkg||pkg.sale_enabled!==true||pkg.funding_verified!==true||
