@@ -647,7 +647,7 @@ function home(){
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><span class="section-kicker">ESCOLHA O QUE PRECISA</span>
       <h2 tabindex="-1">Produtos para o seu dia a dia</h2>
-      <p>Selecione gás, água e outros essenciais. Consulte a disponibilidade e o valor final para seu CEP antes de pedir.</p></div></div>
+      <p>Selecione gás, água e outros essenciais. Consulte preços e entrega pelo CEP antes de fazer seu pedido.</p></div></div>
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
