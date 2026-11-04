@@ -25,6 +25,12 @@ CREATE TABLE public.platform_clube_sponsor_receipts_v1_807(
   confirmed_by uuid NOT NULL REFERENCES auth.users(id),
   confirmed_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
+-- One bank statement transaction can fund the pool only once, even if a
+-- separate owner-contribution record mistakenly uses another UUID.
+CREATE UNIQUE INDEX clube_sponsor_bank_reference_once_v1_807
+ ON public.platform_clube_sponsor_receipts_v1_807
+ ((lower(btrim(bank_statement_reference))));
+
 CREATE TABLE public.clube_coupon_sponsor_reservations_v1_807(
   invoice_id uuid PRIMARY KEY REFERENCES public.clube_coupon_paid_invoices(id),
   face_covered_cents integer NOT NULL CHECK(face_covered_cents>0 AND face_covered_cents<=10000),
@@ -82,6 +88,13 @@ BEGIN
  face_total:=p.coupon_face_cents::bigint*p.coupons_per_pack::bigint;
  SELECT * INTO pool FROM public.platform_clube_sponsor_pool_v1_807
   WHERE benefit_key='clube_coupons' FOR UPDATE;
+ IF EXISTS(SELECT 1 FROM public.platform_clube_sponsor_receipts_v1_807 rr
+   JOIN public.platform_owner_contributions_v1_246 c
+     ON c.contribution_id=rr.contribution_id
+   WHERE c.status<>'manual_reconciled' OR c.reviewed_at IS NULL
+     OR c.bank_statement_reference IS DISTINCT FROM rr.bank_statement_reference)
+ THEN RAISE EXCEPTION 'COUPON_SPONSOR_BANK_RECONCILIATION_REVOKED'
+     USING ERRCODE='42501'; END IF;
  IF NOT FOUND OR face_total>10000 OR
     pool.reconciled_cents<pool.encumbered_cents+face_total
  THEN RAISE EXCEPTION 'COUPON_SPONSOR_FUNDS_NOT_VERIFIED_OR_EXHAUSTED'
@@ -179,6 +192,13 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog 
     AND i.sponsor_covered_cents=r.face_covered_cents
     AND p.reconciled_cents>=p.encumbered_cents
     AND r.face_covered_cents>=p_required AND p_required>0
+    AND NOT EXISTS(
+      SELECT 1 FROM public.platform_clube_sponsor_receipts_v1_807 rr
+      JOIN public.platform_owner_contributions_v1_246 c
+        ON c.contribution_id=rr.contribution_id
+      WHERE c.status<>'manual_reconciled' OR c.reviewed_at IS NULL
+        OR c.bank_statement_reference IS DISTINCT FROM rr.bank_statement_reference
+    )
  )
 $$;
 REVOKE ALL ON FUNCTION public.clube_coupon_sponsor_covered_v1_807(uuid,bigint)
