@@ -180,6 +180,13 @@ async function merchantOnlineMutateImpl(online){
    }));
   }catch(e){postError=e;}
   if(!same())throw Error('A conta ou a revenda mudou durante a operação.');
+  if(postError){
+   const status=Number(postError?.status||0);
+   const ambiguous=postError?.code==='NETWORK_TIMEOUT'||
+     ['TypeError','TimeoutError','AbortError'].includes(postError?.name)||
+     status>=500||status===408||status===429||status===0;
+   if(!ambiguous)throw postError;
+  }
   if(!postError&&(ack?.ok!==true||ack.online!==desired))
     throw Error('O servidor não confirmou a disponibilidade desejada.');
   const started=Date.now();
@@ -251,7 +258,8 @@ async function merchantPaymentRoutesMutateImpl(routes,reason='Atualização das 
   if(ack?.ok!==true||ack.merchantId!==scope.merchantId||
     ack.version!==version+1||ack.fundsOwner!=='merchant'||
     ack.tamaoReceivesSaleProceeds!==false||
-    !Array.isArray(ack.routes)||ack.routes.length!==requested.length)
+    !Array.isArray(ack.routes)||ack.routes.length!==requested.length||
+    merchantPaymentRouteProof(requested)!==merchantPaymentRouteProof(ack.routes))
    throw Error('O servidor não comprovou a atualização das formas de recebimento.');
   const started=Date.now();
   const fresh=await merchantRefresh({silent:true});
