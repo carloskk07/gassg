@@ -182,6 +182,17 @@ for(const bad of [
  assert.match(f.s.notice,/confirmada no servidor/);
  assert.equal(f.s.error,'');
 }
+for(const [action,status] of [
+ ['depart','en_route'],['arrive','arrived'],['finish','completed'],['reject','rejected']
+]){
+ const f=fixture({snapshotStatus:status,snapshotRole:'driver'});
+ await f.transition(action);
+ assert.match(f.s.notice,/confirmada no servidor/,action);
+ assert.equal(f.s.error,'',action);
+ assert.equal(f.calls.filter(x=>x.name==='mobility_transition').length,1,action);
+ assert.equal(f.calls.filter(x=>x.name==='mobility_snapshot').length,1,action);
+}
+
 {
  const g=wait(),f=fixture({transitionGate:g});
  const pending=f.transition('accept');
