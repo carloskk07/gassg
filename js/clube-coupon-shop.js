@@ -168,3 +168,7 @@ async function clubeCouponCopyPix(){
   }catch{toast('Selecione e copie o código Pix exibido.');}
 }
 
+
+// ESM lazy load: onclick handlers must be available on the customer window.
+Object.assign(globalThis,{clubeCouponShopPanel,clubeCouponShopRefresh,
+  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix});
