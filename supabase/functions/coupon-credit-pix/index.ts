@@ -35,10 +35,10 @@ async function couponSaleRelease(admin:any){
  return data?.enabled===true&&data.signed_terms_version===COUPON_TERMS_VERSION&&
     data.owner_accepts_refund===true&&data.owner_accepts_merchant_reimbursement===true&&
     data.owner_accepts_no_merchant_yet===true&&
-    /^\\d{11}$|^\\d{14}$/.test(String(data.seller_tax_document??""))&&
+    /^\d{11}$|^\d{14}$/.test(String(data.seller_tax_document??""))&&
     String(data.seller_name??"").trim().length>=5&&
     String(data.seller_address??"").trim().length>=20&&
-    /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(String(data.seller_support_email??""))
+    /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(data.seller_support_email??""))
   ?data:null;
 }
 
