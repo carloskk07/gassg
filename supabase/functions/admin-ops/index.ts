@@ -3792,6 +3792,13 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "A conciliação de cupons exige perfil financeiro.",403);
       }
+      const {data:release,error:releaseError}=await admin
+        .from("clube_coupon_commercial_release_v1_819")
+        .select("enabled").eq("package_key","all_products_3x5_sponsor")
+        .maybeSingle();
+      if(releaseError)throw releaseError;
+      const couponSalesEnabled=release?.enabled===true&&
+        Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="false";
       // Read only. Empty is NOT a green light to enable coupon sales.
       const missingTable=(error:any)=>["PGRST205","42P01"].includes(
         String(error?.code||""));
@@ -3802,7 +3809,7 @@ Deno.serve(async(req:Request)=>{
         if(missingTable(packageResult.error)){
           return json({source:"clube_coupon_finance_status_v1",readOnly:true,
             schemaInstalled:false,coverage:"unavailable",
-            salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+            salesEnabled:couponSalesEnabled,
             checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
             packageCount:null,invoiceCount:null,voucherCount:null,
             pendingNetCount:null,unavailableVoucherCount:null,
@@ -3831,7 +3838,7 @@ Deno.serve(async(req:Request)=>{
       if(stageUnavailable){
         return json({source:"clube_coupon_finance_status_v1",readOnly:true,
           schemaInstalled:false,coverage:"unavailable",
-          salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+          salesEnabled:couponSalesEnabled,
             checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
           packageCount:null,invoiceCount:null,voucherCount:null,
           pendingNetCount:null,unavailableVoucherCount:null,
@@ -3943,7 +3950,7 @@ Deno.serve(async(req:Request)=>{
         readOnly:true,schemaInstalled:true,
         coverage:bounded||failedSettlement>0||unbackedConsumption>0
           ?"partial":"bounded_under_limits",
-        salesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true",
+        salesEnabled:couponSalesEnabled,
         checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
         packageCount:packages.length,invoiceCount:invoiceRows.length,
         invoiceWorkQueue,invoiceWorkQueueCoverage:bounded?"partial":"bounded_complete",
