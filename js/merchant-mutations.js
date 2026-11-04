@@ -144,3 +144,142 @@ async function merchantCatalogMutateImpl(productCode,priceCents,availableStock,a
 
 globalThis.merchantCatalogMutateImpl=merchantCatalogMutateImpl;
 globalThis.merchantTeamMutateImpl=merchantTeamMutateImpl;
+
+
+// Availability and payment routing are operational decisions; an HTTP ACK is
+// not permission to update a different merchant's panel or report success.
+function merchantAvailabilityMutationScope(){
+ const rt=merchantRuntime;
+ const actor=String(rt.session?.user?.id||''),merchantId=String(rt.merchant?.merchantId||'');
+ if(rt.status!=='ready'||!actor||!merchantId||
+    String(rt.selectedMerchantId||'')!==merchantId||
+    !['owner','manager','operator'].includes(String(rt.merchant?.memberRole||'')))
+   throw new Error('Atualize seu acesso à revenda antes de alterar a disponibilidade.');
+ return {actor,merchantId,epoch:rt.accessEpoch};
+}
+function merchantAvailabilityMutationSame(scope){
+ const rt=merchantRuntime;
+ return !!scope&&rt.status==='ready'&&rt.accessEpoch===scope.epoch&&
+   String(rt.session?.user?.id||'')===scope.actor&&
+   String(rt.merchant?.merchantId||'')===scope.merchantId&&
+   String(rt.selectedMerchantId||'')===scope.merchantId&&
+   ['owner','manager','operator'].includes(String(rt.merchant?.memberRole||''));
+}
+async function merchantOnlineMutateImpl(online){
+ const scope=merchantAvailabilityMutationScope();
+ const same=()=>merchantAvailabilityMutationSame(scope);
+ if(merchantRuntime.actionPending)throw Error('Aguarde a operação da revenda terminar.');
+ const token={scope};merchantRuntime.onlineActionToken=token;
+ const desired=online===true;
+ merchantRuntime.actionPending=true;render();
+ try{
+  let ack=null,postError=null;
+  try{
+   ack=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+    merchantId:scope.merchantId,action:'set-online',online:desired
+   }));
+  }catch(e){postError=e;}
+  if(!same())throw Error('A conta ou a revenda mudou durante a operação.');
+  if(!postError&&(ack?.ok!==true||ack.online!==desired))
+    throw Error('O servidor não confirmou a disponibilidade desejada.');
+  const started=Date.now();
+  const fresh=await merchantRefresh({silent:true});
+  if(!same())throw Error('A conta ou a revenda mudou durante a conferência.');
+  const checkedAt=Date.parse(String(merchantRuntime.lastSyncAt||''));
+  if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
+     merchantRuntime.merchant!==fresh.merchant||
+     !Number.isFinite(checkedAt)||checkedAt<started||
+     fresh.merchant.online!==desired){
+   throw Error(postError
+    ?'A resposta da rede foi interrompida e a disponibilidade não foi confirmada. Consulte o painel antes de repetir.'
+    :'A disponibilidade não foi confirmada em uma consulta atualizada. Atualize o painel.');
+  }
+  merchantEnablementAfterChange();
+  return postError?{ok:true,online:desired,reconciledAfterNetworkError:true}:ack;
+ }catch(error){
+  if(same())merchantRuntime.error=String(error?.message||error);
+  throw error;
+ }finally{
+  if(same()&&merchantRuntime.onlineActionToken===token){
+   merchantRuntime.onlineActionToken=null;
+   merchantRuntime.actionPending=false;
+   render();
+  }
+ }
+}
+// Compare the provider-approved saved fields, not volatile row IDs/timestamps.
+// Each payment route is audited atomically by merchant_payment_routes_action.
+function merchantPaymentRouteProof(rows){
+ if(!Array.isArray(rows))return null;
+ const canon=route=>{
+  if(!route||typeof route!=='object')return null;
+  return JSON.stringify([
+   String(route.paymentMethod||''),String(route.provider||''),
+   String(route.connectionId||''),String(route.channel||''),
+   String(route.verificationMode||''),route.active===true,
+   Number(route.priority||100),String(route.customerLabel||''),
+   JSON.stringify(Object.entries(route.metadata||{}).sort(([a],[b])=>a.localeCompare(b)))
+  ]);
+ };
+ const keys=rows.map(canon);
+ if(keys.some(k=>!k))return null;
+ return keys.sort().join('\n');
+}
+async function merchantPaymentRoutesMutateImpl(routes,reason='Atualização das formas de recebimento'){
+ const scope=merchantEditableMutationScope();
+ const same=()=>merchantEditableMutationSame(scope);
+ if(merchantRuntime.actionPending)throw Error('Aguarde a operação em andamento.');
+ if(!Array.isArray(routes)||routes.length<1||routes.length>30)
+  throw Error('Configure ao menos uma forma de recebimento válida');
+ const version=merchantRuntime.paymentRouteVersion;
+ if(!Number.isSafeInteger(version)||version<1)
+  throw Error('Atualize as formas de pagamento antes de salvar alterações.');
+ const cleanReason=String(reason||'').trim().replace(/\s+/g,' ');
+ if(cleanReason.length<3||cleanReason.length>1000)
+  throw Error('Motivo da alteração inválido');
+ // Freeze the intended payload in case UI inputs change during the network call.
+ const requested=JSON.parse(JSON.stringify(routes));
+ const token={scope};merchantRuntime.paymentRoutesActionToken=token;
+ merchantRuntime.actionPending=true;merchantRuntime.error=null;render();
+ try{
+  const key=liveIdempotency('merchant-payment-routes');
+  const ack=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+   merchantId:scope.merchantId,action:'update-payment-routes',
+   expectedVersion:version,routes:requested,reason:cleanReason
+  },{idempotencyKey:key}));
+  if(!same())throw Error('A conta ou a revenda mudou durante a alteração dos recebimentos.');
+  if(ack?.ok!==true||ack.merchantId!==scope.merchantId||
+    ack.version!==version+1||ack.fundsOwner!=='merchant'||
+    ack.tamaoReceivesSaleProceeds!==false||
+    !Array.isArray(ack.routes)||ack.routes.length!==requested.length)
+   throw Error('O servidor não comprovou a atualização das formas de recebimento.');
+  const started=Date.now();
+  const fresh=await merchantRefresh({silent:true});
+  if(!same())throw Error('A conta ou a revenda mudou durante a conferência dos recebimentos.');
+  if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
+     merchantRuntime.paymentRoutes!==fresh.paymentRoutes||
+     merchantRuntime.paymentRouteVersion!==ack.version||
+     !Number.isFinite(Date.parse(String(merchantRuntime.lastSyncAt||'')))||
+     Date.parse(merchantRuntime.lastSyncAt)<started||
+     merchantPaymentRouteProof(fresh.paymentRoutes)!==merchantPaymentRouteProof(ack.routes)||
+     merchantPaymentRouteProof(ack.routes)==null)
+   throw Error('As formas de recebimento não foram confirmadas em uma leitura atualizada. Consulte antes de repetir.');
+  merchantEnablementAfterChange();
+  return ack;
+ }catch(error){
+  if(same()){
+   merchantRuntime.error=String(error?.message||error);
+   // An ambiguous write must not be automatically attempted again with a
+   // new key; a fresh read is only a diagnostic, not permission to claim OK.
+  }
+  throw error;
+ }finally{
+  if(same()&&merchantRuntime.paymentRoutesActionToken===token){
+   merchantRuntime.paymentRoutesActionToken=null;
+   merchantRuntime.actionPending=false;
+   render();
+  }
+ }
+}
+globalThis.merchantOnlineMutateImpl=merchantOnlineMutateImpl;
+globalThis.merchantPaymentRoutesMutateImpl=merchantPaymentRoutesMutateImpl;
