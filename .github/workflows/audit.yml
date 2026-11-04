@@ -135,6 +135,8 @@ jobs:
         run: node tests/coupon-owner-sponsor-contract-v1-807.mjs
       - name: V1.808 owner personal guarantee, single R$100 liability and no fake bank deposit
         run: node tests/coupon-owner-personal-guarantee-v1-808.mjs
+      - name: V1.809 admin variable owner-financed coupon topup and form contract
+        run: node tests/coupon-owner-topups-contract-v1-809.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
       - name: Funded coupon atomic checkout and account separation
