@@ -948,7 +948,7 @@ jobs:
           # Quote-first home: avoid blocking CI on obsolete pre-redesign copy.
           grep -Fq 'tamao-quote-first' /tmp/home.html
           grep -Fq 'tamao-home-coupon-rail' /tmp/home.html
-          grep -Fq 'Explore mais produtos' /tmp/home.html
+          grep -Fq 'Produtos para o seu dia a dia' /tmp/home.html
           grep -Fq 'tamao-home-services-grid' /tmp/home.html
           grep -Fq 'Ver cupons e Clube' /tmp/home.html
           grep -Fq 'Pedir uma moto' /tmp/home.html
