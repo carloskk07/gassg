@@ -150,6 +150,8 @@ jobs:
         run: node tests/isolated-supabase-coupon-full-schema.mjs
       - name: V1.807 disposable PostgreSQL owner-sponsored coupon race, Pix net and v8 redemption
         run: node tests/isolated-supabase-coupon-sponsor-v1-807.mjs
+      - name: V1.809 disposable PostgreSQL superadmin topups and concurrent double-submit safety
+        run: node tests/isolated-supabase-coupon-topups-v1-809.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
