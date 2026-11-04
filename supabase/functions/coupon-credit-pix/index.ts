@@ -87,11 +87,17 @@ function couponInvoiceNetCovered(row:any){
  const face=Number(row?.coupon_face_cents);
  const count=Number(row?.coupons_per_pack);
  const net=row?.net_proceeds_cents;
+ // Reserved before the Pix and captured by the payment-confirmation RPC.
+ // SQL independently checks this backing on every order / quote reservation.
+ const sponsor=Number(row?.sponsor_covered_cents??0);
+ const faceTotal=face*count;
  const ref=String(row?.net_proceeds_reference??"").trim();
  return row?.status==="paid"&&Boolean(row?.paid_at)&&
    Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
    Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
-   Number.isSafeInteger(net)&&net>=face*count&&
+   Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
+   Number.isSafeInteger(net)&&net>0&&
+   (net>=faceTotal||sponsor===faceTotal)&&
    net<=row.sale_price_cents&&
    Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
    ref.length>=8;
@@ -187,7 +193,7 @@ Deno.serve(async(req:Request)=>{
     });
     const {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack")
+      .select("id,package_key,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError)throw invoiceError;
@@ -221,6 +227,57 @@ Deno.serve(async(req:Request)=>{
         await platformCommerceAllowed(admin)
     },200,origin);
   }
+  if(operation==="catalog"){
+    // A sales flag alone never creates an offer without real backing.
+    const enabled=Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"
+      &&await platformCommerceAllowed(admin);
+    if(!enabled)return respond({ok:true,source:"clube_paid_catalog_v1_807",
+      packages:[],couponSalesEnabled:false},200,origin);
+    const {data:packages,error:catalogError}=await admin
+      .from("clube_coupon_paid_packages")
+      .select("package_key,title,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sponsored_by_owner")
+      .eq("sale_enabled",true).eq("funding_verified",true)
+      .eq("legal_terms_verified",true).eq("redeem_settlement_verified",true)
+      .order("package_key").limit(20);
+    if(catalogError)throw catalogError;
+    const {data:pool,error:poolError}=await admin
+      .from("platform_clube_sponsor_pool_v1_807")
+      .select("reconciled_cents,encumbered_cents")
+      .eq("benefit_key","clube_coupons").maybeSingle();
+    if(poolError)throw poolError;
+    const available=Math.max(0,Number(pool?.reconciled_cents??0)
+      -Number(pool?.encumbered_cents??0));
+    const safe=(packages??[]).filter((p:any)=>{
+      const face=Number(p.coupon_face_cents)*Number(p.coupons_per_pack);
+      return Number.isSafeInteger(face)&&face>0
+        &&Number.isSafeInteger(p.sale_price_cents)&&p.sale_price_cents>=100
+        &&(p.sponsored_by_owner===true?available>=face:p.sale_price_cents>=face);
+    });
+    return respond({ok:true,source:"clube_paid_catalog_v1_807",
+      couponSalesEnabled:true,
+      packages:safe.map((p:any)=>({
+        packageKey:p.package_key,title:p.title,
+        priceCents:p.sale_price_cents,faceCents:p.coupon_face_cents,
+        couponCount:p.coupons_per_pack,validDays:p.valid_days
+      }))},200,origin);
+  }
+  if(operation==="invoice-status"){
+    const invoiceId=String(body.invoiceId??"");
+    if(!UUID_RE.test(invoiceId))return respond({error:"COUPON_INVOICE_ID_INVALID"},400,origin);
+    await enforceApiQuota(admin,{
+      userId:user.id,actionName:"coupon-credit-pix-status",limit:18,windowSeconds:600
+    });
+    const {data:invoice,error:invoiceError}=await admin
+      .from("clube_coupon_paid_invoices").select("*")
+      .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
+    if(invoiceError)throw invoiceError;
+    if(!invoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    if(invoice.status==="prepared"||invoice.status==="awaiting_payment"){
+      const replay=await couponVerifiedReplay(invoice);
+      return respond(replay,replay.ok?200:409,origin);
+    }
+    return respond({ok:true,...publicInvoice(invoice)},200,origin);
+  }
   if(operation!=="purchase")return respond({error:"COUPON_ACTION_INVALID"},400,origin);
   // Do not receive money until redemption and merchant compensation have
   // been validated end-to-end, even if credentials already exist.
@@ -239,7 +296,7 @@ Deno.serve(async(req:Request)=>{
   }
   await enforceApiQuota(admin,{userId:user.id,actionName:"coupon-credit-pix",limit:5,windowSeconds:3600});
   const {data:pkg,error:packageError}=await admin.from("clube_coupon_paid_packages")
-    .select("package_key,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified")
+    .select("package_key,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sponsored_by_owner")
     .eq("package_key",packageKey).maybeSingle();
   if(packageError)throw packageError;
   if(!pkg||pkg.sale_enabled!==true||pkg.funding_verified!==true||
@@ -247,7 +304,8 @@ Deno.serve(async(req:Request)=>{
     !Number.isSafeInteger(pkg.sale_price_cents)||
     !Number.isSafeInteger(pkg.coupon_face_cents)||
     !Number.isSafeInteger(pkg.coupons_per_pack)||
-    pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack)
+    (pkg.sponsored_by_owner!==true&&
+      pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack))
    return respond({error:"COUPON_PACKAGE_NOT_AVAILABLE"},409,origin);
   const details={
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
@@ -325,7 +383,12 @@ Deno.serve(async(req:Request)=>{
   }
   throw new Error("MERCADOPAGO_COUPON_PIX_NOT_READY");
  }catch(error){
-  console.error("coupon-credit-pix fail closed",error instanceof Error?error.message:String(error));
+  const cause=String((error as any)?.message??error);
+  if(cause.includes("COUPON_SPONSOR_FUNDS_NOT_VERIFIED_OR_EXHAUSTED")||
+     cause.includes("COUPON_SPONSOR_PACKAGE_NOT_READY")){
+    return respond({error:"COUPON_SPONSOR_BUDGET_UNAVAILABLE",credited:false},409,origin);
+  }
+  console.error("coupon-credit-pix fail closed",cause);
   return respond({error:"COUPON_PIX_NOT_CONFIRMED",credited:false},503,origin);
  }
 });
