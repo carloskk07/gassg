@@ -226,7 +226,7 @@ function setup({permission='granted',initialSubscription=false,
  assert.equal(f.calls[0].action,'config');
 }
 assert.match(server,/body.action==="unsubscribe"/);
-assert.match(server,/body.action==="subscribe"/);
+assert.match(server,/\["config","subscribe","unsubscribe"\]/);
 assert.match(backend,/merchantPushRuntime.toggleToken=null/);
 assert.match(backend,/const permission=await Notification.requestPermission\(\)/);
 assert.match(backend,/reply\?\.ok!==true\|\|reply.active!==true/);
