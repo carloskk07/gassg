@@ -162,8 +162,13 @@ const missingAfterAck=await ctx.submit('late','ACK registrado, sem leitura');
 assert.equal(missingAfterAck.refreshPending,true);
 assert.equal(requests.length,countBeforeAck+1);
 const keyAfterAck=requests.at(-1).key;
+// A page redraw empties the textarea: same category + order still reuses
+// the already acknowledged case without creating a new POST.
+const clearedFormReplay=await ctx.submit('late','');
+assert.equal(clearedFormReplay.refreshPending,true);
+assert.equal(requests.length,countBeforeAck+1,'form redraw must not duplicate the acknowledged case');
 serverRead={orderId:'order-A',supportCases:[{id:'case-A',category:'late'}]};
-const readOnlyReplay=await ctx.submit('late','ACK registrado, sem leitura');
+const readOnlyReplay=await ctx.submit('late','');
 assert.equal(readOnlyReplay.refreshPending,false);
 assert.equal(requests.length,countBeforeAck+1,'a committed case may not be posted twice');
 assert.equal(requests.at(-1).key,keyAfterAck);
