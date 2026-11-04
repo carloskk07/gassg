@@ -1554,7 +1554,11 @@ assert.ok(backend.includes("liveCustomerScript('customer-order-action')")&&
 assert.ok(backend.includes("idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("idempotencyKey=liveIdempotency('complete-delivery')")&&backend.includes('merchantScopedOrderMutation(scope,'),'conclusão de entrega precisa fixar a chave antes do retry');
 assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');
-assert.ok(backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),'cadastro de parceiro precisa sobreviver a timeout/ACK perdido');
+assert.ok(backend.includes("response=await merchantInvoke('submit-merchant-application',payload)")&&
+  backend.includes('const list=await merchantLoadOwnApplications()')&&
+  backend.includes('reconciledAfterNetworkError:true')&&
+  !backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),
+  'cadastro de parceiro recupera ACK perdido só por leitura autenticada, sem duplicar POST nem inventar solicitação');
 assert.ok(merchantMutations.includes("retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{")&&merchantMutations.includes("action:'set-online',online:desired"),'toggle online deve repetir uma vez falha de transporte ambígua');
 assert.ok(merchant.includes('result?.autoRescued'),'UI da revenda precisa distinguir aceite real de rescue automático');
 assert.ok(merchant.includes('stock_changed_before_accept'),'UI deve explicar corrida de estoque sem falso aceite');
