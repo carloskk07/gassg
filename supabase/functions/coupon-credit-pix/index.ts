@@ -192,11 +192,20 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{
       userId:user.id,actionName:"coupon-credit-pix-read",limit:12,windowSeconds:600
     });
-    const {data:invoices,error:invoiceError}=await admin
+    let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
       .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
+    if(invoiceError&&String(invoiceError.code)==="42703"){
+      // Old invoices remain readable until the V1.810 migration is deployed.
+      const legacy=await admin.from("clube_coupon_paid_invoices")
+        .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
+        .eq("customer_user_id",user.id)
+        .order("created_at",{ascending:false}).limit(25);
+      invoices=(legacy.data??[]).map((row:any)=>({...row,min_order_cents:0}));
+      invoiceError=legacy.error;
+    }
     if(invoiceError)throw invoiceError;
     const paidInvoices=new Map((invoices||[])
       .filter((row:any)=>couponInvoiceNetCovered(row))

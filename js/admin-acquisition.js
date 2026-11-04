@@ -5398,7 +5398,7 @@ function adminClubeSponsorSection(){
     (pool?'<p class="tiny muted">O mesmo orçamento serve a qualquer produto. Capacidade potencial: até '+
       Number(pool.potentialGeneralPacks)+' pacotes gerais de 3 cupons de R$ 5, '+
       'sem duplicar os valores reservados. Não somar os dois totais dos pacotes antigos.</p>':'')+
-    (pool?'<div class="card flat form-stack">'+
+    (pool?.generalCouponConfigured?'<div class="card flat form-stack">'+
       '<h4>Cupons para qualquer produto</h4>'+
       '<p>Cupons gerais utilizáveis em pedidos com total mínimo de <strong>'+
       adminMoney(pool.generalCouponMinOrderCents)+'</strong>, independente de gás, água, carvão, lenha, gelo ou outros itens do catálogo.</p>'+
@@ -5410,7 +5410,9 @@ function adminClubeSponsorSection(){
           (adminClubeSponsorBusy?'disabled':'')+'>Salvar pedido mínimo</button>':
         '<p class="tiny muted">Para alterar a regra, pause primeiro a venda do pacote.</p>')+
       '<p class="tiny muted">O valor mínimo só vale para cupons comprados depois da alteração. '+
-      'A oferta geral permanecerá sem vendas até ter condições comerciais homologadas.</p></div>':'')+
+      'A oferta geral permanecerá sem vendas até ter condições comerciais homologadas.</p></div>':
+      pool?'<p class="tiny muted">Regras dos cupons gerais aguardam instalação no banco. '+
+       'A gestão do orçamento existente continua disponível.</p>':'')+
     (role==='superadmin'&&pool?'<div class="card flat form-stack">'+
       '<h4>Acrescentar orçamento e gerar capacidade de cupons</h4>'+
       '<p class="muted">Digite quanto deseja patrocinar. O limite aumenta e o sistema poderá emitir novos cupons conforme as compras forem confirmadas.</p>'+

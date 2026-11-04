@@ -6181,15 +6181,19 @@ Deno.serve(async(req:Request)=>{
          .from("clube_coupon_paid_packages")
          .select("package_key,min_order_cents,sale_enabled")
          .eq("package_key","all_products_3x5_sponsor").maybeSingle();
-       if(generalError||!general||
-          !Number.isSafeInteger(general.min_order_cents)||
-          general.min_order_cents<1000||general.min_order_cents>1000000)
-         throw new DomainError("COUPON_GENERAL_MINIMUM_UNVERIFIED",
-           "Condição do pacote geral não disponível.",503);
+       // The pre-migration Financeiro MUST still allow owner budget reads/topups.
+       // An absent general package or missing column is NOT a reason to hide
+       // already-confirmed sponsorship balances from the superadmin.
+       if(generalError&&String(generalError.code)!=="42703")throw generalError;
+       const generalReady=!generalError&&!!general&&
+         Number.isSafeInteger(general.min_order_cents)&&
+         general.min_order_cents>=1000&&general.min_order_cents<=1000000;
        return json({ok:true,source:"clube_coupon_owner_sponsor_v1_807",
-         generalCouponMinOrderCents:general.min_order_cents,
-         generalCouponSaleEnabled:general.sale_enabled===true,
-         potentialGeneralPacks:Math.floor((data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents)/1500),
+         generalCouponConfigured:generalReady,
+         generalCouponMinOrderCents:generalReady?general.min_order_cents:null,
+         generalCouponSaleEnabled:generalReady&&general.sale_enabled===true,
+         potentialGeneralPacks:generalReady?
+           Math.floor((data.reconciled_cents+data.owner_guaranteed_cents-data.encumbered_cents)/1500):0,
          authorizedCents:data.authorized_cents,
         reconciledCents:data.reconciled_cents,
         ownerGuaranteedCents:data.owner_guaranteed_cents,
