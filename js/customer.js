@@ -91,8 +91,6 @@ function tamaoHomeBenefits({compact=false}={}){
   </section>`;
 }
 
-// Rendered in both live public-home layouts. It is an invitation to inspect
-// server-verified Clube offers, never a claim that coupon sales are enabled.
 function tamaoHomeCouponBanner(){
  return `<section class="tamao-coupon-banner" aria-label="Clube TAMÃO: cupons, cashback e indicações">
   <div class="tamao-coupon-banner-copy">
