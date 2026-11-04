@@ -2310,71 +2310,43 @@ async function merchantTeamLoadLive({silent=false}={}){
   }
 }
 
-// An HTTP response belongs to the merchant AND the operator who initiated it.
-// Auth/revenda changes increment accessEpoch; old callbacks must not refresh,
-// display a success, or release the action lock belonging to the next actor.
-function merchantEditableMutationScope(){
-  const rt=merchantRuntime;
-  const actor=String(rt.session?.user?.id||'');
-  const merchantId=String(rt.merchant?.merchantId||'');
-  if(rt.status!=='ready'||!actor||!merchantId||
-    (rt.selectedMerchantId&&String(rt.selectedMerchantId)!==merchantId)||
-    !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))
-    throw new Error('Atualize seu acesso de proprietário ou gerente antes de alterar a revenda.');
-  return {actor,merchantId,epoch:rt.accessEpoch};
+// Lazy merchant-only operations: do not inflate first-render JS in the
+// partner portal. The script shares this exact release SHA and server gates.
+let merchantMutationLoader=null;
+function merchantMutationScopeKey(){
+ const rt=merchantRuntime;
+ return [rt.session?.user?.id||'',rt.merchant?.merchantId||'',rt.accessEpoch].join(':');
 }
-function merchantEditableMutationSame(scope){
-  const rt=merchantRuntime;
-  return !!scope&&rt.status==='ready'&&rt.accessEpoch===scope.epoch&&
-    String(rt.session?.user?.id||'')===scope.actor&&
-    String(rt.merchant?.merchantId||'')===scope.merchantId&&
-    String(rt.selectedMerchantId||'')===scope.merchantId&&
-    ['owner','manager'].includes(String(rt.merchant?.memberRole||''));
+async function merchantLoadMutations(){
+ if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl)return;
+ if(merchantMutationLoader)return merchantMutationLoader;
+ merchantMutationLoader=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  const src=document.querySelector('script[src*="/js/merchant.js"]')?.src||'';
+  let version='';
+  try{version=new URL(src,location.href).searchParams.get('v')||''}catch{}
+  script.src='./js/merchant-mutations.js'+
+   (/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'');
+  script.onload=()=>{
+   if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl)resolve();
+   else{merchantMutationLoader=null;reject(Error('Operações da revenda indisponíveis.'));}
+  };
+  script.onerror=()=>{
+   merchantMutationLoader=null;
+   reject(Error('Não foi possível carregar as operações da revenda.'));
+  };
+  document.head.appendChild(script);
+ });
+ return merchantMutationLoader;
+}
+async function merchantTeamMutateLive(action,payload={}){
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de alterar a equipe.');
+ return globalThis.merchantTeamMutateImpl(action,payload);
 }
 
-async function merchantTeamMutateLive(action,payload={}){
-  if(!['invite','revoke-member','revoke-invite'].includes(action))
-    throw new Error('Ação de equipe inválida');
-  const scope=merchantEditableMutationScope();
-  const same=()=>merchantEditableMutationSame(scope);
-  if(merchantRuntime.actionPending)throw new Error('Aguarde a operação em andamento.');
-  const token={scope};merchantRuntime.teamActionToken=token;
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  try{
-    const idempotencyKey=liveIdempotency('merchant-team');
-    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-team',{
-      merchantId:scope.merchantId,action,...payload
-    },{idempotencyKey}));
-    if(!same())throw new Error('A conta ou a revenda mudou durante a alteração da equipe.');
-    const readStarted=Date.now();
-    const fresh=await merchantRefresh({silent:true});
-    if(!same())throw new Error('A conta ou a revenda mudou durante a conferência da equipe.');
-    if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
-       merchantRuntime.catalog!==fresh.catalog||
-       !Number.isFinite(Date.parse(String(merchantRuntime.lastSyncAt||'')))||
-       Date.parse(merchantRuntime.lastSyncAt)<readStarted)
-      throw new Error('O cadastro da equipe não foi confirmado em uma consulta atualizada.');
-    const team=await merchantTeamLoadLive({silent:true});
-    if(!same())throw new Error('A conta ou a revenda mudou durante a conferência da equipe.');
-    if(!team||merchantRuntime.team!==team)
-      throw new Error('Não foi possível confirmar a equipe atualizada. Consulte novamente antes de repetir.');
-    return result;
-  }catch(error){
-    if(same()){
-      merchantRuntime.error=String(error?.message||error);
-      try{await merchantTeamLoadLive({silent:true})}catch(_){}
-    }
-    throw error;
-  }finally{
-    if(same()&&merchantRuntime.teamActionToken===token){
-      merchantRuntime.teamActionToken=null;
-      merchantRuntime.actionPending=false;
-      render();
-    }
-  }
-}
 async function merchantTeamInviteLive(email,memberRole,displayName){
   const normalizedEmail=String(email||'').trim().toLowerCase();
   const role=String(memberRole||'').trim().toLowerCase();
@@ -2677,66 +2649,13 @@ async function merchantCatalogHistoryPageLive(merchantId,options={}){
 }
 
 async function merchantUpdateProductLive(productCode,priceCents,availableStock,active=true,pricing={}){
-  const scope=merchantEditableMutationScope();
-  const same=()=>merchantEditableMutationSame(scope);
-  if(merchantRuntime.actionPending)throw new Error('Aguarde a alteração de catálogo em andamento.');
-  const token={scope};merchantRuntime.catalogActionToken=token;
-  merchantRuntime.actionPending=true;render();
-  try{
-    const normalizedCode=String(productCode||'').trim().toUpperCase();
-    const current=(merchantRuntime.catalog||[]).find(
-      item=>String(item?.productCode||'').trim().toUpperCase()===normalizedCode
-    )||null;
-    const body={
-      merchantId:scope.merchantId,action:'update-product',productCode:normalizedCode,
-      priceCents:Number(priceCents),availableStock:Number(availableStock),active:active!==false
-    };
-    if(current?.updatedAt)body.expectedUpdatedAt=String(current.updatedAt);
-    if(pricing&&typeof pricing==='object'){
-      if(pricing.pricingMode!=null)body.pricingMode=String(pricing.pricingMode);
-      if(pricing.minPriceCents!=null)body.minPriceCents=Number(pricing.minPriceCents);
-      if(pricing.maxPriceCents!=null)body.maxPriceCents=Number(pricing.maxPriceCents);
-      if(pricing.pricingStrategy!=null)body.pricingStrategy=String(pricing.pricingStrategy);
-    }
-    const idempotencyKey=liveIdempotency('merchant-catalog');
-    try{
-      const ack=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',body,{idempotencyKey}));
-      if(!same())throw new Error('A conta ou a revenda mudou durante a alteração do produto.');
-      if(!ack?.product)throw new Error('A alteração do produto não foi comprovada pelo servidor.');
-    }catch(error){
-      if(!same())throw new Error('A conta ou a revenda mudou durante a alteração do produto.');
-      if(['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED'].includes(String(error?.code||''))){
-        try{await merchantRefresh({silent:true})}catch(_){}
-      }
-      throw error;
-    }
-    if(!same())throw new Error('A conta ou a revenda mudou durante a consulta do catálogo.');
-    const readStarted=Date.now();
-    const fresh=await merchantRefresh({silent:true});
-    if(!same())throw new Error('A conta ou a revenda mudou durante a consulta do catálogo.');
-    if(!fresh||fresh.merchant?.merchantId!==scope.merchantId||
-       merchantRuntime.catalog!==fresh.catalog||
-       !Number.isFinite(Date.parse(String(merchantRuntime.lastSyncAt||'')))||
-       Date.parse(merchantRuntime.lastSyncAt)<readStarted)
-      throw new Error('A atualização do catálogo não foi confirmada. Consulte antes de repetir.');
-    const row=(fresh.catalog||[]).find(item=>item.productCode===normalizedCode);
-    if(!row||row.priceCents!==body.priceCents||
-       row.availableStock!==body.availableStock||row.active!==body.active||
-       (body.pricingMode!=null&&row.pricingMode!==body.pricingMode)||
-       (body.minPriceCents!=null&&row.minPriceCents!==body.minPriceCents)||
-       (body.maxPriceCents!=null&&row.maxPriceCents!==body.maxPriceCents)||
-       (body.pricingStrategy!=null&&row.pricingStrategy!==body.pricingStrategy))
-      throw new Error('O servidor apresentou valores diferentes dos salvos. Confira preço, estoque e modo de precificação.');
-    merchantEnablementAfterChange();
-    return row;
-  }finally{
-    if(same()&&merchantRuntime.catalogActionToken===token){
-      merchantRuntime.catalogActionToken=null;
-      merchantRuntime.actionPending=false;
-      render();
-    }
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou a revenda mudou antes de salvar o catálogo.');
+ return globalThis.merchantCatalogMutateImpl(productCode,priceCents,availableStock,active,pricing);
 }
+
 async function merchantConfigMutation(action,payload={}){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');
