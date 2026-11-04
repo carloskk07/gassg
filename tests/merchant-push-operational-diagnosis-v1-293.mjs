@@ -4,7 +4,8 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261015210000_merchant_push_diagnostics_v1_293.sql');
 const edge=read('supabase/functions/merchant-push-self-test/index.ts');
-const backend=read('js/backend.js'),merchant=read('js/merchant.js');
+const backend=read('js/backend.js'),merchant=read('js/merchant.js'),
+  diagnostics=read('js/merchant-push-diagnostics.js');
 const audit=read('.github/workflows/audit.yml');
 for(const [name,code] of [['backend',backend],['merchant',merchant]])new vm.Script(code,{filename:name});
 for(const key of ['merchant_push_test_diagnostics','security definer',
@@ -27,15 +28,15 @@ assert.ok(!edge.includes('merchant_push_claim_due'));
 assert.ok(!edge.includes('merchant_push_cron_tick'));
 for(const key of ['merchantPushDiagnoseServerLive','deviceHealth:','healthError:',
  'action:\'diagnose-tests\'','merchantPushFriendlyError','merchantPushRuntime.deviceHealth=null'])
- assert.ok(backend.includes(key),'missing frontend code: '+key);
+ assert.ok((backend+diagnostics).includes(key),'missing frontend code: '+key);
 for(const key of ['Histórico de testes deste aparelho','Próximo passo recomendado',
  'Não Perturbe','Desative o push e cadastre novamente','merchantPushDiagnoseServerLive'])
  assert.ok(merchant.includes(key),'missing merchant guidance: '+key);
 assert.match(audit,/node tests\/merchant-push-operational-diagnosis-v1-293\.mjs/);
 
 // Isolated browser test: a server failure must not erase local health checks.
-const start=backend.indexOf('async function merchantPushDiagnoseServerLive(){');
-const end=backend.indexOf('\nasync function merchantPushEnableLive(){',start);
+const start=diagnostics.indexOf('async function merchantPushDiagnoseServerImpl(){');
+const end=diagnostics.indexOf('\n}',start);
 assert.ok(start>=0&&end>start);
 let merchantId='m',userId='u',hasSub=true,error=null,diagnosis={
  registered:true,tests:4,providerAccepted:2,providerFailed:2,
@@ -60,7 +61,7 @@ const ctx=vm.createContext({
  },
  render:()=>{},Date,Number,String
 });
-vm.runInContext(backend.slice(start,end)+'\nthis.run=merchantPushDiagnoseServerLive;',ctx);
+vm.runInContext(diagnostics.slice(start,end+2)+'\nthis.run=merchantPushDiagnoseServerImpl;',ctx);
 assert.equal(await ctx.run(),true);
 assert.equal(rt.deviceHealth.tests,4);
 assert.equal(rt.deviceHealth.providerFailed,2);
