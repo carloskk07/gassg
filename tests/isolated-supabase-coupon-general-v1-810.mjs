@@ -18,7 +18,10 @@ const refuse=(statement,reason)=>{
  assert.ok(error,'Expected fail-closed rule '+reason);
  assert.match(String(error.stderr||error.message),new RegExp(reason));
 };
-const buyer=sql("SELECT id FROM auth.users WHERE email LIKE 'tamao-buyer-%@example.com' ORDER BY created_at DESC LIMIT 1;");
+// The earlier sponsored-coupon test deliberately leaves the main buyer with
+// an active order. Use the unrelated synthetic referrer (no customer orders)
+// to verify a second real coupon checkout without weakening the order gate.
+const buyer=sql("SELECT u.id FROM auth.users u WHERE u.email LIKE 'tamao-outsider-%@example.com' AND NOT EXISTS (SELECT 1 FROM public.orders o WHERE o.customer_id=u.id) ORDER BY u.created_at DESC LIMIT 1;");
 const admin=sql("SELECT a.user_id FROM public.platform_admins a JOIN auth.users u ON u.id=a.user_id WHERE a.active AND a.admin_role='superadmin' AND u.email LIKE 'tamao-admin-%@example.com' LIMIT 1;");
 const merchant='00000000-0000-4000-8000-000000000026';
 assert.match(buyer,/^[0-9a-f-]{36}$/);
