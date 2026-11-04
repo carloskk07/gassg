@@ -164,7 +164,7 @@ assert.ok(
 assert.ok(
   backend.includes("merchantPaymentConnectLive(provider='mercadopago',action='status')")
   &&backend.includes('merchantUpdatePaymentRoutesLive')
-  &&backend.includes("'connect.pagseguro.uol.com.br'"),
+  &&read('js/merchant-mutations.js').includes("'connect.pagseguro.uol.com.br'"),
   'browser da revenda precisa conectar providers genericamente com allowlist de redirect'
 );
 assert.ok(

@@ -2320,7 +2320,8 @@ function merchantMutationScopeKey(){
 async function merchantLoadMutations(){
  if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
     globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl&&
-    globalThis.merchantConfigSettingsMutateImpl)return;
+    globalThis.merchantConfigSettingsMutateImpl&&
+    globalThis.merchantProviderConnectImpl)return;
  if(merchantMutationLoader)return merchantMutationLoader;
  merchantMutationLoader=new Promise((resolve,reject)=>{
   const script=document.createElement('script');
@@ -2332,7 +2333,8 @@ async function merchantLoadMutations(){
   script.onload=()=>{
    if(globalThis.merchantCatalogMutateImpl&&globalThis.merchantTeamMutateImpl&&
       globalThis.merchantOnlineMutateImpl&&globalThis.merchantPaymentRoutesMutateImpl&&
-    globalThis.merchantConfigSettingsMutateImpl)resolve();
+    globalThis.merchantConfigSettingsMutateImpl&&
+      globalThis.merchantProviderConnectImpl)resolve();
    else{merchantMutationLoader=null;reject(Error('Operações da revenda indisponíveis.'));}
   };
   script.onerror=()=>{
@@ -2433,55 +2435,11 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed,resumeI
 }
 
 async function merchantPaymentConnectLive(provider='mercadopago',action='status'){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
-  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
-    throw new Error('Seu papel não pode gerenciar a conta de recebimento');
-  }
-  const normalizedProvider=String(provider||'').trim().toLowerCase();
-  const normalizedAction=String(action||'status').trim().toLowerCase();
-  if(!/^[a-z][a-z0-9_]{1,39}$/.test(normalizedProvider)){
-    throw new Error('Provedor de pagamento inválido');
-  }
-  if(!['status','start','disconnect'].includes(normalizedAction)){
-    throw new Error('Ação de conexão de pagamento inválida');
-  }
-  merchantRuntime.actionPending=true;
-  merchantRuntime.error=null;
-  render();
-  try{
-    const result=await merchantInvoke('merchant-payment-connect',{
-      merchantId,
-      provider:normalizedProvider,
-      action:normalizedAction
-    });
-    if(normalizedAction==='start'){
-      const raw=String(result?.authorizationUrl||'');
-      let url=null;
-      try{url=new URL(raw)}catch{}
-      const allowedHosts=new Set(
-        normalizedProvider==='mercadopago'
-          ?['auth.mercadopago.com']
-          :normalizedProvider==='pagbank'
-            ?['connect.pagseguro.uol.com.br','connect.sandbox.pagseguro.uol.com.br']
-            :[]
-      );
-      if(!url||url.protocol!=='https:'||!allowedHosts.has(url.hostname)){
-        throw new Error('URL de autorização do provedor inválida');
-      }
-      location.href=url.toString();
-      return result;
-    }
-    await merchantRefresh({silent:true});
-    return result;
-  }catch(error){
-    merchantRuntime.error=String(error?.message||error);
-    try{await merchantRefresh({silent:true})}catch{}
-    throw error;
-  }finally{
-    merchantRuntime.actionPending=false;
-    render();
-  }
+ const scope=merchantMutationScopeKey();
+ await merchantLoadMutations();
+ if(scope!==merchantMutationScopeKey())
+  throw Error('A conta ou revenda mudou antes de gerenciar o recebimento.');
+ return globalThis.merchantProviderConnectImpl(provider,action);
 }
 
 async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das formas de recebimento'){
