@@ -1910,6 +1910,12 @@ async function merchantAccessToken(){
 
 async function merchantInvoke(name,body={},options={}){
   const token=await merchantAccessToken();
+  // A session can change while getSession awaits a refresh. For submissions
+  // that carry a captured actor lease, refuse to send under the NEXT account.
+  if(options.expectedUserId&&(
+    String(merchantRuntime.session?.user?.id||'')!==String(options.expectedUserId)||
+    merchantRuntime.accessEpoch!==options.expectedEpoch))
+    throw Error('Sua conta mudou antes de enviar a solicitação.');
   const headers={
     'Content-Type':'application/json',
     'apikey':CHAMA_BACKEND.publishableKey,
@@ -2711,7 +2717,8 @@ async function merchantSubmitApplicationLive(payload){
   // must be recovered via the applicant's authenticated list, never by a
   // second blind POST that might re-run invites or update a pending record.
   try{
-   response=await merchantInvoke('submit-merchant-application',payload);
+   response=await merchantInvoke('submit-merchant-application',payload,
+    {expectedUserId:actor,expectedEpoch:epoch});
   }catch(error){
    if(!same())throw Error('Sua conta mudou durante o cadastro da revenda.');
    const status=Number(error?.status??0);
