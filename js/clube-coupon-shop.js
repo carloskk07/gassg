@@ -19,8 +19,8 @@ function clubeCouponShopPanel(){
      'Valem para qualquer produto do catálogo. '+
      (Number(p.minOrderCents)>0?'Pedido mínimo: '+esc(money(p.minOrderCents))+'.':'')+'</p>'+
      '<label class="check-row"><input type="checkbox" id="clube-coupon-terms-'+key+'">'+
-     '<span>Li e aceito as condições para comprar e usar estes cupons, incluindo validade, valor mínimo, disponibilidade regional e pedidos de cancelamento. '+
-     '<button type="button" class="text-link" onclick="go(\'terms\')">Ler condições completas</button></span></label>'+ 
+     '<span>Li e aceito as condições para comprar e usar estes cupons, incluindo validade, valor mínimo, disponibilidade regional e pedidos de cancelamento.</span></label>'+ 
+     '<button type="button" class="text-link" onclick="go(\'terms\')">Ler condições completas</button>'+ 
      '<button type="button" class="primary small" onclick="clubeCouponBuy(\''+
      key+'\')" '+(s.busy?'disabled':'')+'>Comprar com Pix</button></article>';
   }).join('');

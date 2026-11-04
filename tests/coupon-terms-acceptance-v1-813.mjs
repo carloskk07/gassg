@@ -5,6 +5,7 @@ const r=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const edge=r('supabase/functions/coupon-credit-pix/index.ts');
 const shop=r('js/clube-coupon-shop.js');
 const legal=r('js/legal.js');
+const html=r('index.html');
 const migration=r('supabase/migrations/20261104170300_clube_coupon_terms_acceptance_v1_813.sql');
 new vm.Script(shop);
 new vm.Script(legal);
@@ -19,9 +20,10 @@ assert.ok(edge.includes('terms_accepted_at:new Date().toISOString()')&&edge.incl
 assert.ok(shop.includes('<input type="checkbox" id="clube-coupon-terms-')&&
  shop.includes('?.checked')&&shop.includes('termsAccepted:true,termsVersion:p.termsVersion'));
 assert.ok(shop.includes('go(\\\'terms\\\')'),'conditions linked before checkout');
-assert.match(legal,/clube_coupon_terms_v1_813/);
+assert.match(legal,/tamao-coupon-terms-template/);
+assert.match(html,/clube_coupon_terms_v1_813/);
 for(const condition of ['pedido elegível','revendas para o CEP','não reserva produto','emissão dos cupons','cancelamento ou reembolso'])
- assert.ok(legal.includes(condition),'conditions missing: '+condition);
+ assert.ok(html.includes(condition),'conditions missing: '+condition);
 assert.match(migration,/ADD COLUMN terms_version text/);
 assert.match(migration,/ADD COLUMN terms_accepted_at timestamptz/);
 assert.match(migration,/CREATE TRIGGER clube_coupon_terms_immutable_v1_813/);
