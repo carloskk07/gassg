@@ -213,3 +213,20 @@ DO $t$ DECLARE v jsonb;BEGIN
  OR (v->'billing'->>'collectedCents')::integer<>0
  THEN RAISE EXCEPTION 'PREPAID_REFUND_STILL_SHOWN_AS_PAID';END IF;
 END $t$;
+
+-- Reversal is a disputed prepayment, NOT permission to bill the same
+-- ride's platform fee a second time. Existing normal Flex fees may be
+-- invoiced, but the prepaid 600 cents must remain held for review.
+SET LOCAL ROLE service_role;
+DO $t$ DECLARE inv jsonb; id uuid;BEGIN
+ inv:=public.mobility_fee_pix_prepare_v1_837(
+  'dddddddd-1000-4000-8000-000000000001'::uuid);
+ id:=(inv->>'invoiceId')::uuid;
+ IF inv->>'status'<>'prepared' OR inv->>'invoiceKind'<>'fee'
+  OR (inv->>'amountCents')::integer<>760
+  OR (select count(*) from public.mobility_fee_pix_invoice_lines_v1_837
+      where invoice_id=id)<>2
+  OR EXISTS(select 1 from public.mobility_fee_pix_invoice_lines_v1_837
+      where request_id=current_setting('tamao.ci.prepaid_completed')::uuid)
+ THEN RAISE EXCEPTION 'PREPAID_DISPUTED_CHARGE_WAS_BILLED_TWICE';END IF;
+END $t$;
