@@ -150,6 +150,8 @@ jobs:
         run: node tests/isolated-product-partner-welcome-v1-843.mjs
       - name: V1.844 PostgreSQL merchant capability scope, ACL, and intact paid-coupon obligations
         run: node tests/isolated-merchant-benefits-live-scope-v1-844.mjs
+      - name: V1.845 PostgreSQL prospective coupon owner contract, undo, RLS and untouched legacy receivables
+        run: node tests/isolated-merchant-future-coupon-contract-v1-845.mjs
       - name: Reject commercial launch from confirmed warnings without eligible supply (disposable)
         run: node tests/isolated-commercial-activation-evidence.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
