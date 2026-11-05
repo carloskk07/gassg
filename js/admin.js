@@ -7798,15 +7798,16 @@ function adminMobilityBillingSection(d){
     return '<section class="section"><div class="notice danger">Conferência financeira indisponível. Os totais recebidos não passaram na validação.</div></section>';
  const entries=m.recentEntries.map(x=>{
    const bps=Number(x.feeBps),fee=Number(x.feeCents),net=Number(x.netCents);
-   if(!['moto','carro'].includes(x.service)||![800,900].includes(bps)||
+   if(!['moto','carro'].includes(x.service)||![500,550,600,800,900].includes(bps)||
       !Number.isSafeInteger(fee)||fee<0||!Number.isSafeInteger(net)||net<0||
-      !['not_collected','provider_verified'].includes(x.collectionStatus))return '';
+      !['not_collected','provider_verified','prepaid_credit'].includes(x.collectionStatus))return '';
    return '<div class="list-row"><div><strong>'+esc(x.service==='moto'?'Moto':'Carro')+
      ' · '+esc(String(x.driverId||'—'))+'</strong><br><small>Corrida '+esc(String(x.requestId||'—'))+
      ' · tarifa líquida '+cents(net)+' · '+esc(String(bps/100))+'% · '+
      esc(formatDateTime(x.recordedAt))+'</small></div>'+
-     '<span class="status-pill '+(x.collectionStatus==='provider_verified'?'online':'risk')+'">'+
-     cents(fee)+' · '+(x.collectionStatus==='provider_verified'?'Pix confirmado':'a receber')+'</span></div>';
+     '<span class="status-pill '+(x.collectionStatus==='provider_verified'||x.collectionStatus==='prepaid_credit'?'online':'risk')+'">'+
+     cents(fee)+' · '+(x.collectionStatus==='prepaid_credit'?'crédito pré-pago':
+       x.collectionStatus==='provider_verified'?'Pix confirmado':'a receber')+'</span></div>';
  }).join('');
  const drivers=m.recentDrivers.map(x=>{
    const rides=Number(x.rides);
@@ -7824,6 +7825,7 @@ function adminMobilityBillingSection(d){
    '<div class="kpi"><span class="label">Taxas registradas</span><strong>'+cents(total)+'</strong></div>'+
    '<div class="kpi"><span class="label">Recebido e comprovado</span><strong>'+cents(collected)+'</strong></div>'+
    '<div class="kpi"><span class="label">Taxas ainda não quitadas</span><strong>'+cents(outstanding)+'</strong></div>'+
+   '<div class="kpi"><span class="label">Abatido de recargas pagas</span><strong>'+cents(m.prepaidConsumedCents??0)+'</strong></div>'+
    '<div class="kpi"><span class="label">Corridas lançadas</span><strong>'+count+'</strong></div>'+
    '<div class="kpi"><span class="label">Motoristas com taxas</span><strong>'+esc(String(Number(m.driverCount)||0))+'</strong></div>'+
    '<div class="kpi"><span class="label">Inconsistências</span><strong>'+mismatch+'</strong></div>'+
