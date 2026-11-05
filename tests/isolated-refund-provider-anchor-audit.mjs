@@ -35,8 +35,8 @@ begin
     reconciliation_key,approval_source,resolved_by,resolved_at,
     admin_reference
   ) values(
-    v_merchant,'package_purchase','credit_300',30000,
-    750,30000,'CI-FAKE-MANUAL-RECEIPT','approved',30000,'pix',
+    v_merchant,'package_purchase','credit_19990',19990,
+    650,19990,'CI-FAKE-MANUAL-RECEIPT','approved',19990,'pix',
     v_key,'manual',v_admin,clock_timestamp(),'CI-LOCAL-NOT-BANK-PROOF'
   ) returning id into v_manual;
 
@@ -45,7 +45,7 @@ begin
     platform_fee_bps_snapshot,credit_grant_cents_snapshot,
     merchant_reference,status
   ) values(
-    v_merchant,'package_purchase','credit_300',30000,750,30000,
+    v_merchant,'package_purchase','credit_19990',19990,650,19990,
     'CI-OTHER-PENDING-REQUEST','pending'
   ) returning id into v_other;
 
@@ -59,7 +59,7 @@ begin
     'mercadopago',v_refund_key,v_key,
     'CI-REVERSAL-'||replace(gen_random_uuid()::text,'-',''),
     5000,'BRL',clock_timestamp(),repeat('a',64),
-    'review_required',v_manual,v_merchant,30000,5000,
+    'review_required',v_manual,v_merchant,19990,5000,
     'partial_refund_confirmed'
   ) returning id into v_refund;
 
@@ -80,7 +80,7 @@ begin
     amount_cents,currency,occurred_at,raw_payload_sha256,
     status,payment_request_id,merchant_id,match_reason
   ) values(
-    'mercadopago',v_event_key,v_key,'pix',30000,'BRL',
+    'mercadopago',v_event_key,v_key,'pix',19990,'BRL',
     clock_timestamp(),repeat('b',64),
     'matched_exact',v_other,v_merchant,'ci_provider_exact'
   );
