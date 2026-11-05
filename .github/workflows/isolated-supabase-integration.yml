@@ -152,6 +152,8 @@ jobs:
         run: node tests/isolated-merchant-benefits-live-scope-v1-844.mjs
       - name: V1.845 PostgreSQL prospective coupon owner contract, undo, RLS and untouched legacy receivables
         run: node tests/isolated-merchant-future-coupon-contract-v1-845.mjs
+      - name: V1.846 REAL prospective partner coupon, revocation, refund rights and net fee on disposable PostgreSQL
+        run: node tests/isolated-partner-coupon-financial-conservation-v1-846.mjs
       - name: Reject commercial launch from confirmed warnings without eligible supply (disposable)
         run: node tests/isolated-commercial-activation-evidence.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
