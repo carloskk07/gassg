@@ -1002,9 +1002,9 @@ function merchantBenefitsContractSection(rt){
   const pending=rt.merchantBenefitsContractPending===true;
   const status=info?.optedIn?'Adesão registrada':'Sem adesão registrada';
   const action=info?(role==='owner'?(info.optedIn?
-    '<button class="ghost small" type="button" onclick="merchantBenefitsContractAct(\\'revoke\\')" '+(pending?'disabled':'')+'>Revogar para novas compras</button>':
+    '<button class="ghost small" type="button" onclick="merchantBenefitsContractAct(\'revoke\')" '+(pending?'disabled':'')+'>Revogar para novas compras</button>':
     '<label class="checkbox-line"><input type="checkbox" id="merchant-benefit-accept-v1-842"/> Li e aceito as condições do Programa de Benefícios, incluindo o desconto custeado pela revenda.</label>'+
-    '<button class="primary small" type="button" onclick="merchantBenefitsContractAct(\\'accept\\')" '+(pending?'disabled':'')+'>Confirmar adesão</button>'):''):
+    '<button class="primary small" type="button" onclick="merchantBenefitsContractAct(\'accept\')" '+(pending?'disabled':'')+'>Confirmar adesão</button>'):''):
     '<p class="tiny muted">Consulte as condições atuais antes de tomar sua decisão.</p>';
   return '<div class="card flat form-stack" aria-label="Programa de Benefícios da revenda">'+
     '<div class="section-head"><div><h3>Programa de Benefícios TAMÃO</h3>'+
@@ -1014,7 +1014,7 @@ function merchantBenefitsContractSection(rt){
     '<div class="notice"><strong>Adesão e aplicação são etapas separadas.</strong> O aceite não gera Pix, desconto, cashback, redução imediata de taxa ou obrigação de ressarcimento pelo TAMÃO. Benefícios nas compras só serão ativados após integração e comprovação.</div>'+
     (info?'<p class="tiny"><strong>Termos v'+esc(String(info.termsVersion))+'</strong> • '+
       esc(String(info.termsText))+'</p>':'')+
-    '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantBenefitsContractAct(\\'view\\')" '+
+    '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantBenefitsContractAct(\'view\')" '+
       (pending?'disabled':'')+'>Consultar condições</button>'+action+'</div>'+
     (rt.merchantBenefitsContractError?'<div class="notice danger">'+esc(rt.merchantBenefitsContractError)+'</div>':'')+
    '</div>';
