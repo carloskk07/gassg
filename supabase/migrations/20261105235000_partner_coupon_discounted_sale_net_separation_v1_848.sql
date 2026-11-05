@@ -60,7 +60,7 @@ begin
  where id=v.id;
  return pg_catalog.jsonb_build_object('ok',true,'replayed',false,'invoiceId',v.id);
 end
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.clube_coupon_paid_quote_reserve(p_customer_user_id uuid, p_voucher_id uuid, p_quote_id uuid)
@@ -152,7 +152,7 @@ begin
    'voucherId',v_voucher.id,'quoteId',p_quote_id,
    'faceCents',v_voucher.face_cents,'appliedCents',0);
 end
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.clube_coupon_paid_create_order(p_user_id uuid, p_quote_id uuid, p_voucher_id uuid, p_payment_method text, p_idempotency_key text, p_request_hash text, p_referral_code text DEFAULT NULL::text, p_cash_tender_cents integer DEFAULT NULL::integer, p_customer_phone text DEFAULT NULL::text, p_address_complement text DEFAULT NULL::text, p_delivery_reference text DEFAULT NULL::text, p_delivery_notes text DEFAULT NULL::text)
@@ -330,7 +330,7 @@ begin
   'couponAppliedCents',v_face,'couponVoucherId',p_voucher_id,
   'couponReplayed',false);
 end
-$function$
+$function$;
 
 
 REVOKE ALL ON FUNCTION public.clube_coupon_paid_net_proceeds_verify(uuid,text,integer,text) FROM PUBLIC,anon,authenticated;
