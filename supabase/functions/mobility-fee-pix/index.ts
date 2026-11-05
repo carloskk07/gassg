@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {DomainError,enforceApiQuota} from "../_shared/domain.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
+import {mobilityFeeEvidenceHash} from "../_shared/mobility-fee-evidence.js";
 import {
  mercadoPagoConfigured,mercadoPagoFetch,readMercadoPagoJson,
  mercadoPagoPixDeadline,mercadoPagoQrDataUri,
@@ -90,12 +91,10 @@ async function reconcile(admin:any,invoice:any){
  const eventState=proof.abnormal?"review_required":paid?"paid":expired?"expired":null;
  if(eventState){
   // Stable evidence only: no user-supplied status, amount, e2e or beneficiary.
-  const body=JSON.stringify({
+  const hash=await mobilityFeeEvidenceHash({
    orderId:proof.orderId,paymentId:proof.paymentId,
    amountCents:proof.amount,state:eventState,
    externalReference:invoice.external_reference});
-  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(body)));
-  const hash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
   const {error}=await admin.rpc("mobility_fee_pix_apply_proof_v1_837",{
    p_invoice:invoice.id,p_order:proof.orderId,p_payment:proof.paymentId,
    p_amount_cents:proof.amount,p_state:eventState,p_evidence_sha256:hash
