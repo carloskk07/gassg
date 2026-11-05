@@ -353,6 +353,27 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("PARTNER_WELCOME_READBACK_MISMATCH",
         "Os valores do benefício não puderam ser reconciliados.",503);
 
+    // #846: only report a partner-funded paid coupon when its immutable
+    // application proves this exact order, merchant, customer and NET amount.
+    const {data:partnerCoupon,error:partnerCouponError}=await admin
+      .from("clube_partner_coupon_order_uses_v1_846")
+      .select("merchant_id,customer_id,gross_cents,net_cents,face_cents,fee_bps_snapshot,buyer_terms_version")
+      .eq("order_id",order.id).maybeSingle();
+    if(partnerCouponError)throw partnerCouponError;
+    if(partnerCoupon&&(
+      partnerBenefit||
+      partnerCoupon.merchant_id!==order.merchant_id||
+      partnerCoupon.customer_id!==order.customer_id||
+      partnerCoupon.gross_cents!==order.gross_total_cents||
+      partnerCoupon.net_cents!==order.total_cents||
+      partnerCoupon.face_cents!==order.cashback_reserved_cents||
+      !Number.isSafeInteger(partnerCoupon.face_cents)||
+      partnerCoupon.face_cents<100||partnerCoupon.face_cents>500||
+      partnerCoupon.buyer_terms_version!=="clube_partner_coupon_terms_v1_846"||
+      !Number.isSafeInteger(partnerCoupon.fee_bps_snapshot)))
+      throw new DomainError("PARTNER_COUPON_READBACK_MISMATCH",
+        "Os valores do cupom financiado pela revenda não puderam ser conciliados.",503);
+
     const deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT";
 
     const safeOrder={
@@ -387,9 +408,12 @@ Deno.serve(async(req:Request)=>{
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
       partnerFundedDiscountCents:partnerBenefit?.amount_cents??0,
+      partnerCouponFundedCents:partnerCoupon?.face_cents??0,
+      couponFundingModel:partnerCoupon?'partner_funded':null,
+      partnerCouponTermsVersion:partnerCoupon?.buyer_terms_version??null,
       partnerWelcomeTermsVersion:partnerBenefit?.terms_version??null,
       partnerFeeBpsSnapshot:role==="merchant"&&["owner","manager"].includes(memberRole||"")
-        ?partnerBenefit?.fee_bps_snapshot??null:null,
+        ?partnerBenefit?.fee_bps_snapshot??partnerCoupon?.fee_bps_snapshot??null:null,
       totalCents:order.total_cents,
       proposedTotalCents:role==="customer"&&order.status==="REQUOTE_REQUIRED"?order.proposed_total_cents:null,
       supplierName:order.supplier_name_snapshot,
