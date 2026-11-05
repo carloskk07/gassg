@@ -41,7 +41,10 @@ const commercial={data:fake,loadedFor:'account-1'};
 const escaped=x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
   .replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
 const scenario=vm.createContext({adminRuntime:runtime,adminCouponCommercial:commercial,
-  adminCurrentRole:()=> 'superadmin',esc:escaped});
+  adminCurrentRole:()=> 'superadmin',esc:escaped,
+  adminCouponCommercialDraftValue:(_id,initial)=>initial,
+  adminCouponCommercialDraftOwner:()=> 'account-1',
+  adminCouponCommercialDraft:{accepted:false}});
 vm.runInContext(admin.slice(begin,finish)+'\nthis.view=adminCouponCommercialReleaseView;',scenario);
 const verifiedHtml=scenario.view();
 assert.match(verifiedHtml,/Recebedor identificado no Mercado Pago/);
