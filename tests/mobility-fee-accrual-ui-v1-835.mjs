@@ -13,7 +13,7 @@ const rt=ctx.runtime,owner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const benefits={eligibleDriver:true,version:2,normalFeeBps:900,memberFeeBps:800,
  termsText:'Contrato de opt-in',optedIn:true};
 rt.user={id:owner};
-rt.program={benefits,billing:{recordedCount:2,accruedCents:592,
+rt.program={benefits,billing:{recordedCount:2,accruedCents:592,collectedCents:0,outstandingCents:592,
  collectionStatus:'not_collected',entries:[
  {requestId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',service:'moto',
   netCents:2400,discountCents:100,feeBps:800,feeCents:192,
@@ -24,11 +24,11 @@ rt.program={benefits,billing:{recordedCount:2,accruedCents:592,
 const html=ctx.mobilityFeeLedgerPanel();
 assert.match(html,/Taxas dos atendimentos concluídos/);
 assert.match(html,/R\$\s*5,92/);
-assert.match(html,/Pagamento não comprovado e cobrança ainda não disponibilizada/);
+assert.match(html,/confirmado pelo provedor/);
 assert.match(html,/R\$\s*1,92/);
 assert.match(html,/R\$\s*4,00/);
 assert.match(html,/Atualizar extrato/);
-assert.doesNotMatch(html,/Pagar agora|Taxa quitada|Gerar Pix/i);
+assert.match(html,/Gerar Pix das taxas acumuladas/);
 rt.program.billing={...rt.program.billing,entries:[]};
 assert.match(ctx.mobilityFeeLedgerPanel(),/Nenhuma taxa registrada até agora/);
 rt.program.billing={...rt.program.billing,collectionStatus:'paid'};
@@ -36,11 +36,11 @@ assert.equal(ctx.mobilityFeeLedgerPanel(),'','Never claim paid without source pr
 rt.program=null;
 assert.equal(ctx.mobilityFeeLedgerPanel(),'','Never leak previous account');
 rt.program={benefits:{...benefits,eligibleDriver:false},
- billing:{recordedCount:2,accruedCents:592,collectionStatus:'not_collected',entries:[]}};
+ billing:{recordedCount:2,accruedCents:592,collectedCents:0,outstandingCents:592,collectionStatus:'not_collected',entries:[]}};
 assert.match(ctx.mobilityFeeLedgerPanel(),/Taxas dos atendimentos concluídos/,
  'Suspended or unpublished driver must retain historic fee access');
 rt.program={benefits:{...benefits,eligibleDriver:false},
- billing:{recordedCount:0,accruedCents:0,collectionStatus:'not_collected',entries:[]}};
+ billing:{recordedCount:0,accruedCents:0,collectedCents:0,outstandingCents:0,collectionStatus:'not_collected',entries:[]}};
 assert.equal(ctx.mobilityFeeLedgerPanel(),'','New rider cannot see driver fee panel');
 const migration=fs.readFileSync(new URL('../supabase/migrations/20261105051500_mobility_fee_ledger_v1_835.sql',import.meta.url),'utf8');
 for(const term of ['mobility_platform_fee_accruals_v1_835',
