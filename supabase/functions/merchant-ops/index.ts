@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-business-details","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","benefits-contract","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-business-details","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -560,6 +560,52 @@ Deno.serve(async(req:Request)=>{
          !Number.isSafeInteger(data.terms.brandBudgetCents)||
          !Number.isSafeInteger(data.terms.platformBudgetCents))))
         throw new DomainError("CLUBE_TERMS_UNVERIFIED","A proposta não foi validada pelo servidor.",503);
+      return json(data,200,origin);
+    }
+    if(action==="benefits-contract"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("MERCHANT_BENEFIT_ACCESS_DENIED",
+          "Apenas a gestão da revenda pode consultar estas condições.",403);
+      const operation=String(body.operation??"view");
+      if(!["view","accept","revoke"].includes(operation))
+        throw new DomainError("MERCHANT_BENEFIT_OPERATION_INVALID","Ação inválida.",400);
+      if(operation!=="view"&&role!=="owner")
+        throw new DomainError("MERCHANT_BENEFIT_OWNER_REQUIRED",
+          "Somente o proprietário pode aceitar ou revogar estas condições.",403);
+      const expectedVersion=operation==="view"?null:body.expectedVersion;
+      const requestId=operation==="view"?null:String(body.requestId??"");
+      if(operation!=="view"&&(
+        body.termsVersion!==1||!Number.isSafeInteger(expectedVersion)||
+        expectedVersion<0||expectedVersion>2147483600||
+        !UUID_RE.test(requestId)||
+        (operation==="accept"&&body.consent!==true)))
+        throw new DomainError("MERCHANT_BENEFIT_ACCEPTANCE_INVALID",
+          "Atualize as condições e confirme seu aceite.",409);
+      const {data,error}=await admin.rpc("merchant_benefits_contract_v1_842",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_terms_version:operation==="view"?null:1,
+        p_expected_version:expectedVersion,p_request_id:requestId,
+        p_consent:operation==="accept"&&body.consent===true
+      });
+      if(error){
+        const msg=String(error.message||error);
+        if(/MERCHANT_BENEFIT_(VERSION_STALE|STATE_CONFLICT|REPLAY_CONFLICT)/.test(msg))
+          throw new DomainError("MERCHANT_BENEFIT_REFRESH_REQUIRED",
+            "As condições mudaram. Consulte novamente antes de decidir.",409);
+        throw error;
+      }
+      if(data?.source!=="merchant_benefits_contract_v1_842"||
+        data?.merchantId!==merchantId||
+        data?.readOnly!==(operation==="view")||
+        typeof data?.optedIn!=="boolean"||
+        !Number.isSafeInteger(data?.version)||data.version<0||
+        data?.termsVersion!==1||typeof data?.termsText!=="string"||
+        data.termsText.length<250||data.normalFlexFeeBps!==900||
+        data.memberFlexFeeBps!==800||data.maxWelcomeDiscountCents!==100||
+        data.checkoutBenefitsEnabled!==false||data.feeReductionEnabled!==false||
+        data.noCurrentFinancialMutation!==true||data.legacyCouponRightsPreserved!==true)
+        throw new DomainError("MERCHANT_BENEFIT_READBACK_UNVERIFIED",
+          "O contrato de benefícios não foi confirmado no servidor.",503);
       return json(data,200,origin);
     }
     if(action==="clube-interest"){
