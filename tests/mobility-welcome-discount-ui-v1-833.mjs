@@ -26,7 +26,7 @@ assert.match(paid,/-R\$\s*1,00/);
 assert.doesNotMatch(paid,/Confirmar valor da corrida/);
 const driver=ctx.mobilityFarePanel({...base,role:'driver',fare_accepted:true,
  discount_cents:100,direct_due_cents:2400,fee_bps:800});
-assert.match(driver,/Taxa TAMÃO desta corrida: 8%/);
+assert.match(driver,/Taxa TAMÃO prevista para esta corrida: 8%/);
 assert.match(driver,/24,00/);
 const corrupt=ctx.mobilityFarePanel({...base,fare_accepted:true,discount_cents:100,
  direct_due_cents:2500});
