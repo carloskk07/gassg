@@ -66,6 +66,70 @@ commercial.data={...fake,providerSeller:{...fake.providerSeller,name:'<img src=x
 assert.doesNotMatch(scenario.view(),/<img src=x onerror=alert\(1\)>/,
  'Name from payment provider must never be trusted HTML');
 
+
+// Regression: global Admin renders must not erase the partially entered
+// seller address, support email, terms checkbox or typing caret.
+const adminBootstrap=get('js/bootstrap.js');
+assert.ok(adminBootstrap.includes('adminCouponCommercialCaptureFocus()') &&
+  adminBootstrap.includes('adminCouponCommercialRestoreFocus(focus)'),
+  'Admin shell must preserve the focused field when replacing #app');
+const draftStart=admin.indexOf('const adminCouponCommercial={');
+const draftEnd=admin.indexOf('async function adminCouponCommercialRefresh()',draftStart);
+const viewStart=admin.indexOf('function adminCouponCommercialReleaseView(){');
+const viewEnd=admin.indexOf('\nfunction adminClubeCouponPreviewView()',viewStart);
+assert.ok(draftStart>0&&draftEnd>draftStart&&viewStart>draftEnd&&viewEnd>viewStart);
+const dom={nodes:Object.create(null),activeElement:null,
+  getElementById(id){return this.nodes[id]||null}};
+const runtime={session:{user:{id:'founder-A'}}};
+const state=vm.createContext({document:dom,adminRuntime:runtime,
+  adminCurrentRole:()=> 'superadmin',
+  esc:x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+   .replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;')});
+vm.runInContext(admin.slice(draftStart,draftEnd)+admin.slice(viewStart,viewEnd)+
+  '\nthis.api={input:adminCouponCommercialDraftInput,'+
+  'capture:adminCouponCommercialCaptureFocus,'+
+  'restore:adminCouponCommercialRestoreFocus,'+
+  'view:adminCouponCommercialReleaseView,'+
+  'draft:adminCouponCommercialDraft,commercial:adminCouponCommercial};',state);
+const scenarioData={commercialEnabled:false,providerConfigured:true,
+  privateEmergencyStop:false,profileFromMercadoPago:false,
+  providerSeller:null,seller:{address:'',supportEmail:''}};
+state.api.commercial.data=scenarioData;
+state.api.commercial.loadedFor='founder-A';
+dom.nodes['clube-commercial-release-button']={id:'clube-commercial-release-button'};
+const address={id:'clube-seller-address',type:'text',value:'Rua Sete de Setembro, 100, Centro',
+  selectionStart:23,selectionEnd:23};
+const email={id:'clube-seller-support',type:'email',value:'contato@empresa.com',
+  selectionStart:13,selectionEnd:13};
+dom.nodes[address.id]=address;
+dom.nodes[email.id]=email;
+dom.activeElement=address;
+const saved=state.api.capture();
+state.api.input(email);
+state.api.input({id:'clube-accept-all',checked:true});
+assert.equal(saved.id,'clube-seller-address');
+assert.equal(saved.start,23);
+let content=state.api.view();
+assert.match(content,/value="Rua Sete de Setembro, 100, Centro"/);
+assert.match(content,/value="contato@empresa.com"/);
+assert.match(content,/id="clube-accept-all"[^>]* checked/);
+assert.ok(!admin.includes('localStorage.setItem("clube-seller'),
+  'Seller drafts must remain in RAM, not persist to disk');
+let focusCalls=0,selection=null;
+dom.nodes[address.id]={id:address.id,type:'text',
+  focus:opts=>{if(opts?.preventScroll)focusCalls++;},
+  setSelectionRange:(a,b)=>{selection=[a,b];}};
+state.api.restore(saved);
+assert.equal(focusCalls,1,'focused input must be restored after render');
+assert.deepEqual(selection,[23,23],'restore typing position');
+runtime.session.user.id='founder-B';
+state.api.commercial.loadedFor='founder-B';
+content=state.api.view();
+assert.doesNotMatch(content,/Rua Sete de Setembro, 100, Centro|contato@empresa.com/);
+assert.doesNotMatch(content,/id="clube-accept-all"[^>]* checked/);
+state.api.restore(saved);
+assert.equal(focusCalls,1,'never restore focus from another account');
+
 for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'DESCONTOS EM COMPRAS ELEGÍVEIS','CUPONS','confirmados no Clube'])
  assert.ok(markup.includes(term),'banner missing: '+term);
 for(const claim of ['ILUSTRAÇÃO DE CUPOM','EXEMPLO','R$ 5','Comprar agora','Compre seu pacote','Desconto garantido','Cupom disponível','Compre por Pix'])
