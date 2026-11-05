@@ -5,7 +5,7 @@ declare
  v_posture jsonb:=public.tamao_launch_acl_posture_v1();
  v_fn text;
  v_old text:='01c829e82b34ca4ca60d1c6ece7da1ba';
- v_new text:='b33aa22d7054c32af1bc789b2646347a';
+ v_new text:='9853381e58a69957edffa0dd33f9a31f';
 begin
  if (v_posture->>'rpcCount')::int<>36
  or v_posture->>'rpcDigest'<>v_new
