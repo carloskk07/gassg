@@ -7783,7 +7783,8 @@ function adminMerchantPaymentAccountsSection(d){
 function adminMobilityBillingSection(d){
  const m=d?.mobilityBilling;
  if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return '';
- if(!m||m.source!=='database_full'||m.collectionStatus!=='not_collected'||
+ if(!m||m.source!=='database_full'||
+    !['not_collected','partially_collected','provider_verified'].includes(m.collectionStatus)||
     m.paymentVerified!==false||!Array.isArray(m.recentEntries)||
     !Array.isArray(m.recentDrivers))return '<section class="section"><div class="notice danger">Não foi possível conferir o extrato financeiro da mobilidade no servidor. Atualize o Admin.</div></section>';
  const cents=x=>Number.isSafeInteger(Number(x))&&Number(x)>=0?adminMoney(Number(x)):'—';
@@ -7791,7 +7792,8 @@ function adminMobilityBillingSection(d){
        outstanding=Number(m.outstandingCents),count=Number(m.recordedCount),
        mismatch=Number(m.integrityIssues);
  if(![total,collected,outstanding,count,mismatch].every(Number.isSafeInteger)||
-    total<0||count<0||collected!==0||outstanding!==total||mismatch<0)
+    total<0||count<0||collected<0||outstanding<0||
+    collected>total||outstanding+collected!==total||mismatch<0)
     return '<section class="section"><div class="notice danger">Conferência financeira indisponível. Os totais recebidos não passaram na validação.</div></section>';
  const entries=m.recentEntries.map(x=>{
    const bps=Number(x.feeBps),fee=Number(x.feeCents),net=Number(x.netCents);
@@ -7802,7 +7804,8 @@ function adminMobilityBillingSection(d){
      ' · '+esc(String(x.driverId||'—'))+'</strong><br><small>Corrida '+esc(String(x.requestId||'—'))+
      ' · tarifa líquida '+cents(net)+' · '+esc(String(bps/100))+'% · '+
      esc(formatDateTime(x.recordedAt))+'</small></div>'+
-     '<span class="status-pill risk">'+cents(fee)+' · não recebido</span></div>';
+     '<span class="status-pill '+(x.collectionStatus==='provider_verified'?'online':'risk')+'">'+
+     cents(fee)+' · '+(x.collectionStatus==='provider_verified'?'Pix confirmado':'a receber')+'</span></div>';
  }).join('');
  const drivers=m.recentDrivers.map(x=>{
    const rides=Number(x.rides);
@@ -7819,12 +7822,12 @@ function adminMobilityBillingSection(d){
   '<div class="merchant-kpis">'+
    '<div class="kpi"><span class="label">Taxas registradas</span><strong>'+cents(total)+'</strong></div>'+
    '<div class="kpi"><span class="label">Recebido e comprovado</span><strong>'+cents(collected)+'</strong></div>'+
-   '<div class="kpi"><span class="label">Ainda sem cobrança/baixa</span><strong>'+cents(outstanding)+'</strong></div>'+
+   '<div class="kpi"><span class="label">Taxas ainda não quitadas</span><strong>'+cents(outstanding)+'</strong></div>'+
    '<div class="kpi"><span class="label">Corridas lançadas</span><strong>'+count+'</strong></div>'+
    '<div class="kpi"><span class="label">Motoristas com taxas</span><strong>'+esc(String(Number(m.driverCount)||0))+'</strong></div>'+
    '<div class="kpi"><span class="label">Inconsistências</span><strong>'+mismatch+'</strong></div>'+
   '</div>'+
-  '<div class="notice"><strong>Conciliação bancária ainda não disponível.</strong> O registro não comprova pagamento, não emite Pix e não pode ser marcado como quitado por esta tela. Na abertura da cobrança, somente prova direta do provedor poderá atualizar a situação.</div>'+
+  '<div class="notice"><strong>Conferência com o provedor.</strong> Pagamentos Pix só contam como recebidos quando a order e a transação são verificadas diretamente no Mercado Pago. O Admin não permite registrar quitação por declaração manual, e estornos permanecem em revisão.</div>'+
   '<div class="card flat"><h3>Taxas por modalidade comercial</h3><p>Flex 9%: '+
    esc(String(Number(m.ninePercent?.count)||0))+' corrida(s), '+cents(m.ninePercent?.cents)+
    ' · Programa de Benefícios 8%: '+esc(String(Number(m.eightPercent?.count)||0))+
