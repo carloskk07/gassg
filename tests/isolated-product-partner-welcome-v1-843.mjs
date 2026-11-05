@@ -161,6 +161,16 @@ assert.equal(complete.body.status,'SETTLED');
 assert.equal(sql('select platform_fee_cents from public.platform_receivables where order_id='+q(orderId)+'::uuid'),'151',
  '8 percent fee on NET 18.90 is 1.51, not gross 19.90');
 assert.equal(sql('select benefit_fee_basis_cents_v1_843 from public.platform_receivables where order_id='+q(orderId)+'::uuid'),'1890');
+assert.equal(sql('select platform_fee_cents from public.order_reward_grants where order_id='+q(orderId)+'::uuid'),'151',
+ 'reward/commission budget MUST reconcile with 8 percent of NET, never gross');
+assert.equal(sql('select count(*) from public.settlement_accounting_failures where order_id='+q(orderId)+'::uuid and resolved_at is null'),'0',
+ 'no hidden failed receivable accounting retry may masquerade as successful settlement');
+assert.equal(sql('select count(*) from public.reward_processing_failures where order_id='+q(orderId)+'::uuid and resolved_at is null'),'0',
+ 'no hidden failed reward/commission processing on a settled partner-funded order');
+const rewardedAgain=JSON.parse(sql('select public.grant_order_rewards('+q(orderId)+'::uuid)::text'));
+assert.equal(rewardedAgain.alreadyGranted,true);
+assert.equal(rewardedAgain.platformFeeCents,151);
+
 assert.equal(sql('select count(*) from public.merchant_cashback_reimbursements where order_id='+q(orderId)+'::uuid'),'0',
  'partner-financed welcome must never create a TAMÃO reimbursement');
 assert.equal(sql('select count(*) from public.wallet_entries where order_id='+q(orderId)+'::uuid and entry_type=\'cashback_reserve\''),'1');
