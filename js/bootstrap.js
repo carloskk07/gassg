@@ -217,10 +217,12 @@ function render(){
       const focus=typeof adminCouponCommercialCaptureFocus==='function'
         ?adminCouponCommercialCaptureFocus():null;
       const app=document.querySelector('#app');
-      const disclosures=adminDisclosureCapture(app);
+      const disclosures=typeof adminDisclosureCapture==='function'
+        ?adminDisclosureCapture(app):null;
       if(app)app.innerHTML=typeof adminPage==='function'?adminPage():
         '<main class="shell page"><div class="notice danger">Administração indisponível. Recarregue a página.</div></main>';
-      adminDisclosureRestore(app,disclosures);
+      if(disclosures&&typeof adminDisclosureRestore==='function')
+        adminDisclosureRestore(app,disclosures);
       if(focus&&typeof adminCouponCommercialRestoreFocus==='function')
         adminCouponCommercialRestoreFocus(focus);
       return;
