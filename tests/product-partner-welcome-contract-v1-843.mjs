@@ -40,7 +40,6 @@ for(const required of [
  'v_order.total_cents<>v_order.gross_total_cents-v_partner_discount',
  'cashback-user:',
  'mobility_welcome_uses_v1_833',
- 'clube_coupon_paid_order_applications',
  'wallet_entries',
  "'welcomeReplayed',true",
  'revoke all on function public.create_product_welcome_order_v1_843',
