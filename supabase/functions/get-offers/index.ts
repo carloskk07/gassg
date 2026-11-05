@@ -558,6 +558,34 @@ Deno.serve(async (req: Request) => {
       }
       safe.deliveryWindowStart=deliveryWindow?.start??null;
       safe.deliveryWindowEnd=deliveryWindow?.end??null;
+      // #843: preview vinculada à quote e ao usuário. Não publica nome/ID
+      // da revenda e não reserva crédito; o checkout relê contrato e lote.
+      safe.welcomeBenefitEligible=false;
+      safe.welcomeDiscountCents=0;
+      safe.normalCashbackAvailableCents=null;
+      try{
+        const {data:preview,error:previewError}=await admin.rpc(
+          "product_welcome_quote_preview_v1_843",{
+            p_user_id:user.id,p_quote_id:quote.quoteId
+          });
+        if(previewError)throw previewError;
+        if(preview?.source==="product_welcome_quote_preview_v1_843"&&
+          preview?.quoteId===quote.quoteId&&
+          preview?.merchantId===candidate.merchantId&&
+          preview?.readOnly===true&&preview?.buyerPaysMerchantDirectly===true&&
+          preview?.canCombineWithPaidCoupon===false&&
+          typeof preview.eligible==="boolean"&&
+          Number.isSafeInteger(preview.normalCashbackAvailableCents)&&
+          preview.normalCashbackAvailableCents>=0&&
+          preview.discountCents===(preview.eligible?100:0)){
+          safe.welcomeBenefitEligible=preview.eligible;
+          safe.welcomeDiscountCents=preview.eligible?100:0;
+          safe.normalCashbackAvailableCents=preview.normalCashbackAvailableCents;
+        }
+      }catch(error){
+        console.warn("partner welcome preview unavailable");
+      }
+
 
       if(hasMerchantLeak(safe))throw new Error("Merchant identity leak detected");
       quotedMerchantIds.push(candidate.merchantId);
