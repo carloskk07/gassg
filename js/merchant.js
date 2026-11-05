@@ -3536,17 +3536,16 @@ function merchantUnifiedOpsBoard(rt,orders){
 
 // Read-only disclosure: an order never proves sponsorship or a fee waiver.
 function merchantOrderBenefitDisclosure(o,demo=false){
-  if(globalThis.merchantOrderBenefitDisclosureImpl)return merchantOrderBenefitDisclosureImpl(o,demo);
-  if(Number(demo?o?.cashbackReserved:o?.cashbackReservedCents)<=0)return '';
-  if(typeof document==='undefined')return '<aside class="notice merchant-benefit-disclosure">Benefício em conferência.</aside>';
-  if(!globalThis._merchantBenefitReceiptPending){
+  const impl=globalThis.merchantOrderBenefitDisclosureImpl;
+  if(impl)return impl(o,demo);
+  if(!Number(demo?o?.cashbackReserved:o?.cashbackReservedCents))return '';
+  if(typeof document!=='undefined'&&!globalThis._merchantBenefitReceiptPending){
     globalThis._merchantBenefitReceiptPending=true;
     const s=document.createElement('script');
     s.src='./js/merchant-order-benefits.js';s.onload=render;
-    s.onerror=()=>toast('Atualize para conferir os benefícios.');
     document.head.append(s);
   }
-  return '<aside class="notice merchant-benefit-disclosure">Conferindo benefício. Atualize antes de aceitar.</aside>';
+  return '<aside class="notice merchant-benefit-disclosure">Benefício em conferência. Atualize antes de aceitar.</aside>';
 }
 
 function merchantLiveOrder(o){
