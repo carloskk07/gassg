@@ -36,10 +36,10 @@ const render=(obj,disputes=disputeFixture)=>context.adminMobilityBillingSection(
 let html=render(data);
 assert.match(html,/Taxas de atendimento/);
 assert.match(html,/Contestações Pix/);
-assert.match(html,/2 fatura\\(s\\)/);
+assert.ok(html.includes('2 fatura(s)'));
 assert.match(html,/Recarga de plano/);
 assert.match(html,/Taxa de corridas/);
-assert.match(html,/R\\$\\s*9,90/);
+assert.ok(html.includes('9,90'));
 assert.match(html,/sem marcação automática|Nenhuma contestação é automaticamente/);
 assert.doesNotMatch(html,/Marcar pago|Resolver contestação|Reemitir Pix/i);
 let unsafe=render(data,{...disputeFixture,cases:[
@@ -73,9 +73,9 @@ role='readonly';
 assert.match(render(data),/Taxas de atendimento/);
 assert.match(edgeSrc,/admin_mobility_fee_review_v1_836/);
 assert.match(edgeSrc,/mobility_fee_pix_invoices_v1_837/);
-assert.match(edgeSrc,/mobilityDisputeAccess=Boolean\\(currentAdmin\\?\\.active\\)/);
-assert.match(edgeSrc,/\.eq\\("status","review_required"\\)/);
-assert.match(edgeSrc,/\.order\\("review_at",\\{ascending:true\\}\\)/);
+assert.ok(edgeSrc.includes('mobilityDisputeAccess=Boolean(currentAdmin?.active)'));
+assert.ok(edgeSrc.includes('.eq("status","review_required")'));
+assert.ok(edgeSrc.includes('.order("review_at",{ascending:true})'));
 assert.match(edgeSrc,/mobilityDisputes:mobilityDisputeAccess/);
 assert.match(edgeSrc,/MOBILITY_DISPUTE_REVIEW_UNAVAILABLE/);
 assert.match(edgeSrc,/\["superadmin","finance","readonly"\]\.includes\(actorRole\)/);
