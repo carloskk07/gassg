@@ -240,7 +240,7 @@ begin
   'recentDrivers',v_drivers,
   'recentEntriesTruncated',v_total_count>80,
   'recentDriversTruncated',v_driver_count>80,
-  'paymentVerified',false
+  'paymentVerified',(v_paid_cents>0)
  );
 end;
 $function$;
