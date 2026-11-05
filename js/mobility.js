@@ -532,7 +532,9 @@ function mobilityProgramPanel(){
 }
 function mobilityFeeLedgerPanel(){
  const s=mobilityRuntime,b=s.program?.benefits,ledger=s.program?.billing;
- if(b?.eligibleDriver!==true||!ledger||ledger.collectionStatus!=='not_collected'||
+ // Mesmo com anúncio suspenso, o motorista mantém acesso ao seu histórico.
+ if((b?.eligibleDriver!==true&&Number(ledger?.recordedCount||0)===0)||
+    !ledger||ledger.collectionStatus!=='not_collected'||
     !Number.isSafeInteger(Number(ledger.accruedCents))||Number(ledger.accruedCents)<0||
     !Number.isSafeInteger(Number(ledger.recordedCount))||Number(ledger.recordedCount)<0||
     !Array.isArray(ledger.entries)||ledger.entries.length>8)return '';
