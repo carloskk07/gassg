@@ -73,7 +73,7 @@ begin
         where invoice_id=v_id)<>v_amount
  then raise exception 'MOBILITY_FEE_INVOICE_SUM_CONFLICT'
    using errcode='40001';end if;
- return jsonb_build_object('invoiceId',v_id,'status','prepared',
+ return jsonb_build_object('invoiceId',v_id,'invoiceKind','fee','status','prepared',
    'amountCents',v_amount,'externalReference','mobility-fee:'||v_id::text,
    'createdAt',(select created_at from public.mobility_fee_pix_invoices_v1_837
                 where id=v_id));
