@@ -186,6 +186,8 @@ jobs:
         run: node tests/isolated-partner-coupon-financial-conservation-v1-846.mjs
       - name: V1.847 cancel paid coupon twice, restore same voucher, zero cashback leakage and preserve old ledgers
         run: node tests/isolated-partner-coupon-cancel-reissue-v1-847.mjs
+      - name: V1.848 isolated partner coupon R$8.90 package, R$8.20 PSP net and R$15 discounts
+        run: node tests/isolated-partner-coupon-discounted-sale-v1-848.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
