@@ -541,9 +541,9 @@ function mobilityFeePixPanel(){
    Date.parse(String(p.expiresAt||''))>Date.now()+60000&&
    typeof p.brCode==='string'&&p.brCode.length>=20&&p.brCode.length<=8192;
  const img=payable&&typeof p.qrDataUri==='string'&&p.qrDataUri.length<550100&&
-  /^data:image\\/png;base64,[A-Za-z0-9+/=]+$/.test(p.qrDataUri)?p.qrDataUri:'';
+  /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(p.qrDataUri)?p.qrDataUri:'';
  const link=payable&&typeof p.paymentLinkUrl==='string'&&
-   /^https:\\/\\/(?:[A-Za-z0-9-]+\\.)*mercadopago\\.com(?:\\.br)?\\//i.test(p.paymentLinkUrl)?
+   /^https:\/\/(?:[A-Za-z0-9-]+\\.)*mercadopago\\.com(?:\\.br)?\//i.test(p.paymentLinkUrl)?
    '<a target="_blank" rel="noopener noreferrer" href="'+esc(p.paymentLinkUrl)+'">Abrir cobrança no Mercado Pago</a>':'';
  const pix=payable?
   '<div class="mobility-form" aria-label="Cobrança Pix de taxas">'+
@@ -690,8 +690,8 @@ async function mobilityFeePixRequest(action){
   if(!same())return false;
   if(sessionError||!session?.access_token||session.user?.id!==userId)
     throw Error('Auth session unavailable');
-  const base=String(CHAMA_BACKEND.url||'').replace(/\\/+$/,'');
-  if(!/^https:\\/\\/[^/]+$/.test(base))throw Error('Invalid backend URL');
+  const base=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'');
+  if(!/^https:\/\/[^/]+$/.test(base))throw Error('Invalid backend URL');
   const response=await fetch(base+'/functions/v1/mobility-fee-pix',{
    method:'POST',headers:{'Authorization':'Bearer '+session.access_token,
     'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
