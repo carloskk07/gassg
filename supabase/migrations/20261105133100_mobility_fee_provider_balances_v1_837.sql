@@ -74,7 +74,16 @@ AS $function$
         'collectionStatus',recent.collection_status
       ) order by recent.recorded_at desc,recent.request_id desc)
       from (select a.request_id,a.service,a.net_fare_cents,a.discount_cents,
-                   a.fee_bps,a.fee_cents,a.recorded_at,a.collection_status
+                   a.fee_bps,a.fee_cents,a.recorded_at,
+                   case when exists(
+                    select 1 from public.mobility_fee_pix_invoice_lines_v1_837 l
+                    join public.mobility_fee_pix_invoices_v1_837 i on i.id=l.invoice_id
+                    where l.request_id=a.request_id and i.status='paid'
+                    and exists(select 1 from public.mobility_fee_pix_evidence_v1_837 e
+                      where e.invoice_id=i.id and e.event_state='paid'
+                        and e.evidence_hash=i.provider_evidence_hash)
+                   ) then 'provider_verified' else a.collection_status end
+                     as collection_status
             from public.mobility_platform_fee_accruals_v1_835 a
             where a.driver_id=(select auth.uid())
             order by a.recorded_at desc,a.request_id desc limit 8) recent
@@ -180,7 +189,15 @@ begin
  from (
   select a.request_id,a.driver_id,a.service,a.gross_fare_cents,
    a.discount_cents,a.net_fare_cents,a.fee_bps,a.fee_cents,
-   a.collection_status,a.recorded_at
+   case when exists(
+    select 1 from public.mobility_fee_pix_invoice_lines_v1_837 l
+    join public.mobility_fee_pix_invoices_v1_837 i on i.id=l.invoice_id
+    where l.request_id=a.request_id and i.status='paid'
+    and exists(select 1 from public.mobility_fee_pix_evidence_v1_837 e
+      where e.invoice_id=i.id and e.event_state='paid'
+        and e.evidence_hash=i.provider_evidence_hash)
+  ) then 'provider_verified' else a.collection_status end as collection_status,
+  a.recorded_at
   from public.mobility_platform_fee_accruals_v1_835 a
   order by a.recorded_at desc,a.request_id desc limit 80
  ) x;
