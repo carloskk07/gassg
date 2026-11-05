@@ -322,7 +322,7 @@ begin
     'dueAt',v_due_at
   );
 end;
-$function$
+$function$;
 
 
 create function public.create_product_welcome_order_v1_843(
