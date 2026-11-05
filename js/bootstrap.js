@@ -170,6 +170,44 @@ function discoveryOwnerRequestModule(){
   script.onerror=()=>{discoveryOwnerModuleError=true;render();};
   document.head.appendChild(script);
 }
+/* Preserve native disclosures across Ajax-driven Admin repaint. Opening any
+   <details> must not be undone by a background data refresh. */
+function adminDisclosureKey(details,occurrences){
+  const id=String(details.id||'').trim();
+  if(id)return 'id:'+id;
+  const data=String(details.getAttribute?.('data-admin-disclosure-key')||'').trim();
+  if(data)return 'data:'+data;
+  const summary=String(details.querySelector?.(':scope > summary')?.textContent||'')
+    .replace(/\s+/g,' ').trim().slice(0,220);
+  const className=String(details.className||'').replace(/\s+/g,' ').trim();
+  const base='summary:'+className+'|'+summary;
+  const order=occurrences.get(base)||0;
+  occurrences.set(base,order+1);
+  return base+'#'+order;
+}
+function adminDisclosureCapture(app){
+  if(!app||typeof app.querySelectorAll!=='function')return null;
+  const occurrences=new Map(),states=new Map();
+  let focused=null;
+  const active=document.activeElement;
+  for(const details of app.querySelectorAll('details')){
+    const key=adminDisclosureKey(details,occurrences);
+    states.set(key,details.open===true);
+    if(active?.tagName==='SUMMARY'&&active.parentElement===details)focused=key;
+  }
+  return {states,focused};
+}
+function adminDisclosureRestore(app,snapshot){
+  if(!app||!snapshot||typeof app.querySelectorAll!=='function')return;
+  const occurrences=new Map();
+  for(const details of app.querySelectorAll('details')){
+    const key=adminDisclosureKey(details,occurrences);
+    if(snapshot.states.has(key))details.open=snapshot.states.get(key);
+    if(key===snapshot.focused){
+      details.querySelector?.(':scope > summary')?.focus?.({preventScroll:true});
+    }
+  }
+}
 let renderLock=false;
 function render(){
   if(renderLock)return;
@@ -179,8 +217,10 @@ function render(){
       const focus=typeof adminCouponCommercialCaptureFocus==='function'
         ?adminCouponCommercialCaptureFocus():null;
       const app=document.querySelector('#app');
+      const disclosures=adminDisclosureCapture(app);
       if(app)app.innerHTML=typeof adminPage==='function'?adminPage():
         '<main class="shell page"><div class="notice danger">Administração indisponível. Recarregue a página.</div></main>';
+      adminDisclosureRestore(app,disclosures);
       if(focus&&typeof adminCouponCommercialRestoreFocus==='function')
         adminCouponCommercialRestoreFocus(focus);
       return;
