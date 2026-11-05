@@ -2957,7 +2957,9 @@ async function summary(admin:any,actorUserId:string){
   // #841: finance-only queue of contested MP invoices. Read-only, exact count,
   // oldest first so a backlog cannot hide behind the last 50 payments.
   // Never convert this queue into a payment, charge or wallet adjustment.
-  const mobilityDisputeCases=["superadmin","finance","readonly"].includes(actorRole)
+  const mobilityDisputeAccess=Boolean(currentAdmin?.active)&&
+    ["superadmin","finance","readonly"].includes(actorRole);
+  const mobilityDisputeCases=mobilityDisputeAccess
     ?await admin.from("mobility_fee_pix_invoices_v1_837")
       .select("id,driver_id,invoice_kind,plan_key,amount_cents,external_reference,provider_order_id,provider_payment_id,review_at,paid_at,created_at",{count:"exact"})
       .eq("status","review_required")
@@ -3226,7 +3228,7 @@ async function summary(admin:any,actorUserId:string){
       reviewSampleLimited:(merchantSaleAttempts.data??[]).length>=500
     },
     mobilityBilling:mobilityFeeReview.data??null,
-    mobilityDisputes:["superadmin","finance","readonly"].includes(actorRole)
+    mobilityDisputes:mobilityDisputeAccess
       ?{source:"psp_review_queue",total:mobilityDisputeCases.count,
         cases:mobilityDisputeCases.data,truncated:mobilityDisputeCases.count>50}
       :null,
