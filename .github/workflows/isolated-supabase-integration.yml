@@ -124,6 +124,8 @@ jobs:
         run: node tests/isolated-mobility-push.mjs
       - name: Prove five real moto and car participant journeys with cancellation expiry and GPS cleanup
         run: node tests/isolated-mobility-full-lifecycle-v1-493.mjs
+      - name: V1.826 confirm fare with authenticated rider and driver on isolated Postgres
+        run: node tests/isolated-mobility-fare-plans-v1-826.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes
