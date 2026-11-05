@@ -284,7 +284,7 @@ function liveForgetAccount(){
   state.address='';state.postalCode='';state.addressNumber='';
   for(const key of ['customerPhoneDigits','addressComplement','deliveryReference','deliveryNotes'])
     state.checkout[key]='';
-  state.checkout.useCashback=false;state.checkout.cashTenderCents=null;
+  state.checkout.useCashback=false;state.checkout.useWelcomeBonus=false;state.checkout.cashTenderCents=null;
   localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
   save();
   location.reload();
@@ -579,6 +579,10 @@ function liveOfferView(raw){
     quoteId:raw.quoteId,
     roles:[roleMap[raw.label]||'Opção'],
     total:Number(raw.totalCents||0)/100,
+    welcomeBenefitEligible:raw.welcomeBenefitEligible===true&&raw.welcomeDiscountCents===100,
+    welcomeDiscountCents:raw.welcomeBenefitEligible===true&&raw.welcomeDiscountCents===100?100:0,
+    normalCashbackAvailableCents:Number.isSafeInteger(raw.normalCashbackAvailableCents)&&raw.normalCashbackAvailableCents>=0
+      ?raw.normalCashbackAvailableCents:null,
     deliveryFee:raw.deliveryFeeCents==null
       ||!Number.isSafeInteger(Number(raw.deliveryFeeCents))
       ||Number(raw.deliveryFeeCents)<0
@@ -843,6 +847,15 @@ async function liveCreateOrder(quoteId){
     toast('Este cupom não cabe nesta cotação. Atualize seus benefícios ou escolha outra oferta.');
     return;
   }
+  const applyWelcome=state.checkout.useWelcomeBonus===true;
+  if(applyWelcome&&(!selected.welcomeBenefitEligible||selected.welcomeDiscountCents!==100)){
+    toast('O bônus não está confirmado nesta cotação. Atualize as ofertas.');
+    return;
+  }
+  if(applyWelcome&&(state.checkout.useCashback===true||couponIntent)){
+    toast('Escolha o bônus de R$ 1 ou outro benefício para esta compra.');
+    return;
+  }
   liveRuntime.actionPending=true;
   liveRuntime.error=null;
   render();
@@ -861,6 +874,7 @@ async function liveCreateOrder(quoteId){
     ...(ownerCampaignTag?{campaignTag:ownerCampaignTag}:{}),
     paymentMethod:state.checkout.paymentMethod,
     useCashback:state.checkout.useCashback===true,
+    ...(applyWelcome?{applyWelcome:true}:{}),
     ...(couponVoucher?{couponVoucherId:couponVoucher.voucherId}:{}),
     referralCode:(()=>{
       const code=typeof growthAttributionCode==='function'?growthAttributionCode():
@@ -889,6 +903,7 @@ async function liveCreateOrder(quoteId){
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,confirmedOrderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
+    state.checkout.useWelcomeBonus=false;
     if(typeof clubeClearPaidCheckoutVoucher==='function')clubeClearPaidCheckoutVoucher();
     state.checkout.cashTenderCents=null;
     state.checkout.deliveryMode='now';
