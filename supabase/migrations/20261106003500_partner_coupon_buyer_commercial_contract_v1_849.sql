@@ -157,3 +157,42 @@ REVOKE ALL ON FUNCTION public.clube_partner_coupon_sale_readiness_v1_849(text)
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.clube_partner_coupon_sale_readiness_v1_849(text)
  TO service_role;
+
+
+-- Buyer-facing commercial seller terms MUST match the last signed disclosure
+-- at the moment of invoice issuance. This guard is scoped to this future
+-- package, never historical or isolated synthetic coupon invoices.
+CREATE FUNCTION public.clube_partner_coupon_buyer_invoice_guard_v1_849()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog
+AS $buyer_guard$
+DECLARE v_sign public.clube_partner_coupon_sale_agreements_v1_849%rowtype;
+ v_ready jsonb;
+BEGIN
+ IF new.package_key<>'partner_general_3x5_849' THEN RETURN new; END IF;
+ SELECT * INTO v_sign FROM public.clube_partner_coupon_sale_agreements_v1_849
+ WHERE package_key=new.package_key ORDER BY signed_at DESC LIMIT 1;
+ SELECT public.clube_partner_coupon_sale_readiness_v1_849(new.package_key)
+ INTO v_ready;
+ IF NOT FOUND OR v_sign.request_id IS NULL OR v_sign.sales_authorized IS DISTINCT FROM true
+    OR v_ready->>'ready' IS DISTINCT FROM 'true'
+    OR new.funding_mode_v1_846<>'partner_funded'
+    OR new.terms_version<>'clube_partner_coupon_terms_v1_846'
+    OR new.funding_terms_version_v1_846 IS DISTINCT FROM new.terms_version
+    OR new.terms_accepted_at IS NULL
+    OR new.seller_name IS DISTINCT FROM v_sign.seller_name
+    OR new.seller_tax_document IS DISTINCT FROM v_sign.seller_tax_document
+    OR new.seller_address IS DISTINCT FROM v_sign.seller_address
+    OR new.seller_support_email IS DISTINCT FROM v_sign.seller_support_email
+    OR new.sale_price_cents<>890 OR new.coupon_face_cents<>500
+    OR new.coupons_per_pack<>3 OR new.min_order_cents<>1000
+    OR new.sponsor_covered_cents<>0
+ THEN RAISE EXCEPTION 'PARTNER_COUPON_BUYER_CONTRACT_UNVERIFIED'
+   USING ERRCODE='42501'; END IF;
+ RETURN new;
+END;
+$buyer_guard$;
+REVOKE ALL ON FUNCTION public.clube_partner_coupon_buyer_invoice_guard_v1_849()
+ FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER z_clube_partner_coupon_buyer_invoice_guard_v1_849
+ BEFORE INSERT ON public.clube_coupon_paid_invoices
+ FOR EACH ROW EXECUTE FUNCTION public.clube_partner_coupon_buyer_invoice_guard_v1_849();
