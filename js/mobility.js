@@ -426,6 +426,24 @@ function mobilityAcceptedContactHtml(row){
  return '<p class="mobility-contact"><a href="'+esc(url)+
   '" target="_blank" rel="noopener noreferrer">Conversar com o motorista no WhatsApp</a></p>';
 }
+function mobilityFarePanel(row){
+ if(!row||!['rider','driver'].includes(row.role))return '';
+ const cents=Number(row.fare_cents),valid=Number.isSafeInteger(cents)&&cents>=100&&cents<=10000000;
+ const accepted=row.fare_accepted===true&&valid;
+ if(accepted)return '<p class="mobility-fare-accepted"><strong>Valor combinado: '+esc(BRL.format(cents/100))+'</strong> — confirmado pelo passageiro. O pagamento é combinado diretamente com o motorista.</p>';
+ if(row.status!=='accepted')return valid
+  ?'<p><strong>Valor proposto: '+esc(BRL.format(cents/100))+'</strong> — ainda não confirmado pelo passageiro.</p>':'';
+ if(row.role==='driver'){
+  return '<form class="mobility-form" onsubmit="return mobilityFarePropose(event)">'+
+   '<label>Valor da corrida (R$)<input name="fare" type="number" inputmode="decimal" min="1" max="100000" step=".01" required value="'+(valid?(cents/100).toFixed(2):'')+'"></label>'+
+   '<button type="submit" class="secondary"'+(mobilityRuntime.busy?' disabled':'')+'>Enviar valor ao passageiro</button></form>'+
+   (valid?'<p class="tiny muted">Valor atual: '+esc(BRL.format(cents/100))+'. Aguarde a confirmação do passageiro.</p>':'');
+ }
+ return valid?'<div class="mobility-fare-prompt"><strong>Motorista propôs '+esc(BRL.format(cents/100))+'</strong>'+
+  '<p>Confira o valor antes de confirmar. O TAMÃO não recebe o pagamento integral da corrida.</p>'+
+  '<button type="button" class="primary" onclick="mobilityFareAccept()"'+(mobilityRuntime.busy?' disabled':'')+'>Confirmar valor da corrida</button></div>':
+  '<p class="tiny muted">O motorista ainda não informou um valor pelo TAMÃO.</p>';
+}
 function mobilityDetailPanel(row){
  if(!row)return '';
  const driver=row.role==='driver',status=row.status,terminal=!['requested','accepted','en_route','arrived'].includes(status);
@@ -448,7 +466,8 @@ function mobilityDetailPanel(row){
   (!driver?mobilityPortraitHtml(mobilityRuntime.selectedPortraitId===row.id?
     mobilityRuntime.selectedPortraitKey:''):'')+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
-  '<p class="tiny muted">Este pedido não garante disponibilidade, preço nem transporte. Combine condições com o anunciante.</p>'+
+  (row.fare_accepted===true?'<p class="tiny muted">O valor foi confirmado. Combine o pagamento diretamente com o motorista.</p>':'<p class="tiny muted">Atendimento sujeito a disponibilidade. Confirme o valor antes do deslocamento.</p>')+
+  mobilityFarePanel(row)+
   mobilityAcceptedContactHtml(row)+
   '<p><a class="mobility-report-link" href="/#contact"'+
   (mobilityId.test(String(row.id||''))?' onclick="return mobilityReport(\''+row.id+'\')"':'')+
@@ -688,6 +707,7 @@ async function mobilityRefresh(silent=false){
    }else{
     const prevStatus=s.detail?.status;
     const prevRole=s.detail?.role;
+    const prevFare=JSON.stringify([s.detail?.fare_cents,s.detail?.fare_version,s.detail?.fare_accepted]);
     const prevContact=s.detail?.driver_whatsapp||null;
     const oldPosition=s.detail?.position||null;
     const prevPosition=JSON.stringify(oldPosition);
@@ -695,7 +715,8 @@ async function mobilityRefresh(silent=false){
     // A driver's public contact can be revoked without a trip-status
     // change. Even a silent poll must redraw to remove the old link.
     changed=changed||prevStatus!==next.status||prevRole!==next.role||
-     prevContact!==(next.driver_whatsapp||null);
+     prevContact!==(next.driver_whatsapp||null)||
+     prevFare!==JSON.stringify([next.fare_cents,next.fare_version,next.fare_accepted]);
     if(next.role==='rider'&&(s.selectedPortraitId!==selected||
       Date.now()-s.selectedPortraitCheckedAt>60000)){
      const previousPortrait=s.selectedPortraitKey;
@@ -792,6 +813,55 @@ function mobilityCreatedRequestVerified(intent,origin,destination,id,epoch,userI
   row.service===intent?.mode&&row.origin===origin&&row.destination===destination&&
   ['requested','accepted','en_route','arrived','completed','cancelled','rejected','expired']
    .includes(String(row.status||''));
+}
+// Quote/accept actions are verified against a NEW participant snapshot after
+// committing; stale account, request or quote revisions can never show success.
+async function mobilityFarePropose(event){
+ event.preventDefault();
+ const s=mobilityRuntime,id=s.id,epoch=s.sessionEpoch,user=s.user?.id;
+ if(s.busy||!s.client||s.detail?.id!==id||s.detail?.role!=='driver'||s.detail?.status!=='accepted')return false;
+ const raw=String(new FormData(event.target).get('fare')||'');
+ if(!/^\\d{1,6}(?:\\.\\d{1,2})?$/.test(raw)){s.error='Informe um valor válido.';render();return false}
+ const cents=Math.round(Number(raw)*100);
+ if(!Number.isSafeInteger(cents)||cents<100||cents>10000000){s.error='Valor fora do intervalo permitido.';render();return false}
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===user&&s.id===id;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('mobility_fare_propose_v1_826',{p_request_id:id,p_fare_cents:cents});
+  if(!same())return false;
+  if(error)throw error;
+  const ok=await mobilityRefresh();
+  if(!same())return false;
+  if(!ok||s.detail?.id!==id||s.detail?.role!=='driver'||
+    s.detail?.fare_cents!==cents||data?.fareCents!==cents)
+   throw Error('Fare not confirmed');
+  s.notice='Valor enviado e confirmado pelo servidor. Aguarde o passageiro.';
+ }catch(_){if(same())s.error='Não foi possível conferir o valor no servidor. Atualize a solicitação antes de repetir.'}
+ if(same()){s.busy=false;render()}
+ return false;
+}
+async function mobilityFareAccept(){
+ const s=mobilityRuntime,id=s.id,epoch=s.sessionEpoch,user=s.user?.id;
+ const cents=Number(s.detail?.fare_cents),version=Number(s.detail?.fare_version);
+ if(s.busy||!s.client||s.detail?.id!==id||s.detail?.role!=='rider'||
+  s.detail?.status!=='accepted'||s.detail?.fare_accepted===true||
+  !Number.isSafeInteger(cents)||!Number.isSafeInteger(version)||version<1)return false;
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===user&&s.id===id;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('mobility_fare_accept_v1_826',{p_request_id:id,p_version:version});
+  if(!same())return false;
+  if(error)throw error;
+  const ok=await mobilityRefresh();
+  if(!same())return false;
+  if(!ok||s.detail?.id!==id||s.detail?.role!=='rider'||
+    s.detail?.fare_cents!==cents||s.detail?.fare_version!==version||
+    s.detail?.fare_accepted!==true||data?.accepted!==true)
+   throw Error('Price acceptance not confirmed');
+  s.notice='Valor da corrida confirmado no servidor.';
+ }catch(_){if(same())s.error='Não foi possível confirmar o valor. Atualize para verificar se ele foi alterado.'}
+ if(same()){s.busy=false;render()}
+ return false;
 }
 async function mobilityCreate(event){
  event.preventDefault();
