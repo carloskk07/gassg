@@ -102,7 +102,7 @@ async function reconcile(admin:any,invoice:any){
   });
   if(error)throw error;
   const next=await admin.from("mobility_fee_pix_invoices_v1_837")
-   .select("id,driver_id,amount_cents,status,external_reference,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
+   .select("id,driver_id,amount_cents,status,external_reference,invoice_kind,plan_key,plan_fee_bps,grant_cents,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
    .eq("id",invoice.id).single();
   if(next.error)throw next.error;
   return next.data;
@@ -130,7 +130,7 @@ async function recoverProcessedBeforeCommit(admin:any,invoice:any,order:any){
  });
  if(error)throw error;
  const result=await admin.from("mobility_fee_pix_invoices_v1_837")
-  .select("id,driver_id,amount_cents,status,external_reference,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
+  .select("id,driver_id,amount_cents,status,external_reference,invoice_kind,plan_key,plan_fee_bps,grant_cents,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
   .eq("id",invoice.id).eq("driver_id",invoice.driver_id).single();
  if(result.error||result.data?.status!=="paid")
   throw new Error("MOBILITY_PIX_RECOVERY_READBACK_FAILED");
@@ -146,6 +146,9 @@ function publicInvoice(invoice:any){
  }
  const img=String(invoice.pix_qr_data_uri??"");
  return {invoiceId:invoice.id,status:status==="active"&&!canPay?"expired":status,
+  invoiceKind:invoice.invoice_kind==='prepaid_credit'?'prepaid_credit':'fee',
+  planKey:invoice.invoice_kind==='prepaid_credit'?invoice.plan_key:null,
+  planFeeBps:invoice.invoice_kind==='prepaid_credit'?invoice.plan_fee_bps:null,
   amountCents:invoice.amount_cents,
   brCode:canPay?code:null,
   qrDataUri:canPay&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(img)
@@ -170,7 +173,7 @@ Deno.serve(async(req:Request)=>{
   if(error||!user||user.is_anonymous===true)throw new DomainError(
    "UNAUTHORIZED","Conta permanente autenticada obrigatória.",401);
   const body:any=await readJsonBody(req,{maxBytes:2048});
-  if(!body||!["charge","status"].includes(body.action)){
+  if(!body||!["charge","status","plan"].includes(body.action)){
    throw new DomainError("INVALID_ACTION","Ação financeira inválida.",400);
   }
   const admin=createClient(SUPABASE_URL,SECRET_KEY,{
@@ -179,7 +182,7 @@ Deno.serve(async(req:Request)=>{
   await enforceApiQuota(admin,{userId:user.id,actionName:"mobility-fee-pix",
    limit:15,windowSeconds:60});
   const latest=await admin.from("mobility_fee_pix_invoices_v1_837")
-   .select("id,driver_id,amount_cents,status,external_reference,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
+   .select("id,driver_id,amount_cents,status,external_reference,invoice_kind,plan_key,plan_fee_bps,grant_cents,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
    .eq("driver_id",user.id).order("created_at",{ascending:false})
    .limit(1).maybeSingle();
   if(latest.error)throw latest.error;
@@ -194,7 +197,15 @@ Deno.serve(async(req:Request)=>{
      await reconcile(admin,latest.data):latest.data;
    return reply({ok:true,charge:publicInvoice(invoice)},200,origin);
   }
-  const prepared=await admin.rpc("mobility_fee_pix_prepare_v1_837",{p_driver:user.id});
+  if(body.action==="plan"&&(!["essential","popular","professional"].includes(body.planKey)
+    ||Object.keys(body).some(k=>!["action","planKey"].includes(k)))){
+    throw new DomainError("MOBILITY_PLAN_UNAVAILABLE","Plano indisponível.",400);
+  }
+  const prepared=body.action==="plan"
+    ?await admin.rpc("mobility_fee_pix_prepare_credit_v1_838",{
+      p_driver:user.id,p_plan_key:body.planKey
+     })
+    :await admin.rpc("mobility_fee_pix_prepare_v1_837",{p_driver:user.id});
   if(prepared.error)throw prepared.error;
   if(prepared.data?.status==="below_minimum"){
    return reply({ok:true,status:"below_minimum",
@@ -204,10 +215,17 @@ Deno.serve(async(req:Request)=>{
   if(!UUID.test(id))throw new DomainError("MOBILITY_FEE_PREPARE_INVALID",
    "Não foi possível preparar a cobrança.",503);
   const current=await admin.from("mobility_fee_pix_invoices_v1_837")
-   .select("id,driver_id,amount_cents,status,external_reference,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
+   .select("id,driver_id,amount_cents,status,external_reference,invoice_kind,plan_key,plan_fee_bps,grant_cents,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
    .eq("id",id).eq("driver_id",user.id).single();
   if(current.error)throw current.error;
   const invoice=current.data;
+  if(body.action==="plan"&&(
+      invoice.invoice_kind!=="prepaid_credit"||invoice.plan_key!==body.planKey))
+    throw new DomainError("MOBILITY_PLAN_INVOICE_MISMATCH",
+       "Já existe uma cobrança diferente aguardando conferência.",409);
+  if(body.action==="charge"&&invoice.invoice_kind!=="fee")
+    throw new DomainError("MOBILITY_FEE_OTHER_INVOICE_PENDING",
+       "Confira o Pix do seu plano antes de emitir cobrança de taxas.",409);
   if(invoice.status!=="prepared"){
    const reconciled=invoice.provider_order_id?await reconcile(admin,invoice):invoice;
    return reply({ok:true,charge:publicInvoice(reconciled)},200,origin);
@@ -262,7 +280,7 @@ Deno.serve(async(req:Request)=>{
   });
   if(saved.error)throw saved.error;
   const {data:final,error:readErr}=await admin.from("mobility_fee_pix_invoices_v1_837")
-   .select("id,driver_id,amount_cents,status,external_reference,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
+   .select("id,driver_id,amount_cents,status,external_reference,invoice_kind,plan_key,plan_fee_bps,grant_cents,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
    .eq("id",invoice.id).eq("driver_id",user.id).single();
   if(readErr)throw readErr;
   return reply({ok:true,charge:publicInvoice(final)},200,origin);
