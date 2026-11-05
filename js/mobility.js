@@ -7,6 +7,7 @@
 })();
 
 const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,items:[],detail:null,
+ program:null,programBusy:false,programSeq:0,
  welcomeClaimedUser:'',welcomeClaimInFlight:'',
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  pushEnabled:false,pushBusy:false,
@@ -481,6 +482,24 @@ function mobilityDetailPanel(row){
   (!driver?mobilityMapPanel(row):'')+
   '<p class="tiny muted">Solicitação até '+esc(mobilityFormatDate(row.expires_at))+'.</p></section>';
 }
+function mobilityProgramPanel(){
+ const s=mobilityRuntime,b=s.program?.benefits;
+ if(b?.eligibleDriver!==true||b.version!==2||
+    b.normalFeeBps!==900||b.memberFeeBps!==800||
+    typeof b.termsText!=='string')return '';
+ const joined=b.optedIn===true;
+ return '<section class="mobility-start" aria-label="Programa de Benefícios TAMÃO">'+
+  '<h2>Programa de Benefícios para motoristas</h2>'+
+  '<p><strong>Taxa Flex: 9% normalmente, 8% ao participar.</strong> Em troca, você concorda em aceitar até R$ 1 de desconto nas corridas dos clientes elegíveis. O desconto é seu, sem ressarcimento pelo TAMÃO.</p>'+
+  '<p class="tiny muted">O passageiro paga o valor líquido diretamente a você. A taxa do TAMÃO é separada e a conclusão da corrida não significa quitação.</p>'+
+  '<details><summary>Condições completas do programa</summary><p>'+esc(b.termsText)+'</p></details>'+
+  (joined?
+   '<p role="status"><strong>Você participa do programa.</strong> Saída válida para novas tarifas confirmadas.</p>'+
+   '<button class="secondary" type="button" onclick="mobilitySetProgram(false)"'+(s.programBusy?' disabled':'')+'>Sair do programa</button>':
+   '<label><input type="checkbox" id="mobility-program-accept"> Li e aceito as condições exibidas acima.</label>'+
+   '<button class="primary" type="button" onclick="mobilitySetProgram(true)"'+(s.programBusy?' disabled':'')+'>Participar e reduzir a taxa Flex para 8%</button>')+
+  '</section>';
+}
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
@@ -527,6 +546,7 @@ function mobilityPage(){
    '<button type="button" onclick="mobilityEnableRemoteAlerts()"'+(s.pushBusy?' disabled':'')+'>Ativar avisos com o aplicativo fechado</button>')+
   (!s.noticeOptIn?'<button type="button" onclick="mobilityEnableAlerts()">Ativar avisos do navegador nesta página</button>':
     '<p role="status">Avisos opcionais ativados nesta sessão.</p>')+'</section>'+
+  mobilityProgramPanel()+
   '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
   (intent&&!hasOngoingRider?mobilityPortraitHtml(
     s.intentPortraitId===intent.id&&s.intentPortraitMode===intent.mode?s.intentPortraitKey:''):'')+
@@ -555,6 +575,51 @@ async function mobilityClaimWelcomeOnAuth(){
  }catch(_){return false}
  finally{if(s.welcomeClaimInFlight===userId)s.welcomeClaimInFlight=''}
 }
+async function mobilityLoadProgram(){
+ const s=mobilityRuntime,client=s.client,epoch=s.sessionEpoch,userId=s.user?.id,seq=++s.programSeq;
+ if(!client||!userId)return false;
+ try{
+  const {data,error}=await client.rpc('mobility_billing_catalog_v1_826');
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId||s.programSeq!==seq)return false;
+  if(error||!data||!Array.isArray(data.plans)||
+    data.benefits?.version!==2||data.benefits?.normalFeeBps!==900||
+    data.benefits?.memberFeeBps!==800||typeof data.benefits.termsText!=='string')
+   throw Error('Invalid program policy');
+  s.program=data;if(mobilityRoute())render();
+  return true;
+ }catch(_){
+  if(s.sessionEpoch===epoch&&s.user?.id===userId&&s.programSeq===seq){
+   s.program=null;if(mobilityRoute())render();
+  }
+  return false;
+ }
+}
+async function mobilitySetProgram(optIn){
+ const s=mobilityRuntime,client=s.client,userId=s.user?.id,epoch=s.sessionEpoch;
+ if(!client||!userId||s.programBusy||s.program?.benefits?.eligibleDriver!==true||
+    s.program?.benefits?.version!==2)return false;
+ if(optIn){
+  const checked=document.getElementById?.('mobility-program-accept')?.checked===true;
+  if(!checked){s.error='Leia e aceite as condições antes de participar.';render();return false}
+ }
+ s.programBusy=true;s.error='';s.notice='';render();
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ try{
+  const {data,error}=await client.rpc('mobility_benefits_participate_v1_826',{
+   p_opt_in:optIn,p_terms_version:2});
+  if(!same())return false;
+  if(error||data?.optedIn!==optIn||data?.termsVersion!==2)
+   throw Error('Program change unconfirmed');
+  const verified=await mobilityLoadProgram();
+  if(!same())return false;
+  if(!verified||s.program?.benefits?.optedIn!==optIn)
+   throw Error('Program readback mismatch');
+  s.notice=optIn?'Adesão confirmada no servidor. Condições válidas para novas corridas.':
+   'Saída confirmada. As condições de corridas já aceitas permanecem válidas.';
+ }catch(_){if(same())s.error='Não foi possível confirmar a adesão no servidor. Atualize antes de repetir.'}
+ if(same()){s.programBusy=false;render()}
+ return false;
+}
 async function mobilityInit(){
  const s=mobilityRuntime;if(s.phase!=='idle')return;
  s.phase='loading';
@@ -575,6 +640,7 @@ async function mobilityInit(){
       next.id!==s.user?.id){
     mobilityClearSession();
     s.user=next;
+    void mobilityLoadProgram();
     void mobilityClaimWelcomeOnAuth();
     if(mobilityRoute()){
      void mobilityRefresh();
@@ -592,6 +658,7 @@ async function mobilityInit(){
   if(s.user){
    void mobilityClaimWelcomeOnAuth();
    await mobilityRefresh();
+   void mobilityLoadProgram();
    // The currently authenticated session is rechecked server-side. A
    // different tab signing out cannot retain the old notification consent.
    void mobilityRestoreRemoteAlerts();
@@ -607,6 +674,7 @@ function mobilityClearSession(){
  const frame=document.getElementById?.('mobility-map');
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
+ s.program=null;s.programBusy=false;s.programSeq++;
  s.welcomeClaimedUser='';s.welcomeClaimInFlight='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';s.syncUnavailable=false;
