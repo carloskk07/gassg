@@ -215,6 +215,9 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   const seller=inv.seller;
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
    '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   (inv.fundingModel==='partner_funded'
+    ?'<p class="tiny">Cupom pago financiado pela revenda participante. O desconto depende de adesão da revenda e pedido elegível; o TAMÃO não o converte em cashback comum.</p>'
+    :'')+
    (seller?'<p class="tiny muted">Vendedor: '+esc(String(seller.name||''))+
       ' · '+esc(String(seller.taxDocument||''))+'</p>':'')+
    (request==='refunded'&&inv.status==='refunded'?

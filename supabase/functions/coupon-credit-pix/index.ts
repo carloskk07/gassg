@@ -117,13 +117,23 @@ function couponInvoiceNetCovered(row:any){
  const sponsor=Number(row?.sponsor_covered_cents??0);
  const faceTotal=face*count;
  const legacyNetCovered=Number.isSafeInteger(net)&&net>=face*count;
+ const partnerNetCovered=row?.funding_mode_v1_846==="partner_funded"&&
+   row?.funding_terms_version_v1_846==="clube_partner_coupon_terms_v1_846"&&
+   row?.terms_version==="clube_partner_coupon_terms_v1_846"&&
+   Boolean(row?.terms_accepted_at)&&
+   String(row?.package_key??"").startsWith("partner_")&&
+   Number(row?.min_order_cents)>=1000&&
+   face<=500&&count<=15&&Number(row?.sponsor_covered_cents)===0;
+ // For a NEW partner-funded invoice the PSP NET finances the package sale,
+ // while the signed merchant agreement finances the coupon discount.
+ // All historical platform-reimbursed coupons keep their existing test.
  const ref=String(row?.net_proceeds_reference??"").trim();
  return row?.status==="paid"&&Boolean(row?.paid_at)&&
    Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
    Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
    Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
    Number.isSafeInteger(net)&&net>0&&
-   (legacyNetCovered||sponsor===faceTotal)&&
+   (legacyNetCovered||sponsor===faceTotal||partnerNetCovered)&&
    net<=row.sale_price_cents&&
    Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
    ref.length>=8;
@@ -139,6 +149,7 @@ function publicInvoice(row:any){
    // the same funding conditions used by the atomic checkout are satisfied.
    expiresAt:row.expires_at??null,issuedCoupons:covered?row.coupons_per_pack:0,
    fundingPending:row.status==="paid"&&!covered,
+   fundingModel:row.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed',
    seller:row.seller_name?{
      name:row.seller_name,taxDocument:row.seller_tax_document,
      address:row.seller_address,supportEmail:row.seller_support_email
@@ -250,7 +261,7 @@ Deno.serve(async(req:Request)=>{
     });
     let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email")
+      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email,funding_mode_v1_846,funding_terms_version_v1_846,terms_version,terms_accepted_at")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError&&String(invoiceError.code)==="42703"){
@@ -286,6 +297,7 @@ Deno.serve(async(req:Request)=>{
         invoiceId:row.id,packageKey:row.package_key,requestId:row.request_id,status:row.status,
         amountCents:row.sale_price_cents,createdAt:row.created_at,
         paidAt:row.paid_at,
+        fundingModel:row.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed',
         fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
         seller:row.seller_name?{
           name:row.seller_name,taxDocument:row.seller_tax_document,
@@ -298,7 +310,8 @@ Deno.serve(async(req:Request)=>{
         .map((row:any)=>({
           voucherId:row.id,invoiceId:row.invoice_id,ordinal:row.ordinal,
           faceCents:row.face_cents,status:row.status,expiresAt:row.expires_at,
-          minOrderCents:paidInvoices.get(String(row.invoice_id))?.min_order_cents??0
+          minOrderCents:paidInvoices.get(String(row.invoice_id))?.min_order_cents??0,
+          fundingModel:paidInvoices.get(String(row.invoice_id))?.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed'
         })),
       couponSalesEnabled:
         Boolean(await couponSaleRelease(admin))&&mercadoPagoConfigured(MP_TOKEN)&&
