@@ -59,6 +59,8 @@ jobs:
         run: node tests/expert-fuzz.mjs
       - name: Financial invariant fuzz
         run: node tests/financial-invariants-fuzz.mjs
+      - name: V1.824 small merchant prepay plans and Flex 9% contract
+        run: node tests/accessible-merchant-plans-v1-824.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
