@@ -46,11 +46,11 @@ create index mobility_fee_invoice_lines_by_invoice_v1_837_idx
 -- rerouting the same ride to a second invoice is forbidden.
 create or replace function public.mobility_fee_pix_line_immutable_v1_837()
 returns trigger language plpgsql security definer set search_path=pg_catalog
-as $
+as $$
 begin
  raise exception 'MOBILITY_PIX_INVOICE_LINE_IMMUTABLE' using errcode='42501';
 end;
-$;
+$$;
 revoke all on function public.mobility_fee_pix_line_immutable_v1_837()
  from public,anon,authenticated;
 create trigger mobility_fee_pix_line_immutable_v1_837_trg
