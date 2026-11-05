@@ -118,6 +118,8 @@ jobs:
             supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
+      - name: V1.824 verify plan catalog in isolated Postgres
+        run: node tests/isolated-accessible-merchant-plans-v1-824.mjs
       - name: Verify real driver push RLS, role gates and empty transactional outbox
         run: node tests/isolated-mobility-push.mjs
       - name: Prove five real moto and car participant journeys with cancellation expiry and GPS cleanup
