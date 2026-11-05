@@ -52,17 +52,17 @@ const token=await login(userEmail,password);
 const invoice=sql("INSERT INTO public.clube_coupon_paid_invoices("+
  "customer_user_id,package_key,request_id,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,"+
  "min_order_cents,terms_version,terms_accepted_at,funding_mode_v1_846,funding_terms_version_v1_846)"+
- " VALUES("+q(buyer)+"::uuid,"+q(pkg)+",gen_random_uuid(),1500,500,3,90,1000,"+
+ " VALUES("+q(buyer)+"::uuid,"+q(pkg)+",gen_random_uuid(),890,500,3,90,1000,"+
  "'clube_partner_coupon_terms_v1_846',clock_timestamp(),'partner_funded',"+
  "'clube_partner_coupon_terms_v1_846') RETURNING id");
 const providerOrder='CI-RETURN-ORDER-'+randomUUID(),providerPayment='CI-RETURN-PIX-'+randomUUID();
 sql("UPDATE public.clube_coupon_paid_invoices SET provider_order_id="+q(providerOrder)+
  ",provider_payment_id="+q(providerPayment)+",status='awaiting_payment' WHERE id="+q(invoice)+"::uuid");
 const paid=JSON.parse(sql("SELECT public.clube_coupon_paid_payment_verify("+
- q(invoice)+"::uuid,"+q(providerOrder)+","+q(providerPayment)+",1500)::text"));
+ q(invoice)+"::uuid,"+q(providerOrder)+","+q(providerPayment)+",890)::text"));
 assert.equal(paid.issued,3);
 const net=JSON.parse(sql("SELECT public.clube_coupon_paid_net_proceeds_verify_audited("+
- q(invoice)+"::uuid,"+q(providerOrder)+",1500,"+
+ q(invoice)+"::uuid,"+q(providerOrder)+",820,"+
  q('CI-RETURN-NET-'+randomUUID())+","+q(admin)+"::uuid)::text"));
 assert.equal(net.ok,true);
 const voucher=sql("SELECT id FROM public.clube_coupon_paid_issuances WHERE invoice_id="+q(invoice)+
