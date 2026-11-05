@@ -7,6 +7,7 @@
 })();
 
 const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,items:[],detail:null,
+ welcomeClaimedUser:'',welcomeClaimInFlight:'',
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  pushEnabled:false,pushBusy:false,
  mapConsent:false,mapKey:'',mapFrameAt:0,noticeOptIn:false,pendingDriverIds:null,gpsPending:false,gpsRequestId:'',gpsEpoch:0,reportId:'',refreshSeq:0,sessionEpoch:0,
@@ -537,6 +538,23 @@ function mobilityPage(){
   '<a href="/?anunciar=carro#advertise">anunciar como motorista</a>.</p>')+
   '</section></section>');
 }
+// Same owner-funded R$1 campaign used by product checkout. The SERVER alone
+// decides eligibility, campaign quota and idempotency; no client-side grant.
+async function mobilityClaimWelcomeOnAuth(){
+ const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch,client=s.client;
+ if(!client||!userId||s.welcomeClaimedUser===userId||
+    s.welcomeClaimInFlight===userId)return false;
+ s.welcomeClaimInFlight=userId;
+ try{
+  const {data,error}=await client.rpc('claim_welcome_bonus_v1_815');
+  if(s.sessionEpoch!==epoch||s.user?.id!==userId)return false;
+  if(error)return false;
+  // Even a closed/ineligible campaign is final for this signed-in session.
+  s.welcomeClaimedUser=userId;
+  return data?.granted===true;
+ }catch(_){return false}
+ finally{if(s.welcomeClaimInFlight===userId)s.welcomeClaimInFlight=''}
+}
 async function mobilityInit(){
  const s=mobilityRuntime;if(s.phase!=='idle')return;
  s.phase='loading';
@@ -557,6 +575,7 @@ async function mobilityInit(){
       next.id!==s.user?.id){
     mobilityClearSession();
     s.user=next;
+    void mobilityClaimWelcomeOnAuth();
     if(mobilityRoute()){
      void mobilityRefresh();
      void mobilityRestoreRemoteAlerts();
@@ -571,6 +590,7 @@ async function mobilityInit(){
   }
   if(mobilityIntent())await mobilityLoadIntentPortrait(mobilityIntent());
   if(s.user){
+   void mobilityClaimWelcomeOnAuth();
    await mobilityRefresh();
    // The currently authenticated session is rechecked server-side. A
    // different tab signing out cannot retain the old notification consent.
@@ -587,6 +607,7 @@ function mobilityClearSession(){
  const frame=document.getElementById?.('mobility-map');
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
+ s.welcomeClaimedUser='';s.welcomeClaimInFlight='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';s.syncUnavailable=false;
  s.pushEnabled=false;s.pushBusy=false;
