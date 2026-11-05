@@ -7785,7 +7785,7 @@ function adminMobilityBillingSection(d){
  if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return '';
  if(!m||m.source!=='database_full'||
     !['not_collected','partially_collected','provider_verified'].includes(m.collectionStatus)||
-    m.paymentVerified!==false||!Array.isArray(m.recentEntries)||
+    typeof m.paymentVerified!=='boolean'||!Array.isArray(m.recentEntries)||
     !Array.isArray(m.recentDrivers))return '<section class="section"><div class="notice danger">Não foi possível conferir o extrato financeiro da mobilidade no servidor. Atualize o Admin.</div></section>';
  const cents=x=>Number.isSafeInteger(Number(x))&&Number(x)>=0?adminMoney(Number(x)):'—';
  const total=Number(m.accruedCents),collected=Number(m.collectedCents),
@@ -7793,13 +7793,14 @@ function adminMobilityBillingSection(d){
        mismatch=Number(m.integrityIssues);
  if(![total,collected,outstanding,count,mismatch].every(Number.isSafeInteger)||
     total<0||count<0||collected<0||outstanding<0||
-    collected>total||outstanding+collected!==total||mismatch<0)
+    collected>total||outstanding+collected!==total||mismatch<0||
+    m.paymentVerified!==(collected>0))
     return '<section class="section"><div class="notice danger">Conferência financeira indisponível. Os totais recebidos não passaram na validação.</div></section>';
  const entries=m.recentEntries.map(x=>{
    const bps=Number(x.feeBps),fee=Number(x.feeCents),net=Number(x.netCents);
    if(!['moto','carro'].includes(x.service)||![800,900].includes(bps)||
       !Number.isSafeInteger(fee)||fee<0||!Number.isSafeInteger(net)||net<0||
-      x.collectionStatus!=='not_collected')return '';
+      !['not_collected','provider_verified'].includes(x.collectionStatus))return '';
    return '<div class="list-row"><div><strong>'+esc(x.service==='moto'?'Moto':'Carro')+
      ' · '+esc(String(x.driverId||'—'))+'</strong><br><small>Corrida '+esc(String(x.requestId||'—'))+
      ' · tarifa líquida '+cents(net)+' · '+esc(String(bps/100))+'% · '+
