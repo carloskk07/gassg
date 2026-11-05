@@ -577,7 +577,7 @@ Deno.serve(async(req:Request)=>{
       if(operation!=="view"&&(
         body.termsVersion!==1||!Number.isSafeInteger(expectedVersion)||
         expectedVersion<0||expectedVersion>2147483600||
-        !UUID_RE.test(requestId)||
+        !UUID_RE.test(String(requestId??""))||
         (operation==="accept"&&body.consent!==true)))
         throw new DomainError("MERCHANT_BENEFIT_ACCEPTANCE_INVALID",
           "Atualize as condições e confirme seu aceite.",409);
