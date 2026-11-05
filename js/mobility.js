@@ -543,7 +543,7 @@ function mobilityFeePixPanel(){
  const img=payable&&typeof p.qrDataUri==='string'&&p.qrDataUri.length<550100&&
   /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(p.qrDataUri)?p.qrDataUri:'';
  const link=payable&&typeof p.paymentLinkUrl==='string'&&
-   /^https:\/\/(?:[A-Za-z0-9-]+\\.)*mercadopago\\.com(?:\\.br)?\//i.test(p.paymentLinkUrl)?
+   /^https:\/\/(?:[A-Za-z0-9-]+\.)*mercadopago\.com(?:\.br)?\//i.test(p.paymentLinkUrl)?
    '<a target="_blank" rel="noopener noreferrer" href="'+esc(p.paymentLinkUrl)+'">Abrir cobrança no Mercado Pago</a>':'';
  const pix=payable?
   '<div class="mobility-form" aria-label="Cobrança Pix de taxas">'+
@@ -580,7 +580,7 @@ function mobilityFeeLedgerPanel(){
  const rows=ledger.entries.map(item=>{
   if(!item)return '';
   const cents=Number(item.feeCents),net=Number(item.netCents),feeBps=Number(item.feeBps);
-  if(item.collectionStatus!=='not_collected'||
+  if(!['not_collected','provider_verified'].includes(item.collectionStatus)||
     !['moto','carro'].includes(item.service)||
     !Number.isSafeInteger(cents)||cents<0||
     !Number.isSafeInteger(net)||net<0||
@@ -590,7 +590,9 @@ function mobilityFeeLedgerPanel(){
    '</strong> — '+money(net)+' valor líquido · taxa '+
    esc(String(feeBps/100))+'%: <strong>'+money(cents)+
    '</strong>. <span class="tiny muted">Lançada em '+
-   esc(mobilityFormatDate(item.recordedAt))+'; quitação consulte o resumo.</span></li>';
+   esc(mobilityFormatDate(item.recordedAt))+'; '+
+   (item.collectionStatus==='provider_verified'?'Pix confirmado pelo provedor.':'a receber.')+
+   '</span></li>';
  }).join('');
  return '<section class="mobility-start" aria-label="Extrato de taxas dos motoristas">'+
   '<h2>Taxas dos atendimentos concluídos</h2>'+
