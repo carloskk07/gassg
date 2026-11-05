@@ -31,8 +31,11 @@ assert.match(ui,/Cupons pagos e cashback anterior preservam seus direitos/);
 assert.match(ui,/8% vale só para o pedido/);
 assert.doesNotMatch(ui,/Descontos e taxa menor ainda não foram ativados/);
 assert.match(contract,/p_operation='revoke'/);
-assert.doesNotMatch(migration,/\b(?:update|delete|truncate)\s+public\.(?:orders|wallet_entries|merchant_billing_plans|clube_coupon_paid_order_applications|merchant_cashback_reimbursements|merchant_benefit_participations_v1_842)\b/i);
+assert.doesNotMatch(migration,/\b(?:update|delete|truncate)\s+public\.(?:orders|wallet_entries|merchant_billing_plans|clube_coupon_paid_order_applications|merchant_cashback_reimbursements)\b/i);
 assert.doesNotMatch(migration,/\bcreate\s+table\b/i);
+// The existing contract RPC MUST still persist/revoke consent; it may update
+// participation and audit tables, but this PR may not mutate money or orders.
+assert.match(migration,/update public\.merchant_benefit_participations_v1_842/);
 assert.match(migration,/revoke all on function public\.merchant_benefits_contract_v1_842/);
 assert.match(migration,/to service_role/);
 console.log('TAMÃO #844: readback scope product-only, no legacy coupon conversion or financial writes.');
