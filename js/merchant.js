@@ -3540,11 +3540,10 @@ function merchantOrderBenefitDisclosure(o,demo=false){
   if(Number(demo?o?.cashbackReserved:o?.cashbackReservedCents)<=0)return '';
   if(!globalThis._merchantBenefitReceiptPending){
     globalThis._merchantBenefitReceiptPending=true;
-    const script=document.createElement('script');
-    script.src='./js/merchant-order-benefits.js';
-    script.onload=render;
-    script.onerror=()=>toast('Atualize para conferir os benefícios.');
-    document.head.append(script);
+    const s=document.createElement('script');
+    s.src='./js/merchant-order-benefits.js';s.onload=render;
+    s.onerror=()=>toast('Atualize para conferir os benefícios.');
+    document.head.append(s);
   }
   return '<aside class="notice merchant-benefit-disclosure">Conferindo benefício. Atualize antes de aceitar.</aside>';
 }
