@@ -75,6 +75,8 @@ jobs:
         run: node tests/partner-coupon-cancel-return-contract-v1-847.mjs
       - name: V1.848 discounted paid package uses real net Pix, not merchant discount liability
         run: node tests/partner-coupon-discounted-sale-net-v1-848.mjs
+      - name: V1.849 separate merchant-funded coupon buyer and seller commercial contract
+        run: node tests/partner-coupon-buyer-commercial-contract-v1-849.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
