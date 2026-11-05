@@ -7778,6 +7778,69 @@ function adminMerchantPaymentAccountsSection(d){
     +adminMerchantSaleVerificationSection(d);
 }
 
+// #836: financeiro de mobilidade, autoritativo do banco. Sem pagamento falso.
+// Os totais cobrem o livro-razão INTEIRO; as tabelas são amostras de até 80.
+function adminMobilityBillingSection(d){
+ const m=d?.mobilityBilling;
+ if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return '';
+ if(!m||m.source!=='database_full'||m.collectionStatus!=='not_collected'||
+    m.paymentVerified!==false||!Array.isArray(m.recentEntries)||
+    !Array.isArray(m.recentDrivers))return '<section class="section"><div class="notice danger">Não foi possível conferir o extrato financeiro da mobilidade no servidor. Atualize o Admin.</div></section>';
+ const cents=x=>Number.isSafeInteger(Number(x))&&Number(x)>=0?adminMoney(Number(x)):'—';
+ const total=Number(m.accruedCents),collected=Number(m.collectedCents),
+       outstanding=Number(m.outstandingCents),count=Number(m.recordedCount),
+       mismatch=Number(m.integrityIssues);
+ if(![total,collected,outstanding,count,mismatch].every(Number.isSafeInteger)||
+    total<0||count<0||collected!==0||outstanding!==total||mismatch<0)
+    return '<section class="section"><div class="notice danger">Conferência financeira indisponível. Os totais recebidos não passaram na validação.</div></section>';
+ const entries=m.recentEntries.map(x=>{
+   const bps=Number(x.feeBps),fee=Number(x.feeCents),net=Number(x.netCents);
+   if(!['moto','carro'].includes(x.service)||![800,900].includes(bps)||
+      !Number.isSafeInteger(fee)||fee<0||!Number.isSafeInteger(net)||net<0||
+      x.collectionStatus!=='not_collected')return '';
+   return '<div class="list-row"><div><strong>'+esc(x.service==='moto'?'Moto':'Carro')+
+     ' · '+esc(String(x.driverId||'—'))+'</strong><br><small>Corrida '+esc(String(x.requestId||'—'))+
+     ' · tarifa líquida '+cents(net)+' · '+esc(String(bps/100))+'% · '+
+     esc(formatDateTime(x.recordedAt))+'</small></div>'+
+     '<span class="status-pill risk">'+cents(fee)+' · não recebido</span></div>';
+ }).join('');
+ const drivers=m.recentDrivers.map(x=>{
+   const rides=Number(x.rides);
+   return '<div class="list-row"><div><strong>Motorista '+esc(String(x.driverId||'—'))+
+     '</strong><br><small>'+esc(String(Number.isSafeInteger(rides)?rides:0))+
+     ' corrida(s) concluída(s)</small></div><strong>'+cents(x.accruedCents)+'</strong></div>';
+ }).join('');
+ return '<section class="section" aria-label="Financeiro da mobilidade">'+
+  '<div class="section-head"><div><span class="section-kicker">MOTO E CARRO</span>'+
+  '<h2>Taxas de atendimento — conferência</h2>'+
+  '<p>Consolidado exato por corrida concluída. O cliente paga a corrida diretamente ao motorista, enquanto a taxa TAMÃO é uma obrigação separada.</p>'+
+  '</div><span class="status-pill '+(mismatch?'offline':'online')+'">'+
+  (mismatch?'DIVERGÊNCIAS':'LIVRO-RAZÃO CONFERIDO')+'</span></div>'+
+  '<div class="merchant-kpis">'+
+   '<div class="kpi"><span class="label">Taxas registradas</span><strong>'+cents(total)+'</strong></div>'+
+   '<div class="kpi"><span class="label">Recebido e comprovado</span><strong>'+cents(collected)+'</strong></div>'+
+   '<div class="kpi"><span class="label">Ainda sem cobrança/baixa</span><strong>'+cents(outstanding)+'</strong></div>'+
+   '<div class="kpi"><span class="label">Corridas lançadas</span><strong>'+count+'</strong></div>'+
+   '<div class="kpi"><span class="label">Motoristas com taxas</span><strong>'+esc(String(Number(m.driverCount)||0))+'</strong></div>'+
+   '<div class="kpi"><span class="label">Inconsistências</span><strong>'+mismatch+'</strong></div>'+
+  '</div>'+
+  '<div class="notice"><strong>Conciliação bancária ainda não disponível.</strong> O registro não comprova pagamento, não emite Pix e não pode ser marcado como quitado por esta tela. Na abertura da cobrança, somente prova direta do provedor poderá atualizar a situação.</div>'+
+  '<div class="card flat"><h3>Taxas por modalidade comercial</h3><p>Flex 9%: '+
+   esc(String(Number(m.ninePercent?.count)||0))+' corrida(s), '+cents(m.ninePercent?.cents)+
+   ' · Programa de Benefícios 8%: '+esc(String(Number(m.eightPercent?.count)||0))+
+   ' corrida(s), '+cents(m.eightPercent?.cents)+
+   ' · descontos assumidos pelos motoristas: '+cents(m.benefitsCents)+'.</p>'+
+   (mismatch?'<p class="notice danger">Existem '+mismatch+' divergência(s) entre recibos, contratos e lançamentos. Investigue antes de iniciar cobranças.</p>':'')+
+  '</div>'+
+  '<div class="card flat"><h3>Histórico por motorista</h3>'+
+   (drivers?'<div class="list">'+drivers+'</div>':'<p>Nenhum motorista com taxa registrada.</p>')+
+   (m.recentDriversTruncated?'<p class="tiny muted">Exibindo 80 motoristas. Totais acima consideram todos os registros.</p>':'')+
+  '</div>'+
+  '<div class="card flat"><h3>Últimos lançamentos</h3>'+
+   (entries?'<div class="list">'+entries+'</div>':'<p>Nenhuma corrida concluída com taxa registrada.</p>')+
+   (m.recentEntriesTruncated?'<p class="tiny muted">Exibindo os últimos 80 lançamentos. Totais acima são integrais.</p>':'')+
+  '</div></section>';
+}
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
@@ -9084,6 +9147,7 @@ function adminPage(){
   const financeBillingContent=(sectionActive('finance')&&financeSelection==='billing')?(`
     ${adminFinanceRenderPart('Pagamentos interrompidos',()=>adminInterruptedSalePaymentWatch(d))}
     ${adminFinanceRenderPart('Cobranças',()=>adminMerchantBillingSection(d))}
+    ${adminFinanceRenderPart('Taxas de moto e carro',()=>adminMobilityBillingSection(d))}
 `):'';
   const financeReconciliationContent=(sectionActive('finance')&&financeSelection==='reconciliation')?(`
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
