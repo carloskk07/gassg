@@ -9,8 +9,8 @@ const deferred=fs.readFileSync(new URL('../js/merchant-benefits-contract.js',imp
 const from=deferred.indexOf('function merchantBenefitsContractRender(rt){');
 const to=deferred.indexOf('async function merchantBenefitsContractAct(operation){',from);
 assert.ok(from>=0&&to>from);
-assert.match(merchant,/merchant-benefits-contract\\.js/);
-assert.match(merchant,/function merchantBenefitsContractSection\\(r\\)/);
+assert.ok(merchant.includes('merchant-benefits-contract.js'));
+assert.ok(merchant.includes('function merchantBenefitsContractSection(r)'));
 assert.ok(merchant.includes('${merchantBenefitsContractSection(rt)}'));
 assert.ok(edge.includes('"benefits-contract","business-pulse"'));
 assert.ok(edge.includes('p_actor:user.id,p_merchant:merchantId,p_operation:operation'));
