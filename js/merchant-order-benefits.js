@@ -16,7 +16,7 @@ function merchantOrderBenefitDisclosureImpl(o,demo=false){
   // wallet BEFORE reserving the full balance. It must be split using the
   // merchant-authorized server-side application, not inferred from price.
   const coupon=demo?0:valid(o?.couponAppliedCents);
-  const partner=demo?0:valid(o?.partnerFundedDiscountCents);
+  const partner=demo?0:valid(o?.partnerFundedDiscountCents??0);
   const partnerVerified=partner===100&&coupon===0&&used===100&&
     gross!==null&&pay!==null&&gross-pay===100;
   const otherCashback=coupon!==null&&partner!==null&&used!==null&&
