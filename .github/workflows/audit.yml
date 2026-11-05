@@ -71,6 +71,8 @@ jobs:
         run: node tests/merchant-future-coupon-contract-v1-845.mjs
       - name: V1.846 future partner-coupon issuance and financial conservation contract
         run: node tests/partner-coupon-financial-conservation-v1-846.mjs
+      - name: V1.847 safe canceled partner coupon return, wallet isolation and buyer proof
+        run: node tests/partner-coupon-cancel-return-contract-v1-847.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
