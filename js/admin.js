@@ -6503,12 +6503,7 @@ async function adminCouponCommercialSuspend(){
   }catch{toast('Não foi possível confirmar a suspensão. Confira o estado comercial.');}
   finally{adminCouponCommercial.busy=false;}
 }
-/* Keep the in-progress seller form across background Admin render() calls.
-   Only transient in-memory values are used: never localStorage or logs for CPF. */
-const ADMIN_COUPON_EDITOR_FIELD_IDS=[
-  'clube-seller-name','clube-seller-tax','clube-seller-address',
-  'clube-seller-support','clube-accept-all'
-];
+const ADMIN_COUPON_EDITOR_FIELD_IDS=['clube-seller-name','clube-seller-tax','clube-seller-address','clube-seller-support','clube-accept-all'];
 function adminCouponCommercialBeforeRender(){
   if(adminCurrentRole()!=='superadmin')return null;
   const userId=String(adminRuntime.session?.user?.id||'');
@@ -6536,7 +6531,6 @@ function adminCouponCommercialAfterRender(snapshot){
     return;
   for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
     const saved=snapshot.values[id],field=document.getElementById(id);
-    // The backend-supplied recipient identity takes precedence over old edits.
     if(!saved||!field||field.type==='hidden')continue;
     if(field.type==='checkbox'&&Object.hasOwn(saved,'checked'))
       field.checked=saved.checked;
@@ -6548,7 +6542,7 @@ function adminCouponCommercialAfterRender(snapshot){
   target.focus({preventScroll:true});
   if(snapshot.selection&&typeof target.setSelectionRange==='function'){
     try{target.setSelectionRange(...snapshot.selection)}
-    catch{/* Hidden input and checkbox selection are unsupported. */}
+    catch{}
   }
 }
 
