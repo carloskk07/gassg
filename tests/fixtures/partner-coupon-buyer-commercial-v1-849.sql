@@ -11,6 +11,7 @@ DECLARE
  v_mutation boolean:=false;
  v_invalid boolean:=false;
  v_old integer;
+ v_launch_before boolean;
 BEGIN
  SELECT user_id INTO v_admin FROM public.platform_admins
  WHERE active AND admin_role='superadmin' LIMIT 1;
@@ -23,8 +24,12 @@ BEGIN
     AND NOT sale_enabled AND NOT legal_terms_verified
     AND NOT funding_verified AND NOT redeem_settlement_verified)
  THEN RAISE EXCEPTION 'PARTNER_COUPON_DRAFT_NOT_SAFE';END IF;
- IF (SELECT enabled FROM public.clube_partner_coupon_launch_v1_846 WHERE singleton)
- THEN RAISE EXCEPTION 'PARTNER_COUPON_GLOBAL_SALE_UNEXPECTED';END IF;
+ -- Older #846/#847 isolated tests temporarily unlock the launch CHECK.
+ -- Snapshot its state; only assert this seller-preparation RPC never changes it.
+ SELECT enabled INTO v_launch_before
+ FROM public.clube_partner_coupon_launch_v1_846 WHERE singleton;
+ IF v_launch_before IS NULL
+ THEN RAISE EXCEPTION 'PARTNER_COUPON_LAUNCH_ROW_MISSING';END IF;
  IF NOT EXISTS(SELECT 1 FROM public.clube_partner_coupon_buyer_terms_v1_849
    WHERE terms_version='clube_partner_coupon_terms_v1_846'
    AND length(contract_text)>600)
@@ -89,6 +94,7 @@ BEGIN
    WHERE package_key='partner_general_3x5_849')
  THEN RAISE EXCEPTION 'PARTNER_COUPON_PREPARE_CREATED_INVOICE';END IF;
  IF (SELECT enabled FROM public.clube_partner_coupon_launch_v1_846 WHERE singleton)
+    IS DISTINCT FROM v_launch_before
  THEN RAISE EXCEPTION 'PARTNER_COUPON_SELLER_SIGNATURE_CHANGED_LAUNCH';END IF;
 END;
 $test$;
