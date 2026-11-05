@@ -14,6 +14,14 @@ begin
  if p_driver is null or not exists(
    select 1 from auth.users where id=p_driver and is_anonymous=false
  ) then raise exception 'MOBILITY_PREPAID_AUTH_REQUIRED' using errcode='42501';end if;
+ if not exists(
+    select 1 from public.discovery_listings l
+    join public.discovery_professional_details d on d.listing_id=l.id
+    where l.owner_id=p_driver and l.vertical='professionals'
+      and l.status='published'
+      and d.occupation ~* '(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)'
+ ) then raise exception 'MOBILITY_PREPAID_DRIVER_NOT_ELIGIBLE'
+    using errcode='42501';end if;
  select * into v_plan from public.mobility_billing_plans_v1_826
  where plan_key=p_plan_key and billing_mode='prepaid' and purchase_enabled
    and purchase_amount_cents between 100 and 1000000
