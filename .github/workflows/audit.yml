@@ -65,6 +65,8 @@ jobs:
         run: node tests/merchant-benefits-contract-ui-v1-842.mjs
       - name: V1.843 product welcome partner-funded browser and financial boundary regression
         run: node tests/product-partner-welcome-contract-v1-843.mjs
+      - name: V1.844 truthful merchant benefit scope and legacy coupon obligations
+        run: node tests/merchant-benefits-live-scope-v1-844.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
