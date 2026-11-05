@@ -13,6 +13,7 @@ const merchant=read('supabase/functions/merchant-orders/index.ts');
 const buyer=read('js/customer.js');
 const backend=read('js/backend.js');
 const merchantUi=read('js/merchant.js');
+const deferredReceipt=read('js/merchant-order-benefits.js');
 
 for(const [name,file] of [['merchant',merchantUi],['buyer',buyer],['backend',backend]])
  new vm.Script(file,{filename:name+'.js'});
@@ -66,6 +67,7 @@ assert.match(buyer,/pagar diretamente à revenda/i);
 assert.match(backend,/selected\.welcomeBenefitEligible/);
 assert.match(backend,/\.useWelcomeBonus/);
 assert.match(backend,/applyWelcome:true/);
-assert.match(merchantUi,/Desconto da revenda/);
-assert.match(merchantUi,/Sem ressarcimento do TAMÃO/);
+assert.match(merchantUi,/merchant-order-benefits\\.js/);
+assert.match(deferredReceipt,/Desconto da revenda/);
+assert.match(deferredReceipt,/Sem ressarcimento do TAMÃO/);
 console.log('TAMÃO #843: interface, contrato, reembolso antigo, lote financeiro e separação cashback verificados.');
