@@ -530,6 +530,40 @@ function mobilityProgramPanel(){
    '<button class="primary" type="button" onclick="mobilitySetProgram(true)"'+(s.programBusy?' disabled':'')+'>Participar e reduzir a taxa Flex para 8%</button>')+
   '</section>';
 }
+function mobilityFeeLedgerPanel(){
+ const s=mobilityRuntime,b=s.program?.benefits,ledger=s.program?.billing;
+ // Mesmo com anúncio suspenso, o motorista mantém acesso ao seu histórico.
+ if((b?.eligibleDriver!==true&&Number(ledger?.recordedCount||0)===0)||
+    !ledger||ledger.collectionStatus!=='not_collected'||
+    !Number.isSafeInteger(Number(ledger.accruedCents))||Number(ledger.accruedCents)<0||
+    !Number.isSafeInteger(Number(ledger.recordedCount))||Number(ledger.recordedCount)<0||
+    !Array.isArray(ledger.entries)||ledger.entries.length>8)return '';
+ const money=cents=>esc(BRL.format(cents/100));
+ const rows=ledger.entries.map(item=>{
+  const cents=Number(item.feeCents),net=Number(item.netCents),feeBps=Number(item.feeBps);
+  if(!item||item.collectionStatus!=='not_collected'||
+    !['moto','carro'].includes(item.service)||
+    !Number.isSafeInteger(cents)||cents<0||
+    !Number.isSafeInteger(net)||net<0||
+    ![800,900].includes(feeBps)||
+    !mobilityId.test(String(item.requestId||'')))return '';
+  const date=mobilityFormatDate(item.recordedAt);
+  return '<li><strong>'+esc(item.service==='moto'?'Moto':'Carro')+
+   '</strong> — '+money(net)+' de valor líquido · taxa '+
+   esc(String(feeBps/100))+'%: <strong>'+money(cents)+
+   '</strong>. <span class="tiny muted">Registro '+esc(String(date))+
+   ', ainda não cobrado.</span></li>';
+ }).join('');
+ return '<section class="mobility-start" aria-label="Extrato de taxas dos motoristas">'+
+  '<h2>Taxas dos atendimentos concluídos</h2>'+
+  '<p><strong>'+money(Number(ledger.accruedCents))+
+  '</strong> em taxas registradas de '+esc(String(ledger.recordedCount))+
+  ' corrida(s). <strong>Pagamento não comprovado e cobrança ainda não disponibilizada.</strong></p>'+
+  '<p class="tiny muted">Este extrato registra somente serviços concluídos, não tarifas propostas nem cancelamentos. O valor integral da corrida é recebido diretamente pelo motorista, não pelo TAMÃO.</p>'+
+  (rows?'<ul>'+rows+'</ul>':'<p>Nenhuma taxa registrada até agora.</p>')+
+  '<button type="button" class="secondary" onclick="mobilityLoadProgram()">Atualizar extrato</button>'+
+  '</section>';
+}
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
@@ -576,7 +610,7 @@ function mobilityPage(){
    '<button type="button" onclick="mobilityEnableRemoteAlerts()"'+(s.pushBusy?' disabled':'')+'>Ativar avisos com o aplicativo fechado</button>')+
   (!s.noticeOptIn?'<button type="button" onclick="mobilityEnableAlerts()">Ativar avisos do navegador nesta página</button>':
     '<p role="status">Avisos opcionais ativados nesta sessão.</p>')+'</section>'+
-  mobilityProgramPanel()+
+  mobilityProgramPanel()+mobilityFeeLedgerPanel()+
   '<p class="tiny muted">Problema ao receber pedido, aceitar atendimento ou acompanhar o mapa? Use “Relatar problema” na solicitação. Não envie coordenadas de GPS ao suporte.</p>'+
   (intent&&!hasOngoingRider?mobilityPortraitHtml(
     s.intentPortraitId===intent.id&&s.intentPortraitMode===intent.mode?s.intentPortraitKey:''):'')+
@@ -1057,6 +1091,7 @@ async function mobilityTransition(action){
   s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
   if(confirmed.status!=='en_route')mobilityUpdateMap(null);
   await mobilityRefresh().catch(()=>false);
+  if(action==='finish'&&same())void mobilityLoadProgram();
  }catch(_){
   if(!same())return false;
   const confirmed=await mobilityRecoverTransition(action,selected,epoch,userId);
@@ -1066,6 +1101,7 @@ async function mobilityTransition(action){
    s.notice='Situação confirmada no servidor: '+mobilityStatus(confirmed)+'.';
    if(confirmed.status!=='en_route')mobilityUpdateMap(null);
    await mobilityRefresh().catch(()=>false);
+   if(action==='finish'&&same())void mobilityLoadProgram();
   }else{
    s.notice='';
    s.error='Não foi possível confirmar a alteração. Atualize os atendimentos antes de repetir: a ação pode já ter sido registrada.';
