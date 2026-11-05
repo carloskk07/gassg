@@ -3538,6 +3538,7 @@ function merchantUnifiedOpsBoard(rt,orders){
 function merchantOrderBenefitDisclosure(o,demo=false){
   if(globalThis.merchantOrderBenefitDisclosureImpl)return merchantOrderBenefitDisclosureImpl(o,demo);
   if(Number(demo?o?.cashbackReserved:o?.cashbackReservedCents)<=0)return '';
+  if(typeof document==='undefined')return '<aside class="notice merchant-benefit-disclosure">Benefício em conferência.</aside>';
   if(!globalThis._merchantBenefitReceiptPending){
     globalThis._merchantBenefitReceiptPending=true;
     const s=document.createElement('script');
