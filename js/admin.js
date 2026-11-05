@@ -7815,6 +7815,37 @@ function adminMobilityBillingSection(d){
      '</strong><br><small>'+esc(String(Number.isSafeInteger(rides)?rides:0))+
      ' corrida(s) concluída(s)</small></div><strong>'+cents(x.accruedCents)+'</strong></div>';
  }).join('');
+ // PSP contestations are NOT settled fees or fresh Pix charges. The Admin can
+ // identify them without a write operation or unverified recovery amount.
+ const disputed=d?.mobilityDisputes;
+ const disputesVerified=disputed?.source==='psp_review_queue'&&
+   Number.isSafeInteger(disputed.total)&&disputed.total>=0&&
+   Array.isArray(disputed.cases)&&disputed.cases.length<=50&&
+   disputed.cases.length<=disputed.total&&
+   disputed.cases.every(x=>
+     ['fee','prepaid_credit'].includes(x.invoice_kind)&&
+     Number.isSafeInteger(x.amount_cents)&&x.amount_cents>=100&&
+     typeof x.id==='string'&&typeof x.driver_id==='string'&&
+     typeof x.external_reference==='string');
+ const disputedRows=disputesVerified?disputed.cases.map(x=>
+   '<div class="list-row"><div><strong>'+esc(x.invoice_kind==='prepaid_credit'?'Recarga de plano':'Taxa de corridas')+
+   ' · '+esc(String(x.driver_id))+'</strong><br><small>Fatura '+esc(String(x.id))+
+   (x.plan_key?' · plano '+esc(String(x.plan_key)):'')+
+   ' · referência '+esc(String(x.external_reference))+
+   ' · Order '+esc(String(x.provider_order_id||'a verificar'))+
+   ' · Payment '+esc(String(x.provider_payment_id||'a verificar'))+
+   ' · revisão '+esc(formatDateTime(x.review_at||x.created_at))+
+   (x.paid_at?' · recebimento anterior sob revisão':'')+
+   '</small></div><span class="status-pill risk">'+cents(x.amount_cents)+
+   ' · conferir com PSP</span></div>'
+ ).join(''):'';
+ const disputedCard=!disputesVerified
+   ?'<div class="card flat"><h3>Contestações Pix</h3><div class="notice danger">A fila de revisão financeira não foi confirmada pelo servidor. Não faça baixas.</div></div>'
+   :'<div class="card flat"><h3>Contestações Pix — revisão financeira</h3>'+
+    '<p>'+esc(String(disputed.total))+' fatura(s) aguardando conferência do Mercado Pago. Nenhuma contestação é automaticamente recuperada, reapresentada ou quitada.</p>'+
+    (disputedRows?'<div class="list">'+disputedRows+'</div>':'<p>Nenhuma contestação pendente.</p>')+
+    (disputed.truncated?'<p class="tiny muted">Exibindo as 50 contestações mais antigas. A contagem considera toda a fila.</p>':'')+
+    '</div>';
  return '<section class="section" aria-label="Financeiro da mobilidade">'+
   '<div class="section-head"><div><span class="section-kicker">MOTO E CARRO</span>'+
   '<h2>Taxas de atendimento — conferência</h2>'+
@@ -7845,7 +7876,7 @@ function adminMobilityBillingSection(d){
   '<div class="card flat"><h3>Últimos lançamentos</h3>'+
    (entries?'<div class="list">'+entries+'</div>':'<p>Nenhuma corrida concluída com taxa registrada.</p>')+
    (m.recentEntriesTruncated?'<p class="tiny muted">Exibindo os últimos 80 lançamentos. Totais acima são integrais.</p>':'')+
-  '</div></section>';
+  '</div>'+disputedCard+'</section>';
 }
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
