@@ -463,6 +463,37 @@ Deno.serve(async(req:Request)=>{
       }
     }
 
+    // #846: merchant-financed PAID coupon proof. Scope is the already
+    // authenticated merchant and its visible order IDs, never the invoice
+    // owner / voucher / payment identity.
+    const partnerCouponByOrder=new Map<string,{discount:number;net:number;feeBps:number}>();
+    if(ids.length){
+      const {data:funded,error:fundedError}=await admin
+        .from("clube_partner_coupon_order_uses_v1_846")
+        .select("order_id,merchant_id,customer_id,gross_cents,net_cents,face_cents,fee_bps_snapshot")
+        .eq("merchant_id",selected.merchant_id).in("order_id",ids);
+      if(fundedError)throw fundedError;
+      const originalByOrder=new Map((orders??[]).map(o=>[o.id,o]));
+      for(const entry of funded??[]){
+        const order:any=originalByOrder.get(entry.order_id);
+        if(!order||partnerCouponByOrder.has(entry.order_id)||
+          partnerWelcomeByOrder.has(entry.order_id)||
+          entry.merchant_id!==selected.merchant_id||
+          !Number.isSafeInteger(entry.face_cents)||entry.face_cents<100||
+          entry.face_cents>500||
+          entry.gross_cents!==order.gross_total_cents||
+          entry.net_cents!==order.total_cents||
+          entry.face_cents!==order.cashback_reserved_cents||
+          !Number.isSafeInteger(entry.fee_bps_snapshot)||
+          couponByOrder.get(entry.order_id)!==entry.face_cents)
+          throw new DomainError("PARTNER_COUPON_MERCHANT_READBACK_MISMATCH",
+            "O cupom financiado pela revenda não pôde ser conciliado.",503);
+        partnerCouponByOrder.set(entry.order_id,{
+          discount:entry.face_cents,net:entry.net_cents,feeBps:entry.fee_bps_snapshot
+        });
+      }
+    }
+
     // V1.386 — Private, read-only merchant support summary. The service
     // role query is scoped by BOTH the authenticated member's selected
     // merchant and the order IDs already authorized for this response.
@@ -963,8 +994,11 @@ Deno.serve(async(req:Request)=>{
         cashbackReservedCents:o.cashback_reserved_cents,
         couponAppliedCents:couponByOrder.has(o.id)?couponByOrder.get(o.id):0,
         partnerFundedDiscountCents:partnerWelcomeByOrder.get(o.id)?.discount??0,
+        partnerCouponFundedCents:partnerCouponByOrder.get(o.id)?.discount??0,
+        couponFundingModel:partnerCouponByOrder.has(o.id)?'partner_funded':
+          couponByOrder.has(o.id)?'platform_reimbursed':null,
         partnerFeeBpsSnapshot:["owner","manager"].includes(selected.member_role)
-          ?partnerWelcomeByOrder.get(o.id)?.feeBps??null:null,
+          ?partnerWelcomeByOrder.get(o.id)?.feeBps??partnerCouponByOrder.get(o.id)?.feeBps??null:null,
         totalCents:o.total_cents,
         supplierName:o.supplier_name_snapshot,
         riskReason:o.risk_reason,
