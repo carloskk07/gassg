@@ -35,7 +35,7 @@ const createField=(id,type='text',value='',checked=false)=>{
 let nodes={};
 function rebuild(){
   nodes=showForm?{
-    'clube-commercial-release-button':{id:'clube-commercial-release-button',type:'button'},
+    'clube-commercial-release-button':{id:'clube-commercial-release-button',type:'button',dataset:{couponOwner:owner}},
     'clube-seller-name':createField('clube-seller-name',fromProvider?'hidden':'text',fromProvider?'Provider Verified':''),
     'clube-seller-tax':createField('clube-seller-tax',fromProvider?'hidden':'text',fromProvider?'52998224725':''),
     'clube-seller-address':createField('clube-seller-address'),
