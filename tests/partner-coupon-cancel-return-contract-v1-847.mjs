@@ -35,7 +35,7 @@ assert.match(sql,/REVOKE ALL ON FUNCTION public\.clube_coupon_paid_create_order/
 assert.match(getOrder,/PARTNER_COUPON_RETURN_UNVERIFIED/);
 assert.match(getOrder,/partnerCouponReturnDisposition:couponReturn\?\.disposition\?\?null/);
 assert.match(customer,/Cupom pago devolvido\. Não é cashback/);
-assert.match(customer,/cupomFundingModel==='partner_funded'/);
+assert.match(customer,/couponFundingModel==='partner_funded'/);
 assert.match(customer,/Cupom pago em análise\. Não é cashback/);
 assert.doesNotMatch(sql,/UPDATE public\.clube_coupon_paid_invoices\s+SET funding_mode_v1_846/i);
 assert.doesNotMatch(sql,/UPDATE public\.clube_partner_coupon_launch_v1_846\s+SET enabled=true/i);
