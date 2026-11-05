@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const src=fs.readFileSync(new URL('../js/mobility.js',import.meta.url),'utf8');
+const campaign=fs.readFileSync(new URL('../supabase/migrations/20261104192000_welcome_bonus_v1_815.sql',import.meta.url),'utf8');
+const users=['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'];
+let called=0,resolvePending=null;
+const ctx={console,Date,Intl,URL,URLSearchParams,FormData,
+ document:{querySelector:()=>null,getElementById:()=>null,createElement:()=>({}),head:{appendChild(){}},addEventListener(){}},
+ route:()=> 'none',render(){},CHAMA_BACKEND:{url:'https://example.test',publishableKey:'test'}};
+ctx.globalThis=ctx;
+vm.runInNewContext(src+';this.rt=mobilityRuntime;',ctx);
+const rt=ctx.rt;
+rt.user={id:users[0]};
+rt.client={rpc:async name=>{assert.equal(name,'claim_welcome_bonus_v1_815');called++;return {data:{granted:true},error:null}}};
+assert.equal(await ctx.mobilityClaimWelcomeOnAuth(),true);
+assert.equal(await ctx.mobilityClaimWelcomeOnAuth(),false);
+assert.equal(called,1,'não duplicar RPC em uma mesma sessão');
+assert.equal(rt.welcomeClaimedUser,users[0]);
+ctx.mobilityClearSession();
+assert.equal(rt.welcomeClaimedUser,'','logout não herda resultado da conta anterior');
+rt.user={id:users[1]};
+const previous=called;
+assert.equal(await ctx.mobilityClaimWelcomeOnAuth(),true);
+assert.equal(called,previous+1,'usuário diferente tem elegibilidade independente');
+ctx.mobilityClearSession();
+rt.user={id:users[0]};rt.client={rpc:async()=>{called++;return new Promise(resolve=>{resolvePending=resolve})}};
+const inFlight=ctx.mobilityClaimWelcomeOnAuth();
+assert.equal(await ctx.mobilityClaimWelcomeOnAuth(),false,'coalescer solicitações simultâneas');
+rt.user={id:users[1]};rt.sessionEpoch++;
+resolvePending({data:{granted:true},error:null});
+assert.equal(await inFlight,false,'resposta atrasada não pode confirmar conta diferente');
+assert.notEqual(rt.welcomeClaimedUser,users[0]);
+assert.match(campaign,/for update/,'servidor é autoridade de orçamento');
+assert.match(campaign,/on conflict/,'trilha não pode ser duplicada');
+assert.match(campaign,/wallet_entries/,'crédito pertence ao ledger canônico');
+console.log('TAMÃO #830: bônus reivindicado na autenticação de mobilidade sem duplicar conta/orçamento.');
