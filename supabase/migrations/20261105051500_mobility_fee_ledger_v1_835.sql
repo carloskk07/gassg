@@ -35,8 +35,9 @@ create trigger mobility_fee_accrual_immutable_v1_835_trg
  before update or delete on public.mobility_platform_fee_accruals_v1_835
  for each row execute function public.mobility_fee_accrual_immutable_v1_835();
 
--- O trigger de recibos #829 executa primeiro (ordem lexicográfica);
--- este trigger usa SOMENTE o recibo imutável e o contrato tarifário aceito.
+-- Ordem alfabética PostgreSQL: nome 'mobility_zz_' garante execução DEPOIS
+-- de mobility_ride_receipt_finalize e mobility_welcome_settle.
+-- Se o recibo não existe, falha; nunca se cria taxa sem contrato.
 create or replace function public.mobility_fee_accrual_on_completed_v1_835()
  returns trigger language plpgsql security definer set search_path=pg_catalog
 as $$
@@ -98,7 +99,7 @@ end;
 $$;
 revoke all on function public.mobility_fee_accrual_on_completed_v1_835()
  from public,anon,authenticated;
-create trigger mobility_fee_accrual_on_completed_v1_835_trg
+create trigger mobility_zz_fee_accrual_on_completed_v1_835_trg
  after update of status on public.mobility_requests
  for each row execute function public.mobility_fee_accrual_on_completed_v1_835();
 
