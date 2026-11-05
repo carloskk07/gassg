@@ -337,6 +337,22 @@ Deno.serve(async(req:Request)=>{
       };
     }
 
+    const {data:partnerBenefit,error:partnerBenefitError}=await admin
+      .from("merchant_welcome_order_uses_v1_843")
+      .select("amount_cents,merchant_id,customer_id,gross_cents,net_cents,fee_bps_snapshot,terms_version")
+      .eq("order_id",order.id).maybeSingle();
+    if(partnerBenefitError)throw partnerBenefitError;
+    if(partnerBenefit&&(
+      partnerBenefit.merchant_id!==order.merchant_id||
+      partnerBenefit.customer_id!==order.customer_id||
+      partnerBenefit.gross_cents!==order.gross_total_cents||
+      partnerBenefit.net_cents!==order.total_cents||
+      partnerBenefit.amount_cents!==100||
+      partnerBenefit.terms_version!==1||
+      order.cashback_reserved_cents!==100))
+      throw new DomainError("PARTNER_WELCOME_READBACK_MISMATCH",
+        "Os valores do benefício não puderam ser reconciliados.",503);
+
     const deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT";
 
     const safeOrder={
@@ -370,6 +386,10 @@ Deno.serve(async(req:Request)=>{
       comparisonSavingsCents:Number(order.comparison_savings_cents??0),
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
+      partnerFundedDiscountCents:partnerBenefit?.amount_cents??0,
+      partnerWelcomeTermsVersion:partnerBenefit?.terms_version??null,
+      partnerFeeBpsSnapshot:role==="merchant"&&["owner","manager"].includes(memberRole||"")
+        ?partnerBenefit?.fee_bps_snapshot??null:null,
       totalCents:order.total_cents,
       proposedTotalCents:role==="customer"&&order.status==="REQUOTE_REQUIRED"?order.proposed_total_cents:null,
       supplierName:order.supplier_name_snapshot,

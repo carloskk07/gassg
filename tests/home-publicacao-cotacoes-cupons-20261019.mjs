@@ -88,7 +88,7 @@ assert.match(selected,/R\$ 150\.00/);
 assert.match(selected,/R\$ 140\.00/);
 state.checkout.useCashback=false;
 const preview=offerContext.card(quote);
-assert.match(preview,/ative o uso do saldo acima/);
+assert.match(preview,/selecione o benefício acima/);
 assert.ok(!preview.includes('Cashback solicitado (estimativa)'),
   'unselected cashback preview is not an applied discount');
 state.user.cashback=0;

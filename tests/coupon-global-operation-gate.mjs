@@ -79,8 +79,10 @@ assert.ok(historical.includes('couponCheckoutEnabled:')&&
  historical.includes('await platformCommerceAllowed(admin)'),
  'physical checkout remains blocked without commerce');
 const branch=order.indexOf('if(couponVoucherId&&!await platformCommerceAllowed(admin))');
-const rpc=order.indexOf('const { data, error } = couponVoucherId');
-assert.ok(branch>=0&&rpc>branch,'coupon checkout RPC must be guarded');
+const rpc=order.indexOf('const { data, error } = applyWelcome');
+assert.ok(branch>=0&&rpc>branch&&order.slice(rpc).includes(':couponVoucherId')&&
+ order.slice(rpc).includes('?await admin.rpc("clube_coupon_paid_create_order"'),
+ 'coupon checkout RPC must be guarded after the independent welcome route');
 assert.match(order,/if\(couponVoucherId&&!await platformCommerceAllowed\(admin\)\)/);
 assert.match(order,/\?await admin\.rpc\("clube_coupon_paid_create_order"/);
 assert.match(order,/:await admin\.rpc\("create_order_from_quote_v8"/);

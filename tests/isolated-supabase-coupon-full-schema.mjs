@@ -195,8 +195,9 @@ const merchantJs=fs.readFileSync(new URL('../js/merchant.js',import.meta.url),'u
 const disclosureStart=merchantJs.indexOf('function merchantOrderBenefitDisclosure(o,demo=false){');
 const disclosureEnd=merchantJs.indexOf('\nfunction merchantLiveOrder(o){',disclosureStart);
 assert.ok(disclosureStart>=0&&disclosureEnd>disclosureStart);
+const deferredBenefits=fs.readFileSync(new URL('../js/merchant-order-benefits.js',import.meta.url),'utf8');
 const benefitDisclosure=vm.runInNewContext(
- merchantJs.slice(disclosureStart,disclosureEnd)+';merchantOrderBenefitDisclosure',
+ deferredBenefits+'\n'+merchantJs.slice(disclosureStart,disclosureEnd)+';merchantOrderBenefitDisclosure',
  {BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
   esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
 );

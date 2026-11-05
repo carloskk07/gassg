@@ -1033,7 +1033,7 @@ function orderPage(){
 
   const paymentBlock=preview
     ? '<div class="empty card">Escolha os produtos e consulte a disponibilidade para ver as formas de pagamento aceitas.</div>'
-    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga à revenda na entrega. Não há pagamento antecipado nesta etapa.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
+    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga à revenda na entrega. Não há pagamento antecipado nesta etapa.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo regular disponível conforme a oferta</small></span></label>`:''}${globalThis.liveRequested?.()&&(globalThis.liveRuntime?.offers||[]).some(o=>o.welcomeBenefitEligible===true&&o.welcomeDiscountCents===100)?`<label class="check-row"><input type="checkbox" ${state.checkout.useWelcomeBonus?'checked':''} onchange="toggleWelcomeBonus(this.checked)"><span><strong>Usar presente de boas-vindas de R$ 1</strong><small>Em revendas participantes. Não acumulável com cashback ou cupom pago na mesma compra. Pague o valor líquido à revenda.</small></span></label>`:''}</div>`;
 
   const containerBlock=hasGlp
     ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço depende da troca do botijão.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você troca o botijão vazio pela carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>A consulta inclui um vasilhame compatível para cada carga.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total pressupõe a troca do botijão vazio compatível.</div>'}</div></section>`
@@ -1223,14 +1223,21 @@ function offerCard(o,facts={}){
   const rawTotal=Number(o.total);
   const validTotal=o.total!=null&&Number.isFinite(rawTotal)&&rawTotal>0;
   const gross=validTotal?rawTotal:0;
-  const balance=Number(state.user?.cashback||0);
-  const potentialBenefit=validTotal&&Number.isFinite(balance)&&balance>0
+  const bonusVerified=o.welcomeBenefitEligible===true&&o.welcomeDiscountCents===100
+    &&globalThis.liveRequested?.();
+  const bonusSelected=bonusVerified&&state.checkout.useWelcomeBonus===true;
+  const rawNormalCents=o.live
+    ?(Number.isSafeInteger(o.normalCashbackAvailableCents)?o.normalCashbackAvailableCents:0)
+    :Math.round(Math.max(0,Number(state.user?.cashback||0))*100);
+  const balance=Math.max(0,rawNormalCents)/100;
+  const potentialBenefit=validTotal&&balance>0
     ?roundMoney(Math.min(balance,gross)):0;
   const couponVoucher=validTotal&&typeof clubePaidCouponVoucherForQuote==='function'
     ?clubePaidCouponVoucherForQuote(Math.round(gross*100)):null;
   const couponBenefit=couponVoucher?roundMoney(couponVoucher.faceCents/100):0;
-  const estimatedBenefits=roundMoney(potentialBenefit+couponBenefit);
-  const discount=state.checkout.useCashback===true?estimatedBenefits:0;
+  const estimatedBenefits=roundMoney(Math.max(potentialBenefit+couponBenefit,bonusVerified?1:0));
+  const discount=bonusSelected?1:(state.checkout.useCashback===true
+    ?roundMoney(potentialBenefit+couponBenefit):0);
   const payable=roundMoney(Math.max(0,gross-discount));
   const cashbackPreview=roundMoney(Math.max(0,gross-estimatedBenefits));
   const totalCents=validTotal?Math.round(gross*100):null;
@@ -1276,18 +1283,18 @@ function offerCard(o,facts={}){
     <div class="tamao-checkout-total-base"><small>SEM BENEFÍCIO</small>
       <strong>${BRL.format(gross)}</strong><span>Preço com entrega</span></div>
     <div class="tamao-checkout-total-benefit ${estimatedBenefits>0?'has-discount':''}">
-      <small>${couponBenefit>0?'COM CUPOM E CASHBACK':estimatedBenefits>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
+      <small>${bonusVerified?'COM BÔNUS OU CASHBACK':couponBenefit>0?'COM CUPOM E CASHBACK':estimatedBenefits>0?'COM CASHBACK TAMÃO':'COM TAMÃO'}</small>
       <strong>${estimatedBenefits>0?BRL.format(cashbackPreview):'Sem desconto aplicado'}</strong>
       <span>${estimatedBenefits>0
        ?'Até '+BRL.format(estimatedBenefits)+' em benefícios estimados'+
         (couponBenefit>0?' • cupom '+BRL.format(couponBenefit):'')+
-        (state.checkout.useCashback===true?' • selecionado':' • ative o uso do saldo acima')
+        (bonusSelected?' • bônus R$ 1 selecionado':state.checkout.useCashback===true?' • cashback selecionado':' • selecione o benefício acima')
        :'Veja cupons e vantagens disponíveis no Clube'}</span>
     </div>
   </div>`:'';
   const cashback=discount>0?`<div class="offer-cashback">
-    <span>${couponBenefit>0?'Cupom e cashback selecionados (estimativa)':'Cashback selecionado (estimativa)'}</span><strong>− ${BRL.format(discount)}</strong>
-    <small>Total estimado a pagar: ${BRL.format(payable)}. O desconto aplicável será confirmado ao enviar o pedido.</small>
+    <span>${bonusSelected?'Presente de boas-vindas (revenda participante)':couponBenefit>0?'Cupom e cashback selecionados (estimativa)':'Cashback selecionado (estimativa)'}</span><strong>− ${BRL.format(discount)}</strong>
+    <small>Total estimado a pagar diretamente à revenda: ${BRL.format(payable)}. A disponibilidade será reconfirmada ao enviar.</small>
   </div>`:'';
   return `<article class="offer offer-comparison-card ${featured?'selected':''}">
     ${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}
@@ -1491,7 +1498,12 @@ function setCashTender(value){
   state.checkout.cashTenderCents=Math.round(amount*100);
   save();render();
 }
-function toggleCashback(v){state.checkout.useCashback=Boolean(v);save();render()}
+function toggleCashback(v){state.checkout.useCashback=Boolean(v);if(v)state.checkout.useWelcomeBonus=false;save();render()}
+function toggleWelcomeBonus(v){
+  state.checkout.useWelcomeBonus=Boolean(v);
+  if(v){state.checkout.useCashback=false;if(typeof clubeClearPaidCheckoutVoucher==='function')clubeClearPaidCheckoutVoucher();}
+  save();render();
+}
 
 async function checkout(mid){
   if(globalThis.liveRequested?.()&&!syncDeliveryDetailsFromUi({requirePhone:true}))return;
@@ -1499,8 +1511,12 @@ async function checkout(mid){
   if(state.checkout.paymentMethod==='cash'&&state.checkout.cashTenderCents&&selected){
     const coupon=typeof clubePaidCouponVoucherForQuote==='function'
       ?clubePaidCouponVoucherForQuote(Math.round(selected.total*100)):null;
-    const discount=state.checkout.useCashback
-      ?Math.min(selected.total,(Number(state.user.cashback)||0)+(coupon?coupon.faceCents/100:0)):0;
+    const selectedBonus=globalThis.liveRequested?.()&&state.checkout.useWelcomeBonus===true
+      &&selected.welcomeBenefitEligible===true&&selected.welcomeDiscountCents===100;
+    const regularBalance=selected.normalCashbackAvailableCents==null?0:
+      Number(selected.normalCashbackAvailableCents)/100;
+    const discount=selectedBonus?1:state.checkout.useCashback
+      ?Math.min(selected.total,Math.max(0,regularBalance)+(coupon?coupon.faceCents/100:0)):0;
     const payableCents=Math.round(Math.max(0,selected.total-discount)*100);
     if(state.checkout.cashTenderCents<payableCents)return toast('O valor para troco precisa cobrir o total do pedido');
   }
@@ -2151,7 +2167,7 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>

@@ -243,8 +243,10 @@ assert.ok(quoteBoard.includes('real.length?liveCards:') &&
 assert.match(customer,/tamao-home-checkout-compare/);
 assert.match(customer,/tamao-home-coupon-rail/);
 assert.match(customer,/potentialBenefit=validTotal/);
-assert.ok(customer.includes('state.checkout.useCashback===true?estimatedBenefits:0'),
- 'estimated checkout benefit now accounts for the opted-in pre-paid voucher and existing cashback');
+assert.ok(customer.includes('state.checkout.useCashback===true')&&
+ customer.includes('potentialBenefit+couponBenefit')&&
+ customer.includes('bonusSelected?1:'),
+ 'only explicit selection may apply R$1 welcome or verified regular coupon/cashback');
 assert.ok(customer.includes("typeof clubePaidCouponVoucherForQuote==='function'"),
  'coupon is read only from verified account, with absent coupon support failing closed');
 assert.ok(!customer.includes('cupom automaticamente aplicado'),
@@ -279,7 +281,7 @@ assert.ok(withBenefit.includes('R$ 140.00'));
 assert.match(withBenefit,/selecionado/);
 checkState.checkout.useCashback=false;
 const previewOnly=offerSandbox.offer(realQuote);
-assert.match(previewOnly,/ative o uso do saldo acima/);
+assert.match(previewOnly,/selecione o benefício acima/);
 assert.ok(!previewOnly.includes('Cashback selecionado (estimativa)'),
  'preview cannot be marked as applied before opt-in');
 checkState.user.cashback=0;

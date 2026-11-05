@@ -146,6 +146,8 @@ jobs:
         run: node tests/isolated-supabase-http-smoke.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
+      - name: V1.843 REAL partner-funded product welcome complete checkout, refund and fee settlement
+        run: node tests/isolated-product-partner-welcome-v1-843.mjs
       - name: Reject commercial launch from confirmed warnings without eligible supply (disposable)
         run: node tests/isolated-commercial-activation-evidence.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue

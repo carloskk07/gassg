@@ -16,7 +16,7 @@ const currency=x=>'R$ '+Number(x).toFixed(2).replace('.',',');
 const escape=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const offers=[
-  {id:'quote-recommended',live:true,roles:['Recomendado'],total:120,deliveryFee:12,
+  {id:'quote-recommended',live:true,normalCashbackAvailableCents:2000,roles:['Recomendado'],total:120,deliveryFee:12,
     eta:22,etaMax:32,trust:95,completedOrders:14,expiresAt:'2999-01-01T00:00:00Z'},
   {id:'quote-cheap',live:true,roles:['Mais barato'],total:115,deliveryFee:0,
     eta:38,etaMax:50,trust:88,completedOrders:5,comparisonSavings:10,
@@ -84,10 +84,15 @@ assert.deepEqual(buttons.map(b=>b.pressed),['false','false','true'],
 
 state.checkout.useCashback=true;
 const discounted=run('offerCard(globalThis.liveRuntime.offers[0])');
-assert.ok(discounted.includes('R$ 120,00')&&discounted.includes('Total estimado a pagar: R$ 100,00'),
+assert.ok(discounted.includes('R$ 120,00')&&discounted.includes('Total estimado a pagar diretamente à revenda: R$ 100,00'),
  'Quote total and conditional cashback must remain separately disclosed');
-assert.ok(discounted.includes('O desconto aplicável será confirmado ao enviar o pedido.'));
+assert.ok(discounted.includes('A disponibilidade será reconfirmada ao enviar.'));
 assert.ok(!discounted.includes('Total a pagar R$ 100,00'),'No unconditional cashback promise');
+// A live quote without server-confirmed normal wallet availability may not
+// fabricate a discount from the cached client profile.
+const unverified=run('offerCard({...globalThis.liveRuntime.offers[0],normalCashbackAvailableCents:null})');
+assert.ok(!unverified.includes('R$ 100,00')&&!unverified.includes('Total estimado a pagar diretamente à revenda: R$ 100,00'),
+ 'offline or unverified normal cashback must not become a payment promise');
 assert.ok(discounted.includes('SEM BENEFÍCIO')&&discounted.includes('COM CASHBACK TAMÃO'),
  'Keep verified gross price separate from an estimated optional discount');
 

@@ -85,7 +85,16 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     COUPON_NOT_AVAILABLE: { status: 409, message: "Este cupom não está disponível para esta cotação." },
     COUPON_INVALID_OR_SPENT: { status: 409, message: "Cupom utilizado, expirado ou indisponível." },
     COUPON_QUOTE_INVALID: { status: 409, message: "Atualize sua cotação antes de usar o cupom." },
-    COUPON_NOT_OWNED: { status: 403, message: "Cupom não pertence a esta conta." }
+    COUPON_NOT_OWNED: { status: 403, message: "Cupom não pertence a esta conta." },
+    PARTNER_WELCOME_QUOTE_INVALID: {status:409,message:"A cotação mudou. Atualize as ofertas antes de usar o bônus."},
+    PARTNER_WELCOME_MERCHANT_NOT_PARTICIPATING: {status:409,message:"Esta revenda não aceita mais o bônus. Atualize as ofertas."},
+    PARTNER_WELCOME_NOT_GRANTED: {status:409,message:"Não há bônus disponível nesta conta."},
+    PARTNER_WELCOME_ALREADY_SPENT_OR_RESERVED: {status:409,message:"O bônus já foi utilizado ou reservado. Atualize seus benefícios."},
+    PARTNER_WELCOME_LOT_TRACE_UNCONFIRMED: {status:409,message:"Não foi possível validar a reserva do bônus. Nenhum desconto foi consumido."},
+    PARTNER_WELCOME_PREPAID_CREDIT_DRIFT: {status:409,message:"A taxa da revenda mudou. Atualize a cotação."},
+    PARTNER_WELCOME_ORDER_APPLY_FAILED: {status:409,message:"O benefício não foi confirmado. Nenhum pedido promocional foi criado."},
+    PARTNER_WELCOME_REPLAY_CONFLICT: {status:409,message:"A reserva anterior não corresponde ao pedido atual."},
+    PARTNER_WELCOME_CASH_TENDER_INVALID: {status:409,message:"O troco precisa cobrir o valor líquido do pedido."}
   };
 
   for (const [code, meta] of Object.entries(known)) {
@@ -141,7 +150,14 @@ Deno.serve(async (req: Request) => {
     }
 
     const useCashback = body.useCashback === true;
+    const applyWelcome = body.applyWelcome === true;
+    if(applyWelcome&&useCashback)
+      throw new DomainError("WELCOME_CASHBACK_COMBINATION_UNAVAILABLE",
+        "Escolha o bônus de boas-vindas ou o cashback normal para esta compra.",409);
     const couponVoucherId=body.couponVoucherId==null?"":String(body.couponVoucherId).trim();
+    if(applyWelcome&&couponVoucherId)
+      throw new DomainError("WELCOME_PAID_COUPON_COMBINATION_UNAVAILABLE",
+        "O bônus de boas-vindas não pode ser combinado com cupom pago nesta compra.",409);
     if(couponVoucherId&&!UUID_RE.test(couponVoucherId))
       throw new DomainError("COUPON_INVALID","Cupom inválido.",400);
     if(couponVoucherId&&!useCashback)
@@ -191,6 +207,7 @@ Deno.serve(async (req: Request) => {
       quoteId,
       paymentMethod,
       useCashback,
+      ...(applyWelcome?{applyWelcome:true}:{}),
       referralCode,
       cashTenderCents,
       customerPhoneDigits,
@@ -226,7 +243,9 @@ Deno.serve(async (req: Request) => {
       p_delivery_reference: deliveryReference,
       p_delivery_notes: deliveryNotes
     };
-    const { data, error } = couponVoucherId
+    const { data, error } = applyWelcome
+      ?await admin.rpc("create_product_welcome_order_v1_843",baseOrderArgs)
+      :couponVoucherId
       ?await admin.rpc("clube_coupon_paid_create_order",{
         ...baseOrderArgs,p_voucher_id:couponVoucherId
        })

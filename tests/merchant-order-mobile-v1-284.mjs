@@ -12,6 +12,8 @@ const benefitAt=src.indexOf('function merchantOrderBenefitDisclosure(');
 const benefitEnd=src.indexOf('\n}',benefitAt);
 assert.ok(benefitAt>0&&benefitEnd>benefitAt);
 const benefitSource=src.slice(benefitAt,benefitEnd+2);
+const benefitDeferred=fs.readFileSync(new URL('../js/merchant-order-benefits.js',import.meta.url),'utf8');
+assert.match(benefitDeferred,/function merchantOrderBenefitDisclosureImpl/);
 const escapeText=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
   .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const runtime={merchant:{memberRole:'owner'},orders:[],actionPending:false,deliveryTeam:[]};
@@ -23,7 +25,7 @@ const ctx=vm.createContext({
   merchantDeliveryShortcuts:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderAttentionCard:()=> '',
   merchantOrderProgressView:()=>'<details class="merchant-order-progress"><summary>Acompanhar etapas</summary></details>'
 });
-vm.runInContext(benefitSource+'\n'+source+'\nthis.card=merchantLiveOrder;',ctx);
+vm.runInContext(benefitDeferred+'\n'+benefitSource+'\n'+source+'\nthis.card=merchantLiveOrder;',ctx);
 const id='11111111-1111-4111-8111-111111111111';
 const minutes=n=>new Date(Date.now()+n*60000).toISOString();
 const order={
@@ -86,7 +88,7 @@ const demoCtx=vm.createContext({
  paymentLabel:()=> 'Dinheiro',
  products:{P13:{name:'Gás P13'}}
 });
-vm.runInContext(benefitSource+'\n'+src.slice(demoAt,demoEnd+2)+
+vm.runInContext(benefitDeferred+'\n'+benefitSource+'\n'+src.slice(demoAt,demoEnd+2)+
  '\nthis.card=merchantOrder;',demoCtx);
 const demoOrder={id:'SG-TEST',status:'OFFERED_TO_MERCHANT',
  offerExpiresAt:minutes(10),items:[{qty:1,name:'Gás P13'}],
