@@ -436,6 +436,33 @@ Deno.serve(async(req:Request)=>{
       }
     }
 
+    // #843: display the exact client discount without creating TAMÃO
+    // reimbursement for a partner-financed welcome order. Merchant-scoped IDs.
+    const partnerWelcomeByOrder=new Map<string,{discount:number;net:number;feeBps:number}>();
+    if(ids.length){
+      const {data:benefits,error:benefitError}=await admin
+        .from("merchant_welcome_order_uses_v1_843")
+        .select("order_id,merchant_id,customer_id,gross_cents,net_cents,amount_cents,fee_bps_snapshot")
+        .eq("merchant_id",selected.merchant_id).in("order_id",ids);
+      if(benefitError)throw benefitError;
+      const originals=new Map((orders??[]).map(o=>[o.id,o]));
+      for(const entry of benefits??[]){
+        const order:any=originals.get(entry.order_id);
+        if(!order||partnerWelcomeByOrder.has(entry.order_id)||
+          entry.merchant_id!==selected.merchant_id||
+          entry.amount_cents!==100||
+          entry.gross_cents!==order.gross_total_cents||
+          entry.net_cents!==order.total_cents||
+          order.cashback_reserved_cents!==100||
+          !Number.isSafeInteger(entry.fee_bps_snapshot))
+          throw new DomainError("PARTNER_WELCOME_MERCHANT_READBACK_MISMATCH",
+            "Os valores do benefício do pedido não puderam ser confirmados.",503);
+        partnerWelcomeByOrder.set(entry.order_id,{
+          discount:100,net:entry.net_cents,feeBps:entry.fee_bps_snapshot
+        });
+      }
+    }
+
     // V1.386 — Private, read-only merchant support summary. The service
     // role query is scoped by BOTH the authenticated member's selected
     // merchant and the order IDs already authorized for this response.
@@ -935,6 +962,9 @@ Deno.serve(async(req:Request)=>{
         grossTotalCents:o.gross_total_cents,
         cashbackReservedCents:o.cashback_reserved_cents,
         couponAppliedCents:couponByOrder.has(o.id)?couponByOrder.get(o.id):0,
+        partnerFundedDiscountCents:partnerWelcomeByOrder.get(o.id)?.discount??0,
+        partnerFeeBpsSnapshot:["owner","manager"].includes(selected.member_role)
+          ?partnerWelcomeByOrder.get(o.id)?.feeBps??null:null,
         totalCents:o.total_cents,
         supplierName:o.supplier_name_snapshot,
         riskReason:o.risk_reason,
