@@ -41,7 +41,7 @@ assert.equal(ctx.mobilityFeeLedgerPanel(),'','Rider cannot inspect driver fees')
 const migration=fs.readFileSync(new URL('../supabase/migrations/20261105051500_mobility_fee_ledger_v1_835.sql',import.meta.url),'utf8');
 for(const term of ['mobility_platform_fee_accruals_v1_835',
  'MOBILITY_FEE_RECEIPT_TERMS_CONFLICT','MOBILITY_FEE_ACCRUAL_IMMUTABLE',
- 'payment_status','collection_status','mobility_fee_accrual_on_completed_v1_835_trg',
+ 'payment_status','collection_status','mobility_zz_fee_accrual_on_completed_v1_835_trg',
  'mobility_billing_catalog_v1_826()','revoke all on public.mobility_platform_fee_accruals_v1_835'])
  assert.ok(migration.includes(term),term);
 assert.ok(!/insert into public.merchant_billing_payment_events/i.test(migration));
