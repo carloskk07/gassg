@@ -7,6 +7,21 @@ const webhook=fs.readFileSync(new URL('../supabase/functions/billing-payment-web
 const sql=fs.readFileSync(new URL('../supabase/migrations/20261105133000_mobility_fee_pix_invoices_v1_837.sql',import.meta.url),'utf8');
 const model=fs.readFileSync(new URL('../supabase/migrations/20261105133100_mobility_fee_provider_balances_v1_837.sql',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../supabase/config.toml',import.meta.url),'utf8');
+const {mobilityFeeEvidenceHash}=await import('../supabase/functions/_shared/mobility-fee-evidence.js');
+const evidenceInput={orderId:'order837',paymentId:'payment837',amountCents:760,
+ externalReference:'mobility-fee:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',state:'paid'};
+const digest=await mobilityFeeEvidenceHash(evidenceInput);
+assert.match(digest,/^[a-f0-9]{64}$/);
+assert.equal(digest,await mobilityFeeEvidenceHash({...evidenceInput}),
+ 'Webhook and driver inquiry must replay identical evidence');
+assert.notEqual(digest,await mobilityFeeEvidenceHash({...evidenceInput,state:'review_required'}),
+ 'Refund has distinct evidence from a genuine payment');
+assert.notEqual(digest,await mobilityFeeEvidenceHash({...evidenceInput,amountCents:759}),
+ 'Amount must be included in the proof digest');
+assert.match(edge,/mobilityFeeEvidenceHash/);
+assert.match(webhook,/mobilityFeeEvidenceHash/);
+assert.match(edge,/recoverProcessedBeforeCommit/);
+assert.match(webhook,/mobility_fee_pix_recover_paid_v1_837/);
 const ctx={console,Date,Intl,URL,URLSearchParams,FormData,
  BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
  document:{querySelector:()=>null,createElement:()=>({}),head:{appendChild(){}},addEventListener(){}},
