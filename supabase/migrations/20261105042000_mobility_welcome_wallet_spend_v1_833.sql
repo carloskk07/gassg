@@ -195,7 +195,7 @@ begin
    return new;
  end;
  return new;
-end;$function$
+end;$function$;
 
 -- Aceite do valor efetua a reserva atomica do premio, se elegivel.
 CREATE OR REPLACE FUNCTION public.mobility_fare_accept_v1_826(p_request_id uuid, p_version integer)
@@ -273,7 +273,7 @@ begin
   'fareCents',v_quote.fare_cents,'version',v_quote.quote_version,
   'accepted',true);
 end;
-$function$
+$function$;
 
 -- Conclusao consome a reserva, cancelamento/expiracao devolve o MESMO lote.
 -- Falhas na prova de rastreabilidade abortam toda a alteracao de estado.
