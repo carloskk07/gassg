@@ -125,6 +125,8 @@ jobs:
         run: node tests/admin-mobility-fee-review-ui-v1-836.mjs
       - name: V1.837 fee Pix UI, webhook HMAC, balance and account security
         run: node tests/mobility-fee-pix-ui-contract-v1-837.mjs
+      - name: V1.838 prepaid driver plans, Pix, wallet view and privacy
+        run: node tests/mobility-prepaid-credit-ui-v1-838.mjs
       - name: V1.829 receipt immutability and no-fake-bank-proof contract
         run: node tests/mobility-immutable-receipt-v1-829.mjs
       - name: Mobility GPS consent and access test
