@@ -273,3 +273,60 @@ revoke all on function public.mobility_fee_pix_apply_proof_v1_837(
  uuid,text,text,integer,text,text) from public,anon,authenticated;
 grant execute on function public.mobility_fee_pix_apply_proof_v1_837(
  uuid,text,text,integer,text,text) to service_role;
+
+-- Pagamento pode chegar depois que a Order foi criada, mas antes de a
+-- resposta/commit gravar o QR. Recuperar SEM inventar QR ou nova Order:
+-- somente após GET independente da Order processada no token TAMÃO.
+create or replace function public.mobility_fee_pix_recover_paid_v1_837(
+ p_invoice uuid,p_driver uuid,p_order text,p_payment text,
+ p_amount_cents integer,p_evidence_sha256 text
+) returns jsonb language plpgsql security definer set search_path=pg_catalog
+as $$
+declare
+ v_invoice public.mobility_fee_pix_invoices_v1_837%rowtype;
+ v_previous public.mobility_fee_pix_evidence_v1_837%rowtype;
+begin
+ select * into v_invoice from public.mobility_fee_pix_invoices_v1_837
+ where id=p_invoice and driver_id=p_driver for update;
+ if not found or v_invoice.external_reference<>'mobility-fee:'||p_invoice::text
+  or p_order is null or p_order !~ '^[A-Za-z0-9_-]{8,200}$'
+  or p_payment is null or p_payment !~ '^[A-Za-z0-9_-]{3,200}$'
+  or v_invoice.amount_cents is distinct from p_amount_cents
+  or p_evidence_sha256 !~ '^[0-9a-f]{64}$'
+  or (select coalesce(sum(fee_cents),0)
+    from public.mobility_fee_pix_invoice_lines_v1_837
+    where invoice_id=p_invoice)<>v_invoice.amount_cents
+ then raise exception 'MOBILITY_FEE_EARLY_PAYMENT_MISMATCH'
+   using errcode='42501';end if;
+ if v_invoice.status='paid' and v_invoice.provider_order_id=p_order
+  and v_invoice.provider_payment_id=p_payment
+  and v_invoice.provider_evidence_hash=p_evidence_sha256
+ then return jsonb_build_object('status','paid','replayed',true);end if;
+ if v_invoice.status<>'prepared' or v_invoice.provider_order_id is not null
+ then raise exception 'MOBILITY_FEE_EARLY_PAYMENT_STATE_CONFLICT'
+   using errcode='23505';end if;
+ insert into public.mobility_fee_pix_evidence_v1_837(
+   invoice_id,event_state,provider_order_id,provider_payment_id,
+   amount_cents,evidence_hash)
+ values (p_invoice,'paid',p_order,p_payment,p_amount_cents,p_evidence_sha256)
+ on conflict(invoice_id,event_state) do nothing;
+ select * into v_previous from public.mobility_fee_pix_evidence_v1_837
+ where invoice_id=p_invoice and event_state='paid';
+ if not found or v_previous.evidence_hash<>p_evidence_sha256
+  or v_previous.provider_order_id<>p_order
+  or v_previous.provider_payment_id<>p_payment
+  or v_previous.amount_cents<>p_amount_cents
+ then raise exception 'MOBILITY_FEE_EARLY_PAYMENT_REPLAY_CONFLICT'
+  using errcode='23505';end if;
+ update public.mobility_fee_pix_invoices_v1_837
+ set status='paid',provider_order_id=p_order,provider_payment_id=p_payment,
+ paid_at=clock_timestamp(),provider_evidence_hash=p_evidence_sha256,
+ last_provider_state='paid',updated_at=clock_timestamp()
+ where id=p_invoice;
+ return jsonb_build_object('status','paid','replayed',false);
+end;
+$$;
+revoke all on function public.mobility_fee_pix_recover_paid_v1_837(
+ uuid,uuid,text,text,integer,text) from public,anon,authenticated;
+grant execute on function public.mobility_fee_pix_recover_paid_v1_837(
+ uuid,uuid,text,text,integer,text) to service_role;
