@@ -88,7 +88,7 @@ const demoCtx=vm.createContext({
  paymentLabel:()=> 'Dinheiro',
  products:{P13:{name:'Gás P13'}}
 });
-vm.runInContext(benefitSource+'\n'+src.slice(demoAt,demoEnd+2)+
+vm.runInContext(benefitDeferred+'\n'+benefitSource+'\n'+src.slice(demoAt,demoEnd+2)+
  '\nthis.card=merchantOrder;',demoCtx);
 const demoOrder={id:'SG-TEST',status:'OFFERED_TO_MERCHANT',
  offerExpiresAt:minutes(10),items:[{qty:1,name:'Gás P13'}],
