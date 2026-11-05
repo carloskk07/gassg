@@ -109,6 +109,8 @@ jobs:
         run: node tests/discovery-manual-comparison.mjs
       - name: V1.826 mobility fare quotation UI and price confirmation
         run: node tests/mobility-fare-pricing-v1-826.mjs
+      - name: V1.827 driver fare form submits valid currency amounts
+        run: node tests/mobility-fare-submit-v1-827.mjs
       - name: Mobility GPS consent and access test
         run: |
           node tests/mobility-tracking-security.mjs
