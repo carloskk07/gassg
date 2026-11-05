@@ -227,7 +227,12 @@ DO $t$ DECLARE inv jsonb; id uuid; BEGIN
       where invoice_id=id)<>2
   OR EXISTS(select 1 from public.mobility_fee_pix_invoice_lines_v1_837
       where request_id=current_setting('tamao.ci.prepaid_completed')::uuid)
- THEN RAISE EXCEPTION 'PREPAID_DISPUTED_CHARGE_WAS_BILLED_TWICE';END IF;
+ THEN RAISE EXCEPTION 'PREPAID_DISPUTED_CHARGE_WAS_BILLED_TWICE status=% kind=% amount=% lines=% duplicate=%',
+   inv->>'status',inv->>'invoiceKind',inv->>'amountCents',
+   (select count(*) from public.mobility_fee_pix_invoice_lines_v1_837 where invoice_id=id),
+   (select count(*) from public.mobility_fee_pix_invoice_lines_v1_837
+     where request_id=current_setting('tamao.ci.prepaid_completed')::uuid);
+ END IF;
  -- A segunda proteção também impede inclusão manual indevida na fatura.
  BEGIN
   INSERT INTO public.mobility_fee_pix_invoice_lines_v1_837(
