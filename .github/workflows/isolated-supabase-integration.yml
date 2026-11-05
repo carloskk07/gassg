@@ -152,8 +152,6 @@ jobs:
         run: node tests/isolated-merchant-benefits-live-scope-v1-844.mjs
       - name: V1.845 PostgreSQL prospective coupon owner contract, undo, RLS and untouched legacy receivables
         run: node tests/isolated-merchant-future-coupon-contract-v1-845.mjs
-      - name: V1.846 REAL prospective partner coupon, revocation, refund rights and net fee on disposable PostgreSQL
-        run: node tests/isolated-partner-coupon-financial-conservation-v1-846.mjs
       - name: Reject commercial launch from confirmed warnings without eligible supply (disposable)
         run: node tests/isolated-commercial-activation-evidence.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
@@ -184,6 +182,8 @@ jobs:
         run: node tests/isolated-supabase-coupon-general-v1-810.mjs
       - name: V1.814 PostgreSQL verified owner-scoped cancellation and frozen voucher
         run: node tests/isolated-supabase-coupon-refund-v1-814.mjs
+      - name: V1.846 REAL prospective partner coupon, revocation, refund rights and net fee on disposable PostgreSQL
+        run: node tests/isolated-partner-coupon-financial-conservation-v1-846.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
