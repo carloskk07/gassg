@@ -210,7 +210,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION platform_cashback_trace_private_v1_261.capture()
