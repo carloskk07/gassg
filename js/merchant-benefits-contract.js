@@ -32,7 +32,7 @@ function merchantBenefitsContractRender(rt){
     '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantBenefitsContractAct(\'view\')" '+
       (pending?'disabled':'')+'>Consultar condições</button>'+action+'</div>'+
     (rt.merchantBenefitsContractError?'<div class="notice danger">'+esc(rt.merchantBenefitsContractError)+'</div>':'')+
-   '</div>';
+   '</div>'+merchantFutureCouponContractRender(rt);
 }
 async function merchantBenefitsContractAct(operation){
   const rt=globalThis.merchantRuntime;
@@ -97,3 +97,97 @@ async function merchantBenefitsContractAct(operation){
   }finally{rt.merchantBenefitsContractPending=false;render();}
 }
 
+
+ // #845: independent prospective agreement for NEW paid coupons.
+ // Never imply that existing sold vouchers lost their merchant reimbursement.
+ function merchantFutureCouponContractRender(rt){
+   const member=rt?.merchant||{};
+   const role=String(member.memberRole||'');
+   if(!['owner','manager'].includes(role))return '';
+   const id=String(member.merchantId||'');
+   const data=rt.merchantFutureCouponContract?.merchantId===id&&
+     rt.merchantFutureCouponContract?.source==='merchant_coupon_contract_v1_845'
+       ?rt.merchantFutureCouponContract:null;
+   const pending=rt.merchantFutureCouponContractPending===true;
+   const status=data?.optedIn===true?'Aceite de cupons futuros registrado':
+     data?'Sem adesão a novos cupons':'Condições não consultadas';
+   const decision=data&&role==='owner'?(data.optedIn?
+     '<button class="ghost small" type="button" onclick="merchantCouponContractAct(\\'revoke\\')" '+(pending?'disabled':'')+'>Revogar para novos cupons</button>':
+     '<label class="checkbox-line"><input type="checkbox" id="merchant-new-coupon-consent-v1-845"> Li e aceito que a revenda custeie cupons novos elegíveis, sem ressarcimento, nas condições descritas.</label>'+
+     '<button class="primary small" type="button" onclick="merchantCouponContractAct(\\'accept\\')" '+(pending?'disabled':'')+'>Aceitar condições dos novos cupons</button>'):'';
+   return '<div class="card flat form-stack" aria-label="Participação futura em cupons pagos">'+
+     '<div class="section-head"><div><h3>Cupons pagos de próximas campanhas</h3>'+
+     '<p>Participação opcional e separada do presente de R$ 1.</p></div>'+
+     '<span class="status-pill '+(data?.optedIn?'online':'')+'">'+esc(status)+'</span></div>'+
+     '<p class="tiny">A futura modalidade prevê cupons de até R$ 5,00, com pedido mínimo de R$ 10,00. A revenda assume o desconto e não recebe o valor da venda do cupom. Para o Flex, 8% sobre o líquido seria aplicado somente quando um cupom novo elegível for efetivamente usado.</p>'+
+     '<div class="notice"><strong>Aceite não é ativação.</strong> Os cupons antigos continuam com os mesmos direitos e ressarcimentos. Nenhuma compra ou taxa é alterada por esta decisão. A utilização de cupons novos custeados pela revenda só será liberada após integração financeira própria.</div>'+
+     (data?'<p class="tiny"><strong>Termos v'+esc(String(data.termsVersion))+
+       ':</strong> '+esc(String(data.termsText))+'</p>':'')+
+     '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantCouponContractAct(\\'view\\')" '+(pending?'disabled':'')+'>Consultar condições dos cupons</button>'+decision+'</div>'+
+     (rt.merchantFutureCouponContractError?'<div class="notice danger">'+
+       esc(rt.merchantFutureCouponContractError)+'</div>':'')+
+   '</div>';
+ }
+ async function merchantCouponContractAct(operation){
+   const rt=globalThis.merchantRuntime;
+   const merchantId=String(rt?.merchant?.merchantId||'');
+   const role=String(rt?.merchant?.memberRole||'');
+   if(!merchantId||!['owner','manager'].includes(role)||
+      !['view','accept','revoke'].includes(operation))return;
+   if(operation!=='view'&&role!=='owner')
+     return toast('Somente o proprietário pode aceitar ou revogar novos cupons.');
+   if(rt.merchantFutureCouponContractPending)return;
+   const prev=rt.merchantFutureCouponContract?.merchantId===merchantId?
+     rt.merchantFutureCouponContract:null;
+   if(operation!=='view'&&(!prev||prev.termsVersion!==1||
+       !Number.isSafeInteger(prev.version)||prev.version<0))
+     return toast('Consulte as condições antes de decidir.');
+   if(operation==='accept'&&document.getElementById('merchant-new-coupon-consent-v1-845')?.checked!==true)
+     return toast('Leia os termos e confirme o financiamento dos novos cupons.');
+   if(operation==='revoke'&&!confirm('Revogar somente para novos cupons? Compromissos anteriores continuam válidos.'))return;
+   rt.merchantFutureCouponContractPending=true;
+   rt.merchantFutureCouponContractError=null;
+   const valid=v=>v?.source==='merchant_coupon_contract_v1_845'&&
+     v.merchantId===merchantId&&typeof v.optedIn==='boolean'&&
+     Number.isSafeInteger(v.version)&&v.version>=0&&v.termsVersion===1&&
+     typeof v.termsText==='string'&&v.termsText.length>500&&
+     v.maxCouponFaceCents===500&&v.minOrderCents===1000&&
+     v.normalFlexFeeBps===900&&v.fundedFlexFeeBps===800&&
+     v.futureCouponsOnly===true&&v.checkoutEnabled===false&&
+     v.feeReductionEnabled===false&&v.existingPaidCouponsUntouched===true&&
+     v.moneyMoved===false;
+   const stillSame=()=>rt===globalThis.merchantRuntime&&
+     String(rt.merchant?.merchantId)===merchantId;
+   try{
+     const body={action:'coupon-benefits-contract',merchantId,operation};
+     if(operation!=='view'){
+       body.termsVersion=1;body.expectedVersion=prev.version;
+       body.requestId=crypto.randomUUID();
+       body.consent=operation==='accept';
+     }
+     const result=await merchantInvoke('merchant-ops',body);
+     if(!valid(result)||result.readOnly!==(operation==='view')||
+       (operation!=='view'&&result.optedIn!==(operation==='accept')))
+       throw Error('O contrato dos cupons não foi confirmado pelo servidor.');
+     if(!stillSame())return;
+     if(operation!=='view'){
+       const fresh=await merchantInvoke('merchant-ops',{
+         action:'coupon-benefits-contract',merchantId,operation:'view'});
+       if(!valid(fresh)||fresh.readOnly!==true||
+          fresh.version!==result.version||fresh.optedIn!==result.optedIn)
+         throw Error('A alteração precisa de nova conferência.');
+       if(!stillSame())return;
+       rt.merchantFutureCouponContract=fresh;
+       toast(operation==='accept'?'Condições para cupons futuros registradas. Nenhuma cobrança ativada.':
+         'Revogação para novos cupons registrada.');
+     }else rt.merchantFutureCouponContract=result;
+   }catch(e){
+     if(stillSame()){
+       rt.merchantFutureCouponContractError=String(e?.message||'Contrato indisponível.');
+       toast(rt.merchantFutureCouponContractError);
+     }
+   }finally{
+     rt.merchantFutureCouponContractPending=false;
+     if(stillSame())render();
+   }
+ }
