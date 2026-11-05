@@ -33,9 +33,30 @@ assert.equal(sql("SELECT commerce_enabled FROM public.platform_launch_control WH
   'Only local CI may enable ordinary product orders');
 const previousDebts=Number(sql("SELECT COUNT(*) FROM public.merchant_cashback_reimbursements"));
 const previousInvoices=Number(sql("SELECT COUNT(*) FROM public.clube_coupon_paid_invoices"));
-const buyer=sql("INSERT INTO auth.users (id,instance_id,aud,role,is_sso_user,is_anonymous,email,email_confirmed_at) "+
- "VALUES(gen_random_uuid(),'00000000-0000-0000-0000-000000000000','authenticated','authenticated',false,false,"+
- q('future-coupon-'+randomUUID()+'@example.invalid')+",clock_timestamp()) RETURNING id");
+// Use GoTrue's own Admin API, not a direct auth.users INSERT: a password
+// actor needs the provider identity record as well as the user row.
+const localSessionRaw=execFileSync('supabase',['status','-o','env'],
+ {encoding:'utf8',timeout:30000});
+const localSessionVars=Object.fromEntries(localSessionRaw.split('\n').map(l=>{
+ const match=l.match(/^([A-Z_]+)=(.*)$/);
+ return match?[match[1],match[2].replace(/^["']|["']$/g,'')]:null;
+}).filter(Boolean));
+const localSessionBase=localSessionVars.API_URL||localSessionVars.SUPABASE_URL||'';
+const localSessionService=localSessionVars.SERVICE_ROLE_KEY||localSessionVars.SUPABASE_SERVICE_ROLE_KEY||'';
+assert.match(localSessionBase,/^http:\/\/(?:127\.0\.0\.1|localhost):54321\/?$/);
+assert.ok(localSessionService.length>25);
+const buyerCreated=await fetch(localSessionBase+'/auth/v1/admin/users',{
+ method:'POST',
+ headers:{apikey:localSessionService,Authorization:'Bearer '+localSessionService,
+  'Content-Type':'application/json'},
+ body:JSON.stringify({
+  email:'future-coupon-'+randomUUID()+'@example.invalid',
+  password:'LocalFutureCoupon!'+randomUUID(),email_confirm:true
+ }),
+ signal:AbortSignal.timeout(30000)
+});
+assert.ok([200,201].includes(buyerCreated.status),'GoTrue synthetic buyer created');
+const buyer=String((await buyerCreated.json()).id||'');
 assert.match(buyer,/^[0-9a-f-]{36}$/);
 sql("UPDATE public.merchants SET status='active',online=true,accepts_citywide=true,last_seen_at=clock_timestamp() WHERE id="+q(merchant)+"::uuid");
 sql("UPDATE public.catalog_items SET price_confirmed_at=clock_timestamp(),active=true,available_stock=10 "+
