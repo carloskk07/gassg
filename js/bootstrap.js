@@ -176,10 +176,8 @@ function render(){
   renderLock=true;
   try{
     if(globalThis.CHAMA_PORTAL_ROLE==='admin'||globalThis.adminPortalRequested?.()){
-      const focus=typeof adminCouponCommercialCaptureFocus==='function'
-        ?adminCouponCommercialCaptureFocus():null;
-      const couponForm=typeof adminCouponCommercialBeforeRender==='function'
-        ?adminCouponCommercialBeforeRender():null;
+      const couponForm=typeof adminCouponCommercialBeforeRender==='function'&&
+        adminCouponCommercialBeforeRender();
       const app=document.querySelector('#app');
       const disclosures=typeof adminDisclosureCapture==='function'
         ?adminDisclosureCapture(app):null;
@@ -187,10 +185,7 @@ function render(){
         '<main class="shell page"><div class="notice danger">Administração indisponível. Recarregue a página.</div></main>';
       if(disclosures&&typeof adminDisclosureRestore==='function')
         adminDisclosureRestore(app,disclosures);
-      if(couponForm&&typeof adminCouponCommercialAfterRender==='function')
-        adminCouponCommercialAfterRender(couponForm);
-      else if(focus&&typeof adminCouponCommercialRestoreFocus==='function')
-        adminCouponCommercialRestoreFocus(focus);
+      if(couponForm)adminCouponCommercialAfterRender(couponForm);
       return;
     }
     housekeeping();
