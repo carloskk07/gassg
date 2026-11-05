@@ -213,3 +213,32 @@ DO $t$ DECLARE v jsonb;BEGIN
  OR (v->'billing'->>'collectedCents')::integer<>0
  THEN RAISE EXCEPTION 'PREPAID_REFUND_STILL_SHOWN_AS_PAID';END IF;
 END $t$;
+
+-- A contestação bloqueia novas cobranças da conta até reconciliação.
+-- O RPC deve retornar a MESMA fatura original em revisão, jamais outra.
+SET LOCAL ROLE service_role;
+DO $t$ DECLARE inv jsonb; id uuid;BEGIN
+ inv:=public.mobility_fee_pix_prepare_v1_837(
+  'dddddddd-1000-4000-8000-000000000001'::uuid);
+ id:=(inv->>'invoiceId')::uuid;
+ IF id<>current_setting('tamao.ci.prepaid_838')::uuid
+  OR inv->>'status'<>'review_required'
+  OR inv->>'invoiceKind'<>'prepaid_credit'
+  OR (inv->>'amountCents')::integer<>990
+  OR (select count(*) from public.mobility_fee_pix_invoices_v1_837
+      where driver_id='dddddddd-1000-4000-8000-000000000001')<>1
+  OR EXISTS(select 1 from public.mobility_fee_pix_invoice_lines_v1_837
+      where request_id=current_setting('tamao.ci.prepaid_completed')::uuid)
+ THEN RAISE EXCEPTION 'PREPAID_DISPUTE_CREATED_SECOND_INVOICE';END IF;
+ -- A segunda proteção impede inserir a corrida pré-paga como linha de
+ -- cobrança mesmo por chamada interna com permissões privilegiadas.
+ BEGIN
+  INSERT INTO public.mobility_fee_pix_invoice_lines_v1_837(
+      request_id,invoice_id,fee_cents)
+  VALUES(current_setting('tamao.ci.prepaid_completed')::uuid,id,600);
+  RAISE EXCEPTION 'PREPAID_DUPLICATE_LINE_INSERT_ALLOWED';
+ EXCEPTION WHEN unique_violation THEN NULL;END;
+ IF EXISTS(select 1 from public.mobility_fee_pix_invoice_lines_v1_837
+      where request_id=current_setting('tamao.ci.prepaid_completed')::uuid)
+ THEN RAISE EXCEPTION 'PREPAID_DOUBLE_BILLING_TRIGGER_FAILED';END IF;
+END $t$;
