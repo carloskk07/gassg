@@ -6307,6 +6307,45 @@ function adminClubeFinanceView(){
 
 /* A genuine one-time commercial release, approved by the signed-in founder.
    The public home must never collect/store a supplier's CPF/CNPJ. */
+/* Preserve native disclosures across Ajax-driven Admin repaint. Opening any
+   <details> must not be undone by a background data refresh. */
+function adminDisclosureKey(details,occurrences){
+  const id=String(details.id||'').trim();
+  if(id)return 'id:'+id;
+  const data=String(details.getAttribute?.('data-admin-disclosure-key')||'').trim();
+  if(data)return 'data:'+data;
+  const summary=String(details.querySelector?.(':scope > summary')?.textContent||'')
+    .replace(/\s+/g,' ').trim().slice(0,220);
+  const className=String(details.className||'').replace(/\s+/g,' ').trim();
+  const base='summary:'+className+'|'+summary;
+  const order=occurrences.get(base)||0;
+  occurrences.set(base,order+1);
+  return base+'#'+order;
+}
+function adminDisclosureCapture(app){
+  if(!app||typeof app.querySelectorAll!=='function')return null;
+  const occurrences=new Map(),states=new Map();
+  let focused=null;
+  const active=document.activeElement;
+  for(const details of app.querySelectorAll('details')){
+    const key=adminDisclosureKey(details,occurrences);
+    states.set(key,details.open===true);
+    if(active?.tagName==='SUMMARY'&&active.parentElement===details)focused=key;
+  }
+  return {states,focused};
+}
+function adminDisclosureRestore(app,snapshot){
+  if(!app||!snapshot||typeof app.querySelectorAll!=='function')return;
+  const occurrences=new Map();
+  for(const details of app.querySelectorAll('details')){
+    const key=adminDisclosureKey(details,occurrences);
+    if(snapshot.states.has(key))details.open=snapshot.states.get(key);
+    if(key===snapshot.focused){
+      details.querySelector?.(':scope > summary')?.focus?.({preventScroll:true});
+    }
+  }
+}
+
 const adminCouponCommercial={busy:false,data:null,loadedFor:null,requestId:null};
 
 /* Transient, account-scoped form draft. Global Admin refreshes replace #app HTML;
