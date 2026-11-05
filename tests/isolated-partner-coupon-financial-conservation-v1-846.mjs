@@ -91,7 +91,7 @@ assert.match(voucher,/^[0-9a-f-]{36}$/);
 const makeQuote=()=>{
  const raw="SELECT public.create_quote_snapshot_v3("+q(buyer)+"::uuid,"+q(merchant)+
  "::uuid,'97300000','10',400,25,45,clock_timestamp()+interval '5 minutes',"+
- "'[{\\\"product_code\\\":\\\"CHARCOAL2\\\",\\\"quantity\\\":1,\\\"unit_price_cents\\\":1800}]'::jsonb,"+
+ q(JSON.stringify([{product_code:'CHARCOAL2',quantity:1,unit_price_cents:1800}]))+"::jsonb,"+
  q('d'.repeat(64))+")::text";
  return JSON.parse(sql(raw)).quoteId;
 };
