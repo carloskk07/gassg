@@ -1104,7 +1104,11 @@ Deno.serve(async(req:Request)=>{
       const candidate=await fetchProviderOrder(mpToken,dataId);
       if(candidate.response.ok){
         const externalRef=String(candidate.data?.external_reference??"");
-        if(/^mobility-fee:[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(externalRef)){
+        // Never reroute a mobility-fee payment to merchant billing even
+        // when its local invoice is missing, inactive or inconsistent.
+        if(externalRef.toLowerCase().startsWith("mobility-fee:")){
+          if(!/^mobility-fee:[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(externalRef))
+            return json({error:"MOBILITY_FEE_REFERENCE_INVALID"},409);
           const {data:preparedInvoice,error:prepareLookupError}=await admin
             .from("mobility_fee_pix_invoices_v1_837")
             .select("id,driver_id,status,external_reference,amount_cents,provider_order_id,provider_payment_id")
@@ -1113,6 +1117,7 @@ Deno.serve(async(req:Request)=>{
           if(preparedInvoice&&preparedInvoice.status==="prepared"&&!preparedInvoice.provider_order_id){
             return await handleMobilityFeeOrder(admin,dataId,preparedInvoice,candidate.data);
           }
+          return json({error:"MOBILITY_FEE_UNBOUND_PROVIDER_ORDER"},409);
         }
       }
     }
