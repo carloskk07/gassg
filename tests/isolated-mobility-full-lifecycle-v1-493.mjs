@@ -130,6 +130,11 @@ begin
  then raise exception 'COMPLETED_RIDE_GPS_LEAK_OR_STATUS';end if;
  if row->'driver_whatsapp'<>'null'::jsonb
  then raise exception 'COMPLETED_RIDER_CONTACT_RETAINED';end if;
+ begin
+  perform 1 from public.mobility_ride_receipts_v1_829
+   where request_id=current_setting('tamao.ci.moto_completed')::uuid;
+  raise exception 'RIDER_READ_PRIVATE_RECEIPT_STORAGE';
+ exception when insufficient_privilege then null;end;
  -- Rider must NEVER gain direct read privileges to live GPS storage.
  -- The server-side snapshot is the only authorized way to see any point.
  begin
@@ -138,6 +143,32 @@ begin
   raise exception 'RIDER_DIRECT_GPS_READ_ALLOWED';
  exception when insufficient_privilege then null;end;
 end $probe$;
+
+-- The immutable financial fact contains the AGREED fare, not a bank payment proof.
+-- Inspect only as disposable-database owner; client tables remain inaccessible.
+SET LOCAL ROLE postgres;
+DO $receipt$
+declare rec public.mobility_ride_receipts_v1_829%rowtype;
+begin
+ select * into rec from public.mobility_ride_receipts_v1_829
+  where request_id=current_setting('tamao.ci.moto_completed')::uuid;
+ if not found
+  or rec.rider_id<>'aaaaaaaa-1000-4000-8000-000000000902'::uuid
+  or rec.driver_id<>'aaaaaaaa-1000-4000-8000-000000000901'::uuid
+  or rec.service<>'moto' or rec.agreed_fare_cents<>1490
+  or rec.discount_cents<>0 or rec.direct_due_cents<>1490
+  or rec.quote_version<>1 or rec.payment_evidence<>'not_verified'
+ then raise exception 'IMMUTABLE_MOBILITY_RECEIPT_INCORRECT';end if;
+ begin
+  update public.mobility_ride_receipts_v1_829
+  set agreed_fare_cents=1 where request_id=rec.request_id;
+  raise exception 'RECEIPT_MODIFICATION_ALLOWED';
+ exception when insufficient_privilege then null;end;
+ if (select count(*) from public.mobility_ride_receipts_v1_829)<>1
+ then raise exception 'UNEXPECTED_MOBILITY_RECEIPTS';end if;
+end $receipt$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub='aaaaaaaa-1000-4000-8000-000000000902';
 
 -- REJECT is a distinct terminal path: no GPS and no subsequent acceptance.
 SELECT set_config('tamao.ci.moto_rejected',
