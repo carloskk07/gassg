@@ -67,7 +67,7 @@ assert.match(buyer,/pagar diretamente à revenda/i);
 assert.match(backend,/selected\.welcomeBenefitEligible/);
 assert.match(backend,/\.useWelcomeBonus/);
 assert.match(backend,/applyWelcome:true/);
-assert.match(merchantUi,/merchant-order-benefits\\.js/);
+assert.ok(merchantUi.includes('merchant-order-benefits.js'));
 assert.match(deferredReceipt,/Desconto da revenda/);
 assert.match(deferredReceipt,/Sem ressarcimento do TAMÃO/);
 console.log('TAMÃO #843: interface, contrato, reembolso antigo, lote financeiro e separação cashback verificados.');
