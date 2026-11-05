@@ -158,8 +158,15 @@ END $t$;
 
 -- Insufficient wallet cannot promise a discounted fee. Falling back to
 -- existing benefit terms must never overspend the old prepaid lot.
+-- Keep the production limit of 5 requests/rider/hour intact. A distinct
+-- verified synthetic rider supplies the sixth request of this CI transaction.
+SET LOCAL ROLE postgres;
+INSERT INTO auth.users(id,instance_id,aud,role,is_sso_user,is_anonymous,email,email_confirmed_at)
+VALUES('dddddddd-1000-4000-8000-000000000004',
+ '00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+ false,false,'second-rider-838@example.invalid',clock_timestamp());
 SET LOCAL ROLE authenticated;
-SET LOCAL request.jwt.claim.sub='dddddddd-1000-4000-8000-000000000002';
+SET LOCAL request.jwt.claim.sub='dddddddd-1000-4000-8000-000000000004';
 SELECT set_config('tamao.ci.prepaid_fallback',
  public.mobility_create_request('dddddddd-2000-4000-8000-000000000001',
  'carro','Centro','Bairro Alto')::text,true);
@@ -170,7 +177,7 @@ DO $t$ BEGIN
  PERFORM public.mobility_fare_propose_v1_826(
    current_setting('tamao.ci.prepaid_fallback')::uuid,10000);
 END $t$;
-SET LOCAL request.jwt.claim.sub='dddddddd-1000-4000-8000-000000000002';
+SET LOCAL request.jwt.claim.sub='dddddddd-1000-4000-8000-000000000004';
 DO $t$ BEGIN
  PERFORM public.mobility_fare_accept_v1_826(
    current_setting('tamao.ci.prepaid_fallback')::uuid,1);
