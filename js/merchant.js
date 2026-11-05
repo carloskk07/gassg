@@ -989,6 +989,8 @@ function merchantBillingPixChargeView(request){
   return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''}</small></div><span class="status-pill online">QR ATIVO</span></div>${qr}${copy}${link}</div>`;
 }
 
+function merchantBenefitsContractSection(r){if(!globalThis._mb){globalThis._mb=1;let s=document.createElement('script');s.src='./js/merchant-benefits-contract.js';s.onload=render;document.head.append(s)}return globalThis.merchantBenefitsContractRender?.(r)||''}
+
 function merchantBillingLiveView(rt){
   const billing=rt.billing||null;
   if(!billing?.account)return '';
@@ -1156,8 +1158,9 @@ function merchantBillingLiveView(rt){
       <div class="kpi"><span class="label">Saldo D+1 aberto</span><strong>${BRL.format(openDue/100)}</strong><small>${nextDue?'próximo vencimento '+new Date(nextDue.dueAt).toLocaleString('pt-BR'):'nenhum vencimento'}</small></div>
     </div>
     ${recoveryRows?`<div class="section-head" style="margin-top:16px"><div><h3>Recuperação de refund/estorno</h3><p>O valor devolvido pelo PSP precisa ser recomposto por uma nova transação comprovável. A referência administrativa sozinha não encerra o caso.</p></div></div><div class="admin-entity-grid">${recoveryRows}</div>`:''}
+    ${merchantBenefitsContractSection(rt)}
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
-    <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
+    <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Taxa menor com mais crédito. Consumo só após liquidação. Recarga e upgrade com saldo; downgrade após zerar crédito e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
     <div class="notice" style="margin-top:12px"><strong>Pix com conciliação automática.</strong><br>${pixReady?'Gere o Pix no próprio TAMÃO: o QR e o copia-e-cola ficam vinculados à solicitação, e o EndToEndId bancário volta pelo provedor sem digitação manual.':'A integração automática ainda não está configurada neste ambiente; o fluxo manual permanece disponível.'} Em qualquer rota, crédito ou quitação só acontecem após a confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
