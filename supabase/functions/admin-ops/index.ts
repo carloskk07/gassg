@@ -2954,6 +2954,24 @@ async function summary(admin:any,actorUserId:string){
     if(result.error)throw result.error;
   }
 
+  // #841: finance-only queue of contested MP invoices. Read-only, exact count,
+  // oldest first so a backlog cannot hide behind the last 50 payments.
+  // Never convert this queue into a payment, charge or wallet adjustment.
+  const mobilityDisputeAccess=Boolean(currentAdmin?.active)&&
+    ["superadmin","finance","readonly"].includes(actorRole);
+  const mobilityDisputeCases=mobilityDisputeAccess
+    ?await admin.from("mobility_fee_pix_invoices_v1_837")
+      .select("id,driver_id,invoice_kind,plan_key,amount_cents,external_reference,provider_order_id,provider_payment_id,review_at,paid_at,created_at",{count:"exact"})
+      .eq("status","review_required")
+      .order("review_at",{ascending:true}).order("id",{ascending:true})
+      .limit(50)
+    :{data:[],error:null,count:0};
+  if(mobilityDisputeCases.error||!Number.isSafeInteger(mobilityDisputeCases.count)
+     ||mobilityDisputeCases.count<0
+     ||!Array.isArray(mobilityDisputeCases.data))
+    throw new DomainError("MOBILITY_DISPUTE_REVIEW_UNAVAILABLE",
+      "A fila de contestações da mobilidade não pôde ser conferida.",503);
+
   const supportMetricsPromise=Promise.all([
     // The oldest unresolved cases must not disappear behind recent resolved
     // tickets. Count the entire live backlog and page beyond this sample.
@@ -3210,6 +3228,10 @@ async function summary(admin:any,actorUserId:string){
       reviewSampleLimited:(merchantSaleAttempts.data??[]).length>=500
     },
     mobilityBilling:mobilityFeeReview.data??null,
+    mobilityDisputes:mobilityDisputeAccess
+      ?{source:"psp_review_queue",total:mobilityDisputeCases.count,
+        cases:mobilityDisputeCases.data,truncated:mobilityDisputeCases.count>50}
+      :null,
     merchantBilling:{
       plans:billingPlans.data??[],
       accounts:billingAccounts.data??[],
