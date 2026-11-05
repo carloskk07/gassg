@@ -16,6 +16,23 @@ const invoices=JSON.parse(query("SELECT COALESCE(json_agg(t),'[]'::json)::text F
  "FROM public.clube_coupon_paid_invoices WHERE funding_mode_v1_846='partner_funded' "+
  "AND package_key LIKE 'partner_ci_%' ORDER BY id) t"));
 assert.ok(invoices.length>=2,'Both the settlement and two cancellations must be tested with discounted sale economics');
+let legacyDenied=null;
+try{
+ query("INSERT INTO public.clube_coupon_paid_packages("+
+   "package_key,title,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,"+
+   "min_order_cents,funding_verified,legal_terms_verified,redeem_settlement_verified,sale_enabled)"+
+   " VALUES('legacy_ci_discount_forbidden_848','Legacy without merchant financing',890,500,3,90,1000,true,true,true,true)");
+}catch(e){legacyDenied=String(e.stderr||e.message);}
+assert.match(String(legacyDenied),/coupon_sale_requires_verification/,
+ 'Legacy packages may NOT misrepresent sub-face proceeds as financed discounts');
+assert.equal(query("SELECT count(*) FROM public.clube_coupon_paid_packages WHERE package_key='legacy_ci_discount_forbidden_848'"),'0');
+let minimumDenied=null;
+try{
+ query("UPDATE public.clube_coupon_paid_packages SET min_order_cents=500 "+
+   "WHERE package_key="+quote(invoices[0].package_key));
+}catch(e){minimumDenied=String(e.stderr||e.message);}
+assert.match(String(minimumDenied),/coupon_sale_requires_verification/,
+ 'Even future partner packages cannot circumvent the minimum order requirements');
 for(const i of invoices){
  assert.equal(i.sale_price_cents,890);
  assert.equal(i.coupon_face_cents,500);
