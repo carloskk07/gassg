@@ -39,7 +39,10 @@ const packet=(operation)=>({source:'merchant_benefits_contract_v1_842',merchantI
  termsVersion:1,termsText:'Condições verificadas sem ativação financeira '.repeat(9),
  normalFlexFeeBps:900,memberFlexFeeBps:800,maxWelcomeDiscountCents:100,
  checkoutBenefitsEnabled:false,feeReductionEnabled:false,
- noCurrentFinancialMutation:true,legacyCouponRightsPreserved:true});
+ noCurrentFinancialMutation:true,legacyCouponRightsPreserved:true,
+ productWelcomeCheckoutEnabled:true,productWelcomeFeeReductionEnabled:true,
+ productWelcomeOnlyWhenApplied:true,partnerFundedPaidCouponsEnabled:false,
+ partnerFundedOtherCashbackEnabled:false});
 const runtime={merchant:{merchantId:id,memberRole:'owner'}};
 const ctx={globalThis:{merchantRuntime:runtime},Number,String,
  esc:s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'),
@@ -62,7 +65,9 @@ html=ctx.merchantBenefitsContractRender(runtime);
 assert.match(html,/Confirmar adesão/);
 assert.match(html,/9%/);assert.match(html,/8%/);
 assert.match(html,/não gera Pix/);
-assert.match(html,/só serão ativados após integração/);
+assert.match(html,/8% vale só para o pedido/);
+assert.match(html,/Cupons pagos e cashback anterior preservam seus direitos/);
+assert.doesNotMatch(html,/Benefícios nas compras só serão ativados/);
 assert.equal(calls.length,1);
 await ctx.merchantBenefitsContractAct('accept');
 assert.equal(calls.length,3,'write followed by authenticated readback');
