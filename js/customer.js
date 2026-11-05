@@ -2167,7 +2167,7 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
