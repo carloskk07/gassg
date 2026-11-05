@@ -174,11 +174,17 @@ async function edge(slug,token,payload,key=null){
 const initialOrder=await edge('get-order',buyerToken,{orderId:order});
 assert.equal(initialOrder.status,200);
 assert.equal(initialOrder.body.totalCents,1700);
+assert.equal(initialOrder.body.partnerCouponFundedCents,500);
+assert.equal(initialOrder.body.couponFundingModel,'partner_funded');
 const merchantOrders=await edge('merchant-orders',ownerToken,{merchantId:merchant});
 assert.equal(merchantOrders.status,200);
 const row=merchantOrders.body.orders?.find(o=>o.orderId===order);
 assert.ok(row);
 assert.equal(row.totalCents,1700);
+assert.equal(row.couponAppliedCents,500);
+assert.equal(row.partnerCouponFundedCents,500);
+assert.equal(row.couponFundingModel,'partner_funded');
+assert.equal(row.partnerFeeBpsSnapshot,800);
 const acceptedOrder=await edge('merchant-action',ownerToken,
  {orderId:order,action:'accept',expectedVersion:row.version},'ci-pc-accept-'+randomUUID());
 assert.equal(acceptedOrder.status,200,JSON.stringify(acceptedOrder.body).slice(0,500));
