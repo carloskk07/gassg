@@ -76,6 +76,14 @@ begin
  then raise exception 'DRIVER_REQUEST_NOT_VISIBLE';end if;
  if public.mobility_transition(current_setting('tamao.ci.moto_completed')::uuid,'accept')<>'accepted'
  then raise exception 'DRIVER_ACCEPT_FAILED';end if;
+ begin
+   perform public.mobility_transition(current_setting('tamao.ci.moto_completed')::uuid,'depart');
+   raise exception 'UNCONFIRMED_MOTO_DEPART_ALLOWED';
+ exception when serialization_failure then null;end;
+ perform public.mobility_fare_propose_v1_826(current_setting('tamao.ci.moto_completed')::uuid,1490);
+ perform set_config('request.jwt.claim.sub','aaaaaaaa-1000-4000-8000-000000000902',true);
+ perform public.mobility_fare_accept_v1_826(current_setting('tamao.ci.moto_completed')::uuid,1);
+ perform set_config('request.jwt.claim.sub','aaaaaaaa-1000-4000-8000-000000000901',true);
  if public.mobility_transition(current_setting('tamao.ci.moto_completed')::uuid,'depart')<>'en_route'
  then raise exception 'DRIVER_DEPART_FAILED';end if;
  if public.mobility_snapshot(current_setting('tamao.ci.moto_completed')::uuid)->'driver_whatsapp'<>'null'::jsonb
@@ -174,8 +182,13 @@ SET LOCAL request.jwt.claim.sub='aaaaaaaa-1000-4000-8000-000000000901';
 DO $probe$
 begin
  if public.mobility_transition(current_setting('tamao.ci.car_cancel_enroute')::uuid,'accept')<>'accepted'
-  or public.mobility_transition(current_setting('tamao.ci.car_cancel_enroute')::uuid,'depart')<>'en_route'
- then raise exception 'CAR_ACCEPT_DEPART_FAILED';end if;
+ then raise exception 'CAR_ACCEPT_FAILED';end if;
+ perform public.mobility_fare_propose_v1_826(current_setting('tamao.ci.car_cancel_enroute')::uuid,2590);
+ perform set_config('request.jwt.claim.sub','aaaaaaaa-1000-4000-8000-000000000902',true);
+ perform public.mobility_fare_accept_v1_826(current_setting('tamao.ci.car_cancel_enroute')::uuid,1);
+ perform set_config('request.jwt.claim.sub','aaaaaaaa-1000-4000-8000-000000000901',true);
+ if public.mobility_transition(current_setting('tamao.ci.car_cancel_enroute')::uuid,'depart')<>'en_route'
+ then raise exception 'CAR_DEPART_FAILED';end if;
  if not public.mobility_start_position(current_setting('tamao.ci.car_cancel_enroute')::uuid)
  then raise exception 'CAR_GPS_START_FAILED';end if;
  if not public.mobility_publish_position(current_setting('tamao.ci.car_cancel_enroute')::uuid,-30.33,-54.33,20)

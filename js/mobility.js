@@ -451,7 +451,9 @@ function mobilityDetailPanel(row){
  if(driver){
   if(status==='requested')actions=mobilityAction('accept','Aceitar atendimento','primary')+
    mobilityAction('reject','Recusar');
-  if(status==='accepted')actions=mobilityAction('depart','Iniciar deslocamento','primary');
+  if(status==='accepted')actions=row.fare_accepted===true
+    ?mobilityAction('depart','Iniciar deslocamento','primary')
+    :'<p class="mobility-gps-note" role="status">Antes de iniciar, informe o preço e aguarde o passageiro confirmar no TAMÃO.</p>';
   if(status==='en_route')actions=mobilityAction('arrive','Cheguei','primary');
   if(status==='arrived')actions=mobilityAction('finish','Finalizar atendimento','primary');
  }
