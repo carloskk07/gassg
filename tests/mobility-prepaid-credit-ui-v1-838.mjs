@@ -36,7 +36,7 @@ ctx.fetch=async(url,args)=>{requests++;
   invoiceKind:'prepaid_credit',planKey:'essential',planFeeBps:600,
   status:'active',amountCents:990,brCode:'0002010102110000000000000000000000000000000',
   qrDataUri:'data:image/png;base64,aGVsbG8=',
-  expiresAt:'2099-01-01T00:00:00.000Z',paidByProvider:false}})}};
+  expiresAt:'2099-01-01T00:00:00.000Z',paidByProvider:false}})};
 };
 const initial=ctx.mobilityPrepaidPlansPanel();
 assert.match(initial,/Essencial/);
@@ -56,7 +56,7 @@ ctx.fetch=async(url,args)=>{requests++;
  return {ok:true,json:async()=>({ok:true,charge:{
   invoiceId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   invoiceKind:'prepaid_credit',planKey:'essential',planFeeBps:600,
-  status:'paid',amountCents:990,brCode:null,paidByProvider:true}})}};
+  status:'paid',amountCents:990,brCode:null,paidByProvider:true}})};
 };
 assert.equal(await ctx.mobilityFeePixRequest('status'),false);
 assert.match(ctx.mobilityPrepaidPlansPanel(),/Saldo disponível: R\$\s*9,90/);
