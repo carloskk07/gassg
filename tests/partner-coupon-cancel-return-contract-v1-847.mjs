@@ -23,6 +23,12 @@ for(const proof of [
 ])assert.ok(sql.includes(proof),'Required private-money safety: '+proof);
 assert.match(sql,/BEFORE INSERT ON public\.clube_coupon_paid_order_applications/);
 assert.match(sql,/CREATE CONSTRAINT TRIGGER clube_partner_coupon_release_to_voucher_v1_847/);
+const returnStart=sql.indexOf('CREATE FUNCTION public.clube_partner_coupon_release_to_voucher_v1_847()');
+const invoiceLock=sql.indexOf('SELECT * INTO v_invoice FROM public.clube_coupon_paid_invoices',returnStart);
+const voucherLock=sql.indexOf('SELECT * INTO v_voucher FROM public.clube_coupon_paid_issuances',returnStart);
+assert.ok(invoiceLock>returnStart&&voucherLock>invoiceLock,
+ 'Deferred return MUST lock invoice before voucher, same order as checkout');
+
 assert.match(sql,/NEW\.entry_type='cashback_release'/);
 assert.match(sql,/NEW\.order_id IS NOT NULL/);
 assert.match(sql,/IF v_order\.status='CANCELLED'/);
