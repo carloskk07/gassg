@@ -52,7 +52,8 @@ begin
  b:=public.mobility_fee_pix_commit_v1_837(
   id,'dddddddd-1000-4000-8000-000000000001',
   'ord837pending','pay837pending',repeat('0',60),null,null,
-  (select expires_at from public.mobility_fee_pix_invoices_v1_837 where id=id));
+  (select inv.expires_at from public.mobility_fee_pix_invoices_v1_837 inv
+   where inv.id=current_setting('tamao.ci.pix837')::uuid));
  if (b->>'replayed')::boolean is distinct from true
  then raise exception 'PIX_COMMIT_REPLAY_FAILED';end if;
  begin
