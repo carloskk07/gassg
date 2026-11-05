@@ -95,12 +95,12 @@ begin
   where a.driver_id=p_driver and a.fee_cents>0
     and not exists(select 1 from public.mobility_fee_pix_invoice_lines_v1_837 l
                    where l.request_id=a.request_id)
-    -- Corrida já consumiu crédito pré-pago comprovado e não vira dívida Pix.
+    -- Prepaid use is allocated forever to one funding source, even if the
+    -- provider later flags that source for review. Never silently rebill a
+    -- completed prepaid trip as a second fee Pix during a dispute.
+    -- Financial recovery requires a separate, explicitly reconciled flow.
     and not exists(select 1 from public.mobility_fee_prepaid_uses_v1_838 u
-       join public.mobility_fee_prepaid_lots_v1_838 lot on lot.invoice_id=u.invoice_id
-       join public.mobility_fee_pix_invoices_v1_837 inv on inv.id=lot.invoice_id
-       where u.request_id=a.request_id and u.status='spent'
-        and lot.status='active' and inv.status='paid')
+       where u.request_id=a.request_id and u.status='spent')
   order by a.recorded_at,a.request_id
   limit 100
  ), counted as (
