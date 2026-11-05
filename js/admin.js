@@ -6308,6 +6308,65 @@ function adminClubeFinanceView(){
 /* A genuine one-time commercial release, approved by the signed-in founder.
    The public home must never collect/store a supplier's CPF/CNPJ. */
 const adminCouponCommercial={busy:false,data:null,loadedFor:null,requestId:null};
+
+/* Transient, account-scoped form draft. Global Admin refreshes replace #app HTML;
+   input/change handlers save only fields the user edits so fresh PSP data is not
+   accidentally overwritten. Nothing is written to localStorage or a server. */
+const adminCouponCommercialDraft={owner:null,values:Object.create(null),accepted:false};
+const adminCouponCommercialDraftFieldIds=new Set([
+  'clube-seller-name','clube-seller-tax','clube-seller-address','clube-seller-support'
+]);
+function adminCouponCommercialDraftOwner(){
+  const owner=String(adminRuntime?.session?.user?.id||'');
+  if(adminCouponCommercialDraft.owner!==owner){
+    adminCouponCommercialDraft.owner=owner;
+    adminCouponCommercialDraft.values=Object.create(null);
+    adminCouponCommercialDraft.accepted=false;
+  }
+  return owner;
+}
+function adminCouponCommercialDraftInput(input){
+  if(!adminCouponCommercialDraftOwner()||
+     adminCurrentRole()!=='superadmin'||!input)return;
+  if(adminCouponCommercialDraftFieldIds.has(input.id)&&input.type!=='hidden'){
+    adminCouponCommercialDraft.values[input.id]=String(input.value||'');
+  }else if(input.id==='clube-accept-all'){
+    adminCouponCommercialDraft.accepted=input.checked===true;
+  }
+}
+function adminCouponCommercialDraftValue(id,initial){
+  adminCouponCommercialDraftOwner();
+  return Object.prototype.hasOwnProperty.call(adminCouponCommercialDraft.values,id)
+    ?adminCouponCommercialDraft.values[id] :initial;
+}
+function adminCouponCommercialDraftReset(){
+  adminCouponCommercialDraft.values=Object.create(null);
+  adminCouponCommercialDraft.accepted=false;
+}
+function adminCouponCommercialCaptureFocus(){
+  const owner=adminCouponCommercialDraftOwner();
+  if(!owner||adminCurrentRole()!=='superadmin'||
+     !document.getElementById('clube-commercial-release-button'))return null;
+  const input=document.activeElement;
+  if(!input||(!adminCouponCommercialDraftFieldIds.has(input.id)&&
+      input.id!=='clube-accept-all'))return null;
+  adminCouponCommercialDraftInput(input);
+  const start=Number.isInteger(input.selectionStart)?input.selectionStart:null;
+  const end=Number.isInteger(input.selectionEnd)?input.selectionEnd:null;
+  return {owner,id:input.id,start,end};
+}
+function adminCouponCommercialRestoreFocus(previous){
+  if(!previous||previous.owner!==adminCouponCommercialDraftOwner()||
+     adminCurrentRole()!=='superadmin')return;
+  const input=document.getElementById(previous.id);
+  if(!input||input.type==='hidden')return;
+  input.focus({preventScroll:true});
+  if(previous.start!==null&&previous.end!==null&&
+     typeof input.setSelectionRange==='function'){
+    try{input.setSelectionRange(previous.start,previous.end)}catch{}
+  }
+}
+
 async function adminCouponCommercialRefresh(){
   if(adminCouponCommercial.busy||!adminReady()||
      adminCurrentRole()!=='superadmin')return;
@@ -6370,6 +6429,7 @@ async function adminCouponCommercialRelease(){
       throw Error('O servidor não confirmou a ativação.');
     adminCouponCommercial.requestId=null;
     adminCouponCommercial.data=null;
+    adminCouponCommercialDraftReset();
     toast('Venda do pacote geral liberada e registrada no servidor.');
     adminCouponCommercial.busy=false;
     await adminCouponCommercialRefresh();
@@ -6416,7 +6476,8 @@ function adminCouponCommercialReleaseView(){
   const field=(id,label,type,value='')=>'<div class="input-wrap">'+
     '<label for="'+id+'">'+label+'</label>'+
     '<input class="input" type="'+type+'" id="'+id+
-    '" autocomplete="off" required maxlength="260" value="'+esc(value)+'"></div>';
+    '" autocomplete="off" required maxlength="260" oninput="adminCouponCommercialDraftInput(this)" value="'+
+    esc(adminCouponCommercialDraftValue(id,value))+'"></div>';
   const merchantIdentity=recipientIdentified?(
      '<div class="card flat" style="margin:0 0 12px">'+
      '<strong>Recebedor identificado no Mercado Pago</strong>'+
@@ -6444,7 +6505,8 @@ function adminCouponCommercialReleaseView(){
        field('clube-seller-address','Endereço comercial para contato','text',String(d?.seller?.address||''))+
        field('clube-seller-support','E-mail de atendimento ao consumidor','email',String(d?.seller?.supportEmail||owner.supportEmail||''))+
       '</div>'+
-      '<label class="check-row"><input type="checkbox" id="clube-accept-all"><span>'+
+      '<label class="check-row"><input type="checkbox" id="clube-accept-all" onchange="adminCouponCommercialDraftInput(this)"'+
+      (adminCouponCommercialDraftOwner()&&adminCouponCommercialDraft.accepted?' checked':'')+'><span>'+
        'Confirmo a identidade e os contatos do vendedor; aceito a divulgação desses dados aos compradores, as regras de cancelamento e reembolso, o ressarcimento às revendas pelos descontos utilizados e a venda de pacotes mesmo antes da entrada de revendas, respeitando os direitos dos consumidores.'+
       '</span></label>'+
       '<button id="clube-commercial-release-button" class="primary" type="button" onclick="adminCouponCommercialRelease()">Ativar vendas com Pix</button>'+
