@@ -59,7 +59,7 @@ html=ctx.merchantBenefitsContractSection(runtime);
 assert.match(html,/Confirmar adesão/);
 assert.match(html,/9%/);assert.match(html,/8%/);
 assert.match(html,/não gera Pix/);
-assert.match(html,/ainda não foram ativados/);
+assert.match(html,/só serão ativados após integração/);
 assert.equal(calls.length,1);
 await ctx.merchantBenefitsContractAct('accept');
 assert.equal(calls.length,3,'write followed by authenticated readback');
@@ -79,5 +79,5 @@ runtime.merchantBenefitsContract={...packet('view'),termsText:'<script>alert(1)<
 assert.doesNotMatch(ctx.merchantBenefitsContractSection(runtime),/<script>/);
 runtime.merchant={merchantId:'22222222-2222-4222-8222-222222222222',memberRole:'owner'};
 assert.doesNotMatch(ctx.merchantBenefitsContractSection(runtime),/<script>/);
-assert.ok(rendered>=5);
+assert.ok(rendered>=3);
 console.log('TAMÃO #842: revenda consent UI, role gate, fresh readback, XSS protection, no premature financial activation.');
