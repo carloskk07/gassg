@@ -63,7 +63,8 @@ function checkedOrder(order:any,invoice:any,allowPaid=false){
  const abnormal=refund||[state,pstate,
   String(order?.status_detail??"").toLowerCase(),
   String(payment?.status_detail??"").toLowerCase()].some(x=>adverse.includes(x));
- if(!allowPaid&&(abnormal||state==="processed"||pstate==="processed")){
+ if(!allowPaid&&(abnormal||!["action_required","processing"].includes(state)
+   ||!["","pending","in_process","action_required","processing"].includes(pstate))){
   throw new DomainError("MOBILITY_PIX_NOT_PAYABLE",
    "O Pix não está mais disponível para pagamento.",409);
  }
@@ -107,6 +108,33 @@ async function reconcile(admin:any,invoice:any){
   return next.data;
  }
  return invoice;
+}
+async function recoverProcessedBeforeCommit(admin:any,invoice:any,order:any){
+ const proof=checkedOrder(order,invoice,true);
+ const payment=proof.payment;
+ const details=[order?.status_detail,payment?.status_detail]
+  .map(x=>String(x??"").toLowerCase().trim());
+ if(proof.abnormal||proof.state!=="processed"||proof.pstate!=="processed"||
+    !details.every(x=>!x||x==="accredited")){
+  throw new DomainError("MOBILITY_PIX_RECOVERY_NEEDS_REVIEW",
+    "A cobrança anterior precisa de revisão no Mercado Pago antes de gerar outro Pix.",409);
+ }
+ const evidence=await mobilityFeeEvidenceHash({
+  orderId:proof.orderId,paymentId:proof.paymentId,amountCents:proof.amount,
+  externalReference:invoice.external_reference,state:"paid"
+ });
+ const {error}=await admin.rpc("mobility_fee_pix_recover_paid_v1_837",{
+  p_invoice:invoice.id,p_driver:invoice.driver_id,p_order:proof.orderId,
+  p_payment:proof.paymentId,p_amount_cents:proof.amount,
+  p_evidence_sha256:evidence
+ });
+ if(error)throw error;
+ const result=await admin.from("mobility_fee_pix_invoices_v1_837")
+  .select("id,driver_id,amount_cents,status,external_reference,provider_order_id,provider_payment_id,pix_br_code,pix_qr_data_uri,payment_link_url,expires_at,created_at")
+  .eq("id",invoice.id).eq("driver_id",invoice.driver_id).single();
+ if(result.error||result.data?.status!=="paid")
+  throw new Error("MOBILITY_PIX_RECOVERY_READBACK_FAILED");
+ return result.data;
 }
 function publicInvoice(invoice:any){
  const status=String(invoice.status??"");
@@ -205,12 +233,22 @@ Deno.serve(async(req:Request)=>{
   if(!response.ok)throw new DomainError("MOBILITY_MP_ORDER_FAILED",
    "O Mercado Pago não conseguiu gerar o Pix. Repetir a solicitação não duplica a cobrança.",503);
   let order=await readMercadoPagoJson(response);
+  let check=checkedOrder(order,invoice,true);
+  if(check.state==="processed"||check.pstate==="processed"){
+   const paid=await recoverProcessedBeforeCommit(admin,invoice,order);
+   return reply({ok:true,charge:publicInvoice(paid)},200,origin);
+  }
   let proof=checkedOrder(order,invoice);
   let code=String(proof.payment?.payment_method?.qr_code??"");
   if(!code){
    for(let i=0;i<3&&!code;i++){
     await new Promise(resolve=>setTimeout(resolve,250*(i+1)));
     order=await lookup(proof.orderId);
+    check=checkedOrder(order,invoice,true);
+    if(check.state==="processed"||check.pstate==="processed"){
+     const paid=await recoverProcessedBeforeCommit(admin,invoice,order);
+     return reply({ok:true,charge:publicInvoice(paid)},200,origin);
+    }
     proof=checkedOrder(order,invoice);
     code=String(proof.payment?.payment_method?.qr_code??"");
    }
