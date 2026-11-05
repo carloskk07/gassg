@@ -603,7 +603,12 @@ Deno.serve(async(req:Request)=>{
         data.termsText.length<250||data.normalFlexFeeBps!==900||
         data.memberFlexFeeBps!==800||data.maxWelcomeDiscountCents!==100||
         data.checkoutBenefitsEnabled!==false||data.feeReductionEnabled!==false||
-        data.noCurrentFinancialMutation!==true||data.legacyCouponRightsPreserved!==true)
+        data.noCurrentFinancialMutation!==true||data.legacyCouponRightsPreserved!==true||
+        data.productWelcomeCheckoutEnabled!==true||
+        data.productWelcomeFeeReductionEnabled!==true||
+        data.productWelcomeOnlyWhenApplied!==true||
+        data.partnerFundedPaidCouponsEnabled!==false||
+        data.partnerFundedOtherCashbackEnabled!==false)
         throw new DomainError("MERCHANT_BENEFIT_READBACK_UNVERIFIED",
           "O contrato de benefícios não foi confirmado no servidor.",503);
       return json(data,200,origin);
