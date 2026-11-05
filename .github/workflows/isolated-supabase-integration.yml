@@ -134,6 +134,8 @@ jobs:
         run: node tests/isolated-mobility-fee-accrual-v1-835.mjs
       - name: V1.837 fee Pix invoice, late payment recovery, refund and double-bill protection
         run: node tests/isolated-mobility-fee-pix-v1-837.mjs
+      - name: V1.838 verified prepaid purchases, credit holds, cancellation refunds and provider reversals
+        run: node tests/isolated-mobility-prepaid-credit-v1-838.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes

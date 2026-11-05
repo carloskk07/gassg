@@ -531,6 +531,32 @@ function mobilityProgramPanel(){
    '<button class="primary" type="button" onclick="mobilitySetProgram(true)"'+(s.programBusy?' disabled':'')+'>Participar e reduzir a taxa Flex para 8%</button>')+
   '</section>';
 }
+function mobilityPrepaidPlansPanel(){
+ const s=mobilityRuntime,b=s.program?.benefits,w=s.program?.prepaid,
+  plans=s.program?.plans;
+ if(b?.eligibleDriver!==true||!Array.isArray(plans)||!w)return '';
+ const money=x=>esc(BRL.format(Number(x)/100));
+ const nums=[w.availableCents,w.reservedCents,w.spentCents,w.underReviewCents].map(Number);
+ if(!nums.every(x=>Number.isSafeInteger(x)&&x>=0))return '';
+ const cards=plans.filter(p=>p?.mode==='prepaid'&&p.purchaseEnabled===true&&
+   ['essential','popular','professional'].includes(p.key)&&
+   [500,550,600].includes(Number(p.feeBps))&&
+   Number.isSafeInteger(Number(p.amountCents))&&Number(p.amountCents)>=100)
+  .map(p=>'<div class="card flat"><h3>'+esc(p.name)+'</h3>'+
+   '<p><strong>Recarga: '+money(p.amountCents)+'</strong> · taxa da plataforma: '+
+   esc((Number(p.feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2}))+'%</p>'+
+   '<p class="tiny muted">O valor vira crédito para abater taxas de corridas futuras. Não é mensalidade, não paga o valor da corrida e não é ressarcido em dinheiro.</p>'+
+   '<button type="button" class="primary" onclick="mobilityFeePixRequest(\'plan\',\''+
+    esc(p.key)+'\')"'+(s.pixBusy?' disabled':'')+'>Comprar recarga '+esc(p.name)+'</button></div>').join('');
+ return '<section class="mobility-start" aria-label="Planos pré-pagos de motoristas">'+
+  '<h2>Planos com créditos para suas taxas</h2>'+
+  '<p><strong>Saldo disponível: '+money(nums[0])+'</strong> · reservado para corridas: '+
+   money(nums[1])+' · já utilizado: '+money(nums[2])+'.</p>'+
+   (nums[3]>0?'<p class="notice danger">Recarga de '+money(nums[3])+
+     ' está em revisão após alteração no provedor. Os créditos dessa recarga ficam bloqueados.</p>':'')+
+  '<p>Os benefícios do plano são aplicados automaticamente à próxima tarifa aceita quando existe crédito suficiente. Sem saldo suficiente, aplica-se a taxa Flex ou a taxa de participação vigente. Os créditos não vencem mensalmente.</p>'+
+  (cards?'<div class="grid">'+cards+'</div>':'')+'</section>';
+}
 function mobilityFeePixPanel(){
  const s=mobilityRuntime,b=s.program?.billing,p=s.pix;
  if(!b||Number(b.outstandingCents||0)<0)return '';
@@ -545,16 +571,19 @@ function mobilityFeePixPanel(){
  const link=payable&&typeof p.paymentLinkUrl==='string'&&
    /^https:\/\/(?:[A-Za-z0-9-]+\.)*mercadopago\.com(?:\.br)?\//i.test(p.paymentLinkUrl)?
    '<a target="_blank" rel="noopener noreferrer" href="'+esc(p.paymentLinkUrl)+'">Abrir cobrança no Mercado Pago</a>':'';
+ const isPlan=p?.invoiceKind==='prepaid_credit';
  const pix=payable?
-  '<div class="mobility-form" aria-label="Cobrança Pix de taxas">'+
-   '<p><strong>Pix TAMÃO de taxas: '+money(Number(p.amountCents))+'</strong></p>'+
+  '<div class="mobility-form" aria-label="Cobrança Pix TAMÃO">'+
+   '<p><strong>'+(isPlan?'Pix para recarga do plano':'Pix TAMÃO de taxas')+
+   ': '+money(Number(p.amountCents))+'</strong></p>'+
    (img?'<img style="max-width:230px;width:100%;height:auto" alt="QR Code Pix de taxa TAMÃO" src="'+esc(img)+'">':'')+
    '<label>Pix copia e cola<textarea id="mobility-fee-pix-br" readonly rows="3">'+esc(p.brCode)+'</textarea></label>'+
    '<button type="button" class="secondary" onclick="mobilityCopyFeePix()">Copiar código Pix</button> '+
    link+'<p class="tiny muted">Validade até '+esc(mobilityFormatDate(p.expiresAt))+
    '. A confirmação só aparece depois da consulta ao Mercado Pago.</p></div>':'';
  const paid=p?.status==='paid'?
-  '<p role="status">Pagamento de taxas confirmado pela consulta ao Mercado Pago. O total atualizado consta no extrato.</p>':'';
+  '<p role="status">'+(isPlan?'Recarga confirmada pelo Mercado Pago e creditada na carteira.':
+  'Pagamento de taxas confirmado pela consulta ao Mercado Pago. O total atualizado consta no extrato.')+'</p>':'';
  const blocked=['expired','review_required'].includes(String(p?.status||''))?
   '<p class="tiny muted">Este Pix não está mais apto para pagamento. Confira o histórico com o suporte antes de emitir outra cobrança.</p>':'';
  const make=due>=100&&(!p||p.status==='paid')?
@@ -563,7 +592,7 @@ function mobilityFeePixPanel(){
   '<p class="tiny muted">As taxas se acumulam até atingir R$ 1,00 para emissão de Pix.</p>':'';
  return '<div class="card flat"><h3>Pagamento da taxa TAMÃO</h3>'+
   '<p>Saldo de taxas ainda não confirmado como pago: <strong>'+money(due)+'</strong>.</p>'+
-  '<p class="tiny muted">Este Pix paga somente as taxas de atendimento, nunca o preço integral da corrida.</p>'+
+  '<p class="tiny muted">Este Pix movimenta exclusivamente taxas ou recargas de taxas, nunca o preço integral da corrida.</p>'+
   paid+blocked+minimum+pix+make+((p||due>0)?refresh:'')+'</div>';
 }
 function mobilityFeeLedgerPanel(){
@@ -580,18 +609,19 @@ function mobilityFeeLedgerPanel(){
  const rows=ledger.entries.map(item=>{
   if(!item)return '';
   const cents=Number(item.feeCents),net=Number(item.netCents),feeBps=Number(item.feeBps);
-  if(!['not_collected','provider_verified'].includes(item.collectionStatus)||
+  if(!['not_collected','provider_verified','prepaid_credit'].includes(item.collectionStatus)||
     !['moto','carro'].includes(item.service)||
     !Number.isSafeInteger(cents)||cents<0||
     !Number.isSafeInteger(net)||net<0||
-    ![800,900].includes(feeBps)||
+    ![500,550,600,800,900].includes(feeBps)||
     !mobilityId.test(String(item.requestId||'')))return '';
   return '<li><strong>'+esc(item.service==='moto'?'Moto':'Carro')+
    '</strong> — '+money(net)+' valor líquido · taxa '+
    esc(String(feeBps/100))+'%: <strong>'+money(cents)+
    '</strong>. <span class="tiny muted">Lançada em '+
    esc(mobilityFormatDate(item.recordedAt))+'; '+
-   (item.collectionStatus==='provider_verified'?'Pix confirmado pelo provedor.':'a receber.')+
+   (item.collectionStatus==='prepaid_credit'?'Abatida do crédito pré-pago.':
+    item.collectionStatus==='provider_verified'?'Pix confirmado pelo provedor.':'a receber.')+
    '</span></li>';
  }).join('');
  return '<section class="mobility-start" aria-label="Extrato de taxas dos motoristas">'+
@@ -602,7 +632,7 @@ function mobilityFeeLedgerPanel(){
   '<p class="tiny muted">Este extrato registra somente atendimentos concluídos. O cliente paga a corrida diretamente ao motorista.</p>'+
   (rows?'<ul>'+rows+'</ul>':'<p>Nenhuma taxa registrada até agora.</p>')+
   '<button type="button" class="secondary" onclick="mobilityLoadProgram()">Atualizar extrato</button>'+
-  mobilityFeePixPanel()+'</section>';
+  mobilityPrepaidPlansPanel()+mobilityFeePixPanel()+'</section>';
 }
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
@@ -679,9 +709,10 @@ async function mobilityClaimWelcomeOnAuth(){
  }catch(_){return false}
  finally{if(s.welcomeClaimInFlight===userId)s.welcomeClaimInFlight=''}
 }
-async function mobilityFeePixRequest(action){
+async function mobilityFeePixRequest(action,planKey=null){
  const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch;
- if(s.pixBusy||!s.client||!userId||!['charge','status'].includes(action)||
+ if(s.pixBusy||!s.client||!userId||!['charge','status','plan'].includes(action)||
+   (action==='plan'&&!['essential','popular','professional'].includes(planKey))||
    !s.program?.billing)return false;
  const seq=++s.pixSeq;
  s.pixBusy=true;s.error='';s.notice='';render();
@@ -698,7 +729,7 @@ async function mobilityFeePixRequest(action){
   const response=await fetch(base+'/functions/v1/mobility-fee-pix',{
    method:'POST',headers:{'Authorization':'Bearer '+session.access_token,
     'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
-   body:JSON.stringify({action})
+   body:JSON.stringify(action==='plan'?{action,planKey}:{action})
   });
   const data=await response.json();
   if(!same())return false;
@@ -714,7 +745,9 @@ async function mobilityFeePixRequest(action){
   if(!same())return false;
   if(!updated)throw Error('Finance readback failed');
   s.notice=item?.status==='paid'?
-   'Mercado Pago confirmou o recebimento da taxa. Confira seu extrato.':
+   (item.invoiceKind==='prepaid_credit'?
+    'Mercado Pago confirmou a recarga. Os créditos ficam disponíveis para novas corridas.':
+    'Mercado Pago confirmou o recebimento da taxa. Confira seu extrato.'):
    item?.status==='active'?'Pix confirmado pelo servidor e disponível para pagamento.':
    data.status==='below_minimum'?'As taxas precisam atingir R$ 1,00 antes de emitir Pix.':
    item?.status==='review_required'?'O pagamento precisa de revisão financeira.':

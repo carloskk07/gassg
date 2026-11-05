@@ -14,7 +14,13 @@ const chrome=spawn(chromeBin,[
  '--no-first-run','--no-default-browser-check','--remote-allow-origins=*',
  '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
  '--user-data-dir='+profile,'about:blank'
-],{stdio:'ignore',detached:true});
+],{stdio:['ignore','ignore','pipe'],detached:true});
+let chromeDiagnostic='';
+chrome.stderr?.on('data',chunk=>{
+ // Headless Chrome reports the CDP endpoint on stderr even when a sandboxed
+ // runner cannot persist DevToolsActivePort. Keep only a bounded diagnostic.
+ chromeDiagnostic=(chromeDiagnostic+String(chunk)).slice(-16000);
+});
 const delay=ms=>new Promise(done=>setTimeout(done,ms));
 let ws,tab;
 const pending=new Map();
@@ -63,9 +69,14 @@ try{
    const n=Number(raw.split(/\s+/)[0]);
    if(Number.isInteger(n)&&n>0){port=n;break;}
   }catch{}
+  // On some hosted Chrome builds the DevToolsActivePort file is absent even
+  // while CDP is alive. Official Headless Chrome also announces ws:// on stderr.
+  const match=chromeDiagnostic.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);
+  if(match&&Number(match[1])>0){port=Number(match[1]);break;}
   await delay(200);
  }
- assert.ok(port,'Headless Chrome did not expose localhost debugger');
+ assert.ok(port,'Headless Chrome did not expose localhost debugger; diagnostic: '+
+  chromeDiagnostic.replace(/\s+/g,' ').slice(-450));
  let entry;
  for(let i=0;i<60;i++){
   try{
