@@ -138,7 +138,14 @@ assert.equal(replay.partnerFundedDiscountCents,500);
 denied("UPDATE public.clube_partner_coupon_order_uses_v1_846 SET face_cents=400 WHERE order_id="+
  q(order)+"::uuid",'PARTNER_COUPON_RECEIPT_IMMUTABLE');
 denied("UPDATE public.orders SET merchant_id=NULL WHERE id="+q(order)+"::uuid",
+ '(?:PARTNER_COUPON_ORDER_SNAPSHOT_IMMUTABLE|ORDER_BASKET_REGULATORY_NOT_AUTHORIZED)');
+assert.equal(sql("SELECT merchant_id FROM public.orders WHERE id="+q(order)+"::uuid"),merchant,
+ 'Rejected merchant transfer leaves original merchant binding intact');
+// The new immutable coupon receipt must also reject unauthorized money edits,
+// regardless of other existing regulatory guards.
+denied("UPDATE public.orders SET total_cents=total_cents+1 WHERE id="+q(order)+"::uuid",
  'PARTNER_COUPON_ORDER_SNAPSHOT_IMMUTABLE');
+assert.equal(sql("SELECT total_cents FROM public.orders WHERE id="+q(order)+"::uuid"),'1700');
 
 const rawEnv=execFileSync('supabase',['status','-o','env'],{encoding:'utf8',timeout:30000});
 const env=Object.fromEntries(rawEnv.split('\n').map(x=>{
