@@ -84,9 +84,9 @@ assert.deepEqual(buttons.map(b=>b.pressed),['false','false','true'],
 
 state.checkout.useCashback=true;
 const discounted=run('offerCard(globalThis.liveRuntime.offers[0])');
-assert.ok(discounted.includes('R$ 120,00')&&discounted.includes('Total estimado a pagar: R$ 100,00'),
+assert.ok(discounted.includes('R$ 120,00')&&discounted.includes('Total estimado a pagar diretamente à revenda: R$ 100,00'),
  'Quote total and conditional cashback must remain separately disclosed');
-assert.ok(discounted.includes('O desconto aplicável será confirmado ao enviar o pedido.'));
+assert.ok(discounted.includes('A disponibilidade será reconfirmada ao enviar.'));
 assert.ok(!discounted.includes('Total a pagar R$ 100,00'),'No unconditional cashback promise');
 assert.ok(discounted.includes('SEM BENEFÍCIO')&&discounted.includes('COM CASHBACK TAMÃO'),
  'Keep verified gross price separate from an estimated optional discount');
