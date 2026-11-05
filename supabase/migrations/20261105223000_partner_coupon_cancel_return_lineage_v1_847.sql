@@ -72,10 +72,11 @@ BEGIN
  WHERE order_id=new.order_id;
  IF NOT FOUND THEN RETURN NULL; END IF;
  SELECT * INTO v_order FROM public.orders WHERE id=new.order_id FOR UPDATE;
- SELECT * INTO v_voucher FROM public.clube_coupon_paid_issuances
- WHERE id=v_receipt.voucher_id FOR UPDATE;
+ -- Same lock order as paid coupon checkout: invoice, then voucher.
  SELECT * INTO v_invoice FROM public.clube_coupon_paid_invoices
  WHERE id=v_receipt.invoice_id FOR UPDATE;
+ SELECT * INTO v_voucher FROM public.clube_coupon_paid_issuances
+ WHERE id=v_receipt.voucher_id FOR UPDATE;
  v_reason:=new.metadata->>'reason';
  IF v_order.id IS NULL OR v_voucher.id IS NULL OR v_invoice.id IS NULL
     OR new.bucket<>'cashback' OR new.entry_type<>'cashback_release'
