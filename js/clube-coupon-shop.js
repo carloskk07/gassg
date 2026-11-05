@@ -19,15 +19,30 @@ function clubeCouponShopPanel(){
   const offers=(s?.status==='ready'?s.packages:[]).map(p=>{
     const key=String(p.packageKey||'');
     if(!/^[a-z][a-z0-9_]{2,39}$/.test(key))return '';
+    const partner=p.fundingModel==='partner_funded';
+    const specificTerms=partner&&p.termsVersion==='clube_partner_coupon_terms_v1_846'
+      &&typeof p.termsText==='string'&&p.termsText.length>600;
+    const termsNotice=partner
+      ?'<span>Li e aceito as condições específicas desta modalidade: cupons apenas nas revendas participantes, pagamento direto à revenda, validade e possibilidade de solicitar cancelamento e reembolso.</span>'
+      :'<span>Li e aceito as condições, inclusive que pode não haver revendas na minha região, que a validade começa na emissão e que posso solicitar reembolso de um pacote não utilizado.</span>';
+    const specificDocument=partner
+      ?'<details><summary>Condições completas da compra</summary><p>'+esc(String(p.termsText||''))+'</p></details>'
+      :'<button type="button" class="text-link" onclick="go(\'terms\')">Ler condições completas</button>';
+    const partnerSeller=partner&&p.seller?
+      '<p class="tiny muted">Vendedor do pacote: '+esc(String(p.seller.name||''))+
+      ' · Documento: '+esc(String(p.seller.taxDocument||''))+
+      ' · Contato: '+esc(String(p.seller.supportEmail||''))+
+      ' · Endereço: '+esc(String(p.seller.address||''))+'</p>':'';
+    if(partner&&!specificTerms)return '';
     return '<article class="card flat form-stack"><h3>'+esc(p.title)+'</h3>'+
      '<p><strong>'+esc(money(p.priceCents))+'</strong> por '+
      Number(p.couponCount)+' cupons de '+esc(money(p.faceCents))+'</p>'+
      '<p class="tiny muted">Válidos por '+Number(p.validDays)+' dias após a emissão. '+
-     'Valem para qualquer produto do catálogo. '+
+     (partner?'Somente em revendas participantes que atendam seu CEP. ':'Valem para qualquer produto do catálogo. ')+
      (Number(p.minOrderCents)>0?'Pedido mínimo: '+esc(money(p.minOrderCents))+'.':'')+'</p>'+
      '<label class="check-row"><input type="checkbox" id="clube-coupon-terms-'+key+'">'+
-     '<span>Li e aceito as condições, inclusive que pode não haver revendas na minha região, que a validade começa na emissão e que posso solicitar reembolso de um pacote não utilizado.</span></label>'+ 
-     '<button type="button" class="text-link" onclick="go(\'terms\')">Ler condições completas</button>'+ 
+     termsNotice+'</label>'+
+     specificDocument+partnerSeller+ 
      '<button type="button" class="primary small" onclick="clubeCouponBuy(\''+
      key+'\')" '+(s.busy?'disabled':'')+'>Comprar com Pix</button></article>';
   }).join('');
@@ -98,7 +113,28 @@ async function clubeCouponShopRefresh(){
       Number.isSafeInteger(p.validDays)&&p.validDays>=1&&p.validDays<=365&&
       p.termsVersion==='clube_coupon_terms_v1_813'
     );
-    clubeCouponShopState.packages=valid;
+    // Independent future buyer contract. An unavailable/older Edge must not
+    // block historical owner-sponsored packages or invent a new sale.
+    let participating=[];
+    try{
+      const partner=await liveInvoke('coupon-credit-pix',{action:'partner-catalog'});
+      if(partner?.ok===true&&partner?.source==='clube_partner_coupon_catalog_v1_849'
+         &&Array.isArray(partner.packages)){
+        participating=partner.packages.filter(p=>
+          p.fundingModel==='partner_funded'&&
+          p.termsVersion==='clube_partner_coupon_terms_v1_846'&&
+          String(p.packageKey)==='partner_general_3x5_849'&&
+          Number.isSafeInteger(p.priceCents)&&p.priceCents===890&&
+          p.faceCents===500&&p.couponCount===3&&p.validDays===180&&
+          p.minOrderCents===1000&&p.eligibleProducts==='participating_merchants_only'&&
+          typeof p.termsText==='string'&&p.termsText.length>600&&
+          typeof p.seller?.name==='string'&&typeof p.seller?.taxDocument==='string'&&
+          typeof p.seller?.address==='string'&&typeof p.seller?.supportEmail==='string'
+        );
+      }
+    }catch{participating=[]}
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
+    clubeCouponShopState.packages=[...valid,...participating];
     clubeCouponShopState.seller=valid.length&&
       result.seller&&typeof result.seller.name==='string'&&
       typeof result.seller.taxDocument==='string'&&
@@ -126,7 +162,8 @@ async function clubeCouponBuy(packageKey){
   if(!p)return toast('Atualize os pacotes antes de comprar.');
   if(!document.getElementById('clube-coupon-terms-'+packageKey)?.checked)
     return toast('Leia e aceite as condições do pacote antes de comprar.');
-  if(p.termsVersion!=='clube_coupon_terms_v1_813')
+  const partnerPurchase=p.fundingModel==='partner_funded';
+  if(p.termsVersion!==(partnerPurchase?'clube_partner_coupon_terms_v1_846':'clube_coupon_terms_v1_813'))
     return toast('Não foi possível confirmar a versão das condições. Atualize a página.');
   clubeCouponShopState.busy=true;
   if(route()==='club')render();
@@ -153,10 +190,11 @@ async function clubeCouponBuy(packageKey){
       clubeCouponShopState.attempts[packageKey]=previous?.requestId||crypto.randomUUID();
     const requestId=clubeCouponShopState.attempts[packageKey];
     const result=await liveInvoke('coupon-credit-pix',{
-      action:'purchase',packageKey,requestId,
+      action:partnerPurchase?'partner-purchase':'purchase',packageKey,requestId,
       termsAccepted:true,termsVersion:p.termsVersion
     });
-    if(result?.ok!==true||!/^[0-9a-f-]{36}$/i.test(String(result.invoiceId||'')))
+    if(result?.ok!==true||(partnerPurchase&&result.fundingModel!=='partner_funded')||
+       !/^[0-9a-f-]{36}$/i.test(String(result.invoiceId||'')))
       throw Error('COUPON_PIX_NOT_CONFIRMED');
     if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
     clubeCouponShopState.purchase=result;
