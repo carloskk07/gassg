@@ -64,11 +64,14 @@ SET LOCAL request.jwt.claim.sub='dddddddd-1000-4000-8000-000000000002';
 DO $t$ BEGIN
  PERFORM public.mobility_fare_accept_v1_826(
   current_setting('tamao.ci.prepaid_cancel')::uuid,1);
- IF (select fee_bps from public.mobility_fare_terms_v1_832
-     where request_id=current_setting('tamao.ci.prepaid_cancel')::uuid) is not null
- THEN RAISE EXCEPTION 'BROWSER_READ_PREPAID_FARE_DIRECTLY';
- END IF;
-EXCEPTION WHEN insufficient_privilege THEN NULL; END $t$;
+ -- Only this nested subtransaction tests SELECT denial. Never roll back
+ -- the already-accepted fare when the permission check fails as designed.
+ BEGIN
+   PERFORM 1 FROM public.mobility_fare_terms_v1_832
+    where request_id=current_setting('tamao.ci.prepaid_cancel')::uuid;
+   RAISE EXCEPTION 'BROWSER_READ_PREPAID_FARE_DIRECTLY';
+ EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+END $t$;
 SET LOCAL ROLE postgres;
 DO $t$ BEGIN
  IF (select fee_bps from public.mobility_fare_terms_v1_832
@@ -129,8 +132,7 @@ DO $t$ BEGIN
  THEN RAISE EXCEPTION 'PREPAID_TRIP_NOT_COMPLETED';END IF;
 END $t$;
 SET LOCAL ROLE postgres;
-DO $t$
-declare v jsonb;BEGIN
+DO $t$ BEGIN
  IF (select spent_cents from public.mobility_fee_prepaid_lots_v1_838
      where invoice_id=current_setting('tamao.ci.prepaid_838')::uuid)<>600
   OR (select reserved_cents from public.mobility_fee_prepaid_lots_v1_838
@@ -140,9 +142,10 @@ declare v jsonb;BEGIN
   OR (select status from public.mobility_fee_prepaid_uses_v1_838
      where request_id=current_setting('tamao.ci.prepaid_completed')::uuid)<>'spent'
  THEN RAISE EXCEPTION 'PREPAID_COMPLETED_FEE_NOT_PAID_FROM_LOT';END IF;
- SET LOCAL ROLE authenticated;
- perform set_config('request.jwt.claim.sub',
-   'dddddddd-1000-4000-8000-000000000001',true);
+END $t$;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub='dddddddd-1000-4000-8000-000000000001';
+DO $t$ DECLARE v jsonb;BEGIN
  v:=public.mobility_billing_catalog_v1_826();
  if (v->'prepaid'->>'availableCents')::integer<>390
  OR (v->'prepaid'->>'spentCents')::integer<>600
