@@ -36,8 +36,12 @@ assert.equal(ctx.mobilityFeeLedgerPanel(),'','Never claim paid without source pr
 rt.program=null;
 assert.equal(ctx.mobilityFeeLedgerPanel(),'','Never leak previous account');
 rt.program={benefits:{...benefits,eligibleDriver:false},
- billing:{recordedCount:5,accruedCents:100,collectionStatus:'not_collected',entries:[]}};
-assert.equal(ctx.mobilityFeeLedgerPanel(),'','Rider cannot inspect driver fees');
+ billing:{recordedCount:2,accruedCents:592,collectionStatus:'not_collected',entries:[]}};
+assert.match(ctx.mobilityFeeLedgerPanel(),/Taxas dos atendimentos concluídos/,
+ 'Suspended or unpublished driver must retain historic fee access');
+rt.program={benefits:{...benefits,eligibleDriver:false},
+ billing:{recordedCount:0,accruedCents:0,collectionStatus:'not_collected',entries:[]}};
+assert.equal(ctx.mobilityFeeLedgerPanel(),'','New rider cannot see driver fee panel');
 const migration=fs.readFileSync(new URL('../supabase/migrations/20261105051500_mobility_fee_ledger_v1_835.sql',import.meta.url),'utf8');
 for(const term of ['mobility_platform_fee_accruals_v1_835',
  'MOBILITY_FEE_RECEIPT_TERMS_CONFLICT','MOBILITY_FEE_ACCRUAL_IMMUTABLE',
