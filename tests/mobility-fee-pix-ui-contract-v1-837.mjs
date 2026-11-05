@@ -17,7 +17,7 @@ vm.runInNewContext(source+';this.rt=mobilityRuntime;',ctx);
 const s=ctx.rt,owner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const benefits={eligibleDriver:true,version:2,normalFeeBps:900,memberFeeBps:800,
  termsText:'Termos de descontos para motoristas participantes'};
-const fee={recordedCount:2,accruedCents:592,collectedCents:0,
+let fee={recordedCount:2,accruedCents:592,collectedCents:0,
  outstandingCents:592,collectionStatus:'not_collected',entries:[]};
 s.user={id:owner};
 s.program={plans:[],benefits,billing:fee};
