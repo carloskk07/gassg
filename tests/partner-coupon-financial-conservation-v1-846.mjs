@@ -25,6 +25,10 @@ assert.match(sql,/BEFORE INSERT ON public\.clube_coupon_paid_invoices/);
 assert.match(sql,/BEFORE UPDATE OF funding_mode_v1_846,funding_terms_version_v1_846/);
 assert.match(sql,/AFTER INSERT ON public\.clube_coupon_paid_order_applications/);
 assert.match(sql,/BEFORE UPDATE OF merchant_id,proposed_merchant_id,gross_total_cents/);
+assert.match(sql,/zzzz_clube_partner_coupon_fee_before_v1_846/);
+assert.match(sql,/SET cashback_reserved_cents=cashback_reserved_cents/);
+assert.doesNotMatch(sql,/UPDATE public\.orders SET\s+platform_fee_bps_snapshot=/i,
+ 'Only safe BEFORE trigger may alter fee snapshot; rebind guard forbids direct SET');
 assert.match(sql,/v_order\.cashback_reserved_cents<>new\.face_cents/,'no mixed cashback until modeled');
 assert.match(sql,/v_invoice\.status<>'paid'/);
 assert.match(sql,/v_invoice\.net_proceeds_verified_at IS NULL/);
