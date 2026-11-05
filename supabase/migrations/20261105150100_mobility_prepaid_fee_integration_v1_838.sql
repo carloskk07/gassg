@@ -276,8 +276,12 @@ begin
  end if;
  -- Uma reserva de crédito pré-pago só nasce após pagamento provado no MP.
  -- Reserva congela a taxa e o custo no mesmo aceite da proposta.
- v_prepaid:=public.mobility_fee_prepaid_reserve_v1_838(
-   new.request_id,new.driver_id,new.fare_cents-v_discount);
+ if new.fare_cents-v_discount>=100 then
+  v_prepaid:=public.mobility_fee_prepaid_reserve_v1_838(
+    new.request_id,new.driver_id,new.fare_cents-v_discount);
+ else
+  v_prepaid:=null; -- Valor líquido zero: não consome crédito do motorista.
+ end if;
  if v_prepaid is not null and v_prepaid->>'status'='reserved' then
   v_bps:=(v_prepaid->>'rateBps')::integer;
   if (v_prepaid->>'feeCents')::integer <>
