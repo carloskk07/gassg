@@ -36,7 +36,7 @@ as $$
  from public.mobility_billing_plans_v1_826;
 $$;
 revoke all on function public.mobility_billing_catalog_v1_826() from public;
-grant execute on function public.mobility_billing_catalog_v1_826() to anon,authenticated;
+grant execute on function public.mobility_billing_catalog_v1_826() to authenticated;
 
 -- Consentimento para negociar benefícios; não autoriza desconto nem
 -- altera taxa automaticamente. Os dois exigirão implementação transacional.
