@@ -130,6 +130,56 @@ assert.doesNotMatch(content,/id="clube-accept-all"[^>]* checked/);
 state.api.restore(saved);
 assert.equal(focusCalls,1,'never restore focus from another account');
 
+
+// Regression: native Admin disclosure sections retain user-opened state when
+// an unrelated background status refresh replaces #app.
+const disclosureBegin=adminBootstrap.indexOf('function adminDisclosureKey(');
+const disclosureEnd=adminBootstrap.indexOf('let renderLock=false;',disclosureBegin);
+assert.ok(disclosureBegin>0&&disclosureEnd>disclosureBegin);
+const summary=(text)=>({tagName:'SUMMARY',textContent:text,parentElement:null,
+  focused:0,focus(){this.focused++;}});
+const disclosure=(id,classname,heading,open)=>{
+  const label=summary(heading);
+  const el={id,className:classname,open,
+    getAttribute:()=>null,
+    querySelector:selector=>selector===':scope > summary'?label:null};
+  label.parentElement=el;
+  return {el,label};
+};
+const originalFirst=disclosure('admin-followup-details-merchant',
+  'admin-alert-followup','Responsável e prazo',true);
+const originalSecond=disclosure('', 'admin-tech-details',
+  'Detalhes técnicos da integração',true);
+const originalThird=disclosure('', 'admin-tech-details',
+  'Histórico de recebimentos',false);
+const adminDoc={activeElement:originalSecond.label};
+const disclosures=vm.createContext({document:adminDoc});
+vm.runInContext(adminBootstrap.slice(disclosureBegin,disclosureEnd)+
+  '\nthis.capture=adminDisclosureCapture;this.restore=adminDisclosureRestore;',disclosures);
+const appDetails=arr=>({querySelectorAll:selector=>selector==='details'?arr:[]});
+const snapshot=disclosures.capture(appDetails([
+  originalFirst.el,originalSecond.el,originalThird.el]));
+const nextFirst=disclosure('admin-followup-details-merchant','admin-alert-followup',
+  'Responsável e prazo',false);
+const nextSecond=disclosure('', 'admin-tech-details',
+  'Detalhes técnicos da integração',false);
+const nextThird=disclosure('', 'admin-tech-details',
+  'Histórico de recebimentos',true);
+disclosures.restore(appDetails([nextFirst.el,nextSecond.el,nextThird.el]),snapshot);
+assert.equal(nextFirst.el.open,true,'ID-backed accordion stays expanded');
+assert.equal(nextSecond.el.open,true,'Summary-backed accordion stays expanded');
+assert.equal(nextThird.el.open,false,'Explicitly collapsed accordion stays collapsed');
+assert.equal(nextSecond.label.focused,1,'Expanded summary keeps keyboard focus');
+nextSecond.el.open=false;
+const manuallyClosed=disclosures.capture(appDetails([nextSecond.el]));
+const refreshedClosed=disclosure('', 'admin-tech-details',
+  'Detalhes técnicos da integração',true);
+disclosures.restore(appDetails([refreshedClosed.el]),manuallyClosed);
+assert.equal(refreshedClosed.el.open,false,'User collapse survives next background refresh');
+const unrelated=disclosure('', 'admin-tech-details','Outros módulos',true);
+disclosures.restore(appDetails([unrelated.el]),snapshot);
+assert.equal(unrelated.el.open,true,'Different accordion must not inherit another section state');
+
 for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'DESCONTOS EM COMPRAS ELEGÍVEIS','CUPONS','confirmados no Clube'])
  assert.ok(markup.includes(term),'banner missing: '+term);
 for(const claim of ['ILUSTRAÇÃO DE CUPOM','EXEMPLO','R$ 5','Comprar agora','Compre seu pacote','Desconto garantido','Cupom disponível','Compre por Pix'])
