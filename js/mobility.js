@@ -432,7 +432,20 @@ function mobilityFarePanel(row){
  if(!row||!['rider','driver'].includes(row.role))return '';
  const cents=Number(row.fare_cents),valid=Number.isSafeInteger(cents)&&cents>=100&&cents<=10000000;
  const accepted=row.fare_accepted===true&&valid;
- if(accepted)return '<p class="mobility-fare-accepted"><strong>Valor combinado: '+esc(BRL.format(cents/100))+'</strong> — confirmado pelo passageiro. O pagamento é combinado diretamente com o motorista.</p>';
+ const discount=Number(row.discount_cents||0),net=Number(row.direct_due_cents);
+ const hasDiscount=accepted&&discount===100&&Number.isSafeInteger(net)&&net===cents-100;
+ if(accepted){
+  const gross='Valor combinado: '+esc(BRL.format(cents/100));
+  const summary=hasDiscount?
+   '<p><strong>'+gross+'</strong>. Benefício TAMÃO: <strong>-'+esc(BRL.format(1))+
+    '</strong>. Pagamento direto ao motorista: <strong>'+esc(BRL.format(net/100))+'</strong>.</p>':
+   '<p><strong>'+gross+'</strong>. Pagamento combinado diretamente com o motorista.</p>';
+  const fee=row.role==='driver'&&Number.isInteger(Number(row.fee_bps))?
+   '<p class="tiny muted">Taxa TAMÃO desta corrida: '+esc(
+      (Number(row.fee_bps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2}))+
+    '% do valor líquido, cobrada separadamente. A conclusão não comprova o pagamento da taxa.</p>':'';
+  return '<div class="mobility-fare-accepted">'+summary+fee+'</div>';
+ }
  if(row.status!=='accepted')return valid
   ?'<p><strong>Valor proposto: '+esc(BRL.format(cents/100))+'</strong> — ainda não confirmado pelo passageiro.</p>':'';
  if(row.role==='driver'){
@@ -442,7 +455,9 @@ function mobilityFarePanel(row){
    (valid?'<p class="tiny muted">Valor atual: '+esc(BRL.format(cents/100))+'. Aguarde a confirmação do passageiro.</p>':'');
  }
  return valid?'<div class="mobility-fare-prompt"><strong>Motorista propôs '+esc(BRL.format(cents/100))+'</strong>'+
-  '<p>Confira o valor antes de confirmar. O TAMÃO não recebe o pagamento integral da corrida.</p>'+
+  (row.welcome_eligible===true?
+   '<p><strong>Seu benefício de boas-vindas de R$ 1 pode ser aplicado.</strong> Se o saldo continuar disponível ao confirmar, o motorista participante aceita o desconto sem repasse do TAMÃO. Previsão de pagamento: '+esc(BRL.format((cents-100)/100))+'.</p>':
+   '<p>Confira o valor antes de confirmar. O TAMÃO não recebe o pagamento integral da corrida.</p>')+
   '<button type="button" class="primary" onclick="mobilityFareAccept()"'+(mobilityRuntime.busy?' disabled':'')+'>Confirmar valor da corrida</button></div>':
   '<p class="tiny muted">O motorista ainda não informou um valor pelo TAMÃO.</p>';
 }

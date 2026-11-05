@@ -128,6 +128,8 @@ jobs:
         run: node tests/isolated-mobility-fare-plans-v1-826.mjs
       - name: V1.832 prove driver consent, reduced Flex fee and frozen fare terms on isolated Postgres
         run: node tests/isolated-mobility-benefits-terms-v1-832.mjs
+      - name: V1.833 full bonus welcome debit, refund, final trip and double spend protection
+        run: node tests/isolated-mobility-welcome-redemption-v1-833.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes
