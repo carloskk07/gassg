@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { sha256Hex as billingEvidenceHash } from "../_shared/domain.js";
+import {mobilityFeeEvidenceHash} from "../_shared/mobility-fee-evidence.js";
 import {
   decryptPaymentSecret,
   paymentEncryptionConfigured,
@@ -935,8 +936,7 @@ async function handleMobilityFeeOrder(admin:any,orderId:string,invoice:any){
  const state=reversal?"review_required":paid?"paid":expired?"expired":null;
  if(!state)return json({ok:true,route:"mobility_fee",status:"pending",
    financialMutationAttempted:false},200);
- const evidenceHash=await billingEvidenceHash({
-  provider:"mercadopago",purpose:"mobility_platform_fee",
+ const evidenceHash=await mobilityFeeEvidenceHash({
   orderId,paymentId,amountCents:amount,
   externalReference:String(invoice.external_reference),state
  });
