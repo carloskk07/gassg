@@ -152,33 +152,28 @@ BEGIN
     USING ERRCODE='23514'; END IF;
  v_bps:=v_order.platform_fee_bps_snapshot;
  IF v_order.billing_plan_key_snapshot='flex_daily' AND v_bps=900 THEN v_bps:=800; END IF;
- v_fee:=floor(((v_order.gross_total_cents-new.face_cents)::numeric*v_bps)/10000)::integer;
- v_release:=greatest(v_order.prepaid_fee_reserved_cents_snapshot-v_fee,0);
- IF v_release>0 THEN
-   PERFORM pg_catalog.pg_advisory_xact_lock(
-     pg_catalog.hashtextextended('merchant-fee-credit:'||v_order.merchant_id::text,0));
-   UPDATE public.merchant_billing_accounts
-   SET credit_reserved_cents=credit_reserved_cents-v_release,updated_at=clock_timestamp()
-   WHERE merchant_id=v_order.merchant_id AND credit_reserved_cents>=v_release;
-   IF NOT FOUND THEN RAISE EXCEPTION 'PARTNER_COUPON_PREPAID_CREDIT_DRIFT'
-     USING ERRCODE='40001'; END IF;
- END IF;
- UPDATE public.orders SET
-   platform_fee_bps_snapshot=v_bps,
-   prepaid_fee_reserved_cents_snapshot=prepaid_fee_reserved_cents_snapshot-v_release,
-   prepaid_fee_credit_source_plan_key_snapshot=
-      case when prepaid_fee_reserved_cents_snapshot-v_release=0 then NULL
-       else prepaid_fee_credit_source_plan_key_snapshot end
- WHERE id=v_order.id AND status='OFFERED_TO_MERCHANT'
-   AND cashback_reserved_cents=new.face_cents;
- IF NOT FOUND THEN RAISE EXCEPTION 'PARTNER_COUPON_FEE_SNAPSHOT_NOT_APPLIED'
-   USING ERRCODE='40001'; END IF;
+ -- The existing rebind_order_billing_snapshot() forbids direct SET of fee
+ -- columns after quote creation. Freeze the authorized receipt, then signal
+ -- a net-value readback; a later BEFORE trigger adjusts NEW from the receipt.
  INSERT INTO public.clube_partner_coupon_order_uses_v1_846(
    order_id,voucher_id,invoice_id,merchant_id,customer_id,merchant_contract_version,
    buyer_terms_version,face_cents,gross_cents,net_cents,fee_bps_snapshot
  ) VALUES(v_order.id,new.voucher_id,v_invoice.id,v_order.merchant_id,
    v_order.customer_id,v_consent.version,v_invoice.terms_version,
    new.face_cents,v_order.gross_total_cents,v_order.gross_total_cents-new.face_cents,v_bps);
+ UPDATE public.orders
+ SET cashback_reserved_cents=cashback_reserved_cents,
+     total_cents=total_cents
+ WHERE id=v_order.id AND status='OFFERED_TO_MERCHANT'
+   AND financial_state='pending'
+   AND cashback_reserved_cents=new.face_cents
+   AND total_cents=v_order.gross_total_cents-new.face_cents;
+ IF NOT FOUND OR NOT EXISTS(
+   SELECT 1 FROM public.orders o WHERE o.id=v_order.id
+     AND o.platform_fee_bps_snapshot=v_bps
+     AND o.total_cents=v_order.gross_total_cents-new.face_cents
+ ) THEN RAISE EXCEPTION 'PARTNER_COUPON_FEE_SNAPSHOT_NOT_APPLIED'
+    USING ERRCODE='40001'; END IF;
  RETURN new;
 END;$app$;
 REVOKE ALL ON FUNCTION public.clube_partner_coupon_application_v1_846()
@@ -207,6 +202,64 @@ REVOKE ALL ON FUNCTION public.clube_partner_coupon_no_transfer_v1_846()
 CREATE TRIGGER zzz_clube_partner_coupon_no_transfer_v1_846
  BEFORE UPDATE OF merchant_id,proposed_merchant_id,gross_total_cents,cashback_reserved_cents,total_cents,platform_fee_bps_snapshot,status
  ON public.orders FOR EACH ROW EXECUTE FUNCTION public.clube_partner_coupon_no_transfer_v1_846();
+
+
+-- Fee changes are permitted ONLY when an independently checked immutable
+-- partner-coupon receipt exists. The narrow original pricing update runs
+-- after the existing general snapshot guard, as #843 did for welcome R$1.
+CREATE FUNCTION public.clube_partner_coupon_fee_before_v1_846()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog
+AS $fee$
+DECLARE
+ v_receipt public.clube_partner_coupon_order_uses_v1_846%rowtype;
+ v_fee integer;
+ v_release integer;
+BEGIN
+ SELECT * INTO v_receipt FROM public.clube_partner_coupon_order_uses_v1_846
+ WHERE order_id=new.id;
+ IF NOT FOUND THEN RETURN new; END IF;
+ IF old.merchant_id IS DISTINCT FROM v_receipt.merchant_id
+    OR old.customer_id IS DISTINCT FROM v_receipt.customer_id
+    OR old.gross_total_cents IS DISTINCT FROM v_receipt.gross_cents
+    OR old.cashback_reserved_cents IS DISTINCT FROM v_receipt.face_cents
+    OR old.total_cents IS DISTINCT FROM v_receipt.net_cents
+    OR new.cashback_reserved_cents IS DISTINCT FROM old.cashback_reserved_cents
+    OR new.total_cents IS DISTINCT FROM old.total_cents
+ THEN RAISE EXCEPTION 'PARTNER_COUPON_FEE_ORDER_PROVENANCE_CONFLICT'
+   USING ERRCODE='23514'; END IF;
+ v_fee:=floor((old.total_cents::numeric*v_receipt.fee_bps_snapshot)/10000)::integer;
+ v_release:=greatest(old.prepaid_fee_reserved_cents_snapshot-v_fee,0);
+ -- A second readback on an already-frozen order is a no-op. A stale snapshot
+ -- must never be repaired on an accepted, delivered or settled order.
+ IF old.platform_fee_bps_snapshot IS NOT DISTINCT FROM v_receipt.fee_bps_snapshot
+    AND v_release=0 THEN RETURN new; END IF;
+ IF old.status<>'OFFERED_TO_MERCHANT'
+    OR old.financial_state<>'pending'
+    OR old.prepaid_fee_credit_consumed_at IS NOT NULL
+    OR old.prepaid_fee_credit_released_at IS NOT NULL
+ THEN RAISE EXCEPTION 'PARTNER_COUPON_FEE_SNAPSHOT_TOO_LATE'
+   USING ERRCODE='40001'; END IF;
+ IF v_release>0 THEN
+   PERFORM pg_catalog.pg_advisory_xact_lock(
+     pg_catalog.hashtextextended('merchant-fee-credit:'||old.merchant_id::text,0));
+   UPDATE public.merchant_billing_accounts
+   SET credit_reserved_cents=credit_reserved_cents-v_release,updated_at=clock_timestamp()
+   WHERE merchant_id=old.merchant_id AND credit_reserved_cents>=v_release;
+   IF NOT FOUND THEN RAISE EXCEPTION 'PARTNER_COUPON_PREPAID_CREDIT_DRIFT'
+     USING ERRCODE='40001'; END IF;
+ END IF;
+ new.platform_fee_bps_snapshot:=v_receipt.fee_bps_snapshot;
+ new.prepaid_fee_reserved_cents_snapshot:=old.prepaid_fee_reserved_cents_snapshot-v_release;
+ IF new.prepaid_fee_reserved_cents_snapshot=0 THEN
+   new.prepaid_fee_credit_source_plan_key_snapshot:=NULL;
+ END IF;
+ RETURN new;
+END;$fee$;
+REVOKE ALL ON FUNCTION public.clube_partner_coupon_fee_before_v1_846()
+ FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER zzzz_clube_partner_coupon_fee_before_v1_846
+ BEFORE UPDATE OF cashback_reserved_cents,total_cents
+ ON public.orders FOR EACH ROW EXECUTE FUNCTION public.clube_partner_coupon_fee_before_v1_846();
 
 
 -- Canonical accounting, rewards and quote checkout now understand the immutable NEW program snapshot.
