@@ -15,6 +15,7 @@ declare
   v_expected_due timestamptz;
   v_partner public.merchant_welcome_order_uses_v1_843%rowtype;
   v_fee_basis integer;
+  v_expected_basis integer:=null;
 begin
   if tg_op='UPDATE' and (
     new.order_id is distinct from old.order_id
@@ -65,6 +66,7 @@ begin
         or v_partner.fee_bps_snapshot<>v_order.platform_fee_bps_snapshot
       then raise exception 'PARTNER_WELCOME_RECEIVABLE_BASIS_CONFLICT' using errcode='23514';end if;
       v_fee_basis:=v_partner.net_cents;
+      v_expected_basis:=v_partner.net_cents;
     end if;
     v_expected_fee:=floor(
       (v_fee_basis::numeric*v_order.platform_fee_bps_snapshot)/10000
@@ -76,8 +78,7 @@ begin
        or new.platform_fee_bps<>v_order.platform_fee_bps_snapshot
        or new.platform_fee_cents<>v_expected_fee
        or new.prepaid_credit_applied_cents<>v_order.prepaid_fee_credit_applied_cents
-       or new.benefit_fee_basis_cents_v1_843 is distinct from
-          case when v_partner.order_id is not null then v_fee_basis else null end
+       or new.benefit_fee_basis_cents_v1_843 is distinct from v_expected_basis
        or new.due_at<>v_expected_due then
       raise exception 'PLATFORM_RECEIVABLE_MISMATCH' using errcode='23514';
     end if;
