@@ -357,7 +357,7 @@ Deno.serve(async(req:Request)=>{
     // application proves this exact order, merchant, customer and NET amount.
     const {data:partnerCoupon,error:partnerCouponError}=await admin
       .from("clube_partner_coupon_order_uses_v1_846")
-      .select("merchant_id,customer_id,gross_cents,net_cents,face_cents,fee_bps_snapshot,buyer_terms_version")
+      .select("voucher_id,invoice_id,merchant_id,customer_id,gross_cents,net_cents,face_cents,fee_bps_snapshot,buyer_terms_version")
       .eq("order_id",order.id).maybeSingle();
     if(partnerCouponError)throw partnerCouponError;
     if(partnerCoupon&&(
@@ -373,6 +373,26 @@ Deno.serve(async(req:Request)=>{
       !Number.isSafeInteger(partnerCoupon.fee_bps_snapshot)))
       throw new DomainError("PARTNER_COUPON_READBACK_MISMATCH",
         "Os valores do cupom financiado pela revenda não puderam ser conciliados.",503);
+
+    // #847: only after a committed cancellation/reversal can the coupon
+    // return be displayed. No return is ever described as ordinary cashback.
+    let couponReturn:{disposition:string;cause:string}|null=null;
+    if(partnerCoupon&&(order.status==="CANCELLED"||order.financial_reversed_at)){
+      const {data:returned,error:returnError}=await admin
+        .from("clube_partner_coupon_returns_v1_847")
+        .select("order_id,voucher_id,invoice_id,customer_id,amount_cents,disposition,cause")
+        .eq("order_id",order.id).maybeSingle();
+      if(returnError)throw returnError;
+      if(!returned||returned.voucher_id!==partnerCoupon.voucher_id||
+        returned.invoice_id!==partnerCoupon.invoice_id||
+        returned.customer_id!==order.customer_id||
+        returned.amount_cents!==partnerCoupon.face_cents||
+        !["reissued","manual_review"].includes(String(returned.disposition))||
+        !["order_cancelled","post_settlement_financial_reversal"].includes(String(returned.cause)))
+        throw new DomainError("PARTNER_COUPON_RETURN_UNVERIFIED",
+          "A devolução deste cupom ainda não pôde ser reconciliada.",503);
+      couponReturn={disposition:returned.disposition,cause:returned.cause};
+    }
 
     const deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT";
 
@@ -411,6 +431,8 @@ Deno.serve(async(req:Request)=>{
       partnerCouponFundedCents:partnerCoupon?.face_cents??0,
       couponFundingModel:partnerCoupon?'partner_funded':null,
       partnerCouponTermsVersion:partnerCoupon?.buyer_terms_version??null,
+      partnerCouponReturnDisposition:couponReturn?.disposition??null,
+      partnerCouponReturnCause:couponReturn?.cause??null,
       partnerWelcomeTermsVersion:partnerBenefit?.terms_version??null,
       partnerFeeBpsSnapshot:role==="merchant"&&["owner","manager"].includes(memberRole||"")
         ?partnerBenefit?.fee_bps_snapshot??partnerCoupon?.fee_bps_snapshot??null:null,
