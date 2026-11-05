@@ -117,7 +117,7 @@ begin
  end if;
  return new;
 end;
-$function$
+$function$;
 
 -- Exibe somente aos participantes, sem divulgar carteira a motorista.
 CREATE OR REPLACE FUNCTION public.mobility_snapshot(p_request_id uuid)
@@ -169,4 +169,4 @@ AS $function$
  left join public.mobility_fare_terms_v1_832 f on f.request_id=r.id
  where r.id=p_request_id and ((select auth.uid())=r.rider_id
   or (select auth.uid())=r.driver_id)
-$function$
+$function$;
