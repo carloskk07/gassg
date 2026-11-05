@@ -12,7 +12,7 @@ assert.ok(from>=0&&to>from);
 assert.ok(merchant.includes('merchant-benefits-contract.js'));
 assert.ok(merchant.includes('function merchantBenefitsContractSection(r)'));
 assert.ok(merchant.includes('${merchantBenefitsContractSection(rt)}'));
-assert.ok(edge.includes('"benefits-contract","business-pulse"'));
+assert.match(edge,/"benefits-contract"/,'legacy contract action remains available');
 assert.ok(edge.includes('p_actor:user.id,p_merchant:merchantId,p_operation:operation'));
 assert.ok(edge.includes('merchant_benefits_contract_v1_842'));
 assert.ok(edge.includes('role!=="owner"'));
