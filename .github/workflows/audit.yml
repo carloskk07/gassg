@@ -69,6 +69,8 @@ jobs:
         run: node tests/merchant-benefits-live-scope-v1-844.mjs
       - name: V1.845 voluntary future paid-coupon contract without converting old vouchers
         run: node tests/merchant-future-coupon-contract-v1-845.mjs
+      - name: V1.846 future partner-coupon issuance and financial conservation contract
+        run: node tests/partner-coupon-financial-conservation-v1-846.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity

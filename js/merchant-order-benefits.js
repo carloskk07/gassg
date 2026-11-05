@@ -17,6 +17,11 @@ function merchantOrderBenefitDisclosureImpl(o,demo=false){
   // merchant-authorized server-side application, not inferred from price.
   const coupon=demo?0:valid(o?.couponAppliedCents);
   const partner=demo?0:valid(o?.partnerFundedDiscountCents??0);
+  const partnerCoupon=demo?0:valid(o?.partnerCouponFundedCents??0);
+  const couponFunded=partnerCoupon!==null&&partnerCoupon>0&&
+    partnerCoupon===coupon&&partner===0&&used===coupon&&
+    gross!==null&&pay!==null&&gross-pay===coupon&&
+    o?.couponFundingModel==='partner_funded';
   const partnerVerified=partner===100&&coupon===0&&used===100&&
     gross!==null&&pay!==null&&gross-pay===100;
   const otherCashback=coupon!==null&&partner!==null&&used!==null&&
@@ -24,10 +29,13 @@ function merchantOrderBenefitDisclosureImpl(o,demo=false){
   const fmt=n=>n===null?'não informado':BRL.format(n/100);
   const mismatch=gross!==null&&used!==null&&pay!==null&&gross-pay!==used;
   const incomplete=gross===null||used===null||pay===null;
-  const sourceConflict=otherCashback===null;
+  const sourceConflict=otherCashback===null||
+    (partnerCoupon!==null&&partnerCoupon>0&&!couponFunded);
+
   const heading=mismatch?'Composição do benefício precisa de conferência':
     incomplete||sourceConflict?'Valores do benefício ainda incompletos':
       partnerVerified?'Presente de R$ 1 financiado por esta revenda':
+      couponFunded?'Cupom pago financiado por esta revenda':
       'Benefícios usados pelo cliente: − '+fmt(used);
   return '<aside class="notice merchant-benefit-disclosure" aria-label="Detalhamento dos benefícios e financiamento do pedido">'+
     '<strong>'+esc(heading)+'</strong>'+
@@ -41,13 +49,17 @@ function merchantOrderBenefitDisclosureImpl(o,demo=false){
     (mismatch?'<p class="tiny"><strong>Valores divergentes: os benefícios não fecham com preço e total. Atualize antes de aceitar.</strong></p>':
       incomplete?'<p class="tiny"><strong>Dados incompletos. Atualize antes de aceitar.</strong></p>':
       sourceConflict?'<p class="tiny"><strong>Origem dos benefícios inconsistente ou indisponível. Atualize antes de aceitar.</strong></p>':'')+
-    (partnerVerified?'<div class="tiny"><strong>Desconto assumido: R$ 1,00. Sem ressarcimento do TAMÃO.</strong></div>':
+    (couponFunded?'<div class="tiny"><strong>Desconto de '+fmt(partnerCoupon)+
+      ' assumido pela revenda, sem ressarcimento TAMÃO.</strong></div>':
+      partnerVerified?'<div class="tiny"><strong>Desconto assumido: R$ 1,00. Sem ressarcimento do TAMÃO.</strong></div>':
       '<div class="tiny"><strong>Compensação à revenda: não comprovada neste pedido.</strong></div>')+
     '<details class="merchant-benefit-funding"><summary>Quem financia os benefícios? Taxa TAMÃO e reembolso</summary>'+
-    (coupon!==null&&coupon>0
+    (couponFunded
+      ?'<p class="tiny">Este cupom novo é custeado pela própria revenda participante. O cliente paga diretamente o líquido; não há reembolso devido pelo TAMÃO.</p>':
+      coupon!==null&&coupon>0
       ?'<p class="tiny">O cupom do Clube TAMÃO está vinculado a este pedido por registro financeiro próprio. Isso NÃO confirma que a revenda já recebeu o reembolso.</p>'
       :'<p class="tiny">Nenhum cupom pago identificado nesta consulta. A origem do cashback comum (TAMÃO, patrocinador ou outra) não está comprovada por este pedido.</p>')+
-    (partnerVerified&&Number.isSafeInteger(o.partnerFeeBpsSnapshot)
+    ((partnerVerified||couponFunded)&&Number.isSafeInteger(o.partnerFeeBpsSnapshot)
       ?'<p class="tiny"><strong>Taxa aplicada à venda líquida:</strong> '+
          (Number(o.partnerFeeBpsSnapshot)/100).toLocaleString('pt-BR')+
          '% • custo do bônus assumido pela revenda, sem reembolso do TAMÃO.</p>'
@@ -56,6 +68,7 @@ function merchantOrderBenefitDisclosureImpl(o,demo=false){
         '<strong>Reembolso à revenda:</strong> não comprovado.</p>')+
     '<p class="tiny">Cobrar do cliente somente o total indicado. Não assumir repasse ou desconto de taxa garantido; '+
     (demo?'nenhum dinheiro ou crédito real é movimentado neste simulador.':
+      couponFunded?'o desconto é assumido pela revenda e a taxa foi registrada sobre o líquido.':
       'a compensação exige registros e conciliação separados.')+'</p></details></aside>';
 }
 
