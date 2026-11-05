@@ -12,6 +12,8 @@ const benefitAt=src.indexOf('function merchantOrderBenefitDisclosure(');
 const benefitEnd=src.indexOf('\n}',benefitAt);
 assert.ok(benefitAt>0&&benefitEnd>benefitAt);
 const benefitSource=src.slice(benefitAt,benefitEnd+2);
+const benefitDeferred=fs.readFileSync(new URL('../js/merchant-order-benefits.js',import.meta.url),'utf8');
+assert.match(benefitDeferred,/function merchantOrderBenefitDisclosureImpl/);
 const escapeText=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
   .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const runtime={merchant:{memberRole:'owner'},orders:[],actionPending:false,deliveryTeam:[]};
@@ -23,7 +25,7 @@ const ctx=vm.createContext({
   merchantDeliveryShortcuts:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderAttentionCard:()=> '',
   merchantOrderProgressView:()=>'<details class="merchant-order-progress"><summary>Acompanhar etapas</summary></details>'
 });
-vm.runInContext(benefitSource+'\n'+source+'\nthis.card=merchantLiveOrder;',ctx);
+vm.runInContext(benefitDeferred+'\n'+benefitSource+'\n'+source+'\nthis.card=merchantLiveOrder;',ctx);
 const id='11111111-1111-4111-8111-111111111111';
 const minutes=n=>new Date(Date.now()+n*60000).toISOString();
 const order={
