@@ -989,7 +989,7 @@ function merchantBillingPixChargeView(request){
   return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''}</small></div><span class="status-pill online">QR ATIVO</span></div>${qr}${copy}${link}</div>`;
 }
 
-function merchantBenefitsContractSection(r){if(globalThis.merchantBenefitsContractRender)return merchantBenefitsContractRender(r);if(!globalThis._mb){globalThis._mb=1;let s=document.createElement('script');s.src='./js/merchant-benefits-contract.js';s.onload=render;s.onerror=()=>{globalThis._mb=-1;toast('Benefícios indisponíveis. Atualize a página.')};document.head.append(s)}return ''}
+function merchantBenefitsContractSection(r){if(!globalThis._mb){globalThis._mb=1;let s=document.createElement('script');s.src='./js/merchant-benefits-contract.js';s.onload=render;document.head.append(s)}return globalThis.merchantBenefitsContractRender?.(r)||''}
 
 function merchantBillingLiveView(rt){
   const billing=rt.billing||null;
