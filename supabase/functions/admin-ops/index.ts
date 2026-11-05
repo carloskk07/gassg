@@ -2854,6 +2854,11 @@ async function summary(admin:any,actorUserId:string){
   const billingReconciliationPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.rpc("admin_merchant_billing_reconciliation",{p_actor_user_id:actorUserId})
     : Promise.resolve({data:null,error:null});
+  // #836: server-side only, requires Admin Finance role inside the SQL RPC.
+  // Never expose driver's raw rows directly to browser Data API.
+  const mobilityFeeReviewPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.rpc("admin_mobility_fee_review_v1_836",{p_actor_user_id:actorUserId})
+    : Promise.resolve({data:null,error:null});
   const billingPaymentEventsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_events")
         .select("id,provider,provider_event_id,reconciliation_key,provider_correlation_id,payment_method,amount_cents,currency,occurred_at,received_at,payer_reference,status,payment_request_id,merchant_id,match_reason,applied_at,applied_by,ignored_at,ignored_by,ignore_reason,updated_at")
@@ -2915,7 +2920,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,merchantSaleAttempts,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,merchantSaleAttempts,billingRefunds,billingRefundRecoveries,mobilityFeeReview]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,policy_version,updated_by,last_change_reason,updated_at")
       .order("sort_order",{ascending:true}),
@@ -2942,9 +2947,10 @@ async function summary(admin:any,actorUserId:string){
     merchantSaleVerificationsPromise,
     merchantSaleAttemptsPromise,
     billingRefundsPromise,
-    billingRefundRecoveriesPromise
+    billingRefundRecoveriesPromise,
+    mobilityFeeReviewPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,merchantSaleAttempts,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,merchantSaleAttempts,billingRefunds,billingRefundRecoveries,mobilityFeeReview]){
     if(result.error)throw result.error;
   }
 
@@ -3203,6 +3209,7 @@ async function summary(admin:any,actorUserId:string){
       interruptedOrders:interruptedSaleOrders.data??[],
       reviewSampleLimited:(merchantSaleAttempts.data??[]).length>=500
     },
+    mobilityBilling:mobilityFeeReview.data??null,
     merchantBilling:{
       plans:billingPlans.data??[],
       accounts:billingAccounts.data??[],
