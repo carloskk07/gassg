@@ -1752,7 +1752,11 @@ function customerClosedOrderChoices(order){
   if(String(order?.status||'')!=='CANCELLED')return '';
   return '<section class="customer-closed-next" aria-label="O que fazer após o encerramento">'+
     '<strong>Precisa fazer outro pedido?</strong>'+
-    '<p>Esta solicitação foi encerrada. Você pode consultar novas ofertas, sem reutilizar automaticamente o pedido anterior.</p>'+
+    '<p>'+(order?.couponFundingModel==='partner_funded'
+      ?order.partnerCouponReturnDisposition==='reissued'
+        ?'Cupom pago devolvido. Não é cashback.'
+        :'Cupom pago em análise. Não é cashback.'
+      :'Pedido encerrado. Consulte novas ofertas.')+'</p>'+
     '<div class="customer-closed-next-actions">'+
     '<button type="button" class="primary small" onclick="go(\'home\')">Consultar novas ofertas</button>'+
     '<a href="#customer-care" class="customer-incident-help">Preciso de ajuda com este pedido</a>'+
@@ -2132,7 +2136,7 @@ function liveTracking(){
     ? `<div class="notice" style="margin-top:12px"><strong>Diferença entre ofertas consultadas: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Comparação com a maior proposta daquela consulta, não um desconto garantido.</div>`
     : '';
   const deliveryDetailsNotice=o.deliveryDataRedacted
-    ? '<div class="notice" style="margin-top:12px"><strong>Dados operacionais de entrega removidos.</strong><br>O histórico do pedido, itens, valores e eventos continua disponível, mas telefone, localização detalhada e instruções de chegada já foram minimizados pela política de retenção.</div>'
+    ? '<div class="notice" style="margin-top:12px"><strong>Dados operacionais de entrega removidos.</strong><br>O histórico e os valores continuam disponíveis; dados pessoais de entrega foram removidos.</div>'
     : o.customerPhone
       ? `<div class="notice" style="margin-top:12px"><strong>Dados de entrega confirmados.</strong><br>Telefone: ${esc(formatDeliveryPhone(o.customerPhone))}${o.addressComplement?` • Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
       : '';
@@ -2167,7 +2171,7 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de benefício usado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>

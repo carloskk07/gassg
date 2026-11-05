@@ -8,20 +8,57 @@ const base=process.env.TAMAO_DEMO_URL||'http://127.0.0.1:4185/';
 const url=new URL(base);
 assert.ok(url.hostname==='127.0.0.1'&&url.protocol==='http:','Chrome test must be local');
 const chromeBin=execFileSync('sh',['-c','command -v google-chrome || command -v chromium || command -v chromium-browser'],{encoding:'utf8'}).trim();
-const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-browser-demo-'));
-const chrome=spawn(chromeBin,[
- '--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
- '--no-first-run','--no-default-browser-check','--remote-allow-origins=*',
- '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
- '--user-data-dir='+profile,'about:blank'
-],{stdio:['ignore','ignore','pipe'],detached:true});
-let chromeDiagnostic='';
-chrome.stderr?.on('data',chunk=>{
- // Headless Chrome reports the CDP endpoint on stderr even when a sandboxed
- // runner cannot persist DevToolsActivePort. Keep only a bounded diagnostic.
- chromeDiagnostic=(chromeDiagnostic+String(chunk)).slice(-16000);
-});
+let profile=null,chrome=null,chromeDiagnostic='';
 const delay=ms=>new Promise(done=>setTimeout(done,ms));
+function terminateChrome(){
+ if(!chrome)return;
+ try{if(chrome.pid)process.kill(-chrome.pid,'SIGTERM');else chrome.kill('SIGTERM')}
+ catch{try{chrome.kill('SIGTERM')}catch{}}
+}
+async function startChrome(){
+ // Hosted CI can spawn Chrome before system libraries / other concurrent
+ // screenshot jobs free resources. Never skip the browser test: relaunch with
+ // an isolated profile if the local-only CDP endpoint fails to initialize.
+ for(let attempt=1;attempt<=3;attempt++){
+  profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-browser-demo-'));
+  chromeDiagnostic='';
+  const launched=spawn(chromeBin,[
+   '--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
+   '--disable-background-networking','--disable-extensions',
+   '--no-first-run','--no-default-browser-check','--remote-allow-origins=*',
+   '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
+   '--user-data-dir='+profile,'about:blank'
+  ],{stdio:['ignore','ignore','pipe'],detached:true});
+  chrome=launched;
+  launched.stderr?.on('data',chunk=>{
+   if(chrome===launched)chromeDiagnostic=(chromeDiagnostic+String(chunk)).slice(-16000);
+  });
+  let port=null;
+  for(let i=0;i<70;i++){
+   try{
+    const raw=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8');
+    const n=Number(raw.split(/\s+/)[0]);
+    if(Number.isInteger(n)&&n>0){port=n;break;}
+   }catch{}
+   const match=chromeDiagnostic.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);
+   if(match&&Number(match[1])>0){port=Number(match[1]);break;}
+   if(launched.exitCode!==null)break;
+   await delay(200);
+  }
+  if(port){
+   // A successful browser still must pass ALL real DevTools / DOM assertions.
+   return port;
+  }
+  const tail=chromeDiagnostic.replace(/\s+/g,' ').slice(-280);
+  terminateChrome();
+  await delay(450);
+  fs.rmSync(profile,{recursive:true,force:true,maxRetries:4,retryDelay:100});
+  chrome=null;profile=null;
+  if(attempt===3)throw Error('Chrome local debugger failed after 3 isolated launches; last diagnostic: '+tail);
+  await delay(attempt*750);
+ }
+ throw Error('Browser launch failed closed');
+}
 let ws,tab;
 const pending=new Map();
 let id=0;
@@ -62,21 +99,7 @@ async function snapshot(filename){
  fs.writeFileSync(path.join(dir,filename),content);
 }
 try{
- let port=null;
- for(let i=0;i<70;i++){
-  try{
-   const raw=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8');
-   const n=Number(raw.split(/\s+/)[0]);
-   if(Number.isInteger(n)&&n>0){port=n;break;}
-  }catch{}
-  // On some hosted Chrome builds the DevToolsActivePort file is absent even
-  // while CDP is alive. Official Headless Chrome also announces ws:// on stderr.
-  const match=chromeDiagnostic.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);
-  if(match&&Number(match[1])>0){port=Number(match[1]);break;}
-  await delay(200);
- }
- assert.ok(port,'Headless Chrome did not expose localhost debugger; diagnostic: '+
-  chromeDiagnostic.replace(/\s+/g,' ').slice(-450));
+ const port=await startChrome();
  let entry;
  for(let i=0;i<60;i++){
   try{
@@ -370,8 +393,8 @@ try{
 }finally{
  for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('closing'))}
  ws?.close();
- try{if(chrome.pid)process.kill(-chrome.pid,'SIGTERM')}catch{chrome.kill('SIGTERM')}
+ terminateChrome();
  await delay(500);
- try{if(chrome.pid)process.kill(-chrome.pid,'SIGKILL')}catch{}
- fs.rmSync(profile,{recursive:true,force:true,maxRetries:6,retryDelay:120});
+ try{if(chrome?.pid)process.kill(-chrome.pid,'SIGKILL')}catch{}
+ if(profile)fs.rmSync(profile,{recursive:true,force:true,maxRetries:6,retryDelay:120});
 }
