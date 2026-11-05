@@ -6365,8 +6365,10 @@ function adminCouponCommercialDraftOwner(){
   return owner;
 }
 function adminCouponCommercialDraftInput(input){
-  if(!adminCouponCommercialDraftOwner()||
-     adminCurrentRole()!=='superadmin'||!input)return;
+  const owner=adminCouponCommercialDraftOwner();
+  if(!owner||adminCurrentRole()!=='superadmin'||!input||
+     document.getElementById('clube-commercial-release-button')?.dataset?.couponOwner!==owner)
+    return;
   if(adminCouponCommercialDraftFieldIds.has(input.id)&&input.type!=='hidden'){
     adminCouponCommercialDraft.values[input.id]=String(input.value||'');
   }else if(input.id==='clube-accept-all'){
@@ -6385,7 +6387,8 @@ function adminCouponCommercialDraftReset(){
 function adminCouponCommercialCaptureFocus(){
   const owner=adminCouponCommercialDraftOwner();
   if(!owner||adminCurrentRole()!=='superadmin'||
-     !document.getElementById('clube-commercial-release-button'))return null;
+     document.getElementById('clube-commercial-release-button')?.dataset?.couponOwner!==owner)
+    return null;
   const input=document.activeElement;
   if(!input||(!adminCouponCommercialDraftFieldIds.has(input.id)&&
       input.id!=='clube-accept-all'))return null;
@@ -6500,6 +6503,49 @@ async function adminCouponCommercialSuspend(){
   }catch{toast('Não foi possível confirmar a suspensão. Confira o estado comercial.');}
   finally{adminCouponCommercial.busy=false;}
 }
+const ADMIN_COUPON_EDITOR_FIELD_IDS=['clube-seller-name','clube-seller-tax','clube-seller-address','clube-seller-support','clube-accept-all'];
+function adminCouponCommercialBeforeRender(){
+  if(adminCurrentRole()!=='superadmin')return null;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId||
+     document.getElementById('clube-commercial-release-button')?.dataset?.couponOwner!==userId)
+    return null;
+  const values={};
+  const current=document.activeElement;
+  for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
+    const field=document.getElementById(id);
+    if(!field||field.type==='hidden')continue;
+    values[id]=field.type==='checkbox'
+      ?{checked:field.checked===true}:{value:String(field.value||'')};
+  }
+  const focusedId=ADMIN_COUPON_EDITOR_FIELD_IDS.includes(current?.id)
+    ?current.id:null;
+  return {userId,values,focusedId,
+    selection:focusedId&&typeof current?.selectionStart==='number'
+      ?[current.selectionStart,current.selectionEnd]:null};
+}
+function adminCouponCommercialAfterRender(snapshot){
+  if(!snapshot||adminCurrentRole()!=='superadmin'||
+     String(adminRuntime.session?.user?.id||'')!==snapshot.userId||
+     document.getElementById('clube-commercial-release-button')?.dataset?.couponOwner!==snapshot.userId)
+    return;
+  for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
+    const saved=snapshot.values[id],field=document.getElementById(id);
+    if(!saved||!field||field.type==='hidden')continue;
+    if(field.type==='checkbox'&&Object.hasOwn(saved,'checked'))
+      field.checked=saved.checked;
+    else if(Object.hasOwn(saved,'value'))field.value=saved.value;
+  }
+  if(!snapshot.focusedId)return;
+  const target=document.getElementById(snapshot.focusedId);
+  if(!target)return;
+  target.focus({preventScroll:true});
+  if(snapshot.selection&&typeof target.setSelectionRange==='function'){
+    try{target.setSelectionRange(...snapshot.selection)}
+    catch{}
+  }
+}
+
 function adminCouponCommercialReleaseView(){
   if(adminCurrentRole()!=='superadmin')return '';
   const uid=String(adminRuntime.session?.user?.id||'');
@@ -6548,7 +6594,7 @@ function adminCouponCommercialReleaseView(){
       (adminCouponCommercialDraftOwner()&&adminCouponCommercialDraft.accepted?' checked':'')+'><span>'+
        'Confirmo a identidade e os contatos do vendedor; aceito a divulgação desses dados aos compradores, as regras de cancelamento e reembolso, o ressarcimento às revendas pelos descontos utilizados e a venda de pacotes mesmo antes da entrada de revendas, respeitando os direitos dos consumidores.'+
       '</span></label>'+
-      '<button id="clube-commercial-release-button" class="primary" type="button" onclick="adminCouponCommercialRelease()">Ativar vendas com Pix</button>'+
+      '<button id="clube-commercial-release-button" class="primary" type="button" data-coupon-owner="'+esc(uid)+'" onclick="adminCouponCommercialRelease()">Ativar vendas com Pix</button>'+
       '<p class="tiny muted" role="status" id="clube-commercial-result"></p>'+
      '</div>')+'</section>';
 }

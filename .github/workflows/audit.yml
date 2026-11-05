@@ -141,6 +141,8 @@ jobs:
         run: node tests/coupon-general-minimum-contract-v1-810.mjs
       - name: V1.811 Club homepage marketing banner with truthful coupon readiness
         run: node tests/clube-home-banner-v1-811.mjs
+      - name: V1.822 Admin coupon seller form survives live refresh without losing inputs
+        run: node tests/admin-coupon-form-no-reset-v1-822.mjs
       - name: V1.813 paid-coupon legal terms opt-in, immutable receipt and independent readiness
         run: node tests/coupon-terms-acceptance-v1-813.mjs
       - name: V1.814 Club customer cancellation request and pre-refund coupon freeze

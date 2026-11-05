@@ -73,9 +73,9 @@ assert.doesNotMatch(scenario.view(),/<img src=x onerror=alert\(1\)>/,
 // Regression: global Admin renders must not erase the partially entered
 // seller address, support email, terms checkbox or typing caret.
 const adminBootstrap=get('js/bootstrap.js');
-assert.ok(adminBootstrap.includes('adminCouponCommercialCaptureFocus()') &&
-  adminBootstrap.includes('adminCouponCommercialRestoreFocus(focus)'),
-  'Admin shell must preserve the focused field when replacing #app');
+assert.ok(adminBootstrap.includes('adminCouponCommercialBeforeRender()') &&
+  adminBootstrap.includes('adminCouponCommercialAfterRender(couponForm)'),
+  'Admin shell must preserve fields and focus when replacing #app');
 const draftStart=admin.indexOf('const adminCouponCommercial={');
 const draftEnd=admin.indexOf('async function adminCouponCommercialRefresh()',draftStart);
 const viewStart=admin.indexOf('function adminCouponCommercialReleaseView(){');
@@ -99,7 +99,7 @@ const scenarioData={commercialEnabled:false,providerConfigured:true,
   providerSeller:null,seller:{address:'',supportEmail:''}};
 state.api.commercial.data=scenarioData;
 state.api.commercial.loadedFor='founder-A';
-dom.nodes['clube-commercial-release-button']={id:'clube-commercial-release-button'};
+dom.nodes['clube-commercial-release-button']={id:'clube-commercial-release-button',dataset:{couponOwner:'founder-A'}};
 const address={id:'clube-seller-address',type:'text',value:'Rua Sete de Setembro, 100, Centro',
   selectionStart:23,selectionEnd:23};
 const email={id:'clube-seller-support',type:'email',value:'contato@empresa.com',
