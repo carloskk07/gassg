@@ -8,7 +8,16 @@ const sql=q=>execFileSync('psql',['--host=127.0.0.1','--port=54322','--username=
  {encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},timeout:60000,stdio:['ignore','pipe','pipe']}).trim();
 assert.equal(sql("select string_agg(plan_key||':'||platform_fee_bps||':'||coalesce(purchase_amount_cents::text,'free'),',' order by sort_order) from public.mobility_billing_plans_v1_826"),
  'flex:900:free,essential:600:990,popular:550:2490,professional:500:4990');
-assert.equal(sql("select count(*) from public.mobility_billing_plans_v1_826 where purchase_enabled"),'0','Sem venda de plano sem PSP conciliado');
+// #838 replaces the old disabled-only catalog: paid plans are available
+// only through private provider-proofed Pix + idempotent prepaid lots.
+assert.equal(sql("select count(*) from public.mobility_billing_plans_v1_826 where purchase_enabled"),'3',
+ 'Exactly 3 prepaid plans sell through the verified MP route');
+assert.equal(sql("select count(*) from public.mobility_fee_prepaid_lots_v1_838"),'0',
+ 'No prepaid balance exists before provider evidence');
+assert.equal(sql("select has_function_privilege('authenticated','public.mobility_fee_pix_prepare_credit_v1_838(uuid,text)','EXECUTE')"),'f',
+ 'Browser cannot credit driver plans without server validation');
+assert.equal(sql("select has_table_privilege('authenticated','public.mobility_fee_prepaid_lots_v1_838','INSERT')"),'f',
+ 'Browser cannot create grants without PSP proof');
 for(const t of ['mobility_fare_quotes_v1_826','mobility_billing_plans_v1_826','mobility_benefits_participation_v1_826']){
  assert.equal(sql("select relrowsecurity from pg_class where oid='public."+t+"'::regclass"),'t',t);
  assert.equal(sql("select has_table_privilege('anon','public."+t+"','SELECT')"),'f',t);
