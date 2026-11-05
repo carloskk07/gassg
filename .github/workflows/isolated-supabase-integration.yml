@@ -132,6 +132,8 @@ jobs:
         run: node tests/isolated-mobility-welcome-redemption-v1-833.mjs
       - name: V1.835 driver completed ride financial fee accrual and account isolation
         run: node tests/isolated-mobility-fee-accrual-v1-835.mjs
+      - name: V1.837 fee Pix invoice, late payment recovery, refund and double-bill protection
+        run: node tests/isolated-mobility-fee-pix-v1-837.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes

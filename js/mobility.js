@@ -8,6 +8,7 @@
 
 const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,items:[],detail:null,
  program:null,programBusy:false,programSeq:0,
+ pix:null,pixBusy:false,pixSeq:0,
  welcomeClaimedUser:'',welcomeClaimInFlight:'',
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  pushEnabled:false,pushBusy:false,
@@ -530,39 +531,78 @@ function mobilityProgramPanel(){
    '<button class="primary" type="button" onclick="mobilitySetProgram(true)"'+(s.programBusy?' disabled':'')+'>Participar e reduzir a taxa Flex para 8%</button>')+
   '</section>';
 }
+function mobilityFeePixPanel(){
+ const s=mobilityRuntime,b=s.program?.billing,p=s.pix;
+ if(!b||Number(b.outstandingCents||0)<0)return '';
+ const money=c=>esc(BRL.format(c/100)),due=Number(b.outstandingCents??0);
+ const loading=s.pixBusy?' disabled':'';
+ const refresh='<button type="button" class="secondary" onclick="mobilityFeePixRequest(\'status\')"'+loading+'>Conferir pagamento no Mercado Pago</button>';
+ const payable=p?.status==='active'&&mobilityId.test(String(p.invoiceId||''))&&
+   Date.parse(String(p.expiresAt||''))>Date.now()+60000&&
+   typeof p.brCode==='string'&&p.brCode.length>=20&&p.brCode.length<=8192;
+ const img=payable&&typeof p.qrDataUri==='string'&&p.qrDataUri.length<550100&&
+  /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(p.qrDataUri)?p.qrDataUri:'';
+ const link=payable&&typeof p.paymentLinkUrl==='string'&&
+   /^https:\/\/(?:[A-Za-z0-9-]+\.)*mercadopago\.com(?:\.br)?\//i.test(p.paymentLinkUrl)?
+   '<a target="_blank" rel="noopener noreferrer" href="'+esc(p.paymentLinkUrl)+'">Abrir cobrança no Mercado Pago</a>':'';
+ const pix=payable?
+  '<div class="mobility-form" aria-label="Cobrança Pix de taxas">'+
+   '<p><strong>Pix TAMÃO de taxas: '+money(Number(p.amountCents))+'</strong></p>'+
+   (img?'<img style="max-width:230px;width:100%;height:auto" alt="QR Code Pix de taxa TAMÃO" src="'+esc(img)+'">':'')+
+   '<label>Pix copia e cola<textarea id="mobility-fee-pix-br" readonly rows="3">'+esc(p.brCode)+'</textarea></label>'+
+   '<button type="button" class="secondary" onclick="mobilityCopyFeePix()">Copiar código Pix</button> '+
+   link+'<p class="tiny muted">Validade até '+esc(mobilityFormatDate(p.expiresAt))+
+   '. A confirmação só aparece depois da consulta ao Mercado Pago.</p></div>':'';
+ const paid=p?.status==='paid'?
+  '<p role="status">Pagamento de taxas confirmado pela consulta ao Mercado Pago. O total atualizado consta no extrato.</p>':'';
+ const blocked=['expired','review_required'].includes(String(p?.status||''))?
+  '<p class="tiny muted">Este Pix não está mais apto para pagamento. Confira o histórico com o suporte antes de emitir outra cobrança.</p>':'';
+ const make=due>=100&&(!p||p.status==='paid')?
+  '<button class="primary" type="button" onclick="mobilityFeePixRequest(\'charge\')"'+loading+'>Gerar Pix das taxas acumuladas</button>':'';
+ const minimum=due>0&&due<100?
+  '<p class="tiny muted">As taxas se acumulam até atingir R$ 1,00 para emissão de Pix.</p>':'';
+ return '<div class="card flat"><h3>Pagamento da taxa TAMÃO</h3>'+
+  '<p>Saldo de taxas ainda não confirmado como pago: <strong>'+money(due)+'</strong>.</p>'+
+  '<p class="tiny muted">Este Pix paga somente as taxas de atendimento, nunca o preço integral da corrida.</p>'+
+  paid+blocked+minimum+pix+make+((p||due>0)?refresh:'')+'</div>';
+}
 function mobilityFeeLedgerPanel(){
  const s=mobilityRuntime,b=s.program?.benefits,ledger=s.program?.billing;
- // Mesmo com anúncio suspenso, o motorista mantém acesso ao seu histórico.
  if((b?.eligibleDriver!==true&&Number(ledger?.recordedCount||0)===0)||
-    !ledger||ledger.collectionStatus!=='not_collected'||
-    !Number.isSafeInteger(Number(ledger.accruedCents))||Number(ledger.accruedCents)<0||
-    !Number.isSafeInteger(Number(ledger.recordedCount))||Number(ledger.recordedCount)<0||
-    !Array.isArray(ledger.entries)||ledger.entries.length>8)return '';
+   !ledger||ledger.collectionStatus!=='not_collected'||
+   !Number.isSafeInteger(Number(ledger.accruedCents))||Number(ledger.accruedCents)<0||
+   !Number.isSafeInteger(Number(ledger.collectedCents))||Number(ledger.collectedCents)<0||
+   !Number.isSafeInteger(Number(ledger.outstandingCents))||Number(ledger.outstandingCents)<0||
+   Number(ledger.accruedCents)!==Number(ledger.collectedCents)+Number(ledger.outstandingCents)||
+   !Number.isSafeInteger(Number(ledger.recordedCount))||Number(ledger.recordedCount)<0||
+   !Array.isArray(ledger.entries)||ledger.entries.length>8)return '';
  const money=cents=>esc(BRL.format(cents/100));
  const rows=ledger.entries.map(item=>{
+  if(!item)return '';
   const cents=Number(item.feeCents),net=Number(item.netCents),feeBps=Number(item.feeBps);
-  if(!item||item.collectionStatus!=='not_collected'||
+  if(!['not_collected','provider_verified'].includes(item.collectionStatus)||
     !['moto','carro'].includes(item.service)||
     !Number.isSafeInteger(cents)||cents<0||
     !Number.isSafeInteger(net)||net<0||
     ![800,900].includes(feeBps)||
     !mobilityId.test(String(item.requestId||'')))return '';
-  const date=mobilityFormatDate(item.recordedAt);
   return '<li><strong>'+esc(item.service==='moto'?'Moto':'Carro')+
-   '</strong> — '+money(net)+' de valor líquido · taxa '+
+   '</strong> — '+money(net)+' valor líquido · taxa '+
    esc(String(feeBps/100))+'%: <strong>'+money(cents)+
-   '</strong>. <span class="tiny muted">Registro '+esc(String(date))+
-   ', ainda não cobrado.</span></li>';
+   '</strong>. <span class="tiny muted">Lançada em '+
+   esc(mobilityFormatDate(item.recordedAt))+'; '+
+   (item.collectionStatus==='provider_verified'?'Pix confirmado pelo provedor.':'a receber.')+
+   '</span></li>';
  }).join('');
  return '<section class="mobility-start" aria-label="Extrato de taxas dos motoristas">'+
   '<h2>Taxas dos atendimentos concluídos</h2>'+
   '<p><strong>'+money(Number(ledger.accruedCents))+
-  '</strong> em taxas registradas de '+esc(String(ledger.recordedCount))+
-  ' corrida(s). <strong>Pagamento não comprovado e cobrança ainda não disponibilizada.</strong></p>'+
-  '<p class="tiny muted">Este extrato registra somente serviços concluídos, não tarifas propostas nem cancelamentos. O valor integral da corrida é recebido diretamente pelo motorista, não pelo TAMÃO.</p>'+
+  '</strong> em '+esc(String(ledger.recordedCount))+' corrida(s) · <strong>'+
+  money(Number(ledger.collectedCents))+' confirmado pelo provedor</strong>.</p>'+
+  '<p class="tiny muted">Este extrato registra somente atendimentos concluídos. O cliente paga a corrida diretamente ao motorista.</p>'+
   (rows?'<ul>'+rows+'</ul>':'<p>Nenhuma taxa registrada até agora.</p>')+
   '<button type="button" class="secondary" onclick="mobilityLoadProgram()">Atualizar extrato</button>'+
-  '</section>';
+  mobilityFeePixPanel()+'</section>';
 }
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
@@ -638,6 +678,60 @@ async function mobilityClaimWelcomeOnAuth(){
   return data?.granted===true;
  }catch(_){return false}
  finally{if(s.welcomeClaimInFlight===userId)s.welcomeClaimInFlight=''}
+}
+async function mobilityFeePixRequest(action){
+ const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch;
+ if(s.pixBusy||!s.client||!userId||!['charge','status'].includes(action)||
+   !s.program?.billing)return false;
+ const seq=++s.pixSeq;
+ s.pixBusy=true;s.error='';s.notice='';render();
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId&&s.pixSeq===seq;
+ try{
+  // The Edge Function revalidates the bearer with Supabase Auth and uses
+  // the authenticated subject as the ONLY possible driver payer.
+  const {data:{session},error:sessionError}=await s.client.auth.getSession();
+  if(!same())return false;
+  if(sessionError||!session?.access_token||session.user?.id!==userId)
+    throw Error('Auth session unavailable');
+  const base=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'');
+  if(!/^https:\/\/[^/]+$/.test(base))throw Error('Invalid backend URL');
+  const response=await fetch(base+'/functions/v1/mobility-fee-pix',{
+   method:'POST',headers:{'Authorization':'Bearer '+session.access_token,
+    'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
+   body:JSON.stringify({action})
+  });
+  const data=await response.json();
+  if(!same())return false;
+  if(!response.ok||!data?.ok)throw Error('Provider not verified');
+  const item=data.charge;
+  if(item!=null&&(!mobilityId.test(String(item.invoiceId||''))||
+     !Number.isSafeInteger(Number(item.amountCents))||Number(item.amountCents)<100||
+     !['prepared','active','paid','expired','review_required'].includes(item.status)||
+     (item.paidByProvider===true)!==(item.status==='paid')))
+   throw Error('Unexpected invoice state');
+  s.pix=item??null;
+  const updated=await mobilityLoadProgram();
+  if(!same())return false;
+  if(!updated)throw Error('Finance readback failed');
+  s.notice=item?.status==='paid'?
+   'Mercado Pago confirmou o recebimento da taxa. Confira seu extrato.':
+   item?.status==='active'?'Pix confirmado pelo servidor e disponível para pagamento.':
+   data.status==='below_minimum'?'As taxas precisam atingir R$ 1,00 antes de emitir Pix.':
+   item?.status==='review_required'?'O pagamento precisa de revisão financeira.':
+   'Cobrança atualizada no servidor.';
+ }catch(_){if(same())s.error=
+  'Não foi possível conferir a cobrança com o Mercado Pago. Atualize o extrato antes de repetir.'}
+ finally{if(same()){s.pixBusy=false;render()}}
+ return false;
+}
+async function mobilityCopyFeePix(){
+ const s=mobilityRuntime,code=String(s.pix?.brCode||'');
+ if(s.pix?.status!=='active'||code.length<20||code.length>8192||
+    !navigator.clipboard?.writeText)return false;
+ try{await navigator.clipboard.writeText(code);
+  s.notice='Código Pix copiado. Confirme o recebedor no aplicativo do seu banco.';}
+ catch(_){s.error='Não foi possível copiar o Pix. Selecione o código e copie manualmente.'}
+ render();return false;
 }
 async function mobilityLoadProgram(){
  const s=mobilityRuntime,client=s.client,epoch=s.sessionEpoch,userId=s.user?.id,seq=++s.programSeq;
@@ -739,6 +833,7 @@ function mobilityClearSession(){
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.program=null;s.programBusy=false;s.programSeq++;
+ s.pix=null;s.pixBusy=false;s.pixSeq++;
  s.welcomeClaimedUser='';s.welcomeClaimInFlight='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';s.syncUnavailable=false;

@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { sha256Hex as billingEvidenceHash } from "../_shared/domain.js";
+import {mobilityFeeEvidenceHash} from "../_shared/mobility-fee-evidence.js";
 import {
   decryptPaymentSecret,
   paymentEncryptionConfigured,
@@ -30,6 +31,73 @@ function json(body:unknown,status=200){
     }
   });
 }
+// #837. Exact bound mobility platform-fee invoice. This branch is reached
+// only AFTER the existing Mercado Pago HMAC was validated. Never mix the
+// driver's direct ride proceeds with TAMÃO platform fees or merchant billing.
+async function handleMobilityFeeOrder(admin:any,orderId:string,invoice:any,verifiedOrder:any=null){
+ const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+ if(!mercadoPagoConfigured(token))return json({error:"MOBILITY_FEE_MP_NOT_CONFIGURED"},503);
+ let order=verifiedOrder;
+ if(!order){
+  const lookup=await fetchProviderOrder(token,orderId);
+  if(!lookup.response.ok)return json({error:"MOBILITY_FEE_MP_LOOKUP_FAILED"},503);
+  order=lookup.data;
+ }
+ const payment=billingPixPayment(order);
+ const paymentId=String(payment?.id??"").trim();
+ const amount=Number(invoice.amount_cents);
+ const orderStatus=String(order?.status??"").toLowerCase().trim();
+ const paymentStatus=String(payment?.status??"").toLowerCase().trim();
+ const details=[order?.status_detail,payment?.status_detail].map(
+   x=>String(x??"").toLowerCase().trim());
+ if(String(order?.id??"")!==orderId
+  ||order?.external_reference!==invoice.external_reference
+  ||(invoice.provider_order_id&&String(invoice.provider_order_id)!==orderId)
+  ||(invoice.provider_payment_id&&String(invoice.provider_payment_id)!==paymentId)
+  ||order?.live_mode===false||payment?.live_mode===false
+  ||(order?.currency_id&&order.currency_id!=="BRL")
+  ||(order?.currency&&order.currency!=="BRL")
+  ||!paymentId||!Number.isSafeInteger(amount)
+  ||moneyToCents(order?.total_amount)!==amount
+  ||moneyToCents(payment?.amount)!==amount
+  ||payment?.payment_method?.id!=="pix"
+  ||payment?.payment_method?.type!=="bank_transfer"){
+  return json({error:"MOBILITY_FEE_PROVIDER_PROOF_MISMATCH"},409);
+ }
+ const adverse=new Set(["refunded","partially_refunded","charged_back",
+   "chargeback","disputed","in_mediation","canceled","cancelled","failed"]);
+ const reversal=(Array.isArray(order?.transactions?.refunds)
+    &&order.transactions.refunds.length>0)
+    ||[orderStatus,paymentStatus,...details].some(x=>adverse.has(x));
+ const paid=!reversal&&orderStatus==="processed"&&paymentStatus==="processed"
+   &&details.every(x=>!x||x==="accredited");
+ const expired=!paid&&!reversal&&
+    (orderStatus==="expired"||paymentStatus==="expired");
+ const state=reversal?"review_required":paid?"paid":expired?"expired":null;
+ if(!state)return json({ok:true,route:"mobility_fee",status:"pending",
+   financialMutationAttempted:false},200);
+ const evidenceHash=await mobilityFeeEvidenceHash({
+  orderId,paymentId,amountCents:amount,
+  externalReference:String(invoice.external_reference),state
+ });
+ const early=invoice.status==="prepared"&&!invoice.provider_order_id;
+ if(early&&state!=="paid"){
+  return json({ok:true,route:"mobility_fee",status:"pending_provider_confirmation",
+   financialMutationAttempted:false},200);
+ }
+ const applied=early?await admin.rpc("mobility_fee_pix_recover_paid_v1_837",{
+  p_invoice:invoice.id,p_driver:invoice.driver_id,p_order:orderId,
+  p_payment:paymentId,p_amount_cents:amount,p_evidence_sha256:evidenceHash
+ }):await admin.rpc("mobility_fee_pix_apply_proof_v1_837",{
+  p_invoice:invoice.id,p_order:orderId,p_payment:paymentId,
+  p_amount_cents:amount,p_state:state,p_evidence_sha256:evidenceHash
+ });
+ if(applied.error)throw applied.error;
+ return json({ok:true,route:"mobility_fee",status:state,
+   replayed:applied.data?.replayed===true,
+   providerProofVerified:true,ridePaymentVerified:false},200);
+}
+
 function safeOccurredAt(...values:unknown[]){
   const now=Date.now();
   for(const value of values){
@@ -1014,6 +1082,44 @@ Deno.serve(async(req:Request)=>{
     if(couponInvoice){
       return await handlePaidCouponOrder(admin,dataId,couponInvoice,
         String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim());
+    }
+
+    // Only this exact bound provider Order belongs to motorist platform fees.
+    // Do not let existing merchant-billing fallback guess the receiver.
+    const {data:mobilityInvoice,error:mobilityLookupError}=await admin
+      .from("mobility_fee_pix_invoices_v1_837")
+      .select("id,external_reference,amount_cents,status,provider_order_id,provider_payment_id")
+      .eq("provider_order_id",dataId).maybeSingle();
+    if(mobilityLookupError&&mobilityLookupError.code!=="42P01")throw mobilityLookupError;
+    if(mobilityInvoice){
+      return await handleMobilityFeeOrder(admin,dataId,mobilityInvoice);
+    }
+
+    // If an authentic provider-signed webhook arrives *before* the initial
+    // Pix QR response could be committed, recover only a permanently prepared
+    // invoice whose exact external_reference belongs to TAMÃO. Check ownership
+    // with the platform's token, never with untrusted webhook body fields.
+    const mpToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+    if(mercadoPagoConfigured(mpToken)){
+      const candidate=await fetchProviderOrder(mpToken,dataId);
+      if(candidate.response.ok){
+        const externalRef=String(candidate.data?.external_reference??"");
+        // Never reroute a mobility-fee payment to merchant billing even
+        // when its local invoice is missing, inactive or inconsistent.
+        if(externalRef.toLowerCase().startsWith("mobility-fee:")){
+          if(!/^mobility-fee:[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(externalRef))
+            return json({error:"MOBILITY_FEE_REFERENCE_INVALID"},409);
+          const {data:preparedInvoice,error:prepareLookupError}=await admin
+            .from("mobility_fee_pix_invoices_v1_837")
+            .select("id,driver_id,status,external_reference,amount_cents,provider_order_id,provider_payment_id")
+            .eq("external_reference",externalRef).maybeSingle();
+          if(prepareLookupError)throw prepareLookupError;
+          if(preparedInvoice&&preparedInvoice.status==="prepared"&&!preparedInvoice.provider_order_id){
+            return await handleMobilityFeeOrder(admin,dataId,preparedInvoice,candidate.data);
+          }
+          return json({error:"MOBILITY_FEE_UNBOUND_PROVIDER_ORDER"},409);
+        }
+      }
     }
 
     return await handlePlatformBillingOrder(
