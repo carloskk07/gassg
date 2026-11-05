@@ -117,6 +117,8 @@ jobs:
         run: node tests/mobility-benefits-optin-ui-v1-832.mjs
       - name: V1.833 mobility welcome discount and net fare UI
         run: node tests/mobility-welcome-discount-ui-v1-833.mjs
+      - name: V1.834 terminal ride no-charge message clarity
+        run: node tests/mobility-fare-terminal-message-v1-834.mjs
       - name: V1.829 receipt immutability and no-fake-bank-proof contract
         run: node tests/mobility-immutable-receipt-v1-829.mjs
       - name: Mobility GPS consent and access test

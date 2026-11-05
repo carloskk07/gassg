@@ -432,19 +432,30 @@ function mobilityFarePanel(row){
  if(!row||!['rider','driver'].includes(row.role))return '';
  const cents=Number(row.fare_cents),valid=Number.isSafeInteger(cents)&&cents>=100&&cents<=10000000;
  const accepted=row.fare_accepted===true&&valid;
+ const closedWithoutService=['cancelled','rejected','expired'].includes(row.status);
  const discount=Number(row.discount_cents||0),net=Number(row.direct_due_cents);
  const hasDiscount=accepted&&discount===100&&Number.isSafeInteger(net)&&net===cents-100;
  if(accepted){
   const gross='Valor combinado: '+esc(BRL.format(cents/100));
+  // A tarifa e o desconto do contrato permanecem auditáveis, mas uma
+  // solicitação cancelada/expirada não gera cobrança da corrida.
+  if(closedWithoutService){
+   return '<div class="mobility-fare-accepted"><p><strong>'+gross+
+    '</strong>. Atendimento encerrado sem conclusão. Não há valor a pagar por esta solicitação pelo TAMÃO.</p>'+
+    (hasDiscount?'<p class="tiny muted">Benefício de R$ 1 devolvido à carteira quando cabível.</p>':'')+
+    '</div>';
+  }
   const summary=hasDiscount?
    '<p><strong>'+gross+'</strong>. Benefício TAMÃO: <strong>-'+esc(BRL.format(1))+
     '</strong>. Pagamento direto ao motorista: <strong>'+esc(BRL.format(net/100))+'</strong>.</p>':
    '<p><strong>'+gross+'</strong>. Pagamento combinado diretamente com o motorista.</p>';
   const fee=row.role==='driver'&&Number.isInteger(Number(row.fee_bps))?
-   '<p class="tiny muted">Taxa TAMÃO desta corrida: '+esc(
+   '<p class="tiny muted">Taxa TAMÃO prevista para esta corrida: '+esc(
       (Number(row.fee_bps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2}))+
-    '% do valor líquido, cobrada separadamente. A conclusão não comprova o pagamento da taxa.</p>':'';
-  return '<div class="mobility-fare-accepted">'+summary+fee+'</div>';
+    '% do valor líquido. Cobrança separada, ainda não comprovada como paga.</p>':'';
+  const paymentNote=row.status==='completed'?
+   '<p class="tiny muted">Atendimento concluído; pagamento diretamente ao motorista não verificado pelo TAMÃO.</p>':'';
+  return '<div class="mobility-fare-accepted">'+summary+fee+paymentNote+'</div>';
  }
  if(row.status!=='accepted')return valid
   ?'<p><strong>Valor proposto: '+esc(BRL.format(cents/100))+'</strong> — ainda não confirmado pelo passageiro.</p>':'';
@@ -485,7 +496,11 @@ function mobilityDetailPanel(row){
   (!driver?mobilityPortraitHtml(mobilityRuntime.selectedPortraitId===row.id?
     mobilityRuntime.selectedPortraitKey:''):'')+
   '<p>'+esc(String(row.origin||'').slice(0,120))+' → '+esc(String(row.destination||'').slice(0,120))+'</p>'+
-  (row.fare_accepted===true?'<p class="tiny muted">O valor foi confirmado. Combine o pagamento diretamente com o motorista.</p>':'<p class="tiny muted">Atendimento sujeito a disponibilidade. Confirme o valor antes do deslocamento.</p>')+
+  (['cancelled','rejected','expired'].includes(row.status)?
+    '<p class="tiny muted">Atendimento encerrado. Nenhum pagamento de corrida foi confirmado pelo TAMÃO.</p>':
+    row.fare_accepted===true?
+     '<p class="tiny muted">O valor foi confirmado. Combine o pagamento diretamente com o motorista.</p>':
+     '<p class="tiny muted">Atendimento sujeito a disponibilidade. Confirme o valor antes do deslocamento.</p>')+
   mobilityFarePanel(row)+
   mobilityAcceptedContactHtml(row)+
   '<p><a class="mobility-report-link" href="/#contact"'+
