@@ -80,8 +80,8 @@ const viewEnd=admin.indexOf('\nfunction adminClubeCouponPreviewView()',viewStart
 assert.ok(draftStart>0&&draftEnd>draftStart&&viewStart>draftEnd&&viewEnd>viewStart);
 const dom={nodes:Object.create(null),activeElement:null,
   getElementById(id){return this.nodes[id]||null}};
-const runtime={session:{user:{id:'founder-A'}}};
-const state=vm.createContext({document:dom,adminRuntime:runtime,
+const draftRuntime={session:{user:{id:'founder-A'}}};
+const state=vm.createContext({document:dom,adminRuntime:draftRuntime,
   adminCurrentRole:()=> 'superadmin',
   esc:x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
    .replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;')});
@@ -122,7 +122,7 @@ dom.nodes[address.id]={id:address.id,type:'text',
 state.api.restore(saved);
 assert.equal(focusCalls,1,'focused input must be restored after render');
 assert.deepEqual(selection,[23,23],'restore typing position');
-runtime.session.user.id='founder-B';
+draftRuntime.session.user.id='founder-B';
 state.api.commercial.loadedFor='founder-B';
 content=state.api.view();
 assert.doesNotMatch(content,/Rua Sete de Setembro, 100, Centro|contato@empresa.com/);
