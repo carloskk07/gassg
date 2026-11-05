@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
-import {DomainError,enforceApiQuota} from "../_shared/domain.js";
+import {DomainError,enforceApiQuota,readJsonBody} from "../_shared/domain.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
 import {mobilityFeeEvidenceHash} from "../_shared/mobility-fee-evidence.js";
 import {
@@ -169,13 +169,7 @@ Deno.serve(async(req:Request)=>{
   const {data:{user},error}=await client.auth.getUser(jwt);
   if(error||!user||user.is_anonymous===true)throw new DomainError(
    "UNAUTHORIZED","Conta permanente autenticada obrigatória.",401);
-  const len=Number(req.headers.get("content-length")??0);
-  if(len>2048)throw new DomainError("REQUEST_TOO_LARGE","Solicitação inválida.",413);
-  const raw=await req.text();
-  if(new TextEncoder().encode(raw).length>2048)throw new DomainError(
-   "REQUEST_TOO_LARGE","Solicitação inválida.",413);
-  let body:any;
-  try{body=raw?JSON.parse(raw):{}}catch{throw new DomainError("INVALID_JSON","Solicitação inválida.",400)}
+  const body:any=await readJsonBody(req,{maxBytes:2048});
   if(!body||!["charge","status"].includes(body.action)){
    throw new DomainError("INVALID_ACTION","Ação financeira inválida.",400);
   }
