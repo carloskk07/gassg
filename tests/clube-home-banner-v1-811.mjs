@@ -133,8 +133,8 @@ assert.equal(focusCalls,1,'never restore focus from another account');
 
 // Regression: native Admin disclosure sections retain user-opened state when
 // an unrelated background status refresh replaces #app.
-const disclosureBegin=adminBootstrap.indexOf('function adminDisclosureKey(');
-const disclosureEnd=adminBootstrap.indexOf('let renderLock=false;',disclosureBegin);
+const disclosureBegin=admin.indexOf('function adminDisclosureKey(');
+const disclosureEnd=admin.indexOf('const adminCouponCommercial={',disclosureBegin);
 assert.ok(disclosureBegin>0&&disclosureEnd>disclosureBegin);
 const summary=(text)=>({tagName:'SUMMARY',textContent:text,parentElement:null,
   focused:0,focus(){this.focused++;}});
@@ -154,7 +154,7 @@ const originalThird=disclosure('', 'admin-tech-details',
   'Histórico de recebimentos',false);
 const adminDoc={activeElement:originalSecond.label};
 const disclosures=vm.createContext({document:adminDoc});
-vm.runInContext(adminBootstrap.slice(disclosureBegin,disclosureEnd)+
+vm.runInContext(admin.slice(disclosureBegin,disclosureEnd)+
   '\nthis.capture=adminDisclosureCapture;this.restore=adminDisclosureRestore;',disclosures);
 const appDetails=arr=>({querySelectorAll:selector=>selector==='details'?arr:[]});
 const snapshot=disclosures.capture(appDetails([
