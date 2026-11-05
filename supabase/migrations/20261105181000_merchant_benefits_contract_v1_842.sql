@@ -81,7 +81,7 @@ declare
  v_current_version integer:=0;
  v_replayed boolean:=false;
 begin
- if p_actor is null or p_merchant is null or p_operation not in ('view','accept','revoke')
+ if p_actor is null or p_merchant is null or (p_operation is null or p_operation not in ('view','accept','revoke'))
     or not exists(select 1 from auth.users u where u.id=p_actor and u.is_anonymous=false)
  then raise exception 'MERCHANT_BENEFIT_INVALID_REQUEST' using errcode='22023';end if;
  select mm.member_role into v_role from public.merchant_members mm
