@@ -1162,7 +1162,7 @@ function merchantBillingLiveView(rt){
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
-    <div class="notice" style="margin-top:12px"><strong>Pagamentos de taxas.</strong><br>${pixReady?'Pix, QR e confirmação bancária vinculados à cobrança.':'Pix automático indisponível; informe pagamento para conferência.'} Crédito e quitação exigem confirmação financeira. Saldo pré-pago insuficiente é abatido da taxa Flex; a diferença vai ao D+1. Sem saldo ou reservas, o plano retorna ao Flex.</div>
+    <div class="notice" style="margin-top:12px"><strong>Pagamentos de taxas.</strong><br>${pixReady?'Pix, QR e confirmação bancária vinculados à cobrança.':'Pix automático indisponível; informe pagamento para conferência.'} Crédito e quitação exigem confirmação financeira. Saldo residual é abatido da taxa Flex daquela venda; a diferença vai ao D+1. Sem saldo ou reservas, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
   </section>`;
 }
