@@ -467,3 +467,69 @@ revoke all on function public.create_product_welcome_order_v1_843(
 grant execute on function public.create_product_welcome_order_v1_843(
  uuid,uuid,text,text,text,text,integer,text,text,text,text)
  to service_role;
+
+-- Preview privada: prova de elegibilidade sem reserva financeira nem identidade
+-- de revenda no payload publico. A reserva atomica sera reavaliada no checkout.
+create function public.product_welcome_quote_preview_v1_843(
+ p_user_id uuid,p_quote_id uuid
+) returns jsonb language plpgsql stable security definer set search_path=pg_catalog
+as $fn$
+declare
+ v_quote public.quotes%rowtype;
+ v_grant public.platform_welcome_grants_v1_815%rowtype;
+ v_member public.merchant_benefit_participations_v1_842%rowtype;
+ v_regular bigint:=0;
+ v_available bigint:=0;
+ v_lot_remaining bigint:=0;
+ v_global bigint:=0;
+ v_contract_eligible boolean:=false;
+ v_enabled boolean:=false;
+begin
+ if p_user_id is null or p_quote_id is null
+ then raise exception 'WELCOME_PREVIEW_INVALID' using errcode='22023';end if;
+ select * into v_quote from public.quotes
+ where id=p_quote_id and customer_id=p_user_id;
+ if not found then raise exception 'WELCOME_PREVIEW_QUOTE_FORBIDDEN'
+   using errcode='42501';end if;
+ select * into v_grant from public.platform_welcome_grants_v1_815
+ where user_id=p_user_id;
+ v_global:=coalesce((public.cashback_position(p_user_id)->>'spendableCents')::bigint,0);
+ if v_grant.user_id is not null then
+   select coalesce(sum(l.remaining_cents),0)::bigint into v_regular
+   from public.platform_cashback_source_lots_v1_261 l
+   where l.user_id=p_user_id and l.lot_id<>v_grant.wallet_entry_id;
+   select coalesce(l.remaining_cents,0)::bigint into v_lot_remaining
+   from public.platform_cashback_source_lots_v1_261 l
+   where l.user_id=p_user_id and l.lot_id=v_grant.wallet_entry_id;
+ else
+   v_regular:=v_global;
+ end if;
+ v_available:=greatest(0,least(v_global,v_regular));
+ select * into v_member from public.merchant_benefit_participations_v1_842
+ where merchant_id=v_quote.merchant_id and opted_in and terms_version=1;
+ select commerce_enabled into v_enabled
+ from public.platform_launch_control where singleton=true;
+ v_contract_eligible:=coalesce(v_enabled,false)
+   and v_member.merchant_id is not null
+   and v_grant.user_id is not null
+   and v_grant.amount_cents=100
+   and v_lot_remaining>=100 and v_global>=100
+   and v_quote.consumed_at is null and v_quote.expires_at>clock_timestamp()
+   and v_quote.gross_total_cents>=100
+   and not exists(select 1 from public.mobility_welcome_uses_v1_833 m
+     where m.rider_id=p_user_id and m.status in ('reserved','spent'));
+ return jsonb_build_object(
+   'source','product_welcome_quote_preview_v1_843',
+   'readOnly',true,'quoteId',v_quote.id,'merchantId',v_quote.merchant_id,
+   'eligible',v_contract_eligible,
+   'discountCents',case when v_contract_eligible then 100 else 0 end,
+   'normalCashbackAvailableCents',v_available,
+   'partnerFunded',v_contract_eligible,
+   'buyerPaysMerchantDirectly',true,
+   'canCombineWithPaidCoupon',false,
+   'termsVersion',case when v_contract_eligible then 1 else null end);
+end;$fn$;
+revoke all on function public.product_welcome_quote_preview_v1_843(uuid,uuid)
+ from public,anon,authenticated;
+grant execute on function public.product_welcome_quote_preview_v1_843(uuid,uuid)
+ to service_role;
