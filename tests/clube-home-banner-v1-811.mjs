@@ -41,7 +41,10 @@ const commercial={data:fake,loadedFor:'account-1'};
 const escaped=x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
   .replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
 const scenario=vm.createContext({adminRuntime:runtime,adminCouponCommercial:commercial,
-  adminCurrentRole:()=> 'superadmin',esc:escaped});
+  adminCurrentRole:()=> 'superadmin',esc:escaped,
+  adminCouponCommercialDraftValue:(_id,initial)=>initial,
+  adminCouponCommercialDraftOwner:()=> 'account-1',
+  adminCouponCommercialDraft:{accepted:false}});
 vm.runInContext(admin.slice(begin,finish)+'\nthis.view=adminCouponCommercialReleaseView;',scenario);
 const verifiedHtml=scenario.view();
 assert.match(verifiedHtml,/Recebedor identificado no Mercado Pago/);
@@ -65,6 +68,120 @@ assert.match(fallbackHtml,/Não foi possível recuperar os dados do titular/);
 commercial.data={...fake,providerSeller:{...fake.providerSeller,name:'<img src=x onerror=alert(1)>'}};
 assert.doesNotMatch(scenario.view(),/<img src=x onerror=alert\(1\)>/,
  'Name from payment provider must never be trusted HTML');
+
+
+// Regression: global Admin renders must not erase the partially entered
+// seller address, support email, terms checkbox or typing caret.
+const adminBootstrap=get('js/bootstrap.js');
+assert.ok(adminBootstrap.includes('adminCouponCommercialCaptureFocus()') &&
+  adminBootstrap.includes('adminCouponCommercialRestoreFocus(focus)'),
+  'Admin shell must preserve the focused field when replacing #app');
+const draftStart=admin.indexOf('const adminCouponCommercial={');
+const draftEnd=admin.indexOf('async function adminCouponCommercialRefresh()',draftStart);
+const viewStart=admin.indexOf('function adminCouponCommercialReleaseView(){');
+const viewEnd=admin.indexOf('\nfunction adminClubeCouponPreviewView()',viewStart);
+assert.ok(draftStart>0&&draftEnd>draftStart&&viewStart>draftEnd&&viewEnd>viewStart);
+const dom={nodes:Object.create(null),activeElement:null,
+  getElementById(id){return this.nodes[id]||null}};
+const draftRuntime={session:{user:{id:'founder-A'}}};
+const state=vm.createContext({document:dom,adminRuntime:draftRuntime,
+  adminCurrentRole:()=> 'superadmin',
+  esc:x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+   .replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;')});
+vm.runInContext(admin.slice(draftStart,draftEnd)+admin.slice(viewStart,viewEnd)+
+  '\nthis.api={input:adminCouponCommercialDraftInput,'+
+  'capture:adminCouponCommercialCaptureFocus,'+
+  'restore:adminCouponCommercialRestoreFocus,'+
+  'view:adminCouponCommercialReleaseView,'+
+  'draft:adminCouponCommercialDraft,commercial:adminCouponCommercial};',state);
+const scenarioData={commercialEnabled:false,providerConfigured:true,
+  privateEmergencyStop:false,profileFromMercadoPago:false,
+  providerSeller:null,seller:{address:'',supportEmail:''}};
+state.api.commercial.data=scenarioData;
+state.api.commercial.loadedFor='founder-A';
+dom.nodes['clube-commercial-release-button']={id:'clube-commercial-release-button'};
+const address={id:'clube-seller-address',type:'text',value:'Rua Sete de Setembro, 100, Centro',
+  selectionStart:23,selectionEnd:23};
+const email={id:'clube-seller-support',type:'email',value:'contato@empresa.com',
+  selectionStart:13,selectionEnd:13};
+dom.nodes[address.id]=address;
+dom.nodes[email.id]=email;
+dom.activeElement=address;
+const saved=state.api.capture();
+state.api.input(email);
+state.api.input({id:'clube-accept-all',checked:true});
+assert.equal(saved.id,'clube-seller-address');
+assert.equal(saved.start,23);
+let content=state.api.view();
+assert.match(content,/value="Rua Sete de Setembro, 100, Centro"/);
+assert.match(content,/value="contato@empresa.com"/);
+assert.match(content,/id="clube-accept-all"[^>]* checked/);
+assert.ok(!admin.includes('localStorage.setItem("clube-seller'),
+  'Seller drafts must remain in RAM, not persist to disk');
+let focusCalls=0,selection=null;
+dom.nodes[address.id]={id:address.id,type:'text',
+  focus:opts=>{if(opts?.preventScroll)focusCalls++;},
+  setSelectionRange:(a,b)=>{selection=[a,b];}};
+state.api.restore(saved);
+assert.equal(focusCalls,1,'focused input must be restored after render');
+assert.deepEqual(selection,[23,23],'restore typing position');
+draftRuntime.session.user.id='founder-B';
+state.api.commercial.loadedFor='founder-B';
+content=state.api.view();
+assert.doesNotMatch(content,/Rua Sete de Setembro, 100, Centro|contato@empresa.com/);
+assert.doesNotMatch(content,/id="clube-accept-all"[^>]* checked/);
+state.api.restore(saved);
+assert.equal(focusCalls,1,'never restore focus from another account');
+
+
+// Regression: native Admin disclosure sections retain user-opened state when
+// an unrelated background status refresh replaces #app.
+const disclosureBegin=admin.indexOf('function adminDisclosureKey(');
+const disclosureEnd=admin.indexOf('const adminCouponCommercial={',disclosureBegin);
+assert.ok(disclosureBegin>0&&disclosureEnd>disclosureBegin);
+const summary=(text)=>({tagName:'SUMMARY',textContent:text,parentElement:null,
+  focused:0,focus(){this.focused++;}});
+const disclosure=(id,classname,heading,open)=>{
+  const label=summary(heading);
+  const el={id,className:classname,open,
+    getAttribute:()=>null,
+    querySelector:selector=>selector===':scope > summary'?label:null};
+  label.parentElement=el;
+  return {el,label};
+};
+const originalFirst=disclosure('admin-followup-details-merchant',
+  'admin-alert-followup','Responsável e prazo',true);
+const originalSecond=disclosure('', 'admin-tech-details',
+  'Detalhes técnicos da integração',true);
+const originalThird=disclosure('', 'admin-tech-details',
+  'Histórico de recebimentos',false);
+const adminDoc={activeElement:originalSecond.label};
+const disclosures=vm.createContext({document:adminDoc});
+vm.runInContext(admin.slice(disclosureBegin,disclosureEnd)+
+  '\nthis.capture=adminDisclosureCapture;this.restore=adminDisclosureRestore;',disclosures);
+const appDetails=arr=>({querySelectorAll:selector=>selector==='details'?arr:[]});
+const snapshot=disclosures.capture(appDetails([
+  originalFirst.el,originalSecond.el,originalThird.el]));
+const nextFirst=disclosure('admin-followup-details-merchant','admin-alert-followup',
+  'Responsável e prazo',false);
+const nextSecond=disclosure('', 'admin-tech-details',
+  'Detalhes técnicos da integração',false);
+const nextThird=disclosure('', 'admin-tech-details',
+  'Histórico de recebimentos',true);
+disclosures.restore(appDetails([nextFirst.el,nextSecond.el,nextThird.el]),snapshot);
+assert.equal(nextFirst.el.open,true,'ID-backed accordion stays expanded');
+assert.equal(nextSecond.el.open,true,'Summary-backed accordion stays expanded');
+assert.equal(nextThird.el.open,false,'Explicitly collapsed accordion stays collapsed');
+assert.equal(nextSecond.label.focused,1,'Expanded summary keeps keyboard focus');
+nextSecond.el.open=false;
+const manuallyClosed=disclosures.capture(appDetails([nextSecond.el]));
+const refreshedClosed=disclosure('', 'admin-tech-details',
+  'Detalhes técnicos da integração',true);
+disclosures.restore(appDetails([refreshedClosed.el]),manuallyClosed);
+assert.equal(refreshedClosed.el.open,false,'User collapse survives next background refresh');
+const unrelated=disclosure('', 'admin-tech-details','Outros módulos',true);
+disclosures.restore(appDetails([unrelated.el]),snapshot);
+assert.equal(unrelated.el.open,true,'Different accordion must not inherit another section state');
 
 for(const term of ['CLUBE TAMÃO','Cupons','Cashback','Indicações',"go('club')","go('earn')",'DESCONTOS EM COMPRAS ELEGÍVEIS','CUPONS','confirmados no Clube'])
  assert.ok(markup.includes(term),'banner missing: '+term);
