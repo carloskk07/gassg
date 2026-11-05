@@ -167,8 +167,8 @@ grant execute on function public.mobility_fee_pix_prepare_v1_837(uuid)
  to service_role;
 
 -- Vinculação exata de uma Order/Payment, ambos criados pelo MP. Não
--- aceita alterar a fatura nem reutilizar Order de outro Pix. O prazo validado
--- segue o limite de 30 dias do Pix Mercado Pago, contado da emissão.
+-- aceita alterar a fatura nem reutilizar Order de outro Pix. A data persistida
+-- de criação é o limite conservador de P1D; respostas tardias não a prorrogam.
 create or replace function public.mobility_fee_pix_commit_v1_837(
  p_invoice uuid,p_driver uuid,p_order text,p_payment text,
  p_br_code text,p_qr_image text,p_link_url text,p_expires timestamptz
@@ -186,7 +186,7 @@ begin
  or p_payment !~ '^[A-Za-z0-9_-]+$'
  or p_br_code is null or length(p_br_code) not between 20 and 8192
  or p_expires is null or p_expires<=clock_timestamp()+interval '60 seconds'
- or p_expires>clock_timestamp()+interval '30 days'
+ or p_expires>v_invoice.created_at+interval '24 hours'
  or (p_qr_image is not null and (
      length(p_qr_image)>550100 or p_qr_image !~ '^data:image/png;base64,[A-Za-z0-9+/=]+$'))
  or (p_link_url is not null and (length(p_link_url)>2000
