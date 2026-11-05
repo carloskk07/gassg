@@ -37,10 +37,10 @@ async function startChrome(){
   for(let i=0;i<70;i++){
    try{
     const raw=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8');
-    const n=Number(raw.split(/\\s+/)[0]);
+    const n=Number(raw.split(/\s+/)[0]);
     if(Number.isInteger(n)&&n>0){port=n;break;}
    }catch{}
-   const match=chromeDiagnostic.match(/DevTools listening on ws:\/\/127\\.0\\.0\\.1:(\\d+)\\//);
+   const match=chromeDiagnostic.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);
    if(match&&Number(match[1])>0){port=Number(match[1]);break;}
    if(launched.exitCode!==null)break;
    await delay(200);
@@ -49,7 +49,7 @@ async function startChrome(){
    // A successful browser still must pass ALL real DevTools / DOM assertions.
    return port;
   }
-  const tail=chromeDiagnostic.replace(/\\s+/g,' ').slice(-280);
+  const tail=chromeDiagnostic.replace(/\s+/g,' ').slice(-280);
   terminateChrome();
   await delay(450);
   fs.rmSync(profile,{recursive:true,force:true,maxRetries:4,retryDelay:100});
