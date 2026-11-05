@@ -112,9 +112,9 @@ async function merchantBenefitsContractAct(operation){
    const status=data?.optedIn===true?'Aceite de cupons futuros registrado':
      data?'Sem adesão a novos cupons':'Condições não consultadas';
    const decision=data&&role==='owner'?(data.optedIn?
-     '<button class="ghost small" type="button" onclick="merchantCouponContractAct(\\'revoke\\')" '+(pending?'disabled':'')+'>Revogar para novos cupons</button>':
+     '<button class="ghost small" type="button" onclick="merchantCouponContractAct(\'revoke\')" '+(pending?'disabled':'')+'>Revogar para novos cupons</button>':
      '<label class="checkbox-line"><input type="checkbox" id="merchant-new-coupon-consent-v1-845"> Li e aceito que a revenda custeie cupons novos elegíveis, sem ressarcimento, nas condições descritas.</label>'+
-     '<button class="primary small" type="button" onclick="merchantCouponContractAct(\\'accept\\')" '+(pending?'disabled':'')+'>Aceitar condições dos novos cupons</button>'):'';
+     '<button class="primary small" type="button" onclick="merchantCouponContractAct(\'accept\')" '+(pending?'disabled':'')+'>Aceitar condições dos novos cupons</button>'):'';
    return '<div class="card flat form-stack" aria-label="Participação futura em cupons pagos">'+
      '<div class="section-head"><div><h3>Cupons pagos de próximas campanhas</h3>'+
      '<p>Participação opcional e separada do presente de R$ 1.</p></div>'+
@@ -123,7 +123,7 @@ async function merchantBenefitsContractAct(operation){
      '<div class="notice"><strong>Aceite não é ativação.</strong> Os cupons antigos continuam com os mesmos direitos e ressarcimentos. Nenhuma compra ou taxa é alterada por esta decisão. A utilização de cupons novos custeados pela revenda só será liberada após integração financeira própria.</div>'+
      (data?'<p class="tiny"><strong>Termos v'+esc(String(data.termsVersion))+
        ':</strong> '+esc(String(data.termsText))+'</p>':'')+
-     '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantCouponContractAct(\\'view\\')" '+(pending?'disabled':'')+'>Consultar condições dos cupons</button>'+decision+'</div>'+
+     '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantCouponContractAct(\'view\')" '+(pending?'disabled':'')+'>Consultar condições dos cupons</button>'+decision+'</div>'+
      (rt.merchantFutureCouponContractError?'<div class="notice danger">'+
        esc(rt.merchantFutureCouponContractError)+'</div>':'')+
    '</div>';
