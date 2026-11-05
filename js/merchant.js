@@ -1028,13 +1028,10 @@ function merchantBillingLiveView(rt){
     .sort((a,b)=>Date.parse(a.dueAt||'')-Date.parse(b.dueAt||''))[0]||null;
   const openDue=statements.reduce((sum,x)=>sum+Number(x.amountDueCents||0),0);
 
-  const flexRateBps=Number((billing.plans||[]).find(x=>x.planKey==='flex_daily')?.platformFeeBps||0);
   const planCards=(billing.plans||[]).map(p=>{
     const pct=(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     const current=p.planKey===plan.planKey;
     const prepaid=p.billingMode==='prepaid_credit';
-    const savingBps=prepaid?Math.max(0,flexRateBps-Number(p.platformFeeBps||0)):0;
-    const savingLabel=savingBps?(savingBps/100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2}):'';
     const activePrepaidBalance=plan.billingMode==='prepaid_credit'
       &&(Number(account.creditBalanceCents||0)>0||Number(account.creditReservedCents||0)>0);
     const protectedDowngrade=prepaid
@@ -1063,11 +1060,8 @@ function merchantBillingLiveView(rt){
       action=pixAction;
     }
 
-    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">Recarregue ${BRL.format(Number(p.purchaseAmountCents||0)/100)} para pagar taxas reais das vendas. Não é mensalidade. O saldo é usado até o último centavo, após confirmação financeira.</div>${savingBps?`<p class="tiny" style="margin-top:6px"><strong>Economize ${savingLabel} ponto(s) percentual(is)</strong> em relação ao Flex enquanto o crédito cobrir a taxa descontada.</p>`:''}`:'<div class="tiny muted">Sem recarga antecipada, nem mensalidade. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
+    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação somente após confirmação financeira. O saldo é usado até o último centavo.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
   }).join('');
-  const inactivePendingPackage=pendingPackage&&!(billing.plans||[]).some(p=>p.planKey===pendingPackage.planKey)
-    ? `<div class="notice risk" style="margin-top:12px"><strong>Solicitação de pacote antigo</strong><p>${esc(String(pendingPackage.planKey||''))}: ${BRL.format(Number(pendingPackage.expectedAmountCents||0)/100)}. Esse plano não recebe novas adesões. O histórico permanece salvo.</p><button class="secondary small" type="button" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação antiga e escolher novo plano</button></div>`
-    : '';
 
   const statementRows=statements.map(s=>{
     const request=pendingByStatement.get(s.id);
@@ -1165,7 +1159,6 @@ function merchantBillingLiveView(rt){
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
-    ${inactivePendingPackage}
     <div class="notice" style="margin-top:12px"><strong>Pix com conciliação automática.</strong><br>${pixReady?'Gere o Pix no próprio TAMÃO: o QR e o copia-e-cola ficam vinculados à solicitação, e o EndToEndId bancário volta pelo provedor sem digitação manual.':'A integração automática ainda não está configurada neste ambiente; o fluxo manual permanece disponível.'} Em qualquer rota, crédito ou quitação só acontecem após a confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
   </section>`;
