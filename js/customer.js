@@ -1752,7 +1752,11 @@ function customerClosedOrderChoices(order){
   if(String(order?.status||'')!=='CANCELLED')return '';
   return '<section class="customer-closed-next" aria-label="O que fazer após o encerramento">'+
     '<strong>Precisa fazer outro pedido?</strong>'+
-    '<p>Esta solicitação foi encerrada. Você pode consultar novas ofertas, sem reutilizar automaticamente o pedido anterior.</p>'+
+    '<p>'+(order?.couponFundingModel==='partner_funded'
+      ?order.partnerCouponReturnDisposition==='reissued'
+        ?'Cupom pago devolvido. Não é cashback.'
+        :'Cupom pago em análise. Não é cashback.'
+      :'Pedido encerrado. Consulte novas ofertas.')+'</p>'+
     '<div class="customer-closed-next-actions">'+
     '<button type="button" class="primary small" onclick="go(\'home\')">Consultar novas ofertas</button>'+
     '<a href="#customer-care" class="customer-incident-help">Preciso de ajuda com este pedido</a>'+
@@ -2109,12 +2113,6 @@ function liveTracking(){
   const total=customerTrackingTotal(o);
   const totalLabel=total===null?'Valor ainda não confirmado':BRL.format(total);
   const cashbackReserved=Number(o.cashbackReservedCents||0)/100;
-  const partnerCouponReturnNotice=o.couponFundingModel==='partner_funded'&&o.status==='CANCELLED'
-    ?o.partnerCouponReturnDisposition==='reissued'
-      ?'<div class="notice success" style="margin-top:14px"><strong>Seu cupom pago foi devolvido.</strong><br>O desconto permanece no mesmo cupom do Clube TAMÃO e poderá ser utilizado novamente nas revendas participantes, dentro da validade e das condições originais. Não foi transformado em cashback comum.</div>'
-      :'<div class="notice" style="margin-top:14px"><strong>Cupom preservado para análise.</strong><br>O desconto não foi convertido em cashback. Consulte seus cupons e solicite atendimento para avaliar reutilização ou reembolso.</div>'
-    :'';
-
   const proposedCents=Number(o.proposedTotalCents);
   const proposed=o.proposedTotalCents!=null&&Number.isSafeInteger(proposedCents)
     &&proposedCents>0&&proposedCents<=1000000000?proposedCents/100:null;
@@ -2173,7 +2171,7 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:o.couponFundingModel==='partner_funded'&&Number(o.partnerCouponFundedCents)>0?`Inclui cupom pago de ${BRL.format(Number(o.partnerCouponFundedCents)/100)}, custeado pela revenda participante. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de benefício usado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
@@ -2187,7 +2185,6 @@ ${items?'<div class="divider"></div>'+items:''}</div>
 ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Solicitação enviada à revenda.</strong><br>A entrega ainda depende de aceite. ${deadline!=null?`Prazo informado para resposta: aproximadamente ${deadline}s restantes.`:'Atualize para verificar a resposta.'}</div>`:''}
 ${customerRequoteDecision(o,total,proposed,deadline,{evidence:readEvidence})}
 ${customerClosedOrderChoices(o)}
-${partnerCouponReturnNotice}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.status==='AT_RISK'?'<div class="notice" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>Consulte o andamento confirmado e use o atendimento do pedido se precisar de ajuda.</div>':''}
 
