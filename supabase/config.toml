@@ -31,6 +31,12 @@ verify_jwt = false
 [functions.merchant-billing-pix]
 verify_jwt = false
 
+# Driver-only platform-fee Pix: JWT checked with auth.getUser inside Edge.
+# Signed Mercado Pago Order webhook is shared with merchant billing but
+# routed by exact provider Order binding, never guessed from payer identity.
+[functions.mobility-fee-pix]
+verify_jwt = false
+
 
 # Single Mercado Pago Order webhook ingress for both TAMÃO billing and
 # merchant-owned sales. JWT is disabled because HMAC authenticates delivery;
