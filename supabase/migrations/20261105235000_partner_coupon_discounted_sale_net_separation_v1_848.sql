@@ -1,3 +1,28 @@
+-- #848: prospective exception to the package SALE constraint.
+-- Legacy unsponsored coupons still require proceeds >= ALL voucher face.
+-- Only verified, merchant-financed future packages may sell below face,
+-- with frozen invoice terms, opt-in and a separate per-order discount ledger.
+ALTER TABLE public.clube_coupon_paid_packages
+ DROP CONSTRAINT coupon_sale_requires_verification;
+ALTER TABLE public.clube_coupon_paid_packages
+ ADD CONSTRAINT coupon_sale_requires_verification CHECK(
+  NOT sale_enabled OR (
+   funding_verified AND legal_terms_verified AND redeem_settlement_verified AND
+   (
+    sponsored_by_owner OR
+    sale_price_cents::bigint>=coupon_face_cents::bigint*coupons_per_pack::bigint OR
+    (
+     left(package_key,8)='partner_'
+     AND sponsored_by_owner=false
+     AND sale_price_cents BETWEEN 100 AND 100000
+     AND coupon_face_cents BETWEEN 100 AND 500
+     AND coupons_per_pack BETWEEN 1 AND 15
+     AND min_order_cents>=1000
+    )
+   )
+  )
+ );
+
 -- #848: Merchant's discount and TAMÃO's genuine PSP net proceeds are
 -- separate funding sources. Legacy reimbursement/cashback rights are unchanged.
 CREATE OR REPLACE FUNCTION public.clube_partner_coupon_purchase_source_v1_848(p_invoice_id uuid)
