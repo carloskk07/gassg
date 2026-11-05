@@ -27,7 +27,10 @@ assert.match(edge,/async function couponSaleRelease\(admin:any\)/);
 assert.match(edge,/couponSaleRelease\(admin\)/);
 assert.match(edge,/release\.seller_tax_document/);
 assert.match(edge,/seller_name:release\.seller_name/);
-assert.match(edge,/packageKey!==release\.package_key/);
+assert.match(edge,/packageKey!==\(partnerPurchase\?PARTNER_PACKAGE_KEY:release\.package_key\)/);
+assert.match(edge,/const release=partnerPurchase\?await partnerSignedSeller\(admin\):await couponSaleRelease\(admin\)/);
+assert.match(edge,/PARTNER_COUPON_NO_ELIGIBLE_SUPPLY/);
+
 assert.match(edge,/seller:safe\.length/);
 assert.match(admin,/couponSellerTaxDocumentValid/);
 assert.match(admin,/action==="clube-coupon-commercial-status"/);
