@@ -6515,7 +6515,7 @@ function adminCouponCommercialBeforeRender(){
   const current=document.activeElement;
   for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
     const field=document.getElementById(id);
-    if(!field)continue;
+    if(!field||field.type==='hidden')continue;
     values[id]=field.type==='checkbox'
       ?{checked:field.checked===true}:{value:String(field.value||'')};
   }
@@ -6531,7 +6531,8 @@ function adminCouponCommercialAfterRender(snapshot){
      !document.getElementById('clube-commercial-release-button'))return;
   for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
     const saved=snapshot.values[id],field=document.getElementById(id);
-    if(!saved||!field)continue;
+    // The backend-supplied recipient identity takes precedence over old edits.
+    if(!saved||!field||field.type==='hidden')continue;
     if(field.type==='checkbox'&&Object.hasOwn(saved,'checked'))
       field.checked=saved.checked;
     else if(Object.hasOwn(saved,'value'))field.value=saved.value;
