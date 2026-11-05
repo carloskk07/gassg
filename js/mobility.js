@@ -680,9 +680,10 @@ async function mobilityClaimWelcomeOnAuth(){
  finally{if(s.welcomeClaimInFlight===userId)s.welcomeClaimInFlight=''}
 }
 async function mobilityFeePixRequest(action){
- const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch,seq=++s.pixSeq;
+ const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch;
  if(s.pixBusy||!s.client||!userId||!['charge','status'].includes(action)||
    !s.program?.billing)return false;
+ const seq=++s.pixSeq;
  s.pixBusy=true;s.error='';s.notice='';render();
  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId&&s.pixSeq===seq;
  try{
