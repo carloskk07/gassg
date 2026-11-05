@@ -821,7 +821,7 @@ async function mobilityFarePropose(event){
  const s=mobilityRuntime,id=s.id,epoch=s.sessionEpoch,user=s.user?.id;
  if(s.busy||!s.client||s.detail?.id!==id||s.detail?.role!=='driver'||s.detail?.status!=='accepted')return false;
  const raw=String(new FormData(event.target).get('fare')||'');
- if(!/^\\d{1,6}(?:\\.\\d{1,2})?$/.test(raw)){s.error='Informe um valor válido.';render();return false}
+ if(!/^\d{1,6}(?:\.\d{1,2})?$/.test(raw)){s.error='Informe um valor válido.';render();return false}
  const cents=Math.round(Number(raw)*100);
  if(!Number.isSafeInteger(cents)||cents<100||cents>10000000){s.error='Valor fora do intervalo permitido.';render();return false}
  const same=()=>s.sessionEpoch===epoch&&s.user?.id===user&&s.id===id;
