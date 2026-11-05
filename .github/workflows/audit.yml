@@ -105,6 +105,8 @@ jobs:
         run: node tests/discovery-loaded-result-sorting.mjs
       - name: Manual comparison of only verified, saved and currently visible discovery listings
         run: node tests/discovery-manual-comparison.mjs
+      - name: V1.826 mobility fare quotation UI and price confirmation
+        run: node tests/mobility-fare-pricing-v1-826.mjs
       - name: Mobility GPS consent and access test
         run: |
           node tests/mobility-tracking-security.mjs
