@@ -163,12 +163,6 @@ BEGIN
    IF NOT FOUND THEN RAISE EXCEPTION 'PARTNER_COUPON_PREPAID_CREDIT_DRIFT'
      USING ERRCODE='40001'; END IF;
  END IF;
- INSERT INTO public.clube_partner_coupon_order_uses_v1_846(
-   order_id,voucher_id,invoice_id,merchant_id,customer_id,merchant_contract_version,
-   buyer_terms_version,face_cents,gross_cents,net_cents,fee_bps_snapshot
- ) VALUES(v_order.id,new.voucher_id,v_invoice.id,v_order.merchant_id,
-   v_order.customer_id,v_consent.version,v_invoice.terms_version,
-   new.face_cents,v_order.gross_total_cents,v_order.gross_total_cents-new.face_cents,v_bps);
  UPDATE public.orders SET
    platform_fee_bps_snapshot=v_bps,
    prepaid_fee_reserved_cents_snapshot=prepaid_fee_reserved_cents_snapshot-v_release,
@@ -179,6 +173,12 @@ BEGIN
    AND cashback_reserved_cents=new.face_cents;
  IF NOT FOUND THEN RAISE EXCEPTION 'PARTNER_COUPON_FEE_SNAPSHOT_NOT_APPLIED'
    USING ERRCODE='40001'; END IF;
+ INSERT INTO public.clube_partner_coupon_order_uses_v1_846(
+   order_id,voucher_id,invoice_id,merchant_id,customer_id,merchant_contract_version,
+   buyer_terms_version,face_cents,gross_cents,net_cents,fee_bps_snapshot
+ ) VALUES(v_order.id,new.voucher_id,v_invoice.id,v_order.merchant_id,
+   v_order.customer_id,v_consent.version,v_invoice.terms_version,
+   new.face_cents,v_order.gross_total_cents,v_order.gross_total_cents-new.face_cents,v_bps);
  RETURN new;
 END;$app$;
 REVOKE ALL ON FUNCTION public.clube_partner_coupon_application_v1_846()
