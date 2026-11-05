@@ -6500,6 +6500,52 @@ async function adminCouponCommercialSuspend(){
   }catch{toast('Não foi possível confirmar a suspensão. Confira o estado comercial.');}
   finally{adminCouponCommercial.busy=false;}
 }
+/* Keep the in-progress seller form across background Admin render() calls.
+   Only transient in-memory values are used: never localStorage or logs for CPF. */
+const ADMIN_COUPON_EDITOR_FIELD_IDS=[
+  'clube-seller-name','clube-seller-tax','clube-seller-address',
+  'clube-seller-support','clube-accept-all'
+];
+function adminCouponCommercialBeforeRender(){
+  if(adminCurrentRole()!=='superadmin'||
+     !document.getElementById('clube-commercial-release-button'))return null;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  if(!userId)return null;
+  const values={};
+  const current=document.activeElement;
+  for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
+    const field=document.getElementById(id);
+    if(!field)continue;
+    values[id]=field.type==='checkbox'
+      ?{checked:field.checked===true}:{value:String(field.value||'')};
+  }
+  const focusedId=ADMIN_COUPON_EDITOR_FIELD_IDS.includes(current?.id)
+    ?current.id:null;
+  return {userId,values,focusedId,
+    selection:focusedId&&typeof current?.selectionStart==='number'
+      ?[current.selectionStart,current.selectionEnd]:null};
+}
+function adminCouponCommercialAfterRender(snapshot){
+  if(!snapshot||adminCurrentRole()!=='superadmin'||
+     String(adminRuntime.session?.user?.id||'')!==snapshot.userId||
+     !document.getElementById('clube-commercial-release-button'))return;
+  for(const id of ADMIN_COUPON_EDITOR_FIELD_IDS){
+    const saved=snapshot.values[id],field=document.getElementById(id);
+    if(!saved||!field)continue;
+    if(field.type==='checkbox'&&Object.hasOwn(saved,'checked'))
+      field.checked=saved.checked;
+    else if(Object.hasOwn(saved,'value'))field.value=saved.value;
+  }
+  if(!snapshot.focusedId)return;
+  const target=document.getElementById(snapshot.focusedId);
+  if(!target)return;
+  target.focus({preventScroll:true});
+  if(snapshot.selection&&typeof target.setSelectionRange==='function'){
+    try{target.setSelectionRange(...snapshot.selection)}
+    catch{/* Hidden input and checkbox selection are unsupported. */}
+  }
+}
+
 function adminCouponCommercialReleaseView(){
   if(adminCurrentRole()!=='superadmin')return '';
   const uid=String(adminRuntime.session?.user?.id||'');
