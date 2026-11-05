@@ -2136,7 +2136,7 @@ function liveTracking(){
     ? `<div class="notice" style="margin-top:12px"><strong>Diferença entre ofertas consultadas: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Comparação com a maior proposta daquela consulta, não um desconto garantido.</div>`
     : '';
   const deliveryDetailsNotice=o.deliveryDataRedacted
-    ? '<div class="notice" style="margin-top:12px"><strong>Dados operacionais de entrega removidos.</strong><br>O histórico do pedido, itens, valores e eventos continua disponível, mas telefone, localização detalhada e instruções de chegada já foram minimizados pela política de retenção.</div>'
+    ? '<div class="notice" style="margin-top:12px"><strong>Dados operacionais de entrega removidos.</strong><br>O histórico e os valores continuam disponíveis; dados pessoais de entrega foram removidos.</div>'
     : o.customerPhone
       ? `<div class="notice" style="margin-top:12px"><strong>Dados de entrega confirmados.</strong><br>Telefone: ${esc(formatDeliveryPhone(o.customerPhone))}${o.addressComplement?` • Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
       : '';
