@@ -8,7 +8,14 @@ const sql=q=>execFileSync('psql',['--host=127.0.0.1','--port=54322','--username=
  {encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},timeout:60000,stdio:['ignore','pipe','pipe']}).trim();
 assert.equal(sql("select string_agg(plan_key||':'||platform_fee_bps||':'||coalesce(purchase_amount_cents::text,'free'),',' order by sort_order) from public.mobility_billing_plans_v1_826"),
  'flex:900:free,essential:600:990,popular:550:2490,professional:500:4990');
-assert.equal(sql("select count(*) from public.mobility_billing_plans_v1_826 where purchase_enabled"),'0','Sem venda de plano sem PSP conciliado');
+// #838: upgrade the previous fail-closed-only catalog. Plans can be
+// purchased ONLY after the provider confirms the payment and the lot is funded.
+assert.equal(sql("select count(*) from public.mobility_billing_plans_v1_826 where purchase_enabled"),'3',
+ 'Prepaid plans are active only with the protected Pix funding engine');
+assert.equal(sql("select has_function_privilege('authenticated','public.mobility_fee_pix_prepare_credit_v1_838(uuid,text)','EXECUTE')"),'f',
+ 'No client access to the financial preparation RPC');
+assert.equal(sql("select count(*) from public.mobility_fee_prepaid_lots_v1_838"),'0',
+ 'Zero credited lots before proof of a payment');
 for(const t of ['mobility_fare_quotes_v1_826','mobility_billing_plans_v1_826','mobility_benefits_participation_v1_826']){
  assert.equal(sql("select relrowsecurity from pg_class where oid='public."+t+"'::regclass"),'t',t);
  assert.equal(sql("select has_table_privilege('anon','public."+t+"','SELECT')"),'f',t);
