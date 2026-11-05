@@ -989,6 +989,94 @@ function merchantBillingPixChargeView(request){
   return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''}</small></div><span class="status-pill online">QR ATIVO</span></div>${qr}${copy}${link}</div>`;
 }
 
+// #842: voluntary merchant benefits contract. Only enrollment is available;
+// never display rate reduction or coupon as economically active before checkout.
+function merchantBenefitsContractSection(rt){
+  const merchant=rt?.merchant||{};
+  const role=String(merchant.memberRole||'');
+  if(!['owner','manager'].includes(role))return '';
+  const id=String(merchant.merchantId||'');
+  const info=rt.merchantBenefitsContract?.merchantId===id&&
+    rt.merchantBenefitsContract?.source==='merchant_benefits_contract_v1_842'
+      ?rt.merchantBenefitsContract:null;
+  const pending=rt.merchantBenefitsContractPending===true;
+  const status=info?.optedIn?'Adesão registrada':'Sem adesão registrada';
+  const action=info?(role==='owner'?(info.optedIn?
+    '<button class="ghost small" type="button" onclick="merchantBenefitsContractAct(\\'revoke\\')" '+(pending?'disabled':'')+'>Revogar para novas compras</button>':
+    '<label class="checkbox-line"><input type="checkbox" id="merchant-benefit-accept-v1-842"/> Li e aceito as condições do Programa de Benefícios, incluindo o desconto custeado pela revenda.</label>'+
+    '<button class="primary small" type="button" onclick="merchantBenefitsContractAct(\\'accept\\')" '+(pending?'disabled':'')+'>Confirmar adesão</button>'):''):
+    '<p class="tiny muted">Consulte as condições atuais antes de tomar sua decisão.</p>';
+  return '<div class="card flat form-stack" aria-label="Programa de Benefícios da revenda">'+
+    '<div class="section-head"><div><h3>Programa de Benefícios TAMÃO</h3>'+
+    '<p>Adesão voluntária para oferecer vantagens aos clientes.</p></div>'+
+    '<span class="status-pill '+(info?.optedIn?'online':'')+'">'+esc(info?status:'Condições não consultadas')+'</span></div>'+
+    '<p class="tiny">Flex atual: 9%. Taxa prevista para compras elegíveis após implantação financeira: 8%. Pacotes pré-pagos mantêm suas próprias taxas.</p>'+
+    '<div class="notice"><strong>Adesão e aplicação são etapas separadas.</strong> O aceite não gera Pix, desconto, cashback, redução imediata de taxa ou obrigação de ressarcimento pelo TAMÃO. Benefícios nas compras só serão ativados após integração e comprovação.</div>'+
+    (info?'<p class="tiny"><strong>Termos v'+esc(String(info.termsVersion))+'</strong> • '+
+      esc(String(info.termsText))+'</p>':'')+
+    '<div class="order-actions"><button class="secondary small" type="button" onclick="merchantBenefitsContractAct(\\'view\\')" '+
+      (pending?'disabled':'')+'>Consultar condições</button>'+action+'</div>'+
+    (rt.merchantBenefitsContractError?'<div class="notice danger">'+esc(rt.merchantBenefitsContractError)+'</div>':'')+
+   '</div>';
+}
+async function merchantBenefitsContractAct(operation){
+  const rt=globalThis.merchantRuntime;
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  const role=String(rt?.merchant?.memberRole||'');
+  if(!merchantId||!['owner','manager'].includes(role)||
+     !['view','accept','revoke'].includes(operation))return;
+  if(operation!=='view'&&role!=='owner')
+    return toast('Somente o proprietário pode aceitar ou revogar o programa.');
+  if(rt.merchantBenefitsContractPending)return;
+  const current=rt.merchantBenefitsContract?.merchantId===merchantId
+    ?rt.merchantBenefitsContract:null;
+  if(operation!=='view'&&(!current||current.termsVersion!==1||
+      !Number.isSafeInteger(current.version)||current.version<0))
+    return toast('Consulte as condições antes de decidir.');
+  if(operation==='accept'&&document.getElementById('merchant-benefit-accept-v1-842')?.checked!==true)
+    return toast('Leia as condições e confirme expressamente a adesão.');
+  if(operation==='revoke'&&!confirm('Revogar a participação apenas para novas compras? Pedidos e compromissos anteriores permanecem válidos.'))return;
+  rt.merchantBenefitsContractPending=true;
+  rt.merchantBenefitsContractError=null;
+  const valid=value=>value?.source==='merchant_benefits_contract_v1_842'&&
+    value.merchantId===merchantId&&typeof value.optedIn==='boolean'&&
+    Number.isSafeInteger(value.version)&&value.version>=0&&value.termsVersion===1&&
+    value.normalFlexFeeBps===900&&value.memberFlexFeeBps===800&&
+    value.maxWelcomeDiscountCents===100&&typeof value.termsText==='string'&&
+    value.checkoutBenefitsEnabled===false&&value.feeReductionEnabled===false&&
+    value.noCurrentFinancialMutation===true&&value.legacyCouponRightsPreserved===true;
+  try{
+    const payload={action:'benefits-contract',merchantId,operation};
+    if(operation!=='view'){
+      payload.termsVersion=1;
+      payload.expectedVersion=current.version;
+      payload.requestId=crypto.randomUUID();
+      payload.consent=operation==='accept';
+    }
+    const result=await merchantInvoke('merchant-ops',payload);
+    if(!valid(result)||result.readOnly!==(operation==='view')||
+       (operation!=='view'&&result.optedIn!==(operation==='accept')))
+      throw new Error('Adesão não confirmada pelo servidor.');
+    if(String(rt.merchant?.merchantId)!==merchantId)return;
+    if(operation!=='view'){
+      const fresh=await merchantInvoke('merchant-ops',{
+        action:'benefits-contract',merchantId,operation:'view'});
+      if(!valid(fresh)||!fresh.readOnly||fresh.optedIn!==result.optedIn||
+          fresh.version!==result.version)
+        throw new Error('A alteração exige nova conferência.');
+      if(String(rt.merchant?.merchantId)!==merchantId)return;
+      rt.merchantBenefitsContract=fresh;
+      toast(operation==='accept'?'Adesão registrada. Descontos e taxa menor ainda não foram ativados.':
+        'Revogação registrada para novas compras.');
+    }else rt.merchantBenefitsContract=result;
+  }catch(e){
+    if(String(rt.merchant?.merchantId)===merchantId){
+      rt.merchantBenefitsContractError=String(e?.message||'Não foi possível conferir as condições.');
+      toast(rt.merchantBenefitsContractError);
+    }
+  }finally{rt.merchantBenefitsContractPending=false;render();}
+}
+
 function merchantBillingLiveView(rt){
   const billing=rt.billing||null;
   if(!billing?.account)return '';
@@ -1156,6 +1244,7 @@ function merchantBillingLiveView(rt){
       <div class="kpi"><span class="label">Saldo D+1 aberto</span><strong>${BRL.format(openDue/100)}</strong><small>${nextDue?'próximo vencimento '+new Date(nextDue.dueAt).toLocaleString('pt-BR'):'nenhum vencimento'}</small></div>
     </div>
     ${recoveryRows?`<div class="section-head" style="margin-top:16px"><div><h3>Recuperação de refund/estorno</h3><p>O valor devolvido pelo PSP precisa ser recomposto por uma nova transação comprovável. A referência administrativa sozinha não encerra o caso.</p></div></div><div class="admin-entity-grid">${recoveryRows}</div>`:''}
+    ${merchantBenefitsContractSection(rt)}
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
