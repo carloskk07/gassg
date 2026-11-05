@@ -5,7 +5,12 @@ const sql=read('supabase/migrations/20261105235000_partner_coupon_discounted_sal
 const edge=read('supabase/functions/coupon-credit-pix/index.ts');
 const test846=read('tests/isolated-partner-coupon-financial-conservation-v1-846.mjs');
 const test847=read('tests/isolated-partner-coupon-cancel-reissue-v1-847.mjs');
-assert.ok(sql.length>16000);
+assert.ok(sql.length>17000);
+assert.match(sql,/DROP CONSTRAINT coupon_sale_requires_verification/);
+assert.match(sql,/ADD CONSTRAINT coupon_sale_requires_verification CHECK/);
+assert.match(sql,/sale_price_cents::bigint>=coupon_face_cents::bigint\*coupons_per_pack::bigint/);
+assert.match(sql,/left\(package_key,8\)='partner_'/);
+assert.match(sql,/AND min_order_cents>=1000/);
 for(const item of [
  'clube_partner_coupon_purchase_source_v1_848',
  "funding_mode_v1_846='partner_funded'",
