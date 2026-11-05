@@ -120,6 +120,8 @@ jobs:
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: V1.824 verify plan catalog in isolated Postgres
         run: node tests/isolated-accessible-merchant-plans-v1-824.mjs
+      - name: V1.842 real PostgreSQL consent, repeal, replay and financial isolation
+        run: node tests/isolated-merchant-benefits-contract-v1-842.mjs
       - name: Verify real driver push RLS, role gates and empty transactional outbox
         run: node tests/isolated-mobility-push.mjs
       - name: Prove five real moto and car participant journeys with cancellation expiry and GPS cleanup
