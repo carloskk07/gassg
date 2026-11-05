@@ -42,6 +42,21 @@ create table public.mobility_fee_pix_invoice_lines_v1_837 (
 );
 create index mobility_fee_invoice_lines_by_invoice_v1_837_idx
  on public.mobility_fee_pix_invoice_lines_v1_837(invoice_id);
+-- Membership of a paid/pending invoice is an immutable financial fact:
+-- rerouting the same ride to a second invoice is forbidden.
+create or replace function public.mobility_fee_pix_line_immutable_v1_837()
+returns trigger language plpgsql security definer set search_path=pg_catalog
+as $
+begin
+ raise exception 'MOBILITY_PIX_INVOICE_LINE_IMMUTABLE' using errcode='42501';
+end;
+$;
+revoke all on function public.mobility_fee_pix_line_immutable_v1_837()
+ from public,anon,authenticated;
+create trigger mobility_fee_pix_line_immutable_v1_837_trg
+ before update or delete on public.mobility_fee_pix_invoice_lines_v1_837
+ for each row execute function public.mobility_fee_pix_line_immutable_v1_837();
+
 create table public.mobility_fee_pix_evidence_v1_837 (
  id uuid primary key default gen_random_uuid(),
  invoice_id uuid not null references public.mobility_fee_pix_invoices_v1_837(id) on delete restrict,
@@ -220,10 +235,10 @@ begin
  or p_state not in ('paid','expired','review_required')
  or p_evidence_sha256 !~ '^[0-9a-f]{64}$'
  then raise exception 'MOBILITY_FEE_PSP_PROOF_MISMATCH' using errcode='42501';end if;
- if p_state='paid' and v_invoice.status not in ('active','paid')
+ if p_state='paid' and v_invoice.status not in ('active','expired','paid')
  or p_state='expired' and v_invoice.status not in ('active','expired')
  or p_state='review_required' and v_invoice.status not in
-    ('active','paid','review_required')
+    ('active','paid','expired','review_required')
  then raise exception 'MOBILITY_FEE_PSP_STATE_CONFLICT' using errcode='23505';end if;
  insert into public.mobility_fee_pix_evidence_v1_837(
   invoice_id,event_state,provider_order_id,provider_payment_id,
@@ -236,6 +251,9 @@ begin
  or v_prior.provider_order_id<>p_order or v_prior.provider_payment_id<>p_payment
  or v_prior.amount_cents<>p_amount_cents
  then raise exception 'MOBILITY_FEE_PSP_REPLAY_CONFLICT' using errcode='23505';end if;
+ if v_invoice.status='paid' and p_state='expired' then
+  raise exception 'MOBILITY_FEE_PAID_CANNOT_EXPIRE' using errcode='23505';
+ end if;
  if v_invoice.status is distinct from p_state then
   update public.mobility_fee_pix_invoices_v1_837
    set status=p_state,
