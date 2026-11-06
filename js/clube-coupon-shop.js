@@ -205,6 +205,15 @@ async function clubeCouponBuy(packageKey){
     const previous=clubePaidCouponView.purchases.find(x=>
       x.packageKey===packageKey&&
       ['prepared','awaiting_payment'].includes(String(x.status)));
+    // A pending partner Pix is tied to its original, immutable CEP. Never
+    // present that Pix as payment for a new CEP, or replay its request UUID
+    // against a different region; the buyer must resolve the prior invoice.
+    if(partnerPurchase&&previous&&
+       (!/^[0-9]{8}$/.test(String(previous.servicePostalCode||''))||
+        previous.servicePostalCode!==p.eligiblePostalCode)){
+      toast('Há um Pix pendente deste pacote para outro CEP. Consulte ou cancele a compra anterior no histórico antes de prosseguir.');
+      return;
+    }
     if(previous?.invoiceId&&previous.status!=='prepared'){
       await clubeCouponCheckInvoice(previous.invoiceId,true);
       return;
@@ -283,7 +292,8 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
    '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
    (inv.fundingModel==='partner_funded'
-    ?'<p class="tiny">Cupom pago financiado pela revenda participante. O desconto depende de adesão da revenda e pedido elegível; o TAMÃO não o converte em cashback comum.</p>'
+    ?'<p class="tiny">Cupom pago financiado pela revenda participante. CEP da compra: '+
+     esc(String(inv.servicePostalCode||'não informado'))+'. O desconto depende de adesão da revenda e pedido elegível; o TAMÃO não o converte em cashback comum.</p>'
     :'')+
    (seller?'<p class="tiny muted">Vendedor: '+esc(String(seller.name||''))+
       ' · '+esc(String(seller.taxDocument||''))+'</p>':'')+
