@@ -10,7 +10,7 @@ const adminEdge=read('supabase/functions/admin-ops/index.ts');
 const shop=read('js/clube-coupon-shop.js');
 const adminUi=read('js/admin.js');
 const fixture=read('tests/fixtures/coupon-late-pix-settlement-v1-853.sql');
-const replaySql=read('supabase/migrations/20261106150000_coupon_review_pix_replay_v1_859.sql');
+const replaySql=read('supabase/migrations/20261106143928_coupon_review_pix_replay_v1_859.sql');
 assert.match(replaySql,/v_invoice.status='review_required'/);
 assert.match(replaySql,/v_invoice.provider_payment_id=p_payment_id/);
 assert.match(replaySql,/v_invoice.paid_at IS NOT NULL/);
