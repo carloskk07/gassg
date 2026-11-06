@@ -4,6 +4,7 @@ const clubeCouponShopState={
   userId:null,status:'idle',packages:[],seller:null,error:null,busy:false,
   attempts:{},purchase:null,autoQueuedFor:null,regionPostal:''
 };
+const clubeCouponRefundState={userId:null,inFlight:new Set(),attempts:{}};
 function clubeCouponShopPanel(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return '';
@@ -90,7 +91,7 @@ function clubeCouponShopPanel(){
        purchase.status||'Em conferência')+'</p>'+
     (purchase.pixPayable===true&&partnerPixProven?(qrImage+
       (validCode?'<label>Código Pix copia e cola<textarea readonly rows="3" class="input">'+
-        esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()">Copiar código Pix</button>':'')+
+        esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()" '+(s?.busy?'disabled':'')+'>Copiar código Pix</button>':'')+
       paymentLink):'')+
     '<button type="button" class="secondary small" onclick="clubeCouponCheckInvoice(\''+
        esc(String(purchase.invoiceId||''))+'\')" '+(s?.busy?'disabled':'')+
@@ -297,13 +298,54 @@ async function clubeCouponCheckInvoice(invoiceId,nested=false){
 }
 async function clubeCouponCopyPix(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(clubeCouponShopState.userId!==uid||!uid)return;
-  const code=String(clubeCouponShopState.purchase?.pixCode||'');
-  if(code.length<30||code.length>3000)return;
+  const state=clubeCouponShopState;
+  if(!uid||!globalThis.liveReady?.()||state.userId!==uid||state.busy)return;
+  const purchase=state.purchase;
+  const invoiceId=String(purchase?.invoiceId||'');
+  const code=String(purchase?.pixCode||'');
+  const originalPostal=String(purchase?.servicePostalCode||'');
+  // A hidden or withdrawn Pix must not be copied by an old button while
+  // the previous BR code is still held in memory.
+  if(purchase?.status!=='awaiting_payment'||purchase?.pixPayable!==true||
+     !/^[0-9a-f-]{36}$/i.test(invoiceId)||code.length<30||code.length>3000||
+     (purchase?.fundingModel==='partner_funded'&&
+      !/^[0-9]{8}$/.test(originalPostal)))
+    return toast('Este código Pix não está confirmado. Confira a compra no histórico.');
+  state.busy=true;
+  if(route()==='club')render();
   try{
-    await navigator.clipboard.writeText(code);
-    toast('Código Pix copiado.');
-  }catch{toast('Selecione e copie o código Pix exibido.');}
+    // The server must recheck BOTH provider order and merchant eligibility
+    // at copy time. Existing tabs and their QR displays may be stale.
+    const fresh=await liveInvoke('coupon-credit-pix',{
+      action:'invoice-status',invoiceId
+    });
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid||
+       state.userId!==uid||state.purchase!==purchase)return;
+    if(fresh?.ok!==true||fresh.invoiceId!==invoiceId||
+       fresh.status!=='awaiting_payment'||fresh.pixPayable!==true||
+       String(fresh.pixCode||'')!==code||
+       fresh.fundingModel!==purchase.fundingModel||
+       (purchase.fundingModel==='partner_funded'&&
+        purchase.servicePostalCode!==originalPostal))
+      throw Error('COUPON_PIX_STALE_AT_COPY');
+    try{
+      await navigator.clipboard.writeText(code);
+      if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid&&
+         state.purchase===purchase)toast('Código Pix confirmado e copiado.');
+    }catch{
+      if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
+        toast('Selecione e copie o código Pix exibido.');
+    }
+  }catch{
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid&&
+       state.userId===uid){
+      if(state.purchase===purchase)state.purchase=null;
+      toast('O Pix antigo não foi confirmado. Não pague o código anterior; confira a compra no histórico.');
+    }
+  }finally{
+    if(state.userId===uid)state.busy=false;
+    if(route()==='club')render();
+  }
 }
 
 
@@ -315,6 +357,8 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   const id=String(inv.invoiceId||'');
   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
   const request=String(inv.refundStatus||'');
+  const refundPending=clubeCouponRefundState.userId===String(globalThis.liveRuntime?.session?.user?.id||'')&&
+    clubeCouponRefundState.inFlight.has(id);
   const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
   const seller=inv.seller;
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
@@ -336,21 +380,29 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
    (request==='refunded'&&inv.status==='refunded'?
      '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
     request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
-      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')">Conferir reembolso</button>':
+      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')" '+
+      (refundPending?'disabled':'')+'>Conferir reembolso</button>':
     allowed?'<label class="tiny">Motivo do cancelamento<select id="clube-refund-reason-'+id+'" class="input">'+
        '<option value="arrependimento">Desistência / arrependimento</option>'+
        '<option value="sem_atendimento">Não há revenda para utilizar</option>'+
        '<option value="outro">Outro motivo</option></select></label>'+
       '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
-       '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
+       '\')" '+
+       (refundPending?'disabled':'')+'>Solicitar cancelamento / reembolso</button>':'')+'</article>';
  }).join(''):'';
 }
 
 // A cancellation is a protocol/request, NOT an immediate Pix reversal.
+// Per-user, per-invoice lock avoids duplicate requests and repeated PSP checks.
+// The UUID remains stable across ambiguous network retries.
 async function clubeCouponRefundAsk(invoiceId){
  const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
  if(!uid||!globalThis.liveReady?.()||
     !/^[0-9a-f-]{36}$/i.test(String(invoiceId||'')))return;
+ if(clubeCouponRefundState.userId!==uid)Object.assign(clubeCouponRefundState,{
+   userId:uid,inFlight:new Set(),attempts:{}
+ });
+ if(clubeCouponRefundState.inFlight.has(invoiceId))return;
  const invoice=clubePaidCouponView.userId===uid&&clubePaidCouponView.status==='ready'?
   clubePaidCouponView.purchases.find(x=>x.invoiceId===invoiceId):null;
  if(!invoice||invoice.refundStatus==='refunded')return;
@@ -359,17 +411,28 @@ async function clubeCouponRefundAsk(invoiceId){
  if(!['arrependimento','sem_atendimento','outro'].includes(choice))
    return toast('Escolha o motivo do cancelamento.');
  if(!existing&&!window.confirm('Confirma o cancelamento do pacote? A devolução do Pix só aparece como concluída após confirmação do Mercado Pago.'))return;
+ const requestId=clubeCouponRefundState.attempts[invoiceId]||crypto.randomUUID();
+ clubeCouponRefundState.attempts[invoiceId]=requestId;
+ clubeCouponRefundState.inFlight.add(invoiceId);
+ if(route()==='club')render();
  try{
   const result=await liveInvoke('coupon-credit-pix',{action:'request-refund',
-    invoiceId,requestId:crypto.randomUUID(),reason:choice});
+    invoiceId,requestId,reason:choice});
   if(result?.ok!==true||result?.source!=='clube_coupon_refund_request_v1_814'||
      result?.invoiceId!==invoiceId)throw Error('COUPON_REFUND_REQUEST_UNVERIFIED');
   if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
-  toast('Pedido recebido. Protocolo: '+String(result.requestId).slice(0,8)+'. Aguardando análise do reembolso.');
+  if(result.status==='refunded'&&result.refundConfirmed===true)
+    toast('Reembolso confirmado. Protocolo: '+String(result.requestId).slice(0,8)+'.');
+  else
+    toast('Pedido recebido. Protocolo: '+String(result.requestId).slice(0,8)+'. Aguardando análise do reembolso.');
   await clubePaidCouponsRefresh();
  }catch{
   if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
-   toast('Não foi possível registrar o pedido. Consulte seu histórico e tente novamente.');
+   toast('Não foi possível confirmar o protocolo. Consulte seu histórico antes de tentar novamente.');
+ }finally{
+  if(clubeCouponRefundState.userId===uid)
+    clubeCouponRefundState.inFlight.delete(invoiceId);
+  if(route()==='club')render();
  }
 }
 

@@ -85,6 +85,8 @@ jobs:
         run: node tests/partner-coupon-pending-supply-replay-v1-852.mjs
       - name: V1.853 off-site coupon Pix settlement review on merchant withdrawal or cancellation
         run: node tests/coupon-late-pix-settlement-v1-853.mjs
+      - name: V1.854 verify still-payable Pix on copy and serialize refund requests
+        run: node tests/clube-pix-copy-refund-race-v1-854.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
