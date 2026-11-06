@@ -13,7 +13,7 @@ new vm.Script(helpers,{filename:'coupon-credit-pix-safe-replay.ts'});
 const routing=edge.slice(edge.indexOf('if(operation==="invoice-status")'),
   edge.indexOf('const amount=(Number(invoice.sale_price_cents)/100).toFixed(2)'));
 assert.match(routing,/const replay=await couponVerifiedReplay\(invoice,admin\)/);
-assert.match(routing,/const replay=await couponVerifiedReplay\(existing,admin\)/);
+assert.match(edge,/const replay=await couponVerifiedReplay\(existing,admin\)/);
 assert.match(helpers,/invoice\?\.funding_mode_v1_846==="partner_funded"/);
 assert.match(helpers,/partnerPendingInvoiceSafe\(admin,invoice\)/);
 assert.match(helpers,/PARTNER_COUPON_PENDING_SUPPLY_UNAVAILABLE/);
