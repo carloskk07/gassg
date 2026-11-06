@@ -4129,9 +4129,9 @@ Deno.serve(async(req:Request)=>{
          !["paid","review_required","refunded","cancelled","expired","prepared","awaiting_payment"].includes(inv.status)||
          !Number.isSafeInteger(inv.sale_price_cents)||inv.sale_price_cents<0||
          !Array.isArray(vouchers)||!Array.isArray(uses)||
-         !Number.isSafeInteger(voucherCount)||voucherCount<0||
+         typeof voucherCount!=="number"||!Number.isSafeInteger(voucherCount)||voucherCount<0||
          voucherCount!==vouchers.length||voucherCount>15||
-         !Number.isSafeInteger(historyCount)||historyCount<0||
+         typeof historyCount!=="number"||!Number.isSafeInteger(historyCount)||historyCount<0||
          historyCount<uses.length||
          vouchers.some((v:any)=>!UUID_RE.test(String(v.id??""))||
            !voucherStates.includes(String(v.status??"")))||
