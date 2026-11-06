@@ -47,11 +47,14 @@ BEGIN
  INTO v_vouchers_before FROM public.clube_coupon_paid_issuances
  WHERE invoice_id=v_invoice;
  BEGIN
+   -- Emulate an old in_review case with no #865 claim inside a savepoint.
+   -- The failed function rolls the temporary status change back.
+   UPDATE public.clube_coupon_refund_requests_v1_814
+   SET status='in_review' WHERE invoice_id=v_invoice;
    PERFORM public.admin_clube_coupon_refund_triage_v1_866(
      v_actor,v_invoice,v_request,pg_catalog.gen_random_uuid(),v_decision);
    RAISE EXCEPTION 'CI_866_UNASSIGNED_TRIAGE_ACCEPTED';
- EXCEPTION WHEN SQLSTATE '55000' THEN RAISE;
- WHEN SQLSTATE '42501' THEN NULL; END;
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  PERFORM public.admin_clube_coupon_refund_review_start_v1_865(
    v_actor,v_invoice,v_request,v_claim);
  BEGIN
