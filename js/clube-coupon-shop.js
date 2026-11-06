@@ -2,7 +2,7 @@
 // A failed commercial preflight never manufactures a public offer.
 const clubeCouponShopState={
   userId:null,status:'idle',packages:[],seller:null,error:null,busy:false,
-  attempts:{},purchase:null,autoQueuedFor:null
+  attempts:{},purchase:null,autoQueuedFor:null,regionPostal:''
 };
 function clubeCouponShopPanel(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
@@ -46,6 +46,16 @@ function clubeCouponShopPanel(){
      '<button type="button" class="primary small" onclick="clubeCouponBuy(\''+
      key+'\')" '+(s.busy?'disabled':'')+'>Comprar com Pix</button></article>';
   }).join('');
+  const currentPostal=String(s?.regionPostal||'');
+  const postalVerifier='<div class="card flat form-stack">'+
+    '<label>Consultar cupons de revendas participantes pelo CEP'+
+    '<input id="clube-partner-coupon-cep" class="input" inputmode="numeric" maxlength="9"'+
+    ' placeholder="00000-000" autocomplete="postal-code" value="'+esc(currentPostal)+'"></label>'+
+    '<button type="button" class="secondary small" onclick="clubeCouponVerifyPostal()" '+
+    (s?.busy?'disabled':'')+'>Verificar CEP para cupons de revendas</button>'+
+    (currentPostal?'<p class="tiny muted">Consulta: CEP '+esc(currentPostal)+
+     '. A oferta depende de revenda participante, estoque e disponibilidade atual.</p>':'')+
+    '</div>';
   const seller=s?.seller;
   const sellerInfo=seller?'<aside class="card flat form-stack" aria-label="Fornecedor dos cupons">'+
     '<strong>Quem vende os cupons</strong>'+
@@ -90,14 +100,25 @@ function clubeCouponShopPanel(){
    '<button type="button" class="secondary small" onclick="clubeCouponShopRefresh()" '+
    (s?.busy?'disabled':'')+'>Consultar pacotes</button></div>'+
    (offers?'<div class="grid cards-2">'+offers+'</div>':'')+
-   loading+error+sellerInfo+empty+payment+'</section>';
+   postalVerifier+loading+error+sellerInfo+empty+payment+'</section>';
+}
+async function clubeCouponVerifyPostal(){
+ const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
+ if(!uid||!globalThis.liveReady?.()||clubeCouponShopState.busy)return;
+ const raw=String(document.getElementById('clube-partner-coupon-cep')?.value||'');
+ const postal=raw.replace(/\D/g,'');
+ if(!/^[0-9]{8}$/.test(postal))
+   return toast('Informe um CEP com 8 números.');
+ if(clubeCouponShopState.userId!==uid)return;
+ clubeCouponShopState.regionPostal=postal;
+ await clubeCouponShopRefresh();
 }
 async function clubeCouponShopRefresh(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return;
   if(clubeCouponShopState.busy)return;
   if(clubeCouponShopState.userId!==uid)Object.assign(clubeCouponShopState,{
-    userId:uid,status:'idle',packages:[],seller:null,attempts:{},purchase:null
+    userId:uid,status:'idle',packages:[],seller:null,attempts:{},purchase:null,regionPostal:''
   });
   clubeCouponShopState.busy=true;
   try{
@@ -117,7 +138,10 @@ async function clubeCouponShopRefresh(){
     // block historical owner-sponsored packages or invent a new sale.
     let participating=[];
     try{
-      const partner=await liveInvoke('coupon-credit-pix',{action:'partner-catalog'});
+      const region=String(clubeCouponShopState.regionPostal||'');
+      const partner=/^[0-9]{8}$/.test(region)
+        ?await liveInvoke('coupon-credit-pix',{action:'partner-catalog',postalCode:region})
+        :{ok:true,source:'clube_partner_coupon_catalog_v1_849',packages:[]};
       if(partner?.ok===true&&partner?.source==='clube_partner_coupon_catalog_v1_849'
          &&Array.isArray(partner.packages)){
         participating=partner.packages.filter(p=>
@@ -127,6 +151,7 @@ async function clubeCouponShopRefresh(){
           Number.isSafeInteger(p.priceCents)&&p.priceCents===890&&
           p.faceCents===500&&p.couponCount===3&&p.validDays===180&&
           p.minOrderCents===1000&&p.eligibleProducts==='participating_merchants_only'&&
+          p.eligiblePostalCode===region&&
           typeof p.termsText==='string'&&p.termsText.length>600&&
           typeof p.seller?.name==='string'&&typeof p.seller?.taxDocument==='string'&&
           typeof p.seller?.address==='string'&&typeof p.seller?.supportEmail==='string'
@@ -163,6 +188,9 @@ async function clubeCouponBuy(packageKey){
   if(!document.getElementById('clube-coupon-terms-'+packageKey)?.checked)
     return toast('Leia e aceite as condições do pacote antes de comprar.');
   const partnerPurchase=p.fundingModel==='partner_funded';
+  if(partnerPurchase&&(!/^[0-9]{8}$/.test(String(clubeCouponShopState.regionPostal||''))||
+    p.eligiblePostalCode!==clubeCouponShopState.regionPostal))
+    return toast('Verifique seu CEP novamente antes de comprar este pacote.');
   if(p.termsVersion!==(partnerPurchase?'clube_partner_coupon_terms_v1_846':'clube_coupon_terms_v1_813'))
     return toast('Não foi possível confirmar a versão das condições. Atualize a página.');
   clubeCouponShopState.busy=true;
@@ -191,7 +219,8 @@ async function clubeCouponBuy(packageKey){
     const requestId=clubeCouponShopState.attempts[packageKey];
     const result=await liveInvoke('coupon-credit-pix',{
       action:partnerPurchase?'partner-purchase':'purchase',packageKey,requestId,
-      termsAccepted:true,termsVersion:p.termsVersion
+      termsAccepted:true,termsVersion:p.termsVersion,
+      ...(partnerPurchase?{postalCode:clubeCouponShopState.regionPostal}:{})
     });
     if(result?.ok!==true||(partnerPurchase&&result.fundingModel!=='partner_funded')||
        !/^[0-9a-f-]{36}$/i.test(String(result.invoiceId||'')))
@@ -300,5 +329,5 @@ async function clubeCouponRefundAsk(invoiceId){
 
 // ESM lazy load: onclick handlers must be available on the customer window.
 Object.assign(globalThis,{clubeCouponShopPanel,clubeCouponShopRefresh,
-  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,
+  clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,clubeCouponVerifyPostal,
   clubeCouponPurchasesPanel});
