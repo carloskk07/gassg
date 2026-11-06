@@ -4092,6 +4092,84 @@ Deno.serve(async(req:Request)=>{
       },200,origin);
     }
 
+    if(action==="clube-coupon-refund-review-inspect"){
+      // Finance-only investigation. No provider call, refund, write or closure.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Acesso financeiro obrigatório.",403);
+      const invoiceId=String(body.invoiceId??"");
+      const requestId=String(body.requestId??"");
+      if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId))
+        throw new DomainError("COUPON_REFUND_CASE_INVALID","Protocolo inválido.",400);
+      const {data:request,error:requestError}=await admin
+        .from("clube_coupon_refund_requests_v1_814")
+        .select("invoice_id,request_id,status,received_at")
+        .eq("invoice_id",invoiceId).eq("request_id",requestId).maybeSingle();
+      if(requestError)throw requestError;
+      if(!request||!["requested","in_review"].includes(request.status))
+        throw new DomainError("COUPON_REFUND_CASE_NOT_PENDING",
+          "Solicitação fora da fila; atualize a consulta.",409);
+      const [invoiceResult,voucherResult,historyResult]=await Promise.all([
+        admin.from("clube_coupon_paid_invoices")
+          .select("id,status,sale_price_cents,paid_at,provider_order_id,provider_payment_id")
+          .eq("id",invoiceId).maybeSingle(),
+        admin.from("clube_coupon_paid_issuances")
+          .select("id,status",{count:"exact"}).eq("invoice_id",invoiceId).limit(16),
+        admin.from("clube_coupon_paid_order_applications")
+          .select("order_id",{count:"exact"}).eq("invoice_id",invoiceId).limit(26)
+      ]);
+      if(invoiceResult.error||voucherResult.error||historyResult.error)
+        throw invoiceResult.error||voucherResult.error||historyResult.error;
+      const inv=invoiceResult.data;
+      const vouchers=voucherResult.data;
+      const uses=historyResult.data;
+      const voucherCount=voucherResult.count;
+      const historyCount=historyResult.count;
+      const voucherStates=["issued","reserved","redeemed","void","review_required"];
+      if(!inv||inv.id!==invoiceId||
+         !["paid","review_required","refunded","cancelled","expired","prepared","awaiting_payment"].includes(inv.status)||
+         !Number.isSafeInteger(inv.sale_price_cents)||inv.sale_price_cents<0||
+         !Array.isArray(vouchers)||!Array.isArray(uses)||
+         typeof voucherCount!=="number"||!Number.isSafeInteger(voucherCount)||voucherCount<0||
+         voucherCount!==vouchers.length||voucherCount>15||
+         typeof historyCount!=="number"||!Number.isSafeInteger(historyCount)||historyCount<0||
+         historyCount<uses.length||
+         vouchers.some((v:any)=>!UUID_RE.test(String(v.id??""))||
+           !voucherStates.includes(String(v.status??"")))||
+         uses.some((u:any)=>!UUID_RE.test(String(u.order_id??""))))
+        throw new DomainError("COUPON_REFUND_CASE_EVIDENCE_INCOMPLETE",
+          "A evidência financeira está incompleta.",503);
+      const historyCoverage=historyCount>25?"partial":"bounded_complete";
+      const orderIds=[...new Set(uses.slice(0,25).map((u:any)=>String(u.order_id)))];
+      const orderReconciliations=await Promise.all(orderIds.map(async(orderId)=>{
+        const {data,error}=await admin.rpc("clube_coupon_paid_order_reconciliation",{
+          p_order_id:orderId
+        });
+        if(error||data?.source!=="clube_coupon_paid_order_reconciliation_v1"||
+           !/^[A-Z][A-Z0-9_]{2,79}$/.test(String(data.status??"")))
+          throw new DomainError("COUPON_REFUND_CASE_RECONCILIATION_INCOMPLETE",
+            "Conciliação individual indisponível.",503);
+        return {orderId,status:String(data.status)};
+      }));
+      const voucherStatuses=Object.fromEntries(voucherStates.map(status=>[
+        status,vouchers.filter((v:any)=>v.status===status).length
+      ]));
+      return json({
+        ok:true,source:"clube_coupon_refund_case_inspection_v1",
+        readOnly:true,moneyMoved:false,writeAuthorized:false,
+        refundClosureAuthorized:false,providerRefundVerified:false,
+        invoiceId,requestId,requestStatus:String(request.status),
+        invoiceStatus:String(inv.status),salePriceCents:inv.sale_price_cents,
+        paymentReferencePresent:Boolean(inv.paid_at&&inv.provider_order_id&&inv.provider_payment_id),
+        voucherCount,voucherStatuses,historicalOrderCount:historyCount,
+        historyCoverage,orderReconciliations,
+        closureBlockers:[
+          "PROVIDER_REFUND_PROOF_REQUIRED",
+          ...(historyCount>0?["HISTORICAL_DISCOUNTS_REQUIRE_REVIEW"]:[]),
+          ...(historyCoverage==="partial"?["INCOMPLETE_ORDER_HISTORY"]:[])
+        ]
+      },200,origin);
+    }
+
     if(action==="clube-coupon-preview"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","A simulação exige perfil financeiro.",403);
