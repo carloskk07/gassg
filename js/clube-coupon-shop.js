@@ -91,7 +91,7 @@ function clubeCouponShopPanel(){
        purchase.status||'Em conferência')+'</p>'+
     (purchase.pixPayable===true&&partnerPixProven?(qrImage+
       (validCode?'<label>Código Pix copia e cola<textarea readonly rows="3" class="input">'+
-        esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()">Copiar código Pix</button>':'')+
+        esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()" '+(s?.busy?'disabled':'')+'>Copiar código Pix</button>':'')+
       paymentLink):'')+
     '<button type="button" class="secondary small" onclick="clubeCouponCheckInvoice(\''+
        esc(String(purchase.invoiceId||''))+'\')" '+(s?.busy?'disabled':'')+
@@ -357,6 +357,8 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   const id=String(inv.invoiceId||'');
   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
   const request=String(inv.refundStatus||'');
+  const refundPending=clubeCouponRefundState.userId===String(globalThis.liveRuntime?.session?.user?.id||'')&&
+    clubeCouponRefundState.inFlight.has(id);
   const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
   const seller=inv.seller;
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
@@ -378,13 +380,15 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
    (request==='refunded'&&inv.status==='refunded'?
      '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
     request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
-      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')">Conferir reembolso</button>':
+      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')" '+
+      (refundPending?'disabled':'')+'>Conferir reembolso</button>':
     allowed?'<label class="tiny">Motivo do cancelamento<select id="clube-refund-reason-'+id+'" class="input">'+
        '<option value="arrependimento">Desistência / arrependimento</option>'+
        '<option value="sem_atendimento">Não há revenda para utilizar</option>'+
        '<option value="outro">Outro motivo</option></select></label>'+
       '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+
-       '\')">Solicitar cancelamento / reembolso</button>':'')+'</article>';
+       '\')" '+
+       (refundPending?'disabled':'')+'>Solicitar cancelamento / reembolso</button>':'')+'</article>';
  }).join(''):'';
 }
 
