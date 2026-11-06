@@ -194,6 +194,8 @@ jobs:
         run: node tests/isolated-partner-coupon-buyer-region-v1-850.mjs
       - name: V1.853 quarantine off-site paid coupon after merchant withdrawal or refund request
         run: node tests/isolated-coupon-late-pix-settlement-v1-853.mjs
+      - name: V1.865 PostgreSQL refund case ownership, replay and immutable review audit
+        run: node tests/isolated-coupon-refund-review-claim-v1-865.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
