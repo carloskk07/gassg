@@ -310,6 +310,30 @@ assert.match(ctx.page(),/Análise assumida e registrada/);
 assert.match(ctx.page(),/Nenhum valor foi devolvido ou quitado/);
 assert.doesNotMatch(ctx.page(),/Assumir análise auditada/,
  'An already claimed case must not offer another claim button');
+assert.match(ctx.page(),/Revisar descontos e revenda/);
+assert.doesNotMatch(ctx.page(),/Exigir prova do provedor/);
+await ctx.refundTriage('provider_refund_proof_pending');
+assert.equal(triageCalls,0,'Previously used coupon cannot get provider-only triage');
+triagePayload={ok:true,source:'clube_coupon_refund_triage_v1_866',
+ invoiceId:inspectPayload.invoiceId,requestId:inspectPayload.requestId,
+ auditId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+ decision:'merchant_history_review',historicalOrderCount:2,
+ recordedAt:'2026-11-06T22:50:01Z',replayed:false,
+ readbackVerified:false,moneyMoved:false,providerRefundVerified:false,caseClosed:false};
+await ctx.refundTriage('merchant_history_review');
+assert.equal(triageCalls,1);
+assert.match(ctx.page(),/triagem não foi confirmada pelo histórico financeiro/);
+assert.equal(inspectPayload.triageDecision,null);
+triagePayload.readbackVerified=true;
+await ctx.refundTriage('merchant_history_review');
+assert.equal(triageCalls,2);
+assert.equal(triageAttemptUsed,'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+ 'An ambiguous triage retry must reuse the same UUID');
+assert.match(ctx.page(),/Classificação registrada/);
+assert.match(ctx.page(),/Histórico de descontos e obrigações da revenda em análise/);
+assert.match(ctx.page(),/O caso permanece aberto/);
+assert.doesNotMatch(ctx.page(),/Revisar descontos e revenda<\/button>/);
+
 
 assert.doesNotMatch(ctx.page(),/merchant-access-token|@example\.invalid/,
  'Finance queue must not reveal provider secrets or buyer emails');
