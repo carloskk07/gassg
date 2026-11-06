@@ -5957,6 +5957,69 @@ async function adminClubeRefundClaim(invoiceId,requestId){
        st.refundClaimRequestId===requestId){st.refundClaimPending=false;render();}
   }
 }
+async function adminClubeRefundTriage(decision){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const inspected=st.refundInspectFor===userId?st.refundInspectResult:null;
+  const allowed=['provider_refund_proof_pending',
+    'merchant_history_review','financial_anomaly_escalation'];
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!userId||!inspected||!allowed.includes(decision)||
+     inspected.requestStatus!=='in_review'||inspected.reviewClaimed!==true||
+     inspected.reviewerCanTriage!==true||inspected.triageDecision!==null||
+     inspected.refundClosureAuthorized!==false||
+     inspected.providerRefundVerified!==false||
+     st.loadedFor!==userId||st.refundTriagePending||st.refundInspectPending||
+     !Array.isArray(st.data?.refundWorkQueue)||
+     !st.data.refundWorkQueue.some(x=>x.invoiceId===inspected.invoiceId&&
+       x.requestId===inspected.requestId&&x.status==='in_review')||
+     !uuid.test(inspected.invoiceId)||!uuid.test(inspected.requestId)||
+     (inspected.historicalOrderCount>0&&decision==='provider_refund_proof_pending')||
+     (inspected.historicalOrderCount===0&&decision==='merchant_history_review'))return;
+  if(!globalThis.confirm('Registrar esta classificação financeira? Não comprova estorno, quita revenda ou encerra o protocolo.'))return;
+  const invoiceId=inspected.invoiceId,requestId=inspected.requestId;
+  const sameAttempt=st.refundTriageFor===userId&&
+    st.refundTriageInvoiceId===invoiceId&&
+    st.refundTriageRequestId===requestId&&st.refundTriageDecision===decision;
+  const attemptId=sameAttempt&&uuid.test(String(st.refundTriageAttemptId||''))
+    ?st.refundTriageAttemptId:globalThis.crypto?.randomUUID?.();
+  if(!uuid.test(String(attemptId||'')))return;
+  Object.assign(st,{refundTriageFor:userId,refundTriageInvoiceId:invoiceId,
+    refundTriageRequestId:requestId,refundTriageDecision:decision,
+    refundTriageAttemptId:attemptId,refundTriagePending:true,
+    refundTriageError:null,refundTriageReceipt:null});
+  render();
+  try{
+    const r=await adminInvoke({action:'clube-coupon-refund-triage-record',
+      invoiceId,requestId,attemptId,decision});
+    if(String(adminRuntime.session?.user?.id||'')!==userId||
+       st.refundTriageRequestId!==requestId||
+       st.refundTriageDecision!==decision)return;
+    if(r?.ok!==true||r?.source!=='clube_coupon_refund_triage_v1_866'||
+       r.invoiceId!==invoiceId||r.requestId!==requestId||
+       r.auditId!==attemptId||r.decision!==decision||
+       !Number.isSafeInteger(r.historicalOrderCount)||
+       r.historicalOrderCount!==inspected.historicalOrderCount||
+       !Number.isFinite(Date.parse(String(r.recordedAt||'')))||
+       typeof r.replayed!=='boolean'||r.readbackVerified!==true||
+       r.moneyMoved!==false||r.providerRefundVerified!==false||r.caseClosed!==false)
+      throw Error('A triagem não foi confirmada pelo histórico financeiro.');
+    st.refundTriageReceipt=r;
+    await adminClubeRefundInspect(invoiceId,requestId);
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundInspectResult?.triageDecision!==decision)
+      throw Error('A classificação ainda não apareceu na consulta. Recarregue o protocolo.');
+  }catch(e){
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundTriageRequestId===requestId)
+      st.refundTriageError=String(e?.message||'Não foi possível registrar a triagem.');
+  }finally{
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundTriageRequestId===requestId){st.refundTriagePending=false;render();}
+  }
+}
 async function adminClubeRefundInspect(invoiceId,requestId){
   if(!['superadmin','finance'].includes(adminCurrentRole())||
      adminRuntime.status!=='ready')return;
@@ -5981,6 +6044,17 @@ async function adminClubeRefundInspect(invoiceId,requestId){
        r.readOnly!==true||r.moneyMoved!==false||
        r.writeAuthorized!==false||r.refundClosureAuthorized!==false||
        r.providerRefundVerified!==false||
+       typeof r.reviewClaimed!=='boolean'||typeof r.reviewerCanTriage!=='boolean'||
+       (r.reviewerCanTriage===true&&r.reviewClaimed!==true)||
+       (r.reviewClaimed===true&&!Number.isFinite(Date.parse(String(r.reviewAssignedAt??''))))||
+       (r.reviewClaimed===false&&r.reviewAssignedAt!==null)||
+       (r.triageDecision!==null&&
+        (!['provider_refund_proof_pending','merchant_history_review',
+         'financial_anomaly_escalation'].includes(r.triageDecision)||
+         r.reviewClaimed!==true||
+         !uuid.test(String(r.triageAuditId||''))||
+         !Number.isFinite(Date.parse(String(r.triageAt||'')))))||
+       (r.triageDecision===null&&(r.triageAt!==null||r.triageAuditId!==null))||
        r.invoiceId!==invoiceId||r.requestId!==requestId||
        !['requested','in_review'].includes(r.requestStatus)||
        !['paid','review_required','refunded','cancelled','expired','prepared','awaiting_payment'].includes(r.invoiceStatus)||
