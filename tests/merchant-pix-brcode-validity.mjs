@@ -406,10 +406,13 @@ const unverifiedRequest={id:'request-123',requestKind:'package_purchase',
 const unverifiedHtml=billingView(unverifiedRequest);
 assert.match(unverifiedHtml,/Conferir e mostrar Pix/);
 assert.doesNotMatch(unverifiedHtml,/Pix copia e cola|QR ATIVO|<textarea|<img/);
+// Injecting providerVerified=true into a static row is NOT an authenticated
+// payment-display lease. Only the #857 dynamic PSP proof test may reveal
+// QR/copy after a real same-account verification and scoped expiration.
 const verifiedHtml=billingView({...unverifiedRequest,
   pixCharge:{...unverifiedRequest.pixCharge,providerVerified:true}});
-assert.match(verifiedHtml,/Pix copia e cola/);
-assert.match(verifiedHtml,/Copiar código Pix/);
+assert.match(verifiedHtml,/Conferir e mostrar Pix/);
+assert.doesNotMatch(verifiedHtml,/Pix copia e cola|Copiar código Pix|QR ATIVO/);
 
 // An actual provider-completed charge can have a different amount or an
 // unresolved request. The merchant view must not label it as paid/settled.
