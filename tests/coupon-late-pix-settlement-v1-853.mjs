@@ -15,7 +15,7 @@ assert.match(replaySql,/v_invoice.status='review_required'/);
 assert.match(replaySql,/v_invoice.provider_payment_id=p_payment_id/);
 assert.match(replaySql,/v_invoice.paid_at IS NOT NULL/);
 assert.match(replaySql,/v_invoice.coupon_settlement_hold_reason_v1_853/);
-assert.match(replaySql,/NOT EXISTS[\\s\\S]*?clube_coupon_paid_issuances/);
+assert.ok(replaySql.includes('NOT EXISTS (') && replaySql.includes('FROM public.clube_coupon_paid_issuances i'));
 assert.match(replaySql,/COUPON_PAYMENT_REVIEW_STATE_UNVERIFIED/);
 assert.match(fixture,/CI_859_REPLAY_RESURRECTED_WITHDRAWN_COUPONS/);
 assert.match(fixture,/CI_859_CONFLICTING_PIX_ACKED/);
