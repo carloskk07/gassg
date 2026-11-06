@@ -3932,11 +3932,13 @@ Deno.serve(async(req:Request)=>{
         throw invoiceResult.error||voucherResult.error||applicationResult.error||refundResult.error;
       }
       const activeRefundRows=refundResult.data||[];
+      const refundPendingCount=refundResult.count;
       // Exact count is mandatory. Never interpret a null count or malformed
       // record as zero refund requests waiting for human attention.
       if(!Array.isArray(refundResult.data)||
-         !Number.isSafeInteger(refundResult.count)||refundResult.count<0||
-         refundResult.count<activeRefundRows.length||
+         typeof refundPendingCount!=="number"||
+         !Number.isSafeInteger(refundPendingCount)||refundPendingCount<0||
+         refundPendingCount<activeRefundRows.length||
          activeRefundRows.some((row:any)=>
            !UUID_RE.test(String(row.invoice_id??""))||
            !UUID_RE.test(String(row.request_id??""))||
@@ -3953,7 +3955,7 @@ Deno.serve(async(req:Request)=>{
             .select("order_id",{count:"exact",head:true})
             .eq("invoice_id",row.invoice_id);
           if(error)throw error;
-          if(!Number.isSafeInteger(count)||count<0)
+          if(typeof count!=="number"||!Number.isSafeInteger(count)||count<0)
             throw new DomainError("COUPON_REFUND_HISTORY_INCOMPLETE",
               "Histórico de cupons incompleto para análise.",503);
           return {invoiceId:String(row.invoice_id),
@@ -3962,7 +3964,7 @@ Deno.serve(async(req:Request)=>{
             historicalOrderCount:count,requiresHistoryReview:count>0};
         })
       );
-      const refundQueueTruncated=refundResult.count>refundWorkQueue.length;
+      const refundQueueTruncated=refundPendingCount>refundWorkQueue.length;
       // A bounded list is never allowed to report all-clear when truncated.
       const bounded=packageResult.data?.length===101||
         invoiceResult.data?.length===101||
@@ -4070,7 +4072,7 @@ Deno.serve(async(req:Request)=>{
         checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
         packageCount:packages.length,invoiceCount:invoiceRows.length,
         invoiceWorkQueue,invoiceWorkQueueCoverage:bounded?"partial":"bounded_complete",
-        refundRequestPendingCount:refundResult.count,
+        refundRequestPendingCount:refundPendingCount,
         refundWorkQueue,refundWorkQueueCoverage:
           refundQueueTruncated?"partial":"bounded_complete",
         voucherCount:voucherRows.length,
