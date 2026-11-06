@@ -9,7 +9,9 @@ const take=(a,b)=>{
  assert.ok(from>0&&to>from,'missing code boundary '+a);
  return code.slice(from,to);
 };
-const source=take('// A verified merchant Pix belongs to exactly one authenticated merchant,',
+const lazy=fs.readFileSync(new URL('../js/merchant-billing-flow.js',import.meta.url),'utf8');
+const source=lazy+'\n'+
+ take('function merchantAcceptVerifiedBillingPix(result,merchantId){',
  'function merchantBenefitsContractSection(r)')+
  '\n'+take('async function merchantCopyBillingPixCode(paymentRequestId){',
  '\nasync function merchantRequestBillingPackageFromUi(');
