@@ -319,6 +319,11 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   const seller=inv.seller;
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
    '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   (inv.status==='review_required'&&[
+      'PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT',
+      'COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT'
+    ].includes(String(inv.settlementReviewReason||''))?
+      '<p class="notice">Pagamento Pix identificado. Os cupons não foram liberados porque a oferta da revenda ficou indisponível ou já havia solicitação de cancelamento. O reembolso depende de verificação do Mercado Pago; acompanhe ou solicite no histórico.</p>':'')+
    (inv.fundingModel==='partner_funded'
     ?'<p class="tiny">Cupom pago financiado pela revenda participante. CEP da compra: '+
      esc(String(inv.servicePostalCode||'não informado'))+'. O desconto depende de adesão da revenda e pedido elegível; o TAMÃO não o converte em cashback comum.</p>'

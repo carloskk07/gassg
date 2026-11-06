@@ -6153,7 +6153,12 @@ function adminClubeReleaseReportsView(){
           '>Selecionar fatura '+esc(item.invoiceId.slice(0,8))+
           ' • Pix pago, líquido pendente • R$ '+esc((item.salePriceCents/100).toFixed(2))+'</button>'
         :'<p class="tiny muted">Fatura '+esc(item.invoiceId.slice(0,8))+
-          ' • Revisão financeira obrigatória; não conciliar como pagamento regular.</p>').join('')+
+          ' • Revisão financeira obrigatória; não conciliar como pagamento regular.'+
+          (item.settlementReviewReason==='PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT'
+            ?' Pix recebido após indisponibilidade da revenda; verificar cancelamento e possível devolução.':
+           item.settlementReviewReason==='COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT'
+            ?' Pix recebido após solicitação de cancelamento; verificar devolução.':'')+
+          '</p>').join('')+
       '<p class="tiny muted">Esta fila não certifica pagamentos. Exige extrato oficial e conferência independente.</p></div>':''}
     ${reports.length?'<label for="admin-clube-release-invoice">ID da fatura de cupom pago</label>'+
       '<input id="admin-clube-release-invoice" class="input" type="text" maxlength="36" autocomplete="off" '+

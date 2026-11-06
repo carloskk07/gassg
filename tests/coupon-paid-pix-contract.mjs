@@ -404,6 +404,7 @@ assert.equal((await decide('processed','processed',[],'paid',
 assert.equal((await decide('processed','processed',validRefund,'paid',
  {payment:'partially_refunded'})).route,
  'clube_coupon_paid_payment_review','partial detail conflicts with alleged complete refund');
+providerRpcResult={ok:true,replayed:true,invoiceId:'invoice-1'};
 assert.equal((await decide('processed')).route,
  'clube_coupon_paid_payment_verify','fully confirmed PSP payment still verifies normally');
 // A refund can still be pending while both PSP statuses say accredited.
@@ -487,6 +488,7 @@ currentPspOrder={id:'order-1',external_reference:'invoice-1',
   id:'payment-1',amount:'15.00',status:'processed',
   status_detail:'accredited',payment_method:{id:'pix',type:'bank_transfer'}
  }],refunds:[]}};
+providerRpcResult={ok:true,replayed:false,issued:2,invoiceId:'invoice-1'};
 const validPay=await webhookSandbox.handlePaidCouponOrder(
  mockAdmin,'order-1',{...invoiceForWebhook,status:'awaiting_payment'},'test-only-token');
 assert.equal(validPay.status,200,'legitimate non-sandbox order must remain issuable');

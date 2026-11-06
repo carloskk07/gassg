@@ -205,6 +205,7 @@ function publicInvoice(row:any){
  const payable=couponInvoiceCanPresent(row);
  const covered=couponInvoiceNetCovered(row);
  return {invoiceId:row.id,status:row.status,amountCents:row.sale_price_cents,
+  settlementReviewReason:row.status==="review_required"?row.coupon_settlement_hold_reason_v1_853:null,
    provider:"mercadopago",pixCode:payable?row.pix_br_code:null,
    paymentUrl:payable?couponOfficialPixTicket(row.payment_url):null,
    pixPayable:payable,
@@ -351,7 +352,7 @@ Deno.serve(async(req:Request)=>{
     });
     let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email,funding_mode_v1_846,funding_terms_version_v1_846,terms_version,terms_accepted_at,buyer_postal_code_v1_850")
+      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email,funding_mode_v1_846,funding_terms_version_v1_846,terms_version,terms_accepted_at,buyer_postal_code_v1_850,coupon_settlement_hold_reason_v1_853")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError&&String(invoiceError.code)==="42703"){
@@ -388,6 +389,7 @@ Deno.serve(async(req:Request)=>{
         amountCents:row.sale_price_cents,createdAt:row.created_at,
         servicePostalCode:row.funding_mode_v1_846==='partner_funded'?row.buyer_postal_code_v1_850:null,
         paidAt:row.paid_at,
+        settlementReviewReason:row.status==="review_required"?row.coupon_settlement_hold_reason_v1_853:null,
         fundingModel:row.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed',
         fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
         seller:row.seller_name?{

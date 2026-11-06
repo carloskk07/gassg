@@ -824,6 +824,18 @@ async function handlePaidCouponOrder(
    p_payment_id:String(pix.id??""),p_amount_cents:amount
   });
   if(error)throw error;
+  // The DB may have quarantined a verified, already-paid external Pix because
+  // merchant supply vanished or the buyer requested cancellation before
+  // settlement. Never claim success/issue benefits from a provider ACK alone.
+  if(data?.reviewRequired===true && data?.providerPaymentRecorded===true &&
+     ["PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT",
+      "COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT"].includes(String(data?.reason??""))){
+    return json({ok:true,route:"coupon_funding",provider:"mercadopago",
+      status:"review_required",reviewRequired:true,
+      refundReviewRequired:true,issuedCoupons:0,reason:data.reason},200);
+  }
+  if(data?.ok!==true)
+    throw new Error("COUPON_SETTLEMENT_READBACK_UNVERIFIED");
   return json({ok:true,route:"coupon_funding",provider:"mercadopago",
    status:"paid",replayed:data?.replayed===true},200);
  }
