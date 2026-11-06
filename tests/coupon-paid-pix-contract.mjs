@@ -370,7 +370,7 @@ for(const state of ['refunded','partially_refunded','charged_back',
   'PSP payment status must force finance review even if parent order is processed');
  assert.equal(result.status,'review_required');
 }
-const validRefund=[{id:'refund-1',status:'processed',amount:'15.00'}];
+const validRefund=[{id:'refund-1',status:'processed',amount:'15.00',transaction_id:'payment-1'}];
 providerRpcResult={ok:true,refunded:true,replayed:false};
 const completedRefund=await decide('refunded','processed',validRefund);
 assert.equal(completedRefund.route,'clube_coupon_paid_payment_refund',
@@ -415,6 +415,7 @@ for(const [name,refund] of [
  ['unknown refund',{id:'refund-unknown',status:'unknown',amount:'15.00'}],
  ['missing refund ID',{status:'processed',amount:'15.00'}],
  ['missing refund amount',{id:'refund-no-amount',status:'processed'}],
+ ['missing Pix transaction',{id:'refund-no-pix',status:'processed',amount:'15.00'}],
  ['other Pix refund',{id:'refund-other',status:'processed',amount:'15.00',
    transaction_id:'wrong-pix-id'}]
 ]){

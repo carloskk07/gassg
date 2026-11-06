@@ -290,6 +290,24 @@ async function couponVerifiedReplay(invoice:any,admin:any){
  }
  return {ok:true,...publicInvoice(invoice)};
 }
+// A refund may close a #853 received-Pix hold ONLY if no voucher has
+// ever been issued. An exact count prevents truncated voucher reads from
+// overlooking spent or reserved benefits.
+function couponRefundNoExposureEligible(invoice:any,vouchers:any,totalCount:any){
+ if(!invoice||!Array.isArray(vouchers)||!Number.isSafeInteger(totalCount)||
+    totalCount!==vouchers.length)return false;
+ if(invoice.status==="paid"){
+   return totalCount>0&&totalCount===Number(invoice.coupons_per_pack)&&
+     vouchers.every((v:any)=>v.status==="issued"||v.status==="void");
+ }
+ return invoice.status==="review_required"&&totalCount===0&&
+   ["PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT",
+    "COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT"].includes(
+      String(invoice.coupon_settlement_hold_reason_v1_853??""))&&
+   Boolean(invoice.paid_at)&&
+   String(invoice.provider_payment_id??"").trim().length>=3;
+}
+
 // Independent GET proof of a completed, full Mercado Pago Orders API refund.
 // A successful refund POST, mutable invoice flag or unverified provider status
 // cannot substitute for this exact Pix/order/amount/refund binding.
@@ -443,15 +461,15 @@ Deno.serve(async(req:Request)=>{
     if(data.status==="requested"&&mercadoPagoConfigured(MP_TOKEN)){
       try{
         const {data:invoice,error:invoiceErr}=await admin.from("clube_coupon_paid_invoices")
-          .select("id,status,customer_user_id,sale_price_cents,provider_order_id,provider_payment_id")
+          .select("id,status,customer_user_id,sale_price_cents,provider_order_id,provider_payment_id,paid_at,coupon_settlement_hold_reason_v1_853,coupons_per_pack")
           .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
         if(invoiceErr)throw invoiceErr;
-        if(invoice?.status==="paid"&&invoice?.provider_order_id&&invoice?.provider_payment_id){
-          const {data:vouchers,error:voucherErr}=await admin.from("clube_coupon_paid_issuances")
-            .select("status").eq("invoice_id",invoiceId).limit(20);
+        if((invoice?.status==="paid"||invoice?.status==="review_required")&&
+           invoice?.provider_order_id&&invoice?.provider_payment_id){
+          const {data:vouchers,count:issuedCount,error:voucherErr}=await admin.from("clube_coupon_paid_issuances")
+            .select("status",{count:"exact"}).eq("invoice_id",invoiceId).limit(100);
           if(voucherErr)throw voucherErr;
-          const eligible=Array.isArray(vouchers)&&vouchers.length>0&&
-            vouchers.every((v:any)=>v.status==="issued"||v.status==="void");
+          const eligible=couponRefundNoExposureEligible(invoice,vouchers,issuedCount);
           if(eligible){
             const orderId=String(invoice.provider_order_id);
             const endpoint="/v1/orders/"+encodeURIComponent(orderId);

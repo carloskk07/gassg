@@ -131,6 +131,45 @@ BEGIN
     OR (SELECT count(*) FROM public.clube_coupon_paid_issuances
         WHERE invoice_id=v_legacy)<>2
  THEN RAISE EXCEPTION 'CI_853_LEGACY_REPLAY_NOT_IDEMPOTENT'; END IF;
+ -- #860: This disposable test invokes the financial RPC as if a full,
+ -- independently VERIFIED provider refund had just been observed.
+ -- No actual provider request, charge or bank transfer is attempted.
+ v_result:=public.clube_coupon_paid_payment_refund(
+   v_partner,'CI-853-WITHDRAWN');
+ IF v_result->>'ok'<>'true' OR v_result->>'refunded'<>'true'
+    OR v_result->>'reviewHoldClosed'<>'true'
+    OR EXISTS(SELECT 1 FROM public.clube_coupon_paid_issuances
+       WHERE invoice_id=v_partner)
+    OR NOT EXISTS(SELECT 1 FROM public.clube_coupon_paid_invoices
+       WHERE id=v_partner AND status='refunded' AND refunded_at IS NOT NULL)
+ THEN RAISE EXCEPTION 'CI_860_PARTNER_HOLD_REFUND_NOT_CLOSED'; END IF;
+ v_result:=public.clube_coupon_paid_payment_refund(
+   v_partner,'CI-853-WITHDRAWN');
+ IF v_result->>'replayed'<>'true' OR v_result->>'refunded'<>'true'
+ THEN RAISE EXCEPTION 'CI_860_PARTNER_REFUND_NOT_IDEMPOTENT'; END IF;
+
+ -- The buyer cancelled before the provider settled: the protocol must
+ -- become refunded in the SAME transaction only after full PSP proof.
+ v_result:=public.clube_coupon_paid_payment_refund(
+   v_refund,'CI-853-REFUND-FIRST');
+ IF v_result->>'refunded'<>'true'
+    OR NOT EXISTS(SELECT 1 FROM public.clube_coupon_refund_requests_v1_814
+       WHERE invoice_id=v_refund AND status='refunded')
+    OR EXISTS(SELECT 1 FROM public.clube_coupon_paid_issuances
+       WHERE invoice_id=v_refund)
+ THEN RAISE EXCEPTION 'CI_860_BUYER_REFUND_PROTOCOL_NOT_SYNCED'; END IF;
+
+ -- Existing paid coupons whose vouchers were issued and later quarantined
+ -- must remain in manual review: never pretend their refunds are settled.
+ PERFORM public.clube_coupon_paid_payment_review(
+   v_legacy,'CI-853-LEGACY-GOOD');
+ v_result:=public.clube_coupon_paid_payment_refund(
+   v_legacy,'CI-853-LEGACY-GOOD');
+ IF v_result->>'reviewRequired'<>'true'
+    OR v_result->>'refunded'<>'false'
+    OR EXISTS(SELECT 1 FROM public.clube_coupon_paid_invoices
+       WHERE id=v_legacy AND status='refunded')
+ THEN RAISE EXCEPTION 'CI_860_LEGACY_REVIEW_BYPASSED'; END IF;
 END;
 $test$;
 ROLLBACK;
