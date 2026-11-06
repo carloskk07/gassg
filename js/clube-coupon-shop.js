@@ -317,8 +317,8 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
    (seller?'<p class="tiny muted">Vendedor: '+esc(String(seller.name||''))+
       ' · '+esc(String(seller.taxDocument||''))+'</p>':'')+
    (inv.status==='awaiting_payment'?
-      '<button class="secondary small" type="button" onclick="clubeCouponCheckInvoice(\\''+id+
-      '\\')">Conferir Pix desta compra</button>':'')+
+      '<button class="secondary small" type="button" onclick="clubeCouponCheckInvoice(\''+id+
+      '\')">Conferir Pix desta compra</button>':'')+
    (request==='refunded'&&inv.status==='refunded'?
      '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
     request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
