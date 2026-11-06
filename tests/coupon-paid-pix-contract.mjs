@@ -371,7 +371,23 @@ for(const state of ['refunded','partially_refunded','charged_back',
  assert.equal(result.status,'review_required');
 }
 const validRefund=[{id:'refund-1',status:'processed',amount:'15.00',transaction_id:'payment-1'}];
+const duplicateRefund=[
+ {id:'refund-half-1',status:'processed',amount:'7.50',transaction_id:'payment-1'},
+ {id:'refund-half-1',status:'processed',amount:'7.50',transaction_id:'payment-1'}];
+const distinctRefunds=[
+ {id:'refund-half-1',status:'processed',amount:'7.50',transaction_id:'payment-1'},
+ {id:'refund-half-2',status:'processed',amount:'7.50',transaction_id:'payment-1'}];
+providerRpcResult={ok:false,reviewRequired:true,refunded:false};
+assert.equal((await decide('refunded','processed',duplicateRefund)).route,
+ 'clube_coupon_paid_payment_review',
+ 'two copies of SAME provider refund ID cannot count as fully refunded');
+assert.equal((await decide('processed','processed',duplicateRefund)).route,
+ 'clube_coupon_paid_payment_review',
+ 'duplicated refund ID must be held during partial payment states too');
 providerRpcResult={ok:true,refunded:true,replayed:false};
+assert.equal((await decide('refunded','processed',distinctRefunds)).route,
+ 'clube_coupon_paid_payment_refund',
+ 'two distinct completed provider refund IDs form a legitimate full refund');
 const completedRefund=await decide('refunded','processed',validRefund);
 assert.equal(completedRefund.route,'clube_coupon_paid_payment_refund',
  'verified full refund may call the existing SQL refund RPC');
