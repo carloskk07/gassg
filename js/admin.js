@@ -5904,6 +5904,59 @@ async function adminClubeFinanceRefresh(){
     if(String(adminRuntime.session?.user?.id||'')===userId)render();
   }
 }
+async function adminClubeRefundClaim(invoiceId,requestId){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const inspected=st.refundInspectFor===userId?st.refundInspectResult:null;
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!userId||!uuid.test(invoiceId)||!uuid.test(requestId)||
+     st.loadedFor!==userId||st.refundClaimPending||
+     st.refundInspectPending||!inspected||
+     inspected.invoiceId!==invoiceId||inspected.requestId!==requestId||
+     inspected.requestStatus!=='requested'||inspected.readOnly!==true||
+     inspected.refundClosureAuthorized!==false)return;
+  if(!globalThis.confirm('Assumir a análise deste protocolo? Isso registra o responsável, mas NÃO devolve Pix, encerra reembolso ou quita revenda.'))return;
+  const sameAttempt=st.refundClaimFor===userId&&
+     st.refundClaimInvoiceId===invoiceId&&
+     st.refundClaimRequestId===requestId;
+  const attemptId=sameAttempt&&uuid.test(String(st.refundClaimAttemptId||''))
+    ?st.refundClaimAttemptId:globalThis.crypto?.randomUUID?.();
+  if(!uuid.test(String(attemptId||'')))return;
+  Object.assign(st,{refundClaimPending:true,refundClaimFor:userId,
+    refundClaimInvoiceId:invoiceId,refundClaimRequestId:requestId,
+    refundClaimAttemptId:attemptId,refundClaimError:null,refundClaimReceipt:null});
+  render();
+  try{
+    const r=await adminInvoke({action:'clube-coupon-refund-review-start',
+      invoiceId,requestId,attemptId});
+    if(String(adminRuntime.session?.user?.id||'')!==userId||
+       st.refundClaimRequestId!==requestId)return;
+    if(r?.ok!==true||r?.source!=='clube_coupon_review_start_v1_865'||
+       r.invoiceId!==invoiceId||r.requestId!==requestId||
+       r.auditId!==attemptId||r.status!=='in_review'||
+       !Number.isFinite(Date.parse(String(r.reviewStartedAt||'')))||
+       typeof r.replayed!=='boolean'||r.readbackVerified!==true||
+       r.moneyMoved!==false||r.refundConfirmed!==false||
+       r.caseClosed!==false)
+      throw Error('A revisão não foi confirmada pelo histórico financeiro.');
+    st.refundClaimReceipt=r;
+    st.refundInspectResult=null;
+    await adminClubeFinanceRefresh();
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       Array.isArray(st.data?.refundWorkQueue)&&
+       st.data.refundWorkQueue.some(x=>x.invoiceId===invoiceId&&x.requestId===requestId))
+      await adminClubeRefundInspect(invoiceId,requestId);
+  }catch(e){
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundClaimRequestId===requestId)
+      st.refundClaimError=String(e?.message||'Não foi possível assumir a análise.');
+  }finally{
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundClaimRequestId===requestId){st.refundClaimPending=false;render();}
+  }
+}
 async function adminClubeRefundInspect(invoiceId,requestId){
   if(!['superadmin','finance'].includes(adminCurrentRole())||
      adminRuntime.status!=='ready')return;
@@ -6313,6 +6366,10 @@ function adminClubeFinanceView(){
     ?state.refundInspectError:null;
   const inspectionPending=sameUser&&state.refundInspectFor===String(adminRuntime.session.user.id)
     &&state.refundInspectPending===true;
+  const claimReceipt=sameUser&&state.refundClaimFor===String(adminRuntime.session.user.id)
+    ?state.refundClaimReceipt:null;
+  const claimError=sameUser&&state.refundClaimFor===String(adminRuntime.session.user.id)
+    ?state.refundClaimError:null;
   const readyCount=data&&data.schemaInstalled===true&&
     data.coverage==='bounded_under_limits';
   const entries=readyCount?[
@@ -6393,6 +6450,11 @@ function adminClubeFinanceView(){
          (inspectionPending&&state.refundInspectRequestId===item.requestId?'Conferindo…':'Examinar histórico')+'</button>'+
         '</div>').join('')+
       (inspectionError?'<p role="alert" class="notice danger">'+esc(inspectionError)+'</p>':'')+
+      (claimError?'<p role="alert" class="notice danger">'+esc(claimError)+'</p>':'')+
+      (claimReceipt&&refundQueue.some(x=>x.requestId===claimReceipt.requestId&&
+          x.invoiceId===claimReceipt.invoiceId)
+       ?'<p role="status" class="notice">Análise assumida e registrada. Auditoria: <code>'+
+         esc(claimReceipt.auditId)+'</code>. Nenhum valor foi devolvido ou quitado.</p>':'')+
       (inspected&&refundQueue.some(item=>item.invoiceId===inspected.invoiceId&&item.requestId===inspected.requestId)
        ?'<div class="card flat admin-refund-case-detail" role="region" aria-label="Detalhamento do protocolo">'+
         '<h5>Detalhamento financeiro — somente leitura</h5>'+
@@ -6408,6 +6470,13 @@ function adminClubeFinanceView(){
         inspected.orderReconciliations.map(x=>'<p class="tiny muted">Pedido <code>'+
           esc(x.orderId)+'</code> • Conciliação: '+esc(x.status)+'</p>').join('')+
         '<p role="alert" class="notice">Encerramento bloqueado: esta análise NÃO comprova estorno do Pix nem pagamento à revenda; nenhuma alteração financeira foi realizada.</p>'+
+        (inspected.requestStatus==='requested'
+          ?'<button type="button" class="secondary" '+
+           (state.refundClaimPending?'disabled ':'')+
+           'onclick="adminClubeRefundClaim(&quot;'+esc(inspected.invoiceId)+
+           '&quot;,&quot;'+esc(inspected.requestId)+'&quot;)">'+
+           (state.refundClaimPending?'Registrando…':'Assumir análise auditada')+'</button>'
+          :'<p class="tiny muted">Este protocolo já está em análise. Confira o histórico auditável antes de tomar qualquer decisão.</p>')+
         '</div>':'')+
       (Number.isSafeInteger(data.refundRequestPendingCount)&&data.refundRequestPendingCount===0
         ?'<p class="tiny muted">Nenhum protocolo aberto na consulta atual.</p>':'')+
