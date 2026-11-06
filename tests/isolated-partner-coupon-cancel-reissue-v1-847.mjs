@@ -144,6 +144,10 @@ assert.equal(sql("SELECT count(*) FROM public.clube_partner_coupon_order_uses_v1
 // the paid invoice and restored voucher look unused to a status-only check.
 // Pretend the PSP refund has already been independently verified, invoke the
 // DB settlement RPC in a ROLLED BACK transaction, and prove it fails closed.
+assert.equal(sql("SELECT count(*) FROM pg_indexes WHERE schemaname='public'"+
+ " AND tablename='clube_coupon_paid_order_applications'"+
+ " AND indexname='clube_coupon_application_invoice_history_v1_862'"),'1',
+ 'immutable coupon history must have a searchable invoice index');
 const refundProbe=[
  'BEGIN;',
  'DO $history_862$ DECLARE v_result jsonb; BEGIN',
