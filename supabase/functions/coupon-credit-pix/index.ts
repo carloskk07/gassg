@@ -293,9 +293,12 @@ async function couponVerifiedReplay(invoice:any,admin:any){
 // A refund may close a #853 received-Pix hold ONLY if no voucher has
 // ever been issued. An exact count prevents truncated voucher reads from
 // overlooking spent or reserved benefits.
-function couponRefundNoExposureEligible(invoice:any,vouchers:any,totalCount:any){
+function couponRefundNoExposureEligible(invoice:any,vouchers:any,totalCount:any,priorUses:any){
+ // Order applications survive the #847 cancellation/reissue cycle.
+ // A voucher currently 'issued' may have redeemed multiple orders before.
  if(!invoice||!Array.isArray(vouchers)||!Number.isSafeInteger(totalCount)||
-    totalCount!==vouchers.length)return false;
+    totalCount!==vouchers.length||!Number.isSafeInteger(priorUses)||priorUses!==0)
+   return false;
  if(invoice.status==="paid"){
    return totalCount>0&&totalCount===Number(invoice.coupons_per_pack)&&
      vouchers.every((v:any)=>v.status==="issued"||v.status==="void");
@@ -473,7 +476,16 @@ Deno.serve(async(req:Request)=>{
           const {data:vouchers,count:issuedCount,error:voucherErr}=await admin.from("clube_coupon_paid_issuances")
             .select("status",{count:"exact"}).eq("invoice_id",invoiceId).limit(100);
           if(voucherErr)throw voucherErr;
-          const eligible=couponRefundNoExposureEligible(invoice,vouchers,issuedCount);
+          // Read the immutable complete voucher-to-order history, not only
+          // today's mutable voucher statuses. Any history/failed query prevents
+          // automatically requesting money back from the provider.
+          const {count:priorUses,error:useErr}=await admin
+            .from("clube_coupon_paid_order_applications")
+            .select("voucher_id",{count:"exact",head:true})
+            .eq("invoice_id",invoiceId);
+          if(useErr)throw useErr;
+          const eligible=couponRefundNoExposureEligible(
+            invoice,vouchers,issuedCount,priorUses);
           if(eligible){
             const orderId=String(invoice.provider_order_id);
             const endpoint="/v1/orders/"+encodeURIComponent(orderId);
