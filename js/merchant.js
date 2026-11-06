@@ -922,7 +922,10 @@ function merchantHideVerifiedBillingPix(expected=null){
 }
 function merchantArmVerifiedBillingPix(request,merchantId){
  const rt=globalThis.merchantRuntime,p=merchantBillingPixProof;
- merchantHideVerifiedBillingPix();
+ // The previous proof is cleared before the current row is written.
+ // Re-arming must not erase the newly verified credentials.
+ if(p.timer!==null&&typeof clearTimeout==='function')clearTimeout(p.timer);
+ p.timer=null;p.until=0;
  if(!rt||!request||rt.status!=='ready'||!rt.session?.user?.id||
     rt.merchant?.merchantId!==merchantId||request.pixCharge?.status!=='active'||
     (rt.selectedMerchantId&&rt.selectedMerchantId!==merchantId)||
@@ -965,6 +968,7 @@ function merchantAcceptVerifiedBillingPix(result,merchantId){
     ||Number(persisted.amountCents)!==Number(charge.amountCents)
     ||persisted.expiresAt!==charge.expiresAt
     ||typeof charge.brCode!=='string'||charge.brCode.length<30)return false;
+  merchantHideVerifiedBillingPix();
   request.pixCharge={...persisted,brCode:charge.brCode,
     qrCodeDataUri:charge.qrCodeDataUri??null,
     paymentLinkUrl:charge.paymentLinkUrl??null,
