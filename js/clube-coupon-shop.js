@@ -250,8 +250,12 @@ async function clubeCouponBuy(packageKey){
     // Retain same request UUID during ambiguous retries / pending payments.
     await clubePaidCouponsRefresh();
   }catch(err){
-    if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
-      toast('Não foi possível confirmar o Pix. Consulte o pedido antes de tentar novamente.');
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid){
+      if(err?.code==='PARTNER_COUPON_PENDING_SUPPLY_UNAVAILABLE'){
+        clubeCouponShopState.purchase=null;
+        toast('O Pix anterior não pode ser reutilizado: a oferta da revenda mudou. Não pague o código antigo; consulte o histórico para cancelar ou solicitar reembolso.');
+      }else toast('Não foi possível confirmar o Pix. Consulte o pedido antes de tentar novamente.');
+    }
   }finally{
     clubeCouponShopState.busy=false;
     if(route()==='club')render();
@@ -279,8 +283,13 @@ async function clubeCouponCheckInvoice(invoiceId,nested=false){
     }else clubeCouponShopState.purchase=result;
     await clubePaidCouponsRefresh();
   }catch(err){
-    if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
-      toast('Pagamento não confirmado. Reabra o Pix original ou consulte novamente.');
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid){
+      if(err?.code==='PARTNER_COUPON_PENDING_SUPPLY_UNAVAILABLE'){
+        if(clubeCouponShopState.purchase?.invoiceId===invoiceId)
+          clubeCouponShopState.purchase=null;
+        toast('Este Pix deixou de estar disponível porque não há oferta válida da revenda no CEP original. Não pague o código anterior; solicite cancelamento ou reembolso no histórico.');
+      }else toast('Pagamento não confirmado. Consulte novamente o status ou solicite atendimento pelo histórico.');
+    }
   }finally{
     if(!nested)clubeCouponShopState.busy=false;
     if(route()==='club')render();

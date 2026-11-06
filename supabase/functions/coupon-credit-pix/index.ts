@@ -251,9 +251,36 @@ async function couponPixStillPayable(invoice:any){
    &&deadline!==null&&Date.parse(String(invoice.expires_at))<=Date.parse(deadline)
    &&!ticketContradicts&&(originalBr||originalLink);
 }
-// Regular retries and concurrent invoice-update losers must both recheck
-// the SAME pending provider Order before presenting stored payment routes.
-async function couponVerifiedReplay(invoice:any){
+// A partner-funded pending Pix is not payable merely because Mercado Pago
+// still calls the Order pending. Recheck current signed commercial release,
+// live merchant supply at the ORIGINAL immutable CEP and global sales stop.
+// This does not alter historical owner-sponsored invoices or paid receipts.
+async function partnerPendingInvoiceSafe(admin:any,invoice:any){
+ const postal=String(invoice?.buyer_postal_code_v1_850??"");
+ if(!admin||!/^[0-9]{8}$/.test(postal))return false;
+ try{
+  const readiness=await partnerSaleReadiness(admin);
+  if(readiness?.ready!==true||!await platformCouponSalesAllowed(admin))
+   return false;
+  const supply=await partnerBuyerSupply(admin,postal);
+  return supply?.ready===true&&supply?.verified===true
+    &&supply?.postalCode===postal;
+ }catch(error){
+  console.warn("partner coupon pending Pix supply review required",
+    String(error instanceof Error?error.message:error));
+  return false;
+ }
+}
+// Every replay route shares the same fail-closed policy (invoice-status,
+// idempotent partner-purchase and concurrent order-update recovery).
+async function couponVerifiedReplay(invoice:any,admin:any){
+ if(invoice?.funding_mode_v1_846==="partner_funded"&&
+    ["prepared","awaiting_payment"].includes(String(invoice?.status))&&
+    !await partnerPendingInvoiceSafe(admin,invoice)){
+  return {ok:false,error:"PARTNER_COUPON_PENDING_SUPPLY_UNAVAILABLE",
+    ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
+    recheckRequired:true};
+ }
  if(invoice.status==="prepared"||
     (invoice.status==="awaiting_payment"&&!await couponPixStillPayable(invoice))){
   return {ok:false,error:"COUPON_PIX_REVIEW_REQUIRED",
@@ -593,7 +620,7 @@ Deno.serve(async(req:Request)=>{
         status:invoice.status,pixCode:null,paymentUrl:null,pixPayable:false,
         refundStatus:refund.status},409,origin);
     if(invoice.status==="prepared"||invoice.status==="awaiting_payment"){
-      const replay=await couponVerifiedReplay(invoice);
+      const replay=await couponVerifiedReplay(invoice,admin);
       return respond(replay,replay.ok?200:409,origin);
     }
     return respond({ok:true,...publicInvoice(invoice)},200,origin);
@@ -701,7 +728,7 @@ Deno.serve(async(req:Request)=>{
    return respond({error:"COUPON_REQUEST_REPLAY_CONFLICT"},409,origin);
   }
   if(invoice.status!=="prepared"){
-   const replay=await couponVerifiedReplay(invoice);
+   const replay=await couponVerifiedReplay(invoice,admin);
    return respond(replay,replay.ok?200:409,origin);
   }
   // A city can pause or a revenda can withdraw between the invoice read
@@ -754,7 +781,7 @@ Deno.serve(async(req:Request)=>{
       const {data:existing,error:existingError}=await admin.from("clube_coupon_paid_invoices")
        .select("*").eq("id",invoice.id).single();
       if(existingError||!existing)throw existingError??new Error("INVOICE_STATE_CONFLICT");
-      const replay=await couponVerifiedReplay(existing);
+      const replay=await couponVerifiedReplay(existing,admin);
       return respond(replay,replay.ok?200:409,origin);
     }
     return respond({ok:true,...publicInvoice(committed),
