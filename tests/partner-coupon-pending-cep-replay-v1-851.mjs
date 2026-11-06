@@ -37,7 +37,7 @@ const ctx=vm.createContext({
 });
 ctx.globalThis=ctx;
 ctx.liveRuntime={session:{user:{id:'buyer-851'}}};
-new vm.Script(source+'\nthis.shop=clubeCouponShopState;this.buy=clubeCouponBuy;this.history=clubeCouponPurchasesPanel;this.verifyPostal=clubeCouponVerifyPostal;this.check=clubeCouponCheckInvoice;this.panel=clubeCouponShopPanel;').runInContext(ctx);
+new vm.Script(source+'\nthis.shop=clubeCouponShopState;this.buy=clubeCouponBuy;this.history=clubeCouponPurchasesPanel;this.verifyPostal=clubeCouponVerifyPostal;this.check=clubeCouponCheckInvoice;this.panel=clubeCouponShopPanel;this.armLease=clubeCouponArmPixLease;').runInContext(ctx);
 const previous={packageKey,status:'awaiting_payment',requestId,invoiceId,
   servicePostalCode:'97000000',fundingModel:'partner_funded'};
 ctx.clubePaidCouponView={
