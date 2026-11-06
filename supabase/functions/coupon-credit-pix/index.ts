@@ -275,6 +275,7 @@ async function partnerPendingInvoiceSafe(admin:any,invoice:any){
 // idempotent partner-purchase and concurrent order-update recovery).
 async function couponVerifiedReplay(invoice:any,admin:any){
  if(invoice?.funding_mode_v1_846==="partner_funded"&&
+    ["prepared","awaiting_payment"].includes(String(invoice?.status))&&
     !await partnerPendingInvoiceSafe(admin,invoice)){
   return {ok:false,error:"PARTNER_COUPON_PENDING_SUPPLY_UNAVAILABLE",
     ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
