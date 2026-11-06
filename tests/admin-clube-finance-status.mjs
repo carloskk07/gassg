@@ -21,6 +21,21 @@ assert.match(edge,/clube_coupon_paid_order_reconciliation/);
 assert.match(edge,/paymentsChecked:false/);
 assert.match(edge,/invoiceWorkQueueCoverage:bounded\?"partial":"bounded_complete"/);
 assert.match(edge,/invoiceWorkQueue,invoiceWorkQueueCoverage/);
+assert.match(edge,/\.from\("clube_coupon_refund_requests_v1_814"\)/,
+ 'Finance must query durable refund requests independently of paid invoice status');
+assert.match(edge,/\.in\("status",\["requested","in_review"\]\)/,
+ 'The review queue must not hide requested refunds even when invoice is paid');
+assert.match(edge,/\.select\("invoice_id,request_id,status,received_at",\{count:"exact"\}\)/,
+ 'Refund request count must not be inferred from a truncated page');
+assert.match(edge,/COUPON_REFUND_QUEUE_INCOMPLETE/,
+ 'Absent or malformed refund count must fail closed, not announce zero cases');
+assert.match(edge,/\.from\("clube_coupon_paid_order_applications"\)\s*\.select\("order_id",\{count:"exact",head:true\}\)/,
+ 'Each refund review must show the immutable lifetime application count');
+assert.match(edge,/requiresHistoryReview:count>0/,
+ 'An originally used voucher must require human financial review after reissue');
+assert.match(edge,/PARTNER_COUPON_REFUND_REVIEW/,
+ 'Refund disputes from #847 cannot be omitted from merchant liabilities');
+
 assert.match(edge,/\.order\("created_at",\{ascending:false\}\)/);
 const queueBlock=edge.slice(edge.indexOf('const invoiceWorkQueue='),
  edge.indexOf('const unavailableVouchers=',edge.indexOf('const invoiceWorkQueue=')));
@@ -138,7 +153,18 @@ payload={source:'clube_coupon_finance_status_v1',readOnly:true,
  packageCount:1,invoiceCount:3,voucherCount:6,issuedCount:2,
  redeemedCount:4,pendingNetCount:1,unavailableVoucherCount:2,
  unbackedConsumptionCount:0,financialIntegrityRisk:false,refundReviewCount:2,
- merchantSettlementPendingCount:1,
+ merchantSettlementPendingCount:1,refundRequestPendingCount:2,
+ refundWorkQueueCoverage:'bounded_complete',
+ refundWorkQueue:[
+  {invoiceId:'66666666-6666-4666-8666-666666666666',
+   requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   status:'requested',receivedAt:'2026-11-06T18:00:00Z',
+   historicalOrderCount:2,requiresHistoryReview:true},
+  {invoiceId:'77777777-7777-4777-8777-777777777777',
+   requestId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+   status:'in_review',receivedAt:'2026-11-06T18:10:00Z',
+   historicalOrderCount:0,requiresHistoryReview:false}
+ ],
  invoiceWorkQueueCoverage:'bounded_complete',
  invoiceWorkQueue:[
   {invoiceId:'88888888-8888-4888-8888-888888888888',status:'paid',
@@ -150,6 +176,17 @@ await ctx.query();
 assert.match(ctx.page(),/Pacotes cadastrados/);
 assert.match(ctx.page(),/Faturas de cupons/);
 assert.match(ctx.page(),/Obrigações de revendas pendentes/);
+assert.match(ctx.page(),/Reembolsos de cupons aguardando análise/);
+assert.match(ctx.page(),/Solicitações de reembolso aguardando análise/);
+assert.match(ctx.page(),/2<\/strong> protocolos abertos/);
+assert.match(ctx.page(),/Fatura 66666666/);
+assert.match(ctx.page(),/Fatura 77777777/);
+assert.match(ctx.page(),/Histórico: 2 pedido\(s\) com cupom/);
+assert.match(ctx.page(),/Reembolso automático bloqueado/);
+assert.match(ctx.page(),/Nenhum pedido anterior localizado/);
+assert.doesNotMatch(ctx.page(),/merchant-access-token|@example\.invalid/,
+ 'Finance queue must not reveal provider secrets or buyer emails');
+
 assert.match(ctx.page(),/Cupons registrados aguardando lastro/);
 assert.match(ctx.page(),/Faturas pagas sem cobertura líquida registrada/);
 assert.match(ctx.mpPage(),/Selecionar fatura 88888888/);
@@ -170,7 +207,10 @@ assert.match(ctx.page(),/não confere o extrato de liberação/);
 assert.ok(renders>0);
 payload.coverage='partial';
 payload.invoiceWorkQueueCoverage='partial';
+payload.refundWorkQueueCoverage='partial';
 await ctx.query();
+assert.match(ctx.page(),/Há outros protocolos a conferir/,
+ 'Truncated refund queue must warn about missing older cases');
 assert.match(ctx.page(),/Informação incompleta/);
 assert.match(ctx.mpPage(),/Fila parcial/);
 assert.doesNotMatch(ctx.page(),/Pacotes cadastrados<\/small><strong>1/);
@@ -190,6 +230,8 @@ assert.equal(ctx.page(),'');
 role='finance';
 runtime.session.user.id='22222222-2222-4222-8222-222222222222';
 assert.doesNotMatch(ctx.page(),/not-available/);
+assert.doesNotMatch(ctx.page(),/Fatura 66666666/,
+ 'A refund request from another admin session cannot remain in the view');
 assert.match(ctx.page(),/Use a consulta/);
 assert.match(ctx.mpPage(),/Consultar relatórios do Mercado Pago/);
 mpPayload={source:'mercadopago_release_reports_list_v1',readOnly:true,

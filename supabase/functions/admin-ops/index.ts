@@ -3883,13 +3883,15 @@ Deno.serve(async(req:Request)=>{
             pendingNetCount:null,unavailableVoucherCount:null,
             unbackedConsumptionCount:null,financialIntegrityRisk:null,
             refundReviewCount:null,
+            refundRequestPendingCount:null,refundWorkQueue:[],
+            refundWorkQueueCoverage:"unavailable",
             merchantSettlementPendingCount:null,unfundedOfferCount:null,
             paymentsChecked:false,reason:"COUPON_FINANCE_SCHEMA_NOT_INSTALLED"
           },200,origin);
         }
         throw packageResult.error;
       }
-      const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
+      const [invoiceResult,voucherResult,applicationResult,refundResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
            .select("id,created_at,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,coupon_settlement_hold_reason_v1_853")
           .order("created_at",{ascending:false})
@@ -3897,9 +3899,17 @@ Deno.serve(async(req:Request)=>{
         admin.from("clube_coupon_paid_issuances")
            .select("invoice_id,status").limit(101),
         admin.from("clube_coupon_paid_order_applications")
-          .select("order_id").limit(26)
+          .select("order_id").limit(26),
+        // A customer refund request may remain 'requested' even when the
+        // invoice is fully funded and its voucher was reissued after a
+        // cancelled order. The old invoice-only queue cannot surface it.
+        admin.from("clube_coupon_refund_requests_v1_814")
+          .select("invoice_id,request_id,status,received_at",{count:"exact"})
+          .in("status",["requested","in_review"])
+          .order("received_at",{ascending:false})
+          .limit(13)
       ]);
-      const queries=[invoiceResult,voucherResult,applicationResult];
+      const queries=[invoiceResult,voucherResult,applicationResult,refundResult];
       const stageUnavailable=queries.find(result=>result.error&&
         (missingTable(result.error)||["42703","PGRST204"].includes(
           String(result.error.code||""))));
@@ -3912,18 +3922,55 @@ Deno.serve(async(req:Request)=>{
           pendingNetCount:null,unavailableVoucherCount:null,
             unbackedConsumptionCount:null,financialIntegrityRisk:null,
             refundReviewCount:null,
+          refundRequestPendingCount:null,refundWorkQueue:[],
+          refundWorkQueueCoverage:"unavailable",
           merchantSettlementPendingCount:null,unfundedOfferCount:null,
           paymentsChecked:false,reason:"COUPON_CHECKOUT_SCHEMA_INCOMPLETE"
         },200,origin);
       }
-      if(invoiceResult.error||voucherResult.error||applicationResult.error){
-        throw invoiceResult.error||voucherResult.error||applicationResult.error;
+      if(invoiceResult.error||voucherResult.error||applicationResult.error||refundResult.error){
+        throw invoiceResult.error||voucherResult.error||applicationResult.error||refundResult.error;
       }
+      const activeRefundRows=refundResult.data||[];
+      const refundPendingCount=refundResult.count;
+      // Exact count is mandatory. Never interpret a null count or malformed
+      // record as zero refund requests waiting for human attention.
+      if(!Array.isArray(refundResult.data)||
+         typeof refundPendingCount!=="number"||
+         !Number.isSafeInteger(refundPendingCount)||refundPendingCount<0||
+         refundPendingCount<activeRefundRows.length||
+         activeRefundRows.some((row:any)=>
+           !UUID_RE.test(String(row.invoice_id??""))||
+           !UUID_RE.test(String(row.request_id??""))||
+           !["requested","in_review"].includes(String(row.status))||
+           !Number.isFinite(Date.parse(String(row.received_at??""))))){
+        throw new DomainError("COUPON_REFUND_QUEUE_INCOMPLETE",
+          "Não foi possível conferir todos os protocolos de reembolso.",503);
+      }
+      // One independent, EXACT count per displayed invoice avoids inferring
+      // 'never used' from a voucher that #847 returned to issued.
+      const refundWorkQueue=await Promise.all(
+        activeRefundRows.slice(0,12).map(async(row:any)=>{
+          const {count,error}=await admin.from("clube_coupon_paid_order_applications")
+            .select("order_id",{count:"exact",head:true})
+            .eq("invoice_id",row.invoice_id);
+          if(error)throw error;
+          if(typeof count!=="number"||!Number.isSafeInteger(count)||count<0)
+            throw new DomainError("COUPON_REFUND_HISTORY_INCOMPLETE",
+              "Histórico de cupons incompleto para análise.",503);
+          return {invoiceId:String(row.invoice_id),
+            requestId:String(row.request_id),status:String(row.status),
+            receivedAt:String(row.received_at),
+            historicalOrderCount:count,requiresHistoryReview:count>0};
+        })
+      );
+      const refundQueueTruncated=refundPendingCount>refundWorkQueue.length;
       // A bounded list is never allowed to report all-clear when truncated.
       const bounded=packageResult.data?.length===101||
         invoiceResult.data?.length===101||
         voucherResult.data?.length===101||
-        applicationResult.data?.length===26;
+        applicationResult.data?.length===26||
+        refundQueueTruncated;
       const invoiceRows=invoiceResult.data||[];
       const voucherRows=voucherResult.data||[];
       const packages=packageResult.data||[];
@@ -4012,7 +4059,9 @@ Deno.serve(async(req:Request)=>{
         if(["MERCHANT_REIMBURSEMENT_MISSING","MERCHANT_REIMBURSEMENT_MISMATCH",
           "MERCHANT_REIMBURSEMENT_DUE","MERCHANT_PAYOUT_UNVERIFIED",
           "CANCELLATION_REVIEW","REVERSAL_REVIEW",
-          "FINANCIAL_REVIEW"].includes(data.status))pendingSettlement++;
+          "FINANCIAL_REVIEW","PARTNER_COUPON_RETURN_REVIEW",
+          "PARTNER_COUPON_REFUND_REVIEW",
+          "PARTNER_COUPON_REIMBURSEMENT_ANOMALY"].includes(data.status))pendingSettlement++;
       }
       return json({
         source:"clube_coupon_finance_status_v1",
@@ -4023,6 +4072,9 @@ Deno.serve(async(req:Request)=>{
         checkoutEnabled:Deno.env.get("CLUBE_COUPON_CHECKOUT_ENABLED")==="true",
         packageCount:packages.length,invoiceCount:invoiceRows.length,
         invoiceWorkQueue,invoiceWorkQueueCoverage:bounded?"partial":"bounded_complete",
+        refundRequestPendingCount:refundPendingCount,
+        refundWorkQueue,refundWorkQueueCoverage:
+          refundQueueTruncated?"partial":"bounded_complete",
         voucherCount:voucherRows.length,
         issuedCount:voucherRows.filter((v:any)=>v.status==="issued").length,
         redeemedCount:voucherRows.filter((v:any)=>v.status==="redeemed").length,
