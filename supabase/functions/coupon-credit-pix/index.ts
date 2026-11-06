@@ -5,6 +5,7 @@ import {
   safeMercadoPagoUrl,mercadoPagoQrDataUri,moneyToCents,mercadoPagoPixDeadline
 } from "../_shared/mercadopago.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
+import {validateServicePostalCode} from "../_shared/postal-code.js";
 import {enforceApiQuota,readJsonBody,platformCommerceAllowed,platformCouponSalesAllowed} from "../_shared/domain.js";
 
 // Uses the SAME MERCADOPAGO_ACCESS_TOKEN as merchant-billing-pix. New coupons
@@ -64,6 +65,25 @@ async function partnerBuyerTerms(admin:any){
     String(data.contract_text??"").length<600)
    throw new Error("PARTNER_COUPON_BUYER_TERMS_NOT_VERIFIED");
  return data.contract_text;
+}
+
+// #850: verify buyer-selected CEP against canonical street validation and
+// the EXACT same city/stock/compliance merchant scope as get-offers.
+async function partnerBuyerSupply(admin:any,value:unknown){
+ const postal=await validateServicePostalCode(admin,value);
+ const {data,error}=await admin.rpc("clube_partner_coupon_postal_supply_v1_850",{
+  p_postal:postal.postalCode
+ });
+ if(error)throw error;
+ if(data?.source!=="clube_partner_coupon_postal_supply_v1_850"||
+   data?.postalCode!==postal.postalCode||
+   data?.verified!==true||
+   typeof data?.ready!=="boolean"||
+   !Number.isSafeInteger(data.merchantCount)||
+   data.merchantCount<0||data.merchantCount>100000||
+   data.city!==postal.city||data.state!==postal.state)
+   throw new Error("PARTNER_COUPON_POSTAL_READBACK_CONFLICT");
+ return data;
 }
 
 // A signed, owner-controlled DB release replaces the absent private
@@ -304,7 +324,7 @@ Deno.serve(async(req:Request)=>{
     });
     let {data:invoices,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices")
-      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email,funding_mode_v1_846,funding_terms_version_v1_846,terms_version,terms_accepted_at")
+      .select("id,package_key,request_id,status,sale_price_cents,created_at,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_verified_at,net_proceeds_reference,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,min_order_cents,seller_name,seller_tax_document,seller_address,seller_support_email,funding_mode_v1_846,funding_terms_version_v1_846,terms_version,terms_accepted_at,buyer_postal_code_v1_850")
       .eq("customer_user_id",user.id)
       .order("created_at",{ascending:false}).limit(25);
     if(invoiceError&&String(invoiceError.code)==="42703"){
@@ -339,6 +359,7 @@ Deno.serve(async(req:Request)=>{
       purchases:(invoices||[]).map((row:any)=>({
         invoiceId:row.id,packageKey:row.package_key,requestId:row.request_id,status:row.status,
         amountCents:row.sale_price_cents,createdAt:row.created_at,
+        servicePostalCode:row.funding_mode_v1_846==='partner_funded'?row.buyer_postal_code_v1_850:null,
         paidAt:row.paid_at,
         fundingModel:row.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed',
         fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
@@ -464,6 +485,16 @@ Deno.serve(async(req:Request)=>{
       mercadoPagoConfigured(MP_TOKEN)&&MP_TOKEN.startsWith("APP_USR-");
     if(!enabled)return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
       packages:[],couponSalesEnabled:false},200,origin);
+    // Do not advertise a purchasable coupon until an actual customer CEP
+    // has at least one independently verified accepting merchant.
+    if(!/^[0-9]{8}$/.test(String(body.postalCode??"")))
+      return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
+        packages:[],couponSalesEnabled:false,postalRequired:true},200,origin);
+    const buyerSupply=await partnerBuyerSupply(admin,body.postalCode);
+    if(!buyerSupply.ready)
+      return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
+        packages:[],couponSalesEnabled:false,postalRequired:false,
+        postalVerified:true,regionAvailable:false},200,origin);
     const seller=await partnerSignedSeller(admin);
     if(!seller)return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
       packages:[],couponSalesEnabled:false},200,origin);
@@ -485,6 +516,8 @@ Deno.serve(async(req:Request)=>{
         priceCents:pkg.sale_price_cents,faceCents:pkg.coupon_face_cents,
         couponCount:pkg.coupons_per_pack,validDays:pkg.valid_days,
         minOrderCents:pkg.min_order_cents,eligibleProducts:"participating_merchants_only",
+        eligiblePostalCode:buyerSupply.postalCode,serviceCity:buyerSupply.city,
+        serviceState:buyerSupply.state,
         termsVersion:PARTNER_BUYER_TERMS_VERSION,termsText,
         fundingModel:"partner_funded",
         seller:{name:seller.seller_name,taxDocument:seller.seller_tax_document,
@@ -573,6 +606,16 @@ Deno.serve(async(req:Request)=>{
   const readiness=partnerPurchase?await partnerSaleReadiness(admin):null;
   if(partnerPurchase&&readiness?.ready!==true)
     return respond({error:"PARTNER_COUPON_NO_ELIGIBLE_SUPPLY",pixPayable:false},423,origin);
+  // Must check the buyer's own delivery area BEFORE creating an invoice
+  // and again in its DB insert guard; no supplier from another city is valid.
+  let selectedSupply:any=null;
+  if(partnerPurchase){
+    if(!/^[0-9]{8}$/.test(String(body.postalCode??"")))
+      return respond({error:"PARTNER_COUPON_POSTAL_REQUIRED",pixPayable:false},400,origin);
+    selectedSupply=await partnerBuyerSupply(admin,body.postalCode);
+    if(!selectedSupply.ready)
+      return respond({error:"PARTNER_COUPON_NO_SERVICE_AT_CEP",pixPayable:false},409,origin);
+  }
   const release=partnerPurchase?await partnerSignedSeller(admin):await couponSaleRelease(admin);
   if(!release)return respond({error:partnerPurchase?
     "PARTNER_COUPON_BUYER_CONTRACT_NOT_RELEASED":"COUPON_SALES_NOT_ENABLED",
@@ -624,7 +667,8 @@ Deno.serve(async(req:Request)=>{
    ...(partnerPurchase?{
      funding_mode_v1_846:"partner_funded",
      funding_terms_version_v1_846:PARTNER_BUYER_TERMS_VERSION,
-     min_order_cents:pkg.min_order_cents,sponsor_covered_cents:0
+     min_order_cents:pkg.min_order_cents,sponsor_covered_cents:0,
+     buyer_postal_code_v1_850:selectedSupply.postalCode
    }:{}),
    seller_name:release.seller_name,
    seller_tax_document:release.seller_tax_document,
@@ -652,12 +696,21 @@ Deno.serve(async(req:Request)=>{
      invoice.funding_mode_v1_846!==(partnerPurchase?"partner_funded":"platform_reimbursed")||
      (partnerPurchase&&(invoice.funding_terms_version_v1_846!==PARTNER_BUYER_TERMS_VERSION||
        invoice.min_order_cents!==pkg.min_order_cents||
-       invoice.seller_tax_document!==release.seller_tax_document))){
+       invoice.seller_tax_document!==release.seller_tax_document||
+       invoice.buyer_postal_code_v1_850!==selectedSupply.postalCode))){
    return respond({error:"COUPON_REQUEST_REPLAY_CONFLICT"},409,origin);
   }
   if(invoice.status!=="prepared"){
    const replay=await couponVerifiedReplay(invoice);
    return respond(replay,replay.ok?200:409,origin);
+  }
+  // A city can pause or a revenda can withdraw between the invoice read
+  // and the Pix request. Do not create a real PSP charge without rechecking.
+  if(partnerPurchase){
+    const renewed=await partnerBuyerSupply(admin,invoice.buyer_postal_code_v1_850);
+    if(!renewed.ready||renewed.postalCode!==selectedSupply.postalCode)
+      return respond({error:"PARTNER_COUPON_SUPPLY_CHANGED_BEFORE_PIX",
+        pixPayable:false},409,origin);
   }
   const amount=(Number(invoice.sale_price_cents)/100).toFixed(2);
   const orderRequest={
