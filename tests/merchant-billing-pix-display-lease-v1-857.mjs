@@ -13,8 +13,7 @@ const lazy=fs.readFileSync(new URL('../js/merchant-billing-flow.js',import.meta.
 const source=lazy+'\n'+
  take('function merchantAcceptVerifiedBillingPix(result,merchantId){',
  'function merchantBenefitsContractSection(r)')+
- '\n'+take('async function merchantCopyBillingPixCode(paymentRequestId){',
- '\nasync function merchantRequestBillingPackageFromUi(');
+ ';
 new vm.Script(source);
 const MID='11111111-1111-4111-8111-111111111111';
 const A='22222222-2222-4222-8222-222222222222';
