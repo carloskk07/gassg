@@ -90,6 +90,13 @@ const legacyReplay=await sandbox.couponVerifiedReplay(legacy,admin);
 assert.equal(legacyReplay.ok,true,'legacy owner-sponsored invoice never inherits partner-specific constraints');
 assert.equal(legacyReplay.pixCode,br);
 assert.equal(getCount,2);
+const paidBefore=getCount;
+const paidAfterWithdrawal=await sandbox.couponVerifiedReplay({...inv,status:'paid'},admin);
+assert.equal(paidAfterWithdrawal.ok,true,
+ 'already-paid partner-funded receipts remain available regardless of later merchant withdrawal');
+assert.equal(paidAfterWithdrawal.status,'paid');
+assert.equal(paidAfterWithdrawal.pixPayable,false);
+assert.equal(getCount,paidBefore,'paid receipts do not need a new Pix provider GET');
 assert.ok(readinessCalls>0&&supplyCalls>0);
 
 // Verify the real buyer UI tells the customer NOT to pay a stale Pix.
