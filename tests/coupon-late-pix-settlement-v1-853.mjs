@@ -10,6 +10,16 @@ const adminEdge=read('supabase/functions/admin-ops/index.ts');
 const shop=read('js/clube-coupon-shop.js');
 const adminUi=read('js/admin.js');
 const fixture=read('tests/fixtures/coupon-late-pix-settlement-v1-853.sql');
+const replaySql=read('supabase/migrations/20261106143928_coupon_review_pix_replay_v1_859.sql');
+assert.match(replaySql,/v_invoice.status='review_required'/);
+assert.match(replaySql,/v_invoice.provider_payment_id=p_payment_id/);
+assert.match(replaySql,/v_invoice.paid_at IS NOT NULL/);
+assert.match(replaySql,/v_invoice.coupon_settlement_hold_reason_v1_853/);
+assert.ok(replaySql.includes('NOT EXISTS (') && replaySql.includes('FROM public.clube_coupon_paid_issuances i'));
+assert.match(replaySql,/COUPON_PAYMENT_REVIEW_STATE_UNVERIFIED/);
+assert.match(fixture,/CI_859_REPLAY_RESURRECTED_WITHDRAWN_COUPONS/);
+assert.match(fixture,/CI_859_CONFLICTING_PIX_ACKED/);
+assert.match(fixture,/CI_859_REFUND_FIRST_REPLAY_UNSAFE/);
 
 for (const guard of [
  'FOR UPDATE','COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT',
