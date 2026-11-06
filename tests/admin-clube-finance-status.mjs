@@ -50,7 +50,7 @@ assert.doesNotMatch(inspectionAction,/mercadoPagoFetch|method:"POST"|\.update\(|
 
 
 const claimEdge=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-review-start")'),
- edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'));
+ edge.indexOf('if(action==="clube-coupon-refund-triage-record")'));
 assert.match(claimEdge,/admin_clube_coupon_refund_review_start_v1_865/);
 assert.match(claimEdge,/COUPON_REVIEW_READBACK_UNVERIFIED/);
 assert.match(claimEdge,/clube_coupon_refund_requests_v1_814/);
@@ -66,7 +66,7 @@ assert.match(claimSQL,/TO service_role/);
 assert.doesNotMatch(claimSQL,/clube_coupon_paid_payment_refund|mercadoPagoFetch/);
 
 const triageEdge=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-triage-record")'),
- edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'));
+ edge.indexOf('if(action==="clube-coupon-refund-provider-inspect")'));
 assert.match(triageEdge,/admin_clube_coupon_refund_triage_v1_866/);
 assert.match(triageEdge,/COUPON_TRIAGE_READBACK_UNVERIFIED/);
 assert.match(triageEdge,/platform_admin_audit/);
