@@ -6242,6 +6242,15 @@ function adminClubeFinanceView(){
     ?String(value):'Não verificado';
   const schemaMissing=data&&data.schemaInstalled!==true;
   const incomplete=data&&data.coverage!=='bounded_under_limits';
+  const refundQueue=data?.schemaInstalled===true&&
+    Array.isArray(data.refundWorkQueue)
+    ?data.refundWorkQueue.slice(0,12).filter(item=>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(item.invoiceId||''))&&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(item.requestId||''))&&
+      ['requested','in_review'].includes(item.status)&&
+      Number.isSafeInteger(item.historicalOrderCount)&&item.historicalOrderCount>=0&&
+      item.requiresHistoryReview===(item.historicalOrderCount>0))
+    :[];
   const readyCount=data&&data.schemaInstalled===true&&
     data.coverage==='bounded_under_limits';
   const entries=readyCount?[
@@ -6252,6 +6261,7 @@ function adminClubeFinanceView(){
     ['Faturas pagas sem cobertura líquida registrada',data.pendingNetCount],
     ['Cupons registrados aguardando lastro',data.unavailableVoucherCount],
     ['Cupons e faturas em revisão',data.refundReviewCount],
+    ['Reembolsos de cupons aguardando análise',data.refundRequestPendingCount],
     ['Obrigações de revendas pendentes',data.merchantSettlementPendingCount]
   ]:[];
   return `<section class="section admin-clube-finance" aria-label="Conciliação financeira dos cupons">
@@ -6297,6 +6307,29 @@ function adminClubeFinanceView(){
     ${entries.length?'<div class="grid cards-3">'+entries.map(([name,value])=>
       '<div class="card flat"><small>'+esc(name)+'</small><strong>'+
        esc(amount(value))+'</strong></div>').join('')+'</div>':''}
+    ${data?.schemaInstalled===true?'<div class="card flat admin-coupon-refund-review" role="region" aria-label="Solicitações de reembolso de cupons">'+
+      '<h4>Solicitações de reembolso aguardando análise</h4>'+
+      '<p class="tiny muted">Fila somente leitura. Uma solicitação não comprova devolução bancária. Confira o Pix, os pedidos anteriores e a obrigação com a revenda antes de concluir a análise.</p>'+
+      (Number.isSafeInteger(data.refundRequestPendingCount)&&data.refundRequestPendingCount>=0
+        ?'<p role="status"><strong>'+esc(data.refundRequestPendingCount)+'</strong> protocolos abertos</p>'
+        :'<p role="alert" class="notice danger">Quantidade de solicitações não verificada. Não conclua a conciliação.</p>')+
+      (data.refundWorkQueueCoverage==='partial'
+        ?'<p class="notice" role="status">Exibidas apenas as solicitações mais recentes. Há outros protocolos a conferir.</p>':'')+
+      refundQueue.map(item=>
+        '<div class="card flat" data-refund-status="'+esc(item.status)+'">'+
+        '<p><strong>Fatura '+esc(item.invoiceId.slice(0,8))+
+        '</strong> • '+(item.status==='requested'?'Solicitado':'Em análise')+
+        ' • '+esc(String(item.receivedAt||'').slice(0,10))+'</p>'+
+        '<p class="tiny muted">ID da fatura: <code>'+esc(item.invoiceId)+'</code></p>'+
+        '<p class="tiny muted">Protocolo: <code>'+esc(item.requestId)+'</code></p>'+
+        (item.requiresHistoryReview
+          ?'<p role="alert" class="notice">Histórico: '+esc(item.historicalOrderCount)+
+            ' pedido(s) com cupom. Reembolso automático bloqueado; conferir descontos, cancelamentos e obrigações com revendas.</p>'
+          :'<p class="tiny muted">Nenhum pedido anterior localizado para esta fatura. Ainda exige confirmação independente do provedor.</p>')+
+        '</div>').join('')+
+      (Number.isSafeInteger(data.refundRequestPendingCount)&&data.refundRequestPendingCount===0
+        ?'<p class="tiny muted">Nenhum protocolo aberto na consulta atual.</p>':'')+
+      '</div>':''}
     ${adminCurrentRole()==='superadmin'?(globalThis.adminClubeCommercialPanel?.()||
     '<div class="card flat form-stack"><h4>Venda comercial de cupons</h4>'+
     '<p>Ative a oferta de R$ 8,90 com garantia pessoal, identificação do fornecedor e Pix real, sem depender de revenda.</p>'+
