@@ -29,8 +29,19 @@ const altered=[
  {...order,transactions:{payments:[pix],refunds:[{...refund,transaction_id:'other'}]}},
  {...order,transactions:{payments:[pix],refunds:[{...refund,amount:'8.00'}]}},
  {...order,transactions:{payments:[pix],refunds:[{...refund,id:''}]}},
- {...order,transactions:{payments:[pix],refunds:[{...refund,amount:'8.90'}, {...refund,id:'second',amount:'0.10'}]}}
+ {...order,transactions:{payments:[pix],refunds:[{...refund,amount:'8.90'}, {...refund,id:'second',amount:'0.10'}]}},
+ {...order,transactions:{payments:[pix],refunds:[
+  {...refund,amount:'4.45'}, {...refund,amount:'4.45'}]}},
+ {...order,transactions:{payments:[pix],refunds:[
+  {...refund,amount:'4.45'}, {...refund,amount:'4.45',status:'approved'}]}}
 ];
+const splitFull={...order,transactions:{payments:[pix],refunds:[
+ {...refund,id:'partial-1',amount:'4.00'},
+ {...refund,id:'partial-2',amount:'4.90'}]}};
+assert.equal(ctx.verify(splitFull,invoice),true,
+ 'two distinct completed refund IDs prove full amount returned');
+assert.match(edge,/seenRefundIds\.has\(refundId\)/,
+ 'duplicate refund ID must be rejected, even if the sum matches full value');
 for(const [idx,bad] of altered.entries())
  assert.equal(ctx.verify(bad,invoice),false,'reject partial/ambiguous refund case '+idx);
 const action=edge.slice(edge.indexOf('if(operation==="request-refund")'),edge.indexOf('if(operation==="catalog")'));

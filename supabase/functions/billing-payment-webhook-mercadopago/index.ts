@@ -767,11 +767,15 @@ async function handlePaidCouponOrder(
  // A pending or incomplete refund cannot be treated as if there were none.
  // Require every refund to be completed, positive and tied to this Pix
  // before the existing SQL full-refund route can be considered.
- const refundEvidenceIncomplete=refunds.some((r:any)=>
-   !["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase())
-   ||!String(r?.id??"").trim()
-   ||(moneyToCents(r?.amount)??0)<=0
-   ||String(r?.transaction_id??"")!==String(pix?.id??""));
+ const seenRefundIds=new Set();
+ const refundEvidenceIncomplete=refunds.some((r:any)=>{
+   const refundId=String(r?.id??"").trim();
+   if(!refundId||seenRefundIds.has(refundId))return true;
+   seenRefundIds.add(refundId);
+   return !["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase())
+     ||(moneyToCents(r?.amount)??0)<=0
+     ||String(r?.transaction_id??"")!==String(pix?.id??"");
+ });
  const hasRefund=refunds.length>0
   ||providerStates.some(state=>reversalStates.includes(state))
   ||(invoice.status==="paid"&&(providerStates.some(state=>failedStates.includes(state))||
