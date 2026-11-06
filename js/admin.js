@@ -5881,7 +5881,8 @@ async function adminClubeFinanceRefresh(){
   if(!userId)return;
   const state=adminRuntime.clubeFinance;
   if(state.pending)return;
-  Object.assign(state,{pending:true,error:null,data:null,loadedFor:userId,checkedAt:null});
+  Object.assign(state,{pending:true,error:null,data:null,loadedFor:userId,checkedAt:null,
+    refundInspectResult:null,refundInspectError:null,refundInspectFor:null});
   render();
   try{
     const result=await adminInvoke({action:'clube-coupon-finance-status'});
@@ -5901,6 +5902,61 @@ async function adminClubeFinanceRefresh(){
   }finally{
     state.pending=false;
     if(String(adminRuntime.session?.user?.id||'')===userId)render();
+  }
+}
+async function adminClubeRefundInspect(invoiceId,requestId){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const s=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!userId||!uuid.test(invoiceId)||!uuid.test(requestId)||
+     s.loadedFor!==userId||!Array.isArray(s.data?.refundWorkQueue)||
+     !s.data.refundWorkQueue.some(x=>x.invoiceId===invoiceId&&x.requestId===requestId)||
+     s.refundInspectPending)return;
+  Object.assign(s,{refundInspectFor:userId,refundInspectInvoiceId:invoiceId,
+    refundInspectRequestId:requestId,refundInspectPending:true,
+    refundInspectResult:null,refundInspectError:null});
+  render();
+  try{
+    const r=await adminInvoke({action:'clube-coupon-refund-review-inspect',
+      invoiceId,requestId});
+    if(String(adminRuntime.session?.user?.id||'')!==userId||
+       s.refundInspectRequestId!==requestId)return;
+    const states=['issued','reserved','redeemed','void','review_required'];
+    if(r?.ok!==true||r?.source!=='clube_coupon_refund_case_inspection_v1'||
+       r.readOnly!==true||r.moneyMoved!==false||
+       r.writeAuthorized!==false||r.refundClosureAuthorized!==false||
+       r.providerRefundVerified!==false||
+       r.invoiceId!==invoiceId||r.requestId!==requestId||
+       !['requested','in_review'].includes(r.requestStatus)||
+       !['paid','review_required','refunded','cancelled','expired','prepared','awaiting_payment'].includes(r.invoiceStatus)||
+       !Number.isSafeInteger(r.salePriceCents)||r.salePriceCents<0||
+       !Number.isSafeInteger(r.voucherCount)||r.voucherCount<0||
+       !Number.isSafeInteger(r.historicalOrderCount)||r.historicalOrderCount<0||
+       !['partial','bounded_complete'].includes(r.historyCoverage)||
+       !states.every(k=>Number.isSafeInteger(r.voucherStatuses?.[k])&&r.voucherStatuses[k]>=0)||
+       states.reduce((sum,k)=>sum+r.voucherStatuses[k],0)!==r.voucherCount||
+       !Array.isArray(r.orderReconciliations)||r.orderReconciliations.length>25||
+       !r.orderReconciliations.every(x=>uuid.test(String(x.orderId||''))&&
+         /^[A-Z][A-Z0-9_]{2,79}$/.test(String(x.status||'')))||
+       !Array.isArray(r.closureBlockers)||
+       !r.closureBlockers.includes('PROVIDER_REFUND_PROOF_REQUIRED')||
+       (r.historicalOrderCount>0&&
+        !r.closureBlockers.includes('HISTORICAL_DISCOUNTS_REQUIRE_REVIEW'))||
+       (r.historyCoverage==='partial'&&
+        !r.closureBlockers.includes('INCOMPLETE_ORDER_HISTORY')))
+      throw Error('O detalhamento não apresentou garantias financeiras suficientes.');
+    s.refundInspectResult=r;
+  }catch(e){
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       s.refundInspectRequestId===requestId)
+      s.refundInspectError=String(e?.message||'Falha ao consultar o protocolo.');
+  }finally{
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       s.refundInspectRequestId===requestId){
+      s.refundInspectPending=false;render();
+    }
   }
 }
 async function adminClubeReleaseReportsRefresh(){
@@ -6251,6 +6307,12 @@ function adminClubeFinanceView(){
       Number.isSafeInteger(item.historicalOrderCount)&&item.historicalOrderCount>=0&&
       item.requiresHistoryReview===(item.historicalOrderCount>0))
     :[];
+  const inspected=sameUser&&state.refundInspectFor===String(adminRuntime.session.user.id)
+    ?state.refundInspectResult:null;
+  const inspectionError=sameUser&&state.refundInspectFor===String(adminRuntime.session.user.id)
+    ?state.refundInspectError:null;
+  const inspectionPending=sameUser&&state.refundInspectFor===String(adminRuntime.session.user.id)
+    &&state.refundInspectPending===true;
   const readyCount=data&&data.schemaInstalled===true&&
     data.coverage==='bounded_under_limits';
   const entries=readyCount?[
@@ -6326,7 +6388,27 @@ function adminClubeFinanceView(){
           ?'<p role="alert" class="notice">Histórico: '+esc(item.historicalOrderCount)+
             ' pedido(s) com cupom. Reembolso automático bloqueado; conferir descontos, cancelamentos e obrigações com revendas.</p>'
           :'<p class="tiny muted">Nenhum pedido anterior localizado para esta fatura. Ainda exige confirmação independente do provedor.</p>')+
+        '<button type="button" class="secondary" onclick="adminClubeRefundInspect(&quot;'+
+         esc(item.invoiceId)+'&quot;,&quot;'+esc(item.requestId)+'&quot;)">'+
+         (inspectionPending&&state.refundInspectRequestId===item.requestId?'Conferindo…':'Examinar histórico')+'</button>'+
         '</div>').join('')+
+      (inspectionError?'<p role="alert" class="notice danger">'+esc(inspectionError)+'</p>':'')+
+      (inspected&&refundQueue.some(item=>item.invoiceId===inspected.invoiceId&&item.requestId===inspected.requestId)
+       ?'<div class="card flat admin-refund-case-detail" role="region" aria-label="Detalhamento do protocolo">'+
+        '<h5>Detalhamento financeiro — somente leitura</h5>'+
+        '<p>Protocolo <code>'+esc(inspected.requestId)+'</code> • Fatura <code>'+esc(inspected.invoiceId)+'</code></p>'+
+        '<p>Fatura: '+esc(inspected.invoiceStatus)+' • Valor registrado: R$ '+
+          esc((inspected.salePriceCents/100).toFixed(2))+'</p>'+
+        '<p>Cupons: '+esc(inspected.voucherCount)+' • Emitidos '+esc(inspected.voucherStatuses.issued)+
+          ' • Reservados '+esc(inspected.voucherStatuses.reserved)+
+          ' • Utilizados '+esc(inspected.voucherStatuses.redeemed)+
+          ' • Em revisão '+esc(inspected.voucherStatuses.review_required)+'</p>'+
+        '<p><strong>Histórico permanente:</strong> '+esc(inspected.historicalOrderCount)+
+          ' utilização(ões), '+(inspected.historyCoverage==='partial'?'consulta parcial':'consulta dentro do limite')+'</p>'+
+        inspected.orderReconciliations.map(x=>'<p class="tiny muted">Pedido <code>'+
+          esc(x.orderId)+'</code> • Conciliação: '+esc(x.status)+'</p>').join('')+
+        '<p role="alert" class="notice">Encerramento bloqueado: esta análise NÃO comprova estorno do Pix nem pagamento à revenda; nenhuma alteração financeira foi realizada.</p>'+
+        '</div>':'')+
       (Number.isSafeInteger(data.refundRequestPendingCount)&&data.refundRequestPendingCount===0
         ?'<p class="tiny muted">Nenhum protocolo aberto na consulta atual.</p>':'')+
       '</div>':''}
