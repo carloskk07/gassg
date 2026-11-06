@@ -143,6 +143,9 @@ await ctx.mobilityFeePixRequest('status');
 let unblock;
 response=()=>new Promise(resolve=>unblock=resolve);
 const inFlight=ctx.mobilityCopyFeePix();
+// Allow the authenticated session check and fetch to begin before logout.
+for(let i=0;i<8&&typeof unblock!=='function';i++)await Promise.resolve();
+assert.equal(typeof unblock,'function');
 ctx.mobilityClearSession();
 s.user={id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'};
 s.program=policy;
