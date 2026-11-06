@@ -8,6 +8,7 @@ const webhook=read('supabase/functions/billing-payment-webhook-mercadopago/index
 const coupon=read('supabase/functions/coupon-credit-pix/index.ts');
 const adminEdge=read('supabase/functions/admin-ops/index.ts');
 const shop=read('js/clube-coupon-shop.js');
+const adminUi=read('js/admin.js');
 const fixture=read('tests/fixtures/coupon-late-pix-settlement-v1-853.sql');
 
 for (const guard of [
@@ -34,6 +35,8 @@ assert.match(fixture,/SET LOCAL session_replication_role = origin;/);
 for(const code of [coupon,adminEdge])
  assert.match(code,/coupon_settlement_hold_reason_v1_853/,'review cause must appear in authorized read-only API');
 assert.match(shop,/Pagamento Pix identificado\. Os cupons não foram liberados/);
+assert.match(adminUi,/Pix recebido após indisponibilidade da revenda/);
+assert.match(adminUi,/Pix recebido após solicitação de cancelamento/);
 assert.match(webhook,/COUPON_SETTLEMENT_READBACK_UNVERIFIED/);
 
 const start=webhook.indexOf('async function handlePaidCouponOrder(');
