@@ -4,6 +4,7 @@ const clubeCouponShopState={
   userId:null,status:'idle',packages:[],seller:null,error:null,busy:false,
   attempts:{},purchase:null,autoQueuedFor:null,regionPostal:''
 };
+const clubeCouponRefundState={userId:null,inFlight:new Set(),attempts:{}};
 function clubeCouponShopPanel(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return '';
@@ -388,10 +389,16 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
 }
 
 // A cancellation is a protocol/request, NOT an immediate Pix reversal.
+// Per-user, per-invoice lock avoids duplicate requests and repeated PSP checks.
+// The UUID remains stable across ambiguous network retries.
 async function clubeCouponRefundAsk(invoiceId){
  const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
  if(!uid||!globalThis.liveReady?.()||
     !/^[0-9a-f-]{36}$/i.test(String(invoiceId||'')))return;
+ if(clubeCouponRefundState.userId!==uid)Object.assign(clubeCouponRefundState,{
+   userId:uid,inFlight:new Set(),attempts:{}
+ });
+ if(clubeCouponRefundState.inFlight.has(invoiceId))return;
  const invoice=clubePaidCouponView.userId===uid&&clubePaidCouponView.status==='ready'?
   clubePaidCouponView.purchases.find(x=>x.invoiceId===invoiceId):null;
  if(!invoice||invoice.refundStatus==='refunded')return;
@@ -400,17 +407,28 @@ async function clubeCouponRefundAsk(invoiceId){
  if(!['arrependimento','sem_atendimento','outro'].includes(choice))
    return toast('Escolha o motivo do cancelamento.');
  if(!existing&&!window.confirm('Confirma o cancelamento do pacote? A devolução do Pix só aparece como concluída após confirmação do Mercado Pago.'))return;
+ const requestId=clubeCouponRefundState.attempts[invoiceId]||crypto.randomUUID();
+ clubeCouponRefundState.attempts[invoiceId]=requestId;
+ clubeCouponRefundState.inFlight.add(invoiceId);
+ if(route()==='club')render();
  try{
   const result=await liveInvoke('coupon-credit-pix',{action:'request-refund',
-    invoiceId,requestId:crypto.randomUUID(),reason:choice});
+    invoiceId,requestId,reason:choice});
   if(result?.ok!==true||result?.source!=='clube_coupon_refund_request_v1_814'||
      result?.invoiceId!==invoiceId)throw Error('COUPON_REFUND_REQUEST_UNVERIFIED');
   if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
-  toast('Pedido recebido. Protocolo: '+String(result.requestId).slice(0,8)+'. Aguardando análise do reembolso.');
+  if(result.status==='refunded'&&result.refundConfirmed===true)
+    toast('Reembolso confirmado. Protocolo: '+String(result.requestId).slice(0,8)+'.');
+  else
+    toast('Pedido recebido. Protocolo: '+String(result.requestId).slice(0,8)+'. Aguardando análise do reembolso.');
   await clubePaidCouponsRefresh();
  }catch{
   if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
-   toast('Não foi possível registrar o pedido. Consulte seu histórico e tente novamente.');
+   toast('Não foi possível confirmar o protocolo. Consulte seu histórico antes de tentar novamente.');
+ }finally{
+  if(clubeCouponRefundState.userId===uid)
+    clubeCouponRefundState.inFlight.delete(invoiceId);
+  if(route()==='club')render();
  }
 }
 
