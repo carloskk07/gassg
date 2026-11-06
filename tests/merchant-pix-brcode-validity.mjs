@@ -153,10 +153,11 @@ fakeWooviError({...fakeCharge.charge,expiresDate:new Date(Date.now()+30000).toIS
   'PIX_PROVIDER_CHARGE_EXPIRED_OR_UNVERIFIED');
 
 // User cannot copy a known-expired or cancelled provider code.
-const start=merchant.indexOf('async function merchantCopyBillingPixCode(');
-const end=merchant.indexOf('\nasync function ',start+16);
-assert.ok(start>=0&&end>start);
-const source=merchant.slice(start,end);
+// Clipboard code lives in the deferred Financeiro module: payment data
+// must not increase the revenda's initial JS budget.
+const start=financeModule.indexOf('async function merchantCopyBillingPixCode(');
+assert.ok(start>=0);
+const source=financeModule.slice(start);
 const state={billing:{paymentRequests:[{
   id:'request-test',pixCharge:{status:'expired',brCode:valid,expiresAt:'2020-01-01T00:00:00Z'}
 }]}};
