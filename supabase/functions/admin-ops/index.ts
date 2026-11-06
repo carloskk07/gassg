@@ -4145,6 +4145,71 @@ Deno.serve(async(req:Request)=>{
         readbackVerified:true},200,origin);
     }
 
+    if(action==="clube-coupon-refund-triage-record"){
+      // Human triage is a classification, NOT refund approval or settlement.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente a Controladoria pode classificar reembolsos.",403);
+      const invoiceId=String(body.invoiceId??"");
+      const requestId=String(body.requestId??"");
+      const attemptId=String(body.attemptId??"");
+      const decision=String(body.decision??"");
+      const allowed=["provider_refund_proof_pending",
+        "merchant_history_review","financial_anomaly_escalation"];
+      if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId)||
+         !UUID_RE.test(attemptId)||!allowed.includes(decision))
+        throw new DomainError("COUPON_TRIAGE_INVALID_INPUT",
+          "Protocolo, tentativa ou motivo de triagem inválido.",400);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:"admin-coupon-refund-triage-record",limit:8,windowSeconds:3600});
+      const {data,error}=await admin.rpc("admin_clube_coupon_refund_triage_v1_866",{
+        p_actor:user.id,p_invoice:invoiceId,p_request:requestId,
+        p_attempt:attemptId,p_decision:decision
+      });
+      if(error)throw error;
+      if(data?.ok!==true||data?.source!=="clube_coupon_refund_triage_v1_866"||
+         data?.invoiceId!==invoiceId||data?.requestId!==requestId||
+         data?.auditId!==attemptId||data?.decision!==decision||
+         typeof data.replayed!=="boolean"||
+         !Number.isSafeInteger(data.historicalOrderCount)||
+         data.historicalOrderCount<0||
+         !Number.isFinite(Date.parse(String(data.recordedAt??"")))||
+         data.moneyMoved!==false||data.providerRefundVerified!==false||
+         data.caseClosed!==false)
+        throw new DomainError("COUPON_TRIAGE_UNVERIFIED",
+          "A decisão não foi comprovada pelo banco financeiro.",503);
+      const [caseCheck,auditCheck]=await Promise.all([
+        admin.from("clube_coupon_refund_requests_v1_814")
+          .select("request_id,status").eq("invoice_id",invoiceId)
+          .eq("request_id",requestId).maybeSingle(),
+        admin.from("platform_admin_audit")
+          .select("id,actor_user_id,action,target_type,target_id,metadata")
+          .eq("id",attemptId).maybeSingle()
+      ]);
+      if(caseCheck.error||auditCheck.error||
+         caseCheck.data?.status!=="in_review"||
+         caseCheck.data?.request_id!==requestId||
+         auditCheck.data?.id!==attemptId||
+         auditCheck.data?.actor_user_id!==user.id||
+         auditCheck.data?.action!=="clube_coupon_refund_triage_v1_866"||
+         auditCheck.data?.target_type!=="clube_coupon_refund_request"||
+         auditCheck.data?.target_id!==requestId||
+         auditCheck.data?.metadata?.invoiceId!==invoiceId||
+         auditCheck.data?.metadata?.decision!==decision||
+         auditCheck.data?.metadata?.historicalOrderCount!==data.historicalOrderCount||
+         auditCheck.data?.metadata?.refundVerified!==false||
+         auditCheck.data?.metadata?.merchantPaid!==false||
+         auditCheck.data?.metadata?.moneyMoved!==false)
+        throw new DomainError("COUPON_TRIAGE_READBACK_UNVERIFIED",
+          "A decisão não apareceu corretamente na auditoria. Atualize a consulta.",503);
+      return json({ok:true,source:"clube_coupon_refund_triage_v1_866",
+        invoiceId,requestId,auditId:attemptId,decision,
+        historicalOrderCount:data.historicalOrderCount,
+        recordedAt:data.recordedAt,replayed:data.replayed,
+        moneyMoved:false,providerRefundVerified:false,caseClosed:false,
+        readbackVerified:true},200,origin);
+    }
+
     if(action==="clube-coupon-refund-review-inspect"){
       // Finance-only investigation. No provider call, refund, write or closure.
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
@@ -4161,17 +4226,29 @@ Deno.serve(async(req:Request)=>{
       if(!request||!["requested","in_review"].includes(request.status))
         throw new DomainError("COUPON_REFUND_CASE_NOT_PENDING",
           "Solicitação fora da fila; atualize a consulta.",409);
-      const [invoiceResult,voucherResult,historyResult]=await Promise.all([
+      const [invoiceResult,voucherResult,historyResult,claimResult,triageResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
           .select("id,status,sale_price_cents,paid_at,provider_order_id,provider_payment_id")
           .eq("id",invoiceId).maybeSingle(),
         admin.from("clube_coupon_paid_issuances")
           .select("id,status",{count:"exact"}).eq("invoice_id",invoiceId).limit(16),
         admin.from("clube_coupon_paid_order_applications")
-          .select("order_id",{count:"exact"}).eq("invoice_id",invoiceId).limit(26)
+          .select("order_id",{count:"exact"}).eq("invoice_id",invoiceId).limit(26),
+        admin.from("platform_admin_audit")
+          .select("id,actor_user_id,created_at,metadata")
+          .eq("action","clube_coupon_review_started_v1_865")
+          .eq("target_type","clube_coupon_refund_request")
+          .eq("target_id",requestId).maybeSingle(),
+        admin.from("platform_admin_audit")
+          .select("id,actor_user_id,created_at,metadata")
+          .eq("action","clube_coupon_refund_triage_v1_866")
+          .eq("target_type","clube_coupon_refund_request")
+          .eq("target_id",requestId).maybeSingle()
       ]);
-      if(invoiceResult.error||voucherResult.error||historyResult.error)
-        throw invoiceResult.error||voucherResult.error||historyResult.error;
+      if(invoiceResult.error||voucherResult.error||historyResult.error||
+         claimResult.error||triageResult.error)
+        throw invoiceResult.error||voucherResult.error||historyResult.error||
+          claimResult.error||triageResult.error;
       const inv=invoiceResult.data;
       const vouchers=voucherResult.data;
       const uses=historyResult.data;
@@ -4191,6 +4268,30 @@ Deno.serve(async(req:Request)=>{
          uses.some((u:any)=>!UUID_RE.test(String(u.order_id??""))))
         throw new DomainError("COUPON_REFUND_CASE_EVIDENCE_INCOMPLETE",
           "A evidência financeira está incompleta.",503);
+      const claim=claimResult.data;
+      const triage=triageResult.data;
+      if((claim&&(claim.metadata?.invoiceId!==invoiceId||
+           !UUID_RE.test(String(claim.id??""))||
+           !UUID_RE.test(String(claim.actor_user_id??""))||
+           !Number.isFinite(Date.parse(String(claim.created_at??"")))))||
+         (triage&&(!claim||
+           triage.metadata?.invoiceId!==invoiceId||
+           !["provider_refund_proof_pending","merchant_history_review",
+             "financial_anomaly_escalation"].includes(String(triage.metadata?.decision??""))||
+           !UUID_RE.test(String(triage.id??""))||
+           !Number.isSafeInteger(triage.metadata?.historicalOrderCount)||
+           triage.metadata.historicalOrderCount!==historyCount||
+           !Number.isFinite(Date.parse(String(triage.created_at??"")))||
+           triage.metadata?.moneyMoved!==false||
+           triage.metadata?.refundVerified!==false||
+           triage.metadata?.merchantPaid!==false)))
+        throw new DomainError("COUPON_REFUND_CASE_TRIAGE_EVIDENCE_INCOMPLETE",
+          "Responsável ou classificação financeira não comprovados.",503);
+      const reviewClaimed=Boolean(claim);
+      const reviewerCanTriage=reviewClaimed&&
+        (String(claim.actor_user_id)===user.id||
+         String(adminAccess.admin_role)==="superadmin");
+      const triageDecision=triage?String(triage.metadata.decision):null;
       const historyCoverage=historyCount>25?"partial":"bounded_complete";
       const orderIds=[...new Set(uses.slice(0,25).map((u:any)=>String(u.order_id)))];
       const orderReconciliations=await Promise.all(orderIds.map(async(orderId)=>{
@@ -4215,6 +4316,10 @@ Deno.serve(async(req:Request)=>{
         paymentReferencePresent:Boolean(inv.paid_at&&inv.provider_order_id&&inv.provider_payment_id),
         voucherCount,voucherStatuses,historicalOrderCount:historyCount,
         historyCoverage,orderReconciliations,
+        reviewClaimed,reviewerCanTriage,
+        reviewAssignedAt:claim?.created_at??null,
+        triageDecision,triageAt:triage?.created_at??null,
+        triageAuditId:triage?.id??null,
         closureBlockers:[
           "PROVIDER_REFUND_PROOF_REQUIRED",
           ...(historyCount>0?["HISTORICAL_DISCOUNTS_REQUIRE_REVIEW"]:[]),
