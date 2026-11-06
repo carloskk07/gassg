@@ -267,7 +267,7 @@ async function partnerPendingInvoiceSafe(admin:any,invoice:any){
     &&supply?.postalCode===postal;
  }catch(error){
   console.warn("partner coupon pending Pix supply review required",
-    String((error as any)?.message??error));
+    String(error instanceof Error?error.message:error));
   return false;
  }
 }
