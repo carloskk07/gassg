@@ -4289,7 +4289,7 @@ Deno.serve(async(req:Request)=>{
           "Responsável ou classificação financeira não comprovados.",503);
       const reviewClaimed=Boolean(claim);
       const reviewerCanTriage=reviewClaimed&&
-        (String(claim.actor_user_id)===user.id||
+        (String(claim?.actor_user_id??'')===user.id||
          String(adminAccess.admin_role)==="superadmin");
       const triageDecision=triage?String(triage.metadata.decision):null;
       const historyCoverage=historyCount>25?"partial":"bounded_complete";
