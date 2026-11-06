@@ -8,7 +8,7 @@
 
 const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,items:[],detail:null,
  program:null,programBusy:false,programSeq:0,
- pix:null,pixBusy:false,pixSeq:0,
+ pix:null,pixBusy:false,pixSeq:0,pixCopyBusy:false,pixVisibleUntil:0,pixTimer:null,
  welcomeClaimedUser:'',welcomeClaimInFlight:'',
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  pushEnabled:false,pushBusy:false,
@@ -557,13 +557,47 @@ function mobilityPrepaidPlansPanel(){
   '<p>Os benefícios do plano são aplicados automaticamente à próxima tarifa aceita quando existe crédito suficiente. Sem saldo suficiente, aplica-se a taxa Flex ou a taxa de participação vigente. Os créditos não vencem mensalmente.</p>'+
   (cards?'<div class="grid">'+cards+'</div>':'')+'</section>';
 }
+// Active Pix QR, clipboard code and external payment link have a short
+// on-screen lifetime. Hiding these values does NOT invalidate a provider
+// order or create a replacement: status must recheck the SAME invoice.
+const MOBILITY_FEE_PIX_VISIBLE_MS=60000;
+function mobilityFeePixClearTimer(){
+ const s=mobilityRuntime;
+ if(s.pixTimer!==null&&typeof clearTimeout==='function')clearTimeout(s.pixTimer);
+ s.pixTimer=null;
+}
+function mobilityFeePixHide(expected=null){
+ const s=mobilityRuntime;
+ if(expected&&s.pix!==expected)return false;
+ mobilityFeePixClearTimer();
+ s.pixVisibleUntil=0;
+ const old=s.pix;
+ if(!old||old.status!=='active'||(!old.brCode&&!old.qrDataUri&&!old.paymentLinkUrl))return false;
+ s.pix={...old,brCode:null,qrDataUri:null,paymentLinkUrl:null};
+ if(mobilityRoute())render();
+ return true;
+}
+function mobilityFeePixArm(){
+ const s=mobilityRuntime,invoice=s.pix;
+ mobilityFeePixClearTimer();s.pixVisibleUntil=0;
+ if(invoice?.status!=='active'||typeof invoice.brCode!=='string'||
+    invoice.brCode.length<20||invoice.brCode.length>8192||
+    Date.parse(String(invoice.expiresAt||''))<=Date.now()+60000)return;
+ if(typeof document!=='undefined'&&document.visibilityState==='hidden'){
+  mobilityFeePixHide(invoice);return;
+ }
+ s.pixVisibleUntil=Date.now()+MOBILITY_FEE_PIX_VISIBLE_MS;
+ if(typeof setTimeout==='function')
+  s.pixTimer=setTimeout(()=>mobilityFeePixHide(invoice),MOBILITY_FEE_PIX_VISIBLE_MS);
+}
 function mobilityFeePixPanel(){
  const s=mobilityRuntime,b=s.program?.billing,p=s.pix;
  if(!b||Number(b.outstandingCents||0)<0)return '';
  const money=c=>esc(BRL.format(c/100)),due=Number(b.outstandingCents??0);
- const loading=s.pixBusy?' disabled':'';
+ const loading=(s.pixBusy||s.pixCopyBusy)?' disabled':'';
  const refresh='<button type="button" class="secondary" onclick="mobilityFeePixRequest(\'status\')"'+loading+'>Conferir pagamento no Mercado Pago</button>';
- const payable=p?.status==='active'&&mobilityId.test(String(p.invoiceId||''))&&
+ const payable=p?.status==='active'&&s.pixVisibleUntil>Date.now()&&
+   mobilityId.test(String(p.invoiceId||''))&&
    Date.parse(String(p.expiresAt||''))>Date.now()+60000&&
    typeof p.brCode==='string'&&p.brCode.length>=20&&p.brCode.length<=8192;
  const img=payable&&typeof p.qrDataUri==='string'&&p.qrDataUri.length<550100&&
@@ -578,7 +612,7 @@ function mobilityFeePixPanel(){
    ': '+money(Number(p.amountCents))+'</strong></p>'+
    (img?'<img style="max-width:230px;width:100%;height:auto" alt="QR Code Pix de taxa TAMÃO" src="'+esc(img)+'">':'')+
    '<label>Pix copia e cola<textarea id="mobility-fee-pix-br" readonly rows="3">'+esc(p.brCode)+'</textarea></label>'+
-   '<button type="button" class="secondary" onclick="mobilityCopyFeePix()">Copiar código Pix</button> '+
+   '<button type="button" class="secondary" onclick="mobilityCopyFeePix()"'+loading+'>Copiar código Pix</button> '+
    link+'<p class="tiny muted">Validade até '+esc(mobilityFormatDate(p.expiresAt))+
    '. A confirmação só aparece depois da consulta ao Mercado Pago.</p></div>':'';
  const paid=p?.status==='paid'?
@@ -709,17 +743,21 @@ async function mobilityClaimWelcomeOnAuth(){
  }catch(_){return false}
  finally{if(s.welcomeClaimInFlight===userId)s.welcomeClaimInFlight=''}
 }
-async function mobilityFeePixRequest(action,planKey=null){
+async function mobilityFeePixRequest(action,planKey=null,verifiedForCopy=false){
  const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch;
- if(s.pixBusy||!s.client||!userId||!['charge','status','plan'].includes(action)||
+ if(s.pixBusy||(s.pixCopyBusy&&!verifiedForCopy)||
+   (verifiedForCopy&&action!=='status')||
+   !s.client||!userId||!['charge','status','plan'].includes(action)||
    (action==='plan'&&!['essential','popular','professional'].includes(planKey))||
    !s.program?.billing)return false;
  const seq=++s.pixSeq;
- s.pixBusy=true;s.error='';s.notice='';render();
+ s.pixBusy=true;s.error='';s.notice='';
+ // Don't leave a copied provider charge accessible while a new check
+ // is in flight. An outage must not silently restore that old code.
+ mobilityFeePixClearTimer();s.pixVisibleUntil=0;render();
  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId&&s.pixSeq===seq;
  try{
-  // The Edge Function revalidates the bearer with Supabase Auth and uses
-  // the authenticated subject as the ONLY possible driver payer.
+  // Never trust a previous tab's bearer token; verify the exact user.
   const {data:{session},error:sessionError}=await s.client.auth.getSession();
   if(!same())return false;
   if(sessionError||!session?.access_token||session.user?.id!==userId)
@@ -744,6 +782,9 @@ async function mobilityFeePixRequest(action,planKey=null){
   const updated=await mobilityLoadProgram();
   if(!same())return false;
   if(!updated)throw Error('Finance readback failed');
+  // Reveal only after both server response and authenticated ledger have
+  // been checked. A paid/review-required invoice never receives a lease.
+  mobilityFeePixArm();
   s.notice=item?.status==='paid'?
    (item.invoiceKind==='prepaid_credit'?
     'Mercado Pago confirmou a recarga. Os créditos ficam disponíveis para novas corridas.':
@@ -752,19 +793,53 @@ async function mobilityFeePixRequest(action,planKey=null){
    data.status==='below_minimum'?'As taxas precisam atingir R$ 1,00 antes de emitir Pix.':
    item?.status==='review_required'?'O pagamento precisa de revisão financeira.':
    'Cobrança atualizada no servidor.';
- }catch(_){if(same())s.error=
-  'Não foi possível conferir a cobrança com o Mercado Pago. Atualize o extrato antes de repetir.'}
- finally{if(same()){s.pixBusy=false;render()}}
+  // Only the explicit clipboard recheck consumes a proof. UI actions keep
+  // the historic false return contract; no billing action is auto-replayed.
+  if(verifiedForCopy)return {ok:true,charge:item};
+ }catch(_){
+  if(same()){
+   mobilityFeePixHide();
+   s.pix=null;
+   s.error='Não foi possível conferir a cobrança com o Mercado Pago. Atualize o extrato antes de repetir.';
+  }
+ }finally{if(same()){s.pixBusy=false;render()}}
  return false;
 }
 async function mobilityCopyFeePix(){
- const s=mobilityRuntime,code=String(s.pix?.brCode||'');
- if(s.pix?.status!=='active'||code.length<20||code.length>8192||
+ const s=mobilityRuntime,existing=s.pix;
+ const code=String(existing?.brCode||''),invoiceId=String(existing?.invoiceId||'');
+ const amount=Number(existing?.amountCents),kind=String(existing?.invoiceKind||'fee');
+ const userId=s.user?.id,epoch=s.sessionEpoch;
+ if(s.pixBusy||s.pixCopyBusy||!s.client||!userId||
+    existing?.status!=='active'||s.pixVisibleUntil<=Date.now()||
+    !mobilityId.test(invoiceId)||code.length<20||code.length>8192||
+    !Number.isSafeInteger(amount)||amount<100||
     !navigator.clipboard?.writeText)return false;
- try{await navigator.clipboard.writeText(code);
-  s.notice='Código Pix copiado. Confirme o recebedor no aplicativo do seu banco.';}
- catch(_){s.error='Não foi possível copiar o Pix. Selecione o código e copie manualmente.'}
- render();return false;
+ const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId;
+ s.pixCopyBusy=true;render();
+ try{
+  // This is a READ on the same authenticated driver's latest charge, not
+  // another Pix creation. A changed/paid/reviewed charge is never copied.
+  const result=await mobilityFeePixRequest('status',null,true);
+  if(!same())return false;
+  const fresh=result?.charge;
+  if(result?.ok!==true||!fresh||s.pix!==fresh||
+     fresh.invoiceId!==invoiceId||fresh.status!=='active'||
+     fresh.brCode!==code||Number(fresh.amountCents)!==amount||
+     String(fresh.invoiceKind||'fee')!==kind||
+     s.pixVisibleUntil<=Date.now()){
+   mobilityFeePixHide();
+   s.error='O Pix anterior mudou ou não pôde ser confirmado. Não pague o código antigo; confira a fatura no extrato.';
+   return false;
+  }
+  await navigator.clipboard.writeText(code);
+  if(same())s.notice='Código Pix conferido e copiado. Verifique o recebedor no banco.';
+ }catch(_){
+  if(same())s.error='Não foi possível copiar o Pix após a conferência. Consulte novamente a fatura.';
+ }finally{
+  if(same()){s.pixCopyBusy=false;render()}
+ }
+ return false;
 }
 async function mobilityLoadProgram(){
  const s=mobilityRuntime,client=s.client,epoch=s.sessionEpoch,userId=s.user?.id,seq=++s.programSeq;
@@ -866,7 +941,8 @@ function mobilityClearSession(){
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.program=null;s.programBusy=false;s.programSeq++;
- s.pix=null;s.pixBusy=false;s.pixSeq++;
+ mobilityFeePixClearTimer();s.pix=null;s.pixBusy=false;s.pixCopyBusy=false;
+ s.pixVisibleUntil=0;s.pixSeq++;
  s.welcomeClaimedUser='';s.welcomeClaimInFlight='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;
  s.noticeOptIn=false;s.pendingDriverIds=null;s.reportId='';s.syncUnavailable=false;
@@ -1334,6 +1410,7 @@ document.addEventListener('visibilitychange',()=>{
   if(mobilityRoute()&&mobilityRuntime.user)mobilityRefresh(true).catch(()=>{});
   return;
  }
+ mobilityFeePixHide();
  if(mobilityRuntime.watch!==null||mobilityRuntime.gpsPending)mobilityStopTracking();
  // No retained coordinates in the third-party map on backgrounding.
  const frame=document.getElementById?.('mobility-map');
