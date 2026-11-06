@@ -66,6 +66,8 @@ const historyMigration=fs.readFileSync(
  new URL('../supabase/migrations/20261106180000_coupon_refund_immutable_use_history_v1_862.sql',import.meta.url),'utf8');
 assert.match(historyMigration,/if v_invoice\.status='review_required' or v_held>0 or exists \(/,
  'reissued but historically spent coupons must not be auto-refunded at the database layer');
+assert.match(historyMigration,/CREATE INDEX IF NOT EXISTS clube_coupon_application_invoice_history_v1_862/,
+ 'historical application count must use an invoice index, not scan all coupon orders');
 assert.match(historyMigration,/from public\.clube_coupon_paid_order_applications a/);
 assert.match(historyMigration,/REVOKE ALL ON FUNCTION public\.clube_coupon_paid_payment_refund/);
 assert.match(action,/\.from\("clube_coupon_paid_order_applications"\)/,
