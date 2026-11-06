@@ -11,12 +11,14 @@ new vm.Script(shop);
 new vm.Script(legal);
 assert.match(edge,/const COUPON_TERMS_VERSION="clube_coupon_terms_v1_813"/);
 assert.ok(edge.includes('termsVersion:COUPON_TERMS_VERSION'));
-assert.ok(edge.includes('body.termsAccepted!==true||body.termsVersion!==COUPON_TERMS_VERSION'));
-const accepted=edge.indexOf('if(body.termsAccepted!==true||body.termsVersion!==COUPON_TERMS_VERSION)');
+assert.ok(edge.includes('body.termsAccepted!==true||')&&
+ edge.includes('body.termsVersion!==(partnerPurchase?PARTNER_BUYER_TERMS_VERSION:COUPON_TERMS_VERSION)'),
+ 'owner terms cannot be reused as merchant-funded consent');
+const accepted=edge.indexOf('if(body.termsAccepted!==true||');
 const invoice=edge.indexOf('.from("clube_coupon_paid_invoices").insert(details)');
 const provider=edge.indexOf('mercadoPagoFetch("/v1/orders"');
 assert.ok(accepted>0&&accepted<invoice&&invoice<provider,'acceptance precedes real invoice/Pix');
-assert.ok(edge.includes('terms_accepted_at:new Date().toISOString()')&&edge.includes('terms_version:COUPON_TERMS_VERSION'));
+assert.ok(edge.includes('terms_accepted_at:new Date().toISOString()')&&edge.includes('terms_version:partnerPurchase?PARTNER_BUYER_TERMS_VERSION:COUPON_TERMS_VERSION'));
 assert.ok(shop.includes('<input type="checkbox" id="clube-coupon-terms-')&&
  shop.includes('?.checked')&&shop.includes('termsAccepted:true,termsVersion:p.termsVersion'));
 assert.ok(shop.includes('go(\\\'terms\\\')'),'conditions linked before checkout');

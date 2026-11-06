@@ -71,8 +71,14 @@ assert.match(coupon,/async function couponSaleRelease\(admin:any\)/,
  'A signed release in the private database must authorize sale.');
 assert.match(coupon,/Deno\.env\.get\("CLUBE_COUPON_SALES_EMERGENCY_STOP"\)==="true"/,
  'Explicit private emergency stop remains available.');
-assert.match(coupon,/if\(!release\)return respond\(\{error:"COUPON_SALES_NOT_ENABLED"/,
- 'Missing owner-approved release must block Pix before any invoice.');
+assert.match(coupon,/if\(!release\)return respond\(\{error:partnerPurchase\?/,
+ 'Both independently approved buyer contracts must block Pix before invoice.');
+assert.match(coupon,/COUPON_SALES_NOT_ENABLED/,
+ 'Old owner-sponsored seller authorization remains mandatory.');
+assert.match(coupon,/PARTNER_COUPON_BUYER_CONTRACT_NOT_RELEASED/,
+ 'Partner seller signature cannot be inherited from old reimbursement terms.');
+assert.match(coupon,/if\(partnerPurchase&&readiness\?\.ready!==true\)/,
+ 'Partner inventory and separate commercial release precede invoice and PSP.');
 assert.match(coupon,/Deno\.env\.get\("MERCADOPAGO_ACCESS_TOKEN"\)/,
  'use existing platform account');
 assert.match(billing,/Deno\.env\.get\("MERCADOPAGO_ACCESS_TOKEN"\)/,

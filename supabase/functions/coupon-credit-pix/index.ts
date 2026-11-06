@@ -23,6 +23,49 @@ const MP_TOKEN=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
 // This is not an operator's legal attestation and does not mark a package
 // legally approved merely because a customer checked the box.
 const COUPON_TERMS_VERSION="clube_coupon_terms_v1_813";
+
+const PARTNER_BUYER_TERMS_VERSION="clube_partner_coupon_terms_v1_846";
+const PARTNER_PACKAGE_KEY="partner_general_3x5_849";
+// Two independent, verified database gates. Neither an environment variable
+// nor a client assertion is allowed to authorize a partner-funded sale.
+async function partnerSaleReadiness(admin:any){
+ const {data,error}=await admin.rpc("clube_partner_coupon_sale_readiness_v1_849",{
+  p_package:PARTNER_PACKAGE_KEY
+ });
+ if(error)throw error;
+ if(data?.source!=="clube_partner_coupon_sale_readiness_v1_849"||
+   data?.packageKey!==PARTNER_PACKAGE_KEY)
+  throw new Error("PARTNER_COUPON_READINESS_UNVERIFIED");
+ return data;
+}
+async function partnerSignedSeller(admin:any){
+ const {data,error}=await admin.from("clube_partner_coupon_sale_agreements_v1_849")
+  .select("package_key,terms_version,sales_authorized,seller_name,seller_tax_document,seller_address,seller_support_email,owner_accepts_refund,owner_accepts_partner_nonreimbursement")
+  .eq("package_key",PARTNER_PACKAGE_KEY)
+  .order("signed_at",{ascending:false}).limit(1).maybeSingle();
+ if(error)throw error;
+ if(!data||data.package_key!==PARTNER_PACKAGE_KEY||
+   data.terms_version!==PARTNER_BUYER_TERMS_VERSION||
+   data.sales_authorized!==true||data.owner_accepts_refund!==true||
+   data.owner_accepts_partner_nonreimbursement!==true||
+   !/^\d{11}$|^\d{14}$/.test(String(data.seller_tax_document??""))||
+   String(data.seller_name??"").trim().length<5||
+   String(data.seller_address??"").trim().length<20||
+   !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(data.seller_support_email??"")))
+  return null;
+ return data;
+}
+async function partnerBuyerTerms(admin:any){
+ const {data,error}=await admin.from("clube_partner_coupon_buyer_terms_v1_849")
+  .select("terms_version,contract_text")
+  .eq("terms_version",PARTNER_BUYER_TERMS_VERSION).maybeSingle();
+ if(error)throw error;
+ if(data?.terms_version!==PARTNER_BUYER_TERMS_VERSION||
+    String(data.contract_text??"").length<600)
+   throw new Error("PARTNER_COUPON_BUYER_TERMS_NOT_VERIFIED");
+ return data.contract_text;
+}
+
 // A signed, owner-controlled DB release replaces the absent private
 // environment toggle. An explicit value 'false' remains a hard emergency
 // stop; an environment flag alone can NEVER impersonate seller approval.
@@ -407,6 +450,47 @@ Deno.serve(async(req:Request)=>{
       refundConfirmed:remoteRefundVerified||data.refundConfirmed===true
     },200,origin);
   }
+  if(operation==="partner-catalog"){
+    // This independent catalog never inherits the historical sponsored owner
+    // release. It stays EMPTY until real supply, separate owner acceptance,
+    // signed buyer terms, legal seller identity and DB sale switches all pass.
+    await enforceApiQuota(admin,{
+      userId:user.id,actionName:"partner-coupon-catalog-v1-849",
+      limit:15,windowSeconds:600
+    });
+    const readiness=await partnerSaleReadiness(admin);
+    const enabled=readiness.ready===true &&
+      await platformCouponSalesAllowed(admin) &&
+      mercadoPagoConfigured(MP_TOKEN)&&MP_TOKEN.startsWith("APP_USR-");
+    if(!enabled)return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
+      packages:[],couponSalesEnabled:false},200,origin);
+    const seller=await partnerSignedSeller(admin);
+    if(!seller)return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
+      packages:[],couponSalesEnabled:false},200,origin);
+    const termsText=await partnerBuyerTerms(admin);
+    const {data:pkg,error:pkgError}=await admin.from("clube_coupon_paid_packages")
+      .select("package_key,title,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,min_order_cents,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified,sponsored_by_owner")
+      .eq("package_key",PARTNER_PACKAGE_KEY).maybeSingle();
+    if(pkgError)throw pkgError;
+    if(!pkg||pkg.sale_enabled!==true||pkg.funding_verified!==true||
+       pkg.legal_terms_verified!==true||pkg.redeem_settlement_verified!==true||
+       pkg.sponsored_by_owner!==false||pkg.sale_price_cents!==890||
+       pkg.coupon_face_cents!==500||pkg.coupons_per_pack!==3||
+       pkg.valid_days!==180||pkg.min_order_cents!==1000)
+      return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
+        packages:[],couponSalesEnabled:false},200,origin);
+    return respond({ok:true,source:"clube_partner_coupon_catalog_v1_849",
+      couponSalesEnabled:true,
+      packages:[{packageKey:pkg.package_key,title:pkg.title,
+        priceCents:pkg.sale_price_cents,faceCents:pkg.coupon_face_cents,
+        couponCount:pkg.coupons_per_pack,validDays:pkg.valid_days,
+        minOrderCents:pkg.min_order_cents,eligibleProducts:"participating_merchants_only",
+        termsVersion:PARTNER_BUYER_TERMS_VERSION,termsText,
+        fundingModel:"partner_funded",
+        seller:{name:seller.seller_name,taxDocument:seller.seller_tax_document,
+          address:seller.seller_address,supportEmail:seller.seller_support_email}}]
+    },200,origin);
+  }
   if(operation==="catalog"){
     // Only a signed owner release + actual backing may be shown as an offer.
     const release=await couponSaleRelease(admin);
@@ -481,11 +565,18 @@ Deno.serve(async(req:Request)=>{
     }
     return respond({ok:true,...publicInvoice(invoice)},200,origin);
   }
-  if(operation!=="purchase")return respond({error:"COUPON_ACTION_INVALID"},400,origin);
-  // One valid, owner-signed commercial release is mandatory before Pix.
-  // The explicit environment 'false' remains an emergency override.
-  const release=await couponSaleRelease(admin);
-  if(!release)return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
+  if(operation!=="purchase"&&operation!=="partner-purchase")
+    return respond({error:"COUPON_ACTION_INVALID"},400,origin);
+  const partnerPurchase=operation==="partner-purchase";
+  // An explicit merchant-funded buyer contract can NEVER be sold under the
+  // historical owner-funded product's legal reimbursement authorization.
+  const readiness=partnerPurchase?await partnerSaleReadiness(admin):null;
+  if(partnerPurchase&&readiness?.ready!==true)
+    return respond({error:"PARTNER_COUPON_NO_ELIGIBLE_SUPPLY",pixPayable:false},423,origin);
+  const release=partnerPurchase?await partnerSignedSeller(admin):await couponSaleRelease(admin);
+  if(!release)return respond({error:partnerPurchase?
+    "PARTNER_COUPON_BUYER_CONTRACT_NOT_RELEASED":"COUPON_SALES_NOT_ENABLED",
+    pixPayable:false},423,origin);
   // Sales of a digital coupon package may be prepared and authorized in
   // PRELAUNCH, even with zero merchants. Global PAUSED remains a hard stop;
   // the independent private sale flag and each package approval remain required.
@@ -496,7 +587,7 @@ Deno.serve(async(req:Request)=>{
     return respond({error:"MERCADOPAGO_LIVE_NOT_CONFIGURED"},503,origin);
   const packageKey=String(body.packageKey||"");
   const requestId=String(body.requestId||"");
-  if(packageKey!==release.package_key)
+  if(packageKey!==(partnerPurchase?PARTNER_PACKAGE_KEY:release.package_key))
     return respond({error:"COUPON_PACKAGE_NOT_RELEASED"},409,origin);
   if(!/^[a-z][a-z0-9_]{2,39}$/.test(packageKey)||!UUID_RE.test(requestId)){
    return respond({error:"COUPON_REQUEST_INVALID"},400,origin);
@@ -511,19 +602,30 @@ Deno.serve(async(req:Request)=>{
     !Number.isSafeInteger(pkg.sale_price_cents)||
     !Number.isSafeInteger(pkg.coupon_face_cents)||
     !Number.isSafeInteger(pkg.coupons_per_pack)||
-    (pkg.sponsored_by_owner!==true&&
-      pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack))
+    (partnerPurchase?(
+       pkg.sponsored_by_owner!==false||pkg.sale_price_cents!==890||
+       pkg.coupon_face_cents!==500||pkg.coupons_per_pack!==3||
+       pkg.valid_days!==180||pkg.min_order_cents!==1000
+     ):(pkg.sponsored_by_owner!==true&&
+       pkg.sale_price_cents<pkg.coupon_face_cents*pkg.coupons_per_pack)))
    return respond({error:"COUPON_PACKAGE_NOT_AVAILABLE"},409,origin);
   // A purchase is a distinct contract, even before the first merchant joins.
   // The customer must accept the public coupon conditions before ANY invoice
   // or Mercado Pago order is created; there is no prechecked consent.
-  if(body.termsAccepted!==true||body.termsVersion!==COUPON_TERMS_VERSION)
+  if(body.termsAccepted!==true||
+     body.termsVersion!==(partnerPurchase?PARTNER_BUYER_TERMS_VERSION:COUPON_TERMS_VERSION))
     return respond({error:"COUPON_TERMS_ACCEPTANCE_REQUIRED"},400,origin);
   const details={
    customer_user_id:user.id,package_key:packageKey,request_id:requestId,
    sale_price_cents:pkg.sale_price_cents,coupon_face_cents:pkg.coupon_face_cents,
    coupons_per_pack:pkg.coupons_per_pack,valid_days:pkg.valid_days,
-   terms_version:COUPON_TERMS_VERSION,terms_accepted_at:new Date().toISOString(),
+   terms_version:partnerPurchase?PARTNER_BUYER_TERMS_VERSION:COUPON_TERMS_VERSION,
+   terms_accepted_at:new Date().toISOString(),
+   ...(partnerPurchase?{
+     funding_mode_v1_846:"partner_funded",
+     funding_terms_version_v1_846:PARTNER_BUYER_TERMS_VERSION,
+     min_order_cents:pkg.min_order_cents,sponsor_covered_cents:0
+   }:{}),
    seller_name:release.seller_name,
    seller_tax_document:release.seller_tax_document,
    seller_address:release.seller_address,
@@ -545,7 +647,12 @@ Deno.serve(async(req:Request)=>{
       pixCode:null,paymentUrl:null,pixPayable:false},409,origin);
   if(invoice.package_key!==packageKey||invoice.sale_price_cents!==pkg.sale_price_cents||
      invoice.coupon_face_cents!==pkg.coupon_face_cents||
-     invoice.coupons_per_pack!==pkg.coupons_per_pack){
+     invoice.coupons_per_pack!==pkg.coupons_per_pack||
+     invoice.terms_version!==(partnerPurchase?PARTNER_BUYER_TERMS_VERSION:COUPON_TERMS_VERSION)||
+     invoice.funding_mode_v1_846!==(partnerPurchase?"partner_funded":"platform_reimbursed")||
+     (partnerPurchase&&(invoice.funding_terms_version_v1_846!==PARTNER_BUYER_TERMS_VERSION||
+       invoice.min_order_cents!==pkg.min_order_cents||
+       invoice.seller_tax_document!==release.seller_tax_document))){
    return respond({error:"COUPON_REQUEST_REPLAY_CONFLICT"},409,origin);
   }
   if(invoice.status!=="prepared"){

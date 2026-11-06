@@ -12,7 +12,7 @@ assert.match(ui.slice(to),/\$\{clubePaidCouponPanel\(\)\}/,'widget is on the Clu
 assert.match(edge,/if\(operation==="my-vouchers"\)/);
 assert.match(edge,/\.eq\("customer_user_id",user.id\)/);
 assert.ok(edge.indexOf('if(operation==="my-vouchers")')<
- edge.indexOf('if(operation!=="purchase")'),
+ edge.indexOf('if(operation!=="purchase"&&operation!=="partner-purchase")'),
  'read my own history while sales are disabled');
 assert.match(edge,/couponSalesEnabled:\s*Boolean\(await couponSaleRelease\(admin\)\)/);
 assert.match(edge,/couponCheckoutEnabled:\s*Deno\.env\.get/);

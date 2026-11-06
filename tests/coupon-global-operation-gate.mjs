@@ -61,13 +61,18 @@ for(const mode of ['PAUSED','UNKNOWN']){
 assert.equal(await platformCouponSalesAllowed(saleClient(null)),false);
 assert.equal(await platformCouponSalesAllowed(saleClient(null,{code:'PGRST116'})),false);
 assert.equal(await platformCouponSalesAllowed({from(){throw Error('offline')}}),false);
-const sales=coupon.indexOf('const release=await couponSaleRelease(admin);',coupon.indexOf('if(operation!=="purchase")'));
+const sales=coupon.indexOf('const release=partnerPurchase?await partnerSignedSeller(admin):await couponSaleRelease(admin);',
+  coupon.indexOf('if(operation!=="purchase"&&operation!=="partner-purchase")'));
 const emergency=coupon.indexOf('if(!await platformCouponSalesAllowed(admin))',sales);
 const invoice=coupon.indexOf('.from("clube_coupon_paid_invoices").insert(details)');
 assert.ok(sales>=0&&emergency>sales&&invoice>emergency,
  'PAUSED and signed owner release must block Pix before money is requested');
 assert.match(coupon,/error:"COUPON_SALES_OPERATION_PAUSED"},423/);
-assert.match(coupon,/if\(!release\)return respond\(\{error:"COUPON_SALES_NOT_ENABLED"/);
+assert.match(coupon,/if\(!release\)return respond\(\{error:partnerPurchase\?/);
+assert.match(coupon,/COUPON_SALES_NOT_ENABLED/);
+assert.match(coupon,/PARTNER_COUPON_NO_ELIGIBLE_SUPPLY/);
+assert.ok(coupon.indexOf('PARTNER_COUPON_NO_ELIGIBLE_SUPPLY')<invoice,
+ 'A merchant-funded purchase must stop BEFORE invoice or external PSP creation');
 assert.match(coupon,/if\(Deno\.env\.get\("CLUBE_COUPON_SALES_EMERGENCY_STOP"\)==="true"\)return null/);
 assert.ok(coupon.indexOf("couponSaleRelease(admin)")>=0,
  'Only an owner-signed, independently stored release can open coupon payments');

@@ -23,7 +23,8 @@ assert.match(edge,/actionName:"coupon-refund-request"/);
 assert.match(edge,/p_customer:user\.id,p_invoice:invoiceId/);
 assert.match(edge,/refundStatus:refundByInvoice/);
 assert.ok(edge.indexOf('if(operation==="request-refund")')<
- edge.indexOf('if(operation!=="purchase")'), 'refund works when sales disabled');
+ edge.indexOf('if(operation!=="purchase"&&operation!=="partner-purchase")'),
+ 'refund works with BOTH sale modalities disabled');
 assert.match(shop,/clubeCouponRefundAsk/);
 assert.match(growth,/clubeCouponPurchasesPanel/);
 assert.match(shop,/Solicitar cancelamento \/ reembolso/);
