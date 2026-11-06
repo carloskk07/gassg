@@ -243,3 +243,41 @@ if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
 globalThis.merchantBillingPixProofValid=merchantBillingPixProofValid;
 globalThis.merchantArmVerifiedBillingPix=merchantArmVerifiedBillingPix;
 globalThis.merchantHideVerifiedBillingPix=merchantHideVerifiedBillingPix;
+
+// Deferred clipboard action: only available after a verified Pix is loaded.
+async function merchantCopyBillingPixCode(paymentRequestId){
+  const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
+    .find(r=>r.id===paymentRequestId);
+  const charge=request?.pixCharge;
+  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
+    return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
+  }
+  if(!globalThis.merchantBillingPixProofValid?.(request)){
+    return toast('A conferência do Pix venceu. Use “Conferir e mostrar Pix” antes de copiar.');
+  }
+  const rt=globalThis.merchantRuntime;
+  const actor=rt.session?.user?.id,merchantId=rt.merchant?.merchantId,epoch=rt.accessEpoch;
+  const same=()=>rt.session?.user?.id===actor&&rt.merchant?.merchantId===merchantId&&
+    rt.accessEpoch===epoch&&globalThis.merchantBillingPixProofValid?.(request)===true;
+  const code=String(charge.brCode||'');
+  if(code.length<30||!same())return toast('Código Pix não está mais confirmado.');
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(code);
+    }else{
+      const area=document.createElement('textarea');
+      area.value=code;
+      area.setAttribute('readonly','');
+      area.style.position='fixed';
+      area.style.opacity='0';
+      document.body.appendChild(area);
+      area.select();
+      if(!document.execCommand('copy'))throw new Error('copy_failed');
+      area.remove();
+    }
+    if(same())toast('Código Pix copiado após conferência.');
+  }catch{
+    if(same())toast('Não foi possível copiar automaticamente. Selecione o código e copie manualmente.');
+  }
+}
+
