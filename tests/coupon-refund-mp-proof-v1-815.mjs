@@ -63,7 +63,7 @@ assert.ok(heldMigration.indexOf("coupon_settlement_hold_reason_v1_853 in")<
  'special verified zero-issuance refund must precede manual-review fallback');
 
 const historyMigration=fs.readFileSync(
- new URL('../supabase/migrations/20261106180000_coupon_refund_immutable_use_history_v1_862.sql',import.meta.url),'utf8');
+ new URL('../supabase/migrations/20261106171913_coupon_refund_immutable_use_history_v1_862.sql',import.meta.url),'utf8');
 assert.match(historyMigration,/if v_invoice\.status='review_required' or v_held>0 or exists \(/,
  'reissued but historically spent coupons must not be auto-refunded at the database layer');
 assert.match(historyMigration,/CREATE INDEX IF NOT EXISTS clube_coupon_application_invoice_history_v1_862/,
