@@ -63,6 +63,11 @@ function clubeCouponShopPanel(){
     '<p>Endereço: '+esc(String(seller.address||''))+'</p>'+
     '<p>Atendimento e cancelamentos: '+esc(String(seller.supportEmail||''))+'</p></aside>':'';
   const purchase=s?.purchase;
+  const purchasePostal=String(purchase?.servicePostalCode||'');
+  // A partner-funded Pix is only rendered with its original, authenticated
+  // invoice CEP. Searching a different area cannot relabel an old charge.
+  const partnerPixProven=purchase?.fundingModel!=='partner_funded'||
+    /^[0-9]{8}$/.test(purchasePostal);
   const pix=String(purchase?.pixCode||'');
   const validCode=pix.length>=30&&pix.length<=3000;
   let paymentLink='';
@@ -77,11 +82,13 @@ function clubeCouponShopPanel(){
     ?'<img alt="QR Code Pix do pedido de cupom" src="'+esc(qr)+'" style="max-width:240px;width:100%;height:auto">':'';
   const payment=purchase?'<article class="card flat form-stack">'+
     '<strong>Pagamento do seu pacote</strong>'+
+    (purchase.fundingModel==='partner_funded'?'<p class="tiny">CEP vinculado a este Pix: '+
+      esc(purchasePostal||'não confirmado')+'</p>':'')+
     '<p>Valor: '+esc(money(purchase.amountCents))+' • Situação: '+
      esc(purchase.status==='paid'&&purchase.fundingPending===true?
        'Pagamento identificado; cupons aguardam conciliação financeira':
        purchase.status||'Em conferência')+'</p>'+
-    (purchase.pixPayable===true?(qrImage+
+    (purchase.pixPayable===true&&partnerPixProven?(qrImage+
       (validCode?'<label>Código Pix copia e cola<textarea readonly rows="3" class="input">'+
         esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()">Copiar código Pix</button>':'')+
       paymentLink):'')+
@@ -110,6 +117,9 @@ async function clubeCouponVerifyPostal(){
  if(!/^[0-9]{8}$/.test(postal))
    return toast('Informe um CEP com 8 números.');
  if(clubeCouponShopState.userId!==uid)return;
+ if(clubeCouponShopState.regionPostal!==postal&&
+    clubeCouponShopState.purchase?.fundingModel==='partner_funded')
+   clubeCouponShopState.purchase=null;
  clubeCouponShopState.regionPostal=postal;
  await clubeCouponShopRefresh();
 }
@@ -205,6 +215,15 @@ async function clubeCouponBuy(packageKey){
     const previous=clubePaidCouponView.purchases.find(x=>
       x.packageKey===packageKey&&
       ['prepared','awaiting_payment'].includes(String(x.status)));
+    // A pending partner Pix is tied to its original, immutable CEP. Never
+    // present that Pix as payment for a new CEP, or replay its request UUID
+    // against a different region; the buyer must resolve the prior invoice.
+    if(partnerPurchase&&previous&&
+       (!/^[0-9]{8}$/.test(String(previous.servicePostalCode||''))||
+        previous.servicePostalCode!==p.eligiblePostalCode)){
+      toast('Há um Pix pendente deste pacote para outro CEP. Consulte ou cancele a compra anterior no histórico antes de prosseguir.');
+      return;
+    }
     if(previous?.invoiceId&&previous.status!=='prepared'){
       await clubeCouponCheckInvoice(previous.invoiceId,true);
       return;
@@ -226,7 +245,8 @@ async function clubeCouponBuy(packageKey){
        !/^[0-9a-f-]{36}$/i.test(String(result.invoiceId||'')))
       throw Error('COUPON_PIX_NOT_CONFIRMED');
     if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
-    clubeCouponShopState.purchase=result;
+    clubeCouponShopState.purchase=partnerPurchase?
+      {...result,servicePostalCode:p.eligiblePostalCode}:result;
     // Retain same request UUID during ambiguous retries / pending payments.
     await clubePaidCouponsRefresh();
   }catch(err){
@@ -248,7 +268,15 @@ async function clubeCouponCheckInvoice(invoiceId,nested=false){
     if(result?.ok!==true||result.invoiceId!==invoiceId)
       throw Error('COUPON_INVOICE_NOT_CONFIRMED');
     // A paid invoice without separately verified net funds is NOT an available coupon.
-    clubeCouponShopState.purchase=result;
+    const history=clubePaidCouponView.userId===uid&&
+      clubePaidCouponView.status==='ready'?
+      clubePaidCouponView.purchases.find(x=>x.invoiceId===invoiceId):null;
+    if(result.fundingModel==='partner_funded'){
+      const originalPostal=String(history?.servicePostalCode||'');
+      clubeCouponShopState.purchase={...result,servicePostalCode:originalPostal,
+        ...(/^[0-9]{8}$/.test(originalPostal)?{}:
+          {pixPayable:false,pixCode:null,paymentUrl:null,qrImageDataUri:null})};
+    }else clubeCouponShopState.purchase=result;
     await clubePaidCouponsRefresh();
   }catch(err){
     if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
@@ -283,10 +311,14 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
    '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
    (inv.fundingModel==='partner_funded'
-    ?'<p class="tiny">Cupom pago financiado pela revenda participante. O desconto depende de adesão da revenda e pedido elegível; o TAMÃO não o converte em cashback comum.</p>'
+    ?'<p class="tiny">Cupom pago financiado pela revenda participante. CEP da compra: '+
+     esc(String(inv.servicePostalCode||'não informado'))+'. O desconto depende de adesão da revenda e pedido elegível; o TAMÃO não o converte em cashback comum.</p>'
     :'')+
    (seller?'<p class="tiny muted">Vendedor: '+esc(String(seller.name||''))+
       ' · '+esc(String(seller.taxDocument||''))+'</p>':'')+
+   (inv.status==='awaiting_payment'?
+      '<button class="secondary small" type="button" onclick="clubeCouponCheckInvoice(\''+id+
+      '\')">Conferir Pix desta compra</button>':'')+
    (request==='refunded'&&inv.status==='refunded'?
      '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
     request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+

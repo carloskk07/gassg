@@ -79,6 +79,8 @@ jobs:
         run: node tests/partner-coupon-buyer-commercial-contract-v1-849.mjs
       - name: V1.850 live-stock city supply and verified buyer CEP gate on partner-coupon Pix
         run: node tests/partner-coupon-buyer-postal-supply-v1-850.mjs
+      - name: V1.851 prevent pending partner Pix replay across buyer CEPs
+        run: node tests/partner-coupon-pending-cep-replay-v1-851.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
