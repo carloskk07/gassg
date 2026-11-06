@@ -488,6 +488,7 @@ currentPspOrder={id:'order-1',external_reference:'invoice-1',
   id:'payment-1',amount:'15.00',status:'processed',
   status_detail:'accredited',payment_method:{id:'pix',type:'bank_transfer'}
  }],refunds:[]}};
+providerRpcResult={ok:true,replayed:false,issued:2,invoiceId:'invoice-1'};
 const validPay=await webhookSandbox.handlePaidCouponOrder(
  mockAdmin,'order-1',{...invoiceForWebhook,status:'awaiting_payment'},'test-only-token');
 assert.equal(validPay.status,200,'legitimate non-sandbox order must remain issuable');
