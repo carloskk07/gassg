@@ -293,7 +293,7 @@ async function couponVerifiedReplay(invoice:any,admin:any){
 // A refund may close a #853 received-Pix hold ONLY if no voucher has
 // ever been issued. An exact count prevents truncated voucher reads from
 // overlooking spent or reserved benefits.
-function couponRefundNoExposureEligible(invoice:any,vouchers:any[],totalCount:any){
+function couponRefundNoExposureEligible(invoice:any,vouchers:any,totalCount:any){
  if(!invoice||!Array.isArray(vouchers)||!Number.isSafeInteger(totalCount)||
     totalCount!==vouchers.length)return false;
  if(invoice.status==="paid"){
