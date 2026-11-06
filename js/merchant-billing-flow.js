@@ -165,3 +165,119 @@ async function merchantCreateBillingPixImpl({planKey=null,statementId=null,refun
 globalThis.merchantBillingSameActor=merchantBillingSameActor;
 globalThis.merchantBillingRequestImpl=merchantBillingRequestImpl;
 globalThis.merchantCreateBillingPixImpl=merchantCreateBillingPixImpl;
+
+// Deferred merchant finance Pix display proof: loaded only with the billing flow.
+// A verified merchant Pix belongs to exactly one authenticated merchant,
+// payment request and provider charge. A lost tab must not keep payment
+// credentials visible or copyable indefinitely. The lease does NOT cancel
+// the charge at the PSP and does not authorize a new payment.
+const merchantBillingPixProof={timer:null,requestId:'',chargeId:'',merchantId:'',
+ actorId:'',epoch:-1,until:0};
+const MERCHANT_BILLING_PIX_LEASE_MS=45000;
+function merchantBillingPixProofValid(request){
+ const rt=globalThis.merchantRuntime||{};
+ const p=merchantBillingPixProof,charge=request?.pixCharge;
+ const merchantId=String(rt.merchant?.merchantId||'');
+ return !!request&&!!charge&&rt.status==='ready'&&
+  ['owner','manager'].includes(String(rt.merchant?.memberRole||''))&&
+  !!merchantId&&(!rt.selectedMerchantId||rt.selectedMerchantId===merchantId)&&
+  !!rt.session?.user?.id&&p.actorId===rt.session.user.id&&
+  p.merchantId===merchantId&&p.epoch===rt.accessEpoch&&
+  p.requestId===request.id&&p.chargeId===charge.id&&
+  p.until>Date.now()&&document.visibilityState!=='hidden'&&
+  charge.status==='active'&&charge.providerVerified===true&&
+  typeof charge.brCode==='string'&&charge.brCode.length>=30&&
+  !merchantBillingPixChargeExpired(charge);
+}
+function merchantHideVerifiedBillingPix(expected=null){
+ const p=merchantBillingPixProof;
+ if(expected&&expected!==p)return false;
+ if(p.timer!==null&&typeof clearTimeout==='function')clearTimeout(p.timer);
+ p.timer=null;
+ const {requestId,chargeId,merchantId,actorId,epoch}=p;
+ p.until=0;p.requestId='';p.chargeId='';p.merchantId='';p.actorId='';p.epoch=-1;
+ const rt=globalThis.merchantRuntime;
+ if(!rt||rt.accessEpoch!==epoch||rt.merchant?.merchantId!==merchantId||
+    rt.session?.user?.id!==actorId)return false;
+ const row=(rt.billing?.paymentRequests||[]).find(x=>x.id===requestId);
+ if(!row||row.pixCharge?.id!==chargeId)return false;
+ // Erase only the original request. A late timer must not erase another
+ // merchant/account's payment or a replacement charge.
+ const old=row.pixCharge;
+ row.pixCharge={...old,providerVerified:false,brCode:null,
+  qrCodeDataUri:null,paymentLinkUrl:null};
+ if(typeof render==='function')render();
+ return true;
+}
+function merchantArmVerifiedBillingPix(request,merchantId){
+ const rt=globalThis.merchantRuntime,p=merchantBillingPixProof;
+ // The previous proof is cleared before the current row is written.
+ // Re-arming must not erase the newly verified credentials.
+ if(p.timer!==null&&typeof clearTimeout==='function')clearTimeout(p.timer);
+ p.timer=null;p.until=0;
+ if(!rt||!request||rt.status!=='ready'||!rt.session?.user?.id||
+    rt.merchant?.merchantId!==merchantId||request.pixCharge?.status!=='active'||
+    (rt.selectedMerchantId&&rt.selectedMerchantId!==merchantId)||
+    document.visibilityState==='hidden')return false;
+ p.requestId=request.id;p.chargeId=request.pixCharge.id;
+ p.merchantId=merchantId;p.actorId=rt.session.user.id;p.epoch=rt.accessEpoch;
+ p.until=Date.now()+MERCHANT_BILLING_PIX_LEASE_MS;
+ if(typeof setTimeout==='function'){
+   const proof={requestId:p.requestId,chargeId:p.chargeId,merchantId:p.merchantId,
+    actorId:p.actorId,epoch:p.epoch,until:p.until};
+   p.timer=setTimeout(()=>{
+     if(p.requestId===proof.requestId&&p.chargeId===proof.chargeId&&
+        p.merchantId===proof.merchantId&&p.actorId===proof.actorId&&
+        p.epoch===proof.epoch&&p.until===proof.until)
+       merchantHideVerifiedBillingPix();
+   },MERCHANT_BILLING_PIX_LEASE_MS);
+ }
+ return merchantBillingPixProofValid(request);
+}
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
+ document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden')merchantHideVerifiedBillingPix();
+ });
+
+
+globalThis.merchantBillingPixProofValid=merchantBillingPixProofValid;
+globalThis.merchantArmVerifiedBillingPix=merchantArmVerifiedBillingPix;
+globalThis.merchantHideVerifiedBillingPix=merchantHideVerifiedBillingPix;
+
+// Deferred clipboard action: only available after a verified Pix is loaded.
+async function merchantCopyBillingPixCode(paymentRequestId){
+  const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
+    .find(r=>r.id===paymentRequestId);
+  const charge=request?.pixCharge;
+  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
+    return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
+  }
+  if(!globalThis.merchantBillingPixProofValid?.(request)){
+    return toast('A conferência do Pix venceu. Use “Conferir e mostrar Pix” antes de copiar.');
+  }
+  const rt=globalThis.merchantRuntime;
+  const actor=rt.session?.user?.id,merchantId=rt.merchant?.merchantId,epoch=rt.accessEpoch;
+  const same=()=>rt.session?.user?.id===actor&&rt.merchant?.merchantId===merchantId&&
+    rt.accessEpoch===epoch&&globalThis.merchantBillingPixProofValid?.(request)===true;
+  const code=String(charge.brCode||'');
+  if(code.length<30||!same())return toast('Código Pix não está mais confirmado.');
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(code);
+    }else{
+      const area=document.createElement('textarea');
+      area.value=code;
+      area.setAttribute('readonly','');
+      area.style.position='fixed';
+      area.style.opacity='0';
+      document.body.appendChild(area);
+      area.select();
+      if(!document.execCommand('copy'))throw new Error('copy_failed');
+      area.remove();
+    }
+    if(same())toast('Código Pix copiado após conferência.');
+  }catch{
+    if(same())toast('Não foi possível copiar automaticamente. Selecione o código e copie manualmente.');
+  }
+}
+

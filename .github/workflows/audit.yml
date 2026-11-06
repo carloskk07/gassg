@@ -157,6 +157,8 @@ jobs:
         run: node tests/mobility-prepaid-credit-ui-v1-838.mjs
       - name: V1.856 mobility Pix copy requires live provider status, QR lease and authenticated driver
         run: node tests/mobility-fee-pix-stale-copy-v1-856.mjs
+      - name: V1.857 merchant finance Pix expiry, scope isolation and proof on display
+        run: node tests/merchant-billing-pix-display-lease-v1-857.mjs
       - name: V1.829 receipt immutability and no-fake-bank-proof contract
         run: node tests/mobility-immutable-receipt-v1-829.mjs
       - name: Mobility GPS consent and access test

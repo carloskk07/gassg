@@ -896,10 +896,16 @@ function merchantAcceptVerifiedBillingPix(result,merchantId){
     ||Number(persisted.amountCents)!==Number(charge.amountCents)
     ||persisted.expiresAt!==charge.expiresAt
     ||typeof charge.brCode!=='string'||charge.brCode.length<30)return false;
+  globalThis.merchantHideVerifiedBillingPix?.();
   request.pixCharge={...persisted,brCode:charge.brCode,
     qrCodeDataUri:charge.qrCodeDataUri??null,
     paymentLinkUrl:charge.paymentLinkUrl??null,
     providerVerified:true};
+  if(!globalThis.merchantArmVerifiedBillingPix?.(request,merchantId)){
+    request.pixCharge={...persisted,brCode:null,qrCodeDataUri:null,
+      paymentLinkUrl:null,providerVerified:false};
+    return false;
+  }
   render();
   return true;
 }
@@ -958,7 +964,7 @@ function merchantBillingPixChargeView(request){
 
   if(!active)return '';
 
-  if(charge.providerVerified!==true||!charge.brCode){
+  if(!globalThis.merchantBillingPixProofValid?.(request)){
     const role=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
     const permitted=['owner','manager'].includes(role);
     const kind=String(request.requestKind||'');
@@ -1212,38 +1218,6 @@ async function merchantNotifyRefundRecoveryPaidFromUi(refundRecoveryId){
     await merchantNotifyRefundRecoveryPaidLive(refundRecoveryId,reference);
     toast('Pagamento de recuperação informado; aguardando conferência');
   }catch(e){toast(String(e?.message||e))}
-}
-
-async function merchantCopyBillingPixCode(paymentRequestId){
-  const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
-    .find(r=>r.id===paymentRequestId);
-  const charge=request?.pixCharge;
-  if(!charge||charge.status!=='active'||merchantBillingPixChargeExpired(charge)){
-    return toast('Este Pix está expirado ou indisponível. Gere um novo antes de pagar.');
-  }
-  if(charge.providerVerified!==true){
-    return toast('Conferência do Pix necessária. Use “Conferir e mostrar Pix” antes de copiar.');
-  }
-  const code=String(charge.brCode||'');
-  if(!code)return toast('Código Pix indisponível');
-  try{
-    if(navigator.clipboard?.writeText){
-      await navigator.clipboard.writeText(code);
-    }else{
-      const area=document.createElement('textarea');
-      area.value=code;
-      area.setAttribute('readonly','');
-      area.style.position='fixed';
-      area.style.opacity='0';
-      document.body.appendChild(area);
-      area.select();
-      if(!document.execCommand('copy'))throw new Error('copy_failed');
-      area.remove();
-    }
-    toast('Código Pix copiado');
-  }catch{
-    toast('Não foi possível copiar automaticamente. Selecione o código e copie manualmente.');
-  }
 }
 
 async function merchantRequestBillingPackageFromUi(planKey){
