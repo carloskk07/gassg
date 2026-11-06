@@ -116,9 +116,9 @@ assert.match(coupon,/invoice.status==="awaiting_payment"&&!await couponPixStillP
  'idempotent retry must recheck the PSP before returning stored QR');
 assert.match(coupon,/COUPON_PIX_REVIEW_REQUIRED/,
  'unverified/processed replay must fail closed without offering another QR');
-assert.match(coupon,/const replay=await couponVerifiedReplay\(invoice\)/,
+assert.match(coupon,/const replay=await couponVerifiedReplay\(invoice,admin\)/,
  'normal pending invoice retry must call provider-verified replay');
-assert.match(coupon,/const replay=await couponVerifiedReplay\(existing\)/,
+assert.match(coupon,/const replay=await couponVerifiedReplay\(existing,admin\)/,
  'losing concurrent invoice update must not return an unchecked stored Pix');
 assert.match(coupon,/pix_br_code:null,payment_url:null/,
  'PSP rejected replay must mask both persisted payment routes');
