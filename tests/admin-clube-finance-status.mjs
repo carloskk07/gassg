@@ -35,6 +35,18 @@ assert.match(edge,/requiresHistoryReview:count>0/,
  'An originally used voucher must require human financial review after reissue');
 assert.match(edge,/PARTNER_COUPON_REFUND_REVIEW/,
  'Refund disputes from #847 cannot be omitted from merchant liabilities');
+assert.match(edge,/if\\(action==="clube-coupon-refund-review-inspect"\\)/);
+const inspectionAction=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'),
+ edge.indexOf('if(action==="clube-coupon-preview")'));
+assert.match(inspectionAction,/COUPON_REFUND_CASE_EVIDENCE_INCOMPLETE/);
+assert.match(inspectionAction,/COUPON_REFUND_CASE_RECONCILIATION_INCOMPLETE/);
+assert.match(inspectionAction,/clube_coupon_paid_order_applications/);
+assert.match(inspectionAction,/clube_coupon_paid_order_reconciliation/);
+assert.match(inspectionAction,/providerRefundVerified:false/);
+assert.match(inspectionAction,/refundClosureAuthorized:false/);
+assert.match(inspectionAction,/historyCount>25\\?"partial":"bounded_complete"/);
+assert.doesNotMatch(inspectionAction,/mercadoPagoFetch|method:"POST"|\\.update\\(|\\.insert\\(|clube_coupon_paid_payment_refund/,
+ 'Case inspection must not refund, write or close a financial request');
 
 assert.match(edge,/\.order\("created_at",\{ascending:false\}\)/);
 const queueBlock=edge.slice(edge.indexOf('const invoiceWorkQueue='),
@@ -94,6 +106,7 @@ const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);
 
+let inspectCalls=0,inspectPayload=null,inspectFail=false;
 let payoutCalls=0,payoutPayload=null,payoutFail=false;
 let role='finance';
 let calls=0,mpCalls=0,renders=0,payload=null,fail=false,
@@ -108,6 +121,11 @@ const state={
  adminRuntime:runtime,
  adminCurrentRole:()=>role,
  adminInvoke:async({action})=>{
+   if(action==='clube-coupon-refund-review-inspect'){
+     inspectCalls++;
+     if(inspectFail)throw Error('historico-indisponivel');
+     return inspectPayload;
+   }
    if(action==='clube-coupon-mp-release-reports'){
      mpCalls++;
      if(mpFail)throw Error('mercadopago-offline');
@@ -130,7 +148,7 @@ const state={
 const ctx=vm.createContext(state);
 vm.runInContext(admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
- ';this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
+ ';this.refundInspect=adminClubeRefundInspect;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
  ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
 
 assert.match(ctx.page(),/Conferir situação dos cupons/);
@@ -184,6 +202,26 @@ assert.match(ctx.page(),/Fatura 77777777/);
 assert.match(ctx.page(),/Histórico: 2 pedido\(s\) com cupom/);
 assert.match(ctx.page(),/Reembolso automático bloqueado/);
 assert.match(ctx.page(),/Nenhum pedido anterior localizado/);
+assert.match(ctx.page(),/Examinar histórico/);
+inspectPayload={ok:true,source:'clube_coupon_refund_case_inspection_v1',
+ readOnly:true,moneyMoved:false,writeAuthorized:false,
+ refundClosureAuthorized:false,providerRefundVerified:false,
+ invoiceId:'66666666-6666-4666-8666-666666666666',
+ requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+ requestStatus:'requested',invoiceStatus:'paid',salePriceCents:890,
+ voucherCount:3,voucherStatuses:{issued:2,reserved:0,redeemed:1,void:0,review_required:0},
+ historicalOrderCount:2,historyCoverage:'bounded_complete',
+ orderReconciliations:[{orderId:'11111111-1111-4111-8111-111111111111',status:'PARTNER_COUPON_REFUND_REVIEW'}],
+ closureBlockers:['PROVIDER_REFUND_PROOF_REQUIRED','HISTORICAL_DISCOUNTS_REQUIRE_REVIEW']};
+await ctx.refundInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(inspectCalls,1);
+assert.match(ctx.page(),/Detalhamento financeiro/);
+assert.match(ctx.page(),/Histórico permanente/);
+assert.match(ctx.page(),/PARTNER_COUPON_REFUND_REVIEW/);
+assert.match(ctx.page(),/Encerramento bloqueado/);
+inspectPayload={...inspectPayload,refundClosureAuthorized:true};
+await ctx.refundInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.match(ctx.page(),/não apresentou garantias financeiras suficientes/);
 assert.doesNotMatch(ctx.page(),/merchant-access-token|@example\.invalid/,
  'Finance queue must not reveal provider secrets or buyer emails');
 
@@ -232,6 +270,8 @@ runtime.session.user.id='22222222-2222-4222-8222-222222222222';
 assert.doesNotMatch(ctx.page(),/not-available/);
 assert.doesNotMatch(ctx.page(),/Fatura 66666666/,
  'A refund request from another admin session cannot remain in the view');
+assert.doesNotMatch(ctx.page(),/Detalhamento financeiro/,
+ 'Case evidence cannot be retained after account swap');
 assert.match(ctx.page(),/Use a consulta/);
 assert.match(ctx.mpPage(),/Consultar relatórios do Mercado Pago/);
 mpPayload={source:'mercadopago_release_reports_list_v1',readOnly:true,
