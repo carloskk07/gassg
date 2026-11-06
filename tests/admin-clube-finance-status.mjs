@@ -48,6 +48,23 @@ assert.match(inspectionAction,/historyCount>25\?"partial":"bounded_complete"/);
 assert.doesNotMatch(inspectionAction,/mercadoPagoFetch|method:"POST"|\.update\(|\.insert\(|clube_coupon_paid_payment_refund/,
  'Case inspection must not refund, write or close a financial request');
 
+
+const claimEdge=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-review-start")'),
+ edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'));
+assert.match(claimEdge,/admin_clube_coupon_refund_review_start_v1_865/);
+assert.match(claimEdge,/COUPON_REVIEW_READBACK_UNVERIFIED/);
+assert.match(claimEdge,/clube_coupon_refund_requests_v1_814/);
+assert.match(claimEdge,/platform_admin_audit/);
+assert.doesNotMatch(claimEdge,/mercadoPagoFetch|clube_coupon_paid_payment_refund|method:"POST"/);
+const claimSQL=read('supabase/migrations/20261106202000_coupon_refund_review_claim_v1_865.sql');
+assert.match(claimSQL,/FOR UPDATE/g);
+assert.match(claimSQL,/clube_coupon_review_started_v1_865/);
+assert.match(claimSQL,/COUPON_REVIEW_IDEMPOTENCY_CONFLICT/);
+assert.match(claimSQL,/AND admin_role IN \('superadmin','finance'\)/);
+assert.match(claimSQL,/REVOKE ALL ON FUNCTION public.admin_clube_coupon_refund_review_start_v1_865/);
+assert.match(claimSQL,/TO service_role/);
+assert.doesNotMatch(claimSQL,/clube_coupon_paid_payment_refund|mercadoPagoFetch/);
+
 assert.match(edge,/\.order\("created_at",\{ascending:false\}\)/);
 const queueBlock=edge.slice(edge.indexOf('const invoiceWorkQueue='),
  edge.indexOf('const unavailableVouchers=',edge.indexOf('const invoiceWorkQueue=')));
@@ -106,6 +123,7 @@ const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);
 
+let claimCalls=0,claimPayload=null,claimFail=false,claimAttemptUsed=null;
 let inspectCalls=0,inspectPayload=null,inspectFail=false;
 let payoutCalls=0,payoutPayload=null,payoutFail=false;
 let role='finance';
@@ -120,7 +138,17 @@ const runtime={
 const state={
  adminRuntime:runtime,
  adminCurrentRole:()=>role,
- adminInvoke:async({action})=>{
+ adminInvoke:async({action,...args})=>{
+   if(action==='clube-coupon-refund-review-start'){
+     claimCalls++;
+     claimAttemptUsed=args.attemptId;
+     if(claimFail)throw Error('revisao-indisponivel');
+     if(claimPayload?.readbackVerified===true){
+       payload.refundWorkQueue[0].status='in_review';
+       inspectPayload.requestStatus='in_review';
+     }
+     return claimPayload;
+   }
    if(action==='clube-coupon-refund-review-inspect'){
      inspectCalls++;
      if(inspectFail)throw Error('historico-indisponivel');
@@ -142,13 +170,15 @@ const state={
    return payload;
  },
  render:()=>{renders++},
+ crypto:{randomUUID:()=> 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},
+ confirm:()=>true,
  esc:v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;'),
  Date,Number,Object,String,Array
 };
 const ctx=vm.createContext(state);
 vm.runInContext(admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
- ';this.refundInspect=adminClubeRefundInspect;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
+ ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
  ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
 
 assert.match(ctx.page(),/Conferir situação dos cupons/);
@@ -222,6 +252,30 @@ assert.match(ctx.page(),/Encerramento bloqueado/);
 inspectPayload={...inspectPayload,refundClosureAuthorized:true};
 await ctx.refundInspect(inspectPayload.invoiceId,inspectPayload.requestId);
 assert.match(ctx.page(),/não apresentou garantias financeiras suficientes/);
+inspectPayload={...inspectPayload,refundClosureAuthorized:false};
+await ctx.refundInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.match(ctx.page(),/Assumir análise auditada/);
+claimPayload={ok:true,source:'clube_coupon_review_start_v1_865',
+ invoiceId:inspectPayload.invoiceId,requestId:inspectPayload.requestId,
+ auditId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',status:'in_review',
+ reviewStartedAt:'2026-11-06T20:20:01Z',replayed:false,
+ readbackVerified:false,moneyMoved:false,refundConfirmed:false,caseClosed:false};
+await ctx.refundClaim(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(claimCalls,1);
+assert.match(ctx.page(),/não foi confirmada pelo histórico financeiro/);
+assert.equal(payload.refundWorkQueue[0].status,'requested',
+ 'A rejected claim acknowledgement cannot prematurely change local state');
+claimPayload.readbackVerified=true;
+await ctx.refundClaim(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(claimCalls,2);
+assert.equal(claimAttemptUsed,'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+ 'Retry after ambiguous acknowledgement must preserve the same attempt UUID');
+assert.equal(payload.refundWorkQueue[0].status,'in_review');
+assert.match(ctx.page(),/Análise assumida e registrada/);
+assert.match(ctx.page(),/Nenhum valor foi devolvido ou quitado/);
+assert.doesNotMatch(ctx.page(),/Assumir análise auditada/,
+ 'An already claimed case must not offer another claim button');
+
 assert.doesNotMatch(ctx.page(),/merchant-access-token|@example\.invalid/,
  'Finance queue must not reveal provider secrets or buyer emails');
 
