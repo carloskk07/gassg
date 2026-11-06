@@ -323,11 +323,15 @@ function couponFullRefundVerified(order:any,invoice:any){
     payment?.payment_method?.id!=="pix"||
     payment?.payment_method?.type!=="bank_transfer")return false;
  let total=0;
+ const seenRefundIds=new Set();
  for(const refund of refunds){
+  const refundId=String(refund?.id??"").trim();
+  // A repeated provider refund ID does not prove a second cash return.
   if(!["processed","approved","refunded"].includes(String(refund?.status??"").toLowerCase())||
-     !String(refund?.id??"").trim()||
+     !refundId||seenRefundIds.has(refundId)||
      String(refund?.transaction_id??"")!==String(invoice.provider_payment_id))
     return false;
+  seenRefundIds.add(refundId);
   const amount=moneyToCents(refund?.amount);
   if(amount===null||amount<=0)return false;
   total+=amount;
