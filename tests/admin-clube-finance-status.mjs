@@ -35,7 +35,7 @@ assert.match(edge,/requiresHistoryReview:count>0/,
  'An originally used voucher must require human financial review after reissue');
 assert.match(edge,/PARTNER_COUPON_REFUND_REVIEW/,
  'Refund disputes from #847 cannot be omitted from merchant liabilities');
-assert.match(edge,/if\\(action==="clube-coupon-refund-review-inspect"\\)/);
+assert.match(edge,/if\(action==="clube-coupon-refund-review-inspect"\)/);
 const inspectionAction=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'),
  edge.indexOf('if(action==="clube-coupon-preview")'));
 assert.match(inspectionAction,/COUPON_REFUND_CASE_EVIDENCE_INCOMPLETE/);
@@ -44,8 +44,8 @@ assert.match(inspectionAction,/clube_coupon_paid_order_applications/);
 assert.match(inspectionAction,/clube_coupon_paid_order_reconciliation/);
 assert.match(inspectionAction,/providerRefundVerified:false/);
 assert.match(inspectionAction,/refundClosureAuthorized:false/);
-assert.match(inspectionAction,/historyCount>25\\?"partial":"bounded_complete"/);
-assert.doesNotMatch(inspectionAction,/mercadoPagoFetch|method:"POST"|\\.update\\(|\\.insert\\(|clube_coupon_paid_payment_refund/,
+assert.match(inspectionAction,/historyCount>25\?"partial":"bounded_complete"/);
+assert.doesNotMatch(inspectionAction,/mercadoPagoFetch|method:"POST"|\.update\(|\.insert\(|clube_coupon_paid_payment_refund/,
  'Case inspection must not refund, write or close a financial request');
 
 assert.match(edge,/\.order\("created_at",\{ascending:false\}\)/);
