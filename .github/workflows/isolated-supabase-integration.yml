@@ -196,6 +196,8 @@ jobs:
         run: node tests/isolated-coupon-late-pix-settlement-v1-853.mjs
       - name: V1.865 PostgreSQL refund case ownership, replay and immutable review audit
         run: node tests/isolated-coupon-refund-review-claim-v1-865.mjs
+      - name: V1.866 immutable financial triage and refunded coupon history on disposable PostgreSQL
+        run: node tests/isolated-coupon-refund-triage-v1-866.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
