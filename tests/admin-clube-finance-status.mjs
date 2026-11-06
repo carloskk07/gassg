@@ -65,6 +65,21 @@ assert.match(claimSQL,/REVOKE ALL ON FUNCTION public.admin_clube_coupon_refund_r
 assert.match(claimSQL,/TO service_role/);
 assert.doesNotMatch(claimSQL,/clube_coupon_paid_payment_refund|mercadoPagoFetch/);
 
+const triageEdge=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-triage-record")'),
+ edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'));
+assert.match(triageEdge,/admin_clube_coupon_refund_triage_v1_866/);
+assert.match(triageEdge,/COUPON_TRIAGE_READBACK_UNVERIFIED/);
+assert.match(triageEdge,/platform_admin_audit/);
+assert.doesNotMatch(triageEdge,/mercadoPagoFetch|clube_coupon_paid_payment_refund|method:"POST"/);
+const triageSQL=read('supabase/migrations/20261106223000_coupon_refund_triage_decision_v1_866.sql');
+assert.match(triageSQL,/FOR UPDATE/);
+assert.match(triageSQL,/COUPON_TRIAGE_HISTORY_REQUIRES_MERCHANT_REVIEW/);
+assert.match(triageSQL,/COUPON_TRIAGE_ALREADY_RECORDED/);
+assert.match(triageSQL,/COUPON_TRIAGE_IDEMPOTENCY_CONFLICT/);
+assert.match(triageSQL,/REVOKE ALL ON FUNCTION public.admin_clube_coupon_refund_triage_v1_866/);
+assert.match(triageSQL,/TO service_role/);
+assert.doesNotMatch(triageSQL,/UPDATE public\.clube_coupon_paid_invoices|UPDATE public\.clube_coupon_refund_requests_v1_814/);
+
 assert.match(edge,/\.order\("created_at",\{ascending:false\}\)/);
 const queueBlock=edge.slice(edge.indexOf('const invoiceWorkQueue='),
  edge.indexOf('const unavailableVouchers=',edge.indexOf('const invoiceWorkQueue=')));
@@ -123,6 +138,7 @@ const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);
 
+let triageCalls=0,triagePayload=null,triageAttemptUsed=null,triageFail=false;
 let claimCalls=0,claimPayload=null,claimFail=false,claimAttemptUsed=null;
 let inspectCalls=0,inspectPayload=null,inspectFail=false;
 let payoutCalls=0,payoutPayload=null,payoutFail=false;
@@ -135,10 +151,24 @@ const runtime={
  clubeFinance:{data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
   reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null}
 };
+const testUUIDs=['dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+ 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'];
+let testUUIDCounter=0;
 const state={
  adminRuntime:runtime,
  adminCurrentRole:()=>role,
  adminInvoke:async({action,...args})=>{
+   if(action==='clube-coupon-refund-triage-record'){
+     triageCalls++;
+     triageAttemptUsed=args.attemptId;
+     if(triageFail)throw Error('triagem-indisponivel');
+     if(triagePayload?.readbackVerified===true){
+       inspectPayload.triageDecision=args.decision;
+       inspectPayload.triageAt='2026-11-06T22:50:01Z';
+       inspectPayload.triageAuditId=args.attemptId;
+     }
+     return triagePayload;
+   }
    if(action==='clube-coupon-refund-review-start'){
      claimCalls++;
      claimAttemptUsed=args.attemptId;
@@ -146,6 +176,9 @@ const state={
      if(claimPayload?.readbackVerified===true){
        payload.refundWorkQueue[0].status='in_review';
        inspectPayload.requestStatus='in_review';
+       inspectPayload.reviewClaimed=true;
+       inspectPayload.reviewerCanTriage=true;
+       inspectPayload.reviewAssignedAt='2026-11-06T20:20:01Z';
      }
      return claimPayload;
    }
@@ -170,7 +203,7 @@ const state={
    return payload;
  },
  render:()=>{renders++},
- crypto:{randomUUID:()=> 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},
+ crypto:{randomUUID:()=>testUUIDs[Math.min(testUUIDCounter++,testUUIDs.length-1)]},
  confirm:()=>true,
  esc:v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;'),
  Date,Number,Object,String,Array
@@ -178,7 +211,7 @@ const state={
 const ctx=vm.createContext(state);
 vm.runInContext(admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
- ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
+ ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.refundTriage=adminClubeRefundTriage;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
  ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
 
 assert.match(ctx.page(),/Conferir situação dos cupons/);
@@ -239,6 +272,8 @@ inspectPayload={ok:true,source:'clube_coupon_refund_case_inspection_v1',
  invoiceId:'66666666-6666-4666-8666-666666666666',
  requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  requestStatus:'requested',invoiceStatus:'paid',salePriceCents:890,
+ reviewClaimed:false,reviewerCanTriage:false,reviewAssignedAt:null,
+ triageDecision:null,triageAt:null,triageAuditId:null,
  voucherCount:3,voucherStatuses:{issued:2,reserved:0,redeemed:1,void:0,review_required:0},
  historicalOrderCount:2,historyCoverage:'bounded_complete',
  orderReconciliations:[{orderId:'11111111-1111-4111-8111-111111111111',status:'PARTNER_COUPON_REFUND_REVIEW'}],
