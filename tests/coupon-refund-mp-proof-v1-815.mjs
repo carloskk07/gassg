@@ -39,7 +39,7 @@ assert.ok(action.includes('couponFullRefundVerified(proof,invoice)'),'mark refun
 assert.ok(action.includes('voucherErr')&&action.includes('couponRefundNoExposureEligible(invoice,vouchers,issuedCount)'),'must require complete voucher evidence for provider refund');
 assert.ok(action.includes('remoteRefundVerified=done.data?.ok===true&&done.data?.refunded===true'));
 assert.ok(action.indexOf('clube_coupon_refund_request_v1_814')<action.indexOf('mercadoPagoFetch(endpoint+"/refund"'),'ownership and durable request precede PSP action');
-const heldMigration=fs.readFileSync(new URL('../supabase/migrations/20261106160000_coupon_verified_hold_refund_v1_860.sql',import.meta.url),'utf8');
+const heldMigration=fs.readFileSync(new URL('../supabase/migrations/20261106151942_coupon_verified_hold_refund_v1_860.sql',import.meta.url),'utf8');
 for(const guard of ["coupon_settlement_hold_reason_v1_853 in",
  "v_invoice.paid_at is not null","v_invoice.provider_payment_id",
  "not exists (","from public.clube_coupon_paid_issuances i",
