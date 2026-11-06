@@ -75,13 +75,26 @@ BEGIN
       AND pix_br_code IS NULL AND payment_url IS NULL)
     OR EXISTS(SELECT 1 FROM public.clube_coupon_paid_issuances WHERE invoice_id=v_partner)
  THEN RAISE EXCEPTION 'CI_853_PARTNER_LATE_PAYMENT_NOT_QUARANTINED';END IF;
- BEGIN
-  PERFORM public.clube_coupon_paid_payment_verify(
+ -- Repeated *identical* provider confirmation is a safe, audited ACK.
+ -- It must not rewrite the first paid_at or issue any voucher.
+ v_result:=public.clube_coupon_paid_payment_verify(
    v_partner,'CI-853-WITHDRAWN','CI-853-PIX-WITHDRAWN',890);
+ IF v_result->>'replayed'<>'true'
+    OR v_result->>'reviewRequired'<>'true'
+    OR v_result->>'providerPaymentRecorded'<>'true'
+    OR v_result->>'reason'<>'PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT'
+    OR (v_result->>'issued')::integer<>0
+    OR EXISTS(SELECT 1 FROM public.clube_coupon_paid_issuances
+       WHERE invoice_id=v_partner)
+ THEN RAISE EXCEPTION 'CI_859_REPLAY_RESURRECTED_WITHDRAWN_COUPONS';END IF;
+ -- A different Pix ID is a real proof conflict, not an idempotent replay.
+ BEGIN
+   PERFORM public.clube_coupon_paid_payment_verify(
+     v_partner,'CI-853-WITHDRAWN','CI-859-WRONG-PAYMENT',890);
  EXCEPTION WHEN SQLSTATE 'P0001' THEN
-   v_replayed:=(SQLERRM='COUPON_PAYMENT_STATE_INVALID');
+   v_replayed:=(SQLERRM='COUPON_PAYMENT_PROOF_MISMATCH');
  END;
- IF NOT v_replayed THEN RAISE EXCEPTION 'CI_853_REPLAY_RESURRECTED_WITHDRAWN_COUPONS';END IF;
+ IF NOT v_replayed THEN RAISE EXCEPTION 'CI_859_CONFLICTING_PIX_ACKED';END IF;
 
  -- Cancellation requested while original Pix still exists outside the app.
  -- It must be held for refund analysis even on the old owner-backed package.
@@ -99,7 +112,13 @@ BEGIN
    WHERE id=v_refund AND status='review_required' AND paid_at IS NOT NULL
      AND coupon_settlement_hold_reason_v1_853='COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT')
    OR EXISTS(SELECT 1 FROM public.clube_coupon_paid_issuances WHERE invoice_id=v_refund)
- THEN RAISE EXCEPTION 'CI_853_REFUND_HOLD_MISSING';END IF;
+ THEN RAISE EXCEPTION 'CI_853_REFUND_HOLD_MISSING';END IF; 
+ v_result:=public.clube_coupon_paid_payment_verify(
+  v_refund,'CI-853-REFUND-FIRST','CI-853-PIX-REFUND-FIRST',1500);
+ IF v_result->>'replayed'<>'true'
+   OR v_result->>'reason'<>'COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT'
+   OR (v_result->>'issued')::integer<>0
+ THEN RAISE EXCEPTION 'CI_859_REFUND_FIRST_REPLAY_UNSAFE';END IF;
 
  -- Unaffected old coupon paid with no earlier refund continues issuing once.
  v_result:=public.clube_coupon_paid_payment_verify(
