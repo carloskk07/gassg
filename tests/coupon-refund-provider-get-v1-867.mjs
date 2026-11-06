@@ -8,7 +8,7 @@ new vm.Script(file.replace('export function couponProviderRefundEvidence','funct
   '\nthis.probe=couponProviderRefundEvidence;').runInContext(ctx);
 const check=ctx.probe;
 const cents=value=>{
-  if(typeof value!=='string'||!/^\\d+(?:\\.\\d{1,2})?$/.test(value))return null;
+  if(typeof value!=='string'||!/^\d+(?:\.\d{1,2})?$/.test(value))return null;
   return Math.round(Number(value)*100);
 };
 const invoice={id:'66666666-6666-4666-8666-666666666666',
