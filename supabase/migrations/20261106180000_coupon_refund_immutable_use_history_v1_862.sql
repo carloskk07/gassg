@@ -4,6 +4,12 @@
 -- Never automatically close the entire paid package until the historical
 -- merchant liability and wallet reversal have been reviewed.
 -- Does not change data, RLS, sale switches, rights, amounts or PSP settings.
+-- The immutable history is queried by invoice both from the service-role
+-- refund endpoint and inside the locked settlement RPC. Index it explicitly;
+-- old indexes were by voucher/order/quote and did not serve invoice lookups.
+CREATE INDEX IF NOT EXISTS clube_coupon_application_invoice_history_v1_862
+ ON public.clube_coupon_paid_order_applications(invoice_id);
+
 CREATE OR REPLACE FUNCTION public.clube_coupon_paid_payment_refund(p_invoice_id uuid, p_provider_order_id text)
  RETURNS jsonb
  LANGUAGE plpgsql
