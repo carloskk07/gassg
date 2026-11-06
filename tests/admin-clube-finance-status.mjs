@@ -50,7 +50,7 @@ assert.doesNotMatch(inspectionAction,/mercadoPagoFetch|method:"POST"|\.update\(|
 
 
 const claimEdge=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-review-start")'),
- edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'));
+ edge.indexOf('if(action==="clube-coupon-refund-triage-record")'));
 assert.match(claimEdge,/admin_clube_coupon_refund_review_start_v1_865/);
 assert.match(claimEdge,/COUPON_REVIEW_READBACK_UNVERIFIED/);
 assert.match(claimEdge,/clube_coupon_refund_requests_v1_814/);
@@ -66,7 +66,7 @@ assert.match(claimSQL,/TO service_role/);
 assert.doesNotMatch(claimSQL,/clube_coupon_paid_payment_refund|mercadoPagoFetch/);
 
 const triageEdge=edge.slice(edge.indexOf('if(action==="clube-coupon-refund-triage-record")'),
- edge.indexOf('if(action==="clube-coupon-refund-review-inspect")'));
+ edge.indexOf('if(action==="clube-coupon-refund-provider-inspect")'));
 assert.match(triageEdge,/admin_clube_coupon_refund_triage_v1_866/);
 assert.match(triageEdge,/COUPON_TRIAGE_READBACK_UNVERIFIED/);
 assert.match(triageEdge,/platform_admin_audit/);
@@ -138,6 +138,7 @@ const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);
 
+let providerCalls=0,providerPayload=null,providerFail=false;
 let triageCalls=0,triagePayload=null,triageAttemptUsed=null,triageFail=false;
 let claimCalls=0,claimPayload=null,claimFail=false,claimAttemptUsed=null;
 let inspectCalls=0,inspectPayload=null,inspectFail=false;
@@ -158,6 +159,11 @@ const state={
  adminRuntime:runtime,
  adminCurrentRole:()=>role,
  adminInvoke:async({action,...args})=>{
+   if(action==='clube-coupon-refund-provider-inspect'){
+     providerCalls++;
+     if(providerFail)throw Error('consulta-psp-indisponivel');
+     return providerPayload;
+   }
    if(action==='clube-coupon-refund-triage-record'){
      triageCalls++;
      triageAttemptUsed=args.attemptId;
@@ -211,7 +217,7 @@ const state={
 const ctx=vm.createContext(state);
 vm.runInContext(admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
- ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.refundTriage=adminClubeRefundTriage;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
+ ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.refundTriage=adminClubeRefundTriage;this.providerInspect=adminClubeRefundProviderInspect;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
  ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
 
 assert.match(ctx.page(),/Conferir situação dos cupons/);
@@ -272,6 +278,7 @@ inspectPayload={ok:true,source:'clube_coupon_refund_case_inspection_v1',
  invoiceId:'66666666-6666-4666-8666-666666666666',
  requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
  requestStatus:'requested',invoiceStatus:'paid',salePriceCents:890,
+ paymentReferencePresent:true,
  reviewClaimed:false,reviewerCanTriage:false,reviewAssignedAt:null,
  triageDecision:null,triageAt:null,triageAuditId:null,
  voucherCount:3,voucherStatuses:{issued:2,reserved:0,redeemed:1,void:0,review_required:0},
@@ -333,6 +340,32 @@ assert.match(ctx.page(),/Classificação registrada/);
 assert.match(ctx.page(),/Histórico de descontos e obrigações da revenda em análise/);
 assert.match(ctx.page(),/O caso permanece aberto/);
 assert.doesNotMatch(ctx.page(),/Revisar descontos e revenda<\/button>/);
+
+await ctx.refundInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.match(ctx.page(),/Conferir estorno no Mercado Pago/);
+providerPayload={ok:true,source:'clube_coupon_refund_provider_get_v1_867',
+ invoiceId:inspectPayload.invoiceId,requestId:inspectPayload.requestId,
+ caseStatus:'in_review',invoiceStatus:'paid',readOnly:true,
+ providerQuerySucceeded:true,providerOrderBound:true,
+ providerRefundVerified:true,providerRefundReason:'PROVIDER_FULL_REFUND_CONFIRMED',
+ refundAmountCents:890,refundTransactionCount:1,
+ historicalOrderCount:2,merchantHistoryRequiresReview:true,
+ merchantSettlementVerified:false,refundClosureAuthorized:false,
+ caseClosed:false,moneyMoved:false,providerMutationPerformed:false,
+ checkedAt:'2026-11-06T23:55:00Z'};
+await ctx.providerInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(providerCalls,1);
+assert.match(ctx.page(),/Mercado Pago indica estorno integral processado/);
+assert.match(ctx.page(),/obrigações da revenda não conciliadas/);
+assert.match(ctx.page(),/Não comprova crédito bancário ao comprador/);
+assert.match(ctx.page(),/não permite encerrar o protocolo/);
+providerPayload={...providerPayload,refundClosureAuthorized:true};
+await ctx.providerInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(providerCalls,2);
+assert.match(ctx.page(),/não retornou comprovação financeira consistente/);
+assert.doesNotMatch(ctx.page(),/Mercado Pago indica estorno integral processado/,
+ 'Provider output claiming authorization to close must be discarded');
+
 
 
 assert.doesNotMatch(ctx.page(),/merchant-access-token|@example\.invalid/,

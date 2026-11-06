@@ -5882,7 +5882,8 @@ async function adminClubeFinanceRefresh(){
   const state=adminRuntime.clubeFinance;
   if(state.pending)return;
   Object.assign(state,{pending:true,error:null,data:null,loadedFor:userId,checkedAt:null,
-    refundInspectResult:null,refundInspectError:null,refundInspectFor:null});
+    refundInspectResult:null,refundInspectError:null,refundInspectFor:null,
+    refundProviderFor:null,refundProviderResult:null,refundProviderError:null});
   render();
   try{
     const result=await adminInvoke({action:'clube-coupon-finance-status'});
@@ -6020,6 +6021,67 @@ async function adminClubeRefundTriage(decision){
        st.refundTriageRequestId===requestId){st.refundTriagePending=false;render();}
   }
 }
+async function adminClubeRefundProviderInspect(invoiceId,requestId){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance,userId=String(adminRuntime.session?.user?.id||'');
+  const inspected=st.refundInspectFor===userId?st.refundInspectResult:null;
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!userId||!uuid.test(invoiceId)||!uuid.test(requestId)||
+     st.loadedFor!==userId||st.refundProviderPending||st.refundInspectPending||
+     !inspected||inspected.invoiceId!==invoiceId||
+     inspected.requestId!==requestId||inspected.paymentReferencePresent!==true||
+     !['requested','in_review'].includes(inspected.requestStatus)||
+     !Array.isArray(st.data?.refundWorkQueue)||
+     !st.data.refundWorkQueue.some(x=>x.invoiceId===invoiceId&&x.requestId===requestId))return;
+  Object.assign(st,{refundProviderFor:userId,refundProviderInvoiceId:invoiceId,
+    refundProviderRequestId:requestId,refundProviderPending:true,
+    refundProviderResult:null,refundProviderError:null});
+  render();
+  try{
+    const r=await adminInvoke({action:'clube-coupon-refund-provider-inspect',
+      invoiceId,requestId});
+    if(String(adminRuntime.session?.user?.id||'')!==userId||
+       st.refundProviderRequestId!==requestId||
+       st.refundProviderInvoiceId!==invoiceId)return;
+    if(r?.ok!==true||r?.source!=='clube_coupon_refund_provider_get_v1_867'||
+       r.invoiceId!==invoiceId||r.requestId!==requestId||
+       !['requested','in_review'].includes(r.caseStatus)||
+       !['paid','review_required'].includes(r.invoiceStatus)||
+       r.readOnly!==true||r.providerQuerySucceeded!==true||
+       r.providerOrderBound!==true||typeof r.providerRefundVerified!=='boolean'||
+       !['PROVIDER_REFUND_NOT_VERIFIED','PROVIDER_REFUND_HISTORY_INCOMPLETE',
+        'PROVIDER_REFUND_TRANSACTION_UNVERIFIED','PROVIDER_FULL_REFUND_NOT_CONFIRMED',
+        'PROVIDER_FULL_REFUND_CONFIRMED'].includes(r.providerRefundReason)||
+       !Number.isSafeInteger(r.refundTransactionCount)||
+       r.refundTransactionCount<0||r.refundTransactionCount>15||
+       !Number.isSafeInteger(r.historicalOrderCount)||
+       r.historicalOrderCount!==inspected.historicalOrderCount||
+       r.merchantHistoryRequiresReview!==(r.historicalOrderCount>0)||
+       r.merchantSettlementVerified!==false||
+       r.refundClosureAuthorized!==false||r.caseClosed!==false||
+       r.moneyMoved!==false||r.providerMutationPerformed!==false||
+       !Number.isFinite(Date.parse(String(r.checkedAt||'')))||
+       (r.providerRefundVerified===true&&
+        (r.providerRefundReason!=='PROVIDER_FULL_REFUND_CONFIRMED'||
+         r.refundAmountCents!==inspected.salePriceCents||
+         r.refundTransactionCount<1))||
+       (r.providerRefundVerified===false&&
+        (r.refundAmountCents!==null||
+         r.providerRefundReason==='PROVIDER_FULL_REFUND_CONFIRMED')))
+      throw Error('O Mercado Pago não retornou comprovação financeira consistente.');
+    st.refundProviderResult=r;
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundProviderInvoiceId===invoiceId&&st.refundProviderRequestId===requestId)
+      st.refundProviderError=String(error?.message||'Não foi possível verificar o estorno.');
+  }finally{
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundProviderInvoiceId===invoiceId&&st.refundProviderRequestId===requestId){
+      st.refundProviderPending=false;render();
+    }
+  }
+}
 async function adminClubeRefundInspect(invoiceId,requestId){
   if(!['superadmin','finance'].includes(adminCurrentRole())||
      adminRuntime.status!=='ready')return;
@@ -6032,7 +6094,8 @@ async function adminClubeRefundInspect(invoiceId,requestId){
      s.refundInspectPending)return;
   Object.assign(s,{refundInspectFor:userId,refundInspectInvoiceId:invoiceId,
     refundInspectRequestId:requestId,refundInspectPending:true,
-    refundInspectResult:null,refundInspectError:null});
+    refundInspectResult:null,refundInspectError:null,
+    refundProviderFor:null,refundProviderResult:null,refundProviderError:null});
   render();
   try{
     const r=await adminInvoke({action:'clube-coupon-refund-review-inspect',
@@ -6448,6 +6511,12 @@ function adminClubeFinanceView(){
     ?state.refundTriageError:null;
   const triageReceipt=sameUser&&state.refundTriageFor===String(adminRuntime.session.user.id)
     ?state.refundTriageReceipt:null;
+  const providerResult=sameUser&&state.refundProviderFor===String(adminRuntime.session.user.id)
+    ?state.refundProviderResult:null;
+  const providerError=sameUser&&state.refundProviderFor===String(adminRuntime.session.user.id)
+    ?state.refundProviderError:null;
+  const providerPending=sameUser&&state.refundProviderFor===String(adminRuntime.session.user.id)
+    &&state.refundProviderPending===true;
   const triageNames={
     provider_refund_proof_pending:'Comprovação de estorno pendente no provedor',
     merchant_history_review:'Histórico de descontos e obrigações da revenda em análise',
@@ -6554,6 +6623,29 @@ function adminClubeFinanceView(){
         inspected.orderReconciliations.map(x=>'<p class="tiny muted">Pedido <code>'+
           esc(x.orderId)+'</code> • Conciliação: '+esc(x.status)+'</p>').join('')+
         '<p role="alert" class="notice">Encerramento bloqueado: esta análise NÃO comprova estorno do Pix nem pagamento à revenda; nenhuma alteração financeira foi realizada.</p>'+
+        (inspected.paymentReferencePresent===true
+          ?'<button type="button" class="secondary" onclick="adminClubeRefundProviderInspect(&quot;'+
+            esc(inspected.invoiceId)+'&quot;,&quot;'+esc(inspected.requestId)+'&quot;)" '+
+            (providerPending?'disabled':'')+'>'+
+            (providerPending?'Consultando Mercado Pago…':'Conferir estorno no Mercado Pago')+'</button>'
+          :'<p class="tiny muted">Identificadores originais do Pix ausentes: conferência no provedor indisponível.</p>')+
+        (providerError&&state.refundProviderRequestId===inspected.requestId
+          ?'<p class="notice danger" role="alert">'+esc(providerError)+'</p>':'')+
+        (providerResult&&providerResult.invoiceId===inspected.invoiceId&&
+           providerResult.requestId===inspected.requestId
+          ?'<div class="notice" role="status">'+
+            (providerResult.providerRefundVerified===true
+              ?'<strong>Mercado Pago indica estorno integral processado.</strong> Valor R$ '+
+                 esc((providerResult.refundAmountCents/100).toFixed(2))+
+                 ' • registros: '+esc(providerResult.refundTransactionCount)+'. '
+              :'<strong>Estorno integral não confirmado no provedor.</strong> ')+
+            'Conferido em '+esc(providerResult.checkedAt)+'. '+
+            (providerResult.historicalOrderCount>0
+              ?'Há '+esc(providerResult.historicalOrderCount)+
+                ' utilização(ões) históricas; obrigações da revenda não conciliadas. '
+              :'Nenhuma utilização histórica identificada nesta consulta. ')+
+            'Não comprova crédito bancário ao comprador, não quita revenda e não permite encerrar o protocolo.</div>'
+          :'')+
         (inspected.requestStatus==='requested'
           ?'<button type="button" class="secondary" '+
            (state.refundClaimPending?'disabled ':'')+
