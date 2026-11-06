@@ -5,6 +5,47 @@ const clubeCouponShopState={
   attempts:{},purchase:null,autoQueuedFor:null,regionPostal:''
 };
 const clubeCouponRefundState={userId:null,inFlight:new Set(),attempts:{}};
+// A QR, external payment link, and copyable BR Code can outlive merchant
+// eligibility in an open tab. Keep them on-screen only briefly; a new
+// authenticated invoice-status check is required to reveal them again.
+const clubeCouponPixLease={timer:null,expiresAt:0};
+const CLUBE_COUPON_PIX_VISIBLE_MS=45000;
+function clubeCouponClearPixTimer(){
+ if(clubeCouponPixLease.timer!==null&&typeof clearTimeout==='function')
+   clearTimeout(clubeCouponPixLease.timer);
+ clubeCouponPixLease.timer=null;
+}
+function clubeCouponHideDisplayedPix(expected=null){
+ const state=clubeCouponShopState;
+ const old=state.purchase;
+ if(!old||(expected&&old!==expected))return;
+ clubeCouponClearPixTimer();
+ clubeCouponPixLease.expiresAt=0;
+ if(old.pixPayable!==true&&!old.pixCode&&!old.paymentUrl&&!old.qrImageDataUri)return;
+ // A display lease is NOT a provider cancellation. Preserve the invoice ID
+ // so the buyer can explicitly refresh the same charge without minting one.
+ state.purchase={...old,pixPayable:false,pixCode:null,paymentUrl:null,
+   qrImageDataUri:null};
+ if(route()==='club')render();
+}
+function clubeCouponArmPixLease(){
+ const old=clubeCouponShopState.purchase;
+ clubeCouponClearPixTimer();
+ clubeCouponPixLease.expiresAt=0;
+ if(!old||old.pixPayable!==true)return;
+ if(typeof document!=='undefined'&&document.hidden===true){
+   clubeCouponHideDisplayedPix(old);return;
+ }
+ clubeCouponPixLease.expiresAt=Date.now()+CLUBE_COUPON_PIX_VISIBLE_MS;
+ if(typeof setTimeout==='function')
+   clubeCouponPixLease.timer=setTimeout(()=>{
+     clubeCouponHideDisplayedPix(old);
+   },CLUBE_COUPON_PIX_VISIBLE_MS);
+}
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
+ document.addEventListener('visibilitychange',()=>{
+   if(document.hidden===true)clubeCouponHideDisplayedPix();
+ });
 function clubeCouponShopPanel(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return '';
@@ -64,6 +105,8 @@ function clubeCouponShopPanel(){
     '<p>Endereço: '+esc(String(seller.address||''))+'</p>'+
     '<p>Atendimento e cancelamentos: '+esc(String(seller.supportEmail||''))+'</p></aside>':'';
   const purchase=s?.purchase;
+  const pixDisplayFresh=Boolean(purchase&&purchase.pixPayable===true&&
+    clubeCouponPixLease.expiresAt>Date.now());
   const purchasePostal=String(purchase?.servicePostalCode||'');
   // A partner-funded Pix is only rendered with its original, authenticated
   // invoice CEP. Searching a different area cannot relabel an old charge.
@@ -89,7 +132,7 @@ function clubeCouponShopPanel(){
      esc(purchase.status==='paid'&&purchase.fundingPending===true?
        'Pagamento identificado; cupons aguardam conciliação financeira':
        purchase.status||'Em conferência')+'</p>'+
-    (purchase.pixPayable===true&&partnerPixProven?(qrImage+
+    (pixDisplayFresh&&partnerPixProven?(qrImage+
       (validCode?'<label>Código Pix copia e cola<textarea readonly rows="3" class="input">'+
         esc(pix)+'</textarea></label><button type="button" class="secondary small" onclick="clubeCouponCopyPix()" '+(s?.busy?'disabled':'')+'>Copiar código Pix</button>':'')+
       paymentLink):'')+
@@ -248,6 +291,7 @@ async function clubeCouponBuy(packageKey){
     if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid)return;
     clubeCouponShopState.purchase=partnerPurchase?
       {...result,servicePostalCode:p.eligiblePostalCode}:result;
+    clubeCouponArmPixLease();
     // Retain same request UUID during ambiguous retries / pending payments.
     await clubePaidCouponsRefresh();
   }catch(err){
@@ -282,6 +326,7 @@ async function clubeCouponCheckInvoice(invoiceId,nested=false){
         ...(/^[0-9]{8}$/.test(originalPostal)?{}:
           {pixPayable:false,pixCode:null,paymentUrl:null,qrImageDataUri:null})};
     }else clubeCouponShopState.purchase=result;
+    clubeCouponArmPixLease();
     await clubePaidCouponsRefresh();
   }catch(err){
     if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid){
@@ -307,6 +352,7 @@ async function clubeCouponCopyPix(){
   // A hidden or withdrawn Pix must not be copied by an old button while
   // the previous BR code is still held in memory.
   if(purchase?.status!=='awaiting_payment'||purchase?.pixPayable!==true||
+     clubeCouponPixLease.expiresAt<=Date.now()||
      !/^[0-9a-f-]{36}$/i.test(invoiceId)||code.length<30||code.length>3000||
      (purchase?.fundingModel==='partner_funded'&&
       !/^[0-9]{8}$/.test(originalPostal)))

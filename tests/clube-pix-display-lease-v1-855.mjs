@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const source=fs.readFileSync(new URL('../js/clube-coupon-shop.js',import.meta.url),'utf8');
+new vm.Script(source);
+const invoiceId='a5a16f8b-5a50-45de-80c3-855000000001';
+const code='00020101021226800014br.gov.bcb.pix1234567890';
+const timerCalls=[],handlers={},calls=[],messages=[],copies=[];
+const fakeCodeImage='data:image/png;base64,'+'A'.repeat(32);
+const url='https://www.mercadopago.com.br/payments/855';
+const makePurchase=(overrides={})=>({
+ invoiceId,status:'awaiting_payment',fundingModel:'partner_funded',
+ servicePostalCode:'97000000',pixPayable:true,pixCode:code,
+ qrImageDataUri:fakeCodeImage,paymentUrl:url,amountCents:890,...overrides
+});
+let user='buyer-855',hidden=false;
+const document={
+ get hidden(){return hidden;},
+ addEventListener:(type,cb)=>{handlers[type]=cb;},
+ getElementById:()=>({value:'97000000',checked:true})
+};
+const ctx=vm.createContext({
+ globalThis:null,Date,Number,String,Object,Array,Set,Promise,URL,
+ BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
+ document,navigator:{clipboard:{writeText:async text=>copies.push(text)}},
+ setTimeout:(fn,ms)=>{
+  const t={fn,ms,cancelled:false};timerCalls.push(t);return t;
+ },
+ clearTimeout:t=>{t.cancelled=true;},
+ crypto:{randomUUID:()=>invoiceId},
+ esc:v=>String(v??''),
+ route:()=> 'club',render:()=>{},
+ toast:msg=>messages.push(msg),liveReady:()=>true,
+ clubePaidCouponView:null,clubePaidCouponsRefresh:async()=>{},
+ liveInvoke:async(name,request)=>{
+  assert.equal(name,'coupon-credit-pix');calls.push(request);
+  if(request.action==='invoice-status')return {
+    ok:true,invoiceId,status:'awaiting_payment',fundingModel:'partner_funded',
+    pixPayable:true,pixCode:code,qrImageDataUri:fakeCodeImage,paymentUrl:url
+  };
+  throw new Error('No invoice creation or provider calls permitted in this test');
+ }
+});
+ctx.globalThis=ctx;
+ctx.liveRuntime={session:{user:{id:user}}};
+new vm.Script(source+'\nthis.state=clubeCouponShopState;'+
+ 'this.lease=clubeCouponPixLease;this.arm=clubeCouponArmPixLease;'+
+ 'this.panel=clubeCouponShopPanel;this.copy=clubeCouponCopyPix;'+
+ 'this.refreshInvoice=clubeCouponCheckInvoice;').runInContext(ctx);
+assert.equal(typeof handlers.visibilitychange,'function');
+Object.assign(ctx.state,{userId:user,status:'ready',packages:[],seller:null,
+ busy:false,attempts:{},regionPostal:'97000000',purchase:null});
+ctx.clubePaidCouponView={userId:user,status:'ready',purchases:[{
+ invoiceId,packageKey:'partner_general_3x5_849',status:'awaiting_payment',
+ fundingModel:'partner_funded',servicePostalCode:'97000000'
+}]};
+
+// A saved Pix without an actual new display lease must not show the QR.
+ctx.state.purchase=makePurchase();
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola|QR Code Pix do pedido de cupom|Abrir pagamento seguro/);
+assert.equal(calls.length,0);
+ctx.arm();
+assert.equal(timerCalls.length,1);
+assert.equal(timerCalls[0].ms,45000);
+assert.match(ctx.panel(),/Código Pix copia e cola/);
+assert.match(ctx.panel(),/QR Code Pix do pedido de cupom/);
+assert.match(ctx.panel(),/Abrir pagamento seguro/);
+
+// After lease expiry no stale QR, external payment link, or text remain,
+// but the same invoice remains available to recheck without a new purchase.
+timerCalls[0].fn();
+assert.equal(ctx.state.purchase.invoiceId,invoiceId);
+assert.equal(ctx.state.purchase.status,'awaiting_payment');
+assert.equal(ctx.state.purchase.pixPayable,false);
+assert.equal(ctx.state.purchase.pixCode,null);
+assert.equal(ctx.state.purchase.qrImageDataUri,null);
+assert.equal(ctx.state.purchase.paymentUrl,null);
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola|QR Code Pix do pedido de cupom|Abrir pagamento seguro/);
+assert.match(ctx.panel(),/Conferir pagamento e cupons/);
+await ctx.copy();
+assert.equal(copies.length,0);
+assert.equal(calls.length,0);
+
+// Customer expressly rechecks original pending invoice; one authenticated
+// invoice-status grants a NEW 45-second lease, never a second purchase.
+await ctx.refreshInvoice(invoiceId);
+assert.deepEqual(calls.map(x=>x.action),['invoice-status']);
+assert.match(ctx.panel(),/Código Pix copia e cola/);
+assert.equal(timerCalls.length,2);
+
+// Leaving the tab while Pix is on-screen immediately revokes display.
+// Returning does not silently restore either the BR code or the QR image.
+hidden=true;
+handlers.visibilitychange();
+assert.equal(ctx.state.purchase.invoiceId,invoiceId);
+assert.equal(ctx.state.purchase.pixPayable,false);
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola|QR Code Pix do pedido de cupom|Abrir pagamento seguro/);
+hidden=false;
+handlers.visibilitychange();
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola/);
+assert.equal(calls.length,1);
+await ctx.refreshInvoice(invoiceId);
+assert.match(ctx.panel(),/Código Pix copia e cola/);
+
+// Even if an old timer callback fires after cancellation/rearm, it must
+// not hide or rewrite a DIFFERENT invoice/user card.
+const staleTimer=timerCalls.at(-1);
+ctx.state.purchase=makePurchase({invoiceId:'a5a16f8b-5a50-45de-80c3-855000000002'});
+ctx.arm();
+assert.equal(staleTimer.cancelled,true);
+staleTimer.fn();
+assert.equal(ctx.state.purchase.invoiceId,'a5a16f8b-5a50-45de-80c3-855000000002');
+assert.equal(ctx.state.purchase.pixPayable,true);
+
+// No payment card is revealed while browser is already hidden, even
+// when a valid status response arrives later from a real authenticated API.
+hidden=true;
+ctx.state.purchase=makePurchase();
+ctx.arm();
+assert.equal(ctx.state.purchase.pixPayable,false);
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola/);
+hidden=false;
+
+// A page redraw also fails closed if an actual 45-second timer cannot
+// fire: elapsed deadline alone prevents re-displaying saved payment data.
+ctx.state.purchase=makePurchase();
+ctx.arm();
+ctx.lease.expiresAt=Date.now()-1;
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola|QR Code Pix do pedido de cupom|Abrir pagamento seguro/);
+await ctx.copy();
+assert.equal(copies.length,0);
+assert.equal(ctx.state.busy,false);
+console.log('PASS #855: QR/Pix/link display lease expires, hides on background, recheck restores only original invoice, stale callbacks isolated.');

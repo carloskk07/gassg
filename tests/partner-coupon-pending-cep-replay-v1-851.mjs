@@ -37,7 +37,7 @@ const ctx=vm.createContext({
 });
 ctx.globalThis=ctx;
 ctx.liveRuntime={session:{user:{id:'buyer-851'}}};
-new vm.Script(source+'\nthis.shop=clubeCouponShopState;this.buy=clubeCouponBuy;this.history=clubeCouponPurchasesPanel;this.verifyPostal=clubeCouponVerifyPostal;this.check=clubeCouponCheckInvoice;this.panel=clubeCouponShopPanel;').runInContext(ctx);
+new vm.Script(source+'\nthis.shop=clubeCouponShopState;this.buy=clubeCouponBuy;this.history=clubeCouponPurchasesPanel;this.verifyPostal=clubeCouponVerifyPostal;this.check=clubeCouponCheckInvoice;this.panel=clubeCouponShopPanel;this.armLease=clubeCouponArmPixLease;').runInContext(ctx);
 const previous={packageKey,status:'awaiting_payment',requestId,invoiceId,
   servicePostalCode:'97000000',fundingModel:'partner_funded'};
 ctx.clubePaidCouponView={
@@ -86,6 +86,7 @@ assert.equal(ctx.shop.busy,false);
 ctx.shop.purchase={invoiceId,fundingModel:'partner_funded',
   servicePostalCode:'97300000',status:'awaiting_payment',pixPayable:true,
   pixCode:'1234567890123456789012345678901234567890'};
+ctx.armLease();
 assert.match(ctx.panel(),/CEP vinculado a este Pix: 97300000/);
 assert.match(ctx.panel(),/Código Pix copia e cola/);
 await ctx.verifyPostal();

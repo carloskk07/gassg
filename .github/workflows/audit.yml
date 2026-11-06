@@ -87,6 +87,8 @@ jobs:
         run: node tests/coupon-late-pix-settlement-v1-853.mjs
       - name: V1.854 verify still-payable Pix on copy and serialize refund requests
         run: node tests/clube-pix-copy-refund-race-v1-854.mjs
+      - name: V1.855 expire displayed Pix QR and external payment link after tab background or lease timeout
+        run: node tests/clube-pix-display-lease-v1-855.mjs
       - name: Push FK index hygiene regression
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
