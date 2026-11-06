@@ -3891,7 +3891,7 @@ Deno.serve(async(req:Request)=>{
       }
       const [invoiceResult,voucherResult,applicationResult]=await Promise.all([
         admin.from("clube_coupon_paid_invoices")
-           .select("id,created_at,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
+           .select("id,created_at,status,paid_at,provider_order_id,provider_payment_id,net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents,coupon_settlement_hold_reason_v1_853")
           .order("created_at",{ascending:false})
           .limit(101),
         admin.from("clube_coupon_paid_issuances")
@@ -3975,6 +3975,7 @@ Deno.serve(async(req:Request)=>{
           invoiceId:String(row.id),
           status:row.status,
           needsNetProof:row.status==="paid",
+          settlementReviewReason:row.status==="review_required"?row.coupon_settlement_hold_reason_v1_853:null,
           salePriceCents:row.sale_price_cents,
           createdAt:row.created_at
         }));
