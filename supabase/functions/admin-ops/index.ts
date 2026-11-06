@@ -4092,6 +4092,59 @@ Deno.serve(async(req:Request)=>{
       },200,origin);
     }
 
+    if(action==="clube-coupon-refund-review-start"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente a Controladoria pode assumir um reembolso.",403);
+      const invoiceId=String(body.invoiceId??"");
+      const requestId=String(body.requestId??"");
+      const attemptId=String(body.attemptId??"");
+      if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId)||
+         !UUID_RE.test(attemptId))
+        throw new DomainError("COUPON_REVIEW_INVALID_INPUT",
+          "Identificação da solicitação ou da tentativa inválida.",400);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:"admin-coupon-refund-review-start",limit:10,windowSeconds:3600});
+      const {data,error}=await admin.rpc("admin_clube_coupon_refund_review_start_v1_865",{
+        p_actor:user.id,p_invoice:invoiceId,p_request:requestId,p_attempt:attemptId
+      });
+      if(error)throw error;
+      if(data?.ok!==true||data?.source!=="clube_coupon_review_start_v1_865"||
+         data?.invoiceId!==invoiceId||data?.requestId!==requestId||
+         data?.auditId!==attemptId||data?.status!=="in_review"||
+         !Number.isFinite(Date.parse(String(data.reviewStartedAt??"")))||
+         typeof data.replayed!=="boolean"||data.moneyMoved!==false||
+         data.refundConfirmed!==false||data.caseClosed!==false)
+        throw new DomainError("COUPON_REVIEW_UNVERIFIED",
+          "O banco não confirmou a revisão da solicitação.",503);
+      // Independent readback prevents a lost or forged acknowledgement from
+      // being displayed as a completed review assignment.
+      const [caseCheck,auditCheck]=await Promise.all([
+        admin.from("clube_coupon_refund_requests_v1_814")
+          .select("request_id,status").eq("invoice_id",invoiceId)
+          .eq("request_id",requestId).maybeSingle(),
+        admin.from("platform_admin_audit")
+          .select("id,actor_user_id,action,target_type,target_id,metadata")
+          .eq("id",attemptId).maybeSingle()
+      ]);
+      if(caseCheck.error||auditCheck.error||
+         caseCheck.data?.status!=="in_review"||
+         caseCheck.data?.request_id!==requestId||
+         auditCheck.data?.id!==attemptId||
+         auditCheck.data?.actor_user_id!==user.id||
+         auditCheck.data?.action!=="clube_coupon_review_started_v1_865"||
+         auditCheck.data?.target_type!=="clube_coupon_refund_request"||
+         auditCheck.data?.target_id!==requestId||
+         auditCheck.data?.metadata?.invoiceId!==invoiceId)
+        throw new DomainError("COUPON_REVIEW_READBACK_UNVERIFIED",
+          "A confirmação ainda não apareceu no histórico. Consulte novamente.",503);
+      return json({ok:true,source:"clube_coupon_review_start_v1_865",
+        invoiceId,requestId,auditId:attemptId,status:"in_review",
+        reviewStartedAt:data.reviewStartedAt,replayed:data.replayed,
+        moneyMoved:false,refundConfirmed:false,caseClosed:false,
+        readbackVerified:true},200,origin);
+    }
+
     if(action==="clube-coupon-refund-review-inspect"){
       // Finance-only investigation. No provider call, refund, write or closure.
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
