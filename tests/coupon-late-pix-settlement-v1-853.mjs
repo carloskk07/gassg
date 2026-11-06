@@ -103,4 +103,32 @@ dbResult={ok:false,reviewRequired:true,providerPaymentRecorded:true,
 await assert.rejects(ctx.handle(admin,'provider-order-853',invoice,'APP_USR-synthetic'),
  /COUPON_SETTLEMENT_READBACK_UNVERIFIED/);
 assert.equal(rpcCalls.length,5);
+assert.ok(webhook.includes('String(r?.transaction_id??"")!==String(pix?.id??"")'),
+ 'every verified coupon refund must link to the exact Pix transaction');
+// #860: a refund with an omitted transaction_id must NEVER close the newly
+// reviewed hold, even if the provider Order total matches the purchase.
+providerOrder.transactions.refunds=[{id:'refund-no-binding',status:'processed',amount:'8.90'}];
+dbResult={ok:false,reviewRequired:true,refunded:false};
+const unknownRefund=await ctx.handle(admin,'provider-order-853',
+ {...invoice,status:'review_required'},'APP_USR-synthetic');
+assert.equal(unknownRefund.body.status,'review_required');
+assert.equal(rpcCalls.at(-1).name,'clube_coupon_paid_payment_review',
+ 'unbound PSP refund requires manual review, never automatic closure');
+// Exact matching Pix refund is independently eligible for full-refund RPC.
+// This is simulated provider evidence, NOT a real bank transaction.
+providerOrder.transactions.refunds=[{id:'refund-bound',status:'processed',
+ amount:'8.90',transaction_id:'provider-pix-853'}];
+dbResult={ok:true,refunded:true};
+const exactRefund=await ctx.handle(admin,'provider-order-853',
+ {...invoice,status:'review_required'},'APP_USR-synthetic');
+assert.equal(exactRefund.body.status,'refunded');
+assert.equal(rpcCalls.at(-1).name,'clube_coupon_paid_payment_refund');
+// A payment-specific refund below the purchased amount stays in review.
+providerOrder.transactions.refunds=[{id:'refund-partial',status:'processed',
+ amount:'5.00',transaction_id:'provider-pix-853'}];
+dbResult={ok:false,reviewRequired:true,refunded:false};
+await ctx.handle(admin,'provider-order-853',
+ {...invoice,status:'review_required'},'APP_USR-synthetic');
+assert.equal(rpcCalls.at(-1).name,'clube_coupon_paid_payment_review');
+
 console.log('PASS #853: actual webhook honors DB-held external Pix, rejects inconsistent ACK, preserves regular paid coupon flow, exposes review safely.');
