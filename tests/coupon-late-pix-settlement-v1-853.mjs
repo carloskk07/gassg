@@ -39,7 +39,7 @@ assert.match(webhook,/COUPON_SETTLEMENT_READBACK_UNVERIFIED/);
 const start=webhook.indexOf('async function handlePaidCouponOrder(');
 const end=webhook.indexOf('\nasync function handleWebhookProbe(',start);
 assert.ok(start>0&&end>start);
-const snippet=webhook.slice(start,end).replace(/:(?:any|string|number)(?=[,)\\s])/g,'');
+const snippet=webhook.slice(start,end).replace(/:(?:any|string|number)(?=[,)\s])/g,'');
 new vm.Script(snippet);
 const payment={
  id:'provider-pix-853',status:'processed',amount:'8.90',payment_method:{id:'pix',type:'bank_transfer'},
