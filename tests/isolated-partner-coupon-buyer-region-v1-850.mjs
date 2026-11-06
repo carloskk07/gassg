@@ -20,6 +20,6 @@ assert.equal(Number(query('select count(*) from public.clube_coupon_paid_order_a
 assert.equal(query("SELECT (public.clube_partner_coupon_postal_supply_v1_850('00000000')->>'ready')"),'false');
 assert.equal(query("SELECT has_function_privilege('authenticated','public.clube_partner_coupon_postal_supply_v1_850(text)','EXECUTE')"),'f');
 assert.equal(query("SELECT has_function_privilege('service_role','public.clube_partner_coupon_postal_supply_v1_850(text)','EXECUTE')"),'t');
-assert.equal(query("SELECT commerce_enabled::text FROM public.platform_launch_control WHERE singleton"),'t',
+assert.equal(query("SELECT commerce_enabled::text FROM public.platform_launch_control WHERE singleton"),'true',
  'Only isolated CI should be in synthetic commerce state, not production');
 console.log('PASS #850: real Postgres market-city stock, compliance, coupon consent and verified customer CEP; stale/missing/blocked ZIP denied, historical funds untouched.');
