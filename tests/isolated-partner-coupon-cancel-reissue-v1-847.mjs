@@ -138,4 +138,35 @@ assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements W
  q(first.orderId)+"::uuid,"+q(second.orderId)+"::uuid)"),'0');
 assert.equal(sql("SELECT count(*) FROM public.clube_partner_coupon_order_uses_v1_846 WHERE voucher_id="+q(voucher)+"::uuid"),'2',
  'Both merchant cost snapshots immutable and tied to their own orders');
-console.log('PASS #847: two independent canceled real partner-coupon orders, same reissued voucher, ZERO fungible cashback, receipt lineage and zero TAMÃO reimbursements.');
+
+// #862: This is a genuine #847 reissue, not an invented status transition:
+// two canceled orders remain in the permanent applications lineage, while
+// the paid invoice and restored voucher look unused to a status-only check.
+// Pretend the PSP refund has already been independently verified, invoke the
+// DB settlement RPC in a ROLLED BACK transaction, and prove it fails closed.
+const refundProbe=[
+ 'BEGIN;',
+ 'DO $history_862$ DECLARE v_result jsonb; BEGIN',
+ 'v_result:=public.clube_coupon_paid_payment_refund('+q(invoice)+'::uuid,'+q(providerOrder)+');',
+ "IF v_result->>'ok' IS DISTINCT FROM 'false'",
+ " OR v_result->>'refunded' IS DISTINCT FROM 'false'",
+ " OR v_result->>'reviewRequired' IS DISTINCT FROM 'true'",
+ " THEN RAISE EXCEPTION 'CI_862_HISTORIC_REISSUE_WRONGLY_REFUNDED';END IF;",
+ "IF NOT EXISTS(SELECT 1 FROM public.clube_coupon_paid_invoices",
+ ' WHERE id='+q(invoice)+"::uuid AND status='review_required' AND refunded_at IS NULL)",
+ " THEN RAISE EXCEPTION 'CI_862_INVOICE_NOT_HELD';END IF;",
+ 'IF (SELECT count(*) FROM public.clube_coupon_paid_order_applications',
+ ' WHERE invoice_id='+q(invoice)+"::uuid)<>2",
+ " THEN RAISE EXCEPTION 'CI_862_IMMUTABLE_ORDER_HISTORY_LOST';END IF;",
+ 'END $history_862$;',
+ 'ROLLBACK;'
+].join(' ');
+sql(refundProbe);
+assert.equal(sql('SELECT status FROM public.clube_coupon_paid_invoices WHERE id='+
+ q(invoice)+'::uuid'),'paid','rollback must restore invoice and avoid any real refund');
+assert.equal(sql('SELECT status FROM public.clube_coupon_paid_issuances WHERE id='+
+ q(voucher)+'::uuid'),'issued','reissued coupon remains valid after isolated refund probe');
+assert.equal(sql('SELECT count(*) FROM public.clube_coupon_paid_order_applications WHERE invoice_id='+
+ q(invoice)+'::uuid'),'2','original immutable merchant applications remain intact');
+
+console.log('PASS #847/#862: two independent canceled real partner-coupon orders, same reissued voucher, ZERO fungible cashback, receipt lineage and zero TAMÃO reimbursements.');
