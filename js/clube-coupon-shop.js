@@ -297,13 +297,54 @@ async function clubeCouponCheckInvoice(invoiceId,nested=false){
 }
 async function clubeCouponCopyPix(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(clubeCouponShopState.userId!==uid||!uid)return;
-  const code=String(clubeCouponShopState.purchase?.pixCode||'');
-  if(code.length<30||code.length>3000)return;
+  const state=clubeCouponShopState;
+  if(!uid||!globalThis.liveReady?.()||state.userId!==uid||state.busy)return;
+  const purchase=state.purchase;
+  const invoiceId=String(purchase?.invoiceId||'');
+  const code=String(purchase?.pixCode||'');
+  const originalPostal=String(purchase?.servicePostalCode||'');
+  // A hidden or withdrawn Pix must not be copied by an old button while
+  // the previous BR code is still held in memory.
+  if(purchase?.status!=='awaiting_payment'||purchase?.pixPayable!==true||
+     !/^[0-9a-f-]{36}$/i.test(invoiceId)||code.length<30||code.length>3000||
+     (purchase?.fundingModel==='partner_funded'&&
+      !/^[0-9]{8}$/.test(originalPostal)))
+    return toast('Este código Pix não está confirmado. Confira a compra no histórico.');
+  state.busy=true;
+  if(route()==='club')render();
   try{
-    await navigator.clipboard.writeText(code);
-    toast('Código Pix copiado.');
-  }catch{toast('Selecione e copie o código Pix exibido.');}
+    // The server must recheck BOTH provider order and merchant eligibility
+    // at copy time. Existing tabs and their QR displays may be stale.
+    const fresh=await liveInvoke('coupon-credit-pix',{
+      action:'invoice-status',invoiceId
+    });
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid||
+       state.userId!==uid||state.purchase!==purchase)return;
+    if(fresh?.ok!==true||fresh.invoiceId!==invoiceId||
+       fresh.status!=='awaiting_payment'||fresh.pixPayable!==true||
+       String(fresh.pixCode||'')!==code||
+       fresh.fundingModel!==purchase.fundingModel||
+       (purchase.fundingModel==='partner_funded'&&
+        purchase.servicePostalCode!==originalPostal))
+      throw Error('COUPON_PIX_STALE_AT_COPY');
+    try{
+      await navigator.clipboard.writeText(code);
+      if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid&&
+         state.purchase===purchase)toast('Código Pix confirmado e copiado.');
+    }catch{
+      if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
+        toast('Selecione e copie o código Pix exibido.');
+    }
+  }catch{
+    if(String(globalThis.liveRuntime?.session?.user?.id||'')===uid&&
+       state.userId===uid){
+      if(state.purchase===purchase)state.purchase=null;
+      toast('O Pix antigo não foi confirmado. Não pague o código anterior; confira a compra no histórico.');
+    }
+  }finally{
+    if(state.userId===uid)state.busy=false;
+    if(route()==='club')render();
+  }
 }
 
 
