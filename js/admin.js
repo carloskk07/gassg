@@ -6444,6 +6444,15 @@ function adminClubeFinanceView(){
     ?state.refundClaimReceipt:null;
   const claimError=sameUser&&state.refundClaimFor===String(adminRuntime.session.user.id)
     ?state.refundClaimError:null;
+  const triageError=sameUser&&state.refundTriageFor===String(adminRuntime.session.user.id)
+    ?state.refundTriageError:null;
+  const triageReceipt=sameUser&&state.refundTriageFor===String(adminRuntime.session.user.id)
+    ?state.refundTriageReceipt:null;
+  const triageNames={
+    provider_refund_proof_pending:'Comprovação de estorno pendente no provedor',
+    merchant_history_review:'Histórico de descontos e obrigações da revenda em análise',
+    financial_anomaly_escalation:'Anomalia financeira escalada para investigação'
+  };
   const readyCount=data&&data.schemaInstalled===true&&
     data.coverage==='bounded_under_limits';
   const entries=readyCount?[
@@ -6525,6 +6534,7 @@ function adminClubeFinanceView(){
         '</div>').join('')+
       (inspectionError?'<p role="alert" class="notice danger">'+esc(inspectionError)+'</p>':'')+
       (claimError?'<p role="alert" class="notice danger">'+esc(claimError)+'</p>':'')+
+      (triageError?'<p role="alert" class="notice danger">'+esc(triageError)+'</p>':'')+
       (claimReceipt&&refundQueue.some(x=>x.requestId===claimReceipt.requestId&&
           x.invoiceId===claimReceipt.invoiceId)
        ?'<p role="status" class="notice">Análise assumida e registrada. Auditoria: <code>'+
@@ -6551,6 +6561,29 @@ function adminClubeFinanceView(){
            '&quot;,&quot;'+esc(inspected.requestId)+'&quot;)">'+
            (state.refundClaimPending?'Registrando…':'Assumir análise auditada')+'</button>'
           :'<p class="tiny muted">Este protocolo já está em análise. Confira o histórico auditável antes de tomar qualquer decisão.</p>')+
+        (inspected.requestStatus==='in_review'&&inspected.triageDecision
+          ?'<p role="status" class="notice"><strong>Classificação registrada:</strong> '+
+            esc(triageNames[inspected.triageDecision]||'Em análise')+
+            '. Auditoria: <code>'+esc(inspected.triageAuditId)+'</code>. O caso permanece aberto.</p>'
+          :inspected.requestStatus==='in_review'&&inspected.reviewClaimed&&
+            inspected.reviewerCanTriage&&inspected.triageDecision===null
+           ?'<div role="group" aria-label="Classificação auditada do reembolso">'+
+             '<p class="tiny muted">Registre a pendência dominante; não autoriza pagamentos ou encerramento.</p>'+
+             (inspected.historicalOrderCount===0
+               ?'<button type="button" class="secondary" onclick="adminClubeRefundTriage(&quot;provider_refund_proof_pending&quot;)" '+
+                 (state.refundTriagePending?'disabled':'')+'>Exigir prova do provedor</button>':'')+
+             (inspected.historicalOrderCount>0
+               ?'<button type="button" class="secondary" onclick="adminClubeRefundTriage(&quot;merchant_history_review&quot;)" '+
+                 (state.refundTriagePending?'disabled':'')+'>Revisar descontos e revenda</button>':'')+
+             '<button type="button" class="secondary" onclick="adminClubeRefundTriage(&quot;financial_anomaly_escalation&quot;)" '+
+               (state.refundTriagePending?'disabled':'')+'>Escalar anomalia financeira</button>'+
+             '</div>'
+           :inspected.requestStatus==='in_review'&&!inspected.reviewClaimed
+            ?'<p role="alert" class="notice">Protocolo sem atribuição auditada; classificação bloqueada.</p>'
+            :'')+
+        (triageReceipt?.requestId===inspected.requestId&&
+         triageReceipt?.decision===inspected.triageDecision
+          ?'<p class="tiny muted">Registro confirmado nesta sessão. Sem estorno ou quitação.</p>':'')+
         '</div>':'')+
       (Number.isSafeInteger(data.refundRequestPendingCount)&&data.refundRequestPendingCount===0
         ?'<p class="tiny muted">Nenhum protocolo aberto na consulta atual.</p>':'')+
