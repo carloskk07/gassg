@@ -771,7 +771,7 @@ async function handlePaidCouponOrder(
    !["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase())
    ||!String(r?.id??"").trim()
    ||(moneyToCents(r?.amount)??0)<=0
-   ||(r?.transaction_id!=null&&String(r.transaction_id)!==String(pix?.id??"")));
+   ||String(r?.transaction_id??"")!==String(pix?.id??""));
  const hasRefund=refunds.length>0
   ||providerStates.some(state=>reversalStates.includes(state))
   ||(invoice.status==="paid"&&(providerStates.some(state=>failedStates.includes(state))||
