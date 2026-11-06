@@ -16,15 +16,20 @@ const ctx=vm.createContext({
   esc:v=>String(v??''),route:()=> 'club',render:()=>{},
   toast:msg=>messages.push(msg),
   crypto:{randomUUID:()=>requestId},
-  document:{getElementById:()=>({checked:true})},
+  document:{getElementById:id=>id==='clube-partner-coupon-cep'?{value:'97000000'}:{checked:true}},
   liveReady:()=>true,
   clubePaidCouponView:null,
   clubePaidCouponsRefresh:async()=>{},
   liveInvoke:async(name,body)=>{
     assert.equal(name,'coupon-credit-pix');
     calls.push(body);
+    if(body.action==='catalog')
+      return {ok:true,source:'clube_paid_catalog_v1_807',packages:[]};
+    if(body.action==='partner-catalog')
+      return {ok:true,source:'clube_partner_coupon_catalog_v1_849',packages:[]};
     if(body.action==='invoice-status')
-      return {ok:true,invoiceId,status:'awaiting_payment',pixPayable:true};
+      return {ok:true,invoiceId,status:'awaiting_payment',fundingModel:'partner_funded',
+        pixPayable:true,pixCode:'1234567890123456789012345678901234567890'};
     if(body.action==='partner-purchase')
       return {ok:true,invoiceId,fundingModel:'partner_funded',pixPayable:false};
     throw new Error('Unexpected coupon operation '+body.action);
@@ -32,7 +37,7 @@ const ctx=vm.createContext({
 });
 ctx.globalThis=ctx;
 ctx.liveRuntime={session:{user:{id:'buyer-851'}}};
-new vm.Script(source+'\nthis.shop=clubeCouponShopState;this.buy=clubeCouponBuy;this.history=clubeCouponPurchasesPanel;').runInContext(ctx);
+new vm.Script(source+'\nthis.shop=clubeCouponShopState;this.buy=clubeCouponBuy;this.history=clubeCouponPurchasesPanel;this.verifyPostal=clubeCouponVerifyPostal;this.check=clubeCouponCheckInvoice;this.panel=clubeCouponShopPanel;').runInContext(ctx);
 const previous={packageKey,status:'awaiting_payment',requestId,invoiceId,
   servicePostalCode:'97000000',fundingModel:'partner_funded'};
 ctx.clubePaidCouponView={
@@ -46,6 +51,8 @@ Object.assign(ctx.shop,{
     eligiblePostalCode:'97300000'}]
 });
 
+assert.match(ctx.history(),/Conferir Pix desta compra/,
+  'the buyer can intentionally re-open their original pending Pix from history');
 assert.match(ctx.history(),/CEP da compra: 97000000/,
   'the original CEP must be disclosed beside the pending purchase');
 await ctx.buy(packageKey);
@@ -73,5 +80,24 @@ assert.deepEqual(calls.map(x=>x.action),['partner-purchase'],
 assert.equal(calls[0].postalCode,'97300000');
 assert.equal(calls[0].requestId,requestId);
 assert.equal(ctx.shop.busy,false);
+
+// A new CEP lookup must clear an already visible partner Pix card, which
+// otherwise survives the UI rerender even if the checkout path is guarded.
+ctx.shop.purchase={invoiceId,fundingModel:'partner_funded',
+  servicePostalCode:'97300000',status:'awaiting_payment',pixPayable:true,
+  pixCode:'1234567890123456789012345678901234567890'};
+assert.match(ctx.panel(),/CEP vinculado a este Pix: 97300000/);
+assert.match(ctx.panel(),/Código Pix copia e cola/);
+await ctx.verifyPostal();
+assert.equal(ctx.shop.regionPostal,'97000000');
+assert.equal(ctx.shop.purchase,null,'switching CEP clears a stale Pix card');
+assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola/);
+
+// The history may still intentionally re-open its OWN original Pix, but
+// the payment card must disclose the original CEP, not the searched CEP.
+previous.status='awaiting_payment';
+await ctx.check(invoiceId);
+assert.equal(ctx.shop.purchase.servicePostalCode,'97300000');
+assert.match(ctx.panel(),/CEP vinculado a este Pix: 97300000/);
 
 console.log('PASS #851: cross-CEP Pix replay denied, original CEP disclosed, same-CEP idempotent recovery retained.');
