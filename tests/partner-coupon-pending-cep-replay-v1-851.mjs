@@ -86,6 +86,7 @@ assert.equal(ctx.shop.busy,false);
 ctx.shop.purchase={invoiceId,fundingModel:'partner_funded',
   servicePostalCode:'97300000',status:'awaiting_payment',pixPayable:true,
   pixCode:'1234567890123456789012345678901234567890'};
+ctx.armLease();
 assert.match(ctx.panel(),/CEP vinculado a este Pix: 97300000/);
 assert.match(ctx.panel(),/Código Pix copia e cola/);
 await ctx.verifyPostal();
