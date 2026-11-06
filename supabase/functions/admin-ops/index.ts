@@ -15,6 +15,7 @@ import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prosp
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 import {couponReleasedNetEvidence} from "./coupon-release-evidence.js";
 import {couponMerchantPayoutEvidence,couponMerchantRecipientReadiness} from "./coupon-merchant-payout-evidence.js";
+import {couponProviderRefundEvidence} from "./coupon-refund-provider-evidence.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -4208,6 +4209,98 @@ Deno.serve(async(req:Request)=>{
         recordedAt:data.recordedAt,replayed:data.replayed,
         moneyMoved:false,providerRefundVerified:false,caseClosed:false,
         readbackVerified:true},200,origin);
+    }
+
+    if(action==="clube-coupon-refund-provider-inspect"){
+      // Independent GET-only PSP inspection. This does not initiate or book
+      // a refund and is never authority to close a pending customer case.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente a Controladoria pode conferir reembolsos.",403);
+      const invoiceId=String(body.invoiceId??"");
+      const requestId=String(body.requestId??"");
+      if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId))
+        throw new DomainError("COUPON_REFUND_PROVIDER_INVALID_INPUT",
+          "Identificadores da fatura ou protocolo inválidos.",400);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:"admin-coupon-refund-provider-read",limit:12,windowSeconds:3600});
+      const [caseResult,invoiceResult,historyResult]=await Promise.all([
+        admin.from("clube_coupon_refund_requests_v1_814")
+          .select("invoice_id,request_id,status,customer_user_id")
+          .eq("invoice_id",invoiceId).eq("request_id",requestId).maybeSingle(),
+        admin.from("clube_coupon_paid_invoices")
+          .select("id,customer_user_id,status,sale_price_cents,paid_at,provider_order_id,provider_payment_id,provider")
+          .eq("id",invoiceId).maybeSingle(),
+        admin.from("clube_coupon_paid_order_applications")
+          .select("order_id",{count:"exact",head:true}).eq("invoice_id",invoiceId)
+      ]);
+      if(caseResult.error||invoiceResult.error||historyResult.error)
+        throw caseResult.error||invoiceResult.error||historyResult.error;
+      const request=caseResult.data,invoice=invoiceResult.data;
+      const lifetimeUses=historyResult.count;
+      if(!request||!invoice||request.invoice_id!==invoiceId||
+         request.request_id!==requestId||
+         !["requested","in_review"].includes(request.status)||
+         request.customer_user_id!==invoice.customer_user_id||
+         !["paid","review_required"].includes(invoice.status)||
+         invoice.provider!=="mercadopago"||
+         !invoice.paid_at||
+         !Number.isSafeInteger(invoice.sale_price_cents)||
+         invoice.sale_price_cents<=0||
+         !/^[A-Za-z0-9_-]{6,120}$/.test(String(invoice.provider_order_id??""))||
+         !/^[A-Za-z0-9_-]{3,120}$/.test(String(invoice.provider_payment_id??""))||
+         typeof lifetimeUses!=="number"||
+         !Number.isSafeInteger(lifetimeUses)||lifetimeUses<0)
+        throw new DomainError("COUPON_REFUND_PROVIDER_CASE_INCOMPLETE",
+          "O protocolo ou a comprovação da cobrança estão incompletos.",409);
+      const token=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+      if(!mercadoPagoConfigured(token))
+        throw new DomainError("COUPON_REFUND_PROVIDER_NOT_CONFIGURED",
+          "A conferência do Mercado Pago não está configurada.",503);
+      const psp=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(invoice.provider_order_id),{
+        accessToken:token,method:"GET",timeoutMs:8000
+      });
+      if(!psp.ok)
+        throw new DomainError("COUPON_REFUND_PROVIDER_UNAVAILABLE",
+          "O Mercado Pago não respondeu com evidência suficiente.",503);
+      const order=await readMercadoPagoJson(psp);
+      const evidence=couponProviderRefundEvidence(order,invoice,moneyToCents);
+      if(evidence.orderBound!==true)
+        throw new DomainError("COUPON_REFUND_PROVIDER_BINDING_MISMATCH",
+          "A ordem do provedor não corresponde à fatura e ao Pix.",409);
+      // Fresh readback prevents a successful GET for a stale/reassigned case
+      // from being presented as evidence for a different current request.
+      const [freshCase,freshInvoice,freshHistory]=await Promise.all([
+        admin.from("clube_coupon_refund_requests_v1_814")
+          .select("invoice_id,request_id,status,customer_user_id")
+          .eq("invoice_id",invoiceId).eq("request_id",requestId).maybeSingle(),
+        admin.from("clube_coupon_paid_invoices")
+          .select("id,customer_user_id,status,sale_price_cents,paid_at,provider_order_id,provider_payment_id,provider")
+          .eq("id",invoiceId).maybeSingle(),
+        admin.from("clube_coupon_paid_order_applications")
+          .select("order_id",{count:"exact",head:true}).eq("invoice_id",invoiceId)
+      ]);
+      if(freshCase.error||freshInvoice.error||freshHistory.error||
+         JSON.stringify(freshCase.data)!==JSON.stringify(request)||
+         JSON.stringify(freshInvoice.data)!==JSON.stringify(invoice)||
+         freshHistory.count!==lifetimeUses)
+        throw new DomainError("COUPON_REFUND_PROVIDER_CASE_CHANGED",
+          "Os dados do caso mudaram durante a conferência. Atualize a consulta.",409);
+      return json({
+        ok:true,source:"clube_coupon_refund_provider_get_v1_867",
+        invoiceId,requestId,caseStatus:String(request.status),
+        invoiceStatus:String(invoice.status),
+        readOnly:true,providerQuerySucceeded:true,
+        providerOrderBound:true,providerRefundVerified:evidence.providerRefundVerified,
+        providerRefundReason:evidence.reason,
+        refundAmountCents:evidence.refundAmountCents,
+        refundTransactionCount:evidence.refundTransactionCount,
+        historicalOrderCount:lifetimeUses,
+        merchantHistoryRequiresReview:lifetimeUses>0,
+        merchantSettlementVerified:false,
+        refundClosureAuthorized:false,caseClosed:false,moneyMoved:false,
+        providerMutationPerformed:false,checkedAt:new Date().toISOString()
+      },200,origin);
     }
 
     if(action==="clube-coupon-refund-review-inspect"){
