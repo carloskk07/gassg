@@ -39,7 +39,7 @@ ctx.globalThis=ctx;
 ctx.liveRuntime={session:{user:{id:activeUser}}};
 new vm.Script(src+'\nthis.state=clubeCouponShopState;this.refunds=clubeCouponRefundState;'+
   'this.copy=clubeCouponCopyPix;this.refund=clubeCouponRefundAsk;'+
-  'this.historyPanel=clubeCouponPurchasesPanel;this.shopPanel=clubeCouponShopPanel;').runInContext(ctx);
+  'this.historyPanel=clubeCouponPurchasesPanel;this.shopPanel=clubeCouponShopPanel;this.armLease=clubeCouponArmPixLease;').runInContext(ctx);
 Object.assign(ctx.state,{
   userId:activeUser,status:'ready',packages:[],seller:null,busy:false,
   attempts:{},purchase:null,regionPostal:'97000000'
@@ -68,6 +68,7 @@ for(const invalid of [
  assert.equal(copies.length,0,'invalid Pix never reaches clipboard');
 }
 ctx.state.purchase=purchase();
+ctx.armLease();
 invoiceResponse=verified();
 assert.match(ctx.shopPanel(),/Copiar código Pix/);
 await ctx.copy();
