@@ -103,6 +103,22 @@ BEGIN
   'Publicação autorizada depois da confirmação do provedor');
  IF (SELECT status FROM public.ads_independent_campaigns_v1_884 WHERE id=v_campaign)<>'active'
  THEN RAISE EXCEPTION 'V886_PAID_NOT_PUBLISHED';END IF;
+ -- Exhaust the historical CPM diagnostics cap; a PAID time-based placement
+ -- must remain displayable until its actual contract end date.
+ INSERT INTO public.ads_independent_challenges_v1_884(
+   token,campaign_id,viewer_hash,issued_at,expires_at)
+ SELECT gen_random_uuid(),v_campaign,lpad(to_hex(g),64,'0'),
+   clock_timestamp()-interval '2 seconds',clock_timestamp()+interval '1 minute'
+ FROM generate_series(1,1660) g;
+ INSERT INTO public.ads_independent_view_signals_v1_884(
+   token,campaign_id,viewer_hash,visible_ms,visible_percent)
+ SELECT token,campaign_id,viewer_hash,1500,60
+ FROM public.ads_independent_challenges_v1_884
+ WHERE campaign_id=v_campaign;
+ v_result:=public.ads_independent_issue_v1_884('São Gabriel','RS',repeat('f',64));
+ IF v_result->'slot'='null'::jsonb OR v_result->>'billingEnabled'<>'false'
+ THEN RAISE EXCEPTION 'V886_PAID_TERM_WRONGLY_CAPPED';END IF;
+
  v_result:=public.ads_independent_payment_fact_v1_886(repeat('d',64),
   v_reference,'123456789','123456',1990,'BRL','refunded','refunded',true);
  IF v_result->>'status'<>'payment_reversed' OR
