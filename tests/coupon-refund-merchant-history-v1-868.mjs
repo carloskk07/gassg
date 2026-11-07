@@ -37,12 +37,17 @@ const sample={
  invoiceId:id.invoice,customerId:id.customer,fundingMode:'partner_funded',
  applications:[application],applicationCount:1,
  partnerUses:[partnerUse],partnerUseCount:1,
- returns:[returned],returnCount:1,orders:[order]
+ returns:[returned],returnCount:1,orders:[order],
+ couponFaceCents:500,couponsPerPack:3,
+ issuances:[{id:id.voucher,invoice_id:id.invoice,customer_user_id:id.customer,face_cents:500,ordinal:1}],issuanceCount:1
 };
 const p=summarize(sample);
 assert.equal(p.source,'clube_coupon_merchant_history_v1_868');
 assert.equal(p.readOnly,true);
 assert.equal(p.historicalDiscountCents,500);
+assert.equal(p.uniqueVoucherCount,1);
+assert.equal(p.uniqueVoucherFaceCents,500);
+assert.equal(p.historicalReusedDiscountCents,0);
 assert.equal(p.applicationCount,1);
 assert.equal(p.partnerUseCount,1);
 assert.equal(p.returnCount,1);
