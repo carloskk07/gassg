@@ -27,7 +27,14 @@ export function couponRefundMerchantHistorySummary({
        orderById.has(o.id))reject("ORDER_MISMATCH");
     orderById.set(o.id,o);
   }
-  const entries=[],byOrder=new Map();
+  const entries=[],byOrder=new Map(),lineageByVoucher=new Map();
+  // Every reuse must follow a return that explicitly reissued this voucher.
+  const occurredAt=value=>{
+    if(typeof value!=="string"||
+       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value))return null;
+    const time=Date.parse(value);
+    return Number.isFinite(time)?time:null;
+  };
   let discountTotalCents=0;
   for(const a of applications){
     if(!a||a.invoice_id!==invoiceId||a.customer_user_id!==customerId||
@@ -38,7 +45,8 @@ export function couponRefundMerchantHistorySummary({
        !Number.isSafeInteger(a.original_order_total_cents)||a.original_order_total_cents<0||
        !Number.isSafeInteger(a.original_order_cashback_cents)||
        a.original_order_cashback_cents<a.face_cents||
-       byOrder.has(a.order_id)||!orderById.has(a.order_id))
+       byOrder.has(a.order_id)||!orderById.has(a.order_id)||
+       occurredAt(a.applied_at)===null)
       reject("APPLICATION_MISMATCH");
     const order=orderById.get(a.order_id);
     // A completed order should belong to the quoted merchant. A canceled
@@ -54,6 +62,10 @@ export function couponRefundMerchantHistorySummary({
       partnerUseRecorded:false,returnRecorded:false,returnDisposition:null,
       contractFeeBps:null};
     byOrder.set(a.order_id,record);entries.push(record);
+    const chain=lineageByVoucher.get(a.voucher_id)||[];
+    chain.push({orderId:a.order_id,appliedAt:occurredAt(a.applied_at),
+      partnerUsedAt:null,returnedAt:null,returnDisposition:null});
+    lineageByVoucher.set(a.voucher_id,chain);
   }
   if(partnerUses.length>0&&fundingMode!=="partner_funded")
     reject("UNEXPECTED_PARTNER_USE");
@@ -70,9 +82,17 @@ export function couponRefundMerchantHistorySummary({
        !Number.isSafeInteger(p.gross_cents)||p.gross_cents<=0||
        !Number.isSafeInteger(p.net_cents)||
        p.net_cents!==p.gross_cents-p.face_cents||
+       p.net_cents!==a.originalOrderCents||
+       p.gross_cents!==a.originalOrderCents+a.discountCents||
+       occurredAt(p.created_at)===null||
        !Number.isSafeInteger(p.fee_bps_snapshot)||
        p.fee_bps_snapshot<1||p.fee_bps_snapshot>1000)
       reject("PARTNER_USE_MISMATCH");
+    const chain=lineageByVoucher.get(p.voucher_id);
+    const step=chain?.find(x=>x.orderId===p.order_id);
+    if(!step||occurredAt(p.created_at)<step.appliedAt)
+      reject("PARTNER_USE_CHRONOLOGY");
+    step.partnerUsedAt=occurredAt(p.created_at);
     a.partnerUseRecorded=true;a.contractFeeBps=p.fee_bps_snapshot;
     used.add(p.order_id);
   }
@@ -86,10 +106,37 @@ export function couponRefundMerchantHistorySummary({
        back.voucher_id!==a.voucherId||
        back.amount_cents!==a.discountCents||
        !["reissued","manual_review"].includes(back.disposition)||
-       !["order_cancelled","post_settlement_financial_reversal"].includes(back.cause))
+       !["order_cancelled","post_settlement_financial_reversal"].includes(back.cause)||
+       occurredAt(back.recorded_at)===null)
       reject("RETURN_MISMATCH");
+    const chain=lineageByVoucher.get(back.voucher_id);
+    const step=chain?.find(x=>x.orderId===back.order_id);
+    const order=orderById.get(back.order_id);
+    if(!step||step.partnerUsedAt===null||
+       occurredAt(back.recorded_at)<step.partnerUsedAt||
+       (back.cause==="order_cancelled"&&order.status!=="CANCELLED")||
+       (back.cause==="post_settlement_financial_reversal"&&
+        occurredAt(order.financial_reversed_at)===null))
+      reject("RETURN_CHRONOLOGY_OR_ORDER_STATE");
+    step.returnedAt=occurredAt(back.recorded_at);
+    step.returnDisposition=back.disposition;
     a.returnRecorded=true;a.returnDisposition=back.disposition;
     returned.add(back.order_id);
+  }
+  for(const chain of lineageByVoucher.values()){
+    chain.sort((left,right)=>left.appliedAt-right.appliedAt||
+      left.orderId.localeCompare(right.orderId));
+    if(fundingMode==="platform_reimbursed"&&chain.length>1)
+      reject("LEGACY_VOUCHER_REUSE");
+    for(let i=1;i<chain.length;i++){
+      const prior=chain[i-1],next=chain[i];
+      if(prior.returnDisposition!=="reissued"||
+         prior.returnedAt===null||prior.returnedAt>next.appliedAt)
+        reject("VOUCHER_REISSUE_LINEAGE");
+    }
+    if(chain.some((event,i)=>i<chain.length-1&&
+       event.returnDisposition==="manual_review"))
+      reject("REVIEWED_VOUCHER_REUSED");
   }
   return {source:"clube_coupon_merchant_history_v1_868",readOnly:true,
     fundingModel:fundingMode,applicationCount:applications.length,
