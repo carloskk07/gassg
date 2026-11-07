@@ -72,7 +72,9 @@ function tamaoAdsPlannerSection(){
 // V1.884: independent advertiser intake with verified email; never charges.
 let tamaoAdsDraftRequestId=null;
 let tamaoAdsDraftBusy=false;
-let tamaoAdsMyState={userId:null,rows:[],status:'idle'};
+let tamaoAdsMyState={userId:null,rows:[],status:'idle',fixedFeeSalesEnabled:false};
+let tamaoAdsPurchaseBusy=false;
+let tamaoAdsPurchaseScriptPromise=null;
 function tamaoAdsAccountVerified(){
   const u=globalThis.liveRuntime?.session?.user;
   return globalThis.liveReady?.()===true&&u?.id&&u.is_anonymous!==true&&!!u.email_confirmed_at;
@@ -98,11 +100,36 @@ function tamaoAdsCampaignForm(){
   const s=tamaoAdsMyState;
   const current=String(globalThis.liveRuntime?.session?.user?.id||'');
   const mine=s.userId===current&&s.status==='ready'
-    ?s.rows.map(c=>'<article class="card flat"><strong>'+esc(String(c.title))+'</strong>'+
-      '<p>'+esc(String(c.city))+'/'+esc(String(c.state))+' · '+
-      esc(String(c.effectiveStatus||c.status))+' · '+Number(c.reportedViewSignals||0)+' sinais de visibilidade</p>'+
-      '<small>Prazo: '+(c.runEndsAt?esc(String(c.runEndsAt).slice(0,10)):'aguardando publicação')+'</small>'+
-      '<small>Receita e cobrança: R$ 0,00</small></article>').join(''):'';
+    ?s.rows.map(c=>{
+      const id=String(c.id||'');
+      const fee=Number(c.budgetCents)||0;
+      const days=Number(c.durationDays)||0;
+      const bought=String(c.fixedFeeStatus||'');
+      const validPlan=(fee===1990&&days===7)||(fee===4990&&days===15)||
+        (fee===9990&&days===30)||(fee===19990&&days===30);
+      const canBuy=s.fixedFeeSalesEnabled===true&&c.status==='approved'&&validPlan&&
+        (bought===''||bought==='checkout_ready');
+      const payment=bought==='payment_approved'?'Pagamento aprovado pelo provedor; aguarda publicação.':
+        bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
+        bought==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
+        bought==='checkout_ready'?'Pagamento ainda não confirmado.':'';
+      const buy=canBuy?'<div class="card flat">'+
+        '<p><strong>Veiculação por prazo fixo:</strong> '+tamaoAdsFormatMoney(fee)+
+        ' por '+days+' dias, nesta cidade. Não há garantia de visualizações e não é cobrança por CPM.</p>'+
+        '<label class="check-row"><input type="checkbox" id="ads-fixed-consent-'+id+'">'+
+        '<span>Concordo com o preço fixo, prazo e condições de publicidade. O pagamento não publica o anúncio automaticamente.</span></label>'+
+        '<button type="button" class="primary" onclick="tamaoAdsBuyCampaign(\''+id+'\')" '+
+        (tamaoAdsPurchaseBusy?'disabled':'')+'>'+
+        (bought==='checkout_ready'?'Concluir pagamento':'Contratar veiculação')+'</button></div>':'';
+      return '<article class="card flat"><strong>'+esc(String(c.title))+'</strong>'+
+        '<p>'+esc(String(c.city))+'/'+esc(String(c.state))+' · '+
+        esc(String(c.effectiveStatus||c.status))+' · '+Number(c.reportedViewSignals||0)+' sinais de visibilidade</p>'+
+        '<p>Prazo: '+(c.runEndsAt?esc(String(c.runEndsAt).slice(0,10)):'aguardando publicação')+'</p>'+
+        '<p>Preço cadastrado: '+tamaoAdsFormatMoney(fee)+' por '+days+' dias</p>'+
+        (payment?'<p role="status">'+esc(payment)+'</p>':'')+
+        '<small>Impressões faturáveis por CPM: 0. Receita exibida ao anunciante: não se aplica.</small>'+
+        buy+'</article>';
+    }).join(''):'';
   return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+
     '<h2>Envie a peça para análise.</h2>'+
@@ -172,10 +199,41 @@ async function tamaoAdsMyRefresh({quiet=false}={}){
     if(r?.source!=='ads_independent_mine_v1_884'||r?.noCharge!==true||!Array.isArray(r.rows))
       throw Error('Consulta não confirmada.');
     if(userId!==String(globalThis.liveRuntime?.session?.user?.id||''))return;
-    tamaoAdsMyState={userId,rows:r.rows.slice(0,30),status:'ready'};
+    tamaoAdsMyState={userId,rows:r.rows.slice(0,30),status:'ready',
+      fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true};
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
   }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
+}
+
+async function tamaoAdsBuyCampaign(campaignId){
+ if(tamaoAdsPurchaseBusy)return;
+ if(!tamaoAdsAccountVerified())return toast('Confirme seu e-mail antes de contratar.');
+ if(!/^[0-9a-f-]{36}$/i.test(campaignId))return toast('Campanha inválida.');
+ if(!document.getElementById('ads-fixed-consent-'+campaignId)?.checked)
+  return toast('Leia e aceite o preço e as condições antes do pagamento.');
+ tamaoAdsPurchaseBusy=true;
+ try{
+  if(typeof globalThis.tamaoAdsPurchaseCampaign!=='function'){
+   if(!tamaoAdsPurchaseScriptPromise){
+    const src=document.querySelector('script[src*="ads-planner.js"]')?.src||location.origin+'/js/ads-planner.js';
+    tamaoAdsPurchaseScriptPromise=new Promise((resolve,reject)=>{
+     const tag=document.createElement('script');
+     tag.src=new URL('ads-independent-purchase.js'+new URL(src).search,src).href;
+     tag.onload=resolve;
+     tag.onerror=()=>reject(Error('Não foi possível abrir o pagamento.'));
+     document.head.append(tag);
+    });
+   }
+   await tamaoAdsPurchaseScriptPromise;
+  }
+  if(typeof globalThis.tamaoAdsPurchaseCampaign!=='function')
+   throw Error('Pagamento indisponível.');
+  await globalThis.tamaoAdsPurchaseCampaign(campaignId);
+ }catch(error){
+  tamaoAdsPurchaseScriptPromise=null;
+  toast(String(error?.message||'Falha ao iniciar pagamento.'));
+ }finally{tamaoAdsPurchaseBusy=false}
 }
 
 async function tamaoAdsShowCityPublic(){
