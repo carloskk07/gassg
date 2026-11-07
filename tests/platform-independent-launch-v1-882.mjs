@@ -20,7 +20,7 @@ assert.match(admin,/ATIVAR PLATAFORMA/);
 assert.match(admin,/Pedidos físicos aguardam ofertas reais/);
 assert.match(admin,/Autorizar pedidos físicos/);
 assert.match(admin,/canOpenPlatform=security.length===0&&readiness.portalsFresh===true/);
-assert.match(domain,/'PRELAUNCH','PILOT','LIVE'/);
+assert.match(domain,/"PRELAUNCH","PILOT","LIVE"/);
 assert.match(domain,/data\?\.commerce_enabled===true&&/);
 assert.match(edge,/realSupplyConfigured:commerceEnabled&&/);
 assert.match(edge,/availableNow:commerceEnabled&&/);
