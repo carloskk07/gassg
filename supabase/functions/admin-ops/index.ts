@@ -7983,6 +7983,52 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_INDEPENDENT_READ_UNVERIFIED","Estado da publicidade não verificado.",503);
       return json(data,200,origin);
     }
+    if(action==="ads-independent-sales-action"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode alterar vendas de publicidade.",403);
+      const enabled=body.enabled;
+      const version=body.expectedVersion;
+      const reason=String(body.reason||"").trim();
+      if(typeof enabled!=="boolean"||!Number.isSafeInteger(version)||version<1||
+        reason.length<12||reason.length>500)
+        throw new DomainError("ADS_SALES_INVALID_ACTION","Atualize a versão e informe justificativa.",400);
+      if(enabled){
+        const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
+        const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
+        const signature=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
+        if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
+           Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
+           !/^APP_USR-\S{20,}$/.test(token)||
+           !/^[0-9]{4,20}$/.test(sellerId)||signature.length<16)
+          throw new DomainError("ADS_SALES_PROVIDER_NOT_READY",
+           "Conta própria do TAMÃO Ads e webhook assinado precisam estar configurados antes da ativação.",503);
+        let seller:any;
+        try{
+          const resp=await fetch("https://api.mercadolibre.com/users/me",{
+            headers:{"Accept":"application/json","Authorization":"Bearer "+token},
+            signal:AbortSignal.timeout(7000)
+          });
+          if(!resp.ok)throw Error("ADS_SALES_SELLER_LOOKUP_FAILED");
+          const raw=await resp.text();
+          if(raw.length>20000)throw Error("ADS_SALES_SELLER_RESPONSE_OVERSIZE");
+          seller=JSON.parse(raw);
+        }catch{
+          throw new DomainError("ADS_SALES_SELLER_LOOKUP_FAILED",
+           "Não foi possível comprovar o vendedor Mercado Pago antes de liberar cobranças.",503);
+        }
+        if(String(seller?.id??"")!==sellerId)
+          throw new DomainError("ADS_SALES_SELLER_MISMATCH",
+           "A conta recebedora configurada não coincide com o provedor. Nenhuma cobrança autorizada.",503);
+      }
+      const {data,error}=await admin.rpc("admin_ads_independent_sales_toggle_v1_886",{
+        p_actor:user.id,p_enabled:enabled,p_expected_version:version,p_reason:reason
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_independent_sales_toggle_v1_886"||
+        data?.salesEnabled!==enabled||data?.newChargesCreated!==false)
+        throw new DomainError("ADS_SALES_CONTROL_UNVERIFIED","Controle comercial não confirmado pelo servidor.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-independent-action"){
       if(String(adminAccess.admin_role||"")!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode autorizar anúncios.",403);
