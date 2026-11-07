@@ -63,6 +63,114 @@ function tamaoAdsPlannerSection(){
     ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.</p>'+
     '<p id="sponsor-cpm-note" class="tiny muted">Uma visualização exigirá pelo menos 50% do anúncio visível durante 1 segundo contínuo, além de filtros contra tráfego inválido. A estimativa não é reserva nem garantia de público; somente condições verificadas poderão gerar contrato e cobrança.</p>'+
     '<button type="button" class="primary" onclick="tamaoAdsBudgetRequest()">Solicitar proposta sem pagar →</button>'+
-    '</div></section>';
+    '</div></section>'+tamaoAdsCampaignForm();
 }
 
+
+// V1.884: independent advertiser intake with verified email; never charges.
+let tamaoAdsDraftRequestId=null;
+let tamaoAdsDraftBusy=false;
+let tamaoAdsMyState={userId:null,rows:[],status:'idle'};
+function tamaoAdsAccountVerified(){
+  const u=globalThis.liveRuntime?.session?.user;
+  return globalThis.liveReady?.()===true&&u?.id&&u.is_anonymous!==true&&!!u.email_confirmed_at;
+}
+async function tamaoAdsAccountStart(){
+  const email=String(document.getElementById('sponsor-account-email')?.value||'').trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return toast('Informe um e-mail válido.');
+  try{
+    const r=await liveUpgradeAccount(email);
+    toast(r?.alreadyPermanent?'Conta confirmada.':'Enviamos a confirmação para seu e-mail.');
+    render();
+  }catch(e){toast(String(e?.message||'Não foi possível confirmar o e-mail.'))}
+}
+function tamaoAdsCampaignForm(){
+  if(!tamaoAdsAccountVerified())
+    return '<section class="section"><div class="section-head"><div>'+
+      '<span class="section-kicker">PUBLIQUE COM SEGURANÇA</span>'+
+      '<h2>Envie seu anúncio para revisão.</h2><p>Use um e-mail confirmado. A proposta e o anúncio não geram cobrança.</p></div></div>'+
+      '<div class="card flat" style="max-width:650px">'+
+      '<label for="sponsor-account-email">Seu e-mail</label>'+
+      '<input id="sponsor-account-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br">'+
+      '<button type="button" class="secondary" onclick="tamaoAdsAccountStart()">Confirmar meu e-mail</button></div></section>';
+  const s=tamaoAdsMyState;
+  const current=String(globalThis.liveRuntime?.session?.user?.id||'');
+  const mine=s.userId===current&&s.status==='ready'
+    ?s.rows.map(c=>'<article class="card flat"><strong>'+esc(String(c.title))+'</strong>'+
+      '<p>'+esc(String(c.city))+'/'+esc(String(c.state))+' · '+
+      esc(String(c.status))+' · '+Number(c.reportedViewSignals||0)+' sinais de visibilidade</p>'+
+      '<small>Receita e cobrança: R$ 0,00</small></article>').join(''):'';
+  return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
+    '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+
+    '<h2>Envie a peça para análise.</h2>'+
+    '<p>Sem revenda, sem cobrança antecipada. O anúncio só será exibido após revisão e autorização de entrega.</p></div></div>'+
+    '<div class="card flat form-stack" style="max-width:780px">'+
+    '<div class="field-row"><label class="input-wrap">Empresa'+
+    '<input id="sponsor-ad-company" class="input" maxlength="120" autocomplete="organization" required></label>'+
+    '<label class="input-wrap">Título da campanha'+
+    '<input id="sponsor-ad-title" class="input" maxlength="80" placeholder="Apresente sua marca na cidade" required></label></div>'+
+    '<label class="input-wrap">Mensagem do anúncio (20 a 240 caracteres)'+
+    '<textarea id="sponsor-ad-copy" class="input" maxlength="240" rows="3" placeholder="Explique claramente o que sua empresa oferece." required></textarea></label>'+
+    '<label class="input-wrap">Site oficial do anúncio (HTTPS)'+
+    '<input id="sponsor-ad-url" class="input" inputmode="url" maxlength="300" placeholder="https://suaempresa.com.br" required></label>'+
+    '<p class="tiny muted">Cidade, UF, prazo e orçamento são os mesmos selecionados na simulação acima.</p>'+
+    '<label class="check-row"><input type="checkbox" id="sponsor-ad-terms">'+
+    '<span>Confirmo que represento a empresa e autorizo a revisão da peça. A veiculação está sujeita a aprovação; não há venda ou Pix nesta etapa.</span></label>'+
+    '<button id="sponsor-ad-submit" class="primary" type="button" onclick="tamaoAdsSubmitCampaign()" '+
+      (tamaoAdsDraftBusy?'disabled':'')+'>Enviar campanha para revisão →</button>'+
+    '<p id="sponsor-ad-result" role="status" aria-live="polite"></p>'+
+    '</div><div class="section-head"><div><h3>Minhas campanhas</h3></div>'+
+    '<button type="button" class="secondary small" onclick="tamaoAdsMyRefresh()">Atualizar</button></div>'+
+    (mine?'<div class="grid cards-2">'+mine+'</div>':
+      '<p class="muted">Use Atualizar para acompanhar as suas propostas.</p>')+
+    '</section>';
+}
+async function tamaoAdsSubmitCampaign(){
+  if(tamaoAdsDraftBusy)return;
+  if(!tamaoAdsAccountVerified())return toast('Confirme o e-mail antes de enviar.');
+  const val=id=>String(document.getElementById(id)?.value||'').trim();
+  const advertiser=val('sponsor-ad-company'),title=val('sponsor-ad-title'),
+    description=val('sponsor-ad-copy'),city=val('sponsor-cpm-city'),
+    state=val('sponsor-cpm-state').toUpperCase(),
+    destination=val('sponsor-ad-url');
+  const budgetCents=Number(val('sponsor-cpm-budget'));
+  const durationDays=Number(val('sponsor-cpm-days'));
+  const result=document.getElementById('sponsor-ad-result');
+  const button=document.getElementById('sponsor-ad-submit');
+  if(!document.getElementById('sponsor-ad-terms')?.checked)
+    return toast('Confirme que representa a empresa.');
+  if(advertiser.length<2||title.length<12||description.length<20||city.length<2||
+    !/^[A-Z]{2}$/.test(state)||!/^https:\/\//.test(destination)||!tamaoAdsBudgetPreview(budgetCents)||
+    ![7,15,30].includes(durationDays))
+    return toast('Revise a empresa, título, mensagem, cidade, link HTTPS e orçamento.');
+  if(!tamaoAdsDraftRequestId)tamaoAdsDraftRequestId=crypto.randomUUID();
+  tamaoAdsDraftBusy=true;
+  if(button)button.disabled=true;
+  if(result)result.textContent='Enviando para análise…';
+  try{
+    const reply=await liveInvoke('ads-independent',{
+      action:'submit',requestId:tamaoAdsDraftRequestId,advertiser,title,
+      description,city,state,destination,budgetCents,durationDays
+    });
+    if(reply?.source!=='ads_independent_submit_v1_884'||reply?.paymentCreated!==false)
+      throw Error('Não foi possível confirmar o cadastro do anúncio.');
+    tamaoAdsDraftRequestId=null;
+    if(result)result.textContent='Campanha recebida. Nenhuma cobrança foi gerada.';
+    toast('Campanha enviada para análise sem cobrança.');
+    await tamaoAdsMyRefresh({quiet:true});
+  }catch(e){if(result)result.textContent=String(e?.message||'Falha ao enviar. Tente novamente.')}
+  finally{tamaoAdsDraftBusy=false;if(button)button.disabled=false}
+}
+async function tamaoAdsMyRefresh({quiet=false}={}){
+  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
+  if(!tamaoAdsAccountVerified())return;
+  try{
+    const r=await liveInvoke('ads-independent',{action:'mine'});
+    if(r?.source!=='ads_independent_mine_v1_884'||r?.noCharge!==true||!Array.isArray(r.rows))
+      throw Error('Consulta não confirmada.');
+    if(userId!==String(globalThis.liveRuntime?.session?.user?.id||''))return;
+    tamaoAdsMyState={userId,rows:r.rows.slice(0,30),status:'ready'};
+    if(!quiet)toast('Campanhas atualizadas.');
+    if(route()==='sponsors')render();
+  }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
+}
