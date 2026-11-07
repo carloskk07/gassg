@@ -6,7 +6,7 @@ CREATE TABLE public.ads_independent_refund_cases_v1_887(
  owner_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
  request_id uuid NOT NULL UNIQUE,
  reason text NOT NULL CHECK(length(reason) BETWEEN 12 AND 500),
- status text NOT NULL DEFAULT 'submitted' CHECK(status IN('submitted','reviewing','provider_refunded')),
+ status text NOT NULL DEFAULT 'submitted' CHECK(status IN('submitted','reviewing','provider_reversed')),
  version integer NOT NULL DEFAULT 1 CHECK(version>=1),
  reviewed_by uuid REFERENCES auth.users(id),
  review_reason text,
@@ -19,7 +19,7 @@ CREATE TABLE public.ads_independent_refund_events_v1_887(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  campaign_id uuid NOT NULL REFERENCES public.ads_independent_campaigns_v1_884(id) ON DELETE RESTRICT,
  actor_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
- action text NOT NULL CHECK(action IN('request','review','confirm_provider_refund')),
+ action text NOT NULL CHECK(action IN('request','review','record_provider_reversal')),
  reason text NOT NULL CHECK(length(reason) BETWEEN 12 AND 500),
  old_status text,new_status text,
  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp()
@@ -52,7 +52,7 @@ BEGIN
  IF FOUND THEN
   RETURN jsonb_build_object('source','ads_independent_refund_request_v1_887',
     'caseId',v_case.id,'status',v_case.status,'replayed',true,
-    'refundIssued',false,'providerRefundVerified',v_payment.status='payment_reversed');
+    'refundIssued',false,'providerReversalRecorded',v_payment.status='payment_reversed');
  END IF;
  INSERT INTO public.ads_independent_refund_cases_v1_887(
   campaign_id,owner_user_id,request_id,reason
@@ -67,7 +67,7 @@ BEGIN
  WHERE id=p_campaign AND status='active';
  RETURN jsonb_build_object('source','ads_independent_refund_request_v1_887',
   'caseId',v_id,'status','submitted','replayed',false,
-  'refundIssued',false,'providerRefundVerified',v_payment.status='payment_reversed');
+  'refundIssued',false,'providerReversalRecorded',v_payment.status='payment_reversed');
 END;$fn$;
 
 CREATE OR REPLACE FUNCTION public.admin_ads_independent_refunds_read_v1_887(p_actor uuid)
@@ -84,7 +84,7 @@ BEGIN
    'version',r.version,'reason',r.reason,'reviewReason',r.review_reason,
    'createdAt',r.created_at,'title',c.title,'advertiser',c.advertiser_name,
    'amountCents',ch.amount_cents,
-   'providerRefundVerified',ch.status='payment_reversed'
+   'providerReversalRecorded',ch.status='payment_reversed'
  ) ORDER BY r.created_at DESC) FROM (
   SELECT * FROM public.ads_independent_refund_cases_v1_887
   ORDER BY created_at DESC LIMIT 50
@@ -103,7 +103,7 @@ BEGIN
   WHERE user_id=p_actor AND active AND admin_role='superadmin')
  THEN RAISE EXCEPTION 'ADS_REFUND_SUPERADMIN_REQUIRED' USING errcode='42501';END IF;
  IF p_case IS NULL OR p_expected_version IS NULL OR p_expected_version<1
- OR p_operation NOT IN ('review','confirm_provider_refund')
+ OR p_operation NOT IN ('review','record_provider_reversal')
  OR length(btrim(coalesce(p_reason,''))) NOT BETWEEN 12 AND 500
  THEN RAISE EXCEPTION 'ADS_REFUND_ACTION_INVALID' USING errcode='22023';END IF;
  SELECT * INTO v_case FROM public.ads_independent_refund_cases_v1_887
@@ -111,15 +111,15 @@ BEGIN
  IF NOT FOUND OR v_case.version<>p_expected_version
  THEN RAISE EXCEPTION 'ADS_REFUND_CASE_VERSION_CONFLICT' USING errcode='40001';END IF;
  IF (p_operation='review' AND v_case.status<>'submitted')
- OR (p_operation='confirm_provider_refund' AND v_case.status NOT IN('submitted','reviewing'))
+ OR (p_operation='record_provider_reversal' AND v_case.status NOT IN('submitted','reviewing'))
  THEN RAISE EXCEPTION 'ADS_REFUND_TRANSITION_INVALID' USING errcode='40001';END IF;
- IF p_operation='confirm_provider_refund' THEN
+ IF p_operation='record_provider_reversal' THEN
   SELECT * INTO v_payment FROM public.ads_independent_checkouts_v1_886
   WHERE campaign_id=v_case.campaign_id FOR UPDATE;
   IF NOT FOUND OR v_payment.status<>'payment_reversed'
   THEN RAISE EXCEPTION 'ADS_REFUND_PROVIDER_PROOF_REQUIRED' USING errcode='42501';END IF;
  END IF;
- v_status:=CASE WHEN p_operation='review' THEN 'reviewing' ELSE 'provider_refunded' END;
+ v_status:=CASE WHEN p_operation='review' THEN 'reviewing' ELSE 'provider_reversed' END;
  UPDATE public.ads_independent_refund_cases_v1_887
  SET status=v_status,version=version+1,reviewed_by=p_actor,
   review_reason=btrim(p_reason),updated_at=clock_timestamp()
@@ -129,7 +129,7 @@ BEGIN
  VALUES(v_case.campaign_id,p_actor,p_operation,btrim(p_reason),v_case.status,v_status);
  RETURN jsonb_build_object('source','admin_ads_independent_refund_action_v1_887',
    'caseId',p_case,'status',v_status,'version',v_version,
-   'moneyMoved',false,'providerRefundVerified',v_status='provider_refunded');
+   'moneyMoved',false,'providerReversalRecorded',v_status='provider_reversed');
 END;$fn$;
 
 CREATE OR REPLACE FUNCTION public.ads_independent_mine_v1_884(p_owner uuid)

@@ -82,7 +82,7 @@ async function adminIndependentRefundAction(operation,caseId,version){
  if(adminIndependentAdsBusy||adminCurrentRole()!=='superadmin')return;
  const reason=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe uma justificativa com 12 a 500 caracteres.');
- if(!['review','confirm_provider_refund'].includes(operation)||!/^[0-9a-f-]{36}$/i.test(caseId))
+ if(!['review','record_provider_reversal'].includes(operation)||!/^[0-9a-f-]{36}$/i.test(caseId))
   return toast('Solicitação inválida.');
  const row=adminIndependentAdsState.refundCases?.find(r=>r.caseId===caseId);
  if(!row||Number(row.version)!==version)return toast('A solicitação mudou. Atualize primeiro.');
@@ -94,7 +94,7 @@ async function adminIndependentRefundAction(operation,caseId,version){
   if(r?.source!=='admin_ads_independent_refund_action_v1_887'||
     r?.moneyMoved!==false||r?.caseId!==caseId)
    throw Error('O servidor não confirmou a revisão.');
-  toast(operation==='review'?'Revisão registrada.':'Reembolso confirmado por fato do provedor.');
+  toast(operation==='review'?'Revisão registrada.':'Reversão registrada pelo provedor, sem confirmar crédito bancário.');
  }catch(e){toast(String(e?.message||'Falha ao revisar pedido.'))}
  finally{adminIndependentAdsBusy=false}
  await adminIndependentAdsRefresh();
@@ -135,7 +135,7 @@ function adminAdsIndependentSection(){
    const id=String(c.caseId||'');
    if(!/^[0-9a-f-]{36}$/i.test(id))return '';
    const review=canAct&&c.status==='submitted';
-   const close=canAct&&c.providerRefundVerified===true&&
+   const close=canAct&&c.providerReversalRecorded===true&&
      ['submitted','reviewing'].includes(String(c.status||''));
    const button=(action,label)=>'<button type="button" class="secondary small" '+
      'onclick="adminIndependentRefundAction(\''+action+'\',\''+id+'\','+
@@ -145,11 +145,11 @@ function adminAdsIndependentSection(){
      '<p>Solicitação: '+esc(String(c.status||''))+
      ' · Valor original: '+adminMoney(Number(c.amountCents||0))+'</p>'+
      '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
-     '<p>Provedor confirma reversão: '+(c.providerRefundVerified===true?'Sim':'Não')+'</p>'+
+     '<p>Provedor confirma reversão: '+(c.providerReversalRecorded===true?'Sim':'Não')+'</p>'+
      (canAct&&(review||close)?'<label>Justificativa da análise<textarea class="input" '+
        'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
        (review?button('review','Iniciar revisão'):'')+
-       (close?button('confirm_provider_refund','Confirmar estorno verificado'):''):'')+
+       (close?button('record_provider_reversal','Confirmar estorno verificado'):''):'')+
      '</article>';
  }).join('')||'';
  const rows=v?.rows?.map(c=>

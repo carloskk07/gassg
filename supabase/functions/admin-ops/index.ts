@@ -8003,7 +8003,7 @@ Deno.serve(async(req:Request)=>{
       const operation=String(body.operation||"");
       const version=body.expectedVersion;
       const reason=String(body.reason||"").trim();
-      if(!UUID_RE.test(caseId)||!["review","confirm_provider_refund"].includes(operation)||
+      if(!UUID_RE.test(caseId)||!["review","record_provider_reversal"].includes(operation)||
         !Number.isSafeInteger(version)||version<1||reason.length<12||reason.length>500)
         throw new DomainError("ADS_REFUND_ACTION_INVALID","Revisão ou justificativa inválida.",400);
       const {data,error}=await admin.rpc("admin_ads_independent_refund_action_v1_887",{
