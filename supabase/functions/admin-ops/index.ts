@@ -4435,12 +4435,36 @@ Deno.serve(async(req:Request)=>{
           releaseEntries=releaseResult.data;
           releaseEntryCount=releaseResult.count;
         }
+        // #875 Verify the COMPLETE population of reserves on coupon orders.
+        // Normal cashback checkout reserves are allowed; only quarantine
+        // reserves must match the immutable coupon return references. A
+        // bounded exact count rejects hidden/partial debits or pagination.
+        let reserveEntries:any[]=[];
+        let reserveEntryCount=0;
+        if(invoice.funding_mode_v1_846==="partner_funded"&&orderIds.length){
+          const reserveResult=await admin.from("wallet_entries")
+            .select("id,user_id,order_id,bucket,entry_type,amount_cents,idempotency_key,metadata,created_at",
+              {count:"exact"})
+            .in("order_id",orderIds)
+            .eq("bucket","cashback")
+            .eq("entry_type","cashback_reserve")
+            .order("id",{ascending:true}).limit(101);
+          if(reserveResult.error)throw reserveResult.error;
+          if(!Array.isArray(reserveResult.data)||
+             !Number.isSafeInteger(reserveResult.count)||
+             reserveResult.count<0||reserveResult.count>100||
+             reserveResult.data.length!==reserveResult.count)
+            throw new DomainError("COUPON_MERCHANT_HISTORY_RESERVES_INCOMPLETE",
+              "Há reservas de cashback sem histórico completo para conciliação.",409);
+          reserveEntries=reserveResult.data;
+          reserveEntryCount=reserveResult.count;
+        }
         return {request,invoice,applications:applicationsResult.data,
           partnerUses:partnerResult.data,returns:returnsResult.data,
           issuances:issuancesResult.data,
           orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount,
           issuanceCount:iCount,walletEntries,walletEntryCount,
-          releaseEntries,releaseEntryCount};
+          releaseEntries,releaseEntryCount,reserveEntries,reserveEntryCount};
       };
       const first=await snapshot();
       let report;
@@ -4455,7 +4479,8 @@ Deno.serve(async(req:Request)=>{
           couponFaceCents:first.invoice.coupon_face_cents,
           couponsPerPack:first.invoice.coupons_per_pack,
           walletEntries:first.walletEntries,walletEntryCount:first.walletEntryCount,
-          releaseEntries:first.releaseEntries,releaseEntryCount:first.releaseEntryCount
+          releaseEntries:first.releaseEntries,releaseEntryCount:first.releaseEntryCount,
+          reserveEntries:first.reserveEntries,reserveEntryCount:first.reserveEntryCount
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",
