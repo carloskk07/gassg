@@ -741,7 +741,7 @@ function sponsorsLanding(){
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
         </div>
-        <p>Campanhas definidas com sua marca, sem prometer alcance.</p>
+        <p>A publicação depende de inventário válido; alcance não é garantido.</p>
       </aside></div>
     </div>
     ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'')}
