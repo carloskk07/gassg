@@ -4334,7 +4334,7 @@ Deno.serve(async(req:Request)=>{
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26),
           admin.from("clube_partner_coupon_returns_v1_847")
-            .select("invoice_id,customer_id,order_id,voucher_id,amount_cents,disposition,cause,recorded_at",
+            .select("invoice_id,customer_id,order_id,voucher_id,amount_cents,disposition,cause,recorded_at,wallet_release_entry_id,wallet_hold_entry_id",
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26),
           admin.from("clube_coupon_paid_issuances")
@@ -4370,7 +4370,7 @@ Deno.serve(async(req:Request)=>{
         let orders:any[]=[];
         if(orderIds.length){
           const orderResult=await admin.from("orders")
-            .select("id,customer_id,merchant_id,status,financial_state,financial_reversed_at")
+            .select("id,customer_id,merchant_id,status,financial_state,financial_reversed_at,risk_reason")
             .in("id",orderIds).order("id",{ascending:true}).limit(26);
           if(orderResult.error)throw orderResult.error;
           if(!Array.isArray(orderResult.data))
@@ -4378,11 +4378,41 @@ Deno.serve(async(req:Request)=>{
               "Não foi possível reconciliar os pedidos.",503);
           orders=orderResult.data;
         }
+        // Inspect only the two ledger facts referenced by each immutable
+        // coupon return. Exact count and a second identical snapshot are
+        // required, so partial wallet reads never count as neutralization.
+        const walletIds=returnsResult.data.flatMap((r:any)=>[
+          String(r.wallet_release_entry_id??""),
+          String(r.wallet_hold_entry_id??"")
+        ]);
+        let walletEntries:any[]=[];
+        let walletEntryCount=0;
+        if(walletIds.length){
+          if(walletIds.length!==returnsResult.data.length*2||
+             walletIds.some(id=>!UUID_RE.test(id))||
+             new Set(walletIds).size!==walletIds.length)
+            throw new DomainError("COUPON_MERCHANT_HISTORY_WALLET_REFS_INVALID",
+              "Os lançamentos vinculados às devoluções são inconsistentes.",409);
+          const walletResult=await admin.from("wallet_entries")
+            .select("id,user_id,order_id,bucket,entry_type,amount_cents,idempotency_key,metadata,created_at",
+              {count:"exact"}).in("id",walletIds)
+            .order("id",{ascending:true}).limit(51);
+          if(walletResult.error)throw walletResult.error;
+          if(!Array.isArray(walletResult.data)||
+             typeof walletResult.count!=="number"||
+             !Number.isSafeInteger(walletResult.count)||
+             walletResult.count!==walletIds.length||
+             walletResult.data.length!==walletIds.length)
+            throw new DomainError("COUPON_MERCHANT_HISTORY_WALLET_INCOMPLETE",
+              "Não foi possível confirmar as duas contrapartidas por devolução.",409);
+          walletEntries=walletResult.data;
+          walletEntryCount=walletResult.count;
+        }
         return {request,invoice,applications:applicationsResult.data,
           partnerUses:partnerResult.data,returns:returnsResult.data,
           issuances:issuancesResult.data,
           orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount,
-          issuanceCount:iCount};
+          issuanceCount:iCount,walletEntries,walletEntryCount};
       };
       const first=await snapshot();
       let report;
@@ -4395,7 +4425,8 @@ Deno.serve(async(req:Request)=>{
           returns:first.returns,returnCount:first.returnCount,orders:first.orders,
           issuances:first.issuances,issuanceCount:first.issuanceCount,
           couponFaceCents:first.invoice.coupon_face_cents,
-          couponsPerPack:first.invoice.coupons_per_pack
+          couponsPerPack:first.invoice.coupons_per_pack,
+          walletEntries:first.walletEntries,walletEntryCount:first.walletEntryCount
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",

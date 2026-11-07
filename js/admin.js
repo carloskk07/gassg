@@ -6139,6 +6139,10 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        !Number.isSafeInteger(r.historicalReusedDiscountCents)||
        r.historicalReusedDiscountCents<0||
        r.historicalReusedDiscountCents!==r.historicalDiscountCents-r.uniqueVoucherFaceCents||
+       r.walletReturnNeutralized!==true||
+       !Number.isSafeInteger(r.walletReturnPairCount)||
+       r.walletReturnPairCount!==r.returnCount||
+       r.walletReturnNetCents!==0||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
          !uuid.test(String(x.voucherId||''))||
@@ -6150,6 +6154,8 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
          !(x.financialState===null||typeof x.financialState==='string')||
          typeof x.partnerUseRecorded!=='boolean'||
          typeof x.returnRecorded!=='boolean'||
+         typeof x.walletReturnNeutralized!=='boolean'||
+         x.walletReturnNeutralized!==x.returnRecorded||
          (x.returnRecorded&&!x.partnerUseRecorded)||
          (x.returnRecorded&&!['reissued','manual_review'].includes(x.returnDisposition))||
          (!x.returnRecorded&&x.returnDisposition!==null)||
@@ -6753,6 +6759,11 @@ function adminClubeFinanceView(){
               esc(historyResult.partnerUseCount)+
               ' • Devoluções de benefícios registradas: '+
               esc(historyResult.returnCount)+'.</p>'+
+            '<p><strong>Contrapartidas de carteira conferidas:</strong> '+
+              esc(historyResult.walletReturnPairCount)+
+              ' devolução(ões), com reserva compensatória total e saldo líquido liberado '+
+              'de R$ '+esc((historyResult.walletReturnNetCents/100).toFixed(2))+
+              '. Essa conferência interna não comprova crédito bancário.</p>'+
             historyResult.entries.map(row=>
               '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+
               ' • Revenda <code>'+esc(row.merchantId.slice(0,8))+'</code>'+

@@ -233,6 +233,8 @@ jobs:
         run: node tests/coupon-refund-lineage-v1-869.mjs
       - name: V1.870 issued voucher denomination and double-use finance reconciliation
         run: node tests/coupon-refund-denomination-v1-870.mjs
+      - name: V1.871 compensation wallet release and reserve bank-neutral history
+        run: node tests/coupon-refund-wallet-return-pair-v1-871.mjs
       - name: Admin disabled coupon draft and atomic audit gate
         run: node tests/admin-coupon-draft-guard.mjs
       - name: Mercado Pago released-money CSV matching and coupon funding proof (read only)

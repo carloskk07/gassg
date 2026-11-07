@@ -3,7 +3,8 @@
 export function couponRefundMerchantHistorySummary({
   invoiceId,customerId,fundingMode,applications,applicationCount,
   partnerUses,partnerUseCount,returns,returnCount,orders,
-  issuances,issuanceCount,couponFaceCents,couponsPerPack
+  issuances,issuanceCount,couponFaceCents,couponsPerPack,
+  walletEntries,walletEntryCount
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -82,7 +83,7 @@ export function couponRefundMerchantHistorySummary({
       originalOrderCents:a.original_order_total_cents,
       orderStatus:order.status,financialState:order.financial_state,
       partnerUseRecorded:false,returnRecorded:false,returnDisposition:null,
-      contractFeeBps:null};
+      walletReturnNeutralized:false,contractFeeBps:null};
     byOrder.set(a.order_id,record);entries.push(record);
     const chain=lineageByVoucher.get(a.voucher_id)||[];
     chain.push({orderId:a.order_id,appliedAt:occurredAt(a.applied_at),
@@ -120,6 +121,20 @@ export function couponRefundMerchantHistorySummary({
   }
   if(returns.length>0&&fundingMode!=="partner_funded")
     reject("UNEXPECTED_PARTNER_RETURN");
+  // #871 Every recorded return must match two durable, oppositely signed
+  // wallet facts, both linked to this buyer, order and original voucher.
+  // The compensating hold prevents a returned paid coupon from becoming
+  // fungible cashback. Neither fact proves external bank settlement.
+  if(!Number.isSafeInteger(walletEntryCount)||walletEntryCount<0||
+     walletEntryCount!==returnCount*2||
+     !Array.isArray(walletEntries)||walletEntries.length!==walletEntryCount)
+    reject("WALLET_COVERAGE");
+  const walletById=new Map();
+  for(const item of walletEntries){
+    if(!item||!uuid.test(String(item.id??""))||walletById.has(item.id))
+      reject("WALLET_ID_MISMATCH");
+    walletById.set(item.id,item);
+  }
   const returned=new Set();
   for(const back of returns){
     const a=byOrder.get(back?.order_id);
@@ -134,6 +149,35 @@ export function couponRefundMerchantHistorySummary({
     const chain=lineageByVoucher.get(back.voucher_id);
     const step=chain?.find(x=>x.orderId===back.order_id);
     const order=orderById.get(back.order_id);
+    const release=walletById.get(back.wallet_release_entry_id);
+    const hold=walletById.get(back.wallet_hold_entry_id);
+    if(!uuid.test(String(back.wallet_release_entry_id??""))||
+       !uuid.test(String(back.wallet_hold_entry_id??""))||
+       back.wallet_release_entry_id===back.wallet_hold_entry_id||
+       !release||!hold||
+       release.user_id!==customerId||hold.user_id!==customerId||
+       release.order_id!==back.order_id||hold.order_id!==back.order_id||
+       release.bucket!=="cashback"||hold.bucket!=="cashback"||
+       release.entry_type!=="cashback_release"||
+       hold.entry_type!=="cashback_reserve"||
+       release.amount_cents!==back.amount_cents||
+       hold.amount_cents!==-back.amount_cents||
+       hold.idempotency_key!=="partner-coupon:return-hold:"+back.order_id||
+       hold.metadata?.source!=="partner_coupon_cancel_quarantine"||
+       hold.metadata?.voucherId!==back.voucher_id||
+       hold.metadata?.releaseWalletEntryId!==release.id||
+       hold.metadata?.cause!==back.cause||
+       (back.cause==="order_cancelled"&&
+        (typeof order.risk_reason!=="string"||!order.risk_reason||
+         release.metadata?.reason!==order.risk_reason||
+         !String(release.idempotency_key??"").endsWith(":cashback-release")))||
+       (back.cause==="post_settlement_financial_reversal"&&
+        release.metadata?.reason!=="post_settlement_financial_reversal")||
+       occurredAt(release.created_at)===null||
+       occurredAt(hold.created_at)===null||
+       occurredAt(release.created_at)>occurredAt(hold.created_at)||
+       occurredAt(hold.created_at)>occurredAt(back.recorded_at))
+      reject("WALLET_RETURN_PAIR_MISMATCH");
     if(!step||step.partnerUsedAt===null||
        occurredAt(back.recorded_at)<step.partnerUsedAt||
        (back.cause==="order_cancelled"&&order.status!=="CANCELLED")||
@@ -143,8 +187,11 @@ export function couponRefundMerchantHistorySummary({
     step.returnedAt=occurredAt(back.recorded_at);
     step.returnDisposition=back.disposition;
     a.returnRecorded=true;a.returnDisposition=back.disposition;
+    a.walletReturnNeutralized=true;
     returned.add(back.order_id);
   }
+  if(returned.size!==returnCount||returnCount*2!==walletById.size)
+    reject("WALLET_RETURN_UNUSED_OR_MISSING");
   for(const chain of lineageByVoucher.values()){
     chain.sort((left,right)=>left.appliedAt-right.appliedAt||
       left.orderId.localeCompare(right.orderId));
@@ -174,6 +221,8 @@ export function couponRefundMerchantHistorySummary({
     historicalDiscountCents:discountTotalCents,
     uniqueVoucherCount,uniqueVoucherFaceCents,
     historicalReusedDiscountCents,entries,
+    walletReturnPairCount:returnCount,walletReturnNetCents:0,
+    walletReturnNeutralized:true,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
