@@ -80,7 +80,7 @@ Deno.serve(async(req:Request)=>{
   const detail=String(payment?.status_detail||"");
   if(String(payment?.id||"")!==paymentId||
     collectorId!==sellerId||
-    !/^tamao-ads-[0-9a-f]{32}-v[0-9]+$/.test(reference)||
+    !(/^(?:tamao-ads-[0-9a-f]{32}-v[0-9]+|tamao-ads-ind-[0-9a-f]{32})$/.test(reference))||
     currency!=="BRL"||amount===null||!Number.isSafeInteger(amount)||
     amount<1000||amount>5000000||
     providerStatus.length<3||providerStatus.length>48||detail.length>120)
@@ -88,6 +88,28 @@ Deno.serve(async(req:Request)=>{
   const client=createClient(SUPABASE_URL,SERVICE_KEY,{
     auth:{persistSession:false,autoRefreshToken:false}
   });
+  const independent=/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference);
+  if(independent){
+    // For independent fixed-price campaigns, trust only a LIVE payment obtained
+    // via provider GET, with exact reference, amount, collector and currency.
+    // Approval alone is not independent evidence of funds settled net to bank.
+    if(payment?.live_mode!==true)
+      return json({error:"ADS_LIVE_PAYMENT_REQUIRED"},403);
+    const eventKey=await digest("adsind886|"+requestId+"|"+paymentId+"|"+providerStatus+"|"+detail);
+    const {data,error}=await client.rpc("ads_independent_payment_fact_v1_886",{
+      p_event_key:eventKey,p_external_reference:reference,
+      p_payment_id:paymentId,p_collector_id:collectorId,p_amount_cents:amount,
+      p_currency:currency,p_provider_status:providerStatus,
+      p_status_detail:detail||null,p_live_mode:true
+    });
+    if(error)throw error;
+    if(data?.source!=="ads_independent_payment_fact_v1_886"||
+      data?.autoPublished!==false||data?.netSettlementVerified!==false)
+      return json({error:"ADS_INDEPENDENT_PAYMENT_UNVERIFIED"},503);
+    return json({ok:true,received:true,recorded:data.recorded===true,
+      paymentApproved:data.paymentApproved===true,
+      autoPublished:false,netSettlementVerified:false});
+  }
   const eventKey=await digest(requestId+"|"+paymentId);
   const {data,error}=await client.rpc("ads_mp_inbox_record_v1_316",{
     p_event_key:eventKey,p_payment_id:paymentId,

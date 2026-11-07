@@ -160,6 +160,8 @@ jobs:
         run: node tests/isolated-ads-independent-delivery-v1-884.mjs
       - name: V1.885 independent Ads reversible pause and irreversible end (disposable)
         run: node tests/isolated-ads-independent-lifecycle-v1-885.mjs
+      - name: V1.886 independent fixed-fee Ads, provider proof and reversal on disposable Postgres
+        run: node tests/isolated-ads-independent-fixed-fee-v1-886.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
       - name: Upload temporary visual evidence from disposable order tests

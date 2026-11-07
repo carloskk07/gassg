@@ -114,3 +114,6 @@ verify_jwt = false
 # Edge validates Origin and auth.getUser, rate limits and service-only RPCs.
 [functions.ads-independent]
 verify_jwt = false
+
+[functions.ads-independent-checkout]
+verify_jwt = false
