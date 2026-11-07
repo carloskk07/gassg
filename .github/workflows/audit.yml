@@ -227,6 +227,8 @@ jobs:
         run: node tests/admin-clube-finance-status.mjs
       - name: V1.867 coupon PSP refund GET proof and no-closure contract
         run: node tests/coupon-refund-provider-get-v1-867.mjs
+      - name: V1.868 immutable merchant discount and return reconciliation, no financial writes
+        run: node tests/coupon-refund-merchant-history-v1-868.mjs
       - name: Admin disabled coupon draft and atomic audit gate
         run: node tests/admin-coupon-draft-guard.mjs
       - name: Mercado Pago released-money CSV matching and coupon funding proof (read only)
