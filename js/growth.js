@@ -179,10 +179,12 @@ clubePaidCouponView.error=String(err?.message||err);
 }
 
 function club(){
-  const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id)&&globalThis.liveRuntime.session.user.is_anonymous!==true&&Boolean(globalThis.liveRuntime.session.user.email_confirmed_at));
+  const u=globalThis.liveRuntime?.session?.user;
+  const member=globalThis.__CHAMA_TEST__||(globalThis.liveReady?.()&&u?.id&&u.email_confirmed_at&&u.is_anonymous!==true);
   if(globalThis.document&&!globalThis.cshop){
     globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
   }
+  globalThis.clubeCouponWatchAuth?.();
   if(!member)return shell(`<section class="page tamao-club-visitor">
     <div class="tamao-club-visitor-hero">
       <span class="eyebrow">CLUBE TAMÃO</span>
