@@ -72,6 +72,8 @@ function adminAdsIndependentSection(){
   ' · '+esc(String(c.status||''))+' · Versão '+Number(c.version||0)+'</p>'+
   '<p>'+esc(String(c.description||''))+'</p>'+
   '<small>Destino: '+esc(String(c.destination||''))+'</small>'+
+  '<p>Prazo original: '+(c.runEndsAt?esc(String(c.runEndsAt).slice(0,10)):'aguardando início')+
+  ' · Retomar nunca prorroga o prazo.</p>'+
   '<p>Orçamento máximo: '+adminMoney(Number(c.budgetCents||0))+
   ' · Sinais de visibilidade: '+Number(c.reportedViewSignals||0)+
   ' · Exibições faturáveis: 0</p>'+actions(c)+'</article>'
