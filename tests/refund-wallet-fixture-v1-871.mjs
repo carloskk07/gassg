@@ -33,8 +33,13 @@ export function withWalletEvidence(state){
       created_at:'2026-11-06T10:00:03Z'
     }];
   });
+  const allWallet=state.walletEntries??walletEntries;
+  // Optional synthetic extra releases model an unreferenced cashback credit;
+  // they never modify or generate any production wallet row.
+  const releaseEntries=state.releaseEntries??allWallet.filter(item=>
+    item.bucket==='cashback'&&item.entry_type==='cashback_release');
   return {...state,
-    walletEntries:state.walletEntries??walletEntries,
-    walletEntryCount:state.walletEntryCount??
-      (state.walletEntries??walletEntries).length};
+    walletEntries:allWallet,
+    walletEntryCount:state.walletEntryCount??allWallet.length,
+    releaseEntries,releaseEntryCount:state.releaseEntryCount??releaseEntries.length};
 }
