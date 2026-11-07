@@ -741,10 +741,10 @@ function sponsorsLanding(){
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
         </div>
-        <p>A publicação depende de inventário válido; alcance não é garantido.</p>
+        <p>Um jeito de conectar sua marca à cidade. A publicação depende de inventário válido.</p>
       </aside></div>
     </div>
-    ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'')}
+    ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'')}
     <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Cidade e investimento definidos com você, sem promessas de exibição.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Escolha o objetivo da sua campanha.</p></div></div>
