@@ -70,10 +70,17 @@ export function withWalletEvidence(state){
   }
   const seedEntries=Object.prototype.hasOwnProperty.call(state,'seedEntries')
     ?state.seedEntries:generatedSeeds;
+  // Independently generated canonical-key scan; explicit seedEntries mutations
+  // must not rewrite the evidence returned by this second query.
+  const canonicalSeedEntries=Object.prototype.hasOwnProperty.call(state,'canonicalSeedEntries')
+    ?state.canonicalSeedEntries:generatedSeeds;
   return {...state,
     applications:apps,walletEntries:allWallet,
     seedEntries,seedEntryCount:Object.prototype.hasOwnProperty.call(state,'seedEntryCount')
       ?state.seedEntryCount:seedEntries?.length,
+    canonicalSeedEntries,
+    canonicalSeedEntryCount:Object.prototype.hasOwnProperty.call(state,'canonicalSeedEntryCount')
+      ?state.canonicalSeedEntryCount:canonicalSeedEntries?.length,
     // Preserve explicit null/invalid values: regression tests must NOT
     // silently convert missing exact count evidence into a success count.
     walletEntryCount:Object.prototype.hasOwnProperty.call(state,'walletEntryCount')
