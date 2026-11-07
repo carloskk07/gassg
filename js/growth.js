@@ -761,7 +761,7 @@ function sponsorsLanding(){
       <div class="tamao-journey">
         <div><strong>1. Conhecer seu objetivo</strong><p>Marca, região e objetivo.</p></div>
         <div><strong>2. Construir condições realistas</strong><p>Definir orçamento, prazo, teto e critérios verificáveis.</p></div>
-        <div><strong>3. Validar antes de ativar</strong><p>Sem cobrar antes de validar inventário e comprovar veiculação.</p></div>
+        <div><strong>3. Validar antes de ativar</strong><p>Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha. Sem cobrar por entrega não verificada.</p></div>
       </div>
     </section>
     <section class="section"><div class="card tamao-sponsor-footer">
