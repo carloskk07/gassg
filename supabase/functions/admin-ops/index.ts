@@ -16,6 +16,7 @@ import {publicationSummary,publicationAlertInsight} from "./publication-health.j
 import {couponReleasedNetEvidence} from "./coupon-release-evidence.js";
 import {couponMerchantPayoutEvidence,couponMerchantRecipientReadiness} from "./coupon-merchant-payout-evidence.js";
 import {couponProviderRefundEvidence} from "./coupon-refund-provider-evidence.js";
+import {couponRefundMerchantHistorySummary} from "./coupon-refund-merchant-history.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -4301,6 +4302,101 @@ Deno.serve(async(req:Request)=>{
         refundClosureAuthorized:false,caseClosed:false,moneyMoved:false,
         providerMutationPerformed:false,checkedAt:new Date().toISOString()
       },200,origin);
+    }
+
+    if(action==="clube-coupon-refund-merchant-history-inspect"){
+      // Finance-only reconciliation of immutable discount use snapshots.
+      // Monetary sums are nominal discounts, NOT a payable debt or bank receipt.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente a Controladoria pode conferir os descontos.",403);
+      const invoiceId=String(body.invoiceId??"");
+      const requestId=String(body.requestId??"");
+      if(!UUID_RE.test(invoiceId)||!UUID_RE.test(requestId))
+        throw new DomainError("COUPON_MERCHANT_HISTORY_INVALID",
+          "Identificadores inválidos para conciliação.",400);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:"admin-coupon-refund-merchant-history",limit:8,windowSeconds:3600});
+      const snapshot=async()=>{
+        const [requestResult,invoiceResult,applicationsResult,partnerResult,returnsResult]=await Promise.all([
+          admin.from("clube_coupon_refund_requests_v1_814")
+            .select("invoice_id,request_id,customer_user_id,status")
+            .eq("invoice_id",invoiceId).eq("request_id",requestId).maybeSingle(),
+          admin.from("clube_coupon_paid_invoices")
+            .select("id,customer_user_id,status,funding_mode_v1_846")
+            .eq("id",invoiceId).maybeSingle(),
+          admin.from("clube_coupon_paid_order_applications")
+            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents",
+              {count:"exact"}).eq("invoice_id",invoiceId)
+            .order("order_id",{ascending:true}).limit(26),
+          admin.from("clube_partner_coupon_order_uses_v1_846")
+            .select("invoice_id,customer_id,order_id,voucher_id,merchant_id,face_cents,gross_cents,net_cents,fee_bps_snapshot",
+              {count:"exact"}).eq("invoice_id",invoiceId)
+            .order("order_id",{ascending:true}).limit(26),
+          admin.from("clube_partner_coupon_returns_v1_847")
+            .select("invoice_id,customer_id,order_id,voucher_id,amount_cents,disposition,cause",
+              {count:"exact"}).eq("invoice_id",invoiceId)
+            .order("order_id",{ascending:true}).limit(26)
+        ]);
+        const error=requestResult.error||invoiceResult.error||
+          applicationsResult.error||partnerResult.error||returnsResult.error;
+        if(error)throw error;
+        const request=requestResult.data,invoice=invoiceResult.data;
+        const count=applicationsResult.count,
+          pCount=partnerResult.count,rCount=returnsResult.count;
+        const arrays=[applicationsResult.data,partnerResult.data,returnsResult.data];
+        if(!request||!invoice||request.invoice_id!==invoiceId||
+           request.request_id!==requestId||
+           request.customer_user_id!==invoice.customer_user_id||
+           invoice.id!==invoiceId||
+           !["requested","in_review"].includes(request.status)||
+           !["paid","review_required"].includes(invoice.status)||
+           [count,pCount,rCount].some(n=>n===null||!Number.isSafeInteger(n)||n<0||n>25)||
+           arrays.some((x,i)=>!Array.isArray(x)||x.length!==[count,pCount,rCount][i]))
+          throw new DomainError("COUPON_MERCHANT_HISTORY_EVIDENCE_INCOMPLETE",
+            "Protocolo, histórico ou natureza da cobrança não verificáveis.",409);
+        const orderIds=applicationsResult.data.map((x:any)=>String(x.order_id??""));
+        let orders:any[]=[];
+        if(orderIds.length){
+          const orderResult=await admin.from("orders")
+            .select("id,customer_id,merchant_id,status,financial_state")
+            .in("id",orderIds).order("id",{ascending:true}).limit(26);
+          if(orderResult.error)throw orderResult.error;
+          if(!Array.isArray(orderResult.data))
+            throw new DomainError("COUPON_MERCHANT_HISTORY_ORDERS_MISSING",
+              "Não foi possível reconciliar os pedidos.",503);
+          orders=orderResult.data;
+        }
+        return {request,invoice,applications:applicationsResult.data,
+          partnerUses:partnerResult.data,returns:returnsResult.data,
+          orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount};
+      };
+      const first=await snapshot();
+      let report;
+      try{
+        report=couponRefundMerchantHistorySummary({
+          invoiceId,customerId:first.invoice.customer_user_id,
+          fundingMode:first.invoice.funding_mode_v1_846??"platform_reimbursed",
+          applications:first.applications,applicationCount:first.applicationCount,
+          partnerUses:first.partnerUses,partnerUseCount:first.partnerUseCount,
+          returns:first.returns,returnCount:first.returnCount,orders:first.orders
+        });
+      }catch(error){
+        console.warn("coupon merchant exposure evidence invalid",
+          String(error instanceof Error?error.message:error));
+        throw new DomainError("COUPON_MERCHANT_HISTORY_UNRECONCILED",
+          "Os registros não são suficientes para conciliar esta fatura.",409);
+      }
+      // A count-only recheck cannot detect an order state transition.
+      // Re-read all bounded evidence to reject concurrent changes.
+      const second=await snapshot();
+      if(JSON.stringify(first)!==JSON.stringify(second))
+        throw new DomainError("COUPON_MERCHANT_HISTORY_CHANGED",
+          "Os dados mudaram durante a consulta. Atualize o protocolo.",409);
+      return json({ok:true,...report,invoiceId,requestId,
+        caseStatus:first.request.status,invoiceStatus:first.invoice.status,
+        historyCoverage:"bounded_complete",
+        checkedAt:new Date().toISOString()},200,origin);
     }
 
     if(action==="clube-coupon-refund-review-inspect"){

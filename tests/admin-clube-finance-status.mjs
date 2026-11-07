@@ -138,6 +138,7 @@ const begin=admin.indexOf('async function adminClubeFinanceRefresh(){');
 const end=admin.indexOf('function adminClubeCouponPreviewView(){',begin);
 assert.ok(begin>=0&&end>begin);
 
+let historyCalls=0,historyPayload=null,historyFail=false;
 let providerCalls=0,providerPayload=null,providerFail=false;
 let triageCalls=0,triagePayload=null,triageAttemptUsed=null,triageFail=false;
 let claimCalls=0,claimPayload=null,claimFail=false,claimAttemptUsed=null;
@@ -159,6 +160,11 @@ const state={
  adminRuntime:runtime,
  adminCurrentRole:()=>role,
  adminInvoke:async({action,...args})=>{
+   if(action==='clube-coupon-refund-merchant-history-inspect'){
+     historyCalls++;
+     if(historyFail)throw Error('historico-revenda-indisponivel');
+     return historyPayload;
+   }
    if(action==='clube-coupon-refund-provider-inspect'){
      providerCalls++;
      if(providerFail)throw Error('consulta-psp-indisponivel');
@@ -217,7 +223,7 @@ const state={
 const ctx=vm.createContext(state);
 vm.runInContext(admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
- ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.refundTriage=adminClubeRefundTriage;this.providerInspect=adminClubeRefundProviderInspect;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
+ ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.refundTriage=adminClubeRefundTriage;this.providerInspect=adminClubeRefundProviderInspect;this.merchantHistoryInspect=adminClubeRefundMerchantHistoryInspect;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
  ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
 
 assert.match(ctx.page(),/Conferir situação dos cupons/);
@@ -365,6 +371,44 @@ assert.equal(providerCalls,2);
 assert.match(ctx.page(),/não retornou comprovação financeira consistente/);
 assert.doesNotMatch(ctx.page(),/Mercado Pago indica estorno integral processado/,
  'Provider output claiming authorization to close must be discarded');
+
+assert.match(ctx.page(),/Conferir histórico de descontos e revendas/);
+historyPayload={
+ ok:true,source:'clube_coupon_merchant_history_v1_868',
+ invoiceId:inspectPayload.invoiceId,requestId:inspectPayload.requestId,
+ caseStatus:'in_review',invoiceStatus:'paid',readOnly:true,
+ historyCoverage:'bounded_complete',fundingModel:'partner_funded',
+ applicationCount:2,partnerUseCount:2,returnCount:1,historicalDiscountCents:1000,
+ nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
+ bankCreditVerified:false,refundClosureAuthorized:false,
+ caseClosed:false,moneyMoved:false,checkedAt:'2026-11-06T23:56:00Z',
+ entries:[
+  {orderId:'11111111-1111-4111-8111-111111111111',
+   merchantId:'33333333-3333-4333-8333-333333333333',
+   discountCents:500,originalOrderCents:9500,orderStatus:'cancelled',
+   financialState:'reversed',partnerUseRecorded:true,returnRecorded:true,
+   returnDisposition:'reissued',contractFeeBps:900},
+  {orderId:'22222222-2222-4222-8222-222222222222',
+   merchantId:'44444444-4444-4444-8444-444444444444',
+   discountCents:500,originalOrderCents:9500,orderStatus:'delivered',
+   financialState:'settlement_pending',partnerUseRecorded:true,returnRecorded:false,
+   returnDisposition:null,contractFeeBps:900}
+ ]
+};
+await ctx.merchantHistoryInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(historyCalls,1);
+assert.match(ctx.page(),/Histórico financeiro dos descontos/);
+assert.match(ctx.page(),/R\$ 10.00 em 2 pedido/);
+assert.match(ctx.page(),/Este valor não é dívida líquida apurada/);
+assert.match(ctx.page(),/Devoluções de benefícios registradas: 1/);
+assert.match(ctx.page(),/A baixa e o encerramento permanecem bloqueados/);
+historyPayload={...historyPayload,merchantPayoutVerified:true};
+await ctx.merchantHistoryInspect(inspectPayload.invoiceId,inspectPayload.requestId);
+assert.equal(historyCalls,2);
+assert.match(ctx.page(),/O histórico não foi confirmado de forma consistente/);
+assert.doesNotMatch(ctx.page(),/Este valor não é dívida líquida apurada/,
+ 'Provider claim of merchant payment must invalidate the whole report');
+
 
 
 
