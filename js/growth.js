@@ -747,7 +747,7 @@ function sponsorsLanding(){
     ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'')}
     <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Cidade e investimento definidos com você, sem promessas de exibição.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
-      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três formatos para sua marca ganhar contexto regional. Escolha o seu objetivo e converse com o TAMÃO.</p></div></div>
+      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Escolha o objetivo da sua campanha.</p></div></div>
       <div class="sponsor-format-grid">
         <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p><button type="button" onclick="openSponsorContact('visibility')">Quero divulgar minha marca <span aria-hidden="true">→</span></button></article>
         <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p><button type="button" onclick="openSponsorContact('relationship')">Quero apoiar benefícios <span aria-hidden="true">→</span></button></article>
@@ -757,7 +757,7 @@ function sponsorsLanding(){
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">PARCERIA QUE RESPEITA SEU NEGÓCIO</span>
         <h2>Uma parceria feita para gerar valor dos dois lados.</h2>
-        <p>Entenda como podemos desenhar juntos uma ação com público, cidade, orçamento e objetivos bem definidos.</p></div></div>
+        <p>Defina público, cidade e orçamento com clareza.</p></div></div>
       <div class="tamao-journey">
         <div><strong>1. Conhecer seu objetivo</strong><p>Mais reconhecimento de marca, aproximação regional ou incentivo à recompra? Primeiro precisamos entender o que vale para sua empresa.</p></div>
         <div><strong>2. Construir condições realistas</strong><p>Definir público, cidade, limites de investimento, responsabilidades e critérios de avaliação, sem números ou resultados inventados.</p></div>
