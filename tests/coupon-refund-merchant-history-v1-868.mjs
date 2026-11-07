@@ -18,18 +18,21 @@ const id={
 const application={
  invoice_id:id.invoice,customer_user_id:id.customer,order_id:id.order,
  voucher_id:id.voucher,quoted_merchant_id:id.merchant,face_cents:500,
- original_order_total_cents:9500,original_order_cashback_cents:500
+ original_order_total_cents:9500,original_order_cashback_cents:500,
+ applied_at:'2026-11-06T10:00:00Z'
 };
 const partnerUse={
  invoice_id:id.invoice,customer_id:id.customer,order_id:id.order,
  voucher_id:id.voucher,merchant_id:id.merchant,face_cents:500,
- gross_cents:10000,net_cents:9500,fee_bps_snapshot:900
+ gross_cents:10000,net_cents:9500,fee_bps_snapshot:900,
+ created_at:'2026-11-06T10:00:01Z'
 };
 const returned={invoice_id:id.invoice,customer_id:id.customer,
  order_id:id.order,voucher_id:id.voucher,amount_cents:500,
- disposition:'reissued',cause:'order_cancelled'};
+ disposition:'reissued',cause:'order_cancelled',
+ recorded_at:'2026-11-06T10:01:00Z'};
 const order={id:id.order,customer_id:id.customer,merchant_id:id.merchant,
- status:'cancelled',financial_state:'reversed'};
+ status:'CANCELLED',financial_state:'reversed',financial_reversed_at:null};
 const sample={
  invoiceId:id.invoice,customerId:id.customer,fundingMode:'partner_funded',
  applications:[application],applicationCount:1,
@@ -43,7 +46,7 @@ assert.equal(p.historicalDiscountCents,500);
 assert.equal(p.applicationCount,1);
 assert.equal(p.partnerUseCount,1);
 assert.equal(p.returnCount,1);
-assert.equal(p.entries[0].orderStatus,'cancelled');
+assert.equal(p.entries[0].orderStatus,'CANCELLED');
 assert.equal(p.entries[0].returnDisposition,'reissued');
 assert.equal(p.nominalDiscountNotPayableDebt,true);
 assert.equal(p.merchantPayoutVerified,false);
