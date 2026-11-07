@@ -4351,7 +4351,7 @@ Deno.serve(async(req:Request)=>{
            invoice.id!==invoiceId||
            !["requested","in_review"].includes(request.status)||
            !["paid","review_required"].includes(invoice.status)||
-           [count,pCount,rCount].some(n=>!Number.isSafeInteger(n)||n<0||n>25)||
+           [count,pCount,rCount].some(n=>n===null||!Number.isSafeInteger(n)||n<0||n>25)||
            arrays.some((x,i)=>!Array.isArray(x)||x.length!==[count,pCount,rCount][i]))
           throw new DomainError("COUPON_MERCHANT_HISTORY_EVIDENCE_INCOMPLETE",
             "Protocolo, histórico ou natureza da cobrança não verificáveis.",409);
