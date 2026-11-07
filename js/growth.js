@@ -711,6 +711,22 @@ function tamaoAdsPlannerLoad(){
   document.head.append(s);
 }
 
+function tamaoAdsHomeLoad(){
+ if(typeof rememberedMarketRegion!=='function'||!rememberedMarketRegion())return '';
+ if(typeof globalThis.tamaoAdsDisplayHome==='function')
+  setTimeout(()=>globalThis.tamaoAdsDisplayHome(),0);
+ else if(!globalThis.tamaoAdsHomeScript){
+  globalThis.tamaoAdsHomeScript=true;
+  const src=document.querySelector('script[src*="growth.js"]')?.src||location.origin+'/js/growth.js';
+  const t=document.createElement('script');
+  t.src=new URL('ads-display.js'+new URL(src).search,src).href;
+  t.onload=()=>globalThis.tamaoAdsDisplayHome?.();
+  t.onerror=()=>{globalThis.tamaoAdsHomeScript=false};
+  document.head.append(t);
+ }
+ return '<section id="tamao-ads-home-slot" class="section" aria-label="Publicidade regional"></section>';
+}
+
 function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
     <div class="tamao-sponsor-hero tamao-commercial-hero">
