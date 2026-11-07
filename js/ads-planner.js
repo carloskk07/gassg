@@ -63,6 +63,8 @@ function tamaoAdsPlannerSection(){
     ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.</p>'+
     '<p id="sponsor-cpm-note" class="tiny muted">Uma visualização exigirá pelo menos 50% do anúncio visível durante 1 segundo contínuo, além de filtros contra tráfego inválido. A estimativa não é reserva nem garantia de público; somente condições verificadas poderão gerar contrato e cobrança.</p>'+
     '<button type="button" class="primary" onclick="tamaoAdsBudgetRequest()">Solicitar proposta sem pagar →</button>'+
+    '<button type="button" class="secondary" onclick="tamaoAdsShowCityPublic()">Ver publicidade ativa nesta cidade</button>'+
+    '<div id="sponsor-ad-live-slot" class="section" aria-label="Anúncio patrocinado disponível na região"></div>'+
     '</div></section>'+tamaoAdsCampaignForm();
 }
 
@@ -173,4 +175,23 @@ async function tamaoAdsMyRefresh({quiet=false}={}){
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
   }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
+}
+
+async function tamaoAdsShowCityPublic(){
+ const city=String(document.getElementById('sponsor-cpm-city')?.value||'').trim();
+ const state=String(document.getElementById('sponsor-cpm-state')?.value||'').trim().toUpperCase();
+ if(city.length<2||!/^[A-Z]{2}$/.test(state))return toast('Informe cidade e UF para consultar a publicidade local.');
+ if(typeof globalThis.tamaoAdsDisplaySlot!=='function'){
+  if(!globalThis.tamaoAdsPublicScriptLoading){
+   globalThis.tamaoAdsPublicScriptLoading=true;
+   const src=document.querySelector('script[src*="ads-planner.js"]')?.src||location.origin+'/js/ads-planner.js';
+   const t=document.createElement('script');
+   t.src=new URL('ads-display.js'+new URL(src).search,src).href;
+   t.onerror=()=>{globalThis.tamaoAdsPublicScriptLoading=false;toast('Não foi possível consultar a publicidade agora.')};
+   t.onload=()=>globalThis.tamaoAdsDisplaySlot?.(city,state,'sponsor-ad-live-slot');
+   document.head.append(t);
+  }
+  return;
+ }
+ globalThis.tamaoAdsDisplaySlot(city,state,'sponsor-ad-live-slot');
 }
