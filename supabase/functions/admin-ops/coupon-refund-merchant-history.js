@@ -6,7 +6,7 @@ export function couponRefundMerchantHistorySummary({
   issuances,issuanceCount,couponFaceCents,couponsPerPack,
   walletEntries,walletEntryCount,releaseEntries,releaseEntryCount,
   reserveEntries,reserveEntryCount,seedEntries,seedEntryCount,
-  canonicalSeedEntries,canonicalSeedEntryCount
+  canonicalSeedEntries,canonicalSeedEntryCount,invoicePayment
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -58,6 +58,19 @@ export function couponRefundMerchantHistorySummary({
     const time=Date.parse(value);
     return Number.isFinite(time)?time:null;
   };
+  // #878 A wallet seed is not PSP proof: bind each immutable coupon receipt
+  // to the *same invoice's* recorded payment identifiers, verified net
+  // reference, and the dates preceding the wallet credit.
+  const psp=invoicePayment;
+  if(fundingMode==="partner_funded"){
+    const textField=x=>typeof x==="string"&&x.trim().length>0&&x.length<=512;
+    if(!psp||!textField(psp.providerOrderId)||
+       !textField(psp.providerPaymentId)||
+       !textField(psp.netProceedsReference)||
+       occurredAt(psp.paidAt)===null||
+       occurredAt(psp.netProceedsVerifiedAt)===null)
+      reject("INVOICE_PAYMENT_PROVENANCE_INCOMPLETE");
+  }
   let discountTotalCents=0;
   for(const a of applications){
     if(!a||a.invoice_id!==invoiceId||a.customer_user_id!==customerId||
@@ -71,7 +84,9 @@ export function couponRefundMerchantHistorySummary({
        byOrder.has(a.order_id)||!orderById.has(a.order_id)||
        occurredAt(a.applied_at)===null||
        a.face_cents!==couponFaceCents||
-       !issuanceById.has(a.voucher_id))
+       !issuanceById.has(a.voucher_id)||
+       (fundingMode==="partner_funded"&&
+        a.net_proceeds_reference!==psp.netProceedsReference))
       reject("APPLICATION_MISMATCH");
     const order=orderById.get(a.order_id);
     // A completed order should belong to the quoted merchant. A canceled
@@ -344,7 +359,12 @@ export function couponRefundMerchantHistorySummary({
          seed.metadata?.source!=="mercadopago_paid_coupon"||
          seed.metadata?.voucherId!==voucherId||
          seed.metadata?.invoiceId!==invoiceId||
+         seed.metadata?.providerOrderId!==psp.providerOrderId||
+         seed.metadata?.providerPaymentId!==psp.providerPaymentId||
+         seed.metadata?.netProceedsReference!==psp.netProceedsReference||
          occurredAt(seed.created_at)===null||
+         occurredAt(psp.paidAt)>occurredAt(seed.created_at)||
+         occurredAt(psp.netProceedsVerifiedAt)>occurredAt(seed.created_at)||
          occurredAt(seed.created_at)>event.appliedAt||
          (i>0&&(chain[i-1].returnedAt===null||
                 occurredAt(seed.created_at)<chain[i-1].returnedAt)))
@@ -390,6 +410,9 @@ export function couponRefundMerchantHistorySummary({
     canonicalSeedCoverage:"bounded_complete",
     canonicalSeedCount:canonicalSeedEntryCount,
     unmatchedCanonicalSeedCount:0,
+    invoicePaymentProvenance:"bounded_complete",
+    verifiedPaymentSeedCount:fundingMode==="partner_funded"
+      ?verifiedSeeds.size:0,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
