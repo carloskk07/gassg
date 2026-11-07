@@ -6,6 +6,19 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const growth=read('js/growth.js');
 const prices=read('js/welcome-bonus.js');
 const backend=read('supabase/migrations/20261104220000_clube_public_prices_v1_820.sql');
+const purchaseEdge=read('supabase/functions/coupon-credit-pix/index.ts');
+// Real purchase, even during PRELAUNCH, must never charge throwaway anonymous accounts.
+const actionGate=purchaseEdge.indexOf('if(operation!=="purchase"&&operation!=="partner-purchase")');
+const buyerGate=purchaseEdge.indexOf('if(user.is_anonymous!==false||!user.email_confirmed_at)');
+const merchantGate=purchaseEdge.indexOf('const readiness=partnerPurchase?await partnerSaleReadiness(admin)');
+assert.ok(actionGate>=0&&buyerGate>actionGate&&merchantGate>buyerGate,
+ 'Anonymous and unverified-email buyers must be refused before merchant preflight, invoice and PSP Pix');
+assert.match(purchaseEdge.slice(buyerGate,merchantGate),
+ /COUPON_BUYER_EMAIL_NOT_VERIFIED",pixPayable:false\},403,origin/,
+ 'Purchase response must never include payable Pix for non-permanent account');
+assert.ok(purchaseEdge.indexOf('if(operation==="my-vouchers")')<actionGate &&
+ purchaseEdge.indexOf('if(operation==="invoice-status")')<actionGate,
+ 'Previously issued vouchers and existing invoices remain accessible for reconciliation');
 const begin=growth.indexOf('function club(){');
 const end=growth.indexOf('  const purchases=',begin);
 assert.ok(begin>=0&&end>begin,'Club visitor branch must exist');
