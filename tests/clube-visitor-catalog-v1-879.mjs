@@ -18,7 +18,7 @@ const context={
 };
 vm.runInNewContext(guestCode+'\nthis.clubGuest=club;',context);
 const html=context.clubGuest();
-assert.match(html,/class="tamao-coupon-price-board"/);
+assert.match(html,/class="tamao-coupon-price-board card form-stack"/);
 for(const field of ['data-coupon-price','data-coupon-face','data-coupon-minimum','data-coupon-availability'])
  assert.ok(html.includes(field),field+' must be populated from public catalog');
 assert.match(html,/onsubmit="return tamaoWelcomeRegister\(event\)"/,
