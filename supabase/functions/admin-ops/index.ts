@@ -4408,11 +4408,39 @@ Deno.serve(async(req:Request)=>{
           walletEntries=walletResult.data;
           walletEntryCount=walletResult.count;
         }
+        // #873 This is intentionally broader than referenced return IDs:
+        // include ALL cashback releases on ALL paid partner-coupon orders,
+        // even an unreferenced credit on an order with no return record.
+        // Query uses existing wallet_entries(order_id) index. Reject partial
+        // or additional results, never certify a merely sampled history.
+        let releaseEntries:any[]=[];
+        let releaseEntryCount=0;
+        if(invoice.funding_mode_v1_846==="partner_funded"&&orderIds.length){
+          const releaseResult=await admin.from("wallet_entries")
+            .select("id,user_id,order_id,bucket,entry_type,amount_cents,idempotency_key,metadata,created_at",
+              {count:"exact"})
+            .in("order_id",orderIds)
+            .eq("bucket","cashback")
+            .eq("entry_type","cashback_release")
+            .order("id",{ascending:true}).limit(26);
+          if(releaseResult.error)throw releaseResult.error;
+          if(!Array.isArray(releaseResult.data)||
+             typeof releaseResult.count!=="number"||
+             !Number.isSafeInteger(releaseResult.count)||
+             releaseResult.count<0||releaseResult.count>25||
+             releaseResult.count!==returnsResult.data.length||
+             releaseResult.data.length!==releaseResult.count)
+            throw new DomainError("COUPON_MERCHANT_HISTORY_RELEASES_INCOMPLETE",
+              "Há créditos de cashback não conciliados com as devoluções do cupom.",409);
+          releaseEntries=releaseResult.data;
+          releaseEntryCount=releaseResult.count;
+        }
         return {request,invoice,applications:applicationsResult.data,
           partnerUses:partnerResult.data,returns:returnsResult.data,
           issuances:issuancesResult.data,
           orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount,
-          issuanceCount:iCount,walletEntries,walletEntryCount};
+          issuanceCount:iCount,walletEntries,walletEntryCount,
+          releaseEntries,releaseEntryCount};
       };
       const first=await snapshot();
       let report;
@@ -4426,7 +4454,8 @@ Deno.serve(async(req:Request)=>{
           issuances:first.issuances,issuanceCount:first.issuanceCount,
           couponFaceCents:first.invoice.coupon_face_cents,
           couponsPerPack:first.invoice.coupons_per_pack,
-          walletEntries:first.walletEntries,walletEntryCount:first.walletEntryCount
+          walletEntries:first.walletEntries,walletEntryCount:first.walletEntryCount,
+          releaseEntries:first.releaseEntries,releaseEntryCount:first.releaseEntryCount
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",
