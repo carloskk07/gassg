@@ -663,6 +663,10 @@ Deno.serve(async(req:Request)=>{
   }
   if(operation!=="purchase"&&operation!=="partner-purchase")
     return respond({error:"COUPON_ACTION_INVALID"},400,origin);
+  // Financial contracts require a recoverable, email-confirmed customer.
+  // Anonymous Supabase sessions are "authenticated" but are not permanent buyers.
+  if(user.is_anonymous!==false||!user.email_confirmed_at)
+    return respond({error:"COUPON_BUYER_EMAIL_NOT_VERIFIED",pixPayable:false},403,origin);
   const partnerPurchase=operation==="partner-purchase";
   // An explicit merchant-funded buyer contract can NEVER be sold under the
   // historical owner-funded product's legal reimbursement authorization.
