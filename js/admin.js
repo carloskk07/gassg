@@ -6157,6 +6157,10 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        !Number.isSafeInteger(r.couponSeedCount)||
        r.couponSeedCount!==(r.fundingModel==='partner_funded'?r.applicationCount:0)||
        r.unmatchedCouponSeedCount!==0||
+       r.canonicalSeedCoverage!=='bounded_complete'||
+       !Number.isSafeInteger(r.canonicalSeedCount)||
+       r.canonicalSeedCount!==r.couponSeedCount||
+       r.unmatchedCanonicalSeedCount!==0||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
          !uuid.test(String(x.voucherId||''))||
@@ -6790,6 +6794,10 @@ function adminClubeFinanceView(){
               '. Origens de créditos dos cupons conferidas: '+
               esc(historyResult.couponSeedCount)+
               '; origens sem vínculo: '+esc(historyResult.unmatchedCouponSeedCount)+
+              '. Chaves canônicas verificadas em todas as carteiras: '+
+              esc(historyResult.canonicalSeedCount)+
+              '; créditos canônicos sem conciliação: '+
+              esc(historyResult.unmatchedCanonicalSeedCount)+
               '. Essa conferência interna não comprova crédito bancário.</p>'+
             historyResult.entries.map(row=>
               '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+
