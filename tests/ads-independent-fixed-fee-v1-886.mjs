@@ -13,7 +13,7 @@ for(const key of [
  'ads_independent_checkout_attach_v1_886','ADS_CHECKOUT_IDENTITY_MISMATCH',
  'ads_independent_payment_fact_v1_886','ADS_PAYMENT_REFERENCE_MISMATCH',
  'ADS_DIFFERENT_PAYMENT_REVIEW_REQUIRED','netSettlementVerified',
- 'payment_reversed','status=\'paused\'','autoPublished',false',
+ 'payment_reversed',"status='paused'","'autoPublished',false",
  'admin_ads_independent_sales_toggle_v1_886','terms_accepted_at',
  'fixedFeeStatus','fixedFeeSalesEnabled'
 ])assert.ok(sql.includes(key),'Missing fixed-fee contract '+key);
@@ -26,7 +26,7 @@ for(const k of ['auth.getUser','verifySeller','ADS_MP_CHECKOUT_ENABLED',
  'ADS_PAYMENT_NOT_CONFIGURED','ADS_SELLER_UNVERIFIED',
  'ads_independent_checkout_reserve_v1_886','ads_independent_checkout_attach_v1_886',
  'external_reference:reference','safeMercadoPagoUrl','acceptFixedFee!==true',
- 'preference_id','checkout/preferences'])assert.ok(edge.includes(k),'Missing checkout safeguard '+k);
+ 'p_preference:preference','checkout/preferences'])assert.ok(edge.includes(k),'Missing checkout safeguard '+k);
 assert.match(webhook,/ads_independent_payment_fact_v1_886/);
 assert.match(webhook,/payment\?\.live_mode!==true/);
 assert.match(webhook,/verifyMercadoPagoWebhook/);
