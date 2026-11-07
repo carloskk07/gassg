@@ -46,7 +46,8 @@ BEGIN
  PERFORM public.admin_ads_independent_action_v1_884(v_actor,'pause',v_id,5,
   'Pausa para ensaio de prazo expirado sem extensão');
  UPDATE public.ads_independent_campaigns_v1_884
- SET run_ends_at=clock_timestamp()-interval '1 second' WHERE id=v_id;
+ SET run_started_at=clock_timestamp()-interval '8 days',
+     run_ends_at=clock_timestamp()-interval '1 second' WHERE id=v_id;
  v_denied:=false;
  BEGIN
   PERFORM public.admin_ads_independent_action_v1_884(v_actor,'resume',v_id,6,
