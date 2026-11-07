@@ -111,7 +111,7 @@ assert.ok(
 assert.ok(
   admin.includes("PRELAUNCH:'CONFIGURAÇÃO'")
   &&admin.includes("PILOT:'OPERAÇÃO ATIVA'")
-  &&admin.includes("LIVE:'OPERAÇÃO NORMAL'")
+  &&admin.includes("LIVE:'PLATAFORMA ATIVA'")
   &&admin.includes("PAUSED:'OPERAÇÃO PAUSADA'")
   &&admin.includes('Verificar ativação')
   &&admin.includes('Ativar confirmação automática')
@@ -151,8 +151,9 @@ assert.ok(
 );
 
 assert.ok(
-  admin.includes("adminSetOperationMode('PILOT')")
-  &&admin.includes("adminSetOperationMode('LIVE')")
+  admin.includes("adminSetOperationMode('LIVE')")
+  &&admin.includes('ATIVAR PLATAFORMA')
+  &&admin.includes('Autorizar pedidos físicos')
   &&admin.includes("action:'merchant-payment-preflight'")
   &&adminOps.includes('"merchant-payment-preflight"'),
   'V1.147 não pode renomear contratos internos e quebrar a autoridade existente'
