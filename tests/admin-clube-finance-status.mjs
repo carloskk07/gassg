@@ -403,7 +403,7 @@ assert.match(ctx.page(),/R\$ 10.00 em 2 pedido/);
 assert.match(ctx.page(),/Este valor não é dívida líquida apurada/);
 assert.match(ctx.page(),/Devoluções de benefícios registradas: 1/);
 assert.match(ctx.page(),/Cupons distintos utilizados/);
-assert.match(ctx.page(),/Reutilizações históricas após devolução: R\\$ 0.00/);
+assert.match(ctx.page(),/Reutilizações históricas após devolução: R\$ 0.00/);
 assert.match(ctx.page(),/A baixa e o encerramento permanecem bloqueados/);
 historyPayload={...historyPayload,merchantPayoutVerified:true};
 await ctx.merchantHistoryInspect(inspectPayload.invoiceId,inspectPayload.requestId);
