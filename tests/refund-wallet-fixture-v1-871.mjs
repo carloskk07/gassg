@@ -43,8 +43,37 @@ export function withWalletEvidence(state){
   const reserveEntries=Object.prototype.hasOwnProperty.call(state,'reserveEntries')
     ?state.reserveEntries:allWallet.filter(item=>
       item.bucket==='cashback'&&item.entry_type==='cashback_reserve');
+  // Deterministic synthetic seeds for EVERY applied partner-funded coupon,
+  // including successive redemptions of the same voucher after reissue.
+  // Never write to the live wallet or mask explicit invalid references.
+  const apps=(state.applications??[]).map(a=>({...a}));
+  const ordinalByVoucher=new Map();
+  const positions=apps.map((a,i)=>({a,i})).sort((x,y)=>
+    String(x.a.applied_at).localeCompare(String(y.a.applied_at))||
+    String(x.a.order_id).localeCompare(String(y.a.order_id)));
+  const generatedSeeds=[];
+  if(state.fundingMode==='partner_funded')for(const {a} of positions){
+    const ordinal=ordinalByVoucher.get(a.voucher_id)??0;
+    ordinalByVoucher.set(a.voucher_id,ordinal+1);
+    const seedId='6'+String(a.order_id).slice(1);
+    if(!Object.prototype.hasOwnProperty.call(a,'seed_wallet_entry_id_v1_847'))
+      a.seed_wallet_entry_id_v1_847=seedId;
+    generatedSeeds.push({
+      id:seedId,order_id:null,user_id:a.customer_user_id,
+      bucket:'cashback',entry_type:'cashback_seed',amount_cents:a.face_cents,
+      idempotency_key:'clube-paid-coupon:'+a.voucher_id+
+        (ordinal?':return:'+ordinal:''),
+      metadata:{source:'mercadopago_paid_coupon',
+        voucherId:a.voucher_id,invoiceId:a.invoice_id},
+      created_at:a.applied_at
+    });
+  }
+  const seedEntries=Object.prototype.hasOwnProperty.call(state,'seedEntries')
+    ?state.seedEntries:generatedSeeds;
   return {...state,
-    walletEntries:allWallet,
+    applications:apps,walletEntries:allWallet,
+    seedEntries,seedEntryCount:Object.prototype.hasOwnProperty.call(state,'seedEntryCount')
+      ?state.seedEntryCount:seedEntries?.length,
     // Preserve explicit null/invalid values: regression tests must NOT
     // silently convert missing exact count evidence into a success count.
     walletEntryCount:Object.prototype.hasOwnProperty.call(state,'walletEntryCount')
