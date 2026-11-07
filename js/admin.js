@@ -5883,7 +5883,8 @@ async function adminClubeFinanceRefresh(){
   if(state.pending)return;
   Object.assign(state,{pending:true,error:null,data:null,loadedFor:userId,checkedAt:null,
     refundInspectResult:null,refundInspectError:null,refundInspectFor:null,
-    refundProviderFor:null,refundProviderResult:null,refundProviderError:null});
+    refundProviderFor:null,refundProviderResult:null,refundProviderError:null,
+    refundHistoryFor:null,refundHistoryResult:null,refundHistoryError:null});
   render();
   try{
     const result=await adminInvoke({action:'clube-coupon-finance-status'});
@@ -6082,6 +6083,82 @@ async function adminClubeRefundProviderInspect(invoiceId,requestId){
     }
   }
 }
+async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const st=adminRuntime.clubeFinance;
+  const userId=String(adminRuntime.session?.user?.id||'');
+  const inspected=st.refundInspectFor===userId?st.refundInspectResult:null;
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(!userId||!uuid.test(invoiceId)||!uuid.test(requestId)||
+     st.loadedFor!==userId||st.refundHistoryPending||st.refundInspectPending||
+     !inspected||inspected.invoiceId!==invoiceId||inspected.requestId!==requestId||
+     !['requested','in_review'].includes(inspected.requestStatus)||
+     !Number.isSafeInteger(inspected.historicalOrderCount)||
+     inspected.historicalOrderCount<1||
+     !Array.isArray(st.data?.refundWorkQueue)||
+     !st.data.refundWorkQueue.some(x=>x.invoiceId===invoiceId&&x.requestId===requestId))
+    return;
+  Object.assign(st,{refundHistoryFor:userId,refundHistoryInvoiceId:invoiceId,
+    refundHistoryRequestId:requestId,refundHistoryPending:true,
+    refundHistoryResult:null,refundHistoryError:null});
+  render();
+  try{
+    const r=await adminInvoke({action:'clube-coupon-refund-merchant-history-inspect',
+      invoiceId,requestId});
+    if(String(adminRuntime.session?.user?.id||'')!==userId||
+       st.refundHistoryRequestId!==requestId||st.refundHistoryInvoiceId!==invoiceId)return;
+    const rows=r?.entries;
+    const sum=Array.isArray(rows)?rows.reduce((v,x)=>v+x.discountCents,0):NaN;
+    if(r?.ok!==true||r?.source!=='clube_coupon_merchant_history_v1_868'||
+       r.invoiceId!==invoiceId||r.requestId!==requestId||
+       r.caseStatus!==inspected.requestStatus||
+       r.invoiceStatus!==inspected.invoiceStatus||
+       r.readOnly!==true||r.historyCoverage!=='bounded_complete'||
+       !['platform_reimbursed','partner_funded'].includes(r.fundingModel)||
+       !Number.isSafeInteger(r.applicationCount)||
+       r.applicationCount!==inspected.historicalOrderCount||
+       r.applicationCount>25||r.applicationCount<1||
+       !Number.isSafeInteger(r.partnerUseCount)||
+       !Number.isSafeInteger(r.returnCount)||
+       r.partnerUseCount<0||r.partnerUseCount>r.applicationCount||
+       r.returnCount<0||r.returnCount>r.partnerUseCount||
+       !Number.isSafeInteger(r.historicalDiscountCents)||
+       r.historicalDiscountCents<=0||r.historicalDiscountCents!==sum||
+       !Array.isArray(rows)||rows.length!==r.applicationCount||
+       rows.some(x=>!uuid.test(String(x.orderId||''))||
+         !uuid.test(String(x.merchantId||''))||
+         !Number.isSafeInteger(x.discountCents)||x.discountCents<=0||
+         !Number.isSafeInteger(x.originalOrderCents)||x.originalOrderCents<0||
+         typeof x.orderStatus!=='string'||x.orderStatus.length>64||
+         !(x.financialState===null||typeof x.financialState==='string')||
+         typeof x.partnerUseRecorded!=='boolean'||
+         typeof x.returnRecorded!=='boolean'||
+         (x.returnRecorded&&!x.partnerUseRecorded)||
+         (x.returnRecorded&&!['reissued','manual_review'].includes(x.returnDisposition))||
+         (!x.returnRecorded&&x.returnDisposition!==null)||
+         (x.partnerUseRecorded&&
+           (!Number.isSafeInteger(x.contractFeeBps)||x.contractFeeBps<1||x.contractFeeBps>1000))||
+         (!x.partnerUseRecorded&&x.contractFeeBps!==null))||
+       (r.fundingModel==='partner_funded'&&r.partnerUseCount!==r.applicationCount)||
+       (r.fundingModel==='platform_reimbursed'&&r.partnerUseCount!==0)||
+       r.nominalDiscountNotPayableDebt!==true||
+       r.merchantPayoutVerified!==false||r.bankCreditVerified!==false||
+       r.refundClosureAuthorized!==false||r.caseClosed!==false||
+       r.moneyMoved!==false||!Number.isFinite(Date.parse(String(r.checkedAt||''))))
+      throw Error('O histórico não foi confirmado de forma consistente.');
+    st.refundHistoryResult=r;
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundHistoryInvoiceId===invoiceId&&st.refundHistoryRequestId===requestId)
+      st.refundHistoryError=String(error?.message||'Não foi possível reconciliar os descontos.');
+  }finally{
+    if(String(adminRuntime.session?.user?.id||'')===userId&&
+       st.refundHistoryInvoiceId===invoiceId&&st.refundHistoryRequestId===requestId){
+      st.refundHistoryPending=false;render();
+    }
+  }
+}
 async function adminClubeRefundInspect(invoiceId,requestId){
   if(!['superadmin','finance'].includes(adminCurrentRole())||
      adminRuntime.status!=='ready')return;
@@ -6095,7 +6172,8 @@ async function adminClubeRefundInspect(invoiceId,requestId){
   Object.assign(s,{refundInspectFor:userId,refundInspectInvoiceId:invoiceId,
     refundInspectRequestId:requestId,refundInspectPending:true,
     refundInspectResult:null,refundInspectError:null,
-    refundProviderFor:null,refundProviderResult:null,refundProviderError:null});
+    refundProviderFor:null,refundProviderResult:null,refundProviderError:null,
+    refundHistoryFor:null,refundHistoryResult:null,refundHistoryError:null});
   render();
   try{
     const r=await adminInvoke({action:'clube-coupon-refund-review-inspect',
@@ -6517,6 +6595,12 @@ function adminClubeFinanceView(){
     ?state.refundProviderError:null;
   const providerPending=sameUser&&state.refundProviderFor===String(adminRuntime.session.user.id)
     &&state.refundProviderPending===true;
+  const historyResult=sameUser&&state.refundHistoryFor===String(adminRuntime.session.user.id)
+    ?state.refundHistoryResult:null;
+  const historyError=sameUser&&state.refundHistoryFor===String(adminRuntime.session.user.id)
+    ?state.refundHistoryError:null;
+  const historyPending=sameUser&&state.refundHistoryFor===String(adminRuntime.session.user.id)
+    &&state.refundHistoryPending===true;
   const triageNames={
     provider_refund_proof_pending:'Comprovação de estorno pendente no provedor',
     merchant_history_review:'Histórico de descontos e obrigações da revenda em análise',
@@ -6623,6 +6707,40 @@ function adminClubeFinanceView(){
         inspected.orderReconciliations.map(x=>'<p class="tiny muted">Pedido <code>'+
           esc(x.orderId)+'</code> • Conciliação: '+esc(x.status)+'</p>').join('')+
         '<p role="alert" class="notice">Encerramento bloqueado: esta análise NÃO comprova estorno do Pix nem pagamento à revenda; nenhuma alteração financeira foi realizada.</p>'+
+
+        (inspected.historicalOrderCount>0
+          ?'<button type="button" class="secondary" onclick="adminClubeRefundMerchantHistoryInspect(&quot;'+
+            esc(inspected.invoiceId)+'&quot;,&quot;'+esc(inspected.requestId)+'&quot;)" '+
+            (historyPending?'disabled':'')+'>'+
+            (historyPending?'Reconciliando descontos…':'Conferir histórico de descontos e revendas')+'</button>'
+          :'')+
+        (historyError&&state.refundHistoryRequestId===inspected.requestId
+          ?'<p role="alert" class="notice danger">'+esc(historyError)+'</p>':'')+
+        (historyResult&&historyResult.invoiceId===inspected.invoiceId&&
+          historyResult.requestId===inspected.requestId
+          ?'<div class="card flat admin-refund-merchant-history" role="region" aria-label="Conciliação histórica de descontos">'+
+            '<h5>Histórico financeiro dos descontos</h5>'+
+            '<p><strong>Valor nominal histórico:</strong> R$ '+
+              esc((historyResult.historicalDiscountCents/100).toFixed(2))+
+              ' em '+esc(historyResult.applicationCount)+' pedido(s). '+
+              'Este valor não é dívida líquida apurada.</p>'+
+            '<p>Modalidade original: '+
+              (historyResult.fundingModel==='partner_funded'
+               ?'desconto patrocinado pela revenda':'financiamento pela plataforma')+
+              ' • Compromissos de desconto da revenda registrados: '+
+              esc(historyResult.partnerUseCount)+
+              ' • Devoluções de benefícios registradas: '+
+              esc(historyResult.returnCount)+'.</p>'+
+            historyResult.entries.map(row=>
+              '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+
+              ' • Revenda <code>'+esc(row.merchantId.slice(0,8))+'</code>'+
+              ' • Desconto original R$ '+esc((row.discountCents/100).toFixed(2))+
+              ' • Pedido: '+esc(row.orderStatus)+
+              ' • Financeiro: '+esc(row.financialState||'sem confirmação')+
+              (row.returnRecorded?' • Devolução de benefício: '+esc(row.returnDisposition):'')+
+              '</p>').join('')+
+            '<p role="alert" class="notice">Não comprova crédito ao comprador, pagamento à revenda ou obrigação líquida. A baixa e o encerramento permanecem bloqueados.</p>'+
+          '</div>':'')+
         (inspected.paymentReferencePresent===true
           ?'<button type="button" class="secondary" onclick="adminClubeRefundProviderInspect(&quot;'+
             esc(inspected.invoiceId)+'&quot;,&quot;'+esc(inspected.requestId)+'&quot;)" '+
