@@ -396,11 +396,16 @@ BEGIN
  WHERE c.status='active' AND c.run_started_at<=clock_timestamp()
    AND c.run_ends_at>clock_timestamp()
    AND c.state=p_state AND lower(c.city)=lower(btrim(p_city))
-   AND (NOT EXISTS(SELECT 1 FROM public.ads_independent_sales_controls_v1_886 WHERE singleton AND sales_enabled)
-     OR EXISTS(SELECT 1 FROM public.ads_independent_checkouts_v1_886 ch
-       WHERE ch.campaign_id=c.id AND ch.status='payment_approved'))
-   AND (SELECT count(*) FROM public.ads_independent_view_signals_v1_884 v
-         WHERE v.campaign_id=c.id)<floor(c.budget_cents*1000.0/c.cpm_cents)
+   AND (
+     EXISTS(SELECT 1 FROM public.ads_independent_checkouts_v1_886 ch
+       WHERE ch.campaign_id=c.id AND ch.status='payment_approved')
+     OR (NOT EXISTS(SELECT 1 FROM public.ads_independent_sales_controls_v1_886
+        WHERE singleton AND sales_enabled)
+       AND NOT EXISTS(SELECT 1 FROM public.ads_independent_checkouts_v1_886 ch
+         WHERE ch.campaign_id=c.id)
+       AND (SELECT count(*) FROM public.ads_independent_view_signals_v1_884 v
+         WHERE v.campaign_id=c.id)<floor(c.budget_cents*1000.0/c.cpm_cents))
+   )
  ORDER BY (SELECT count(*) FROM public.ads_independent_view_signals_v1_884 v
          WHERE v.campaign_id=c.id) ASC,c.run_started_at ASC,c.id
  LIMIT 1;
@@ -456,6 +461,8 @@ BEGIN
  SELECT count(*) INTO v_count FROM public.ads_independent_view_signals_v1_884
    WHERE campaign_id=v_c.id;
  IF v_count>=floor(v_c.budget_cents*1000.0/v_c.cpm_cents)
+   AND NOT EXISTS(SELECT 1 FROM public.ads_independent_checkouts_v1_886 ch
+    WHERE ch.campaign_id=v_c.id AND ch.status='payment_approved')
  THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','budget_cap');END IF;
  INSERT INTO public.ads_independent_view_signals_v1_884(
   token,campaign_id,viewer_hash,visible_ms,visible_percent
