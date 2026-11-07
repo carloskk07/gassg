@@ -55,9 +55,9 @@ const scope={globalThis:{__CHAMA_TEST__:false,liveReady:()=>true,document:null,l
 vm.runInNewContext(growth.slice(clStart,clEnd)+'\n  return member;\n}',scope);
 vm.runInNewContext('this.getClub=club;',scope);
 rt.session={user:pending,access_token:'pending'};
-assert.equal(scope.getClub(),false,'Unverified account is not a buyer');
+assert.equal(Boolean(scope.getClub()),false,'Unverified account is not a buyer');
 rt.session={user:anon,access_token:'anon'};
-assert.equal(scope.getClub(),false,'Anonymous session is not a buyer');
+assert.equal(Boolean(scope.getClub()),false,'Anonymous session is not a buyer');
 rt.session={user:verified,access_token:'confirmed'};
 assert.ok(scope.getClub(),'Verified buyer sees the private Club');
 console.log('TAMÃO V1.881: pending -> confirmed signup and account isolation audited.');
