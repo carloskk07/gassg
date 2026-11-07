@@ -4326,7 +4326,7 @@ Deno.serve(async(req:Request)=>{
             .select("id,customer_user_id,status,funding_mode_v1_846,coupon_face_cents,coupons_per_pack")
             .eq("id",invoiceId).maybeSingle(),
           admin.from("clube_coupon_paid_order_applications")
-            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents,applied_at",
+            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents,applied_at,seed_wallet_entry_id_v1_847",
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26),
           admin.from("clube_partner_coupon_order_uses_v1_846")
@@ -4460,12 +4460,40 @@ Deno.serve(async(req:Request)=>{
           reserveEntries=reserveResult.data;
           reserveEntryCount=reserveResult.count;
         }
+        // #876 Coupon seed credits have order_id=NULL; scanning by order IDs
+        // cannot find them. Capture the bounded, invoice-tagged buyer seed
+        // population, including any extras not referenced by an application.
+        // This is an internal receipt scan, never PSP settlement evidence.
+        let seedEntries:any[]=[];
+        let seedEntryCount=0;
+        if(invoice.funding_mode_v1_846==="partner_funded"){
+          const seedResult=await admin.from("wallet_entries")
+            .select("id,user_id,order_id,bucket,entry_type,amount_cents,idempotency_key,metadata,created_at",
+              {count:"exact"})
+            .eq("user_id",invoice.customer_user_id)
+            .eq("bucket","cashback")
+            .eq("entry_type","cashback_seed")
+            .contains("metadata",{invoiceId})
+            .order("id",{ascending:true}).limit(26);
+          if(seedResult.error)throw seedResult.error;
+          if(!Array.isArray(seedResult.data)||
+             typeof seedResult.count!=="number"||
+             !Number.isSafeInteger(seedResult.count)||
+             seedResult.count<0||seedResult.count>25||
+             seedResult.count!==applicationsResult.data.length||
+             seedResult.data.length!==seedResult.count)
+            throw new DomainError("COUPON_MERCHANT_HISTORY_SEEDS_INCOMPLETE",
+              "Os créditos originais dos cupons não foram conciliados.",409);
+          seedEntries=seedResult.data;
+          seedEntryCount=seedResult.count;
+        }
         return {request,invoice,applications:applicationsResult.data,
           partnerUses:partnerResult.data,returns:returnsResult.data,
           issuances:issuancesResult.data,
           orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount,
           issuanceCount:iCount,walletEntries,walletEntryCount,
-          releaseEntries,releaseEntryCount,reserveEntries,reserveEntryCount};
+          releaseEntries,releaseEntryCount,reserveEntries,reserveEntryCount,
+          seedEntries,seedEntryCount};
       };
       const first=await snapshot();
       let report;
@@ -4481,7 +4509,8 @@ Deno.serve(async(req:Request)=>{
           couponsPerPack:first.invoice.coupons_per_pack,
           walletEntries:first.walletEntries,walletEntryCount:first.walletEntryCount,
           releaseEntries:first.releaseEntries,releaseEntryCount:first.releaseEntryCount,
-          reserveEntries:first.reserveEntries,reserveEntryCount:first.reserveEntryCount
+          reserveEntries:first.reserveEntries,reserveEntryCount:first.reserveEntryCount,
+          seedEntries:first.seedEntries,seedEntryCount:first.seedEntryCount
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",
