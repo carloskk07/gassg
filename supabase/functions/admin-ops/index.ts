@@ -4362,6 +4362,7 @@ Deno.serve(async(req:Request)=>{
            invoice.coupon_face_cents<=0||
            !Number.isSafeInteger(invoice.coupons_per_pack)||
            invoice.coupons_per_pack<1||invoice.coupons_per_pack>15||
+           typeof iCount!=="number"||!Number.isSafeInteger(iCount)||
            iCount>invoice.coupons_per_pack)
           throw new DomainError("COUPON_MERCHANT_HISTORY_EVIDENCE_INCOMPLETE",
             "Protocolo, histórico ou natureza da cobrança não verificáveis.",409);
