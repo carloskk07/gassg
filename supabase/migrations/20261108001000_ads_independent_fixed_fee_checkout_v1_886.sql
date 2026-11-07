@@ -166,6 +166,8 @@ BEGIN
  OR v.status='reserved'
  THEN RAISE EXCEPTION 'ADS_PAYMENT_REFERENCE_MISMATCH' USING errcode='42501';END IF;
  -- Provider payment identity can never be switched to another payment ID.
+ IF v.collector_id IS NOT NULL AND v.collector_id<>p_collector_id
+ THEN RAISE EXCEPTION 'ADS_COLLECTOR_MISMATCH' USING errcode='42501';END IF;
  IF v.payment_id IS NOT NULL AND v.payment_id<>p_payment_id
  THEN RAISE EXCEPTION 'ADS_DIFFERENT_PAYMENT_REVIEW_REQUIRED' USING errcode='42501';END IF;
  INSERT INTO public.ads_independent_payment_events_v1_886(
@@ -371,4 +373,99 @@ GRANT EXECUTE ON FUNCTION public.ads_independent_checkout_reserve_v1_886(uuid,uu
 GRANT EXECUTE ON FUNCTION public.ads_independent_checkout_attach_v1_886(uuid,text,text,text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ads_independent_payment_fact_v1_886(text,text,text,text,integer,text,text,text,boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.admin_ads_independent_sales_toggle_v1_886(uuid,boolean,integer,text) TO service_role;
+CREATE OR REPLACE FUNCTION public.ads_independent_issue_v1_884(
+ p_city text,p_state text,p_viewer_hash text
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO 'pg_catalog'
+AS $fn$
+DECLARE v_c record; v_token uuid;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.ads_independent_controls_v1_884
+    WHERE singleton AND delivery_enabled)
+    OR length(btrim(coalesce(p_city,''))) NOT BETWEEN 2 AND 100
+    OR p_state !~ '^[A-Z]{2}
+ OR
+    p_viewer_hash !~ '^[0-9a-f]{64}
+
+ THEN RETURN jsonb_build_object('source','ads_independent_issue_v1_884',
+    'slot',null,'billingEnabled',false,'noCharge',true);END IF;
+ -- Bound issuance per keyed viewer without storing IP address or user-agent.
+ IF (SELECT count(*) FROM public.ads_independent_challenges_v1_884
+       WHERE viewer_hash=p_viewer_hash AND issued_at>clock_timestamp()-interval '1 hour')>=60
+ THEN RETURN jsonb_build_object('source','ads_independent_issue_v1_884',
+    'slot',null,'billingEnabled',false,'noCharge',true);END IF;
+ SELECT c.* INTO v_c FROM public.ads_independent_campaigns_v1_884 c
+ WHERE c.status='active' AND c.run_started_at<=clock_timestamp()
+   AND c.run_ends_at>clock_timestamp()
+   AND c.state=p_state AND lower(c.city)=lower(btrim(p_city))
+   AND (NOT EXISTS(SELECT 1 FROM public.ads_independent_sales_controls_v1_886 WHERE singleton AND sales_enabled)
+     OR EXISTS(SELECT 1 FROM public.ads_independent_checkouts_v1_886 ch
+       WHERE ch.campaign_id=c.id AND ch.status='payment_approved'))
+   AND (SELECT count(*) FROM public.ads_independent_view_signals_v1_884 v
+         WHERE v.campaign_id=c.id)<floor(c.budget_cents*1000.0/c.cpm_cents)
+ ORDER BY (SELECT count(*) FROM public.ads_independent_view_signals_v1_884 v
+         WHERE v.campaign_id=c.id) ASC,c.run_started_at ASC,c.id
+ LIMIT 1;
+ IF NOT FOUND THEN RETURN jsonb_build_object('source','ads_independent_issue_v1_884',
+    'slot',null,'billingEnabled',false,'noCharge',true);END IF;
+ INSERT INTO public.ads_independent_challenges_v1_884(campaign_id,viewer_hash)
+ VALUES(v_c.id,p_viewer_hash) RETURNING token INTO v_token;
+ RETURN jsonb_build_object('source','ads_independent_issue_v1_884',
+  'slot',jsonb_build_object('campaignId',v_c.id,'challenge',v_token,
+    'label','Patrocinado','advertiser',v_c.advertiser_name,'title',v_c.title,
+    'description',v_c.description,'url',v_c.destination_url,'city',v_c.city,'state',v_c.state),
+  'billingEnabled',false,'noCharge',true,'independentlyAudited',false);
+END;
+$fn$;
+
+
+CREATE OR REPLACE FUNCTION public.ads_independent_confirm_v1_884(
+ p_token uuid,p_viewer_hash text,p_visible_ms integer,p_visible_percent integer
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path TO 'pg_catalog'
+AS $fn$
+DECLARE v_token record;v_c record;v_count integer;
+BEGIN
+ IF p_viewer_hash !~ '^[0-9a-f]{64}
+
+   OR p_visible_ms NOT BETWEEN 1000 AND 60000
+   OR p_visible_percent NOT BETWEEN 50 AND 100
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','invalid_claim');END IF;
+ SELECT * INTO v_token FROM public.ads_independent_challenges_v1_884
+ WHERE token=p_token AND viewer_hash=p_viewer_hash FOR UPDATE;
+ IF NOT FOUND THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','not_found');END IF;
+ IF clock_timestamp()<v_token.issued_at+interval '1100 milliseconds'
+  OR clock_timestamp()>v_token.expires_at
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','timing');END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.ads_independent_controls_v1_884
+   WHERE singleton AND delivery_enabled)
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','paused');END IF;
+ -- Serialize budget and 30-minute dedup on campaign row, not just the token.
+ SELECT * INTO v_c FROM public.ads_independent_campaigns_v1_884
+ WHERE id=v_token.campaign_id FOR UPDATE;
+ IF NOT FOUND OR v_c.status<>'active' OR v_c.run_ends_at<=clock_timestamp()
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','inactive');END IF;
+ IF EXISTS(SELECT 1 FROM public.ads_independent_sales_controls_v1_886 WHERE singleton AND sales_enabled)
+   AND NOT EXISTS(SELECT 1 FROM public.ads_independent_checkouts_v1_886 ch
+     WHERE ch.campaign_id=v_c.id AND ch.status='payment_approved')
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','not_paid');END IF;
+ IF EXISTS(SELECT 1 FROM public.ads_independent_view_signals_v1_884
+    WHERE token=p_token) THEN
+  RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','replay');
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.ads_independent_view_signals_v1_884
+    WHERE campaign_id=v_c.id AND viewer_hash=p_viewer_hash
+      AND recorded_at>clock_timestamp()-interval '30 minutes')
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','duplicate');END IF;
+ SELECT count(*) INTO v_count FROM public.ads_independent_view_signals_v1_884
+   WHERE campaign_id=v_c.id;
+ IF v_count>=floor(v_c.budget_cents*1000.0/v_c.cpm_cents)
+ THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','budget_cap');END IF;
+ INSERT INTO public.ads_independent_view_signals_v1_884(
+  token,campaign_id,viewer_hash,visible_ms,visible_percent
+ ) VALUES(p_token,v_c.id,p_viewer_hash,p_visible_ms,p_visible_percent);
+ RETURN jsonb_build_object('countedForDiagnostics',true,'billable',false,
+   'independentlyAudited',false,'reason','viewability_reported');
+END;
+$fn$;
+
+
 COMMIT;
