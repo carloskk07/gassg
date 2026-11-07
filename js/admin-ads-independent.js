@@ -1,6 +1,7 @@
 // TAMÃO V1.884 — self-service independent advertisers, private admin moderation.
 // This module is only loaded in the protected Admin acquisition workspace.
-let adminIndependentAdsState={loadedFor:null,rows:[],deliveryEnabled:false};
+let adminIndependentAdsState={loadedFor:null,rows:[],deliveryEnabled:false,
+ fixedFeeSalesEnabled:false,fixedFeeSalesVersion:0,providerApprovedGrossCents:0};
 let adminIndependentAdsBusy=false;
 async function adminIndependentAdsRefresh(){
  const actor=String(adminRuntime?.session?.user?.id||'');
@@ -13,7 +14,10 @@ async function adminIndependentAdsRefresh(){
     !Array.isArray(r.rows)||r.rows.length>50)
    throw Error('Estado do Ads independente não confirmado.');
   if(actor!==String(adminRuntime?.session?.user?.id||''))return;
-  adminIndependentAdsState={loadedFor:actor,rows:r.rows,deliveryEnabled:r.deliveryEnabled===true};
+  adminIndependentAdsState={loadedFor:actor,rows:r.rows,deliveryEnabled:r.deliveryEnabled===true,
+    fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true,
+    fixedFeeSalesVersion:Number(r.fixedFeeSalesVersion)||0,
+    providerApprovedGrossCents:Number(r.providerApprovedGrossCents)||0};
   render();
  }catch(e){toast(String(e?.message||'Erro ao consultar Ads independente.'))}
  finally{adminIndependentAdsBusy=false}
@@ -42,6 +46,28 @@ async function adminIndependentAdsAction(decision,campaignId='',version=0){
  finally{adminIndependentAdsBusy=false}
  await adminIndependentAdsRefresh();
 }
+async function adminIndependentAdsSalesAction(){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
+ const state=adminIndependentAdsState;
+ if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
+   state.fixedFeeSalesVersion<1)return toast('Atualize a situação das campanhas primeiro.');
+ const reason=String(document.getElementById('independent-ads-sales-reason')?.value||'').trim();
+ if(reason.length<12||reason.length>500)return toast('Informe uma justificativa de 12 a 500 caracteres.');
+ adminIndependentAdsBusy=true;
+ try{
+  const enable=!state.fixedFeeSalesEnabled;
+  const r=await adminPerform('ads-independent-sales-action',{
+   enabled:enable,expectedVersion:state.fixedFeeSalesVersion,reason
+  });
+  if(r?.source!=='admin_ads_independent_sales_toggle_v1_886'||
+    r?.salesEnabled!==enable||r?.newChargesCreated!==false)
+   throw Error('Estado comercial não confirmado.');
+  toast(enable?'Contratação por valor fixo habilitada.':'Novas contratações interrompidas.');
+ }catch(e){toast(String(e?.message||'Não foi possível alterar as vendas.'))}
+ finally{adminIndependentAdsBusy=false}
+ await adminIndependentAdsRefresh();
+}
 function adminAdsIndependentSection(){
  const role=String(adminCurrentRole());
  if(!['superadmin','operations','compliance','finance'].includes(role))return '';
@@ -49,6 +75,7 @@ function adminAdsIndependentSection(){
  const v=adminIndependentAdsState.loadedFor===actor?adminIndependentAdsState:null;
  const canAct=role==='superadmin';
  const delivery=v?.deliveryEnabled===true;
+ const sales=v?.fixedFeeSalesEnabled===true;
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
@@ -60,7 +87,9 @@ function adminAdsIndependentSection(){
     'onclick="adminIndependentAdsAction(\''+action+'\',\''+id+'\','+version+')" '+
     (adminIndependentAdsBusy?'disabled':'')+'>'+label+'</button>';
   const buttons=status==='submitted'?b('approve','Aprovar criativo')+b('reject','Rejeitar'):
-    status==='approved'&&delivery?b('publish','Iniciar publicação'):
+    status==='approved'&&delivery&&
+      ((!sales&&!c.fixedFeeStatus)||c.fixedFeeStatus==='payment_approved')?
+      b('publish','Iniciar publicação'):
     status==='active'?(expired?b('end','Encerrar campanha expirada'):
       b('pause','Pausar campanha')+b('end','Encerrar definitivamente')):
     status==='paused'?((delivery&&!expired?b('resume','Retomar campanha'):'')+
@@ -79,6 +108,8 @@ function adminAdsIndependentSection(){
   '<small>Destino: '+esc(String(c.destination||''))+'</small>'+
   '<p>Prazo original: '+(c.runEndsAt?esc(String(c.runEndsAt).slice(0,10)):'aguardando início')+
   ' · Retomar nunca prorroga o prazo.</p>'+
+  '<p>Valor do pacote: '+adminMoney(Number(c.budgetCents||0))+
+  ' · Pagamento: '+esc(String(c.fixedFeeStatus||'não iniciado'))+'</p>'+
   '<p>Orçamento máximo: '+adminMoney(Number(c.budgetCents||0))+
   ' · Sinais de visibilidade: '+Number(c.reportedViewSignals||0)+
   ' · Exibições faturáveis: 0</p>'+actions(c)+'</article>'
@@ -91,7 +122,9 @@ function adminAdsIndependentSection(){
   (adminIndependentAdsBusy?'disabled':'')+'>Atualizar campanhas</button></div>'+
   '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
    '<strong>'+(delivery?'Habilitada':'Desligada')+'</strong></div>'+
-   '<div class="kpi"><span class="label">Cobrança Ads</span><strong>Bloqueada</strong></div>'+
+   '<div class="kpi"><span class="label">CPM por visualizações</span><strong>Inativo</strong></div>'+
+   '<div class="kpi"><span class="label">Vendas de período fixo</span><strong>'+
+     (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
    '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
   (canAct?'<div class="card flat"><label for="independent-ads-control-reason">Motivo para autorizar ou interromper</label>'+
     '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2" '+
@@ -101,6 +134,17 @@ function adminAdsIndependentSection(){
     (adminIndependentAdsBusy?'disabled':'')+'>'+
     (delivery?'Interromper entrega imediatamente':'Autorizar entrega não faturável')+'</button>'+
     '<p class="tiny muted">A autorização exige campanha revisada e não libera faturamento, Pix nem repasses.</p></div>':'')+
+  (canAct&&v?'<div class="card flat"><h4>Contratação por período fixo</h4>'+
+    '<p>Novos pagamentos só podem ser ativados com credenciais comerciais, vendedor verificado e webhook assinado. A taxa de CPM por visualização continua inativa.</p>'+
+    '<p>Total aprovado pelo provedor (bruto, não é conciliação bancária): '+
+      adminMoney(Number(v.providerApprovedGrossCents||0))+'</p>'+
+    '<label for="independent-ads-sales-reason">Justificativa da alteração</label>'+
+    '<textarea id="independent-ads-sales-reason" class="input" rows="2" maxlength="500" '+
+      'placeholder="Descreva por que autorizar ou interromper novas compras"></textarea>'+
+    '<button type="button" class="secondary small" onclick="adminIndependentAdsSalesAction()" '+
+      (adminIndependentAdsBusy?'disabled':'')+'>'+
+      (sales?'Interromper novas compras':'Habilitar compras com pagamento verificado')+
+    '</button></div>':'')+
   (v?'<div class="grid cards-2">'+(rows||'<p>Sem campanhas enviadas até agora.</p>')+'</div>':
    '<p class="muted">Atualize para conferir propostas reais e os controles de publicação.</p>')+
   '</section>';
