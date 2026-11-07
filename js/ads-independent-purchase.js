@@ -28,3 +28,14 @@ async function tamaoAdsPurchaseCampaign(campaignId){
  location.assign(url);
 }
 globalThis.tamaoAdsPurchaseCampaign=tamaoAdsPurchaseCampaign;
+
+async function tamaoAdsReconcileCampaign(campaignId){
+ if(!/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))throw Error('Campanha inválida.');
+ const r=await liveInvoke('ads-independent-checkout',{action:'reconcile',campaignId});
+ if(r?.source!=='ads_independent_reconcile_v1_886')throw Error('Consulta do provedor não confirmada.');
+ if(r.status==='payment_approved')toast('O provedor confirmou o pagamento. A campanha aguarda publicação.');
+ else if(r.status==='payment_reversed')toast('Pagamento revertido. A campanha não pode continuar.');
+ else toast('A confirmação do pagamento ainda não foi localizada no provedor.');
+ return r;
+}
+globalThis.tamaoAdsReconcileCampaign=tamaoAdsReconcileCampaign;
