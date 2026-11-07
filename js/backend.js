@@ -258,7 +258,7 @@ function customerOriginSafe(){
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
-// Isolate private state on customer account changes.
+// Account isolation.
 function liveForgetAccount(){
   globalThis.customerSupportReplayReset?.();
   // Revoke all older checkout leases, even when Auth is already loading.
@@ -437,13 +437,8 @@ async function backendInit(){
     liveRuntime.session=session;
     liveRuntime.status='ready';
     client.auth.onAuthStateChange((_event,next)=>{
-      const prev=liveRuntime.session;
-      if(liveRuntime.status!=='ready'||!prev?.user?.id)return;
-      if(prev.user.id!==next?.user?.id)return liveForgetAccount();
-      liveRuntime.session=next;
-      const eligible=u=>u.is_anonymous!==true&&!!u.email_confirmed_at;
-      if(eligible(prev.user)!==eligible(next.user)&&route()==='club')
-        Promise.resolve().then(()=>{if(liveRuntime.session===next)render()});
+      if(liveRuntime.status==='ready'&&liveRuntime.session?.user?.id&&
+         liveRuntime.session.user.id!==next?.user?.id)liveForgetAccount();
     });
     liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
@@ -1130,8 +1125,7 @@ async function liveUpgradeAccount(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
   if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
-  if(session.user.is_anonymous!==true){
-    if(!session.user.email_confirmed_at)return {pending:true,email:session.user.email||value};
+  if(session.user.email_confirmed_at){
     state.user.cashEarningEligible=true;
     state.user.identityType='permanent';
     save();
