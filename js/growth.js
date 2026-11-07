@@ -693,7 +693,7 @@ function openSponsorContact(format='general',quoteBrief=''){
     if(message&&!String(message.value||'').trim()){
       const intro=messages[Object.prototype.hasOwnProperty.call(messages,format)?format:'general'];
       const brief=String(quoteBrief||'').trim().slice(0,450);
-      message.value=brief?intro+'\\n'+brief:intro;
+      message.value=brief?intro+'\n'+brief:intro;
     }
     document.querySelector('.public-contact-card')?.scrollIntoView({behavior:'smooth',block:'start'});
     document.getElementById('public-contact-name')?.focus({preventScroll:true});
