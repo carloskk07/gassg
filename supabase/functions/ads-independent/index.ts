@@ -105,6 +105,26 @@ Deno.serve(async(req:Request)=>{
         throw Error("ADS_VIEW_EVIDENCE_UNVERIFIED");
       return respond(data,200,origin);
     }
+    if(action==="refund-request"){
+      const user=await sessionUser(req);
+      if(!user)return respond({error:"VERIFIED_EMAIL_REQUIRED"},401,origin);
+      const campaignId=String(body.campaignId||"");
+      const requestId=String(body.requestId||"");
+      const reason=String(body.reason||"").trim();
+      if(!uuid.test(campaignId)||!uuid.test(requestId)||reason.length<12||
+         reason.length>500||/[\u0000-\u001f\u007f]/.test(reason))
+        return respond({error:"ADS_REFUND_REQUEST_INVALID"},400,origin);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:"ads-independent-refund-request",limit:6,windowSeconds:3600});
+      const {data,error}=await admin.rpc("ads_independent_refund_request_v1_887",{
+        p_owner:user.id,p_campaign:campaignId,p_request:requestId,p_reason:reason
+      });
+      if(error)throw error;
+      if(data?.source!=="ads_independent_refund_request_v1_887"||
+        data?.refundIssued!==false||!uuid.test(String(data.caseId||"")))
+        throw Error("ADS_REFUND_REQUEST_UNVERIFIED");
+      return respond(data,200,origin);
+    }
     if(action==="submit"||action==="mine"){
       const user=await sessionUser(req);
       if(!user)return respond({error:"VERIFIED_EMAIL_REQUIRED",
