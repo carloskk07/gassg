@@ -713,18 +713,14 @@ function tamaoAdsPlannerLoad(){
 
 function tamaoAdsHomeLoad(){
  if(typeof rememberedMarketRegion!=='function'||!rememberedMarketRegion())return '';
- if(typeof globalThis.tamaoAdsDisplayHome==='function')
-  setTimeout(()=>globalThis.tamaoAdsDisplayHome(),0);
- else if(!globalThis.tamaoAdsHomeScript){
+ if(!globalThis.tamaoAdsHomeScript){
   globalThis.tamaoAdsHomeScript=true;
-  const src=document.querySelector('script[src*="growth.js"]')?.src||location.origin+'/js/growth.js';
-  const t=document.createElement('script');
-  t.src=new URL('ads-display.js'+new URL(src).search,src).href;
+  const t=document.createElement('script'),u=document.querySelector('script[src*="growth.js"]')?.src||location.href;
+  t.src=new URL('ads-display.js'+new URL(u).search,u).href;
   t.onload=()=>globalThis.tamaoAdsDisplayHome?.();
-  t.onerror=()=>{globalThis.tamaoAdsHomeScript=false};
   document.head.append(t);
- }
- return '<section id="tamao-ads-home-slot" class="section" aria-label="Publicidade regional"></section>';
+ }else setTimeout(()=>globalThis.tamaoAdsDisplayHome?.(),0);
+ return '<section id="tamao-ads-home-slot"></section>';
 }
 
 function sponsorsLanding(){
@@ -741,9 +737,9 @@ function sponsorsLanding(){
       </div>
       <div class="sponsor-intent-quick" role="group" aria-label="Escolha o tipo de parceria para sua marca">
         <span class="sponsor-intent-kicker">SUA MARCA QUER...</span>
-        <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação regional identificada</small></span><b aria-hidden="true">↗</b></button>
+        <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação na cidade</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
-        <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parcerias para o comércio local</small></span><b aria-hidden="true">↗</b></button>
+        <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parceria regional</small></span><b aria-hidden="true">↗</b></button>
         <p>Escolha seu objetivo e envie sua proposta.</p>
       </div></div>
       <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
@@ -754,8 +750,8 @@ function sponsorsLanding(){
         </div>
         <div class="sponsor-visual-details">
           <div><span aria-hidden="true">📍</span><div><strong>Cidade e categoria</strong><small>Presença pensada para o contexto local</small></div></div>
-          <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
-          <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
+          <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Sem misturar ofertas</small></div></div>
+          <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Limites e condições antes</small></div></div>
         </div>
         <p>Um jeito de conectar sua marca à cidade. A publicação depende de inventário válido.</p>
       </aside></div>
