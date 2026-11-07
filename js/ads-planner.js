@@ -95,6 +95,8 @@ let tamaoAdsDraftRequestId=null;
 let tamaoAdsDraftBusy=false;
 let tamaoAdsMyState={userId:null,rows:[],status:'idle',fixedFeeSalesEnabled:false};
 let tamaoAdsPurchaseBusy=false;
+let tamaoAdsRefundBusy=false;
+const tamaoAdsRefundRequestIds=new Map();
 let tamaoAdsPurchaseScriptPromise=null;
 function tamaoAdsAccountVerified(){
   const u=globalThis.liveRuntime?.session?.user;
@@ -138,9 +140,19 @@ function tamaoAdsCampaignForm(){
         bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
         bought==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
         bought==='checkout_ready'?'Pagamento ainda não confirmado.':'';
+      const refundStatus=String(c.refundCaseStatus||'');
       const checkPayment=bought&&bought!=='payment_reversed'?
         '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\''+id+'\')">'+
         'Verificar pagamento</button>':'';
+      const refundAction=bought==='payment_approved'&&!refundStatus?
+        '<div class="card flat"><label for="ads-refund-reason-'+id+'">Solicitar cancelamento ou reembolso</label>'+
+        '<textarea id="ads-refund-reason-'+id+'" class="input" maxlength="500" rows="2" '+
+          'placeholder="Descreva a solicitação para análise"></textarea>'+
+        '<button class="secondary small" type="button" onclick="tamaoAdsRequestRefund(\''+id+'\')" '+
+          (tamaoAdsRefundBusy?'disabled':'')+'>Solicitar análise de reembolso</button>'+
+        '<small>O pedido pausa a publicidade. Não confirma devolução de dinheiro antes da resposta do provedor.</small></div>':
+        refundStatus?'<p role="status">Solicitação de reembolso: '+esc(refundStatus)+
+          '. O histórico financeiro permanece sujeito à confirmação do provedor.</p>':'';
       const buy=canBuy?'<div class="card flat">'+
         '<p><strong>Veiculação por prazo fixo:</strong> '+tamaoAdsFormatMoney(fee)+
         ' por '+days+' dias, nesta cidade. Não há garantia de visualizações e não é cobrança por CPM.</p>'+
@@ -156,7 +168,7 @@ function tamaoAdsCampaignForm(){
         '<p>Preço cadastrado: '+tamaoAdsFormatMoney(fee)+' por '+days+' dias</p>'+
         (payment?'<p role="status">'+esc(payment)+'</p>':'')+
         '<small>Impressões faturáveis por CPM: 0. Receita exibida ao anunciante: não se aplica.</small>'+
-        buy+checkPayment+'</article>';
+        buy+checkPayment+refundAction+'</article>';
     }).join(''):'';
   return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+
@@ -265,6 +277,27 @@ async function tamaoAdsBuyCampaign(campaignId){
   tamaoAdsPurchaseScriptPromise=null;
   toast(String(error?.message||'Falha ao iniciar pagamento.'));
  }finally{tamaoAdsPurchaseBusy=false}
+}
+
+async function tamaoAdsRequestRefund(campaignId){
+ if(tamaoAdsRefundBusy)return;
+ if(!tamaoAdsAccountVerified())return toast('Entre na sua conta para solicitar reembolso.');
+ const text=String(document.getElementById('ads-refund-reason-'+campaignId)?.value||'').trim();
+ if(text.length<12||text.length>500)return toast('Explique a solicitação em 12 a 500 caracteres.');
+ if(!tamaoAdsRefundRequestIds.has(campaignId))
+  tamaoAdsRefundRequestIds.set(campaignId,crypto.randomUUID());
+ tamaoAdsRefundBusy=true;
+ try{
+  const r=await liveInvoke('ads-independent',{
+   action:'refund-request',campaignId,requestId:tamaoAdsRefundRequestIds.get(campaignId),
+   reason:text
+  });
+  if(r?.source!=='ads_independent_refund_request_v1_887'||
+    r?.refundIssued!==false||!r.caseId)throw Error('Solicitação não confirmada pelo servidor.');
+  toast('Solicitação recebida. A campanha será pausada durante a análise.');
+  await tamaoAdsMyRefresh({quiet:true});
+ }catch(e){toast(String(e?.message||'Não foi possível registrar o pedido.'))}
+ finally{tamaoAdsRefundBusy=false}
 }
 
 async function tamaoAdsVerifyPayment(campaignId){
