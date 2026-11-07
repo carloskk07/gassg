@@ -711,13 +711,14 @@ function tamaoAdsPlannerLoad(){
   document.head.append(s);
 }
 
+
 function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
     <div class="tamao-sponsor-hero tamao-commercial-hero">
       <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
-      <p class="page-lead">Divulgue sua marca na cidade com orçamento controlado, sem precisar se cadastrar como revenda.</p>
+      <p class="page-lead">Divulgue sua marca na cidade, sem precisar ser revenda.</p>
       <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
@@ -725,9 +726,9 @@ function sponsorsLanding(){
       </div>
       <div class="sponsor-intent-quick" role="group" aria-label="Escolha o tipo de parceria para sua marca">
         <span class="sponsor-intent-kicker">SUA MARCA QUER...</span>
-        <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação regional identificada</small></span><b aria-hidden="true">↗</b></button>
+        <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação na cidade</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
-        <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parcerias para o comércio local</small></span><b aria-hidden="true">↗</b></button>
+        <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parceria regional</small></span><b aria-hidden="true">↗</b></button>
         <p>Escolha seu objetivo e envie sua proposta.</p>
       </div></div>
       <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
@@ -737,15 +738,15 @@ function sponsorsLanding(){
           <div><span>DA SUA MARCA PARA A CIDADE</span><strong>Faça parte das escolhas do dia a dia.</strong></div>
         </div>
         <div class="sponsor-visual-details">
-          <div><span aria-hidden="true">📍</span><div><strong>Cidade e categoria</strong><small>Presença pensada para o contexto local</small></div></div>
-          <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
-          <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
+          <div><span aria-hidden="true">📍</span><div><strong>Cidade e categoria</strong><small>Presença na sua cidade</small></div></div>
+          <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Sem misturar ofertas</small></div></div>
+          <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Limites e condições antes</small></div></div>
         </div>
         <p>Um jeito de conectar sua marca à cidade. A publicação depende de inventário válido.</p>
       </aside></div>
     </div>
     ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'')}
-    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Cidade e investimento definidos com você, sem promessas de exibição.</p></div>
+    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Orçamento e entrega sujeitos a validação.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Escolha o objetivo da sua campanha.</p></div></div>
       <div class="sponsor-format-grid">
@@ -757,7 +758,7 @@ function sponsorsLanding(){
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">PARCERIA QUE RESPEITA SEU NEGÓCIO</span>
         <h2>Uma parceria feita para gerar valor dos dois lados.</h2>
-        <p>Defina público, cidade e orçamento com clareza.</p></div></div>
+        <p>Defina cidade, público e orçamento.</p></div></div>
       <div class="tamao-journey">
         <div><strong>1. Conhecer seu objetivo</strong><p>Marca, região e objetivo.</p></div>
         <div><strong>2. Construir condições realistas</strong><p>Definir orçamento, prazo, teto e critérios verificáveis.</p></div>
@@ -766,7 +767,7 @@ function sponsorsLanding(){
     </section>
     <section class="section"><div class="card tamao-sponsor-footer">
       <span class="section-kicker">VAMOS CONVERSAR?</span>
-      <h2>Boas parcerias começam com objetivos em comum.</h2>
+      <h2>Boas parcerias começam aqui.</h2>
       <p>Informe cidade, categoria e orçamento. Sem pagamento antecipado.</p>
       <button type="button" class="primary" onclick="openSponsorContact()">Conversar sobre divulgação →</button>
     </div></section>

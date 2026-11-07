@@ -504,6 +504,7 @@ function home(){
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
+  const adHomeSlot=rememberedRegion&&!testDemo&&typeof tamaoAdsPlannerLoad==='function'?(tamaoAdsPlannerLoad(),globalThis.tamaoAdsLoadHome?.(),'<div id="tamao-ads-home-slot"></div>'):'';
   const homeRegion=!testDemo&&typeof homeMarketRegion==='function'?homeMarketRegion():(
     rememberedRegion?{...rememberedRegion,origin:'confirmed'}:
     {city:'São Gabriel',state:'RS',origin:'showcase'});
@@ -653,6 +654,7 @@ function home(){
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
     </section>`:''}
+    ${adHomeSlot}
     ${tamaoDiscoveryEntryHub()}
     ${reorderCard}
     ${acquisitionOpen?prelaunchCustomerLeadSection():''}
@@ -779,6 +781,8 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
+
+${adHomeSlot}
 
 ${tamaoDiscoveryEntryHub()}
 
