@@ -93,7 +93,7 @@ fail({...base,issuances:[...base.issuances,extraIssuance],issuanceCount:2,
  canonicalSeedEntries:[seed,{...seed,id:id.otherWallet,
  user_id:id.otherOrder,idempotency_key:'clube-paid-coupon:'+id.otherVoucher,
  metadata:{...seed.metadata,voucherId:id.otherVoucher}}]},
- 'real invoice's unused voucher cannot have foreign wallet canonical seed');
+ "unused voucher of real invoice cannot have foreign wallet canonical seed");
 const secondApplication={...application(id.otherOrder,id.voucher),
  applied_at:'2026-11-06T10:02:00Z'};
 const reused={...base,
