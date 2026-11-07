@@ -178,7 +178,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 COMMENT ON COLUMN public.platform_launch_control.commerce_enabled IS
   'Physical order checkout only; LIVE platform services and standalone digital coupon contracts are independent.';
