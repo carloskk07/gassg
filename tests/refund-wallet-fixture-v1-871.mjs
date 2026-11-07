@@ -40,6 +40,11 @@ export function withWalletEvidence(state){
     item.bucket==='cashback'&&item.entry_type==='cashback_release');
   return {...state,
     walletEntries:allWallet,
-    walletEntryCount:state.walletEntryCount??allWallet.length,
-    releaseEntries,releaseEntryCount:state.releaseEntryCount??releaseEntries.length};
+    // Preserve explicit null/invalid values: regression tests must NOT
+    // silently convert missing exact count evidence into a success count.
+    walletEntryCount:Object.prototype.hasOwnProperty.call(state,'walletEntryCount')
+      ?state.walletEntryCount:allWallet.length,
+    releaseEntries,
+    releaseEntryCount:Object.prototype.hasOwnProperty.call(state,'releaseEntryCount')
+      ?state.releaseEntryCount:releaseEntries.length};
 }
