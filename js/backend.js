@@ -441,10 +441,9 @@ async function backendInit(){
       if(liveRuntime.status!=='ready'||!prev?.user?.id)return;
       if(prev.user.id!==next?.user?.id)return liveForgetAccount();
       liveRuntime.session=next;
-      const eligible=u=>u.is_anonymous!==true&&Boolean(u.email_confirmed_at);
+      const eligible=u=>u.is_anonymous!==true&&!!u.email_confirmed_at;
       if(eligible(prev.user)!==eligible(next.user)&&route()==='club')
-        Promise.resolve().then(()=>{if(liveRuntime.status==='ready'&&
-          liveRuntime.session===next)render()});
+        Promise.resolve().then(()=>{if(liveRuntime.session===next)render()});
     });
     liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
