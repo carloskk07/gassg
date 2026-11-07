@@ -91,7 +91,9 @@ bad(mutate(0,{created_at:'not-a-date'}),'missing release date');
 bad({...valid,returns:[{...ret,wallet_hold_entry_id:ret.wallet_release_entry_id}]},
  'release and hold must never share the same ID');
 
-const unreturned=withWalletEvidence({...sample,returns:[],returnCount:0});
+const unreturned=withWalletEvidence({...sample,returns:[],returnCount:0,
+ orders:[{...sample.orders[0],status:'SETTLED',financial_state:'settled',
+   risk_reason:null,financial_reversed_at:null}]});
 const plain=reconcile(unreturned);
 assert.equal(plain.walletReturnPairCount,0);
 assert.equal(plain.walletReturnNetCents,0);

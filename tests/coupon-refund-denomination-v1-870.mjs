@@ -80,7 +80,9 @@ const separate=check({...base,
  partnerUses:[base.partnerUses[0],
    use(id.second,'2026-11-06T10:03:01Z',500,id.secondVoucher)],
  issuances:[issuance(id.voucher,1),issuance(id.secondVoucher,2)],
- issuanceCount:2,returns:[],returnCount:0});
+ issuanceCount:2,returns:[],returnCount:0,
+ orders:[{...base.orders[0],status:'SETTLED',financial_state:'settled',
+   risk_reason:null,financial_reversed_at:null},base.orders[1]]});
 assert.equal(separate.uniqueVoucherCount,2);
 assert.equal(separate.uniqueVoucherFaceCents,1000);
 assert.equal(separate.historicalReusedDiscountCents,0);

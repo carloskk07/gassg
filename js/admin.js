@@ -6143,6 +6143,10 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        !Number.isSafeInteger(r.walletReturnPairCount)||
        r.walletReturnPairCount!==r.returnCount||
        r.walletReturnNetCents!==0||
+       r.cashbackReleaseCoverage!=='bounded_complete'||
+       !Number.isSafeInteger(r.cashbackReleaseCount)||
+       r.cashbackReleaseCount!==r.returnCount||
+       r.unmatchedCashbackReleaseCount!==0||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
          !uuid.test(String(x.voucherId||''))||
@@ -6763,6 +6767,10 @@ function adminClubeFinanceView(){
               esc(historyResult.walletReturnPairCount)+
               ' devolução(ões), com reserva compensatória total e saldo líquido liberado '+
               'de R$ '+esc((historyResult.walletReturnNetCents/100).toFixed(2))+
+              '. Liberações totais de cashback nos pedidos conferidos: '+
+              esc(historyResult.cashbackReleaseCount)+
+              '; créditos adicionais não conciliados: '+
+              esc(historyResult.unmatchedCashbackReleaseCount)+
               '. Essa conferência interna não comprova crédito bancário.</p>'+
             historyResult.entries.map(row=>
               '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+
