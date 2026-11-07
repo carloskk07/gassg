@@ -9,7 +9,7 @@ const contract=read('supabase/migrations/20261016030000_ads_sales_planning_v1_30
 const section=read('js/ads-planner.js');
 assert.match(growth,/function tamaoAdsPlannerLoad\(\)/);
 assert.match(growth,/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
-assert.match(growth,/new URL\('ads-planner\.js',current\)/);
+assert.match(growth,/new URL\('ads-planner\.js'\+\(current\?new URL\(current\)\.search/);
 assert.ok(!growth.includes('TAMAO_ADS_PROPOSED_CPM_CENTS'),
   'CPM planner must not increase initial customer JavaScript budget');
 const sandbox={
