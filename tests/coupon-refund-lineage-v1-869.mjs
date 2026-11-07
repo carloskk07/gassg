@@ -43,13 +43,18 @@ const base={
               use(id.second,'2026-11-06T10:03:01Z')],
  partnerUseCount:2,
  returns:[back(id.first,'2026-11-06T10:01:00Z')],returnCount:1,
- orders:[order(id.first,'CANCELLED'),order(id.second,'SETTLED')]
+ orders:[order(id.first,'CANCELLED'),order(id.second,'SETTLED')],
+ couponFaceCents:500,couponsPerPack:3,issuanceCount:1,
+ issuances:[{id:id.voucher,invoice_id:id.invoice,customer_user_id:id.customer,face_cents:500,ordinal:1}]
 };
 const good=reconcile(base);
 assert.equal(good.applicationCount,2);
 assert.equal(good.partnerUseCount,2);
 assert.equal(good.returnCount,1);
 assert.equal(good.historicalDiscountCents,1000);
+assert.equal(good.uniqueVoucherCount,1);
+assert.equal(good.uniqueVoucherFaceCents,500);
+assert.equal(good.historicalReusedDiscountCents,500);
 assert.equal(good.entries[0].returnDisposition,'reissued');
 assert.equal(good.entries[1].returnRecorded,false);
 for(const flag of ['merchantPayoutVerified','bankCreditVerified',
