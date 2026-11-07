@@ -100,7 +100,8 @@ function tamaoAdsCampaignForm(){
   const mine=s.userId===current&&s.status==='ready'
     ?s.rows.map(c=>'<article class="card flat"><strong>'+esc(String(c.title))+'</strong>'+
       '<p>'+esc(String(c.city))+'/'+esc(String(c.state))+' · '+
-      esc(String(c.status))+' · '+Number(c.reportedViewSignals||0)+' sinais de visibilidade</p>'+
+      esc(String(c.effectiveStatus||c.status))+' · '+Number(c.reportedViewSignals||0)+' sinais de visibilidade</p>'+
+      '<small>Prazo: '+(c.runEndsAt?esc(String(c.runEndsAt).slice(0,10)):'aguardando publicação')+'</small>'+
       '<small>Receita e cobrança: R$ 0,00</small></article>').join(''):'';
   return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+

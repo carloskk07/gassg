@@ -7987,7 +7987,7 @@ Deno.serve(async(req:Request)=>{
       if(String(adminAccess.admin_role||"")!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode autorizar anúncios.",403);
       const decision=String(body.decision||"");
-      if(!["approve","publish","pause","reject","enable_delivery","disable_delivery"].includes(decision))
+      if(!["approve","publish","pause","resume","end","reject","enable_delivery","disable_delivery"].includes(decision))
         throw new DomainError("ADS_INVALID_ACTION","Ação de campanha não permitida.",400);
       const campaign=String(body.campaignId||"");
       const controlAction=decision==="enable_delivery"||decision==="disable_delivery";
