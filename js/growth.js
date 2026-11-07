@@ -193,7 +193,7 @@ function club(){
         <button type="button" class="secondary" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
       </div>
     </div>
-    <aside class="tamao-coupon-price-board" hidden aria-label="Pacote universal de cupons TAMÃO" style="margin:20px 0;padding:20px 22px;border:1px solid #b7dfc5;border-radius:18px;background:linear-gradient(120deg,#eef9ed,#f7fff8);color:#164d35">
+    <aside class="tamao-coupon-price-board" hidden aria-label="Pacote universal de cupons TAMÃO">
       <span class="section-kicker">PACOTE UNIVERSAL · PRODUTOS ELEGÍVEIS</span>
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:10px 0">
         <strong data-coupon-price style="font-size:clamp(26px,5vw,38px);line-height:1.12"></strong>
