@@ -4388,7 +4388,8 @@ Deno.serve(async(req:Request)=>{
         let walletEntries:any[]=[];
         let walletEntryCount=0;
         if(walletIds.length){
-          if(walletIds.length!==rCount*2||walletIds.some(id=>!UUID_RE.test(id))||
+          if(walletIds.length!==returnsResult.data.length*2||
+             walletIds.some(id=>!UUID_RE.test(id))||
              new Set(walletIds).size!==walletIds.length)
             throw new DomainError("COUPON_MERCHANT_HISTORY_WALLET_REFS_INVALID",
               "Os lançamentos vinculados às devoluções são inconsistentes.",409);
