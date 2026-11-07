@@ -179,7 +179,7 @@ clubePaidCouponView.error=String(err?.message||err);
 }
 
 function club(){
-  const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id)&&globalThis.liveRuntime.session.user.is_anonymous!==true);
+  const member=globalThis.__CHAMA_TEST__===true||(globalThis.liveReady?.()===true&&Boolean(globalThis.liveRuntime?.session?.user?.id)&&globalThis.liveRuntime.session.user.is_anonymous!==true&&Boolean(globalThis.liveRuntime.session.user.email_confirmed_at));
   if(globalThis.document&&!globalThis.cshop){
     globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
   }
