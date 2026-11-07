@@ -43,7 +43,8 @@ assert.ok(section.includes("openSponsorContact('visibility',detail)"));
 assert.match(audit,/public_enabled boolean not null default false check\(public_enabled=false\)/);
 assert.match(audit,/billing_enabled boolean not null default false check\(billing_enabled=false\)/);
 assert.match(contract,/'noCharge',true,'adsLive',false/);
-assert.doesNotMatch(section,/fetch\(|\.rpc\(|payment|Pix/i,'planner must not charge or manufacture impressions');
+assert.doesNotMatch(section,/mercadopago|pix_br_code|payment_create|createCharge/i,'no PSP or payable impression in the planning screen');
+assert.match(section,/liveInvoke\('ads-independent'/,'independent campaign requests remain subject to server review');
 
 // Exercise the rendered live estimate and the existing sponsor-contact workflow.
 const values={
