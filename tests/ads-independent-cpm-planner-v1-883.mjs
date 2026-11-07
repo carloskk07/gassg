@@ -20,7 +20,7 @@ const sandbox={
 vm.createContext(sandbox);
 vm.runInContext(section+
  ';this.quote=tamaoAdsBudgetPreview;this.html=tamaoAdsPlannerSection;'+
- 'this.update=tamaoAdsBudgetQuote;this.request=tamaoAdsBudgetRequest;',sandbox);
+ 'this.update=tamaoAdsBudgetQuote;this.request=tamaoAdsBudgetRequest;this.fixedDays=tamaoAdsFixedDays;',sandbox);
 for(const [budget,impressions] of [[1990,1658],[4990,4158],[9990,8325],[19990,16658]]){
  const quote=sandbox.quote(budget);
  assert.equal(quote.maxViewableImpressions,impressions);
@@ -29,6 +29,7 @@ for(const [budget,impressions] of [[1990,1658],[4990,4158],[9990,8325],[19990,16
  assert.equal(quote.inventoryVerified,false);
  assert.equal(quote.guaranteedViews,0);
 }
+for(const [budget,days] of [[1990,7],[4990,15],[9990,30],[19990,30]])assert.equal(sandbox.fixedDays(budget),days);
 for(const bad of [-1,0,1250,2000,Infinity,NaN,'19.90'])assert.equal(sandbox.quote(bad),null);
 const html=sandbox.html();
 for(const label of [
@@ -67,7 +68,8 @@ sandbox.request();
 assert.equal(outbound.kind,'visibility');
 assert.match(outbound.brief,/São Gabriel\/RS/);
 assert.match(outbound.brief,/R\$ 49,90/);
-assert.match(outbound.brief,/30 dias/);
+assert.match(outbound.brief,/15 dias/);
+assert.equal(values['sponsor-cpm-days'].value,'15');
 assert.match(outbound.brief,/não vinculante/);
 assert.match(outbound.brief,/sem promessa de entrega/);
 values['sponsor-cpm-state'].value='NOT_A_STATE';
