@@ -4451,6 +4451,7 @@ Deno.serve(async(req:Request)=>{
             .order("id",{ascending:true}).limit(101);
           if(reserveResult.error)throw reserveResult.error;
           if(!Array.isArray(reserveResult.data)||
+             typeof reserveResult.count!=="number"||
              !Number.isSafeInteger(reserveResult.count)||
              reserveResult.count<0||reserveResult.count>100||
              reserveResult.data.length!==reserveResult.count)
