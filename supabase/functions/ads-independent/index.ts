@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
+import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
 
 // V1.884. Advertising intake/delivery; viewability signals are explicitly
 // NOT independent invoice evidence. No PSP calls or payable balances.
@@ -69,21 +70,16 @@ Deno.serve(async(req:Request)=>{
     return respond({error:"CONTENT_TYPE_INVALID"},415,origin);
   if(!SECRET||!PUBLISHABLE||!URL_BASE)return respond({error:"ADS_SERVICE_UNAVAILABLE"},503,origin);
   try{
-    const raw=await req.text();
-    if(raw.length>9000)return respond({error:"BODY_TOO_LARGE"},413,origin);
-    let body:any;
-    try{body=JSON.parse(raw)}catch{return respond({error:"INVALID_JSON"},400,origin)}
-    if(!body||typeof body!=="object"||Array.isArray(body))
-      return respond({error:"INVALID_BODY"},400,origin);
+    const body:any=await readJsonBody(req,{maxBytes:9000});
     const action=String(body.action||"").trim();
-    const db=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
+    const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
     if(action==="serve"){
       const city=clean(body.city,100),state=clean(body.state,2).toUpperCase();
       if(city.length<2||!/^[A-Z]{2}$/.test(state))return respond({
         source:"ads_independent_issue_v1_884",slot:null,noCharge:true,billingEnabled:false
       },200,origin);
       const viewerHash=await hashViewer(req);
-      const {data,error}=await db.rpc("ads_independent_issue_v1_884",{
+      const {data,error}=await admin.rpc("ads_independent_issue_v1_884",{
         p_city:city,p_state:state,p_viewer_hash:viewerHash
       });
       if(error)throw error;
@@ -100,7 +96,7 @@ Deno.serve(async(req:Request)=>{
         visibleMs<1000||visibleMs>60000||visiblePercent<50||visiblePercent>100)
         return respond({countedForDiagnostics:false,billable:false,reason:"invalid_claim"},200,origin);
       const viewerHash=await hashViewer(req);
-      const {data,error}=await db.rpc("ads_independent_confirm_v1_884",{
+      const {data,error}=await admin.rpc("ads_independent_confirm_v1_884",{
         p_token:challenge,p_viewer_hash:viewerHash,
         p_visible_ms:visibleMs,p_visible_percent:visiblePercent
       });
@@ -113,8 +109,11 @@ Deno.serve(async(req:Request)=>{
       const user=await sessionUser(req);
       if(!user)return respond({error:"VERIFIED_EMAIL_REQUIRED",
         message:"Entre com um e-mail confirmado para gerenciar campanhas."},401,origin);
+      await enforceApiQuota(admin,{userId:user.id,
+        actionName:action==="mine"?"ads-independent-status":"ads-independent-submit",
+        limit:action==="mine"?30:15,windowSeconds:3600});
       if(action==="mine"){
-        const {data,error}=await db.rpc("ads_independent_mine_v1_884",{p_owner:user.id});
+        const {data,error}=await admin.rpc("ads_independent_mine_v1_884",{p_owner:user.id});
         if(error)throw error;
         if(data?.source!=="ads_independent_mine_v1_884"||data?.noCharge!==true)
           throw Error("ADS_PRIVATE_STATUS_UNVERIFIED");
@@ -133,7 +132,7 @@ Deno.serve(async(req:Request)=>{
         return respond({error:"CAMPAIGN_INVALID",
           message:"Revise empresa, mensagem, cidade, link HTTPS, prazo e orçamento."},400,origin);
       const {count,countError}=await (async()=>{
-        const r=await db.from("ads_independent_campaigns_v1_884")
+        const r=await admin.from("ads_independent_campaigns_v1_884")
           .select("id",{count:"exact",head:true})
           .eq("owner_user_id",user.id)
           .gte("created_at",new Date(Date.now()-24*60*60*1000).toISOString());
@@ -142,12 +141,12 @@ Deno.serve(async(req:Request)=>{
       if(countError)throw countError;
       // Replays are still accepted by DB only when the signature matches.
       if(Number(count??0)>=5){
-        const {data:prior,error:priorErr}=await db.from("ads_independent_campaigns_v1_884")
+        const {data:prior,error:priorErr}=await admin.from("ads_independent_campaigns_v1_884")
           .select("request_id").eq("request_id",requestId).eq("owner_user_id",user.id).maybeSingle();
         if(priorErr)throw priorErr;
         if(!prior)return respond({error:"ADS_REQUEST_LIMIT"},429,origin);
       }
-      const {data,error}=await db.rpc("ads_independent_submit_v1_884",{
+      const {data,error}=await admin.rpc("ads_independent_submit_v1_884",{
         p_owner:user.id,p_request:requestId,p_advertiser:business,p_title:title,
         p_description:description,p_city:city,p_state:state,p_destination:destination,
         p_budget_cents:budget,p_duration_days:days
@@ -165,6 +164,7 @@ Deno.serve(async(req:Request)=>{
     }
     return respond({error:"UNKNOWN_ACTION"},400,origin);
   }catch(error){
+    if(error instanceof DomainError)return respond({error:error.code,message:error.message},error.status,origin);
     console.error("ads-independent service",error instanceof Error?error.message:String(error));
     return respond({error:"ADS_SERVICE_FAILED",message:"Tente novamente mais tarde."},503,origin);
   }
