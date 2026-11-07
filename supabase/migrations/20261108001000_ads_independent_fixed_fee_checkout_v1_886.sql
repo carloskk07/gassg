@@ -17,6 +17,8 @@ CREATE TABLE public.ads_independent_checkouts_v1_886(
  external_reference text NOT NULL UNIQUE
    CHECK(external_reference ~ '^tamao-ads-ind-[0-9a-f]{32}$'),
  amount_cents integer NOT NULL CHECK(amount_cents IN (1990,4990,9990,19990)),
+ terms_version integer NOT NULL DEFAULT 1 CHECK(terms_version=1),
+ terms_accepted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  duration_days integer NOT NULL CHECK(duration_days IN (7,15,30)),
  status text NOT NULL DEFAULT 'reserved' CHECK(status IN
    ('reserved','checkout_ready','payment_approved','payment_reversed','review_required')),
@@ -172,7 +174,8 @@ BEGIN
  ON CONFLICT(event_key) DO NOTHING;
  GET DIAGNOSTICS v_recorded = ROW_COUNT;
  IF v_recorded=0 THEN RETURN jsonb_build_object('source','ads_independent_payment_fact_v1_886',
-  'recorded',false,'paymentApproved',v.status='payment_approved','status',v.status);END IF;
+  'recorded',false,'paymentApproved',v.status='payment_approved','status',v.status,
+   'autoPublished',false,'netSettlementVerified',false);END IF;
  v_outcome:=CASE
    WHEN p_provider_status='approved' AND p_status_detail='accredited' THEN 'approved'
    WHEN p_provider_status IN ('refunded','charged_back')
@@ -267,6 +270,7 @@ BEGIN
   'deliveryEnabled',coalesce(v_enabled,false),'billingEnabled',false,'revenueCents',0,
   'independentlyAuditedImpressions',0,'readOnly',true,
   'fixedFeeSalesEnabled',(SELECT sales_enabled FROM public.ads_independent_sales_controls_v1_886 WHERE singleton),
+  'fixedFeeSalesVersion',(SELECT version FROM public.ads_independent_sales_controls_v1_886 WHERE singleton),
   'providerApprovedGrossCents',coalesce((SELECT sum(amount_cents) FROM public.ads_independent_checkouts_v1_886 WHERE status='payment_approved'),0),
   'rows',coalesce((
    SELECT jsonb_agg(jsonb_build_object(
