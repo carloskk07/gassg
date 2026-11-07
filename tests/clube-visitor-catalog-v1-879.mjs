@@ -18,6 +18,20 @@ const context={
 };
 vm.runInNewContext(guestCode+'\nthis.clubGuest=club;',context);
 const html=context.clubGuest();
+context.globalThis.liveReady=()=>true;
+context.globalThis.liveRuntime={session:{user:{id:'anonymous-visitor',is_anonymous:true}}};
+const anonymousHtml=context.clubGuest();
+assert.match(anonymousHtml,/class="tamao-coupon-price-board card form-stack"/,
+ 'Supabase anonymous sessions cannot be treated as buyers');
+assert.match(anonymousHtml,/E-mail para acessar os cupons/,
+ 'Anonymous visitors must retain account upgrade entry point');
+context.globalThis.liveRuntime={session:{user:{id:'registered-client',email:'comprador@example.com',is_anonymous:false}}};
+assert.equal(context.clubGuest(),'',
+ 'Registered clients use the private Club and coupon checkout rather than the public upgrade form');
+context.globalThis.liveRuntime={session:{user:{id:'unready',is_anonymous:true}}};
+context.globalThis.liveReady=()=>false;
+assert.match(context.clubGuest(),/E-mail para acessar os cupons/,
+ 'Anonymous state remains public while restoring Auth');
 assert.match(html,/class="tamao-coupon-price-board card form-stack"/);
 for(const field of ['data-coupon-price','data-coupon-face','data-coupon-minimum','data-coupon-availability'])
  assert.ok(html.includes(field),field+' must be populated from public catalog');
