@@ -99,13 +99,18 @@ jobs:
         run: node scripts/build-owner-browser-demo.mjs _site
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      # A retry is a NEW attempt of the SAME run. Keep its Pages artifact
+      # distinct from older attempts so deploy-pages cannot see duplicates.
       - name: Upload demo only
         uses: actions/upload-pages-artifact@v4
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: _site
       - name: Deploy demo (never TAMÃO production)
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Verify published link via public HTTP
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
