@@ -53,13 +53,18 @@ function adminAdsIndependentSection(){
   if(!canAct)return '';
   const status=String(c.status||'');
   const version=Number(c.version)||0;
+  const endsAt=Date.parse(String(c.runEndsAt||''));
+  const expired=Number.isFinite(endsAt)&&endsAt<=Date.now();
   const id=String(c.id||'');
   const b=(action,label)=>'<button type="button" class="secondary small" '+
     'onclick="adminIndependentAdsAction(\''+action+'\',\''+id+'\','+version+')" '+
     (adminIndependentAdsBusy?'disabled':'')+'>'+label+'</button>';
   const buttons=status==='submitted'?b('approve','Aprovar criativo')+b('reject','Rejeitar'):
     status==='approved'&&delivery?b('publish','Iniciar publicação'):
-    status==='active'?b('pause','Pausar campanha'):'';
+    status==='active'?(expired?b('end','Encerrar campanha expirada'):
+      b('pause','Pausar campanha')+b('end','Encerrar definitivamente')):
+    status==='paused'?((delivery&&!expired?b('resume','Retomar campanha'):'')+
+      b('end','Encerrar definitivamente')):'';
   if(!buttons&&status!=='approved')return '';
   return '<label for="independent-ads-reason-'+id+'">Justificativa</label>'+
    '<textarea id="independent-ads-reason-'+id+'" rows="2" class="input" maxlength="500" '+
@@ -69,7 +74,7 @@ function adminAdsIndependentSection(){
  const rows=v?.rows?.map(c=>
   '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+' · '+esc(String(c.title||''))+'</strong>'+
   '<p>'+esc(String(c.city||''))+'/'+esc(String(c.state||''))+
-  ' · '+esc(String(c.status||''))+' · Versão '+Number(c.version||0)+'</p>'+
+  ' · '+esc(String(c.effectiveStatus||c.status||''))+' · Versão '+Number(c.version||0)+'</p>'+
   '<p>'+esc(String(c.description||''))+'</p>'+
   '<small>Destino: '+esc(String(c.destination||''))+'</small>'+
   '<p>Prazo original: '+(c.runEndsAt?esc(String(c.runEndsAt).slice(0,10)):'aguardando início')+
