@@ -128,7 +128,7 @@ function tamaoAdsCampaignForm(){
         bought==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
         bought==='checkout_ready'?'Pagamento ainda não confirmado.':'';
       const checkPayment=bought&&bought!=='payment_reversed'?
-        '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\\''+id+'\\')">'+
+        '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\''+id+'\')">'+
         'Verificar pagamento</button>':'';
       const buy=canBuy?'<div class="card flat">'+
         '<p><strong>Veiculação por prazo fixo:</strong> '+tamaoAdsFormatMoney(fee)+
