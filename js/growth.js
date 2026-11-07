@@ -19,6 +19,8 @@ return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 }
 
 
+// V1.365: accessible, local jumps keep visitors on their chosen public page.
+// Whitelist prevents arbitrary DOM selectors or external navigation.
 function publicLandingJump(sectionId){
 if(!['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
 const section=document.getElementById(sectionId);
@@ -28,6 +30,8 @@ section.focus({preventScroll:true});
 return true;
 }
 
+// Paid coupons share the customer's authenticated Supabase session.
+// Club purchase buttons live in deferred catalog; wallet is read-only.
 const clubePaidCouponView={
 userId:null,status:'idle',purchases:[],vouchers:[],error:null,
 checkoutEnabled:false
@@ -668,7 +672,12 @@ async function shareReferral(){
   }
 }
 
+// V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
+// V1.301 — send partnership interest into the existing protected contact channel,
+// without new storage, third-party redirects or a fake sponsor activation.
 function openSponsorContact(format='general',quoteBrief=''){
+  // Carry only the visitor's public contact intent for anonymous page metrics.
+  // No campaign is activated and no identity is included in analytics.
   globalThis.tamaoPublicContactAudience='merchant';
   const messages={
     general:'Tenho interesse em uma parceria de divulgação com o TAMÃO. Gostaria de conversar sobre minha região, categorias e formatos disponíveis.',
@@ -702,17 +711,6 @@ function tamaoAdsPlannerLoad(){
   document.head.append(s);
 }
 
-function tamaoAdsHomeLoad(){
- if(typeof rememberedMarketRegion!=='function'||!rememberedMarketRegion())return '';
- if(!globalThis.tamaoAdsHomeScript){
-  globalThis.tamaoAdsHomeScript=true;
-  const t=document.createElement('script'),u=document.querySelector('script[src*="growth.js"]')?.src||location.href;
-  t.src=new URL('ads-display.js'+new URL(u).search,u).href;
-  t.onload=()=>globalThis.tamaoAdsDisplayHome?.();
-  document.head.append(t);
- }else setTimeout(()=>globalThis.tamaoAdsDisplayHome?.(),0);
- return '<section id="tamao-ads-home-slot"></section>';
-}
 
 function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
