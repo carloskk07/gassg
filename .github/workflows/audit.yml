@@ -243,6 +243,8 @@ jobs:
         run: node tests/coupon-refund-seed-provenance-v1-876.mjs
       - name: V1.877 cross-wallet canonical seed keys and unused voucher guard
         run: node tests/coupon-refund-canonical-seed-coverage-v1-877.mjs
+      - name: V1.878 seed PSP invoice identity and verified net chronology
+        run: node tests/coupon-refund-invoice-psp-seed-v1-878.mjs
       - name: V1.872 Pages demo artifact attempt collision regression
         run: node tests/demo-pages-attempt-artifact-v1-872.mjs
       - name: Admin disabled coupon draft and atomic audit gate

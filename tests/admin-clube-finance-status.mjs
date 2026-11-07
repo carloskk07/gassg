@@ -389,6 +389,7 @@ historyPayload={
  unmatchedCouponSeedCount:0,
  canonicalSeedCoverage:'bounded_complete',canonicalSeedCount:2,
  unmatchedCanonicalSeedCount:0,
+ invoicePaymentProvenance:'bounded_complete',verifiedPaymentSeedCount:2,
  nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
  bankCreditVerified:false,refundClosureAuthorized:false,
  caseClosed:false,moneyMoved:false,checkedAt:'2026-11-06T23:56:00Z',

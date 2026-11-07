@@ -6161,6 +6161,10 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        !Number.isSafeInteger(r.canonicalSeedCount)||
        r.canonicalSeedCount!==r.couponSeedCount||
        r.unmatchedCanonicalSeedCount!==0||
+       r.invoicePaymentProvenance!=='bounded_complete'||
+       !Number.isSafeInteger(r.verifiedPaymentSeedCount)||
+       r.verifiedPaymentSeedCount!==(r.fundingModel==='partner_funded'
+         ?r.applicationCount:0)||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
          !uuid.test(String(x.voucherId||''))||
@@ -6798,6 +6802,8 @@ function adminClubeFinanceView(){
               esc(historyResult.canonicalSeedCount)+
               '; créditos canônicos sem conciliação: '+
               esc(historyResult.unmatchedCanonicalSeedCount)+
+              '. Créditos conferidos contra comprovantes internos da fatura: '+
+              esc(historyResult.verifiedPaymentSeedCount)+
               '. Essa conferência interna não comprova crédito bancário.</p>'+
             historyResult.entries.map(row=>
               '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+
