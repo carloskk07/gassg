@@ -46,7 +46,23 @@ export function withWalletEvidence(state){
   // Deterministic synthetic seeds for EVERY applied partner-funded coupon,
   // including successive redemptions of the same voucher after reissue.
   // Never write to the live wallet or mask explicit invalid references.
-  const apps=(state.applications??[]).map(a=>({...a}));
+  // Valid synthetic invoice receipt anchors. Explicitly supplied invalid
+  // metadata/fields remain untouched for negative provenance tests.
+  const invoicePayment=Object.prototype.hasOwnProperty.call(state,'invoicePayment')
+    ?state.invoicePayment:{
+      providerOrderId:'synthetic-psp-order-123',
+      providerPaymentId:'synthetic-psp-payment-456',
+      netProceedsReference:'synthetic-net-receipt-789',
+      paidAt:'2026-11-06T09:58:00Z',
+      netProceedsVerifiedAt:'2026-11-06T09:59:00Z'
+    };
+  const apps=(state.applications??[]).map(a=>{
+    const copy={...a};
+    if(state.fundingMode==='partner_funded'&&
+       !Object.prototype.hasOwnProperty.call(copy,'net_proceeds_reference'))
+      copy.net_proceeds_reference=invoicePayment?.netProceedsReference;
+    return copy;
+  });
   const ordinalByVoucher=new Map();
   const positions=apps.map((a,i)=>({a,i})).sort((x,y)=>
     String(x.a.applied_at).localeCompare(String(y.a.applied_at))||
@@ -64,7 +80,10 @@ export function withWalletEvidence(state){
       idempotency_key:'clube-paid-coupon:'+a.voucher_id+
         (ordinal?':return:'+ordinal:''),
       metadata:{source:'mercadopago_paid_coupon',
-        voucherId:a.voucher_id,invoiceId:a.invoice_id},
+        voucherId:a.voucher_id,invoiceId:a.invoice_id,
+        providerOrderId:invoicePayment?.providerOrderId,
+        providerPaymentId:invoicePayment?.providerPaymentId,
+        netProceedsReference:invoicePayment?.netProceedsReference},
       created_at:a.applied_at
     });
   }
@@ -75,7 +94,7 @@ export function withWalletEvidence(state){
   const canonicalSeedEntries=Object.prototype.hasOwnProperty.call(state,'canonicalSeedEntries')
     ?state.canonicalSeedEntries:generatedSeeds;
   return {...state,
-    applications:apps,walletEntries:allWallet,
+    invoicePayment,applications:apps,walletEntries:allWallet,
     seedEntries,seedEntryCount:Object.prototype.hasOwnProperty.call(state,'seedEntryCount')
       ?state.seedEntryCount:seedEntries?.length,
     canonicalSeedEntries,
