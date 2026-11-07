@@ -127,6 +127,9 @@ function tamaoAdsCampaignForm(){
         bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
         bought==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
         bought==='checkout_ready'?'Pagamento ainda não confirmado.':'';
+      const checkPayment=bought&&bought!=='payment_reversed'?
+        '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\\''+id+'\\')">'+
+        'Verificar pagamento</button>':'';
       const buy=canBuy?'<div class="card flat">'+
         '<p><strong>Veiculação por prazo fixo:</strong> '+tamaoAdsFormatMoney(fee)+
         ' por '+days+' dias, nesta cidade. Não há garantia de visualizações e não é cobrança por CPM.</p>'+
@@ -142,7 +145,7 @@ function tamaoAdsCampaignForm(){
         '<p>Preço cadastrado: '+tamaoAdsFormatMoney(fee)+' por '+days+' dias</p>'+
         (payment?'<p role="status">'+esc(payment)+'</p>':'')+
         '<small>Impressões faturáveis por CPM: 0. Receita exibida ao anunciante: não se aplica.</small>'+
-        buy+'</article>';
+        buy+checkPayment+'</article>';
     }).join(''):'';
   return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+
@@ -250,6 +253,34 @@ async function tamaoAdsBuyCampaign(campaignId){
  }catch(error){
   tamaoAdsPurchaseScriptPromise=null;
   toast(String(error?.message||'Falha ao iniciar pagamento.'));
+ }finally{tamaoAdsPurchaseBusy=false}
+}
+
+async function tamaoAdsVerifyPayment(campaignId){
+ if(tamaoAdsPurchaseBusy)return;
+ if(!tamaoAdsAccountVerified())return toast('Entre na conta antes de consultar.');
+ tamaoAdsPurchaseBusy=true;
+ try{
+  if(typeof globalThis.tamaoAdsReconcileCampaign!=='function'){
+   if(!tamaoAdsPurchaseScriptPromise){
+    const src=document.querySelector('script[src*="ads-planner.js"]')?.src||location.origin+'/js/ads-planner.js';
+    tamaoAdsPurchaseScriptPromise=new Promise((resolve,reject)=>{
+     const script=document.createElement('script');
+     script.src=new URL('ads-independent-purchase.js'+new URL(src).search,src).href;
+     script.onload=resolve;
+     script.onerror=()=>reject(Error('Falha ao carregar a consulta de pagamento.'));
+     document.head.append(script);
+    });
+   }
+   await tamaoAdsPurchaseScriptPromise;
+  }
+  if(typeof globalThis.tamaoAdsReconcileCampaign!=='function')
+   throw Error('Consulta de pagamento não disponível.');
+  await globalThis.tamaoAdsReconcileCampaign(campaignId);
+  await tamaoAdsMyRefresh({quiet:true});
+ }catch(e){
+  tamaoAdsPurchaseScriptPromise=null;
+  toast(String(e?.message||'Não foi possível conferir o pagamento.'));
  }finally{tamaoAdsPurchaseBusy=false}
 }
 
