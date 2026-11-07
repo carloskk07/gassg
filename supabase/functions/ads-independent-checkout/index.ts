@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
-import {mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl} from "../_shared/mercadopago.js";
+import {mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents} from "../_shared/mercadopago.js";
 
 // V1.886: fixed-duration sponsored slot purchase. No browser view is billable.
 // Reuses ONLY platform-owned Ads credentials, NEVER merchant/payment OAuth.
@@ -58,6 +58,64 @@ async function sessionUser(req:Request){
  if(error||!data.user||data.user.is_anonymous===true||!data.user.email_confirmed_at)return null;
  return data.user;
 }
+async function reconcileProviderPayment(admin:any,ownerId:string,campaignId:string,
+ token:string,sellerId:string,origin:string|null){
+ const {data:checkout,error:checkoutErr}=await admin.from("ads_independent_checkouts_v1_886")
+  .select("external_reference,amount_cents,status,payment_id")
+  .eq("campaign_id",campaignId).eq("owner_user_id",ownerId).maybeSingle();
+ if(checkoutErr)throw checkoutErr;
+ if(!checkout)return json({error:"ADS_CHECKOUT_NOT_FOUND"},404,origin);
+ if(checkout.status==="reserved")return json({
+  source:"ads_independent_reconcile_v1_886",status:"reserved",paymentApproved:false
+ },200,origin);
+ const reference=String(checkout.external_reference||"");
+ if(!/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference))
+  throw Error("ADS_PAYMENT_REFERENCE_INVALID");
+ const search=await mercadoPagoFetch("/v1/payments/search?external_reference="+
+   encodeURIComponent(reference)+"&limit=10",{accessToken:token});
+ if(!search.ok)throw Error("ADS_PROVIDER_SEARCH_FAILED");
+ const listing:any=await readMercadoPagoJson(search);
+ const matches=(Array.isArray(listing?.results)?listing.results:[]).filter((p:any)=>
+  String(p?.external_reference||"")===reference&&/^[0-9]{5,30}$/.test(String(p?.id||""))
+ );
+ // A count >1 needs manual reconciliation: never guess which payment to approve.
+ if(matches.length>1)return json({error:"ADS_MULTIPLE_PAYMENTS_REVIEW_REQUIRED",
+  message:"Há mais de um pagamento associado à campanha. O financeiro precisa conferir."},409,origin);
+ if(matches.length===0)return json({
+  source:"ads_independent_reconcile_v1_886",status:checkout.status,
+  paymentApproved:checkout.status==="payment_approved",providerFound:false
+ },200,origin);
+ const paymentId=String(matches[0].id);
+ const resp=await mercadoPagoFetch("/v1/payments/"+paymentId,{accessToken:token});
+ if(!resp.ok)throw Error("ADS_PROVIDER_PAYMENT_LOOKUP_FAILED");
+ const p:any=await readMercadoPagoJson(resp);
+ const amount=moneyToCents(p?.transaction_amount);
+ const collector=String(p?.collector_id??p?.collector?.id??"");
+ const status=String(p?.status??"");
+ const detail=String(p?.status_detail??"");
+ if(String(p?.id)!==paymentId||p?.live_mode!==true||
+   String(p?.external_reference||"")!==reference||collector!==sellerId||
+   amount!==checkout.amount_cents||p?.currency_id!=="BRL"||
+   !["approved","refunded","charged_back","cancelled","rejected","pending","in_process"].includes(status)||
+   detail.length>120)
+   throw new DomainError("ADS_PAYMENT_EVIDENCE_MISMATCH",
+    "O provedor não confirmou o pagamento correspondente a esta campanha.",409);
+ const basis="adsind886-reconcile|"+paymentId+"|"+status+"|"+detail;
+ const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(basis));
+ const eventKey=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const {data,error}=await admin.rpc("ads_independent_payment_fact_v1_886",{
+  p_event_key:eventKey,p_external_reference:reference,p_payment_id:paymentId,
+  p_collector_id:collector,p_amount_cents:amount,p_currency:"BRL",
+  p_provider_status:status,p_status_detail:detail||null,p_live_mode:true
+ });
+ if(error)throw error;
+ if(data?.source!=="ads_independent_payment_fact_v1_886"||
+   data?.autoPublished!==false||data?.netSettlementVerified!==false)
+   throw Error("ADS_PAYMENT_READBACK_INVALID");
+ return json({source:"ads_independent_reconcile_v1_886",status:data.status,
+   paymentApproved:data.paymentApproved===true,providerFound:true,
+   netSettlementVerified:false,autoPublished:false},200,origin);
+}
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
  if(!origin||!ORIGINS.has(origin))return json({error:"ORIGIN_DENIED"},403,origin);
@@ -68,18 +126,23 @@ Deno.serve(async(req:Request)=>{
  if(!URL_BASE||!PUB||!SECRET)return json({error:"ADS_SERVICE_NOT_CONFIGURED"},503,origin);
  try{
   const body:any=await readJsonBody(req,{maxBytes:4000});
-  if(body.action!=="purchase")return json({error:"UNKNOWN_ACTION"},400,origin);
-  if(body.acceptFixedFee!==true)return json({error:"FIXED_FEE_CONSENT_REQUIRED"},400,origin);
+  if(!["purchase","reconcile"].includes(body.action))return json({error:"UNKNOWN_ACTION"},400,origin);
   const campaignId=String(body.campaignId||""),requestId=String(body.requestId||"");
-  if(!UUID.test(campaignId)||!UUID.test(requestId))
+  if(!UUID.test(campaignId)||(body.action==="purchase"&&!UUID.test(requestId)))
    return json({error:"INVALID_PURCHASE_REQUEST"},400,origin);
+  if(body.action==="purchase"&&body.acceptFixedFee!==true)
+   return json({error:"FIXED_FEE_CONSENT_REQUIRED"},400,origin);
   const user=await sessionUser(req);
   if(!user)return json({error:"VERIFIED_EMAIL_REQUIRED"},401,origin);
   const {token,sellerId}=creds(); // Fail closed BEFORE creating any reservation.
   await verifySeller(token,sellerId); // Prevent charging against the wrong seller account.
   const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
-  await enforceApiQuota(admin,{userId:user.id,actionName:"ads-independent-fixed-fee-purchase",
+  await enforceApiQuota(admin,{userId:user.id,
+   actionName:body.action==="purchase"?"ads-independent-fixed-fee-purchase":"ads-independent-payment-reconcile",
    limit:8,windowSeconds:3600});
+  if(body.action==="reconcile"){
+   return await reconcileProviderPayment(admin,user.id,campaignId,token,sellerId,origin);
+  }
   const {data:reserved,error:reserveError}=await admin.rpc("ads_independent_checkout_reserve_v1_886",{
    p_owner:user.id,p_campaign:campaignId,p_request:requestId
   });
