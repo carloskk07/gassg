@@ -705,7 +705,7 @@ function tamaoAdsPlannerLoad(){
   globalThis.tamaoAdsLoading=true;
   const s=document.createElement('script');
   const current=document.querySelector('script[src*="growth.js"]')?.src;
-  s.src='./js/ads-planner.js'+(current?new URL(current).search:'');
+  s.src=new URL('ads-planner.js'+(current?new URL(current).search:''),current||location.origin+'/js/growth.js').href;
   s.onload=()=>{if(route()==='sponsors')render()};
   s.onerror=()=>{globalThis.tamaoAdsLoading=false};
   document.head.append(s);
@@ -741,7 +741,7 @@ function sponsorsLanding(){
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
         </div>
-        <p>Um jeito de conectar sua marca às escolhas do dia a dia, com formatos e condições definidos em conjunto.</p>
+        <p>Campanhas definidas com sua marca, sem prometer alcance.</p>
       </aside></div>
     </div>
     ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'')}
