@@ -38,6 +38,11 @@ export function withWalletEvidence(state){
   // they never modify or generate any production wallet row.
   const releaseEntries=state.releaseEntries??allWallet.filter(item=>
     item.bucket==='cashback'&&item.entry_type==='cashback_release');
+  // Simulates a separate complete order-wide read. It deliberately includes
+  // ordinary cashback reserves to avoid flagging valid checkout holds.
+  const reserveEntries=Object.prototype.hasOwnProperty.call(state,'reserveEntries')
+    ?state.reserveEntries:allWallet.filter(item=>
+      item.bucket==='cashback'&&item.entry_type==='cashback_reserve');
   return {...state,
     walletEntries:allWallet,
     // Preserve explicit null/invalid values: regression tests must NOT
@@ -46,5 +51,8 @@ export function withWalletEvidence(state){
       ?state.walletEntryCount:allWallet.length,
     releaseEntries,
     releaseEntryCount:Object.prototype.hasOwnProperty.call(state,'releaseEntryCount')
-      ?state.releaseEntryCount:releaseEntries.length};
+      ?state.releaseEntryCount:releaseEntries.length,
+    reserveEntries,
+    reserveEntryCount:Object.prototype.hasOwnProperty.call(state,'reserveEntryCount')
+      ?state.reserveEntryCount:reserveEntries?.length};
 }

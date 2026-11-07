@@ -6147,6 +6147,12 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        !Number.isSafeInteger(r.cashbackReleaseCount)||
        r.cashbackReleaseCount!==r.returnCount||
        r.unmatchedCashbackReleaseCount!==0||
+       r.quarantineHoldCoverage!=='bounded_complete'||
+       !Number.isSafeInteger(r.quarantineHoldCount)||
+       r.quarantineHoldCount!==r.returnCount||
+       r.unmatchedQuarantineHoldCount!==0||
+       !Number.isSafeInteger(r.otherCashbackReserveCount)||
+       r.otherCashbackReserveCount<0||r.otherCashbackReserveCount>100||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
          !uuid.test(String(x.voucherId||''))||
@@ -6771,6 +6777,12 @@ function adminClubeFinanceView(){
               esc(historyResult.cashbackReleaseCount)+
               '; créditos adicionais não conciliados: '+
               esc(historyResult.unmatchedCashbackReleaseCount)+
+              '. Reservas de quarentena conferidas: '+
+              esc(historyResult.quarantineHoldCount)+
+              '; reservas de quarentena não conciliadas: '+
+              esc(historyResult.unmatchedQuarantineHoldCount)+
+              '; outras reservas de cashback nos pedidos: '+
+              esc(historyResult.otherCashbackReserveCount)+
               '. Essa conferência interna não comprova crédito bancário.</p>'+
             historyResult.entries.map(row=>
               '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+

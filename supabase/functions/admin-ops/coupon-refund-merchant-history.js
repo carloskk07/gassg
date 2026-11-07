@@ -4,7 +4,8 @@ export function couponRefundMerchantHistorySummary({
   invoiceId,customerId,fundingMode,applications,applicationCount,
   partnerUses,partnerUseCount,returns,returnCount,orders,
   issuances,issuanceCount,couponFaceCents,couponsPerPack,
-  walletEntries,walletEntryCount,releaseEntries,releaseEntryCount
+  walletEntries,walletEntryCount,releaseEntries,releaseEntryCount,
+  reserveEntries,reserveEntryCount
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -148,6 +149,37 @@ export function couponRefundMerchantHistorySummary({
       reject("UNMATCHED_CASHBACK_RELEASE");
     releaseByOrder.set(released.order_id,released);
   }
+  // #875 The referenced hold may match while another return-quarantine
+  // reserve on the same coupon order silently debits the buyer. Scan ALL
+  // cashback reserves for these orders, including ordinary order reserves,
+  // but require only voucher-return quarantine reserves to match the returns.
+  if(!Number.isSafeInteger(reserveEntryCount)||reserveEntryCount<0||
+     reserveEntryCount>100||!Array.isArray(reserveEntries)||
+     reserveEntries.length!==reserveEntryCount)
+    reject("RESERVE_POPULATION_INCOMPLETE");
+  const expectedHoldIds=new Set(returns.map(back=>
+    String(back?.wallet_hold_entry_id??"")));
+  if(expectedHoldIds.size!==returnCount||
+     [...expectedHoldIds].some(id=>!uuid.test(id)))
+    reject("QUARANTINE_HOLD_REFS_INVALID");
+  const reserveIds=new Set(),quarantineById=new Map();
+  for(const item of reserveEntries){
+    if(!item||!uuid.test(String(item.id??""))||
+       reserveIds.has(item.id)||!byOrder.has(item.order_id)||
+       item.bucket!=="cashback"||item.entry_type!=="cashback_reserve")
+      reject("RESERVE_POPULATION_INVALID");
+    reserveIds.add(item.id);
+    // Include both canonical key and immutable source markers to detect a
+    // mismatched or renamed debit; IDs mentioned by returns are mandatory.
+    const quarantine=expectedHoldIds.has(item.id)||
+      String(item.idempotency_key??"").startsWith("partner-coupon:return-hold:")||
+      item.metadata?.source==="partner_coupon_cancel_quarantine";
+    if(!quarantine)continue;
+    if(!expectedHoldIds.has(item.id))reject("UNMATCHED_QUARANTINE_HOLD");
+    quarantineById.set(item.id,item);
+  }
+  if(quarantineById.size!==returnCount)
+    reject("QUARANTINE_HOLD_MISSING");
   const walletById=new Map();
   for(const item of walletEntries){
     if(!item||!uuid.test(String(item.id??""))||walletById.has(item.id))
@@ -171,10 +203,18 @@ export function couponRefundMerchantHistorySummary({
     const release=walletById.get(back.wallet_release_entry_id);
     const hold=walletById.get(back.wallet_hold_entry_id);
     const populationRelease=releaseByOrder.get(back.order_id);
+    const populationHold=quarantineById.get(back.wallet_hold_entry_id);
     if(!uuid.test(String(back.wallet_release_entry_id??""))||
        !uuid.test(String(back.wallet_hold_entry_id??""))||
        back.wallet_release_entry_id===back.wallet_hold_entry_id||
-       !release||!hold||!populationRelease||
+       !release||!hold||!populationRelease||!populationHold||
+       populationHold.id!==hold.id||
+       populationHold.user_id!==hold.user_id||
+       populationHold.order_id!==hold.order_id||
+       populationHold.amount_cents!==hold.amount_cents||
+       populationHold.idempotency_key!==hold.idempotency_key||
+       populationHold.created_at!==hold.created_at||
+       JSON.stringify(populationHold.metadata)!==JSON.stringify(hold.metadata)||
        populationRelease.id!==release.id||
        populationRelease.user_id!==release.user_id||
        populationRelease.amount_cents!==release.amount_cents||
@@ -267,6 +307,9 @@ export function couponRefundMerchantHistorySummary({
     cashbackReleaseCount:releaseEntryCount,
     cashbackReleaseCoverage:"bounded_complete",
     unmatchedCashbackReleaseCount:0,
+    quarantineHoldCoverage:"bounded_complete",
+    quarantineHoldCount:quarantineById.size,unmatchedQuarantineHoldCount:0,
+    otherCashbackReserveCount:reserveEntryCount-quarantineById.size,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
