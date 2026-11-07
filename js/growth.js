@@ -758,7 +758,7 @@ function sponsorsLanding(){
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">PARCERIA QUE RESPEITA SEU NEGÓCIO</span>
         <h2>Uma parceria feita para gerar valor dos dois lados.</h2>
-        <p>Defina público, cidade e orçamento com clareza.</p></div></div>
+        <p>Defina cidade, público e orçamento.</p></div></div>
       <div class="tamao-journey">
         <div><strong>1. Conhecer seu objetivo</strong><p>Marca, região e objetivo.</p></div>
         <div><strong>2. Construir condições realistas</strong><p>Definir orçamento, prazo, teto e critérios verificáveis.</p></div>
