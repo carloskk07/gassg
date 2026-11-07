@@ -6110,6 +6110,12 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        st.refundHistoryRequestId!==requestId||st.refundHistoryInvoiceId!==invoiceId)return;
     const rows=r?.entries;
     const sum=Array.isArray(rows)?rows.reduce((v,x)=>v+x.discountCents,0):NaN;
+    const distinctVoucherFaces=new Map();
+    if(Array.isArray(rows))for(const row of rows){
+      if(!distinctVoucherFaces.has(row.voucherId))
+        distinctVoucherFaces.set(row.voucherId,row.discountCents);
+    }
+    const uniqueFaceSum=[...distinctVoucherFaces.values()].reduce((a,b)=>a+b,0);
     if(r?.ok!==true||r?.source!=='clube_coupon_merchant_history_v1_868'||
        r.invoiceId!==invoiceId||r.requestId!==requestId||
        r.caseStatus!==inspected.requestStatus||
@@ -6125,8 +6131,18 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        r.returnCount<0||r.returnCount>r.partnerUseCount||
        !Number.isSafeInteger(r.historicalDiscountCents)||
        r.historicalDiscountCents<=0||r.historicalDiscountCents!==sum||
+       !Number.isSafeInteger(r.uniqueVoucherCount)||
+       r.uniqueVoucherCount<1||r.uniqueVoucherCount>r.applicationCount||
+       r.uniqueVoucherCount!==distinctVoucherFaces.size||
+       !Number.isSafeInteger(r.uniqueVoucherFaceCents)||
+       r.uniqueVoucherFaceCents<=0||r.uniqueVoucherFaceCents!==uniqueFaceSum||
+       !Number.isSafeInteger(r.historicalReusedDiscountCents)||
+       r.historicalReusedDiscountCents<0||
+       r.historicalReusedDiscountCents!==r.historicalDiscountCents-r.uniqueVoucherFaceCents||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
+         !uuid.test(String(x.voucherId||''))||
+         distinctVoucherFaces.get(x.voucherId)!==x.discountCents||
          !uuid.test(String(x.merchantId||''))||
          !Number.isSafeInteger(x.discountCents)||x.discountCents<=0||
          !Number.isSafeInteger(x.originalOrderCents)||x.originalOrderCents<0||
@@ -6724,6 +6740,12 @@ function adminClubeFinanceView(){
               esc((historyResult.historicalDiscountCents/100).toFixed(2))+
               ' em '+esc(historyResult.applicationCount)+' pedido(s). '+
               'Este valor não é dívida líquida apurada.</p>'+
+            '<p><strong>Cupons distintos utilizados:</strong> '+esc(historyResult.uniqueVoucherCount)+
+              ' • Valor nominal de cupons distintos: R$ '+
+              esc((historyResult.uniqueVoucherFaceCents/100).toFixed(2))+
+              ' • Reutilizações históricas após devolução: R$ '+
+              esc((historyResult.historicalReusedDiscountCents/100).toFixed(2))+
+              '. Reutilização não significa novo cupom vendido nem dívida adicional.</p>'+
             '<p>Modalidade original: '+
               (historyResult.fundingModel==='partner_funded'
                ?'desconto patrocinado pela revenda':'financiamento pela plataforma')+

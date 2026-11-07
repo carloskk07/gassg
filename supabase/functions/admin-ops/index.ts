@@ -4318,12 +4318,12 @@ Deno.serve(async(req:Request)=>{
       await enforceApiQuota(admin,{userId:user.id,
         actionName:"admin-coupon-refund-merchant-history",limit:8,windowSeconds:3600});
       const snapshot=async()=>{
-        const [requestResult,invoiceResult,applicationsResult,partnerResult,returnsResult]=await Promise.all([
+        const [requestResult,invoiceResult,applicationsResult,partnerResult,returnsResult,issuancesResult]=await Promise.all([
           admin.from("clube_coupon_refund_requests_v1_814")
             .select("invoice_id,request_id,customer_user_id,status")
             .eq("invoice_id",invoiceId).eq("request_id",requestId).maybeSingle(),
           admin.from("clube_coupon_paid_invoices")
-            .select("id,customer_user_id,status,funding_mode_v1_846")
+            .select("id,customer_user_id,status,funding_mode_v1_846,coupon_face_cents,coupons_per_pack")
             .eq("id",invoiceId).maybeSingle(),
           admin.from("clube_coupon_paid_order_applications")
             .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents,applied_at",
@@ -4336,23 +4336,34 @@ Deno.serve(async(req:Request)=>{
           admin.from("clube_partner_coupon_returns_v1_847")
             .select("invoice_id,customer_id,order_id,voucher_id,amount_cents,disposition,cause,recorded_at",
               {count:"exact"}).eq("invoice_id",invoiceId)
-            .order("order_id",{ascending:true}).limit(26)
+            .order("order_id",{ascending:true}).limit(26),
+          admin.from("clube_coupon_paid_issuances")
+            .select("id,invoice_id,customer_user_id,face_cents,ordinal",
+              {count:"exact"}).eq("invoice_id",invoiceId)
+            .order("ordinal",{ascending:true}).limit(16)
         ]);
         const error=requestResult.error||invoiceResult.error||
-          applicationsResult.error||partnerResult.error||returnsResult.error;
+          applicationsResult.error||partnerResult.error||returnsResult.error||issuancesResult.error;
         if(error)throw error;
         const request=requestResult.data,invoice=invoiceResult.data;
         const count=applicationsResult.count,
-          pCount=partnerResult.count,rCount=returnsResult.count;
-        const arrays=[applicationsResult.data,partnerResult.data,returnsResult.data];
+          pCount=partnerResult.count,rCount=returnsResult.count,
+          iCount=issuancesResult.count;
+        const arrays=[applicationsResult.data,partnerResult.data,returnsResult.data,issuancesResult.data];
         if(!request||!invoice||request.invoice_id!==invoiceId||
            request.request_id!==requestId||
            request.customer_user_id!==invoice.customer_user_id||
            invoice.id!==invoiceId||
            !["requested","in_review"].includes(request.status)||
            !["paid","review_required"].includes(invoice.status)||
-           [count,pCount,rCount].some(n=>n===null||!Number.isSafeInteger(n)||n<0||n>25)||
-           arrays.some((x,i)=>!Array.isArray(x)||x.length!==[count,pCount,rCount][i]))
+           [count,pCount,rCount,iCount].some(n=>n===null||!Number.isSafeInteger(n)||n<0||n>25)||
+           arrays.some((x,i)=>!Array.isArray(x)||x.length!==[count,pCount,rCount,iCount][i])||
+           !Number.isSafeInteger(invoice.coupon_face_cents)||
+           invoice.coupon_face_cents<=0||
+           !Number.isSafeInteger(invoice.coupons_per_pack)||
+           invoice.coupons_per_pack<1||invoice.coupons_per_pack>15||
+           typeof iCount!=="number"||!Number.isSafeInteger(iCount)||
+           iCount>invoice.coupons_per_pack)
           throw new DomainError("COUPON_MERCHANT_HISTORY_EVIDENCE_INCOMPLETE",
             "Protocolo, histórico ou natureza da cobrança não verificáveis.",409);
         const orderIds=applicationsResult.data.map((x:any)=>String(x.order_id??""));
@@ -4369,7 +4380,9 @@ Deno.serve(async(req:Request)=>{
         }
         return {request,invoice,applications:applicationsResult.data,
           partnerUses:partnerResult.data,returns:returnsResult.data,
-          orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount};
+          issuances:issuancesResult.data,
+          orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount,
+          issuanceCount:iCount};
       };
       const first=await snapshot();
       let report;
@@ -4379,7 +4392,10 @@ Deno.serve(async(req:Request)=>{
           fundingMode:first.invoice.funding_mode_v1_846??"platform_reimbursed",
           applications:first.applications,applicationCount:first.applicationCount,
           partnerUses:first.partnerUses,partnerUseCount:first.partnerUseCount,
-          returns:first.returns,returnCount:first.returnCount,orders:first.orders
+          returns:first.returns,returnCount:first.returnCount,orders:first.orders,
+          issuances:first.issuances,issuanceCount:first.issuanceCount,
+          couponFaceCents:first.invoice.coupon_face_cents,
+          couponsPerPack:first.invoice.coupons_per_pack
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",
