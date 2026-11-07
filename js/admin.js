@@ -6153,6 +6153,10 @@ async function adminClubeRefundMerchantHistoryInspect(invoiceId,requestId){
        r.unmatchedQuarantineHoldCount!==0||
        !Number.isSafeInteger(r.otherCashbackReserveCount)||
        r.otherCashbackReserveCount<0||r.otherCashbackReserveCount>100||
+       r.couponSeedCoverage!=='bounded_complete'||
+       !Number.isSafeInteger(r.couponSeedCount)||
+       r.couponSeedCount!==(r.fundingModel==='partner_funded'?r.applicationCount:0)||
+       r.unmatchedCouponSeedCount!==0||
        !Array.isArray(rows)||rows.length!==r.applicationCount||
        rows.some(x=>!uuid.test(String(x.orderId||''))||
          !uuid.test(String(x.voucherId||''))||
@@ -6783,6 +6787,9 @@ function adminClubeFinanceView(){
               esc(historyResult.unmatchedQuarantineHoldCount)+
               '; outras reservas de cashback nos pedidos: '+
               esc(historyResult.otherCashbackReserveCount)+
+              '. Origens de créditos dos cupons conferidas: '+
+              esc(historyResult.couponSeedCount)+
+              '; origens sem vínculo: '+esc(historyResult.unmatchedCouponSeedCount)+
               '. Essa conferência interna não comprova crédito bancário.</p>'+
             historyResult.entries.map(row=>
               '<p class="tiny muted">Pedido <code>'+esc(row.orderId)+'</code>'+
