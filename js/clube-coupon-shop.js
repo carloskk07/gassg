@@ -1,3 +1,21 @@
+// Deferred buyer-only auth observer; merchant startup never loads this module.
+let clubeCouponAuthClient=null;
+function clubeCouponWatchAuth(){
+ const rt=globalThis.liveRuntime,c=rt?.client;
+ if(!c||clubeCouponAuthClient===c)return;
+ clubeCouponAuthClient=c;
+ c.auth.onAuthStateChange((_event,next)=>{
+   const prev=rt.session;
+   if(rt.status!=='ready'||!prev?.user?.id||
+      prev.user.id!==next?.user?.id)return;
+   rt.session=next;
+   const eligible=u=>u.is_anonymous!==true&&!!u.email_confirmed_at;
+   if(eligible(prev.user)!==eligible(next.user)&&route()==='club')
+     Promise.resolve().then(()=>{if(rt.session===next)render()});
+ });
+}
+clubeCouponWatchAuth();
+
 // The signed-in buyer sees only packages explicitly released by the server.
 // A failed commercial preflight never manufactures a public offer.
 const clubeCouponShopState={
@@ -483,6 +501,6 @@ async function clubeCouponRefundAsk(invoiceId){
 }
 
 // ESM lazy load: onclick handlers must be available on the customer window.
-Object.assign(globalThis,{clubeCouponShopPanel,clubeCouponShopRefresh,
+Object.assign(globalThis,{clubeCouponWatchAuth,clubeCouponShopPanel,clubeCouponShopRefresh,
   clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,clubeCouponVerifyPostal,
   clubeCouponPurchasesPanel});

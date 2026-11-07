@@ -258,7 +258,7 @@ function customerOriginSafe(){
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
-// Isolate private state on customer account changes.
+// Account isolation.
 function liveForgetAccount(){
   globalThis.customerSupportReplayReset?.();
   // Revoke all older checkout leases, even when Auth is already loading.
@@ -1125,7 +1125,7 @@ async function liveUpgradeAccount(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
   if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
-  if(session.user.is_anonymous!==true){
+  if(session.user.email_confirmed_at){
     state.user.cashEarningEligible=true;
     state.user.identityType='permanent';
     save();

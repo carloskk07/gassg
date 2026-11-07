@@ -38,7 +38,10 @@ assert.match(anonymousHtml,/class="tamao-coupon-price-board card form-stack"/,
  'Supabase anonymous sessions cannot be treated as buyers');
 assert.match(anonymousHtml,/E-mail para acessar os cupons/,
  'Anonymous visitors must retain account upgrade entry point');
-context.globalThis.liveRuntime={session:{user:{id:'registered-client',email:'comprador@example.com',is_anonymous:false}}};
+context.globalThis.liveRuntime={session:{user:{id:'pending-client',email:'comprador@example.com',is_anonymous:false,email_confirmed_at:null}}};
+assert.match(context.clubGuest(),/E-mail para acessar os cupons/,
+ 'Unconfirmed email cannot enter a Pix-enabled Club view');
+context.globalThis.liveRuntime={session:{user:{id:'registered-client',email:'comprador@example.com',is_anonymous:false,email_confirmed_at:'2026-11-07T16:00:00Z'}}};
 assert.equal(context.clubGuest(),'',
  'Registered clients use the private Club and coupon checkout rather than the public upgrade form');
 context.globalThis.liveRuntime={session:{user:{id:'unready',is_anonymous:true}}};
