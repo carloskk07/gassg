@@ -691,9 +691,8 @@ function openSponsorContact(format='general',quoteBrief=''){
     if(type){type.value='sponsor';globalThis.contactKindChanged?.()}
     const message=document.getElementById('public-request-message');
     if(message&&!String(message.value||'').trim()){
-      const intro=messages[Object.prototype.hasOwnProperty.call(messages,format)?format:'general'];
-      const brief=String(quoteBrief||'').trim().slice(0,450);
-      message.value=brief?intro+'\n'+brief:intro;
+      message.value=messages[Object.prototype.hasOwnProperty.call(messages,format)?format:'general']+
+        (quoteBrief?'\n'+String(quoteBrief).trim().slice(0,450):'');
     }
     document.querySelector('.public-contact-card')?.scrollIntoView({behavior:'smooth',block:'start'});
     document.getElementById('public-contact-name')?.focus({preventScroll:true});
@@ -718,7 +717,7 @@ function sponsorsLanding(){
       <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
-      <p class="page-lead">O TAMÃO conecta consumidores e revendas de itens essenciais. Vamos desenhar uma presença patrocinada adequada ao seu público, à sua cidade e ao objetivo da sua campanha.</p>
+      <p class="page-lead">Divulgue sua marca na cidade com orçamento controlado, sem precisar se cadastrar como revenda.</p>
       <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
@@ -729,7 +728,7 @@ function sponsorsLanding(){
         <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação regional identificada</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parcerias para o comércio local</small></span><b aria-hidden="true">↗</b></button>
-        <p>Escolha seu objetivo e envie sua proposta. A equipe TAMÃO cuida dos próximos passos.</p>
+        <p>Escolha seu objetivo e envie sua proposta.</p>
       </div></div>
       <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
         <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>EXEMPLO DE FORMATO</small></div>
@@ -746,7 +745,7 @@ function sponsorsLanding(){
       </aside></div>
     </div>
     ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'')}
-    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia ao formato certo para sua marca.</h2><p>Conheça exemplos de campanhas. Cidade, categoria e investimento são definidos em conversa com o TAMÃO.</p></div>
+    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Cidade e investimento definidos com você, sem promessas de exibição.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três formatos para sua marca ganhar contexto regional. Escolha o seu objetivo e converse com o TAMÃO.</p></div></div>
       <div class="sponsor-format-grid">
