@@ -1,6 +1,18 @@
 // V1.238 — commercial activation: real prospect → application → merchant → Ads.
 let adminCommercialActivationState=null;
 let adminCommercialActivationBusy=false;
+function adminAdsIndependentLoad(){
+ if(globalThis.adminAdsIndependentSection||globalThis.adminAdsIndependentLoading)return;
+ globalThis.adminAdsIndependentLoading=true;
+ const s=document.createElement('script');
+ const current=document.querySelector('script[src*="admin-acquisition.js"]')?.src;
+ s.src=new URL('admin-ads-independent.js'+(current?new URL(current).search:''),
+   current||location.origin+'/js/admin-acquisition.js').href;
+ s.onload=()=>{render();adminIndependentAdsRefresh()};
+ s.onerror=()=>{globalThis.adminAdsIndependentLoading=false};
+ document.head.append(s);
+}
+
 async function adminCommercialActivationLoadFromUi(){
   if(adminCommercialActivationBusy)return;
   const identity=String(adminRuntime?.session?.user?.id||'');
@@ -5547,6 +5559,7 @@ function adminPrelaunchLeadsSection(data){
         ?[adminOwnerFinanceWorkspaceSection(),]
         :[adminOwnerFinanceFallbackView()]),
       adminAdsCampaignSection(),
+      (typeof adminAdsIndependentSection==='function'?adminAdsIndependentSection():(adminAdsIndependentLoad(),'')),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
       adminAdsPlacementSection(),
