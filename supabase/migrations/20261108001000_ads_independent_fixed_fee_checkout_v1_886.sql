@@ -383,10 +383,8 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM public.ads_independent_controls_v1_884
     WHERE singleton AND delivery_enabled)
     OR length(btrim(coalesce(p_city,''))) NOT BETWEEN 2 AND 100
-    OR p_state !~ '^[A-Z]{2}
- OR
-    p_viewer_hash !~ '^[0-9a-f]{64}
-
+    OR p_state !~ '^[A-Z]{2}$' OR
+    p_viewer_hash !~ '^[0-9a-f]{64}$'
  THEN RETURN jsonb_build_object('source','ads_independent_issue_v1_884',
     'slot',null,'billingEnabled',false,'noCharge',true);END IF;
  -- Bound issuance per keyed viewer without storing IP address or user-agent.
@@ -425,8 +423,7 @@ CREATE OR REPLACE FUNCTION public.ads_independent_confirm_v1_884(
 AS $fn$
 DECLARE v_token record;v_c record;v_count integer;
 BEGIN
- IF p_viewer_hash !~ '^[0-9a-f]{64}
-
+ IF p_viewer_hash !~ '^[0-9a-f]{64}$'
    OR p_visible_ms NOT BETWEEN 1000 AND 60000
    OR p_visible_percent NOT BETWEEN 50 AND 100
  THEN RETURN jsonb_build_object('countedForDiagnostics',false,'billable',false,'reason','invalid_claim');END IF;
