@@ -5,7 +5,7 @@ export function couponRefundMerchantHistorySummary({
   partnerUses,partnerUseCount,returns,returnCount,orders,
   issuances,issuanceCount,couponFaceCents,couponsPerPack,
   walletEntries,walletEntryCount,releaseEntries,releaseEntryCount,
-  reserveEntries,reserveEntryCount
+  reserveEntries,reserveEntryCount,seedEntries,seedEntryCount
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -88,6 +88,7 @@ export function couponRefundMerchantHistorySummary({
     byOrder.set(a.order_id,record);entries.push(record);
     const chain=lineageByVoucher.get(a.voucher_id)||[];
     chain.push({orderId:a.order_id,appliedAt:occurredAt(a.applied_at),
+      seedId:a.seed_wallet_entry_id_v1_847??null,
       partnerUsedAt:null,returnedAt:null,returnDisposition:null});
     lineageByVoucher.set(a.voucher_id,chain);
   }
@@ -273,11 +274,52 @@ export function couponRefundMerchantHistorySummary({
     return (original.status==="CANCELLED"||
             original.financial_reversed_at!=null)&&!record.returnRecorded;
   }))reject("REVERSED_ORDER_RETURN_MISSING");
-  for(const chain of lineageByVoucher.values()){
+  // #876 A partner-funded voucher checkout creates a UNIQUE cashback_seed
+  // (order_id NULL) and stores its ID on the immutable application.
+  // The previous history verified returns but never verified those original
+  // funding entries or their reissue sequence.
+  if(!Number.isSafeInteger(seedEntryCount)||seedEntryCount<0||
+     seedEntryCount>25||!Array.isArray(seedEntries)||
+     seedEntries.length!==seedEntryCount||
+     (fundingMode==="partner_funded"&&seedEntryCount!==applicationCount)||
+     (fundingMode==="platform_reimbursed"&&seedEntryCount!==0))
+    reject("SEED_COVERAGE_INCOMPLETE");
+  const seedById=new Map(),verifiedSeeds=new Set();
+  for(const seed of seedEntries){
+    if(!seed||!uuid.test(String(seed.id??""))||
+       seedById.has(seed.id)||seed.bucket!=="cashback"||
+       seed.entry_type!=="cashback_seed")
+      reject("SEED_POPULATION_INVALID");
+    seedById.set(seed.id,seed);
+  }
+  for(const [voucherId,chain] of lineageByVoucher){
     chain.sort((left,right)=>left.appliedAt-right.appliedAt||
       left.orderId.localeCompare(right.orderId));
     if(fundingMode==="platform_reimbursed"&&chain.length>1)
       reject("LEGACY_VOUCHER_REUSE");
+    for(let i=0;i<chain.length;i++){
+      const event=chain[i];
+      if(fundingMode==="platform_reimbursed"){
+        if(event.seedId!==null)reject("LEGACY_UNEXPECTED_SEED");
+        continue;
+      }
+      const seed=seedById.get(event.seedId);
+      const expectedKey="clube-paid-coupon:"+voucherId+
+        (i>0?":return:"+i:"");
+      if(!seed||verifiedSeeds.has(seed.id)||
+         seed.idempotency_key!==expectedKey||
+         seed.user_id!==customerId||seed.order_id!==null||
+         seed.amount_cents!==couponFaceCents||
+         seed.metadata?.source!=="mercadopago_paid_coupon"||
+         seed.metadata?.voucherId!==voucherId||
+         seed.metadata?.invoiceId!==invoiceId||
+         occurredAt(seed.created_at)===null||
+         occurredAt(seed.created_at)>event.appliedAt||
+         (i>0&&(chain[i-1].returnedAt===null||
+                occurredAt(seed.created_at)<chain[i-1].returnedAt)))
+        reject("SEED_PROVENANCE_MISMATCH");
+      verifiedSeeds.add(seed.id);
+    }
     for(let i=1;i<chain.length;i++){
       const prior=chain[i-1],next=chain[i];
       if(prior.returnDisposition!=="reissued"||
@@ -288,6 +330,8 @@ export function couponRefundMerchantHistorySummary({
        event.returnDisposition==="manual_review"))
       reject("REVIEWED_VOUCHER_REUSED");
   }
+  if(verifiedSeeds.size!==seedEntryCount)
+    reject("UNMATCHED_COUPON_SEED");
   const uniqueVoucherCount=lineageByVoucher.size;
   const uniqueVoucherFaceCents=uniqueVoucherCount*couponFaceCents;
   const historicalReusedDiscountCents=discountTotalCents-uniqueVoucherFaceCents;
@@ -310,6 +354,8 @@ export function couponRefundMerchantHistorySummary({
     quarantineHoldCoverage:"bounded_complete",
     quarantineHoldCount:quarantineById.size,unmatchedQuarantineHoldCount:0,
     otherCashbackReserveCount:reserveEntryCount-quarantineById.size,
+    couponSeedCoverage:"bounded_complete",couponSeedCount:verifiedSeeds.size,
+    unmatchedCouponSeedCount:0,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
