@@ -15,6 +15,11 @@ function tamaoAdsFormatMoney(cents){
 }
 function tamaoAdsBudgetQuote(){
   const budget=Number(document.getElementById('sponsor-cpm-budget')?.value);
+  if(tamaoAdsMyState?.fixedFeeSalesEnabled===true){
+    const duration=budget===1990?7:budget===4990?15:30;
+    const selector=document.getElementById('sponsor-cpm-days');
+    if(selector)selector.value=String(duration);
+  }
   const quote=tamaoAdsBudgetPreview(budget);
   const node=document.getElementById('sponsor-cpm-result');
   if(!node)return;
@@ -43,18 +48,23 @@ function tamaoAdsBudgetRequest(){
 }
 function tamaoAdsPlannerSection(){
   const preset=tamaoAdsBudgetPreview(4990);
+  const fixedSales=tamaoAdsMyState?.fixedFeeSalesEnabled===true;
   const options=TAMAO_ADS_PREVIEW_BUDGETS.map(v=>
     '<option value="'+v+'"'+(v===4990?' selected':'')+'>'+tamaoAdsFormatMoney(v)+'</option>').join('');
   return '<section class="section" aria-label="Planejar uma campanha publicitária sem compromisso">'+
     '<div class="section-head"><div><span class="section-kicker">PLANEJE SUA DIVULGAÇÃO</span>'+
-    '<h2>Um orçamento claro, sem pagar por visualizações inventadas.</h2>'+
+    '<h2>'+(fixedSales?'Divulgue sua marca com preço e prazo definidos.':
+      'Um orçamento claro, sem pagar por visualizações inventadas.')+'</h2>'+
     '<p>Publicidade regional é independente de cadastrar uma revenda. Estime seu teto de investimento e peça uma proposta.</p></div></div>'+
     '<div class="card flat form-stack" style="max-width:780px">'+
     '<div class="merchant-kpis"><div class="kpi"><span class="label">CPM em avaliação</span><strong>R$ 12,00</strong><small>por 1.000 visualizações verificadas</small></div>'+
     '<div class="kpi"><span class="label">Cobrança agora</span><strong>R$ 0,00</strong><small>exibições comerciais ainda não habilitadas</small></div></div>'+
     '<div class="field-row">'+
-    '<div class="input-wrap"><label for="sponsor-cpm-budget">Teto de investimento</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
-    '<div class="input-wrap"><label for="sponsor-cpm-days">Prazo desejado</label><select id="sponsor-cpm-days" class="input"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option></select></div></div>'+
+    '<div class="input-wrap"><label for="sponsor-cpm-budget">'+
+       (fixedSales?'Preço fixo do pacote':'Teto de investimento')+'</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
+    '<div class="input-wrap"><label for="sponsor-cpm-days">Prazo desejado</label><select id="sponsor-cpm-days" class="input" '+
+      (fixedSales?'disabled aria-label="Prazo definido pelo pacote"':'')+
+      '><option value="7">7 dias</option><option value="15" '+(fixedSales?'selected':'')+'>15 dias</option><option value="30" '+(!fixedSales?'selected':'')+'>30 dias</option></select></div></div>'+
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-city">Cidade <small>(opcional)</small></label><input id="sponsor-cpm-city" class="input" maxlength="80" autocomplete="address-level2" placeholder="Ex.: São Gabriel"></div>'+
     '<div class="input-wrap"><label for="sponsor-cpm-state">Estado (UF)</label><input id="sponsor-cpm-state" class="input" maxlength="2" value="RS" autocomplete="address-level1" aria-describedby="sponsor-cpm-note"></div></div>'+
@@ -98,6 +108,10 @@ function tamaoAdsCampaignForm(){
       '<input id="sponsor-account-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br">'+
       '<button type="button" class="secondary" onclick="tamaoAdsAccountStart()">Confirmar meu e-mail</button></div></section>';
   const s=tamaoAdsMyState;
+  if(s.status==='idle'&&typeof setTimeout==='function'){
+    s.status='loading';
+    setTimeout(()=>tamaoAdsMyRefresh({quiet:true}),0);
+  }
   const current=String(globalThis.liveRuntime?.session?.user?.id||'');
   const mine=s.userId===current&&s.status==='ready'
     ?s.rows.map(c=>{
@@ -165,13 +179,16 @@ async function tamaoAdsSubmitCampaign(){
     destination=val('sponsor-ad-url');
   const budgetCents=Number(val('sponsor-cpm-budget'));
   const durationDays=Number(val('sponsor-cpm-days'));
+  const allowedFixed=(budgetCents===1990&&durationDays===7)||
+    (budgetCents===4990&&durationDays===15)||
+    (budgetCents===9990&&durationDays===30)||(budgetCents===19990&&durationDays===30);
   const result=document.getElementById('sponsor-ad-result');
   const button=document.getElementById('sponsor-ad-submit');
   if(!document.getElementById('sponsor-ad-terms')?.checked)
     return toast('Confirme que representa a empresa.');
   if(advertiser.length<2||title.length<12||description.length<20||city.length<2||
     !/^[A-Z]{2}$/.test(state)||!/^https:\/\//.test(destination)||!tamaoAdsBudgetPreview(budgetCents)||
-    ![7,15,30].includes(durationDays))
+    ![7,15,30].includes(durationDays)||!allowedFixed)
     return toast('Revise a empresa, título, mensagem, cidade, link HTTPS e orçamento.');
   if(!tamaoAdsDraftRequestId)tamaoAdsDraftRequestId=crypto.randomUUID();
   tamaoAdsDraftBusy=true;
