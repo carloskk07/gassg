@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {returnWalletRefs,withWalletEvidence} from './refund-wallet-fixture-v1-871.mjs';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const source=read('supabase/functions/admin-ops/coupon-refund-merchant-history.js');
 const ctx=vm.createContext({Map,Set,Error,Number,String,Array,JSON});
 new vm.Script(source.replace('export function couponRefundMerchantHistorySummary',
   'function couponRefundMerchantHistorySummary')+
   '\nthis.summarize=couponRefundMerchantHistorySummary;').runInContext(ctx);
-const summarize=ctx.summarize;
+const summarize=state=>ctx.summarize(withWalletEvidence(state));
 const id={
  invoice:'66666666-6666-4666-8666-666666666666',
  customer:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -30,9 +31,9 @@ const partnerUse={
 const returned={invoice_id:id.invoice,customer_id:id.customer,
  order_id:id.order,voucher_id:id.voucher,amount_cents:500,
  disposition:'reissued',cause:'order_cancelled',
- recorded_at:'2026-11-06T10:01:00Z'};
+ ...returnWalletRefs(id.order),recorded_at:'2026-11-06T10:01:00Z'};
 const order={id:id.order,customer_id:id.customer,merchant_id:id.merchant,
- status:'CANCELLED',financial_state:'reversed',financial_reversed_at:null};
+ status:'CANCELLED',financial_state:'reversed',risk_reason:'buyer_cancelled',financial_reversed_at:null};
 const sample={
  invoiceId:id.invoice,customerId:id.customer,fundingMode:'partner_funded',
  applications:[application],applicationCount:1,
@@ -51,6 +52,9 @@ assert.equal(p.historicalReusedDiscountCents,0);
 assert.equal(p.applicationCount,1);
 assert.equal(p.partnerUseCount,1);
 assert.equal(p.returnCount,1);
+assert.equal(p.walletReturnPairCount,1);
+assert.equal(p.walletReturnNetCents,0);
+assert.equal(p.entries[0].walletReturnNeutralized,true);
 assert.equal(p.entries[0].orderStatus,'CANCELLED');
 assert.equal(p.entries[0].returnDisposition,'reissued');
 assert.equal(p.nominalDiscountNotPayableDebt,true);
