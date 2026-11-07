@@ -156,6 +156,8 @@ jobs:
         run: node tests/isolated-commercial-activation-evidence.mjs
       - name: V1.882 platform LIVE with zero revendas, physical checkout off (disposable)
         run: node tests/isolated-platform-live-v1-882.mjs
+      - name: V1.884 independent no-charge ads campaign and viewability on disposable database
+        run: node tests/isolated-ads-independent-delivery-v1-884.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
       - name: Upload temporary visual evidence from disposable order tests
