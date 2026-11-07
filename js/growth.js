@@ -729,7 +729,7 @@ function sponsorsLanding(){
       <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
-      <p class="page-lead">Divulgue sua marca na cidade com orçamento controlado, sem precisar se cadastrar como revenda.</p>
+      <p class="page-lead">Divulgue sua marca na cidade, sem precisar ser revenda.</p>
       <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
@@ -740,7 +740,7 @@ function sponsorsLanding(){
         <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação na cidade</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parceria regional</small></span><b aria-hidden="true">↗</b></button>
-        <p>Escolha seu objetivo e envie sua proposta.</p>
+        <p>Envie sua proposta.</p>
       </div></div>
       <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
         <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>EXEMPLO DE FORMATO</small></div>
@@ -768,7 +768,7 @@ function sponsorsLanding(){
     </section>
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">PARCERIA QUE RESPEITA SEU NEGÓCIO</span>
-        <h2>Uma parceria feita para gerar valor dos dois lados.</h2>
+        <h2>Parceria com regras claras.</h2>
         <p>Defina público, cidade e orçamento com clareza.</p></div></div>
       <div class="tamao-journey">
         <div><strong>1. Conhecer seu objetivo</strong><p>Marca, região e objetivo.</p></div>
