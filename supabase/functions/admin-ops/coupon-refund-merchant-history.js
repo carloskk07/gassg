@@ -2,7 +2,8 @@
 // Historical face values are NOT a payable ledger, bank proof or settlement.
 export function couponRefundMerchantHistorySummary({
   invoiceId,customerId,fundingMode,applications,applicationCount,
-  partnerUses,partnerUseCount,returns,returnCount,orders
+  partnerUses,partnerUseCount,returns,returnCount,orders,
+  issuances,issuanceCount,couponFaceCents,couponsPerPack
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -17,6 +18,25 @@ export function couponRefundMerchantHistorySummary({
   }
   if(!Array.isArray(orders)||orders.length!==applicationCount)
     reject("ORDER_COUNT_MISMATCH");
+  // The same issued voucher can be reissued after a cancellation;
+  // count its denomination ONCE, but preserve every historic application.
+  if(!Number.isSafeInteger(couponFaceCents)||couponFaceCents<=0||
+     !Number.isSafeInteger(couponsPerPack)||couponsPerPack<1||
+     couponsPerPack>15||!Number.isSafeInteger(issuanceCount)||
+     issuanceCount<0||issuanceCount>couponsPerPack||
+     !Array.isArray(issuances)||issuances.length!==issuanceCount)
+    reject("ISSUANCE_COVERAGE");
+  const issuanceById=new Map(),ordinals=new Set();
+  for(const issued of issuances){
+    if(!issued||!uuid.test(String(issued.id??""))||
+       issued.invoice_id!==invoiceId||issued.customer_user_id!==customerId||
+       issued.face_cents!==couponFaceCents||
+       !Number.isSafeInteger(issued.ordinal)||issued.ordinal<1||
+       issued.ordinal>couponsPerPack||
+       issuanceById.has(issued.id)||ordinals.has(issued.ordinal))
+      reject("ISSUANCE_MISMATCH");
+    issuanceById.set(issued.id,issued);ordinals.add(issued.ordinal);
+  }
   const orderById=new Map();
   for(const o of orders){
     if(!o||!uuid.test(String(o.id??""))||
@@ -46,7 +66,9 @@ export function couponRefundMerchantHistorySummary({
        !Number.isSafeInteger(a.original_order_cashback_cents)||
        a.original_order_cashback_cents<a.face_cents||
        byOrder.has(a.order_id)||!orderById.has(a.order_id)||
-       occurredAt(a.applied_at)===null)
+       occurredAt(a.applied_at)===null||
+       a.face_cents!==couponFaceCents||
+       !issuanceById.has(a.voucher_id))
       reject("APPLICATION_MISMATCH");
     const order=orderById.get(a.order_id);
     // A completed order should belong to the quoted merchant. A canceled
@@ -138,10 +160,20 @@ export function couponRefundMerchantHistorySummary({
        event.returnDisposition==="manual_review"))
       reject("REVIEWED_VOUCHER_REUSED");
   }
+  const uniqueVoucherCount=lineageByVoucher.size;
+  const uniqueVoucherFaceCents=uniqueVoucherCount*couponFaceCents;
+  const historicalReusedDiscountCents=discountTotalCents-uniqueVoucherFaceCents;
+  if(uniqueVoucherCount>issuanceCount||
+     !Number.isSafeInteger(uniqueVoucherFaceCents)||
+     historicalReusedDiscountCents<0||
+     !Number.isSafeInteger(historicalReusedDiscountCents))
+    reject("DENOMINATION_MISMATCH");
   return {source:"clube_coupon_merchant_history_v1_868",readOnly:true,
     fundingModel:fundingMode,applicationCount:applications.length,
     partnerUseCount:partnerUses.length,returnCount:returns.length,
-    historicalDiscountCents:discountTotalCents,entries,
+    historicalDiscountCents:discountTotalCents,
+    uniqueVoucherCount,uniqueVoucherFaceCents,
+    historicalReusedDiscountCents,entries,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
