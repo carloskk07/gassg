@@ -4487,13 +4487,62 @@ Deno.serve(async(req:Request)=>{
           seedEntries=seedResult.data;
           seedEntryCount=seedResult.count;
         }
+        // #877 Verify canonical seed keys for every voucher in the invoice,
+        // regardless of wallet owner. The unique idempotency_key index makes
+        // this bounded query exact and avoids an unindexed global JSON scan.
+        // Include each reissue index, even when it has not been spent again,
+        // to detect premature or foreign-wallet credits.
+        let canonicalSeedEntries:any[]=[];
+        let canonicalSeedEntryCount=0;
+        if(invoice.funding_mode_v1_846==="partner_funded"){
+          const reissuedCountByVoucher=new Map<string,number>();
+          for(const returned of returnsResult.data){
+            if(returned.disposition!=="reissued")continue;
+            const voucherId=String(returned.voucher_id??"");
+            reissuedCountByVoucher.set(voucherId,
+              (reissuedCountByVoucher.get(voucherId)??0)+1);
+          }
+          const canonicalKeys:string[]=[];
+          for(const issued of issuancesResult.data){
+            const voucherId=String(issued.id??"");
+            if(!UUID_RE.test(voucherId))
+              throw new DomainError("COUPON_MERCHANT_HISTORY_SEED_KEYS_INVALID",
+                "Identificador de cupom incompatível com a conciliação.",409);
+            canonicalKeys.push("clube-paid-coupon:"+voucherId);
+            const reissued=reissuedCountByVoucher.get(voucherId)??0;
+            for(let n=1;n<=reissued;n++)
+              canonicalKeys.push("clube-paid-coupon:"+voucherId+":return:"+n);
+          }
+          if(canonicalKeys.length>40||
+             new Set(canonicalKeys).size!==canonicalKeys.length)
+            throw new DomainError("COUPON_MERCHANT_HISTORY_SEED_KEYS_INVALID",
+              "Não foi possível conciliar as origens de todos os cupons.",409);
+          if(canonicalKeys.length){
+            const canonicalResult=await admin.from("wallet_entries")
+              .select("id,user_id,order_id,bucket,entry_type,amount_cents,idempotency_key,metadata,created_at",
+                {count:"exact"})
+              .in("idempotency_key",canonicalKeys)
+              .order("id",{ascending:true}).limit(41);
+            if(canonicalResult.error)throw canonicalResult.error;
+            if(!Array.isArray(canonicalResult.data)||
+               typeof canonicalResult.count!=="number"||
+               !Number.isSafeInteger(canonicalResult.count)||
+               canonicalResult.count<0||canonicalResult.count>25||
+               canonicalResult.count!==applicationsResult.data.length||
+               canonicalResult.data.length!==canonicalResult.count)
+              throw new DomainError("COUPON_MERCHANT_HISTORY_CANONICAL_SEEDS_INCOMPLETE",
+                "Existem créditos canônicos de cupons sem conciliação.",409);
+            canonicalSeedEntries=canonicalResult.data;
+            canonicalSeedEntryCount=canonicalResult.count;
+          }
+        }
         return {request,invoice,applications:applicationsResult.data,
           partnerUses:partnerResult.data,returns:returnsResult.data,
           issuances:issuancesResult.data,
           orders,applicationCount:count,partnerUseCount:pCount,returnCount:rCount,
           issuanceCount:iCount,walletEntries,walletEntryCount,
           releaseEntries,releaseEntryCount,reserveEntries,reserveEntryCount,
-          seedEntries,seedEntryCount};
+          seedEntries,seedEntryCount,canonicalSeedEntries,canonicalSeedEntryCount};
       };
       const first=await snapshot();
       let report;
@@ -4510,7 +4559,9 @@ Deno.serve(async(req:Request)=>{
           walletEntries:first.walletEntries,walletEntryCount:first.walletEntryCount,
           releaseEntries:first.releaseEntries,releaseEntryCount:first.releaseEntryCount,
           reserveEntries:first.reserveEntries,reserveEntryCount:first.reserveEntryCount,
-          seedEntries:first.seedEntries,seedEntryCount:first.seedEntryCount
+          seedEntries:first.seedEntries,seedEntryCount:first.seedEntryCount,
+          canonicalSeedEntries:first.canonicalSeedEntries,
+          canonicalSeedEntryCount:first.canonicalSeedEntryCount
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",
