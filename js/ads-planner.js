@@ -25,7 +25,10 @@ function tamaoAdsBudgetQuote(){
   if(!node)return;
   if(!quote){node.textContent='Selecione um orçamento válido.';return}
   const count=quote.maxViewableImpressions.toLocaleString('pt-BR');
-  node.textContent='Equivalência do teto: até '+count+
+  node.textContent=tamaoAdsMyState?.fixedFeeSalesEnabled===true?
+    'Pacote de preço fixo: '+tamaoAdsFormatMoney(budget)+
+    ' pelo período escolhido. Não há garantia de visualizações ou cobrança por CPM.':
+    'Equivalência do teto: até '+count+
     ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.';
 }
 function tamaoAdsBudgetRequest(){
@@ -57,8 +60,14 @@ function tamaoAdsPlannerSection(){
       'Um orçamento claro, sem pagar por visualizações inventadas.')+'</h2>'+
     '<p>Publicidade regional é independente de cadastrar uma revenda. Estime seu teto de investimento e peça uma proposta.</p></div></div>'+
     '<div class="card flat form-stack" style="max-width:780px">'+
-    '<div class="merchant-kpis"><div class="kpi"><span class="label">CPM em avaliação</span><strong>R$ 12,00</strong><small>por 1.000 visualizações verificadas</small></div>'+
-    '<div class="kpi"><span class="label">Cobrança agora</span><strong>R$ 0,00</strong><small>exibições comerciais ainda não habilitadas</small></div></div>'+
+    '<div class="merchant-kpis"><div class="kpi"><span class="label">'+
+      (fixedSales?'Veiculação com preço fixo':'CPM em avaliação')+'</span><strong>'+
+      (fixedSales?'Pacote selecionado':'R$ 12,00')+'</strong><small>'+
+      (fixedSales?'sem cobrança por cada visualização':'por 1.000 visualizações verificadas')+'</small></div>'+
+    '<div class="kpi"><span class="label">'+(fixedSales?'CPM faturável':'Cobrança agora')+
+       '</span><strong>R$ 0,00</strong><small>'+
+      (fixedSales?'o período contratado é cobrado apenas depois da aprovação':'exibições comerciais ainda não habilitadas')+
+      '</small></div></div>'+
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-budget">'+
        (fixedSales?'Preço fixo do pacote':'Teto de investimento')+'</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
@@ -72,7 +81,9 @@ function tamaoAdsPlannerSection(){
     preset.maxViewableImpressions.toLocaleString('pt-BR')+
     ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.</p>'+
     '<p id="sponsor-cpm-note" class="tiny muted">Uma visualização exigirá pelo menos 50% do anúncio visível durante 1 segundo contínuo, além de filtros contra tráfego inválido. A estimativa não é reserva nem garantia de público; somente condições verificadas poderão gerar contrato e cobrança.</p>'+
-    '<button type="button" class="primary" onclick="tamaoAdsBudgetRequest()">Solicitar proposta sem pagar →</button>'+
+    '<button type="button" class="primary" onclick="tamaoAdsBudgetRequest()">'+
+       (fixedSales?'Consultar condições antes de contratar':'Solicitar proposta sem pagar →')+
+      '</button>'+
     '<button type="button" class="secondary" onclick="tamaoAdsShowCityPublic()">Ver publicidade ativa nesta cidade</button>'+
     '<div id="sponsor-ad-live-slot" class="section" aria-label="Anúncio patrocinado disponível na região"></div>'+
     '</div></section>'+tamaoAdsCampaignForm();
