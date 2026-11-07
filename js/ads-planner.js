@@ -38,7 +38,9 @@ function tamaoAdsBudgetRequest(){
   if(!quote)return;
   const city=String(document.getElementById('sponsor-cpm-city')?.value||'').trim().replace(/\s+/g,' ').slice(0,80);
   const state=String(document.getElementById('sponsor-cpm-state')?.value||'RS').trim().toUpperCase();
-  const days=Number(document.getElementById('sponsor-cpm-days')?.value);
+  const days=tamaoAdsFixedDays(quote.budgetCents);
+  const daysSelector=document.getElementById('sponsor-cpm-days');
+  if(daysSelector&&days)daysSelector.value=String(days);
   if(!Number.isSafeInteger(days)||![7,15,30].includes(days)||!/^[A-Z]{2}$/.test(state)){
     document.getElementById('sponsor-cpm-result').textContent='Revise o período e a UF.';
     return;
