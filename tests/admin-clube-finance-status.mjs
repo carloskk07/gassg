@@ -385,6 +385,8 @@ historyPayload={
  unmatchedCashbackReleaseCount:0,
  quarantineHoldCoverage:'bounded_complete',quarantineHoldCount:1,
  unmatchedQuarantineHoldCount:0,otherCashbackReserveCount:1,
+ couponSeedCoverage:'bounded_complete',couponSeedCount:2,
+ unmatchedCouponSeedCount:0,
  nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
  bankCreditVerified:false,refundClosureAuthorized:false,
  caseClosed:false,moneyMoved:false,checkedAt:'2026-11-06T23:56:00Z',
