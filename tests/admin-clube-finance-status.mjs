@@ -380,6 +380,7 @@ historyPayload={
  historyCoverage:'bounded_complete',fundingModel:'partner_funded',
  applicationCount:2,partnerUseCount:2,returnCount:1,historicalDiscountCents:1000,
  uniqueVoucherCount:2,uniqueVoucherFaceCents:1000,historicalReusedDiscountCents:0,
+ walletReturnPairCount:1,walletReturnNetCents:0,walletReturnNeutralized:true,
  nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
  bankCreditVerified:false,refundClosureAuthorized:false,
  caseClosed:false,moneyMoved:false,checkedAt:'2026-11-06T23:56:00Z',
@@ -388,11 +389,13 @@ historyPayload={
    voucherId:'55555555-5555-4555-8555-555555555555',merchantId:'33333333-3333-4333-8333-333333333333',
    discountCents:500,originalOrderCents:9500,orderStatus:'cancelled',
    financialState:'reversed',partnerUseRecorded:true,returnRecorded:true,
+   walletReturnNeutralized:true,
    returnDisposition:'reissued',contractFeeBps:900},
   {orderId:'22222222-2222-4222-8222-222222222222',
    voucherId:'66666666-6666-4666-8666-666666666666',merchantId:'44444444-4444-4444-8444-444444444444',
    discountCents:500,originalOrderCents:9500,orderStatus:'delivered',
    financialState:'settlement_pending',partnerUseRecorded:true,returnRecorded:false,
+   walletReturnNeutralized:false,
    returnDisposition:null,contractFeeBps:900}
  ]
 };
@@ -402,6 +405,8 @@ assert.match(ctx.page(),/Histórico financeiro dos descontos/);
 assert.match(ctx.page(),/R\$ 10.00 em 2 pedido/);
 assert.match(ctx.page(),/Este valor não é dívida líquida apurada/);
 assert.match(ctx.page(),/Devoluções de benefícios registradas: 1/);
+assert.match(ctx.page(),/Contrapartidas de carteira conferidas:/);
+assert.match(ctx.page(),/Essa conferência interna não comprova crédito bancário/);
 assert.match(ctx.page(),/Cupons distintos utilizados/);
 assert.match(ctx.page(),/Reutilizações históricas após devolução: R\$ 0.00/);
 assert.match(ctx.page(),/A baixa e o encerramento permanecem bloqueados/);
