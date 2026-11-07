@@ -437,8 +437,14 @@ async function backendInit(){
     liveRuntime.session=session;
     liveRuntime.status='ready';
     client.auth.onAuthStateChange((_event,next)=>{
-      if(liveRuntime.status==='ready'&&liveRuntime.session?.user?.id&&
-         liveRuntime.session.user.id!==next?.user?.id)liveForgetAccount();
+      const prev=liveRuntime.session;
+      if(liveRuntime.status!=='ready'||!prev?.user?.id)return;
+      if(prev.user.id!==next?.user?.id)return liveForgetAccount();
+      liveRuntime.session=next;
+      const eligible=u=>u.is_anonymous!==true&&Boolean(u.email_confirmed_at);
+      if(eligible(prev.user)!==eligible(next.user)&&route()==='club')
+        Promise.resolve().then(()=>{if(liveRuntime.status==='ready'&&
+          liveRuntime.session===next)render()});
     });
     liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
@@ -1126,6 +1132,7 @@ async function liveUpgradeAccount(email){
   const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
   if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
   if(session.user.is_anonymous!==true){
+    if(!session.user.email_confirmed_at)return {pending:true,email:session.user.email||value};
     state.user.cashEarningEligible=true;
     state.user.identityType='permanent';
     save();
