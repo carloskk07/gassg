@@ -150,7 +150,7 @@ CREATE OR REPLACE FUNCTION public.ads_independent_payment_fact_v1_886(
  p_live_mode boolean
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog'
 AS $fn$
-DECLARE v record;v_outcome text;v_new_status text;v_recorded boolean;
+DECLARE v record;v_outcome text;v_new_status text;v_recorded integer;
 BEGIN
  IF p_event_key !~ '^[0-9a-f]{64}$' OR p_payment_id !~ '^[0-9]{5,30}$'
  OR p_collector_id !~ '^[0-9]{4,20}$' OR p_currency<>'BRL'
@@ -171,7 +171,7 @@ BEGIN
  ) VALUES(p_event_key,v.campaign_id,p_payment_id,p_provider_status,p_status_detail)
  ON CONFLICT(event_key) DO NOTHING;
  GET DIAGNOSTICS v_recorded = ROW_COUNT;
- IF NOT v_recorded THEN RETURN jsonb_build_object('source','ads_independent_payment_fact_v1_886',
+ IF v_recorded=0 THEN RETURN jsonb_build_object('source','ads_independent_payment_fact_v1_886',
   'recorded',false,'paymentApproved',v.status='payment_approved','status',v.status);END IF;
  v_outcome:=CASE
    WHEN p_provider_status='approved' AND p_status_detail='accredited' THEN 'approved'
