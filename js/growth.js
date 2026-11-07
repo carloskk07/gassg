@@ -193,20 +193,17 @@ function club(){
         <button type="button" class="secondary" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
       </div>
     </div>
-    <aside class="tamao-coupon-price-board" hidden aria-label="Pacote universal de cupons TAMÃO">
-      <span class="section-kicker">PACOTE UNIVERSAL · PRODUTOS ELEGÍVEIS</span>
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:10px 0">
-        <strong data-coupon-price style="font-size:clamp(26px,5vw,38px);line-height:1.12"></strong>
-        <span data-coupon-face style="font-weight:800"></span>
-      </div>
-      <p data-coupon-minimum style="margin:8px 0;font-weight:700"></p>
-      <p data-coupon-availability style="margin:8px 0"></p>
-      <p class="tiny">Os cupons são aplicáveis somente a compras elegíveis. Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
-      <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)" style="max-width:450px;margin-top:14px">
-        <label for="clube-visitor-coupon-email">Seu e-mail para entrar ou criar conta</label>
+    <aside class="tamao-coupon-price-board card form-stack" hidden>
+      <span class="section-kicker">CUPONS UNIVERSAIS</span>
+      <p><strong data-coupon-price></strong> · <span data-coupon-face></span></p>
+      <p data-coupon-minimum></p>
+      <p data-coupon-availability></p>
+      <p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
+      <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)">
+        <label for="clube-visitor-coupon-email">E-mail para acessar os cupons</label>
         <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
-        <button type="submit" class="primary">Entrar e consultar a compra de cupons →</button>
-        <p data-welcome-signup-status role="status" style="margin:0"></p>
+        <button type="submit" class="primary">Entrar e consultar a compra →</button>
+        <p data-welcome-signup-status role="status"></p>
       </form>
     </aside>
     <div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">
