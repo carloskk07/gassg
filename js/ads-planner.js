@@ -195,3 +195,18 @@ async function tamaoAdsShowCityPublic(){
  }
  globalThis.tamaoAdsDisplaySlot(city,state,'sponsor-ad-live-slot');
 }
+
+function tamaoAdsLoadHome(){
+ if(globalThis.tamaoAdsDisplayHome){
+  setTimeout(()=>globalThis.tamaoAdsDisplayHome(),0);return;
+ }
+ if(globalThis.tamaoAdsHomeScript)return;
+ globalThis.tamaoAdsHomeScript=true;
+ const t=document.createElement('script');
+ const src=document.querySelector('script[src*="ads-planner.js"]')?.src||location.href;
+ t.src=new URL('ads-display.js'+new URL(src).search,src).href;
+ t.onload=()=>globalThis.tamaoAdsDisplayHome?.();
+ t.onerror=()=>{globalThis.tamaoAdsHomeScript=false};
+ document.head.append(t);
+}
+if(globalThis.route?.()==='home')tamaoAdsLoadHome();
