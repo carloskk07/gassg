@@ -3162,7 +3162,7 @@ function adminOperationModeLabel(mode){
   return ({
     PRELAUNCH:'CONFIGURAÇÃO',
     PILOT:'OPERAÇÃO ATIVA',
-    LIVE:'OPERAÇÃO NORMAL',
+    LIVE:'PLATAFORMA ATIVA',
     PAUSED:'OPERAÇÃO PAUSADA'
   })[String(mode||'').toUpperCase()]||String(mode||'—').toUpperCase();
 }
@@ -8838,6 +8838,7 @@ function adminLaunchControl(readiness={}){
   const mode=String(readiness.operationMode|| (readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
   const readinessState=String(readiness.readinessState|| (security.length?'BLOCKED_SECURITY':warningDetails.length?'READY_WITH_WARNINGS':'READY'));
   const canActivate=readiness.canActivateOperation===true;
+  const canOpenPlatform=security.length===0&&readiness.portalsFresh===true&&Number(readiness.activeAdminCount)>0;
   const verifiedAt=readiness.portalsVerifiedAt
     ? new Date(readiness.portalsVerifiedAt).toLocaleString('pt-BR')
     : 'ainda não verificados';
@@ -8874,13 +8875,21 @@ function adminLaunchControl(readiness={}){
       ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
       <div class="order-actions">
         <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
-        ${['PILOT','LIVE'].includes(mode)
-          ?'<button class="danger-btn" onclick="adminSetOperationMode(\'PAUSED\')">Pausar novos pedidos</button>'
-          :`<button class="primary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('PILOT')">ATIVAR OPERAÇÃO</button>`}
+        ${mode==='PRELAUNCH'
+          ?`<button class="primary" ${canOpenPlatform?'':'disabled'} onclick="adminSetOperationMode('LIVE')">ATIVAR PLATAFORMA</button>`
+          :['PILOT','LIVE'].includes(mode)
+            ?'<button class="danger-btn" onclick="adminSetOperationMode(\'PAUSED\')">Pausar a plataforma</button>'
+            :''}
+        ${mode==='LIVE'&&!readiness.commerceEnabled
+          ?`<span class="status-pill risk">Pedidos físicos aguardam ofertas reais</span>`:''
+        }
+        ${mode==='LIVE'&&!readiness.commerceEnabled&&canActivate
+          ?`<button class="secondary" onclick="adminSetOperationMode('LIVE')">Autorizar pedidos físicos</button>`:''
+        }
         ${mode==='PILOT'?`<button class="secondary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('LIVE')">Confirmar operação normal</button>`:''}
         ${mode==='PAUSED'?'<button class="ghost" onclick="adminSetOperationMode(\'PRELAUNCH\')">Voltar para configuração</button>':''}
       </div>
-      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'A autoridade server-side permite ativação explícita.':'Há alertas ainda não confirmados.'} O controle de novos pedidos preserva pedidos existentes e bloqueia apenas novas compras.</small>
+      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'Abertura de pedidos físicos depende de oferta comprovada.':'Há alertas ainda não confirmados.'} O controle de novos pedidos preserva pedidos existentes e bloqueia apenas novas compras.</small>
     </div>
   </section>`;
 }
@@ -10091,14 +10100,14 @@ function adminRequireTypedConfirmation(expected,message){
 }
 async function adminSetOperationMode(mode){
   const target=String(mode||'').toUpperCase();
-  const labels={PRELAUNCH:'voltar para configuração',PILOT:'ativar a operação',LIVE:'confirmar a operação normal',PAUSED:'pausar novos pedidos'};
+  const labels={PRELAUNCH:'voltar para configuração',PILOT:'autorizar pedidos',LIVE:'ativar a plataforma ou revalidar pedidos',PAUSED:'pausar a plataforma'};
   if(!labels[target])return toast('Modo operacional inválido');
   const reason=prompt('Motivo para '+labels[target]+':')||'';
   if(reason.trim().length<3)return toast('Informe o motivo da mudança');
   const confirmText=target==='PAUSED'
     ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
     :target==='LIVE'
-      ?'Confirmar a operação normal agora? Esta ação mantém novos pedidos liberados conforme o checklist confirmado.'
+      ?'A plataforma poderá funcionar sem revendas. Pedidos físicos permanecerão bloqueados até haver fornecedor ofertável e confirmação administrativa. Continuar?'
       :target==='PILOT'
         ?'Ativar a operação agora? Novos pedidos serão permitidos conforme as regras e limites configurados.'
         :'Voltar para configuração? Novos pedidos ficarão bloqueados.';

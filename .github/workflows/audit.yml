@@ -457,6 +457,8 @@ jobs:
         run: node tests/ads-pilot-preflight-v1-237.mjs
       - name: TAMÃO V1.238 real commercial activation contract
         run: node tests/commercial-activation-v1-238.mjs
+      - name: V1.882 platform LIVE without real supply and physical checkout isolation
+        run: node tests/platform-independent-launch-v1-882.mjs
       - name: Clube TAMÃO V1.239 finance preview and no-sale invariants
         run: node tests/clube-finance-preview-v1-239.mjs
       - name: Clube TAMÃO V1.240 merchant intention, budget and admin read contract
