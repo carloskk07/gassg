@@ -701,22 +701,15 @@ function openSponsorContact(format='general',quoteBrief=''){
   if(route()!=='contact'){go('contact');setTimeout(focus,160);return}
   focus();
 }
-// V1.883 — load the optional Ads quote planner only on the brand page.
-let tamaoAdsPlannerLoading=false;
 function tamaoAdsPlannerLoad(){
-  if(tamaoAdsPlannerLoading||typeof globalThis.tamaoAdsPlannerSection==='function')return;
-  tamaoAdsPlannerLoading=true;
-  const script=document.createElement('script');
-  try{
-    const current=document.querySelector('script[src*="/js/growth.js"]')?.src||
-      new URL('js/growth.js',location.href).href;
-    const url=new URL('ads-planner.js',current);
-    url.search=new URL(current).search;
-    script.src=url.href;
-  }catch{tamaoAdsPlannerLoading=false;return}
-  script.onload=()=>{if(route()==='sponsors')render()};
-  script.onerror=()=>{tamaoAdsPlannerLoading=false;script.remove()};
-  document.head.appendChild(script);
+  if(globalThis.tamaoAdsPlannerSection||globalThis.tamaoAdsLoading)return;
+  globalThis.tamaoAdsLoading=true;
+  const s=document.createElement('script');
+  const current=document.querySelector('script[src*="growth.js"]')?.src;
+  s.src='./js/ads-planner.js'+(current?new URL(current).search:'');
+  s.onload=()=>{if(route()==='sponsors')render()};
+  s.onerror=()=>{globalThis.tamaoAdsLoading=false};
+  document.head.append(s);
 }
 
 function sponsorsLanding(){
@@ -752,7 +745,7 @@ function sponsorsLanding(){
         <p>Um jeito de conectar sua marca às escolhas do dia a dia, com formatos e condições definidos em conjunto.</p>
       </aside></div>
     </div>
-    ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'<section class="section"><h2>Publicidade com orçamento controlado</h2><p>Solicite uma proposta regional sem compromisso ou cobrança antecipada.</p><button class="secondary" type="button" onclick="openSponsorContact(\'visibility\')">Conversar sobre investimento →</button></section>')}
+    ${(tamaoAdsPlannerLoad(),globalThis.tamaoAdsPlannerSection?.()||'')}
     <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia ao formato certo para sua marca.</h2><p>Conheça exemplos de campanhas. Cidade, categoria e investimento são definidos em conversa com o TAMÃO.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três formatos para sua marca ganhar contexto regional. Escolha o seu objetivo e converse com o TAMÃO.</p></div></div>
