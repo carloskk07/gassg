@@ -4,7 +4,7 @@ export function couponRefundMerchantHistorySummary({
   invoiceId,customerId,fundingMode,applications,applicationCount,
   partnerUses,partnerUseCount,returns,returnCount,orders,
   issuances,issuanceCount,couponFaceCents,couponsPerPack,
-  walletEntries,walletEntryCount
+  walletEntries,walletEntryCount,releaseEntries,releaseEntryCount
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -129,6 +129,25 @@ export function couponRefundMerchantHistorySummary({
      walletEntryCount!==returnCount*2||
      !Array.isArray(walletEntries)||walletEntries.length!==walletEntryCount)
     reject("WALLET_COVERAGE");
+  // #873 A referenced refund receipt is not enough: any ADDITIONAL
+  // cashback release on the same returned order would remain fungible.
+  // Require the complete bounded population of cashback releases, including
+  // releases not referenced by a coupon-return row, before certifying holds.
+  if(!Number.isSafeInteger(releaseEntryCount)||releaseEntryCount<0||
+     releaseEntryCount!==returnCount||
+     !Array.isArray(releaseEntries)||releaseEntries.length!==releaseEntryCount)
+    reject("RELEASE_POPULATION_INCOMPLETE");
+  const releaseByOrder=new Map();
+  const returnOrders=new Set(returns.map(back=>back?.order_id));
+  for(const released of releaseEntries){
+    if(!released||!uuid.test(String(released.id??""))||
+       !returnOrders.has(released.order_id)||
+       releaseByOrder.has(released.order_id)||
+       released.bucket!=="cashback"||
+       released.entry_type!=="cashback_release")
+      reject("UNMATCHED_CASHBACK_RELEASE");
+    releaseByOrder.set(released.order_id,released);
+  }
   const walletById=new Map();
   for(const item of walletEntries){
     if(!item||!uuid.test(String(item.id??""))||walletById.has(item.id))
@@ -151,10 +170,17 @@ export function couponRefundMerchantHistorySummary({
     const order=orderById.get(back.order_id);
     const release=walletById.get(back.wallet_release_entry_id);
     const hold=walletById.get(back.wallet_hold_entry_id);
+    const populationRelease=releaseByOrder.get(back.order_id);
     if(!uuid.test(String(back.wallet_release_entry_id??""))||
        !uuid.test(String(back.wallet_hold_entry_id??""))||
        back.wallet_release_entry_id===back.wallet_hold_entry_id||
-       !release||!hold||
+       !release||!hold||!populationRelease||
+       populationRelease.id!==release.id||
+       populationRelease.user_id!==release.user_id||
+       populationRelease.amount_cents!==release.amount_cents||
+       populationRelease.idempotency_key!==release.idempotency_key||
+       populationRelease.created_at!==release.created_at||
+       JSON.stringify(populationRelease.metadata)!==JSON.stringify(release.metadata)||
        release.user_id!==customerId||hold.user_id!==customerId||
        release.order_id!==back.order_id||hold.order_id!==back.order_id||
        release.bucket!=="cashback"||hold.bucket!=="cashback"||
@@ -190,8 +216,18 @@ export function couponRefundMerchantHistorySummary({
     a.walletReturnNeutralized=true;
     returned.add(back.order_id);
   }
-  if(returned.size!==returnCount||returnCount*2!==walletById.size)
+  if(returned.size!==returnCount||returnCount*2!==walletById.size||
+     releaseByOrder.size!==returned.size)
     reject("WALLET_RETURN_UNUSED_OR_MISSING");
+  // A canceled or financially reversed partner-funded order MUST have its
+  // paid-voucher return recorded. Without it, the buyer could have been
+  // credited without the compensating hold, despite this report claiming
+  // complete neutralization for the invoice.
+  if(fundingMode==="partner_funded"&&entries.some(record=>{
+    const original=orderById.get(record.orderId);
+    return (original.status==="CANCELLED"||
+            original.financial_reversed_at!=null)&&!record.returnRecorded;
+  }))reject("REVERSED_ORDER_RETURN_MISSING");
   for(const chain of lineageByVoucher.values()){
     chain.sort((left,right)=>left.appliedAt-right.appliedAt||
       left.orderId.localeCompare(right.orderId));
@@ -223,6 +259,9 @@ export function couponRefundMerchantHistorySummary({
     historicalReusedDiscountCents,entries,
     walletReturnPairCount:returnCount,walletReturnNetCents:0,
     walletReturnNeutralized:true,
+    cashbackReleaseCount:releaseEntryCount,
+    cashbackReleaseCoverage:"bounded_complete",
+    unmatchedCashbackReleaseCount:0,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
