@@ -601,6 +601,8 @@ jobs:
         run: node tests/admin-ads-sales-planning-v1-309.mjs
       - name: V1.883 independent advertiser CPM budget planner and no-charge gate
         run: node tests/ads-independent-cpm-planner-v1-883.mjs
+      - name: V1.884 independent advertiser campaigns, diagnostic viewability and closed billing
+        run: node tests/ads-independent-delivery-v1-884.mjs
       - name: Test V1.310 merchant Ads offer and founder authority
         run: node tests/ads-offer-v1-310.mjs
       - name: Test V1.311 commercial Ads contract dossier review
