@@ -1,7 +1,8 @@
 // TAMÃO V1.884 — self-service independent advertisers, private admin moderation.
 // This module is only loaded in the protected Admin acquisition workspace.
 let adminIndependentAdsState={loadedFor:null,rows:[],deliveryEnabled:false,
- fixedFeeSalesEnabled:false,fixedFeeSalesVersion:0,providerApprovedGrossCents:0};
+ fixedFeeSalesEnabled:false,fixedFeeSalesVersion:0,providerApprovedGrossCents:0,
+ refundCases:null};
 let adminIndependentAdsBusy=false;
 async function adminIndependentAdsRefresh(){
  const actor=String(adminRuntime?.session?.user?.id||'');
@@ -14,7 +15,16 @@ async function adminIndependentAdsRefresh(){
     !Array.isArray(r.rows)||r.rows.length>50)
    throw Error('Estado do Ads independente não confirmado.');
   if(actor!==String(adminRuntime?.session?.user?.id||''))return;
+  let refundCases=null;
+  try{
+   const rf=await adminInvoke({action:'ads-independent-refunds-read'});
+   if(rf?.source!=='admin_ads_independent_refunds_read_v1_887'||
+     rf?.refundMoneyMoved!==false||!Array.isArray(rf.rows)||rf.rows.length>50)
+      throw Error('Fila de reembolsos sem confirmação.');
+   refundCases=rf.rows;
+  }catch{refundCases=null}
   adminIndependentAdsState={loadedFor:actor,rows:r.rows,deliveryEnabled:r.deliveryEnabled===true,
+    refundCases,
     fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true,
     fixedFeeSalesVersion:Number(r.fixedFeeSalesVersion)||0,
     providerApprovedGrossCents:Number(r.providerApprovedGrossCents)||0};
@@ -68,6 +78,27 @@ async function adminIndependentAdsSalesAction(){
  finally{adminIndependentAdsBusy=false}
  await adminIndependentAdsRefresh();
 }
+async function adminIndependentRefundAction(operation,caseId,version){
+ if(adminIndependentAdsBusy||adminCurrentRole()!=='superadmin')return;
+ const reason=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
+ if(reason.length<12||reason.length>500)return toast('Informe uma justificativa com 12 a 500 caracteres.');
+ if(!['review','confirm_provider_refund'].includes(operation)||!/^[0-9a-f-]{36}$/i.test(caseId))
+  return toast('Solicitação inválida.');
+ const row=adminIndependentAdsState.refundCases?.find(r=>r.caseId===caseId);
+ if(!row||Number(row.version)!==version)return toast('A solicitação mudou. Atualize primeiro.');
+ adminIndependentAdsBusy=true;
+ try{
+  const r=await adminPerform('ads-independent-refunds-action',{
+   caseId,operation,expectedVersion:version,reason
+  });
+  if(r?.source!=='admin_ads_independent_refund_action_v1_887'||
+    r?.moneyMoved!==false||r?.caseId!==caseId)
+   throw Error('O servidor não confirmou a revisão.');
+  toast(operation==='review'?'Revisão registrada.':'Reembolso confirmado por fato do provedor.');
+ }catch(e){toast(String(e?.message||'Falha ao revisar pedido.'))}
+ finally{adminIndependentAdsBusy=false}
+ await adminIndependentAdsRefresh();
+}
 function adminAdsIndependentSection(){
  const role=String(adminCurrentRole());
  if(!['superadmin','operations','compliance','finance'].includes(role))return '';
@@ -100,6 +131,27 @@ function adminAdsIndependentSection(){
    'placeholder="Explique o motivo da decisão"></textarea>'+
    '<div class="row flex-wrap">'+buttons+'</div>';
  };
+ const refundRows=v?.refundCases?.map(c=>{
+   const id=String(c.caseId||'');
+   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+   const review=canAct&&c.status==='submitted';
+   const close=canAct&&c.providerRefundVerified===true&&
+     ['submitted','reviewing'].includes(String(c.status||''));
+   const button=(action,label)=>'<button type="button" class="secondary small" '+
+     'onclick="adminIndependentRefundAction(\''+action+'\',\''+id+'\','+
+     Number(c.version||0)+')">'+label+'</button>';
+   return '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+
+     ' · '+esc(String(c.title||''))+'</strong>'+
+     '<p>Solicitação: '+esc(String(c.status||''))+
+     ' · Valor original: '+adminMoney(Number(c.amountCents||0))+'</p>'+
+     '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
+     '<p>Provedor confirma reversão: '+(c.providerRefundVerified===true?'Sim':'Não')+'</p>'+
+     (canAct&&(review||close)?'<label>Justificativa da análise<textarea class="input" '+
+       'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
+       (review?button('review','Iniciar revisão'):'')+
+       (close?button('confirm_provider_refund','Confirmar estorno verificado'):''):'')+
+     '</article>';
+ }).join('')||'';
  const rows=v?.rows?.map(c=>
   '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+' · '+esc(String(c.title||''))+'</strong>'+
   '<p>'+esc(String(c.city||''))+'/'+esc(String(c.state||''))+
@@ -145,6 +197,10 @@ function adminAdsIndependentSection(){
       (adminIndependentAdsBusy?'disabled':'')+'>'+
       (sales?'Interromper novas compras':'Habilitar compras com pagamento verificado')+
     '</button></div>':'')+
+  (v?.refundCases===null?'<p class="muted">Fila de reembolsos indisponível. Atualize para conferir.</p>':
+    v?.refundCases?.length?'<section class="section"><h4>Cancelamentos e reembolsos</h4>'+
+     '<p>Pedidos registrados pausam a publicidade; somente devolução confirmada no provedor permite conclusão. A revisão não movimenta valores.</p>'+
+     '<div class="grid cards-2">'+refundRows+'</div></section>':'')+
   (v?'<div class="grid cards-2">'+(rows||'<p>Sem campanhas enviadas até agora.</p>')+'</div>':
    '<p class="muted">Atualize para conferir propostas reais e os controles de publicação.</p>')+
   '</section>';
