@@ -98,6 +98,20 @@ mustReject({...base,releaseEntries:[{
  ...stored.releaseEntries[0],entry_type:'cashback_seed'}]},
  'non-release wallet entry cannot appear in release population');
 
+// #874: the same pair/IDs/amounts can be fabricated from an older wallet
+// event. A cancellation credit must not precede the partner's coupon use.
+const earlyRelease=withWalletEvidence({...base,walletEntries:
+ stored.walletEntries.map((row,i)=>i===0?{
+  ...row,created_at:'2026-11-06T10:00:00Z'
+ }:row)});
+assert.throws(()=>reconcile(earlyRelease),
+ /COUPON_REFUND_HISTORY_RETURN_CHRONOLOGY_OR_ORDER_STATE/,
+ 'release before partner use must never certify a voucher return');
+const sameTick=check({...base,walletEntries:stored.walletEntries.map((row,i)=>
+ i===0?{...row,created_at:'2026-11-06T10:00:01Z'}:row)});
+assert.equal(sameTick.walletReturnNeutralized,true,
+ 'equal partner-use and wallet timestamp is allowed');
+
 // This was silently presented as "neutralized" by #871: canceled/reversed
 // partner-funded order, no voucher-return record, and hence no hold.
 mustReject({...base,returns:[],returnCount:0},

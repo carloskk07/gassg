@@ -204,7 +204,12 @@ export function couponRefundMerchantHistorySummary({
        occurredAt(release.created_at)>occurredAt(hold.created_at)||
        occurredAt(hold.created_at)>occurredAt(back.recorded_at))
       reject("WALLET_RETURN_PAIR_MISMATCH");
+    // #874 A release predating merchant coupon use is not a credible
+    // cancellation reversal, even if its hold and return IDs match.
+    // Equal timestamps are accepted for durable events in one clock tick.
     if(!step||step.partnerUsedAt===null||
+       occurredAt(release.created_at)<step.partnerUsedAt||
+       occurredAt(hold.created_at)<step.partnerUsedAt||
        occurredAt(back.recorded_at)<step.partnerUsedAt||
        (back.cause==="order_cancelled"&&order.status!=="CANCELLED")||
        (back.cause==="post_settlement_financial_reversal"&&
