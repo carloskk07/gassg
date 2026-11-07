@@ -22,9 +22,11 @@ assert.match(planner,/tamaoAdsCampaignForm\(\)/);
 assert.match(planner,/Ver publicidade ativa nesta cidade/);
 assert.match(planner,/function tamaoAdsShowCityPublic/);
 assert.match(planner,/tamaoAdsDisplaySlot\?\.\(city,state,'sponsor-ad-live-slot'\)/);
-assert.match(growth,/function tamaoAdsHomeLoad\(\)/);
-assert.match(growth,/ads-display\.js/);
-assert.equal((home.match(/\$\{tamaoAdsHomeLoad\(\)\}/g)||[]).length,2,
+assert.match(growth,/function tamaoAdsPlannerLoad\(\)/);
+assert.match(planner,/function tamaoAdsLoadHome\(\)/);
+assert.match(planner,/ads-display\.js/);
+assert.match(home,/tamaoAdsPlannerLoad\(\)/);
+assert.equal((home.match(/\$\{adHomeSlot\}/g)||[]).length,2,
  'Both public home routes need an eligible sponsored placement independent of merchants');
 for(const term of [
  'IntersectionObserver','intersectionRatio','document.visibilityState',
