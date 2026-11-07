@@ -5,7 +5,8 @@ export function couponRefundMerchantHistorySummary({
   partnerUses,partnerUseCount,returns,returnCount,orders,
   issuances,issuanceCount,couponFaceCents,couponsPerPack,
   walletEntries,walletEntryCount,releaseEntries,releaseEntryCount,
-  reserveEntries,reserveEntryCount,seedEntries,seedEntryCount
+  reserveEntries,reserveEntryCount,seedEntries,seedEntryCount,
+  canonicalSeedEntries,canonicalSeedEntryCount
 }){
   const reject=(reason)=>{throw new Error("COUPON_REFUND_HISTORY_"+reason);};
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -284,14 +285,44 @@ export function couponRefundMerchantHistorySummary({
      (fundingMode==="partner_funded"&&seedEntryCount!==applicationCount)||
      (fundingMode==="platform_reimbursed"&&seedEntryCount!==0))
     reject("SEED_COVERAGE_INCOMPLETE");
+  // #877 An index-backed lookup of canonical coupon seed keys across ALL
+  // wallets is required in addition to the invoice-tagged buyer scan.
+  // Otherwise a seed for an unused voucher or a foreign buyer is invisible.
+  if(!Number.isSafeInteger(canonicalSeedEntryCount)||
+     canonicalSeedEntryCount<0||canonicalSeedEntryCount>25||
+     !Array.isArray(canonicalSeedEntries)||
+     canonicalSeedEntries.length!==canonicalSeedEntryCount||
+     canonicalSeedEntryCount!==seedEntryCount)
+    reject("CANONICAL_SEED_POPULATION_INCOMPLETE");
+  const canonicalById=new Map();
+  for(const record of canonicalSeedEntries){
+    if(!record||!uuid.test(String(record.id??""))||
+       canonicalById.has(record.id)||
+       record.bucket!=="cashback"||record.entry_type!=="cashback_seed")
+      reject("CANONICAL_SEED_POPULATION_INVALID");
+    canonicalById.set(record.id,record);
+  }
   const seedById=new Map(),verifiedSeeds=new Set();
   for(const seed of seedEntries){
     if(!seed||!uuid.test(String(seed.id??""))||
        seedById.has(seed.id)||seed.bucket!=="cashback"||
        seed.entry_type!=="cashback_seed")
       reject("SEED_POPULATION_INVALID");
+    const canonical=canonicalById.get(seed.id);
+    if(!canonical||
+       canonical.user_id!==seed.user_id||
+       canonical.order_id!==seed.order_id||
+       canonical.amount_cents!==seed.amount_cents||
+       canonical.bucket!==seed.bucket||
+       canonical.entry_type!==seed.entry_type||
+       canonical.idempotency_key!==seed.idempotency_key||
+       canonical.created_at!==seed.created_at||
+       JSON.stringify(canonical.metadata)!==JSON.stringify(seed.metadata))
+      reject("CANONICAL_SEED_MISMATCH");
     seedById.set(seed.id,seed);
   }
+  if(seedById.size!==canonicalById.size)
+    reject("UNMATCHED_CANONICAL_SEED");
   for(const [voucherId,chain] of lineageByVoucher){
     chain.sort((left,right)=>left.appliedAt-right.appliedAt||
       left.orderId.localeCompare(right.orderId));
@@ -356,6 +387,9 @@ export function couponRefundMerchantHistorySummary({
     otherCashbackReserveCount:reserveEntryCount-quarantineById.size,
     couponSeedCoverage:"bounded_complete",couponSeedCount:verifiedSeeds.size,
     unmatchedCouponSeedCount:0,
+    canonicalSeedCoverage:"bounded_complete",
+    canonicalSeedCount:canonicalSeedEntryCount,
+    unmatchedCanonicalSeedCount:0,
     nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
     bankCreditVerified:false,refundClosureAuthorized:false,
     caseClosed:false,moneyMoved:false};
