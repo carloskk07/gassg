@@ -4326,15 +4326,15 @@ Deno.serve(async(req:Request)=>{
             .select("id,customer_user_id,status,funding_mode_v1_846")
             .eq("id",invoiceId).maybeSingle(),
           admin.from("clube_coupon_paid_order_applications")
-            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents",
+            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents,applied_at",
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26),
           admin.from("clube_partner_coupon_order_uses_v1_846")
-            .select("invoice_id,customer_id,order_id,voucher_id,merchant_id,face_cents,gross_cents,net_cents,fee_bps_snapshot",
+            .select("invoice_id,customer_id,order_id,voucher_id,merchant_id,face_cents,gross_cents,net_cents,fee_bps_snapshot,created_at",
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26),
           admin.from("clube_partner_coupon_returns_v1_847")
-            .select("invoice_id,customer_id,order_id,voucher_id,amount_cents,disposition,cause",
+            .select("invoice_id,customer_id,order_id,voucher_id,amount_cents,disposition,cause,recorded_at",
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26)
         ]);
@@ -4359,7 +4359,7 @@ Deno.serve(async(req:Request)=>{
         let orders:any[]=[];
         if(orderIds.length){
           const orderResult=await admin.from("orders")
-            .select("id,customer_id,merchant_id,status,financial_state")
+            .select("id,customer_id,merchant_id,status,financial_state,financial_reversed_at")
             .in("id",orderIds).order("id",{ascending:true}).limit(26);
           if(orderResult.error)throw orderResult.error;
           if(!Array.isArray(orderResult.data))
