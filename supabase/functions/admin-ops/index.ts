@@ -4323,10 +4323,10 @@ Deno.serve(async(req:Request)=>{
             .select("invoice_id,request_id,customer_user_id,status")
             .eq("invoice_id",invoiceId).eq("request_id",requestId).maybeSingle(),
           admin.from("clube_coupon_paid_invoices")
-            .select("id,customer_user_id,status,funding_mode_v1_846,coupon_face_cents,coupons_per_pack")
+            .select("id,customer_user_id,status,funding_mode_v1_846,coupon_face_cents,coupons_per_pack,provider_order_id,provider_payment_id,paid_at,net_proceeds_reference,net_proceeds_verified_at")
             .eq("id",invoiceId).maybeSingle(),
           admin.from("clube_coupon_paid_order_applications")
-            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents,applied_at,seed_wallet_entry_id_v1_847",
+            .select("invoice_id,customer_user_id,order_id,voucher_id,quoted_merchant_id,face_cents,original_order_total_cents,original_order_cashback_cents,applied_at,seed_wallet_entry_id_v1_847,net_proceeds_reference",
               {count:"exact"}).eq("invoice_id",invoiceId)
             .order("order_id",{ascending:true}).limit(26),
           admin.from("clube_partner_coupon_order_uses_v1_846")
@@ -4561,7 +4561,14 @@ Deno.serve(async(req:Request)=>{
           reserveEntries:first.reserveEntries,reserveEntryCount:first.reserveEntryCount,
           seedEntries:first.seedEntries,seedEntryCount:first.seedEntryCount,
           canonicalSeedEntries:first.canonicalSeedEntries,
-          canonicalSeedEntryCount:first.canonicalSeedEntryCount
+          canonicalSeedEntryCount:first.canonicalSeedEntryCount,
+          invoicePayment:{
+            providerOrderId:first.invoice.provider_order_id,
+            providerPaymentId:first.invoice.provider_payment_id,
+            netProceedsReference:first.invoice.net_proceeds_reference,
+            paidAt:first.invoice.paid_at,
+            netProceedsVerifiedAt:first.invoice.net_proceeds_verified_at
+          }
         });
       }catch(error){
         console.warn("coupon merchant exposure evidence invalid",
