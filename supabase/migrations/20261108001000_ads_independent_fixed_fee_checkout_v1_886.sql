@@ -69,7 +69,8 @@ BEGIN
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',v);
   EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC,anon,authenticated,service_role',v);
  END LOOP;
-END $acl$;
+END;
+$acl$;
 GRANT SELECT,UPDATE ON public.ads_independent_sales_controls_v1_886 TO service_role;
 GRANT SELECT,INSERT,UPDATE ON public.ads_independent_checkouts_v1_886 TO service_role;
 GRANT SELECT,INSERT ON public.ads_independent_payment_events_v1_886 TO service_role;
