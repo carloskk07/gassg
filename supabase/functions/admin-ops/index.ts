@@ -137,7 +137,7 @@ function couponSellerTaxDocumentValid(value:unknown){
  sum=v.slice(0,13).reduce((n,x,i)=>n+x*weights2[i],0);
  return v[12]===first&&v[13]===(sum%11<2?0:11-sum%11);
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-independent-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-independent-read","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -7981,6 +7981,39 @@ Deno.serve(async(req:Request)=>{
            !Number.isSafeInteger(r.reportedViewSignals)||r.reportedViewSignals<0||
            !["submitted","approved","active","paused","rejected","ended"].includes(r.status)))
         throw new DomainError("ADS_INDEPENDENT_READ_UNVERIFIED","Estado da publicidade não verificado.",503);
+      return json(data,200,origin);
+    }
+    if(action==="ads-independent-refunds-read"){
+      if(!["superadmin","operations","finance","compliance"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Solicitações de reembolso não autorizadas.",403);
+      const {data,error}=await admin.rpc("admin_ads_independent_refunds_read_v1_887",{
+        p_actor:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_independent_refunds_read_v1_887"||
+        data?.readOnly!==true||data?.refundMoneyMoved!==false||
+        !Array.isArray(data.rows)||data.rows.length>50)
+        throw new DomainError("ADS_REFUNDS_READ_UNVERIFIED","Reembolsos não confirmados.",503);
+      return json(data,200,origin);
+    }
+    if(action==="ads-independent-refunds-action"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode revisar pedidos.",403);
+      const caseId=String(body.caseId||"");
+      const operation=String(body.operation||"");
+      const version=body.expectedVersion;
+      const reason=String(body.reason||"").trim();
+      if(!UUID_RE.test(caseId)||!["review","record_provider_reversal"].includes(operation)||
+        !Number.isSafeInteger(version)||version<1||reason.length<12||reason.length>500)
+        throw new DomainError("ADS_REFUND_ACTION_INVALID","Revisão ou justificativa inválida.",400);
+      const {data,error}=await admin.rpc("admin_ads_independent_refund_action_v1_887",{
+        p_actor:user.id,p_case:caseId,p_expected_version:version,
+        p_operation:operation,p_reason:reason
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_independent_refund_action_v1_887"||
+        data?.moneyMoved!==false||data?.caseId!==caseId)
+        throw new DomainError("ADS_REFUND_ACTION_UNVERIFIED","A decisão não foi confirmada.",503);
       return json(data,200,origin);
     }
     if(action==="ads-independent-sales-action"){
