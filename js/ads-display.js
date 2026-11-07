@@ -4,10 +4,12 @@ const tamaoAdsDisplayCache=new Map();
 let tamaoAdsViewportObserver=null;
 let tamaoAdsViewTimer=null;
 let tamaoAdsActiveToken=null;
+let tamaoAdsViewportCleanup=null;
 let tamaoAdsLoadSequence=0;
 function tamaoAdsPublicGateway(payload){
- const base=String(globalThis.CHAMA_BACKEND?.url||'').trim();
- const key=String(globalThis.CHAMA_BACKEND?.publishableKey||'').trim();
+ const config=typeof CHAMA_BACKEND!=='undefined'?CHAMA_BACKEND:null;
+ const base=String(config?.url||'').trim();
+ const key=String(config?.publishableKey||'').trim();
  if(!base||!key)throw Error('ADS_NOT_CONFIGURED');
  return fetch(base+'/functions/v1/ads-independent',{
   method:'POST',cache:'no-store',
@@ -20,6 +22,7 @@ function tamaoAdsPublicGateway(payload){
  });
 }
 function tamaoAdsStopView(){
+ tamaoAdsViewportCleanup?.();tamaoAdsViewportCleanup=null;
  if(tamaoAdsViewTimer){clearTimeout(tamaoAdsViewTimer);tamaoAdsViewTimer=null}
  if(tamaoAdsViewportObserver){tamaoAdsViewportObserver.disconnect();tamaoAdsViewportObserver=null}
  tamaoAdsActiveToken=null;
@@ -93,7 +96,7 @@ function tamaoAdsDraw(target,slot){
  const onHidden=()=>{if(document.visibilityState!=='visible')stop();else schedule()};
  document.addEventListener('visibilitychange',onHidden,{passive:true});
  // Remove the private listener once this placement is replaced.
- creative.addEventListener('tamao-ad-detach',()=>document.removeEventListener('visibilitychange',onHidden),{once:true});
+ tamaoAdsViewportCleanup=()=>document.removeEventListener('visibilitychange',onHidden);
 }
 async function tamaoAdsDisplaySlot(city,state,targetId){
  const name=String(city||'').trim(),uf=String(state||'').trim().toUpperCase();
@@ -113,7 +116,7 @@ async function tamaoAdsDisplaySlot(city,state,targetId){
      r?.noCharge!==true)return;
   const slot=r.slot||null;
   // A challenge is single-use. Do not cache a real slot across rerenders.
-  if(!slot)tamaoAdsDisplayCache.set(key,{slot:null,expires:current+60000});
+  tamaoAdsDisplayCache.set(key,{slot,expires:current+(slot?45000:60000)});
   tamaoAdsDraw(target,slot);
  }catch{/* Ads are optional; failures never hide organic catalog or payments. */}
 }
