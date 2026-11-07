@@ -381,6 +381,8 @@ historyPayload={
  applicationCount:2,partnerUseCount:2,returnCount:1,historicalDiscountCents:1000,
  uniqueVoucherCount:2,uniqueVoucherFaceCents:1000,historicalReusedDiscountCents:0,
  walletReturnPairCount:1,walletReturnNetCents:0,walletReturnNeutralized:true,
+ cashbackReleaseCount:1,cashbackReleaseCoverage:'bounded_complete',
+ unmatchedCashbackReleaseCount:0,
  nominalDiscountNotPayableDebt:true,merchantPayoutVerified:false,
  bankCreditVerified:false,refundClosureAuthorized:false,
  caseClosed:false,moneyMoved:false,checkedAt:'2026-11-06T23:56:00Z',
@@ -407,6 +409,7 @@ assert.match(ctx.page(),/Este valor não é dívida líquida apurada/);
 assert.match(ctx.page(),/Devoluções de benefícios registradas: 1/);
 assert.match(ctx.page(),/Contrapartidas de carteira conferidas:/);
 assert.match(ctx.page(),/Essa conferência interna não comprova crédito bancário/);
+assert.match(ctx.page(),/créditos adicionais não conciliados: 0/);
 assert.match(ctx.page(),/Cupons distintos utilizados/);
 assert.match(ctx.page(),/Reutilizações históricas após devolução: R\$ 0.00/);
 assert.match(ctx.page(),/A baixa e o encerramento permanecem bloqueados/);
