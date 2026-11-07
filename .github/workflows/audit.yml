@@ -239,6 +239,8 @@ jobs:
         run: node tests/coupon-refund-release-exhaustiveness-v1-873.mjs
       - name: V1.875 all cashback reserves and orphan coupon-return quarantines
         run: node tests/coupon-refund-reserve-exhaustiveness-v1-875.mjs
+      - name: V1.876 paid coupon seed evidence and reissue lineage
+        run: node tests/coupon-refund-seed-provenance-v1-876.mjs
       - name: V1.872 Pages demo artifact attempt collision regression
         run: node tests/demo-pages-attempt-artifact-v1-872.mjs
       - name: Admin disabled coupon draft and atomic audit gate
