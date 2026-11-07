@@ -653,6 +653,7 @@ function home(){
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
     </section>`:''}
+    ${tamaoAdsHomeLoad()}
     ${tamaoDiscoveryEntryHub()}
     ${reorderCard}
     ${acquisitionOpen?prelaunchCustomerLeadSection():''}
@@ -779,6 +780,8 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
+
+${tamaoAdsHomeLoad()}
 
 ${tamaoDiscoveryEntryHub()}
 
