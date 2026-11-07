@@ -738,7 +738,7 @@ function sponsorsLanding(){
           <div><span>DA SUA MARCA PARA A CIDADE</span><strong>Faça parte das escolhas do dia a dia.</strong></div>
         </div>
         <div class="sponsor-visual-details">
-          <div><span aria-hidden="true">📍</span><div><strong>Cidade e categoria</strong><small>Presença pensada para o contexto local</small></div></div>
+          <div><span aria-hidden="true">📍</span><div><strong>Cidade e categoria</strong><small>Presença na sua cidade</small></div></div>
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Sem misturar ofertas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Limites e condições antes</small></div></div>
         </div>
@@ -746,7 +746,7 @@ function sponsorsLanding(){
       </aside></div>
     </div>
     ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'')}
-    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Cidade e investimento definidos com você, sem promessas de exibição.</p></div>
+    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Orçamento e entrega sujeitos a validação.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Escolha o objetivo da sua campanha.</p></div></div>
       <div class="sponsor-format-grid">
@@ -767,7 +767,7 @@ function sponsorsLanding(){
     </section>
     <section class="section"><div class="card tamao-sponsor-footer">
       <span class="section-kicker">VAMOS CONVERSAR?</span>
-      <h2>Boas parcerias começam com objetivos em comum.</h2>
+      <h2>Boas parcerias começam aqui.</h2>
       <p>Informe cidade, categoria e orçamento. Sem pagamento antecipado.</p>
       <button type="button" class="primary" onclick="openSponsorContact()">Conversar sobre divulgação →</button>
     </div></section>
