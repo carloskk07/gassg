@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {returnWalletRefs,withWalletEvidence} from './refund-wallet-fixture-v1-871.mjs';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const source=read('supabase/functions/admin-ops/coupon-refund-merchant-history.js');
-const {couponRefundMerchantHistorySummary:reconcile}=await import(
+const {couponRefundMerchantHistorySummary:rawReconcile}=await import(
   'data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 
+const reconcile=state=>rawReconcile(withWalletEvidence(state));
 const id={
  invoice:'66666666-6666-4666-8666-666666666666',
  customer:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -27,11 +29,13 @@ const use=(order_id,created_at)=>({
 });
 const back=(order_id,recorded_at,disposition='reissued',cause='order_cancelled')=>({
  invoice_id:id.invoice,customer_id:id.customer,order_id,
- voucher_id:id.voucher,amount_cents:500,recorded_at,disposition,cause
+ voucher_id:id.voucher,amount_cents:500,recorded_at,disposition,cause,
+ ...returnWalletRefs(order_id)
 });
 const order=(orderId,status,financial_reversed_at=null)=>({
  id:orderId,customer_id:id.customer,merchant_id:id.merchant,
- status,financial_state:status==='CANCELLED'?'reversed':'settled',
+ status,risk_reason:status==='CANCELLED'?'buyer_cancelled':null,
+ financial_state:status==='CANCELLED'?'reversed':'settled',
  financial_reversed_at
 });
 const base={
@@ -51,6 +55,8 @@ const good=reconcile(base);
 assert.equal(good.applicationCount,2);
 assert.equal(good.partnerUseCount,2);
 assert.equal(good.returnCount,1);
+assert.equal(good.walletReturnPairCount,1);
+assert.equal(good.walletReturnNeutralized,true);
 assert.equal(good.historicalDiscountCents,1000);
 assert.equal(good.uniqueVoucherCount,1);
 assert.equal(good.uniqueVoucherFaceCents,500);
