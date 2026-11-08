@@ -3403,6 +3403,7 @@ function adminToggleAdvancedNav(){
 function adminAdsSetWorkspaceTab(tab){
  if(!adminReady()||adminRuntime.section!=='ads'||!adminRoleCanSection('ads'))return;
  if(!['campaigns','diagnostics'].includes(tab))return;
+ if(tab==='diagnostics'&&!adminRoleCanSection('partners'))return;
  adminAdsWorkspaceTab=tab;
  render();
  if(tab==='campaigns'&&typeof adminIndependentAdsRefresh==='function')
@@ -9853,10 +9854,11 @@ function adminPage(){
     '<div class="admin-task-tabs" role="group" aria-label="Áreas da publicidade">'+
     '<button type="button" class="secondary small '+(adminAdsWorkspaceTab==='campaigns'?'active':'')+
       '" aria-pressed="'+(adminAdsWorkspaceTab==='campaigns')+'" onclick="adminAdsSetWorkspaceTab(\'campaigns\')">Campanhas e pagamentos</button>'+
+    (adminRoleCanSection('partners')?
     '<button type="button" class="secondary small '+(adminAdsWorkspaceTab==='diagnostics'?'active':'')+
-      '" aria-pressed="'+(adminAdsWorkspaceTab==='diagnostics')+'" onclick="adminAdsSetWorkspaceTab(\'diagnostics\')">Medição e ferramentas</button>'+
+      '" aria-pressed="'+(adminAdsWorkspaceTab==='diagnostics')+'" onclick="adminAdsSetWorkspaceTab(\'diagnostics\')">Medição e ferramentas</button>':'')+
     '</div></section>'+
-    (adminAdsWorkspaceTab==='campaigns'?
+    (adminAdsWorkspaceTab==='campaigns'||!adminRoleCanSection('partners')?
       (typeof adminAdsIndependentSection==='function'?
        adminAdsIndependentSection():
        (adminAdsIndependentLoad(),'<section class="section" role="status">Carregando campanhas e pagamentos…</section>')):
