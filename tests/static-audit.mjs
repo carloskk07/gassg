@@ -148,7 +148,7 @@ assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aq
 assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.includes('adminPrelaunchLeadsSection(d)'),'admin deve exibir leads captados');
 assert.ok(adminAcquisition.includes('adminSetPrelaunchLeadStatus')&&adminAcquisition.includes('QUALIFICADO')&&adminAcquisition.includes('CONVERTIDO'),'admin precisa operar pipeline de leads');
 assert.ok(adminAcquisition.includes('adminLeadWhatsAppText')&&adminAcquisition.includes('Abrir WhatsApp com mensagem'),'follow-up comercial precisa abrir com texto contextualizado');
-assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Funil real de clientes e parceiros'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
+assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Clientes e interessados'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
 assert.ok(adminAcquisition.includes('Fontes comerciais, sem taxas artificiais')&&
   adminAcquisition.includes('adminAcquisitionAggregateVerified')&&
   adminAcquisition.includes('adminAcquisitionEvidenceView')&&
