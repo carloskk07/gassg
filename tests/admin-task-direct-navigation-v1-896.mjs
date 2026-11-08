@@ -56,7 +56,7 @@ const tabStart=admin.indexOf('function adminPartnersSetWorkspaceTab(');
 const tabEnd=admin.indexOf('// This selector navigates only',tabStart);
 assert.ok(tabStart>=0&&tabEnd>tabStart);
 const tabs={ready:true,section:'partners',tab:'queue',role:true,renders:0,
- adminReady(){return this.ready},
+ adminReady:()=>tabs.ready,
  adminRuntime:{section:'partners'},
  adminRoleCanSection(){return tabs.role},
  render(){tabs.renders++},
