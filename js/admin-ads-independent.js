@@ -279,7 +279,7 @@ function adminAdsIndependentSection(){
    'placeholder="Use somente quando os motivos prontos não servirem"></textarea>'+
    '<div class="row flex-wrap">'+buttons+'</div>';
  };
- const refundRows=v?.refundCases?.map(c=>{
+ const refundRows=pane==='refunds'?v?.refundCases?.map(c=>{
    const id=String(c.caseId||'');
    if(!/^[0-9a-f-]{36}$/i.test(id))return '';
    const review=canAct&&c.status==='submitted';
@@ -321,8 +321,8 @@ function adminAdsIndependentSection(){
        (canVerify?'<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'verify\',\''+
          id+'\','+Number(c.version||0)+')">Verificar devolução no provedor</button>':''):'')+
      '</article>';
- }).join('')||'';
- const rows=v?.rows?.map(c=>
+ }).join('')||'':'';
+ const rows=pane==='campaigns'?v?.rows?.map(c=>
   '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+' · '+esc(String(c.title||''))+'</strong>'+
   '<p>'+esc(String(c.city||''))+'/'+esc(String(c.state||''))+
   ' · '+esc(String(c.effectiveStatus||c.status||''))+' · Versão '+Number(c.version||0)+'</p>'+
@@ -335,7 +335,7 @@ function adminAdsIndependentSection(){
   '<p>Orçamento máximo: '+adminMoney(Number(c.budgetCents||0))+
   ' · Sinais de visibilidade: '+Number(c.reportedViewSignals||0)+
   ' · Exibições faturáveis: 0</p>'+actions(c)+'</article>'
- ).join('')||'';
+ ).join('')||'':'';
  return '<section class="section" aria-label="Publicação independente do TAMÃO Ads">'+
   '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • ANUNCIANTES INDEPENDENTES</span>'+
   '<h3>Campanhas sem cadastro de revenda</h3>'+
