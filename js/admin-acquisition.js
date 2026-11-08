@@ -458,14 +458,26 @@ async function adminAdsCampaignLoadFromUi(){
     }
   }finally{adminAdsCampaignBusy=false;render();}
 }
+function adminAdsReviewMarked(merchantId){
+ return document.querySelector('input[name="ads-review-choice-'+merchantId+'"]:checked');
+}
+function adminAdsSubmitMarkedReview(merchantId,version){
+ if(!/^[0-9a-f-]{36}$/i.test(String(merchantId||'')))return;
+ const choice=adminAdsReviewMarked(merchantId);
+ if(!choice)return toast('Marque a decisão para a peça publicitária.');
+ return adminAdsCampaignReview(merchantId,version,choice.value);
+}
 async function adminAdsCampaignReview(merchantId,version,decision){
   if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
   const queue=adminAdsCampaignQueue?.rows||[];
   const row=queue.find(x=>x.merchantId===merchantId&&x.version===version&&x.status==='submitted');
   if(!row||!['approved_creative','needs_changes'].includes(decision))
     return toast('Atualize a fila e escolha uma proposta enviada.');
-  const note=String(document.getElementById('ads-review-note-'+merchantId)?.value||'').trim();
-  if(note.length<12||note.length>500)return toast('Registre uma justificativa entre 12 e 500 caracteres.');
+  const choice=adminAdsReviewMarked(merchantId);
+  if(!choice||choice.value!==decision)return toast('Marque a decisão correspondente.');
+  const custom=String(document.getElementById('ads-review-note-'+merchantId)?.value||'').trim();
+  const note=custom||String(choice.dataset?.reason||'').trim();
+  if(note.length<12||note.length>500)return toast('Selecione uma justificativa válida de 12 a 500 caracteres.');
   if(!confirm((decision==='approved_creative'?'Conferir a peça':'Pedir ajustes')+
       '? Não será publicado nem cobrado nenhum anúncio.'))return;
   try{
@@ -491,12 +503,15 @@ function adminAdsCampaignSection(){
       '<div class="order-actions"><button class="secondary small" type="button" onclick="adminAdsPreviewRunFromUi(\''+
         x.merchantId+'\')">Testar prévia interna</button></div>':'';
     const fields=canReview&&x.status==='submitted'?
-      '<label>Justificativa para a revisão<textarea id="ads-review-note-'+x.merchantId+
-      '" rows="2" minlength="12" maxlength="500" placeholder="Explique o que foi conferido ou precisa mudar"></textarea></label>'+
-      '<div class="order-actions">'+
-      '<button class="secondary small" onclick="adminAdsCampaignReview(\''+x.merchantId+'\','+Number(x.version)+',\'needs_changes\')">Solicitar ajustes</button>'+
-      '<button class="primary small" onclick="adminAdsCampaignReview(\''+x.merchantId+'\','+Number(x.version)+',\'approved_creative\')">Aprovar somente a peça</button>'+
-      '</div>':'';
+      '<fieldset><legend>Marque a decisão da peça</legend>'+
+      '<label class="admin-option-row"><input type="radio" name="ads-review-choice-'+x.merchantId+
+        '" value="needs_changes" data-reason="Peça publicitária devolvida para ajustes de conteúdo e conformidade."> Solicitar ajustes</label>'+
+      '<label class="admin-option-row"><input type="radio" name="ads-review-choice-'+x.merchantId+
+        '" value="approved_creative" data-reason="Criativo e informações da peça revisados para aprovação sem publicação ou cobrança."> Aprovar somente a peça</label></fieldset>'+
+      '<details><summary>Outro motivo (opcional)</summary><label for="ads-review-note-'+x.merchantId+'">Justificativa personalizada</label>'+
+      '<textarea id="ads-review-note-'+x.merchantId+'" rows="2" maxlength="500"></textarea></details>'+
+      '<button type="button" class="primary small" onclick="adminAdsSubmitMarkedReview(\''+x.merchantId+
+        '\','+Number(x.version)+')">Confirmar decisão marcada</button>':'';
     return '<div class="card flat"><div class="status-bar"><strong>'+esc(x.companyName||'Revenda')+
       '</strong><span class="status-pill">'+esc(states[x.status]||'Em análise')+'</span></div>'+
       '<p class="tiny muted">'+esc([x.city,x.state].filter(Boolean).join('/')||'Localização pendente')+
