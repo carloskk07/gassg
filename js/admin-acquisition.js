@@ -1560,12 +1560,30 @@ async function adminLoadGrowthReferralReviewQueue(){
     toast(String(e?.message||e));
   }finally{adminGrowthReferralReviewBusy=false;render();}
 }
+function adminGrowthReviewMarked(applicationId){
+ return document.querySelector('input[name="growth-review-choice-'+applicationId+'"]:checked');
+}
+function adminGrowthReviewChoiceChanged(applicationId){
+ const choice=adminGrowthReviewMarked(applicationId);
+ const proof=document.getElementById('growth-review-proof-field-'+applicationId);
+ if(proof)proof.hidden=choice?.value!=='verified_identity';
+}
+function adminGrowthSubmitMarkedReview(applicationId){
+ if(!/^[0-9a-f-]{36}$/i.test(String(applicationId||'')))return;
+ const choice=adminGrowthReviewMarked(applicationId);
+ if(!choice)return toast('Marque a providência para esta indicação.');
+ return adminReviewGrowthReferral(applicationId,choice.value);
+}
 async function adminReviewGrowthReferral(applicationId,decision){
   if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
   if(!/^[0-9a-f-]{36}$/i.test(String(applicationId)))return;
   if(!['verified_identity','rejected','needs_evidence'].includes(decision))return;
-  const reason=String(document.getElementById('growth-review-note-'+applicationId)?.value||'').trim();
-  if(reason.trim().length<12||reason.trim().length>800)return toast('Justificativa deve ter de 12 a 800 caracteres');
+  const choice=adminGrowthReviewMarked(applicationId);
+  if(!choice||choice.value!==decision)
+    return toast('Marque a providência correspondente antes de confirmar.');
+  const custom=String(document.getElementById('growth-review-note-'+applicationId)?.value||'').trim();
+  const reason=custom||String(choice.dataset?.reason||'').trim();
+  if(reason.length<12||reason.length>800)return toast('Selecione uma justificativa de 12 a 800 caracteres');
   let evidenceReference='';
   const row=adminGrowthReferralReviewQueue?.rows?.find(x=>x.applicationId===applicationId);
   if(!row||['verified_identity','rejected'].includes(row.latestDecision))return toast('A indicação já foi analisada. Atualize a fila.');
@@ -1594,15 +1612,26 @@ function adminGrowthReferralReviewSection(){
       const label=String(x.companyName||'Empresa').slice(0,120);
       const state=({verified_identity:'Identidade conferida',rejected:'Rejeitada',needs_evidence:'Aguardando evidências'})[x.latestDecision]||'Não analisada';
       const canReview=['superadmin','compliance'].includes(String(adminCurrentRole()));
-      const btn=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?'<div class="order-actions">'+
-        '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'needs_evidence\')">Pedir evidências</button>'+
-        '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'rejected\')">Rejeitar</button>'+
-        '<button class="primary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'verified_identity\')">Conferir identidade</button></div>':'';
       const fields=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?
-        '<label>Justificativa da análise<textarea id="growth-review-note-'+x.applicationId+
-        '" rows="3" minlength="12" maxlength="800" placeholder="Explique o motivo da decisão"></textarea></label>'+
-        '<label>Referência da evidência (sem documentos pessoais)<input id="growth-review-proof-'+x.applicationId+
-        '" maxlength="160" placeholder="Protocolo ou referência interna" /></label>':'';
+        '<fieldset><legend>Marque a providência para esta indicação</legend>'+
+        '<label class="admin-option-row"><input type="radio" name="growth-review-choice-'+x.applicationId+
+          '" value="needs_evidence" data-reason="Informações adicionais solicitadas para conferir identidade e vínculo da indicação." '+
+          'onchange="adminGrowthReviewChoiceChanged(\''+x.applicationId+'\')"> Pedir evidências</label>'+
+        '<label class="admin-option-row"><input type="radio" name="growth-review-choice-'+x.applicationId+
+          '" value="rejected" data-reason="Dados apresentados insuficientes para validar o vínculo de indicação." '+
+          'onchange="adminGrowthReviewChoiceChanged(\''+x.applicationId+'\')"> Rejeitar</label>'+
+        '<label class="admin-option-row"><input type="radio" name="growth-review-choice-'+x.applicationId+
+          '" value="verified_identity" data-reason="CNPJ e responsável conferidos por evidência documentada para validação da identidade." '+
+          'onchange="adminGrowthReviewChoiceChanged(\''+x.applicationId+'\')"> Conferir identidade</label></fieldset>'+
+        '<div id="growth-review-proof-field-'+x.applicationId+'" hidden>'+
+        '<label>Referência de evidência real (obrigatória na validação)<input id="growth-review-proof-'+x.applicationId+
+          '" maxlength="160" autocomplete="off" placeholder="Protocolo ou referência interna" /></label></div>'+
+        '<details><summary>Outro motivo (opcional)</summary>'+
+        '<label for="growth-review-note-'+x.applicationId+'">Justificativa personalizada</label>'+
+        '<textarea class="input" id="growth-review-note-'+x.applicationId+
+          '" rows="2" maxlength="800"></textarea></details>'+
+        '<button class="primary small" type="button" onclick="adminGrowthSubmitMarkedReview(\''+
+          x.applicationId+'\')">Confirmar providência marcada</button>':'';
       return '<article class="card flat"><strong>'+esc(label)+'</strong>'+
         '<p class="tiny muted">CNPJ final '+esc(x.cnpjSuffix||'')+
         ' • '+esc(state)+' • '+(x.cnpjMatches?'CNPJ vinculado':'CNPJ pendente')+
