@@ -74,12 +74,14 @@ const fields={
  'owner-campaign-signals-month':'2026-10','owner-payout-order':orderId,
  'owner-payout-amount':'12,00','owner-payout-provider':'pix',
  'owner-payout-reference':'E111222233339999',
- 'owner-payout-date':'2026-10-14','owner-payout-sha':''
+ 'owner-payout-date':'2026-10-14','owner-payout-sha':'',
+ 'owner-payout-void-choice-'+claimId:'reference',
+ 'owner-payout-void-confirm-'+claimId:true
 };
 let data=structuredClone(sample),role='superadmin',calls=[],messages=[];
 const context=vm.createContext({
  adminCurrentRole:()=>role,adminRuntime:{session:{user:{id:actor}}},
- document:{getElementById:id=>({value:fields[id]||''})},
+ document:{getElementById:id=>({value:fields[id]||'',checked:fields[id]===true})},
  adminInvoke:async arg=>{
   calls.push(arg);
   if(arg.action==='owner-benefit-payout-record')
