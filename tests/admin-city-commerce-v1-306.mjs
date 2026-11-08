@@ -60,7 +60,7 @@ const cut=(name)=>{
  assert.ok(start>=0&&end>start);
  return admin.slice(start,end+2);
 };
-let role='superadmin',ready=true,confirmReturn=true,reason='Cadastramos a primeira revenda elegível';
+let role='superadmin',ready=true,confirmReturn=true,selected='compliance';
 let calls=[],messages=[],reads=0;
 const runtime={session:{user:{id:'a'}},data:{launchReadiness:{operationMode:'PRELAUNCH'}},
  governance:{data:{source:'admin_governance_gates_v1_304',
@@ -75,10 +75,10 @@ const context=vm.createContext({
  adminRoleCanSection:()=>true,adminOperationModeLabel:x=>x,
  adminPerform:async(action,payload)=>{calls.push({action,payload});return {enabled:payload.enabled,globalModeUnchanged:true}},
  adminLoadGovernanceGates:async()=>{reads++},
- confirm:()=>confirmReturn,prompt:()=>reason,toast:m=>messages.push(m),String,Date,
+ confirm:()=>confirmReturn,document:{getElementById:()=>({value:selected})},toast:m=>messages.push(m),String,Date,
  esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
 });
-vm.runInContext(cut('adminGovernanceChangeCityCommerce')+
+vm.runInContext(admin.slice(admin.indexOf('const ADMIN_CITY_REASON_CHOICES='),admin.indexOf('async function adminGovernanceChangeCityPause('))+cut('adminGovernanceChangeCityCommerce')+
  '\nthis.act=adminGovernanceChangeCityCommerce;',context);
 assert.equal(await context.act(300),false);
 role='operations';assert.equal(await context.act(0),false);
@@ -88,9 +88,9 @@ assert.equal(await context.act(0),false);
 assert.equal(calls.length,0);
 runtime.governance.data.cities[0].adminPaused=false;
 confirmReturn=false;assert.equal(await context.act(0),false);
-confirmReturn=true;reason='a';
+confirmReturn=true;selected='';
 assert.equal(await context.act(0),false);
-reason='Liberação manual após cadastro aprovado';
+selected='compliance';
 assert.equal(await context.act(0),true);
 assert.equal(calls.length,1);
 assert.equal(calls[0].action,'market-city-commerce');
