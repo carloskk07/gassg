@@ -10545,8 +10545,8 @@ function adminOrderActionChoice(o,action,label,buttonClass){
     '<option value="">Marque o motivo real</option>'+
     Object.entries(options).map(([key,text])=>'<option value="'+esc(key)+'">'+esc(text)+'</option>').join('')+
     '</select>'+suffix+
-    '<button type="button" class="'+esc(buttonClass)+' small" onclick="adminOrderControl(\\''+
-    id+'\\','+version+',\\''+esc(action)+'\\')">'+esc(label)+'</button></details>';
+    '<button type="button" class="'+esc(buttonClass)+' small" onclick="adminOrderControl(\''+
+    id+'\','+version+',\''+esc(action)+'\')">'+esc(label)+'</button></details>';
 }
 async function adminOrderControl(orderId,expectedVersion,controlAction){
   const reasons=ADMIN_ORDER_ACTION_REASONS[controlAction];
