@@ -738,6 +738,7 @@ function adminMerchantReturnToControls(merchantId){
   adminRuntime.detail=null;
   adminRuntime.section='partners';
   adminPartnersWorkspaceTab='verification';
+  adminVerificationMerchantId=id;
   render();
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session||
@@ -3398,6 +3399,8 @@ let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','disc
 let adminAdsWorkspaceTab='campaigns';
 let adminGrowthWorkspaceTab='acquisition';
 let adminPartnersWorkspaceTab='queue';
+let adminOrdersWorkspaceTab='orders';
+let adminVerificationMerchantId='';
 function adminToggleAdvancedNav(){
  adminAdvancedNavOpen=!adminAdvancedNavOpen;
  render();
@@ -3419,6 +3422,46 @@ function adminGrowthSetWorkspaceTab(tab){
  render();
  if(tab==='budget')adminOwnerFinanceLoadOnDemand().catch(()=>{});
 }
+function adminOrdersSetWorkspaceTab(tab){
+ if(!adminReady()||adminRuntime.section!=='orders'||!adminRoleCanSection('orders'))return;
+ if(!['orders','support'].includes(tab))return;
+ adminOrdersWorkspaceTab=tab;
+ render();
+ if(tab==='support'&&['superadmin','operations','support'].includes(adminCurrentRole()))
+   adminHelpReportsPage(0).catch(()=>{});
+}
+function adminVerificationSelectMerchant(value){
+ if(!adminReady()||adminRuntime.section!=='partners'||
+    adminPartnersWorkspaceTab!=='verification'||!adminRoleCanSection('partners'))return;
+ const id=String(value||'');
+ const merchants=adminRuntime.data?.merchants;
+ if(id!==''&&(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)||
+    !Array.isArray(merchants)||!merchants.some(m=>m?.id===id)))return;
+ adminVerificationMerchantId=id;
+ render();
+ requestAnimationFrame(()=>document.getElementById('admin-verification-merchant')?.focus({preventScroll:true}));
+}
+function adminVerificationMerchantView(d){
+ const merchants=Array.isArray(d?.merchants)?d.merchants:[];
+ const selected=merchants.find(m=>m?.id===adminVerificationMerchantId)||
+   (merchants.length===1?merchants[0]:null);
+ const options=merchants.map(m=>'<option value="'+esc(m.id)+'"'+
+   (selected?.id===m.id?' selected':'')+'>'+
+   esc(String(m.name||'Revenda sem nome'))+' — '+esc(String(m.status||'pendente'))+
+   '</option>').join('');
+ return '<section class="section"><div class="section-head"><div><h2>Documentos e ativação</h2>'+
+  '<p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP. As decisões continuam protegidas.</p>'+
+  '</div></div>'+
+  (merchants.length?
+    '<div class="card flat"><label for="admin-verification-merchant">Escolha a revenda para conferir</label>'+
+    '<select id="admin-verification-merchant" class="input" onchange="adminVerificationSelectMerchant(this.value)">'+
+    (merchants.length>1?'<option value=""'+(!selected?' selected':'')+'>Selecione uma revenda</option>':'')+
+    options+'</select><small class="field-help">'+merchants.length+
+    ' revenda(s) carregada(s) nesta consulta. Nenhuma validação é automática.</small></div>'+
+    (selected?adminMerchantCard(selected):'<div class="empty card">Selecione uma revenda para abrir suas verificações.</div>'):
+    '<div class="empty card">Nenhuma revenda criada.</div>')+
+ '</section>';
+}
 function adminPartnersSetWorkspaceTab(tab){
  if(!adminReady()||adminRuntime.section!=='partners'||!adminRoleCanSection('partners'))return;
  if(!['queue','applications','verification'].includes(tab))return;
@@ -3430,7 +3473,7 @@ function adminPartnersSetWorkspaceTab(tab){
 // changes business states, calls the payment provider or bypasses role checks.
 const ADMIN_TASK_NAV_ITEMS=[
  {id:'orders',section:'orders',label:'Pedidos — acompanhar entregas'},
- {id:'support',section:'orders',label:'Pedidos — suporte e relatos'},
+ {id:'support',section:'orders',tab:'support',label:'Atendimento — suporte e relatos'},
  {id:'partners-queue',section:'partners',tab:'queue',label:'Revendas — fila e situação'},
  {id:'partners-applications',section:'partners',tab:'applications',label:'Revendas — cadastros'},
  {id:'partners-verification',section:'partners',tab:'verification',label:'Revendas — verificar documentos'},
@@ -3457,6 +3500,7 @@ function adminSelectTaskFromUi(){
  const taskId=String(document.getElementById('admin-task-nav')?.value||'');
  const task=adminTaskNavChoices().find(t=>t.id===taskId);
  if(!task)return;
+ if(task.section==='orders')adminOrdersWorkspaceTab=task.tab||'orders';
  if(task.section==='partners')adminPartnersWorkspaceTab=task.tab;
  if(task.section==='ads')adminAdsWorkspaceTab=task.tab;
  if(task.section==='growth')adminGrowthWorkspaceTab=task.tab;
@@ -3679,6 +3723,7 @@ function adminFocusMerchantOperationsRecord(type,id){
   const session=adminRuntime.session;
   adminRuntime.section='partners';
   adminPartnersWorkspaceTab=type==='merchant'?'verification':'applications';
+  if(type==='merchant')adminVerificationMerchantId=id;
   render();
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
@@ -4095,6 +4140,7 @@ function adminOpenMerchantNetworkRecord(id){
   const session=adminRuntime.session;
   adminRuntime.section='partners';
   adminPartnersWorkspaceTab='verification';
+  adminVerificationMerchantId=id;
   render();
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
@@ -9850,10 +9896,20 @@ function adminPage(){
     </div></section>`):'';
 
   const ordersContent=(sectionActive('orders'))?(`
-    ${adminOrderDemoView()}
-    ${adminControlTower({...d,controlOrders})}
-    ${adminSupportQueueView(supportCases)}
-    ${adminProblemReportsSection(d)}`):'';
+    <section class="section admin-orders-workspace">
+      <div class="section-head"><div><span class="section-kicker">OPERAÇÃO E ATENDIMENTO</span>
+        <h2>Escolha o trabalho</h2><p>Entregas e solicitações ficam em áreas separadas.</p></div></div>
+      <div class="admin-task-tabs" role="group" aria-label="Tarefas de pedidos">
+        <button type="button" class="secondary small ${adminOrdersWorkspaceTab==='orders'?'active':''}"
+         aria-pressed="${adminOrdersWorkspaceTab==='orders'}" onclick="adminOrdersSetWorkspaceTab('orders')">Pedidos e entregas</button>
+        <button type="button" class="secondary small ${adminOrdersWorkspaceTab==='support'?'active':''}"
+         aria-pressed="${adminOrdersWorkspaceTab==='support'}" onclick="adminOrdersSetWorkspaceTab('support')">Atendimento e relatos</button>
+      </div>
+    </section>
+    ${adminOrdersWorkspaceTab==='orders'?
+      adminOrderDemoView()+adminControlTower({...d,controlOrders}):''}
+    ${adminOrdersWorkspaceTab==='support'?
+      adminSupportQueueView(supportCases)+adminProblemReportsSection(d):''}`):'';
 
   const customersContent=(sectionActive('customers'))?(adminCustomersSection(d)):'';
 
@@ -9878,8 +9934,7 @@ function adminPage(){
     ${adminPartnersWorkspaceTab==='applications'?`
       <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais ainda não são ofertas ativas.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
       <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação vincula owner, mas não coloca a revenda online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>` : ''}
-    ${adminPartnersWorkspaceTab==='verification'?`
-      <section class="section"><div class="section-head"><div><h2>Documentos e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP. As decisões continuam protegidas.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>` : ''}
+    ${adminPartnersWorkspaceTab==='verification'?adminVerificationMerchantView(d):''}
   `):'';
 
   const catalogContent=(sectionActive('catalog'))?(`${adminProductRegistrySection(d)}`):'';
