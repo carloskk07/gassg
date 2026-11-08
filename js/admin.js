@@ -3445,7 +3445,7 @@ function adminVerificationSelectMerchant(value){
 function adminVerificationMerchantView(d){
  const merchants=Array.isArray(d?.merchants)?d.merchants:[];
  const selected=merchants.find(m=>m?.id===adminVerificationMerchantId)||
-   (merchants.length===1?merchants[0]:null);
+   (!adminVerificationMerchantId&&merchants.length===1?merchants[0]:null);
  const options=merchants.map(m=>'<option value="'+esc(m.id)+'"'+
    (selected?.id===m.id?' selected':'')+'>'+
    esc(String(m.name||'Revenda sem nome'))+' — '+esc(String(m.status||'pendente'))+
