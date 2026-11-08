@@ -627,6 +627,8 @@ jobs:
         run: node tests/admin-task-direct-navigation-v1-896.mjs
       - name: V1.897 guided single merchant verification and separate support workspace
         run: node tests/admin-guided-flows-v1-897.mjs
+      - name: V1.898 guided independent Ads workspaces and audited reasons
+        run: node tests/admin-ads-guided-operations-v1-898.mjs
       - name: V1.891 independent Ads payment-search pagination safeguards
         run: node tests/ads-independent-reconcile-paging-v1-891.mjs
       - name: Test V1.310 merchant Ads offer and founder authority
