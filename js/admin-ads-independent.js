@@ -41,7 +41,8 @@ async function adminIndependentAdsAction(decision,campaignId='',version=0){
  if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
  const control=decision==='enable_delivery'||decision==='disable_delivery';
  const field=document.getElementById(control?'independent-ads-control-reason':'independent-ads-reason-'+campaignId);
- const selected=control?null:document.getElementById('independent-ads-preset-'+campaignId);
+ const selected=control?document.getElementById('independent-ads-control-preset'):
+  document.getElementById('independent-ads-preset-'+campaignId);
  const manualReason=String(field?.value||'').trim();
  const presetReason=String(selected?.value||'').trim();
  const presetDecision=String(selected?.selectedOptions?.[0]?.dataset?.decision||'');
@@ -105,7 +106,8 @@ async function adminIndependentAdsHomologationAction(enabled){
  if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
     state.fixedFeeSalesVersion<1)return toast('Atualize as campanhas antes de decidir.');
  const campaignId=enabled?String(document.getElementById('ads-homologation-campaign')?.value||''):'';
- const reason=String(document.getElementById('ads-homologation-reason')?.value||'').trim();
+ const reason=String(document.getElementById('ads-homologation-reason')?.value||'').trim()||
+   String(document.getElementById('ads-homologation-preset')?.value||'').trim();
  const confirmation=String(document.getElementById('ads-homologation-confirm')?.value||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe justificativa de 12 a 500 caracteres.');
  if(confirmation!==(enabled?'HOMOLOGAR':'CANCELAR'))
@@ -134,7 +136,8 @@ async function adminIndependentAdsSalesAction(){
  const state=adminIndependentAdsState;
  if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
    state.fixedFeeSalesVersion<1)return toast('Atualize a situação das campanhas primeiro.');
- const reason=String(document.getElementById('independent-ads-sales-reason')?.value||'').trim();
+ const reason=String(document.getElementById('independent-ads-sales-reason')?.value||'').trim()||
+   String(document.getElementById('independent-ads-sales-preset')?.value||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe uma justificativa de 12 a 500 caracteres.');
  adminIndependentAdsBusy=true;
  try{
@@ -152,8 +155,12 @@ async function adminIndependentAdsSalesAction(){
 }
 async function adminIndependentRefundAction(operation,caseId,version){
  if(adminIndependentAdsBusy||adminCurrentRole()!=='superadmin')return;
- const reason=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
- if(reason.length<12||reason.length>500)return toast('Informe uma justificativa com 12 a 500 caracteres.');
+ const manual=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
+ const preset=document.getElementById('ads-refund-admin-preset-'+caseId);
+ if(!manual&&preset?.value&&preset?.selectedOptions?.[0]?.dataset?.operation!==operation)
+  return toast('O motivo selecionado corresponde a outra ação de reembolso.');
+ const reason=manual||String(preset?.value||'').trim();
+ if(reason.length<12||reason.length>500)return toast('Selecione uma justificativa ou escreva uma com 12 a 500 caracteres.');
  if(!['review','record_provider_reversal'].includes(operation)||!/^[0-9a-f-]{36}$/i.test(caseId))
   return toast('Solicitação inválida.');
  const row=adminIndependentAdsState.refundCases?.find(r=>r.caseId===caseId);
@@ -182,7 +189,11 @@ async function adminIndependentRefundProvider(operation,caseId,version){
  if(!['execute','verify'].includes(operation))return;
  if(operation==='execute'&&row.refundProviderAttempt)
   return toast('Já existe solicitação ao provedor. Utilize apenas Verificar.');
- const reason=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
+ const manual=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
+ const preset=document.getElementById('ads-refund-admin-preset-'+caseId);
+ if(!manual&&preset?.value&&preset?.selectedOptions?.[0]?.dataset?.operation!==operation)
+  return toast('O motivo selecionado corresponde a outra ação de reembolso.');
+ const reason=manual||String(preset?.value||'').trim();
  const confirmation=String(document.getElementById('ads-refund-provider-confirm-'+caseId)?.value||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe justificativa com 12 a 500 caracteres.');
  if(operation==='execute'&&confirmation!=='DEVOLVER')
@@ -277,7 +288,15 @@ function adminAdsIndependentSection(){
    const canExecute=canAct&&c.status==='reviewing'&&
      !c.refundProviderAttempt&&c.providerReversalRecorded!==true;
    const canVerify=canAct&&c.status==='reviewing'&&c.providerReversalRecorded!==true;
-   const button=(action,label)=>'<button type="button" class="secondary small" '+
+   const reasonOptions=(review?
+     '<option data-operation="review" value="Protocolo aberto para análise de elegibilidade e pagamento.">Analisar protocolo</option>':'')+
+    (close?
+     '<option data-operation="record_provider_reversal" value="Reversão confirmada no provedor e conferida para registro do protocolo.">Registrar reversão verificada</option>':'')+
+    (canVerify?
+     '<option data-operation="verify" value="Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.">Consultar andamento no provedor</option>':'')+
+    (canExecute?
+     '<option data-operation="execute" value="Devolução integral solicitada após conferência do pagamento, recebedor e caso.">Solicitar devolução integral</option>':'');
+  const button=(action,label)=>'<button type="button" class="secondary small" '+
      'onclick="adminIndependentRefundAction(\''+action+'\',\''+id+'\','+
      Number(c.version||0)+')">'+label+'</button>';
    return '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+
@@ -287,7 +306,10 @@ function adminAdsIndependentSection(){
      '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
      '<p>Provedor confirma reversão: '+(c.providerReversalRecorded===true?'Sim':'Não')+'</p>'+
      '<p>Envio pelo Admin: '+esc(String(c.refundProviderAttempt||'não realizado'))+'</p>'+
-     (canAct&&(review||close||canVerify)?'<label>Justificativa da análise<textarea class="input" '+
+     (canAct&&(review||close||canVerify)?'<label for="ads-refund-admin-preset-'+id+'">Motivo da decisão</label>'+
+       '<select id="ads-refund-admin-preset-'+id+'" class="input">'+
+       '<option value="">Escolha o motivo correspondente à ação</option>'+reasonOptions+'</select>'+
+       '<label>Outro motivo (opcional)<textarea class="input" '+
        'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
        (review?button('review','Iniciar revisão'):'')+
        (close?button('record_provider_reversal','Confirmar estorno verificado'):'')+
@@ -331,9 +353,14 @@ function adminAdsIndependentSection(){
      (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
    '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
   (pane==='finance'?(
-  (canAct?'<div class="card flat"><label for="independent-ads-control-reason">Motivo para autorizar ou interromper</label>'+
-    '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2" '+
-    'placeholder="Revisão de segurança e inventário verificado"></textarea>'+
+  (canAct?'<div class="card flat"><label for="independent-ads-control-preset">Motivo da alteração</label>'+
+    '<select id="independent-ads-control-preset" class="input">'+
+    '<option value="">Selecione a justificativa</option>'+
+    (delivery?'<option value="Entrega interrompida preventivamente para revisão operacional do inventário.">Interromper para revisão operacional</option>':
+     '<option value="Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.">Autorizar entrega não faturável revisada</option>')+
+    '</select><label for="independent-ads-control-reason">Outro motivo (opcional)</label>'+
+    '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2" ' +
+    'placeholder="Descreva um motivo específico, se necessário"></textarea>'+
     '<button class="secondary small" type="button" onclick="adminIndependentAdsAction(\''+
     (delivery?'disable_delivery':'enable_delivery')+'\')" '+
     (adminIndependentAdsBusy?'disabled':'')+'>'+
@@ -379,7 +406,11 @@ function adminAdsIndependentSection(){
       '<select id="ads-homologation-campaign" class="input">'+eligibleTestCampaigns.map(c=>
         '<option value="'+esc(String(c.id))+'">'+esc(String(c.title))+'</option>').join('')+'</select>':
       !testActive?'<p>Envie e aprove uma campanha real de R$ 19,90 antes de autorizar o checkout de homologação.</p>':'')+
-    '<label for="ads-homologation-reason">Justificativa da autorização ou revogação</label>'+
+    '<label for="ads-homologation-preset">Motivo da autorização ou revogação</label>'+ 
+    '<select id="ads-homologation-preset" class="input"><option value="">Selecione a justificativa</option>'+ 
+    (testActive?'<option value="Autorização de teste financeiro revogada após revisão administrativa dos próximos checkouts.">Revogar autorização de teste</option>':
+     '<option value="Campanha e elegibilidade para homologação financeira real conferidas pelo administrador.">Autorizar teste real acompanhado</option>')+'</select>'+ 
+    '<label for="ads-homologation-reason">Outro motivo (opcional)</label>'+
     '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea>'+
     '<label for="ads-homologation-confirm">Confirmação ('+
       (testActive?'CANCELAR':'HOMOLOGAR')+')</label>'+
@@ -395,7 +426,11 @@ function adminAdsIndependentSection(){
     '<p>Novos pagamentos só podem ser ativados com credenciais comerciais, vendedor verificado e webhook assinado. A taxa de CPM por visualização continua inativa.</p>'+
     '<p>Total aprovado pelo provedor (bruto, não é conciliação bancária): '+
       adminMoney(Number(v.providerApprovedGrossCents||0))+'</p>'+
-    '<label for="independent-ads-sales-reason">Justificativa da alteração</label>'+
+    '<label for="independent-ads-sales-preset">Motivo da alteração</label>'+ 
+    '<select id="independent-ads-sales-preset" class="input"><option value="">Selecione a justificativa</option>'+ 
+    (sales?'<option value="Novas contratações suspensas preventivamente por decisão administrativa.">Interromper novas contratações</option>':
+     '<option value="Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.">Autorizar vendas após conferência</option>')+'</select>'+ 
+    '<label for="independent-ads-sales-reason">Outro motivo (opcional)</label>'+
     '<textarea id="independent-ads-sales-reason" class="input" rows="2" maxlength="500" '+
       'placeholder="Descreva por que autorizar ou interromper novas compras"></textarea>'+
     '<button type="button" class="secondary small" onclick="adminIndependentAdsSalesAction()" '+
