@@ -143,7 +143,7 @@ assert.equal(combined[0].id,'support-0');
 assert.equal(combined[1].id,'support-1');
 assert.equal(combined.filter(x=>x.id==='support-0').length,1,'dedup rows between queues');
 assert.equal(combined.length,202);
-const supportCtx=vm.createContext({adminCurrentRole:()=> 'support'});
+const supportCtx=vm.createContext({adminCurrentRole:()=> 'support',esc});
 vm.runInContext(cut(acquisition,'adminPublicRequestActionButtons')+
  ';this.actions=adminPublicRequestActionButtons;',supportCtx);
 assert.equal(supportCtx.actions({request_kind:'privacy',status:'new',id:'example'}),'');
