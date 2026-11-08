@@ -631,6 +631,8 @@ jobs:
         run: node tests/admin-ads-guided-operations-v1-898.mjs
       - name: V1.899 marked Ads decisions with double verified finance acknowledgements
         run: node tests/admin-ads-marked-choices-v1-899.mjs
+      - name: V1.904 Admin guided order, referral, billing, budgeting and PSP actions
+        run: node tests/admin-guided-operations-finance-v1-904.mjs
       - name: V1.903 Admin marked decisions across operations, city notices and commercial activation
         run: node tests/admin-marked-actions-v1-903.mjs
       - name: V1.902 Admin incident templates, audit filters and CRM quick actions
