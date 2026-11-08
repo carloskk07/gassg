@@ -17,6 +17,7 @@ import {couponReleasedNetEvidence} from "./coupon-release-evidence.js";
 import {couponMerchantPayoutEvidence,couponMerchantRecipientReadiness} from "./coupon-merchant-payout-evidence.js";
 import {couponProviderRefundEvidence} from "./coupon-refund-provider-evidence.js";
 import {couponRefundMerchantHistorySummary} from "./coupon-refund-merchant-history.js";
+import {summarizeIndependentAdsPspEvidence} from "../_shared/ads-independent-psp-evidence.mjs";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -8027,6 +8028,36 @@ Deno.serve(async(req:Request)=>{
       if(controlsError||!controls)
         throw new DomainError("ADS_PSP_CONTROLS_UNVERIFIED",
           "Não foi possível conferir as permissões de venda no banco.",503);
+      // Reuse already-verified historical webhook facts; NEVER mistake Order
+      // events for independent Ads payment webhooks or bank settlement.
+      const [historic,approved,reversed]=await Promise.all([
+        admin.from("payment_webhook_probes")
+          .select("provider,status,verified_at,metadata")
+          .eq("provider","mercadopago").eq("status","verified")
+          .contains("metadata",{topic:"order",action:"order.processed",
+            signatureVerified:true,liveMode:true})
+          .not("verified_at","is",null)
+          .order("verified_at",{ascending:false}).limit(20),
+        admin.from("ads_independent_payment_events_v1_886")
+          .select("event_key",{count:"exact",head:true}).eq("provider_status","approved"),
+        admin.from("ads_independent_payment_events_v1_886")
+          .select("event_key",{count:"exact",head:true})
+          .in("provider_status",["refunded","charged_back"])
+      ]);
+      if(historic.error||approved.error||reversed.error)
+        throw new DomainError("ADS_PSP_EVIDENCE_READ_FAILED",
+          "Não foi possível consultar o histórico financeiro verificado.",503);
+      let existingEvidence;
+      try{
+        existingEvidence=summarizeIndependentAdsPspEvidence({
+          historicalOrderRows:historic.data,
+          approvedEventCount:approved.count,
+          reversalEventCount:reversed.count
+        });
+      }catch{
+        throw new DomainError("ADS_PSP_EVIDENCE_INVALID",
+          "Os registros financeiros não passaram pela conferência de integridade.",503);
+      }
       return json({
         source:"ads_independent_psp_preflight_v1_890",
         readOnly:true,tokenConfigured,sellerConfigured,
@@ -8036,6 +8067,7 @@ Deno.serve(async(req:Request)=>{
           checkoutConfigured&&webhookConfigured&&signedWebhookConfigured,
         liveWebhookDeliveryVerified:false,realPaymentHomologated:false,
         realRefundHomologated:false,
+        ...existingEvidence,
         salesEnabled:controls.sales_enabled===true,
         salesVersion:controls.version,
         verifiedAt:new Date().toISOString(),
