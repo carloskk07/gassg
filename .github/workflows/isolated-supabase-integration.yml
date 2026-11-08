@@ -164,6 +164,8 @@ jobs:
         run: node tests/isolated-ads-independent-fixed-fee-v1-886.mjs
       - name: V1.887 owner refund request, pause and PSP-evidence-only reconciliation
         run: node tests/isolated-ads-independent-refund-review-v1-887.mjs
+      - name: V1.888 verified one-shot provider refund with rollback on disposable Postgres
+        run: node tests/isolated-ads-independent-provider-refund-v1-888.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
       - name: Upload temporary visual evidence from disposable order tests
