@@ -75,8 +75,8 @@ const fields={
  'owner-payout-amount':'12,00','owner-payout-provider':'pix',
  'owner-payout-reference':'E111222233339999',
  'owner-payout-date':'2026-10-14','owner-payout-sha':'',
- 'owner-payout-void-choice-'+claimId:'reference',
- 'owner-payout-void-confirm-'+claimId:true
+ ['owner-payout-void-choice-'+claimId]:'reference',
+ ['owner-payout-void-confirm-'+claimId]:true
 };
 let data=structuredClone(sample),role='superadmin',calls=[],messages=[];
 const context=vm.createContext({
