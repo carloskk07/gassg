@@ -6,7 +6,7 @@ const source=read('js/admin.js');
 const edge=read('supabase/functions/admin-ops/index.ts');
 const sql=read('supabase/migrations/20261013035500_admin_alert_followups_v1_211.sql');
 new vm.Script(source,{filename:'admin.js'});
-const names=['adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
+const names=['adminMarkedChoice','adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
  'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
   'adminOperationalMyQueueModel','adminOperationalMyQueueView','adminOperationalFollowupFocus',
  'adminOperationalSaveFollowup','adminOperationalAlertModel','adminOperationalAlertsCurrent',
@@ -57,7 +57,7 @@ const ctx=vm.createContext({Date,Number,Array,Object,Set,Map,String,
  adminRuntime:states,adminReady:()=>states.status==='ready',
  adminRoleCanSection:x=>grants[role]?.includes(x)===true,
  adminCurrentRole:()=>role,esc:escaped,
- document:{getElementById:id=>fields[id]||null},
+ document:{getElementById:id=>fields[id]||null,querySelector:()=>null},
  render:()=>renderCount++,toast:x=>{notice=String(x)},
  adminPerform:async(action,payload)=>{writes.push({action,payload});return {revision:3}},
  adminLoadOperationalAlerts:async()=>{reloads++}
