@@ -61,8 +61,8 @@ export function splitAdminAcquisition(source){
 // Strip comments and redundant leading indentation only from the emitted Admin startup
 // copy. The canonical source and the deferred owner-finance slice are unchanged.
 function compactReleasedAdminStartup(source){
- return source.replace(/^[ \\t]*\\/\\/[^\\n]*\\n/gm,'')
-  .replace(/^ {2,}(?=(?:const|let|if|return|await|try|catch|finally|for|else|throw|while|switch|case|break|continue|function|async)\\b)/gm,'');
+ return source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+  .replace(/^ {2,}(?=(?:const|let|if|return|await|try|catch|finally|for|else|throw|while|switch|case|break|continue|function|async)\b)/gm,'');
 }
 export function splitAdminOwnerFinanceCore(core){
   if(typeof core!=='string')throw new TypeError('Admin core must be a string');
