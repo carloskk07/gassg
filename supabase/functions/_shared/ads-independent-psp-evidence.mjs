@@ -13,6 +13,8 @@ export function summarizeIndependentAdsPspEvidence({
     const meta=row?.metadata;
     const time=Date.parse(String(row?.verified_at||''));
     if(row?.provider==='mercadopago'&&row?.status==='verified'&&
+       /^[0-9a-f]{64}$/i.test(String(row?.evidence_sha256||''))&&
+       String(row?.provider_request_id||'').length>=12&&
        meta?.topic==='order'&&meta?.action==='order.processed'&&
        meta?.signatureVerified===true&&meta?.liveMode===true&&
        Number.isFinite(time)&&time>0&&time<=nowMs+300000){
