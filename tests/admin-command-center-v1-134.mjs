@@ -92,10 +92,12 @@ assert.ok(admin.includes('<details class="admin-tech-details">')
   &&admin.includes('Pix de cobrança TAMÃO → revenda:'),
   'contratos e endpoints precisam permanecer disponíveis, porém recolhidos');
 
-assert.ok(admin.includes('<div class="admin-nav-group">Operação</div>')
-  &&admin.includes('<div class="admin-nav-group">Governança</div>')
+assert.ok(admin.includes('<div class="admin-nav-group">Dia a dia</div>')
+  &&admin.includes('<div class="admin-nav-group">Negócio</div>')
+  &&admin.includes('<div class="admin-nav-group">Configuração</div>')
+  &&admin.includes('adminToggleAdvancedNav')
   &&admin.includes('admin-sidebar-foot'),
-  'menu deve separar operação de governança e mostrar contexto da sessão');
+  'menu deve priorizar tarefas, preservar controles avançados e mostrar contexto da sessão');
 
 assert.ok(css.includes('/* TAMÃO V1.134 — Admin Command Center */')
   &&css.includes('body:has(.admin-page) .shell')
