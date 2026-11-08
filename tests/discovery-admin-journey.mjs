@@ -126,7 +126,7 @@ assert.equal(documentReads,2);
 assert.doesNotMatch(ctx.adminDiscoveryView(),/link temporário/);
 assert.ok(notes.some(x=>x.includes('Não foi possível abrir')));
 unsafeSigned=false;
-assert.match(html,/disabled>Aprovar anúncio<\/label>/,'disabled city must block approval');
+assert.match(html,/disabled>\s*Aprovar anúncio<\/label>/,'disabled city must block approval');
 await ctx.adminDiscoveryDecision(validId,'published');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,0);
 queue[0].city_vertical_enabled=true;
