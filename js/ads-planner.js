@@ -2,6 +2,10 @@
 // CPM candidate: R$12 per 1,000 independently verified display views.
 const TAMAO_ADS_PROPOSED_CPM_CENTS=1200;
 const TAMAO_ADS_PREVIEW_BUDGETS=[1990,4990,9990,19990];
+function tamaoAdsFixedDays(budgetCents){
+ const days={1990:7,4990:15,9990:30,19990:30}[Number(budgetCents)];
+ return Number.isSafeInteger(days)?days:null;
+}
 function tamaoAdsBudgetPreview(budgetCents){
   const budget=Number(budgetCents);
   if(!Number.isSafeInteger(budget)||!TAMAO_ADS_PREVIEW_BUDGETS.includes(budget))
@@ -15,11 +19,9 @@ function tamaoAdsFormatMoney(cents){
 }
 function tamaoAdsBudgetQuote(){
   const budget=Number(document.getElementById('sponsor-cpm-budget')?.value);
-  if(tamaoAdsMyState?.fixedFeeSalesEnabled===true){
-    const duration=budget===1990?7:budget===4990?15:30;
-    const selector=document.getElementById('sponsor-cpm-days');
-    if(selector)selector.value=String(duration);
-  }
+  const duration=tamaoAdsFixedDays(budget);
+  const selector=document.getElementById('sponsor-cpm-days');
+  if(selector&&duration)selector.value=String(duration);
   const quote=tamaoAdsBudgetPreview(budget);
   const node=document.getElementById('sponsor-cpm-result');
   if(!node)return;
@@ -36,7 +38,9 @@ function tamaoAdsBudgetRequest(){
   if(!quote)return;
   const city=String(document.getElementById('sponsor-cpm-city')?.value||'').trim().replace(/\s+/g,' ').slice(0,80);
   const state=String(document.getElementById('sponsor-cpm-state')?.value||'RS').trim().toUpperCase();
-  const days=Number(document.getElementById('sponsor-cpm-days')?.value);
+  const days=tamaoAdsFixedDays(quote.budgetCents);
+  const daysSelector=document.getElementById('sponsor-cpm-days');
+  if(daysSelector&&days)daysSelector.value=String(days);
   if(!Number.isSafeInteger(days)||![7,15,30].includes(days)||!/^[A-Z]{2}$/.test(state)){
     document.getElementById('sponsor-cpm-result').textContent='Revise o período e a UF.';
     return;
@@ -53,7 +57,8 @@ function tamaoAdsPlannerSection(){
   const preset=tamaoAdsBudgetPreview(4990);
   const fixedSales=tamaoAdsMyState?.fixedFeeSalesEnabled===true;
   const options=TAMAO_ADS_PREVIEW_BUDGETS.map(v=>
-    '<option value="'+v+'"'+(v===4990?' selected':'')+'>'+tamaoAdsFormatMoney(v)+'</option>').join('');
+    '<option value="'+v+'"'+(v===4990?' selected':'')+'>'+tamaoAdsFormatMoney(v)+
+      ' · '+tamaoAdsFixedDays(v)+' dias</option>').join('');
   return '<section class="section" aria-label="Planejar uma campanha publicitária sem compromisso">'+
     '<div class="section-head"><div><span class="section-kicker">PLANEJE SUA DIVULGAÇÃO</span>'+
     '<h2>'+(fixedSales?'Divulgue sua marca com preço e prazo definidos.':
@@ -71,9 +76,8 @@ function tamaoAdsPlannerSection(){
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-budget">'+
        (fixedSales?'Preço fixo do pacote':'Teto de investimento')+'</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
-    '<div class="input-wrap"><label for="sponsor-cpm-days">Prazo desejado</label><select id="sponsor-cpm-days" class="input" '+
-      (fixedSales?'disabled aria-label="Prazo definido pelo pacote"':'')+
-      '><option value="7">7 dias</option><option value="15" '+(fixedSales?'selected':'')+'>15 dias</option><option value="30" '+(!fixedSales?'selected':'')+'>30 dias</option></select></div></div>'+
+    '<div class="input-wrap"><label for="sponsor-cpm-days">Prazo do pacote</label><select id="sponsor-cpm-days" class="input" disabled aria-label="Prazo definido pelo pacote">'+
+      '<option value="7">7 dias</option><option value="15" selected>15 dias</option><option value="30">30 dias</option></select></div></div>'+
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-city">Cidade <small>(opcional)</small></label><input id="sponsor-cpm-city" class="input" maxlength="80" autocomplete="address-level2" placeholder="Ex.: São Gabriel"></div>'+
     '<div class="input-wrap"><label for="sponsor-cpm-state">Estado (UF)</label><input id="sponsor-cpm-state" class="input" maxlength="2" value="RS" autocomplete="address-level1" aria-describedby="sponsor-cpm-note"></div></div>'+
@@ -205,9 +209,7 @@ async function tamaoAdsSubmitCampaign(){
     destination=val('sponsor-ad-url');
   const budgetCents=Number(val('sponsor-cpm-budget'));
   const durationDays=Number(val('sponsor-cpm-days'));
-  const allowedFixed=(budgetCents===1990&&durationDays===7)||
-    (budgetCents===4990&&durationDays===15)||
-    (budgetCents===9990&&durationDays===30)||(budgetCents===19990&&durationDays===30);
+  const allowedFixed=durationDays===tamaoAdsFixedDays(budgetCents);
   const result=document.getElementById('sponsor-ad-result');
   const button=document.getElementById('sponsor-ad-submit');
   if(!document.getElementById('sponsor-ad-terms')?.checked)
@@ -282,7 +284,7 @@ async function tamaoAdsBuyCampaign(campaignId){
 async function tamaoAdsRequestRefund(campaignId){
  if(tamaoAdsRefundBusy)return;
  if(!tamaoAdsAccountVerified())return toast('Entre na sua conta para solicitar reembolso.');
- const text=String(document.getElementById('ads-refund-reason-'+campaignId)?.value||'').trim();
+ const text=String(document.getElementById('ads-refund-reason-'+campaignId)?.value||'').trim().replace(/\s+/g,' ');
  if(text.length<12||text.length>500)return toast('Explique a solicitação em 12 a 500 caracteres.');
  if(!tamaoAdsRefundRequestIds.has(campaignId))
   tamaoAdsRefundRequestIds.set(campaignId,crypto.randomUUID());
