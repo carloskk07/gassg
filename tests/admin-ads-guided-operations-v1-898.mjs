@@ -43,7 +43,7 @@ let html=context.view();
 assert.match(html,/Revisar campanhas/);
 assert.match(html,/Configuração e vendas/);
 assert.match(html,/Reembolsos/);
-assert.match(html,/adminIndependentAdsAction/);
+assert.match(html,/adminIndependentAdsChooseCampaign/);
 assert.doesNotMatch(html,/id="independent-ads-sales-reason"/);
 assert.doesNotMatch(html,/id="ads-refund-admin-reason-/);
 assert.doesNotMatch(html,/id="ads-homologation-confirm"/);
@@ -51,19 +51,20 @@ context.openPane('finance');assert.equal(context.adminIndependentAdsPane,'financ
 assert.equal(context.renders,1);
 html=context.view();
 assert.match(html,/Conferir conta e webhook do TAMÃO Ads/);
-assert.match(html,/id="independent-ads-control-preset"/);
-assert.match(html,/id="independent-ads-sales-preset"/);
-assert.match(html,/id="ads-homologation-preset"/);
-assert.match(html,/id="ads-homologation-confirm"/);
-assert.match(html,/HOMOLOGAR/);
+assert.match(html,/name="independent-ads-control-preset"/);
+assert.match(html,/name="independent-ads-sales-preset"/);
+assert.match(html,/name="ads-homologation-preset"/);
+assert.match(html,/id="ads-homologation-check-verify"/);
+assert.match(html,/id="ads-homologation-check-confirm"/);
+assert.match(ads,/HOMOLOGAR/);
 assert.doesNotMatch(html,/id="independent-ads-preset-/);
 assert.doesNotMatch(html,/id="ads-refund-admin-reason-/);
 context.openPane('refunds');
 html=context.view();
 assert.match(html,/Cancelamentos e reembolsos/);
-assert.match(html,/id="ads-refund-admin-preset-/);
-assert.match(html,/data-operation="execute"/);
-assert.match(html,/DEVOLVER/);
+assert.match(html,/name="ads-refund-admin-choice-/);
+assert.match(html,/value="execute"/);
+assert.match(ads,/DEVOLVER/);
 assert.doesNotMatch(html,/id="ads-homologation-confirm"/);
 assert.doesNotMatch(html,/id="independent-ads-sales-reason"/);
 assert.doesNotMatch(html,/id="independent-ads-preset-/);
@@ -79,7 +80,7 @@ context.role='finance';context.openPane('finance');
 html=context.view();
 assert.match(html,/Configuração e vendas/);
 assert.doesNotMatch(html,/id="ads-homologation-confirm"/);
-assert.doesNotMatch(html,/id="independent-ads-sales-preset"/);
+assert.doesNotMatch(html,/name="independent-ads-sales-preset"/);
 
 // The task picker must select the exact Ads sub-workspace with existing role gates.
 const nav=between(admin,'// This selector navigates only to known read/workspaces.','function adminQuickGo(');
@@ -108,7 +109,14 @@ assert.notEqual(navCtx.adminAdsWorkspaceTab,'diagnostics','diagnostics restricte
 // but do not automatically approve or send money.
 const events=[];
 const elements=new Map();
-const document={getElementById:id=>elements.get(id)||null};
+const marked=new Map();
+const document={
+ getElementById:id=>elements.get(id)||null,
+ querySelector:selector=>{
+  const group=/^input\[name="([^"]+)"\]:checked$/.exec(selector)?.[1];
+  return group?marked.get(group)||null:null;
+ }
+};
 const actionCtx={
  adminRuntime:{session:{user:{id:'actor'}}},role:'superadmin',
  adminCurrentRole:()=>actionCtx.role,
@@ -129,44 +137,43 @@ const actionCtx={
  adminIndependentAdsRefresh:async()=>{events.push(['refresh'])}
 };
 vm.createContext(actionCtx);
-const actionJs=between(ads,'async function adminIndependentAdsAction(','async function adminIndependentAdsCheckProvider()');
+const actionJs=between(ads,'// A checked option is mandatory:,'async function adminIndependentAdsCheckProvider()');
 const salesJs=between(ads,'async function adminIndependentAdsSalesAction(','async function adminIndependentRefundAction(');
 const providerJs=between(ads,'async function adminIndependentRefundProvider(','// Pure UI navigation.');
 vm.runInContext(actionJs+salesJs+providerJs+
  '\nthis.action=adminIndependentAdsAction;this.sale=adminIndependentAdsSalesAction;this.refund=adminIndependentRefundProvider;',actionCtx);
-elements.set('independent-ads-control-preset',{value:'Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.'});
-elements.set('independent-ads-sales-preset',{value:'Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.'});
+marked.set('independent-ads-control-preset',{value:'Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.'});
+marked.set('independent-ads-sales-preset',{value:'Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.'});
 await actionCtx.action('enable_delivery');
 assert.equal(events.filter(x=>x[0]==='write').length,1);
-assert.equal(events[0][2].reason,elements.get('independent-ads-control-preset').value);
+assert.equal(events[0][2].reason,marked.get('independent-ads-control-preset').value);
 events.length=0;
 await actionCtx.sale();
 assert.equal(events.filter(x=>x[0]==='write').length,1);
 assert.equal(events[0][1],'ads-independent-sales-action');
 events.length=0;
-actionCtx.role='finance';await actionCtx.sale();assert.equal(events.length,0,'Finance may read, not toggle sales');
+actionCtx.role='finance';await actionCtx.sale();
+assert.equal(events.length,0,'Finance may read, not toggle sales');
 actionCtx.role='superadmin';
-elements.set('ads-refund-admin-preset-'+refundId,
- {value:'Devolução integral solicitada após conferência do pagamento, recebedor e caso.',
- selectedOptions:[{dataset:{operation:'execute'}}]});
+marked.set('ads-refund-admin-choice-'+refundId,
+ {value:'execute',dataset:{reason:'Devolução integral solicitada após conferência do pagamento, recebedor e caso.'}});
 await actionCtx.refund('execute',refundId,5);
-assert.equal(events.filter(x=>x[0]==='write').length,0,'No money action without DEVOLVER');
-assert.match(events.find(x=>x[0]==='toast')[1],/DEVOLVER/);
+assert.equal(events.filter(x=>x[0]==='write').length,0,'No money action without checked acknowledgements');
+assert.match(events.find(x=>x[0]==='toast')[1],/duas verificações/);
 events.length=0;
-elements.set('ads-refund-provider-confirm-'+refundId,{value:'DEVOLVER'});
-elements.set('ads-refund-admin-preset-'+refundId,
- {value:'Reversão confirmada no provedor e conferida para registro do protocolo.',
- selectedOptions:[{dataset:{operation:'record_provider_reversal'}}]});
+elements.set('ads-refund-check-payment-'+refundId,{checked:true});
+elements.set('ads-refund-check-send-'+refundId,{checked:true});
+marked.set('ads-refund-admin-choice-'+refundId,
+ {value:'record_provider_reversal',dataset:{reason:'Reversão confirmada no provedor e conferida para registro do protocolo.'}});
 await actionCtx.refund('execute',refundId,5);
-assert.equal(events.filter(x=>x[0]==='write').length,0,'Wrong preset action must never move money');
+assert.equal(events.filter(x=>x[0]==='write').length,0,'Wrong marked action must never move money');
 events.length=0;
-elements.set('ads-refund-admin-preset-'+refundId,
- {value:'Devolução integral solicitada após conferência do pagamento, recebedor e caso.',
- selectedOptions:[{dataset:{operation:'execute'}}]});
+marked.set('ads-refund-admin-choice-'+refundId,
+ {value:'execute',dataset:{reason:'Devolução integral solicitada após conferência do pagamento, recebedor e caso.'}});
 await actionCtx.refund('execute',refundId,5);
 assert.equal(events.filter(x=>x[0]==='write').length,1);
 assert.equal(events[0][2].confirmation,'DEVOLVER');
-assert.match(ads,/confirmation!==\(enabled\?'HOMOLOGAR':'CANCELAR'\)/);
+assert.match(ads,/const confirmation=enabled\?'HOMOLOGAR':'CANCELAR'/);
 assert.match(ads,/adminIndependentAdsBusy=true/);
 assert.match(ads,/expectedVersion:state.fixedFeeSalesVersion/);
 const builder=read('scripts/build-live-portals.mjs');
