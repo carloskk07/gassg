@@ -32,7 +32,7 @@ const ctx=vm.createContext({
   adminRuntime:{status:'ready',session:{user:{id:'owner'}},
     data:{merchantBilling:{statements:[{id:uuid,merchant_id:uuid,status:'open',amount_due_cents:1200}]}},
     actionPending:false},
-  adminReady:()=>true,adminCurrentRole:()=> 'superadmin',adminFinanceDecisionScope:()=>true,
+  adminReady:()=>true,adminRoleCanSection:()=>true,adminCurrentRole:()=> 'superadmin',adminFinanceDecisionScope:()=>true,
   adminPerform:async(action,payload)=>{writes.push({action,payload});return {ok:true,
     source:action==='ads-psp-action'?'admin_ads_psp_reconcile_v1_314':null,
     merchantId:uuid,status:'payment_approved',adsLive:false,noAdsPublication:true}},
@@ -41,7 +41,7 @@ const ctx=vm.createContext({
     claimId:uuid,alreadyVoided:false,transferExecuted:false,
     recorded:true,plannedOnly:true,noCharge:true,fundsVerified:false,spendableCents:0,newBenefitsEnabled:false
   }},
-  adminFinanceDecisionProof:async()=>({status:'verified'}),
+  adminFinanceDecisionProof:async(_actor,action,payload)=>{writes.push({action,payload});return {status:'verified'};},
   adminFinanceDecisionMessage:()=>{},adminOwnerBudgetLoadFromUi:async()=>{},
   toast:msg=>notices.push(String(msg)),confirm:()=>true,render:()=>{},
   adminOwnerBudgetBusy:false,
