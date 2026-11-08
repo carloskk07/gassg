@@ -4,6 +4,7 @@ let adminIndependentAdsState={loadedFor:null,rows:[],deliveryEnabled:false,
  fixedFeeSalesEnabled:false,fixedFeeSalesVersion:0,providerApprovedGrossCents:0,
  refundCases:null};
 let adminIndependentAdsBusy=false;
+let adminIndependentAdsProviderPreflight=null;
 async function adminIndependentAdsRefresh(){
  const actor=String(adminRuntime?.session?.user?.id||'');
  if(!actor||adminIndependentAdsBusy)return;
@@ -55,6 +56,29 @@ async function adminIndependentAdsAction(decision,campaignId='',version=0){
  }catch(e){toast(String(e?.message||'Falha ao decidir.'))}
  finally{adminIndependentAdsBusy=false}
  await adminIndependentAdsRefresh();
+}
+async function adminIndependentAdsCheckProvider(){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
+ adminIndependentAdsBusy=true;
+ try{
+  const data=await adminInvoke({action:'ads-independent-psp-preflight'});
+  if(data?.source!=='ads_independent_psp_preflight_v1_890'||
+    data?.readOnly!==true||data?.paymentsCreated!==0||
+    typeof data?.sellerVerified!=='boolean'||
+    typeof data?.readyForFinancialHomologation!=='boolean')
+   throw Error('A checagem financeira não foi confirmada.');
+  if(actor!==String(adminRuntime?.session?.user?.id||''))return;
+  adminIndependentAdsProviderPreflight={actor,data};
+  toast(data.readyForFinancialHomologation?
+   'A configuração de recebimento está apta para homologação financeira.':'A configuração de pagamento exige revisão.');
+ }catch(e){
+  adminIndependentAdsProviderPreflight=null;
+  toast(String(e?.message||'Não foi possível conferir o gateway.'));
+ }finally{
+  adminIndependentAdsBusy=false;
+  render();
+ }
 }
 async function adminIndependentAdsSalesAction(){
  const actor=String(adminRuntime?.session?.user?.id||'');
@@ -139,6 +163,8 @@ function adminAdsIndependentSection(){
  const canAct=role==='superadmin';
  const delivery=v?.deliveryEnabled===true;
  const sales=v?.fixedFeeSalesEnabled===true;
+ const provider=adminIndependentAdsProviderPreflight?.actor===actor?
+   adminIndependentAdsProviderPreflight.data:null;
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
@@ -229,6 +255,20 @@ function adminAdsIndependentSection(){
     (adminIndependentAdsBusy?'disabled':'')+'>'+
     (delivery?'Interromper entrega imediatamente':'Autorizar entrega não faturável')+'</button>'+
     '<p class="tiny muted">A autorização exige campanha revisada e não libera faturamento, Pix nem repasses.</p></div>':'')+
+  (canAct&&v?'<div class="card flat"><h4>Conferência segura do Mercado Pago</h4>'+
+    '<p>Consulta somente leitura. Não emite Pix, pagamento ou reembolso.</p>'+
+    '<button type="button" class="secondary small" onclick="adminIndependentAdsCheckProvider()" '+
+      (adminIndependentAdsBusy?'disabled':'')+'>Conferir conta e webhook do TAMÃO Ads</button>'+
+    (provider?
+      '<p>Token de produção: '+(provider.tokenConfigured?'Configurado':'Pendente')+
+      ' · Conta recebedora: '+(provider.sellerVerified?'Confirmada':'Não confirmada')+'</p>'+
+      '<p>Checkout: '+(provider.checkoutConfigured?'Configurado':'Pendente')+
+      ' · Webhook: '+(provider.webhookConfigured?'Habilitado':'Pendente')+
+      ' · Assinatura: '+(provider.signedWebhookConfigured?'Configurada':'Pendente')+'</p>'+
+      '<p><strong>Teste de pagamento e reembolso real:</strong> ainda não homologado. A existência da chave do webhook não comprova sua entrega.</p>'+
+      '<p>Configuração apta para homologação: '+(provider.readyForFinancialHomologation?'Sim':'Não')+'</p>'
+      :'<p class="muted">Utilize a conferência para localizar o que impede o recebimento. Nenhuma credencial é exibida.</p>')+
+    '</div>':'')+
   (canAct&&v?'<div class="card flat"><h4>Contratação por período fixo</h4>'+
     '<p>Novos pagamentos só podem ser ativados com credenciais comerciais, vendedor verificado e webhook assinado. A taxa de CPM por visualização continua inativa.</p>'+
     '<p>Total aprovado pelo provedor (bruto, não é conciliação bancária): '+
