@@ -110,6 +110,32 @@ BEGIN
 END;
 $fn$;
 
+CREATE OR REPLACE FUNCTION public.admin_ads_independent_refunds_read_v1_887(p_actor uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'pg_catalog'
+AS $fn$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.platform_admins
+  WHERE user_id=p_actor AND active AND admin_role IN('superadmin','operations','finance','compliance'))
+ THEN RAISE EXCEPTION 'ADS_REFUND_ADMIN_DENIED' USING errcode='42501';END IF;
+ RETURN jsonb_build_object('source','admin_ads_independent_refunds_read_v1_887',
+ 'readOnly',true,'refundMoneyMoved',false,
+ 'rows',coalesce((SELECT jsonb_agg(jsonb_build_object(
+   'caseId',r.id,'campaignId',r.campaign_id,'status',r.status,
+   'version',r.version,'reason',r.reason,'reviewReason',r.review_reason,
+   'createdAt',r.created_at,'title',c.title,'advertiser',c.advertiser_name,
+   'amountCents',ch.amount_cents,
+   'providerReversalRecorded',ch.status='payment_reversed',
+   'refundProviderAttempt',(SELECT ex.status FROM public.ads_independent_refund_executions_v1_888 ex
+      WHERE ex.case_id=r.id)
+ ) ORDER BY r.created_at DESC) FROM (
+  SELECT * FROM public.ads_independent_refund_cases_v1_887
+  ORDER BY created_at DESC LIMIT 50
+ ) r JOIN public.ads_independent_campaigns_v1_884 c ON c.id=r.campaign_id
+ JOIN public.ads_independent_checkouts_v1_886 ch ON ch.campaign_id=r.campaign_id),
+ '[]'::jsonb));
+END;$fn$;
+
+
 REVOKE ALL ON FUNCTION public.admin_ads_independent_refund_execution_v1_888(uuid,uuid,integer,text,text)
  FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.admin_ads_independent_refund_execution_complete_v1_888(uuid,uuid,integer)
