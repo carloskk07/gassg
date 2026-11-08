@@ -33,7 +33,7 @@ assert.ok(anp.includes('ANP_RESPONSE_FORMAT_UNKNOWN'),'formato desconhecido não
 assert.ok(anp.includes('upsert_anp_prospect_batch'),'reimportação preserva estágio via RPC SQL protegido');
 assert.ok(adminOps.includes('sourceStatus:refresh?.status')&&adminOps.includes('warning='),'falha remota explícita');
 assert.match(admin,/prospects:new Set\(\['superadmin','operations','compliance'\]\)/);
-assert.ok(admin.includes("adminMenuButton('prospects','Prospectos'"));
+assert.ok(admin.includes("adminMenuButton('prospects','Cidades e prospectos'"));
 assert.ok(admin.includes("adminPanel('prospects',sectionActive('prospects')?(typeof adminProspectsSection==='function'?adminProspectsSection(d):adminExpansionFallbackView()):'')"),
   'A área de prospectos precisa permanecer acessível sem renderizar quando estiver oculta ou não autorizada');
 assert.ok(adminAcquisition.includes('function adminProspectsSection('));
