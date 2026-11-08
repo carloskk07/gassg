@@ -48,7 +48,7 @@ assert.ok(adminEdge.includes('admin_ads_mp_inbox_read_v1_316'));
 assert.ok(adminUi.includes("['adsMpInbox','ads-mp-inbox-read','admin_ads_mp_inbox_v1_316']"));
 assert.ok(adminUi.includes('adminAdsMpInboxView()'));
 assert.ok(adminUi.includes('async function adminAdsPspAction(merchantId,operation,prefilledPaymentId=null)'));
-assert.ok(adminUi.includes("paymentId=String(prefilledPaymentId||prompt("));
+assert.ok(adminUi.includes("paymentId=String(prefilledPaymentId??document.getElementById("));
 let role='superadmin';const merchantId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const event={merchantId,merchantName:'Empresa Exemplo',paymentId:'123456789',
  providerStatus:'approved',amountCents:23400,receivedAt:'2026-10-15T22:00:00Z',
