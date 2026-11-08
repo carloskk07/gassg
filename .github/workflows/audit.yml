@@ -615,6 +615,8 @@ jobs:
         run: node tests/ads-independent-provider-refund-v1-888.mjs
       - name: V1.890 independent Ads verified preference recovery and platform PSP preflight
         run: node tests/ads-independent-checkout-recovery-v1-890.mjs
+      - name: V1.892 real advertiser test with founder gate and closed public billing
+        run: node tests/ads-independent-homologation-v1-892.mjs
       - name: V1.891 independent Ads payment-search pagination safeguards
         run: node tests/ads-independent-reconcile-paging-v1-891.mjs
       - name: Test V1.310 merchant Ads offer and founder authority
