@@ -33,6 +33,12 @@ assert.match(intake,/homologationCampaignId:authorized\?allowedId:null/);
 assert.match(intake,/data\.rows\.some/);
 assert.match(sponsorUI,/testAuthorized=String\(s\.homologationCampaignId/);
 assert.match(sponsorUI,/pagamento REAL autorizado/);
+assert.match(sponsorUI,/bought==='reserved'\)/);
+assert.match(sponsorUI,/Recuperar checkout sem nova cobrança/);
+assert.match(checkout,/recoverReservedPreference\(/);
+assert.equal((checkout.match(/mercadoPagoFetch\("\/checkout\/preferences",/g)||[]).length,1,
+  'Recovery must never issue a second create-preference POST.');
+
 assert.match(adminUI,/adminIndependentAdsHomologationAction/);
 assert.match(adminUI,/HOMOLOGAR/);
 assert.match(adminUI,/CANCELAR/);
