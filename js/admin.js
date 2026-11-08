@@ -1615,13 +1615,34 @@ function adminIncidentStatusLabel(value){
     resolved:'RESOLVIDO'
   })[String(value||'')]||String(value||'—').toUpperCase();
 }
+const ADMIN_INCIDENT_TEMPLATES=Object.freeze({
+  orders:{title:'Falha no andamento de pedidos',description:'Incidente operacional relacionado ao andamento de pedidos. Verificar o alcance e registrar evidências no acompanhamento.'},
+  checkout:{title:'Erro na consulta ou finalização do checkout',description:'Analisar o comportamento relatado do checkout sem presumir falha de pagamento ou perda financeira.'},
+  notifications:{title:'Problema de notificações',description:'Investigar a entrega de alertas e identificar quais eventos foram afetados.'},
+  admin:{title:'Instabilidade no painel administrativo',description:'Verificar o comportamento do painel e registrar o resultado do diagnóstico.'},
+  integration:{title:'Falha de integração externa',description:'Investigar integração externa sem presumir falha do provedor ou da conciliação.'}
+});
+function adminIncidentTemplateChanged(){
+  const choice=String(document.getElementById('admin-incident-template')?.value||'');
+  const custom=document.getElementById('admin-incident-custom');
+  if(custom)custom.hidden=choice!=='custom';
+}
 async function adminCreateIncident(){
-  const title=document.getElementById('admin-incident-title')?.value.trim()||'';
-  const severity=document.getElementById('admin-incident-severity')?.value||'medium';
-  const description=document.getElementById('admin-incident-description')?.value.trim()||'';
-  const entityType=document.getElementById('admin-incident-entity-type')?.value.trim()||'';
-  const entityId=document.getElementById('admin-incident-entity-id')?.value.trim()||'';
-  if(title.length<3)return toast('Informe um título para o incidente');
+  const choice=String(document.getElementById('admin-incident-template')?.value||'');
+  const preset=Object.prototype.hasOwnProperty.call(ADMIN_INCIDENT_TEMPLATES,choice)
+    ?ADMIN_INCIDENT_TEMPLATES[choice]:null;
+  if(!preset&&choice!=='custom')return toast('Marque o tipo de incidente real');
+  const title=preset?preset.title:String(document.getElementById('admin-incident-title')?.value||'').trim();
+  const severity=String(document.getElementById('admin-incident-severity')?.value||'');
+  const detail=String(document.getElementById('admin-incident-description')?.value||'').trim();
+  const description=preset?preset.description+(detail?' Detalhes informados: '+detail:''):detail;
+  const entityType=String(document.getElementById('admin-incident-entity-type')?.value||'');
+  const entityId=String(document.getElementById('admin-incident-entity-id')?.value||'').trim();
+  if(title.length<3||title.length>160)return toast('Informe um título válido para o incidente');
+  if(!['critical','high','medium','low'].includes(severity))return toast('Selecione a severidade');
+  if(detail.length>3600)return toast('Os detalhes excedem o limite de tamanho');
+  if(!['','order','merchant','system','payment','campaign'].includes(entityType))
+    return toast('Tipo de vínculo inválido');
   try{
     await adminPerform('incident-action',{
       incidentAction:'create',title,severity,description,
@@ -1746,13 +1767,14 @@ function adminIncidentCenter(d){
       ? '<div class="notice">Perfil Somente leitura: incidentes podem ser consultados, mas não alterados.</div>'
       : `<div class="card flat form-stack">
           <h3>Novo incidente</h3>
-          <div class="input-wrap"><label for="admin-incident-title">Título</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Ex.: falha no recebimento de pedidos"></div>
-          <div class="input-wrap"><label for="admin-incident-severity">Severidade</label><select id="admin-incident-severity" class="input"><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium" selected>Médio</option><option value="low">Baixo</option></select></div>
-          <div class="input-wrap"><label for="admin-incident-description">Descrição</label><textarea id="admin-incident-description" class="input" maxlength="4000" rows="3" placeholder="Impacto, sintomas e contexto"></textarea></div>
-          <div class="grid-2">
-            <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><input id="admin-incident-entity-type" class="input" maxlength="80" placeholder="order, merchant, system…"></div>
-            <div class="input-wrap"><label for="admin-incident-entity-id">ID relacionado</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Código/UUID opcional"></div>
-          </div>
+          <div class="input-wrap"><label for="admin-incident-template">Tipo de ocorrência (marque uma opção)</label><select id="admin-incident-template" class="input" onchange="adminIncidentTemplateChanged()"><option value="">Selecione o que realmente foi relatado ou detectado</option><option value="orders">Pedidos</option><option value="checkout">Checkout</option><option value="notifications">Notificações</option><option value="admin">Painel administrativo</option><option value="integration">Integração externa</option><option value="custom">Outra ocorrência (preencher título)</option></select></div>
+          <div id="admin-incident-custom" hidden><div class="input-wrap"><label for="admin-incident-title">Título personalizado</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Descreva a ocorrência real"></div></div>
+          <div class="input-wrap"><label for="admin-incident-severity">Severidade observada</label><select id="admin-incident-severity" class="input"><option value="">Selecione</option><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium">Médio</option><option value="low">Baixo</option></select></div>
+          <details><summary>Contexto específico (opcional)</summary><div class="input-wrap"><label for="admin-incident-description">Detalhes da ocorrência</label><textarea id="admin-incident-description" class="input" maxlength="3600" rows="3" placeholder="Inclua somente fatos observados ou relatados"></textarea></div></details>
+          <details><summary>Vincular um registro (opcional)</summary><div class="grid-2">
+            <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><select id="admin-incident-entity-type" class="input"><option value="">Sem vínculo</option><option value="order">Pedido</option><option value="merchant">Revenda</option><option value="system">Sistema</option><option value="payment">Pagamento</option><option value="campaign">Campanha</option></select></div>
+            <div class="input-wrap"><label for="admin-incident-entity-id">Identificador real</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Somente se houver registro confirmado"></div>
+          </div></details>
           <button class="primary" onclick="adminCreateIncident()">Criar incidente</button>
         </div>`}
     <div class="admin-incident-grid" style="margin-top:12px">
