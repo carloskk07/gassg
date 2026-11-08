@@ -8,7 +8,7 @@ const workflow=load('.github/workflows/audit.yml');
 const legacy=[
  'adminOwnerFundingSection()', 'adminOwnerEvidenceSection()', 'adminOwnerBudgetSection()'
 ];
-assert.ok(ui.includes('adminOwnerFinanceWorkspaceSection(),'),
+assert.ok(ui.includes('adminOwnerFinanceWorkspaceSection()'),
  'Acquisition must render the unified finance center');
 assert.ok(!ui.includes('      adminOwnerFundingSection(),\n      adminOwnerEvidenceSection(),\n      adminOwnerBudgetSection(),'),
  'Three sprawling finance sections must no longer appear together');
