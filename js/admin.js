@@ -2147,8 +2147,17 @@ function adminOperationalFollowupEditView(source,followups){
         ['open','monitoring','closed'].map(x=>'<option value="'+x+'" '+
           (x===(item?.status||'open')?'selected':'')+'>'+esc(statusName[x])+'</option>').join('')+
       '</select></label>'+
-      '<label for="'+noteId+'">Justificativa<textarea id="'+noteId+'" rows="2" maxlength="240"'+
-      ' placeholder="Explique o encaminhamento.">'+esc(item?.note||'')+'</textarea></label>'+
+      '<fieldset><legend>Marque o encaminhamento</legend>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
+        '" value="open" data-note="Acompanhamento aberto e encaminhado ao responsável designado."> Encaminhar ao responsável</label>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
+        '" value="monitoring" data-note="Situação e prazo revisados; acompanhamento mantido até nova conferência."> Manter em acompanhamento</label>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
+        '" value="closed" data-note="Acompanhamento administrativo encerrado sem presumir a resolução da origem."> Encerrar acompanhamento</label></fieldset>'+
+      '<details><summary>Outro motivo ou observação (opcional)</summary>'+
+        '<label for="'+noteId+'">Justificativa específica<textarea id="'+noteId+'" rows="2" maxlength="240"'+
+        ' placeholder="Use apenas quando os motivos prontos não servirem.">'+esc(item?.note||'')+
+        '</textarea></label></details>'+
       '<button type="button" class="primary small" onclick="adminOperationalSaveFollowup('+
         "'"+source+"'"+')" '+(!owners.length?'disabled':'')+'>Salvar acompanhamento</button>'+
     '</div><small>Encerrar este acompanhamento não significa que a fonte original foi resolvida. '+
@@ -2165,7 +2174,11 @@ async function adminOperationalSaveFollowup(source){
   const ownerId=document.getElementById('admin-followup-owner-'+source)?.value||'';
   const status=document.getElementById('admin-followup-status-'+source)?.value||'';
   const dueLocal=document.getElementById('admin-followup-due-'+source)?.value||'';
-  const note=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
+  const chosen=adminMarkedChoice('admin-followup-reason-'+source);
+  const custom=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
+  if(chosen&&chosen.value!==status)
+    return toast('Marque o encaminhamento correspondente à situação selecionada.');
+  const note=chosen?String(chosen.dataset?.note||'').trim():custom;
   const due=new Date(dueLocal);
   const owner=followups.owners.find(x=>x.id===ownerId);
   if(!owner||!adminOperationalFollowupCanWrite(source)||!Number.isFinite(due.getTime())||
@@ -2789,12 +2802,12 @@ async function adminDiscoveryReadiness(){
   if(adminRuntime.section==='discovery')render();
 }
 // Only explicit marked controls can request Discovery state changes.
-function adminDiscoveryMarked(group){
+function adminMarkedChoice(group){
  const choice=document.querySelector('input[name="'+group+'"]:checked');
  return choice&&typeof choice.value==='string'?choice:null;
 }
 function adminDiscoverySelectedReason(group,action,customId,max=240){
- const chosen=adminDiscoveryMarked(group);
+ const chosen=adminMarkedChoice(group);
  if(!chosen||chosen.value!==action){
   toast('Marque a providência correspondente antes de confirmar.');return null;
  }
@@ -2807,19 +2820,19 @@ function adminDiscoverySelectedReason(group,action,customId,max=240){
 }
 function adminDiscoverySubmitListing(id){
  if(!/^[0-9a-f-]{36}$/i.test(String(id||'')))return;
- const chosen=adminDiscoveryMarked('admin-discovery-decision-'+id);
+ const chosen=adminMarkedChoice('admin-discovery-decision-'+id);
  if(!chosen)return toast('Marque aprovar ou solicitar ajustes antes de confirmar.');
  return adminDiscoveryDecision(id,String(chosen.value||''));
 }
 function adminDiscoverySubmitCity(){
- const chosen=adminDiscoveryMarked('admin-discovery-city-action');
+ const chosen=adminMarkedChoice('admin-discovery-city-action');
  if(!chosen||!['enable','disable'].includes(chosen.value))
   return toast('Marque habilitar ou suspender para esta cidade.');
  return adminDiscoverySetCity(chosen.value==='enable');
 }
 function adminDiscoverySubmitReport(id){
  if(!Number.isSafeInteger(id)||id<=0)return;
- const chosen=adminDiscoveryMarked('admin-discovery-report-action-'+id);
+ const chosen=adminMarkedChoice('admin-discovery-report-action-'+id);
  if(!chosen)return toast('Marque a providência da denúncia.');
  if(chosen.value==='paused'){
   const row=adminDiscoveryDesk.reports.find(x=>Number(x.id)===id);
