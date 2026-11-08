@@ -58,6 +58,12 @@ export function splitAdminAcquisition(source){
 // Keep one canonical acquisition source. Preserve the exact byte sequence
 // of all functions and lexical declarations, deferring owner-only financial
 // tooling in the privileged partner work area.
+// Strip comments and redundant leading indentation only from the emitted Admin startup
+// copy. The canonical source and the deferred owner-finance slice are unchanged.
+function compactReleasedAdminStartup(source){
+ return source.replace(/^[ \\t]*\\/\\/[^\\n]*\\n/gm,'')
+  .replace(/^ {2,}(?=(?:const|let|if|return|await|try|catch|finally|for|else|throw|while|switch|case|break|continue|function|async)\\b)/gm,'');
+}
 export function splitAdminOwnerFinanceCore(core){
   if(typeof core!=='string')throw new TypeError('Admin core must be a string');
   const first='\nasync function adminOwnerFinanceLoadFromUi(';
@@ -67,7 +73,7 @@ export function splitAdminOwnerFinanceCore(core){
     ||core.indexOf(first,beginning+1)!==-1||core.indexOf(last,ending+1)!==-1)
     throw new Error('Missing or ambiguous owner-finance boundary');
   const prefix=core.slice(0,beginning+1),ownerFinance=core.slice(beginning+1,ending+1),
-    leads=core.slice(ending+1),startup=prefix+leads;
+    leads=core.slice(ending+1),startup=compactReleasedAdminStartup(prefix+leads);
   validateClassicScriptSyntax(startup,'js/admin-acquisition.js (startup)');
   validateClassicScriptSyntax(ownerFinance,'js/admin-owner-finance.js (deferred)');
   if(prefix+ownerFinance+leads!==core)throw new Error('Canonical owner finance split lost bytes');
