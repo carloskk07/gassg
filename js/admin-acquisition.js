@@ -5936,7 +5936,7 @@ function adminCityNotificationsSection(){
   const pending=adminRuntime.cityNotificationsPending;
   return '<div class="section-head" style="margin-top:20px"><div>'+
     '<span class="section-kicker">AVISOS DE DISPONIBILIDADE</span><h3>Contatos autorizados nesta cidade</h3>'+
-    '<p>A fila é gerada automaticamente quando há revenda apta. A mensagem ainda deve ser enviada manualmente pelo operador, e só depois confirmada.</p></div>'+
+    '<p>A fila é gerada automaticamente quando há revenda apta. O TAMÃO ainda não envia automaticamente. A mensagem deve ser enviada manualmente pelo operador e só depois confirmada.</p></div>'+
     '<span class="status-pill">'+rows.length+' aguardando</span></div>'+
     (adminRuntime.cityNotificationsError?'<div class="notice danger">'+esc(adminRuntime.cityNotificationsError)+'</div>':'')+
     '<div class="card flat"><div class="list">'+
