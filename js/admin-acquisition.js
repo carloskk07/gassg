@@ -1713,16 +1713,29 @@ function adminLeadActionButtons(x){
   if(['new','contacted'].includes(status))buttons.push('<button class="secondary small" onclick="adminSetPrelaunchLeadStatus(\''+x.id+'\',\'qualified\')">Qualificar</button>');
   if(['new','contacted','qualified'].includes(status))buttons.push('<button class="primary small" onclick="adminSetPrelaunchLeadStatus(\''+x.id+'\',\'converted\')">Converter</button>');
   buttons.push('<button class="ghost small" onclick="adminSetPrelaunchLeadStatus(\''+x.id+'\',\'closed\')">Encerrar</button>');
-  return '<div class="order-actions pipeline-actions">'+buttons.join('')+'</div>';
+  const reason='<div class="input-wrap" style="margin-top:8px"><label for="admin-lead-close-reason-'+esc(x.id)+'">Motivo se for encerrar</label>'+
+    '<select id="admin-lead-close-reason-'+esc(x.id)+'" class="input"><option value="">Selecione o motivo</option>'+
+      '<option value="declined">Desistiu</option><option value="no_contact">Sem retorno após tentativas</option>'+
+      '<option value="duplicate">Cadastro duplicado</option><option value="out_of_scope">Fora da cobertura</option></select></div>'+
+    '<details><summary>Observação adicional (opcional)</summary><textarea id="admin-lead-note-'+esc(x.id)+'" class="input" rows="2" maxlength="240"></textarea></details>';
+  return reason+'<div class="order-actions pipeline-actions">'+buttons.join('')+'</div>';
 }
 async function adminSetPrelaunchLeadStatus(leadId,status){
   const labels={contacted:'contatado',qualified:'qualificado',converted:'convertido',closed:'encerrado'};
-  let note='';
+  const detail=String(document.getElementById('admin-lead-note-'+leadId)?.value||'').trim();
+  if(detail.length>240)return toast('Observação excede 240 caracteres');
+  let note=detail;
   if(status==='closed'){
-    note=prompt('Motivo do encerramento:')||'';
-    if(note.trim().length<3)return toast('Informe o motivo do encerramento');
-  }else{
-    note=prompt('Observação desta etapa (opcional):')||'';
+    const reasonKey=String(document.getElementById('admin-lead-close-reason-'+leadId)?.value||'');
+    const reasons={
+      declined:'Interessado informou que não deseja prosseguir.',
+      no_contact:'Tentativas de contato sem retorno registradas.',
+      duplicate:'Cadastro duplicado conferido no CRM.',
+      out_of_scope:'Interesse fora da área ou modalidade atendida.'
+    };
+    if(!Object.prototype.hasOwnProperty.call(reasons,reasonKey))
+      return toast('Marque o motivo real do encerramento');
+    note=reasons[reasonKey]+(detail?' Observação: '+detail:'');
   }
   if(!confirm('Marcar este lead como '+(labels[status]||status)+'?'))return;
   try{
@@ -1741,13 +1754,38 @@ function adminPublicRequestActionButtons(x){
   if(status==='new')buttons.push('<button class="secondary small" onclick="adminSetPublicRequestStatus(\''+x.id+'\',\'in_review\')">Em análise</button>');
   if(['new','in_review'].includes(status))buttons.push('<button class="primary small" onclick="adminSetPublicRequestStatus(\''+x.id+'\',\'resolved\')">Resolver</button>');
   if(['new','in_review','resolved'].includes(status))buttons.push('<button class="ghost small" onclick="adminSetPublicRequestStatus(\''+x.id+'\',\'closed\')">Encerrar</button>');
-  return '<div class="order-actions pipeline-actions">'+buttons.join('')+'</div>';
+  const reason='<div class="input-wrap" style="margin-top:8px"><label for="admin-public-reason-resolved-'+esc(x.id)+'">Se for resolver</label>'+
+    '<select class="input" id="admin-public-reason-resolved-'+esc(x.id)+'"><option value="">Selecione a providência realmente realizada</option>'+
+      '<option value="answered">Providência concluída e resposta enviada</option>'+
+      '<option value="corrected">Dados corrigidos após verificação</option>'+
+      '<option value="instructed">Orientação prestada e solicitação atendida</option></select></div>'+
+    '<div class="input-wrap"><label for="admin-public-reason-closed-'+esc(x.id)+'">Se for encerrar</label>'+
+    '<select class="input" id="admin-public-reason-closed-'+esc(x.id)+'"><option value="">Selecione o motivo real</option>'+
+      '<option value="duplicate">Solicitação duplicada</option>'+
+      '<option value="withdrawn">Solicitante desistiu</option>'+
+      '<option value="resolved">Solicitação já resolvida</option></select></div>'+
+    '<details><summary>Detalhes adicionais (opcional)</summary><textarea id="admin-public-note-'+esc(x.id)+'" class="input" rows="2" maxlength="240"></textarea></details>'+
+    '<label class="check-row"><input id="admin-public-confirm-'+esc(x.id)+'" type="checkbox"><span>Confirmei o resultado nos registros reais do atendimento.</span></label>';
+  return reason+'<div class="order-actions pipeline-actions">'+buttons.join('')+'</div>';
 }
 async function adminSetPublicRequestStatus(requestId,status){
   let resolutionNote='';
   if(['resolved','closed'].includes(status)){
-    resolutionNote=prompt(status==='resolved'?'Como esta solicitação foi resolvida?':'Motivo do encerramento:')||'';
-    if(resolutionNote.trim().length<3)return toast('Documente como a solicitação foi tratada');
+    const key=String(document.getElementById('admin-public-reason-'+status+'-'+requestId)?.value||'');
+    const options=status==='resolved'
+      ?{answered:'Providência concluída e resposta enviada ao solicitante.',
+         corrected:'Dados corrigidos conforme verificação realizada.',
+         instructed:'Orientação prestada e solicitação atendida.'}
+      :{duplicate:'Solicitação duplicada após conferência.',
+         withdrawn:'Solicitante informou desistência do pedido.',
+         resolved:'Solicitação anteriormente resolvida e encerrada.'};
+    const extra=String(document.getElementById('admin-public-note-'+requestId)?.value||'').trim();
+    if(!Object.prototype.hasOwnProperty.call(options,key))
+      return toast('Marque o resultado que realmente ocorreu');
+    if(document.getElementById('admin-public-confirm-'+requestId)?.checked!==true)
+      return toast('Confirme que a providência escolhida foi realmente verificada');
+    if(extra.length>240)return toast('Observação excede 240 caracteres');
+    resolutionNote=options[key]+(extra?' Detalhes: '+extra:'');
   }
   if(!confirm(status==='in_review'?'Colocar esta solicitação em análise?':status==='resolved'?'Marcar esta solicitação como resolvida?':'Encerrar esta solicitação?'))return;
   const session=adminRuntime.session,actor=String(session?.user?.id||'');
