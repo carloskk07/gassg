@@ -137,7 +137,7 @@ const actionCtx={
  adminIndependentAdsRefresh:async()=>{events.push(['refresh'])}
 };
 vm.createContext(actionCtx);
-const actionJs=between(ads,'// A checked option is mandatory:,'async function adminIndependentAdsCheckProvider()');
+const actionJs=between(ads,'// A checked option is mandatory: a form render or refresh cannot authorize any action.','async function adminIndependentAdsCheckProvider()');
 const salesJs=between(ads,'async function adminIndependentAdsSalesAction(','async function adminIndependentRefundAction(');
 const providerJs=between(ads,'async function adminIndependentRefundProvider(','// Pure UI navigation.');
 vm.runInContext(actionJs+salesJs+providerJs+
