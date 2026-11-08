@@ -2143,10 +2143,7 @@ function adminOperationalFollowupEditView(source,followups){
       '<option value="">Selecione um administrador</option>'+ownerOptions+'</select></label>'+
       '<label for="'+dueId+'">Prazo<input type="datetime-local" id="'+dueId+'" value="'+
         esc(item?local(item.dueAt):localDue)+'"></label>'+
-      '<label for="'+statusId+'">Situação<select id="'+statusId+'">'+
-        ['open','monitoring','closed'].map(x=>'<option value="'+x+'" '+
-          (x===(item?.status||'open')?'selected':'')+'>'+esc(statusName[x])+'</option>').join('')+
-      '</select></label>'+
+
       '<fieldset><legend>Marque o encaminhamento</legend>'+
       '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
         '" value="open" data-note="Acompanhamento aberto e encaminhado ao responsável designado."> Encaminhar ao responsável</label>'+
@@ -2171,12 +2168,11 @@ async function adminOperationalSaveFollowup(source){
   if(!current||!followups)return toast('Atualize os alertas antes de alterar o acompanhamento.');
   const item=followups.items.find(x=>x.source===source);
   const ownerId=document.getElementById('admin-followup-owner-'+source)?.value||'';
-  const status=document.getElementById('admin-followup-status-'+source)?.value||'';
-  const dueLocal=document.getElementById('admin-followup-due-'+source)?.value||'';
   const chosen=adminMarkedChoice('admin-followup-reason-'+source);
+  if(!item&&!chosen)return toast('Marque o encaminhamento para criar o acompanhamento.');
+  const status=chosen?.value||item?.status||'';
+  const dueLocal=document.getElementById('admin-followup-due-'+source)?.value||'';
   const custom=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
-  if(chosen&&chosen.value!==status)
-    return toast('Marque o encaminhamento correspondente à situação selecionada.');
   const note=custom||String(chosen?.dataset?.note||'').trim()||String(item?.note||'').trim();
   const due=new Date(dueLocal);
   const owner=followups.owners.find(x=>x.id===ownerId);
