@@ -1633,14 +1633,23 @@ async function adminCreateIncident(){
 async function adminIncidentAction(incidentId,incidentAction){
   const payload={incidentId,incidentAction};
   if(incidentAction==='resolve'){
-    const note=prompt('Descreva como o incidente foi resolvido:')||'';
-    if(note.trim().length<3)return toast('Informe a resolução');
-    payload.resolutionNote=note;
+    const key=String(document.getElementById('incident-resolution-'+incidentId)?.value||'');
+    const reasons={
+      restored:'Falha corrigida e funcionamento restabelecido após conferência.',
+      mitigated:'Medida de mitigação aplicada e impacto encerrado após conferência.',
+      not_reproducible:'Incidente verificado e não reproduzido; encerramento justificado.'
+    };
+    const extra=String(document.getElementById('incident-resolution-extra-'+incidentId)?.value||'').trim();
+    if(!Object.prototype.hasOwnProperty.call(reasons,key))return toast('Selecione a resolução realmente realizada');
+    if(document.getElementById('incident-resolution-confirm-'+incidentId)?.checked!==true)
+      return toast('Marque que a resolução foi realmente verificada');
+    if(extra.length>240)return toast('Detalhes excedem 240 caracteres');
+    payload.resolutionNote=reasons[key]+(extra?' Detalhes: '+extra:'');
   }
   if(incidentAction==='set-status'){
-    const status=prompt('Novo status: investigating ou monitoring')||'';
-    if(!['investigating','monitoring'].includes(status.trim().toLowerCase()))return toast('Status inválido');
-    payload.incidentStatus=status.trim().toLowerCase();
+    const status=String(document.getElementById('incident-status-'+incidentId)?.value||'');
+    if(!['investigating','monitoring'].includes(status))return toast('Selecione o novo status');
+    payload.incidentStatus=status;
   }
   if(incidentAction==='assign'){
     const select=document.getElementById('incident-assignee-'+incidentId);
@@ -1673,6 +1682,27 @@ function adminIncidentCard(item,admins){
             ${activeAdmins.map(a=>`<option value="${esc(a.user_id)}" ${item.assigned_admin_id===a.user_id?'selected':''}>${esc(adminRoleLabel(a.admin_role))} • ${esc(a.user_id.slice(0,8))}</option>`).join('')}
           </select>
         </div>
+        ${!resolved?`<div class="input-wrap" style="margin-top:10px">
+          <label for="incident-status-${esc(item.id)}">Novo status (marque antes de alterar)</label>
+          <select id="incident-status-${esc(item.id)}" class="input">
+            <option value="">Escolha o status</option>
+            <option value="investigating">Investigando</option>
+            <option value="monitoring">Monitorando</option>
+          </select>
+        </div>
+        <details style="margin-top:10px"><summary>Registrar resolução</summary>
+          <div class="input-wrap"><label for="incident-resolution-${esc(item.id)}">Providência confirmada</label>
+            <select id="incident-resolution-${esc(item.id)}" class="input">
+              <option value="">Escolha o que foi realmente feito</option>
+              <option value="restored">Falha corrigida e serviço restabelecido</option>
+              <option value="mitigated">Mitigação realizada e impacto encerrado</option>
+              <option value="not_reproducible">Verificado, não reproduzido</option>
+            </select></div>
+          <details><summary>Detalhes adicionais (opcional)</summary>
+            <textarea id="incident-resolution-extra-${esc(item.id)}" class="input" rows="2" maxlength="240"></textarea>
+          </details>
+          <label class="check-row"><input id="incident-resolution-confirm-${esc(item.id)}" type="checkbox"><span>Confirmei que a providência foi realmente realizada.</span></label>
+        </details>` :''}
         <div class="order-actions" style="margin-top:10px">
           <button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','assign')">Atribuir</button>
           ${!item.acknowledged_at?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','acknowledge')">Reconhecer</button>`:''}
