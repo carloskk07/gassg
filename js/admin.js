@@ -9286,11 +9286,13 @@ function adminControlOrderCard(o){
       <button class="ghost small" onclick="adminOpenEntity('order','${o.id}')">Abrir 360°</button>
       ${customerPhone?`<button class="ghost small" onclick="adminOpenWhatsapp('${customerPhone}')">Cliente</button>`:''}
       ${merchantWhatsapp?`<button class="ghost small" onclick="adminOpenWhatsapp('${merchantWhatsapp}')">Revenda</button>`:''}
-      <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
-      ${rescueable?`<button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'rescue')">Buscar outra revenda</button>`:''}
-      ${cancellable?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel')">Cancelar antes da saída</button>`:''}
-      ${postDispatchIncident?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel-after-dispatch')">Encerrar entrega com falha</button>`:''}
     </div>
+    <details class="admin-order-actions"><summary>Intervir no pedido (marcar motivo)</summary>
+      ${adminOrderActionChoice(o,'note','Registrar observação','secondary')}
+      ${rescueable?adminOrderActionChoice(o,'rescue','Buscar outra revenda','secondary'):''}
+      ${cancellable?adminOrderActionChoice(o,'cancel','Cancelar antes da saída','danger-btn'):''}
+      ${postDispatchIncident?adminOrderActionChoice(o,'cancel-after-dispatch','Encerrar entrega com falha','danger-btn'):''}
+    </details>
     ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
   </article>`;
 }
@@ -10508,15 +10510,53 @@ function adminOpenWhatsapp(phone){
   if(digits.length<10)return toast('Contato indisponível');
   window.open('https://wa.me/'+digits,'_blank','noopener,noreferrer');
 }
+// V1.904 — no order action is performed by selecting its explanation.
+const ADMIN_ORDER_ACTION_REASONS=Object.freeze({
+  note:Object.freeze({
+    review:'Análise administrativa do andamento do pedido registrada.',
+    followup:'Pedido sinalizado para acompanhamento administrativo.',
+    merchant:'Situação da revenda revisada no contexto deste pedido.'
+  }),
+  rescue:Object.freeze({
+    unable:'Revenda informou impossibilidade de atender este pedido.',
+    delay:'Pedido em risco por atraso identificado e conferido.',
+    conditions:'Necessário revalidar condições de atendimento e alternativa.'
+  }),
+  cancel:Object.freeze({
+    customer:'Cancelamento solicitado pelo cliente, conforme contato confirmado.',
+    unable:'Impossibilidade de atendimento confirmada pela revenda.',
+    invalid:'Pedido não pode prosseguir após conferência das condições.'
+  }),
+  'cancel-after-dispatch':Object.freeze({
+    failed:'Falha definitiva de entrega confirmada após saída.',
+    declined:'Destinatário recusou o recebimento após saída, fato confirmado.',
+    return:'Entrega não concluída e retorno à revenda confirmado.'
+  })
+});
+function adminOrderActionChoice(o,action,label,buttonClass){
+  const options=ADMIN_ORDER_ACTION_REASONS[action]||{};
+  const id=esc(String(o.id||'')),version=Number(o.version||0);
+  const suffix=action==='cancel-after-dispatch'
+    ?'<label class="check-row"><input type="checkbox" id="admin-order-verified-'+id+'">'+
+      '<span>Confirmei a falha e sei que o estoque físico precisa ser conferido.</span></label>':'';
+  return '<details class="admin-order-action"><summary>'+esc(label)+'</summary>'+
+    '<label for="admin-order-reason-'+id+'-'+esc(action)+'">Motivo realmente verificado</label>'+
+    '<select class="input" id="admin-order-reason-'+id+'-'+esc(action)+'">'+
+    '<option value="">Marque o motivo real</option>'+
+    Object.entries(options).map(([key,text])=>'<option value="'+esc(key)+'">'+esc(text)+'</option>').join('')+
+    '</select>'+suffix+
+    '<button type="button" class="'+esc(buttonClass)+' small" onclick="adminOrderControl(\\''+
+    id+'\\','+version+',\\''+esc(action)+'\\')">'+esc(label)+'</button></details>';
+}
 async function adminOrderControl(orderId,expectedVersion,controlAction){
-  const labels={
-    note:'Registrar uma observação administrativa neste pedido:',
-    rescue:'Motivo para buscar outra revenda:',
-    cancel:'Motivo para cancelar o pedido antes da saída:',
-    'cancel-after-dispatch':'Descreva a falha confirmada depois da saída:'
-  };
-  const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
+  const reasons=ADMIN_ORDER_ACTION_REASONS[controlAction];
+  const chosen=String(document.getElementById('admin-order-reason-'+orderId+'-'+controlAction)?.value||'');
+  if(!reasons||!Object.prototype.hasOwnProperty.call(reasons,chosen))
+    return toast('Marque o motivo realmente observado para esta intervenção.');
+  if(controlAction==='cancel-after-dispatch'&&
+     document.getElementById('admin-order-verified-'+orderId)?.checked!==true)
+    return toast('Confirme a falha real da entrega e a necessidade de conferir o estoque.');
+  const reason=reasons[chosen];
   if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
   if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
   if(controlAction==='cancel-after-dispatch'&&!confirm('Encerrar esta entrega após a saída? O cashback será liberado e o PIN invalidado, mas o estoque NÃO será restaurado automaticamente. Use somente após confirmar que a entrega falhou.'))return;
