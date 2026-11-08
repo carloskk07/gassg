@@ -906,7 +906,7 @@ function adminAdsPspView(){
       ' • '+esc(c.providerStatus||'')+'</p>':''):'')+
     (canCreate?'<button type="button" class="primary small" onclick="adminAdsPspAction(\''+id+'\',\'create\')">Gerar checkout Mercado Pago</button>':'')+
     (canReconcile?'<button type="button" class="primary small" onclick="adminAdsPspAutoReview(\''+id+'\')">Localizar e conciliar automaticamente</button>':'')+
-    (canReconcile?'<details class="admin-ads-manual-id"><summary>Conferir ID específico (opcional)</summary>'+
+    (canReconcile?'<details class="admin-ads-manual-id"><summary>Conferir pelo ID do pagamento (opcional)</summary>'+
       '<label for="ads-psp-payment-id-'+id+'">Identificador numérico real do Mercado Pago</label>'+
       '<input id="ads-psp-payment-id-'+id+'" class="input" inputmode="numeric" autocomplete="off" '+
         'pattern="[0-9]{5,30}" maxlength="30" value="'+
