@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 // We do not remove mixed selectors, nested component selectors, keyframes,
 // variables, media blocks or any admin CSS in the admin portal.
 const ROOT_ADMIN=/^[.#](admin-[a-z0-9_-]+)(?=$|[\s.#:[>+~])/i;
-const PROTECTED_ADMIN_SCRIPTS=new Set(['admin-acquisition.js','admin.js','admin-activations.js']);
+const PROTECTED_ADMIN_SCRIPTS=new Set(['admin-acquisition.js','admin.js','admin-activations.js','admin-ads-independent.js']);
 
 export function publicAdminClassReferences(dir){
   const root=typeof dir==='string'?dir:fileURLToPath(dir);
