@@ -183,7 +183,7 @@ function patchIndex(html,portal,sourceSha){
     }
   }
   if(role!=='admin'){
-    for(const module of ['admin-acquisition','admin','admin-activations']){
+    for(const module of ['admin-acquisition','admin','admin-activations','admin-ads-independent']){
       const tag='<script defer src="./js/'+module+'.js"></script>';
       if(!patched.includes(tag))throw new Error('Missing expected admin script: '+module);
       patched=patched.replace(tag,'');
