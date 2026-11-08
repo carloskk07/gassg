@@ -60,7 +60,7 @@ for(const fragment of [
 ])assert.ok(edge.includes(fragment),'Missing backend gate: '+fragment);
 for(const fragment of [
  'function adminOwnerBudgetSection()',
- 'adminOwnerFinanceWorkspaceSection(),',
+ 'adminOwnerFinanceWorkspaceSection()',
  'async function adminOwnerBudgetLoadFromUi(){',
  'async function adminOwnerBudgetAllocateFromUi(){',
  'async function adminOwnerBudgetReleaseFromUi(',
