@@ -2143,12 +2143,17 @@ function adminOperationalFollowupEditView(source,followups){
       '<option value="">Selecione um administrador</option>'+ownerOptions+'</select></label>'+
       '<label for="'+dueId+'">Prazo<input type="datetime-local" id="'+dueId+'" value="'+
         esc(item?local(item.dueAt):localDue)+'"></label>'+
-      '<label for="'+statusId+'">Situação<select id="'+statusId+'">'+
-        ['open','monitoring','closed'].map(x=>'<option value="'+x+'" '+
-          (x===(item?.status||'open')?'selected':'')+'>'+esc(statusName[x])+'</option>').join('')+
-      '</select></label>'+
-      '<label for="'+noteId+'">Justificativa<textarea id="'+noteId+'" rows="2" maxlength="240"'+
-      ' placeholder="Explique o encaminhamento.">'+esc(item?.note||'')+'</textarea></label>'+
+
+      '<fieldset><legend>Marque o encaminhamento</legend>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
+        '" value="open" data-note="Acompanhamento aberto e encaminhado ao responsável designado."> Encaminhar ao responsável</label>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
+        '" value="monitoring" data-note="Situação e prazo revisados; acompanhamento mantido até nova conferência."> Manter em acompanhamento</label>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-followup-reason-'+source+
+        '" value="closed" data-note="Acompanhamento administrativo encerrado sem presumir a resolução da origem."> Encerrar acompanhamento</label></fieldset>'+
+      '<details><summary>Outro motivo ou observação (opcional)</summary>'+
+        '<label for="'+noteId+'">Justificativa específica<textarea id="'+noteId+'" rows="2" maxlength="240"'+
+        ' placeholder="Use apenas quando os motivos prontos não servirem."></textarea></label></details>'+
       '<button type="button" class="primary small" onclick="adminOperationalSaveFollowup('+
         "'"+source+"'"+')" '+(!owners.length?'disabled':'')+'>Salvar acompanhamento</button>'+
     '</div><small>Encerrar este acompanhamento não significa que a fonte original foi resolvida. '+
@@ -2163,9 +2168,12 @@ async function adminOperationalSaveFollowup(source){
   if(!current||!followups)return toast('Atualize os alertas antes de alterar o acompanhamento.');
   const item=followups.items.find(x=>x.source===source);
   const ownerId=document.getElementById('admin-followup-owner-'+source)?.value||'';
-  const status=document.getElementById('admin-followup-status-'+source)?.value||'';
+  const chosen=adminMarkedChoice('admin-followup-reason-'+source);
+  if(!item&&!chosen)return toast('Marque o encaminhamento para criar o acompanhamento.');
+  const status=chosen?.value||item?.status||'';
   const dueLocal=document.getElementById('admin-followup-due-'+source)?.value||'';
-  const note=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
+  const custom=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
+  const note=custom||String(chosen?.dataset?.note||'').trim()||String(item?.note||'').trim();
   const due=new Date(dueLocal);
   const owner=followups.owners.find(x=>x.id===ownerId);
   if(!owner||!adminOperationalFollowupCanWrite(source)||!Number.isFinite(due.getTime())||
@@ -2788,6 +2796,46 @@ async function adminDiscoveryReadiness(){
   }
   if(adminRuntime.section==='discovery')render();
 }
+// Only explicit marked controls can request Discovery state changes.
+function adminMarkedChoice(group){
+ const choice=document.querySelector('input[name="'+group+'"]:checked');
+ return choice&&typeof choice.value==='string'?choice:null;
+}
+function adminDiscoverySelectedReason(group,action,customId,max=240){
+ const chosen=adminMarkedChoice(group);
+ if(!chosen||chosen.value!==action){
+  toast('Marque a providência correspondente antes de confirmar.');return null;
+ }
+ const custom=String(document.getElementById(customId)?.value||'').trim();
+ const reason=custom||String(chosen.dataset?.reason||'').trim();
+ if(reason.length<8||reason.length>max){
+  toast('Selecione uma justificativa válida ou detalhe o caso.');return null;
+ }
+ return reason;
+}
+function adminDiscoverySubmitListing(id){
+ if(!/^[0-9a-f-]{36}$/i.test(String(id||'')))return;
+ const chosen=adminMarkedChoice('admin-discovery-decision-'+id);
+ if(!chosen)return toast('Marque aprovar ou solicitar ajustes antes de confirmar.');
+ return adminDiscoveryDecision(id,String(chosen.value||''));
+}
+function adminDiscoverySubmitCity(){
+ const chosen=adminMarkedChoice('admin-discovery-city-action');
+ if(!chosen||!['enable','disable'].includes(chosen.value))
+  return toast('Marque habilitar ou suspender para esta cidade.');
+ return adminDiscoverySetCity(chosen.value==='enable');
+}
+function adminDiscoverySubmitReport(id){
+ if(!Number.isSafeInteger(id)||id<=0)return;
+ const chosen=adminMarkedChoice('admin-discovery-report-action-'+id);
+ if(!chosen)return toast('Marque a providência da denúncia.');
+ if(chosen.value==='paused'){
+  const row=adminDiscoveryDesk.reports.find(x=>Number(x.id)===id);
+  if(!row||row.listing_status!=='published')return toast('Atualize a denúncia antes de suspender.');
+  return adminDiscoverySuspendReportedListing(String(row.listing_id),id);
+ }
+ return adminDiscoveryReviewReport(id,chosen.value);
+}
 function adminDiscoveryCitySlug(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
@@ -2805,7 +2853,7 @@ function adminDiscoveryPrefillCity(index){
     const field=document.getElementById(id);
     if(field)field.value=String(value||'');
   }
-  document.getElementById('admin-discovery-city-reason')?.focus();
+  document.getElementById('admin-discovery-city-actions')?.focus();
 }
 async function adminDiscoverySetCity(enabled){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending)return;
@@ -2813,11 +2861,12 @@ async function adminDiscoverySetCity(enabled){
   const vertical=value('admin-discovery-city-kind');
   const state=value('admin-discovery-city-state').toUpperCase();
   const city=value('admin-discovery-city-name');
-  const reason=value('admin-discovery-city-reason');
+  const reason=adminDiscoverySelectedReason('admin-discovery-city-action',
+    enabled?'enable':'disable','admin-discovery-city-reason');
+  if(reason===null)return;
   if(!['professionals','rides','stays'].includes(vertical)||
-     !/^[A-Z]{2}$/.test(state)||city.length<2||city.length>120||reason.length<8){
-    toast('Informe modalidade, UF, cidade e uma justificativa de pelo menos 8 caracteres.');
-    return;
+     !/^[A-Z]{2}$/.test(state)||city.length<2||city.length>120){
+   toast('Escolha uma modalidade e confira UF e cidade.');return;
   }
   const d=adminDiscoveryDesk;d.pending=true;
   try{
@@ -2865,15 +2914,20 @@ function adminDiscoveryView(){
         '<button class="secondary small" type="button" onclick="adminDiscoveryDocuments(\''+id+'\')"'+
         (d.documentPending===id?' disabled':'')+'>Conferir comprovantes privados</button>'+
         documentsHtml+
-        '<div class="input-wrap"><label for="admin-discovery-reason-'+id+'">Justificativa da decisão</label>'+
-        '<input id="admin-discovery-reason-'+id+'" type="text" class="input" minlength="8" maxlength="240" '+
-        'placeholder="Descreva a conferência realizada"></div>'+
-        '<div class="order-actions">'+
-        '<button class="secondary small" type="button" onclick="adminDiscoveryDecision(\''+id+'\',\'rejected\')"'+
-          (d.pending?' disabled':'')+'>Solicitar ajustes / rejeitar</button>'+
-        '<button class="primary small" type="button" onclick="adminDiscoveryDecision(\''+id+'\',\'published\')"'+
-          (!canPublish||d.pending?' disabled':'')+'>Aprovar anúncio</button>'+
-        '</div></article>';
+        '<fieldset><legend>Marque a decisão para este anúncio</legend>'+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-decision-'+id+
+        '" value="rejected" data-reason="Anúncio devolvido para corrigir informações ou apresentar evidências necessárias."> Solicitar ajustes</label>'+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-decision-'+id+
+        '" value="published" data-reason="Conteúdo, requisitos e documentação aplicável revisados para publicação."'+
+        (!canPublish?' disabled':'')+'> Aprovar anúncio</label></fieldset>'+
+        '<label class="admin-option-row"><input type="checkbox" id="admin-discovery-proof-'+id+
+        '"> Conferi as informações e evidências exigíveis antes de aprovar a publicação.</label>'+
+        '<details><summary>Outro motivo (opcional)</summary>'+
+        '<label for="admin-discovery-reason-'+id+'">Observação específica</label>'+
+        '<textarea id="admin-discovery-reason-'+id+'" class="input" maxlength="240" rows="2"></textarea></details>'+
+        '<button class="primary small" type="button" onclick="adminDiscoverySubmitListing(\''+id+'\')"'+
+        (d.pending?' disabled':'')+'>Confirmar decisão marcada</button>'+
+        '</article>';
     }).join('');
   const reportReasonLabels={suspected_fraud:'Possível fraude',incorrect_information:'Informação incorreta',
     unsafe_content:'Conteúdo perigoso',other:'Outros problemas'};
@@ -2885,15 +2939,21 @@ function adminDiscoveryView(){
         '<p class="tiny muted">'+esc(kind)+' • ID: '+esc(String(x.listing_id))+
           ' • Situação: '+esc(x.listing_status)+'</p>'+
         '<p>'+esc(String(x.details||'').slice(0,600))+'</p>'+
-        '<div class="order-actions">'+
-          (x.listing_status==='published'?
-            '<button class="secondary small" type="button" onclick="adminDiscoverySuspendReportedListing(\''+
-              esc(String(x.listing_id))+'\')"'+(d.pending?' disabled':'')+'>Suspender anúncio</button>':'')+
-          '<button class="secondary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'dismissed\')"'+
-            (d.pending?' disabled':'')+'>Improcedente</button>'+
-          '<button class="primary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'resolved\')"'+
-            (d.pending?' disabled':'')+'>Registrar providência</button>'+
-        '</div></article>';
+        '<fieldset><legend>Marque a providência para esta denúncia</legend>'+
+        (x.listing_status==='published'?
+          '<label class="admin-option-row"><input type="radio" name="admin-discovery-report-action-'+id+
+            '" value="paused" data-reason="Suspensão preventiva devido a denúncia pendente de apuração."> Suspender anúncio preventivamente</label>':'')+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-report-action-'+id+
+          '" value="dismissed" data-reason="Denúncia analisada; não foram encontrados elementos suficientes para aplicar uma medida."> Registrar como improcedente</label>'+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-report-action-'+id+
+          '" value="resolved" data-reason="Análise concluída; providências administrativas registradas no protocolo."> Registrar providência</label></fieldset>'+
+        '<details><summary>Observação adicional (opcional)</summary>'+
+        '<label for="admin-discovery-report-custom-'+id+'">Detalhes da decisão</label>'+
+        '<textarea class="input" id="admin-discovery-report-custom-'+id+
+        '" maxlength="500" rows="2"></textarea></details>'+
+        '<button type="button" class="primary small" onclick="adminDiscoverySubmitReport('+id+')"'+
+        (d.pending?' disabled':'')+'>Confirmar providência marcada</button>'+
+        '</article>';
     }).join(''):'<p>Não há denúncias abertas.</p>';
   const liveCards=d.status!=='ready'?'':d.live.length?d.live.map(x=>{
     const id=String(x.id);
@@ -2903,13 +2963,21 @@ function adminDiscoveryView(){
       esc(String(x.city_name||''))+' / '+esc(String(x.state_code||''))+'</small>'+
       '<p class="tiny muted">Estado: '+esc(x.status==='published'?'Publicado':'Pausado')+
         (enabled?' • Localidade habilitada':' • Modalidade desabilitada nesta cidade')+'</p>'+
-      '<div class="order-actions">'+
+      '<fieldset><legend>Marque a providência</legend>'+
         (x.status==='published'?
+          '<label class="admin-option-row"><input type="radio" name="admin-discovery-live-reason-'+id+
+            '" value="paused" data-reason="Publicação pausada preventivamente para nova revisão administrativa."> Pausar publicação</label>':
+          '<label class="admin-option-row"><input type="radio" name="admin-discovery-live-reason-'+id+
+            '" value="published" data-reason="Publicação revisada e reativada dentro das condições vigentes."> Reativar anúncio</label>')+
+      '</fieldset><details><summary>Outro motivo (opcional)</summary>'+
+        '<label for="admin-discovery-live-custom-'+id+'">Observação específica</label>'+
+        '<textarea class="input" id="admin-discovery-live-custom-'+id+'" maxlength="240" rows="2"></textarea></details>'+
+      (x.status==='published'?
         '<button type="button" class="secondary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'paused\')"'+
-          (d.pending?' disabled':'')+'>Pausar publicação</button>':
+          (d.pending?' disabled':'')+'>Confirmar pausa marcada</button>':
         '<button type="button" class="primary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'published\')"'+
           (!enabled||d.pending?' disabled':'')+'>Reativar anúncio</button>')+
-      '</div></article>';
+      '</article>';
   }).join(''):'<p>Nenhum anúncio publicado ou pausado nesta consulta.</p>';
   const checks=d.readinessStatus==='ready'&&d.readiness;
   const readinessSummary=checks?
@@ -2943,16 +3011,27 @@ function adminDiscoveryView(){
     '<h3>Disponibilidade por modalidade e cidade</h3>'+
     '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
     '<div class="form-stack">'+
+      '<label>Cidade já cadastrada (sem digitar)<select class="input" id="admin-discovery-city-existing" '+
+       'onchange="if(this.value!==\'\')adminDiscoveryPrefillCity(Number(this.value))">'+
+       '<option value="">Nova cidade ou escolha a existente</option>'+
+       d.cities.map((c,i)=>'<option value="'+i+'">'+esc(c.city_name)+' / '+esc(c.state_code)+
+         ' • '+esc(c.vertical)+'</option>').join('')+'</select></label>'+
       '<label>Modalidade<select class="input" id="admin-discovery-city-kind">'+
         '<option value="professionals">Profissionais</option>'+
         '<option value="rides">Caronas</option>'+
         '<option value="stays">Hospedagens</option></select></label>'+
       '<label>UF<input class="input" id="admin-discovery-city-state" maxlength="2" value="RS"></label>'+
       '<label>Cidade<input class="input" id="admin-discovery-city-name" maxlength="120" placeholder="São Gabriel"></label>'+
-      '<label>Justificativa<input class="input" id="admin-discovery-city-reason" maxlength="240" placeholder="Motivo da decisão"></label>'+
-      '<div class="order-actions">'+
-        '<button type="button" class="secondary small" onclick="adminDiscoverySetCity(false)"'+(d.pending?' disabled':'')+'>Suspender modalidade</button>'+
-        '<button type="button" class="primary small" onclick="adminDiscoverySetCity(true)"'+(d.pending?' disabled':'')+'>Habilitar modalidade</button>'+
+      '<fieldset id="admin-discovery-city-actions" tabindex="-1"><legend>O que deseja fazer?</legend>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-discovery-city-action" value="disable" '+
+       'data-reason="Modalidade suspensa preventivamente nesta cidade mediante revisão administrativa."> Suspender modalidade</label>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-discovery-city-action" value="enable" '+
+       'data-reason="Disponibilidade da modalidade na cidade revisada antes da autorização administrativa."> Habilitar modalidade</label>'+
+      '</fieldset>'+
+      '<details><summary>Outro motivo (opcional)</summary><label for="admin-discovery-city-reason">Justificativa personalizada</label>'+
+      '<textarea class="input" id="admin-discovery-city-reason" maxlength="240" rows="2"></textarea></details>'+
+      '<button type="button" class="primary small" onclick="adminDiscoverySubmitCity()"'+
+       (d.pending?' disabled':'')+'>Confirmar modalidade marcada</button>'+
       '</div></div>'+cityMatrix+'</section>';
   return '<section class="section"><div class="section-head"><div><h2>Revisão de anúncios</h2>'+
     '<p>Decisões reservadas ao superadministrador e auditadas no banco. Nenhum anúncio é aprovado automaticamente.</p>'+
@@ -2968,14 +3047,9 @@ async function adminDiscoveryChangeLive(id,next){
   if(!current||current.status===(next==='paused'?'paused':'published')||
      (next==='paused'&&current.status!=='published')||
      (next==='published'&&(current.status!=='paused'||current.city_vertical_enabled!==true)))return;
-  const promptText=next==='paused'?'Informe o motivo da suspensão:':
-     'Informe por que a reativação é segura (confira as denúncias pendentes):';
-  const reason=prompt(promptText);
-  if(reason===null)return;
-  const note=String(reason).trim();
-  if(note.length<8||note.length>240){
-    toast('A justificativa deve conter entre 8 e 240 caracteres.');return;
-  }
+  const note=adminDiscoverySelectedReason('admin-discovery-live-reason-'+id,
+    next,'admin-discovery-live-custom-'+id);
+  if(note===null)return;
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
@@ -2990,14 +3064,18 @@ async function adminDiscoveryChangeLive(id,next){
   }
 }
 
-async function adminDiscoverySuspendReportedListing(id){
+async function adminDiscoverySuspendReportedListing(id,selectedReportId=null){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !/^[0-9a-f-]{36}$/.test(String(id||''))||
      !adminDiscoveryDesk.reports.some(x=>x.listing_id===id&&x.listing_status==='published'))return;
-  const reason=prompt('Informe por que este anúncio deve ser suspenso:');
-  if(reason===null)return;
-  const note=String(reason).trim();
-  if(note.length<8||note.length>240){toast('Justificativa obrigatória entre 8 e 240 caracteres.');return;}
+  const report=adminDiscoveryDesk.reports.find(x=>x.listing_id===id&&
+    x.listing_status==='published'&&(selectedReportId===null||Number(x.id)===selectedReportId));
+  if(!report)return;
+  const reportId=Number(report.id);
+  if(!Number.isSafeInteger(reportId)||reportId<=0)return;
+  const note=adminDiscoverySelectedReason('admin-discovery-report-action-'+reportId,
+    'paused','admin-discovery-report-custom-'+reportId);
+  if(note===null)return;
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
@@ -3015,10 +3093,9 @@ async function adminDiscoveryReviewReport(id,status){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !Number.isSafeInteger(id)||id<=0||!['resolved','dismissed'].includes(status)||
      !adminDiscoveryDesk.reports.some(x=>Number(x.id)===id))return;
-  const note=prompt('Registre a justificativa ou providência (mínimo 8 caracteres):');
-  if(note===null)return;
-  const value=String(note).trim();
-  if(value.length<8||value.length>500){toast('Informe uma justificativa entre 8 e 500 caracteres.');return;}
+  const value=adminDiscoverySelectedReason('admin-discovery-report-action-'+id,
+    status,'admin-discovery-report-custom-'+id,500);
+  if(value===null)return;
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_review_report',{
@@ -3039,8 +3116,11 @@ async function adminDiscoveryDecision(id,status){
      !['published','rejected'].includes(status)||!/^[0-9a-f-]{36}$/.test(String(id||'')))return;
   const entry=adminDiscoveryDesk.items.find(x=>x.id===id&&x.status==='review');
   if(!entry||status==='published'&&entry.city_vertical_enabled!==true)return;
-  const reason=String(document.getElementById('admin-discovery-reason-'+id)?.value||'').trim();
-  if(reason.length<8){toast('Descreva a justificativa da revisão (mínimo 8 caracteres).');return;}
+  const reason=adminDiscoverySelectedReason('admin-discovery-decision-'+id,status,
+    'admin-discovery-reason-'+id);
+  if(reason===null)return;
+  if(status==='published'&&document.getElementById('admin-discovery-proof-'+id)?.checked!==true)
+    return toast('Marque a conferência de documentos e informações antes de aprovar.');
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{

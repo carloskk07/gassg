@@ -19,6 +19,8 @@ const queue=[{
 const docKey='00000000-0000-0000-0000-000000000011/'+validId+
  '/22222222-2222-2222-2222-222222222222.pdf';
 let documentReads=0,documentSigns=0,unsafeSigned=false;
+const selections=new Map();
+const mark=(name,value,note)=>selections.set(name,{value,dataset:{reason:note||'Revisão administrativa registrada por opção selecionada.'}});
 const reports=[{id:17,listing_id:validId,vertical:'professionals',title:'<script>alert(1)</script>',listing_status:'published',reason:'suspected_fraud',details:'<img src=x onerror=alert(1)>',status:'open'}];
 const pausedId='22222222-2222-4222-8222-222222222222';
 const active=[{id:validId,vertical:'professionals',title:'<script>alert(1)</script>',status:'published',city_name:'São Gabriel',state_code:'RS',city_vertical_enabled:true},
@@ -31,7 +33,9 @@ const inputs={
  'admin-discovery-city-kind':{value:'stays'},
  'admin-discovery-city-state':{value:'RS'},
  'admin-discovery-city-name':{value:'São Gabriel'},
- 'admin-discovery-city-reason':{value:'Ativação manual conferida',focus(){this.focused=true;}}
+ 'admin-discovery-city-reason':{value:'Ativação manual conferida'},
+ 'admin-discovery-city-actions':{focus(){this.focused=true;}},
+ ['admin-discovery-proof-'+validId]:{checked:false}
 };
 const client={
  from(name){assert.equal(name,'discovery_documents');return{
@@ -69,7 +73,14 @@ const ctx={
  adminRuntime:{client,section:'discovery'},
  adminReady:()=>true,adminCurrentRole:()=>role,
  esc,render:()=>{rendered++;},toast:s=>notes.push(s),
- document:{getElementById:id=>inputs[id]||{value:reason}}
+ document:{
+  getElementById:id=>id.startsWith('admin-discovery-report-custom-')||
+   id.startsWith('admin-discovery-live-custom-')?{value:''}:inputs[id]||{value:reason},
+  querySelector:selector=>{
+   const group=/^input\[name="([^"]+)"\]:checked$/.exec(selector)?.[1];
+   return group?selections.get(group)||null:null;
+  }
+ }
 };ctx.globalThis=ctx;
 vm.runInNewContext(part,ctx,{filename:'admin/discovery-workspace'});
 let html=ctx.adminDiscoveryView();
@@ -79,7 +90,7 @@ assert.equal(rendered,1);
 html=ctx.adminDiscoveryView();
 assert.match(html,/&lt;script&gt;/);
 assert.doesNotMatch(html,/<script>alert/);
-assert.match(html,/Aprovar anúncio<\/button>/);
+assert.match(html,/Aprovar anúncio<\/label>/);
 assert.match(html,/Conferir comprovantes privados/);
 assert.match(html,/Denúncias de anúncios/);
 assert.match(html,/Publicações e pausas/);
@@ -95,7 +106,7 @@ assert.match(html,/Suspensa/);
 ctx.adminDiscoveryPrefillCity(1);
 assert.equal(inputs['admin-discovery-city-kind'].value,'rides');
 assert.equal(inputs['admin-discovery-city-name'].value,'Bagé');
-assert.equal(inputs['admin-discovery-city-reason'].focused,true);
+assert.equal(inputs['admin-discovery-city-actions'].focused,true);
 ctx.adminDiscoveryPrefillCity(0);
 inputs['admin-discovery-city-kind'].value='stays';
 inputs['admin-discovery-city-name'].value='São Gabriel';
@@ -115,7 +126,7 @@ assert.equal(documentReads,2);
 assert.doesNotMatch(ctx.adminDiscoveryView(),/link temporário/);
 assert.ok(notes.some(x=>x.includes('Não foi possível abrir')));
 unsafeSigned=false;
-assert.match(html,/disabled>Aprovar anúncio<\/button>/,'disabled city must block approval');
+assert.match(html,/disabled>\s*Aprovar anúncio<\/label>/,'disabled city must block approval');
 await ctx.adminDiscoveryDecision(validId,'published');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,0);
 queue[0].city_vertical_enabled=true;
@@ -123,12 +134,16 @@ reason='curto';
 await ctx.adminDiscoveryDecision(validId,'published');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,0);
 reason='Conferência de anúncio concluída';
+mark('admin-discovery-decision-'+validId,'published',
+ 'Conteúdo, requisitos e documentação aplicável revisados para publicação.');
+inputs['admin-discovery-proof-'+validId].checked=true;
 await ctx.adminDiscoveryDecision(validId,'published');
 const published=requested.filter(r=>r[0]==='discovery_transition_listing');
 assert.equal(published.length,1);
 assert.equal(published[0][1].p_next_status,'published');
 assert.equal(published[0][1].p_reason,reason);
 assert.equal(ctx.adminDiscoveryCitySlug('São Gabriel'),'sao-gabriel');
+mark('admin-discovery-city-action','enable');
 await ctx.adminDiscoverySetCity(true);
 const cityAction=requested.find(r=>r[0]==='discovery_set_vertical_city');
 assert.equal(cityAction[1].p_vertical,'stays');
@@ -149,19 +164,20 @@ assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,1
 assert.equal(ctx.adminDiscoveryView(),'');
 role='superadmin';
 assert.match(ctx.adminDiscoveryView(),/Suspender anúncio/);
-ctx.prompt=()=> 'Anúncio suspenso até verificação da denúncia';
+mark('admin-discovery-report-action-17','paused','Anúncio suspenso até verificação da denúncia');
 await ctx.adminDiscoverySuspendReportedListing(validId);
 const suspension=requested.filter(x=>x[0]==='discovery_transition_listing'&&x[1].p_next_status==='paused');
 assert.equal(suspension.length,1,'a suspensão é ação do superadmin via RPC existente');
 assert.equal(suspension[0][1].p_reason,'Anúncio suspenso até verificação da denúncia');
-ctx.prompt=()=> 'Análise e providências registradas';
+mark('admin-discovery-report-action-17','resolved','Análise e providências registradas');
 await ctx.adminDiscoveryReviewReport(17,'resolved');
 const reviewed=requested.filter(r=>r[0]==='discovery_review_report');
 assert.equal(reviewed.length,1);
 assert.equal(reviewed[0][1].p_status,'resolved');
 assert.equal(reviewed[0][1].p_report_id,17);
 assert.doesNotMatch(ctx.adminDiscoveryView(),/<img src=x onerror=/);
-ctx.prompt=()=> 'Revisão de publicação após checagem de contatos';
+mark('admin-discovery-live-reason-'+pausedId,'published',
+ 'Revisão de publicação após checagem de contatos');
 await ctx.adminDiscoveryChangeLive(pausedId,'published');
 assert.equal(requested.filter(x=>x[0]==='discovery_transition_listing'&&
   x[1].p_listing_id===pausedId).length,0,'disabled city prevents reinstatement');
@@ -180,7 +196,7 @@ assert.ok(src.includes("discovery:new Set(['superadmin'])"));
 assert.ok(src.includes("adminMenuButton('discovery','Moderação de anúncios'"));
 assert.ok(src.includes("adminPanel('discovery'"));
 assert.ok(src.includes("if(next==='discovery')adminDiscoveryLoad()"));
-assert.ok(src.includes("onclick=\"adminDiscoverySetCity(true)\""));
+assert.ok(src.includes('adminDiscoverySubmitCity()'));
 const sql=read('supabase/migrations/20261018131000_discovery_shared_verticals.sql');
 assert.ok(sql.includes('create function public.discovery_admin_review_queue'));
 assert.ok(sql.includes("a.admin_role='superadmin'"));

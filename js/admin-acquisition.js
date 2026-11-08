@@ -458,14 +458,26 @@ async function adminAdsCampaignLoadFromUi(){
     }
   }finally{adminAdsCampaignBusy=false;render();}
 }
+function adminAdsReviewMarked(merchantId){
+ return document.querySelector('input[name="ads-review-choice-'+merchantId+'"]:checked');
+}
+function adminAdsSubmitMarkedReview(merchantId,version){
+ if(!/^[0-9a-f-]{36}$/i.test(String(merchantId||'')))return;
+ const choice=adminAdsReviewMarked(merchantId);
+ if(!choice)return toast('Marque a decisão para a peça publicitária.');
+ return adminAdsCampaignReview(merchantId,version,choice.value);
+}
 async function adminAdsCampaignReview(merchantId,version,decision){
   if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
   const queue=adminAdsCampaignQueue?.rows||[];
   const row=queue.find(x=>x.merchantId===merchantId&&x.version===version&&x.status==='submitted');
   if(!row||!['approved_creative','needs_changes'].includes(decision))
     return toast('Atualize a fila e escolha uma proposta enviada.');
-  const note=String(document.getElementById('ads-review-note-'+merchantId)?.value||'').trim();
-  if(note.length<12||note.length>500)return toast('Registre uma justificativa entre 12 e 500 caracteres.');
+  const choice=adminAdsReviewMarked(merchantId);
+  if(!choice||choice.value!==decision)return toast('Marque a decisão correspondente.');
+  const custom=String(document.getElementById('ads-review-note-'+merchantId)?.value||'').trim();
+  const note=custom||String(choice.dataset?.reason||'').trim();
+  if(note.length<12||note.length>500)return toast('Selecione uma justificativa válida de 12 a 500 caracteres.');
   if(!confirm((decision==='approved_creative'?'Conferir a peça':'Pedir ajustes')+
       '? Não será publicado nem cobrado nenhum anúncio.'))return;
   try{
@@ -491,12 +503,15 @@ function adminAdsCampaignSection(){
       '<div class="order-actions"><button class="secondary small" type="button" onclick="adminAdsPreviewRunFromUi(\''+
         x.merchantId+'\')">Testar prévia interna</button></div>':'';
     const fields=canReview&&x.status==='submitted'?
-      '<label>Justificativa para a revisão<textarea id="ads-review-note-'+x.merchantId+
-      '" rows="2" minlength="12" maxlength="500" placeholder="Explique o que foi conferido ou precisa mudar"></textarea></label>'+
-      '<div class="order-actions">'+
-      '<button class="secondary small" onclick="adminAdsCampaignReview(\''+x.merchantId+'\','+Number(x.version)+',\'needs_changes\')">Solicitar ajustes</button>'+
-      '<button class="primary small" onclick="adminAdsCampaignReview(\''+x.merchantId+'\','+Number(x.version)+',\'approved_creative\')">Aprovar somente a peça</button>'+
-      '</div>':'';
+      '<fieldset><legend>Marque a decisão da peça</legend>'+
+      '<label class="admin-option-row"><input type="radio" name="ads-review-choice-'+x.merchantId+
+        '" value="needs_changes" data-reason="Peça publicitária devolvida para ajustes de conteúdo e conformidade."> Solicitar ajustes</label>'+
+      '<label class="admin-option-row"><input type="radio" name="ads-review-choice-'+x.merchantId+
+        '" value="approved_creative" data-reason="Criativo e informações da peça revisados para aprovação sem publicação ou cobrança."> Aprovar somente a peça</label></fieldset>'+
+      '<details><summary>Outro motivo (opcional)</summary><label for="ads-review-note-'+x.merchantId+'">Justificativa personalizada</label>'+
+      '<textarea id="ads-review-note-'+x.merchantId+'" rows="2" maxlength="500"></textarea></details>'+
+      '<button type="button" class="primary small" onclick="adminAdsSubmitMarkedReview(\''+x.merchantId+
+        '\','+Number(x.version)+')">Confirmar decisão marcada</button>':'';
     return '<div class="card flat"><div class="status-bar"><strong>'+esc(x.companyName||'Revenda')+
       '</strong><span class="status-pill">'+esc(states[x.status]||'Em análise')+'</span></div>'+
       '<p class="tiny muted">'+esc([x.city,x.state].filter(Boolean).join('/')||'Localização pendente')+
@@ -1560,12 +1575,30 @@ async function adminLoadGrowthReferralReviewQueue(){
     toast(String(e?.message||e));
   }finally{adminGrowthReferralReviewBusy=false;render();}
 }
+function adminGrowthReviewMarked(applicationId){
+ return document.querySelector('input[name="growth-review-choice-'+applicationId+'"]:checked');
+}
+function adminGrowthReviewChoiceChanged(applicationId){
+ const choice=adminGrowthReviewMarked(applicationId);
+ const proof=document.getElementById('growth-review-proof-field-'+applicationId);
+ if(proof)proof.hidden=choice?.value!=='verified_identity';
+}
+function adminGrowthSubmitMarkedReview(applicationId){
+ if(!/^[0-9a-f-]{36}$/i.test(String(applicationId||'')))return;
+ const choice=adminGrowthReviewMarked(applicationId);
+ if(!choice)return toast('Marque a providência para esta indicação.');
+ return adminReviewGrowthReferral(applicationId,choice.value);
+}
 async function adminReviewGrowthReferral(applicationId,decision){
   if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
   if(!/^[0-9a-f-]{36}$/i.test(String(applicationId)))return;
   if(!['verified_identity','rejected','needs_evidence'].includes(decision))return;
-  const reason=String(document.getElementById('growth-review-note-'+applicationId)?.value||'').trim();
-  if(reason.trim().length<12||reason.trim().length>800)return toast('Justificativa deve ter de 12 a 800 caracteres');
+  const choice=adminGrowthReviewMarked(applicationId);
+  if(!choice||choice.value!==decision)
+    return toast('Marque a providência correspondente antes de confirmar.');
+  const custom=String(document.getElementById('growth-review-note-'+applicationId)?.value||'').trim();
+  const reason=custom||String(choice.dataset?.reason||'').trim();
+  if(reason.length<12||reason.length>800)return toast('Selecione uma justificativa de 12 a 800 caracteres');
   let evidenceReference='';
   const row=adminGrowthReferralReviewQueue?.rows?.find(x=>x.applicationId===applicationId);
   if(!row||['verified_identity','rejected'].includes(row.latestDecision))return toast('A indicação já foi analisada. Atualize a fila.');
@@ -1594,19 +1627,30 @@ function adminGrowthReferralReviewSection(){
       const label=String(x.companyName||'Empresa').slice(0,120);
       const state=({verified_identity:'Identidade conferida',rejected:'Rejeitada',needs_evidence:'Aguardando evidências'})[x.latestDecision]||'Não analisada';
       const canReview=['superadmin','compliance'].includes(String(adminCurrentRole()));
-      const btn=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?'<div class="order-actions">'+
-        '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'needs_evidence\')">Pedir evidências</button>'+
-        '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'rejected\')">Rejeitar</button>'+
-        '<button class="primary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'verified_identity\')">Conferir identidade</button></div>':'';
       const fields=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?
-        '<label>Justificativa da análise<textarea id="growth-review-note-'+x.applicationId+
-        '" rows="3" minlength="12" maxlength="800" placeholder="Explique o motivo da decisão"></textarea></label>'+
-        '<label>Referência da evidência (sem documentos pessoais)<input id="growth-review-proof-'+x.applicationId+
-        '" maxlength="160" placeholder="Protocolo ou referência interna" /></label>':'';
+        '<fieldset><legend>Marque a providência para esta indicação</legend>'+
+        '<label class="admin-option-row"><input type="radio" name="growth-review-choice-'+x.applicationId+
+          '" value="needs_evidence" data-reason="Informações adicionais solicitadas para conferir identidade e vínculo da indicação." '+
+          'onchange="adminGrowthReviewChoiceChanged(\''+x.applicationId+'\')"> Pedir evidências</label>'+
+        '<label class="admin-option-row"><input type="radio" name="growth-review-choice-'+x.applicationId+
+          '" value="rejected" data-reason="Dados apresentados insuficientes para validar o vínculo de indicação." '+
+          'onchange="adminGrowthReviewChoiceChanged(\''+x.applicationId+'\')"> Rejeitar</label>'+
+        '<label class="admin-option-row"><input type="radio" name="growth-review-choice-'+x.applicationId+
+          '" value="verified_identity" data-reason="CNPJ e responsável conferidos por evidência documentada para validação da identidade." '+
+          'onchange="adminGrowthReviewChoiceChanged(\''+x.applicationId+'\')"> Conferir identidade</label></fieldset>'+
+        '<div id="growth-review-proof-field-'+x.applicationId+'" hidden>'+
+        '<label>Referência de evidência real (obrigatória na validação)<input id="growth-review-proof-'+x.applicationId+
+          '" maxlength="160" autocomplete="off" placeholder="Protocolo ou referência interna" /></label></div>'+
+        '<details><summary>Outro motivo (opcional)</summary>'+
+        '<label for="growth-review-note-'+x.applicationId+'">Justificativa personalizada</label>'+
+        '<textarea class="input" id="growth-review-note-'+x.applicationId+
+          '" rows="2" maxlength="800"></textarea></details>'+
+        '<button class="primary small" type="button" onclick="adminGrowthSubmitMarkedReview(\''+
+          x.applicationId+'\')">Confirmar providência marcada</button>':'';
       return '<article class="card flat"><strong>'+esc(label)+'</strong>'+
         '<p class="tiny muted">CNPJ final '+esc(x.cnpjSuffix||'')+
         ' • '+esc(state)+' • '+(x.cnpjMatches?'CNPJ vinculado':'CNPJ pendente')+
-        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+fields+btn+'</article>';
+        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+fields+'</article>';
     }).filter(Boolean).join('');
   }
   return '<section class="section admin-growth-referral-review">'+
