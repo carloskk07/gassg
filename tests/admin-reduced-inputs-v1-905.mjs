@@ -36,7 +36,7 @@ vm.runInContext([
  span(admin,'const ADMIN_LAUNCH_EXCEPTION_REASONS=','async function adminConfirmLaunchRequirement('),
  fn(admin,'adminConfirmLaunchRequirement'),
  fn(admin,'adminSetOperationMode'),
- span(acq,'function adminOwnerFundingPreset(','async function adminOwnerFundingSaveFromUi(')
+ span(admin,'function adminOwnerFundingPreset(','const ADMIN_LAUNCH_EXCEPTION_REASONS=')
 ].join('\n')+'\nthis.api={exceptionUI:adminLaunchRequirementDecisionUI,'+
  'modeUI:adminOperationModePicker,exception:adminConfirmLaunchRequirement,'+
  'mode:adminSetOperationMode,funding:adminOwnerFundingPreset,club:adminClubeTermsNotePreset};',ctx);
@@ -105,6 +105,7 @@ assert.equal(manual.open,false);
 set('clube-terms-note-template-'+budget,'custom');
 x.club(budget);assert.equal(manual.open,true);
 assert.match(acq,/owner-funding-quick-/);
+assert.match(admin,/function adminOwnerFundingPreset/);
 assert.match(acq,/clube-terms-note-template-/);
 assert.match(admin,/adminRequireTypedConfirmation\('CONFIRMAR OPERAÇÃO'/);
 assert.match(fn(admin,'adminFinancial'),/comprovante externo conferido/);
