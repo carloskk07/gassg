@@ -3456,7 +3456,7 @@ function adminVerificationMerchantView(d){
   (merchants.length?
     '<div class="card flat"><label for="admin-verification-merchant">Escolha a revenda para conferir</label>'+
     '<select id="admin-verification-merchant" class="input" onchange="adminVerificationSelectMerchant(this.value)">'+
-    (merchants.length>1?'<option value=""'+(!selected?' selected':'')+'>Selecione uma revenda</option>':'')+
+    (merchants.length>1||!selected?'<option value=""'+(!selected?' selected':'')+'>Selecione uma revenda</option>':'')+
     options+'</select><small class="field-help">'+merchants.length+
     ' revenda(s) carregada(s) nesta consulta. Nenhuma validação é automática.</small></div>'+
     (selected?adminMerchantCard(selected):'<div class="empty card">Selecione uma revenda para abrir suas verificações.</div>'):
