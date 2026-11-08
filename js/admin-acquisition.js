@@ -5546,9 +5546,7 @@ function adminPrelaunchLeadsSection(data){
     adminLeadPriority(a.status)-adminLeadPriority(b.status)||
     (Date.parse(a.created_at||'')-Date.parse(b.created_at||'')));
   const current=typeof adminGrowthWorkspaceTab==='string'?adminGrowthWorkspaceTab:'acquisition';
-  const tab=(id,label)=>'<button type="button" class="secondary small '+
-    (current===id?'active':'')+'" aria-pressed="'+(current===id)+
-    '" onclick="adminGrowthSetWorkspaceTab(\\''+id+'\\')">'+label+'</button>';
+  const tab=(id,label)=>`<button type="button" class="secondary small ${current===id?'active':''}" aria-pressed="${current===id}" onclick="adminGrowthSetWorkspaceTab('${id}')">${label}</button>`;
   return [
     '<section class="section admin-growth-workspace">',
       '<div class="section-head"><div><span class="section-kicker">CRESCIMENTO</span>'+
