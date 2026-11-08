@@ -143,7 +143,7 @@ function tamaoAdsCampaignForm(){
         Date.parse(String(s.homologationExpiresAt||''))>Date.now();
       const canBuy=(s.fixedFeeSalesEnabled===true||testAuthorized)&&
         c.status==='approved'&&validPlan&&
-        (bought===''||bought==='checkout_ready');
+        (bought===''||bought==='checkout_ready'||bought==='reserved');
       const payment=bought==='payment_approved'?'Pagamento aprovado pelo provedor; aguarda publicação.':
         bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
         bought==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
@@ -170,7 +170,8 @@ function tamaoAdsCampaignForm(){
         '<span>Concordo com o preço fixo, prazo e condições de publicidade. O pagamento não publica o anúncio automaticamente.</span></label>'+
         '<button type="button" class="primary" onclick="tamaoAdsBuyCampaign(\''+id+'\')" '+
         (tamaoAdsPurchaseBusy?'disabled':'')+'>'+
-        (bought==='checkout_ready'?'Concluir pagamento':'Contratar veiculação')+'</button></div>':'';
+        (bought==='reserved'?'Recuperar checkout sem nova cobrança':
+         bought==='checkout_ready'?'Concluir pagamento':'Contratar veiculação')+'</button></div>':'';
       return '<article class="card flat"><strong>'+esc(String(c.title))+'</strong>'+
         '<p>'+esc(String(c.city))+'/'+esc(String(c.state))+' · '+
         esc(String(c.effectiveStatus||c.status))+' · '+Number(c.reportedViewSignals||0)+' sinais de visibilidade</p>'+
