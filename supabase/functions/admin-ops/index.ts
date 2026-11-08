@@ -8069,13 +8069,13 @@ Deno.serve(async(req:Request)=>{
            Date.now()-approvedAt>179*24*60*60*1000)
           throw new DomainError("ADS_REFUND_OUTSIDE_AUTOMATION_WINDOW",
             "O pagamento precisa de revisão manual do prazo para devolução.",409);
-        const idempotencyKey=String(reserved.idempotencyKey||"");
-        if(!/^tamao-ads-ind-refund-[0-9a-f]{32}$/.test(idempotencyKey))
+        const refundIdempotency=String(reserved.idempotencyKey||"");
+        if(!/^tamao-ads-ind-refund-[0-9a-f]{32}$/.test(refundIdempotency))
           throw new DomainError("ADS_REFUND_IDEMPOTENCY_MISSING",
             "Reserva do reembolso não possui chave segura.",503);
         try{
           const response=await mercadoPagoFetch("/v1/payments/"+paymentId+"/refunds",{
-            accessToken:token,method:"POST",idempotencyKey,body:{},timeoutMs:8000
+            accessToken:token,method:"POST",idempotencyKey:refundIdempotency,body:{},timeoutMs:8000
           });
           sentToProvider=true;
           // HTTP success is NOT money proof; query original payment again.
