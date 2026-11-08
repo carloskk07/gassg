@@ -1,6 +1,9 @@
 // TAMÃO Ads V1.890 — pure provider-return proof, reused for first checkout and recovery.
 // A valid HTTPS destination alone is never a sufficient payment preference proof.
-export function verifiedIndependentAdsPreference(p,{reference,campaignId,sellerId,amountCents,expiresAt,nowMs=Date.now()}={}){
+/** @param {any} p
+ * @param {{reference:string,campaignId:string,sellerId:string,amountCents:number,expiresAt:string,nowMs?:number}} options
+ */
+export function verifiedIndependentAdsPreference(p,{reference,campaignId,sellerId,amountCents,expiresAt,nowMs=Date.now()}){
  if(!p||typeof p!=="object"||typeof reference!=="string"||
    !/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference)||
    !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(String(campaignId||""))||
