@@ -203,6 +203,14 @@ async function adminIndependentRefundProvider(operation,caseId,version){
  finally{adminIndependentAdsBusy=false}
  await adminIndependentAdsRefresh();
 }
+// Pure UI navigation. A pane switch never opens a payment or changes campaign state.
+function adminIndependentAdsOpenPane(pane){
+ if(!['campaigns','finance','refunds'].includes(pane)||
+   !adminReady()||adminRuntime.section!=='ads'||adminAdsWorkspaceTab!=='campaigns'||
+   !['superadmin','operations','compliance','finance'].includes(adminCurrentRole()))return;
+ adminIndependentAdsPane=pane;
+ render();
+}
 function adminAdsIndependentSection(){
  const role=String(adminCurrentRole());
  if(!['superadmin','operations','compliance','finance'].includes(role))return '';
@@ -218,6 +226,14 @@ function adminAdsIndependentSection(){
    testExpires>Date.now());
  const eligibleTestCampaigns=v?.rows?.filter(c=>c.status==='approved'&&
    c.budgetCents===1990&&c.durationDays===7&&!c.fixedFeeStatus)||[];
+ const pane=['campaigns','finance','refunds'].includes(adminIndependentAdsPane)?
+  adminIndependentAdsPane:'campaigns';
+ const reviewCount=v?.rows?.filter(c=>c.status==='submitted').length||0;
+ const refundCount=v?.refundCases?.filter(c=>!['provider_reversed','rejected','closed'].includes(String(c.status))).length||0;
+ const adsPane=(id,label,count)=>'<button type="button" class="secondary small '+
+   (pane===id?'active':'')+'" aria-pressed="'+(pane===id)+'"'+
+   ' onclick="adminIndependentAdsOpenPane(\''+id+'\')">'+label+
+   (count?' ('+count+')':'')+'</button>';
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
@@ -304,12 +320,17 @@ function adminAdsIndependentSection(){
   '<p>Análise e entrega não faturável. Sinais do navegador não constituem prova de cobrança.</p></div>'+
   '<button type="button" class="secondary small" onclick="adminIndependentAdsRefresh()" '+
   (adminIndependentAdsBusy?'disabled':'')+'>Atualizar campanhas</button></div>'+
-  '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
+  '<div class="admin-task-tabs" role="group" aria-label="Tarefas de anúncios independentes">'+
+   adsPane('campaigns','Revisar campanhas',reviewCount)+
+   adsPane('finance','Configuração e vendas',0)+
+   adsPane('refunds','Reembolsos',refundCount)+'</div>'+
+    '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
    '<strong>'+(delivery?'Habilitada':'Desligada')+'</strong></div>'+
    '<div class="kpi"><span class="label">CPM por visualizações</span><strong>Inativo</strong></div>'+
    '<div class="kpi"><span class="label">Vendas de período fixo</span><strong>'+
      (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
    '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
+  (pane==='finance'?(
   (canAct?'<div class="card flat"><label for="independent-ads-control-reason">Motivo para autorizar ou interromper</label>'+
     '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2" '+
     'placeholder="Revisão de segurança e inventário verificado"></textarea>'+
@@ -380,12 +401,17 @@ function adminAdsIndependentSection(){
     '<button type="button" class="secondary small" onclick="adminIndependentAdsSalesAction()" '+
       (adminIndependentAdsBusy?'disabled':'')+'>'+
       (sales?'Interromper novas compras':'Habilitar compras com pagamento verificado')+
-    '</button></div>':'')+
+    '</button></div>':'')
+  ):'')+
+  (pane==='refunds'?(
   (v?.refundCases===null?'<p class="muted">Fila de reembolsos indisponível. Atualize para conferir.</p>':
     v?.refundCases?.length?'<section class="section"><h4>Cancelamentos e reembolsos</h4>'+
      '<p>Pedidos registrados pausam a publicidade; somente devolução confirmada no provedor permite conclusão. A revisão não movimenta valores.</p>'+
-     '<div class="grid cards-2">'+refundRows+'</div></section>':'')+
+     '<div class="grid cards-2">'+refundRows+'</div></section>':'')
+  ):'')+
+  (pane==='campaigns'?(
   (v?'<div class="grid cards-2">'+(rows||'<p>Sem campanhas enviadas até agora.</p>')+'</div>':
-   '<p class="muted">Atualize para conferir propostas reais e os controles de publicação.</p>')+
+   '<p class="muted">Atualize para conferir propostas reais e os controles de publicação.</p>')
+  ):'')+
   '</section>';
 }
