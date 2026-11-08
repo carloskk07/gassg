@@ -1362,6 +1362,34 @@ async function adminOwnerBudgetAllocateFromUi(){
     }
   }finally{adminOwnerBudgetPending.delete('allocate');render();}
 }
+const ADMIN_BUDGET_RELEASE_REASONS=Object.freeze({
+  canceled:'Campanha planejada cancelada, saldo reservado devolvido ao planejamento.',
+  redesigned:'Planejamento da campanha revisado, valor devolvido para nova distribuição.',
+  unused:'Campanha não iniciada e recurso planejado não utilizado.',
+  duplicated:'Reserva duplicada identificada no planejamento após conferência.'
+});
+function adminOwnerBudgetApplyTemplate(){
+  const selected=String(document.getElementById('owner-budget-template')?.value||'');
+  const presets={
+    welcome:'Incentivos de boas-vindas a novos clientes do TAMÃO',
+    referrals:'Incentivo planejado para indicações verificadas na plataforma',
+    retention:'Campanha planejada de benefícios para clientes recorrentes',
+    expansion:'Benefícios planejados para abertura de novas cidades'
+  };
+  const reference=document.getElementById('owner-budget-reference');
+  const label=document.getElementById('owner-budget-label');
+  const details=document.getElementById('owner-budget-details');
+  if(!reference||!label)return;
+  if(!Object.prototype.hasOwnProperty.call(presets,selected)){
+    if(details)details.open=selected==='custom';
+    if(selected==='')return;
+    reference.value='';label.value='';return;
+  }
+  reference.value=selected+'-'+new Date().toISOString().slice(0,7)+'-'+
+    String(crypto.randomUUID()).replace(/-/g,'').slice(0,8);
+  label.value=presets[selected];
+  if(details)details.open=false;
+}
 async function adminOwnerBudgetReleaseFromUi(id,expectedVersion){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin'||
@@ -1370,9 +1398,10 @@ async function adminOwnerBudgetReleaseFromUi(id,expectedVersion){
   const row=d?.allocations?.find(x=>x.allocationId===id);
   if(!row||row.status!=='allocated'||row.version!==expectedVersion)
     return toast('Atualize as alocações antes de liberar.');
-  const reason=String(prompt('Motivo para devolver o valor ao planejamento mensal:')||'').trim();
-  if(reason.length<12||reason.length>240)
-    return toast('Informe uma justificativa de 12 a 240 caracteres.');
+  const choice=String(document.getElementById('owner-budget-release-reason-'+id)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_BUDGET_RELEASE_REASONS,choice))
+    return toast('Marque o motivo verdadeiro para devolver esta reserva planejada.');
+  const reason=ADMIN_BUDGET_RELEASE_REASONS[choice];
   adminOwnerBudgetPending.add(id);
   try{
     const result=await adminInvoke({action:'owner-budget-release',
@@ -1425,12 +1454,22 @@ function adminOwnerBudgetSection(){
     (available||'<option value="">Configure um orçamento positivo no painel acima</option>')+
     '</select></label>'+
     '<div class="grid cards-2">'+
-    '<label class="input-wrap">Valor para a campanha (R$)'+
-    '<input class="input" id="owner-budget-amount" type="number" step="0.01" min="1" max="500000"></label>'+
-    '<label class="input-wrap">Código único da campanha'+
-    '<input class="input" id="owner-budget-reference" type="text" maxlength="80" placeholder="ex.: cashback-outubro-01"></label></div>'+
-    '<label class="input-wrap">Descrição da campanha'+
-    '<input class="input" id="owner-budget-label" type="text" maxlength="180" placeholder="Incentivos para as primeiras compras da cidade"></label>'+
+    '<label class="input-wrap">Valor planejado para a campanha (R$)'+
+      '<input class="input" id="owner-budget-amount" type="number" step="0.01" min="1" max="500000"></label>'+
+    '<label class="input-wrap">Objetivo da campanha'+
+      '<select id="owner-budget-template" class="input" onchange="adminOwnerBudgetApplyTemplate()">'+
+        '<option value="">Marque um objetivo real</option>'+
+        '<option value="welcome">Boas-vindas a novos clientes</option>'+
+        '<option value="referrals">Indicações verificadas</option>'+
+        '<option value="retention">Clientes recorrentes</option>'+
+        '<option value="expansion">Expansão de cidades</option>'+
+        '<option value="custom">Outro objetivo (detalhar)</option></select></label></div>'+
+    '<details id="owner-budget-details"><summary>Ver código e descrição ou personalizar</summary>'+
+      '<label class="input-wrap">Código único'+
+        '<input class="input" id="owner-budget-reference" type="text" maxlength="80" autocomplete="off"></label>'+
+      '<label class="input-wrap">Descrição'+
+        '<input class="input" id="owner-budget-label" type="text" maxlength="180" autocomplete="off"></label>'+
+    '</details>'+
     '<button type="button" class="secondary small" onclick="adminOwnerBudgetAllocateFromUi()" '+
     (!available||adminOwnerBudgetPending.has('allocate')?'disabled':'')+
     '>Separar orçamento planejado</button></div>':'';
@@ -1442,10 +1481,18 @@ function adminOwnerBudgetSection(){
       ' • '+esc(x.month)+' • '+esc(x.campaignReference)+'</p></div>'+
       '<span class="status-pill">'+(x.status==='allocated'?'Planejado':'Devolvido ao plano')+
       '</span></div><p>Valor: <strong>'+adminMoney(x.amountCents)+'</strong></p>'+
-      (canRelease?'<button type="button" class="ghost small" onclick="adminOwnerBudgetReleaseFromUi(\''+
-        esc(x.allocationId)+'\','+Number(x.version)+')" '+
+      (canRelease?'<details><summary>Devolver reserva ao planejamento (marcar motivo)</summary>'+
+        '<label for="owner-budget-release-reason-'+esc(x.allocationId)+'">Motivo verdadeiro</label>'+
+        '<select class="input" id="owner-budget-release-reason-'+esc(x.allocationId)+'">'+
+          '<option value="">Selecione após conferir</option>'+
+          '<option value="canceled">Campanha planejada cancelada</option>'+
+          '<option value="redesigned">Revisão de planejamento</option>'+
+          '<option value="unused">Campanha não iniciada</option>'+
+          '<option value="duplicated">Reserva duplicada identificada</option></select>'+
+        '<button type="button" class="ghost small" onclick="adminOwnerBudgetReleaseFromUi(&apos;'+
+        esc(x.allocationId)+'&apos;,'+Number(x.version)+')" '+
         (adminOwnerBudgetPending.has(x.allocationId)?'disabled':'')+
-        '>Devolver ao orçamento planejado</button>':'')+
+        '>Devolver ao orçamento planejado</button></details>':'')+
       '</article>';
   }).join('');
   return '<section class="section admin-owner-budget">'+
