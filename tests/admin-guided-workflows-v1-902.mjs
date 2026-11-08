@@ -27,6 +27,7 @@ const ctx=vm.createContext({document,esc,Date,Number,String,Array,Object,Set,Int
  formatDateTime:s=>String(s),PROSPECT_STAGE_LABELS:{uncontacted:'Não contatado',interested:'Interessado'},
  confirm:()=>true});
 vm.runInContext(section(admin,'const ADMIN_INCIDENT_TEMPLATES=','function adminIncidentDuration(')+
+ section(admin,'function adminIncidentDuration(','function adminAuditChoiceChanged(')+
  section(admin,'function adminAuditChoiceChanged(','function adminAuditView(d){')+
  section(acq,'const ADMIN_PROSPECT_NOTES=','async function adminLoadEnablement()')+
  section(acq,'async function adminSaveProspect(','function adminAnpProspectInviteLink(')+
