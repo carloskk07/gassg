@@ -2954,13 +2954,21 @@ function adminDiscoveryView(){
       esc(String(x.city_name||''))+' / '+esc(String(x.state_code||''))+'</small>'+
       '<p class="tiny muted">Estado: '+esc(x.status==='published'?'Publicado':'Pausado')+
         (enabled?' • Localidade habilitada':' • Modalidade desabilitada nesta cidade')+'</p>'+
-      '<div class="order-actions">'+
+      '<fieldset><legend>Marque a providência</legend>'+
         (x.status==='published'?
+          '<label class="admin-option-row"><input type="radio" name="admin-discovery-live-reason-'+id+
+            '" value="paused" data-reason="Publicação pausada preventivamente para nova revisão administrativa."> Pausar publicação</label>':
+          '<label class="admin-option-row"><input type="radio" name="admin-discovery-live-reason-'+id+
+            '" value="published" data-reason="Publicação revisada e reativada dentro das condições vigentes."> Reativar anúncio</label>')+
+      '</fieldset><details><summary>Outro motivo (opcional)</summary>'+
+        '<label for="admin-discovery-live-custom-'+id+'">Observação específica</label>'+
+        '<textarea class="input" id="admin-discovery-live-custom-'+id+'" maxlength="240" rows="2"></textarea></details>'+
+      (x.status==='published'?
         '<button type="button" class="secondary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'paused\')"'+
-          (d.pending?' disabled':'')+'>Pausar publicação</button>':
+          (d.pending?' disabled':'')+'>Confirmar pausa marcada</button>':
         '<button type="button" class="primary small" onclick="adminDiscoveryChangeLive(\''+id+'\',\'published\')"'+
           (!enabled||d.pending?' disabled':'')+'>Reativar anúncio</button>')+
-      '</div></article>';
+      '</article>';
   }).join(''):'<p>Nenhum anúncio publicado ou pausado nesta consulta.</p>';
   const checks=d.readinessStatus==='ready'&&d.readiness;
   const readinessSummary=checks?
