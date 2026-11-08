@@ -631,6 +631,8 @@ jobs:
         run: node tests/admin-ads-guided-operations-v1-898.mjs
       - name: V1.899 marked Ads decisions with double verified finance acknowledgements
         run: node tests/admin-ads-marked-choices-v1-899.mjs
+      - name: V1.900 marked moderation, referral and operational follow-up decisions
+        run: node tests/admin-marked-workflows-v1-900.mjs
       - name: V1.891 independent Ads payment-search pagination safeguards
         run: node tests/ads-independent-reconcile-paging-v1-891.mjs
       - name: Test V1.310 merchant Ads offer and founder authority
