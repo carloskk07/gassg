@@ -1615,13 +1615,34 @@ function adminIncidentStatusLabel(value){
     resolved:'RESOLVIDO'
   })[String(value||'')]||String(value||'—').toUpperCase();
 }
+const ADMIN_INCIDENT_TEMPLATES=Object.freeze({
+  orders:{title:'Falha no andamento de pedidos',description:'Incidente operacional relacionado ao andamento de pedidos. Verificar o alcance e registrar evidências no acompanhamento.'},
+  checkout:{title:'Erro na consulta ou finalização do checkout',description:'Analisar o comportamento relatado do checkout sem presumir falha de pagamento ou perda financeira.'},
+  notifications:{title:'Problema de notificações',description:'Investigar a entrega de alertas e identificar quais eventos foram afetados.'},
+  admin:{title:'Instabilidade no painel administrativo',description:'Verificar o comportamento do painel e registrar o resultado do diagnóstico.'},
+  integration:{title:'Falha de integração externa',description:'Investigar integração externa sem presumir falha do provedor ou da conciliação.'}
+});
+function adminIncidentTemplateChanged(){
+  const choice=String(document.getElementById('admin-incident-template')?.value||'');
+  const custom=document.getElementById('admin-incident-custom');
+  if(custom)custom.hidden=choice!=='custom';
+}
 async function adminCreateIncident(){
-  const title=document.getElementById('admin-incident-title')?.value.trim()||'';
-  const severity=document.getElementById('admin-incident-severity')?.value||'medium';
-  const description=document.getElementById('admin-incident-description')?.value.trim()||'';
-  const entityType=document.getElementById('admin-incident-entity-type')?.value.trim()||'';
-  const entityId=document.getElementById('admin-incident-entity-id')?.value.trim()||'';
-  if(title.length<3)return toast('Informe um título para o incidente');
+  const choice=String(document.getElementById('admin-incident-template')?.value||'');
+  const preset=Object.prototype.hasOwnProperty.call(ADMIN_INCIDENT_TEMPLATES,choice)
+    ?ADMIN_INCIDENT_TEMPLATES[choice]:null;
+  if(!preset&&choice!=='custom')return toast('Marque o tipo de incidente real');
+  const title=preset?preset.title:String(document.getElementById('admin-incident-title')?.value||'').trim();
+  const severity=String(document.getElementById('admin-incident-severity')?.value||'');
+  const detail=String(document.getElementById('admin-incident-description')?.value||'').trim();
+  const description=preset?preset.description+(detail?' Detalhes informados: '+detail:''):detail;
+  const entityType=String(document.getElementById('admin-incident-entity-type')?.value||'');
+  const entityId=String(document.getElementById('admin-incident-entity-id')?.value||'').trim();
+  if(title.length<3||title.length>160)return toast('Informe um título válido para o incidente');
+  if(!['critical','high','medium','low'].includes(severity))return toast('Selecione a severidade');
+  if(detail.length>3600)return toast('Os detalhes excedem o limite de tamanho');
+  if(!['','order','merchant','system','payment','campaign'].includes(entityType))
+    return toast('Tipo de vínculo inválido');
   try{
     await adminPerform('incident-action',{
       incidentAction:'create',title,severity,description,
@@ -1746,13 +1767,14 @@ function adminIncidentCenter(d){
       ? '<div class="notice">Perfil Somente leitura: incidentes podem ser consultados, mas não alterados.</div>'
       : `<div class="card flat form-stack">
           <h3>Novo incidente</h3>
-          <div class="input-wrap"><label for="admin-incident-title">Título</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Ex.: falha no recebimento de pedidos"></div>
-          <div class="input-wrap"><label for="admin-incident-severity">Severidade</label><select id="admin-incident-severity" class="input"><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium" selected>Médio</option><option value="low">Baixo</option></select></div>
-          <div class="input-wrap"><label for="admin-incident-description">Descrição</label><textarea id="admin-incident-description" class="input" maxlength="4000" rows="3" placeholder="Impacto, sintomas e contexto"></textarea></div>
-          <div class="grid-2">
-            <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><input id="admin-incident-entity-type" class="input" maxlength="80" placeholder="order, merchant, system…"></div>
-            <div class="input-wrap"><label for="admin-incident-entity-id">ID relacionado</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Código/UUID opcional"></div>
-          </div>
+          <div class="input-wrap"><label for="admin-incident-template">Tipo de ocorrência (marque uma opção)</label><select id="admin-incident-template" class="input" onchange="adminIncidentTemplateChanged()"><option value="">Selecione o que realmente foi relatado ou detectado</option><option value="orders">Pedidos</option><option value="checkout">Checkout</option><option value="notifications">Notificações</option><option value="admin">Painel administrativo</option><option value="integration">Integração externa</option><option value="custom">Outra ocorrência (preencher título)</option></select></div>
+          <div id="admin-incident-custom" hidden><div class="input-wrap"><label for="admin-incident-title">Título personalizado</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Descreva a ocorrência real"></div></div>
+          <div class="input-wrap"><label for="admin-incident-severity">Severidade observada</label><select id="admin-incident-severity" class="input"><option value="">Selecione</option><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium">Médio</option><option value="low">Baixo</option></select></div>
+          <details><summary>Contexto específico (opcional)</summary><div class="input-wrap"><label for="admin-incident-description">Detalhes da ocorrência</label><textarea id="admin-incident-description" class="input" maxlength="3600" rows="3" placeholder="Inclua somente fatos observados ou relatados"></textarea></div></details>
+          <details><summary>Vincular um registro (opcional)</summary><div class="grid-2">
+            <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><select id="admin-incident-entity-type" class="input"><option value="">Sem vínculo</option><option value="order">Pedido</option><option value="merchant">Revenda</option><option value="system">Sistema</option><option value="payment">Pagamento</option><option value="campaign">Campanha</option></select></div>
+            <div class="input-wrap"><label for="admin-incident-entity-id">Identificador real</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Somente se houver registro confirmado"></div>
+          </div></details>
           <button class="primary" onclick="adminCreateIncident()">Criar incidente</button>
         </div>`}
     <div class="admin-incident-grid" style="margin-top:12px">
@@ -1761,12 +1783,46 @@ function adminIncidentCenter(d){
     ${resolved.length?`<details class="card flat" style="margin-top:12px"><summary><strong>Resolvidos (${resolved.length})</strong></summary><div class="admin-incident-grid" style="margin-top:10px">${resolved.slice(0,30).map(x=>adminIncidentCard(x,d.platformAdmins||[])).join('')}</div></details>`:''}
   </section>`;
 }
+function adminAuditChoiceChanged(field){
+  if(!['action','target'].includes(field))return;
+  const selected=String(document.getElementById('admin-audit-'+field+'-choice')?.value||'');
+  const custom=document.getElementById('admin-audit-'+field+'-custom');
+  if(custom)custom.hidden=selected!=='custom';
+}
+function adminAuditFilterValue(field){
+  const choice=document.getElementById('admin-audit-'+field+'-choice');
+  const typed=String(document.getElementById('admin-audit-'+field)?.value||'').trim();
+  if(!choice)return typed;
+  return choice.value==='custom'?typed:choice.value;
+}
+function adminAuditDatePreset(key){
+  if(!['all','today','7d','30d','custom'].includes(key))return;
+  const start=document.getElementById('admin-audit-from');
+  const end=document.getElementById('admin-audit-to');
+  if(!start||!end)return;
+  if(key==='custom')return;
+  if(key==='all'){start.value='';end.value='';return;}
+  const now=new Date(),begin=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  begin.setDate(begin.getDate()-(key==='7d'?6:key==='30d'?29:0));
+  const stamp=(date,hour,minute)=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-')+'T'+hour+':'+minute;
+  start.value=stamp(begin,'00','00');
+  end.value=stamp(now,'23','59');
+}
+function adminAuditFilterOptions(rows,field){
+  const safe=new Set();
+  for(const row of Array.isArray(rows)?rows:[]){
+    const value=String(row?.[field]||'');
+    if(value.length>0&&value.length<=120&&!/[<>]/.test(value))safe.add(value);
+    if(safe.size>=25)break;
+  }
+  return [...safe].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(value=>'<option value="'+esc(value)+'">'+esc(value)+'</option>').join('');
+}
 async function adminAuditSearch(){
   if(adminRuntime.auditPending||!adminReady()||!adminRoleCanSection('audit'))return;
   const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
   const query=document.getElementById('admin-audit-query')?.value.trim()||'';
-  const auditAction=document.getElementById('admin-audit-action')?.value.trim()||'';
-  const targetType=document.getElementById('admin-audit-target')?.value.trim()||'';
+  const auditAction=adminAuditFilterValue('action');
+  const targetType=adminAuditFilterValue('target');
   const from=document.getElementById('admin-audit-from')?.value||'';
   const to=document.getElementById('admin-audit-to')?.value||'';
   adminRuntime.auditRequest=ticket;
@@ -1793,8 +1849,9 @@ function adminAuditView(d){
     <div class="card flat">
       <div class="grid-2">
         <div class="input-wrap"><label for="admin-audit-query">Busca livre</label><input id="admin-audit-query" class="input" placeholder="ator, alvo, metadata…"></div>
-        <div class="input-wrap"><label for="admin-audit-action">Ação exata</label><input id="admin-audit-action" class="input" placeholder="merchant_activated"></div>
-        <div class="input-wrap"><label for="admin-audit-target">Tipo de alvo</label><input id="admin-audit-target" class="input" placeholder="merchant, order…"></div>
+        <div class="input-wrap"><label for="admin-audit-action-choice">Ação registrada</label><select id="admin-audit-action-choice" class="input" onchange="adminAuditChoiceChanged('action')"><option value="">Todas as ações</option>${adminAuditFilterOptions(rows,'action')}<option value="custom">Outra ação / código exato</option></select><div id="admin-audit-action-custom" hidden><label for="admin-audit-action">Código exato (se necessário)</label><input id="admin-audit-action" class="input" maxlength="120" placeholder="Somente para ações fora da lista"></div></div>
+        <div class="input-wrap"><label for="admin-audit-target-choice">Tipo de alvo</label><select id="admin-audit-target-choice" class="input" onchange="adminAuditChoiceChanged('target')"><option value="">Todos os tipos</option>${adminAuditFilterOptions(rows,'target_type')}<option value="custom">Outro tipo (informar)</option></select><div id="admin-audit-target-custom" hidden><label for="admin-audit-target">Tipo exato</label><input id="admin-audit-target" class="input" maxlength="120"></div></div>
+        <div class="input-wrap"><label for="admin-audit-period">Período rápido</label><select id="admin-audit-period" class="input" onchange="adminAuditDatePreset(this.value)"><option value="all">Todo o período disponível</option><option value="today">Hoje</option><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="custom">Datas personalizadas</option></select></div>
         <div class="input-wrap"><label for="admin-audit-from">A partir de</label><input id="admin-audit-from" class="input" type="datetime-local"></div>
         <div class="input-wrap"><label for="admin-audit-to">Até</label><input id="admin-audit-to" class="input" type="datetime-local"></div>
       </div>

@@ -4,7 +4,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const js=read('js/admin.js');
 const names=['adminPurgeSensitiveReads','adminSensitiveReadCurrent','adminRunSearch',
- 'adminClearSearch','adminOpenEntity','adminCloseDetail','adminLoadSystemHealth','adminAuditSearch'];
+ 'adminClearSearch','adminOpenEntity','adminCloseDetail','adminLoadSystemHealth','adminAuditFilterValue','adminAuditSearch'];
 const take=name=>{
  const i=js.search(new RegExp('(?:async )?function '+name+'\\('));
  assert.ok(i>=0,'missing '+name);
@@ -30,7 +30,7 @@ function fixture(){
   adminReady:()=>rt.requested&&rt.status==='ready',
   adminCurrentRole:()=>rt.data?.currentAdmin?.admin_role||'superadmin',
   adminRoleCanSection:k=>rt.data?.currentAdmin?.admin_role==='superadmin'&&['audit','system'].includes(k),
-  document:{getElementById:id=>({value:id==='admin-audit-action'?'merchant_activated':'q'})},
+  document:{getElementById:id=>id.endsWith('-choice')?null:({value:id==='admin-audit-action'?'merchant_activated':'q'})},
   render:()=>renders.push(rt.status),
   adminInvoke:async args=>{
    calls.push(args);
