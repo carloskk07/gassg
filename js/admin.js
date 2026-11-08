@@ -9862,21 +9862,25 @@ function adminPage(){
   const partnerTab=(id,label)=>'<button type="button" class="secondary small '+
     (adminPartnersWorkspaceTab===id?'active':'')+'" aria-pressed="'+
     (adminPartnersWorkspaceTab===id)+'" onclick="adminPartnersSetWorkspaceTab(\''+id+'\')">'+label+'</button>';
-  const partnersContent=(sectionActive('partners'))?(
-    '<section class="section admin-partner-workspace"><div class="section-head"><div>'+
-    '<span class="section-kicker">REVENDEDORAS</span><h2>Gestão das revendas</h2>'+
-    '<p>Escolha uma tarefa. Os formulários de validação só aparecem quando necessários.</p>'+
-    '</div></div><div class="admin-task-tabs" role="group" aria-label="Tarefas de revendas">'+
-    partnerTab('queue','Fila e situação')+partnerTab('applications','Cadastros')+
-    partnerTab('verification','Validação e ativação')+'</div></section>'+
-    (adminPartnersWorkspaceTab==='queue'?
-       adminMerchantNetworkView(d)+adminMerchantOperationsQueueView(d)+adminPublicRequestsSection(d):'')+
-    (adminPartnersWorkspaceTab==='applications'?`
+  const partnersContent=(sectionActive('partners'))?(`
+    <section class="section admin-partner-workspace"><div class="section-head"><div>
+      <span class="section-kicker">REVENDEDORAS</span><h2>Gestão das revendas</h2>
+      <p>Escolha uma tarefa. Os formulários de validação só aparecem quando necessários.</p>
+    </div></div>
+      <div class="admin-task-tabs" role="group" aria-label="Tarefas de revendas">
+        ${partnerTab('queue','Fila e situação')}
+        ${partnerTab('applications','Cadastros')}
+        ${partnerTab('verification','Validação e ativação')}
+      </div>
+    </section>
+    ${adminPartnersWorkspaceTab==='queue'?
+        adminMerchantNetworkView(d)+adminMerchantOperationsQueueView(d)+adminPublicRequestsSection(d):''}
+    ${adminPartnersWorkspaceTab==='applications'?`
       <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais ainda não são ofertas ativas.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
-      <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação vincula owner, mas não coloca a revenda online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>`:'')+
-    (adminPartnersWorkspaceTab==='verification'?`
-      <section class="section"><div class="section-head"><div><h2>Documentos e ativação</h2><p>CNPJ é obrigatório para revenda ativa; produtos GLP exigem também ANP verificada. As decisões continuam protegidas.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`:'')
-  ):'';
+      <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação vincula owner, mas não coloca a revenda online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>` : ''}
+    ${adminPartnersWorkspaceTab==='verification'?`
+      <section class="section"><div class="section-head"><div><h2>Documentos e ativação</h2><p>CNPJ é obrigatório para revenda ativa; produtos GLP exigem também ANP verificada. As decisões continuam protegidas.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>` : ''}
+  `):'';
 
   const catalogContent=(sectionActive('catalog'))?(`${adminProductRegistrySection(d)}`):'';
 
