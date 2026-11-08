@@ -183,7 +183,7 @@ function patchIndex(html,portal,sourceSha){
     }
   }
   if(role!=='admin'){
-    for(const module of ['admin-acquisition','admin','admin-activations','admin-ads-independent']){
+    for(const module of ['admin-acquisition','admin','admin-activations']){
       const tag='<script defer src="./js/'+module+'.js"></script>';
       if(!patched.includes(tag))throw new Error('Missing expected admin script: '+module);
       patched=patched.replace(tag,'');
@@ -435,7 +435,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // Admin implementation must not be distributed with customer/merchant
     // bundles. API authorization still remains strictly server-side.
     if(role!=='admin'){
-      for(const module of ['admin-acquisition','admin','admin-activations']){
+      for(const module of ['admin-acquisition','admin','admin-activations','admin-ads-independent']){
         fs.rmSync(path.join(target,'js',module+'.js'));
       }
       // Deliver only CSS needed by the public portals. Keep every shared
