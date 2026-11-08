@@ -177,7 +177,7 @@ assert.equal(requested.filter(x=>x[0]==='discovery_transition_listing'&&
   x[1].p_listing_id===validId&&x[1].p_reason==='Revisão de publicação após checagem de contatos').length,0);
 role='superadmin';
 assert.ok(src.includes("discovery:new Set(['superadmin'])"));
-assert.ok(src.includes("adminMenuButton('discovery','Anúncios'"));
+assert.ok(src.includes("adminMenuButton('discovery','Moderação de anúncios'"));
 assert.ok(src.includes("adminPanel('discovery'"));
 assert.ok(src.includes("if(next==='discovery')adminDiscoveryLoad()"));
 assert.ok(src.includes("onclick=\"adminDiscoverySetCity(true)\""));
