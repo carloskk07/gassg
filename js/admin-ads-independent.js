@@ -180,8 +180,8 @@ function adminAdsIndependentSection(){
      '<p>Solicitação: '+esc(String(c.status||''))+
      ' · Valor original: '+adminMoney(Number(c.amountCents||0))+'</p>'+
      '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
-()=>buttonNeedle+`
-     '<p>Envio pelo Admin: '+esc(String(c.refundProviderAttempt||'não realizado'))+'</p>'+`
+     '<p>Provedor confirma reversão: '+(c.providerReversalRecorded===true?'Sim':'Não')+'</p>'+
+     '<p>Envio pelo Admin: '+esc(String(c.refundProviderAttempt||'não realizado'))+'</p>'+
      (canAct&&(review||close||canVerify)?'<label>Justificativa da análise<textarea class="input" '+
        'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
        (review?button('review','Iniciar revisão'):'')+
