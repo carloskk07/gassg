@@ -74,7 +74,8 @@ const ctx={
  adminReady:()=>true,adminCurrentRole:()=>role,
  esc,render:()=>{rendered++;},toast:s=>notes.push(s),
  document:{
-  getElementById:id=>inputs[id]||{value:reason},
+  getElementById:id=>id.startsWith('admin-discovery-report-custom-')||
+   id.startsWith('admin-discovery-live-custom-')?{value:''}:inputs[id]||{value:reason},
   querySelector:selector=>{
    const group=/^input\[name="([^"]+)"\]:checked$/.exec(selector)?.[1];
    return group?selections.get(group)||null:null;
