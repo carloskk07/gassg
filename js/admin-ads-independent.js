@@ -338,8 +338,8 @@ function adminAdsIndependentSection(){
    const choices=[
     ...(review?[['review','Iniciar revisão','Protocolo aberto para análise de elegibilidade e pagamento.']]:[]),
     ...(close?[['record_provider_reversal','Registrar reversão verificada','Reversão confirmada no provedor e conferida para registro do protocolo.']]:[]),
-    ...(canVerify?[['verify','Consultar devolução no provedor','Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.']]:[]),
-    ...(canExecute?[['execute','Solicitar devolução integral','Devolução integral solicitada após conferência do pagamento, recebedor e caso.']]:[])
+    ...(canVerify?[['verify','Verificar devolução no provedor','Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.']]:[]),
+    ...(canExecute?[['execute','Solicitar reembolso integral ao Mercado Pago','Devolução integral solicitada após conferência do pagamento, recebedor e caso.']]:[])
    ];
    const options=choices.map(([operation,label,reason])=>
     '<label class="admin-option-row"><input type="radio" name="ads-refund-admin-choice-'+id+
