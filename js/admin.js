@@ -2156,8 +2156,7 @@ function adminOperationalFollowupEditView(source,followups){
         '" value="closed" data-note="Acompanhamento administrativo encerrado sem presumir a resolução da origem."> Encerrar acompanhamento</label></fieldset>'+
       '<details><summary>Outro motivo ou observação (opcional)</summary>'+
         '<label for="'+noteId+'">Justificativa específica<textarea id="'+noteId+'" rows="2" maxlength="240"'+
-        ' placeholder="Use apenas quando os motivos prontos não servirem.">'+esc(item?.note||'')+
-        '</textarea></label></details>'+
+        ' placeholder="Use apenas quando os motivos prontos não servirem."></textarea></label></details>'+
       '<button type="button" class="primary small" onclick="adminOperationalSaveFollowup('+
         "'"+source+"'"+')" '+(!owners.length?'disabled':'')+'>Salvar acompanhamento</button>'+
     '</div><small>Encerrar este acompanhamento não significa que a fonte original foi resolvida. '+
@@ -2178,7 +2177,7 @@ async function adminOperationalSaveFollowup(source){
   const custom=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
   if(chosen&&chosen.value!==status)
     return toast('Marque o encaminhamento correspondente à situação selecionada.');
-  const note=chosen?String(chosen.dataset?.note||'').trim():custom;
+  const note=custom||String(chosen?.dataset?.note||'').trim()||String(item?.note||'').trim();
   const due=new Date(dueLocal);
   const owner=followups.owners.find(x=>x.id===ownerId);
   if(!owner||!adminOperationalFollowupCanWrite(source)||!Number.isFinite(due.getTime())||
