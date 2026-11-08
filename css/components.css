@@ -437,10 +437,8 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 }@media(max-width:480px){ .admin-quick-grid{grid-template-columns:1fr} .admin-task-tabs{padding:5px} .admin-task-tabs button{width:100%;justify-content:center}
 }
 
-/* V1.896 — one-selection task navigation; consistent with existing Admin theme. */
 .admin-task-navigator{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 17px;margin:0 0 12px;border:1px solid var(--line);border-radius:15px;background:var(--card)}
 .admin-task-navigator label{font-size:13px;font-weight:750;white-space:nowrap;color:var(--ink)}
 .admin-task-navigator select{flex:1 1 320px;min-width:0;max-width:100%;min-height:44px;margin:0;cursor:pointer;background:var(--surface,#fff);color:var(--ink)}
 .admin-task-navigator select:focus-visible{outline:3px solid #4cae80;outline-offset:2px}
 .admin-partner-workspace .admin-task-tabs{margin-bottom:0}
-@media(max-width:620px){.admin-task-navigator{align-items:stretch;padding:12px}.admin-task-navigator label{width:100%}.admin-task-navigator select{flex-basis:100%;width:100%}}
