@@ -4,7 +4,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const source=read('js/admin.js');
 const names=['adminFinanceDecisionScope','adminFinanceDecisionProof','adminFinanceDecisionMessage','adminResolveBillingRefund','adminBillingPaymentEventAction','adminResolveDailyStatement'];
-const code=names.map(name=>{
+const code=source.slice(source.indexOf('const ADMIN_BILLING_CHOICE_REASONS='),source.indexOf('async function adminSaveBillingPlan('))+'\n'+names.map(name=>{
  const start=source.search(new RegExp('(?:async )?function '+name+'\\('));
  assert.ok(start>=0,'Missing '+name);
  const end=source.indexOf('\n}',start);
@@ -40,6 +40,8 @@ function fixture(){
   adminReady:()=>rt.status==='ready',
   adminRoleCanSection:x=>x==='finance'&&role==='finance',
   prompt:()=> 'referencia auditoria 493',
+  document:{getElementById:id=>id==='billing-choice-waive-'+sid?{value:'adjustment'}:
+    id==='billing-waive-confirm-'+sid?{checked:true}:null},
   confirm:()=>onConfirm?onConfirm():true,
   toast:x=>toasts.push(String(x)),
   adminPerform:async(action,payload)=>{
