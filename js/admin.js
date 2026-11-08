@@ -616,6 +616,7 @@ function adminPurgeSensitiveReads(){
   adminRuntime.healthRequest=null;
   adminRuntime.healthPending=false;
   adminRuntime.health=null;
+  adminVerificationMerchantId='';
 }
 function adminSensitiveReadCurrent(session,role){
   return !!session?.user?.id&&adminReady()&&
