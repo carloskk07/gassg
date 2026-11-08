@@ -92,6 +92,10 @@ BEGIN
  OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id=p_owner
    AND is_anonymous IS FALSE AND email_confirmed_at IS NOT NULL)
  THEN RAISE EXCEPTION 'ADS_VERIFIED_OWNER_REQUIRED' USING errcode='42501';END IF;
+ -- Serialize authorization/revocation with reservation. The control row is
+ -- locked BEFORE the campaign, matching the Admin lock order.
+ PERFORM singleton FROM public.ads_independent_sales_controls_v1_886
+ WHERE singleton FOR SHARE;
  SELECT * INTO v_campaign FROM public.ads_independent_campaigns_v1_884
  WHERE id=p_campaign FOR UPDATE;
  IF NOT FOUND OR v_campaign.owner_user_id<>p_owner OR v_campaign.status<>'approved'
