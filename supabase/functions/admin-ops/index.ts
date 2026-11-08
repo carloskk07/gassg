@@ -8050,9 +8050,9 @@ Deno.serve(async(req:Request)=>{
       let existingEvidence;
       try{
         existingEvidence=summarizeIndependentAdsPspEvidence({
-          historicalOrderRows:historic.data,
-          approvedEventCount:approved.count,
-          reversalEventCount:reversed.count
+          historicalOrderRows:historic.data??[],
+          approvedEventCount:approved.count??-1,
+          reversalEventCount:reversed.count??-1
         });
       }catch{
         throw new DomainError("ADS_PSP_EVIDENCE_INVALID",
