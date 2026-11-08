@@ -10,7 +10,7 @@ const sql=q=>execFileSync('psql',['--host=127.0.0.1','--port=54322',
   encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},timeout:120000
  }).trim();
 const original=sql('select count(*) from public.ads_independent_checkouts_v1_886');
-sql(BEGIN;
+sql(`BEGIN;
 DO $test$
 DECLARE
  v_owner uuid;v_campaign uuid;v_request uuid;v_reference text;
@@ -64,6 +64,6 @@ BEGIN
  THEN RAISE EXCEPTION 'V890_CPM_CHARGE_WRONGLY_ENABLED';END IF;
 END;
 $test$;
-ROLLBACK;);
+ROLLBACK;`);
 assert.equal(sql('select count(*) from public.ads_independent_checkouts_v1_886'),original);
 console.log('V1.890 PASS: 72h server TTL, exact retry identity, single recovery, rollback.');
