@@ -24,6 +24,11 @@ for(const needle of [
  'GRANT EXECUTE ON FUNCTION public.admin_ads_independent_homologation_v1_892'
 ])assert.ok(sql.includes(needle),'Missing supervised PSP gate: '+needle);
 assert.match(sql,/REVOKE ALL ON FUNCTION public\.admin_ads_independent_homologation_v1_892/);
+const reserveSQL=sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.ads_independent_checkout_reserve_v1_886'));
+assert.ok(reserveSQL.indexOf('WHERE singleton FOR SHARE')>0 &&
+ reserveSQL.indexOf('WHERE singleton FOR SHARE')<reserveSQL.indexOf('WHERE id=p_campaign FOR UPDATE'),
+ 'Permit lock must be acquired before campaign lock to avoid bypass on concurrent revoke.');
+
 assert.doesNotMatch(sql,/UPDATE\s+public\.ads_independent_sales_controls_v1_886\s+SET\s+sales_enabled\s*=\s*true/i);
 assert.match(admin,/if\(action==="ads-independent-homologation-action"\)/);
 assert.match(admin,/String\(adminAccess\.admin_role\|\|""\)!=="superadmin"/);
