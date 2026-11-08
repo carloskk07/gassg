@@ -442,3 +442,5 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .admin-task-navigator select{flex:1 1 320px;min-width:0;max-width:100%;min-height:44px;margin:0;cursor:pointer;background:var(--surface,#fff);color:var(--ink)}
 .admin-task-navigator select:focus-visible{outline:3px solid #4cae80;outline-offset:2px}
 .admin-partner-workspace .admin-task-tabs{margin-bottom:0}
+
+.admin-option-row{display:flex;align-items:flex-start;gap:10px;min-height:42px;padding:10px 12px;margin:5px 0;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--card);line-height:1.45}.admin-option-row input[type=radio],.admin-option-row input[type=checkbox]{flex:0 0 auto;width:19px;height:19px;margin:2px 0 0;accent-color:var(--brand)}.admin-option-row:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}.admin-ads-workspace fieldset{min-width:0}.admin-ads-workspace details{margin:10px 0}.admin-ads-workspace details summary{cursor:pointer;color:var(--muted);font-size:13px}

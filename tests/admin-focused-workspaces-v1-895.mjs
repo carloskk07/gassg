@@ -81,7 +81,7 @@ assert.ok(!calls.includes('adminClubeCampaignSection'));
 
 // An explicit selected review reason avoids mandatory typing, but wrong
 // decisions and money-changing actions retain all existing server gates.
-const a0=ads.indexOf('async function adminIndependentAdsAction(');
+const a0=ads.indexOf('function adminIndependentAdsMarked(group){');
 const a1=ads.indexOf('\nasync function adminIndependentAdsCheckProvider()',a0);
 assert.ok(a0>=0&&a1>a0);
 const action=ads.slice(a0,a1);
@@ -93,13 +93,11 @@ const ax={
  adminCurrentRole:()=> 'superadmin',
  adminIndependentAdsBusy:false,
  adminIndependentAdsState:{loadedFor:'owner',rows:[row]},
- document:{getElementById:id=>{
-  if(id.startsWith('independent-ads-reason-'))return {value:''};
-  if(id.startsWith('independent-ads-preset-'))return {
-    value:chosenReason,selectedOptions:[{dataset:{decision:selectedDecision}}]
-  };
-  return null;
- }},
+ document:{
+  getElementById:id=>id.startsWith('independent-ads-reason-')?{value:''}:null,
+  querySelector:selector=>selector==='input[name="independent-ads-choice-'+row.id+'"]:checked'?
+   {value:selectedDecision}:null
+ },
  toast:v=>events.push(['toast',v]),
  adminPerform:async(action,args)=>{
   events.push(['write',action,args]);
@@ -116,7 +114,7 @@ assert.equal(events.find(x=>x[0]==='write')[2].decision,'approve');
 events.length=0;selectedDecision='reject';
 await ax.run('approve',row.id,3);
 assert.equal(events.filter(x=>x[0]==='write').length,0);
-assert.match(events.find(x=>x[0]==='toast')[1],/outra ação/);
+assert.match(events.find(x=>x[0]==='toast')[1],/ação marcada mudou/);
 assert.match(ads,/HOMOLOGAR/);
 assert.match(ads,/DEVOLVER/);
 assert.match(ads,/if\(r\?\.source!=='admin_ads_independent_action_v1_884'\|\|/);

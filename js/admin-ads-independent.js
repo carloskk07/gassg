@@ -36,22 +36,62 @@ async function adminIndependentAdsRefresh(){
  }catch(e){toast(String(e?.message||'Erro ao consultar Ads independente.'))}
  finally{adminIndependentAdsBusy=false}
 }
+// A checked option is mandatory: a form render or refresh cannot authorize any action.
+function adminIndependentAdsMarked(group){
+ const input=document.querySelector('input[name="'+group+'"]:checked');
+ return input&&typeof input.value==='string'?input:null;
+}
+function adminIndependentAdsChooseCampaign(campaignId,version){
+ if(!/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))return;
+ const chosen=adminIndependentAdsMarked('independent-ads-choice-'+campaignId);
+ if(!chosen)return toast('Marque primeiro o que deseja fazer com a campanha.');
+ return adminIndependentAdsAction(String(chosen.value||''),campaignId,version);
+}
+function adminIndependentAdsChooseRefund(caseId,version){
+ if(!/^[0-9a-f-]{36}$/i.test(String(caseId||'')))return;
+ const chosen=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ if(!chosen)return toast('Marque primeiro o que deseja fazer com o reembolso.');
+ const operation=String(chosen.value||'');
+ if(['review','record_provider_reversal'].includes(operation))
+  return adminIndependentRefundAction(operation,caseId,version);
+ if(['verify','execute'].includes(operation))
+  return adminIndependentRefundProvider(operation,caseId,version);
+ return toast('Ação não reconhecida.');
+}
+function adminIndependentAdsRefundChoiceChanged(caseId){
+ const selected=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ const box=document.getElementById('ads-refund-acknowledgements-'+caseId);
+ if(!box)return;
+ box.hidden=selected?.value!=='execute';
+ if(box.hidden){
+  for(const prefix of ['ads-refund-check-payment-','ads-refund-check-send-']){
+   const input=document.getElementById(prefix+caseId);
+   if(input)input.checked=false;
+  }
+ }
+}
 async function adminIndependentAdsAction(decision,campaignId='',version=0){
  const actor=String(adminRuntime?.session?.user?.id||'');
  if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
  const control=decision==='enable_delivery'||decision==='disable_delivery';
  const field=document.getElementById(control?'independent-ads-control-reason':'independent-ads-reason-'+campaignId);
- const selected=control?document.getElementById('independent-ads-control-preset'):
-  document.getElementById('independent-ads-preset-'+campaignId);
- const manualReason=String(field?.value||'').trim();
- const presetReason=String(selected?.value||'').trim();
- const presetDecision=String(selected?.selectedOptions?.[0]?.dataset?.decision||'');
- if(!control&&!manualReason&&presetReason&&presetDecision!==decision)
-   return toast('O motivo selecionado é para outra ação. Escolha o motivo correspondente.');
- const reason=manualReason||presetReason;
+ const selected=adminIndependentAdsMarked(control?'independent-ads-control-preset':
+  'independent-ads-choice-'+campaignId);
+ if(!selected)return toast('Marque uma opção antes de confirmar.');
+ if(!control&&String(selected.value)!==decision)
+  return toast('A ação marcada mudou. Confira antes de confirmar.');
+ const predefined={
+  approve:'Criativo revisado e aprovado pelo administrador.',
+  reject:'Criativo incompleto ou incompatível com as regras da publicação.',
+  publish:'Campanha e pagamento revisados para autorização de publicação.',
+  pause:'Publicação pausada para revisão operacional do anunciante.',
+  resume:'Campanha revisada e autorizada para retomar o prazo restante.',
+  end:'Campanha encerrada mediante decisão administrativa documentada.'
+ };
+ const manual=String(field?.value||'').trim();
+ const reason=manual||(control?String(selected.value||''):predefined[decision]||'');
  if(reason.length<12||reason.length>500)
-   return toast(control?'Informe uma justificativa de 12 a 500 caracteres.':
-     'Selecione um motivo pronto ou escreva uma justificativa.');
+  return toast('Selecione uma opção ou escreva uma justificativa com 12 a 500 caracteres.');
  const current=adminIndependentAdsState;
  if(current.loadedFor!==actor)return toast('Atualize a lista antes de decidir.');
  const row=current.rows.find(x=>x.id===campaignId);
@@ -106,12 +146,18 @@ async function adminIndependentAdsHomologationAction(enabled){
  if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
     state.fixedFeeSalesVersion<1)return toast('Atualize as campanhas antes de decidir.');
  const campaignId=enabled?String(document.getElementById('ads-homologation-campaign')?.value||''):'';
+ const marked=adminIndependentAdsMarked('ads-homologation-preset');
+ if(!marked)return toast('Marque a justificativa para a homologação.');
  const reason=String(document.getElementById('ads-homologation-reason')?.value||'').trim()||
-   String(document.getElementById('ads-homologation-preset')?.value||'').trim();
- const confirmation=String(document.getElementById('ads-homologation-confirm')?.value||'').trim();
- if(reason.length<12||reason.length>500)return toast('Informe justificativa de 12 a 500 caracteres.');
- if(confirmation!==(enabled?'HOMOLOGAR':'CANCELAR'))
-  return toast('Digite '+(enabled?'HOMOLOGAR':'CANCELAR')+' para confirmar.');
+   String(marked.value||'').trim();
+ const verified=document.getElementById('ads-homologation-check-verify')?.checked===true;
+ const intentional=document.getElementById('ads-homologation-check-confirm')?.checked===true;
+ if(reason.length<12||reason.length>500)return toast('A justificativa deve conter de 12 a 500 caracteres.');
+ if(!verified||!intentional)
+  return toast('Marque as duas confirmações antes de autorizar ou revogar.');
+ // A human checked both attestations. The server still validates the exact
+ // confirmation, expected version, ownership, and financial eligibility.
+ const confirmation=enabled?'HOMOLOGAR':'CANCELAR';
  if(enabled&&!state.rows.some(c=>c.id===campaignId&&c.status==='approved'&&
      c.budgetCents===1990&&c.durationDays===7))
   return toast('Escolha uma campanha aprovada de R$ 19,90 por 7 dias.');
@@ -136,8 +182,10 @@ async function adminIndependentAdsSalesAction(){
  const state=adminIndependentAdsState;
  if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
    state.fixedFeeSalesVersion<1)return toast('Atualize a situação das campanhas primeiro.');
+ const marked=adminIndependentAdsMarked('independent-ads-sales-preset');
+ if(!marked)return toast('Marque a justificativa de novas vendas.');
  const reason=String(document.getElementById('independent-ads-sales-reason')?.value||'').trim()||
-   String(document.getElementById('independent-ads-sales-preset')?.value||'').trim();
+   String(marked.value||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe uma justificativa de 12 a 500 caracteres.');
  adminIndependentAdsBusy=true;
  try{
@@ -156,10 +204,10 @@ async function adminIndependentAdsSalesAction(){
 async function adminIndependentRefundAction(operation,caseId,version){
  if(adminIndependentAdsBusy||adminCurrentRole()!=='superadmin')return;
  const manual=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
- const preset=document.getElementById('ads-refund-admin-preset-'+caseId);
- if(!manual&&preset?.value&&preset?.selectedOptions?.[0]?.dataset?.operation!==operation)
-  return toast('O motivo selecionado corresponde a outra ação de reembolso.');
- const reason=manual||String(preset?.value||'').trim();
+ const marked=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ if(!marked||marked.value!==operation)
+  return toast('Marque a ação correspondente antes de confirmar.');
+ const reason=manual||String(marked.dataset?.reason||'').trim();
  if(reason.length<12||reason.length>500)return toast('Selecione uma justificativa ou escreva uma com 12 a 500 caracteres.');
  if(!['review','record_provider_reversal'].includes(operation)||!/^[0-9a-f-]{36}$/i.test(caseId))
   return toast('Solicitação inválida.');
@@ -190,14 +238,17 @@ async function adminIndependentRefundProvider(operation,caseId,version){
  if(operation==='execute'&&row.refundProviderAttempt)
   return toast('Já existe solicitação ao provedor. Utilize apenas Verificar.');
  const manual=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
- const preset=document.getElementById('ads-refund-admin-preset-'+caseId);
- if(!manual&&preset?.value&&preset?.selectedOptions?.[0]?.dataset?.operation!==operation)
-  return toast('O motivo selecionado corresponde a outra ação de reembolso.');
- const reason=manual||String(preset?.value||'').trim();
- const confirmation=String(document.getElementById('ads-refund-provider-confirm-'+caseId)?.value||'').trim();
+ const marked=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ if(!marked||marked.value!==operation)
+  return toast('Marque a ação correspondente antes de confirmar.');
+ const reason=manual||String(marked.dataset?.reason||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe justificativa com 12 a 500 caracteres.');
- if(operation==='execute'&&confirmation!=='DEVOLVER')
-  return toast('Digite DEVOLVER para autorizar o reembolso integral.');
+ if(operation==='execute'&&
+   !(document.getElementById('ads-refund-check-payment-'+caseId)?.checked===true&&
+     document.getElementById('ads-refund-check-send-'+caseId)?.checked===true))
+  return toast('Marque as duas verificações antes de solicitar a devolução integral.');
+ // The confirmation is emitted only after two deliberate checked acknowledgements.
+ const confirmation=operation==='execute'?'DEVOLVER':'';
  adminIndependentAdsBusy=true;
  try{
   const r=await adminPerform('ads-independent-refund-provider',{
@@ -247,37 +298,34 @@ function adminAdsIndependentSection(){
    (count?' ('+count+')':'')+'</button>';
  const actions=c=>{
   if(!canAct)return '';
-  const status=String(c.status||'');
-  const version=Number(c.version)||0;
+  const status=String(c.status||''),version=Number(c.version)||0;
   const endsAt=Date.parse(String(c.runEndsAt||''));
   const expired=Number.isFinite(endsAt)&&endsAt<=Date.now();
   const id=String(c.id||'');
-  const b=(action,label)=>'<button type="button" class="secondary small" '+
-    'onclick="adminIndependentAdsAction(\''+action+'\',\''+id+'\','+version+')" '+
-    (adminIndependentAdsBusy?'disabled':'')+'>'+label+'</button>';
-  const buttons=status==='submitted'?b('approve','Aprovar criativo')+b('reject','Rejeitar'):
+  if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id))return '';
+  // Only actions allowed by the current payment/delivery state are offered.
+  const choices=status==='submitted'?
+    [['approve','Aprovar criativo'],['reject','Rejeitar criativo']]:
     status==='approved'&&delivery&&
       ((!sales&&!c.fixedFeeStatus)||c.fixedFeeStatus==='payment_approved')?
-      b('publish','Iniciar publicação'):
-    status==='active'?(expired?b('end','Encerrar campanha expirada'):
-      b('pause','Pausar campanha')+b('end','Encerrar definitivamente')):
-    status==='paused'?((delivery&&!expired?b('resume','Retomar campanha'):'')+
-      b('end','Encerrar definitivamente')):'';
-  if(!buttons)return '';
-  return '<label for="independent-ads-preset-'+id+'">Motivo da decisão</label>'+
-   '<select id="independent-ads-preset-'+id+'" class="input" aria-label="Selecione o motivo da decisão">'+
-   '<option value="">Selecione um motivo pronto (sem digitar)</option>'+
-   '<option data-decision="approve" value="Criativo revisado e aprovado pelo administrador.">Aprovar: criativo revisado</option>'+
-   '<option data-decision="reject" value="Criativo incompleto ou incompatível com as regras da publicação.">Rejeitar: ajustes necessários</option>'+
-   '<option data-decision="publish" value="Campanha e pagamento revisados para autorização de publicação.">Publicar: revisão concluída</option>'+
-   '<option data-decision="pause" value="Publicação pausada para revisão operacional do anunciante.">Pausar: revisão necessária</option>'+
-   '<option data-decision="resume" value="Campanha revisada e autorizada para retomar o prazo restante.">Retomar: revisão concluída</option>'+
-   '<option data-decision="end" value="Campanha encerrada mediante decisão administrativa documentada.">Encerrar: decisão administrativa</option>'+
-   '</select>'+
-   '<label for="independent-ads-reason-'+id+'">Ou escreva outro motivo (opcional)</label>'+
-   '<textarea id="independent-ads-reason-'+id+'" rows="2" class="input" maxlength="500" '+
-   'placeholder="Use somente quando os motivos prontos não servirem"></textarea>'+
-   '<div class="row flex-wrap">'+buttons+'</div>';
+      [['publish','Iniciar publicação']]:
+    status==='active'?(expired?[['end','Encerrar campanha expirada']]:
+      [['pause','Pausar publicação'],['end','Encerrar definitivamente']]):
+    status==='paused'?([...(delivery&&!expired?[['resume','Retomar publicação']]:[]),
+      ['end','Encerrar definitivamente']]):[];
+  if(!choices.length)return '';
+  return '<fieldset class="card flat"><legend>O que deseja fazer com esta campanha?</legend>'+
+   choices.map(([decision,label])=>
+     '<label class="admin-option-row"><input type="radio" name="independent-ads-choice-'+id+
+     '" value="'+decision+'" '+(adminIndependentAdsBusy?'disabled':'')+'> '+label+'</label>').join('')+
+   '</fieldset>'+
+   '<details><summary>Adicionar uma justificativa personalizada (opcional)</summary>'+
+    '<label for="independent-ads-reason-'+id+'">Outro motivo</label>'+
+    '<textarea id="independent-ads-reason-'+id+'" rows="2" class="input" maxlength="500" '+
+     'placeholder="Use somente em situações especiais"></textarea></details>'+
+   '<button type="button" class="secondary small" onclick="adminIndependentAdsChooseCampaign(\''+
+    id+'\','+version+')" '+(adminIndependentAdsBusy?'disabled':'')+
+    '>Confirmar decisão marcada</button>';
  };
  const refundRows=pane==='refunds'?v?.refundCases?.map(c=>{
    const id=String(c.caseId||'');
@@ -288,17 +336,16 @@ function adminAdsIndependentSection(){
    const canExecute=canAct&&c.status==='reviewing'&&
      !c.refundProviderAttempt&&c.providerReversalRecorded!==true;
    const canVerify=canAct&&c.status==='reviewing'&&c.providerReversalRecorded!==true;
-   const reasonOptions=(review?
-     '<option data-operation="review" value="Protocolo aberto para análise de elegibilidade e pagamento.">Analisar protocolo</option>':'')+
-    (close?
-     '<option data-operation="record_provider_reversal" value="Reversão confirmada no provedor e conferida para registro do protocolo.">Registrar reversão verificada</option>':'')+
-    (canVerify?
-     '<option data-operation="verify" value="Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.">Consultar andamento no provedor</option>':'')+
-    (canExecute?
-     '<option data-operation="execute" value="Devolução integral solicitada após conferência do pagamento, recebedor e caso.">Solicitar devolução integral</option>':'');
-  const button=(action,label)=>'<button type="button" class="secondary small" '+
-     'onclick="adminIndependentRefundAction(\''+action+'\',\''+id+'\','+
-     Number(c.version||0)+')">'+label+'</button>';
+   const choices=[
+    ...(review?[['review','Iniciar revisão','Protocolo aberto para análise de elegibilidade e pagamento.']]:[]),
+    ...(close?[['record_provider_reversal','Registrar reversão verificada','Reversão confirmada no provedor e conferida para registro do protocolo.']]:[]),
+    ...(canVerify?[['verify','Verificar devolução no provedor','Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.']]:[]),
+    ...(canExecute?[['execute','Solicitar reembolso integral ao Mercado Pago','Devolução integral solicitada após conferência do pagamento, recebedor e caso.']]:[])
+   ];
+   const options=choices.map(([operation,label,reason])=>
+    '<label class="admin-option-row"><input type="radio" name="ads-refund-admin-choice-'+id+
+    '" value="'+operation+'" data-reason="'+esc(reason)+
+    '" onchange="adminIndependentAdsRefundChoiceChanged(\''+id+'\')"> '+label+'</label>').join('');
    return '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+
      ' · '+esc(String(c.title||''))+'</strong>'+
      '<p>Solicitação: '+esc(String(c.status||''))+
@@ -306,20 +353,20 @@ function adminAdsIndependentSection(){
      '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
      '<p>Provedor confirma reversão: '+(c.providerReversalRecorded===true?'Sim':'Não')+'</p>'+
      '<p>Envio pelo Admin: '+esc(String(c.refundProviderAttempt||'não realizado'))+'</p>'+
-     (canAct&&(review||close||canVerify)?'<label for="ads-refund-admin-preset-'+id+'">Motivo da decisão</label>'+
-       '<select id="ads-refund-admin-preset-'+id+'" class="input">'+
-       '<option value="">Escolha o motivo correspondente à ação</option>'+reasonOptions+'</select>'+
-       '<label>Outro motivo (opcional)<textarea class="input" '+
-       'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
-       (review?button('review','Iniciar revisão'):'')+
-       (close?button('record_provider_reversal','Confirmar estorno verificado'):'')+
-       (canVerify?'<p>Devolução integral somente para o pagamento e a conta recebedora confirmados pelo Mercado Pago. Nunca repita um envio ambíguo.</p>':'')+
-       (canExecute?'<label>Para autorizar a devolução integral, digite DEVOLVER'+
-         '<input class="input" id="ads-refund-provider-confirm-'+id+'" maxlength="8" autocomplete="off"></label>'+
-         '<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'execute\',\''+id+'\','+
-         Number(c.version||0)+')">Solicitar reembolso integral ao Mercado Pago</button>':'')+
-       (canVerify?'<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'verify\',\''+
-         id+'\','+Number(c.version||0)+')">Verificar devolução no provedor</button>':''):'')+
+     (canAct&&choices.length?'<fieldset class="card flat"><legend>Marque a providência</legend>'+
+       options+'</fieldset>'+
+       '<details><summary>Outro motivo (opcional)</summary>'+
+       '<label for="ads-refund-admin-reason-'+id+'">Justificativa personalizada</label>'+
+       '<textarea id="ads-refund-admin-reason-'+id+'" class="input" maxlength="500" rows="2"></textarea></details>'+
+       (canExecute?'<div id="ads-refund-acknowledgements-'+id+'" hidden>'+
+        '<label class="admin-option-row"><input type="checkbox" id="ads-refund-check-payment-'+id+'"> '+
+        'Conferi o pagamento, o valor integral e a conta recebedora no Mercado Pago.</label>'+
+        '<label class="admin-option-row"><input type="checkbox" id="ads-refund-check-send-'+id+'"> '+
+        'Autorizo esta devolução integral. Sei que não devo repetir envios ambíguos.</label></div>':'')+
+       '<button type="button" class="secondary small" '+
+        'onclick="adminIndependentAdsChooseRefund(\''+id+'\','+Number(c.version||0)+')" '+
+        (adminIndependentAdsBusy?'disabled':'')+'>Executar providência marcada</button>'
+:'')+
      '</article>';
  }).join('')||'':'';
  const rows=pane==='campaigns'?v?.rows?.map(c=>
@@ -353,14 +400,14 @@ function adminAdsIndependentSection(){
      (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
    '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
   (pane==='finance'?(
-  (canAct?'<div class="card flat"><label for="independent-ads-control-preset">Motivo da alteração</label>'+
-    '<select id="independent-ads-control-preset" class="input">'+
-    '<option value="">Selecione a justificativa</option>'+
-    (delivery?'<option value="Entrega interrompida preventivamente para revisão operacional do inventário.">Interromper para revisão operacional</option>':
-     '<option value="Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.">Autorizar entrega não faturável revisada</option>')+
-    '</select><label for="independent-ads-control-reason">Outro motivo (opcional)</label>'+
-    '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2" ' +
-    'placeholder="Descreva um motivo específico, se necessário"></textarea>'+
+  (canAct?'<div class="card flat"><fieldset><legend>Marque o motivo da alteração</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="independent-ads-control-preset" value="'+
+    (delivery?'Entrega interrompida preventivamente para revisão operacional do inventário.':
+     'Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.')+'"> '+
+    (delivery?'Interromper para revisão operacional':'Autorizar entrega não faturável revisada')+
+    '</label></fieldset><details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="independent-ads-control-reason">Justificativa personalizada</label>'+
+    '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2"></textarea></details>'+
     '<button class="secondary small" type="button" onclick="adminIndependentAdsAction(\''+
     (delivery?'disable_delivery':'enable_delivery')+'\')" '+
     (adminIndependentAdsBusy?'disabled':'')+'>'+
@@ -406,15 +453,22 @@ function adminAdsIndependentSection(){
       '<select id="ads-homologation-campaign" class="input">'+eligibleTestCampaigns.map(c=>
         '<option value="'+esc(String(c.id))+'">'+esc(String(c.title))+'</option>').join('')+'</select>':
       !testActive?'<p>Envie e aprove uma campanha real de R$ 19,90 antes de autorizar o checkout de homologação.</p>':'')+
-    '<label for="ads-homologation-preset">Motivo da autorização ou revogação</label>'+ 
-    '<select id="ads-homologation-preset" class="input"><option value="">Selecione a justificativa</option>'+ 
-    (testActive?'<option value="Autorização de teste financeiro revogada após revisão administrativa dos próximos checkouts.">Revogar autorização de teste</option>':
-     '<option value="Campanha e elegibilidade para homologação financeira real conferidas pelo administrador.">Autorizar teste real acompanhado</option>')+'</select>'+ 
-    '<label for="ads-homologation-reason">Outro motivo (opcional)</label>'+
-    '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea>'+
-    '<label for="ads-homologation-confirm">Confirmação ('+
-      (testActive?'CANCELAR':'HOMOLOGAR')+')</label>'+
-    '<input id="ads-homologation-confirm" class="input" autocomplete="off" maxlength="9">'+
+    '<fieldset><legend>Marque o motivo da decisão</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="ads-homologation-preset" value="'+
+    (testActive?'Autorização de teste financeiro revogada após revisão administrativa dos próximos checkouts.':
+     'Campanha e elegibilidade para homologação financeira real conferidas pelo administrador.')+'"> '+
+    (testActive?'Revogar autorização de teste':'Autorizar teste real acompanhado')+'</label></fieldset>'+
+    '<details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="ads-homologation-reason">Justificativa personalizada</label>'+
+    '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea></details>'+
+    '<fieldset><legend>Confirmações obrigatórias</legend>'+
+    '<label class="admin-option-row"><input type="checkbox" id="ads-homologation-check-verify"> '+
+    (testActive?'Conferi a autorização ativa e sei que links já emitidos exigem conciliação.':
+      'Conferi a campanha, o recebedor e sei que é um pagamento REAL, não simulado.')+'</label>'+
+    '<label class="admin-option-row"><input type="checkbox" id="ads-homologation-check-confirm"> '+
+    (testActive?'Confirmo que quero revogar novos checkouts desta autorização.':
+      'Autorizo exclusivamente a campanha selecionada para esta homologação.')+
+    '</label></fieldset>'+
     '<button class="secondary small" type="button" '+
       'onclick="adminIndependentAdsHomologationAction('+(testActive?'false':'true')+')" '+
       ((adminIndependentAdsBusy||(!testActive&&!eligibleTestCampaigns.length))?'disabled':'')+'>'+
@@ -426,13 +480,14 @@ function adminAdsIndependentSection(){
     '<p>Novos pagamentos só podem ser ativados com credenciais comerciais, vendedor verificado e webhook assinado. A taxa de CPM por visualização continua inativa.</p>'+
     '<p>Total aprovado pelo provedor (bruto, não é conciliação bancária): '+
       adminMoney(Number(v.providerApprovedGrossCents||0))+'</p>'+
-    '<label for="independent-ads-sales-preset">Motivo da alteração</label>'+ 
-    '<select id="independent-ads-sales-preset" class="input"><option value="">Selecione a justificativa</option>'+ 
-    (sales?'<option value="Novas contratações suspensas preventivamente por decisão administrativa.">Interromper novas contratações</option>':
-     '<option value="Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.">Autorizar vendas após conferência</option>')+'</select>'+ 
-    '<label for="independent-ads-sales-reason">Outro motivo (opcional)</label>'+
-    '<textarea id="independent-ads-sales-reason" class="input" rows="2" maxlength="500" '+
-      'placeholder="Descreva por que autorizar ou interromper novas compras"></textarea>'+
+    '<fieldset><legend>Marque o motivo da decisão</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="independent-ads-sales-preset" value="'+
+    (sales?'Novas contratações suspensas preventivamente por decisão administrativa.':
+     'Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.')+'"> '+
+    (sales?'Interromper novas contratações':'Autorizar vendas após conferência')+'</label></fieldset>'+
+    '<details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="independent-ads-sales-reason">Justificativa personalizada</label>'+
+    '<textarea id="independent-ads-sales-reason" class="input" rows="2" maxlength="500"></textarea></details>'+
     '<button type="button" class="secondary small" onclick="adminIndependentAdsSalesAction()" '+
       (adminIndependentAdsBusy?'disabled':'')+'>'+
       (sales?'Interromper novas compras':'Habilitar compras com pagamento verificado')+
