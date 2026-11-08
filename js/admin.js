@@ -2930,15 +2930,21 @@ function adminDiscoveryView(){
         '<p class="tiny muted">'+esc(kind)+' • ID: '+esc(String(x.listing_id))+
           ' • Situação: '+esc(x.listing_status)+'</p>'+
         '<p>'+esc(String(x.details||'').slice(0,600))+'</p>'+
-        '<div class="order-actions">'+
-          (x.listing_status==='published'?
-            '<button class="secondary small" type="button" onclick="adminDiscoverySuspendReportedListing(\''+
-              esc(String(x.listing_id))+'\')"'+(d.pending?' disabled':'')+'>Suspender anúncio</button>':'')+
-          '<button class="secondary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'dismissed\')"'+
-            (d.pending?' disabled':'')+'>Improcedente</button>'+
-          '<button class="primary small" type="button" onclick="adminDiscoveryReviewReport('+id+',\'resolved\')"'+
-            (d.pending?' disabled':'')+'>Registrar providência</button>'+
-        '</div></article>';
+        '<fieldset><legend>Marque a providência para esta denúncia</legend>'+
+        (x.listing_status==='published'?
+          '<label class="admin-option-row"><input type="radio" name="admin-discovery-report-action-'+id+
+            '" value="paused" data-reason="Suspensão preventiva devido a denúncia pendente de apuração."> Suspender anúncio preventivamente</label>':'')+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-report-action-'+id+
+          '" value="dismissed" data-reason="Denúncia analisada; não foram encontrados elementos suficientes para aplicar uma medida."> Registrar como improcedente</label>'+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-report-action-'+id+
+          '" value="resolved" data-reason="Análise concluída; providências administrativas registradas no protocolo."> Registrar providência</label></fieldset>'+
+        '<details><summary>Observação adicional (opcional)</summary>'+
+        '<label for="admin-discovery-report-custom-'+id+'">Detalhes da decisão</label>'+
+        '<textarea class="input" id="admin-discovery-report-custom-'+id+
+        '" maxlength="500" rows="2"></textarea></details>'+
+        '<button type="button" class="primary small" onclick="adminDiscoverySubmitReport('+id+')"'+
+        (d.pending?' disabled':'')+'>Confirmar providência marcada</button>'+
+        '</article>';
     }).join(''):'<p>Não há denúncias abertas.</p>';
   const liveCards=d.status!=='ready'?'':d.live.length?d.live.map(x=>{
     const id=String(x.id);
