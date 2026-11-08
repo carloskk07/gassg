@@ -737,6 +737,7 @@ function adminMerchantReturnToControls(merchantId){
   const session=adminRuntime.session;
   adminRuntime.detail=null;
   adminRuntime.section='partners';
+  adminPartnersWorkspaceTab='verification';
   render();
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session||
@@ -3393,9 +3394,10 @@ function adminOwnerFinanceFallbackView(){
     'Carregando ferramentas de gestão financeira…</p></section>';
 }
 
-let adminAdvancedNavOpen=false;
+let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminGrowthWorkspaceTab='acquisition';
+let adminPartnersWorkspaceTab='queue';
 function adminToggleAdvancedNav(){
  adminAdvancedNavOpen=!adminAdvancedNavOpen;
  render();
@@ -3417,6 +3419,59 @@ function adminGrowthSetWorkspaceTab(tab){
  render();
  if(tab==='budget')adminOwnerFinanceLoadOnDemand().catch(()=>{});
 }
+function adminPartnersSetWorkspaceTab(tab){
+ if(!adminReady()||adminRuntime.section!=='partners'||!adminRoleCanSection('partners'))return;
+ if(!['queue','applications','verification'].includes(tab))return;
+ adminPartnersWorkspaceTab=tab;
+ render();
+}
+
+// This selector navigates only to known read/workspaces. It never submits forms,
+// changes business states, calls the payment provider or bypasses role checks.
+const ADMIN_TASK_NAV_ITEMS=[
+ {id:'orders',section:'orders',label:'Pedidos — acompanhar entregas'},
+ {id:'support',section:'orders',label:'Pedidos — suporte e relatos'},
+ {id:'partners-queue',section:'partners',tab:'queue',label:'Revendas — fila e situação'},
+ {id:'partners-applications',section:'partners',tab:'applications',label:'Revendas — cadastros'},
+ {id:'partners-verification',section:'partners',tab:'verification',label:'Revendas — verificar documentos'},
+ {id:'ads-campaigns',section:'ads',tab:'campaigns',label:'Publicidade — campanhas e pagamentos'},
+ {id:'ads-diagnostics',section:'ads',tab:'diagnostics',label:'Publicidade — métricas e ferramentas'},
+ {id:'growth-acquisition',section:'growth',tab:'acquisition',label:'Crescimento — captação'},
+ {id:'growth-benefits',section:'growth',tab:'benefits',label:'Crescimento — cupons e indicações'},
+ {id:'growth-budget',section:'growth',tab:'budget',label:'Crescimento — investimentos'},
+ {id:'finance-summary',section:'finance',tab:'summary',label:'Financeiro — resumo'},
+ {id:'finance-billing',section:'finance',tab:'billing',label:'Financeiro — cobranças'},
+ {id:'finance-reconciliation',section:'finance',tab:'reconciliation',label:'Financeiro — conciliação'},
+ {id:'alerts',section:'alerts',label:'Alertas — o que exige atenção'},
+ {id:'customers',section:'customers',label:'Clientes — histórico'},
+ {id:'catalog',section:'catalog',label:'Catálogo — produtos'},
+ {id:'system',section:'system',label:'Sistema — segurança'}
+];
+function adminTaskNavChoices(){
+ return ADMIN_TASK_NAV_ITEMS.filter(t=>adminRoleCanSection(t.section)
+  &&(t.id!=='growth-budget'||adminCurrentRole()==='superadmin')
+  &&(t.id!=='ads-diagnostics'||adminRoleCanSection('partners')));
+}
+function adminSelectTaskFromUi(){
+ if(!adminReady())return;
+ const taskId=String(document.getElementById('admin-task-nav')?.value||'');
+ const task=adminTaskNavChoices().find(t=>t.id===taskId);
+ if(!task)return;
+ if(task.section==='partners')adminPartnersWorkspaceTab=task.tab;
+ if(task.section==='ads')adminAdsWorkspaceTab=task.tab;
+ if(task.section==='growth')adminGrowthWorkspaceTab=task.tab;
+ if(task.section==='finance')adminRuntime.financeWorkspace=task.tab;
+ adminSetSection(task.section);
+}
+function adminTaskNavView(){
+ const choices=adminTaskNavChoices();
+ return '<div class="admin-task-navigator">'+
+ '<label for="admin-task-nav">Ir direto para uma tarefa</label>'+
+ '<select id="admin-task-nav" class="input" aria-label="Ir direto para uma tarefa" onchange="adminSelectTaskFromUi()">'+
+ '<option value="">Selecione a tarefa, sem precisar procurar no menu</option>'+
+ choices.map(t=>'<option value="'+t.id+'">'+esc(t.label)+'</option>').join('')+
+ '</select></div>';
+}
 function adminQuickGo(section){
  if(!adminReady()||!adminRoleCanSection(section))return;
  adminSetSection(section);
@@ -3426,6 +3481,8 @@ function adminSetSection(section){
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
+  if(['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(next))
+    adminAdvancedNavOpen=true;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
@@ -3621,6 +3678,7 @@ function adminFocusMerchantOperationsRecord(type,id){
   }
   const session=adminRuntime.session;
   adminRuntime.section='partners';
+  adminPartnersWorkspaceTab=type==='merchant'?'verification':'applications';
   render();
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
@@ -4036,6 +4094,7 @@ function adminOpenMerchantNetworkRecord(id){
   if(!record){toast('Revenda não encontrada. Atualize o painel.');return;}
   const session=adminRuntime.session;
   adminRuntime.section='partners';
+  adminPartnersWorkspaceTab='verification';
   render();
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
@@ -9800,13 +9859,28 @@ function adminPage(){
 
   const growthContent=(sectionActive('growth'))?adminPrelaunchLeadsSection(d):'';
 
+  const partnerTab=(id,label)=>'<button type="button" class="secondary small '+
+    (adminPartnersWorkspaceTab===id?'active':'')+'" aria-pressed="'+
+    (adminPartnersWorkspaceTab===id)+'" onclick="adminPartnersSetWorkspaceTab(\''+id+'\')">'+label+'</button>';
   const partnersContent=(sectionActive('partners'))?(`
-    ${adminMerchantNetworkView(d)}
-    ${adminMerchantOperationsQueueView(d)}
-    ${adminPublicRequestsSection(d)}
-    <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais registrados antes da conclusão do cadastro operacional. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
-    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
-    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`):'';
+    <section class="section admin-partner-workspace"><div class="section-head"><div>
+      <span class="section-kicker">REVENDEDORAS</span><h2>Gestão das revendas</h2>
+      <p>Escolha uma tarefa. Os formulários de validação só aparecem quando necessários.</p>
+    </div></div>
+      <div class="admin-task-tabs" role="group" aria-label="Tarefas de revendas">
+        ${partnerTab('queue','Fila e situação')}
+        ${partnerTab('applications','Cadastros')}
+        ${partnerTab('verification','Validação e ativação')}
+      </div>
+    </section>
+    ${adminPartnersWorkspaceTab==='queue'?
+        adminMerchantNetworkView(d)+adminMerchantOperationsQueueView(d)+adminPublicRequestsSection(d):''}
+    ${adminPartnersWorkspaceTab==='applications'?`
+      <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais ainda não são ofertas ativas.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
+      <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação vincula owner, mas não coloca a revenda online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>` : ''}
+    ${adminPartnersWorkspaceTab==='verification'?`
+      <section class="section"><div class="section-head"><div><h2>Documentos e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP. As decisões continuam protegidas.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>` : ''}
+  `):'';
 
   const catalogContent=(sectionActive('catalog'))?(`${adminProductRegistrySection(d)}`):'';
 
@@ -9905,7 +9979,7 @@ function adminPage(){
   const sectionMeta=adminSectionMeta(adminRuntime.section);
   const operationMode=String(d.launchReadiness?.operationMode||(d.launchReadiness?.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
   const advancedSections=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'];
-  const showAdvanced=adminAdvancedNavOpen||advancedSections.includes(adminRuntime.section);
+  const showAdvanced=adminAdvancedNavOpen;
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
       <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Painel de gestão</small></div></div>
@@ -9945,6 +10019,7 @@ function adminPage(){
       <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
     </header>
     ${adminOperationalStrip(d)}
+    ${adminTaskNavView()}
     ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
     ${adminGlobalSearchView()}
     <div class="admin-workspace">
