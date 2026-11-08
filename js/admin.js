@@ -1783,12 +1783,46 @@ function adminIncidentCenter(d){
     ${resolved.length?`<details class="card flat" style="margin-top:12px"><summary><strong>Resolvidos (${resolved.length})</strong></summary><div class="admin-incident-grid" style="margin-top:10px">${resolved.slice(0,30).map(x=>adminIncidentCard(x,d.platformAdmins||[])).join('')}</div></details>`:''}
   </section>`;
 }
+function adminAuditChoiceChanged(field){
+  if(!['action','target'].includes(field))return;
+  const selected=String(document.getElementById('admin-audit-'+field+'-choice')?.value||'');
+  const custom=document.getElementById('admin-audit-'+field+'-custom');
+  if(custom)custom.hidden=selected!=='custom';
+}
+function adminAuditFilterValue(field){
+  const choice=document.getElementById('admin-audit-'+field+'-choice');
+  const typed=String(document.getElementById('admin-audit-'+field)?.value||'').trim();
+  if(!choice)return typed;
+  return choice.value==='custom'?typed:choice.value;
+}
+function adminAuditDatePreset(key){
+  if(!['all','today','7d','30d','custom'].includes(key))return;
+  const start=document.getElementById('admin-audit-from');
+  const end=document.getElementById('admin-audit-to');
+  if(!start||!end)return;
+  if(key==='custom')return;
+  if(key==='all'){start.value='';end.value='';return;}
+  const now=new Date(),begin=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  begin.setDate(begin.getDate()-(key==='7d'?6:key==='30d'?29:0));
+  const stamp=(date,hour,minute)=>[date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-')+'T'+hour+':'+minute;
+  start.value=stamp(begin,'00','00');
+  end.value=stamp(now,'23','59');
+}
+function adminAuditFilterOptions(rows,field){
+  const safe=new Set();
+  for(const row of Array.isArray(rows)?rows:[]){
+    const value=String(row?.[field]||'');
+    if(value.length>0&&value.length<=120&&!/[<>]/.test(value))safe.add(value);
+    if(safe.size>=25)break;
+  }
+  return [...safe].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(value=>'<option value="'+esc(value)+'">'+esc(value)+'</option>').join('');
+}
 async function adminAuditSearch(){
   if(adminRuntime.auditPending||!adminReady()||!adminRoleCanSection('audit'))return;
   const session=adminRuntime.session,role=adminCurrentRole(),ticket={};
   const query=document.getElementById('admin-audit-query')?.value.trim()||'';
-  const auditAction=document.getElementById('admin-audit-action')?.value.trim()||'';
-  const targetType=document.getElementById('admin-audit-target')?.value.trim()||'';
+  const auditAction=adminAuditFilterValue('action');
+  const targetType=adminAuditFilterValue('target');
   const from=document.getElementById('admin-audit-from')?.value||'';
   const to=document.getElementById('admin-audit-to')?.value||'';
   adminRuntime.auditRequest=ticket;
@@ -1815,8 +1849,9 @@ function adminAuditView(d){
     <div class="card flat">
       <div class="grid-2">
         <div class="input-wrap"><label for="admin-audit-query">Busca livre</label><input id="admin-audit-query" class="input" placeholder="ator, alvo, metadata…"></div>
-        <div class="input-wrap"><label for="admin-audit-action">Ação exata</label><input id="admin-audit-action" class="input" placeholder="merchant_activated"></div>
-        <div class="input-wrap"><label for="admin-audit-target">Tipo de alvo</label><input id="admin-audit-target" class="input" placeholder="merchant, order…"></div>
+        <div class="input-wrap"><label for="admin-audit-action-choice">Ação registrada</label><select id="admin-audit-action-choice" class="input" onchange="adminAuditChoiceChanged('action')"><option value="">Todas as ações</option>${adminAuditFilterOptions(rows,'action')}<option value="custom">Outra ação / código exato</option></select><div id="admin-audit-action-custom" hidden><label for="admin-audit-action">Código exato (se necessário)</label><input id="admin-audit-action" class="input" maxlength="120" placeholder="Somente para ações fora da lista"></div></div>
+        <div class="input-wrap"><label for="admin-audit-target-choice">Tipo de alvo</label><select id="admin-audit-target-choice" class="input" onchange="adminAuditChoiceChanged('target')"><option value="">Todos os tipos</option>${adminAuditFilterOptions(rows,'target_type')}<option value="custom">Outro tipo (informar)</option></select><div id="admin-audit-target-custom" hidden><label for="admin-audit-target">Tipo exato</label><input id="admin-audit-target" class="input" maxlength="120"></div></div>
+        <div class="input-wrap"><label for="admin-audit-period">Período rápido</label><select id="admin-audit-period" class="input" onchange="adminAuditDatePreset(this.value)"><option value="all">Todo o período disponível</option><option value="today">Hoje</option><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="custom">Datas personalizadas</option></select></div>
         <div class="input-wrap"><label for="admin-audit-from">A partir de</label><input id="admin-audit-from" class="input" type="datetime-local"></div>
         <div class="input-wrap"><label for="admin-audit-to">Até</label><input id="admin-audit-to" class="input" type="datetime-local"></div>
       </div>
