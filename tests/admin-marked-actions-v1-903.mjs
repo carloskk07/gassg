@@ -12,7 +12,7 @@ const span=(src,a,b)=>{
 const fn=(src,name)=>{
  const start=src.search(new RegExp('(?:async )?function '+name+'\\('));
  assert.ok(start>=0,'missing function '+name);
- const end=src.indexOf('\\n}',start);
+ const end=src.indexOf('\n}',start);
  assert.ok(end>start,'incomplete '+name);
  return src.slice(start,end+2);
 };
@@ -26,7 +26,7 @@ const ctx=vm.createContext({document,esc,Date,Number,String,Object,Array,Math,In
  prospectCity:'São Gabriel',prospectState:'RS'},adminReady:()=>true,
  adminCurrentRole:()=> 'superadmin',adminRoleCanSection:()=>true,
  adminPerform:async(action,payload)=>{writes.push({action,payload});return {ok:true}},
- adminLoadGovernanceGates:async()=>{},adminLoadCityNotifications:async()=>{},
+ adminLoadGovernanceGates:async()=>{},adminLoadCityNotifications:async()=>{},adminLoadProspects:async()=>{},
  adminActivationDesk:{loading:false,actor:'admin-1',role:'superadmin',checkedAt:new Date().toISOString(),
  data:{intake:{controls:[{moduleKey:'ads_proposals',enabled:true,version:1}]}}},
  adminActivationLoad:async()=>null,
@@ -42,7 +42,7 @@ vm.runInContext([
  fn(acq,'adminPauseMarketCity'),
  span(activations,'const ADMIN_ACTIVATION_REASONS=','async function adminMarketingIntakeSet(moduleKey){'),
  fn(activations,'adminMarketingIntakeSet')
-].join('\\n')+'\\nthis.test={city:adminCityGovernanceReason,reject:adminRejectApplication,'+
+].join('\n')+'\nthis.test={city:adminCityGovernanceReason,reject:adminRejectApplication,'+
  'support:adminSetSupportStatus,notice:adminMarkCityNotification,pause:adminPauseMarketCity,'+
  'activation:adminActivationSelectedReason,intake:adminMarketingIntakeSet};',ctx);
 const t=ctx.test;
