@@ -65,14 +65,14 @@ assert.doesNotMatch(html,/adminGovernanceChangeCityPause\('Vila/);
 state.role='readonly';env.adminRuntime.governance.role='readonly';
 assert.doesNotMatch(env.view(),/adminGovernanceChangeCityPause\(0\)/);
 state.role='superadmin';env.adminRuntime.governance.role='superadmin';
-let invoked=[],feedback=[],reason='Justificativa válida',approved=true;
+let invoked=[],feedback=[],selected='maintenance',approved=true;
 const env2=vm.createContext({
  adminReady:()=>true,adminCurrentRole:()=>state.role,
- adminRuntime:runtime,confirm:()=>approved,prompt:()=>reason,
+ adminRuntime:runtime,confirm:()=>approved,document:{getElementById:()=>({value:selected})},
  toast:x=>feedback.push(x),adminPerform:async(action,p)=>{invoked.push({action,p});},
  adminLoadGovernanceGates:async()=>null,Number,String
 });
-vm.runInContext(extract(admin,'adminGovernanceChangeCityPause')+'\nthis.toggle=adminGovernanceChangeCityPause;',env2);
+vm.runInContext(admin.slice(admin.indexOf('const ADMIN_CITY_REASON_CHOICES='),admin.indexOf('async function adminGovernanceChangeCityPause('))+extract(admin,'adminGovernanceChangeCityPause')+'\nthis.toggle=adminGovernanceChangeCityPause;',env2);
 assert.equal(await env2.toggle(-1),false);
 assert.equal(await env2.toggle(300),false);
 assert.equal(await env2.toggle(0),true);
@@ -80,7 +80,7 @@ assert.equal(invoked.length,1);
 assert.equal(invoked[0].action,'market-city-pause');
 assert.equal(invoked[0].p.paused,true);
 assert.equal(invoked[0].p.city,payload.cities[0].city);
-reason='x';assert.equal(await env2.toggle(0),false);
+selected='';assert.equal(await env2.toggle(0),false);
 assert.equal(invoked.length,1);
 for(const marker of ['.admin-governance','.admin-governance-city','@media(max-width:700px)'])
  assert.ok(css.includes(marker),'missing style '+marker);

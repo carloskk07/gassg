@@ -3945,7 +3945,18 @@ function adminApplicationCard(a){
     <div class="order-line"><strong>Endereço:</strong> ${esc(a.address_text)}</div>
     <div class="tiny muted">Recebido em ${new Date(a.created_at).toLocaleString('pt-BR')}</div>
     ${pilotDetail}
-    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminApproveApplication('${a.id}')">Aprovar cadastro</button><button class="danger-btn small" onclick="adminRejectApplication('${a.id}')">Rejeitar</button></div>`:''}
+    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminApproveApplication('${a.id}')">Aprovar cadastro</button></div>
+      <details><summary>Rejeitar cadastro (selecionar motivo)</summary>
+        <label for="application-reject-${esc(a.id)}">Motivo conferido</label>
+        <select id="application-reject-${esc(a.id)}" class="input">
+          <option value="">Selecione o motivo real</option>
+          <option value="incomplete">Dados ou documentos incompletos</option>
+          <option value="inconsistent">Dados inconsistentes após revisão</option>
+          <option value="ineligible">Requisitos de cadastro não atendidos</option>
+          <option value="duplicate">Cadastro duplicado identificado</option>
+          <option value="requested">Cancelamento solicitado pelo interessado</option>
+        </select><button class="danger-btn small" onclick="adminRejectApplication('${a.id}')">Confirmar rejeição</button>
+      </details>`:''}
   </article>`;
 }
 
@@ -3964,7 +3975,11 @@ function adminPilotInviteControls(p,id){
   const label=active?'ativo até '+new Date(invite.expiresAt).toLocaleString('pt-BR'):invite?'expirado':'nenhum convite ativo';
   return '<div class="order-line"><strong>Convite do parceiro:</strong> '+esc(label)+'</div>'+
     (active?'<div class="tiny muted">Por segurança, o link não é armazenado em claro e não pode ser recuperado depois. Se você não salvou o link quando ele foi criado, use <strong>Rotacionar convite</strong>.</div>':'')+
-    '<div class="order-actions"><button class="secondary small" onclick="adminIssuePilotInvite(\''+esc(id)+'\')">'+(active?'Rotacionar convite':'Gerar convite')+'</button>'+
+    '<div class="order-actions"><label>Validade do convite <select id="pilot-invite-days-'+esc(id)+'" class="input">'+
+    '<option value="7">7 dias</option><option value="14" selected>14 dias</option>'+
+    '<option value="30">30 dias</option><option value="60">60 dias</option>'+
+    '<option value="90">90 dias</option></select></label>'+
+    '<button class="secondary small" onclick="adminIssuePilotInvite(\''+esc(id)+'\')">'+(active?'Rotacionar convite':'Gerar convite')+'</button>'+
     (active?'<button class="danger-btn small" onclick="adminRevokePilotInvite(\''+esc(id)+'\')">Revogar convite</button>':'')+'</div>';
 }
 
@@ -9025,10 +9040,24 @@ function adminSupportCaseCard(x,{visible=true}={}){
     ?'<div class="order-actions">'+
       (x.status==='open'?'<button class="secondary small" onclick="adminSetSupportStatus(\''+
         esc(x.id)+'\',\'in_review\')">Assumir análise</button>':'')+
+      '<details class="admin-support-decision"><summary>Resolver ou encerrar (marcar motivo)</summary>'+
+      '<label for="support-reason-'+esc(x.id)+'">Tratativa realmente realizada</label>'+
+      '<select id="support-reason-'+esc(x.id)+'" class="input">'+
+        '<option value="">Marque a situação real</option>'+
+        '<option value="guidance">Orientação prestada e atendimento resolvido</option>'+
+        '<option value="corrected">Falha corrigida e conferida</option>'+
+        '<option value="not_reproducible">Verificado, não reproduzido</option>'+
+        '<option value="withdrawn">Solicitante desistiu do atendimento</option>'+
+        '<option value="duplicate">Solicitação duplicada identificada</option>'+
+        '<option value="no_reply">Encerrado após tentativas documentadas</option>'+
+        '<option value="custom">Outro (detalhar abaixo)</option></select>'+
+      '<details><summary>Outro motivo / detalhes adicionais (opcional)</summary>'+
+        '<textarea id="support-reason-extra-'+esc(x.id)+'" class="input" rows="2" maxlength="500"></textarea></details>'+
+      '<label class="check-row"><input id="support-confirm-'+esc(x.id)+'" type="checkbox"><span>Confirmei a tratativa indicada após conferir o caso.</span></label>'+
       '<button class="primary small" onclick="adminSetSupportStatus(\''+
         esc(x.id)+'\',\'resolved\')">Resolver</button>'+
       '<button class="ghost small" onclick="adminSetSupportStatus(\''+
-        esc(x.id)+'\',\'closed\')">Encerrar</button></div>':'';
+        esc(x.id)+'\',\'closed\')">Encerrar</button></details></div>':'';
   const link=validOrderId
     ?'<button class="secondary small" onclick="adminOpenEntity(\'order\',\''+
       esc(orderId)+'\')">Abrir pedido</button>':'';
@@ -9646,6 +9675,21 @@ async function adminLoadGovernanceGates({force=false}={}){
     return null;
   }finally{state.loading=false;render();}
 }
+const ADMIN_CITY_REASON_CHOICES=Object.freeze({
+  maintenance:'Manutenção operacional programada da cidade.',
+  operational:'Revisão de risco e condições operacionais da cidade.',
+  availability:'Revisão de disponibilidade comercial e capacidade local.',
+  compliance:'Revisão administrativa dos requisitos de operação local.',
+  verified:'Requisitos novamente revisados, conforme conferência administrativa.'
+});
+function adminCityGovernanceReason(index){
+  const key=String(document.getElementById('governance-reason-'+index)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_CITY_REASON_CHOICES,key)){
+    toast('Marque o motivo real antes de alterar a cidade.');
+    return null;
+  }
+  return ADMIN_CITY_REASON_CHOICES[key];
+}
 async function adminGovernanceChangeCityPause(index){
   if(!adminReady()||!['superadmin','operations'].includes(adminCurrentRole()))return false;
   const report=adminRuntime.governance?.data;
@@ -9654,9 +9698,9 @@ async function adminGovernanceChangeCityPause(index){
   const city=String(location.city||''),state=String(location.state||'');
   const paused=!location.adminPaused;
   const action=paused?'pausar novas cotações':'retirar a pausa administrativa';
-  if(!confirm('Deseja '+action+' em '+city+'/'+state+'? Pedidos existentes não serão apagados.'))return false;
-  const reason=prompt('Escreva o motivo desta decisão (mínimo de 5 caracteres):')||'';
-  if(reason.trim().length<5){toast('Informe uma justificativa de pelo menos 5 caracteres.');return false;}
+  const reason=adminCityGovernanceReason(index);
+  if(!reason)return false;
+  if(!confirm('Deseja '+action+' em '+city+'/'+state+'? Motivo marcado: '+reason+' Pedidos existentes não serão apagados.'))return false;
   try{
     await adminPerform('market-city-pause',{city,state,paused:Boolean(paused),reason:reason.trim()});
     // Reading refreshed database evidence prevents a stale switch-looking UI.
@@ -9685,12 +9729,9 @@ async function adminGovernanceChangeCityCommerce(index){
       '? A cidade precisa ter revenda habilitada e continuará sujeita ao modo global da plataforma.'
     :'Suspender a autorização comercial de '+city+'/'+state+
       '? Novas cotações serão bloqueadas, sem apagar pedidos existentes.';
-  if(!confirm(message))return false;
-  const reason=prompt('Informe a justificativa desta decisão (mínimo de 5 caracteres):')||'';
-  if(reason.trim().length<5||reason.length>240){
-    toast('A justificativa deve ter entre 5 e 240 caracteres.');
-    return false;
-  }
+  const reason=adminCityGovernanceReason(index);
+  if(!reason)return false;
+  if(!confirm(message+' Motivo marcado: '+reason))return false;
   try{
     const result=await adminPerform('market-city-commerce',{
       city,state,enabled,reason:reason.trim()
@@ -9753,8 +9794,18 @@ function adminGovernanceView(){
     const pauseButton=canEdit?
       '<button type="button" class="secondary small" onclick="adminGovernanceChangeCityPause('+index+')">'+
       (c.adminPaused?'Retirar pausa':'Pausar novas cotações')+'</button>':'';
-    const choice='<div class="admin-governance-city-actions">'+commerceButton+pauseButton+
-      (!commerceButton&&!pauseButton?'<span class="tiny muted">Somente consulta</span>':'')+'</div>';
+    const choice=(canOpen||canEdit)?
+      '<details class="admin-governance-city-actions"><summary>Alterar cidade (marcar motivo)</summary>'+
+      '<label for="governance-reason-'+index+'">Motivo da decisão</label>'+
+      '<select id="governance-reason-'+index+'" class="input">'+
+      '<option value="">Selecione a situação realmente observada</option>'+
+      '<option value="maintenance">Manutenção programada</option>'+
+      '<option value="operational">Revisão de risco operacional</option>'+
+      '<option value="availability">Revisão de disponibilidade comercial</option>'+
+      '<option value="compliance">Revisão dos requisitos de operação</option>'+
+      '<option value="verified">Requisitos conferidos pela administração</option>'+
+      '</select><div class="order-actions">'+commerceButton+pauseButton+'</div></details>':
+      '<span class="tiny muted">Somente consulta</span>';
     const commerce=c.commerceEnabled===true?'Habilitada no cadastro':'Comércio ainda não habilitado';
     const pause=c.adminPaused===true?'Pausa administrativa ativa':'Sem pausa administrativa';
     return '<div class="admin-governance-city"><div><strong>'+esc(c.city)+'/'+esc(c.state)+'</strong>'+
@@ -10535,12 +10586,28 @@ async function adminSetCommerceEnabled(enabled){
   return adminSetOperationMode(enabled?'PILOT':'PAUSED');
 }
 
+const ADMIN_SUPPORT_RESOLUTION_REASONS=Object.freeze({
+  guidance:'Orientação prestada ao solicitante e atendimento resolvido após conferência.',
+  corrected:'Falha corrigida e verificada no contexto do atendimento.',
+  not_reproducible:'Situação investigada e não reproduzida após conferência.',
+  withdrawn:'Solicitante desistiu do atendimento, após confirmação.',
+  duplicate:'Solicitação duplicada identificada após conferência.',
+  no_reply:'Atendimento encerrado após tentativas de contato efetivamente documentadas.'
+});
 async function adminSetSupportStatus(caseId,status){
+  if(!['in_review','resolved','closed'].includes(status))return;
   const label=status==='in_review'?'colocar este atendimento em análise':status==='resolved'?'resolver este atendimento':'encerrar este atendimento';
   let resolutionNote='';
   if(['resolved','closed'].includes(status)){
-    resolutionNote=prompt('Descreva a solução ou motivo do encerramento:')||'';
-    if(resolutionNote.trim().length<3)return toast('Informe como o atendimento foi tratado');
+    const choice=String(document.getElementById('support-reason-'+caseId)?.value||'');
+    const extra=String(document.getElementById('support-reason-extra-'+caseId)?.value||'').trim();
+    if(document.getElementById('support-confirm-'+caseId)?.checked!==true)
+      return toast('Confirme a tratativa real antes de concluir o atendimento.');
+    if(extra.length>500)return toast('Detalhes muito longos.');
+    if(choice==='custom')resolutionNote=extra.length>=5?extra:'';
+    else if(Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_RESOLUTION_REASONS,choice))
+      resolutionNote=ADMIN_SUPPORT_RESOLUTION_REASONS[choice]+(extra?' Detalhes: '+extra:'');
+    if(resolutionNote.length<5)return toast('Marque a tratativa realizada ou informe outro motivo.');
   }
   if(!confirm('Confirma '+label+'?'))return;
   try{
@@ -10569,10 +10636,8 @@ async function adminIssuePilotInvite(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
   if(!p)return toast('Parceiro não encontrado');
   if(['converted','cancelled'].includes(String(p.onboarding_status||'')))return toast('Este parceiro não pode receber novo convite');
-  const daysRaw=prompt('Validade do novo convite em dias (1 a 90):','14');
-  if(daysRaw==null)return;
-  const days=Number(daysRaw);
-  if(!Number.isInteger(days)||days<1||days>90)return toast('Informe uma validade entre 1 e 90 dias');
+  const days=Number(document.getElementById('pilot-invite-days-'+id)?.value);
+  if(![7,14,30,60,90].includes(days))return toast('Marque a validade do convite');
   if(p.activeInvite&&!confirm('Já existe um convite ativo. Rotacionar agora invalidará o link anterior. Continuar?'))return;
   const token=adminGeneratePilotInviteToken();
   const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
@@ -10682,9 +10747,19 @@ async function adminApproveApplication(id){
     toast('Cadastro aprovado para validação')}
   catch(e){toast(String(e?.message||e))}
 }
+const ADMIN_APPLICATION_REJECTION_REASONS=Object.freeze({
+  incomplete:'Rejeição após análise: dados ou documentos obrigatórios incompletos.',
+  inconsistent:'Rejeição após análise: informações do cadastro inconsistentes.',
+  ineligible:'Rejeição após análise: requisitos do cadastro não atendidos.',
+  duplicate:'Rejeição após análise: cadastro duplicado identificado.',
+  requested:'Rejeição após análise: cancelamento solicitado pelo interessado.'
+});
 async function adminRejectApplication(id){
-  const reason=prompt('Motivo da rejeição:');
-  if(!reason)return;
+  const choice=String(document.getElementById('application-reject-'+id)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_APPLICATION_REJECTION_REASONS,choice))
+    return toast('Marque o motivo verdadeiro da rejeição.');
+  const reason=ADMIN_APPLICATION_REJECTION_REASONS[choice];
+  if(!confirm('Rejeitar o cadastro? '+reason))return;
   try{await adminPerform('reject-application',{applicationId:id,reason});toast('Cadastro rejeitado')}catch(e){toast(String(e?.message||e))}
 }
 async function adminReviewMerchantRepresentation(id,decision,ownerUserId){

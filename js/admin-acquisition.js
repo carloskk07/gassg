@@ -5865,9 +5865,17 @@ async function adminPauseMarketCity(paused){
   if(!['superadmin','operations'].includes(String(adminCurrentRole())))return toast('Sem permissão para alterar cidades');
   const verb=paused?'pausar':'retomar';
   const region=adminRuntime.prospectCity+'/'+adminRuntime.prospectState;
-  const reason=prompt('Informe o motivo para '+verb+' a operação em '+region+':','');
-  if(reason==null)return;
-  if(reason.trim().length<5)return toast('Informe uma justificativa de pelo menos 5 caracteres');
+  const key=String(document.getElementById('prospect-city-pause-reason')?.value||'');
+  const reasons={
+    maintenance:'Manutenção operacional local programada.',
+    operational:'Risco operacional local identificado para análise.',
+    availability:'Disponibilidade local em revisão administrativa.',
+    verified:'Condições operacionais novamente verificadas pela administração.'
+  };
+  if(!Object.prototype.hasOwnProperty.call(reasons,key))
+    return toast('Selecione o motivo verdadeiro da mudança.');
+  const reason=reasons[key];
+  if(!confirm('Deseja '+verb+' a cidade '+region+'? '+reason))return;
   try{
     await adminPerform('market-city-pause',{
       city:adminRuntime.prospectCity,state:adminRuntime.prospectState,
@@ -5899,13 +5907,23 @@ async function adminLoadCityNotifications(){
 async function adminMarkCityNotification(notificationId,status){
   if(!['superadmin','operations'].includes(String(adminCurrentRole())))return;
   if(!['sent','skipped'].includes(status))return;
-  const question=status==='sent'
-    ?'Confirma que você JÁ ENVIOU a mensagem pelo WhatsApp? O TAMÃO ainda não envia automaticamente.'
-    :'Informe por que este contato não deve receber o aviso:';
-  let note=prompt(question,status==='sent'?'Mensagem enviada manualmente pelo WhatsApp':'Contato não realizado');
-  if(note==null)return;
-  note=String(note).trim();
-  if(note.length<5)return toast('Informe uma confirmação ou justificativa');
+  let note='';
+  if(status==='sent'){
+    if(document.getElementById('city-notification-sent-'+notificationId)?.checked!==true)
+      return toast('Marque somente após ter enviado a mensagem pelo WhatsApp.');
+    note='Mensagem enviada manualmente pelo WhatsApp, conforme confirmação expressa do operador.';
+  }else{
+    const key=String(document.getElementById('city-notification-skip-'+notificationId)?.value||'');
+    const reasons={
+      opt_out:'Interessado solicitou não receber o aviso.',
+      invalid:'Canal de contato inválido após conferência.',
+      duplicate:'Aviso duplicado identificado após conferência.',
+      not_suitable:'Contato não aplicável após revisão do cadastro.'
+    };
+    if(!Object.prototype.hasOwnProperty.call(reasons,key))
+      return toast('Marque o motivo verdadeiro para não contatar.');
+    note=reasons[key];
+  }
   try{
     await adminPerform('city-notification-status',{notificationId,status,note});
     await adminLoadCityNotifications();
@@ -5918,7 +5936,7 @@ function adminCityNotificationsSection(){
   const pending=adminRuntime.cityNotificationsPending;
   return '<div class="section-head" style="margin-top:20px"><div>'+
     '<span class="section-kicker">AVISOS DE DISPONIBILIDADE</span><h3>Contatos autorizados nesta cidade</h3>'+
-    '<p>A fila é gerada automaticamente quando há revenda apta. A mensagem ainda deve ser enviada manualmente pelo operador, e só depois confirmada.</p></div>'+
+    '<p>A fila é gerada automaticamente quando há revenda apta. O TAMÃO ainda não envia automaticamente. A mensagem deve ser enviada manualmente pelo operador e só depois confirmada.</p></div>'+
     '<span class="status-pill">'+rows.length+' aguardando</span></div>'+
     (adminRuntime.cityNotificationsError?'<div class="notice danger">'+esc(adminRuntime.cityNotificationsError)+'</div>':'')+
     '<div class="card flat"><div class="list">'+
@@ -5934,8 +5952,18 @@ function adminCityNotificationsSection(){
         '<small>'+esc(city)+'/'+esc(item.state)+' • CEP '+esc(item.postal_code)+' • '+esc(phone)+'</small></div>'+
         '<div class="order-actions">'+
           '<a class="secondary small" href="'+esc(link)+'" rel="noopener noreferrer" target="_blank">Abrir WhatsApp</a>'+
-          '<button class="primary small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'sent\')">Confirmar envio</button>'+
+          '<details><summary>Registrar resultado do aviso</summary>'+
+            '<label class="check-row"><input id="city-notification-sent-'+esc(item.id)+'" type="checkbox"><span>Já enviei esta mensagem pelo WhatsApp</span></label>'+
+          '<button class="primary small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'sent\')">Confirmar envio real</button>'+
+            '<label for="city-notification-skip-'+esc(item.id)+'">Caso não deva contatar</label>'+
+            '<select id="city-notification-skip-'+esc(item.id)+'" class="input">'+
+              '<option value="">Marque o motivo real</option>'+
+              '<option value="opt_out">Solicitou não receber avisos</option>'+
+              '<option value="invalid">Contato inválido</option>'+
+              '<option value="duplicate">Aviso duplicado</option>'+
+              '<option value="not_suitable">Cadastro não aplicável</option></select>'+
           '<button class="ghost small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'skipped\')">Não contatar</button>'+
+          '</details>'+
         '</div></div>';
     }).join(''):pending?'<div class="muted">Carregando fila…</div>':'<div class="muted">Nenhum aviso pendente nesta cidade.</div>')+
     '</div></div>';
@@ -6916,10 +6944,8 @@ async function adminIssueAnpProspectInvite(cnpj){
   if(['partner','dismissed'].includes(String(prospect.prospect_status)))return toast('Empresa não elegível para novo convite');
   const isActive=prospect.invitation?.status==='active';
   if(isActive&&!confirm('Já existe convite ativo. Rotacionar revogará o link anterior. Continuar?'))return;
-  const daysRaw=prompt('Validade do convite em dias (1 a 30):','14');
-  if(daysRaw==null)return;
-  const days=Number(daysRaw);
-  if(!Number.isSafeInteger(days)||days<1||days>30)return toast('Informe uma validade de 1 a 30 dias');
+  const days=Number(document.getElementById('prospect-invite-days-'+cnpj)?.value);
+  if(![7,14,30].includes(days))return toast('Marque a validade do convite');
   const token=adminGeneratePilotInviteToken();
   const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
   try{
@@ -6958,6 +6984,9 @@ function adminProspectInvitationControls(record){
     (status==='active'&&inv.expiresAt?' • vence '+esc(formatDateTime(inv.expiresAt)):'')+
     (app?' • Cadastro '+esc(app.status||'em análise'):' • Cadastro ainda não identificado')+'</div>'+
     (canAct?'<div class="order-actions" style="margin-top:8px">'+
+      (status!=='claimed'?'<label>Validade <select id="prospect-invite-days-'+cnpj+'" class="input">'+
+        '<option value="7">7 dias</option><option value="14" selected>14 dias</option>'+
+        '<option value="30">30 dias</option></select></label>':'')+
       (status!=='claimed'?'<button type="button" class="secondary small" onclick="adminIssueAnpProspectInvite(\''+cnpj+'\')">'+
         (status==='active'?'Rotacionar convite':'Gerar convite')+'</button>':'')+
       (status==='active'?'<button type="button" class="ghost small" onclick="adminRevokeAnpProspectInvite(\''+cnpj+'\')">Revogar</button>':'')+
@@ -7382,7 +7411,15 @@ function adminProspectsSection(d){
     (report.warning?'<div class="notice">'+esc(report.warning)+'</div>':'')+
     '<div class="card flat"><strong>Comércio por cidade: '+(report.cityPaused?'PAUSADO PELO ADMIN':Number(report.eligibleMerchantCount||0)>0?'PRONTO PARA RECEBER COTAÇÕES':'AGUARDANDO REVENDA APTA')+'</strong>'+
       (['superadmin','operations'].includes(String(adminCurrentRole()))?
-        '<div class="order-actions" style="margin-top:12px"><button class="'+(report.cityPaused?'secondary':'danger-btn')+' small" onclick="adminPauseMarketCity('+(report.cityPaused?'false':'true')+')">'+(report.cityPaused?'Remover pausa administrativa':'Pausar cidade')+'</button></div>':'')+
+        '<details style="margin-top:12px"><summary>Alterar pausa da cidade</summary>'+
+        '<label for="prospect-city-pause-reason">Motivo real</label>'+
+        '<select id="prospect-city-pause-reason" class="input">'+
+        '<option value="">Marque o motivo da alteração</option>'+
+        '<option value="maintenance">Manutenção operacional</option>'+
+        '<option value="operational">Risco operacional</option>'+
+        '<option value="availability">Revisão de disponibilidade</option>'+
+        '<option value="verified">Condições operacionais verificadas</option></select>'+
+        '<button class="'+(report.cityPaused?'secondary':'danger-btn')+' small" onclick="adminPauseMarketCity('+(report.cityPaused?'false':'true')+')">'+(report.cityPaused?'Remover pausa administrativa':'Pausar cidade')+'</button></details>':'')+
       '<p class="tiny muted">A habilitação é derivada de fornecedores válidos em tempo real. A ação administrativa é auditada e não ativa a cidade sozinha.</p></div>'+
     '<div class="section-head"><div><h3>Empresas registradas na ANP</h3><p>Confirmar dados e interesse antes do convite. Importação não habilita recebimento de pedidos.</p></div></div>'+
     '<div class="card flat"><div class="list">'+
