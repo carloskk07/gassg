@@ -2788,6 +2788,46 @@ async function adminDiscoveryReadiness(){
   }
   if(adminRuntime.section==='discovery')render();
 }
+// Only explicit marked controls can request Discovery state changes.
+function adminDiscoveryMarked(group){
+ const choice=document.querySelector('input[name="'+group+'"]:checked');
+ return choice&&typeof choice.value==='string'?choice:null;
+}
+function adminDiscoverySelectedReason(group,action,customId,max=240){
+ const chosen=adminDiscoveryMarked(group);
+ if(!chosen||chosen.value!==action){
+  toast('Marque a providência correspondente antes de confirmar.');return null;
+ }
+ const custom=String(document.getElementById(customId)?.value||'').trim();
+ const reason=custom||String(chosen.dataset?.reason||'').trim();
+ if(reason.length<8||reason.length>max){
+  toast('Selecione uma justificativa válida ou detalhe o caso.');return null;
+ }
+ return reason;
+}
+function adminDiscoverySubmitListing(id){
+ if(!/^[0-9a-f-]{36}$/i.test(String(id||'')))return;
+ const chosen=adminDiscoveryMarked('admin-discovery-decision-'+id);
+ if(!chosen)return toast('Marque aprovar ou solicitar ajustes antes de confirmar.');
+ return adminDiscoveryDecision(id,String(chosen.value||''));
+}
+function adminDiscoverySubmitCity(){
+ const chosen=adminDiscoveryMarked('admin-discovery-city-action');
+ if(!chosen||!['enable','disable'].includes(chosen.value))
+  return toast('Marque habilitar ou suspender para esta cidade.');
+ return adminDiscoverySetCity(chosen.value==='enable');
+}
+function adminDiscoverySubmitReport(id){
+ if(!Number.isSafeInteger(id)||id<=0)return;
+ const chosen=adminDiscoveryMarked('admin-discovery-report-action-'+id);
+ if(!chosen)return toast('Marque a providência da denúncia.');
+ if(chosen.value==='paused'){
+  const row=adminDiscoveryDesk.reports.find(x=>Number(x.id)===id);
+  if(!row||row.listing_status!=='published')return toast('Atualize a denúncia antes de suspender.');
+  return adminDiscoverySuspendReportedListing(String(row.listing_id));
+ }
+ return adminDiscoveryReviewReport(id,chosen.value);
+}
 function adminDiscoveryCitySlug(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
@@ -2805,7 +2845,7 @@ function adminDiscoveryPrefillCity(index){
     const field=document.getElementById(id);
     if(field)field.value=String(value||'');
   }
-  document.getElementById('admin-discovery-city-reason')?.focus();
+  document.getElementById('admin-discovery-city-actions')?.focus();
 }
 async function adminDiscoverySetCity(enabled){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending)return;
@@ -2813,11 +2853,12 @@ async function adminDiscoverySetCity(enabled){
   const vertical=value('admin-discovery-city-kind');
   const state=value('admin-discovery-city-state').toUpperCase();
   const city=value('admin-discovery-city-name');
-  const reason=value('admin-discovery-city-reason');
+  const reason=adminDiscoverySelectedReason('admin-discovery-city-action',
+    enabled?'enable':'disable','admin-discovery-city-reason');
+  if(reason===null)return;
   if(!['professionals','rides','stays'].includes(vertical)||
-     !/^[A-Z]{2}$/.test(state)||city.length<2||city.length>120||reason.length<8){
-    toast('Informe modalidade, UF, cidade e uma justificativa de pelo menos 8 caracteres.');
-    return;
+     !/^[A-Z]{2}$/.test(state)||city.length<2||city.length>120){
+   toast('Escolha uma modalidade e confira UF e cidade.');return;
   }
   const d=adminDiscoveryDesk;d.pending=true;
   try{
@@ -2968,14 +3009,9 @@ async function adminDiscoveryChangeLive(id,next){
   if(!current||current.status===(next==='paused'?'paused':'published')||
      (next==='paused'&&current.status!=='published')||
      (next==='published'&&(current.status!=='paused'||current.city_vertical_enabled!==true)))return;
-  const promptText=next==='paused'?'Informe o motivo da suspensão:':
-     'Informe por que a reativação é segura (confira as denúncias pendentes):';
-  const reason=prompt(promptText);
-  if(reason===null)return;
-  const note=String(reason).trim();
-  if(note.length<8||note.length>240){
-    toast('A justificativa deve conter entre 8 e 240 caracteres.');return;
-  }
+  const note=adminDiscoverySelectedReason('admin-discovery-live-reason-'+id,
+    next,'admin-discovery-live-custom-'+id);
+  if(note===null)return;
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
@@ -2994,10 +3030,13 @@ async function adminDiscoverySuspendReportedListing(id){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !/^[0-9a-f-]{36}$/.test(String(id||''))||
      !adminDiscoveryDesk.reports.some(x=>x.listing_id===id&&x.listing_status==='published'))return;
-  const reason=prompt('Informe por que este anúncio deve ser suspenso:');
-  if(reason===null)return;
-  const note=String(reason).trim();
-  if(note.length<8||note.length>240){toast('Justificativa obrigatória entre 8 e 240 caracteres.');return;}
+  const report=adminDiscoveryDesk.reports.find(x=>x.listing_id===id&&x.listing_status==='published');
+  if(!report)return;
+  const reportId=Number(report.id);
+  if(!Number.isSafeInteger(reportId)||reportId<=0)return;
+  const note=adminDiscoverySelectedReason('admin-discovery-report-action-'+reportId,
+    'paused','admin-discovery-report-custom-'+reportId);
+  if(note===null)return;
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
@@ -3015,10 +3054,9 @@ async function adminDiscoveryReviewReport(id,status){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !Number.isSafeInteger(id)||id<=0||!['resolved','dismissed'].includes(status)||
      !adminDiscoveryDesk.reports.some(x=>Number(x.id)===id))return;
-  const note=prompt('Registre a justificativa ou providência (mínimo 8 caracteres):');
-  if(note===null)return;
-  const value=String(note).trim();
-  if(value.length<8||value.length>500){toast('Informe uma justificativa entre 8 e 500 caracteres.');return;}
+  const value=adminDiscoverySelectedReason('admin-discovery-report-action-'+id,
+    status,'admin-discovery-report-custom-'+id,500);
+  if(value===null)return;
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_review_report',{
@@ -3039,8 +3077,11 @@ async function adminDiscoveryDecision(id,status){
      !['published','rejected'].includes(status)||!/^[0-9a-f-]{36}$/.test(String(id||'')))return;
   const entry=adminDiscoveryDesk.items.find(x=>x.id===id&&x.status==='review');
   if(!entry||status==='published'&&entry.city_vertical_enabled!==true)return;
-  const reason=String(document.getElementById('admin-discovery-reason-'+id)?.value||'').trim();
-  if(reason.length<8){toast('Descreva a justificativa da revisão (mínimo 8 caracteres).');return;}
+  const reason=adminDiscoverySelectedReason('admin-discovery-decision-'+id,status,
+    'admin-discovery-reason-'+id);
+  if(reason===null)return;
+  if(status==='published'&&document.getElementById('admin-discovery-proof-'+id)?.checked!==true)
+    return toast('Marque a conferência de documentos e informações antes de aprovar.');
   const d=adminDiscoveryDesk;d.pending=true;
   try{
     const {error}=await adminRuntime.client.rpc('discovery_transition_listing',{
