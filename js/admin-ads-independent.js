@@ -41,8 +41,16 @@ async function adminIndependentAdsAction(decision,campaignId='',version=0){
  if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
  const control=decision==='enable_delivery'||decision==='disable_delivery';
  const field=document.getElementById(control?'independent-ads-control-reason':'independent-ads-reason-'+campaignId);
- const reason=String(field?.value||'').trim();
- if(reason.length<12||reason.length>500)return toast('Informe um motivo de 12 a 500 caracteres.');
+ const selected=control?null:document.getElementById('independent-ads-preset-'+campaignId);
+ const manualReason=String(field?.value||'').trim();
+ const presetReason=String(selected?.value||'').trim();
+ const presetDecision=String(selected?.selectedOptions?.[0]?.dataset?.decision||'');
+ if(!control&&!manualReason&&presetReason&&presetDecision!==decision)
+   return toast('O motivo selecionado é para outra ação. Escolha o motivo correspondente.');
+ const reason=manualReason||presetReason;
+ if(reason.length<12||reason.length>500)
+   return toast(control?'Informe uma justificativa de 12 a 500 caracteres.':
+     'Selecione um motivo pronto ou escreva uma justificativa.');
  const current=adminIndependentAdsState;
  if(current.loadedFor!==actor)return toast('Atualize a lista antes de decidir.');
  const row=current.rows.find(x=>x.id===campaignId);
@@ -228,10 +236,20 @@ function adminAdsIndependentSection(){
       b('pause','Pausar campanha')+b('end','Encerrar definitivamente')):
     status==='paused'?((delivery&&!expired?b('resume','Retomar campanha'):'')+
       b('end','Encerrar definitivamente')):'';
-  if(!buttons&&status!=='approved')return '';
-  return '<label for="independent-ads-reason-'+id+'">Justificativa</label>'+
+  if(!buttons)return '';
+  return '<label for="independent-ads-preset-'+id+'">Motivo da decisão</label>'+
+   '<select id="independent-ads-preset-'+id+'" class="input" aria-label="Selecione o motivo da decisão">'+
+   '<option value="">Selecione um motivo pronto (sem digitar)</option>'+
+   '<option data-decision="approve" value="Criativo revisado e aprovado pelo administrador.">Aprovar: criativo revisado</option>'+
+   '<option data-decision="reject" value="Criativo incompleto ou incompatível com as regras da publicação.">Rejeitar: ajustes necessários</option>'+
+   '<option data-decision="publish" value="Campanha e pagamento revisados para autorização de publicação.">Publicar: revisão concluída</option>'+
+   '<option data-decision="pause" value="Publicação pausada para revisão operacional do anunciante.">Pausar: revisão necessária</option>'+
+   '<option data-decision="resume" value="Campanha revisada e autorizada para retomar o prazo restante.">Retomar: revisão concluída</option>'+
+   '<option data-decision="end" value="Campanha encerrada mediante decisão administrativa documentada.">Encerrar: decisão administrativa</option>'+
+   '</select>'+
+   '<label for="independent-ads-reason-'+id+'">Ou escreva outro motivo (opcional)</label>'+
    '<textarea id="independent-ads-reason-'+id+'" rows="2" class="input" maxlength="500" '+
-   'placeholder="Explique o motivo da decisão"></textarea>'+
+   'placeholder="Use somente quando os motivos prontos não servirem"></textarea>'+
    '<div class="row flex-wrap">'+buttons+'</div>';
  };
  const refundRows=v?.refundCases?.map(c=>{
