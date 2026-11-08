@@ -62,7 +62,10 @@ export function splitAdminAcquisition(source){
 // copy. The canonical source and the deferred owner-finance slice are unchanged.
 function compactReleasedAdminStartup(source){
  return source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
-  .replace(/^ {2,}(?=(?:const|let|if|return|await|try|catch|finally|for|else|throw|while|switch|case|break|continue|function|async)\b)/gm,'');
+  .replace(/^ {2,}(?=(?:const|let|if|return|await|try|catch|finally|for|else|throw|while|switch|case|break|continue|function|async)\b)/gm,'')
+  // Trim redundant indentation before JS identifiers and closing delimiters in the emitted startup only.
+  // Canonical source, literal text, deferred owner finance and scope remain unchanged.
+  .replace(/^ {2,}(?=(?:[A-Za-z_$][\w$]*(?:[.(?:=])|[}\]\)]))/gm,'');
 }
 export function splitAdminOwnerFinanceCore(core){
   if(typeof core!=='string')throw new TypeError('Admin core must be a string');
