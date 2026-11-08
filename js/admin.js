@@ -9040,10 +9040,24 @@ function adminSupportCaseCard(x,{visible=true}={}){
     ?'<div class="order-actions">'+
       (x.status==='open'?'<button class="secondary small" onclick="adminSetSupportStatus(\''+
         esc(x.id)+'\',\'in_review\')">Assumir análise</button>':'')+
+      '<details class="admin-support-decision"><summary>Resolver ou encerrar (marcar motivo)</summary>'+
+      '<label for="support-reason-'+esc(x.id)+'">Tratativa realmente realizada</label>'+
+      '<select id="support-reason-'+esc(x.id)+'" class="input">'+
+        '<option value="">Marque a situação real</option>'+
+        '<option value="guidance">Orientação prestada e atendimento resolvido</option>'+
+        '<option value="corrected">Falha corrigida e conferida</option>'+
+        '<option value="not_reproducible">Verificado, não reproduzido</option>'+
+        '<option value="withdrawn">Solicitante desistiu do atendimento</option>'+
+        '<option value="duplicate">Solicitação duplicada identificada</option>'+
+        '<option value="no_reply">Encerrado após tentativas documentadas</option>'+
+        '<option value="custom">Outro (detalhar abaixo)</option></select>'+
+      '<details><summary>Outro motivo / detalhes adicionais (opcional)</summary>'+
+        '<textarea id="support-reason-extra-'+esc(x.id)+'" class="input" rows="2" maxlength="500"></textarea></details>'+
+      '<label class="check-row"><input id="support-confirm-'+esc(x.id)+'" type="checkbox"><span>Confirmei a tratativa indicada após conferir o caso.</span></label>'+
       '<button class="primary small" onclick="adminSetSupportStatus(\''+
         esc(x.id)+'\',\'resolved\')">Resolver</button>'+
       '<button class="ghost small" onclick="adminSetSupportStatus(\''+
-        esc(x.id)+'\',\'closed\')">Encerrar</button></div>':'';
+        esc(x.id)+'\',\'closed\')">Encerrar</button></details></div>':'';
   const link=validOrderId
     ?'<button class="secondary small" onclick="adminOpenEntity(\'order\',\''+
       esc(orderId)+'\')">Abrir pedido</button>':'';
@@ -10572,12 +10586,28 @@ async function adminSetCommerceEnabled(enabled){
   return adminSetOperationMode(enabled?'PILOT':'PAUSED');
 }
 
+const ADMIN_SUPPORT_RESOLUTION_REASONS=Object.freeze({
+  guidance:'Orientação prestada ao solicitante e atendimento resolvido após conferência.',
+  corrected:'Falha corrigida e verificada no contexto do atendimento.',
+  not_reproducible:'Situação investigada e não reproduzida após conferência.',
+  withdrawn:'Solicitante desistiu do atendimento, após confirmação.',
+  duplicate:'Solicitação duplicada identificada após conferência.',
+  no_reply:'Atendimento encerrado após tentativas de contato efetivamente documentadas.'
+});
 async function adminSetSupportStatus(caseId,status){
+  if(!['in_review','resolved','closed'].includes(status))return;
   const label=status==='in_review'?'colocar este atendimento em análise':status==='resolved'?'resolver este atendimento':'encerrar este atendimento';
   let resolutionNote='';
   if(['resolved','closed'].includes(status)){
-    resolutionNote=prompt('Descreva a solução ou motivo do encerramento:')||'';
-    if(resolutionNote.trim().length<3)return toast('Informe como o atendimento foi tratado');
+    const choice=String(document.getElementById('support-reason-'+caseId)?.value||'');
+    const extra=String(document.getElementById('support-reason-extra-'+caseId)?.value||'').trim();
+    if(document.getElementById('support-confirm-'+caseId)?.checked!==true)
+      return toast('Confirme a tratativa real antes de concluir o atendimento.');
+    if(extra.length>500)return toast('Detalhes muito longos.');
+    if(choice==='custom')resolutionNote=extra.length>=5?extra:'';
+    else if(Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_RESOLUTION_REASONS,choice))
+      resolutionNote=ADMIN_SUPPORT_RESOLUTION_REASONS[choice]+(extra?' Detalhes: '+extra:'');
+    if(resolutionNote.length<5)return toast('Marque a tratativa realizada ou informe outro motivo.');
   }
   if(!confirm('Confirma '+label+'?'))return;
   try{
