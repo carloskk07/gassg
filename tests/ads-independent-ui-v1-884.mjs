@@ -45,7 +45,7 @@ assert.match(admin,/adminIndependentAdsRefresh/);
 assert.match(admin,/adminPerform\('ads-independent-action'/);
 assert.match(admin,/r\?\.billingEnabled!==false\|\|r\?\.paymentCreated!==false/);
 assert.match(adminShell,/function adminAdsIndependentLoad\(\)/);
-assert.match(adminShell,/adminAdsIndependentSection\(\)/);
+assert.match(read('js/admin.js'),/adminAdsIndependentSection\(\)/);
 assert.match(server,/if\(action==="ads-independent-action"\)/);
 assert.match(server,/admin_ads_independent_action_v1_884/);
 assert.match(server,/String\(adminAccess\.admin_role\|\|""\)!=="superadmin"/);

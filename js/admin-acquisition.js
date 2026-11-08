@@ -5539,38 +5539,46 @@ function adminOwnerFinanceWorkspaceSection(){
 }
 
 function adminPrelaunchLeadsSection(data){
-  const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
-  const metrics=adminAcquisitionMetrics(data,leads);
-  const verified=adminAcquisitionAggregateVerified(metrics);
-  const ordered=[...leads].sort((a,b)=>adminLeadPriority(a.status)-adminLeadPriority(b.status)||(Date.parse(a.created_at||'')-Date.parse(b.created_at||'')));
-  return [
-    '<section class="section">',
-      '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • CLIENTES E PARCEIROS</span><h2>Funil real de clientes e parceiros</h2><p>As métricas agregadas usam todos os leads do banco. A fila operacional abaixo traz somente os contatos recentes necessários para atendimento.</p></div><span class="status-pill '+(verified?'online':'')+'">'+(verified?Number(metrics.total).toLocaleString('pt-BR')+' lead(s)':'Agregados pendentes')+'</span></div>',
-      adminAcquisitionEvidenceView(metrics),
-      adminAcquisitionCampaigns(metrics),
-      adminGrowthNetworkOverviewView(data?.growthNetwork),
-      adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
-      adminAdsDemandSection(),
-      adminClubeLaunchReadinessSection(),
-      adminClubeInterestSection(),
-      adminClubeCampaignSection(),
-      adminClubeTermsSection(),
-      ...(typeof adminOwnerFinanceWorkspaceSection==='function'
-        ?[adminOwnerFinanceWorkspaceSection(),]
-        :[adminOwnerFinanceFallbackView()]),
-      adminAdsCampaignSection(),
-      (typeof adminAdsIndependentSection==='function'?adminAdsIndependentSection():(adminAdsIndependentLoad(),'')),
-      adminAdsAudienceSection(),
-      adminAdsPreviewSummarySection(),
-      adminAdsPlacementSection(),
-      adminCommercialActivationSection(),
-      adminGrowthReferralReviewSection(),
-      '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+(verified?Number(metrics.new||0)+' novo(s)':'Fila recente')+'</span></div>',
-      '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
-    '</section>'
-  ].join('');
+ const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
+ const metrics=adminAcquisitionMetrics(data,leads);
+ const verified=adminAcquisitionAggregateVerified(metrics);
+ const ordered=[...leads].sort((a,b)=>adminLeadPriority(a.status)-adminLeadPriority(b.status)||
+   Date.parse(a.created_at||'')-Date.parse(b.created_at||''));
+ const current=typeof adminGrowthWorkspaceTab==='string'?adminGrowthWorkspaceTab:'acquisition';
+ const tab=(id,label)=>`<button type="button" class="secondary small ${current===id?'active':''}" aria-pressed="${current===id}" onclick="adminGrowthSetWorkspaceTab('${id}')">${label}</button>`;
+ return [
+  '<section class="section admin-growth-workspace">',
+  '<div class="section-head"><div><span class="section-kicker">CRESCIMENTO</span>'+
+  '<h2>Clientes e benefícios</h2><p>Escolha uma área para acompanhar.</p></div></div>',
+  '<div class="admin-task-tabs" role="group" aria-label="Áreas de crescimento">'+
+  tab('acquisition','Captação')+tab('benefits','Benefícios e indicações')+
+  (adminCurrentRole()==='superadmin'?tab('budget','Investimentos'):'')+'</div>',
+  ...(current==='acquisition'?[
+   '<div class="section-head"><div><h3>Clientes e interessados</h3></div>'+
+   '<span class="status-pill '+(verified?'online':'')+'">'+
+   (verified?Number(metrics.total).toLocaleString('pt-BR')+' lead(s)':'Dados pendentes')+'</span></div>',
+   adminAcquisitionEvidenceView(metrics),adminAcquisitionCampaigns(metrics),
+   adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
+   adminCommercialActivationSection(),
+   '<div class="section-head acquisition-queue-head"><div><h3>Contatos recentes</h3></div>'+
+   '<span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+
+   (verified?Number(metrics.new||0)+' novo(s)':'Fila recente')+'</span></div>',
+   '<div class="grid cards-3" style="margin-top:14px">'+
+   (ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):
+   '<div class="empty card">Nenhum contato recente.</div>')+'</div>'
+  ]:[]),
+  ...(current==='benefits'?[
+   adminGrowthNetworkOverviewView(data?.growthNetwork),adminClubeLaunchReadinessSection(),
+   adminClubeInterestSection(),adminClubeCampaignSection(),adminClubeTermsSection(),
+   adminGrowthReferralReviewSection()
+  ]:[]),
+  ...(current==='budget'&&adminCurrentRole()==='superadmin'?[
+   typeof adminOwnerFinanceWorkspaceSection==='function'?
+   adminOwnerFinanceWorkspaceSection():adminOwnerFinanceFallbackView()
+  ]:[]),
+  '</section>'
+ ].join('');
 }
-
 
 function adminPublicRequestKindLabel(value){
   return ({general:'DÚVIDA',support:'SUPORTE',privacy:'PRIVACIDADE'})[value]||String(value||'SOLICITAÇÃO').toUpperCase();

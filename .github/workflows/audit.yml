@@ -621,6 +621,8 @@ jobs:
         run: node tests/ads-independent-reused-psp-evidence-v1-893.mjs
       - name: V1.894 dedicated Publicidade TAMÃO Ads navigation and provider check
         run: node tests/admin-ads-direct-navigation-v1-894.mjs
+      - name: V1.895 task-first Admin, tabbed Growth and simplified Ads reviews
+        run: node tests/admin-focused-workspaces-v1-895.mjs
       - name: V1.891 independent Ads payment-search pagination safeguards
         run: node tests/ads-independent-reconcile-paging-v1-891.mjs
       - name: Test V1.310 merchant Ads offer and founder authority

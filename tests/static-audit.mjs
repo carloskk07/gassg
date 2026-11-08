@@ -148,7 +148,7 @@ assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aq
 assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.includes('adminPrelaunchLeadsSection(d)'),'admin deve exibir leads captados');
 assert.ok(adminAcquisition.includes('adminSetPrelaunchLeadStatus')&&adminAcquisition.includes('QUALIFICADO')&&adminAcquisition.includes('CONVERTIDO'),'admin precisa operar pipeline de leads');
 assert.ok(adminAcquisition.includes('adminLeadWhatsAppText')&&adminAcquisition.includes('Abrir WhatsApp com mensagem'),'follow-up comercial precisa abrir com texto contextualizado');
-assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Funil real de clientes e parceiros'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
+assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Clientes e interessados'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
 assert.ok(adminAcquisition.includes('Fontes comerciais, sem taxas artificiais')&&
   adminAcquisition.includes('adminAcquisitionAggregateVerified')&&
   adminAcquisition.includes('adminAcquisitionEvidenceView')&&
@@ -337,7 +337,20 @@ assert.ok(backend.includes('financialSyncSeq')&&backend.includes('marketStatusSe
 assert.ok(backend.includes('liveRuntime.pollPending')&&backend.includes('merchantRuntime.pollPending'),'polling cliente/revenda deve ser single-flight em rede lenta');
 assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRuntime.refreshSeq'),'refresh da revenda não pode aceitar resposta antiga sobre uma mais nova');
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('pollIntervalMs')&&admin.includes('fastSections')&&admin.includes('15000')&&admin.includes('60000'),'admin deve serializar refresh e usar polling adaptativo sem repetir summary completo a cada 5 segundos');
-assert.ok(admin.includes("adminMenuButton('overview','Visão geral'")&&admin.includes("adminMenuButton('orders','Pedidos'")&&admin.includes("adminMenuButton('customers','Clientes'")&&admin.includes("adminMenuButton('partners','Parceiros'")&&admin.includes("adminMenuButton('catalog','Catálogo'")&&admin.includes("adminMenuButton('finance','Financeiro'")&&admin.includes("adminMenuButton('incidents','Incidentes'")&&admin.includes("adminMenuButton('audit','Auditoria'")&&admin.includes("adminMenuButton('system','Segurança e sistema'"),'painel admin precisa ser dividido em áreas navegáveis');
+assert.ok(admin.includes("adminMenuButton('overview','Início'")&&
+ admin.includes("adminMenuButton('orders','Pedidos'")&&
+ admin.includes("adminMenuButton('customers','Clientes'")&&
+ admin.includes("adminMenuButton('partners','Revendas'")&&
+ admin.includes("adminMenuButton('growth','Crescimento'")&&
+ admin.includes("adminMenuButton('ads','Publicidade'")&&
+ admin.includes("adminMenuButton('finance','Financeiro'")&&
+ admin.includes("adminMenuButton('alerts','Alertas'")&&
+ admin.includes("adminMenuButton('catalog','Catálogo'")&&
+ admin.includes("adminMenuButton('incidents','Incidentes'")&&
+ admin.includes("adminMenuButton('audit','Auditoria'")&&
+ admin.includes("adminMenuButton('system','Segurança e sistema'")&&
+ admin.includes('adminToggleAdvancedNav')&&admin.includes('admin-nav-advanced'),
+ 'o menu deve conservar todas as áreas protegidas enquanto destaca as tarefas do dia a dia');
 assert.ok(admin.includes("sessionStorage.setItem('tamao-admin-section',next)")&&admin.includes('function adminPanel(id,content)'),'menu admin precisa preservar a área selecionada e renderizar somente o painel ativo');
 assert.ok(admin.includes("adminPanel('overview',overviewContent)")&&admin.includes("adminPanel('orders',ordersContent)")&&admin.includes("adminPanel('customers',customersContent)")&&admin.includes("adminPanel('partners',partnersContent)")&&admin.includes("adminPanel('catalog',catalogContent)")&&admin.includes("adminPanel('finance',financeContent)")&&admin.includes("adminPanel('incidents',incidentsContent)")&&admin.includes("adminPanel('audit',auditContent)")&&admin.includes("adminPanel('system',systemContent)"),'todas as áreas administrativas precisam estar ligadas ao menu');
 assert.ok(admin.includes('function adminAttentionCenter(d)')&&admin.includes('ATENÇÃO AGORA')&&admin.includes('adminAttentionItems(d)'),'home administrativa precisa priorizar eventos que exigem ação');

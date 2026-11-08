@@ -82,7 +82,7 @@ const adminRuntime={
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','growth','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system','activations','discovery'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -465,7 +465,7 @@ async function adminRefresh({silent=false}={}){
     if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoadOnDemand().catch(()=>{}));
     if(['prospects','enablement'].includes(adminRuntime.section))
       queueMicrotask(()=>adminExpansionLoadOnDemand().catch(()=>{}));
-    if(adminRuntime.section==='partners'&&adminCurrentRole()==='superadmin')
+    if(adminRuntime.section==='growth'&&adminGrowthWorkspaceTab==='budget'&&adminCurrentRole()==='superadmin')
       queueMicrotask(()=>adminOwnerFinanceLoadOnDemand().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
@@ -3090,6 +3090,7 @@ const ADMIN_SECTION_ROLES={
   orders:new Set(['superadmin','operations','finance','support']),
   customers:new Set(['superadmin','operations','finance','support']),
   partners:new Set(['superadmin','operations','compliance']),
+  growth:new Set(['superadmin','operations','compliance']),
   prospects:new Set(['superadmin','operations','compliance']),
   enablement:new Set(['superadmin','operations','compliance']),
   catalog:new Set(['superadmin','operations']),
@@ -3115,7 +3116,8 @@ function adminSectionMeta(section=adminRuntime.section){
     overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
     orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
     customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
-    partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Aquisição, onboarding, compliance e prontidão operacional das revendas.'},
+    partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Cadastro, aprovação e acompanhamento das revendas. Sem misturar publicidade ou marketing.'},
+    growth:{kicker:'CLIENTES E BENEFÍCIOS',title:'Crescimento',description:'Captação de clientes, indicações, cupons e ações de relacionamento num lugar separado das revendas.'},
     prospects:{kicker:'EXPANSÃO NACIONAL',title:'Prospectos',description:'Demanda por município e revendas GLP da fonte oficial ANP.'},
     enablement:{kicker:'HABILITAÇÃO OPERACIONAL',title:'Central de habilitação',description:'Requisitos comprovados de cada revenda, seus bloqueios e próximas ações.'},
     catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
@@ -3149,6 +3151,7 @@ function adminNavIcon(id){
     customers:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     prospects:'<path d="M3 4h18v16H3zM7 9h4M7 13h8M7 17h10"/>',
     partners:'<path d="M8 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm8 0a4 4 0 1 0-4-4"/><path d="M1 21a7 7 0 0 1 14 0M14 15a7 7 0 0 1 9 6"/>',
+    growth:'<path d="M3 20V12h5v8M10 20V8h5v12M17 20V4h4v16"/><path d="M2 21h20"/>',
     enablement:'<path d="M12 3l8 4v5c0 5-4 8-8 9-4-1-8-4-8-9V7l8-4Z"/><path d="m8 12 3 3 5-6"/>',
     catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
     finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
@@ -3344,8 +3347,8 @@ const adminOwnerFinanceModuleUrl=(()=>{
 let adminOwnerFinanceModulePromise=null;
 let adminOwnerFinanceModuleError=null;
 async function adminOwnerFinanceLoadOnDemand(){
-  if(!adminReady()||adminRuntime.section!=='partners'
-    ||!adminRoleCanSection('partners')||adminCurrentRole()!=='superadmin')return null;
+  if(!adminReady()||adminRuntime.section!=='growth'
+    ||!adminRoleCanSection('growth')||adminCurrentRole()!=='superadmin')return null;
   const actor=String(adminRuntime.session?.user?.id||'');
   if(typeof adminOwnerFinanceWorkspaceSection!=='function'){
     if(!adminOwnerFinanceModulePromise){
@@ -3370,19 +3373,19 @@ async function adminOwnerFinanceLoadOnDemand(){
     }
     try{await adminOwnerFinanceModulePromise}
     catch{
-      if(adminRuntime.section==='partners')render();
+      if(adminRuntime.section==='growth')render();
       return null;
     }
   }
-  if(!adminReady()||adminRuntime.section!=='partners'
-    ||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('partners')
+  if(!adminReady()||adminRuntime.section!=='growth'
+    ||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('growth')
     ||String(adminRuntime.session?.user?.id||'')!==actor)return null;
   adminOwnerFinanceModuleError=null;
   render();
   return true;
 }
 function adminOwnerFinanceFallbackView(){
-  if(adminCurrentRole()!=='superadmin'||adminRuntime.section!=='partners')return '';
+  if(adminCurrentRole()!=='superadmin'||adminRuntime.section!=='growth')return '';
   if(adminOwnerFinanceModuleError)return '<section class="section"><div class="notice danger">'+
     esc(adminOwnerFinanceModuleError)+'</div><button type="button" class="secondary"'+
     ' onclick="adminOwnerFinanceLoadOnDemand()">Tentar novamente</button></section>';
@@ -3390,8 +3393,36 @@ function adminOwnerFinanceFallbackView(){
     'Carregando ferramentas de gestão financeira…</p></section>';
 }
 
+let adminAdvancedNavOpen=false;
+let adminAdsWorkspaceTab='campaigns';
+let adminGrowthWorkspaceTab='acquisition';
+function adminToggleAdvancedNav(){
+ adminAdvancedNavOpen=!adminAdvancedNavOpen;
+ render();
+}
+function adminAdsSetWorkspaceTab(tab){
+ if(!adminReady()||adminRuntime.section!=='ads'||!adminRoleCanSection('ads'))return;
+ if(!['campaigns','diagnostics'].includes(tab))return;
+ if(tab==='diagnostics'&&!adminRoleCanSection('partners'))return;
+ adminAdsWorkspaceTab=tab;
+ render();
+ if(tab==='campaigns'&&typeof adminIndependentAdsRefresh==='function')
+  adminIndependentAdsRefresh().catch(()=>{});
+}
+function adminGrowthSetWorkspaceTab(tab){
+ if(!adminReady()||adminRuntime.section!=='growth'||!adminRoleCanSection('growth'))return;
+ if(!['acquisition','benefits','budget'].includes(tab))return;
+ if(tab==='budget'&&adminCurrentRole()!=='superadmin')return;
+ adminGrowthWorkspaceTab=tab;
+ render();
+ if(tab==='budget')adminOwnerFinanceLoadOnDemand().catch(()=>{});
+}
+function adminQuickGo(section){
+ if(!adminReady()||!adminRoleCanSection(section))return;
+ adminSetSection(section);
+}
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system','activations','discovery'];
+  const allowed=['overview','orders','customers','partners','growth','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system','activations','discovery'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
@@ -3407,7 +3438,7 @@ function adminSetSection(section){
   if(next==='orders'&&['superadmin','operations','support'].includes(adminCurrentRole()))
     adminHelpReportsPage(0).catch(()=>{});
   if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
-  if(next==='partners'&&adminCurrentRole()==='superadmin')
+  if(next==='growth'&&adminGrowthWorkspaceTab==='budget'&&adminCurrentRole()==='superadmin')
     adminOwnerFinanceLoadOnDemand().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
@@ -9720,6 +9751,17 @@ function adminPage(){
   const sectionActive=id=>adminRuntime.section===id&&adminRoleCanSection(id,currentRole);
 
   const overviewContent=(sectionActive('overview'))?(`
+    <section class="section admin-quick-actions" aria-label="Acesso rápido">
+      <div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>O que você quer fazer?</h2>
+      <p>Escolha uma área. Consultas não precisam de formulários nem confirmações.</p></div></div>
+      <div class="admin-quick-grid">
+        ${adminRoleCanSection('orders')?'<button type="button" onclick="adminQuickGo(\'orders\')"><strong>Pedidos</strong><small>Acompanhar entregas e atendimento</small></button>':''}
+        ${adminRoleCanSection('ads')?'<button type="button" onclick="adminQuickGo(\'ads\')"><strong>Publicidade</strong><small>Anunciantes, campanhas e pagamento</small></button>':''}
+        ${adminRoleCanSection('finance')?'<button type="button" onclick="adminQuickGo(\'finance\')"><strong>Financeiro</strong><small>Verificar cobranças e conciliação</small></button>':''}
+        ${adminRoleCanSection('partners')?'<button type="button" onclick="adminQuickGo(\'partners\')"><strong>Revendas</strong><small>Cadastros e situação operacional</small></button>':''}
+        ${adminRoleCanSection('growth')?'<button type="button" onclick="adminQuickGo(\'growth\')"><strong>Crescimento</strong><small>Clientes, cupons e indicações</small></button>':''}
+      </div>
+    </section>
     <section class="section admin-overview-pulse">
       <div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div><span class="admin-data-freshness">Atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</span></div>
       <div class="admin-exec-grid">
@@ -9756,10 +9798,11 @@ function adminPage(){
 
   const customersContent=(sectionActive('customers'))?(adminCustomersSection(d)):'';
 
+  const growthContent=(sectionActive('growth'))?adminPrelaunchLeadsSection(d):'';
+
   const partnersContent=(sectionActive('partners'))?(`
     ${adminMerchantNetworkView(d)}
     ${adminMerchantOperationsQueueView(d)}
-    ${adminPrelaunchLeadsSection(d)}
     ${adminPublicRequestsSection(d)}
     <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais registrados antes da conclusão do cadastro operacional. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
@@ -9806,9 +9849,21 @@ function adminPage(){
     policy:financePolicyContent
   };
   const adsContent=(sectionActive('ads'))?(
-    typeof adminAdsIndependentSection==='function'
-      ?adminAdsIndependentSection()
-      :(adminAdsIndependentLoad(),'<section class="section" role="status"><p>Carregando publicidade TAMÃO Ads…</p></section>')):'';
+    '<section class="section admin-ads-workspace"><div class="section-head"><div><span class="section-kicker">PUBLICIDADE</span>'+
+    '<h2>Publicidade TAMÃO Ads</h2><p>Campanhas, aprovação e conferência financeira sem depender de revendas.</p></div></div>'+
+    '<div class="admin-task-tabs" role="group" aria-label="Áreas da publicidade">'+
+    '<button type="button" class="secondary small '+(adminAdsWorkspaceTab==='campaigns'?'active':'')+
+      '" aria-pressed="'+(adminAdsWorkspaceTab==='campaigns')+'" onclick="adminAdsSetWorkspaceTab(\'campaigns\')">Campanhas e pagamentos</button>'+
+    (adminRoleCanSection('partners')?
+    '<button type="button" class="secondary small '+(adminAdsWorkspaceTab==='diagnostics'?'active':'')+
+      '" aria-pressed="'+(adminAdsWorkspaceTab==='diagnostics')+'" onclick="adminAdsSetWorkspaceTab(\'diagnostics\')">Medição e ferramentas</button>':'')+
+    '</div></section>'+
+    (adminAdsWorkspaceTab==='campaigns'||!adminRoleCanSection('partners')?
+      (typeof adminAdsIndependentSection==='function'?
+       adminAdsIndependentSection():
+       (adminAdsIndependentLoad(),'<section class="section" role="status">Carregando campanhas e pagamentos…</section>')):
+      adminAdsCampaignSection()+adminAdsAudienceSection()+adminAdsPreviewSummarySection()+
+        adminAdsPlacementSection()+adminAdsDemandSection())):'';
 
   const financeContent=(sectionActive('finance'))?(`
     ${adminFinanceRenderPart('Navegação financeira',()=>adminFinanceWorkspaceNav())}
@@ -9849,26 +9904,35 @@ function adminPage(){
 
   const sectionMeta=adminSectionMeta(adminRuntime.section);
   const operationMode=String(d.launchReadiness?.operationMode||(d.launchReadiness?.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const advancedSections=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'];
+  const showAdvanced=adminAdvancedNavOpen||advancedSections.includes(adminRuntime.section);
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
-      <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Control Plane</small></div></div>
-      <div class="admin-nav-group">Operação</div>
-      ${adminMenuButton('overview','Visão geral','⌂')}
+      <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Painel de gestão</small></div></div>
+      <div class="admin-nav-group">Dia a dia</div>
+      ${adminMenuButton('overview','Início','⌂')}
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length+pendingHelpReports))}
+      ${adminMenuButton('partners','Revendas','◇',badge(partnerAttention))}
       ${adminMenuButton('customers','Clientes','◎')}
-      ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
-      ${adminMenuButton('prospects','Prospectos','⌕')}
-      ${adminMenuButton('enablement','Habilitação','✓')}
-      ${adminMenuButton('catalog','Catálogo','▤')}
-      ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
-      ${adminMenuButton('ads','Publicidade','◉')}
-      <div class="admin-nav-group">Governança</div>
-      ${adminMenuButton('activations','Ativações','◈')}
-      ${adminMenuButton('discovery','Moderação de anúncios','▣')}
       ${adminMenuButton('alerts','Alertas','!',adminOperationalAlertBadge())}
-      ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
-      ${adminMenuButton('audit','Auditoria','⌕')}
-      ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+      <div class="admin-nav-group">Negócio</div>
+      ${adminMenuButton('ads','Publicidade','◉')}
+      ${adminMenuButton('growth','Crescimento','↗')}
+      ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      <div class="admin-nav-group">Configuração</div>
+      <button type="button" class="admin-nav-more" onclick="adminToggleAdvancedNav()" aria-expanded="${showAdvanced}" aria-controls="admin-advanced-nav">
+        <span aria-hidden="true">${showAdvanced?'−':'+'}</span> ${showAdvanced?'Ocultar ferramentas':'Mais ferramentas'}
+      </button>
+      <div id="admin-advanced-nav" class="admin-nav-advanced" ${showAdvanced?'':'hidden'}>
+        ${adminMenuButton('prospects','Cidades e prospectos','⌕')}
+        ${adminMenuButton('enablement','Habilitação','✓')}
+        ${adminMenuButton('catalog','Catálogo','▤')}
+        ${adminMenuButton('activations','Ativações','◈')}
+        ${adminMenuButton('discovery','Moderação de anúncios','▣')}
+        ${adminMenuButton('incidents','Incidentes','! ',badge(incidentAttention))}
+        ${adminMenuButton('audit','Auditoria','⌕')}
+        ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+      </div>
       <div class="admin-sidebar-foot">
         <span class="admin-sidebar-mode ${['LIVE','PILOT'].includes(operationMode)?'live':operationMode==='PAUSED'?'paused':'prelaunch'}"><i></i>${esc(adminOperationModeLabel(operationMode))}</span>
         <small>${esc(adminRoleLabel(currentRole))} • atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</small>
@@ -9890,6 +9954,7 @@ function adminPage(){
         ${adminPanel('orders',ordersContent)}
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
+        ${adminPanel('growth',growthContent)}
         ${adminPanel('prospects',sectionActive('prospects')?(typeof adminProspectsSection==='function'?adminProspectsSection(d):adminExpansionFallbackView()):'')}
         ${adminPanel('enablement',sectionActive('enablement')?(typeof adminEnablementSection==='function'?adminEnablementSection(d):adminExpansionFallbackView()):'')}
         ${adminPanel('catalog',catalogContent)}

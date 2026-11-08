@@ -76,7 +76,7 @@ const section=admin.slice(sectionStart,sectionEnd);
 assert.match(section,/adminAcquisitionEvidenceView\(metrics\)/);
 assert.match(section,/adminAcquisitionCampaigns\(metrics\)/);
 assert.doesNotMatch(section,/funnel-stage|VIRARAM LEAD|VIRAM FORMULÁRIO/);
-assert.match(section,/Agregados pendentes/);
+assert.match(section,/Dados pendentes/);
 for(const selector of [
  '.admin-evidence-funnel','.admin-evidence-lanes','.admin-evidence-caveat',
  '.admin-evidence-sponsor','@media(max-width:520px)'])

@@ -32,7 +32,7 @@ vm.runInContext(src.slice(start,end)+'\nthis.load=adminOwnerFinanceLoadOnDemand;
 assert.equal(ctx.url,'https://admin.tamao.com.br/js/admin-owner-finance.js?v=sha-test');
 assert.equal(await ctx.load(),null);
 assert.equal(scripts.length,0,'Overview must not load owner operations');
-section='partners';role='operations';
+section='growth';role='operations';
 assert.equal(await ctx.load(),null);
 assert.equal(scripts.length,0,'Operations role cannot download superadmin owner tools');
 role='superadmin';
