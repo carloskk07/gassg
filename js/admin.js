@@ -465,7 +465,7 @@ async function adminRefresh({silent=false}={}){
     if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoadOnDemand().catch(()=>{}));
     if(['prospects','enablement'].includes(adminRuntime.section))
       queueMicrotask(()=>adminExpansionLoadOnDemand().catch(()=>{}));
-    if(adminRuntime.section==='growth'&&adminCurrentRole()==='superadmin')
+    if(adminRuntime.section==='growth'&&adminGrowthWorkspaceTab==='budget'&&adminCurrentRole()==='superadmin')
       queueMicrotask(()=>adminOwnerFinanceLoadOnDemand().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
@@ -3395,6 +3395,7 @@ function adminOwnerFinanceFallbackView(){
 
 let adminAdvancedNavOpen=false;
 let adminAdsWorkspaceTab='campaigns';
+let adminGrowthWorkspaceTab='acquisition';
 function adminToggleAdvancedNav(){
  adminAdvancedNavOpen=!adminAdvancedNavOpen;
  render();
@@ -3406,6 +3407,14 @@ function adminAdsSetWorkspaceTab(tab){
  render();
  if(tab==='campaigns'&&typeof adminIndependentAdsRefresh==='function')
   adminIndependentAdsRefresh().catch(()=>{});
+}
+function adminGrowthSetWorkspaceTab(tab){
+ if(!adminReady()||adminRuntime.section!=='growth'||!adminRoleCanSection('growth'))return;
+ if(!['acquisition','benefits','budget'].includes(tab))return;
+ if(tab==='budget'&&adminCurrentRole()!=='superadmin')return;
+ adminGrowthWorkspaceTab=tab;
+ render();
+ if(tab==='budget')adminOwnerFinanceLoadOnDemand().catch(()=>{});
 }
 function adminQuickGo(section){
  if(!adminReady()||!adminRoleCanSection(section))return;
@@ -3428,7 +3437,7 @@ function adminSetSection(section){
   if(next==='orders'&&['superadmin','operations','support'].includes(adminCurrentRole()))
     adminHelpReportsPage(0).catch(()=>{});
   if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
-  if(next==='growth'&&adminCurrentRole()==='superadmin')
+  if(next==='growth'&&adminGrowthWorkspaceTab==='budget'&&adminCurrentRole()==='superadmin')
     adminOwnerFinanceLoadOnDemand().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
