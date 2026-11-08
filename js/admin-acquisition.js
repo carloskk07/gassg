@@ -1650,7 +1650,7 @@ function adminGrowthReferralReviewSection(){
       return '<article class="card flat"><strong>'+esc(label)+'</strong>'+
         '<p class="tiny muted">CNPJ final '+esc(x.cnpjSuffix||'')+
         ' • '+esc(state)+' • '+(x.cnpjMatches?'CNPJ vinculado':'CNPJ pendente')+
-        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+fields+btn+'</article>';
+        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+fields+'</article>';
     }).filter(Boolean).join('');
   }
   return '<section class="section admin-growth-referral-review">'+
