@@ -29,7 +29,9 @@ const ctx={
 vm.createContext(ctx);
 vm.runInContext(taskSource+'\nthis.choices=adminTaskNavChoices;this.open=adminSelectTaskFromUi;this.view=adminTaskNavView;',ctx);
 assert.match(ctx.view(),/Ir direto para uma tarefa/);
-assert.match(ctx.view(),/Publicidade — campanhas e pagamentos/);
+assert.match(ctx.view(),/Publicidade — revisar campanhas/);
+assert.match(ctx.view(),/Publicidade — configuração de vendas/);
+assert.match(ctx.view(),/Publicidade — reembolsos/);
 ctx.chosen='partners-verification';ctx.open();
 assert.equal(ctx.adminPartnersWorkspaceTab,'verification');
 assert.equal(ctx.called.at(-1),'partners');

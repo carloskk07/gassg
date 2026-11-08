@@ -3398,6 +3398,7 @@ function adminOwnerFinanceFallbackView(){
 
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
+let adminIndependentAdsPane='campaigns';
 let adminGrowthWorkspaceTab='acquisition';
 let adminPartnersWorkspaceTab='queue';
 let adminOrdersWorkspaceTab='orders';
@@ -3478,7 +3479,9 @@ const ADMIN_TASK_NAV_ITEMS=[
  {id:'partners-queue',section:'partners',tab:'queue',label:'Revendas — fila e situação'},
  {id:'partners-applications',section:'partners',tab:'applications',label:'Revendas — cadastros'},
  {id:'partners-verification',section:'partners',tab:'verification',label:'Revendas — verificar documentos'},
- {id:'ads-campaigns',section:'ads',tab:'campaigns',label:'Publicidade — campanhas e pagamentos'},
+ {id:'ads-campaigns',section:'ads',tab:'campaigns',pane:'campaigns',label:'Publicidade — revisar campanhas'},
+ {id:'ads-finance',section:'ads',tab:'campaigns',pane:'finance',label:'Publicidade — configuração de vendas'},
+ {id:'ads-refunds',section:'ads',tab:'campaigns',pane:'refunds',label:'Publicidade — reembolsos'},
  {id:'ads-diagnostics',section:'ads',tab:'diagnostics',label:'Publicidade — métricas e ferramentas'},
  {id:'growth-acquisition',section:'growth',tab:'acquisition',label:'Crescimento — captação'},
  {id:'growth-benefits',section:'growth',tab:'benefits',label:'Crescimento — cupons e indicações'},
@@ -3503,7 +3506,10 @@ function adminSelectTaskFromUi(){
  if(!task)return;
  if(task.section==='orders')adminOrdersWorkspaceTab=task.tab||'orders';
  if(task.section==='partners')adminPartnersWorkspaceTab=task.tab;
- if(task.section==='ads')adminAdsWorkspaceTab=task.tab;
+ if(task.section==='ads'){
+  adminAdsWorkspaceTab=task.tab;
+  if(task.pane&&['campaigns','finance','refunds'].includes(task.pane))adminIndependentAdsPane=task.pane;
+ }
  if(task.section==='growth')adminGrowthWorkspaceTab=task.tab;
  if(task.section==='finance')adminRuntime.financeWorkspace=task.tab;
  adminSetSection(task.section);
