@@ -7983,6 +7983,170 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_INDEPENDENT_READ_UNVERIFIED","Estado da publicidade não verificado.",503);
       return json(data,200,origin);
     }
+    // V1.888: explicit superadmin, one-shot provider refund. An ambiguous POST
+    // is NEVER repeated. Later calls are read-only provider reconciliation.
+    if(action==="ads-independent-refund-provider"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Reembolso pelo provedor restrito ao administrador principal.",403);
+      const operation=String(body.operation||"");
+      const caseId=String(body.caseId||"");
+      const version=body.expectedVersion;
+      const reason=String(body.reason||"").trim();
+      const confirmation=String(body.confirmation||"");
+      if(!["execute","verify"].includes(operation)||!UUID_RE.test(caseId)||
+        !Number.isSafeInteger(version)||version<1||
+        reason.length<12||reason.length>500||
+        (operation==="execute"&&confirmation!=="DEVOLVER"))
+        throw new DomainError("ADS_REFUND_CONFIRMATION_REQUIRED",
+          "Confirme DEVOLVER, o caso, a versão e a justificativa.",400);
+      // Refunds remain available even when new paid campaigns are disabled.
+      const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
+      const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
+      if(!/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId))
+        throw new DomainError("ADS_REFUND_PSP_NOT_CONFIGURED",
+          "Conta própria do Mercado Pago indisponível para reembolsar.",503);
+      let identity:any;
+      try{
+        const seller=await fetch("https://api.mercadolibre.com/users/me",{
+          headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
+          signal:AbortSignal.timeout(7000)
+        });
+        if(!seller.ok)throw Error("SELLER_IDENTITY_HTTP");
+        const text=await seller.text();
+        if(text.length>20000)throw Error("SELLER_IDENTITY_OVERSIZE");
+        identity=JSON.parse(text);
+      }catch{
+        throw new DomainError("ADS_REFUND_SELLER_UNVERIFIED",
+          "Não foi possível confirmar a conta recebedora. Nenhum reembolso foi enviado.",503);
+      }
+      if(String(identity?.id??"")!==sellerId)
+        throw new DomainError("ADS_REFUND_SELLER_MISMATCH",
+          "A conta recebedora não corresponde ao vendedor autorizado.",403);
+      const {data:reserved,error:reserveError}=await admin.rpc(
+        "admin_ads_independent_refund_execution_v1_888",{
+          p_actor:user.id,p_case:caseId,p_expected_version:version,
+          p_operation:operation,p_reason:reason
+        });
+      if(reserveError)throw reserveError;
+      if(reserved?.source!=="admin_ads_independent_refund_execution_v1_888"||
+        reserved.caseId!==caseId||
+        !Number.isSafeInteger(reserved.amountCents)||
+        ![1990,4990,9990,19990].includes(reserved.amountCents)||
+        !/^[0-9]{5,30}$/.test(String(reserved.paymentId||""))||
+        !/^tamao-ads-ind-[0-9a-f]{32}$/.test(String(reserved.externalReference||""))||
+        String(reserved.collectorId||"")!==sellerId)
+        throw new DomainError("ADS_REFUND_CASE_PROOF_MISMATCH",
+          "Pagamento original não corresponde à conta recebedora.",403);
+      const paymentId=String(reserved.paymentId);
+      const reference=String(reserved.externalReference);
+      const fetchPayment=async()=>{
+        const response=await mercadoPagoFetch("/v1/payments/"+paymentId,
+          {accessToken:token,timeoutMs:8000});
+        if(!response.ok)throw new DomainError("ADS_REFUND_PROVIDER_LOOKUP_FAILED",
+          "Não foi possível confirmar o pagamento diretamente no Mercado Pago.",503);
+        const p:any=await readMercadoPagoJson(response);
+        if(String(p?.id??"")!==paymentId||
+          String(p?.external_reference??"")!==reference||
+          String(p?.collector_id??p?.collector?.id??"")!==sellerId||
+          p?.live_mode!==true||String(p?.currency_id??"")!=="BRL"||
+          moneyToCents(p?.transaction_amount)!==reserved.amountCents)
+          throw new DomainError("ADS_REFUND_PROVIDER_MISMATCH",
+            "Identificador, recebedor, moeda, valor ou ambiente do pagamento divergem.",403);
+        return p;
+      };
+      let payment=await fetchPayment();
+      let providerStatus=String(payment?.status||"");
+      let providerDetail=String(payment?.status_detail||"");
+      let sentToProvider=false;
+      // Even with an idempotency key, forbid a second POST if the first
+      // provider response was lost. Operators may only VERIFY afterwards.
+      if(operation==="execute"&&reserved.created===true&&providerStatus==="approved"&&
+         providerDetail==="accredited"&&
+         (!Array.isArray(payment?.refunds)||payment.refunds.length===0)){
+        const approvedAt=Date.parse(String(payment?.date_approved||""));
+        if(!Number.isFinite(approvedAt)||approvedAt>Date.now()||
+           Date.now()-approvedAt>179*24*60*60*1000)
+          throw new DomainError("ADS_REFUND_OUTSIDE_AUTOMATION_WINDOW",
+            "O pagamento precisa de revisão manual do prazo para devolução.",409);
+        const idempotencyKey=String(reserved.idempotencyKey||"");
+        if(!/^tamao-ads-ind-refund-[0-9a-f]{32}$/.test(idempotencyKey))
+          throw new DomainError("ADS_REFUND_IDEMPOTENCY_MISSING",
+            "Reserva do reembolso não possui chave segura.",503);
+        try{
+          const response=await mercadoPagoFetch("/v1/payments/"+paymentId+"/refunds",{
+            accessToken:token,method:"POST",idempotencyKey,body:{},timeoutMs:8000
+          });
+          sentToProvider=true;
+          // HTTP success is NOT money proof; query original payment again.
+          // HTTP failure/timeout is ambiguous and MUST NOT trigger another POST.
+          if(!response.ok){
+            return json({source:"admin_ads_independent_refund_provider_v1_888",
+              reviewRequired:true,attemptReserved:true,
+              providerRefundVerified:false,postRepeated:false,
+              message:"Provedor não confirmou a devolução. Use Verificar, sem repetir o envio."},202,origin);
+          }
+        }catch{
+          return json({source:"admin_ads_independent_refund_provider_v1_888",
+            reviewRequired:true,attemptReserved:true,
+            providerRefundVerified:false,postRepeated:false,
+            message:"Resultado da devolução ambíguo. Use Verificar no provedor, sem reenviar."},202,origin);
+        }
+        payment=await fetchPayment();
+        providerStatus=String(payment?.status||"");
+        providerDetail=String(payment?.status_detail||"");
+      }
+      if(providerStatus!=="refunded"){
+        return json({source:"admin_ads_independent_refund_provider_v1_888",
+          reviewRequired:true,attemptReserved:reserved.attemptExists===true,
+          providerRefundVerified:false,postRepeated:false,
+          providerStatus:providerStatus.slice(0,48),
+          message:operation==="verify"?
+            "Reembolso integral ainda não confirmado pelo provedor.":
+            "Reembolso não comprovado; somente a verificação poderá concluir o protocolo."},200,origin);
+      }
+      if(providerDetail.length>120)throw new DomainError("ADS_REFUND_DETAIL_INVALID",
+        "O provedor retornou detalhe de pagamento inválido.",503);
+      // A fresh GET in the official provider, not a browser claim, verifies refund.
+      const eventKey=await sha256Hex("ads888-refund|"+caseId+"|"+paymentId+"|"+
+        providerStatus+"|"+providerDetail);
+      const {data:fact,error:factError}=await admin.rpc(
+        "ads_independent_payment_fact_v1_886",{
+          p_event_key:eventKey,p_external_reference:reference,p_payment_id:paymentId,
+          p_collector_id:sellerId,p_amount_cents:reserved.amountCents,
+          p_currency:"BRL",p_provider_status:providerStatus,
+          p_status_detail:providerDetail,p_live_mode:true
+        });
+      if(factError)throw factError;
+      if(fact?.source!=="ads_independent_payment_fact_v1_886"||
+         fact?.status!=="payment_reversed"||fact?.autoPublished!==false)
+        throw new DomainError("ADS_REFUND_LEDGER_UNCONFIRMED",
+          "Provedor confirmou a devolução, mas a conciliação interna não foi confirmada.",503);
+      const {data:review,error:reviewError}=await admin.rpc(
+        "admin_ads_independent_refund_action_v1_887",{
+          p_actor:user.id,p_case:caseId,p_expected_version:version,
+          p_operation:"record_provider_reversal",p_reason:reason
+        });
+      if(reviewError)throw reviewError;
+      if(review?.source!=="admin_ads_independent_refund_action_v1_887"||
+         review?.status!=="provider_reversed"||review?.moneyMoved!==false||
+         review?.caseId!==caseId)
+        throw new DomainError("ADS_REFUND_CASE_UNCONFIRMED",
+          "Estorno verificado, mas conclusão do caso não confirmada.",503);
+      const {data:done,error:doneError}=await admin.rpc(
+        "admin_ads_independent_refund_execution_complete_v1_888",{
+          p_actor:user.id,p_case:caseId,p_expected_version:review.version
+        });
+      if(doneError)throw doneError;
+      if(done?.source!=="admin_ads_independent_refund_execution_complete_v1_888"||
+         done?.moneyMoved!==false)
+        throw new DomainError("ADS_REFUND_RECORD_INVALID",
+          "Registro interno da conclusão ainda não foi confirmado.",503);
+      return json({source:"admin_ads_independent_refund_provider_v1_888",
+        caseId,providerRefundVerified:true,providerStatus:"refunded",
+        reviewRequired:false,postRepeated:false,sentToProvider,
+        bankCreditVerified:false,caseStatus:"provider_reversed"},200,origin);
+    }
     if(action==="ads-independent-refunds-read"){
       if(!["superadmin","operations","finance","compliance"].includes(String(adminAccess.admin_role||"")))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Solicitações de reembolso não autorizadas.",403);
