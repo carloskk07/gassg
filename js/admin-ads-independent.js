@@ -2,6 +2,7 @@
 // This module is only loaded in the protected Admin acquisition workspace.
 let adminIndependentAdsState={loadedFor:null,rows:[],deliveryEnabled:false,
  fixedFeeSalesEnabled:false,fixedFeeSalesVersion:0,providerApprovedGrossCents:0,
+ homologationCampaignId:null,homologationExpiresAt:null,
  refundCases:null};
 let adminIndependentAdsBusy=false;
 let adminIndependentAdsProviderPreflight=null;
@@ -28,6 +29,8 @@ async function adminIndependentAdsRefresh(){
     refundCases,
     fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true,
     fixedFeeSalesVersion:Number(r.fixedFeeSalesVersion)||0,
+    homologationCampaignId:String(r.homologationCampaignId||'')||null,
+    homologationExpiresAt:String(r.homologationExpiresAt||'')||null,
     providerApprovedGrossCents:Number(r.providerApprovedGrossCents)||0};
   render();
  }catch(e){toast(String(e?.message||'Erro ao consultar Ads independente.'))}
@@ -79,6 +82,36 @@ async function adminIndependentAdsCheckProvider(){
   adminIndependentAdsBusy=false;
   render();
  }
+}
+async function adminIndependentAdsHomologationAction(enabled){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
+ const state=adminIndependentAdsState;
+ if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
+    state.fixedFeeSalesVersion<1)return toast('Atualize as campanhas antes de decidir.');
+ const campaignId=enabled?String(document.getElementById('ads-homologation-campaign')?.value||''):'';
+ const reason=String(document.getElementById('ads-homologation-reason')?.value||'').trim();
+ const confirmation=String(document.getElementById('ads-homologation-confirm')?.value||'').trim();
+ if(reason.length<12||reason.length>500)return toast('Informe justificativa de 12 a 500 caracteres.');
+ if(confirmation!==(enabled?'HOMOLOGAR':'CANCELAR'))
+  return toast('Digite '+(enabled?'HOMOLOGAR':'CANCELAR')+' para confirmar.');
+ if(enabled&&!state.rows.some(c=>c.id===campaignId&&c.status==='approved'&&
+     c.budgetCents===1990&&c.durationDays===7))
+  return toast('Escolha uma campanha aprovada de R$ 19,90 por 7 dias.');
+ adminIndependentAdsBusy=true;
+ try{
+  const r=await adminPerform('ads-independent-homologation-action',{
+   enabled,campaignId,expectedVersion:state.fixedFeeSalesVersion,reason,confirmation
+  });
+  if(r?.source!=='admin_ads_independent_homologation_v1_892'||
+     r?.salesEnabled!==false||r?.billingEnabled!==false||
+     r?.newChargesCreated!==false||r?.homologationAuthorized!==enabled)
+   throw Error('A autorização não foi confirmada no servidor.');
+  toast(enabled?'Uma campanha foi autorizada para teste de pagamento REAL.':
+   'Autorização revogada. Links já emitidos exigem conciliação.');
+ }catch(e){toast(String(e?.message||'Não foi possível alterar a homologação.'))}
+ finally{adminIndependentAdsBusy=false}
+ await adminIndependentAdsRefresh();
 }
 async function adminIndependentAdsSalesAction(){
  const actor=String(adminRuntime?.session?.user?.id||'');
@@ -165,6 +198,11 @@ function adminAdsIndependentSection(){
  const sales=v?.fixedFeeSalesEnabled===true;
  const provider=adminIndependentAdsProviderPreflight?.actor===actor?
    adminIndependentAdsProviderPreflight.data:null;
+ const testExpires=Date.parse(String(v?.homologationExpiresAt||''));
+ const testActive=Boolean(v?.homologationCampaignId&&Number.isFinite(testExpires)&&
+   testExpires>Date.now());
+ const eligibleTestCampaigns=v?.rows?.filter(c=>c.status==='approved'&&
+   c.budgetCents===1990&&c.durationDays===7&&!c.fixedFeeStatus)||[];
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
@@ -269,6 +307,31 @@ function adminAdsIndependentSection(){
       '<p>Configuração apta para homologação: '+(provider.readyForFinancialHomologation?'Sim':'Não')+'</p>'
       :'<p class="muted">Utilize a conferência para localizar o que impede o recebimento. Nenhuma credencial é exibida.</p>')+
     '</div>':'')+
+  (canAct&&v&&!sales?'<div class="card flat"><h4>Homologação financeira controlada</h4>'+
+    '<p>Autorize apenas uma campanha aprovada de R$ 19,90 por 7 dias para um pagamento <strong>real</strong>. '+
+    'O checkout exige aceite do anunciante, valida a conta Mercado Pago e mantém as vendas públicas desligadas. '+
+    'Não é simulação e não cria pagamentos automaticamente.</p>'+
+    (testActive?
+      '<p role="status">Campanha autorizada: '+esc(String(v.homologationCampaignId))+
+      ' · Até '+esc(String(v.homologationExpiresAt))+'</p>':
+      '<p role="status">Não há autorização de teste financeiro ativa.</p>')+
+    (!testActive&&eligibleTestCampaigns.length?
+      '<label for="ads-homologation-campaign">Campanha aprovada (R$ 19,90)</label>'+
+      '<select id="ads-homologation-campaign" class="input">'+eligibleTestCampaigns.map(c=>
+        '<option value="'+esc(String(c.id))+'">'+esc(String(c.title))+'</option>').join('')+'</select>':
+      !testActive?'<p>Envie e aprove uma campanha real de R$ 19,90 antes de autorizar o checkout de homologação.</p>':'')+
+    '<label for="ads-homologation-reason">Justificativa da autorização ou revogação</label>'+
+    '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea>'+
+    '<label for="ads-homologation-confirm">Confirmação ('+
+      (testActive?'CANCELAR':'HOMOLOGAR')+')</label>'+
+    '<input id="ads-homologation-confirm" class="input" autocomplete="off" maxlength="9">'+
+    '<button class="secondary small" type="button" '+
+      'onclick="adminIndependentAdsHomologationAction('+(testActive?'false':'true')+')" '+
+      ((adminIndependentAdsBusy||(!testActive&&!eligibleTestCampaigns.length))?'disabled':'')+'>'+
+      (testActive?'Revogar autorização para novo checkout':'Autorizar uma compra real de R$ 19,90')+
+    '</button>'+
+    '<p class="tiny muted">Revogação não desfaz pagamentos já enviados ao Mercado Pago. '+
+    'Confira webhook, pagamento e estorno antes da abertura comercial.</p></div>':'')+
   (canAct&&v?'<div class="card flat"><h4>Contratação por período fixo</h4>'+
     '<p>Novos pagamentos só podem ser ativados com credenciais comerciais, vendedor verificado e webhook assinado. A taxa de CPM por visualização continua inativa.</p>'+
     '<p>Total aprovado pelo provedor (bruto, não é conciliação bancária): '+

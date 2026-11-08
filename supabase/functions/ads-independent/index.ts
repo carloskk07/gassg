@@ -137,7 +137,18 @@ Deno.serve(async(req:Request)=>{
         if(error)throw error;
         if(data?.source!=="ads_independent_mine_v1_884"||data?.noCharge!==true)
           throw Error("ADS_PRIVATE_STATUS_UNVERIFIED");
-        return respond(data,200,origin);
+        const {data:gate,error:gateError}=await admin
+          .from("ads_independent_sales_controls_v1_886")
+          .select("homologation_campaign_id,homologation_expires_at")
+          .eq("singleton",true).maybeSingle();
+        if(gateError||!gate)throw Error("ADS_HOMOLOGATION_STATUS_UNAVAILABLE");
+        const allowedId=String(gate.homologation_campaign_id||"");
+        const authorized=Array.isArray(data.rows)&&
+          data.rows.some((r:any)=>r.id===allowedId)&&
+          Date.parse(String(gate.homologation_expires_at||""))>Date.now();
+        return respond({...data,
+          homologationCampaignId:authorized?allowedId:null,
+          homologationExpiresAt:authorized?gate.homologation_expires_at:null},200,origin);
       }
       const requestId=String(body.requestId||"");
       const business=clean(body.advertiser,120),title=clean(body.title,80);
