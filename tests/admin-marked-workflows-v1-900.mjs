@@ -145,5 +145,5 @@ for(const k of ['name="admin-followup-reason-','admin-followup-note-',
  'data-note="Acompanhamento','expectedRevision:item?.revision||0',
  'adminMarkedChoice(\'admin-followup-reason-'])
  assert.ok(admin.includes(k),'Follow-up check missing '+k);
-assert.match(admin,/chosen&&chosen\.value!==status/);
+assert.match(admin,/!item&&!chosen/);
 console.log('V1.900 PASS: marked Discovery actions, authorized referral reviews, evidence gates, Ads reasons and operational follow-up presets.');
