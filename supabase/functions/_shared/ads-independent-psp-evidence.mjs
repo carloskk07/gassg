@@ -1,6 +1,7 @@
 // V1.893 — distinguish a signed historical Mercado Pago Order webhook from
 // the separate payment-webhook and Checkout Pro claims of independent Ads.
 // This function is pure, read-only and never authorizes collection.
+/** @param {{historicalOrderRows?:Array<any>,approvedEventCount?:number,reversalEventCount?:number,nowMs?:number}} [options] */
 export function summarizeIndependentAdsPspEvidence({
   historicalOrderRows=[],approvedEventCount=0,reversalEventCount=0,nowMs=Date.now()
 }={}){
