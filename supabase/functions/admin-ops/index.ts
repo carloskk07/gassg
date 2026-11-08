@@ -137,7 +137,7 @@ function couponSellerTaxDocumentValid(value:unknown){
  sum=v.slice(0,13).reduce((n,x,i)=>n+x*weights2[i],0);
  return v[12]===first&&v[13]===(sum%11<2?0:11-sum%11);
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-independent-read","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -7985,6 +7985,55 @@ Deno.serve(async(req:Request)=>{
     }
     // V1.888: explicit superadmin, one-shot provider refund. An ambiguous POST
     // is NEVER repeated. Later calls are read-only provider reconciliation.
+    if(action==="ads-independent-psp-preflight"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o administrador principal pode conferir a conta recebedora.",403);
+      const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
+      const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
+      const webhookSecret=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
+      const tokenConfigured=/^APP_USR-\S{20,}$/.test(token);
+      const sellerConfigured=/^[0-9]{4,20}$/.test(sellerId);
+      const signedWebhookConfigured=webhookSecret.length>=16;
+      const checkoutConfigured=Deno.env.get("ADS_MP_CHECKOUT_ENABLED")==="true";
+      const webhookConfigured=Deno.env.get("ADS_MP_WEBHOOK_ENABLED")==="true";
+      let sellerVerified=false;
+      if(tokenConfigured&&sellerConfigured){
+        try{
+          const response=await fetch("https://api.mercadolibre.com/users/me",{
+            headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
+            signal:AbortSignal.timeout(7000)
+          });
+          if(response.ok){
+            const raw=await response.text();
+            if(raw.length<=20000){
+              const details=JSON.parse(raw);
+              sellerVerified=String(details?.id??"")===sellerId;
+            }
+          }
+        }catch{/* A failed check is not authorization. */}
+      }
+      const {data:controls,error:controlsError}=await admin
+        .from("ads_independent_sales_controls_v1_886")
+        .select("sales_enabled,version").eq("singleton",true).maybeSingle();
+      if(controlsError||!controls)
+        throw new DomainError("ADS_PSP_CONTROLS_UNVERIFIED",
+          "Não foi possível conferir as permissões de venda no banco.",503);
+      return json({
+        source:"ads_independent_psp_preflight_v1_890",
+        readOnly:true,tokenConfigured,sellerConfigured,
+        sellerVerified,checkoutConfigured,webhookConfigured,
+        signedWebhookConfigured,
+        readyForFinancialHomologation:tokenConfigured&&sellerVerified&&
+          checkoutConfigured&&webhookConfigured&&signedWebhookConfigured,
+        liveWebhookDeliveryVerified:false,realPaymentHomologated:false,
+        realRefundHomologated:false,
+        salesEnabled:controls.sales_enabled===true,
+        salesVersion:controls.version,
+        verifiedAt:new Date().toISOString(),
+        paymentsCreated:0
+      },200,origin);
+    }
     if(action==="ads-independent-refund-provider"){
       if(String(adminAccess.admin_role||"")!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED",

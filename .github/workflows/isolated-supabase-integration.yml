@@ -166,6 +166,8 @@ jobs:
         run: node tests/isolated-ads-independent-refund-review-v1-887.mjs
       - name: V1.888 verified one-shot provider refund with rollback on disposable Postgres
         run: node tests/isolated-ads-independent-provider-refund-v1-888.mjs
+      - name: V1.890 independent Ads orphan checkout recovery and 72h TTL on disposable PostgreSQL
+        run: node tests/isolated-ads-independent-checkout-recovery-v1-890.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
       - name: Upload temporary visual evidence from disposable order tests

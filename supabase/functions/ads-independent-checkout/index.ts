@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
 import {mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents} from "../_shared/mercadopago.js";
+import {verifiedIndependentAdsPreference} from "../_shared/ads-independent-preference.mjs";
 
 // V1.886: fixed-duration sponsored slot purchase. No browser view is billable.
 // Reuses ONLY platform-owned Ads credentials, NEVER merchant/payment OAuth.
@@ -116,6 +117,63 @@ async function reconcileProviderPayment(admin:any,ownerId:string,campaignId:stri
    paymentApproved:data.paymentApproved===true,providerFound:true,
    netSettlementVerified:false,autoPublished:false},200,origin);
 }
+
+async function providerPreferenceProof(token:string,preferenceId:string,
+ expected:{reference:string;campaignId:string;sellerId:string;amountCents:number;expiresAt:string}){
+ if(!/^[a-zA-Z0-9-]{5,120}$/.test(preferenceId))
+  throw new DomainError("ADS_PREFERENCE_ID_INVALID","Identificador do checkout inválido.",409);
+ const response=await mercadoPagoFetch("/checkout/preferences/"+encodeURIComponent(preferenceId),
+  {accessToken:token,timeoutMs:8000});
+ if(!response.ok)throw new DomainError("ADS_PREFERENCE_UNAVAILABLE",
+  "O Mercado Pago ainda não confirmou os detalhes da preferência.",503);
+ const details:any=await readMercadoPagoJson(response);
+ const verified=verifiedIndependentAdsPreference(details,expected);
+ if(!verified||verified.id!==preferenceId)
+  throw new DomainError("ADS_PREFERENCE_EVIDENCE_MISMATCH",
+   "O checkout não corresponde ao valor, prazo e conta recebedora autorizados.",409);
+ return verified;
+}
+async function recoverReservedPreference(admin:any,token:string,sellerId:string,
+ campaignId:string,reference:string,amountCents:number,expiresAt:string,origin:string|null){
+ const deadline=Date.parse(String(expiresAt||""));
+ if(!Number.isFinite(deadline)||deadline<=Date.now()+60000)
+  return json({error:"ADS_CHECKOUT_EXPIRED",message:
+   "Esta tentativa expirou. Nenhuma nova cobrança será gerada sem revisão do financeiro."},409,origin);
+ // SEARCH + GET from the PSP, no second POST ever for the existing checkout.
+ // If a first POST was still in flight, a zero-result SEARCH is not enough
+ // evidence that it is safe to recreate a preference.
+ const response=await mercadoPagoFetch("/checkout/preferences/search?external_reference="+
+  encodeURIComponent(reference)+"&limit=10",{accessToken:token,timeoutMs:8000});
+ if(!response.ok)throw new DomainError("ADS_PREFERENCE_SEARCH_UNAVAILABLE",
+  "Não foi possível conferir a preferência no Mercado Pago.",503);
+ const found:any=await readMercadoPagoJson(response);
+ const all=Array.isArray(found?.elements)?found.elements:[];
+ const total=Number(found?.total);
+ if(!Number.isSafeInteger(total)||total<0||total>1||all.length>1)
+  return json({error:"ADS_PREFERENCE_REVIEW_REQUIRED",message:
+   "Há referências de preferência ambíguas. O financeiro precisa conferir antes de liberar."},409,origin);
+ if(total!==1||all.length!==1)
+  return json({error:"ADS_PREFERENCE_PENDING",message:
+   "O Mercado Pago ainda não retornou a preferência. Confira novamente; não será criada uma segunda cobrança."},409,origin);
+ // SEARCH often omits external_reference in the elements response.
+ // GET detail below is authoritative and MUST verify the exact reference.
+ const proof=await providerPreferenceProof(token,String(all[0].id||""),{
+  reference,campaignId,sellerId,amountCents,expiresAt
+ });
+ const {data:attached,error}=await admin.rpc("ads_independent_checkout_attach_v1_886",{
+  p_campaign:campaignId,p_external_reference:reference,
+  p_preference:proof.id,p_checkout_url:proof.checkoutUrl
+ });
+ if(error)throw error;
+ if(attached?.source!=="ads_independent_checkout_attach_v1_886"||
+  attached?.status!=="checkout_ready"||attached?.checkoutUrl!==proof.checkoutUrl)
+  throw new DomainError("ADS_PREFERENCE_ATTACH_UNVERIFIED",
+   "A preferência foi encontrada, mas ainda não foi confirmada na campanha.",503);
+ return json({source:"ads_independent_checkout_v1_886",
+  checkoutUrl:proof.checkoutUrl,status:"checkout_ready",
+  amountCents,reused:true,recovered:true,viewChargesCents:0},200,origin);
+}
+
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
  if(!origin||!ORIGINS.has(origin))return json({error:"ORIGIN_DENIED"},403,origin);
@@ -127,7 +185,7 @@ Deno.serve(async(req:Request)=>{
  try{
   const body:any=await readJsonBody(req,{maxBytes:4000});
   if(!["purchase","reconcile"].includes(body.action))return json({error:"UNKNOWN_ACTION"},400,origin);
-  const campaignId=String(body.campaignId||""),requestId=String(body.requestId||"");
+  const campaignId=String(body.campaignId||"").toLowerCase(),requestId=String(body.requestId||"");
   if(!UUID.test(campaignId)||(body.action==="purchase"&&!UUID.test(requestId)))
    return json({error:"INVALID_PURCHASE_REQUEST"},400,origin);
   if(body.action==="purchase"&&body.acceptFixedFee!==true)
@@ -152,20 +210,32 @@ Deno.serve(async(req:Request)=>{
     !Number.isInteger(reserved.amountCents)||
     ![1990,4990,9990,19990].includes(reserved.amountCents))
    throw Error("ADS_PAYMENT_RESERVATION_INVALID");
-  if(reserved.created!==true){
-   const url=safeMercadoPagoUrl(reserved.checkoutUrl);
-   if(reserved.status==="checkout_ready"&&url)return json({
-     source:"ads_independent_checkout_v1_886",checkoutUrl:url,status:"checkout_ready",
-     amountCents:reserved.amountCents,reused:true,viewChargesCents:0
-   },200,origin);
-   return json({error:"ADS_PAYMENT_REVIEW_PENDING",
-     message:"Esta campanha já possui uma tentativa de pagamento. Consulte Minhas campanhas; não será gerada outra cobrança."},409,origin);
-  }
   const reference=String(reserved.externalReference||"");
-  if(!/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference))
+  const expiresAt=String(reserved.expiresAt||"");
+  const deadline=Date.parse(expiresAt);
+  if(!/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference)||
+     !Number.isFinite(deadline))
    throw Error("ADS_EXTERNAL_REFERENCE_INVALID");
+  if(reserved.created!==true){
+   if(reserved.status==="checkout_ready"){
+    const url=safeMercadoPagoUrl(reserved.checkoutUrl);
+    if(url&&deadline>Date.now()+60000)return json({
+      source:"ads_independent_checkout_v1_886",checkoutUrl:url,status:"checkout_ready",
+      amountCents:reserved.amountCents,reused:true,viewChargesCents:0
+    },200,origin);
+    return json({error:"ADS_CHECKOUT_EXPIRED",message:
+      "O link expirou. Confira Minhas campanhas antes de uma nova contratação."},409,origin);
+   }
+   if(reserved.status==="reserved")return await recoverReservedPreference(
+     admin,token,sellerId,campaignId,reference,reserved.amountCents,expiresAt,origin
+   );
+   return json({error:"ADS_PAYMENT_REVIEW_PENDING",message:
+     "Já existe uma tentativa para esta campanha. Consulte a situação do pagamento; nenhuma nova cobrança foi criada."},409,origin);
+  }
   const start=new Date();
-  const expires=new Date(start.getTime()+24*60*60*1000);
+  const expires=new Date(deadline);
+  if(deadline<=start.getTime()+60000||deadline>start.getTime()+73*60*60*1000)
+   throw Error("ADS_CHECKOUT_DEADLINE_INVALID");
   const result=await mercadoPagoFetch("/checkout/preferences",{
    accessToken:token,method:"POST",
    idempotencyKey:"adsind-"+campaignId.replaceAll("-",""),
@@ -184,17 +254,20 @@ Deno.serve(async(req:Request)=>{
   const pref:any=await readMercadoPagoJson(result);
   if(!result.ok)throw Error("ADS_PROVIDER_CHECKOUT_FAILED");
   const preference=String(pref?.id||"");
-  const url=safeMercadoPagoUrl(pref?.init_point);
-  if(preference.length<5||preference.length>120||!url)throw Error("ADS_PROVIDER_RESPONSE_INVALID");
+  const proof=await providerPreferenceProof(token,preference,{
+    reference,campaignId,sellerId,amountCents:reserved.amountCents,expiresAt
+  });
   const {data:attached,error:attachError}=await admin.rpc("ads_independent_checkout_attach_v1_886",{
-   p_campaign:campaignId,p_external_reference:reference,p_preference:preference,p_checkout_url:url
+   p_campaign:campaignId,p_external_reference:reference,
+   p_preference:proof.id,p_checkout_url:proof.checkoutUrl
   });
   if(attachError)throw attachError;
   if(attached?.source!=="ads_independent_checkout_attach_v1_886"||
-    attached?.status!=="checkout_ready"||attached?.checkoutUrl!==url)
+    attached?.status!=="checkout_ready"||attached?.checkoutUrl!==proof.checkoutUrl)
    throw Error("ADS_CHECKOUT_READBACK_INVALID");
-  return json({source:"ads_independent_checkout_v1_886",checkoutUrl:url,status:"checkout_ready",
-   amountCents:reserved.amountCents,reused:false,viewChargesCents:0},200,origin);
+  return json({source:"ads_independent_checkout_v1_886",
+   checkoutUrl:proof.checkoutUrl,status:"checkout_ready",
+   amountCents:reserved.amountCents,reused:false,recovered:false,viewChargesCents:0},200,origin);
  }catch(error){
   if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
   // Never log token, personal identity, reference, provider payload, or response.
