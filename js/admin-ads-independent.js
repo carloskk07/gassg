@@ -99,6 +99,38 @@ async function adminIndependentRefundAction(operation,caseId,version){
  finally{adminIndependentAdsBusy=false}
  await adminIndependentAdsRefresh();
 }
+async function adminIndependentRefundProvider(operation,caseId,version){
+ if(adminIndependentAdsBusy||adminCurrentRole()!=='superadmin')return;
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ const row=adminIndependentAdsState.loadedFor===actor?
+   adminIndependentAdsState.refundCases?.find(r=>r.caseId===caseId):null;
+ if(!row||row.status!=='reviewing'||Number(row.version)!==version||
+   row.providerReversalRecorded===true)
+  return toast('Atualize o protocolo antes de usar o provedor.');
+ if(!['execute','verify'].includes(operation))return;
+ if(operation==='execute'&&row.refundProviderAttempt)
+  return toast('Já existe solicitação ao provedor. Utilize apenas Verificar.');
+ const reason=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
+ const confirmation=String(document.getElementById('ads-refund-provider-confirm-'+caseId)?.value||'').trim();
+ if(reason.length<12||reason.length>500)return toast('Informe justificativa com 12 a 500 caracteres.');
+ if(operation==='execute'&&confirmation!=='DEVOLVER')
+  return toast('Digite DEVOLVER para autorizar o reembolso integral.');
+ adminIndependentAdsBusy=true;
+ try{
+  const r=await adminPerform('ads-independent-refund-provider',{
+    operation,caseId,expectedVersion:version,reason,confirmation:operation==='execute'?confirmation:''
+  });
+  if(r?.source!=='admin_ads_independent_refund_provider_v1_888')
+   throw Error('O provedor não confirmou a operação.');
+  if(r.providerRefundVerified===true&&r.caseStatus==='provider_reversed')
+   toast('Mercado Pago confirmou a reversão. Protocolo registrado; crédito bancário não é presumido.');
+  else if(r.reviewRequired===true)
+   toast(String(r.message||'Reembolso em análise. Verifique no provedor sem repetir o envio.'));
+  else throw Error('O retorno não confirma a devolução.');
+ }catch(e){toast(String(e?.message||'Não foi possível conferir a devolução.'))}
+ finally{adminIndependentAdsBusy=false}
+ await adminIndependentAdsRefresh();
+}
 function adminAdsIndependentSection(){
  const role=String(adminCurrentRole());
  if(!['superadmin','operations','compliance','finance'].includes(role))return '';
@@ -137,6 +169,9 @@ function adminAdsIndependentSection(){
    const review=canAct&&c.status==='submitted';
    const close=canAct&&c.providerReversalRecorded===true&&
      ['submitted','reviewing'].includes(String(c.status||''));
+   const canExecute=canAct&&c.status==='reviewing'&&
+     !c.refundProviderAttempt&&c.providerReversalRecorded!==true;
+   const canVerify=canAct&&c.status==='reviewing'&&c.providerReversalRecorded!==true;
    const button=(action,label)=>'<button type="button" class="secondary small" '+
      'onclick="adminIndependentRefundAction(\''+action+'\',\''+id+'\','+
      Number(c.version||0)+')">'+label+'</button>';
@@ -145,11 +180,19 @@ function adminAdsIndependentSection(){
      '<p>Solicitação: '+esc(String(c.status||''))+
      ' · Valor original: '+adminMoney(Number(c.amountCents||0))+'</p>'+
      '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
-     '<p>Provedor confirma reversão: '+(c.providerReversalRecorded===true?'Sim':'Não')+'</p>'+
-     (canAct&&(review||close)?'<label>Justificativa da análise<textarea class="input" '+
+()=>buttonNeedle+`
+     '<p>Envio pelo Admin: '+esc(String(c.refundProviderAttempt||'não realizado'))+'</p>'+`
+     (canAct&&(review||close||canVerify)?'<label>Justificativa da análise<textarea class="input" '+
        'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
        (review?button('review','Iniciar revisão'):'')+
-       (close?button('record_provider_reversal','Confirmar estorno verificado'):''):'')+
+       (close?button('record_provider_reversal','Confirmar estorno verificado'):'')+
+       (canVerify?'<p>Devolução integral somente para o pagamento e a conta recebedora confirmados pelo Mercado Pago. Nunca repita um envio ambíguo.</p>':'')+
+       (canExecute?'<label>Para autorizar a devolução integral, digite DEVOLVER'+
+         '<input class="input" id="ads-refund-provider-confirm-'+id+'" maxlength="8" autocomplete="off"></label>'+
+         '<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'execute\',\''+id+'\','+
+         Number(c.version||0)+')">Solicitar reembolso integral ao Mercado Pago</button>':'')+
+       (canVerify?'<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'verify\',\''+
+         id+'\','+Number(c.version||0)+')">Verificar devolução no provedor</button>':''):'')+
      '</article>';
  }).join('')||'';
  const rows=v?.rows?.map(c=>
