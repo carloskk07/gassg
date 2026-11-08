@@ -898,8 +898,17 @@ function adminClubeTermsSection(){
        ['funding','Fonte de custeio',x.fundingDocumentStatus]].map(v=>
       '<div class="input-wrap"><label for="clube-terms-'+v[0]+'-'+esc(key)+'">'+esc(v[1])+'</label>'+
       '<select class="input" id="clube-terms-'+v[0]+'-'+esc(key)+'">'+options(docs,v[2])+'</select></div>').join('')+
-      '<div class="input-wrap"><label for="clube-terms-note-'+esc(key)+'">Observações para negociação (12 a 500 caracteres)</label>'+
-      '<textarea class="input" id="clube-terms-note-'+esc(key)+'" maxlength="500" rows="3">'+esc(x.notes||'')+'</textarea></div>'+
+      '<div class="input-wrap"><label for="clube-terms-note-template-'+esc(key)+'">Nota para negociação</label>'+
+      '<select class="input" id="clube-terms-note-template-'+esc(key)+'" onchange="adminClubeTermsNotePreset(&quot;'+esc(key)+'&quot;)">'+
+        '<option value="">'+(x.notes?'Manter anotação já registrada':'Marque o próximo passo real')+'</option>'+
+        '<option value="discussion">Minuta somente para discussão</option>'+
+        '<option value="documents">Solicitar documentos e condições</option>'+
+        '<option value="revision">Revisar condições comerciais</option>'+
+        '<option value="custom">Outra observação (digitar)</option></select></div>'+
+      '<details id="clube-terms-note-manual-'+esc(key)+'"><summary>Texto existente / edição opcional</summary>'+
+        '<label for="clube-terms-note-'+esc(key)+'">Observação registrada</label>'+
+        '<textarea class="input" id="clube-terms-note-'+esc(key)+'" maxlength="500" rows="3">'+esc(x.notes||'')+'</textarea>'+
+      '</details>'+
       '<button class="secondary small" type="button" onclick="adminClubeTermsSaveFromUi(\''+
         esc(x.merchantId)+'\',\''+esc(x.packageKey)+'\','+
         Number(x.termsVersion)+','+Number(x.interestVersion)+','+Number(x.reviewVersion)+')" '+
@@ -987,6 +996,7 @@ function adminOwnerFundingReaisToCents(value,maxCents){
   if(!Number.isSafeInteger(cents)||Math.abs(n*100-cents)>0.000001)return null;
   return cents;
 }
+
 async function adminOwnerFundingSaveFromUi(key,expectedVersion){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin')return;
@@ -1065,17 +1075,30 @@ function adminOwnerFundingSection(){
     const key=String(x.benefitKey);
     const fields=role==='superadmin'?
       '<div class="grid cards-2">'+
-      '<label class="input-wrap">Orçamento mensal (R$)'+
-      '<input class="input" type="number" inputmode="decimal" min="0" max="500000" step="0.01" id="owner-funding-budget-'+esc(key)+'" value="'+(Number(x.budgetCents)/100).toFixed(2)+'"></label>'+
-      '<label class="input-wrap">Limite por pessoa (R$)'+
-      '<input class="input" type="number" inputmode="decimal" min="0" max="100000" step="0.01" id="owner-funding-cap-'+esc(key)+'" value="'+(Number(x.capCents)/100).toFixed(2)+'"></label>'+
+      ['budget','cap'].map(kind=>{
+        const isBudget=kind==='budget',label=isBudget?'Orçamento mensal (R$)':'Limite por pessoa (R$)';
+        const original=(Number(isBudget?x.budgetCents:x.capCents)/100).toFixed(2);
+        const options=isBudget?[0,50,100,200,500,1000]:[0,1,5,10,20,50,100];
+        return '<label class="input-wrap">'+label+
+          '<select class="input" id="owner-funding-quick-'+kind+'-'+esc(key)+'" '+
+            'onchange="adminOwnerFundingPreset(&quot;'+esc(key)+'&quot;,&quot;'+kind+'&quot;)">'+
+            '<option value="keep">Manter R$ '+esc(original)+'</option>'+
+            options.map(n=>'<option value="'+n+'">R$ '+n.toLocaleString('pt-BR')+'</option>').join('')+
+            '<option value="custom">Outro valor (digitar)</option></select></label>'+
+          '<div id="owner-funding-manual-'+kind+'-'+esc(key)+'" hidden>'+
+            '<label for="owner-funding-'+kind+'-'+esc(key)+'">Valor personalizado</label>'+
+            '<input class="input" type="number" inputmode="decimal" min="0" max="'+
+              (isBudget?'500000':'100000')+'" step="0.01" id="owner-funding-'+kind+'-'+esc(key)+'" value="'+original+'">'+
+          '</div>';
+      }).join('')+
       '</div><label class="input-wrap">Declaração interna'+
       '<select class="input" id="owner-funding-status-'+esc(key)+'">'+
       '<option value="planning"'+(x.status==='planning'?' selected':'')+'>Em planejamento</option>'+
       '<option value="internally_committed"'+(x.status==='internally_committed'?' selected':'')+'>Compromisso interno do fundador</option>'+
       '</select></label>'+
-      '<label class="input-wrap">Justificativa / origem prevista'+
-      '<textarea class="input" maxlength="400" rows="2" id="owner-funding-note-'+esc(key)+'">'+esc(x.note||'Recursos próprios destinados aos incentivos da plataforma.')+'</textarea></label>'+
+      '<details><summary>Justificativa atual ou edição opcional</summary>'+
+        '<label class="input-wrap">Origem prevista, sem depósito comprovado'+
+        '<textarea class="input" maxlength="400" rows="2" id="owner-funding-note-'+esc(key)+'">'+esc(x.note||'Recursos próprios previstos para o planejamento de incentivos, sem comprovação de depósito.')+'</textarea></label></details>'+
       '<button type="button" class="secondary small" onclick="adminOwnerFundingSaveFromUi(\''+
       esc(key)+'\','+Number(x.version)+')" '+(adminOwnerFundingSaving.has(key)?'disabled':'')+
       '>Salvar orçamento interno</button>':
