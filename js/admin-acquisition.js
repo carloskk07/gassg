@@ -4466,12 +4466,23 @@ async function adminOwnerPayoutRecordFromUi(){
   }catch(e){toast(String(e?.message||'Não foi possível registrar a declaração.'));}
   finally{adminOwnerPayoutBusy=false;render();}
 }
+const ADMIN_PAYOUT_VOID_REASONS=Object.freeze({
+  duplicate:'Declaração duplicada identificada após revisão do histórico.',
+  amount:'Valor declarado incorreto após conferência dos dados da transferência.',
+  reference:'Identificador ou data da transferência informados incorretamente.',
+  ineligible:'Declaração não corresponde ao pagamento da comissão indicada.',
+  no_evidence:'Comprovação insuficiente para manter esta declaração ativa.'
+});
 async function adminOwnerPayoutVoidFromUi(claimId){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin'||adminOwnerPayoutBusy||
      !/^[0-9a-f-]{36}$/i.test(String(claimId||'')))return;
-  const reason=String(window.prompt('Informe a justificativa para retificar esta declaração (12 a 300 caracteres):')||'').trim();
-  if(reason.length<12||reason.length>300)return;
+  const choice=String(document.getElementById('owner-payout-void-choice-'+claimId)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_PAYOUT_VOID_REASONS,choice))
+    return toast('Marque o motivo verdadeiro da retificação.');
+  if(document.getElementById('owner-payout-void-confirm-'+claimId)?.checked!==true)
+    return toast('Confirme que conferiu esta declaração antes de retificá-la.');
+  const reason=ADMIN_PAYOUT_VOID_REASONS[choice];
   adminOwnerPayoutBusy=true;render();
   try{
     const d=await adminInvoke({action:'owner-benefit-payout-void',claimId,reason});
@@ -4500,9 +4511,20 @@ function adminOwnerPayoutEvidenceSection(){
     esc(x.claimId)+' • impressão digital de comprovante: '+
     (x.proofFingerprintPresent?'informada':'não informada')+'</p>'+
     (owner&&!x.voided?
-      '<button type="button" class="secondary small" onclick="adminOwnerPayoutVoidFromUi(\''+
-      esc(x.claimId)+'\')" '+(adminOwnerPayoutBusy?'disabled':'')+
-      '>Retificar declaração</button>':'')+'</article>').join('');
+      '<details class="admin-payout-void"><summary>Retificar declaração (marcar motivo)</summary>'+
+      '<label for="owner-payout-void-choice-'+esc(x.claimId)+'">Razão realmente conferida</label>'+
+      '<select class="input" id="owner-payout-void-choice-'+esc(x.claimId)+'">'+
+        '<option value="">Marque após conferir o histórico</option>'+
+        '<option value="duplicate">Declaração duplicada</option>'+
+        '<option value="amount">Valor declarado incorreto</option>'+
+        '<option value="reference">Referência ou data incorreta</option>'+
+        '<option value="ineligible">Comissão ou pedido incompatível</option>'+
+        '<option value="no_evidence">Comprovação insuficiente</option></select>'+
+      '<label class="check-row"><input type="checkbox" id="owner-payout-void-confirm-'+esc(x.claimId)+'">'+
+        '<span>Revisei os dados; esta ação retifica a declaração, não movimenta dinheiro.</span></label>'+
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutVoidFromUi(&apos;'+
+      esc(x.claimId)+'&apos;)" '+(adminOwnerPayoutBusy?'disabled':'')+
+      '>Confirmar retificação</button></details>':'')+'</article>').join('');
   const form=owner?'<div class="card flat form-stack">'+
     '<h5>Registrar declaração de repasse externo</h5>'+
     '<p class="tiny muted">Somente com comissão de indicação já liberada. Não executa Pix, não altera carteira e não comprova confirmação do PSP.</p>'+
