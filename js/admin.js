@@ -4436,7 +4436,18 @@ function adminReferralReviewCard(x){
     <div class="tiny muted">Criado em ${new Date(x.created_at).toLocaleString('pt-BR')}</div>
     ${x.review_notes?`<div class="order-line"><strong>Revisão:</strong> ${esc(x.review_notes)}</div>`:''}
     ${financiallyReversed?'<div class="notice danger" style="margin-top:10px"><strong>Pedido financeiramente revertido.</strong><br>A comissão já foi estornada; nenhuma nova ação financeira deve ser aplicada.</div>':''}
-    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>`:''}
+    ${pending?`<details class="admin-referral-review"><summary>Decidir sobre indicação (conferir risco)</summary>
+      <label class="check-row"><input type="checkbox" id="referral-reviewed-${esc(x.order_id)}"><span>Conferi os sinais de risco e a elegibilidade desta comissão.</span></label>
+      <label for="referral-reason-${esc(x.order_id)}">Se for rejeitar, marque o motivo verificado</label>
+      <select class="input" id="referral-reason-${esc(x.order_id)}">
+        <option value="">Selecione somente para rejeitar</option>
+        <option value="address">Relação de endereço não justificada</option>
+        <option value="velocity">Velocidade atípica não esclarecida</option>
+        <option value="duplicate">Cadastro ou vínculo duplicado confirmado</option>
+        <option value="insufficient">Elegibilidade não comprovada</option>
+      </select>
+      <div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>
+    </details>`:''}
   </article>`;
 }
 function adminBillingPlanLabel(planKey){
@@ -4452,7 +4463,9 @@ function adminBillingStatementStatus(status){
   })[String(status||'')]||String(status||'—').toUpperCase();
 }
 function adminBillingPlanCard(plan){
-  const fee=(Number(plan.platform_fee_bps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const feeNumber=Number(plan.platform_fee_bps||0)/100;
+  const fee=feeNumber.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const feeInput=feeNumber.toFixed(2);
   const prepaid=plan.billing_mode==='prepaid_credit';
   const version=Number(plan.policy_version||1);
   const flex=plan.plan_key==='flex_daily';
@@ -4462,10 +4475,30 @@ function adminBillingPlanCard(plan){
     <div class="order-head"><div><strong>${esc(plan.display_name)}</strong><br><small>${prepaid?'Crédito pré-pago':'Pós-pago diário'} • versão ${version}</small></div><span class="status-pill ${plan.active?'online':'offline'}">${plan.active?'ATIVO':'PAUSADO'}</span></div>
     ${prepaid?`<div class="order-line"><strong>Pacote:</strong> ${adminMoney(plan.purchase_amount_cents)} → ${adminMoney(plan.credit_grant_cents)} em crédito de taxas</div>`:'<div class="order-line">Sem compra antecipada • fechamento diário D+1</div>'}
     <div class="field-row" style="margin-top:12px">
-      <div class="input-wrap"><label for="${inputId}">Taxa efetiva TAMÃO (%)</label><input id="${inputId}" class="input" type="number" min="0.01" max="100" step="0.05" value="${fee}"></div>
+      <div class="input-wrap"><label for="billing-plan-rate-${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}">Taxa TAMÃO para pedidos futuros</label>
+        <select id="billing-plan-rate-${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}" class="input"
+          onchange="adminBillingRatePresetChange('${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}')">
+          <option value="keep">Manter taxa atual (${fee}%)</option>
+          <option value="9">9%</option><option value="10">10%</option><option value="12">12%</option>
+          <option value="15">15%</option><option value="custom">Outra taxa (digitar)</option>
+        </select>
+        <div id="billing-plan-custom-${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}" hidden>
+          <label for="${inputId}">Taxa personalizada (%)</label>
+          <input id="${inputId}" class="input" data-initial="${feeInput}" type="number" min="0.01" max="100" step="0.05" value="${feeInput}">
+        </div>
+      </div>
       <label class="check-row"><input id="${activeId}" type="checkbox" ${plan.active?'checked':''} ${flex?'disabled':''}><span><strong>${flex?'Fallback obrigatório':'Plano disponível'}</strong><small>${flex?'O Flex Diário não pode ser desativado.':'Pausar afeta apenas novas seleções; pedidos já criados mantêm o snapshot.'}</small></span></label>
     </div>
-    <div class="order-actions"><button class="secondary small" onclick="adminSaveBillingPlan('${esc(plan.plan_key)}',${version})">Salvar plano</button></div>
+    <details class="admin-billing-plan-decision"><summary>Salvar ajuste do plano (marcar motivo)</summary>
+      <label for="billing-choice-plan-${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}">Motivo revisado</label>
+      <select id="billing-choice-plan-${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}" class="input">
+        <option value="">Selecione a decisão real</option>
+        <option value="terms">Revisão das condições do plano</option>
+        <option value="pricing">Ajuste de taxa comercial</option>
+        <option value="availability">Disponibilidade para novas adesões</option>
+      </select>
+      <button class="secondary small" onclick="adminSaveBillingPlan('${esc(plan.plan_key)}',${version})">Salvar somente para pedidos futuros</button>
+    </details>
     ${plan.last_change_reason?`<small class="field-help">Última decisão: ${esc(plan.last_change_reason)} • ${esc(formatDateTime(plan.updated_at))}</small>`:''}
   </article>`;
 }
@@ -4481,9 +4514,16 @@ function adminBillingAccountCard(account){
       <div class="kpi"><span class="label">Último fechamento</span><strong>${esc(account.last_daily_close_date||'—')}</strong></div>
     </div>
     ${held?`<div class="notice danger" style="margin-top:10px"><strong>Novas vendas bloqueadas.</strong><br>${esc(account.sales_hold_reason||'Débito vencido')} • desde ${esc(account.sales_hold_at?new Date(account.sales_hold_at).toLocaleString('pt-BR'):'—')}</div>`:''}
-    <div class="order-actions">
+    <details class="admin-billing-flex"><summary>Voltar ao Flex (marcar motivo)</summary>
+      <label for="billing-choice-flex-${esc(account.merchant_id)}">Motivo real</label>
+      <select id="billing-choice-flex-${esc(account.merchant_id)}" class="input">
+        <option value="">Selecione após conferir a conta</option>
+        <option value="requested">Solicitação verificada da revenda</option>
+        <option value="obsolete">Pré-pago encerrado e sem reservas</option>
+        <option value="correction">Correção de seleção de plano</option>
+      </select>
       <button class="ghost small" onclick="adminSetMerchantFlex('${esc(account.merchant_id)}')">Voltar ao Flex</button>
-    </div>
+    </details>
   </article>`;
 }
 function adminBillingStatementCard(statement){
@@ -4498,7 +4538,18 @@ function adminBillingStatementCard(statement){
       <div class="kpi"><span class="label">Crédito usado</span><strong>${adminMoney(paidByCredit)}</strong></div>
       <div class="kpi"><span class="label">A pagar</span><strong>${adminMoney(statement.amount_due_cents)}</strong></div>
     </div>
-    ${open?`<div class="notice" style="margin-top:10px"><strong>Quitação somente pela fila de pagamentos informados.</strong><br>Para marcar este fechamento como pago, a revenda precisa informar o pagamento e o Financeiro deve aprovar o valor exato. O abono administrativo continua separado.</div><div class="order-actions"><button class="ghost small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','waive-statement')">Abonar</button></div>`:''}
+    ${open?`<div class="notice" style="margin-top:10px"><strong>Quitação somente pela fila de pagamentos informados.</strong><br>Para marcar este fechamento como pago, a revenda precisa informar o pagamento e o Financeiro deve aprovar o valor exato. O abono administrativo continua separado.</div><details class="admin-billing-waive"><summary>Abono excepcional (marcar motivo)</summary>
+      <label for="billing-choice-waive-${esc(statement.id)}">Motivo real conferido</label>
+      <select id="billing-choice-waive-${esc(statement.id)}" class="input">
+        <option value="">Selecione o motivo verdadeiro</option>
+        <option value="correction">Cobrança indevida identificada</option>
+        <option value="adjustment">Ajuste comercial autorizado</option>
+        <option value="dispute">Contestação revisada e dispensa autorizada</option>
+      </select>
+      <label class="check-row"><input type="checkbox" id="billing-waive-confirm-${esc(statement.id)}">
+        <span>Conferi o valor e autorizo a dispensa da obrigação, sem declarar pagamento.</span></label>
+      <button class="ghost small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','waive-statement')">Confirmar abono</button>
+    </details>`:''}
     ${statement.resolution_reference?`<div class="tiny muted">Referência: ${esc(statement.resolution_reference)}</div>`:''}
   </article>`;
 }
@@ -9286,11 +9337,13 @@ function adminControlOrderCard(o){
       <button class="ghost small" onclick="adminOpenEntity('order','${o.id}')">Abrir 360°</button>
       ${customerPhone?`<button class="ghost small" onclick="adminOpenWhatsapp('${customerPhone}')">Cliente</button>`:''}
       ${merchantWhatsapp?`<button class="ghost small" onclick="adminOpenWhatsapp('${merchantWhatsapp}')">Revenda</button>`:''}
-      <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
-      ${rescueable?`<button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'rescue')">Buscar outra revenda</button>`:''}
-      ${cancellable?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel')">Cancelar antes da saída</button>`:''}
-      ${postDispatchIncident?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel-after-dispatch')">Encerrar entrega com falha</button>`:''}
     </div>
+    <details class="admin-order-actions"><summary>Intervir no pedido (marcar motivo)</summary>
+      ${adminOrderActionChoice(o,'note','Registrar observação','secondary')}
+      ${rescueable?adminOrderActionChoice(o,'rescue','Buscar outra revenda','secondary'):''}
+      ${cancellable?adminOrderActionChoice(o,'cancel','Cancelar antes da saída','danger-btn'):''}
+      ${postDispatchIncident?adminOrderActionChoice(o,'cancel-after-dispatch','Encerrar entrega com falha','danger-btn'):''}
+    </details>
     ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
   </article>`;
 }
@@ -10508,15 +10561,53 @@ function adminOpenWhatsapp(phone){
   if(digits.length<10)return toast('Contato indisponível');
   window.open('https://wa.me/'+digits,'_blank','noopener,noreferrer');
 }
+// V1.904 — no order action is performed by selecting its explanation.
+const ADMIN_ORDER_ACTION_REASONS=Object.freeze({
+  note:Object.freeze({
+    review:'Análise administrativa do andamento do pedido registrada.',
+    followup:'Pedido sinalizado para acompanhamento administrativo.',
+    merchant:'Situação da revenda revisada no contexto deste pedido.'
+  }),
+  rescue:Object.freeze({
+    unable:'Revenda informou impossibilidade de atender este pedido.',
+    delay:'Pedido em risco por atraso identificado e conferido.',
+    conditions:'Necessário revalidar condições de atendimento e alternativa.'
+  }),
+  cancel:Object.freeze({
+    customer:'Cancelamento solicitado pelo cliente, conforme contato confirmado.',
+    unable:'Impossibilidade de atendimento confirmada pela revenda.',
+    invalid:'Pedido não pode prosseguir após conferência das condições.'
+  }),
+  'cancel-after-dispatch':Object.freeze({
+    failed:'Falha definitiva de entrega confirmada após saída.',
+    declined:'Destinatário recusou o recebimento após saída, fato confirmado.',
+    return:'Entrega não concluída e retorno à revenda confirmado.'
+  })
+});
+function adminOrderActionChoice(o,action,label,buttonClass){
+  const options=ADMIN_ORDER_ACTION_REASONS[action]||{};
+  const id=esc(String(o.id||'')),version=Number(o.version||0);
+  const suffix=action==='cancel-after-dispatch'
+    ?'<label class="check-row"><input type="checkbox" id="admin-order-verified-'+id+'">'+
+      '<span>Confirmei a falha e sei que o estoque físico precisa ser conferido.</span></label>':'';
+  return '<details class="admin-order-action"><summary>'+esc(label)+'</summary>'+
+    '<label for="admin-order-reason-'+id+'-'+esc(action)+'">Motivo realmente verificado</label>'+
+    '<select class="input" id="admin-order-reason-'+id+'-'+esc(action)+'">'+
+    '<option value="">Marque o motivo real</option>'+
+    Object.entries(options).map(([key,text])=>'<option value="'+esc(key)+'">'+esc(text)+'</option>').join('')+
+    '</select>'+suffix+
+    '<button type="button" class="'+esc(buttonClass)+' small" onclick="adminOrderControl(\''+
+    id+'\','+version+',\''+esc(action)+'\')">'+esc(label)+'</button></details>';
+}
 async function adminOrderControl(orderId,expectedVersion,controlAction){
-  const labels={
-    note:'Registrar uma observação administrativa neste pedido:',
-    rescue:'Motivo para buscar outra revenda:',
-    cancel:'Motivo para cancelar o pedido antes da saída:',
-    'cancel-after-dispatch':'Descreva a falha confirmada depois da saída:'
-  };
-  const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
+  const reasons=ADMIN_ORDER_ACTION_REASONS[controlAction];
+  const chosen=String(document.getElementById('admin-order-reason-'+orderId+'-'+controlAction)?.value||'');
+  if(!reasons||!Object.prototype.hasOwnProperty.call(reasons,chosen))
+    return toast('Marque o motivo realmente observado para esta intervenção.');
+  if(controlAction==='cancel-after-dispatch'&&
+     document.getElementById('admin-order-verified-'+orderId)?.checked!==true)
+    return toast('Confirme a falha real da entrega e a necessidade de conferir o estoque.');
+  const reason=reasons[chosen];
   if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
   if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
   if(controlAction==='cancel-after-dispatch'&&!confirm('Encerrar esta entrega após a saída? O cashback será liberado e o PIN invalidado, mas o estoque NÃO será restaurado automaticamente. Use somente após confirmar que a entrega falhou.'))return;
@@ -10888,9 +10979,23 @@ async function adminSetMerchantStatus(id,action){
   if(!confirm('Confirma '+label+' esta revenda?'))return;
   try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
 }
+const ADMIN_REFERRAL_REJECTION_REASONS=Object.freeze({
+  address:'Vínculo de endereço de entrega confirmado e não justificado na revisão.',
+  velocity:'Padrão anormal de indicações não esclarecido após a análise.',
+  duplicate:'Cadastro ou vínculo duplicado confirmado na conferência.',
+  insufficient:'Elegibilidade da indicação não comprovada após verificação.'
+});
 async function adminReviewReferral(orderId,decision){
-  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
-  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!['approved','rejected'].includes(decision))return;
+  if(document.getElementById('referral-reviewed-'+orderId)?.checked!==true)
+    return toast('Marque somente após conferir os sinais e a elegibilidade desta indicação.');
+  let notes='Risco da indicação revisado individualmente; continuidade autorizada pelo administrador.';
+  if(decision==='rejected'){
+    const chosen=String(document.getElementById('referral-reason-'+orderId)?.value||'');
+    if(!Object.prototype.hasOwnProperty.call(ADMIN_REFERRAL_REJECTION_REASONS,chosen))
+      return toast('Selecione o motivo efetivamente confirmado para rejeitar.');
+    notes=ADMIN_REFERRAL_REJECTION_REASONS[chosen];
+  }
   if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
   try{
     await adminPerform('review-referral',{orderId,decision,notes});
@@ -11225,14 +11330,58 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
       :'Decisão enviada, mas não confirmada na leitura atual. Atualize a solicitação antes de qualquer nova tentativa.');
   }
 }
+const ADMIN_BILLING_CHOICE_REASONS=Object.freeze({
+  plan:Object.freeze({
+    terms:'Revisão administrativa das condições do plano para pedidos futuros.',
+    pricing:'Ajuste da taxa comercial aplicável somente a novos pedidos.',
+    availability:'Revisão de disponibilidade do plano para novas adesões.'
+  }),
+  flex:Object.freeze({
+    requested:'Mudança para Flex solicitada pelo responsável da revenda, após conferência.',
+    obsolete:'Plano pré-pago encerrado e retorno administrativo ao Flex após conferência.',
+    correction:'Correção de seleção de plano conforme solicitação verificada.'
+  }),
+  waive:Object.freeze({
+    correction:'Abono autorizado para corrigir cobrança indevida identificada e conferida.',
+    adjustment:'Ajuste comercial excepcional autorizado após conferência do fechamento.',
+    dispute:'Dispensa da obrigação autorizada após revisão documentada da contestação.'
+  })
+});
+function adminBillingChoice(kind,id){
+  const choices=ADMIN_BILLING_CHOICE_REASONS[kind];
+  const key=String(document.getElementById('billing-choice-'+kind+'-'+id)?.value||'');
+  if(!choices||!Object.prototype.hasOwnProperty.call(choices,key)){
+    toast('Marque a justificativa verdadeira antes de continuar.');
+    return null;
+  }
+  return choices[key];
+}
+function adminBillingRatePresetChange(safeId){
+  const select=document.getElementById('billing-plan-rate-'+safeId);
+  const input=document.getElementById('billing-plan-fee-'+safeId);
+  const custom=document.getElementById('billing-plan-custom-'+safeId);
+  if(!select||!input)return;
+  const key=String(select.value||'');
+  if(custom)custom.hidden=key!=='custom';
+  if(['9','10','12','15'].includes(key))input.value=key;
+  else if(key==='keep')input.value=String(input.dataset.initial||input.value);
+}
+function adminBillingRateValue(safeId){
+  const selected=String(document.getElementById('billing-plan-rate-'+safeId)?.value||'');
+  const input=document.getElementById('billing-plan-fee-'+safeId);
+  if(selected==='keep')return Number(input?.dataset.initial||input?.value);
+  if(['9','10','12','15'].includes(selected))return Number(selected);
+  if(selected==='custom'||!selected)return Number(input?.value);
+  return NaN;
+}
 async function adminSaveBillingPlan(planKey,expectedVersion){
   const safeId=String(planKey).replace(/[^a-z0-9_-]/gi,'');
-  const feePct=Number(document.getElementById('billing-plan-fee-'+safeId)?.value);
+  const feePct=adminBillingRateValue(safeId);
   if(!Number.isFinite(feePct)||feePct<=0||feePct>100)return toast('Informe uma taxa válida entre 0,01% e 100%');
   const platformFeeBps=Math.round(feePct*100);
   const active=planKey==='flex_daily'?true:document.getElementById('billing-plan-active-'+safeId)?.checked===true;
-  const reason=prompt('Motivo para alterar este plano de cobrança:')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo da alteração');
+  const reason=adminBillingChoice('plan',safeId);
+  if(!reason)return;
   if(!confirm('Salvar esta alteração somente para PEDIDOS FUTUROS? Pedidos já criados manterão suas taxas snapshotadas.'))return;
   try{
     await adminPerform('merchant-billing-plan',{planKey,expectedVersion,platformFeeBps,active,reason});
@@ -11241,8 +11390,8 @@ async function adminSaveBillingPlan(planKey,expectedVersion){
 }
 
 async function adminSetMerchantFlex(merchantId){
-  const reference=prompt('Motivo/referência para voltar ao Flex:')||'';
-  if(reference.trim().length<3)return toast('Informe uma referência');
+  const reference=adminBillingChoice('flex',merchantId);
+  if(!reference)return;
   if(!confirm('Voltar '+adminMerchantName(merchantId)+' ao Flex Diário? Só será permitido sem crédito pré-pago disponível ou reservado.'))return;
   try{
     await adminPerform('merchant-billing-action',{merchantId,billingAction:'set-flex',reference});
@@ -11260,8 +11409,10 @@ async function adminResolveDailyStatement(merchantId,statementId,billingAction){
     .find(x=>x.id===statementId&&x.merchant_id===merchantId);
   if(!statement||!['open','overdue'].includes(statement.status))
     return toast('O fechamento mudou. Atualize o Financeiro antes de abonar.');
-  const reference=prompt('Motivo/referência do abono:')||'';
-  if(reference.trim().length<3)return toast('Informe a referência');
+  const reference=adminBillingChoice('waive',statementId);
+  if(!reference)return;
+  if(document.getElementById('billing-waive-confirm-'+statementId)?.checked!==true)
+    return toast('Confirme que revisou o fechamento e que o abono dispensa o pagamento, sem registrá-lo como recebido.');
   if(!confirm('Abonar este fechamento diário?'))return;
   const current=(adminRuntime.data?.merchantBilling?.statements||[])
     .find(x=>x.id===statementId&&x.merchant_id===merchantId);

@@ -65,7 +65,10 @@ function compactReleasedAdminStartup(source){
   .replace(/^ {2,}(?=(?:const|let|if|return|await|try|catch|finally|for|else|throw|while|switch|case|break|continue|function|async)\b)/gm,'')
   // Trim redundant indentation before JS identifiers and closing delimiters in the emitted startup only.
   // Canonical source, literal text, deferred owner finance and scope remain unchanged.
-  .replace(/^ {2,}(?=(?:[A-Za-z_$][\w$]*(?:[.(?:=])|[}\]\)]))/gm,'');
+  .replace(/^ {2,}(?=(?:[A-Za-z_$][\w$]*(?:[.(?:=])|[}\]\)]))/gm,'')
+  // Keep the admin startup under its hard 140 KB budget even as new guided forms ship.
+  // Only generated startup whitespace is compacted; canonical and deferred scripts stay intact.
+  .replace(/^ {2,}(?=\S)/gm,'');
 }
 export function splitAdminOwnerFinanceCore(core){
   if(typeof core!=='string')throw new TypeError('Admin core must be a string');

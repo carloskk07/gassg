@@ -1362,6 +1362,34 @@ async function adminOwnerBudgetAllocateFromUi(){
     }
   }finally{adminOwnerBudgetPending.delete('allocate');render();}
 }
+const ADMIN_BUDGET_RELEASE_REASONS=Object.freeze({
+  canceled:'Campanha planejada cancelada, saldo reservado devolvido ao planejamento.',
+  redesigned:'Planejamento da campanha revisado, valor devolvido para nova distribuição.',
+  unused:'Campanha não iniciada e recurso planejado não utilizado.',
+  duplicated:'Reserva duplicada identificada no planejamento após conferência.'
+});
+function adminOwnerBudgetApplyTemplate(){
+  const selected=String(document.getElementById('owner-budget-template')?.value||'');
+  const presets={
+    welcome:'Incentivos de boas-vindas a novos clientes do TAMÃO',
+    referrals:'Incentivo planejado para indicações verificadas na plataforma',
+    retention:'Campanha planejada de benefícios para clientes recorrentes',
+    expansion:'Benefícios planejados para abertura de novas cidades'
+  };
+  const reference=document.getElementById('owner-budget-reference');
+  const label=document.getElementById('owner-budget-label');
+  const details=document.getElementById('owner-budget-details');
+  if(!reference||!label)return;
+  if(!Object.prototype.hasOwnProperty.call(presets,selected)){
+    if(details)details.open=selected==='custom';
+    if(selected==='')return;
+    reference.value='';label.value='';return;
+  }
+  reference.value=selected+'-'+new Date().toISOString().slice(0,7)+'-'+
+    String(crypto.randomUUID()).replace(/-/g,'').slice(0,8);
+  label.value=presets[selected];
+  if(details)details.open=false;
+}
 async function adminOwnerBudgetReleaseFromUi(id,expectedVersion){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin'||
@@ -1370,9 +1398,10 @@ async function adminOwnerBudgetReleaseFromUi(id,expectedVersion){
   const row=d?.allocations?.find(x=>x.allocationId===id);
   if(!row||row.status!=='allocated'||row.version!==expectedVersion)
     return toast('Atualize as alocações antes de liberar.');
-  const reason=String(prompt('Motivo para devolver o valor ao planejamento mensal:')||'').trim();
-  if(reason.length<12||reason.length>240)
-    return toast('Informe uma justificativa de 12 a 240 caracteres.');
+  const choice=String(document.getElementById('owner-budget-release-reason-'+id)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_BUDGET_RELEASE_REASONS,choice))
+    return toast('Marque o motivo verdadeiro para devolver esta reserva planejada.');
+  const reason=ADMIN_BUDGET_RELEASE_REASONS[choice];
   adminOwnerBudgetPending.add(id);
   try{
     const result=await adminInvoke({action:'owner-budget-release',
@@ -1425,12 +1454,22 @@ function adminOwnerBudgetSection(){
     (available||'<option value="">Configure um orçamento positivo no painel acima</option>')+
     '</select></label>'+
     '<div class="grid cards-2">'+
-    '<label class="input-wrap">Valor para a campanha (R$)'+
-    '<input class="input" id="owner-budget-amount" type="number" step="0.01" min="1" max="500000"></label>'+
-    '<label class="input-wrap">Código único da campanha'+
-    '<input class="input" id="owner-budget-reference" type="text" maxlength="80" placeholder="ex.: cashback-outubro-01"></label></div>'+
-    '<label class="input-wrap">Descrição da campanha'+
-    '<input class="input" id="owner-budget-label" type="text" maxlength="180" placeholder="Incentivos para as primeiras compras da cidade"></label>'+
+    '<label class="input-wrap">Valor planejado para a campanha (R$)'+
+      '<input class="input" id="owner-budget-amount" type="number" step="0.01" min="1" max="500000"></label>'+
+    '<label class="input-wrap">Objetivo da campanha'+
+      '<select id="owner-budget-template" class="input" onchange="adminOwnerBudgetApplyTemplate()">'+
+        '<option value="">Marque um objetivo real</option>'+
+        '<option value="welcome">Boas-vindas a novos clientes</option>'+
+        '<option value="referrals">Indicações verificadas</option>'+
+        '<option value="retention">Clientes recorrentes</option>'+
+        '<option value="expansion">Expansão de cidades</option>'+
+        '<option value="custom">Outro objetivo (detalhar)</option></select></label></div>'+
+    '<details id="owner-budget-details"><summary>Ver código e descrição ou personalizar</summary>'+
+      '<label class="input-wrap">Código único'+
+        '<input class="input" id="owner-budget-reference" type="text" maxlength="80" autocomplete="off"></label>'+
+      '<label class="input-wrap">Descrição'+
+        '<input class="input" id="owner-budget-label" type="text" maxlength="180" autocomplete="off"></label>'+
+    '</details>'+
     '<button type="button" class="secondary small" onclick="adminOwnerBudgetAllocateFromUi()" '+
     (!available||adminOwnerBudgetPending.has('allocate')?'disabled':'')+
     '>Separar orçamento planejado</button></div>':'';
@@ -1442,10 +1481,18 @@ function adminOwnerBudgetSection(){
       ' • '+esc(x.month)+' • '+esc(x.campaignReference)+'</p></div>'+
       '<span class="status-pill">'+(x.status==='allocated'?'Planejado':'Devolvido ao plano')+
       '</span></div><p>Valor: <strong>'+adminMoney(x.amountCents)+'</strong></p>'+
-      (canRelease?'<button type="button" class="ghost small" onclick="adminOwnerBudgetReleaseFromUi(\''+
-        esc(x.allocationId)+'\','+Number(x.version)+')" '+
+      (canRelease?'<details><summary>Devolver reserva ao planejamento (marcar motivo)</summary>'+
+        '<label for="owner-budget-release-reason-'+esc(x.allocationId)+'">Motivo verdadeiro</label>'+
+        '<select class="input" id="owner-budget-release-reason-'+esc(x.allocationId)+'">'+
+          '<option value="">Selecione após conferir</option>'+
+          '<option value="canceled">Campanha planejada cancelada</option>'+
+          '<option value="redesigned">Revisão de planejamento</option>'+
+          '<option value="unused">Campanha não iniciada</option>'+
+          '<option value="duplicated">Reserva duplicada identificada</option></select>'+
+        '<button type="button" class="ghost small" onclick="adminOwnerBudgetReleaseFromUi(&apos;'+
+        esc(x.allocationId)+'&apos;,'+Number(x.version)+')" '+
         (adminOwnerBudgetPending.has(x.allocationId)?'disabled':'')+
-        '>Devolver ao orçamento planejado</button>':'')+
+        '>Devolver ao orçamento planejado</button></details>':'')+
       '</article>';
   }).join('');
   return '<section class="section admin-owner-budget">'+
@@ -4419,12 +4466,23 @@ async function adminOwnerPayoutRecordFromUi(){
   }catch(e){toast(String(e?.message||'Não foi possível registrar a declaração.'));}
   finally{adminOwnerPayoutBusy=false;render();}
 }
+const ADMIN_PAYOUT_VOID_REASONS=Object.freeze({
+  duplicate:'Declaração duplicada identificada após revisão do histórico.',
+  amount:'Valor declarado incorreto após conferência dos dados da transferência.',
+  reference:'Identificador ou data da transferência informados incorretamente.',
+  ineligible:'Declaração não corresponde ao pagamento da comissão indicada.',
+  no_evidence:'Comprovação insuficiente para manter esta declaração ativa.'
+});
 async function adminOwnerPayoutVoidFromUi(claimId){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin'||adminOwnerPayoutBusy||
      !/^[0-9a-f-]{36}$/i.test(String(claimId||'')))return;
-  const reason=String(window.prompt('Informe a justificativa para retificar esta declaração (12 a 300 caracteres):')||'').trim();
-  if(reason.length<12||reason.length>300)return;
+  const choice=String(document.getElementById('owner-payout-void-choice-'+claimId)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_PAYOUT_VOID_REASONS,choice))
+    return toast('Marque o motivo verdadeiro da retificação.');
+  if(document.getElementById('owner-payout-void-confirm-'+claimId)?.checked!==true)
+    return toast('Confirme que conferiu esta declaração antes de retificá-la.');
+  const reason=ADMIN_PAYOUT_VOID_REASONS[choice];
   adminOwnerPayoutBusy=true;render();
   try{
     const d=await adminInvoke({action:'owner-benefit-payout-void',claimId,reason});
@@ -4453,9 +4511,20 @@ function adminOwnerPayoutEvidenceSection(){
     esc(x.claimId)+' • impressão digital de comprovante: '+
     (x.proofFingerprintPresent?'informada':'não informada')+'</p>'+
     (owner&&!x.voided?
-      '<button type="button" class="secondary small" onclick="adminOwnerPayoutVoidFromUi(\''+
-      esc(x.claimId)+'\')" '+(adminOwnerPayoutBusy?'disabled':'')+
-      '>Retificar declaração</button>':'')+'</article>').join('');
+      '<details class="admin-payout-void"><summary>Retificar declaração (marcar motivo)</summary>'+
+      '<label for="owner-payout-void-choice-'+esc(x.claimId)+'">Razão realmente conferida</label>'+
+      '<select class="input" id="owner-payout-void-choice-'+esc(x.claimId)+'">'+
+        '<option value="">Marque após conferir o histórico</option>'+
+        '<option value="duplicate">Declaração duplicada</option>'+
+        '<option value="amount">Valor declarado incorreto</option>'+
+        '<option value="reference">Referência ou data incorreta</option>'+
+        '<option value="ineligible">Comissão ou pedido incompatível</option>'+
+        '<option value="no_evidence">Comprovação insuficiente</option></select>'+
+      '<label class="check-row"><input type="checkbox" id="owner-payout-void-confirm-'+esc(x.claimId)+'">'+
+        '<span>Revisei os dados; esta ação retifica a declaração, não movimenta dinheiro.</span></label>'+
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutVoidFromUi(&apos;'+
+      esc(x.claimId)+'&apos;)" '+(adminOwnerPayoutBusy?'disabled':'')+
+      '>Confirmar retificação</button></details>':'')+'</article>').join('');
   const form=owner?'<div class="card flat form-stack">'+
     '<h5>Registrar declaração de repasse externo</h5>'+
     '<p class="tiny muted">Somente com comissão de indicação já liberada. Não executa Pix, não altera carteira e não comprova confirmação do PSP.</p>'+

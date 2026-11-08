@@ -906,7 +906,13 @@ function adminAdsPspView(){
       ' • '+esc(c.providerStatus||'')+'</p>':''):'')+
     (canCreate?'<button type="button" class="primary small" onclick="adminAdsPspAction(\''+id+'\',\'create\')">Gerar checkout Mercado Pago</button>':'')+
     (canReconcile?'<button type="button" class="primary small" onclick="adminAdsPspAutoReview(\''+id+'\')">Localizar e conciliar automaticamente</button>':'')+
-    (canReconcile?'<button type="button" class="secondary small" onclick="adminAdsPspAction(\''+id+'\',\'reconcile\')">Conferir pelo ID do pagamento</button>':'')+
+    (canReconcile?'<details class="admin-ads-manual-id"><summary>Conferir pelo ID do pagamento (opcional)</summary>'+
+      '<label for="ads-psp-payment-id-'+id+'">Identificador numérico real do Mercado Pago</label>'+
+      '<input id="ads-psp-payment-id-'+id+'" class="input" inputmode="numeric" autocomplete="off" '+
+        'pattern="[0-9]{5,30}" maxlength="30" value="'+
+        esc(/^[0-9]{5,30}$/.test(String(c?.paymentId||''))?String(c.paymentId):'')+'">'+
+      '<button type="button" class="secondary small" onclick="adminAdsPspAction(&apos;'+id+'&apos;,&apos;reconcile&apos;)">'+
+        'Consultar e conferir no Mercado Pago</button></details>':'')+
     (c?.checkoutUrl?'<p class="tiny muted">O link do checkout está disponível no portal da revenda. Não use retorno de navegador como confirmação de pagamento.</p>':'')+
     '</article>';
  }).join('');
@@ -1005,7 +1011,7 @@ async function adminAdsPspAction(merchantId,operation,prefilledPaymentId=null){
   if(!confirm('Criar checkout REAL no Mercado Pago na conta da empresa TAMÃO Ads? Nenhum dinheiro será movimentado automaticamente e nenhum anúncio será publicado.'))return false;
  }else{
   if(!['checkout_ready','payment_approved'].includes(x.checkout?.status))return false;
-  paymentId=String(prefilledPaymentId||prompt('Informe o ID NUMÉRICO do pagamento no Mercado Pago para consulta direta:')||'').trim();
+  paymentId=String(prefilledPaymentId??document.getElementById('ads-psp-payment-id-'+merchantId)?.value??'').trim();
   if(!/^[0-9]{5,30}$/.test(paymentId)){toast('Informe o identificador numérico completo.');return false;}
   if(!confirm('Consultar o pagamento informado diretamente no Mercado Pago e registrar seu estado comprovado?'))return false;
  }
