@@ -302,6 +302,7 @@ function adminAdsIndependentSection(){
   const endsAt=Date.parse(String(c.runEndsAt||''));
   const expired=Number.isFinite(endsAt)&&endsAt<=Date.now();
   const id=String(c.id||'');
+  if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id))return '';
   // Only actions allowed by the current payment/delivery state are offered.
   const choices=status==='submitted'?
     [['approve','Aprovar criativo'],['reject','Rejeitar criativo']]:
