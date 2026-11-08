@@ -997,40 +997,6 @@ function adminOwnerFundingReaisToCents(value,maxCents){
   return cents;
 }
 
-function adminOwnerFundingPreset(key,kind){
-  if(!['budget','cap'].includes(kind)||!/^[a-z0-9_]{2,80}$/.test(String(key||'')))return;
-  const dropdown=document.getElementById('owner-funding-quick-'+kind+'-'+key);
-  const number=document.getElementById('owner-funding-'+kind+'-'+key);
-  const manual=document.getElementById('owner-funding-manual-'+kind+'-'+key);
-  if(!dropdown||!number)return;
-  const choice=String(dropdown.value||'');
-  if(choice==='custom'){
-    if(manual)manual.hidden=false;
-  }else{
-    if(manual)manual.hidden=true;
-    if(choice!=='keep'&&/^(0|1|5|10|20|50|100|200|500|1000)$/.test(choice))
-      number.value=choice;
-    else if(choice!=='keep')return;
-  }
-}
-function adminClubeTermsNotePreset(key){
-  const selected=document.getElementById('clube-terms-note-template-'+key);
-  const details=document.getElementById('clube-terms-note-manual-'+key);
-  const note=document.getElementById('clube-terms-note-'+key);
-  if(!selected||!note)return;
-  const notes={
-    discussion:'Minuta comercial para discussão. Não há contrato firmado nem dinheiro reservado.',
-    documents:'Solicitar documentação e condições necessárias antes de nova análise comercial.',
-    revision:'Revisar condições comerciais e responsabilidades antes de compartilhar a minuta.'
-  };
-  const option=String(selected.value||'');
-  if(option==='custom'){
-    if(details)details.open=true;
-  }else{
-    if(details)details.open=false;
-    if(Object.prototype.hasOwnProperty.call(notes,option))note.value=notes[option];
-  }
-}
 async function adminOwnerFundingSaveFromUi(key,expectedVersion){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin')return;
