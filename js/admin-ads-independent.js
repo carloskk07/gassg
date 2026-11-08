@@ -298,37 +298,33 @@ function adminAdsIndependentSection(){
    (count?' ('+count+')':'')+'</button>';
  const actions=c=>{
   if(!canAct)return '';
-  const status=String(c.status||'');
-  const version=Number(c.version)||0;
+  const status=String(c.status||''),version=Number(c.version)||0;
   const endsAt=Date.parse(String(c.runEndsAt||''));
   const expired=Number.isFinite(endsAt)&&endsAt<=Date.now();
   const id=String(c.id||'');
-  const b=(action,label)=>'<button type="button" class="secondary small" '+
-    'onclick="adminIndependentAdsAction(\''+action+'\',\''+id+'\','+version+')" '+
-    (adminIndependentAdsBusy?'disabled':'')+'>'+label+'</button>';
-  const buttons=status==='submitted'?b('approve','Aprovar criativo')+b('reject','Rejeitar'):
+  // Only actions allowed by the current payment/delivery state are offered.
+  const choices=status==='submitted'?
+    [['approve','Aprovar criativo'],['reject','Rejeitar criativo']]:
     status==='approved'&&delivery&&
       ((!sales&&!c.fixedFeeStatus)||c.fixedFeeStatus==='payment_approved')?
-      b('publish','Iniciar publicação'):
-    status==='active'?(expired?b('end','Encerrar campanha expirada'):
-      b('pause','Pausar campanha')+b('end','Encerrar definitivamente')):
-    status==='paused'?((delivery&&!expired?b('resume','Retomar campanha'):'')+
-      b('end','Encerrar definitivamente')):'';
-  if(!buttons)return '';
-  return '<label for="independent-ads-preset-'+id+'">Motivo da decisão</label>'+
-   '<select id="independent-ads-preset-'+id+'" class="input" aria-label="Selecione o motivo da decisão">'+
-   '<option value="">Selecione um motivo pronto (sem digitar)</option>'+
-   '<option data-decision="approve" value="Criativo revisado e aprovado pelo administrador.">Aprovar: criativo revisado</option>'+
-   '<option data-decision="reject" value="Criativo incompleto ou incompatível com as regras da publicação.">Rejeitar: ajustes necessários</option>'+
-   '<option data-decision="publish" value="Campanha e pagamento revisados para autorização de publicação.">Publicar: revisão concluída</option>'+
-   '<option data-decision="pause" value="Publicação pausada para revisão operacional do anunciante.">Pausar: revisão necessária</option>'+
-   '<option data-decision="resume" value="Campanha revisada e autorizada para retomar o prazo restante.">Retomar: revisão concluída</option>'+
-   '<option data-decision="end" value="Campanha encerrada mediante decisão administrativa documentada.">Encerrar: decisão administrativa</option>'+
-   '</select>'+
-   '<label for="independent-ads-reason-'+id+'">Ou escreva outro motivo (opcional)</label>'+
-   '<textarea id="independent-ads-reason-'+id+'" rows="2" class="input" maxlength="500" '+
-   'placeholder="Use somente quando os motivos prontos não servirem"></textarea>'+
-   '<div class="row flex-wrap">'+buttons+'</div>';
+      [['publish','Iniciar publicação']]:
+    status==='active'?(expired?[['end','Encerrar campanha expirada']]:
+      [['pause','Pausar publicação'],['end','Encerrar definitivamente']]):
+    status==='paused'?([...(delivery&&!expired?[['resume','Retomar publicação']]:[]),
+      ['end','Encerrar definitivamente']]):[];
+  if(!choices.length)return '';
+  return '<fieldset class="card flat"><legend>O que deseja fazer com esta campanha?</legend>'+
+   choices.map(([decision,label])=>
+     '<label class="admin-option-row"><input type="radio" name="independent-ads-choice-'+id+
+     '" value="'+decision+'" '+(adminIndependentAdsBusy?'disabled':'')+'> '+label+'</label>').join('')+
+   '</fieldset>'+
+   '<details><summary>Adicionar uma justificativa personalizada (opcional)</summary>'+
+    '<label for="independent-ads-reason-'+id+'">Outro motivo</label>'+
+    '<textarea id="independent-ads-reason-'+id+'" rows="2" class="input" maxlength="500" '+
+     'placeholder="Use somente em situações especiais"></textarea></details>'+
+   '<button type="button" class="secondary small" onclick="adminIndependentAdsChooseCampaign(\''+
+    id+'\','+version+')" '+(adminIndependentAdsBusy?'disabled':'')+
+    '>Confirmar decisão marcada</button>';
  };
  const refundRows=pane==='refunds'?v?.refundCases?.map(c=>{
    const id=String(c.caseId||'');
@@ -339,17 +335,16 @@ function adminAdsIndependentSection(){
    const canExecute=canAct&&c.status==='reviewing'&&
      !c.refundProviderAttempt&&c.providerReversalRecorded!==true;
    const canVerify=canAct&&c.status==='reviewing'&&c.providerReversalRecorded!==true;
-   const reasonOptions=(review?
-     '<option data-operation="review" value="Protocolo aberto para análise de elegibilidade e pagamento.">Analisar protocolo</option>':'')+
-    (close?
-     '<option data-operation="record_provider_reversal" value="Reversão confirmada no provedor e conferida para registro do protocolo.">Registrar reversão verificada</option>':'')+
-    (canVerify?
-     '<option data-operation="verify" value="Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.">Consultar andamento no provedor</option>':'')+
-    (canExecute?
-     '<option data-operation="execute" value="Devolução integral solicitada após conferência do pagamento, recebedor e caso.">Solicitar devolução integral</option>':'');
-  const button=(action,label)=>'<button type="button" class="secondary small" '+
-     'onclick="adminIndependentRefundAction(\''+action+'\',\''+id+'\','+
-     Number(c.version||0)+')">'+label+'</button>';
+   const choices=[
+    ...(review?[['review','Iniciar revisão','Protocolo aberto para análise de elegibilidade e pagamento.']]:[]),
+    ...(close?[['record_provider_reversal','Registrar reversão verificada','Reversão confirmada no provedor e conferida para registro do protocolo.']]:[]),
+    ...(canVerify?[['verify','Consultar devolução no provedor','Consulta de acompanhamento ao provedor, sem repetir solicitação de devolução.']]:[]),
+    ...(canExecute?[['execute','Solicitar devolução integral','Devolução integral solicitada após conferência do pagamento, recebedor e caso.']]:[])
+   ];
+   const options=choices.map(([operation,label,reason])=>
+    '<label class="admin-option-row"><input type="radio" name="ads-refund-admin-choice-'+id+
+    '" value="'+operation+'" data-reason="'+esc(reason)+
+    '" onchange="adminIndependentAdsRefundChoiceChanged(\''+id+'\')"> '+label+'</label>').join('');
    return '<article class="card flat"><strong>'+esc(String(c.advertiser||''))+
      ' · '+esc(String(c.title||''))+'</strong>'+
      '<p>Solicitação: '+esc(String(c.status||''))+
@@ -357,20 +352,20 @@ function adminAdsIndependentSection(){
      '<p>Motivo: '+esc(String(c.reason||''))+'</p>'+
      '<p>Provedor confirma reversão: '+(c.providerReversalRecorded===true?'Sim':'Não')+'</p>'+
      '<p>Envio pelo Admin: '+esc(String(c.refundProviderAttempt||'não realizado'))+'</p>'+
-     (canAct&&(review||close||canVerify)?'<label for="ads-refund-admin-preset-'+id+'">Motivo da decisão</label>'+
-       '<select id="ads-refund-admin-preset-'+id+'" class="input">'+
-       '<option value="">Escolha o motivo correspondente à ação</option>'+reasonOptions+'</select>'+
-       '<label>Outro motivo (opcional)<textarea class="input" '+
-       'id="ads-refund-admin-reason-'+id+'" maxlength="500" rows="2"></textarea></label>'+
-       (review?button('review','Iniciar revisão'):'')+
-       (close?button('record_provider_reversal','Confirmar estorno verificado'):'')+
-       (canVerify?'<p>Devolução integral somente para o pagamento e a conta recebedora confirmados pelo Mercado Pago. Nunca repita um envio ambíguo.</p>':'')+
-       (canExecute?'<label>Para autorizar a devolução integral, digite DEVOLVER'+
-         '<input class="input" id="ads-refund-provider-confirm-'+id+'" maxlength="8" autocomplete="off"></label>'+
-         '<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'execute\',\''+id+'\','+
-         Number(c.version||0)+')">Solicitar reembolso integral ao Mercado Pago</button>':'')+
-       (canVerify?'<button type="button" class="secondary small" onclick="adminIndependentRefundProvider(\'verify\',\''+
-         id+'\','+Number(c.version||0)+')">Verificar devolução no provedor</button>':''):'')+
+     (canAct&&choices.length?'<fieldset class="card flat"><legend>Marque a providência</legend>'+
+       options+'</fieldset>'+
+       '<details><summary>Outro motivo (opcional)</summary>'+
+       '<label for="ads-refund-admin-reason-'+id+'">Justificativa personalizada</label>'+
+       '<textarea id="ads-refund-admin-reason-'+id+'" class="input" maxlength="500" rows="2"></textarea></details>'+
+       (canExecute?'<div id="ads-refund-acknowledgements-'+id+'" hidden>'+
+        '<label class="admin-option-row"><input type="checkbox" id="ads-refund-check-payment-'+id+'"> '+
+        'Conferi o pagamento, o valor integral e a conta recebedora no Mercado Pago.</label>'+
+        '<label class="admin-option-row"><input type="checkbox" id="ads-refund-check-send-'+id+'"> '+
+        'Autorizo esta devolução integral. Sei que não devo repetir envios ambíguos.</label></div>':'')+
+       '<button type="button" class="secondary small" '+
+        'onclick="adminIndependentAdsChooseRefund(\''+id+'\','+Number(c.version||0)+')" '+
+        (adminIndependentAdsBusy?'disabled':'')+'>Executar providência marcada</button>'
+:'')+
      '</article>';
  }).join('')||'':'';
  const rows=pane==='campaigns'?v?.rows?.map(c=>
