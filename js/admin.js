@@ -82,7 +82,7 @@ const adminRuntime={
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -3094,6 +3094,7 @@ const ADMIN_SECTION_ROLES={
   enablement:new Set(['superadmin','operations','compliance']),
   catalog:new Set(['superadmin','operations']),
   finance:new Set(['superadmin','finance']),
+  ads:new Set(['superadmin','operations','compliance','finance']),
   alerts:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   audit:new Set(['superadmin','readonly','operations','finance','support','compliance']),
@@ -3119,6 +3120,7 @@ function adminSectionMeta(section=adminRuntime.section){
     enablement:{kicker:'HABILITAÇÃO OPERACIONAL',title:'Central de habilitação',description:'Requisitos comprovados de cada revenda, seus bloqueios e próximas ações.'},
     catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
     finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
+    ads:{kicker:'TAMÃO ADS',title:'Publicidade',description:'Anunciantes independentes, campanhas, aprovação, pagamentos e conferência do Mercado Pago. Não exige revendas.'},
     alerts:{kicker:'ATENÇÃO OPERACIONAL',title:'Central de alertas',description:'Sinais oficiais reunidos com horário de verificação, responsáveis e acesso às áreas de tratamento.'},
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
     audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
@@ -3150,6 +3152,7 @@ function adminNavIcon(id){
     enablement:'<path d="M12 3l8 4v5c0 5-4 8-8 9-4-1-8-4-8-9V7l8-4Z"/><path d="m8 12 3 3 5-6"/>',
     catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
     finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
+    ads:'<path d="M3 11v2l13 5V6L3 11Z"/><path d="M16 8h3M16 16h3M6 15l2 5h3l-2-4"/>',
     alerts:'<path d="M4 4h16v15H4zM8 9h8M8 13h5"/><path d="M8 22h8"/>',
     incidents:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
     audit:'<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h4"/><circle cx="17" cy="16" r="2.5"/>',
@@ -3388,7 +3391,7 @@ function adminOwnerFinanceFallbackView(){
 }
 
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations','discovery'];
+  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system','activations','discovery'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
@@ -3398,6 +3401,8 @@ function adminSetSection(section){
   if(['system','overview'].includes(next))adminLoadGovernanceGates().catch(()=>{});
   if(next==='activations')adminActivationLoadOnDemand().catch(()=>{});
   if(next==='discovery')adminDiscoveryLoad().catch(()=>{});
+  if(next==='ads'&&typeof adminIndependentAdsRefresh==='function')
+    adminIndependentAdsRefresh().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(next==='orders'&&['superadmin','operations','support'].includes(adminCurrentRole()))
     adminHelpReportsPage(0).catch(()=>{});
@@ -9800,6 +9805,11 @@ function adminPage(){
     reconciliation:financeReconciliationContent,
     policy:financePolicyContent
   };
+  const adsContent=(sectionActive('ads'))?(
+    typeof adminAdsIndependentSection==='function'
+      ?adminAdsIndependentSection()
+      :(adminAdsIndependentLoad(),'<section class="section" role="status"><p>Carregando publicidade TAMÃO Ads…</p></section>')):'';
+
   const financeContent=(sectionActive('finance'))?(`
     ${adminFinanceRenderPart('Navegação financeira',()=>adminFinanceWorkspaceNav())}
     ${adminFinanceRenderPart('Prioridades financeiras',()=>adminFinanceDailyPrioritiesView(d))}
@@ -9851,9 +9861,10 @@ function adminPage(){
       ${adminMenuButton('enablement','Habilitação','✓')}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      ${adminMenuButton('ads','Publicidade','◉')}
       <div class="admin-nav-group">Governança</div>
       ${adminMenuButton('activations','Ativações','◈')}
-      ${adminMenuButton('discovery','Anúncios','▣')}
+      ${adminMenuButton('discovery','Moderação de anúncios','▣')}
       ${adminMenuButton('alerts','Alertas','!',adminOperationalAlertBadge())}
       ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
@@ -9883,6 +9894,7 @@ function adminPage(){
         ${adminPanel('enablement',sectionActive('enablement')?(typeof adminEnablementSection==='function'?adminEnablementSection(d):adminExpansionFallbackView()):'')}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
+        ${adminPanel('ads',adsContent)}
         ${adminPanel('activations',sectionActive('activations')?(typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView()):'')}
         ${adminPanel('discovery',sectionActive('discovery')?adminDiscoveryView():'')}
         ${adminPanel('alerts',alertsContent)}
