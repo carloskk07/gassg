@@ -148,14 +148,16 @@ async function recoverReservedPreference(admin:any,token:string,sellerId:string,
   "Não foi possível conferir a preferência no Mercado Pago.",503);
  const found:any=await readMercadoPagoJson(response);
  const all=Array.isArray(found?.elements)?found.elements:[];
- const matching=all.filter((p:any)=>String(p?.external_reference||"")===reference);
- if(!Number.isSafeInteger(Number(found?.total))||Number(found.total)>1||matching.length>1)
+ const total=Number(found?.total);
+ if(!Number.isSafeInteger(total)||total<0||total>1||all.length>1)
   return json({error:"ADS_PREFERENCE_REVIEW_REQUIRED",message:
    "Há referências de preferência ambíguas. O financeiro precisa conferir antes de liberar."},409,origin);
- if(matching.length!==1||Number(found.total)!==1)
+ if(total!==1||all.length!==1)
   return json({error:"ADS_PREFERENCE_PENDING",message:
    "O Mercado Pago ainda não retornou a preferência. Confira novamente; não será criada uma segunda cobrança."},409,origin);
- const proof=await providerPreferenceProof(token,String(matching[0].id||""),{
+ // SEARCH often omits external_reference in the elements response.
+ // GET detail below is authoritative and MUST verify the exact reference.
+ const proof=await providerPreferenceProof(token,String(all[0].id||""),{
   reference,campaignId,sellerId,amountCents,expiresAt
  });
  const {data:attached,error}=await admin.rpc("ads_independent_checkout_attach_v1_886",{
@@ -183,7 +185,7 @@ Deno.serve(async(req:Request)=>{
  try{
   const body:any=await readJsonBody(req,{maxBytes:4000});
   if(!["purchase","reconcile"].includes(body.action))return json({error:"UNKNOWN_ACTION"},400,origin);
-  const campaignId=String(body.campaignId||""),requestId=String(body.requestId||"");
+  const campaignId=String(body.campaignId||"").toLowerCase(),requestId=String(body.requestId||"");
   if(!UUID.test(campaignId)||(body.action==="purchase"&&!UUID.test(requestId)))
    return json({error:"INVALID_PURCHASE_REQUEST"},400,origin);
   if(body.action==="purchase"&&body.acceptFixedFee!==true)
