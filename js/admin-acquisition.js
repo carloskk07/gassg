@@ -7205,7 +7205,7 @@ function adminProspectCrmEditor(record){
       '<div class="field-row"><div class="input-wrap"><label for="prospect-stage-'+cnpj+'">Etapa comercial</label>'+
         '<select id="prospect-stage-'+cnpj+'" class="input">'+choices+'</select></div>'+
       '<div class="input-wrap"><label for="prospect-quick-date-'+cnpj+'">Próximo retorno (escolha um prazo)</label>'+
-        '<select id="prospect-quick-date-'+cnpj+'" class="input" onchange="adminProspectFollowUpChoice(\\''+cnpj+'\\')">'+
+        '<select id="prospect-quick-date-'+cnpj+'" class="input" data-cnpj="'+cnpj+'" onchange="adminProspectFollowUpChoice(this.dataset.cnpj)">'+
           '<option value="keep">Manter data atual</option><option value="today">Hoje</option>'+
           '<option value="1">Amanhã</option><option value="3">Daqui a 3 dias</option>'+
           '<option value="7">Daqui a 7 dias</option><option value="clear">Sem data</option>'+
