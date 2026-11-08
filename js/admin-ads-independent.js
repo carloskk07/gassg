@@ -36,22 +36,62 @@ async function adminIndependentAdsRefresh(){
  }catch(e){toast(String(e?.message||'Erro ao consultar Ads independente.'))}
  finally{adminIndependentAdsBusy=false}
 }
+// A checked option is mandatory: a form render or refresh cannot authorize any action.
+function adminIndependentAdsMarked(group){
+ const input=document.querySelector('input[name="'+group+'"]:checked');
+ return input&&typeof input.value==='string'?input:null;
+}
+function adminIndependentAdsChooseCampaign(campaignId,version){
+ if(!/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))return;
+ const chosen=adminIndependentAdsMarked('independent-ads-choice-'+campaignId);
+ if(!chosen)return toast('Marque primeiro o que deseja fazer com a campanha.');
+ return adminIndependentAdsAction(String(chosen.value||''),campaignId,version);
+}
+function adminIndependentAdsChooseRefund(caseId,version){
+ if(!/^[0-9a-f-]{36}$/i.test(String(caseId||'')))return;
+ const chosen=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ if(!chosen)return toast('Marque primeiro o que deseja fazer com o reembolso.');
+ const operation=String(chosen.value||'');
+ if(['review','record_provider_reversal'].includes(operation))
+  return adminIndependentRefundAction(operation,caseId,version);
+ if(['verify','execute'].includes(operation))
+  return adminIndependentRefundProvider(operation,caseId,version);
+ return toast('Ação não reconhecida.');
+}
+function adminIndependentAdsRefundChoiceChanged(caseId){
+ const selected=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ const box=document.getElementById('ads-refund-acknowledgements-'+caseId);
+ if(!box)return;
+ box.hidden=selected?.value!=='execute';
+ if(box.hidden){
+  for(const prefix of ['ads-refund-check-payment-','ads-refund-check-send-']){
+   const input=document.getElementById(prefix+caseId);
+   if(input)input.checked=false;
+  }
+ }
+}
 async function adminIndependentAdsAction(decision,campaignId='',version=0){
  const actor=String(adminRuntime?.session?.user?.id||'');
  if(!actor||adminCurrentRole()!=='superadmin'||adminIndependentAdsBusy)return;
  const control=decision==='enable_delivery'||decision==='disable_delivery';
  const field=document.getElementById(control?'independent-ads-control-reason':'independent-ads-reason-'+campaignId);
- const selected=control?document.getElementById('independent-ads-control-preset'):
-  document.getElementById('independent-ads-preset-'+campaignId);
- const manualReason=String(field?.value||'').trim();
- const presetReason=String(selected?.value||'').trim();
- const presetDecision=String(selected?.selectedOptions?.[0]?.dataset?.decision||'');
- if(!control&&!manualReason&&presetReason&&presetDecision!==decision)
-   return toast('O motivo selecionado é para outra ação. Escolha o motivo correspondente.');
- const reason=manualReason||presetReason;
+ const selected=adminIndependentAdsMarked(control?'independent-ads-control-preset':
+  'independent-ads-choice-'+campaignId);
+ if(!selected)return toast('Marque uma opção antes de confirmar.');
+ if(!control&&String(selected.value)!==decision)
+  return toast('A ação marcada mudou. Confira antes de confirmar.');
+ const predefined={
+  approve:'Criativo revisado e aprovado pelo administrador.',
+  reject:'Criativo incompleto ou incompatível com as regras da publicação.',
+  publish:'Campanha e pagamento revisados para autorização de publicação.',
+  pause:'Publicação pausada para revisão operacional do anunciante.',
+  resume:'Campanha revisada e autorizada para retomar o prazo restante.',
+  end:'Campanha encerrada mediante decisão administrativa documentada.'
+ };
+ const manual=String(field?.value||'').trim();
+ const reason=manual||(control?String(selected.value||''):predefined[decision]||'');
  if(reason.length<12||reason.length>500)
-   return toast(control?'Informe uma justificativa de 12 a 500 caracteres.':
-     'Selecione um motivo pronto ou escreva uma justificativa.');
+  return toast('Selecione uma opção ou escreva uma justificativa com 12 a 500 caracteres.');
  const current=adminIndependentAdsState;
  if(current.loadedFor!==actor)return toast('Atualize a lista antes de decidir.');
  const row=current.rows.find(x=>x.id===campaignId);
@@ -106,12 +146,18 @@ async function adminIndependentAdsHomologationAction(enabled){
  if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
     state.fixedFeeSalesVersion<1)return toast('Atualize as campanhas antes de decidir.');
  const campaignId=enabled?String(document.getElementById('ads-homologation-campaign')?.value||''):'';
+ const marked=adminIndependentAdsMarked('ads-homologation-preset');
+ if(!marked)return toast('Marque a justificativa para a homologação.');
  const reason=String(document.getElementById('ads-homologation-reason')?.value||'').trim()||
-   String(document.getElementById('ads-homologation-preset')?.value||'').trim();
- const confirmation=String(document.getElementById('ads-homologation-confirm')?.value||'').trim();
- if(reason.length<12||reason.length>500)return toast('Informe justificativa de 12 a 500 caracteres.');
- if(confirmation!==(enabled?'HOMOLOGAR':'CANCELAR'))
-  return toast('Digite '+(enabled?'HOMOLOGAR':'CANCELAR')+' para confirmar.');
+   String(marked.value||'').trim();
+ const verified=document.getElementById('ads-homologation-check-verify')?.checked===true;
+ const intentional=document.getElementById('ads-homologation-check-confirm')?.checked===true;
+ if(reason.length<12||reason.length>500)return toast('A justificativa deve conter de 12 a 500 caracteres.');
+ if(!verified||!intentional)
+  return toast('Marque as duas confirmações antes de autorizar ou revogar.');
+ // A human checked both attestations. The server still validates the exact
+ // confirmation, expected version, ownership, and financial eligibility.
+ const confirmation=enabled?'HOMOLOGAR':'CANCELAR';
  if(enabled&&!state.rows.some(c=>c.id===campaignId&&c.status==='approved'&&
      c.budgetCents===1990&&c.durationDays===7))
   return toast('Escolha uma campanha aprovada de R$ 19,90 por 7 dias.');
@@ -136,8 +182,10 @@ async function adminIndependentAdsSalesAction(){
  const state=adminIndependentAdsState;
  if(state.loadedFor!==actor||!Number.isSafeInteger(state.fixedFeeSalesVersion)||
    state.fixedFeeSalesVersion<1)return toast('Atualize a situação das campanhas primeiro.');
+ const marked=adminIndependentAdsMarked('independent-ads-sales-preset');
+ if(!marked)return toast('Marque a justificativa de novas vendas.');
  const reason=String(document.getElementById('independent-ads-sales-reason')?.value||'').trim()||
-   String(document.getElementById('independent-ads-sales-preset')?.value||'').trim();
+   String(marked.value||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe uma justificativa de 12 a 500 caracteres.');
  adminIndependentAdsBusy=true;
  try{
@@ -156,10 +204,10 @@ async function adminIndependentAdsSalesAction(){
 async function adminIndependentRefundAction(operation,caseId,version){
  if(adminIndependentAdsBusy||adminCurrentRole()!=='superadmin')return;
  const manual=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
- const preset=document.getElementById('ads-refund-admin-preset-'+caseId);
- if(!manual&&preset?.value&&preset?.selectedOptions?.[0]?.dataset?.operation!==operation)
-  return toast('O motivo selecionado corresponde a outra ação de reembolso.');
- const reason=manual||String(preset?.value||'').trim();
+ const marked=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ if(!marked||marked.value!==operation)
+  return toast('Marque a ação correspondente antes de confirmar.');
+ const reason=manual||String(marked.dataset?.reason||'').trim();
  if(reason.length<12||reason.length>500)return toast('Selecione uma justificativa ou escreva uma com 12 a 500 caracteres.');
  if(!['review','record_provider_reversal'].includes(operation)||!/^[0-9a-f-]{36}$/i.test(caseId))
   return toast('Solicitação inválida.');
@@ -190,14 +238,17 @@ async function adminIndependentRefundProvider(operation,caseId,version){
  if(operation==='execute'&&row.refundProviderAttempt)
   return toast('Já existe solicitação ao provedor. Utilize apenas Verificar.');
  const manual=String(document.getElementById('ads-refund-admin-reason-'+caseId)?.value||'').trim();
- const preset=document.getElementById('ads-refund-admin-preset-'+caseId);
- if(!manual&&preset?.value&&preset?.selectedOptions?.[0]?.dataset?.operation!==operation)
-  return toast('O motivo selecionado corresponde a outra ação de reembolso.');
- const reason=manual||String(preset?.value||'').trim();
- const confirmation=String(document.getElementById('ads-refund-provider-confirm-'+caseId)?.value||'').trim();
+ const marked=adminIndependentAdsMarked('ads-refund-admin-choice-'+caseId);
+ if(!marked||marked.value!==operation)
+  return toast('Marque a ação correspondente antes de confirmar.');
+ const reason=manual||String(marked.dataset?.reason||'').trim();
  if(reason.length<12||reason.length>500)return toast('Informe justificativa com 12 a 500 caracteres.');
- if(operation==='execute'&&confirmation!=='DEVOLVER')
-  return toast('Digite DEVOLVER para autorizar o reembolso integral.');
+ if(operation==='execute'&&
+   !(document.getElementById('ads-refund-check-payment-'+caseId)?.checked===true&&
+     document.getElementById('ads-refund-check-send-'+caseId)?.checked===true))
+  return toast('Marque as duas verificações antes de solicitar a devolução integral.');
+ // The confirmation is emitted only after two deliberate checked acknowledgements.
+ const confirmation=operation==='execute'?'DEVOLVER':'';
  adminIndependentAdsBusy=true;
  try{
   const r=await adminPerform('ads-independent-refund-provider',{
