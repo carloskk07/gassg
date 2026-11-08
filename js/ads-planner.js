@@ -97,7 +97,8 @@ function tamaoAdsPlannerSection(){
 // V1.884: independent advertiser intake with verified email; never charges.
 let tamaoAdsDraftRequestId=null;
 let tamaoAdsDraftBusy=false;
-let tamaoAdsMyState={userId:null,rows:[],status:'idle',fixedFeeSalesEnabled:false};
+let tamaoAdsMyState={userId:null,rows:[],status:'idle',fixedFeeSalesEnabled:false,
+ homologationCampaignId:null,homologationExpiresAt:null};
 let tamaoAdsPurchaseBusy=false;
 let tamaoAdsRefundBusy=false;
 const tamaoAdsRefundRequestIds=new Map();
@@ -138,7 +139,10 @@ function tamaoAdsCampaignForm(){
       const bought=String(c.fixedFeeStatus||'');
       const validPlan=(fee===1990&&days===7)||(fee===4990&&days===15)||
         (fee===9990&&days===30)||(fee===19990&&days===30);
-      const canBuy=s.fixedFeeSalesEnabled===true&&c.status==='approved'&&validPlan&&
+      const testAuthorized=String(s.homologationCampaignId||'')===id&&
+        Date.parse(String(s.homologationExpiresAt||''))>Date.now();
+      const canBuy=(s.fixedFeeSalesEnabled===true||testAuthorized)&&
+        c.status==='approved'&&validPlan&&
         (bought===''||bought==='checkout_ready');
       const payment=bought==='payment_approved'?'Pagamento aprovado pelo provedor; aguarda publicação.':
         bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
@@ -158,6 +162,8 @@ function tamaoAdsCampaignForm(){
         refundStatus?'<p role="status">Solicitação de reembolso: '+esc(refundStatus)+
           '. O histórico financeiro permanece sujeito à confirmação do provedor.</p>':'';
       const buy=canBuy?'<div class="card flat">'+
+        (testAuthorized&&!s.fixedFeeSalesEnabled?
+          '<p><strong>Homologação supervisionada:</strong> este é um pagamento REAL autorizado para uma campanha, não uma simulação.</p>':'')+
         '<p><strong>Veiculação por prazo fixo:</strong> '+tamaoAdsFormatMoney(fee)+
         ' por '+days+' dias, nesta cidade. Não há garantia de visualizações e não é cobrança por CPM.</p>'+
         '<label class="check-row"><input type="checkbox" id="ads-fixed-consent-'+id+'">'+
@@ -245,7 +251,9 @@ async function tamaoAdsMyRefresh({quiet=false}={}){
       throw Error('Consulta não confirmada.');
     if(userId!==String(globalThis.liveRuntime?.session?.user?.id||''))return;
     tamaoAdsMyState={userId,rows:r.rows.slice(0,30),status:'ready',
-      fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true};
+      fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true,
+      homologationCampaignId:String(r.homologationCampaignId||'')||null,
+      homologationExpiresAt:String(r.homologationExpiresAt||'')||null};
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
   }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
