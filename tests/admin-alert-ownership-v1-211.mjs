@@ -57,7 +57,9 @@ const ctx=vm.createContext({Date,Number,Array,Object,Set,Map,String,
  adminRuntime:states,adminReady:()=>states.status==='ready',
  adminRoleCanSection:x=>grants[role]?.includes(x)===true,
  adminCurrentRole:()=>role,esc:escaped,
- document:{getElementById:id=>fields[id]||null,querySelector:()=>null},
+ document:{getElementById:id=>fields[id]||null,
+  querySelector:selector=>selector==='input[name="admin-followup-reason-finance"]:checked'?
+   {value:'monitoring',dataset:{note:'Situação revisada, aguardando acompanhamento.'}}:null},
  render:()=>renderCount++,toast:x=>{notice=String(x)},
  adminPerform:async(action,payload)=>{writes.push({action,payload});return {revision:3}},
  adminLoadOperationalAlerts:async()=>{reloads++}
