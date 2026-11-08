@@ -2906,15 +2906,19 @@ function adminDiscoveryView(){
         '<button class="secondary small" type="button" onclick="adminDiscoveryDocuments(\''+id+'\')"'+
         (d.documentPending===id?' disabled':'')+'>Conferir comprovantes privados</button>'+
         documentsHtml+
-        '<div class="input-wrap"><label for="admin-discovery-reason-'+id+'">Justificativa da decisão</label>'+
-        '<input id="admin-discovery-reason-'+id+'" type="text" class="input" minlength="8" maxlength="240" '+
-        'placeholder="Descreva a conferência realizada"></div>'+
-        '<div class="order-actions">'+
-        '<button class="secondary small" type="button" onclick="adminDiscoveryDecision(\''+id+'\',\'rejected\')"'+
-          (d.pending?' disabled':'')+'>Solicitar ajustes / rejeitar</button>'+
-        '<button class="primary small" type="button" onclick="adminDiscoveryDecision(\''+id+'\',\'published\')"'+
-          (!canPublish||d.pending?' disabled':'')+'>Aprovar anúncio</button>'+
-        '</div></article>';
+        '<fieldset><legend>Marque a decisão para este anúncio</legend>'+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-decision-'+id+
+        '" value="rejected" data-reason="Anúncio devolvido para corrigir informações ou apresentar evidências necessárias."> Solicitar ajustes</label>'+
+        '<label class="admin-option-row"><input type="radio" name="admin-discovery-decision-'+id+
+        '" value="published" data-reason="Conteúdo, requisitos e documentação aplicável revisados para publicação."> Aprovar anúncio</label></fieldset>'+
+        '<label class="admin-option-row"><input type="checkbox" id="admin-discovery-proof-'+id+
+        '"> Conferi as informações e evidências exigíveis antes de aprovar a publicação.</label>'+
+        '<details><summary>Outro motivo (opcional)</summary>'+
+        '<label for="admin-discovery-reason-'+id+'">Observação específica</label>'+
+        '<textarea id="admin-discovery-reason-'+id+'" class="input" maxlength="240" rows="2"></textarea></details>'+
+        '<button class="primary small" type="button" onclick="adminDiscoverySubmitListing(\''+id+'\')"'+
+        (d.pending?' disabled':'')+'>Confirmar decisão marcada</button>'+
+        '</article>';
     }).join('');
   const reportReasonLabels={suspected_fraud:'Possível fraude',incorrect_information:'Informação incorreta',
     unsafe_content:'Conteúdo perigoso',other:'Outros problemas'};
