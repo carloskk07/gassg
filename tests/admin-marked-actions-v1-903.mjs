@@ -36,7 +36,7 @@ const ctx=vm.createContext({document,esc,Date,Number,String,Object,Array,Math,In
 vm.runInContext([
  span(admin,'const ADMIN_CITY_REASON_CHOICES=','async function adminGovernanceChangeCityPause(index){'),
  fn(admin,'adminGovernanceChangeCityPause'),
- span(admin,'const ADMIN_APPLICATION_REJECTION_REASONS=','async function adminReviewMerchantRepresentation(id){'),
+ span(admin,'const ADMIN_APPLICATION_REJECTION_REASONS=','async function adminReviewMerchantRepresentation('),
  span(admin,'const ADMIN_SUPPORT_RESOLUTION_REASONS=','function adminGeneratePilotInviteToken(){'),
  fn(acq,'adminMarkCityNotification'),
  fn(acq,'adminPauseMarketCity'),
