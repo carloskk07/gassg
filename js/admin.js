@@ -9248,7 +9248,7 @@ function adminLaunchControl(readiness={}){
       <div class="order-line"><strong>Risco:</strong> ${esc(item.risk||'Pendência operacional.')}</div>
       <div class="order-line"><strong>Recomendação:</strong> ${esc(item.recommendation||'Revisar antes de operar.')}</div>
       ${item.reason?`<div class="notice success" style="margin-top:10px"><strong>Decisão registrada:</strong> ${esc(item.reason)}${expiry?' • válida até '+esc(expiry):''}</div>`:''}
-      ${!confirmed?`<div class="order-actions"><button class="secondary small" onclick="adminConfirmLaunchRequirement('${String(item.key).replace(/'/g,'')}')">Revisar e confirmar</button></div>`:''}
+      ${!confirmed?adminLaunchRequirementDecisionUI(item.key):''}
     </article>`;
   }).join('');
   const securityHtml=security.length
@@ -9268,6 +9268,7 @@ function adminLaunchControl(readiness={}){
       ${securityHtml}
       ${warningDetails.length?`<div><strong>Alertas operacionais</strong><div class="tiny muted" style="margin-top:4px">Resolva a condição ou registre conscientemente a decisão administrativa antes de ativar novos pedidos.</div></div>${warnings}`:'<div class="notice success"><strong>Checklist operacional recomendado concluído.</strong></div>'}
       ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
+      ${adminOperationModePicker(mode)}
       <div class="order-actions">
         <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
         ${mode==='PRELAUNCH'
@@ -10624,18 +10625,83 @@ async function adminVerifyLaunchPortals(){
     if(result?.ok)toast('Os três portais live foram verificados');
   }catch(e){toast(String(e?.message||e))}
 }
+
+const ADMIN_LAUNCH_EXCEPTION_REASONS=Object.freeze({
+  follow_up:'Risco revisado. Acompanhamento administrativo temporário assumido para esta pendência.',
+  mitigated:'Medida mitigadora implantada e verificada para esta pendência.',
+  temporary:'Exceção temporária aprovada após revisão dos limites e do risco operacional.'
+});
+const ADMIN_OPERATION_REASONS=Object.freeze({
+  PRELAUNCH:Object.freeze({review:'Retorno à configuração para revisão operacional.'}),
+  PILOT:Object.freeze({controlled:'Operação limitada autorizada após conferência das regras.'}),
+  LIVE:Object.freeze({
+    readiness:'Prontidão operacional consultada para autorizar ou revalidar a operação.',
+    review:'Revisão das condições de operação e dos bloqueios de pedidos físicos.'
+  }),
+  PAUSED:Object.freeze({
+    maintenance:'Pausa administrativa para manutenção programada.',
+    risk:'Pausa por risco operacional identificado.',
+    capacity:'Pausa por indisponibilidade de atendimento conferida.'
+  })
+});
+function adminLaunchRequirementDecisionUI(key){
+  const safe=String(key||'');
+  if(!/^[a-z0-9_]{2,100}$/.test(safe))return '';
+  const id=esc(safe);
+  return '<details class="admin-launch-exception"><summary>Revisar e confirmar (marcar opções)</summary>'+
+    '<label for="launch-exception-reason-'+id+'">Motivo realmente verificado</label>'+
+    '<select id="launch-exception-reason-'+id+'" class="input">'+
+      '<option value="">Selecione após conferir</option>'+
+      '<option value="follow_up">Risco revisado e acompanhamento assumido</option>'+
+      '<option value="mitigated">Mitigação implantada e verificada</option>'+
+      '<option value="temporary">Exceção temporária autorizada</option></select>'+
+    '<label for="launch-exception-hours-'+id+'">Validade da decisão</label>'+
+    '<select id="launch-exception-hours-'+id+'" class="input">'+
+      '<option value="24">24 horas</option><option value="72">3 dias</option>'+
+      '<option value="168">7 dias</option></select>'+
+    '<details><summary>Referência real existente (opcional)</summary>'+
+      '<input id="launch-exception-evidence-'+id+'" class="input" maxlength="400"></details>'+
+    '<label class="check-row"><input type="checkbox" id="launch-exception-confirm-'+id+'">'+
+      '<span>Li o risco e assumo esta decisão; bloqueios de segurança continuam obrigatórios.</span></label>'+
+    '<button class="secondary small" onclick="adminConfirmLaunchRequirement(&quot;'+id+'&quot;)">Registrar decisão</button></details>';
+}
+function adminOperationModePicker(mode){
+  const permitted=mode==='PRELAUNCH'?['LIVE']:mode==='PAUSED'?['PRELAUNCH']:
+    mode==='PILOT'?['LIVE','PAUSED']:mode==='LIVE'?['LIVE','PAUSED']:[];
+  if(!permitted.length)return '';
+  return '<details class="admin-operation-decision"><summary>Escolher motivo da mudança operacional</summary>'+
+    '<label for="admin-operation-reason">Motivo conferido</label>'+
+    '<select class="input" id="admin-operation-reason">'+
+      '<option value="">Marque a situação real</option>'+
+      permitted.map(status=>Object.entries(ADMIN_OPERATION_REASONS[status]).map(([key,reason])=>
+        '<option value="'+esc(status+':'+key)+'">'+esc(reason)+'</option>').join('')).join('')+
+    '</select><label class="check-row"><input id="admin-operation-confirm" type="checkbox">'+
+    '<span>Conferi o estado operacional e confirmo a decisão selecionada.</span></label></details>';
+}
+function adminOperationalChosenReason(target){
+  const choices=ADMIN_OPERATION_REASONS[target];
+  const value=String(document.getElementById('admin-operation-reason')?.value||'');
+  const prefix=target+':';
+  if(!choices||!value.startsWith(prefix))return null;
+  const key=value.slice(prefix.length);
+  if(!Object.prototype.hasOwnProperty.call(choices,key)||
+     document.getElementById('admin-operation-confirm')?.checked!==true)return null;
+  return choices[key];
+}
 async function adminConfirmLaunchRequirement(requirementKey){
-  const reason=prompt('Explique por que esta pendência pode ser assumida agora pelo administrador:')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo da decisão');
-  const hoursText=prompt('Validade da confirmação em horas. Deixe vazio para não expirar:','24');
-  if(hoursText===null)return;
-  let expiresAt=null;
-  if(String(hoursText).trim()){
-    const hours=Number(hoursText);
-    if(!Number.isFinite(hours)||hours<=0||hours>8760)return toast('Informe uma validade entre 1 e 8760 horas');
-    expiresAt=new Date(Date.now()+hours*60*60*1000).toISOString();
-  }
-  const evidence=prompt('Evidência ou referência opcional:','')||'';
+  const safe=String(requirementKey||'');
+  if(!/^[a-z0-9_]{2,100}$/.test(safe))return toast('Pendência inválida.');
+  const key=String(document.getElementById('launch-exception-reason-'+safe)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_LAUNCH_EXCEPTION_REASONS,key))
+    return toast('Marque o motivo verdadeiro após revisar o risco.');
+  if(document.getElementById('launch-exception-confirm-'+safe)?.checked!==true)
+    return toast('Confirme a revisão consciente da pendência.');
+  const hours=Number(document.getElementById('launch-exception-hours-'+safe)?.value);
+  if(![24,72,168].includes(hours))return toast('Selecione um período válido.');
+  const expiresAt=new Date(Date.now()+hours*3600000).toISOString();
+  const evidence=String(document.getElementById('launch-exception-evidence-'+safe)?.value||'').trim();
+  if(evidence.length>400)return toast('Referência excessivamente longa.');
+  const reason=ADMIN_LAUNCH_EXCEPTION_REASONS[key];
   if(!confirm('Estou ciente do risco e desejo registrar esta decisão administrativa.'))return;
   try{
     await adminPerform('confirm-launch-requirement',{
@@ -10657,8 +10723,8 @@ async function adminSetOperationMode(mode){
   const target=String(mode||'').toUpperCase();
   const labels={PRELAUNCH:'voltar para configuração',PILOT:'autorizar pedidos',LIVE:'ativar a plataforma ou revalidar pedidos',PAUSED:'pausar a plataforma'};
   if(!labels[target])return toast('Modo operacional inválido');
-  const reason=prompt('Motivo para '+labels[target]+':')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo da mudança');
+  const reason=adminOperationalChosenReason(target);
+  if(!reason)return toast('Marque o motivo real e confirme a decisão operacional.');
   const confirmText=target==='PAUSED'
     ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
     :target==='LIVE'
