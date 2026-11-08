@@ -3002,16 +3002,27 @@ function adminDiscoveryView(){
     '<h3>Disponibilidade por modalidade e cidade</h3>'+
     '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
     '<div class="form-stack">'+
+      '<label>Cidade já cadastrada (sem digitar)<select class="input" id="admin-discovery-city-existing" '+
+       'onchange="if(this.value!==\'\')adminDiscoveryPrefillCity(Number(this.value))">'+
+       '<option value="">Nova cidade ou escolha a existente</option>'+
+       d.cities.map((c,i)=>'<option value="'+i+'">'+esc(c.city_name)+' / '+esc(c.state_code)+
+         ' • '+esc(c.vertical)+'</option>').join('')+'</select></label>'+
       '<label>Modalidade<select class="input" id="admin-discovery-city-kind">'+
         '<option value="professionals">Profissionais</option>'+
         '<option value="rides">Caronas</option>'+
         '<option value="stays">Hospedagens</option></select></label>'+
       '<label>UF<input class="input" id="admin-discovery-city-state" maxlength="2" value="RS"></label>'+
       '<label>Cidade<input class="input" id="admin-discovery-city-name" maxlength="120" placeholder="São Gabriel"></label>'+
-      '<label>Justificativa<input class="input" id="admin-discovery-city-reason" maxlength="240" placeholder="Motivo da decisão"></label>'+
-      '<div class="order-actions">'+
-        '<button type="button" class="secondary small" onclick="adminDiscoverySetCity(false)"'+(d.pending?' disabled':'')+'>Suspender modalidade</button>'+
-        '<button type="button" class="primary small" onclick="adminDiscoverySetCity(true)"'+(d.pending?' disabled':'')+'>Habilitar modalidade</button>'+
+      '<fieldset id="admin-discovery-city-actions" tabindex="-1"><legend>O que deseja fazer?</legend>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-discovery-city-action" value="disable" '+
+       'data-reason="Modalidade suspensa preventivamente nesta cidade mediante revisão administrativa."> Suspender modalidade</label>'+
+      '<label class="admin-option-row"><input type="radio" name="admin-discovery-city-action" value="enable" '+
+       'data-reason="Disponibilidade da modalidade na cidade revisada antes da autorização administrativa."> Habilitar modalidade</label>'+
+      '</fieldset>'+
+      '<details><summary>Outro motivo (opcional)</summary><label for="admin-discovery-city-reason">Justificativa personalizada</label>'+
+      '<textarea class="input" id="admin-discovery-city-reason" maxlength="240" rows="2"></textarea></details>'+
+      '<button type="button" class="primary small" onclick="adminDiscoverySubmitCity()"'+
+       (d.pending?' disabled':'')+'>Confirmar modalidade marcada</button>'+
       '</div></div>'+cityMatrix+'</section>';
   return '<section class="section"><div class="section-head"><div><h2>Revisão de anúncios</h2>'+
     '<p>Decisões reservadas ao superadministrador e auditadas no banco. Nenhum anúncio é aprovado automaticamente.</p>'+
