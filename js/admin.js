@@ -2922,7 +2922,8 @@ function adminDiscoveryView(){
         '<label class="admin-option-row"><input type="radio" name="admin-discovery-decision-'+id+
         '" value="rejected" data-reason="Anúncio devolvido para corrigir informações ou apresentar evidências necessárias."> Solicitar ajustes</label>'+
         '<label class="admin-option-row"><input type="radio" name="admin-discovery-decision-'+id+
-        '" value="published" data-reason="Conteúdo, requisitos e documentação aplicável revisados para publicação."> Aprovar anúncio</label></fieldset>'+
+        '" value="published" data-reason="Conteúdo, requisitos e documentação aplicável revisados para publicação."'+
+        (!canPublish?' disabled':'')+'> Aprovar anúncio</label></fieldset>'+
         '<label class="admin-option-row"><input type="checkbox" id="admin-discovery-proof-'+id+
         '"> Conferi as informações e evidências exigíveis antes de aprovar a publicação.</label>'+
         '<details><summary>Outro motivo (opcional)</summary>'+
