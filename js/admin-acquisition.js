@@ -5907,13 +5907,23 @@ async function adminLoadCityNotifications(){
 async function adminMarkCityNotification(notificationId,status){
   if(!['superadmin','operations'].includes(String(adminCurrentRole())))return;
   if(!['sent','skipped'].includes(status))return;
-  const question=status==='sent'
-    ?'Confirma que você JÁ ENVIOU a mensagem pelo WhatsApp? O TAMÃO ainda não envia automaticamente.'
-    :'Informe por que este contato não deve receber o aviso:';
-  let note=prompt(question,status==='sent'?'Mensagem enviada manualmente pelo WhatsApp':'Contato não realizado');
-  if(note==null)return;
-  note=String(note).trim();
-  if(note.length<5)return toast('Informe uma confirmação ou justificativa');
+  let note='';
+  if(status==='sent'){
+    if(document.getElementById('city-notification-sent-'+notificationId)?.checked!==true)
+      return toast('Marque somente após ter enviado a mensagem pelo WhatsApp.');
+    note='Mensagem enviada manualmente pelo WhatsApp, conforme confirmação expressa do operador.';
+  }else{
+    const key=String(document.getElementById('city-notification-skip-'+notificationId)?.value||'');
+    const reasons={
+      opt_out:'Interessado solicitou não receber o aviso.',
+      invalid:'Canal de contato inválido após conferência.',
+      duplicate:'Aviso duplicado identificado após conferência.',
+      not_suitable:'Contato não aplicável após revisão do cadastro.'
+    };
+    if(!Object.prototype.hasOwnProperty.call(reasons,key))
+      return toast('Marque o motivo verdadeiro para não contatar.');
+    note=reasons[key];
+  }
   try{
     await adminPerform('city-notification-status',{notificationId,status,note});
     await adminLoadCityNotifications();
@@ -5942,8 +5952,18 @@ function adminCityNotificationsSection(){
         '<small>'+esc(city)+'/'+esc(item.state)+' • CEP '+esc(item.postal_code)+' • '+esc(phone)+'</small></div>'+
         '<div class="order-actions">'+
           '<a class="secondary small" href="'+esc(link)+'" rel="noopener noreferrer" target="_blank">Abrir WhatsApp</a>'+
-          '<button class="primary small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'sent\')">Confirmar envio</button>'+
+          '<details><summary>Registrar resultado do aviso</summary>'+
+            '<label class="check-row"><input id="city-notification-sent-'+esc(item.id)+'" type="checkbox"><span>Já enviei esta mensagem pelo WhatsApp</span></label>'+
+          '<button class="primary small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'sent\')">Confirmar envio real</button>'+
+            '<label for="city-notification-skip-'+esc(item.id)+'">Caso não deva contatar</label>'+
+            '<select id="city-notification-skip-'+esc(item.id)+'" class="input">'+
+              '<option value="">Marque o motivo real</option>'+
+              '<option value="opt_out">Solicitou não receber avisos</option>'+
+              '<option value="invalid">Contato inválido</option>'+
+              '<option value="duplicate">Aviso duplicado</option>'+
+              '<option value="not_suitable">Cadastro não aplicável</option></select>'+
           '<button class="ghost small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'skipped\')">Não contatar</button>'+
+          '</details>'+
         '</div></div>';
     }).join(''):pending?'<div class="muted">Carregando fila…</div>':'<div class="muted">Nenhum aviso pendente nesta cidade.</div>')+
     '</div></div>';
