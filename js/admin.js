@@ -2836,7 +2836,7 @@ function adminDiscoverySubmitReport(id){
  if(chosen.value==='paused'){
   const row=adminDiscoveryDesk.reports.find(x=>Number(x.id)===id);
   if(!row||row.listing_status!=='published')return toast('Atualize a denúncia antes de suspender.');
-  return adminDiscoverySuspendReportedListing(String(row.listing_id));
+  return adminDiscoverySuspendReportedListing(String(row.listing_id),id);
  }
  return adminDiscoveryReviewReport(id,chosen.value);
 }
@@ -3068,11 +3068,12 @@ async function adminDiscoveryChangeLive(id,next){
   }
 }
 
-async function adminDiscoverySuspendReportedListing(id){
+async function adminDiscoverySuspendReportedListing(id,selectedReportId=null){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
      !/^[0-9a-f-]{36}$/.test(String(id||''))||
      !adminDiscoveryDesk.reports.some(x=>x.listing_id===id&&x.listing_status==='published'))return;
-  const report=adminDiscoveryDesk.reports.find(x=>x.listing_id===id&&x.listing_status==='published');
+  const report=adminDiscoveryDesk.reports.find(x=>x.listing_id===id&&
+    x.listing_status==='published'&&(selectedReportId===null||Number(x.id)===selectedReportId));
   if(!report)return;
   const reportId=Number(report.id);
   if(!Number.isSafeInteger(reportId)||reportId<=0)return;
