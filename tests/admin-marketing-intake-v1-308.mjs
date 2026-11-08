@@ -41,7 +41,7 @@ for(const marker of [
 assert.ok(!edge.match(/ADMIN_READ_ACTIONS=new Set\(\["commercial-intake-set"/));
 
 let role='superadmin',ready=true,user='owner',confirmReturn=false;
-let reason='Controle de entrada ajustado',performed=[],refreshed=0,toasts=[];
+let chosen='',performed=[],refreshed=0,toasts=[];
 const row={moduleKey:'ads_proposals',enabled:true,version:1,reason:'previous'};
 const runtime={session:{user:{id:user}}};
 const state=vm.createContext({
@@ -60,7 +60,7 @@ const state=vm.createContext({
      {moduleKey:'clube_proposals',enabled:true,version:3,reason:'unchanged'}]}:null,
  adminLoadGovernanceGates:async()=>null,
  adminPushReliabilityLoadFromUi:async()=>null,
- confirm:()=>confirmReturn,prompt:()=>reason,toast:t=>toasts.push(t),
+ confirm:()=>confirmReturn,document:{getElementById:()=>({value:chosen})},toast:t=>toasts.push(t),
  esc:s=>String(s).replaceAll('<','&lt;'),formatDateTime:s=>s,
  adminSetSection:()=>{},requestAnimationFrame:()=>{},render:()=>{},
  Number,String,Date,Promise,Set
@@ -74,9 +74,9 @@ assert.match(state.intake(),/Recebendo propostas/);
 assert.match(state.intake(),/adminMarketingIntakeSet\('ads_proposals'\)/);
 assert.equal(await state.change('unknown'),false);
 confirmReturn=false;assert.equal(await state.change('ads_proposals'),false);
-confirmReturn=true;reason='abc';assert.equal(await state.change('ads_proposals'),false);
+confirmReturn=true;chosen='invalid';assert.equal(await state.change('ads_proposals'),false);
 assert.equal(performed.length,0);
-reason='Suspender temporariamente novas propostas';
+chosen='review';
 assert.equal(await state.change('ads_proposals'),true);
 assert.equal(performed.length,1);
 assert.equal(performed[0].action,'commercial-intake-set');
