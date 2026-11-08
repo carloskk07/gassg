@@ -413,8 +413,8 @@ function adminMarketingIntakeView(){
     const item=data?.controls?.find(x=>x.moduleKey===m.key);
     const status=item?(item.enabled?'Recebendo propostas':'Novas propostas suspensas'):'Não confirmado';
     const canEdit=role==='superadmin'&&item&&!adminActivationDesk.loading;
-    const button=canEdit?'<button type="button" class="secondary small" onclick="adminMarketingIntakeSet(\''+
-      m.key+'\')">'+(item.enabled?'Suspender novas propostas':'Reabrir propostas')+'</button>':
+    const button=canEdit?'<details><summary>Alterar recebimento (marcar motivo)</summary>'+adminActivationReasonSelect('intake-'+(item.enabled?'disable':'enable'),m.key)+'<button type="button" class="secondary small" onclick="adminMarketingIntakeSet(\''+
+      m.key+'\')">'+(item.enabled?'Suspender novas propostas':'Reabrir propostas')+'</button></details>':
       '<small class="muted">Alteração indisponível para este perfil ou esta consulta.</small>';
     return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
       esc(m.title)+'</strong><span class="status-pill">'+esc(status)+'</span></div>'+
@@ -459,8 +459,8 @@ function adminAdsSalesPlansView(){
       '<p class="tiny muted">'+(offer?('Oferta: '+esc(statusNames[offer.status]||'Estado não confirmado')+
         ' • versão '+Number(offer.version)+(offer.expired?' • Prazo encerrado':'')):
         'Nenhuma oferta disponibilizada a esta revenda.')+'</p>'+
-      (canShare?'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'share\')">Disponibilizar oferta no portal da revenda</button>':'')+
-      (canWithdraw?'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'withdraw\')">Retirar oferta do portal</button>':'')+
+      (canShare?'<details><summary>Disponibilizar oferta (marcar motivo)</summary>'+adminActivationReasonSelect('offer-share',merchantId)+'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'share\')">Disponibilizar oferta no portal da revenda</button></details>':'')+
+      (canWithdraw?'<details><summary>Retirar oferta (marcar motivo)</summary>'+adminActivationReasonSelect('offer-withdraw',merchantId)+'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'withdraw\')">Retirar oferta do portal</button></details>':'')+
       '</div>':'<p class="tiny muted">Disponibilização pendente de conferência do servidor.</p>';
     const fields=editable?'<div class="admin-ads-plan-fields">'+
       '<label>Valor planejado em R$ (não faturado)<input id="'+id+'-price" type="number" min="10" max="50000" step="1" inputmode="numeric" value="'+
@@ -804,10 +804,10 @@ function adminAdsReceivablesView(){
   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
   const action=role==='superadmin'?(!r?'prepare':r.status==='draft'?'issue':
     r.status==='issued'?'cancel':null):null;
-  const button=action?'<button type="button" class="'+(action==='issue'?'primary':'secondary')+
+  const button=action?'<details><summary>Decidir sobre demonstrativo (marcar motivo)</summary>'+adminActivationReasonSelect('receivable-'+action,id)+'<button type="button" class="'+(action==='issue'?'primary':'secondary')+
     ' small" onclick="adminAdsReceivableAction(\''+id+'\',\''+action+'\')">'+
     ({prepare:'Preparar demonstrativo Ads',issue:'Emitir cobrança comercial',
-      cancel:'Cancelar demonstrativo'}[action])+'</button>':'';
+      cancel:'Cancelar demonstrativo'}[action])+'</button></details>':'';
   return '<article class="admin-activation-card"><div class="admin-activation-card-head">'+
     '<strong>'+esc(x.merchantName||'Revenda')+'</strong>'+
     '<span class="status-pill">'+esc(r?fmt[r.status]:'Sem demonstrativo')+'</span></div>'+
@@ -1346,9 +1346,9 @@ function adminAdsAssistanceView(){
    '<p class="tiny muted">'+(x.consentCurrent?'Interesse atual confirmado no servidor.':
      'Interesse atual não confirmado; não iniciar contato com base nesta solicitação.')+
      ' • Solicitação v'+x.version+' • '+esc(String(x.requestedAt||'—'))+'</p>'+
-   (action?'<button type="button" class="secondary small" onclick="adminAdsAssistanceAction(\''+
+   (action?'<details><summary>Registrar etapa interna (marcar motivo)</summary>'+adminActivationReasonSelect('assistance-'+action,id)+'<button type="button" class="secondary small" onclick="adminAdsAssistanceAction(\''+
       id+'\',\''+action+'\')">'+
-       (action==='triage'?'Marcar como analisado':'Encerrar solicitação')+'</button>':'')+
+       (action==='triage'?'Marcar como analisado':'Encerrar solicitação')+'</button></details>':'')+
    '</article>';
  }).join('');
  return '<section class="section admin-ads-assistance" aria-label="Pedidos de orientação TAMÃO Ads">'+
