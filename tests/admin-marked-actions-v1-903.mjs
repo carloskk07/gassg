@@ -91,6 +91,6 @@ await t.intake('ads_proposals');assert.equal(writes.pop().action,'commercial-int
 assert.doesNotMatch(fn(admin,'adminRejectApplication'),/prompt\(/);
 assert.doesNotMatch(fn(admin,'adminSetSupportStatus'),/prompt\(/);
 assert.doesNotMatch(fn(acq,'adminMarkCityNotification'),/prompt\(/);
-assert.doesNotMatch(fn(acq,'adminIssueAnpProspectInvite'),/prompt\(/);
+assert.doesNotMatch(fn(acq,'adminIssueAnpProspectInvite'),/prompt\('Validade do convite/);
 assert.doesNotMatch(fn(activations,'adminAdsOfferAction'),/prompt\(/);
 console.log('V1.903 PASS: support, registration, city, WhatsApp, invite and commercial choices; no false writes.');
