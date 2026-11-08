@@ -83,6 +83,7 @@ function rendered(tab){
    adminPilotPartnerCard(){calls.push('pilot');return 'PILOT'},
    adminApplicationCard(){calls.push('application');return 'APPLICATION'},
    adminMerchantCard(){calls.push('validation');return 'VALIDATION'},
+   adminVerificationMerchantView(){calls.push('validation');return 'VALIDATION'},
    pilotPartners:[{id:'p1'}],
    d:{applications:[{id:'a1'}],merchants:[{id:'m1'}]}
  };
