@@ -4463,7 +4463,9 @@ function adminBillingStatementStatus(status){
   })[String(status||'')]||String(status||'—').toUpperCase();
 }
 function adminBillingPlanCard(plan){
-  const fee=(Number(plan.platform_fee_bps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const feeNumber=Number(plan.platform_fee_bps||0)/100;
+  const fee=feeNumber.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const feeInput=feeNumber.toFixed(2);
   const prepaid=plan.billing_mode==='prepaid_credit';
   const version=Number(plan.policy_version||1);
   const flex=plan.plan_key==='flex_daily';
@@ -4482,7 +4484,7 @@ function adminBillingPlanCard(plan){
         </select>
         <div id="billing-plan-custom-${esc(String(plan.plan_key).replace(/[^a-z0-9_-]/gi,''))}" hidden>
           <label for="${inputId}">Taxa personalizada (%)</label>
-          <input id="${inputId}" class="input" data-initial="${fee}" type="number" min="0.01" max="100" step="0.05" value="${fee}">
+          <input id="${inputId}" class="input" data-initial="${feeInput}" type="number" min="0.01" max="100" step="0.05" value="${feeInput}">
         </div>
       </div>
       <label class="check-row"><input id="${activeId}" type="checkbox" ${plan.active?'checked':''} ${flex?'disabled':''}><span><strong>${flex?'Fallback obrigatório':'Plano disponível'}</strong><small>${flex?'O Flex Diário não pode ser desativado.':'Pausar afeta apenas novas seleções; pedidos já criados mantêm o snapshot.'}</small></span></label>
