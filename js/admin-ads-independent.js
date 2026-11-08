@@ -69,7 +69,14 @@ async function adminIndependentAdsCheckProvider(){
   if(data?.source!=='ads_independent_psp_preflight_v1_890'||
     data?.readOnly!==true||data?.paymentsCreated!==0||
     typeof data?.sellerVerified!=='boolean'||
-    typeof data?.readyForFinancialHomologation!=='boolean')
+    typeof data?.readyForFinancialHomologation!=='boolean'||
+    typeof data?.historicalSignedOrderWebhookVerified!=='boolean'||
+    data?.historicalProofEqualsAdsPaymentWebhook!==false||
+    data?.historicalProofEqualsAdsSeller!==false||
+    data?.adsPaymentWebhookVerified!==false||
+    !Number.isSafeInteger(data?.adsApprovedPaymentEventCount)||
+    !Number.isSafeInteger(data?.adsReversalEventCount)||
+    data.adsApprovedPaymentEventCount<0||data.adsReversalEventCount<0)
    throw Error('A checagem financeira não foi confirmada.');
   if(actor!==String(adminRuntime?.session?.user?.id||''))return;
   adminIndependentAdsProviderPreflight={actor,data};
@@ -303,7 +310,20 @@ function adminAdsIndependentSection(){
       '<p>Checkout: '+(provider.checkoutConfigured?'Configurado':'Pendente')+
       ' · Webhook: '+(provider.webhookConfigured?'Habilitado':'Pendente')+
       ' · Assinatura: '+(provider.signedWebhookConfigured?'Configurada':'Pendente')+'</p>'+
-      '<p><strong>Teste de pagamento e reembolso real:</strong> ainda não homologado. A existência da chave do webhook não comprova sua entrega.</p>'+
+      '<p><strong>Validações anteriores reaproveitadas:</strong> '+
+        (provider.historicalSignedOrderWebhookVerified?
+          'Webhook Mercado Pago assinado de pedidos (order.processed), modo LIVE, confirmado em '+
+          esc(String(provider.historicalSignedOrderWebhookVerifiedAt||'').slice(0,16).replace('T',' '))+' UTC. '+
+          'Esta etapa já foi comprovada; não é preciso refazer o teste de assinatura de pedidos.':
+          'Não foi encontrada prova válida de webhook assinado de pedidos no histórico consultado.')+'</p>'+
+      '<p><strong>Separação das provas:</strong> webhook de pedidos não comprova entrega do webhook de pagamentos da publicidade, '+
+      'nem que o Mercado Pago Ads usa a mesma aplicação e conta recebedora. Nenhum valor antigo foi creditado novamente.</p>'+
+      '<p><strong>Publicidade independente:</strong> '+Number(provider.adsApprovedPaymentEventCount)+
+        ' evento(s) de aprovação de pagamento registrados · '+
+        Number(provider.adsReversalEventCount)+' evento(s) de reversão no histórico. '+
+        'Eventos de provedor não são, isoladamente, prova de liquidação bancária.</p>'+
+      '<p><strong>Para finalizar a homologação Ads:</strong> conta recebedora verificada, Checkout Pro, webhook de pagamento '+
+        'com assinatura e conciliação da própria campanha. A devolução só pode ser considerada concluída com confirmação do provedor.</p>'+
       '<p>Configuração apta para homologação: '+(provider.readyForFinancialHomologation?'Sim':'Não')+'</p>'
       :'<p class="muted">Utilize a conferência para localizar o que impede o recebimento. Nenhuma credencial é exibida.</p>')+
     '</div>':'')+
