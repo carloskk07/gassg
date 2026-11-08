@@ -31,7 +31,7 @@ for(const k of ['auth.getUser','verifySeller','ADS_MP_CHECKOUT_ENABLED',
  'ADS_PAYMENT_NOT_CONFIGURED','ADS_SELLER_UNVERIFIED',
  'ads_independent_checkout_reserve_v1_886','ads_independent_checkout_attach_v1_886',
  'external_reference:reference','safeMercadoPagoUrl','acceptFixedFee!==true',
- 'p_preference:preference','checkout/preferences'])assert.ok(edge.includes(k),'Missing checkout safeguard '+k);
+ 'p_preference:proof.id','checkout/preferences'])assert.ok(edge.includes(k),'Missing checkout safeguard '+k);
 assert.match(webhook,/ads_independent_payment_fact_v1_886/);
 assert.match(webhook,/payment\?\.live_mode!==true/);
 assert.match(webhook,/verifyMercadoPagoWebhook/);
