@@ -4436,7 +4436,18 @@ function adminReferralReviewCard(x){
     <div class="tiny muted">Criado em ${new Date(x.created_at).toLocaleString('pt-BR')}</div>
     ${x.review_notes?`<div class="order-line"><strong>Revisão:</strong> ${esc(x.review_notes)}</div>`:''}
     ${financiallyReversed?'<div class="notice danger" style="margin-top:10px"><strong>Pedido financeiramente revertido.</strong><br>A comissão já foi estornada; nenhuma nova ação financeira deve ser aplicada.</div>':''}
-    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>`:''}
+    ${pending?`<details class="admin-referral-review"><summary>Decidir sobre indicação (conferir risco)</summary>
+      <label class="check-row"><input type="checkbox" id="referral-reviewed-${esc(x.order_id)}"><span>Conferi os sinais de risco e a elegibilidade desta comissão.</span></label>
+      <label for="referral-reason-${esc(x.order_id)}">Se for rejeitar, marque o motivo verificado</label>
+      <select class="input" id="referral-reason-${esc(x.order_id)}">
+        <option value="">Selecione somente para rejeitar</option>
+        <option value="address">Relação de endereço não justificada</option>
+        <option value="velocity">Velocidade atípica não esclarecida</option>
+        <option value="duplicate">Cadastro ou vínculo duplicado confirmado</option>
+        <option value="insufficient">Elegibilidade não comprovada</option>
+      </select>
+      <div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>
+    </details>`:''}
   </article>`;
 }
 function adminBillingPlanLabel(planKey){
@@ -10928,9 +10939,23 @@ async function adminSetMerchantStatus(id,action){
   if(!confirm('Confirma '+label+' esta revenda?'))return;
   try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
 }
+const ADMIN_REFERRAL_REJECTION_REASONS=Object.freeze({
+  address:'Vínculo de endereço de entrega confirmado e não justificado na revisão.',
+  velocity:'Padrão anormal de indicações não esclarecido após a análise.',
+  duplicate:'Cadastro ou vínculo duplicado confirmado na conferência.',
+  insufficient:'Elegibilidade da indicação não comprovada após verificação.'
+});
 async function adminReviewReferral(orderId,decision){
-  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
-  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!['approved','rejected'].includes(decision))return;
+  if(document.getElementById('referral-reviewed-'+orderId)?.checked!==true)
+    return toast('Marque somente após conferir os sinais e a elegibilidade desta indicação.');
+  let notes='Risco da indicação revisado individualmente; continuidade autorizada pelo administrador.';
+  if(decision==='rejected'){
+    const chosen=String(document.getElementById('referral-reason-'+orderId)?.value||'');
+    if(!Object.prototype.hasOwnProperty.call(ADMIN_REFERRAL_REJECTION_REASONS,chosen))
+      return toast('Selecione o motivo efetivamente confirmado para rejeitar.');
+    notes=ADMIN_REFERRAL_REJECTION_REASONS[chosen];
+  }
   if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
   try{
     await adminPerform('review-referral',{orderId,decision,notes});
