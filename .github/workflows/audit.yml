@@ -611,6 +611,8 @@ jobs:
         run: node tests/ads-independent-fixed-fee-v1-886.mjs
       - name: V1.887 advertiser cancellation and refund review without invented credit
         run: node tests/ads-independent-refund-review-v1-887.mjs
+      - name: V1.888 explicit one-shot provider refund and no false bank-credit claims
+        run: node tests/ads-independent-provider-refund-v1-888.mjs
       - name: Test V1.310 merchant Ads offer and founder authority
         run: node tests/ads-offer-v1-310.mjs
       - name: Test V1.311 commercial Ads contract dossier review
