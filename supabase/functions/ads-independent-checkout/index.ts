@@ -3,6 +3,7 @@ import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
 import {mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents} from "../_shared/mercadopago.js";
 import {verifiedIndependentAdsPreference} from "../_shared/ads-independent-preference.mjs";
+import {selectIndependentAdsPayment} from "../_shared/ads-independent-payment-search.mjs";
 
 // V1.886: fixed-duration sponsored slot purchase. No browser view is billable.
 // Reuses ONLY platform-owned Ads credentials, NEVER merchant/payment OAuth.
@@ -76,17 +77,17 @@ async function reconcileProviderPayment(admin:any,ownerId:string,campaignId:stri
    encodeURIComponent(reference)+"&limit=10",{accessToken:token});
  if(!search.ok)throw Error("ADS_PROVIDER_SEARCH_FAILED");
  const listing:any=await readMercadoPagoJson(search);
- const matches=(Array.isArray(listing?.results)?listing.results:[]).filter((p:any)=>
-  String(p?.external_reference||"")===reference&&/^[0-9]{5,30}$/.test(String(p?.id||""))
- );
- // A count >1 needs manual reconciliation: never guess which payment to approve.
- if(matches.length>1)return json({error:"ADS_MULTIPLE_PAYMENTS_REVIEW_REQUIRED",
-  message:"Há mais de um pagamento associado à campanha. O financeiro precisa conferir."},409,origin);
- if(matches.length===0)return json({
-  source:"ads_independent_reconcile_v1_886",status:checkout.status,
-  paymentApproved:checkout.status==="payment_approved",providerFound:false
- },200,origin);
- const paymentId=String(matches[0].id);
+ const choice=selectIndependentAdsPayment(listing,reference);
+ if(choice.kind==="review")return json({error:"ADS_MULTIPLE_PAYMENTS_REVIEW_REQUIRED",
+  message:"A busca do provedor não comprovou um único pagamento; requer conferência financeira."},409,origin);
+ if(choice.kind==="none"){
+  if(["payment_approved","payment_reversed"].includes(checkout.status))
+   return json({error:"ADS_PAYMENT_PROVIDER_RECHECK_REQUIRED",
+    message:"O histórico e o provedor precisam de conciliação antes da confirmação."},409,origin);
+  return json({source:"ads_independent_reconcile_v1_886",
+   status:checkout.status,paymentApproved:false,providerFound:false},200,origin);
+ }
+ const paymentId=choice.paymentId;
  const resp=await mercadoPagoFetch("/v1/payments/"+paymentId,{accessToken:token});
  if(!resp.ok)throw Error("ADS_PROVIDER_PAYMENT_LOOKUP_FAILED");
  const p:any=await readMercadoPagoJson(resp);
