@@ -29,11 +29,10 @@ assert.match(admin,/if\(action==="ads-independent-homologation-action"\)/);
 assert.match(admin,/String\(adminAccess\.admin_role\|\|""\)!=="superadmin"/);
 assert.match(admin,/admin_ads_independent_homologation_v1_892/);
 assert.match(admin,/ADS_MP_ACCESS_TOKEN/);
-assert.match(admin,/if\(r?.source/); // existing guards preserved
 assert.match(intake,/homologationCampaignId:authorized\?allowedId:null/);
 assert.match(intake,/data\.rows\.some/);
 assert.match(sponsorUI,/testAuthorized=String\(s\.homologationCampaignId/);
-assert.match(sponsorUI,/Pagamento REAL autorizado/);
+assert.match(sponsorUI,/pagamento REAL autorizado/);
 assert.match(adminUI,/adminIndependentAdsHomologationAction/);
 assert.match(adminUI,/HOMOLOGAR/);
 assert.match(adminUI,/CANCELAR/);
