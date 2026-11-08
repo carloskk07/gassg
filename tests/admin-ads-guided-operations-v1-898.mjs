@@ -169,4 +169,10 @@ assert.equal(events[0][2].confirmation,'DEVOLVER');
 assert.match(ads,/confirmation!==\(enabled\?'HOMOLOGAR':'CANCELAR'\)/);
 assert.match(ads,/adminIndependentAdsBusy=true/);
 assert.match(ads,/expectedVersion:state.fixedFeeSalesVersion/);
+const builder=read('scripts/build-live-portals.mjs');
+const stripper=read('scripts/strip-admin-css.mjs');
+assert.match(builder,/\['admin-acquisition','admin','admin-activations','admin-ads-independent'\]/,
+ 'Admin Ads code must not be released to Cliente or Revenda portals');
+assert.match(stripper,/PROTECTED_ADMIN_SCRIPTS=.*'admin-ads-independent.js'/,
+ 'Admin-only Ads classes must not prevent public CSS stripping');
 console.log('V1.898 PASS: three independent Ads panes, guided audited reasons, role-scoped tasks and financial confirmation remain fail-closed.');
