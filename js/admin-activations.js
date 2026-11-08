@@ -308,6 +308,63 @@ function adminActivationDeskView(d){
 }
 
 // V1.308 — founder-only intake decisions; no external publication/payment.
+// V1.903 — explicit administrative reasons; choices never trigger an action on their own.
+const ADMIN_ACTIVATION_REASONS=Object.freeze({
+  'intake-enable':{
+    review:'Reabertura de recebimento de propostas após revisão administrativa.',
+    demand:'Retomada do recebimento para avaliação de demanda comercial.'
+  },
+  'intake-disable':{
+    review:'Recebimento de novas propostas suspenso para revisão administrativa.',
+    capacity:'Recebimento de propostas suspenso por revisão de capacidade de análise.'
+  },
+  'offer-share':{
+    reviewed:'Plano e material revisados para disponibilização no portal, sem envio externo.',
+    proposal:'Disponibilização de proposta comercial ao portal da revenda, sem cobrança.'
+  },
+  'offer-withdraw':{
+    review:'Oferta retirada do portal para revisão do plano e das condições comerciais.',
+    administrative:'Disponibilização da oferta retirada por decisão administrativa.'
+  },
+  'receivable-prepare':{
+    internal:'Preparação de demonstrativo interno após conferência de aceite bilateral.',
+    review:'Preparação de prévia documental para conferência comercial interna.'
+  },
+  'receivable-issue':{
+    reviewed:'Emissão do demonstrativo comercial após revisão documental, sem cobrança PSP.',
+    approved:'Demonstrativo comercial autorizado para visualização pela revenda.'
+  },
+  'receivable-cancel':{
+    review:'Demonstrativo cancelado para revisão das condições documentadas.',
+    administrative:'Demonstrativo comercial cancelado por decisão administrativa sem estorno PSP.'
+  },
+  'assistance-triage':{
+    review:'Solicitação classificada para análise interna, sem realizar contato externo.',
+    pending:'Solicitação encaminhada para acompanhamento interno sem mensagem enviada.'
+  },
+  'assistance-close':{
+    no_consent:'Solicitação encerrada internamente sem comprovação de consentimento atual para contato.',
+    duplicate:'Solicitação duplicada identificada e encerrada apenas no controle interno.',
+    closed:'Solicitação encerrada no controle interno sem presumir contato ou mensagem enviada.'
+  }
+});
+function adminActivationReasonSelect(kind,id){
+  const choices=ADMIN_ACTIVATION_REASONS[kind]||{};
+  return '<label class="input-wrap">Motivo verdadeiro da decisão'+
+    '<select id="activation-reason-'+esc(kind)+'-'+esc(id)+'" class="input">'+
+    '<option value="">Marque o motivo após conferir</option>'+
+    Object.entries(choices).map(([key,note])=>'<option value="'+esc(key)+'">'+esc(note)+'</option>').join('')+
+    '</select></label>';
+}
+function adminActivationSelectedReason(kind,id){
+  const choices=ADMIN_ACTIVATION_REASONS[kind]||{};
+  const selected=String(document.getElementById('activation-reason-'+kind+'-'+id)?.value||'');
+  if(!Object.prototype.hasOwnProperty.call(choices,selected)){
+    toast('Marque o motivo verdadeiro da decisão comercial.');
+    return null;
+  }
+  return choices[selected];
+}
 async function adminMarketingIntakeSet(moduleKey){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading)return false;
   const actor=String(adminRuntime.session?.user?.id||'');
@@ -319,10 +376,8 @@ async function adminMarketingIntakeSet(moduleKey){
   const label=moduleKey==='ads_proposals'?'propostas de anúncios':'interesses no Clube';
   if(!confirm((enabled?'REABRIR':'SUSPENDER')+' novas '+label+
     '? Anúncios e cupons não serão publicados nem cobrados.'))return false;
-  const reason=String(prompt('Justificativa obrigatória (8 a 240 caracteres):')||'').trim();
-  if(reason.length<8||reason.length>240){
-    toast('Informe uma justificativa de 8 a 240 caracteres.');return false;
-  }
+  const reason=adminActivationSelectedReason('intake-'+(enabled?'enable':'disable'),moduleKey);
+  if(!reason)return false;
   try{
     const out=await adminPerform('commercial-intake-set',{
       moduleKey,enabled,reason,expectedVersion:item.version
@@ -512,8 +567,8 @@ async function adminAdsOfferAction(merchantId,operation){
  if(!confirm((operation==='share'?'Disponibilizar as condições no portal desta revenda':
    'Retirar a oferta disponível')+
    '? Nenhuma cobrança, contrato, anúncio ou mensagem externa será criada.'))return false;
- const reason=String(prompt('Motivo da decisão administrativa (12 a 240 caracteres):')||'').trim();
- if(reason.length<12||reason.length>240){toast('Informe motivo de 12 a 240 caracteres.');return false;}
+ const reason=adminActivationSelectedReason('offer-'+operation,merchantId);
+ if(!reason)return false;
  try{
    const out=await adminPerform('ads-offer-action',{
      merchantId,operation,planVersion,expectedOfferVersion:offer?.version||0,
@@ -791,8 +846,8 @@ async function adminAdsReceivableAction(merchantId,operation){
    (operation==='prepare'&&r)||
    (operation==='issue'&&r?.status!=='draft')||
    (operation==='cancel'&&r?.status!=='issued'))return false;
- const reason=String(prompt('Justificativa administrativa (12 a 240 caracteres):')||'').trim();
- if(reason.length<12||reason.length>240){toast('Informe a justificativa com 12 a 240 caracteres.');return false;}
+ const reason=adminActivationSelectedReason('receivable-'+operation,merchantId);
+ if(!reason)return false;
  const terms={prepare:'Preparar demonstrativo interno, sem vencimento ou pedido de pagamento?',
    issue:'Emitir demonstrativo comercial visível à revenda, com valor e vencimento? Não será gerado Pix, boleto ou cobrança PSP.',
    cancel:'Cancelar o demonstrativo emitido? Isso não estorna pagamentos externos.'};
@@ -1316,8 +1371,8 @@ async function adminAdsAssistanceAction(merchantId,operation){
  if(!req||!Number.isSafeInteger(req.version)||
    (operation==='triage'&&(!req.consentCurrent||req.status!=='requested'))||
    (operation==='close'&&!['requested','triaged'].includes(req.status)))return false;
- const reason=String(prompt('Justificativa para esta etapa interna (12–240 caracteres):')||'').trim();
- if(reason.length<12||reason.length>240){toast('Informe uma justificativa válida.');return false;}
+ const reason=adminActivationSelectedReason('assistance-'+operation,merchantId);
+ if(!reason)return false;
  if(!confirm(operation==='triage'?'Marcar solicitação como analisada? Nenhuma mensagem será enviada.':
    'Encerrar o pedido internamente? Isso não comprova atendimento ou contato.'))return false;
  try{
