@@ -8032,7 +8032,7 @@ Deno.serve(async(req:Request)=>{
       // events for independent Ads payment webhooks or bank settlement.
       const [historic,approved,reversed]=await Promise.all([
         admin.from("payment_webhook_probes")
-          .select("provider,status,verified_at,metadata")
+          .select("provider,status,verified_at,metadata,evidence_sha256,provider_request_id")
           .eq("provider","mercadopago").eq("status","verified")
           .contains("metadata",{topic:"order",action:"order.processed",
             signatureVerified:true,liveMode:true})
