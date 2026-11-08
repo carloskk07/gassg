@@ -10,7 +10,8 @@ assert.ok(begin>=0&&end>begin,'demo must stay within existing Admin Orders secti
 const demo=src.slice(begin,end);
 assert.doesNotMatch(demo,/adminInvoke\s*\(|\.rpc\s*\(|\bfetch\s*\(|localStorage|\.from\s*\(|create-order|merchant_action|complete-delivery/,
  'visual simulator must make ZERO actual order, payment or backend requests');
-assert.match(src,/\$\{adminOrderDemoView\(\)\}/,'reuse the current Admin Orders section');
+assert.match(src,/adminOrdersWorkspaceTab==='orders'\?\s*adminOrderDemoView\(\)\+adminControlTower/,
+ 'simulation must remain in the existing Orders workspace, never in Support');
 assert.match(src,/adminOrderDemoForget\(\); \/\/ also purge the only in-tab synthetic order state/,
  'logout must erase synthetic state');
 assert.match(demo,/sessionStorage\.setItem\(ADMIN_ORDER_DEMO_KEY/);
