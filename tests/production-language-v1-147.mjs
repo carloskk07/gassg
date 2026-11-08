@@ -134,7 +134,7 @@ for(const forbidden of [
 }
 
 assert.ok(
-  adminAcquisition.includes('AQUISIÇÃO • CLIENTES E PARCEIROS')
+  adminAcquisition.includes('CRESCIMENTO')
   &&!adminAcquisition.includes('AQUISIÇÃO • PRÉ-LANÇAMENTO'),
   'funil administrativo deve representar aquisição contínua'
 );
