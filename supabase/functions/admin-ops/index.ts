@@ -7981,7 +7981,15 @@ Deno.serve(async(req:Request)=>{
            !Number.isSafeInteger(r.reportedViewSignals)||r.reportedViewSignals<0||
            !["submitted","approved","active","paused","rejected","ended"].includes(r.status)))
         throw new DomainError("ADS_INDEPENDENT_READ_UNVERIFIED","Estado da publicidade não verificado.",503);
-      return json(data,200,origin);
+      const {data:gate,error:gateErr}=await admin.from("ads_independent_sales_controls_v1_886")
+        .select("homologation_campaign_id,homologation_expires_at,version")
+        .eq("singleton",true).maybeSingle();
+      if(gateErr||!gate||gate.version!==data.fixedFeeSalesVersion)
+        throw new DomainError("ADS_HOMOLOGATION_READ_UNVERIFIED",
+          "Controle de homologação mudou. Atualize a área de campanhas.",503);
+      return json({...data,
+        homologationCampaignId:gate.homologation_campaign_id,
+        homologationExpiresAt:gate.homologation_expires_at},200,origin);
     }
     // V1.888: explicit superadmin, one-shot provider refund. An ambiguous POST
     // is NEVER repeated. Later calls are read-only provider reconciliation.
@@ -8227,6 +8235,59 @@ Deno.serve(async(req:Request)=>{
       if(data?.source!=="admin_ads_independent_refund_action_v1_887"||
         data?.moneyMoved!==false||data?.caseId!==caseId)
         throw new DomainError("ADS_REFUND_ACTION_UNVERIFIED","A decisão não foi confirmada.",503);
+      return json(data,200,origin);
+    }
+    // V1.892: one named, approved REAL test at R$19.90, without public sales.
+    if(action==="ads-independent-homologation-action"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Apenas o administrador principal pode autorizar testes financeiros.",403);
+      const enabled=body.enabled;
+      const campaign=String(body.campaignId||"");
+      const version=body.expectedVersion;
+      const reason=String(body.reason||"").trim();
+      const confirmation=String(body.confirmation||"").trim();
+      if(typeof enabled!=="boolean"||!Number.isSafeInteger(version)||version<1||
+         reason.length<12||reason.length>500||
+         (enabled&&(!UUID_RE.test(campaign)||confirmation!=="HOMOLOGAR"))||
+         (!enabled&&(campaign||confirmation!=="CANCELAR")))
+        throw new DomainError("ADS_HOMOLOGATION_INVALID",
+          "Confira campanha, versão, justificativa e confirmação.",400);
+      if(enabled){
+        const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
+        const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
+        const signature=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
+        if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
+           Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
+           !/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId)||
+           signature.length<16)
+          throw new DomainError("ADS_HOMOLOGATION_PSP_NOT_CONFIGURED",
+            "Configure conta LIVE, Checkout Pro e webhook assinado antes do teste.",503);
+        try{
+          const response=await fetch("https://api.mercadolibre.com/users/me",{
+            headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
+            signal:AbortSignal.timeout(7000)
+          });
+          if(!response.ok)throw Error("provider unavailable");
+          const raw=await response.text();
+          if(raw.length>20000||String(JSON.parse(raw)?.id??"")!==sellerId)
+            throw Error("wrong seller");
+        }catch{
+          throw new DomainError("ADS_HOMOLOGATION_SELLER_UNVERIFIED",
+            "O Mercado Pago não confirmou a conta recebedora. Nenhum teste autorizado.",503);
+        }
+      }
+      const {data,error}=await admin.rpc("admin_ads_independent_homologation_v1_892",{
+        p_actor:user.id,p_campaign:enabled?campaign:null,p_enabled:enabled,
+        p_expected_version:version,p_reason:reason,p_confirmation:confirmation
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_independent_homologation_v1_892"||
+         data?.salesEnabled!==false||data?.billingEnabled!==false||
+         data?.newChargesCreated!==false||
+         data?.homologationAuthorized!==enabled)
+        throw new DomainError("ADS_HOMOLOGATION_READBACK_INVALID",
+          "Não foi possível conferir a autorização do teste.",503);
       return json(data,200,origin);
     }
     if(action==="ads-independent-sales-action"){
