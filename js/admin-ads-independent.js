@@ -399,14 +399,14 @@ function adminAdsIndependentSection(){
      (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
    '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
   (pane==='finance'?(
-  (canAct?'<div class="card flat"><label for="independent-ads-control-preset">Motivo da alteração</label>'+
-    '<select id="independent-ads-control-preset" class="input">'+
-    '<option value="">Selecione a justificativa</option>'+
-    (delivery?'<option value="Entrega interrompida preventivamente para revisão operacional do inventário.">Interromper para revisão operacional</option>':
-     '<option value="Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.">Autorizar entrega não faturável revisada</option>')+
-    '</select><label for="independent-ads-control-reason">Outro motivo (opcional)</label>'+
-    '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2" ' +
-    'placeholder="Descreva um motivo específico, se necessário"></textarea>'+
+  (canAct?'<div class="card flat"><fieldset><legend>Marque o motivo da alteração</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="independent-ads-control-preset" value="'+
+    (delivery?'Entrega interrompida preventivamente para revisão operacional do inventário.':
+     'Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.')+'"> '+
+    (delivery?'Interromper para revisão operacional':'Autorizar entrega não faturável revisada')+
+    '</label></fieldset><details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="independent-ads-control-reason">Justificativa personalizada</label>'+
+    '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2"></textarea></details>'+
     '<button class="secondary small" type="button" onclick="adminIndependentAdsAction(\''+
     (delivery?'disable_delivery':'enable_delivery')+'\')" '+
     (adminIndependentAdsBusy?'disabled':'')+'>'+
@@ -452,15 +452,22 @@ function adminAdsIndependentSection(){
       '<select id="ads-homologation-campaign" class="input">'+eligibleTestCampaigns.map(c=>
         '<option value="'+esc(String(c.id))+'">'+esc(String(c.title))+'</option>').join('')+'</select>':
       !testActive?'<p>Envie e aprove uma campanha real de R$ 19,90 antes de autorizar o checkout de homologação.</p>':'')+
-    '<label for="ads-homologation-preset">Motivo da autorização ou revogação</label>'+ 
-    '<select id="ads-homologation-preset" class="input"><option value="">Selecione a justificativa</option>'+ 
-    (testActive?'<option value="Autorização de teste financeiro revogada após revisão administrativa dos próximos checkouts.">Revogar autorização de teste</option>':
-     '<option value="Campanha e elegibilidade para homologação financeira real conferidas pelo administrador.">Autorizar teste real acompanhado</option>')+'</select>'+ 
-    '<label for="ads-homologation-reason">Outro motivo (opcional)</label>'+
-    '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea>'+
-    '<label for="ads-homologation-confirm">Confirmação ('+
-      (testActive?'CANCELAR':'HOMOLOGAR')+')</label>'+
-    '<input id="ads-homologation-confirm" class="input" autocomplete="off" maxlength="9">'+
+    '<fieldset><legend>Marque o motivo da decisão</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="ads-homologation-preset" value="'+
+    (testActive?'Autorização de teste financeiro revogada após revisão administrativa dos próximos checkouts.':
+     'Campanha e elegibilidade para homologação financeira real conferidas pelo administrador.')+'"> '+
+    (testActive?'Revogar autorização de teste':'Autorizar teste real acompanhado')+'</label></fieldset>'+
+    '<details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="ads-homologation-reason">Justificativa personalizada</label>'+
+    '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea></details>'+
+    '<fieldset><legend>Confirmações obrigatórias</legend>'+
+    '<label class="admin-option-row"><input type="checkbox" id="ads-homologation-check-verify"> '+
+    (testActive?'Conferi a autorização ativa e sei que links já emitidos exigem conciliação.':
+      'Conferi a campanha, o recebedor e sei que é um pagamento REAL, não simulado.')+'</label>'+
+    '<label class="admin-option-row"><input type="checkbox" id="ads-homologation-check-confirm"> '+
+    (testActive?'Confirmo que quero revogar novos checkouts desta autorização.':
+      'Autorizo exclusivamente a campanha selecionada para esta homologação.')+
+    '</label></fieldset>'+
     '<button class="secondary small" type="button" '+
       'onclick="adminIndependentAdsHomologationAction('+(testActive?'false':'true')+')" '+
       ((adminIndependentAdsBusy||(!testActive&&!eligibleTestCampaigns.length))?'disabled':'')+'>'+
@@ -472,13 +479,14 @@ function adminAdsIndependentSection(){
     '<p>Novos pagamentos só podem ser ativados com credenciais comerciais, vendedor verificado e webhook assinado. A taxa de CPM por visualização continua inativa.</p>'+
     '<p>Total aprovado pelo provedor (bruto, não é conciliação bancária): '+
       adminMoney(Number(v.providerApprovedGrossCents||0))+'</p>'+
-    '<label for="independent-ads-sales-preset">Motivo da alteração</label>'+ 
-    '<select id="independent-ads-sales-preset" class="input"><option value="">Selecione a justificativa</option>'+ 
-    (sales?'<option value="Novas contratações suspensas preventivamente por decisão administrativa.">Interromper novas contratações</option>':
-     '<option value="Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.">Autorizar vendas após conferência</option>')+'</select>'+ 
-    '<label for="independent-ads-sales-reason">Outro motivo (opcional)</label>'+
-    '<textarea id="independent-ads-sales-reason" class="input" rows="2" maxlength="500" '+
-      'placeholder="Descreva por que autorizar ou interromper novas compras"></textarea>'+
+    '<fieldset><legend>Marque o motivo da decisão</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="independent-ads-sales-preset" value="'+
+    (sales?'Novas contratações suspensas preventivamente por decisão administrativa.':
+     'Recebimento e exigências do checkout de publicidade conferidos antes de liberar contratações.')+'"> '+
+    (sales?'Interromper novas contratações':'Autorizar vendas após conferência')+'</label></fieldset>'+
+    '<details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="independent-ads-sales-reason">Justificativa personalizada</label>'+
+    '<textarea id="independent-ads-sales-reason" class="input" rows="2" maxlength="500"></textarea></details>'+
     '<button type="button" class="secondary small" onclick="adminIndependentAdsSalesAction()" '+
       (adminIndependentAdsBusy?'disabled':'')+'>'+
       (sales?'Interromper novas compras':'Habilitar compras com pagamento verificado')+
