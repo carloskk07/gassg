@@ -1633,14 +1633,23 @@ async function adminCreateIncident(){
 async function adminIncidentAction(incidentId,incidentAction){
   const payload={incidentId,incidentAction};
   if(incidentAction==='resolve'){
-    const note=prompt('Descreva como o incidente foi resolvido:')||'';
-    if(note.trim().length<3)return toast('Informe a resolução');
-    payload.resolutionNote=note;
+    const key=String(document.getElementById('incident-resolution-'+incidentId)?.value||'');
+    const reasons={
+      restored:'Falha corrigida e funcionamento restabelecido após conferência.',
+      mitigated:'Medida de mitigação aplicada e impacto encerrado após conferência.',
+      not_reproducible:'Incidente verificado e não reproduzido; encerramento justificado.'
+    };
+    const extra=String(document.getElementById('incident-resolution-extra-'+incidentId)?.value||'').trim();
+    if(!Object.prototype.hasOwnProperty.call(reasons,key))return toast('Selecione a resolução realmente realizada');
+    if(document.getElementById('incident-resolution-confirm-'+incidentId)?.checked!==true)
+      return toast('Marque que a resolução foi realmente verificada');
+    if(extra.length>240)return toast('Detalhes excedem 240 caracteres');
+    payload.resolutionNote=reasons[key]+(extra?' Detalhes: '+extra:'');
   }
   if(incidentAction==='set-status'){
-    const status=prompt('Novo status: investigating ou monitoring')||'';
-    if(!['investigating','monitoring'].includes(status.trim().toLowerCase()))return toast('Status inválido');
-    payload.incidentStatus=status.trim().toLowerCase();
+    const status=String(document.getElementById('incident-status-'+incidentId)?.value||'');
+    if(!['investigating','monitoring'].includes(status))return toast('Selecione o novo status');
+    payload.incidentStatus=status;
   }
   if(incidentAction==='assign'){
     const select=document.getElementById('incident-assignee-'+incidentId);
@@ -1673,6 +1682,27 @@ function adminIncidentCard(item,admins){
             ${activeAdmins.map(a=>`<option value="${esc(a.user_id)}" ${item.assigned_admin_id===a.user_id?'selected':''}>${esc(adminRoleLabel(a.admin_role))} • ${esc(a.user_id.slice(0,8))}</option>`).join('')}
           </select>
         </div>
+        ${!resolved?`<div class="input-wrap" style="margin-top:10px">
+          <label for="incident-status-${esc(item.id)}">Novo status (marque antes de alterar)</label>
+          <select id="incident-status-${esc(item.id)}" class="input">
+            <option value="">Escolha o status</option>
+            <option value="investigating">Investigando</option>
+            <option value="monitoring">Monitorando</option>
+          </select>
+        </div>
+        <details style="margin-top:10px"><summary>Registrar resolução</summary>
+          <div class="input-wrap"><label for="incident-resolution-${esc(item.id)}">Providência confirmada</label>
+            <select id="incident-resolution-${esc(item.id)}" class="input">
+              <option value="">Escolha o que foi realmente feito</option>
+              <option value="restored">Falha corrigida e serviço restabelecido</option>
+              <option value="mitigated">Mitigação realizada e impacto encerrado</option>
+              <option value="not_reproducible">Verificado, não reproduzido</option>
+            </select></div>
+          <details><summary>Detalhes adicionais (opcional)</summary>
+            <textarea id="incident-resolution-extra-${esc(item.id)}" class="input" rows="2" maxlength="240"></textarea>
+          </details>
+          <label class="check-row"><input id="incident-resolution-confirm-${esc(item.id)}" type="checkbox"><span>Confirmei que a providência foi realmente realizada.</span></label>
+        </details>` :''}
         <div class="order-actions" style="margin-top:10px">
           <button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','assign')">Atribuir</button>
           ${!item.acknowledged_at?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','acknowledge')">Reconhecer</button>`:''}
@@ -9392,6 +9422,36 @@ function adminBpsPct(bps){
   const n=Number(bps||0)/100;
   return Number.isInteger(n)?String(n):n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
 }
+const ADMIN_REGISTRY_REASON_OPTIONS=Object.freeze({
+  category_create:[['organize','Criar categoria para organizar produtos gerais'],['new_scope','Adicionar categoria conforme demanda do catálogo']],
+  category_activate:[['verified','Revisão de categoria concluída para ativação'],['reopen','Reabrir categoria anteriormente pausada']],
+  category_pause:[['review','Pausar categoria para revisão'],['obsolete','Categoria sem uso atual; pausar novos cadastros']],
+  product_create:[['new_catalog','Adicionar produto geral ao catálogo para revisão'],['new_demand','Cadastrar produto geral por demanda identificada']],
+  product_activate:[['reviewed','Produto revisado e liberado para exibição'],['resumed','Retomar produto geral anteriormente pausado']],
+  product_pause:[['review','Pausar produto enquanto passa por revisão'],['availability','Suspender produto por indisponibilidade informada']]
+});
+function adminRegistryReasonSelect(id,action){
+  const options=ADMIN_REGISTRY_REASON_OPTIONS[action]||[];
+  return '<div class="input-wrap"><label for="'+esc(id)+'">Motivo da decisão (marque uma opção)</label>'+
+    '<select id="'+esc(id)+'" class="input"><option value="">Selecione o motivo</option>'+
+    options.map(([key,label])=>'<option value="'+esc(key)+'">'+esc(label)+'</option>').join('')+
+    '</select></div>';
+}
+function adminRegistrySelectedReason(id,action){
+  const key=String(document.getElementById(id)?.value||'');
+  const option=(ADMIN_REGISTRY_REASON_OPTIONS[action]||[]).find(([value])=>value===key);
+  return option?option[1]+'.':null;
+}
+function adminRegistrySuggestCode(sourceId,targetId,kind){
+  const source=document.getElementById(sourceId),target=document.getElementById(targetId);
+  if(!source||!target||target.dataset.manual==='1')return;
+  let result=String(source.value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  result=(kind==='category'?result.toLowerCase():result.toUpperCase()).slice(0,kind==='category'?40:32);
+  if(!/^[a-zA-Z]/.test(result))result='';
+  target.value=result;
+  target.dataset.generated=result;
+}
 function adminProductRegistrySection(d){
   const registry=d.productRegistry||{};
   const categories=Array.isArray(registry.categories)?registry.categories:[];
@@ -9403,11 +9463,11 @@ function adminProductRegistrySection(d){
   const categoryOptions=categories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('');
   const categoryCards=categories.map(cat=>`<div class="list-row">
     <div><strong>${esc(cat.category_name)}</strong><br><small>${esc(cat.category_key)} • ordem ${Number(cat.sort_order||100)}</small></div>
-    <div class="order-actions"><span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
+    <div class="order-actions">${adminRegistryReasonSelect('registry-category-reason-'+cat.category_key,cat.active?'category_pause':'category_activate')}<span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
   </div>`).join('');
   const productRows=general.map(item=>`<div class="list-row admin-registry-product" data-product-search="${esc((String(item.product_name||'')+' '+String(item.product_code||'')).toLowerCase())}" data-product-category="${esc(item.category_key||'')}">
     <div><strong>${esc(item.product_name)}</strong><br><small>${esc(item.product_code)} • ${esc(item.category_key)} • ordem ${Number(item.sort_order||100)}</small></div>
-    <div class="order-actions"><span class="status-pill ${item.active?'online':'offline'}">${item.active?'ATIVO':'PAUSADO'}</span><button class="${item.active?'danger-btn':'secondary'} small" onclick="adminSetProductActive('${esc(item.product_code)}',${item.active?'false':'true'})">${item.active?'Pausar':'Ativar'}</button></div>
+    <div class="order-actions">${adminRegistryReasonSelect('registry-product-reason-'+item.product_code,item.active?'product_pause':'product_activate')}<span class="status-pill ${item.active?'online':'offline'}">${item.active?'ATIVO':'PAUSADO'}</span><button class="${item.active?'danger-btn':'secondary'} small" onclick="adminSetProductActive('${esc(item.product_code)}',${item.active?'false':'true'})">${item.active?'Pausar':'Ativar'}</button></div>
   </div>`).join('');
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">CATÁLOGO DA PLATAFORMA</span><h2>Categorias e produtos</h2><p>Produtos gerais podem ser criados sem novo deploy. A família GLP P1–P90 e seus vasilhames permanece canônica e protegida.</p></div></div>
@@ -9427,16 +9487,17 @@ function adminProductRegistrySection(d){
     <div class="card flat form-stack" style="margin-top:12px">
       <h3>Nova categoria</h3>
       <div class="field-row">
-        <div class="input-wrap"><label for="registry-category-key">Chave</label><input id="registry-category-key" class="input" maxlength="40" placeholder="bebidas"></div>
-        <div class="input-wrap"><label for="registry-category-name">Nome</label><input id="registry-category-name" class="input" maxlength="80" placeholder="Bebidas"></div>
+        <div class="input-wrap"><label for="registry-category-key">Chave</label><input id="registry-category-key" class="input" maxlength="40" placeholder="Gerado pelo nome" oninput="this.dataset.manual='1'"></div>
+        <div class="input-wrap"><label for="registry-category-name">Nome</label><input id="registry-category-name" class="input" maxlength="80" placeholder="Bebidas" oninput="adminRegistrySuggestCode('registry-category-name','registry-category-key','category')"></div>
         <div class="input-wrap"><label for="registry-category-sort">Ordem</label><input id="registry-category-sort" class="input" type="number" min="0" max="10000" step="1" value="100"></div>
       </div>
+      ${adminRegistryReasonSelect('registry-category-reason','category_create')}
       <button class="secondary" onclick="adminCreateProductCategory()">Criar categoria</button>
       <div class="divider"></div>
       <h3>Novo produto geral</h3>
       <div class="field-row">
-        <div class="input-wrap"><label for="registry-product-code">Código</label><input id="registry-product-code" class="input" maxlength="32" placeholder="SODA2L"></div>
-        <div class="input-wrap"><label for="registry-product-name">Nome</label><input id="registry-product-name" class="input" maxlength="120" placeholder="Refrigerante 2 L"></div>
+        <div class="input-wrap"><label for="registry-product-code">Código</label><input id="registry-product-code" class="input" maxlength="32" placeholder="Gerado pelo nome" oninput="this.dataset.manual='1'"></div>
+        <div class="input-wrap"><label for="registry-product-name">Nome</label><input id="registry-product-name" class="input" maxlength="120" placeholder="Refrigerante 2 L" oninput="adminRegistrySuggestCode('registry-product-name','registry-product-code','product')"></div>
       </div>
       <div class="field-row">
         <div class="input-wrap"><label for="registry-product-category">Categoria</label><select id="registry-product-category" class="input">${selectableCategories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('')}</select></div>
@@ -9444,6 +9505,7 @@ function adminProductRegistrySection(d){
       </div>
       <label class="check-row"><input id="registry-product-visible" type="checkbox" checked><span><strong>Visível ao cliente</strong><small>Só aparece na vitrine quando houver oferta configurada.</small></span></label>
       <label class="check-row"><input id="registry-product-merchant" type="checkbox" checked><span><strong>Revendas podem adicionar ao catálogo</strong><small>A revenda ainda precisa definir preço, estoque e disponibilidade.</small></span></label>
+      ${adminRegistryReasonSelect('registry-product-reason','product_create')}
       <button class="primary" onclick="adminCreateRegistryProduct()" ${selectableCategories.length?'':'disabled'}>Cadastrar produto</button>
       ${selectableCategories.length?'':'<div class="notice danger">Crie ou ative uma categoria geral antes de cadastrar produto.</div>'}
     </div>
@@ -10211,8 +10273,8 @@ async function adminCreateProductCategory(){
   if(!/^[a-z][a-z0-9_]{1,39}$/.test(categoryKey))return toast('Use uma chave simples, como bebidas ou limpeza');
   if(categoryName.length<2)return toast('Informe o nome da categoria');
   if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
-  const reason=prompt('Motivo para criar/atualizar esta categoria:')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo');
+  const reason=adminRegistrySelectedReason('registry-category-reason','category_create');
+  if(!reason)return toast('Marque o motivo para criar a categoria');
   try{
     await adminPerform('product-registry',{
       registryAction:'upsert-category',categoryKey,categoryName,
@@ -10224,8 +10286,8 @@ async function adminCreateProductCategory(){
 async function adminToggleProductCategory(categoryKey,active,sortOrder){
   const category=(adminRuntime.data?.productRegistry?.categories||[]).find(x=>x.category_key===categoryKey);
   const categoryName=String(category?.category_name||categoryKey);
-  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+categoryName+':')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo');
+  const reason=adminRegistrySelectedReason('registry-category-reason-'+categoryKey,active?'category_activate':'category_pause');
+  if(!reason)return toast('Marque o motivo para alterar a categoria');
   if(!active&&!confirm('Pausar esta categoria? SKUs ativos das revendas serão pausados e precisarão ser reconfirmados antes de voltar a vender.'))return;
   try{
     await adminPerform('product-registry',{
@@ -10247,8 +10309,8 @@ async function adminCreateRegistryProduct(){
   if(productName.length<2)return toast('Informe o nome do produto');
   if(!categoryKey||categoryKey==='glp')return toast('Escolha uma categoria geral');
   if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
-  const reason=prompt('Motivo para cadastrar/atualizar este produto:')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo');
+  const reason=adminRegistrySelectedReason('registry-product-reason','product_create');
+  if(!reason)return toast('Marque o motivo para criar o produto');
   try{
     await adminPerform('product-registry',{
       registryAction:'upsert-product',
@@ -10262,8 +10324,8 @@ async function adminCreateRegistryProduct(){
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminSetProductActive(productCode,active){
-  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+productCode+':')||'';
-  if(reason.trim().length<3)return toast('Informe o motivo');
+  const reason=adminRegistrySelectedReason('registry-product-reason-'+productCode,active?'product_activate':'product_pause');
+  if(!reason)return toast('Marque o motivo para alterar o produto');
   if(!active&&!confirm('Pausar este produto? Itens ativos das revendas serão pausados e não serão reativados automaticamente.'))return;
   try{
     await adminPerform('product-registry',{

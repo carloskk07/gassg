@@ -28,11 +28,13 @@ let parked=null;
 const notifications=[],actions=[],queries=[];
 const gate=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolve:result=>resolve(result)}};
 const esc=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;');
+const marked=new Map();
+const document={getElementById:id=>marked.get(id)||null};
 const ctx=vm.createContext({
  adminRuntime:rt,adminReady:()=>rt.status==='ready',
  adminRoleCanSection:()=>true,adminCurrentRole:()=> 'support',
- esc,render:()=>rendered++,toast:s=>notifications.push(String(s)),
- prompt:()=> 'Tratativa documentada no sistema',confirm:()=>true,
+ document,esc,render:()=>rendered++,toast:s=>notifications.push(String(s)),
+ confirm:()=>true,
  adminPublicRequestCard:x=>'<article data-status="'+esc(x.status)+'">'+esc(x.contact_name)+'</article>',
  retryAmbiguousOnce:fn=>fn(),
  adminInvoke:async input=>{
@@ -72,6 +74,12 @@ assert.match(view,/data-status="new"/);
 await api.act(ticketId,'in_review');
 assert.equal(row.status,'in_review');
 assert.match(api.view(summary),/data-status="in_review"/);
+await api.act(ticketId,'resolved');
+assert.equal(row.status,'in_review','No marked resolution means no mutation');
+marked.set('admin-public-reason-resolved-'+ticketId,{value:'answered'});
+await api.act(ticketId,'resolved');
+assert.equal(row.status,'in_review','Real-action confirmation is mandatory');
+marked.set('admin-public-confirm-'+ticketId,{checked:true});
 await api.act(ticketId,'resolved');
 assert.equal(row.status,'resolved');
 view=api.view(summary);
