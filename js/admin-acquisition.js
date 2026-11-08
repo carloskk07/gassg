@@ -6884,10 +6884,10 @@ async function adminSaveProspect(cnpj,expectedVersion){
   const id=String(cnpj||'').replace(/\D/g,'');
   if(!/^[0-9]{14}$/.test(id))return toast('CNPJ inválido');
   const stage=String(document.getElementById('prospect-stage-'+id)?.value||'');
-  const note=String(document.getElementById('prospect-note-'+id)?.value||'').trim();
+  const note=adminProspectNoteFromChoice(id);
   const followUpDate=String(document.getElementById('prospect-follow-up-'+id)?.value||'');
   const contactChannel=String(document.getElementById('prospect-channel-'+id)?.value||'');
-  if(note.length<5||note.length>1000)return toast('Descreva o próximo passo ou contato em pelo menos cinco caracteres');
+  if(!note)return toast('Marque a próxima ação ou escreva uma anotação válida');
   if(stage==='contacted'&&!contactChannel)return toast('Para registrar um contato, informe o canal utilizado');
   try{
     await adminPerform('prospect-crm',{
@@ -7156,6 +7156,43 @@ function adminOpenProspectFollowup(cnpj){
   });
 }
 
+const ADMIN_PROSPECT_NOTES=Object.freeze({
+  schedule:'Próxima ação planejada: organizar novo acompanhamento do cadastro.',
+  await_reply:'Próxima ação planejada: acompanhar eventual resposta do interessado.',
+  documents:'Próxima ação planejada: solicitar informações complementares necessárias.',
+  orientation:'Próxima ação planejada: encaminhar orientações de cadastro, se pertinente.',
+  review:'Próxima ação planejada: revisar a situação atual do prospecto.'
+});
+function adminProspectNoteFromChoice(cnpj){
+  const id=String(cnpj||'');
+  const chosen=String(document.getElementById('prospect-next-action-'+id)?.value||'');
+  const note=String(document.getElementById('prospect-note-'+id)?.value||'').trim();
+  if(chosen==='custom')return note.length>=5&&note.length<=1000?note:null;
+  if(!Object.prototype.hasOwnProperty.call(ADMIN_PROSPECT_NOTES,chosen))return null;
+  const result=ADMIN_PROSPECT_NOTES[chosen]+(note?' Detalhes informados: '+note:'');
+  return result.length<=1000?result:null;
+}
+function adminProspectFollowUpChoice(cnpj){
+  const id=String(cnpj||''),selection=document.getElementById('prospect-quick-date-'+id);
+  const day=document.getElementById('prospect-follow-up-'+id);
+  const manual=document.getElementById('prospect-manual-date-'+id);
+  const display=document.getElementById('prospect-date-preview-'+id);
+  if(!selection||!day)return;
+  const key=String(selection.value||'');
+  if(manual)manual.hidden=key!=='custom';
+  if(key==='keep')day.value=String(day.dataset.initial||'');
+  else if(key==='clear')day.value='';
+  else if(['today','1','3','7'].includes(key)){
+    // Calendar-day arithmetic in the TAMÃO business timezone (not 24h UTC offsets).
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+      timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'
+    }).formatToParts(new Date()).filter(p=>['day','month','year'].includes(p.type)).map(p=>[p.type,p.value]));
+    const utc=new Date(Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day)));
+    utc.setUTCDate(utc.getUTCDate()+(key==='today'?0:Number(key)));
+    day.value=utc.toISOString().slice(0,10);
+  }
+  if(display)display.textContent=day.value?'Agendado para '+day.value:'Sem data de retorno';
+}
 function adminProspectCrmEditor(record){
   const cnpj=String(record.cnpj||'').replace(/\D/g,'');
   if(!/^[0-9]{14}$/.test(cnpj))return '';
@@ -7167,15 +7204,31 @@ function adminProspectCrmEditor(record){
     '<div class="form-stack" style="margin-top:12px">'+
       '<div class="field-row"><div class="input-wrap"><label for="prospect-stage-'+cnpj+'">Etapa comercial</label>'+
         '<select id="prospect-stage-'+cnpj+'" class="input">'+choices+'</select></div>'+
-      '<div class="input-wrap"><label for="prospect-follow-up-'+cnpj+'">Próximo contato</label>'+
-        '<input type="date" id="prospect-follow-up-'+cnpj+'" class="input" value="'+esc(date)+'"></div></div>'+
+      '<div class="input-wrap"><label for="prospect-quick-date-'+cnpj+'">Próximo retorno (escolha um prazo)</label>'+
+        '<select id="prospect-quick-date-'+cnpj+'" class="input" onchange="adminProspectFollowUpChoice(\\''+cnpj+'\\')">'+
+          '<option value="keep">Manter data atual</option><option value="today">Hoje</option>'+
+          '<option value="1">Amanhã</option><option value="3">Daqui a 3 dias</option>'+
+          '<option value="7">Daqui a 7 dias</option><option value="clear">Sem data</option>'+
+          '<option value="custom">Escolher data no calendário</option></select>'+
+        '<small id="prospect-date-preview-'+cnpj+'" class="muted">'+(date?'Data atual: '+esc(date):'Sem data de retorno')+'</small>'+
+        '<div id="prospect-manual-date-'+cnpj+'" hidden><label for="prospect-follow-up-'+cnpj+'">Data personalizada</label>'+
+          '<input type="date" id="prospect-follow-up-'+cnpj+'" class="input" value="'+esc(date)+'" data-initial="'+esc(date)+'"></div></div></div>'+
       '<div class="input-wrap"><label for="prospect-channel-'+cnpj+'">Contato realizado nesta atualização?</label>'+
         '<select id="prospect-channel-'+cnpj+'" class="input"><option value="">Não registrar contato</option>'+
           '<option value="phone">Telefone</option><option value="whatsapp">WhatsApp</option>'+
           '<option value="email">E-mail</option><option value="in_person">Presencial</option></select></div>'+
-      '<div class="input-wrap"><label for="prospect-note-'+cnpj+'">Histórico / próxima ação</label>'+
-        '<textarea id="prospect-note-'+cnpj+'" class="input" maxlength="1000" rows="3" placeholder="Descreva o que foi combinado e a próxima ação.">'+
-          esc(record.notes||'')+'</textarea></div>'+
+      '<div class="input-wrap"><label for="prospect-next-action-'+cnpj+'">Próxima ação planejada (marque uma)</label>'+
+        '<select id="prospect-next-action-'+cnpj+'" class="input"><option value="">Selecione o próximo passo real</option>'+
+          '<option value="schedule">Organizar acompanhamento</option>'+
+          '<option value="await_reply">Acompanhar possível resposta</option>'+
+          '<option value="documents">Solicitar informações complementares</option>'+
+          '<option value="orientation">Encaminhar orientações, se pertinente</option>'+
+          '<option value="review">Revisar situação atual</option>'+
+          '<option value="custom">Escrever outra ação</option></select></div>'+
+      (record.notes?'<details><summary>Última anotação registrada</summary><p class="tiny muted">'+esc(String(record.notes).slice(0,1000))+'</p></details>':'')+
+      '<details><summary>Detalhes adicionais ou ação personalizada</summary><div class="input-wrap">'+
+        '<label for="prospect-note-'+cnpj+'">Observação opcional (obrigatória só em outra ação)</label>'+
+        '<textarea id="prospect-note-'+cnpj+'" class="input" maxlength="1000" rows="2"></textarea></div></details>'+
       '<div class="order-actions"><button type="button" class="primary small" onclick="adminSaveProspect(\''+cnpj+'\','+
         Number(record.crm_version||0)+')" '+(adminRuntime.actionPending?'disabled':'')+'>Salvar negociação</button>'+
       '<span class="tiny muted">Marque contato somente após realizá-lo. “Parceira confirmada” exige cadastro ativo no TAMÃO.</span></div>'+
