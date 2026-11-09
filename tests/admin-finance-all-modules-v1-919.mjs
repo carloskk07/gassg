@@ -82,7 +82,12 @@ const helperSource=server.slice(readStart,readEnd)
  .replaceAll('(p:any)=>','(p)=>');
 assert.doesNotThrow(()=>new vm.Script(helperSource));
 let reads=0;
-const db={from(table){
+const db={rpc(name,args){
+ assert.equal(name,'admin_finance_referral_counts_v1_921');
+ assert.equal(args.p_actor,'owner');
+ return Promise.resolve({data:{source:name,readOnly:true,
+  claims:0,observations:0,bankEvidence:0},error:null});
+},from(table){
  const request={
    select(_fields,opts){
     if(opts?.count==='exact'&&opts?.head===true){reads++;this.isCount=true;}
@@ -124,7 +129,7 @@ assert.equal(inspected.modules.length,7);
 assert.equal(inspected.modules[0].configured,true);
 assert.equal(inspected.modules[1].counts.plans,3);
 assert.equal(inspected.modules[4].configured,false,'paid Ads must not be enabled by an inventory read');
-assert.equal(reads,26,'bounded exact count queries; no row export or financial mutation');
+assert.equal(reads,23,'bounded counts; protected referral evidence uses only owner-authorized RPC');
 const missing={from(){return {select:async()=>({count:null,error:new Error('offline')})}}};
 await assert.rejects(()=>serverCtx.inspect(missing,'owner'),
  e=>e.code==='FINANCE_HOMOLOGATION_EVIDENCE_UNAVAILABLE');
