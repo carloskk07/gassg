@@ -4,6 +4,18 @@
 const clubeLaunchState={
  userId:null,status:'idle',pending:false,data:null,error:null,requestId:null,form:{},checks:{}
 };
+// V1.913 — optional reuse of the signed-in owner's VERIFIED email, never legal identity.
+function adminClubeCommercialUseVerifiedEmail(){
+ const user=adminRuntime?.session?.user;
+ if(adminCurrentRole()!=='superadmin'||!user?.id||
+    user.id!==clubeLaunchState.userId||!user.email_confirmed_at)return false;
+ const email=String(user.email||'').trim();
+ const input=document.getElementById('clube-release-email');
+ if(!input||input.disabled||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>260)return false;
+ if(input.value&&input.value!==email&&
+    !window.confirm('Substituir o e-mail de suporte pelo e-mail verificado da sua conta?'))return false;
+ input.value=email;return true;
+}
 function adminClubeCommercialPanel(){
  if(adminCurrentRole()!=='superadmin')return '';
  const uid=String(adminRuntime.session?.user?.id||'');
@@ -36,6 +48,7 @@ function adminClubeCommercialPanel(){
     input('doc','CPF ou CNPJ do fornecedor','Somente números')+
     input('address','Endereço completo do fornecedor, incluindo CEP','Rua, número, bairro, município, UF e CEP')+
     input('email','E-mail público de suporte e reembolso','contato@exemplo.com','email')+
+    '<button type="button" class="secondary small" onclick="adminClubeCommercialUseVerifiedEmail()">Usar o e-mail verificado desta conta</button>'+
     check('identity','Autorizo a divulgação do nome, CPF/CNPJ, endereço e contato acima aos compradores, conforme exigências para venda online.')+
     check('terms','Aprovo as condições do pacote publicadas nos Termos do TAMÃO e assumo as obrigações legais do fornecedor.')+
     check('refund','Comprometo-me a atender solicitações de cancelamento e a devolver o Pix quando cabível, inclusive se não houver revenda disponível.')+
