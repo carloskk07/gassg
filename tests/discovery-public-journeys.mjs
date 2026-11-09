@@ -47,7 +47,7 @@ assert.equal(sandbox.discoveryPublicPhotoUrl('https://attacker.example/tracker.j
 assert.equal(sandbox.discoveryPublicPhotoUrl('../private.pdf'),'');
 assert.match(sandbox.discoveryExploreCards(),/onclick="go\('professionals'\)"/);
 assert.match(sandbox.discoveryExploreCards(),/onclick="go\('rides'\)"/);
-assert.match(sandbox.discoveryExploreCards(),/onclick="go\('stays'\)"/);
+assert.doesNotMatch(sandbox.discoveryExploreCards(),/onclick="go\('stays'\)"/);
 const initial=sandbox.discoveryPage();
 assert.match(initial,/TAMÃO PROFISSIONAIS/);
 assert.match(initial,/id="discovery-city"/);
@@ -73,7 +73,7 @@ assert.equal(calls.at(-1)[1].p_occupation_query,'Eletricista');
 assert.equal(calls.at(-1)[1].p_min_seats,null);
 assert.equal(calls.at(-1)[1].p_property_type,null);
 assert.equal(calls.at(-1)[1].p_max_price_cents,null);
-for(const [kind,term] of [['rides','CARONAS'],['stays','HOSPEDAGENS']]){
+for(const [kind,term] of [['rides','CARONAS']]){
  current=kind;
  results=[];
  sandbox.discoveryAfterRender();
@@ -83,6 +83,13 @@ for(const [kind,term] of [['rides','CARONAS'],['stays','HOSPEDAGENS']]){
  assert.match(page,new RegExp('TAMÃO '+term));
  assert.match(page,/Ainda não há anúncios publicados para esta busca/);
 }
+current='stays';
+const callsBeforePause=calls.length;
+assert.match(sandbox.discoveryPage(),/Hospedagens temporariamente indisponíveis/);
+assert.doesNotMatch(sandbox.discoveryPage(),/discovery-search/);
+sandbox.discoveryAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.length,callsBeforePause,'Paused stays never trigger discovery fetch');
 current='rides';
 requestedDeparture='2030-03-10T09:30';
 assert.match(sandbox.discoveryPage(),/id="discovery-departure-after"/);
@@ -101,8 +108,8 @@ sandbox.discoverySearchFromUi({preventDefault(){}});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.at(-1)[1].p_departure_after,null,
  'stays must not inherit ride date filters');
-assert.match(sandbox.discoveryPage(),/id="discovery-property-type"/);
-assert.match(sandbox.discoveryPage(),/id="discovery-max-price"/);
+assert.doesNotMatch(sandbox.discoveryPage(),/id="discovery-property-type"/);
+assert.doesNotMatch(sandbox.discoveryPage(),/id="discovery-max-price"/);
 assert.equal(calls.at(-1)[1].p_property_type,'inn');
 assert.equal(calls.at(-1)[1].p_max_price_cents,30000);
 assert.equal(calls.at(-1)[1].p_min_seats,null);
