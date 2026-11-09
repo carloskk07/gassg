@@ -1559,8 +1559,9 @@ function adminClubeCampaignSection(){
       '<select id="clube-review-status-'+esc(key)+'" class="input">'+
       stages.map(v=>'<option value="'+esc(v[0])+'"'+(x.reviewStatus===v[0]?' selected':'')+'>'+esc(v[1])+'</option>').join('')+
       '</select></div>'+
+      (typeof adminClubeReviewNoteSelect==='function'?adminClubeReviewNoteSelect(key,x.reviewNote):
       '<div class="input-wrap"><label for="clube-review-note-'+esc(key)+'">Justificativa interna (12 a 500 caracteres)</label>'+
-      '<textarea id="clube-review-note-'+esc(key)+'" class="input" maxlength="500" rows="2" placeholder="Ex.: Confirmar regularidade, custos e minuta contratual.">'+esc(x.reviewNote||'')+'</textarea></div>'+
+      '<textarea id="clube-review-note-'+esc(key)+'" class="input" maxlength="500" rows="2" placeholder="Ex.: Confirmar regularidade, custos e minuta contratual.">'+esc(x.reviewNote||'')+'</textarea></div>')+
       '<button type="button" class="secondary small" '+
       (adminClubeCampaignReviewsPending.has(x.merchantId+':'+x.packageKey)?'disabled':'')+
       ' onclick="adminClubeCampaignReviewFromUi(\''+esc(x.merchantId)+'\',\''+esc(x.packageKey)+'\','+

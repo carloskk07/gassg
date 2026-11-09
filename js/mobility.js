@@ -429,6 +429,16 @@ function mobilityAcceptedContactHtml(row){
  return '<p class="mobility-contact"><a href="'+esc(url)+
   '" target="_blank" rel="noopener noreferrer">Conversar com o motorista no WhatsApp</a></p>';
 }
+// V1.907 — valores rápidos apenas preenchem a proposta; enviar exige confirmação explícita.
+const MOBILITY_FARE_QUICK_VALUES=Object.freeze([15,20,25,30,40,50,75,100]);
+function mobilityFareQuickValueChanged(select){
+ const field=select?.closest?.('form.mobility-form')?.querySelector?.('[name="fare"]');
+ if(!field||field.disabled)return false;
+ const chosen=String(select.value||'');
+ if(chosen==='custom'){field.focus?.();return true;}
+ if(!MOBILITY_FARE_QUICK_VALUES.some(v=>String(v)===chosen))return false;
+ field.value=chosen;return true;
+}
 function mobilityFarePanel(row){
  if(!row||!['rider','driver'].includes(row.role))return '';
  const cents=Number(row.fare_cents),valid=Number.isSafeInteger(cents)&&cents>=100&&cents<=10000000;
@@ -462,6 +472,10 @@ function mobilityFarePanel(row){
   ?'<p><strong>Valor proposto: '+esc(BRL.format(cents/100))+'</strong> — ainda não confirmado pelo passageiro.</p>':'';
  if(row.role==='driver'){
   return '<form class="mobility-form" onsubmit="return mobilityFarePropose(event)">'+
+   '<label>Valor rápido (R$)<select onchange="mobilityFareQuickValueChanged(this)">'+
+   '<option value="">Marque um valor, se adequado à corrida</option>'+
+   MOBILITY_FARE_QUICK_VALUES.map(v=>'<option value="'+v+'">R$ '+v+'</option>').join('')+
+   '<option value="custom">Outro valor (informar abaixo)</option></select></label>'+
    '<label>Valor da corrida (R$)<input name="fare" type="number" inputmode="decimal" min="1" max="100000" step=".01" required value="'+(valid?(cents/100).toFixed(2):'')+'"></label>'+
    '<button type="submit" class="secondary"'+(mobilityRuntime.busy?' disabled':'')+'>Enviar valor ao passageiro</button></form>'+
    (valid?'<p class="tiny muted">Valor atual: '+esc(BRL.format(cents/100))+'. Aguarde a confirmação do passageiro.</p>':'');

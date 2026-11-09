@@ -334,6 +334,40 @@ function discoveryPublicGallery(item){
   (photos.length===2?' foto':' fotos')+'</summary>'+
   '<div class="discovery-gallery-grid">'+extra+'</div></details></div>';
 }
+// V1.907 — consultation shortcuts are editable drafts; they never contact a provider automatically.
+const DISCOVERY_SERVICE_INQUIRY_CHOICES=Object.freeze({
+  quote:'Gostaria de solicitar um orçamento para o serviço anunciado na minha região e consultar disponibilidade.',
+  scope:'Gostaria de saber quais serviços você oferece e se atende a minha localização.',
+  schedule:'Gostaria de consultar horários disponíveis e condições para contratar o serviço anunciado.'
+});
+function discoveryInquiryPresetChanged(select){
+  const box=select?.closest?.('.discovery-inquiry');
+  if(box?.dataset?.kind!=='professionals'||box?.dataset?.service)return false;
+  const editor=box.querySelector('[name="service"]');
+  const drawer=box.querySelector('.discovery-inquiry-manual');
+  if(!editor||!drawer)return false;
+  const key=String(select.value||'');
+  if(key==='custom'){drawer.open=true;editor.focus?.();return true;}
+  if(!Object.prototype.hasOwnProperty.call(DISCOVERY_SERVICE_INQUIRY_CHOICES,key))return false;
+  editor.value=DISCOVERY_SERVICE_INQUIRY_CHOICES[key];drawer.open=false;
+  return true;
+}
+const DISCOVERY_REPORT_DETAIL_CHOICES=Object.freeze({
+  information:'Solicito a revisão das informações apresentadas neste anúncio, que precisam de conferência.',
+  contact:'Solicito verificar os dados de contato informados neste anúncio.',
+  content:'Solicito revisar o conteúdo deste anúncio e verificar sua adequação às regras.'
+});
+function discoveryReportPresetChanged(select){
+  const box=select?.closest?.('.discovery-report');
+  const editor=box?.querySelector?.('[name="details"]');
+  const drawer=box?.querySelector?.('.discovery-report-manual');
+  if(!editor||!drawer)return false;
+  const key=String(select.value||'');
+  if(key==='custom'){drawer.open=true;editor.focus?.();return true;}
+  if(!Object.prototype.hasOwnProperty.call(DISCOVERY_REPORT_DETAIL_CHOICES,key))return false;
+  editor.value=DISCOVERY_REPORT_DETAIL_CHOICES[key];drawer.open=false;
+  return true;
+}
 // Optional inquiry details: never a reservation, payment or availability promise.
 function discoveryInquiryForm(item,kind){
  if(!Object.hasOwn(discoveryVerticals,kind))return '';
@@ -353,10 +387,18 @@ function discoveryInquiryForm(item,kind){
   '<label>Detalhes adicionais (opcional)<textarea name="service" maxlength="350" rows="2" placeholder="Quantidade de pessoas, tipo de carga ou observações, sem dados pessoais"></textarea></label>'+
   '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>';
  const inputs=kind==='professionals'?(mobility?mobilityInputs:
-  '<label>Qual serviço você precisa?<textarea name="service" required minlength="10" maxlength="500" rows="3" placeholder="Descreva o serviço e a região aproximada, sem informar dados pessoais."></textarea></label>'+
+  '<label>O que deseja saber?<select onchange="discoveryInquiryPresetChanged(this)">'+
+   '<option value="">Marque uma consulta pronta</option>'+
+   Object.entries(DISCOVERY_SERVICE_INQUIRY_CHOICES).map(([key,text])=>
+    '<option value="'+key+'">'+esc(text)+'</option>').join('')+
+   '<option value="custom">Descrever outro serviço</option></select></label>'+
+  '<details class="discovery-inquiry-manual"><summary>Personalizar serviço solicitado</summary>'+
+  '<label>Qual serviço você precisa?<textarea name="service" required minlength="10" maxlength="500" rows="3" placeholder="Descreva o serviço e a região aproximada, sem informar dados pessoais."></textarea></label></details>'+
   '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>'):
   kind==='rides'?
-  '<label>Quantas vagas deseja consultar?<input name="seats" type="number" required min="1" max="'+count+'" value="1"></label>':
+  '<label>Quantas vagas deseja consultar?<select name="seats" required>'+
+   Array.from({length:count},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+(i?' vagas':' vaga')+'</option>').join('')+
+  '</select></label>':
   '<label>Entrada desejada<input name="checkin" type="date" required></label>'+
   '<label>Saída desejada<input name="checkout" type="date" required></label>'+
   '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
@@ -490,8 +532,14 @@ function discoveryReportForm(item,kind){
    '<option value="suspected_fraud">Possível fraude</option>'+
    '<option value="unsafe_content">Conteúdo perigoso</option>'+
    '<option value="other">Outro problema</option></select></label>'+
+  '<label>Detalhes que deseja revisar<select required onchange="discoveryReportPresetChanged(this)">'+
+   '<option value="">Escolha uma descrição</option>'+
+   Object.entries(DISCOVERY_REPORT_DETAIL_CHOICES).map(([key,text])=>
+    '<option value="'+key+'">'+esc(text)+'</option>').join('')+
+   '<option value="custom">Descrever outro problema</option></select></label>'+
+  '<details class="discovery-report-manual"><summary>Personalizar descrição</summary>'+
   '<label>Descreva o problema<textarea name="details" required minlength="12" maxlength="600" rows="3" '+
-  'placeholder="Explique o ocorrido, sem incluir documentos ou dados pessoais."></textarea></label>'+
+   'placeholder="Explique o ocorrido, sem incluir documentos ou dados pessoais."></textarea></label></details>'+
   '<p class="tiny muted">Exige uma conta TAMÃO verificada para prevenir abusos. A denúncia fica privada e é analisada pelo TAMÃO. <a href="#advertise">Entrar na minha conta TAMÃO</a></p>'+
   '<p class="discovery-report-feedback" role="status" aria-live="polite"></p>'+
   '<button type="submit">Enviar denúncia</button></form></details>';
