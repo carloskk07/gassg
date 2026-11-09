@@ -1255,6 +1255,13 @@ function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents
     publicQuote:false,orderCreated:false,merchantActivated:false,
     complianceVerified:false,paymentCreated:false,stockReserved:false};
 }
+// V1.909 — purely hypothetical discount; never a real coupon, invoice or order.
+function adminMerchantTrialDiscountChoose(value){
+  if(!['0','5','10','15','20','30'].includes(String(value)))return false;
+  const field=document.getElementById('admin-merchant-trial-benefit');
+  if(!field||field.disabled)return false;
+  field.value=Number(value).toFixed(2).replace('.',',');return true;
+}
 function adminMerchantTrialView(detail){
   if(!adminRoleCanSection('partners')||detail?.type!=='merchant')return '';
   const merchant=detail.merchant||{};
@@ -1292,9 +1299,14 @@ function adminMerchantTrialView(detail){
               ' — '+money(p.price_cents)+'</option>').join('')}
           </select></div>
         <div class="input-wrap"><label for="admin-merchant-trial-qty">Quantidade (1 a 20)</label>
-          <input class="input" id="admin-merchant-trial-qty" type="number"
-            inputmode="numeric" min="1" max="20" step="1" value="${quantity}"></div>
+          <select class="input" id="admin-merchant-trial-qty">
+            ${Array.from({length:20},(_,i)=>'<option value="'+(i+1)+'"'+(quantity===i+1?' selected':'')+'>'+(i+1)+' unidade(s)</option>').join('')}
+          </select></div>
         <div class="input-wrap"><label for="admin-merchant-trial-benefit">Desconto hipotético (R$)</label>
+          <select class="input" aria-label="Desconto hipotético pronto" onchange="adminMerchantTrialDiscountChoose(this.value)">
+            <option value="">Escolha um desconto de simulação ou edite abaixo</option>
+            ${[0,5,10,15,20,30].map(v=>'<option value="'+v+'">'+(v===0?'Sem desconto':'R$ '+v)+'</option>').join('')}
+          </select>
           <input class="input" id="admin-merchant-trial-benefit" type="text"
             inputmode="decimal" maxlength="11"
             value="${esc((discount/100).toFixed(2).replace('.',','))}"></div>
