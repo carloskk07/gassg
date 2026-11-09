@@ -65,9 +65,9 @@ assert.match(merchant,/merchantAdsAssistanceAction\(\\'request\\'\)/);
 // Product cost is never silently invented to manufacture a positive margin.
 for(const id of ['ref-sim-clients','ref-sim-ticket','merchant-sim-orders','merchant-sim-ticket'])
  assert.ok(growth.includes('<select id="'+id+'"'));
-assert.match(growth,/value="10"[^>]*>10 clientes/);
-assert.match(growth,/value="120"[^>]*>R\$ 120/);
-assert.match(growth,/value="50"[^>]*>50 pedidos/);
+assert.match(growth,/value="10" selected>10<\/option>/);
+assert.match(growth,/value="120" selected>120<\/option>/);
+assert.match(growth,/value="50" selected>50<\/option>/);
 assert.match(growth,/onchange="updateReferralSimulator\(\)"/);
 assert.match(growth,/onchange="updateMerchantSimulator\(\)"/);
 assert.match(growth,/id="merchant-sim-product-cost"/);
