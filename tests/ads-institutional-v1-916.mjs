@@ -64,7 +64,7 @@ assert.equal(ctx.section,'finance');
 assert.equal(ctx.finance,'lab');
 const target={innerHTML:'',textContent:'',querySelector:()=>null};
 const displayCtx=vm.createContext({document:{getElementById:()=>target},
- esc:x=>x,String,Number});
+ esc:x=>x,String,Number,URL});
 vm.runInContext(display+';this.draw=tamaoAdsDraw;',displayCtx);
 const slot={label:'Institucional',advertiser:'TAMÃO',
  campaignId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
