@@ -19,6 +19,8 @@ const ending=source.indexOf('// V1.308 —',beginning);
 assert.ok(beginning>=0&&ending>beginning);
 const calls=[],role={value:'superadmin'};
 const box={
+ adminAdsWorkspaceTab:'diagnostics',
+ adminIndependentAdsPane:'campaigns',
  adminActivationDesk:{actor:'id1',role:'superadmin',checkedAt:new Date().toISOString(),
   data:{
     paidCoupons:{enabled:true,emergencyStop:false},
@@ -52,6 +54,11 @@ assert.match(html,/muda de seção, sem ativar vendas/);
 box.go('paidCoupons');box.go('independentAds');box.go('merchant');
 box.go('mobility');box.go('discovery');
 assert.equal(JSON.stringify(calls),JSON.stringify(['finance','ads','enablement','orders','discovery']));
+assert.equal(box.adminRuntime.financeWorkspace,'policy',
+ 'Clube shortcut must open the real Financeiro commercial-policy workspace');
+assert.equal(box.adminAdsWorkspaceTab,'campaigns');
+assert.equal(box.adminIndependentAdsPane,'finance',
+ 'Ads shortcut must open the existing financial provider verification task');
 const before=calls.length;box.go('bad');assert.equal(calls.length,before);
 box.adminActivationDesk.data={paidCoupons:{enabled:true,emergencyStop:true},
  independentAds:{salesEnabled:true,deliveryEnabled:true,campaignCount:3}};
