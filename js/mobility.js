@@ -16,6 +16,27 @@ const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,
  intentPortraitId:'',intentPortraitMode:'',intentPortraitKey:'',intentPortraitLoading:false,
  selectedPortraitId:'',selectedPortraitKey:'',selectedPortraitCheckedAt:0};
 const mobilityId=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+// V1.912 — optional approximate points, chosen by the passenger, not GPS or dispatch.
+const MOBILITY_ROUTE_QUICK_POINTS=Object.freeze({center:'Centro',station:'Rodoviária'});
+function mobilityRouteQuickChoice(select,fieldName){
+ if(!['origin','destination'].includes(fieldName))return false;
+ const form=select?.closest?.('form.mobility-form');
+ const input=form?.querySelector?.('[name="'+fieldName+'"]');
+ if(!input||input.disabled)return false;
+ const key=String(select.value||'');
+ if(key==='custom'){input.focus?.();return true;}
+ if(!Object.prototype.hasOwnProperty.call(MOBILITY_ROUTE_QUICK_POINTS,key))return false;
+ const next=MOBILITY_ROUTE_QUICK_POINTS[key];
+ if(input.value&&input.value!==next&&!confirm('Substituir o local informado pela região selecionada?'))return false;
+ input.value=next;return true;
+}
+function mobilityRouteQuickChoices(field){
+ return '<label>Região comum (opcional)<select aria-label="Escolher região aproximada de '+
+  (field==='origin'?'origem':'destino')+'" onchange="mobilityRouteQuickChoice(this,\''+field+'\')">'+
+  '<option value="">Escolha se corresponder ao seu trajeto</option>'+
+  '<option value="center">Centro</option><option value="station">Rodoviária</option>'+
+  '<option value="custom">Informar outra região</option></select></label>';
+}
 const mobilityStates={
  requested:'Aguardando resposta do anunciante',accepted:'Aceita pelo motorista',
  en_route:'Motorista a caminho',arrived:'Motorista chegou',
@@ -714,7 +735,9 @@ function mobilityPage(){
   intent?'<section class="mobility-start"><h2>Solicitar '+(intent.mode==='moto'?'uma moto':'um carro')+'</h2>'+
   '<p>O anúncio é verificado novamente no servidor. Não informe endereço residencial ou dados sensíveis nesta etapa.</p>'+
   '<form class="mobility-form" onsubmit="return mobilityCreate(event)">'+
+  mobilityRouteQuickChoices('origin')+
   '<label>Origem aproximada<input name="origin" minlength="3" maxlength="120" required placeholder="Bairro ou região"></label>'+
+  mobilityRouteQuickChoices('destination')+
   '<label>Destino aproximado<input name="destination" minlength="3" maxlength="120" required placeholder="Bairro ou região"></label>'+
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Enviar solicitação ao anunciante</button></form></section>':'';
  return shell('<section class="section mobility-page">'+top+note+error+stale+

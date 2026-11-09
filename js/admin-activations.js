@@ -1446,6 +1446,23 @@ async function adminAdsAssistanceAction(merchantId,operation){
 }
 
 
+// V1.912 — notes are drafts of declared facts, not contact or delivery evidence.
+const ADMIN_ADS_CONTACT_QUICK_NOTES=Object.freeze({
+ not_reached:'Realizei uma tentativa manual pelo canal solicitado, sem conseguir falar com o responsável.',
+ conversation:'Conversei com o responsável pelo canal solicitado sobre as opções de divulgação.',
+ followup_requested:'O responsável solicitou um novo contato durante o atendimento manual.',
+ not_interested:'O responsável informou durante o contato que não deseja prosseguir.'
+});
+function adminAdsContactFillNote(merchantId){
+ if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(merchantId||'')))return false;
+ const outcome=document.getElementById('ads-contact-'+merchantId+'-outcome');
+ const note=document.getElementById('ads-contact-'+merchantId+'-note');
+ const key=String(outcome?.value||'');
+ if(!note||note.disabled||!Object.prototype.hasOwnProperty.call(ADMIN_ADS_CONTACT_QUICK_NOTES,key))return false;
+ const draft=ADMIN_ADS_CONTACT_QUICK_NOTES[key];
+ if(note.value&&note.value!==draft&&!confirm('Substituir a nota atual pela descrição do resultado escolhido?'))return false;
+ note.value=draft;return true;
+}
 // V1.324 — verified authorization for manual contact notes, NOT verified external delivery.
 function adminAdsContactsView(){
  if(!adminRoleCanSection('activations'))return '';
@@ -1462,11 +1479,13 @@ function adminAdsContactsView(){
   const due=last?.outcome==='followup_requested'?String(last.nextFollowupOn||''):'';
   const form=role==='superadmin'?'<div class="admin-ads-contact-form">'+
    '<label>Resultado relatado da tentativa<select class="input" id="ads-contact-'+id+'-outcome">'+
+   '<option value="">Escolha o resultado que ocorreu</option>'+
    '<option value="not_reached">Tentei, sem conseguir falar</option>'+
    '<option value="conversation">Conversei com a revenda</option>'+
    '<option value="followup_requested">Solicitou um novo contato</option>'+
    '<option value="not_interested">Informou que não deseja prosseguir</option></select></label>'+
-   '<label>Nota do ocorrido (20–240 caracteres)<textarea class="input" id="ads-contact-'+id+'-note" rows="3" minlength="20" maxlength="240" placeholder="Registre somente fatos que realmente ocorreram, sem dados pessoais desnecessários"></textarea></label>'+
+   '<button type="button" class="secondary small" onclick="adminAdsContactFillNote(\''+id+'\')">Usar descrição do resultado escolhido</button>'+
+   '<label>Nota do ocorrido (20–240 caracteres)<textarea class="input" id="ads-contact-'+id+'-note" rows="3" minlength="20" maxlength="240" placeholder="Confira e ajuste a nota ao que realmente ocorreu"></textarea></label>'+
    adminAdsReturnDateOptions('ads-contact-'+id+'-date')+
    '<label>Data do retorno (somente se solicitado)<input class="input" type="date" id="ads-contact-'+id+'-date"></label>'+
    '<button type="button" class="secondary small" onclick="adminAdsContactRecord(\''+id+'\')">Registrar atendimento manual</button></div>':'';
@@ -1586,6 +1605,21 @@ function adminAdsReturnDateOptions(id){
  '<option value="">Escolher prazo, sem agendar automaticamente</option>'+
  [1,3,7,14].map(d=>'<option value="'+d+'">Em '+d+' dia(s)</option>').join('')+'</select>';
 }
+// V1.912 — only prepares an editable note for a future manual return.
+const ADMIN_ADS_RETURN_QUICK_NOTES=Object.freeze({
+ review:'Solicitação da revenda recebida. Vou organizar uma nova tentativa manual de contato.',
+ schedule:'Previsão interna de retorno para atendimento, sem mensagem enviada automaticamente.',
+ availability:'Necessário verificar disponibilidade para realizar a tentativa de retorno solicitada.'
+});
+function adminAdsReturnFillNote(merchantId,key){
+ if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(merchantId||''))||
+    !Object.prototype.hasOwnProperty.call(ADMIN_ADS_RETURN_QUICK_NOTES,key))return false;
+ const note=document.getElementById('ads-return-'+merchantId+'-note');
+ if(!note||note.disabled)return false;
+ const draft=ADMIN_ADS_RETURN_QUICK_NOTES[key];
+ if(note.value&&note.value!==draft&&!confirm('Substituir a nota interna atual pela opção escolhida?'))return false;
+ note.value=draft;return true;
+}
 // V1.326 — manual return planning from negative owner feedback; no outbound communications.
 function adminAdsFeedbackReturnsView(){
  if(!adminRoleCanSection('activations'))return '';
@@ -1600,6 +1634,11 @@ function adminAdsFeedbackReturnsView(){
     '<div class="admin-ads-return-fields">'+adminAdsReturnDateOptions('ads-return-'+id+'-date')+
     '<label>Data prevista de retorno<input type="date" id="ads-return-'+id+'-date" value="'+
       esc(String(p?.dueOn||''))+'"></label>'+
+    '<label>Nota interna pronta (opcional)<select class="input" onchange="adminAdsReturnFillNote(\''+id+'\',this.value)">'+
+    '<option value="">Escolha uma orientação, se apropriada</option>'+
+    '<option value="review">Organizar nova tentativa</option>'+
+    '<option value="schedule">Planejar retorno sem envio</option>'+
+    '<option value="availability">Conferir disponibilidade</option></select></label>'+
     '<label>Nota interna factual (não visível à revenda)<textarea id="ads-return-'+id+'-note" maxlength="240" rows="3">'+
       esc(String(p?.internalNote||''))+'</textarea></label>'+
     '<div class="order-actions"><button type="button" class="primary small" onclick="adminAdsFeedbackReturnAction(\''+id+'\',\'schedule\')">'+
