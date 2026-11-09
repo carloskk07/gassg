@@ -637,8 +637,11 @@ async function adminInstitutionalAdsCreate(){
    throw Error('Criação institucional não confirmada.');
   s.requestId=null;
   toast('Campanha gratuita criada para revisão. Publique somente após conferir.');
- }catch(e){toast('Não foi possível criar: '+String(e?.message||e));}
- finally{s.pending=false}
+ }catch(e){
+  // Keep the same request UUID for safe retry after an ambiguous response.
+  toast('Não foi possível confirmar a criação: '+String(e?.message||e));
+  return false;
+ }finally{s.pending=false}
  await adminInstitutionalAdsRefresh();return true;
 }
 async function adminInstitutionalAdsDecide(id,version){
