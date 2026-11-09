@@ -398,7 +398,7 @@ function adminAdsIndependentSection(){
   '<div class="admin-task-tabs" role="group" aria-label="Tarefas de anúncios independentes">'+
    (role==='superadmin'?adsPane('institutional','Institucional grátis',adminInstitutionalAdsState.rows.length):'')+
    adsPane('campaigns','Comercial paga',reviewCount)+
-   adsPane('finance','Homologação e vendas',0)+
+   adsPane('finance','Configuração e vendas',0)+
    adsPane('refunds','Reembolsos',refundCount)+'</div>'+
     '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
    '<strong>'+(delivery?'Habilitada':'Desligada')+'</strong></div>'+
