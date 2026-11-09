@@ -39,7 +39,9 @@ async function adminActivationLoad({force=false}={}){
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
       adminLoadGovernanceGates({force:true}),
-      adminPushReliabilityLoadFromUi()
+      adminPushReliabilityLoadFromUi(),
+      role==='superadmin'?adminInvoke({action:'clube-coupon-commercial-status'}):Promise.resolve(null),
+      role==='superadmin'?adminInvoke({action:'ads-independent-read'}):Promise.resolve(null)
     ]);
     if(!adminReady()||actor!==String(adminRuntime.session?.user?.id||'')||role!==adminCurrentRole())return null;
     const evidence={};
@@ -213,6 +215,25 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
+    // Modern paid coupons and independent Ads are separate from the older
+    // prospect/intake readouts above. Never interpret a legacy queue as their sales switch.
+    const modernIndex=specs.length+2;
+    const coupon=values[modernIndex]?.status==='fulfilled'?values[modernIndex].value:null;
+    evidence.paidCoupons=role==='superadmin'&&coupon?.ok===true&&
+      coupon?.source==='clube_commercial_release_status_v1_819'&&
+      typeof coupon?.commercialEnabled==='boolean'&&
+      typeof coupon?.privateEmergencyStop==='boolean'?
+      {enabled:coupon.commercialEnabled,emergencyStop:coupon.privateEmergencyStop}:null;
+    const independent=values[modernIndex+1]?.status==='fulfilled'?values[modernIndex+1].value:null;
+    evidence.independentAds=role==='superadmin'&&
+      independent?.source==='admin_ads_independent_read_v1_884'&&
+      independent?.billingEnabled===false&&independent?.revenueCents===0&&
+      independent?.independentlyAuditedImpressions===0&&
+      Array.isArray(independent?.rows)&&independent.rows.length<=50&&
+      typeof independent?.deliveryEnabled==='boolean'&&
+      typeof independent?.fixedFeeSalesEnabled==='boolean'?
+      {salesEnabled:independent.fixedFeeSalesEnabled,
+       deliveryEnabled:independent.deliveryEnabled,campaignCount:independent.rows.length}:null;
     const governance=values[23].status==='fulfilled'?values[23].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
@@ -239,7 +260,12 @@ function adminActivationGo(key){
     benefits:['finance','.admin-finance-workspace-panel'],
     payments:['finance','.admin-finance-workspace-panel'],
     push:['system','.admin-governance'],
-    cities:['system','.admin-governance-city-block']
+    cities:['system','.admin-governance-city-block'],
+    merchant:['enablement','.admin-enable-workspace'],
+    paidCoupons:['finance','.admin-finance-workspace-panel'],
+    independentAds:['ads','.admin-ads-independent'],
+    mobility:['orders','.admin-orders'],
+    discovery:['discovery','.admin-discovery']
   };
   const target=routes[key];
   if(!adminReady()||!adminRoleCanSection('activations')||!target||
@@ -262,14 +288,43 @@ function adminActivationDeskView(d){
       esc(title)+'</strong><span class="status-pill">'+esc(status)+'</span></div>'+
       '<p>'+esc(detail)+'</p><small>'+esc(evidence)+'</small>'+action+'</article>';
   };
+  const effectivePhysical=d?.launchReadiness?.commerceEnabled;
+  const modernCards=[
+    card('merchant','Revendas e pedidos',
+      effectivePhysical===true?'Pedidos físicos habilitados':
+      effectivePhysical===false?'Pedidos físicos aguardam oferta real':'Conferir liberação',
+      'Habilite comércio de produtos apenas após revenda aprovada, estoque, preço e CEP verificáveis.',
+      effectivePhysical===true?'Controle de comércio ativo (não comprova pedido concluído).':
+      effectivePhysical===false?'Plataforma LIVE pode oferecer outros serviços sem revenda ativa.':
+      'Não foi possível comprovar o estado de pedidos físicos.','enablement'),
+    card('paidCoupons','Clube — cupons pagos',!e.paidCoupons?'Não confirmado':
+      e.paidCoupons.emergencyStop?'Suspensão emergencial':
+      e.paidCoupons.enabled?'Autorizado':'Não liberado',
+      'Liberação do pacote é distinta de emissão de Pix, compra confirmada ou uso do desconto.',
+      !e.paidCoupons?'Sem consulta financeira confirmada':
+      e.paidCoupons.enabled&&!e.paidCoupons.emergencyStop?'Contrato comercial registrado; conferir recebimentos e saldo.':
+      'Venda bloqueada ou em revisão.','finance'),
+    card('independentAds','Publicidade independente',!e.independentAds?'Não confirmado':
+      e.independentAds.salesEnabled?'Contratação habilitada':'Contratação desabilitada',
+      'Anunciantes sem revenda; vendas e exibição são controles distintos, com homologação financeira própria.',
+      !e.independentAds?'Sem consulta comercial confirmada':
+      fmt(e.independentAds.campaignCount)+' campanhas • Entrega '+
+        (e.independentAds.deliveryEnabled?'habilitada':'desligada'),'ads'),
+    card('mobility','Moto e carro','Exige validação de atendimento',
+      'Solicitação e cobrança de taxa dependem de motorista apto, aceite e corrida confirmada.',
+      'Abra Pedidos para conferir viagens e Financeiro para conferir taxas.','orders'),
+    card('discovery','Profissionais e caronas','Conforme cidade autorizada',
+      'Caronas ocasionais e contato com profissionais não exigem ativação de cobrança; anúncios são revisados.',
+      'Hospedagens seguem suspensas por decisão do responsável.','discovery')
+  ];
   const cards=[
-    card('ads','Publicidade TAMÃO',e.ads?'Exibição bloqueada':'Não confirmado',
-      'Revisar criativos não publica campanhas nem gera cobranças.',
+    card('ads','Publicidade para revendas (legada)',e.ads?'Propostas sem exibição':'Não confirmado',
+      'Este diagnóstico trata de propostas de revendas, não de publicidade independente.',
       e.ads?fmt(e.ads.approvedCreatives)+' criativos revisados • '+
         (e.adsQueue?fmt(e.adsQueue.submittedCount)+' pendentes':'fila sem confirmação'):'Sem evidência atual',
       'partners'),
-    card('clube','Clube e patrocínios',e.clube?'Vendas bloqueadas':'Não confirmado',
-      'Negociações, condições e orçamento devem ser aprovados nos fluxos protegidos.',
+    card('clube','Clube — propostas e patrocínios (legado)',e.clube?'Negociações sem venda direta':'Não confirmado',
+      'Esta fila registra campanhas e propostas antigas, não a venda dos cupons pagos.',
       e.clube?fmt(e.clube.activeInterests)+' interesses • '+
         (e.terms?fmt(e.terms.totalReviews)+' revisões de termos':'termos sem confirmação'):'Sem evidência atual',
       'partners'),
@@ -303,7 +358,11 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminAdsFeedbackReturnsView()+adminAdsReturnExecutionView()+adminAdsReturnCloseoutView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<h3>Finalizações comerciais por módulo</h3>'+
+    '<p class="tiny muted">Os estados abaixo vêm de consultas autorizadas. Escolher Abrir fluxo oficial apenas muda de seção, sem ativar vendas.</p>'+
+    '<div class="admin-activation-grid">'+modernCards.join('')+'</div>'+
+    '<details><summary>Propostas legadas e governança</summary>'+
+    '<div class="admin-activation-grid">'+cards+'</div></details>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminAdsFeedbackReturnsView()+adminAdsReturnExecutionView()+adminAdsReturnCloseoutView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
