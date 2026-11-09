@@ -138,4 +138,64 @@ retryCtx.getFree().loadedFor=null;
 await retryCtx.refreshPaid();
 assert.equal(retryCtx.adminIndependentAdsPane,'institutional',
  'Initial founder workspace should select the free institutional campaign tab');
+
+// V1.918: one financial-homologation workspace reuses existing read-only
+// provider checks and Pix Lab. No request is issued merely by opening it.
+const financeShell=read('js/admin.js');
+assert.doesNotThrow(()=>new vm.Script(financeShell));
+assert.match(financeShell,/id":"homologation","label":"Homologação"/);
+assert.match(financeShell,/finance-homologation',section:'finance',tab:'homologation'/);
+assert.match(financeShell,/adminCurrentRole\(\)==='superadmin'\)\?selected:'summary'/);
+assert.match(financeShell,/Homologação financeira',\(\)=>adminFinanceHomologationView\(d\)/);
+assert.match(financeShell,/function adminFinanceHomologationToggleLab\(\)/);
+assert.match(financeShell,/function adminFinanceHomologationOpenAds\(pane\)/);
+assert.match(admin,/adminOpenFinanceHomologation\(\)/);
+const financeStart=financeShell.indexOf('function adminFinanceHomologationView(d){');
+const financeEnd=financeShell.indexOf('function adminFinanceWorkspaceCurrent(){',financeStart);
+assert.ok(financeStart>0&&financeEnd>financeStart);
+let readCalls=0,chargeCalls=0,adsNavigation=null;
+const financeCtx=vm.createContext({
+ adminRuntime:{status:'ready',section:'finance',financeWorkspace:'homologation',
+  session:{user:{id:'owner'}},financeHomologationLabOpen:false},
+ adminCurrentRole:()=> 'superadmin',adminReady:()=>true,adminRoleCanSection:()=>true,
+ adminAdsIndependentSection:()=>'<div>Ads panel</div>',
+ adminIndependentAdsState:{loadedFor:'owner',rows:[],fixedFeeSalesEnabled:false},
+ adminIndependentAdsProviderPreflight:null,
+ adminFinanceLabView:()=>{chargeCalls++;return '<div>Laboratório Pix existente</div>';},
+ adminFinanceRenderPart:(_label,fn)=>fn(),
+ adminFinanceWorkspaceCurrent:()=> 'homologation',
+ adminFinanceLabReadinessFromUi:async()=>{readCalls++},
+ adminFinanceLabLiveReadinessFromUi:async()=>{readCalls++},
+ adminAdsWorkspaceTab:'campaigns',adminIndependentAdsPane:'campaigns',
+ adminSetSection:section=>{adsNavigation=section},
+ render:()=>{},esc:x=>String(x),Date,Number,String
+});
+vm.runInContext(financeShell.slice(financeStart,financeEnd)+
+ ';this.testView=adminFinanceHomologationView;this.testToggle=adminFinanceHomologationToggleLab;'+
+ 'this.testToAds=adminFinanceHomologationOpenAds;this.testOpen=adminOpenFinanceHomologation;',financeCtx);
+let financeHtml=financeCtx.testView({});
+assert.match(financeHtml,/Homologação financeira/);
+assert.match(financeHtml,/Conferir conta e webhook/);
+assert.match(financeHtml,/Abrir Laboratório Pix dentro desta tela/);
+assert.match(financeHtml,/R\$ 19,90 por 7 dias/);
+assert.match(financeHtml,/Campanhas elegíveis: <strong>0<\/strong>/);
+assert.doesNotMatch(financeHtml,/Laboratório Pix existente/);
+assert.equal(chargeCalls,0);
+assert.equal(readCalls,0);
+assert.equal(financeCtx.testToggle(),true);
+assert.equal(financeCtx.adminRuntime.financeHomologationLabOpen,true);
+assert.match(financeCtx.testView({}),/Laboratório Pix existente/);
+assert.equal(readCalls,2);
+assert.equal(financeCtx.testToAds('finance'),true);
+assert.equal(adsNavigation,'ads');
+assert.equal(financeCtx.adminIndependentAdsPane,'finance');
+assert.equal(financeCtx.testToAds('refunds'),false);
+assert.equal(financeCtx.testOpen(),true);
+assert.equal(financeCtx.adminRuntime.financeWorkspace,'homologation');
+financeCtx.adminCurrentRole=()=> 'finance';
+assert.match(financeCtx.testView({}),/somente ao superadmin/);
+assert.equal(financeCtx.testToggle(),false);
+assert.equal(financeCtx.testToAds('finance'),false);
+assert.equal(financeCtx.testOpen(),false);
+
 console.log('V1.916 PASS: founder institutional ads, paid unchanged, branded labels, Admin financial lab, zero charges.');

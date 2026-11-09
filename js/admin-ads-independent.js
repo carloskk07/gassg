@@ -412,7 +412,8 @@ function adminAdsIndependentSection(){
     'A contratação pública permanece separada e desligada até sua homologação.</p>'+
     '<p><strong>Alternativa:</strong> o laboratório Pix permite verificar um recebimento pequeno, '+
     'mas esse ensaio não comprova o checkout ou webhook de publicidade.</p>'+
-    '<button type="button" class="secondary small" onclick="adminAdsOpenFinanceLab()">Abrir laboratório Pix (sem gerar cobrança)</button>'+
+    '<div class="order-actions"><button type="button" class="primary small" onclick="adminOpenFinanceHomologation()">Abrir central de homologação financeira no Admin</button>'+ 
+    '<button type="button" class="secondary small" onclick="adminAdsOpenFinanceLab()">Abrir laboratório Pix (sem gerar cobrança)</button></div>'+
     '</div>':'')+
   (canAct?'<div class="card flat"><fieldset><legend>Marque o motivo da alteração</legend>'+
     '<label class="admin-option-row"><input type="radio" name="independent-ads-control-preset" value="'+
