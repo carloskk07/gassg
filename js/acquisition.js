@@ -237,6 +237,24 @@ async function submitPrelaunchCustomerLead(){
     if(button){button.disabled=false;button.textContent=oldText}
   }
 }
+// V1.911 — an optional owner-selected intention, not inferred business data.
+const PARTNER_LEAD_NOTE_CHOICES={
+ visibility:'Quero anunciar a empresa e conhecer as opções de divulgação.',
+ sales:'Quero entender também como oferecer meus produtos pelo TAMÃO.',
+ guidance:'Preciso de orientação para começar a divulgar minha empresa.'
+};
+function partnerLeadNoteChoose(key){
+ const note=document.getElementById('partner-note');
+ const select=document.getElementById('partner-note-choice');
+ if(!note||!select)return false;
+ if(!Object.prototype.hasOwnProperty.call(PARTNER_LEAD_NOTE_CHOICES,key))return false;
+ const next=PARTNER_LEAD_NOTE_CHOICES[key];
+ if(note.value&&note.value!==next&&!confirm('Substituir a observação escrita pelo motivo escolhido?')){
+  select.value='';return false;
+ }
+ note.value=next;
+ return true;
+}
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
     return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div><button class="secondary" onclick="reopenPrelaunchLead(\'merchant\')">Cadastrar outra empresa</button></div></section>';
@@ -264,7 +282,14 @@ function prelaunchMerchantLeadSection(){
         '</div></details>',
         '<details class="merchant-lead-options"><summary>Adicionar CEP ou detalhes da operação <span>(opcional)</span></summary><div class="merchant-lead-options-fields">',
 '<div class="input-wrap"><label for="partner-postal">CEP da empresa <small>(opcional)</small></label><input id="partner-postal" class="input" maxlength="9" inputmode="numeric" autocomplete="postal-code" placeholder="97300-000"></div>',
-'<div class="input-wrap"><label for="partner-note">Algo que devemos saber? <small>(opcional)</small></label><textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Ex.: atendemos vários bairros da nossa cidade; temos frota própria."></textarea></div>',
+'<div class="input-wrap"><label for="partner-note-choice">O que você procura? <small>(opcional)</small></label>'+
+'<select id="partner-note-choice" class="input" onchange="partnerLeadNoteChoose(this.value)">'+
+'<option value="">Selecione se desejar</option>'+
+'<option value="visibility">Quero divulgar minha empresa</option>'+
+'<option value="sales">Também quero vender pelo TAMÃO</option>'+
+'<option value="guidance">Preciso de orientação</option></select></div>'+
+'<div class="input-wrap"><label for="partner-note">Observação diferente <small>(opcional)</small></label>'+
+'<textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Se preferir, escreva mais detalhes."></textarea></div>',
         '</div></details>',
         '<input id="partner-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Seu contato é usado para apresentar opções de anúncio. Verificações específicas só serão solicitadas para operações que as exijam.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
