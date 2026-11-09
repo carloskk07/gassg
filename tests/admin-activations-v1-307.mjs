@@ -19,6 +19,11 @@ const governance={source:'admin_governance_gates_v1_304',readOnly:true,
   runtime:{merchantDirectPaymentsEnabled:false},
   cities:[{city:'São Gabriel',commerceEnabled:false}]};
 const providers={
+  'clube-coupon-commercial-status':{ok:true,source:'clube_commercial_release_status_v1_819',
+    commercialEnabled:true,privateEmergencyStop:false},
+  'ads-independent-read':{source:'admin_ads_independent_read_v1_884',
+    billingEnabled:false,revenueCents:0,independentlyAuditedImpressions:0,
+    fixedFeeSalesEnabled:false,deliveryEnabled:false,rows:[]},
   'ads-placement-readiness':{source:'admin_ads_placement_readiness_v1_236',readOnly:true,publicEnabled:false,billingEnabled:false,readyToSell:false,approvedCreatives:0},
   'ads-campaign-queue':{source:'admin_ads_campaign_queue_v1_233',noCharge:true,adsLive:false,submittedCount:0},
   'clube-campaign-queue':{source:'admin_clube_campaign_queue_v1_241',readOnly:true,couponSalesEnabled:false,campaignsActive:0,activeInterests:0},
@@ -107,25 +112,30 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,23);
+assert.equal(calls.filter(x=>typeof x==='string').length,25);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
-assert.match(view,/Exibição bloqueada/);
-assert.match(view,/Vendas bloqueadas/);
+assert.match(view,/Finalizações comerciais por módulo/);
+assert.match(view,/Clube — cupons pagos/);
+assert.match(view,/Autorizado/);
+assert.match(view,/Publicidade independente/);
+assert.match(view,/Contratação desabilitada/);
+assert.match(view,/Propostas legadas e governança/);
+assert.doesNotMatch(view,/Vendas bloqueadas/,'a legacy Club proposal is not a paid-coupon sale gate');
 assert.match(view,/Modo global desligado/);
 assert.match(view,/Nenhum controle desta página/i);
 assert.doesNotMatch(view,/onclick="adminPerform/);
 env.go('ads');assert.ok(calls.includes('go:partners'));assert.ok(scrolls.includes('.admin-ads-campaigns'));
 providers['ads-placement-readiness']={source:'unknown',publicEnabled:true};
 await env.load({force:true});view=env.view({});
-assert.match(view,/Publicidade TAMÃO/);
+assert.match(view,/Publicidade para revendas \(legada\)/);
 assert.match(view,/Não confirmado/);
 assert.doesNotMatch(view,/Exibição bloqueada/);
 role='readonly';runtime.governance.role=role;
 view=env.view({});assert.equal(view,'','readonly cannot see the restricted activation desk');
 const requestsBeforeReadonly=calls.length;
 assert.equal(await env.load({force:true}),null,'readonly cannot fetch forbidden activation sources');
-assert.equal(calls.length,requestsBeforeReadonly,'readonly cannot issue the 23 protected reads');
+assert.equal(calls.length,requestsBeforeReadonly,'readonly cannot issue the 25 protected reads');
 view=env.view({});
 assert.ok(!view.includes("adminActivationGo('payments')"),'readonly must not navigate into finance');
 role='support';assert.equal(await env.load({force:true}),null);
