@@ -14,21 +14,23 @@ const slice=(source,a,b)=>{
 };
 let writes=0;
 // Merchant: deliberate select fills a local, editable price only.
-const markup=merchant.match(/<select aria-label="Preço rápido opcional" onchange="([^"]+)">([^<]*(?:<[^>]+>[^<]*)+)<\/select>/);
+const markup=merchant.match(/<select class="input" aria-label="Preço rápido opcional" onchange="([^"]+)">([^<]*(?:<[^>]+>[^<]*)+)<\/select>/);
 assert.ok(markup,'Merchant price choices are visible next to the editable price field');
-assert.ok(markup[1].includes("document.getElementById('live-new-registry-price').value=this.value"));
+assert.ok(markup[1].includes('this.nextElementSibling.value=this.value'));
 for(const [value,label] of [['','Escolha o preço que conferiu'],['10','R$ 10'],
  ['20','R$ 20'],['50','R$ 50'],['100','R$ 100']]){
  assert.ok(markup[2].includes('<option value="'+value+'">'+label+'</option>'));
 }
 const price={value:'25.50'};
 const merchantContext={
- document:{getElementById:id=>id==='live-new-registry-price'?price:null},
- value:'100',
+ value:'100',nextElementSibling:price,
  merchantLiveAddRegisteredProduct:()=>{writes++}
 };
 vm.runInNewContext(markup[1],merchantContext);
 assert.equal(price.value,'100');
+merchantContext.value='';
+vm.runInNewContext(markup[1],merchantContext);
+assert.equal(price.value,'100','A blank shortcut cannot erase a manually entered or selected price');
 assert.ok(merchant.includes('merchantLiveAddRegisteredProduct()'));
 assert.ok(merchant.includes('type="number" min="0.01" max="10000"'));
 assert.equal(writes,0,'price shortcut cannot add a product');
