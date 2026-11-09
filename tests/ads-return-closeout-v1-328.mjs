@@ -30,7 +30,8 @@ for(const token of [
 assert.ok(ui.includes("['adsReturnCloseout','ads-return-closeout-read','admin_ads_return_feedback_closeout_v1_328']"));
 assert.ok(ui.includes('adminAdsReturnCloseoutView()'));
 assert.ok(mock.includes("'ads-return-closeout-read'"));
-assert.ok(mock.includes("calls.filter(x=>typeof x==='string').length,23"));
+assert.ok(mock.includes("calls.filter(x=>typeof x==='string').length,25"),
+ 'Legacy and current separate commercial reads must remain explicit and role-gated');
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',uuid='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const make=(state,feedback,consent=true)=>({
  merchantId:id,merchantName:'Revenda Exemplo',originalContactId:uuid,attemptContactId:uuid,
