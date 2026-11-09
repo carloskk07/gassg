@@ -86,7 +86,24 @@ Deno.serve(async(req:Request)=>{
       if(data?.source!=="ads_independent_issue_v1_884"||data?.billingEnabled!==false
         ||data?.noCharge!==true)
         throw Error("ADS_DELIVERY_CONTRACT_MISMATCH");
-      return respond(data,200,origin);
+      // Own institutional inventory is entirely separate from paid campaign
+      // checkout and remains deliverable while commercial sales are OFF.
+      // Paid placements take priority when legitimately enabled.
+      if(data.slot)return respond(data,200,origin);
+      const {data:institutional,error:institutionalError}=
+        await admin.rpc("ads_institutional_issue_v1_916",{
+          p_city:city,p_state:state,p_viewer_hash:viewerHash
+        });
+      if(institutionalError)throw institutionalError;
+      if(institutional?.source!=="ads_institutional_issue_v1_916"||
+         institutional?.noCharge!==true||institutional?.billingEnabled!==false||
+         (institutional.slot!==null&&(
+           !uuid.test(String(institutional.slot?.challenge||""))||
+           institutional.slot?.label!=="Institucional"||
+           institutional.slot?.advertiser!=="TAMÃO"||
+           !String(institutional.slot?.url||"").startsWith("https://tamao.com.br/"))))
+        throw Error("ADS_INSTITUTIONAL_DELIVERY_INVALID");
+      return respond({...institutional,source:"ads_independent_issue_v1_884"},200,origin);
     }
     if(action==="confirm"){
       const challenge=String(body.challenge||"");
@@ -96,6 +113,17 @@ Deno.serve(async(req:Request)=>{
         visibleMs<1000||visibleMs>60000||visiblePercent<50||visiblePercent>100)
         return respond({countedForDiagnostics:false,billable:false,reason:"invalid_claim"},200,origin);
       const viewerHash=await hashViewer(req);
+      const {data:institutional,error:institutionalError}=
+        await admin.rpc("ads_institutional_confirm_v1_916",{
+          p_token:challenge,p_viewer_hash:viewerHash,
+          p_visible_ms:visibleMs,p_visible_percent:visiblePercent
+        });
+      if(institutionalError)throw institutionalError;
+      if(typeof institutional?.recognized!=="boolean"||
+         typeof institutional?.countedForDiagnostics!=="boolean"||
+         institutional?.billable!==false)
+        throw Error("ADS_INSTITUTIONAL_VIEW_INVALID");
+      if(institutional.recognized===true)return respond(institutional,200,origin);
       const {data,error}=await admin.rpc("ads_independent_confirm_v1_884",{
         p_token:challenge,p_viewer_hash:viewerHash,
         p_visible_ms:visibleMs,p_visible_percent:visiblePercent
