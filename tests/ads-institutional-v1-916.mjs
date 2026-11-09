@@ -130,6 +130,9 @@ assert.equal(retryCtx.getFree().requestId,null);
 await retryCtx.refreshPaid();
 assert.equal(retryCtx.adminIndependentAdsPane,'campaigns',
  'An ordinary refresh must preserve a deliberately selected paid tab');
+// The read above also schedules a separate institutional refresh. Drain it first,
+// then emulate a genuinely new workspace load with no cached institutional state.
+await new Promise(resolve=>setImmediate(resolve));
 retryCtx.adminIndependentAdsPane='campaigns';
 retryCtx.getFree().loadedFor=null;
 await retryCtx.refreshPaid();
