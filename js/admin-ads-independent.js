@@ -32,6 +32,10 @@ async function adminIndependentAdsRefresh(){
     homologationCampaignId:String(r.homologationCampaignId||'')||null,
     homologationExpiresAt:String(r.homologationExpiresAt||'')||null,
     providerApprovedGrossCents:Number(r.providerApprovedGrossCents)||0};
+  // Put the owner's free Ads first on the first protected workspace load.
+  // A later manual tab choice is not overwritten by ordinary refreshes.
+  if(adminCurrentRole()==='superadmin'&&adminIndependentAdsPane==='campaigns'&&
+     adminInstitutionalAdsState.loadedFor!==actor)adminIndependentAdsPane='institutional';
   render();
   if(adminCurrentRole()==='superadmin')adminInstitutionalAdsRefresh().catch(()=>{});
  }catch(e){toast(String(e?.message||'Erro ao consultar Ads independente.'))}
@@ -520,7 +524,8 @@ function adminAdsIndependentSection(){
 
 // V1.916 — founder-only free institutional placements. No checkout or seller fields.
 // All content is predefined and revalidated server-side; no arbitrary ad URLs.
-let adminInstitutionalAdsState={loadedFor:null,status:'idle',rows:[],pending:false,error:null,requestId:null};
+let adminInstitutionalAdsState={loadedFor:null,status:'idle',rows:[],pending:false,error:null,
+ requestId:null,requestFingerprint:null};
 const ADMIN_INSTITUTIONAL_TEMPLATES=Object.freeze({
  home:'Conheça o TAMÃO',benefits:'Cupons e benefícios',services:'Profissionais e caronas'
 });
@@ -624,9 +629,15 @@ async function adminInstitutionalAdsCreate(){
    ![7,15,30].includes(duration)||![100,500,1000].includes(viewLimit)||
    document.getElementById('ads-institutional-ack')?.checked!==true)
   return toast('Marque a confirmação e escolha mensagem, duração e limite.');
+ const fingerprint=[template,duration,viewLimit].join('|');
+ // A lost response may mean the campaign was already created. Retry precisely
+ // the same request UUID and payload; changing choices must not reuse that UUID.
+ if(s.requestId&&s.requestFingerprint!==fingerprint)
+  return toast('Há uma tentativa anterior sem resposta. Repita as mesmas opções ou atualize para conferir as campanhas.');
  if(!window.confirm('Criar campanha institucional gratuita, ainda sem publicar?'))return false;
  s.pending=true;
- const requestId=s.requestId||crypto.randomUUID();s.requestId=requestId;
+ const requestId=s.requestId||crypto.randomUUID();
+ s.requestId=requestId;s.requestFingerprint=fingerprint;
  try{
   const r=await adminPerform('ads-institutional-manage',{
    decision:'create',requestId,template,durationDays:duration,viewLimit,
@@ -635,10 +646,11 @@ async function adminInstitutionalAdsCreate(){
   if(r?.source!=='admin_ads_institutional_manage_v1_916'||
     r?.billingEnabled!==false||r?.paymentCreated!==false||r?.status!=='approved')
    throw Error('Criação institucional não confirmada.');
-  s.requestId=null;
+  s.requestId=null;s.requestFingerprint=null;
   toast('Campanha gratuita criada para revisão. Publique somente após conferir.');
  }catch(e){
-  // Keep the same request UUID for safe retry after an ambiguous response.
+  // Preserve idempotency across ambiguous network replies, without
+  // rerendering and losing the selected options before a retry.
   toast('Não foi possível confirmar a criação: '+String(e?.message||e));
   return false;
  }finally{s.pending=false}

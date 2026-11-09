@@ -79,4 +79,63 @@ displayCtx.draw('sponsor-ad-live-slot',{...slot,advertiser:'Outra Marca',url:'ht
 assert.equal(target.textContent,'');
 assert.match(read('.github/workflows/audit.yml'),/tests\/ads-institutional-v1-916\.mjs/);
 assert.match(read('.github/workflows/isolated-supabase-integration.yml'),/tests\/isolated-ads-institutional-v1-916\.mjs/);
+
+const controls={
+ 'ads-institutional-template':{value:'home'},
+ 'ads-institutional-duration':{value:'15'},
+ 'ads-institutional-limit':{value:'500'},
+ 'ads-institutional-ack':{checked:true}
+};
+const requests=[];
+const retryCtx=vm.createContext({
+ adminRuntime:{section:'ads',session:{user:{id:'owner'}}},
+ adminCurrentRole:()=> 'superadmin',adminReady:()=>true,adminRoleCanSection:()=>true,
+ adminAdsWorkspaceTab:'campaigns',adminIndependentAdsPane:'campaigns',
+ document:{getElementById:id=>controls[id]||null},
+ window:{confirm:()=>true},
+ crypto:{randomUUID:()=> 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'},
+ adminPerform:async(action,payload)=>{
+  assert.equal(action,'ads-institutional-manage');
+  requests.push({...payload});
+  if(requests.length===1)throw Error('reply-lost-after-commit');
+  return {source:'admin_ads_institutional_manage_v1_916',
+   status:'approved',paymentCreated:false,billingEnabled:false};
+ },
+ adminInvoke:async({action})=>{
+  if(action==='ads-independent-read')return {source:'admin_ads_independent_read_v1_884',
+   billingEnabled:false,revenueCents:0,independentlyAuditedImpressions:0,rows:[]};
+  if(action==='ads-independent-refunds-read')return {
+   source:'admin_ads_independent_refunds_read_v1_887',refundMoneyMoved:false,rows:[]};
+  if(action==='ads-institutional-read')return {
+   source:'admin_ads_institutional_read_v1_916',
+   readOnly:true,billingEnabled:false,paymentCreated:false,rows:[]};
+  throw Error('Unexpected action: '+action);
+ },
+ toast:()=>{},render:()=>{},Date,Number,String,console
+});
+vm.runInContext(admin+
+ ';this.createFree=adminInstitutionalAdsCreate;this.getFree=()=>adminInstitutionalAdsState;this.refreshPaid=adminIndependentAdsRefresh;',retryCtx);
+vm.runInContext("adminInstitutionalAdsState.loadedFor='owner';adminInstitutionalAdsState.status='ready';",retryCtx);
+assert.equal(await retryCtx.createFree(),false);
+assert.equal(requests.length,1);
+assert.equal(retryCtx.getFree().requestId,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+controls['ads-institutional-template'].value='benefits';
+assert.equal(await retryCtx.createFree(),undefined);
+assert.equal(requests.length,1,'Changed retry options must not send another create request');
+controls['ads-institutional-template'].value='home';
+assert.equal(await retryCtx.createFree(),true);
+assert.equal(requests.length,2);
+assert.deepEqual(requests[0],requests[1],'An ambiguous reply must use the same idempotency key and options');
+assert.equal(retryCtx.getFree().requestId,null);
+await retryCtx.refreshPaid();
+assert.equal(retryCtx.adminIndependentAdsPane,'campaigns',
+ 'An ordinary refresh must preserve a deliberately selected paid tab');
+// The read above also schedules a separate institutional refresh. Drain it first,
+// then emulate a genuinely new workspace load with no cached institutional state.
+await new Promise(resolve=>setImmediate(resolve));
+retryCtx.adminIndependentAdsPane='campaigns';
+retryCtx.getFree().loadedFor=null;
+await retryCtx.refreshPaid();
+assert.equal(retryCtx.adminIndependentAdsPane,'institutional',
+ 'Initial founder workspace should select the free institutional campaign tab');
 console.log('V1.916 PASS: founder institutional ads, paid unchanged, branded labels, Admin financial lab, zero charges.');
