@@ -1536,22 +1536,6 @@ function adminOwnerBudgetSection(){
     '</section>';
 }
 
-// V1.907 — revisão comercial guiada; nenhuma escolha comprova custeio ou contrato.
-const ADMIN_CLUBE_REVIEW_NOTES=Object.freeze({
-  documents:'Solicitar documentação necessária antes de prosseguir com a análise comercial.',
-  economics:'Analisar as condições econômicas propostas, sem aprovar custeio nem benefícios.',
-  pending:'Aguardar informações adicionais da revenda antes da próxima decisão.',
-  close:'Encerrar a negociação sem acordo nesta etapa e preservar o histórico.'
-});
-function adminClubeReviewNoteChoice(key,choice){
-  if(!/^[0-9a-f-]{36}-(?:gas_3x5|water_5x2)$/i.test(String(key||'')))return;
-  const input=document.getElementById('clube-review-note-'+key);
-  const custom=document.getElementById('clube-review-custom-'+key);
-  if(!input||!custom)return;
-  if(choice==='custom'){custom.open=true;input.focus?.();return;}
-  if(!Object.prototype.hasOwnProperty.call(ADMIN_CLUBE_REVIEW_NOTES,choice))return;
-  input.value=ADMIN_CLUBE_REVIEW_NOTES[choice];custom.open=false;
-}
 function adminClubeCampaignSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
@@ -1575,16 +1559,9 @@ function adminClubeCampaignSection(){
       '<select id="clube-review-status-'+esc(key)+'" class="input">'+
       stages.map(v=>'<option value="'+esc(v[0])+'"'+(x.reviewStatus===v[0]?' selected':'')+'>'+esc(v[1])+'</option>').join('')+
       '</select></div>'+
-      '<div class="input-wrap"><label for="clube-review-choice-'+esc(key)+'">Próximo passo (marque a opção correta)</label>'+
-      '<select id="clube-review-choice-'+esc(key)+'" class="input" onchange="adminClubeReviewNoteChoice(\''+esc(key)+'\',this.value)">'+
-      '<option value="">'+(x.reviewNote?'Manter observação atual':'Selecione uma observação')+'</option>'+
-      Object.entries(ADMIN_CLUBE_REVIEW_NOTES).map(([id,note])=>
-        '<option value="'+esc(id)+'">'+esc(note)+'</option>').join('')+
-      '<option value="custom">Outra observação (escrever)</option></select></div>'+
-      '<details id="clube-review-custom-'+esc(key)+'" '+
-        (x.reviewNote&&!Object.values(ADMIN_CLUBE_REVIEW_NOTES).includes(x.reviewNote)?'open':'')+'><summary>Personalizar observação</summary>'+
-      '<div class="input-wrap"><label for="clube-review-note-'+esc(key)+'">Observação confirmada (12 a 500 caracteres)</label>'+
-      '<textarea id="clube-review-note-'+esc(key)+'" class="input" maxlength="500" rows="2">'+esc(x.reviewNote||'')+'</textarea></div></details>'+
+      (typeof adminClubeReviewNoteSelect==='function'?adminClubeReviewNoteSelect(key,x.reviewNote):
+      '<div class="input-wrap"><label for="clube-review-note-'+esc(key)+'">Justificativa interna (12 a 500 caracteres)</label>'+
+      '<textarea id="clube-review-note-'+esc(key)+'" class="input" maxlength="500" rows="2" placeholder="Ex.: Confirmar regularidade, custos e minuta contratual.">'+esc(x.reviewNote||'')+'</textarea></div>')+
       '<button type="button" class="secondary small" '+
       (adminClubeCampaignReviewsPending.has(x.merchantId+':'+x.packageKey)?'disabled':'')+
       ' onclick="adminClubeCampaignReviewFromUi(\''+esc(x.merchantId)+'\',\''+esc(x.packageKey)+'\','+
