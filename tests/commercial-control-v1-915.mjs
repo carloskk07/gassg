@@ -36,7 +36,9 @@ const box={
  adminMarketingIntakeView:()=>'',adminAdsSalesPlansView:()=>'',adminAdsDossiersView:()=>'',adminAdsInstrumentsView:()=>'',adminAdsReceivablesView:()=>'',adminAdsPspView:()=>'',adminAdsMpInboxView:()=>'',adminAdsMpTriageView:()=>'',adminAdsPspFreshnessView:()=>'',adminAdsPspMerchantReviewsView:()=>''
 };
 vm.runInNewContext(source.slice(beginning,ending)+'\nthis.go=adminActivationGo;this.view=adminActivationDeskView;',box);
-let html=box.view({launchReadiness:{commerceEnabled:false},commercialPolicy:{policy_version:1}});
+let html=box.view({launchReadiness:{commerceEnabled:false},commercialPolicy:{policy_version:1},
+ merchants:[{status:'pending'},{status:'active'},{status:'pending'}]});
+assert.match(html,/1 revenda\(s\) ativa\(s\), 2 aguardando habilitação/);
 assert.match(html,/Finalizações comerciais por módulo/);
 assert.match(html,/Clube — cupons pagos/);
 assert.match(html,/Autorizado/);
@@ -62,6 +64,7 @@ html=box.view({});
 assert.match(html,/Sem consulta financeira confirmada/);
 assert.match(html,/Sem consulta comercial confirmada/);
 assert.match(html,/Conferir liberação/);
+assert.match(html,/Cadastro de revendas ainda não confirmado/);
 box.adminActivationDesk.checkedAt='2000-01-01T00:00:00Z';
 html=box.view({launchReadiness:{commerceEnabled:false}});
 assert.match(html,/Não confirmado/,'stale evidence should never be represented as an active sale');
