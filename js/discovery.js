@@ -214,7 +214,7 @@ function discoveryCityKey(raw){
 }
 function discoveryExploreCards(){
   return '<section class="section discovery-entrances"><h2>Explore mais no TAMÃO</h2>'+
-  '<div class="discovery-entry-grid">'+Object.entries(discoveryVerticals).map(([key,v])=>
+  '<div class="discovery-entry-grid">'+Object.entries(discoveryVerticals).filter(([key])=>key!=='stays').map(([key,v])=>
     '<button type="button" onclick="go(\''+key+'\')">'+v[2]+' <strong>'+v[0]+'</strong><span>Ver anúncios e oportunidades →</span></button>'
   ).join('')+'</div></section>';
 }
@@ -709,6 +709,10 @@ function discoveryCard(item,kind){
 function discoveryPage(){
   const kind=discoveryKind();
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
+  if(kind==='stays')return shell('<section class="section discovery-page" role="status">'+
+    '<h1>Hospedagens temporariamente indisponíveis</h1>'+
+    '<p>Esta modalidade está suspensa. Não estamos aceitando anúncios nem reservas de hospedagem.</p>'+
+    '<a href="/">Voltar ao TAMÃO</a></section>');
   const s=discoveryState(kind),v=discoveryVerticals[kind],shortcut=kind==='professionals'?discoveryServiceShortcuts[s.service]:null;
   const savedIds=discoverySavedIds(kind);
   const savedSet=new Set(savedIds);
@@ -876,6 +880,7 @@ async function discoveryFetch(more=false){
 }
 function discoveryAfterRender(){
   const kind=discoveryKind();
+  if(kind==='stays')return;
   if(kind&&discoveryState(kind).status==='idle'){
     const s=discoveryState(kind);
     s.sharedId=discoverySharedListingId();
