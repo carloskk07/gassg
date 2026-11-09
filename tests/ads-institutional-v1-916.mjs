@@ -150,7 +150,7 @@ assert.match(financeShell,/Homologação financeira',\(\)=>adminFinanceHomologat
 assert.match(financeShell,/function adminFinanceHomologationToggleLab\(\)/);
 assert.match(financeShell,/function adminFinanceHomologationOpenAds\(pane\)/);
 assert.match(admin,/adminOpenFinanceHomologation\(\)/);
-const financeStart=financeShell.indexOf('function adminFinanceHomologationView(d){');
+const financeStart=financeShell.indexOf('function adminFinanceHomologationCatalog(){');
 const financeEnd=financeShell.indexOf('function adminFinanceWorkspaceCurrent(){',financeStart);
 assert.ok(financeStart>0&&financeEnd>financeStart);
 let readCalls=0,chargeCalls=0,adsNavigation=null;
