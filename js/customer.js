@@ -466,8 +466,7 @@ function tamaoDiscoveryEntryHub(){
   ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
   ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
   ['🛠️','Profissionais','Serviços para sua casa','/#professionals'],
-  ['🚙','Caronas','Viagens compartilhadas','/#rides'],
-  ['🏡','Hospedagens','Lugares para ficar','/#stays']
+  ['🚙','Caronas','Viagens compartilhadas','/#rides']
  ];
  const tile=([icon,title,description,href])=>
   '<a class="intent-card tamao-home-service" href="'+href+'">'+
