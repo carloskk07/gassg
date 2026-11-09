@@ -343,7 +343,10 @@ export function compactReleasedCustomerComments(source){
   // Retain documentation in the canonical source, omit comment-only lines from released JS.
   const remaining=[...output.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(remaining.length<18)throw new Error('Customer remaining-comment contract changed');
-  const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  // Compact only leading indentation of executable statement lines in the emitted copy;
+  // never rewrite canonical documentation or arbitrary multiline HTML templates.
+  const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'');
   validateClassicScriptSyntax(released,'emitted customer.js');
   return released;
 }
@@ -385,7 +388,10 @@ export function compactReleasedMerchantComments(source){
     throw new Error('Missing canonical merchant delivery contracts');
   const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(comments.length<60)throw new Error('Merchant comments compaction contract changed');
-  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  // Remove only statement-leading indentation in the generated merchant asset.
+  // The reviewed, canonical merchant source remains unchanged.
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'');
   if(Buffer.byteLength(source,'utf8')-Buffer.byteLength(released,'utf8')<3000)
     throw new Error('Merchant startup savings no longer validated');
   validateClassicScriptSyntax(released,'emitted merchant.js');

@@ -631,6 +631,8 @@ jobs:
         run: node tests/admin-ads-guided-operations-v1-898.mjs
       - name: V1.899 marked Ads decisions with double verified finance acknowledgements
         run: node tests/admin-ads-marked-choices-v1-899.mjs
+      - name: V1.906 Selectable merchant ads, logistics, customer notes and Admin sales plans
+        run: node tests/marked-choices-across-portals-v1-906.mjs
       - name: V1.905 Admin guided launch exceptions, operation and planning templates
         run: node tests/admin-reduced-inputs-v1-905.mjs
       - name: V1.904 Admin guided order, referral, billing, budgeting and PSP actions
