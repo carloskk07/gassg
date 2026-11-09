@@ -3717,6 +3717,7 @@ const ADMIN_TASK_NAV_ITEMS=[
  {id:'growth-budget',section:'growth',tab:'budget',label:'Crescimento — investimentos'},
  {id:'finance-summary',section:'finance',tab:'summary',label:'Financeiro — resumo'},
  {id:'finance-billing',section:'finance',tab:'billing',label:'Financeiro — cobranças'},
+ {id:'finance-homologation',section:'finance',tab:'homologation',label:'Financeiro — homologação financeira'},
  {id:'finance-reconciliation',section:'finance',tab:'reconciliation',label:'Financeiro — conciliação'},
  {id:'alerts',section:'alerts',label:'Alertas — o que exige atenção'},
  {id:'customers',section:'customers',label:'Clientes — histórico'},
@@ -3726,7 +3727,8 @@ const ADMIN_TASK_NAV_ITEMS=[
 function adminTaskNavChoices(){
  return ADMIN_TASK_NAV_ITEMS.filter(t=>adminRoleCanSection(t.section)
   &&(t.id!=='growth-budget'||adminCurrentRole()==='superadmin')
-  &&(t.id!=='ads-diagnostics'||adminRoleCanSection('partners')));
+  &&(t.id!=='ads-diagnostics'||adminRoleCanSection('partners'))
+  &&(t.id!=='finance-homologation'||adminCurrentRole()==='superadmin'));
 }
 function adminSelectTaskFromUi(){
  if(!adminReady())return;
@@ -5301,7 +5303,7 @@ function adminFocusFinanceRecord(kind,id){
 }
 
 /* V1.191 — stable finance workspaces, never change financial authority. */
-const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e cupons","detail":"Ativar vendas e reversões"}];
+const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"homologation","label":"Homologação","detail":"Mercado Pago, Pix e Ads"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e cupons","detail":"Ativar vendas e reversões"}];
 
 /* Finance Lab: admin-only orchestration; mock invoices never enter accounting. */
 function adminFinanceLabCents(value){
@@ -6073,15 +6075,112 @@ function adminFinanceRenderPart(name,renderPart){
       ' indisponível.</strong> As demais áreas continuam acessíveis. Verifique o diagnóstico no console.</div></section>';
   }
 }
+
+// V1.918 — the existing Lab and Ads preflight form one guided Admin workspace.
+// Rendering or switching steps NEVER creates a charge or changes accounting.
+function adminFinanceHomologationView(d){
+ if(adminCurrentRole()!=='superadmin')
+  return '<div class="notice">Homologação disponível somente ao superadmin.</div>';
+ if(typeof adminAdsIndependentSection!=='function'){
+  if(typeof adminAdsIndependentLoad==='function')adminAdsIndependentLoad();
+  return '<section class="section" role="status">Carregando verificações do Mercado Pago e TAMÃO Ads…</section>';
+ }
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ const ads=adminIndependentAdsState.loadedFor===actor?adminIndependentAdsState:null;
+ const provider=adminIndependentAdsProviderPreflight?.actor===actor?
+  adminIndependentAdsProviderPreflight.data:null;
+ const expires=Date.parse(String(ads?.homologationExpiresAt||''));
+ const activeTest=Boolean(ads?.homologationCampaignId&&Number.isFinite(expires)&&expires>Date.now());
+ const eligible=ads?.rows?.filter(c=>c.status==='approved'&&c.budgetCents===1990&&
+  c.durationDays===7&&!c.fixedFeeStatus)||[];
+ const labOpen=adminRuntime.financeHomologationLabOpen===true;
+ const providerRows=provider?[
+  ['Token de produção',provider.tokenConfigured===true],
+  ['Conta recebedora verificada',provider.sellerVerified===true],
+  ['Checkout Pro',provider.checkoutConfigured===true],
+  ['Webhook de pagamentos',provider.webhookConfigured===true],
+  ['Assinatura do webhook',provider.signedWebhookConfigured===true]
+ ].map(([name,ok])=>'<div class="order-line"><strong>'+esc(name)+':</strong> '+
+  (ok?'Configurado':'Pendente')+'</div>').join(''):'';
+ return '<section class="section admin-finance-homologation" aria-label="Homologação financeira">'+
+  '<div class="section-head"><div><span class="section-kicker">FINANCEIRO • TESTES CONTROLADOS</span>'+
+   '<h2>Homologação financeira</h2><p>Conta, Pix, webhook e publicidade no mesmo painel, sem depender de revendas.</p>'+
+   '</div><span class="status-pill">SUPERADMIN</span></div>'+
+  '<div class="notice"><strong>Abrir ou consultar esta tela não cria pagamentos.</strong> '+
+   'Pix real exige confirmação explícita. Vendas externas continuam separadas.</div>'+
+  '<div class="card flat"><h3>1. Conferir o Mercado Pago</h3>'+
+   '<p>Verificação somente leitura do recebedor, checkout e webhook. Nenhum token será exibido.</p>'+
+   '<button type="button" class="secondary small" onclick="adminIndependentAdsCheckProvider()">Conferir conta e webhook</button>'+
+   (provider?'<p role="status"><strong>'+
+      (provider.readyForFinancialHomologation===true?'Apto para iniciar teste':'Configuração pendente')+
+      '</strong> — a configuração não comprova recebimento financeiro.</p>'+providerRows+
+      '<p>Webhook de pedidos anterior: '+(provider.historicalSignedOrderWebhookVerified===true?'Comprovado':'Pendente')+
+      ' • Webhook de pagamentos Ads: '+(provider.adsPaymentWebhookVerified===true?'Comprovado':'Não homologado')+'</p>'+
+      '<p class="tiny muted">O webhook de pedidos não substitui a prova de pagamento da publicidade ou conciliação bancária.</p>':
+      '<p role="status" class="muted">Ainda não verificado nesta sessão. Use o botão acima antes de testar.</p>')+
+  '</div>'+
+  '<div class="card flat"><h3>2. Testar Pix e conciliar</h3>'+
+   '<p>Simulação, sandbox, Pix REAL de R$ 1 a R$ 5, recuperação sem duplicar, histórico e consulta direta ao provedor.</p>'+
+   '<button type="button" class="secondary small" onclick="adminFinanceHomologationToggleLab()" '+
+    'aria-expanded="'+labOpen+'" aria-controls="admin-homologation-lab">'+
+    (labOpen?'Ocultar ferramentas de teste':'Abrir Laboratório Pix dentro desta tela')+'</button>'+
+   '<div id="admin-homologation-lab">'+
+     (labOpen?adminFinanceRenderPart('Laboratório Pix',()=>adminFinanceLabView(d)):
+       '<p class="muted tiny">Abrir o laboratório não emite Pix. Emitir Pix REAL exige uma confirmação adicional.</p>')+
+   '</div></div>'+
+  '<div class="card flat"><h3>3. Testar a cobrança comercial de Ads — R$ 19,90 por 7 dias</h3>'+
+   '<p>Exige campanha comercial real aprovada e aceite do anunciante; não usa anúncio institucional gratuito ou revenda fictícia.</p>'+
+   '<p role="status">Campanhas elegíveis: <strong>'+eligible.length+'</strong>'+
+    ' • Autorização individual: <strong>'+(activeTest?'Ativa':'Inativa')+'</strong>'+
+    ' • Vendas públicas: <strong>'+(ads?.fixedFeeSalesEnabled===true?'Habilitadas':'Desligadas')+'</strong></p>'+
+   (activeTest?'<p>Autorizada até '+esc(String(ads.homologationExpiresAt))+'.</p>':
+     eligible.length?'<p>Há campanha disponível para autorizar o teste real acompanhado.</p>':
+     '<p>Ainda não há campanha elegível. A aprovação e a compra reais são obrigatórias para homologar Ads.</p>')+
+   '<div class="order-actions">'+
+    '<button type="button" class="secondary small" onclick="adminFinanceHomologationOpenAds(\'finance\')">Abrir autorização Ads</button>'+
+    '<button type="button" class="ghost small" onclick="adminFinanceHomologationOpenAds(\'campaigns\')">Revisar campanhas</button>'+
+   '</div></div>'+
+  '<div class="card flat"><h3>4. Validar as provas e liberar somente depois</h3>'+
+   '<p>Conferir ordem, valor, conta recebedora, webhook assinado e extrato. Pagamento processado no PSP, sozinho, não comprova liquidação bancária.</p>'+
+   '<p class="tiny muted">Nenhum acesso a este fluxo ativa vendas, cupons, descontos, comissões ou reembolsos.</p></div>'+
+  '</section>';
+}
+function adminFinanceHomologationToggleLab(){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminRuntime.section!=='finance'||
+   adminFinanceWorkspaceCurrent()!=='homologation')return false;
+ adminRuntime.financeHomologationLabOpen=adminRuntime.financeHomologationLabOpen!==true;
+ render();
+ if(adminRuntime.financeHomologationLabOpen){
+  adminFinanceLabReadinessFromUi().catch(()=>{});
+  adminFinanceLabLiveReadinessFromUi().catch(()=>{});
+ }
+ return true;
+}
+function adminFinanceHomologationOpenAds(pane){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('ads')||
+   !['finance','campaigns'].includes(pane))return false;
+ adminAdsWorkspaceTab='campaigns';adminIndependentAdsPane=pane;
+ adminSetSection('ads');
+ if(typeof adminIndependentAdsRefresh==='function')
+  adminIndependentAdsRefresh().catch(()=>{});
+ return true;
+}
+function adminOpenFinanceHomologation(){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('finance'))return false;
+ adminRuntime.financeWorkspace='homologation';
+ adminSetSection('finance');
+ return true;
+}
+
 function adminFinanceWorkspaceCurrent(){
   const selected=String(adminRuntime.financeWorkspace||'summary');
   return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)
-    &&(selected!=='lab'||adminCurrentRole()==='superadmin')?selected:'summary';
+    &&(!['lab','homologation'].includes(selected)||adminCurrentRole()==='superadmin')?selected:'summary';
 }
 function adminFinanceWorkspaceNav(){
   if(!adminRoleCanSection('finance'))return '';
   const selected=adminFinanceWorkspaceCurrent();
-  const items=ADMIN_FINANCE_WORKSPACES.filter(item=>item.id!=='lab'||adminCurrentRole()==='superadmin');
+  const items=ADMIN_FINANCE_WORKSPACES.filter(item=>!['lab','homologation'].includes(item.id)||adminCurrentRole()==='superadmin');
   return `<section class='admin-finance-workspace-nav' aria-label='Navegação interna do Financeiro'>
     <div class='section-head'><div><span class='section-kicker'>CENTRAL FINANCEIRA</span>
       <h2>O que você precisa acompanhar?</h2>
@@ -6101,7 +6200,7 @@ function adminSetFinanceWorkspace(workspace){
   if(!adminRoleCanSection('finance'))return;
   const key=String(workspace||'');
   if(!ADMIN_FINANCE_WORKSPACES.some(item=>item.id===key)
-    ||(key==='lab'&&adminCurrentRole()!=='superadmin'))return;
+    ||(['lab','homologation'].includes(key)&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   render();
   if(key==='policy'&&adminCurrentRole()==='superadmin'){
@@ -10347,6 +10446,8 @@ function adminPage(){
     summary:financeSummaryContent,
     billing:financeBillingContent,
     lab:sectionActive('finance')&&financeSelection==='lab'?adminFinanceRenderPart('Laboratório',()=>adminFinanceLabView(d)):'',
+    homologation:sectionActive('finance')&&financeSelection==='homologation'?
+      adminFinanceRenderPart('Homologação financeira',()=>adminFinanceHomologationView(d)):'',
     reconciliation:financeReconciliationContent,
     policy:financePolicyContent
   };
