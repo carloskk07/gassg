@@ -388,7 +388,10 @@ export function compactReleasedMerchantComments(source){
     throw new Error('Missing canonical merchant delivery contracts');
   const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(comments.length<60)throw new Error('Merchant comments compaction contract changed');
-  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  // Remove only statement-leading indentation in the generated merchant asset.
+  // The reviewed, canonical merchant source remains unchanged.
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'');
   if(Buffer.byteLength(source,'utf8')-Buffer.byteLength(released,'utf8')<3000)
     throw new Error('Merchant startup savings no longer validated');
   validateClassicScriptSyntax(released,'emitted merchant.js');
