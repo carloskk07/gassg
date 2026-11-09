@@ -1186,8 +1186,6 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     adsCheckouts:"ads_independent_checkouts_v1_886",
     adsPaymentEvents:"ads_independent_payment_events_v1_886",
     adsRefundExecutions:"ads_independent_refund_executions_v1_888",
-    referralPayoutClaims:"platform_referral_payout_claims_v1_263",
-    referralProviderObservations:"platform_referral_provider_observations_v1_265",
     welcomeMobilityUses:"mobility_welcome_uses_v1_833",
     professionalAdsLedger:"discovery_advertising_daily_ledger"
   };
@@ -1199,6 +1197,18 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     return [key,count];
   }));
   const counts=Object.fromEntries(entries);
+  // V1.921: immutable referral payout tables deliberately deny direct
+  // SELECT to service_role. Use a role-checked aggregate in a private schema,
+  // never weaken their grants or expose payment/beneficiary records.
+  const {data:referralStats,error:referralError}=await admin.rpc(
+    "admin_finance_referral_counts_v1_921",{p_actor:actorId});
+  if(referralError||referralStats?.source!=="admin_finance_referral_counts_v1_921"||
+     referralStats?.readOnly!==true||
+     !["claims","observations","bankEvidence"].every(k=>
+       Number.isSafeInteger(referralStats?.[k])&&referralStats[k]>=0)||
+     referralStats.bankEvidence>referralStats.observations)
+    throw new DomainError("FINANCE_HOMOLOGATION_REFERRAL_UNAVAILABLE",
+      "Não foi possível conferir as evidências protegidas de benefícios e comissões.",503);
   // Read-only, exact status filters. A completed/provider event alone is NOT
   // proof of bank settlement, nor evidence that a related entitlement was issued.
   const indicators=[
@@ -1209,22 +1219,19 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     ["orderApproved","merchant_sale_payment_attempts","status","approved"],
     ["adsApproved","ads_independent_checkouts_v1_886","status","approved"],
     ["adsPaymentApproved","ads_independent_payment_events_v1_886","provider_status","approved"],
-    ["referralBankEvidence","platform_referral_provider_observations_v1_265","bank_settlement_verified",true],
     ["professionalBilledDays","discovery_advertising_daily_ledger",null,null]
   ];
   const verifiedIndicators=await Promise.all(indicators.map(async ([key,table,field,value])=>{
     let query=admin.from(table).select("*",{count:"exact",head:true});
     query=field==="net_proceeds_verified_at"?query.not(field,"is",null):
       field?query.eq(field,value):query;
-    if(key==="referralBankEvidence")
-      query=query.eq("recipient_verified",true).eq("provider_transaction_success",true);
     const {count,error}=await query;
     if(error||!Number.isSafeInteger(count)||count<0)
       throw new DomainError("FINANCE_HOMOLOGATION_STATUS_UNAVAILABLE",
         "Não foi possível conferir os status financeiros dos módulos.",503);
     return [key,count];
   }));
-  const indicatorsCount=Object.fromEntries(verifiedIndicators);
+  const indicatorsCount={...Object.fromEntries(verifiedIndicators),referralBankEvidence:referralStats.bankEvidence};
   const labHistory=await adminFinanceLabLiveHistory(admin,actorId);
   const [coupon,mobility,ads]=await Promise.all([
     admin.from("clube_coupon_paid_packages").select(
@@ -1259,8 +1266,8 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
       checkouts:counts.adsCheckouts,paymentEvents:counts.adsPaymentEvents,
       refunds:counts.adsRefundExecutions}},
     {key:"benefits",configured:false,counts:{
-      payoutClaims:counts.referralPayoutClaims,
-      providerObservations:counts.referralProviderObservations,
+      payoutClaims:referralStats.claims,
+      providerObservations:referralStats.observations,
       mobilityWelcomeUses:counts.welcomeMobilityUses}},
     {key:"professional_ads",configured:false,counts:{
       billedDays:counts.professionalAdsLedger}}
