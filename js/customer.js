@@ -1043,6 +1043,9 @@ function orderPage(){
     ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço depende da troca do botijão.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você troca o botijão vazio pela carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>A consulta inclui um vasilhame compatível para cada carga.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total pressupõe a troca do botijão vazio compatível.</div>'}</div></section>`
     : '';
 
+  const savedDeliveryNote=String(state.checkout.deliveryNotes||'');
+  const selectedDeliveryNote=CUSTOMER_DELIVERY_NOTE_PRESETS.find(row=>row[2]===savedDeliveryNote)?.[0]||'';
+  const customDeliveryNote=Boolean(savedDeliveryNote&&!selectedDeliveryNote);
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Primeiro escolha os produtos. Depois informe onde entregar e confira o total com entrega antes de enviar.</p>
 ${buyerGuide}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
@@ -1079,7 +1082,15 @@ ${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-
     <div class="input-wrap"><label for="address-complement">Complemento</label><input id="address-complement" class="input" maxlength="120" placeholder="Ex.: casa dos fundos, ap. 202" value="${esc(state.checkout.addressComplement||'')}" onchange="deliveryDetailsChanged()"></div>
     <div class="input-wrap"><label for="delivery-reference">Ponto de referência</label><input id="delivery-reference" class="input" maxlength="160" placeholder="Ex.: ao lado da farmácia" value="${esc(state.checkout.deliveryReference||'')}" onchange="deliveryDetailsChanged()"></div>
   </div>
+  <div class="input-wrap"><label for="delivery-note-choice">Recado para o entregador (opcional)</label>
+  <select id="delivery-note-choice" class="input" onchange="customerDeliveryNotePresetChanged(this.value)">
+    <option value="" ${!savedDeliveryNote?'selected':''}>Sem recado</option>
+    ${CUSTOMER_DELIVERY_NOTE_PRESETS.map(([key,label])=>`<option value="${esc(key)}" ${selectedDeliveryNote===key?'selected':''}>${esc(label)}</option>`).join('')}
+    <option value="custom" ${customDeliveryNote?'selected':''}>Escrever outro recado</option>
+  </select></div>
+  <details id="delivery-notes-custom" ${customDeliveryNote?'open':''}><summary>Escrever recado diferente</summary>
   <div class="input-wrap"><label for="delivery-notes">Instruções para a entrega</label><textarea id="delivery-notes" class="input" maxlength="240" rows="2" placeholder="Ex.: chamar no portão; cachorro no pátio." onchange="deliveryDetailsChanged()">${esc(state.checkout.deliveryNotes||'')}</textarea><small class="field-help">Evite dados desnecessários. Essas informações ficam vinculadas ao pedido para a operação responsável.</small></div>
+  </details>
   </details>
 </div>`:''}
 ${deliveryScheduleBlock()}
@@ -1441,6 +1452,23 @@ function formatDeliveryPhone(value){
   if(d.length<=6)return '('+d.slice(0,2)+') '+d.slice(2);
   if(d.length<=10)return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
   return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+}
+// V1.906 — optional delivery notes can be selected without typing.
+const CUSTOMER_DELIVERY_NOTE_PRESETS=Object.freeze([
+  ['gate','Chamar no portão','Por favor, chame no portão ao chegar.'],
+  ['phone','Telefonar ao chegar','Por favor, telefone ao chegar.'],
+  ['notice','Avisar antes da chegada','Por favor, avise antes de chegar ao endereço.']
+]);
+function customerDeliveryNotePresetChanged(choice){
+  const editor=document.getElementById('delivery-notes');
+  const custom=document.getElementById('delivery-notes-custom');
+  if(!editor||!custom)return;
+  if(choice==='custom'){custom.open=true;editor.focus?.();return;}
+  const selected=CUSTOMER_DELIVERY_NOTE_PRESETS.find(row=>row[0]===choice);
+  if(choice!==''&&!selected)return;
+  editor.value=selected?selected[2]:'';
+  custom.open=false;
+  deliveryDetailsChanged();
 }
 function syncDeliveryDetailsFromUi({requirePhone=false}={}){
   const phoneDigits=String(document.getElementById('delivery-phone')?.value??state.checkout.customerPhoneDigits??'').replace(/\D/g,'');
