@@ -1,3 +1,24 @@
+// V1.908 — shortcuts only fill inputs; financial decisions still need server checks and confirmation.
+const ADMIN_CLUBE_AMOUNTS=Object.freeze({
+  adminClubeSponsorTopupValue:Object.freeze([25,50,100,200,500]),
+  adminClubeGeneralMinimumValue:Object.freeze([30,50,80,100,150,200])
+});
+function adminClubeAmountChoose(id,value){
+  const permitted=Object.hasOwn(ADMIN_CLUBE_AMOUNTS,String(id))?ADMIN_CLUBE_AMOUNTS[id]:null;
+  if(!permitted||!permitted.some(v=>String(v)===String(value)))return false;
+  const input=document.getElementById(id);
+  if(!input||input.disabled)return false;
+  input.value=Number(value).toFixed(2).replace('.',',');
+  return true;
+}
+function adminClubeAmountChoices(id){
+  if(!Object.hasOwn(ADMIN_CLUBE_AMOUNTS,id))return '';
+  return '<label for="'+id+'-quick">Escolher valor pronto (R$)</label>'+
+    '<select id="'+id+'-quick" class="input" onchange="adminClubeAmountChoose(\''+id+'\',this.value)">'+
+    '<option value="">Escolha um valor ou use o campo abaixo</option>'+
+    ADMIN_CLUBE_AMOUNTS[id].map(v=>'<option value="'+v+'">R$ '+v+'</option>').join('')+
+    '</select><small class="tiny muted">A escolha não salva nem autoriza despesas. Confira e confirme no botão.</small>';
+}
 // V1.907 — notes selected during Clube negotiations remain editable, never imply contract.
 const ADMIN_CLUBE_REVIEW_NOTES=Object.freeze({
  documents:'Solicitar documentação necessária antes de prosseguir com a análise comercial.',
