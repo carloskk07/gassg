@@ -3781,6 +3781,9 @@ function adminSetSection(section){
     adminOwnerFinanceLoadOnDemand().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
+  if(next==='finance'&&adminFinanceWorkspaceCurrent()==='homologation'
+    &&adminCurrentRole()==='superadmin'&&typeof adminFinanceHomologationRefresh==='function')
+    adminFinanceHomologationRefresh().catch(()=>{});
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='lab'
     &&adminCurrentRole()==='superadmin')
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
@@ -6078,6 +6081,84 @@ function adminFinanceRenderPart(name,renderPart){
 
 // V1.918 — the existing Lab and Ads preflight form one guided Admin workspace.
 // Rendering or switching steps NEVER creates a charge or changes accounting.
+
+// V1.919 — all module financial test evidence lives in this Admin workspace.
+// Switching a module is UI-only and never creates a payment, credit or refund.
+function adminFinanceHomologationCatalog(){
+ return [
+  {key:'coupons',name:'Cupons pagos',detail:'3 cupons universais de R$ 5 por R$ 8,90',
+   labels:{invoices:'Compras registradas',issuances:'Emissões de cupons',refunds:'Solicitações de devolução'},
+   guide:'Validar compra verdadeira, QR/checkout do comprador, webhook, emissão única, resgate, estorno e extrato. O Pix de laboratório não cria cupons.'},
+  {key:'mobility',name:'Planos moto e carro',detail:'Recargas de R$ 9,90, R$ 24,90 e R$ 49,90; Flex 9%',
+   labels:{plans:'Planos pré-pagos ofertados',invoices:'Faturas Pix',providerEvidence:'Comprovantes do provedor',lots:'Lotes de crédito'},
+   guide:'Validar recarga, confirmação do provedor, crédito único, reserva, consumo, cancelamento e estorno. Não gerar saldo de motorista usando Pix de laboratório.'},
+  {key:'merchants',name:'Planos e taxas das revendas',detail:'Cobranças e carteira de créditos operacionais',
+   labels:{charges:'Cobranças do provedor',events:'Eventos de pagamento'},
+   guide:'Testar o Mercado Pago sem revenda usando o laboratório. Para homologar a carteira específica da revenda ainda será preciso um titular real, sem habilitar comércio público por causa do teste.'},
+  {key:'orders',name:'Pagamentos de pedidos',detail:'Checkout, pagamento e conciliação de pedidos',
+   labels:{attempts:'Tentativas de pagamento',verifications:'Verificações do provedor'},
+   guide:'Validar o provedor e o webhook sem revenda aqui. Um pedido real, suas taxas e eventual repasse só serão homologados com vendedor e compra legítimos.'},
+  {key:'advertising',name:'Publicidade comercial',detail:'Teste real autorizado de R$ 19,90 por 7 dias',
+   labels:{checkouts:'Checkouts emitidos',paymentEvents:'Eventos financeiros Ads',refunds:'Devoluções Ads'},
+   guide:'Validar campanha aprovada, checkout do anunciante, valor, conta recebedora, webhook, ativação, cancelamento e conciliação. Institucional gratuita fica fora.'},
+  {key:'benefits',name:'Bônus, cashback e comissões',detail:'Origem do crédito, devolução, repasse e saques',
+   labels:{payoutClaims:'Solicitações de saque',providerObservations:'Consultas de pagamento no provedor',mobilityWelcomeUses:'Benefícios usados em corridas'},
+   guide:'Testar origem financeira, reserva, débito único, reversão, saque autorizado e identificação do destinatário. Pix do laboratório não equivale a comissão paga.'},
+  {key:'professional_ads',name:'Anúncios de profissionais',detail:'Diárias e faturamento de anúncios locais',
+   labels:{billedDays:'Diárias lançadas'},
+   guide:'Conferir contratação, cobrança e baixa pela origem correta. Não fabricar visualização, diária ou repasse para comprovar funcionamento.'}
+ ];
+}
+function adminFinanceHomologationEvidenceState(){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ if(!adminRuntime.financeHomologationEvidence||
+    adminRuntime.financeHomologationEvidence.actor!==actor){
+  adminRuntime.financeHomologationEvidence={
+    actor,selected:'coupons',loading:false,data:null,error:null};
+ }
+ return adminRuntime.financeHomologationEvidence;
+}
+function adminFinanceHomologationChoose(key){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||
+    adminRuntime.section!=='finance'||adminFinanceWorkspaceCurrent()!=='homologation'||
+    !adminFinanceHomologationCatalog().some(m=>m.key===key))return false;
+ adminFinanceHomologationEvidenceState().selected=key;
+ render();
+ return true;
+}
+async function adminFinanceHomologationRefresh(){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||
+    adminRuntime.section!=='finance'||adminFinanceWorkspaceCurrent()!=='homologation')return;
+ const state=adminFinanceHomologationEvidenceState();
+ if(state.loading)return;
+ const actor=state.actor;
+ state.loading=true;state.error=null;render();
+ try{
+  const r=await adminInvoke({action:'finance-homologation-modules'});
+  const keys=adminFinanceHomologationCatalog().map(m=>m.key);
+  if(r?.source!=='admin_finance_homologation_modules_v1_919'||
+     r?.readOnly!==true||r?.paymentsCreated!==0||r?.moneyMoved!==false||
+     r?.merchantRequiredForLab!==false||
+     r?.proofScope!=='counts_and_configuration_only'||
+     !Array.isArray(r.modules)||r.modules.length!==keys.length||
+     !keys.every(key=>r.modules.some(m=>m?.key===key&&
+       (m.configured===true||m.configured===false||m.configured===null)&&
+       m.counts&&Object.values(m.counts).every(n=>Number.isSafeInteger(n)&&n>=0))))
+   throw Error('O servidor não confirmou as evidências de todos os módulos.');
+  if(actor!==String(adminRuntime?.session?.user?.id||'')||
+     adminCurrentRole()!=='superadmin')return;
+  state.data=r;
+ }catch(e){
+  if(actor===String(adminRuntime?.session?.user?.id||'')){
+   state.error=String(e?.message||'Falha ao consultar os módulos.');
+   state.data=null;
+  }
+ }finally{
+  if(actor===String(adminRuntime?.session?.user?.id||'')){
+   state.loading=false;render();
+  }
+ }
+}
 function adminFinanceHomologationView(d){
  if(adminCurrentRole()!=='superadmin')
   return '<div class="notice">Homologação disponível somente ao superadmin.</div>';
@@ -6094,6 +6175,46 @@ function adminFinanceHomologationView(d){
  const eligible=ads?.rows?.filter(c=>c.status==='approved'&&c.budgetCents===1990&&
   c.durationDays===7&&!c.fixedFeeStatus)||[];
  const labOpen=adminRuntime.financeHomologationLabOpen===true;
+ const evidenceState=adminFinanceHomologationEvidenceState();
+ const registry=adminFinanceHomologationCatalog();
+ const chosen=registry.find(m=>m.key===evidenceState.selected)||registry[0];
+ const remote=evidenceState.data?.modules?.find(m=>m.key===chosen.key);
+ const evidenceRows=remote?.counts?Object.entries(chosen.labels).map(([field,label])=>
+   '<div class="order-line"><strong>'+esc(label)+':</strong> '+
+   Number(remote.counts[field]||0)+'</div>').join(''):'';
+ const selectRows=registry.map(m=>'<option value="'+m.key+'"'+
+   (m.key===chosen.key?' selected':'')+'>'+esc(m.name)+'</option>').join('');
+ const inventory='<div class="card flat" id="admin-finance-module-homologation">'+
+  '<h3>Homologações de todos os módulos</h3>'+
+  '<p>Selecione o serviço para consultar provas existentes e executar ensaios financeiros. '+
+  'Nenhum teste exige cadastrar uma revenda fictícia.</p>'+
+  '<div class="field-row"><div class="input-wrap"><label for="admin-finance-homologation-module">Módulo</label>'+
+  '<select id="admin-finance-homologation-module" class="input" '+
+    'onchange="adminFinanceHomologationChoose(this.value)">'+selectRows+'</select></div>'+
+  '<div class="order-actions"><button type="button" class="secondary small" '+
+    'onclick="adminFinanceHomologationRefresh()" '+
+    (evidenceState.loading?'disabled':'')+'>'+
+    (evidenceState.loading?'Conferindo registros…':'Conferir evidências dos 7 módulos')+
+   '</button></div></div>'+
+  '<p><strong>'+esc(chosen.name)+'</strong> · '+esc(chosen.detail)+'</p>'+
+  '<p>'+esc(chosen.guide)+'</p>'+
+  (remote?'<div class="notice" role="status">'+
+    '<strong>Configuração:</strong> '+(remote.configured===true?'Condições preliminares registradas':
+    remote.configured===false?'Não comprovada':'Depende de verificações próprias')+
+    ' · <strong>Homologação real ponta a ponta:</strong> ainda não comprovada por esta consulta.'+
+    '</div>'+evidenceRows+
+    '<small class="muted">Contagens atuais não validam sozinhas pagamento, crédito, estorno ou liquidação. '+
+    'A comprovação exige evidência específica vinculada à operação e ao extrato.</small>':
+    '<p class="muted" role="status">Sem inventário atualizado. Clique em conferir para ler os registros existentes.</p>')+
+  (evidenceState.error?'<div class="notice danger" role="alert">'+esc(evidenceState.error)+'</div>':'')+
+  '<p><strong>Ensaio sem revenda:</strong> o Laboratório Pix abaixo permite simular ou fazer '+
+    'uma cobrança real supervisionada de R$ 1 a R$ 5 vinculada a este módulo para rastreabilidade. '+
+    'Essa cobrança NÃO executa o checkout comercial nem credita carteiras.</p>'+
+  '<button type="button" class="secondary small" onclick="adminFinanceHomologationToggleLab()" '+
+    'aria-expanded="'+labOpen+'">'+
+    (labOpen?'Ocultar laboratório':'Abrir laboratório do módulo selecionado')+'</button>'+
+  '</div>';
+
  const providerRows=provider?[
   ['Token de produção',provider.tokenConfigured===true],
   ['Conta recebedora verificada',provider.sellerVerified===true],
@@ -6108,6 +6229,7 @@ function adminFinanceHomologationView(d){
    '</div><span class="status-pill">SUPERADMIN</span></div>'+
   '<div class="notice"><strong>Abrir ou consultar esta tela não cria pagamentos.</strong> '+
    'Pix real exige confirmação explícita. Vendas externas continuam separadas.</div>'+
+  inventory+
   '<div class="card flat"><h3>1. Conferir o Mercado Pago</h3>'+
    '<p>Verificação somente leitura do recebedor, checkout e webhook. Nenhum token será exibido.</p>'+
    '<button type="button" class="secondary small" onclick="adminIndependentAdsCheckProvider()">Conferir conta e webhook</button>'+
@@ -6206,6 +6328,8 @@ function adminSetFinanceWorkspace(workspace){
   if(key==='policy'&&adminCurrentRole()==='superadmin'){
     adminCouponCommercialRefresh().catch(()=>{});
   }
+  if(key==='homologation'&&typeof adminFinanceHomologationRefresh==='function')
+    adminFinanceHomologationRefresh().catch(()=>{});
   if(key==='lab'){
     adminFinanceLabReadinessFromUi().catch(()=>{});
     // Existing receipts are read-only and do not depend on a new Pix.
