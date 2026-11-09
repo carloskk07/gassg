@@ -56,16 +56,14 @@ assert.deepEqual(sorted(kind,stays,'capacity'),[uuid(10),uuid(11),uuid(9),uuid(1
 const s=box.discoveryState('stays');
 s.status='ready';s.items=stays;s.hasMore=true;
 let html=box.discoveryPage();
-assert.match(html,/Ordenar resultados/);
-assert.match(html,/Ordem local: não inclui anúncios ainda não carregados/);
-assert.match(html,/Menor preço anunciado/);
-assert.doesNotMatch(html,/Mais experiência declarada/);
+assert.match(html,/Hospedagens temporariamente indisponíveis/);
+assert.doesNotMatch(html,/Ordenar resultados|Menor preço anunciado|Hotel A/);
 assert.equal(box.discoverySetSort('price'),true);
 assert.equal(s.sortMode,'price');assert.equal(renders,1);
+assert.deepEqual(sorted(kind,stays,'price'),[uuid(11),uuid(12),uuid(9),uuid(10)],
+ 'offline sorting utility remains valid for a future, supervised reopening');
 html=box.discoveryPage();
-assert.ok(html.indexOf('Hotel C')<html.indexOf('Hotel A'));
-assert.ok(html.indexOf('Hotel A')<html.indexOf('Hotel B'));
-assert.match(html,/Há mais resultados para carregar/);
+assert.doesNotMatch(html,/Hotel A|Hotel B|Hotel C|Há mais resultados para carregar/);
 assert.equal(box.discoverySetSort('departure'),false,'other category sort rejected');
 assert.equal(s.sortMode,'price');
 assert.equal(box.discoverySetSort('<img src=x>'),false,'HTML cannot set sort mode');
