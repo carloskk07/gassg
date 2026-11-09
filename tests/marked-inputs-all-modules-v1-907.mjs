@@ -6,9 +6,10 @@ const source=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const customer=source('js/customer.js');
 const merchant=source('js/merchant.js');
 const admin=source('js/admin-acquisition.js');
+const adminMain=source('js/admin.js');
 const mobility=source('js/mobility.js');
 const discovery=source('js/discovery.js');
-for(const [file,text] of Object.entries({customer,merchant,admin,mobility,discovery}))
+for(const [file,text] of Object.entries({customer,merchant,admin,adminMain,mobility,discovery}))
  new vm.Script(text,{filename:file+'.js'});
 const part=(text,start,end)=>{
  const i=text.indexOf(start),j=text.indexOf(end,i+start.length);
@@ -53,8 +54,8 @@ const note={value:'Texto anterior',focus(){this.focused=true;}};
 const drawer={open:true};
 const actx={document:{getElementById:id=>id==='clube-review-note-'+clubKey?note:
  id==='clube-review-custom-'+clubKey?drawer:null}};
-vm.runInNewContext(part(admin,'// V1.907 — revisão comercial guiada;',
- 'function adminClubeCampaignSection(')+'\nthis.api={choose:adminClubeReviewNoteChoice,choices:ADMIN_CLUBE_REVIEW_NOTES};',actx);
+vm.runInNewContext(part(adminMain,'// V1.907 — notes selected during Clube',
+ 'const adminRuntime=')+'\nthis.api={choose:adminClubeReviewNoteChoice,choices:ADMIN_CLUBE_REVIEW_NOTES};',actx);
 assert.equal(actx.api.choose('other','documents'),undefined);
 assert.equal(note.value,'Texto anterior');
 actx.api.choose(clubKey,'__proto__');
@@ -65,7 +66,8 @@ assert.equal(drawer.open,false);
 actx.api.choose(clubKey,'custom');
 assert.equal(drawer.open,true);
 assert.equal(note.focused,true);
-assert.match(admin,/clube-review-choice-/);
+assert.match(adminMain,/clube-review-choice-/);
+assert.match(admin,/adminClubeReviewNoteSelect/);
 assert.match(admin,/adminClubeCampaignReviewFromUi/);
 assert.equal(serverWrites,0);
 
