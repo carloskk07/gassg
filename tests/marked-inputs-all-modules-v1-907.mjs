@@ -108,6 +108,7 @@ assert.match(seatHtml,/<option value="3">3 vagas<\/option>/);
 assert.doesNotMatch(seatHtml,/<option value="4">4 vagas<\/option>/);
 const reportHtml=dctx.discoveryReportForm({...row,vertical:'rides'},'rides');
 assert.match(reportHtml,/discoveryReportPresetChanged/);
+assert.match(reportHtml,/select required onchange="discoveryReportPresetChanged\(this\)"/);
 assert.match(reportHtml,/discovery-report-manual/);
 assert.match(reportHtml,/discoverySubmitReport\(event\)/);
 const reportInput={value:'Anterior'};
