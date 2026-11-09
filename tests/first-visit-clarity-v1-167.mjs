@@ -74,7 +74,7 @@ assert.match(noSupply,/Consulte preços e entrega pelo CEP/);
 assert.match(noSupply,/\/\?modalidade=moto#mobility/);
 assert.match(noSupply,/\/\?modalidade=carro#mobility/);
 assert.match(noSupply,/\/\#rides/);
-assert.match(noSupply,/\/\#stays/);
+assert.doesNotMatch(noSupply,/\/\#stays/,'paused stays must not appear as active home offer');
 assert.ok(noSupply.indexOf('id="home-discover"')<noSupply.indexOf('tamao-home-services-grid'));
 assert.ok(noSupply.indexOf('tamao-home-services-grid')<noSupply.indexOf('id="early-access"'));
 
