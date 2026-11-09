@@ -32,7 +32,7 @@ for(const term of [
  'IntersectionObserver','intersectionRatio','document.visibilityState',
  'document.hasFocus()','Math.floor(ratio*100)',
  "action:'confirm'","visibleMs:Math.min(60000,elapsed)",
- 'rel="nofollow noopener noreferrer sponsored"',
+ "'nofollow noopener noreferrer sponsored'",
  'referrerpolicy="no-referrer"',"'/functions/v1/ads-independent'",
  'tamaoAdsSafeUrl','if(!slot){host.textContent',
  'tamaoAdsViewportCleanup','tamaoAdsDisplayHome',
