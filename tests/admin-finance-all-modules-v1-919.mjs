@@ -11,6 +11,8 @@ assert.match(admin,/function adminFinanceHomologationChoose\(key\)/);
 assert.match(admin,/testPurpose,authorization:'GERAR_PIX_REAL'/);
 assert.match(admin,/Recupere o Pix original antes de iniciar outro teste/);
 assert.match(admin,/O Pix de laboratório não cria direitos, créditos ou pedidos comerciais/);
+assert.match(admin,/adminIndependentAdsHomologationControlsForFinance\(\)/);
+assert.match(read('js/admin-ads-independent.js'),/function adminIndependentAdsHomologationControlsForFinance\(\)/);
 assert.match(server,/if\(action==="finance-homologation-modules"\)/);
 assert.match(server,/admin_finance_homologation_modules_v1_919/);
 assert.match(server,/proofScope:"counts_and_configuration_only"/);
@@ -116,5 +118,39 @@ assert.equal(reads,17,'bounded source count queries; no row export or financial 
 const missing={from(){return {select:async()=>({count:null,error:new Error('offline')})}}};
 await assert.rejects(()=>serverCtx.inspect(missing,'owner'),
  e=>e.code==='FINANCE_HOMOLOGATION_EVIDENCE_UNAVAILABLE');
+
+// Ads financial authorization must be embedded in Finance with the unchanged
+// marked choice and both confirmations, never auto-authorized on render.
+const adsSource=read('js/admin-ads-independent.js');
+const aStart=adsSource.indexOf('function adminIndependentAdsHomologationControlsForFinance(){');
+const aEnd=adsSource.indexOf('function adminAdsIndependentSection(){',aStart);
+assert.ok(aStart>0&&aEnd>aStart);
+let adsRole='superadmin';
+const adsCtx=vm.createContext({
+ adminRuntime:{session:{user:{id:'owner'}}},
+ adminCurrentRole:()=>adsRole,
+ adminIndependentAdsState:{loadedFor:'owner',
+  fixedFeeSalesEnabled:false,homologationCampaignId:null,
+  homologationExpiresAt:null,rows:[{
+   id:'11111111-1111-4111-8111-111111111111',
+   title:'Campanha aprovada',status:'approved',
+   budgetCents:1990,durationDays:7,fixedFeeStatus:null
+  }]},
+ adminIndependentAdsBusy:false,esc:x=>String(x),Date,Number,String
+});
+vm.runInContext(adsSource.slice(aStart,aEnd)+
+ ';this.controls=adminIndependentAdsHomologationControlsForFinance;',adsCtx);
+let controls=adsCtx.controls();
+assert.match(controls,/Autorizar uma compra real de R\$ 19,90/);
+assert.match(controls,/id="ads-homologation-campaign"/);
+assert.match(controls,/id="ads-homologation-check-verify"/);
+assert.match(controls,/id="ads-homologation-check-confirm"/);
+assert.match(controls,/adminIndependentAdsHomologationAction\(true\)/);
+adsRole='finance';
+assert.equal(adsCtx.controls(),'','finance role cannot authorize real Ads payment');
+adsRole='superadmin';
+adsCtx.adminIndependentAdsState.fixedFeeSalesEnabled=true;
+assert.equal(adsCtx.controls(),'','no special testing while public sales are on');
+
 assert.match(read('.github/workflows/audit.yml'),/node tests\/admin-finance-all-modules-v1-919.mjs/);
 console.log('V1.919 PASS: seven read-only financial modules, superadmin isolation, bounded evidence, Pix origin immutability.');
