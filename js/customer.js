@@ -2069,7 +2069,7 @@ function liveCustomerCareBlock(o){
       '<option value="Gostaria de confirmar as opções de solução para este problema.">Consultar soluções</option>'+
       '<option value="Preciso de orientação sobre este atendimento.">Pedir orientação</option></select></div>'+
     '<details><summary>Escrever recado diferente (opcional)</summary>'+
-    '<div class="input-wrap"><label for="support-message">Seu recado</label>'+
+    '<div class="input-wrap"><label for="support-message">Conte em poucas palavras (opcional)</label>'+
       '<textarea id="support-message" class="input" maxlength="1000" rows="3" '+
         'placeholder="Conte somente o que você conhece sobre o ocorrido."></textarea></div></details>'+
     '<p id="support-inline-feedback" class="customer-care-form-feedback" role="status" aria-live="polite">'+
