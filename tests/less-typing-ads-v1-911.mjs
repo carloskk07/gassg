@@ -4,9 +4,9 @@ import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const ads=read('js/ads-planner.js');
-const lead=read('js/acquisition.js');
+const admin=read('js/admin-acquisition.js');
 new vm.Script(ads,{filename:'js/ads-planner.js'});
-new vm.Script(lead,{filename:'js/acquisition.js'});
+new vm.Script(admin,{filename:'js/admin-acquisition.js'});
 const fields=new Map();
 const uuid='12345678-1234-4234-8234-123456789abc';
 let writes=0,confirmOverwrite=false;
@@ -80,30 +80,35 @@ assert.match(ads,/if\(text.length<12\|\|text.length>500\)/);
 assert.match(ads,/action:'refund-request'/);
 assert.equal(writes,0);
 
-const start=lead.indexOf('// V1.911 — an optional owner-selected intention');
-const end=lead.indexOf('function prelaunchMerchantLeadSection(){',start);
+const start=admin.indexOf('// V1.911 — explicit, factual optional notes');
+const end=admin.indexOf('function adminLeadActionButtons(x){',start);
 assert.ok(start>=0&&end>start);
+const leadId=uuid;
 const leadFields=new Map([
- ['partner-note',{value:''}],['partner-note-choice',{value:'visibility'}]
+ ['admin-lead-note-'+leadId,{value:''}],
+ ['admin-lead-note-choice-'+leadId,{value:'advertising'}]
 ]);
-let leadWrites=0,leadConfirm=false;
+let adminWrites=0,leadConfirm=false;
 const leadCtx=vm.createContext({
  document:{getElementById:id=>leadFields.get(id)||null},
  confirm:()=>leadConfirm,
- prelaunchLeadSubmit:()=>{leadWrites++}
+ adminPerform:()=>{adminWrites++}
 });
-vm.runInContext(lead.slice(start,end)+';this.choose=partnerLeadNoteChoose;',leadCtx);
-assert.match(lead,/id="partner-note-choice"/);
-assert.match(lead,/id="partner-note"/);
-assert.match(lead,/submitPrelaunchMerchantLead/);
-assert.equal(leadCtx.choose('visibility'),true);
-assert.match(leadFields.get('partner-note').value,/anunciar/);
-assert.equal(leadCtx.choose('sales'),false);
-assert.equal(leadFields.get('partner-note-choice').value,'');
+vm.runInContext(admin.slice(start,end)+';this.choose=adminLeadQuickNoteChanged;',leadCtx);
+assert.match(admin,/id="admin-lead-note-choice-/);
+assert.match(admin,/id="admin-lead-note-/);
+assert.match(admin,/adminSetPrelaunchLeadStatus/);
+assert.match(admin,/await adminPerform\('lead-status'/);
+assert.equal(leadCtx.choose(leadId,'advertising'),true);
+assert.match(leadFields.get('admin-lead-note-'+leadId).value,/publicidade/);
+assert.equal(leadCtx.choose(leadId,'commerce'),false);
+assert.equal(leadFields.get('admin-lead-note-choice-'+leadId).value,'');
 leadConfirm=true;
-assert.equal(leadCtx.choose('guidance'),true);
-assert.match(leadFields.get('partner-note').value,/orientação/);
-assert.equal(leadCtx.choose('__proto__'),false);
-assert.equal(leadWrites,0);
+assert.equal(leadCtx.choose(leadId,'return'),true);
+assert.match(leadFields.get('admin-lead-note-'+leadId).value,/retorno/);
+assert.equal(leadCtx.choose(leadId,'__proto__'),false);
+assert.equal(leadCtx.choose('not-a-valid-uuid','return'),false);
+assert.equal(adminWrites,0);
+
 assert.match(read('.github/workflows/audit.yml'),/tests\/less-typing-ads-v1-911\.mjs/);
-console.log('V1.911 PASS — 27 UFs selectable; advertiser drafts, refund reasons and lead notes explicitly selected; no silent write.');
+console.log('V1.911 PASS — 27 UFs selectable; advertiser drafts, refund reasons and Admin lead notes explicitly selected; no silent write.');
