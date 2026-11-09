@@ -657,8 +657,9 @@ function adminAdsDossiersView(){
      '<label>Cancelamento e ajustes<textarea id="ads-dossier-'+id+'-cancel" rows="3" minlength="40" maxlength="700" '+
        'placeholder="Descreva prazos de cancelamento, ajustes e reembolso sujeitos a contrato">'+
        esc(d?.cancellationTerms||'')+'</textarea></label>'+
-     '<label>Vencimento proposto após futura cobrança (dias)<input id="ads-dossier-'+id+'-due" type="number" min="1" max="30" step="1" value="'+
-       Number(d?.dueDays||7)+'"></label>'+
+     '<label>Vencimento proposto após futura cobrança (dias)<select id="ads-dossier-'+id+'-due" aria-label="Selecionar prazo da minuta">'+
+       Array.from({length:30},(_,i)=>'<option value="'+(i+1)+'"'+(Number(d?.dueDays||7)===i+1?' selected':'')+'>'+
+         (i+1)+' dia'+(i?'s':'')+'</option>').join('')+'</select></label>'+
      '<button class="primary small" type="button" onclick="adminAdsDossierAction(\''+id+'\',\'save\')">Salvar minuta</button></div>':'';
    const commands=role==='superadmin'&&d?.offerVersion===o.version?
      (d.status==='draft'?'<button class="secondary small" type="button" onclick="adminAdsDossierAction(\''+id+'\',\'share\')">Disponibilizar minuta para revisão</button>':
