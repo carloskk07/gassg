@@ -5717,25 +5717,35 @@ async function adminFinanceLabLiveCreateFromUi(){
     lab.liveError='Verifique a conta e a assinatura do webhook antes de emitir Pix real.';
     render();return;
   }
+  const testPurpose=adminRuntime.section==='finance'&&
+    adminRuntime.financeWorkspace==='homologation'?
+    String(adminRuntime.financeHomologationEvidence?.selected||'gateway'):'gateway';
   const cents=adminFinanceLabCents(document.getElementById('admin-finance-lab-live-amount')?.value);
   if(cents==null||cents<100||cents>500){
     lab.liveError='O Pix controlado precisa ter valor entre R$ 1,00 e R$ 5,00.';
     render();return;
   }
-  const response=globalThis.prompt?.('Este Pix será REAL, pagável por bancos. Confira o beneficiário no aplicativo bancário. Digite GERAR PIX REAL para autorizar a EMISSÃO:');
+  if(lab.liveKey&&lab.livePurpose!==testPurpose){
+    lab.liveError='Já existe uma tentativa com outro módulo. Recupere o Pix original antes de iniciar outro teste.';
+    render();return;
+  }
+  const response=globalThis.prompt?.('Este Pix será REAL e apenas um ensaio de '+testPurpose+'. NÃO homologa uma venda do módulo. Confira o recebedor no banco. Digite GERAR PIX REAL para autorizar a EMISSÃO:');
   if(response!=='GERAR PIX REAL'||!adminFinanceLabLiveActorCurrent(lab,actor))return;
   if(lab.liveAmountCents!==cents||!lab.liveKey){
     lab.liveKey=adminIdempotency('finance-lab-live-pix');lab.liveAmountCents=cents;
+    lab.livePurpose=testPurpose;
   }
   lab.livePending=true;lab.liveError=null;render();
   try{
     const data=await adminInvoke({action:'finance-lab-live-pix',amountCents:cents,
-      authorization:'GERAR_PIX_REAL'},{idempotencyKey:lab.liveKey});
+      testPurpose,authorization:'GERAR_PIX_REAL'},{idempotencyKey:lab.liveKey});
     if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
-    if(data?.ok!==true||data.mode!=='live'||data.amountCents!==cents
+    if(data?.ok!==true||data.mode!=='live'||data.amountCents!==cents||
+      String(data.testPurpose||'gateway')!==testPurpose
       ||!data.orderId||!data.brCode||data.credited!==false||data.settlementVerified!==false)
       throw new Error('A emissão do Pix real não foi confirmada. Confira a situação antes de repetir.');
     lab.live=data;lab.liveStatus=null;lab.liveKey=null;lab.liveAmountCents=null;
+    lab.livePurpose=null;
     adminFinanceLabLiveScheduleExpiry(lab.live);
     adminFinanceLabLoadQrEncoder().catch(()=>{});
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
@@ -5939,6 +5949,9 @@ function adminFinanceLabView(d){
         </div>`:''}
       </div>
       <div class="card flat"><h3>Pix REAL controlado — homologação</h3>
+        ${adminRuntime.section==='finance'&&adminRuntime.financeWorkspace==='homologation'
+          ?'<p><strong>Ensaio vinculado:</strong> '+esc(String(adminRuntime.financeHomologationEvidence?.selected||'gateway'))+
+            '. O Pix de laboratório não cria direitos, créditos ou pedidos comerciais.</p>':''}
         <p class="muted tiny">Apenas superadmin. Não ativa comércio, vendas, benefícios ou créditos. A emissão gera Pix pagável somente após confirmação explícita.</p>
         <div class="order-actions"><button class="secondary small" type="button"
           onclick="adminFinanceLabLiveReadinessFromUi()" ${state.liveReadinessLoading?'disabled':''}>
@@ -5970,7 +5983,7 @@ function adminFinanceLabView(d){
           ?'<p role="status" class="muted">Carregando emissões auditadas…</p>'
           :state.liveReadiness
             ?(state.liveReadiness.recent.length
-              ?state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+'<div class="muted tiny">'+esc(adminFinanceLabLiveHistoryLabel(item))+(item.webhookObservedAt?' • '+esc(formatDateTime(item.webhookObservedAt)):'')+'</div> <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">'+(item.webhookEvidence==='psp_processed'||item.webhookEvidence==='reversal'?'Consultar situação atual':'Abrir Pix / consultar ordem')+'</button></div>').join('')
+              ?state.liveReadiness.recent.map(item=>'<div class="order-line">'+esc(item.orderId)+' • '+adminMoney(item.amountCents)+' • '+esc(formatDateTime(item.createdAt))+'<div class="muted tiny">'+esc(adminFinanceLabLiveHistoryLabel(item))+' • Ensaio: '+esc(String(item.testPurpose||'gateway'))+(item.webhookObservedAt?' • '+esc(formatDateTime(item.webhookObservedAt)):'')+'</div> <button type="button" class="ghost small" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(item.orderId)+'\')">'+(item.webhookEvidence==='psp_processed'||item.webhookEvidence==='reversal'?'Consultar situação atual':'Abrir Pix / consultar ordem')+'</button></div>').join('')
               :'<p class="muted tiny">Nenhuma emissão real auditada nesta conta.</p>')
             :'<p class="muted tiny">Histórico ainda não carregado. Clique em Atualizar emissões — sem gerar nova cobrança.</p>'}
         ${state.liveReadiness?.providerCheckFailed
