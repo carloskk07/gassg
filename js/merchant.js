@@ -5626,6 +5626,17 @@ async function merchantAdsFirstDraftCreate(){
 }
 
 
+// V1.910 — guidance-only drafts, not commercial consent, contact proof or charge.
+const MERCHANT_ADS_HELP_CHOICES=Object.freeze({
+ start:'Gostaria de orientação para criar minha primeira campanha e entender as opções de divulgação.',
+ price:'Gostaria de consultar os preços e as condições de publicidade antes de contratar.',
+ content:'Gostaria de orientação para preparar o texto e as imagens de uma campanha.'
+});
+function merchantAdsHelpChoose(key){
+ const note=document.getElementById('ads-help-note');
+ if(!note||!Object.hasOwn(MERCHANT_ADS_HELP_CHOICES,key))return false;
+ note.value=MERCHANT_ADS_HELP_CHOICES[key];return true;
+}
 // V1.323 — request human advice about TAMÃO Ads, only with explicit owner opt-in.
 function merchantAdsAssistanceSection(merchant){
  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
@@ -5643,6 +5654,10 @@ function merchantAdsAssistanceSection(merchant){
   '<label>Como prefere conversar sobre publicidade?<select class="input" id="ads-help-channel">'+
   '<option value="whatsapp">WhatsApp</option><option value="phone">Telefone</option>'+
   '<option value="email">E-mail</option></select></label>'+
+  '<label>Escolha o assunto da orientação<select class="input" onchange="merchantAdsHelpChoose(this.value)">'+
+  '<option value="">Selecione ou escreva abaixo</option>'+
+  Object.entries(MERCHANT_ADS_HELP_CHOICES).map(([k,v])=>'<option value="'+k+'">'+esc(v)+'</option>').join('')+
+  '</select></label>'+ 
   '<label>Sobre o que gostaria de receber orientação?<textarea class="input" id="ads-help-note" rows="3" minlength="20" maxlength="240" placeholder="Ex.: quero ajuda para planejar minha primeira divulgação, avaliar uma proposta e entender as condições." ></textarea></label>'+
   '<label class="check-row"><input type="checkbox" id="ads-help-consent">'+
   '<span>Solicito voluntariamente orientação comercial do TAMÃO sobre publicidade pelo canal escolhido. Posso retirar o pedido no painel; isso não autoriza cobranças ou anúncios.</span></label>'+
