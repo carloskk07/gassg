@@ -1,3 +1,32 @@
+// V1.907 — notes selected during Clube negotiations remain editable, never imply contract.
+const ADMIN_CLUBE_REVIEW_NOTES=Object.freeze({
+ documents:'Solicitar documentação necessária antes de prosseguir com a análise comercial.',
+ economics:'Analisar as condições econômicas propostas, sem aprovar custeio nem benefícios.',
+ pending:'Aguardar informações adicionais da revenda antes da próxima decisão.',
+ close:'Encerrar a negociação sem acordo nesta etapa e preservar o histórico.'
+});
+function adminClubeReviewNoteChoice(key,choice){
+ if(!/^[0-9a-f-]{36}-(?:gas_3x5|water_5x2)$/i.test(String(key||'')))return;
+ const input=document.getElementById('clube-review-note-'+key);
+ const custom=document.getElementById('clube-review-custom-'+key);
+ if(!input||!custom)return;
+ if(choice==='custom'){custom.open=true;input.focus?.();return;}
+ if(!Object.prototype.hasOwnProperty.call(ADMIN_CLUBE_REVIEW_NOTES,choice))return;
+ input.value=ADMIN_CLUBE_REVIEW_NOTES[choice];custom.open=false;
+}
+function adminClubeReviewNoteSelect(key,saved){
+ const note=String(saved||'');
+ const extra=note&&!Object.values(ADMIN_CLUBE_REVIEW_NOTES).includes(note);
+ return '<div class="input-wrap"><label for="clube-review-choice-'+esc(key)+'">Próximo passo (marque a opção correta)</label>'+
+ '<select id="clube-review-choice-'+esc(key)+'" class="input" onchange="adminClubeReviewNoteChoice(\''+esc(key)+'\',this.value)">'+
+ '<option value="">'+(note?'Manter observação atual':'Selecione uma observação')+'</option>'+
+ Object.entries(ADMIN_CLUBE_REVIEW_NOTES).map(([id,value])=>
+ '<option value="'+esc(id)+'">'+esc(value)+'</option>').join('')+
+ '<option value="custom">Outra observação</option></select></div>'+
+ '<details id="clube-review-custom-'+esc(key)+'" '+(extra?'open':'')+'><summary>Personalizar observação</summary>'+
+ '<div class="input-wrap"><label for="clube-review-note-'+esc(key)+'">Observação confirmada (12 a 500 caracteres)</label>'+
+ '<textarea id="clube-review-note-'+esc(key)+'" class="input" maxlength="500" rows="2">'+esc(note)+'</textarea></div></details>';
+}
 const adminRuntime={
   requested:String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()
     ? String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()==='admin'
