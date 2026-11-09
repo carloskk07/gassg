@@ -43,7 +43,7 @@ mctx.merchantRuntime.actionPending=true;
 assert.equal(mctx.merchantQuickStockAdjust('P13','empty'),false);
 assert.equal(stockChanges,2);
 assert.match(feedback.textContent,/Salvar alterações/);
-assert.ok(merchant.includes("10)\">+10</button>"));
+assert.match(merchant,/Adicionar dez unidades ao estoque/);
 assert.ok(merchant.includes("Esgotado (0)</button>"));
 assert.ok(serverWrites===0);
 
