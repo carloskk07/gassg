@@ -603,6 +603,8 @@ jobs:
         run: node tests/ads-independent-cpm-planner-v1-883.mjs
       - name: V1.884 independent advertiser campaigns, diagnostic viewability and closed billing
         run: node tests/ads-independent-delivery-v1-884.mjs
+      - name: V1.916 Institutional versus paid Ads and guarded financial test in Admin
+        run: node tests/ads-institutional-v1-916.mjs
       - name: V1.884 public ad placement, self-service advertiser and Admin moderation UI
         run: node tests/ads-independent-ui-v1-884.mjs
       - name: V1.885 independent ad pause/resume expiry without charging

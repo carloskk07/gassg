@@ -33,6 +33,7 @@ async function adminIndependentAdsRefresh(){
     homologationExpiresAt:String(r.homologationExpiresAt||'')||null,
     providerApprovedGrossCents:Number(r.providerApprovedGrossCents)||0};
   render();
+  if(adminCurrentRole()==='superadmin')adminInstitutionalAdsRefresh().catch(()=>{});
  }catch(e){toast(String(e?.message||'Erro ao consultar Ads independente.'))}
  finally{adminIndependentAdsBusy=false}
 }
@@ -267,7 +268,8 @@ async function adminIndependentRefundProvider(operation,caseId,version){
 }
 // Pure UI navigation. A pane switch never opens a payment or changes campaign state.
 function adminIndependentAdsOpenPane(pane){
- if(!['campaigns','finance','refunds'].includes(pane)||
+ if(!['institutional','campaigns','finance','refunds'].includes(pane)||
+   (pane==='institutional'&&adminCurrentRole()!=='superadmin')||
    !adminReady()||adminRuntime.section!=='ads'||adminAdsWorkspaceTab!=='campaigns'||
    !['superadmin','operations','compliance','finance'].includes(adminCurrentRole()))return;
  adminIndependentAdsPane=pane;
@@ -288,7 +290,7 @@ function adminAdsIndependentSection(){
    testExpires>Date.now());
  const eligibleTestCampaigns=v?.rows?.filter(c=>c.status==='approved'&&
    c.budgetCents===1990&&c.durationDays===7&&!c.fixedFeeStatus)||[];
- const pane=['campaigns','finance','refunds'].includes(adminIndependentAdsPane)?
+ const pane=['institutional','campaigns','finance','refunds'].includes(adminIndependentAdsPane)?
   adminIndependentAdsPane:'campaigns';
  const reviewCount=v?.rows?.filter(c=>c.status==='submitted').length||0;
  const refundCount=v?.refundCases?.filter(c=>!['provider_reversed','rejected','closed'].includes(String(c.status))).length||0;
@@ -390,7 +392,8 @@ function adminAdsIndependentSection(){
   '<button type="button" class="secondary small" onclick="adminIndependentAdsRefresh()" '+
   (adminIndependentAdsBusy?'disabled':'')+'>Atualizar campanhas</button></div>'+
   '<div class="admin-task-tabs" role="group" aria-label="Tarefas de anúncios independentes">'+
-   adsPane('campaigns','Revisar campanhas',reviewCount)+
+   (role==='superadmin'?adsPane('institutional','Institucional grátis',adminInstitutionalAdsState.rows.length):'')+
+   adsPane('campaigns','Comercial paga',reviewCount)+
    adsPane('finance','Configuração e vendas',0)+
    adsPane('refunds','Reembolsos',refundCount)+'</div>'+
     '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
@@ -400,6 +403,13 @@ function adminAdsIndependentSection(){
      (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
    '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
   (pane==='finance'?(
+  (canAct?'<div class="card flat"><h4>Teste financeiro de publicidade dentro do Admin</h4>'+
+    '<p>Primeiro, confira o recebedor e o webhook sem cobrar. Depois, selecione uma campanha comercial aprovada e autorize um único checkout REAL de R$ 19,90, no painel abaixo. '+
+    'A contratação pública permanece separada e desligada até sua homologação.</p>'+
+    '<p><strong>Alternativa:</strong> o laboratório Pix permite verificar um recebimento pequeno, '+
+    'mas esse ensaio não comprova o checkout ou webhook de publicidade.</p>'+
+    '<button type="button" class="secondary small" onclick="adminAdsOpenFinanceLab()">Abrir laboratório Pix (sem gerar cobrança)</button>'+
+    '</div>':'')+
   (canAct?'<div class="card flat"><fieldset><legend>Marque o motivo da alteração</legend>'+
     '<label class="admin-option-row"><input type="radio" name="independent-ads-control-preset" value="'+
     (delivery?'Entrega interrompida preventivamente para revisão operacional do inventário.':
@@ -503,5 +513,166 @@ function adminAdsIndependentSection(){
   (v?'<div class="grid cards-2">'+(rows||'<p>Sem campanhas enviadas até agora.</p>')+'</div>':
    '<p class="muted">Atualize para conferir propostas reais e os controles de publicação.</p>')
   ):'')+
+  (pane==='institutional'&&canAct?adminInstitutionalAdsPanel():'')+
   '</section>';
+}
+
+
+// V1.916 — founder-only free institutional placements. No checkout or seller fields.
+// All content is predefined and revalidated server-side; no arbitrary ad URLs.
+let adminInstitutionalAdsState={loadedFor:null,status:'idle',rows:[],pending:false,error:null,requestId:null};
+const ADMIN_INSTITUTIONAL_TEMPLATES=Object.freeze({
+ home:'Conheça o TAMÃO',benefits:'Cupons e benefícios',services:'Profissionais e caronas'
+});
+async function adminInstitutionalAdsRefresh(){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ if(!actor||adminCurrentRole()!=='superadmin'||adminInstitutionalAdsState.pending)return;
+ try{
+  const r=await adminInvoke({action:'ads-institutional-read'});
+  if(r?.source!=='admin_ads_institutional_read_v1_916'||
+    r?.readOnly!==true||r?.billingEnabled!==false||r?.paymentCreated!==false||
+    !Array.isArray(r.rows)||r.rows.length>30||
+    r.rows.some(x=>!/^[0-9a-f-]{36}$/i.test(String(x?.id||''))||
+      !['approved','active','paused','ended'].includes(String(x.status||''))||
+      ![7,15,30].includes(Number(x.durationDays))||
+      ![100,500,1000].includes(Number(x.viewLimit))||
+      !Number.isSafeInteger(x.version)||x.version<1||
+      !Number.isSafeInteger(x.viewSignals)||x.viewSignals<0))
+   throw Error('Campanhas institucionais não verificadas.');
+  if(actor!==String(adminRuntime?.session?.user?.id||''))return;
+  adminInstitutionalAdsState={loadedFor:actor,status:'ready',rows:r.rows,
+    pending:false,error:null,requestId:null};
+ }catch(e){
+  if(actor===String(adminRuntime?.session?.user?.id||'')){
+   adminInstitutionalAdsState={...adminInstitutionalAdsState,loadedFor:actor,
+     status:'error',rows:[],error:'Não foi possível conferir as campanhas institucionais.'};
+  }
+ }finally{if(adminRuntime.section==='ads')render()}
+}
+function adminAdsOpenFinanceLab(){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('finance'))return false;
+ adminSetSection('finance');
+ adminSetFinanceWorkspace('lab');
+ return true;
+}
+function adminInstitutionalAdsPanel(){
+ if(adminCurrentRole()!=='superadmin')return '';
+ const state=adminInstitutionalAdsState;
+ const current=state.loadedFor===String(adminRuntime?.session?.user?.id||'')&&
+  state.status==='ready';
+ const disabled=state.pending?' disabled':'';
+ const templates=Object.entries(ADMIN_INSTITUTIONAL_TEMPLATES)
+  .map(([id,name])=>'<option value="'+id+'">'+esc(name)+'</option>').join('');
+ const rows=current?state.rows.map(c=>{
+  const status=String(c.status||''),id=String(c.id||'');
+  const allowed=status==='approved'?['publish','end']:
+   status==='active'?['pause','end']:
+   status==='paused'&&Date.parse(String(c.runEndsAt||''))>Date.now()?['resume','end']:
+   status==='paused'?['end']:[];
+  const labels={publish:'Publicar sem pagamento',pause:'Pausar anúncio',
+    resume:'Retomar até o prazo original',end:'Encerrar'};
+  const action=allowed.length?
+    '<fieldset><legend>Marque uma ação</legend>'+
+    allowed.map(x=>'<label class="admin-option-row"><input type="radio" name="institutional-action-'+id+
+      '" value="'+x+'"> '+labels[x]+'</label>').join('')+'</fieldset>'+
+    '<button type="button" class="secondary small" onclick="adminInstitutionalAdsDecide(\''+id+'\','+
+      Number(c.version)+')"'+disabled+'>Confirmar ação marcada</button>':'';
+  return '<article class="card flat"><strong>'+esc(String(c.title||''))+'</strong>'+
+   '<p>'+esc(String(c.city||''))+'/'+esc(String(c.state||''))+
+   ' • '+esc(status)+' • '+Number(c.durationDays)+' dias</p>'+
+   '<p>Limite: '+Number(c.viewLimit)+' sinais de visibilidade • Recebidos: '+
+     Number(c.viewSignals)+' • Cobrança: R$ 0,00</p>'+
+   (c.runEndsAt?'<p>Prazo final: '+esc(String(c.runEndsAt).slice(0,16).replace('T',' '))+' UTC</p>':'')+
+   action+'</article>';
+ }).join(''):'';
+ return '<section class="section" aria-label="Campanhas institucionais gratuitas">'+
+  '<div class="section-head"><div><h3>Institucional — grátis, exclusivo do TAMÃO</h3>'+
+  '<p>O anúncio da própria plataforma não precisa de pagamento. Defina o conteúdo, '+
+   'o prazo e o teto; só aparecerá depois de escolher Publicar.</p></div>'+
+  '<button type="button" class="secondary small" onclick="adminInstitutionalAdsRefresh()"'+
+    disabled+'>Atualizar</button></div>'+
+  (state.error?'<p role="alert" class="notice danger">'+esc(state.error)+'</p>':'')+
+  (!current?'<p role="status">Consultando campanhas institucionais. Não é possível publicar sem resposta do servidor.</p>':
+   '<div class="card flat form-stack">'+
+   '<label for="ads-institutional-template">Mensagem pronta</label>'+
+   '<select id="ads-institutional-template" class="input">'+templates+'</select>'+
+   '<label for="ads-institutional-duration">Duração</label>'+
+   '<select id="ads-institutional-duration" class="input">'+
+     '<option value="7">7 dias</option><option value="15" selected>15 dias</option>'+
+     '<option value="30">30 dias</option></select>'+
+   '<label for="ads-institutional-limit">Limite de visualizações diagnosticadas</label>'+
+   '<select id="ads-institutional-limit" class="input">'+
+     '<option value="100">100</option><option value="500" selected>500</option>'+
+     '<option value="1000">1.000</option></select>'+
+   '<p class="tiny muted">Por enquanto, São Gabriel/RS. Teto baseado em sinais de visibilidade '+
+    'não faturáveis, sem garantia de público e sem cobranças.</p>'+
+   '<label class="admin-option-row"><input id="ads-institutional-ack" type="checkbox"> '+
+     'Conferi que o anúncio é institucional do TAMÃO e não envolve cobrança nem anunciante externo.</label>'+
+   '<button class="primary" type="button" onclick="adminInstitutionalAdsCreate()"'+
+     disabled+'>Criar campanha gratuita para revisão</button></div>'+
+   '<div class="grid cards-2">'+(rows||'<p>Nenhuma campanha institucional ainda.</p>')+'</div>')+
+  '</section>';
+}
+async function adminInstitutionalAdsCreate(){
+ const actor=String(adminRuntime?.session?.user?.id||''),s=adminInstitutionalAdsState;
+ if(!actor||adminCurrentRole()!=='superadmin'||s.loadedFor!==actor||
+    s.status!=='ready'||s.pending)return false;
+ const template=String(document.getElementById('ads-institutional-template')?.value||'');
+ const duration=Number(document.getElementById('ads-institutional-duration')?.value);
+ const viewLimit=Number(document.getElementById('ads-institutional-limit')?.value);
+ if(!Object.prototype.hasOwnProperty.call(ADMIN_INSTITUTIONAL_TEMPLATES,template)||
+   ![7,15,30].includes(duration)||![100,500,1000].includes(viewLimit)||
+   document.getElementById('ads-institutional-ack')?.checked!==true)
+  return toast('Marque a confirmação e escolha mensagem, duração e limite.');
+ if(!window.confirm('Criar campanha institucional gratuita, ainda sem publicar?'))return false;
+ s.pending=true;
+ const requestId=s.requestId||crypto.randomUUID();s.requestId=requestId;
+ try{
+  const r=await adminPerform('ads-institutional-manage',{
+   decision:'create',requestId,template,durationDays:duration,viewLimit,
+   reason:'Campanha institucional do TAMÃO escolhida e revisada pelo responsável.'
+  });
+  if(r?.source!=='admin_ads_institutional_manage_v1_916'||
+    r?.billingEnabled!==false||r?.paymentCreated!==false||r?.status!=='approved')
+   throw Error('Criação institucional não confirmada.');
+  s.requestId=null;
+  toast('Campanha gratuita criada para revisão. Publique somente após conferir.');
+ }catch(e){
+  // Keep the same request UUID for safe retry after an ambiguous response.
+  toast('Não foi possível confirmar a criação: '+String(e?.message||e));
+  return false;
+ }finally{s.pending=false}
+ await adminInstitutionalAdsRefresh();return true;
+}
+async function adminInstitutionalAdsDecide(id,version){
+ const actor=String(adminRuntime?.session?.user?.id||''),s=adminInstitutionalAdsState;
+ if(!actor||adminCurrentRole()!=='superadmin'||s.loadedFor!==actor||
+    s.status!=='ready'||s.pending||!/^[0-9a-f-]{36}$/i.test(id)||
+    !Number.isSafeInteger(version)||version<1)return false;
+ const c=s.rows.find(x=>x.id===id&&x.version===version);
+ const chosen=String(document.querySelector('input[name="institutional-action-'+id+'"]:checked')?.value||'');
+ const allowed=c?.status==='approved'?['publish','end']:
+  c?.status==='active'?['pause','end']:
+  c?.status==='paused'?['resume','end']:[];
+ if(!allowed.includes(chosen)||(chosen==='resume'&&Date.parse(String(c.runEndsAt||''))<=Date.now()))
+  return toast('Escolha uma ação permitida para a situação atual.');
+ if(!window.confirm(chosen==='publish'?
+   'Publicar esta campanha institucional no TAMÃO, sem cobrança?':
+   'Confirmar a alteração da campanha institucional?'))return false;
+ s.pending=true;
+ try{
+  const reasons={publish:'Publicação institucional aprovada sem qualquer pagamento.',
+   pause:'Publicação institucional pausada por decisão administrativa.',
+   resume:'Retomada institucional revisada dentro do prazo originalmente publicado.',
+   end:'Campanha institucional encerrada e veiculação cancelada.'};
+  const r=await adminPerform('ads-institutional-manage',{
+   decision:chosen,campaignId:id,expectedVersion:version,reason:reasons[chosen]
+  });
+  if(r?.source!=='admin_ads_institutional_manage_v1_916'||
+     r?.billingEnabled!==false||r?.paymentCreated!==false||r?.campaignId!==id)
+   throw Error('Decisão institucional não confirmada.');
+  toast('Situação da campanha institucional atualizada.');
+ }catch(e){toast('Falha ao alterar campanha: '+String(e?.message||e))}
+ finally{s.pending=false}
+ await adminInstitutionalAdsRefresh();return true;
 }

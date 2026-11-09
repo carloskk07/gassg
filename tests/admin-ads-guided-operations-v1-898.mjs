@@ -40,7 +40,8 @@ const handlers=between(ads,'function adminIndependentAdsOpenPane(pane){','functi
 const view=ads.slice(ads.indexOf('function adminAdsIndependentSection(){'));
 vm.runInContext(handlers+view+'\nthis.openPane=adminIndependentAdsOpenPane;this.view=adminAdsIndependentSection;',context);
 let html=context.view();
-assert.match(html,/Revisar campanhas/);
+assert.match(html,/Comercial paga/);
+assert.match(html,/Institucional grátis/);
 assert.match(html,/Configuração e vendas/);
 assert.match(html,/Reembolsos/);
 assert.match(html,/adminIndependentAdsChooseCampaign/);
@@ -182,4 +183,4 @@ assert.match(builder,/\['admin-acquisition','admin','admin-activations','admin-a
  'Admin Ads code must not be released to Cliente or Revenda portals');
 assert.match(stripper,/PROTECTED_ADMIN_SCRIPTS=.*'admin-ads-independent.js'/,
  'Admin-only Ads classes must not prevent public CSS stripping');
-console.log('V1.898 PASS: three independent Ads panes, guided audited reasons, role-scoped tasks and financial confirmation remain fail-closed.');
+console.log('V1.898 PASS: four separate Ads panes, guided audited reasons, role-scoped tasks and financial confirmation remain fail-closed.');

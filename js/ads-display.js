@@ -42,7 +42,10 @@ function tamaoAdsDraw(target,slot){
  if(!host)return;
  if(!slot){host.textContent='';return}
  const url=tamaoAdsSafeUrl(slot.url);
- if(slot.label!=='Patrocinado'||!url||
+ const institutional=slot.label==='Institucional';
+ if(!['Patrocinado','Institucional'].includes(slot.label)||!url||
+   (institutional&&(slot.advertiser!=='TAMÃO'||
+     !url.startsWith('https://tamao.com.br/')))||
    !/^[0-9a-f-]{36}$/i.test(String(slot.challenge||''))||
    !/^[0-9a-f-]{36}$/i.test(String(slot.campaignId||''))||
    typeof slot.title!=='string'||slot.title.length>80||
@@ -52,12 +55,13 @@ function tamaoAdsDraw(target,slot){
  }
  host.innerHTML='<article class="card flat tamao-paid-placement" aria-label="Publicidade identificada" '+
   'style="border:1px solid var(--border, #ddd);padding:18px">'+
-  '<span class="section-kicker">PATROCINADO</span>'+
+  '<span class="section-kicker">'+(institutional?'INSTITUCIONAL • TAMÃO':'PATROCINADO')+'</span>'+
   '<h3>'+esc(slot.title)+'</h3><p>'+esc(slot.description)+'</p>'+
   '<p class="tiny muted">Anunciante: '+esc(slot.advertiser)+' · '+
    esc(slot.city)+'/'+esc(slot.state)+'</p>'+
-  '<a href="'+esc(url)+'" target="_blank" rel="nofollow noopener noreferrer sponsored" '+
-   'referrerpolicy="no-referrer">Conhecer o anunciante ↗</a>'+
+  '<a href="'+esc(url)+'" target="_blank" rel="'+
+     (institutional?'nofollow noopener noreferrer':'nofollow noopener noreferrer sponsored')+'" '+
+   'referrerpolicy="no-referrer">'+(institutional?'Conhecer o TAMÃO':'Conhecer o anunciante')+' ↗</a>'+
   '</article>';
  const creative=host.querySelector('article');
  if(!creative||typeof IntersectionObserver!=='function')return;
