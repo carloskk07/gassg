@@ -6243,6 +6243,8 @@ function adminFinanceHomologationView(d){
   '<div class="notice"><strong>Abrir ou consultar esta tela não cria pagamentos.</strong> '+
    'Pix real exige confirmação explícita. Vendas externas continuam separadas.</div>'+
   inventory+
+  (chosen.key==='advertising'&&typeof adminIndependentAdsHomologationControlsForFinance==='function'?
+   adminIndependentAdsHomologationControlsForFinance():'')+
   '<div class="card flat"><h3>1. Conferir o Mercado Pago</h3>'+
    '<p>Verificação somente leitura do recebedor, checkout e webhook. Nenhum token será exibido.</p>'+
    '<button type="button" class="secondary small" onclick="adminIndependentAdsCheckProvider()">Conferir conta e webhook</button>'+
@@ -6272,7 +6274,7 @@ function adminFinanceHomologationView(d){
      eligible.length?'<p>Há campanha disponível para autorizar o teste real acompanhado.</p>':
      '<p>Ainda não há campanha elegível. A aprovação e a compra reais são obrigatórias para homologar Ads.</p>')+
    '<div class="order-actions">'+
-    '<button type="button" class="secondary small" onclick="adminFinanceHomologationOpenAds(\'finance\')">Abrir autorização Ads</button>'+
+    '<span class="tiny muted">Para autorizar o checkout real, selecione Publicidade acima: as confirmações financeiras são exibidas nesta central.</span>'+
     '<button type="button" class="ghost small" onclick="adminFinanceHomologationOpenAds(\'campaigns\')">Revisar campanhas</button>'+
    '</div></div>'+
   '<div class="card flat"><h3>4. Validar as provas e liberar somente depois</h3>'+
