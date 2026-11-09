@@ -5654,10 +5654,11 @@ function merchantAdsAssistanceSection(merchant){
   '<label>Como prefere conversar sobre publicidade?<select class="input" id="ads-help-channel">'+
   '<option value="whatsapp">WhatsApp</option><option value="phone">Telefone</option>'+
   '<option value="email">E-mail</option></select></label>'+
-  '<label>Escolha o assunto da orientação<select class="input" onchange="merchantAdsHelpChoose(this.value)">'+
-  '<option value="">Selecione ou escreva abaixo</option>'+
-  Object.entries(MERCHANT_ADS_HELP_CHOICES).map(([k,v])=>'<option value="'+k+'">'+esc(v)+'</option>').join('')+
-  '</select></label>'+ 
+  (typeof MERCHANT_ADS_HELP_CHOICES!=='undefined'?
+   '<label>Escolha o assunto da orientação<select class="input" onchange="merchantAdsHelpChoose(this.value)">'+
+   '<option value="">Selecione ou escreva abaixo</option>'+
+   Object.entries(MERCHANT_ADS_HELP_CHOICES).map(([k,v])=>'<option value="'+k+'">'+esc(v)+'</option>').join('')+
+   '</select></label>':'')+
   '<label>Sobre o que gostaria de receber orientação?<textarea class="input" id="ads-help-note" rows="3" minlength="20" maxlength="240" placeholder="Ex.: quero ajuda para planejar minha primeira divulgação, avaliar uma proposta e entender as condições." ></textarea></label>'+
   '<label class="check-row"><input type="checkbox" id="ads-help-consent">'+
   '<span>Solicito voluntariamente orientação comercial do TAMÃO sobre publicidade pelo canal escolhido. Posso retirar o pedido no painel; isso não autoriza cobranças ou anúncios.</span></label>'+
