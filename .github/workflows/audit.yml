@@ -631,6 +631,8 @@ jobs:
         run: node tests/admin-ads-guided-operations-v1-898.mjs
       - name: V1.899 marked Ads decisions with double verified finance acknowledgements
         run: node tests/admin-ads-marked-choices-v1-899.mjs
+      - name: V1.909 Reuse verified form values and selectable catalog, trial, stays inputs
+        run: node tests/reuse-and-select-v1-909.mjs
       - name: V1.908 Shortcut inputs for coupon budgets, catalog stock, customer support and search
         run: node tests/marked-inputs-v1-908.mjs
       - name: V1.907 More marked inputs in catalog, Clube, discovery, mobility and checkout
