@@ -368,6 +368,33 @@ function discoveryReportPresetChanged(select){
   editor.value=DISCOVERY_REPORT_DETAIL_CHOICES[key];drawer.open=false;
   return true;
 }
+// V1.912 — purely local draft shortcuts, no provider contact or reservation.
+function discoveryInquiryDayQuickChoice(select){
+ const box=select?.closest?.('.discovery-inquiry');
+ if(box?.dataset?.kind!=='professionals')return false;
+ const dateInput=box.querySelector('input[name="preferred_day"]');
+ if(!dateInput||dateInput.disabled)return false;
+ const days=Number(select.value);
+ if(![1,3,7].includes(days))return false;
+ const day=new Date();day.setHours(12,0,0,0);day.setDate(day.getDate()+days);
+ const pad=x=>String(x).padStart(2,'0');
+ const next=day.getFullYear()+'-'+pad(day.getMonth()+1)+'-'+pad(day.getDate());
+ if(dateInput.value&&dateInput.value!==next&&!confirm('Substituir a data já escolhida?'))return false;
+ dateInput.value=next;return true;
+}
+function discoveryInquiryDayChoices(){
+ return '<label>Dia rápido (opcional)<select onchange="discoveryInquiryDayQuickChoice(this)">'+
+  '<option value="">Selecionar dia, sem enviar consulta</option>'+
+  '<option value="1">Amanhã</option><option value="3">Daqui a 3 dias</option>'+
+  '<option value="7">Daqui a 7 dias</option></select></label>';
+}
+function discoveryQuickPriceCap(select){
+ const input=document.getElementById('discovery-max-price');
+ if(!input||input.disabled)return false;
+ const value=String(select?.value||'');
+ if(!['','100','200','300','500','1000'].includes(value))return false;
+ input.value=value;return true;
+}
 // Optional inquiry details: never a reservation, payment or availability promise.
 function discoveryInquiryForm(item,kind){
  if(!Object.hasOwn(discoveryVerticals,kind))return '';
@@ -385,6 +412,7 @@ function discoveryInquiryForm(item,kind){
   '<label>Origem aproximada<input name="origin" required minlength="3" maxlength="120" placeholder="Bairro ou ponto de referência"></label>'+
   '<label>Destino aproximado<input name="destination" required minlength="3" maxlength="120" placeholder="Bairro ou região de destino"></label>'+
   '<label>Detalhes adicionais (opcional)<textarea name="service" maxlength="350" rows="2" placeholder="Quantidade de pessoas, tipo de carga ou observações, sem dados pessoais"></textarea></label>'+
+  discoveryInquiryDayChoices()+
   '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>';
  const inputs=kind==='professionals'?(mobility?mobilityInputs:
   '<label>O que deseja saber?<select onchange="discoveryInquiryPresetChanged(this)">'+
@@ -394,6 +422,7 @@ function discoveryInquiryForm(item,kind){
    '<option value="custom">Descrever outro serviço</option></select></label>'+
   '<details class="discovery-inquiry-manual"><summary>Personalizar serviço solicitado</summary>'+
   '<label>Qual serviço você precisa?<textarea name="service" required minlength="10" maxlength="500" rows="3" placeholder="Descreva o serviço e a região aproximada, sem informar dados pessoais."></textarea></label></details>'+
+  discoveryInquiryDayChoices()+
   '<label>Dia desejado (opcional)<input name="preferred_day" type="date"></label>'):
   kind==='rides'?
   '<label>Quantas vagas deseja consultar?<select name="seats" required>'+
@@ -713,6 +742,10 @@ function discoveryPage(){
        '<label>Tipo de hospedagem<select id="discovery-property-type"><option value="">Todos os tipos</option>'+
        [['hotel','Hotel'],['inn','Pousada'],['holiday_house','Casa de temporada'],['beach_house','Casa de praia'],['apartment','Apartamento'],['cabin','Cabana'],['country_house','Casa de campo'],['other','Outro']].map(([code,label])=>
         '<option value="'+code+'"'+(s.propertyType===code?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
+       '<label>Teto de preço (opcional)<select onchange="discoveryQuickPriceCap(this)">'+
+        '<option value="">Marcar teto ou informar outro</option>'+
+        [100,200,300,500,1000].map(v=>'<option value="'+v+'">Até R$ '+v+'</option>').join('')+
+        '</select></label>'+
        '<label>Preço anunciado até (R$)<input id="discovery-max-price" type="number" min="0" max="500000" step="1" placeholder="Opcional" value="'+esc(s.maxPrice)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button>'+
     '<button type="button" class="secondary" onclick="discoveryClearFilters()">Limpar filtros</button></form>'+
