@@ -1256,6 +1256,7 @@ async function adminFinanceLabLiveHistory(admin:any,actorId:string){
     &&Number.isSafeInteger(Number(row.metadata?.amountCents))
   ).map((row:any)=>({
     orderId:String(row.target_id),amountCents:Number(row.metadata.amountCents),
+    testPurpose:String(row.metadata.testPurpose||"gateway"),
     createdAt:row.created_at
   }));
   if(!recent.length)return recent;
@@ -1318,6 +1319,11 @@ async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
 }
 async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body:any,req:Request){
   const amount=body?.amountCents;
+  const testPurpose=String(body?.testPurpose??"gateway").trim();
+  if(!["gateway","coupons","mobility","merchants","orders","advertising",
+       "benefits","professional_ads"].includes(testPurpose))
+    throw new DomainError("FINANCE_LAB_TEST_PURPOSE_INVALID",
+      "Selecione um módulo válido para o ensaio Pix.",400);
   if(!Number.isSafeInteger(amount)
     ||amount<FINANCE_LAB_LIVE_MIN_CENTS||amount>FINANCE_LAB_LIVE_MAX_CENTS
     ||body?.authorization!=="GERAR_PIX_REAL"){
@@ -1362,7 +1368,8 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
   }
   const intent=(intents||[]).find((item:any)=>item.id===intentId);
   if(intent&&(intent.target_id!==reference
-    ||Number(intent.metadata?.amountCents)!==amount)){
+    ||Number(intent.metadata?.amountCents)!==amount
+    ||String(intent.metadata?.testPurpose||"gateway")!==testPurpose)){
     throw new DomainError("FINANCE_LAB_LIVE_IDEMPOTENCY_CONFLICT",
       "Esta tentativa já foi usada com outro valor.",409);
   }
@@ -1376,7 +1383,8 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
     const {error:audited}=await admin.from("platform_admin_audit").insert({
       id:intentId,actor_user_id:actorId,action:"finance_lab_live_pix_intent",
       target_type:"financial_lab_live",target_id:reference,
-      metadata:{provider:"mercadopago",mode:"live",amountCents:amount}
+      metadata:{provider:"mercadopago",mode:"live",amountCents:amount,
+        testPurpose,commercialPurchase:false}
     });
     if(audited&&audited.code!=="23505")throw audited;
   }
@@ -1423,11 +1431,13 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
     id:createdId,actor_user_id:actorId,action:"finance_lab_live_pix_created",
     target_type:"financial_lab_live",target_id:String(order.id),
     metadata:{provider:"mercadopago",mode:"live",amountCents:amount,
+      testPurpose,commercialPurchase:false,
       externalReference:reference,paymentId:String(payment.id),
       expiresAt,liveModeConfirmed:true}
   });
   if(createdError&&createdError.code!=="23505")throw createdError;
   return {ok:true,mode:"live",provider:"mercadopago",amountCents:amount,
+    testPurpose,commercialPurchase:false,
     orderId:String(order.id),paymentId:String(payment.id),expiresAt,
     brCode, paymentLinkUrl:ticket,providerStatus:"action_required",
     settlementVerified:false,webhookVerified:false,credited:false,
