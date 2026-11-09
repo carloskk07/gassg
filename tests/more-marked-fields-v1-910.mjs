@@ -61,15 +61,16 @@ assert.match(merchant,/merchantAdsHelpChoose\(this.value\)/);
 assert.match(merchant,/id="ads-help-consent"/);
 assert.match(merchant,/merchantAdsAssistanceAction\(\\'request\\'\)/);
 
-// Referral and merchant scenario selectors are explicitly illustrative.
-// Product cost is never silently invented to manufacture a positive margin.
+// Native datalist suggestions preserve arbitrary numeric inputs for real scenarios.
 for(const id of ['ref-sim-clients','ref-sim-ticket','merchant-sim-orders','merchant-sim-ticket'])
- assert.ok(growth.includes('<select id="'+id+'"'));
-assert.match(growth,/value="10" selected>10<\/option>/);
-assert.match(growth,/value="120" selected>120<\/option>/);
-assert.match(growth,/value="50" selected>50<\/option>/);
-assert.match(growth,/onchange="updateReferralSimulator\(\)"/);
-assert.match(growth,/onchange="updateMerchantSimulator\(\)"/);
+ assert.ok(growth.includes('<input id="'+id+'"'));
+assert.match(growth,/id="ref-sim-clients"[^>]+list="rqn"/);
+assert.match(growth,/id="merchant-sim-orders"[^>]+list="mqn"/);
+assert.match(growth,/<datalist id="rqn">/);
+assert.match(growth,/<datalist id="mqn">/);
+assert.match(growth,/<option value="20">/);
+assert.match(growth,/oninput="updateReferralSimulator\(\)"/);
+assert.match(growth,/oninput="updateMerchantSimulator\(\)"/);
 assert.match(growth,/id="merchant-sim-product-cost"/);
 assert.match(growth,/Informe o custo do produto/);
 assert.match(growth,/function updateMerchantSimulator\(/);
