@@ -268,7 +268,8 @@ async function adminIndependentRefundProvider(operation,caseId,version){
 }
 // Pure UI navigation. A pane switch never opens a payment or changes campaign state.
 function adminIndependentAdsOpenPane(pane){
- if(!['campaigns','finance','refunds'].includes(pane)||
+ if(!['institutional','campaigns','finance','refunds'].includes(pane)||
+   (pane==='institutional'&&adminCurrentRole()!=='superadmin')||
    !adminReady()||adminRuntime.section!=='ads'||adminAdsWorkspaceTab!=='campaigns'||
    !['superadmin','operations','compliance','finance'].includes(adminCurrentRole()))return;
  adminIndependentAdsPane=pane;
