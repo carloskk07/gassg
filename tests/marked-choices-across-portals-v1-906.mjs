@@ -33,7 +33,7 @@ const page=m.show({merchantId:'m-1',memberRole:'owner'});
 assert.match(page,/ads-campaign-preset/);
 assert.match(page,/ads-campaign-custom-text/);
 assert.match(page,/ads-campaign-category/);
-assert.match(page,/merchantAdsCampaignAct\(\\'save\\'\)/);
+assert.ok(page.includes("merchantAdsCampaignAct('save')"));
 assert.doesNotMatch(page,/<details id="ads-campaign-custom-text" open/);
 fields.set('ads-campaign-title',{value:'old'});
 fields.set('ads-campaign-description',{value:'old'});
