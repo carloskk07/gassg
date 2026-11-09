@@ -289,14 +289,22 @@ function adminActivationDeskView(d){
       '<p>'+esc(detail)+'</p><small>'+esc(evidence)+'</small>'+action+'</article>';
   };
   const effectivePhysical=d?.launchReadiness?.commerceEnabled;
+  const merchantRows=Array.isArray(d?.merchants)?d.merchants:null;
+  const unreadyMerchants=merchantRows?.filter(x=>x?.status!=='active').length;
+  const activeMerchants=merchantRows?.filter(x=>x?.status==='active').length;
+  const merchantEvidence=merchantRows?
+    activeMerchants+' revenda(s) ativa(s), '+unreadyMerchants+' aguardando habilitação.':
+    'Cadastro de revendas ainda não confirmado nesta consulta.';
   const modernCards=[
     card('merchant','Revendas e pedidos',
       effectivePhysical===true?'Pedidos físicos habilitados':
       effectivePhysical===false?'Pedidos físicos aguardam oferta real':'Conferir liberação',
       'Habilite comércio de produtos apenas após revenda aprovada, estoque, preço e CEP verificáveis.',
-      effectivePhysical===true?'Controle de comércio ativo (não comprova pedido concluído).':
-      effectivePhysical===false?'Plataforma LIVE pode oferecer outros serviços sem revenda ativa.':
-      'Não foi possível comprovar o estado de pedidos físicos.','enablement'),
+      effectivePhysical===true?'Comércio autorizado. '+merchantEvidence+
+        ' A conclusão de um pedido real precisa de confirmação própria.':
+      effectivePhysical===false?'Pedidos protegidos. '+merchantEvidence+
+        ' Cadastros e serviços digitais podem permanecer LIVE.':
+      'Estado de pedidos físicos não comprovado. '+merchantEvidence,'enablement'),
     card('paidCoupons','Clube — cupons pagos',!e.paidCoupons?'Não confirmado':
       e.paidCoupons.emergencyStop?'Suspensão emergencial':
       e.paidCoupons.enabled?'Autorizado':'Não liberado',
