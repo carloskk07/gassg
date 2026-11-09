@@ -1466,6 +1466,7 @@ function adminAdsContactsView(){
    '<option value="followup_requested">Solicitou um novo contato</option>'+
    '<option value="not_interested">Informou que não deseja prosseguir</option></select></label>'+
    '<label>Nota do ocorrido (20–240 caracteres)<textarea class="input" id="ads-contact-'+id+'-note" rows="3" minlength="20" maxlength="240" placeholder="Registre somente fatos que realmente ocorreram, sem dados pessoais desnecessários"></textarea></label>'+
+   adminAdsReturnDateOptions('ads-contact-'+id+'-date')+
    '<label>Data do retorno (somente se solicitado)<input class="input" type="date" id="ads-contact-'+id+'-date"></label>'+
    '<button type="button" class="secondary small" onclick="adminAdsContactRecord(\''+id+'\')">Registrar atendimento manual</button></div>':'';
   return '<article id="ads-contact-card-'+id+'" class="admin-activation-card admin-ads-contact-card">'+
@@ -1570,6 +1571,20 @@ function adminAdsFeedbackView(){
 }
 
 
+// V1.910 — date choices are previews, never proof of contact or message delivery.
+function adminAdsQuickReturnDate(id,days){
+ if(!/^(?:ads-contact|ads-return)-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}-date$/i.test(String(id||''))||
+    ![1,3,7,14].includes(Number(days)))return false;
+ const input=document.getElementById(id);if(!input||input.disabled)return false;
+ const date=new Date();date.setHours(12,0,0,0);date.setDate(date.getDate()+Number(days));
+ const n=x=>String(x).padStart(2,'0');
+ input.value=date.getFullYear()+'-'+n(date.getMonth()+1)+'-'+n(date.getDate());return true;
+}
+function adminAdsReturnDateOptions(id){
+ return '<label for="'+id+'-quick">Escolha quando tentar contato</label><select id="'+id+'-quick" class="input" onchange="adminAdsQuickReturnDate(\''+id+'\',this.value)">'+
+ '<option value="">Escolher prazo, sem agendar automaticamente</option>'+
+ [1,3,7,14].map(d=>'<option value="'+d+'">Em '+d+' dia(s)</option>').join('')+'</select>';
+}
 // V1.326 — manual return planning from negative owner feedback; no outbound communications.
 function adminAdsFeedbackReturnsView(){
  if(!adminRoleCanSection('activations'))return '';
@@ -1581,7 +1596,8 @@ function adminAdsFeedbackReturnsView(){
   const id=String(x.merchantId||''),c=String(x.contactRequestId||''),p=x.returnPlan;
   if(!/^[0-9a-f-]{36}$/i.test(id)||!/^[0-9a-f-]{36}$/i.test(c))return '';
   const form=role==='superadmin'?
-    '<div class="admin-ads-return-fields"><label>Data prevista de retorno<input type="date" id="ads-return-'+id+'-date" value="'+
+    '<div class="admin-ads-return-fields">'+adminAdsReturnDateOptions('ads-return-'+id+'-date')+
+    '<label>Data prevista de retorno<input type="date" id="ads-return-'+id+'-date" value="'+
       esc(String(p?.dueOn||''))+'"></label>'+
     '<label>Nota interna factual (não visível à revenda)<textarea id="ads-return-'+id+'-note" maxlength="240" rows="3">'+
       esc(String(p?.internalNote||''))+'</textarea></label>'+
