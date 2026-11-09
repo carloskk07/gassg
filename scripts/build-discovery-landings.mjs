@@ -53,48 +53,57 @@ const content={
    action:'Ver alojamientos',other:'Publicar alojamiento',notice:'La información publicada no garantiza disponibilidad ni reserva.'}
  }
 };
-export const DISCOVERY_LANDING_SLUGS=Object.freeze(Object.values(content).flatMap(group=>[group.pt.slug,group.es.slug]));
+export const DISCOVERY_LANDING_SLUGS=Object.freeze(Object.entries(content).filter(([kind])=>kind!=='stays').flatMap(([,g])=>[g.pt.slug,g.es.slug]));
 function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;')}
 function pageHTML(kind,locale,origin,indexing){
  const p=content[kind][locale],counterpart=content[kind][locale==='pt'?'es':'pt'];
+ const paused=kind==='stays';
+ const pausedTitle=locale==='pt'?'Hospedagens temporariamente indisponíveis':'Alojamientos temporalmente no disponibles';
+ const pausedNotice=locale==='pt'
+  ?'Esta modalidade está suspensa. Não é possível anunciar ou reservar hospedagens pelo TAMÃO.'
+  :'Esta categoría está suspendida. No se pueden publicar ni reservar alojamientos por TAMÃO.';
+ const heading=paused?pausedTitle:p.heading,notice=paused?pausedNotice:p.notice;
+ const intro=paused?pausedNotice:p.intro;
+ const pageTitle=paused?pausedTitle+' | TAMÃO':p.title;
+ const action=paused?(locale==='pt'?'Voltar ao TAMÃO':'Volver a TAMÃO'):p.action;
  const canonical=origin+'/'+p.slug+'/',alternative=origin+'/'+counterpart.slug+'/';
- const direct=origin+'/#'+kind,advertise=origin+'/#advertise';
- const faq=p.faq.map(([question,answer])=>'<details><summary>'+esc(question)+'</summary><p>'+esc(answer)+'</p></details>').join('');
- const steps=p.steps.map(([head,body],i)=>'<article class="ed-proof-card"><span class="ed-eyebrow">'+String(i+1).padStart(2,'0')+'</span><h3>'+esc(head)+'</h3><p>'+esc(body)+'</p></article>').join('');
+ const direct=paused?origin+'/':origin+'/#'+kind,advertise=origin+'/#advertise';
+ const faq=(paused?[[locale==='pt'?'Quando retorna?':'¿Cuándo vuelve?',pausedNotice]]:p.faq).map(([question,answer])=>'<details><summary>'+esc(question)+'</summary><p>'+esc(answer)+'</p></details>').join('');
+ const steps=(paused?[[locale==='pt'?'Modalidade suspensa':'Categoría suspendida',pausedNotice]]:p.steps).map(([head,body],i)=>'<article class="ed-proof-card"><span class="ed-eyebrow">'+String(i+1).padStart(2,'0')+'</span><h3>'+esc(head)+'</h3><p>'+esc(body)+'</p></article>').join('');
  return '<!doctype html><html lang="'+(locale==='pt'?'pt-BR':'es-AR')+'"><head>'+
  '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'+
- '<meta name="robots" content="'+(indexing?'index,follow,max-image-preview:large':'noindex,nofollow,noarchive,nosnippet')+'">'+
- '<meta name="description" content="'+esc(p.description)+'">'+
+ '<meta name="robots" content="'+(indexing&&!paused?'index,follow,max-image-preview:large':'noindex,nofollow,noarchive,nosnippet')+'">'+
+ '<meta name="description" content="'+esc(paused?pausedNotice:p.description)+'">'+
  '<link rel="canonical" href="'+esc(canonical)+'">'+
  '<link rel="alternate" hreflang="pt-BR" href="'+esc(origin+'/'+content[kind].pt.slug+'/')+'">'+
  '<link rel="alternate" hreflang="es-AR" href="'+esc(origin+'/'+content[kind].es.slug+'/')+'">'+
  '<link rel="alternate" hreflang="x-default" href="'+esc(origin+'/'+content[kind].pt.slug+'/')+'">'+
  '<meta property="og:type" content="website"><meta property="og:site_name" content="TAMÃO">'+
  '<meta property="og:locale" content="'+(locale==='pt'?'pt_BR':'es_AR')+'">'+
- '<meta property="og:title" content="'+esc(p.title)+'"><meta property="og:description" content="'+esc(p.description)+'">'+
+ '<meta property="og:title" content="'+esc(pageTitle)+'"><meta property="og:description" content="'+esc(paused?pausedNotice:p.description)+'">'+
  '<meta property="og:url" content="'+esc(canonical)+'"><meta name="twitter:card" content="summary">'+
  '<link rel="stylesheet" href="/css/landing-editorial.css"><link rel="icon" href="/icons/icon.svg" type="image/svg+xml">'+
- '<title>'+esc(p.title)+'</title></head><body class="ed-page ed-discovery-page">'+
+ '<title>'+esc(pageTitle)+'</title></head><body class="ed-page ed-discovery-page">'+
  '<a class="ed-skip" href="#conteudo">'+(locale==='pt'?'Pular para conteúdo':'Saltar al contenido')+'</a>'+
  '<header class="ed-header"><div class="ed-shell ed-header-inner"><a class="ed-brand" href="/"><strong>TAMÃO</strong></a>'+
  '<nav class="ed-nav" aria-label="'+(locale==='pt'?'Idiomas e modalidades':'Idiomas y categorías')+'">'+
  '<a href="'+esc(alternative)+'" hreflang="'+(locale==='pt'?'es-AR':'pt-BR')+'">'+(locale==='pt'?'Español (AR)':'Português (BR)')+'</a>'+
  '</nav></div></header><main id="conteudo">'+
  '<section class="ed-hero"><div class="ed-shell ed-hero-grid"><div class="ed-hero-copy">'+
- '<span class="ed-eyebrow">'+esc(p.kicker)+'</span><h1>'+esc(p.heading)+'</h1><p>'+esc(p.intro)+'</p>'+
- '<div class="ed-actions"><a class="ed-btn ed-btn-primary" href="'+esc(direct)+'">'+esc(p.action)+' →</a>'+
- '<a class="ed-btn ed-btn-outline" href="'+esc(advertise)+'">'+esc(p.other)+'</a></div>'+
- '<p>'+esc(p.notice)+'</p></div>'+
+ '<span class="ed-eyebrow">'+esc(p.kicker)+'</span><h1>'+esc(heading)+'</h1><p>'+esc(intro)+'</p>'+
+ '<div class="ed-actions"><a class="ed-btn ed-btn-primary" href="'+esc(direct)+'">'+esc(action)+' →</a>'+
+ (paused?'':'<a class="ed-btn ed-btn-outline" href="'+esc(advertise)+'">'+esc(p.other)+'</a>')+'</div>'+
+ '<p>'+esc(notice)+'</p></div>'+
  '<aside class="ed-hero-visual" aria-label="TAMÃO"><span class="ed-visual-kicker">TAMÃO</span>'+
- '<h2>'+esc(p.kicker)+'</h2><p>'+esc(p.notice)+'</p></aside></div></section>'+
+ '<h2>'+esc(p.kicker)+'</h2><p>'+esc(notice)+'</p></aside></div></section>'+
  '<section class="ed-shell ed-proof" aria-labelledby="pasos"><div class="ed-proof-head"><h2 id="pasos">'+
  (locale==='pt'?'Como funciona':'Cómo funciona')+'</h2></div><div class="ed-proof-grid">'+steps+'</div></section>'+
  '<section class="ed-shell ed-section ed-faq" aria-labelledby="perguntas"><h2 id="perguntas">'+
  (locale==='pt'?'Perguntas frequentes':'Preguntas frecuentes')+'</h2>'+
  '<div class="ed-faq-items">'+faq+'</div></section>'+
- '<section class="ed-shell ed-last"><h2>'+esc(p.heading)+'</h2><a class="ed-btn ed-btn-primary" href="'+esc(direct)+'">'+esc(p.action)+' →</a></section>'+
+ '<section class="ed-shell ed-last"><h2>'+esc(heading)+'</h2><a class="ed-btn ed-btn-primary" href="'+esc(direct)+'">'+esc(action)+' →</a></section>'+
  '</main><footer class="ed-footer"><div class="ed-shell ed-footer-inner"><a href="/">TAMÃO</a>'+
- '<small>'+esc(p.notice)+'</small></div></footer></body></html>';
+ '<small>'+esc(notice)+'</small></div></footer></body></html>';
 }
 export function writeDiscoveryLandingPages(target,{origin='https://tamao.com.br',indexing=false}={}){
  const u=new URL(origin);

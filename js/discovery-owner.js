@@ -453,8 +453,8 @@ function discoveryOwnerPage(){
   const preset=discoveryOwnerTransportPresets[s.serviceIntent]||null;
   const header='<header class="discovery-owner-intro"><span class="section-kicker">TAMÃO • ANÚNCIOS</span>'+
     '<h1>'+(preset?'Anuncie seus serviços de '+esc(preset.label)+' no TAMÃO.':
-      'Anuncie seus serviços, caronas e hospedagens.')+'</h1>'+
-    '<p>Crie um anúncio, inclua fotos e envie para revisão. Você controla o conteúdo e o contato.</p></header>';
+      'Anuncie seus serviços e caronas.')+'</h1>'+
+    '<p>Crie um anúncio, inclua fotos e envie para revisão. Você controla o conteúdo e o contato.</p>'+'<p role="status">Hospedagens temporariamente indisponíveis para novos anúncios.</p></header>';
   const note=s.notice?'<p role="status" class="discovery-owner-message">'+esc(s.notice)+'</p>':'';
   const error=s.error?'<p role="alert" class="discovery-owner-error">'+esc(s.error)+'</p>':'';
   if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section discovery-owner">'+header+
@@ -506,7 +506,7 @@ function discoveryOwnerPage(){
     '<h2>'+(s.editor?.id?'Editar rascunho':'Novo anúncio')+'</h2>'+
     (s.editor?.id?'<p class="tiny muted">Tipo: '+esc(kind)+'</p>':
       '<label>O que deseja anunciar?<select name="vertical" onchange="discoveryOwnerTypeChanged(this.value)">'+
-      Object.entries({professionals:'Profissionais',rides:'Caronas',stays:'Hospedagens'})
+      Object.entries({professionals:'Profissionais',rides:'Caronas'})
         .map(([v,t])=>'<option value="'+v+'"'+(kind===v?' selected':'')+'>'+t+'</option>').join('')+
       '</select></label>')+
     (kind==='stays'&&!s.editor?.id?'<details class="discovery-owner-import" open><summary>Importar hospedagem do Booking, Airbnb ou arquivo</summary>'+

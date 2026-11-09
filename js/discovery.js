@@ -214,7 +214,7 @@ function discoveryCityKey(raw){
 }
 function discoveryExploreCards(){
   return '<section class="section discovery-entrances"><h2>Explore mais no TAMÃO</h2>'+
-  '<div class="discovery-entry-grid">'+Object.entries(discoveryVerticals).map(([key,v])=>
+  '<div class="discovery-entry-grid">'+Object.entries(discoveryVerticals).filter(([key])=>key!=='stays').map(([key,v])=>
     '<button type="button" onclick="go(\''+key+'\')">'+v[2]+' <strong>'+v[0]+'</strong><span>Ver anúncios e oportunidades →</span></button>'
   ).join('')+'</div></section>';
 }
@@ -258,9 +258,7 @@ function discoveryWhatsApp(item){
     ' Gostaria de solicitar um orçamento e confirmar a disponibilidade.';
   return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent(opening+title+'.'+question);
 }
-// A ride card can stay open across its departure time, or outlive a
-// refreshed/withdrawn listing. Recheck the loaded row at the precise click
-// instead of trusting a WhatsApp href minted when the card was rendered.
+// Verify ride availability and contact again at click time.
 function discoveryConfirmRideContact(anchor){
   const id=String(anchor?.dataset?.listingId||'').toLowerCase();
   const state=discoveryState('rides');
@@ -274,9 +272,7 @@ function discoveryConfirmRideContact(anchor){
   if(discoveryKind()==='rides')render();
   return false;
 }
-// Direct WhatsApp contact is a handoff, not a booking. Confirm that this
-// still refers to the loaded public listing when the visitor clicks,
-// including a revoked number or a listing removed by a newer search.
+// Verify direct contacts again at click time; never create a booking.
 function discoveryConfirmDirectContact(anchor){
   const kind=discoveryKind(),id=String(anchor?.dataset?.listingId||'').toLowerCase();
   if(kind==='rides')return discoveryConfirmRideContact(anchor);
@@ -334,7 +330,7 @@ function discoveryPublicGallery(item){
   (photos.length===2?' foto':' fotos')+'</summary>'+
   '<div class="discovery-gallery-grid">'+extra+'</div></details></div>';
 }
-// V1.907 — consultation shortcuts are editable drafts; they never contact a provider automatically.
+// Consultation shortcuts only fill editable drafts.
 const DISCOVERY_SERVICE_INQUIRY_CHOICES=Object.freeze({
   quote:'Gostaria de solicitar um orçamento para o serviço anunciado na minha região e consultar disponibilidade.',
   scope:'Gostaria de saber quais serviços você oferece e se atende a minha localização.',
@@ -709,6 +705,10 @@ function discoveryCard(item,kind){
 function discoveryPage(){
   const kind=discoveryKind();
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
+  if(kind==='stays')return shell('<section class="section discovery-page" role="status">'+
+    '<h1>Hospedagens temporariamente indisponíveis</h1>'+
+    '<p>Esta modalidade está suspensa. Não estamos aceitando anúncios nem reservas de hospedagem.</p>'+
+    '<a href="/">Voltar ao TAMÃO</a></section>');
   const s=discoveryState(kind),v=discoveryVerticals[kind],shortcut=kind==='professionals'?discoveryServiceShortcuts[s.service]:null;
   const savedIds=discoverySavedIds(kind);
   const savedSet=new Set(savedIds);
@@ -876,6 +876,7 @@ async function discoveryFetch(more=false){
 }
 function discoveryAfterRender(){
   const kind=discoveryKind();
+  if(kind==='stays')return;
   if(kind&&discoveryState(kind).status==='idle'){
     const s=discoveryState(kind);
     s.sharedId=discoverySharedListingId();

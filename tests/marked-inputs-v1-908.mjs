@@ -91,11 +91,10 @@ dctx.discoveryState('rides').minSeats='3';
 assert.match(dctx.discoveryPage(),/<option value="3" selected>3 vaga\(s\)<\/option>/);
 kind='stays';
 const stays=dctx.discoveryPage();
-assert.match(stays,/<select id="discovery-guests">/);
-assert.match(stays,/<option value="80"[^>]*>80 hóspede\(s\)<\/option>/);
-assert.doesNotMatch(stays,/<option value="81"[^>]*>81 hóspede\(s\)<\/option>/);
-dctx.discoveryState('stays').guests='4';
-assert.match(dctx.discoveryPage(),/<option value="4" selected>4 hóspede\(s\)<\/option>/);
+assert.match(stays,/Hospedagens temporariamente indisponíveis/);
+assert.doesNotMatch(stays,/<select id="discovery-guests">/);
+assert.match(discovery,/Array\.from\(\{length:80\}/,
+ 'guest choices remain in dormant code for reviewed reopening');
 assert.match(discovery,/function discoverySearchFromUi\(event\)/);
 
 assert.match(build,/function compactReleasedCustomerComments\(/);
