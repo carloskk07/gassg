@@ -1,3 +1,19 @@
+// V1.906 — propostas selecionáveis, sem promessa de preço, estoque ou veiculação.
+const MERCHANT_ADS_COPY_PRESETS=Object.freeze({
+  introduction:Object.freeze({title:'Conheça esta revenda no TAMÃO',description:'Veja as informações desta revenda e consulte pelo TAMÃO quais produtos e condições estão disponíveis para seu endereço.'}),
+  products:Object.freeze({title:'Confira os produtos da revenda',description:'Consulte o catálogo apresentado pela revenda e verifique disponibilidade, preço e prazo para o seu endereço antes de pedir.'}),
+  information:Object.freeze({title:'Saiba mais sobre esta revenda',description:'Encontre esta revenda no TAMÃO, conheça seus produtos cadastrados e consulte as opções que estiverem disponíveis na sua região.'})
+});
+function merchantAdsCampaignPresetChanged(key){
+  if(!Object.prototype.hasOwnProperty.call(MERCHANT_ADS_COPY_PRESETS,key))return;
+  const choice=MERCHANT_ADS_COPY_PRESETS[key];
+  const title=document.getElementById('ads-campaign-title');
+  const description=document.getElementById('ads-campaign-description');
+  if(!title||!description)return;
+  title.value=choice.title;description.value=choice.description;
+  const drawer=document.getElementById('ads-campaign-custom-text');
+  if(drawer)drawer.open=false;
+}
 // TAMÃO Ads V1.233 — private creative proposals, never served as paid placement.
 function merchantAdsCampaignSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
@@ -14,11 +30,20 @@ function merchantAdsCampaignSection(merchant){
     ['ice','Gelo'],['barbecue','Churrasco e carvão']];
   const rows=categories.map(x=>'<option value="'+x[0]+'" '+
     (x[0]===(c?.category_key||'all')?'selected':'')+'>'+esc(x[1])+'</option>').join('');
+  const selectedCopy=Object.entries(MERCHANT_ADS_COPY_PRESETS).find(([,item])=>
+    item.title===(c?.title||'')&&item.description===(c?.description||''))?.[0]||'';
   const controls=canEdit?'<div class="form-stack">'+
-    '<div class="input-wrap"><label for="ads-campaign-title">Título da divulgação</label>'+
-    '<input class="input" id="ads-campaign-title" maxlength="80" placeholder="Ex.: Sua revenda mais perto de você" value="'+esc(c?.title||'')+'"/></div>'+
+    '<div class="input-wrap"><label for="ads-campaign-preset">Mensagem pronta (marque uma opção)</label>'+
+    '<select id="ads-campaign-preset" class="input" onchange="merchantAdsCampaignPresetChanged(this.value)">'+
+    '<option value="">Escolha uma apresentação</option>'+
+    Object.entries(MERCHANT_ADS_COPY_PRESETS).map(([key,item])=>
+      '<option value="'+esc(key)+'" '+(selectedCopy===key?'selected':'')+'>'+esc(item.title)+'</option>').join('')+
+    '</select><small class="field-help">O texto pode ser ajustado antes de salvar.</small></div>'+
+    '<details id="ads-campaign-custom-text" '+(c&&!selectedCopy?'open':'')+'><summary>Personalizar título e apresentação</summary>'+
+    '<div class="form-stack"><div class="input-wrap"><label for="ads-campaign-title">Título da divulgação</label>'+
+    '<input class="input" id="ads-campaign-title" maxlength="80" value="'+esc(c?.title||'')+'"/></div>'+
     '<div class="input-wrap"><label for="ads-campaign-description">Apresentação</label>'+
-    '<textarea class="input" id="ads-campaign-description" rows="3" maxlength="240" placeholder="Conte como sua revenda atende os clientes, sem prometer preço ou prazo não confirmado.">'+esc(c?.description||'')+'</textarea></div>'+
+    '<textarea class="input" id="ads-campaign-description" rows="3" maxlength="240">'+esc(c?.description||'')+'</textarea></div></div></details>'+
     '<div class="input-wrap"><label for="ads-campaign-category">Categoria de interesse</label>'+
     '<select class="input" id="ads-campaign-category">'+rows+'</select></div>'+
     '<div class="order-actions">'+
@@ -2591,12 +2616,17 @@ function merchantLivePage(){
       <button class="secondary" type="button" onclick="merchantAvailabilityGo('stock')">Abrir ajuste rápido</button><button class="ghost" type="button" onclick="go('catalog')">Editar todos os produtos</button>
       <div class="divider"></div>
       <h3>Entrega</h3>
+      <div class="field-row">
+        <div class="input-wrap"><label for="live-fee-shortcut">Taxa pronta (R$)</label><select id="live-fee-shortcut" class="input" onchange="merchantSettingQuickChoice(this,'live-delivery-fee')"><option value="">Escolha uma taxa</option><option value="0">Grátis</option><option value="5">R$ 5</option><option value="10">R$ 10</option><option value="15">R$ 15</option></select></div>
+        <div class="input-wrap"><label for="live-eta-shortcut">Prazo estimado pronto</label><select id="live-eta-shortcut" class="input" onchange="merchantSettingQuickChoice(this,'live-eta')"><option value="">Escolha o prazo</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">60 minutos</option></select></div>
+      </div>
+      <small class="field-help">Escolher um atalho só preenche o campo: confira e salve a logística.</small>
       <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
       <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende minha cidade</strong><small>Usado no filtro de ofertas da cidade cadastrada.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
       <div class="divider"></div>
       <details class="merchant-settings-advanced"><summary>Capacidade de atendimento</summary><div class="form-stack"><h3>Capacidade simultânea</h3>
-      <div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
+      <div class="input-wrap"><label for="live-capacity-shortcut">Capacidade pronta</label><select id="live-capacity-shortcut" class="input" onchange="merchantSettingQuickChoice(this,'live-capacity')"><option value="">Escolha um limite</option><option value="1">1 pedido</option><option value="3">3 pedidos</option><option value="5">5 pedidos</option><option value="10">10 pedidos</option></select></div><div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button></div></details>
       <div class="divider"></div>
       <h3>Formas de pagamento aceitas do cliente</h3>
@@ -3994,6 +4024,19 @@ async function merchantLiveReconfirmDelivery(){
     toast('O servidor respondeu, mas a confirmação não foi reconferida. Atualize a situação.');
     return false;
   }catch(e){toast(String(e?.message||e));return false;}
+}
+// Presets fill existing fields only. Server-side validation and explicit save remain authoritative.
+function merchantSettingQuickChoice(select,fieldId){
+  const options={
+    'live-delivery-fee':['0','5','10','15'],
+    'live-eta':['15','30','45','60'],
+    'live-capacity':['1','3','5','10']
+  };
+  const value=String(select?.value||'');
+  const field=document.getElementById(fieldId);
+  if(field&&Object.prototype.hasOwnProperty.call(options,fieldId)&&options[fieldId].includes(value))
+    field.value=value;
+  if(select)select.value='';
 }
 async function merchantLiveSaveLogistics(){
   const fee=Number(document.querySelector('#live-delivery-fee')?.value);
