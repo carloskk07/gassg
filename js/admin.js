@@ -6153,10 +6153,24 @@ async function adminFinanceHomologationRefresh(){
      r?.readOnly!==true||r?.paymentsCreated!==0||r?.moneyMoved!==false||
      r?.merchantRequiredForLab!==false||
      r?.proofScope!=='counts_and_configuration_only'||
+     r?.assessmentVersion!=='v1.920'||
+     !Number.isSafeInteger(r?.labRecentCount)||r.labRecentCount<0||r.labRecentCount>6||
      !Array.isArray(r.modules)||r.modules.length!==keys.length||
      !keys.every(key=>r.modules.some(m=>m?.key===key&&
        (m.configured===true||m.configured===false||m.configured===null)&&
-       m.counts&&Object.values(m.counts).every(n=>Number.isSafeInteger(n)&&n>=0))))
+       m.counts&&Object.values(m.counts).every(n=>Number.isSafeInteger(n)&&n>=0)&&
+       m.diagnosis?.financiallyHomologated===false&&
+       m.diagnosis?.bankSettlementChecked===false&&
+       m.diagnosis?.gatewayLabIsCommercialProof===false&&
+       ['pending_real_payment','provider_or_ledger_evidence','needs_review']
+        .includes(m.diagnosis?.state)&&
+       Number.isSafeInteger(m.diagnosis.providerOrLedgerEvidence)&&
+       m.diagnosis.providerOrLedgerEvidence>=0&&
+       Number.isSafeInteger(m.diagnosis.labPixCount)&&
+       m.diagnosis.labPixCount>=0&&m.diagnosis.labPixCount<=6&&
+       ['none','pending','psp_processed','reversal','unverified','unavailable']
+        .includes(m.diagnosis.latestLabWebhook)&&
+       typeof m.diagnosis.nextAction==='string'&&m.diagnosis.nextAction.length>10)))
    throw Error('O servidor não confirmou as evidências de todos os módulos.');
   if(actor!==String(adminRuntime?.session?.user?.id||'')||
      adminCurrentRole()!=='superadmin')return;
@@ -6192,6 +6206,25 @@ function adminFinanceHomologationView(d){
  const registry=adminFinanceHomologationCatalog();
  const chosen=registry.find(m=>m.key===evidenceState.selected)||registry[0];
  const remote=evidenceState.data?.modules?.find(m=>m.key===chosen.key);
+ const diagnoses={
+   pending_real_payment:'Sem ciclo financeiro real comprovado',
+   provider_or_ledger_evidence:'Existem registros financeiros para conferir',
+   needs_review:'Precisa conferir divergência entre os registros'
+ };
+ const eventLabels={
+   none:'Sem webhook financeiro auditado',pending:'Pagamento pendente no PSP',
+   psp_processed:'Processado no PSP (sem prova de liquidação)',
+   reversal:'Reversão observada',
+   unverified:'Webhook inconsistente',unavailable:'Webhook indisponível'
+ };
+ const dStat=remote?.diagnosis||null;
+ const currentModules=evidenceState.data?.modules||[];
+ const attention=currentModules.filter(m=>m.diagnosis?.state==='needs_review').length;
+ const withEvidence=currentModules.filter(m=>m.diagnosis?.state==='provider_or_ledger_evidence').length;
+ const overview=currentModules.length?
+  '<div class="order-line" role="status"><strong>7 módulos conferidos</strong> • '+
+    attention+' exigem revisão • '+withEvidence+' com registros a verificar • '+
+    (7-attention-withEvidence)+' sem ciclo real comprovado. Nenhum homologado automaticamente.</div>':'';
  const evidenceRows=remote?.counts?Object.entries(chosen.labels).map(([field,label])=>
    '<div class="order-line"><strong>'+esc(label)+':</strong> '+
    Number(remote.counts[field]||0)+'</div>').join(''):'';
@@ -6199,6 +6232,7 @@ function adminFinanceHomologationView(d){
    (m.key===chosen.key?' selected':'')+'>'+esc(m.name)+'</option>').join('');
  const inventory='<div class="card flat" id="admin-finance-module-homologation">'+
   '<h3>Homologações de todos os módulos</h3>'+
+  overview+
   '<p>Selecione o serviço para consultar provas existentes e executar ensaios financeiros. '+
   'Nenhum teste exige cadastrar uma revenda fictícia.</p>'+
   '<div class="field-row"><div class="input-wrap"><label for="admin-finance-homologation-module">Módulo</label>'+
@@ -6212,12 +6246,21 @@ function adminFinanceHomologationView(d){
   '<p><strong>'+esc(chosen.name)+'</strong> · '+esc(chosen.detail)+'</p>'+
   '<p>'+esc(chosen.guide)+'</p>'+
   (remote?'<div class="notice" role="status">'+
+    '<strong>Resultado:</strong> '+esc(diagnoses[dStat.state]||'Indisponível')+'. '+
     '<strong>Configuração:</strong> '+(remote.configured===true?'Condições preliminares registradas':
     remote.configured===false?'Não comprovada':'Depende de verificações próprias')+
-    ' · <strong>Homologação real ponta a ponta:</strong> ainda não comprovada por esta consulta.'+
-    '</div>'+evidenceRows+
-    '<small class="muted">Contagens atuais não validam sozinhas pagamento, crédito, estorno ou liquidação. '+
-    'A comprovação exige evidência específica vinculada à operação e ao extrato.</small>':
+    ' · <strong>Homologação real:</strong> pendente.</div>'+
+    '<div class="order-line"><strong>Registros com sinal financeiro no módulo:</strong> '+
+      dStat.providerOrLedgerEvidence+'</div>'+
+    '<div class="order-line"><strong>Pix de laboratório associados ao módulo (últimas seis emissões):</strong> '+
+      dStat.labPixCount+'</div>'+
+    '<div class="order-line"><strong>Última confirmação desse Pix:</strong> '+
+      esc(eventLabels[dStat.latestLabWebhook]||'Não comprovada')+'</div>'+
+    evidenceRows+
+    '<p><strong>Próxima verificação:</strong> '+esc(dStat.nextAction)+'</p>'+
+    '<small class="muted">Um Pix de laboratório ou status de pagamento aprovado no provedor '+
+    'não homologa créditos, reembolsos, comissões ou liquidação bancária deste módulo. '+
+    'Os registros de pagamento devem ter correspondência e comprovação próprias.</small>':
     '<p class="muted" role="status">Sem inventário atualizado. Clique em conferir para ler os registros existentes.</p>')+
   (evidenceState.error?'<div class="notice danger" role="alert">'+esc(evidenceState.error)+'</div>':'')+
   '<p><strong>Ensaio sem revenda:</strong> o Laboratório Pix abaixo permite simular ou fazer '+

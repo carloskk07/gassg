@@ -46,10 +46,14 @@ assert.deepEqual(keys,[
 assert.equal(ctx.choose('orders'),true);
 assert.equal(ctx.getState().selected,'orders');
 assert.equal(ctx.choose('not-a-module'),false);
-const modules=keys.map(key=>({key,configured:key==='coupons'?true:null,counts:{records:0}}));
+const modules=keys.map(key=>({key,configured:key==='coupons'?true:null,counts:{records:0},
+ diagnosis:{state:'pending_real_payment',financiallyHomologated:false,
+ bankSettlementChecked:false,gatewayLabIsCommercialProof:false,
+ providerOrLedgerEvidence:0,labPixCount:0,latestLabWebhook:'none',
+ nextAction:'Realizar os testes do fluxo comercial próprio.'}}));
 answer={source:'admin_finance_homologation_modules_v1_919',
  readOnly:true,paymentsCreated:0,moneyMoved:false,merchantRequiredForLab:false,
- proofScope:'counts_and_configuration_only',modules};
+ proofScope:'counts_and_configuration_only',assessmentVersion:'v1.920',labRecentCount:0,modules};
 await ctx.refresh();
 assert.equal(calls,1);
 assert.equal(ctx.getState().data,answer);
@@ -81,16 +85,16 @@ let reads=0;
 const db={from(table){
  const request={
    select(_fields,opts){
-    if(opts?.count==='exact'&&opts?.head===true){
-     reads++;return Promise.resolve({count:0,error:null});
-    }
+    if(opts?.count==='exact'&&opts?.head===true){reads++;this.isCount=true;}
     return this;
-   },eq(){return this},limit(){return this},
+   },eq(){return this},not(){return this},limit(){return this},
    async maybeSingle(){return {error:null,data:table==='clube_coupon_paid_packages'
     ?{sale_enabled:true,funding_verified:true,legal_terms_verified:true,
       redeem_settlement_verified:true}:table==='ads_independent_sales_controls_v1_886'
      ?{sales_enabled:false}:null}},
-   then(resolve,reject){return Promise.resolve({error:null,data:[
+   then(resolve,reject){return Promise.resolve(this.isCount?
+    {error:null,count:0}:
+    {error:null,data:[
      {plan_key:'essential',purchase_enabled:true},
      {plan_key:'popular',purchase_enabled:true},
      {plan_key:'professional',purchase_enabled:true}
@@ -99,6 +103,12 @@ const db={from(table){
  return request;
 }};
 const serverCtx=vm.createContext({Date,Object,Promise,Number,
+ adminFinanceLabLiveHistory:async()=>[],
+ evaluateFinanceHomologationEvidence:(list,signals,history)=>list.map(m=>({...m,
+  diagnosis:{state:'pending_real_payment',financiallyHomologated:false,
+   bankSettlementChecked:false,gatewayLabIsCommercialProof:false,
+   providerOrLedgerEvidence:0,labPixCount:0,latestLabWebhook:'none',
+   nextAction:'Realizar os testes do fluxo comercial próprio.'}})),
  DomainError:class DomainError extends Error{constructor(code,message,status){
   super(message);this.code=code;this.status=status;
  }}});
@@ -114,7 +124,7 @@ assert.equal(inspected.modules.length,7);
 assert.equal(inspected.modules[0].configured,true);
 assert.equal(inspected.modules[1].counts.plans,3);
 assert.equal(inspected.modules[4].configured,false,'paid Ads must not be enabled by an inventory read');
-assert.equal(reads,17,'bounded source count queries; no row export or financial mutation');
+assert.equal(reads,26,'bounded exact count queries; no row export or financial mutation');
 const missing={from(){return {select:async()=>({count:null,error:new Error('offline')})}}};
 await assert.rejects(()=>serverCtx.inspect(missing,'owner'),
  e=>e.code==='FINANCE_HOMOLOGATION_EVIDENCE_UNAVAILABLE');
