@@ -279,6 +279,57 @@ function adminIndependentAdsOpenPane(pane){
  adminIndependentAdsPane=pane;
  render();
 }
+
+// Finance V1.919: expose the SAME marked Ads authorization within the
+// protected Finance workspace, without opening a second financial endpoint.
+// The backend still enforces buyer, campaign, owner, amount and version.
+function adminIndependentAdsHomologationControlsForFinance(){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ const v=adminIndependentAdsState.loadedFor===actor?adminIndependentAdsState:null;
+ if(!actor||adminCurrentRole()!=='superadmin'||!v||
+   v.fixedFeeSalesEnabled===true)return '';
+ const testExpires=Date.parse(String(v.homologationExpiresAt||''));
+ const testActive=Boolean(v.homologationCampaignId&&Number.isFinite(testExpires)&&
+  testExpires>Date.now());
+ const eligibleTestCampaigns=v.rows.filter(c=>c.status==='approved'&&
+  c.budgetCents===1990&&c.durationDays===7&&!c.fixedFeeStatus);
+ return '<div class="card flat"><h4>Homologação financeira controlada</h4>'+
+    '<p>Autorize apenas uma campanha aprovada de R$ 19,90 por 7 dias para um pagamento <strong>real</strong>. '+
+    'O checkout exige aceite do anunciante, valida a conta Mercado Pago e mantém as vendas públicas desligadas. '+
+    'Não é simulação e não cria pagamentos automaticamente.</p>'+
+    (testActive?
+      '<p role="status">Campanha autorizada: '+esc(String(v.homologationCampaignId))+
+      ' · Até '+esc(String(v.homologationExpiresAt))+'</p>':
+      '<p role="status">Não há autorização de teste financeiro ativa.</p>')+
+    (!testActive&&eligibleTestCampaigns.length?
+      '<label for="ads-homologation-campaign">Campanha aprovada (R$ 19,90)</label>'+
+      '<select id="ads-homologation-campaign" class="input">'+eligibleTestCampaigns.map(c=>
+        '<option value="'+esc(String(c.id))+'">'+esc(String(c.title))+'</option>').join('')+'</select>':
+      !testActive?'<p>Envie e aprove uma campanha real de R$ 19,90 antes de autorizar o checkout de homologação.</p>':'')+
+    '<fieldset><legend>Marque o motivo da decisão</legend>'+
+    '<label class="admin-option-row"><input type="radio" name="ads-homologation-preset" value="'+
+    (testActive?'Autorização de teste financeiro revogada após revisão administrativa dos próximos checkouts.':
+     'Campanha e elegibilidade para homologação financeira real conferidas pelo administrador.')+'"> '+
+    (testActive?'Revogar autorização de teste':'Autorizar teste real acompanhado')+'</label></fieldset>'+
+    '<details><summary>Outro motivo (opcional)</summary>'+
+    '<label for="ads-homologation-reason">Justificativa personalizada</label>'+
+    '<textarea id="ads-homologation-reason" class="input" maxlength="500" rows="2"></textarea></details>'+
+    '<fieldset><legend>Confirmações obrigatórias</legend>'+
+    '<label class="admin-option-row"><input type="checkbox" id="ads-homologation-check-verify"> '+
+    (testActive?'Conferi a autorização ativa e sei que links já emitidos exigem conciliação.':
+      'Conferi a campanha, o recebedor e sei que é um pagamento REAL, não simulado.')+'</label>'+
+    '<label class="admin-option-row"><input type="checkbox" id="ads-homologation-check-confirm"> '+
+    (testActive?'Confirmo que quero revogar novos checkouts desta autorização.':
+      'Autorizo exclusivamente a campanha selecionada para esta homologação.')+
+    '</label></fieldset>'+
+    '<button class="secondary small" type="button" '+
+      'onclick="adminIndependentAdsHomologationAction('+(testActive?'false':'true')+')" '+
+      ((adminIndependentAdsBusy||(!testActive&&!eligibleTestCampaigns.length))?'disabled':'')+'>'+
+      (testActive?'Revogar autorização para novo checkout':'Autorizar uma compra real de R$ 19,90')+
+    '</button>'+
+    '<p class="tiny muted">Revogação não desfaz pagamentos já enviados ao Mercado Pago. '+
+    'Confira webhook, pagamento e estorno antes da abertura comercial.</p></div>';
+}
 function adminAdsIndependentSection(){
  const role=String(adminCurrentRole());
  if(!['superadmin','operations','compliance','finance'].includes(role))return '';
