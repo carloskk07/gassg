@@ -261,15 +261,23 @@ function adminActivationGo(key){
     payments:['finance','.admin-finance-workspace-panel'],
     push:['system','.admin-governance'],
     cities:['system','.admin-governance-city-block'],
-    merchant:['enablement','.admin-enable-workspace'],
+    merchant:['enablement','.admin-enablement'],
     paidCoupons:['finance','.admin-finance-workspace-panel'],
-    independentAds:['ads','.admin-ads-independent'],
+    independentAds:['ads','.admin-ads-workspace'],
     mobility:['orders','.admin-orders'],
     discovery:['discovery','.admin-discovery']
   };
   const target=routes[key];
   if(!adminReady()||!adminRoleCanSection('activations')||!target||
      !adminRoleCanSection(target[0]))return;
+  // Navigate to the actual commercial task, not an unrelated default tab.
+  // Choosing a tab never submits a form or relaxes the server's payment gates.
+  if(key==='paidCoupons')adminRuntime.financeWorkspace='policy';
+  if(key==='independentAds'&&typeof adminAdsWorkspaceTab!=='undefined'&&
+      typeof adminIndependentAdsPane!=='undefined'){
+    adminAdsWorkspaceTab='campaigns';
+    adminIndependentAdsPane='finance';
+  }
   adminSetSection(target[0]);
   requestAnimationFrame(()=>document.querySelector(target[1])?.scrollIntoView({block:'start'}));
 }
