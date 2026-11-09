@@ -17,7 +17,8 @@ const hs=customer.indexOf('function tamaoDiscoveryEntryHub()'),he=customer.index
 assert.ok(hs>=0&&he>hs);
 const ctx={};vm.runInNewContext(customer.slice(hs,he)+';this.hub=tamaoDiscoveryEntryHub;',ctx);
 const hub=ctx.hub();
-assert.equal((hub.match(/class="intent-card tamao-home-service"/g)||[]).length,7);
+assert.equal((hub.match(/class="intent-card tamao-home-service"/g)||[]).length,6);
+assert.doesNotMatch(hub,/href="\/#stays"/,'paused stays are not a commercial service tile');
 assert.equal((hub.match(/class="tamao-home-mobility-grid"/g)||[]).length,1);
 assert.match(hub,/Pedir uma moto/);assert.match(hub,/Pedir um carro/);
 assert.match(hub,/\/\?modalidade=moto#mobility/);
