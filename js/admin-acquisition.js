@@ -1776,26 +1776,6 @@ function adminLeadStatusLabel(value){
 function adminLeadStatusClass(value){
   return value==='converted'?'online':value==='closed'?'offline':'';
 }
-// V1.911 — explicit, factual optional notes; selecting one never updates a lead.
-const ADMIN_LEAD_NOTE_CHOICES={
- return:'A pessoa solicitou um retorno em outro momento.',
- advertising:'A pessoa pediu informações sobre publicidade no TAMÃO.',
- commerce:'A pessoa pediu informações sobre vender produtos pelo TAMÃO.',
- declined:'A pessoa informou que prefere não continuar neste momento.'
-};
-function adminLeadQuickNoteChanged(leadId,key){
- if(!/^[0-9a-f-]{36}$/i.test(String(leadId||''))||
-  !Object.prototype.hasOwnProperty.call(ADMIN_LEAD_NOTE_CHOICES,key))return false;
- const note=document.getElementById('admin-lead-note-'+leadId);
- const selector=document.getElementById('admin-lead-note-choice-'+leadId);
- if(!note||!selector)return false;
- const next=ADMIN_LEAD_NOTE_CHOICES[key];
- if(note.value&&note.value!==next&&!confirm('Substituir a observação atual pela opção selecionada?')){
-  selector.value='';return false;
- }
- note.value=next;
- return true;
-}
 function adminLeadActionButtons(x){
   const status=String(x.status||'new');
   if(status==='converted'||status==='closed')return '';
@@ -1808,16 +1788,7 @@ function adminLeadActionButtons(x){
     '<select id="admin-lead-close-reason-'+esc(x.id)+'" class="input"><option value="">Selecione o motivo</option>'+
       '<option value="declined">Desistiu</option><option value="no_contact">Sem retorno após tentativas</option>'+
       '<option value="duplicate">Cadastro duplicado</option><option value="out_of_scope">Fora da cobertura</option></select></div>'+
-    '<details><summary>Observação opcional (escolher ou escrever)</summary>'+
-    '<label for="admin-lead-note-choice-'+esc(x.id)+'">Usar uma observação pronta</label>'+
-    '<select id="admin-lead-note-choice-'+esc(x.id)+'" class="input" onchange="adminLeadQuickNoteChanged(\''+x.id+'\',this.value)">'+
-    '<option value="">Selecione apenas se ocorreu</option>'+
-    '<option value="return">Solicitou retorno</option>'+
-    '<option value="advertising">Pediu informações sobre anúncios</option>'+
-    '<option value="commerce">Pediu informações sobre vendas</option>'+
-    '<option value="declined">Não quer prosseguir</option></select>'+
-    '<label for="admin-lead-note-'+esc(x.id)+'">Observação editável</label>'+
-    '<textarea id="admin-lead-note-'+esc(x.id)+'" class="input" rows="2" maxlength="240"></textarea></details>';
+    '<details><summary>Observação adicional (opcional)</summary><textarea id="admin-lead-note-'+esc(x.id)+'" class="input" rows="2" maxlength="240"></textarea></details>';
   return reason+'<div class="order-actions pipeline-actions">'+buttons.join('')+'</div>';
 }
 async function adminSetPrelaunchLeadStatus(leadId,status){
