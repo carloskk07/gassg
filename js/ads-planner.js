@@ -2,6 +2,9 @@
 // CPM candidate: R$12 per 1,000 independently verified display views.
 const TAMAO_ADS_PROPOSED_CPM_CENTS=1200;
 const TAMAO_ADS_PREVIEW_BUDGETS=[1990,4990,9990,19990];
+// V1.911 — UF is selected, never typed or inferred from a fictitious location.
+const TAMAO_ADS_UFS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
+ 'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 function tamaoAdsFixedDays(budgetCents){
  const days={1990:7,4990:15,9990:30,19990:30}[Number(budgetCents)];
  return Number.isSafeInteger(days)?days:null;
@@ -80,7 +83,9 @@ function tamaoAdsPlannerSection(){
       '<option value="7">7 dias</option><option value="15" selected>15 dias</option><option value="30">30 dias</option></select></div></div>'+
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-city">Cidade <small>(opcional)</small></label><input id="sponsor-cpm-city" class="input" maxlength="80" autocomplete="address-level2" placeholder="Ex.: São Gabriel"></div>'+
-    '<div class="input-wrap"><label for="sponsor-cpm-state">Estado (UF)</label><input id="sponsor-cpm-state" class="input" maxlength="2" value="RS" autocomplete="address-level1" aria-describedby="sponsor-cpm-note"></div></div>'+
+    '<div class="input-wrap"><label for="sponsor-cpm-state">Estado (UF)</label><select id="sponsor-cpm-state" class="input" autocomplete="address-level1" aria-describedby="sponsor-cpm-note">'+
+     TAMAO_ADS_UFS.map(uf=>'<option value="'+uf+'"'+(uf==='RS'?' selected':'')+'>'+uf+'</option>').join('')+
+    '</select></div></div>'+
     '<p id="sponsor-cpm-result" role="status" aria-live="polite">Equivalência do teto: até '+
     preset.maxViewableImpressions.toLocaleString('pt-BR')+
     ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.</p>'+
@@ -93,6 +98,55 @@ function tamaoAdsPlannerSection(){
     '</div></section>'+tamaoAdsCampaignForm();
 }
 
+
+// V1.911 — user-selected editable drafts, never automatic submission.
+const TAMAO_ADS_COPY_MODELS={
+ company:{
+  title:name=>'Conheça a empresa '+name,
+  description:name=>'Conheça a empresa '+name+'. Consulte o site indicado para saber mais sobre o anunciante.'
+ },
+ website:{
+  title:name=>'Saiba mais sobre '+name,
+  description:name=>'Acesse o site indicado para conhecer '+name+' e consultar informações sobre a empresa.'
+ },
+ contact:{
+  title:name=>'Entre em contato com '+name,
+  description:name=>'Conheça '+name+'. Consulte os canais de contato informados no site indicado neste anúncio.'
+ }
+};
+function tamaoAdsCampaignUseModel(key){
+ if(!Object.prototype.hasOwnProperty.call(TAMAO_ADS_COPY_MODELS,key))return false;
+ const company=String(document.getElementById('sponsor-ad-company')?.value||'').trim();
+ const title=document.getElementById('sponsor-ad-title');
+ const description=document.getElementById('sponsor-ad-copy');
+ if(company.length<2||!title||!description){
+  toast('Informe primeiro o nome real da empresa.');return false;
+ }
+ const model=TAMAO_ADS_COPY_MODELS[key];
+ const nextTitle=model.title(company),nextDescription=model.description(company);
+ if(nextTitle.length>80||nextDescription.length>240){
+  toast('Nome muito longo para o modelo. Escreva o título e a mensagem personalizados.');return false;
+ }
+ if((title.value||description.value)&&
+  (title.value!==nextTitle||description.value!==nextDescription)&&
+  !confirm('Substituir o título e a mensagem atuais pelo modelo selecionado?'))return false;
+ title.value=nextTitle;description.value=nextDescription;
+ return true;
+}
+// Refund requests are self-declared motives, not proof of PSP reversal or wrongdoing.
+const TAMAO_ADS_REFUND_MOTIVES={
+ cancel:'Solicito o cancelamento desta campanha e uma análise de eventual reembolso.',
+ charge:'Não reconheço a cobrança vinculada a esta campanha e solicito esclarecimento e análise.',
+ delivery:'Tenho uma divergência sobre a veiculação desta campanha e solicito análise.'
+};
+function tamaoAdsRefundReasonText(campaignId){
+ if(!/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))return '';
+ const choice=String(document.getElementById('ads-refund-choice-'+campaignId)?.value||'');
+ const extra=String(document.getElementById('ads-refund-reason-'+campaignId)?.value||'').trim().replace(/\s+/g,' ');
+ if(choice==='custom')return extra;
+ if(!Object.prototype.hasOwnProperty.call(TAMAO_ADS_REFUND_MOTIVES,choice))return '';
+ return TAMAO_ADS_REFUND_MOTIVES[choice]+(extra?' Detalhes: '+extra:'');
+}
 
 // V1.884: independent advertiser intake with verified email; never charges.
 let tamaoAdsDraftRequestId=null;
@@ -153,9 +207,17 @@ function tamaoAdsCampaignForm(){
         '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\''+id+'\')">'+
         'Verificar pagamento</button>':'';
       const refundAction=bought==='payment_approved'&&!refundStatus?
-        '<div class="card flat"><label for="ads-refund-reason-'+id+'">Solicitar cancelamento ou reembolso</label>'+
+        '<div class="card flat"><label for="ads-refund-choice-'+id+'">Motivo da solicitação</label>'+
+        '<select id="ads-refund-choice-'+id+'" class="input">'+
+        '<option value="">Selecione o motivo real</option>'+
+        '<option value="cancel">Quero cancelar a campanha</option>'+
+        '<option value="charge">Não reconheço a cobrança</option>'+
+        '<option value="delivery">Divergência na veiculação</option>'+
+        '<option value="custom">Outro motivo</option></select>'+
+        '<details><summary>Acrescentar detalhes ou escrever outro motivo (opcional)</summary>'+
+        '<label for="ads-refund-reason-'+id+'">Detalhes para análise</label>'+
         '<textarea id="ads-refund-reason-'+id+'" class="input" maxlength="500" rows="2" '+
-          'placeholder="Descreva a solicitação para análise"></textarea>'+
+          'placeholder="Conte somente o que aconteceu."></textarea></details>'+
         '<button class="secondary small" type="button" onclick="tamaoAdsRequestRefund(\''+id+'\')" '+
           (tamaoAdsRefundBusy?'disabled':'')+'>Solicitar análise de reembolso</button>'+
         '<small>O pedido pausa a publicidade. Não confirma devolução de dinheiro antes da resposta do provedor.</small></div>':
@@ -190,6 +252,14 @@ function tamaoAdsCampaignForm(){
     '<input id="sponsor-ad-company" class="input" maxlength="120" autocomplete="organization" required></label>'+
     '<label class="input-wrap">Título da campanha'+
     '<input id="sponsor-ad-title" class="input" maxlength="80" placeholder="Apresente sua marca na cidade" required></label></div>'+
+    '<div class="input-wrap"><label for="sponsor-ad-template">Modelo para preencher título e mensagem (opcional)</label>'+
+    '<select id="sponsor-ad-template" class="input">'+
+    '<option value="">Escolha como apresentar sua empresa</option>'+
+    '<option value="company">Apresentar minha empresa</option>'+
+    '<option value="website">Convidar para visitar meu site</option>'+
+    '<option value="contact">Mostrar como entrar em contato</option></select>'+
+    '<button type="button" class="secondary small" onclick="tamaoAdsCampaignUseModel(document.getElementById(\'sponsor-ad-template\').value)">Preencher modelo para revisar</button>'+
+    '<small>O modelo usa apenas o nome informado. Confira e edite antes de enviar.</small></div>'+
     '<label class="input-wrap">Mensagem do anúncio (20 a 240 caracteres)'+
     '<textarea id="sponsor-ad-copy" class="input" maxlength="240" rows="3" placeholder="Explique claramente o que sua empresa oferece." required></textarea></label>'+
     '<label class="input-wrap">Site oficial do anúncio (HTTPS)'+
@@ -293,7 +363,7 @@ async function tamaoAdsBuyCampaign(campaignId){
 async function tamaoAdsRequestRefund(campaignId){
  if(tamaoAdsRefundBusy)return;
  if(!tamaoAdsAccountVerified())return toast('Entre na sua conta para solicitar reembolso.');
- const text=String(document.getElementById('ads-refund-reason-'+campaignId)?.value||'').trim().replace(/\s+/g,' ');
+ const text=tamaoAdsRefundReasonText(campaignId);
  if(text.length<12||text.length>500)return toast('Explique a solicitação em 12 a 500 caracteres.');
  if(!tamaoAdsRefundRequestIds.has(campaignId))
   tamaoAdsRefundRequestIds.set(campaignId,crypto.randomUUID());
