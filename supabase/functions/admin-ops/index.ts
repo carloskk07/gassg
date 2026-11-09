@@ -1189,15 +1189,15 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     referralProviderObservations:"platform_referral_provider_observations_v1_265",
     welcomeMobilityUses:"mobility_welcome_uses_v1_833",
     professionalAdsLedger:"discovery_advertising_daily_ledger"
-  } as const;
+  };
   const entries=await Promise.all(Object.entries(tables).map(async ([key,table])=>{
     const {count,error}=await admin.from(table).select("*",{count:"exact",head:true});
     if(error||!Number.isSafeInteger(count)||count<0)
       throw new DomainError("FINANCE_HOMOLOGATION_EVIDENCE_UNAVAILABLE",
         "Não foi possível conferir as evidências financeiras de todos os módulos.",503);
-    return [key,count] as const;
+    return [key,count];
   }));
-  const counts=Object.fromEntries(entries) as Record<string,number>;
+  const counts=Object.fromEntries(entries);
   const [coupon,mobility,ads]=await Promise.all([
     admin.from("clube_coupon_paid_packages").select(
       "package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified"
