@@ -401,7 +401,7 @@ function discoveryInquiryForm(item,kind){
   '</select></label>':
   '<label>Entrada desejada<input name="checkin" type="date" required></label>'+
   '<label>Saída desejada<input name="checkout" type="date" required></label>'+
-  '<label>Hóspedes<input name="guests" type="number" required min="1" max="'+count+'" value="1"></label>';
+  '<label>Hóspedes<select name="guests" required>'+Array.from({length:count},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+'</option>').join('')+'</select></label>';
  return '<details class="discovery-inquiry" data-listing-id="'+esc(String(item?.id||'').toLowerCase())+
   '" data-phone="'+esc(phone)+
   '" data-kind="'+kind+'" data-service="'+mobility+'" data-title="'+title+
