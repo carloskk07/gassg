@@ -150,7 +150,6 @@ async function startHomeOrder({addFeatured=true}={}){
   }
 }
 
-// Product-first entry: preserve the existing cart and CEP, never silently add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
@@ -198,7 +197,6 @@ function homeQuoteSyncPostal(input){
  const digits=String(input.value||'').replace(/\D/g,'').slice(0,8);
  const formatted=digits.length>5?digits.slice(0,5)+'-'+digits.slice(5):digits;
  input.value=formatted;
- // Hide a previous server quote as soon as someone edits a different CEP.
  if(digits!==String(state.postalCode||'').replace(/\D/g,'')){
   globalThis.liveInvalidateOfferAddressDraft?.();
   homeQuoteUpdateBasket();
@@ -225,7 +223,6 @@ function homeQuoteGoToOrder(){
  if(!Object.values(state.cart||{}).some(quantity=>Number(quantity)>0)){
   toast('Adicione um produto para montar sua cesta.');return false;
  }
- // The basket CTA must not discard a CEP entered in a product disclosure.
  const input=document.querySelector?.('.city-price-product-pick[open] .city-price-product-postal')||
    document.querySelector?.('.city-price-product-postal');
  const raw=String(input?.value||'').trim(),postal=raw.replace(/\D/g,'');
@@ -243,13 +240,11 @@ function homeQuoteGoToOrder(){
  go('order');return true;
 }
 
-// Product-only one-tap addition: no address requirement or claimed live price.
 function homeQuoteQuickAdd(code){
  const sku=String(code||'').trim().toUpperCase();
  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){
   toast('Este produto não está disponível para selecionar.');return false;
  }
- // Only the currently displayed city quote can provide this control.
  if(!document.querySelector?.('[data-city-quote-code="'+sku+'"]'))return false;
  const current=Number(state.cart?.[sku]||0);
  if(!Number.isInteger(current)||current<0||current>=99){
@@ -833,8 +828,6 @@ ${internalPilot?`<section class="section"><div class="card flat"><span class="se
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Anuncie seu comércio. Receber pedidos pelo TAMÃO é opcional.</h2><p>Para começar, basta o nome do estabelecimento e um WhatsApp. Você escolhe depois se também quer usar cotações, entregas e pedidos pela plataforma.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">2 DADOS</span><small>para o primeiro contato</small></div><div><strong>Mais visibilidade para sua empresa, sem papelada na entrada.</strong><p>Anúncios e pedidos são etapas diferentes. A publicação depende de confirmação do contato e das verificações aplicáveis à atividade.</p></div><button class="primary" onclick="openPrelaunchMerchantLead()">Quero anunciar minha empresa →</button></div></section>`}`)
 }
-// V1.302: explain the next buyer action without bypassing real availability,
-// quote validation, server-side permissions or the existing payment flow.
 function customerCheckoutJourney({hasItems=false,hasAddress=false,hasPhone=false,
   hasOffers=false,loadingOffers=false,pendingOrder=false}={}){
   if(pendingOrder)return '<aside class="buyer-journey buyer-journey-pending" aria-label="Seu pedido em andamento">'+
@@ -967,8 +960,6 @@ function orderPage(){
   const hasGlp=hasGlpCart();
   const needsContainer=hasGlp&&state.checkout.glpContainerMode==='needs_container';
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
-  // A quote can expire between network refresh and UI render. Only display
-  // offers with a valid expiry in the real checkout, never a stale action card.
   const freshOffers=customerEligibleCheckoutOffers(os,{testDemo});
   const singleSupplier=(internalPilot&&freshOffers.length===1)||(!testDemo&&ready&&freshOffers.length===1&&liveRuntime.marketMode==='single_supplier');
   const pendingOrder=testDemo
@@ -988,7 +979,6 @@ function orderPage(){
   }
 
   let offerBlock='';
-  // No supplier: enable a support request without creating an order.
   if(hasItems&&!hasAddress&&!testDemo&&preview){
     offerBlock='<div class="notice" role="status"><strong>Precisa destes produtos?</strong><br>Informe seu endereço para consultar a entrega. Se preferir, envie a cesta ao atendimento TAMÃO e receba uma resposta sobre disponibilidade e valor.<div class="order-actions"><button type="button" class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div><small>Solicitação sem compra ou cobrança. O preço final ainda não foi confirmado.</small></div>';
   }
@@ -1140,7 +1130,6 @@ function checkoutOfferCards(all){
   return sortedCheckoutOffers(all).map(o=>offerCard(o,facts)).join('');
 }
 function checkoutSponsoredEditorial(){
-  // Separate information space; never affects sorting, quote totals or checkout.
   // Server-side rollout is locked OFF until delivery integrity is established.
   const slot=globalThis.liveRuntime?.sponsoredSlot;
   if(!slot||slot.label!=='Patrocinado'||slot.nonBillable!==true||
@@ -1340,8 +1329,6 @@ function offerCard(o,facts={}){
   </article>`;
 }
 
-// V1.380 — User-facing address hints use the complete input, never a truncated
-// CEP or number, and never imply a valid server-side address or quote.
 function customerAddressDraftGuidance(postalCode,addressNumber,{hasItems=false,serviceReady=false}={}){
   const postal=String(postalCode||'');
   const number=String(addressNumber||'');
@@ -1578,7 +1565,6 @@ const statusCopy={
   CANCELLED:['Cancelado','O pedido não será entregue.']
 };
 
-// V1.164 — only server status advances the visible buyer journey.
 function customerOrderGuidance(status){
   const copy={
     CREATED:['Pedido registrado','A solicitação foi registrada; uma revenda ainda precisa aceitar.'],
@@ -1674,7 +1660,6 @@ function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeco
 }
 
 
-/* V1.179 — buyer-facing incident notices omit internal merchant diagnostics. */
 function customerIncidentStatusView(order){
   const content={
     AT_RISK:{
@@ -1839,8 +1824,6 @@ function customerTrackingReadEvidence(order,{checkedAt=null,checkedId=null,now=D
     ?'Pedido consultado agora. O andamento pode mudar depois desta consulta.'
     :'Pedido consultado há '+minutes+' min. Novas etapas dependem da confirmação da revenda.'};
 }
-// V1.382 — A countdown is displayable only with valid timestamp evidence.
-// Unknown deadlines are not equivalent to an expired or active proposal.
 function customerTrackingRemainingSeconds(expiresAt,now=Date.now()){
   if(typeof expiresAt!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/.test(expiresAt))return null;
   const parsed=Date.parse(expiresAt);
@@ -1853,7 +1836,6 @@ function customerTrackingTotal(order){
   return value!=null&&Number.isSafeInteger(cents)&&cents>=0&&cents<=1000000000
     ?cents/100:null;
 }
-// V1.383 — This card describes only the latest server-confirmed stage.
 function customerDeliveryStagePanel(order,{evidence,pending=false}={}){
   const stages={
     MERCHANT_ACCEPTED:['Revenda aceitou o pedido',
@@ -1951,8 +1933,6 @@ function customerTrackingPrimaryAction(order,{evidence,pending=false,remainingSe
   return refresh('Atualizar acompanhamento');
 }
 
-// V1.384 — Only order-scoped support cases returned by get-order are shown.
-// Created/resolved timestamps are not a live operator response or promised SLA.
 let customerSupportSubmitting=false;
 const customerSupportCategories={
   late:'Atraso',wrong_item:'Produto incorreto',
