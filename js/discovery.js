@@ -532,7 +532,7 @@ function discoveryReportForm(item,kind){
    '<option value="suspected_fraud">Possível fraude</option>'+
    '<option value="unsafe_content">Conteúdo perigoso</option>'+
    '<option value="other">Outro problema</option></select></label>'+
-  '<label>Detalhes que deseja revisar<select onchange="discoveryReportPresetChanged(this)">'+
+  '<label>Detalhes que deseja revisar<select required onchange="discoveryReportPresetChanged(this)">'+
    '<option value="">Escolha uma descrição</option>'+
    Object.entries(DISCOVERY_REPORT_DETAIL_CHOICES).map(([key,text])=>
     '<option value="'+key+'">'+esc(text)+'</option>').join('')+
