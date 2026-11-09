@@ -6170,7 +6170,7 @@ async function adminFinanceHomologationRefresh(){
        m.diagnosis.labPixCount>=0&&m.diagnosis.labPixCount<=6&&
        ['none','pending','psp_processed','reversal','unverified','unavailable']
         .includes(m.diagnosis.latestLabWebhook)&&
-       typeof m.diagnosis.nextAction==='string'&&m.diagnosis.nextAction.length>10))))
+       typeof m.diagnosis.nextAction==='string'&&m.diagnosis.nextAction.length>10)))
    throw Error('O servidor não confirmou as evidências de todos os módulos.');
   if(actor!==String(adminRuntime?.session?.user?.id||'')||
      adminCurrentRole()!=='superadmin')return;
