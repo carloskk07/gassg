@@ -2062,9 +2062,16 @@ function liveCustomerCareBlock(o){
       '<option value="no_show">Entrega não apareceu</option>'+
       '<option value="delivery">Problema na entrega</option>'+
       '<option value="other">Outro problema</option></select></div>'+
+    '<div class="input-wrap"><label for="support-note-choice">Recado pronto (opcional)</label>'+
+      '<select id="support-note-choice" class="input" onchange="document.getElementById(\'support-message\').value=this.value">'+
+      '<option value="">Sem recado adicional</option>'+
+      '<option value="Quero conferir o andamento deste pedido.">Conferir andamento</option>'+
+      '<option value="Gostaria de confirmar as opções de solução para este problema.">Consultar soluções</option>'+
+      '<option value="Preciso de orientação sobre este atendimento.">Pedir orientação</option></select></div>'+
+    '<details><summary>Escrever recado diferente (opcional)</summary>'+
     '<div class="input-wrap"><label for="support-message">Conte em poucas palavras (opcional)</label>'+
       '<textarea id="support-message" class="input" maxlength="1000" rows="3" '+
-        'placeholder="Ex.: chegou um item diferente do pedido."></textarea></div>'+
+        'placeholder="Conte somente o que você conhece sobre o ocorrido."></textarea></div></details>'+
     '<p id="support-inline-feedback" class="customer-care-form-feedback" role="status" aria-live="polite">'+
       (openLate?'Já existe um atendimento de atraso em acompanhamento. Escolha outro motivo ou atualize o pedido.':
         'Descreva o que aconteceu. O registro ficará vinculado a este pedido.')+'</p>'+

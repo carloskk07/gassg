@@ -5590,6 +5590,7 @@ function adminClubeSponsorSection(){
       '<p>Cupons gerais utilizáveis em pedidos com total mínimo de <strong>'+
       adminMoney(pool.generalCouponMinOrderCents)+'</strong>, independente de gás, água, carvão, lenha, gelo ou outros itens do catálogo.</p>'+
       (role==='superadmin'&&!pool.generalCouponSaleEnabled?
+        (typeof adminClubeAmountChoices==='function'?adminClubeAmountChoices('adminClubeGeneralMinimumValue'):'')+
         '<label for="adminClubeGeneralMinimumValue">Alterar pedido mínimo (R$)</label>'+
         '<input id="adminClubeGeneralMinimumValue" type="text" inputmode="decimal" autocomplete="off" value="'+
         esc((pool.generalCouponMinOrderCents/100).toFixed(2).replace('.',','))+'" maxlength="8">'+
@@ -5603,6 +5604,7 @@ function adminClubeSponsorSection(){
     (role==='superadmin'&&pool?'<div class="card flat form-stack">'+
       '<h4>Acrescentar orçamento e gerar capacidade de cupons</h4>'+
       '<p class="muted">Digite quanto deseja patrocinar. O limite aumenta e o sistema poderá emitir novos cupons conforme as compras forem confirmadas.</p>'+
+      (typeof adminClubeAmountChoices==='function'?adminClubeAmountChoices('adminClubeSponsorTopupValue'):'')+
       '<label for="adminClubeSponsorTopupValue">Novo valor em reais</label>'+
       '<input id="adminClubeSponsorTopupValue" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 100,00" maxlength="8" aria-label="Novo valor do patrocínio de cupons">'+
       '<button type="button" class="primary small" onclick="adminClubeSponsorTopupFromUi()" '+

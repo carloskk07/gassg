@@ -1984,6 +1984,20 @@ function merchantDailyChecklistView(rt,options={}){
     (delivery?'<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Conferir entregas</button>':'')+
     '</div></section>';
 }
+// V1.908 — stock choices are drafts; real quantity is confirmed on product save.
+function merchantNewStockQuick(id,value){
+ if(!['live-new-registry-stock','live-new-glp-stock','live-new-container-stock'].includes(id)||
+    !['0','5','10','25','50'].includes(String(value)))return false;
+ const field=document.getElementById(id);
+ if(!field||field.disabled)return false;
+ field.value=String(value);return true;
+}
+function merchantNewStockOptions(id){
+ return '<label for="'+id+'-quick">Estoque pronto<select id="'+id+'-quick" class="input" onchange="merchantNewStockQuick(\''+id+'\',this.value)">'+
+ '<option value="">Marque a quantidade conferida</option>'+
+ [0,5,10,25,50].map(v=>'<option value="'+v+'">'+(v===0?'Esgotado':v+' unidades')+'</option>').join('')+
+ '</select></label>';
+}
 function merchantQuickStockAdjust(productCode,change){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready'||rt.actionPending===true||
@@ -4796,7 +4810,7 @@ function merchantLiveCatalog(){
         </select><small class="field-help" id="live-new-registry-count" aria-live="polite">${addableProducts.length} produto(s) para escolher</small></div>
         <div class="field-row">
           <div class="input-wrap"><label for="live-new-registry-price">Preço</label><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
-          <div class="input-wrap"><label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+          <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-registry-stock'):''}<label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
         </div>
         <button class="primary merchant-catalog-add-btn" id="live-new-registry-add" onclick="merchantLiveAddRegisteredProduct()">Adicionar produto</button>
       </div>`
@@ -4808,7 +4822,7 @@ function merchantLiveCatalog(){
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-glp-code">Tamanho do botijão</label><select id="live-new-glp-code" class="input">${merchantCatalogGasOptions(rt)}</select></div>
       <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
-      <div class="input-wrap"><label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+      <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-glp-stock'):''}<label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
   </div>`;
@@ -4819,7 +4833,7 @@ function merchantLiveCatalog(){
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-container-code">Tamanho do vasilhame</label><select id="live-new-container-code" class="input">${merchantCatalogGasOptions(rt,true)}</select></div>
       <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
-      <div class="input-wrap"><label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+      <div class="input-wrap">${typeof merchantNewStockOptions==='function'?merchantNewStockOptions('live-new-container-stock'):''}<label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;

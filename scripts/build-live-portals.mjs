@@ -346,7 +346,8 @@ export function compactReleasedCustomerComments(source){
   // Compact only leading indentation of executable statement lines in the emitted copy;
   // never rewrite canonical documentation or arbitrary multiline HTML templates.
   const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
-    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'');
+    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'')
+    .replace(/^ {2,}(?=[A-Za-z_$][\w$]*[.(=])/gm,'');
   validateClassicScriptSyntax(released,'emitted customer.js');
   return released;
 }
@@ -391,7 +392,8 @@ export function compactReleasedMerchantComments(source){
   // Remove only statement-leading indentation in the generated merchant asset.
   // The reviewed, canonical merchant source remains unchanged.
   const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
-    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'');
+    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'')
+    .replace(/^ {2,}(?=[A-Za-z_$][\w$]*[.(=])/gm,'');
   if(Buffer.byteLength(source,'utf8')-Buffer.byteLength(released,'utf8')<3000)
     throw new Error('Merchant startup savings no longer validated');
   validateClassicScriptSyntax(released,'emitted merchant.js');

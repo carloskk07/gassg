@@ -708,8 +708,8 @@ function discoveryPage(){
       ?'<label>Origem<input id="discovery-origin" maxlength="120" value="'+esc(s.origin)+'" placeholder="Saindo de"></label>'+
        '<label>Destino<input id="discovery-destination" maxlength="120" value="'+esc(s.destination)+'" placeholder="Indo para"></label>'+ 
        '<label>Saída a partir de<input id="discovery-departure-after" type="datetime-local" value="'+esc(s.departureAfter)+'"></label>'+
-       '<label>Vagas mínimas<input id="discovery-min-seats" type="number" min="1" max="8" step="1" value="'+esc(s.minSeats)+'" placeholder="Ex.: 2"></label>'
-      :kind==='stays'?'<label>Hóspedes<input id="discovery-guests" type="number" min="1" max="80" value="'+esc(s.guests)+'"></label>'+
+       '<label>Vagas mínimas<select id="discovery-min-seats"><option value="">Qualquer quantidade</option>'+Array.from({length:8},(_,i)=>'<option value="'+(i+1)+'"'+(String(s.minSeats)===String(i+1)?' selected':'')+'>'+(i+1)+' vaga(s)</option>').join('')+'</select></label>'
+      :kind==='stays'?'<label>Hóspedes<select id="discovery-guests"><option value="">Qualquer quantidade</option>'+Array.from({length:80},(_,i)=>'<option value="'+(i+1)+'"'+(String(s.guests)===String(i+1)?' selected':'')+'>'+(i+1)+' hóspede(s)</option>').join('')+'</select></label>'+
        '<label>Tipo de hospedagem<select id="discovery-property-type"><option value="">Todos os tipos</option>'+
        [['hotel','Hotel'],['inn','Pousada'],['holiday_house','Casa de temporada'],['beach_house','Casa de praia'],['apartment','Apartamento'],['cabin','Cabana'],['country_house','Casa de campo'],['other','Outro']].map(([code,label])=>
         '<option value="'+code+'"'+(s.propertyType===code?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
