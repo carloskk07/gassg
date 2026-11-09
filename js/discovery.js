@@ -368,6 +368,23 @@ function discoveryReportPresetChanged(select){
   editor.value=DISCOVERY_REPORT_DETAIL_CHOICES[key];drawer.open=false;
   return true;
 }
+// V1.913 — selectable profession filter stays a local draft until Pesquisar.
+const DISCOVERY_PROFESSIONS_QUICK=['Eletricista','Encanador','Pedreiro','Pintor','Diarista','Jardineiro'];
+function discoveryOccupationQuick(select){
+ const input=document.getElementById('discovery-occupation');
+ if(!input||input.disabled)return false;
+ const value=String(select?.value||'');
+ if(value==='custom'){input.focus?.();return true;}
+ if(!DISCOVERY_PROFESSIONS_QUICK.includes(value))return false;
+ if(input.value&&input.value!==value&&!confirm('Substituir a profissão que você digitou?'))return false;
+ input.value=value;return true;
+}
+function discoveryOccupationQuickOptions(){
+ return '<label>Profissão rápida (opcional)<select onchange="discoveryOccupationQuick(this)">'+
+ '<option value="">Selecione se corresponder à sua busca</option>'+
+ DISCOVERY_PROFESSIONS_QUICK.map(v=>'<option value="'+v+'">'+v+'</option>').join('')+
+ '<option value="custom">Informar outra profissão</option></select></label>';
+}
 // V1.912 — purely local draft shortcuts, no provider contact or reservation.
 function discoveryInquiryDayQuickChoice(select){
  const box=select?.closest?.('.discovery-inquiry');
@@ -732,7 +749,7 @@ function discoveryPage(){
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
     '<option value="'+uf+'"'+(s.state===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></label>'+
     '<label>Cidade<input id="discovery-city" autocomplete="address-level2" placeholder="Digite a cidade" maxlength="120" value="'+esc(s.city)+'"></label>'+
-    (kind==='professionals'?'<label>Profissão ou especialidade<input id="discovery-occupation" maxlength="100" placeholder="Ex.: eletricista" value="'+esc(s.occupation)+'"></label>':'')+
+    (kind==='professionals'?discoveryOccupationQuickOptions()+'<label>Profissão ou especialidade<input id="discovery-occupation" maxlength="100" placeholder="Ex.: eletricista" value="'+esc(s.occupation)+'"></label>':'')+
     (kind==='rides'
       ?'<label>Origem<input id="discovery-origin" maxlength="120" value="'+esc(s.origin)+'" placeholder="Saindo de"></label>'+
        '<label>Destino<input id="discovery-destination" maxlength="120" value="'+esc(s.destination)+'" placeholder="Indo para"></label>'+ 
