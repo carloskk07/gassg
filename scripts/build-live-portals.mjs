@@ -343,7 +343,10 @@ export function compactReleasedCustomerComments(source){
   // Retain documentation in the canonical source, omit comment-only lines from released JS.
   const remaining=[...output.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(remaining.length<18)throw new Error('Customer remaining-comment contract changed');
-  const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  // Compact only leading indentation of executable statement lines in the emitted copy;
+  // never rewrite canonical documentation or arbitrary multiline HTML templates.
+  const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+    .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'');
   validateClassicScriptSyntax(released,'emitted customer.js');
   return released;
 }
