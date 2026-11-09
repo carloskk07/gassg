@@ -431,6 +431,32 @@ function adminMarketingIntakeView(){
 }
 
 
+// V1.906 — internal commercial planning by selection, without producing invoices.
+const ADMIN_ADS_PLAN_NOTE_PRESETS=Object.freeze({
+  approach:'Planejar abordagem comercial com a revenda',
+  review:'Revisar condições comerciais antes de entrar em contato',
+  documents:'Solicitar documentos pertinentes antes de continuar a negociação',
+  awaiting:'Aguardar retorno da revenda antes de avançar a proposta'
+});
+function adminAdsPlanQuickChoose(merchantId,field,choice){
+  if(!/^[0-9a-f-]{36}$/i.test(String(merchantId||'')))return;
+  if(!['price','days','note'].includes(field))return;
+  const key='ads-plan-'+merchantId+'-'+field;
+  const input=document.getElementById(key);
+  const manual=document.getElementById(key+'-manual');
+  if(!input||!manual)return;
+  if(choice==='custom'){manual.open=true;input.focus?.();return;}
+  if(choice==='keep')input.value=input.dataset?.initial||'';
+  else if(field==='note'){
+    if(!Object.prototype.hasOwnProperty.call(ADMIN_ADS_PLAN_NOTE_PRESETS,choice))return;
+    input.value=ADMIN_ADS_PLAN_NOTE_PRESETS[choice];
+  }else{
+    const options=field==='price'?['49','99','199','399','799']:['7','14','30','60','90'];
+    if(!options.includes(choice))return;
+    input.value=choice;
+  }
+  manual.open=false;
+}
 // TAMÃO V1.309 — internal advertising sales planning only.
 // "Ready for contact" means an internal worklist, never merchant approval or publication.
 function adminAdsSalesPlansView(){
@@ -462,17 +488,31 @@ function adminAdsSalesPlansView(){
       (canShare?'<details><summary>Disponibilizar oferta (marcar motivo)</summary>'+adminActivationReasonSelect('offer-share',merchantId)+'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'share\')">Disponibilizar oferta no portal da revenda</button></details>':'')+
       (canWithdraw?'<details><summary>Retirar oferta (marcar motivo)</summary>'+adminActivationReasonSelect('offer-withdraw',merchantId)+'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'withdraw\')">Retirar oferta do portal</button></details>':'')+
       '</div>':'<p class="tiny muted">Disponibilização pendente de conferência do servidor.</p>';
+    const currentPrice=Number.isSafeInteger(p.priceCents)?p.priceCents/100:99;
+    const currentDays=Number.isSafeInteger(p.durationDays)?p.durationDays:7;
+    const currentNote=String(p.note||ADMIN_ADS_PLAN_NOTE_PRESETS.approach);
+    const noteFromPreset=Object.values(ADMIN_ADS_PLAN_NOTE_PRESETS).includes(currentNote);
     const fields=editable?'<div class="admin-ads-plan-fields">'+
-      '<label>Valor planejado em R$ (não faturado)<input id="'+id+'-price" type="number" min="10" max="50000" step="1" inputmode="numeric" value="'+
-        (Number.isSafeInteger(p.priceCents)?p.priceCents/100:99)+'"></label>'+
-      '<label>Duração proposta em dias<input id="'+id+'-days" type="number" min="7" max="90" step="1" value="'+
-        (Number.isSafeInteger(p.durationDays)?p.durationDays:7)+'"></label>'+
-      '<label>Etapa comercial<select id="'+id+'-stage">'+
-        Object.entries(stages).map(([key,label])=>'<option value="'+key+'" '+
-          (p.stage===key?'selected':'')+'>'+label+'</option>').join('')+
-      '</select></label>'+
-      '<label class="admin-ads-plan-note">Observação interna<textarea id="'+id+'-note" rows="2" minlength="12" maxlength="500" placeholder="Anote o próximo passo, sem registrar contrato ou pagamento fictício">'+
-        esc(p.note||'Planejar abordagem comercial com a revenda')+'</textarea></label>'+
+      '<label for="'+id+'-price-choice">Valor planejado (não faturado)<select id="'+id+'-price-choice" onchange="adminAdsPlanQuickChoose(\''+merchantId+'\',\'price\',this.value)">'+
+      '<option value="keep">Manter valor: '+money(Math.round(currentPrice*100))+'</option>'+
+      [49,99,199,399,799].map(v=>'<option value="'+v+'">R$ '+v+'</option>').join('')+
+      '<option value="custom">Outro valor</option></select></label>'+
+      '<details id="'+id+'-price-manual"><summary>Informar valor específico</summary>'+
+      '<input id="'+id+'-price" type="number" min="10" max="50000" step="1" inputmode="numeric" data-initial="'+esc(currentPrice)+'" value="'+esc(currentPrice)+'"></details>'+
+      '<label for="'+id+'-days-choice">Duração proposta<select id="'+id+'-days-choice" onchange="adminAdsPlanQuickChoose(\''+merchantId+'\',\'days\',this.value)">'+
+      '<option value="keep">Manter '+esc(currentDays)+' dias</option>'+
+      [7,14,30,60,90].map(v=>'<option value="'+v+'">'+v+' dias</option>').join('')+
+      '<option value="custom">Outro prazo</option></select></label>'+
+      '<details id="'+id+'-days-manual"><summary>Informar prazo específico</summary>'+
+      '<input id="'+id+'-days" type="number" min="7" max="90" step="1" data-initial="'+esc(currentDays)+'" value="'+esc(currentDays)+'"></details>'+
+      '<label for="'+id+'-note-choice">Próxima ação<select id="'+id+'-note-choice" onchange="adminAdsPlanQuickChoose(\''+merchantId+'\',\'note\',this.value)">'+
+      '<option value="keep">Manter observação atual</option>'+
+      Object.entries(ADMIN_ADS_PLAN_NOTE_PRESETS).map(([key,note])=>
+        '<option value="'+esc(key)+'">'+esc(note)+'</option>').join('')+
+      '<option value="custom">Outra observação</option></select></label>'+
+      '<details id="'+id+'-note-manual" '+(noteFromPreset?'':'open')+'><summary>Editar observação específica</summary>'+
+      '<textarea id="'+id+'-note" rows="2" minlength="12" maxlength="500" data-initial="'+esc(currentNote)+'">'+
+        esc(currentNote)+'</textarea></details>'+
       '<button type="button" class="primary small" onclick="adminAdsSalesPlanSave(\''+
         merchantId+'\')">Salvar planejamento</button></div>':
       '<p class="tiny muted">'+(role==='superadmin'?'Peça alterada ou retirada. Solicite nova aprovação antes de editar o plano.':
