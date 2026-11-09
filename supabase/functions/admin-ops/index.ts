@@ -1167,6 +1167,81 @@ function adminFinanceLabLiveAuditId(digest:string){
   return digest.slice(0,8)+"-"+digest.slice(8,12)+"-4"+
     digest.slice(13,16)+"-8"+digest.slice(17,20)+"-"+digest.slice(20,32);
 }
+// V1.919 — module-specific financial evidence inventory, read-only.
+// Counts are operational signals, NOT bank settlement or a module homologation.
+// No merchant, buyer, driver or real product needs to be created for this check.
+async function adminFinanceHomologationModules(admin:any,actorId:string){
+  const tables={
+    couponInvoices:"clube_coupon_paid_invoices",
+    couponIssuances:"clube_coupon_paid_issuances",
+    couponRefundRequests:"clube_coupon_refund_requests_v1_814",
+    mobilityInvoices:"mobility_fee_pix_invoices_v1_837",
+    mobilityProviderEvidence:"mobility_fee_pix_evidence_v1_837",
+    mobilityPrepaidLots:"mobility_fee_prepaid_lots_v1_838",
+    merchantCharges:"merchant_billing_provider_charges",
+    merchantBillingEvents:"merchant_billing_payment_events",
+    orderPaymentAttempts:"merchant_sale_payment_attempts",
+    orderPaymentVerifications:"merchant_sale_payment_verifications",
+    adsCheckouts:"ads_independent_checkouts_v1_886",
+    adsPaymentEvents:"ads_independent_payment_events_v1_886",
+    adsRefundExecutions:"ads_independent_refund_executions_v1_888",
+    referralPayoutClaims:"platform_referral_payout_claims_v1_263",
+    referralProviderObservations:"platform_referral_provider_observations_v1_265",
+    welcomeMobilityUses:"mobility_welcome_uses_v1_833",
+    professionalAdsLedger:"discovery_advertising_daily_ledger"
+  };
+  const entries=await Promise.all(Object.entries(tables).map(async ([key,table])=>{
+    const {count,error}=await admin.from(table).select("*",{count:"exact",head:true});
+    if(error||!Number.isSafeInteger(count)||count<0)
+      throw new DomainError("FINANCE_HOMOLOGATION_EVIDENCE_UNAVAILABLE",
+        "Não foi possível conferir as evidências financeiras de todos os módulos.",503);
+    return [key,count];
+  }));
+  const counts=Object.fromEntries(entries);
+  const [coupon,mobility,ads]=await Promise.all([
+    admin.from("clube_coupon_paid_packages").select(
+      "package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified"
+    ).eq("package_key","all_products_3x5_sponsor").maybeSingle(),
+    admin.from("mobility_billing_plans_v1_826").select(
+      "plan_key,purchase_enabled"
+    ).eq("billing_mode","prepaid").limit(10),
+    admin.from("ads_independent_sales_controls_v1_886")
+      .select("sales_enabled").eq("singleton",true).maybeSingle()
+  ]);
+  if(coupon.error||mobility.error||ads.error||!Array.isArray(mobility.data))
+    throw new DomainError("FINANCE_HOMOLOGATION_CONFIG_UNAVAILABLE",
+      "As configurações comerciais não puderam ser verificadas.",503);
+  const couponConfigured=coupon.data?.sale_enabled===true
+    &&coupon.data?.funding_verified===true
+    &&coupon.data?.legal_terms_verified===true
+    &&coupon.data?.redeem_settlement_verified===true;
+  const prepaidPlans=mobility.data.filter((p:any)=>p.purchase_enabled===true).length;
+  const list=[
+    {key:"coupons",configured:couponConfigured,counts:{
+      invoices:counts.couponInvoices,issuances:counts.couponIssuances,
+      refunds:counts.couponRefundRequests}},
+    {key:"mobility",configured:prepaidPlans>0,counts:{
+      plans:prepaidPlans,invoices:counts.mobilityInvoices,
+      providerEvidence:counts.mobilityProviderEvidence,lots:counts.mobilityPrepaidLots}},
+    {key:"merchants",configured:false,counts:{
+      charges:counts.merchantCharges,events:counts.merchantBillingEvents}},
+    {key:"orders",configured:false,counts:{
+      attempts:counts.orderPaymentAttempts,verifications:counts.orderPaymentVerifications}},
+    {key:"advertising",configured:ads.data?.sales_enabled===true,counts:{
+      checkouts:counts.adsCheckouts,paymentEvents:counts.adsPaymentEvents,
+      refunds:counts.adsRefundExecutions}},
+    {key:"benefits",configured:false,counts:{
+      payoutClaims:counts.referralPayoutClaims,
+      providerObservations:counts.referralProviderObservations,
+      mobilityWelcomeUses:counts.welcomeMobilityUses}},
+    {key:"professional_ads",configured:false,counts:{
+      billedDays:counts.professionalAdsLedger}}
+  ];
+  return {source:"admin_finance_homologation_modules_v1_919",readOnly:true,
+    paymentsCreated:0,moneyMoved:false,merchantRequiredForLab:false,
+    proofScope:"counts_and_configuration_only",checkedAt:new Date().toISOString(),
+    modules:list};
+}
 async function adminFinanceLabLiveHistory(admin:any,actorId:string){
   const {data,error}=await admin.from("platform_admin_audit")
     .select("target_id,metadata,created_at")
@@ -1181,6 +1256,7 @@ async function adminFinanceLabLiveHistory(admin:any,actorId:string){
     &&Number.isSafeInteger(Number(row.metadata?.amountCents))
   ).map((row:any)=>({
     orderId:String(row.target_id),amountCents:Number(row.metadata.amountCents),
+    testPurpose:String(row.metadata.testPurpose||"gateway"),
     createdAt:row.created_at
   }));
   if(!recent.length)return recent;
@@ -1243,6 +1319,11 @@ async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
 }
 async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body:any,req:Request){
   const amount=body?.amountCents;
+  const testPurpose=String(body?.testPurpose??"gateway").trim();
+  if(!["gateway","coupons","mobility","merchants","orders","advertising",
+       "benefits","professional_ads"].includes(testPurpose))
+    throw new DomainError("FINANCE_LAB_TEST_PURPOSE_INVALID",
+      "Selecione um módulo válido para o ensaio Pix.",400);
   if(!Number.isSafeInteger(amount)
     ||amount<FINANCE_LAB_LIVE_MIN_CENTS||amount>FINANCE_LAB_LIVE_MAX_CENTS
     ||body?.authorization!=="GERAR_PIX_REAL"){
@@ -1287,7 +1368,8 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
   }
   const intent=(intents||[]).find((item:any)=>item.id===intentId);
   if(intent&&(intent.target_id!==reference
-    ||Number(intent.metadata?.amountCents)!==amount)){
+    ||Number(intent.metadata?.amountCents)!==amount
+    ||String(intent.metadata?.testPurpose||"gateway")!==testPurpose)){
     throw new DomainError("FINANCE_LAB_LIVE_IDEMPOTENCY_CONFLICT",
       "Esta tentativa já foi usada com outro valor.",409);
   }
@@ -1301,7 +1383,8 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
     const {error:audited}=await admin.from("platform_admin_audit").insert({
       id:intentId,actor_user_id:actorId,action:"finance_lab_live_pix_intent",
       target_type:"financial_lab_live",target_id:reference,
-      metadata:{provider:"mercadopago",mode:"live",amountCents:amount}
+      metadata:{provider:"mercadopago",mode:"live",amountCents:amount,
+        testPurpose,commercialPurchase:false}
     });
     if(audited&&audited.code!=="23505")throw audited;
   }
@@ -1348,11 +1431,13 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
     id:createdId,actor_user_id:actorId,action:"finance_lab_live_pix_created",
     target_type:"financial_lab_live",target_id:String(order.id),
     metadata:{provider:"mercadopago",mode:"live",amountCents:amount,
+      testPurpose,commercialPurchase:false,
       externalReference:reference,paymentId:String(payment.id),
       expiresAt,liveModeConfirmed:true}
   });
   if(createdError&&createdError.code!=="23505")throw createdError;
   return {ok:true,mode:"live",provider:"mercadopago",amountCents:amount,
+    testPurpose,commercialPurchase:false,
     orderId:String(order.id),paymentId:String(payment.id),expiresAt,
     brCode, paymentLinkUrl:ticket,providerStatus:"action_required",
     settlementVerified:false,webhookVerified:false,credited:false,
@@ -8518,6 +8603,12 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED","Somente superadmin pode emitir Pix real controlado.",403);
       const result=await adminFinanceLabLivePix(admin,user.id,String(user.email||""),body,req);
       return json(result,result.ok===true?200:502,origin);
+    }
+    if(action==="finance-homologation-modules"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Homologação financeira exclusiva do superadmin.",403);
+      return json(await adminFinanceHomologationModules(admin,user.id),200,origin);
     }
     if(action==="finance-lab-charge-diagnostics"){
       if(String(adminAccess.admin_role)!=="superadmin"){
