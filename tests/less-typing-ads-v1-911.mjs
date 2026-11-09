@@ -4,9 +4,9 @@ import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const ads=read('js/ads-planner.js');
-const admin=read('js/admin-acquisition.js');
+const admin=read('js/admin-activations.js');
 new vm.Script(ads,{filename:'js/ads-planner.js'});
-new vm.Script(admin,{filename:'js/admin-acquisition.js'});
+new vm.Script(admin,{filename:'js/admin-activations.js'});
 const fields=new Map();
 const uuid='12345678-1234-4234-8234-123456789abc';
 let writes=0,confirmOverwrite=false;
@@ -80,35 +80,36 @@ assert.match(ads,/if\(text.length<12\|\|text.length>500\)/);
 assert.match(ads,/action:'refund-request'/);
 assert.equal(writes,0);
 
-const start=admin.indexOf('// V1.911 — explicit, factual optional notes');
-const end=admin.indexOf('function adminLeadActionButtons(x){',start);
+// Admin's contract-review due day is a single choice, not a manual number entry.
+const start=admin.indexOf('function adminAdsDossiersView(){');
+const end=admin.indexOf('async function adminAdsDossierAction(',start);
 assert.ok(start>=0&&end>start);
-const leadId=uuid;
-const leadFields=new Map([
- ['admin-lead-note-'+leadId,{value:''}],
- ['admin-lead-note-choice-'+leadId,{value:'advertising'}]
-]);
-let adminWrites=0,leadConfirm=false;
-const leadCtx=vm.createContext({
- document:{getElementById:id=>leadFields.get(id)||null},
- confirm:()=>leadConfirm,
- adminPerform:()=>{adminWrites++}
+let adminWrites=0;
+const adminCtx=vm.createContext({
+ adminRoleCanSection:()=>true,
+ adminCurrentRole:()=> 'superadmin',
+ adminRuntime:{session:{user:{id:'owner'}}},
+ adminActivationDesk:{actor:'owner',role:'superadmin',
+  checkedAt:new Date().toISOString(),
+  data:{adsDossiers:{rows:[],totalDossiers:0},adsOffers:{rows:[
+   {merchantId:uuid,status:'interested',version:1,
+    companyName:'Empresa de teste',priceCents:4990,durationDays:15}
+  ]}}},
+ esc:x=>String(x),
+ adminPerform:()=>{adminWrites++;throw Error('No automatic save')}
 });
-vm.runInContext(admin.slice(start,end)+';this.choose=adminLeadQuickNoteChanged;',leadCtx);
-assert.match(admin,/id="admin-lead-note-choice-/);
-assert.match(admin,/id="admin-lead-note-/);
-assert.match(admin,/adminSetPrelaunchLeadStatus/);
-assert.match(admin,/await adminPerform\('lead-status'/);
-assert.equal(leadCtx.choose(leadId,'advertising'),true);
-assert.match(leadFields.get('admin-lead-note-'+leadId).value,/publicidade/);
-assert.equal(leadCtx.choose(leadId,'commerce'),false);
-assert.equal(leadFields.get('admin-lead-note-choice-'+leadId).value,'');
-leadConfirm=true;
-assert.equal(leadCtx.choose(leadId,'return'),true);
-assert.match(leadFields.get('admin-lead-note-'+leadId).value,/retorno/);
-assert.equal(leadCtx.choose(leadId,'__proto__'),false);
-assert.equal(leadCtx.choose('not-a-valid-uuid','return'),false);
+vm.runInContext(admin.slice(start,end)+';this.view=adminAdsDossiersView;',adminCtx);
+const view=adminCtx.view();
+assert.match(view,/Vencimento proposto após futura cobrança/);
+assert.match(view,/<select id="ads-dossier-/);
+assert.doesNotMatch(view,/<input id="ads-dossier-[^"]*-due"/);
+assert.match(view,/<option value="7" selected>7 dias/);
+assert.match(view,/<option value="30">30 dias/);
+assert.equal((view.match(/<option value="\d+"(?: selected)?>\d+ dias?/g)||[]).length,30);
+assert.match(admin,/async function adminAdsDossierAction/);
+assert.match(admin,/if\(operation==='save'\)/);
+assert.match(admin,/!Number\.isSafeInteger\(dueDays\)\|\|dueDays<1\|\|dueDays>30/);
 assert.equal(adminWrites,0);
 
 assert.match(read('.github/workflows/audit.yml'),/tests\/less-typing-ads-v1-911\.mjs/);
-console.log('V1.911 PASS — 27 UFs selectable; advertiser drafts, refund reasons and Admin lead notes explicitly selected; no silent write.');
+console.log('V1.911 PASS — 27 UFs selectable; advertiser drafts, refund reasons and Admin dossier due days selectable; no silent write.');
