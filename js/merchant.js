@@ -1990,12 +1990,12 @@ function merchantQuickStockAdjust(productCode,change){
      !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
   const code=String(productCode||'');
   if(!merchantQuickCatalogCandidates(rt).some(p=>p.productCode===code)||
-     ![-1,1,5].includes(change))return false;
+     ![-1,1,5,10,'empty'].includes(change))return false;
   const input=document.getElementById('merchant-quick-stock-'+code);
   if(!input||input.disabled||input.closest?.('fieldset')?.disabled)return false;
   const raw=String(input.value??'').trim();
   if(!/^(0|[1-9][0-9]{0,5})$/.test(raw))return false;
-  const current=Number(raw),next=current+change;
+  const current=Number(raw),next=change==='empty'?0:current+change;
   if(!Number.isInteger(next)||next<0||next>100000)return false;
   input.value=String(next);
   merchantQuickCatalogChanged(code);
@@ -2160,7 +2160,9 @@ function merchantQuickCatalogView(rt){
       '<div class="merchant-quick-stepper" aria-label="Ajustar estoque de '+esc(p.productName||code)+'">'+
         '<button type="button" aria-label="Retirar uma unidade do estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',-1)">−1</button>'+
         '<button type="button" aria-label="Adicionar uma unidade ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',1)">+1</button>'+
-        '<button type="button" aria-label="Adicionar cinco unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',5)">+5</button></div>'+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+      '<small id="merchant-quick-feedback-'+code+'" class="merchant-quick-feedback" aria-live="polite">'+
+        '<button type="button" aria-label="Adicionar cinco unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',5)">+5</button>'+
+        '<button type="button" aria-label="Adicionar dez unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',10)">+10</button>'+
+        '<button type="button" aria-label="Marcar estoque esgotado para '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',\'empty\')">Esgotado (0)</button></div>'+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+      '<small id="merchant-quick-feedback-'+code+'" class="merchant-quick-feedback" aria-live="polite">'+
       (draft?'Alterações ainda não salvas. Confira os valores e toque em Salvar alterações.':
       'Os ajustes não são salvos automaticamente.')+'</small>'+
       '</fieldset>'+
