@@ -18,6 +18,7 @@ import {couponMerchantPayoutEvidence,couponMerchantRecipientReadiness} from "./c
 import {couponProviderRefundEvidence} from "./coupon-refund-provider-evidence.js";
 import {couponRefundMerchantHistorySummary} from "./coupon-refund-merchant-history.js";
 import {summarizeIndependentAdsPspEvidence} from "../_shared/ads-independent-psp-evidence.mjs";
+import {evaluateFinanceHomologationEvidence} from "./finance-homologation-evidence.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -1198,6 +1199,33 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     return [key,count];
   }));
   const counts=Object.fromEntries(entries);
+  // Read-only, exact status filters. A completed/provider event alone is NOT
+  // proof of bank settlement, nor evidence that a related entitlement was issued.
+  const indicators=[
+    ["couponPaid","clube_coupon_paid_invoices","status","paid"],
+    ["couponNetVerified","clube_coupon_paid_invoices","net_proceeds_verified_at",null],
+    ["mobilityPaid","mobility_fee_pix_invoices_v1_837","status","paid"],
+    ["merchantCompleted","merchant_billing_provider_charges","status","completed"],
+    ["orderApproved","merchant_sale_payment_attempts","status","approved"],
+    ["adsApproved","ads_independent_checkouts_v1_886","status","approved"],
+    ["adsPaymentApproved","ads_independent_payment_events_v1_886","provider_status","approved"],
+    ["referralBankEvidence","platform_referral_provider_observations_v1_265","bank_settlement_verified",true],
+    ["professionalBilledDays","discovery_advertising_daily_ledger",null,null]
+  ];
+  const verifiedIndicators=await Promise.all(indicators.map(async ([key,table,field,value])=>{
+    let query=admin.from(table).select("*",{count:"exact",head:true});
+    query=field==="net_proceeds_verified_at"?query.not(field,"is",null):
+      field?query.eq(field,value):query;
+    if(key==="referralBankEvidence")
+      query=query.eq("recipient_verified",true).eq("provider_transaction_success",true);
+    const {count,error}=await query;
+    if(error||!Number.isSafeInteger(count)||count<0)
+      throw new DomainError("FINANCE_HOMOLOGATION_STATUS_UNAVAILABLE",
+        "Não foi possível conferir os status financeiros dos módulos.",503);
+    return [key,count];
+  }));
+  const indicatorsCount=Object.fromEntries(verifiedIndicators);
+  const labHistory=await adminFinanceLabLiveHistory(admin,actorId);
   const [coupon,mobility,ads]=await Promise.all([
     admin.from("clube_coupon_paid_packages").select(
       "package_key,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified"
@@ -1237,10 +1265,20 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     {key:"professional_ads",configured:false,counts:{
       billedDays:counts.professionalAdsLedger}}
   ];
+  let assessed;
+  try{
+    assessed=evaluateFinanceHomologationEvidence(list,indicatorsCount,labHistory);
+  }catch{
+    throw new DomainError("FINANCE_HOMOLOGATION_ASSESSMENT_INVALID",
+      "Não foi possível validar as evidências dos módulos.",503);
+  }
+  // The full Pix history, including payable QR codes, remains only in the
+  // existing protected Lab. Return bounded module diagnostics without IDs.
   return {source:"admin_finance_homologation_modules_v1_919",readOnly:true,
     paymentsCreated:0,moneyMoved:false,merchantRequiredForLab:false,
-    proofScope:"counts_and_configuration_only",checkedAt:new Date().toISOString(),
-    modules:list};
+    proofScope:"counts_and_configuration_only",assessmentVersion:"v1.920",
+    labRecentCount:labHistory.length,
+    checkedAt:new Date().toISOString(),modules:assessed};
 }
 async function adminFinanceLabLiveHistory(admin:any,actorId:string){
   const {data,error}=await admin.from("platform_admin_audit")
