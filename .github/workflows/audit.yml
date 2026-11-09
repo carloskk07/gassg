@@ -631,6 +631,8 @@ jobs:
         run: node tests/admin-ads-guided-operations-v1-898.mjs
       - name: V1.899 marked Ads decisions with double verified finance acknowledgements
         run: node tests/admin-ads-marked-choices-v1-899.mjs
+      - name: V1.911 Selectable independent Ads and merchant lead choices
+        run: node tests/less-typing-ads-v1-911.mjs
       - name: V1.910 Marked return dates, merchant Ads help and simulation scenarios
         run: node tests/more-marked-fields-v1-910.mjs
       - name: V1.909 Reuse verified form values and selectable catalog, trial, stays inputs
