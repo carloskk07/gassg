@@ -1255,6 +1255,13 @@ function adminMerchantTrialBasketEstimate(detail,quantities,assumedDiscountCents
     publicQuote:false,orderCreated:false,merchantActivated:false,
     complianceVerified:false,paymentCreated:false,stockReserved:false};
 }
+// V1.909 — purely hypothetical discount; never a real coupon, invoice or order.
+function adminMerchantTrialDiscountChoose(value){
+  if(!['0','5','10','15','20','30'].includes(String(value)))return false;
+  const field=document.getElementById('admin-merchant-trial-benefit');
+  if(!field||field.disabled)return false;
+  field.value=Number(value).toFixed(2).replace('.',',');return true;
+}
 function adminMerchantTrialView(detail){
   if(!adminRoleCanSection('partners')||detail?.type!=='merchant')return '';
   const merchant=detail.merchant||{};
@@ -1292,9 +1299,14 @@ function adminMerchantTrialView(detail){
               ' — '+money(p.price_cents)+'</option>').join('')}
           </select></div>
         <div class="input-wrap"><label for="admin-merchant-trial-qty">Quantidade (1 a 20)</label>
-          <input class="input" id="admin-merchant-trial-qty" type="number"
-            inputmode="numeric" min="1" max="20" step="1" value="${quantity}"></div>
+          <select class="input" id="admin-merchant-trial-qty">
+            ${Array.from({length:20},(_,i)=>'<option value="'+(i+1)+'"'+(quantity===i+1?' selected':'')+'>'+(i+1)+' unidade(s)</option>').join('')}
+          </select></div>
         <div class="input-wrap"><label for="admin-merchant-trial-benefit">Desconto hipotético (R$)</label>
+          <select class="input" aria-label="Desconto hipotético pronto" onchange="adminMerchantTrialDiscountChoose(this.value)">
+            <option value="">Escolha um desconto de simulação ou edite abaixo</option>
+            ${[0,5,10,15,20,30].map(v=>'<option value="'+v+'">'+(v===0?'Sem desconto':'R$ '+v)+'</option>').join('')}
+          </select>
           <input class="input" id="admin-merchant-trial-benefit" type="text"
             inputmode="decimal" maxlength="11"
             value="${esc((discount/100).toFixed(2).replace('.',','))}"></div>
@@ -4124,11 +4136,11 @@ function adminPilotPartnerCard(p){
       </div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-responsible">Responsável</label><input id="${prefix}-responsible" class="input" maxlength="120" value="${esc(prefill.responsible)}" placeholder="Nome do responsável"></div>
-        <div class="input-wrap"><label for="${prefix}-owner-name">Nome no portal</label><input id="${prefix}-owner-name" class="input" maxlength="60" value="${esc(prefill.responsible)}" placeholder="Opcional"></div>
+        <div class="input-wrap"><label for="${prefix}-owner-name">Nome no portal</label><button type="button" class="secondary small" onclick="adminPilotReuseField('${id}','responsible','owner-name')">Usar nome do responsável</button><input id="${prefix}-owner-name" class="input" maxlength="60" value="${esc(prefill.responsible)}" placeholder="Opcional"></div>
       </div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-phone">Telefone</label><input id="${prefix}-phone" class="input" maxlength="24" value="${esc(prefill.phone)}" placeholder="55..."></div>
-        <div class="input-wrap"><label for="${prefix}-whatsapp">WhatsApp</label><input id="${prefix}-whatsapp" class="input" maxlength="24" value="${esc(prefill.whatsapp)}" placeholder="55..."></div>
+        <div class="input-wrap"><label for="${prefix}-whatsapp">WhatsApp</label><button type="button" class="secondary small" onclick="adminPilotReuseField('${id}','phone','whatsapp')">Mesmo telefone informado</button><input id="${prefix}-whatsapp" class="input" maxlength="24" value="${esc(prefill.whatsapp)}" placeholder="55..."></div>
       </div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-postal">CEP</label><input id="${prefix}-postal" class="input" maxlength="12" placeholder="97300000"></div>
@@ -4138,11 +4150,11 @@ function adminPilotPartnerCard(p){
       <div class="input-wrap"><label for="${prefix}-address">Endereço</label><input id="${prefix}-address" class="input" maxlength="240" value="${esc(prefill.address)}" placeholder="Rua, número e complemento"></div>
       <div class="notice ${onboarding.ownerClaimed?'success':''}"><strong>Owner automático pelo convite.</strong><br>${onboarding.ownerClaimed?'Conta permanente do parceiro já vinculada. A autoridade do banco impedirá trocar o owner por outra conta.':'Ainda aguardando o parceiro reivindicar o convite. A conversão permanece bloqueada para não criar revenda órfã.'}</div>
       <div class="field-row">
-        <div class="input-wrap"><label for="${prefix}-stock">Estoque inicial</label><input id="${prefix}-stock" class="input" type="number" min="0" max="1000000" step="1" value="0"></div>
-        <div class="input-wrap"><label for="${prefix}-fee">Taxa de entrega</label><input id="${prefix}-fee" class="input" type="number" min="0" max="1000" step="0.01" value="0.00"></div>
+        <div class="input-wrap"><label for="${prefix}-stock-quick">Estoque conferido: escolha rápida</label><select id="${prefix}-stock-quick" class="input" onchange="adminPilotQuickValue('${id}','stock',this.value)"><option value="">Escolha ou informe abaixo</option><option value="0">Esgotado</option><option value="5">5 unidades</option><option value="10">10 unidades</option><option value="25">25 unidades</option><option value="50">50 unidades</option></select><label for="${prefix}-stock">Estoque inicial</label><input id="${prefix}-stock" class="input" type="number" min="0" max="1000000" step="1" value="0"></div>
+        <div class="input-wrap"><label for="${prefix}-fee-quick">Taxa de entrega (R$): escolha rápida</label><select id="${prefix}-fee-quick" class="input" onchange="adminPilotQuickValue('${id}','fee',this.value)"><option value="">Escolha ou informe abaixo</option><option value="0">R$ 0</option><option value="5">R$ 5</option><option value="10">R$ 10</option><option value="15">R$ 15</option></select><label for="${prefix}-fee">Taxa de entrega</label><input id="${prefix}-fee" class="input" type="number" min="0" max="1000" step="0.01" value="0.00"></div>
       </div>
       <div class="field-row">
-        <div class="input-wrap"><label for="${prefix}-eta">ETA base (min)</label><input id="${prefix}-eta" class="input" type="number" min="5" max="180" step="1" value="30"></div>
+        <div class="input-wrap"><label for="${prefix}-eta-quick">Prazo estimado (min): escolha rápida</label><select id="${prefix}-eta-quick" class="input" onchange="adminPilotQuickValue('${id}','eta',this.value)"><option value="">Escolha ou informe abaixo</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">60 minutos</option></select><label for="${prefix}-eta">ETA base (min)</label><input id="${prefix}-eta" class="input" type="number" min="5" max="180" step="1" value="30"></div>
         <div class="input-wrap"><label for="${prefix}-radius">Raio km</label><input id="${prefix}-radius" class="input" type="number" min="0" max="100" step="0.5" placeholder="Opcional"></div>
       </div>
       <label class="check-row"><input id="${prefix}-citywide" type="checkbox"><span><strong>Atende toda a cidade informada</strong><small>Marque apenas se a cobertura foi confirmada.</small></span></label>
@@ -10900,6 +10912,29 @@ async function adminRevokePilotInvite(id){
   }catch(e){toast(String(e?.message||e))}
 }
 
+// V1.909 — selected shortcuts reuse ONLY user-reviewed fields; no remote mutation.
+const ADMIN_PILOT_QUICK_FIELDS=Object.freeze({
+  stock:Object.freeze(['0','5','10','25','50']),
+  fee:Object.freeze(['0','5','10','15']),
+  eta:Object.freeze(['15','30','45','60']),
+});
+function adminPilotQuickValue(id,field,value){
+  if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(id||'')))return false;
+  if(!Object.hasOwn(ADMIN_PILOT_QUICK_FIELDS,field)||
+    !ADMIN_PILOT_QUICK_FIELDS[field].includes(String(value)))return false;
+  const input=document.getElementById('pilot-'+id+'-'+field);
+  if(!input||input.disabled)return false;
+  input.value=String(value);return true;
+}
+function adminPilotReuseField(id,source,destination){
+  if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(id||''))||
+     !((source==='responsible'&&destination==='owner-name')||
+       (source==='phone'&&destination==='whatsapp')))return false;
+  const from=document.getElementById('pilot-'+id+'-'+source);
+  const to=document.getElementById('pilot-'+id+'-'+destination);
+  if(!from||!to||to.disabled||!String(from.value||'').trim())return false;
+  to.value=String(from.value).trim();return true;
+}
 async function adminConvertPilotPartner(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
   if(!p)return toast('Parceiro não encontrado');

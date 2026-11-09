@@ -4630,7 +4630,7 @@ function merchantCatalogFocus(code,target='price'){
   return true;
 }
 function merchantCatalogAdjustStock(code,delta){
-  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||''))||![-1,1].includes(delta))return false;
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||''))||![-1,1,5,10,'empty'].includes(delta))return false;
   const field=document.getElementById('live-stock-'+code);
   if(!field)return false;
   const raw=String(field.value||'').trim();
@@ -4640,7 +4640,7 @@ function merchantCatalogAdjustStock(code,delta){
     field.focus?.();
     return false;
   }
-  const next=stock+delta;
+  const next=delta==='empty'?0:stock+delta;
   if(next<0||next>100000)return false;
   field.value=String(next);
   const note=document.getElementById('merchant-catalog-pending-'+code);
@@ -4735,7 +4735,10 @@ function merchantLiveCatalog(){
         <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label>
           <div class="merchant-catalog-stock-controls"><button type="button" class="secondary" aria-label="Diminuir estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',-1)">−</button>
           <input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.availableStock}">
-          <button type="button" class="secondary" aria-label="Aumentar estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',1)">+</button></div>
+          <button type="button" class="secondary" aria-label="Aumentar estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',1)">+</button>
+          <button type="button" class="secondary small" aria-label="Adicionar cinco unidades de ${esc(item.productName)}" onclick="merchantCatalogAdjustStock('${item.productCode}',5)">+5</button>
+          <button type="button" class="secondary small" aria-label="Adicionar dez unidades de ${esc(item.productName)}" onclick="merchantCatalogAdjustStock('${item.productCode}',10)">+10</button>
+          <button type="button" class="secondary small" aria-label="Marcar ${esc(item.productName)} como esgotado" onclick="merchantCatalogAdjustStock('${item.productCode}','empty')">Esgotado</button></div>
         </div>
       </div>
       <details class="merchant-catalog-pricing" ${range?'open':''}><summary>${range?'Faixa de preço automática':'Preço automático e limites (opcional)'}</summary>
