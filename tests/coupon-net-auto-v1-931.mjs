@@ -14,7 +14,11 @@ const ctx=vm.createContext({
  safeReason:x=>String(x||'').replace(/[^A-Za-z0-9_]/g,'_').slice(0,110),
  Array,Number,String,Set,Date
 });
-vm.runInContext((selectors+evaluate).replace(/export function /g,'function ')+
+vm.runInContext((selectors+evaluate)
+ .replace('export function selectOfficialReports(list:unknown)','function selectOfficialReports(list)')
+ .replace(/export function evaluateReports\\(\\{invoice,order,reportCsv,sponsorVerified\\}:[^\\n]+\\)/,
+  'function evaluateReports({invoice,order,reportCsv,sponsorVerified})')
+ .replace('const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];','const accepted=[];')+
  '\nthis.reports=selectOfficialReports;this.evalReports=evaluateReports;',ctx);
 const report=name=>({file_name:name,status:'processed',is_test:false,currency_id:'BRL'});
 const file='release-prod-20261110.csv';
