@@ -444,3 +444,17 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .admin-partner-workspace .admin-task-tabs{margin-bottom:0}
 
 .admin-option-row{display:flex;align-items:flex-start;gap:10px;min-height:42px;padding:10px 12px;margin:5px 0;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--card);line-height:1.45}.admin-option-row input[type=radio],.admin-option-row input[type=checkbox]{flex:0 0 auto;width:19px;height:19px;margin:2px 0 0;accent-color:var(--brand)}.admin-option-row:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}.admin-ads-workspace fieldset{min-width:0}.admin-ads-workspace details{margin:10px 0}.admin-ads-workspace details summary{cursor:pointer;color:var(--muted);font-size:13px}
+
+/* V1.922 — guided Finance homologation, details only on demand. */
+.admin-finance-homologation>.card{margin-bottom:14px}
+.admin-finance-homologation .admin-finance-homologation-details{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--card)}
+.admin-finance-homologation-details>summary,.admin-finance-lab-guided>details>summary{cursor:pointer;font-weight:650;line-height:1.45}
+.admin-finance-homologation-detail-body{padding-top:12px}
+.admin-finance-lab-guided{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.admin-finance-lab-guided>.admin-finance-lab-main{order:0}
+.admin-finance-lab-guided>.admin-finance-lab-extra{order:1}
+.admin-finance-lab-guided>.admin-finance-lab-diagnostics{order:2}
+.admin-finance-lab-guided>details{margin:0}
+.admin-finance-lab-guided>details[open]>summary{margin-bottom:14px}
+.admin-finance-homologation .admin-webhook-probe-code{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.admin-finance-homologation .admin-webhook-probe-code code{overflow-wrap:anywhere;max-width:100%}
