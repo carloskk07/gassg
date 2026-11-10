@@ -361,7 +361,7 @@ Deno.serve(async req=>{
      const reports=await discoverReleaseReports(mpToken);
      providerReportQueue={pendingAccountReports:reports.pending,
        failedAccountReports:reports.blocked,source:reports.source,
-       coverageComplete:reports.complete};
+       coverageComplete:reports.complete,reason:reports.reason};
      // An existing pending task also blocks creating another report.
      if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0)
       reportBackfill=await requestHistoricalReleaseReport(
@@ -411,7 +411,7 @@ Deno.serve(async req=>{
     reportConfiguration,reportBackfill,
     providerReportQueue:{pendingAccountReports:reports.pending,
       failedAccountReports:reports.blocked,source:reports.source,
-      coverageComplete:reports.complete}});
+      coverageComplete:reports.complete,reason:reports.reason}});
  }catch{
   return json({ok:false,error:"AUTO_CONCILIATION_UNAVAILABLE"},503);
  }
