@@ -607,6 +607,8 @@ jobs:
         run: node tests/ads-institutional-v1-916.mjs
       - name: V1.919 unified finance homologation all modules and Pix purpose
         run: node tests/admin-finance-all-modules-v1-919.mjs
+      - name: V1.927 original live financial checkouts from protected Admin
+        run: node tests/admin-finance-real-operations-v1-927.mjs
       - name: V1.920 finance evidence classifications, webhook scope and payment safety
         run: node tests/admin-finance-evidence-v1-920.mjs
       - name: V1.921 private referral evidence counts without changing payout grants
