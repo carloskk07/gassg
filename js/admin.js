@@ -3789,10 +3789,14 @@ function adminSetSection(section){
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='lab'
     &&adminCurrentRole()==='superadmin')
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
-  if(next==='finance'&&adminFinanceLabLiveVisible()&&
-    adminRuntime.financeLab.live?.orderId)
-    adminFinanceLabLiveWatchOrder(adminRuntime.financeLab.live.orderId,
-      adminRuntime.financeLab,String(adminRuntime.session?.user?.id||''));
+  if(next==='finance'&&adminFinanceLabLiveVisible()){
+    const lab=adminRuntime.financeLab;
+    const pendingWebhook=lab.liveStatus?.providerProcessed===true&&
+      lab.liveStatus.webhookProcessed!==true&&lab.liveStatus.reversalObserved!==true;
+    const orderToWatch=lab.live?.orderId||(pendingWebhook?lab.liveStatus.orderId:null);
+    if(orderToWatch)adminFinanceLabLiveWatchOrder(orderToWatch,
+      lab,String(adminRuntime.session?.user?.id||''));
+  }
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
     document.getElementById('admin-current-section-title')?.focus({preventScroll:true});
