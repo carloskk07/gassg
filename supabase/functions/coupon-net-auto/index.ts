@@ -4,6 +4,7 @@ import {mercadoPagoFetch,mercadoPagoConfigured,readMercadoPagoJson}
  from "../_shared/mercadopago.js";
 import {couponReleasedNetEvidence}
  from "../admin-ops/coupon-release-evidence.js";
+import {inspectReportSearch} from "./report-search.js";
 
 // V1.931: machine-only read/compare/register; NOT a new payment or coupon engine.
 // Existing invoice row lock and sponsor/partner funding guards remain authoritative.
@@ -76,6 +77,21 @@ async function getProviderData(token:string,invoice:CouponInvoice,reportFiles:st
   reportCsv.push({fileName:name,csv:await limitedCsv(response)});
  }
  return {order,reportCsv};
+}
+async function discoverReleaseReports(mpToken:string){
+ const first=await mercadoPagoFetch("/v1/account/release_report/list",{
+  accessToken:mpToken,method:"GET",timeoutMs:8000});
+ if(!first.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
+ const initial=selectOfficialReports(await readMercadoPagoJson(first));
+ if(!initial.complete||initial.files.length>0)
+  return {...initial,pending:0,blocked:0,source:"list_only"};
+ const search=await mercadoPagoFetch(
+  "/v1/account/release_report/search?limit=50&offset=0",{
+  accessToken:mpToken,method:"GET",timeoutMs:8000});
+ if(!search.ok)return {complete:false,files:[],pending:0,blocked:0,
+  reason:"MP_RELEASE_SEARCH_UNAVAILABLE",source:"search_unavailable"};
+ const result=inspectReportSearch(await readMercadoPagoJson(search));
+ return {...result,source:"official_search"};
 }
 export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
  const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
@@ -300,23 +316,17 @@ Deno.serve(async req=>{
    if(reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
      reportConfiguration?.owned===true&&pendingReceipt.data?.length===1){
     try{
-     const response=await mercadoPagoFetch("/v1/account/release_report/list",{
-       accessToken:mpToken,method:"GET",timeoutMs:8000});
-     if(response.ok){
-      const reports=selectOfficialReports(await readMercadoPagoJson(response));
-      if(reports.complete&&reports.files.length===0)
-       reportBackfill=await requestHistoricalReleaseReport(
-         client,mpToken,pendingReceipt.data[0]);
-     }
+     const reports=await discoverReleaseReports(mpToken);
+     // An existing pending task also blocks creating another report.
+     if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0)
+      reportBackfill=await requestHistoricalReleaseReport(
+        client,mpToken,pendingReceipt.data[0]);
     }catch{/* Report list is required; never request under uncertain coverage. */}
    }
    return json({ok:true,checked:0,registered:0,review:0,waiting:0,
      reportConfiguration,reportBackfill});
   }
-  const listResponse=await mercadoPagoFetch("/v1/account/release_report/list",{
-    accessToken:mpToken,method:"GET",timeoutMs:8000});
-  if(!listResponse.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
-  const reports=selectOfficialReports(await readMercadoPagoJson(listResponse));
+  const reports=await discoverReleaseReports(mpToken);
   // No POST to MP: a missing report may be a disabled account-wide schedule
   // or a missing/incompatible configuration. Diagnose rather than asserting
   // settlement or changing shared MP account settings.
@@ -329,7 +339,7 @@ Deno.serve(async req=>{
   // The direct report generation endpoint is independent of the existing
   // daily schedule. Only a verified TAMÃO-owned active configuration permits
   // requesting a bounded historical report for a genuine paid invoice.
-  if(reports.complete&&reports.files.length===0&&
+  if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0&&
     reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
     reportConfiguration?.owned===true&&invoices.length>0)
     reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
@@ -350,7 +360,10 @@ Deno.serve(async req=>{
    else waiting++;
   }
   return json({ok:true,checked:invoices.length,registered,review,waiting,
-    reportConfiguration,reportBackfill});
+    reportConfiguration,reportBackfill,
+    providerReportQueue:{pendingAccountReports:reports.pending,
+      failedAccountReports:reports.blocked,source:reports.source,
+      coverageComplete:reports.complete}});
  }catch{
   return json({ok:false,error:"AUTO_CONCILIATION_UNAVAILABLE"},503);
  }

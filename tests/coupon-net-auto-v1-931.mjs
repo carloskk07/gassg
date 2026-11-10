@@ -161,12 +161,12 @@ assert.match(worker,/reportBackfill/);
 // V1.937: a missing old report can be requested without changing the
 // independent 30-minute financial reconciliation checkpoint.
 const cooldownStart=worker.indexOf('if(!invoices.length){');
-const cooldownEnd=worker.indexOf('const listResponse=await mercadoPagoFetch',cooldownStart);
+const cooldownEnd=worker.indexOf('  // No POST to MP:',cooldownStart);
 const cooldown=worker.slice(cooldownStart,cooldownEnd);
 assert.ok(cooldownStart>0&&cooldownEnd>cooldownStart);
 assert.match(cooldown,/reportConfiguration\?\.owned===true/);
 assert.match(cooldown,/pendingReceipt\.data\?\.length===1/);
-assert.match(cooldown,/selectOfficialReports\(await readMercadoPagoJson\(response\)\)/);
+assert.match(cooldown,/discoverReleaseReports\(mpToken\)/);
 assert.match(cooldown,/reports\.complete&&reports\.files\.length===0/);
 assert.match(cooldown,/requestHistoricalReleaseReport\(/);
 assert.match(cooldown,/reportBackfill/);
@@ -194,4 +194,38 @@ assert.equal(dateLine?.includes(String.fromCharCode(92,92,100)),false,'regex mus
 assert.ok(worker.indexOf('clube_coupon_mp_report_backfill_dispatch_v1_938')<
   worker.indexOf('mercadoPagoFetch("/v1/account/release_report",{'),
   'dispatch reservation must precede any historical provider report POST');
+// V1.939: the separate official search can recover a processed file that
+// did not appear in the summary list, but cannot prove settlement alone.
+const searchSrc=read('supabase/functions/coupon-net-auto/report-search.js');
+const searchMod=await import('data:text/javascript;base64,'+
+ Buffer.from(searchSrc).toString('base64'));
+const search=searchMod.inspectReportSearch;
+const listing=(status='pending',extra={})=>({
+ status, currency_id:'BRL',is_test:false,file_name:'release-report-20261110.csv',...extra
+});
+assert.equal(search(null).complete,false);
+assert.equal(search({paging:{total:0},results:[]}).complete,true);
+const queued=search({paging:{total:1},results:[listing('processing')]});
+assert.equal(queued.pending,1);
+assert.equal(queued.files.length,0);
+const failed=search({paging:{total:1},results:[listing('failed')]});
+assert.equal(failed.blocked,1);
+assert.equal(failed.files.length,0);
+const recovered=search({paging:{total:1},results:[listing('processed')]});
+assert.equal(recovered.complete,true);
+assert.deepEqual(recovered.files,['release-report-20261110.csv']);
+const invalid=[
+ {results:[listing('processed')],paging:{total:2}},
+ {results:[listing('processed')],paging:{total:51}},
+ {results:[listing('processed',{file_name:'../bad.csv'})],paging:{total:1}},
+ {results:[listing('future-state')],paging:{total:1}},
+ {results:[listing('processed')],paging:null},
+ {results:[null],paging:{total:1}}
+];
+for(const payload of invalid)assert.equal(search(payload).complete,false,
+ 'invalid/missing MP search metadata must never become evidence');
+assert.match(worker,/release_report\/search\?limit=50&offset=0/);
+assert.match(worker,/pending===0&&reports\.blocked===0/);
+assert.match(worker,/if\(!search\.ok\)return \{complete:false/);
+assert.match(worker,/reportConfiguration,reportBackfill,/);
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');
