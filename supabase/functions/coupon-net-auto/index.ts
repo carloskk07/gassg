@@ -197,11 +197,15 @@ async function prepareReleaseReports(client:DbClient,mpToken:string,initial:Awai
   const scheduleResponse=await mercadoPagoFetch("/v1/account/release_report/schedule",{
     accessToken:mpToken,method:"POST",timeoutMs:9000
   });
-  if(scheduleResponse.status!==200)
-   return {...config,reason:"MP_REPORT_SCHEDULE_REJECTED"};
-  config=await getReleaseReportConfigSummary(mpToken);
-  if(!config.ready||!config.scheduled||!config.owned)
-   return {...config,reason:"MP_REPORT_SCHEDULE_UNCONFIRMED"};
+  // MP may activate scheduling before a non-200 / ambiguous response.
+  // An authenticated GET readback is authoritative; never report failure
+  // merely from the POST status or issue a second POST to compensate.
+  const afterSchedule=await getReleaseReportConfigSummary(mpToken);
+  if(afterSchedule.ready&&afterSchedule.scheduled&&afterSchedule.owned)
+   config=afterSchedule;
+  else if(scheduleResponse.status!==200)
+   return {...afterSchedule,reason:"MP_REPORT_SCHEDULE_REJECTED"};
+  else return {...afterSchedule,reason:"MP_REPORT_SCHEDULE_UNCONFIRMED"};
  }
  return config;
 }
