@@ -14,10 +14,12 @@ const extract=name=>{
 };
 const providerUuid=src.split('\n').find(line=>line.startsWith('const ADMIN_FINANCE_CHARGE_UUID='));
 assert.ok(providerUuid,'Finance charge identity helper required');
-const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=(\[[^\n]+\]);/);
+const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=([\s\S]*?);\n/);
 assert.ok(declaration,'Finance workspace allowlist required');
-const keys=JSON.parse(declaration[1]).map(x=>x.id);
-assert.equal(keys.join('|'),'summary|billing|homologation|lab|reconciliation|policy');
+const sandbox=vm.createContext({});
+vm.runInContext(declaration[0]+'this.items=ADMIN_FINANCE_WORKSPACES;',sandbox);
+const keys=Array.from(sandbox.items,x=>x.id);
+assert.equal(keys.join('|'),'summary|homologation|billing|reconciliation|policy|lab');
 let role='finance',repaints=0,focuses=[],scrolls=[],liveLoads=0,couponLoads=0;
 const rt={financeWorkspace:'summary'};
 const document={
@@ -34,6 +36,7 @@ const ctx=vm.createContext({
   adminCurrentRole:()=>role,
   adminRoleCanSection:key=>key==='finance'&&['superadmin','finance'].includes(role),
   render:()=>repaints++,
+  esc:value=>String(value),
   adminCouponCommercialRefresh:async()=>{couponLoads++;},
   adminFinanceLabReadinessFromUi:async()=>{},
   adminFinanceLabLiveReadinessFromUi:async()=>{liveLoads++;},
@@ -47,7 +50,7 @@ vm.runInContext('const ADMIN_FINANCE_WORKSPACES='+declaration[1]+';\n'
   +'\nthis.current=adminFinanceWorkspaceCurrent;this.nav=adminFinanceWorkspaceNav;this.select=adminSetFinanceWorkspace;',ctx);
 let html=ctx.nav();
 assert.ok(html.includes('CENTRAL FINANCEIRA'));
-for(const label of ['Resumo','Cobranças','Conciliação','Regras e cupons'])
+for(const label of ['Início','Cobranças','Conciliação','Regras e cupons'])
   assert.ok(html.includes(label),'Missing finance work area '+label);
 assert.equal((html.match(/aria-pressed=/g)||[]).length,4);
 assert.ok(html.includes("aria-pressed='true'"));
@@ -82,7 +85,7 @@ ctx.select('policy');
 assert.equal(couponLoads,1,'opening coupon rules should fetch the MP seller automatically');
 assert.ok(ctx.nav().includes('CENTRAL FINANCEIRA'));
 assert.ok(ctx.nav().includes('Laboratório'));
-assert.ok(ctx.nav().includes('Homologação'));
+assert.ok(ctx.nav().includes('Testes e Pix'));
 assert.equal((ctx.nav().match(/aria-pressed=/g)||[]).length,6);
 ctx.select('homologation');
 assert.equal(rt.financeWorkspace,'homologation');

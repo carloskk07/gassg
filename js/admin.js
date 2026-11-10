@@ -5316,7 +5316,14 @@ function adminFocusFinanceRecord(kind,id){
 }
 
 /* V1.191 — stable finance workspaces, never change financial authority. */
-const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"homologation","label":"Homologação","detail":"Mercado Pago, Pix e Ads"},{"id":"lab","label":"Laboratório","detail":"Pix, faturas e diagnósticos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e cupons","detail":"Ativar vendas e reversões"}];
+const ADMIN_FINANCE_WORKSPACES=[
+ {id:'summary',label:'Início',detail:'Pendências e visão geral'},
+ {id:'homologation',label:'Testes e Pix',detail:'Verificar pagamentos reais'},
+ {id:'billing',label:'Cobranças',detail:'Faturas, planos e taxas'},
+ {id:'reconciliation',label:'Conciliação',detail:'Repasses e divergências'},
+ {id:'policy',label:'Regras e cupons',detail:'Liberação e valor líquido'},
+ {id:'lab',label:'Laboratório',detail:'Diagnóstico técnico do gateway'}
+];
 
 /* Finance Lab: admin-only orchestration; mock invoices never enter accounting. */
 function adminFinanceLabCents(value){
@@ -6710,6 +6717,9 @@ function adminFinanceHomologationView(d){
  const registry=adminFinanceHomologationCatalog();
  const chosen=registry.find(m=>m.key===evidenceState.selected)||registry[0];
  const remote=evidenceState.data?.modules?.find(m=>m.key===chosen.key);
+ const realState=adminFinanceRealState();
+ const couponPaid=chosen.key==='coupons'&&realState.loadedKey==='coupons'&&
+  (realState.data?.history?.purchases||[]).some(p=>p.status==='paid');
  const lab=adminRuntime.financeLab||{};
  const readiness=lab.liveReadiness||null;
  const accountReady=readiness?.providerReady===true&&readiness.accountBound===true;
@@ -6788,7 +6798,10 @@ function adminFinanceHomologationView(d){
   '<p>'+esc(chosen.guide)+'</p>'+
   '<small>O laboratório não emite créditos, não prova recebimento bancário nem homologa automaticamente o módulo.</small>'+
   '</div></details></div>'+
-  '<div class="card flat"><h3>2. Conexão e recebimento</h3>'+
+  adminFinanceRealPanel(chosen.key)+
+  '<details class="admin-finance-homologation-details admin-finance-connection"'+
+   (couponPaid?'':' open')+'><summary>Conexão e webhook (configuração técnica)</summary>'+
+  '<div class="card flat"><h3>Conexão e recebimento</h3>'+
   '<div class="order-line"><strong>Conta:</strong> '+
     (readiness?(accountReady?'Verificada':'Não verificada'):'Aguardando consulta')+
     ' • <strong>Webhook assinado:</strong> '+
@@ -6821,7 +6834,7 @@ function adminFinanceHomologationView(d){
   (configDetails||'<p>Para verificar o checkout de publicidade, selecione Publicidade acima.</p>')+
   '<div class="order-actions"><button type="button" class="ghost small" onclick="adminIndependentAdsCheckProvider()">Verificar configuração de Ads</button></div>'+
   '</div></details></div>'+
-  adminFinanceRealPanel(chosen.key)+
+  '</details>'+
   '<div class="card flat"><h3>Laboratório do gateway (opcional)</h3>'+
   '<p>Este Pix testa apenas a comunicação com o Mercado Pago. Para comprovar compra real de cupom, recarga ou publicidade, use a operação original acima.</p>'+
   '<button type="button" class="secondary small" onclick="adminFinanceHomologationToggleLab()" '+
@@ -6876,28 +6889,62 @@ function adminOpenFinanceHomologation(){
  return true;
 }
 
+// V1.930: continue the existing coupon receipt; never generate Pix on navigation.
+function adminFinanceOpenCouponReview(){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('finance'))return false;
+ adminFinanceHomologationEvidenceState().selected='coupons';
+ if(adminRuntime.section==='finance')adminSetFinanceWorkspace('homologation');
+ else{
+  adminRuntime.financeWorkspace='homologation';
+  adminSetSection('finance');
+  adminFinanceRealRefresh().catch(()=>{});
+ }
+ return true;
+}
 function adminFinanceWorkspaceCurrent(){
   const selected=String(adminRuntime.financeWorkspace||'summary');
   return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)
     &&(!['lab','homologation'].includes(selected)||adminCurrentRole()==='superadmin')?selected:'summary';
 }
 function adminFinanceWorkspaceNav(){
-  if(!adminRoleCanSection('finance'))return '';
-  const selected=adminFinanceWorkspaceCurrent();
-  const items=ADMIN_FINANCE_WORKSPACES.filter(item=>!['lab','homologation'].includes(item.id)||adminCurrentRole()==='superadmin');
-  return `<section class='admin-finance-workspace-nav' aria-label='Navegação interna do Financeiro'>
-    <div class='section-head'><div><span class='section-kicker'>CENTRAL FINANCEIRA</span>
-      <h2>O que você precisa acompanhar?</h2>
-      <p>Escolha uma área. Você pode voltar ao resumo a qualquer momento, sem perder os dados já consultados.</p></div></div>
-    <nav class='admin-finance-areas' aria-label='Áreas do Financeiro'>
-      ${items.map(item=>`<button type='button'
-        id='admin-finance-switch-${item.id}'
-        class='admin-finance-area ${selected===item.id?'active':''}'
-        aria-pressed='${selected===item.id}'
-        onclick="adminSetFinanceWorkspace('${item.id}')">
-        <strong>${item.label}</strong><small>${item.detail}</small>
-      </button>`).join('')}
+ if(!adminRoleCanSection('finance'))return '';
+ const selected=adminFinanceWorkspaceCurrent();
+ const superadmin=adminCurrentRole()==='superadmin';
+ const visible=ADMIN_FINANCE_WORKSPACES.filter(item=>
+  !['lab','homologation'].includes(item.id)||superadmin);
+ const primary=['summary','homologation','billing','reconciliation']
+  .map(id=>visible.find(item=>item.id===id)).filter(Boolean);
+ const advanced=['policy','lab']
+  .map(id=>visible.find(item=>item.id===id)).filter(Boolean);
+ const actor=String(adminRuntime.session?.user?.id||'');
+ const real=adminRuntime.financeReal;
+ const unsettled=superadmin&&real?.actor===actor&&real.loadedKey==='coupons'&&
+  (real.data?.history?.purchases||[]).some(p=>p.status==='paid'&&p.fundingPending===true);
+ const button=item=>`<button type='button'
+   id='admin-finance-switch-${item.id}'
+   class='admin-finance-area ${selected===item.id?'active':''}'
+   aria-pressed='${selected===item.id}'
+   onclick="adminSetFinanceWorkspace('${item.id}')">
+   <strong>${esc(item.label)}</strong><small>${esc(item.detail)}</small>
+  </button>`;
+ return `<section class='admin-finance-workspace-nav' aria-label='Navegação interna do Financeiro'>
+   <div class='section-head'><div><span class='section-kicker'>CENTRAL FINANCEIRA</span>
+    <h2>Encontre o que precisa</h2>
+    <p>Escolha uma tarefa. Consultar pagamentos não emite novo Pix.</p></div></div>
+   ${superadmin?`<div class='admin-finance-shortcut'>
+     <div><strong>${unsettled?'Pix já pago: conferir valor líquido':'Precisa conferir um Pix de cupons?'}</strong>
+     <p>${unsettled?'O dinheiro está registrado; falta conferir o valor líquido. Não pague novamente.':'Veja o pagamento original e o que falta validar, sem gerar outra cobrança.'}</p></div>
+     <button type='button' class='secondary' onclick='adminFinanceOpenCouponReview()'>${unsettled?'Continuar conferência':'Abrir cupons pagos'}</button>
+    </div>`:''}
+   <nav class='admin-finance-areas admin-finance-primary' aria-label='Tarefas principais do Financeiro'>
+    ${primary.map(button).join('')}
+   </nav>
+   ${advanced.length?`<details class='admin-finance-secondary' ${advanced.some(x=>x.id===selected)?'open':''}>
+    <summary>Configurações e ferramentas avançadas</summary>
+    <nav class='admin-finance-areas' aria-label='Outras áreas do Financeiro'>
+     ${advanced.map(button).join('')}
     </nav>
+   </details>`:''}
   </section>`;
 }
 function adminSetFinanceWorkspace(workspace){
@@ -11184,8 +11231,8 @@ function adminPage(){
 
   const financeContent=(sectionActive('finance'))?(`
     ${adminFinanceRenderPart('Navegação financeira',()=>adminFinanceWorkspaceNav())}
-    ${adminFinanceRenderPart('Prioridades financeiras',()=>adminFinanceDailyPrioritiesView(d))}
-    ${adminFinanceRenderPart('Fila financeira',()=>adminFinanceTriageView(d))}
+    ${financeSelection==='summary'?adminFinanceRenderPart('Prioridades financeiras',()=>adminFinanceDailyPrioritiesView(d)):''}
+    ${financeSelection==='summary'?adminFinanceRenderPart('Fila financeira',()=>adminFinanceTriageView(d)):''}
     <div id='admin-finance-workspace-panel' class='admin-finance-workspace-panel'
       aria-label='Área financeira selecionada'>
       ${financeAreas[financeSelection]}
