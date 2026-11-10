@@ -6254,6 +6254,8 @@ function adminFinanceHomologationChoose(key){
     adminRuntime.section!=='finance'||adminFinanceWorkspaceCurrent()!=='homologation'||
     !adminFinanceHomologationCatalog().some(m=>m.key===key))return false;
  adminFinanceHomologationEvidenceState().selected=key;
+ if(key==='advertising'&&typeof adminAdsIndependentLoad==='function')
+  adminAdsIndependentLoad();
  render();
  return true;
 }
@@ -6303,6 +6305,259 @@ async function adminFinanceHomologationRefresh(){
    state.loading=false;render();
   }
  }
+}
+// V1.927: genuine owner-bound module checkouts, inside the protected Finance Admin.
+// Read-only actions never create a charge. All financial writes remain in the
+// original customer/advertiser/driver backend with its own eligibility gates.
+function adminFinanceRealState(){
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(!adminRuntime.financeReal||adminRuntime.financeReal.actor!==actor)
+  adminRuntime.financeReal={actor,loadedKey:null,busy:false,data:null,error:null,
+   payment:null,paymentUntil:0,requests:{},message:null};
+ return adminRuntime.financeReal;
+}
+function adminFinanceRealAllowed(key){
+ return adminReady()&&adminCurrentRole()==='superadmin'&&
+  adminRuntime.section==='finance'&&adminFinanceWorkspaceCurrent()==='homologation'&&
+  adminFinanceHomologationEvidenceState().selected===key&&
+  ['coupons','mobility','advertising'].includes(key);
+}
+async function adminFinanceRealApi(endpoint,body){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||
+    adminRuntime.section!=='finance'||adminFinanceWorkspaceCurrent()!=='homologation'||
+    !['coupon-credit-pix','mobility-fee-pix','ads-independent','ads-independent-checkout'].includes(endpoint))
+  throw Error('Acesso à operação financeira não autorizado.');
+ const token=await adminAccessToken();
+ const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/'+endpoint,{
+  method:'POST',headers:{'Content-Type':'application/json',
+   'apikey':CHAMA_BACKEND.publishableKey,'Authorization':'Bearer '+token},
+  body:JSON.stringify(body),cache:'no-store'
+ });
+ let data=null;try{data=await response.json()}catch{}
+ if(!response.ok)throw Error(String(data?.message||data?.error||'Operação não autorizada pelo serviço financeiro.'));
+ return data;
+}
+function adminFinanceRealPaymentUrl(value){
+ try{
+  const u=new URL(String(value||''));const h=u.hostname.toLowerCase();
+  if(u.protocol!=='https:'||u.username||u.password||u.port&&u.port!=='443'||
+     !(['mercadopago.com','mercadopago.com.br'].includes(h)||
+       h.endsWith('.mercadopago.com')||h.endsWith('.mercadopago.com.br'))||
+     u.pathname.toLowerCase().split('/').includes('sandbox'))return '';
+  return u.href;
+ }catch{return ''}
+}
+function adminFinanceRealClearPayment(){
+ const state=adminFinanceRealState();state.payment=null;state.paymentUntil=0;
+}
+function adminFinanceRealRememberPayment(kind,record){
+ const state=adminFinanceRealState();
+ const source=kind==='mobility'?record?.charge:record;
+ if(!source){adminFinanceRealClearPayment();return;}
+ const raw=kind==='advertising'?source.checkoutUrl:
+   kind==='mobility'?source.paymentLinkUrl:source.paymentUrl;
+ const link=adminFinanceRealPaymentUrl(raw);
+ const payable=kind==='advertising'?source.status==='checkout_ready':
+   kind==='mobility'?source.status==='active':source.pixPayable===true;
+ const pix=kind==='mobility'?source.brCode:source.pixCode;
+ state.payment={kind,status:String(source.status||''),amountCents:Number(source.amountCents)||0,
+  url:payable?link:'',pix:payable&&typeof pix==='string'&&pix.length>30?pix:''};
+ state.paymentUntil=Date.now()+45000;
+ setTimeout(()=>{
+  if(adminRuntime.financeReal===state&&Date.now()>=state.paymentUntil){
+   adminFinanceRealClearPayment();
+   if(adminReady()&&adminRuntime.section==='finance')render();
+  }
+ },45000);
+}
+function adminFinanceRealCopyPix(){
+ const state=adminFinanceRealState();
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||
+    Date.now()>state.paymentUntil||!state.payment?.pix)return false;
+ adminCopyText(state.payment.pix,'Pix da operação real');return true;
+}
+async function adminFinanceRealRefresh(){
+ const key=adminFinanceHomologationEvidenceState().selected;
+ if(!adminFinanceRealAllowed(key))return;
+ const state=adminFinanceRealState(),actor=state.actor;
+ if(state.busy)return;
+ state.busy=true;state.error=null;render();
+ try{
+  let data;
+  if(key==='coupons'){
+   const catalog=await adminFinanceRealApi('coupon-credit-pix',{action:'catalog'});
+   const history=await adminFinanceRealApi('coupon-credit-pix',{action:'my-vouchers'});
+   if(catalog?.source!=='clube_paid_catalog_v1_807'||!Array.isArray(catalog.packages)||
+      history?.source!=='clube_coupon_paid_my_vouchers_v1'||!Array.isArray(history.purchases))
+    throw Error('O checkout de cupons não confirmou o catálogo e o histórico.');
+   data={catalog,history};
+  }else if(key==='mobility'){
+   const response=await adminFinanceRealApi('mobility-fee-pix',{action:'status'});
+   if(response?.ok!==true)throw Error('A cobrança do motorista não foi verificada.');
+   data={status:response};
+   if(response.charge)adminFinanceRealRememberPayment(key,response);
+  }else{
+   const response=await adminFinanceRealApi('ads-independent',{action:'mine'});
+   if(response?.source!=='ads_independent_mine_v1_884'||response.noCharge!==true||
+      !Array.isArray(response.rows))throw Error('A titularidade das campanhas não foi comprovada.');
+   data={mine:response};
+  }
+  if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
+  state.data=data;state.loadedKey=key;state.message='Conferência concluída, sem criar cobrança.';
+ }catch(e){
+  if(actor===String(adminRuntime.session?.user?.id||'')){
+   state.error=String(e?.message||e);state.data=null;state.loadedKey=null;
+  }
+ }finally{
+  if(actor===String(adminRuntime.session?.user?.id||'')){state.busy=false;render();}
+ }
+}
+async function adminFinanceRealAction(operation,choice=''){
+ const key=adminFinanceHomologationEvidenceState().selected;
+ if(!adminFinanceRealAllowed(key))return;
+ const state=adminFinanceRealState(),actor=state.actor;
+ if(state.busy||state.loadedKey!==key)return;
+ const consent=()=>globalThis.confirm?.('Esta operação pode criar uma cobrança REAL e obrigações financeiras. O pagamento será feito separadamente por você. Confirmar?')===true;
+ let endpoint='',body=null;
+ if(key==='coupons'&&operation==='purchase'){
+  const pkg=state.data?.catalog?.packages?.find(p=>p.packageKey===choice);
+  const pending=state.data?.history?.purchases?.some(p=>['prepared','awaiting_payment'].includes(p.status));
+  if(!pkg||pending||state.data.catalog.couponSalesEnabled!==true||
+     document.getElementById('admin-finance-real-coupon-terms')?.checked!==true||
+     pkg.termsVersion!=='clube_coupon_terms_v1_813'||!consent())return;
+  if(!state.requests['coupon-'+choice])state.requests['coupon-'+choice]=crypto.randomUUID();
+  endpoint='coupon-credit-pix';body={action:'purchase',packageKey:choice,
+   requestId:state.requests['coupon-'+choice],termsAccepted:true,termsVersion:pkg.termsVersion};
+ }else if(key==='coupons'&&operation==='check'){
+  if(!/^[0-9a-f-]{36}$/i.test(choice)||!state.data?.history?.purchases?.some(p=>p.invoiceId===choice))return;
+  endpoint='coupon-credit-pix';body={action:'invoice-status',invoiceId:choice};
+ }else if(key==='mobility'&&operation==='plan'){
+  if(!['essential','popular','professional'].includes(choice)||!consent()||
+     state.data?.status?.charge?.status==='active')return;
+  endpoint='mobility-fee-pix';body={action:'plan',planKey:choice};
+ }else if(key==='advertising'&&operation==='submit'){
+  const field=id=>String(document.getElementById('admin-finance-real-ads-'+id)?.value||'').trim();
+  const advertiser=field('advertiser'),title=field('title'),
+   description=field('description'),destination=field('destination');
+  if(advertiser.length<2||title.length<12||description.length<20||
+     !/^https:\/\//i.test(destination))return toast('Preencha os dados verdadeiros da campanha e o link HTTPS.');
+  if(!globalThis.confirm?.('Enviar esta campanha real para revisão, sem gerar cobrança?'))return;
+  if(!state.requests.adsSubmit)state.requests.adsSubmit=crypto.randomUUID();
+  endpoint='ads-independent';body={action:'submit',requestId:state.requests.adsSubmit,
+   advertiser,title,description,destination,city:'São Gabriel',state:'RS',
+   budgetCents:1990,durationDays:7};
+ }else if(key==='advertising'&&['purchase','reconcile'].includes(operation)){
+  const owned=state.data?.mine?.rows?.find(r=>r.id===choice);
+  if(!owned||operation==='purchase'&&(
+      owned.status!=='approved'||state.data.mine.homologationCampaignId!==choice||
+      document.getElementById('admin-finance-real-ads-consent')?.checked!==true||
+      !consent()))return;
+  endpoint='ads-independent-checkout';
+  if(!state.requests['ads-'+choice])state.requests['ads-'+choice]=choice;
+  body=operation==='purchase'?{action:'purchase',campaignId:choice,
+    requestId:state.requests['ads-'+choice],acceptFixedFee:true}:
+    {action:'reconcile',campaignId:choice};
+ }else return;
+ state.busy=true;state.error=null;state.message=null;render();
+ try{
+  const result=await adminFinanceRealApi(endpoint,body);
+  if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
+  if(key==='coupons'){
+   if(result?.ok!==true||!['purchase','check'].includes(operation))throw Error('Fatura real não confirmada.');
+   adminFinanceRealRememberPayment(key,result);
+   state.message='Fatura consultada no checkout original. O pagamento ainda precisa ser conferido no provedor.';
+  }else if(key==='mobility'){
+   if(result?.ok!==true||!result.charge)throw Error('Fatura real do motorista não confirmada.');
+   adminFinanceRealRememberPayment(key,result);
+   state.message='Cobrança original criada ou recuperada. O plano só recebe créditos após confirmação real.';
+  }else if(operation==='submit'){
+   if(result?.source!=='ads_independent_submit_v1_884'||result.paymentCreated!==false)
+    throw Error('Envio da campanha não confirmado.');
+   state.message='Campanha enviada. É necessário aprovar o criativo no Admin antes do checkout.';
+  }else if(operation==='purchase'){
+   if(result?.source!=='ads_independent_checkout_v1_886'||result.status!=='checkout_ready'||
+      result.amountCents!==1990||result.viewChargesCents!==0||
+      !adminFinanceRealPaymentUrl(result.checkoutUrl))
+    throw Error('Checkout de publicidade não confirmado com segurança.');
+   adminFinanceRealRememberPayment(key,result);
+   state.message='Checkout real autorizado; pagamento e conciliação ainda pendentes.';
+  }else{
+   if(result?.source!=='ads_independent_reconcile_v1_886')
+    throw Error('O Mercado Pago não confirmou o resultado desta consulta.');
+   state.message='Conciliação do checkout: '+String(result.status||'não confirmada')+
+    '. Não equivale a crédito bancário.';
+  }
+ }catch(e){
+  if(actor===String(adminRuntime.session?.user?.id||''))state.error=String(e?.message||e);
+ }finally{
+  if(actor===String(adminRuntime.session?.user?.id||'')){
+   state.busy=false;render();
+  }
+ }
+}
+function adminFinanceRealPanel(key){
+ if(!['coupons','mobility','advertising'].includes(key))
+  return '<div class="card flat"><h3>Operação financeira real</h3>'+
+   '<p>Este fluxo depende de contraparte e titularidade legítimas. A consulta do laboratório só verifica o gateway; não cria uma venda, entrega ou comissão. Nenhuma cobrança artificial será lançada.</p></div>';
+ const state=adminFinanceRealState(),known=state.loadedKey===key?state.data:null;
+ const money=n=>'R$ '+((Number(n)||0)/100).toFixed(2).replace('.',',');
+ const busy=state.busy?' disabled':'';
+ const action=(text,script)=>'<button type="button" class="secondary small"'+busy+
+  ' onclick="'+script+'">'+text+'</button>';
+ let html='<div class="card flat" id="admin-finance-real-operation">'+
+  '<h3>Operação REAL do módulo</h3><p>Conta autenticada do próprio titular, cobrança oficial e conferência posterior. Não há pagamento automático ou criação fictícia de saldo.</p>'+
+  action(state.busy?'Conferindo…':'Conferir operações existentes','adminFinanceRealRefresh()');
+ if(state.error)html+='<p class="notice danger" role="alert">'+esc(state.error)+'</p>';
+ if(state.message)html+='<p role="status">'+esc(state.message)+'</p>';
+ const payment=state.payment;
+ if(payment&&Date.now()<state.paymentUntil&&payment.kind===key)
+  html+='<div class="notice"><strong>'+esc(String(payment.status))+' · '+money(payment.amountCents)+'</strong>'+
+   (payment.url?'<p><a href="'+esc(payment.url)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento original no Mercado Pago</a></p>':'')+
+   (payment.pix?'<p>'+action('Copiar Pix original','adminFinanceRealCopyPix()')+'</p>':'')+
+   '<small>O pagamento deve ser conferido no aplicativo bancário. Link e Pix desaparecem desta tela após 45 segundos; consulte a fatura original para recuperá-los.</small></div>';
+ if(key==='coupons'&&known){
+  const purchases=known.history?.purchases||[],packs=known.catalog?.packages||[];
+  const pending=purchases.filter(p=>['prepared','awaiting_payment'].includes(p.status));
+  html+='<p>Compras desta conta: '+purchases.length+' · Ofertas comerciais autorizadas: '+packs.length+'</p>';
+  if(pending.length)html+='<p class="notice">Há uma fatura anterior pendente. Consulte-a antes de tentar outra compra.</p>'+
+   pending.slice(0,3).map(p=>action('Consultar fatura existente ('+money(p.amountCents)+')',
+    'adminFinanceRealAction(\'check\',\''+esc(p.invoiceId)+'\')')).join('');
+  else if(packs.length)html+='<p><a href="https://tamao.com.br/#terms" target="_blank" rel="noopener noreferrer">Ler os termos completos do Clube TAMÃO</a></p>'+
+   '<label class="check-row"><input type="checkbox" id="admin-finance-real-coupon-terms"> Li e aceito os termos, a validade e as regras de reembolso do pacote; sei que pode não haver revenda ativa.</label>'+
+   packs.filter(p=>p.termsVersion==='clube_coupon_terms_v1_813').map(p=>
+    '<p><strong>'+esc(p.title)+' · '+money(p.priceCents)+'</strong></p>'+
+    action('Gerar checkout real deste pacote','adminFinanceRealAction(\'purchase\',\''+esc(p.packageKey)+'\')')).join('');
+  else html+='<p class="notice">Venda de cupons bloqueada pelos controles comerciais existentes. Regularize a Política comercial; o Admin não ignora esse bloqueio.</p>';
+ }else if(key==='mobility'&&known){
+  const c=known.status?.charge;
+  html+='<p>Última cobrança desta conta: '+(c?
+   esc(String(c.status))+' · '+money(c.amountCents):'nenhuma')+'</p>';
+  if(c?.status!=='active')html+='<p>Somente um motorista legítimo pode contratar para sua própria conta. Se esta conta não for motorista, o servidor recusará a cobrança.</p>'+
+   [['essential','R$ 9,90'],['popular','R$ 24,90'],['professional','R$ 49,90']].map(([p,label])=>
+    action('Criar recarga real '+label,'adminFinanceRealAction(\'plan\',\''+p+'\')')).join(' ');
+  else html+='<p>Existe um Pix ativo. Não gere outra recarga antes de conferir o pagamento.</p>';
+ }else if(key==='advertising'&&known){
+  const mine=known.mine,rows=mine?.rows||[];
+  html+='<p>Campanhas desta conta: '+rows.length+
+   '. Uma campanha deve ser submetida e aprovada antes do pagamento.</p>';
+  const approved=rows.filter(r=>r.status==='approved');
+  if(approved.length)html+='<label>Campanha para teste real<select id="admin-finance-real-ads-campaign" class="input">'+
+   approved.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.title||r.id)+'</option>').join('')+'</select></label>'+
+   '<label class="check-row"><input type="checkbox" id="admin-finance-real-ads-consent"> Autorizo o checkout de R$ 19,90 da campanha aprovada e sei que é pagamento real.</label>'+
+   action('Gerar checkout real R$ 19,90',
+    'adminFinanceRealAction(\'purchase\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
+   action('Conciliar campanha no Mercado Pago',
+    'adminFinanceRealAction(\'reconcile\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
+   '<p class="tiny">O checkout só é permitido se o Admin já tiver autorizado esta campanha para homologação e se ela pertencer à conta conectada.</p>';
+  if(!rows.some(r=>['approved','submitted'].includes(r.status)))html+='<details><summary>Enviar minha campanha real para aprovação</summary>'+
+   '<label>Anunciante<input id="admin-finance-real-ads-advertiser" class="input" maxlength="120"></label>'+
+   '<label>Título real<input id="admin-finance-real-ads-title" class="input" maxlength="80"></label>'+
+   '<label>Descrição real<input id="admin-finance-real-ads-description" class="input" maxlength="240"></label>'+
+   '<label>Destino HTTPS<input id="admin-finance-real-ads-destination" class="input" type="url" value="https://tamao.com.br/"></label>'+
+   '<p>Veiculação: São Gabriel/RS · R$ 19,90 por 7 dias. Não serão criadas campanhas fictícias.</p>'+
+   action('Enviar para aprovação','adminFinanceRealAction(\'submit\')')+'</details>';
+ }
+ return html+'</div>';
 }
 function adminFinanceHomologationView(d){
  if(adminCurrentRole()!=='superadmin')
@@ -6423,8 +6678,9 @@ function adminFinanceHomologationView(d){
   (configDetails||'<p>Para verificar o checkout de publicidade, selecione Publicidade acima.</p>')+
   '<div class="order-actions"><button type="button" class="ghost small" onclick="adminIndependentAdsCheckProvider()">Verificar configuração de Ads</button></div>'+
   '</div></details></div>'+
-  '<div class="card flat"><h3>3. Próximo teste</h3>'+
-  '<p>Confira o pagamento anterior e o webhook assinado no histórico. Para outro módulo, escolha acima e abra o teste abaixo. O Pix não ativa serviços comerciais.</p>'+
+  adminFinanceRealPanel(chosen.key)+
+  '<div class="card flat"><h3>Laboratório do gateway (opcional)</h3>'+
+  '<p>Este Pix testa apenas a comunicação com o Mercado Pago. Para comprovar compra real de cupom, recarga ou publicidade, use a operação original acima.</p>'+
   '<button type="button" class="secondary small" onclick="adminFinanceHomologationToggleLab()" '+
     'aria-expanded="'+labOpen+'" aria-controls="admin-homologation-lab">'+
     (labOpen?'Recolher teste':'Abrir teste Pix do módulo escolhido')+'</button>'+

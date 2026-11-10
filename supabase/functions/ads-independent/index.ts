@@ -10,7 +10,8 @@ const PUBLISHABLE=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}").de
 const SECRET=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}").default
   ??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
-  "https://tamao-sg-cliente.pages.dev","https://carloskk07.github.io"]);
+  "https://tamao-sg-cliente.pages.dev","https://carloskk07.github.io",
+  "https://admin.tamao.com.br"]);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const clean=(v:unknown,n:number)=>String(v??"").trim().replace(/\s+/g," ").slice(0,n);
 function allowed(origin:string|null){
