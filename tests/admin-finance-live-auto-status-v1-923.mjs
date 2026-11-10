@@ -149,6 +149,9 @@ function fixture(){
 }
 assert.doesNotMatch(ui,/O teste de R\$ 2,00 comprovou o gateway/);
 assert.match(ui,/Aguardando webhook assinado/);
+const entry=ui.slice(ui.indexOf('function adminSetSection('),ui.indexOf('function adminMenuButton('));
+assert.match(entry,/const pendingWebhook=lab\.liveStatus\?\.providerProcessed===true/);
+assert.match(entry,/if\(orderToWatch\)adminFinanceLabLiveWatchOrder\(/);
 assert.match(ui,/adminFinanceLabLiveCancelAutoCheck\(\)/);
 assert.match(ui,/function adminFinanceLabLiveWatchOrder\(/);
 assert.match(ui,/adminFinanceLabLivePaymentBanner\(state\)/);
