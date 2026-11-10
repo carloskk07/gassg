@@ -213,20 +213,29 @@ async function prepareReleaseReports(client:DbClient,mpToken:string,initial:Awai
 // globally per UTC day. An ambiguous response is never automatically replayed.
 // This creates a provider REPORT only, not a payment, refund or voucher.
 async function requestHistoricalReleaseReport(client:DbClient,mpToken:string,invoice:CouponInvoice){
- const {data,error}=await client.rpc("clube_coupon_mp_report_backfill_claim_v1_936",{
+ const {data:claim,error:claimError}=await client.rpc("clube_coupon_mp_report_backfill_claim_v1_936",{
   p_invoice:invoice.id
  });
- if(error)return "CLAIM_FAILED_NO_PROVIDER_POST";
- if(data?.claimed!==true)return "NOT_REQUESTED_"+safeReason(data?.reason);
- const start=String(data?.begin_date??""),end=String(data?.end_date??"");
- const dateRe=/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/;
- if(!dateRe.test(start)||!dateRe.test(end))return "INVALID_CLAIM_WINDOW_NO_POST";
+ if(claimError)return "CLAIM_FAILED_NO_PROVIDER_POST";
+ if(claim?.claimed!==true&&claim?.reason!=="ALREADY_REQUESTED")
+  return "NOT_REQUESTED_"+safeReason(claim?.reason);
+ // Transactionally mark the exact provider report window as dispatched
+ // BEFORE sending POST. A lost HTTP reply or concurrent cron cannot replay it.
+ // A legacy reservation can be resumed only if pg_net proves the old worker
+ // failed locally BEFORE the outbound POST (INVALID_CLAIM_WINDOW_NO_POST).
+ const {data:dispatch,error:dispatchError}=await client.rpc(
+  "clube_coupon_mp_report_backfill_dispatch_v1_938",{p_invoice:invoice.id});
+ if(dispatchError||dispatch?.authorized!==true)
+  return "DISPATCH_UNAUTHORIZED_NO_PROVIDER_POST";
+ const start=String(dispatch?.begin_date??""),end=String(dispatch?.end_date??"");
+ const dateRe=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+ if(!dateRe.test(start)||!dateRe.test(end))return "INVALID_DISPATCH_WINDOW_NO_POST";
  try{
   const response=await mercadoPagoFetch("/v1/account/release_report",{
    accessToken:mpToken,method:"POST",timeoutMs:9000,
    body:{begin_date:start,end_date:end}
   });
-  // HTTP 202 confirms report creation accepted, NOT financial settlement.
+  // HTTP 202 confirms report generation accepted, NOT financial settlement.
   return response.status===202?"REPORT_GENERATION_ACCEPTED":
     "REPORT_RESPONSE_UNCONFIRMED_NO_RETRY";
  }catch{
