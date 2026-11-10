@@ -6433,6 +6433,7 @@ async function adminFinanceRealRefresh(){
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
   state.data=data;state.loadedKey=key;
   if(recoveredPix)adminFinanceRealRememberPayment(key,recoveredPix);
+  else if(key==='coupons'||key==='mobility')adminFinanceRealClearPayment();
   state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
  }catch(e){
   if(actor===String(adminRuntime.session?.user?.id||'')){
