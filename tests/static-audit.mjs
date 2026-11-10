@@ -1843,7 +1843,12 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('couponReleasedNetEvidence')&&
       source.includes('clube_coupon_net_auto_register_v1_931')&&
       source.includes('clube_coupon_sponsor_covered_v1_807')&&
-      !source.includes('action:"purchase"')&&!source.includes('method:"POST"'),
+      !source.includes('action:"purchase"')&&
+      source.includes('MP_REPORT_CONFIG_CREATE_UNCONFIRMED')&&
+      source.includes('MP_REPORT_SCHEDULE_UNCONFIRMED')&&
+      source.includes('verifiedAbsent===true')&&
+      !source.includes('mercadoPagoFetch("/v1/orders",{method:"POST"')&&
+      !source.includes('mercadoPagoFetch("/v1/payments",{method:"POST"'),
       'A conciliação só registra líquido comprovado, sem criar pedidos ou Pix');
   }else if(entry.name==='admin-push-reliability'){
     assert.ok(source.includes('raw.length>512'),entry.name+' precisa limitar JSON');
