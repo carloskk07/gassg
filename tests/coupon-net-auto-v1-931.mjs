@@ -93,7 +93,7 @@ vm.runInContext(configSrc
  .replace('const c=config as Record<string,unknown>;','const c=config;')
  .replace('(x as Record<string,unknown>).key','x.key')
  .replace('export function inspectReleaseReportConfig','function inspectReleaseReportConfig')
- +'\\nthis.reportConfig=inspectReleaseReportConfig;',ctx);
+ +String.fromCharCode(10)+'this.reportConfig=inspectReleaseReportConfig;',ctx);
 const required=['DATE','SOURCE_ID','EXTERNAL_REFERENCE','RECORD_TYPE',
  'DESCRIPTION','NET_CREDIT_AMOUNT','NET_DEBIT_AMOUNT','GROSS_AMOUNT'];
 const good={columns:required.map(key=>({key})),scheduled:true,format:'CSV'};
