@@ -133,6 +133,19 @@ async function reconcileOne(client:DbClient,token:string,invoice:CouponInvoice,f
   return {status:"requires_review",reason:"NET_REGISTER_REJECTED"};
  return {status:"net_verified",reason:"PROVIDER_CSV_ATOMICALLY_REGISTERED"};
 }
+// V1.933: bounded read-only report readiness even during the invoice retry
+// cooldown. No schedule creation, financial mutation, or invoice status edit.
+async function getReleaseReportConfigSummary(mpToken:string){
+ try{
+  const response=await mercadoPagoFetch("/v1/account/release_report/config",{
+   accessToken:mpToken,method:"GET",timeoutMs:8000});
+  if(response.status===404)return inspectReleaseReportConfig(null);
+  if(response.ok)
+   return inspectReleaseReportConfig(await readMercadoPagoJson(response));
+ }catch{/* PSP report settings may be restricted on this account. */}
+ return {ready:false,scheduled:false,
+  reason:"MP_REPORT_CONFIG_UNAVAILABLE",missing:[]};
+}
 // V1.932 — inspect existing MP report settings without changing an account-wide schedule.
 const MANDATORY_RELEASE_FIELDS=["DATE","SOURCE_ID","EXTERNAL_REFERENCE","RECORD_TYPE",
  "DESCRIPTION","NET_CREDIT_AMOUNT","NET_DEBIT_AMOUNT","GROSS_AMOUNT"];
@@ -172,7 +185,18 @@ Deno.serve(async req=>{
    "clube_coupon_net_auto_pending_v1_931",{p_limit:MAX_INVOICES});
   if(pendingError||!Array.isArray(invoices)||invoices.length>MAX_INVOICES)
    throw new Error("AUTO_PENDING_UNAVAILABLE");
-  if(!invoices.length)return json({ok:true,checked:0,registered:0,review:0,waiting:0});
+  if(!invoices.length){
+   // Eligibility is cooldown-limited (30 minutes). During the cooldown,
+   // still diagnose provider settings when a genuine paid invoice awaits
+   // independent net proof. Never reset last_checked_at to force a check.
+   const pendingReceipt=await client.from("clube_coupon_paid_invoices")
+    .select("id").eq("status","paid").is("net_proceeds_verified_at",null).limit(1);
+   if(pendingReceipt.error)throw new Error("AUTO_UNRECONCILED_COUNT_UNAVAILABLE");
+   const reportConfiguration=Array.isArray(pendingReceipt.data)&&pendingReceipt.data.length>0
+      ?await getReleaseReportConfigSummary(mpToken):null;
+   return json({ok:true,checked:0,registered:0,review:0,waiting:0,
+     reportConfiguration});
+  }
   const listResponse=await mercadoPagoFetch("/v1/account/release_report/list",{
     accessToken:mpToken,method:"GET",timeoutMs:8000});
   if(!listResponse.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
@@ -181,21 +205,8 @@ Deno.serve(async req=>{
   // or a missing/incompatible configuration. Diagnose rather than asserting
   // settlement or changing shared MP account settings.
   let reportConfiguration:null|ReturnType<typeof inspectReleaseReportConfig>=null;
-  if(reports.complete&&!reports.files.length){
-    try{
-      const configResponse=await mercadoPagoFetch("/v1/account/release_report/config",{
-        accessToken:mpToken,method:"GET",timeoutMs:8000});
-      if(configResponse.status===404)
-        reportConfiguration=inspectReleaseReportConfig(null);
-      else if(configResponse.ok)
-        reportConfiguration=inspectReleaseReportConfig(await readMercadoPagoJson(configResponse));
-      else reportConfiguration={ready:false,scheduled:false,
-        reason:"MP_REPORT_CONFIG_UNAVAILABLE",missing:[]};
-    }catch{
-      reportConfiguration={ready:false,scheduled:false,
-        reason:"MP_REPORT_CONFIG_UNAVAILABLE",missing:[]};
-    }
-  }
+  if(reports.complete&&!reports.files.length)
+   reportConfiguration=await getReleaseReportConfigSummary(mpToken);
   let registered=0,review=0,waiting=0;
   for(const invoice of invoices){
    let result;

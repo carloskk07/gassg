@@ -108,4 +108,12 @@ assert.match(worker,/\/v1\/account\/release_report\/config/);
 assert.match(worker,/reportConfiguration/);
 assert.match(worker,/method:"GET",timeoutMs:8000/);
 assert.doesNotMatch(worker,/mercadoPagoFetch\("\/v1\/account\/release_report\/schedule"/);
+assert.match(worker,/getReleaseReportConfigSummary\(mpToken\)/);
+assert.match(worker,/\.eq\("status","paid"\)\.is\("net_proceeds_verified_at",null\)\.limit\(1\)/);
+assert.match(worker,/if\(!invoices\.length\)\{/);
+assert.match(worker,/pendingReceipt\.error/);
+assert.match(worker,/AUTO_UNRECONCILED_COUNT_UNAVAILABLE/);
+assert.match(worker,/getReleaseReportConfigSummary\(mpToken\):null/);
+assert.doesNotMatch(worker,/setTimeout\([^,]*,\s*0\)/);
+
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');
