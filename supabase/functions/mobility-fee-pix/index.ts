@@ -15,7 +15,8 @@ const sec=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=pub.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=sec.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const ORIGINS=new Set(["https://tamao.com.br","https://tamao-sg-cliente.pages.dev"]);
+const ORIGINS=new Set(["https://tamao.com.br","https://tamao-sg-cliente.pages.dev",
+ "https://admin.tamao.com.br"]);
 const TOKEN=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
 function originAllowed(origin:string|null){
  return !origin||ORIGINS.has(origin)||/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
