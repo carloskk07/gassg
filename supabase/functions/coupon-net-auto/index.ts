@@ -62,6 +62,53 @@ export function selectOfficialReports(list:unknown){
   return {complete:false,files:[],reason:"MP_RELEASE_COVERAGE_LIMIT"};
  return {complete:true,files:names,reason:null};
 }
+// V1.939: official report search is authoritative for pending tasks and
+// processed files that have not appeared in the summary list. Search remains
+// read-only; any uncertain pagination or format fails closed.
+export function inspectReportSearch(raw:unknown){
+ const unavailable={complete:false,files:[] as string[],pending:0,
+   reason:"MP_RELEASE_SEARCH_INCOMPLETE"};
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))return unavailable;
+ const data=raw as Record<string,unknown>;
+ if(!Array.isArray(data.results)||!data.paging||typeof data.paging!=="object")
+  return unavailable;
+ const paging=data.paging as Record<string,unknown>;
+ const total=Number(paging.total);
+ if(!Number.isSafeInteger(total)||total<0||total>50||
+    data.results.length!==total)return unavailable;
+ const pending=data.results.filter((row:unknown)=>{
+  if(!row||typeof row!=="object")return false;
+  const item=row as Record<string,unknown>;
+  return ["pending","processing"].includes(String(item.status??"").toLowerCase());
+ }).length;
+ const processed=data.results.filter((row:unknown)=>{
+  if(!row||typeof row!=="object")return false;
+  const item=row as Record<string,unknown>;
+  return String(item.status??"").toLowerCase()==="processed"&&
+    item.currency_id==="BRL"&&item.is_test===false;
+ }) as Record<string,unknown>[];
+ if(processed.some(item=>!FILE_RE.test(String(item.file_name??""))))
+  return {...unavailable,reason:"MP_RELEASE_SEARCH_FILENAME_INVALID"};
+ const files=[...new Set(processed.map(item=>String(item.file_name)))];
+ if(files.length>MAX_REPORTS)
+  return {...unavailable,reason:"MP_RELEASE_SEARCH_TOO_MANY_FILES"};
+ return {complete:true,files,pending,reason:null};
+}
+async function discoverReleaseReports(mpToken:string){
+ const first=await mercadoPagoFetch("/v1/account/release_report/list",{
+  accessToken:mpToken,method:"GET",timeoutMs:8000});
+ if(!first.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
+ const initial=selectOfficialReports(await readMercadoPagoJson(first));
+ if(!initial.complete||initial.files.length>0)
+  return {...initial,pending:0,source:"list_only"};
+ const search=await mercadoPagoFetch(
+  "/v1/account/release_report/search?limit=50&offset=0",{
+  accessToken:mpToken,method:"GET",timeoutMs:8000});
+ if(!search.ok)return {complete:false,files:[],pending:0,
+  reason:"MP_RELEASE_SEARCH_UNAVAILABLE",source:"search_unavailable"};
+ const result=inspectReportSearch(await readMercadoPagoJson(search));
+ return {...result,source:"official_search"};
+}
 async function getProviderData(token:string,invoice:CouponInvoice,reportFiles:string[]){
  const orderResponse=await mercadoPagoFetch("/v1/orders/"+
    encodeURIComponent(String(invoice.provider_order_id)),{
@@ -300,23 +347,17 @@ Deno.serve(async req=>{
    if(reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
      reportConfiguration?.owned===true&&pendingReceipt.data?.length===1){
     try{
-     const response=await mercadoPagoFetch("/v1/account/release_report/list",{
-       accessToken:mpToken,method:"GET",timeoutMs:8000});
-     if(response.ok){
-      const reports=selectOfficialReports(await readMercadoPagoJson(response));
-      if(reports.complete&&reports.files.length===0)
-       reportBackfill=await requestHistoricalReleaseReport(
-         client,mpToken,pendingReceipt.data[0]);
-     }
+     const reports=await discoverReleaseReports(mpToken);
+     // An existing pending task also blocks creating another report.
+     if(reports.complete&&reports.files.length===0&&reports.pending===0)
+      reportBackfill=await requestHistoricalReleaseReport(
+        client,mpToken,pendingReceipt.data[0]);
     }catch{/* Report list is required; never request under uncertain coverage. */}
    }
    return json({ok:true,checked:0,registered:0,review:0,waiting:0,
      reportConfiguration,reportBackfill});
   }
-  const listResponse=await mercadoPagoFetch("/v1/account/release_report/list",{
-    accessToken:mpToken,method:"GET",timeoutMs:8000});
-  if(!listResponse.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
-  const reports=selectOfficialReports(await readMercadoPagoJson(listResponse));
+  const reports=await discoverReleaseReports(mpToken);
   // No POST to MP: a missing report may be a disabled account-wide schedule
   // or a missing/incompatible configuration. Diagnose rather than asserting
   // settlement or changing shared MP account settings.
@@ -329,7 +370,7 @@ Deno.serve(async req=>{
   // The direct report generation endpoint is independent of the existing
   // daily schedule. Only a verified TAMÃO-owned active configuration permits
   // requesting a bounded historical report for a genuine paid invoice.
-  if(reports.complete&&reports.files.length===0&&
+  if(reports.complete&&reports.files.length===0&&reports.pending===0&&
     reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
     reportConfiguration?.owned===true&&invoices.length>0)
     reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
@@ -350,7 +391,9 @@ Deno.serve(async req=>{
    else waiting++;
   }
   return json({ok:true,checked:invoices.length,registered,review,waiting,
-    reportConfiguration,reportBackfill});
+    reportConfiguration,reportBackfill,
+    providerReportQueue:{pendingAccountReports:reports.pending,source:reports.source,
+      coverageComplete:reports.complete}});
  }catch{
   return json({ok:false,error:"AUTO_CONCILIATION_UNAVAILABLE"},503);
  }
