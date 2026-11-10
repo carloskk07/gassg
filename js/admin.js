@@ -5773,8 +5773,9 @@ async function adminFinanceLabLiveCreateFromUi(){
     lab.liveError='Já existe uma tentativa com outro módulo. Recupere o Pix original antes de iniciar outro teste.';
     render();return;
   }
-  const response=globalThis.prompt?.('Este Pix será REAL e apenas um ensaio de '+testPurpose+'. NÃO homologa uma venda do módulo. Confira o recebedor no banco. Digite GERAR PIX REAL para autorizar a EMISSÃO:');
-  if(response!=='GERAR PIX REAL'||!adminFinanceLabLiveActorCurrent(lab,actor))return;
+  const moduleName=adminFinanceHomologationCatalog().find(m=>m.key===testPurpose)?.name||'gateway';
+  const approved=globalThis.confirm?.('Gerar um Pix REAL de '+adminMoney(cents)+' para testar '+moduleName+'?\n\nEsta é uma cobrança real do Mercado Pago. Não ativa vendas, cupons ou créditos. Você ainda precisará pagá-la separadamente caso queira concluir o ensaio.\n\nContinuar?');
+  if(approved!==true||!adminFinanceLabLiveActorCurrent(lab,actor))return;
   if(lab.liveAmountCents!==cents||!lab.liveKey){
     lab.liveKey=adminIdempotency('finance-lab-live-pix');lab.liveAmountCents=cents;
     lab.livePurpose=testPurpose;

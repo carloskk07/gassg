@@ -56,7 +56,7 @@ function fixture(){
   render:()=>renders.push({actor:runtime.session?.user?.id,lab:runtime.financeLab}),
   toast:t=>toasts.push(t),
   document:{getElementById:()=>({value:'2,00'})},
-  prompt:(...args)=>prompt(...args),
+  confirm:(...args)=>prompt(...args)==='GERAR PIX REAL',
   navigator:{clipboard:{writeText:async text=>clipboard(text)}}
  });
  vm.runInContext(source+'\nthis.pixOps={readiness:adminFinanceLabLiveReadinessFromUi,'+

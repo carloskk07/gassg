@@ -34,7 +34,7 @@ assert.ok(hook.indexOf('if(!signed)')<hook.indexOf('await handleFinancialLabLive
 assert.match(hook,/route:"finance_lab_live_pix"/);
 assert.doesNotMatch(hookSource,/ingestPlatformPayment|wallet_entries|merchant_billing_payment_events|rpc\(/);
 assert.match(ui,/adminFinanceLabLiveCreateFromUi/);
-assert.match(ui,/prompt\?\.\(/);
+assert.match(ui,/confirm\?\.\(/);
 assert.match(ui,/Copiar Pix REAL/);
 assert.match(workflow,/node tests\/admin-financial-live-pix.mjs/);
 const hash=s=>createHash('sha256').update(s).digest('hex');
