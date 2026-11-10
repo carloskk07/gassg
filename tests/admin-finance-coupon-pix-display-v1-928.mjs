@@ -66,7 +66,7 @@ assert.match(panel,/id="verified-qr"/);
 assert.match(panel,/Pix copia e cola/);
 assert.match(panel,/readonly/);
 assert.match(panel,/Copiar Pix copia e cola/);
-assert.match(panel,/Abrir pagamento ORIGINAL no Mercado Pago/);
+assert.match(panel,/Abrir pagamento original no Mercado Pago/);
 assert.deepEqual(qrCalls,[code],'QR must encode EXACT same BR Code as copy/paste');
 assert.equal(ctx.live.copy(),true);
 assert.equal(copied[0].text,code);
