@@ -6684,7 +6684,7 @@ function adminFinanceRealPanel(key){
             'Nenhuma ação manual necessária enquanto o relatório estiver pendente.')+'</p>'
         :'<p>A conferência automática ainda não está ativa. A comprovação oficial permanece necessária.</p>')+
        '<details><summary>Detalhes e recuperação manual, somente se necessário</summary>'+
-       '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(\\'policy\\')">Conferir valor líquido no Financeiro</button></details>'
+       '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(\'policy\')">Conferir valor líquido no Financeiro</button></details>'
       :'<p>Valor líquido já verificado no sistema. Cupons emitidos visíveis: '+count+'. Isso não equivale a repasse bancário a revendas.</p>')+
     '</div>';
   }).join('');
