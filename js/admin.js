@@ -6391,6 +6391,19 @@ function adminFinanceRealCopyPix(){
     Date.now()>state.paymentUntil||!state.payment?.pix)return false;
  adminCopyText(state.payment.pix,'Pix da operação real');return true;
 }
+function adminFinanceRealFocusPayment(key){
+ const state=adminFinanceRealState(),current=state.payment;
+ if(!adminFinanceRealAllowed(key)||!current||current.kind!==key||
+    Date.now()>state.paymentUntil||!current.pix&&!current.url||
+    typeof requestAnimationFrame!=='function')return;
+ requestAnimationFrame(()=>{
+  if(adminFinanceRealAllowed(key)&&adminFinanceRealState()===state&&
+     state.payment===current&&Date.now()<state.paymentUntil)
+   document.getElementById('admin-finance-real-pix')?.scrollIntoView?.({
+    behavior:'smooth',block:'center'
+   });
+ });
+}
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6440,7 +6453,10 @@ async function adminFinanceRealRefresh(){
    state.error=String(e?.message||e);state.data=null;state.loadedKey=null;
   }
  }finally{
-  if(actor===String(adminRuntime.session?.user?.id||'')){state.busy=false;render();}
+  if(actor===String(adminRuntime.session?.user?.id||'')){
+   state.busy=false;render();
+   if(key==='coupons'&&recoveredPix)adminFinanceRealFocusPayment(key);
+  }
  }
 }
 async function adminFinanceRealAction(operation,choice=''){
@@ -6534,6 +6550,7 @@ async function adminFinanceRealAction(operation,choice=''){
  }finally{
   if(actor===String(adminRuntime.session?.user?.id||'')){
    state.busy=false;render();
+   adminFinanceRealFocusPayment(key);
   }
  }
 }
