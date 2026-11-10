@@ -7,30 +7,35 @@ import {couponReleasedNetEvidence}
 
 // V1.931: machine-only read/compare/register; NOT a new payment or coupon engine.
 // Existing invoice row lock and sponsor/partner funding guards remain authoritative.
+type CouponInvoice={id:string;status:string;paid_at:string;provider_order_id:string;
+ provider_payment_id:string;sale_price_cents:number;coupon_face_cents:number;
+ coupons_per_pack:number;sponsor_covered_cents:number};
+type NetReport={fileName:string;csv:string};
+type DbClient=ReturnType<typeof createClient>;
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const SECRETS=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const SECRET_KEY=SECRETS.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const MAX_REPORTS=10,MAX_INVOICES=2,MAX_CSV_BYTES=1_000_000;
 const FILE_RE=/^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv$/;
-function json(body,status=200){
+function json(body:unknown,status=200){
  return new Response(JSON.stringify(body),{status,headers:{
   "Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store",
   "X-Content-Type-Options":"nosniff"}});
 }
-function safeReason(reason){
+function safeReason(reason:unknown){
  const key=String(reason||"").replace(/[^A-Za-z0-9_]/g,"_").slice(0,110);
  return key.length>=2?key:"UNAVAILABLE";
 }
-async function sha256Hex(value){
+async function sha256Hex(value:string){
  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
  return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
-async function limitedCsv(response){
+async function limitedCsv(response:Response){
  const type=String(response.headers.get("content-type")||"");
  if(type.includes("spreadsheet")||type.includes("excel")||type.includes("application/json")||
     !response.body||Number(response.headers.get("content-length")||0)>MAX_CSV_BYTES)
   throw new Error("MP_RELEASE_CSV_INVALID");
- const reader=response.body.getReader();let total=0;const chunks=[];
+ const reader=response.body.getReader();let total=0;const chunks:Uint8Array[]=[];
  try{
   while(true){
    const {done,value}=await reader.read();
@@ -44,7 +49,7 @@ async function limitedCsv(response){
  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
  return new TextDecoder("utf-8",{fatal:true}).decode(bytes);
 }
-export function selectOfficialReports(list){
+export function selectOfficialReports(list:unknown){
  if(!Array.isArray(list)||list.length>50)
   return {complete:false,files:[],reason:"MP_RELEASE_LIST_INCOMPLETE"};
  const processed=list.filter(r=>String(r?.status||"").toLowerCase()==="processed"&&
@@ -56,13 +61,13 @@ export function selectOfficialReports(list){
   return {complete:false,files:[],reason:"MP_RELEASE_COVERAGE_LIMIT"};
  return {complete:true,files:names,reason:null};
 }
-async function getProviderData(token,invoice,reportFiles){
+async function getProviderData(token:string,invoice:CouponInvoice,reportFiles:string[]){
  const orderResponse=await mercadoPagoFetch("/v1/orders/"+
    encodeURIComponent(String(invoice.provider_order_id)),{
     accessToken:token,method:"GET",timeoutMs:8000});
  if(!orderResponse.ok)throw new Error("MP_ORDER_UNAVAILABLE");
  const order=await readMercadoPagoJson(orderResponse);
- const reportCsv=[];
+ const reportCsv:NetReport[]=[];
  for(const name of reportFiles){
   const response=await mercadoPagoFetch("/v1/account/release_report/"+
    encodeURIComponent(name),{accessToken:token,method:"GET",timeoutMs:8000});
@@ -71,8 +76,8 @@ async function getProviderData(token,invoice,reportFiles){
  }
  return {order,reportCsv};
 }
-export function evaluateReports({invoice,order,reportCsv,sponsorVerified}){
- const accepted=[];
+export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
+ const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
  for(const {fileName,csv} of reportCsv){
   const evidence=couponReleasedNetEvidence(csv,{
    invoice,order,reportFileName:fileName,sponsorVerified
@@ -88,13 +93,13 @@ export function evaluateReports({invoice,order,reportCsv,sponsorVerified}){
  return {status:"verified_candidate",reason:"MATCHED_REPORT",
    accepted:accepted[0]};
 }
-async function recordObservation(client,invoiceId,status,reason){
+async function recordObservation(client:DbClient,invoiceId:string,status:string,reason:unknown){
  const {error}=await client.from("clube_coupon_net_auto_observations_v1_931")
    .upsert({invoice_id:invoiceId,status,reason:safeReason(reason),
      last_checked_at:new Date().toISOString()},{onConflict:"invoice_id"});
  if(error)throw new Error("AUTO_OBSERVATION_UNAVAILABLE");
 }
-async function reconcileOne(client,token,invoice,files){
+async function reconcileOne(client:DbClient,token:string,invoice:CouponInvoice,files:string[]){
  if(invoice.status!=="paid"||!invoice.paid_at||
     !invoice.provider_order_id||!invoice.provider_payment_id)
   return {status:"requires_review",reason:"PAID_INVOICE_INCOMPLETE"};
