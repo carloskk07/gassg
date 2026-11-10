@@ -15,18 +15,25 @@ export function inspectReportSearch(raw){
  if(raw.results.some(item=>!item||typeof item!=="object"||
     Array.isArray(item)||typeof item.status!=="string"))
   return unavailable;
- const statuses=new Set(["processed","pending","processing","failed","deleted"]);
+ // GET /release_report/search differs from GET /list: a downloadable
+ // report may have status "enabled" and omit "is_test" entirely. These
+ // fields identify only a candidate FILE, never payment or net settlement.
+ const statuses=new Set(["enabled","processed","pending","processing","failed","deleted"]);
  if(raw.results.some(item=>!statuses.has(item.status.toLowerCase())))
   return {...unavailable,reason:"MP_RELEASE_SEARCH_STATUS_UNKNOWN"};
  const pending=raw.results.filter(item=>
    ["pending","processing"].includes(item.status.toLowerCase())).length;
  const blocked=raw.results.filter(item=>item.status.toLowerCase()==="failed").length;
- const processed=raw.results.filter(item=>
-   item.status.toLowerCase()==="processed"&&
-   item.currency_id==="BRL"&&item.is_test===false);
- if(processed.some(item=>!FILE_RE.test(String(item.file_name??""))))
+ const downloadable=raw.results.filter(item=>
+   ["enabled","processed"].includes(item.status.toLowerCase())&&
+   item.currency_id==="BRL"&&item.is_test!==true);
+ if(downloadable.some(item=>
+   item.sub_type!=="release"||item.format!=="CSV"||
+   !Number.isFinite(Date.parse(String(item.download_date??"")))))
+  return {...unavailable,reason:"MP_RELEASE_SEARCH_DOWNLOAD_UNVERIFIED"};
+ if(downloadable.some(item=>!FILE_RE.test(String(item.file_name??""))))
   return {...unavailable,reason:"MP_RELEASE_SEARCH_FILENAME_INVALID"};
- const files=[...new Set(processed.map(item=>String(item.file_name)))];
+ const files=[...new Set(downloadable.map(item=>String(item.file_name)))];
  if(files.length>MAX_REPORTS)
   return {...unavailable,reason:"MP_RELEASE_SEARCH_TOO_MANY_FILES"};
  return {complete:true,files,pending,blocked,reason:null};
