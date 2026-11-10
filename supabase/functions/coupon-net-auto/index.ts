@@ -318,7 +318,7 @@ Deno.serve(async req=>{
     try{
      const reports=await discoverReleaseReports(mpToken);
      // An existing pending task also blocks creating another report.
-     if(reports.complete&&reports.files.length===0&&reports.pending===0)
+     if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0)
       reportBackfill=await requestHistoricalReleaseReport(
         client,mpToken,pendingReceipt.data[0]);
     }catch{/* Report list is required; never request under uncertain coverage. */}
@@ -339,7 +339,7 @@ Deno.serve(async req=>{
   // The direct report generation endpoint is independent of the existing
   // daily schedule. Only a verified TAMÃO-owned active configuration permits
   // requesting a bounded historical report for a genuine paid invoice.
-  if(reports.complete&&reports.files.length===0&&reports.pending===0&&
+  if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0&&
     reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
     reportConfiguration?.owned===true&&invoices.length>0)
     reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
@@ -361,7 +361,8 @@ Deno.serve(async req=>{
   }
   return json({ok:true,checked:invoices.length,registered,review,waiting,
     reportConfiguration,reportBackfill,
-    providerReportQueue:{pendingAccountReports:reports.pending,source:reports.source,
+    providerReportQueue:{pendingAccountReports:reports.pending,
+      failedAccountReports:reports.blocked,source:reports.source,
       coverageComplete:reports.complete}});
  }catch{
   return json({ok:false,error:"AUTO_CONCILIATION_UNAVAILABLE"},503);
