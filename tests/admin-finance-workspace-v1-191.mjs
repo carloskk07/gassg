@@ -14,7 +14,7 @@ const extract=name=>{
 };
 const providerUuid=src.split('\n').find(line=>line.startsWith('const ADMIN_FINANCE_CHARGE_UUID='));
 assert.ok(providerUuid,'Finance charge identity helper required');
-const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=([\\s\\S]*?);\\n/);
+const declaration=src.match(/const ADMIN_FINANCE_WORKSPACES=([\s\S]*?);\n/);
 assert.ok(declaration,'Finance workspace allowlist required');
 const sandbox=vm.createContext({});
 vm.runInContext(declaration[0]+'this.items=ADMIN_FINANCE_WORKSPACES;',sandbox);
