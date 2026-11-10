@@ -228,4 +228,13 @@ assert.match(worker,/release_report\/search\?limit=50&offset=0/);
 assert.match(worker,/pending===0&&reports\.blocked===0/);
 assert.match(worker,/if\(!search\.ok\)return \{complete:false/);
 assert.match(worker,/reportConfiguration,reportBackfill,/);
+assert.match(worker,/MP_REPORT_PROCESSING/);
+assert.match(worker,/MP_REPORT_GENERATION_FAILED/);
+assert.match(worker,/reportConfiguration,reportBackfill,providerReportQueue/);
+assert.match(worker,/pendingAccountReports:reports\.pending/);
+assert.match(worker,/failedAccountReports:reports\.blocked/);
+const adminUI=read('js/admin.js');
+assert.match(adminUI,/O Mercado Pago está gerando o relatório/);
+assert.match(adminUI,/Não gere outro Pix nem outra cobrança/);
+
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');

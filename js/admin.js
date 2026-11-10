@@ -6680,8 +6680,11 @@ function adminFinanceRealPanel(key){
       ?'<p><strong>Conciliação do líquido pendente.</strong> Os cupons não estão liberados para uso enquanto o extrato oficial do Mercado Pago não for conferido.</p>'+
        (state.autoStatus?.enabled===true
         ?'<p><strong>Conferência automática ativa.</strong> O TAMÃO consulta o relatório oficial sem gerar outro Pix. '+
-          (state.autoStatus.status==='requires_review'?'Há uma divergência para revisar.':
-            'Nenhuma ação manual necessária enquanto o relatório estiver pendente.')+'</p>'
+          (state.autoStatus.status==='requires_review'
+            ?'O Mercado Pago não concluiu o relatório ou há uma divergência que exige revisão.':
+             state.autoStatus.reason==='MP_REPORT_PROCESSING'
+              ?'O Mercado Pago está gerando o relatório. Não gere outro Pix nem outra cobrança.':
+              'Nenhuma ação manual necessária enquanto o relatório estiver pendente.')+'</p>'
         :'<p>A conferência automática ainda não está ativa. A comprovação oficial permanece necessária.</p>')+
        '<details><summary>Detalhes e recuperação manual, somente se necessário</summary>'+
        '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(&quot;policy&quot;)">Conferir valor líquido no Financeiro</button></details>'
