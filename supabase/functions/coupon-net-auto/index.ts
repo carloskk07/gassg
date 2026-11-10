@@ -135,16 +135,75 @@ async function reconcileOne(client:DbClient,token:string,invoice:CouponInvoice,f
 }
 // V1.933: bounded read-only report readiness even during the invoice retry
 // cooldown. No schedule creation, financial mutation, or invoice status edit.
+// MP is authoritative. Only an actual HTTP 404 proves that account-wide
+// report configuration is absent and permits a one-time safe initial setup.
+const REPORT_PREFIX="tamao-release-v1";
 async function getReleaseReportConfigSummary(mpToken:string){
  try{
   const response=await mercadoPagoFetch("/v1/account/release_report/config",{
    accessToken:mpToken,method:"GET",timeoutMs:8000});
-  if(response.status===404)return inspectReleaseReportConfig(null);
-  if(response.ok)
-   return inspectReleaseReportConfig(await readMercadoPagoJson(response));
- }catch{/* PSP report settings may be restricted on this account. */}
- return {ready:false,scheduled:false,
+  if(response.status===404)
+   return {...inspectReleaseReportConfig(null),verifiedAbsent:true,owned:false};
+  if(response.ok){
+   const data=await readMercadoPagoJson(response);
+   const report=inspectReleaseReportConfig(data);
+   const d=data&&typeof data==="object"&&!Array.isArray(data)?data:{};
+   const frequency=d.frequency&&typeof d.frequency==="object"?d.frequency:{};
+   const noRecipients=!Array.isArray(d.notification_email_list)||
+     d.notification_email_list.length===0;
+   const noExternalDelivery=!d.sftp_info&&noRecipients;
+   const owned=report.ready&&d.file_name_prefix===REPORT_PREFIX&&
+     frequency.type==="daily"&&noExternalDelivery;
+   return {...report,verifiedAbsent:false,owned};
+  }
+ }catch{/* Provider may not expose these reports to this account. */}
+ return {ready:false,scheduled:false,verifiedAbsent:false,owned:false,
   reason:"MP_REPORT_CONFIG_UNAVAILABLE",missing:[]};
+}
+async function claimReportSetup(client:DbClient,action:"create_config"|"enable_schedule"){
+ const {data,error}=await client.rpc("clube_coupon_mp_report_setup_claim_v1_934",{
+  p_action:action
+ });
+ if(error)throw new Error("MP_REPORT_SETUP_CLAIM_UNAVAILABLE");
+ return data===true;
+}
+async function prepareReleaseReports(client:DbClient,mpToken:string,initial:Awaited<ReturnType<typeof getReleaseReportConfigSummary>>){
+ let config=initial;
+ if(config.verifiedAbsent===true){
+  if(!await claimReportSetup(client,"create_config"))
+   return {...config,reason:"MP_REPORT_CONFIG_SETUP_IN_PROGRESS"};
+  // First-time account configuration only. No SFTP, webhooks, customer
+  // notifications or other external delivery. No POST /orders or /payments.
+  const createResponse=await mercadoPagoFetch("/v1/account/release_report/config",{
+   accessToken:mpToken,method:"POST",timeoutMs:9000,
+   body:{file_name_prefix:REPORT_PREFIX,
+    frequency:{type:"daily",hour:3},
+    columns:MANDATORY_RELEASE_FIELDS.map(key=>({key})),
+    separator:",",report_translation:"en",
+    include_withdrawal_at_end:false,execute_after_withdrawal:false,
+    notification_email_list:[]}
+  });
+  if(![200,201].includes(createResponse.status))
+   return {...config,reason:"MP_REPORT_CONFIG_CREATE_REJECTED"};
+  config=await getReleaseReportConfigSummary(mpToken);
+  if(!config.ready||!config.owned)
+   return {...config,reason:"MP_REPORT_CONFIG_CREATE_UNCONFIRMED"};
+ }
+ // Never change a configuration owned by another integration and never
+ // alter existing columns, recipients, timezone or schedule frequency.
+ if(config.ready&&config.scheduled===false&&config.owned===true){
+  if(!await claimReportSetup(client,"enable_schedule"))
+   return {...config,reason:"MP_REPORT_SCHEDULE_SETUP_IN_PROGRESS"};
+  const scheduleResponse=await mercadoPagoFetch("/v1/account/release_report/schedule",{
+    accessToken:mpToken,method:"POST",timeoutMs:9000
+  });
+  if(scheduleResponse.status!==200)
+   return {...config,reason:"MP_REPORT_SCHEDULE_REJECTED"};
+  config=await getReleaseReportConfigSummary(mpToken);
+  if(!config.ready||!config.scheduled||!config.owned)
+   return {...config,reason:"MP_REPORT_SCHEDULE_UNCONFIRMED"};
+ }
+ return config;
 }
 // V1.932 — inspect existing MP report settings without changing an account-wide schedule.
 const MANDATORY_RELEASE_FIELDS=["DATE","SOURCE_ID","EXTERNAL_REFERENCE","RECORD_TYPE",
@@ -192,8 +251,10 @@ Deno.serve(async req=>{
    const pendingReceipt=await client.from("clube_coupon_paid_invoices")
     .select("id").eq("status","paid").is("net_proceeds_verified_at",null).limit(1);
    if(pendingReceipt.error)throw new Error("AUTO_UNRECONCILED_COUNT_UNAVAILABLE");
-   const reportConfiguration=Array.isArray(pendingReceipt.data)&&pendingReceipt.data.length>0
+   let reportConfiguration=Array.isArray(pendingReceipt.data)&&pendingReceipt.data.length>0
       ?await getReleaseReportConfigSummary(mpToken):null;
+   if(reportConfiguration)
+    reportConfiguration=await prepareReleaseReports(client,mpToken,reportConfiguration);
    return json({ok:true,checked:0,registered:0,review:0,waiting:0,
      reportConfiguration});
   }
@@ -205,8 +266,10 @@ Deno.serve(async req=>{
   // or a missing/incompatible configuration. Diagnose rather than asserting
   // settlement or changing shared MP account settings.
   let reportConfiguration:null|ReturnType<typeof inspectReleaseReportConfig>=null;
-  if(reports.complete&&!reports.files.length)
-   reportConfiguration=await getReleaseReportConfigSummary(mpToken);
+  if(reports.complete&&!reports.files.length){
+   const initial=await getReleaseReportConfigSummary(mpToken);
+   reportConfiguration=await prepareReleaseReports(client,mpToken,initial);
+  }
   let registered=0,review=0,waiting=0;
   for(const invoice of invoices){
    let result;
