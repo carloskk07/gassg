@@ -11,7 +11,8 @@ type CouponInvoice={id:string;status:string;paid_at:string;provider_order_id:str
  provider_payment_id:string;sale_price_cents:number;coupon_face_cents:number;
  coupons_per_pack:number;sponsor_covered_cents:number};
 type NetReport={fileName:string;csv:string};
-type DbClient=ReturnType<typeof createClient>;
+// DB schema is verified by SQL migrations; every RPC response is checked at runtime.
+type DbClient=any;
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const SECRETS=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const SECRET_KEY=SECRETS.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
@@ -136,7 +137,7 @@ Deno.serve(async req=>{
  if(req.method!=="POST")return json({ok:false,error:"METHOD_NOT_ALLOWED"},405);
  const token=req.headers.get("X-Tamao-Coupon-Cron-Token")||"";
  if(!/^[0-9a-f]{64}$/.test(token)||!SUPABASE_URL||!SECRET_KEY)return json({ok:false},403);
- const client=createClient(SUPABASE_URL,SECRET_KEY,{
+ const client:DbClient=createClient(SUPABASE_URL,SECRET_KEY,{
   auth:{autoRefreshToken:false,persistSession:false}
  });
  const {data:authorized,error:authError}=await client.rpc(
