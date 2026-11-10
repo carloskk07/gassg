@@ -37,6 +37,8 @@ const ctx=vm.createContext({
   adminCouponCommercialRefresh:async()=>{couponLoads++;},
   adminFinanceLabReadinessFromUi:async()=>{},
   adminFinanceLabLiveReadinessFromUi:async()=>{liveLoads++;},
+  adminFinanceLabLiveCancelAutoCheck:()=>{},
+  adminFinanceLabLiveVisible:()=>false,
   requestAnimationFrame:fn=>fn(),document
 });
 vm.runInContext('const ADMIN_FINANCE_WORKSPACES='+declaration[1]+';\n'
@@ -196,6 +198,7 @@ const financeContext=vm.createContext({
   Date,Number,String,Object,Set,Map,
   adminRuntime:financeRuntime,adminRoleCanSection:()=>true,
   adminCurrentRole:()=> 'superadmin',adminMerchantName:()=> 'Revenda de teste',
+  adminFinanceLabLivePaymentBanner:()=>'',
   adminMoney:amount=>'R$ '+(Number(amount)/100).toFixed(2),
   esc:value=>String(value??'').replace(/[&<>"]/g,''),
 });

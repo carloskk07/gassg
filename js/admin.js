@@ -449,6 +449,7 @@ async function adminSignOut(){
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
   adminRuntime.merchantFinance={data:null,loading:false,error:null,checkedAt:null};
   // Clear previous account's payment details before a new login.
+  adminFinanceLabLiveCancelAutoCheck();
   adminFinanceLabLiveScheduleExpiry(null);
   adminRuntime.financeLab={preview:null,sandbox:null,amountCents:null,
     idempotencyKey:null,pending:false,error:null,readiness:null,
@@ -3763,6 +3764,7 @@ function adminSetSection(section){
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
+  if(next!=='finance')adminFinanceLabLiveCancelAutoCheck();
   if(['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(next))
     adminAdvancedNavOpen=true;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
@@ -3787,6 +3789,10 @@ function adminSetSection(section){
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='lab'
     &&adminCurrentRole()==='superadmin')
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
+  if(next==='finance'&&adminFinanceLabLiveVisible()&&
+    adminRuntime.financeLab.live?.orderId)
+    adminFinanceLabLiveWatchOrder(adminRuntime.financeLab.live.orderId,
+      adminRuntime.financeLab,String(adminRuntime.session?.user?.id||''));
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
     document.getElementById('admin-current-section-title')?.focus({preventScroll:true});
@@ -5683,6 +5689,38 @@ function adminFinanceLabLiveActorCurrent(lab,actor){
     adminRuntime.financeLab===lab&&
     String(adminRuntime.session?.user?.id||'')===actor;
 }
+// V1.923 — poll only the original authenticated Pix by GET; no charges or credits.
+let adminFinanceLabLiveStatusTimer=null;
+function adminFinanceLabLiveCancelAutoCheck(){
+ if(adminFinanceLabLiveStatusTimer!==null){
+  clearTimeout(adminFinanceLabLiveStatusTimer);
+  adminFinanceLabLiveStatusTimer=null;
+ }
+}
+function adminFinanceLabLiveVisible(){
+ return adminRuntime.section==='finance'&&
+  (adminRuntime.financeWorkspace==='lab'||
+   (adminRuntime.financeWorkspace==='homologation'&&adminRuntime.financeHomologationLabOpen===true));
+}
+function adminFinanceLabLiveWatchOrder(orderId,lab,actor){
+ adminFinanceLabLiveCancelAutoCheck();
+ const deadline=Date.parse(String(lab?.live?.expiresAt||''));
+ if(!adminFinanceLabLiveActorCurrent(lab,actor)||
+   !adminFinanceLabLiveVisible()||lab.live?.orderId!==orderId||
+   !Number.isFinite(deadline)||Date.now()>deadline+5*60_000||
+   lab.liveStatus?.orderId===orderId&&
+    (lab.liveStatus.providerProcessed===true||lab.liveStatus.reversalObserved===true||
+     !['action_required',''].includes(String(lab.liveStatus.orderStatus||''))))return;
+ adminFinanceLabLiveStatusTimer=setTimeout(async()=>{
+  adminFinanceLabLiveStatusTimer=null;
+  if(!adminFinanceLabLiveActorCurrent(lab,actor)||
+    !adminFinanceLabLiveVisible()||lab.live?.orderId!==orderId)return;
+  if(document.visibilityState==='hidden'||lab.livePending||lab.liveSilentCheck===true){
+   adminFinanceLabLiveWatchOrder(orderId,lab,actor);return;
+  }
+  await adminFinanceLabLiveCheckFromUi(orderId,true);
+ },15000);
+}
 async function adminFinanceLabLiveReadinessFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const lab=adminRuntime.financeLab;
@@ -5696,6 +5734,12 @@ async function adminFinanceLabLiveReadinessFromUi(){
       ||!Array.isArray(data.recent))
       throw new Error('Histórico auditado do Pix real indisponível.');
     lab.liveReadiness=data;
+    const recent=data.recent[0];
+    const when=Date.parse(String(recent?.createdAt||''));
+    if(adminFinanceLabLiveVisible()&&/^[A-Za-z0-9_-]{10,120}$/.test(String(recent?.orderId||''))&&
+      Number.isFinite(when)&&Date.now()-when<48*60*60*1000&&
+      lab.liveStatus?.orderId!==recent.orderId&&!lab.livePending)
+      adminFinanceLabLiveCheckFromUi(recent.orderId,true).catch(()=>{});
   }catch(e){
     if(adminFinanceLabLiveActorCurrent(lab,actor)){
       lab.liveReadiness=null;lab.liveError=String(e?.message||e);
@@ -5747,6 +5791,7 @@ async function adminFinanceLabLiveCreateFromUi(){
     lab.live=data;lab.liveStatus=null;lab.liveKey=null;lab.liveAmountCents=null;
     lab.livePurpose=null;
     adminFinanceLabLiveScheduleExpiry(lab.live);
+    adminFinanceLabLiveWatchOrder(lab.live.orderId,lab,actor);
     adminFinanceLabLoadQrEncoder().catch(()=>{});
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
   }catch(e){
@@ -5781,6 +5826,7 @@ async function adminFinanceLabLiveRecoverFromUi(orderId=''){
       lab.live=data;lab.liveStatus=data.alreadyBound?data:null;
       lab.liveKey=null;lab.liveAmountCents=null;
       adminFinanceLabLiveScheduleExpiry(lab.live);
+      adminFinanceLabLiveWatchOrder(lab.live.orderId,lab,actor);
       adminFinanceLabLoadQrEncoder().catch(()=>{});
       toast('Ordem original aberta, sem gerar outra cobrança.');
       adminFinanceLabLiveReadinessFromUi().catch(()=>{});
@@ -5810,38 +5856,59 @@ async function adminFinanceLabLiveRecoverByIdFromUi(){
   await adminFinanceLabLiveRecoverFromUi(value);
 }
 
-async function adminFinanceLabLiveCheckFromUi(orderId){
-  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
-  const lab=adminRuntime.financeLab;
-  const actor=String(adminRuntime.session?.user?.id||'');
-  if(!adminFinanceLabLiveActorCurrent(lab,actor)||lab.livePending||
-    !/^[A-Za-z0-9_-]{10,120}$/.test(String(orderId||'')))return;
-  lab.livePending=true;lab.liveError=null;render();
-  try{
-    const data=await adminInvoke({action:'finance-lab-live-check',orderId});
-    if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
-    if(data?.ok!==true||data.mode!=='live'||data.orderId!==orderId
-      ||data.credited!==false||data.settlementVerified!==false)
-      throw new Error('A ordem real não foi comprovada pelo provedor.');
-    lab.liveStatus=data;
-    if(typeof data.brCode==='string'&&data.brCode.length>30
-      &&data.orderStatus==='action_required'
-      &&data.paymentStatus==='action_required'
-      &&data.expiresAt&&Date.parse(data.expiresAt)>Date.now()+60_000){
-      lab.live={mode:'live',orderId,amountCents:data.amountCents,
-        brCode:data.brCode,paymentLinkUrl:data.paymentLinkUrl||'',
-        expiresAt:data.expiresAt,credited:false,settlementVerified:false};
-      adminFinanceLabLiveScheduleExpiry(lab.live);
-      adminFinanceLabLoadQrEncoder().catch(()=>{});
-    }else if(lab.live?.orderId===orderId){
-      lab.live=null;
-      adminFinanceLabLiveScheduleExpiry(null);
-    }
-  }catch(e){
-    if(adminFinanceLabLiveActorCurrent(lab,actor))lab.liveError=String(e?.message||e);
-  }finally{
-    if(adminFinanceLabLiveActorCurrent(lab,actor)){lab.livePending=false;render();}
+async function adminFinanceLabLiveCheckFromUi(orderId,quiet=false){
+ if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+ const lab=adminRuntime.financeLab;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(!adminFinanceLabLiveActorCurrent(lab,actor)||lab.livePending||
+   quiet&&lab.liveSilentCheck===true||
+   !/^[A-Za-z0-9_-]{10,120}$/.test(String(orderId||'')))return;
+ if(quiet)lab.liveSilentCheck=true;
+ else{lab.livePending=true;lab.liveError=null;render();}
+ let changed=false;
+ try{
+  const data=await adminInvoke({action:'finance-lab-live-check',orderId});
+  if(!adminFinanceLabLiveActorCurrent(lab,actor))return;
+  if(data?.ok!==true||data.mode!=='live'||data.orderId!==orderId
+    ||data.credited!==false||data.settlementVerified!==false)
+    throw new Error('A ordem real não foi comprovada pelo provedor.');
+  const previous=lab.liveStatus;
+  // Never overwrite confirmed processing with a delayed pending read.
+  if(previous?.orderId===orderId&&previous.providerProcessed===true
+    &&data.providerProcessed!==true&&data.reversalObserved!==true)return;
+  changed=!previous||previous.orderId!==orderId||
+    previous.orderStatus!==data.orderStatus||previous.paymentStatus!==data.paymentStatus||
+    previous.providerProcessed!==data.providerProcessed||
+    previous.webhookProcessed!==data.webhookProcessed||
+    previous.reversalObserved!==data.reversalObserved;
+  lab.liveStatus=data;
+  if(typeof data.brCode==='string'&&data.brCode.length>30
+    &&data.orderStatus==='action_required'
+    &&data.paymentStatus==='action_required'
+    &&data.expiresAt&&Date.parse(data.expiresAt)>Date.now()+60_000){
+    if(lab.live?.orderId!==orderId||lab.live.brCode!==data.brCode)changed=true;
+    lab.live={mode:'live',orderId,amountCents:data.amountCents,
+      brCode:data.brCode,paymentLinkUrl:data.paymentLinkUrl||'',
+      expiresAt:data.expiresAt,credited:false,settlementVerified:false};
+    adminFinanceLabLiveScheduleExpiry(lab.live);
+    adminFinanceLabLoadQrEncoder().catch(()=>{});
+  }else if(lab.live?.orderId===orderId){
+    lab.live=null;changed=true;
+    adminFinanceLabLiveScheduleExpiry(null);
   }
+ }catch(e){
+  if(adminFinanceLabLiveActorCurrent(lab,actor)&&!quiet){
+   lab.liveError=String(e?.message||e);changed=true;
+  }
+ }finally{
+  if(adminFinanceLabLiveActorCurrent(lab,actor)){
+   if(quiet)lab.liveSilentCheck=false;else lab.livePending=false;
+   if(lab.live?.orderId===orderId&&adminFinanceLabLiveVisible())
+    adminFinanceLabLiveWatchOrder(orderId,lab,actor);
+   else adminFinanceLabLiveCancelAutoCheck();
+   if(!quiet||changed)render();
+  }
+ }
 }
 async function adminFinanceLabLiveCopyFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
@@ -5881,6 +5948,20 @@ function adminFinanceLabLiveHistoryLabel(item){
     case 'unavailable':return 'Histórico de webhooks indisponível — consultar ordem';
     default:return 'Sem confirmação de pagamento no webhook auditado';
   }
+}
+function adminFinanceLabLivePaymentBanner(state){
+ const status=state.liveStatus;
+ if(!status||status.credited!==false||status.settlementVerified!==false)return '';
+ if(status.reversalObserved===true)
+  return '<div class="notice danger" role="alert"><strong>Estorno ou contestação identificado.</strong> Confira a ordem no Mercado Pago. Não reutilize o Pix.</div>';
+ if(status.providerProcessed!==true)return '';
+ const signed=status.webhookProcessed===true;
+ return '<div class="notice '+(signed?'success':'')+'" role="status"><strong>'+
+  (signed?'Pagamento processado no Mercado Pago — webhook assinado confirmado':
+   'Pagamento processado no Mercado Pago — aguardando confirmação assinada')+
+  '</strong><div class="order-line">Pix REAL de '+adminMoney(status.amountCents)+
+  ' • Ordem: '+esc(status.orderId)+'</div>'+
+  '<small>Ensaio do gateway, não é extrato bancário e não credita cupons.</small></div>';
 }
 function adminFinanceLabView(d){
   const compact=adminRuntime.section==='finance'&&adminRuntime.financeWorkspace==='homologation';
@@ -5975,6 +6056,7 @@ function adminFinanceLabView(d){
         <div class="order-actions"><button type="button" class="secondary small"
           onclick="adminFinanceLabLiveRecoverByIdFromUi()" ${state.livePending?'disabled':''}>Consultar Pix existente pelo ID — não cria outro</button></div>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
+        ${adminFinanceLabLivePaymentBanner(state)}
         ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>'+adminFinanceLabLiveQrBlock(state.live)+(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':'')+'<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         <div class="section-head"><div><h4>Emissões reais auditadas</h4>
           <p class="muted tiny">Último webhook assinado registrado por ordem (pode estar desatualizado). Consulte o PSP para status atual; isso não comprova liquidação bancária nem emite outro Pix.</p></div>
@@ -6330,8 +6412,12 @@ function adminFinanceHomologationToggleLab(){
  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminRuntime.section!=='finance'||
    adminFinanceWorkspaceCurrent()!=='homologation')return false;
  adminRuntime.financeHomologationLabOpen=adminRuntime.financeHomologationLabOpen!==true;
+ if(!adminRuntime.financeHomologationLabOpen)adminFinanceLabLiveCancelAutoCheck();
  render();
  if(adminRuntime.financeHomologationLabOpen){
+  const lab=adminRuntime.financeLab;
+  if(lab.live?.orderId)adminFinanceLabLiveWatchOrder(lab.live.orderId,
+    lab,String(adminRuntime.session?.user?.id||''));
   adminFinanceLabReadinessFromUi().catch(()=>{});
   adminFinanceLabLiveReadinessFromUi().catch(()=>{});
  }
@@ -6383,6 +6469,7 @@ function adminSetFinanceWorkspace(workspace){
   if(!ADMIN_FINANCE_WORKSPACES.some(item=>item.id===key)
     ||(['lab','homologation'].includes(key)&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
+  adminFinanceLabLiveCancelAutoCheck();
   render();
   if(key==='policy'&&adminCurrentRole()==='superadmin'){
     adminCouponCommercialRefresh().catch(()=>{});
@@ -6394,6 +6481,9 @@ function adminSetFinanceWorkspace(workspace){
     // Existing receipts are read-only and do not depend on a new Pix.
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
   }
+  if(adminFinanceLabLiveVisible()&&adminRuntime.financeLab.live?.orderId)
+    adminFinanceLabLiveWatchOrder(adminRuntime.financeLab.live.orderId,
+      adminRuntime.financeLab,String(adminRuntime.session?.user?.id||''));
   requestAnimationFrame(()=>{
     document.getElementById('admin-finance-switch-'+key)?.focus({preventScroll:true});
     document.getElementById('admin-finance-workspace-panel')?.scrollIntoView({
