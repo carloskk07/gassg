@@ -6324,7 +6324,7 @@ function adminFinanceRealState(){
  const actor=String(adminRuntime.session?.user?.id||'');
  if(!adminRuntime.financeReal||adminRuntime.financeReal.actor!==actor)
   adminRuntime.financeReal={actor,loadedKey:null,busy:false,data:null,error:null,
-   payment:null,paymentUntil:0,requests:{},message:null,couponWatch:null};
+   payment:null,paymentUntil:0,requests:{},message:null,couponWatch:null,autoStatus:null};
  return adminRuntime.financeReal;
 }
 function adminFinanceRealAllowed(key){
@@ -6474,6 +6474,19 @@ async function adminFinanceRealRefresh(){
       history?.source!=='clube_coupon_paid_my_vouchers_v1'||!Array.isArray(history.purchases))
     throw Error('O checkout de cupons não confirmou o catálogo e o histórico.');
    data={catalog,history};
+   // Read-only machine status: never create Pix during page refresh.
+   const awaiting=history.purchases.find(p=>p.status==='paid'&&
+     p.fundingPending===true&&/^[0-9a-f-]{36}$/i.test(String(p.invoiceId||'')));
+   state.autoStatus=null;
+   if(awaiting){
+    try{
+     const status=await adminInvoke({action:'clube-coupon-auto-status',
+       invoiceId:awaiting.invoiceId});
+     if(status?.source==='coupon_auto_net_status_v1_931'&&
+       status.readOnly===true&&status.invoiceId===awaiting.invoiceId)
+       state.autoStatus=status;
+    }catch{/* Original paid receipt remains visible if auto-status is offline. */}
+   }
    // Fetch the ORIGINAL pending invoice, GET-only at Mercado Pago. Never
    // perform action:purchase as a side effect of opening this Admin page.
    const pending=history.purchases.find(row=>
@@ -6509,7 +6522,7 @@ async function adminFinanceRealRefresh(){
    if(pending)adminFinanceRealCouponWatch(state,pending.invoiceId);
    else adminFinanceRealCouponStopWatch(state);
    const paid=data.history.purchases.some(p=>p.status==='paid');
-   state.message=paid?'Pix pago e registrado no TAMÃO. Confira a conciliação do valor líquido abaixo.':
+   state.message=paid?'Pix pago e registrado no TAMÃO. Acompanhe a conciliação do valor líquido abaixo.':
     recoveryError||'Conferência concluída, sem criar cobrança.';
   }else state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
  }catch(e){
@@ -6665,7 +6678,13 @@ function adminFinanceRealPanel(key){
     '. Não pague novamente.</p>'+
     (p.fundingPending===true
       ?'<p><strong>Conciliação do líquido pendente.</strong> Os cupons não estão liberados para uso enquanto o extrato oficial do Mercado Pago não for conferido.</p>'+
-       '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(\'policy\')">Conferir valor líquido no Financeiro</button>'
+       (state.autoStatus?.enabled===true
+        ?'<p><strong>Conferência automática ativa.</strong> O TAMÃO consulta o relatório oficial sem gerar outro Pix. '+
+          (state.autoStatus.status==='requires_review'?'Há uma divergência para revisar.':
+            'Nenhuma ação manual necessária enquanto o relatório estiver pendente.')+'</p>'
+        :'<p>A conferência automática ainda não está ativa. A comprovação oficial permanece necessária.</p>')+
+       '<details><summary>Detalhes e recuperação manual, somente se necessário</summary>'+
+       '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(\\'policy\\')">Conferir valor líquido no Financeiro</button></details>'
       :'<p>Valor líquido já verificado no sistema. Cupons emitidos visíveis: '+count+'. Isso não equivale a repasse bancário a revendas.</p>')+
     '</div>';
   }).join('');
