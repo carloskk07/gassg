@@ -613,6 +613,8 @@ jobs:
         run: node tests/admin-finance-coupon-pix-display-v1-928.mjs
       - name: V1.929 real paid coupon receipt, status polling and unfunded voucher guard
         run: node tests/admin-finance-coupon-paid-receipt-v1-929.mjs
+      - name: V1.930 simple Finance task navigation and paid coupon proof first
+        run: node tests/admin-finance-navigation-v1-930.mjs
       - name: V1.920 finance evidence classifications, webhook scope and payment safety
         run: node tests/admin-finance-evidence-v1-920.mjs
       - name: V1.921 private referral evidence counts without changing payout grants
