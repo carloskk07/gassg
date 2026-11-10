@@ -49,6 +49,8 @@ function fixture(){
   adminCurrentRole:()=>role,
   adminInvoke:async payload=>{calls.push({...payload});return perform(payload)},
   adminFinanceLabCents:()=>200,
+  adminFinanceHomologationCatalog:()=>[{key:'gateway',name:'Gateway de pagamentos'}],
+  adminMoney:cents=>'R$ '+(Number(cents)/100).toFixed(2),
   adminIdempotency:()=> 'replay-same-key-1234567890',
   adminFinanceLabLiveIsPayable:()=>true,
   adminFinanceLabLiveScheduleExpiry:v=>schedules.push(v),
