@@ -6030,9 +6030,9 @@ function adminFinanceLabView(d){
           <button type="button" class="secondary small" onclick="adminFinanceLabCheckOrderFromUi('${esc(sandbox.orderId||'')}')" ${state.pending?'disabled':''}>Consultar status no Mercado Pago</button>
         </div>`:''}
       ${compact?'</details>':'</div>'}
-      <div class="card flat admin-finance-lab-main"><h3>Pix REAL controlado — homologação</h3>
+      <div class="card flat admin-finance-lab-main"><h3>${compact?'Seu teste Pix — resultado e próxima ação':'Pix REAL controlado — homologação'}</h3>
         ${adminRuntime.section==='finance'&&adminRuntime.financeWorkspace==='homologation'
-          ?'<p><strong>Ensaio vinculado:</strong> '+esc(String(adminRuntime.financeHomologationEvidence?.selected||'gateway'))+
+          ?'<p><strong>Módulo escolhido:</strong> '+esc(adminFinanceHomologationCatalog().find(m=>m.key===adminRuntime.financeHomologationEvidence?.selected)?.name||'Gateway')+
             '. O Pix de laboratório não cria direitos, créditos ou pedidos comerciais.</p>':''}
         <p class="muted tiny">Apenas superadmin. Não ativa comércio, vendas, benefícios ou créditos. A emissão gera Pix pagável somente após confirmação explícita.</p>
         ${!compact||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true
@@ -6041,6 +6041,7 @@ function adminFinanceLabView(d){
         ${state.liveReadiness?'<p class="tiny muted">Conta Mercado Pago: '+
           (state.liveReadiness.providerReady&&state.liveReadiness.accountBound?'Conectada':'Pendente')+
           ' • Webhook: '+(state.liveReadiness.remoteWebhookVerified?'Verificado':'Pendente')+'</p>':''}
+        ${adminFinanceLabLivePaymentBanner(state)}
         <label for="admin-finance-lab-live-amount">Valor do próximo Pix real</label>
         <select class="input" id="admin-finance-lab-live-amount" aria-label="Escolha o valor do Pix real">
           ${[100,200,300,500].map(cents=>'<option value="'+(cents/100).toFixed(2).replace('.',',')+'"'+
@@ -6051,6 +6052,8 @@ function adminFinanceLabView(d){
           ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
           ${state.livePending?'Consultando provedor…':'Gerar outro Pix real (exige confirmação)'}</button></div>
         <p class="tiny muted">O Pix cria uma cobrança real, somente após sua confirmação. O teste anterior deve estar processado, assinado e sem estorno. Máximo de 3 emissões por hora.</p>
+        ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
+        ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>'+adminFinanceLabLiveQrBlock(state.live)+(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':'')+'<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         <details class="admin-finance-homologation-details admin-finance-lab-recovery"><summary>Histórico e recuperar um Pix existente</summary>
         <div class="order-actions"><button class="secondary small" type="button"
           onclick="adminFinanceLabLiveRecoverFromUi()" ${state.livePending?'disabled':''}>
@@ -6061,9 +6064,6 @@ function adminFinanceLabView(d){
           placeholder="ORD…" aria-label="ID da ordem Mercado Pago para recuperar o Pix existente">
         <div class="order-actions"><button type="button" class="secondary small"
           onclick="adminFinanceLabLiveRecoverByIdFromUi()" ${state.livePending?'disabled':''}>Consultar Pix existente pelo ID — não cria outro</button></div>
-        ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
-        ${adminFinanceLabLivePaymentBanner(state)}
-        ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>'+adminFinanceLabLiveQrBlock(state.live)+(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':'')+'<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
         <div class="section-head"><div><h4>Emissões reais auditadas</h4>
           <p class="muted tiny">Último webhook assinado registrado por ordem (pode estar desatualizado). Consulte o PSP para status atual; isso não comprova liquidação bancária nem emite outro Pix.</p></div>
           <button type="button" class="secondary small" onclick="adminFinanceLabLiveReadinessFromUi()"
