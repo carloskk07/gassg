@@ -237,7 +237,7 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'clube_coupon_net_auto_authorize_v1_931' "$f" || { echo "$f missing server-side bearer verification"; exit 1; }
       grep -q 'clube_coupon_net_auto_register_v1_931' "$f" || { echo "$f missing audited net registration"; exit 1; }
       grep -q 'couponReleasedNetEvidence' "$f" || { echo "$f missing immutable PSP financial proofs"; exit 1; }
-      grep -q '\\[functions.coupon-net-auto\\]' supabase/config.toml || { echo "$f missing explicit JWT-off cron config"; exit 1; }
+      grep -Fq '[functions.coupon-net-auto]' supabase/config.toml || { echo "$f missing explicit JWT-off cron config"; exit 1; }
       ! grep -q 'mercadoPagoFetch("/v1/orders",{.*method:"POST"' "$f" || { echo "$f must not create a payment"; exit 1; }
       ;;
     *)
