@@ -1739,15 +1739,25 @@ async function adminFinanceLabLiveCheck(admin:any,actorId:string,body:any){
     &&orderStatus==="processed"&&paymentStatus==="processed"
     &&details.every(x=>!x||x==="accredited");
   const {data:events,error:eventError}=await admin.from("platform_admin_audit")
-    .select("metadata,created_at").eq("action","finance_lab_live_pix_webhook")
+    .select("metadata,created_at").eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_webhook")
     .eq("target_id",orderId).order("created_at",{ascending:false}).limit(10);
   if(eventError)throw eventError;
-  const witnessed=Array.isArray(events)&&events.length>0;
-  // The latest signed snapshot supersedes older paid observations after
-  // refunds or disputes; never let a stale positive callback dominate.
-  const latestSigned=(events||[])[0]??null;
-  const webhookProcessed=latestSigned?.metadata?.providerProcessed===true
-    &&latestSigned?.metadata?.reversal!==true;
+  // V1.926: the latest event for THIS owner and original order is authoritative.
+  // A missing/unsigned/foreign/mismatched or older callback cannot be
+  // promoted to "webhook signed" just because the independent PSP GET is paid.
+  const latest=(events||[])[0]??null;
+  const webhook=latest?.metadata;
+  const webhookTime=Date.parse(String(latest?.created_at||""));
+  const createdTime=Date.parse(String(proof.created_at||""));
+  const witnessed=webhook?.signed===true&&webhook?.mode==="live"
+    &&webhook?.provider==="mercadopago"
+    &&Number(webhook?.amountCents)===amount
+    &&Number.isFinite(createdTime)&&Number.isFinite(webhookTime)
+    &&webhookTime>=createdTime;
+  const webhookProcessed=witnessed
+    &&webhook.providerProcessed===true&&webhook.reversal===false
+    &&webhook.orderStatus==="processed"&&webhook.paymentStatus==="processed";
   const brCode=String(payment?.payment_method?.qr_code||"");
   const expiry=Date.parse(String(proof.metadata.expiresAt||""));
   const validBr=brCode?validatePixBrCode(brCode,{expectedAmountCents:amount}):{valid:false};
