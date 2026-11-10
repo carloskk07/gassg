@@ -1829,6 +1829,22 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     );
     assert.ok(source.includes('https://tamao.com.br')&&source.includes('https://parceiro.tamao.com.br')&&source.includes('https://admin.tamao.com.br'),entry.name+' precisa provar os três portais oficiais');
     assert.ok(source.includes('record_automated_portal_attestation')&&!source.includes('admin_operation_mode_action')&&!source.includes('platform_launch_confirmations'),entry.name+' só pode atualizar evidência factual de portais');
+  }else if(entry.name==='coupon-net-auto'){
+    assert.ok(source.includes('req.method!=="POST"')&&
+      source.includes('X-Tamao-Coupon-Cron-Token')&&
+      source.includes('clube_coupon_net_auto_authorize_v1_931'),
+      'A conciliação automática exige bearer de máquina validado no banco');
+    assert.ok(source.includes('MAX_CSV_BYTES=1_000_000')&&
+      source.includes('limitedCsv(response)')&&
+      source.includes('readMercadoPagoJson')&&
+      source.includes('MAX_INVOICES=2')&&
+      source.includes('MAX_REPORTS=10'),
+      'A conciliação automática limita entradas, JSON do provedor e extratos CSV');
+    assert.ok(source.includes('couponReleasedNetEvidence')&&
+      source.includes('clube_coupon_net_auto_register_v1_931')&&
+      source.includes('clube_coupon_sponsor_covered_v1_807')&&
+      !source.includes('action:"purchase"')&&!source.includes('method:"POST"'),
+      'A conciliação só registra líquido comprovado, sem criar pedidos ou Pix');
   }else if(entry.name==='admin-push-reliability'){
     assert.ok(source.includes('raw.length>512'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('auth.getUser')&&source.includes('user.is_anonymous===true'),
