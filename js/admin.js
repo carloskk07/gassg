@@ -5990,6 +5990,8 @@ function adminFinanceLabView(d){
   const compact=adminRuntime.section==='finance'&&adminRuntime.financeWorkspace==='homologation';
   if(adminCurrentRole()!=='superadmin')return '<div class="notice">Laboratório disponível ao administrador principal.</div>';
   const state=adminRuntime.financeLab||{};
+  const awaitingSignedWebhook=state.liveStatus?.providerProcessed===true&&
+    state.liveStatus?.webhookProcessed!==true&&state.liveStatus?.reversalObserved!==true;
   const preview=state.preview||null;
   const sandbox=state.sandbox||null;
   const ingress=d?.merchantBilling?.paymentIngress||{};
@@ -6072,8 +6074,8 @@ function adminFinanceLabView(d){
         </select>
         <div class="order-actions"><button class="primary small" type="button"
           onclick="adminFinanceLabLiveCreateFromUi()"
-          ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
-          ${state.livePending?'Consultando provedor…':'Gerar outro Pix real (exige confirmação)'}</button></div>
+          ${state.livePending||awaitingSignedWebhook||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
+          ${state.livePending?'Consultando provedor…':awaitingSignedWebhook?'Aguardando webhook assinado':'Gerar outro Pix real (exige confirmação)'}</button></div>
         <p class="tiny muted">O Pix cria uma cobrança real, somente após sua confirmação. O teste anterior deve estar processado, assinado e sem estorno. Máximo de 3 emissões por hora.</p>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
         ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>'+adminFinanceLabLiveQrBlock(state.live)+(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':'')+'<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
