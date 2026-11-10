@@ -242,6 +242,44 @@ assert.equal(checked.webhookProcessed,true);
 assert.equal(checked.webhookSeen,true);
 assert.equal(checked.settlementVerified,false);
 assert.equal(checked.credited,false);
+// V1.926: an unrelated administrator's later callback must not override
+// this owner's authenticated event, nor may an invalid local callback prove pay.
+const fakeCallback={id:'890ad11e-1d6d-4fc9-8f2e-111122223333',
+  actor_user_id:'22222222-2222-4222-8222-222222222222',
+  action:'finance_lab_live_pix_webhook',target_id:orderId,
+  created_at:new Date(Date.now()+3000).toISOString(),
+  metadata:{signed:true,mode:'live',provider:'mercadopago',amountCents:200,
+    providerProcessed:true,reversal:false,
+    orderStatus:'processed',paymentStatus:'processed'}};
+rows.push(fakeCallback);
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,true,'other actors cannot supersede own signed proof');
+rows.pop();
+fakeCallback.actor_user_id=actorId;
+fakeCallback.metadata.signed=false;
+rows.push(fakeCallback);
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,false,'unsigned newest callback cannot claim signed payment');
+assert.equal(checked.webhookSeen,false,'unverified callbacks are not authenticated evidence');
+fakeCallback.metadata.signed=true;
+fakeCallback.metadata.amountCents=300;
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,false,'different amount cannot prove original Pix');
+fakeCallback.metadata.amountCents=200;
+fakeCallback.metadata.provider='another_provider';
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,false,'foreign provider cannot prove Mercado Pago Pix');
+fakeCallback.metadata.provider='mercadopago';
+fakeCallback.metadata.orderStatus='action_required';
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,false,'pending webhook cannot prove paid Pix');
+fakeCallback.metadata.orderStatus='processed';
+fakeCallback.created_at=new Date(Date.now()-300000).toISOString();
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,false,'callback predating Pix creation is invalid');
+rows.pop();
+checked=await ctx.live.check(db,actorId,{orderId});
+assert.equal(checked.webhookProcessed,true,'the original valid signed event remains verifiable');
 currentOrder={...currentOrder,transactions:{...currentOrder.transactions,
   refunds:[{id:'RF-1',amount:'1.00',status:'processed'}]}};
 const reversed=await hookCtx.ingestLab(db,orderId,proof);
