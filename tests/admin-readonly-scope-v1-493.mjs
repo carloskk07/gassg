@@ -140,6 +140,7 @@ const uiCtx=vm.createContext({
   sessionStorage:{setItem:(key,value)=>savedSections.push([key,value])},
   adminEnsureProviderHealth:async()=>null,
   adminLoadGovernanceGates:async()=>null,
+  adminFinanceLabLiveCancelAutoCheck:()=>{},
   requestAnimationFrame:()=>{},
   adminNavIcon:()=>'<svg></svg>',
   esc:value=>String(value),
