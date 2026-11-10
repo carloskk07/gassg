@@ -13,9 +13,11 @@ assert.ok(start>0&&end>start);
 const source=edge.slice(start,end)
   .replaceAll('admin:any','admin').replaceAll('actorId:string','actorId')
   .replaceAll('email:string','email').replaceAll('body:any','body')
-  .replaceAll('digest:string','digest').replaceAll('req:Request','req')
+  .replaceAll('digest:string','digest').replaceAll('prior:any[]','prior')
+  .replaceAll('req:Request','req')
   .replaceAll('(item:any)=>','(item)=>').replaceAll('(row:any)=>','(row)=>')
-  .replaceAll('(p:any)=>','(p)=>').replaceAll('(event:any)=>','(event)=>');
+  .replaceAll('(p:any)=>','(p)=>').replaceAll('(event:any)=>','(event)=>')
+  .replaceAll('(evt:any)=>','(evt)=>');
 const eventStart=hook.indexOf('async function handleFinancialLabLiveOrder(');
 const eventEnd=hook.indexOf('Deno.serve(',eventStart);
 assert.ok(eventStart>0&&eventEnd>eventStart);
