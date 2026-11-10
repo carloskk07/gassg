@@ -90,7 +90,47 @@ async function discoverReleaseReports(mpToken:string){
   accessToken:mpToken,method:"GET",timeoutMs:8000});
  if(!search.ok)return {complete:false,files:[],pending:0,blocked:0,
   reason:"MP_RELEASE_SEARCH_UNAVAILABLE",source:"search_unavailable"};
- const result=inspectReportSearch(await readMercadoPagoJson(search));
+ const raw=await readMercadoPagoJson(search);
+ const total=Number(raw?.paging?.total);
+ if(!Number.isSafeInteger(total)||total<0||total>50||
+    !Array.isArray(raw?.results)||raw.results.length>total)
+  return {complete:false,files:[],pending:0,blocked:0,
+   reason:"MP_RELEASE_SEARCH_PAGINATION_INVALID",source:"official_search"};
+ const items=[...raw.results];
+ const ids=new Set<string>();
+ for(const row of items){
+  const id=String(row?.id??"");
+  if(!/^[1-9][0-9]{0,19}$/.test(id)||ids.has(id))
+   return {complete:false,files:[],pending:0,blocked:0,
+    reason:"MP_RELEASE_SEARCH_ID_INVALID",source:"official_search"};
+  ids.add(id);
+ }
+ // API search is paginated independently from /list. Never use an incomplete
+ // page as evidence of report coverage or infer that generation has finished.
+ // At most five provider pages and fifty rows for the entire account.
+ for(let page=1;items.length<total&&page<=5;page++){
+  if(items.length===0)break;
+  const next=await mercadoPagoFetch(
+   "/v1/account/release_report/search?limit=50&offset="+items.length,{
+   accessToken:mpToken,method:"GET",timeoutMs:8000});
+  if(!next.ok)return {complete:false,files:[],pending:0,blocked:0,
+   reason:"MP_RELEASE_SEARCH_PAGE_UNAVAILABLE",source:"official_search"};
+  const data=await readMercadoPagoJson(next);
+  if(Number(data?.paging?.total)!==total||
+      Number(data?.paging?.offset)!==items.length||
+      !Array.isArray(data?.results)||data.results.length<1||
+      data.results.length>total-items.length)
+   return {complete:false,files:[],pending:0,blocked:0,
+    reason:"MP_RELEASE_SEARCH_PAGE_MISMATCH",source:"official_search"};
+  for(const row of data.results){
+   const id=String(row?.id??"");
+   if(!/^[1-9][0-9]{0,19}$/.test(id)||ids.has(id))
+    return {complete:false,files:[],pending:0,blocked:0,
+     reason:"MP_RELEASE_SEARCH_DUPLICATED",source:"official_search"};
+   ids.add(id);items.push(row);
+  }
+ }
+ const result=inspectReportSearch({paging:{total},results:items});
  return {...result,source:"official_search"};
 }
 export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
