@@ -133,6 +133,27 @@ async function reconcileOne(client:DbClient,token:string,invoice:CouponInvoice,f
   return {status:"requires_review",reason:"NET_REGISTER_REJECTED"};
  return {status:"net_verified",reason:"PROVIDER_CSV_ATOMICALLY_REGISTERED"};
 }
+// V1.932 — inspect existing MP report settings without changing an account-wide schedule.
+const MANDATORY_RELEASE_FIELDS=["DATE","SOURCE_ID","EXTERNAL_REFERENCE","RECORD_TYPE",
+ "DESCRIPTION","NET_CREDIT_AMOUNT","NET_DEBIT_AMOUNT","GROSS_AMOUNT"];
+export function inspectReleaseReportConfig(config:unknown){
+ if(!config||typeof config!=="object"||Array.isArray(config))
+  return {ready:false,scheduled:false,reason:"MP_REPORT_CONFIG_MISSING",missing:MANDATORY_RELEASE_FIELDS};
+ const c=config as Record<string,unknown>;
+ const columns=Array.isArray(c.columns)?c.columns:[];
+ const keys=new Set(columns.filter(x=>x&&typeof x==="object")
+   .map(x=>String((x as Record<string,unknown>).key??"").toUpperCase()));
+ const missing=MANDATORY_RELEASE_FIELDS.filter(k=>!keys.has(k));
+ const format=String(c.format??"CSV").toUpperCase();
+ const separator=String(c.separator??",");
+ const translation=String(c.report_translation??"en").toLowerCase();
+ const ready=missing.length===0&&format==="CSV"&&
+   [",",";"].includes(separator)&&translation==="en";
+ const reason=!ready?
+   (missing.length?"MP_REPORT_COLUMNS_INCOMPLETE":"MP_REPORT_FORMAT_UNSUPPORTED"):
+   c.scheduled===true?"MP_REPORT_CONFIG_READY":"MP_REPORT_SCHEDULE_DISABLED";
+ return {ready,scheduled:c.scheduled===true,reason,missing};
+}
 Deno.serve(async req=>{
  if(req.method!=="POST")return json({ok:false,error:"METHOD_NOT_ALLOWED"},405);
  const token=req.headers.get("X-Tamao-Coupon-Cron-Token")||"";
@@ -156,11 +177,32 @@ Deno.serve(async req=>{
     accessToken:mpToken,method:"GET",timeoutMs:8000});
   if(!listResponse.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
   const reports=selectOfficialReports(await readMercadoPagoJson(listResponse));
+  // No POST to MP: a missing report may be a disabled account-wide schedule
+  // or a missing/incompatible configuration. Diagnose rather than asserting
+  // settlement or changing shared MP account settings.
+  let reportConfiguration:null|ReturnType<typeof inspectReleaseReportConfig>=null;
+  if(reports.complete&&!reports.files.length){
+    try{
+      const configResponse=await mercadoPagoFetch("/v1/account/release_report/config",{
+        accessToken:mpToken,method:"GET",timeoutMs:8000});
+      if(configResponse.status===404)
+        reportConfiguration=inspectReleaseReportConfig(null);
+      else if(configResponse.ok)
+        reportConfiguration=inspectReleaseReportConfig(await readMercadoPagoJson(configResponse));
+      else reportConfiguration={ready:false,scheduled:false,
+        reason:"MP_REPORT_CONFIG_UNAVAILABLE",missing:[]};
+    }catch{
+      reportConfiguration={ready:false,scheduled:false,
+        reason:"MP_REPORT_CONFIG_UNAVAILABLE",missing:[]};
+    }
+  }
   let registered=0,review=0,waiting=0;
   for(const invoice of invoices){
    let result;
    if(!reports.complete)result={status:"coverage_incomplete",reason:reports.reason};
-   else if(!reports.files.length)result={status:"awaiting_report",reason:"NO_PROCESSED_REPORT"};
+   else if(!reports.files.length)result={status:"awaiting_report",
+     reason:reportConfiguration?.reason==="MP_REPORT_CONFIG_READY"?
+       "NO_PROCESSED_REPORT":reportConfiguration?.reason??"MP_REPORT_CONFIG_UNAVAILABLE"};
    else{
     try{result=await reconcileOne(client,mpToken,invoice,reports.files);}
     catch{result={status:"provider_unavailable",reason:"RETRYABLE_PROVIDER_OR_DATABASE_FAILURE"};}
@@ -170,7 +212,8 @@ Deno.serve(async req=>{
    else if(result.status==="requires_review")review++;
    else waiting++;
   }
-  return json({ok:true,checked:invoices.length,registered,review,waiting});
+  return json({ok:true,checked:invoices.length,registered,review,waiting,
+    reportConfiguration});
  }catch{
   return json({ok:false,error:"AUTO_CONCILIATION_UNAVAILABLE"},503);
  }
