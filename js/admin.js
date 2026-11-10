@@ -6256,7 +6256,11 @@ function adminFinanceHomologationChoose(key){
  adminFinanceHomologationEvidenceState().selected=key;
  if(key==='advertising'&&typeof adminAdsIndependentLoad==='function')
   adminAdsIndependentLoad();
+ if(key!=='coupons'&&adminRuntime.financeReal?.couponWatch)
+  adminFinanceRealCouponStopWatch(adminRuntime.financeReal);
  render();
+ if(['coupons','mobility','advertising'].includes(key))
+  adminFinanceRealRefresh().catch(()=>{});
  return true;
 }
 async function adminFinanceHomologationRefresh(){
@@ -6313,7 +6317,7 @@ function adminFinanceRealState(){
  const actor=String(adminRuntime.session?.user?.id||'');
  if(!adminRuntime.financeReal||adminRuntime.financeReal.actor!==actor)
   adminRuntime.financeReal={actor,loadedKey:null,busy:false,data:null,error:null,
-   payment:null,paymentUntil:0,requests:{},message:null};
+   payment:null,paymentUntil:0,requests:{},message:null,couponWatch:null};
  return adminRuntime.financeReal;
 }
 function adminFinanceRealAllowed(key){
@@ -6404,6 +6408,50 @@ function adminFinanceRealFocusPayment(key){
    });
  });
 }
+// Poll ONLY the existing customer-owned Pix, never create another charge.
+// Stop as soon as the ledger records the payment or the page/session changes.
+function adminFinanceRealCouponStopWatch(state){
+ const w=state?.couponWatch;
+ if(w?.timer!=null&&typeof clearTimeout==='function')clearTimeout(w.timer);
+ if(state)state.couponWatch=null;
+}
+function adminFinanceRealCouponWatch(state,invoiceId){
+ if(!adminFinanceRealAllowed('coupons')||!/^[0-9a-f-]{36}$/i.test(String(invoiceId)))return;
+ if(state.couponWatch?.invoiceId===invoiceId)return;
+ adminFinanceRealCouponStopWatch(state);
+ const w={invoiceId,startedAt:Date.now(),timer:null};state.couponWatch=w;
+ const active=()=>adminRuntime.financeReal===state&&state.couponWatch===w&&
+  state.actor===String(adminRuntime.session?.user?.id||'')&&adminFinanceRealAllowed('coupons');
+ const poll=async()=>{
+  w.timer=null;
+  if(!active()){adminFinanceRealCouponStopWatch(state);return;}
+  if(Date.now()-w.startedAt>=900000){adminFinanceRealCouponStopWatch(state);return;}
+  if(!state.busy&&document.visibilityState!=='hidden'){
+   try{
+    const result=await adminFinanceRealApi('coupon-credit-pix',
+     {action:'invoice-status',invoiceId});
+    if(!active())return;
+    if(result?.ok===true&&result.invoiceId===invoiceId&&
+       ['paid','review_required','refunded','cancelled','expired'].includes(result.status)){
+     const history=await adminFinanceRealApi('coupon-credit-pix',{action:'my-vouchers'});
+     if(!active())return;
+     if(history?.source==='clube_coupon_paid_my_vouchers_v1'&&
+        Array.isArray(history.purchases)&&
+        history.purchases.some(p=>p.invoiceId===invoiceId&&p.status===result.status)){
+      if(state.data)state.data.history=history;
+      adminFinanceRealClearPayment();
+      adminFinanceRealCouponStopWatch(state);
+      state.message=result.status==='paid'?'Pix pago e registrado no TAMÃO. Confira a conciliação do valor líquido.':
+       'O status da compra mudou. Consulte a situação financeira, sem pagar novamente.';
+      render();return;
+     }
+    }
+   }catch{/* A failed read never changes financial status. */}
+  }
+  if(active())w.timer=setTimeout(poll,50000);
+ };
+ w.timer=setTimeout(poll,50000);
+}
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6447,7 +6495,16 @@ async function adminFinanceRealRefresh(){
   state.data=data;state.loadedKey=key;
   if(recoveredPix)adminFinanceRealRememberPayment(key,recoveredPix);
   else if(key==='coupons'||key==='mobility')adminFinanceRealClearPayment();
-  state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
+  if(key==='coupons'){
+   const pending=data.history.purchases.find(p=>
+    ['prepared','awaiting_payment'].includes(p.status)&&
+    /^[0-9a-f-]{36}$/i.test(String(p.invoiceId||'')));
+   if(pending)adminFinanceRealCouponWatch(state,pending.invoiceId);
+   else adminFinanceRealCouponStopWatch(state);
+   const paid=data.history.purchases.some(p=>p.status==='paid');
+   state.message=paid?'Pix pago e registrado no TAMÃO. Confira a conciliação do valor líquido abaixo.':
+    recoveryError||'Conferência concluída, sem criar cobrança.';
+  }else state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
  }catch(e){
   if(actor===String(adminRuntime.session?.user?.id||'')){
    state.error=String(e?.message||e);state.data=null;state.loadedKey=null;
@@ -6469,7 +6526,9 @@ async function adminFinanceRealAction(operation,choice=''){
  if(key==='coupons'&&operation==='purchase'){
   const pkg=state.data?.catalog?.packages?.find(p=>p.packageKey===choice);
   const pending=state.data?.history?.purchases?.some(p=>['prepared','awaiting_payment'].includes(p.status));
-  if(!pkg||pending||state.data.catalog.couponSalesEnabled!==true||
+  const paid=state.data?.history?.purchases?.some(p=>
+   p.status==='paid'&&p.packageKey===choice);
+  if(!pkg||pending||paid||state.data.catalog.couponSalesEnabled!==true||
      document.getElementById('admin-finance-real-coupon-terms')?.checked!==true||
      pkg.termsVersion!=='clube_coupon_terms_v1_813'||!consent())return;
   if(!state.requests['coupon-'+choice])state.requests['coupon-'+choice]=crypto.randomUUID();
@@ -6511,18 +6570,23 @@ async function adminFinanceRealAction(operation,choice=''){
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
   if(key==='coupons'){
    if(result?.ok!==true||!['purchase','check'].includes(operation))throw Error('Fatura real não confirmada.');
-   adminFinanceRealRememberPayment(key,result);
-   state.message='Pix da fatura ORIGINAL disponível abaixo. Confira o recebedor no banco antes de pagar.';
-   if(operation==='purchase'){
-    // Refresh only the buyer's existing invoices. Prevent the "Gerar" action
-    // from staying available after issuing this real, still-unpaid charge.
+   if(result.status==='paid')adminFinanceRealClearPayment();
+   else adminFinanceRealRememberPayment(key,result);
+   state.message=result.status==='paid'
+    ?'Pix pago e registrado no TAMÃO. Consulte a conciliação abaixo.'
+    :'Fatura original consultada. Se pagou, verifique o status; não gere outro Pix.';
+   if(operation==='purchase'||result.status==='paid'){
     try{
      const updated=await adminFinanceRealApi('coupon-credit-pix',{action:'my-vouchers'});
      if(updated?.source==='clube_coupon_paid_my_vouchers_v1'&&
         Array.isArray(updated.purchases)&&state.data&&
-        actor===String(adminRuntime.session?.user?.id||''))
+        actor===String(adminRuntime.session?.user?.id||'')){
       state.data.history=updated;
-    }catch{} // The original payment remains visible even if listing fails.
+      const pending=updated.purchases.find(p=>['prepared','awaiting_payment'].includes(p.status));
+      if(pending)adminFinanceRealCouponWatch(state,pending.invoiceId);
+      else adminFinanceRealCouponStopWatch(state);
+     }
+    }catch{}
    }
   }else if(key==='mobility'){
    if(result?.ok!==true||!result.charge)throw Error('Fatura real do motorista não confirmada.');
@@ -6584,11 +6648,24 @@ function adminFinanceRealPanel(key){
  if(key==='coupons'&&known){
   const purchases=known.history?.purchases||[],packs=known.catalog?.packages||[];
   const pending=purchases.filter(p=>['prepared','awaiting_payment'].includes(p.status));
+  const paid=purchases.filter(p=>p.status==='paid');
   html+='<p>Compras desta conta: '+purchases.length+' · Ofertas comerciais autorizadas: '+packs.length+'</p>';
-  if(pending.length)html+='<p class="notice">Há uma fatura anterior pendente. Consulte-a antes de tentar outra compra.</p>'+
-   pending.slice(0,3).map(p=>action('Consultar fatura existente ('+money(p.amountCents)+')',
+  if(paid.length)html+=paid.slice(0,3).map(p=>{
+   const count=(known.history?.vouchers||[]).filter(v=>v.invoiceId===p.invoiceId&&v.status==='issued').length;
+   return '<div class="notice" role="status" aria-label="Pagamento Pix confirmado">'+
+    '<strong>Pix PAGO e registrado no TAMÃO · '+money(p.amountCents)+'</strong>'+
+    '<p>Pagamento registrado em '+esc(formatDateTime(p.paidAt||p.createdAt))+
+    '. Não pague novamente.</p>'+
+    (p.fundingPending===true
+      ?'<p><strong>Conciliação do líquido pendente.</strong> Os cupons não estão liberados para uso enquanto o extrato oficial do Mercado Pago não for conferido.</p>'+
+       '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(\'policy\')">Conferir valor líquido no Financeiro</button>'
+      :'<p>Valor líquido já verificado no sistema. Cupons emitidos visíveis: '+count+'. Isso não equivale a repasse bancário a revendas.</p>')+
+    '</div>';
+  }).join('');
+  if(pending.length)html+='<p class="notice">Fatura original aguardando confirmação. Consulta automática a cada 50 segundos nesta tela.</p>'+
+   pending.slice(0,3).map(p=>action('Verificar pagamento agora ('+money(p.amountCents)+')',
     'adminFinanceRealAction(\'check\',\''+esc(p.invoiceId)+'\')')).join('');
-  else if(packs.length)html+='<p><a href="https://tamao.com.br/#terms" target="_blank" rel="noopener noreferrer">Ler os termos completos do Clube TAMÃO</a></p>'+
+  else if(!paid.length&&packs.length)html+='<p><a href="https://tamao.com.br/#terms" target="_blank" rel="noopener noreferrer">Ler os termos completos do Clube TAMÃO</a></p>'+
    '<label class="check-row"><input type="checkbox" id="admin-finance-real-coupon-terms"> Li e aceito os termos, a validade e as regras de reembolso do pacote; sei que pode não haver revenda ativa.</label>'+
    packs.filter(p=>p.termsVersion==='clube_coupon_terms_v1_813').map(p=>
     '<p><strong>'+esc(p.title)+' · '+money(p.priceCents)+'</strong></p>'+
@@ -6834,8 +6911,12 @@ function adminSetFinanceWorkspace(workspace){
   if(key==='policy'&&adminCurrentRole()==='superadmin'){
     adminCouponCommercialRefresh().catch(()=>{});
   }
-  if(key==='homologation'&&typeof adminFinanceHomologationRefresh==='function')
+  if(key==='homologation'&&typeof adminFinanceHomologationRefresh==='function'){
     adminFinanceHomologationRefresh().catch(()=>{});
+    if(adminCurrentRole()==='superadmin')adminFinanceRealRefresh().catch(()=>{});
+  }
+  if(key!=='homologation'&&adminRuntime.financeReal?.couponWatch)
+    adminFinanceRealCouponStopWatch(adminRuntime.financeReal);
   if(key==='lab'){
     adminFinanceLabReadinessFromUi().catch(()=>{});
     // Existing receipts are read-only and do not depend on a new Pix.
