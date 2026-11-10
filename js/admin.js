@@ -6571,14 +6571,14 @@ function adminFinanceRealPanel(key){
  const payment=state.payment;
  if(payment&&Date.now()<state.paymentUntil&&payment.kind===key)
   html+='<div class="notice" id="admin-finance-real-pix" role="region" aria-label="Pagamento original verificado">'+
-   '<h4>Pix REAL da fatura original · '+money(payment.amountCents)+'</h4>'+
+   '<h4>'+(key==='advertising'?'Checkout REAL da campanha':'Pix REAL da fatura original')+' · '+money(payment.amountCents)+'</h4>'+ 
    '<p>Situação: '+esc(String(payment.status))+'. Confira o recebedor no aplicativo do banco.</p>'+
    (payment.pix?adminFinanceLabLiveQrBlock({brCode:payment.pix})+
     '<label for="admin-finance-real-pix-code">Pix copia e cola</label>'+
     '<textarea class="input" id="admin-finance-real-pix-code" readonly rows="3" autocomplete="off">'+
      esc(payment.pix)+'</textarea>'+
     '<div class="order-actions">'+action('Copiar Pix copia e cola','adminFinanceRealCopyPix()')+'</div>':'')+
-   (payment.url?'<p><a href="'+esc(payment.url)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento ORIGINAL no Mercado Pago</a></p>':'')+
+   (payment.url?'<p><a href="'+esc(payment.url)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento original no Mercado Pago</a></p>':'')+
    ((!payment.pix&&!payment.url)?'<p>Não há QR ou link pagável confirmado. Consulte a fatura novamente.</p>':'')+
    '<small>Por segurança, o QR e o código desaparecem após 45 segundos. Use “Conferir operações existentes” ou “Consultar fatura existente” para recuperá-los com nova verificação do provedor. Não gere outro Pix.</small></div>';
  if(key==='coupons'&&known){
