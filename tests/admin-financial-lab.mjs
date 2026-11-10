@@ -136,7 +136,7 @@ assert.match(boot,/adminFinanceLabSandboxPixFromUi/);
 assert.match(boot,/adminFinanceLabPreviewFromUi/);
 assert.match(boot,/adminFinanceLabReadinessFromUi/);
 assert.match(boot,/adminFinanceLabCheckOrderFromUi/);
-assert.match(admin,/id":"lab","label":"Laboratório"/);
+assert.match(admin,/\{id:'lab',label:'Laboratório'/);
 assert.match(server,/action==="finance-lab-sandbox-pix"/);
 assert.match(server,/action==="finance-lab-readiness"/);
 assert.match(server,/action==="finance-lab-sandbox-check"/);
