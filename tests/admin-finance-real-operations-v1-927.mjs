@@ -56,7 +56,7 @@ const context=vm.createContext({
  confirm:()=>confirm,render:()=>{},setTimeout:()=>1,URL,Date,
  String,Number,Error,Object,Array,Promise,crypto:{randomUUID:()=>campaign},
  document:{getElementById:()=>({checked,value:'https://tamao.com.br/'})},
- adminCopyText:()=>{},toast:()=>{}
+ adminCopyText:()=>{},toast:()=>{},esc:x=>String(x)
 });
 vm.runInContext(source+';this.native={state:adminFinanceRealState,read:adminFinanceRealRefresh,'+
  'action:adminFinanceRealAction,panel:adminFinanceRealPanel,url:adminFinanceRealPaymentUrl,'+
