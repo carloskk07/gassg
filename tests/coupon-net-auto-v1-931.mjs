@@ -12,7 +12,7 @@ const evaluate=split('export function evaluateReports','async function recordObs
 const ctx=vm.createContext({
  couponReleasedNetEvidence:evidence.couponReleasedNetEvidence,
  safeReason:x=>String(x||'').replace(/[^A-Za-z0-9_]/g,'_').slice(0,110),
- FILE_RE:/^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\\.csv$/,
+ FILE_RE:/^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv$/,
  MAX_REPORTS:10,
  Array,Number,String,Set,Date
 });
