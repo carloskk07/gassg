@@ -171,6 +171,6 @@ assert.match(cooldown,/reports\.complete&&reports\.files\.length===0/);
 assert.match(cooldown,/requestHistoricalReleaseReport\(/);
 assert.match(cooldown,/reportBackfill/);
 assert.doesNotMatch(cooldown,/recordObservation\(/);
-assert.doesNotMatch(cooldown,/last_checked_at/);
+assert.doesNotMatch(cooldown,/\.update\(/);
 assert.doesNotMatch(cooldown,/clube_coupon_net_auto_register_v1_931/);
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');
