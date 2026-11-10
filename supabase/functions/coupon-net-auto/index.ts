@@ -277,14 +277,32 @@ Deno.serve(async req=>{
    // still diagnose provider settings when a genuine paid invoice awaits
    // independent net proof. Never reset last_checked_at to force a check.
    const pendingReceipt=await client.from("clube_coupon_paid_invoices")
-    .select("id").eq("status","paid").is("net_proceeds_verified_at",null).limit(1);
+    .select("id,status,paid_at,provider_order_id,provider_payment_id,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents")
+    .eq("status","paid").is("net_proceeds_verified_at",null).order("paid_at",{ascending:true}).limit(1);
    if(pendingReceipt.error)throw new Error("AUTO_UNRECONCILED_COUNT_UNAVAILABLE");
    let reportConfiguration=Array.isArray(pendingReceipt.data)&&pendingReceipt.data.length>0
       ?await getReleaseReportConfigSummary(mpToken):null;
    if(reportConfiguration)
     reportConfiguration=await prepareReleaseReports(client,mpToken,reportConfiguration);
+   let reportBackfill="NOT_ATTEMPTED";
+   // V1.937: a paid invoice's 30-minute NET-reconciliation cooldown is
+   // independent of a one-time, rate-limited provider report generation.
+   // Do NOT update last_checked_at or recheck Pix/settlement in this branch.
+   if(reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
+     reportConfiguration?.owned===true&&pendingReceipt.data?.length===1){
+    try{
+     const response=await mercadoPagoFetch("/v1/account/release_report/list",{
+       accessToken:mpToken,method:"GET",timeoutMs:8000});
+     if(response.ok){
+      const reports=selectOfficialReports(await readMercadoPagoJson(response));
+      if(reports.complete&&reports.files.length===0)
+       reportBackfill=await requestHistoricalReleaseReport(
+         client,mpToken,pendingReceipt.data[0]);
+     }
+    }catch{/* Report list is required; never request under uncertain coverage. */}
+   }
    return json({ok:true,checked:0,registered:0,review:0,waiting:0,
-     reportConfiguration});
+     reportConfiguration,reportBackfill});
   }
   const listResponse=await mercadoPagoFetch("/v1/account/release_report/list",{
     accessToken:mpToken,method:"GET",timeoutMs:8000});
