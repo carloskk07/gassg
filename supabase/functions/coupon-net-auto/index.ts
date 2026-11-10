@@ -351,7 +351,7 @@ Deno.serve(async req=>{
     reportConfiguration=await prepareReleaseReports(client,mpToken,reportConfiguration);
    let reportBackfill="NOT_ATTEMPTED";
    let providerReportQueue:null|{pendingAccountReports:number;failedAccountReports:number;
-     source:string;coverageComplete:boolean}=null;
+     source:string;coverageComplete:boolean;reason:string|null}=null;
    // V1.937: a paid invoice's 30-minute NET-reconciliation cooldown is
    // independent of a one-time, rate-limited provider report generation.
    // Do NOT update last_checked_at or recheck Pix/settlement in this branch.
