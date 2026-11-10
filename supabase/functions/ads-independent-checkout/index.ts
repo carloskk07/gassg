@@ -13,7 +13,7 @@ const PUB=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}").default
 const SECRET=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}").default
  ??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
- "https://tamao-sg-cliente.pages.dev"]);
+ "https://tamao-sg-cliente.pages.dev","https://admin.tamao.com.br"]);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function cors(origin:string|null){
  return {"Access-Control-Allow-Origin":origin&&ORIGINS.has(origin)?origin:"null",
