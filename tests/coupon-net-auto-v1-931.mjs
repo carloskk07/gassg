@@ -16,8 +16,8 @@ const ctx=vm.createContext({
 });
 vm.runInContext((selectors+evaluate)
  .replace('export function selectOfficialReports(list:unknown)','function selectOfficialReports(list)')
- .replace(/export function evaluateReports\\(\\{invoice,order,reportCsv,sponsorVerified\\}:[^\\n]+\\)/,
-  'function evaluateReports({invoice,order,reportCsv,sponsorVerified})')
+ .replace(/^export function evaluateReports.*$/m,
+  'function evaluateReports({invoice,order,reportCsv,sponsorVerified}){')
  .replace('const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];','const accepted=[];')+
  '\nthis.reports=selectOfficialReports;this.evalReports=evaluateReports;',ctx);
 const report=name=>({file_name:name,status:'processed',is_test:false,currency_id:'BRL'});
