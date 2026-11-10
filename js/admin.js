@@ -6270,7 +6270,7 @@ function adminFinanceHomologationView(d){
   (note?'<div class="order-line">Sinais financeiros: '+note.providerOrLedgerEvidence+
     ' • Pix de laboratório associados: '+note.labPixCount+
     ' • Último webhook: '+esc(latestEvent)+'</div>'+
-    '<p><strong>Próximo passo:</strong> '+esc(note.nextAction)+'</p>':'')+
+    '<p><strong>Próxima verificação:</strong> '+esc(note.nextAction)+'</p>':'')+
   '<p>'+esc(chosen.guide)+'</p>'+
   '<small>O laboratório não emite créditos, não prova recebimento bancário nem homologa automaticamente o módulo.</small>'+
   '</div></details></div>'+
