@@ -107,7 +107,7 @@ async function couponSaleRelease(admin:any){
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
-  "https://tamao-sg-cliente.pages.dev"]);
+  "https://tamao-sg-cliente.pages.dev","https://admin.tamao.com.br"]);
 function cors(origin:string|null){
   const allowed=origin&&ORIGINS.has(origin)?origin:"https://tamao.com.br";
   return {"Access-Control-Allow-Origin":allowed,
