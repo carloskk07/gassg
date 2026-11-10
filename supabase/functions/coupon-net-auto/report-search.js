@@ -27,10 +27,14 @@ export function inspectReportSearch(raw){
  const downloadable=raw.results.filter(item=>
    ["enabled","processed"].includes(item.status.toLowerCase())&&
    item.currency_id==="BRL"&&item.is_test!==true);
+ // download_date is the optional timestamp of a previous download;
+ // its absence must not force a human to fetch the file first. The actual
+ // GET of the CSV and exact transaction checks prove downloadability.
  if(downloadable.some(item=>
    item.sub_type!=="release"||item.format!=="CSV"||
-   !Number.isFinite(Date.parse(String(item.download_date??"")))))
-  return {...unavailable,reason:"MP_RELEASE_SEARCH_DOWNLOAD_UNVERIFIED"};
+   (item.download_date!=null&&item.download_date!==""&&
+    !Number.isFinite(Date.parse(String(item.download_date))))))
+  return {...unavailable,reason:"MP_RELEASE_SEARCH_FILE_METADATA_INVALID"};
  if(downloadable.some(item=>!FILE_RE.test(String(item.file_name??""))))
   return {...unavailable,reason:"MP_RELEASE_SEARCH_FILENAME_INVALID"};
  const files=[...new Set(downloadable.map(item=>String(item.file_name)))];
