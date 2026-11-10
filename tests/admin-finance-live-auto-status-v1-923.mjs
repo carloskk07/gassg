@@ -120,7 +120,7 @@ function fixture(){
  assert.equal(f.lab.liveStatus.providerProcessed,true);
  assert.equal(f.lab.liveStatus.webhookProcessed,false);
  assert.equal(f.timers.length,2,'continue GET-only observations for unsigned payment');
- assert.match(f.ctx.banner(f.lab),/A confirmação assinada/);
+ assert.match(f.ctx.banner(f.lab),/O webhook será consultado automaticamente/);
  assert.match(f.ctx.banner(f.lab),/15 minutos/);
  f.setReply(processed());
  await f.timers[1].fn();
