@@ -82,4 +82,30 @@ assert.match(sql,/select cron.schedule\('tamao-coupon-net-auto-v1-931'/);
 assert.match(sql,/clube_coupon_net_auto_audit_v1_931/);
 const audit=read('.github/workflows/audit.yml');
 assert.match(audit,/node tests\/coupon-net-auto-v1-931\.mjs/);
+// V1.932: official account settings, NOT a payment or a permission
+// to alter another app's account-wide reporting configuration.
+const configSrc=worker.slice(worker.indexOf('const MANDATORY_RELEASE_FIELDS='),
+ worker.indexOf('Deno.serve(async req=>{'));
+assert.ok(configSrc.includes('const MANDATORY_RELEASE_FIELDS='));
+vm.runInContext(configSrc
+ .replace('inspectReleaseReportConfig(config:unknown)',
+   'inspectReleaseReportConfig(config)')
+ .replace('const c=config as Record<string,unknown>;','const c=config;')
+ .replace('(x as Record<string,unknown>).key','x.key')
+ .replace('export function inspectReleaseReportConfig','function inspectReleaseReportConfig')
+ +String.fromCharCode(10)+'this.reportConfig=inspectReleaseReportConfig;',ctx);
+const required=['DATE','SOURCE_ID','EXTERNAL_REFERENCE','RECORD_TYPE',
+ 'DESCRIPTION','NET_CREDIT_AMOUNT','NET_DEBIT_AMOUNT','GROSS_AMOUNT'];
+const good={columns:required.map(key=>({key})),scheduled:true,format:'CSV'};
+assert.equal(ctx.reportConfig(good).ready,true);
+assert.equal(ctx.reportConfig(good).scheduled,true);
+assert.equal(ctx.reportConfig({...good,scheduled:false}).reason,'MP_REPORT_SCHEDULE_DISABLED');
+assert.equal(ctx.reportConfig(null).reason,'MP_REPORT_CONFIG_MISSING');
+assert.equal(ctx.reportConfig({...good,columns:required.slice(0,6).map(key=>({key}))}).ready,false);
+assert.equal(ctx.reportConfig({...good,format:'XLSX'}).ready,false);
+assert.equal(ctx.reportConfig({...good,report_translation:'pt'}).ready,false);
+assert.match(worker,/\/v1\/account\/release_report\/config/);
+assert.match(worker,/reportConfiguration/);
+assert.match(worker,/method:"GET",timeoutMs:8000/);
+assert.doesNotMatch(worker,/mercadoPagoFetch\("\/v1\/account\/release_report\/schedule"/);
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');
