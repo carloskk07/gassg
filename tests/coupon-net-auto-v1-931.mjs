@@ -120,7 +120,7 @@ assert.match(worker,/notification_email_list:\[\]/);
 assert.match(worker,/clube_coupon_mp_report_setup_claim_v1_934/);
 assert.doesNotMatch(worker,/mercadoPagoFetch\("\/v1\/orders",\{[^}]*method:"POST"/);
 assert.match(worker,/getReleaseReportConfigSummary\(mpToken\)/);
-assert.match(worker,/\.eq\("status","paid"\)\.is\("net_proceeds_verified_at",null\)\.limit\(1\)/);
+assert.match(worker,/\.eq\("status","paid"\)\.is\("net_proceeds_verified_at",null\)\.order\("paid_at",\{ascending:true\}\)\.limit\(1\)/);
 assert.match(worker,/if\(!invoices\.length\)\{/);
 assert.match(worker,/pendingReceipt\.error/);
 assert.match(worker,/AUTO_UNRECONCILED_COUNT_UNAVAILABLE/);
@@ -158,4 +158,19 @@ assert.match(worker,/response\.status===202/);
 assert.match(worker,/REPORT_REQUEST_AMBIGUOUS_NO_RETRY/);
 assert.match(worker,/REPORT_RESPONSE_UNCONFIRMED_NO_RETRY/);
 assert.match(worker,/reportBackfill/);
+// V1.937: a missing old report can be requested without changing the
+// independent 30-minute financial reconciliation checkpoint.
+const cooldownStart=worker.indexOf('if(!invoices.length){');
+const cooldownEnd=worker.indexOf('const listResponse=await mercadoPagoFetch',cooldownStart);
+const cooldown=worker.slice(cooldownStart,cooldownEnd);
+assert.ok(cooldownStart>0&&cooldownEnd>cooldownStart);
+assert.match(cooldown,/reportConfiguration\?\.owned===true/);
+assert.match(cooldown,/pendingReceipt\.data\?\.length===1/);
+assert.match(cooldown,/selectOfficialReports\(await readMercadoPagoJson\(response\)\)/);
+assert.match(cooldown,/reports\.complete&&reports\.files\.length===0/);
+assert.match(cooldown,/requestHistoricalReleaseReport\(/);
+assert.match(cooldown,/reportBackfill/);
+assert.doesNotMatch(cooldown,/recordObservation\(/);
+assert.doesNotMatch(cooldown,/\.update\(/);
+assert.doesNotMatch(cooldown,/clube_coupon_net_auto_register_v1_931/);
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');
