@@ -151,7 +151,7 @@ assert.match(worker,/clube_coupon_mp_report_backfill_claim_v1_936/);
 assert.match(worker,/function requestHistoricalReleaseReport\(/);
 assert.match(worker,/reportConfiguration\?\.owned===true/);
 assert.match(worker,/reports\.complete&&reports\.files\.length===0/);
-assert.match(worker,/data\?\.claimed!==true/);
+assert.match(worker,/claim\?\.claimed!==true/);
 assert.match(worker,/\/v1\/account\/release_report",\{/);
 assert.match(worker,/begin_date:start,end_date:end/);
 assert.match(worker,/response\.status===202/);
@@ -173,4 +173,25 @@ assert.match(cooldown,/reportBackfill/);
 assert.doesNotMatch(cooldown,/recordObservation\(/);
 assert.doesNotMatch(cooldown,/\.update\(/);
 assert.doesNotMatch(cooldown,/clube_coupon_net_auto_register_v1_931/);
+// V1.938: report generation may be resumed only after authenticated local
+// pre-POST rejection, with DB dispatch marker consumed before outbound POST.
+const dispatchSql=read('supabase/migrations/20261110220000_coupon_mp_backfill_dispatch_v1_938.sql');
+assert.match(dispatchSql,/dispatch_started_at/);
+assert.match(dispatchSql,/verified_no_post_recovery/);
+assert.match(dispatchSql,/INVALID_CLAIM_WINDOW_NO_POST/);
+assert.match(dispatchSql,/net\._http_response/);
+assert.match(dispatchSql,/for update/);
+assert.match(dispatchSql,/security definer/);
+assert.match(dispatchSql,/to service_role/);
+assert.match(dispatchSql,/from public,anon,authenticated/);
+assert.match(worker,/clube_coupon_mp_report_backfill_dispatch_v1_938/);
+assert.match(worker,/dispatch\?\.authorized!==true/);
+assert.match(worker,/DISPATCH_UNAUTHORIZED_NO_PROVIDER_POST/);
+assert.match(worker,/INVALID_DISPATCH_WINDOW_NO_POST/);
+assert.match(worker,/const dateRe=\/\^\\d\{4\}/);
+const dateLine=worker.split(String.fromCharCode(10)).find(line=>line.includes('const dateRe='));
+assert.equal(dateLine?.includes(String.fromCharCode(92,92,100)),false,'regex must match digits, not a literal backslash');
+assert.ok(worker.indexOf('clube_coupon_mp_report_backfill_dispatch_v1_938')<
+  worker.indexOf('mercadoPagoFetch("/v1/account/release_report",{'),
+  'dispatch reservation must precede any historical provider report POST');
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');
