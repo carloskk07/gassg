@@ -218,11 +218,14 @@ assert.equal(recovered.complete,true);
 assert.deepEqual(recovered.files,['release-report-20261110.csv']);
 const officialEnabled=listing('enabled');
 delete officialEnabled.is_test; // MP /search may omit this field entirely
+delete officialEnabled.download_date; // no manual download needed for CSV candidate
 const enabled=search({paging:{total:1},results:[officialEnabled]});
 assert.equal(enabled.complete,true);
 assert.deepEqual(enabled.files,['release-report-20261110.csv']);
 assert.equal(search({paging:{total:1},results:[
- listing('enabled',{download_date:null})]}).complete,false);
+ listing('enabled',{download_date:null})]}).complete,true);
+assert.equal(search({paging:{total:1},results:[
+ listing('enabled',{download_date:'not-a-date'})]}).complete,false);
 assert.equal(search({paging:{total:1},results:[
  listing('enabled',{sub_type:'settlement'})]}).complete,false);
 assert.equal(search({paging:{total:1},results:[
