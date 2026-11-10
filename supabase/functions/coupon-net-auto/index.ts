@@ -310,6 +310,8 @@ Deno.serve(async req=>{
    if(reportConfiguration)
     reportConfiguration=await prepareReleaseReports(client,mpToken,reportConfiguration);
    let reportBackfill="NOT_ATTEMPTED";
+   let providerReportQueue:null|{pendingAccountReports:number;failedAccountReports:number;
+     source:string;coverageComplete:boolean}=null;
    // V1.937: a paid invoice's 30-minute NET-reconciliation cooldown is
    // independent of a one-time, rate-limited provider report generation.
    // Do NOT update last_checked_at or recheck Pix/settlement in this branch.
@@ -317,6 +319,9 @@ Deno.serve(async req=>{
      reportConfiguration?.owned===true&&pendingReceipt.data?.length===1){
     try{
      const reports=await discoverReleaseReports(mpToken);
+     providerReportQueue={pendingAccountReports:reports.pending,
+       failedAccountReports:reports.blocked,source:reports.source,
+       coverageComplete:reports.complete};
      // An existing pending task also blocks creating another report.
      if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0)
       reportBackfill=await requestHistoricalReleaseReport(
@@ -324,7 +329,7 @@ Deno.serve(async req=>{
     }catch{/* Report list is required; never request under uncertain coverage. */}
    }
    return json({ok:true,checked:0,registered:0,review:0,waiting:0,
-     reportConfiguration,reportBackfill});
+     reportConfiguration,reportBackfill,providerReportQueue});
   }
   const reports=await discoverReleaseReports(mpToken);
   // No POST to MP: a missing report may be a disabled account-wide schedule
@@ -347,8 +352,11 @@ Deno.serve(async req=>{
   for(const invoice of invoices){
    let result;
    if(!reports.complete)result={status:"coverage_incomplete",reason:reports.reason};
-   else if(!reports.files.length)result={status:"awaiting_report",
-     reason:reportConfiguration?.reason==="MP_REPORT_CONFIG_READY"?
+   else if(!reports.files.length)result={status:reports.blocked>0?
+      "requires_review":"awaiting_report",
+     reason:reports.blocked>0?"MP_REPORT_GENERATION_FAILED":
+       reports.pending>0?"MP_REPORT_PROCESSING":
+       reportConfiguration?.reason==="MP_REPORT_CONFIG_READY"?
        "NO_PROCESSED_REPORT":reportConfiguration?.reason??"MP_REPORT_CONFIG_UNAVAILABLE"};
    else{
     try{result=await reconcileOne(client,mpToken,invoice,reports.files);}
