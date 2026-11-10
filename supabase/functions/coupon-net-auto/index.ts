@@ -4,6 +4,7 @@ import {mercadoPagoFetch,mercadoPagoConfigured,readMercadoPagoJson}
  from "../_shared/mercadopago.js";
 import {couponReleasedNetEvidence}
  from "../admin-ops/coupon-release-evidence.js";
+import {inspectReportSearch} from "./report-search.js";
 
 // V1.931: machine-only read/compare/register; NOT a new payment or coupon engine.
 // Existing invoice row lock and sponsor/partner funding guards remain authoritative.
@@ -62,37 +63,20 @@ export function selectOfficialReports(list:unknown){
   return {complete:false,files:[],reason:"MP_RELEASE_COVERAGE_LIMIT"};
  return {complete:true,files:names,reason:null};
 }
-// V1.939: official report search is authoritative for pending tasks and
-// processed files that have not appeared in the summary list. Search remains
-// read-only; any uncertain pagination or format fails closed.
-export function inspectReportSearch(raw:unknown){
- const unavailable={complete:false,files:[] as string[],pending:0,
-   reason:"MP_RELEASE_SEARCH_INCOMPLETE"};
- if(!raw||typeof raw!=="object"||Array.isArray(raw))return unavailable;
- const data=raw as Record<string,unknown>;
- if(!Array.isArray(data.results)||!data.paging||typeof data.paging!=="object")
-  return unavailable;
- const paging=data.paging as Record<string,unknown>;
- const total=Number(paging.total);
- if(!Number.isSafeInteger(total)||total<0||total>50||
-    data.results.length!==total)return unavailable;
- const pending=data.results.filter((row:unknown)=>{
-  if(!row||typeof row!=="object")return false;
-  const item=row as Record<string,unknown>;
-  return ["pending","processing"].includes(String(item.status??"").toLowerCase());
- }).length;
- const processed=data.results.filter((row:unknown)=>{
-  if(!row||typeof row!=="object")return false;
-  const item=row as Record<string,unknown>;
-  return String(item.status??"").toLowerCase()==="processed"&&
-    item.currency_id==="BRL"&&item.is_test===false;
- }) as Record<string,unknown>[];
- if(processed.some(item=>!FILE_RE.test(String(item.file_name??""))))
-  return {...unavailable,reason:"MP_RELEASE_SEARCH_FILENAME_INVALID"};
- const files=[...new Set(processed.map(item=>String(item.file_name)))];
- if(files.length>MAX_REPORTS)
-  return {...unavailable,reason:"MP_RELEASE_SEARCH_TOO_MANY_FILES"};
- return {complete:true,files,pending,reason:null};
+async function getProviderData(token:string,invoice:CouponInvoice,reportFiles:string[]){
+ const orderResponse=await mercadoPagoFetch("/v1/orders/"+
+   encodeURIComponent(String(invoice.provider_order_id)),{
+    accessToken:token,method:"GET",timeoutMs:8000});
+ if(!orderResponse.ok)throw new Error("MP_ORDER_UNAVAILABLE");
+ const order=await readMercadoPagoJson(orderResponse);
+ const reportCsv:NetReport[]=[];
+ for(const name of reportFiles){
+  const response=await mercadoPagoFetch("/v1/account/release_report/"+
+   encodeURIComponent(name),{accessToken:token,method:"GET",timeoutMs:8000});
+  if(!response.ok)throw new Error("MP_RELEASE_FILE_UNAVAILABLE");
+  reportCsv.push({fileName:name,csv:await limitedCsv(response)});
+ }
+ return {order,reportCsv};
 }
 async function discoverReleaseReports(mpToken:string){
  const first=await mercadoPagoFetch("/v1/account/release_report/list",{
@@ -108,21 +92,6 @@ async function discoverReleaseReports(mpToken:string){
   reason:"MP_RELEASE_SEARCH_UNAVAILABLE",source:"search_unavailable"};
  const result=inspectReportSearch(await readMercadoPagoJson(search));
  return {...result,source:"official_search"};
-}
-async function getProviderData(token:string,invoice:CouponInvoice,reportFiles:string[]){
- const orderResponse=await mercadoPagoFetch("/v1/orders/"+
-   encodeURIComponent(String(invoice.provider_order_id)),{
-    accessToken:token,method:"GET",timeoutMs:8000});
- if(!orderResponse.ok)throw new Error("MP_ORDER_UNAVAILABLE");
- const order=await readMercadoPagoJson(orderResponse);
- const reportCsv:NetReport[]=[];
- for(const name of reportFiles){
-  const response=await mercadoPagoFetch("/v1/account/release_report/"+
-   encodeURIComponent(name),{accessToken:token,method:"GET",timeoutMs:8000});
-  if(!response.ok)throw new Error("MP_RELEASE_FILE_UNAVAILABLE");
-  reportCsv.push({fileName:name,csv:await limitedCsv(response)});
- }
- return {order,reportCsv};
 }
 export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
  const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
