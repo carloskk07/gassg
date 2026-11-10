@@ -189,8 +189,8 @@ assert.match(worker,/dispatch\?\.authorized!==true/);
 assert.match(worker,/DISPATCH_UNAUTHORIZED_NO_PROVIDER_POST/);
 assert.match(worker,/INVALID_DISPATCH_WINDOW_NO_POST/);
 assert.match(worker,/const dateRe=\/\^\\d\{4\}/);
-const dateLine=worker.split('\\n').find(line=>line.includes('const dateRe='));
-assert.equal(dateLine?.includes('\\\\d'),false,'regex must match digits, not a literal backslash');
+const dateLine=worker.split(String.fromCharCode(10)).find(line=>line.includes('const dateRe='));
+assert.equal(dateLine?.includes(String.fromCharCode(92,92,100)),false,'regex must match digits, not a literal backslash');
 assert.ok(worker.indexOf('clube_coupon_mp_report_backfill_dispatch_v1_938')<
   worker.indexOf('mercadoPagoFetch("/v1/account/release_report",{'),
   'dispatch reservation must precede any historical provider report POST');
