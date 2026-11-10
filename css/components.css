@@ -458,3 +458,22 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .admin-finance-lab-guided>details[open]>summary{margin-bottom:14px}
 .admin-finance-homologation .admin-webhook-probe-code{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
 .admin-finance-homologation .admin-webhook-probe-code code{overflow-wrap:anywhere;max-width:100%}
+
+
+/* V1.930 — financial tasks first, advanced diagnostics progressively disclosed. */
+.admin-finance-shortcut{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;margin:0 0 14px;background:var(--soft,#f6faf8);border:1px solid var(--line);border-radius:14px}
+.admin-finance-shortcut>div{flex:1 1 240px;min-width:0}
+.admin-finance-shortcut strong{display:block;font-size:15px;line-height:1.35}
+.admin-finance-shortcut p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+.admin-finance-shortcut button{flex:0 0 auto;min-height:44px;font-weight:700}
+.admin-finance-primary{margin-top:4px}
+.admin-finance-secondary{margin:14px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff)}
+.admin-finance-secondary>summary{cursor:pointer;font-size:13px;font-weight:700;line-height:1.5}
+.admin-finance-secondary>.admin-finance-areas{margin:14px 0 2px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.admin-finance-connection{margin:14px 0;background:var(--surface,#fff)}
+.admin-finance-connection>.card{margin:12px 0 0;padding:12px 0 0;box-shadow:none;border:0;background:transparent}
+@media(max-width:600px){
+ .admin-finance-shortcut{align-items:stretch;padding:14px}
+ .admin-finance-shortcut button{width:100%}
+ .admin-finance-secondary>.admin-finance-areas{grid-template-columns:minmax(0,1fr)}
+}
