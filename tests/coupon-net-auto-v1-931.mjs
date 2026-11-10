@@ -161,12 +161,12 @@ assert.match(worker,/reportBackfill/);
 // V1.937: a missing old report can be requested without changing the
 // independent 30-minute financial reconciliation checkpoint.
 const cooldownStart=worker.indexOf('if(!invoices.length){');
-const cooldownEnd=worker.indexOf('const listResponse=await mercadoPagoFetch',cooldownStart);
+const cooldownEnd=worker.indexOf('  // No POST to MP:',cooldownStart);
 const cooldown=worker.slice(cooldownStart,cooldownEnd);
 assert.ok(cooldownStart>0&&cooldownEnd>cooldownStart);
 assert.match(cooldown,/reportConfiguration\?\.owned===true/);
 assert.match(cooldown,/pendingReceipt\.data\?\.length===1/);
-assert.match(cooldown,/selectOfficialReports\(await readMercadoPagoJson\(response\)\)/);
+assert.match(cooldown,/discoverReleaseReports\(mpToken\)/);
 assert.match(cooldown,/reports\.complete&&reports\.files\.length===0/);
 assert.match(cooldown,/requestHistoricalReleaseReport\(/);
 assert.match(cooldown,/reportBackfill/);
