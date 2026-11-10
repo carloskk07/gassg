@@ -249,6 +249,7 @@ assert.match(worker,/reportConfiguration,reportBackfill,providerReportQueue/);
 assert.match(worker,/MP_RELEASE_SEARCH_DUPLICATED/);
 assert.match(worker,/MP_RELEASE_SEARCH_PAGE_MISMATCH/);
 assert.match(worker,/MP_RELEASE_SEARCH_PAGINATION_INVALID/);
+assert.match(worker,/coverageComplete:reports\.complete,reason:reports\.reason/);
 assert.match(worker,/for\(let page=1;items\.length<total&&page<=5;page\+\+\)/);
 
 assert.match(worker,/pendingAccountReports:reports\.pending/);
