@@ -21,6 +21,7 @@ const pending=()=>({ok:true,mode:'live',orderId:ORDER,amountCents:200,
  credited:false,settlementVerified:false});
 const processed=()=>({...pending(),orderStatus:'processed',
  paymentStatus:'processed',providerProcessed:true,webhookProcessed:true,brCode:''});
+const processedUnsigned=()=>({...processed(),webhookProcessed:false});
 function fixture(){
  const lab={live:{mode:'live',orderId:ORDER,expiresAt,brCode:'000201'+('X'.repeat(74))},
   livePending:false,liveSilentCheck:false,liveStatus:null,liveReadiness:null,
@@ -108,6 +109,49 @@ function fixture(){
  assert(!f.calls.some(x=>x.action==='finance-lab-live-pix'));
  assert.equal(f.lab.liveStatus?.paymentStatus,'processed');
 }
+// A provider-confirmed payment must keep polling for its signed webhook,
+// even after the expired payable QR is cleared from the interface.
+{
+ const f=fixture();
+ f.ctx.watch(ORDER,f.lab,'owner');
+ f.setReply(processedUnsigned());
+ await f.timers[0].fn();
+ assert.equal(f.lab.live,null,'remove the original payable QR when PSP processed');
+ assert.equal(f.lab.liveStatus.providerProcessed,true);
+ assert.equal(f.lab.liveStatus.webhookProcessed,false);
+ assert.equal(f.timers.length,2,'continue GET-only observations for unsigned payment');
+ assert.match(f.ctx.banner(f.lab),/O webhook será consultado automaticamente/);
+ assert.match(f.ctx.banner(f.lab),/15 minutos/);
+ f.setReply(processed());
+ await f.timers[1].fn();
+ assert.equal(f.lab.liveStatus.webhookProcessed,true);
+ assert.equal(f.timers.length,2,'stop once signed callback is observed');
+ assert(f.calls.every(x=>x.action==='finance-lab-live-check'),'no POST or new charge');
+}
+// Readiness refresh can resume a previously processed original order,
+// but a stale/expired wait window stops rather than polling forever.
+{
+ const f=fixture();
+ f.lab.live=null;
+ f.lab.liveStatus=processedUnsigned();
+ await f.ctx.readiness();
+ assert.equal(f.timers.length,1,'resume waiting for the same signed webhook');
+ f.lab.liveWebhookWait={orderId:ORDER,startedAt:Date.now()-16*60_000};
+ f.ctx.watch(ORDER,f.lab,'owner');
+ assert.equal(f.timers.length,1,'observation budget is bounded');
+}
+{
+ const f=fixture();
+ f.lab.live=null;
+ f.lab.liveStatus={...processedUnsigned(),reversalObserved:true};
+ f.ctx.watch(ORDER,f.lab,'owner');
+ assert.equal(f.timers.length,0,'do not poll a reversed payment');
+}
+assert.doesNotMatch(ui,/O teste de R\$ 2,00 comprovou o gateway/);
+assert.match(ui,/Aguardando webhook assinado/);
+const entry=ui.slice(ui.indexOf('function adminSetSection('),ui.indexOf('function adminMenuButton('));
+assert.match(entry,/const pendingWebhook=lab\.liveStatus\?\.providerProcessed===true/);
+assert.match(entry,/if\(orderToWatch\)adminFinanceLabLiveWatchOrder\(/);
 assert.match(ui,/adminFinanceLabLiveCancelAutoCheck\(\)/);
 assert.match(ui,/function adminFinanceLabLiveWatchOrder\(/);
 assert.match(ui,/adminFinanceLabLivePaymentBanner\(state\)/);

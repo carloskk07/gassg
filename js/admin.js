@@ -3789,10 +3789,14 @@ function adminSetSection(section){
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='lab'
     &&adminCurrentRole()==='superadmin')
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});
-  if(next==='finance'&&adminFinanceLabLiveVisible()&&
-    adminRuntime.financeLab.live?.orderId)
-    adminFinanceLabLiveWatchOrder(adminRuntime.financeLab.live.orderId,
-      adminRuntime.financeLab,String(adminRuntime.session?.user?.id||''));
+  if(next==='finance'&&adminFinanceLabLiveVisible()){
+    const lab=adminRuntime.financeLab;
+    const pendingWebhook=lab.liveStatus?.providerProcessed===true&&
+      lab.liveStatus.webhookProcessed!==true&&lab.liveStatus.reversalObserved!==true;
+    const orderToWatch=lab.live?.orderId||(pendingWebhook?lab.liveStatus.orderId:null);
+    if(orderToWatch)adminFinanceLabLiveWatchOrder(orderToWatch,
+      lab,String(adminRuntime.session?.user?.id||''));
+  }
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
     document.getElementById('admin-current-section-title')?.focus({preventScroll:true});
@@ -5704,17 +5708,29 @@ function adminFinanceLabLiveVisible(){
 }
 function adminFinanceLabLiveWatchOrder(orderId,lab,actor){
  adminFinanceLabLiveCancelAutoCheck();
- const deadline=Date.parse(String(lab?.live?.expiresAt||''));
- if(!adminFinanceLabLiveActorCurrent(lab,actor)||
-   !adminFinanceLabLiveVisible()||lab.live?.orderId!==orderId||
-   !Number.isFinite(deadline)||Date.now()>deadline+5*60_000||
-   lab.liveStatus?.orderId===orderId&&
-    (lab.liveStatus.providerProcessed===true||lab.liveStatus.reversalObserved===true||
-     !['action_required',''].includes(String(lab.liveStatus.orderStatus||''))))return;
+ const status=lab?.liveStatus?.orderId===orderId?lab.liveStatus:null;
+ const awaitingSignedWebhook=status?.providerProcessed===true&&
+   status.webhookProcessed!==true&&status.reversalObserved!==true;
+ if(!adminFinanceLabLiveActorCurrent(lab,actor)||!adminFinanceLabLiveVisible())return;
+ if(awaitingSignedWebhook){
+  // The PSP processed the ORIGINAL order; poll only GET until its signed callback.
+  // The finite observation window does not permit credits or another Pix.
+  if(lab.liveWebhookWait?.orderId!==orderId)
+   lab.liveWebhookWait={orderId,startedAt:Date.now()};
+  const elapsed=Date.now()-Number(lab.liveWebhookWait.startedAt);
+  if(!Number.isFinite(elapsed)||elapsed>15*60_000)return;
+ }else{
+  if(lab.liveWebhookWait?.orderId===orderId)lab.liveWebhookWait=null;
+  const deadline=Date.parse(String(lab?.live?.expiresAt||''));
+  if(lab.live?.orderId!==orderId||!Number.isFinite(deadline)||
+    Date.now()>deadline+5*60_000||
+    status&&(status.providerProcessed===true||status.reversalObserved===true||
+      !['action_required',''].includes(String(status.orderStatus||''))))return;
+ }
  adminFinanceLabLiveStatusTimer=setTimeout(async()=>{
   adminFinanceLabLiveStatusTimer=null;
-  if(!adminFinanceLabLiveActorCurrent(lab,actor)||
-    !adminFinanceLabLiveVisible()||lab.live?.orderId!==orderId)return;
+  if(!adminFinanceLabLiveActorCurrent(lab,actor)||!adminFinanceLabLiveVisible()||
+    lab.live?.orderId!==orderId&&lab.liveStatus?.orderId!==orderId)return;
   if(document.visibilityState==='hidden'||lab.livePending||lab.liveSilentCheck===true){
    adminFinanceLabLiveWatchOrder(orderId,lab,actor);return;
   }
@@ -5740,6 +5756,10 @@ async function adminFinanceLabLiveReadinessFromUi(){
       Number.isFinite(when)&&Date.now()-when<48*60*60*1000&&
       lab.liveStatus?.orderId!==recent.orderId&&!lab.livePending)
       adminFinanceLabLiveCheckFromUi(recent.orderId,true).catch(()=>{});
+    else if(adminFinanceLabLiveVisible()&&lab.liveStatus?.orderId===recent?.orderId&&
+      lab.liveStatus.providerProcessed===true&&lab.liveStatus.webhookProcessed!==true&&
+      lab.liveStatus.reversalObserved!==true)
+      adminFinanceLabLiveWatchOrder(recent.orderId,lab,actor);
   }catch(e){
     if(adminFinanceLabLiveActorCurrent(lab,actor)){
       lab.liveReadiness=null;lab.liveError=String(e?.message||e);
@@ -5790,7 +5810,7 @@ async function adminFinanceLabLiveCreateFromUi(){
       ||!data.orderId||!data.brCode||data.credited!==false||data.settlementVerified!==false)
       throw new Error('A emissão do Pix real não foi confirmada. Confira a situação antes de repetir.');
     lab.live=data;lab.liveStatus=null;lab.liveKey=null;lab.liveAmountCents=null;
-    lab.livePurpose=null;
+    lab.livePurpose=null;lab.liveWebhookWait=null;
     adminFinanceLabLiveScheduleExpiry(lab.live);
     adminFinanceLabLiveWatchOrder(lab.live.orderId,lab,actor);
     adminFinanceLabLoadQrEncoder().catch(()=>{});
@@ -5837,6 +5857,9 @@ async function adminFinanceLabLiveRecoverFromUi(orderId=''){
       lab.liveKey=null;lab.liveAmountCents=null;
       lab.liveError=data.paymentLinkUrl?null:
         'Ordem localizada, mas sem QR Code ou link pagável confirmado. Confira o status abaixo.';
+      if(data.providerProcessed===true&&data.webhookProcessed!==true&&
+        data.reversalObserved!==true)
+        adminFinanceLabLiveWatchOrder(data.orderId,lab,actor);
     }else{
       throw new Error('O Pix existente não passou em todas as verificações.');
     }
@@ -5904,7 +5927,10 @@ async function adminFinanceLabLiveCheckFromUi(orderId,quiet=false){
  }finally{
   if(adminFinanceLabLiveActorCurrent(lab,actor)){
    if(quiet)lab.liveSilentCheck=false;else lab.livePending=false;
-   if(lab.live?.orderId===orderId&&adminFinanceLabLiveVisible())
+   const awaitingWebhook=lab.liveStatus?.orderId===orderId&&
+     lab.liveStatus.providerProcessed===true&&lab.liveStatus.webhookProcessed!==true&&
+     lab.liveStatus.reversalObserved!==true;
+   if(adminFinanceLabLiveVisible()&&(lab.live?.orderId===orderId||awaitingWebhook))
     adminFinanceLabLiveWatchOrder(orderId,lab,actor);
    else adminFinanceLabLiveCancelAutoCheck();
    if(!quiet||changed)render();
@@ -5962,12 +5988,14 @@ function adminFinanceLabLivePaymentBanner(state){
    'Pagamento processado no Mercado Pago — aguardando confirmação assinada')+
   '</strong><div class="order-line">Pix REAL de '+adminMoney(status.amountCents)+
   ' • Ordem: '+esc(status.orderId)+'</div>'+
-  '<small>Ensaio do gateway, não é extrato bancário e não credita cupons.</small></div>';
+  '<small>Ensaio do gateway, não é extrato bancário e não credita cupons. '+(signed?'':'O webhook será consultado automaticamente por até 15 minutos enquanto esta tela estiver aberta.')+'</small></div>';
 }
 function adminFinanceLabView(d){
   const compact=adminRuntime.section==='finance'&&adminRuntime.financeWorkspace==='homologation';
   if(adminCurrentRole()!=='superadmin')return '<div class="notice">Laboratório disponível ao administrador principal.</div>';
   const state=adminRuntime.financeLab||{};
+  const awaitingSignedWebhook=state.liveStatus?.providerProcessed===true&&
+    state.liveStatus?.webhookProcessed!==true&&state.liveStatus?.reversalObserved!==true;
   const preview=state.preview||null;
   const sandbox=state.sandbox||null;
   const ingress=d?.merchantBilling?.paymentIngress||{};
@@ -6050,8 +6078,8 @@ function adminFinanceLabView(d){
         </select>
         <div class="order-actions"><button class="primary small" type="button"
           onclick="adminFinanceLabLiveCreateFromUi()"
-          ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
-          ${state.livePending?'Consultando provedor…':'Gerar outro Pix real (exige confirmação)'}</button></div>
+          ${state.livePending||awaitingSignedWebhook||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
+          ${state.livePending?'Consultando provedor…':awaitingSignedWebhook?'Aguardando webhook assinado':'Gerar outro Pix real (exige confirmação)'}</button></div>
         <p class="tiny muted">O Pix cria uma cobrança real, somente após sua confirmação. O teste anterior deve estar processado, assinado e sem estorno. Máximo de 3 emissões por hora.</p>
         ${state.liveError?'<div class="notice danger" role="alert">'+esc(state.liveError)+'</div>':''}
         ${state.live&&adminFinanceLabLiveIsPayable(state.live,state.liveStatus)?'<div class="notice" role="status"><strong>Pix REAL • '+adminMoney(state.live.amountCents)+'</strong><div class="order-line">Ordem: '+esc(state.live.orderId)+' • Vencimento: '+esc(formatDateTime(state.live.expiresAt))+'</div>'+adminFinanceLabLiveQrBlock(state.live)+(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.live,state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir Pix original no Mercado Pago</a></div>':'')+'<div class="input-wrap"><label>Código Pix REAL</label><textarea class="input" readonly rows="3">'+esc(state.live.brCode)+'</textarea></div><div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveCopyFromUi()">Copiar Pix REAL</button><button class="secondary small" type="button" onclick="adminFinanceLabLiveCheckFromUi(\''+esc(state.live.orderId)+'\')">Consultar status real</button></div></div>':''}
@@ -6396,7 +6424,7 @@ function adminFinanceHomologationView(d){
   '<div class="order-actions"><button type="button" class="ghost small" onclick="adminIndependentAdsCheckProvider()">Verificar configuração de Ads</button></div>'+
   '</div></details></div>'+
   '<div class="card flat"><h3>3. Próximo teste</h3>'+
-  '<p>O teste de R$ 2,00 comprovou o gateway. Para outro módulo, escolha acima e abra o teste abaixo. O Pix não ativa serviços comerciais.</p>'+
+  '<p>Confira o pagamento anterior e o webhook assinado no histórico. Para outro módulo, escolha acima e abra o teste abaixo. O Pix não ativa serviços comerciais.</p>'+
   '<button type="button" class="secondary small" onclick="adminFinanceHomologationToggleLab()" '+
     'aria-expanded="'+labOpen+'" aria-controls="admin-homologation-lab">'+
     (labOpen?'Recolher teste':'Abrir teste Pix do módulo escolhido')+'</button>'+
@@ -6423,7 +6451,10 @@ function adminFinanceHomologationToggleLab(){
  render();
  if(adminRuntime.financeHomologationLabOpen){
   const lab=adminRuntime.financeLab;
-  if(lab.live?.orderId)adminFinanceLabLiveWatchOrder(lab.live.orderId,
+  const pendingWebhook=lab.liveStatus?.providerProcessed===true&&
+    lab.liveStatus.webhookProcessed!==true&&lab.liveStatus.reversalObserved!==true;
+  const orderToWatch=lab.live?.orderId||(pendingWebhook?lab.liveStatus.orderId:null);
+  if(orderToWatch)adminFinanceLabLiveWatchOrder(orderToWatch,
     lab,String(adminRuntime.session?.user?.id||''));
   adminFinanceLabReadinessFromUi().catch(()=>{});
   adminFinanceLabLiveReadinessFromUi().catch(()=>{});
