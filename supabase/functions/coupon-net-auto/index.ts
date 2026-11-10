@@ -84,11 +84,11 @@ async function discoverReleaseReports(mpToken:string){
  if(!first.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
  const initial=selectOfficialReports(await readMercadoPagoJson(first));
  if(!initial.complete||initial.files.length>0)
-  return {...initial,pending:0,source:"list_only"};
+  return {...initial,pending:0,blocked:0,source:"list_only"};
  const search=await mercadoPagoFetch(
   "/v1/account/release_report/search?limit=50&offset=0",{
   accessToken:mpToken,method:"GET",timeoutMs:8000});
- if(!search.ok)return {complete:false,files:[],pending:0,
+ if(!search.ok)return {complete:false,files:[],pending:0,blocked:0,
   reason:"MP_RELEASE_SEARCH_UNAVAILABLE",source:"search_unavailable"};
  const result=inspectReportSearch(await readMercadoPagoJson(search));
  return {...result,source:"official_search"};
