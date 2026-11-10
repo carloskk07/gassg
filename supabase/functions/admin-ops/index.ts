@@ -139,7 +139,7 @@ function couponSellerTaxDocumentValid(value:unknown){
  sum=v.slice(0,13).reduce((n,x,i)=>n+x*weights2[i],0);
  return v[12]===first&&v[13]===(sum%11<2?0:11-sum%11);
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","ads-institutional-read","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","ads-institutional-read","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue","clube-coupon-auto-status"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3807,6 +3807,33 @@ Deno.serve(async(req:Request)=>{
         // net receipt, never bank transfer to the merchant or redemption.
         providerReportChecked:true,checkedAt:new Date().toISOString()
       },200,origin);
+    }
+
+    if(action==="clube-coupon-auto-status"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Conciliação automática disponível somente ao superadmin.",403);
+      const invoiceId=String(body.invoiceId??"").trim();
+      if(!UUID_RE.test(invoiceId))
+        throw new DomainError("COUPON_AUTO_INVOICE_INVALID","Fatura inválida.",400);
+      const [config,observation]=await Promise.all([
+        admin.from("clube_coupon_net_auto_config_v1_931")
+          .select("enabled,last_enqueued_at").eq("id",true).maybeSingle(),
+        admin.from("clube_coupon_net_auto_observations_v1_931")
+          .select("status,reason,last_checked_at").eq("invoice_id",invoiceId).maybeSingle()
+      ]);
+      const missing=[config.error,observation.error].some((e:any)=>
+        ["42P01","PGRST205"].includes(String(e?.code??"")));
+      if(missing)return json({source:"coupon_auto_net_status_v1_931",
+        readOnly:true,available:false,enabled:false,invoiceId,status:"not_installed"},200,origin);
+      if(config.error||observation.error)
+        throw new DomainError("COUPON_AUTO_STATUS_UNAVAILABLE",
+          "Não foi possível consultar a conciliação automática.",503);
+      return json({source:"coupon_auto_net_status_v1_931",
+        readOnly:true,available:true,enabled:config.data?.enabled===true,
+        invoiceId,status:String(observation.data?.status??"not_checked"),
+        reason:observation.data?.reason??null,
+        lastCheckedAt:observation.data?.last_checked_at??null},200,origin);
     }
 
     if(action==="clube-coupon-mp-release-reports"){
