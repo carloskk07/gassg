@@ -36,6 +36,7 @@ function fixture({read,deferredSignOut=false,getSession}={}){
     adminRuntime:rt,render:()=>events.push(['render',rt.status]),
     adminOrderDemoForget:()=>{},
     adminFinanceLabLiveScheduleExpiry:()=>{},
+    adminFinanceLabLiveCancelAutoCheck:()=>events.push(['stop-finance-poll']),
     sessionStorage:{removeItem:()=>{},setItem:()=>{}},
     globalThis:{retryAmbiguousOnce:fn=>fn()},
     adminInvoke:()=>read?read.promise:Promise.resolve({supportCases:[]}),
@@ -54,6 +55,8 @@ function fixture({read,deferredSignOut=false,getSession}={}){
   const read=deferred(),s=fixture({read,deferredSignOut:true});
   const refresh=s.ctx.actions.refresh({silent:true});
   const signOut=s.ctx.actions.signOut();
+  assert(s.events.some(x=>x[0]==='stop-finance-poll'),
+    'Logout must stop read-only payment monitoring for the old actor');
   assert.equal(s.rt.status,'unauthenticated','lock before signOut returns');
   assert.equal(s.rt.data,null,'clear protected summary before network');
   assert.equal(s.rt.session,null,'clear session before network');
