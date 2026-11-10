@@ -6455,7 +6455,7 @@ async function adminFinanceRealRefresh(){
  }finally{
   if(actor===String(adminRuntime.session?.user?.id||'')){
    state.busy=false;render();
-   if(key==='coupons'&&recoveredPix)adminFinanceRealFocusPayment(key);
+   if(key==='coupons'&&state.payment?.pix)adminFinanceRealFocusPayment(key);
   }
  }
 }
