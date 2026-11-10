@@ -6254,6 +6254,8 @@ function adminFinanceHomologationChoose(key){
     adminRuntime.section!=='finance'||adminFinanceWorkspaceCurrent()!=='homologation'||
     !adminFinanceHomologationCatalog().some(m=>m.key===key))return false;
  adminFinanceHomologationEvidenceState().selected=key;
+ if(key==='advertising'&&typeof adminAdsIndependentLoad==='function')
+  adminAdsIndependentLoad();
  render();
  return true;
 }
@@ -6451,7 +6453,7 @@ async function adminFinanceRealAction(operation,choice=''){
       document.getElementById('admin-finance-real-ads-consent')?.checked!==true||
       !consent()))return;
   endpoint='ads-independent-checkout';
-  if(!state.requests['ads-'+choice])state.requests['ads-'+choice]=crypto.randomUUID();
+  if(!state.requests['ads-'+choice])state.requests['ads-'+choice]=choice;
   body=operation==='purchase'?{action:'purchase',campaignId:choice,
     requestId:state.requests['ads-'+choice],acceptFixedFee:true}:
     {action:'reconcile',campaignId:choice};
@@ -6547,7 +6549,7 @@ function adminFinanceRealPanel(key){
    action('Conciliar campanha no Mercado Pago',
     'adminFinanceRealAction(\'reconcile\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
    '<p class="tiny">O checkout só é permitido se o Admin já tiver autorizado esta campanha para homologação e se ela pertencer à conta conectada.</p>';
-  if(!rows.some(r=>r.status==='approved'))html+='<details><summary>Enviar minha campanha real para aprovação</summary>'+
+  if(!rows.some(r=>['approved','submitted'].includes(r.status)))html+='<details><summary>Enviar minha campanha real para aprovação</summary>'+
    '<label>Anunciante<input id="admin-finance-real-ads-advertiser" class="input" maxlength="120"></label>'+
    '<label>Título real<input id="admin-finance-real-ads-title" class="input" maxlength="80"></label>'+
    '<label>Descrição real<input id="admin-finance-real-ads-description" class="input" maxlength="240"></label>'+
