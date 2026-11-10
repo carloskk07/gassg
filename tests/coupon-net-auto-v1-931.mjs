@@ -201,7 +201,9 @@ const searchMod=await import('data:text/javascript;base64,'+
  Buffer.from(searchSrc).toString('base64'));
 const search=searchMod.inspectReportSearch;
 const listing=(status='pending',extra={})=>({
- status, currency_id:'BRL',is_test:false,file_name:'release-report-20261110.csv',...extra
+ status,currency_id:'BRL',is_test:false,sub_type:'release',format:'CSV',
+ download_date:'2026-11-10T22:30:00Z',
+ file_name:'release-report-20261110.csv',...extra
 });
 assert.equal(search(null).complete,false);
 assert.equal(search({paging:{total:0},results:[]}).complete,true);
@@ -214,6 +216,19 @@ assert.equal(failed.files.length,0);
 const recovered=search({paging:{total:1},results:[listing('processed')]});
 assert.equal(recovered.complete,true);
 assert.deepEqual(recovered.files,['release-report-20261110.csv']);
+const officialEnabled=listing('enabled');
+delete officialEnabled.is_test; // MP /search may omit this field entirely
+const enabled=search({paging:{total:1},results:[officialEnabled]});
+assert.equal(enabled.complete,true);
+assert.deepEqual(enabled.files,['release-report-20261110.csv']);
+assert.equal(search({paging:{total:1},results:[
+ listing('enabled',{download_date:null})]}).complete,false);
+assert.equal(search({paging:{total:1},results:[
+ listing('enabled',{sub_type:'settlement'})]}).complete,false);
+assert.equal(search({paging:{total:1},results:[
+ listing('enabled',{format:'XLSX'})]}).complete,false);
+assert.equal(search({paging:{total:1},results:[
+ listing('enabled',{is_test:true})]}).files.length,0);
 const invalid=[
  {results:[listing('processed')],paging:{total:2}},
  {results:[listing('processed')],paging:{total:51}},
@@ -231,6 +246,11 @@ assert.match(worker,/reportConfiguration,reportBackfill,/);
 assert.match(worker,/MP_REPORT_PROCESSING/);
 assert.match(worker,/MP_REPORT_GENERATION_FAILED/);
 assert.match(worker,/reportConfiguration,reportBackfill,providerReportQueue/);
+assert.match(worker,/MP_RELEASE_SEARCH_DUPLICATED/);
+assert.match(worker,/MP_RELEASE_SEARCH_PAGE_MISMATCH/);
+assert.match(worker,/MP_RELEASE_SEARCH_PAGINATION_INVALID/);
+assert.match(worker,/for\(let page=1;items\.length<total&&page<=5;page\+\+\)/);
+
 assert.match(worker,/pendingAccountReports:reports\.pending/);
 assert.match(worker,/failedAccountReports:reports\.blocked/);
 const adminUI=read('js/admin.js');
