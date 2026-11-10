@@ -161,6 +161,7 @@ const financeCtx=vm.createContext({
  adminAdsIndependentSection:()=>'<div>Ads panel</div>',
  adminIndependentAdsState:{loadedFor:'owner',rows:[],fixedFeeSalesEnabled:false},
  adminIndependentAdsProviderPreflight:null,
+ adminLatestBillingWebhookProbe:()=>null,
  adminFinanceLabView:()=>{chargeCalls++;return '<div>Laboratório Pix existente</div>';},
  adminFinanceRenderPart:(_label,fn)=>fn(),
  adminFinanceWorkspaceCurrent:()=> 'homologation',
@@ -175,10 +176,14 @@ vm.runInContext(financeShell.slice(financeStart,financeEnd)+
  'this.testToAds=adminFinanceHomologationOpenAds;this.testOpen=adminOpenFinanceHomologation;',financeCtx);
 let financeHtml=financeCtx.testView({});
 assert.match(financeHtml,/Homologação financeira/);
-assert.match(financeHtml,/Conferir conta e webhook/);
-assert.match(financeHtml,/Abrir Laboratório Pix dentro desta tela/);
-assert.match(financeHtml,/R\$ 19,90 por 7 dias/);
-assert.match(financeHtml,/Campanhas elegíveis: <strong>0<\/strong>/);
+assert.match(financeHtml,/Verificar conta e webhook de produção/);
+assert.match(financeHtml,/Abrir laboratório do módulo selecionado/);
+assert.doesNotMatch(financeHtml,/Campanhas aptas ao teste/,
+  'Paid Ads must not crowd the view for unrelated modules');
+vm.runInContext("adminFinanceHomologationEvidenceState().selected='advertising'",financeCtx);
+const adsFinanceHtml=financeCtx.testView({});
+assert.match(adsFinanceHtml,/Publicidade comercial/);
+assert.match(adsFinanceHtml,/Campanhas aptas ao teste de R\$ 19,90 por 7 dias: <strong>0<\/strong>/);
 assert.doesNotMatch(financeHtml,/Laboratório Pix existente/);
 assert.equal(chargeCalls,0);
 assert.equal(readCalls,0);
