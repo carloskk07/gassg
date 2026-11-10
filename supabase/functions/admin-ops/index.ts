@@ -1362,6 +1362,64 @@ async function adminFinanceLabLiveReadiness(admin:any,actorId:string){
     allowedAmountMaxCents:FINANCE_LAB_LIVE_MAX_CENTS,
     noCommercialActivation:true,checkedAt:new Date().toISOString()};
 }
+// V1.924 — one outstanding real Pix per superadmin. Previous attempts may
+// release the gate only after their signed callback AND a fresh, exact PSP GET.
+// Incomplete/recovered/ambiguous intents still fail closed. No money is moved.
+async function adminFinanceLabLivePriorCompleted(admin:any,actorId:string,prior:any[]){
+  if(!prior.length)return true;
+  const block=()=>new DomainError("FINANCE_LAB_LIVE_ALREADY_ISSUED",
+    "O Pix anterior ainda não foi comprovado como processado. Consulte a ordem existente antes de emitir outro.",409);
+  const since=new Date(Date.now()-25*60*60*1000).toISOString();
+  const {data:created,error:createdError}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_created")
+    .gte("created_at",since)
+    .order("created_at",{ascending:false}).limit(20);
+  if(createdError)throw createdError;
+  const ids=[];
+  for(const item of prior){
+    const matches=(created||[]).filter((row:any)=>
+      row.metadata?.mode==="live"&&row.metadata?.liveModeConfirmed===true
+      &&row.metadata?.externalReference===item.target_id
+      &&Number(row.metadata?.amountCents)===Number(item.metadata?.amountCents)
+      &&String(row.metadata?.testPurpose||"gateway")===
+        String(item.metadata?.testPurpose||"gateway")
+      &&/^[A-Za-z0-9_-]{10,120}$/.test(String(row.target_id||"")));
+    if(matches.length!==1)throw block();
+    ids.push({orderId:String(matches[0].target_id),amount:Number(item.metadata?.amountCents),
+      createdAt:matches[0].created_at});
+  }
+  if(ids.length>11||new Set(ids.map(x=>x.orderId)).size!==ids.length)throw block();
+  const {data:events,error:eventError}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_live_pix_webhook")
+    .in("target_id",ids.map(x=>x.orderId))
+    .order("created_at",{ascending:false}).limit(120);
+  if(eventError)throw eventError;
+  for(const item of ids){
+    // Only the NEWEST signed/unsigned callback for this order may decide;
+    // never skip a newer reversal or invalid signature.
+    const last=(events||[]).find((evt:any)=>evt.target_id===item.orderId);
+    const proof=last?.metadata||{};
+    if(!last||proof.signed!==true||proof.mode!=="live"||
+      proof.provider!=="mercadopago"||
+      Number(proof.amountCents)!==item.amount||
+      proof.providerProcessed!==true||proof.reversal!==false||
+      proof.orderStatus!=="processed"||proof.paymentStatus!=="processed"||
+      Date.parse(String(last.created_at||""))<Date.parse(String(item.createdAt||"")))
+      throw block();
+    // PSP identity, exact payment ID/amount, and reversal are revalidated
+    // against the original audited order. This is a GET, never a POST.
+    const verified=await adminFinanceLabLiveCheck(admin,actorId,{orderId:item.orderId});
+    if(verified?.providerProcessed!==true||verified.paymentAmountMatched!==true||
+      verified.webhookProcessed!==true||verified.reversalObserved!==false||
+      verified.credited!==false||verified.settlementVerified!==false)
+      throw block();
+  }
+  return true;
+}
 async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body:any,req:Request){
   const amount=body?.amountCents;
   const testPurpose=String(body?.testPurpose??"gateway").trim();
@@ -1407,10 +1465,13 @@ async function adminFinanceLabLivePix(admin:any,actorId:string,email:string,body
     .gte("created_at",since)
     .order("created_at",{ascending:false}).limit(12);
   if(intentsError)throw intentsError;
-  if((intents||[]).some((item:any)=>item.id!==intentId)){
-    throw new DomainError("FINANCE_LAB_LIVE_ALREADY_ISSUED",
-      "Já há emissão real recente. Consulte a anterior antes de gerar outra.",409);
-  }
+  // A bounded audit window protects against uncontrolled live billing even
+  // when all previous tests were processed. Never truncate an unknown intent.
+  if((intents||[]).length>=12)
+    throw new DomainError("FINANCE_LAB_LIVE_LIMIT_REACHED",
+      "Limite de ensaios reais recentes alcançado. Não gere outro Pix agora.",429);
+  await adminFinanceLabLivePriorCompleted(admin,actorId,
+    (intents||[]).filter((item:any)=>item.id!==intentId));
   const intent=(intents||[]).find((item:any)=>item.id===intentId);
   if(intent&&(intent.target_id!==reference
     ||Number(intent.metadata?.amountCents)!==amount

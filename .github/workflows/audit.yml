@@ -615,6 +615,8 @@ jobs:
         run: node tests/admin-finance-guided-homologation-v1-922.mjs
       - name: V1.923 automatic Pix read-only status update
         run: node tests/admin-finance-live-auto-status-v1-923.mjs
+      - name: V1.924 repeat Pix paid-only and focused Finance control
+        run: node tests/admin-finance-repeat-safe-v1-924.mjs
       - name: V1.884 public ad placement, self-service advertiser and Admin moderation UI
         run: node tests/ads-independent-ui-v1-884.mjs
       - name: V1.885 independent ad pause/resume expiry without charging

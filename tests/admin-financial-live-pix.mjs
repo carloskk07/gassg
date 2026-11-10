@@ -13,9 +13,11 @@ assert.ok(start>0&&end>start);
 const source=edge.slice(start,end)
   .replaceAll('admin:any','admin').replaceAll('actorId:string','actorId')
   .replaceAll('email:string','email').replaceAll('body:any','body')
-  .replaceAll('digest:string','digest').replaceAll('req:Request','req')
+  .replaceAll('digest:string','digest').replaceAll('prior:any[]','prior')
+  .replaceAll('req:Request','req')
   .replaceAll('(item:any)=>','(item)=>').replaceAll('(row:any)=>','(row)=>')
-  .replaceAll('(p:any)=>','(p)=>').replaceAll('(event:any)=>','(event)=>');
+  .replaceAll('(p:any)=>','(p)=>').replaceAll('(event:any)=>','(event)=>')
+  .replaceAll('(evt:any)=>','(evt)=>');
 const eventStart=hook.indexOf('async function handleFinancialLabLiveOrder(');
 const eventEnd=hook.indexOf('Deno.serve(',eventStart);
 assert.ok(eventStart>0&&eventEnd>eventStart);
@@ -32,7 +34,7 @@ assert.ok(hook.indexOf('if(!signed)')<hook.indexOf('await handleFinancialLabLive
 assert.match(hook,/route:"finance_lab_live_pix"/);
 assert.doesNotMatch(hookSource,/ingestPlatformPayment|wallet_entries|merchant_billing_payment_events|rpc\(/);
 assert.match(ui,/adminFinanceLabLiveCreateFromUi/);
-assert.match(ui,/prompt\?\.\(/);
+assert.match(ui,/confirm\?\.\(/);
 assert.match(ui,/Copiar Pix REAL/);
 assert.match(workflow,/node tests\/admin-financial-live-pix.mjs/);
 const hash=s=>createHash('sha256').update(s).digest('hex');

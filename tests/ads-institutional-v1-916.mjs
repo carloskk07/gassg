@@ -176,9 +176,9 @@ vm.runInContext(financeShell.slice(financeStart,financeEnd)+
  ';this.testView=adminFinanceHomologationView;this.testToggle=adminFinanceHomologationToggleLab;'+
  'this.testToAds=adminFinanceHomologationOpenAds;this.testOpen=adminOpenFinanceHomologation;',financeCtx);
 let financeHtml=financeCtx.testView({});
-assert.match(financeHtml,/Homologação financeira/);
-assert.match(financeHtml,/Verificar conta e webhook de produção/);
-assert.match(financeHtml,/Abrir laboratório do módulo selecionado/);
+assert.match(financeHtml,/Testes financeiros/);
+assert.match(financeHtml,/Verificar conexão e webhook/);
+assert.match(financeHtml,/Abrir teste Pix do módulo escolhido/);
 assert.doesNotMatch(financeHtml,/Campanhas aptas ao teste/,
   'Paid Ads must not crowd the view for unrelated modules');
 vm.runInContext("adminFinanceHomologationEvidenceState().selected='advertising'",financeCtx);

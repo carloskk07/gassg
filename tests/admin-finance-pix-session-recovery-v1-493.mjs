@@ -49,6 +49,8 @@ function fixture(){
   adminCurrentRole:()=>role,
   adminInvoke:async payload=>{calls.push({...payload});return perform(payload)},
   adminFinanceLabCents:()=>200,
+  adminFinanceHomologationCatalog:()=>[{key:'gateway',name:'Gateway de pagamentos'}],
+  adminMoney:cents=>'R$ '+(Number(cents)/100).toFixed(2),
   adminIdempotency:()=> 'replay-same-key-1234567890',
   adminFinanceLabLiveIsPayable:()=>true,
   adminFinanceLabLiveScheduleExpiry:v=>schedules.push(v),
@@ -56,7 +58,7 @@ function fixture(){
   render:()=>renders.push({actor:runtime.session?.user?.id,lab:runtime.financeLab}),
   toast:t=>toasts.push(t),
   document:{getElementById:()=>({value:'2,00'})},
-  prompt:(...args)=>prompt(...args),
+  confirm:(...args)=>prompt(...args)==='GERAR PIX REAL',
   navigator:{clipboard:{writeText:async text=>clipboard(text)}}
  });
  vm.runInContext(source+'\nthis.pixOps={readiness:adminFinanceLabLiveReadinessFromUi,'+
