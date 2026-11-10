@@ -6035,17 +6035,23 @@ function adminFinanceLabView(d){
           ?'<p><strong>Ensaio vinculado:</strong> '+esc(String(adminRuntime.financeHomologationEvidence?.selected||'gateway'))+
             '. O Pix de laboratório não cria direitos, créditos ou pedidos comerciais.</p>':''}
         <p class="muted tiny">Apenas superadmin. Não ativa comércio, vendas, benefícios ou créditos. A emissão gera Pix pagável somente após confirmação explícita.</p>
-        <div class="order-actions"><button class="secondary small" type="button"
-          onclick="adminFinanceLabLiveReadinessFromUi()" ${state.liveReadinessLoading?'disabled':''}>
-          ${state.liveReadinessLoading?'Verificando…':'Verificar conta e webhook de produção'}</button></div>
-        ${state.liveReadiness?'<div class="order-line">Conta vinculada: '+(state.liveReadiness.providerReady&&state.liveReadiness.accountBound?'Sim':'Não')+' • Assinatura externa: '+(state.liveReadiness.remoteWebhookVerified?'Verificada':'Pendente')+'</div>':''}
-        <label for="admin-finance-lab-live-amount">Valor do Pix REAL — R$ 1,00 a R$ 5,00</label>
-        <input class="input" id="admin-finance-lab-live-amount" type="text" maxlength="4"
-          value="${esc(state.liveAmountCents?String((state.liveAmountCents/100).toFixed(2)).replace('.',','):'2,00')}">
+        ${!compact||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true
+          ?'<div class="order-actions"><button class="secondary small" type="button" onclick="adminFinanceLabLiveReadinessFromUi()" '+
+            (state.liveReadinessLoading?'disabled':'')+'>'+(state.liveReadinessLoading?'Verificando…':'Conferir Mercado Pago e webhook')+'</button></div>':''}
+        ${state.liveReadiness?'<p class="tiny muted">Conta Mercado Pago: '+
+          (state.liveReadiness.providerReady&&state.liveReadiness.accountBound?'Conectada':'Pendente')+
+          ' • Webhook: '+(state.liveReadiness.remoteWebhookVerified?'Verificado':'Pendente')+'</p>':''}
+        <label for="admin-finance-lab-live-amount">Valor do próximo Pix real</label>
+        <select class="input" id="admin-finance-lab-live-amount" aria-label="Escolha o valor do Pix real">
+          ${[100,200,300,500].map(cents=>'<option value="'+(cents/100).toFixed(2).replace('.',',')+'"'+
+            ((state.liveAmountCents||200)===cents?' selected':'')+'>'+adminMoney(cents)+'</option>').join('')}
+        </select>
         <div class="order-actions"><button class="primary small" type="button"
           onclick="adminFinanceLabLiveCreateFromUi()"
           ${state.livePending||state.liveReadiness?.providerReady!==true||state.liveReadiness?.remoteWebhookVerified!==true?'disabled':''}>
-          ${state.livePending?'Consultando provedor…':'Emitir Pix REAL com confirmação'}</button></div>
+          ${state.livePending?'Consultando provedor…':'Gerar outro Pix real (exige confirmação)'}</button></div>
+        <p class="tiny muted">O Pix cria uma cobrança real, somente após sua confirmação. O teste anterior deve estar processado, assinado e sem estorno. Máximo de 3 emissões por hora.</p>
+        <details class="admin-finance-homologation-details admin-finance-lab-recovery"><summary>Histórico e recuperar um Pix existente</summary>
         <div class="order-actions"><button class="secondary small" type="button"
           onclick="adminFinanceLabLiveRecoverFromUi()" ${state.livePending?'disabled':''}>
           ${state.livePending?'Conferindo ordem existente…':'Recuperar Pix real já emitido — sem criar outro'}</button></div>
@@ -6071,7 +6077,8 @@ function adminFinanceLabView(d){
             :'<p class="muted tiny">Histórico ainda não carregado. Clique em Atualizar emissões — sem gerar nova cobrança.</p>'}
         ${state.liveReadiness?.providerCheckFailed
           ?'<div class="notice">Histórico carregado, mas o Mercado Pago não respondeu à verificação de prontidão. Nenhuma cobrança foi emitida.</div>':''}
-        ${state.liveStatus?'<div class="notice" role="status"><strong>Consulta ao Mercado Pago</strong><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook assinado: '+(state.liveStatus.webhookSeen?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small>'+(adminFinanceLabLiveOriginalTicketUrl(state.liveStatus)?'<div class="order-actions"><a class="secondary small" href="'+esc(adminFinanceLabLiveOriginalTicketUrl(state.liveStatus))+'" target="_blank" rel="noopener noreferrer">Abrir QR Code oficial no Mercado Pago</a></div>':'')+'<p class="tiny muted">Apenas evidência; não é extrato bancário ou liquidação confirmada.</p></div>':''}
+        </details>
+        ${state.liveStatus?'<details class="admin-finance-homologation-details"><summary>Detalhes da confirmação do Mercado Pago</summary><div class="order-line">Ordem: '+esc(state.liveStatus.orderStatus)+' • Pix: '+esc(state.liveStatus.paymentStatus)+'</div><div class="order-line">Processado no PSP: '+(state.liveStatus.providerProcessed?'Sim':'Não')+' • Webhook processado: '+(state.liveStatus.webhookProcessed?'Sim':'Não')+'</div><small>'+esc(state.liveStatus.nextStep)+'</small><p class="tiny muted">Não é extrato bancário.</p></details>':''}
       </div>
       ${compact?'<details class="card flat admin-finance-lab-diagnostics"><summary>Diagnóstico de cobranças e webhooks (avançado)</summary>':'<div class="card flat"><h3>Verificações integradas</h3>'}
         <div class="merchant-kpis">
@@ -6326,28 +6333,26 @@ function adminFinanceHomologationView(d){
   (ok?'Registrado':'Pendente')+'</div>').join(''):'';
  return '<section class="section admin-finance-homologation" aria-label="Homologação financeira">'+
   '<div class="section-head"><div><span class="section-kicker">FINANCEIRO</span>'+
-  '<h2>Homologação financeira</h2><p>Três etapas para verificar cobranças sem criar revendas fictícias.</p>'+
+  '<h2>Testes financeiros</h2><p>Escolha o módulo e confira o resultado. Nenhuma revenda de teste é necessária.</p>'+
   '</div><span class="status-pill">SUPERADMIN</span></div>'+
   '<div class="card flat" id="admin-finance-module-homologation">'+
   '<h3>1. Escolha o módulo</h3>'+
-  (all.length?'<p role="status"><strong>7 módulos conferidos</strong> • '+
-    needsReview+' para revisar • '+withRecords+' com registros • '+
-    (7-needsReview-withRecords)+' sem ciclo comprovado. Nenhum homologado automaticamente.</p>':
-    '<p class="muted" role="status">Evidências ainda não consultadas.</p>')+
+  (all.length?'<p class="tiny muted" role="status"><strong>7 módulos conferidos</strong>. Nenhum homologado automaticamente.</p>':
+    '<p class="tiny muted" role="status">Você pode conferir as evidências quando precisar.</p>')+
   '<div class="field-row"><div class="input-wrap">'+
-  '<label for="admin-finance-homologation-module">O que deseja testar?</label>'+
+  '<label for="admin-finance-homologation-module">Módulo que deseja testar</label>'+
   '<select id="admin-finance-homologation-module" class="input" onchange="adminFinanceHomologationChoose(this.value)">'+
   selectedOptions+'</select></div>'+
-  '<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceHomologationRefresh()" '+
-  (evidenceState.loading?'disabled':'')+'>'+
-  (evidenceState.loading?'Conferindo…':'Conferir evidências dos 7 módulos')+
-  '</button></div></div>'+
+  '</div>'+
   '<p><strong>'+esc(chosen.name)+'</strong> — '+esc(chosen.detail)+'</p>'+
   (note?'<p class="notice" role="status"><strong>Situação:</strong> '+
     esc(diagnoses[note.state]||'Indisponível')+'. <strong>Homologação real:</strong> pendente.</p>':
     '<p class="muted">Conferência necessária para exibir os registros deste módulo.</p>')+
   (evidenceState.error?'<div class="notice danger" role="alert">'+esc(evidenceState.error)+'</div>':'')+
-  '<details class="admin-finance-homologation-details"><summary>Registros e próximos passos do módulo</summary>'+
+  '<details class="admin-finance-homologation-details"><summary>Evidências e requisitos deste módulo</summary>'+
+  '<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceHomologationRefresh()" '+
+  (evidenceState.loading?'disabled':'')+'>'+
+  (evidenceState.loading?'Conferindo…':'Conferir evidências dos 7 módulos')+'</button></div>'+
   '<div class="admin-finance-homologation-detail-body">'+counts+
   (note?'<div class="order-line">Sinais financeiros: '+note.providerOrLedgerEvidence+
     ' • Pix de laboratório associados: '+note.labPixCount+
@@ -6356,17 +6361,18 @@ function adminFinanceHomologationView(d){
   '<p>'+esc(chosen.guide)+'</p>'+
   '<small>O laboratório não emite créditos, não prova recebimento bancário nem homologa automaticamente o módulo.</small>'+
   '</div></details></div>'+
-  '<div class="card flat"><h3>2. Verifique o Mercado Pago</h3>'+
+  '<div class="card flat"><h3>2. Conexão e recebimento</h3>'+
   '<div class="order-line"><strong>Conta:</strong> '+
     (readiness?(accountReady?'Verificada':'Não verificada'):'Aguardando consulta')+
     ' • <strong>Webhook assinado:</strong> '+
     (readiness?(webhookReady?'Prova recente':'Prova pendente'):'Aguardando consulta')+'</div>'+
   '<p role="status">'+esc(blockedMessage)+'</p>'+
-  '<div class="order-actions"><button type="button" class="secondary small" '+
+  ((!readiness||!accountReady||!webhookReady)?
+    '<div class="order-actions"><button type="button" class="secondary small" '+
     'onclick="adminFinanceLabLiveReadinessFromUi()" '+
     (lab.liveReadinessLoading?'disabled':'')+'>'+
-    (lab.liveReadinessLoading?'Conferindo…':'Verificar conta e webhook de produção')+
-    '</button></div>'+
+    (lab.liveReadinessLoading?'Conferindo…':'Verificar conexão e webhook')+
+    '</button></div>':'')+
   (readiness&&!webhookReady?
     '<div class="notice"><strong>Renovar prova do webhook (sem cobrança)</strong>'+
     '<p>O TAMÃO só libera o Pix real após receber uma notificação assinada recente do Mercado Pago.</p>'+
@@ -6388,11 +6394,11 @@ function adminFinanceHomologationView(d){
   (configDetails||'<p>Para verificar o checkout de publicidade, selecione Publicidade acima.</p>')+
   '<div class="order-actions"><button type="button" class="ghost small" onclick="adminIndependentAdsCheckProvider()">Verificar configuração de Ads</button></div>'+
   '</div></details></div>'+
-  '<div class="card flat"><h3>3. Teste e consulte o Pix</h3>'+
-  '<p>O laboratório permite simular, consultar ordens anteriores ou emitir um Pix real de R$ 1–5, com confirmação separada. Abrir não gera cobrança.</p>'+
+  '<div class="card flat"><h3>3. Próximo teste</h3>'+
+  '<p>O teste de R$ 2,00 comprovou o gateway. Para outro módulo, escolha acima e abra o teste abaixo. O Pix não ativa serviços comerciais.</p>'+
   '<button type="button" class="secondary small" onclick="adminFinanceHomologationToggleLab()" '+
     'aria-expanded="'+labOpen+'" aria-controls="admin-homologation-lab">'+
-    (labOpen?'Ocultar laboratório':'Abrir laboratório do módulo selecionado')+'</button>'+
+    (labOpen?'Recolher teste':'Abrir teste Pix do módulo escolhido')+'</button>'+
   '<div id="admin-homologation-lab">'+
     (labOpen?adminFinanceRenderPart('Laboratório Pix',()=>adminFinanceLabView(d)):
     '<p class="muted tiny">Nenhuma cobrança é gerada ao abrir o laboratório.</p>')+
