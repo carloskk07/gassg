@@ -4,7 +4,7 @@
 const FILE_RE=/^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv$/;
 const MAX_REPORTS=10;
 export function inspectReportSearch(raw){
- const unavailable={complete:false,files:[],pending:0,
+ const unavailable={complete:false,files:[],pending:0,blocked:0,
    reason:"MP_RELEASE_SEARCH_INCOMPLETE"};
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return unavailable;
  if(!Array.isArray(raw.results)||!raw.paging||
@@ -15,8 +15,12 @@ export function inspectReportSearch(raw){
  if(raw.results.some(item=>!item||typeof item!=="object"||
     Array.isArray(item)||typeof item.status!=="string"))
   return unavailable;
+ const statuses=new Set(["processed","pending","processing","failed","deleted"]);
+ if(raw.results.some(item=>!statuses.has(item.status.toLowerCase())))
+  return {...unavailable,reason:"MP_RELEASE_SEARCH_STATUS_UNKNOWN"};
  const pending=raw.results.filter(item=>
    ["pending","processing"].includes(item.status.toLowerCase())).length;
+ const blocked=raw.results.filter(item=>item.status.toLowerCase()==="failed").length;
  const processed=raw.results.filter(item=>
    item.status.toLowerCase()==="processed"&&
    item.currency_id==="BRL"&&item.is_test===false);
@@ -25,5 +29,5 @@ export function inspectReportSearch(raw){
  const files=[...new Set(processed.map(item=>String(item.file_name)))];
  if(files.length>MAX_REPORTS)
   return {...unavailable,reason:"MP_RELEASE_SEARCH_TOO_MANY_FILES"};
- return {complete:true,files,pending,reason:null};
+ return {complete:true,files,pending,blocked,reason:null};
 }
