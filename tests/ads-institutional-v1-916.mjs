@@ -143,7 +143,7 @@ assert.equal(retryCtx.adminIndependentAdsPane,'institutional',
 // provider checks and Pix Lab. No request is issued merely by opening it.
 const financeShell=read('js/admin.js');
 assert.doesNotThrow(()=>new vm.Script(financeShell));
-assert.match(financeShell,/id":"homologation","label":"Homologação"/);
+assert.match(financeShell,/\{id:'homologation',label:'Testes e Pix'/);
 assert.match(financeShell,/finance-homologation',section:'finance',tab:'homologation'/);
 assert.match(financeShell,/adminCurrentRole\(\)==='superadmin'\)\?selected:'summary'/);
 assert.match(financeShell,/Homologação financeira',\(\)=>adminFinanceHomologationView\(d\)/);
