@@ -156,7 +156,8 @@ assert.ok(financeStart>0&&financeEnd>financeStart);
 let readCalls=0,chargeCalls=0,adsNavigation=null;
 const financeCtx=vm.createContext({
  adminRuntime:{status:'ready',section:'finance',financeWorkspace:'homologation',
-  session:{user:{id:'owner'}},financeHomologationLabOpen:false},
+  session:{user:{id:'owner'}},financeHomologationLabOpen:false,
+  financeLab:{live:null}},
  adminCurrentRole:()=> 'superadmin',adminReady:()=>true,adminRoleCanSection:()=>true,
  adminAdsIndependentSection:()=>'<div>Ads panel</div>',
  adminIndependentAdsState:{loadedFor:'owner',rows:[],fixedFeeSalesEnabled:false},
