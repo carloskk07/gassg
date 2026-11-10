@@ -96,7 +96,7 @@ assert.equal(couponPurchase.body.requestId,campaign);
 assert.equal(couponPurchase.endpoint,'coupon-credit-pix');
 assert.deepEqual(requests.slice(-2).map(x=>x.body.action),['purchase','my-vouchers'],
  'after issuing Pix, only refresh original invoice history, never issue another charge');
-assert.match(context.native.panel('coupons'),/Pix da fatura ORIGINAL disponível/);
+assert.match(context.native.panel('coupons'),/Fatura original consultada/);
 selected='mobility';
 await context.native.read();
 assert.equal(requests.at(-1).body.action,'status');
