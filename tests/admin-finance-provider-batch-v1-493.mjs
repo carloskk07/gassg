@@ -158,7 +158,8 @@ function setup(items=rows){
  assert.match(a.rt.financeLab.providerCheckError.message,/PSP offline/);
 }
 const financeUi=source.slice(source.indexOf('function adminFinanceLabView(d){'),
- source.indexOf('function adminFinanceLabView(d){')+19000);
+ source.indexOf('function adminFinanceHomologationCatalog(){'));
+assert.ok(financeUi.length>19000,'diagnostic controls remain present below collapsed Pix details');
 assert.match(financeUi,/adminFinanceLabVerifyPendingBatchFromUi\(\)/);
 assert.match(financeUi,/divergentes|divergência|divergentes/i);
 assert.match(financeUi,/\.slice\(0,state\.providerBatchResult\?20:8\)/,
