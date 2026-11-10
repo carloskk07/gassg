@@ -6357,12 +6357,27 @@ function adminFinanceRealRememberPayment(kind,record){
  const raw=kind==='advertising'?source.checkoutUrl:
    kind==='mobility'?source.paymentLinkUrl:source.paymentUrl;
  const link=adminFinanceRealPaymentUrl(raw);
- const payable=kind==='advertising'?source.status==='checkout_ready':
-   kind==='mobility'?source.status==='active':source.pixPayable===true;
+ const deadline=Date.parse(String(source.expiresAt||''));
+ // Original coupon/driver Pix requires a fresh, future expiry from its own
+ // authenticated backend. An Ads preference has a separate checkout contract.
+ const withinDeadline=kind==='advertising'||Number.isFinite(deadline)
+  &&deadline>Date.now()+60000;
+ const payable=withinDeadline&&(kind==='advertising'?source.status==='checkout_ready':
+   kind==='mobility'?source.status==='active':source.pixPayable===true);
  const pix=kind==='mobility'?source.brCode:source.pixCode;
  state.payment={kind,status:String(source.status||''),amountCents:Number(source.amountCents)||0,
   url:payable?link:'',pix:payable&&typeof pix==='string'&&pix.length>30?pix:''};
  state.paymentUntil=Date.now()+45000;
+ // Reuse the OFFLINE QR encoder already shipped for the Admin Pix laboratory.
+ // Its SVG uses the exact verified BR Code; no remote QR endpoint is involved.
+ if(state.payment.pix){
+  const snapshot=state.payment;
+  adminFinanceLabLoadQrEncoder().then(()=>{
+   if(adminRuntime.financeReal===state&&state.payment===snapshot&&
+      Date.now()<state.paymentUntil&&adminReady()&&
+      adminRuntime.section==='finance')render();
+  }).catch(()=>{});
+ }
  setTimeout(()=>{
   if(adminRuntime.financeReal===state&&Date.now()>=state.paymentUntil){
    adminFinanceRealClearPayment();
@@ -6383,19 +6398,32 @@ async function adminFinanceRealRefresh(){
  if(state.busy)return;
  state.busy=true;state.error=null;render();
  try{
-  let data;
+  let data,recoveredPix=null,recoveryError='';
   if(key==='coupons'){
-   const catalog=await adminFinanceRealApi('coupon-credit-pix',{action:'catalog'});
    const history=await adminFinanceRealApi('coupon-credit-pix',{action:'my-vouchers'});
+   const catalog=await adminFinanceRealApi('coupon-credit-pix',{action:'catalog'});
    if(catalog?.source!=='clube_paid_catalog_v1_807'||!Array.isArray(catalog.packages)||
       history?.source!=='clube_coupon_paid_my_vouchers_v1'||!Array.isArray(history.purchases))
     throw Error('O checkout de cupons não confirmou o catálogo e o histórico.');
    data={catalog,history};
+   // Fetch the ORIGINAL pending invoice, GET-only at Mercado Pago. Never
+   // perform action:purchase as a side effect of opening this Admin page.
+   const pending=history.purchases.find(row=>
+    ['prepared','awaiting_payment'].includes(row?.status)&&
+    /^[0-9a-f-]{36}$/i.test(String(row?.invoiceId||'')));
+   if(pending){
+    try{
+     const read=await adminFinanceRealApi('coupon-credit-pix',{
+      action:'invoice-status',invoiceId:pending.invoiceId});
+     if(read?.ok===true)recoveredPix=read;
+     else recoveryError='Não foi possível recuperar o Pix original. Consulte a fatura existente.';
+    }catch{recoveryError='A consulta do Pix original falhou. Tente consultar a fatura existente.';}
+   }
   }else if(key==='mobility'){
    const response=await adminFinanceRealApi('mobility-fee-pix',{action:'status'});
    if(response?.ok!==true)throw Error('A cobrança do motorista não foi verificada.');
    data={status:response};
-   if(response.charge)adminFinanceRealRememberPayment(key,response);
+   if(response.charge)recoveredPix=response;
   }else{
    const response=await adminFinanceRealApi('ads-independent',{action:'mine'});
    if(response?.source!=='ads_independent_mine_v1_884'||response.noCharge!==true||
@@ -6403,7 +6431,9 @@ async function adminFinanceRealRefresh(){
    data={mine:response};
   }
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
-  state.data=data;state.loadedKey=key;state.message='Conferência concluída, sem criar cobrança.';
+  state.data=data;state.loadedKey=key;
+  if(recoveredPix)adminFinanceRealRememberPayment(key,recoveredPix);
+  state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
  }catch(e){
   if(actor===String(adminRuntime.session?.user?.id||'')){
    state.error=String(e?.message||e);state.data=null;state.loadedKey=null;
@@ -6465,7 +6495,18 @@ async function adminFinanceRealAction(operation,choice=''){
   if(key==='coupons'){
    if(result?.ok!==true||!['purchase','check'].includes(operation))throw Error('Fatura real não confirmada.');
    adminFinanceRealRememberPayment(key,result);
-   state.message='Fatura consultada no checkout original. O pagamento ainda precisa ser conferido no provedor.';
+   state.message='Pix da fatura ORIGINAL disponível abaixo. Confira o recebedor no banco antes de pagar.';
+   if(operation==='purchase'){
+    // Refresh only the buyer's existing invoices. Prevent the "Gerar" action
+    // from staying available after issuing this real, still-unpaid charge.
+    try{
+     const updated=await adminFinanceRealApi('coupon-credit-pix',{action:'my-vouchers'});
+     if(updated?.source==='clube_coupon_paid_my_vouchers_v1'&&
+        Array.isArray(updated.purchases)&&state.data&&
+        actor===String(adminRuntime.session?.user?.id||''))
+      state.data.history=updated;
+    }catch{} // The original payment remains visible even if listing fails.
+   }
   }else if(key==='mobility'){
    if(result?.ok!==true||!result.charge)throw Error('Fatura real do motorista não confirmada.');
    adminFinanceRealRememberPayment(key,result);
@@ -6511,10 +6552,17 @@ function adminFinanceRealPanel(key){
  if(state.message)html+='<p role="status">'+esc(state.message)+'</p>';
  const payment=state.payment;
  if(payment&&Date.now()<state.paymentUntil&&payment.kind===key)
-  html+='<div class="notice"><strong>'+esc(String(payment.status))+' · '+money(payment.amountCents)+'</strong>'+
-   (payment.url?'<p><a href="'+esc(payment.url)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento original no Mercado Pago</a></p>':'')+
-   (payment.pix?'<p>'+action('Copiar Pix original','adminFinanceRealCopyPix()')+'</p>':'')+
-   '<small>O pagamento deve ser conferido no aplicativo bancário. Link e Pix desaparecem desta tela após 45 segundos; consulte a fatura original para recuperá-los.</small></div>';
+  html+='<div class="notice" id="admin-finance-real-pix" role="region" aria-label="Pagamento original verificado">'+
+   '<h4>Pix REAL da fatura original · '+money(payment.amountCents)+'</h4>'+
+   '<p>Situação: '+esc(String(payment.status))+'. Confira o recebedor no aplicativo do banco.</p>'+
+   (payment.pix?adminFinanceLabLiveQrBlock({brCode:payment.pix})+
+    '<label for="admin-finance-real-pix-code">Pix copia e cola</label>'+
+    '<textarea class="input" id="admin-finance-real-pix-code" readonly rows="3" autocomplete="off">'+
+     esc(payment.pix)+'</textarea>'+
+    '<div class="order-actions">'+action('Copiar Pix copia e cola','adminFinanceRealCopyPix()')+'</div>':'')+
+   (payment.url?'<p><a href="'+esc(payment.url)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento ORIGINAL no Mercado Pago</a></p>':'')+
+   ((!payment.pix&&!payment.url)?'<p>Não há QR ou link pagável confirmado. Consulte a fatura novamente.</p>':'')+
+   '<small>Por segurança, o QR e o código desaparecem após 45 segundos. Use “Conferir operações existentes” ou “Consultar fatura existente” para recuperá-los com nova verificação do provedor. Não gere outro Pix.</small></div>';
  if(key==='coupons'&&known){
   const purchases=known.history?.purchases||[],packs=known.catalog?.packages||[];
   const pending=purchases.filter(p=>['prepared','awaiting_payment'].includes(p.status));
