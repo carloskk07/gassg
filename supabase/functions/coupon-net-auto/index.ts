@@ -209,6 +209,30 @@ async function prepareReleaseReports(client:DbClient,mpToken:string,initial:Awai
  }
  return config;
 }
+// V1.936: initiate at most one historical report request per invoice and one
+// globally per UTC day. An ambiguous response is never automatically replayed.
+// This creates a provider REPORT only, not a payment, refund or voucher.
+async function requestHistoricalReleaseReport(client:DbClient,mpToken:string,invoice:CouponInvoice){
+ const {data,error}=await client.rpc("clube_coupon_mp_report_backfill_claim_v1_936",{
+  p_invoice:invoice.id
+ });
+ if(error)return "CLAIM_FAILED_NO_PROVIDER_POST";
+ if(data?.claimed!==true)return "NOT_REQUESTED_"+safeReason(data?.reason);
+ const start=String(data?.begin_date??""),end=String(data?.end_date??"");
+ const dateRe=/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/;
+ if(!dateRe.test(start)||!dateRe.test(end))return "INVALID_CLAIM_WINDOW_NO_POST";
+ try{
+  const response=await mercadoPagoFetch("/v1/account/release_report",{
+   accessToken:mpToken,method:"POST",timeoutMs:9000,
+   body:{begin_date:start,end_date:end}
+  });
+  // HTTP 202 confirms report creation accepted, NOT financial settlement.
+  return response.status===202?"REPORT_GENERATION_ACCEPTED":
+    "REPORT_RESPONSE_UNCONFIRMED_NO_RETRY";
+ }catch{
+  return "REPORT_REQUEST_AMBIGUOUS_NO_RETRY";
+ }
+}
 // V1.932 — inspect existing MP report settings without changing an account-wide schedule.
 const MANDATORY_RELEASE_FIELDS=["DATE","SOURCE_ID","EXTERNAL_REFERENCE","RECORD_TYPE",
  "DESCRIPTION","NET_CREDIT_AMOUNT","NET_DEBIT_AMOUNT","GROSS_AMOUNT"];
@@ -269,11 +293,19 @@ Deno.serve(async req=>{
   // No POST to MP: a missing report may be a disabled account-wide schedule
   // or a missing/incompatible configuration. Diagnose rather than asserting
   // settlement or changing shared MP account settings.
-  let reportConfiguration:null|ReturnType<typeof inspectReleaseReportConfig>=null;
+  let reportConfiguration:null|Awaited<ReturnType<typeof getReleaseReportConfigSummary>>=null;
   if(reports.complete&&!reports.files.length){
    const initial=await getReleaseReportConfigSummary(mpToken);
    reportConfiguration=await prepareReleaseReports(client,mpToken,initial);
   }
+  let reportBackfill="NOT_ATTEMPTED";
+  // The direct report generation endpoint is independent of the existing
+  // daily schedule. Only a verified TAMÃO-owned active configuration permits
+  // requesting a bounded historical report for a genuine paid invoice.
+  if(reports.complete&&reports.files.length===0&&
+    reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
+    reportConfiguration?.owned===true&&invoices.length>0)
+    reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
   let registered=0,review=0,waiting=0;
   for(const invoice of invoices){
    let result;
@@ -291,7 +323,7 @@ Deno.serve(async req=>{
    else waiting++;
   }
   return json({ok:true,checked:invoices.length,registered,review,waiting,
-    reportConfiguration});
+    reportConfiguration,reportBackfill});
  }catch{
   return json({ok:false,error:"AUTO_CONCILIATION_UNAVAILABLE"},503);
  }
