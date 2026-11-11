@@ -56,6 +56,13 @@ assert.ok(sql.includes("new.status not in ('CANCELLED','SETTLED')"),
 assert.ok(edge.includes('"filter_delivery_compatible_merchants"'),
   'Customer offers must use the SQL compatibility authority');
 assert.ok(rollbackTest.startsWith('-- PostgreSQL real transaction regression'));
+assert.match(rollbackTest,/admin_merchant_representation_action\(/,
+ 'Production owner representation authority must be proven before SKU eligibility');
+assert.match(rollbackTest,/merchant_representative_verification_current\(/,
+ 'Legacy synthetic merchant must never bypass active legal owner');
+const integration=fs.readFileSync(new URL('../.github/workflows/isolated-supabase-integration.yml',import.meta.url),'utf8');
+assert.ok(integration.includes('--file=tests/sql/merchant-basket-compliance-v1-158-2.sql'),
+ 'Real PostgreSQL ROLLBACK basket test must run in isolated CI');
 assert.ok(rollbackTest.includes('begin;')&&rollbackTest.includes('rollback;'));
 for(const forbidden of ['P13','P13_CONTAINER','CHARCOAL4']){
  assert.ok(rollbackTest.includes(forbidden),'Missing SQL scenario '+forbidden);
