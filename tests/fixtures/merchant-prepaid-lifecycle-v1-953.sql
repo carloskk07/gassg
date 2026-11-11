@@ -175,10 +175,7 @@ BEGIN
   IF v_order_result->>'status'<>'OUT_FOR_DELIVERY'
   THEN RAISE EXCEPTION 'V953_ORDER_DISPATCH_FAIL:%',v_order_result; END IF;
   SELECT pin_code INTO v_pin FROM public.order_delivery_secrets WHERE order_id=v_order;
-  IF v_pin IS NULL OR v_pin!~'^[0-9]{4}
-END $case$;
-ROLLBACK;
-
+  IF v_pin IS NULL OR v_pin!~'^[0-9]{4}$'
   THEN RAISE EXCEPTION 'V953_ORDER_PIN_NOT_CREATED'; END IF;
   SELECT version INTO v_version FROM public.orders WHERE id=v_order;
   v_order_result:=public.merchant_order_action(
