@@ -518,6 +518,10 @@ async function adminRefresh({silent=false}={}){
       queueMicrotask(()=>adminExpansionLoadOnDemand().catch(()=>{}));
     if(adminRuntime.section==='growth'&&adminGrowthWorkspaceTab==='budget'&&adminCurrentRole()==='superadmin')
       queueMicrotask(()=>adminOwnerFinanceLoadOnDemand().catch(()=>{}));
+    if(adminRuntime.section==='growth'&&adminGrowthWorkspaceTab==='benefits'&&
+       typeof adminWelcomeCampaignLoad==='function'&&
+       ['superadmin','finance'].includes(String(adminCurrentRole())))
+      queueMicrotask(()=>adminWelcomeCampaignLoad({silent:true}).catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
@@ -3653,6 +3657,8 @@ function adminGrowthSetWorkspaceTab(tab){
  adminGrowthWorkspaceTab=tab;
  render();
  if(tab==='budget')adminOwnerFinanceLoadOnDemand().catch(()=>{});
+ if(tab==='benefits'&&typeof adminWelcomeCampaignLoad==='function')
+  adminWelcomeCampaignLoad({silent:true}).catch(()=>{});
 }
 function adminOrdersSetWorkspaceTab(tab){
  if(!adminReady()||adminRuntime.section!=='orders'||!adminRoleCanSection('orders'))return;
@@ -3781,6 +3787,9 @@ function adminSetSection(section){
   if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
   if(next==='growth'&&adminGrowthWorkspaceTab==='budget'&&adminCurrentRole()==='superadmin')
     adminOwnerFinanceLoadOnDemand().catch(()=>{});
+  if(next==='growth'&&adminGrowthWorkspaceTab==='benefits'&&
+     typeof adminWelcomeCampaignLoad==='function')
+    adminWelcomeCampaignLoad({silent:true}).catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='homologation'
