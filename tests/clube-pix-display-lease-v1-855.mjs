@@ -134,3 +134,56 @@ await ctx.copy();
 assert.equal(copies.length,0);
 assert.equal(ctx.state.busy,false);
 console.log('PASS #855: QR/Pix/link display lease expires, hides on background, recheck restores only original invoice, stale callbacks isolated.');
+
+
+// V1.954 retry: a single network failure must not strand the buyer's
+// already-issued Pix. A second GET of the SAME invoice can confirm payment.
+// No new purchase, copied QR, credit mutation or fake PSP result is permitted.
+new vm.Script('this.autoCheckStart=clubeCouponPixAutoStart;'+
+ 'this.autoCheckStop=clubeCouponPixAutoStop;').runInContext(ctx);
+ctx.autoCheckStop();
+ctx.state.purchase=makePurchase();
+let autoChecks=0,autoRefreshes=0;
+const earlierTimers=timerCalls.length;
+ctx.liveInvoke=async(name,request)=>{
+ assert.equal(name,'coupon-credit-pix');
+ assert.equal(request.action,'invoice-status','automatic retry cannot create Pix');
+ assert.equal(request.invoiceId,invoiceId,'retry cannot switch to another invoice');
+ autoChecks++;
+ if(autoChecks===1)throw Error('temporary network timeout');
+ return {ok:true,invoiceId,status:'paid',pixPayable:false};
+};
+ctx.clubePaidCouponsRefresh=async()=>{autoRefreshes++};
+ctx.autoCheckStart(invoiceId);
+const firstAuto=timerCalls.slice(earlierTimers).find(t=>t.ms===60000&&!t.cancelled);
+assert.ok(firstAuto,'existing unpaid invoice schedules one bounded lookup');
+firstAuto.cancelled=true; // simulate a one-shot browser timeout firing
+await firstAuto.fn();
+assert.equal(autoChecks,1);
+assert.equal(autoRefreshes,0);
+assert.equal(ctx.state.purchase.status,'awaiting_payment','failed GET cannot mark a Pix paid');
+const retry=timerCalls.slice(earlierTimers).find(t=>t.ms===70000&&!t.cancelled);
+assert.ok(retry,'transient error must retry the original invoice');
+retry.cancelled=true; // fired timeout is no longer scheduled
+await retry.fn();
+assert.equal(autoChecks,2,'one retry after a temporary failure');
+assert.equal(autoRefreshes,1,'approved existing invoice reloads buyer vouchers');
+assert.equal(ctx.state.purchase.status,'paid');
+assert.equal(ctx.state.purchase.invoiceId,invoiceId);
+assert.equal(timerCalls.slice(earlierTimers).filter(t=>t.ms===70000&&!t.cancelled).length,0,
+ 'terminal paid state stops further automatic checks');
+
+// The same bounded watcher may never query an invoice after account change.
+ctx.liveRuntime.session.user.id=user;
+ctx.state.purchase=makePurchase();
+const priorChecks=autoChecks;
+const nextTimerOffset=timerCalls.length;
+ctx.autoCheckStart(invoiceId);
+const pendingAfterSwitch=timerCalls.slice(nextTimerOffset).find(t=>t.ms===60000&&!t.cancelled);
+assert.ok(pendingAfterSwitch);
+ctx.liveRuntime.session.user.id='different-buyer';
+pendingAfterSwitch.cancelled=true;
+await pendingAfterSwitch.fn();
+assert.equal(autoChecks,priorChecks,'account change prevents even a read');
+assert.equal(timerCalls.slice(nextTimerOffset).filter(t=>t.ms===70000&&!t.cancelled).length,0);
+console.log('V1.954 PASS — transient Pix status error retries original invoice only; paid readback, no new charge, account isolation.');

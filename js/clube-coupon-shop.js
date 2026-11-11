@@ -93,7 +93,14 @@ function clubeCouponPixAutoStart(invoiceId){
        await clubePaidCouponsRefresh();
        return;
      }
-   }catch{clubeCouponPixAutoStop(w);return}
+   }catch{
+     // A temporary network/PSP lookup failure must not permanently silence
+     // the original Pix. Retry only this invoice, at most six times, without
+     // creating a new payment or exposing stale QR data.
+     if(!active()||w.attempts>=6){clubeCouponPixAutoStop(w);return}
+     w.timer=setTimeout(poll,70000);
+     return;
+   }
    if(active())w.timer=setTimeout(poll,70000);
  };
  w.run=poll;
