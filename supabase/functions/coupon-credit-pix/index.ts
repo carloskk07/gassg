@@ -310,6 +310,64 @@ async function couponVerifiedReplay(invoice:any,admin:any){
  return {ok:true,...publicInvoice({...invoice,
   ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,invoice)})};
 }
+// V1.942: an authenticated owner checking the ORIGINAL invoice can recover
+// a signed-webhook delay by reading Mercado Pago Orders directly. This is not
+// a second payment engine: it uses the SAME service-only atomic verification
+// RPC as the webhook, never a client-controlled paid flag or amount.
+async function couponRecoverPaidFromProvider(admin:any,invoice:any){
+ if(!["prepared","awaiting_payment"].includes(String(invoice?.status))||
+   !mercadoPagoConfigured(MP_TOKEN)||!MP_TOKEN.startsWith("APP_USR-")||
+   !invoice?.provider_order_id||!invoice?.provider_payment_id)return invoice;
+ try{
+  const response=await mercadoPagoFetch(
+   "/v1/orders/"+encodeURIComponent(String(invoice.provider_order_id)),
+   {accessToken:MP_TOKEN,method:"GET",timeoutMs:8000});
+  if(!response.ok)return invoice;
+  const order=await readMercadoPagoJson(response);
+  const payments=Array.isArray(order?.transactions?.payments)?
+    order.transactions.payments:[];
+  const pix=findPix(order);
+  const refunds=Array.isArray(order?.transactions?.refunds)?
+    order.transactions.refunds:null;
+  // Never recognize a refund, dispute, partial payment or mixed order.
+  const chargebacks=Array.isArray(order?.transactions?.chargebacks)?
+    order.transactions.chargebacks:[];
+  if(order?.live_mode===false||pix?.live_mode===false||
+    String(order?.id??"")!==String(invoice.provider_order_id)||
+    String(order?.external_reference??"")!==String(invoice.id)||
+    (order?.currency_id&&order.currency_id!=="BRL")||
+    (order?.currency&&order.currency!=="BRL")||
+    moneyToCents(order?.total_amount)!==Number(invoice.sale_price_cents)||
+    payments.length!==1||!pix||
+    String(pix.id??"")!==String(invoice.provider_payment_id)||
+    pix.payment_method?.id!=="pix"||pix.payment_method?.type!=="bank_transfer"||
+    moneyToCents(pix?.amount)!==Number(invoice.sale_price_cents)||
+    refunds===null||refunds.length!==0||chargebacks.length!==0||
+    String(order?.status??"").toLowerCase()!=="processed"||
+    String(pix?.status??"").toLowerCase()!=="processed"||
+    !["","accredited"].includes(String(order?.status_detail??"").toLowerCase())||
+    !["","accredited"].includes(String(pix?.status_detail??"").toLowerCase()))
+    return invoice;
+  const {data,error}=await admin.rpc("clube_coupon_paid_payment_verify",{
+   p_invoice_id:invoice.id,p_provider_order_id:invoice.provider_order_id,
+   p_payment_id:invoice.provider_payment_id,
+   p_amount_cents:invoice.sale_price_cents
+  });
+  if(error||!(data?.ok===true||
+    (data?.reviewRequired===true&&data?.providerPaymentRecorded===true)))
+    return invoice;
+  // Read AFTER the locked SQL transaction; only actual persisted state counts.
+  const {data:updated,error:readError}=await admin
+    .from("clube_coupon_paid_invoices").select("*")
+    .eq("id",invoice.id).eq("customer_user_id",invoice.customer_user_id)
+    .maybeSingle();
+  if(readError||!updated)return invoice;
+  return updated;
+ }catch{
+  // Network ambiguity never causes a second Pix or a local status update.
+  return invoice;
+ }
+}
 // A refund may close a #853 received-Pix hold ONLY if no voucher has
 // ever been issued. An exact count prevents truncated voucher reads from
 // overlooking spent or reserved benefits.
@@ -662,11 +720,12 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{
       userId:user.id,actionName:"coupon-credit-pix-status",limit:18,windowSeconds:600
     });
-    const {data:invoice,error:invoiceError}=await admin
+    const {data:storedInvoice,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices").select("*")
       .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
     if(invoiceError)throw invoiceError;
-    if(!invoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    if(!storedInvoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    const invoice=await couponRecoverPaidFromProvider(admin,storedInvoice);
     // A pending cancellation freezes even a previously saved/reopened Pix.
     // The original provider charge may still require refund/reconciliation,
     // but the customer must not be instructed to pay it again.
