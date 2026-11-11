@@ -11,7 +11,7 @@ const source=admin.slice(start,end);
 const invoice='9af683aa-1064-4999-8809-0c92e565a1b5';
 const actor='11111111-1111-4111-8111-111111111111';
 const brCode='000201'+('01234567890123456789'.repeat(6))+'6304ABCD';
-let settled=false,role='superadmin',selected='coupons',calls=[],timers=[],nextTimer=0;
+let settled=false,funded=false,role='superadmin',selected='coupons',calls=[],timers=[],nextTimer=0;
 const runtime={session:{user:{id:actor}},section:'finance',
  financeWorkspace:'homologation',status:'ready'};
 const paidPurchase={invoiceId:invoice,packageKey:'all_products_3x5_sponsor',
@@ -19,7 +19,9 @@ const paidPurchase={invoiceId:invoice,packageKey:'all_products_3x5_sponsor',
 const pendingPurchase={...paidPurchase,status:'awaiting_payment',paidAt:null,fundingPending:false};
 const dataFor=(action)=>{
  if(action==='my-vouchers')return {source:'clube_coupon_paid_my_vouchers_v1',
-  purchases:[settled?paidPurchase:pendingPurchase],vouchers:[]};
+  purchases:[settled?(funded?{...paidPurchase,fundingPending:false}:paidPurchase):pendingPurchase],
+  vouchers:funded?[1,2,3].map(ordinal=>({invoiceId:invoice,status:'issued',
+    faceCents:500,ordinal})):[]};
  if(action==='catalog')return {source:'clube_paid_catalog_v1_807',couponSalesEnabled:true,
   packages:[{packageKey:'all_products_3x5_sponsor',priceCents:890,
    termsVersion:'clube_coupon_terms_v1_813'}]};
@@ -81,6 +83,15 @@ assert(!receipt.includes('Gerar checkout real deste pacote'),
  'paid invoice must not invite another homologation charge');
 assert(!receipt.includes('Pix copia e cola'),'a paid Pix must not show a payable code');
 assert(!calls.includes('purchase'));
+// V1.943: owner-sponsored coupons may be usable before MP net reconciliation.
+// The Admin must not falsely state the NET has been verified.
+funded=true;
+await context.real.refresh();
+const sponsoredReceipt=context.real.view('coupons');
+assert.match(sponsoredReceipt,/Financiamento do benefício confirmado/);
+assert.match(sponsoredReceipt,/Cupons emitidos visíveis: 3/);
+assert.match(sponsoredReceipt,/O relatório contábil do Mercado Pago continua independente/);
+assert.doesNotMatch(sponsoredReceipt,/Valor líquido já verificado no sistema/);
 const before=calls.length;
 await context.real.action('purchase','all_products_3x5_sponsor');
 assert.equal(calls.length,before,'same paid package cannot be recharged from Admin');
