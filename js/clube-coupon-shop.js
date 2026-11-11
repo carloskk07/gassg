@@ -44,6 +44,61 @@ const clubeCouponShopState={
   attempts:{},purchase:null,autoQueuedFor:null,regionPostal:''
 };
 const clubeCouponRefundState={userId:null,inFlight:new Set(),attempts:{}};
+// V1.950: verify only an EXISTING buyer-owned pending Pix, never create one.
+let clubeCouponPixAutoWatch=null;
+function clubeCouponPixAutoStop(expected=null){
+ const w=clubeCouponPixAutoWatch;
+ if(expected&&w!==expected)return;
+ if(w?.timer!=null&&typeof clearTimeout==='function')clearTimeout(w.timer);
+ clubeCouponPixAutoWatch=null;
+}
+function clubeCouponPixAutoStart(invoiceId){
+ const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
+ const id=String(invoiceId||'');
+ if(!uid||!globalThis.liveReady?.()||route()!=='club'||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)||
+    typeof setTimeout!=='function')return;
+ const local=clubeCouponShopState.userId===uid&&
+    clubeCouponShopState.purchase?.invoiceId===id&&
+    clubeCouponShopState.purchase?.status==='awaiting_payment';
+ const prior=clubePaidCouponView.userId===uid&&
+    clubePaidCouponView.purchases.some(p=>p.invoiceId===id&&p.status==='awaiting_payment');
+ if(!local&&!prior)return;
+ if(clubeCouponPixAutoWatch?.invoiceId===id&&clubeCouponPixAutoWatch.userId===uid)return;
+ clubeCouponPixAutoStop();
+ const w={invoiceId:id,userId:uid,timer:null,attempts:0,run:null};
+ clubeCouponPixAutoWatch=w;
+ const active=()=>clubeCouponPixAutoWatch===w&&route()==='club'&&
+   String(globalThis.liveRuntime?.session?.user?.id||'')===uid&&
+   globalThis.liveReady?.()===true;
+ const poll=async()=>{
+   w.timer=null;
+   if(!active()){clubeCouponPixAutoStop(w);return}
+   if((typeof document!=='undefined'&&document.hidden===true)||clubeCouponShopState.busy){
+     w.timer=setTimeout(poll,70000);return;
+   }
+   if(w.attempts>=6){clubeCouponPixAutoStop(w);return}
+   w.attempts++;
+   try{
+     const result=await liveInvoke('coupon-credit-pix',{action:'invoice-status',invoiceId:id});
+     if(!active()){clubeCouponPixAutoStop(w);return}
+     if(result?.ok!==true||result.invoiceId!==id)throw Error('COUPON_STATUS_UNVERIFIED');
+     if(['paid','review_required','refunded','cancelled','expired'].includes(result.status)){
+       if(clubeCouponShopState.userId===uid){
+         const postal=clubeCouponShopState.purchase?.invoiceId===id
+           ?clubeCouponShopState.purchase.servicePostalCode:null;
+         clubeCouponShopState.purchase={...result,...(postal?{servicePostalCode:postal}:{})};
+       }
+       clubeCouponPixAutoStop(w);
+       await clubePaidCouponsRefresh();
+       return;
+     }
+   }catch{clubeCouponPixAutoStop(w);return}
+   if(active())w.timer=setTimeout(poll,70000);
+ };
+ w.run=poll;
+ w.timer=setTimeout(poll,60000);
+}
 // A QR, external payment link, and copyable BR Code can outlive merchant
 // eligibility in an open tab. Keep them on-screen only briefly; a new
 // authenticated invoice-status check is required to reveal them again.
@@ -84,11 +139,22 @@ function clubeCouponArmPixLease(){
 if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
  document.addEventListener('visibilitychange',()=>{
    if(document.hidden===true)clubeCouponHideDisplayedPix();
+   else if(clubeCouponPixAutoWatch?.run&&route()==='club'){
+     const w=clubeCouponPixAutoWatch;
+     if(w.timer!=null)clearTimeout(w.timer);
+     w.timer=setTimeout(w.run,1200);
+   }
  });
 function clubeCouponShopPanel(){
   const uid=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!uid||!globalThis.liveReady?.())return '';
   const s=clubeCouponShopState.userId===uid?clubeCouponShopState:null;
+  const pendingLocal=s?.purchase?.status==='awaiting_payment'?s.purchase:null;
+  const pendingHistory=clubePaidCouponView.userId===uid&&
+    clubePaidCouponView.status==='ready'
+    ?clubePaidCouponView.purchases.find(p=>p.status==='awaiting_payment'):null;
+  const pendingId=pendingLocal?.invoiceId||pendingHistory?.invoiceId;
+  if(pendingId)clubeCouponPixAutoStart(pendingId);
   // Fetch once on opening the Clube, with no extra user click. Never request
   // an invoice/Pix here; the buyer must explicitly choose and accept terms.
   if((!s||s.status==='idle')&&!clubeCouponShopState.busy&&
