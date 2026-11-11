@@ -5873,7 +5873,7 @@ function adminPrelaunchLeadsSection(data){
    '<div class="empty card">Nenhum contato recente.</div>')+'</div>'
   ]:[]),
   ...(current==='benefits'?[
-   adminWelcomeCampaignView(),
+   typeof adminWelcomeCampaignView==='function'?adminWelcomeCampaignView():'',
    adminGrowthNetworkOverviewView(data?.growthNetwork),adminClubeLaunchReadinessSection(),
    adminClubeInterestSection(),adminClubeCampaignSection(),adminClubeTermsSection(),
    adminGrowthReferralReviewSection()
