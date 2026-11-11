@@ -1,3 +1,26 @@
+## 11/11/2026 — V1.952: duas frentes técnicas INTEIRAS encerradas (suporte #18 e Home/celular #19)
+
+**Linha de base:** continuação da V1.951, `main=5e4e64d41e3f3409d1bff9c29c64f818c349c047`. **Novo marco:** [PR #952](https://github.com/carloskk07/gassg/pull/952) integrada como `471e2a19fd99b0102b78535d8d0cc83c2414c449`, com testes executados antes do merge. Sem novos pagamentos, faturas, reembolsos, pedidos, fornecedores ou produção fictícia.
+
+### Frente #18 — Ajuda e Suporte: FECHADA TECNICAMENTE
+- Publicados: formulário público `submit-public-request` v18, atendimento autenticado `customer-care` v17 e `admin-ops` v268. Conteúdo do `index.ts` dessas **três funções em produção é byte a byte idêntico** ao fonte `main` auditado, com proteção de usuário/conta e ACL.
+- Browser de produção: `https://tamao.com.br/?tamao_help=cliente&modulo=order#contact` mostra **Suporte** no assunto, nome, contato, mensagem, consentimento, botão de envio e acesso pelo atalho; o mesmo canal dá suporte à intenção de revendas.
+- [Audit PASS #43054493409](https://github.com/carloskk07/gassg/actions/runs/43054493409): teste HTTP handler POSITIVO isolado, idempotência/replay, protocolo, antiabuso, não vazamento, suporte Cliente/Parceiro e Admin, paginação/triagem/fechamento, aviso de erro, teste HTTP remoto de *entradas inválidas sem escrita*. Não se confunde teste positivo em memória com chamado externo real.
+- No Supabase comercial, prova reversível **BEGIN → INSERT support → admin_public_request_action('in_review') → admin_public_request_action('resolved') → duas evidências em platform_admin_audit → ROLLBACK**. Todas as verificações SQL internas concluíram sem erro e, após a transação, conferi **0 chamados sintéticos**, **0 action_requests**, **0 auditorias remanescentes**. `public_requests` com RLS ativo, sem SELECT direto para `anon` ou `authenticated`. O banco continuou com zero chamados reais.
+- **Limite:** não foi enviado POST real positivo de um cliente externo em produção; primeira solicitação humana, SLA e atendimento efetivo são aceites OPERACIONAIS a acompanhar, não uma falha comprovada do módulo. Não declarar que aconteceu.
+
+### Frente #19 — Home e celular: FECHADA TECNICAMENTE (NAVEGADOR)
+- [PR #952](https://github.com/carloskk07/gassg/pull/952): adicionou ao CI o mesmo ensaio visual usado no build isolado **contra o site oficial de produção** (`TAMAO_VISUAL_BASE=https://tamao.com.br`), via Chrome limpo, sem login e somente GETs. Evidência de ambos os ambientes é arquivada em screenshot e `audit.json` da própria CI.
+- [Public visual smoke PASS #43075279427](https://github.com/carloskk07/gassg/actions/runs/43075279427): **5 páginas públicas × 3 larguras (360/768/1440px)** no ambiente isolado **e** em produção, com 0 falhas nos gates de overflow horizontal, títulos, imagens, catálogo e blocos de benefícios. Os dois comandos emitiram `TAMÃO V1.413 visual PASS`. Navegação móvel isolada em **320/360/390px** e testes de acessibilidade seguiram verdes no [Audit #43075279609](https://github.com/carloskk07/gassg/actions/runs/43075279609), [Audit #43075225224](https://github.com/carloskk07/gassg/actions/runs/43075225224), além da [integração Supabase isolada PASS #43075279430](https://github.com/carloskk07/gassg/actions/runs/43075279430).
+- A Home pública já expunha oferta verídica, campanha gratuita institucional, R$1 bem-vindo, pacote 3 cupons de R$5 por R$8,90, produtos e serviços sem oferta de revenda inventada. PR #952 é **ampliação do gate de produção**, não liberação de comércio físico.
+- **Limite:** responsividade em Chrome com viewport móvel não equivale a certificação em dispositivo Android/iOS real, e a ausência de revendas implica que checkout/entrega COMERCIAL ainda não foram aceitos. São verificações operacionais distintas, não testes que afirmamos ter feito.
+
+### Contagem FIXA das 19 frentes — após V1.952
+- **3/19 FECHADAS TECNICAMENTE**: #11 bônus de boas-vindas (V1.948), #18 Ajuda/Suporte (provas de produção reversível + CI), #19 Home/celular (site público + Chrome/CI).
+- **16/19 AINDA PENDENTES DE FECHAMENTO TÉCNICO INTEGRAL**. Não reduzir esse denominador por novos commits, correções dentro de frentes, incidentes externos ou modalidade institucional gratuita, que já haviam sido fechados em seus próprios escopos.
+- Homologação **comercial real** continua distinta: não há revenda ofertável, pedido físico concluído, primeira solicitação real de suporte, compra de publicidade paga, corrida liquidada ou resgate de cupom em pedido de fornecedor real. Não criar simulações financeiras comerciais para falsificar o avanço.
+- Próximos fechamentos viáveis: publicidade comercial independente (#8), cobrança/conciliador PSP e cupons (#1–3), conforme evidência de pagamento original existente e autorizações, preservando travas até a homologação. Sem forçar cadastro de revendas para desbloquear módulos que delas não dependem.
+
 ## 11/11/2026 — V1.950: dois defeitos de leitura financeira eliminados (continuidade #493, 19 frentes)
 
 **Estado-base e resultado:** a execução partiu da `main=da183bf12fa42a0cf06afdbfa0e348f190e9f903` (V1.948) e produziu duas correções INTEGRADAS, sem novas cobranças, créditos, estornos ou modificações financeiras:
