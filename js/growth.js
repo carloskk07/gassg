@@ -31,7 +31,6 @@ return true;
 }
 
 // Paid coupons share the customer's authenticated Supabase session.
-// Club purchase buttons live in deferred catalog; wallet is read-only.
 const clubePaidCouponView={
 userId:null,status:'idle',purchases:[],vouchers:[],error:null,
 checkoutEnabled:false
@@ -675,9 +674,7 @@ async function shareReferral(){
   }
 }
 
-// V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
-// V1.301 — send partnership interest into the existing protected contact channel,
-// without new storage, third-party redirects or a fake sponsor activation.
+// Sponsor interest uses the protected contact channel; no sale or activation.
 function openSponsorContact(format='general',quoteBrief=''){
   // Carry only the visitor's public contact intent for anonymous page metrics.
   // No campaign is activated and no identity is included in analytics.
