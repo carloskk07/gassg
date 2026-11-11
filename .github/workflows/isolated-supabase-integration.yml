@@ -181,6 +181,8 @@ jobs:
         run: node tests/isolated-ads-independent-checkout-recovery-v1-890.mjs
       - name: V1.916 founder-only institutional free Ads, no Pix or paid campaign (ROLLBACK)
         run: node tests/isolated-ads-institutional-v1-916.mjs
+      - name: V1.955 complete paid independent advertising cycle and synthetic PSP reversal (ROLLBACK)
+        run: node tests/isolated-ads-independent-full-cycle-v1-955.mjs
       - name: V1.892 founder-authorized 72h Ads test on disposable PostgreSQL (ROLLBACK)
         run: node tests/isolated-ads-independent-homologation-v1-892.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
