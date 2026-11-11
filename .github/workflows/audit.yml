@@ -613,6 +613,8 @@ jobs:
         run: node tests/admin-finance-all-modules-v1-919.mjs
       - name: V1.927 original live financial checkouts from protected Admin
         run: node tests/admin-finance-real-operations-v1-927.mjs
+      - name: V1.944 restore existing Ads checkout and reconcile automatically without duplicate payments
+        run: node tests/admin-finance-ads-auto-reconcile-v1-944.mjs
       - name: V1.928 reuse existing real coupon Pix in Admin with visible QR and no duplicate
         run: node tests/admin-finance-coupon-pix-display-v1-928.mjs
       - name: V1.929 real paid coupon receipt, status polling and unfunded voucher guard
