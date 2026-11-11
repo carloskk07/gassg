@@ -7,6 +7,7 @@ new vm.Script(source);
 const invoiceId='a5a16f8b-5a50-45de-80c3-855000000001';
 const code='00020101021226800014br.gov.bcb.pix1234567890';
 const timerCalls=[],handlers={},calls=[],messages=[],copies=[];
+const leaseTimers=()=>timerCalls.filter(x=>x.ms===45000);
 const fakeCodeImage='data:image/png;base64,'+'A'.repeat(32);
 const url='https://www.mercadopago.com.br/payments/855';
 const makePurchase=(overrides={})=>({
@@ -61,15 +62,16 @@ ctx.state.purchase=makePurchase();
 assert.doesNotMatch(ctx.panel(),/Código Pix copia e cola|QR Code Pix do pedido de cupom|Abrir pagamento seguro/);
 assert.equal(calls.length,0);
 ctx.arm();
-assert.equal(timerCalls.length,1);
-assert.equal(timerCalls[0].ms,45000);
+assert.equal(leaseTimers().length,1,
+ 'auto-check watcher may coexist with exactly one QR display lease');
+assert.equal(leaseTimers()[0].ms,45000);
 assert.match(ctx.panel(),/Código Pix copia e cola/);
 assert.match(ctx.panel(),/QR Code Pix do pedido de cupom/);
 assert.match(ctx.panel(),/Abrir pagamento seguro/);
 
 // After lease expiry no stale QR, external payment link, or text remain,
 // but the same invoice remains available to recheck without a new purchase.
-timerCalls[0].fn();
+leaseTimers()[0].fn();
 assert.equal(ctx.state.purchase.invoiceId,invoiceId);
 assert.equal(ctx.state.purchase.status,'awaiting_payment');
 assert.equal(ctx.state.purchase.pixPayable,false);
@@ -87,7 +89,7 @@ assert.equal(calls.length,0);
 await ctx.refreshInvoice(invoiceId);
 assert.deepEqual(calls.map(x=>x.action),['invoice-status']);
 assert.match(ctx.panel(),/Código Pix copia e cola/);
-assert.equal(timerCalls.length,2);
+assert.equal(leaseTimers().length,2,'second lease is not duplicated by auto-check');
 
 // Leaving the tab while Pix is on-screen immediately revokes display.
 // Returning does not silently restore either the BR code or the QR image.
@@ -105,7 +107,7 @@ assert.match(ctx.panel(),/Código Pix copia e cola/);
 
 // Even if an old timer callback fires after cancellation/rearm, it must
 // not hide or rewrite a DIFFERENT invoice/user card.
-const staleTimer=timerCalls.at(-1);
+const staleTimer=leaseTimers().at(-1);
 ctx.state.purchase=makePurchase({invoiceId:'a5a16f8b-5a50-45de-80c3-855000000002'});
 ctx.arm();
 assert.equal(staleTimer.cancelled,true);
