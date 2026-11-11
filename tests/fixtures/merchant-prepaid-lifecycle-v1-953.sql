@@ -4,9 +4,9 @@ BEGIN;
 SET LOCAL statement_timeout='60s';
 DO $case$
 DECLARE
-  v_merchant uuid := '00000000-0000-4000-8000-000000000026';
+  v_merchant uuid;
   v_admin uuid := 'a9530000-0000-4000-8000-000000000001';
-  v_owner uuid;
+  v_owner uuid := 'a9530000-0000-4000-8000-000000000002';
   v_plan public.merchant_billing_plans%rowtype;
   v_result jsonb;
   v_replay jsonb;
@@ -15,10 +15,21 @@ DECLARE
   v_downgrade_denied boolean := false;
   v_old_denied boolean := false;
 BEGIN
-  SELECT user_id INTO v_owner
-  FROM public.merchant_members
-  WHERE merchant_id=v_merchant AND active AND member_role='owner' LIMIT 1;
-  IF v_owner IS NULL THEN RAISE EXCEPTION 'V953_SEEDED_OWNER_MISSING'; END IF;
+  -- The CI database is intentionally empty at this step; bootstrap a
+  -- temporary owner/merchant inside this transaction, never in production.
+  INSERT INTO auth.users(id,instance_id,aud,role,is_sso_user,is_anonymous,email,email_confirmed_at)
+  VALUES(v_owner,'00000000-0000-0000-0000-000000000000',
+    'authenticated','authenticated',false,false,'v953-owner@example.invalid',clock_timestamp());
+  INSERT INTO public.merchants(
+    name,cnpj,status,online,accepts_citywide,last_seen_at,
+    delivery_fee_confirmed_at,delivery_fee_cents
+  ) VALUES('V953 ISOLATED PREPAID TEST','00000000000002','pending',false,true,
+    clock_timestamp(),clock_timestamp(),0) RETURNING id INTO v_merchant;
+  INSERT INTO public.merchant_members(merchant_id,user_id,member_role,active)
+  VALUES(v_merchant,v_owner,'owner',true);
+  INSERT INTO public.merchant_billing_accounts(merchant_id,plan_key)
+  VALUES(v_merchant,'flex_daily')
+  ON CONFLICT(merchant_id) DO NOTHING;
 
   INSERT INTO auth.users(id,instance_id,aud,role,is_sso_user,is_anonymous,email,email_confirmed_at)
   VALUES(v_admin,'00000000-0000-0000-0000-000000000000',
