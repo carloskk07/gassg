@@ -24,6 +24,7 @@ assert.doesNotMatch(ui.slice(from,to),/onclick="[^"]*(?:Buy|Comprar|merchantBill
 let user='00000000-0000-0000-0000-000000000011';
 let payload={ok:true,source:'clube_coupon_paid_my_vouchers_v1',purchases:[],vouchers:[]};
 let calls=0,rendered=0,currentRoute='club';
+const flush=()=>new Promise(resolve=>setTimeout(resolve,0));
 const ctx=vm.createContext({
  globalThis:{cshop:1,liveReady:()=>true,liveRuntime:{session:{user:{id:user,is_anonymous:false,email_confirmed_at:'2026-11-11T12:00:00Z'}}}},
  liveReady:()=>true,
@@ -66,24 +67,24 @@ payload={ok:true,source:'clube_coupon_paid_my_vouchers_v1',purchases:[{invoiceId
 ctx.globalThis.liveRuntime.session.user.id='00000000-0000-0000-0000-000000000033';
 const beforeAuto=calls;
 assert.doesNotMatch(ctx.panel(),/5,00/,'never show a prior account wallet');
-await Promise.resolve();await Promise.resolve();
+await flush();
 assert.equal(calls,beforeAuto+1,'opening Clube reads paid vouchers without a click');
 assert.match(ctx.panel(),/5,00/,'paid voucher appears automatically');
-ctx.panel();await Promise.resolve();
+ctx.panel();await flush();
 assert.equal(calls,beforeAuto+1,'rerender does not duplicate provider reads');
 ctx.globalThis.liveRuntime.session.user.id='00000000-0000-0000-0000-000000000044';
 currentRoute='order';
 const beforeCheckout=calls;
 assert.match(ctx.checkout(),/Cupons da sua conta/);
-await Promise.resolve();await Promise.resolve();
+await flush();
 assert.equal(calls,beforeCheckout+1,'checkout fetches existing voucher history');
 ctx.globalThis.liveRuntime.session.user.id='00000000-0000-0000-0000-000000000055';
 currentRoute='club';
 const beforeRoute=calls;
 ctx.panel();currentRoute='home';
-await Promise.resolve();await Promise.resolve();
+await flush();
 assert.equal(calls,beforeRoute,'leave page before microtask cancels read');
 currentRoute='club';ctx.panel();
-await Promise.resolve();await Promise.resolve();
+await flush();
 assert.equal(calls,beforeRoute+1,'return to Clube safely retries canceled read');
 console.log('V1.949 PASS — auto-load, account isolation, checkout, canceled navigation.');
