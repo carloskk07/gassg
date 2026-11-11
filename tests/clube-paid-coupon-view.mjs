@@ -88,3 +88,40 @@ currentRoute='club';ctx.panel();
 await flush();
 assert.equal(calls,beforeRoute+1,'return to Clube safely retries canceled read');
 console.log('V1.949 PASS — auto-load, account isolation, checkout, canceled navigation.');
+
+// V1.950: the PSP may be checked for the ORIGINAL invoice, never by issuing
+// a second Pix. Changes of account cancel the polling authority.
+const timers=new Map();let nextTimer=0;const actions=[];
+ctx.setTimeout=(fn,ms)=>{const id=++nextTimer;timers.set(id,{fn,ms});return id};
+ctx.clearTimeout=id=>timers.delete(id);
+ctx.document={hidden:false};
+const buyer='00000000-0000-0000-0000-000000000066';
+const invoice='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ctx.globalThis.liveRuntime.session.user.id=buyer;
+ctx.liveInvoke=async(_name,body)=>{
+ actions.push(body.action);
+ if(body.action==='invoice-status')
+  return {ok:true,invoiceId:invoice,status:'paid',fundingPending:false};
+ if(body.action==='my-vouchers')
+  return {ok:true,source:'clube_coupon_paid_my_vouchers_v1',vouchers:[],purchases:[]};
+ throw Error('Unexpected action: '+body.action);
+};
+vm.runInContext("clubeCouponShopState.userId='"+buyer+"';clubeCouponShopState.purchase={invoiceId:'"+invoice+"',status:'awaiting_payment'};",ctx);
+ctx.clubeCouponPixAutoStart(invoice);
+assert.equal(timers.size,1,'only one watcher on original invoice');
+const [firstId,first]=[...timers.entries()][0];
+assert.equal(first.ms,60000,'limited first status check');
+timers.delete(firstId);await first.fn();await flush();
+assert.equal(actions.filter(x=>x==='invoice-status').length,1);
+assert.equal(actions.filter(x=>x==='my-vouchers').length,1);
+assert.ok(actions.every(x=>x==='invoice-status'||x==='my-vouchers'),'no new checkout or credit');
+assert.equal(timers.size,0,'paid invoice stops the watcher');
+const buyer2='00000000-0000-0000-0000-000000000077';
+ctx.globalThis.liveRuntime.session.user.id=buyer2;
+vm.runInContext("clubeCouponShopState.userId='"+buyer2+"';clubeCouponShopState.purchase={invoiceId:'"+invoice+"',status:'awaiting_payment'};",ctx);
+ctx.clubeCouponPixAutoStart(invoice);
+const [secondId,second]=[...timers.entries()][0];
+ctx.globalThis.liveRuntime.session.user.id='00000000-0000-0000-0000-000000000088';
+timers.delete(secondId);await second.fn();await flush();
+assert.equal(actions.filter(x=>x==='invoice-status').length,1,'account switch blocks provider call');
+console.log('V1.950 PASS — automatic original Pix readback, no new charge, account isolation.');
