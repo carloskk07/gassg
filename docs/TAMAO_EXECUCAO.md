@@ -1,3 +1,43 @@
+## 11/11/2026 — V1.950: dois defeitos de leitura financeira eliminados (continuidade #493, 19 frentes)
+
+**Estado-base e resultado:** a execução partiu da `main=da183bf12fa42a0cf06afdbfa0e348f190e9f903` (V1.948) e produziu duas correções INTEGRADAS, sem novas cobranças, créditos, estornos ou modificações financeiras:
+1. [PR #949](https://github.com/carloskk07/gassg/pull/949), merge squash `a79d6af52fd54220d41c73ea428a0c7b67be3bca` — a área **Meus cupons** no Clube não iniciava a leitura `coupon-credit-pix/my-vouchers` até o usuário clicar em `Consultar meus cupons`. Agora a conta com e-mail confirmado consulta automaticamente ao abrir o Clube; a seleção de cupom do checkout reutiliza a leitura quando o módulo lazy já está carregado. A autenticação é por conta, o estado anterior nunca aparece em outra sessão e o usuário mantém atualização manual. Código adicional financeiro fica no módulo `js/clube-coupon-shop.js` sob demanda; não foi alterado o teto de desempenho da inicialização.
+2. [PR #950](https://github.com/carloskk07/gassg/pull/950), merge squash `82e91d9ce9ae3846b2dec3a69cfce8ff47644a75` — a fatura `awaiting_payment` do comprador tinha botão manual `Conferir pagamento e cupons` sem monitoramento da própria fatura. A página Clube agora confere APENAS `invoice-status` dessa compra preexistente, por usuário/rota autenticados, com até seis verificações limitadas; ao confirmar status terminal, relê `my-vouchers` e encerra o monitoramento. Controle de foco/ocultação, mudança de conta e navegação impedem confiar em dado local, creditar saldo ou criar novo Pix. A API/backend existente continua sendo a autoridade para prova Mercado Pago, idempotência, estorno e patrocínio.
+
+**Evidência dos gates antes do merge de #950, head `d09e2acee3c51c604974146134cbda406149137f`:** [Audit SUCCESS #43049965934](https://github.com/carloskk07/gassg/actions/runs/43049965934); [Audit SUCCESS #43049978691](https://github.com/carloskk07/gassg/actions/runs/43049978691); [PostgreSQL/Supabase isolado SUCCESS #43049978525](https://github.com/carloskk07/gassg/actions/runs/43049978525); [Build SUCCESS #43049978452](https://github.com/carloskk07/gassg/actions/runs/43049978452); [revisão visual SUCCESS #43049978601](https://github.com/carloskk07/gassg/actions/runs/43049978601); [demonstração navegador SUCCESS #43049978604](https://github.com/carloskk07/gassg/actions/runs/43049978604). O teste legado V1.855 foi preservado diferenciando temporizador da proteção do QR de temporizador de consulta; o caso isolado V1.816 foi preservado evitando referenciar a carteira antes do carregamento.
+
+**Publicação comercial após merge #950:** [Cloudflare oficial SUCCESS #43050913396](https://github.com/carloskk07/gassg/actions/runs/43050913396), [Build SUCCESS #43050913384](https://github.com/carloskk07/gassg/actions/runs/43050913384), [readiness SUCCESS #43050913539](https://github.com/carloskk07/gassg/actions/runs/43050913539), [Audit SUCCESS #43050913610](https://github.com/carloskk07/gassg/actions/runs/43050913610), [Cloudflare reconcile SUCCESS #43051196635](https://github.com/carloskk07/gassg/actions/runs/43051196635), [GitHub Pages SUCCESS #43050913383 tentativa 2](https://github.com/carloskk07/gassg/actions/runs/43050913383). A primeira tentativa de Pages teve erro temporário `ENOTEMPTY` ao remover pasta descartável do Chromium; reexecução do job falho passou SEM alteração de código. SQL de produção `platform_launch_control.portals_source_sha=82e91d9ce9ae3846b2dec3a69cfce8ff47644a75`, `customer_portal_ok=merchant_portal_ok=admin_portal_ok=true`, operação `LIVE`, `commerce_enabled=false`.
+
+**Operações reais já existentes — NÃO duplicar:** uma fatura paga de R$ 8,90, três vouchers `issued` de R$ 5 cada, reserva integral de R$ 15 confirmada por `clube_coupon_owner_sponsor_spendable_v1_942=true`. `net_proceeds_verified_at` e valor líquido MP permanecem pendências contábeis distintas. O fluxo do cliente não foi homologado com nova transação financeira nem aplicação dos cupons em pedido real. Não pedir Pix novamente nem reconhecer segunda receita.
+
+**Quadro fixo das 19 frentes, sem reduzir denominador:**
+
+| # | Frente | Estado estrito após V1.950 |
+|---|---|---|
+| 1 | Pix e Mercado Pago | Recuperação e monitoramento de fatura no código publicados; estorno e ciclo PSP real completo não homologados |
+| 2 | Cupons pagos | 3 emissões e patrocínio provados; checkout/resgate/reembolso comercial real não homologados |
+| 3 | Central Financeira | Leitura/auto-conciliação existentes, mas liquidação líquida e fluxos de todos os produtos não homologados |
+| 4 | Operação comercial | `LIVE` no controle geral, pedidos físicos bloqueados por ausência de oferta verdadeira elegível |
+| 5 | Pedidos | Jornadas no PG isolado testadas; operação ponta a ponta com fornecedor real não realizada |
+| 6 | Revendas | 0 revendas ofertáveis; dependerá de declaração/comprovação do titular verdadeiro para venda física |
+| 7 | Reembolsos | Proteções e testes isolados existem; ressarcimento externo real ainda não homologado |
+| 8 | Publicidade paga | Código e reconciliação prontos para teste; 0 campanhas comerciais e vendas públicas desabilitadas |
+| 9 | Moto e carro | Planos/taxas configurados; sem atendimento e cobrança real homologados |
+| 10 | Clube TAMÃO | Leitura automática publicada (#949/#950); resgate real de cupom ainda não testado |
+| 11 | Bônus boas-vindas R$1 | Ciclo técnico/PG para 100 primeiros validado pela #948; campanha ativa; 0 concessões reais |
+| 12 | Cashback e indicações | Fluxos existentes sem prova de premiação/saque real |
+| 13 | Programa de Benefícios | Termos e regras implementados, sem adesão/transação real comprovada |
+| 14 | Planos de revendas | Catálogo de recargas acessíveis publicado; ciclo real de compra e consumo não homologado |
+| 15 | Painel Admin | Reorganização publicada; todas as operações e UX em sessão real ainda não aceitas |
+| 16 | Painel Parceiro | Fluxos construídos; homologação com revenda real pendente |
+| 17 | Cliente e entregador | Jornadas e navegador CI aprovados; entrega comercial real e Android físico não homologados |
+| 18 | Ajuda e suporte | HTTP/isolado testados; 0 protocolos reais, ingestão de produção ainda não homologada |
+| 19 | Home e celular | Builds e navegador CI aprovados; aceite integral UX em dispositivo real ainda não comprovado |
+
+**Controle de avanço conservador:** das 19 frentes do levantamento anterior, mantém-se **1 com fechamento técnico anterior (#11)** e **18 sem encerramento técnico integral comprovado**; em termos de homologação comercial completa são **19 ainda não atestadas**. Nesta execução, **2 subpendências técnicas verificáveis foram eliminadas**, **0 frentes inteiras adicionais** foram encerradas. Não usar um percentual de produto arbitrário nem inferir desempenho econômico de CI. A categorização não deve ser reduzida artificialmente.
+
+**Próxima execução obrigatória:** (1) confirmar com uma sessão de comprador real que `my-vouchers` retorna os 3 vouchers `issued` e a interface os exibe automaticamente; (2) verificar recuperação de `invoice-status` após pagamento original contra PSP real, sem emitir novo Pix; (3) continuar testes de reembolso, concorrência e NET separado; (4) avançar por frentes independentes sem fornecedor fictício, publicidade paga ou cobrança real não autorizada. **Intervenção do proprietário:** nenhuma necessária nesta verificação; não pagar novamente o Pix de R$ 8,90.
+
 ## 11/11/2026 — V1.948: conferência efetiva da fatura paga e dos três cupons (continuidade #493)
 
 **Base verificada (read-only) no GitHub e Supabase em 11/11:** `main=fdd2778e2261951f019f773b3166015365c97b18`; nenhuma PR aberta; PRs #942, #943, #946 e #948 integradas. No SHA verificado: Audit, build, Cloudflare oficial, readiness e reconcile concluíram SUCCESS; Supabase `admin-ops` v268 ACTIVE, `coupon-credit-pix` v32 ACTIVE. Migrações `20261111023404_coupon_owner_sponsor_spendable_v1_942` e `20261111124402_welcome_campaign_control_v1_948` presentes no projeto comercial. Os 3 portais apresentaram `portalsFresh=true` e `portalsSourceSha` idêntico à `main`.
