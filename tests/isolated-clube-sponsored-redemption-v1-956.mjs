@@ -130,11 +130,21 @@ BEGIN
      AND invoice_id=v_invoice AND face_cents=500
      AND net_proceeds_reference LIKE 'owner-sponsor:%')
  THEN RAISE EXCEPTION 'V956_SPONSOR_LEDGER_MISSING'; END IF;
+ -- The original voucher seed is deliberately order_id=NULL; the real
+ -- order creates its own cashback_reserve. Both must exist ONCE and agree.
+ IF (SELECT count(*) FROM public.wallet_entries
+   WHERE order_id IS NULL AND user_id=v_buyer
+     AND idempotency_key='clube-paid-coupon:'||v_voucher::text
+     AND entry_type='cashback_seed' AND bucket='cashback'
+     AND amount_cents=500
+     AND metadata->>'voucherId'=v_voucher::text
+     AND metadata->>'invoiceId'=v_invoice::text)<>1
+ THEN RAISE EXCEPTION 'V956_VOUCHER_SEED_INCORRECT'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.wallet_entries
    WHERE order_id=v_order AND user_id=v_buyer
-     AND idempotency_key='clube-paid-coupon:'||v_voucher::text
-     AND amount_cents=500)
- THEN RAISE EXCEPTION 'V956_BUYER_WALLET_UNBALANCED'; END IF;
+     AND entry_type='cashback_reserve' AND bucket='cashback'
+     AND amount_cents>=500)
+ THEN RAISE EXCEPTION 'V956_ORDER_RESERVE_NOT_BACKED'; END IF;
 
  v_replay:=public.clube_coupon_paid_create_order(v_buyer,v_high,v_voucher,
    'cash',v_key,repeat('c',64),null,null,'11999999999');
