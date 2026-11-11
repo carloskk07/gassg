@@ -99,6 +99,33 @@ const approved=JSON.parse(sql("SELECT public.clube_coupon_paid_payment_verify("+
 assert.equal(approved.issued,3);
 assert.equal(sql("SELECT status FROM public.clube_coupon_sponsor_reservations_v1_807 WHERE invoice_id="+q(paid)+"::uuid"),'captured');
 assert.equal(sql("SELECT public.clube_coupon_sponsor_covered_v1_807("+q(paid)+"::uuid,1500)"),'t');
+// V1.942: the user-funded value of three R$5 vouchers is independently
+// reserved. NET for the R$8.90 Pix must still be NULL, and yet the voucher
+// must be spendable without fabricating an MP release report.
+assert.equal(sql("SELECT public.clube_coupon_owner_sponsor_spendable_v1_942("+q(paid)+"::uuid)"),'t');
+assert.equal(sql("SELECT net_proceeds_cents IS NULL FROM public.clube_coupon_paid_invoices WHERE id="+q(paid)+"::uuid"),'t');
+const earlyVoucher=sql("SELECT id FROM public.clube_coupon_paid_issuances WHERE invoice_id="+q(paid)+"::uuid ORDER BY ordinal LIMIT 1;");
+const earlyQuote=JSON.parse(sql("SELECT public.create_quote_snapshot_v3("+
+  q(buyer)+"::uuid,"+q(merchant)+"::uuid,'97300000','10',400,25,45,"+
+  "clock_timestamp()+interval '5 minutes',"+
+  q('[{"product_code":"CHARCOAL2","quantity":1,"unit_price_cents":1800}]')+"::jsonb,"+
+  q('c'.repeat(64))+")::text;"));
+sql("UPDATE public.quotes SET payment_method_requested='cash',payment_timing_requested='on_delivery' WHERE id="+q(earlyQuote.quoteId)+"::uuid;");
+// An intentionally rolled-back successful checkout validates ALL dependent
+// SQL RPCs on real disposable PostgreSQL, with no persisted order or spend.
+refuse("DO $v1942$ DECLARE v jsonb; ref text; BEGIN "+
+  " v:=public.clube_coupon_paid_create_order("+
+  q(buyer)+"::uuid,"+q(earlyQuote.quoteId)+"::uuid,"+q(earlyVoucher)+"::uuid,'cash',"+
+  q('ci-sponsor-pre-net-'+randomUUID())+","+q('d'.repeat(64))+
+  ",null,null,'11999999999'); "+
+  " IF (v->>'couponAppliedCents')::integer<>500 THEN RAISE EXCEPTION 'V1_942_BAD_DISCOUNT'; END IF; "+
+  " SELECT a.net_proceeds_reference INTO ref FROM public.clube_coupon_paid_order_applications a"+
+  " WHERE a.order_id=(v->>'orderId')::uuid; "+
+  " IF ref NOT LIKE 'owner-sponsor:%' THEN RAISE EXCEPTION 'V1_942_BAD_PROVENANCE'; END IF; "+
+  " RAISE EXCEPTION 'V1_942_EXPECTED_ATOMIC_ROLLBACK'; END $v1942$;",
+  'V1_942_EXPECTED_ATOMIC_ROLLBACK');
+assert.equal(sql("SELECT count(*) FROM public.clube_coupon_paid_order_applications WHERE invoice_id="+q(paid)+"::uuid"),'0');
+assert.equal(sql("SELECT net_proceeds_cents IS NULL FROM public.clube_coupon_paid_invoices WHERE id="+q(paid)+"::uuid"),'t');
 const admin=sql("SELECT user_id FROM public.platform_admins WHERE active=true AND admin_role='superadmin' AND user_id IN (SELECT id FROM auth.users WHERE email LIKE 'tamao-admin-%@example.com') LIMIT 1;");
 assert.match(admin,/^[0-9a-f-]{36}$/);
 const net=JSON.parse(sql("SELECT public.clube_coupon_paid_net_proceeds_verify_audited("+q(paid)+"::uuid,"+q(orderId)+",840,"+q(netRef)+","+q(admin)+"::uuid)::text;"));
