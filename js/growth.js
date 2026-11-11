@@ -37,26 +37,6 @@ userId:null,status:'idle',purchases:[],vouchers:[],error:null,
 checkoutEnabled:false
 };
 const clubePaidCheckoutSelection={userId:null,voucherId:null};
-// V1.949: read existing vouchers on the first verified visit to Clube or
-// checkout. Never create a charge, grant a benefit or alter a balance.
-const clubePaidCouponAutoRead={queuedFor:null};
-function clubePaidCouponAutoLoad(userId){
- const user=globalThis.liveRuntime?.session?.user;
- if(!userId||user?.id!==userId||user.is_anonymous===true||
-    !user.email_confirmed_at||typeof liveReady!=='function'||!liveReady())return;
- if(clubePaidCouponView.userId===userId&&clubePaidCouponView.status!=='idle')return;
- if(clubePaidCouponAutoRead.queuedFor===userId)return;
- clubePaidCouponAutoRead.queuedFor=userId;
- Promise.resolve().then(()=>{
-   if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId||
-      !liveReady()||!['club','order'].includes(route())){
-     if(clubePaidCouponAutoRead.queuedFor===userId)
-       clubePaidCouponAutoRead.queuedFor=null;
-     return;
-   }
-   clubePaidCouponsRefresh();
- });
-}
 function clubePaidCouponOptions(){
 const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
 if(!userId||clubePaidCouponView.userId!==userId||
@@ -90,8 +70,9 @@ return voucher;
 }
 function clubePaidCouponCheckoutPanel(){
 if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
+if(!globalThis.cshop){globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0)}
 const userId=String(globalThis.liveRuntime.session.user.id);
-clubePaidCouponAutoLoad(userId);
+globalThis.clubePaidCouponAutoLoad?.(userId);
 const valid=clubePaidCouponView.userId===userId;
 const options=clubePaidCouponOptions();
 const current=clubePaidCheckoutSelection.userId===userId?
@@ -138,7 +119,7 @@ const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
 if(!userId||typeof liveReady!=='function'||!liveReady())
 return '<section class="section"><h2>Seus cupons TAMÃO</h2>'+
 '<p>Entre para ver seus cupons.</p></section>';
-clubePaidCouponAutoLoad(userId);
+globalThis.clubePaidCouponAutoLoad?.(userId);
 const valid=clubePaidCouponView.userId===userId;
 const status=valid?clubePaidCouponView.status:'idle';
 const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
