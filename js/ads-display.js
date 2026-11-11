@@ -112,11 +112,11 @@ function tamaoAdsDraw(target,slot){
   window.removeEventListener('focus',onWindowFocus);
  };
 }
-async function tamaoAdsDisplaySlot(city,state,targetId){
+async function tamaoAdsDisplaySlot(city,state,targetId,{institutionalOnly=false}={}){
  const name=String(city||'').trim(),uf=String(state||'').trim().toUpperCase();
  const target=String(targetId||'');
  if(name.length<2||name.length>100||!/^[A-Z]{2}$/.test(uf)||!/^tamao-ads-home-slot$|^sponsor-ad-live-slot$/.test(target))return;
- const key=uf+'/'+name.toLocaleUpperCase('pt-BR');
+ const key=uf+'/'+name.toLocaleUpperCase('pt-BR')+'/'+(institutionalOnly?'institutional':'regional');
  const existing=tamaoAdsDisplayCache.get(key);
  const current=Date.now();
  const seq=++tamaoAdsLoadSequence;
@@ -127,11 +127,16 @@ async function tamaoAdsDisplaySlot(city,state,targetId){
   tamaoAdsDraw(target,null);return;
  }
  try{
-  const r=await tamaoAdsPublicGateway({action:'serve',city:name,state:uf});
+  const r=await tamaoAdsPublicGateway({action:'serve',city:name,state:uf,
+    ...(institutionalOnly?{institutionalOnly:true}:{})});
   if(seq!==tamaoAdsLoadSequence)return;
   if(r?.source!=='ads_independent_issue_v1_884'||r?.billingEnabled!==false||
      r?.noCharge!==true)return;
   const slot=r.slot||null;
+  // No paid advertising is ever displayed against an inferred region.
+  if(institutionalOnly&&slot&&slot.label!=='Institucional'){
+    tamaoAdsDraw(target,null);return;
+  }
   // A challenge is single-use. Re-request a fresh challenge for every
   // genuine placement; only a negative response is cached for 60 seconds.
   if(slot)tamaoAdsDisplayCache.delete(key);
@@ -140,7 +145,10 @@ async function tamaoAdsDisplaySlot(city,state,targetId){
  }catch{/* Ads are optional; failures never hide organic catalog or payments. */}
 }
 function tamaoAdsDisplayHome(){
+ if(globalThis.route?.()!=='home')return;
  const region=typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
- if(!region||globalThis.route?.()!=='home')return;
- tamaoAdsDisplaySlot(region.city,region.state,'tamao-ads-home-slot');
+ if(region)return tamaoAdsDisplaySlot(region.city,region.state,'tamao-ads-home-slot');
+ // The site's São Gabriel showcase is not evidence of where the person lives.
+ return tamaoAdsDisplaySlot('São Gabriel','RS','tamao-ads-home-slot',
+   {institutionalOnly:true});
 }

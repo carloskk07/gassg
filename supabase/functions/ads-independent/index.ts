@@ -80,17 +80,18 @@ Deno.serve(async(req:Request)=>{
         source:"ads_independent_issue_v1_884",slot:null,noCharge:true,billingEnabled:false
       },200,origin);
       const viewerHash=await hashViewer(req);
-      const {data,error}=await admin.rpc("ads_independent_issue_v1_884",{
-        p_city:city,p_state:state,p_viewer_hash:viewerHash
-      });
-      if(error)throw error;
-      if(data?.source!=="ads_independent_issue_v1_884"||data?.billingEnabled!==false
-        ||data?.noCharge!==true)
-        throw Error("ADS_DELIVERY_CONTRACT_MISMATCH");
-      // Own institutional inventory is entirely separate from paid campaign
-      // checkout and remains deliverable while commercial sales are OFF.
-      // Paid placements take priority when legitimately enabled.
-      if(data.slot)return respond(data,200,origin);
+      // A city used only as a homepage showcase is NOT the buyer's location.
+      // This explicit scope never touches paid inventory or creates a charge.
+      if(body.institutionalOnly!==true){
+        const {data,error}=await admin.rpc("ads_independent_issue_v1_884",{
+          p_city:city,p_state:state,p_viewer_hash:viewerHash
+        });
+        if(error)throw error;
+        if(data?.source!=="ads_independent_issue_v1_884"||data?.billingEnabled!==false
+          ||data?.noCharge!==true)
+          throw Error("ADS_DELIVERY_CONTRACT_MISMATCH");
+        if(data.slot)return respond(data,200,origin);
+      }
       const {data:institutional,error:institutionalError}=
         await admin.rpc("ads_institutional_issue_v1_916",{
           p_city:city,p_state:state,p_viewer_hash:viewerHash

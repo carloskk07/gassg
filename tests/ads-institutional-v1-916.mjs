@@ -29,6 +29,9 @@ for(const t of [
 assert.match(edge,/admin\.rpc\("ads_institutional_issue_v1_916"/);
 assert.match(edge,/admin\.rpc\("ads_institutional_confirm_v1_916"/);
 assert.match(edge,/if\(data\.slot\)return respond\(data,200,origin\)/);
+assert.match(edge,/if\(body\.institutionalOnly!==true\)/,'showcase must bypass paid RPC');
+assert.match(display,/institutionalOnly:true/,'homepage own campaign without CEP');
+assert.match(read('js/customer.js'),/const adHomeSlot=!testDemo/,'showcase must reserve ad slot');
 assert.match(edge,/institutional\.recognized===true/);
 assert.match(display,/INSTITUCIONAL • TAMÃO/);
 assert.match(display,/nofollow noopener noreferrer sponsored/);
