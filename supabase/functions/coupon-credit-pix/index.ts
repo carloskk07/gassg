@@ -328,7 +328,7 @@ async function couponRecoverPaidFromProvider(admin:any,invoice:any){
     order.transactions.payments:[];
   const pix=findPix(order);
   const refunds=Array.isArray(order?.transactions?.refunds)?
-    order.transactions.refunds:null;
+    order.transactions.refunds:[];
   // Never recognize a refund, dispute, partial payment or mixed order.
   const chargebacks=Array.isArray(order?.transactions?.chargebacks)?
     order.transactions.chargebacks:[];
@@ -342,7 +342,7 @@ async function couponRecoverPaidFromProvider(admin:any,invoice:any){
     String(pix.id??"")!==String(invoice.provider_payment_id)||
     pix.payment_method?.id!=="pix"||pix.payment_method?.type!=="bank_transfer"||
     moneyToCents(pix?.amount)!==Number(invoice.sale_price_cents)||
-    refunds===null||refunds.length!==0||chargebacks.length!==0||
+    refunds.length!==0||chargebacks.length!==0||
     String(order?.status??"").toLowerCase()!=="processed"||
     String(pix?.status??"").toLowerCase()!=="processed"||
     !["","accredited"].includes(String(order?.status_detail??"").toLowerCase())||
