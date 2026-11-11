@@ -7065,8 +7065,14 @@ function adminFinanceWorkspaceNav(){
   .map(id=>visible.find(item=>item.id===id)).filter(Boolean);
  const actor=String(adminRuntime.session?.user?.id||'');
  const real=adminRuntime.financeReal;
- const unsettled=superadmin&&real?.actor===actor&&real.loadedKey==='coupons'&&
-  (real.data?.history?.purchases||[]).some(p=>p.status==='paid'&&p.fundingPending===true);
+ // A paid Pix and its independently backed vouchers are different facts
+ // from the PSP net report. Only account-bound authenticated readback may
+ // change this shortcut; an unknown response cannot claim any payment.
+ const ownPurchases=superadmin&&real?.actor===actor&&real.loadedKey==='coupons'&&
+  Array.isArray(real.data?.history?.purchases)?real.data.history.purchases:[];
+ const unsettled=ownPurchases.some(p=>p?.status==='paid'&&p.fundingPending===true);
+ const covered=!unsettled&&ownPurchases.some(p=>p?.status==='paid'&&
+  p.fundingPending===false);
  const button=item=>`<button type='button'
    id='admin-finance-switch-${item.id}'
    class='admin-finance-area ${selected===item.id?'active':''}'
@@ -7079,9 +7085,12 @@ function adminFinanceWorkspaceNav(){
     <h2>Encontre o que precisa</h2>
     <p>Escolha uma tarefa. Consultar pagamentos não emite novo Pix.</p></div></div>
    ${superadmin?`<div class='admin-finance-shortcut'>
-     <div><strong>${unsettled?'Pix já pago: conferir valor líquido':'Precisa conferir um Pix de cupons?'}</strong>
-     <p>${unsettled?'O dinheiro está registrado; falta conferir o valor líquido. Não pague novamente.':'Veja o pagamento original e o que falta validar, sem gerar outra cobrança.'}</p></div>
-     <button type='button' class='secondary' onclick='adminFinanceOpenCouponReview()'>${unsettled?'Continuar conferência':'Abrir cupons pagos'}</button>
+     <div><strong>${unsettled?'Pix já pago: conferir valor líquido':
+       covered?'Pix já pago: cupons financiados':'Consultar pagamento de cupons'}</strong>
+     <p>${unsettled?'O Pix está registrado; a cobertura dos cupons ainda requer conferência. Não pague novamente.':
+       covered?'O Pix está registrado e os benefícios têm cobertura confirmada. A conciliação líquida do Mercado Pago é independente; não pague novamente.':
+       'Consulte a fatura e os cupons da sua conta, sem emitir outra cobrança.'}</p></div>
+     <button type='button' class='secondary' onclick='adminFinanceOpenCouponReview()'>${unsettled?'Continuar conferência':covered?'Ver recibo e benefícios':'Abrir cupons pagos'}</button>
     </div>`:''}
    <nav class='admin-finance-areas admin-finance-primary' aria-label='Tarefas principais do Financeiro'>
     ${primary.map(button).join('')}
