@@ -157,12 +157,14 @@ ctx.clubePaidCouponsRefresh=async()=>{autoRefreshes++};
 ctx.autoCheckStart(invoiceId);
 const firstAuto=timerCalls.slice(earlierTimers).find(t=>t.ms===60000&&!t.cancelled);
 assert.ok(firstAuto,'existing unpaid invoice schedules one bounded lookup');
+firstAuto.cancelled=true; // simulate a one-shot browser timeout firing
 await firstAuto.fn();
 assert.equal(autoChecks,1);
 assert.equal(autoRefreshes,0);
 assert.equal(ctx.state.purchase.status,'awaiting_payment','failed GET cannot mark a Pix paid');
 const retry=timerCalls.slice(earlierTimers).find(t=>t.ms===70000&&!t.cancelled);
 assert.ok(retry,'transient error must retry the original invoice');
+retry.cancelled=true; // fired timeout is no longer scheduled
 await retry.fn();
 assert.equal(autoChecks,2,'one retry after a temporary failure');
 assert.equal(autoRefreshes,1,'approved existing invoice reloads buyer vouchers');
@@ -180,6 +182,7 @@ ctx.autoCheckStart(invoiceId);
 const pendingAfterSwitch=timerCalls.slice(nextTimerOffset).find(t=>t.ms===60000&&!t.cancelled);
 assert.ok(pendingAfterSwitch);
 ctx.liveRuntime.session.user.id='different-buyer';
+pendingAfterSwitch.cancelled=true;
 await pendingAfterSwitch.fn();
 assert.equal(autoChecks,priorChecks,'account change prevents even a read');
 assert.equal(timerCalls.slice(nextTimerOffset).filter(t=>t.ms===70000&&!t.cancelled).length,0);
