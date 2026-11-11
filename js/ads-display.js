@@ -98,9 +98,19 @@ function tamaoAdsDraw(target,slot){
  },{threshold:[0,0.49,0.5,0.75,1]});
  tamaoAdsViewportObserver.observe(creative);
  const onHidden=()=>{if(document.visibilityState!=='visible')stop();else schedule()};
+ const onWindowBlur=()=>stop();
+ const onWindowFocus=()=>schedule();
  document.addEventListener('visibilitychange',onHidden,{passive:true});
- // Remove the private listener once this placement is replaced.
- tamaoAdsViewportCleanup=()=>document.removeEventListener('visibilitychange',onHidden);
+ // Browser focus can change without visibilitychange or a new IntersectionObserver
+ // threshold crossing; restart the 1.25s proof window only after focus returns.
+ window.addEventListener('blur',onWindowBlur,{passive:true});
+ window.addEventListener('focus',onWindowFocus,{passive:true});
+ // Remove all handlers with the original creative to avoid duplicate signals.
+ tamaoAdsViewportCleanup=()=>{
+  document.removeEventListener('visibilitychange',onHidden);
+  window.removeEventListener('blur',onWindowBlur);
+  window.removeEventListener('focus',onWindowFocus);
+ };
 }
 async function tamaoAdsDisplaySlot(city,state,targetId){
  const name=String(city||'').trim(),uf=String(state||'').trim().toUpperCase();
@@ -110,8 +120,11 @@ async function tamaoAdsDisplaySlot(city,state,targetId){
  const existing=tamaoAdsDisplayCache.get(key);
  const current=Date.now();
  const seq=++tamaoAdsLoadSequence;
- if(existing&&existing.expires>current){
-  tamaoAdsDraw(target,existing.slot);return;
+ // Only absence can be cached. Every positive placement carries a
+ // single-use server challenge; reusing it after route rerender would
+ // silently lose verified impression signals.
+ if(existing&&existing.expires>current&&existing.slot===null){
+  tamaoAdsDraw(target,null);return;
  }
  try{
   const r=await tamaoAdsPublicGateway({action:'serve',city:name,state:uf});
@@ -119,8 +132,10 @@ async function tamaoAdsDisplaySlot(city,state,targetId){
   if(r?.source!=='ads_independent_issue_v1_884'||r?.billingEnabled!==false||
      r?.noCharge!==true)return;
   const slot=r.slot||null;
-  // A challenge is single-use. Do not cache a real slot across rerenders.
-  tamaoAdsDisplayCache.set(key,{slot,expires:current+(slot?45000:60000)});
+  // A challenge is single-use. Re-request a fresh challenge for every
+  // genuine placement; only a negative response is cached for 60 seconds.
+  if(slot)tamaoAdsDisplayCache.delete(key);
+  else tamaoAdsDisplayCache.set(key,{slot:null,expires:current+60000});
   tamaoAdsDraw(target,slot);
  }catch{/* Ads are optional; failures never hide organic catalog or payments. */}
 }

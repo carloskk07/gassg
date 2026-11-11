@@ -609,6 +609,8 @@ jobs:
         run: node tests/ads-independent-delivery-v1-884.mjs
       - name: V1.916 Institutional versus paid Ads and guarded financial test in Admin
         run: node tests/ads-institutional-v1-916.mjs
+      - name: V1.945 refresh single-use Ads challenges and remeasure focus without phantom billing
+        run: node tests/ads-visibility-single-use-challenges-v1-945.mjs
       - name: V1.919 unified finance homologation all modules and Pix purpose
         run: node tests/admin-finance-all-modules-v1-919.mjs
       - name: V1.927 original live financial checkouts from protected Admin
