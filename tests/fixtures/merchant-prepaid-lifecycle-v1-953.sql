@@ -154,6 +154,13 @@ BEGIN
   INSERT INTO public.merchant_compliance(
     merchant_id,cnpj_status,cnpj_verified_at,anp_status
   ) VALUES(v_merchant,'verified',clock_timestamp(),'pending');
+  -- V1.158.4: even synthetic CI merchants must have an authorized,
+  -- verified representative before accepting real order transitions.
+  PERFORM public.admin_merchant_representation_action(
+    v_admin,v_merchant,v_owner,'verify','legal_representative',
+    'SIMULADO: representação conferida apenas no PostgreSQL descartável',
+    'V953-representative-'||substr(v_merchant::text,1,10),repeat('9',64)
+  );
   UPDATE public.merchants SET status='active',online=true WHERE id=v_merchant;
   INSERT INTO public.catalog_items(
     merchant_id,product_code,product_name,price_cents,
