@@ -67,7 +67,7 @@ const ctx=vm.createContext({
  console
 });
 vm.runInContext(source+
- '\nthis.exercise={show:tamaoAdsDisplaySlot,stop:tamaoAdsStopView};',ctx);
+ '\nthis.exercise={show:tamaoAdsDisplaySlot,stop:tamaoAdsStopView,home:tamaoAdsDisplayHome};',ctx);
 const show=ctx.exercise.show;
 const fireTimer=async(ms)=>{
  const item=[...timers].find(([,t])=>t.ms===ms);
@@ -116,3 +116,22 @@ assert.equal(requests.filter(r=>r.action==='serve').length,served,
 assert.equal(winEvents.get('blur')?.size??0,0,'cleanup on empty placement');
 assert.equal(winEvents.get('focus')?.size??0,0,'cleanup on empty placement');
 console.log('V1.945 PASS: fresh one-use challenges, focus resumes eligible impressions, negative-only cache, no financial writes.');
+
+// V1.951: first-visit São Gabriel showcase is our own free campaign only.
+// An actual remembered region retains the normal ad-selection contract.
+empty=false;
+ctx.route=()=> 'home';
+await ctx.exercise.home();
+const anonymousShowcase=requests.filter(q=>q.action==='serve').at(-1);
+assert.equal(anonymousShowcase.city,'São Gabriel');
+assert.equal(anonymousShowcase.state,'RS');
+assert.equal(anonymousShowcase.institutionalOnly,true,
+ 'unverified showcase must never issue a paid placement');
+assert.match(host.innerHTML,/INSTITUCIONAL • TAMÃO/);
+ctx.rememberedMarketRegion=()=>({city:'Porto Alegre',state:'RS'});
+await ctx.exercise.home();
+const verifiedRegion=requests.filter(q=>q.action==='serve').at(-1);
+assert.equal(verifiedRegion.city,'Porto Alegre');
+assert.equal(verifiedRegion.state,'RS');
+assert.equal(verifiedRegion.institutionalOnly,undefined);
+console.log('V1.951 PASS: institutional showcase with no CEP; verified targeting preserved.');
