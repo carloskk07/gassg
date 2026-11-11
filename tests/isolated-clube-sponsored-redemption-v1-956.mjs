@@ -143,7 +143,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM public.wallet_entries
    WHERE order_id=v_order AND user_id=v_buyer
      AND entry_type='cashback_reserve' AND bucket='cashback'
-     AND amount_cents>=500)
+     AND amount_cents<=-500)
  THEN RAISE EXCEPTION 'V956_ORDER_RESERVE_NOT_BACKED'; END IF;
 
  v_replay:=public.clube_coupon_paid_create_order(v_buyer,v_high,v_voucher,
