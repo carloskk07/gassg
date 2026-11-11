@@ -495,37 +495,6 @@ function homeBalancedHighlights(entries){
  }
  return head.concat(tail);
 }
-// V1.959: A returning buyer must find the previously tracked order from
-// the public home even after a refresh. Never claim an active delivery from
-// localStorage alone or a stale/unverified response.
-function customerHomeOrderRecovery(){
-  const rt=globalThis.liveRuntime;
-  const id=String(rt?.orderId||'');
-  if(globalThis.liveReady?.()!==true||!rt?.session?.user?.id||
-     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
-    return '';
-  const order=rt.order?.orderId===id?rt.order:null;
-  const checkedAt=Date.parse(String(rt.orderCheckedAt||''));
-  const verified=Boolean(order&&rt.orderCheckedId===id&&
-    Number.isFinite(checkedAt)&&checkedAt<=Date.now()+2000&&
-    Date.now()-checkedAt<=120000&&!(rt.error));
-  if(verified&&['SETTLED','CANCELLED'].includes(String(order.status||'')))
-    return '';
-  const active=verified&&[
-    'OFFERED_TO_MERCHANT','REQUOTE_REQUIRED','MERCHANT_ACCEPTED',
-    'PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING','DELIVERED'
-  ].includes(String(order.status||''));
-  const heading=active?'Seu pedido está em andamento':'Consultar o pedido salvo';
-  const detail=active
-    ?'Acompanhe o aceite da revenda, a preparação e a entrega pelo estado confirmado do pedido.'
-    :'Existe uma referência de pedido nesta sessão. Consulte o andamento atualizado antes de solicitar outra compra.';
-  return '<section class="section customer-home-order-recovery" aria-label="Retomar acompanhamento do pedido">'+
-    '<div class="notice" role="status"><strong>'+heading+'</strong>'+
-    '<p>'+detail+'</p>'+
-    '<button type="button" class="primary" onclick="go(\'tracking\')">'+
-      (active?'Acompanhar meu pedido':'Verificar meu pedido')+' →</button>'+
-    '</div></section>';
-}
 function home(){
   const couponBanner=globalThis.document?.getElementById('tamao-coupon-home-template')?.innerHTML||'';
   const testDemo=globalThis.__CHAMA_TEST__===true;
@@ -671,7 +640,10 @@ function home(){
     ||(cityChecked&&!hasConfirmedCityOffers));
   const regionalPriceSection=!testDemo&&typeof homeRegionalPriceBoard==='function'
     ?homeRegionalPriceBoard(homeRegion):'';
-  const trackedOrderCard=!testDemo?customerHomeOrderRecovery():'';
+  const o=globalThis.liveRuntime;
+  const trackedOrderCard=ready&&o?.session?.user?.id&&o.orderId&&
+    !['SETTLED','CANCELLED'].includes(o.order?.status)
+    ?'<button type="button" class="primary" onclick="go(\\'tracking\\')">Ver meu pedido →</button>':'';
   if(!testDemo&&!internalPilot)return shell(`${trackedOrderCard}
     ${regionalPriceSection||
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
@@ -750,8 +722,7 @@ function home(){
       <article class="visitor-path visitor-path-sponsor"><span class="visitor-path-icon" aria-hidden="true">📣</span><small>PARA SUA MARCA</small><h3>Esteja presente nas escolhas da cidade.</h3><p>Conheça propostas de divulgação regional identificada e ações com benefícios, definidas junto ao TAMÃO.</p><button type="button" onclick="go('sponsors')">Quero divulgar <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
-  return shell(`${trackedOrderCard}
-${regionalPriceSection}
+  return shell(`${regionalPriceSection}
 ${couponBanner}
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
