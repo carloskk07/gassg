@@ -187,7 +187,7 @@ begin
        v_invoice.coupon_face_cents::bigint*v_invoice.coupons_per_pack::bigint
        and not public.clube_coupon_sponsor_covered_v1_807(v_invoice.id,
          v_invoice.coupon_face_cents::bigint*v_invoice.coupons_per_pack::bigint)
-       and not public.clube_partner_coupon_purchase_source_v1_848(v_invoice.id)))
+       and not public.clube_partner_coupon_purchase_source_v1_848(v_invoice.id))))
  then raise exception 'COUPON_PAID_NET_FUNDS_REQUIRED' using errcode='42501';end if;
  select * into v_voucher from public.clube_coupon_paid_issuances
  where id=p_voucher_id for update;
@@ -235,7 +235,9 @@ begin
     'voucherId',p_voucher_id,'invoiceId',v_invoice.id,
     'providerOrderId',v_invoice.provider_order_id,
     'providerPaymentId',v_invoice.provider_payment_id,
-    'fundingEvidenceReference',coalesce(v_invoice.net_proceeds_reference,'owner-sponsor:'||v_invoice.id::text)))
+    'netProceedsReference',v_invoice.net_proceeds_reference,
+     'sponsorFundingReference',case when v_invoice.net_proceeds_reference is null
+       then 'owner-sponsor:'||v_invoice.id::text else null end))
  on conflict(idempotency_key) do nothing;
  select * into v_wallet from public.wallet_entries
  where idempotency_key=v_seed_key;
