@@ -524,4 +524,4 @@ async function clubeCouponRefundAsk(invoiceId){
 // ESM lazy load: onclick handlers must be available on the customer window.
 Object.assign(globalThis,{clubeCouponWatchAuth,clubeCouponShopPanel,clubeCouponShopRefresh,
   clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,clubeCouponVerifyPostal,
-  clubeCouponPurchasesPanel,clubePaidCouponAutoLoad});
+  clubeCouponPurchasesPanel,ca:clubePaidCouponAutoLoad});
