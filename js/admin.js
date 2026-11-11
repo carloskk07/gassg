@@ -6496,8 +6496,19 @@ async function adminFinanceRealRefresh(){
     try{
      const read=await adminFinanceRealApi('coupon-credit-pix',{
       action:'invoice-status',invoiceId:pending.invoiceId});
-     if(read?.ok===true)recoveredPix=read;
-     else recoveryError='Não foi possível recuperar o Pix original. Consulte a fatura existente.';
+     if(read?.ok===true){
+      recoveredPix=read;
+      // A fresh PSP confirmation may have repaired a delayed webhook.
+      // Re-read the authoritative voucher history before rendering Admin.
+      if(['paid','review_required','refunded'].includes(read.status)){
+       const latest=await adminFinanceRealApi('coupon-credit-pix',{
+        action:'my-vouchers'});
+       if(latest?.source==='clube_coupon_paid_my_vouchers_v1'&&
+          Array.isArray(latest.purchases)&&
+          latest.purchases.some(p=>p.invoiceId===pending.invoiceId&&
+            p.status===read.status))data.history=latest;
+      }
+     }else recoveryError='Não foi possível recuperar o Pix original. Consulte a fatura existente.';
     }catch{recoveryError='A consulta do Pix original falhou. Tente consultar a fatura existente.';}
    }
   }else if(key==='mobility'){
