@@ -643,7 +643,7 @@ function home(){
   const o=globalThis.liveRuntime;
   const trackedOrderCard=ready&&o?.session?.user?.id&&o.orderId&&
     !['SETTLED','CANCELLED'].includes(o.order?.status)
-    ?'<button type="button" class="primary" onclick="go(\\'tracking\\')">Ver meu pedido →</button>':'';
+    ?'<button class="primary" onclick="go(\'tracking\')">Ver meu pedido →</button>':'';
   if(!testDemo&&!internalPilot)return shell(`${trackedOrderCard}
     ${regionalPriceSection||
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
