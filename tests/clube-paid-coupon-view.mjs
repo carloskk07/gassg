@@ -25,7 +25,7 @@ let user='00000000-0000-0000-0000-000000000011';
 let payload={ok:true,source:'clube_coupon_paid_my_vouchers_v1',purchases:[],vouchers:[]};
 let calls=0,rendered=0,currentRoute='club';
 const ctx=vm.createContext({
- globalThis:{liveReady:()=>true,liveRuntime:{session:{user:{id:user,is_anonymous:false,email_confirmed_at:'2026-11-11T12:00:00Z'}}}},
+ globalThis:{cshop:1,liveReady:()=>true,liveRuntime:{session:{user:{id:user,is_anonymous:false,email_confirmed_at:'2026-11-11T12:00:00Z'}}}},
  liveReady:()=>true,
  liveInvoke:async(name,body)=>{
   assert.equal(name,'coupon-credit-pix');
@@ -37,6 +37,7 @@ const ctx=vm.createContext({
  route:()=>currentRoute,render:()=>{rendered++},toast:()=>{},Date,Number,String,Array
 });
 vm.runInContext(ui.slice(from,to)+';this.panel=clubePaidCouponPanel;this.refresh=clubePaidCouponsRefresh;this.checkout=clubePaidCouponCheckoutPanel;',ctx);
+vm.runInContext(read('js/clube-coupon-shop.js'),ctx);
 assert.match(ctx.panel(),/Consultar meus cupons/);
 await ctx.refresh();
 assert.equal(calls,1);
