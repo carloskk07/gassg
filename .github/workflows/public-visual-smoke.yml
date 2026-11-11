@@ -68,11 +68,22 @@ jobs:
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/public-visual-browser-v1-413.mjs
 
+      - name: Verify published public website across mobile, tablet and desktop
+        # GET-only clean Chrome; no login, test sales, API writes, or production
+        # changes. The isolated candidate test above remains authoritative for PR.
+        env:
+          TAMAO_VISUAL_BASE: https://tamao.com.br
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: production-visual-screenshots
+        run: node tests/public-visual-browser-v1-413.mjs
+
       - name: Retain private screenshots and visual audit results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tamao-public-visual-v1-413
-          path: public-visual-screenshots/
+          path: |
+            public-visual-screenshots/
+            production-visual-screenshots/
           retention-days: 7
           if-no-files-found: warn
