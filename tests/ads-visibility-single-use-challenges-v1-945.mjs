@@ -10,7 +10,7 @@ const UUID=n=>String(n).repeat(8)+'-'+String(n).repeat(4)+'-4'+String(n).repeat(
  '-8'+String(n).repeat(3)+'-'+String(n).repeat(12);
 const campaign=UUID('a');
 let nextChallenge=1,empty=false,clock=0,focused=true,activeObserver=null;
-const requests=[],timers=new Map(),events=new Map(),winEvents=new Map();
+const requests=[],servedChallenges=[],timers=new Map(),events=new Map(),winEvents=new Map();
 let nextTimer=0;
 const creative={isConnected:true};
 const host={innerHTML:'',textContent:'',querySelector(name){
@@ -38,6 +38,7 @@ const ctx=vm.createContext({
     title:'Conheça o TAMÃO',description:'Conheça os serviços de São Gabriel.',
     city:'São Gabriel',state:'RS',url:'https://tamao.com.br/'
    };
+   if(slot)servedChallenges.push(challenge);
    return {ok:true,json:async()=>({
     source:'ads_independent_issue_v1_884',billingEnabled:false,
     noCharge:true,slot
@@ -62,7 +63,7 @@ const ctx=vm.createContext({
  setTimeout:(fn,ms)=>{const id=++nextTimer;timers.set(id,{fn,ms});return id},
  clearTimeout:id=>timers.delete(id),
  esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;'),
- URL,Date,Map,Set,Number,String,Math,JSON,fetch:undefined,
+ URL,Date,Map,Set,Number,String,Math,JSON,
  console
 });
 vm.runInContext(source+
@@ -88,7 +89,7 @@ assert.equal(confirms()[0].challenge,UUID('1'));
 await show('São Gabriel','RS','tamao-ads-home-slot');
 assert.equal(requests.filter(r=>r.action==='serve').length,2,
  'positive placements must never reuse challenge cache');
-assert.notEqual(requests[1].slot?.challenge,first.challenge);
+assert.notEqual(servedChallenges[1],servedChallenges[0]);
 assert.equal(winEvents.get('blur')?.size,1,'no leaked blur handlers');
 assert.equal(winEvents.get('focus')?.size,1,'no leaked focus handlers');
 activeObserver.emit(0.9);
