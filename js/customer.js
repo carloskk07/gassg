@@ -837,8 +837,7 @@ ${internalPilot?`<section class="section"><div class="card flat"><span class="se
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Anuncie seu comércio. Receber pedidos pelo TAMÃO é opcional.</h2><p>Para começar, basta o nome do estabelecimento e um WhatsApp. Você escolhe depois se também quer usar cotações, entregas e pedidos pela plataforma.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">2 DADOS</span><small>para o primeiro contato</small></div><div><strong>Mais visibilidade para sua empresa, sem papelada na entrada.</strong><p>Anúncios e pedidos são etapas diferentes. A publicação depende de confirmação do contato e das verificações aplicáveis à atividade.</p></div><button class="primary" onclick="openPrelaunchMerchantLead()">Quero anunciar minha empresa →</button></div></section>`}`)
 }
-// V1.302: explain the next buyer action without bypassing real availability,
-// quote validation, server-side permissions or the existing payment flow.
+// Buyer guidance never replaces server-verified quotes or payments.
 function customerCheckoutJourney({hasItems=false,hasAddress=false,hasPhone=false,
   hasOffers=false,loadingOffers=false,pendingOrder=false}={}){
   if(pendingOrder)return '<aside class="buyer-journey buyer-journey-pending" aria-label="Seu pedido em andamento">'+
@@ -1175,8 +1174,7 @@ function checkoutOfferDecisionSummary(all){
     '</div><p>São dados das opções desta consulta, não promessa de economia ou entrega. A revenda precisa aceitar o pedido.</p>'+
     '</aside>';
 }
-// V1.381 — This is a request, not a confirmed purchase, payment or
-// reserved delivery. Kept outside individual offers to avoid repeating noise.
+// A request is not a paid order or reserved delivery.
 function checkoutRequestExplainer(){
   return '<aside class="checkout-request-explainer" aria-label="O que acontece ao solicitar um pedido">'+
     '<strong>Antes de enviar, veja os próximos passos</strong>'+
@@ -1344,8 +1342,7 @@ function offerCard(o,facts={}){
   </article>`;
 }
 
-// V1.380 — User-facing address hints use the complete input, never a truncated
-// CEP or number, and never imply a valid server-side address or quote.
+// Address hints are not server-verified quotes.
 function customerAddressDraftGuidance(postalCode,addressNumber,{hasItems=false,serviceReady=false}={}){
   const postal=String(postalCode||'');
   const number=String(addressNumber||'');
