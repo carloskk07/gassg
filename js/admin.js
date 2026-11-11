@@ -6664,7 +6664,7 @@ async function adminFinanceRealAction(operation,choice=''){
  }else if(key==='advertising'&&['purchase','reconcile'].includes(operation)){
   const owned=state.data?.mine?.rows?.find(r=>r.id===choice);
   if(!owned||operation==='purchase'&&(
-      owned.status!=='approved'||Boolean(owned.fixedFeeStatus)||
+      owned.status!=='approved'||(Boolean(owned.fixedFeeStatus)&&owned.fixedFeeStatus!=='reserved')||
       state.data.mine.homologationCampaignId!==choice||
       document.getElementById('admin-finance-real-ads-consent')?.checked!==true||
       !consent()))return;
@@ -6809,17 +6809,20 @@ function adminFinanceRealPanel(key){
   html+='<p>Campanhas desta conta: '+rows.length+
    '. Uma campanha deve ser submetida e aprovada antes do pagamento.</p>';
   const original=rows.filter(r=>r.status==='approved'&&
-    ['reserved','checkout_ready'].includes(r.fixedFeeStatus));
+    r.fixedFeeStatus==='checkout_ready');
+  const reserved=rows.filter(r=>r.status==='approved'&&r.fixedFeeStatus==='reserved');
   const confirmed=rows.filter(r=>r.fixedFeeStatus==='payment_approved');
   if(confirmed.length)html+='<p role="status"><strong>Pagamento de publicidade confirmado.</strong> Aguarda a liberação comercial correspondente; a conciliação bancária é separada.</p>';
   if(original.length)html+='<p role="status"><strong>Checkout existente:</strong> confira o pagamento original nesta tela. O TAMÃO verifica a confirmação automaticamente; não crie outra cobrança.</p>'+
     original.map(r=>action('Conferir pagamento existente: '+esc(r.title||'Campanha'),
       'adminFinanceRealAction(\'reconcile\',\''+esc(r.id)+'\')')).join(' ');
-  const approved=rows.filter(r=>r.status==='approved'&&!r.fixedFeeStatus);
+  if(reserved.length)html+='<p role="status"><strong>Checkout em recuperação:</strong> o pedido anterior já foi reservado, mas ainda não possui link. Retome a mesma cobrança; o servidor reutiliza o identificador original.</p>';
+  const approved=rows.filter(r=>r.status==='approved'&&
+    (!r.fixedFeeStatus||r.fixedFeeStatus==='reserved'));
   if(approved.length)html+='<label>Campanha para teste real<select id="admin-finance-real-ads-campaign" class="input">'+
    approved.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.title||r.id)+'</option>').join('')+'</select></label>'+
    '<label class="check-row"><input type="checkbox" id="admin-finance-real-ads-consent"> Autorizo o checkout de R$ 19,90 da campanha aprovada e sei que é pagamento real.</label>'+
-   action('Gerar checkout real R$ 19,90',
+   action(approved.length===reserved.length?'Retomar checkout existente':'Gerar checkout real R$ 19,90',
     'adminFinanceRealAction(\'purchase\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
    action('Conciliar campanha no Mercado Pago',
     'adminFinanceRealAction(\'reconcile\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
