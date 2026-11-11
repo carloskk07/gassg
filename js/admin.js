@@ -6520,13 +6520,23 @@ function adminFinanceRealAdsWatch(state,campaignId){
      state.message='O Mercado Pago registrou reversão. A campanha permanece sem liberação financeira.';
      render();return;
     }
-   }catch{
-    if(active()){
+   }catch(error){
+    if(!active())return;
+    // A malformed financial readback is not an approved payment: fail closed.
+    // Ordinary network/PSP availability errors should not silence monitoring
+    // of the SAME checkout while the existing five-attempt budget remains.
+    if(String(error?.message||'')==='Conciliação da campanha não confirmada.'){
      adminFinanceRealAdsStopWatch(state);
-     state.message='Conferência automática indisponível. Consulte a cobrança existente; não gere outra.';
-     render();
+     state.message='O Mercado Pago não confirmou a conferência. Revise a cobrança existente; não gere outra.';
+     render();return;
     }
-    return;
+    if(w.attempts>=5){
+     adminFinanceRealAdsStopWatch(state);
+     state.message='Conferência temporária indisponível após cinco tentativas. Consulte o checkout existente; não gere outra cobrança.';
+     render();return;
+    }
+    state.message='Falha temporária na consulta ao Mercado Pago. O TAMÃO verificará novamente esta mesma campanha, sem emitir outra cobrança.';
+    render();
    }
   }
   if(active())w.timer=setTimeout(poll,180000);
