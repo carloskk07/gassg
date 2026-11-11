@@ -6448,7 +6448,7 @@ function adminFinanceRealCouponWatch(state,invoiceId){
       if(state.data)state.data.history=history;
       adminFinanceRealClearPayment();
       adminFinanceRealCouponStopWatch(state);
-      state.message=result.status==='paid'?'Pix pago e registrado no TAMÃO. Confira a conciliação do valor líquido.':
+      state.message=result.status==='paid'?'Pix pago e registrado no TAMÃO. Confira seus cupons; a conciliação contábil é separada.':
        'O status da compra mudou. Consulte a situação financeira, sem pagar novamente.';
       render();return;
      }
@@ -6533,7 +6533,7 @@ async function adminFinanceRealRefresh(){
    if(pending)adminFinanceRealCouponWatch(state,pending.invoiceId);
    else adminFinanceRealCouponStopWatch(state);
    const paid=data.history.purchases.some(p=>p.status==='paid');
-   state.message=paid?'Pix pago e registrado no TAMÃO. Acompanhe a conciliação do valor líquido abaixo.':
+   state.message=paid?'Pix pago e registrado no TAMÃO. Confira os benefícios na lista abaixo.':
     recoveryError||'Conferência concluída, sem criar cobrança.';
   }else state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
  }catch(e){
@@ -6604,7 +6604,7 @@ async function adminFinanceRealAction(operation,choice=''){
    if(result.status==='paid')adminFinanceRealClearPayment();
    else adminFinanceRealRememberPayment(key,result);
    state.message=result.status==='paid'
-    ?'Pix pago e registrado no TAMÃO. Consulte a conciliação abaixo.'
+    ?'Pix pago e registrado no TAMÃO. Confira os benefícios e a situação do pagamento.'
     :'Fatura original consultada. Se pagou, verifique o status; não gere outro Pix.';
    if(operation==='purchase'||result.status==='paid'){
     try{
@@ -6699,7 +6699,7 @@ function adminFinanceRealPanel(key){
         :'<p>A conferência automática ainda não está ativa. A comprovação oficial permanece necessária.</p>')+
        '<details><summary>Detalhes e recuperação manual, somente se necessário</summary>'+
        '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(&quot;policy&quot;)">Conferir valor líquido no Financeiro</button></details>'
-      :'<p>Valor líquido já verificado no sistema. Cupons emitidos visíveis: '+count+'. Isso não equivale a repasse bancário a revendas.</p>')+
+      :'<p>Financiamento do benefício confirmado. Cupons emitidos visíveis: '+count+'. O relatório contábil do Mercado Pago continua independente dos benefícios financiados.</p>')+
     '</div>';
   }).join('');
   if(pending.length)html+='<p class="notice">Fatura original aguardando confirmação. Consulta automática a cada 50 segundos nesta tela.</p>'+
