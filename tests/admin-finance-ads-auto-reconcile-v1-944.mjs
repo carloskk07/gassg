@@ -82,6 +82,11 @@ assert(!requests.some(r=>r.body.action==='purchase'),'watcher must never create 
 const after=requests.length;
 await x.action('purchase',id);
 assert.equal(requests.length,after,'paid checkout cannot be regenerated');
+// A provider preference may remain in 'reserved' after an interrupted handoff.
+live='reserved';backendApproval=false;await x.read();
+assert.match(x.panel('advertising'),/Retomar checkout existente/);
+assert.equal(x.state().adsWatch,null,
+ 'reserved preference has no payable link and should not start PSP polling');
 live='checkout_ready';backendApproval=false;await x.read();
 const next=tasks.find(t=>t.ms===45000&&x.state().adsWatch?.timer===t.id);
 assert.ok(next);
