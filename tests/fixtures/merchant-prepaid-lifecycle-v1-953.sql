@@ -20,6 +20,7 @@ DECLARE
   v_fee bigint;
   v_downgrade_denied boolean := false;
   v_old_denied boolean := false;
+  v_short_denied boolean := false;
 BEGIN
   -- The CI database is intentionally empty at this step; bootstrap a
   -- temporary owner/merchant inside this transaction, never in production.
@@ -96,8 +97,22 @@ BEGIN
   IF (SELECT count(*) FROM public.merchant_fee_credit_ledger WHERE merchant_id=v_merchant)<>0
   THEN RAISE EXCEPTION 'V953_MONEY_BEFORE_APPROVAL'; END IF;
 
+  -- A shorter or invented amount must never activate the credit.
+  BEGIN
+    PERFORM public.admin_merchant_billing_payment_request_action(
+      v_admin,v_id,'approve','SYNTHETIC-ISOLATED-ONLY',
+      19989,'bank_transfer','V953-LOCAL-EVIDENCE',null::uuid,
+      'V953-synthetic-short-payment',repeat('f',64));
+  EXCEPTION WHEN SQLSTATE '40001' THEN v_short_denied:=true;
+  END;
+  IF NOT v_short_denied OR
+    (SELECT count(*) FROM public.merchant_fee_credit_ledger
+       WHERE merchant_id=v_merchant)<>0
+  THEN RAISE EXCEPTION 'V953_SHORT_PAYMENT_UNJUSTLY_CREDITED'; END IF;
+
   v_result:=public.admin_merchant_billing_payment_request_action(
     v_admin,v_id,'approve','SYNTHETIC-ISOLATED-ONLY',
+    19990,'bank_transfer','V953-LOCAL-EVIDENCE',null::uuid,
     'V953-synthetic-approval',repeat('e',64));
   IF (SELECT credit_balance_cents FROM public.merchant_billing_accounts
       WHERE merchant_id=v_merchant)<>19990
@@ -110,6 +125,7 @@ BEGIN
 
   v_replay:=public.admin_merchant_billing_payment_request_action(
     v_admin,v_id,'approve','SYNTHETIC-ISOLATED-ONLY',
+    19990,'bank_transfer','V953-LOCAL-EVIDENCE',null::uuid,
     'V953-synthetic-approval',repeat('e',64));
   IF v_replay IS DISTINCT FROM v_result
     OR (SELECT count(*) FROM public.merchant_fee_credit_ledger
