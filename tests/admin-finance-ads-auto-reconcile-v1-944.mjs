@@ -13,6 +13,7 @@ const link='https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=live-ori
 const runtime={session:{user:{id:owner}},section:'finance',
  financeWorkspace:'homologation',status:'ready'};
 let selected='advertising',live='checkout_ready',backendApproval=false;
+let transientFailures=0,malformedResponses=0;
 let requests=[],tasks=[],nextId=0;
 const row=()=>({id,title:'Campanha São Gabriel',status:'approved',
  fixedFeeStatus:live,fixedFeeCheckoutUrl:live==='checkout_ready'?link:null});
@@ -32,7 +33,11 @@ const context=vm.createContext({
   if(path==='ads-independent'&&body.action==='mine')value=mine();
   else if(path==='ads-independent-checkout'&&body.action==='reconcile'){
    assert.equal(body.campaignId,id);
-   value=backendApproval?
+   if(transientFailures>0){
+    transientFailures--;
+    throw Error('Temporary upstream network outage');
+   }
+   value=malformedResponses>0?(malformedResponses--,{source:'UNTRUSTED_RESPONSE'}):backendApproval?
     {source:'ads_independent_reconcile_v1_886',status:'payment_approved',
      paymentApproved:true,autoPublished:false,netSettlementVerified:false}:
     {source:'ads_independent_reconcile_v1_886',status:'checkout_ready',
@@ -82,6 +87,40 @@ assert(!requests.some(r=>r.body.action==='purchase'),'watcher must never create 
 const after=requests.length;
 await x.action('purchase',id);
 assert.equal(requests.length,after,'paid checkout cannot be regenerated');
+
+// V1.957: one failed network read cannot strand the existing campaign.
+// The same checkout is checked again, never a new purchase or preference.
+live='checkout_ready';backendApproval=false;await x.read();
+const pendingRetry=tasks.find(t=>t.ms===45000&&x.state().adsWatch?.timer===t.id);
+assert.ok(pendingRetry,'already issued checkout is watched once');
+transientFailures=1;
+const chargedBeforeRetry=requests.filter(r=>r.body.action==='purchase').length;
+await pendingRetry.fn();
+assert.equal(x.state().adsWatch?.campaignId,id,'network failure keeps bounded original watch');
+assert.match(x.state().message,/mesma campanha/);
+const retryTimer=tasks.find(t=>t.ms===180000&&x.state().adsWatch?.timer===t.id);
+assert.ok(retryTimer,'transient outage schedules another GET to same campaign');
+backendApproval=true;live='payment_approved';
+await retryTimer.fn();
+assert.equal(x.state().adsWatch,null,'terminal verified approval ends retry');
+assert.equal(x.state().payment,null,'old link is hidden after verified approval');
+assert.equal(requests.filter(r=>r.body.action==='purchase').length,chargedBeforeRetry,
+ 'retries must never create a second payment');
+console.log('V1.957 PASS — transient Ads provider read retries the existing checkout only.');
+
+// A malformed provider/readback response is not temporary evidence. Stop,
+// keep the existing charge, and require an explicit authenticated recheck.
+live='checkout_ready';backendApproval=false;await x.read();
+const malformedTimer=tasks.find(t=>t.ms===45000&&x.state().adsWatch?.timer===t.id);
+assert.ok(malformedTimer);
+malformedResponses=1;
+const beforeMalformed=requests.filter(r=>r.body.action==='purchase').length;
+await malformedTimer.fn();
+assert.equal(x.state().adsWatch,null,'malformed provider receipt must fail closed');
+assert.match(x.state().message,/não confirmou a conferência/);
+assert.equal(requests.filter(r=>r.body.action==='purchase').length,beforeMalformed,
+ 'malformed finance readback never creates another charge');
+
 // A provider preference may remain in 'reserved' after an interrupted handoff.
 live='reserved';backendApproval=false;await x.read();
 assert.match(x.panel('advertising'),/Retomar checkout existente/);
