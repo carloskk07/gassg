@@ -187,8 +187,19 @@ jobs:
         run: node tests/isolated-ads-independent-homologation-v1-892.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
-      - name: Upload temporary visual evidence from disposable order tests
+      - name: Verify disposable order evidence locally before optional archive
+        run: |
+          test -d test-results/isolated-order-evidence
+          count="$(find test-results/isolated-order-evidence -type f | wc -l)"
+          test "$count" -ge 1
+          echo "Verified $count local evidence files before finance integration continues"
+      # The upload service once returned an HTML error page after 5 retries,
+      # blocking all subsequent financial tests. Preserve the mandatory
+      # local evidence gate while treating external archival as best-effort.
+      - name: Archive disposable order evidence (external service optional)
         if: success()
+        continue-on-error: true
+        timeout-minutes: 3
         uses: actions/upload-artifact@v4
         with:
           name: tamao-pedidos-sinteticos-ci
@@ -207,6 +218,8 @@ jobs:
         run: node tests/isolated-supabase-owner-guarantee-v1-817.mjs
       - name: V1.807 disposable PostgreSQL owner-sponsored coupon race, Pix net and v8 redemption
         run: node tests/isolated-supabase-coupon-sponsor-v1-807.mjs
+      - name: V1.956 complete owner-sponsored Clube redemption without MP net report (ROLLBACK)
+        run: node tests/isolated-clube-sponsored-redemption-v1-956.mjs
       - name: V1.809 disposable PostgreSQL superadmin topups and concurrent double-submit safety
         run: node tests/isolated-supabase-coupon-topups-v1-809.mjs
       - name: V1.810 real PostgreSQL any-product min order, budget and atomic checkout
