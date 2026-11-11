@@ -120,6 +120,13 @@ jobs:
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: V1.824 verify plan catalog in isolated Postgres
         run: node tests/isolated-accessible-merchant-plans-v1-824.mjs
+      - name: V1.947 authoritative basket GLP versus non-GLP, ANP revocation and verified owner (ROLLBACK)
+        run: |
+          # Only the disposable Supabase localhost from this job.
+          # No external gateway, owner identity, or production database.
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/merchant-basket-compliance-v1-158-2.sql
       - name: V1.842 real PostgreSQL consent, repeal, replay and financial isolation
         run: node tests/isolated-merchant-benefits-contract-v1-842.mjs
       - name: Verify real driver push RLS, role gates and empty transactional outbox
