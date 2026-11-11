@@ -61,7 +61,7 @@ function clubeCouponPixAutoStart(invoiceId){
  const local=clubeCouponShopState.userId===uid&&
     clubeCouponShopState.purchase?.invoiceId===id&&
     clubeCouponShopState.purchase?.status==='awaiting_payment';
- const prior=clubePaidCouponView.userId===uid&&
+ const prior=typeof clubePaidCouponView!=='undefined'&&clubePaidCouponView.userId===uid&&
     clubePaidCouponView.purchases.some(p=>p.invoiceId===id&&p.status==='awaiting_payment');
  if(!local&&!prior)return;
  if(clubeCouponPixAutoWatch?.invoiceId===id&&clubeCouponPixAutoWatch.userId===uid)return;
@@ -150,7 +150,7 @@ function clubeCouponShopPanel(){
   if(!uid||!globalThis.liveReady?.())return '';
   const s=clubeCouponShopState.userId===uid?clubeCouponShopState:null;
   const pendingLocal=s?.purchase?.status==='awaiting_payment'?s.purchase:null;
-  const pendingHistory=clubePaidCouponView.userId===uid&&
+  const pendingHistory=typeof clubePaidCouponView!=='undefined'&&clubePaidCouponView.userId===uid&&
     clubePaidCouponView.status==='ready'
     ?clubePaidCouponView.purchases.find(p=>p.status==='awaiting_payment'):null;
   const pendingId=pendingLocal?.invoiceId||pendingHistory?.invoiceId;
