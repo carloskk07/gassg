@@ -611,6 +611,8 @@ jobs:
         run: node tests/ads-institutional-v1-916.mjs
       - name: V1.945 refresh single-use Ads challenges and remeasure focus without phantom billing
         run: node tests/ads-visibility-single-use-challenges-v1-945.mjs
+      - name: V1.946 advertiser return checks original approved provider payment without another checkout
+        run: node tests/ads-advertiser-return-auto-reconcile-v1-946.mjs
       - name: V1.919 unified finance homologation all modules and Pix purpose
         run: node tests/admin-finance-all-modules-v1-919.mjs
       - name: V1.927 original live financial checkouts from protected Admin
