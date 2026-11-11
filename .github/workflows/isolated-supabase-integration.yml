@@ -187,8 +187,19 @@ jobs:
         run: node tests/isolated-ads-independent-homologation-v1-892.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
-      - name: Upload temporary visual evidence from disposable order tests
+      - name: Verify disposable order evidence locally before optional archive
+        run: |
+          test -d test-results/isolated-order-evidence
+          count="$(find test-results/isolated-order-evidence -type f | wc -l)"
+          test "$count" -ge 1
+          echo "Verified $count local evidence files before finance integration continues"
+      # The upload service once returned an HTML error page after 5 retries,
+      # blocking all subsequent financial tests. Preserve the mandatory
+      # local evidence gate while treating external archival as best-effort.
+      - name: Archive disposable order evidence (external service optional)
         if: success()
+        continue-on-error: true
+        timeout-minutes: 3
         uses: actions/upload-artifact@v4
         with:
           name: tamao-pedidos-sinteticos-ci
