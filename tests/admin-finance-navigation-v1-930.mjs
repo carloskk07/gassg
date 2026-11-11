@@ -57,9 +57,34 @@ assert(!html.includes("admin-finance-switch-homologation"),
  'financial homologation restricted to owner');
 assert.equal(context.review(),false);
 role='superadmin';
+// V1.958: the ORIGINAL owner's sponsored R$8.90 Pix is paid and the three
+// R$5 vouchers have independent financial coverage even before PSP NET.
+runtime.financeReal.data.history.purchases=[{
+ status:'paid',amountCents:890,fundingPending:false,
+ packageKey:'all_products_3x5_sponsor'}];
+html=context.nav();
+assert.match(html,/Pix já pago: cupons financiados/);
+assert.match(html,/Ver recibo e benefícios/);
+assert.match(html,/A conciliação líquida do Mercado Pago é independente/);
+assert.match(html,/não pague novamente/);
+assert.doesNotMatch(html,/falta conferir o valor líquido/);
+assert.equal(created,0,'read-only sponsor receipt never generates Pix');
+// If ANY paid voucher has not been financially covered, its warning wins.
+runtime.financeReal.data.history.purchases.push({
+ status:'paid',amountCents:890,fundingPending:true});
+assert.match(context.nav(),/Pix já pago: conferir valor líquido/);
+// A pending, review, or unknown invoice may never be labeled paid.
+runtime.financeReal.data.history.purchases=[{
+ status:'awaiting_payment',amountCents:890,fundingPending:false}];
+assert.match(context.nav(),/Consultar pagamento de cupons/);
+assert.doesNotMatch(context.nav(),/Pix já pago: cupons financiados/);
+runtime.financeReal.data.history.purchases=[{
+ status:'paid',fundingPending:false}];
 runtime.financeReal.actor='another-account';
-assert(!context.nav().includes('Pix já pago: conferir valor líquido'),
+assert(!context.nav().includes('Pix já pago: conferir valor líquido')&&
+ !context.nav().includes('Pix já pago: cupons financiados'),
  'receipt from another session cannot be shown');
+assert.match(context.nav(),/Consultar pagamento de cupons/);
 const financeRender=src.slice(src.indexOf("const financeContent="),
  src.indexOf("const alertsContent="));
 assert.match(financeRender,/financeSelection==='summary'\?adminFinanceRenderPart\('Fila financeira'/);
