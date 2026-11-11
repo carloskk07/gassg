@@ -171,6 +171,21 @@ function couponProviderPixPayable(order:any,payment:any){
 // A paid gross Pix is NOT a voucher that can be spent. The existing
 // 20261019180000 checkout migration requires PSP-reconciled NET proceeds,
 // provider binding and evidence before using that voucher for an order.
+// V1.942: a paid Pix with a fully reserved and independently verified
+// owner-funded benefit does NOT need a provider NET report to spend a voucher.
+// Never assert provider settlement, and never let another funding mode opt in.
+async function couponOwnerSponsorSpendable(admin:any,row:any){
+ if(row?.status!=="paid"||!row?.id||
+   row?.funding_mode_v1_846!=="platform_reimbursed"||
+   Number(row?.sponsor_covered_cents)!==
+     Number(row?.coupon_face_cents)*Number(row?.coupons_per_pack))
+  return false;
+ const {data,error}=await admin.rpc("clube_coupon_owner_sponsor_spendable_v1_942",{
+  p_invoice:row.id
+ });
+ // Missing migration or query failure is NOT permission to spend.
+ return !error&&data===true;
+}
 function couponInvoiceNetCovered(row:any){
  const face=Number(row?.coupon_face_cents);
  const count=Number(row?.coupons_per_pack);
@@ -191,15 +206,19 @@ function couponInvoiceNetCovered(row:any){
  // while the signed merchant agreement finances the coupon discount.
  // All historical platform-reimbursed coupons keep their existing test.
  const ref=String(row?.net_proceeds_reference??"").trim();
- return row?.status==="paid"&&Boolean(row?.paid_at)&&
-   Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
-   Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
-   Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
-   Number.isSafeInteger(net)&&net>0&&
+ const ownerSponsorCovered=row?.ownerSponsorVerified===true&&
+   row?.funding_mode_v1_846==="platform_reimbursed"&&
+   sponsor===faceTotal&&faceTotal>0;
+ const providerNetCovered=Number.isSafeInteger(net)&&net>0&&
    (legacyNetCovered||sponsor===faceTotal||partnerNetCovered)&&
    net<=row.sale_price_cents&&
    Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
    ref.length>=8;
+ return row?.status==="paid"&&Boolean(row?.paid_at)&&
+   Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
+   Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
+   Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
+   (providerNetCovered||ownerSponsorCovered);
 }
 function publicInvoice(row:any){
  const payable=couponInvoiceCanPresent(row);
@@ -288,7 +307,8 @@ async function couponVerifiedReplay(invoice:any,admin:any){
     ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
     recheckRequired:true};
  }
- return {ok:true,...publicInvoice(invoice)};
+ return {ok:true,...publicInvoice({...invoice,
+  ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,invoice)})};
 }
 // A refund may close a #853 received-Pix hold ONLY if no voucher has
 // ever been issued. An exact count prevents truncated voucher reads from
@@ -390,6 +410,10 @@ Deno.serve(async(req:Request)=>{
       invoiceError=legacy.error;
     }
     if(invoiceError)throw invoiceError;
+    // Independent SQL-backed sponsor proof; no provider report or NET mutation.
+    invoices=await Promise.all((invoices||[]).map(async(row:any)=>({
+      ...row,ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,row)
+    })));
     const {data:refunds,error:refundError}=await admin
       .from("clube_coupon_refund_requests_v1_814")
       .select("invoice_id,status,request_id,received_at")
@@ -659,7 +683,8 @@ Deno.serve(async(req:Request)=>{
       const replay=await couponVerifiedReplay(invoice,admin);
       return respond(replay,replay.ok?200:409,origin);
     }
-    return respond({ok:true,...publicInvoice(invoice)},200,origin);
+    return respond({ok:true,...publicInvoice({...invoice,
+      ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,invoice)})},200,origin);
   }
   if(operation!=="purchase"&&operation!=="partner-purchase")
     return respond({error:"COUPON_ACTION_INVALID"},400,origin);
