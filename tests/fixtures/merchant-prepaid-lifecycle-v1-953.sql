@@ -230,6 +230,64 @@ BEGIN
        WHERE order_id=v_order AND entry_type='fee_consumption')<>1
   THEN RAISE EXCEPTION 'V953_DUPLICATE_SETTLEMENT_OR_FEE_CONSUMPTION'; END IF;
 
-  RAISE NOTICE 'V953_PASS: four plans, request replay, cancel, synthetic credit, downgrade protection, actual settled order fee 6.5 percent, one debit, rollback';
+  -- Precisely reach the final 780 cents with a reversible synthetic
+  -- administrator adjustment. This is NOT a real fee or deposit.
+  UPDATE public.merchant_billing_accounts
+  SET credit_balance_cents=780,updated_at=clock_timestamp()
+  WHERE merchant_id=v_merchant AND credit_balance_cents=19210 AND credit_reserved_cents=0;
+  IF NOT FOUND THEN RAISE EXCEPTION 'V953_FINAL_BALANCE_FIXTURE_INCONSISTENT'; END IF;
+  INSERT INTO public.merchant_fee_credit_ledger(
+    merchant_id,entry_type,amount_cents,plan_key,reference,created_by
+  ) VALUES(v_merchant,'admin_adjustment',-18430,'credit_19990',
+    'SYNTHETIC LAST-CENT BOUNDARY ONLY',v_admin);
+  PERFORM public.assert_merchant_fee_credit_account_equation(v_merchant);
+
+  INSERT INTO public.orders(
+    public_code,customer_id,status,address_text,address_number,postal_code,
+    customer_phone_digits,payment_method,gross_total_cents,total_cents,
+    delivery_fee_cents_snapshot,merchant_id,attempted_merchant_ids,
+    offer_expires_at,version
+  ) VALUES(
+    'V953-LAST-CENT',v_customer,'OFFERED_TO_MERCHANT',
+    'Rua Teste 21 - São Gabriel/RS','21','97300000','51999998888',
+    'cash',12000,12000,0,v_merchant,array[v_merchant],
+    clock_timestamp()+interval '10 minutes',1
+  ) RETURNING id INTO v_order;
+  INSERT INTO public.order_items(order_id,product_code,product_name,quantity,
+    unit_price_cents,line_total_cents)
+  VALUES(v_order,'CHARCOAL4','Carvão 4 kg',1,12000,12000);
+  v_order_result:=public.merchant_order_action(
+    v_owner,v_order,'accept',1,'V953-second-accept',repeat('5',64));
+  IF v_order_result->>'status'<>'PREPARING'
+  THEN RAISE EXCEPTION 'V953_FINAL_ORDER_ACCEPT_FAILED'; END IF;
+  SELECT version INTO v_version FROM public.orders WHERE id=v_order;
+  v_order_result:=public.merchant_order_action(
+    v_owner,v_order,'dispatch',v_version,'V953-second-dispatch',repeat('6',64));
+  IF v_order_result->>'status'<>'OUT_FOR_DELIVERY'
+  THEN RAISE EXCEPTION 'V953_FINAL_ORDER_DISPATCH_FAILED'; END IF;
+  SELECT pin_code INTO v_pin FROM public.order_delivery_secrets WHERE order_id=v_order;
+  IF v_pin IS NULL THEN RAISE EXCEPTION 'V953_FINAL_ORDER_PIN_MISSING'; END IF;
+  SELECT version INTO v_version FROM public.orders WHERE id=v_order;
+  v_order_result:=public.merchant_order_action(
+    v_owner,v_order,'arriving',v_version,'V953-second-arriving',repeat('7',64));
+  IF v_order_result->>'status'<>'ARRIVING'
+  THEN RAISE EXCEPTION 'V953_FINAL_ORDER_ARRIVAL_FAILED'; END IF;
+  SELECT version INTO v_version FROM public.orders WHERE id=v_order;
+  v_order_result:=public.complete_order_delivery(
+    v_owner,v_order,v_pin,v_version,'V953-second-complete',repeat('8',64),true);
+  IF v_order_result->>'status'<>'SETTLED'
+  THEN RAISE EXCEPTION 'V953_FINAL_ORDER_NOT_SETTLED'; END IF;
+  PERFORM public.process_deferred_settlement_accounting();
+  IF (SELECT plan_key FROM public.merchant_billing_accounts WHERE merchant_id=v_merchant)<>'flex_daily'
+    OR (SELECT credit_balance_cents FROM public.merchant_billing_accounts WHERE merchant_id=v_merchant)<>0
+    OR (SELECT credit_reserved_cents FROM public.merchant_billing_accounts WHERE merchant_id=v_merchant)<>0
+    OR (SELECT count(*) FROM public.merchant_fee_credit_ledger WHERE entry_type='fee_consumption' AND order_id=v_order AND amount_cents=-780)<>1
+  THEN RAISE EXCEPTION 'V953_LAST_CENT_FLEX_REVERSION_FAILED'; END IF;
+  PERFORM public.assert_merchant_fee_credit_account_equation(v_merchant);
+  PERFORM public.process_deferred_settlement_accounting();
+  IF (SELECT count(*) FROM public.merchant_fee_credit_ledger WHERE merchant_id=v_merchant AND entry_type='fee_consumption')<>2
+  THEN RAISE EXCEPTION 'V953_DUPLICATED_FINAL_FEE_DEBIT'; END IF;
+
+  RAISE NOTICE 'V953_PASS: four plans, replay, cancel, synthetic proof, two settled orders, last cent exhaustion and automatic Flex 9 percent, rollback';
 END $case$;
 ROLLBACK;
