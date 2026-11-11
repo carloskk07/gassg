@@ -4,6 +4,8 @@ begin;
 do $probe$
 declare
   v_id uuid;
+  v_owner uuid;
+  v_admin uuid;
   v_glp_denied boolean:=false;
 begin
   insert into public.merchants(name,cnpj,status,online)
@@ -13,6 +15,33 @@ begin
   insert into public.merchant_compliance(
     merchant_id,cnpj_status,cnpj_verified_at,anp_status
   ) values(v_id,'verified',statement_timestamp(),'pending');
+
+  -- The original 2026-10-12 test predated independent owner verification.
+  -- Current production requires a legitimate, verified owner even for
+  -- unregulated products. Keep that invariant in the disposable fixture.
+  insert into auth.users(id,aud,role,email,email_confirmed_at)
+    values(gen_random_uuid(),'authenticated','authenticated',
+      'v1582-basket-owner-'||substr(gen_random_uuid()::text,1,10)||'@example.invalid',
+      clock_timestamp()) returning id into v_owner;
+  insert into auth.users(id,aud,role,email,email_confirmed_at)
+    values(gen_random_uuid(),'authenticated','authenticated',
+      'v1582-basket-admin-'||substr(gen_random_uuid()::text,1,10)||'@example.invalid',
+      clock_timestamp()) returning id into v_admin;
+  insert into public.platform_admins(user_id,active,admin_role)
+    values(v_admin,true,'superadmin');
+  insert into public.merchant_members(merchant_id,user_id,member_role,active)
+    values(v_id,v_owner,'owner',true);
+  if public.merchant_basket_compliance_current(v_id,array['CHARCOAL4']) then
+    raise exception 'FAIL: ordinary product without verified owner was authorized';
+  end if;
+  perform public.admin_merchant_representation_action(
+    v_admin,v_id,v_owner,'verify','legal_representative',
+    'SIMULADO: representante autenticado, teste descartável V1.947',
+    'test-v1582-owner-'||substr(v_id::text,1,16),repeat('e',64)
+  );
+  if not public.merchant_representative_verification_current(v_id) then
+    raise exception 'FAIL: authorized owner could not prove representation';
+  end if;
 
   if not public.merchant_basket_compliance_current(v_id,array['CHARCOAL4']) then
     raise exception 'FAIL: non-GLP product blocked by pending ANP';
