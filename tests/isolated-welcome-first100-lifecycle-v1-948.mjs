@@ -9,8 +9,9 @@ assert.match(sql,/BEGIN;/i);
 assert.match(sql,/ROLLBACK;/i);
 const out=execFileSync('psql',[
  '--host=127.0.0.1','--port=54322','--username=postgres','--dbname=postgres',
- '--no-psqlrc','--set=ON_ERROR_STOP=1','--file=/dev/stdin'
-],{encoding:'utf8',input:sql,env:{...process.env,PGPASSWORD:'postgres'},
+ '--no-psqlrc','--set=ON_ERROR_STOP=1',
+ '--file=tests/sql/welcome-first100-lifecycle-v1-948.sql'
+],{encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},
  timeout:120000,stdio:['pipe','pipe','pipe']});
 assert.match(out,/WELCOME_100_CLAIMS_PASS/);
 const check=q=>execFileSync('psql',[
