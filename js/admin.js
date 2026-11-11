@@ -6324,7 +6324,7 @@ function adminFinanceRealState(){
  const actor=String(adminRuntime.session?.user?.id||'');
  if(!adminRuntime.financeReal||adminRuntime.financeReal.actor!==actor)
   adminRuntime.financeReal={actor,loadedKey:null,busy:false,data:null,error:null,
-   payment:null,paymentUntil:0,requests:{},message:null,couponWatch:null,autoStatus:null};
+   payment:null,paymentUntil:0,requests:{},message:null,couponWatch:null,adsWatch:null,autoStatus:null};
  return adminRuntime.financeReal;
 }
 function adminFinanceRealAllowed(key){
@@ -6459,6 +6459,71 @@ function adminFinanceRealCouponWatch(state,invoiceId){
  };
  w.timer=setTimeout(poll,50000);
 }
+// V1.944: automatic reconciliation of ONE existing, owner-bound Ads checkout.
+// Only an authenticated provider GET + the original billing fact RPC can
+// confirm approval. This watcher NEVER creates a preference or a charge.
+// Cap at five checks (45s, then every 3 minutes), below the PSP/Edge quota.
+function adminFinanceRealAdsStopWatch(state){
+ const w=state?.adsWatch;
+ if(w?.timer!=null&&typeof clearTimeout==='function')clearTimeout(w.timer);
+ if(state)state.adsWatch=null;
+}
+function adminFinanceRealAdsWatch(state,campaignId){
+ if(!adminFinanceRealAllowed('advertising')||
+    !/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))return;
+ if(state.adsWatch?.campaignId===campaignId)return;
+ adminFinanceRealAdsStopWatch(state);
+ const w={campaignId,startedAt:Date.now(),timer:null,attempts:0};
+ state.adsWatch=w;
+ const active=()=>adminRuntime.financeReal===state&&state.adsWatch===w&&
+  state.actor===String(adminRuntime.session?.user?.id||'')&&
+  adminFinanceRealAllowed('advertising');
+ const poll=async()=>{
+  w.timer=null;
+  if(!active()||w.attempts>=5||Date.now()-w.startedAt>1200000){
+   adminFinanceRealAdsStopWatch(state);return;
+  }
+  if(!state.busy&&document.visibilityState!=='hidden'){
+   w.attempts++;
+   try{
+    const result=await adminFinanceRealApi('ads-independent-checkout',{
+     action:'reconcile',campaignId});
+    if(!active())return;
+    if(result?.source!=='ads_independent_reconcile_v1_886')
+     throw Error('Conciliação da campanha não confirmada.');
+    if(result.status==='payment_approved'&&result.paymentApproved===true){
+     const mine=await adminFinanceRealApi('ads-independent',{action:'mine'});
+     if(!active())return;
+     if(mine?.source==='ads_independent_mine_v1_884'&&
+       mine.noCharge===true&&Array.isArray(mine.rows)&&
+       mine.rows.some(r=>r.id===campaignId&&
+         r.fixedFeeStatus==='payment_approved')){
+      if(state.data)state.data.mine=mine;
+      adminFinanceRealClearPayment();
+      adminFinanceRealAdsStopWatch(state);
+      state.message='Pagamento confirmado pelo Mercado Pago. A publicação da campanha depende da aprovação comercial; liquidação bancária continua separada.';
+      render();return;
+     }
+    }
+    if(result.status==='payment_reversed'){
+     adminFinanceRealClearPayment();
+     adminFinanceRealAdsStopWatch(state);
+     state.message='O Mercado Pago registrou reversão. A campanha permanece sem liberação financeira.';
+     render();return;
+    }
+   }catch{
+    if(active()){
+     adminFinanceRealAdsStopWatch(state);
+     state.message='Conferência automática indisponível. Consulte a cobrança existente; não gere outra.';
+     render();
+    }
+    return;
+   }
+  }
+  if(active())w.timer=setTimeout(poll,180000);
+ };
+ w.timer=setTimeout(poll,45000);
+}
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6521,11 +6586,24 @@ async function adminFinanceRealRefresh(){
    if(response?.source!=='ads_independent_mine_v1_884'||response.noCharge!==true||
       !Array.isArray(response.rows))throw Error('A titularidade das campanhas não foi comprovada.');
    data={mine:response};
+   // Recover the ORIGINAL checkout after refresh, never generate a duplicate.
+   const original=response.rows.find(r=>r.status==='approved'&&
+     r.fixedFeeStatus==='checkout_ready'&&
+     adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl));
+   if(original)recoveredPix={status:'checkout_ready',
+     checkoutUrl:original.fixedFeeCheckoutUrl,amountCents:1990};
   }
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
   state.data=data;state.loadedKey=key;
   if(recoveredPix)adminFinanceRealRememberPayment(key,recoveredPix);
-  else if(key==='coupons'||key==='mobility')adminFinanceRealClearPayment();
+  else adminFinanceRealClearPayment();
+  if(key==='advertising'){
+   const active=data.mine.rows.find(r=>r.status==='approved'&&
+     r.fixedFeeStatus==='checkout_ready'&&
+     adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl));
+   if(active)adminFinanceRealAdsWatch(state,active.id);
+   else adminFinanceRealAdsStopWatch(state);
+  }else adminFinanceRealAdsStopWatch(state);
   if(key==='coupons'){
    const pending=data.history.purchases.find(p=>
     ['prepared','awaiting_payment'].includes(p.status)&&
@@ -6586,7 +6664,8 @@ async function adminFinanceRealAction(operation,choice=''){
  }else if(key==='advertising'&&['purchase','reconcile'].includes(operation)){
   const owned=state.data?.mine?.rows?.find(r=>r.id===choice);
   if(!owned||operation==='purchase'&&(
-      owned.status!=='approved'||state.data.mine.homologationCampaignId!==choice||
+      owned.status!=='approved'||(Boolean(owned.fixedFeeStatus)&&owned.fixedFeeStatus!=='reserved')||
+      state.data.mine.homologationCampaignId!==choice||
       document.getElementById('admin-finance-real-ads-consent')?.checked!==true||
       !consent()))return;
   endpoint='ads-independent-checkout';
@@ -6633,7 +6712,13 @@ async function adminFinanceRealAction(operation,choice=''){
       !adminFinanceRealPaymentUrl(result.checkoutUrl))
     throw Error('Checkout de publicidade não confirmado com segurança.');
    adminFinanceRealRememberPayment(key,result);
-   state.message='Checkout real autorizado; pagamento e conciliação ainda pendentes.';
+   // Reflect the existing checkout in the same-session queue immediately.
+   if(state.data?.mine?.rows){
+    const item=state.data.mine.rows.find(r=>r.id===choice);
+    if(item){item.fixedFeeStatus='checkout_ready';item.fixedFeeCheckoutUrl=result.checkoutUrl;}
+   }
+   adminFinanceRealAdsWatch(state,choice);
+   state.message='Checkout original disponível. O TAMÃO verificará automaticamente o pagamento, sem criar outra cobrança.';
   }else{
    if(result?.source!=='ads_independent_reconcile_v1_886')
     throw Error('O Mercado Pago não confirmou o resultado desta consulta.');
@@ -6723,11 +6808,21 @@ function adminFinanceRealPanel(key){
   const mine=known.mine,rows=mine?.rows||[];
   html+='<p>Campanhas desta conta: '+rows.length+
    '. Uma campanha deve ser submetida e aprovada antes do pagamento.</p>';
-  const approved=rows.filter(r=>r.status==='approved');
+  const original=rows.filter(r=>r.status==='approved'&&
+    r.fixedFeeStatus==='checkout_ready');
+  const reserved=rows.filter(r=>r.status==='approved'&&r.fixedFeeStatus==='reserved');
+  const confirmed=rows.filter(r=>r.fixedFeeStatus==='payment_approved');
+  if(confirmed.length)html+='<p role="status"><strong>Pagamento de publicidade confirmado.</strong> Aguarda a liberação comercial correspondente; a conciliação bancária é separada.</p>';
+  if(original.length)html+='<p role="status"><strong>Checkout existente:</strong> confira o pagamento original nesta tela. O TAMÃO verifica a confirmação automaticamente; não crie outra cobrança.</p>'+
+    original.map(r=>action('Conferir pagamento existente: '+esc(r.title||'Campanha'),
+      'adminFinanceRealAction(\'reconcile\',\''+esc(r.id)+'\')')).join(' ');
+  if(reserved.length)html+='<p role="status"><strong>Checkout em recuperação:</strong> o pedido anterior já foi reservado, mas ainda não possui link. Retome a mesma cobrança; o servidor reutiliza o identificador original.</p>';
+  const approved=rows.filter(r=>r.status==='approved'&&
+    (!r.fixedFeeStatus||r.fixedFeeStatus==='reserved'));
   if(approved.length)html+='<label>Campanha para teste real<select id="admin-finance-real-ads-campaign" class="input">'+
    approved.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.title||r.id)+'</option>').join('')+'</select></label>'+
    '<label class="check-row"><input type="checkbox" id="admin-finance-real-ads-consent"> Autorizo o checkout de R$ 19,90 da campanha aprovada e sei que é pagamento real.</label>'+
-   action('Gerar checkout real R$ 19,90',
+   action(approved.length===reserved.length?'Retomar checkout existente':'Gerar checkout real R$ 19,90',
     'adminFinanceRealAction(\'purchase\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
    action('Conciliar campanha no Mercado Pago',
     'adminFinanceRealAction(\'reconcile\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
