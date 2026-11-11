@@ -653,7 +653,7 @@ function home(){
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><span class="section-kicker">ESCOLHA O QUE PRECISA</span>
       <h2 tabindex="-1">Produtos para o seu dia a dia</h2>
-      <p>Selecione gás, água e outros essenciais. Consulte preços e entrega pelo CEP antes de fazer seu pedido.</p></div></div>
+      <p>Selecione seus produtos e consulte a entrega pelo CEP.</p></div></div>
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
@@ -690,27 +690,27 @@ function home(){
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const firstVisitMessage=rememberedRegion
-    ? 'Sua próxima compra em '+rememberedRegion.city+' pode começar aqui: escolha o que precisa e consulte as opções para seu CEP.'
-    : 'Veja gás, água e essenciais em um só lugar. Escolha os produtos que quiser e consulte preços e entrega disponíveis para seu CEP.';
+    ? 'Consulte produtos e entrega para seu CEP em '+rememberedRegion.city+'.'
+    : 'Escolha gás, água e essenciais e consulte preços e entrega pelo CEP.';
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
-    : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
+    : 'Informe o CEP, compare opções e acompanhe a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Mais economia para quem compra. Mais oportunidades para quem vende.</h2><p>Descubra comparação de preços, cashback, Clube e indicações. Sua revenda também pode conquistar visibilidade e receber pedidos pela plataforma.</p></div></div>
+    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Mais economia para quem compra. Mais oportunidades para quem vende.</h2><p>Compare ofertas, use o Clube e indique amigos. Revendas podem divulgar produtos e receber pedidos.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid first-visit-intent-grid">
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Indique o TAMÃO</strong><small>Compartilhe com amigos e ajude a trazer novas revendas para sua cidade.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
   <button class="intent-card intent-primary" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Você continua no controle dos preços, produtos e entregas.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('sponsors')"><span class="intent-icon">📣</span><span><strong>Divulgar minha marca</strong><small>Conheça possibilidades de campanhas e parcerias na sua região.</small></span><b>→</b></button>
 </div></section>`
-    : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>O TAMÃO é para quem compra e para quem vende.</h2><p>Veja o que pode pedir, conheça os benefícios e saiba como participar com sua empresa.</p></div></div>
+    : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>O TAMÃO é para quem compra e para quem vende.</h2><p>Conheça produtos, benefícios e como participar.</p></div></div>
 <div class="intent-grid">
   <button class="intent-card intent-primary" onclick="startHomeBrowse()"><span class="intent-icon">🧺</span><span><strong>Consultar produtos</strong><small>Confira produtos, preços e prazos disponíveis para o seu endereço.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Veja o que acontece desde a escolha até receber o pedido.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Conhecer os benefícios</strong><small>Descubra cashback e indicações quando estiverem disponíveis.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais uma forma de chegar aos clientes, mantendo seus canais de venda.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Aproxime sua revenda dos clientes, mantendo seus canais.</small></span><b>→</b></button>
 </div></section>`;
 
   const valueBridge=`<section class="home-value-bridge tamao-visitor-paths" aria-label="O TAMÃO conecta quem compra, vende e indica">
