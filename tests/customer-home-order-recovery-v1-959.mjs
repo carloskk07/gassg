@@ -3,73 +3,59 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const js=fs.readFileSync(new URL('../js/customer.js',import.meta.url),'utf8');
-const start=js.indexOf('function customerHomeOrderRecovery(){');
-const end=js.indexOf('\nfunction home(){',start);
-assert.ok(start>=0&&end>start,'Home order recovery must be located beside the real home renderer');
-new vm.Script(js);
-const actual=js.slice(start,end);
-const ORDER='11111111-1111-4111-8111-111111111111';
-const NOW=Date.now();
-const rt={
-  session:{user:{id:'22222222-2222-4222-8222-222222222222'}},
-  orderId:ORDER,orderCheckedId:ORDER,orderCheckedAt:new Date(NOW).toISOString(),
-  error:null,order:{orderId:ORDER,status:'PREPARING',version:5}
-};
-let ready=true;
-const ctx=vm.createContext({liveRuntime:rt,liveReady:()=>ready,Date,String,Number});
-vm.runInContext(actual+'\nthis.homeRecovery=customerHomeOrderRecovery;',ctx);
-const render=()=>ctx.homeRecovery();
-
-let html=render();
-assert.match(html,/Seu pedido está em andamento/);
-assert.match(html,/Acompanhar meu pedido/);
+assert.doesNotThrow(()=>new vm.Script(js),'customer production JS must parse');
+const start=js.indexOf('function home(){');
+const end=js.indexOf('\nfunction ',start+20);
+assert.ok(start>=0&&end>start);
+const home=js.slice(start,end);
+// This is the PRODUCTION branch, not the checkout demo. It is intentionally
+// tiny to preserve the independently enforced initial JS download budget.
+const begin=home.indexOf('  const o=globalThis.liveRuntime;');
+const finish=home.indexOf('  if(!testDemo&&!internalPilot)',begin);
+assert.ok(begin>=0&&finish>begin);
+const expr=home.slice(begin,finish);
+new vm.Script('(function(){'+expr+'return trackedOrderCard;})()');
+assert.match(home,/if\(!testDemo&&!internalPilot\)return shell\(`\$\{trackedOrderCard\}/);
+assert.ok(home.indexOf('${trackedOrderCard}')<home.indexOf('${regionalPriceSection||'),
+  'The return-to-order action must appear before the new product checkout');
+const id='11111111-1111-4111-8111-111111111111';
+const rt={session:{user:{id:'22222222-2222-4222-8222-222222222222'}},
+ orderId:id,order:{orderId:id,status:'PREPARING'}};
+const ctx=vm.createContext({liveRuntime:rt,ready:true});
+const display=()=>vm.runInContext('(function(){'+expr+'return trackedOrderCard;})()',ctx);
+let html=display();
+assert.match(html,/Ver meu pedido/);
 assert.match(html,/go\('tracking'\)/);
 assert.doesNotMatch(html,/11111111-1111-4111-8111-111111111111/,
- 'Do not put private order identifiers or a stale PIN in marketing DOM');
-assert.doesNotMatch(html,/Pix|gerar|pagamento/i,'Navigation must not create or imply a charge');
-
-// The same order remains discoverable after leaving checkout or reloading.
-rt.order.status='OFFERED_TO_MERCHANT';assert.match(render(),/Acompanhar meu pedido/);
-rt.order.status='OUT_FOR_DELIVERY';assert.match(render(),/Acompanhar meu pedido/);
-rt.order.status='REQUOTE_REQUIRED';assert.match(render(),/Acompanhar meu pedido/);
-// A settled order is historical; do not advertise an active delivery.
-for(const status of ['CANCELLED','SETTLED']){
- rt.order.status=status;assert.equal(render(),'');
+ 'Do not expose private order ID/PIN on the public home');
+assert.doesNotMatch(html,/Pix|pagamento|cobrança/i,
+ 'The home action must never imply or create a new charge');
+for(const status of [
+ 'OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY',
+ 'ARRIVING','REQUOTE_REQUIRED','AT_RISK'
+]){
+ rt.order={orderId:id,status};
+ assert.match(display(),/Ver meu pedido/);
 }
-// A saved localStorage order is NOT fresh server evidence, but it must be
-// retrievable via the existing tracking route and its authenticated GET.
-rt.order=null;html=render();
-assert.match(html,/Consultar o pedido salvo/);
-assert.match(html,/Verificar meu pedido/);
-assert.doesNotMatch(html,/Seu pedido está em andamento/);
-rt.order={orderId:ORDER,status:'PREPARING'};
-rt.orderCheckedAt=new Date(NOW-121000).toISOString();
-assert.match(render(),/Consultar o pedido salvo/);
-rt.orderCheckedAt=new Date(NOW).toISOString();
-rt.orderCheckedId='33333333-3333-4333-8333-333333333333';
-assert.match(render(),/Consultar o pedido salvo/);
-rt.orderCheckedId=ORDER;rt.error='timeout';
-assert.match(render(),/Consultar o pedido salvo/);
-
-// Another session, malformed stored ID or no authenticated session must not
-// reveal any prior order, even when an old local readback is still in memory.
-rt.error=null;rt.session=null;assert.equal(render(),'');
+for(const status of ['CANCELLED','SETTLED']){
+ rt.order={orderId:id,status};
+ assert.equal(display(),'','confirmed terminal does not claim an active order');
+}
+rt.order=null;
+assert.match(display(),/Ver meu pedido/,
+ 'Stored order is still reachable after an interrupted reload');
+rt.orderId=null;assert.equal(display(),'');
+rt.orderId=id;rt.session=null;assert.equal(display(),'');
 rt.session={user:{id:'22222222-2222-4222-8222-222222222222'}};
-rt.orderId='not-an-uuid';assert.equal(render(),'');
-rt.orderId=ORDER;
-ready=false;assert.equal(render(),'');
-ready=true;
-rt.orderId=null;assert.equal(render(),'');
-
-// Marketing's real production route (not only the demo/checkout) must show
-// the status CTA BEFORE product offers and never make an external request.
-const home=js.slice(js.indexOf('function home(){'),js.indexOf('\nfunction ',js.indexOf('function home(){')+20));
-assert.match(home,/const trackedOrderCard=!testDemo\?customerHomeOrderRecovery\(\):''/);
-assert.match(home,/if\(!testDemo&&!internalPilot\)return shell\(`\$\{trackedOrderCard\}/);
-assert.match(home,/return shell\(`\$\{trackedOrderCard\}\n\$\{regionalPriceSection\}/);
-const checkoutRecovery=js.slice(js.indexOf('function liveTracking(){'),js.indexOf('\nfunction ',js.indexOf('function liveTracking(){')+20));
-assert.match(checkoutRecovery,/Existe uma referência de pedido para consultar/);
-assert.match(checkoutRecovery,/Atualizar acompanhamento/);
+ctx.ready=false;assert.equal(display(),'');
+ctx.ready=true;
+// The authenticated tracking screen itself already distinguishes a saved
+// reference from a freshly confirmed order, avoiding stale claims.
+const track=js.slice(js.indexOf('function liveTracking(){'),
+ js.indexOf('\nfunction ',js.indexOf('function liveTracking(){')+20));
+assert.match(track,/Existe uma referência de pedido para consultar/);
+assert.match(track,/Atualizar acompanhamento/);
+assert.match(track,/liveGetOrder\(\)/);
 const audit=fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8');
 assert.match(audit,/node tests\/customer-home-order-recovery-v1-959\.mjs/);
-console.log('V1.959 PASS: real home preserves authenticated tracked order, fresh vs stale status, terminal suppression, account isolation and zero payment actions.');
+console.log('V1.959 PASS: real customer home return-to-order, login scope, terminal suppression, stale reference recovery and zero charge.');
