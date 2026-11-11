@@ -31,6 +31,7 @@ return true;
 }
 
 // Paid coupons share the customer's authenticated Supabase session.
+// Club purchase buttons live in deferred catalog; wallet is read-only.
 const clubePaidCouponView={
 userId:null,status:'idle',purchases:[],vouchers:[],error:null,
 checkoutEnabled:false
@@ -69,9 +70,8 @@ return voucher;
 }
 function clubePaidCouponCheckoutPanel(){
 if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
-if(!globalThis.cshop){globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0)}
 const userId=String(globalThis.liveRuntime.session.user.id);
-globalThis.clubePaidCouponAutoLoad?.(userId);
+globalThis.ca?.(userId);
 const valid=clubePaidCouponView.userId===userId;
 const options=clubePaidCouponOptions();
 const current=clubePaidCheckoutSelection.userId===userId?
@@ -118,7 +118,7 @@ const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
 if(!userId||typeof liveReady!=='function'||!liveReady())
 return '<section class="section"><h2>Seus cupons TAMÃO</h2>'+
 '<p>Entre para ver seus cupons.</p></section>';
-globalThis.clubePaidCouponAutoLoad?.(userId);
+globalThis.ca?.(userId);
 const valid=clubePaidCouponView.userId===userId;
 const status=valid?clubePaidCouponView.status:'idle';
 const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
@@ -674,7 +674,9 @@ async function shareReferral(){
   }
 }
 
-// Sponsor interest uses the protected contact channel; no sale or activation.
+// V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
+// V1.301 — send partnership interest into the existing protected contact channel,
+// without new storage, third-party redirects or a fake sponsor activation.
 function openSponsorContact(format='general',quoteBrief=''){
   // Carry only the visitor's public contact intent for anonymous page metrics.
   // No campaign is activated and no identity is included in analytics.
