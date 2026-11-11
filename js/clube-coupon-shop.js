@@ -16,6 +16,27 @@ function clubeCouponWatchAuth(){
 }
 clubeCouponWatchAuth();
 
+// V1.949: read existing vouchers on the first verified visit to Clube or
+// checkout. Never create a charge, grant a benefit or alter a balance.
+const clubePaidCouponAutoRead={queuedFor:null};
+function clubePaidCouponAutoLoad(userId){
+ const user=globalThis.liveRuntime?.session?.user;
+ if(!userId||user?.id!==userId||user.is_anonymous===true||
+    !user.email_confirmed_at||typeof liveReady!=='function'||!liveReady())return;
+ if(clubePaidCouponView.userId===userId&&clubePaidCouponView.status!=='idle')return;
+ if(clubePaidCouponAutoRead.queuedFor===userId)return;
+ clubePaidCouponAutoRead.queuedFor=userId;
+ Promise.resolve().then(()=>{
+   if(String(globalThis.liveRuntime?.session?.user?.id||'')!==userId||
+      !liveReady()||!['club','order'].includes(route())){
+     if(clubePaidCouponAutoRead.queuedFor===userId)
+       clubePaidCouponAutoRead.queuedFor=null;
+     return;
+   }
+   clubePaidCouponsRefresh();
+ });
+}
+
 // The signed-in buyer sees only packages explicitly released by the server.
 // A failed commercial preflight never manufactures a public offer.
 const clubeCouponShopState={
@@ -503,4 +524,4 @@ async function clubeCouponRefundAsk(invoiceId){
 // ESM lazy load: onclick handlers must be available on the customer window.
 Object.assign(globalThis,{clubeCouponWatchAuth,clubeCouponShopPanel,clubeCouponShopRefresh,
   clubeCouponBuy,clubeCouponCheckInvoice,clubeCouponCopyPix,clubeCouponRefundAsk,clubeCouponVerifyPostal,
-  clubeCouponPurchasesPanel});
+  clubeCouponPurchasesPanel,ca:clubePaidCouponAutoLoad});

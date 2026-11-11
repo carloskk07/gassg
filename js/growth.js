@@ -71,6 +71,7 @@ return voucher;
 function clubePaidCouponCheckoutPanel(){
 if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
 const userId=String(globalThis.liveRuntime.session.user.id);
+globalThis.ca?.(userId);
 const valid=clubePaidCouponView.userId===userId;
 const options=clubePaidCouponOptions();
 const current=clubePaidCheckoutSelection.userId===userId?
@@ -117,6 +118,7 @@ const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
 if(!userId||typeof liveReady!=='function'||!liveReady())
 return '<section class="section"><h2>Seus cupons TAMÃO</h2>'+
 '<p>Entre para ver seus cupons.</p></section>';
+globalThis.ca?.(userId);
 const valid=clubePaidCouponView.userId===userId;
 const status=valid?clubePaidCouponView.status:'idle';
 const money=value=>BRL.format(Math.max(0,Number(value)||0)/100);
