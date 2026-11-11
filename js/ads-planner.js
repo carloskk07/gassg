@@ -313,6 +313,86 @@ async function tamaoAdsSubmitCampaign(){
   }catch(e){if(result)result.textContent=String(e?.message||'Falha ao enviar. Tente novamente.')}
   finally{tamaoAdsDraftBusy=false;if(button)button.disabled=false}
 }
+// V1.946: returning from Mercado Pago already points to #sponsors.
+// Recheck the advertiser's ORIGINAL checkout without requiring a new click.
+// Only the provider-authoritative reconcile RPC and a SECOND owner-scoped
+// ledger read can label a payment approved. Never create a checkout here.
+// Three bounded attempts (1.2s, +3m, +6m) stay inside 8/hour API quota.
+const tamaoAdsAutoPayment={userId:null,campaignId:null,tries:0,
+ startedAt:0,timer:null,busy:false};
+function tamaoAdsAutoPaymentStop(){
+ if(tamaoAdsAutoPayment.timer!=null&&typeof clearTimeout==='function')
+  clearTimeout(tamaoAdsAutoPayment.timer);
+ tamaoAdsAutoPayment.timer=null;
+ tamaoAdsAutoPayment.userId=null;
+ tamaoAdsAutoPayment.campaignId=null;
+ tamaoAdsAutoPayment.tries=0;
+ tamaoAdsAutoPayment.busy=false;
+}
+function tamaoAdsAutoReconcileOnReturn(userId){
+ if(!tamaoAdsAccountVerified()||route()!=='sponsors'||
+   String(globalThis.liveRuntime?.session?.user?.id||'')!==userId){
+  tamaoAdsAutoPaymentStop();return;
+ }
+ const match=(tamaoAdsMyState.rows||[]).find(c=>
+   c.status==='approved'&&c.fixedFeeStatus==='checkout_ready'&&
+   /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(c.id||'')));
+ if(!match){tamaoAdsAutoPaymentStop();return}
+ if(tamaoAdsAutoPayment.userId===userId&&
+   tamaoAdsAutoPayment.campaignId===match.id)return;
+ tamaoAdsAutoPaymentStop();
+ Object.assign(tamaoAdsAutoPayment,{
+  userId,campaignId:match.id,tries:0,startedAt:Date.now(),busy:false
+ });
+ const same=()=>tamaoAdsAutoPayment.userId===userId&&
+   tamaoAdsAutoPayment.campaignId===match.id&&
+   String(globalThis.liveRuntime?.session?.user?.id||'')===userId&&
+   tamaoAdsAccountVerified()&&route()==='sponsors';
+ const poll=async()=>{
+  tamaoAdsAutoPayment.timer=null;
+  if(!same()||tamaoAdsAutoPayment.tries>=3||
+    Date.now()-tamaoAdsAutoPayment.startedAt>900000){
+   tamaoAdsAutoPaymentStop();return;
+  }
+  if(document.visibilityState==='hidden'){
+   tamaoAdsAutoPayment.timer=setTimeout(poll,180000);return;
+  }
+  tamaoAdsAutoPayment.tries++;
+  tamaoAdsAutoPayment.busy=true;
+  try{
+   const result=await liveInvoke('ads-independent-checkout',{
+    action:'reconcile',campaignId:match.id
+   });
+   if(!same())return;
+   if(result?.source==='ads_independent_reconcile_v1_886'&&
+     (result.status==='payment_reversed'||
+      (result.status==='payment_approved'&&result.paymentApproved===true))){
+    // Never rely only on the PSP response or browser query string.
+    const ledger=await liveInvoke('ads-independent',{action:'mine'});
+    if(!same())return;
+    if(ledger?.source==='ads_independent_mine_v1_884'&&
+      ledger.noCharge===true&&Array.isArray(ledger.rows)&&
+      ledger.rows.some(x=>x.id===match.id&&x.fixedFeeStatus===result.status)){
+     tamaoAdsMyState={userId,rows:ledger.rows.slice(0,30),status:'ready',
+      fixedFeeSalesEnabled:ledger.fixedFeeSalesEnabled===true,
+      homologationCampaignId:String(ledger.homologationCampaignId||'')||null,
+      homologationExpiresAt:String(ledger.homologationExpiresAt||'')||null};
+     tamaoAdsAutoPaymentStop();
+     if(route()==='sponsors')render();
+     toast(result.status==='payment_approved'
+      ?'Pagamento da campanha confirmado. Aguarda liberação da veiculação.'
+      :'Pagamento revertido. A campanha não será publicada.');
+     return;
+    }
+   }
+  }catch{/* An unverified reply cannot create payment or change campaign status. */}
+  finally{tamaoAdsAutoPayment.busy=false}
+  if(same()&&tamaoAdsAutoPayment.tries<3)
+   tamaoAdsAutoPayment.timer=setTimeout(poll,180000);
+  else tamaoAdsAutoPaymentStop();
+ };
+ tamaoAdsAutoPayment.timer=setTimeout(poll,1200);
+}
 async function tamaoAdsMyRefresh({quiet=false}={}){
   const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!tamaoAdsAccountVerified())return;
@@ -327,6 +407,7 @@ async function tamaoAdsMyRefresh({quiet=false}={}){
       homologationExpiresAt:String(r.homologationExpiresAt||'')||null};
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
+    tamaoAdsAutoReconcileOnReturn(userId);
   }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
 }
 
