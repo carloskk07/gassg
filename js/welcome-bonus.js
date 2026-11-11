@@ -47,15 +47,25 @@ async function tamaoWelcomeClaimVerifiedUser(){
      Date.now()-tamaoWelcomeBonus.lastClaimTryAt<60000)return;
   tamaoWelcomeBonus.lastClaimTryAt=Date.now();
   tamaoWelcomeBonus.inflight=true;
+  const sameAccount=()=>globalThis.liveRuntime===runtime&&
+    runtime.session?.user?.id===user.id&&
+    runtime.session?.access_token===session.access_token;
   try{
     const {data,error}=await runtime.client.rpc('claim_welcome_bonus_v1_815');
     if(error)throw error;
-    tamaoWelcomeBonus.lastUser=user.id;
-    if(data?.granted===true&&data?.alreadyGranted!==true&&
-       typeof liveSyncFinancialProfile==='function'){
-      await liveSyncFinancialProfile({force:true});
+    // A request may outlive logout/account switching. Only the actual
+    // authenticated recipient can receive the local profile readback.
+    if(!sameAccount())return;
+    if(data?.granted===true){
+      tamaoWelcomeBonus.lastUser=user.id;
+      if(data.alreadyGranted!==true&&
+         typeof liveSyncFinancialProfile==='function'){
+        await liveSyncFinancialProfile({force:true});
+      }
     }
-    await tamaoWelcomeRefreshStatus();
+    // Failed/ineligible/paused claims must not permanently mark the user as
+    // granted; later eligibility or a resumed campaign may be retried.
+    if(sameAccount())await tamaoWelcomeRefreshStatus();
   }catch{
     // Fail closed and allow retry on next page load; never credit locally.
   }finally{
