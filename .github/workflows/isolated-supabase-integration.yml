@@ -120,6 +120,8 @@ jobs:
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: V1.824 verify plan catalog in isolated Postgres
         run: node tests/isolated-accessible-merchant-plans-v1-824.mjs
+      - name: V1.953 four prepaid plans, real order PIN fee consumption in isolated PostgreSQL
+        run: node tests/isolated-merchant-prepaid-lifecycle-v1-953.mjs
       - name: V1.948 verified 100 welcome bonuses, 101 denied and Admin audit in rollback-only PostgreSQL
         run: node tests/isolated-welcome-first100-lifecycle-v1-948.mjs
       - name: V1.947 authoritative basket GLP versus non-GLP, ANP revocation and verified owner (ROLLBACK)
