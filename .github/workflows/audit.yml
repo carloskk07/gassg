@@ -143,6 +143,8 @@ jobs:
         run: node tests/mobility-welcome-auth-v1-830.mjs
       - name: V1.948 owner-only welcome campaign controls, bank-proof truth and Admin UI
         run: node tests/welcome-campaign-admin-lifecycle-v1-948.mjs
+      - name: V1.948 customer welcome grant session isolation and retryable ineligible claim
+        run: node tests/customer-welcome-auth-exact-account-v1-948.mjs
       - name: V1.832 driver consent and benefit rate readback in mobility UI
         run: node tests/mobility-benefits-optin-ui-v1-832.mjs
       - name: V1.833 mobility welcome discount and net fare UI
