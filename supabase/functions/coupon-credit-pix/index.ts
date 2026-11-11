@@ -171,6 +171,21 @@ function couponProviderPixPayable(order:any,payment:any){
 // A paid gross Pix is NOT a voucher that can be spent. The existing
 // 20261019180000 checkout migration requires PSP-reconciled NET proceeds,
 // provider binding and evidence before using that voucher for an order.
+// V1.942: a paid Pix with a fully reserved and independently verified
+// owner-funded benefit does NOT need a provider NET report to spend a voucher.
+// Never assert provider settlement, and never let another funding mode opt in.
+async function couponOwnerSponsorSpendable(admin:any,row:any){
+ if(row?.status!=="paid"||!row?.id||
+   row?.funding_mode_v1_846!=="platform_reimbursed"||
+   Number(row?.sponsor_covered_cents)!==
+     Number(row?.coupon_face_cents)*Number(row?.coupons_per_pack))
+  return false;
+ const {data,error}=await admin.rpc("clube_coupon_owner_sponsor_spendable_v1_942",{
+  p_invoice:row.id
+ });
+ // Missing migration or query failure is NOT permission to spend.
+ return !error&&data===true;
+}
 function couponInvoiceNetCovered(row:any){
  const face=Number(row?.coupon_face_cents);
  const count=Number(row?.coupons_per_pack);
@@ -191,15 +206,19 @@ function couponInvoiceNetCovered(row:any){
  // while the signed merchant agreement finances the coupon discount.
  // All historical platform-reimbursed coupons keep their existing test.
  const ref=String(row?.net_proceeds_reference??"").trim();
- return row?.status==="paid"&&Boolean(row?.paid_at)&&
-   Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
-   Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
-   Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
-   Number.isSafeInteger(net)&&net>0&&
+ const ownerSponsorCovered=row?.ownerSponsorVerified===true&&
+   row?.funding_mode_v1_846==="platform_reimbursed"&&
+   sponsor===faceTotal&&faceTotal>0;
+ const providerNetCovered=Number.isSafeInteger(net)&&net>0&&
    (legacyNetCovered||sponsor===faceTotal||partnerNetCovered)&&
    net<=row.sale_price_cents&&
    Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")))&&
    ref.length>=8;
+ return row?.status==="paid"&&Boolean(row?.paid_at)&&
+   Boolean(row?.provider_order_id)&&Boolean(row?.provider_payment_id)&&
+   Number.isSafeInteger(face)&&face>0&&Number.isSafeInteger(count)&&count>0&&
+   Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
+   (providerNetCovered||ownerSponsorCovered);
 }
 function publicInvoice(row:any){
  const payable=couponInvoiceCanPresent(row);
@@ -288,7 +307,66 @@ async function couponVerifiedReplay(invoice:any,admin:any){
     ...publicInvoice({...invoice,pix_br_code:null,payment_url:null}),
     recheckRequired:true};
  }
- return {ok:true,...publicInvoice(invoice)};
+ return {ok:true,...publicInvoice({...invoice,
+  ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,invoice)})};
+}
+// V1.942: an authenticated owner checking the ORIGINAL invoice can recover
+// a signed-webhook delay by reading Mercado Pago Orders directly. This is not
+// a second payment engine: it uses the SAME service-only atomic verification
+// RPC as the webhook, never a client-controlled paid flag or amount.
+async function couponRecoverPaidFromProvider(admin:any,invoice:any){
+ if(!["prepared","awaiting_payment"].includes(String(invoice?.status))||
+   !mercadoPagoConfigured(MP_TOKEN)||!MP_TOKEN.startsWith("APP_USR-")||
+   !invoice?.provider_order_id||!invoice?.provider_payment_id)return invoice;
+ try{
+  const response=await mercadoPagoFetch(
+   "/v1/orders/"+encodeURIComponent(String(invoice.provider_order_id)),
+   {accessToken:MP_TOKEN,method:"GET",timeoutMs:8000});
+  if(!response.ok)return invoice;
+  const order=await readMercadoPagoJson(response);
+  const payments=Array.isArray(order?.transactions?.payments)?
+    order.transactions.payments:[];
+  const pix=findPix(order);
+  const refunds=Array.isArray(order?.transactions?.refunds)?
+    order.transactions.refunds:[];
+  // Never recognize a refund, dispute, partial payment or mixed order.
+  const chargebacks=Array.isArray(order?.transactions?.chargebacks)?
+    order.transactions.chargebacks:[];
+  if(order?.live_mode===false||pix?.live_mode===false||
+    String(order?.id??"")!==String(invoice.provider_order_id)||
+    String(order?.external_reference??"")!==String(invoice.id)||
+    (order?.currency_id&&order.currency_id!=="BRL")||
+    (order?.currency&&order.currency!=="BRL")||
+    moneyToCents(order?.total_amount)!==Number(invoice.sale_price_cents)||
+    payments.length!==1||!pix||
+    String(pix.id??"")!==String(invoice.provider_payment_id)||
+    pix.payment_method?.id!=="pix"||pix.payment_method?.type!=="bank_transfer"||
+    moneyToCents(pix?.amount)!==Number(invoice.sale_price_cents)||
+    refunds.length!==0||chargebacks.length!==0||
+    String(order?.status??"").toLowerCase()!=="processed"||
+    String(pix?.status??"").toLowerCase()!=="processed"||
+    !["","accredited"].includes(String(order?.status_detail??"").toLowerCase())||
+    !["","accredited"].includes(String(pix?.status_detail??"").toLowerCase()))
+    return invoice;
+  const {data,error}=await admin.rpc("clube_coupon_paid_payment_verify",{
+   p_invoice_id:invoice.id,p_provider_order_id:invoice.provider_order_id,
+   p_payment_id:invoice.provider_payment_id,
+   p_amount_cents:invoice.sale_price_cents
+  });
+  if(error||!(data?.ok===true||
+    (data?.reviewRequired===true&&data?.providerPaymentRecorded===true)))
+    return invoice;
+  // Read AFTER the locked SQL transaction; only actual persisted state counts.
+  const {data:updated,error:readError}=await admin
+    .from("clube_coupon_paid_invoices").select("*")
+    .eq("id",invoice.id).eq("customer_user_id",invoice.customer_user_id)
+    .maybeSingle();
+  if(readError||!updated)return invoice;
+  return updated;
+ }catch{
+  // Network ambiguity never causes a second Pix or a local status update.
+  return invoice;
+ }
 }
 // A refund may close a #853 received-Pix hold ONLY if no voucher has
 // ever been issued. An exact count prevents truncated voucher reads from
@@ -390,6 +468,10 @@ Deno.serve(async(req:Request)=>{
       invoiceError=legacy.error;
     }
     if(invoiceError)throw invoiceError;
+    // Independent SQL-backed sponsor proof; no provider report or NET mutation.
+    invoices=await Promise.all((invoices||[]).map(async(row:any)=>({
+      ...row,ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,row)
+    })));
     const {data:refunds,error:refundError}=await admin
       .from("clube_coupon_refund_requests_v1_814")
       .select("invoice_id,status,request_id,received_at")
@@ -638,11 +720,12 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{
       userId:user.id,actionName:"coupon-credit-pix-status",limit:18,windowSeconds:600
     });
-    const {data:invoice,error:invoiceError}=await admin
+    const {data:storedInvoice,error:invoiceError}=await admin
       .from("clube_coupon_paid_invoices").select("*")
       .eq("id",invoiceId).eq("customer_user_id",user.id).maybeSingle();
     if(invoiceError)throw invoiceError;
-    if(!invoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    if(!storedInvoice)return respond({error:"COUPON_INVOICE_NOT_FOUND"},404,origin);
+    const invoice=await couponRecoverPaidFromProvider(admin,storedInvoice);
     // A pending cancellation freezes even a previously saved/reopened Pix.
     // The original provider charge may still require refund/reconciliation,
     // but the customer must not be instructed to pay it again.
@@ -659,7 +742,8 @@ Deno.serve(async(req:Request)=>{
       const replay=await couponVerifiedReplay(invoice,admin);
       return respond(replay,replay.ok?200:409,origin);
     }
-    return respond({ok:true,...publicInvoice(invoice)},200,origin);
+    return respond({ok:true,...publicInvoice({...invoice,
+      ownerSponsorVerified:await couponOwnerSponsorSpendable(admin,invoice)})},200,origin);
   }
   if(operation!=="purchase"&&operation!=="partner-purchase")
     return respond({error:"COUPON_ACTION_INVALID"},400,origin);
