@@ -5715,6 +5715,134 @@ function adminOwnerFinanceWorkspaceSection(){
     '</section>';
 }
 
+// V1.948 — campaign owner controls, in the existing Growth workspace.
+const adminWelcomeCampaignState={loadedFor:null,data:null,loading:false,
+ error:null,pending:null};
+function adminWelcomeCampaignAuthorized(){
+ return adminRuntime.status==='ready'&&adminRoleCanSection('growth')&&
+  ['superadmin','finance'].includes(String(adminCurrentRole()))&&
+  !!adminRuntime.session?.user?.id;
+}
+async function adminWelcomeCampaignLoad({silent=false}={}){
+ if(!adminWelcomeCampaignAuthorized()||adminWelcomeCampaignState.loading)return;
+ const actor=String(adminRuntime.session.user.id);
+ if(adminWelcomeCampaignState.loadedFor!==actor){
+  adminWelcomeCampaignState.loadedFor=actor;
+  adminWelcomeCampaignState.data=null;
+  adminWelcomeCampaignState.error=null;
+ }
+ adminWelcomeCampaignState.loading=true;
+ try{
+  const x=await adminInvoke({action:'welcome-campaign-read'});
+  if(x?.source!=='admin_welcome_campaign_read_v1_948'||
+     x.readOnly!==true||x.noCharge!==true||x.pspCashVerified!==false||
+     x.funding!=='owner_promotional_commitment_not_bank_receipt'||
+     x.campaignKey!=='welcome_2026_815'||
+     x.awardCents!==100||x.maxAwards!==100||x.budgetCents!==10000||
+     !Number.isSafeInteger(x.awardedCount)||x.awardedCount<0||x.awardedCount>100||
+     x.awardedCents!==x.awardedCount*100||
+     x.remainingAwards!==100-x.awardedCount||
+     !Number.isSafeInteger(x.lotRemainingCents)||
+     x.notAvailableCents!==x.awardedCents-x.lotRemainingCents||
+     !Array.isArray(x.history)||x.history.length>20)
+    throw Error('Conferência financeira do bônus incompleta.');
+  if(actor===String(adminRuntime.session?.user?.id||'')&&
+     adminWelcomeCampaignAuthorized()){
+   adminWelcomeCampaignState.data=x;
+   adminWelcomeCampaignState.error=null;
+  }
+ }catch(e){
+  if(actor===String(adminRuntime.session?.user?.id||'')){
+   adminWelcomeCampaignState.data=null;
+   adminWelcomeCampaignState.error=String(e?.message||e);
+   if(!silent)toast('Não foi possível conferir os bônus de boas-vindas.');
+  }
+ }finally{adminWelcomeCampaignState.loading=false;render()}
+}
+async function adminWelcomeCampaignManage(operation){
+ if(!adminWelcomeCampaignAuthorized()||
+    adminCurrentRole()!=='superadmin'||
+    !['pause','resume','end'].includes(operation))return;
+ const state=adminWelcomeCampaignState;
+ const actor=String(adminRuntime.session.user.id);
+ const d=state.loadedFor===actor?state.data:null;
+ if(!d||state.pending||state.loading)return;
+ if(operation==='end'&&!window.confirm(
+   'Encerrar DEFINITIVAMENTE a campanha de R$ 1? Nenhuma nova concessão será permitida. Os créditos já concedidos permanecem válidos.'))return;
+ if(operation==='pause'&&!window.confirm(
+   'Pausar novas concessões do bônus de R$ 1? Créditos anteriores serão preservados.'))return;
+ const requestId=crypto.randomUUID();
+ state.pending={operation,requestId,actor};
+ render();
+ try{
+  const result=await adminInvoke({action:'welcome-campaign-manage',
+    operation,expectedAwarded:d.awardedCount,
+    expectedEnabled:d.enabled,requestId
+  },{idempotencyKey:'welcome:'+requestId});
+  if(result?.source!=='admin_welcome_campaign_manage_v1_948'||
+     result.noCharge!==true||typeof result.replayed!=='boolean'||
+     typeof result.enabled!=='boolean'||typeof result.ended!=='boolean')
+    throw Error('Alteração não confirmada.');
+  if(actor===String(adminRuntime.session?.user?.id||'')){
+   await adminWelcomeCampaignLoad({silent:true});
+   toast(operation==='pause'?'Novos bônus pausados.':
+     operation==='resume'?'Novos bônus reativados.':
+     'Campanha encerrada definitivamente.');
+  }
+ }catch(e){
+  if(actor===String(adminRuntime.session?.user?.id||'')){
+   toast('Sem confirmação: '+String(e?.message||e)+
+    '. Atualize a campanha antes de fazer outra alteração.');
+   await adminWelcomeCampaignLoad({silent:true});
+  }
+ }finally{
+  state.pending=null;render();
+ }
+}
+function adminWelcomeCampaignView(){
+ if(!adminWelcomeCampaignAuthorized())return '';
+ const s=adminWelcomeCampaignState;
+ const actor=String(adminRuntime.session.user.id);
+ const d=s.loadedFor===actor?s.data:null;
+ const money=n=>new Intl.NumberFormat('pt-BR',
+  {style:'currency',currency:'BRL'}).format(Number(n||0)/100);
+ const kind={pause:'Pausou novas concessões',
+   resume:'Reativou a campanha',end:'Encerrou definitivamente'};
+ const history=(d?.history||[]).map(h=>'<li>'+
+   esc(kind[h.action]||'Mudança administrativa')+' • '+
+   esc(String(h.createdAt||'').slice(0,19).replace('T',' '))+
+   ' • '+esc(String(h.awardedCount??0))+' prêmio(s) concedido(s)</li>').join('');
+ const canChange=adminCurrentRole()==='superadmin'&&!s.pending&&!s.loading;
+ return '<section class="section admin-welcome-campaign">'+
+  '<div class="section-head"><div><h3>Bônus de boas-vindas — R$ 1</h3>'+
+  '<p>Até 100 cadastros elegíveis. Compromisso promocional próprio: não é depósito Pix nem receita da plataforma.</p>'+
+  '</div><button class="secondary small" type="button" onclick="adminWelcomeCampaignLoad()" '+
+  (s.loading?'disabled':'')+'>Conferir campanha</button></div>'+
+  (s.error?'<p class="notice danger" role="status">'+esc(s.error)+'</p>':'')+
+  (!d?'<p class="muted" role="status">Selecione Conferir campanha para validar os valores no banco.</p>':
+  '<div class="grid cards-3">'+
+  '<div class="card flat"><small>Estado</small><strong>'+
+   (d.ended?'Encerrada':d.enabled?'Ativa':'Pausada')+'</strong></div>'+
+  '<div class="card flat"><small>Concedidos</small><strong>'+
+   Number(d.awardedCount)+' / 100</strong></div>'+
+  '<div class="card flat"><small>Vagas disponíveis</small><strong>'+
+   Number(d.remainingAwards)+'</strong></div></div>'+
+  '<p class="tiny muted">Orçamento '+money(d.budgetCents)+
+   ' • Crédito concedido '+money(d.awardedCents)+
+   ' • Saldo rastreado nos lotes '+money(d.lotRemainingCents)+
+   ' • Reservado, utilizado ou indisponível '+money(d.notAvailableCents)+
+   '. Valores não representam liquidação externa.</p>'+
+  (canChange&&!d.ended?
+   '<div class="order-actions">'+
+    (d.enabled?'<button type="button" class="secondary small" onclick="adminWelcomeCampaignManage(\'pause\')">Pausar novos bônus</button>':
+     d.remainingAwards>0?
+      '<button type="button" class="secondary small" onclick="adminWelcomeCampaignManage(\'resume\')">Reativar bônus</button>':'')+
+    '<button type="button" class="secondary small" onclick="adminWelcomeCampaignManage(\'end\')">Encerrar definitivamente</button>'+
+   '</div>':'')+
+  (history?'<details><summary>Histórico de alterações</summary><ul>'+history+'</ul></details>':
+    '<small>Nenhuma alteração administrativa registrada.</small>'))+
+  '</section>';
+}
 function adminPrelaunchLeadsSection(data){
  const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
  const metrics=adminAcquisitionMetrics(data,leads);
@@ -5745,6 +5873,7 @@ function adminPrelaunchLeadsSection(data){
    '<div class="empty card">Nenhum contato recente.</div>')+'</div>'
   ]:[]),
   ...(current==='benefits'?[
+   adminWelcomeCampaignView(),
    adminGrowthNetworkOverviewView(data?.growthNetwork),adminClubeLaunchReadinessSection(),
    adminClubeInterestSection(),adminClubeCampaignSection(),adminClubeTermsSection(),
    adminGrowthReferralReviewSection()
