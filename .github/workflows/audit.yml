@@ -189,6 +189,8 @@ jobs:
         run: node tests/coupon-paid-pix-contract.mjs
       - name: V1.807 owner coupon sponsor budget, Pix coverage and lazy UI contract
         run: node tests/coupon-owner-sponsor-contract-v1-807.mjs
+      - name: V1.942 verified sponsor coupons usable without MP NET report
+        run: node tests/coupon-owner-sponsor-spendable-v1-942.mjs
       - name: V1.808 owner personal guarantee, single R$100 liability and no fake bank deposit
         run: node tests/coupon-owner-personal-guarantee-v1-808.mjs
       - name: V1.809 admin variable owner-financed coupon topup and form contract
