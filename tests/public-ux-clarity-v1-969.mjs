@@ -6,8 +6,15 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const core=read('js/core.js'),home=read('js/home-showcase.js');
 const customer=read('js/customer.js'),growth=read('js/growth.js');
 const mobility=read('js/mobility.js'),merchant=read('js/merchant.js');
-const mobCss=read('css/mobility.css'),css=read('css/marketing-premium.css');
+const mobCss=read('css/mobility.css'),css=read('css/public-ux.css');
 const boot=read('js/bootstrap.js'),audit=read('.github/workflows/audit.yml');
+assert.match(boot,/tamaoEnsurePublicExperienceStyles\(r\)/,
+ 'Route-specific CSS must load when Club, Network, Sponsors or Team are rendered');
+assert.match(boot,/\['club','earn','sponsors','merchant-team'\]/);
+assert.match(boot,/css\/public-ux\.css/);
+assert.doesNotMatch(read('css/marketing-premium.css'),/tamao-club-visitor-focus/,
+ 'New route-specific styles must not regress the eager Home CSS budget');
+
 for(const [name,code] of [['core',core],['home-showcase',home],['growth',growth],
  ['customer',customer],['mobility',mobility],['merchant',merchant]])
  new vm.Script(code,{filename:name+'.js'});
