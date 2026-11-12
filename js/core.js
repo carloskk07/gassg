@@ -871,7 +871,7 @@ function siteFooter({adminPortal=false}={}){
       '<a href="/para-revendas/">Para revendas</a>'+
       '<a href="/para-marcas/">Para marcas</a>'+
       '<a href="/indicacoes/">Rede de indicações</a></nav>':'';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'professionals\')">Profissionais</button><button onclick="go(\'rides\')">Caronas</button><button onclick="go(\'stays\')">Hospedagens</button><button onclick="go(\'mobility\')">Minhas corridas</button><button onclick="go(\'advertise\')">Anunciar</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav>'+editorial+'</div></footer>';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'professionals\')">Profissionais</button><button onclick="go(\'rides\')">Caronas</button><button onclick="go(\'mobility\')">Minhas corridas</button><button onclick="go(\'advertise\')">Anunciar</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav>'+editorial+'</div></footer>';
 }
 function tamaoOpenAvailability(){
   // Checkout still requires a server-verified merchant.
@@ -887,10 +887,12 @@ function shell(content){
   const buyerHasOrder=testDemo?Boolean(activeOrder()):
     Boolean(globalThis.liveRuntime?.orderId||globalThis.liveRuntime?.order);
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
-  const primaryLinks=[['home','Cotações'],['professionals','Profissionais'],
-    ['mobility','Moto e carro'],['rides','Caronas'],['stays','Hospedagens'],['club','Clube']];
-  const moreLinks=[['rides','Caronas',true],['stays','Hospedagens',true],
-    ['club','Clube TAMÃO',true],['advertise','Anunciar serviço'],
+  // V1.969: suspended accommodation remains available by direct URL
+  // but must not be promoted as a live service in any public menu.
+  const primaryLinks=[['home','Produtos'],['professionals','Profissionais'],
+    ['mobility','Moto e carro'],['rides','Caronas'],['club','Clube']];
+  const moreLinks=[['learn','Como funciona'],
+    ['earn','Indicações'],['advertise','Anunciar serviço'],
     ['merchants','Para revendas'],['sponsors','Para marcas']];
   const desktopNav=adminPortal
     ? '<button onclick="go(\'admin\')">Control plane</button>'

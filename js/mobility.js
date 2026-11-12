@@ -706,12 +706,16 @@ function mobilityFeeLedgerPanel(){
 function mobilityPage(){
  if(!mobilityRoute())return shell('<section class="section"><h1>Não encontrado</h1></section>');
  const s=mobilityRuntime,intent=mobilityIntent();
- const discover='<nav class="mobility-provider-links" aria-label="Escolher anunciante para moto ou carro">'+
-  '<a href="/?servico=moto#professionals">Encontrar mototaxista</a> · '+
-  '<a href="/?servico=carro#professionals">Encontrar motorista</a></nav>';
- const top='<header><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
- '<h1>Solicitações de moto e carro</h1>'+
- '<p>Peça atendimento a um profissional anunciado. Após aceite, acompanhe o deslocamento somente quando ele permitir compartilhar o GPS.</p></header>'+(intent?'':discover);
+ // V1.969: one decision at a time. Discovery never asks for login,
+ // represents availability, or fabricates a selected provider.
+ const discover='<nav class="mobility-provider-links" aria-label="Escolher moto ou carro">'+
+  '<a class="mobility-provider-card" href="/?servico=moto#professionals"><span class="mobility-provider-symbol" aria-hidden="true">🛵</span><span><strong>Encontrar mototaxista</strong><small>Ver profissionais anunciados e escolher com quem falar</small></span><span class="mobility-provider-arrow" aria-hidden="true">→</span></a>'+
+  '<a class="mobility-provider-card" href="/?servico=carro#professionals"><span class="mobility-provider-symbol" aria-hidden="true">🚗</span><span><strong>Encontrar motorista</strong><small>Consultar anúncios de carros na sua região</small></span><span class="mobility-provider-arrow" aria-hidden="true">→</span></a>'+
+  '</nav>';
+ const top='<header class="mobility-hero"><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
+ '<h1>'+(intent?'Continue seu atendimento':'Precisa de moto ou carro?')+'</h1>'+
+ '<p>'+(intent?'Entre para continuar com o profissional selecionado. Nenhuma solicitação é enviada sem sua confirmação.':
+ 'Encontre um profissional anunciado, combine os detalhes e solicite o atendimento. O deslocamento só é exibido com autorização do motorista.')+'</p></header>'+(intent?'':discover);
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
  const error=s.error?'<p class="notice danger" role="alert">'+esc(s.error)+'</p>':'';
  const stale=s.syncUnavailable?'<p class="notice danger" role="status">Sem atualização do servidor. Estado da corrida, motorista e informações podem estar desatualizados. Confira sua conexão e toque em Atualizar atendimentos.</p>':'';
@@ -720,13 +724,17 @@ function mobilityPage(){
   '<button onclick="mobilityRetry()">Tentar novamente</button></section>');
  if(!s.user)return shell('<section class="section mobility-page">'+top+
   (intent?mobilityPortraitHtml(s.intentPortraitId===intent.id&&s.intentPortraitMode===intent.mode?s.intentPortraitKey:''):'')+
-  '<p>Entre com seu e-mail para enviar pedidos ou atender solicitações de seus anúncios. Não mostraremos posições sem autenticação.</p>'+
-  '<p><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar</a>'+
-  ' · <a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar</a></p>'+
-  '<p><a href="/#contact">Precisa de ajuda? Fale com o suporte TAMÃO</a></p>'+
+  '<div class="mobility-access-layout">'+
+  '<section class="mobility-access-panel" aria-label="Acesso ao atendimento"><div><span class="section-kicker">'+
+  (intent?'CONTINUAR ATENDIMENTO':'JÁ TEM UMA SOLICITAÇÃO?')+'</span><h2>'+
+  (intent?'Entre para continuar':'Acompanhe seu atendimento')+'</h2><p>Use seu e-mail para acessar solicitações existentes ou confirmar um novo atendimento. Sem senha e sem mostrar GPS antes da autenticação.</p></div>'+
   note+error+'<form class="mobility-form" onsubmit="return mobilityLogin(event)">'+
-  '<label>E-mail<input name="email" type="email" required maxlength="254" autocomplete="email"></label>'+
-  '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button></form></section>');
+  '<label>E-mail<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="voce@exemplo.com"></label>'+
+  '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button></form></section>'+
+  '<aside class="mobility-driver-panel"><span class="section-kicker">É PROFISSIONAL?</span><h2>Quer receber solicitações?</h2><p>Anuncie seu serviço para que clientes encontrem seu contato. Você decide quando atender e se compartilha sua localização.</p>'+
+  '<div class="mobility-driver-links"><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar →</a>'+
+  '<a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar →</a></div></aside></div>'+
+  '<p class="mobility-support"><a href="/#contact">Precisa de ajuda? Fale com o suporte TAMÃO</a></p></section>');
  const hasOngoingRider=s.items.some(x=>x.role==='rider'&&mobilityActiveRequest(x))||
   (s.detail?.role==='rider'&&['requested','accepted','en_route','arrived'].includes(s.detail.status))||
   (Boolean(s.id)&&!s.detail);

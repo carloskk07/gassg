@@ -187,33 +187,39 @@ function club(){
     globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
   }
   globalThis.clubeCouponWatchAuth?.();
+  // V1.969: the verified package is the destination, not a third generic
+  // benefit pitch. Hidden until the public catalog confirms real prices.
   if(!member)return shell(`<section class="page tamao-club-visitor">
-    <div class="tamao-club-visitor-hero">
-      <span class="eyebrow">CLUBE TAMÃO</span>
-      <h1>Suas próximas compras podem render mais vantagens.</h1>
-      <p>Compare ofertas para seu CEP, descubra cupons e conheça o cashback do TAMÃO. Benefícios são aplicados somente quando a compra atende às condições.</p>
-      <div class="tamao-club-visitor-actions">
-        <button type="button" class="primary" onclick="go('home')">Consultar produtos →</button>
-        <button type="button" class="secondary" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
+    <div class="tamao-club-visitor-focus">
+      <div class="tamao-club-visitor-hero">
+        <span class="eyebrow">CLUBE TAMÃO</span>
+        <h1>Cupons e cashback com condições claras.</h1>
+        <p>Veja os cupons disponíveis, confira preço e regras e entre com seu e-mail para consultar sua conta. Descontos só podem ser usados em pedidos elegíveis.</p>
+        <div class="tamao-club-visitor-actions">
+          <button type="button" class="primary" onclick="go('home')">Ver produtos e entrega →</button>
+          <button type="button" class="secondary" onclick="go('earn')">Como funcionam as indicações</button>
+        </div>
       </div>
+      <aside class="tamao-coupon-price-board card form-stack" hidden aria-label="Pacote de cupons com preço confirmado">
+        <span class="section-kicker">PACOTE DE CUPONS</span>
+        <h2>Confira seu pacote antes de entrar</h2>
+        <p class="tamao-club-face" data-coupon-face></p>
+        <p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p>
+        <p data-coupon-minimum></p>
+        <p data-coupon-availability></p>
+        <p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
+        <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)">
+          <label for="clube-visitor-coupon-email">E-mail para acessar os cupons</label>
+          <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
+          <button type="submit" class="primary">Entrar e consultar a compra →</button>
+          <p data-welcome-signup-status role="status"></p>
+        </form>
+      </aside>
     </div>
-    <aside class="tamao-coupon-price-board card form-stack" hidden>
-      <span class="section-kicker">CUPONS UNIVERSAIS</span>
-      <p><strong data-coupon-price></strong> · <span data-coupon-face></span></p>
-      <p data-coupon-minimum></p>
-      <p data-coupon-availability></p>
-      <p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
-      <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)">
-        <label for="clube-visitor-coupon-email">E-mail para acessar os cupons</label>
-        <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
-        <button type="submit" class="primary">Entrar e consultar a compra →</button>
-        <p data-welcome-signup-status role="status"></p>
-      </form>
-    </aside>
     <div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">
-      <article class="card"><span class="feature-icon" aria-hidden="true">🎟️</span><h2>Cupons na sua conta</h2><p>Consulte valor e validade dos cupons emitidos para você quando acessar sua conta.</p></article>
-      <article class="card"><span class="feature-icon" aria-hidden="true">💚</span><h2>Cashback elegível</h2><p>Compras qualificadas podem gerar crédito para usar em pedidos seguintes.</p></article>
-      <article class="card"><span class="feature-icon" aria-hidden="true">🔎</span><h2>Compare pelo CEP</h2><p>Quando houver ofertas, veja os preços totais e a entrega antes de escolher.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">🎟️</span><h2>Cupons na sua conta</h2><p>Depois de entrar, veja o valor, a validade e as condições de cada cupom.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">💚</span><h2>Cashback elegível</h2><p>Compras qualificadas podem gerar crédito para próximos pedidos.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">🔎</span><h2>Compare pelo CEP</h2><p>Quando houver oferta, confira o preço total e a entrega antes de escolher.</p></article>
     </div>
   </section>`);
   const purchases=Math.max(0,Number(state.user.purchases)||0);
@@ -491,13 +497,10 @@ function earn(){
     <div class="tamao-network-hero">
       <div class="tamao-network-intro">
         <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
-        <h1 class="page-title">Indique quem compra. Apresente quem vende. Faça sua rede crescer.</h1>
-        <p class="page-lead">Sua indicação pode aproximar amigos, vizinhos e revendas. Compartilhe seu link, acompanhe os convites atribuídos e conheça os benefícios de cada participação.</p>
+        <h1 class="page-title">Indique pessoas e revendas. Acompanhe seus convites.</h1>
+        <p class="page-lead">Compartilhe seu convite com quem possa usar o TAMÃO. Uma comissão só pode surgir após a primeira compra qualificada, com validação e regras da campanha.</p>
         <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios com condições claras</span></div>
-        <div class="tamao-network-hero-actions">
-          <button type="button" class="primary" onclick="go('refer')">Conhecer minha rede →</button>
-          <button type="button" class="secondary" onclick="go('club')">Ver benefícios de compra</button>
-        </div>
+
       </div>
       <aside class="tamao-network-illustration" aria-label="Como a Rede TAMÃO aproxima consumidores e revendas">
         <span class="tamao-network-illustration-kicker">CRESCER JUNTO FAZ SENTIDO</span>
@@ -507,7 +510,7 @@ function earn(){
           <div class="tamao-network-node tamao-network-node--buyer"><span>🛍️</span><strong>Quem compra</strong></div>
           <div class="tamao-network-node tamao-network-node--seller"><span>🏪</span><strong>Quem vende</strong></div>
         </div>
-        <p>Cada convite pode apresentar novas possibilidades. Atribuições e recompensas dependem das condições de cada programa.</p>
+        <p>Compartilhar é gratuito. Comissão depende de uma compra real, válida e das condições de cada programa.</p>
       </aside>
     </div>
     <div class="tamao-network-choice-head"><div><span class="section-kicker">ESCOLHA POR ONDE COMEÇAR</span><h2>Qual é o seu próximo passo?</h2></div></div>
@@ -516,46 +519,8 @@ function earn(){
       <button type="button" onclick="go('club')"><span aria-hidden="true">🎁</span><strong>Quero meus benefícios</strong><small>Confira o que você conquistou e as condições de uso.</small><b aria-hidden="true">→</b></button>
       <button type="button" onclick="go('merchants')"><span aria-hidden="true">🏪</span><strong>Tenho uma empresa</strong><small>Conheça o canal de vendas para revendas locais.</small><b aria-hidden="true">→</b></button>
     </nav>
-    ${growthNetworkIntro()}
-    <section class="section tamao-benefit-guide" aria-label="Entenda as vantagens disponíveis no TAMÃO">
-      <div class="section-head tamao-benefit-guide-heading"><div>
-        <span class="section-kicker">UMA PLATAFORMA • BENEFÍCIOS DIFERENTES</span>
-        <h2>Descubra qual vantagem combina com você.</h2>
-        <p>Compre quando precisar. Compartilhe quando fizer sentido. Cashback, indicações, cupons de campanhas e oportunidades para empresas funcionam de formas diferentes. Veja o que cada opção significa antes de participar.</p>
-      </div></div>
-      <div class="tamao-benefit-guide-grid">
-        <article class="tamao-benefit-guide-card benefit-buy">
-          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🛍️</span><small>PARA SUAS COMPRAS</small></div>
-          <h3>Cashback para voltar a comprar.</h3>
-          <p>Compras elegíveis podem gerar crédito para usar em outra compra no TAMÃO. Seu saldo real e o histórico ficam no Clube.</p>
-          <div class="benefit-condition"><strong>Quando conta?</strong><span>Após a compra cumprir as regras do benefício e os registros serem validados.</span></div>
-          <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
-        </article>
-        <article class="tamao-benefit-guide-card benefit-refer">
-          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🤝</span><small>PARA SUA REDE</small></div>
-          <h3>Indicações com acompanhamento.</h3>
-          <p>Seu link pessoal identifica convites. A primeira compra qualificada de um novo cliente pode gerar comissão nas campanhas habilitadas.</p>
-          <div class="benefit-condition"><strong>Quando conta?</strong><span>Quando a indicação e a compra cumprem os critérios de atribuição e validação; só compartilhar não gera pagamento.</span></div>
-          <button type="button" onclick="go('refer')">Ver minha Rede <span aria-hidden="true">→</span></button>
-        </article>
-        <article class="tamao-benefit-guide-card benefit-campaign">
-          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🎟️</span><small>QUANDO HOUVER CAMPANHA</small></div>
-          <h3>Cupons e ações especiais.</h3>
-          <p>Campanhas podem oferecer condições adicionais para compras elegíveis. Cada ação terá suas próprias regras, validade e limites.</p>
-          <div class="benefit-condition"><strong>Como saber?</strong><span>Os descontos aparecem apenas quando uma campanha válida estiver disponível para você.</span></div>
-          <button type="button" onclick="go('club')">Ir ao Clube TAMÃO <span aria-hidden="true">→</span></button>
-        </article>
-        <article class="tamao-benefit-guide-card benefit-business">
-          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🏪</span><small>PARA QUEM VENDE</small></div>
-          <h3>Mais um canal para sua empresa.</h3>
-          <p>Revendas podem divulgar seus produtos e receber pedidos da região, mantendo controle sobre preços, estoque e entrega.</p>
-          <div class="benefit-condition"><strong>Quando começa?</strong><span>Após o cadastro, as verificações exigidas e a habilitação comercial da operação.</span></div>
-          <button type="button" onclick="go('merchants')">Conhecer as revendas <span aria-hidden="true">→</span></button>
-        </article>
-      </div>
-      <p class="tamao-benefit-guide-footnote">Valores, limites e a possibilidade de combinar vantagens dependem das regras de cada campanha. Confira as condições antes de participar.</p>
-    </section>
 
+    <p class="tamao-network-clarity">O Clube reúne cupons e cashback de compras elegíveis. A Rede reúne convites e indicações. Nenhum compartilhamento, cadastro isolado ou convite garante pagamento; a empresa só vende após a habilitação comercial.</p>
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Compartilhe seu link pessoal, ajude mais gente a encontrar boas opções e acompanhe as indicações. Primeiras compras elegíveis podem gerar comissão após a validação.</p>
         <ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
@@ -569,7 +534,7 @@ function earn(){
       </article>
     </div>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">SUAS VANTAGENS, DO SEU JEITO</span><h2>Mais de um motivo para fazer parte.</h2><p>O cashback de compras elegíveis ajuda na próxima compra; a Rede TAMÃO permite convidar clientes e empresas; e cada revenda continua recebendo diretamente por suas vendas. Tudo com condições claras, que você pode consultar antes de participar.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
+
   </section>`)
 }
 
@@ -719,20 +684,13 @@ function sponsorsLanding(){
     <div class="tamao-sponsor-hero tamao-commercial-hero">
       <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
-      <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
-      <p class="page-lead">Divulgue sua marca na cidade, sem precisar ser revenda.</p>
+      <h1 class="page-title">Divulgue sua marca com investimento e entrega claros.</h1>
+      <p class="page-lead">Escolha sua região, conheça o teto de investimento e solicite uma proposta. A publicidade comercial depende de validação e de inventário disponível.</p>
       <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
-        <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
       </div>
-      <div class="sponsor-intent-quick" role="group" aria-label="Escolha o tipo de parceria para sua marca">
-        <span class="sponsor-intent-kicker">SUA MARCA QUER...</span>
-        <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação na cidade</small></span><b aria-hidden="true">↗</b></button>
-        <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
-        <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parceria regional</small></span><b aria-hidden="true">↗</b></button>
-        <p>Escolha seu objetivo e envie sua proposta.</p>
-      </div></div>
+</div>
       <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
         <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>EXEMPLO DE FORMATO</small></div>
         <div class="sponsor-visual-feature">
@@ -748,7 +706,7 @@ function sponsorsLanding(){
       </aside></div>
     </div>
     ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'')}
-    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia à divulgação na sua cidade.</h2><p>Orçamento e entrega sujeitos a validação.</p></div>
+    <div class="public-sponsor-selector-intro"><span class="section-kicker">ESCOLHA A FINALIDADE</span><h2>Que tipo de divulgação você procura?</h2><p>Selecione um objetivo para solicitar uma proposta sem pagamento antecipado.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Escolha o objetivo da sua campanha.</p></div></div>
       <div class="sponsor-format-grid">
@@ -767,12 +725,7 @@ function sponsorsLanding(){
         <div><strong>3. Validar antes de ativar</strong><p>Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha. Sem cobrar por entrega não verificada.</p></div>
       </div>
     </section>
-    <section class="section"><div class="card tamao-sponsor-footer">
-      <span class="section-kicker">VAMOS CONVERSAR?</span>
-      <h2>Boas parcerias começam aqui.</h2>
-      <p>Informe cidade, categoria e orçamento. Sem pagamento antecipado.</p>
-      <button type="button" class="primary" onclick="openSponsorContact()">Conversar sobre divulgação →</button>
-    </div></section>
+
   </section>`);
 }
 

@@ -16,8 +16,8 @@ assert.match(rendered,/Tamão São Gabriel\/RS/);
 assert.match(rendered,/Comece pelos produtos logo abaixo/);
 assert.doesNotMatch(rendered,/city-price-shopping-steps|tamao-quote-benefits/,
  'Avoid repeated buying steps and benefit cards inside quotation.');
-assert.equal((rendered.match(/class="tamao-home-coupon-rail"/g)||[]).length,1,
- 'A single quote-board coupon action remains');
+assert.equal((rendered.match(/class="tamao-home-coupon-rail"/g)||[]).length,0,
+ 'The home quote should lead to products, not repeat the separate coupon banner');
 assert.equal((rendered.match(/name="tamao-city-quote"/g)||[]).length,0,
  'do not open product cards with unverified market-reference prices');
 assert.doesNotMatch(rendered,/city-price-product-icon|homeQuoteSyncPostal\(this\)|city-price-quick-add/,

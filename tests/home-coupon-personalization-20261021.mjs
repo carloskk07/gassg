@@ -26,6 +26,8 @@ for(const markup of [anonymous,ctx.coupon()]){
  assert.match(markup,/onclick="go\('club'\)"/);
  assert.doesNotMatch(markup,/economia garantida|desconto garantido|\b\d+%/i);
 }
-assert.ok(src.indexOf('city-price-grid')<src.indexOf('homeQuoteCouponRail()+'));
+assert.ok(!src.slice(src.indexOf('function homeRegionalPriceBoard('),
+ src.indexOf('// Count only fresh')).includes('homeQuoteCouponRail()+'),
+ 'Keep standalone personalized coupon renderer for safe reuse, not duplicate home banner');
 new vm.Script(src);
 console.log('PASS: coupon count only from ready user-scoped vouchers; no invented discount');

@@ -65,7 +65,7 @@ assert.ok(
 
 assert.ok(
   core.includes('onclick="tamaoOpenAvailability()">Montar cesta')
-  &&core.includes("['home','Cotações']")
+  &&core.includes("['home','Produtos']")
   &&core.includes("['availability','🧺','Comprar','market']")&&core.includes("['tracking','📦','Pedidos','go']")
   &&core.slice(core.indexOf('function tamaoOpenAvailability(){'),core.indexOf('function shell(',core.indexOf('function tamaoOpenAvailability(){'))).includes('return startHomeBrowse();')
   &&core.includes("const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região'"),

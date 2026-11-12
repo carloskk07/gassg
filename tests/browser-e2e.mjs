@@ -224,9 +224,10 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Indique quem compra. Apresente quem vende. Faça sua rede crescer.')","earn route");
+await waitFor("document.body.innerText.includes('Indique pessoas e revendas. Acompanhe seus convites.')","earn route");
 body=await text();
 assert.match(body,/Conhece alguém que gostaria de usar o TAMÃO\?/);
+assert.match(body,/Nenhum compartilhamento, cadastro isolado ou convite garante pagamento/);
 assert.match(body,/Sua empresa pode vender por mais um canal/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa TAMÃO: 7,5% por pedido concluído/);
