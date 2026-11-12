@@ -20,3 +20,4 @@
 .merchant-team-access .empty.card p{line-height:1.6;margin:12px 0}
 .merchant-team-access .empty.card button{min-height:44px}
 @media(max-width:840px){.tamao-club-visitor-focus{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.tamao-club-visitor-focus .tamao-club-visitor-hero{padding:22px 19px}.tamao-club-visitor-focus .tamao-coupon-price-board{padding:20px 17px}.tamao-earn-page .tamao-network-clarity{padding:13px 14px;font-size:13px}}
