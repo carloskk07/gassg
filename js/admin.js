@@ -6666,7 +6666,8 @@ function adminFinanceReadbackOnReturn(){
  return true;
 }
 function adminBindFinanceReadbackOnReturn(){
- if(globalThis.__tamaoFinanceReturnBound||typeof document==='undefined')return;
+ if(globalThis.__tamaoFinanceReturnBound||typeof document==='undefined'||
+    typeof document.addEventListener!=='function')return;
  globalThis.__tamaoFinanceReturnBound=true;
  document.addEventListener('visibilitychange',adminFinanceReadbackOnReturn);
  if(typeof globalThis.addEventListener==='function'){
