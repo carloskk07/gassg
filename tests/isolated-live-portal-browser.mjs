@@ -302,6 +302,16 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         assert.equal(created.status,'OFFERED_TO_MERCHANT');
         assert.equal(Number(created.cart?.WATER20||0),0,'basket cleared only after confirmed checkout');
         assert.match(created.visible,/pedido/i);
+        // V1.959: return to the REAL production home, find the tracked
+        // order immediately, and resume that SAME authenticated order.
+        assert.equal(await ui.evaluate("(()=>{go('home');return route()==='home'})()"),true);
+        await ui.wait("route()==='home'&&Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Ver meu pedido'))",
+          'returning buyer must find their order directly from the home');
+        const resumed=await ui.evaluate("(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('Ver meu pedido'));if(!b)return false;b.click();return true})()");
+        assert.equal(resumed,true,'the real home CTA must reopen order tracking');
+        await ui.wait("route()==='tracking'&&liveRuntime.order?.orderId==="+JSON.stringify(created.id),
+          'home CTA restores the exact original SQL order without a second checkout');
+        assert.equal(await ui.evaluate("liveRuntime.order?.status"),'OFFERED_TO_MERCHANT');
         if(browserCheckoutBuyer){
           const shot=await ui.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
           const png=Buffer.from(shot.data||'','base64');assert.ok(png.length>6000);
