@@ -220,6 +220,16 @@ function couponInvoiceNetCovered(row:any){
    Number.isSafeInteger(sponsor)&&sponsor>=0&&sponsor<=10000&&
    (providerNetCovered||ownerSponsorCovered);
 }
+// A recorded provider NET receipt is a distinct fact from an independently
+// funded customer voucher. Do not call it bank settlement or merchant payout.
+function couponNetReconciliationRecorded(row:any){
+ const net=row?.net_proceeds_cents,gross=row?.sale_price_cents;
+ const ref=String(row?.net_proceeds_reference??"").trim();
+ return row?.status==="paid"&&Boolean(row?.paid_at)&&
+  Number.isSafeInteger(net)&&net>0&&
+  Number.isSafeInteger(gross)&&net<=gross&&
+  ref.length>=8&&Number.isFinite(Date.parse(String(row?.net_proceeds_verified_at??"")));
+}
 function publicInvoice(row:any){
  const payable=couponInvoiceCanPresent(row);
  const covered=couponInvoiceNetCovered(row);
@@ -232,6 +242,9 @@ function publicInvoice(row:any){
    // the same funding conditions used by the atomic checkout are satisfied.
    expiresAt:row.expires_at??null,issuedCoupons:covered?row.coupons_per_pack:0,
    fundingPending:row.status==="paid"&&!covered,
+   // Read-only flags, derived from the same SQL-backed checkout gates.
+   sponsorFundedSpendable:covered&&row.ownerSponsorVerified===true,
+   netReconciliationRecorded:couponNetReconciliationRecorded(row),
    fundingModel:row.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed',
    seller:row.seller_name?{
      name:row.seller_name,taxDocument:row.seller_tax_document,
@@ -499,6 +512,8 @@ Deno.serve(async(req:Request)=>{
         settlementReviewReason:row.status==="review_required"?row.coupon_settlement_hold_reason_v1_853:null,
         fundingModel:row.funding_mode_v1_846==='partner_funded'?'partner_funded':'platform_reimbursed',
         fundingPending:row.status==="paid"&&!couponInvoiceNetCovered(row),
+        sponsorFundedSpendable:couponInvoiceNetCovered(row)&&row.ownerSponsorVerified===true,
+        netReconciliationRecorded:couponNetReconciliationRecorded(row),
         seller:row.seller_name?{
           name:row.seller_name,taxDocument:row.seller_tax_document,
           address:row.seller_address,supportEmail:row.seller_support_email

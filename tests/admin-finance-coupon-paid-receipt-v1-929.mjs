@@ -11,15 +11,17 @@ const source=admin.slice(start,end);
 const invoice='9af683aa-1064-4999-8809-0c92e565a1b5';
 const actor='11111111-1111-4111-8111-111111111111';
 const brCode='000201'+('01234567890123456789'.repeat(6))+'6304ABCD';
-let settled=false,funded=false,role='superadmin',selected='coupons',calls=[],timers=[],nextTimer=0;
+let settled=false,funded=false,role='superadmin',selected='coupons',calls=[],timers=[],nextTimer=0,autoChecks=[];
 const runtime={session:{user:{id:actor}},section:'finance',
  financeWorkspace:'homologation',status:'ready'};
 const paidPurchase={invoiceId:invoice,packageKey:'all_products_3x5_sponsor',
- status:'paid',amountCents:890,paidAt:'2026-11-10T15:46:34.033Z',fundingPending:true};
+ status:'paid',amountCents:890,paidAt:'2026-11-10T15:46:34.033Z',
+ fundingPending:true,sponsorFundedSpendable:false,netReconciliationRecorded:false};
 const pendingPurchase={...paidPurchase,status:'awaiting_payment',paidAt:null,fundingPending:false};
 const dataFor=(action)=>{
  if(action==='my-vouchers')return {source:'clube_coupon_paid_my_vouchers_v1',
-  purchases:[settled?(funded?{...paidPurchase,fundingPending:false}:paidPurchase):pendingPurchase],
+  purchases:[settled?(funded?{...paidPurchase,fundingPending:false,
+    sponsorFundedSpendable:true,netReconciliationRecorded:false}:paidPurchase):pendingPurchase],
   vouchers:funded?[1,2,3].map(ordinal=>({invoiceId:invoice,status:'issued',
     faceCents:500,ordinal})):[]};
  if(action==='catalog')return {source:'clube_paid_catalog_v1_807',couponSalesEnabled:true,
@@ -38,6 +40,13 @@ const context=vm.createContext({
  adminFinanceWorkspaceCurrent:()=>runtime.financeWorkspace,
  adminFinanceHomologationEvidenceState:()=>({selected}),
  adminAccessToken:async()=> 'owner-jwt',
+ adminInvoke:async input=>{
+  assert.equal(input.action,'clube-coupon-auto-status');
+  autoChecks.push(input.invoiceId);
+  return {source:'coupon_auto_net_status_v1_931',readOnly:true,
+   invoiceId:input.invoiceId,enabled:true,status:'awaiting_report',
+   reason:'MP_RELEASE_NOT_FOUND'};
+ },
  CHAMA_BACKEND:{url:'https://api.example.test',publishableKey:'public-key'},
  chamaFetch:async(url,opt)=>{
   const body=JSON.parse(opt.body);calls.push(body.action);
@@ -88,9 +97,31 @@ assert(!calls.includes('purchase'));
 funded=true;
 await context.real.refresh();
 const sponsoredReceipt=context.real.view('coupons');
-assert.match(sponsoredReceipt,/Financiamento do benefício confirmado/);
+assert.match(sponsoredReceipt,/Patrocínio conferido: benefício financeiramente elegível/);
 assert.match(sponsoredReceipt,/Cupons emitidos visíveis: 3/);
+assert.match(sponsoredReceipt,/Conciliação do líquido do Mercado Pago ainda pendente/);
 assert.match(sponsoredReceipt,/O relatório contábil do Mercado Pago continua independente/);
+assert.match(sponsoredReceipt,/Conferência automática ativa/);
+assert.equal(autoChecks.at(-1),invoice,
+ 'sponsored voucher with NET pending must still query original invoice audit');
+// V1.966: machine observations are scoped to their own invoice, never reused
+// when two paid purchases appear in the same user's history.
+const otherInvoice='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const financeState=context.real.state();
+financeState.data.history.purchases.push({
+ ...financeState.data.history.purchases[0],invoiceId:otherInvoice
+});
+const twoReceipts=context.real.view('coupons');
+assert.equal((twoReceipts.match(/Conferência automática ativa/g)||[]).length,1,
+ 'only the matched invoice can display this machine status');
+financeState.data.history.purchases.pop();
+financeState.autoStatus={source:'coupon_auto_net_status_v1_931',readOnly:true,
+ enabled:true,invoiceId:otherInvoice,status:'requires_review',reason:'UNRELATED'};
+const wrongStatus=context.real.view('coupons');
+assert.doesNotMatch(wrongStatus,/Conferência automática ativa/,
+ 'another invoice must never supply the displayed NET observation');
+assert.doesNotMatch(wrongStatus,/Há divergência a revisar/);
+
 assert.doesNotMatch(sponsoredReceipt,/Valor líquido já verificado no sistema/);
 const before=calls.length;
 await context.real.action('purchase','all_products_3x5_sponsor');
