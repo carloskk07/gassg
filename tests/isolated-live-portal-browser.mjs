@@ -234,15 +234,19 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         "if(!el||!section)return JSON.stringify({missing:true});"+
         "const original=el.value,edited=original==='7.70'?'8.80':'7.70';"+
         "const existingOrders=merchantRuntime.orders.length;"+
-        "section.open=true;el.focus();el.value=edited;render();"+
+        "for(let p=el.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;"+
+        "section.open=true;el.focus();const focusBefore=document.activeElement===el;"+
+        "el.value=edited;render();"+
         "const after=document.getElementById('live-delivery-fee');"+
-        "const result={missing:false,sameDraft:after?.value===edited,"+
+        "const result={missing:false,focusBefore,sameDraft:after?.value===edited,"+
         "sameFocus:document.activeElement?.id==='live-delivery-fee',"+
         "sectionOpen:document.getElementById('merchant-workspace-finance')?.open===true,"+
         "ordersUnchanged:merchantRuntime.orders.length===existingOrders};"+
         "if(after)after.value=original;document.activeElement?.blur?.();render();"+
         "return JSON.stringify(result)})()"));
       assert.equal(merchantDraftUi.missing,false,'real partner form and finance section must exist');
+      assert.equal(merchantDraftUi.focusBefore,true,
+        'all ancestor settings drawers must be expanded before editing delivery fee: '+JSON.stringify(merchantDraftUi));
       assert.equal(merchantDraftUi.sameDraft,true,
         'partner DOM refresh preserves unsaved delivery fee: '+JSON.stringify(merchantDraftUi));
       assert.equal(merchantDraftUi.sameFocus,true,'partner DOM refresh retains field focus');
