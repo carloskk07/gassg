@@ -264,7 +264,7 @@ function merchantClubeInterestSection(merchant){
     '<h2>Ajude seus clientes a economizar e voltar a comprar</h2>'+
     '<p>Escolha os benefícios que teria interesse em patrocinar futuramente. A negociação final será feita separadamente.</p></div></div>'+
     '<div class="grid cards-2">'+cards+'</div>'+
-    '<p class="tiny muted">Pesquisa sem venda de cupons nem promessa de benefício. Valores não autorizam campanhas nem alteram preços.</p>'+
+    '<p class="tiny muted">Pesquisa: os cupons não estão à venda nem prometem benefícios. Valores não autorizam campanhas nem alteram preços.</p>'+
     '</section>';
 }
 async function merchantClubeInterestCall(packageKey,operation,fields={}){
