@@ -2357,7 +2357,7 @@ function merchantFirstRunView(rt,canGoOnline){
     '<p class="merchant-first-run-note">Configurar não libera vendas. Aprovações e autorizações financeiras seguem sob validação do TAMÃO.</p>'+
     '</section>';
 }
-globalThis.document?.addEventListener?.('focusin',()=>{
+for(const ev of ['focusin','pointerdown'])globalThis.document?.addEventListener?.(ev,()=>{
  if(!merchantReady()||globalThis.__mui)return;
  globalThis.__mui=1;
  const s=document.createElement('script');
