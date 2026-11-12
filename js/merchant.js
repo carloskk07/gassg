@@ -2354,7 +2354,7 @@ function merchantFirstRunView(rt,canGoOnline){
     '<details class="merchant-first-run-extra"><summary>Ver todas as etapas ('+model.steps.length+')</summary>'+
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<button type="button" class="secondary small" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></details>'+
-    '<p class="merchant-first-run-note">Configurar não libera vendas. Aprovações e autorizações financeiras seguem sob validação do TAMÃO.</p>'+
+    '<p class="merchant-first-run-note">Configurar não libera vendas. Aprovações, módulos estratégicos e autorizações financeiras exigem validação do TAMÃO.</p>'+
     '</section>';
 }
 for(const ev of ['focusin','pointerdown'])globalThis.document?.addEventListener?.(ev,()=>{
