@@ -271,6 +271,8 @@ assert.equal(ctx.reports([{...report(file),file_name:''}]).reason,
  'MP_RELEASE_FILENAME_MISSING');
 assert.equal(ctx.reports([report('../unsafe.csv')]).reason,
  'MP_RELEASE_INVALID_FILENAME');
+assert.equal(ctx.reports([{...report(file),file_name:null},report('../unsafe.csv')]).reason,
+ 'MP_RELEASE_INVALID_FILENAME','mixed metadata must never hide a bad path');
 const discoverySource=worker.slice(
  worker.indexOf('async function discoverReleaseReports('),
  worker.indexOf('export function evaluateReports('));
@@ -279,7 +281,7 @@ assert.ok(discoverySource.includes('official_search_missing_list_filename'));
 assert.equal((worker.match(/reports.source==="official_search"/g)||[]).length,2,
  'missing-filename fallback cannot authorize another provider report POST');
 let summary=[{...report(file),file_name:null,id:123}];
-let responses=[], providerCalls=[];
+let providerCalls=[];
 const discoveryVm=vm.createContext({
  mercadoPagoFetch:async(path,options)=>{
   assert.equal(options.method,'GET','report discovery must be GET only');
