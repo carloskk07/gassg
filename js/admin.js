@@ -12178,27 +12178,62 @@ async function adminReviewMerchantRepresentation(id,decision,ownerUserId){
   }catch(e){toast(String(e?.message||e));}
 }
 
+// V1.967 — Never turn a missing/stale verification form into an implicit
+// pending CNPJ/ANP decision or a logistics capability revocation.
+// These UI guards supplement, never replace, the server authority/RPC checks.
+function adminPartnerVerificationMutationTarget(id){
+  const key=String(id||'');
+  if(!adminReady()||adminRuntime.section!=='partners'||
+     adminPartnersWorkspaceTab!=='verification'||
+     !['superadmin','operations','compliance'].includes(adminCurrentRole())||
+     adminRuntime.actionPending||
+     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)||
+     !Array.isArray(adminRuntime.data?.merchants))return null;
+  return adminRuntime.data.merchants.find(m=>m?.id===key)||null;
+}
 async function adminSaveCompliance(id){
-  const cnpjStatus=document.getElementById('cnpj-'+id)?.value||'pending';
-  const anpStatus=document.getElementById('anp-'+id)?.value||'pending';
-  const anpReference=document.getElementById('anpref-'+id)?.value.trim()||'';
-  const notes=document.getElementById('notes-'+id)?.value.trim()||'';
+  if(!adminPartnerVerificationMutationTarget(id))
+    return toast('Atualize a revenda e abra Documentos e ativação antes de salvar.');
+  const cnpj=document.getElementById('cnpj-'+id);
+  const anp=document.getElementById('anp-'+id);
+  const reference=document.getElementById('anpref-'+id);
+  const note=document.getElementById('notes-'+id);
+  // A partial rebuild must never reset a previously verified status to pending.
+  if(!cnpj||!anp||!reference||!note||
+     !['pending','verified','rejected'].includes(cnpj.value)||
+     !['pending','verified','not_required','rejected'].includes(anp.value)||
+     typeof reference.value!=='string'||typeof note.value!=='string')
+    return toast('Formulário de conformidade incompleto. Atualize e revise antes de salvar.');
+  const cnpjStatus=cnpj.value,anpStatus=anp.value;
+  const anpReference=reference.value.trim(),notes=note.value.trim();
   if(cnpjStatus==='verified'&&notes.length<5)return toast('Registre a fonte/evidência usada para verificar o CNPJ');
   if(anpStatus==='verified'&&anpReference.length<3)return toast('Informe a referência da consulta ANP');
   if((cnpjStatus==='rejected'||anpStatus==='rejected')&&notes.length<5)return toast('Documente a evidência da rejeição');
+  const actor=String(adminRuntime.session?.user?.id||'');
   try{
-    await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
+    const result=await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
+    if(actor!==String(adminRuntime.session?.user?.id||''))return;
+    if(!result||result.ok===false)return toast('Validação não confirmada. Consulte o cadastro antes de repetir.');
     toast('Validação salva');
-  }catch(e){toast(String(e?.message||e))}
+  }catch(e){if(actor===String(adminRuntime.session?.user?.id||''))toast(String(e?.message||e))}
 }
 async function adminSaveDeliveryCapability(id){
-  const active=document.getElementById('mixed-'+id)?.checked===true;
-  const notes=document.getElementById('mixednotes-'+id)?.value.trim()||'';
+  if(!adminPartnerVerificationMutationTarget(id))
+    return toast('Atualize a revenda e abra Documentos e ativação antes de salvar.');
+  const checkbox=document.getElementById('mixed-'+id);
+  const note=document.getElementById('mixednotes-'+id);
+  if(!checkbox||typeof checkbox.checked!=='boolean'||!note||
+     typeof note.value!=='string')
+    return toast('Formulário de logística incompleto. Atualize antes de salvar.');
+  const active=checkbox.checked,notes=note.value.trim();
   if(active&&!confirm('Confirma que esta revenda foi validada operacionalmente para cesta mista com GLP?'))return;
+  const actor=String(adminRuntime.session?.user?.id||'');
   try{
-    await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    const result=await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    if(actor!==String(adminRuntime.session?.user?.id||''))return;
+    if(!result||result.ok===false)return toast('Capacidade não confirmada. Consulte a revenda antes de repetir.');
     toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
-  }catch(e){toast(String(e?.message||e))}
+  }catch(e){if(actor===String(adminRuntime.session?.user?.id||''))toast(String(e?.message||e))}
 }
 
 async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
@@ -12282,9 +12317,22 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
 }
 
 async function adminSetMerchantStatus(id,action){
+  const merchant=adminPartnerVerificationMutationTarget(id);
+  if(!merchant||!['activate-merchant','suspend-merchant'].includes(action))
+    return toast('Revenda ou operação não confirmada. Atualize e revise o cadastro.');
+  if(action==='activate-merchant'&&merchant.status==='active')
+    return toast('Esta revenda já está ativa.');
+  if(action==='suspend-merchant'&&merchant.status!=='active')
+    return toast('Esta revenda já está fora de operação.');
   const label=action==='activate-merchant'?'ativar':'suspender';
   if(!confirm('Confirma '+label+' esta revenda?'))return;
-  try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
+  const actor=String(adminRuntime.session?.user?.id||'');
+  try{
+    const result=await adminPerform(action,{merchantId:id});
+    if(actor!==String(adminRuntime.session?.user?.id||''))return;
+    if(!result||result.ok===false)return toast('Status não confirmado. Consulte a revenda antes de repetir.');
+    toast('Status atualizado');
+  }catch(e){if(actor===String(adminRuntime.session?.user?.id||''))toast(String(e?.message||e))}
 }
 const ADMIN_REFERRAL_REJECTION_REASONS=Object.freeze({
   address:'Vínculo de endereço de entrega confirmado e não justificado na revisão.',
