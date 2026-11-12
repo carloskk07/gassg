@@ -1,4 +1,17 @@
 const BRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+// V1.970 — load workspace polish only on authenticated Admin / Revenda views.
+// Its version always matches the core CSS release, so a new deployment cannot
+// combine layouts from different revisions; the public Cliente stays lightweight.
+function tamaoEnsureWorkspaceStyles(){
+ if(document.getElementById('tamao-workspace-styles'))return;
+ const base=document.querySelector('link[href*="css/components.css"]');
+ const version=base?new URL(base.href,document.baseURI).searchParams.get('v'):'';
+ const link=document.createElement('link');
+ link.id='tamao-workspace-styles';
+ link.rel='stylesheet';
+ link.href='./css/workspace-experience.css'+(version?'?v='+encodeURIComponent(version):'');
+ document.head.appendChild(link);
+}
 const STORAGE='chama-sg-state-v2';
 const LEGACY_STORAGE='chama-sg-state-v1';
 const STATE_VERSION=2;
