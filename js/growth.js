@@ -187,33 +187,39 @@ function club(){
     globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
   }
   globalThis.clubeCouponWatchAuth?.();
+  // V1.969: the verified package is the destination, not a third generic
+  // benefit pitch. Hidden until the public catalog confirms real prices.
   if(!member)return shell(`<section class="page tamao-club-visitor">
-    <div class="tamao-club-visitor-hero">
-      <span class="eyebrow">CLUBE TAMÃO</span>
-      <h1>Suas próximas compras podem render mais vantagens.</h1>
-      <p>Compare ofertas para seu CEP, descubra cupons e conheça o cashback do TAMÃO. Benefícios são aplicados somente quando a compra atende às condições.</p>
-      <div class="tamao-club-visitor-actions">
-        <button type="button" class="primary" onclick="go('home')">Consultar produtos →</button>
-        <button type="button" class="secondary" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
+    <div class="tamao-club-visitor-focus">
+      <div class="tamao-club-visitor-hero">
+        <span class="eyebrow">CLUBE TAMÃO</span>
+        <h1>Cupons e cashback com condições claras.</h1>
+        <p>Veja os cupons disponíveis, confira preço e regras e entre com seu e-mail para consultar sua conta. Descontos só podem ser usados em pedidos elegíveis.</p>
+        <div class="tamao-club-visitor-actions">
+          <button type="button" class="primary" onclick="go('home')">Ver produtos e entrega →</button>
+          <button type="button" class="secondary" onclick="go('earn')">Como funcionam as indicações</button>
+        </div>
       </div>
+      <aside class="tamao-coupon-price-board card form-stack" hidden aria-label="Pacote de cupons com preço confirmado">
+        <span class="section-kicker">PACOTE DE CUPONS</span>
+        <h2>Confira seu pacote antes de entrar</h2>
+        <p class="tamao-club-face" data-coupon-face></p>
+        <p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p>
+        <p data-coupon-minimum></p>
+        <p data-coupon-availability></p>
+        <p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
+        <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)">
+          <label for="clube-visitor-coupon-email">E-mail para acessar os cupons</label>
+          <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
+          <button type="submit" class="primary">Entrar e consultar a compra →</button>
+          <p data-welcome-signup-status role="status"></p>
+        </form>
+      </aside>
     </div>
-    <aside class="tamao-coupon-price-board card form-stack" hidden>
-      <span class="section-kicker">CUPONS UNIVERSAIS</span>
-      <p><strong data-coupon-price></strong> · <span data-coupon-face></span></p>
-      <p data-coupon-minimum></p>
-      <p data-coupon-availability></p>
-      <p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
-      <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)">
-        <label for="clube-visitor-coupon-email">E-mail para acessar os cupons</label>
-        <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
-        <button type="submit" class="primary">Entrar e consultar a compra →</button>
-        <p data-welcome-signup-status role="status"></p>
-      </form>
-    </aside>
     <div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">
-      <article class="card"><span class="feature-icon" aria-hidden="true">🎟️</span><h2>Cupons na sua conta</h2><p>Consulte valor e validade dos cupons emitidos para você quando acessar sua conta.</p></article>
-      <article class="card"><span class="feature-icon" aria-hidden="true">💚</span><h2>Cashback elegível</h2><p>Compras qualificadas podem gerar crédito para usar em pedidos seguintes.</p></article>
-      <article class="card"><span class="feature-icon" aria-hidden="true">🔎</span><h2>Compare pelo CEP</h2><p>Quando houver ofertas, veja os preços totais e a entrega antes de escolher.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">🎟️</span><h2>Cupons na sua conta</h2><p>Depois de entrar, veja o valor, a validade e as condições de cada cupom.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">💚</span><h2>Cashback elegível</h2><p>Compras qualificadas podem gerar crédito para próximos pedidos.</p></article>
+      <article class="card"><span class="feature-icon" aria-hidden="true">🔎</span><h2>Compare pelo CEP</h2><p>Quando houver oferta, confira o preço total e a entrega antes de escolher.</p></article>
     </div>
   </section>`);
   const purchases=Math.max(0,Number(state.user.purchases)||0);
