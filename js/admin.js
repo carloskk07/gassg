@@ -3755,6 +3755,22 @@ function adminTaskNavChoices(){
   &&(t.id!=='ads-diagnostics'||adminRoleCanSection('partners'))
   &&(t.id!=='finance-homologation'||adminCurrentRole()==='superadmin'));
 }
+// V1.970 — the task picker reflects the actual open workspace, including its subtab.
+// Only tasks allowed for the current role can ever appear selected.
+function adminCurrentTaskFromState(choices=adminTaskNavChoices()){
+ const section=String(adminRuntime.section||'');
+ const current=choices.filter(item=>item.section===section);
+ const active=current.find(item=>{
+  if(section==='orders')return (item.tab||'orders')===String(adminOrdersWorkspaceTab||'orders');
+  if(section==='partners')return item.tab===String(adminPartnersWorkspaceTab||'queue');
+  if(section==='growth')return item.tab===String(adminGrowthWorkspaceTab||'acquisition');
+  if(section==='finance')return item.tab===String(adminRuntime.financeWorkspace||'summary');
+  if(section==='ads')return item.tab===String(adminAdsWorkspaceTab||'campaigns')&&
+    (item.tab==='diagnostics'||(item.pane||'campaigns')===String(adminIndependentAdsPane||'campaigns'));
+  return current.length===1;
+ });
+ return active?.id||'';
+}
 function adminSelectTaskFromUi(){
  if(!adminReady())return;
  const taskId=String(document.getElementById('admin-task-nav')?.value||'');
@@ -3772,11 +3788,21 @@ function adminSelectTaskFromUi(){
 }
 function adminTaskNavView(){
  const choices=adminTaskNavChoices();
+ const current=adminCurrentTaskFromState(choices);
+ let lastSection='';
+ const options=choices.map(t=>{
+  let group='';
+  if(lastSection!==t.section){
+   group=(lastSection?'</optgroup>':'')+'<optgroup label="'+esc(adminSectionMeta(t.section).title)+'">';
+   lastSection=t.section;
+  }
+  return group+'<option value="'+esc(t.id)+'"'+(current===t.id?' selected':'')+'>'+esc(t.label)+'</option>';
+ }).join('')+(lastSection?'</optgroup>':'');
  return '<div class="admin-task-navigator">'+
- '<label for="admin-task-nav">Ir direto para uma tarefa</label>'+
- '<select id="admin-task-nav" class="input" aria-label="Ir direto para uma tarefa" onchange="adminSelectTaskFromUi()">'+
- '<option value="">Selecione a tarefa, sem precisar procurar no menu</option>'+
- choices.map(t=>'<option value="'+t.id+'">'+esc(t.label)+'</option>').join('')+
+ '<label for="admin-task-nav">Tarefa do painel</label>'+
+ '<select id="admin-task-nav" class="input" aria-label="Escolher tarefa do painel" onchange="adminSelectTaskFromUi()">'+
+ '<option value=""'+(current?'':' selected')+'>Escolha uma tarefa para continuar</option>'+
+ options+
  '</select></div>';
 }
 function adminQuickGo(section){
