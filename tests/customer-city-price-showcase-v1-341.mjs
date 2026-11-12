@@ -76,8 +76,9 @@ assert.doesNotMatch(html,/↻ Atualizar cotações/,'manual refresh requires ver
 env.globalThis.liveReady=()=>true;
 let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
 assert.match(whenReady,/homeRefreshQuotePrices\(\)/);
-assert.match(html,/Cupons, descontos e Clube/);
-assert.match(html,/Consulte cupons e cashback da sua conta/);
+assert.doesNotMatch(html,/tamao-home-coupon-rail|Ver cupons e Clube/,
+ 'City quote must not repeat the verified coupon promotion immediately below it');
+assert.match(html,/Nenhum pedido ou pagamento é criado sem uma oferta confirmada/);
 assert.doesNotMatch(html,/Diferença de R\$|PREÇO DE REVENDA/);
 assert.doesNotMatch(html,/\bCarlos Santos\b/);
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
