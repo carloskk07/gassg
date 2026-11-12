@@ -60,7 +60,9 @@ new vm.Script(shop,{filename:'js/clube-coupon-shop.js'});
 const a=edge.indexOf('function couponInvoiceNetCovered(');
 const b=edge.indexOf('function publicInvoice(',a);
 assert.ok(a>=0&&b>a);
-const body=edge.slice(a,b).replace('(row:any)','(row)');
+const body=edge.slice(a,b).replaceAll('(row:any)','(row)');
+// Include the new read-only NET evidence helper in the same VM boundary
+// without changing legacy sponsor and Pix financial assertions.
 const ctx=vm.createContext({Date,Number,String,Boolean});
 new vm.Script(body).runInContext(ctx);
 const row={
