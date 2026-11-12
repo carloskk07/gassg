@@ -3799,7 +3799,7 @@ function adminTaskNavView(){
   return group+'<option value="'+esc(t.id)+'"'+(current===t.id?' selected':'')+'>'+esc(t.label)+'</option>';
  }).join('')+(lastSection?'</optgroup>':'');
  return '<div class="admin-task-navigator">'+
- '<label for="admin-task-nav">Tarefa do painel</label>'+
+ '<label for="admin-task-nav">Ir direto para uma tarefa</label>'+
  '<select id="admin-task-nav" class="input" aria-label="Escolher tarefa do painel" onchange="adminSelectTaskFromUi()">'+
  '<option value=""'+(current?'':' selected')+'>Escolha uma tarefa para continuar</option>'+
  options+
