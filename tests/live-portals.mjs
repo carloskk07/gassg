@@ -52,6 +52,11 @@ assert.deepEqual(built.map(x=>x.role),['customer','merchant','admin']);
 for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
+  const editorExists=fs.existsSync(path.join(dir,'js','merchant-ui-state.js'));
+  assert.equal(editorExists,role==='merchant','Deferred merchant editor must be partner-only');
+  const cachedEditor=fs.readFileSync(path.join(dir,'sw.js'),'utf8')
+    .includes("'./js/merchant-ui-state.js?v=test-sha'");
+  assert.equal(cachedEditor,role==='merchant','Only partner PWA may precache scoped editor');
   const expansionPath=path.join(dir,'js','admin-expansion.js');
   const ownerPath=path.join(dir,'js','admin-owner-finance.js');
   assert.equal(fs.existsSync(ownerPath),role==='admin',role+' must isolate privileged owner finance');
