@@ -135,4 +135,46 @@ assert.match(mobilityPage,/mobility-provider-card/);
 assert.match(mobilityPage,/mobility-driver-panel/);
 assert.match(mobilityPage,/mobilityLogin\(event\)/);
 assert.doesNotMatch(mobilityPage,/<iframe[^>]*src="https?:\/\//);
+
+// The Admin's public-facing status strip must not imply orders are live just
+// because the platform mode is LIVE. Only the independent server gate decides.
+const adminSrc=read('js/admin.js');
+const opStart=adminSrc.indexOf('function adminOperationModeLabel(');
+const opEnd=adminSrc.indexOf('function adminExecutiveKpi(',opStart);
+assert.ok(opStart>0&&opEnd>opStart,'Admin operational summary functions must exist');
+const opCtx=vm.createContext({
+ adminBillingE2EState:()=>({validated:false}),
+ adminBillingProviderName:()=> 'Mercado Pago',
+ adminRuntime:{providerHealth:{ok:true},lastSyncAt:'2026-11-12T12:00:00Z'},
+ adminRelativeTime:()=> 'agora',
+ esc:value=>String(value)
+});
+vm.runInContext(adminSrc.slice(opStart,opEnd)+'\nthis.renderStrip=adminOperationalStrip;',opCtx);
+const baseOps={merchantBilling:{paymentIngress:{}},incidents:[]};
+const closed=opCtx.renderStrip({...baseOps,launchReadiness:{
+ operationMode:'LIVE',commerceEnabled:false,securityBlockers:[],unresolvedWarnings:[]
+}});
+assert.match(closed,/PLATAFORMA ATIVA/);
+assert.match(closed,/PEDIDOS NÃO HABILITADOS/);
+assert.match(closed,/admin-ops-strip warning/,
+ 'zero operational blockers must not represent disabled commerce as green');
+assert.doesNotMatch(closed,/<strong>LIVE<\/strong>/,
+ 'the technical LIVE flag alone does not authorize sales');
+const eligible=opCtx.renderStrip({...baseOps,launchReadiness:{
+ operationMode:'LIVE',commerceEnabled:true,securityBlockers:[],unresolvedWarnings:[]
+}});
+assert.match(eligible,/COMÉRCIO HABILITADO/);
+assert.doesNotMatch(eligible,/PEDIDOS NÃO HABILITADOS/);
+const unknown=opCtx.renderStrip({...baseOps,launchReadiness:{
+ operationMode:'LIVE',securityBlockers:[],unresolvedWarnings:[]
+}});
+assert.match(unknown,/COMÉRCIO NÃO VERIFICADO/,
+ 'unknown commercial status must not be interpreted as open');
+const paused=opCtx.renderStrip({...baseOps,launchReadiness:{
+ operationMode:'PAUSED',commerceEnabled:false,securityBlockers:[],unresolvedWarnings:[]
+}});
+assert.match(paused,/OPERAÇÃO PAUSADA/);
+assert.doesNotMatch(adminSrc.slice(opStart,opEnd),/adminPerform\(|set-operation-mode/,
+ 'the operational summary must stay read-only');
+
 console.log('V1.969 PASS — simpler public routes, real offers first, honest coupon access, no duplicate sales CTA, protected partner recovery and safe mobility.');
