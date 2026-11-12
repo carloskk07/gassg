@@ -193,12 +193,8 @@ function render(){
       mobilityReturnIntent()?'mobility':route();
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
-    const merchantUi=globalThis.merchantPortalRequested?.()===true&&
-      typeof merchantUiBeforeRender==='function'
-      ?merchantUiBeforeRender(app):null;
-    if(app)app.innerHTML=(pages[r]||home)();
-    if(merchantUi&&typeof merchantUiAfterRender==='function')
-      merchantUiAfterRender(app,merchantUi);
+    if(app)typeof merchantUiRender==='function'
+      ?merchantUiRender(app,(pages[r]||home)()):app.innerHTML=(pages[r]||home)();
     updatePublicPageIdentity(r);
     queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
     queueMicrotask(()=>globalThis.discoveryAfterRender?.());
