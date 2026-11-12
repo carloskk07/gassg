@@ -264,7 +264,7 @@ function merchantClubeInterestSection(merchant){
     '<h2>Ajude seus clientes a economizar e voltar a comprar</h2>'+
     '<p>Escolha os benefícios que teria interesse em patrocinar futuramente. A negociação final será feita separadamente.</p></div></div>'+
     '<div class="grid cards-2">'+cards+'</div>'+
-    '<p class="tiny muted">Pesquisa sem compromisso: os cupons não estão à venda. Percentuais e valores não constituem autorização de campanha, reserva financeira, promessa de benefício nem mudança no preço dos pedidos.</p>'+
+    '<p class="tiny muted">Pesquisa: os cupons não estão à venda nem prometem benefícios. Valores não autorizam campanhas nem alteram preços.</p>'+
     '</section>';
 }
 async function merchantClubeInterestCall(packageKey,operation,fields={}){
@@ -458,7 +458,7 @@ function merchantBusinessPulseSection(merchant){
         '</strong><br><small>'+Number(x.quantity)+' unidade(s) concluída(s)</small></div>'+
         '<strong>'+esc(BRL.format(Number(x.salesCents)/100))+'</strong></div>').join('')+
       '</div>':'<p class="muted tiny" style="margin-top:12px">Os produtos aparecerão aqui após vendas concluídas.</p>')+
-    '<p class="tiny muted">Indicadores baseados nos pedidos criados nos últimos 30 dias e posteriormente liquidados, sem reversão. Não incluem vendas fora do TAMÃO, custos, taxas de pagamento ou lucro.</p>':
+    '<p class="tiny muted">Últimos 30 dias: pedidos liquidados, sem reversão. Não inclui vendas externas, custos, taxas ou lucro.</p>':
     '<p class="muted">'+(rt.businessPulseLoading?'Consultando vendas confirmadas…':
       'Consulte seus números para acompanhar a movimentação real da sua revenda.')+'</p>';
   return '<section class="section merchant-business-pulse" id="merchant-business-pulse">'+
@@ -1554,7 +1554,7 @@ function merchantSetupView(rt){
       (item.done?'Revisar':'Configurar')+'</button></div>'+
       '<span class="status-pill '+(item.done?'online':'offline')+'">'+(item.done?'Preenchido':'A revisar')+'</span></div>'
     ).join('')+'</div>'+
-    '<p class="merchant-essentials-disclaimer">Esses ajustes não liberam vendas automaticamente. A aprovação, a elegibilidade do catálogo e as condições da cidade são verificadas separadamente pelo TAMÃO.</p>'+
+    '<p class="merchant-essentials-disclaimer">Esses ajustes não liberam vendas automaticamente: aprovação, catálogo e cidade ainda exigem validação do TAMÃO.</p>'+
   '</section>';
 }
 function merchantRevealControl(selector){
@@ -2354,9 +2354,17 @@ function merchantFirstRunView(rt,canGoOnline){
     '<details class="merchant-first-run-extra"><summary>Ver todas as etapas ('+model.steps.length+')</summary>'+
     '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
     '<button type="button" class="secondary small" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></details>'+
-    '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
+    '<p class="merchant-first-run-note">Configurar não libera vendas. Aprovações, módulos estratégicos e autorizações financeiras exigem validação do TAMÃO.</p>'+
     '</section>';
 }
+for(const ev of ['focusin','pointerdown'])globalThis.document?.addEventListener?.(ev,()=>{
+ if(!merchantReady()||globalThis.__mui)return;
+ globalThis.__mui=1;
+ const s=document.createElement('script');
+ s.src='./js/merchant-ui-state.js'+(document.querySelector('script[src*="merchant.js"]')?.src.match(/\?v=[^&]+/)?.[0]||'');
+ s.onerror=()=>globalThis.__mui=0;
+ document.head.append(s);
+});
 function merchantWorkspaceJump(area){
   const keys={orders:'merchant-live-orders',start:'merchant-workspace-start',setup:'merchant-workspace-setup',growth:'merchant-workspace-growth',
     settings:'merchant-workspace-settings',finance:'merchant-workspace-finance'};
@@ -2646,7 +2654,7 @@ function merchantLivePage(){
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button></div></details>
       <div class="divider"></div>
       <h3>Formas de pagamento aceitas do cliente</h3>
-      <p class="muted tiny">Comece pelo simples: escolha o que aceita na entrega. Ao salvar, o TAMÃO configura as rotas de confirmação manual. Conectar banco ou maquininha é opcional.</p>
+      <p class="muted tiny">Escolha o que aceita na entrega e salve. Banco e maquininha são opcionais.</p>
       <label class="check-row"><input id="live-payment-pix" type="checkbox" ${paymentMethods.pix?'checked':''}><span><strong>Pix</strong><small>Pagamento via Pix aceito pela operação.</small></span></label>
       <label class="check-row"><input id="live-payment-card" type="checkbox" ${paymentMethods.card?'checked':''}><span><strong>Cartão</strong><small>Cartão aceito na entrega conforme sua operação.</small></span></label>
       <label class="check-row"><input id="live-payment-cash" type="checkbox" ${paymentMethods.cash?'checked':''}><span><strong>Dinheiro</strong><small>Dinheiro aceito; o pedido pode informar troco.</small></span></label>
@@ -5238,7 +5246,7 @@ function merchantAdsReceivableSection(merchant){
   '<button type="button" class="secondary small" onclick="merchantAdsReceivableLoad()">Consultar demonstrativo</button></div>'+
   (packet?pay:'<p class="muted tiny">Consulte o servidor para confirmar se há uma cobrança comercial.</p>')+
   (rt.adsReceivableError?'<p class="notice danger">'+esc(rt.adsReceivableError)+'</p>':'')+
-  '<p class="tiny muted">Este demonstrativo não inclui um meio de pagamento automático. Não transfira valores sem confirmar instruções oficiais. Informar uma referência não comprova recebimento e não publica anúncios.</p></section>';
+  '<p class="tiny muted">Sem pagamento automático. Não transfira sem instruções oficiais: referência não comprova recebimento nem publica anúncios.</p></section>';
 }
 async function merchantAdsReceivableLoad(){
  const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
@@ -5324,7 +5332,7 @@ function merchantAdsPspSection(merchant){
   '<button type="button" class="secondary small" onclick="merchantAdsPspLoad()">Conferir checkout</button></div>'+
   (packet?label:'<p class="muted tiny">Clique em Conferir checkout para consultar o servidor.</p>')+
   (rt.adsPspError?'<p class="notice danger">'+esc(rt.adsPspError)+'</p>':'')+
-  '<p class="tiny muted">Ao pagar, confirme o beneficiário dentro do Mercado Pago. O retorno ao TAMÃO não prova o recebimento; a confirmação deve vir do provedor. Nenhuma campanha é publicada automaticamente.</p></section>';
+  '<p class="tiny muted">Confirme o recebedor no Mercado Pago. O retorno ao TAMÃO não prova o recebimento; só o provedor confirma. Anúncios exigem aprovação.</p></section>';
 }
 async function merchantAdsPspLoad(){
  const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');

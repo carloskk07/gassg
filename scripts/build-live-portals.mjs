@@ -257,8 +257,10 @@ function patchServiceWorker(raw,sourceSha,role){
   let scoped=next;
   if(role!=='merchant'){
     const merchantEntry=",'./js/merchant.js'";
-    if(!scoped.includes(merchantEntry))throw new Error('Missing merchant operations precache entry');
-    scoped=scoped.replace(merchantEntry,'');
+    const editorEntry=",'./js/merchant-ui-state.js'";
+    if(!scoped.includes(merchantEntry)||!scoped.includes(editorEntry))
+      throw new Error('Missing merchant operations/cache contract');
+    scoped=scoped.replace(merchantEntry,'').replace(editorEntry,'');
   }
   if(role==='admin'){
     const lazyEntry=",'./js/admin-activations.js'";
@@ -424,6 +426,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // are only shipped to the revenda portal, never customer or admin.
     if(role!=='merchant'){
       fs.rmSync(path.join(target,'js','merchant.js'),{force:true});
+      fs.rmSync(path.join(target,'js','merchant-ui-state.js'),{force:true});
       fs.rmSync(path.join(target,'js','merchant-price-batch.js'),{force:true});
       fs.rmSync(path.join(target,'js','merchant-billing-flow.js'),{force:true});
       fs.rmSync(path.join(target,'js','merchant-benefits-contract.js'),{force:true});

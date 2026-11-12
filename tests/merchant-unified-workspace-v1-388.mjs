@@ -158,3 +158,86 @@ assert.ok(css.includes('@media(max-width:480px)'));
 assert.ok(css.includes('.merchant-operation-insights>summary:focus-visible'));
 assert.ok(audit.includes('node tests/merchant-unified-workspace-v1-388.mjs'));
 console.log('TAMÃO V1.388 PASS — single buyer-independent three-lane merchant hub, strict snapshot/role/PII checks and mobile accessible shortcuts.');
+
+ // V1.963: live snapshots refresh without wiping unfinished merchant
+ // typing, checked choices, caret or expanded tasks. Never leak to another
+ // account, seller, route or role.
+const uiState=read('js/merchant-ui-state.js');
+assert.match(uiState,/merchantLastRenderedScope=merchantUiRenderScope\(\)/);
+let currentRoute='merchant',currentUser='owner-1',currentMerchant='merchant-1',
+ currentRole='owner',epoch=0,merchantStatus='ready',merchantRequested=true;
+const input={id:'merchant-business-addressText',tagName:'INPUT',type:'text',
+ value:'Rua nova, 42',defaultValue:'Rua antiga, 20',selectionStart:7,selectionEnd:7,
+ focus({preventScroll}){assert.equal(preventScroll,true);document.activeElement=this;},
+ setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;}};
+const selector={id:'merchant-local-select',tagName:'SELECT',type:'select-one',
+ value:'pix',options:[{value:'cash',defaultSelected:true},{value:'pix',defaultSelected:false}]};
+const checkbox={id:'merchant-payment-cash',tagName:'INPUT',type:'checkbox',
+ checked:true,defaultChecked:false};
+const secret={id:'merchant-billing-verified-secret',tagName:'INPUT',type:'password',
+ value:'private',defaultValue:''};
+const details=[{id:'merchant-workspace-finance',tagName:'DETAILS',open:true},
+ {id:'merchant-workspace-setup',tagName:'DETAILS',open:false}];
+const document={activeElement:input};
+let nodes=[...details,input,selector,checkbox,secret];
+const app={
+ contains:n=>nodes.includes(n),
+ querySelectorAll:q=>q==='details[id]'?nodes.filter(n=>n.tagName==='DETAILS'):
+  q==='[id]'?nodes:
+  q==='input[id],textarea[id],select[id]'?nodes.filter(n=>['INPUT','SELECT','TEXTAREA'].includes(n.tagName)):[]
+};
+const context=vm.createContext({document,route:()=>currentRoute,
+ globalThis:{
+  merchantPortalRequested:()=>merchantRequested,
+  get merchantRuntime(){return {status:merchantStatus,accessEpoch:epoch,
+   session:{user:{id:currentUser}},merchant:{merchantId:currentMerchant,memberRole:currentRole}};}
+ }});
+vm.runInContext(uiState+
+ ';this.capture=merchantUiBeforeRender;this.restore=merchantUiAfterRender;',context);
+const snapshotInit=context.capture(app);
+assert.equal(snapshotInit.fields.some(f=>f.id===input.id),true,'lazy editor loads without dropping focused draft');
+context.restore(app,snapshotInit);
+let snapshot=context.capture(app);
+assert.equal(snapshot.fields.some(f=>f.id===input.id&&f.value===input.value),true);
+assert.equal(snapshot.fields.some(f=>f.id===checkbox.id&&f.checked===true),true);
+assert.equal(snapshot.fields.some(f=>f.id===selector.id&&f.value==='pix'),true);
+assert.equal(snapshot.fields.some(f=>f.id===secret.id),false,'no secret capture');
+nodes=[
+ {id:'merchant-workspace-finance',tagName:'DETAILS',open:false},
+ {id:'merchant-workspace-setup',tagName:'DETAILS',open:true},
+ {id:input.id,tagName:'INPUT',type:'text',value:'Rua antiga, 20',defaultValue:'Rua antiga, 20',
+  selectionStart:0,selectionEnd:0,focus:input.focus,setSelectionRange:input.setSelectionRange},
+ {id:selector.id,tagName:'SELECT',type:'select-one',value:'cash',
+  options:[{value:'cash',defaultSelected:true},{value:'pix',defaultSelected:false}]},
+ {id:checkbox.id,tagName:'INPUT',type:'checkbox',checked:false,defaultChecked:false},
+ {id:secret.id,tagName:'INPUT',type:'password',value:'',defaultValue:''}
+];
+context.restore(app,snapshot);
+assert.equal(nodes[0].open,true,'merchant finance task stays expanded after order polling');
+assert.equal(nodes[1].open,false,'closed tasks stay collapsed');
+assert.equal(nodes[2].value,'Rua nova, 42','unfinished address survives refresh');
+assert.equal(nodes[2].selectionStart,7,'caret restored');
+assert.equal(nodes[3].value,'pix','marked payment option survives refresh');
+assert.equal(nodes[4].checked,true,'checkbox survives refresh');
+assert.equal(nodes[5].value,'','secret is never restored');
+for(const change of [
+ ()=>{currentUser='other-owner';},()=>{currentMerchant='other-merchant';},
+ ()=>{currentRole='driver';},()=>{currentRoute='catalog';},
+ ()=>{epoch++;},()=>{merchantStatus='no-access';},
+ ()=>{merchantRequested=false;}
+]){
+ currentUser='owner-1';currentMerchant='merchant-1';currentRole='owner';
+ currentRoute='merchant';epoch=0;merchantStatus='ready';merchantRequested=true;
+ context.restore(app,snapshot);
+ change();
+ nodes[2].value='server-value';nodes[0].open=false;
+ context.restore(app,snapshot);
+ assert.equal(nodes[2].value,'server-value','scope change never restores another party draft');
+ assert.equal(nodes[0].open,false,'scope change never restores another party disclosure');
+}
+assert.match(read('js/bootstrap.js'),/merchantUiRender\(app,/);
+assert.match(uiState,/function merchantUiRender\(app,html\)/);
+assert.match(merchant,/merchant-ui-state\.js/);
+assert.match(read('sw.js'),/merchant-ui-state\.js/);
+assert.match(read('scripts/build-live-portals.mjs'),/merchant-ui-state\.js/);
+console.log('V1.963 PASS: partner forms, selected values and open workspaces preserved per account and revocation.');

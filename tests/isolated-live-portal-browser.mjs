@@ -219,6 +219,31 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       }
       const merchantPage=await openRole('merchant',owner.session,'/?merchant=1#merchant');
       await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
+      // V1.963: real Chromium, real authenticated seller/SQL snapshot,
+      // but ONLY a local unsaved DOM draft. No backend mutation or new order.
+      await merchantPage.evaluate("(()=>{const field=document.getElementById('live-delivery-fee');for(let p=field?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;field?.focus();return true})()");
+      await merchantPage.wait("typeof merchantUiRender==='function'",
+        'deferred partner editor loads upon field focus',25000);
+      const merchantDraftUi=JSON.parse(await merchantPage.evaluate(
+        "(()=>{const el=document.getElementById('live-delivery-fee'),"+
+        "section=document.getElementById('merchant-workspace-finance');"+
+        "if(!el||!section)return JSON.stringify({missing:true});"+
+        "const original=el.value,edited=original==='7.70'?'8.80':'7.70';"+
+        "const existingOrders=merchantRuntime.orders.length;"+
+        "section.open=true;el.focus();el.value=edited;render();"+
+        "const after=document.getElementById('live-delivery-fee');"+
+        "const result={missing:false,sameDraft:after?.value===edited,"+
+        "sameFocus:document.activeElement?.id==='live-delivery-fee',"+
+        "sectionOpen:document.getElementById('merchant-workspace-finance')?.open===true,"+
+        "ordersUnchanged:merchantRuntime.orders.length===existingOrders};"+
+        "if(after)after.value=original;document.activeElement?.blur?.();render();"+
+        "return JSON.stringify(result)})()"));
+      assert.equal(merchantDraftUi.missing,false,'real partner form and finance section must exist');
+      assert.equal(merchantDraftUi.sameDraft,true,'partner DOM refresh preserves unsaved delivery fee');
+      assert.equal(merchantDraftUi.sameFocus,true,'partner DOM refresh retains field focus');
+      assert.equal(merchantDraftUi.sectionOpen,true,'partner finance workspace stays expanded');
+      assert.equal(merchantDraftUi.ordersUnchanged,true,'UI preservation never creates an order');
+
       const buyerPage=await openRole('customer',buyer.session,'/#tracking');
       await buyerPage.wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer sees canonical order');
       const adminPage=await openRole('admin',adminActor.session,'/?admin=1#admin');
