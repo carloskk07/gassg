@@ -457,34 +457,3 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:760px){.tamao-coupon-banner{grid-template-columns:minmax(0,1fr);padding:22px 18px;border-radius:18px}.tamao-coupon-banner h2{font-size:clamp(25px,6vw,35px)}.tamao-coupon-banner-scene{display:none}.tamao-coupon-banner-actions button{flex:1 1 175px}}
 @media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
-
-
-/* V1.969 — One concrete action per public destination. No fake availability. */
-.tamao-club-visitor-focus{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);gap:16px;align-items:stretch}
-.tamao-club-visitor-focus:has(.tamao-coupon-price-board[hidden]){grid-template-columns:minmax(0,1fr)}
-.tamao-club-visitor-focus .tamao-coupon-price-board[hidden]{display:none!important}
-.tamao-club-visitor-focus .tamao-club-visitor-hero{min-width:0;padding:clamp(23px,3.2vw,36px);border-radius:21px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 15px 30px #08472f1c}
-.tamao-club-visitor-focus .tamao-club-visitor-hero h1{font-size:clamp(28px,3.3vw,42px);max-width:18ch;margin:10px 0 14px}
-.tamao-club-visitor-focus .tamao-club-visitor-hero p{line-height:1.56;margin:0;font-size:14px}
-.tamao-club-visitor-focus .tamao-club-visitor-actions{gap:10px;margin-top:22px}
-.tamao-club-visitor-focus .tamao-coupon-price-board{margin:0;padding:clamp(19px,2.8vw,27px);border:1px solid #c8e1d0;border-radius:21px;background:#fff;box-shadow:0 12px 27px #15473012;min-width:0;align-content:start}
-.tamao-club-visitor-focus .tamao-coupon-price-board h2{margin:4px 0;color:#163f2b;font-size:clamp(19px,2vw,24px);line-height:1.18}
-.tamao-club-visitor-focus .tamao-club-face{font-weight:900;font-size:clamp(18px,2.2vw,25px);line-height:1.2;color:#0b6849;letter-spacing:-.025em;margin:5px 0}
-.tamao-club-visitor-focus .tamao-club-offer-label{border-top:1px solid #e1efe5;padding-top:12px;color:#456c57}
-.tamao-club-visitor-focus .tamao-club-offer-label strong{font-size:22px;color:#0c4734;white-space:nowrap}
-.tamao-club-visitor-focus .tamao-coupon-price-board .form-stack{margin:0}
-.tamao-club-visitor-focus .tamao-coupon-price-board button{min-height:46px}
-.tamao-earn-page .tamao-network-clarity{max-width:1040px;margin:6px 0 26px;padding:16px 20px;border:1px solid #d2e6d8;border-radius:16px;background:#f4faf5;font-size:14px;line-height:1.65;color:#325e46}
-.tamao-earn-page .main-opportunities{margin-top:14px}
-.tamao-quote-first .city-price-grid:has(.city-price-empty){margin:10px 0}
-.tamao-quote-first .city-price-empty{padding:14px 18px;background:#f8fcf9;border:1px solid #d7e7dc;color:#436451;border-radius:15px}
-.tamao-quote-first .city-price-empty strong{color:#194d37;display:block;margin-bottom:4px}
-.tamao-quote-first .city-price-empty p{font-size:13px;line-height:1.55;margin:0}
-.tamao-quote-first .city-price-heading p{max-width:58ch}
-.tamao-quote-first .city-price-heading+.city-price-controls{margin:16px 0 5px}
-.tamao-quote-first .city-price-controls>.primary{min-height:46px}
-.merchant-team-access .empty.card{max-width:740px;padding:24px}
-.merchant-team-access .empty.card p{line-height:1.6;margin:12px 0}
-.merchant-team-access .empty.card button{min-height:44px}
-@media(max-width:840px){.tamao-club-visitor-focus{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:600px){.tamao-club-visitor-focus .tamao-club-visitor-hero{padding:22px 19px}.tamao-club-visitor-focus .tamao-coupon-price-board{padding:20px 17px}.tamao-quote-first .city-price-controls>.primary{width:100%}.tamao-quote-first .city-price-chooser{min-width:0;width:100%}.tamao-earn-page .tamao-network-clarity{padding:13px 14px;font-size:13px}}
