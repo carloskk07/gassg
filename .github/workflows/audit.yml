@@ -1143,26 +1143,28 @@ jobs:
           grep -Fq 'home-discover-grid' /tmp/home.html
           # Quote-first home: avoid blocking CI on obsolete pre-redesign copy.
           grep -Fq 'tamao-quote-first' /tmp/home.html
-          grep -Fq 'tamao-home-coupon-rail' /tmp/home.html
+          # The single official campaign banner replaced the duplicate coupon rail.
+          test "$(grep -o 'class=\"tamao-coupon-banner\"' /tmp/home.html | wc -l)" -ge 2
+          ! grep -Fq 'class="tamao-home-coupon-rail"' /tmp/home.html
           grep -Fq 'Produtos para o seu dia a dia' /tmp/home.html
           grep -Fq 'tamao-home-services-grid' /tmp/home.html
-          grep -Fq 'Ver cupons e Clube' /tmp/home.html
+          grep -Fq 'Cupons TAMÃO.' /tmp/home.html
           grep -Fq 'Pedir uma moto' /tmp/home.html
           grep -Fq 'Pedir um carro' /tmp/home.html
           grep -Fq 'Moto, carro e muito mais. Tá na mão.' /tmp/home.html
           ! grep -Fq 'home-editorial-visual' /tmp/home.html
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
-          grep -q "Indique quem compra. Apresente quem vende. Faça sua rede crescer." /tmp/earn.html
+          grep -Fq 'Indique pessoas e revendas. Acompanhe seus convites.' /tmp/earn.html
           grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
           grep -q "Sua revenda mais visível." /tmp/merchants.html
-          grep -q "Sua marca mais perto de quem compra na cidade." /tmp/sponsors.html
+          grep -Fq 'Divulgue sua marca com investimento e entrega claros.' /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
-          grep -Fq "Seu comércio merece ser encontrado." /tmp/merchants.html
-          grep -Fq "Quero anunciar no TAMÃO" /tmp/merchants.html
-          grep -Fq "ANUNCIE NO TAMÃO" /tmp/merchants.html
+          grep -Fq 'Mais clientes descobrindo sua revenda.' /tmp/merchants.html
+          grep -Fq 'Recebimento direto na revenda' /tmp/merchants.html
+          grep -Fq 'COMECE A VENDER PELO TAMÃO' /tmp/merchants.html
           grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
           grep -q "Aviso de Privacidade" /tmp/privacy.html
           grep -q "Seus direitos" /tmp/privacy.html
