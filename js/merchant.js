@@ -851,7 +851,7 @@ function merchantTeamPage(){
   const rt=globalThis.merchantRuntime||{};
   const m=rt.merchant;
   if(rt.status!=='ready'||!m){
-    return shell('<section class="page"><h1 class="page-title">Equipe da revenda</h1><div class="empty card">Conecte-se à operação para gerenciar a equipe.</div></section>');
+    return shell('<section class="page merchant-team-access"><h1 class="page-title">Equipe da revenda</h1><div class="empty card"><strong>Acesse sua revenda para gerenciar a equipe.</strong><p>Entre com o e-mail cadastrado para consultar membros e convites. O acesso depende de seu perfil.</p><button type="button" class="primary" onclick="go(\'merchant\')">Entrar no painel da revenda →</button></div></section>');
   }
   if(!['owner','manager'].includes(String(m.memberRole||''))){
     return shell('<section class="page"><button class="back" onclick="go(\'merchant\')">← Operação</button><h1 class="page-title">Equipe da revenda</h1><div class="notice danger"><strong>Acesso restrito.</strong><br>Somente owner ou manager pode gerenciar membros.</div></section>');
