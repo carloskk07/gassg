@@ -59,10 +59,12 @@ export function selectOfficialReports(list:unknown){
  // The official /list response can omit file_name even for processed reports.
  // This is a discoverability gap, not a reason to trust an unverified CSV.
  // Malformed, nonempty paths still fail closed and never reach download.
+ // A mixed list must not let one absent name hide a different unsafe path.
+ if(processed.some(r=>r?.file_name!=null&&r.file_name!==""&&
+    !FILE_RE.test(String(r.file_name))))
+  return {complete:false,files:[],reason:"MP_RELEASE_INVALID_FILENAME"};
  if(processed.some(r=>r?.file_name==null||r.file_name===""))
   return {complete:false,files:[],reason:"MP_RELEASE_FILENAME_MISSING"};
- if(processed.some(r=>!FILE_RE.test(String(r?.file_name||""))))
-  return {complete:false,files:[],reason:"MP_RELEASE_INVALID_FILENAME"};
  const names=[...new Set(processed.map(r=>r.file_name))];
  if(names.length>MAX_REPORTS)
   return {complete:false,files:[],reason:"MP_RELEASE_COVERAGE_LIMIT"};
