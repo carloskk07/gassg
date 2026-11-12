@@ -236,6 +236,6 @@ for(const change of [
  assert.equal(nodes[2].value,'server-value','scope change never restores another party draft');
  assert.equal(nodes[0].open,false,'scope change never restores another party disclosure');
 }
-assert.match(read('js/bootstrap.js'),/merchantUiBeforeRender\(app\)/);
-assert.match(read('js/bootstrap.js'),/merchantUiAfterRender\(app,merchantUi\)/);
+assert.match(read('js/bootstrap.js'),/merchantUiRender\(app,/);
+assert.match(merchant,/function merchantUiRender\(app,html\)/);
 console.log('V1.963 PASS: partner forms, selected values and open workspaces preserved per account and revocation.');
