@@ -162,9 +162,8 @@ console.log('TAMÃO V1.388 PASS — single buyer-independent three-lane merchant
  // V1.963: live snapshots refresh without wiping unfinished merchant
  // typing, checked choices, caret or expanded tasks. Never leak to another
  // account, seller, route or role.
-const renderStart=merchant.indexOf("let merchantLastRenderedScope='';");
-const renderEnd=merchant.indexOf('function merchantWorkspaceJump(',renderStart);
-assert(renderStart>=0&&renderEnd>renderStart);
+const uiState=read('js/merchant-ui-state.js');
+assert.match(uiState,/merchantLastRenderedScope=merchantUiRenderScope\(\)/);
 let currentRoute='merchant',currentUser='owner-1',currentMerchant='merchant-1',
  currentRole='owner',epoch=0,merchantStatus='ready',merchantRequested=true;
 const input={id:'merchant-business-addressText',tagName:'INPUT',type:'text',
@@ -193,10 +192,10 @@ const context=vm.createContext({document,route:()=>currentRoute,
   get merchantRuntime(){return {status:merchantStatus,accessEpoch:epoch,
    session:{user:{id:currentUser}},merchant:{merchantId:currentMerchant,memberRole:currentRole}};}
  }});
-vm.runInContext(merchant.slice(renderStart,renderEnd)+
+vm.runInContext(uiState+
  ';this.capture=merchantUiBeforeRender;this.restore=merchantUiAfterRender;',context);
 const snapshotInit=context.capture(app);
-assert.equal(snapshotInit.fields.length,0,'initial render has no stale DOM');
+assert.equal(snapshotInit.fields.some(f=>f.id===input.id),true,'lazy editor loads without dropping focused draft');
 context.restore(app,snapshotInit);
 let snapshot=context.capture(app);
 assert.equal(snapshot.fields.some(f=>f.id===input.id&&f.value===input.value),true);
@@ -237,5 +236,8 @@ for(const change of [
  assert.equal(nodes[0].open,false,'scope change never restores another party disclosure');
 }
 assert.match(read('js/bootstrap.js'),/merchantUiRender\(app,/);
-assert.match(merchant,/function merchantUiRender\(app,html\)/);
+assert.match(uiState,/function merchantUiRender\(app,html\)/);
+assert.match(merchant,/merchant-ui-state\.js/);
+assert.match(read('sw.js'),/merchant-ui-state\.js/);
+assert.match(read('scripts/build-live-portals.mjs'),/merchant-ui-state\.js/);
 console.log('V1.963 PASS: partner forms, selected values and open workspaces preserved per account and revocation.');
