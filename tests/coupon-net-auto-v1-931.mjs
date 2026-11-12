@@ -150,7 +150,7 @@ assert.match(backfillSql,/to service_role/);
 assert.match(worker,/clube_coupon_mp_report_backfill_claim_v1_936/);
 assert.match(worker,/function requestHistoricalReleaseReport\(/);
 assert.match(worker,/reportConfiguration\?\.owned===true/);
-assert.match(worker,/reports\.complete&&reports\.files\.length===0/);
+assert.match(worker,/reports\.source==="official_search"&&reports\.complete&&\s*reports\.files\.length===0/);
 assert.match(worker,/claim\?\.claimed!==true/);
 assert.match(worker,/\/v1\/account\/release_report",\{/);
 assert.match(worker,/begin_date:start,end_date:end/);
@@ -167,7 +167,7 @@ assert.ok(cooldownStart>0&&cooldownEnd>cooldownStart);
 assert.match(cooldown,/reportConfiguration\?\.owned===true/);
 assert.match(cooldown,/pendingReceipt\.data\?\.length===1/);
 assert.match(cooldown,/discoverReleaseReports\(mpToken\)/);
-assert.match(cooldown,/reports\.complete&&reports\.files\.length===0/);
+assert.match(cooldown,/reports\.source==="official_search"&&reports\.complete&&\s*reports\.files\.length===0/);
 assert.match(cooldown,/requestHistoricalReleaseReport\(/);
 assert.match(cooldown,/reportBackfill/);
 assert.doesNotMatch(cooldown,/recordObservation\(/);
@@ -260,5 +260,62 @@ assert.match(worker,/failedAccountReports:reports\.blocked/);
 const adminUI=read('js/admin.js');
 assert.match(adminUI,/O Mercado Pago está gerando o relatório/);
 assert.match(adminUI,/Não gere outro Pix nem outra cobrança/);
+
+// V1.965: MP's official /list sample may omit file_name for a processed
+// real report. Recover using the independent, paginated GET /search only;
+// malformed nonempty filenames must remain blocked and never downloaded.
+const noName=ctx.reports([{...report(file),file_name:null,id:123}]);
+assert.equal(noName.complete,false);
+assert.equal(noName.reason,'MP_RELEASE_FILENAME_MISSING');
+assert.equal(ctx.reports([{...report(file),file_name:''}]).reason,
+ 'MP_RELEASE_FILENAME_MISSING');
+assert.equal(ctx.reports([report('../unsafe.csv')]).reason,
+ 'MP_RELEASE_INVALID_FILENAME');
+assert.equal(ctx.reports([{...report(file),file_name:null},report('../unsafe.csv')]).reason,
+ 'MP_RELEASE_INVALID_FILENAME','mixed metadata must never hide a bad path');
+const discoverySource=worker.slice(
+ worker.indexOf('async function discoverReleaseReports('),
+ worker.indexOf('export function evaluateReports('));
+assert.ok(discoverySource.includes('initial.reason!=="MP_RELEASE_FILENAME_MISSING"'));
+assert.ok(discoverySource.includes('official_search_missing_list_filename'));
+assert.equal((worker.match(/reports.source==="official_search"/g)||[]).length,2,
+ 'missing-filename fallback cannot authorize another provider report POST');
+let summary=[{...report(file),file_name:null,id:123}];
+let providerCalls=[];
+const discoveryVm=vm.createContext({
+ mercadoPagoFetch:async(path,options)=>{
+  assert.equal(options.method,'GET','report discovery must be GET only');
+  providerCalls.push(path);
+  if(path.endsWith('/list'))return {ok:true,payload:summary};
+  if(path.includes('/search?'))return {ok:true,payload:{
+   paging:{total:1,offset:0},results:[listing('enabled',{id:123})]
+  }};
+  throw new Error('Unexpected provider endpoint '+path);
+ },
+ readMercadoPagoJson:async r=>r.payload,
+ selectOfficialReports:ctx.reports,
+ inspectReportSearch:search,
+ Array,Number,String,Set
+});
+vm.runInContext(discoverySource
+ .replace('mpToken:string','mpToken')
+ .replace('new Set<string>()','new Set()')+
+ '\nthis.discoverReleaseReports=discoverReleaseReports;',discoveryVm);
+const recoveredFilename=await discoveryVm.discoverReleaseReports('LOCAL-TEST-NO-KEY');
+assert.equal(recoveredFilename.complete,true);
+assert.equal(recoveredFilename.files.length,1);
+assert.equal(recoveredFilename.files[0],'release-report-20261110.csv');
+assert.equal(recoveredFilename.source,'official_search_missing_list_filename');
+assert.equal(providerCalls.length,2,'read /list then official /search');
+summary=[report('../unsafe.csv')];providerCalls=[];
+const rejectedPath=await discoveryVm.discoverReleaseReports('LOCAL-TEST-NO-KEY');
+assert.equal(rejectedPath.complete,false);
+assert.equal(rejectedPath.reason,'MP_RELEASE_INVALID_FILENAME');
+assert.equal(providerCalls.length,1,'unsafe path must not be recovered');
+summary=[report(file)];providerCalls=[];
+const existingPath=await discoveryVm.discoverReleaseReports('LOCAL-TEST-NO-KEY');
+assert.equal(existingPath.complete,true);
+assert.equal(existingPath.source,'list_only');
+assert.equal(providerCalls.length,1,'valid list must not make extra API calls');
 
 console.log('V1.931 PASS: machine-only scoped read, exact net report, sponsor proof, refund/duplicate failure-closed, audited atomic registration.');

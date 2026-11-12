@@ -56,8 +56,15 @@ export function selectOfficialReports(list:unknown){
   return {complete:false,files:[],reason:"MP_RELEASE_LIST_INCOMPLETE"};
  const processed=list.filter(r=>String(r?.status||"").toLowerCase()==="processed"&&
   r?.is_test===false&&r?.currency_id==="BRL");
- if(processed.some(r=>!FILE_RE.test(String(r?.file_name||""))))
+ // The official /list response can omit file_name even for processed reports.
+ // This is a discoverability gap, not a reason to trust an unverified CSV.
+ // Malformed, nonempty paths still fail closed and never reach download.
+ // A mixed list must not let one absent name hide a different unsafe path.
+ if(processed.some(r=>r?.file_name!=null&&r.file_name!==""&&
+    !FILE_RE.test(String(r.file_name))))
   return {complete:false,files:[],reason:"MP_RELEASE_INVALID_FILENAME"};
+ if(processed.some(r=>r?.file_name==null||r.file_name===""))
+  return {complete:false,files:[],reason:"MP_RELEASE_FILENAME_MISSING"};
  const names=[...new Set(processed.map(r=>r.file_name))];
  if(names.length>MAX_REPORTS)
   return {complete:false,files:[],reason:"MP_RELEASE_COVERAGE_LIMIT"};
@@ -83,7 +90,10 @@ async function discoverReleaseReports(mpToken:string){
   accessToken:mpToken,method:"GET",timeoutMs:8000});
  if(!first.ok)throw new Error("MP_RELEASE_LIST_UNAVAILABLE");
  const initial=selectOfficialReports(await readMercadoPagoJson(first));
- if(!initial.complete||initial.files.length>0)
+ // When /list lacks a file name, use the independent official /search
+ // metadata as a bounded, read-only recovery path. Never accept bad paths.
+ if((!initial.complete&&initial.reason!=="MP_RELEASE_FILENAME_MISSING")||
+    (initial.complete&&initial.files.length>0))
   return {...initial,pending:0,blocked:0,source:"list_only"};
  const search=await mercadoPagoFetch(
   "/v1/account/release_report/search?limit=50&offset=0",{
@@ -131,7 +141,8 @@ async function discoverReleaseReports(mpToken:string){
   }
  }
  const result=inspectReportSearch({paging:{total},results:items});
- return {...result,source:"official_search"};
+ return {...result,source:initial.reason==="MP_RELEASE_FILENAME_MISSING"?
+   "official_search_missing_list_filename":"official_search"};
 }
 export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
  const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
@@ -363,7 +374,8 @@ Deno.serve(async req=>{
        failedAccountReports:reports.blocked,source:reports.source,
        coverageComplete:reports.complete,reason:reports.reason};
      // An existing pending task also blocks creating another report.
-     if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0)
+     if(reports.source==="official_search"&&reports.complete&&
+        reports.files.length===0&&reports.pending===0&&reports.blocked===0)
       reportBackfill=await requestHistoricalReleaseReport(
         client,mpToken,pendingReceipt.data[0]);
     }catch{/* Report list is required; never request under uncertain coverage. */}
@@ -384,7 +396,8 @@ Deno.serve(async req=>{
   // The direct report generation endpoint is independent of the existing
   // daily schedule. Only a verified TAMÃO-owned active configuration permits
   // requesting a bounded historical report for a genuine paid invoice.
-  if(reports.complete&&reports.files.length===0&&reports.pending===0&&reports.blocked===0&&
+  if(reports.source==="official_search"&&reports.complete&&
+    reports.files.length===0&&reports.pending===0&&reports.blocked===0&&
     reportConfiguration?.ready===true&&reportConfiguration?.scheduled===true&&
     reportConfiguration?.owned===true&&invoices.length>0)
     reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
