@@ -6650,6 +6650,32 @@ async function adminFinanceRealRefresh(){
   }
  }
 }
+// V1.961 — return from a banking/payment tab must re-read the ORIGINAL
+// account-owned financial state. Visibility/focus/network recovery do not
+// mint charges, mark invoices paid, or bypass the ordinary role check.
+function adminFinanceReadbackOnReturn(){
+ if(typeof document==='undefined'||document.visibilityState!=='visible')return false;
+ const key=adminFinanceHomologationEvidenceState().selected;
+ if(!adminFinanceRealAllowed(key))return false;
+ const state=adminFinanceRealState();
+ if(state.busy)return false;
+ const now=Date.now();
+ if(now-(Number(state.returnReadAt)||0)<15000)return false;
+ state.returnReadAt=now;
+ adminFinanceRealRefresh().catch(()=>{});
+ return true;
+}
+function adminBindFinanceReadbackOnReturn(){
+ if(globalThis.__tamaoFinanceReturnBound||typeof document==='undefined')return;
+ globalThis.__tamaoFinanceReturnBound=true;
+ document.addEventListener('visibilitychange',adminFinanceReadbackOnReturn);
+ if(typeof globalThis.addEventListener==='function'){
+  globalThis.addEventListener('focus',adminFinanceReadbackOnReturn);
+  globalThis.addEventListener('online',adminFinanceReadbackOnReturn);
+ }
+}
+adminBindFinanceReadbackOnReturn();
+
 async function adminFinanceRealAction(operation,choice=''){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
