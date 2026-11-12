@@ -8393,6 +8393,50 @@ function adminClubeFinanceView(){
    The public home must never collect/store a supplier's CPF/CNPJ. */
 /* Preserve native disclosures across Ajax-driven Admin repaint. Opening any
    <details> must not be undone by a background data refresh. */
+// V1.964: other Admin read-only refreshes may render while a user types.
+// Restore only a focused NON-financial field, from the same owner/role/section.
+// No persistence and no financial consent/confirmation or PSP input recovery.
+let adminLastRenderedEditorScope='';
+function adminEditorScope(){
+ const user=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const section=String(adminRuntime.section||'');
+ if(!user||!adminReady()||!adminRoleCanSection(section,role)||
+    !['partners','ads','orders','customers','prospects','enablement',
+      'catalog','alerts','incidents','discovery'].includes(section))return '';
+ return user+'|'+role+'|'+section;
+}
+function adminEditorCapture(app){
+ const scope=adminEditorScope(),input=document.activeElement;
+ if(!scope||scope!==adminLastRenderedEditorScope||!input||
+    !app?.contains?.(input)||!(/^[A-Za-z][A-Za-z0-9_-]{0,90}$/).test(String(input.id||'')))return null;
+ const tag=String(input.tagName||'').toUpperCase(),type=String(input.type||'').toLowerCase();
+ if(!['INPUT','TEXTAREA','SELECT'].includes(tag)||
+    !['text','email','tel','url','search','number','textarea','select-one'].includes(type)||
+    input.disabled||input.readOnly)return null;
+ const value=String(input.value??'');
+ if(value.length>2048)return null;
+ return {scope,id:input.id,tag,type,value,
+   from:Number.isInteger(input.selectionStart)?input.selectionStart:null,
+   to:Number.isInteger(input.selectionEnd)?input.selectionEnd:null};
+}
+function adminEditorRestore(app,saved){
+ const scope=adminEditorScope();
+ adminLastRenderedEditorScope=scope;
+ if(!scope||scope!==saved?.scope||!app)return;
+ const target=document.getElementById(saved.id);
+ if(!target||!app.contains?.(target)||
+    String(target.tagName||'').toUpperCase()!==saved.tag||
+    String(target.type||'').toLowerCase()!==saved.type||
+    target.disabled||target.readOnly)return;
+ if(saved.tag==='SELECT'&&
+    !Array.from(target.options||[]).some(option=>option.value===saved.value))return;
+ target.value=saved.value;
+ target.focus?.({preventScroll:true});
+ if(saved.from!==null&&saved.to!==null&&
+    typeof target.setSelectionRange==='function'){
+   try{target.setSelectionRange(saved.from,saved.to)}catch{}
+ }
+}
 function adminDisclosureKey(details,occurrences){
   const id=String(details.id||'').trim();
   if(id)return 'id:'+id;
@@ -8416,7 +8460,7 @@ function adminDisclosureCapture(app){
     states.set(key,details.open===true);
     if(active?.tagName==='SUMMARY'&&active.parentElement===details)focused=key;
   }
-  return {states,focused};
+  return {states,focused,editor:adminEditorCapture(app)};
 }
 function adminDisclosureRestore(app,snapshot){
   if(!app||!snapshot||typeof app.querySelectorAll!=='function')return;
@@ -8428,6 +8472,7 @@ function adminDisclosureRestore(app,snapshot){
       details.querySelector?.(':scope > summary')?.focus?.({preventScroll:true});
     }
   }
+  adminEditorRestore(app,snapshot.editor);
 }
 
 const adminCouponCommercial={busy:false,data:null,loadedFor:null,requestId:null};
