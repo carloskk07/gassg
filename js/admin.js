@@ -11595,6 +11595,7 @@ function adminPage(){
       </div>
     </nav>`;
 
+  tamaoEnsureWorkspaceStyles();
   return shell(`<section class="page admin-page">
     <header class="admin-page-header">
       <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1 tabindex="-1" id="admin-current-section-title">${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
