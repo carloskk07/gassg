@@ -2542,6 +2542,7 @@ function merchantLivePage(){
       ? '<div class="notice" style="margin-top:12px"><strong>Reconectando presença da revenda.</strong><br>'+esc(rt.heartbeatError)+'</div>'
       : '';
 
+  tamaoEnsureWorkspaceStyles();
   return shell(`<section class="page merchant-workspace">
     <header class="merchant-workspace-header"><div class="merchant-workspace-identity">
       <div class="merchant-workspace-identity-meta"><span class="tiny">SUA REVENDA • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</span><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'● OFFLINE'}</span></div>
