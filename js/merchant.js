@@ -1554,7 +1554,7 @@ function merchantSetupView(rt){
       (item.done?'Revisar':'Configurar')+'</button></div>'+
       '<span class="status-pill '+(item.done?'online':'offline')+'">'+(item.done?'Preenchido':'A revisar')+'</span></div>'
     ).join('')+'</div>'+
-    '<p class="merchant-essentials-disclaimer">Configurar não libera vendas: aprovação, catálogo e cidade exigem validação do TAMÃO.</p>'+
+    '<p class="merchant-essentials-disclaimer">Esses ajustes não liberam vendas automaticamente: aprovação, catálogo e cidade ainda exigem validação do TAMÃO.</p>'+
   '</section>';
 }
 function merchantRevealControl(selector){
