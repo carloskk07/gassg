@@ -36,10 +36,13 @@ const b=edge.indexOf('function publicInvoice(',a);
 assert.ok(a>0&&b>a,'owner funding logic needs to be directly exercised');
 const source=edge.slice(a,b)
  .replace('admin:any,row:any','admin,row')
- .replace('row:any','row');
+ .replace('row:any','row')
+ .replace('function couponNetReconciliationRecorded(row:any)',
+  'function couponNetReconciliationRecorded(row)');
 const ctx=vm.createContext({Number,String,Boolean,Date});
 vm.runInContext(source+'\nthis.couponCovered=couponInvoiceNetCovered;'+
- '\nthis.ownerSpendable=couponOwnerSponsorSpendable;',ctx);
+ '\nthis.ownerSpendable=couponOwnerSponsorSpendable;'+
+ '\nthis.netRecorded=couponNetReconciliationRecorded;',ctx);
 const row={
  id:'11111111-1111-4111-8111-111111111111',
  status:'paid',paid_at:'2026-11-10T20:00:00Z',
@@ -56,6 +59,9 @@ const backend={rpc:async(name,params)=>{
  return {data:true,error:null};
 }};
 assert.equal(ctx.couponCovered(row),false,'unverified sponsor never substitutes NET proof');
+assert.equal(ctx.netRecorded(row),false,'owner coverage must not imply MP NET receipt');
+assert.match(edge,/netReconciliationRecorded:couponNetReconciliationRecorded\(row\)/);
+assert.match(edge,/sponsorFundedSpendable:couponInvoiceNetCovered\(row\)&&row.ownerSponsorVerified===true/);
 assert.equal(await ctx.ownerSpendable(backend,row),true);
 assert.equal(calls,1);
 assert.equal(ctx.couponCovered({...row,ownerSponsorVerified:true}),true,
@@ -77,6 +83,13 @@ const net={...row,ownerSponsorVerified:false,net_proceeds_cents:1500,
  sale_price_cents:1600,net_proceeds_reference:'mp-release:report:pay',
  net_proceeds_verified_at:'2026-11-10T21:00:00Z'};
 assert.equal(ctx.couponCovered(net),true,'old NET-funded path remains valid');
+assert.equal(ctx.netRecorded(net),true,'verified provider NET register is independent');
+for(const invalid of [
+ {net_proceeds_reference:null},{net_proceeds_cents:null},
+ {net_proceeds_cents:1700},{net_proceeds_verified_at:null},
+ {status:'refunded'},{paid_at:null}
+])assert.equal(ctx.netRecorded({...net,...invalid}),false,
+ 'NET display cannot assert missing, excessive or reversed evidence');
 assert.equal(ctx.couponCovered({...net,net_proceeds_reference:null}),false,
  'old unsponsored path still needs authenticated NET evidence');
 console.log('V1.942 PASS: owner escrow and paid Pix release independently of MP NET report; all other modes fail closed.');
