@@ -16,21 +16,22 @@ assert.ok(first>=0&&second>first&&end>second);
 const sponsor=growth.slice(first,second);
 const merchant=growth.slice(second,end);
 
-// First-fold sponsor selection gives a human-scale goal instead of requiring
-// visitors to read the entire page. Every button uses the existing safe contact.
+// V1.969: one sponsor contact CTA above the public price planner; each
+// specific commercial objective appears ONCE after that verified planner.
 const sponsorSandbox=vm.createContext({shell:x=>x});
 vm.runInContext(sponsor+'\nthis.page=sponsorsLanding;',sponsorSandbox);
 const sponsorHtml=sponsorSandbox.page();
 const heroEnd=sponsorHtml.indexOf('public-sponsor-selector-intro');
 assert.ok(heroEnd>0);
 const hero=sponsorHtml.slice(0,heroEnd);
-assert.ok(hero.includes('sponsor-intent-quick'));
-assert.ok(hero.includes('aria-label="Escolha o tipo de parceria para sua marca"'));
-assert.ok(hero.includes('Escolha seu objetivo e envie sua proposta'));
+assert.ok(!hero.includes('sponsor-intent-quick'),
+ 'no duplicate three-choice selector in the hero');
+assert.ok(hero.includes('Divulgue sua marca com investimento e entrega claros.'));
+assert.ok(sponsorHtml.includes('sponsor-format-grid'));
+assert.ok(sponsorHtml.includes('Que tipo de divulgação você procura?'));
 for(const intent of ['visibility','relationship','local']){
-  assert.ok(hero.includes("openSponsorContact('"+intent+"')"),'hero missing '+intent);
-  assert.ok(sponsorHtml.includes("openSponsorContact('"+intent+"')"),
-   'original detailed sponsor formats must remain: '+intent);
+  assert.equal(sponsorHtml.split("openSponsorContact('"+intent+"')").length-1,1,
+   'the original detailed sponsor format must be selectable exactly once: '+intent);
 }
 assert.ok(hero.includes('openSponsorContact()'),'generic contact also available');
 assert.ok(sponsorHtml.includes('sponsor-visual-story'),'conceptual visual remains');
@@ -90,7 +91,7 @@ assert.ok(acquisition.includes("leadType:'merchant'"),'lead still uses server on
 
 // Narrow screens and keyboard navigation must remain supported.
 for(const token of ['.merchant-conversion-start','.merchant-lead-options',
- '.sponsor-intent-quick','.sponsor-intent-quick button:focus-visible',
+ '.sponsor-format-grid','.sponsor-format-grid article button:focus-visible',
  '@media(max-width:620px)','@media(max-width:370px)',
  '@media(prefers-reduced-motion:reduce)']){
  assert.ok(css.includes(token),'missing responsive/accessibility rule '+token);
