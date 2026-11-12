@@ -131,3 +131,48 @@ assert.equal(evidenceReads,1,'non-owner cannot refresh homologation evidence');
 assert.equal(existingPaymentReads,1,'non-owner cannot invoke real-payment readback');
 console.log('V1.960 PASS: Finance menu return refreshes existing payment for superadmin only.');
 console.log('V1.930 PASS: direct coupon review, paid evidence first, clean nav, no new charge or role leak.');
+
+ // V1.961: restoring the banking tab triggers one READ of the existing
+ // owner-bound charge, even if the old 15-minute polling window expired.
+const returnStart=src.indexOf('function adminFinanceReadbackOnReturn(){');
+const returnEnd=src.indexOf('async function adminFinanceRealAction(',returnStart);
+assert(returnStart>0&&returnEnd>returnStart);
+let now=100000,readbacks=0,roleForReturn='superadmin',
+ sectionForReturn='finance',keyForReturn='coupons',visibleForReturn='visible';
+let returnBusy=false,returnBound=0;
+const financeState={actor:'owner',returnReadAt:0,busy:false};
+const docEvents={},windowEvents={};
+const returnCtx=vm.createContext({
+ Date:{now:()=>now},
+ document:{get visibilityState(){return visibleForReturn;},
+  addEventListener:(name,cb)=>{docEvents[name]=cb;returnBound++;}},
+ globalThis:{addEventListener:(name,cb)=>{windowEvents[name]=cb;returnBound++;}},
+ adminFinanceHomologationEvidenceState:()=>({selected:keyForReturn}),
+ adminFinanceRealAllowed:(key)=>roleForReturn==='superadmin'&&
+  sectionForReturn==='finance'&&key==='coupons',
+ adminFinanceRealState:()=>financeState,
+ adminFinanceRealRefresh:()=>{readbacks++;return Promise.resolve();}
+});
+vm.runInContext(src.slice(returnStart,returnEnd)+
+ ';this.checkReturn=adminFinanceReadbackOnReturn;',returnCtx);
+assert.equal(returnBound,3,'one visibility, focus and network listener each');
+windowEvents.focus();
+assert.equal(readbacks,1,'focus from payment app reads original invoice');
+docEvents.visibilitychange();
+windowEvents.online();
+assert.equal(readbacks,1,'rapid duplicate events coalesced');
+now+=16000;visibleForReturn='hidden';
+docEvents.visibilitychange();
+assert.equal(readbacks,1,'hidden tabs do not read financial state');
+visibleForReturn='visible';docEvents.visibilitychange();
+assert.equal(readbacks,2,'visible return after polling expiry rechecks invoice');
+now+=16000;roleForReturn='finance';windowEvents.focus();
+assert.equal(readbacks,2,'other roles cannot trigger financial reads');
+roleForReturn='superadmin';sectionForReturn='overview';windowEvents.focus();
+assert.equal(readbacks,2,'other sections never read financial data');
+sectionForReturn='finance';financeState.busy=true;windowEvents.focus();
+assert.equal(readbacks,2,'busy requests never race focus refreshes');
+financeState.busy=false;keyForReturn='advertising';windowEvents.focus();
+assert.equal(readbacks,2,'no cross-module coupon read');
+assert.equal(chargeCreates,0,'no new Pix created on focus or network recovery');
+console.log('V1.961 PASS: secure rate-limited tab-focus and reconnect readback of original Pix.');
