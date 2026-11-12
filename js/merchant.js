@@ -2379,6 +2379,10 @@ function merchantWorkspaceJump(area){
   return true;
 }
 // V1.348 — read-only guide to the next relevant workspace, never a permission grant.
+// V1.970 — avoid showing the same urgent-order CTA twice above the queue.
+function merchantWorkspaceNeedsGuide(evidence,orders){
+ return evidence?.fresh!==true||!Array.isArray(orders)||orders.length===0;
+}
 function merchantWorkspaceOrientation(rt,{canGoOnline=false,connectionHealthy=false,financialHold=false,orders=[]}={}){
   const m=rt?.merchant||{};
   const count=Array.isArray(orders)?orders.length:0;
@@ -2526,12 +2530,12 @@ function merchantLivePage(){
     detail:'A consulta de pedidos precisa ser renovada. As ações ficam indisponíveis nesta visualização até a atualização.',
     action:'orders',label:'Ver atualização dos pedidos'
   };
-  const orientationMarkup=`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
+  const orientationMarkup=merchantWorkspaceNeedsGuide(orderEvidence,orders)?`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
     <span class="merchant-orientation-eyebrow">${esc(orientation.eyebrow)}</span>
     <strong>${esc(orientation.title)}</strong>
     <p>${esc(orientation.detail)}</p>
     <button type="button" class="merchant-orientation-action" onclick="merchantWorkspaceJump('${orientation.action}')">${esc(orientation.label)} <span aria-hidden="true">→</span></button>
-  </aside>`;
+  </aside>`:'';
   const connectionNotice=!connectionHealthy
     ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
     : rt.heartbeatError
@@ -2543,10 +2547,10 @@ function merchantLivePage(){
       <div class="merchant-workspace-identity-meta"><span class="tiny">SUA REVENDA • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</span><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'● OFFLINE'}</span></div>
       <h1 class="page-title">${esc(m.name)}</h1>
       <p class="merchant-workspace-welcome">Tudo o que importa para atender bem, organizado para o seu dia.</p>
-      <div class="merchant-workspace-readonly"><span><strong>${orders.length}</strong> ${orderEvidence.fresh?(orders.length===1?'pedido na fila':'pedidos na fila'):'na última lista'}</span><span>Dados da sua operação</span></div>
+      <div class="merchant-workspace-readonly" aria-label="Situação da lista de pedidos"><span>${orderEvidence.fresh?'Pedidos consultados recentemente':'Lista de pedidos a confirmar'}</span></div>
     </div>${orientationMarkup}</header>
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
-      <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
+      <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orderEvidence.fresh?(orders.length+' '+(orders.length===1?'pedido confirmado na fila':'pedidos confirmados na fila')):'Atualize para conferir a fila'}</small></button>
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">🧺</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Estoque, preços e disponibilidade':'Prepare sua operação'}</small></button>
       <details class="merchant-workspace-more"><summary>Mais opções: financeiro, divulgação e configurações</summary>
         <div class="merchant-workspace-more-actions">
