@@ -3439,9 +3439,15 @@ function adminOperationalStrip(d){
   const e2e=adminBillingE2EState(d);
   const provider=adminBillingProviderName(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider);
   const providerState=e2e.validated?'integração verificada':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
-  const tone=blockers?'danger':warnings?'warning':'good';
+  // A live platform does not mean physical checkout is enabled. Show the
+  // independent server-side commerce gate, never infer sales from mode=LIVE.
+  const platformLabel=adminOperationModeLabel(mode);
+  const checkoutLabel=readiness.commerceEnabled===true?'COMÉRCIO HABILITADO':
+    readiness.commerceEnabled===false?'PEDIDOS NÃO HABILITADOS':'COMÉRCIO NÃO VERIFICADO';
+  const operationLabel=['LIVE','PILOT'].includes(mode)?checkoutLabel:platformLabel;
+  const tone=blockers?'danger':warnings||readiness.commerceEnabled!==true?'warning':'good';
   return '<div class="admin-ops-strip '+tone+'">'+
-    '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>OPERAÇÃO</small><strong>'+esc(mode)+'</strong></div></div>'+
+    '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>'+esc(platformLabel)+'</small><strong>'+esc(operationLabel)+'</strong></div></div>'+
     '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
     '<div class="admin-ops-item"><small>PSP</small><strong>'+esc(provider)+' • '+esc(providerState)+'</strong></div>'+
     '<div class="admin-ops-item"><small>Incidentes</small><strong>'+incidents+' aberto(s)</strong></div>'+
