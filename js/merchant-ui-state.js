@@ -56,7 +56,7 @@ function merchantUiAfterRender(app,snapshot){
  merchantLastRenderedScope=scope;
  if(!app||!scope||snapshot?.scope!==scope||
     typeof app.querySelectorAll!=='function')return;
- const nodes=new Map(Array.from(app.querySelectorAll('[id]')).slice(0,350)
+ const nodes=new Map(Array.from(app.querySelectorAll('[id]')).slice(0,1000)
   .map(el=>[el.id,el]));
  for(const record of snapshot.details||[]){
   const node=nodes.get(record.id);
