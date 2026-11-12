@@ -2441,6 +2441,11 @@ function merchantUiAfterRender(app,snapshot){
   }
  }
 }
+function merchantUiRender(app,html){
+ const snapshot=merchantUiBeforeRender(app);
+ app.innerHTML=html;
+ merchantUiAfterRender(app,snapshot);
+}
 function merchantWorkspaceJump(area){
   const keys={orders:'merchant-live-orders',start:'merchant-workspace-start',setup:'merchant-workspace-setup',growth:'merchant-workspace-growth',
     settings:'merchant-workspace-settings',finance:'merchant-workspace-finance'};
