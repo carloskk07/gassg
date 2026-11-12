@@ -12342,6 +12342,13 @@ const ADMIN_REFERRAL_REJECTION_REASONS=Object.freeze({
 });
 async function adminReviewReferral(orderId,decision){
   if(!['approved','rejected'].includes(decision))return;
+  // Approval/rejection is a financial decision. Another Admin write must not
+  // turn a null (busy) result into a falsely reported approved commission.
+  if(!adminReady()||!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.actionPending)
+    return toast('Outra ação ou sessão impede a revisão. Consulte a indicação novamente.');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(orderId||'')))
+    return toast('Identificador da indicação inválido.');
   if(document.getElementById('referral-reviewed-'+orderId)?.checked!==true)
     return toast('Marque somente após conferir os sinais e a elegibilidade desta indicação.');
   let notes='Risco da indicação revisado individualmente; continuidade autorizada pelo administrador.';
@@ -12352,10 +12359,18 @@ async function adminReviewReferral(orderId,decision){
     notes=ADMIN_REFERRAL_REJECTION_REASONS[chosen];
   }
   if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
+  const actor=String(adminRuntime.session?.user?.id||'');
   try{
-    await adminPerform('review-referral',{orderId,decision,notes});
-    toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
-  }catch(e){toast(String(e?.message||e))}
+    const result=await adminPerform('review-referral',{orderId,decision,notes});
+    if(actor!==String(adminRuntime.session?.user?.id||''))return;
+    // The original idempotent SQL returns these exact three authority fields.
+    // A 200 response alone is never proof that the selected order was reviewed.
+    if(result?.ok!==true||String(result.orderId)!==String(orderId)||
+       result.riskStatus!==decision)
+      return toast('A revisão não foi confirmada para este pedido. Atualize a fila antes de tentar novamente.');
+    toast(decision==='approved'?'Revisão aprovada; a comissão ainda depende das demais condições financeiras.':
+      'Revisão rejeitada; consulte o histórico antes de considerar o saldo ajustado.');
+  }catch(e){if(actor===String(adminRuntime.session?.user?.id||''))toast(String(e?.message||e))}
 }
 async function adminRetryReward(orderId){
   if(!confirm('Reprocessar os benefícios deste pedido agora? A entrega não será alterada.'))return;
