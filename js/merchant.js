@@ -5332,7 +5332,7 @@ function merchantAdsPspSection(merchant){
   '<button type="button" class="secondary small" onclick="merchantAdsPspLoad()">Conferir checkout</button></div>'+
   (packet?label:'<p class="muted tiny">Clique em Conferir checkout para consultar o servidor.</p>')+
   (rt.adsPspError?'<p class="notice danger">'+esc(rt.adsPspError)+'</p>':'')+
-  '<p class="tiny muted">Confirme o recebedor no Mercado Pago. Só o provedor comprova o pagamento; anúncios ainda exigem aprovação.</p></section>';
+  '<p class="tiny muted">Confirme o recebedor no Mercado Pago. O retorno ao TAMÃO não prova o recebimento; só o provedor confirma. Anúncios exigem aprovação.</p></section>';
 }
 async function merchantAdsPspLoad(){
  const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
