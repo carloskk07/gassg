@@ -255,6 +255,13 @@ function patchServiceWorker(raw,sourceSha,role){
   if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
   if(!['customer','merchant','admin'].includes(role))throw new Error('Invalid portal cache role');
   let scoped=next;
+  // Workspace-only stylesheet is PWA-cached for the authenticated portals,
+  // but never downloaded or precached by the public storefront.
+  if(role==='customer'){
+    const workspaceCss=",'./css/workspace-experience.css'";
+    if(!scoped.includes(workspaceCss))throw new Error('Missing workspace stylesheet PWA entry');
+    scoped=scoped.replace(workspaceCss,'');
+  }
   if(role!=='merchant'){
     const merchantEntry=",'./js/merchant.js'";
     const editorEntry=",'./js/merchant-ui-state.js'";
