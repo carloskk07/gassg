@@ -679,28 +679,18 @@ function tamaoAdsPlannerLoad(){
 }
 
 
-const DEFAULT_REFERRAL_PILOT_RATE=0.02;
-const DEFAULT_MERCHANT_PILOT_FEE_RATE=0.075;
-
-function currentCommercialRate(field,fallback){
-const policy=globalThis.liveRuntime?.marketStatus?.commercialPolicy;
-const raw=policy&&typeof policy==='object'?Number(policy[field]):NaN;
-if(Number.isFinite(raw)&&raw>=0&&raw<=5000)return raw/10000;
-return fallback;
-}
-function referralPilotRate(){
-return currentCommercialRate('directReferralBps',DEFAULT_REFERRAL_PILOT_RATE);
-}
-function merchantPilotFeeRate(){
-return currentCommercialRate('platformFeeBps',DEFAULT_MERCHANT_PILOT_FEE_RATE);
-}
-function policyPercent(rate){
-const pct=Math.round(Math.max(0,Number(rate)||0)*10000)/100;
-return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
-}
-
-
-// V1.365: accessible, local jumps keep visitors on their</div>
+function sponsorsLanding(){
+  return shell(`<section class="page tamao-sponsors-page">
+    <div class="tamao-sponsor-hero tamao-commercial-hero">
+      <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
+      <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
+      <h1 class="page-title">Divulgue sua marca com investimento e entrega claros.</h1>
+      <p class="page-lead">Escolha sua região, conheça o teto de investimento e solicite uma proposta. A publicidade comercial depende de validação e de inventário disponível.</p>
+      <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
+      <div class="tamao-value-actions">
+        <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
+      </div>
+</div>
       <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
         <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>EXEMPLO DE FORMATO</small></div>
         <div class="sponsor-visual-feature">
@@ -735,6 +725,7 @@ return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
         <div><strong>3. Validar antes de ativar</strong><p>Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha. Sem cobrar por entrega não verificada.</p></div>
       </div>
     </section>
+
   </section>`);
 }
 
