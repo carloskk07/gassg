@@ -160,8 +160,12 @@ assert.ok(!growth.includes('milhares de clientes garantidos'),
 // V1.366: explicitly separate benefit mechanics and preserve real commercial routes.
 const analytics=read('js/analytics.js');
 new vm.Script(analytics,{filename:'analytics.js'});
-assert.equal((earn.match(/tamao-benefit-guide-card/g)||[]).length,4,
- 'show four independent benefit categories rather than promising universal rewards');
+assert.equal((earn.match(/tamao-benefit-guide-card/g)||[]).length,0,
+ 'the visitor should not see four more cards restating the hero and opportunity cards');
+assert.equal((earn.match(/class="opportunity-card /g)||[]).length,2,
+ 'retain only the two concrete economic examples, for users and merchants');
+assert.match(earn,/tamao-network-clarity/,
+ 'one short explanation distinguishes Club purchases from the referral network');
 assert.ok(earn.includes("go('club')")&&earn.includes("go('refer')")&&earn.includes("go('merchants')"),
  'each benefit should lead to a real existing destination');
 assert.ok(earn.includes('compras elegíveis')&&earn.includes('campanha')&&
@@ -196,11 +200,13 @@ const benefitSandbox=vm.createContext({
 });
 vm.runInContext(growth.slice(earnBegin,earnEnd)+'\nthis.page=earn;',benefitSandbox);
 const benefitPage=benefitSandbox.page();
-assert.match(benefitPage,/Cashback para voltar a comprar/);
-assert.match(benefitPage,/Indicações com acompanhamento/);
-assert.match(benefitPage,/Cupons e ações especiais/);
-assert.match(benefitPage,/Mais um canal para sua empresa/);
-assert.equal((benefitPage.match(/class="tamao-benefit-guide-card /g)||[]).length,4);
+assert.match(benefitPage,/O Clube reúne cupons e cashback de compras elegíveis/);
+assert.match(benefitPage,/Conhece alguém que gostaria de usar o TAMÃO/);
+assert.match(benefitPage,/Sua empresa pode vender por mais um canal/);
+assert.equal((benefitPage.match(/class="tamao-benefit-guide-card /g)||[]).length,0,
+ 'no duplicate editorial benefit-grid beneath the three routing choices');
+assert.equal((benefitPage.match(/class="opportunity-card /g)||[]).length,2);
+assert.equal((benefitPage.match(/class="tamao-cro-paths"/g)||[]).length,1);
 assert.doesNotMatch(benefitPage,/ganhos garantidos|cupons ativos para todos/i,
  'marketing may not imply unconditional benefits');
 // Only the documented page context and a temporary audience flag are read.
@@ -229,8 +235,9 @@ const quoteBoard=read('js/home-showcase.js');
 new vm.Script(quoteBoard,{filename:'js/home-showcase.js'});
 assert.match(quoteBoard,/tamao-quote-first/);
 assert.match(quoteBoard,/tamao-home-coupon-rail/);
-assert.ok(quoteBoard.indexOf('city-price-grid')<quoteBoard.indexOf('tamao-home-coupon-rail'),
- 'show prices first and coupon benefits immediately after');
+assert.ok(!quoteBoard.slice(quoteBoard.indexOf('function homeRegionalPriceBoard('),
+ quoteBoard.indexOf('// Count only fresh')).includes('homeQuoteCouponRail()+'),
+ 'home price board must not repeat the standalone coupon banner');
 assert.match(quoteBoard,/Ver cupons e Clube/);
 assert.ok(quoteBoard.includes('Ver cupons e Clube'),'coupon CTA must exist');
 assert.ok(!quoteBoard.includes('Os preços reais substituem as referências automaticamente'),
