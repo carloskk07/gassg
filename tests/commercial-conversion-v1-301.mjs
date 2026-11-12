@@ -21,12 +21,15 @@ const slice=(name)=>{
  return growth.slice(start,end>start?end:undefined);
 };
 const sponsor=slice('sponsorsLanding'),merchants=slice('merchantsLanding'),earn=slice('earn');
-assert.equal((sponsor.match(/onclick="openSponsorContact\(\)"/g)||[]).length,2);
-assert.match(sponsor,/aria-label="Escolha o tipo de parceria para sua marca"/);
-assert.match(sponsor,/Ganhar visibilidade/);
-assert.match(sponsor,/Apoiar benefícios/);
-assert.match(sponsor,/Estar junto às revendas/);
-assert.match(sponsor,/Escolha seu objetivo e envie sua proposta/);
+assert.equal((sponsor.match(/onclick="openSponsorContact\(\)"/g)||[]).length,1,
+ 'one principal sponsor inquiry instead of repeated conversion buttons');
+assert.doesNotMatch(sponsor,/sponsor-intent-quick/,
+ 'do not repeat the three commercial intents before the actual format cards');
+assert.match(sponsor,/sponsor-format-grid/);
+for(const goal of ['visibility','relationship','local'])
+ assert.equal(sponsor.split("openSponsorContact('"+goal+"')").length-1,1,
+  'one specific path for '+goal);
+assert.match(sponsor,/Que tipo de divulgação você procura/);
 assert.doesNotMatch(sponsor,/centenas de anunciantes|garantimos resultados/);
 assert.match(merchants,/aria-label="Como começar a vender pelo TAMÃO"/);
 assert.match(merchants,/Prepare sua operação/);
