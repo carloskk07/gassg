@@ -222,8 +222,12 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       // V1.963: real Chromium, real authenticated seller/SQL snapshot,
       // but ONLY a local unsaved DOM draft. No backend mutation or new order.
       await merchantPage.evaluate("(()=>{const field=document.getElementById('live-delivery-fee');for(let p=field?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;field?.focus();return true})()");
-      await merchantPage.wait("typeof merchantUiRender==='function'",
-        'deferred partner editor loads upon field focus',25000);
+      // The deferred editor may load before its first authorized render.
+      // Only a same-identity/role/merchant scope may restore unsaved input.
+      await merchantPage.wait(
+        "typeof merchantUiRender==='function' && typeof merchantUiRenderScope==='function' && "+
+        "merchantUiRenderScope()!=='' && merchantLastRenderedScope===merchantUiRenderScope()",
+        'authenticated partner editor scope has rendered',25000);
       const merchantDraftUi=JSON.parse(await merchantPage.evaluate(
         "(()=>{const el=document.getElementById('live-delivery-fee'),"+
         "section=document.getElementById('merchant-workspace-finance');"+
@@ -239,7 +243,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         "if(after)after.value=original;document.activeElement?.blur?.();render();"+
         "return JSON.stringify(result)})()"));
       assert.equal(merchantDraftUi.missing,false,'real partner form and finance section must exist');
-      assert.equal(merchantDraftUi.sameDraft,true,'partner DOM refresh preserves unsaved delivery fee');
+      assert.equal(merchantDraftUi.sameDraft,true,
+        'partner DOM refresh preserves unsaved delivery fee: '+JSON.stringify(merchantDraftUi));
       assert.equal(merchantDraftUi.sameFocus,true,'partner DOM refresh retains field focus');
       assert.equal(merchantDraftUi.sectionOpen,true,'partner finance workspace stays expanded');
       assert.equal(merchantDraftUi.ordersUnchanged,true,'UI preservation never creates an order');
