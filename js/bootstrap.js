@@ -170,6 +170,19 @@ function discoveryOwnerRequestModule(){
   script.onerror=()=>{discoveryOwnerModuleError=true;render();};
   document.head.appendChild(script);
 }
+/* V1.969 — Keep the Home's initial CSS budget intact. The specialized
+   marketing and partner-team styles load only on their own routes. */
+function tamaoEnsurePublicExperienceStyles(page){
+  if(!['club','earn','sponsors','merchant-team'].includes(page)||
+     globalThis.adminPortalRequested?.()||
+     document.querySelector('link[href*="/css/public-ux.css"]'))return;
+  const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
+  const version=base.match(/\\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+  const link=document.createElement('link');
+  link.rel='stylesheet';
+  link.href='./css/public-ux.css'+version;
+  document.head.appendChild(link);
+}
 let renderLock=false;
 function render(){
   if(renderLock)return;
@@ -191,6 +204,7 @@ function render(){
     housekeeping();
     const r=discoveryOwnerReturnPending()?'advertise':
       mobilityReturnIntent()?'mobility':route();
+    tamaoEnsurePublicExperienceStyles(r);
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)typeof merchantUiRender==='function'
