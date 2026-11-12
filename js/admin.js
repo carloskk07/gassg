@@ -6577,8 +6577,11 @@ async function adminFinanceRealRefresh(){
     throw Error('O checkout de cupons não confirmou o catálogo e o histórico.');
    data={catalog,history};
    // Read-only machine status: never create Pix during page refresh.
+   // Voucher spendability and provider NET are independent. A sponsor-paid
+   // voucher can be usable while the original Pix remains NET-unreconciled.
    const awaiting=history.purchases.find(p=>p.status==='paid'&&
-     p.fundingPending===true&&/^[0-9a-f-]{36}$/i.test(String(p.invoiceId||'')));
+     (p.fundingPending===true||p.netReconciliationRecorded===false)&&
+     /^[0-9a-f-]{36}$/i.test(String(p.invoiceId||'')));
    state.autoStatus=null;
    if(awaiting){
     try{
@@ -6832,23 +6835,34 @@ function adminFinanceRealPanel(key){
   html+='<p>Compras desta conta: '+purchases.length+' · Ofertas comerciais autorizadas: '+packs.length+'</p>';
   if(paid.length)html+=paid.slice(0,3).map(p=>{
    const count=(known.history?.vouchers||[]).filter(v=>v.invoiceId===p.invoiceId&&v.status==='issued').length;
+   // Never display one invoice's machine observations beside another paid Pix.
+   const netStatus=state.autoStatus?.invoiceId===p.invoiceId?state.autoStatus:null;
    return '<div class="notice" role="status" aria-label="Pagamento Pix confirmado">'+
     '<strong>Pix PAGO e registrado no TAMÃO · '+money(p.amountCents)+'</strong>'+
     '<p>Pagamento registrado em '+esc(formatDateTime(p.paidAt||p.createdAt))+
     '. Não pague novamente.</p>'+
     (p.fundingPending===true
       ?'<p><strong>Conciliação do líquido pendente.</strong> Os cupons não estão liberados para uso enquanto o extrato oficial do Mercado Pago não for conferido.</p>'+
-       (state.autoStatus?.enabled===true
+       (netStatus?.enabled===true
         ?'<p><strong>Conferência automática ativa.</strong> O TAMÃO consulta o relatório oficial sem gerar outro Pix. '+
-          (state.autoStatus.status==='requires_review'
+          (netStatus.status==='requires_review'
             ?'O Mercado Pago não concluiu o relatório ou há uma divergência que exige revisão.':
-             state.autoStatus.reason==='MP_REPORT_PROCESSING'
+             netStatus.reason==='MP_REPORT_PROCESSING'
               ?'O Mercado Pago está gerando o relatório. Não gere outro Pix nem outra cobrança.':
               'Nenhuma ação manual necessária enquanto o relatório estiver pendente.')+'</p>'
         :'<p>A conferência automática ainda não está ativa. A comprovação oficial permanece necessária.</p>')+
        '<details><summary>Detalhes e recuperação manual, somente se necessário</summary>'+
        '<button type="button" class="secondary small" onclick="adminSetFinanceWorkspace(&quot;policy&quot;)">Conferir valor líquido no Financeiro</button></details>'
-      :'<p>Financiamento do benefício confirmado. Cupons emitidos visíveis: '+count+'. O relatório contábil do Mercado Pago continua independente dos benefícios financiados.</p>')+
+      :p.sponsorFundedSpendable===true&&p.netReconciliationRecorded===false
+       ?'<p><strong>Patrocínio conferido: benefício financeiramente elegível.</strong> Cupons emitidos visíveis: '+count+'. O uso exige pedido válido, revenda apta e demais regras do checkout.</p>'+
+        '<p><strong>Conciliação do líquido do Mercado Pago ainda pendente.</strong> O relatório contábil do Mercado Pago continua independente dos benefícios financiados. Não gere outro Pix.</p>'+
+        (netStatus?.enabled===true
+          ?'<p><strong>Conferência automática ativa</strong> para esta fatura. '+
+            (netStatus.status==='requires_review'?'Há divergência a revisar.':
+             netStatus.reason==='MP_REPORT_PROCESSING'?'O Mercado Pago está gerando o relatório.':
+             'O extrato líquido ainda não foi confirmado.')+'</p>'
+          :'')
+       :'<p>Financiamento do benefício confirmado. Cupons emitidos visíveis: '+count+'. O relatório contábil do Mercado Pago continua independente dos benefícios financiados.</p>')+
     '</div>';
   }).join('');
   if(pending.length)html+='<p class="notice">Fatura original aguardando confirmação. Consulta automática a cada 50 segundos nesta tela.</p>'+
