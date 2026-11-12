@@ -177,7 +177,7 @@ function tamaoEnsurePublicExperienceStyles(page){
      globalThis.adminPortalRequested?.()||
      document.querySelector('link[href*="/css/public-ux.css"]'))return;
   const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
-  const version=base.match(/\\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+  const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
   const link=document.createElement('link');
   link.rel='stylesheet';
   link.href='./css/public-ux.css'+version;
