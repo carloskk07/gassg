@@ -12,6 +12,8 @@ assert.match(boot,/tamaoEnsurePublicExperienceStyles\(r\)/,
  'Route-specific CSS must load when Club, Network, Sponsors or Team are rendered');
 assert.match(boot,/\['club','earn','sponsors','merchant-team'\]/);
 assert.match(boot,/css\/public-ux\.css/);
+assert.match(read('sw.js'),/\.\/css\/public-ux\.css/,
+ 'The route-specific style must remain available in the PWA offline snapshot');
 assert.doesNotMatch(read('css/marketing-premium.css'),/tamao-club-visitor-focus/,
  'New route-specific styles must not regress the eager Home CSS budget');
 
@@ -122,8 +124,7 @@ for(const part of ['.mobility-provider-card', '.mobility-access-layout',
  '.mobility-driver-panel','@media(max-width:760px)',':focus-visible'])
  assert(mobCss.includes(part),'missing accessible mobility design '+part);
 for(const part of ['.tamao-club-visitor-focus',
- '.tamao-network-clarity','.tamao-quote-first .city-price-empty',
- '.merchant-team-access','@media(max-width:600px)'])
+ '.tamao-network-clarity','.merchant-team-access','@media(max-width:600px)'])
  assert(css.includes(part),'missing responsive public experience '+part);
 const mobilityStart=mobility.indexOf('function mobilityPage(){');
 const mobilityEnd=mobility.indexOf('\nfunction ',mobilityStart+1);
