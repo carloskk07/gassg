@@ -8460,7 +8460,7 @@ function adminDisclosureCapture(app){
     states.set(key,details.open===true);
     if(active?.tagName==='SUMMARY'&&active.parentElement===details)focused=key;
   }
-  return {states,focused,editor:adminEditorCapture(app)};
+  return {states,focused,editor:typeof adminEditorCapture==='function'?adminEditorCapture(app):null};
 }
 function adminDisclosureRestore(app,snapshot){
   if(!app||!snapshot||typeof app.querySelectorAll!=='function')return;
@@ -8472,7 +8472,7 @@ function adminDisclosureRestore(app,snapshot){
       details.querySelector?.(':scope > summary')?.focus?.({preventScroll:true});
     }
   }
-  adminEditorRestore(app,snapshot.editor);
+  if(typeof adminEditorRestore==='function')adminEditorRestore(app,snapshot.editor);
 }
 
 const adminCouponCommercial={busy:false,data:null,loadedFor:null,requestId:null};
