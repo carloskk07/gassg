@@ -154,3 +154,69 @@ readyForPoll=false;nowForPoll+=16000;
 await pollCtx.checkPoll();
 assert.equal(refreshForPoll,2,'unauthorized session never resumes background poll');
 console.log('V1.962 PASS: focused Admin drafts survive periodic refresh without disabling authenticated actions.');
+
+// V1.964: no typed address/e-mail is erased by unrelated async Admin renders.
+// Financial and consent fields intentionally remain excluded.
+const startEditor=admin.indexOf("let adminLastRenderedEditorScope='';");
+const endEditor=admin.indexOf('const adminCouponCommercial=',startEditor);
+assert(startEditor>=0&&endEditor>startEditor);
+let editorUser='user-a',editorRole='superadmin',editorSection='partners',
+ editorReady=true;
+let editorField={id:'merchant-contact-email',tagName:'INPUT',type:'email',
+ value:'contato@revenda.com',selectionStart:7,selectionEnd:7,
+ focus(o){assert.equal(o.preventScroll,true);editorDocument.activeElement=this;},
+ setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;}};
+const editorDocument={activeElement:editorField,
+ getElementById:id=>editorField?.id===id?editorField:null};
+const editorDetails=[];
+const editorApp={contains:el=>el===editorField,
+ querySelectorAll:selector=>selector==='details'?editorDetails:[]};
+const editorRuntime={session:{user:{id:editorUser}},section:editorSection};
+const editorContext=vm.createContext({document:editorDocument,adminRuntime:editorRuntime,
+ adminCurrentRole:()=>editorRole,adminRoleCanSection:()=>true,
+ adminReady:()=>editorReady,Array,Map,Number,String});
+vm.runInContext(admin.slice(startEditor,endEditor)+
+ ';this.capture=adminDisclosureCapture;this.restore=adminDisclosureRestore;',editorContext);
+let first=editorContext.capture(editorApp);
+assert.equal(first.editor,null,'initial frame has no previous owner frame');
+editorContext.restore(editorApp,first);
+first=editorContext.capture(editorApp);
+assert.equal(first.editor.value,'contato@revenda.com','address/email draft captured');
+editorField={id:'merchant-contact-email',tagName:'INPUT',type:'email',
+ value:'',selectionStart:0,selectionEnd:0,
+ focus(o){assert.equal(o.preventScroll,true);editorDocument.activeElement=this;},
+ setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;}};
+editorContext.restore(editorApp,first);
+assert.equal(editorField.value,'contato@revenda.com','async render keeps typed email');
+assert.equal(editorField.selectionStart,7,'selection and focus restored');
+assert.equal(editorDocument.activeElement,editorField,'caret remains in edited field');
+// A different user, role or page must not inherit a prior owner draft.
+for(const modify of [
+ ()=>{editorRuntime.session.user.id='user-b';},
+ ()=>{editorRole='finance';},
+ ()=>{editorRuntime.section='ads';},
+ ()=>{editorReady=false;}
+]){
+ editorRuntime.session.user.id='user-a';editorRuntime.section='partners';
+ editorRole='superadmin';editorReady=true;
+ editorContext.restore(editorApp,{states:new Map(),focused:null,editor:null});
+ const before=editorContext.capture(editorApp);
+ assert.ok(before.editor);
+ modify();
+ editorField.value='server-data';
+ editorContext.restore(editorApp,before);
+ assert.equal(editorField.value,'server-data','scope change must invalidate input draft');
+}
+editorRuntime.session.user.id='user-a';editorRole='superadmin';
+editorReady=true;editorRuntime.section='finance';
+editorContext.restore(editorApp,{states:new Map(),editor:null});
+assert.equal(editorContext.capture(editorApp).editor,null,'Financeiro amount/consent never snapshotted');
+editorRuntime.section='partners';
+editorField.type='password';
+editorContext.restore(editorApp,{states:new Map(),editor:null});
+assert.equal(editorContext.capture(editorApp).editor,null,'password is always excluded');
+editorField.type='checkbox';
+editorContext.restore(editorApp,{states:new Map(),editor:null});
+assert.equal(editorContext.capture(editorApp).editor,null,'financial/approval checkbox is excluded');
+assert.match(read('js/bootstrap.js'),/adminDisclosureCapture\(app\)/);
+console.log('V1.964 PASS: nonfinancial Admin focus, e-mail, caret and scoped redraws; forbidden consent recovery.');
