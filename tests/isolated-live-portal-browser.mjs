@@ -221,7 +221,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
       // V1.963: real Chromium, real authenticated seller/SQL snapshot,
       // but ONLY a local unsaved DOM draft. No backend mutation or new order.
-      await merchantPage.evaluate("document.getElementById('live-delivery-fee')?.focus();true");
+      await merchantPage.evaluate("(()=>{const field=document.getElementById('live-delivery-fee');for(let p=field?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;field?.focus();return true})()");
       await merchantPage.wait("typeof merchantUiRender==='function'",
         'deferred partner editor loads upon field focus',25000);
       const merchantDraftUi=JSON.parse(await merchantPage.evaluate(
