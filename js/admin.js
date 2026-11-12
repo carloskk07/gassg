@@ -3793,8 +3793,14 @@ function adminSetSection(section){
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='homologation'
-    &&adminCurrentRole()==='superadmin'&&typeof adminFinanceHomologationRefresh==='function')
-    adminFinanceHomologationRefresh().catch(()=>{});
+    &&adminCurrentRole()==='superadmin'){
+    // Returning through the main menu must also re-read the original
+    // account-bound payment receipt. Read-only; never create another Pix.
+    if(typeof adminFinanceHomologationRefresh==='function')
+      adminFinanceHomologationRefresh().catch(()=>{});
+    if(typeof adminFinanceRealRefresh==='function')
+      adminFinanceRealRefresh().catch(()=>{});
+  }
   if(next==='finance'&&adminFinanceWorkspaceCurrent()==='lab'
     &&adminCurrentRole()==='superadmin')
     adminFinanceLabLiveReadinessFromUi().catch(()=>{});

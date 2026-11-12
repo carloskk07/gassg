@@ -101,4 +101,33 @@ assert.match(src,/Os cupons não estão liberados para uso/);
 assert.match(css,/admin-finance-shortcut/);
 assert.match(css,/admin-finance-secondary/);
 assert.match(read('.github/workflows/audit.yml'),/node tests\/admin-finance-navigation-v1-930\.mjs/);
+// V1.960: returning to Finance through the primary menu (not the shortcut)
+// must re-read authenticated existing operations, without a purchase action.
+const sectionStart=src.indexOf('function adminSetSection(section){');
+const sectionEnd=src.indexOf('function adminMenuButton(',sectionStart);
+assert(sectionStart>0&&sectionEnd>sectionStart);
+let currentRole='superadmin',evidenceReads=0,existingPaymentReads=0,chargeCreates=0;
+const sectionCtx=vm.createContext({
+ adminRuntime:{section:'overview',financeWorkspace:'homologation',session:{user:{id:'owner'}}},
+ adminRoleCanSection:()=>true,adminCurrentRole:()=>currentRole,
+ adminFinanceWorkspaceCurrent:()=> 'homologation',
+ adminFinanceHomologationRefresh:()=>{evidenceReads++;return Promise.resolve();},
+ adminFinanceRealRefresh:()=>{existingPaymentReads++;return Promise.resolve();},
+ adminLoadFinanceHistory:()=>Promise.resolve(),
+ adminLoadMerchantFinance:()=>Promise.resolve(),
+ adminFinanceLabLiveVisible:()=>false,
+ adminFinanceLabLiveCancelAutoCheck:()=>{},
+ render:()=>{},sessionStorage:{setItem:()=>{}},
+ requestAnimationFrame:()=>{},adminAdvancedNavOpen:false
+});
+vm.runInContext(src.slice(sectionStart,sectionEnd)+';this.enterFinance=adminSetSection;',sectionCtx);
+sectionCtx.enterFinance('finance');
+assert.equal(evidenceReads,1,'Finance menu reloads module evidence');
+assert.equal(existingPaymentReads,1,'Finance menu reloads existing Pix and vouchers');
+assert.equal(chargeCreates,0,'read-only return never emits a Pix');
+currentRole='finance';
+sectionCtx.enterFinance('finance');
+assert.equal(evidenceReads,1,'non-owner cannot refresh homologation evidence');
+assert.equal(existingPaymentReads,1,'non-owner cannot invoke real-payment readback');
+console.log('V1.960 PASS: Finance menu return refreshes existing payment for superadmin only.');
 console.log('V1.930 PASS: direct coupon review, paid evidence first, clean nav, no new charge or role leak.');
