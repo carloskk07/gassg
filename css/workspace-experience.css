@@ -1,0 +1,47 @@
+/* V1.970 — focused authenticated workspaces: stronger hierarchy, explicit focus, safe small screens. */
+.admin-task-navigator{gap:10px;padding:12px 16px;box-shadow:0 3px 14px rgba(9,63,43,.035)}
+.admin-task-navigator label{min-width:138px;font-size:13px;letter-spacing:-.01em}
+.admin-task-navigator select{flex:1 1 300px;max-width:100%;font-size:14px;line-height:1.4;text-overflow:ellipsis}
+.admin-task-navigator optgroup{font-style:normal;font-weight:700}
+.admin-task-navigator option{font-weight:400}
+.admin-page :is(.admin-nav-item,.admin-nav-more,.admin-quick-grid button,.admin-task-tabs button,summary,button):focus-visible,
+.merchant-workspace :is(.merchant-workspace-shortcut,.merchant-orientation-action,.merchant-workspace-section>summary,button,a,input,select,textarea):focus-visible{
+ outline:3px solid #2b9864;outline-offset:3px;
+}
+.admin-page :is(.admin-nav-item,.admin-nav-more,.admin-task-tabs button,button),
+.merchant-workspace :is(.merchant-workspace-shortcut,.merchant-workspace-section>summary,button){
+ touch-action:manipulation;
+}
+.merchant-workspace-header:not(:has(.merchant-workspace-orientation)){padding-block:17px}
+.merchant-workspace-header:not(:has(.merchant-workspace-orientation)) .merchant-workspace-welcome{margin-bottom:3px}
+.merchant-workspace .merchant-workspace-shortcut{min-width:0;min-height:76px;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
+.merchant-workspace .merchant-workspace-shortcut:hover{border-color:#64ac82;box-shadow:0 6px 18px rgba(11,71,43,.09)}
+.merchant-workspace .merchant-workspace-shortcut strong,.merchant-workspace .merchant-workspace-shortcut small{overflow-wrap:anywhere}
+.merchant-workspace .merchant-workspace-section>summary{min-height:60px;cursor:pointer}
+.merchant-workspace .merchant-workspace-section[open]>summary{border-bottom:1px solid #e3eee6;background:#f8fbf9}
+.merchant-workspace .merchant-workspace-section>summary::after{flex:0 0 auto}
+.merchant-workspace .merchant-workspace-content{min-width:0}
+.admin-page .admin-main,.merchant-workspace .merchant-workspace-content{overflow-wrap:anywhere}
+@media(max-width:820px){
+ .admin-page .admin-task-navigator{align-items:stretch;flex-direction:column;padding:11px 13px}
+ .admin-page .admin-task-navigator label{min-width:0}
+ .admin-page .admin-task-navigator select{flex:0 0 auto;width:100%}
+ .admin-page .admin-sidebar{max-width:100%;scroll-padding-inline:12px}
+ .admin-page .admin-nav-item{min-height:44px}
+ .merchant-workspace .merchant-workspace-header{gap:12px}
+}
+@media(max-width:520px){
+ .merchant-workspace .merchant-workspace-header{padding:17px 15px;border-radius:17px}
+ .merchant-workspace .merchant-workspace-shortcuts{gap:8px}
+ .merchant-workspace .merchant-workspace-shortcut{padding:12px;min-height:80px;border-radius:13px}
+ .merchant-workspace .merchant-workspace-shortcut strong{font-size:13px}
+ .merchant-workspace .merchant-workspace-shortcut small{font-size:11px;line-height:1.35}
+ .merchant-workspace .merchant-workspace-section{border-radius:15px}
+ .merchant-workspace .merchant-workspace-section>summary{padding:15px 14px;gap:10px}
+ .merchant-workspace .merchant-workspace-section>summary strong{font-size:16px}
+ .merchant-workspace .merchant-workspace-section>.merchant-workspace-content{padding:0 12px 16px}
+ .admin-page .admin-task-navigator select{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+ .merchant-workspace .merchant-workspace-shortcut{transition:none}
+}

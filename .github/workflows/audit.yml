@@ -667,6 +667,8 @@ jobs:
         run: node tests/admin-ads-direct-navigation-v1-894.mjs
       - name: V1.895 task-first Admin, tabbed Growth and simplified Ads reviews
         run: node tests/admin-focused-workspaces-v1-895.mjs
+      - name: V1.970 task selection and no-duplicate merchant focus
+        run: node tests/authenticated-workspace-clarity-v1-970.mjs
       - name: V1.896 direct task navigation and separate partner workflows
         run: node tests/admin-task-direct-navigation-v1-896.mjs
       - name: V1.897 guided single merchant verification and separate support workspace
