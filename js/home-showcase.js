@@ -132,26 +132,11 @@ function homeRegionalPriceBoard(region){
  // current inventory, availability, the price of a verified merchant,
  // or three competitive offers. Only verified RPC data is an offer.
  const cards=real.length?liveCards:
-   '<div class="city-price-empty"><strong>Consulte a disponibilidade para seu endereço</strong><p>Ainda não há preços confirmados de revendas para '+esc(place)+'. Escolha os produtos logo abaixo e informe seu CEP para consultar atendimento.</p></div>';
+   '<div class="city-price-empty" role="status"><strong>Escolha seus produtos para consultar atendimento</strong><p>Ainda não há preços confirmados de revendas para '+esc(place)+'. Selecione o que precisa e informe seu CEP. Nenhum pedido ou pagamento é criado sem uma oferta confirmada.</p></div>';
  const copy=real.length
    ?'Veja preços informados por revendas e confirme o total e a entrega pelo CEP.'
    :'Comece pelos produtos logo abaixo. Selecione o que precisa e consulte a entrega pelo CEP.';
- return '<section class="city-price-board tamao-quote-first" aria-label="Painel de preços e vantagens de sua cidade">'+
-  '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
-   '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
-  '<div class="city-price-heading"><div>'+
-   '<h2>Tamão '+esc(place)+'</h2><p>'+esc(copy)+'</p></div></div>'+
-
-
-  '<div class="city-price-grid">'+cards+'</div>'+
-  '<aside id="city-price-basket" class="city-price-basket" aria-label="Cesta de produtos selecionados">'+
-   homeQuoteBasketMarkup(typeof state==='object'?state.cart:{})+'</aside>'+
-  homeQuoteCouponRail()+
-
-  (spread?'<div class="tamao-quote-spread"><span aria-hidden="true">↔</span><div><strong>Diferença de '+esc(spreadValue)+' entre os valores estimados para '+esc(spreadName)+'</strong>'+
-   '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
-  (real.length?'<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p>':'')+
-  '<div class="city-price-controls">'+
+ const controls='<div class="city-price-controls">'+
    '<button type="button" class="primary" onclick="homeDiscoverFocus()">Ver produtos →</button>'+
    (globalThis.liveReady?.()===true?
      '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
@@ -160,7 +145,23 @@ function homeRegionalPriceBoard(region){
      '<label>Cidade<input id="home-city-name" maxlength="80" autocomplete="address-level2" value="'+esc(city)+'"></label>'+
      '<label>UF<input id="home-city-uf" maxlength="2" autocomplete="address-level1" value="'+esc(uf)+'"></label>'+
      '<button type="button" class="secondary" onclick="homeChooseMarketCity()">Atualizar vitrine</button>'+
-    '</div></details></div></section>';
+    '</div></details></div>';
+ return '<section class="city-price-board tamao-quote-first" aria-label="Painel de preços e vantagens de sua cidade">'+
+  '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
+   '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
+  '<div class="city-price-heading"><div>'+
+   '<h2>Tamão '+esc(place)+'</h2><p>'+esc(copy)+'</p></div></div>'+
+  (real.length?'':controls)+
+
+
+  '<div class="city-price-grid">'+cards+'</div>'+
+  '<aside id="city-price-basket" class="city-price-basket" aria-label="Cesta de produtos selecionados">'+
+   homeQuoteBasketMarkup(typeof state==='object'?state.cart:{})+'</aside>'+
+
+  (spread?'<div class="tamao-quote-spread"><span aria-hidden="true">↔</span><div><strong>Diferença de '+esc(spreadValue)+' entre os valores estimados para '+esc(spreadName)+'</strong>'+
+   '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
+  (real.length?'<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p>':'')+
+  (real.length?controls:'')+'</section>';
 }
 
 // Count only fresh, user-scoped issued coupons. This is never a basket discount.
