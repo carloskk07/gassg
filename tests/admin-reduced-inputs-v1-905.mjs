@@ -110,3 +110,47 @@ assert.match(acq,/clube-terms-note-template-/);
 assert.match(admin,/adminRequireTypedConfirmation\('CONFIRMAR OPERAÇÃO'/);
 assert.match(fn(admin,'adminFinancial'),/comprovante externo conferido/);
 console.log('V1.905 PASS: launch and mode choices, no unconfirmed admin decisions, finance proofs retained, internal budget presets and Club notes.');
+
+// V1.962: automatic polling may not rebuild the entire Admin while a
+// contact, advertiser, city or financial form is currently being edited.
+const pollStart=admin.indexOf('function adminFocusedDraftActive(){');
+const pollEnd=admin.indexOf('function openAdminPortal(){',pollStart);
+assert(pollStart>0&&pollEnd>pollStart);
+let nowForPoll=120000,refreshForPoll=0,renderForPoll=0,readyForPoll=true;
+const inputForPoll={tagName:'INPUT'},otherForPoll={tagName:'BUTTON'};
+const appForPoll={contains:el=>el===inputForPoll};
+const pollDoc={visibilityState:'visible',activeElement:inputForPoll,
+ getElementById:id=>id==='app'?appForPoll:null};
+const pollRuntime={actionPending:false,pollPending:false,lastPollAt:0,section:'finance'};
+const pollCtx=vm.createContext({
+ document:pollDoc,adminRuntime:pollRuntime,adminReady:()=>readyForPoll,
+ adminRefresh:async()=>{refreshForPoll++;},
+ render:()=>{renderForPoll++;},Date:{now:()=>nowForPoll},Set
+});
+vm.runInContext(admin.slice(pollStart,pollEnd)+
+ ';this.checkPoll=adminPoll;this.editing=adminFocusedDraftActive;',pollCtx);
+assert.equal(pollCtx.editing(),true);
+await pollCtx.checkPoll();
+assert.equal(refreshForPoll,0,'background poll cannot wipe a focused input');
+assert.equal(renderForPoll,0,'no page replacement while drafting');
+assert.equal(pollRuntime.lastPollAt,0,'skipped poll does not postpone next check');
+inputForPoll.tagName='TEXTAREA';
+await pollCtx.checkPoll();assert.equal(refreshForPoll,0,'textarea is protected');
+inputForPoll.tagName='SELECT';
+await pollCtx.checkPoll();assert.equal(refreshForPoll,0,'marked choices are protected');
+inputForPoll.tagName='DIV';inputForPoll.isContentEditable=true;
+await pollCtx.checkPoll();assert.equal(refreshForPoll,0,'contenteditable is protected');
+inputForPoll.isContentEditable=false;
+pollDoc.activeElement=otherForPoll;
+await pollCtx.checkPoll();
+assert.equal(refreshForPoll,1,'poll resumes after edit focus leaves');
+assert.equal(renderForPoll,1,'server data renders on resumed poll');
+nowForPoll+=16000;
+pollDoc.activeElement=inputForPoll;inputForPoll.tagName='INPUT';
+appForPoll.contains=()=>false;
+await pollCtx.checkPoll();
+assert.equal(refreshForPoll,2,'unrelated external control cannot block Admin refresh');
+readyForPoll=false;nowForPoll+=16000;
+await pollCtx.checkPoll();
+assert.equal(refreshForPoll,2,'unauthorized session never resumes background poll');
+console.log('V1.962 PASS: focused Admin drafts survive periodic refresh without disabling authenticated actions.');

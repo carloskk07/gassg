@@ -625,8 +625,20 @@ async function adminPerform(action,payload={}){
   }
 }
 
+// V1.962: the 15/60-second *background* Admin poll must never discard a
+// text field, selected option, or unfinished contact form while being edited.
+// Manual actions still go through the normal server-side auth/readback.
+function adminFocusedDraftActive(){
+  if(typeof document==='undefined')return false;
+  const active=document.activeElement,app=document.getElementById('app');
+  if(!active||!app?.contains?.(active))return false;
+  const tag=String(active.tagName||'').toUpperCase();
+  return ['INPUT','TEXTAREA','SELECT'].includes(tag)||active.isContentEditable===true;
+}
 async function adminPoll(){
   if(!adminReady()||adminRuntime.actionPending||adminRuntime.pollPending||document.visibilityState==='hidden')return;
+  // As soon as the user leaves the field, the next scheduled poll resumes.
+  if(adminFocusedDraftActive())return;
   const now=Date.now();
   const fastSections=new Set(['overview','orders','finance','incidents']);
   const pollIntervalMs=fastSections.has(String(adminRuntime.section||''))?15000:60000;
