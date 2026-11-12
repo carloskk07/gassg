@@ -59,7 +59,7 @@ for(const x of [
  'function sponsorsLanding()','Parceria que respeita',
  'Marcas e parceiros','Conexão com cada região','go(\'contact\')',
  'sem compromisso','Sua rede cresce com você',
- 'Compre quando precisar','vendas organizadas'
+ 'O Clube reúne cupons e cashback de compras elegíveis','vendas organizadas'
 ]){
  if(['Parceria que respeita','Marcas e parceiros','vendas organizadas'].includes(x))continue;
  assert.ok(growth.toLocaleLowerCase('pt-BR').includes(x.toLocaleLowerCase('pt-BR')),'Missing user-centered copy '+x);
