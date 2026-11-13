@@ -2608,23 +2608,30 @@ function merchantLivePage(){
     <details id="merchant-workspace-setup" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Endereço, produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
       ${merchantSetupView(rt)}
     </div></details>
-    <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
-      ${merchantAdsStartSection(m)}
-      ${merchantAdsAssistanceSection(m)}
-      ${merchantAdsContactFeedbackSection(m)}
-      ${merchantAdsFeedbackReturnSection(m)}
-      ${merchantAdsReturnExecutionSection(m)}
-      ${merchantAdsInterestSection(m)}
-      ${merchantClubeInterestSection(m)}
-      ${merchantClubeTermsSection(m)}
-      ${merchantAdsCampaignSection(m)}
-      ${merchantAdsOfferSection(m)}
-      ${merchantAdsDossierSection(m)}
-      ${merchantAdsInstrumentSection(m)}
-      ${merchantAdsReceivableSection(m)}
-      ${merchantAdsPspSection(m)}
-      ${merchantAdsPspEvidenceSection(m)}
-      ${merchantGrowthNetworkSection(m)}
+    <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Divulgar e ampliar sua rede</strong><small>Escolha uma tarefa; contratos e configurações ficam recolhidos até você precisar.</small></span></summary><div class="merchant-workspace-content">
+      <p class="merchant-growth-intro">Escolha o que quer fazer. Consultar esta área não cria campanhas, cobranças ou compromissos.</p>
+      <details class="merchant-growth-group"><summary><strong>Começar a divulgar</strong><small>Interesse, orientação e contato</small></summary><div class="merchant-growth-group-body">
+        ${merchantAdsStartSection(m)}
+        ${merchantAdsAssistanceSection(m)}
+        ${merchantAdsContactFeedbackSection(m)}
+        ${merchantAdsInterestSection(m)}
+      </div></details>
+      <details class="merchant-growth-group"><summary><strong>Clube e indicações</strong><small>Benefícios, condições e convites</small></summary><div class="merchant-growth-group-body">
+        ${merchantClubeInterestSection(m)}
+        ${merchantClubeTermsSection(m)}
+        ${merchantGrowthNetworkSection(m)}
+      </div></details>
+      <details class="merchant-growth-group"><summary><strong>Campanhas e documentos</strong><small>Contratos, pagamentos e comprovações</small></summary><div class="merchant-growth-group-body">
+        ${merchantAdsFeedbackReturnSection(m)}
+        ${merchantAdsReturnExecutionSection(m)}
+        ${merchantAdsCampaignSection(m)}
+        ${merchantAdsOfferSection(m)}
+        ${merchantAdsDossierSection(m)}
+        ${merchantAdsInstrumentSection(m)}
+        ${merchantAdsReceivableSection(m)}
+        ${merchantAdsPspSection(m)}
+        ${merchantAdsPspEvidenceSection(m)}
+      </div></details>
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
       ${merchantBusinessPulseSection(m)}
