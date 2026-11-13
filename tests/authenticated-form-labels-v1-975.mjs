@@ -19,7 +19,7 @@ const adm=vm.createContext({
  adminNavIcon:()=>'<svg aria-hidden="true"></svg>',
  esc:s=>String(s).replaceAll('"','&quot;')
 });
-vm.runInContext(extract(admin,'function adminGlobalSearchView(){','function adminSearchResults')+
+vm.runInContext(extract(admin,'function adminGlobalSearchView(){','function adminTimeline(')+
  '\nthis.search=adminGlobalSearchView;',adm);
 const html=adm.search();
 assert.match(html,/<input id="admin-global-search"[^>]*type="search"/);
