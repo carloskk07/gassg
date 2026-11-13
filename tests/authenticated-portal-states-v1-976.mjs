@@ -74,5 +74,5 @@ for(const role of ['admin','merchant']){
  }
 }
 // Authenticated 360/768/1280px screen matrix is covered by the complementary V1.973 isolated Chrome suite.
-assert.match(audit,/node tests\/authenticated-portal-states-v1-974\.mjs/);
+assert.match(audit,/node tests\/authenticated-portal-states-v1-976\.mjs/);
 console.log('V1.976 PASS: protected access states, truthful retry/error affordances and real Auth viewport proof.');
