@@ -677,6 +677,8 @@ jobs:
         run: node tests/partner-access-focus-v1-972.mjs
       - name: V1.975 Admin accessible search and notes regression
         run: node tests/authenticated-form-labels-v1-975.mjs
+      - name: V1.976 protected Admin and Partner session and error states
+        run: node tests/authenticated-portal-states-v1-976.mjs
       - name: V1.896 direct task navigation and separate partner workflows
         run: node tests/admin-task-direct-navigation-v1-896.mjs
       - name: V1.897 guided single merchant verification and separate support workspace
@@ -1184,7 +1186,7 @@ jobs:
           grep -q "Área da minha revenda" /tmp/merchant.html
           ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
           ! grep -q "Revenda Parceira A" /tmp/merchant.html
-          grep -q "Administração só está disponível" /tmp/admin.html
+          grep -q "O Admin só pode ser acessado pelo portal protegido" /tmp/admin.html
       - name: Browser E2E — 320/360/390 px
         run: |
           python3 -m http.server 4173 >/tmp/chama-e2e-http.log 2>&1 &
