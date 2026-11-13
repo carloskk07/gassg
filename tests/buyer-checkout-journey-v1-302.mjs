@@ -27,7 +27,8 @@ const context=vm.createContext({document:{getElementById:id=>nodes[id]||null},
  globalThis:{matchMedia:()=>({matches:true})}});
 vm.runInContext(script,context);
 const html=params=>context.journey(params);
-assert.match(html({}),/0 de 4 prontos/);
+assert.match(html({}),/Comece pelos produtos/);
+assert.doesNotMatch(html({}),/0 de 4 prontos/);
 assert.match(html({}),/Escolha o que você precisa/);
 assert.match(html({}),/customerCheckoutFocusStep\('cart'\)/);
 assert.match(html({}),/disabled aria-current="false"/);
