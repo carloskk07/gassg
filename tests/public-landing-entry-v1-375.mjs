@@ -30,7 +30,7 @@ function arrival(search,hash='',flags={}){
  vm.runInContext(resolve+'\nthis.intent=tamaoPublicEntryIntent;this.enter=tamaoPublicEntryRoute;',ctx);
  return {intent:ctx.intent(),changed:ctx.enter(),route:navigated,hash:location.hash,search:location.search};
 }
-for(const [intent,destination] of [['revenda','merchants'],['marca','sponsors'],['indicar','earn']]){
+for(const [intent,destination] of [['revenda','merchants'],['marca','sponsors'],['indicar','earn'],['clube','club']]){
  const a=arrival('?utm_source=instagram&utm_medium=cpc&ref=ABCDE1&entrada='+intent);
  assert.equal(a.intent,intent);
  assert.equal(a.changed,true);

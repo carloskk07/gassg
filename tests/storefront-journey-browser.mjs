@@ -36,6 +36,10 @@ async function run(expression){
  return x.result?.value;
 }
 const results=[];
+let completedPageLoads=0;
+ws.addEventListener('message',event=>{
+ if(JSON.parse(String(event.data)).method==='Page.loadEventFired')completedPageLoads++;
+});
 async function waitFor(expression,label){
  for(let attempt=0;attempt<60;attempt++){
   if(await run(expression))return;
@@ -94,8 +98,11 @@ try{
   await waitFor("document.querySelector('.buyer-cart-edit').open",'editable basket');
   await run("[...document.querySelectorAll('.buyer-cart-item')].find(x=>x.dataset.buyerCartSelected==='true').querySelector('button[aria-label=Aumentar]').click()");
   await waitFor("document.querySelector('.buyer-cart-selection')?.textContent.includes('2 unidades selecionadas')&&document.querySelector('.buyer-cart-edit').open",'quantity change keeps editor open');
+  const previousLoad=completedPageLoads;
   await send('Page.reload');
-  await waitFor("document.querySelector('.buyer-cart-selection')?.textContent.includes('2 unidades selecionadas')",'basket survives refresh');
+  for(let i=0;i<100&&completedPageLoads===previousLoad;i++)await sleep(150);
+  assert.ok(completedPageLoads>previousLoad,'The refreshed document must finish loading');
+  await waitFor("document.readyState==='complete'&&document.querySelector('.buyer-cart-selection')?.textContent.includes('2 unidades selecionadas')&&!!document.querySelector('link[href*=\"public-ux.css\"]')?.sheet",'basket survives refresh');
   if([390,1440].includes(width))await screenshot('checkout-'+width);
   await send('Page.navigate',{url:origin+'/#club'});
   await waitFor("!!document.querySelector('.tamao-club-access')&&!!document.querySelector('link[href*=\"public-ux.css\"]')?.sheet",'club');

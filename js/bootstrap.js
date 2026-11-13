@@ -47,7 +47,7 @@ function announcePublicPageNavigation(){
 function tamaoPublicEntryIntent(){
   try{
     const value=String(new URLSearchParams(location.search).get('entrada')||'').trim().toLowerCase();
-    return ['revenda','cadastro-revenda','marca','indicar','agua','gas'].includes(value)?value:'';
+    return ['revenda','cadastro-revenda','marca','indicar','agua','gas','clube'].includes(value)?value:'';
   }catch{return ''}
 }
 let tamaoSignupHandoffAttempted=false;
@@ -71,7 +71,7 @@ function tamaoPublicEntryRoute(){
     openMerchantPortal(true);
     return true;
   }
-  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn'}[intent];
+  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn',clube:'club'}[intent];
   if(!destination)return false;
   go(destination);
   return true;
@@ -200,8 +200,7 @@ function discoveryOwnerRequestModule(){
   script.onerror=()=>{discoveryOwnerModuleError=true;render();};
   document.head.appendChild(script);
 }
-/* V1.969 — Keep the Home's initial CSS budget intact. The specialized
-   marketing and partner-team styles load only on their own routes. */
+/* Page styles load on demand. */
 function tamaoEnsurePublicExperienceStyles(page){
   if(!['home','order','tracking','learn','club','earn','refer','merchants','sponsors','professionals','rides','stays','mobility','advertise','merchant-join','merchant-team','contact'].includes(page)||
      globalThis.adminPortalRequested?.()||
@@ -262,7 +261,7 @@ function render(){
 window.addEventListener('hashchange',()=>{
   render();
   announcePublicPageNavigation();
-  if(['order','tracking'].includes(route())&&globalThis.liveRequested?.()
+  if((['order','tracking'].includes(route())||route()==='club')&&globalThis.liveRequested?.()
     &&!['loading','ready'].includes(liveRuntime.status)){
     backendInit().then(()=>render()).catch(()=>{});
   }
@@ -310,9 +309,11 @@ window.addEventListener('load',async()=>{
   }else if(!globalThis.adminPortalRequested?.()){
     tamaoPublicEntryRoute();
     render();
-    if(globalThis.liveRequested?.()&&(['order','tracking'].includes(route())
+    if(globalThis.liveRequested?.()&&(['order','tracking'].includes(route())||route()==='club'
+      ||/(?:^#|&)access_token=/.test(String(globalThis.location?.hash||''))
       ||/"access_token"\s*:/.test(localStorage.getItem('chama-sg-customer-auth-v2')||''))){
       await backendInit();
+      tamaoPublicEntryRoute();
       if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
         try{await liveRefreshOffers({silent:true})}catch{}
       }

@@ -40,7 +40,7 @@ await submit(event('login'));
 assert.equal(requests.length,1);
 assert.equal(requests[0].email,'member@example.invalid');
 assert.equal(requests[0].options.shouldCreateUser,false,'Login must never silently register a different account');
-assert.equal(requests[0].options.emailRedirectTo,'https://tamao.com.br/#club');
+assert.equal(requests[0].options.emailRedirectTo,'https://tamao.com.br/?entrada=clube');
 assert.equal(requests[0].options.captchaToken,'captcha');
 assert.equal(upgrades.length,0,'Existing account login must not upgrade the anonymous visitor');
 assert.match(status.textContent,/Solicitamos seu link/);

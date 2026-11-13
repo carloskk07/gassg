@@ -162,7 +162,9 @@ async function tamaoClubSendAccess(email){
      runtime!==globalThis.liveRuntime||client!==runtime.client||
      userId!==runtime.session?.user?.id)throw Error('ACCOUNT_CONTEXT_CHANGED');
   const redirect=new URL('/',location.origin);
-  redirect.hash='club';
+  // Auth uses the URL fragment for tokens. Preserve the destination in a
+  // query hint so the SDK can consume its fragment before opening the Club.
+  redirect.searchParams.set('entrada','clube');
   const {error}=await client.auth.signInWithOtp({email:value,
     options:{emailRedirectTo:redirect.toString(),shouldCreateUser:false,captchaToken}});
   if(error)throw error;
