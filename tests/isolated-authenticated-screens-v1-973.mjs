@@ -7,6 +7,12 @@ const SIZES=[{width:360,height:800},{width:768,height:900},{width:1280,height:96
 const ADMIN_SECTIONS=['overview','orders','customers','partners','growth','prospects',
  'enablement','catalog','finance','ads','alerts','incidents','audit','system',
  'activations','discovery'];
+// V1.977 — inspect actual selected tasks, not only their parent landing pages.
+// Selection uses the existing browser UI entry and is read-only on disposable SQL.
+const ADMIN_SUBTASKS=['support','partners-applications','partners-verification',
+ 'ads-finance','ads-refunds','ads-diagnostics','growth-benefits','growth-budget',
+ 'finance-billing','finance-homologation','finance-reconciliation'];
+const MERCHANT_WORKSPACES=['start','setup','growth','settings','finance'];
 const DOM_PROBE=[
  'JSON.stringify((()=>{',
  "const ids=[...document.querySelectorAll('[id]')].map(e=>e.id).filter(Boolean);",
@@ -64,9 +70,35 @@ export async function auditAuthenticatedScreensV1973({adminPage,merchantPage}){
    for(const size of SIZES)findings.push(await inspect(adminPage,'admin',section,size));
   }
   for(const size of SIZES)findings.push(await inspect(merchantPage,'merchant','operation',size));
+  // These selections do not approve a revenda, create Pix, or perform billing.
+  for(const taskId of ADMIN_SUBTASKS){
+   const allowed=await adminPage.evaluate(
+    'adminTaskNavChoices().some(t=>t.id==='+JSON.stringify(taskId)+')');
+   if(allowed!==true)continue;
+   const selected=await adminPage.evaluate(
+    '(()=>{const control=document.getElementById("admin-task-nav");'+
+    'if(!control)return false;control.value='+JSON.stringify(taskId)+';'+
+    'adminSelectTaskFromUi();return true})()');
+   assert.equal(selected,true,'Admin task select must exist for '+taskId);
+   await adminPage.wait(
+    'adminCurrentTaskFromState()==='+JSON.stringify(taskId)+
+    '&&document.getElementById("admin-current-section-title")?.textContent?.trim().length>0',
+    'authenticated Admin task '+taskId,17000);
+   for(const size of SIZES)
+    findings.push(await inspect(adminPage,'admin','task/'+taskId,size));
+  }
+  for(const area of MERCHANT_WORKSPACES){
+   const opened=await merchantPage.evaluate(
+    'merchantWorkspaceJump('+JSON.stringify(area)+')');
+   if(opened!==true)continue; // A role can legitimately hide a workspace.
+   for(const size of SIZES)
+    findings.push(await inspect(merchantPage,'merchant','workspace/'+area,size));
+  }
   // Log diagnostics even if the following keyboard interaction fails.
   const diagnostics={
    screens:findings.length,
+   subtasks:ADMIN_SUBTASKS.length,
+   merchantWorkspaces:MERCHANT_WORKSPACES.length,
    sections:new Set(findings.map(x=>x.role+'/'+x.section)).size,
    unnamedInputs:findings.filter(x=>x.unnamedInputs>0).map(x=>({
     screen:x.role+'/'+x.section+'/'+x.width,count:x.unnamedInputs,sample:x.unnamedSample

@@ -1139,6 +1139,8 @@ jobs:
             echo "live runtime não pode buildar sem origins/Turnstile"
             exit 1
           fi
+      - name: V1.977 role-aware Admin and merchant subtask Chrome coverage
+        run: node tests/authenticated-subtask-matrix-v1-977.mjs
       - name: Browser smoke — mobile routes
         run: |
           python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
