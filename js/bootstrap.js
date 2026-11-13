@@ -78,8 +78,7 @@ function tamaoPublicEntryRoute(){
 }
 let discoveryModuleRequested=false;
 let discoveryModuleError=false;
-// A return intent in the query must not trap someone who explicitly chooses
-// to leave a failed module. Preserve every other query parameter and state.
+// Returning home clears only the specific OAuth route hints.
 function tamaoPublicModuleGoHome(){
  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
  const previousHash=String(location.hash||'');
@@ -166,9 +165,7 @@ function mobilityRequestModule(){
 }
 let discoveryOwnerModuleRequested=false;
 let discoveryOwnerModuleError=false;
-// Email OTP callbacks may replace the URL fragment (#advertise) with auth
-// tokens. Keep the non-sensitive route intent in the query until Supabase
-// consumes the callback, then restore the regular #advertise route.
+// Preserve the route hint while OTP temporarily owns the URL fragment.
 function discoveryOwnerReturnPending(){
   if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
   try{return new URLSearchParams(location.search).get('advertise')==='1';}
