@@ -332,9 +332,9 @@ export function compactReleasedCssComments(css){
 export function compactReleasedCoreComments(source){
   if(typeof source!=='string'||!source.includes('function shell(content)')||
     !source.includes('function bottomNav(r)'))throw new Error('Core bundle contract changed');
-  const n=[...source.matchAll(/^[ \\t]*\\/\\/[^\\n]*\\n/gm)].length;
-  if(n<20)throw new Error('Core navigation comments contract changed');
-  const released=source.replace(/^[ \\t]*\\/\\/[^\\n]*\\n/gm,'');
+  const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
+  if(comments.length<20)throw new Error('Core navigation comments contract changed');
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
   validateClassicScriptSyntax(released,'emitted core.js');
   return released;
 }
