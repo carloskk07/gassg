@@ -26,7 +26,7 @@ const DOM_PROBE=[
  "const unbuttoned=buttons.filter(e=>!e.textContent.trim()&&!e.getAttribute('aria-label')&&!e.title).length;",
  "const physical=screen.width||innerWidth;",
  "const offenders=innerWidth>physical+1?[...document.querySelectorAll('body *')].filter(e=>e.getClientRects().length).map(e=>{",
- "const r=e.getBoundingClientRect(),style=getComputedStyle(e);return {tag:e.tagName,id:e.id,cls:typeof e.className==='string'?e.className.slice(0,80):'',left:Math.round(r.left),right:Math.round(r.right),min:style.minWidth,whiteSpace:style.whiteSpace}}).filter(e=>e.right>physical+1&&e.left<physical).sort((a,b)=>b.right-a.right).slice(0,12):[];",
+ "const r=e.getBoundingClientRect(),style=getComputedStyle(e);return {tag:e.tagName,id:e.id,cls:typeof e.className==='string'?e.className.slice(0,80):'',left:Math.round(r.left),right:Math.round(r.right),min:style.minWidth,whiteSpace:style.whiteSpace,txt:(e.textContent||'').trim().slice(0,70),parent:String(e.parentElement?.className||'').slice(0,80)}}).filter(e=>e.right>physical+1&&e.left<physical).sort((a,b)=>b.right-a.right).slice(0,12):[];",
  'return {viewport:innerWidth,physical,offenders,scrollWidth:document.documentElement.scrollWidth,',
  'heading:headings[0]?.textContent?.trim()||"",headingCount:headings.length,',
  'dup:[...new Set(dup)].slice(0,12),unnamed,unbuttoned,',
