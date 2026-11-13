@@ -132,13 +132,13 @@ function homeRegionalPriceBoard(region){
  // current inventory, availability, the price of a verified merchant,
  // or three competitive offers. Only verified RPC data is an offer.
  const cards=real.length?liveCards:
-   '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Você pode escolher produtos e consultar seu CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
+   '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Veja os produtos abaixo e consulte o CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
  const copy=real.length
    ?'Veja preços informados por revendas e confirme o total e a entrega pelo CEP.'
-   :'Escolha seus produtos e consulte preço e entrega pelo CEP.';
+   :'Selecione seus produtos abaixo e confira entrega pelo CEP.';
  const controls='<div class="city-price-controls">'+
    '<button type="button" class="primary" onclick="homeDiscoverFocus()">Ver produtos →</button>'+
-   (globalThis.liveReady?.()===true?
+   (real.length>0&&globalThis.liveReady?.()===true?
      '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
    '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+
     '<div class="city-price-chooser-fields">'+
@@ -147,7 +147,7 @@ function homeRegionalPriceBoard(region){
      '<button type="button" class="secondary" onclick="homeChooseMarketCity()">Atualizar vitrine</button>'+
     '</div></details></div>';
  return '<section class="city-price-board tamao-quote-first'+(real.length?'':' tamao-quote-no-offer')+'" aria-label="Painel de preços e vantagens de sua cidade">'+
-  '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
+  '<div class="tamao-quote-topline"><span>'+(real.length?'📊 COTAÇÕES E ECONOMIA':'ENCONTRE O QUE PRECISA')+'</span>+
    '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
   '<div class="city-price-heading"><div>'+
    '<h1>TAMÃO em '+esc(place)+'</h1><p>'+esc(copy)+'</p></div></div>'+
