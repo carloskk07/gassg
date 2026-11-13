@@ -467,11 +467,4 @@ textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important
 .admin-finance-secondary{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:12px}
 .admin-finance-secondary>summary{cursor:pointer;font-weight:700}
 .admin-finance-secondary>.admin-finance-areas{margin:12px 0 0;grid-template-columns:repeat(2,minmax(0,1fr))}
-
-/* V1.971 — let visitors reach products promptly when no seller has a confirmed offer. */
-.tamao-quote-no-offer{padding-block:clamp(15px,2.3vw,23px);margin-bottom:12px}
-.tamao-quote-no-offer .tamao-quote-topline{margin-bottom:6px}
-.tamao-quote-no-offer .city-price-heading p{margin:4px 0}
-.tamao-quote-no-offer .city-price-grid{margin:9px 0 0}
-.tamao-quote-no-offer .city-price-empty{padding:12px 15px}
-.tamao-quote-no-offer .city-price-empty p{margin:5px 0 0;line-height:1.4}
+.tamao-quote-no-offer .city-price-empty{padding:12px}
