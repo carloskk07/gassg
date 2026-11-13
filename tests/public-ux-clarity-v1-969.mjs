@@ -10,7 +10,7 @@ const mobCss=read('css/mobility.css'),css=read('css/public-ux.css');
 const boot=read('js/bootstrap.js'),audit=read('.github/workflows/audit.yml');
 assert.match(boot,/tamaoEnsurePublicExperienceStyles\(r\)/,
  'Route-specific CSS must load when Club, Network, Sponsors or Team are rendered');
-assert.match(boot,/\['club','earn','sponsors','merchant-team'\]/);
+assert.match(boot,/\['home','order','tracking','learn','club','earn','refer','merchants','sponsors','professionals','rides','stays','mobility','advertise','merchant-join','merchant-team','contact'\]/);
 assert.match(boot,/css\/public-ux\.css/);
 assert.match(read('sw.js'),/\.\/css\/public-ux\.css/,
  'The route-specific style must remain available in the PWA offline snapshot');
