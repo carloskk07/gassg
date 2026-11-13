@@ -1,3 +1,13 @@
+## 13/11/2026 — Tarifa pública Pix aplicada automaticamente no Financeiro
+
+Continuidade sobre `main=7ff5d9241c762608ed96979dfb5cbe91fdc3754c`. A tarifa oficial publicada para Pix dos checkouts Mercado Pago é 0,99%, consultada em 13/11/2026 em https://www.mercadopago.com.br/ferramentas-para-vender/check-out. Antes, esse percentual só aparecia como entrada de uma simulação. Agora o Admin calcula taxa e líquido previstos para as compras de cupons pagas sem conciliação líquida registrada, tanto na operação financeira da própria conta como na fila de faturas da Controladoria. O cálculo usa centavos inteiros, arredondamento conservador para cima e validação de valor; R$ 8,90 resulta em taxa prevista de R$ 0,09 e líquido previsto de R$ 8,81.
+
+O rascunho de pacotes recebe o percentual padrão automaticamente, sem pedir digitação em pontos-base. A fonte oficial e a data de consulta ficam visíveis. A previsão deixa de aparecer ao lado de uma compra com conciliação já registrada; não é usada como prova de recebimento e não grava `net_proceeds_*`, saldos, autorização comercial ou cupons. Confirmação de pagamento e concessão da compra continuam pelas rotas existentes do Mercado Pago, sem exigir preenchimento manual de tarifa. Não houve geração de Pix ou alteração de recebimento, patrocínio, benefício, estoque ou permissão em produção nesta entrega.
+
+As provas de validação e publicação ficam na PR correspondente a esta entrada; verificar os checks do último head e o SHA publicado antes de retomar. Esta entrega calcula a referência pública automaticamente e não declara encerrada a conciliação externa do Pix original.
+
+---
+
 ## 13/11/2026 — Preparação comercial: recuperação de pedidos e entrada da revenda
 
 Continuidade sobre `main=3705262189cd0b831c608b08602c61cae22a126d` (PR #986 publicada). Esta etapa corrige a apresentação de pedidos quando `customer-summary` falha e não existe referência local: ausência de resposta não equivale a ausência de pedido. O resumo passa a ter estado de verificação por sessão; falhas e respostas incompletas mostram consulta não confirmada e ação explícita para tentar novamente. A tentativa impede cliques concorrentes, recupera o ID pelo servidor, consulta o pedido canônico e descarta respostas após mudança de conta. Uma resposta válida sem pedido ativo informa apenas ausência de pedido em andamento naquela consulta, sem apagar histórico nem afirmar que o cliente nunca comprou.

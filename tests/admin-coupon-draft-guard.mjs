@@ -10,7 +10,7 @@ const start=admin.indexOf('function adminClubeDraftEconomicsPreview(){');
 const end=admin.indexOf('async function adminClubeFinanceRefresh(){',start);
 assert.ok(start>0&&end>start);
 assert.match(admin,/Cenário inicial conservador: 0% de patrocínio e 0% de taxa incremental/);
-assert.match(admin,/0,99% é uma referência pública/);
+assert.match(admin,/A tarifa padrão Pix é calculada automaticamente/);
 const id='11111111-1111-4111-8111-111111111111';
 const fields={'key':'piloto_tamao','title':'Pacote interno piloto',
  'price':'12,00','face':'5,00','count':'2','days':'60',
@@ -77,6 +77,6 @@ assert.match(sql,/COUPON_DRAFT_PRELAUNCH_REQUIRED/);
 assert.match(sql,/grant execute on function public\.clube_coupon_paid_package_draft_create/);
 assert.doesNotMatch(sql,/\bupdate public\.clube_coupon_paid_packages\b|\bon conflict\b/i);
 assert.match(admin,/Preparar pacote de cupons \(somente rascunho\)/);
-assert.match(admin,/Pix referência em pontos-base/);
+assert.match(admin,/Pix Mercado Pago · <strong>0,99% automático/);
 assert.match(admin,/Todos os cupons devem estar reservados, mesmo se resgatados em datas diferentes/);
 console.log('PASS: coupon non-sellable draft stress test, real-fee uncertainty, full redemption reserve, authorizations and audit');

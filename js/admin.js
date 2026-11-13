@@ -6399,6 +6399,26 @@ function adminFinanceRealState(){
    payment:null,paymentUntil:0,requests:{},message:null,couponWatch:null,adsWatch:null,autoStatus:null};
  return adminRuntime.financeReal;
 }
+// Published Checkout Pix tariff. Conservative cent rounding is a forecast,
+// never provider receipt evidence or authority to write funds/benefits.
+function adminFinancePixTariff(cents){
+ if(!Number.isSafeInteger(cents)||cents<1||cents>1000000000)return null;
+ const rateBps=99,feeCents=Math.ceil(cents*rateBps/10000);
+ return {grossCents:cents,rateBps,feeCents,netCents:cents-feeCents,
+  sourceUrl:'https://www.mercadopago.com.br/ferramentas-para-vender/check-out',
+  checkedOn:'2026-11-13',estimate:true};
+}
+function adminFinancePixTariffView(cents){
+ const e=adminFinancePixTariff(cents);
+ if(!e)return '';
+ const money=c=>'R$ '+(c/100).toFixed(2).replace('.',',');
+ return '<p class="tiny muted" data-mp-pix-estimate="true">'+
+  '<strong>Taxa Pix prevista: '+money(e.feeCents)+' ('+String(e.rateBps/100).replace('.',',')+'%)</strong> · '+
+  'Líquido previsto: <strong>'+money(e.netCents)+'</strong>.'+
+  '<br><a href="'+e.sourceUrl+'" target="_blank" rel="noopener noreferrer">'+
+  'Tarifa pública do Mercado Pago · consultada em 13/11/2026</a>. '+
+  'Cálculo automático, arredondado para cima ao centavo. A conciliação confirma o valor efetivo.</p>';
+}
 function adminFinanceRealAllowed(key){
  return adminReady()&&adminCurrentRole()==='superadmin'&&
   adminRuntime.section==='finance'&&adminFinanceWorkspaceCurrent()==='homologation'&&
@@ -6886,6 +6906,7 @@ function adminFinanceRealPanel(key){
     '<strong>Pix PAGO e registrado no TAMÃO · '+money(p.amountCents)+'</strong>'+
     '<p>Pagamento registrado em '+esc(formatDateTime(p.paidAt||p.createdAt))+
     '. Não pague novamente.</p>'+
+    (p.netReconciliationRecorded!==true?adminFinancePixTariffView(p.amountCents):'')+
     (p.fundingPending===true
       ?'<p><strong>Conciliação do líquido pendente.</strong> Os cupons não estão liberados para uso enquanto o extrato oficial do Mercado Pago não for conferido.</p>'+
        (netStatus?.enabled===true
@@ -8082,7 +8103,8 @@ function adminClubeReleaseReportsView(){
           'onclick="adminClubeReleaseInvoiceChanged(&quot;'+item.invoiceId+'&quot;);render()" '+
           (state.releaseEvidencePending?'disabled':'')+
           '>Selecionar fatura '+esc(item.invoiceId.slice(0,8))+
-          ' • Pix pago, líquido pendente • R$ '+esc((item.salePriceCents/100).toFixed(2))+'</button>'
+          ' • Pix pago, líquido pendente • R$ '+esc((item.salePriceCents/100).toFixed(2))+'</button>'+
+          adminFinancePixTariffView(item.salePriceCents)
         :'<p class="tiny muted">Fatura '+esc(item.invoiceId.slice(0,8))+
           ' • Revisão financeira obrigatória; não conciliar como pagamento regular.'+
           (item.settlementReviewReason==='PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT'
@@ -8250,13 +8272,13 @@ function adminClubeFinanceView(){
       '<label>Valor de cada cupom (R$)<input id="admin-coupon-draft-face" class="input" inputmode="decimal" placeholder="5,00"></label>'+
       '<label>Quantidade<input id="admin-coupon-draft-count" class="input" inputmode="numeric" placeholder="2"></label>'+
       '<label>Validade (dias)<input id="admin-coupon-draft-days" class="input" inputmode="numeric" placeholder="60"></label>'+
-      '<label>Pix referência em pontos-base (99 = 0,99%)<input id="admin-coupon-draft-feeBps" class="input" inputmode="numeric" value="99" maxlength="4"></label>'+
+      '<div>Pix Mercado Pago · <strong>0,99% automático</strong><input type="hidden" id="admin-coupon-draft-feeBps" value="'+adminFinancePixTariff(10000).rateBps+'"></div>'+
       '<label>Tarifa extra estimada (R$)<input id="admin-coupon-draft-extraFee" class="input" inputmode="decimal" value="0,00"></label>'+
       '<label>Custo por uso do cupom (R$)<input id="admin-coupon-draft-redCost" class="input" inputmode="decimal" value="0,50"></label>'+
       '<label>Reserva de segurança do pacote (R$)<input id="admin-coupon-draft-minMargin" class="input" inputmode="decimal" value="1,00"></label>'+
       '</div>'+
       '<p id="admin-coupon-draft-risk" class="tiny muted" role="status">Calcule o risco preenchendo os valores. Todos os cupons devem estar reservados, mesmo se resgatados em datas diferentes.</p>'+
-      '<p class="tiny muted">0,99% é uma referência pública do Checkout Pix; a taxa e os custos da conta TAMÃO ainda dependem de conferência independente no Mercado Pago. Nenhuma premissa acima é garantia de receita.</p>'+
+      '<p class="tiny muted">A tarifa padrão Pix é calculada automaticamente sobre o preço do pacote. <a href="'+adminFinancePixTariff(10000).sourceUrl+'" target="_blank" rel="noopener noreferrer">Fonte oficial · 13/11/2026</a>. A conciliação automática confirma o custo efetivo.</p>'+
       '<button class="secondary" type="button" onclick="adminClubeDraftEconomicsPreview()">Conferir custo estimado</button>'+
       '<button class="secondary" type="button" onclick="adminClubeDraftCreate()" '+
       (state.draftPending?'disabled':'')+'>Preparar rascunho auditado</button>'+
