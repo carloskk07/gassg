@@ -618,7 +618,7 @@ assert.ok(read('supabase/functions/submit-merchant-application/index.ts').includ
 assert.ok(!read('supabase/functions/submit-merchant-application/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'cadastro de empresa não pode ficar preso à origem do cliente');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('MERCHANT_ORIGIN_REQUIRED'),'leitura individual da revenda deve exigir origem dedicada');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('merchantOriginAllowed'),'get-order precisa distinguir origem cliente de origem merchant');
-assert.ok(merchant.includes('Origem da revenda não isolada'),'UI deve explicar o bloqueio de origem da revenda');
+assert.ok(merchant.includes('Este endereço não permite operar a revenda')&&merchant.includes('origem compartilhada'),'UI deve explicar o bloqueio de origem da revenda');
 assert.ok(backend.includes('customerOriginSafe'),'frontend cliente live precisa bloquear origem compartilhada');
 assert.ok(backend.includes('CHAMA_CUSTOMER_ORIGIN'),'origem dedicada do cliente precisa ser configurável');
 for(const fn of ['get-offers','create-order','customer-action','customer-summary','market-status']){

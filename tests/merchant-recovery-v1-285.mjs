@@ -148,7 +148,7 @@ assert.match(bootstrap,/if\(globalThis\.merchantPortalRequested\?\.\(\)\)merchan
 assert.match(src,/globalThis\.merchantWakeSync=merchantWakeSync/);
 assert.match(merchant,/o navegador pode suspender/i);
 assert.match(merchant,/Não foi possível confirmar os pedidos atuais/);
-assert.match(merchant,/Até recuperar a sincronização, ações em pedidos ficam indisponíveis/);
+assert.match(merchant,/Até o sistema confirmar a sincronização, as ações nos pedidos ficam indisponíveis/);
 assert.match(audit,/node tests\/merchant-recovery-v1-285.mjs/);
 assert.doesNotMatch(take('merchantPoll')+take('merchantWakeSync'),/merchantPerformAction|merchantLiveAction|merchantCompleteDeliveryLive/);
 console.log('V1.285 PASS — outage recovery, backoff, wake sync, hidden alerts opt-in, session protection and no order actions.');
