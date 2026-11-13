@@ -221,7 +221,9 @@ const state={
  Date,Number,Object,String,Array
 };
 const ctx=vm.createContext(state);
-vm.runInContext(admin.slice(begin,end)+
+const tariff=admin.slice(admin.indexOf('function adminFinancePixTariff('),
+ admin.indexOf('function adminFinanceRealAllowed('));
+vm.runInContext(tariff+admin.slice(begin,end)+
  ';this.query=adminClubeFinanceRefresh;this.page=adminClubeFinanceView;'+
  ';this.refundInspect=adminClubeRefundInspect;this.refundClaim=adminClubeRefundClaim;this.refundTriage=adminClubeRefundTriage;this.providerInspect=adminClubeRefundProviderInspect;this.merchantHistoryInspect=adminClubeRefundMerchantHistoryInspect;this.mpQuery=adminClubeReleaseReportsRefresh;this.mpPage=adminClubeReleaseReportsView;'+
  ';this.payoutQuery=adminClubePayoutInspect;this.payoutChanged=adminClubePayoutInputChanged;',ctx);
@@ -268,6 +270,8 @@ payload={source:'clube_coupon_finance_status_v1',readOnly:true,
 await ctx.query();
 assert.match(ctx.page(),/Pacotes cadastrados/);
 assert.match(ctx.page(),/Faturas de cupons/);
+assert.match(ctx.page(),/Taxa Pix prevista: R\$ 0,12 \(0,99%\)/);
+assert.match(ctx.page(),/Líquido previsto: <strong>R\$ 11,88/);
 assert.match(ctx.page(),/Obrigações de revendas pendentes/);
 assert.match(ctx.page(),/Reembolsos de cupons aguardando análise/);
 assert.match(ctx.page(),/Solicitações de reembolso aguardando análise/);
