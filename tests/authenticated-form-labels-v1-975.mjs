@@ -39,5 +39,7 @@ assert.match(controls,/Confirmei o resultado nos registros reais/);
 assert.match(controls,/Selecione a providência realmente realizada/);
 assert.equal(ctx.actions({id,status:'closed',request_kind:'merchant'}),'');
 assert.match(browser,/unnamedInputs/);
+assert.match(browser,/assert\.deepEqual\(data\.unnamed,\[\]/);
+assert.match(browser,/assert\.equal\(data\.unbuttoned,0/);
 assert.match(audit,/node tests\/authenticated-form-labels-v1-975.mjs/);
 console.log('V1.975 PASS: global search and optional public-request notes have accessible labels; consent/decision controls preserved.');
