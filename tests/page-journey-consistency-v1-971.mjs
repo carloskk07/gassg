@@ -24,8 +24,8 @@ assert.ok(quote>=0&&catalog>quote&&banner>catalog,'Product catalog precedes coup
 assert.match(src.quote,/<h1>TAMÃO em '\+esc\(place\)/);
 assert.match(src.quote,/Sem ofertas confirmadas em/);
 assert.match(src.quote,/pedido só avança com uma revenda e um preço confirmados/);
-assert.match(src.css,/\.city-price-heading :is\(h1,h2\)/);
-assert.match(src.css,/\.tamao-quote-no-offer/);
+assert.match(src.css,/\.city-price-heading h1/);
+assert.match(src.quote,/tamao-quote-no-offer/);
 
 let page='professionals';
 const context=vm.createContext({
