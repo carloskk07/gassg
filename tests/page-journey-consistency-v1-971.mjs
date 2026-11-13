@@ -60,6 +60,39 @@ for(const [routeName,flag,view,retry] of [
  assert.match(failed,/Nenhum pedido, anúncio ou cobrança foi criado/);
  assert.match(failed,/Ver produtos/);
 }
+// OAuth return hints must not override an explicit "Ver produtos" action.
+// The helper neither touches personal state nor enables any commercial action.
+assert.match(src.boot,/onclick="tamaoPublicModuleGoHome\(\)"/);
+const leaveSrc=extract(src.boot,'function tamaoPublicModuleGoHome(){','// V1.971 — one honest');
+let renderCount=0,navCount=0,goCount=0;
+const location={href:'https://tamao.com.br/?advertise=1&utm_source=campanha#home',hash:'#home'};
+const history={state:{},replaceState(_state,_title,href){
+ const next=new URL(href,location.href);location.href=next.href;location.hash=next.hash;
+}};
+const leaveCtx=vm.createContext({URL,location,history,globalThis:{},
+  go:r=>{goCount++;location.hash='#'+r;location.href=new URL('#'+r,location.href).href},
+  render:()=>{renderCount++;},announcePublicPageNavigation:()=>{navCount++;}});
+vm.runInContext(leaveSrc+'\nthis.leave=tamaoPublicModuleGoHome;',leaveCtx);
+assert.equal(leaveCtx.leave(),true);
+assert.equal(new URL(location.href).searchParams.has('advertise'),false);
+assert.equal(new URL(location.href).searchParams.get('utm_source'),'campanha');
+assert.equal(location.hash,'#home');
+assert.equal(goCount,1);
+assert.equal(renderCount,1,'Same-hash home must still refresh');
+assert.equal(navCount,1);
+location.href='https://tamao.com.br/?mobility=1&utm_medium=qr#mobility';
+location.hash='#mobility';
+assert.equal(leaveCtx.leave(),true);
+assert.equal(new URL(location.href).searchParams.has('mobility'),false);
+assert.equal(new URL(location.href).searchParams.get('utm_medium'),'qr');
+assert.equal(location.hash,'#home');
+assert.equal(renderCount,1,'Different-hash transitions render through hashchange');
+leaveCtx.globalThis.adminPortalRequested=()=>true;
+location.href='https://tamao.com.br/?mobility=1#mobility';
+location.hash='#mobility';
+assert.equal(leaveCtx.leave(),false,'Privileged portal cannot use public helper');
+assert.equal(new URL(location.href).searchParams.get('mobility'),'1');
+
 assert.match(src.boot,/if\(!document\.querySelector\('link\[href\*="css\/discovery\.css"\]'\)\)/);
 assert.match(src.core,/>Painel administrativo<\/button>/);
 assert.match(src.admin,/document\.title=adminSectionMeta\(adminRuntime\.section\)\.title\+' — TAMÃO Admin'/);
