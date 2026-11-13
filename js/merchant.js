@@ -2383,19 +2383,14 @@ function merchantWorkspaceJump(area){
   return true;
 }
 // V1.983 — locate a growth task without changing financial or commercial state.
-function merchantGrowthChoose(key){
-  const chosen=['start','network','campaigns'].indexOf(String(key||''));
-  if(chosen<0)return false;
-  const root=document.getElementById('merchant-workspace-growth');
-  if(!root)return false;
-  const groups=[...root.querySelectorAll('.merchant-growth-group')];
-  if(groups.length!==3)return false;
-  root.open=true;
-  groups.forEach((group,i)=>{group.open=i===chosen});
-  const target=groups[chosen];
-  target.scrollIntoView?.({block:'start',behavior:'auto'});
-  target.querySelector('summary')?.focus?.({preventScroll:true});
-  return true;
+function merchantGrowthChoose(k){
+ const i=['start','network','campaigns'].indexOf(k),p=document.getElementById('merchant-workspace-growth');
+ if(i<0||!p)return false;
+ const a=p.querySelectorAll('.merchant-growth-group');
+ if(a.length!==3)return false;
+ p.open=true;a.forEach((x,n)=>x.open=n===i);
+ a[i].scrollIntoView?.();a[i].querySelector('summary')?.focus?.();
+ return true;
 }
 // V1.348 — read-only guide to the next relevant workspace, never a permission grant.
 // V1.970 — avoid showing the same urgent-order CTA twice above the queue.
@@ -2625,10 +2620,10 @@ function merchantLivePage(){
     </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Divulgar e ampliar sua rede</strong><small>Escolha uma tarefa; contratos e configurações ficam recolhidos até você precisar.</small></span></summary><div class="merchant-workspace-content">
       <p class="merchant-growth-intro">Escolha o que quer fazer. Consultar esta área não cria campanhas, cobranças ou compromissos.</p>
-      <nav class="merchant-growth-choices" aria-label="Escolha a tarefa de divulgação">
-        <button type="button" onclick="merchantGrowthChoose('start')">Começar <span aria-hidden="true">→</span></button>
-        <button type="button" onclick="merchantGrowthChoose('network')">Clube e indicações <span aria-hidden="true">→</span></button>
-        <button type="button" onclick="merchantGrowthChoose('campaigns')">Campanhas e documentos <span aria-hidden="true">→</span></button>
+      <nav class="merchant-growth-choices" aria-label="Divulgação">
+        <button type="button" onclick="merchantGrowthChoose('start')">Começar</button>
+        <button type="button" onclick="merchantGrowthChoose('network')">Clube e indicações</button>
+        <button type="button" onclick="merchantGrowthChoose('campaigns')">Campanhas e contratos</button>
       </nav>
       <details class="merchant-growth-group"><summary><strong>Começar a divulgar</strong><small>Interesse, orientação e contato</small></summary><div class="merchant-growth-group-body">
         ${merchantAdsStartSection(m)}
