@@ -3394,15 +3394,6 @@ function adminRelativeTime(value){
   const days=Math.round(hours/24);
   return 'há '+days+' d';
 }
-// Read-only freshness indicator: never use a local clock as proof of payment,
-// order status or commercial authorization.
-function adminDataSyncState(value,now=Date.now()){
- const time=Date.parse(String(value||''));
- if(!Number.isFinite(time)||time>now+60000)return {fresh:false,label:'Sem sincronização confirmada'};
- const age=Math.max(0,now-time);
- const relative=adminRelativeTime(value);
- return {fresh:age<=600000,label:age<=600000?relative:'Desatualizado • '+relative};
-}
 function adminNavIcon(id){
   const paths={
     overview:'<path d="M4 12a8 8 0 1 1 16 0v7a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-7Z"/><path d="M8 11h8"/>',
@@ -3437,6 +3428,15 @@ function adminReadinessStateLabel(state){
     READY_WITH_WARNINGS:'ATENÇÃO',
     BLOCKED_SECURITY:'BLOQUEADO'
   })[String(state||'').toUpperCase()]||String(state||'—').toUpperCase();
+}
+// Read-only freshness indicator: never use a local clock as proof of payment,
+// order status or commercial authorization.
+function adminDataSyncState(value,now=Date.now()){
+ const time=Date.parse(String(value||''));
+ if(!Number.isFinite(time)||time>now+60000)return {fresh:false,label:'Sem sincronização confirmada'};
+ const age=Math.max(0,now-time);
+ const relative=adminRelativeTime(value);
+ return {fresh:age<=600000,label:age<=600000?relative:'Desatualizado • '+relative};
 }
 function adminOperationalStrip(d){
   const readiness=d.launchReadiness||{};
