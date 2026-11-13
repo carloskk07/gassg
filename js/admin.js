@@ -11316,6 +11316,8 @@ function adminExecutiveNextDecisionView(d,role,now=Date.now(),syncedAt=null){
 }
 
 function adminPage(){
+  if(typeof document!=='undefined'&&typeof document.title==='string')
+    document.title='Acesso ao Admin — TAMÃO';
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
   }
