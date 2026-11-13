@@ -147,7 +147,7 @@ function homeRegionalPriceBoard(region){
      '<button type="button" class="secondary" onclick="homeChooseMarketCity()">Atualizar vitrine</button>'+
     '</div></details></div>';
  return '<section class="city-price-board tamao-quote-first'+(real.length?'':' tamao-quote-no-offer')+'" aria-label="Painel de preços e vantagens de sua cidade">'+
-  '<div class="tamao-quote-topline"><span>'+(real.length?'📊 COTAÇÕES E ECONOMIA':'ENCONTRE O QUE PRECISA')+'</span>+
+  '<div class="tamao-quote-topline"><span>'+(real.length?'📊 COTAÇÕES E ECONOMIA':'ENCONTRE O QUE PRECISA')+'</span>'+
    '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
   '<div class="city-price-heading"><div>'+
    '<h1>TAMÃO em '+esc(place)+'</h1><p>'+esc(copy)+'</p></div></div>'+
