@@ -13,6 +13,11 @@ on:
       - 'tests/public-visual-browser-v1-413.mjs'
       - 'tests/ads-cta-browser-v1-984.mjs'
       - 'tests/desktop-nav-browser-v1-985.mjs'
+      - 'tests/storefront-journey-browser.mjs'
+      - 'js/growth.js'
+      - 'js/welcome-bonus.js'
+      - 'js/home-showcase.js'
+      - 'js/bootstrap.js'
       - '.github/workflows/public-visual-smoke.yml'
   workflow_dispatch:
 
@@ -84,6 +89,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/desktop-nav-browser-v1-985.mjs
+
+      - name: Verify storefront, cart editing, refresh and Club across 20 viewport widths
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/storefront-journey-browser.mjs
 
       - name: Verify published public website across mobile, tablet and desktop
         # GET-only clean Chrome; no login, test sales, API writes, or production

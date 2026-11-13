@@ -36,7 +36,7 @@ function announcePublicPageNavigation(){
   const heading=main.querySelector('h1');
   const target=heading||main;
   target.setAttribute('tabindex','-1');
-  window.scrollTo?.(0,0);
+  window.scrollTo?.({top:0,left:0,behavior:'instant'});
   target.focus?.({preventScroll:true});
   const announcement=document.getElementById('tamao-route-announcement');
   if(announcement)announcement.textContent=heading?.textContent?.trim()||identity[0];
@@ -335,7 +335,7 @@ window.addEventListener('load',async()=>{
 });
 
 if(globalThis.CHAMA_PORTAL_ROLE!=='admin')Object.assign(window,{
-  go,setMode,openSponsorContact,publicLandingJump,startOrder,quickProduct,homeChooseProduct,startHomeBrowse,homeFilterProducts,homeDiscoverFocus,buyerCartFilter,customerCheckoutFocusStep,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
+  go,setMode,openSponsorContact,publicLandingJump,startOrder,quickProduct,homeChooseProduct,startHomeBrowse,homeFilterProducts,homeDiscoverFocus,buyerCartFilter,customerCheckoutFocusStep,customerCartEditorToggle,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
   confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,shareTamaoGrowthInvite,activateCashAccount,joinMerchant,merchantPickOwnApplicationFromUi,reset,homeRefreshQuotePrices
 });
 if(typeof merchantPage==='function')Object.assign(window,{

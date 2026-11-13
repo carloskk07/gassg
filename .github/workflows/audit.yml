@@ -121,6 +121,8 @@ jobs:
         run: node tests/discovery-shared-verticals.mjs
       - name: Public navigation does not swap during availability load
         run: node tests/public-navigation-stability.mjs
+      - name: Existing Club account access and persistent cart editor
+        run: node tests/storefront-club-access.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais

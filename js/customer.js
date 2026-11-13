@@ -644,19 +644,17 @@ function home(){
   const trackedOrderCard=ready&&o?.session?.user?.id&&o.orderId&&
     !['SETTLED','CANCELLED'].includes(o.order?.status)
     ?'<button class="primary" onclick="go(\'tracking\')">Ver meu pedido →</button>':'';
-  if(!testDemo&&!internalPilot)return shell(`${trackedOrderCard}
+  if(!testDemo&&!internalPilot)return shell(`${trackedOrderCard}<div class="tamao-storefront">
     ${regionalPriceSection||
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
     ${homeIntentGuide}
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
-      <div class="home-discover-heading"><div><span class="section-kicker">ESCOLHA O QUE PRECISA</span>
-      <h2 tabindex="-1">Produtos para o seu dia a dia</h2>
-      <p>Selecione produtos. Consulte preços e entrega pelo CEP.</p></div></div>
+      <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produtos <span aria-hidden="true">→</span> 2. Seu CEP <span aria-hidden="true">→</span> 3. Opções</span></div>
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
-    </section>`:''}
+    </section>`:''}</div>
     ${couponBanner}
     ${adHomeSlot}
     ${tamaoDiscoveryEntryHub()}
@@ -851,46 +849,35 @@ function customerCheckoutJourney({hasItems=false,hasAddress=false,hasPhone=false
     {key:'contact',label:'Contato',done:hasPhone,enabled:hasAddress},
     {key:'offers',label:'Opções',done:hasOffers,enabled:hasAddress&&hasItems}
   ];
-  let nextKey='',nextTitle='',nextDescription='',nextButton='';
+  let nextKey='',nextTitle='',nextDescription='';
   if(!hasItems){
     nextKey='cart';nextTitle='Escolha o que você precisa';
     nextDescription='Escolha seus produtos. A cesta pode mudar antes de enviar.';
-    nextButton='Ver produtos';
   }else if(!hasAddress){
     nextKey='address';nextTitle='Confirme onde quer receber';
     nextDescription='Informe CEP e número para consultar a entrega.';
-    nextButton='Informar endereço';
   }else if(!hasPhone){
     nextKey='contact';nextTitle='Informe um telefone para a entrega';
     nextDescription='Informe um telefone com DDD para a entrega.';
-    nextButton='Informar telefone';
   }else if(loadingOffers){
     nextKey='offers';nextTitle='Consultando opções reais';
     nextDescription='Buscando opções para seu endereço.';
-    nextButton='Ver consulta';
   }else if(!hasOffers){
     nextKey='offers';nextTitle='Confira a disponibilidade';
     nextDescription='Confira os preços e prazos disponíveis. Consultar não cria pedido.';
-    nextButton='Ver opções';
   }else{
     nextKey='offers';nextTitle='Compare e escolha com tranquilidade';
     nextDescription='Veja total e prazo. A revenda ainda precisará aceitar o pedido.';
-    nextButton='Comparar opções';
   }
-  const ready=stages.filter(stage=>stage.done).length;
   const steps=stages.map((stage,index)=>'<li class="'+(stage.done?'is-done':stage.key===nextKey?'is-current':'is-upcoming')+'">'+
     '<button type="button" '+(stage.enabled?'onclick="customerCheckoutFocusStep(\''+stage.key+'\')"':'disabled')+
       ' aria-current="'+(stage.key===nextKey?'step':'false')+'" aria-label="Etapa '+(index+1)+': '+stage.label+
       (stage.done?', concluída':stage.key===nextKey?', próxima':'')+'">'+
       '<span class="buyer-journey-number" aria-hidden="true">'+(stage.done?'✓':String(index+1))+'</span>'+
       '<span>'+stage.label+'</span></button></li>').join('');
-  return '<aside class="buyer-journey" aria-label="Etapas da compra">'+
-    '<div class="buyer-journey-heading"><div><span class="section-kicker">SEU PEDIDO, PASSO A PASSO</span>'+
-    '<h2>Seu pedido em 4 passos</h2></div><span class="buyer-journey-count">'+(ready?ready+' de 4 prontos':'Comece pelos produtos')+'</span></div>'+
+  return '<aside class="buyer-journey buyer-journey-compact" aria-label="Etapas da compra">'+
     '<ol class="buyer-journey-steps">'+steps+'</ol>'+
-    '<div class="buyer-journey-next" role="status"><div><strong>'+nextTitle+'</strong><p>'+nextDescription+
-    '</p></div><button type="button" class="primary" onclick="customerCheckoutFocusStep(\''+
-    nextKey+'\')">'+nextButton+' →</button></div>'+
+    '<p class="buyer-journey-next buyer-journey-hint" role="status"><strong>'+nextTitle+'.</strong> '+nextDescription+'</p>'+
     '</aside>';
 }
 function customerCheckoutFocusStep(step){
@@ -902,7 +889,7 @@ function customerCheckoutFocusStep(step){
   if(!target)return false;
   const area=document.getElementById(target[0]);
   if(!area)return false;
-  const panel=area.closest('details');
+  const panel=area.closest('details')||(step==='cart'?area.querySelector?.('.buyer-cart-edit'):null);
   if(panel)panel.open=true;
   area.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
   const input=target[1]?document.getElementById(target[1]):
@@ -943,6 +930,12 @@ function requestUnavailableDelivery(){
  go('contact');
 }
 globalThis.requestUnavailableDelivery=requestUnavailableDelivery;
+let buyerCartEditorOpen=false;
+function customerCartEditorToggle(panel){
+  if(panel?.isConnected!==true)return false;
+  buyerCartEditorOpen=panel.open===true;
+  return true;
+}
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -1050,17 +1043,24 @@ function orderPage(){
   const savedDeliveryNote=String(state.checkout.deliveryNotes||'');
   const selectedDeliveryNote=CUSTOMER_DELIVERY_NOTE_PRESETS.find(row=>row[2]===savedDeliveryNote)?.[0]||'';
   const customDeliveryNote=Boolean(savedDeliveryNote&&!selectedDeliveryNote);
+  const selectedCart=cartProducts.filter(([code])=>Number(state.cart?.[code]||0)>0);
+  const selectedCartUnits=selectedCart.reduce((total,[code])=>total+Number(state.cart[code]),0);
+  const selectedCartCopy=selectedCart.map(([code,product])=>Number(state.cart[code])+'× '+customerProductName(code,product)).join(' · ');
   return shell(`<section class="page tamao-checkout-page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Escolha os produtos, informe o CEP e confira o total com entrega antes de enviar.</p>
 ${buyerGuide}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
-<section class="section" id="customer-cart"><div class="section-head"><div><h2 tabindex="-1">Sua cesta</h2><p>Escolha os itens. É possível comprar água sem gás.</p></div></div>
+<div class="tamao-checkout-workspace${hasItems?' has-items':''}"><aside class="tamao-checkout-basket">
+<section class="section" id="customer-cart"><div class="section-head"><div><h2 tabindex="-1">Sua cesta</h2>${hasItems?'':'<p>Adicione o que precisa. Cada produto pode ser comprado separadamente.</p>'}</div></div>
+  ${hasItems?`<div class="buyer-cart-selection"><strong>${selectedCartUnits} ${selectedCartUnits===1?'unidade selecionada':'unidades selecionadas'}</strong><p>${esc(selectedCartCopy)}</p><small>Preço e entrega são confirmados após a consulta do endereço.</small></div>`:''}
+  <details class="buyer-cart-edit" ${!hasItems||buyerCartEditorOpen?'open':''} ontoggle="customerCartEditorToggle(this)"><summary>${hasItems?'Alterar produtos e quantidades':'Escolher produtos'}<span aria-hidden="true">＋</span></summary><div class="buyer-cart-edit-body">
   ${cartNeedsFilter?`<div class="buyer-cart-filter" role="group" aria-label="Filtrar produtos para adicionar">${cartFilterControls}</div>
   <p id="buyer-cart-feedback" class="buyer-cart-feedback" role="status">${initiallyVisible} produtos em destaque. Os itens da sua cesta continuam à vista.</p>`:''}
-  <div class="card flat buyer-cart-catalog" id="buyer-cart-catalog">${cartRows||'<div class="empty">Nenhum produto configurado para adicionar.</div>'}</div></section>
+  <div class="card flat buyer-cart-catalog" id="buyer-cart-catalog">${cartRows||'<div class="empty">Nenhum produto configurado para adicionar.</div>'}</div></div></details></section>
 
-<div class="card flat form-stack order-address-card" id="customer-address">
+</aside><div class="tamao-checkout-details"><div class="card flat form-stack order-address-card" id="customer-address">
+  <h2>Onde vamos entregar?</h2>
   ${testDemo?`<div class="field-row">
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3})$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
@@ -1103,7 +1103,7 @@ ${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div>
   !testDemo&&liveMode&&((ready&&Boolean(liveRuntime.error))||(!ready&&liveRuntime?.status==='unavailable'))
     ?'<div class="notice danger"><strong>Não foi possível validar o endereço ou consultar as ofertas agora.</strong><p>CEP, disponibilidade e valores ainda precisam ser confirmados.</p><div class="order-actions"><button class="primary small" onclick="requestUnavailableDelivery()">Solicitar atendimento →</button></div><small>Não gera compra nem cobrança.</small></div>'
     :'<div class="notice">Informe o endereço para ver preço e prazo.</div>'
-  ):!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+  ):!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</div></div></section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;

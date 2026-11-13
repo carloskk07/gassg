@@ -6,8 +6,8 @@ const home=read('js/home-showcase.js'),customer=read('js/customer.js');
 const css=read('css/marketing-premium.css');
 new vm.Script(home,{filename:'home-showcase.js'});
 new vm.Script(customer,{filename:'customer.js'});
-assert.ok(home.includes('const copy=real.length'));
-assert.ok(home.includes("'<h1>TAMÃO em '+esc(place)"),'localized H1 must identify the visitor city and UF');
+assert.ok(home.includes('public_city_price_board_v1_341'));
+assert.match(home,/tamao-storefront-location/,'regional context remains visible beside the H1');
 assert.match(css,/\.city-price-product-pick>summary:focus-visible/);
 assert.match(css,/\.city-price-product-fields/);
 assert.match(css,/@media\(max-width:370px\)/);
@@ -20,10 +20,11 @@ const ctx=vm.createContext({
 });
 vm.runInContext(home+';this.renderQuote=homeRegionalPriceBoard;',ctx);
 const local=ctx.renderQuote({city:'São Gabriel',state:'RS'});
-assert.match(local,/TAMÃO em São Gabriel\/RS/);
-assert.match(local,/Escolha seus produtos e consulte preço e entrega pelo CEP/);
-assert.match(local,/onclick="homeDiscoverFocus\(\)">Ver produtos/,
- 'board must open product-first checkout without silently selecting gas');
+assert.match(local,/São Gabriel\/RS/);
+assert.match(local,/<h1>Faltou em casa\?/);
+assert.match(local,/Confira preço e entrega pelo seu CEP/);
+assert.match(local,/city-price-chooser/,
+ 'region selection remains available without a duplicate product CTA');
 assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
  'generic quote CTA cannot add default P13');
 

@@ -194,26 +194,25 @@ function club(){
       <div class="tamao-club-visitor-hero">
         <span class="eyebrow">CLUBE TAMÃO</span>
         <h1>Cupons e cashback com condições claras.</h1>
-        <p>Veja os cupons disponíveis, confira preço e regras e entre com seu e-mail para consultar sua conta. Descontos só podem ser usados em pedidos elegíveis.</p>
-        <div class="tamao-club-visitor-actions">
-          <button type="button" class="primary" onclick="go('home')">Ver produtos e entrega →</button>
-          <button type="button" class="secondary" onclick="go('earn')">Como funcionam as indicações</button>
-        </div>
+        <p>Acesse seus cupons e acompanhe o cashback. Confira valor, validade e condições antes de usar seus benefícios.</p>
+        <form class="form-stack tamao-club-access" data-tamao-account-context="club" onsubmit="return tamaoWelcomeRegister(event)">
+          <label for="clube-visitor-coupon-email">Seu e-mail</label>
+          <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
+          <button type="submit" class="primary" name="intent" value="login">Entrar no meu Clube →</button>
+          <button type="submit" class="secondary tamao-club-register" name="intent" value="register">Primeiro acesso? Criar minha conta</button>
+          <p data-welcome-signup-status role="status"></p>
+          <small>Confira sua caixa de entrada para confirmar o acesso.</small>
+        </form>
       </div>
       <aside class="tamao-coupon-price-board card form-stack" hidden aria-label="Pacote de cupons com preço confirmado">
         <span class="section-kicker">PACOTE DE CUPONS</span>
-        <h2>Confira seu pacote antes de entrar</h2>
+        <h2>Pacote disponível</h2>
         <p class="tamao-club-face" data-coupon-face></p>
         <p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p>
         <p data-coupon-minimum></p>
         <p data-coupon-availability></p>
         <p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP.</p>
-        <form class="form-stack" onsubmit="return tamaoWelcomeRegister(event)">
-          <label for="clube-visitor-coupon-email">E-mail para acessar os cupons</label>
-          <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
-          <button type="submit" class="primary">Entrar e consultar a compra →</button>
-          <p data-welcome-signup-status role="status"></p>
-        </form>
+        <p class="tiny">Acesse sua conta para conferir a elegibilidade e a compra. Nenhuma cobrança é criada ao entrar.</p>
       </aside>
     </div>
     <div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">

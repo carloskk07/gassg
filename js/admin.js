@@ -3448,7 +3448,7 @@ function adminOperationalStrip(d){
   const ingress=billing.paymentIngress||{};
   const e2e=adminBillingE2EState(d);
   const provider=adminBillingProviderName(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider);
-  const providerState=e2e.validated?'integração verificada':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
+  const providerState=e2e.validated?'integração verificada':adminRuntime.providerHealth?.ok===true?'API acessível':ingress.livePspReady?'configurado':'pendente';
   // A live platform does not mean physical checkout is enabled. Show the
   // independent server-side commerce gate, never infer sales from mode=LIVE.
   const platformLabel=mode==='UNKNOWN'?'PLATAFORMA NÃO VERIFICADA':adminOperationModeLabel(mode);
@@ -3810,13 +3810,13 @@ function adminTaskNavView(){
   }
   return group+'<option value="'+esc(t.id)+'"'+(current===t.id?' selected':'')+'>'+esc(t.label)+'</option>';
  }).join('')+(lastSection?'</optgroup>':'');
- return '<div class="admin-task-navigator">'+
+ return '<details class="admin-task-disclosure"><summary>Atalhos de tarefas <span aria-hidden="true">⌄</span></summary><div class="admin-task-navigator">'+
  '<label for="admin-task-nav">Ir direto para uma tarefa</label>'+
  '<select id="admin-task-nav" class="input" aria-label="Escolher tarefa do painel" onchange="adminSelectTaskFromUi()">'+
  '<option value=""'+(current?'':' selected')+'>'+esc(adminRuntime.section==='overview'?'Visão geral — escolha sua tarefa':
   'Outra tarefa em '+adminSectionMeta(adminRuntime.section).title)+'</option>'+
  options+
- '</select></div>';
+ '</select></div></details>';
 }
 function adminQuickGo(section){
  if(!adminReady()||!adminRoleCanSection(section))return;
@@ -8890,7 +8890,7 @@ function adminFinanceOverview(d){
     +(billing.refunds||[]).filter(x=>x.status==='review_required').length;
   const e2e=adminBillingE2EState(d);
   const ingress=billing.paymentIngress||{};
-  const pspLabel=e2e.validated?'Integração verificada':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'Configurado':'Pendente';
+  const pspLabel=e2e.validated?'Integração verificada':adminRuntime.providerHealth?.ok===true?'API acessível':ingress.livePspReady?'Configurado':'Pendente';
   return `<section class="section admin-finance-overview">
     <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)||pendingReviews?'risk':'online'}">${Number(metrics.overdueStatementCount||0)||pendingReviews?'EXIGE ATENÇÃO':'SEM PENDÊNCIA CRÍTICA'}</span></div>
     <div class="admin-exec-grid finance">
@@ -8899,7 +8899,7 @@ function adminFinanceOverview(d){
       ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:adminMoney(metrics.pendingPaymentCents),detail:Number(metrics.pendingPaymentCount||0)+' pagamento(s)',tone:Number(metrics.pendingPaymentCount||0)?'warning':'neutral'})}
       ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:adminMoney(metrics.prepaidCreditBalanceCents),detail:Number(metrics.prepaidAccountCount||0)+' conta(s)',tone:'money'})}
       ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:String(pendingReviews),detail:adminMoney(metrics.refundRecoveryOutstandingCents||0)+' em recuperação',tone:pendingReviews?'danger':'neutral'})}
-      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'conciliação íntegra':'conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
+      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'Sem alertas na consulta atual':'Conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
     </div>
   </section>`;
 }
@@ -11629,8 +11629,8 @@ function adminPage(){
       <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
     </header>
     ${adminOperationalStrip(d)}
-    ${adminGlobalSearchView()}
-    ${adminTaskNavView()}
+    <div class="admin-workspace-tools">${adminGlobalSearchView()}
+    ${adminTaskNavView()}</div>
     ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
     <div class="admin-workspace">
       ${menu}
