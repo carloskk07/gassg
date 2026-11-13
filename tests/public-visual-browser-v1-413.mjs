@@ -69,7 +69,7 @@ async function readDOM(){
 }
 async function awaitReady(label){
  for(let i=0;i<60;i++){
-  const selector=label.startsWith('home ')?'.tamao-quote-first .city-price-heading h2':'h1';
+  const selector=label.startsWith('home ')?'.tamao-quote-first .city-price-heading h1':'h1';
   const state=await send('Runtime.evaluate',{expression:
    "document.readyState==='complete'&&!!document.querySelector("+JSON.stringify(selector)+")",returnByValue:true});
   if(state.result?.value)return;
