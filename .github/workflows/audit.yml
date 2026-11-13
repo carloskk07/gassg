@@ -129,6 +129,8 @@ jobs:
         run: node tests/modernizacao-transversal-v1-982.mjs
       - name: V1.983 escolhas orientadas e acessibilidade transversal
         run: node tests/modernizacao-ux-v1-983.mjs
+      - name: V1.985 menu desktop sem rotas duplicadas, grupos e teclado
+        run: node tests/desktop-nav-v1-985.mjs
       - name: V1.971 product-first home and consistent public recovery
         run: node tests/page-journey-consistency-v1-971.mjs
       - name: Public visual hierarchy and responsive menu contract
