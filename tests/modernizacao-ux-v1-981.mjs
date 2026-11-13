@@ -25,7 +25,7 @@ assert.match(core,/Admin • acesso por e-mail autorizado/);
 assert.doesNotMatch(core,/control plane server-side|autenticação permanente necessária/);
 assert.match(bootstrap,/A modalidade de hospedagens está suspensa/);
 assert.doesNotMatch(bootstrap,/Cadastre seus serviços, caronas e hospedagens/);
-assert.match(bootstrap,/page==='home'\|\|page==='merchants'/);
+assert.match(bootstrap,/\['home','order','tracking','learn','club','earn','refer','merchants'/);
 assert.match(workspace,/\.admin-page \.admin-task-navigator\{padding:9px 12px/);
 assert.match(audit,/node tests\/modernizacao-ux-v1-981\.mjs/);
 console.log('V1.981 PASS: real supply boundaries, route-focus accessibility, public conversion and protected portal copy.');
