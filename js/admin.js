@@ -11332,19 +11332,27 @@ function adminPage(){
   if(typeof document!=='undefined'&&typeof document.title==='string')
     document.title='Acesso ao Admin — TAMÃO';
   if(!adminPortalRequested()){
-    return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
+    return shell('<section class="page"><h1 class="page-title">Área administrativa protegida</h1>'+
+      '<div class="notice danger" role="alert">O Admin só pode ser acessado pelo portal protegido do TAMÃO.</div>'+
+      '<button type="button" class="secondary" onclick="openCustomerPortal()">Ver site TAMÃO</button></section>');
   }
-  if(['disabled','loading'].includes(adminRuntime.status)){
-    return shell('<section class="page"><h1 class="page-title">Administração</h1><div class="empty card">Conectando ao control plane…</div></section>');
+  if(adminRuntime.status==='loading'){
+    return shell('<section class="page"><h1 class="page-title">Acessando o Admin</h1>'+
+      '<div class="empty card" role="status" aria-live="polite">Verificando sua sessão e suas permissões…</div></section>');
+  }
+  if(adminRuntime.status==='disabled'){
+    return shell('<section class="page"><h1 class="page-title">Admin indisponível neste momento</h1>'+
+      '<div class="notice" role="alert">O painel administrativo não pôde ser iniciado neste ambiente. Nenhuma alteração foi realizada.</div>'+
+      '<button type="button" class="secondary" onclick="openCustomerPortal()">Ver site TAMÃO</button></section>');
   }
   if(adminRuntime.status==='unsafe-origin'){
-    return shell('<section class="page"><span class="eyebrow">CONTROL PLANE BLOQUEADO</span><h1 class="page-title">Origem administrativa não isolada</h1><div class="notice danger">Por segurança, o painel admin não autentica em uma origem compartilhada como GitHub Pages. Use localhost para desenvolvimento ou configure uma origem dedicada para administração.</div></section>');
+    return shell('<section class="page"><span class="eyebrow">ACESSO PROTEGIDO</span><h1 class="page-title">Este endereço não permite acesso ao Admin</h1><div class="notice danger" role="alert">Por segurança, o painel admin não autentica em uma origem compartilhada como GitHub Pages. Use uma origem administrativa isolada e autorizada.</div></section>');
   }
   if(adminRuntime.status==='unauthenticated')return adminLoginView();
   if(adminRuntime.status==='no-access')return adminNoAccessView();
   if(adminRuntime.status==='bootstrap-error')return adminBootstrapErrorView();
   if(adminRuntime.status!=='ready'||!adminRuntime.data){
-    return shell(`<section class="page"><h1 class="page-title">Administração</h1><div class="notice danger"><strong>Não foi possível carregar o painel.</strong><br>${esc(adminRuntime.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="adminRefresh()">Tentar novamente</button></section>`);
+    return shell(`<section class="page"><h1 class="page-title">Não foi possível atualizar o Admin</h1><div class="notice danger" role="alert"><strong>Não foi possível carregar o painel.</strong><p>${esc(adminRuntime.error||'Tente novamente.')}</p><p>Os dados e as permissões precisam ser confirmados antes de qualquer operação.</p></div><button type="button" class="secondary full" style="margin-top:12px" onclick="adminRefresh()">Tentar novamente</button></section>`);
   }
 
   const d=adminRuntime.data;
