@@ -26,7 +26,10 @@ assert.match(audit,/node tests\/public-ux-clarity-v1-969\.mjs/);
 // but direct links must keep the accurate unavailability explanation.
 const shell=core.slice(core.indexOf('function siteFooter('),core.indexOf('function bottomNav('));
 assert.doesNotMatch(shell,/(\['stays','Hospedagens'|go\(\\'stays\\'\))/);
-assert.match(shell,/\['home','Produtos'\]/);
+assert.doesNotMatch(shell,/\['home','Produtos'\]/,'header commerce CTA replaces redundant product link');
+assert.match(shell,/\['earn','Indicações'\]/);
+assert.match(shell,/label:'Serviços'/);
+assert.match(shell,/label:'Conheça'/);
 assert.match(shell,/\['mobility','Moto e carro'\]/);
 assert.match(shell,/\['club','Clube'\]/);
 assert.match(boot,/stays:typeof discoveryPage/);
