@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const core=read('js/core.js'),css=read('css/marketing-premium.css');
+const core=read('js/core.js'),css=read('css/marketing-premium.css')+'\n'+read('css/public-ux.css');
 const audit=read('.github/workflows/audit.yml');
 assert.doesNotThrow(()=>new vm.Script(core,{filename:'js/core.js'}));
 const start=core.indexOf('function shell(content){');
