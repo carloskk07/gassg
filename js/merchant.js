@@ -2369,6 +2369,11 @@ function merchantWorkspaceJump(area){
   const panel=document.getElementById(id);
   if(!panel)return false;
   if(panel.tagName==='DETAILS')panel.open=true;
+  // A workspace can be nested under another collapsed details drawer.
+  // Opening only the selected panel leaves its controls invisible and unfocusable.
+  for(let ancestor=panel.parentElement;ancestor;ancestor=ancestor.parentElement){
+    if(ancestor.tagName==='DETAILS')ancestor.open=true;
+  }
   // Focus the destination, not just the scroll position. This also works in
   // WebViews without matchMedia and respects the user's reduced-motion choice.
   // A SECTION may contain nested disclosure summaries; never focus one of
