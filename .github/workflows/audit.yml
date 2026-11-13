@@ -1141,6 +1141,8 @@ jobs:
           fi
       - name: V1.977 role-aware Admin and merchant subtask Chrome coverage
         run: node tests/authenticated-subtask-matrix-v1-977.mjs
+      - name: V1.979 extended authenticated viewport and keyboard navigation contract
+        run: node tests/authenticated-responsive-quality-v1-979.mjs
       - name: V1.978 accessible recovery and nested workspaces
         run: node tests/authenticated-error-recovery-v1-978.mjs
       - name: Browser smoke — mobile routes
