@@ -7,7 +7,7 @@ const css=read('css/marketing-premium.css');
 new vm.Script(home,{filename:'home-showcase.js'});
 new vm.Script(customer,{filename:'customer.js'});
 assert.ok(home.includes('const copy=real.length'));
-assert.ok(home.includes("'<h2>Tamão '+esc(place)"),'localized heading must show TAMÃO city/UF');
+assert.ok(home.includes("'<h1>TAMÃO em '+esc(place)"),'localized H1 must identify the visitor city and UF');
 assert.match(css,/\.city-price-product-pick>summary:focus-visible/);
 assert.match(css,/\.city-price-product-fields/);
 assert.match(css,/@media\(max-width:370px\)/);
