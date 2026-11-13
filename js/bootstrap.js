@@ -78,11 +78,44 @@ function tamaoPublicEntryRoute(){
 }
 let discoveryModuleRequested=false;
 let discoveryModuleError=false;
+// A return intent in the query must not trap someone who explicitly chooses
+// to leave a failed module. Preserve every other query parameter and state.
+function tamaoPublicModuleGoHome(){
+ if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
+ const previousHash=String(location.hash||'');
+ try{
+  const url=new URL(location.href);
+  let changed=false;
+  for(const key of ['advertise','mobility']){
+   if(url.searchParams.get(key)==='1'){url.searchParams.delete(key);changed=true;}
+  }
+  if(changed&&typeof history!=='undefined')
+   history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+ }catch{}
+ go('home');
+ if(previousHash==='#home'){
+  render();announcePublicPageNavigation();
+ }
+ return true;
+}
+// V1.971 — one honest, accessible recovery layout for every lazy public route.
+function tamaoPublicModuleState({title,loading,error,retry}){
+ const safeTitle=esc(title);
+ return shell('<section class="page tamao-module-state">'+
+   '<div class="empty card" '+(error?'role="alert"':'role="status"')+'>'+
+   '<span class="eyebrow">TAMÃO • '+(error?'CONEXÃO INDISPONÍVEL':'CONSULTANDO')+'</span>'+
+   '<h1 class="page-title">'+safeTitle+'</h1>'+
+   '<p>'+esc(error?'Não foi possível abrir esta área. Nenhum pedido, anúncio ou cobrança foi criado.':
+     loading)+'</p>'+
+   '<div class="order-actions">'+
+   (error?'<button type="button" class="primary" onclick="'+retry+'()">Tentar novamente</button>':'')+
+   '<button type="button" class="secondary" onclick="tamaoPublicModuleGoHome()">Ver produtos</button>'+
+   '</div></div></section>');
+}
 function discoveryLoadingPage(){
-  return shell('<section class="section"><h1>Consultando anúncios do TAMÃO</h1>'+
-    (discoveryModuleError
-      ?'<p>Não foi possível abrir a consulta agora.</p><button class="secondary" type="button" onclick="retryDiscoveryModule()">Tentar novamente</button>'
-      :'<p role="status">Preparando a consulta de anúncios publicados…</p>')+'</section>');
+  const titles={professionals:'Encontrar profissionais',rides:'Buscar caronas',stays:'Hospedagens'};
+  return tamaoPublicModuleState({title:titles[route()]||'Consultar anúncios',
+    loading:'Preparando os anúncios disponíveis para consulta.',error:discoveryModuleError,retry:'retryDiscoveryModule'});
 }
 function retryDiscoveryModule(){
   discoveryModuleRequested=false;discoveryModuleError=false;
@@ -98,9 +131,11 @@ function discoveryRequestModule(){
   let version='';
   try{version=new URL(source,location.href).searchParams.get('v')||'';}catch{}
   const suffix=/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'';
-  const css=document.createElement('link');
-  css.rel='stylesheet';css.href='./css/discovery.css'+suffix;
-  document.head.appendChild(css);
+  if(!document.querySelector('link[href*="css/discovery.css"]')){
+    const css=document.createElement('link');
+    css.rel='stylesheet';css.href='./css/discovery.css'+suffix;
+    document.head.appendChild(css);
+  }
   const script=document.createElement('script');
   script.src='./js/discovery.js'+suffix;
   script.onload=()=>render();
@@ -112,10 +147,9 @@ function mobilityReturnIntent(){
  try{return new URLSearchParams(location.search).get('mobility')==='1'}catch{return false}
 }
 function mobilityLoadingPage(){
- return shell('<section><h1>Corrida TAMÃO</h1>'+
-  (mobilityModuleError?'<p role="alert">Falha de conexão.</p>'+
-   '<button onclick="mobilityRetryModule()">Repetir</button>':
-   '<p role="status">Carregando…</p>')+'</section>');
+ return tamaoPublicModuleState({title:'Moto e carro',
+  loading:'Preparando as opções de transporte e seus critérios de disponibilidade.',
+  error:mobilityModuleError,retry:'mobilityRetryModule'});
 }
 function mobilityRetryModule(){
  mobilityModuleRequested=mobilityModuleError=false;mobilityRequestModule();render();
@@ -141,10 +175,9 @@ function discoveryOwnerReturnPending(){
   catch{return false;}
 }
 function discoveryOwnerLoadingPage(){
-  return shell('<section class="section"><h1>Meus anúncios TAMÃO</h1>'+
-    (discoveryOwnerModuleError?
-      '<p>Não foi possível abrir sua área agora.</p><button class="secondary" type="button" onclick="retryDiscoveryOwnerModule()">Tentar novamente</button>':
-      '<p role="status">Preparando a área de anúncios…</p>')+'</section>');
+  return tamaoPublicModuleState({title:'Meus anúncios',
+    loading:'Preparando sua área de anúncios e solicitações.',
+    error:discoveryOwnerModuleError,retry:'retryDiscoveryOwnerModule'});
 }
 function retryDiscoveryOwnerModule(){
   discoveryOwnerModuleRequested=false;discoveryOwnerModuleError=false;

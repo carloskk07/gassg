@@ -17,7 +17,7 @@ for(const role of ['superadmin','operations','compliance','finance'])
 for(const role of ['readonly','support','anonymous',''])
   assert.equal(ctx.can('ads',role),false,'Ads navigation denied to '+role);
 assert.equal(ctx.meta('ads').title,'Publicidade');
-assert.match(ctx.meta('ads').description,/Não exige revendas/);
+assert.match(ctx.meta('ads').description,/sem precisar cadastrar uma revenda/);
 
 const selection=admin.slice(admin.indexOf('function adminSetSection('),admin.indexOf('function adminMenuButton(',admin.indexOf('function adminSetSection(')));
 assert.match(selection,/['"]ads['"]/);

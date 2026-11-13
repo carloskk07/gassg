@@ -2455,6 +2455,8 @@ function merchantOrderListRecovery(rt){
       (rt?.actionPending===true?'disabled':'')+'>Atualizar pedidos →</button></section>';
 }
 function merchantLivePage(){
+  if(typeof document!=='undefined'&&typeof document.title==='string')
+    document.title='Painel da revenda — TAMÃO Parceiro';
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
     return shell('<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="empty card">Carregando o painel da sua revenda…</div></section>');
@@ -2473,6 +2475,8 @@ function merchantLivePage(){
   }
 
   const m=rt.merchant;
+  if(typeof document!=='undefined'&&typeof document.title==='string')
+    document.title=(String(m.name||'Minha revenda').trim().slice(0,64)||'Minha revenda')+' — TAMÃO Parceiro';
   if(m.memberRole==='driver')return merchantDriverLivePage(rt);
   const performance=m.performance||{};
   const capacity=Math.max(1,Number(m.maxActiveOrders||8));

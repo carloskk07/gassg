@@ -132,7 +132,7 @@ for(const width of [320,360,390]){
   assert.equal(await evaluate("window.innerWidth"),width,'viewport mobile precisa respeitar '+width+'px');
   await auditDom('home mobile '+width+'px');
 
-  for(const routeName of ['learn','earn','merchants']){
+  for(const routeName of ['learn','earn','merchants','club','sponsors','order','tracking','contact','privacy','terms']){
     await evaluate("go("+JSON.stringify(routeName)+")");
     await waitFor("document.querySelector('#app') && document.querySelector('#app').innerText.length>20",'mobile '+routeName+' '+width);
     await auditDom(routeName+' mobile '+width+'px');
