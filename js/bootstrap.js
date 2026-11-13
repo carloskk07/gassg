@@ -254,7 +254,21 @@ function render(){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);
     const app=document.querySelector('#app');
-    if(app)app.innerHTML='<main class="shell page"><div class="notice danger"><strong>Não foi possível carregar esta tela.</strong><br>Recarregue a página. Se o problema continuar, tente novamente mais tarde.</div></main>';
+    if(app){
+      // This recovery path must work even when shell(), routing or session
+      // initialization threw. Do not render a second full app here.
+      document.title='TAMÃO — tela indisponível';
+      app.innerHTML='<main id="tamao-main" class="shell page tamao-recovery-page" tabindex="-1">'+
+        '<section class="card flat">'+
+        '<span class="eyebrow">TAMÃO</span>'+
+        '<h1 id="tamao-recovery-title" class="page-title" tabindex="-1">Não foi possível abrir esta tela</h1>'+
+        '<div class="notice danger" role="alert">Ocorreu um problema ao mostrar as informações.</div>'+
+        '<p>Recarregue a página para tentar novamente. Se o problema continuar, tente mais tarde.</p>'+
+        '<p class="muted tiny">Antes de repetir um pedido ou pagamento, confira se a operação já foi registrada.</p>'+
+        '<button type="button" class="primary" onclick="location.reload()">Recarregar página</button>'+
+        '</section></main>';
+      document.getElementById('tamao-recovery-title')?.focus?.({preventScroll:true});
+    }
   }finally{renderLock=false}
 }
 window.addEventListener('hashchange',()=>{
