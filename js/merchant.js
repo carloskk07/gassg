@@ -2465,11 +2465,17 @@ function merchantLivePage(){
   if(typeof document!=='undefined'&&typeof document.title==='string')
     document.title='Painel da revenda — TAMÃO Parceiro';
   const rt=globalThis.merchantRuntime||{};
-  if(['disabled','loading'].includes(rt.status)){
-    return shell('<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="empty card">Carregando o painel da sua revenda…</div></section>');
+  if(rt.status==='loading'){
+    return shell('<section class="page"><h1 class="page-title">Acessando sua revenda</h1>'+
+      '<div class="empty card" role="status" aria-live="polite">Confirmando seus pedidos e permissões…</div></section>');
+  }
+  if(rt.status==='disabled'){
+    return shell('<section class="page"><h1 class="page-title">Painel da revenda indisponível</h1>'+
+      '<div class="notice" role="alert">O acesso operacional não pôde ser iniciado neste ambiente. Nenhum pedido foi alterado.</div>'+
+      '<button type="button" class="secondary" onclick="openCustomerPortal()">Ver site TAMÃO</button></section>');
   }
   if(rt.status==='unsafe-origin'){
-    return shell('<section class="page"><span class="eyebrow">PAINEL REAL BLOQUEADO</span><h1 class="page-title">Origem da revenda não isolada</h1><div class="notice danger"><strong>Não autenticamos operações da revenda em uma origem compartilhada.</strong><br>Use localhost para desenvolvimento ou uma origem dedicada configurada para o painel da revenda.</div></section>');
+    return shell('<section class="page"><span class="eyebrow">ACESSO PROTEGIDO</span><h1 class="page-title">Este endereço não permite operar a revenda</h1><div class="notice danger" role="alert"><strong>Não autenticamos operações da revenda em uma origem compartilhada.</strong> Use uma origem de revenda isolada e autorizada.</div></section>');
   }
   if(rt.status==='unauthenticated')return merchantLiveLoginView();
   if(rt.status==='no-access')return merchantLiveNoAccess();
@@ -2478,7 +2484,7 @@ function merchantLivePage(){
   if(rt.status==='unavailable'&&rt.merchant?.memberRole==='driver'&&
      rt.session?.access_token)return merchantDriverLivePage(rt);
   if(rt.status!=='ready'||!rt.merchant){
-    return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível confirmar os pedidos atuais.</strong><br>${esc(rt.error||'Tente novamente.')}</div><p class="tiny muted">Se a conexão falhou temporariamente, o TAMÃO tenta consultar novamente. Até recuperar a sincronização, ações em pedidos ficam indisponíveis nesta tela.</p><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente agora</button></section>`);
+    return shell(`<section class="page"><h1 class="page-title">Não foi possível atualizar sua revenda</h1><div class="notice danger" role="alert"><strong>Não foi possível confirmar os pedidos atuais.</strong><p>${esc(rt.error||'Tente novamente.')}</p></div><p class="tiny muted">Até o sistema confirmar a sincronização, as ações nos pedidos ficam indisponíveis nesta tela. Seus pedidos anteriores não são alterados por esta tentativa.</p><button type="button" class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente agora</button></section>`);
   }
 
   const m=rt.merchant;
