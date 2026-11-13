@@ -958,9 +958,13 @@ function bottomNav(r){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
-  // A login screen cannot offer operational shortcuts before a verified role.
-  if(merchantPortal&&(globalThis.merchantRuntime?.status!=='ready'||
-     !globalThis.merchantRuntime?.merchant?.memberRole))return '';
+  // Only a verified role exposes operations. An offline driver with a prior
+  // authenticated session keeps the existing safe delivery-recovery entry.
+  const partner=globalThis.merchantRuntime||{};
+  const role=String(partner.merchant?.memberRole||'');
+  const partnerNavAllowed=partner.status==='ready'&&Boolean(role)||
+    partner.status==='unavailable'&&role==='driver'&&Boolean(partner.session?.access_token);
+  if(merchantPortal&&!partnerNavAllowed)return '';
   const items=adminPortal
     ?[['admin','🛡️','Admin','go']]
     :merchantPortal
