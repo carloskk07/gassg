@@ -36,6 +36,7 @@ const statusViews=(role)=>{
  return {rt,nav,context,view:()=>context.view()};
 };
 for(const role of ['admin','merchant']){
+ const isAdmin=role==='admin';
  const s=statusViews(role);
  let page=s.view();
  assert.match(page,/role="status" aria-live="polite"/,role+' loading announced');
