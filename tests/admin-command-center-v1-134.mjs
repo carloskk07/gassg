@@ -52,8 +52,8 @@ assert.ok(admin.includes('admin-exec-grid')
 const adminPage=admin.slice(admin.indexOf('function adminPage()'),admin.indexOf('function adminFilterRegistry'));
 const execIndex=adminPage.indexOf('admin-exec-grid');
 const attentionIndex=adminPage.indexOf('adminAttentionCenter(d)');
-assert.ok(execIndex>=0&&attentionIndex>execIndex,
-  'KPIs executivos devem aparecer antes da fila de decisões');
+assert.ok(execIndex>=0&&attentionIndex>=0&&attentionIndex<execIndex,
+  'Decisões prioritárias devem aparecer antes dos KPIs de apoio');
 
 assert.ok(admin.includes('Decisões prioritárias')
   &&admin.includes('admin-severity-summary')
