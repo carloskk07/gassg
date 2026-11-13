@@ -105,7 +105,6 @@ function homeRegionalPriceBoard(region){
   snapshot.city===city&&snapshot.state===uf&&snapshot.real===true&&
   snapshot.notAQuote===true&&Array.isArray(snapshot.products);
  const real=verified?snapshot.products:[];
- const localP13=city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&uf==='RS';
  const place=city+'/'+uf;
  const checkedAt=verified?Date.parse(String(snapshot.checkedAt||'')):NaN;
  const checkedLabel=Number.isFinite(checkedAt)&&checkedAt<=Date.now()+60000
@@ -127,41 +126,30 @@ function homeRegionalPriceBoard(region){
    '<small>'+esc(band)+'</small><span class="city-price-origin">'+Number(p.merchantCount)+
    (p.merchantCount===1?' revenda elegível':' revendas elegíveis')+'</span></article>';
  }).join('');
- // These are LOCAL PRICE RESEARCH values provided for São Gabriel,
- // recorded in the test merchant catalog on 15/10/2026. They are not
- // current inventory, availability, the price of a verified merchant,
- // or three competitive offers. Only verified RPC data is an offer.
+ // No indicative prices without verified supply.
  const cards=real.length?liveCards:
    '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Você pode escolher produtos e consultar seu CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
- const copy=real.length
-   ?'Veja preços informados por revendas e confirme o total e a entrega pelo CEP.'
-   :'Escolha seus produtos e consulte preço e entrega pelo CEP.';
  const controls='<div class="city-price-controls">'+
-   '<button type="button" class="primary" onclick="homeDiscoverFocus()">Ver produtos →</button>'+
-   (real.length>0&&globalThis.liveReady?.()===true?
-     '<button type="button" class="secondary" onclick="homeRefreshQuotePrices()" aria-label="Atualizar cotações de preços da cidade">↻ Atualizar cotações</button>':'')+
-   '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+
+   '<span class="tamao-storefront-location"><small>SUA REGIÃO</small><strong>'+esc(place)+'</strong></span>'+
+   '<details class="city-price-chooser"><summary>Alterar cidade</summary>'+
     '<div class="city-price-chooser-fields">'+
      '<label>Cidade<input id="home-city-name" maxlength="80" autocomplete="address-level2" value="'+esc(city)+'"></label>'+
      '<label>UF<input id="home-city-uf" maxlength="2" autocomplete="address-level1" value="'+esc(uf)+'"></label>'+
      '<button type="button" class="secondary" onclick="homeChooseMarketCity()">Atualizar vitrine</button>'+
     '</div></details></div>';
- return '<section class="city-price-board tamao-quote-first'+(real.length?'':' tamao-quote-no-offer')+'" aria-label="Painel de preços e vantagens de sua cidade">'+
-  '<div class="tamao-quote-topline"><span>'+(real.length?'📊 COTAÇÕES E ECONOMIA':'ENCONTRE O QUE PRECISA')+'</span>'+
-   '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
-  '<div class="city-price-heading"><div>'+
-   '<h1>TAMÃO em '+esc(place)+'</h1><p>'+esc(copy)+'</p></div></div>'+
-  (real.length?'':controls)+
-
-
-  '<div class="city-price-grid">'+cards+'</div>'+
+ return '<section class="city-price-board tamao-quote-first'+(real.length?'':' tamao-quote-no-offer')+'" aria-label="Produtos e disponibilidade em '+esc(place)+'">'+
+  '<div class="city-price-heading"><div><span class="section-kicker">O ESSENCIAL, PERTO DE VOCÊ</span>'+
+   '<h1>Faltou em casa? <span>Tá na mão.</span></h1><p>Escolha os produtos. Confira preço e entrega pelo seu CEP.</p></div>'+controls+'</div>'+
+  (real.length?'<details class="tamao-city-market"><summary>Preços informados na cidade'+(checkedLabel?' <small>Atualizado '+esc(checkedLabel)+'</small>':'')+'</summary><div class="city-price-grid">'+cards+'</div>'+
+   (globalThis.liveReady?.()===true?'<button type="button" class="secondary small" onclick="homeRefreshQuotePrices()">Atualizar preços informados</button>':'')+
+   '<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p></details>':
+   '<div class="tamao-storefront-availability">'+cards+'</div>')+
   '<aside id="city-price-basket" class="city-price-basket" aria-label="Cesta de produtos selecionados">'+
    homeQuoteBasketMarkup(typeof state==='object'?state.cart:{})+'</aside>'+
 
   (spread?'<div class="tamao-quote-spread"><span aria-hidden="true">↔</span><div><strong>Diferença de '+esc(spreadValue)+' entre os valores estimados para '+esc(spreadName)+'</strong>'+
    '<p>Compare as ofertas com entrega para seu endereço.</p></div></div>':'')+
-  (real.length?'<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p>':'')+
-  (real.length?controls:'')+'</section>';
+  '</section>';
 }
 
 // Count only fresh, user-scoped issued coupons. This is never a basket discount.

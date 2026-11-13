@@ -10,7 +10,7 @@ for(const [name,source] of [['home',home],['core',core],['growth',growth],['boot
  assert.doesNotThrow(()=>new vm.Script(source,{filename:name+'.js'}));
 assert.match(home,/Sem ofertas confirmadas em /);
 assert.match(home,/pedido só avança com uma revenda e um preço confirmados/);
-assert.match(home,/onclick="homeDiscoverFocus\(\)">Ver produtos/);
+assert.match(home,/class="city-price-chooser"/);
 assert.match(home,/public_city_price_board_v1_341/);
 assert.doesNotMatch(home,/Sem ofertas confirmadas[^\n]*R\$\s*115/i);
 assert.match(marketing,/#tamao-main h1:focus\{outline:2px solid/);

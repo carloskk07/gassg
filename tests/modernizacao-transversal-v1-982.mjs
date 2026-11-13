@@ -9,11 +9,11 @@ const publicCss=read('css/public-ux.css'),workspaceCss=read('css/workspace-exper
 const landing=read('scripts/build-discovery-landings.mjs');
 for(const [name,source] of Object.entries({home,customer,merchant,admin,discovery,bootstrap}))
  assert.doesNotThrow(()=>new vm.Script(source,{filename:name+'.js'}));
-assert.match(home,/real\.length>0&&globalThis\.liveReady/);
+assert.match(home,/globalThis\.liveReady/);
 assert.match(home,/Sem ofertas confirmadas em/);
 assert.match(home,/pedido só avança com uma revenda e um preço confirmados/);
 assert.match(customer,/page tamao-checkout-page/);
-assert.match(customer,/Seu pedido em 4 passos/);
+assert.match(customer,/buyer-journey-compact/);
 assert.match(customer,/aria-current/);
 for(const name of ['merchantAdsStartSection','merchantAdsContactFeedbackSection','merchantAdsCampaignSection','merchantClubeTermsSection','merchantGrowthNetworkSection'])
  assert.ok(merchant.includes(name+'(m)'),name+' preserved');

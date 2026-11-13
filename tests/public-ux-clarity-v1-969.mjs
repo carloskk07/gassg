@@ -52,7 +52,7 @@ assert(quote.indexOf('class="city-price-controls"')<quote.indexOf('class="city-p
 assert.match(quote,/pedido só avança com uma revenda e um preço confirmados/);
 assert.doesNotMatch(quote,/tamao-home-coupon-rail|Ver cupons e Clube/,
  'a separately placed campaign must not repeat in the quote');
-assert.match(quote,/onclick="homeDiscoverFocus\(\)">Ver produtos/);
+assert.match(quote,/class="city-price-chooser"/);
 assert.doesNotMatch(quote,/R\$ 115/);
 assert.match(customer,/homeRegionalPriceBoard\(homeRegion\)/);
 assert.match(customer,/\$\{couponBanner\}/);

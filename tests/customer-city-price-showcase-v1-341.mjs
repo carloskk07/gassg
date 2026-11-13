@@ -71,7 +71,7 @@ assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/,
 assert.match(html,/Sem ofertas confirmadas em São Gabriel\/RS/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL|Pesquisa local informada|city-price-research-item/,
  'do not advertise example prices');
-assert.match(html,/ENCONTRE O QUE PRECISA/);
+assert.match(html,/O ESSENCIAL, PERTO DE VOCÊ/);
 assert.doesNotMatch(html,/↻ Atualizar cotações/,'manual refresh requires verified live RPC');
 env.globalThis.liveReady=()=>true;
 let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
@@ -85,7 +85,7 @@ assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Outra Cidade",state:"RS",origin:"chosen"})',env);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
 assert.match(html,/Sem ofertas confirmadas em Outra Cidade\/RS/);
-assert.match(html,/Ver outra cidade/);
+assert.match(html,/Alterar cidade/);
 const real={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
  kind:'eligible_merchant_estimates',real:true,notAQuote:true,requiresPostalConfirmation:true,

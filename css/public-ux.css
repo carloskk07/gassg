@@ -139,3 +139,81 @@
 .tamao-nav-more-panel>button:hover,.tamao-nav-more-panel>button[aria-current="page"]{background:#eaf6ed!important;color:#075b39!important}
 @media(min-width:760px) and (max-width:960px){.tamao-public-header .topbar-inner{gap:7px}.tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary{padding:9px 8px!important;font-size:12px!important}}
 @media(prefers-reduced-motion:reduce){.tamao-nav-more>summary span[aria-hidden="true"]{transition:none}}
+
+/* Storefront: one canvas, products within reach, regional facts kept explicit. */
+.tamao-storefront{max-width:1200px;margin:22px auto 28px;padding:clamp(20px,3vw,34px);border:1px solid #dce8e0;border-radius:24px;background:#fff;box-shadow:0 10px 32px #163c2910}
+.tamao-storefront>.city-price-board{max-width:none;margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+.tamao-storefront .city-price-heading{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.tamao-storefront .city-price-heading h1{margin:9px 0 10px;font-size:clamp(30px,3.5vw,44px);line-height:1.08;letter-spacing:-.045em;color:#153e2d}
+.tamao-storefront .city-price-heading h1 span{color:#08734f;white-space:nowrap}
+.tamao-storefront .city-price-heading p{margin:0;max-width:48ch;font-size:15px;line-height:1.5;color:#526a5b}
+.tamao-storefront .city-price-controls{flex:0 1 230px;display:grid;justify-items:end;gap:0;margin:0}
+.tamao-storefront-location{display:grid;gap:5px;text-align:right}
+.tamao-storefront-location small{font-size:10px;letter-spacing:.09em;font-weight:800;color:#5a7565}
+.tamao-storefront-location strong{font-size:14px;color:#224d38;overflow-wrap:anywhere}
+.tamao-storefront .city-price-chooser{flex:none;min-width:0}
+.tamao-storefront .city-price-chooser summary{padding:10px 0;min-height:40px;font-size:12px;color:#086747;text-decoration:underline;text-underline-offset:3px}
+.tamao-storefront .city-price-chooser-fields{max-width:100%;justify-content:flex-end}
+.tamao-storefront .city-price-chooser-fields label{min-width:0;max-width:100%}
+.tamao-storefront .city-price-chooser-fields input{width:100%;box-sizing:border-box}
+.tamao-storefront-availability{margin-top:20px}
+.tamao-storefront .city-price-empty{display:flex;align-items:baseline;gap:5px 10px;flex-wrap:wrap;padding:10px 13px;border:1px solid #e0e9e3;border-radius:10px;background:#f6f9f7;font-size:12px;line-height:1.5}
+.tamao-storefront .city-price-empty strong{font-size:12px;color:#345541}
+.tamao-storefront .city-price-empty p{flex:1 1 350px;margin:0;font-size:12px;color:#526a5b;line-height:1.5}
+.tamao-storefront .home-discover{max-width:none;margin:24px 0 0;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+.tamao-storefront .home-discover-heading{align-items:center;margin-bottom:14px;gap:12px}
+.tamao-storefront .home-discover-heading h2{margin:0;font-size:23px;line-height:1.2;letter-spacing:-.03em}
+.tamao-storefront-step{font-size:11px;color:#5b7464;line-height:1.5}
+.tamao-storefront-step>span{margin-inline:6px;color:#9aac9f}
+.tamao-storefront .home-discover-filter{margin:0;gap:7px}
+.tamao-storefront .home-discover-filter button{min-height:42px;padding:9px 17px;font-size:12px}
+.tamao-storefront .home-discover-status{margin:10px 0 14px;font-size:11px;color:#5b7464;line-height:1.45}
+.tamao-storefront .home-discover-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.tamao-storefront .home-discover-grid .home-discover-tile{display:flex;align-items:stretch;min-height:218px;padding:14px 12px 12px;border:1px solid #dbe7df;border-radius:16px;background:#fafcf9;box-shadow:none;transition:transform .16s,border-color .16s,box-shadow .16s}
+.tamao-storefront .home-discover-art{height:100px;min-height:100px;margin:0 0 12px;background:transparent}
+.tamao-storefront .home-discover-art :is(.product-art,.product-photo){width:auto;max-width:100%;max-height:100px;object-fit:contain}
+.tamao-storefront .home-discover-tile strong{margin:0;font-size:13px;line-height:1.4;text-align:left}
+.tamao-storefront .home-discover-action{margin-top:auto;padding-top:14px;font-size:10px;line-height:1.35;font-weight:750}
+.tamao-storefront .home-discover-action>span{display:grid;place-items:center;flex:0 0 23px;width:23px;height:23px;border-radius:50%;background:#e2efe6;color:#086747;font-size:13px}
+.tamao-storefront .home-discover-tile:hover{transform:translateY(-3px);border-color:#6cae88;box-shadow:0 8px 20px #174d3012}
+.tamao-city-market{margin-top:18px;border-block:1px solid #e0e9e3;padding:6px 0}
+.tamao-city-market>summary{min-height:44px;cursor:pointer;color:#275b40;font-weight:750;font-size:13px;line-height:1.5}
+.tamao-city-market>summary small{font-size:11px;font-weight:500;margin-left:10px;color:#597665}
+.tamao-storefront .city-price-basket{margin-top:16px}
+.tamao-club-visitor-focus .tamao-club-visitor-hero>.eyebrow{align-self:flex-start;background:#ffffff1f;border:1px solid #ffffff38;color:#fff;padding:7px 11px;border-radius:8px;font-size:11px;line-height:1.3}
+.tamao-club-access{margin-top:22px;max-width:440px;gap:10px}
+.tamao-club-access>label{color:#fff;font-size:13px;font-weight:750}
+.tamao-club-access>.input{min-height:48px;background:#fff;color:#173e2b;border:1px solid #b8d2c0;font-size:16px}
+.tamao-club-access>.primary{min-height:48px;background:#f0f9d9;color:#16472f;border:1px solid #f0f9d9;box-shadow:none}
+.tamao-club-access>.primary:hover{background:#fff;color:#103f28}
+.tamao-club-access>.tamao-club-register{min-height:44px;background:transparent;color:#fff;border:1px solid #8cbaa0;font-size:12px;box-shadow:none}
+.tamao-club-access>.tamao-club-register:hover{background:#ffffff1a;border-color:#c5e3cf;color:#fff}
+.tamao-club-access>[data-welcome-signup-status]:empty{display:none}
+.tamao-club-access>small,.tamao-club-access>[data-welcome-signup-status]{color:#dcefe2;font-size:12px;line-height:1.5}
+.tamao-checkout-page .buyer-journey-compact{padding:0;margin:14px 0 22px;border:0;border-radius:0;background:none;box-shadow:none}
+.tamao-checkout-page .buyer-journey-compact .buyer-journey-steps{margin:0 0 11px}
+.tamao-checkout-page .buyer-journey-hint{display:block;margin:0;padding:0;border:0;background:none;border-radius:0;font-size:12px;line-height:1.6;color:#526b5b}
+.tamao-checkout-page .buyer-journey-hint strong{font-size:12px;color:#244f38}
+.buyer-cart-selection{padding:16px 18px;border:1px solid #cddfd3;border-radius:14px 14px 0 0;background:#f4faf6;color:#1f4c35}
+.buyer-cart-selection>strong{font-size:14px}
+.buyer-cart-selection>p{margin:7px 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.buyer-cart-selection>small{font-size:12px;line-height:1.5;color:#54705e}
+.buyer-cart-edit{border:1px solid #d8e6dc;border-radius:14px;overflow:hidden}
+.buyer-cart-selection+.buyer-cart-edit{border-top:0;border-radius:0 0 14px 14px}
+.buyer-cart-edit>summary{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;padding:12px 17px;color:#126b47;background:#fff;cursor:pointer;font-size:13px;font-weight:750;list-style:none}
+.buyer-cart-edit>summary::-webkit-details-marker{display:none}
+.buyer-cart-edit[open]>summary{background:#f8fbf9;border-bottom:1px solid #e1ebe4}
+.buyer-cart-edit[open]>summary>span{transform:rotate(45deg)}
+.buyer-cart-edit-body{padding:14px}
+.tamao-checkout-page .order-address-card>h2{font-size:21px;line-height:1.25;margin:0 0 7px;color:#234b36}
+.tamao-checkout-workspace{display:grid;gap:22px;align-items:start}
+.tamao-checkout-workspace>aside,.tamao-checkout-details{min-width:0;max-width:100%}
+.tamao-checkout-basket>#customer-cart{margin-top:0}
+.tamao-checkout-basket .section-head{margin-top:0}
+@media(min-width:980px){.tamao-checkout-workspace.has-items{grid-template-columns:minmax(0,.85fr) minmax(0,1.4fr);gap:25px}.tamao-checkout-workspace.has-items .buyer-cart-edit[open] .cart-item{flex-wrap:wrap;gap:10px}.tamao-checkout-workspace.has-items .buyer-cart-edit[open] .cart-item>.qty{margin-left:auto}}
+@media(max-width:1099px){.tamao-storefront .home-discover-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.tamao-storefront .home-discover-grid .home-discover-tile{min-height:203px}.tamao-storefront .home-discover-action{font-size:11px}}
+@media(max-width:759px){.tamao-storefront{margin:12px 0 22px;padding:20px 17px;border-radius:19px}.tamao-storefront .city-price-heading{align-items:flex-start;flex-direction:column;gap:16px}.tamao-storefront .city-price-heading h1{font-size:clamp(29px,5.7vw,38px);max-width:20ch}.tamao-storefront .city-price-controls{flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%}.tamao-storefront-location{text-align:left;gap:3px}.tamao-storefront .city-price-chooser summary{white-space:nowrap}.tamao-storefront .city-price-chooser[open]{flex:1}.tamao-storefront .home-discover-heading{align-items:flex-start;flex-direction:column;gap:6px}.tamao-storefront .home-discover-heading h2{font-size:21px}.tamao-storefront-availability{margin-top:13px}.tamao-storefront .city-price-empty p{flex-basis:100%}.tamao-storefront .home-discover{margin-top:19px}}
+@media(max-width:599px){.tamao-storefront .home-discover-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.tamao-storefront .home-discover-grid .home-discover-tile{min-height:207px;padding:12px 10px}.tamao-storefront .home-discover-filter button{padding-inline:13px}.tamao-storefront .home-discover-art{height:94px;min-height:94px}.tamao-storefront .home-discover-art :is(.product-art,.product-photo){max-height:94px}.buyer-cart-edit-body{padding:9px}.tamao-storefront .city-price-chooser-fields{justify-content:flex-start}}
+@media(max-width:759px){.tamao-storefront .city-price-controls:has(.city-price-chooser[open]){flex-direction:column;align-items:stretch}.tamao-storefront .city-price-chooser[open]{width:100%}}
+@media(max-width:759px){.tamao-storefront-step{display:none}.tamao-storefront .home-discover-filter button{padding-inline:10px}}
+@media(prefers-reduced-motion:reduce){.tamao-storefront .home-discover-grid .home-discover-tile{transition:none}.tamao-storefront .home-discover-tile:hover{transform:none}}

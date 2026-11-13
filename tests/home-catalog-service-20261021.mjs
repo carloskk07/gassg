@@ -29,7 +29,7 @@ assert.match(css,/\.tamao-home-mobility-grid/);
 assert.match(css,/\.intent-grid\.tamao-home-support-grid/);
 assert.match(css,/@media\(max-width:420px\)/);
 const body=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
-assert.match(body,/Produtos para o seu dia a dia/);
+assert.match(body,/O que você precisa hoje\?/);
 assert.doesNotMatch(body,/Ver minha cesta <span aria-hidden="true">→<\/span>/);
 assert.match(body,/homeQuoteProductPicker|homeRegionalPriceBoard/);
 console.log('PASS: product variants use existing imagery; CTA hierarchy and route integrity preserved.');

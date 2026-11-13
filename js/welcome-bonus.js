@@ -146,31 +146,62 @@ function tamaoWelcomeShowSignup(){
   form.hidden=false;
   form.querySelector('input[type=email]')?.focus();
 }
+// Existing members request a login link; registration preserves the visitor's
+// anonymous account through the existing upgrade path. Neither action is a purchase.
+async function tamaoClubSendAccess(email){
+  const value=String(email||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw Error('INVALID_EMAIL');
+  const runtime=globalThis.liveRuntime;
+  if(globalThis.liveReady?.()!==true||!runtime?.client?.auth||
+     typeof customerOriginSafe!=='function'||customerOriginSafe()!==true)
+    throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
+  const client=runtime.client,userId=runtime.session?.user?.id;
+  if(!globalThis.chamaTurnstile?.challenge)throw Error('AUTH_PROTECTION_UNAVAILABLE');
+  const captchaToken=await globalThis.chamaTurnstile.challenge('customer_login');
+  if(!captchaToken||globalThis.liveReady?.()!==true||customerOriginSafe()!==true||
+     runtime!==globalThis.liveRuntime||client!==runtime.client||
+     userId!==runtime.session?.user?.id)throw Error('ACCOUNT_CONTEXT_CHANGED');
+  const redirect=new URL('/',location.origin);
+  // Auth uses the URL fragment for tokens. Preserve the destination in a
+  // query hint so the SDK can consume its fragment before opening the Club.
+  redirect.searchParams.set('entrada','clube');
+  const {error}=await client.auth.signInWithOtp({email:value,
+    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:false,captchaToken}});
+  if(error)throw error;
+  return {accessRequested:true};
+}
 async function tamaoWelcomeRegister(event){
   event.preventDefault();
   const form=event.currentTarget;
+  const clubEntry=form?.dataset?.tamaoAccountContext==='club';
   const field=form?.querySelector('input[type=email]');
   const status=form?.querySelector('[data-welcome-signup-status]');
   const button=form?.querySelector('button[type=submit]');
+  const buttons=clubEntry?Array.from(form.querySelectorAll('button[type=submit]')):[button].filter(Boolean);
   const email=String(field?.value||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     if(status)status.textContent='Informe um e-mail válido.';
     return false;
   }
-  if(button?.disabled)return false;
-  if(button)button.disabled=true;
+  if(buttons.some(item=>item.disabled))return false;
+  buttons.forEach(item=>item.disabled=true);
   if(status)status.textContent='Preparando confirmação…';
   try{
-    if(typeof liveUpgradeAccount!=='function')throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
-    const result=await liveUpgradeAccount(email);
+    const login=clubEntry&&event.submitter?.value!=='register';
+    if(!login&&typeof liveUpgradeAccount!=='function')throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
+    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email);
     if(status)status.textContent=result?.alreadyPermanent
       ?'Sua conta já está cadastrada. Consulte seu saldo e benefícios no Clube.'
-      :'Enviamos a confirmação para seu e-mail. Conclua a confirmação para participar, sujeito às vagas e às regras da campanha.';
+      :result?.accessRequested?'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.':
+       clubEntry?'Enviamos a confirmação para seu e-mail. Abra a mensagem para confirmar sua conta.':
+       'Enviamos a confirmação para seu e-mail. Conclua a confirmação para participar, sujeito às vagas e às regras da campanha.';
     if(field&&result?.alreadyPermanent!==true)field.value='';
   }catch{
-    if(status)status.textContent='Não foi possível enviar a confirmação. Confira a conexão e tente novamente.';
+    if(status)status.textContent=clubEntry
+      ?'Não foi possível enviar o acesso. Confira o e-mail e a conexão. Se for seu primeiro acesso, escolha “Criar minha conta”.'
+      :'Não foi possível enviar a confirmação. Confira a conexão e tente novamente.';
   }finally{
-    if(button)button.disabled=false;
+    buttons.forEach(item=>item.disabled=false);
   }
   return false;
 }
