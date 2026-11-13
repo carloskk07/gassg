@@ -391,3 +391,12 @@ a:focus-visible,summary:focus-visible{outline:3px solid #c48716;outline-offset:4
 @media(prefers-reduced-motion:reduce){
  .ed-value-scene *{scroll-behavior:auto}
 }
+
+/* V1.982 | Modalidade suspensa não é vitrine comercial ativa. */
+.ed-discovery-paused .ed-hero-grid{grid-template-columns:minmax(0,1fr);max-width:910px}
+.ed-discovery-paused .ed-hero-copy h1{max-width:24ch;font-size:clamp(32px,4.4vw,51px)}
+.ed-discovery-paused .ed-hero-visual{display:none}
+.ed-discovery-paused .ed-hero-copy>p{max-width:64ch}
+.ed-discovery-paused .ed-proof{max-width:910px}
+.ed-discovery-paused .ed-proof-grid{grid-template-columns:minmax(0,1fr)}
+.ed-discovery-paused .ed-last h2{max-width:26ch}

@@ -705,10 +705,11 @@ function discoveryCard(item,kind){
 function discoveryPage(){
   const kind=discoveryKind();
   if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
-  if(kind==='stays')return shell('<section class="section discovery-page" role="status">'+
+  if(kind==='stays')return shell('<section class="section discovery-page tamao-paused-page" role="status">'+
+    '<div class="tamao-paused-inner"><span class="eyebrow">MODALIDADE SUSPENSA</span>'+
     '<h1>Hospedagens temporariamente indisponíveis</h1>'+
     '<p>Esta modalidade está suspensa. Não estamos aceitando anúncios nem reservas de hospedagem.</p>'+
-    '<a href="/">Voltar ao TAMÃO</a></section>');
+    '<button type="button" class="primary" onclick="go(\'home\')">Ver produtos TAMÃO →</button></div></section>');
   const s=discoveryState(kind),v=discoveryVerticals[kind],shortcut=kind==='professionals'?discoveryServiceShortcuts[s.service]:null;
   const savedIds=discoverySavedIds(kind);
   const savedSet=new Set(savedIds);

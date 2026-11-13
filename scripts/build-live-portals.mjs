@@ -402,7 +402,9 @@ export function compactReleasedMerchantComments(source){
   // The reviewed, canonical merchant source remains unchanged.
   const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
     .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'')
-    .replace(/^ {2,}(?=[A-Za-z_$][\w$]*[.(=])/gm,'');
+    .replace(/^ {2,}(?=[A-Za-z_$][\w$]*[.(=])/gm,'')
+    // Keep the reviewed source intact; remove only nonsemantic HTML indentation in release.
+    .replace(/^[ \t]{2,}(?=<[A-Za-z/]|\$\{)/gm,'');
   if(Buffer.byteLength(source,'utf8')-Buffer.byteLength(released,'utf8')<3000)
     throw new Error('Merchant startup savings no longer validated');
   validateClassicScriptSyntax(released,'emitted merchant.js');

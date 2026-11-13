@@ -886,7 +886,7 @@ function customerCheckoutJourney({hasItems=false,hasAddress=false,hasPhone=false
       '<span>'+stage.label+'</span></button></li>').join('');
   return '<aside class="buyer-journey" aria-label="Etapas da compra">'+
     '<div class="buyer-journey-heading"><div><span class="section-kicker">SEU PEDIDO, PASSO A PASSO</span>'+
-    '<h2>Comprar fica mais fácil assim</h2></div><span class="buyer-journey-count">'+ready+' de 4 prontos</span></div>'+
+    '<h2>Seu pedido em 4 passos</h2></div><span class="buyer-journey-count">'+(ready?ready+' de 4 prontos':'Comece pelos produtos')+'</span></div>'+
     '<ol class="buyer-journey-steps">'+steps+'</ol>'+
     '<div class="buyer-journey-next" role="status"><div><strong>'+nextTitle+'</strong><p>'+nextDescription+
     '</p></div><button type="button" class="primary" onclick="customerCheckoutFocusStep(\''+
@@ -1050,7 +1050,7 @@ function orderPage(){
   const savedDeliveryNote=String(state.checkout.deliveryNotes||'');
   const selectedDeliveryNote=CUSTOMER_DELIVERY_NOTE_PRESETS.find(row=>row[2]===savedDeliveryNote)?.[0]||'';
   const customDeliveryNote=Boolean(savedDeliveryNote&&!selectedDeliveryNote);
-  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Primeiro escolha os produtos. Depois informe onde entregar e confira o total com entrega antes de enviar.</p>
+  return shell(`<section class="page tamao-checkout-page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Escolha os produtos, informe o CEP e confira o total com entrega antes de enviar.</p>
 ${buyerGuide}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}

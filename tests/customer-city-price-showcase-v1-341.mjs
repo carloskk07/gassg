@@ -71,11 +71,11 @@ assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/,
 assert.match(html,/Sem ofertas confirmadas em São Gabriel\/RS/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL|Pesquisa local informada|city-price-research-item/,
  'do not advertise example prices');
-assert.match(html,/COTAÇÕES E ECONOMIA/);
+assert.match(html,/ENCONTRE O QUE PRECISA/);
 assert.doesNotMatch(html,/↻ Atualizar cotações/,'manual refresh requires verified live RPC');
 env.globalThis.liveReady=()=>true;
 let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
-assert.match(whenReady,/homeRefreshQuotePrices\(\)/);
+assert.doesNotMatch(whenReady,/homeRefreshQuotePrices\(\)/, 'without verified prices the primary task is choosing products');
 assert.doesNotMatch(html,/tamao-home-coupon-rail|Ver cupons e Clube/,
  'City quote must not repeat the verified coupon promotion immediately below it');
 assert.match(html,/O pedido só avança com uma revenda e um preço confirmados/);
@@ -106,6 +106,8 @@ assert.match(html,/2 revendas elegíveis/);
 assert.match(html,/Diferença de R\$ 7.10 entre os valores estimados/);
 assert.match(html,/Compare as ofertas com entrega para seu endereço/);
 assert.match(html,/Atualizado /);
+env.globalThis.liveReady=()=>true;
+assert.match(vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"confirmed"})',env),/homeRefreshQuotePrices\(\)/, 'verified prices can be refreshed');
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL • NÃO É OFERTA/);
 assert.match(html,/Preço final, descontos e entrega são confirmados na consulta por CEP/);

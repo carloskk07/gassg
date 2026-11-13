@@ -11433,8 +11433,9 @@ function adminPage(){
     ${adminAttentionCenter(d)}
     ${adminLaunchWorklist(d)}
     ${adminGovernanceView()}
-    ${adminReleaseHub(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
+    <details class="admin-overview-extra"><summary>Publicação e indicadores complementares <small>Consulte quando precisar aprofundar a análise</small></summary><div class="admin-overview-extra-body">
+    ${adminReleaseHub(d)}
     <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
       <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} ativos</small></div>
@@ -11444,7 +11445,7 @@ function adminPage(){
       <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
-    </div></section>`):'';
+    </div></section></div></details>`):'';
 
   const ordersContent=(sectionActive('orders'))?(`
     <section class="section admin-orders-workspace">
@@ -11627,9 +11628,9 @@ function adminPage(){
       <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
     </header>
     ${adminOperationalStrip(d)}
+    ${adminGlobalSearchView()}
     ${adminTaskNavView()}
     ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
-    ${adminGlobalSearchView()}
     <div class="admin-workspace">
       ${menu}
       <main class="admin-main">
