@@ -78,6 +78,26 @@ function tamaoPublicEntryRoute(){
 }
 let discoveryModuleRequested=false;
 let discoveryModuleError=false;
+// A return intent in the query must not trap someone who explicitly chooses
+// to leave a failed module. Preserve every other query parameter and state.
+function tamaoPublicModuleGoHome(){
+ if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
+ const previousHash=String(location.hash||'');
+ try{
+  const url=new URL(location.href);
+  let changed=false;
+  for(const key of ['advertise','mobility']){
+   if(url.searchParams.get(key)==='1'){url.searchParams.delete(key);changed=true;}
+  }
+  if(changed&&typeof history!=='undefined')
+   history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+ }catch{}
+ go('home');
+ if(previousHash==='#home'){
+  render();announcePublicPageNavigation();
+ }
+ return true;
+}
 // V1.971 — one honest, accessible recovery layout for every lazy public route.
 function tamaoPublicModuleState({title,loading,error,retry}){
  const safeTitle=esc(title);
@@ -89,7 +109,7 @@ function tamaoPublicModuleState({title,loading,error,retry}){
      loading)+'</p>'+
    '<div class="order-actions">'+
    (error?'<button type="button" class="primary" onclick="'+retry+'()">Tentar novamente</button>':'')+
-   '<button type="button" class="secondary" onclick="go(\'home\')">Ver produtos</button>'+
+   '<button type="button" class="secondary" onclick="tamaoPublicModuleGoHome()">Ver produtos</button>'+
    '</div></div></section>');
 }
 function discoveryLoadingPage(){
