@@ -83,7 +83,7 @@ function pageHTML(kind,locale,origin,indexing){
  '<meta property="og:title" content="'+esc(pageTitle)+'"><meta property="og:description" content="'+esc(paused?pausedNotice:p.description)+'">'+
  '<meta property="og:url" content="'+esc(canonical)+'"><meta name="twitter:card" content="summary">'+
  '<link rel="stylesheet" href="/css/landing-editorial.css"><link rel="icon" href="/icons/icon.svg" type="image/svg+xml">'+
- '<title>'+esc(pageTitle)+'</title></head><body class="ed-page ed-discovery-page">'+
+ '<title>'+esc(pageTitle)+'</title></head><body class="ed-page ed-discovery-page'+(paused?' ed-discovery-paused':'')+'">'+
  '<a class="ed-skip" href="#conteudo">'+(locale==='pt'?'Pular para conteúdo':'Saltar al contenido')+'</a>'+
  '<header class="ed-header"><div class="ed-shell ed-header-inner"><a class="ed-brand" href="/"><strong>TAMÃO</strong></a>'+
  '<nav class="ed-nav" aria-label="'+(locale==='pt'?'Idiomas e modalidades':'Idiomas y categorías')+'">'+
