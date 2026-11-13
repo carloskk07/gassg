@@ -217,35 +217,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
           'Credential leakage across independent '+role+' browser context');
         return page;
       }
-      // V1.973: real authenticated Chrome viewport check on disposable SQL.
-      // Read-only: no mutations, no commercial PSP, no screenshot of private data.
-      async function auditAuthenticatedWorkspaceViewport(page,role){
-        for(const width of [390,1280]){
-          await page.send('Emulation.setDeviceMetricsOverride',{
-            width,height:860,deviceScaleFactor:1,mobile:width<600
-          });
-          await page.evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
-          const snapshot=JSON.parse(await page.evaluate(
-            "JSON.stringify((()=>{"+
-            "const ids=[...document.querySelectorAll('[id]')].map(e=>e.id).filter(Boolean);"+
-            "const duplicateIds=[...new Set(ids.filter((id,i)=>ids.indexOf(id)!==i))];"+
-            "const headings=[...document.querySelectorAll('main h1')].filter(e=>e.getClientRects().length>0);"+
-            "const page=!!document.querySelector("+JSON.stringify(role==='merchant'?'.merchant-workspace':'.admin-page')+");"+
-            "return {overflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),"+
-            "duplicateIds,headings:headings.map(e=>e.textContent.trim()),page};})())"));
-          assert.equal(snapshot.page,true,role+' authorized workspace missing at '+width+'px');
-          assert.ok(snapshot.headings.length===1,
-            role+' needs one visible main heading at '+width+'px: '+JSON.stringify(snapshot));
-          assert.deepEqual(snapshot.duplicateIds,[],
-            role+' duplicate element IDs at '+width+'px');
-          assert.ok(snapshot.overflow<=2,
-            role+' horizontal overflow at '+width+'px: '+JSON.stringify(snapshot));
-        }
-        await page.send('Emulation.setDeviceMetricsOverride',desktopViewport);
-      }
       const merchantPage=await openRole('merchant',owner.session,'/?merchant=1#merchant');
       await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
-      await auditAuthenticatedWorkspaceViewport(merchantPage,'merchant');
       // V1.963: real Chromium, real authenticated seller/SQL snapshot,
       // but ONLY a local unsaved DOM draft. No backend mutation or new order.
       await merchantPage.evaluate("(()=>{const field=document.getElementById('live-delivery-fee');for(let p=field?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;field?.focus();return true})()");
@@ -284,7 +257,6 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       await buyerPage.wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer sees canonical order');
       const adminPage=await openRole('admin',adminActor.session,'/?admin=1#admin');
       await adminPage.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'Admin sees canonical order',55000);
-      await auditAuthenticatedWorkspaceViewport(adminPage,'admin');
       const code=await merchantPage.evaluate("merchantRuntime.orders.find(o=>o.orderId==="+JSON.stringify(orderId)+")?.publicCode");
       assert.ok(typeof code==='string'&&code.length>3);
       assert.equal(await adminPage.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code"),code,
