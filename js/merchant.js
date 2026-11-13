@@ -2376,8 +2376,8 @@ function merchantWorkspaceJump(area){
   // Focus the destination, not just the scroll position. This also works in
   // WebViews without matchMedia and respects the user's reduced-motion choice.
   const focusTarget=panel.querySelector('summary')||panel.querySelector('h2')||panel;
-  if(focusTarget!==panel&&focusTarget.tagName!=='SUMMARY'&&!focusTarget.hasAttribute('tabindex'))
-    focusTarget.setAttribute('tabindex','-1');
+  if(focusTarget!==panel&&focusTarget.tagName==='H2'&&!focusTarget.hasAttribute?.('tabindex'))
+    focusTarget.setAttribute?.('tabindex','-1');
   const reducedMotion=typeof globalThis.matchMedia==='function'
     ?globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches:true;
   panel.scrollIntoView?.({block:'start',behavior:reducedMotion?'auto':'smooth'});
