@@ -913,24 +913,33 @@ function shell(content){
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
   // V1.969: suspended accommodation remains available by direct URL
   // but must not be promoted as a live service in any public menu.
-  const primaryLinks=[['home','Produtos'],['professionals','Profissionais'],
-    ['mobility','Moto e carro'],['rides','Caronas'],['club','Clube']];
-  const moreLinks=[['learn','Como funciona'],
-    ['earn','Indicações'],['advertise','Anunciar serviço'],
-    ['merchants','Para revendas'],['sponsors','Para marcas']];
+  // V1.985: one product action, two direct visitor destinations and two menus.
+  // Every other supported public route remains accessible exactly once.
+  const primaryLinks=[['club','Clube'],['earn','Indicações']];
+  const desktopGroups=[
+    {label:'Serviços',links:[['professionals','Profissionais'],['mobility','Moto e carro'],
+      ['rides','Caronas'],['advertise','Anunciar serviço']]},
+    {label:'Conheça',links:[['learn','Como funciona'],['merchants','Para revendas'],
+      ['sponsors','Para marcas']]}
+  ];
   const merchantAuthenticated=merchantPortal&&globalThis.merchantRuntime?.status==='ready'&&
     Boolean(globalThis.merchantRuntime?.merchant?.memberRole);
   const desktopNav=adminPortal
-    ? '<button onclick="go(\'admin\')">Painel administrativo</button>'
+    ? '<button onclick="go(\\'admin\\')">Painel administrativo</button>'
     :merchantPortal
-      ? merchantAuthenticated?'<button onclick="go(\'merchant\')">Meu painel</button>':''
-      : primaryLinks.map(([id,label],i)=>
-          '<button type="button" aria-current="'+(r===id?'page':'false')+'"'+(i>2?' class="tamao-nav-optional"':'')+
-          ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+
-        '<details class="tamao-nav-more"><summary>Mais <span aria-hidden="true">⌄</span></summary>'+
-        '<div class="tamao-nav-more-panel">'+moreLinks.map(([id,label,collapsed])=>
-          '<button type="button"'+(collapsed?' class="tamao-nav-collapsed"':'')+
-          ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+'</div></details>';
+      ? merchantAuthenticated?'<button onclick="go(\\'merchant\\')">Meu painel</button>':''
+      : primaryLinks.map(([id,label])=>
+          '<button type="button" aria-current="'+(r===id?'page':'false')+
+          '" onclick="go(\\''+id+'\\')">'+label+'</button>').join('')+
+        desktopGroups.map(group=>
+          '<details name="tamao-public-header-groups" class="tamao-nav-more'+
+             (group.links.some(([id])=>id===r)?' is-current':'')+'">'+
+          '<summary>'+group.label+' <span aria-hidden="true">⌄</span></summary>'+
+          '<div class="tamao-nav-more-panel" role="group" aria-label="'+group.label+'">'+
+          group.links.map(([id,label])=>
+            '<button type="button" aria-current="'+(r===id?'page':'false')+
+            '" onclick="go(\\''+id+'\\')">'+label+'</button>').join('')+
+          '</div></details>').join('');
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal&&!merchantAuthenticated
@@ -939,7 +948,7 @@ function shell(content){
       ? `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`
       : buyerHasOrder
         ? '<button type="button" class="tamao-header-cta" onclick="go(\'tracking\')">Meu pedido <span aria-hidden="true">→</span></button>'
-        : '<button type="button" class="tamao-header-cta" onclick="tamaoOpenAvailability()">Montar cesta <span aria-hidden="true">→</span></button>';
+        : '<button type="button" class="tamao-header-cta" onclick="tamaoOpenAvailability()">Comprar <span aria-hidden="true">→</span></button>';
   return `<div class="app">
   <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
