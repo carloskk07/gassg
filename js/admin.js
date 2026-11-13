@@ -3463,7 +3463,7 @@ function adminOperationalStrip(d){
     '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers===null||warnings===null?'não verificada':blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
     '<div class="admin-ops-item"><small>PSP</small><strong>'+esc(provider)+' • '+esc(providerState)+'</strong></div>'+
     '<div class="admin-ops-item"><small>Incidentes</small><strong>'+(incidents===null?'não verificados':incidents+' aberto(s)')+'</strong></div>'+
-    '<div class="admin-ops-item admin-ops-sync"><small>Dados do painel</small><strong>'+esc(sync.label)+'</strong></div>'+
+    '<div class="admin-ops-item admin-ops-sync"><small>Última atualização</small><strong>'+esc(sync.label)+'</strong></div>'+
   '</div>';
 }
 function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
