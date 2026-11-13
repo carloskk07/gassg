@@ -58,3 +58,18 @@
  .merchant-workspace :is(.merchant-workspace-more>summary,.merchant-workspace-shortcut){min-height:44px}
  .admin-page .admin-main,.merchant-workspace .merchant-workspace-content{min-width:0}
 }
+
+/* V1.979 — narrow protected portals: no offscreen focus controls or nav
+   intrinsic widths may expand the physical 320px viewport. No clipping. */
+@media(max-width:360px){
+ .skip-to-main{box-sizing:border-box;max-width:calc(100vw - 24px);white-space:normal;overflow-wrap:anywhere}
+ body:has(.merchant-workspace) .bottom-nav{
+  box-sizing:border-box;max-width:100vw;grid-template-columns:repeat(4,minmax(0,1fr))
+ }
+ body:has(.merchant-workspace) .bottom-nav .nav-btn{
+  min-width:0;max-width:100%;overflow-wrap:anywhere
+ }
+ .merchant-workspace :is(.merchant-workspace-header,.merchant-workspace-section,#merchant-live-orders,.order-card){
+  min-width:0;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere
+ }
+}
