@@ -221,6 +221,10 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       }
       const merchantPage=await openRole('merchant',owner.session,'/?merchant=1#merchant');
       await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
+      const preparation=JSON.parse(await merchantPage.evaluate("JSON.stringify({expected:merchantRuntime.orders.filter(o=>['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)).length,shown:Number(document.querySelector('.merchant-unified-delivery .merchant-unified-number')?.textContent),action:document.querySelector('.merchant-unified-delivery button')?.textContent})"));
+      assert.ok(preparation.expected>0,'real SQL fixture contains preparation/delivery work');
+      assert.equal(preparation.shown,preparation.expected,'preparation cannot appear as zero deliveries');
+      assert.match(preparation.action,/Preparar entrega|Acompanhar entrega/);
       // V1.963: real Chromium, real authenticated seller/SQL snapshot,
       // but ONLY a local unsaved DOM draft. No backend mutation or new order.
       await merchantPage.evaluate("(()=>{const field=document.getElementById('live-delivery-fee');for(let p=field?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;field?.focus();return true})()");

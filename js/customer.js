@@ -1054,7 +1054,7 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
 <div class="tamao-checkout-workspace${hasItems?' has-items':''}"><aside class="tamao-checkout-basket">
 <section class="section" id="customer-cart"><div class="section-head"><div><h2 tabindex="-1">Sua cesta</h2>${hasItems?'':'<p>Adicione o que precisa. Cada produto pode ser comprado separadamente.</p>'}</div></div>
   ${hasItems?`<div class="buyer-cart-selection"><strong>${selectedCartUnits} ${selectedCartUnits===1?'unidade selecionada':'unidades selecionadas'}</strong><p>${esc(selectedCartCopy)}</p><small>Preço e entrega são confirmados após a consulta do endereço.</small></div>`:''}
-  <details class="buyer-cart-edit" ${!hasItems||buyerCartEditorOpen?'open':''} ontoggle="customerCartEditorToggle(this)"><summary>${hasItems?'Alterar produtos e quantidades':'Escolher produtos'}<span aria-hidden="true">＋</span></summary><div class="buyer-cart-edit-body">
+  <details class="buyer-cart-edit" ${!hasItems||buyerCartEditorOpen?'open':''} ontoggle="customerCartEditorToggle(this)"><summary>${hasItems?'Alterar produtos e quantidades':'Escolher produtos'}<span aria-hidden="true">+</span></summary><div class="buyer-cart-edit-body">
   ${cartNeedsFilter?`<div class="buyer-cart-filter" role="group" aria-label="Filtrar produtos para adicionar">${cartFilterControls}</div>
   <p id="buyer-cart-feedback" class="buyer-cart-feedback" role="status">${initiallyVisible} produtos em destaque. Os itens da sua cesta continuam à vista.</p>`:''}
   <div class="card flat buyer-cart-catalog" id="buyer-cart-catalog">${cartRows||'<div class="empty">Nenhum produto configurado para adicionar.</div>'}</div></div></details></section>

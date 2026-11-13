@@ -40,6 +40,8 @@ assert.equal(x.result,true);
 assert.deepEqual(x.focus,[['field',id(1)]],'offer should focus the accept control');
 assert.deepEqual(run(id(2),'delivery').focus,[['field',id(2)]]);
 assert.deepEqual(run(id(3),'delivery').focus,[['field',id(3)]]);
+assert.deepEqual(run(id(6),'delivery').focus,[['field',id(6)]],
+ 'preparation shortcut reveals the existing responsible/dispatch controls without submitting them');
 assert.deepEqual(run(id(4),'issues').focus,[['review',id(4)]]);
 assert.deepEqual(run(id(5),'issues').focus,[['review',id(5)]]);
 for(const [item,lane] of [[id(2),'offers'],[id(1),'delivery'],[id(6),'issues'],

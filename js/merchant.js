@@ -3499,6 +3499,7 @@ function merchantUnifiedOpsModel(rt,orders,now=Date.now()){
   const actionable=offers.filter(validDeadline).sort((a,b)=>
     Date.parse(a.offerExpiresAt)-Date.parse(b.offerExpiresAt));
   const deliveries=merchantDeliveryBoardModel(orders,now);
+  const preparing=orders.filter(o=>['MERCHANT_ACCEPTED','PREPARING'].includes(o?.status));
   const atRisk=orders.filter(o=>o?.status==='AT_RISK');
   const role=String(rt.merchant.memberRole||'');
   const supportVerified=rt.supportSummary?.version===1&&
@@ -3517,8 +3518,9 @@ function merchantUnifiedOpsModel(rt,orders,now=Date.now()){
   return {
     offers:{count:offers.length,valid:actionable.length,unverified:offers.length-actionable.length,
       first:preferSafe(actionable)},
-    delivery:{count:deliveries.length,arriving:deliveries.filter(o=>o.status==='ARRIVING').length,
-      first:preferSafe(deliveries)},
+    delivery:{count:preparing.length+deliveries.length,preparing:preparing.length,
+      arriving:deliveries.filter(o=>o.status==='ARRIVING').length,
+      first:preferSafe([...deliveries,...preparing])},
     issues:{count:issues.length,incidents:atRisk.length,
       cases:support.reduce((n,row)=>n+row.pending.length,0),
       supportVerified,first:preferSafe([...atRisk,...support.map(x=>x.order)])}
@@ -3542,7 +3544,7 @@ function merchantUnifiedFocusOrder(orderId,lane){
     if(order.status!=='OFFERED_TO_MERCHANT'||!/^20\d{2}-\d{2}-\d{2}T/.test(raw)||
        !Number.isFinite(expiry)||expiry<=Date.now()+1000)return false;
   }else if(lane==='delivery'){
-    if(!['OUT_FOR_DELIVERY','ARRIVING'].includes(order.status))return false;
+    if(!['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING'].includes(order.status))return false;
   }else if(order.status!=='AT_RISK'&&
     !merchantSupportCasesForOrder(order,rt).some(c=>['open','in_review'].includes(c.status))){
     return false;
@@ -3568,7 +3570,7 @@ function merchantUnifiedOpsBoard(rt,orders){
       ' para aceite; '+a.valid+' com prazo confirmado nesta consulta.'
     :a.count?'Confira o prazo antes de aceitar.':'Nenhum novo pedido informado.';
   const deliveryDetail=b.count?
-    b.arriving+' com chegada informada. Confirmações dentro do pedido.':
+    b.preparing+' em preparação • '+b.arriving+' com chegada informada. Confirmações dentro do pedido.':
     'Nenhuma entrega em andamento na lista consultada.';
   const issueDetail=c.supportVerified
     ?c.incidents+' imprevisto(s) no pedido • '+c.cases+' atendimento(s) pendente(s).'
@@ -3576,9 +3578,9 @@ function merchantUnifiedOpsBoard(rt,orders){
   const cards=[
     ['offers','NOVOS PEDIDOS',a.count,offerDetail,a.first,
       'Ver pedido para aceitar'],
-    ['delivery','ENTREGAS',b.count,deliveryDetail,b.first,
-      'Acompanhar entrega'],
-    ['issues','ATENÇÃO',c.count,issueDetail,c.first,
+    ['delivery','PREPARO E ENTREGAS',b.count,deliveryDetail,b.first,
+      ['MERCHANT_ACCEPTED','PREPARING'].includes(b.first?.status)?'Preparar entrega':'Acompanhar entrega'],
+    ['issues','IMPREVISTOS E SUPORTE',c.count,issueDetail,c.first,
       'Ver pedido com problema']
   ].map(([key,label,count,detail,first,cta])=>{
     const offerNeedsRefresh=key==='offers'&&a.unverified>0;
