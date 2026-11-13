@@ -55,7 +55,7 @@ async function check(page,role,section,size,{firstFold=false}={}){
  assert.equal(d.inputLabeled,true,label+' label for email');
  assert.equal(d.inputId,role==='admin'?'admin-email':'merchant-email');
  assert.ok(d.submitName.length>=8,label+' meaningful submit label');
- assert.ok(d.formTop<size.height,label+' sign-in form starts below first viewport');
+ assert.ok(d.formTop<size.height,label+' sign-in form starts below first viewport: '+d.formTop+'px in '+size.height+'px');
  if(firstFold&&size.width<=360)
   assert.ok(d.submitTop<size.height,label+' login action below first viewport at y='+d.submitTop);
  assert.deepEqual(d.duplicateIds,[],label+' duplicate DOM IDs');
