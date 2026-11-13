@@ -40,6 +40,18 @@
   </div>
   <div id="toast" class="toast" aria-live="polite"></div>
   <div id="tamao-route-announcement" class="tamao-visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+  <template id="tamao-render-recovery">
+    <main id="tamao-main" class="shell page tamao-recovery-page" tabindex="-1">
+      <section class="card flat">
+        <span class="eyebrow">TAMÃO</span>
+        <h1 id="tamao-recovery-title" class="page-title" tabindex="-1">Não foi possível abrir esta tela</h1>
+        <div class="notice danger" role="alert">Ocorreu um problema ao mostrar as informações.</div>
+        <p>Recarregue a página para tentar novamente. Se o problema continuar, tente mais tarde.</p>
+        <p class="muted tiny">Antes de repetir um pedido ou pagamento, confira se a operação já foi registrada.</p>
+        <button type="button" class="primary" onclick="location.reload()">Recarregar página</button>
+      </section>
+    </main>
+  </template>
   <script src="./js/runtime-config.js"></script>
   <script defer src="./js/turnstile.js"></script>
   <script defer src="./js/backend.js"></script>
