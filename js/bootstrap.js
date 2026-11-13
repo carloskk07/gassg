@@ -203,7 +203,7 @@ function discoveryOwnerRequestModule(){
 /* V1.969 — Keep the Home's initial CSS budget intact. The specialized
    marketing and partner-team styles load only on their own routes. */
 function tamaoEnsurePublicExperienceStyles(page){
-  if(!['club','earn','sponsors','merchant-team'].includes(page)||
+  if(!(page==='home'||page==='merchants'||['club','earn','sponsors','merchant-team'].includes(page))||
      globalThis.adminPortalRequested?.()||
      document.querySelector('link[href*="/css/public-ux.css"]'))return;
   const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';

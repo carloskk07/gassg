@@ -457,20 +457,6 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:760px){.tamao-coupon-banner{grid-template-columns:minmax(0,1fr);padding:22px 18px;border-radius:18px}.tamao-coupon-banner h2{font-size:clamp(25px,6vw,35px)}.tamao-coupon-banner-scene{display:none}.tamao-coupon-banner-actions button{flex:1 1 175px}}
 @media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
-
 /* V1.981 — route transitions remain accessible without a harsh black heading box. */
 #tamao-main h1[tabindex="-1"]:focus:not(:focus-visible){outline:none}
 #tamao-main h1[tabindex="-1"]:focus-visible{outline:3px solid #1b845b;outline-offset:5px;border-radius:7px}
-/* Keep real no-offer honesty, but return attention to the product catalog. */
-.tamao-quote-no-offer{padding:clamp(19px,2.4vw,28px)}
-.tamao-quote-no-offer .tamao-quote-topline>span:last-child{display:none}
-.tamao-quote-no-offer .city-price-controls{margin-top:12px;gap:10px}
-.tamao-quote-no-offer .city-price-grid{margin-top:12px}
-.tamao-quote-no-offer .city-price-empty{padding:14px 17px;border:1px solid #d2e5d9;border-radius:13px;background:#f7fbf8;color:#315747}
-.tamao-quote-no-offer .city-price-empty strong{color:#174934;font-size:14px}
-.tamao-quote-no-offer .city-price-empty p{margin:5px 0 0;line-height:1.5;font-size:13px}
-/* Commercial introductions should reveal the main action above the fold. */
-.merchant-landing-premium .page-title{font-size:clamp(30px,3.6vw,49px);line-height:1.08}
-.merchant-landing-premium .page-lead{line-height:1.5;margin-block:11px 14px}
-.merchant-landing-premium .conversion-mini-proof{margin-block:10px 12px}
-@media(max-width:620px){.tamao-quote-no-offer{padding:18px 15px}.tamao-quote-no-offer .city-price-empty{padding:12px 13px}.merchant-landing-premium .page-title{font-size:clamp(29px,8vw,38px)}}
