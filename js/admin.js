@@ -11407,6 +11407,9 @@ function adminPage(){
   const sectionActive=id=>adminRuntime.section===id&&adminRoleCanSection(id,currentRole);
 
   const overviewContent=(sectionActive('overview'))?(`
+    ${adminExecutiveNextDecisionView(d,currentRole,Date.now(),adminRuntime.lastSyncAt)}
+    ${adminAttentionCenter(d)}
+    <details class="admin-overview-quick-navigation"><summary>Atalhos de trabalho <small>Pedidos, Financeiro, Publicidade e Revendas</small></summary>
     <section class="section admin-quick-actions" aria-label="Acesso rápido">
       <div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>O que você quer fazer?</h2>
       <p>Escolha uma área. Consultas não precisam de formulários nem confirmações.</p></div></div>
@@ -11417,7 +11420,7 @@ function adminPage(){
         ${adminRoleCanSection('partners')?'<button type="button" onclick="adminQuickGo(\'partners\')"><strong>Revendas</strong><small>Cadastros e situação operacional</small></button>':''}
         ${adminRoleCanSection('growth')?'<button type="button" onclick="adminQuickGo(\'growth\')"><strong>Crescimento</strong><small>Clientes, cupons e indicações</small></button>':''}
       </div>
-    </section>
+    </section></details>
     <section class="section admin-overview-pulse">
       <div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div><span class="admin-data-freshness">Atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</span></div>
       <div class="admin-exec-grid">
@@ -11429,8 +11432,6 @@ function adminPage(){
         ${adminExecutiveKpi({icon:'!',label:'Incidentes',value:String(incidentAttention),detail:incidentAttention?'aberto(s) agora':'nenhum incidente aberto',tone:incidentAttention?'danger':'good'})}
       </div>
     </section>
-    ${adminExecutiveNextDecisionView(d,currentRole,Date.now(),adminRuntime.lastSyncAt)}
-    ${adminAttentionCenter(d)}
     ${adminLaunchWorklist(d)}
     ${adminGovernanceView()}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
