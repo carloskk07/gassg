@@ -78,7 +78,7 @@ assert.match(browser,/async function auditAuthenticatedWorkspaceViewport/);
 assert.match(browser,/Emulation\.setDeviceMetricsOverride/);
 assert.match(browser,/duplicateIds/);
 assert.match(browser,/scrollWidth/);
-assert.match(browser,/document\.querySelectorAll\('h1'\)/);
+assert.match(browser,/document\.querySelectorAll\('main h1'\)/);
 assert.match(browser,/await auditAuthenticatedWorkspaceViewport\(merchantPage,'merchant'\)/);
 assert.match(browser,/await auditAuthenticatedWorkspaceViewport\(adminPage,'admin'\)/);
 assert.match(audit,/node tests\/authenticated-portal-states-v1-973\.mjs/);
