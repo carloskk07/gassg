@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import http from 'node:http';
 import {spawn,execFileSync} from 'node:child_process';
+import {auditAuthenticatedScreensV1973} from './isolated-authenticated-screens-v1-973.mjs';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
@@ -257,6 +258,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       await buyerPage.wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer sees canonical order');
       const adminPage=await openRole('admin',adminActor.session,'/?admin=1#admin');
       await adminPage.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'Admin sees canonical order',55000);
+      // Read-only screen and viewport matrix with real authorized browser sessions.
+      await auditAuthenticatedScreensV1973({adminPage,merchantPage});
       const code=await merchantPage.evaluate("merchantRuntime.orders.find(o=>o.orderId==="+JSON.stringify(orderId)+")?.publicCode");
       assert.ok(typeof code==='string'&&code.length>3);
       assert.equal(await adminPage.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code"),code,
