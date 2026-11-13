@@ -13,7 +13,7 @@ assert.match(home,/pedido só avança com uma revenda e um preço confirmados/);
 assert.match(home,/onclick="homeDiscoverFocus\(\)">Ver produtos/);
 assert.match(home,/public_city_price_board_v1_341/);
 assert.doesNotMatch(home,/Sem ofertas confirmadas[^\n]*R\$\s*115/i);
-assert.match(marketing,/#tamao-main h1\[tabindex="-1"\]:focus\{outline:2px solid/);
+assert.match(marketing,/#tamao-main h1:focus\{outline:2px solid/);
 assert.match(publicUx,/\.tamao-quote-no-offer \.city-price-empty/);
 assert.match(publicUx,/\.merchant-landing-premium \.page-title\{font-size:clamp/);
 assert.match(growth,/Sua revenda mais visível\. <span class="headline-accent">Mais oportunidades de pedidos/);
