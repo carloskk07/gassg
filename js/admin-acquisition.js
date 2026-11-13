@@ -1835,7 +1835,7 @@ function adminPublicRequestActionButtons(x){
       '<option value="duplicate">Solicitação duplicada</option>'+
       '<option value="withdrawn">Solicitante desistiu</option>'+
       '<option value="resolved">Solicitação já resolvida</option></select></div>'+
-    '<details><summary>Detalhes adicionais (opcional)</summary><textarea id="admin-public-note-'+esc(x.id)+'" class="input" rows="2" maxlength="240"></textarea></details>'+
+    '<details><summary>Detalhes adicionais (opcional)</summary><div class="input-wrap"><label for="admin-public-note-'+esc(x.id)+'">Observação adicional (opcional)</label><textarea id="admin-public-note-'+esc(x.id)+'" class="input" rows="2" maxlength="240"></textarea></div></details>'+
     '<label class="check-row"><input id="admin-public-confirm-'+esc(x.id)+'" type="checkbox"><span>Confirmei o resultado nos registros reais do atendimento.</span></label>';
   return reason+'<div class="order-actions pipeline-actions">'+buttons.join('')+'</div>';
 }
