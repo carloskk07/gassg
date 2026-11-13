@@ -673,6 +673,8 @@ jobs:
         run: node tests/authenticated-workspace-clarity-v1-970.mjs
       - name: V1.972 trusted operations summary, role-safe titles and accessible workspaces
         run: node tests/authenticated-workspace-trust-v1-972.mjs
+      - name: V1.972 partner login focus and legal navigation
+        run: node tests/partner-access-focus-v1-972.mjs
       - name: V1.896 direct task navigation and separate partner workflows
         run: node tests/admin-task-direct-navigation-v1-896.mjs
       - name: V1.897 guided single merchant verification and separate support workspace
