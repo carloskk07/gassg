@@ -78,7 +78,7 @@ assert.equal(open[0].focus,1,'Escape restores focus to summary');
 for(const p of [
  /\.tamao-public-nav>button\[aria-current="page"\]/,
  /\.tamao-public-nav \.tamao-nav-more\.is-current>summary/,
- /\.tamao-public-nav \.tamao-nav-more-panel>button\[aria-current="page"\]/,
+ /\.tamao-nav-more-panel>button\[aria-current="page"\]/,
  /@media\(min-width:760px\) and \(max-width:960px\)/,
  /@media\(max-width:759px\)/
 ])assert.match(css,p,'Responsive or active style missing');
