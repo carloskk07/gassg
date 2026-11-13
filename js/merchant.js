@@ -2547,6 +2547,8 @@ function merchantLivePage(){
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Situação ANP vigente segundo a verificação completa do servidor para o catálogo atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
   const canGoOnline=m.status==='active'&&complianceReady&&commercialReady&&!financialHold;
+  const firstRun=merchantFirstRunView(rt,canGoOnline);
+  const preparing=orderEvidence.fresh&&orders.length===0&&Boolean(firstRun);
   const orientation=orderEvidence.fresh?merchantWorkspaceOrientation(rt,{
     canGoOnline,connectionHealthy,financialHold,orders
   }):{
@@ -2554,7 +2556,7 @@ function merchantLivePage(){
     detail:'A consulta de pedidos precisa ser renovada. As ações ficam indisponíveis nesta visualização até a atualização.',
     action:'orders',label:'Ver atualização dos pedidos'
   };
-  const orientationMarkup=merchantWorkspaceNeedsGuide(orderEvidence,orders)?`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
+  const orientationMarkup=!preparing&&merchantWorkspaceNeedsGuide(orderEvidence,orders)?`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
     <span class="merchant-orientation-eyebrow">${esc(orientation.eyebrow)}</span>
     <strong>${esc(orientation.title)}</strong>
     <p>${esc(orientation.detail)}</p>
@@ -2586,9 +2588,12 @@ function merchantLivePage(){
     </nav>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
+    ${preparing?firstRun:''}
+    ${preparing?'<details class="merchant-preparation-status merchant-operation-insights"><summary>Conferir disponibilidade e pendências</summary>':''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
-    ${orderEvidence.fresh?merchantDailyOverview(rt,orders):'<p class="merchant-queue-unverified-intro">A fila de pedidos precisa de atualização. Veja as orientações em Pedidos que exigem ação.</p>'}
-    ${merchantFirstRunView(rt,canGoOnline)}
+    ${preparing?'</details>':''}
+    ${orderEvidence.fresh?(preparing?'':merchantDailyOverview(rt,orders)):'<p class="merchant-queue-unverified-intro">A fila de pedidos precisa de atualização. Veja as orientações em Pedidos que exigem ação.</p>'}
+    ${!preparing?firstRun:''}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>

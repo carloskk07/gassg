@@ -1,3 +1,15 @@
+## 13/11/2026 — Preparação comercial: recuperação de pedidos e entrada da revenda
+
+Continuidade sobre `main=3705262189cd0b831c608b08602c61cae22a126d` (PR #986 publicada). Esta etapa corrige a apresentação de pedidos quando `customer-summary` falha e não existe referência local: ausência de resposta não equivale a ausência de pedido. O resumo passa a ter estado de verificação por sessão; falhas e respostas incompletas mostram consulta não confirmada e ação explícita para tentar novamente. A tentativa impede cliques concorrentes, recupera o ID pelo servidor, consulta o pedido canônico e descarta respostas após mudança de conta. Uma resposta válida sem pedido ativo informa apenas ausência de pedido em andamento naquela consulta, sem apagar histórico nem afirmar que o cliente nunca comprou.
+
+Na revenda com fila comprovadamente vazia e preparação pendente, o guia existente assume o destaque; disponibilidade e diagnósticos ficam sob consulta opcional. A orientação duplicada e o resumo diário vazio deixam de disputar atenção. Pedidos existentes, fila desatualizada, operadores, entregadores e restrições comerciais/financeiras mantêm seus caminhos e controles.
+
+O build público deixa de carregar o corpo histórico da home de demonstração, mantendo o código canônico e o build interno. Isso reduz o JavaScript inicial sem ampliar os limites de desempenho. Testes cobrem falhas, respostas incompletas, clique repetido, recuperação de ID e isolamento de conta; o Chromium com Auth/Edge/PostgreSQL descartáveis também perde a referência local, bloqueia a consulta, verifica a mensagem verdadeira e recupera o mesmo pedido pelo botão visível.
+
+Validação desta etapa em andamento. Não declarar prontidão comercial por sucesso de build. Última leitura de produção: comércio desabilitado, zero pedidos reais, nenhuma revenda ativa online e uma verificação de revenda pendente. Existe uma fatura de cupons paga com conciliação líquida pendente; não gerar outro Pix para substituir essa prova. Esta implementação não aprova revenda, não altera parâmetros financeiros e não cria transações ou benefícios em produção.
+
+---
+
 ## 13/11/2026 — Vitrine, compra e acesso ao Clube: implementação em validação
 
 Continuidade a partir de `main=dab76ae79d55fa5fd0c5e5b9a236dab2bc6adb5d` e da auditoria visual de 13/11. A home passa a reunir apresentação, região e catálogo em uma única superfície: seis produtos por linha no desktop, duas colunas no celular; o aviso verdadeiro de ausência de ofertas permanece visível. Preços informados por revendas ficam em uma consulta opcional, preservando origem, CEP, validade e regras de compra.

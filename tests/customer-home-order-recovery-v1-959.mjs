@@ -55,7 +55,9 @@ const track=js.slice(js.indexOf('function liveTracking(){'),
  js.indexOf('\nfunction ',js.indexOf('function liveTracking(){')+20));
 assert.match(track,/Existe uma referência de pedido para consultar/);
 assert.match(track,/Atualizar acompanhamento/);
-assert.match(track,/liveGetOrder\(\)/);
+assert.match(track,/customerRefreshOrders\(\)/);
+assert.match(js,/if\(liveRuntime\.orderId\)await liveGetOrder\(liveRuntime\.orderId,\{silent:true\}\)/,
+ 'the retry must read the canonical recovered order before presenting its status');
 const audit=fs.readFileSync(new URL('../.github/workflows/audit.yml',import.meta.url),'utf8');
 assert.match(audit,/node tests\/customer-home-order-recovery-v1-959\.mjs/);
 console.log('V1.959 PASS: real customer home return-to-order, login scope, terminal suppression, stale reference recovery and zero charge.');

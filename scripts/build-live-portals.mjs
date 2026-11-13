@@ -353,7 +353,7 @@ export function compactReleasedCustomerComments(source){
     'Only the currently displayed city quote'
   ];
   let n=0;
-  const output=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,line=>{
+  let output=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,line=>{
     if(n>=expected.length)return line;
     if(!line.includes(expected[n]))throw new Error('Customer compaction contract shifted at '+n);
     n++;
@@ -363,6 +363,17 @@ export function compactReleasedCustomerComments(source){
   // Retain documentation in the canonical source, omit comment-only lines from released JS.
   const remaining=[...output.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(remaining.length<18)throw new Error('Customer remaining-comment contract changed');
+  // Public portals ship the current storefront only. The historical demonstration
+  // home remains in canonical source and in the separate internal demo build.
+  const publicHome='if(!testDemo&&!internalPilot)return shell(';
+  const demoStart=output.indexOf('  const heroVisualCodes=');
+  const nextSection=output.indexOf('\n// V1.302: explain the next buyer action',demoStart);
+  const homeEnd=output.lastIndexOf('\n}',nextSection);
+  if(demoStart<0||nextSection<demoStart||homeEnd<demoStart||
+     output.indexOf(publicHome)<0||output.indexOf(publicHome)>demoStart)
+    throw new Error('Production storefront boundary changed');
+  output=output.slice(0,demoStart)+output.slice(homeEnd);
+  output=output.replace(publicHome,'return shell(');
   // Compact only leading indentation of executable statement lines in the emitted copy;
   // never rewrite canonical documentation or arbitrary multiline HTML templates.
   const released=output.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')

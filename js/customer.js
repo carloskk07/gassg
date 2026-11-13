@@ -2122,12 +2122,37 @@ async function openSupportCaseFromUi(){
   }
 }
 
+async function customerRefreshOrders(){
+  if(liveRuntime.ordersRefreshing)return;
+  liveRuntime.ordersRefreshing=true;
+  render();
+  let userId;
+  try{
+    if(!liveReady())await backendInit();
+    if(!liveReady())return;
+    userId=liveRuntime.session?.user?.id;
+    await liveSyncFinancialProfile({force:true});
+    if(!liveReady()||userId!==liveRuntime.session?.user?.id)return;
+    if(liveRuntime.orderId)await liveGetOrder(liveRuntime.orderId,{silent:true});
+  }catch(error){
+    if(liveReady()&&userId===liveRuntime.session?.user?.id){
+      liveRuntime.error=String(error?.message||error);
+      toast('Não foi possível atualizar o pedido agora. Tente novamente.');
+    }
+  }finally{
+    liveRuntime.ordersRefreshing=false;
+    render();
+  }
+}
 function liveTracking(){
+  const retry='<button type="button" class="primary" onclick="customerRefreshOrders()"'+
+    (liveRuntime.ordersRefreshing?' disabled aria-busy="true">Consultando…':
+      ' >'+(liveRuntime?.orderId?'Atualizar acompanhamento':'Atualizar meus pedidos'))+'</button>';
   if(!globalThis.liveReady?.()){
     const message=liveRuntime?.status==='loading'
       ? 'Preparando a consulta…'
       : 'Não foi possível abrir sua sessão de compra agora.';
-    return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}">${esc(message)}</div></section>`);
+    return shell(`<section class="page"><h1 class="page-title">Seus pedidos</h1><div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" role="status">${esc(message)}</div>${liveRuntime?.status!=='loading'?retry:''}</section>`);
   }
 
   const o=liveRuntime.order;
@@ -2136,10 +2161,11 @@ function liveTracking(){
       return shell(`<section class="page"><h1 class="page-title">Acompanhar pedido</h1>
         <div class="notice" role="status"><strong>Ainda não conseguimos atualizar os detalhes.</strong>
         <p>Existe uma referência de pedido para consultar, mas o andamento atual não foi confirmado. Confira antes de fazer outra compra para evitar pedidos repetidos.</p>
-        <button type="button" class="primary" onclick="liveGetOrder().catch(()=>toast('Não foi possível consultar o pedido agora.'))">Atualizar acompanhamento</button>
+        ${retry}
         </div></section>`);
     }
-    return shell(`<section class="page tamao-tracking-empty"><span class="eyebrow">ACOMPANHAMENTO</span><h1 class="page-title">Seus pedidos</h1><div class="empty card" role="status"><strong>Você ainda não tem um pedido para acompanhar.</strong><p>Escolha os produtos e consulte preços e entrega pelo seu CEP antes de enviar uma solicitação.</p><div class="order-actions"><button type="button" class="primary" onclick="tamaoOpenAvailability()">Escolher produtos →</button><button type="button" class="secondary" onclick="go('learn')">Como funciona</button></div></div></section>`);
+    if(liveRuntime.customerSummaryState!=='ready')return shell(`<section class="page tamao-tracking-empty"><span class="eyebrow">ACOMPANHAMENTO</span><h1 class="page-title">Seus pedidos</h1><div class="empty card" role="status"><strong>A consulta dos seus pedidos ainda não foi confirmada.</strong><p>Atualize para conferir se há um pedido em andamento nesta conta antes de fazer outra solicitação.</p>${retry}</div></section>`);
+    return shell(`<section class="page tamao-tracking-empty"><span class="eyebrow">ACOMPANHAMENTO</span><h1 class="page-title">Seus pedidos</h1><div class="empty card" role="status"><strong>Nenhum pedido em andamento encontrado nesta consulta.</strong><p>Se você comprou com outra conta, entre pelo mesmo acesso usado no pedido. Para uma nova compra, escolha os produtos e consulte a entrega pelo CEP.</p><div class="order-actions"><button type="button" class="primary" onclick="tamaoOpenAvailability()">Escolher produtos →</button><button type="button" class="secondary" onclick="customerRefreshOrders()"${liveRuntime.ordersRefreshing?' disabled':''}>Atualizar consulta</button></div></div></section>`);
   }
 
   const copy=statusCopy[o.status]||[o.status,''];

@@ -79,7 +79,7 @@ assert.equal(merchantContext.needsGuide({fresh:true},[{orderId:'a'}]),false);
 assert.equal(merchantContext.needsGuide({fresh:true},[]),true);
 assert.equal(merchantContext.needsGuide({fresh:false},[{orderId:'a'}]),true);
 assert.equal(merchantContext.needsGuide(null,[]),true);
-assert.match(merchant,/const orientationMarkup=merchantWorkspaceNeedsGuide\(orderEvidence,orders\)\?/);
+assert.match(merchant,/const orientationMarkup=!preparing&&merchantWorkspaceNeedsGuide\(orderEvidence,orders\)\?/);
 assert.match(merchant,/orderEvidence\.fresh\?\(orders\.length\+/);
 assert.match(merchant,/Atualize para conferir a fila/);
 assert.match(merchant,/merchantOrderListRecovery\(rt\)/);

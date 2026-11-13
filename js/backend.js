@@ -238,6 +238,8 @@ const liveRuntime={
   lastMarketStatusAt:0,
   lastFinancialSyncAt:0,
   lastFinancialSyncAttemptAt:0,
+  customerSummaryState:'unverified',
+  ordersRefreshing:false,
   lastSyncAt:null,
   // Tracking proof requires a successful get-order.
   orderCheckedAt:null,
@@ -275,6 +277,8 @@ function liveForgetAccount(){
   liveRuntime.offerRequestSeq++;
   liveRuntime.marketStatusSeq++;
   liveRuntime.order=null;liveRuntime.orderId=null;
+  liveRuntime.customerSummaryState='unverified';
+  liveRuntime.lastFinancialSyncAt=liveRuntime.lastFinancialSyncAttemptAt=0;
   liveRuntime.orderCheckedAt=liveRuntime.orderCheckedId=null;
   liveRuntime.offers=[];liveRuntime.lastCityCheck=null;
   liveRuntime.lastOrderTemplate=null;liveRuntime.reorderPrediction=null;
@@ -1061,6 +1065,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     const summary=await liveInvoke('customer-summary',{});
     if(seq!==liveRuntime.financialSyncSeq||
        userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
+    if(!summary||typeof summary!=='object'||
+       !Object.prototype.hasOwnProperty.call(summary,'activeOrderId')||
+       summary.activeOrderId!==null&&(typeof summary.activeOrderId!=='string'||!summary.activeOrderId.trim()))
+      throw new Error('Resumo de pedidos incompleto.');
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
     state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
@@ -1094,6 +1102,7 @@ async function liveSyncFinancialProfile({force=false}={}){
       localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId);
     }
     liveRuntime.lastFinancialSyncAt=Date.now();
+    liveRuntime.customerSummaryState='ready';
     save();
     const after=JSON.stringify({
       referralCode:state.user.referralCode,
@@ -1114,6 +1123,9 @@ async function liveSyncFinancialProfile({force=false}={}){
     });
     return before!==after||activeOrderChanged;
   }catch(error){
+    if(seq!==liveRuntime.financialSyncSeq||
+       userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
+    liveRuntime.customerSummaryState='error';
     console.warn('Não foi possível sincronizar o resumo financeiro live',error);
     return false;
   }
@@ -1243,7 +1255,9 @@ async function livePoll(){
       }catch{}
     }catch{}
     try{
+      const summaryState=liveRuntime.customerSummaryState;
       changed=(await liveSyncFinancialProfile())||changed;
+      changed=summaryState!==liveRuntime.customerSummaryState||changed;
     }catch{}
     if(!liveRuntime.orderId){
       if(changed)render();
