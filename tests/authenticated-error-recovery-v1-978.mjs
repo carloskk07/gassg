@@ -5,6 +5,9 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const bootstrap=read('js/bootstrap.js');
 const merchant=read('js/merchant.js');
+const index=read('index.html');
+const recovery=index.match(/<template id="tamao-render-recovery">([\s\S]*?)<\/template>/)?.[1];
+assert.ok(recovery,'Fallback remains in the same initially loaded HTML, not in startup JS');
 const audit=read('.github/workflows/audit.yml');
 for(const [name,code] of [['bootstrap',bootstrap],['merchant',merchant]])
   new vm.Script(code,{filename:name+'.js'});
@@ -25,7 +28,7 @@ function brokenPage(role){
   document:{
    title:'Previously loaded',
    querySelector:selector=>selector==='#app'?app:null,
-   getElementById:id=>id==='tamao-recovery-title'?{
+   getElementById:id=>id==='tamao-render-recovery'?{innerHTML:recovery}:id==='tamao-recovery-title'?{
     focus:opts=>{assert.equal(opts.preventScroll,true);focusCount++}
    }:null
   },
