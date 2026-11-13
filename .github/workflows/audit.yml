@@ -675,8 +675,8 @@ jobs:
         run: node tests/authenticated-workspace-trust-v1-972.mjs
       - name: V1.972 partner login focus and legal navigation
         run: node tests/partner-access-focus-v1-972.mjs
-      - name: V1.973 trustworthy protected loading, disconnection and viewport UX
-        run: node tests/authenticated-portal-states-v1-973.mjs
+      - name: V1.974 trustworthy protected loading, disconnection and viewport UX
+        run: node tests/authenticated-portal-states-v1-974.mjs
       - name: V1.896 direct task navigation and separate partner workflows
         run: node tests/admin-task-direct-navigation-v1-896.mjs
       - name: V1.897 guided single merchant verification and separate support workspace
