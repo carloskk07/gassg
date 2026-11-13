@@ -19,7 +19,7 @@ for(const role of ['superadmin','operations','compliance']){
 for(const role of ['finance','support','readonly','anonymous'])
  assert.equal(rc.can('growth',role),false);
 assert.equal(rc.meta('growth').title,'Crescimento');
-assert.match(rc.meta('partners').description,/Sem misturar publicidade/);
+assert.match(rc.meta('partners').description,/Veja cadastros, documentos e o que falta/);
 assert.match(admin,/adminPanel\('growth',growthContent\)/);
 assert.match(admin,/const growthContent=\(sectionActive\('growth'\)\)\?adminPrelaunchLeadsSection\(d\)/);
 const partners=admin.slice(admin.indexOf('const partnersContent='),admin.indexOf('const catalogContent='));
