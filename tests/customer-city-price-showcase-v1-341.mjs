@@ -68,7 +68,7 @@ let env=mkContext();
 let html=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/,
  'research-only numbers are not merchant offers and must not appear');
-assert.match(html,/Ainda não há preços confirmados de revendas para São Gabriel\/RS/);
+assert.match(html,/Sem ofertas confirmadas em São Gabriel\/RS/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL|Pesquisa local informada|city-price-research-item/,
  'do not advertise example prices');
 assert.match(html,/COTAÇÕES E ECONOMIA/);
@@ -78,13 +78,13 @@ let whenReady=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state
 assert.match(whenReady,/homeRefreshQuotePrices\(\)/);
 assert.doesNotMatch(html,/tamao-home-coupon-rail|Ver cupons e Clube/,
  'City quote must not repeat the verified coupon promotion immediately below it');
-assert.match(html,/Nenhum pedido ou pagamento é criado sem uma oferta confirmada/);
+assert.match(html,/O pedido só avança com uma revenda e um preço confirmados/);
 assert.doesNotMatch(html,/Diferença de R\$|PREÇO DE REVENDA/);
 assert.doesNotMatch(html,/\bCarlos Santos\b/);
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Outra Cidade",state:"RS",origin:"chosen"})',env);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
-assert.match(html,/Ainda não há preços confirmados de revendas para Outra Cidade\/RS/);
+assert.match(html,/Sem ofertas confirmadas em Outra Cidade\/RS/);
 assert.match(html,/Ver outra cidade/);
 const real={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
