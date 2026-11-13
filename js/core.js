@@ -925,12 +925,12 @@ function shell(content){
   const merchantAuthenticated=merchantPortal&&globalThis.merchantRuntime?.status==='ready'&&
     Boolean(globalThis.merchantRuntime?.merchant?.memberRole);
   const desktopNav=adminPortal
-    ? '<button onclick="go(\\'admin\\')">Painel administrativo</button>'
+    ? '<button onclick="go(\'admin\')">Painel administrativo</button>'
     :merchantPortal
-      ? merchantAuthenticated?'<button onclick="go(\\'merchant\\')">Meu painel</button>':''
+      ? merchantAuthenticated?'<button onclick="go(\'merchant\')">Meu painel</button>':''
       : primaryLinks.map(([id,label])=>
           '<button type="button" aria-current="'+(r===id?'page':'false')+
-          '" onclick="go(\\''+id+'\\')">'+label+'</button>').join('')+
+          '" onclick="go(\''+id+'\')">'+label+'</button>').join('')+
         desktopGroups.map(group=>
           '<details name="tamao-public-header-groups" class="tamao-nav-more'+
              (group.links.some(([id])=>id===r)?' is-current':'')+'">'+
@@ -938,7 +938,7 @@ function shell(content){
           '<div class="tamao-nav-more-panel" role="group" aria-label="'+group.label+'">'+
           group.links.map(([id,label])=>
             '<button type="button" aria-current="'+(r===id?'page':'false')+
-            '" onclick="go(\\''+id+'\\')">'+label+'</button>').join('')+
+            '" onclick="go(\''+id+'\')">'+label+'</button>').join('')+
           '</div></details>').join('');
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
