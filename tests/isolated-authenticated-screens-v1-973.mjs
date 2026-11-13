@@ -39,6 +39,8 @@ async function inspect(page,role,section,size){
  assert.equal(role==='admin'?data.adminStatus:data.merchantStatus,
   'ready',label+' lost authenticated backend');
  assert.deepEqual(data.dup,[],label+' duplicate IDs');
+ assert.deepEqual(data.unnamed,[],label+' visible form controls without accessible labels');
+ assert.equal(data.unbuttoned,0,label+' buttons without accessible names');
  assert.ok(data.scrollWidth<=data.viewport+3,
   label+' horizontal document overflow '+(data.scrollWidth-data.viewport)+'px');
  assert.equal(data.renderError,null,label+' JS renderer exception');
@@ -68,7 +70,7 @@ export async function auditAuthenticatedScreensV1973({adminPage,merchantPage}){
    sections:new Set(findings.map(x=>x.role+'/'+x.section)).size,
    unnamedInputs:findings.filter(x=>x.unnamedInputs>0).map(x=>({
     screen:x.role+'/'+x.section+'/'+x.width,count:x.unnamedInputs,sample:x.unnamedSample
-   })).slice(0,30),
+   })),
    iconButtonsWithoutName:findings.filter(x=>x.iconButtonsWithoutName>0).map(x=>({
     screen:x.role+'/'+x.section+'/'+x.width,count:x.iconButtonsWithoutName
    })).slice(0,30)

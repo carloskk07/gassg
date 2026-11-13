@@ -1145,7 +1145,7 @@ function adminGlobalSearchView(){
   return `<div class="admin-global-search">
     <div class="admin-search-input-wrap">
       <span class="admin-search-icon" aria-hidden="true">${adminNavIcon('audit')}</span>
-      <input id="admin-global-search" class="input" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda ou cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
+      <input id="admin-global-search" class="input" type="search" aria-label="Buscar pedido, telefone, CNPJ, revenda ou cliente" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda ou cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
       <kbd class="admin-search-shortcut">Ctrl K</kbd>
       <button class="secondary small admin-search-submit" type="button" onclick="adminSearchFromUi()" ${adminRuntime.searchPending?'disabled aria-busy="true"':''}>${adminRuntime.searchPending?'Buscando…':'Buscar'}</button>
       ${searched?'<button class="ghost small admin-search-clear" type="button" onclick="adminClearSearch()">Limpar</button>':''}
