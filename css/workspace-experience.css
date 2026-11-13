@@ -123,3 +123,21 @@
  .merchant-workspace .merchant-growth-group>summary small{text-align:left;max-width:100%}
  .merchant-workspace .merchant-growth-group-body{padding:10px}
 }
+
+/* V1.983 — tarefas prioritárias sem duplicar a navegação operacional. */
+.admin-page .admin-overview-quick-navigation{margin:12px 0 17px;border:1px solid #dce7df;border-radius:16px;background:#fff;overflow:hidden}
+.admin-page .admin-overview-quick-navigation>summary{display:flex;min-height:48px;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:11px 16px;color:#1d4c36;font-size:14px;font-weight:800}
+.admin-page .admin-overview-quick-navigation>summary small{font-size:12px;font-weight:500;color:#557161}
+.admin-page .admin-overview-quick-navigation[open]>summary{background:#f5faf7;border-bottom:1px solid #dfebe2}
+.admin-page .admin-overview-quick-navigation>.admin-quick-actions{margin:0;padding:14px;min-width:0}
+.admin-page .admin-executive-focus{margin-bottom:14px}
+.admin-page .admin-attention-center{margin-bottom:14px}
+.merchant-workspace .merchant-growth-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0 0 15px}
+.merchant-workspace .merchant-growth-choices>button{min-height:48px;min-width:0;padding:12px 13px;border:1px solid #cce0d2;border-radius:12px;background:#f6fbf8;color:#194b35;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:7px;font-size:13px;font-weight:750;line-height:1.35}
+.merchant-workspace .merchant-growth-choices>button:hover{border-color:#5aab79;background:#eaf6ee}
+.merchant-workspace .merchant-growth-choices>button:focus-visible,.admin-page .admin-overview-quick-navigation>summary:focus-visible{outline:3px solid #278858;outline-offset:2px}
+.merchant-workspace .merchant-growth-group{scroll-margin-top:105px}
+.merchant-workspace .merchant-growth-group-body :is(input,select,textarea){max-width:100%}
+.merchant-workspace .merchant-growth-group-body :is(p,small,code){overflow-wrap:anywhere}
+@media(max-width:800px){.merchant-workspace .merchant-growth-choices{grid-template-columns:1fr}.admin-page .admin-overview-quick-navigation>summary{align-items:flex-start;flex-direction:column;gap:3px}}
+@media(max-width:560px){.merchant-workspace .merchant-growth-choices>button{min-height:46px}.admin-page .admin-overview-quick-navigation>.admin-quick-actions{padding:10px}.admin-page .admin-overview-quick-navigation>summary{padding:13px}}
