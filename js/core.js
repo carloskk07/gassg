@@ -825,19 +825,19 @@ function housekeeping(){
 function runtimeStrip(){
   if(globalThis.adminPortalRequested?.()){
     const status=globalThis.adminRuntime?.status||'loading';
-    if(status==='ready')return '<div class="demo-strip live-strip"><span>● ADMIN PROTEGIDO • control plane server-side</span><button onclick="openCustomerPortal()">Sair do admin</button></div>';
-    if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Conectando ao control plane administrativo…</span></div>';
-    if(status==='unauthenticated')return '<div class="demo-strip"><span>Administração • conta permanente e autorização explícita</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Conta autenticada sem permissão administrativa</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    return '<div class="demo-strip blocked-strip"><span>Control plane administrativo indisponível</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='ready')return '<div class="demo-strip live-strip"><span>● ADMIN • área protegida</span><button onclick="openCustomerPortal()">Sair do admin</button></div>';
+    if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Verificando seu acesso ao Admin…</span></div>';
+    if(status==='unauthenticated')return '<div class="demo-strip"><span>Admin • acesso por e-mail autorizado</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Esta conta não tem acesso ao Admin</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    return '<div class="demo-strip blocked-strip"><span>Admin temporariamente indisponível</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
   if(globalThis.merchantPortalRequested?.()){
     const status=globalThis.merchantRuntime?.status||'loading';
-    if(status==='ready')return '<div class="demo-strip live-strip"><span>● PAINEL REAL DA REVENDA • operações gravadas no Supabase</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
-    if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Conectando ao painel real da revenda…</span></div>';
-    if(status==='unauthenticated')return '<div class="demo-strip"><span>Painel da revenda • autenticação permanente necessária</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    if(status==='unsafe-origin')return '<div class="demo-strip blocked-strip"><span>Painel real bloqueado nesta origem compartilhada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='ready')return '<div class="demo-strip live-strip"><span>● PAINEL DA REVENDA • pedidos e entregas</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
+    if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Verificando seu acesso à revenda…</span></div>';
+    if(status==='unauthenticated')return '<div class="demo-strip"><span>Painel da revenda • acesso seguro por e-mail</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Esta conta ainda não está vinculada a uma revenda</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='unsafe-origin')return '<div class="demo-strip blocked-strip"><span>Acesse pelo endereço oficial do Parceiro</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
     return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
   if(globalThis.__CHAMA_TEST__===true){
@@ -925,7 +925,7 @@ function shell(content){
     :merchantPortal
       ? merchantAuthenticated?'<button onclick="go(\'merchant\')">Meu painel</button>':''
       : primaryLinks.map(([id,label],i)=>
-          '<button type="button"'+(i>2?' class="tamao-nav-optional"':'')+
+          '<button type="button" aria-current="'+(r===id?'page':'false')+'"'+(i>2?' class="tamao-nav-optional"':'')+
           ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+
         '<details class="tamao-nav-more"><summary>Mais <span aria-hidden="true">⌄</span></summary>'+
         '<div class="tamao-nav-more-panel">'+moreLinks.map(([id,label,collapsed])=>

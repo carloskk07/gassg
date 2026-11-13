@@ -741,8 +741,8 @@ function merchantsLanding(){
   return shell(`<section class="page merchant-landing">
     <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
-    <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
-    <p class="muted page-lead">Sua revenda mais visível. Mostre preços de gás, água e essenciais a quem procura na cidade. Receba pedidos organizados sem abandonar o balcão ou o WhatsApp. <strong>Você continua no controle. Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
+    <h1 class="page-title">Sua revenda mais visível. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
+    <p class="muted page-lead">Mostre seus produtos a quem procura na cidade e receba pedidos organizados, sem abandonar o balcão ou o WhatsApp. <strong>Você controla preços, estoque, recebimento e entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>

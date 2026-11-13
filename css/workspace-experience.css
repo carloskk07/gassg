@@ -94,3 +94,9 @@
   overflow-wrap:anywhere;font-variant-numeric:tabular-nums;
  }
 }
+
+/* V1.981 — one restrained task picker instead of another headline-sized panel. */
+.admin-page .admin-task-navigator{padding:9px 12px;margin-bottom:9px;background:#f8fbf9;border-color:#dce9e0;box-shadow:none}
+.admin-page .admin-task-navigator label{font-size:12px;color:#446554}
+.admin-page .admin-task-navigator select{min-height:42px}
+@media(max-width:820px){.admin-page .admin-task-navigator{padding:10px 12px}.admin-page .admin-task-navigator select{min-height:46px}}

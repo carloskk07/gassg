@@ -123,6 +123,8 @@ jobs:
         run: node tests/public-navigation-stability.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
+      - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
+        run: node tests/modernizacao-ux-v1-981.mjs
       - name: V1.971 product-first home and consistent public recovery
         run: node tests/page-journey-consistency-v1-971.mjs
       - name: Public visual hierarchy and responsive menu contract
