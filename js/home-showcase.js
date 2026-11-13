@@ -132,10 +132,10 @@ function homeRegionalPriceBoard(region){
  // current inventory, availability, the price of a verified merchant,
  // or three competitive offers. Only verified RPC data is an offer.
  const cards=real.length?liveCards:
-   '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Veja os produtos abaixo e consulte o CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
+   '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Você pode escolher produtos e consultar seu CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
  const copy=real.length
    ?'Veja preços informados por revendas e confirme o total e a entrega pelo CEP.'
-   :'Selecione seus produtos abaixo e confira entrega pelo CEP.';
+   :'Escolha seus produtos e consulte preço e entrega pelo CEP.';
  const controls='<div class="city-price-controls">'+
    '<button type="button" class="primary" onclick="homeDiscoverFocus()">Ver produtos →</button>'+
    (real.length>0&&globalThis.liveReady?.()===true?
