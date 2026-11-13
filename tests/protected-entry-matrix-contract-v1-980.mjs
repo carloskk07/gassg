@@ -30,5 +30,15 @@ assert.match(admin,/function adminLoginView\(\)/);
 assert.match(admin,/id="admin-email".*type="email"/);
 assert.match(merchant,/function merchantLiveLoginView\(\)/);
 assert.match(merchant,/id="merchant-email".*type="email"/);
+const loginStart=merchant.indexOf('function merchantLiveLoginView(){');
+const loginEnd=merchant.indexOf('function merchantLiveNoAccess(){',loginStart);
+const login=merchant.slice(loginStart,loginEnd);
+assert.ok(login.indexOf('<form class="card flat form-stack merchant-access-form"')<
+ login.indexOf('merchant-access-secondary'),
+ 'Onboarding form must precede optional advertising alternative');
+assert.match(login,/Quer só anunciar seu comércio\?/);
+const css=read('css/components.css');
+assert.match(css,/@media\(max-width:540px\)[\s\S]*?\.merchant-access-points\{display:none\}/);
+
 assert.match(audit,/node tests\/protected-entry-matrix-contract-v1-980\.mjs/);
 console.log('V1.980 PASS: isolated anonymous Admin/merchant login and signup, 5 widths, accessible form and zero transaction triggers.');
