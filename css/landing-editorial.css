@@ -400,3 +400,9 @@ a:focus-visible,summary:focus-visible{outline:3px solid #c48716;outline-offset:4
 .ed-discovery-paused .ed-proof{max-width:910px}
 .ed-discovery-paused .ed-proof-grid{grid-template-columns:minmax(0,1fr)}
 .ed-discovery-paused .ed-last h2{max-width:26ch}
+
+/* V1.983 — landing pages editoriais mantêm identidade e leitura no celular. */
+.ed-page .ed-hero-copy :is(h1,p),.ed-page .ed-last :is(h2,p){overflow-wrap:anywhere}
+.ed-page .ed-hero-copy p{max-width:66ch;line-height:1.62}
+.ed-page :is(a,button,input,select,summary):focus-visible{outline:3px solid #278858;outline-offset:3px}
+@media(max-width:600px){.ed-page .ed-hero-copy h1{font-size:clamp(29px,8vw,40px);line-height:1.1}.ed-page .ed-hero-copy p{font-size:15px}.ed-page .ed-last{padding-inline:clamp(14px,4vw,24px)}}

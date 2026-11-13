@@ -94,7 +94,7 @@ const quickEnd=live.indexOf('</nav>',quickStart);
 assert.ok(quickStart>=0&&quickEnd>quickStart,'merchant shortcuts must be a single accessible nav');
 const quick=live.slice(quickStart,quickEnd);
 assert.match(quick,/<details class="merchant-workspace-more">/);
-assert.match(quick,/<summary>Mais opções: financeiro, divulgação e configurações<\/summary>/);
+assert.match(quick,/<summary>Mais áreas<\/summary>/);
 assert.ok(quick.indexOf("merchantWorkspaceJump('orders')")<quick.indexOf('<details class="merchant-workspace-more">'));
 assert.ok(quick.indexOf("merchantWorkspaceJump('start')")<quick.indexOf('<details class="merchant-workspace-more">'));
 assert.match(quick,/merchantWorkspaceJump\(\\'finance\\'\)/);
