@@ -245,7 +245,7 @@ assert.ok(!quoteBoard.includes('Os preços reais substituem as referências auto
 assert.ok(quoteBoard.includes('snapshot.real===true'),'only verified data may become an offer');
 assert.ok(quoteBoard.includes('snapshot.notAQuote===true'),'regional data is not a quote');
 assert.ok(quoteBoard.includes('real.length?liveCards:') &&
- quoteBoard.includes('Ainda não há preços confirmados de revendas'),
+ quoteBoard.includes('Sem ofertas confirmadas em'),
  'never substitute unverified research for approved merchant offers');
 assert.match(customer,/tamao-home-checkout-compare/);
 assert.match(customer,/tamao-home-coupon-rail/);
