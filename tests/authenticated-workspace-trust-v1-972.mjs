@@ -106,7 +106,7 @@ const heading={tagName:'H2',hasAttribute:key=>false,
  focus:options=>events.push(['focus',options.preventScroll])};
 const summary={tagName:'SUMMARY',focus:options=>events.push(['summary-focus',options.preventScroll])};
 const panels={
- 'merchant-live-orders':{tagName:'SECTION',querySelector:selector=>selector==='h2'?heading:null,
+ 'merchant-live-orders':{tagName:'SECTION',querySelector:selector=>selector==='h2'?heading:selector==='summary'?summary:null,
  scrollIntoView:options=>events.push(['scroll',options.behavior])},
  'merchant-workspace-finance':{tagName:'DETAILS',open:false,
  querySelector:selector=>selector==='summary'?summary:null,
@@ -122,6 +122,8 @@ assert.equal(mc.jump('orders'),true);
 assert.deepEqual(events[0],['attribute','tabindex','-1']);
 assert.deepEqual(events[1],['scroll','smooth']);
 assert.deepEqual(events[2],['focus',true]);
+assert.ok(!events.some(x=>x[0]==='summary-focus'),
+ 'A nested order disclosure cannot steal focus from the orders H2');
 events.length=0;
 mc.globalThis.matchMedia=()=>({matches:true});
 assert.equal(mc.jump('finance'),true);
