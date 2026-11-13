@@ -2576,7 +2576,7 @@ function merchantLivePage(){
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
       <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orderEvidence.fresh?(orders.length+' '+(orders.length===1?'pedido confirmado na fila':'pedidos confirmados na fila')):'Atualize para conferir a fila'}</small></button>
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">🧺</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Estoque, preços e disponibilidade':'Prepare sua operação'}</small></button>
-      <details class="merchant-workspace-more"><summary>Mais opções: financeiro, divulgação e configurações</summary>
+      <details class="merchant-workspace-more"><summary>Mais áreas</summary>
         <div class="merchant-workspace-more-actions">
           ${manage?'<button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump(\'finance\')"><strong>Resultados e financeiro</strong><small>Vendas e cobranças</small></button>':''}
           ${manage?'<button type="button" class="merchant-workspace-shortcut merchant-shortcut-growth" onclick="merchantWorkspaceJump(\'growth\')"><strong>Divulgar e indicar</strong><small>Rede e campanhas</small></button>':''}
@@ -2618,8 +2618,8 @@ function merchantLivePage(){
     <details id="merchant-workspace-setup" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Endereço, produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
       ${merchantSetupView(rt)}
     </div></details>
-    <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Divulgar e ampliar sua rede</strong><small>Escolha uma tarefa; contratos e configurações ficam recolhidos até você precisar.</small></span></summary><div class="merchant-workspace-content">
-      <p class="merchant-growth-intro">Escolha o que quer fazer. Consultar esta área não cria campanhas, cobranças ou compromissos.</p>
+    <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Divulgar e ampliar sua rede</strong><small>Abra apenas a tarefa necessária.</small></span></summary><div class="merchant-workspace-content">
+      <p class="merchant-growth-intro">Escolha uma tarefa. Consultar não cria cobrança nem campanha.</p>
       <nav class="merchant-growth-choices" aria-label="Divulgação">
         <button type="button" onclick="merchantGrowthChoose('start')">Começar</button>
         <button type="button" onclick="merchantGrowthChoose('network')">Clube e indicações</button>
