@@ -908,7 +908,7 @@ function shell(content){
     ['earn','Indicações'],['advertise','Anunciar serviço'],
     ['merchants','Para revendas'],['sponsors','Para marcas']];
   const desktopNav=adminPortal
-    ? '<button onclick="go(\'admin\')">Control plane</button>'
+    ? '<button onclick="go(\'admin\')">Painel administrativo</button>'
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
       : primaryLinks.map(([id,label],i)=>
