@@ -75,7 +75,7 @@ jobs:
             --dump-dom "http://127.0.0.1:4185/#home" > /tmp/tamao-demo-home.html
           grep -Fq "DEMONSTRAÇÃO INTERATIVA" /tmp/tamao-demo-home.html
           grep -Fq "Admin (resumo)" /tmp/tamao-demo-home.html
-          grep -Fq "Revenda Parceira A" /tmp/tamao-demo-home.html || grep -Fq "Produtos" /tmp/tamao-demo-home.html
+          grep -Fq "Revenda Parceira A" /tmp/tamao-demo-home.html || grep -Fq "tamaoOpenAvailability()" /tmp/tamao-demo-home.html
           ! grep -Fq "lgugwujpunhslavewffd" /tmp/tamao-demo-home.html
 
   deploy:

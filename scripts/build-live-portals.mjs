@@ -328,6 +328,17 @@ export function compactReleasedCssComments(css){
   return out;
 }
 
+// V1.985: core navigation commentary stays in source, never in the initial release.
+export function compactReleasedCoreComments(source){
+  if(typeof source!=='string'||!source.includes('function shell(content)')||
+    !source.includes('function bottomNav(r)'))throw new Error('Core bundle contract changed');
+  const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
+  if(comments.length<20)throw new Error('Core navigation comments contract changed');
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  validateClassicScriptSyntax(released,'emitted core.js');
+  return released;
+}
+
 // Trim only the seven established standalone customer implementation comments in
 // the emitted script. Canonical source remains intact for historical contract slices.
 export function compactReleasedCustomerComments(source){
@@ -487,6 +498,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
     }
+    // Shared core comments are documentation, not required initial JS bytes.
+    const coreFile=path.join(target,'js','core.js');
+    fs.writeFileSync(coreFile,compactReleasedCoreComments(fs.readFileSync(coreFile,'utf8')),'utf8');
     // Both Cliente and Revenda share customer.js at startup; compact only
     // their isolated release copies, retaining documentation in the source.
     if(role!=='admin'){

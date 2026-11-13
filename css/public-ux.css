@@ -130,3 +130,12 @@
  .tamao-paid-placement .tamao-ad-cta{transition:none}
  .tamao-paid-placement .tamao-ad-cta:hover{transform:none}
 }
+
+/* V1.985 — estados responsivos diferidos do menu publico. */
+.tamao-public-nav>button:hover,.tamao-public-nav .tamao-nav-more>summary:hover{background:#eef7f0!important;color:#086744!important}
+.tamao-public-nav>button[aria-current="page"],.tamao-public-nav .tamao-nav-more.is-current>summary{background:#eaf6ed!important;color:#09613f!important}
+.tamao-nav-more>summary span[aria-hidden="true"]{display:inline-block;transition:transform .15s}
+.tamao-nav-more[open]>summary span[aria-hidden="true"]{transform:rotate(180deg)}
+.tamao-nav-more-panel>button:hover,.tamao-nav-more-panel>button[aria-current="page"]{background:#eaf6ed!important;color:#075b39!important}
+@media(min-width:760px) and (max-width:960px){.tamao-public-header .topbar-inner{gap:7px}.tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary{padding:9px 8px!important;font-size:12px!important}}
+@media(prefers-reduced-motion:reduce){.tamao-nav-more>summary span[aria-hidden="true"]{transition:none}}
