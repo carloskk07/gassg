@@ -627,6 +627,8 @@ jobs:
         run: node tests/ads-independent-delivery-v1-884.mjs
       - name: V1.916 Institutional versus paid Ads and guarded financial test in Admin
         run: node tests/ads-institutional-v1-916.mjs
+      - name: V1.984 CTA de publicidade institucional e patrocinada visualmente consistente
+        run: node tests/ads-cta-design-v1-984.mjs
       - name: V1.945 refresh single-use Ads challenges and remeasure focus without phantom billing
         run: node tests/ads-visibility-single-use-challenges-v1-945.mjs
       - name: V1.946 advertiser return checks original approved provider payment without another checkout
