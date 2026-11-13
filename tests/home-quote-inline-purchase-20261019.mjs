@@ -20,8 +20,8 @@ const ctx=vm.createContext({
 });
 vm.runInContext(home+';this.renderQuote=homeRegionalPriceBoard;',ctx);
 const local=ctx.renderQuote({city:'São Gabriel',state:'RS'});
-assert.match(local,/Tamão São Gabriel\/RS/);
-assert.match(local,/Comece pelos produtos logo abaixo/);
+assert.match(local,/TAMÃO em São Gabriel\/RS/);
+assert.match(local,/Escolha seus produtos e consulte preço e entrega pelo CEP/);
 assert.match(local,/onclick="homeDiscoverFocus\(\)">Ver produtos/,
  'board must open product-first checkout without silently selecting gas');
 assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
@@ -30,7 +30,7 @@ assert.doesNotMatch(local,/onclick="startCustomerAvailability\(\)"/,
 assert.equal((local.match(/class="city-price-research-item"/g)||[]).length,0);
 assert.equal((local.match(/class="city-price-product-pick"/g)||[]).length,0,
  'do not create non-purchasable price cards before verified offers');
-assert.match(local,/Ainda não há preços confirmados de revendas/);
+assert.match(local,/Sem ofertas confirmadas em/);
 assert.doesNotMatch(local,/Valor de pesquisa|R\$ 115.90|class="city-price-card verified"|PREÇO DE REVENDA/);
 ctx.globalThis.liveRuntime.cityPriceSnapshot={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
