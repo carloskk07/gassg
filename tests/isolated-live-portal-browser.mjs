@@ -5,6 +5,7 @@ import os from 'node:os';
 import http from 'node:http';
 import {spawn,execFileSync} from 'node:child_process';
 import {auditAuthenticatedScreensV1973} from './isolated-authenticated-screens-v1-973.mjs';
+import {auditProtectedEntryScreensV1980} from './isolated-protected-entry-screens-v1-980.mjs';
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
@@ -201,10 +202,10 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         await page.send('Network.enable');
         await page.send('Emulation.setDeviceMetricsOverride',desktopViewport);
         const parts=["(()=>{if(location.origin!=="+JSON.stringify(origin)+")return;"];
-        if(role==='customer'){
+        if(session&&role==='customer'){
           parts.push("localStorage.setItem('chama-sg-customer-auth-v2',"+JSON.stringify(JSON.stringify(session))+");");
           if(trackExisting)parts.push("localStorage.setItem('chama-live-order-id-v1',"+JSON.stringify(orderId)+");");
-        }else{
+        }else if(session){
           const key=role==='merchant'?'chama-sg-merchant-auth-v1':'chama-sg-admin-auth-v1';
           parts.push("sessionStorage.setItem("+JSON.stringify(key)+","+JSON.stringify(JSON.stringify(session))+");");
           if(role==='admin')parts.push("sessionStorage.setItem('tamao-admin-section','orders');");
@@ -214,7 +215,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         await page.navigate(origin+url);
         // Only this role's authentication exists in its isolated context.
         const auth=JSON.parse(await page.evaluate("JSON.stringify({customer:!!localStorage.getItem('chama-sg-customer-auth-v2'),merchant:!!sessionStorage.getItem('chama-sg-merchant-auth-v1'),admin:!!sessionStorage.getItem('chama-sg-admin-auth-v1')})"));
-        assert.deepEqual(auth,{customer:role==='customer',merchant:role==='merchant',admin:role==='admin'},
+        assert.deepEqual(auth,{customer:!!session&&role==='customer',merchant:!!session&&role==='merchant',admin:!!session&&role==='admin'},
           'Credential leakage across independent '+role+' browser context');
         return page;
       }
@@ -260,6 +261,16 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       await adminPage.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'Admin sees canonical order',55000);
       // Read-only screen and viewport matrix with real authorized browser sessions.
       await auditAuthenticatedScreensV1973({adminPage,merchantPage});
+      // V1.980: genuine anonymous Chrome profiles, no credentials, OTP
+      // submission or database mutation. Check the login/cadastro entry
+      // experience at the same five physical viewport widths.
+      const guestMerchant=await openRole('merchant',null,'/?merchant=1#merchant');
+      const guestAdmin=await openRole('admin',null,'/?admin=1#admin');
+      await guestMerchant.wait("merchantRuntime.status==='unauthenticated'&&!!document.getElementById('merchant-email')",
+        'anonymous merchant login ready',35000);
+      await guestAdmin.wait("adminRuntime.status==='unauthenticated'&&!!document.getElementById('admin-email')",
+        'anonymous Admin login ready',35000);
+      await auditProtectedEntryScreensV1980({guestMerchant,guestAdmin,origin});
       const code=await merchantPage.evaluate("merchantRuntime.orders.find(o=>o.orderId==="+JSON.stringify(orderId)+")?.publicCode");
       assert.ok(typeof code==='string'&&code.length>3);
       assert.equal(await adminPage.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code"),code,
