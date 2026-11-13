@@ -458,3 +458,47 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
 #tamao-main h1:focus{outline:2px solid #167b56}
+
+/* V1.985 — desktop: navegação por intenção, sem repetição de atalhos. */
+.tamao-public-header .topbar-inner{min-height:72px;gap:14px}
+.tamao-public-header .desktop-nav.tamao-public-nav{justify-content:flex-end;gap:6px}
+.tamao-public-nav>button,
+.tamao-public-nav .tamao-nav-more>summary{
+  min-height:43px;padding:10px 13px!important;font-size:13px!important;
+  font-weight:720!important;letter-spacing:-.008em;color:#315842!important;
+  transition:background .15s ease,color .15s ease
+}
+.tamao-public-nav>button[aria-current="page"],
+.tamao-public-nav .tamao-nav-more.is-current>summary{
+  background:#eaf6ed!important;color:#09613f!important
+}
+.tamao-public-nav .tamao-nav-more>summary span[aria-hidden="true"]{
+  display:inline-block;font-size:14px;line-height:1;transition:transform .15s ease
+}
+.tamao-public-nav .tamao-nav-more[open]>summary span[aria-hidden="true"]{transform:rotate(180deg)}
+.tamao-public-nav .tamao-nav-more-panel{
+  width:250px;max-width:calc(100vw - 28px);padding:9px;
+  border:1px solid #d5e6d9;border-radius:16px;
+  box-shadow:0 20px 50px rgba(13,55,35,.15)
+}
+.tamao-public-nav .tamao-nav-more-panel>button{
+  display:flex;align-items:center;width:100%;min-height:43px;
+  padding:11px 13px!important;border-radius:10px!important;
+  font-size:13px!important;white-space:normal;line-height:1.32
+}
+.tamao-public-nav .tamao-nav-more-panel>button[aria-current="page"]{
+  background:#e6f5ea!important;color:#075b39!important;font-weight:850!important
+}
+.tamao-public-header .tamao-header-cta{min-height:44px;border-radius:999px;padding:10px 17px}
+@media(min-width:760px) and (max-width:960px){
+ .tamao-public-header .topbar-inner{gap:7px}
+ .tamao-public-header .brand-button{min-width:112px}
+ .tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary{
+   padding:9px 8px!important;font-size:12px!important
+ }
+ .tamao-public-header .tamao-header-cta{padding:9px 11px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+ .tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary,
+ .tamao-public-nav .tamao-nav-more>summary span[aria-hidden="true"]{transition:none}
+}
