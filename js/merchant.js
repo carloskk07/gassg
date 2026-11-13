@@ -593,16 +593,12 @@ function merchantLiveLoginView(){
   const pilotInvite=String(globalThis.merchantPilotInviteToken?.()||'').trim();
   const prospectInvite=String(globalThis.merchantProspectInviteToken?.()||'').trim();
   const signupEntry=route()==='merchant-join';
+  const introducing=signupEntry||Boolean(pilotInvite||prospectInvite);
   return shell(`<section class="page merchant-access-page"><div class="merchant-access-grid"><div class="merchant-access-story">
     <span class="eyebrow">${pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
     <h1 class="page-title">${pilotInvite||prospectInvite?'Continue seu cadastro':signupEntry?'Cadastre sua revenda no TAMÃO':'Entrar no painel da revenda'}</h1>
     <p class="muted">${pilotInvite||prospectInvite?'Informe o e-mail do responsável para continuar o cadastro da empresa.':signupEntry?'Comece com seu e-mail. Enviamos um link seguro para cadastrar a empresa, sem precisar criar uma senha.':'Informe o e-mail cadastrado na revenda para acessar seu painel.'}</p>
-    <div class="merchant-access-points" aria-label="Vantagens de vender no TAMÃO">
-      <div><span aria-hidden="true">✓</span><p><strong>Seus preços, suas escolhas</strong><small>Controle catálogo, estoque e entregas no mesmo painel.</small></p></div>
-      <div><span aria-hidden="true">✓</span><p><strong>Mais um canal de vendas</strong><small>Sem abandonar sua clientela, o WhatsApp ou o balcão.</small></p></div>
-      <div><span aria-hidden="true">✓</span><p><strong>Comece do seu jeito</strong><small>Prepare a empresa agora; vendas dependem da aprovação necessária.</small></p></div>
-    </div>
-    <button type="button" class="merchant-access-about" onclick="go('merchants')">Conhecer as vantagens para minha revenda <span aria-hidden="true">→</span></button>
+    ${introducing?'<div class="merchant-access-points" aria-label="Informações para o cadastro"><div><span aria-hidden="true">✓</span><p><strong>Cadastre a empresa com calma</strong><small>Você pode preparar seus dados antes da habilitação das vendas.</small></p></div></div>':''}
     </div><div class="merchant-access-panel">
     ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Seu convite já foi identificado. Você pode continuar o cadastro; as vendas só começam depois da habilitação.</div>':''}${prospectInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Vamos conferir o CNPJ para vincular seu cadastro à empresa convidada. A liberação para vender acontece em uma etapa separada.</div>':''}
     ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
@@ -614,7 +610,7 @@ function merchantLiveLoginView(){
       <div class="input-wrap"><label for="merchant-email">E-mail da empresa</label><input id="merchant-email" type="email" autocomplete="email" class="input" maxlength="160" placeholder="voce@empresa.com" required></div>
       <button type="submit" class="primary full">${signupEntry?'Continuar meu cadastro →':'Enviar meu link de acesso →'}</button>
     </form>
-    <p class="merchant-access-footnote">O cadastro da empresa passa por conferência antes da liberação das vendas. Você já pode preparar seus dados.</p>
+    ${introducing?'<p class="merchant-access-footnote">O cadastro da empresa passa por conferência antes da liberação das vendas.</p>':''}
   </div></div></section>`);
 }
 
@@ -2373,9 +2369,15 @@ function merchantWorkspaceJump(area){
   const panel=document.getElementById(id);
   if(!panel)return false;
   if(panel.tagName==='DETAILS')panel.open=true;
-  const focusTarget=panel.querySelector('summary')||panel.querySelector('h2');
-  panel.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-  if(focusTarget)focusTarget.focus({preventScroll:true});
+  // Focus the destination, not just the scroll position. This also works in
+  // WebViews without matchMedia and respects the user's reduced-motion choice.
+  const focusTarget=panel.querySelector('summary')||panel.querySelector('h2')||panel;
+  if(focusTarget!==panel&&focusTarget.tagName==='H2'&&!focusTarget.hasAttribute?.('tabindex'))
+    focusTarget.setAttribute?.('tabindex','-1');
+  const reducedMotion=typeof globalThis.matchMedia==='function'
+    ?globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches:true;
+  panel.scrollIntoView?.({block:'start',behavior:reducedMotion?'auto':'smooth'});
+  focusTarget.focus?.({preventScroll:true});
   return true;
 }
 // V1.348 — read-only guide to the next relevant workspace, never a permission grant.
@@ -2551,7 +2553,6 @@ function merchantLivePage(){
     <header class="merchant-workspace-header"><div class="merchant-workspace-identity">
       <div class="merchant-workspace-identity-meta"><span class="tiny">SUA REVENDA • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</span><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'● OFFLINE'}</span></div>
       <h1 class="page-title">${esc(m.name)}</h1>
-      <p class="merchant-workspace-welcome">Tudo o que importa para atender bem, organizado para o seu dia.</p>
       <div class="merchant-workspace-readonly" aria-label="Situação da lista de pedidos"><span>${orderEvidence.fresh?'Pedidos consultados recentemente':'Lista de pedidos a confirmar'}</span></div>
     </div>${orientationMarkup}</header>
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">

@@ -870,6 +870,17 @@ function runtimeStrip(){
 }
 function siteFooter({adminPortal=false}={}){
   if(adminPortal)return '';
+  if(globalThis.merchantPortalRequested?.()===true){
+    // Protected partner screens need only legal links. The public TAMÃO site
+    // carries the full editorial and services menu, not the operational login.
+    return '<footer class="site-footer merchant-portal-footer"><div class="shell site-footer-inner">'+
+      '<div><strong>TAMÃO Parceiro</strong><small>Área de acesso e operação da revenda</small></div>'+
+      '<nav aria-label="Informações legais do Parceiro">'+
+        '<a href="https://tamao.com.br/#privacy">Privacidade</a>'+
+        '<a href="https://tamao.com.br/#terms">Termos</a>'+
+        '<a href="https://tamao.com.br/#home">Ver site TAMÃO</a>'+
+      '</nav></div></footer>';
+  }
   const region=typeof rememberedMarketRegion==='function'&&globalThis.merchantPortalRequested?.()!==true
     ?rememberedMarketRegion():null;
   const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região';
@@ -907,10 +918,12 @@ function shell(content){
   const moreLinks=[['learn','Como funciona'],
     ['earn','Indicações'],['advertise','Anunciar serviço'],
     ['merchants','Para revendas'],['sponsors','Para marcas']];
+  const merchantAuthenticated=merchantPortal&&globalThis.merchantRuntime?.status==='ready'&&
+    Boolean(globalThis.merchantRuntime?.merchant?.memberRole);
   const desktopNav=adminPortal
     ? '<button onclick="go(\'admin\')">Painel administrativo</button>'
     :merchantPortal
-      ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
+      ? merchantAuthenticated?'<button onclick="go(\'merchant\')">Meu painel</button>':''
       : primaryLinks.map(([id,label],i)=>
           '<button type="button"'+(i>2?' class="tamao-nav-optional"':'')+
           ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+
@@ -920,6 +933,8 @@ function shell(content){
           ' onclick="go(\''+id+'\')">'+label+'</button>').join('')+'</div></details>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
+    :merchantPortal&&!merchantAuthenticated
+      ? '<button type="button" class="secondary small" onclick="openCustomerPortal()">Ver site</button>'
     :merchantPortal||testDemo
       ? `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`
       : buyerHasOrder
@@ -930,7 +945,7 @@ function shell(content){
   ${runtimeStrip()}
   <header class="topbar${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-header':''}"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
-    <nav class="desktop-only desktop-nav${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':''}" aria-label="Navegação principal">${desktopNav}</nav>
+    ${desktopNav?'<nav class="desktop-only desktop-nav'+(!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':'')+'" aria-label="Navegação principal">'+desktopNav+'</nav>':''}
     ${switcher}
   </div></header>
   <main id="tamao-main" class="shell" tabindex="-1">${content}</main>
@@ -943,6 +958,13 @@ function bottomNav(r){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
+  // Only a verified role exposes operations. An offline driver with a prior
+  // authenticated session keeps the existing safe delivery-recovery entry.
+  const partner=globalThis.merchantRuntime||{};
+  const role=String(partner.merchant?.memberRole||'');
+  const partnerNavAllowed=partner.status==='ready'&&Boolean(role)||
+    partner.status==='unavailable'&&role==='driver'&&Boolean(partner.session?.access_token);
+  if(merchantPortal&&!partnerNavAllowed)return '';
   const items=adminPortal
     ?[['admin','🛡️','Admin','go']]
     :merchantPortal

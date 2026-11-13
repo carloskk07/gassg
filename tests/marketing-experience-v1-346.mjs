@@ -51,10 +51,12 @@ const merchantLogin=merchant.slice(
 );
 for(const token of ['merchant-access-grid','merchant-access-story','merchant-access-panel',
   'merchant-access-form','onsubmit="event.preventDefault();merchantLoginFromUi()"',
-  'required','pilotInvite','prospectInvite','merchant-email','go(\'merchants\')'])
+  'required','pilotInvite','prospectInvite','merchant-email'])
   assert.ok(merchantLogin.includes(token),'merchant login contract lost: '+token);
 assert.ok(merchantLogin.includes('O cadastro da empresa passa por conferência'),
   'merchant cannot bypass commercial onboarding');
+assert.ok(!merchantLogin.includes('merchant-access-about'),
+  'A protected login must not detour into redundant sales navigation');
 const adminLogin=admin.slice(admin.indexOf('function adminLoginView(){'),
   admin.indexOf('function adminNoAccessView(){'));
 assert.ok(adminLogin.includes('onsubmit="event.preventDefault();adminLoginFromUi()"'));
@@ -62,9 +64,9 @@ assert.ok(adminLogin.includes('adminRuntime.actionPending'),'admin request state
 assert.ok(adminLogin.includes('previamente autorizadas'),'server-based authorization remains clear');
 assert.ok(core.includes('skip-to-main')&&core.includes('id="tamao-main"')&&core.includes('tabindex="-1"'),
   'skip-to-content keyboard navigation missing');
-assert.ok(core.includes('<nav class="desktop-only desktop-nav')&&
+assert.ok(core.includes('desktopNav?\'<nav class="desktop-only desktop-nav')&&
   core.includes('aria-label="Navegação principal"')&&core.includes('tamao-public-nav'),
-  'Responsive public navigation must preserve a labeled, keyboard-reachable nav');
+  'Responsive public navigation must preserve a labeled, keyboard-reachable nav without an empty protected login menu');
 assert.ok(growth.includes('Veja primeiro os produtos e escolha o que precisa.'),
   'how-it-works journey must not force CEP before discovery');
 for(const token of ['.home-discover-grid','.merchant-access-grid',
