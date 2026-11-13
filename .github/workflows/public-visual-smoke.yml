@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'js/customer.js'
+      - 'js/ads-display.js'
       - 'css/**'
       - 'assets/**'
       - 'scripts/build-public-site.mjs'
       - 'scripts/build-public-landing-pages.mjs'
       - 'tests/public-visual-browser-v1-413.mjs'
+      - 'tests/ads-cta-browser-v1-984.mjs'
       - '.github/workflows/public-visual-smoke.yml'
   workflow_dispatch:
 
@@ -67,6 +69,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/public-visual-browser-v1-413.mjs
+
+      - name: Check real painted advertisement CTA in isolated Chrome at 360 and 1120 px
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/ads-cta-browser-v1-984.mjs
 
       - name: Verify published public website across mobile, tablet and desktop
         # GET-only clean Chrome; no login, test sales, API writes, or production
