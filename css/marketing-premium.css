@@ -457,5 +457,4 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:760px){.tamao-coupon-banner{grid-template-columns:minmax(0,1fr);padding:22px 18px;border-radius:18px}.tamao-coupon-banner h2{font-size:clamp(25px,6vw,35px)}.tamao-coupon-banner-scene{display:none}.tamao-coupon-banner-actions button{flex:1 1 175px}}
 @media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
-/* V1.981: foco discreto e visível. */
 #tamao-main h1[tabindex="-1"]:focus{outline:2px solid #167b56;outline-offset:4px}
