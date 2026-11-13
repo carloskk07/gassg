@@ -45,3 +45,16 @@
 @media(prefers-reduced-motion:reduce){
  .merchant-workspace .merchant-workspace-shortcut{transition:none}
 }
+
+/* V1.972 — keep financial freshness legible and mobile forms usable without
+   adding a single byte to the unauthenticated Cliente start-up bundle. */
+.admin-page .admin-ops-strip.admin-ops-stale .admin-ops-sync strong{
+  text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;
+}
+@media(max-width:600px){
+ .admin-page :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea),
+ .merchant-workspace :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){font-size:16px}
+ .admin-page :is(.admin-task-tabs button,.admin-nav-more,.admin-quick-grid button),
+ .merchant-workspace :is(.merchant-workspace-more>summary,.merchant-workspace-shortcut){min-height:44px}
+ .admin-page .admin-main,.merchant-workspace .merchant-workspace-content{min-width:0}
+}
