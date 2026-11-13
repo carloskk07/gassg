@@ -270,7 +270,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         'anonymous merchant login ready',35000);
       await guestAdmin.wait("adminRuntime.status==='unauthenticated'&&!!document.getElementById('admin-email')",
         'anonymous Admin login ready',35000);
-      await auditProtectedEntryScreensV1980({guestMerchant,guestAdmin});
+      await auditProtectedEntryScreensV1980({guestMerchant,guestAdmin,origin});
       const code=await merchantPage.evaluate("merchantRuntime.orders.find(o=>o.orderId==="+JSON.stringify(orderId)+")?.publicCode");
       assert.ok(typeof code==='string'&&code.length>3);
       assert.equal(await adminPage.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code"),code,
