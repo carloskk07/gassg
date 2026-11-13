@@ -68,7 +68,7 @@ export async function auditAuthenticatedScreensV1973({adminPage,merchantPage}){
    sections:new Set(findings.map(x=>x.role+'/'+x.section)).size,
    unnamedInputs:findings.filter(x=>x.unnamedInputs>0).map(x=>({
     screen:x.role+'/'+x.section+'/'+x.width,count:x.unnamedInputs,sample:x.unnamedSample
-   })).slice(0,30),
+   })),
    iconButtonsWithoutName:findings.filter(x=>x.iconButtonsWithoutName>0).map(x=>({
     screen:x.role+'/'+x.section+'/'+x.width,count:x.iconButtonsWithoutName
    })).slice(0,30)
