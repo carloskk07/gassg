@@ -3365,13 +3365,13 @@ function adminSectionMeta(section=adminRuntime.section){
     overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
     orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
     customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
-    partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Cadastro, aprovação e acompanhamento das revendas. Sem misturar publicidade ou marketing.'},
+    partners:{kicker:'REDE DE REVENDA',title:'Revendas',description:'Veja cadastros, documentos e o que falta para cada revenda começar a atender.'},
     growth:{kicker:'CLIENTES E BENEFÍCIOS',title:'Crescimento',description:'Captação de clientes, indicações, cupons e ações de relacionamento num lugar separado das revendas.'},
     prospects:{kicker:'EXPANSÃO NACIONAL',title:'Prospectos',description:'Demanda por município e revendas GLP da fonte oficial ANP.'},
     enablement:{kicker:'HABILITAÇÃO OPERACIONAL',title:'Central de habilitação',description:'Requisitos comprovados de cada revenda, seus bloqueios e próximas ações.'},
     catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
-    finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
-    ads:{kicker:'TAMÃO ADS',title:'Publicidade',description:'Anunciantes independentes, campanhas, aprovação, pagamentos e conferência do Mercado Pago. Não exige revendas.'},
+    finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Consulte pagamentos, cobranças, reembolsos e valores pendentes de conferência.'},
+    ads:{kicker:'TAMÃO ADS',title:'Publicidade',description:'Gerencie anunciantes, campanhas e pagamentos, sem precisar cadastrar uma revenda.'},
     alerts:{kicker:'ATENÇÃO OPERACIONAL',title:'Central de alertas',description:'Sinais oficiais reunidos com horário de verificação, responsáveis e acesso às áreas de tratamento.'},
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
     audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
@@ -11333,6 +11333,8 @@ function adminPage(){
   }
 
   const d=adminRuntime.data;
+  if(typeof document!=='undefined'&&typeof document.title==='string')
+    document.title=adminSectionMeta(adminRuntime.section).title+' — TAMÃO Admin';
   const currentRole=adminCurrentRole();
   if(!adminRoleCanSection(adminRuntime.section,currentRole)){
     adminRuntime.section=adminFirstSectionForRole(currentRole);
