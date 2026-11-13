@@ -62,6 +62,18 @@ export async function auditAuthenticatedScreensV1973({adminPage,merchantPage}){
    for(const size of SIZES)findings.push(await inspect(adminPage,'admin',section,size));
   }
   for(const size of SIZES)findings.push(await inspect(merchantPage,'merchant','operation',size));
+  // Log diagnostics even if the following keyboard interaction fails.
+  const diagnostics={
+   screens:findings.length,
+   sections:new Set(findings.map(x=>x.role+'/'+x.section)).size,
+   unnamedInputs:findings.filter(x=>x.unnamedInputs>0).map(x=>({
+    screen:x.role+'/'+x.section+'/'+x.width,count:x.unnamedInputs,sample:x.unnamedSample
+   })).slice(0,30),
+   iconButtonsWithoutName:findings.filter(x=>x.iconButtonsWithoutName>0).map(x=>({
+    screen:x.role+'/'+x.section+'/'+x.width,count:x.iconButtonsWithoutName
+   })).slice(0,30)
+  };
+  console.log('V1.973 SCREEN_MATRIX '+JSON.stringify(diagnostics));
   const jump=JSON.parse(await merchantPage.evaluate(
    'JSON.stringify((()=>{'+
    'const ok=merchantWorkspaceJump("orders");'+
@@ -69,17 +81,7 @@ export async function auditAuthenticatedScreensV1973({adminPage,merchantPage}){
   assert.equal(jump.ok,true,'partner order navigation must respond');
   assert.equal(jump.section,true,'partner order destination must exist');
   assert.equal(jump.focused,'H2','merchant keyboard focus must reach order heading');
-  // Real keyboard/viewport checks happen with actual Chrome, not mocked HTML.
-  console.log('V1.973 SCREEN_MATRIX '+JSON.stringify({
-   screens:findings.length,sections:new Set(findings.map(x=>x.role+'/'+x.section)).size,
-   unnamedInputs:findings.filter(x=>x.unnamedInputs>0).map(x=>({
-    screen:x.role+'/'+x.section+'/'+x.width,count:x.unnamedInputs,
-    sample:x.unnamedSample
-   })).slice(0,25),
-   iconButtonsWithoutName:findings.filter(x=>x.iconButtonsWithoutName>0).map(x=>({
-    screen:x.role+'/'+x.section+'/'+x.width,count:x.iconButtonsWithoutName
-   })).slice(0,25)
-  }));
+  // The audited browser screens are read-only; no financial action was triggered.
  }finally{
   // Never leave another test in mobile metrics or on a different Admin tab.
   await adminPage.send('Emulation.setDeviceMetricsOverride',{
