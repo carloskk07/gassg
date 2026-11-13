@@ -2473,6 +2473,8 @@ function merchantLivePage(){
   }
 
   const m=rt.merchant;
+  if(typeof document!=='undefined'&&typeof document.title==='string')
+    document.title=(String(m.name||'Minha revenda').trim().slice(0,64)||'Minha revenda')+' — TAMÃO Parceiro';
   if(m.memberRole==='driver')return merchantDriverLivePage(rt);
   const performance=m.performance||{};
   const capacity=Math.max(1,Number(m.maxActiveOrders||8));
