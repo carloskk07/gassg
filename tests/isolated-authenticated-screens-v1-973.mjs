@@ -21,8 +21,8 @@ const DOM_PROBE=[
  'return {viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,',
  'heading:headings[0]?.textContent?.trim()||"",headingCount:headings.length,',
  'dup:[...new Set(dup)].slice(0,12),unnamed,unbuttoned,',
- 'status:typeof adminRuntime==="undefined"?',
- 'typeof merchantRuntime==="undefined"?"unknown":merchantRuntime.status:adminRuntime.status,',
+ 'adminStatus:typeof adminRuntime==="undefined"?null:adminRuntime.status,',
+ 'merchantStatus:typeof merchantRuntime==="undefined"?null:merchantRuntime.status,',
  'renderError:window.__lastRenderError||null};',
  '})())'
 ].join('');
@@ -36,7 +36,8 @@ async function inspect(page,role,section,size){
  const label=role+'/'+section+'/'+size.width;
  assert.equal(data.viewport,size.width,label+' wrong viewport');
  assert.ok(data.heading.length>0,label+' missing visible H1');
- assert.equal(data.status,'ready',label+' lost authenticated backend');
+ assert.equal(role==='admin'?data.adminStatus:data.merchantStatus,
+  'ready',label+' lost authenticated backend');
  assert.deepEqual(data.dup,[],label+' duplicate IDs');
  assert.ok(data.scrollWidth<=data.viewport+3,
   label+' horizontal document overflow '+(data.scrollWidth-data.viewport)+'px');
