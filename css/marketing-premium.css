@@ -338,22 +338,15 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 .tamao-public-header .brand-button{min-width:121px}
 .tamao-public-header .desktop-nav.tamao-public-nav{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0;flex:1;overflow:visible;border:0;background:transparent;padding:0;box-shadow:none}
 .tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary{min-height:43px;padding:10px 12px!important;border:0;border-radius:11px!important;background:transparent;color:#315842!important;font-size:13px!important;font-weight:750!important;white-space:nowrap}
-.tamao-public-nav>button:hover,.tamao-public-nav .tamao-nav-more>summary:hover{background:#eef7f0!important;color:#086744!important}
-.tamao-public-nav>button[aria-current="page"],.tamao-public-nav .tamao-nav-more.is-current>summary{background:#eaf6ed!important;color:#09613f!important}
 .tamao-nav-more{position:relative;flex:0 0 auto}
 .tamao-nav-more>summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none}
 .tamao-nav-more>summary::-webkit-details-marker{display:none}
 .tamao-nav-more[open]>summary{background:#eaf5ee!important}
-.tamao-nav-more>summary span[aria-hidden="true"]{display:inline-block;transition:transform .15s}
-.tamao-nav-more[open]>summary span[aria-hidden="true"]{transform:rotate(180deg)}
 .tamao-nav-more-panel{position:absolute;z-index:50;right:0;top:calc(100% + 8px);width:250px;max-width:calc(100vw - 28px);display:grid;gap:3px;padding:9px;border:1px solid #d5e6d9;border-radius:16px;background:#fff;box-shadow:0 20px 50px #0d372623}
 .tamao-nav-more-panel>button{width:100%;min-height:43px;padding:11px 13px!important;border:0!important;border-radius:10px!important;background:#fff!important;color:#254b37!important;font-size:13px!important;font-weight:750!important;text-align:left;white-space:normal}
-.tamao-nav-more-panel>button:hover,.tamao-nav-more-panel>button[aria-current="page"]{background:#eaf6ed!important;color:#075b39!important}
 .tamao-header-cta{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 auto;min-height:44px;padding:10px 17px;border:1px solid #08704b;border-radius:999px;background:#08704b;color:#fff;font-size:13px;font-weight:850;white-space:nowrap}
 .tamao-header-cta:hover{background:#075739;color:#fff}
 .tamao-public-header button:focus-visible,.tamao-nav-more>summary:focus-visible{outline:3px solid #bc8728;outline-offset:3px}
-@media(min-width:760px) and (max-width:960px){.tamao-public-header .topbar-inner{gap:7px}.tamao-public-nav>button,.tamao-public-nav .tamao-nav-more>summary{padding:9px 8px!important;font-size:12px!important}}
-@media(prefers-reduced-motion:reduce){.tamao-nav-more>summary span[aria-hidden="true"]{transition:none}}
 .app .tamao-quote-first{max-width:1120px;margin-top:16px;padding:clamp(20px,3.2vw,34px);border:1px solid #d6e5db;border-radius:26px;background:#fff;box-shadow:0 14px 40px rgba(26,64,44,.055)}
 .app .tamao-quote-first .tamao-quote-topline{color:#08704b;font-size:11px;letter-spacing:.08em;margin-bottom:14px}
 .app .tamao-quote-first .city-price-heading h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.055em;color:#153b2c}
