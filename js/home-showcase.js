@@ -132,10 +132,10 @@ function homeRegionalPriceBoard(region){
  // current inventory, availability, the price of a verified merchant,
  // or three competitive offers. Only verified RPC data is an offer.
  const cards=real.length?liveCards:
-   '<div class="city-price-empty" role="status"><strong>Escolha seus produtos para consultar atendimento</strong><p>Ainda não há preços confirmados de revendas para '+esc(place)+'. Selecione o que precisa e informe seu CEP. Nenhum pedido ou pagamento é criado sem uma oferta confirmada.</p></div>';
+   '<div class="city-price-empty" role="status"><strong>Sem ofertas confirmadas em '+esc(place)+'</strong><p>Escolha um produto no catálogo e consulte pelo CEP. O pedido só avança com uma revenda e um preço confirmados.</p></div>';
  const copy=real.length
    ?'Veja preços informados por revendas e confirme o total e a entrega pelo CEP.'
-   :'Comece pelos produtos logo abaixo. Selecione o que precisa e consulte a entrega pelo CEP.';
+   :'Escolha seus produtos e consulte preço e entrega pelo CEP.';
  const controls='<div class="city-price-controls">'+
    '<button type="button" class="primary" onclick="homeDiscoverFocus()">Ver produtos →</button>'+
    (globalThis.liveReady?.()===true?
@@ -146,11 +146,11 @@ function homeRegionalPriceBoard(region){
      '<label>UF<input id="home-city-uf" maxlength="2" autocomplete="address-level1" value="'+esc(uf)+'"></label>'+
      '<button type="button" class="secondary" onclick="homeChooseMarketCity()">Atualizar vitrine</button>'+
     '</div></details></div>';
- return '<section class="city-price-board tamao-quote-first" aria-label="Painel de preços e vantagens de sua cidade">'+
+ return '<section class="city-price-board tamao-quote-first'+(real.length?'':' tamao-quote-no-offer')+'" aria-label="Painel de preços e vantagens de sua cidade">'+
   '<div class="tamao-quote-topline"><span>📊 COTAÇÕES E ECONOMIA</span>'+
    '<span>'+(real.length&&checkedLabel?'Atualizado '+esc(checkedLabel):'Seu preço, suas vantagens')+'</span></div>'+
   '<div class="city-price-heading"><div>'+
-   '<h2>Tamão '+esc(place)+'</h2><p>'+esc(copy)+'</p></div></div>'+
+   '<h1>TAMÃO em '+esc(place)+'</h1><p>'+esc(copy)+'</p></div></div>'+
   (real.length?'':controls)+
 
 
