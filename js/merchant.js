@@ -2369,11 +2369,8 @@ function merchantWorkspaceJump(area){
   const panel=document.getElementById(id);
   if(!panel)return false;
   if(panel.tagName==='DETAILS')panel.open=true;
-  // Focus the destination, not just the scroll position. This also works in
-  // WebViews without matchMedia and respects the user's reduced-motion choice.
-  // A SECTION may contain nested disclosure summaries; never focus one of
-  // those instead of the actual workspace heading. DETAILS focus their own
-  // summary, which is the keyboard-operable disclosure control.
+  for(let p=panel.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;
+  // Focus the visible heading or disclosure after opening its ancestors.
   const focusTarget=panel.tagName==='DETAILS'
     ?panel.querySelector('summary')||panel.querySelector('h2')||panel
     :panel.querySelector('h2')||panel.querySelector('summary')||panel;
