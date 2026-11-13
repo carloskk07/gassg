@@ -46,7 +46,7 @@ vm.runInContext(home+';this.quote=homeRegionalPriceBoard;',quoteCtx);
 let quote=quoteCtx.quote({city:'São Gabriel',state:'RS'});
 assert(quote.indexOf('class="city-price-controls"')<quote.indexOf('class="city-price-empty"'),
  'the product action must precede the empty market explanation');
-assert.match(quote,/Nenhum pedido ou pagamento é criado sem uma oferta confirmada/);
+assert.match(quote,/pedido só avança com uma revenda e um preço confirmados/);
 assert.doesNotMatch(quote,/tamao-home-coupon-rail|Ver cupons e Clube/,
  'a separately placed campaign must not repeat in the quote');
 assert.match(quote,/onclick="homeDiscoverFocus\(\)">Ver produtos/);
