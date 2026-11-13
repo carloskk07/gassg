@@ -5,6 +5,11 @@ const browser=read('tests/isolated-authenticated-screens-v1-973.mjs');
 const audit=read('.github/workflows/audit.yml');
 const workspaceCss=read('css/workspace-experience.css');
 assert.match(workspaceCss,/@media\(max-width:360px\)/);
+assert.match(workspaceCss,/\.merchant-workspace \.merchant-closed-order-row\{/);
+assert.match(workspaceCss,/grid-template-columns:minmax\(0,1fr\) minmax\(0,40%\)/);
+assert.match(workspaceCss,/overflow-wrap:anywhere;font-variant-numeric:tabular-nums/);
+assert.doesNotMatch(workspaceCss,/\.merchant-closed-order-row[^}]*text-overflow:ellipsis/);
+
 assert.match(workspaceCss,/max-width:calc\(100vw - 24px\)/);
 assert.match(workspaceCss,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 for(const value of ['width:320','width:360','width:768','width:1280','width:1920'])
