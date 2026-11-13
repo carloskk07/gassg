@@ -51,7 +51,7 @@ assert.match(html,/admin-ops-strip warning/);
 ctx.adminRuntime.lastSyncAt=null;
 html=ctx.strip({launchReadiness:current,incidents:[],merchantBilling:{}});
 assert.match(html,/Sem sincronização confirmada/);
-assert.doesNotMatch(html,/Dados do painel<\/small><strong>agora/);
+assert.doesNotMatch(html,/Última atualização<\/small><strong>agora/);
 html=ctx.strip({merchantBilling:{}});
 assert.match(html,/PLATAFORMA NÃO VERIFICADA/);
 assert.match(html,/COMÉRCIO NÃO VERIFICADO|PLATAFORMA NÃO VERIFICADA/);
