@@ -677,8 +677,6 @@ jobs:
         run: node tests/partner-access-focus-v1-972.mjs
       - name: V1.975 Admin accessible search and notes regression
         run: node tests/authenticated-form-labels-v1-975.mjs
-      - name: V1.977 role-aware Admin and merchant subtask Chrome coverage
-        run: node tests/authenticated-subtask-matrix-v1-977.mjs
       - name: V1.896 direct task navigation and separate partner workflows
         run: node tests/admin-task-direct-navigation-v1-896.mjs
       - name: V1.897 guided single merchant verification and separate support workspace
@@ -1139,6 +1137,8 @@ jobs:
             echo "live runtime não pode buildar sem origins/Turnstile"
             exit 1
           fi
+      - name: V1.977 role-aware Admin and merchant subtask Chrome coverage
+        run: node tests/authenticated-subtask-matrix-v1-977.mjs
       - name: Browser smoke — mobile routes
         run: |
           python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
