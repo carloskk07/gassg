@@ -2547,6 +2547,8 @@ function merchantLivePage(){
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Situação ANP vigente segundo a verificação completa do servidor para o catálogo atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
   const canGoOnline=m.status==='active'&&complianceReady&&commercialReady&&!financialHold;
+  const firstRun=merchantFirstRunView(rt,canGoOnline);
+  const preparing=orderEvidence.fresh&&orders.length===0&&Boolean(firstRun);
   const orientation=orderEvidence.fresh?merchantWorkspaceOrientation(rt,{
     canGoOnline,connectionHealthy,financialHold,orders
   }):{
@@ -2554,7 +2556,7 @@ function merchantLivePage(){
     detail:'A consulta de pedidos precisa ser renovada. As ações ficam indisponíveis nesta visualização até a atualização.',
     action:'orders',label:'Ver atualização dos pedidos'
   };
-  const orientationMarkup=merchantWorkspaceNeedsGuide(orderEvidence,orders)?`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
+  const orientationMarkup=!preparing&&merchantWorkspaceNeedsGuide(orderEvidence,orders)?`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
     <span class="merchant-orientation-eyebrow">${esc(orientation.eyebrow)}</span>
     <strong>${esc(orientation.title)}</strong>
     <p>${esc(orientation.detail)}</p>
@@ -2586,9 +2588,12 @@ function merchantLivePage(){
     </nav>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
+    ${preparing?firstRun:''}
+    ${preparing?'<details class="merchant-preparation-status merchant-operation-insights"><summary>Conferir disponibilidade e pendências</summary>':''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
-    ${orderEvidence.fresh?merchantDailyOverview(rt,orders):'<p class="merchant-queue-unverified-intro">A fila de pedidos precisa de atualização. Veja as orientações em Pedidos que exigem ação.</p>'}
-    ${merchantFirstRunView(rt,canGoOnline)}
+    ${preparing?'</details>':''}
+    ${orderEvidence.fresh?(preparing?'':merchantDailyOverview(rt,orders)):'<p class="merchant-queue-unverified-intro">A fila de pedidos precisa de atualização. Veja as orientações em Pedidos que exigem ação.</p>'}
+    ${!preparing?firstRun:''}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>
@@ -3494,6 +3499,7 @@ function merchantUnifiedOpsModel(rt,orders,now=Date.now()){
   const actionable=offers.filter(validDeadline).sort((a,b)=>
     Date.parse(a.offerExpiresAt)-Date.parse(b.offerExpiresAt));
   const deliveries=merchantDeliveryBoardModel(orders,now);
+  const preparing=orders.filter(o=>['MERCHANT_ACCEPTED','PREPARING'].includes(o?.status));
   const atRisk=orders.filter(o=>o?.status==='AT_RISK');
   const role=String(rt.merchant.memberRole||'');
   const supportVerified=rt.supportSummary?.version===1&&
@@ -3512,8 +3518,9 @@ function merchantUnifiedOpsModel(rt,orders,now=Date.now()){
   return {
     offers:{count:offers.length,valid:actionable.length,unverified:offers.length-actionable.length,
       first:preferSafe(actionable)},
-    delivery:{count:deliveries.length,arriving:deliveries.filter(o=>o.status==='ARRIVING').length,
-      first:preferSafe(deliveries)},
+    delivery:{count:preparing.length+deliveries.length,preparing:preparing.length,
+      arriving:deliveries.filter(o=>o.status==='ARRIVING').length,
+      first:preferSafe([...deliveries,...preparing])},
     issues:{count:issues.length,incidents:atRisk.length,
       cases:support.reduce((n,row)=>n+row.pending.length,0),
       supportVerified,first:preferSafe([...atRisk,...support.map(x=>x.order)])}
@@ -3537,7 +3544,7 @@ function merchantUnifiedFocusOrder(orderId,lane){
     if(order.status!=='OFFERED_TO_MERCHANT'||!/^20\d{2}-\d{2}-\d{2}T/.test(raw)||
        !Number.isFinite(expiry)||expiry<=Date.now()+1000)return false;
   }else if(lane==='delivery'){
-    if(!['OUT_FOR_DELIVERY','ARRIVING'].includes(order.status))return false;
+    if(!['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING'].includes(order.status))return false;
   }else if(order.status!=='AT_RISK'&&
     !merchantSupportCasesForOrder(order,rt).some(c=>['open','in_review'].includes(c.status))){
     return false;
@@ -3563,7 +3570,7 @@ function merchantUnifiedOpsBoard(rt,orders){
       ' para aceite; '+a.valid+' com prazo confirmado nesta consulta.'
     :a.count?'Confira o prazo antes de aceitar.':'Nenhum novo pedido informado.';
   const deliveryDetail=b.count?
-    b.arriving+' com chegada informada. Confirmações dentro do pedido.':
+    b.preparing+' em preparação • '+b.arriving+' com chegada informada. Confirmações dentro do pedido.':
     'Nenhuma entrega em andamento na lista consultada.';
   const issueDetail=c.supportVerified
     ?c.incidents+' imprevisto(s) no pedido • '+c.cases+' atendimento(s) pendente(s).'
@@ -3571,9 +3578,9 @@ function merchantUnifiedOpsBoard(rt,orders){
   const cards=[
     ['offers','NOVOS PEDIDOS',a.count,offerDetail,a.first,
       'Ver pedido para aceitar'],
-    ['delivery','ENTREGAS',b.count,deliveryDetail,b.first,
-      'Acompanhar entrega'],
-    ['issues','ATENÇÃO',c.count,issueDetail,c.first,
+    ['delivery','PREPARO E ENTREGAS',b.count,deliveryDetail,b.first,
+      ['MERCHANT_ACCEPTED','PREPARING'].includes(b.first?.status)?'Preparar entrega':'Acompanhar entrega'],
+    ['issues','IMPREVISTOS E SUPORTE',c.count,issueDetail,c.first,
       'Ver pedido com problema']
   ].map(([key,label,count,detail,first,cta])=>{
     const offerNeedsRefresh=key==='offers'&&a.unverified>0;

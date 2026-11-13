@@ -73,7 +73,12 @@ const b=merchant.indexOf('\nfunction merchantScheduledDispatchState(',a);
 assert.ok(a>=0&&b>a);
 const live=merchant.slice(a,b);
 assert.ok(live.indexOf('merchantDailyOverview(rt,orders)')<live.indexOf('merchantDeliveryBoardView(rt,orders)'));
-assert.ok(live.indexOf('merchantDailyOverview(rt,orders)')<live.indexOf('merchantFirstRunView(rt,canGoOnline)'));
+assert.match(live,/const preparing=orderEvidence\.fresh&&orders\.length===0&&Boolean\(firstRun\)/,
+  'only a verified empty queue with onboarding can prioritize preparation');
+assert.ok(live.indexOf('${preparing?firstRun:')<live.indexOf('merchantAvailabilityPanel(rt,'),
+  'preparation has one next-step guide before optional availability details');
+assert.match(live,/orderEvidence\.fresh\?\(preparing\?'':merchantDailyOverview\(rt,orders\)\)/,
+  'daily orders stay visible during normal operation');
 assert.ok(live.indexOf('merchantFirstRunView(rt,canGoOnline)')<live.indexOf('merchantOrderQueueView(orders)'));
 assert.ok(live.indexOf('merchantDeliveryBoardView(rt,orders)')<live.indexOf('merchantOrderQueueView(orders)'));
 assert.ok(live.indexOf('merchantOrderQueueView(orders)')<live.indexOf('merchantDailyChecklistView(rt,'));

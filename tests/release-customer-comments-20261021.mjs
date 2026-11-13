@@ -9,5 +9,10 @@ assert.ok(canonical.length-compact.length>=500);
 assert.doesNotMatch(compact,/\/\/ Product-first entry:/);
 assert.match(compact,/function homeChooseProduct\(/);
 assert.match(compact,/function startHomeOrder\(/);
+assert.match(canonical,/const heroVisualCodes=/,'internal demo remains available in canonical source');
+assert.doesNotMatch(compact,/const heroVisualCodes=/,'production only ships its actual storefront');
+assert.match(compact,/function customerCheckoutJourney\(/,'checkout boundary remains intact');
+assert.ok(Buffer.byteLength(canonical)-Buffer.byteLength(compact)>12000,
+  'remove obsolete demo startup payload without raising performance budgets');
 assert.throws(()=>compactReleasedCustomerComments('let x=1;'),/contract shifted|marker count changed/);
 console.log('PASS: canonical customer comments retained; release copy compacted with valid syntax');

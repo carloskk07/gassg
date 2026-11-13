@@ -75,7 +75,7 @@ assert.match(stale,/Minhas entregas/);
 assert.match(stale,/merchant-driver-tools/,'offline/secondary tools do not grant stale actions');
 const livePage=cut('merchantLivePage');
 assert.match(livePage,/const orderEvidence=merchantOrderListEvidence\(rt\)/);
-assert.match(livePage,/orderEvidence\.fresh\?merchantDailyOverview\(rt,orders\):/);
+assert.match(livePage,/orderEvidence\.fresh\?\(preparing\?'':merchantDailyOverview\(rt,orders\)\):/);
 assert.match(livePage,/merchant-queue-unverified-intro/);
 assert.match(livePage,/orderEvidence\.fresh\?merchantDeliveryBoardView\(rt,orders\):''/);
 assert.match(livePage,/orderEvidence\.fresh\?merchantOrderQueueView\(orders\):merchantOrderListRecovery\(rt\)/);

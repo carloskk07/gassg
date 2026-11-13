@@ -221,6 +221,10 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       }
       const merchantPage=await openRole('merchant',owner.session,'/?merchant=1#merchant');
       await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
+      const preparation=JSON.parse(await merchantPage.evaluate("JSON.stringify({expected:merchantRuntime.orders.filter(o=>['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)).length,shown:Number(document.querySelector('.merchant-unified-delivery .merchant-unified-number')?.textContent),action:document.querySelector('.merchant-unified-delivery button')?.textContent})"));
+      assert.ok(preparation.expected>0,'real SQL fixture contains preparation/delivery work');
+      assert.equal(preparation.shown,preparation.expected,'preparation cannot appear as zero deliveries');
+      assert.match(preparation.action,/Preparar entrega|Acompanhar entrega/);
       // V1.963: real Chromium, real authenticated seller/SQL snapshot,
       // but ONLY a local unsaved DOM draft. No backend mutation or new order.
       await merchantPage.evaluate("(()=>{const field=document.getElementById('live-delivery-fee');for(let p=field?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;field?.focus();return true})()");
@@ -255,7 +259,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       assert.equal(merchantDraftUi.sectionOpen,true,'partner finance workspace stays expanded');
       assert.equal(merchantDraftUi.ordersUnchanged,true,'UI preservation never creates an order');
 
-      const buyerPage=await openRole('customer',buyer.session,'/#tracking');
+      const buyerPage=await openRole('customer',buyer.session,'/#tracking',{trackExisting:false});
       await buyerPage.wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer sees canonical order');
       const adminPage=await openRole('admin',adminActor.session,'/?admin=1#admin');
       await adminPage.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'Admin sees canonical order',55000);
@@ -359,6 +363,21 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         assert.equal(resumed,true,'the real home CTA must reopen order tracking');
         await ui.wait("route()==='tracking'&&liveRuntime.order?.orderId==="+JSON.stringify(created.id),
           'home CTA restores the exact original SQL order without a second checkout');
+        assert.equal(await ui.evaluate("liveRuntime.order?.status"),'OFFERED_TO_MERCHANT');
+        // Real local Auth/Edge/SQL: lose the browser's order reference and fail
+        // only the summary request. No API response, order or balance is forged.
+        await ui.send('Network.setBlockedURLs',{urls:[api+'/functions/v1/customer-summary*']});
+        await ui.evaluate("localStorage.removeItem('chama-live-order-id-v1');true");
+        await ui.send('Page.reload');
+        await ui.wait("liveRuntime.status==='ready'&&liveRuntime.customerSummaryState==='error'&&!liveRuntime.orderId",
+          'failed summary with no local order reference must remain unverified');
+        assert.equal(await ui.evaluate("document.querySelector('#app')?.innerText.includes('consulta dos seus pedidos ainda não foi confirmada')"),true);
+        assert.equal(await ui.evaluate("document.querySelector('#app')?.innerText.includes('Nenhum pedido em andamento encontrado')"),false);
+        await ui.send('Network.setBlockedURLs',{urls:[]});
+        const retried=await ui.evaluate("(()=>{const b=document.querySelector('button[onclick=\"customerRefreshOrders()\"]');if(!b||b.disabled)return false;b.click();return true})()");
+        assert.equal(retried,true,'recovery must be reachable through the displayed retry button');
+        await ui.wait("liveRuntime.customerSummaryState==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(created.id),
+          'manual retry recovers the same SQL order after losing local reference');
         assert.equal(await ui.evaluate("liveRuntime.order?.status"),'OFFERED_TO_MERCHANT');
         if(browserCheckoutBuyer){
           const shot=await ui.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
