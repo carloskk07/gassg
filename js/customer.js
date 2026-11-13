@@ -2139,7 +2139,7 @@ function liveTracking(){
         <button type="button" class="primary" onclick="liveGetOrder().catch(()=>toast('Não foi possível consultar o pedido agora.'))">Atualizar acompanhamento</button>
         </div></section>`);
     }
-    return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui um pedido real neste navegador.<br><br><button class="primary" onclick="quickProduct('P13')">Consultar ofertas</button></div></section>`);
+    return shell(`<section class="page tamao-tracking-empty"><span class="eyebrow">ACOMPANHAMENTO</span><h1 class="page-title">Seus pedidos</h1><div class="empty card" role="status"><strong>Você ainda não tem um pedido para acompanhar.</strong><p>Escolha os produtos e consulte preços e entrega pelo seu CEP antes de enviar uma solicitação.</p><div class="order-actions"><button type="button" class="primary" onclick="tamaoOpenAvailability()">Escolher produtos →</button><button type="button" class="secondary" onclick="go('learn')">Como funciona</button></div></div></section>`);
   }
 
   const copy=statusCopy[o.status]||[o.status,''];
@@ -2252,7 +2252,7 @@ function liveEventTimeline(o){
 function tracking(){
   if(globalThis.liveRequested?.())return liveTracking();
   const o=activeOrder();
-  if(!o)return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui pedidos. <br><br><button class="primary" onclick="quickProduct('P13')">Pedir gás</button></div></section>`);
+  if(!o)return shell(`<section class="page tamao-tracking-empty"><h1 class="page-title">Seus pedidos</h1><div class="empty card" role="status"><strong>Nenhum pedido em andamento.</strong><p>Você pode escolher gás, água ou outros produtos antes de consultar as ofertas.</p><div class="order-actions"><button type="button" class="primary" onclick="tamaoOpenAvailability()">Ver produtos →</button><button type="button" class="secondary" onclick="go('home')">Página inicial</button></div></div></section>`);
   const merchantVisible=Boolean(o.supplierSnapshot)&&['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED','AT_RISK'].includes(o.status);
   const copy=statusCopy[o.status]||[o.status,''];
   const live=isLiveOrder(o);
