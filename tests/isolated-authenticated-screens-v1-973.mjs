@@ -24,7 +24,10 @@ const DOM_PROBE=[
  "const unnamed=controls.filter(e=>!e.closest('label')&&!e.getAttribute('aria-label')&&!e.getAttribute('aria-labelledby')&&(!e.id||!labels.includes(e.id))).map(e=>e.id||e.tagName).slice(0,15);",
  "const buttons=[...(main?.querySelectorAll('button')||[])].filter(e=>e.getClientRects().length);",
  "const unbuttoned=buttons.filter(e=>!e.textContent.trim()&&!e.getAttribute('aria-label')&&!e.title).length;",
- 'return {viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,',
+ "const physical=screen.width||innerWidth;",
+ "const offenders=innerWidth>physical+1?[...document.querySelectorAll('body *')].filter(e=>e.getClientRects().length).map(e=>{",
+ "const r=e.getBoundingClientRect(),style=getComputedStyle(e);return {tag:e.tagName,id:e.id,cls:typeof e.className==='string'?e.className.slice(0,80):'',left:Math.round(r.left),right:Math.round(r.right),min:style.minWidth,whiteSpace:style.whiteSpace}}).filter(e=>e.right>physical+1&&e.left<physical).sort((a,b)=>b.right-a.right).slice(0,12):[];",
+ 'return {viewport:innerWidth,physical,offenders,scrollWidth:document.documentElement.scrollWidth,',
  'heading:headings[0]?.textContent?.trim()||"",headingCount:headings.length,',
  'dup:[...new Set(dup)].slice(0,12),unnamed,unbuttoned,',
  'adminStatus:typeof adminRuntime==="undefined"?null:adminRuntime.status,',
@@ -40,7 +43,7 @@ async function inspect(page,role,section,size){
  });
  const data=JSON.parse(await page.evaluate(DOM_PROBE));
  const label=role+'/'+section+'/'+size.width;
- assert.equal(data.viewport,size.width,label+' wrong viewport');
+ assert.equal(data.viewport,size.width,label+' wrong viewport; device '+data.physical+'px; scroll '+data.scrollWidth+'px; overflow sources '+JSON.stringify(data.offenders));
  assert.ok(data.heading.length>0,label+' missing visible H1');
  assert.equal(data.headingCount,1,label+' must have exactly one visible page H1');
  assert.equal(role==='admin'?data.adminStatus:data.merchantStatus,
