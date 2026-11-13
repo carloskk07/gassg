@@ -3440,10 +3440,10 @@ function adminReadinessStateLabel(state){
 }
 function adminOperationalStrip(d){
   const readiness=d.launchReadiness||{};
-  const mode=String(readiness.operationMode||(readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
-  const blockers=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers.length:0;
-  const warnings=Array.isArray(readiness.unresolvedWarnings)?readiness.unresolvedWarnings.length:0;
-  const incidents=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const mode=String(readiness.operationMode||(readiness.commerceEnabled===true?'LIVE':'UNKNOWN')).toUpperCase();
+  const blockers=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers.length:null;
+  const warnings=Array.isArray(readiness.unresolvedWarnings)?readiness.unresolvedWarnings.length:null;
+  const incidents=Array.isArray(d.incidents)?d.incidents.filter(x=>x.status!=='resolved').length:null;
   const billing=d.merchantBilling||{};
   const ingress=billing.paymentIngress||{};
   const e2e=adminBillingE2EState(d);
@@ -3451,17 +3451,18 @@ function adminOperationalStrip(d){
   const providerState=e2e.validated?'integração verificada':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
   // A live platform does not mean physical checkout is enabled. Show the
   // independent server-side commerce gate, never infer sales from mode=LIVE.
-  const platformLabel=adminOperationModeLabel(mode);
+  const platformLabel=mode==='UNKNOWN'?'PLATAFORMA NÃO VERIFICADA':adminOperationModeLabel(mode);
   const checkoutLabel=readiness.commerceEnabled===true?'COMÉRCIO HABILITADO':
     readiness.commerceEnabled===false?'PEDIDOS NÃO HABILITADOS':'COMÉRCIO NÃO VERIFICADO';
   const operationLabel=['LIVE','PILOT'].includes(mode)?checkoutLabel:platformLabel;
   const sync=adminDataSyncState(adminRuntime.lastSyncAt);
-  const tone=blockers?'danger':warnings||readiness.commerceEnabled!==true||!sync.fresh?'warning':'good';
+  const tone=blockers>0?'danger':
+    warnings>0||blockers===null||warnings===null||readiness.commerceEnabled!==true||!sync.fresh?'warning':'good';
   return '<div class="admin-ops-strip '+tone+(sync.fresh?'':' admin-ops-stale')+'">'+
     '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>'+esc(platformLabel)+'</small><strong>'+esc(operationLabel)+'</strong></div></div>'+
-    '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
+    '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers===null||warnings===null?'não verificada':blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
     '<div class="admin-ops-item"><small>PSP</small><strong>'+esc(provider)+' • '+esc(providerState)+'</strong></div>'+
-    '<div class="admin-ops-item"><small>Incidentes</small><strong>'+incidents+' aberto(s)</strong></div>'+
+    '<div class="admin-ops-item"><small>Incidentes</small><strong>'+(incidents===null?'não verificados':incidents+' aberto(s)')+'</strong></div>'+
     '<div class="admin-ops-item admin-ops-sync"><small>Dados do painel</small><strong>'+esc(sync.label)+'</strong></div>'+
   '</div>';
 }
