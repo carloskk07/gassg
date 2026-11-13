@@ -963,6 +963,24 @@ function shell(content){
   ${bottomNav(r)}
   </div>`;
 }
+// V1.985: close desktop disclosures on outside interaction or Escape, preserving native summary keyboard behavior.
+function tamaoPublicMenuDismiss(event){
+  const nav=typeof document!=='undefined'?document.querySelector('.tamao-public-nav'):null;
+  if(!nav)return;
+  const open=nav.querySelectorAll('.tamao-nav-more[open]');
+  if(!open.length)return;
+  if(event.type==='keydown'){
+    if(event.key!=='Escape'||!nav.contains(event.target))return;
+    open.forEach(panel=>{panel.open=false});
+    open[0].querySelector('summary')?.focus();
+  }else if(event.type==='pointerdown'&&!nav.contains(event.target)){
+    open.forEach(panel=>{panel.open=false});
+  }
+}
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+  document.addEventListener('pointerdown',tamaoPublicMenuDismiss);
+  document.addEventListener('keydown',tamaoPublicMenuDismiss);
+}
 function bottomNav(r){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
