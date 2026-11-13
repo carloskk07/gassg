@@ -26,7 +26,7 @@ const ctx=vm.createContext({
 });
 vm.runInContext(
  between(admin,'function adminRelativeTime(value){','function adminNavIcon(')+
- between(admin,'function adminOperationalStrip(d){','function adminExecutiveKpi(')+
+ between(admin,'function adminDataSyncState(value,now=Date.now()){','function adminExecutiveKpi(')+
  '\nthis.relative=adminRelativeTime;this.sync=adminDataSyncState;this.strip=adminOperationalStrip;',ctx);
 assert.equal(ctx.relative('not-a-time'),'horário não confirmado');
 assert.equal(ctx.relative('2030-01-01T00:00:00Z'),'horário não confirmado');
