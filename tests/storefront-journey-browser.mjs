@@ -55,12 +55,14 @@ async function geometry(label,width){
    headings:document.querySelectorAll('main h1').length,title:title?.textContent,
    firstProductTop:r?.top,firstProductBottom:r?.bottom,
    visibleProducts:cards.length,
+   helpPosition:document.querySelector('.tamao-help-shortcut')?getComputedStyle(document.querySelector('.tamao-help-shortcut')).position:null,
    brokenImages:[...document.images].filter(x=>x.complete&&x.naturalWidth===0).map(x=>x.getAttribute('src'))};
  })()`);
  assert.equal(info.width,width);
  assert.ok(info.documentWidth<=width+2,label+' '+width+': horizontal overflow '+info.documentWidth);
  assert.equal(info.headings,1,label+': one page heading');
  assert.equal(info.brokenImages.length,0,label+': broken image');
+ if(width<760&&info.helpPosition)assert.notEqual(info.helpPosition,'fixed','Mobile help cannot cover a form or action');
  results.push({label,...info});return info;
 }
 async function screenshot(name){

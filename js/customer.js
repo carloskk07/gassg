@@ -446,7 +446,7 @@ function homeFilterProducts(group){
   }
   const status=document.getElementById('home-discover-status');
   if(status)status.textContent=chosen==='all'
-    ?visible+' produtos em destaque. Selecione uma categoria para explorar outras opções.'
+    ?visible+' produtos em destaque.'
     :visible+' '+(visible===1?'produto nesta categoria.':'produtos nesta categoria.');
   return true;
 }
@@ -652,7 +652,7 @@ function home(){
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produtos <span aria-hidden="true">→</span> 2. Seu CEP <span aria-hidden="true">→</span> 3. Opções</span></div>
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
-      <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
+      <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
     </section>`:''}</div>
     ${couponBanner}
