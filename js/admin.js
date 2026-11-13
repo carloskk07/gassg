@@ -3383,7 +3383,8 @@ function adminSectionMeta(section=adminRuntime.section){
 function adminRelativeTime(value){
   if(!value)return 'sem sincronização';
   const ms=Date.now()-Date.parse(value);
-  if(!Number.isFinite(ms))return 'agora';
+  // Invalid or implausible future timestamps cannot certify fresh financial data.
+  if(!Number.isFinite(ms)||ms< -60000)return 'horário não confirmado';
   const abs=Math.max(0,ms);
   if(abs<45000)return 'agora';
   const min=Math.round(abs/60000);
@@ -3392,6 +3393,15 @@ function adminRelativeTime(value){
   if(hours<24)return 'há '+hours+' h';
   const days=Math.round(hours/24);
   return 'há '+days+' d';
+}
+// Read-only freshness indicator: never use a local clock as proof of payment,
+// order status or commercial authorization.
+function adminDataSyncState(value,now=Date.now()){
+ const time=Date.parse(String(value||''));
+ if(!Number.isFinite(time)||time>now+60000)return {fresh:false,label:'Sem sincronização confirmada'};
+ const age=Math.max(0,now-time);
+ const relative=adminRelativeTime(value);
+ return {fresh:age<=600000,label:age<=600000?relative:'Desatualizado • '+relative};
 }
 function adminNavIcon(id){
   const paths={
@@ -3445,13 +3455,14 @@ function adminOperationalStrip(d){
   const checkoutLabel=readiness.commerceEnabled===true?'COMÉRCIO HABILITADO':
     readiness.commerceEnabled===false?'PEDIDOS NÃO HABILITADOS':'COMÉRCIO NÃO VERIFICADO';
   const operationLabel=['LIVE','PILOT'].includes(mode)?checkoutLabel:platformLabel;
-  const tone=blockers?'danger':warnings||readiness.commerceEnabled!==true?'warning':'good';
-  return '<div class="admin-ops-strip '+tone+'">'+
+  const sync=adminDataSyncState(adminRuntime.lastSyncAt);
+  const tone=blockers?'danger':warnings||readiness.commerceEnabled!==true||!sync.fresh?'warning':'good';
+  return '<div class="admin-ops-strip '+tone+(sync.fresh?'':' admin-ops-stale')+'">'+
     '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>'+esc(platformLabel)+'</small><strong>'+esc(operationLabel)+'</strong></div></div>'+
     '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
     '<div class="admin-ops-item"><small>PSP</small><strong>'+esc(provider)+' • '+esc(providerState)+'</strong></div>'+
     '<div class="admin-ops-item"><small>Incidentes</small><strong>'+incidents+' aberto(s)</strong></div>'+
-    '<div class="admin-ops-item admin-ops-sync"><small>Última atualização</small><strong>'+esc(adminRelativeTime(adminRuntime.lastSyncAt))+'</strong></div>'+
+    '<div class="admin-ops-item admin-ops-sync"><small>Dados do painel</small><strong>'+esc(sync.label)+'</strong></div>'+
   '</div>';
 }
 function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
@@ -3801,7 +3812,8 @@ function adminTaskNavView(){
  return '<div class="admin-task-navigator">'+
  '<label for="admin-task-nav">Ir direto para uma tarefa</label>'+
  '<select id="admin-task-nav" class="input" aria-label="Escolher tarefa do painel" onchange="adminSelectTaskFromUi()">'+
- '<option value=""'+(current?'':' selected')+'>Escolha uma tarefa para continuar</option>'+
+ '<option value=""'+(current?'':' selected')+'>'+esc(adminRuntime.section==='overview'?'Visão geral — escolha sua tarefa':
+  'Outra tarefa em '+adminSectionMeta(adminRuntime.section).title)+'</option>'+
  options+
  '</select></div>';
 }
@@ -11335,12 +11347,13 @@ function adminPage(){
   }
 
   const d=adminRuntime.data;
-  if(typeof document!=='undefined'&&typeof document.title==='string')
-    document.title=adminSectionMeta(adminRuntime.section).title+' — TAMÃO Admin';
   const currentRole=adminCurrentRole();
   if(!adminRoleCanSection(adminRuntime.section,currentRole)){
     adminRuntime.section=adminFirstSectionForRole(currentRole);
   }
+  // The browser tab must never describe a section that the current role cannot access.
+  if(typeof document!=='undefined'&&typeof document.title==='string')
+    document.title=adminSectionMeta(adminRuntime.section).title+' — TAMÃO Admin';
   const pending=(d.applications||[]).filter(x=>x.status==='pending');
   const pilotPartners=d.pilotPartners||[];
   const active=(d.merchants||[]).filter(x=>x.status==='active');
@@ -11568,7 +11581,6 @@ function adminPage(){
   const showAdvanced=adminAdvancedNavOpen;
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
-      <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Painel de gestão</small></div></div>
       <div class="admin-nav-group">Dia a dia</div>
       ${adminMenuButton('overview','Início','⌂')}
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length+pendingHelpReports))}
