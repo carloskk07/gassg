@@ -61,7 +61,9 @@ function tamaoAdsDraw(target,slot){
    esc(slot.city)+'/'+esc(slot.state)+'</p>'+
   '<a href="'+esc(url)+'" target="_blank" rel="'+
      (institutional?'nofollow noopener noreferrer':'nofollow noopener noreferrer sponsored')+'" '+
-   'referrerpolicy="no-referrer">'+(institutional?'Conhecer o TAMÃO':'Conhecer o anunciante')+' ↗</a>'+
+   'referrerpolicy="no-referrer" class="tamao-ad-cta">'+
+   (institutional?'Conhecer o TAMÃO':'Conhecer o anunciante')+
+   '<span aria-hidden="true">↗</span></a>'+
   '</article>';
  const creative=host.querySelector('article');
  if(!creative||typeof IntersectionObserver!=='function')return;
