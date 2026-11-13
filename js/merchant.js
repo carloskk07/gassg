@@ -2373,9 +2373,15 @@ function merchantWorkspaceJump(area){
   const panel=document.getElementById(id);
   if(!panel)return false;
   if(panel.tagName==='DETAILS')panel.open=true;
-  const focusTarget=panel.querySelector('summary')||panel.querySelector('h2');
-  panel.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-  if(focusTarget)focusTarget.focus({preventScroll:true});
+  // Focus the destination, not just the scroll position. This also works in
+  // WebViews without matchMedia and respects the user's reduced-motion choice.
+  const focusTarget=panel.querySelector('summary')||panel.querySelector('h2')||panel;
+  if(focusTarget!==panel&&focusTarget.tagName!=='SUMMARY'&&!focusTarget.hasAttribute('tabindex'))
+    focusTarget.setAttribute('tabindex','-1');
+  const reducedMotion=typeof globalThis.matchMedia==='function'
+    ?globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches:true;
+  panel.scrollIntoView?.({block:'start',behavior:reducedMotion?'auto':'smooth'});
+  focusTarget.focus?.({preventScroll:true});
   return true;
 }
 // V1.348 — read-only guide to the next relevant workspace, never a permission grant.
@@ -2551,7 +2557,6 @@ function merchantLivePage(){
     <header class="merchant-workspace-header"><div class="merchant-workspace-identity">
       <div class="merchant-workspace-identity-meta"><span class="tiny">SUA REVENDA • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</span><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'● OFFLINE'}</span></div>
       <h1 class="page-title">${esc(m.name)}</h1>
-      <p class="merchant-workspace-welcome">Tudo o que importa para atender bem, organizado para o seu dia.</p>
       <div class="merchant-workspace-readonly" aria-label="Situação da lista de pedidos"><span>${orderEvidence.fresh?'Pedidos consultados recentemente':'Lista de pedidos a confirmar'}</span></div>
     </div>${orientationMarkup}</header>
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
