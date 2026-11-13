@@ -64,6 +64,8 @@ assert.match(src.boot,/if\(!document\.querySelector\('link\[href\*="css\/discove
 assert.match(src.core,/>Painel administrativo<\/button>/);
 assert.match(src.admin,/document\.title=adminSectionMeta\(adminRuntime\.section\)\.title\+' — TAMÃO Admin'/);
 assert.match(src.merchant,/document\.title=\(String\(m\.name/);
+assert.match(src.admin,/document\.title='Acesso ao Admin — TAMÃO'/);
+assert.match(src.merchant,/document\.title='Painel da revenda — TAMÃO Parceiro'/);
 assert.match(src.admin,/Consulte pagamentos, cobranças, reembolsos/);
 assert.match(src.admin,/Veja cadastros, documentos e o que falta/);
 assert.match(src.e2e,/for\(const routeName of \['learn','earn','merchants','club','sponsors','order','tracking','contact','privacy','terms'\]\)/);
