@@ -22,6 +22,7 @@ const admin={from(table){
   return {data:requested&&requested!==charge?.id?null:charge&&{...charge},error:null};
  }}}};
 const context=vm.createContext({req:{},origin:'https://admin.tamao.com.br',DomainError,
+ readBillingEntitlement:async()=>({entitlementApplied:paid,requestStatus:paid?'approved':'pending',requestKind:'package_purchase',reviewRequired:false}),
  authenticatedUser:async()=>({id:actor}),readJsonBody:async()=>body,createClient:()=>admin,
  SUPABASE_URL:'https://isolated.invalid',SECRET_KEY:'local-only-placeholder',enforceApiQuota:async()=>{},
  UUID_RE:/^[0-9a-f-]{36}$/,provider:'mercadopago',mercadoPagoAccessToken:'local-only-placeholder',wooviAppId:'',mercadoPagoConfigured:()=>true,

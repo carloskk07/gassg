@@ -1,3 +1,15 @@
+## 14/11/2026 — Pix Essencial recebido: aplicação automática do crédito
+
+Continuidade da PR #992 (`main=2b53bbb39ffed1047f47924104a1f4111adb8785`). O titular pagou o pacote Essencial de R$ 19,90 pelo Admin. A leitura real mostrou cobrança `completed` e evento `matched_exact`, mas solicitação `pending`, carteira Flex com saldo zero e nenhum lançamento do pacote. A recuperação automática também encerrava a cobrança por ler apenas `completed`. A homologação revelou uma lacuna real: o fluxo antigo ainda exigia aprovação administrativa posterior ao reconhecimento do Pix.
+
+A correção mantém uma única implementação de concessão: o corpo do resolvedor financeiro existente passa a função privada, usada pelo mesmo wrapper administrativo e por uma capacidade exclusiva do servidor para evento Mercado Pago verificado. Associação exata entre evento, cobrança, solicitação, titular financeiro, moeda, valor, referência e ausência de reversão/duplicação é obrigatória. Automação tem proveniência própria, sem atribuir aprovação a pessoa: flags explícitos, registro de auditoria vinculado e resolução sem usuário humano. Pacotes e pagamentos das tarifas D+1 reutilizam os ramos originais; recuperação de estorno permanece em revisão específica. A migração não fabrica recebimentos nem credita dados históricos.
+
+Webhook, consulta do Pix e recuperação usam a mesma aplicação. Uma cobrança paga só encerra a recuperação depois de conferir solicitação aprovada, evento aplicado e lançamento único do crédito (ou fatura original quitada). O Admin distingue recebimento de liberação e mantém consulta quando o crédito está pendente. Os testes incluem os quatro planos, repetição, valor divergente, sandbox, estorno antes da aplicação e fluxo de tarifa com pedido no PostgreSQL descartável; nunca executar as fixtures sintéticas na produção.
+
+Em validação: conferir PR e checks antes da publicação. Após migração e deploy, reconsultar a ordem REAL existente pelo motor canônico e comprovar um único lançamento de R$ 19,90, plano Essencial e auditoria automática. Não emitir outro Pix para substituir o pagamento. Isso valida recebimento/concessão deste pacote, não consumo real de tarifa, estornos bancários nem todos os sete módulos.
+
+---
+
 ## 13/11/2026 — Homologação por modalidade e carteira real da própria revenda no Admin
 
 Continuidade de `main=6c8167bbc0b292a4b239caea8c773e7607fa9d08` (PRs #989 e #990). O Pix existente de R$ 8,90 está pago, com R$ 8,81 líquidos registrados, uma auditoria imutável e exatamente três cupons; reprocessamento retornou zero faturas pendentes, sem duplicação. Recuperação a cada dois minutos e conciliação líquida agendada estão ativas. A compra não deve ser repetida para comprovar novamente o recebimento.

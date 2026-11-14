@@ -6772,7 +6772,8 @@ async function adminFinanceRealRefresh(){
    state.message=paid?'Pix pago e registrado no TAMÃO. Confira os benefícios na lista abaixo.':
     recoveryError||'Conferência concluída, sem criar cobrança.';
   }else state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
-  if(key==='merchants'&&['preparing','active'].includes(data.status?.charge?.status))
+  if(key==='merchants'&&(['preparing','active'].includes(data.status?.charge?.status)||
+     data.status?.charge?.status==='completed'&&data.status.entitlementApplied!==true))
    adminFinanceRealMerchantWatch(state,data.billing.selectedMerchantId);
   else adminFinanceRealMerchantStopWatch(state);
  }catch(e){
@@ -6913,8 +6914,14 @@ async function adminFinanceRealAction(operation,choice=''){
     const updated=await adminInvoke({action:'finance-owned-billing-read',merchantId:body.merchantId});
     if(!adminFinanceOwnedBillingValid(updated))throw Error('Pagamento recebido; o saldo da revenda ainda precisa ser consultado.');
     if(actor!==String(adminRuntime.session?.user?.id||''))return;
-    state.data.billing=updated;adminFinanceRealClearPayment();adminFinanceRealMerchantStopWatch(state);
-    state.message='Pagamento confirmado e saldo da conta consultado. A próxima validação é o consumo dos créditos em pedido legítimo.';
+    state.data.billing=updated;adminFinanceRealClearPayment();
+    if(result.entitlementApplied===true){
+     adminFinanceRealMerchantStopWatch(state);
+     state.message='Pagamento confirmado e créditos liberados na carteira. A próxima validação é o consumo em pedido legítimo.';
+    }else{
+     adminFinanceRealMerchantWatch(state,body.merchantId);
+     state.message='Pagamento reconhecido; os créditos ainda estão em processamento. A consulta automática acompanhará esta mesma cobrança.';
+    }
    }else{
     state.message='Fatura original disponível. A confirmação e o crédito são automáticos; não gere outro Pix.';
     if(['preparing','active'].includes(result.charge?.status))adminFinanceRealMerchantWatch(state,body.merchantId);
@@ -7039,7 +7046,10 @@ function adminFinanceRealPanel(key){
     ' · Reservado: '+money(billing.account?.credit_reserved_cents)+'</p>';
    if(billing.accounts.length>1)html+='<label>Conta da revenda<select class="input" onchange="adminFinanceOwnMerchantChoose(this.value)"'+busy+'>'+
     billing.accounts.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===billing.selectedMerchantId?' selected':'')+'>'+esc(m.name)+'</option>').join('')+'</select></label>';
-   if(charge?.status==='completed')html+='<p class="notice" role="status"><strong>Pagamento do pacote confirmado.</strong> O saldo acima foi consultado após a confirmação. Próxima etapa: usar os créditos em uma operação legítima.</p>';
+   if(charge?.status==='completed'&&known.status.entitlementApplied===true)
+    html+='<p class="notice" role="status"><strong>Pagamento do pacote confirmado e créditos liberados.</strong> O saldo acima foi consultado após o lançamento na carteira. Próxima etapa: usar os créditos em uma operação legítima.</p>';
+   else if(charge?.status==='completed')html+='<p class="notice" role="status"><strong>Pagamento reconhecido; créditos em processamento.</strong> A consulta automática acompanha o lançamento na carteira. Use o pagamento existente.</p>'+
+    action('Consultar liberação dos créditos','adminFinanceRealAction(\'check\')');
    else if(charge&&!['expired','cancelled'].includes(charge.status))
     html+='<p class="notice" role="status">Existe uma cobrança original em verificação. A consulta automática acompanha o mesmo Pix, sem emitir outro.</p>'+
      action('Consultar Pix original','adminFinanceRealAction(\'check\')');

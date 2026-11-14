@@ -3,7 +3,7 @@ import {PAYMENT_SOURCES,reconcilePaymentJob,uniqueProviderOrder} from '../supaba
 const ID='60000000-0000-4000-8000-000000000001';
 const TOKEN='APP_USR-'+('x'.repeat(32));
 const money=value=>Math.round(Number(value)*100);
-const base={id:ID,campaign_id:ID,merchant_id:ID,owner_user_id:ID,
+const base={id:ID,campaign_id:ID,merchant_id:ID,owner_user_id:ID,payment_request_id:ID,
  provider:'mercadopago',amount_cents:890,sale_price_cents:890,
  external_reference:ID,correlation_id:ID,provider_order_id:'ORD123456789',
  provider_charge_id:'ORD123456789',status:'active',created_at:'2026-11-10T15:00:00Z'};
@@ -16,9 +16,19 @@ function fixture(kind){
   return reply(response===200?{ok:true,paymentApproved:commit}:{error:'PROVIDER_UNAVAILABLE'},response);
  };
  const deps={
-  admin:{from:table=>({select(){return this},eq(key,id){
-   assert.equal(table,PAYMENT_SOURCES[kind].table);assert.equal(id,ID);return this;
-  },maybeSingle:async()=>({data:{...row},error:null})})},
+  admin:{from:table=>({select(){return this},eq(){return this},limit(){return this},
+   maybeSingle:async()=>{
+    if(table===PAYMENT_SOURCES[kind].table)return {data:{...row},error:null};
+    if(table==='merchant_billing_payment_requests')return {data:{id:ID,merchant_id:ID,
+     request_kind:'package_purchase',plan_key:'credit_test',status:commit?'approved':'pending',
+     expected_amount_cents:890,credit_grant_cents_snapshot:890,received_amount_cents:890,
+     approval_source:'provider_event',provider_payment_event_id:ID,reconciliation_key:'verified-order'},error:null};
+    if(table==='merchant_billing_payment_events')return {data:{id:ID,status:'applied',payment_request_id:ID,
+     merchant_id:ID,amount_cents:890,reconciliation_key:'verified-order'},error:null};
+    throw Error('unexpected table '+table);
+   },then(resolve){assert.equal(table,'merchant_fee_credit_ledger');
+    return Promise.resolve({data:[{merchant_id:ID,plan_key:'credit_test',amount_cents:890}],count:1,error:null}).then(resolve);
+   }})},
   platformToken:TOKEN,encryptionKey:'private-test',moneyToCents:money,
   merchantToken:async id=>{assert.equal(id,ID);return TOKEN},
   adsCredentials:async()=>({token:TOKEN,sellerId:'123456'}),
@@ -79,6 +89,13 @@ const order={id:'ORD123456789',external_reference:ID,total_amount:'8.90',currenc
  s.deps.routes.handlePlatformBillingOrder=async()=>reply({pending:true,status:'processing'});
  assert.equal((await reconcilePaymentJob(s.job,s.deps)).outcome,'pending',
   'an earlier paid record cannot turn an incomplete current provider check into confirmation');
+}
+{
+ const s=fixture('billing');s.noCommit();s.row.status='completed';
+ s.deps.routes.handlePlatformBillingOrder=async()=>reply({ok:true});
+ const result=await reconcilePaymentJob(s.job,s.deps);
+ assert.equal(result.outcome,'pending');assert.equal(result.reason,'BILLING_ENTITLEMENT_NOT_APPLIED',
+  'a provider receipt cannot close recovery while the real request and credit remain pending');
 }
 assert.equal(uniqueProviderOrder({data:[],paging:{total:0}},ID,890,money),null);
 assert.equal(uniqueProviderOrder({data:[order],paging:{total:1}},ID,890,money),order.id);

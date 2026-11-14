@@ -49,6 +49,10 @@ const admin={
     };
   },
   rpc:async (fn,args)=>{
+    if(fn==='apply_verified_merchant_billing_payment'){
+      assert.equal(args.p_charge_id,charge.id);assert.equal(args.p_event_id,charge.payment_request_id);
+      return {data:{applied:true},error:null};
+    }
     assert.equal(fn,'merchant_billing_provider_charge_record_error');
     assert.equal(args.p_charge_id,charge.id);
     calls.errors.push(args.p_error_code);
@@ -73,8 +77,9 @@ const ctx=vm.createContext({
   safeOccurredAt:()=>new Date().toISOString(),
   ingestPlatformPayment:async (_admin,order,c,at)=>{
     calls.payment.push({order,c,at});
-    return {data:{status:'matched_exact'},reconciliationKey:'mp-order:'+orderId};
+    return {data:{status:'matched_exact',eventId:charge.payment_request_id},reconciliationKey:'mp-order:'+orderId};
   },
+  readBillingEntitlement:async()=>({entitlementApplied:true,requestStatus:'approved',requestKind:'package_purchase',reviewRequired:false}),
   ingestPlatformRefunds:async (_admin,order,key,at)=>{
     calls.refund.push({order,key,at});
     return (order.transactions.refunds??[]).map(r=>({refundId:r.id}));

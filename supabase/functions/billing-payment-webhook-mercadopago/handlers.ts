@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { sha256Hex as billingEvidenceHash } from "../_shared/domain.js";
 import {mobilityFeeEvidenceHash} from "../_shared/mobility-fee-evidence.js";
+import {readBillingEntitlement} from "../_shared/merchant-billing-entitlement.js";
 import {
   decryptPaymentSecret,
   paymentEncryptionConfigured,
@@ -655,6 +656,11 @@ async function handlePlatformBillingOrder(
       return json({error:"MERCADOPAGO_PAYMENT_NOT_ACCREDITED"},409);
     }
     const original=await ingestPlatformPayment(admin,order,charge,occurredAt);
+    const application=await admin.rpc('apply_verified_merchant_billing_payment',{
+      p_event_id:original.data?.eventId,p_charge_id:charge.id
+    });
+    if(application.error)throw application.error;
+    const entitlement=await readBillingEntitlement(admin,charge);
     return json({
       ok:true,
       route:"platform_billing",
@@ -663,6 +669,8 @@ async function handlePlatformBillingOrder(
       status,
       statusDetail,
       paymentResult:original.data,
+      ...entitlement,
+      reviewRequired:application.data?.reviewRequired===true||entitlement.reviewRequired,
       refundsProcessed:0,
       tamaoReceivesPlatformBilling:true
     },200);

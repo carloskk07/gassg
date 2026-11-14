@@ -4,7 +4,7 @@ import vm from 'node:vm';
 const src=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
 const a=src.indexOf('function adminFinanceRealState(){'),b=src.indexOf('function adminFinanceHomologationView(d){',a);
 const merchant='22000000-0000-4000-8000-000000000002',actor='11000000-0000-4000-8000-000000000001';
-let selected='merchants',checked=false,charge=null,creates=0,reads=0,credit=0;
+let selected='merchants',checked=false,charge=null,creates=0,reads=0,credit=0,entitlementApplied=false;
 const runtime={status:'ready',section:'finance',financeWorkspace:'homologation',session:{user:{id:actor}}};
 const billing=()=>({source:'admin_finance_owned_billing_v1',readOnly:true,paymentsCreated:0,
  accounts:[{id:merchant,name:'Conta própria',status:'pending'}],selectedMerchantId:merchant,
@@ -26,7 +26,7 @@ const context=vm.createContext({adminRuntime:runtime,adminReady:()=>runtime.stat
    return {ok:true,json:async()=>({ok:true,charge})};
   }
   assert.equal(body.action,'status');reads++;
-  return {ok:true,json:async()=>({source:'merchant_billing_pix_status_v1',ok:true,newChargesCreated:0,charge})};
+  return {ok:true,json:async()=>({source:'merchant_billing_pix_status_v1',ok:true,newChargesCreated:0,charge,entitlementApplied})};
  },document:{getElementById:()=>({checked}),visibilityState:'visible'},confirm:()=>true,
  render:()=>{},setTimeout:()=>1,URL,Date,Number,String,Object,Array,Promise,Error,
  crypto:{randomUUID:()=> '44000000-0000-4000-8000-000000000004'},esc:x=>String(x),toast:()=>{}});
@@ -39,7 +39,11 @@ checked=true;await context.native.action('purchase','foreign_plan');assert.equal
 await context.native.action('purchase','credit_01990');assert.equal(creates,1);
 await context.native.action('purchase','credit_01990');assert.equal(creates,1,'same active payment cannot be duplicated');
 assert.match(context.native.panel('merchants'),/Consultar Pix original/);
-charge.status='completed';credit=1990;
+charge.status='completed';credit=0;
+await context.native.action('check');assert.match(context.native.panel('merchants'),/créditos em processamento/);
+assert.doesNotMatch(context.native.panel('merchants'),/créditos liberados/);
+assert(context.native.state().merchantWatch,'paid receipt with no grant must keep polling');
+credit=1990;entitlementApplied=true;
 await context.native.action('check');assert.equal(creates,1);assert.equal(context.native.state().data.billing.account.credit_balance_cents,1990);
 assert.match(context.native.panel('merchants'),/Pagamento do pacote confirmado/);
 assert.doesNotMatch(context.native.panel('merchants'),/Gerar Pix do pacote escolhido/);
