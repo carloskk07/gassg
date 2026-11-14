@@ -248,6 +248,11 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -Fq '[functions.coupon-net-auto]' supabase/config.toml || { echo "$f missing explicit JWT-off cron config"; exit 1; }
       ! grep -q 'mercadoPagoFetch("/v1/orders",{.*method:"POST"' "$f" || { echo "$f must not create a payment"; exit 1; }
       ;;
+    supabase/functions/ads-independent-checkout/index.ts)
+      grep -q 'sessionUser(req)' "$f" || { echo "$f missing authenticated checkout entry"; exit 1; }
+      grep -q 'auth.getUser' "${f%index.ts}handlers.ts" || { echo "$f missing explicit JWT user validation"; exit 1; }
+      grep -q 'verifySeller(token,sellerId)' "$f" || { echo "$f missing seller verification"; exit 1; }
+      ;;
     *)
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
       ;;
