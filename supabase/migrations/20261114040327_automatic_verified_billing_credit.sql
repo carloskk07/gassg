@@ -237,6 +237,18 @@ begin
       raise exception 'STATEMENT_TERMS_CHANGED' using errcode='40001';
     end if;
 
+    -- Bind approval before marking the statement paid, so its existing
+    -- cleanup trigger cannot cancel the very provider-backed request being applied.
+    update public.merchant_billing_payment_requests
+    set status='approved',
+        resolved_by=p_actor_user_id,
+        resolved_at=clock_timestamp(),
+        admin_reference=v_reference,
+        updated_at=clock_timestamp()
+    where id=v_request.id
+    returning * into v_request;
+
+
     update public.merchant_daily_statements
     set status='paid',
         paid_at=clock_timestamp(),
@@ -255,15 +267,6 @@ begin
         updated_at=clock_timestamp()
     where daily_statement_id=v_statement.id
       and status='open';
-
-    update public.merchant_billing_payment_requests
-    set status='approved',
-        resolved_by=p_actor_user_id,
-        resolved_at=clock_timestamp(),
-        admin_reference=v_reference,
-        updated_at=clock_timestamp()
-    where id=v_request.id
-    returning * into v_request;
 
   elsif v_request.request_kind='refund_recovery' then
     select rr.*
