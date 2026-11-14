@@ -10,6 +10,16 @@ Testes executam a sequência inteira do controlador, aceite obrigatório, dono a
 
 ---
 
+## 14/11/2026 — Publicidade reutiliza a conta Mercado Pago já conectada (em validação)
+
+Continuidade de `main=0d9a1f48c6157f4bedf04a3d5361dffb3cbb1255` (PR #995). A campanha real do titular está aprovada, mas nenhum checkout foi reservado: o preflight exigia cinco variáveis exclusivas de Ads, todas ausentes, apesar da conexão Mercado Pago da plataforma já ter recebido os cupons e o plano Essencial. Corrigir esse diagnóstico significa reutilizar a conexão existente, sem pedir cadastro duplicado nem outro pagamento dos benefícios já creditados.
+
+Um seletor privado passa a ser usado pelo preflight, autorização da campanha, criação/recuperação do checkout, webhook assinado, conciliação e reembolso. Sem conexão dedicada de Ads, utiliza token e segredo de assinatura da plataforma; o ID recebedor vem exclusivamente do GET autenticado `/users/me`, antes de qualquer reserva financeira. Uma conexão dedicada parcial não recebe fallback e uma desativação explícita continua prevalecendo. A assinatura e a janela temporal são verificadas antes de consultar qualquer recurso no provedor; pagamento real deve coincidir com referência, conta, valor e moeda. O fallback não ativa os antigos contratos Ads de revendas. Nenhum segredo, ID da conta ou payload financeiro sai no diagnóstico.
+
+A inspeção privada da rotina existente, autenticada pelo segredo próprio do cron, permite conferir conta e acesso de leitura à API de preferências sem reservar cobrança, tocar na fila ou autorizar campanha. Vendas públicas continuam desligadas; o teste depende da campanha própria aprovada, consentimento e autorização restrita preservados. Os testes executam o webhook real com assinatura válida/inválida, recebedor divergente e sandbox, além de falhas do provedor, configuração parcial e desativações. Conferir checks, versão publicada e inspeção real antes de declarar conexão pronta; pagamento, recebimento e estorno de publicidade continuam sem prova real até serem realizados.
+
+---
+
 ## 14/11/2026 — Continuidade das homologações: reconhecer o que já foi pago
 
 Base `main=e7346b0397fddc2f7628329338a29eff99084d3d` (PR #993). Leitura atual da produção confirma: cupons R$ 8,90 pagos, R$ 8,81 líquidos e três emissões; Essencial R$ 19,90 recebido, um crédito automático e R$ 19,90 disponíveis. Não houve uso de cupom, consumo real de tarifa, estorno, publicidade paga, recarga de motorista ou pagamento online de pedido. Anúncios profissionais não possuem regra ativa de cobrança.

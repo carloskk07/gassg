@@ -35,8 +35,7 @@ Deno.serve(async(req:Request)=>{
    return json({error:"FIXED_FEE_CONSENT_REQUIRED"},400,origin);
   const user=await sessionUser(req);
   if(!user)return json({error:"VERIFIED_EMAIL_REQUIRED"},401,origin);
-  const {token,sellerId}=creds(); // Fail closed BEFORE creating any reservation.
-  await verifySeller(token,sellerId); // Prevent charging against the wrong seller account.
+  const {token,sellerId}=await creds(); // Verify the recipient BEFORE any reservation.
   const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
   await enforceApiQuota(admin,{userId:user.id,
    actionName:body.action==="purchase"?"ads-independent-fixed-fee-purchase":"ads-independent-payment-reconcile",

@@ -63,6 +63,8 @@ jobs:
         run: node tests/admin-finance-next-homologation.mjs
       - name: Finance approves and authorizes the exact owned ad before one recoverable checkout
         run: node tests/admin-finance-ad-checkout.mjs
+      - name: Ads reuse the verified platform account with signed webhook and recipient isolation
+        run: node tests/ads-platform-credentials.mjs
       - name: Existing merchant billing charge status and ownership boundary
         run: node tests/merchant-billing-status.mjs
       - name: Merchant package checkout inside Finance Admin

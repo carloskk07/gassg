@@ -4,9 +4,10 @@ import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
 import {mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents} from "../_shared/mercadopago.js";
 import {verifiedIndependentAdsPreference} from "../_shared/ads-independent-preference.mjs";
 import {selectIndependentAdsPayment} from "../_shared/ads-independent-payment-search.mjs";
+import {independentAdsCredentialConfig,verifyIndependentAdsSeller} from "../_shared/ads-platform-credentials.mjs";
 
 // V1.886: fixed-duration sponsored slot purchase. No browser view is billable.
-// Reuses ONLY platform-owned Ads credentials, NEVER merchant/payment OAuth.
+// Reuses the verified platform account, or a complete dedicated Ads connection.
 const URL_BASE=Deno.env.get("SUPABASE_URL")??"";
 const PUB=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}").default
  ??Deno.env.get("SUPABASE_ANON_KEY")??"";
@@ -24,16 +25,16 @@ function json(body:unknown,status=200,origin:string|null=null){
  return new Response(JSON.stringify(body),{status,headers:{...cors(origin),
   "Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
 }
-function creds(){
- const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")??"").trim();
- const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")??"").trim();
- if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
-   Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
-   !/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId)||
-   String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").length<16)
+async function creds(){
+ const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
+ if(!config.checkoutConfigured||!config.webhookConfigured||
+   !config.tokenConfigured||!config.sellerConfigured||!config.signedWebhookConfigured)
   throw new DomainError("ADS_PAYMENT_NOT_CONFIGURED",
     "O checkout seguro ainda não está habilitado. Nenhuma cobrança foi criada.",503);
- return {token,sellerId};
+ try{return await verifyIndependentAdsSeller(config)}catch{
+  throw new DomainError("ADS_SELLER_UNVERIFIED",
+   "A identidade da conta recebedora ainda não foi confirmada. Não cobramos.",503);
+ }
 }
 async function verifySeller(token:string,sellerId:string){
  const controller=new AbortController();

@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {mercadoPagoFetch,readMercadoPagoJson,moneyToCents} from "../_shared/mercadopago.js";
 import {sha256Hex} from "../_shared/domain.js";
+import {independentAdsCredentialConfig,verifyIndependentAdsSeller,independentAdsProviderReadiness}
+ from "../_shared/ads-platform-credentials.mjs";
 import {decryptPaymentSecret,paymentEncryptionConfigured} from "../_shared/payment-secrets.js";
 import {handlePlatformBillingOrder,handlePaidCouponOrder,handleMobilityFeeOrder,
  handleMerchantSaleOrder} from "../billing-payment-webhook-mercadopago/handlers.ts";
@@ -21,6 +23,22 @@ Deno.serve(async(req:Request)=>{
  const auth=await admin.rpc('platform_payment_reconciliation_authorize',{p_token_sha:await sha256Hex(token)});
  if(auth.error||auth.data!==true)return json({ok:false},403);
  try{
+  // Private read-only deployment check; no queue claim, permit or charge.
+  if(new URL(req.url).searchParams.get('inspect')==='advertising'){
+   const readiness=await independentAdsProviderReadiness((key:string)=>Deno.env.get(key));
+   let checkoutApiReachable=false;
+   if(readiness.sellerVerified){
+    const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
+    const response=await mercadoPagoFetch('/checkout/preferences/search?limit=1',{
+     accessToken:config.token,method:'GET',timeoutMs:8000});
+    if(response.ok){
+     const details=await readMercadoPagoJson(response);
+     checkoutApiReachable=Array.isArray(details?.elements);
+    }
+   }
+   return json({ok:true,source:'ads_platform_connection_readiness',readOnly:true,
+    ...readiness,checkoutApiReachable,newChargesCreated:0});
+  }
   const jobs=await admin.rpc('platform_payment_reconciliation_claim',{p_limit:8});
   if(jobs.error||!Array.isArray(jobs.data)||jobs.data.length>8)throw Error('QUEUE_UNAVAILABLE');
   const encryptionKey=String(Deno.env.get('MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY')||'').trim();
@@ -29,10 +47,7 @@ Deno.serve(async(req:Request)=>{
    // Sales may be paused while an already-created payment still needs receipt
    // reconciliation. Never enable checkout or create a preference here.
    adsCredentials:async()=>{
-    const token=String(Deno.env.get('ADS_MP_ACCESS_TOKEN')||'').trim();
-    const sellerId=String(Deno.env.get('ADS_MP_SELLER_ID')||'').trim();
-    if(!/^APP_USR-\S{20,}$/.test(token)||!/^\d{4,20}$/.test(sellerId))throw Error('ADS_CREDENTIAL_UNAVAILABLE');
-    return {token,sellerId};
+    return await verifyIndependentAdsSeller(independentAdsCredentialConfig((key:string)=>Deno.env.get(key)));
    },
    routes:{handlePlatformBillingOrder,handlePaidCouponOrder,handleMobilityFeeOrder,
     handleMerchantSaleOrder,verifySeller,recoverReservedPreference,reconcileProviderPayment},

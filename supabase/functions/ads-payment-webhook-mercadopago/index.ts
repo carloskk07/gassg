@@ -4,6 +4,7 @@ import {
   mercadoPagoFetch,readMercadoPagoJson,moneyToCents,
   verifyMercadoPagoWebhook
 } from "../_shared/mercadopago.js";
+import {independentAdsCredentialConfig,verifyIndependentAdsSeller} from "../_shared/ads-platform-credentials.mjs";
 
 // TAMÃO V1.316: signed, provider-verified Ads event INBOX ONLY.
 // This endpoint never writes into payment-approval ledgers, creates a charge,
@@ -32,13 +33,10 @@ async function digest(value:string){
 }
 Deno.serve(async(req:Request)=>{
  if(req.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405);
- const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
- const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
- const signatureSecret=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
- if(Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
-   !/^APP_USR-[^\s]{20,}$/.test(token)||
-   !/^[0-9]{4,20}$/.test(sellerId)||
-   signatureSecret.length<16||!SERVICE_KEY||!SUPABASE_URL)
+ const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
+ const signatureSecret=config.signatureSecret;
+ if(!config.webhookConfigured||!config.tokenConfigured||!config.sellerConfigured||
+   !config.signedWebhookConfigured||!SERVICE_KEY||!SUPABASE_URL)
   return json({error:"ADS_WEBHOOK_NOT_CONFIGURED"},503);
  const length=Number(req.headers.get("content-length")||0);
  if(!Number.isFinite(length)||length>MAX_BODY)return json({error:"PAYLOAD_TOO_LARGE"},413);
@@ -69,6 +67,8 @@ Deno.serve(async(req:Request)=>{
  if(topic!=="payment"&&!action.startsWith("payment."))
   return json({ok:true,recorded:false,reason:"not_payment"});
  try{
+  // Signature authentication precedes every provider request.
+  const {token,sellerId}=await verifyIndependentAdsSeller(config);
   const response=await mercadoPagoFetch("/v1/payments/"+paymentId,{accessToken:token});
   if(!response.ok)return json({error:"PROVIDER_LOOKUP_UNAVAILABLE"},503);
   const payment=await readMercadoPagoJson(response);
@@ -89,6 +89,8 @@ Deno.serve(async(req:Request)=>{
     auth:{persistSession:false,autoRefreshToken:false}
   });
   const independent=/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference);
+  if(!independent&&config.mode!=="dedicated")
+    return json({ok:true,recorded:false,reason:"legacy_ads_disabled"});
   if(independent){
     // For independent fixed-price campaigns, trust only a LIVE payment obtained
     // via provider GET, with exact reference, amount, collector and currency.
