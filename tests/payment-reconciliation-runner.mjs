@@ -24,6 +24,10 @@ function fixture(kind){
   adsCredentials:async()=>({token:TOKEN,sellerId:'123456'}),
   providerGet:async(path,token)=>{
    assert.equal(token,TOKEN);assert.match(path,/^\/v1\/orders\?/);
+   const query=new URL('https://provider.invalid'+path).searchParams;
+   assert.equal(query.get('page'),'1');assert.equal(query.get('page_size'),'10');
+   assert.equal(query.has('limit'),false,'Orders uses page/page_size');
+   assert(Date.parse(query.get('end_date'))-Date.parse(query.get('begin_date'))<=30*86400000);
    calls.push({name:'providerGet',path});
    return {paging:{total:1},data:[{id:'ORD123456789',external_reference:ID,total_amount:'8.90',live_mode:true,currency:'BRL'}]};
   },routes:{
@@ -70,10 +74,18 @@ for(const kind of Object.keys(PAYMENT_SOURCES)){
  assert.equal(s.calls.length,0,'expired/unknown preference cannot create another checkout');
 }
 const order={id:'ORD123456789',external_reference:ID,total_amount:'8.90',currency:'BRL'};
+{
+ const s=fixture('billing');s.row.status='completed';
+ s.deps.routes.handlePlatformBillingOrder=async()=>reply({pending:true,status:'processing'});
+ assert.equal((await reconcilePaymentJob(s.job,s.deps)).outcome,'pending',
+  'an earlier paid record cannot turn an incomplete current provider check into confirmation');
+}
 assert.equal(uniqueProviderOrder({data:[],paging:{total:0}},ID,890,money),null);
 assert.equal(uniqueProviderOrder({data:[order],paging:{total:1}},ID,890,money),order.id);
 for(const data of [
  {data:[order],paging:{total:2}},
+ {data:[order],paging:{total:1,offset:10}},
+ {data:[order],paging:{total:1,total_pages:2}},
  {data:[order,order],paging:{total:2}},
  {data:[{...order,total_amount:'99.00'}],paging:{total:1}},
  {data:[{...order,live_mode:false}],paging:{total:1}}

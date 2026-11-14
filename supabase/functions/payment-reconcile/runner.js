@@ -12,7 +12,9 @@ const reason=value=>String(value||'PROVIDER_RECHECK_REQUIRED').replace(/[^A-Za-z
 
 export function uniqueProviderOrder(list,reference,amount,moneyToCents){
  const rows=list?.data,total=Number(list?.paging?.total);
- if(!Array.isArray(rows)||!Number.isSafeInteger(total)||total<0||total>10||rows.length!==total)
+ if(!Array.isArray(rows)||!Number.isSafeInteger(total)||total<0||total>10||rows.length!==total||
+   list.paging.offset!=null&&Number(list.paging.offset)!==0||
+   list.paging.total_pages!=null&&Number(list.paging.total_pages)>1)
   throw Error('PROVIDER_ORDER_SEARCH_INCOMPLETE');
  const matching=rows.filter(o=>o?.external_reference===reference);
  if(matching.length>1)throw Error('MULTIPLE_PROVIDER_ORDERS_REVIEW');
@@ -63,7 +65,8 @@ export async function reconcilePaymentJob(job,deps){
    const created=Date.parse(row.created_at);
    if(!Number.isFinite(created))throw Error('LOCAL_PAYMENT_DATE_INVALID');
    const query=new URLSearchParams({external_reference:reference,
-    begin_date:new Date(created-300000).toISOString(),end_date:new Date().toISOString(),limit:'10'});
+    begin_date:new Date(created-300000).toISOString(),
+    end_date:new Date(Math.min(Date.now(),created+86400000)).toISOString(),page:'1',page_size:'10'});
    orderId=uniqueProviderOrder(await providerGet('/v1/orders?'+query,token),reference,amount,moneyToCents)||'';
    if(!orderId)return {outcome:'pending',reason:'PROVIDER_ORDER_NOT_FOUND_YET',businessStatus:row.status};
   }
@@ -81,6 +84,9 @@ export async function reconcilePaymentJob(job,deps){
  row=await read();
  if(row.status==='review_required'||result.reviewRequired===true)
   return {outcome:'review',reason:'PAYMENT_REQUIRES_REVIEW',businessStatus:row.status};
+ if(result.pending===true||result.paymentApproved===false||
+   ['pending','pending_provider_confirmation'].includes(result.status))
+  return {outcome:'pending',reason:'AWAITING_PROVIDER_OR_LEDGER',businessStatus:row.status};
  if(spec.paid.includes(row.status))return {outcome:'verified',reason:'PROVIDER_AND_LEDGER_CONFIRMED',businessStatus:row.status};
  if(['refunded','payment_reversed','cancelled','expired','rejected'].includes(row.status))
   return {outcome:'closed',reason:'PROVIDER_STATE_RECORDED',businessStatus:row.status};

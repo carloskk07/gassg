@@ -153,8 +153,9 @@ export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoi
   });
   if(evidence.eligible===true){accepted.push(evidence);continue;}
   if('correlation' in evidence&&evidence.correlation){
-   for(const key of Object.keys(correlation))
-    correlation[key]+=Number(evidence.correlation[key]||0);
+   correlation.invoiceReferenceRows+=Number(evidence.correlation.invoiceReferenceRows||0);
+   correlation.nativePaymentRows+=Number(evidence.correlation.nativePaymentRows||0);
+   correlation.referencePaymentRows+=Number(evidence.correlation.referencePaymentRows||0);
   }
   if(evidence.reason!=="COUPON_RELEASE_NOT_FOUND"){
    return {status:"requires_review",reason:safeReason(evidence.reason),accepted:null};
@@ -409,7 +410,7 @@ Deno.serve(async req=>{
   let registered=0,review=0,waiting=0;
   const reportCorrelation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
   for(const invoice of invoices){
-   let result;
+   let result:any;
    if(!reports.complete)result={status:"coverage_incomplete",reason:reports.reason};
    else if(!reports.files.length)result={status:reports.blocked>0?
       "requires_review":"awaiting_report",
@@ -422,8 +423,11 @@ Deno.serve(async req=>{
     catch{result={status:"provider_unavailable",reason:"RETRYABLE_PROVIDER_OR_DATABASE_FAILURE"};}
    }
    await recordObservation(client,invoice.id,result.status,result.reason);
-   if(result.correlation)for(const key of Object.keys(reportCorrelation))
-    reportCorrelation[key]+=Number(result.correlation[key]||0);
+   if(result.correlation){
+    reportCorrelation.invoiceReferenceRows+=Number(result.correlation.invoiceReferenceRows||0);
+    reportCorrelation.nativePaymentRows+=Number(result.correlation.nativePaymentRows||0);
+    reportCorrelation.referencePaymentRows+=Number(result.correlation.referencePaymentRows||0);
+   }
    if(result.status==="net_verified")registered++;
    else if(result.status==="requires_review")review++;
    else waiting++;

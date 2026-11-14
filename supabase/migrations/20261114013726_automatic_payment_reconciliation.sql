@@ -170,5 +170,9 @@ begin
  return true;
 end $fn$;
 revoke all on function public.platform_payment_reconciliation_tick() from public,anon,authenticated,service_role;
-select cron.schedule('tamao-payment-reconciliation','*/2 * * * *','select public.platform_payment_reconciliation_tick()');
-update cron.job set active=false where jobname='tamao-payment-reconciliation';
+do $schedule$
+declare v_job bigint;
+begin
+ v_job:=cron.schedule('tamao-payment-reconciliation','*/2 * * * *','select public.platform_payment_reconciliation_tick()');
+ perform cron.alter_job(v_job,active:=false);
+end $schedule$;
