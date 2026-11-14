@@ -16,6 +16,10 @@
     payment.fundsOwner==='merchant'&&payment.tamaoReceivesSaleProceeds===false&&
     payment.provider==='mercadopago'&&payment.available===true;
  }
+ const validPix=order=>order?.paymentMethod==='pix'&&order.onlinePayment?.pixPayable===true&&
+  typeof order.onlinePayment.pixCode==='string'&&order.onlinePayment.pixCode.length>30&&
+  Number.isFinite(Date.parse(order.onlinePayment.expiresAt))&&Date.parse(order.onlinePayment.expiresAt)>Date.now()+60000&&
+  (!globalThis.tamaoPixCodeValid||globalThis.tamaoPixCodeValid(order.onlinePayment.pixCode,order.totalCents));
  const reusableCheckout=payment=>['checkout_ready','pending'].includes(payment?.status);
  const notExpired=payment=>!payment?.expiresAt||
    Number.isFinite(Date.parse(payment.expiresAt))&&Date.parse(payment.expiresAt)>Date.now()+1000;
@@ -60,6 +64,22 @@
      if(payment.status==='approved'){
        toast('Pagamento já confirmado no pedido atualizado.');
        return true;
+     }
+     if(order.paymentMethod==='pix'){
+       if(validPix(order)){render();toast('Pix disponível no acompanhamento do pedido.');return true;}
+       if(payment.canStart!==true)throw Error('Consulte o Pix original deste pedido antes de iniciar outro pagamento.');
+       mutationStarted=true;
+       const key=liveIdempotency('merchant-sale-payment');
+       const reply=await retryAmbiguousOnce(()=>liveInvoke('order-payment-checkout',{orderId:id},{idempotencyKey:key}));
+       if(!same())return false;
+       if(reply?.ok!==true||reply.orderId!==id||reply.error)throw Error('O Pix não foi confirmado pelo servidor.');
+       order=await readFresh();if(!same())return false;
+       if(reply.alreadyPaid===true&&validPayment(order,id)&&order.onlinePayment.status==='approved'){
+         render();toast('Pagamento confirmado.');return true;
+       }
+       if(!validPayment(order,id)||!validPix(order)||order.onlinePayment.pixCode!==reply.pixCode)
+         throw Error('O Pix original ainda não aparece no pedido. Consulte antes de repetir.');
+       render();toast('Pague pelo QR Code ou pelo código Pix nesta tela.');return true;
      }
      let url=payment.checkoutUrl;
      if(url){
@@ -107,7 +127,10 @@
        let checked=null;
        try{checked=await readFresh()}catch{}
        if(!same())return false;
-       if(validPayment(checked,id)&&reusableCheckout(checked.onlinePayment)&&
+       if(validPayment(checked,id)&&validPix(checked)){
+         render();toast('Pix original recuperado no pedido.');return true;
+       }
+       if(checked?.paymentMethod!=='pix'&&validPayment(checked,id)&&reusableCheckout(checked.onlinePayment)&&
           safeUrl(checked.onlinePayment.checkoutUrl)&&
           notExpired(checked.onlinePayment)){
          location.href=checked.onlinePayment.checkoutUrl;

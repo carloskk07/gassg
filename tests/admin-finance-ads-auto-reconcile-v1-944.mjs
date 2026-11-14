@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {pixFixture} from './helpers/pix-fixture.mjs';
+const code=pixFixture(1990),expiresAt=new Date(Date.now()+3600000).toISOString();
 const read=x=>fs.readFileSync(new URL('../'+x,import.meta.url),'utf8');
 const file=read('js/admin.js');
 new vm.Script(file);
@@ -16,7 +18,7 @@ let selected='advertising',live='checkout_ready',backendApproval=false;
 let transientFailures=0,malformedResponses=0;
 let requests=[],tasks=[],nextId=0;
 const row=()=>({id,title:'Campanha São Gabriel',status:'approved',version:1,budgetCents:1990,durationDays:7,
- fixedFeeStatus:live,fixedFeeCheckoutUrl:live==='checkout_ready'?link:null});
+ fixedFeeStatus:live,fixedFeeCheckoutUrl:null,fixedFeePixCode:live==='checkout_ready'?code:null,fixedFeePixPayable:live==='checkout_ready',fixedFeePixExpiresAt:expiresAt});
 const mine=()=>({source:'ads_independent_mine_v1_884',noCharge:true,
  rows:[row()],homologationCampaignId:id,fixedFeeSalesEnabled:true});
 const context=vm.createContext({
@@ -64,9 +66,9 @@ const x=context.test;
 await x.read();
 assert.equal(requests.length,1,'only owner mine read, never create new preference');
 assert.equal(requests[0].body.action,'mine');
-assert.equal(x.state().payment.url,link,'reload restores the original payment link');
+assert.equal(x.state().payment.pix,code,'reload restores the original bank-readable Pix');
 assert.equal(x.state().adsWatch.campaignId,id);
-assert.match(x.panel('advertising'),/Cobrança pronta para pagamento/);
+assert.match(x.panel('advertising'),/Pix da publicidade/);
 assert.doesNotMatch(x.panel('advertising'),/Gerar checkout real R\$ 19,90/);
 const count=requests.length;
 await x.action('purchase',id);

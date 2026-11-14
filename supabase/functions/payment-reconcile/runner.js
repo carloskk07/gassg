@@ -49,7 +49,9 @@ export async function reconcilePaymentJob(job,deps){
  if(job.kind==='advertising'){
   const {token,sellerId}=await deps.adsCredentials();
   await routes.verifySeller(token,sellerId);
-  if(row.status==='reserved'){
+  if(row.pix_stage&&row.pix_stage!=='idle'&&!['payment_approved','payment_reversed'].includes(row.status)){
+   await routes.recoverAdsPix(row,token,sellerId);
+  }else  if(row.status==='reserved'){
    const recovered=await routes.recoverReservedPreference(admin,token,sellerId,
     row.campaign_id,reference,amount,row.expires_at,null);
    if(!recovered.ok){
@@ -72,6 +74,7 @@ export async function reconcilePaymentJob(job,deps){
    if(!orderId)return {outcome:'pending',reason:'PROVIDER_ORDER_NOT_FOUND_YET',businessStatus:row.status};
   }
   if(!safeId(orderId))throw Error('PROVIDER_ORDER_ID_INVALID');
+  if(job.kind==='merchant_sale'&&deps.restoreSalePix)await deps.restoreSalePix(row,orderId,token);
   if(job.kind==='billing'||job.kind==='coupon'&&!row.provider_order_id)
    response=await routes.handlePlatformBillingOrder(admin,orderId,{},token);
   else if(job.kind==='coupon')response=await routes.handlePaidCouponOrder(admin,orderId,row,token);

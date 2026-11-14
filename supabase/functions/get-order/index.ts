@@ -228,7 +228,7 @@ Deno.serve(async(req:Request)=>{
           .eq("merchant_id",order.merchant_id)
           .eq("status","active"),
         admin.from("merchant_sale_payment_attempts")
-          .select("status,provider,payment_route_id,verification_level,checkout_url,expires_at,approved_at,refunded_at,amount_cents,merchant_id")
+          .select("status,provider,payment_route_id,verification_level,checkout_url,pix_br_code,pix_expires_at,expires_at,approved_at,refunded_at,amount_cents,merchant_id")
           .eq("order_id",order.id)
           .order("created_at",{ascending:false})
           .limit(1)
@@ -292,7 +292,13 @@ Deno.serve(async(req:Request)=>{
           &&(noAttempt||terminalRetryable),
         status:attemptStatus,
         checkoutUrl,
-        expiresAt:role==="customer"?paymentAttempt?.expires_at??null:null,
+        pixPayable:role==="customer"&&MERCHANT_DIRECT_PAYMENTS_ENABLED&&routeAvailable&&orderEligible&&
+          ["checkout_ready","pending"].includes(attemptStatus)&&order.payment_method==="pix"&&
+          typeof paymentAttempt?.pix_br_code==="string"&&Date.parse(paymentAttempt.pix_expires_at)>Date.now()+60000,
+        pixCode:role==="customer"&&MERCHANT_DIRECT_PAYMENTS_ENABLED&&routeAvailable&&orderEligible&&
+          ["checkout_ready","pending"].includes(attemptStatus)&&order.payment_method==="pix"&&
+          Date.parse(paymentAttempt?.pix_expires_at)>Date.now()+60000?paymentAttempt?.pix_br_code:null,
+        expiresAt:role==="customer"?paymentAttempt?.pix_expires_at??paymentAttempt?.expires_at??null:null,
         approvedAt:paymentAttempt?.approved_at??null,
         refundedAt:paymentAttempt?.refunded_at??null,
         amountCents:Number(paymentAttempt?.amount_cents??order.total_cents??0),

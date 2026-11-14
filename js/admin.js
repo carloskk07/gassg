@@ -6464,19 +6464,19 @@ function adminFinanceRealRememberPayment(kind,record){
  const deadline=Date.parse(String(source.expiresAt||''));
  // Original coupon/driver Pix requires a fresh, future expiry from its own
  // authenticated backend. An Ads preference has a separate checkout contract.
- const withinDeadline=kind==='advertising'||Number.isFinite(deadline)
+ const withinDeadline=Number.isFinite(deadline)
   &&deadline>Date.now()+60000;
- const payable=withinDeadline&&(kind==='advertising'?source.status==='checkout_ready':
+ const payable=withinDeadline&&(kind==='advertising'?source.status==='checkout_ready'&&source.pixPayable===true:
    ['mobility','merchants'].includes(kind)?source.status==='active':source.pixPayable===true);
  const pix=['mobility','merchants'].includes(kind)?source.brCode:source.pixCode;
  state.payment={kind,status:String(source.status||''),amountCents:Number(source.amountCents)||0,
   url:payable?link:'',pix:payable&&typeof pix==='string'&&pix.length>30?pix:''};
- state.paymentUntil=Date.now()+45000;
+ state.paymentUntil=payable?deadline:0;
  // Reuse the OFFLINE QR encoder already shipped for the Admin Pix laboratory.
  // Its SVG uses the exact verified BR Code; no remote QR endpoint is involved.
  if(state.payment.pix){
   const snapshot=state.payment;
-  adminFinanceLabLoadQrEncoder().then(()=>{
+  (globalThis.tamaoPixLoadEncoder?.()||adminFinanceLabLoadQrEncoder()).then(()=>{
    if(adminRuntime.financeReal===state&&state.payment===snapshot&&
       Date.now()<state.paymentUntil&&adminReady()&&
       adminRuntime.section==='finance')render();
@@ -6487,7 +6487,7 @@ function adminFinanceRealRememberPayment(kind,record){
    adminFinanceRealClearPayment();
    if(adminReady()&&adminRuntime.section==='finance')render();
   }
- },45000);
+ },Math.max(0,state.paymentUntil-Date.now()));
 }
 function adminFinanceRealCopyPix(){
  const state=adminFinanceRealState();
@@ -6731,15 +6731,16 @@ async function adminFinanceAdsCheckout(campaignId){
   if(!row||!owned||fingerprint(row)!==consented||!['submitted','approved'].includes(row.status))
    throw Error('O anúncio foi alterado. Confira o conteúdo atualizado antes de autorizar.');
   state.data=data;
-  if(owned.fixedFeeStatus==='checkout_ready'){
-   const url=adminFinanceRealPaymentUrl(owned.fixedFeeCheckoutUrl);
-   if(!url)throw Error('A cobrança existente precisa de nova consulta ao provedor.');
-   adminFinanceRealRememberPayment('advertising',{status:'checkout_ready',checkoutUrl:url,amountCents:1990});
-   state.message='Cobrança original recuperada. Abra o pagamento no Mercado Pago.';
+  if(owned.fixedFeeStatus==='checkout_ready'&&owned.fixedFeePixPayable===true&&
+     typeof owned.fixedFeePixCode==='string'&&Date.parse(owned.fixedFeePixExpiresAt)>Date.now()+60000){
+   adminFinanceRealRememberPayment('advertising',{status:'checkout_ready',pixPayable:true,
+    pixCode:owned.fixedFeePixCode,expiresAt:owned.fixedFeePixExpiresAt,amountCents:owned.budgetCents});
+   state.message='Pix original recuperado. Escaneie o QR Code ou copie o código abaixo.';
    adminFinanceRealAdsWatch(state,campaignId);return true;
   }
-  if(recovering)throw Error('A cobrança existente mudou de situação. Consulte o pagamento antes de qualquer nova emissão.');
-  if(owned.fixedFeeStatus&&!['reserved'].includes(owned.fixedFeeStatus))
+  if(recovering&&owned.fixedFeeStatus!=='checkout_ready')
+   throw Error('A cobrança existente mudou de situação. Consulte o pagamento antes de qualquer nova emissão.');
+  if(owned.fixedFeeStatus&&!['reserved','checkout_ready'].includes(owned.fixedFeeStatus))
    throw Error('A cobrança desta campanha já está em outra etapa. Consulte a operação existente.');
   phase='Conferindo Mercado Pago';
   const preflight=await adminInvoke({action:'ads-independent-psp-preflight'});check();
@@ -6781,14 +6782,22 @@ async function adminFinanceAdsCheckout(campaignId){
   phase='Gerando a cobrança original';
   const result=await adminFinanceRealApi('ads-independent-checkout',{action:'purchase',campaignId,
     requestId:campaignId,acceptFixedFee:true});check();
+  if(result?.source==='ads_independent_reconcile_v1_886'&&result.status==='payment_approved'&&result.paymentApproved===true){
+   state.data=await adminFinanceAdsReadOwned();check();
+   adminFinanceRealClearPayment();state.message='Pagamento de publicidade confirmado.';return true;
+  }
   if(result?.source!=='ads_independent_checkout_v1_886'||result.status!=='checkout_ready'||
-     result.amountCents!==1990||result.viewChargesCents!==0||!adminFinanceRealPaymentUrl(result.checkoutUrl))
-   throw Error('O Mercado Pago não confirmou um link válido da cobrança. Retome a mesma campanha.');
+     result.amountCents!==1990||result.viewChargesCents!==0||result.pixPayable!==true||
+     typeof result.pixCode!=='string'||result.pixCode.length<30||
+     !Number.isFinite(Date.parse(String(result.expiresAt||'')))||Date.parse(String(result.expiresAt||''))<=Date.now()+60000)
+   throw Error('O Mercado Pago ainda não confirmou um Pix válido. Consulte esta mesma cobrança.');
   adminFinanceRealRememberPayment('advertising',result);
   const saved=state.data.mine.rows.find(r=>r.id===campaignId);
-  if(saved){saved.fixedFeeStatus='checkout_ready';saved.fixedFeeCheckoutUrl=result.checkoutUrl;}
+  if(saved){saved.fixedFeeStatus='checkout_ready';saved.fixedFeeCheckoutUrl=null;
+   saved.fixedFeePaymentMethod='pix';saved.fixedFeePixCode=result.pixCode;
+   saved.fixedFeePixExpiresAt=result.expiresAt;saved.fixedFeePixPayable=true;}
   adminFinanceRealAdsWatch(state,campaignId);
-  state.message='Cobrança de R$ 19,90 pronta. Abra o pagamento original no Mercado Pago e escolha Pix.';
+  state.message='Pix de R$ 19,90 pronto. Pague pelo QR Code ou pelo código copia e cola abaixo.';
   return true;
  }catch(error){
   if(active()){
@@ -6802,6 +6811,18 @@ async function adminFinanceAdsCheckout(campaignId){
   if(active()){render();if(state.error)focusError();else if(state.payment?.kind==='advertising')adminFinanceRealFocusPayment('advertising');}
  }
 }
+async function adminFinanceAdsCopyPix(campaignId){
+ if(!adminFinanceRealAllowed('advertising'))return false;
+ const state=adminFinanceRealState(),actor=state.actor;
+ const fresh=await adminFinanceAdsReadOwned();
+ if(!adminFinanceRealAllowed('advertising')||adminFinanceRealState()!==state||actor!==state.actor)return false;
+ state.data=fresh;
+ const row=fresh.mine.rows.find(r=>r.id===campaignId);
+ if(row?.fixedFeeStatus!=='checkout_ready'||row.fixedFeePixPayable!==true||
+   typeof row.fixedFeePixCode!=='string'||Date.parse(row.fixedFeePixExpiresAt)<=Date.now()+60000){render();return false;}
+ adminCopyText(row.fixedFeePixCode,'Código Pix da publicidade');return true;
+}
+
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6878,15 +6899,29 @@ async function adminFinanceRealRefresh(){
    if(response?.ok!==true)throw Error('A cobrança do motorista não foi verificada.');
    data={status:response};
    if(response.charge)recoveredPix=response;
+   if(response.charge?.status==='active'&&typeof globalThis.tamaoPixWatch==='function'){
+    const invoiceId=response.charge.invoiceId;
+    globalThis.tamaoPixWatch('admin-mobility:'+actor+':'+invoiceId,
+     ()=>adminFinanceRealAllowed('mobility')&&adminFinanceRealState()===state&&state.data?.status?.charge?.status==='active',
+     async()=>{
+      if(state.busy)return;
+      const fresh=await adminFinanceRealApi('mobility-fee-pix',{action:'status'});
+      if(!adminFinanceRealAllowed('mobility')||adminFinanceRealState()!==state||fresh?.ok!==true)return;
+      state.data.status=fresh;
+      if(fresh.charge?.status==='active')adminFinanceRealRememberPayment('mobility',fresh);
+      else adminFinanceRealClearPayment();render();
+     });
+   }
   }else{
    data=await adminFinanceAdsReadOwned();
    const response=data.mine;
    // Recover the ORIGINAL checkout after refresh, never generate a duplicate.
    const original=response.rows.find(r=>r.status==='approved'&&
      r.fixedFeeStatus==='checkout_ready'&&
-     adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl));
-   if(original)recoveredPix={status:'checkout_ready',
-     checkoutUrl:original.fixedFeeCheckoutUrl,amountCents:1990};
+     r.fixedFeePixPayable===true&&typeof r.fixedFeePixCode==='string'&&
+     Date.parse(r.fixedFeePixExpiresAt)>Date.now()+60000);
+   if(original)recoveredPix={status:'checkout_ready',pixPayable:true,
+     pixCode:original.fixedFeePixCode,expiresAt:original.fixedFeePixExpiresAt,amountCents:original.budgetCents};
   }
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
   state.data=data;state.loadedKey=key;
@@ -6895,7 +6930,7 @@ async function adminFinanceRealRefresh(){
   if(key==='advertising'){
    const active=data.mine.rows.find(r=>r.status==='approved'&&
      r.fixedFeeStatus==='checkout_ready'&&
-     adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl));
+     (r.fixedFeePixPayable===true||adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl)));
    if(active)adminFinanceRealAdsWatch(state,active.id);
    else adminFinanceRealAdsStopWatch(state);
   }else adminFinanceRealAdsStopWatch(state);
@@ -7103,14 +7138,14 @@ function adminFinanceRealPanel(key){
   html+='<div class="notice" id="admin-finance-real-pix" role="region" aria-label="Pagamento original verificado">'+
    '<h4>'+(key==='advertising'?'Checkout REAL da campanha':'Pix REAL da fatura original')+' · '+money(payment.amountCents)+'</h4>'+ 
    '<p>Situação: '+esc(String(payment.status))+'. Confira o recebedor no aplicativo do banco.</p>'+
-   (payment.pix?adminFinanceLabLiveQrBlock({brCode:payment.pix})+
+   (payment.pix?(globalThis.tamaoPixMarkup?.(payment.pix,{amountCents:payment.amountCents})||adminFinanceLabLiveQrBlock({brCode:payment.pix}))+
     '<label for="admin-finance-real-pix-code">Pix copia e cola</label>'+
     '<textarea class="input" id="admin-finance-real-pix-code" readonly rows="3" autocomplete="off">'+
      esc(payment.pix)+'</textarea>'+
     '<div class="order-actions">'+action('Copiar Pix copia e cola','adminFinanceRealCopyPix()')+'</div>':'')+
    (payment.url?'<p><a href="'+esc(payment.url)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento original no Mercado Pago</a></p>':'')+
    ((!payment.pix&&!payment.url)?'<p>Não há QR ou link pagável confirmado. Consulte a fatura novamente.</p>':'')+
-   '<small>Por segurança, o QR e o código desaparecem após 45 segundos. Use “Conferir operações existentes” ou “Consultar fatura existente” para recuperá-los com nova verificação do provedor. Não gere outro Pix.</small></div>';
+   '<small>Válido até '+esc(new Date(state.paymentUntil).toLocaleString('pt-BR'))+'. A confirmação é atualizada nesta tela.</small></div>';
  if(key==='coupons'&&known){
   const purchases=known.history?.purchases||[],packs=known.catalog?.packages||[];
   const pending=purchases.filter(p=>['prepared','awaiting_payment'].includes(p.status));
@@ -7205,14 +7240,28 @@ function adminFinanceRealPanel(key){
   const reserved=rows.filter(r=>r.status==='approved'&&r.fixedFeeStatus==='reserved');
   const confirmed=rows.filter(r=>r.fixedFeeStatus==='payment_approved');
   if(confirmed.length)html+='<p role="status"><strong>Pagamento de publicidade confirmado.</strong> Aguarda a liberação comercial correspondente; a conciliação bancária é separada.</p>';
+  if(original.length&&typeof globalThis.tamaoPixWatch==='function'){
+   const actor=state.actor;
+   globalThis.tamaoPixWatch('admin-ads:'+actor,()=>adminFinanceRealAllowed('advertising')&&
+    adminFinanceRealState()===state&&state.actor===String(adminRuntime.session?.user?.id||'')&&
+    state.data?.mine?.rows?.some(r=>r.fixedFeeStatus==='checkout_ready'),async()=>{
+     if(state.busy)return;
+     const fresh=await adminFinanceAdsReadOwned();
+     if(!adminFinanceRealAllowed('advertising')||adminFinanceRealState()!==state)return;
+     state.data=fresh;state.loadedKey='advertising';render();
+   });
+  }
   if(original.length)html+='<div id="admin-finance-real-pix" role="region" aria-label="Pagamento original da campanha">'+
     original.map(r=>{
-     const url=adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl);
-     return '<article class="notice"><h4>Cobrança pronta para pagamento</h4>'+
+     const code=String(r.fixedFeePixCode||''),payable=r.fixedFeePixPayable===true&&
+      code.length>30&&Date.parse(String(r.fixedFeePixExpiresAt||''))>Date.now()+60000;
+     return '<article class="notice"><h4>Pix da publicidade</h4>'+
       '<p><strong>'+esc(r.title||'Campanha')+'</strong><br>'+money(r.budgetCents)+' por '+esc(r.durationDays)+' dias</p>'+
-      (url?'<p><a class="primary" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Pagar '+money(r.budgetCents)+' no Mercado Pago</a></p>'+
-       '<p>No Mercado Pago, escolha Pix para concluir. O TAMÃO acompanha a confirmação automaticamente.</p>':
-       action('Consultar cobrança original','adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')'))+
+      (payable?(globalThis.tamaoPixMarkup?.(code,{amountCents:r.budgetCents})||adminFinanceLabLiveQrBlock({brCode:code}))+
+       '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(code)+'</textarea></label>'+
+       action('Copiar código Pix','adminFinanceAdsCopyPix(\''+esc(r.id)+'\')')+
+       '<p>Válido até '+esc(new Date(r.fixedFeePixExpiresAt).toLocaleString('pt-BR'))+'. A confirmação aparece automaticamente aqui.</p>':
+       action('Preparar Pix desta cobrança','adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')'))+
       '</article>';
     }).join('')+'</div>';
   if(reserved.length)html+='<p role="status"><strong>Checkout em recuperação:</strong> o pedido anterior já foi reservado, mas ainda não possui link. Retome a mesma cobrança; o servidor reutiliza o identificador original.</p>';

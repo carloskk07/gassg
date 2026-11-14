@@ -17,6 +17,8 @@ import {
   moneyToCents
 } from "../_shared/mercadopago.js";
 
+import {verifiedOrderPix} from "../_shared/order-pix-proof.mjs";
+
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
@@ -337,7 +339,7 @@ Deno.serve(async(req:Request)=>{
       },200,origin);
     }
     const existingUrl=safeMercadoPagoUrl(prepared?.checkoutUrl);
-    if(existingUrl&&["checkout_ready","pending"].includes(String(prepared?.status??""))){
+    if(orderAuthority.payment_method!=="pix"&&existingUrl&&["checkout_ready","pending"].includes(String(prepared?.status??""))){
       return json({
         ok:true,
         recovered:true,
@@ -367,6 +369,28 @@ Deno.serve(async(req:Request)=>{
     if(orderError)throw orderError;
     if(!orderMeta)throw new DomainError("ORDER_NOT_FOUND","Pedido não encontrado.",404);
 
+    const salePix=orderAuthority.payment_method==="pix";
+    if(salePix&&(!user.email||!user.email_confirmed_at))
+      throw new DomainError("PIX_BUYER_EMAIL_REQUIRED","Confirme o e-mail da sua conta antes de pagar por Pix.",409);
+    const stored=await admin.from("merchant_sale_payment_attempts")
+      .select("created_at,provider_order_id,pix_br_code,pix_expires_at,status")
+      .eq("id",attemptId).eq("order_id",orderId).maybeSingle();
+    if(stored.error||!stored.data)throw new DomainError("SALE_PAYMENT_RECORD_UNAVAILABLE","A cobrança original não foi confirmada.",503);
+    if(salePix&&stored.data.provider_order_id){
+      const old=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(stored.data.provider_order_id),{accessToken:seller.accessToken});
+      const details=await readMercadoPagoJson(old);
+      const pix=old.ok?verifiedOrderPix(details,{reference:externalReference,sellerId:seller.providerAccountId,
+        amountCents,createdAt:stored.data.created_at,orderId:stored.data.provider_order_id}):null;
+      if(!pix)throw new DomainError("SALE_PIX_EXISTING_PAYMENT_REVIEW","Consulte o pagamento original antes de gerar outro Pix.",409);
+      const attached=await admin.rpc("merchant_sale_pix_attach",{p_customer:user.id,p_order:orderId,p_attempt:attemptId,
+        p_provider_order:pix.orderId,p_amount:amountCents,p_code:pix.pixCode,p_expires:pix.expiresAt});
+      if(attached.error)throw attached.error;
+      if(attached.data?.source!=="merchant_sale_pix_attach")throw Error("SALE_PIX_ATTACH_UNVERIFIED");
+      if(attached.data.alreadyPaid===true)return json({ok:true,alreadyPaid:true,orderId,attemptId,status:"approved",
+        paymentMethod:"pix",checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
+      return json({...pix,ok:true,recovered:true,orderId,attemptId,status:"pending",paymentMethod:"pix",
+        checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
+    }
     const total=(amountCents/100).toFixed(2);
     providerRequestStarted=true;
     let response:Response;
@@ -377,8 +401,9 @@ Deno.serve(async(req:Request)=>{
       idempotencyKey:externalReference,
       body:{
         type:"online",
-        processing_mode:"manual",
-        capture_mode:"automatic_async",
+        processing_mode:salePix?"automatic":"manual",
+        ...(salePix?{payer:{email:user.email},transactions:{payments:[{amount:total,
+          payment_method:{id:"pix",type:"bank_transfer"},expiration_time:"P1D"}]}}:{capture_mode:"automatic_async"}),
         total_amount:total,
         external_reference:externalReference,
         expiration_time:"P1D",
@@ -423,6 +448,22 @@ Deno.serve(async(req:Request)=>{
       );
     }
 
+    if(salePix){
+      const remoteId=String(provider?.id||'');
+      const lookup=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(remoteId),{accessToken:seller.accessToken});
+      const details=await readMercadoPagoJson(lookup);
+      const pix=lookup.ok?verifiedOrderPix(details,{reference:externalReference,sellerId:seller.providerAccountId,
+        amountCents,createdAt:stored.data.created_at,orderId:remoteId}):null;
+      if(!pix)throw new DomainError("SALE_PIX_PROVIDER_PROOF_INVALID","O provedor não confirmou o Pix deste pedido.",503);
+      const attached=await admin.rpc("merchant_sale_pix_attach",{p_customer:user.id,p_order:orderId,p_attempt:attemptId,
+        p_provider_order:pix.orderId,p_amount:amountCents,p_code:pix.pixCode,p_expires:pix.expiresAt});
+      if(attached.error)throw attached.error;
+      if(attached.data?.source!=="merchant_sale_pix_attach")throw Error("SALE_PIX_ATTACH_UNVERIFIED");
+      if(attached.data.alreadyPaid===true)return json({ok:true,alreadyPaid:true,orderId,attemptId,status:"approved",
+        paymentMethod:"pix",checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
+      return json({...pix,ok:true,orderId,attemptId,status:"pending",paymentMethod:"pix",
+        checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
+    }
     const providerOrderId=String(provider?.id??"").trim();
     const checkoutUrl=safeMercadoPagoUrl(provider?.checkout_url);
     const providerExternalReference=String(provider?.external_reference??"").trim();
