@@ -19,7 +19,7 @@ const ctx=vm.createContext({
 vm.runInContext((selectors+evaluate)
  .replace('export function selectOfficialReports(list:unknown)','function selectOfficialReports(list)')
  .replace(/^export function evaluateReports.*$/m,
-  'function evaluateReports({invoice,order,reportCsv,sponsorVerified}){')
+  'function evaluateReports({invoice,order,reportCsv,sponsorVerified,legacyPayments=[]}){')
  .replace('const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];','const accepted=[];')+
  '\nthis.reports=selectOfficialReports;this.evalReports=evaluateReports;',ctx);
 const report=name=>({file_name:name,status:'processed',is_test:false,currency_id:'BRL'});
@@ -59,7 +59,10 @@ assert.equal(verified.accepted.netCents,840);
 assert.equal(verified.accepted.evidenceReference,
  'mp-release:release-prod-20261110.csv:mp-payment-1');
 assert.equal(check([csv],false).status,'requires_review');
-assert.equal(check([csv,csv]).reason,'MULTIPLE_RELEASE_REPORT_MATCHES');
+assert.equal(check([csv,csv]).status,'verified_candidate','two files repeating the same receipt are one financial event');
+assert.equal(check([csv,cols.join(',')+'\n'+line({NET_CREDIT_AMOUNT:'8.30'})]).reason,'MULTIPLE_RELEASE_REPORT_MATCHES');
+assert.equal(check([csv,cols.join(',')+'\n'+line({RECORD_TYPE:'refund',DESCRIPTION:'refund',NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'8.40',GROSS_AMOUNT:'-8.90'})]).reason,'COUPON_RELEASE_CONFLICTING_MOVEMENT',
+ 'a reversal in another file must block the earlier positive receipt');
 assert.equal(check([cols.join(',')+'\n'+line({SOURCE_ID:'other'})]).status,'awaiting_report');
 assert.equal(check([csv+'\n'+line({RECORD_TYPE:'chargeback',NET_CREDIT_AMOUNT:'0.00',
  NET_DEBIT_AMOUNT:'8.40',GROSS_AMOUNT:'-8.90'})]).status,'requires_review');

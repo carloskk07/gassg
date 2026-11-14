@@ -53,6 +53,8 @@ jobs:
         run: node tests/payment-reconciliation-runner.mjs
       - name: Paid invoice report search independent of historical account size
         run: node tests/coupon-report-window.mjs
+      - name: Private coupon net inspection stays read-only
+        run: node tests/coupon-net-inspection.mjs
       - name: V1.959 production home order resume with verified vs stale status
         run: node tests/customer-home-order-recovery-v1-959.mjs
       - name: Buyer decision exact-order cancellation and requote lifecycle

@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {mercadoPagoFetch,mercadoPagoConfigured,readMercadoPagoJson}
  from "../_shared/mercadopago.js";
-import {couponReleasedNetEvidence}
+import {couponReleasedNetEvidence,parseReleasedMoneyCsv}
  from "../admin-ops/coupon-release-evidence.js";
 import {inspectReportSearch,discoverInvoiceReleaseReports} from "./report-search.js";
 
@@ -83,7 +83,20 @@ async function getProviderData(token:string,invoice:CouponInvoice,reportFiles:st
   if(!response.ok)throw new Error("MP_RELEASE_FILE_UNAVAILABLE");
   reportCsv.push({fileName:name,csv:await limitedCsv(response)});
  }
- return {order,reportCsv};
+ const candidateIds=[...new Set(reportCsv.flatMap(report=>parseReleasedMoneyCsv(report.csv).rows
+  .filter(row=>row.EXTERNAL_REFERENCE===invoice.id&&/^[1-9][0-9]{2,19}$/.test(row.SOURCE_ID))
+  .map(row=>row.SOURCE_ID)))];
+ if(candidateIds.length>3)throw Error('MP_RELEASE_PAYMENT_IDS_AMBIGUOUS');
+ const legacyPayments=[];
+ for(const id of candidateIds){
+  const response=await mercadoPagoFetch('/v1/payments/'+encodeURIComponent(id),{
+   accessToken:token,method:'GET',timeoutMs:8000});
+  if(!response.ok)throw Error('MP_RELEASE_PAYMENT_BINDING_UNAVAILABLE');
+  const payment=await readMercadoPagoJson(response);
+  if(String(payment?.id??'')!==id)throw Error('MP_RELEASE_PAYMENT_ID_MISMATCH');
+  legacyPayments.push(payment);
+ }
+ return {order,reportCsv,legacyPayments};
 }
 async function discoverReleaseReports(mpToken:string){
  const first=await mercadoPagoFetch("/v1/account/release_report/list",{
@@ -144,12 +157,12 @@ async function discoverReleaseReports(mpToken:string){
  return {...result,source:initial.reason==="MP_RELEASE_FILENAME_MISSING"?
    "official_search_missing_list_filename":"official_search"};
 }
-export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
+export function evaluateReports({invoice,order,reportCsv,sponsorVerified,legacyPayments=[]}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean;legacyPayments?:any[]}){
  const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
  const correlation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
  for(const {fileName,csv} of reportCsv){
   const evidence=couponReleasedNetEvidence(csv,{
-   invoice,order,reportFileName:fileName,sponsorVerified
+   invoice,order,reportFileName:fileName,sponsorVerified,legacyPayments
   });
   if(evidence.eligible===true){accepted.push(evidence);continue;}
   if('correlation' in evidence&&evidence.correlation){
@@ -161,8 +174,11 @@ export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoi
    return {status:"requires_review",reason:safeReason(evidence.reason),accepted:null};
   }
  }
- if(accepted.length>1)return {status:"requires_review",
-   reason:"MULTIPLE_RELEASE_REPORT_MATCHES",accepted:null};
+ if(accepted.length>1&&accepted.some(item=>item.netCents!==accepted[0].netCents||
+   !('providerPaymentId' in item)||!('providerPaymentId' in accepted[0])||
+   item.providerPaymentId!==accepted[0].providerPaymentId||
+   !('releaseDate' in item)||!('releaseDate' in accepted[0])||item.releaseDate!==accepted[0].releaseDate))
+  return {status:"requires_review",reason:"MULTIPLE_RELEASE_REPORT_MATCHES",accepted:null};
  if(!accepted.length)return {status:"awaiting_report",reason:"MP_RELEASE_NOT_FOUND",accepted:null,correlation};
  return {status:"verified_candidate",reason:"MATCHED_REPORT",
    accepted:accepted[0]};
@@ -188,8 +204,8 @@ async function reconcileOne(client:DbClient,token:string,invoice:CouponInvoice,f
   if(error)throw new Error("SPONSOR_PROOF_UNAVAILABLE");
   sponsorVerified=data===true;
  }
- const {order,reportCsv}=await getProviderData(token,invoice,files);
- const found=evaluateReports({invoice,order,reportCsv,sponsorVerified});
+ const {order,reportCsv,legacyPayments}=await getProviderData(token,invoice,files);
+ const found=evaluateReports({invoice,order,reportCsv,sponsorVerified,legacyPayments});
  if(!found.accepted)return found;
  // Must re-check invoice state while registering, under original SQL row lock.
  // Neither a webhook nor one CSV row is sufficient alone; pure helper checks
@@ -350,6 +366,35 @@ Deno.serve(async req=>{
  if(!mercadoPagoConfigured(mpToken))
   return json({ok:false,error:"MP_NOT_CONFIGURED"},503);
  try{
+  // Private read-only diagnostics never reset cooldown or change benefits.
+  // A maintenance recheck uses the SAME fresh PSP proof and atomic net RPC;
+  // it accepts no invoice ID, amount, report or evidence from its caller.
+  const inspect=req.headers.get('X-Tamao-Coupon-Inspect')==='true';
+  const recheck=req.headers.get('X-Tamao-Coupon-Recheck')==='true';
+  if(inspect||recheck){
+   const lookup=await client.from('clube_coupon_paid_invoices')
+    .select('id,status,paid_at,provider_order_id,provider_payment_id,sale_price_cents,coupon_face_cents,coupons_per_pack,sponsor_covered_cents')
+    .eq('status','paid').is('net_proceeds_verified_at',null).order('paid_at',{ascending:true}).limit(1);
+   if(lookup.error)throw Error('INSPECTION_LOOKUP_UNAVAILABLE');
+   if(lookup.data?.length!==1)return json({ok:true,readOnly:inspect,checked:0});
+   const invoice=lookup.data[0],reports=await discoverReleaseReports(mpToken);
+   if(!reports.complete)return json({ok:true,readOnly:inspect,reason:reports.reason});
+   if(recheck&&!inspect){
+    const result=await reconcileOne(client,mpToken,invoice,reports.files);
+    await recordObservation(client,invoice.id,result.status,result.reason);
+    return json({ok:true,readOnly:false,checked:1,newChargesCreated:0,
+     registered:result.status==='net_verified'?1:0,status:result.status,reason:result.reason});
+   }
+   const {order,reportCsv,legacyPayments}=await getProviderData(mpToken,invoice,reports.files);
+   const face=Number(invoice.coupon_face_cents)*Number(invoice.coupons_per_pack);
+   const sponsor=Number.isSafeInteger(face)&&face>0&&face<=10000&&invoice.sponsor_covered_cents===face
+    ?await client.rpc('clube_coupon_sponsor_covered_v1_807',{p_invoice:invoice.id,p_required:face}):null;
+   if(sponsor?.error)throw Error('SPONSOR_PROOF_UNAVAILABLE');
+   const found=evaluateReports({invoice,order,reportCsv,legacyPayments,sponsorVerified:sponsor?.data===true});
+   return json({ok:true,readOnly:true,checked:1,status:found.status,reason:found.reason,
+    eligible:!!found.accepted,netCents:found.accepted?.netCents??null,
+    legacyCandidates:legacyPayments.length});
+  }
   const {data:invoices,error:pendingError}=await client.rpc(
    "clube_coupon_net_auto_pending_v1_931",{p_limit:MAX_INVOICES});
   if(pendingError||!Array.isArray(invoices)||invoices.length>MAX_INVOICES)
