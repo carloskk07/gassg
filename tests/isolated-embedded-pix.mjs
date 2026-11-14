@@ -7,6 +7,7 @@ const sql=q=>execFileSync('psql',['--host=127.0.0.1','--port=54322','--username=
 assert.equal(sql('select current_database()'),'postgres');
 const before=sql('select count(*) from public.ads_independent_checkouts_v1_886');
 sql(`begin;
+set local statement_timeout='60s';
 do $test$
 declare u uuid:=gen_random_uuid();m uuid;c uuid;d uuid;o uuid;a uuid;r jsonb;q jsonb;ref text;denied boolean;sig text;
 begin
@@ -49,6 +50,8 @@ begin
  select external_reference into ref from public.ads_independent_checkouts_v1_886 where campaign_id=d;
  r:=public.ads_independent_payment_fact_v1_886(repeat('c',64),ref,'12345678902','123456789',1990,'BRL','approved','accredited',true);
  if r->>'paymentApproved'<>'true' then raise exception 'PIX_EARLY_WEBHOOK_LOST';end if;
+ update public.platform_launch_control set commerce_enabled=true,operation_mode='LIVE',
+  enabled_at=clock_timestamp(),enabled_by=u,portals_source_sha=repeat('a',40),mode_source_sha=repeat('a',40) where singleton;
  insert into public.merchants(name,cnpj,status,online,accepts_citywide,last_seen_at,delivery_fee_confirmed_at,delivery_fee_cents)
  values('PIX ISOLATED SELLER','99887766550099','pending',false,true,clock_timestamp(),clock_timestamp(),0) returning id into m;
  insert into public.orders(public_code,customer_id,status,supplier_name_snapshot,address_text,address_number,postal_code,customer_phone_digits,payment_method,payment_timing,gross_total_cents,total_cents,delivery_fee_cents_snapshot,merchant_id,attempted_merchant_ids,offer_expires_at,accepted_at,version)
