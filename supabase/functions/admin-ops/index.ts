@@ -19,6 +19,7 @@ import {couponProviderRefundEvidence} from "./coupon-refund-provider-evidence.js
 import {couponRefundMerchantHistorySummary} from "./coupon-refund-merchant-history.js";
 import {summarizeIndependentAdsPspEvidence} from "../_shared/ads-independent-psp-evidence.mjs";
 import {evaluateFinanceHomologationEvidence} from "./finance-homologation-evidence.js";
+import {ownedBillingSnapshot} from "./finance-owned-billing.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -140,6 +141,7 @@ function couponSellerTaxDocumentValid(value:unknown){
  return v[12]===first&&v[13]===(sum%11<2?0:11-sum%11);
 }
 const ADMIN_READ_ACTIONS=new Set(["governance-gates","ads-institutional-read","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","welcome-campaign-read","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue","clube-coupon-auto-status"]);
+ADMIN_READ_ACTIONS.add("finance-owned-billing-read");
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -1217,13 +1219,13 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     ["mobilityPaid","mobility_fee_pix_invoices_v1_837","status","paid"],
     ["merchantCompleted","merchant_billing_provider_charges","status","completed"],
     ["orderApproved","merchant_sale_payment_attempts","status","approved"],
-    ["adsApproved","ads_independent_checkouts_v1_886","status","approved"],
+    ["adsApproved","ads_independent_checkouts_v1_886","status","payment_approved"],
     ["adsPaymentApproved","ads_independent_payment_events_v1_886","provider_status","approved"],
     ["professionalBilledDays","discovery_advertising_daily_ledger",null,null]
   ];
   const verifiedIndicators=await Promise.all(indicators.map(async ([key,table,field,value])=>{
     let query=admin.from(table).select("*",{count:"exact",head:true});
-    query=field==="net_proceeds_verified_at"?query.not(field,"is",null):
+    query=field==="net_proceeds_verified_at"?query.not(field,"is",null).eq("status","paid"):
       field?query.eq(field,value):query;
     const {count,error}=await query;
     if(error||!Number.isSafeInteger(count)||count<0)
@@ -8804,6 +8806,11 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED","Somente superadmin pode emitir Pix real controlado.",403);
       const result=await adminFinanceLabLivePix(admin,user.id,String(user.email||""),body,req);
       return json(result,result.ok===true?200:502,origin);
+    }
+    if(action==="finance-owned-billing-read"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Homologação financeira exclusiva do superadmin.",403);
+      return json(await ownedBillingSnapshot(admin,user.id,String(body.merchantId||'')),200,origin);
     }
     if(action==="finance-homologation-modules"){
       if(String(adminAccess.admin_role)!=="superadmin")

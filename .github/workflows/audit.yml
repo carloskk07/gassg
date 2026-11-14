@@ -55,6 +55,12 @@ jobs:
         run: node tests/coupon-report-window.mjs
       - name: Private coupon net inspection stays read-only
         run: node tests/coupon-net-inspection.mjs
+      - name: Owned merchant finance snapshot and live catalog
+        run: node tests/finance-owned-billing.mjs
+      - name: Existing merchant billing charge status and ownership boundary
+        run: node tests/merchant-billing-status.mjs
+      - name: Merchant package checkout inside Finance Admin
+        run: node tests/admin-finance-merchant-checkout.mjs
       - name: V1.959 production home order resume with verified vs stale status
         run: node tests/customer-home-order-recovery-v1-959.mjs
       - name: Buyer decision exact-order cancellation and requote lifecycle

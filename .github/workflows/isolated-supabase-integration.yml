@@ -123,6 +123,11 @@ jobs:
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
             --username=postgres --dbname=postgres --no-psqlrc \
             --set=ON_ERROR_STOP=1 --file=tests/sql/payment-reconciliation-queue.sql
+      - name: Merchant billing rejects absent and foreign membership before any reservation (ROLLBACK)
+        run: |
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/merchant-billing-ownership.sql
       - name: V1.824 verify plan catalog in isolated Postgres
         run: node tests/isolated-accessible-merchant-plans-v1-824.mjs
       - name: V1.953 four prepaid plans, real order PIN fee consumption in isolated PostgreSQL
