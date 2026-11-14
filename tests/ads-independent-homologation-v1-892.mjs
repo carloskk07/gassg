@@ -42,7 +42,7 @@ assert.match(sponsorUI,/pagamento REAL autorizado/);
 assert.match(sponsorUI,/bought==='reserved'\)/);
 assert.match(sponsorUI,/Recuperar checkout sem nova cobrança/);
 assert.match(checkout,/recoverReservedPreference\(/);
-assert.equal((checkout.match(/mercadoPagoFetch\("\/checkout\/preferences",/g)||[]).length,1,
+assert.equal((checkout.match(/mercadoPagoFetch\("\/checkout\/preferences",/g)||[]).length,0,
   'Recovery must never issue a second create-preference POST.');
 
 assert.match(adminUI,/adminIndependentAdsHomologationAction/);

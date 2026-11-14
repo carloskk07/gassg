@@ -1004,9 +1004,10 @@ function merchantBillingPixChargeView(request){
     return `<div class="notice" style="margin-top:8px"><strong>Pix aguardando conferência.</strong><br>O código salvo não é exibido sem verificar novamente o estado no provedor.${action}</div>`;
   }
 
-  const qr=charge.qrCodeDataUri
-    ? `<div style="margin-top:10px;text-align:center"><img src="${esc(charge.qrCodeDataUri)}" alt="QR Code Pix TAMÃO" width="220" height="220" loading="lazy" style="max-width:100%;height:auto"></div>`
-    : '';
+  const qr=typeof globalThis.tamaoPixMarkup==='function'
+    ?globalThis.tamaoPixMarkup(charge.brCode,{amountCents:Number(charge.amountCents),label:'QR Code Pix TAMÃO',imageDataUri:charge.qrCodeDataUri})
+    :charge.qrCodeDataUri
+     ? `<div style="margin-top:10px;text-align:center"><img src="${esc(charge.qrCodeDataUri)}" alt="QR Code Pix TAMÃO" width="220" height="220" loading="lazy" style="max-width:100%;height:auto"></div>`:'';
   const copy=charge.brCode
     ? `<div class="input-wrap" style="margin-top:8px"><label>Pix copia e cola</label><textarea class="input" readonly rows="3">${esc(charge.brCode)}</textarea></div><button class="secondary small" style="margin-top:8px" onclick="merchantCopyBillingPixCode('${esc(request.id)}')">Copiar código Pix</button>`
     : '';

@@ -1,3 +1,15 @@
+## 14/11/2026 — Pix dentro do TAMÃO nos três portais (em validação)
+
+Continuidade de `main=d8370b7aa5ee6941054fc40ed0071ec2412696f0` (PR #997). O titular pediu QR Code e copia e cola no Admin, Cliente e Parceiro para todas as operações Pix. O link externo de publicidade não atendia a esse fluxo: Checkout Pro não fornece um Pix antes da escolha no ambiente externo. A correção usa Pix nativo e mantém a obrigação original da campanha, aceite, titular, recebedor, valor, referência, assinatura e conciliação existentes.
+
+A criação de instrumento é serializada. Uma preferência antiga é conferida, encerrada no provedor e reconsultada antes da emissão; pagamentos já encontrados são recuperados. Resposta perdida e repetição fazem somente busca/GET do pagamento original, sem segundo POST. A manutenção privada pode reparar exclusivamente a campanha de homologação já consentida e vigente, sem escolher campanha/valor ou criar obrigação; sua proveniência é `system_repair`. A rota normal do cron continua sem criar cobranças. O QR é validado por CRC, moeda/valor e prova autenticada do provedor, armazenado na cobrança original e entregue apenas ao titular.
+
+Nos três portais o código bancário é convertido localmente em SVG pelo codificador existente; nenhum serviço remoto recebe o Pix. Cupons, pacotes/tarifas de revendas, mobilidade e publicidade mantêm o código até o vencimento real e consultam o estado original automaticamente, inclusive na volta à página. Recarregar não renova vencimento nem emite outra cobrança. Pedido de produto com Pix usa Orders nativo da conta da revenda, com acesso restrito ao cliente; cartão conserva o fluxo próprio. As chaves comerciais existentes não são alteradas.
+
+Verificação local: 547 testes Node passaram, inclusive criação única concorrente, resposta perdida, valor/recebedor divergentes, CRC/QR real, dono da cobrança, sessão alterada, recarga e vencimento. O navegador e o banco descartável serão conferidos no CI, incluindo pagamento chegando antes da gravação do QR e deduplicação do fato financeiro. Conferir checks, fontes Edge e três SHAs públicos antes de declarar publicação concluída. Não foi pago outro Pix de cupons ou Essencial; publicidade ainda precisa da transação bancária real para concluir essa homologação.
+
+---
+
 ## 14/11/2026 — Publicidade: campanha enviada sem caminho direto para cobrança
 
 Base `main=57783f09d7e1435b83fba493ea74e551725130cc` (PR #994). O titular enviou o anúncio verdadeiro do TAMÃO, mas o banco ainda possui uma campanha `submitted`, zero checkouts e nenhuma autorização específica ativa. A tela Financeiro mostrava apenas a contagem da campanha submetida: os botões de checkout só apareciam depois de uma aprovação em outra área, e algumas pré-condições encerravam o clique silenciosamente. A falha foi confirmada na tela real do titular; não é perda de Pix nem pagamento pendente.

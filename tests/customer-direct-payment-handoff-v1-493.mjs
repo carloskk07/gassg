@@ -1,3 +1,4 @@
+import {pixFixture} from './helpers/pix-fixture.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -12,7 +13,7 @@ let seq=0;
 function proof({id=ORDER,status='PREPARING',paymentStatus='not_started',
  url=null,available=true,canStart=true,amount=12500,owner='merchant',
  tamReceives=false,provider='mercadopago',paymentTiming='prepaid',expiresAt=null}={}){
- return {orderId:id,status,version:4,totalCents:12500,paymentTiming,paymentMethod:'pix',
+ return {orderId:id,status,version:4,totalCents:12500,paymentTiming,paymentMethod:'card',
  onlinePayment:{status:paymentStatus,available,canStart,checkoutUrl:url,
   amountCents:amount,provider,fundsOwner:owner,tamaoReceivesSaleProceeds:tamReceives,expiresAt}};
 }
@@ -226,3 +227,23 @@ assert.doesNotMatch(ui,/onclick="liveStartMerchantPayment\(\)"/);
 assert.match(backend,/liveCustomerScript\('customer-direct-payment'\)/);
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/customer-direct-payment-handoff-v1-493.mjs'));
 console.log('PASS #493 direct seller payment: exact buyer/order, safe MP link, fresh readback, lost ACK, denied RPC, no cross-account redirect.');
+
+// Pix stays in the current portal, including an ambiguous lost reply.
+const nativePix=(canStart=false)=>{
+ const o=proof({paymentStatus:canStart?'not_started':'pending',canStart,expiresAt:new Date(Date.now()+3600000).toISOString()});
+ o.paymentMethod='pix';o.onlinePayment.pixPayable=!canStart;o.onlinePayment.pixCode=canStart?null:pixFixture(12500);return o;
+};
+{
+ const x=setup({reads:[nativePix()]});assert.equal(await x.go(),true);
+ assert.equal(x.nav.href,null);assert.deepEqual(x.calls.map(x=>x.name),['get-order']);
+}
+{
+ const x=setup({reads:[nativePix(true),nativePix()],reply:{ok:true,orderId:ORDER,pixCode:pixFixture(12500)}});
+ assert.equal(await x.go(),true);assert.equal(x.nav.href,null);
+ assert.equal(x.calls.filter(x=>x.name==='order-payment-checkout').length,1);
+}
+{
+ const x=setup({reads:[nativePix(true),nativePix()],error:new TypeError('lost response')});
+ assert.equal(await x.go(),true);assert.equal(x.nav.href,null);
+ assert.equal(x.calls.filter(x=>x.name==='order-payment-checkout').length,1);
+}

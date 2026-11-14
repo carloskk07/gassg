@@ -143,7 +143,9 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'directSalePaymentsEnabled' "$f" || { echo "$f missing per-merchant direct-payment approval"; exit 1; }
       grep -q 'prepare_merchant_sale_payment_attempt' "$f" || { echo "$f missing exact order/merchant/amount DB authority"; exit 1; }
       grep -q 'decryptPaymentSecret' "$f" || { echo "$f missing merchant-owned provider credential use"; exit 1; }
-      grep -q 'processing_mode:"manual"' "$f" || { echo "$f missing hosted Checkout Pro mode"; exit 1; }
+      grep -q 'processing_mode:salePix?"automatic":"manual"' "$f" || { echo "$f missing native Pix / hosted-card processing boundary"; exit 1; }
+      grep -q 'verifiedOrderPix' "$f" || { echo "$f missing native Pix provider proof"; exit 1; }
+      grep -q 'merchant_sale_pix_attach' "$f" || { echo "$f missing owner-bound native Pix persistence"; exit 1; }
       grep -q 'providerUserId!==seller.providerAccountId' "$f" || { echo "$f missing exact seller binding"; exit 1; }
       ! grep -q 'marketplace_fee' "$f" || { echo "$f cannot collect/split merchant sale proceeds in PF phase"; exit 1; }
       grep -q 'tamaoReceivesSaleProceeds:false' "$f" || { echo "$f missing explicit no-repass contract"; exit 1; }

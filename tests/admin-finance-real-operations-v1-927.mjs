@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {pixFixture} from './helpers/pix-fixture.mjs';
 import {readAdsIndependentCheckoutSource} from './helpers/mercadopago-webhook-source.mjs';
 const read=p=>p==='supabase/functions/ads-independent-checkout/index.ts'
  ?readAdsIndependentCheckoutSource():fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -38,7 +39,7 @@ const backend=async(endpoint,body)=>{
  if(endpoint==='ads-independent-checkout'){
   if(body.action==='purchase')return {source:'ads_independent_checkout_v1_886',
    status:'checkout_ready',amountCents:1990,viewChargesCents:0,
-   checkoutUrl:'https://www.mercadopago.com.br/checkout/v1/redirect'};
+   checkoutUrl:null,pixPayable:true,pixCode:pixFixture(1990),expiresAt:new Date(Date.now()+3600000).toISOString()};
   if(body.action==='reconcile')return {source:'ads_independent_reconcile_v1_886',
    status:'checkout_ready'};
  }
@@ -60,7 +61,7 @@ const context=vm.createContext({
   const data=await backend(endpoint,body);
   return {ok:true,json:async()=>data};
  },
- confirm:()=>confirm,render:()=>{},setTimeout:()=>1,URL,Date,
+ confirm:()=>confirm,adminFinanceLabLoadQrEncoder:async()=>false,adminFinanceLabLiveQrBlock:()=>'<svg aria-label="QR Code Pix"></svg>',render:()=>{},setTimeout:()=>1,URL,Date,
  String,Number,Error,Object,Array,Promise,crypto:{randomUUID:()=>campaign},
  document:{getElementById:()=>({checked,value:'https://tamao.com.br/'})},
  adminCopyText:()=>{},toast:()=>{},esc:x=>String(x)
@@ -129,7 +130,8 @@ assert.equal(requests.at(-1).body.campaignId,campaign);
 assert.equal(context.native.url('https://evil.test/checkout'),'');
 assert.equal(context.native.url('http://mercadopago.com.br/'),'');
 assert.equal(context.native.url('https://mercadopago.com.br/sandbox/pay'),'');
-assert.match(context.native.panel('advertising'),/<a class="primary"[^>]+>Pagar R\$ 19,90 no Mercado Pago<\/a>/);
+assert.match(context.native.panel('advertising'),/Copiar código Pix/);
+assert.doesNotMatch(context.native.panel('advertising'),/href="https:\/\/www\.mercadopago/);
 runtime.session={user:{id:'other-admin'}};
 assert.equal(context.native.state().actor,'other-admin');
 assert.equal(context.native.state().payment,null,'payment context cannot leak between sessions');

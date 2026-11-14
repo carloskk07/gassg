@@ -72,7 +72,7 @@ for(const kind of ['package_purchase','statement_payment','refund_recovery']){
  assert.equal(x.clips.length,0,'unverified database Pix cannot be copied');
  assert.equal(x.api.accept(x.ack(),MID),true);
  assert.equal(x.timer.length,1);
- assert.equal(x.timer[0].ms,45000);
+ assert(x.timer[0].ms>45000,'the exact instrument remains visible until provider expiry');
  assert.match(x.api.view(x.row),/Pix pronto para pagar/);
  assert.match(x.api.view(x.row),/Pix copia e cola/);
  assert.match(x.api.view(x.row),/Abrir pagamento/);

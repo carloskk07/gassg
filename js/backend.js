@@ -995,6 +995,22 @@ async function liveStartMerchantPayment(orderId){
   }
 }
 
+async function liveCopyOrderPix(orderId){
+ const actor=String(liveRuntime.session?.user?.id||''),generation=Number(liveRuntime.authGeneration||0);
+ if(!actor||!liveReady()||liveRuntime.orderId!==orderId)return false;
+ const order=await liveGetOrder(orderId,{silent:true});
+ const p=order?.onlinePayment;
+ if(!liveReady()||String(liveRuntime.session?.user?.id||'')!==actor||
+    Number(liveRuntime.authGeneration||0)!==generation||liveRuntime.orderId!==orderId||
+    order?.paymentMethod!=='pix'||p?.pixPayable!==true||!['pending','checkout_ready'].includes(p.status)||
+    p.amountCents!==order.totalCents||Date.parse(String(p.expiresAt||''))<=Date.now()+60000||
+    typeof p.pixCode!=='string'||!globalThis.tamaoPixCodeValid?.(p.pixCode,order.totalCents)){
+  render();toast('Consulte o pagamento atualizado deste pedido.');return false;
+ }
+ try{await navigator.clipboard.writeText(p.pixCode);toast('Código Pix copiado.');return true}
+ catch{toast('Selecione o código Pix acima e copie.');return false}
+}
+
 const liveCustomerScripts={};
 async function liveCustomerScript(name){
   if(!liveCustomerScripts[name])liveCustomerScripts[name]=new Promise((resolve,reject)=>{
@@ -2178,7 +2194,9 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.deliveryTeam=data.deliveryTeam??[];
     merchantRuntime.catalog=data.catalog??[];
     merchantRuntime.availableProducts=data.availableProducts??[];
+    const previousBilling=merchantRuntime.billing;
     merchantRuntime.billing=data.billing??null;
+    globalThis.merchantRestoreBillingPix?.(previousBilling);
     merchantRuntime.receivingAccount=data.receivingAccount??null;
     merchantRuntime.receivingAccounts=Array.isArray(data.receivingAccounts)?data.receivingAccounts:[];
     merchantRuntime.paymentProviders=Array.isArray(data.paymentProviders)?data.paymentProviders:[];

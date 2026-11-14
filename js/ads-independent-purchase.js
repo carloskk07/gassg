@@ -12,6 +12,9 @@ function tamaoAdsVerifiedCheckoutUrl(raw){
  }catch{return null}
 }
 async function tamaoAdsPurchaseCampaign(campaignId){
+ const actor=String(globalThis.liveRuntime?.session?.user?.id||''),
+  generation=Number(globalThis.liveRuntime?.authGeneration||0);
+ if(!actor)throw Error('Entre na sua conta para pagar a campanha.');
  if(!/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))throw Error('Campanha inválida.');
  if(!tamaoAdsCheckoutRequests.has(campaignId))
   tamaoAdsCheckoutRequests.set(campaignId,crypto.randomUUID());
@@ -19,13 +22,17 @@ async function tamaoAdsPurchaseCampaign(campaignId){
   action:'purchase',campaignId,requestId:tamaoAdsCheckoutRequests.get(campaignId),
   acceptFixedFee:true
  });
- if(result?.source!=='ads_independent_checkout_v1_886'||
-    result?.status!=='checkout_ready'||result?.viewChargesCents!==0)
-  throw Error('O pagamento não foi confirmado pelo TAMÃO.');
- const url=tamaoAdsVerifiedCheckoutUrl(result.checkoutUrl);
- if(!url)throw Error('Link de pagamento inválido.');
- // Customer leaves the TAMÃO portal only after their own click, never on mount.
- location.assign(url);
+ if(actor!==String(globalThis.liveRuntime?.session?.user?.id||'')||generation!==Number(globalThis.liveRuntime?.authGeneration||0))return false;
+ if(result?.source==='ads_independent_reconcile_v1_886'&&result.status==='payment_approved'){
+  await tamaoAdsMyRefresh({quiet:true});return true;
+ }
+ if(result?.source!=='ads_independent_checkout_v1_886'||result.status!=='checkout_ready'||
+    result.viewChargesCents!==0||result.pixPayable!==true||typeof result.pixCode!=='string'||
+    !Number.isFinite(Date.parse(result.expiresAt))||Date.parse(result.expiresAt)<=Date.now()+60000)
+  throw Error('O Pix original ainda não foi confirmado. Consulte a mesma campanha.');
+ await tamaoAdsMyRefresh({quiet:true});
+ if(actor!==String(globalThis.liveRuntime?.session?.user?.id||'')||generation!==Number(globalThis.liveRuntime?.authGeneration||0))return false;
+ toast('Pix disponível nesta tela. Escaneie o QR Code ou copie o código.');return true;
 }
 globalThis.tamaoAdsPurchaseCampaign=tamaoAdsPurchaseCampaign;
 

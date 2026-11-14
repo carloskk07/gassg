@@ -116,6 +116,8 @@ jobs:
           # disposable local start. Do not remove payment/auth env safeguards.
           env -u SUPABASE_INTERNAL_IMAGE_REGISTRY \
             supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
+      - name: Native Pix and legacy instrument retirement on actual disposable Postgres
+        run: node tests/isolated-embedded-pix.mjs
       - name: Verify real schema, RLS, missing merchant and clean local orders
         run: node tests/isolated-supabase-commerce-smoke.mjs
       - name: Automatic payment recovery queue, five sources, leases and private authorization (ROLLBACK)

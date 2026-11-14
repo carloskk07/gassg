@@ -169,6 +169,20 @@ Deno.serve(async(req:Request)=>{
         if(error)throw error;
         if(data?.source!=="ads_independent_mine_v1_884"||data?.noCharge!==true)
           throw Error("ADS_PRIVATE_STATUS_UNVERIFIED");
+        const {data:pixRows,error:pixError}=await admin.from("ads_independent_checkouts_v1_886")
+          .select("campaign_id,status,payment_channel,pix_stage,pix_br_code,pix_expires_at,amount_cents")
+          .eq("owner_user_id",user.id).in("campaign_id",data.rows.map((r:any)=>r.id)).limit(30);
+        if(pixError)throw pixError;
+        data.rows=data.rows.map((row:any)=>{
+          const pix=(pixRows||[]).find((p:any)=>p.campaign_id===row.id);
+          const payable=pix?.status==="checkout_ready"&&pix.payment_channel==="pix"&&
+            pix.pix_stage==="ready"&&typeof pix.pix_br_code==="string"&&
+            Date.parse(String(pix.pix_expires_at||""))>Date.now()+60000;
+          return {...row,fixedFeePaymentMethod:pix?.payment_channel||null,
+            fixedFeePixCode:payable?pix.pix_br_code:null,
+            fixedFeePixExpiresAt:payable?pix.pix_expires_at:null,
+            fixedFeePixPayable:payable,fixedFeeCheckoutUrl:pix?.payment_channel==="pix"?null:row.fixedFeeCheckoutUrl};
+        });
         const {data:gate,error:gateError}=await admin
           .from("ads_independent_sales_controls_v1_886")
           .select("homologation_campaign_id,homologation_expires_at")

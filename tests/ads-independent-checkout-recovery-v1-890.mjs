@@ -43,11 +43,11 @@ assert.match(sql,/GRANT EXECUTE ON FUNCTION public\.ads_independent_checkout_res
 assert.match(checkout,/\/checkout\/preferences\/search\?external_reference=/);
 assert.match(checkout,/providerPreferenceProof\(token/);
 assert.match(checkout,/reused:true,recovered:true,viewChargesCents:0/);
-assert.match(checkout,/reserved\.created!==true/);
+assert.match(checkout,/prepareAdsPix/);
 assert.match(checkout,/ADS_PREFERENCE_PENDING/);
 assert.match(checkout,/ADS_CHECKOUT_EXPIRED/);
-assert.match(checkout,/providerPreferenceProof\(token,preference/);
-assert.equal((checkout.match(/mercadoPagoFetch\("\/checkout\/preferences",/g)||[]).length,1,
+assert.match(checkout,/providerPreferenceProof\(token,String\(all\[0\]\.id/);
+assert.equal((checkout.match(/mercadoPagoFetch\("\/checkout\/preferences",/g)||[]).length,0,
  'Repeated or orphaned checkouts must not send a second create-preference POST.');
 assert.match(admin,/if\(action==="ads-independent-psp-preflight"\)/);
 assert.match(admin,/readyForFinancialHomologation/);

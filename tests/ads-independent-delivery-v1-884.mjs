@@ -41,5 +41,5 @@ assert.match(admin,/if\(action==="ads-independent-read"\)/);
 assert.match(admin,/if\(action==="ads-independent-action"\)/);
 assert.match(admin,/admin_ads_independent_action_v1_884/);
 assert.match(admin,/data\?\.billingEnabled!==false/);
-assert.doesNotMatch(edge,/MERCADOPAGO_ACCESS_TOKEN|create_payment|pix_br_code/i);
+assert.doesNotMatch(edge,/MERCADOPAGO_ACCESS_TOKEN|create_payment|mercadoPagoFetch/i);
 console.log('V1.884 PASS: real advertisers independent of merchants, tamper-evident controls, non-billable browser signals.');

@@ -621,9 +621,19 @@ function mobilityFeePixArm(){
  if(typeof document!=='undefined'&&document.visibilityState==='hidden'){
   mobilityFeePixHide(invoice);return;
  }
- s.pixVisibleUntil=Date.now()+MOBILITY_FEE_PIX_VISIBLE_MS;
+ const deadline=Date.parse(String(invoice.expiresAt||''));
+ if(!Number.isFinite(deadline)||deadline<=Date.now()+60000)return;
+ s.pixVisibleUntil=deadline;
  if(typeof setTimeout==='function')
-  s.pixTimer=setTimeout(()=>mobilityFeePixHide(invoice),MOBILITY_FEE_PIX_VISIBLE_MS);
+  s.pixTimer=setTimeout(()=>mobilityFeePixHide(invoice),Math.max(0,deadline-Date.now()));
+ if(typeof globalThis.tamaoPixWatch==='function'){
+  const user=s.user?.id,epoch=s.sessionEpoch,id=invoice.invoiceId;
+  const active=()=>s.user?.id===user&&s.sessionEpoch===epoch&&mobilityRoute()&&
+   s.pix?.invoiceId===id&&s.pix.status==='active';
+  globalThis.tamaoPixWatch('mobility:'+user+':'+epoch+':'+id,active,
+   ()=>s.pixBusy?false:mobilityFeePixRequest('status'));
+ }
+
 }
 function mobilityFeePixPanel(){
  const s=mobilityRuntime,b=s.program?.billing,p=s.pix;
@@ -645,7 +655,7 @@ function mobilityFeePixPanel(){
   '<div class="mobility-form" aria-label="Cobrança Pix TAMÃO">'+
    '<p><strong>'+(isPlan?'Pix para recarga do plano':'Pix TAMÃO de taxas')+
    ': '+money(Number(p.amountCents))+'</strong></p>'+
-   (img?'<img style="max-width:230px;width:100%;height:auto" alt="QR Code Pix de taxa TAMÃO" src="'+esc(img)+'">':'')+
+   (typeof globalThis.tamaoPixMarkup==='function'?globalThis.tamaoPixMarkup(p.brCode,{amountCents:Number(p.amountCents),label:'QR Code Pix TAMÃO',imageDataUri:img}):img?'<img style="max-width:230px;width:100%;height:auto" alt="QR Code Pix de taxa TAMÃO" src="'+esc(img)+'">':'')+
    '<label>Pix copia e cola<textarea id="mobility-fee-pix-br" readonly rows="3">'+esc(p.brCode)+'</textarea></label>'+
    '<button type="button" class="secondary" onclick="mobilityCopyFeePix()"'+loading+'>Copiar código Pix</button> '+
    link+'<p class="tiny muted">Validade até '+esc(mobilityFormatDate(p.expiresAt))+

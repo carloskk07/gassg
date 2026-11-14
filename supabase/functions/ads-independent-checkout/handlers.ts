@@ -176,4 +176,18 @@ async function recoverReservedPreference(admin:any,token:string,sellerId:string,
   amountCents,reused:true,recovered:true,viewChargesCents:0},200,origin);
 }
 
-export {cors,json,creds,verifySeller,sessionUser,reconcileProviderPayment,providerPreferenceProof,recoverReservedPreference};
+function adsPixDependencies(admin:any,origin:string|null){
+ return {admin,webhookUrl:URL_BASE+"/functions/v1/ads-payment-webhook-mercadopago",
+  provider:async(path:string,token:string,options:any={})=>{
+   const response=await mercadoPagoFetch(path,{accessToken:token,...options});
+   const details=await readMercadoPagoJson(response);
+   if(!response.ok)throw Error("ADS_PIX_PROVIDER_HTTP_"+response.status);
+   return details;
+  },
+  reconcile:async(row:any,token:string,sellerId:string)=>{
+   const response=await reconcileProviderPayment(admin,row.owner_user_id,row.campaign_id,token,sellerId,origin);
+   const data=await response.json();if(!response.ok)throw Error(String(data.error||"ADS_PIX_RECEIPT_UNVERIFIED"));
+   return data;
+  }};
+}
+export {cors,json,creds,verifySeller,sessionUser,reconcileProviderPayment,providerPreferenceProof,recoverReservedPreference,adsPixDependencies};

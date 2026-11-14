@@ -7,12 +7,12 @@ new vm.Script(source);
 const invoiceId='a5a16f8b-5a50-45de-80c3-855000000001';
 const code='00020101021226800014br.gov.bcb.pix1234567890';
 const timerCalls=[],handlers={},calls=[],messages=[],copies=[];
-const leaseTimers=()=>timerCalls.filter(x=>x.ms===45000);
+const leaseTimers=()=>timerCalls.filter(x=>x.ms>3500000&&x.ms<=3600000);
 const fakeCodeImage='data:image/png;base64,'+'A'.repeat(32);
 const url='https://www.mercadopago.com.br/payments/855';
 const makePurchase=(overrides={})=>({
  invoiceId,status:'awaiting_payment',fundingModel:'partner_funded',
- servicePostalCode:'97000000',pixPayable:true,pixCode:code,
+ servicePostalCode:'97000000',pixPayable:true,expiresAt:new Date(Date.now()+3600000).toISOString(),pixCode:code,
  qrImageDataUri:fakeCodeImage,paymentUrl:url,amountCents:890,...overrides
 });
 let user='buyer-855',hidden=false;
@@ -38,7 +38,7 @@ const ctx=vm.createContext({
   assert.equal(name,'coupon-credit-pix');calls.push(request);
   if(request.action==='invoice-status')return {
     ok:true,invoiceId,status:'awaiting_payment',fundingModel:'partner_funded',
-    pixPayable:true,pixCode:code,qrImageDataUri:fakeCodeImage,paymentUrl:url
+    pixPayable:true,expiresAt:new Date(Date.now()+3600000).toISOString(),pixCode:code,qrImageDataUri:fakeCodeImage,paymentUrl:url
   };
   throw new Error('No invoice creation or provider calls permitted in this test');
  }
@@ -64,7 +64,7 @@ assert.equal(calls.length,0);
 ctx.arm();
 assert.equal(leaseTimers().length,1,
  'auto-check watcher may coexist with exactly one QR display lease');
-assert.equal(leaseTimers()[0].ms,45000);
+assert(leaseTimers()[0].ms>3500000,'QR remains available until the real provider deadline');
 assert.match(ctx.panel(),/Código Pix copia e cola/);
 assert.match(ctx.panel(),/QR Code Pix do pedido de cupom/);
 assert.match(ctx.panel(),/Abrir pagamento seguro/);

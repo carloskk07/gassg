@@ -65,6 +65,10 @@ jobs:
         run: node tests/admin-finance-ad-checkout.mjs
       - name: Ads reuse the verified platform account with signed webhook and recipient isolation
         run: node tests/ads-platform-credentials.mjs
+      - name: Embedded Pix orchestration and original payment recovery
+        run: node tests/embedded-pix-provider.mjs
+      - name: Bank-readable Pix rendered locally in every portal
+        run: node tests/embedded-pix-renderer.mjs
       - name: Existing merchant billing charge status and ownership boundary
         run: node tests/merchant-billing-status.mjs
       - name: Merchant package checkout inside Finance Admin

@@ -46,12 +46,12 @@ Object.assign(ctx.state,{
 });
 ctx.clubePaidCouponView={userId:activeUser,status:'ready',purchases:[]};
 const purchase=(extra={})=>({
- invoiceId,pixCode:code,pixPayable:true,status:'awaiting_payment',
+ invoiceId,pixCode:code,pixPayable:true,expiresAt:new Date(Date.now()+3600000).toISOString(),status:'awaiting_payment',
  amountCents:890,fundingModel:'partner_funded',servicePostalCode:'97000000',
  ...extra
 });
 const verified=()=>({
- ok:true,invoiceId,status:'awaiting_payment',pixPayable:true,
+ ok:true,invoiceId,status:'awaiting_payment',pixPayable:true,expiresAt:new Date(Date.now()+3600000).toISOString(),
  pixCode:code,fundingModel:'partner_funded'
 });
 

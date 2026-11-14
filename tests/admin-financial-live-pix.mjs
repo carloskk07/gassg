@@ -490,7 +490,7 @@ assert.match(ui,/Atualizar emissões/);
 assert.match(ui,/adminFinanceLabLiveReadinessFromUi\(\)\.catch\(\(\)=>\{\}\)/,
   'open lab should fetch original issued orders without POST');
 const portalBuild=read('scripts/build-live-portals.mjs');
-assert.match(portalBuild,/if\(role!=='admin'\)fs\.rmSync\(path\.join\(target,'js','qr-generator\.js'\)/);
+assert.doesNotMatch(portalBuild,/if\(role!=='admin'\)fs\.rmSync\(path\.join\(target,'js','qr-generator\.js'\)/,'every portal ships the local QR encoder');
 assert.match(ui,/adminFinanceLabLiveCheckFromUi/);
 
 console.log('PASS Admin REAL Pix laboratory: explicit superadmin consent, 1-5 BRL, locked creation, deterministic idempotency, signed callback audit, order readback, reversal quarantine, zero credits, lost-response recovery, no duplicate PSP charge.');
