@@ -20,6 +20,8 @@ import {couponRefundMerchantHistorySummary} from "./coupon-refund-merchant-histo
 import {summarizeIndependentAdsPspEvidence} from "../_shared/ads-independent-psp-evidence.mjs";
 import {evaluateFinanceHomologationEvidence} from "./finance-homologation-evidence.js";
 import {ownedBillingSnapshot} from "./finance-owned-billing.js";
+import {independentAdsCredentialConfig,verifyIndependentAdsSeller,independentAdsProviderReadiness}
+ from "../_shared/ads-platform-credentials.mjs";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -8362,30 +8364,9 @@ Deno.serve(async(req:Request)=>{
       if(String(adminAccess.admin_role||"")!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente o administrador principal pode conferir a conta recebedora.",403);
-      const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
-      const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
-      const webhookSecret=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
-      const tokenConfigured=/^APP_USR-\S{20,}$/.test(token);
-      const sellerConfigured=/^[0-9]{4,20}$/.test(sellerId);
-      const signedWebhookConfigured=webhookSecret.length>=16;
-      const checkoutConfigured=Deno.env.get("ADS_MP_CHECKOUT_ENABLED")==="true";
-      const webhookConfigured=Deno.env.get("ADS_MP_WEBHOOK_ENABLED")==="true";
-      let sellerVerified=false;
-      if(tokenConfigured&&sellerConfigured){
-        try{
-          const response=await fetch("https://api.mercadolibre.com/users/me",{
-            headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
-            signal:AbortSignal.timeout(7000)
-          });
-          if(response.ok){
-            const raw=await response.text();
-            if(raw.length<=20000){
-              const details=JSON.parse(raw);
-              sellerVerified=String(details?.id??"")===sellerId;
-            }
-          }
-        }catch{/* A failed check is not authorization. */}
-      }
+      const readiness=await independentAdsProviderReadiness((key:string)=>Deno.env.get(key));
+      const {tokenConfigured,sellerConfigured,sellerVerified,checkoutConfigured,
+        webhookConfigured,signedWebhookConfigured}=readiness;
       const {data:controls,error:controlsError}=await admin
         .from("ads_independent_sales_controls_v1_886")
         .select("sales_enabled,version").eq("singleton",true).maybeSingle();
@@ -8424,6 +8405,7 @@ Deno.serve(async(req:Request)=>{
       }
       return json({
         source:"ads_independent_psp_preflight_v1_890",
+        credentialMode:readiness.credentialMode,
         readOnly:true,tokenConfigured,sellerConfigured,
         sellerVerified,checkoutConfigured,webhookConfigured,
         signedWebhookConfigured,
@@ -8454,28 +8436,15 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_REFUND_CONFIRMATION_REQUIRED",
           "Confirme DEVOLVER, o caso, a versão e a justificativa.",400);
       // Refunds remain available even when new paid campaigns are disabled.
-      const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
-      const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
-      if(!/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId))
-        throw new DomainError("ADS_REFUND_PSP_NOT_CONFIGURED",
-          "Conta própria do Mercado Pago indisponível para reembolsar.",503);
-      let identity:any;
+      let credentials;
       try{
-        const seller=await fetch("https://api.mercadolibre.com/users/me",{
-          headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
-          signal:AbortSignal.timeout(7000)
-        });
-        if(!seller.ok)throw Error("SELLER_IDENTITY_HTTP");
-        const text=await seller.text();
-        if(text.length>20000)throw Error("SELLER_IDENTITY_OVERSIZE");
-        identity=JSON.parse(text);
+        credentials=await verifyIndependentAdsSeller(
+          independentAdsCredentialConfig((key:string)=>Deno.env.get(key)));
       }catch{
         throw new DomainError("ADS_REFUND_SELLER_UNVERIFIED",
           "Não foi possível confirmar a conta recebedora. Nenhum reembolso foi enviado.",503);
       }
-      if(String(identity?.id??"")!==sellerId)
-        throw new DomainError("ADS_REFUND_SELLER_MISMATCH",
-          "A conta recebedora não corresponde ao vendedor autorizado.",403);
+      const {token,sellerId}=credentials;
       const {data:reserved,error:reserveError}=await admin.rpc(
         "admin_ads_independent_refund_execution_v1_888",{
           p_actor:user.id,p_case:caseId,p_expected_version:version,
@@ -8650,27 +8619,14 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_HOMOLOGATION_INVALID",
           "Confira campanha, versão, justificativa e confirmação.",400);
       if(enabled){
-        const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
-        const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
-        const signature=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
-        if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
-           Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
-           !/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId)||
-           signature.length<16)
+        const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
+        if(!config.checkoutConfigured||!config.webhookConfigured||!config.tokenConfigured||
+          !config.sellerConfigured||!config.signedWebhookConfigured)
           throw new DomainError("ADS_HOMOLOGATION_PSP_NOT_CONFIGURED",
-            "Configure conta LIVE, Checkout Pro e webhook assinado antes do teste.",503);
-        try{
-          const response=await fetch("https://api.mercadolibre.com/users/me",{
-            headers:{"Authorization":"Bearer "+token,"Accept":"application/json"},
-            signal:AbortSignal.timeout(7000)
-          });
-          if(!response.ok)throw Error("provider unavailable");
-          const raw=await response.text();
-          if(raw.length>20000||String(JSON.parse(raw)?.id??"")!==sellerId)
-            throw Error("wrong seller");
-        }catch{
+            "A conexão de produção do Mercado Pago e o webhook assinado precisam estar disponíveis.",503);
+        try{await verifyIndependentAdsSeller(config)}catch{
           throw new DomainError("ADS_HOMOLOGATION_SELLER_UNVERIFIED",
-            "O Mercado Pago não confirmou a conta recebedora. Nenhum teste autorizado.",503);
+            "O Mercado Pago não confirmou a conta recebedora. Nenhuma cobrança autorizada.",503);
         }
       }
       const {data,error}=await admin.rpc("admin_ads_independent_homologation_v1_892",{
@@ -8696,32 +8652,15 @@ Deno.serve(async(req:Request)=>{
         reason.length<12||reason.length>500)
         throw new DomainError("ADS_SALES_INVALID_ACTION","Atualize a versão e informe justificativa.",400);
       if(enabled){
-        const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
-        const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
-        const signature=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
-        if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
-           Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
-           !/^APP_USR-\S{20,}$/.test(token)||
-           !/^[0-9]{4,20}$/.test(sellerId)||signature.length<16)
-          throw new DomainError("ADS_SALES_PROVIDER_NOT_READY",
-           "Conta própria do TAMÃO Ads e webhook assinado precisam estar configurados antes da ativação.",503);
-        let seller:any;
-        try{
-          const resp=await fetch("https://api.mercadolibre.com/users/me",{
-            headers:{"Accept":"application/json","Authorization":"Bearer "+token},
-            signal:AbortSignal.timeout(7000)
-          });
-          if(!resp.ok)throw Error("ADS_SALES_SELLER_LOOKUP_FAILED");
-          const raw=await resp.text();
-          if(raw.length>20000)throw Error("ADS_SALES_SELLER_RESPONSE_OVERSIZE");
-          seller=JSON.parse(raw);
-        }catch{
-          throw new DomainError("ADS_SALES_SELLER_LOOKUP_FAILED",
-           "Não foi possível comprovar o vendedor Mercado Pago antes de liberar cobranças.",503);
+        const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
+        if(!config.checkoutConfigured||!config.webhookConfigured||!config.tokenConfigured||
+          !config.sellerConfigured||!config.signedWebhookConfigured)
+          throw new DomainError("ADS_SALES_PSP_NOT_CONFIGURED",
+            "A conexão de produção do Mercado Pago e o webhook assinado precisam estar disponíveis.",503);
+        try{await verifyIndependentAdsSeller(config)}catch{
+          throw new DomainError("ADS_SALES_SELLER_UNVERIFIED",
+            "O Mercado Pago não confirmou a conta recebedora. Nenhuma cobrança autorizada.",503);
         }
-        if(String(seller?.id??"")!==sellerId)
-          throw new DomainError("ADS_SALES_SELLER_MISMATCH",
-           "A conta recebedora configurada não coincide com o provedor. Nenhuma cobrança autorizada.",503);
       }
       const {data,error}=await admin.rpc("admin_ads_independent_sales_toggle_v1_886",{
         p_actor:user.id,p_enabled:enabled,p_expected_version:version,p_reason:reason

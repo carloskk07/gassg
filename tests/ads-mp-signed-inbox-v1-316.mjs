@@ -4,6 +4,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261016100000_ads_mp_signed_inbox_v1_316.sql');
 const edge=read('supabase/functions/ads-payment-webhook-mercadopago/index.ts');
+const credentials=read('supabase/functions/_shared/ads-platform-credentials.mjs');
 const adminEdge=read('supabase/functions/admin-ops/index.ts');
 const adminUi=read('js/admin-activations.js');
 new vm.Script(adminUi,{filename:'admin-activations.js'});
@@ -25,7 +26,7 @@ for(const token of [
 assert.ok(!/(?:insert|update)\s+(?:into\s+)?public\.platform_ads_psp_checkouts_v1_314/i.test(sql),
  'Webhook SQL must never promote Ads ledger state');
 for(const token of [
- 'ADS_MP_WEBHOOK_ENABLED','ADS_MP_WEBHOOK_SECRET','ADS_MP_ACCESS_TOKEN','ADS_MP_SELLER_ID',
+ 'independentAdsCredentialConfig','verifyIndependentAdsSeller',
  'verifyMercadoPagoWebhook(req,signatureSecret,paymentId)',
  'recentTimestamp(ts)','req.method!=="POST"',
  'MAX_BODY=16384','JSON.parse(raw)',
@@ -38,6 +39,8 @@ for(const token of [
  'paymentApproved:false','automaticReconciliation:false',
  'ADM'
 ].filter(x=>x!=='ADM'))assert.ok(edge.includes(token),'Webhook proof: '+token);
+for(const k of ['ADS_MP_WEBHOOK_ENABLED','ADS_MP_WEBHOOK_SECRET','ADS_MP_ACCESS_TOKEN','ADS_MP_SELLER_ID'])
+ assert.ok(credentials.includes(k),'Shared credential safety '+k);
 assert.ok(!/\.rpc\("admin_ads_psp_action_v1_314"/.test(edge),
  'Webhooks must never call the payment settlement RPC');
 assert.ok(edge.indexOf('verifyMercadoPagoWebhook(req,signatureSecret,paymentId)')<edge.indexOf('reason:"not_payment"'), 'Every acknowledged event must be cryptographically authenticated');

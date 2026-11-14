@@ -1747,10 +1747,11 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('req.method!=="POST"')&&source.includes('MAX_BODY=16384')
       &&source.includes('new TextEncoder().encode(raw).byteLength>MAX_BODY'),
       entry.name+' precisa limitar método, JSON e bytes do webhook');
-    assert.ok(source.includes('ADS_MP_WEBHOOK_ENABLED')&&source.includes('ADS_MP_WEBHOOK_SECRET')
+    assert.ok(source.includes('independentAdsCredentialConfig')&&source.includes('config.webhookConfigured')
+      &&source.includes('config.signedWebhookConfigured')
       &&source.includes('recentTimestamp(ts)')&&
       source.includes('verifyMercadoPagoWebhook(req,signatureSecret,paymentId)'),
-      entry.name+' exige ativação explícita, HMAC e janela temporal');
+      entry.name+' exige conexão da plataforma habilitada, segredo de assinatura, HMAC e janela temporal');
     assert.ok(source.includes('mercadoPagoFetch("/v1/payments/"+paymentId')
       &&source.includes('collectorId!==sellerId')
       &&source.includes('amount<1000||amount>5000000')

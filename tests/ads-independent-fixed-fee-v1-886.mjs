@@ -5,6 +5,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261108001000_ads_independent_fixed_fee_checkout_v1_886.sql');
 const edge=readAdsIndependentCheckoutSource();
+const credentials=read('supabase/functions/_shared/ads-platform-credentials.mjs');
 const webhook=read('supabase/functions/ads-payment-webhook-mercadopago/index.ts');
 const cfg=read('supabase/config.toml');
 const planner=read('js/ads-planner.js');
@@ -27,12 +28,13 @@ assert.match(sql,/sales_enabled boolean NOT NULL DEFAULT false/);
 assert.match(sql,/REFERENCES public\.ads_independent_campaigns_v1_884/);
 assert.match(sql,/REVOKE ALL ON FUNCTION public\.ads_independent_payment_fact_v1_886/);
 assert.doesNotMatch(sql,/UPDATE public\.merchants|INSERT INTO public\.merchants/i);
-for(const k of ['auth.getUser','verifySeller','ADS_MP_CHECKOUT_ENABLED',
- 'ADS_MP_WEBHOOK_ENABLED','ADS_MP_ACCESS_TOKEN','ADS_MP_SELLER_ID',
+for(const k of ['auth.getUser','verifySeller','independentAdsCredentialConfig','verifyIndependentAdsSeller',
  'ADS_PAYMENT_NOT_CONFIGURED','ADS_SELLER_UNVERIFIED',
  'ads_independent_checkout_reserve_v1_886','ads_independent_checkout_attach_v1_886',
  'external_reference:reference','safeMercadoPagoUrl','acceptFixedFee!==true',
  'p_preference:proof.id','checkout/preferences'])assert.ok(edge.includes(k),'Missing checkout safeguard '+k);
+for(const k of ['ADS_MP_CHECKOUT_ENABLED','ADS_MP_WEBHOOK_ENABLED','ADS_MP_ACCESS_TOKEN','ADS_MP_SELLER_ID'])
+ assert.ok(credentials.includes(k),'Shared credential safeguards '+k);
 assert.match(webhook,/ads_independent_payment_fact_v1_886/);
 assert.match(webhook,/payment\?\.live_mode!==true/);
 assert.match(webhook,/verifyMercadoPagoWebhook/);
