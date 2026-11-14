@@ -1,6 +1,9 @@
 -- Provider-verified package and statement payments use the EXISTING resolver.
 -- Automatic applications have explicit machine provenance; no human is impersonated.
 -- No receipt, balance or financial evidence is created by this migration.
+create schema if not exists tamao_billing_private;
+revoke all on schema tamao_billing_private from public,anon,authenticated,service_role;
+
 alter table public.merchant_billing_payment_requests
  add column auto_applied boolean not null default false;
 alter table public.merchant_billing_payment_events
@@ -39,16 +42,16 @@ create table public.merchant_billing_auto_applications (
 alter table public.merchant_billing_auto_applications enable row level security;
 revoke all on public.merchant_billing_auto_applications from public,anon,authenticated,service_role;
 grant select on public.merchant_billing_auto_applications to service_role;
-create function private.guard_billing_auto_application() returns trigger
+create function tamao_billing_private.guard_billing_auto_application() returns trigger
 language plpgsql set search_path=pg_catalog as $$
 begin raise exception 'AUTOMATIC_BILLING_AUDIT_IMMUTABLE' using errcode='42501';end $$;
-revoke all on function private.guard_billing_auto_application() from public,anon,authenticated,service_role;
+revoke all on function tamao_billing_private.guard_billing_auto_application() from public,anon,authenticated,service_role;
 create trigger billing_auto_application_immutable before update or delete
- on public.merchant_billing_auto_applications for each row execute function private.guard_billing_auto_application();
+ on public.merchant_billing_auto_applications for each row execute function tamao_billing_private.guard_billing_auto_application();
 create trigger billing_auto_application_no_truncate before truncate
- on public.merchant_billing_auto_applications for each statement execute function private.guard_billing_auto_application();
+ on public.merchant_billing_auto_applications for each statement execute function tamao_billing_private.guard_billing_auto_application();
 
-CREATE OR REPLACE FUNCTION private.resolve_merchant_billing_payment_request(p_actor_user_id uuid, p_payment_request_id uuid, p_action text, p_reference text, p_idempotency_key text, p_request_hash text, p_automatic_event_id uuid DEFAULT NULL)
+CREATE OR REPLACE FUNCTION tamao_billing_private.resolve_merchant_billing_payment_request(p_actor_user_id uuid, p_payment_request_id uuid, p_action text, p_reference text, p_idempotency_key text, p_request_hash text, p_automatic_event_id uuid DEFAULT NULL)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -390,13 +393,13 @@ begin
 end;
 $function$;
 
-revoke all on function private.resolve_merchant_billing_payment_request(uuid,uuid,text,text,text,text,uuid)
+revoke all on function tamao_billing_private.resolve_merchant_billing_payment_request(uuid,uuid,text,text,text,text,uuid)
  from public,anon,authenticated,service_role;
 create or replace function public.admin_merchant_billing_payment_request_action(
  p_actor_user_id uuid,p_payment_request_id uuid,p_action text,p_reference text,
  p_idempotency_key text,p_request_hash text) returns jsonb
 language sql security definer set search_path=pg_catalog as $$
- select private.resolve_merchant_billing_payment_request(p_actor_user_id,p_payment_request_id,
+ select tamao_billing_private.resolve_merchant_billing_payment_request(p_actor_user_id,p_payment_request_id,
   p_action,p_reference,p_idempotency_key,p_request_hash,null);
 $$;
 revoke all on function public.admin_merchant_billing_payment_request_action(uuid,uuid,text,text,text,text)
@@ -617,7 +620,7 @@ begin
   received_amount_cents=e.amount_cents,payment_method=e.payment_method,reconciliation_key=e.reconciliation_key,
   approval_source='provider_event',provider_payment_event_id=e.id,auto_applied=true,updated_at=clock_timestamp()
  where id=r.id;
- result:=private.resolve_merchant_billing_payment_request(null,r.id,'approve',ref,
+ result:=tamao_billing_private.resolve_merchant_billing_payment_request(null,r.id,'approve',ref,
   'provider-auto:'||r.id::text,encode(extensions.digest(e.id::text||':'||r.id::text,'sha256'),'hex'),e.id);
  insert into public.merchant_billing_auto_applications(payment_request_id,payment_event_id,charge_id,
   merchant_id,amount_cents,request_kind) values(r.id,e.id,c.id,r.merchant_id,e.amount_cents,r.request_kind);
@@ -636,7 +639,7 @@ alter table public.platform_receivables add constraint platform_receivables_reso
    or (resolved_by is null and resolution_reference ~ '^provider-auto:[0-9a-f-]{36}$' and daily_statement_id is not null)))
  or (status='waived' and paid_at is null and waived_at is not null and reversed_at is null and resolved_by is not null and resolution_reference is not null)
  or (status='reversed' and reversed_at is not null));
-create function private.require_auto_paid_receivable() returns trigger
+create function tamao_billing_private.require_auto_paid_receivable() returns trigger
 language plpgsql security definer set search_path=pg_catalog as $$
 begin
  if new.status='paid' and new.resolved_by is null and new.resolution_reference like 'provider-auto:%'
@@ -649,6 +652,6 @@ begin
  end if;
  return new;
 end $$;
-revoke all on function private.require_auto_paid_receivable() from public,anon,authenticated,service_role;
+revoke all on function tamao_billing_private.require_auto_paid_receivable() from public,anon,authenticated,service_role;
 create constraint trigger auto_paid_receivable_proof after insert or update on public.platform_receivables
- deferrable initially deferred for each row execute function private.require_auto_paid_receivable();
+ deferrable initially deferred for each row execute function tamao_billing_private.require_auto_paid_receivable();

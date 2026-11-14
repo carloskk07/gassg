@@ -173,7 +173,7 @@ begin
  if not denied or before_actions<>(select count(*) from public.action_requests) then raise exception 'missing admin actor accepted';end if;
  if has_function_privilege('anon','public.apply_verified_merchant_billing_payment(uuid,uuid)','execute')
   or has_function_privilege('authenticated','public.apply_verified_merchant_billing_payment(uuid,uuid)','execute')
-  or has_function_privilege('service_role','private.resolve_merchant_billing_payment_request(uuid,uuid,text,text,text,text,uuid)','execute') then
+  or has_function_privilege('service_role','tamao_billing_private.resolve_merchant_billing_payment_request(uuid,uuid,text,text,text,text,uuid)','execute') then
   raise exception 'automatic resolver exposed';end if;
 end $test$;
 set constraints all immediate;
