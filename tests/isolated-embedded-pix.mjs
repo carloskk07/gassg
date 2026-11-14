@@ -9,7 +9,7 @@ const before=sql('select count(*) from public.ads_independent_checkouts_v1_886')
 sql(`begin;
 set local statement_timeout='60s';
 do $test$
-declare u uuid:=gen_random_uuid();m uuid;c uuid;d uuid;o uuid;a uuid;r jsonb;q jsonb;ref text;denied boolean;sig text;
+declare u uuid:=gen_random_uuid();m uuid;c uuid;d uuid;o uuid;a uuid;conn uuid;route uuid;r jsonb;q jsonb;ref text;denied boolean;sig text;
 begin
  insert into auth.users(id,instance_id,aud,role,is_sso_user,is_anonymous,email,email_confirmed_at)
  values(u,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',false,false,'pix-fixture-'||u::text||'@example.invalid',clock_timestamp());
@@ -56,8 +56,15 @@ begin
  values('PIX ISOLATED SELLER','99887766550099','pending',false,true,clock_timestamp(),clock_timestamp(),0) returning id into m;
  insert into public.orders(public_code,customer_id,status,supplier_name_snapshot,address_text,address_number,postal_code,customer_phone_digits,payment_method,payment_timing,gross_total_cents,total_cents,delivery_fee_cents_snapshot,merchant_id,attempted_merchant_ids,offer_expires_at,accepted_at,version)
  values('PIX-'||substr(u::text,1,8),u,'PREPARING','PIX ISOLATED SELLER','Rua Sintética 20','20','97300000','51999998888','pix','prepaid',1990,1990,0,m,array[m],null,clock_timestamp(),1) returning id into o;
- insert into public.merchant_sale_payment_attempts(order_id,merchant_id,provider,checkout_mode,external_reference,amount_cents,status,payment_method_snapshot,verification_level,funds_owner)
- values(o,m,'mercadopago','pix',gen_random_uuid()::text,1990,'preparing','pix','provider','merchant') returning id into a;
+ insert into public.merchant_payment_provider_accounts(merchant_id,provider,provider_account_id,status,
+  capabilities,access_token_ciphertext,access_token_nonce,connected_at)
+ values(m,'mercadopago','123456789','active',
+  '{"directSalePaymentsEnabled":true,"canValidateProviderTransactions":true}'::jsonb,
+  repeat('x',32),repeat('n',16),clock_timestamp()) returning id into conn;
+ insert into public.merchant_payment_routes(merchant_id,payment_method,provider,connection_id,channel,verification_mode,active)
+ values(m,'pix','mercadopago',conn,'online','provider_api',true) returning id into route;
+ insert into public.merchant_sale_payment_attempts(order_id,merchant_id,provider,checkout_mode,external_reference,amount_cents,status,payment_method_snapshot,verification_level,funds_owner,payment_route_id)
+ values(o,m,'mercadopago','pix',gen_random_uuid()::text,1990,'preparing','pix','provider','merchant',route) returning id into a;
  denied:=false;
  begin perform public.merchant_sale_pix_attach(gen_random_uuid(),o,a,'ORD-native-proof',1990,'${pixFixture()}',clock_timestamp()+interval '1 day');exception when sqlstate '42501' then denied:=true;end;
  if not denied then raise exception 'SALE_PIX_FOREIGN_CUSTOMER';end if;
