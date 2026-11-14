@@ -6696,7 +6696,7 @@ async function adminFinanceAdsReadOwned(){
     !review.rows.every(r=>mine.rows.some(m=>m.id===r.id&&m.version===r.version&&m.status===r.status)&&
       typeof r.title==='string'&&typeof r.description==='string'&&typeof r.destination==='string'))
   throw Error('As campanhas mudaram ou sua titularidade não foi confirmada. Atualize a consulta.');
- return {mine,reviewRows:review.rows};
+ return {mine,reviewRows:review.rows,deliveryEnabled:review.deliveryEnabled===true};
 }
 async function adminFinanceAdsCheckout(campaignId){
  if(!adminFinanceRealAllowed('advertising'))return false;
@@ -7239,7 +7239,26 @@ function adminFinanceRealPanel(key){
     r.fixedFeeStatus==='checkout_ready');
   const reserved=rows.filter(r=>r.status==='approved'&&r.fixedFeeStatus==='reserved');
   const confirmed=rows.filter(r=>r.fixedFeeStatus==='payment_approved');
-  if(confirmed.length)html+='<p role="status"><strong>Pagamento de publicidade confirmado.</strong> Aguarda a liberação comercial correspondente; a conciliação bancária é separada.</p>';
+  if(confirmed.length)html+=confirmed.map(r=>{
+   const starts=Date.parse(String(r.runStartedAt||'')),ends=Date.parse(String(r.runEndsAt||''));
+   const period=Number.isFinite(starts)&&Number.isFinite(ends)&&ends>starts;
+   let progress='Confira o período e a situação da campanha.',label='Acompanhar campanha',pane='campaigns';
+   if(r.status==='ended'||Number.isFinite(ends)&&ends<=Date.now())
+    progress='Período de publicação encerrado.';
+   else if(r.status==='approved'){
+    progress='Aguardando início da publicação.';
+    label=known.deliveryEnabled?'Iniciar publicação':'Habilitar exibição';
+    pane=known.deliveryEnabled?'campaigns':'finance';
+   }else if(r.status==='paused')progress='Publicação pausada. O prazo original é preservado.';
+   else if(r.status==='active'&&period&&starts<=Date.now()){
+    if(known.deliveryEnabled)progress='Anúncio ativo. Ativo até '+new Date(ends).toLocaleString('pt-BR')+'.';
+    else{progress='Exibição pausada. O prazo original é preservado.';label='Habilitar exibição';pane='finance';}
+   }
+   return '<article class="notice" aria-label="Publicidade paga">'+
+    '<h4>Pagamento de publicidade confirmado</h4><p><strong>'+esc(r.title||'Campanha')+'</strong><br>'+
+    money(r.budgetCents)+' por '+esc(r.durationDays)+' dias</p><p role="status">'+esc(progress)+'</p>'+
+    action(label,'adminFinanceHomologationOpenAds(\''+pane+'\')')+'</article>';
+  }).join('');
   if(original.length&&typeof globalThis.tamaoPixWatch==='function'){
    const actor=state.actor;
    globalThis.tamaoPixWatch('admin-ads:'+actor,()=>adminFinanceRealAllowed('advertising')&&
@@ -7280,8 +7299,10 @@ function adminFinanceRealPanel(key){
       'adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')')+'</article>';
   }).join('');
   if(!rows.some(r=>['approved','submitted'].includes(r.status)))html+=
-   action('Preencher com anúncio do TAMÃO','adminFinanceAdsDraftTamao()')+
-   '<details'+(state.adsDraft?' open':'')+'><summary>Revisar e enviar minha campanha para aprovação</summary>'+
+   (rows.length?'':action('Preencher com anúncio do TAMÃO','adminFinanceAdsDraftTamao()'))+
+   '<details'+(state.adsDraft?' open':'')+'><summary>'+
+   (rows.length?'Criar outra campanha':'Revisar e enviar minha campanha para aprovação')+'</summary>'+
+   (rows.length?action('Preencher com anúncio do TAMÃO','adminFinanceAdsDraftTamao()'):'')+
    '<label>Anunciante<input id="admin-finance-real-ads-advertiser" class="input" maxlength="120" value="'+esc(state.adsDraft?.advertiser||'')+'" oninput="adminFinanceAdsDraftField(\'advertiser\',this.value)"></label>'+
    '<label>Título<input id="admin-finance-real-ads-title" class="input" maxlength="80" value="'+esc(state.adsDraft?.title||'')+'" oninput="adminFinanceAdsDraftField(\'title\',this.value)"></label>'+
    '<label>Descrição<input id="admin-finance-real-ads-description" class="input" maxlength="240" value="'+esc(state.adsDraft?.description||'')+'" oninput="adminFinanceAdsDraftField(\'description\',this.value)"></label>'+

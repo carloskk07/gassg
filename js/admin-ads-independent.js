@@ -470,15 +470,15 @@ function adminAdsIndependentSection(){
     '<label class="admin-option-row"><input type="radio" name="independent-ads-control-preset" value="'+
     (delivery?'Entrega interrompida preventivamente para revisão operacional do inventário.':
      'Inventário e conteúdo de campanhas conferidos para entrega sem faturamento.')+'"> '+
-    (delivery?'Interromper para revisão operacional':'Autorizar entrega não faturável revisada')+
+    (delivery?'Interromper para revisão operacional':'Habilitar exibição dos anúncios aprovados')+
     '</label></fieldset><details><summary>Outro motivo (opcional)</summary>'+
     '<label for="independent-ads-control-reason">Justificativa personalizada</label>'+
     '<textarea id="independent-ads-control-reason" class="input" maxlength="500" rows="2"></textarea></details>'+
     '<button class="secondary small" type="button" onclick="adminIndependentAdsAction(\''+
     (delivery?'disable_delivery':'enable_delivery')+'\')" '+
     (adminIndependentAdsBusy?'disabled':'')+'>'+
-    (delivery?'Interromper entrega imediatamente':'Autorizar entrega não faturável')+'</button>'+
-    '<p class="tiny muted">A autorização exige campanha revisada e não libera faturamento, Pix nem repasses.</p></div>':'')+
+    (delivery?'Interromper entrega imediatamente':'Habilitar exibição de anúncios')+'</button>'+
+    '<p class="tiny muted">Habilita a exibição das campanhas aprovadas. Cada publicação exige sua decisão; esta ação não gera Pix ou outra cobrança.</p></div>':'')+
   (canAct&&v?'<div class="card flat"><h4>Conferência segura do Mercado Pago</h4>'+
     '<p>Consulta somente leitura. Não emite Pix, pagamento ou reembolso.</p>'+
     '<button type="button" class="secondary small" onclick="adminIndependentAdsCheckProvider()" '+
