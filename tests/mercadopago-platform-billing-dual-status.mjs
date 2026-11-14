@@ -1,8 +1,9 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const file=fs.readFileSync(new URL('../supabase/functions/billing-payment-webhook-mercadopago/index.ts',import.meta.url),'utf8');
+const file=readMercadoPagoWebhookSource();
 const start=file.indexOf('async function handlePlatformBillingOrder(');
 const end=file.indexOf('// The SAME production Mercado Pago webhook',start);
 assert.ok(start>0&&end>start,'existing production billing handler must be tested');

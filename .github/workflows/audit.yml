@@ -49,6 +49,8 @@ jobs:
         run: node tests/customer-orders-readback.mjs
       - name: Mercado Pago published Pix tariff and forecast boundaries
         run: node tests/mercadopago-public-pix-tariff.mjs
+      - name: Automatic server payment recovery across all current payment families
+        run: node tests/payment-reconciliation-runner.mjs
       - name: V1.959 production home order resume with verified vs stale status
         run: node tests/customer-home-order-recovery-v1-959.mjs
       - name: Buyer decision exact-order cancellation and requote lifecycle

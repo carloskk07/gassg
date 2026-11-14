@@ -1,3 +1,4 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -8,7 +9,7 @@ const migration=read('supabase/migrations/20261019170000_clube_coupon_paid_pix_f
 const netMigration=read('supabase/migrations/20261019180000_clube_coupon_order_atomic_checkout.sql');
 const billing=read('supabase/functions/merchant-billing-pix/index.ts');
 const coupon=read('supabase/functions/coupon-credit-pix/index.ts');
-const webhook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
+const webhook=readMercadoPagoWebhookSource();
 const shared=read('supabase/functions/_shared/mercadopago.js');
 const quotePg=read('tests/coupon-quote-reservation-postgres-17.sql');
 assert.match(quotePg,/set_config\('tamao\.coupon\.isolated_quote_fixture','true',false\)/,

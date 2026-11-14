@@ -121,3 +121,6 @@ verify_jwt = false
 # V1.931 — authenticated with private Vault cron bearer and database-side SHA-256.
 [functions.coupon-net-auto]
 verify_jwt = false
+
+[functions.payment-reconcile]
+verify_jwt = false

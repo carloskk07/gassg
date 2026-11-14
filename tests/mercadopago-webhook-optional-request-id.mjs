@@ -1,9 +1,10 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createHmac} from 'node:crypto';
 
 const helperSource=fs.readFileSync(new URL('../supabase/functions/_shared/mercadopago.js',import.meta.url),'utf8');
-const webhook=fs.readFileSync(new URL('../supabase/functions/billing-payment-webhook-mercadopago/index.ts',import.meta.url),'utf8');
+const webhook=readMercadoPagoWebhookSource();
 const {verifyMercadoPagoWebhook}=await import('data:text/javascript;base64,'+
   Buffer.from(helperSource).toString('base64'));
 

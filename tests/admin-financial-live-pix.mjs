@@ -1,3 +1,4 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -5,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {safeMercadoPagoUrl} from '../supabase/functions/_shared/mercadopago.js';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const edge=read('supabase/functions/admin-ops/index.ts');
-const hook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
+const hook=readMercadoPagoWebhookSource();
 const ui=read('js/admin.js'),workflow=read('.github/workflows/audit.yml');
 const start=edge.indexOf('const FINANCE_LAB_LIVE_MIN_CENTS=100;');
 const end=edge.indexOf('async function billingProviderHealth(',start);

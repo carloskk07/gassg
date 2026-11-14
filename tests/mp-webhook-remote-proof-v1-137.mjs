@@ -1,9 +1,10 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=(path)=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20261009213000_mp_webhook_remote_proof_v1_137.sql');
-const webhook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
+const webhook=readMercadoPagoWebhookSource();
 const adminOps=read('supabase/functions/admin-ops/index.ts');
 const admin=read('js/admin.js');
 

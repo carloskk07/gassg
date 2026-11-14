@@ -47,6 +47,25 @@ assert.equal(valid.evidenceReference,'mp-release:release-report-prod-20261024.cs
 assert.equal(valid.merchantPayoutVerified,false);
 assert.equal(valid.couponFundingApplied,false);
 assert.equal(valid.moneyMoved,false);
+// Orders PAY IDs and account report SOURCE_IDs can differ. Accept only the
+// alias returned by the verified Order, still bound to this exact invoice.
+const aliasedOrder=structuredClone(order);
+aliasedOrder.transactions.payments[0].reference_id='123456789012';
+const aliasCsv=header+'\n'+release({SOURCE_ID:'123456789012'})+'\n';
+assert.equal(inspect(aliasCsv,invoice,aliasedOrder).eligible,true);
+assert.equal(inspect(aliasCsv).eligible,false,'a report ID is never its own authority');
+assert.equal(inspect(header+'\n'+release({SOURCE_ID:'123456789012',EXTERNAL_REFERENCE:'other'})+'\n',invoice,aliasedOrder).eligible,false);
+const aliasDebit=release({SOURCE_ID:'payment-1',EXTERNAL_REFERENCE:'',RECORD_TYPE:'refund',
+ NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'1.00',GROSS_AMOUNT:'-1.00'});
+assert.equal(inspect(aliasCsv+aliasDebit+'\n',invoice,aliasedOrder).reason,'COUPON_RELEASE_CONFLICTING_MOVEMENT');
+assert.equal(inspect(aliasCsv+release()+'\n',invoice,aliasedOrder).reason,'COUPON_RELEASE_AMBIGUOUS');
+for(const changed of [
+ {payments:[...order.transactions.payments,{...order.transactions.payments[0],id:'payment-2'}]},
+ {chargebacks:[{id:'dispute-1'}]}
+]){
+ const ambiguous={...order,transactions:{...order.transactions,...changed}};
+ assert.equal(inspect(csv,invoice,ambiguous).reason,'COUPON_PROVIDER_BINDING_UNVERIFIED');
+}
 // V1.807: prepaid coupons may be price-subsidized only when the authenticated
 // Admin has independently verified the full-face founder escrow in Postgres.
 const sponsorInvoice={...invoice,sale_price_cents:890,coupons_per_pack:3,

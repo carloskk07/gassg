@@ -1,3 +1,4 @@
+import {readAdsIndependentCheckoutSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -5,7 +6,7 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261108042000_ads_independent_homologation_v1_892.sql');
 const admin=read('supabase/functions/admin-ops/index.ts');
 const intake=read('supabase/functions/ads-independent/index.ts');
-const checkout=read('supabase/functions/ads-independent-checkout/index.ts');
+const checkout=readAdsIndependentCheckoutSource();
 const adminUI=read('js/admin-ads-independent.js');
 const sponsorUI=read('js/ads-planner.js');
 for(const [name,code] of [['admin',adminUI],['sponsor',sponsorUI]])

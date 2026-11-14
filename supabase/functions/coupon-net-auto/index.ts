@@ -146,18 +146,23 @@ async function discoverReleaseReports(mpToken:string){
 }
 export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
  const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
+ const correlation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
  for(const {fileName,csv} of reportCsv){
   const evidence=couponReleasedNetEvidence(csv,{
    invoice,order,reportFileName:fileName,sponsorVerified
   });
   if(evidence.eligible===true){accepted.push(evidence);continue;}
+  if('correlation' in evidence&&evidence.correlation){
+   for(const key of Object.keys(correlation))
+    correlation[key]+=Number(evidence.correlation[key]||0);
+  }
   if(evidence.reason!=="COUPON_RELEASE_NOT_FOUND"){
    return {status:"requires_review",reason:safeReason(evidence.reason),accepted:null};
   }
  }
  if(accepted.length>1)return {status:"requires_review",
    reason:"MULTIPLE_RELEASE_REPORT_MATCHES",accepted:null};
- if(!accepted.length)return {status:"awaiting_report",reason:"MP_RELEASE_NOT_FOUND",accepted:null};
+ if(!accepted.length)return {status:"awaiting_report",reason:"MP_RELEASE_NOT_FOUND",accepted:null,correlation};
  return {status:"verified_candidate",reason:"MATCHED_REPORT",
    accepted:accepted[0]};
 }
@@ -402,6 +407,7 @@ Deno.serve(async req=>{
     reportConfiguration?.owned===true&&invoices.length>0)
     reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
   let registered=0,review=0,waiting=0;
+  const reportCorrelation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
   for(const invoice of invoices){
    let result;
    if(!reports.complete)result={status:"coverage_incomplete",reason:reports.reason};
@@ -416,11 +422,13 @@ Deno.serve(async req=>{
     catch{result={status:"provider_unavailable",reason:"RETRYABLE_PROVIDER_OR_DATABASE_FAILURE"};}
    }
    await recordObservation(client,invoice.id,result.status,result.reason);
+   if(result.correlation)for(const key of Object.keys(reportCorrelation))
+    reportCorrelation[key]+=Number(result.correlation[key]||0);
    if(result.status==="net_verified")registered++;
    else if(result.status==="requires_review")review++;
    else waiting++;
   }
-  return json({ok:true,checked:invoices.length,registered,review,waiting,
+  return json({ok:true,checked:invoices.length,registered,review,waiting,reportCorrelation,
     reportConfiguration,reportBackfill,
     providerReportQueue:{pendingAccountReports:reports.pending,
       failedAccountReports:reports.blocked,source:reports.source,

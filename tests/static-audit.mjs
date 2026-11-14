@@ -1,3 +1,4 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -694,7 +695,7 @@ const providerChargeCancelSource=read('supabase/functions/_shared/provider-charg
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
-const mercadoPagoPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
+const mercadoPagoPaymentWebhookSource=readMercadoPagoWebhookSource();
 const mercadoPagoSharedSource=read('supabase/functions/_shared/mercadopago.js');
 const paymentSecretsSource=read('supabase/functions/_shared/payment-secrets.js');
 const merchantSalePaymentControlSource=read('supabase/functions/_shared/merchant-sale-payment-control.js');
@@ -1711,7 +1712,7 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   if(!entry.isDirectory()||entry.name==='_shared')continue;
   const file=path.join(functionRoot,entry.name,'index.ts');
   if(!fs.existsSync(file))continue;
-  const source=fs.readFileSync(file,'utf8');
+  let source=fs.readFileSync(file,'utf8');
   assert.ok(source.includes('jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts'),entry.name+' precisa fixar functions-js');
   assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
   if(entry.name==='capture-prelaunch-lead'){
@@ -1760,6 +1761,7 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
       &&!source.includes('checkout/preferences'),
       entry.name+' apenas registra eventos privados, nunca confirma pagamento ou cria cobrança');
   }else if(entry.name==='billing-payment-webhook-mercadopago'){
+    source=readMercadoPagoWebhookSource();
     assert.ok(source.includes('MAX_BODY_BYTES=65536')&&source.includes('TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
     assert.ok(source.includes('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')&&source.includes('INVALID_MERCADOPAGO_SIGNATURE'),entry.name+' precisa autenticar o ingresso por HMAC antes do roteamento financeiro');
     assert.ok(source.includes('merchant_sale_payment_attempts')&&source.includes('handlePlatformBillingOrder')&&source.includes('handleMerchantSaleOrder'),entry.name+' precisa rotear venda da revenda e cobrança do TAMÃO por vínculo exato');
@@ -1829,6 +1831,10 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     );
     assert.ok(source.includes('https://tamao.com.br')&&source.includes('https://parceiro.tamao.com.br')&&source.includes('https://admin.tamao.com.br'),entry.name+' precisa provar os três portais oficiais');
     assert.ok(source.includes('record_automated_portal_attestation')&&!source.includes('admin_operation_mode_action')&&!source.includes('platform_launch_confirmations'),entry.name+' só pode atualizar evidência factual de portais');
+  }else if(entry.name==='payment-reconcile'){
+    assert.ok(source.includes('X-Tamao-Payment-Cron-Token')&&source.includes('platform_payment_reconciliation_authorize')&&source.includes('platform_payment_reconciliation_claim'),entry.name+' exige segredo privado e fila com lease');
+    assert.ok(source.indexOf('auth.data!==true')<source.indexOf('platform_payment_reconciliation_claim'),entry.name+' deve autorizar antes de reclamar pagamentos');
+    assert.ok(source.includes('platform_payment_reconciliation_finish')&&source.includes('newChargesCreated:0'),entry.name+' registra o resultado sem criar cobranças');
   }else if(entry.name==='coupon-net-auto'){
     assert.ok(source.includes('req.method!=="POST"')&&
       source.includes('X-Tamao-Coupon-Cron-Token')&&

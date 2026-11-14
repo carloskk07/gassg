@@ -1,3 +1,4 @@
+import {readAdsIndependentCheckoutSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {selectIndependentAdsPayment} from '../supabase/functions/_shared/ads-independent-payment-search.mjs';
@@ -13,7 +14,7 @@ for(const p of [
  {results:[item]},{paging:{total:'1',offset:0},results:[item]},
  {paging:{total:1},results:[item]},null
  ])assert.deepEqual(selectIndependentAdsPayment(p,ref),{kind:'review'});
-const edge=fs.readFileSync(new URL('../supabase/functions/ads-independent-checkout/index.ts',import.meta.url),'utf8');
+const edge=readAdsIndependentCheckoutSource();
 assert.match(edge,/selectIndependentAdsPayment\(listing,reference\)/);
 assert.match(edge,/if\(choice.kind==="review"\)/);
 assert.match(edge,/if\(choice.kind==="none"\)/);
