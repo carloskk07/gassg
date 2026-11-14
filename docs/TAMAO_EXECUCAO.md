@@ -1,4 +1,16 @@
-## 14/11/2026 — Pix dentro do TAMÃO nos três portais (em validação)
+## 14/11/2026 — Continuidade após publicidade paga e ativa: recibo acompanha o ciclo (em validação)
+
+Base `main=e2d9071536f1d49e789b4c7764b75fc6dd7193fd`. A conferência real confirma três recebimentos: cupons R$8,90, líquido R$8,81 e três emissões; Essencial R$19,90 com um crédito e R$19,90 disponíveis; publicidade R$19,90 paga e publicada, de 14/11 às 19h45 até 21/11 às 19h45 (Brasília). A entrega pública da campanha de São Gabriel retornou HTTP 200 e o anúncio correto. A consulta técnica não confirmou impressão nem criou cobrança; zero sinais de visualização foram transformados em evidência comercial.
+
+Defeito reproduzido no controlador: a campanha `active`/`payment_approved` ainda mostrava “aguarda a liberação comercial”, além da orientação genérica para testar checkout novamente. A correção apresenta recibo da própria campanha, prazo e estado reais: ativa, pausada, aguardando publicação ou encerrada. O botão seguinte abre a área existente de exibição ou campanhas, sem publicar, habilitar entrega ou criar cobrança por navegação. Nova campanha permanece em uma área recolhida quando já há campanha concluída. O controle de exibição recebe nomes claros, preservando marcação e autorização no servidor. O diagnóstico reconhece recebimento Ads já confirmado e orienta continuar a campanha existente; não declara liquidação ou homologação integral por contagem de eventos.
+
+A lista fixa permanece em **13/19 frentes técnicas encerradas e 6 abertas** (#1 Pix/Mercado Pago, #2 cupons comerciais, #3 financeiro/conciliação, #4 operação comercial real, #6 revendas elegíveis, #12 cashback/indicações/saques). Não contar esta correção como outra frente integral. As lacunas atuais são uso/cancelamento/devolução dos benefícios pagos, consumo do crédito, estorno real autorizado, cobranças/consumo de mobilidade, venda online de pedido e fatos geradores/pagamento de benefícios. Publicidade de profissionais não possui regra ativa de cobrança. Ofertas físicas continuam bloqueadas enquanto não houver fornecedor legítimo elegível; isso não impede correções ou testes isolados dos outros módulos.
+
+Testes novos executam recibo pago com publicação ativa, entrega global desligada, campanha aprovada, pausada e encerrada, datas inválidas, troca de conta/papel, ausência de nova cobrança e navegação protegida para a tarefa correta. Conferir checks e publicação desta continuação antes de declarar sua interface atualizada. Nenhum novo Pix, estorno, saque, estoque, pedido, motorista ou comprovação empresarial é criado por esta entrega.
+
+---
+
+## 14/11/2026 — Pix dentro do TAMÃO nos três portais (publicado na PR #998)
 
 Continuidade de `main=d8370b7aa5ee6941054fc40ed0071ec2412696f0` (PR #997). O titular pediu QR Code e copia e cola no Admin, Cliente e Parceiro para todas as operações Pix. O link externo de publicidade não atendia a esse fluxo: Checkout Pro não fornece um Pix antes da escolha no ambiente externo. A correção usa Pix nativo e mantém a obrigação original da campanha, aceite, titular, recebedor, valor, referência, assinatura e conciliação existentes.
 
@@ -6,7 +18,7 @@ A criação de instrumento é serializada. Uma preferência antiga é conferida,
 
 Nos três portais o código bancário é convertido localmente em SVG pelo codificador existente; nenhum serviço remoto recebe o Pix. Cupons, pacotes/tarifas de revendas, mobilidade e publicidade mantêm o código até o vencimento real e consultam o estado original automaticamente, inclusive na volta à página. Recarregar não renova vencimento nem emite outra cobrança. Pedido de produto com Pix usa Orders nativo da conta da revenda, com acesso restrito ao cliente; cartão conserva o fluxo próprio. As chaves comerciais existentes não são alteradas.
 
-Verificação local: 547 testes Node passaram, inclusive criação única concorrente, resposta perdida, valor/recebedor divergentes, CRC/QR real, dono da cobrança, sessão alterada, recarga e vencimento. O navegador e o banco descartável serão conferidos no CI, incluindo pagamento chegando antes da gravação do QR e deduplicação do fato financeiro. Conferir checks, fontes Edge e três SHAs públicos antes de declarar publicação concluída. Não foi pago outro Pix de cupons ou Essencial; publicidade ainda precisa da transação bancária real para concluir essa homologação.
+Publicação concluída na PR #998, merge `e2d9071536f1d49e789b4c7764b75fc6dd7193fd`, confirmado nos três domínios oficiais. Os 547 testes locais, Audit, revisão visual e os 68 passos de integração descartável passaram. Migração aplicada; fontes Edge conferidas: ads-independent v8, ads-independent-checkout v7, payment-reconcile v4, order-payment-checkout v19 e get-order v40. A preferência antiga foi encerrada e o Pix nativo da obrigação original foi confirmado automaticamente em 14/11 às 19h25 (Brasília), uma única cobrança de R$19,90. O titular habilitou exibição e publicou a campanha às 19h45, com término em 21/11 às 19h45. A API pública retornou a campanha correta de São Gabriel sem registrar visualização artificial. Cupons e Essencial já pagos não foram emitidos nem creditados novamente; estorno e os demais ciclos bancários não são presumidos.
 
 ---
 

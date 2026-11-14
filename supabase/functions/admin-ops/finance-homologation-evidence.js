@@ -48,10 +48,12 @@ export function evaluateFinanceHomologationEvidence(modules,signals,labHistory){
    const state=review?"needs_review":positive>0?"provider_or_ledger_evidence":"pending_real_payment";
    const merchantReceipt=key==='merchants'&&positive>0&&!review;
    const couponReceipt=key==='coupons'&&signals.couponPaid>0&&signals.couponNetVerified>0&&!review;
+   const adsReceipt=key==='advertising'&&positive>0&&!review;
    const progressLabel=review?"Registros divergentes: revisar a operação existente":
      merchantReceipt&&credits>0?"Pagamento e crédito registrados; faltam consumo e reversão":
      merchantReceipt?"Pagamento identificado; conferir a liberação do crédito existente":
      couponReceipt?"Recebimento e líquido registrados; faltam uso e devolução":
+     adsReceipt?"Pagamento de publicidade confirmado; continuar ciclo da campanha":
      key==='professional_ads'&&terms===0?"Cobrança de profissionais ainda não configurada":
      positive>0?"Há registros; faltam as demais etapas do ciclo":
      "Aguardando a primeira operação real desta modalidade";
@@ -70,6 +72,8 @@ export function evaluateFinanceHomologationEvidence(modules,signals,labHistory){
        ?"Definir e configurar a cobrança de anúncios profissionais antes da contratação e da homologação financeira."
        :couponReceipt
        ?"Reutilizar os cupons já pagos para validar resgate, cancelamento e devolução. Recebimento e líquido já registrados; não comprar outro pacote para repetir essa prova."
+       :adsReceipt
+       ?"Usar a campanha já paga para acompanhar publicação, encerramento e reembolso autorizado. O recebimento já está confirmado; não emitir outra cobrança para repetir essa prova."
        :ACTIONS[key],
      note:review?"Registros de recebimento e contrapartida precisam de conferência antes de qualquer liberação.":
         positive>0?"Há registros no módulo, mas esta consulta não prova liquidação nem homologa o ciclo inteiro.":
