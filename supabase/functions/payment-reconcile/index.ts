@@ -13,6 +13,7 @@ import {reconcilePaymentJob} from "./runner.js";
 import {verifiedOrderPix} from "../_shared/order-pix-proof.mjs";
 import {prepareAdsPix,recoverAdsPix} from "../_shared/ads-native-pix.mjs";
 import {adsPixDependencies} from "../ads-independent-checkout/handlers.ts";
+import {authorizedCouponRefund} from "./authorized-coupon-refund.js";
 
 const URL_BASE=Deno.env.get('SUPABASE_URL')||'';
 const SECRET=JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')||'{}').default||Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
@@ -26,6 +27,20 @@ Deno.serve(async(req:Request)=>{
  const auth=await admin.rpc('platform_payment_reconciliation_authorize',{p_token_sha:await sha256Hex(token)});
  if(auth.error||auth.data!==true)return json({ok:false},403);
  try{
+  // One explicitly consented refund. Ordinary cron remains GET-only and
+  // cannot enter this route. Scope/expiry/one-shot claim live server-side.
+  if(new URL(req.url).searchParams.get('refund')==='authorized-unused-coupon'){
+   const accessToken=String(Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')||'').trim();
+   if(!accessToken.startsWith('APP_USR-'))return json({ok:false,error:'COUPON_DELEGATION_PROVIDER_UNAVAILABLE'},503);
+   return json(await authorizedCouponRefund({admin,moneyToCents,
+    providerGet:async(path:string)=>{
+     const response=await mercadoPagoFetch(path,{accessToken,method:'GET',timeoutMs:8000});
+     if(!response.ok)throw Error('COUPON_DELEGATION_PROVIDER_UNAVAILABLE');
+     return readMercadoPagoJson(response);
+    },providerRefund:async(path:string,idempotencyKey:string)=>{
+     return mercadoPagoFetch(path,{accessToken,method:'POST',idempotencyKey,timeoutMs:8000});
+    }}));
+  }
   // Private read-only deployment check; no queue claim, permit or charge.
   if(new URL(req.url).searchParams.get('inspect')==='advertising'){
    const readiness=await independentAdsProviderReadiness((key:string)=>Deno.env.get(key));
@@ -138,6 +153,6 @@ Deno.serve(async(req:Request)=>{
   return json({ok:true,checked:jobs.data.length,counts,newChargesCreated:0});
  }catch(error){
   const code=String((error as any)?.message||'');
-  return json({ok:false,error:/^ADS_[A-Z0-9_]{3,100}$/.test(code)?code:'PAYMENT_RECONCILIATION_UNAVAILABLE'},503);
+  return json({ok:false,error:/^(?:ADS|COUPON_DELEGATION)_[A-Z0-9_]{3,100}$/.test(code)?code:'PAYMENT_RECONCILIATION_UNAVAILABLE'},503);
  }
 });
