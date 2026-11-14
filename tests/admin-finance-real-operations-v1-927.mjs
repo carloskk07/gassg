@@ -129,7 +129,7 @@ assert.equal(requests.at(-1).body.campaignId,campaign);
 assert.equal(context.native.url('https://evil.test/checkout'),'');
 assert.equal(context.native.url('http://mercadopago.com.br/'),'');
 assert.equal(context.native.url('https://mercadopago.com.br/sandbox/pay'),'');
-assert.match(context.native.panel('advertising'),/Abrir pagamento original/);
+assert.match(context.native.panel('advertising'),/<a class="primary"[^>]+>Pagar R\$ 19,90 no Mercado Pago<\/a>/);
 runtime.session={user:{id:'other-admin'}};
 assert.equal(context.native.state().actor,'other-admin');
 assert.equal(context.native.state().payment,null,'payment context cannot leak between sessions');

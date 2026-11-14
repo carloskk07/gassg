@@ -7088,7 +7088,7 @@ function adminFinanceRealPanel(key){
  if(!['coupons','mobility','merchants','advertising'].includes(key))
   return '<div class="card flat"><h3>Operação financeira real</h3>'+
    '<p>Este fluxo depende de contraparte e titularidade legítimas. A consulta do laboratório só verifica o gateway; não cria uma venda, entrega ou comissão. Nenhuma cobrança artificial será lançada.</p></div>';
- const state=adminFinanceRealState(),known=state.loadedKey===key?state.data:null;
+ const state=adminFinanceRealState(),known=state.loadedKey===key&&adminFinanceRealAllowed(key)?state.data:null;
  const money=n=>'R$ '+((Number(n)||0)/100).toFixed(2).replace('.',',');
  const busy=state.busy?' disabled':'';
  const action=(text,script)=>'<button type="button" class="secondary small"'+busy+
@@ -7099,7 +7099,7 @@ function adminFinanceRealPanel(key){
  if(state.error)html+='<p class="notice danger" role="alert">'+esc(state.error)+'</p>';
  if(state.message)html+='<p role="status">'+esc(state.message)+'</p>';
  const payment=state.payment;
- if(payment&&Date.now()<state.paymentUntil&&payment.kind===key)
+ if(key!=='advertising'&&payment&&Date.now()<state.paymentUntil&&payment.kind===key)
   html+='<div class="notice" id="admin-finance-real-pix" role="region" aria-label="Pagamento original verificado">'+
    '<h4>'+(key==='advertising'?'Checkout REAL da campanha':'Pix REAL da fatura original')+' · '+money(payment.amountCents)+'</h4>'+ 
    '<p>Situação: '+esc(String(payment.status))+'. Confira o recebedor no aplicativo do banco.</p>'+
@@ -7205,9 +7205,16 @@ function adminFinanceRealPanel(key){
   const reserved=rows.filter(r=>r.status==='approved'&&r.fixedFeeStatus==='reserved');
   const confirmed=rows.filter(r=>r.fixedFeeStatus==='payment_approved');
   if(confirmed.length)html+='<p role="status"><strong>Pagamento de publicidade confirmado.</strong> Aguarda a liberação comercial correspondente; a conciliação bancária é separada.</p>';
-  if(original.length)html+='<p role="status"><strong>Checkout existente:</strong> confira o pagamento original nesta tela. O TAMÃO verifica a confirmação automaticamente; não crie outra cobrança.</p>'+
-    original.map(r=>action('Ver cobrança original: '+esc(r.title||'Campanha'),
-      'adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')')).join(' ');
+  if(original.length)html+='<div id="admin-finance-real-pix" role="region" aria-label="Pagamento original da campanha">'+
+    original.map(r=>{
+     const url=adminFinanceRealPaymentUrl(r.fixedFeeCheckoutUrl);
+     return '<article class="notice"><h4>Cobrança pronta para pagamento</h4>'+
+      '<p><strong>'+esc(r.title||'Campanha')+'</strong><br>'+money(r.budgetCents)+' por '+esc(r.durationDays)+' dias</p>'+
+      (url?'<p><a class="primary" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Pagar '+money(r.budgetCents)+' no Mercado Pago</a></p>'+
+       '<p>No Mercado Pago, escolha Pix para concluir. O TAMÃO acompanha a confirmação automaticamente.</p>':
+       action('Consultar cobrança original','adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')'))+
+      '</article>';
+    }).join('')+'</div>';
   if(reserved.length)html+='<p role="status"><strong>Checkout em recuperação:</strong> o pedido anterior já foi reservado, mas ainda não possui link. Retome a mesma cobrança; o servidor reutiliza o identificador original.</p>';
   const payable=rows.filter(r=>['submitted','approved'].includes(r.status)&&
     r.budgetCents===1990&&r.durationDays===7&&(!r.fixedFeeStatus||r.fixedFeeStatus==='reserved'));

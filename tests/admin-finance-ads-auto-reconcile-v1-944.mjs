@@ -66,7 +66,7 @@ assert.equal(requests.length,1,'only owner mine read, never create new preferenc
 assert.equal(requests[0].body.action,'mine');
 assert.equal(x.state().payment.url,link,'reload restores the original payment link');
 assert.equal(x.state().adsWatch.campaignId,id);
-assert.match(x.panel('advertising'),/Checkout existente/);
+assert.match(x.panel('advertising'),/Cobrança pronta para pagamento/);
 assert.doesNotMatch(x.panel('advertising'),/Gerar checkout real R\$ 19,90/);
 const count=requests.length;
 await x.action('purchase',id);
