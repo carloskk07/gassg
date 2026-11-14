@@ -4,7 +4,7 @@ import {mercadoPagoFetch,mercadoPagoConfigured,readMercadoPagoJson}
  from "../_shared/mercadopago.js";
 import {couponReleasedNetEvidence}
  from "../admin-ops/coupon-release-evidence.js";
-import {inspectReportSearch} from "./report-search.js";
+import {inspectReportSearch,discoverInvoiceReleaseReports} from "./report-search.js";
 
 // V1.931: machine-only read/compare/register; NOT a new payment or coupon engine.
 // Existing invoice row lock and sponsor/partner funding guards remain authoritative.
@@ -146,18 +146,24 @@ async function discoverReleaseReports(mpToken:string){
 }
 export function evaluateReports({invoice,order,reportCsv,sponsorVerified}:{invoice:CouponInvoice;order:unknown;reportCsv:NetReport[];sponsorVerified:boolean}){
  const accepted:ReturnType<typeof couponReleasedNetEvidence>[]=[];
+ const correlation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
  for(const {fileName,csv} of reportCsv){
   const evidence=couponReleasedNetEvidence(csv,{
    invoice,order,reportFileName:fileName,sponsorVerified
   });
   if(evidence.eligible===true){accepted.push(evidence);continue;}
+  if('correlation' in evidence&&evidence.correlation){
+   correlation.invoiceReferenceRows+=Number(evidence.correlation.invoiceReferenceRows||0);
+   correlation.nativePaymentRows+=Number(evidence.correlation.nativePaymentRows||0);
+   correlation.referencePaymentRows+=Number(evidence.correlation.referencePaymentRows||0);
+  }
   if(evidence.reason!=="COUPON_RELEASE_NOT_FOUND"){
    return {status:"requires_review",reason:safeReason(evidence.reason),accepted:null};
   }
  }
  if(accepted.length>1)return {status:"requires_review",
    reason:"MULTIPLE_RELEASE_REPORT_MATCHES",accepted:null};
- if(!accepted.length)return {status:"awaiting_report",reason:"MP_RELEASE_NOT_FOUND",accepted:null};
+ if(!accepted.length)return {status:"awaiting_report",reason:"MP_RELEASE_NOT_FOUND",accepted:null,correlation};
  return {status:"verified_candidate",reason:"MATCHED_REPORT",
    accepted:accepted[0]};
 }
@@ -402,25 +408,43 @@ Deno.serve(async req=>{
     reportConfiguration?.owned===true&&invoices.length>0)
     reportBackfill=await requestHistoricalReleaseReport(client,mpToken,invoices[0]);
   let registered=0,review=0,waiting=0;
+  const reportCorrelation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
   for(const invoice of invoices){
-   let result;
-   if(!reports.complete)result={status:"coverage_incomplete",reason:reports.reason};
-   else if(!reports.files.length)result={status:reports.blocked>0?
+   let result:any;
+   let receiptReports:{complete:boolean;files:string[];pending:number;blocked:number;
+     reason:string|null;source:string}=reports;
+   if(!reports.complete&&["MP_RELEASE_LIST_INCOMPLETE","MP_RELEASE_COVERAGE_LIMIT",
+     "MP_RELEASE_SEARCH_TOO_MANY_FILES","MP_RELEASE_SEARCH_PAGINATION_INVALID"].includes(String(reports.reason))){
+    try{
+     receiptReports={...await discoverInvoiceReleaseReports(invoice,async(path:string)=>{
+      const response=await mercadoPagoFetch(path,{accessToken:mpToken,method:"GET",timeoutMs:8000});
+      if(!response.ok)throw Error("MP_RELEASE_INVOICE_WINDOW_UNAVAILABLE");
+      return readMercadoPagoJson(response);
+     }),source:"invoice_creation_window"};
+    }catch{receiptReports={...reports,reason:"MP_RELEASE_INVOICE_WINDOW_UNAVAILABLE"};}
+   }
+   if(!receiptReports.complete)result={status:"coverage_incomplete",reason:receiptReports.reason};
+   else if(!receiptReports.files.length)result={status:receiptReports.blocked>0?
       "requires_review":"awaiting_report",
-     reason:reports.blocked>0?"MP_REPORT_GENERATION_FAILED":
-       reports.pending>0?"MP_REPORT_PROCESSING":
+     reason:receiptReports.blocked>0?"MP_REPORT_GENERATION_FAILED":
+       receiptReports.pending>0?"MP_REPORT_PROCESSING":
        reportConfiguration?.reason==="MP_REPORT_CONFIG_READY"?
        "NO_PROCESSED_REPORT":reportConfiguration?.reason??"MP_REPORT_CONFIG_UNAVAILABLE"};
    else{
-    try{result=await reconcileOne(client,mpToken,invoice,reports.files);}
+    try{result=await reconcileOne(client,mpToken,invoice,receiptReports.files);}
     catch{result={status:"provider_unavailable",reason:"RETRYABLE_PROVIDER_OR_DATABASE_FAILURE"};}
    }
    await recordObservation(client,invoice.id,result.status,result.reason);
+   if(result.correlation){
+    reportCorrelation.invoiceReferenceRows+=Number(result.correlation.invoiceReferenceRows||0);
+    reportCorrelation.nativePaymentRows+=Number(result.correlation.nativePaymentRows||0);
+    reportCorrelation.referencePaymentRows+=Number(result.correlation.referencePaymentRows||0);
+   }
    if(result.status==="net_verified")registered++;
    else if(result.status==="requires_review")review++;
    else waiting++;
   }
-  return json({ok:true,checked:invoices.length,registered,review,waiting,
+  return json({ok:true,checked:invoices.length,registered,review,waiting,reportCorrelation,
     reportConfiguration,reportBackfill,
     providerReportQueue:{pendingAccountReports:reports.pending,
       failedAccountReports:reports.blocked,source:reports.source,

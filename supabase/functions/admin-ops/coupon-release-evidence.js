@@ -94,7 +94,7 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,spon
     cents(order?.total_amount)!==invoice.sale_price_cents||
     // The Order total is not independent proof of the specific Pix amount.
     // Both amounts must match the invoice before net funds may be registered.
-    !pix||cents(pix?.amount)!==invoice.sale_price_cents||
+    payments.length!==1||!pix||cents(pix?.amount)!==invoice.sale_price_cents||
     order?.live_mode===false||pix?.live_mode===false||
     (order?.currency_id&&order.currency_id!=="BRL")||
     (order?.currency&&order.currency!=="BRL")||
@@ -105,17 +105,27 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,spon
     String(pix?.payment_method?.type??"")!=="bank_transfer"||
     !["processed","accredited","approved"].includes(String(pix.status??"").toLowerCase())||
     (Array.isArray(order?.transactions?.refunds)&&order.transactions.refunds.length>0)||
+    (Array.isArray(order?.transactions?.chargebacks)&&order.transactions.chargebacks.length>0)||
     [order?.status,pix?.status].some(v=>reversed.includes(String(v??"").toLowerCase()))||
     !detailsSafe)
     return empty("COUPON_PROVIDER_BINDING_UNVERIFIED");
   const parsed=parseReleasedMoneyCsv(csv);
+  // Orders identifies the payment by PAY..., while the account report may
+  // identify the SAME payment by its authenticated reference_id. Both must
+  // come from the verified provider Order, never from a browser parameter.
+  const paymentIds=new Set([String(invoice.provider_payment_id)]);
+  const referenceId=String(pix.reference_id??'');
+  if(/^[A-Za-z0-9_-]{3,100}$/.test(referenceId))paymentIds.add(referenceId);
   const matches=parsed.rows.filter(row=>
     row.RECORD_TYPE.toLowerCase()==="release"&&
     row.DESCRIPTION.toLowerCase()==="payment"&&
-    row.SOURCE_ID===String(invoice.provider_payment_id)&&
+    paymentIds.has(row.SOURCE_ID)&&
     row.EXTERNAL_REFERENCE===String(invoice.id));
-  if(matches.length!==1)return empty(matches.length>1?
-    "COUPON_RELEASE_AMBIGUOUS":"COUPON_RELEASE_NOT_FOUND",parsed.rowsExamined);
+  if(matches.length!==1)return {...empty(matches.length>1?
+    "COUPON_RELEASE_AMBIGUOUS":"COUPON_RELEASE_NOT_FOUND",parsed.rowsExamined),
+    correlation:{invoiceReferenceRows:parsed.rows.filter(r=>r.EXTERNAL_REFERENCE===String(invoice.id)).length,
+      nativePaymentRows:parsed.rows.filter(r=>r.SOURCE_ID===String(invoice.provider_payment_id)).length,
+      referencePaymentRows:referenceId?parsed.rows.filter(r=>r.SOURCE_ID===referenceId).length:0}};
   const row=matches[0];
   // Mercado Pago's official released-money report can include a separate
   // chargeback, mediation, reversal or other debit for the same payment
@@ -123,11 +133,10 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,spon
   // credit is NOT sufficient to establish net proceeds if the SAME report
   // also contains another financial movement linked to this invoice/payment.
   // Exclude unrelated customers and report aggregate/balance summary rows.
-  const paymentId=String(invoice.provider_payment_id);
   const invoiceId=String(invoice.id);
   const conflictingMovement=parsed.rows.some(other=>{
     if(other===row)return false;
-    const correlated=other.SOURCE_ID===paymentId||
+    const correlated=paymentIds.has(other.SOURCE_ID)||
       other.EXTERNAL_REFERENCE===invoiceId;
     if(!correlated)return false;
     const type=other.RECORD_TYPE.toLowerCase();

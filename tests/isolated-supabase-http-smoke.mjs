@@ -120,6 +120,16 @@ const localSql=command=>execFileSync('psql',[
   '--host=127.0.0.1','--port=54322','--username=postgres','--dbname=postgres',
   '--no-psqlrc','--set=ON_ERROR_STOP=1','--tuples-only','--no-align','--quiet','--command='+command
 ],{encoding:'utf8',env:{...process.env,PGPASSWORD:'postgres'},timeout:15000}).trim();
+const paymentAttemptsBefore=localSql('select coalesce(sum(attempts),0) from public.platform_payment_reconciliation_queue');
+for(const privateHeader of [{},{'X-Tamao-Payment-Cron-Token':'a'.repeat(64)}]){
+ const response=await fetch(base+'/functions/v1/payment-reconcile',{
+  method:'POST',headers:{...headers,...privateHeader},body:'{}',signal:AbortSignal.timeout(105000)
+ });
+ assert.equal(response.status,403,'a browser session or guessed machine token must not run payment recovery');
+ assert.equal((await response.json()).ok,false,'the actual private Edge guard must reply');
+}
+assert.equal(localSql('select coalesce(sum(attempts),0) from public.platform_payment_reconciliation_queue'),paymentAttemptsBefore,
+ 'unauthorized recovery requests must never claim a payment');
 assert.equal(localSql('select count(*) from public.orders'),'0');
 assert.equal(localSql('select count(*) from public.wallet_entries'),'0');
 assert.equal(localSql("select count(*) from auth.users where id='"+uid+"'"),'0');

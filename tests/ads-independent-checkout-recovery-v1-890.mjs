@@ -1,9 +1,10 @@
+import {readAdsIndependentCheckoutSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {verifiedIndependentAdsPreference} from '../supabase/functions/_shared/ads-independent-preference.mjs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const checkout=read('supabase/functions/ads-independent-checkout/index.ts');
+const checkout=readAdsIndependentCheckoutSource();
 const sql=read('supabase/migrations/20261108034000_ads_independent_checkout_recovery_v1_890.sql');
 const admin=read('supabase/functions/admin-ops/index.ts');
 const ui=read('js/admin-ads-independent.js');

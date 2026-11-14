@@ -1,3 +1,13 @@
+## 13/11/2026 — Recuperação automática de pagamentos pelo servidor (em validação)
+
+Continuidade sobre `main=6c1b4cb45e5e8a4097d95bf79a4b9b2d836f6483`. O novo serviço `payment-reconcile` consulta cobranças existentes no Mercado Pago sem depender de acesso ao painel. Os cinco registros canônicos (faturamento de planos/créditos/tarifas, cupons, mobilidade, publicidade independente e vendas das revendas) alimentam uma fila privada por triggers. Cron a cada dois minutos, lotes de oito, leases e backoff recuperam notificações perdidas; a concessão continua nos mesmos handlers e RPCs transacionais usados pelo webhook, sem duplicar carteira ou cupons. Cada execução relê o estado persistido antes de declarar a confirmação. Pagamentos concluídos também são revisitados para registrar reversões do provedor.
+
+A migração instala a configuração e o agendamento desabilitados; ativar somente depois dos testes isolados e da publicação do serviço autenticado por segredo próprio. Não há geração de cobrança, estorno ou transferência. A recuperação implementada atende ao Mercado Pago atualmente utilizado; provedores sem adaptador são exceções explícitas, sem crédito presumido. A prova de líquido dos cupons continua separada: o CSV agora reconhece também o `reference_id` devolvido pela própria Order autenticada, mantendo referência da fatura, valor, moeda, Pix único e ausência de reversões. Contadores privados permitem diagnosticar ausência de correspondência sem expor relatórios ou dados pessoais.
+
+Validação e publicação desta etapa em andamento. Conferir PR, checks do head final, versão do Edge e primeira execução antes de declarar ativação. O Pix de R$ 8,90 existente não deve ser pago novamente; ainda não há prova bancária real para todos os demais módulos. Esta etapa não habilita comércio nem aprova revendas.
+
+---
+
 ## 13/11/2026 — Tarifa pública Pix aplicada automaticamente no Financeiro
 
 Continuidade sobre `main=7ff5d9241c762608ed96979dfb5cbe91fdc3754c`. A tarifa oficial publicada para Pix dos checkouts Mercado Pago é 0,99%, consultada em 13/11/2026 em https://www.mercadopago.com.br/ferramentas-para-vender/check-out. Antes, esse percentual só aparecia como entrada de uma simulação. Agora o Admin calcula taxa e líquido previstos para as compras de cupons pagas sem conciliação líquida registrada, tanto na operação financeira da própria conta como na fila de faturas da Controladoria. O cálculo usa centavos inteiros, arredondamento conservador para cima e validação de valor; R$ 8,90 resulta em taxa prevista de R$ 0,09 e líquido previsto de R$ 8,81.

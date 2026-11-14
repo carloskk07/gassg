@@ -1,9 +1,10 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../js/mobility.js',import.meta.url),'utf8');
 const edge=fs.readFileSync(new URL('../supabase/functions/mobility-fee-pix/index.ts',import.meta.url),'utf8');
-const webhook=fs.readFileSync(new URL('../supabase/functions/billing-payment-webhook-mercadopago/index.ts',import.meta.url),'utf8');
+const webhook=readMercadoPagoWebhookSource();
 const sql=fs.readFileSync(new URL('../supabase/migrations/20261105133000_mobility_fee_pix_invoices_v1_837.sql',import.meta.url),'utf8');
 const model=fs.readFileSync(new URL('../supabase/migrations/20261105133100_mobility_fee_provider_balances_v1_837.sql',import.meta.url),'utf8');
 const cfg=fs.readFileSync(new URL('../supabase/config.toml',import.meta.url),'utf8');

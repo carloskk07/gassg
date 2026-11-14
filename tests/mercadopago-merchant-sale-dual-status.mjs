@@ -1,12 +1,11 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
 // Execute the real production merchant-sale webhook handler in a sealed VM.
 // Only its external PSP / database edges are mocked: no network or ledger writes.
-const webhook=fs.readFileSync(new URL(
-  '../supabase/functions/billing-payment-webhook-mercadopago/index.ts',import.meta.url
-),'utf8');
+const webhook=readMercadoPagoWebhookSource();
 const begin=webhook.indexOf('async function handleMerchantSaleOrder(');
 const end=webhook.indexOf('async function handlePlatformBillingOrder(',begin);
 const pureBegin=webhook.indexOf('function orderPayments(');

@@ -1,10 +1,11 @@
+import {readMercadoPagoWebhookSource} from './helpers/mercadopago-webhook-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=file=>fs.readFileSync(new URL('../'+file,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261106134039_coupon_late_partner_pix_settlement_review_v1_853.sql');
-const webhook=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
+const webhook=readMercadoPagoWebhookSource();
 const coupon=read('supabase/functions/coupon-credit-pix/index.ts');
 const adminEdge=read('supabase/functions/admin-ops/index.ts');
 const shop=read('js/clube-coupon-shop.js');

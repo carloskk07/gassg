@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+import {readAdsIndependentCheckoutSource} from './helpers/mercadopago-webhook-source.mjs';
+const read=p=>p==='supabase/functions/ads-independent-checkout/index.ts'
+ ?readAdsIndependentCheckoutSource():fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const admin=read('js/admin.js');
 new vm.Script(admin);
 const begin=admin.indexOf('function adminFinanceRealState(){');

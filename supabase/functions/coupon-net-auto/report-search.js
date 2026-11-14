@@ -3,6 +3,41 @@
 // prove the source invoice without the separate CSV/order/PSP binding.
 const FILE_RE=/^[A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv$/;
 const MAX_REPORTS=10;
+// Account history grows forever. A fresh invoice must not be blocked just
+// because unrelated older daily reports exceed the account-wide limits.
+// Official creation-date filters cover reports made since before payment;
+// file contents and the authenticated Order remain the financial proof.
+export async function discoverInvoiceReleaseReports(invoice,providerGet,nowMs=Date.now()){
+ const paid=Date.parse(invoice?.paid_at);
+ if(invoice?.status!=='paid'||!Number.isFinite(paid)||paid>nowMs||!Number.isFinite(nowMs))
+  throw Error('MP_REPORT_INVOICE_WINDOW_INVALID');
+ const date=value=>new Date(value).toISOString().replace(/\.\d{3}Z$/,'Z');
+ const query=new URLSearchParams({range:'date_created',range_begin_date:date(paid-86400000),
+  range_end_date:date(nowMs),currency_id:'BRL',format:'CSV',limit:'50',offset:'0'});
+ let raw=await providerGet('/v1/account/release_report/search?'+query);
+ const total=Number(raw?.paging?.total);
+ if(!Number.isSafeInteger(total)||total<0||total>50||!Array.isArray(raw?.results)||raw.results.length>total)
+  return {complete:false,files:[],pending:0,blocked:0,reason:'MP_RELEASE_INVOICE_WINDOW_INCOMPLETE'};
+ const items=[...raw.results],ids=new Set();
+ const addIds=rows=>{
+  for(const row of rows){
+   const id=String(row?.id??'');
+   if(!/^[1-9][0-9]{0,19}$/.test(id)||ids.has(id))throw Error('MP_RELEASE_INVOICE_WINDOW_DUPLICATED');
+   ids.add(id);
+  }
+ };
+ addIds(items);
+ for(let page=1;items.length<total&&page<=5;page++){
+  if(!items.length)break;
+  query.set('offset',String(items.length));
+  raw=await providerGet('/v1/account/release_report/search?'+query);
+  if(Number(raw?.paging?.total)!==total||Number(raw?.paging?.offset)!==items.length||
+    !Array.isArray(raw?.results)||!raw.results.length||raw.results.length>total-items.length)
+   throw Error('MP_RELEASE_INVOICE_WINDOW_PAGE_INVALID');
+  addIds(raw.results);items.push(...raw.results);
+ }
+ return inspectReportSearch({paging:{total},results:items});
+}
 export function inspectReportSearch(raw){
  const unavailable={complete:false,files:[],pending:0,blocked:0,
    reason:"MP_RELEASE_SEARCH_INCOMPLETE"};
