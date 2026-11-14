@@ -411,7 +411,8 @@ Deno.serve(async req=>{
   const reportCorrelation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
   for(const invoice of invoices){
    let result:any;
-   let receiptReports=reports;
+   let receiptReports:{complete:boolean;files:string[];pending:number;blocked:number;
+     reason:string|null;source:string}=reports;
    if(!reports.complete&&["MP_RELEASE_LIST_INCOMPLETE","MP_RELEASE_COVERAGE_LIMIT",
      "MP_RELEASE_SEARCH_TOO_MANY_FILES","MP_RELEASE_SEARCH_PAGINATION_INVALID"].includes(String(reports.reason))){
     try{
