@@ -53,6 +53,7 @@ export function parseReleasedMoneyCsv(source){
   const output=[];
   for(const values of rows){
     if(values.length!==headers.length)throw new Error("MP_RELEASE_CSV_ROW_UNVERIFIED");
+    /** @type {Record<string,string>} */
     const item={};
     for(let j=0;j<headers.length;j++)item[headers[j]]=values[j].trim();
     output.push(item);
@@ -86,6 +87,10 @@ function verifiedLegacyCouponPayment(payment,invoice,order,pix,cents){
    net===null||net<=0||net>invoice.sale_price_cents)return null;
  return {id,netCents:net};
 }
+/**
+ * @param {string} csv
+ * @param {{invoice:any,order:any,reportFileName:string,sponsorVerified?:boolean,legacyPayments?:any[]}} options
+ */
 export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,sponsorVerified=false,legacyPayments=[]}){
   // Strong three-way bind: local invoice -> authenticated PSP order -> MP
   // released money CSV. A matching net line is NOT merchant bank settlement.

@@ -30,4 +30,15 @@ const result=await vm.runInContext('(async()=>{'+worker.slice(start,end).replace
 assert.equal(result.readOnly,true);assert.equal(result.checked,1);assert.equal(writes,0);
 assert.equal(result.eligible,true);assert.equal(result.netCents,881);assert.equal(result.legacyCandidates,1);
 assert(!JSON.stringify(result).includes(invoice.id));assert(!JSON.stringify(result).includes('987654321'));
+let verified=0,observed=0;
+context.req.headers.get=name=>name==='X-Tamao-Coupon-Recheck'?'true':null;
+context.reconcileOne=async(_client,token,serverInvoice,files)=>{
+ assert.equal(token,'LOCAL-ONLY-NO-TOKEN');assert.equal(serverInvoice.id,invoice.id);
+ assert.equal(files[0],'release-prod-test.csv');verified++;
+ return {status:'net_verified',reason:'PROVIDER_CSV_ATOMICALLY_REGISTERED'};
+};
+context.recordObservation=async(_client,id,status)=>{assert.equal(id,invoice.id);assert.equal(status,'net_verified');observed++};
+const rechecked=await vm.runInContext('(async()=>{'+worker.slice(start,end).replace(/:(any|string\[\]|string|number)/g,'')+'})()',context);
+assert.equal(rechecked.registered,1);assert.equal(verified,1);assert.equal(observed,1);
+assert.equal(rechecked.newChargesCreated,0);assert.equal(writes,0);
 console.log('PASS: authenticated receipt inspection performs only reads and returns binding booleans without transaction IDs.');
