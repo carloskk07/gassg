@@ -1,3 +1,15 @@
+## 14/11/2026 — Continuidade das homologações: reconhecer o que já foi pago
+
+Base `main=e7346b0397fddc2f7628329338a29eff99084d3d` (PR #993). Leitura atual da produção confirma: cupons R$ 8,90 pagos, R$ 8,81 líquidos e três emissões; Essencial R$ 19,90 recebido, um crédito automático e R$ 19,90 disponíveis. Não houve uso de cupom, consumo real de tarifa, estorno, publicidade paga, recarga de motorista ou pagamento online de pedido. Anúncios profissionais não possuem regra ativa de cobrança.
+
+A continuação corrige uma inconsistência visível no Admin: o saldo já refletia o crédito, mas o diagnóstico permanecia na consulta anterior e orientava uma nova recarga. O inventário consulta somente a auditoria automática de `package_purchase`, separando-a de quitação de tarifa; mostra pagamento/crédito registrados e orienta consumo/reversão dos registros existentes. O diagnóstico é atualizado uma vez após a confirmação da concessão, sem nova cobrança. O ciclo inteiro continua pendente até as etapas reais restantes; não se transforma contagem de registros em homologação bancária global.
+
+Próxima modalidade independente de revenda: publicidade comercial, R$ 19,90 por sete dias. No Admin, o titular pode preencher uma proposta editável com o anúncio verdadeiro do próprio TAMÃO, conferir marca, texto e destino oficial e enviá-la pelo fluxo já existente. O preenchimento é local à sessão e não submete, aprova, gera checkout ou paga. A opção institucional gratuita permanece separada. Esta etapa não cria campanhas, motoristas, vendedores, pedidos, beneficiários, impressões ou pagamentos artificiais; os demais ciclos requerem suas contrapartes e ações reais.
+
+Validação/publicação desta continuação em andamento; consultar a PR correspondente. Após publicação, próximo passo do titular: Financeiro > Testes e Pix > Publicidade comercial > Preencher com anúncio do TAMÃO, revisar e enviar. A aprovação e a autorização específica do checkout continuam no Admin, antes de qualquer pagamento real de publicidade.
+
+---
+
 ## 14/11/2026 — Pix Essencial recebido: aplicação automática do crédito
 
 Continuidade da PR #992 (`main=2b53bbb39ffed1047f47924104a1f4111adb8785`). O titular pagou o pacote Essencial de R$ 19,90 pelo Admin. A leitura real mostrou cobrança `completed` e evento `matched_exact`, mas solicitação `pending`, carteira Flex com saldo zero e nenhum lançamento do pacote. A recuperação automática também encerrava a cobrança por ler apenas `completed`. A homologação revelou uma lacuna real: o fluxo antigo ainda exigia aprovação administrativa posterior ao reconhecimento do Pix.
@@ -6,7 +18,7 @@ A correção mantém uma única implementação de concessão: o corpo do resolv
 
 Webhook, consulta do Pix e recuperação usam a mesma aplicação. Uma cobrança paga só encerra a recuperação depois de conferir solicitação aprovada, evento aplicado e lançamento único do crédito (ou fatura original quitada). O Admin distingue recebimento de liberação e mantém consulta quando o crédito está pendente. Os testes incluem os quatro planos, repetição, valor divergente, sandbox, estorno antes da aplicação e fluxo de tarifa com pedido no PostgreSQL descartável; nunca executar as fixtures sintéticas na produção.
 
-Em validação: conferir PR e checks antes da publicação. Após migração e deploy, reconsultar a ordem REAL existente pelo motor canônico e comprovar um único lançamento de R$ 19,90, plano Essencial e auditoria automática. Não emitir outro Pix para substituir o pagamento. Isso valida recebimento/concessão deste pacote, não consumo real de tarifa, estornos bancários nem todos os sete módulos.
+Publicação concluída na [PR #993](https://github.com/carloskk07/gassg/pull/993), merge `e7346b0397fddc2f7628329338a29eff99084d3d`. Audit, revisão visual e os 67 passos de integração descartável passaram. Migração aplicada; webhook Mercado Pago v34, merchant-billing-pix v25 e payment-reconcile v2 ACTIVE, fontes conferidas. A ordem REAL foi reconsultada pelo motor canônico: solicitação aprovada com fonte do provedor e aplicação automática, plano Essencial, saldo disponível de R$ 19,90, um lançamento e uma auditoria. Segunda consulta HTTP 200 manteve os mesmos saldo e contagens, sem nova cobrança. Três portais no mesmo SHA, comércio ainda desabilitado. Isso comprova recebimento/concessão deste pacote; consumo real de tarifa e estorno continuam pendentes. Não repetir o Pix já pago.
 
 ---
 

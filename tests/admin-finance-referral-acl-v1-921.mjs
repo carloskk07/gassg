@@ -24,6 +24,6 @@ assert.match(block,/referralStats\.observations/);
 assert.match(block,/referralBankEvidence:referralStats\.bankEvidence/);
 assert.doesNotMatch(block,/admin\.from\("platform_referral_(?:payout_claims|provider_observations)/);
 assert.doesNotMatch(block,/referralPayoutClaims:"platform_referral_payout_claims_v1_263"/);
-assert.match(old,/assert\.equal\(reads,23/);
+assert.match(old,/assert\.equal\(reads,25/);
 assert.match(audit,/node tests\/admin-finance-referral-acl-v1-921\.mjs/);
 console.log('V1.921 PASS: protected referral aggregate, owner ACL, no raw payout SELECT, no payouts or payment mutations.');

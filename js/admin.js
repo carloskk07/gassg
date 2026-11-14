@@ -6304,7 +6304,7 @@ function adminFinanceHomologationCatalog(){
    guide:'Validar recarga, confirmação do provedor, crédito único, reserva, consumo, cancelamento e estorno. Não gerar saldo de motorista usando Pix de laboratório.'},
   {key:'merchants',name:'Planos e taxas das revendas',detail:'Cobranças e carteira de créditos operacionais',
    labels:{charges:'Cobranças do provedor',events:'Eventos de pagamento'},
-   guide:'Testar o Mercado Pago sem revenda usando o laboratório. Para homologar a carteira específica da revenda ainda será preciso um titular real, sem habilitar comércio público por causa do teste.'},
+   guide:'Usar a conta vinculada ao titular para conferir o pagamento e o crédito. Depois, validar consumo e reversão dos créditos existentes. Comprar créditos não exige ativar as vendas da revenda.'},
   {key:'orders',name:'Pagamentos de pedidos',detail:'Checkout, pagamento e conciliação de pedidos',
    labels:{attempts:'Tentativas de pagamento',verifications:'Verificações do provedor'},
    guide:'Validar o provedor e o webhook sem revenda aqui. Um pedido real, suas taxas e eventual repasse só serão homologados com vendedor e compra legítimos.'},
@@ -6663,6 +6663,28 @@ function adminFinanceRealMerchantWatch(state,merchantId){
  };
  w.timer=setTimeout(poll,20000);
 }
+function adminFinanceMerchantReceiptEvidence(state,status){
+ if(!adminFinanceRealAllowed('merchants')||status?.entitlementApplied!==true||
+    status.charge?.status!=='completed'||!status.charge.id||
+    state!==adminFinanceRealState()||state.evidenceReceipt===status.charge.id||
+    typeof adminFinanceHomologationRefresh!=='function'||adminFinanceHomologationEvidenceState().loading)return false;
+ state.evidenceReceipt=status.charge.id;
+ adminFinanceHomologationRefresh().catch(()=>{});return true;
+}
+function adminFinanceAdsDraftField(field,value){
+ const state=adminFinanceRealState(),limits={advertiser:120,title:80,description:240,destination:500};
+ if(!adminFinanceRealAllowed('advertising')||state.busy||!Object.hasOwn(limits,field))return false;
+ state.adsDraft={...(state.adsDraft||{}),[field]:String(value||'').slice(0,limits[field])};return true;
+}
+function adminFinanceAdsDraftTamao(){
+ const state=adminFinanceRealState();
+ if(!adminFinanceRealAllowed('advertising')||state.busy)return false;
+ state.adsDraft={advertiser:'TAMÃO',title:'Conheça o TAMÃO em São Gabriel',
+  description:'Conheça a plataforma TAMÃO e acompanhe as novidades de comércio e serviços locais em São Gabriel. Cadastre-se para participar.',
+  destination:'https://tamao.com.br/'};
+ state.message='Anúncio do TAMÃO preenchido para sua revisão. O envio, a aprovação e o pagamento continuam nas ações correspondentes.';
+ render();return true;
+}
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6776,6 +6798,7 @@ async function adminFinanceRealRefresh(){
      data.status?.charge?.status==='completed'&&data.status.entitlementApplied!==true))
    adminFinanceRealMerchantWatch(state,data.billing.selectedMerchantId);
   else adminFinanceRealMerchantStopWatch(state);
+  if(key==='merchants')adminFinanceMerchantReceiptEvidence(state,data.status);
  }catch(e){
   if(actor===String(adminRuntime.session?.user?.id||'')){
    state.error=String(e?.message||e);state.data=null;state.loadedKey=null;
@@ -6918,6 +6941,7 @@ async function adminFinanceRealAction(operation,choice=''){
     if(result.entitlementApplied===true){
      adminFinanceRealMerchantStopWatch(state);
      state.message='Pagamento confirmado e créditos liberados na carteira. A próxima validação é o consumo em pedido legítimo.';
+     adminFinanceMerchantReceiptEvidence(state,result);
     }else{
      adminFinanceRealMerchantWatch(state,body.merchantId);
      state.message='Pagamento reconhecido; os créditos ainda estão em processamento. A consulta automática acompanhará esta mesma cobrança.';
@@ -7047,7 +7071,8 @@ function adminFinanceRealPanel(key){
    if(billing.accounts.length>1)html+='<label>Conta da revenda<select class="input" onchange="adminFinanceOwnMerchantChoose(this.value)"'+busy+'>'+
     billing.accounts.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===billing.selectedMerchantId?' selected':'')+'>'+esc(m.name)+'</option>').join('')+'</select></label>';
    if(charge?.status==='completed'&&known.status.entitlementApplied===true)
-    html+='<p class="notice" role="status"><strong>Pagamento do pacote confirmado e créditos liberados.</strong> O saldo acima foi consultado após o lançamento na carteira. Próxima etapa: usar os créditos em uma operação legítima.</p>';
+    html+='<p class="notice" role="status"><strong>Pagamento do pacote confirmado e créditos liberados.</strong> O saldo acima foi consultado após o lançamento na carteira. Próxima etapa: usar os créditos em uma operação legítima.</p>'+
+     action('Preparar homologação de publicidade','adminFinanceHomologationChoose(\'advertising\')');
    else if(charge?.status==='completed')html+='<p class="notice" role="status"><strong>Pagamento reconhecido; créditos em processamento.</strong> A consulta automática acompanha o lançamento na carteira. Use o pagamento existente.</p>'+
     action('Consultar liberação dos créditos','adminFinanceRealAction(\'check\')');
    else if(charge&&!['expired','cancelled'].includes(charge.status))
@@ -7096,12 +7121,14 @@ function adminFinanceRealPanel(key){
    action('Conciliar campanha no Mercado Pago',
     'adminFinanceRealAction(\'reconcile\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
    '<p class="tiny">O checkout só é permitido se o Admin já tiver autorizado esta campanha para homologação e se ela pertencer à conta conectada.</p>';
-  if(!rows.some(r=>['approved','submitted'].includes(r.status)))html+='<details><summary>Enviar minha campanha real para aprovação</summary>'+
-   '<label>Anunciante<input id="admin-finance-real-ads-advertiser" class="input" maxlength="120"></label>'+
-   '<label>Título real<input id="admin-finance-real-ads-title" class="input" maxlength="80"></label>'+
-   '<label>Descrição real<input id="admin-finance-real-ads-description" class="input" maxlength="240"></label>'+
-   '<label>Destino HTTPS<input id="admin-finance-real-ads-destination" class="input" type="url" value="https://tamao.com.br/"></label>'+
-   '<p>Veiculação: São Gabriel/RS · R$ 19,90 por 7 dias. Não serão criadas campanhas fictícias.</p>'+
+  if(!rows.some(r=>['approved','submitted'].includes(r.status)))html+=
+   action('Preencher com anúncio do TAMÃO','adminFinanceAdsDraftTamao()')+
+   '<details'+(state.adsDraft?' open':'')+'><summary>Revisar e enviar minha campanha para aprovação</summary>'+
+   '<label>Anunciante<input id="admin-finance-real-ads-advertiser" class="input" maxlength="120" value="'+esc(state.adsDraft?.advertiser||'')+'" oninput="adminFinanceAdsDraftField(\'advertiser\',this.value)"></label>'+
+   '<label>Título<input id="admin-finance-real-ads-title" class="input" maxlength="80" value="'+esc(state.adsDraft?.title||'')+'" oninput="adminFinanceAdsDraftField(\'title\',this.value)"></label>'+
+   '<label>Descrição<input id="admin-finance-real-ads-description" class="input" maxlength="240" value="'+esc(state.adsDraft?.description||'')+'" oninput="adminFinanceAdsDraftField(\'description\',this.value)"></label>'+
+   '<label>Destino HTTPS<input id="admin-finance-real-ads-destination" class="input" type="url" value="'+esc(state.adsDraft?.destination??'https://tamao.com.br/')+'" oninput="adminFinanceAdsDraftField(\'destination\',this.value)"></label>'+
+   '<p>Modalidade comercial: São Gabriel/RS · R$ 19,90 por 7 dias, cobrado somente ao autorizar o checkout após aprovação. A opção institucional gratuita continua separada.</p>'+
    action('Enviar para aprovação','adminFinanceRealAction(\'submit\')')+'</details>';
  }
  return html+'</div>';
@@ -7180,7 +7207,7 @@ function adminFinanceHomologationView(d){
   '</div>'+
   '<p><strong>'+esc(chosen.name)+'</strong> — '+esc(chosen.detail)+'</p>'+
   (note?'<p class="notice" role="status"><strong>Situação:</strong> '+
-    esc(diagnoses[note.state]||'Indisponível')+'. <strong>Homologação real:</strong> pendente.</p>':
+    esc(note.progressLabel||diagnoses[note.state]||'Indisponível')+'. <strong>Ciclo completo:</strong> pendente.</p>':
     '<p class="muted">Conferência necessária para exibir os registros deste módulo.</p>')+
   (chosen.key==='coupons'&&Number.isSafeInteger(note?.recordedNetReceipts)&&note.recordedNetReceipts>0
    ?'<p class="notice" role="status"><strong>Líquido registrado em '+note.recordedNetReceipts+' fatura(s) de cupons.</strong> Reutilize os cupons já pagos para validar uso e devolução; não repita a compra para testar o recebimento.</p>':'')+

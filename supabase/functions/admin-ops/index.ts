@@ -1221,12 +1221,15 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
     ["orderApproved","merchant_sale_payment_attempts","status","approved"],
     ["adsApproved","ads_independent_checkouts_v1_886","status","payment_approved"],
     ["adsPaymentApproved","ads_independent_payment_events_v1_886","provider_status","approved"],
-    ["professionalBilledDays","discovery_advertising_daily_ledger",null,null]
+    ["professionalBilledDays","discovery_advertising_daily_ledger",null,null],
+    ["professionalActiveTerms","discovery_advertising_terms","enabled",true],
+    ["merchantCredits","merchant_billing_auto_applications","request_kind","package_purchase"]
   ];
   const verifiedIndicators=await Promise.all(indicators.map(async ([key,table,field,value])=>{
     let query=admin.from(table).select("*",{count:"exact",head:true});
     query=field==="net_proceeds_verified_at"?query.not(field,"is",null).eq("status","paid"):
       field?query.eq(field,value):query;
+    if(key==='professionalActiveTerms')query=query.eq('vertical','professionals');
     const {count,error}=await query;
     if(error||!Number.isSafeInteger(count)||count<0)
       throw new DomainError("FINANCE_HOMOLOGATION_STATUS_UNAVAILABLE",
@@ -1261,7 +1264,8 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
       plans:prepaidPlans,invoices:counts.mobilityInvoices,
       providerEvidence:counts.mobilityProviderEvidence,lots:counts.mobilityPrepaidLots}},
     {key:"merchants",configured:false,counts:{
-      charges:counts.merchantCharges,events:counts.merchantBillingEvents}},
+      charges:counts.merchantCharges,events:counts.merchantBillingEvents,
+      appliedCredits:indicatorsCount.merchantCredits}},
     {key:"orders",configured:false,counts:{
       attempts:counts.orderPaymentAttempts,verifications:counts.orderPaymentVerifications}},
     {key:"advertising",configured:ads.data?.sales_enabled===true,counts:{
@@ -1272,7 +1276,7 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
       providerObservations:referralStats.observations,
       mobilityWelcomeUses:counts.welcomeMobilityUses}},
     {key:"professional_ads",configured:false,counts:{
-      billedDays:counts.professionalAdsLedger}}
+      billedDays:counts.professionalAdsLedger,activeTerms:indicatorsCount.professionalActiveTerms}}
   ];
   let assessed;
   try{
