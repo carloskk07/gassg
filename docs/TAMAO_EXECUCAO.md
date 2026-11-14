@@ -10,6 +10,16 @@ Testes executam a sequência inteira do controlador, aceite obrigatório, dono a
 
 ---
 
+## 14/11/2026 — Acesso direto à cobrança de publicidade (em validação)
+
+Continuidade de `main=099fbd2655fc8dba7c9ef7b12a22136940791f9b` (PR #996). A conexão Mercado Pago foi publicada e passou na conferência real da conta e API. O titular autorizou a campanha existente e gerou sua cobrança original de R$ 19,90 por sete dias às 14h40 de Brasília. A preferência está `checkout_ready`, com vencimento em 17/11; esse registro ainda não equivale a pagamento recebido. Não gerar outra preferência para substituí-la.
+
+A falha de interface foi reproduzida: o mesmo prazo de 45 segundos aplicado à visualização temporária de QR/Pix também ocultava o link de publicidade, deixando apenas uma ação de recuperação. A campanha passa a exibir um link nativo e destacado “Pagar R$ 19,90 no Mercado Pago”, vindo do histórico autenticado do próprio titular e do checkout existente. O link permanece ao terminar o prazo da visualização temporária; desaparece quando a consulta confirma pagamento, a conta muda ou a configuração não fornece um endereço Mercado Pago válido. A consulta continua usando o motor original e não emite outra cobrança.
+
+Testes executam o timer real com relógio controlado, verificam persistência do link, recarga, pagamento confirmado, troca de titular/papel e URL inválida. A visualização temporária dos outros Pix e a conciliação automática são preservadas. Validação e publicação desta correção em andamento.
+
+---
+
 ## 14/11/2026 — Publicidade reutiliza a conta Mercado Pago já conectada (em validação)
 
 Continuidade de `main=0d9a1f48c6157f4bedf04a3d5361dffb3cbb1255` (PR #995). A campanha real do titular está aprovada, mas nenhum checkout foi reservado: o preflight exigia cinco variáveis exclusivas de Ads, todas ausentes, apesar da conexão Mercado Pago da plataforma já ter recebido os cupons e o plano Essencial. Corrigir esse diagnóstico significa reutilizar a conexão existente, sem pedir cadastro duplicado nem outro pagamento dos benefícios já creditados.
