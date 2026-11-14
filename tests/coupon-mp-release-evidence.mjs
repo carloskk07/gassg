@@ -59,6 +59,32 @@ const aliasDebit=release({SOURCE_ID:'payment-1',EXTERNAL_REFERENCE:'',RECORD_TYP
  NET_CREDIT_AMOUNT:'0.00',NET_DEBIT_AMOUNT:'1.00',GROSS_AMOUNT:'-1.00'});
 assert.equal(inspect(aliasCsv+aliasDebit+'\n',invoice,aliasedOrder).reason,'COUPON_RELEASE_CONFLICTING_MOVEMENT');
 assert.equal(inspect(aliasCsv+release()+'\n',invoice,aliasedOrder).reason,'COUPON_RELEASE_AMBIGUOUS');
+const bridgedOrder=structuredClone(order);
+bridgedOrder.user_id='12345678';bridgedOrder.transactions.payments[0].payment_method.e2e_id='E12345678901234567890123456789012';
+const legacy={id:123456789012,live_mode:true,external_reference:invoice.id,currency_id:'BRL',
+ collector_id:12345678,payment_method_id:'pix',payment_type_id:'bank_transfer',
+ status:'approved',status_detail:'accredited',money_release_status:'released',
+ money_release_date:'2026-10-24T05:00:00Z',transaction_amount:12,
+ transaction_amount_refunded:0,refunds:[],transaction_details:{total_paid_amount:12,net_received_amount:11},
+ point_of_interaction:{references:[{id:order.id,type:'order'}],transaction_data:{e2e_id:'E12345678901234567890123456789012'}}};
+const legacyCheck=(payment=legacy,provider=bridgedOrder,file=aliasCsv)=>couponReleasedNetEvidence(file,{
+ invoice,order:provider,reportFileName:'release-report-prod-20261024.csv',legacyPayments:[payment]
+});
+assert.equal(legacyCheck().eligible,true,'authenticated numeric receipt must bind to its exact native Order');
+assert.equal(legacyCheck().netCents,1100);
+for(const bad of [
+ {...legacy,live_mode:false},{...legacy,external_reference:'other'},
+ {...legacy,collector_id:87654321},{...legacy,currency_id:'USD'},
+ {...legacy,status:'pending'},{...legacy,status_detail:'partially_refunded'},
+ {...legacy,money_release_status:'pending'},{...legacy,money_release_date:'2999-01-01T00:00:00Z'},
+ {...legacy,transaction_amount_refunded:1},{...legacy,refunds:[{id:'refund-1'}]},
+ {...legacy,transaction_amount:13},{...legacy,payment_method_id:'visa'},
+ {...legacy,point_of_interaction:{references:[{id:'other-order'}]}},
+ {...legacy,point_of_interaction:{...legacy.point_of_interaction,transaction_data:{e2e_id:'OTHER'}}},
+ {...legacy,transaction_details:{...legacy.transaction_details,net_received_amount:10.99}}
+])assert.equal(legacyCheck(bad).eligible,false,'foreign, held, contradictory or reversed legacy payment must never prove this receipt');
+assert.equal(legacyCheck(legacy,bridgedOrder,header+'\n'+release({SOURCE_ID:'123456789012',NET_CREDIT_AMOUNT:'10.99'})+'\n').eligible,false,
+ 'API net and CSV net must agree exactly');
 for(const changed of [
  {payments:[...order.transactions.payments,{...order.transactions.payments[0],id:'payment-2'}]},
  {chargebacks:[{id:'dispute-1'}]}
@@ -213,8 +239,8 @@ for(const level of ['order','payment']){
 for(const invalid of [
  [header+'\n'+release({SOURCE_ID:'wrong'})+'\n','COUPON_RELEASE_NOT_FOUND'],
  [header+'\n'+release({EXTERNAL_REFERENCE:'other'})+'\n','COUPON_RELEASE_NOT_FOUND'],
- [header+'\n'+release({RECORD_TYPE:'available_balance'})+'\n','COUPON_RELEASE_NOT_FOUND'],
- [header+'\n'+release({DESCRIPTION:'refund'})+'\n','COUPON_RELEASE_NOT_FOUND'],
+ [header+'\n'+release({RECORD_TYPE:'available_balance'})+'\n','COUPON_RELEASE_CONFLICTING_MOVEMENT'],
+ [header+'\n'+release({DESCRIPTION:'refund'})+'\n','COUPON_RELEASE_CONFLICTING_MOVEMENT'],
  [header+'\n'+release()+'\n'+release()+'\n','COUPON_RELEASE_AMBIGUOUS'],
  [header+'\n'+release({NET_CREDIT_AMOUNT:'9.99'})+'\n','COUPON_RELEASE_NET_INSUFFICIENT'],
  [header+'\n'+release({NET_CREDIT_AMOUNT:'12.01'})+'\n','COUPON_RELEASE_VALUES_UNVERIFIED'],

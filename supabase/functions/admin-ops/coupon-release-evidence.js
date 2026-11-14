@@ -53,6 +53,7 @@ export function parseReleasedMoneyCsv(source){
   const output=[];
   for(const values of rows){
     if(values.length!==headers.length)throw new Error("MP_RELEASE_CSV_ROW_UNVERIFIED");
+    /** @type {Record<string,string>} */
     const item={};
     for(let j=0;j<headers.length;j++)item[headers[j]]=values[j].trim();
     output.push(item);
@@ -60,7 +61,37 @@ export function parseReleasedMoneyCsv(source){
   return {rows:output,rowsExamined:output.length};
 }
 
-export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,sponsorVerified=false}){
+// A numeric Payments ID can differ from both IDs in Orders. Require the
+// fresh authenticated payment's exact Order reference, receiver and Pix facts.
+function verifiedLegacyCouponPayment(payment,invoice,order,pix,cents){
+ const id=String(payment?.id??''),references=payment?.point_of_interaction?.references;
+ const nativeE2e=String(pix?.payment_method?.e2e_id??'');
+ const legacyE2e=String(payment?.point_of_interaction?.transaction_data?.e2e_id??'');
+ const net=cents(payment?.transaction_details?.net_received_amount);
+ if(!/^[1-9][0-9]{2,19}$/.test(id)||payment?.live_mode!==true||
+   payment?.external_reference!==invoice.id||payment?.currency_id!=='BRL'||
+   !/^[1-9][0-9]{3,19}$/.test(String(order?.user_id??''))||
+   String(payment?.collector_id??'')!==String(order.user_id)||
+   payment?.payment_method_id!=='pix'||payment?.payment_type_id!=='bank_transfer'||
+   payment?.status!=='approved'||payment?.status_detail!=='accredited'||
+   payment?.money_release_status!=='released'||
+   !Number.isFinite(Date.parse(payment?.money_release_date))||
+   Date.parse(payment.money_release_date)>Date.now()+300000||
+   cents(payment?.transaction_amount)!==invoice.sale_price_cents||
+   cents(payment?.transaction_details?.total_paid_amount)!==invoice.sale_price_cents||
+   cents(payment?.transaction_amount_refunded)!==0||
+   !Array.isArray(payment?.refunds)||payment.refunds.length>0||
+   Array.isArray(payment?.chargebacks)&&payment.chargebacks.length>0||
+   !Array.isArray(references)||references.filter(r=>String(r?.id??'')===String(order.id)).length!==1||
+   nativeE2e&&legacyE2e&&nativeE2e!==legacyE2e||
+   net===null||net<=0||net>invoice.sale_price_cents)return null;
+ return {id,netCents:net};
+}
+/**
+ * @param {string} csv
+ * @param {{invoice:any,order:any,reportFileName:string,sponsorVerified?:boolean,legacyPayments?:any[]}} options
+ */
+export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,sponsorVerified=false,legacyPayments=[]}){
   // Strong three-way bind: local invoice -> authenticated PSP order -> MP
   // released money CSV. A matching net line is NOT merchant bank settlement.
   const empty=(reason,rowsExamined=0)=>({source:"coupon_mp_released_net_evidence_v1",
@@ -116,11 +147,26 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,spon
   const paymentIds=new Set([String(invoice.provider_payment_id)]);
   const referenceId=String(pix.reference_id??'');
   if(/^[A-Za-z0-9_-]{3,100}$/.test(referenceId))paymentIds.add(referenceId);
+  const legacyNet=new Map();
+  if(!Array.isArray(legacyPayments)||legacyPayments.length>3)
+    return empty('COUPON_LEGACY_PAYMENT_LIST_INVALID');
+  for(const payment of legacyPayments){
+    const verified=verifiedLegacyCouponPayment(payment,invoice,order,pix,cents);
+    if(verified){paymentIds.add(verified.id);legacyNet.set(verified.id,verified.netCents);}
+  }
   const matches=parsed.rows.filter(row=>
     row.RECORD_TYPE.toLowerCase()==="release"&&
     row.DESCRIPTION.toLowerCase()==="payment"&&
     paymentIds.has(row.SOURCE_ID)&&
     row.EXTERNAL_REFERENCE===String(invoice.id));
+  const conflictingOtherReport=parsed.rows.some(row=>{
+    if(!paymentIds.has(row.SOURCE_ID)&&row.EXTERNAL_REFERENCE!==String(invoice.id))return false;
+    if(row.RECORD_TYPE.toLowerCase()==='release'&&row.DESCRIPTION.toLowerCase()==='payment')return false;
+    const summary=['available_balance','balance','summary','opening_balance','closing_balance','total'].includes(row.RECORD_TYPE.toLowerCase());
+    return !(summary&&[row.NET_CREDIT_AMOUNT,row.NET_DEBIT_AMOUNT,row.GROSS_AMOUNT].every(v=>releasedMoneyCents(v)===0));
+  });
+  if(!matches.length&&conflictingOtherReport)
+    return empty('COUPON_RELEASE_CONFLICTING_MOVEMENT',parsed.rowsExamined);
   if(matches.length!==1)return {...empty(matches.length>1?
     "COUPON_RELEASE_AMBIGUOUS":"COUPON_RELEASE_NOT_FOUND",parsed.rowsExamined),
     correlation:{invoiceReferenceRows:parsed.rows.filter(r=>r.EXTERNAL_REFERENCE===String(invoice.id)).length,
@@ -159,7 +205,8 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,spon
   const validDate=Number.isFinite(Date.parse(row.DATE));
   if((row.CURRENCY&&row.CURRENCY!=="BRL")||
     gross!==invoice.sale_price_cents||net===null||net<=0||
-    net>gross||debit!==0||!validDate)
+    net>gross||debit!==0||!validDate||
+    legacyNet.has(row.SOURCE_ID)&&legacyNet.get(row.SOURCE_ID)!==net)
     return empty("COUPON_RELEASE_VALUES_UNVERIFIED",parsed.rowsExamined);
   // A bank-reconciled, full-face founder escrow may cover the difference.
   // sponsorVerified comes ONLY from the authenticated server's SQL RPC,
@@ -174,5 +221,5 @@ export function couponReleasedNetEvidence(csv,{invoice,order,reportFileName,spon
   if(ref.length>240)return empty("COUPON_RELEASE_REFERENCE_TOO_LONG",parsed.rowsExamined);
   return {...empty("PROVIDER_RELEASE_CANDIDATE",parsed.rowsExamined),
     eligible:true,netCents:net,evidenceReference:ref,
-    releaseDate:new Date(row.DATE).toISOString()};
+    releaseDate:new Date(row.DATE).toISOString(),providerPaymentId:row.SOURCE_ID};
 }
