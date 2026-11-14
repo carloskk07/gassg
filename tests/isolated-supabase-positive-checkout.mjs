@@ -163,6 +163,14 @@ async function call(slug,token,body,extra={}){
 }
 // Reuse the actual merchant-ops / merchant-orders Auth and idempotency path.
 // This is a disposable owner's self-declaration, NOT regulatory verification.
+const ownerBilling=await call('merchant-billing-pix',owner.token,{action:'status',merchantId},{Origin:'https://admin.tamao.com.br'});
+assert.equal(ownerBilling.status,200,'legitimate owner may read the original charge from Admin');
+assert.equal(ownerBilling.body.source,'merchant_billing_pix_status_v1');
+assert.equal(ownerBilling.body.newChargesCreated,0);
+const foreignBilling=await call('merchant-billing-pix',buyer.token,{action:'status',merchantId},{Origin:'https://admin.tamao.com.br'});
+assert.equal(foreignBilling.status,403,'another authenticated account cannot read or charge this merchant');
+assert.equal(foreignBilling.body.error,'MERCHANT_FINANCE_PERMISSION_DENIED');
+assert.equal(sql('SELECT count(*) FROM public.merchant_billing_provider_charges'),'0','status reads must not prepare a charge');
 const profileBefore=await call('merchant-orders',owner.token,{merchantId});
 assert.equal(profileBefore.status,200,'owner snapshot before business profile update');
 assert.equal(profileBefore.body.merchant?.businessDetails?.city,'São Gabriel');

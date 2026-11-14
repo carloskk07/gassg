@@ -4,7 +4,7 @@ const MODULE_KEYS=["coupons","mobility","merchants","orders","advertising","bene
 const ACTIONS={
  coupons:"Testar compra real de cupons pelo checkout próprio, emissão única, resgate, devolução e conciliação.",
  mobility:"Testar recarga real do plano, criação única do lote de créditos, consumo, cancelamento e estorno.",
- merchants:"Testar cobrança do provedor no Laboratório Pix. A carteira de uma revenda só pode ser validada com titular legítimo.",
+ merchants:"Usar a conta de revenda já vinculada ao titular neste Admin: pagar uma recarga real, conferir o crédito e depois o consumo. Não é necessário ativar vendas para comprar créditos.",
  orders:"Testar PSP no Laboratório Pix. Pedido e repasse reais exigem vendedor e comprador legítimos.",
  advertising:"Testar checkout de campanha aprovada, webhook de pagamentos Ads e estorno com autorização explícita.",
  benefits:"Testar origem dos créditos, cashback, reversão e pagamento ao beneficiário real com prova independente.",
@@ -47,7 +47,10 @@ export function evaluateFinanceHomologationEvidence(modules,signals,labHistory){
      financiallyHomologated:false,bankSettlementChecked:false,
      labPixCount:selectedLab.length,
      latestLabWebhook:latest?.webhookEvidence??"none",
-     nextAction:ACTIONS[key],
+     recordedNetReceipts:key==='coupons'?signals.couponNetVerified:0,
+     nextAction:key==='coupons'&&signals.couponPaid>0&&signals.couponNetVerified>0&&!review
+       ?"Reutilizar os cupons já pagos para validar resgate, cancelamento e devolução. Recebimento e líquido já registrados; não comprar outro pacote para repetir essa prova."
+       :ACTIONS[key],
      note:review?"Registros de recebimento e contrapartida precisam de conferência antes de qualquer liberação.":
         positive>0?"Há registros no módulo, mas esta consulta não prova liquidação nem homologa o ciclo inteiro.":
         "Sem evidência financeira concluída neste módulo. Nenhum pagamento foi gerado.",

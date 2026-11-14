@@ -6338,7 +6338,7 @@ function adminFinanceHomologationChoose(key){
  if(key!=='coupons'&&adminRuntime.financeReal?.couponWatch)
   adminFinanceRealCouponStopWatch(adminRuntime.financeReal);
  render();
- if(['coupons','mobility','advertising'].includes(key))
+ if(['coupons','mobility','merchants','advertising'].includes(key))
   adminFinanceRealRefresh().catch(()=>{});
  return true;
 }
@@ -6423,17 +6423,18 @@ function adminFinanceRealAllowed(key){
  return adminReady()&&adminCurrentRole()==='superadmin'&&
   adminRuntime.section==='finance'&&adminFinanceWorkspaceCurrent()==='homologation'&&
   adminFinanceHomologationEvidenceState().selected===key&&
-  ['coupons','mobility','advertising'].includes(key);
+  ['coupons','mobility','merchants','advertising'].includes(key);
 }
-async function adminFinanceRealApi(endpoint,body){
+async function adminFinanceRealApi(endpoint,body,idempotencyKey=''){
  if(!adminReady()||adminCurrentRole()!=='superadmin'||
     adminRuntime.section!=='finance'||adminFinanceWorkspaceCurrent()!=='homologation'||
-    !['coupon-credit-pix','mobility-fee-pix','ads-independent','ads-independent-checkout'].includes(endpoint))
+    !['coupon-credit-pix','mobility-fee-pix','merchant-billing-pix','ads-independent','ads-independent-checkout'].includes(endpoint))
   throw Error('Acesso à operação financeira não autorizado.');
  const token=await adminAccessToken();
  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/'+endpoint,{
   method:'POST',headers:{'Content-Type':'application/json',
-   'apikey':CHAMA_BACKEND.publishableKey,'Authorization':'Bearer '+token},
+   'apikey':CHAMA_BACKEND.publishableKey,'Authorization':'Bearer '+token,
+   ...(idempotencyKey?{'Idempotency-Key':idempotencyKey}:{})},
   body:JSON.stringify(body),cache:'no-store'
  });
  let data=null;try{data=await response.json()}catch{}
@@ -6455,10 +6456,10 @@ function adminFinanceRealClearPayment(){
 }
 function adminFinanceRealRememberPayment(kind,record){
  const state=adminFinanceRealState();
- const source=kind==='mobility'?record?.charge:record;
+ const source=['mobility','merchants'].includes(kind)?record?.charge:record;
  if(!source){adminFinanceRealClearPayment();return;}
  const raw=kind==='advertising'?source.checkoutUrl:
-   kind==='mobility'?source.paymentLinkUrl:source.paymentUrl;
+   ['mobility','merchants'].includes(kind)?source.paymentLinkUrl:source.paymentUrl;
  const link=adminFinanceRealPaymentUrl(raw);
  const deadline=Date.parse(String(source.expiresAt||''));
  // Original coupon/driver Pix requires a fresh, future expiry from its own
@@ -6466,8 +6467,8 @@ function adminFinanceRealRememberPayment(kind,record){
  const withinDeadline=kind==='advertising'||Number.isFinite(deadline)
   &&deadline>Date.now()+60000;
  const payable=withinDeadline&&(kind==='advertising'?source.status==='checkout_ready':
-   kind==='mobility'?source.status==='active':source.pixPayable===true);
- const pix=kind==='mobility'?source.brCode:source.pixCode;
+   ['mobility','merchants'].includes(kind)?source.status==='active':source.pixPayable===true);
+ const pix=['mobility','merchants'].includes(kind)?source.brCode:source.pixCode;
  state.payment={kind,status:String(source.status||''),amountCents:Number(source.amountCents)||0,
   url:payable?link:'',pix:payable&&typeof pix==='string'&&pix.length>30?pix:''};
  state.paymentUntil=Date.now()+45000;
@@ -6626,6 +6627,42 @@ function adminFinanceRealAdsWatch(state,campaignId){
  };
  w.timer=setTimeout(poll,45000);
 }
+function adminFinanceOwnedBillingValid(data){
+ return data?.source==='admin_finance_owned_billing_v1'&&data.readOnly===true&&data.paymentsCreated===0&&
+  Array.isArray(data.accounts)&&data.accounts.length<=50&&
+  data.accounts.every(m=>/^[0-9a-f-]{36}$/i.test(String(m.id||''))&&typeof m.name==='string')&&
+  (!data.selectedMerchantId||data.accounts.some(m=>m.id===data.selectedMerchantId))&&
+  Array.isArray(data.plans)&&data.plans.every(p=>/^[a-z][a-z0-9_]{1,39}$/.test(String(p.planKey||''))&&
+   Number.isSafeInteger(p.priceCents)&&p.priceCents>=100&&Number.isSafeInteger(p.creditCents)&&p.creditCents>0);
+}
+function adminFinanceOwnMerchantChoose(id){
+ const state=adminFinanceRealState();
+ if(!adminFinanceRealAllowed('merchants')||state.busy||
+   !state.data?.billing?.accounts?.some(m=>m.id===id))return false;
+ state.selectedMerchantId=id;adminFinanceRealClearPayment();
+ adminFinanceRealMerchantStopWatch(state);adminFinanceRealRefresh();return true;
+}
+function adminFinanceRealMerchantStopWatch(state){
+ if(state?.merchantWatch?.timer)globalThis.clearTimeout?.(state.merchantWatch.timer);
+ if(state)state.merchantWatch=null;
+}
+function adminFinanceRealMerchantWatch(state,merchantId){
+ if(!adminFinanceRealAllowed('merchants')||state.actor!==String(adminRuntime.session?.user?.id||''))return;
+ if(state.merchantWatch?.merchantId===merchantId)return;
+ adminFinanceRealMerchantStopWatch(state);
+ const w={merchantId,timer:null,startedAt:Date.now(),attempts:0};state.merchantWatch=w;
+ const poll=async()=>{
+  w.timer=null;
+  if(adminRuntime.financeReal!==state||state.merchantWatch!==w||
+    !adminFinanceRealAllowed('merchants')||state.actor!==String(adminRuntime.session?.user?.id||'')||
+    Date.now()-w.startedAt>900000||w.attempts>=30){adminFinanceRealMerchantStopWatch(state);return;}
+  if(!state.busy&&document.visibilityState!=='hidden'){
+   w.attempts++;await adminFinanceRealRefresh();
+  }
+  if(state.merchantWatch===w)w.timer=setTimeout(poll,20000);
+ };
+ w.timer=setTimeout(poll,20000);
+}
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6681,6 +6718,22 @@ async function adminFinanceRealRefresh(){
      }else recoveryError='Não foi possível recuperar o Pix original. Consulte a fatura existente.';
     }catch{recoveryError='A consulta do Pix original falhou. Tente consultar a fatura existente.';}
    }
+  }else if(key==='merchants'){
+   let billing=await adminInvoke({action:'finance-owned-billing-read',merchantId:state.selectedMerchantId||''});
+   if(!adminFinanceOwnedBillingValid(billing))throw Error('A conta e o catálogo de créditos da revenda não foram confirmados.');
+   let status={ok:true,charge:null};
+   if(billing.selectedMerchantId){
+    state.selectedMerchantId=billing.selectedMerchantId;
+    status=await adminFinanceRealApi('merchant-billing-pix',{action:'status',merchantId:billing.selectedMerchantId});
+    if(status?.source!=='merchant_billing_pix_status_v1'||status.ok!==true||status.newChargesCreated!==0)
+     throw Error('A consulta da cobrança original não foi confirmada.');
+    if(status.charge?.status==='completed'){
+     billing=await adminInvoke({action:'finance-owned-billing-read',merchantId:billing.selectedMerchantId});
+     if(!adminFinanceOwnedBillingValid(billing))throw Error('O saldo da revenda não pôde ser confirmado após o pagamento.');
+    }
+    if(status.charge?.status==='active')recoveredPix=status;
+   }
+   data={billing,status};
   }else if(key==='mobility'){
    const response=await adminFinanceRealApi('mobility-fee-pix',{action:'status'});
    if(response?.ok!==true)throw Error('A cobrança do motorista não foi verificada.');
@@ -6719,6 +6772,9 @@ async function adminFinanceRealRefresh(){
    state.message=paid?'Pix pago e registrado no TAMÃO. Confira os benefícios na lista abaixo.':
     recoveryError||'Conferência concluída, sem criar cobrança.';
   }else state.message=recoveryError||'Conferência concluída, sem criar cobrança.';
+  if(key==='merchants'&&['preparing','active'].includes(data.status?.charge?.status))
+   adminFinanceRealMerchantWatch(state,data.billing.selectedMerchantId);
+  else adminFinanceRealMerchantStopWatch(state);
  }catch(e){
   if(actor===String(adminRuntime.session?.user?.id||'')){
    state.error=String(e?.message||e);state.data=null;state.loadedKey=null;
@@ -6779,9 +6835,24 @@ async function adminFinanceRealAction(operation,choice=''){
   if(!/^[0-9a-f-]{36}$/i.test(choice)||!state.data?.history?.purchases?.some(p=>p.invoiceId===choice))return;
   endpoint='coupon-credit-pix';body={action:'invoice-status',invoiceId:choice};
  }else if(key==='mobility'&&operation==='plan'){
-  if(!['essential','popular','professional'].includes(choice)||!consent()||
+  if(state.data?.status?.driverEligible===false||!['essential','popular','professional'].includes(choice)||!consent()||
      state.data?.status?.charge?.status==='active')return;
   endpoint='mobility-fee-pix';body={action:'plan',planKey:choice};
+ }else if(key==='merchants'&&['purchase','check'].includes(operation)){
+  const billing=state.data?.billing;
+  if(!adminFinanceOwnedBillingValid(billing)||!billing.selectedMerchantId)return;
+  const active=state.data?.status?.charge;
+  endpoint='merchant-billing-pix';
+  if(operation==='check')body={action:'status',merchantId:billing.selectedMerchantId,
+   ...(active?.id?{chargeId:active.id}:{})};
+  else{
+   const plan=billing.plans.find(p=>p.planKey===choice);
+   if(!plan||active&&!['expired','cancelled'].includes(active.status)||
+     document.getElementById('admin-finance-real-merchant-consent')?.checked!==true||!consent())return;
+   const request='merchant-'+billing.selectedMerchantId+'-'+choice;
+   if(!state.requests[request])state.requests[request]=crypto.randomUUID();
+   body={action:'charge',merchantId:billing.selectedMerchantId,planKey:choice};
+  }
  }else if(key==='advertising'&&operation==='submit'){
   const field=id=>String(document.getElementById('admin-finance-real-ads-'+id)?.value||'').trim();
   const advertiser=field('advertiser'),title=field('title'),
@@ -6808,7 +6879,9 @@ async function adminFinanceRealAction(operation,choice=''){
  }else return;
  state.busy=true;state.error=null;state.message=null;render();
  try{
-  const result=await adminFinanceRealApi(endpoint,body);
+  const merchantKey=key==='merchants'&&operation==='purchase'
+   ?state.requests['merchant-'+body.merchantId+'-'+choice]:'';
+  const result=await adminFinanceRealApi(endpoint,body,merchantKey);
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
   if(key==='coupons'){
    if(result?.ok!==true||!['purchase','check'].includes(operation))throw Error('Fatura real não confirmada.');
@@ -6829,6 +6902,22 @@ async function adminFinanceRealAction(operation,choice=''){
       else adminFinanceRealCouponStopWatch(state);
      }
     }catch{}
+   }
+  }else if(key==='merchants'){
+   if(result?.ok!==true||operation==='purchase'&&!result.charge||
+     operation==='check'&&(result.source!=='merchant_billing_pix_status_v1'||result.newChargesCreated!==0))
+    throw Error('A fatura original da revenda não foi confirmada.');
+   state.data.status=result;
+   if(result.charge)adminFinanceRealRememberPayment(key,result);
+   if(result.charge?.status==='completed'){
+    const updated=await adminInvoke({action:'finance-owned-billing-read',merchantId:body.merchantId});
+    if(!adminFinanceOwnedBillingValid(updated))throw Error('Pagamento recebido; o saldo da revenda ainda precisa ser consultado.');
+    if(actor!==String(adminRuntime.session?.user?.id||''))return;
+    state.data.billing=updated;adminFinanceRealClearPayment();adminFinanceRealMerchantStopWatch(state);
+    state.message='Pagamento confirmado e saldo da conta consultado. A próxima validação é o consumo dos créditos em pedido legítimo.';
+   }else{
+    state.message='Fatura original disponível. A confirmação e o crédito são automáticos; não gere outro Pix.';
+    if(['preparing','active'].includes(result.charge?.status))adminFinanceRealMerchantWatch(state,body.merchantId);
    }
   }else if(key==='mobility'){
    if(result?.ok!==true||!result.charge)throw Error('Fatura real do motorista não confirmada.');
@@ -6867,7 +6956,7 @@ async function adminFinanceRealAction(operation,choice=''){
  }
 }
 function adminFinanceRealPanel(key){
- if(!['coupons','mobility','advertising'].includes(key))
+ if(!['coupons','mobility','merchants','advertising'].includes(key))
   return '<div class="card flat"><h3>Operação financeira real</h3>'+
    '<p>Este fluxo depende de contraparte e titularidade legítimas. A consulta do laboratório só verifica o gateway; não cria uma venda, entrega ou comissão. Nenhuma cobrança artificial será lançada.</p></div>';
  const state=adminFinanceRealState(),known=state.loadedKey===key?state.data:null;
@@ -6940,13 +7029,39 @@ function adminFinanceRealPanel(key){
     '<p><strong>'+esc(p.title)+' · '+money(p.priceCents)+'</strong></p>'+
     action('Gerar checkout real deste pacote','adminFinanceRealAction(\'purchase\',\''+esc(p.packageKey)+'\')')).join('');
   else html+='<p class="notice">Venda de cupons bloqueada pelos controles comerciais existentes. Regularize a Política comercial; o Admin não ignora esse bloqueio.</p>';
+ }else if(key==='merchants'&&known){
+  const billing=known.billing,charge=known.status?.charge;
+  if(!billing?.accounts?.length)html+='<p class="notice">Esta conta não possui uma revenda vinculada como titular ou gerente. A homologação usará uma conta legítima; não é necessário ativar suas vendas.</p>';
+  else{
+   const account=billing.accounts.find(m=>m.id===billing.selectedMerchantId);
+   html+='<p><strong>Conta financeira: '+esc(account?.name||'Revenda')+'</strong></p>'+
+    '<p>Saldo de créditos: '+money(billing.account?.credit_balance_cents)+
+    ' · Reservado: '+money(billing.account?.credit_reserved_cents)+'</p>';
+   if(billing.accounts.length>1)html+='<label>Conta da revenda<select class="input" onchange="adminFinanceOwnMerchantChoose(this.value)"'+busy+'>'+
+    billing.accounts.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===billing.selectedMerchantId?' selected':'')+'>'+esc(m.name)+'</option>').join('')+'</select></label>';
+   if(charge?.status==='completed')html+='<p class="notice" role="status"><strong>Pagamento do pacote confirmado.</strong> O saldo acima foi consultado após a confirmação. Próxima etapa: usar os créditos em uma operação legítima.</p>';
+   else if(charge&&!['expired','cancelled'].includes(charge.status))
+    html+='<p class="notice" role="status">Existe uma cobrança original em verificação. A consulta automática acompanha o mesmo Pix, sem emitir outro.</p>'+
+     action('Consultar Pix original','adminFinanceRealAction(\'check\')');
+   else if(billing.plans.length){
+    if(charge)html+='<p class="tiny muted">A cobrança anterior está '+esc(charge.status==='expired'?'expirada':'cancelada')+'.</p>';
+    html+='<label>Pacote de créditos<select id="admin-finance-real-merchant-plan" class="input"'+busy+'>'+
+     billing.plans.map(p=>'<option value="'+esc(p.planKey)+'">'+esc(p.title)+' · '+money(p.priceCents)+' por '+money(p.creditCents)+' em créditos</option>').join('')+'</select></label>'+
+     '<label class="check-row"><input type="checkbox" id="admin-finance-real-merchant-consent"'+busy+'> Autorizo comprar o pacote selecionado para esta conta. O pagamento é real e gera créditos após confirmação.</label>'+
+     action('Gerar Pix do pacote escolhido','adminFinanceRealAction(\'purchase\',document.getElementById(\'admin-finance-real-merchant-plan\').value)')+
+     '<p class="tiny muted">A compra de créditos não ativa as vendas da revenda.</p>';
+   }else html+='<p class="notice">O catálogo não possui um pacote disponível para compra.</p>';
+  }
  }else if(key==='mobility'&&known){
   const c=known.status?.charge;
   html+='<p>Última cobrança desta conta: '+(c?
    esc(String(c.status))+' · '+money(c.amountCents):'nenhuma')+'</p>';
-  if(c?.status!=='active')html+='<p>Somente um motorista legítimo pode contratar para sua própria conta. Se esta conta não for motorista, o servidor recusará a cobrança.</p>'+
-   [['essential','R$ 9,90'],['popular','R$ 24,90'],['professional','R$ 49,90']].map(([p,label])=>
-    action('Criar recarga real '+label,'adminFinanceRealAction(\'plan\',\''+p+'\')')).join(' ');
+  if(known.status?.driverEligible===false)html+='<p class="notice">Esta conta ainda não possui perfil de motorista publicado. Cadastre o motorista legítimo antes da recarga; nenhum Pix será gerado nesta etapa.</p>';
+  else if(c?.status!=='active')html+='<p>Somente um motorista legítimo pode contratar para sua própria conta.</p>'+
+   (Array.isArray(known.status?.plans)?known.status.plans:
+     [{planKey:'essential',priceCents:990},{planKey:'popular',priceCents:2490},{planKey:'professional',priceCents:4990}])
+    .filter(p=>['essential','popular','professional'].includes(p.planKey)&&Number.isSafeInteger(p.priceCents)&&p.priceCents>=100)
+    .map(p=>action('Criar recarga real '+money(p.priceCents),'adminFinanceRealAction(\'plan\',\''+p.planKey+'\')')).join(' ');
   else html+='<p>Existe um Pix ativo. Não gere outra recarga antes de conferir o pagamento.</p>';
  }else if(key==='advertising'&&known){
   const mine=known.mine,rows=mine?.rows||[];
@@ -7057,6 +7172,8 @@ function adminFinanceHomologationView(d){
   (note?'<p class="notice" role="status"><strong>Situação:</strong> '+
     esc(diagnoses[note.state]||'Indisponível')+'. <strong>Homologação real:</strong> pendente.</p>':
     '<p class="muted">Conferência necessária para exibir os registros deste módulo.</p>')+
+  (chosen.key==='coupons'&&Number.isSafeInteger(note?.recordedNetReceipts)&&note.recordedNetReceipts>0
+   ?'<p class="notice" role="status"><strong>Líquido registrado em '+note.recordedNetReceipts+' fatura(s) de cupons.</strong> Reutilize os cupons já pagos para validar uso e devolução; não repita a compra para testar o recebimento.</p>':'')+
   (evidenceState.error?'<div class="notice danger" role="alert">'+esc(evidenceState.error)+'</div>':'')+
   '<details class="admin-finance-homologation-details"><summary>Evidências e requisitos deste módulo</summary>'+
   '<div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceHomologationRefresh()" '+

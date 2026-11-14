@@ -193,10 +193,25 @@ Deno.serve(async(req:Request)=>{
   }
   // Confirm every ACTIVE Pix against the provider, not a stale QR in the DB.
   if(body.action==="status"){
-   if(!latest.data)return reply({ok:true,charge:null},200,origin);
+   const [listings,plans]=await Promise.all([
+    admin.from('discovery_listings').select('id,discovery_professional_details!inner(occupation)',{count:'exact'})
+     .eq('owner_id',user.id).eq('vertical','professionals').eq('status','published').limit(100),
+    admin.from('mobility_billing_plans_v1_826')
+     .select('plan_key,display_name,purchase_amount_cents,platform_fee_bps')
+     .eq('billing_mode','prepaid').eq('purchase_enabled',true).order('sort_order').limit(10)
+   ]);
+   if(listings.error||plans.error||!Array.isArray(listings.data)||!Array.isArray(plans.data)||
+     listings.count!==listings.data.length)throw new DomainError('MOBILITY_ELIGIBILITY_UNAVAILABLE','Não foi possível conferir o cadastro de motorista e os planos.',503);
+   const driverEligible=listings.data.some((l:any)=>{
+    const d=Array.isArray(l.discovery_professional_details)?l.discovery_professional_details[0]:l.discovery_professional_details;
+    return /(motot[aá]xi|moto.?taxi|motorista|t[aá]xi|taxista)/i.test(String(d?.occupation||''));
+   });
+   const catalog=plans.data.map((p:any)=>({planKey:p.plan_key,title:p.display_name,
+    priceCents:p.purchase_amount_cents,feeBps:p.platform_fee_bps}));
+   if(!latest.data)return reply({ok:true,charge:null,driverEligible,plans:catalog},200,origin);
    const invoice=latest.data.provider_order_id?
      await reconcile(admin,latest.data):latest.data;
-   return reply({ok:true,charge:publicInvoice(invoice)},200,origin);
+   return reply({ok:true,charge:publicInvoice(invoice),driverEligible,plans:catalog},200,origin);
   }
   if(body.action==="plan"&&(!["essential","popular","professional"].includes(body.planKey)
     ||Object.keys(body).some(k=>!["action","planKey"].includes(k)))){

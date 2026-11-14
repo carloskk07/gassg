@@ -349,8 +349,10 @@ wooviResult.charge={...wooviResult.charge,status:'active',providerChargeId:'FORE
 await assert.rejects(recheck(wooviStored,'woovi',30000,'','fake-woovi-key'),
   e=>e.code==='PIX_PROVIDER_RECHECK_MISMATCH');
 assert.match(edge,/await assertStoredChargeStillPayable\(/);
-assert.ok(edge.indexOf('await assertStoredChargeStillPayable(')>
-  edge.indexOf('if(existing?.br_code&&["active","completed"].includes(existing.status))'));
+const replayAt=edge.indexOf('if(existing?.br_code&&["active","completed"].includes(existing.status))');
+assert(replayAt>0);
+assert.match(edge.slice(replayAt,edge.indexOf('if(existing?.status==="completed")',replayAt)),
+ /await assertStoredChargeStillPayable\(/,'reopening a stored active Pix still requires an independent provider GET');
 assert.match(edge,/provider_transaction_id,amount_cents,status,br_code/);
 
 

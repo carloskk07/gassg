@@ -8,6 +8,7 @@ import {
   requestFingerprint
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
+import {handlePlatformBillingOrder} from "../billing-payment-webhook-mercadopago/handlers.ts";
 import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {
   mercadoPagoConfigured,
@@ -28,6 +29,7 @@ const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim
 const MERCHANT_PRIMARY_ORIGINS=new Set([
   "https://tamao-sg-revenda.pages.dev",
   "https://parceiro.tamao.com.br",
+  "https://admin.tamao.com.br",
   MERCHANT_ALLOWED_ORIGIN
 ].filter(Boolean));
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -484,20 +486,51 @@ Deno.serve(async(req:Request)=>{
     const provider=billingProvider();
     const mercadoPagoAccessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
     const wooviAppId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
-    if(
-      (provider==="mercadopago"&&!mercadoPagoConfigured(mercadoPagoAccessToken))
-      ||(provider==="woovi"&&wooviAppId.length<12)
-    ){
-      throw new DomainError(
-        "PIX_PROVIDER_NOT_CONFIGURED",
-        "A cobrança Pix automática ainda não está configurada.",
-        503
-      );
-    }
-
     const user=await authenticatedUser(req);
     const body=await readJsonBody(req);
     const merchantId=String(body.merchantId??"").trim();
+    const action=String(body.action??'charge');
+    if(!['charge','status'].includes(action))throw new DomainError('INVALID_ACTION','Ação financeira inválida.',400);
+    if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
+    const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-billing-pix",limit:30,windowSeconds:60});
+    // Fresh membership is required for reads AND charge creation. An Admin
+    // session does not authorize spending against somebody else's account.
+    const membership=await admin.from('merchant_members').select('member_role')
+      .eq('merchant_id',merchantId).eq('user_id',user.id).eq('active',true).maybeSingle();
+    if(membership.error)throw membership.error;
+    if(!['owner','manager'].includes(String(membership.data?.member_role||'')))
+      throw new DomainError('MERCHANT_FINANCE_PERMISSION_DENIED','Somente titular ou gerente desta revenda pode acessar suas cobranças.',403);
+    if(action==='status'){
+      if(Object.keys(body).some(k=>!['action','merchantId','chargeId'].includes(k)))
+        throw new DomainError('INVALID_STATUS_REQUEST','Consulta financeira inválida.',400);
+      const requested=String(body.chargeId||'');
+      if(requested&&!UUID_RE.test(requested))throw new DomainError('INVALID_CHARGE','Cobrança inválida.',400);
+      const read=()=>{
+        let query=admin.from('merchant_billing_provider_charges')
+          .select('id,payment_request_id,provider,correlation_id,provider_charge_id,provider_transaction_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id,created_at')
+          .eq('merchant_id',merchantId);
+        if(requested)query=query.eq('id',requested);
+        return query.order('created_at',{ascending:false}).limit(1).maybeSingle();
+      };
+      let found=await read();if(found.error)throw found.error;
+      if(requested&&!found.data)throw new DomainError('CHARGE_NOT_FOUND','Cobrança não encontrada nesta conta.',404);
+      if(found.data?.provider==='mercadopago'&&found.data.provider_charge_id&&
+        ['preparing','active','completed'].includes(found.data.status)){
+        const verified=await handlePlatformBillingOrder(admin,found.data.provider_charge_id,{},mercadoPagoAccessToken);
+        if(!verified.ok)throw new DomainError('PIX_STATUS_PROVIDER_UNAVAILABLE','O provedor não confirmou a cobrança existente. Não gere outro Pix.',503);
+        found=await read();if(found.error)throw found.error;
+      }
+      if(found.data?.status==='active'){
+        await assertStoredChargeStillPayable(found.data,found.data.provider,
+          Number(found.data.amount_cents),mercadoPagoAccessToken,wooviAppId);
+      }
+      return json({source:'merchant_billing_pix_status_v1',ok:true,
+        newChargesCreated:0,charge:publicCharge(found.data)},200,origin);
+    }
+    if((provider==="mercadopago"&&!mercadoPagoConfigured(mercadoPagoAccessToken))||
+      (provider==="woovi"&&wooviAppId.length<12))
+      throw new DomainError("PIX_PROVIDER_NOT_CONFIGURED","A cobrança Pix automática ainda não está configurada.",503);
     const planKey=body.planKey==null?null:String(body.planKey).trim().toLowerCase();
     const statementId=body.statementId==null?null:String(body.statementId).trim();
     const refundRecoveryId=body.refundRecoveryId==null?null:String(body.refundRecoveryId).trim();
@@ -518,9 +551,6 @@ Deno.serve(async(req:Request)=>{
     }
 
     const key=idempotencyKey(req);
-    const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-    await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-billing-pix",limit:30,windowSeconds:60});
-
     const requestHash=await requestFingerprint("merchant-billing-pix-charge",{
       merchantId,planKey,statementId,refundRecoveryId,provider
     });
