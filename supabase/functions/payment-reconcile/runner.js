@@ -1,5 +1,6 @@
 // Server-owned queue only. Reuses the same provider-verified business handlers
 // as the webhooks; no new charge, refund, credit or coupon engine lives here.
+import {readBillingEntitlement} from '../_shared/merchant-billing-entitlement.js';
 export const PAYMENT_SOURCES=Object.freeze({
  billing:{table:'merchant_billing_provider_charges',id:'id',amount:'amount_cents',reference:'correlation_id',order:'provider_charge_id',paid:['completed']},
  coupon:{table:'clube_coupon_paid_invoices',id:'id',amount:'sale_price_cents',reference:'id',order:'provider_order_id',paid:['paid']},
@@ -87,6 +88,11 @@ export async function reconcilePaymentJob(job,deps){
  if(result.pending===true||result.paymentApproved===false||
    ['pending','pending_provider_confirmation'].includes(result.status))
   return {outcome:'pending',reason:'AWAITING_PROVIDER_OR_LEDGER',businessStatus:row.status};
+ if(job.kind==='billing'&&row.status==='completed'){
+  const entitlement=await readBillingEntitlement(admin,row);
+  if(entitlement.reviewRequired)return {outcome:'review',reason:'BILLING_ENTITLEMENT_REVIEW_REQUIRED',businessStatus:row.status};
+  if(!entitlement.entitlementApplied)return {outcome:'pending',reason:'BILLING_ENTITLEMENT_NOT_APPLIED',businessStatus:row.status};
+ }
  if(spec.paid.includes(row.status))return {outcome:'verified',reason:'PROVIDER_AND_LEDGER_CONFIRMED',businessStatus:row.status};
  if(['refunded','payment_reversed','cancelled','expired','rejected'].includes(row.status))
   return {outcome:'closed',reason:'PROVIDER_STATE_RECORDED',businessStatus:row.status};

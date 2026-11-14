@@ -57,6 +57,8 @@ jobs:
         run: node tests/coupon-net-inspection.mjs
       - name: Owned merchant finance snapshot and live catalog
         run: node tests/finance-owned-billing.mjs
+      - name: Merchant credit requires original approved request, event and actual ledger
+        run: node tests/merchant-billing-entitlement.mjs
       - name: Existing merchant billing charge status and ownership boundary
         run: node tests/merchant-billing-status.mjs
       - name: Merchant package checkout inside Finance Admin

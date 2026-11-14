@@ -9,6 +9,7 @@ import {
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import {handlePlatformBillingOrder} from "../billing-payment-webhook-mercadopago/handlers.ts";
+import {readBillingEntitlement} from "../_shared/merchant-billing-entitlement.js";
 import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {
   mercadoPagoConfigured,
@@ -531,9 +532,13 @@ Deno.serve(async(req:Request)=>{
           Number(found.data.amount_cents),mercadoPagoAccessToken,wooviAppId);
       }
       const charge=publicCharge(found.data);
+      const entitlement=found.data?.status==='completed'&&!reviewRequired
+        ?await readBillingEntitlement(admin,{...found.data,merchant_id:merchantId})
+        :{entitlementApplied:false,requestStatus:null,requestKind:null,reviewRequired:false};
+      reviewRequired=reviewRequired||entitlement.reviewRequired;
       if(charge&&reviewRequired)Object.assign(charge,{status:'review_required',brCode:null,qrCodeDataUri:null,paymentLinkUrl:null});
       return json({source:'merchant_billing_pix_status_v1',ok:true,
-        newChargesCreated:0,reviewRequired,charge},200,origin);
+        newChargesCreated:0,...entitlement,reviewRequired,charge},200,origin);
     }
     if((provider==="mercadopago"&&!mercadoPagoConfigured(mercadoPagoAccessToken))||
       (provider==="woovi"&&wooviAppId.length<12))
