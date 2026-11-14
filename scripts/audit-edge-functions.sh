@@ -5,7 +5,7 @@ if find supabase/functions -type f -name '*.ts' | grep -q .; then
   deno check $(find supabase/functions -type f -name '*.ts' | sort)
 fi
 
-if grep -RInE 'sb_secret_[A-Za-z0-9_-]+|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=[[:space:]]*["'\'' ]*[A-Za-z0-9._-]+' supabase/functions --include='*.ts' --include='*.js'; then
+if grep -RInE 'sb_secret_[A-Za-z0-9_-]+|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=[[:space:]]*["'\'' ]*[A-Za-z0-9._-]+' supabase/functions --include='*.ts' --include='*.js' --include='*.mjs'; then
   echo "Secret-like value detected in Edge Function source"
   exit 1
 fi
@@ -53,8 +53,9 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q '\[functions.billing-payment-webhook\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
     supabase/functions/ads-payment-webhook-mercadopago/index.ts)
-      grep -q 'ADS_MP_WEBHOOK_SECRET' "$f" || { echo "$f missing dedicated TAMÃO Ads HMAC secret"; exit 1; }
-      grep -q 'ADS_MP_WEBHOOK_ENABLED' "$f" || { echo "$f missing explicit webhook activation gate"; exit 1; }
+      grep -q 'independentAdsCredentialConfig' "$f" || { echo "$f missing shared platform credential selection"; exit 1; }
+      grep -q 'config.signedWebhookConfigured' "$f" || { echo "$f missing configured HMAC secret gate"; exit 1; }
+      grep -q 'config.webhookConfigured' "$f" || { echo "$f missing webhook activation gate"; exit 1; }
       grep -q 'verifyMercadoPagoWebhook(req,signatureSecret,paymentId)' "$f" || { echo "$f missing Mercado Pago cryptographic proof"; exit 1; }
       grep -q 'recentTimestamp(ts)' "$f" || { echo "$f missing anti-replay timestamp gate"; exit 1; }
       grep -q 'mercadoPagoFetch("/v1/payments/"+paymentId' "$f" || { echo "$f missing independent payment GET"; exit 1; }
@@ -251,7 +252,9 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
     supabase/functions/ads-independent-checkout/index.ts)
       grep -q 'sessionUser(req)' "$f" || { echo "$f missing authenticated checkout entry"; exit 1; }
       grep -q 'auth.getUser' "${f%index.ts}handlers.ts" || { echo "$f missing explicit JWT user validation"; exit 1; }
-      grep -q 'verifySeller(token,sellerId)' "$f" || { echo "$f missing seller verification"; exit 1; }
+      grep -q 'await creds()' "$f" || { echo "$f missing verified platform credentials"; exit 1; }
+      grep -q 'await verifyIndependentAdsSeller(config)' "${f%index.ts}handlers.ts" || { echo "$f missing authenticated seller verification"; exit 1; }
+      grep -q 'independentAdsCredentialConfig' "${f%index.ts}handlers.ts" || { echo "$f missing shared credential policy"; exit 1; }
       ;;
     *)
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
