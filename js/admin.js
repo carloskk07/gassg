@@ -6704,7 +6704,14 @@ async function adminFinanceAdsCheckout(campaignId){
  if(state.busy||adminRuntime.actionPending)return false;
  const selected=state.data?.mine?.rows?.find(r=>r.id===campaignId);
  const snapshot=state.data?.reviewRows?.find(r=>r.id===campaignId);
- const fail=message=>{state.error=message;render();return false};
+ const focusError=()=>{
+  if(typeof requestAnimationFrame!=='function')return;
+  requestAnimationFrame(()=>{
+   if(adminRuntime.financeReal===state&&actor===String(adminRuntime.session?.user?.id||''))
+    document.getElementById('admin-finance-real-operation')?.scrollIntoView?.({behavior:'smooth',block:'start'});
+  });
+ };
+ const fail=message=>{state.error=message;render();focusError();return false};
  if(!selected||!snapshot||!/^[0-9a-f-]{36}$/i.test(String(campaignId))||
     !['submitted','approved'].includes(selected.status)||selected.budgetCents!==1990||selected.durationDays!==7)
   return fail('Selecione o anúncio desta conta de R$ 19,90 por 7 dias.');
@@ -6737,9 +6744,15 @@ async function adminFinanceAdsCheckout(campaignId){
   phase='Conferindo Mercado Pago';
   const preflight=await adminInvoke({action:'ads-independent-psp-preflight'});check();
   if(preflight?.source!=='ads_independent_psp_preflight_v1_890'||preflight.readOnly!==true||
-     preflight.paymentsCreated!==0||preflight.readyForFinancialHomologation!==true||
+     preflight.paymentsCreated!==0||
      !Number.isSafeInteger(preflight.salesVersion)||preflight.salesVersion<1)
-   throw Error('A conta de publicidade, o Checkout Pro ou o webhook do Mercado Pago precisa de configuração. Confira o diagnóstico de Ads.');
+   throw Error('A verificação do Mercado Pago da publicidade não foi confirmada.');
+  if(preflight.readyForFinancialHomologation!==true){
+   const missing=[['tokenConfigured','credencial de produção'],['sellerVerified','conta recebedora'],
+    ['checkoutConfigured','Checkout Pro'],['webhookConfigured','webhook Ads'],
+    ['signedWebhookConfigured','assinatura do webhook Ads']].filter(([key])=>preflight[key]!==true).map(([,label])=>label);
+   throw Error('Configuração de publicidade pendente: '+missing.join(', ')+'. Confira o diagnóstico de Ads.');
+  }
   if(row.status==='submitted'){
    phase='Aprovando o anúncio revisado';
    const approved=await adminPerform('ads-independent-action',{decision:'approve',campaignId,
@@ -6786,7 +6799,7 @@ async function adminFinanceAdsCheckout(campaignId){
   return false;
  }finally{
   state.busy=false;
-  if(active()){render();if(state.payment?.kind==='advertising')adminFinanceRealFocusPayment('advertising');}
+  if(active()){render();if(state.error)focusError();else if(state.payment?.kind==='advertising')adminFinanceRealFocusPayment('advertising');}
  }
 }
 async function adminFinanceRealRefresh(){
