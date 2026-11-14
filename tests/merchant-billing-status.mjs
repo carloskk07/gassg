@@ -9,6 +9,7 @@ const merchant='22000000-0000-4000-8000-000000000002',actor='11000000-0000-4000-
 const id='33000000-0000-4000-8000-000000000003';
 let role='owner',body={action:'status',merchantId:merchant},reads=0,remote=0,payable=0,paid=false;
 let charge={id,provider:'mercadopago',provider_charge_id:'ORD123456789',status:'expired',amount_cents:1990};
+let review=false,pending=false,wrongRoute=false;
 class DomainError extends Error{constructor(code,message,status){super(message);this.code=code;this.status=status}}
 const admin={from(table){
  let requested=null;
@@ -24,7 +25,7 @@ const context=vm.createContext({req:{},origin:'https://admin.tamao.com.br',Domai
  authenticatedUser:async()=>({id:actor}),readJsonBody:async()=>body,createClient:()=>admin,
  SUPABASE_URL:'https://isolated.invalid',SECRET_KEY:'local-only-placeholder',enforceApiQuota:async()=>{},
  UUID_RE:/^[0-9a-f-]{36}$/,provider:'mercadopago',mercadoPagoAccessToken:'local-only-placeholder',wooviAppId:'',mercadoPagoConfigured:()=>true,
- handlePlatformBillingOrder:async(db,order)=>{assert.equal(db,admin);assert.equal(order,charge.provider_charge_id);remote++;if(paid)charge.status='completed';return {ok:true}},
+ handlePlatformBillingOrder:async(db,order)=>{assert.equal(db,admin);assert.equal(order,charge.provider_charge_id);remote++;if(paid)charge.status='completed';return {ok:true,json:async()=>({route:wrongRoute?'coupon_funding':'platform_billing',orderId:order,reviewRequired:review,pending})}},
  assertStoredChargeStillPayable:async()=>{payable++},publicCharge:r=>r,json:data=>data});
 const run=()=>vm.runInContext('(async()=>{'+source.slice(start,end)+'return {createBranch:true};})()',context);
 const closed=await run();assert.equal(closed.newChargesCreated,0);assert.equal(remote,0);
@@ -36,5 +37,12 @@ body={action:'status',merchantId:merchant,amountCents:1};await assert.rejects(ru
 body={action:'status',merchantId:merchant};charge.status='active';paid=true;
 const confirmed=await run();assert.equal(confirmed.charge.status,'completed');assert.equal(remote,1);assert.equal(payable,0);
 charge.status='active';paid=false;await run();assert.equal(payable,1);
+charge.status='completed';review=true;
+const reversed=await run();assert.equal(reversed.charge.status,'review_required');
+assert.equal(reversed.charge.brCode,null);assert.equal(reversed.charge.paymentLinkUrl,null);
+review=false;pending=true;
+assert.equal((await run()).charge.status,'review_required','an old paid record cannot override a pending current provider response');
+pending=false;wrongRoute=true;
+await assert.rejects(run(),e=>e.code==='PIX_STATUS_BINDING_UNVERIFIED');wrongRoute=false;
 body={merchantId:merchant,planKey:'credit_01990'};assert.equal((await run()).createBranch,true);
 console.log('PASS: original merchant Pix status uses fresh owner/manager scope, denies foreign charges, reuses settlement and never prepares a charge.');

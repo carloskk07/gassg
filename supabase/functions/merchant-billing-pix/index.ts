@@ -514,19 +514,26 @@ Deno.serve(async(req:Request)=>{
         return query.order('created_at',{ascending:false}).limit(1).maybeSingle();
       };
       let found=await read();if(found.error)throw found.error;
+      let reviewRequired=false;
       if(requested&&!found.data)throw new DomainError('CHARGE_NOT_FOUND','Cobrança não encontrada nesta conta.',404);
       if(found.data?.provider==='mercadopago'&&found.data.provider_charge_id&&
         ['preparing','active','completed'].includes(found.data.status)){
         const verified=await handlePlatformBillingOrder(admin,found.data.provider_charge_id,{},mercadoPagoAccessToken);
         if(!verified.ok)throw new DomainError('PIX_STATUS_PROVIDER_UNAVAILABLE','O provedor não confirmou a cobrança existente. Não gere outro Pix.',503);
+        const evidence=await verified.json();
+        if(evidence?.route!=='platform_billing'||evidence.orderId!==found.data.provider_charge_id||evidence.ignored===true)
+          throw new DomainError('PIX_STATUS_BINDING_UNVERIFIED','A ordem original não foi confirmada para esta cobrança.',409);
+        reviewRequired=evidence.reviewRequired===true||found.data.status==='completed'&&evidence.pending===true;
         found=await read();if(found.error)throw found.error;
       }
-      if(found.data?.status==='active'){
+      if(found.data?.status==='active'&&!reviewRequired){
         await assertStoredChargeStillPayable(found.data,found.data.provider,
           Number(found.data.amount_cents),mercadoPagoAccessToken,wooviAppId);
       }
+      const charge=publicCharge(found.data);
+      if(charge&&reviewRequired)Object.assign(charge,{status:'review_required',brCode:null,qrCodeDataUri:null,paymentLinkUrl:null});
       return json({source:'merchant_billing_pix_status_v1',ok:true,
-        newChargesCreated:0,charge:publicCharge(found.data)},200,origin);
+        newChargesCreated:0,reviewRequired,charge},200,origin);
     }
     if((provider==="mercadopago"&&!mercadoPagoConfigured(mercadoPagoAccessToken))||
       (provider==="woovi"&&wooviAppId.length<12))
