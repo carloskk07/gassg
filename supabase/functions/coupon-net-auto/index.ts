@@ -4,7 +4,7 @@ import {mercadoPagoFetch,mercadoPagoConfigured,readMercadoPagoJson}
  from "../_shared/mercadopago.js";
 import {couponReleasedNetEvidence}
  from "../admin-ops/coupon-release-evidence.js";
-import {inspectReportSearch} from "./report-search.js";
+import {inspectReportSearch,discoverInvoiceReleaseReports} from "./report-search.js";
 
 // V1.931: machine-only read/compare/register; NOT a new payment or coupon engine.
 // Existing invoice row lock and sponsor/partner funding guards remain authoritative.
@@ -411,15 +411,26 @@ Deno.serve(async req=>{
   const reportCorrelation={invoiceReferenceRows:0,nativePaymentRows:0,referencePaymentRows:0};
   for(const invoice of invoices){
    let result:any;
-   if(!reports.complete)result={status:"coverage_incomplete",reason:reports.reason};
-   else if(!reports.files.length)result={status:reports.blocked>0?
+   let receiptReports=reports;
+   if(!reports.complete&&["MP_RELEASE_LIST_INCOMPLETE","MP_RELEASE_COVERAGE_LIMIT",
+     "MP_RELEASE_SEARCH_TOO_MANY_FILES","MP_RELEASE_SEARCH_PAGINATION_INVALID"].includes(String(reports.reason))){
+    try{
+     receiptReports={...await discoverInvoiceReleaseReports(invoice,async(path:string)=>{
+      const response=await mercadoPagoFetch(path,{accessToken:mpToken,method:"GET",timeoutMs:8000});
+      if(!response.ok)throw Error("MP_RELEASE_INVOICE_WINDOW_UNAVAILABLE");
+      return readMercadoPagoJson(response);
+     }),source:"invoice_creation_window"};
+    }catch{receiptReports={...reports,reason:"MP_RELEASE_INVOICE_WINDOW_UNAVAILABLE"};}
+   }
+   if(!receiptReports.complete)result={status:"coverage_incomplete",reason:receiptReports.reason};
+   else if(!receiptReports.files.length)result={status:receiptReports.blocked>0?
       "requires_review":"awaiting_report",
-     reason:reports.blocked>0?"MP_REPORT_GENERATION_FAILED":
-       reports.pending>0?"MP_REPORT_PROCESSING":
+     reason:receiptReports.blocked>0?"MP_REPORT_GENERATION_FAILED":
+       receiptReports.pending>0?"MP_REPORT_PROCESSING":
        reportConfiguration?.reason==="MP_REPORT_CONFIG_READY"?
        "NO_PROCESSED_REPORT":reportConfiguration?.reason??"MP_REPORT_CONFIG_UNAVAILABLE"};
    else{
-    try{result=await reconcileOne(client,mpToken,invoice,reports.files);}
+    try{result=await reconcileOne(client,mpToken,invoice,receiptReports.files);}
     catch{result={status:"provider_unavailable",reason:"RETRYABLE_PROVIDER_OR_DATABASE_FAILURE"};}
    }
    await recordObservation(client,invoice.id,result.status,result.reason);
