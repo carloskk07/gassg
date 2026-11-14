@@ -12,6 +12,9 @@ function tamaoAdsVerifiedCheckoutUrl(raw){
  }catch{return null}
 }
 async function tamaoAdsPurchaseCampaign(campaignId){
+ const actor=String(globalThis.liveRuntime?.session?.user?.id||''),
+  generation=Number(globalThis.liveRuntime?.authGeneration||0);
+ if(!actor)throw Error('Entre na sua conta para pagar a campanha.');
  if(!/^[0-9a-f-]{36}$/i.test(String(campaignId||'')))throw Error('Campanha inválida.');
  if(!tamaoAdsCheckoutRequests.has(campaignId))
   tamaoAdsCheckoutRequests.set(campaignId,crypto.randomUUID());
@@ -28,7 +31,7 @@ async function tamaoAdsPurchaseCampaign(campaignId){
     !Number.isFinite(Date.parse(result.expiresAt))||Date.parse(result.expiresAt)<=Date.now()+60000)
   throw Error('O Pix original ainda não foi confirmado. Consulte a mesma campanha.');
  await tamaoAdsMyRefresh({quiet:true});
- if(actor!==String(globalThis.liveRuntime?.session?.user?.id||''))return false;
+ if(actor!==String(globalThis.liveRuntime?.session?.user?.id||'')||generation!==Number(globalThis.liveRuntime?.authGeneration||0))return false;
  toast('Pix disponível nesta tela. Escaneie o QR Code ou copie o código.');return true;
 }
 globalThis.tamaoAdsPurchaseCampaign=tamaoAdsPurchaseCampaign;
