@@ -161,7 +161,9 @@ Deno.serve(async(req:Request)=>{
         message:"Entre com um e-mail confirmado para gerenciar campanhas."},401,origin);
       await enforceApiQuota(admin,{userId:user.id,
         actionName:action==="mine"?"ads-independent-status":"ads-independent-submit",
-        limit:action==="mine"?30:15,windowSeconds:3600});
+        // Owner history is reused by checkout recovery and automatic status.
+        // Keep the submission/write limit unchanged.
+        limit:action==="mine"?120:15,windowSeconds:3600});
       if(action==="mine"){
         const {data,error}=await admin.rpc("ads_independent_mine_v1_884",{p_owner:user.id});
         if(error)throw error;

@@ -15,7 +15,7 @@ const runtime={session:{user:{id:owner}},section:'finance',
 let selected='advertising',live='checkout_ready',backendApproval=false;
 let transientFailures=0,malformedResponses=0;
 let requests=[],tasks=[],nextId=0;
-const row=()=>({id,title:'Campanha São Gabriel',status:'approved',
+const row=()=>({id,title:'Campanha São Gabriel',status:'approved',version:1,budgetCents:1990,durationDays:7,
  fixedFeeStatus:live,fixedFeeCheckoutUrl:live==='checkout_ready'?link:null});
 const mine=()=>({source:'ads_independent_mine_v1_884',noCharge:true,
  rows:[row()],homologationCampaignId:id,fixedFeeSalesEnabled:true});
@@ -25,6 +25,9 @@ const context=vm.createContext({
  adminFinanceWorkspaceCurrent:()=>runtime.financeWorkspace,
  adminFinanceHomologationEvidenceState:()=>({selected}),
  adminAccessToken:async()=> 'test-jwt',
+ adminInvoke:async body=>{assert.equal(body.action,'ads-independent-read');assert.equal(body.ownedOnly,true);
+  return {source:'admin_ads_independent_read_v1_884',readOnly:true,ownedOnly:true,
+   rows:[{...row(),advertiser:'TAMÃO',description:'Campanha legítima para teste de publicidade.',destination:'https://tamao.com.br/'}]};},
  CHAMA_BACKEND:{url:'https://api.test.invalid',publishableKey:'test-pub'},
  chamaFetch:async(url,opts)=>{
   const body=JSON.parse(opts.body),path=url.split('/').at(-1);
@@ -67,7 +70,9 @@ assert.match(x.panel('advertising'),/Checkout existente/);
 assert.doesNotMatch(x.panel('advertising'),/Gerar checkout real R\$ 19,90/);
 const count=requests.length;
 await x.action('purchase',id);
-assert.equal(requests.length,count,'never generate second ad checkout when original exists');
+assert.equal(requests.length,count+1,'recovering the original link only refreshes owner-bound history');
+assert.equal(requests.at(-1).body.action,'mine');
+assert.equal(requests.filter(r=>r.body.action==='purchase').length,0,'never generate second ad checkout when original exists');
 const first=tasks.find(t=>t.ms===45000&&x.state().adsWatch?.timer===t.id);
 assert.ok(first,'must automatically check original payment soon');
 await first.fn();
@@ -123,7 +128,7 @@ assert.equal(requests.filter(r=>r.body.action==='purchase').length,beforeMalform
 
 // A provider preference may remain in 'reserved' after an interrupted handoff.
 live='reserved';backendApproval=false;await x.read();
-assert.match(x.panel('advertising'),/Retomar checkout existente/);
+assert.match(x.panel('advertising'),/Retomar cobrança existente/);
 assert.equal(x.state().adsWatch,null,
  'reserved preference has no payable link and should not start PSP polling');
 live='checkout_ready';backendApproval=false;await x.read();

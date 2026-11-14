@@ -6685,6 +6685,110 @@ function adminFinanceAdsDraftTamao(){
  state.message='Anúncio do TAMÃO preenchido para sua revisão. O envio, a aprovação e o pagamento continuam nas ações correspondentes.';
  render();return true;
 }
+async function adminFinanceAdsReadOwned(){
+ const mine=await adminFinanceRealApi('ads-independent',{action:'mine'});
+ const review=await adminInvoke({action:'ads-independent-read',ownedOnly:true});
+ if(mine?.source!=='ads_independent_mine_v1_884'||mine.noCharge!==true||
+    !Array.isArray(mine.rows)||mine.rows.length>30||
+    review?.source!=='admin_ads_independent_read_v1_884'||review.readOnly!==true||
+    review.ownedOnly!==true||!Array.isArray(review.rows)||review.rows.length!==mine.rows.length||
+    new Set(review.rows.map(r=>r.id)).size!==review.rows.length||
+    !review.rows.every(r=>mine.rows.some(m=>m.id===r.id&&m.version===r.version&&m.status===r.status)&&
+      typeof r.title==='string'&&typeof r.description==='string'&&typeof r.destination==='string'))
+  throw Error('As campanhas mudaram ou sua titularidade não foi confirmada. Atualize a consulta.');
+ return {mine,reviewRows:review.rows};
+}
+async function adminFinanceAdsCheckout(campaignId){
+ if(!adminFinanceRealAllowed('advertising'))return false;
+ const state=adminFinanceRealState(),actor=state.actor;
+ if(state.busy||adminRuntime.actionPending)return false;
+ const selected=state.data?.mine?.rows?.find(r=>r.id===campaignId);
+ const snapshot=state.data?.reviewRows?.find(r=>r.id===campaignId);
+ const fail=message=>{state.error=message;render();return false};
+ if(!selected||!snapshot||!/^[0-9a-f-]{36}$/i.test(String(campaignId))||
+    !['submitted','approved'].includes(selected.status)||selected.budgetCents!==1990||selected.durationDays!==7)
+  return fail('Selecione o anúncio desta conta de R$ 19,90 por 7 dias.');
+ if(selected.fixedFeeStatus==='payment_approved')return fail('O pagamento desta campanha já está confirmado. Consulte a operação existente.');
+ const recovering=selected.fixedFeeStatus==='checkout_ready';
+ if(!recovering&&document.getElementById('admin-finance-real-ads-consent-'+campaignId)?.checked!==true)
+  return fail('Marque a confirmação abaixo do anúncio para aprovar e gerar a cobrança de R$ 19,90.');
+ const fingerprint=r=>JSON.stringify([r.id,r.advertiser,r.title,r.description,r.destination,r.budgetCents,r.durationDays]);
+ const consented=fingerprint(snapshot);
+ const active=()=>adminRuntime.financeReal===state&&actor===String(adminRuntime.session?.user?.id||'')&&adminFinanceRealAllowed('advertising');
+ const check=()=>{if(!active())throw Error('A conta ou a área financeira mudou. Nenhuma nova etapa será iniciada.')};
+ let phase='Conferindo campanha';
+ state.busy=true;state.error=null;state.message='Conferindo o anúncio e a conta recebedora…';render();
+ try{
+  let data=await adminFinanceAdsReadOwned();check();
+  let row=data.reviewRows.find(r=>r.id===campaignId),owned=data.mine.rows.find(r=>r.id===campaignId);
+  if(!row||!owned||fingerprint(row)!==consented||!['submitted','approved'].includes(row.status))
+   throw Error('O anúncio foi alterado. Confira o conteúdo atualizado antes de autorizar.');
+  state.data=data;
+  if(owned.fixedFeeStatus==='checkout_ready'){
+   const url=adminFinanceRealPaymentUrl(owned.fixedFeeCheckoutUrl);
+   if(!url)throw Error('A cobrança existente precisa de nova consulta ao provedor.');
+   adminFinanceRealRememberPayment('advertising',{status:'checkout_ready',checkoutUrl:url,amountCents:1990});
+   state.message='Cobrança original recuperada. Abra o pagamento no Mercado Pago.';
+   adminFinanceRealAdsWatch(state,campaignId);return true;
+  }
+  if(recovering)throw Error('A cobrança existente mudou de situação. Consulte o pagamento antes de qualquer nova emissão.');
+  if(owned.fixedFeeStatus&&!['reserved'].includes(owned.fixedFeeStatus))
+   throw Error('A cobrança desta campanha já está em outra etapa. Consulte a operação existente.');
+  phase='Conferindo Mercado Pago';
+  const preflight=await adminInvoke({action:'ads-independent-psp-preflight'});check();
+  if(preflight?.source!=='ads_independent_psp_preflight_v1_890'||preflight.readOnly!==true||
+     preflight.paymentsCreated!==0||preflight.readyForFinancialHomologation!==true||
+     !Number.isSafeInteger(preflight.salesVersion)||preflight.salesVersion<1)
+   throw Error('A conta de publicidade, o Checkout Pro ou o webhook do Mercado Pago precisa de configuração. Confira o diagnóstico de Ads.');
+  if(row.status==='submitted'){
+   phase='Aprovando o anúncio revisado';
+   const approved=await adminPerform('ads-independent-action',{decision:'approve',campaignId,
+    expectedVersion:row.version,reason:'Anúncio revisado pelo titular e aprovado explicitamente para homologação financeira.'});check();
+   if(approved?.source!=='admin_ads_independent_action_v1_884'||approved.campaignId!==campaignId||
+      approved.status!=='approved'||approved.billingEnabled!==false||approved.paymentCreated!==false)
+    throw Error('A aprovação do anúncio não foi confirmada.');
+   data=await adminFinanceAdsReadOwned();check();row=data.reviewRows.find(r=>r.id===campaignId);owned=data.mine.rows.find(r=>r.id===campaignId);
+   if(!row||row.status!=='approved'||fingerprint(row)!==consented)throw Error('A campanha aprovada não corresponde ao anúncio revisado.');
+   state.data=data;
+  }
+  if(data.mine.fixedFeeSalesEnabled!==true&&!(data.mine.homologationCampaignId===campaignId&&
+     Date.parse(String(data.mine.homologationExpiresAt||''))>Date.now())){
+   phase='Autorizando esta cobrança de homologação';
+   const allowed=await adminPerform('ads-independent-homologation-action',{enabled:true,campaignId,
+    expectedVersion:preflight.salesVersion,confirmation:'HOMOLOGAR',
+    reason:'Titular revisou o anúncio e autorizou exclusivamente sua cobrança real de R$ 19,90 por sete dias.'});check();
+   if(allowed?.source!=='admin_ads_independent_homologation_v1_892'||allowed.homologationAuthorized!==true||
+      allowed.salesEnabled!==false||allowed.billingEnabled!==false||allowed.newChargesCreated!==false)
+    throw Error('A autorização específica da campanha não foi confirmada.');
+   data=await adminFinanceAdsReadOwned();check();state.data=data;
+  }
+  if(data.mine.fixedFeeSalesEnabled!==true&&!(data.mine.homologationCampaignId===campaignId&&
+     Date.parse(String(data.mine.homologationExpiresAt||''))>Date.now()))
+   throw Error('Esta campanha ainda não possui autorização válida para checkout.');
+  phase='Gerando a cobrança original';
+  const result=await adminFinanceRealApi('ads-independent-checkout',{action:'purchase',campaignId,
+    requestId:campaignId,acceptFixedFee:true});check();
+  if(result?.source!=='ads_independent_checkout_v1_886'||result.status!=='checkout_ready'||
+     result.amountCents!==1990||result.viewChargesCents!==0||!adminFinanceRealPaymentUrl(result.checkoutUrl))
+   throw Error('O Mercado Pago não confirmou um link válido da cobrança. Retome a mesma campanha.');
+  adminFinanceRealRememberPayment('advertising',result);
+  const saved=state.data.mine.rows.find(r=>r.id===campaignId);
+  if(saved){saved.fixedFeeStatus='checkout_ready';saved.fixedFeeCheckoutUrl=result.checkoutUrl;}
+  adminFinanceRealAdsWatch(state,campaignId);
+  state.message='Cobrança de R$ 19,90 pronta. Abra o pagamento original no Mercado Pago e escolha Pix.';
+  return true;
+ }catch(error){
+  if(active()){
+   state.error=phase+': '+String(error?.message||error);
+   state.message='Retome esta mesma campanha. A consulta não cria outra cobrança.';
+   try{const updated=await adminFinanceAdsReadOwned();if(active())state.data=updated}catch{}
+  }
+  return false;
+ }finally{
+  state.busy=false;
+  if(active()){render();if(state.payment?.kind==='advertising')adminFinanceRealFocusPayment('advertising');}
+ }
+}
 async function adminFinanceRealRefresh(){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
@@ -6762,10 +6866,8 @@ async function adminFinanceRealRefresh(){
    data={status:response};
    if(response.charge)recoveredPix=response;
   }else{
-   const response=await adminFinanceRealApi('ads-independent',{action:'mine'});
-   if(response?.source!=='ads_independent_mine_v1_884'||response.noCharge!==true||
-      !Array.isArray(response.rows))throw Error('A titularidade das campanhas não foi comprovada.');
-   data={mine:response};
+   data=await adminFinanceAdsReadOwned();
+   const response=data.mine;
    // Recover the ORIGINAL checkout after refresh, never generate a duplicate.
    const original=response.rows.find(r=>r.status==='approved'&&
      r.fixedFeeStatus==='checkout_ready'&&
@@ -6840,6 +6942,7 @@ adminBindFinanceReadbackOnReturn();
 async function adminFinanceRealAction(operation,choice=''){
  const key=adminFinanceHomologationEvidenceState().selected;
  if(!adminFinanceRealAllowed(key))return;
+ if(key==='advertising'&&operation==='purchase')return adminFinanceAdsCheckout(choice);
  const state=adminFinanceRealState(),actor=state.actor;
  if(state.busy||state.loadedKey!==key)return;
  const consent=()=>globalThis.confirm?.('Esta operação pode criar uma cobrança REAL e obrigações financeiras. O pagamento será feito separadamente por você. Confirmar?')===true;
@@ -6888,18 +6991,10 @@ async function adminFinanceRealAction(operation,choice=''){
   endpoint='ads-independent';body={action:'submit',requestId:state.requests.adsSubmit,
    advertiser,title,description,destination,city:'São Gabriel',state:'RS',
    budgetCents:1990,durationDays:7};
- }else if(key==='advertising'&&['purchase','reconcile'].includes(operation)){
+ }else if(key==='advertising'&&operation==='reconcile'){
   const owned=state.data?.mine?.rows?.find(r=>r.id===choice);
-  if(!owned||operation==='purchase'&&(
-      owned.status!=='approved'||(Boolean(owned.fixedFeeStatus)&&owned.fixedFeeStatus!=='reserved')||
-      state.data.mine.homologationCampaignId!==choice||
-      document.getElementById('admin-finance-real-ads-consent')?.checked!==true||
-      !consent()))return;
-  endpoint='ads-independent-checkout';
-  if(!state.requests['ads-'+choice])state.requests['ads-'+choice]=choice;
-  body=operation==='purchase'?{action:'purchase',campaignId:choice,
-    requestId:state.requests['ads-'+choice],acceptFixedFee:true}:
-    {action:'reconcile',campaignId:choice};
+  if(!owned)return toast('A campanha não pertence à consulta desta conta.');
+  endpoint='ads-independent-checkout';body={action:'reconcile',campaignId:choice};
  }else return;
  state.busy=true;state.error=null;state.message=null;render();
  try{
@@ -6957,20 +7052,10 @@ async function adminFinanceRealAction(operation,choice=''){
   }else if(operation==='submit'){
    if(result?.source!=='ads_independent_submit_v1_884'||result.paymentCreated!==false)
     throw Error('Envio da campanha não confirmado.');
-   state.message='Campanha enviada. É necessário aprovar o criativo no Admin antes do checkout.';
-  }else if(operation==='purchase'){
-   if(result?.source!=='ads_independent_checkout_v1_886'||result.status!=='checkout_ready'||
-      result.amountCents!==1990||result.viewChargesCents!==0||
-      !adminFinanceRealPaymentUrl(result.checkoutUrl))
-    throw Error('Checkout de publicidade não confirmado com segurança.');
-   adminFinanceRealRememberPayment(key,result);
-   // Reflect the existing checkout in the same-session queue immediately.
-   if(state.data?.mine?.rows){
-    const item=state.data.mine.rows.find(r=>r.id===choice);
-    if(item){item.fixedFeeStatus='checkout_ready';item.fixedFeeCheckoutUrl=result.checkoutUrl;}
-   }
-   adminFinanceRealAdsWatch(state,choice);
-   state.message='Checkout original disponível. O TAMÃO verificará automaticamente o pagamento, sem criar outra cobrança.';
+   const updated=await adminFinanceAdsReadOwned();
+   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
+   state.data=updated;
+   state.message='Anúncio enviado. Revise o conteúdo abaixo e autorize a cobrança quando estiver correto.';
   }else{
    if(result?.source!=='ads_independent_reconcile_v1_886')
     throw Error('O Mercado Pago não confirmou o resultado desta consulta.');
@@ -7108,19 +7193,23 @@ function adminFinanceRealPanel(key){
   const confirmed=rows.filter(r=>r.fixedFeeStatus==='payment_approved');
   if(confirmed.length)html+='<p role="status"><strong>Pagamento de publicidade confirmado.</strong> Aguarda a liberação comercial correspondente; a conciliação bancária é separada.</p>';
   if(original.length)html+='<p role="status"><strong>Checkout existente:</strong> confira o pagamento original nesta tela. O TAMÃO verifica a confirmação automaticamente; não crie outra cobrança.</p>'+
-    original.map(r=>action('Conferir pagamento existente: '+esc(r.title||'Campanha'),
-      'adminFinanceRealAction(\'reconcile\',\''+esc(r.id)+'\')')).join(' ');
+    original.map(r=>action('Ver cobrança original: '+esc(r.title||'Campanha'),
+      'adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')')).join(' ');
   if(reserved.length)html+='<p role="status"><strong>Checkout em recuperação:</strong> o pedido anterior já foi reservado, mas ainda não possui link. Retome a mesma cobrança; o servidor reutiliza o identificador original.</p>';
-  const approved=rows.filter(r=>r.status==='approved'&&
-    (!r.fixedFeeStatus||r.fixedFeeStatus==='reserved'));
-  if(approved.length)html+='<label>Campanha para teste real<select id="admin-finance-real-ads-campaign" class="input">'+
-   approved.map(r=>'<option value="'+esc(r.id)+'">'+esc(r.title||r.id)+'</option>').join('')+'</select></label>'+
-   '<label class="check-row"><input type="checkbox" id="admin-finance-real-ads-consent"> Autorizo o checkout de R$ 19,90 da campanha aprovada e sei que é pagamento real.</label>'+
-   action(approved.length===reserved.length?'Retomar checkout existente':'Gerar checkout real R$ 19,90',
-    'adminFinanceRealAction(\'purchase\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
-   action('Conciliar campanha no Mercado Pago',
-    'adminFinanceRealAction(\'reconcile\',document.getElementById(\'admin-finance-real-ads-campaign\').value)')+
-   '<p class="tiny">O checkout só é permitido se o Admin já tiver autorizado esta campanha para homologação e se ela pertencer à conta conectada.</p>';
+  const payable=rows.filter(r=>['submitted','approved'].includes(r.status)&&
+    r.budgetCents===1990&&r.durationDays===7&&(!r.fixedFeeStatus||r.fixedFeeStatus==='reserved'));
+  if(!original.length&&!confirmed.length&&payable.length)html+=payable.map(r=>{
+   const detail=known.reviewRows?.find(d=>d.id===r.id&&d.version===r.version);
+   if(!detail)return '<p class="notice">Consulte novamente o anúncio para conferir seu conteúdo antes da cobrança.</p>';
+   return '<article class="card flat"><h4>'+esc(detail.title)+'</h4>'+
+    '<p>'+esc(detail.advertiser)+' · '+esc(detail.description)+'</p>'+
+    '<p>Destino: '+esc(detail.destination)+'</p>'+
+    '<p><strong>R$ 19,90 por 7 dias</strong> · '+(r.status==='submitted'?'Anúncio enviado, aguardando sua revisão.':'Anúncio aprovado.')+'</p>'+
+    '<label class="check-row"><input type="checkbox" id="admin-finance-real-ads-consent-'+esc(r.id)+'"'+busy+'> '+
+    'Revisei este anúncio e autorizo sua aprovação e uma cobrança real de R$ 19,90 por 7 dias, exclusivamente para esta campanha.</label>'+
+    action(r.fixedFeeStatus==='reserved'?'Retomar cobrança existente':'Aprovar e gerar cobrança de R$ 19,90',
+      'adminFinanceRealAction(\'purchase\',\''+esc(r.id)+'\')')+'</article>';
+  }).join('');
   if(!rows.some(r=>['approved','submitted'].includes(r.status)))html+=
    action('Preencher com anúncio do TAMÃO','adminFinanceAdsDraftTamao()')+
    '<details'+(state.adsDraft?' open':'')+'><summary>Revisar e enviar minha campanha para aprovação</summary>'+
@@ -7226,7 +7315,7 @@ function adminFinanceHomologationView(d){
   '</div></details></div>'+
   adminFinanceRealPanel(chosen.key)+
   '<details class="admin-finance-homologation-details admin-finance-connection"'+
-   (couponPaid?'':' open')+'><summary>Conexão e webhook (configuração técnica)</summary>'+
+   (couponPaid||chosen.key==='advertising'?'':' open')+'><summary>Conexão e webhook (configuração técnica)</summary>'+
   '<div class="card flat"><h3>Conexão e recebimento</h3>'+
   '<div class="order-line"><strong>Conta:</strong> '+
     (readiness?(accountReady?'Verificada':'Não verificada'):'Aguardando consulta')+
@@ -7270,13 +7359,13 @@ function adminFinanceHomologationView(d){
     (labOpen?adminFinanceRenderPart('Laboratório Pix',()=>adminFinanceLabView(d)):
     '<p class="muted tiny">Nenhuma cobrança é gerada ao abrir o laboratório.</p>')+
   '</div></div>'+
-  (chosen.key==='advertising'?'<div class="card flat"><h3>Publicidade comercial</h3>'+
+  (chosen.key==='advertising'?'<details class="admin-finance-homologation-details"><summary>Controles administrativos de publicidade</summary><div class="card flat"><h3>Publicidade comercial</h3>'+
     '<p>Campanhas aptas ao teste de R$ 19,90 por 7 dias: <strong>'+adsEligible.length+'</strong>. '+
     'Institucional gratuita não exige cobrança.</p>'+
     (typeof adminIndependentAdsHomologationControlsForFinance==='function'?
       adminIndependentAdsHomologationControlsForFinance():'')+
     '<button class="ghost small" type="button" onclick="adminFinanceHomologationOpenAds(\'campaigns\')">Revisar campanhas</button>'+
-    '</div>':'')+
+    '</div></details>':'')+
   '<details class="admin-finance-homologation-details"><summary>Critérios para liberar vendas</summary>'+
   '<p>O Pix de laboratório comprova apenas o teste do gateway. Cada módulo deve validar sua própria cobrança, webhook, crédito, estorno e conciliação antes da ativação. Nenhuma liberação é automática.</p>'+
   '</details></section>';
