@@ -1,7 +1,7 @@
 import {validatePixBrCode} from './pix-brcode.js';
 import {moneyToCents,mercadoPagoPixDeadline} from './mercadopago.js';
 
-export function verifiedOrderPix(order,{reference,sellerId,amountCents,createdAt,orderId=null}){
+export function verifiedOrderPix(order,{reference,sellerId,amountCents,createdAt,orderId=""}){
  const payments=order?.transactions?.payments;
  if(!order||order.live_mode===false||order.external_reference!==reference||
    String(order.user_id??'')!==sellerId||moneyToCents(order.total_amount)!==amountCents||

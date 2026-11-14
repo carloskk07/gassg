@@ -48,7 +48,7 @@ Deno.serve(async(req:Request)=>{
    const controls=await admin.from('ads_independent_sales_controls_v1_886')
     .select('homologation_campaign_id,homologation_expires_at').eq('singleton',true).maybeSingle();
    const campaignId=controls.data?.homologation_campaign_id;
-   if(controls.error||!campaignId||Date.parse(controls.data.homologation_expires_at)<=Date.now())
+   if(controls.error||!controls.data||!campaignId||!Number.isFinite(Date.parse(controls.data.homologation_expires_at))||Date.parse(controls.data.homologation_expires_at)<=Date.now())
     return json({ok:false,error:'ADS_PIX_EXISTING_TEST_REQUIRED'},403);
    const existing=await admin.from('ads_independent_checkouts_v1_886')
     .select('owner_user_id,amount_cents,duration_days,status,preference_id,terms_accepted_at')
