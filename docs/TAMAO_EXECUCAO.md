@@ -1,3 +1,9 @@
+## 14/11/2026 — Estorno específico de cupons autorizado pelo titular
+
+Continuidade de `main=f3b1af9c94708f5148e28e8ff8a08cc7eb1b389c` (PR #999). Após a proposta concreta de devolver R$ 8,90 da compra original e cancelar os três cupons de R$ 5 intactos, o titular respondeu “autorizo”. Preparada operação privada com escopo fixo, prazo curto, autenticação do cron, protocolo canônico como claim de um único POST e conferência GET independente. Sem fabricar sessão/ator humano, sem expor token e sem alterar publicidade paga ou crédito Essencial. A conciliação usa o resolvedor financeiro original. Implementação em validação; estorno real ainda não realizado. Detalhes e resultado devem permanecer em `docs/operations/2026-11-14-authorized-coupon-refund.md`.
+
+---
+
 ## 14/11/2026 — Continuidade após publicidade paga e ativa: recibo acompanha o ciclo (em validação)
 
 Base `main=e2d9071536f1d49e789b4c7764b75fc6dd7193fd`. A conferência real confirma três recebimentos: cupons R$8,90, líquido R$8,81 e três emissões; Essencial R$19,90 com um crédito e R$19,90 disponíveis; publicidade R$19,90 paga e publicada, de 14/11 às 19h45 até 21/11 às 19h45 (Brasília). A entrega pública da campanha de São Gabriel retornou HTTP 200 e o anúncio correto. A consulta técnica não confirmou impressão nem criou cobrança; zero sinais de visualização foram transformados em evidência comercial.
