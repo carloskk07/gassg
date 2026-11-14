@@ -385,6 +385,9 @@ Deno.serve(async(req:Request)=>{
       const attached=await admin.rpc("merchant_sale_pix_attach",{p_customer:user.id,p_order:orderId,p_attempt:attemptId,
         p_provider_order:pix.orderId,p_amount:amountCents,p_code:pix.pixCode,p_expires:pix.expiresAt});
       if(attached.error)throw attached.error;
+      if(attached.data?.source!=="merchant_sale_pix_attach")throw Error("SALE_PIX_ATTACH_UNVERIFIED");
+      if(attached.data.alreadyPaid===true)return json({ok:true,alreadyPaid:true,orderId,attemptId,status:"approved",
+        paymentMethod:"pix",checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
       return json({...pix,ok:true,recovered:true,orderId,attemptId,status:"pending",paymentMethod:"pix",
         checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
     }
@@ -456,6 +459,8 @@ Deno.serve(async(req:Request)=>{
         p_provider_order:pix.orderId,p_amount:amountCents,p_code:pix.pixCode,p_expires:pix.expiresAt});
       if(attached.error)throw attached.error;
       if(attached.data?.source!=="merchant_sale_pix_attach")throw Error("SALE_PIX_ATTACH_UNVERIFIED");
+      if(attached.data.alreadyPaid===true)return json({ok:true,alreadyPaid:true,orderId,attemptId,status:"approved",
+        paymentMethod:"pix",checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
       return json({...pix,ok:true,orderId,attemptId,status:"pending",paymentMethod:"pix",
         checkoutUrl:null,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false},200,origin);
     }

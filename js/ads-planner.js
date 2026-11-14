@@ -422,14 +422,14 @@ async function tamaoAdsMyRefresh({quiet=false,autoReconcile=true}={}){
       homologationExpiresAt:String(r.homologationExpiresAt||'')||null};
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
-    if(autoReconcile)tamaoAdsAutoReconcileOnReturn(userId);
-  }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
+    if(autoReconcile)tamaoAdsAutoReconcileOnReturn(userId);return true;
+  }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'));return false;}
 }
 
 async function tamaoAdsCopyPix(campaignId){
  const actor=String(globalThis.liveRuntime?.session?.user?.id||'');
  if(!tamaoAdsAccountVerified()||!actor)return false;
- await tamaoAdsMyRefresh({quiet:true});
+ if(await tamaoAdsMyRefresh({quiet:true})!==true)return false;
  if(actor!==String(globalThis.liveRuntime?.session?.user?.id||'')||tamaoAdsMyState.userId!==actor)return false;
  const row=tamaoAdsMyState.rows.find(r=>r.id===campaignId);
  if(row?.fixedFeeStatus!=='checkout_ready'||row.fixedFeePixPayable!==true||

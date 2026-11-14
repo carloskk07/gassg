@@ -58,6 +58,11 @@ begin
  denied:=false;
  begin perform public.merchant_sale_pix_attach(gen_random_uuid(),o,a,'ORD-native-proof',1990,'${pixFixture()}',clock_timestamp()+interval '1 day');exception when sqlstate '42501' then denied:=true;end;
  if not denied then raise exception 'SALE_PIX_FOREIGN_CUSTOMER';end if;
+ update public.merchant_sale_payment_attempts set status='review_required' where id=a;
+ denied:=false;
+ begin perform public.merchant_sale_pix_attach(u,o,a,'ORD-native-proof',1990,'${pixFixture()}',clock_timestamp()+interval '1 day');exception when sqlstate '42501' then denied:=true;end;
+ if not denied then raise exception 'SALE_PIX_UNRELATED_REVIEW_BYPASSED';end if;
+ update public.merchant_sale_payment_attempts set status='preparing' where id=a;
  r:=public.merchant_sale_pix_attach(u,o,a,'ORD-native-proof',1990,'${pixFixture()}',clock_timestamp()+interval '1 day');
  if r->>'status'<>'pending' or (select pix_br_code from public.merchant_sale_payment_attempts where id=a)<>'${pixFixture()}' then raise exception 'SALE_PIX_PERSISTENCE_FAILED';end if;
  for sig in select unnest(array['public.ads_pix_begin(uuid,uuid,text)','public.ads_pix_claim(uuid,uuid,text,text)','public.ads_pix_attach(uuid,uuid,text,text,integer,text,timestamptz)','public.merchant_sale_pix_attach(uuid,uuid,uuid,text,bigint,text,timestamptz)']) loop

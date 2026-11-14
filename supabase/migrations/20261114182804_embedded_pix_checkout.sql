@@ -120,6 +120,8 @@ create function public.merchant_sale_pix_attach(p_customer uuid,p_order uuid,p_a
 returns jsonb language plpgsql security definer set search_path=pg_catalog as $fn$
 declare a public.merchant_sale_payment_attempts%rowtype;
 begin
+ perform 1 from public.orders where id=p_order and customer_id=p_customer for update;
+ if not found then raise exception 'SALE_PIX_OWNED_PROOF_REQUIRED' using errcode='42501';end if;
  select * into a from public.merchant_sale_payment_attempts where id=p_attempt and order_id=p_order for update;
  if not found or p_provider_order is null or p_code is null or p_expires is null
   or a.amount_cents is distinct from p_amount or a.payment_method_snapshot is distinct from 'pix'
@@ -132,7 +134,7 @@ begin
   or p_expires>clock_timestamp()+interval '24 hours 5 minutes'
  then raise exception 'SALE_PIX_OWNED_PROOF_REQUIRED' using errcode='42501';end if;
  if a.status='approved' then return jsonb_build_object('source','merchant_sale_pix_attach','alreadyPaid',true);end if;
- if (a.status not in ('preparing','checkout_ready','pending') and not (a.status='review_required' and a.last_error_code in ('PROVIDER_CHECKOUT_OUTCOME_UNKNOWN','PROVIDER_CHECKOUT_COMMIT_FAILED'))) or a.released_for_order_change_at is not null
+ if (a.status not in ('preparing','checkout_ready','pending') and not (a.status='review_required' and coalesce(a.last_error_code,'') in ('PROVIDER_CHECKOUT_OUTCOME_UNKNOWN','PROVIDER_CHECKOUT_COMMIT_FAILED'))) or a.released_for_order_change_at is not null
   or not exists(select 1 from public.orders where id=p_order and status in
     ('MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'))
  then raise exception 'SALE_PIX_NOT_PAYABLE' using errcode='42501';end if;
