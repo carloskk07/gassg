@@ -129,7 +129,7 @@ assert.equal(inspected.modules.length,7);
 assert.equal(inspected.modules[0].configured,true);
 assert.equal(inspected.modules[1].counts.plans,3);
 assert.equal(inspected.modules[4].configured,false,'paid Ads must not be enabled by an inventory read');
-assert.equal(reads,23,'bounded counts; protected referral evidence uses only owner-authorized RPC');
+assert.equal(reads,25,'bounded counts; provider-backed package applications and active professional terms are read-only; referrals remain in their protected RPC');
 const missing={from(){return {select:async()=>({count:null,error:new Error('offline')})}}};
 await assert.rejects(()=>serverCtx.inspect(missing,'owner'),
  e=>e.code==='FINANCE_HOMOLOGATION_EVIDENCE_UNAVAILABLE');
