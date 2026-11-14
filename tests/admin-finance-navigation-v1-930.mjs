@@ -93,7 +93,7 @@ const view=src.slice(src.indexOf('function adminFinanceHomologationView(d){'),
  src.indexOf('function adminFinanceHomologationToggleLab(){'));
 assert(view.indexOf('adminFinanceRealPanel(chosen.key)')<
  view.indexOf('Conexão e recebimento'),'real payment appears before technical diagnostics');
-assert.match(view,/couponPaid\?'':' open'/);
+assert.match(view,/couponPaid\|\|chosen\.key==='advertising'\?'':' open'/);
 assert.match(view,/admin-finance-connection/);
 assert.match(src,/Pix PAGO e registrado no TAMÃO/);
 assert.match(src,/Conciliação do líquido pendente/);

@@ -1,3 +1,15 @@
+## 14/11/2026 — Publicidade: campanha enviada sem caminho direto para cobrança
+
+Base `main=57783f09d7e1435b83fba493ea74e551725130cc` (PR #994). O titular enviou o anúncio verdadeiro do TAMÃO, mas o banco ainda possui uma campanha `submitted`, zero checkouts e nenhuma autorização específica ativa. A tela Financeiro mostrava apenas a contagem da campanha submetida: os botões de checkout só apareciam depois de uma aprovação em outra área, e algumas pré-condições encerravam o clique silenciosamente. A falha foi confirmada na tela real do titular; não é perda de Pix nem pagamento pendente.
+
+A correção reúne a revisão e a emissão na operação original da própria campanha. A leitura de criativo no Admin recebe `ownedOnly`, com filtro de titular derivado da sessão autenticada. O Financeiro mostra anúncio, destino e oferta de R$ 19,90 por sete dias. Uma confirmação explícita autoriza a aprovação e a cobrança somente dessa campanha; o fluxo consulta a titularidade e o conteúdo atuais, verifica a conta Ads, reutiliza as ações existentes de aprovação e autorização específica e só então chama o checkout original. Vendas públicas, publicação e pagamento não são ativados automaticamente. Bloqueios e falhas ficam visíveis, sem retorno silencioso.
+
+Uma campanha já aprovada não é aprovada de novo; autorização válida é reutilizada. Checkout pronto é recuperado, e o identificador da solicitação é a campanha persistida. Troca de sessão, mudança de criativo, ausência de aceite, recebedor/configuração não verificados, autorização de outra campanha e cobrança já paga impedem uma nova emissão. A consulta genérica de webhook Orders permanece nas ferramentas técnicas, separada do checkout Ads e sem se apresentar como etapa obrigatória dessa compra.
+
+Testes executam a sequência inteira do controlador, aceite obrigatório, dono autenticado, aprovação seguida de autorização, clique duplo, resposta perdida após criação do checkout, repetição, sessão alterada, conteúdo alterado e configuração indisponível. Esta continuação está em validação; conferir PR/checks e publicação antes de pedir novo clique. Nenhuma campanha, aprovação, autorização ou cobrança foi criada manualmente em produção para contornar o fluxo.
+
+---
+
 ## 14/11/2026 — Continuidade das homologações: reconhecer o que já foi pago
 
 Base `main=e7346b0397fddc2f7628329338a29eff99084d3d` (PR #993). Leitura atual da produção confirma: cupons R$ 8,90 pagos, R$ 8,81 líquidos e três emissões; Essencial R$ 19,90 recebido, um crédito automático e R$ 19,90 disponíveis. Não houve uso de cupom, consumo real de tarifa, estorno, publicidade paga, recarga de motorista ou pagamento online de pedido. Anúncios profissionais não possuem regra ativa de cobrança.

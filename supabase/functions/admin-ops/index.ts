@@ -8340,7 +8340,19 @@ Deno.serve(async(req:Request)=>{
       if(gateErr||!gate||gate.version!==data.fixedFeeSalesVersion)
         throw new DomainError("ADS_HOMOLOGATION_READ_UNVERIFIED",
           "Controle de homologação mudou. Atualize a área de campanhas.",503);
+      if(body.ownedOnly===true){
+        const own=await admin.from('ads_independent_campaigns_v1_884')
+          .select('id,advertiser_name,title,description,destination_url,city,state,status,version,budget_cents,duration_days')
+          .eq('owner_user_id',user.id).order('created_at',{ascending:false}).limit(30);
+        if(own.error||!Array.isArray(own.data))
+          throw new DomainError('ADS_OWNED_REVIEW_UNAVAILABLE','Não foi possível consultar os anúncios desta conta.',503);
+        data.rows=own.data.map((row:any)=>({id:row.id,advertiser:row.advertiser_name,
+          title:row.title,description:row.description,destination:row.destination_url,
+          city:row.city,state:row.state,status:row.status,version:row.version,
+          budgetCents:row.budget_cents,durationDays:row.duration_days}));
+      }
       return json({...data,
+        ownedOnly:body.ownedOnly===true,
         homologationCampaignId:gate.homologation_campaign_id,
         homologationExpiresAt:gate.homologation_expires_at},200,origin);
     }

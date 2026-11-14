@@ -15,6 +15,8 @@ let role='superadmin',selected='coupons',confirm=true,checked=false,requests=[];
 let current={actor:'admin-1',user:{id:'admin-1'}};
 const runtime={session:{user:{id:'admin-1'}},section:'finance',
  financeWorkspace:'homologation',status:'ready'};
+const ad={id:campaign,title:'Publicidade local real',status:'approved',version:1,budgetCents:1990,durationDays:7,
+ advertiser:'TAMÃO',description:'Campanha legítima conferida para homologação financeira.',destination:'https://tamao.com.br/'};
 const backend=async(endpoint,body)=>{
  if(endpoint==='coupon-credit-pix'){
   if(body.action==='catalog')return {source:'clube_paid_catalog_v1_807',couponSalesEnabled:false,packages:[]};
@@ -29,8 +31,8 @@ const backend=async(endpoint,body)=>{
  }
  if(endpoint==='ads-independent'){
   if(body.action==='mine')return {source:'ads_independent_mine_v1_884',noCharge:true,
-   rows:[{id:campaign,title:'Publicidade local real',status:'approved'}],
-   homologationCampaignId:campaign};
+   rows:[{...ad}],fixedFeeSalesEnabled:false,homologationCampaignId:campaign,
+   homologationExpiresAt:new Date(Date.now()+3600000).toISOString()};
   if(body.action==='submit')return {source:'ads_independent_submit_v1_884',paymentCreated:false};
  }
  if(endpoint==='ads-independent-checkout'){
@@ -48,6 +50,9 @@ const context=vm.createContext({
  adminFinanceWorkspaceCurrent:()=>runtime.financeWorkspace,
  adminFinanceHomologationEvidenceState:()=>({selected}),
  adminAccessToken:async()=> 'jwt-admin-real-user',
+ adminInvoke:async body=>body.action==='ads-independent-read'
+  ?{source:'admin_ads_independent_read_v1_884',readOnly:true,ownedOnly:true,rows:[{...ad}]}
+  :{source:'ads_independent_psp_preflight_v1_890',readOnly:true,paymentsCreated:0,readyForFinancialHomologation:true,salesVersion:1},
  CHAMA_BACKEND:{url:'https://api.example.test',publishableKey:'public-key'},
  chamaFetch:async(url,opts)=>{
   const body=JSON.parse(opts.body),endpoint=url.split('/').at(-1);
