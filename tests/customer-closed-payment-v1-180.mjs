@@ -99,7 +99,7 @@ for(const status of ['PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING','DELIVE
   assert.ok(!html.includes('customer-closed-next'),'No retry panel for '+status);
 }
 html=render('PREPARING',{onlinePayment:{available:true,canStart:true,status:'not_started'}});
-assert.ok(html.includes('Pagar com Mercado Pago'),'Existing merchant payment flow retained during normal order');
+assert.ok(html.includes('Gerar Pix do pedido')&&html.includes('liveStartMerchantPayment'),'Existing owned Pix flow remains in the normal order');
 
 const payment=notice({status:'CANCELLED',paymentMethod:'pix',paymentTiming:'prepaid',
  onlinePayment:{status:'<img src=x onerror=alert(1)>'}});

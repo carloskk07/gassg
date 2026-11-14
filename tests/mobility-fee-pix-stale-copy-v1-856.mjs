@@ -61,7 +61,7 @@ assert.match(ctx.mobilityFeePixPanel(),/Pix copia e cola/);
 assert.match(ctx.mobilityFeePixPanel(),/QR Code Pix/);
 assert.match(ctx.mobilityFeePixPanel(),/Abrir cobrança no Mercado Pago/);
 assert.equal(timers.length,1);
-assert.equal(timers[0].ms,60000);
+assert(timers[0].ms>60000,'display deadline follows the original provider expiry');
 assert.deepEqual(requests.map(x=>x.action),['plan']);
 
 // Explicit user click rechecks the exact existing invoice with the

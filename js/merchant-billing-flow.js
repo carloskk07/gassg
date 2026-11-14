@@ -221,7 +221,9 @@ function merchantArmVerifiedBillingPix(request,merchantId){
     document.visibilityState==='hidden')return false;
  p.requestId=request.id;p.chargeId=request.pixCharge.id;
  p.merchantId=merchantId;p.actorId=rt.session.user.id;p.epoch=rt.accessEpoch;
- p.until=Date.now()+MERCHANT_BILLING_PIX_LEASE_MS;
+ const deadline=Date.parse(String(request.pixCharge.expiresAt||''));
+ if(!Number.isFinite(deadline)||deadline<=Date.now())return false;
+ p.until=deadline;
  if(typeof setTimeout==='function'){
    const proof={requestId:p.requestId,chargeId:p.chargeId,merchantId:p.merchantId,
     actorId:p.actorId,epoch:p.epoch,until:p.until};
@@ -230,7 +232,21 @@ function merchantArmVerifiedBillingPix(request,merchantId){
         p.merchantId===proof.merchantId&&p.actorId===proof.actorId&&
         p.epoch===proof.epoch&&p.until===proof.until)
        merchantHideVerifiedBillingPix();
-   },MERCHANT_BILLING_PIX_LEASE_MS);
+   },Math.max(0,deadline-Date.now()));
+ }
+ if(typeof globalThis.tamaoPixWatch==='function'){
+  const actor=p.actorId,epoch=p.epoch,requestId=p.requestId,chargeId=p.chargeId;
+  const active=()=>merchantBillingSameActor(actor,merchantId,epoch)&&
+   (merchantRuntime.billing?.paymentRequests||[]).some(r=>r.id===requestId&&r.pixCharge?.id===chargeId&&r.pixCharge.status==='active');
+  globalThis.tamaoPixWatch('merchant:'+actor+':'+merchantId+':'+epoch+':'+chargeId,active,async()=>{
+   if(!active()||merchantRuntime.actionPending)return;
+   const result=await merchantInvoke('merchant-billing-pix',{action:'status',merchantId,chargeId});
+   if(!active())return;
+   await merchantRefresh({silent:true});
+   if(!merchantBillingSameActor(actor,merchantId,epoch))return;
+   if(result?.charge?.status==='active')globalThis.merchantAcceptVerifiedBillingPix?.(result,merchantId);
+   else{merchantHideVerifiedBillingPix();render();}
+  });
  }
  return merchantBillingPixProofValid(request);
 }
@@ -240,6 +256,19 @@ if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
  });
 
 
+globalThis.merchantRestoreBillingPix=previous=>{
+ const p=merchantBillingPixProof,old=previous?.paymentRequests?.find(r=>r.id===p.requestId);
+ const current=globalThis.merchantRuntime?.billing?.paymentRequests?.find(r=>r.id===p.requestId);
+ if(!old||!current||!merchantBillingPixProofValid(old))return false;
+ const a=old.pixCharge,b=current.pixCharge;
+ if(!a||!b||b.status!=='active'||a.id!==b.id||a.provider!==b.provider||
+    a.correlationId!==b.correlationId||a.expiresAt!==b.expiresAt||
+    Number(a.amountCents)!==Number(b.amountCents)||Number(current.expectedAmountCents)!==Number(b.amountCents)){
+  merchantHideVerifiedBillingPix();return false;
+ }
+ current.pixCharge={...b,brCode:a.brCode,qrCodeDataUri:a.qrCodeDataUri,
+  paymentLinkUrl:a.paymentLinkUrl,providerVerified:true};return true;
+};
 globalThis.merchantBillingPixProofValid=merchantBillingPixProofValid;
 globalThis.merchantArmVerifiedBillingPix=merchantArmVerifiedBillingPix;
 globalThis.merchantHideVerifiedBillingPix=merchantHideVerifiedBillingPix;

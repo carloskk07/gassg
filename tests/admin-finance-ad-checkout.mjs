@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {pixFixture} from './helpers/pix-fixture.mjs';
+const code=pixFixture(1990);
 const source=fs.readFileSync(new URL('../js/admin.js',import.meta.url),'utf8');
 const a=source.indexOf('function adminFinanceRealState(){'),b=source.indexOf('function adminFinanceHomologationView(d){',a);
 const id='b169a647-0740-432e-b92a-590eec5613cf',actor='11000000-0000-4000-8000-000000000001';
@@ -9,7 +11,7 @@ async function fixture(){
  let checked=false,ready=true,foreignGate=false,ambiguous=false,changeActor=false,role='superadmin';
  const clock={now:Date.now()},timers=[];
  class Clock extends Date{static now(){return clock.now}}
- let returnedCheckout=checkout;
+ let validPix=true;const expiresAt=new Date(clock.now+3600000).toISOString();
  const calls=[],campaign={id,advertiser:'TAMÃO',title:'Conheça o TAMÃO em São Gabriel',
   description:'Conheça a plataforma e acompanhe as novidades de comércio e serviços locais.',
   destination:'https://tamao.com.br/',status:'submitted',version:1,budgetCents:1990,durationDays:7};
@@ -17,7 +19,7 @@ async function fixture(){
  const runtime={status:'ready',section:'finance',session:{user:{id:actor}},actionPending:false};
  const mine=()=>({source:'ads_independent_mine_v1_884',noCharge:true,fixedFeeSalesEnabled:false,
   homologationCampaignId:gate,homologationExpiresAt:gate?new Date(Date.now()+3600000).toISOString():null,
-  rows:[{...campaign,fixedFeeStatus:fixed,fixedFeeCheckoutUrl:fixed==='checkout_ready'?returnedCheckout:null}]});
+  rows:[{...campaign,fixedFeeStatus:fixed,fixedFeeCheckoutUrl:null,fixedFeePixPayable:fixed==='checkout_ready'&&validPix,fixedFeePixCode:fixed==='checkout_ready'&&validPix?code:null,fixedFeePixExpiresAt:expiresAt}]});
  const context=vm.createContext({adminRuntime:runtime,adminReady:()=>true,adminCurrentRole:()=>role,
   adminFinanceWorkspaceCurrent:()=> 'homologation',adminFinanceHomologationEvidenceState:()=>({selected:'advertising'}),
   adminAccessToken:async()=> 'isolated-verified-user',CHAMA_BACKEND:{url:'https://isolated.invalid',publishableKey:'isolated-public'},
@@ -52,17 +54,18 @@ async function fixture(){
    assert.equal(body.acceptFixedFee,true);assert.equal(gate,id);assert.equal(campaign.status,'approved');
    fixed='checkout_ready';
    if(ambiguous){ambiguous=false;throw Error('lost response after original checkout');}
-   return {ok:true,json:async()=>({source:'ads_independent_checkout_v1_886',status:'checkout_ready',checkoutUrl:checkout,amountCents:1990,viewChargesCents:0})};
+   return {ok:true,json:async()=>({source:'ads_independent_checkout_v1_886',status:'checkout_ready',checkoutUrl:null,pixPayable:true,pixCode:code,expiresAt,amountCents:1990,viewChargesCents:0})};
   },
   document:{getElementById:key=>key==='admin-finance-real-ads-consent-'+id?{checked}:null,visibilityState:'visible'},
-  render:()=>{},setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length},clearTimeout:()=>{},URL,Date:Clock,Number,String,Object,Array,Promise,Error,Set,
+  adminFinanceLabLoadQrEncoder:async()=>false,adminFinanceLabLiveQrBlock:()=>'<svg aria-label="QR Code Pix"></svg>',render:()=>{},setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length},clearTimeout:()=>{},URL,Date:Clock,Number,String,Object,Array,Promise,Error,Set,
   esc:x=>String(x),toast:()=>{},crypto:{randomUUID:()=>id}});
  vm.runInContext(source.slice(a,b)+';this.flow={state:adminFinanceRealState,read:adminFinanceRealRefresh,action:adminFinanceRealAction,panel:adminFinanceRealPanel};',context);
  await context.flow.read();calls.length=0;
  return {flow:context.flow,calls,campaign,runtime,check:()=>checked=true,notReady:()=>ready=false,
   foreignGate:()=>foreignGate=true,ambiguous:()=>ambiguous=true,changeActor:()=>changeActor=true,
-  readonly:()=>role='readonly',paid:()=>fixed='payment_approved',unsafeLink:()=>returnedCheckout='https://evil.invalid/pay',
-  expirePreview:async()=>{clock.now+=45001;const task=timers.find(t=>t.ms===45000);assert(task);await task.fn()}};
+  readonly:()=>role='readonly',paid:()=>fixed='payment_approved',unsafeLink:()=>validPix=false,
+  advancePreview:()=>{clock.now+=45001},
+  expirePix:async()=>{clock.now=Date.parse(expiresAt)+1;const task=timers.find(t=>t.ms>60000);assert(task);await task.fn()}};
 }
 {
  const t=await fixture();assert.match(t.flow.panel('advertising'),/Aprovar e gerar cobrança de R\$ 19,90/);
@@ -73,21 +76,23 @@ async function fixture(){
  assert.equal(t.calls.filter(x=>x==='checkout').length,1,'double click prepares a single original checkout');
  assert.equal(t.calls.filter(x=>x==='ads-independent-action').length,1);
  assert.equal(t.calls.filter(x=>x==='ads-independent-homologation-action').length,1);
- assert.equal(t.flow.state().payment.url,checkout);
+ assert.equal(t.flow.state().payment.pix,code);
  await t.flow.action('purchase',id);
  assert.equal(t.calls.filter(x=>x==='checkout').length,1,'ready checkout is recovered, never recreated');
  const panel=t.flow.panel('advertising');
- assert.match(panel,/<a class="primary" href="https:\/\/www\.mercadopago\.com\.br\/checkout\/v1\/redirect\?pref_id=isolated-owned" target="_blank" rel="noopener noreferrer">Pagar R\$ 19,90 no Mercado Pago<\/a>/);
- assert.doesNotMatch(panel,/45 segundos|Ver cobrança original/);
+ assert.match(panel,/Pix da publicidade/);
+ assert.match(panel,/Copiar código Pix/);assert(panel.includes(code));
+ assert.doesNotMatch(panel,/href="https:\/\/www\.mercadopago/);
  const count=t.calls.length;
- await t.expirePreview();
- assert.equal(t.flow.state().payment,null,'the short Pix preview expires normally');
- assert.match(t.flow.panel('advertising'),/Pagar R\$ 19,90 no Mercado Pago/,
-  'the native payment link must remain visible after the 45-second preview timer');
- assert.equal(t.calls.length,count,'rendering the existing payment link does not issue a checkout');
+ t.advancePreview();
+ assert.equal(t.flow.state().payment.pix,code,'QR remains available beyond the former 45-second preview');
+ assert(t.flow.panel('advertising').includes(code));
+ assert.equal(t.calls.length,count,'rendering the QR never issues another checkout');
  await t.flow.read();
- assert.match(t.flow.panel('advertising'),/Pagar R\$ 19,90 no Mercado Pago/,'reload restores the same native payment link');
+ assert(t.flow.panel('advertising').includes(code),'reload restores the same original Pix');
  assert.equal(t.calls.filter(x=>x==='checkout').length,1);
+ await t.expirePix();assert.equal(t.flow.state().payment,null,'actual provider expiry clears payment');
+ assert(!t.flow.panel('advertising').includes(code),'expired bank code is hidden');
  t.paid();await t.flow.read();
  assert.match(t.flow.panel('advertising'),/Pagamento de publicidade confirmado/);
  assert.doesNotMatch(t.flow.panel('advertising'),/href="https:\/\/www\.mercadopago|Pagar R\$/,
@@ -97,8 +102,8 @@ async function fixture(){
  const t=await fixture();t.check();await t.flow.action('purchase',id);
  t.unsafeLink();await t.flow.read();
  assert.doesNotMatch(t.flow.panel('advertising'),/href="https:\/\/evil/);
- assert.match(t.flow.panel('advertising'),/Consultar cobrança original/);
- t.readonly();assert.doesNotMatch(t.flow.panel('advertising'),/Pagar R\$|Consultar cobrança original/);
+ assert.match(t.flow.panel('advertising'),/Preparar Pix desta cobrança/);
+ t.readonly();assert.doesNotMatch(t.flow.panel('advertising'),/Pagar R\$|Preparar Pix desta cobrança/);
  t.runtime.session.user.id='new-owner';
  assert.doesNotMatch(t.flow.panel('advertising'),/Conheça o TAMÃO|href="https:\/\/www\.mercadopago/);
 }
@@ -117,7 +122,7 @@ for(const failure of ['notReady','foreignGate','changeActor','readonly']){
  assert.match(t.flow.state().error,/lost response/);
  await t.flow.action('purchase',id);
  assert.equal(t.calls.filter(x=>x==='checkout').length,1,'lost POST response reuses persisted original checkout');
- assert.equal(t.flow.state().payment.url,checkout);
+ assert.equal(t.flow.state().payment.pix,code);
 }
 const edge=fs.readFileSync(new URL('../supabase/functions/admin-ops/index.ts',import.meta.url),'utf8');
 const start=edge.indexOf('      if(body.ownedOnly===true){');

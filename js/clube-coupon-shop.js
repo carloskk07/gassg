@@ -137,11 +137,13 @@ function clubeCouponArmPixLease(){
  if(typeof document!=='undefined'&&document.hidden===true){
    clubeCouponHideDisplayedPix(old);return;
  }
- clubeCouponPixLease.expiresAt=Date.now()+CLUBE_COUPON_PIX_VISIBLE_MS;
+ const deadline=Date.parse(String(old.expiresAt||''));
+ if(!Number.isFinite(deadline)||deadline<=Date.now())return;
+ clubeCouponPixLease.expiresAt=deadline;
  if(typeof setTimeout==='function')
    clubeCouponPixLease.timer=setTimeout(()=>{
      clubeCouponHideDisplayedPix(old);
-   },CLUBE_COUPON_PIX_VISIBLE_MS);
+   },Math.max(0,deadline-Date.now()));
 }
 if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
  document.addEventListener('visibilitychange',()=>{
@@ -234,8 +236,10 @@ function clubeCouponShopPanel(){
       paymentLink='<a href="'+esc(u.href)+'" target="_blank" rel="noopener noreferrer">Abrir pagamento seguro no Mercado Pago</a>';
   }catch{}
   const qr=String(purchase?.qrImageDataUri||'');
-  const qrImage=/^data:image\/png;base64,[A-Za-z0-9+/=]{16,300000}$/.test(qr)
-    ?'<img alt="QR Code Pix do pedido de cupom" src="'+esc(qr)+'" style="max-width:240px;width:100%;height:auto">':'';
+  const qrImage=validCode&&typeof globalThis.tamaoPixMarkup==='function'
+    ?globalThis.tamaoPixMarkup(pix,{amountCents:Number(purchase.amountCents),label:'QR Code Pix do pacote',imageDataUri:qr})
+    :/^data:image\/png;base64,[A-Za-z0-9+/=]{16,300000}$/.test(qr)
+     ?'<img alt="QR Code Pix do pedido de cupom" src="'+esc(qr)+'" style="max-width:240px;width:100%;height:auto">':'';
   const payment=purchase?'<article class="card flat form-stack">'+
     '<strong>Pagamento do seu pacote</strong>'+
     (purchase.fundingModel==='partner_funded'?'<p class="tiny">CEP vinculado a este Pix: '+

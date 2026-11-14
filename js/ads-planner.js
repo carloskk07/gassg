@@ -195,8 +195,11 @@ function tamaoAdsCampaignForm(){
         (fee===9990&&days===30)||(fee===19990&&days===30);
       const testAuthorized=String(s.homologationCampaignId||'')===id&&
         Date.parse(String(s.homologationExpiresAt||''))>Date.now();
+      const pixReady=bought==='checkout_ready'&&c.fixedFeePixPayable===true&&
+        typeof c.fixedFeePixCode==='string'&&c.fixedFeePixCode.length>30&&
+        Date.parse(String(c.fixedFeePixExpiresAt||''))>Date.now()+60000;
       const canBuy=(s.fixedFeeSalesEnabled===true||testAuthorized)&&
-        c.status==='approved'&&validPlan&&
+        c.status==='approved'&&validPlan&&!pixReady&&
         (bought===''||bought==='checkout_ready'||bought==='reserved');
       const payment=bought==='payment_approved'?'Pagamento aprovado pelo provedor; aguarda publicação.':
         bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
@@ -223,6 +226,18 @@ function tamaoAdsCampaignForm(){
         '<small>O pedido pausa a publicidade. Não confirma devolução de dinheiro antes da resposta do provedor.</small></div>':
         refundStatus?'<p role="status">Solicitação de reembolso: '+esc(refundStatus)+
           '. O histórico financeiro permanece sujeito à confirmação do provedor.</p>':'';
+      const pixPanel=pixReady?'<section class="notice" aria-label="Pix da publicidade">'+
+        '<h3>Pague sem sair do TAMÃO</h3>'+
+        (globalThis.tamaoPixMarkup?.(c.fixedFeePixCode,{amountCents:fee})||'')+
+        '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(c.fixedFeePixCode)+'</textarea></label>'+
+        '<button type="button" class="primary" onclick="tamaoAdsCopyPix(\''+id+'\')">Copiar código Pix</button>'+
+        '<p>Validade: '+esc(new Date(c.fixedFeePixExpiresAt).toLocaleString('pt-BR'))+'. A confirmação aparece aqui.</p></section>':'';
+      if(pixReady&&typeof globalThis.tamaoPixWatch==='function'){
+        const actor=s.userId;
+        globalThis.tamaoPixWatch('ads:'+actor+':'+id,()=>route()==='sponsors'&&tamaoAdsAccountVerified()&&
+          tamaoAdsMyState?.userId===actor&&tamaoAdsMyState.rows.some(r=>r.id===id&&r.fixedFeeStatus==='checkout_ready'),
+          ()=>tamaoAdsMyRefresh({quiet:true,autoReconcile:false}));
+      }
       const buy=canBuy?'<div class="card flat">'+
         (testAuthorized&&!s.fixedFeeSalesEnabled?
           '<p><strong>Homologação supervisionada:</strong> este é um pagamento REAL autorizado para uma campanha, não uma simulação.</p>':'')+
@@ -241,7 +256,7 @@ function tamaoAdsCampaignForm(){
         '<p>Preço cadastrado: '+tamaoAdsFormatMoney(fee)+' por '+days+' dias</p>'+
         (payment?'<p role="status">'+esc(payment)+'</p>':'')+
         '<small>Impressões faturáveis por CPM: 0. Receita exibida ao anunciante: não se aplica.</small>'+
-        buy+checkPayment+refundAction+'</article>';
+        pixPanel+buy+checkPayment+refundAction+'</article>';
     }).join(''):'';
   return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+
@@ -393,7 +408,7 @@ function tamaoAdsAutoReconcileOnReturn(userId){
  };
  tamaoAdsAutoPayment.timer=setTimeout(poll,1200);
 }
-async function tamaoAdsMyRefresh({quiet=false}={}){
+async function tamaoAdsMyRefresh({quiet=false,autoReconcile=true}={}){
   const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!tamaoAdsAccountVerified())return;
   try{
@@ -407,8 +422,20 @@ async function tamaoAdsMyRefresh({quiet=false}={}){
       homologationExpiresAt:String(r.homologationExpiresAt||'')||null};
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
-    tamaoAdsAutoReconcileOnReturn(userId);
+    if(autoReconcile)tamaoAdsAutoReconcileOnReturn(userId);
   }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'))}
+}
+
+async function tamaoAdsCopyPix(campaignId){
+ const actor=String(globalThis.liveRuntime?.session?.user?.id||'');
+ if(!tamaoAdsAccountVerified()||!actor)return false;
+ await tamaoAdsMyRefresh({quiet:true});
+ if(actor!==String(globalThis.liveRuntime?.session?.user?.id||'')||tamaoAdsMyState.userId!==actor)return false;
+ const row=tamaoAdsMyState.rows.find(r=>r.id===campaignId);
+ if(row?.fixedFeeStatus!=='checkout_ready'||row.fixedFeePixPayable!==true||
+    Date.parse(String(row.fixedFeePixExpiresAt||''))<=Date.now()+60000)return false;
+ try{await navigator.clipboard.writeText(row.fixedFeePixCode);toast('Código Pix copiado.');return true}
+ catch{toast('Selecione o código Pix acima e copie.');return false}
 }
 
 async function tamaoAdsBuyCampaign(campaignId){

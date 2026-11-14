@@ -190,6 +190,8 @@ jobs:
         run: node tests/isolated-ads-independent-lifecycle-v1-885.mjs
       - name: V1.886 independent fixed-fee Ads, provider proof and reversal on disposable Postgres
         run: node tests/isolated-ads-independent-fixed-fee-v1-886.mjs
+      - name: Native Pix and legacy instrument retirement on actual disposable Postgres
+        run: node tests/isolated-embedded-pix.mjs
       - name: V1.887 owner refund request, pause and PSP-evidence-only reconciliation
         run: node tests/isolated-ads-independent-refund-review-v1-887.mjs
       - name: V1.888 verified one-shot provider refund with rollback on disposable Postgres

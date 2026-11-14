@@ -1020,3 +1020,103 @@ if(globalThis.__CHAMA_TEST__){
     getState:()=>state,setState:s=>{state=normalizeState(s);save();}
   };
 }
+
+// The same bank-readable Pix is rendered locally on every TAMÃO portal.
+// Rendering never creates, renews or confirms a payment.
+(()=>{
+ 'use strict';
+ let loading=null,failed=false;
+ const watches=new Map();
+ const script=typeof document!=='undefined'?document.currentScript:null;
+ const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function valid(code,amountCents){
+  if(typeof code!=='string'||code.length<30||code.length>3000||!code.startsWith('000201')||!/6304[0-9a-f]{4}$/i.test(code))return false;
+  const bytes=new TextEncoder().encode(code);let crc=0xffff;
+  for(const byte of bytes.slice(0,-4)){
+   crc^=byte<<8;
+   for(let bit=0;bit<8;bit++)crc=((crc&0x8000)?(crc<<1)^0x1021:crc<<1)&0xffff;
+  }
+  if(crc.toString(16).padStart(4,'0').toUpperCase()!==code.slice(-4).toUpperCase())return false;
+  let offset=0,currency='',country='',amount=null,pix=false;
+  const decode=new TextDecoder();
+  while(offset<bytes.length){
+   const tag=decode.decode(bytes.slice(offset,offset+2)),size=decode.decode(bytes.slice(offset+2,offset+4));
+   if(!/^\d{2}$/.test(tag)||!/^\d{2}$/.test(size))return false;
+   const end=offset+4+Number(size);if(end>bytes.length)return false;
+   const value=decode.decode(bytes.slice(offset+4,end));
+   if(tag==='53')currency=value;
+   if(tag==='58')country=value;
+   if(tag==='54')amount=/^\d+\.\d{2}$/.test(value)?Math.round(Number(value)*100):NaN;
+   if(Number(tag)>=26&&Number(tag)<=51&&value.toLowerCase().includes('br.gov.bcb.pix'))pix=true;
+   offset=end;
+  }
+  return currency==='986'&&country==='BR'&&pix&&
+   (amount===null||Number.isSafeInteger(amount)&&amount>0&&(!Number.isSafeInteger(amountCents)||amount===amountCents));
+ }
+ function load(){
+  if(typeof globalThis.qrcode==='function')return Promise.resolve(true);
+  if(loading)return loading;
+  if(typeof document==='undefined')return Promise.resolve(false);
+  loading=new Promise(resolve=>{
+   const tag=document.createElement('script');
+   const url=new URL('./qr-generator.js',script?.src||new URL('./js/core.js',document.baseURI).href);
+   if(script?.src)url.search=new URL(script.src).search;
+   tag.src=url.href;tag.async=true;
+   tag.onload=()=>resolve(typeof globalThis.qrcode==='function');tag.onerror=()=>resolve(false);
+   document.head.appendChild(tag);
+  }).then(ok=>{
+   failed=!ok;if(!ok)loading=null;
+   if(typeof globalThis.render==='function')globalThis.render();
+   return ok;
+  });
+  return loading;
+ }
+ function markup(code,{amountCents,label='QR Code Pix',imageDataUri=''}={}){
+  if(!valid(code,amountCents))return '';
+  let body='';
+  if(typeof globalThis.qrcode==='function'){
+   try{
+    if(globalThis.qrcode.stringToBytesFuncs?.['UTF-8'])
+     globalThis.qrcode.stringToBytes=globalThis.qrcode.stringToBytesFuncs['UTF-8'];
+    const qr=globalThis.qrcode(0,'M');qr.addData(code,'Byte');qr.make();
+    const svg=qr.createSvgTag({cellSize:4,margin:16,scalable:true});
+    if(/^<svg\b/i.test(svg))body=svg;
+   }catch{failed=true}
+  }else if(!failed)load().catch(()=>{});
+  if(!body&&/^data:image\/png;base64,[A-Za-z0-9+/=]{16,550000}$/.test(String(imageDataUri)))
+   body='<img src="'+escape(imageDataUri)+'" alt="'+escape(label)+'" style="width:100%;height:auto">';
+  if(!body)return '<p role="status">'+(failed?'Use o código Pix copia e cola abaixo.':'Carregando QR Code Pix…')+'</p>';
+  return '<div class="tamao-pix-qr" role="img" aria-label="'+escape(label)+'" style="max-width:260px;width:100%;margin:12px auto;padding:12px;background:#fff;border-radius:12px">'+body+'</div>';
+ }
+ globalThis.tamaoPixCodeValid=valid;
+ globalThis.tamaoPixMarkup=markup;
+ globalThis.tamaoPixLoadEncoder=load;
+ // Callers supply only their original authenticated status read. A watcher
+ // cannot prepare an invoice, choose an amount or confirm funds itself.
+ globalThis.tamaoPixWatch=(key,isActive,refresh)=>{
+  if(typeof key!=='string'||typeof isActive!=='function'||typeof refresh!=='function'||typeof setTimeout!=='function')return;
+  const previous=watches.get(key);
+  if(previous){previous.active=isActive;previous.refresh=refresh;return;}
+  const w={active:isActive,refresh,timer:null,running:false,run:null};watches.set(key,w);
+  const run=async()=>{
+   if(watches.get(key)!==w||w.running)return;
+   w.timer=null;
+   if(!w.active()){watches.delete(key);return;}
+   w.running=true;
+   if(typeof document==='undefined'||document.visibilityState!=='hidden'){
+    try{await w.refresh()}catch{/* The next read retries the same obligation. */}
+   }
+   w.running=false;
+   if(w.active())w.timer=setTimeout(run,35000);else watches.delete(key);
+  };
+  w.run=run;w.timer=setTimeout(run,35000);
+ };
+ if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
+  document.addEventListener('visibilitychange',()=>{
+   if(document.visibilityState==='hidden')return;
+   for(const w of watches.values()){
+    if(w.timer!==null&&typeof clearTimeout==='function')clearTimeout(w.timer);
+    w.run?.();
+   }
+  });
+})();

@@ -29,7 +29,7 @@ const ctx=vm.createContext({
       return {ok:true,source:'clube_partner_coupon_catalog_v1_849',packages:[]};
     if(body.action==='invoice-status')
       return {ok:true,invoiceId,status:'awaiting_payment',fundingModel:'partner_funded',
-        pixPayable:true,pixCode:'1234567890123456789012345678901234567890'};
+        pixPayable:true,expiresAt:new Date(Date.now()+3600000).toISOString(),pixCode:'1234567890123456789012345678901234567890'};
     if(body.action==='partner-purchase')
       return {ok:true,invoiceId,fundingModel:'partner_funded',pixPayable:false};
     throw new Error('Unexpected coupon operation '+body.action);
@@ -84,7 +84,7 @@ assert.equal(ctx.shop.busy,false);
 // A new CEP lookup must clear an already visible partner Pix card, which
 // otherwise survives the UI rerender even if the checkout path is guarded.
 ctx.shop.purchase={invoiceId,fundingModel:'partner_funded',
-  servicePostalCode:'97300000',status:'awaiting_payment',pixPayable:true,
+  servicePostalCode:'97300000',status:'awaiting_payment',pixPayable:true,expiresAt:new Date(Date.now()+3600000).toISOString(),
   pixCode:'1234567890123456789012345678901234567890'};
 ctx.armLease();
 assert.match(ctx.panel(),/CEP vinculado a este Pix: 97300000/);

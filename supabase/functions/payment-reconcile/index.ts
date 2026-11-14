@@ -10,6 +10,9 @@ import {handlePlatformBillingOrder,handlePaidCouponOrder,handleMobilityFeeOrder,
 import {verifySeller,recoverReservedPreference,reconcileProviderPayment}
  from "../ads-independent-checkout/handlers.ts";
 import {reconcilePaymentJob} from "./runner.js";
+import {verifiedOrderPix} from "../_shared/order-pix-proof.mjs";
+import {prepareAdsPix,recoverAdsPix} from "../_shared/ads-native-pix.mjs";
+import {adsPixDependencies} from "../ads-independent-checkout/handlers.ts";
 
 const URL_BASE=Deno.env.get('SUPABASE_URL')||'';
 const SECRET=JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS')||'{}').default||Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
@@ -39,6 +42,35 @@ Deno.serve(async(req:Request)=>{
    return json({ok:true,source:'ads_platform_connection_readiness',readOnly:true,
     ...readiness,checkoutApiReachable,newChargesCreated:0});
   }
+  // Explicit maintenance only: repair the instrument of the ONE already
+  // consented founder test. Cron's ordinary route remains provider-read-only.
+  if(new URL(req.url).searchParams.get('repair')==='existing-advertising-pix'){
+   const controls=await admin.from('ads_independent_sales_controls_v1_886')
+    .select('homologation_campaign_id,homologation_expires_at').eq('singleton',true).maybeSingle();
+   const campaignId=controls.data?.homologation_campaign_id;
+   if(controls.error||!campaignId||Date.parse(controls.data.homologation_expires_at)<=Date.now())
+    return json({ok:false,error:'ADS_PIX_EXISTING_TEST_REQUIRED'},403);
+   const existing=await admin.from('ads_independent_checkouts_v1_886')
+    .select('owner_user_id,amount_cents,duration_days,status,preference_id,terms_accepted_at')
+    .eq('campaign_id',campaignId).maybeSingle();
+   const row=existing.data;
+   if(existing.error||!row||!row.preference_id||!row.terms_accepted_at||row.amount_cents!==1990||row.duration_days!==7)
+    return json({ok:false,error:'ADS_PIX_EXISTING_TEST_REQUIRED'},403);
+   if(row.status==='payment_approved')return json({ok:true,paymentApproved:true,newPaymentInstrumentCreated:false});
+   if(row.status!=='checkout_ready')return json({ok:false,error:'ADS_PIX_EXISTING_TEST_NOT_PAYABLE'},409);
+   const owner=await admin.auth.admin.getUserById(row.owner_user_id);
+   if(owner.error||owner.data.user?.is_anonymous===true||!owner.data.user?.email_confirmed_at)
+    return json({ok:false,error:'ADS_PIX_VERIFIED_OWNER_REQUIRED'},403);
+   const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
+   if(!config.checkoutConfigured||!config.webhookConfigured||!config.signedWebhookConfigured)
+    return json({ok:false,error:'ADS_PIX_PROVIDER_UNAVAILABLE'},503);
+   const credentials=await verifyIndependentAdsSeller(config);
+   const result=await prepareAdsPix(adsPixDependencies(admin,null),{ownerId:row.owner_user_id,
+    campaignId,payerEmail:owner.data.user.email,origin:'system_repair',...credentials});
+   return json({ok:true,source:'ads_existing_pix_instrument_repair',amountCents:1990,
+    status:result.status,pixAvailable:result.pixPayable===true,expiresAt:result.expiresAt||null,
+    newPaymentInstrumentCreated:result.reused===false,newObligationsCreated:0});
+  }
   const jobs=await admin.rpc('platform_payment_reconciliation_claim',{p_limit:8});
   if(jobs.error||!Array.isArray(jobs.data)||jobs.data.length>8)throw Error('QUEUE_UNAVAILABLE');
   const encryptionKey=String(Deno.env.get('MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY')||'').trim();
@@ -50,11 +82,31 @@ Deno.serve(async(req:Request)=>{
     return await verifyIndependentAdsSeller(independentAdsCredentialConfig((key:string)=>Deno.env.get(key)));
    },
    routes:{handlePlatformBillingOrder,handlePaidCouponOrder,handleMobilityFeeOrder,
-    handleMerchantSaleOrder,verifySeller,recoverReservedPreference,reconcileProviderPayment},
+    handleMerchantSaleOrder,verifySeller,recoverReservedPreference,reconcileProviderPayment,
+    recoverAdsPix:(row:any,token:string,sellerId:string)=>recoverAdsPix(adsPixDependencies(admin,null),row,token,sellerId)},
    providerGet:async(path:string,accessToken:string)=>{
     const response=await mercadoPagoFetch(path,{accessToken,method:'GET',timeoutMs:8000});
     if(!response.ok)throw Error('PROVIDER_LOOKUP_FAILED');
     return readMercadoPagoJson(response);
+   },
+   restoreSalePix:async(row:any,orderId:string,token:string)=>{
+    if(row.payment_method_snapshot!=='pix'||!['preparing','checkout_ready','pending','review_required'].includes(row.status))return;
+    if(row.status==='review_required'&&!['PROVIDER_CHECKOUT_OUTCOME_UNKNOWN','PROVIDER_CHECKOUT_COMMIT_FAILED'].includes(row.last_error_code))return;
+    const account=await admin.from('merchant_payment_provider_accounts').select('provider_account_id')
+     .eq('merchant_id',row.merchant_id).eq('provider','mercadopago').eq('status','active').maybeSingle();
+    const owned=await admin.from('orders').select('customer_id,total_cents,merchant_id')
+     .eq('id',row.order_id).eq('merchant_id',row.merchant_id).maybeSingle();
+    if(account.error||owned.error||!account.data?.provider_account_id||!owned.data||owned.data.total_cents!==row.amount_cents)
+     throw Error('SALE_PIX_REPAIR_BINDING_INVALID');
+    const response=await mercadoPagoFetch('/v1/orders/'+encodeURIComponent(orderId),{accessToken:token});
+    if(!response.ok)throw Error('SALE_PIX_PROVIDER_LOOKUP_FAILED');
+    const details=await readMercadoPagoJson(response);
+    const pix=verifiedOrderPix(details,{reference:row.external_reference,sellerId:account.data.provider_account_id,
+     amountCents:row.amount_cents,createdAt:row.created_at,orderId});
+    if(!pix)return;
+    const attached=await admin.rpc('merchant_sale_pix_attach',{p_customer:owned.data.customer_id,p_order:row.order_id,
+     p_attempt:row.id,p_provider_order:orderId,p_amount:row.amount_cents,p_code:pix.pixCode,p_expires:pix.expiresAt});
+    if(attached.error)throw attached.error;
    },
    merchantToken:async(merchantId:string)=>{
     if(!paymentEncryptionConfigured(encryptionKey))throw Error('MERCHANT_CREDENTIAL_UNAVAILABLE');
@@ -84,5 +136,8 @@ Deno.serve(async(req:Request)=>{
    counts[result.outcome]++;
   }
   return json({ok:true,checked:jobs.data.length,counts,newChargesCreated:0});
- }catch{return json({ok:false,error:'PAYMENT_RECONCILIATION_UNAVAILABLE'},503)}
+ }catch(error){
+  const code=String((error as any)?.message||'');
+  return json({ok:false,error:/^ADS_[A-Z0-9_]{3,100}$/.test(code)?code:'PAYMENT_RECONCILIATION_UNAVAILABLE'},503);
+ }
 });
