@@ -8,7 +8,7 @@ declare
  prep jsonb; ingested jsonb; applied jsonb; cid uuid; rid uuid; eid uuid;
  v_admin uuid:=gen_random_uuid(); v_owner uuid; v_customer uuid:=gen_random_uuid(); v_order uuid;
  v_version integer; v_pin text; v_order_result jsonb; sid uuid;
- correlation text; order_id text; expected bigint:=0; before_actions bigint; denied boolean;
+ correlation text; v_provider_order_id text; expected bigint:=0; before_actions bigint; denied boolean;
 begin
  insert into auth.users(id,aud,role,is_anonymous,email,email_confirmed_at)
  values(owner_id,'authenticated','authenticated',false,'automatic-owner@example.invalid',clock_timestamp());
@@ -20,10 +20,10 @@ begin
    'isolated-auto-'||plan.plan_key,repeat('a',64));
   cid:=(prep->>'chargeId')::uuid;rid:=(prep->>'paymentRequestId')::uuid;
   select correlation_id into correlation from public.merchant_billing_provider_charges where id=cid;
-  order_id:='ORDISOLATED'||replace(cid::text,'-','');
-  update public.merchant_billing_provider_charges set provider_charge_id=order_id where id=cid;
-  ingested:=public.ingest_merchant_billing_payment_event('mercadopago','order:'||order_id||':accredited',
-   'mp-order:'||order_id,'pix',plan.purchase_amount_cents,'BRL',clock_timestamp(),repeat('b',64),null,correlation);
+  v_provider_order_id:='ORDISOLATED'||replace(cid::text,'-','');
+  update public.merchant_billing_provider_charges set provider_charge_id=v_provider_order_id where id=cid;
+  ingested:=public.ingest_merchant_billing_payment_event('mercadopago','order:'||v_provider_order_id||':accredited',
+   'mp-order:'||v_provider_order_id,'pix',plan.purchase_amount_cents,'BRL',clock_timestamp(),repeat('b',64),null,correlation);
   eid:=(ingested->>'eventId')::uuid;
   if (select credit_balance_cents from public.merchant_billing_accounts where merchant_id=v_merchant)<>expected then
    raise exception 'receipt alone granted credit';end if;
@@ -42,7 +42,7 @@ begin
   denied:=false;
   begin
    perform public.ingest_merchant_billing_payment_refund('mercadopago','refund:isolated:'||cid,
-    'mp-order:'||order_id,'mp-refund:isolated:'||cid,plan.purchase_amount_cents,'BRL',clock_timestamp(),repeat('c',64));
+    'mp-order:'||v_provider_order_id,'mp-refund:isolated:'||cid,plan.purchase_amount_cents,'BRL',clock_timestamp(),repeat('c',64));
    perform public.apply_verified_merchant_billing_payment(eid,cid);
   exception when sqlstate '40001' or insufficient_privilege then denied:=true;end;
   if not denied then raise exception 'refunded payment credited';end if;
@@ -149,11 +149,11 @@ begin
   'isolated-auto-statement-charge',repeat('e',64));
  cid:=(prep->>'chargeId')::uuid;rid:=(prep->>'paymentRequestId')::uuid;
  select correlation_id into correlation from public.merchant_billing_provider_charges where id=cid;
- order_id:='ORDISOLATED'||replace(cid::text,'-','');
- update public.merchant_billing_provider_charges set provider_charge_id=order_id where id=cid;
+ v_provider_order_id:='ORDISOLATED'||replace(cid::text,'-','');
+ update public.merchant_billing_provider_charges set provider_charge_id=v_provider_order_id where id=cid;
  select amount_due_cents into expected from public.merchant_daily_statements where id=sid;
- ingested:=public.ingest_merchant_billing_payment_event('mercadopago','order:'||order_id||':accredited',
-  'mp-order:'||order_id,'pix',expected,'BRL',clock_timestamp(),repeat('b',64),null,correlation);
+ ingested:=public.ingest_merchant_billing_payment_event('mercadopago','order:'||v_provider_order_id||':accredited',
+  'mp-order:'||v_provider_order_id,'pix',expected,'BRL',clock_timestamp(),repeat('b',64),null,correlation);
  eid:=(ingested->>'eventId')::uuid;
  applied:=public.apply_verified_merchant_billing_payment(eid,cid);
  if applied->>'applied'<>'true' or not exists(select 1 from public.merchant_daily_statements
