@@ -51,8 +51,8 @@ begin
  if r->>'paymentApproved'<>'true' then raise exception 'PIX_EARLY_WEBHOOK_LOST';end if;
  insert into public.merchants(name,cnpj,status,online,accepts_citywide,last_seen_at,delivery_fee_confirmed_at,delivery_fee_cents)
  values('PIX ISOLATED SELLER','99887766550099','pending',false,true,clock_timestamp(),clock_timestamp(),0) returning id into m;
- insert into public.orders(public_code,customer_id,status,supplier_name_snapshot,address_text,address_number,postal_code,customer_phone_digits,payment_method,payment_timing,gross_total_cents,total_cents,delivery_fee_cents_snapshot,merchant_id,attempted_merchant_ids,offer_expires_at,version)
- values('PIX-'||substr(u::text,1,8),u,'PREPARING','PIX ISOLATED SELLER','Rua Sintética 20','20','97300000','51999998888','pix','prepaid',1990,1990,0,m,array[m],clock_timestamp()+interval '10 minutes',1) returning id into o;
+ insert into public.orders(public_code,customer_id,status,supplier_name_snapshot,address_text,address_number,postal_code,customer_phone_digits,payment_method,payment_timing,gross_total_cents,total_cents,delivery_fee_cents_snapshot,merchant_id,attempted_merchant_ids,offer_expires_at,accepted_at,version)
+ values('PIX-'||substr(u::text,1,8),u,'PREPARING','PIX ISOLATED SELLER','Rua Sintética 20','20','97300000','51999998888','pix','prepaid',1990,1990,0,m,array[m],null,clock_timestamp(),1) returning id into o;
  insert into public.merchant_sale_payment_attempts(order_id,merchant_id,provider,checkout_mode,external_reference,amount_cents,status,payment_method_snapshot,verification_level,funds_owner)
  values(o,m,'mercadopago','pix',gen_random_uuid()::text,1990,'preparing','pix','provider','merchant') returning id into a;
  denied:=false;
