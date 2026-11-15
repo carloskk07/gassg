@@ -2182,6 +2182,16 @@ function liveTracking(){
   const total=customerTrackingTotal(o);
   const totalLabel=total===null?'Valor ainda não confirmado':BRL.format(total);
   const cashbackReserved=Number(o.cashbackReservedCents||0)/100;
+  const couponCents=Number(o.couponAppliedCents);
+  const validCoupon=Number.isSafeInteger(couponCents)&&couponCents>0&&
+    couponCents<=Number(o.cashbackReservedCents||0);
+  const paidCoupon=validCoupon?couponCents/100:0;
+  const otherBenefit=Math.max(0,cashbackReserved-paidCoupon);
+  const paidCouponNotice=paidCoupon>0
+    ?(o.status==='CANCELLED'?'O valor original incluía ':'Inclui ')+
+      BRL.format(paidCoupon)+' de cupom do Clube TAMÃO'+
+      (otherBenefit>0?' e '+BRL.format(otherBenefit)+' de outros benefícios':'')+'. '
+    :'';
   const proposedCents=Number(o.proposedTotalCents);
   const proposed=o.proposedTotalCents!=null&&Number.isSafeInteger(proposedCents)
     &&proposedCents>0&&proposedCents<=1000000000?proposedCents/100:null;
@@ -2250,7 +2260,7 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de benefício usado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${paidCouponNotice}${o.partnerFundedDiscountCents===100?`Inclui presente de R$ 1,00 oferecido pela revenda, sem cobrança adicional. `:cashbackReserved>0&&!paidCouponNotice?`Inclui ${BRL.format(cashbackReserved)} de benefício usado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>

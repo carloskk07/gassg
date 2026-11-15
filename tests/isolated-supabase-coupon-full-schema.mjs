@@ -236,6 +236,9 @@ assert.equal(created.body.status,'OFFERED_TO_MERCHANT');
 assert.equal(created.body.grossTotalCents,amounts.gross);
 assert.equal(created.body.totalCents,amounts.total);
 assert.equal(created.body.cashbackReservedCents,amounts.cashback);
+assert.equal(created.body.couponAppliedCents,500,'buyer must see exact paid coupon in authenticated order readback');
+assert.equal(created.body.couponFundingModel,null,'platform coupon must not be mislabeled as partner-funded');
+assert.equal(Object.hasOwn(created.body,'couponVoucherId'),false,'never expose private voucher ID');
 assert.equal(created.body.orderId,adminCouponOrder.id);
 assert.equal(visibleCouponOrder.orderId,created.body.orderId);
 assert.equal(adminCouponOrder.total_cents,created.body.totalCents);
@@ -362,6 +365,7 @@ assert.equal(settledBuyerRead.status,200);
 assert.equal(settledBuyerRead.body.status,'SETTLED');
 assert.equal(settledBuyerRead.body.grossTotalCents,amounts.gross);
 assert.equal(settledBuyerRead.body.totalCents,amounts.total);
+assert.equal(settledBuyerRead.body.couponAppliedCents,500,'settlement must preserve coupon breakdown');
 const merchantAfter=await callEdge('merchant-orders',ownerToken,{merchantId:merchant});
 assert.equal(merchantAfter.status,200);
 const closedCouponMerchant=merchantAfter.body.merchant?.recentClosedOrders?.find(
@@ -489,6 +493,7 @@ assert.equal(cancelOrder.couponAppliedCents,500);
 const cancelOrderId=cancelOrder.orderId;
 const cancellationBuyerView=await callEdge('get-order',buyerToken,{orderId:cancelOrderId});
 assert.equal(cancellationBuyerView.status,200);
+assert.equal(cancellationBuyerView.body.couponAppliedCents,500,'dispatched order still shows exact applied coupon before cancellation');
 const cancellationAccepted=await callEdge('merchant-action',ownerToken,
  {orderId:cancelOrderId,action:'accept',expectedVersion:cancellationBuyerView.body.version},
  'ci-coupon-cancel-accept-'+randomUUID());
@@ -505,6 +510,15 @@ const cancellation=JSON.parse(sql("SELECT public.admin_cancel_dispatched_order("
  q('ci-cancel-after-dispatch-'+randomUUID())+","+
  q('d'.repeat(64))+")::text;"));
 assert.equal(cancellation.status,'CANCELLED');
+const cancelledBuyerRead=await callEdge('get-order',buyerToken,{orderId:cancelOrderId});
+assert.equal(cancelledBuyerRead.status,200,
+ 'cancelled coupon order must remain readable in customer history');
+assert.equal(cancelledBuyerRead.body.status,'CANCELLED');
+assert.equal(cancelledBuyerRead.body.couponAppliedCents,500,
+ 'customer can review original coupon even after refund/cancellation');
+assert.equal(cancelledBuyerRead.body.totalCents,
+ Number(sql("SELECT total_cents FROM public.orders WHERE id="+q(cancelOrderId)+"::uuid")),
+ 'cancellation must preserve original amount for the customer receipt');
 assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+
  q(cancelOrderId)+"::uuid AND user_id="+q(user)+"::uuid AND bucket='cashback'"+
  " AND entry_type='cashback_release'"),'1');
