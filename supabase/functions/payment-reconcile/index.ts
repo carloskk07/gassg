@@ -9,7 +9,8 @@ import {handlePlatformBillingOrder,handlePaidCouponOrder,handleMobilityFeeOrder,
  handleMerchantSaleOrder} from "../billing-payment-webhook-mercadopago/handlers.ts";
 import {verifySeller,recoverReservedPreference,reconcileProviderPayment}
  from "../ads-independent-checkout/handlers.ts";
-import {reconcilePaymentJob} from "./runner.js";
+import {reconcilePaymentJob,PAYMENT_SOURCES} from "./runner.js";
+import {readPaymentEntitlement} from "../_shared/payment-entitlement.js";
 import {verifiedOrderPix} from "../_shared/order-pix-proof.mjs";
 import {prepareAdsPix,recoverAdsPix} from "../_shared/ads-native-pix.mjs";
 import {adsPixDependencies} from "../ads-independent-checkout/handlers.ts";
@@ -27,6 +28,28 @@ Deno.serve(async(req:Request)=>{
  const auth=await admin.rpc('platform_payment_reconciliation_authorize',{p_token_sha:await sha256Hex(token)});
  if(auth.error||auth.data!==true)return json({ok:false},403);
  try{
+  // Bounded private inspection of existing records. No queue claim, provider
+  // request, settlement RPC, payment creation or fabricated user session.
+  if(new URL(req.url).searchParams.get('inspect')==='entitlements'){
+   const sample=await admin.from('platform_payment_reconciliation_queue')
+    .select('kind,resource_id',{count:'exact'}).in('last_outcome',['verified','closed']).limit(8);
+   if(sample.error||!Array.isArray(sample.data))throw Error('ENTITLEMENT_INSPECTION_UNAVAILABLE');
+   const receipts=[];
+   for(const item of sample.data){
+    const kind=String(item.kind);
+    if(!Object.hasOwn(PAYMENT_SOURCES,kind))throw Error('ENTITLEMENT_INSPECTION_KIND_INVALID');
+    const spec=PAYMENT_SOURCES[kind as keyof typeof PAYMENT_SOURCES];
+    const local=await admin.from(spec.table).select('*').eq(spec.id,item.resource_id).maybeSingle();
+    if(local.error||!local.data)throw Error('ENTITLEMENT_INSPECTION_RECORD_UNAVAILABLE');
+    const row=local.data,applicable=spec.paid.includes(row.status)||kind==='coupon'&&row.status==='refunded';
+    const proof=applicable?await readPaymentEntitlement(kind,admin,row):null;
+    receipts.push({kind,businessStatus:row.status,applicable,
+     entitlementApplied:proof?.entitlementApplied??null,reviewRequired:proof?.reviewRequired??false});
+   }
+   return json({ok:true,source:'payment_entitlement_inspection',readOnly:true,
+    scope:'existing_queue_sample',totalEligible:sample.count,sampled:receipts.length,
+    receipts,newChargesCreated:0,moneyMoved:false});
+  }
   // One explicitly consented refund. Ordinary cron remains GET-only and
   // cannot enter this route. Scope/expiry/one-shot claim live server-side.
   if(new URL(req.url).searchParams.get('refund')==='authorized-unused-coupon'){

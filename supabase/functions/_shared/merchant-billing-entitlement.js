@@ -4,7 +4,7 @@ export async function readBillingEntitlement(admin,charge){
  const out={entitlementApplied:false,requestStatus:null,requestKind:null,reviewRequired:false};
  if(!charge?.payment_request_id)return out;
  const r=await admin.from('merchant_billing_payment_requests')
-  .select('id,merchant_id,request_kind,plan_key,status,expected_amount_cents,credit_grant_cents_snapshot,received_amount_cents,approval_source,provider_payment_event_id,reconciliation_key,statement_id')
+  .select('id,merchant_id,request_kind,plan_key,status,expected_amount_cents,credit_grant_cents_snapshot,received_amount_cents,approval_source,provider_payment_event_id,reconciliation_key,statement_id,refund_recovery_id')
   .eq('id',charge.payment_request_id).maybeSingle();
  if(r.error||!r.data)throw Error('BILLING_ENTITLEMENT_REQUEST_UNAVAILABLE');
  const request=r.data;
@@ -41,6 +41,24 @@ export async function readBillingEntitlement(admin,charge){
   out.entitlementApplied=statement.data?.status==='paid'
    &&statement.data.merchant_id===request.merchant_id
    &&Number(statement.data.amount_due_cents)===Number(request.expected_amount_cents);
+ }else if(request.request_kind==='refund_recovery'){
+  const recovery=await admin.from('merchant_billing_refund_recoveries')
+   .select('id,merchant_id,amount_cents,outstanding_cents,status')
+   .eq('id',request.refund_recovery_id).maybeSingle();
+  if(recovery.error)throw Error('BILLING_ENTITLEMENT_RECOVERY_UNAVAILABLE');
+  const row=recovery.data;
+  if(row&&row.id===request.refund_recovery_id&&row.merchant_id===request.merchant_id&&
+    ['open','payment_pending','recovered'].includes(row.status)){
+   // Reuse the original equation, including approved partial receipts and
+   // reopened refunds. Do not create another recovery/credit calculator.
+   const expected=await admin.rpc('refund_recovery_expected_outstanding',{
+    p_recovery_id:request.refund_recovery_id});
+   if(expected.error)throw Error('BILLING_ENTITLEMENT_RECOVERY_UNAVAILABLE');
+   const due=Number(row.outstanding_cents),total=Number(row.amount_cents);
+   out.entitlementApplied=expected.data!==null&&Number.isSafeInteger(due)&&due>=0&&
+    Number.isSafeInteger(total)&&total>0&&due<=total&&Number(expected.data)===due&&
+    (row.status==='recovered'?due===0:due>0);
+  }
  }
  out.reviewRequired=!out.entitlementApplied;
  return out;

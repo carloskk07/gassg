@@ -1,3 +1,29 @@
+## 15/11/2026 — Encerramento técnico da frente #1 condicionado à entrega completa
+
+Retomada de `main=0bd59d35d5a731cddc9c006ec505a0e1d121e47f` (PR #1005),
+com pedido explícito para encerrar frentes abertas. A releitura comercial
+confirmou NET original de 881 centavos por relatório MP independente, registrado
+automaticamente em 14/11, e devolução original concluída com três cupons `void`.
+Essencial/publicidade permanecem recebidos e conciliados, sem novo pagamento.
+
+Foi reproduzida a lacuna final do cron: quatro famílias podiam ser marcadas como
+verificadas por uma linha `paid`/`approved`, sem conferir a contrapartida real.
+O leitor existente de créditos de revenda foi reaproveitado; as outras famílias
+agora conferem seus próprios vouchers, lotes, alocações, eventos e verificações.
+Estorno de cupom exige benefícios cancelados. A recuperação de dívida usa a
+equação SQL existente para reconhecer aplicações parciais e completas.
+Não há segundo motor financeiro, nova cobrança ou saldo fabricado.
+
+O [aceite integral da frente #1](operations/2026-11-15-pix-integration-closeout.md)
+define as provas acumuladas, testes novos e releitura de produção necessária.
+**Somente após CI, integração, publicação e inspeção privada aprovadas**, #1 pode
+ser contabilizada como encerrada tecnicamente: **14/19**, cinco abertas
+**#2, #3, #4, #6 e #12**. Até esses gates, mantém-se 13/19. O resultado final
+consta na PR desta entrega e no início da issue #493. O ciclo comercial completo
+de todas as modalidades e os repasses bancários não são dados como encerrados.
+
+---
+
 ## 15/11/2026 — Pix de mobilidade: falha de rede recuperável sem nova cobrança
 
 A revisão reproduziu outro bloqueio na UI existente: a espera da sessão,

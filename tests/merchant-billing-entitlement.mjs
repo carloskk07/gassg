@@ -24,4 +24,21 @@ event.merchant_id='merchant';failed=true;await assert.rejects(readBillingEntitle
 failed=false;request.request_kind='statement_payment';request.statement_id='statement';
 assert.equal((await readBillingEntitlement(db,charge)).entitlementApplied,true);
 await assert.rejects(readBillingEntitlement(db,{...charge,merchant_id:'foreign'}),/BINDING_MISMATCH/);
+request.request_kind='refund_recovery';request.refund_recovery_id='recovery';
+let recovery={id:'recovery',merchant_id:'merchant',amount_cents:3980,outstanding_cents:1990,status:'open'};
+let expected=1990;
+const recoveryDb={from(table){
+ if(table!=='merchant_billing_refund_recoveries')return db.from(table);
+ return {select(){return this},eq(){return this},maybeSingle:async()=>({data:recovery,error:null})};
+},rpc:async(name,args)=>{
+ assert.equal(name,'refund_recovery_expected_outstanding');assert.equal(args.p_recovery_id,'recovery');
+ return {data:expected,error:null};
+}};
+assert.equal((await readBillingEntitlement(recoveryDb,charge)).entitlementApplied,true,
+ 'an approved partial recovery uses the canonical outstanding equation');
+expected=0;assert.equal((await readBillingEntitlement(recoveryDb,charge)).reviewRequired,true);
+recovery={...recovery,outstanding_cents:0,status:'recovered'};
+assert.equal((await readBillingEntitlement(recoveryDb,charge)).entitlementApplied,true);
+recovery={...recovery,merchant_id:'foreign'};
+assert.equal((await readBillingEntitlement(recoveryDb,charge)).entitlementApplied,false);
 console.log('PASS: a completed PSP charge is insufficient; original approved request, exact event and one actual credit/paid statement are required.');

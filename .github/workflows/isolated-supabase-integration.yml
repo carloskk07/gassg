@@ -239,6 +239,8 @@ jobs:
         run: node tests/isolated-supabase-coupon-sponsor-v1-807.mjs
       - name: V1.956 complete owner-sponsored Clube redemption without MP net report (ROLLBACK)
         run: node tests/isolated-clube-sponsored-redemption-v1-956.mjs
+      - name: Original canonical SQL receipts match recovery readback across payment families (ROLLBACK)
+        run: node tests/isolated-payment-entitlement-readback.mjs
       - name: V1.809 disposable PostgreSQL superadmin topups and concurrent double-submit safety
         run: node tests/isolated-supabase-coupon-topups-v1-809.mjs
       - name: V1.810 real PostgreSQL any-product min order, budget and atomic checkout
