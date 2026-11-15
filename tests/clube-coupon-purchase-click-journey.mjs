@@ -140,6 +140,7 @@ assert.equal(generated,1,'pending invoice must not mint a second request UUID');
 // In an ambiguous network failure with no invoice history, the same original
 // request key must be used on retry. Never silently generate another order.
 history=[];
+await ctx.clubePaidCouponsRefresh();
 ctx.state.purchase=null;
 ctx.state.attempts={};
 purchaseResponse=()=>{throw Error('network lost after possible charge');};
@@ -157,6 +158,7 @@ assert.equal(ctx.state.purchase?.invoiceId,preparedInvoice);
 // the original request UUID instead of creating a new financial operation.
 history=[{invoiceId:preparedInvoice,status:'prepared',
  packageKey,requestId:requestB}];
+await ctx.clubePaidCouponsRefresh();
 ctx.state.attempts={};
 ctx.state.purchase=null;
 purchaseResponse=makePix({invoiceId:preparedInvoice});
@@ -176,6 +178,7 @@ assert.match(messages.at(-1),/Verifique seu CEP/);
 ctx.state.regionPostal='97300000';
 history=[{invoiceId:invoiceA,status:'awaiting_payment',
  packageKey:partnerKey,requestId:requestC,servicePostalCode:'97000000'}];
+await ctx.clubePaidCouponsRefresh();
 await emittedClick(partnerKey);
 assert.equal(purchaseOps().length,beforePartner,
  'a pending Pix for another region may not be reused or relabeled');
@@ -189,12 +192,13 @@ ctx.state.attempts={};
 ctx.state.purchase=null;
 const originalBuyerPurchase=emittedClick(packageKey);
 ctx.liveRuntime.session.user.id=buyerB;
-await ctx.refresh(); // Must initialize B's catalog independently
-assert.equal(ctx.state.userId,buyerB);
-assert.deepEqual(Object.keys(ctx.state.attempts),[]);
+assert.doesNotMatch(ctx.panel(),/Pagamento do seu pacote/,
+ 'old account invoice must be hidden immediately on switch');
 resolveFirst(makePix({invoiceId:invoiceA}));
 await originalBuyerPurchase;
+await ctx.refresh(); // initialize B after A's in-flight operation settles
 assert.equal(ctx.state.userId,buyerB);
+assert.deepEqual(Object.keys(ctx.state.attempts),[]);
 assert.equal(ctx.state.purchase,null,'old account charge must not appear for B');
 assert.equal(purchaseOps().at(-1).requestId,requestC);
 assert.equal(ctx.clubePaidCouponView.userId,buyerB);
