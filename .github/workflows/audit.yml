@@ -279,6 +279,8 @@ jobs:
         run: node tests/coupon-refund-mp-proof-v1-815.mjs
       - name: V1.816 buyer coupon-shop autoload and pre-sale disclosure
         run: node tests/clube-coupon-autoload-v1-816.mjs
+      - name: Buyer coupon purchase from real Club button, consent, duplicate click, Pix retry and account isolation
+        run: node tests/clube-coupon-purchase-click-journey.mjs
       - name: V1.817 evidence-based owner-backed coupon funding (no fake bank deposit)
         run: node tests/clube-owner-guarantee-readiness-v1-817.mjs
       - name: V1.819 seller-verified commercial coupon sales and emergency suspension
