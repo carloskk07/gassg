@@ -29,6 +29,11 @@ const validKind={
 };
 const valid={
   source:'database_complete',generatedAt:new Date().toISOString(),
+  platformReceipts:{source:'platform_receipt_net_summary',readOnly:true,moneyMoved:false,
+    merchantFundsIncluded:false,accountBalanceVerified:false,generatedAt:new Date().toISOString(),
+    totalCount:0,returnedCount:0,truncated:false,rows:[],
+    kindTotals:Object.fromEntries(['billing','coupon','mobility','advertising'].map(k=>[k,
+      {count:0,grossCents:0,verifiedCount:0,verifiedNetCents:0,reversedCount:0,pendingCount:0}]))},
   timezone:'America/Sao_Paulo',kindTotals:{
     package_purchase:{...validKind},
     statement_payment:{...validKind},
@@ -47,7 +52,7 @@ const ctx=vm.createContext({
   adminCurrentRole:()=>role,render:()=>renders++,
   adminInvoke:async()=>{remoteCalls++;return remote();}
 });
-vm.runInContext(cut('adminFinanceHistoryIsFresh')+'\nasync '+cut('adminLoadFinanceHistory')
+vm.runInContext(cut('adminPlatformReceiptsValid')+'\n'+cut('adminPlatformReceiptsView')+'\n'+cut('adminFinanceHistoryIsFresh')+'\nasync '+cut('adminLoadFinanceHistory')
   +'\n'+cut('adminFinanceMonthlyComparison')
   +'\n'+cut('adminFinanceMonthlyComparisonView')
   +'\n'+cut('adminFinanceHistoryView')
