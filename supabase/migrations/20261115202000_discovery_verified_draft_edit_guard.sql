@@ -63,8 +63,8 @@ BEGIN
   v_definition:=pg_catalog.replace(v_definition,v_previous_rpc,v_reviewed_rpc);
   EXECUTE v_definition;
 
-  IF jsonb_array_length(public.platform_launch_readiness()->'securityBlockers')<>0
-    AND (public.platform_launch_readiness()->'securityBlockers') ? 'browser_sensitive_table_acl'
+  IF (public.platform_launch_readiness()->'securityBlockers') ? 'browser_sensitive_table_acl'
+    OR (public.platform_launch_readiness()->'securityBlockers') ? 'admin_rpc_browser_exposure'
   THEN
     RAISE EXCEPTION 'DISCOVERY_ACL_REVIEW_DID_NOT_MATCH';
   END IF;
