@@ -49,12 +49,10 @@ assert.doesNotMatch(publicNav,/hospedagens|lodging|['"]stay['"]/i);
 // convert reference gas prices to fictional merchants or fake sales.
 for(const requirement of [
  'snapshot.real===true','snapshot.notAQuote===true',
- 'snapshot.source', 'real.slice(0,6)',
+ 'snapshot?.source', 'real.slice(0,6)',
  'city-price-card verified',
- 'Sem ofertas confirmadas',
- 'Uma revenda' // may only be checked below if current wording exists
+ 'Sem ofertas confirmadas'
 ]){
- if(requirement==='Uma revenda')continue;
  assert.ok(showcase.includes(requirement),'missing regional price authority '+requirement);
 }
 assert.match(showcase,/const cards=real\.length\?liveCards:/);
