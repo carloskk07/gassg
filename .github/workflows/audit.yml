@@ -51,6 +51,8 @@ jobs:
         run: node tests/mercadopago-public-pix-tariff.mjs
       - name: Automatic server payment recovery across all current payment families
         run: node tests/payment-reconciliation-runner.mjs
+      - name: All payment receipts require persisted entitlement and refund cancellation
+        run: node tests/payment-entitlement-readback.mjs
       - name: Explicitly authorized original coupon refund and read-only recovery
         run: node tests/authorized-coupon-refund.mjs
       - name: Paid invoice report search independent of historical account size

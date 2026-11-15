@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {receiptFixture} from './helpers/payment-receipt-fixture.mjs';
 import {PAYMENT_SOURCES,reconcilePaymentJob,uniqueProviderOrder} from '../supabase/functions/payment-reconcile/runner.js';
 const ID='60000000-0000-4000-8000-000000000001';
 const TOKEN='APP_USR-'+('x'.repeat(32));
@@ -9,14 +10,20 @@ const base={id:ID,campaign_id:ID,merchant_id:ID,owner_user_id:ID,payment_request
  provider_charge_id:'ORD123456789',status:'active',created_at:'2026-11-10T15:00:00Z'};
 const reply=(data,status=200)=>new Response(JSON.stringify(data),{status});
 function fixture(kind){
- const row={...base},calls=[];let commit=true,response=200;
+ const readback=receiptFixture(kind,ID,ID);
+ const row={...readback.row,...base},calls=[];let commit=true,response=200;
+ readback.tables[PAYMENT_SOURCES[kind].table]=[row];
+ readback.tables.mobility_fee_pix_evidence_v1_837[0].provider_order_id=row.provider_order_id;
  const business=async(name,...args)=>{
   calls.push({name,args});
-  if(commit&&response===200)row.status=PAYMENT_SOURCES[kind].paid[0];
+  if(commit&&response===200){
+   row.status=PAYMENT_SOURCES[kind].paid[0];
+   row.provider_order_id||='ORD123456789';
+  }
   return reply(response===200?{ok:true,paymentApproved:commit}:{error:'PROVIDER_UNAVAILABLE'},response);
  };
  const deps={
-  admin:{from:table=>({select(){return this},eq(){return this},limit(){return this},
+  admin:{from:table=>kind!=='billing'?readback.admin.from(table):({select(){return this},eq(){return this},limit(){return this},
    maybeSingle:async()=>{
     if(table===PAYMENT_SOURCES[kind].table)return {data:{...row},error:null};
     if(table==='merchant_billing_payment_requests')return {data:{id:ID,merchant_id:ID,

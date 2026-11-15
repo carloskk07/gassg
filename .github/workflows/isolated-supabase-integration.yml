@@ -261,6 +261,8 @@ jobs:
         run: node tests/isolated-coupon-refund-review-claim-v1-865.mjs
       - name: V1.866 immutable financial triage and refunded coupon history on disposable PostgreSQL
         run: node tests/isolated-coupon-refund-triage-v1-866.mjs
+      - name: Original canonical SQL receipts match recovery readback across payment families (ROLLBACK)
+        run: node tests/isolated-payment-entitlement-readback.mjs
       - name: Destroy disposable local containers even on test failure
         if: always()
         run: supabase stop --no-backup || true
