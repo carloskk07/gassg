@@ -203,17 +203,16 @@ ctx.panel();
 await new Promise(resolve=>setTimeout(resolve,0));
 if(ctx.state.userId!==buyerB)await ctx.refresh();
 await new Promise(resolve=>setTimeout(resolve,0));
-console.log('CI_ACCOUNT_SWITCH_PROBE',JSON.stringify({
- liveUser:ctx.liveRuntime.session.user.id,shopOwner:ctx.state.userId,
- busy:ctx.state.busy,status:ctx.state.status,
- autoQueuedFor:ctx.state.autoQueuedFor,
- historyOwner:ctx.clubePaidCouponView.userId,
- lastCalls:calls.slice(-4).map(x=>x.action)
-}));
 assert.equal(ctx.state.userId,buyerB);
 assert.deepEqual(Object.keys(ctx.state.attempts),[]);
 assert.equal(ctx.state.purchase,null,'old account charge must not appear for B');
+assert.doesNotMatch(ctx.panel(),/CEP vinculado a este Pix/,
+ 'old buyer payment details are not visible in the new account');
 assert.equal(purchaseOps().at(-1).requestId,requestC);
+// Wallet history belongs to its own deferred module, not to shop refresh.
+// Explicitly opening that history for B must discard A's cached purchases.
+await ctx.clubePaidCouponsRefresh();
 assert.equal(ctx.clubePaidCouponView.userId,buyerB);
+assert.equal(ctx.clubePaidCouponView.purchases.length,0);
 assert.ok(renders.length>0);
 console.log('PASS: real Clube button/terms, two-click serialization, original Pix recovery, stable ambiguity key, CEP provenance and user isolation; mocked PSP/Edge only.');
