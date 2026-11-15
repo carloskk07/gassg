@@ -29,6 +29,7 @@ a prioridade original. As regras e vínculos confirmados no banco não mudam.
 | Liberação | Carência, revisão de risco e recebimento da taxa são obrigatórios; repetição não duplica crédito |
 | Tela do indicador | Saldo disponível, pendente e contagens visíveis devem coincidir com os dados canônicos, em desktop e celular |
 | Pedido ainda não entregue | Pode registrar o vínculo, mas não pode qualificar a indicação nem criar comissão |
+| Estorno após liberação | A autoridade canônica do Admin deve zerar a comissão, desfazer a qualificação e preservar o histórico de repasse para revisão; repetição sem novo lançamento, em transação integralmente revertida |
 | Falhas e recuperação | Consulta indisponível, perda da referência local, acesso por outro papel e entrega offline seguem os testes existentes |
 
 A mesma execução também roda os cenários existentes de cancelamento, cupons,
@@ -40,7 +41,7 @@ entrega e no topo da issue #493.
 
 O artefato `tamao-pedidos-sinteticos-ci` inclui `rede-indicacao.json`, capturas
 `14-indicador-comissao-desktop.png` e `15-indicador-comissao-celular.png`, além
-das capturas existentes de pedido nos três papéis. A prova usa as páginas,
+de `rede-estorno.json` e das capturas existentes de pedido nos três papéis. A prova usa as páginas,
 APIs e tabelas reais apontadas exclusivamente para localhost descartável.
 
 Valores, recebimentos e observações de PSP são sintéticos. Nenhum Pix é
