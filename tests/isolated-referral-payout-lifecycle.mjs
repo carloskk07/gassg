@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // V1.493: REAL PostgreSQL 17 + complete migration chain, NEVER bank evidence.
 // Runs after the isolated POSITIVE checkout and maturation, in the same
@@ -258,3 +260,51 @@ const after=scalar("(SELECT count(*) FROM public.wallet_entries)::text || ':' ||
 assert.equal(after,before,
  'payout DECLARATIONS cannot transfer funds, mint wallet credit or bank proof');
 console.log('PASS: real full-schema referral claim, eligibility, read ACL, duplicate, void, immutable provider reference, no bank transfer.');
+
+// Complete the SAME qualified referral's financial reversal through the
+// canonical Admin authority. Roll back the entire scenario so following
+// suites retain their original local fixtures. This is no PSP refund.
+const reverse="SELECT public.admin_reverse_settled_order("+q(owner)+"::uuid,"+
+ order+",'CI local referral reversal','CI-LOCAL-NO-BANK-TRANSFER')::text;";
+const reversalSnapshot="SELECT jsonb_build_object("+
+ "'financialState',(SELECT financial_state FROM public.orders WHERE id="+order+"),"+
+ "'rewardReversed',(SELECT reversed_at IS NOT NULL FROM public.order_reward_grants WHERE order_id="+order+"),"+
+ "'qualifiedOrderCleared',(SELECT qualified_order_id IS NULL FROM public.referrals WHERE referred_user_id="+q(buyer)+"::uuid),"+
+ "'availableForOrder',(SELECT coalesce(sum(amount_cents),0) FROM public.wallet_entries WHERE order_id="+order+" AND bucket='commission_available'),"+
+ "'pendingForOrder',(SELECT coalesce(sum(amount_cents),0) FROM public.wallet_entries WHERE order_id="+order+" AND bucket='commission_pending'),"+
+ "'reversalEntries',(SELECT count(*) FROM public.wallet_entries WHERE order_id="+order+" AND entry_type='referral_reversal'),"+
+ "'reversalRows',(SELECT count(*) FROM public.order_financial_reversals WHERE order_id="+order+"),"+
+ "'summary',public.customer_financial_summary("+q(reward.referrer_user_id)+"::uuid),"+
+ "'provider',"+providerRead(owner)+")::text;";
+const [reversed,observed,reverseReplay,observedReplay]=sql(
+ "BEGIN; "+reverse+reversalSnapshot+reverse+reversalSnapshot+" ROLLBACK;"
+).split('\n').filter(Boolean).map(JSON.parse);
+assert.equal(reversed.alreadyReversed,false);
+assert.equal(reverseReplay.alreadyReversed,true);
+assert.equal(observed.financialState,'reversed');
+assert.equal(observed.rewardReversed,true);
+assert.equal(observed.qualifiedOrderCleared,true);
+assert.equal(observed.availableForOrder,0,'reversed commission must leave no spendable balance for its source order');
+assert.equal(observed.pendingForOrder,0);
+assert.equal(observed.reversalEntries,1);
+assert.equal(observed.reversalRows,1);
+assert.equal(observed.summary.commissionAvailableCents,0,'canonical referrer summary must remove the reversed available commission');
+assert.equal(observed.summary.commissionPendingCents,0);
+assert.deepEqual(observedReplay,observed,'repeating the Admin reversal cannot change balances, evidence or counts');
+const reversedClaim=observed.provider.rows.find(row=>row.claimId===corrected.claimId);
+assert.equal(reversedClaim.grantReversedNow,true);
+assert.equal(reversedClaim.successNow,false);
+assert.equal(reversedClaim.historicalProviderSuccessObserved,true);
+assert.equal(reversedClaim.requiresReversalReview,true,'historical outgoing claim must stay visible for review after its commission is reversed');
+assert.equal(observed.provider.bankSettlementVerified,false);
+assert.equal(scalar("financial_state FROM public.orders WHERE id="+order),'settled','reversal probe must roll back');
+assert.equal(scalar("reversed_at IS NULL FROM public.order_reward_grants WHERE order_id="+order),'t');
+assert.equal(json(providerRead(owner)).providerSuccessClaims,1,'rollback preserves the original local evidence');
+const evidenceDir=path.resolve('test-results/isolated-order-evidence');
+fs.mkdirSync(evidenceDir,{recursive:true});
+fs.writeFileSync(path.join(evidenceDir,'rede-estorno.json'),JSON.stringify({
+ scope:'isolated-canonical-admin-postgres-rollback',productionAccess:false,bankTransfer:false,
+ originalCommissionCents:amount,afterReversal:{availableCents:observed.availableForOrder,pendingCents:observed.pendingForOrder,reversalEntries:observed.reversalEntries,qualifiedOrderCleared:observed.qualifiedOrderCleared},
+ replayIdempotent:true,historicalOutgoingClaimPreserved:true,rollbackVerified:true
+},null,2)+'\n');
+console.log('PASS: canonical Admin reverses matured referral; pending/available zero, qualification cleared, one reversal on replay, historical outgoing evidence preserved, complete ROLLBACK; no bank transfer.');

@@ -15,6 +15,23 @@ function terminateChrome(){
  try{if(chrome.pid)process.kill(-chrome.pid,'SIGTERM');else chrome.kill('SIGTERM')}
  catch{try{chrome.kill('SIGTERM')}catch{}}
 }
+async function disposeChrome(){
+ const current=chrome;
+ if(current){
+  terminateChrome();
+  await new Promise(done=>{
+   if(current.exitCode!==null||current.signalCode!==null)return done();
+   const timer=setTimeout(done,2500);
+   current.once('exit',()=>{clearTimeout(timer);done()});
+  });
+  // A parent can exit while its helpers still write into Default/.
+  // Kill only this test's detached group before deleting its unique profile.
+  try{if(current.pid)process.kill(-current.pid,'SIGKILL')}catch{}
+  await delay(350);
+ }
+ if(profile)fs.rmSync(profile,{recursive:true,force:true,maxRetries:12,retryDelay:150});
+ chrome=null;profile=null;
+}
 async function startChrome(){
  // Hosted CI can spawn Chrome before system libraries / other concurrent
  // screenshot jobs free resources. Never skip the browser test: relaunch with
@@ -34,7 +51,7 @@ async function startChrome(){
    if(chrome===launched)chromeDiagnostic=(chromeDiagnostic+String(chunk)).slice(-16000);
   });
   let port=null;
-  for(let i=0;i<70;i++){
+  for(let i=0;i<160;i++){
    try{
     const raw=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8');
     const n=Number(raw.split(/\s+/)[0]);
@@ -42,7 +59,7 @@ async function startChrome(){
    }catch{}
    const match=chromeDiagnostic.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);
    if(match&&Number(match[1])>0){port=Number(match[1]);break;}
-   if(launched.exitCode!==null)break;
+   if(launched.exitCode!==null||launched.signalCode!==null)break;
    await delay(200);
   }
   if(port){
@@ -50,10 +67,8 @@ async function startChrome(){
    return port;
   }
   const tail=chromeDiagnostic.replace(/\s+/g,' ').slice(-280);
-  terminateChrome();
-  await delay(450);
-  fs.rmSync(profile,{recursive:true,force:true,maxRetries:4,retryDelay:100});
-  chrome=null;profile=null;
+  console.warn('Chrome local launch '+attempt+' did not initialize: '+tail);
+  await disposeChrome();
   if(attempt===3)throw Error('Chrome local debugger failed after 3 isolated launches; last diagnostic: '+tail);
   await delay(attempt*750);
  }
@@ -393,8 +408,5 @@ try{
 }finally{
  for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('closing'))}
  ws?.close();
- terminateChrome();
- await delay(500);
- try{if(chrome?.pid)process.kill(-chrome.pid,'SIGKILL')}catch{}
- if(profile)fs.rmSync(profile,{recursive:true,force:true,maxRetries:6,retryDelay:120});
+ await disposeChrome();
 }

@@ -79,6 +79,20 @@ const entry=JSON.parse(store.get('tamao-growth-first-ref-v1-226'));
 assert.ok(entry.expiresAt>now&&entry.expiresAt<=now+31*86400000);
 store.set('tamao-growth-first-ref-v1-226',
  JSON.stringify({code:'FRIEND55',expiresAt:Date.now()-1}));
+state.user.referredBy='FRIEND55';
+location.search='?ref=NEWFRIEND88';
+ctx.parse();
+assert.equal(ctx.get(),'NEWFRIEND88',
+ 'expired first touch in persisted user state must not block a new valid invitation');
+assert.equal(state.user.referredBy,'NEWFRIEND88');
+store.set('tamao-growth-first-ref-v1-226',
+ JSON.stringify({code:'NEWFRIEND88',expiresAt:Date.now()-1}));
+state.user.referredBy='NEWFRIEND88';
+location.search='';
+assert.equal(ctx.get(),'','expired invitation must not survive through the user-state fallback');
+assert.equal(state.user.referredBy,null);
+store.set('tamao-growth-first-ref-v1-226',
+ JSON.stringify({code:'FRIEND55',expiresAt:Date.now()-1}));
 state.user.referredBy=null;
 location.search='?ref=OWNCODE';
 ctx.parse();
