@@ -84,7 +84,7 @@ assert.match(edge,/FINANCE_HOMOLOGATION_STATUS_UNAVAILABLE/);
 assert.match(edge,/\.select\("\*",\{count:"exact",head:true\}\)/);
 assert.match(ui,/assessmentVersion!=='v1\.920'/);
 assert.match(ui,/finance(?:.{0,40})?Homologation/);
-assert.match(ui,/Nenhum homologado automaticamente/);
+assert.match(ui,/As etapas concluídas aparecem na cobrança correspondente/);
 assert.match(ui,/Próxima verificação:/);
 assert.doesNotMatch(helper,/createClient|POST|INSERT|UPDATE|DELETE|MercadoPago|fetch\(/i);
 assert.match(read('.github/workflows/audit.yml'),/admin-finance-evidence-v1-920\.mjs/);

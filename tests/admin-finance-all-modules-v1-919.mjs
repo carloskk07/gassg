@@ -109,6 +109,8 @@ const db={rpc(name,args){
 }};
 const serverCtx=vm.createContext({Date,Object,Promise,Number,
  adminFinanceLabLiveHistory:async()=>[],
+ readFinanceReceiptProgress:async()=>({source:"canonical_receipt_progress",readOnly:true,moneyMoved:false,modules:{}}),
+ applyFinanceReceiptProgress:modules=>modules,
  evaluateFinanceHomologationEvidence:(list,signals,history)=>list.map(m=>({...m,
   diagnosis:{state:'pending_real_payment',financiallyHomologated:false,
    bankSettlementChecked:false,gatewayLabIsCommercialProof:false,

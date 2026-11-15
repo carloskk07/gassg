@@ -19,6 +19,7 @@ import {couponProviderRefundEvidence} from "./coupon-refund-provider-evidence.js
 import {couponRefundMerchantHistorySummary} from "./coupon-refund-merchant-history.js";
 import {summarizeIndependentAdsPspEvidence} from "../_shared/ads-independent-psp-evidence.mjs";
 import {evaluateFinanceHomologationEvidence} from "./finance-homologation-evidence.js";
+import {readFinanceReceiptProgress,applyFinanceReceiptProgress} from "./finance-receipt-progress.js";
 import {ownedBillingSnapshot} from "./finance-owned-billing.js";
 import {independentAdsCredentialConfig,verifyIndependentAdsSeller,independentAdsProviderReadiness}
  from "../_shared/ads-platform-credentials.mjs";
@@ -1284,6 +1285,7 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
   let assessed;
   try{
     assessed=evaluateFinanceHomologationEvidence(list,indicatorsCount,labHistory);
+    assessed=applyFinanceReceiptProgress(assessed,await readFinanceReceiptProgress(admin,actorId));
   }catch{
     throw new DomainError("FINANCE_HOMOLOGATION_ASSESSMENT_INVALID",
       "Não foi possível validar as evidências dos módulos.",503);
@@ -1293,6 +1295,7 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
   return {source:"admin_finance_homologation_modules_v1_919",readOnly:true,
     paymentsCreated:0,moneyMoved:false,merchantRequiredForLab:false,
     proofScope:"counts_and_configuration_only",assessmentVersion:"v1.920",
+    receiptProofScope:"same_receipt_entitlement_and_net",
     labRecentCount:labHistory.length,
     checkedAt:new Date().toISOString(),modules:assessed};
 }

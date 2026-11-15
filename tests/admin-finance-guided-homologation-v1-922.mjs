@@ -8,7 +8,7 @@ new vm.Script(ui);
 const portion=ui.slice(ui.indexOf('function adminFinanceHomologationView(d){'),
  ui.indexOf('function adminFinanceHomologationToggleLab(){'));
 assert.match(portion,/7 módulos conferidos/);
-assert.match(portion,/Nenhum homologado automaticamente/);
+assert.match(portion,/As etapas concluídas aparecem na cobrança correspondente/);
 assert.match(portion,/function adminFinanceHomologationView\(d\)/);
 assert.match(portion,/adminLatestBillingWebhookProbe\(d,'mercadopago'\)/);
 assert.match(portion,/adminFinanceLabLiveReadinessFromUi\(\)/);
