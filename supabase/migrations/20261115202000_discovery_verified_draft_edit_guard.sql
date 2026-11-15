@@ -29,6 +29,46 @@ AS $fn$
      );
 $fn$;
 
--- The table/RPC ACL posture digests must be explicitly reviewed and updated
--- in a follow-up commit before this branch can pass the fail-closed launch gate.
+-- Re-reviewed exact ACL digests produced by the disposable full migration
+-- and independent policy/SECURITY DEFINER inventory of PR #1020. Never
+-- replace this with a dynamic value: an unreviewed permission must fail.
+DO $recheck$
+DECLARE
+  v_current jsonb:=public.tamao_launch_acl_posture_v1();
+  v_definition text;
+  v_previous_table text:='67838fe06fa43d7692e12d8e11a3de91';
+  v_reviewed_table text:='b9af268e87e1fd2c40e7b6f18fa3b60f';
+  v_previous_rpc text:='fb112503c524fa9e58da1d1b7c035c25';
+  v_reviewed_rpc text:='6bd9d484039ed419ec4e0ae8bd14edc0';
+BEGIN
+  IF v_current->>'tableDigest' IS DISTINCT FROM v_reviewed_table
+    OR v_current->>'rpcDigest' IS DISTINCT FROM v_reviewed_rpc
+    OR v_current->>'tableCount' <> '7'
+    OR v_current->>'rpcCount' <> '36'
+  THEN
+    RAISE EXCEPTION 'DISCOVERY_VERIFIED_ACL_UNREVIEWED_DRIFT';
+  END IF;
+
+  SELECT pg_catalog.pg_get_functiondef('public.platform_launch_readiness()'::regprocedure)
+    INTO v_definition;
+  IF v_definition IS NULL
+    OR pg_catalog.strpos(v_definition,v_previous_table)=0
+    OR pg_catalog.strpos(v_definition,v_previous_rpc)=0
+    OR pg_catalog.strpos(v_definition,v_reviewed_table)>0
+    OR pg_catalog.strpos(v_definition,v_reviewed_rpc)>0
+  THEN
+    RAISE EXCEPTION 'LAUNCH_ACL_BASELINE_NOT_REVIEWED';
+  END IF;
+  v_definition:=pg_catalog.replace(v_definition,v_previous_table,v_reviewed_table);
+  v_definition:=pg_catalog.replace(v_definition,v_previous_rpc,v_reviewed_rpc);
+  EXECUTE v_definition;
+
+  IF jsonb_array_length(public.platform_launch_readiness()->'securityBlockers')<>0
+    AND (public.platform_launch_readiness()->'securityBlockers') ? 'browser_sensitive_table_acl'
+  THEN
+    RAISE EXCEPTION 'DISCOVERY_ACL_REVIEW_DID_NOT_MATCH';
+  END IF;
+END
+$recheck$;
+
 COMMIT;
