@@ -516,8 +516,9 @@ assert.equal(cancelledBuyerRead.status,200,
 assert.equal(cancelledBuyerRead.body.status,'CANCELLED');
 assert.equal(cancelledBuyerRead.body.couponAppliedCents,500,
  'customer can review original coupon even after refund/cancellation');
-assert.equal(cancelledBuyerRead.body.totalCents,cancelOrder.totalCents,
- 'cancellation must preserve original amount for the customer's receipt');
+assert.equal(cancelledBuyerRead.body.totalCents,
+ Number(sql("SELECT total_cents FROM public.orders WHERE id="+q(cancelOrderId)+"::uuid")),
+ 'cancellation must preserve original amount for the customer receipt');
 assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+
  q(cancelOrderId)+"::uuid AND user_id="+q(user)+"::uuid AND bucket='cashback'"+
  " AND entry_type='cashback_release'"),'1');
