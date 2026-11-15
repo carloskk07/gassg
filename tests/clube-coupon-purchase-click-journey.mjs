@@ -215,4 +215,31 @@ await ctx.clubePaidCouponsRefresh();
 assert.equal(ctx.clubePaidCouponView.userId,buyerB);
 assert.equal(ctx.clubePaidCouponView.purchases.length,0);
 assert.ok(renders.length>0);
+
+// Regression: a history response for buyer B arrives AFTER the browser has
+// switched to buyer A. This must not reach the purchase endpoint under A's
+// authenticated session, even if the stale history still claims owner B.
+const normalRefresh=ctx.clubePaidCouponsRefresh;
+ctx.clubePaidCouponView={userId:buyerB,status:'idle',purchases:[]};
+ctx.state.purchase=null;
+ctx.state.attempts={};
+const purchasesBeforeAccountRace=purchaseOps().length;
+let finishOldHistory;
+ctx.clubePaidCouponsRefresh=async()=>{
+  await new Promise(resolve=>{finishOldHistory=resolve;});
+  ctx.clubePaidCouponView={userId:buyerB,status:'ready',purchases:[]};
+};
+purchaseResponse=makePix();
+const staleBuyerClick=emittedClick(packageKey);
+assert.equal(ctx.state.busy,true);
+assert.equal(typeof finishOldHistory,'function');
+ctx.liveRuntime.session.user.id=buyerA;
+finishOldHistory();
+await staleBuyerClick;
+assert.equal(purchaseOps().length,purchasesBeforeAccountRace,
+  'stale history must never issue a Pix from the new authenticated account');
+assert.equal(ctx.state.busy,false,
+  'abandoned buyer request must release the interface lock');
+ctx.clubePaidCouponsRefresh=normalRefresh;
+console.log('PASS: buyer account switch during stale history read cannot trigger a cross-account Pix.');
 console.log('PASS: real Clube button/terms, two-click serialization, original Pix recovery, stable ambiguity key, CEP provenance and user isolation; mocked PSP/Edge only.');
