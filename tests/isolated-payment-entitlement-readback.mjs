@@ -106,10 +106,11 @@ try{
    connection_id=excluded.connection_id,verification_mode='provider_api',active=true RETURNING id INTO route;
   INSERT INTO public.orders(public_code,customer_id,status,address_text,address_number,postal_code,
    customer_phone_digits,payment_method,payment_timing,gross_total_cents,total_cents,
-   delivery_fee_cents_snapshot,merchant_id,supplier_name_snapshot,version)
+   delivery_fee_cents_snapshot,merchant_id,supplier_name_snapshot,attempted_merchant_ids,accepted_at,version)
   VALUES('CI-READBACK-'||substr(gen_random_uuid()::text,1,8),o.customer_id,'MERCHANT_ACCEPTED',
    'Endereço exclusivamente sintético','1','97300000','51999998888','pix','prepaid',
-   1000,1000,0,o.merchant_id,(SELECT name FROM public.merchants WHERE id=o.merchant_id),1)
+   1000,1000,0,o.merchant_id,(SELECT name FROM public.merchants WHERE id=o.merchant_id),
+   array[o.merchant_id],clock_timestamp(),1)
    RETURNING id INTO sale_order;
   INSERT INTO public.merchant_sale_payment_attempts(order_id,merchant_id,provider,
    checkout_mode,external_reference,amount_cents,currency,status,provider_order_id,
