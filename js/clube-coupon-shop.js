@@ -453,7 +453,9 @@ async function clubeCouponCheckInvoice(invoiceId,nested=false){
       }else toast('Pagamento não confirmado. Consulte novamente o status ou solicite atendimento pelo histórico.');
     }
   }finally{
-    if(!nested)clubeCouponShopState.busy=false;
+    if(!nested&&clubeCouponShopState.userId===uid&&
+       String(globalThis.liveRuntime?.session?.user?.id||'')===uid)
+      clubeCouponShopState.busy=false;
     if(route()==='club')render();
   }
 }
@@ -519,12 +521,17 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
   const id=String(inv.invoiceId||'');
   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
   const request=String(inv.refundStatus||'');
+  const statusLabels={prepared:'Compra preparada',awaiting_payment:'Aguardando pagamento',
+    paid:'Pagamento recebido',review_required:'Em análise',refunded:'Compra estornada',
+    cancelled:'Compra cancelada',expired:'Cobrança expirada'};
+  const statusLabel=Object.hasOwn(statusLabels,String(inv.status))?
+    statusLabels[String(inv.status)]:'Situação em verificação';
   const refundPending=clubeCouponRefundState.userId===String(globalThis.liveRuntime?.session?.user?.id||'')&&
     clubeCouponRefundState.inFlight.has(id);
   const allowed=['paid','awaiting_payment','prepared','review_required'].includes(String(inv.status));
   const seller=inv.seller;
   return '<article class="card flat"><strong>Compra de cupons</strong>'+
-   '<p>'+esc(money(inv.amountCents))+' · '+esc(inv.status)+'</p>'+
+   '<p>'+esc(money(inv.amountCents))+' · '+statusLabel+'</p>'+
    (inv.status==='review_required'&&[
       'PARTNER_COUPON_SUPPLY_LOST_AT_SETTLEMENT',
       'COUPON_REFUND_REQUEST_PRECEDES_SETTLEMENT'
@@ -541,8 +548,11 @@ return (clubePaidCouponView.status==='ready' && clubePaidCouponView.userId===Str
       '\')">Conferir Pix desta compra</button>':'')+
    (request==='refunded'&&inv.status==='refunded'?
      '<p class="tiny">Reembolso confirmado pelo provedor.</p>':
-    request?'<p class="tiny muted">Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.</p>'+
-      '<button class="secondary small" type="button" onclick="clubeCouponRefundAsk(\''+id+'\')" '+
+    request?'<p class="tiny muted">'+(request==='refunded'?
+      'A devolução foi registrada; atualize a compra original para conferir o estado final.':
+      'Pedido de reembolso registrado. O Pix ainda não está confirmado como devolvido.')+'</p>'+
+      '<button class="secondary small" type="button" onclick="'+
+      (request==='refunded'?'clubeCouponCheckInvoice':'clubeCouponRefundAsk')+'(\''+id+'\')" '+
       (refundPending?'disabled':'')+'>Conferir reembolso</button>':
     allowed?'<label class="tiny">Motivo do cancelamento<select id="clube-refund-reason-'+id+'" class="input">'+
        '<option value="arrependimento">Desistência / arrependimento</option>'+

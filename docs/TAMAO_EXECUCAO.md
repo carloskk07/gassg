@@ -1,3 +1,38 @@
+## 15/11/2026 — Estorno consultável no Cliente/Admin e teste antigo fora da repetição
+
+Continuidade de `main=60829f2c27391011184fe5b4087de2d91d11e8dc` (PR #1003),
+publicado e atestado nos três portais. A recuperação automática do Admin
+passou duas vezes no Chrome isolado com falha de rede forçada; as 121
+regressões locais e a integração completa passaram, sem operações comerciais.
+
+**Correção financeira de leitura:** `invoice-status` respondia HTTP 409 até
+quando a fatura e o protocolo já estavam `refunded`. Isso impedia conferir
+a compra original no Admin. No Cliente, um histórico lido durante a conclusão
+podia mostrar protocolo estornado e fatura ainda paga; o botão chamava uma
+ação que retornava imediatamente, sem atualizar a tela. Agora a devolução
+completa pode ser consultada pelo titular com HTTP 200, sem QR, link bancário
+ou novos cupons. Solicitações pendentes ou estados contraditórios continuam
+bloqueando pagamento. O Clube usa rótulos em português e a conferência da
+compra original para atualizar esse caso, sem outro pedido de reembolso.
+Uma resposta antiga também não pode retirar o bloqueio de uma operação que
+pertença a outra conta após troca de sessão.
+
+**Manutenção concluída da fila:** o registro de R$ 300, identificado pelo
+proprietário como teste antigo, estava expirado/cancelado, sem valor recebido,
+evento aplicado ou crédito, mas acumulava 28 tentativas na recuperação.
+Somente sua entrada na fila foi arquivada com motivo
+`OWNER_DECLARED_EXPIRED_TEST`. Fatura e solicitação mantêm seus estados;
+nenhum pagamento foi reconhecido. O trigger existente volta a enfileirar
+uma alteração futura do registro canônico. Publicidade e Essencial continuam
+verificados; o cupom original continua estornado com três vouchers `void`;
+o saldo Essencial permanece R$ 19,90. A limpeza não altera cobranças futuras.
+
+As provas e a publicação da correção de leitura constam na PR desta
+continuação. A contagem histórica de 19 frentes não é aumentada por eliminar
+subpendências. Nenhuma revenda, pedido, cobrança ou benefício foi fabricado.
+
+---
+
 ## 14/11/2026 — Recuperação automática do Admin e consultas sem sobreposição
 
 Continuidade de `main=47ac1f99d43380fed55bff2a78e9e4cfc159cfcc` (PR #1002),

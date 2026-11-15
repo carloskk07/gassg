@@ -67,6 +67,8 @@ jobs:
         run: node tests/admin-finance-refunded-receipt.mjs
       - name: Administrative read outage recovery and bounded refresh concurrency
         run: node tests/admin-summary-recovery.mjs
+      - name: Completed refund readback for customer and Admin without a new financial action
+        run: node tests/coupon-refund-completed-readback.mjs
       - name: Paid advertising receipt follows publication and provides the correct next task
         run: node tests/admin-finance-ad-receipt-lifecycle.mjs
       - name: Finance approves and authorizes the exact owned ad before one recoverable checkout

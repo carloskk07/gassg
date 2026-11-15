@@ -749,6 +749,12 @@ Deno.serve(async(req:Request)=>{
       .select("status").eq("invoice_id",invoice.id)
       .eq("customer_user_id",user.id).maybeSingle();
     if(refundError)throw refundError;
+    // The completed refund remains readable through the original invoice.
+    // Pending cancellation still blocks a saved Pix; no refund is initiated.
+    if(invoice.status==="refunded"&&refund?.status==="refunded")
+      return respond({ok:true,...publicInvoice({...invoice,
+        pix_br_code:null,payment_url:null,ownerSponsorVerified:false}),
+        refundStatus:"refunded",pixPayable:false},200,origin);
     if(refund&&refund.status!=="closed")
       return respond({error:"COUPON_REFUND_REQUESTED",invoiceId:invoice.id,
         status:invoice.status,pixCode:null,paymentUrl:null,pixPayable:false,
