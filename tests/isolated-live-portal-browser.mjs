@@ -149,6 +149,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         const msg=JSON.parse(String(event.data));
         if(msg.method==='Network.requestWillBeSent'&&/\.supabase\.co/i.test(msg.params?.request?.url||''))
           violations.push('Independent Chrome context attempted commercial Supabase');
+        if(msg.method==='Network.responseReceived'&&String(msg.params?.response?.url||'').startsWith(api+'/functions/v1/admin-ops'))
+          adminReadStatuses.push(msg.params.response.status);
         if(msg.id&&waiting.has(msg.id)){
           const p=waiting.get(msg.id);clearTimeout(p.timer);waiting.delete(msg.id);
           if(msg.error)p.reject(Error(JSON.stringify(msg.error)));else p.resolve(msg.result);
@@ -171,8 +173,8 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
           try{if(await evaluateIsolated(expression))return}catch{}
           await sleep(250);
         }
-        const diag=await evaluateIsolated("JSON.stringify({text:document.body.innerText.slice(0,180),status:typeof merchantRuntime==='undefined'?null:merchantRuntime.status,customer:typeof liveRuntime==='undefined'?null:liveRuntime.status,admin:typeof adminRuntime==='undefined'?null:adminRuntime.status})").catch(e=>String(e));
-        throw Error('Independent browser failed '+label+': '+diag);
+        const diag=await evaluateIsolated("JSON.stringify({text:document.body.innerText.slice(0,180),status:typeof merchantRuntime==='undefined'?null:merchantRuntime.status,customer:typeof liveRuntime==='undefined'?null:liveRuntime.status,admin:typeof adminRuntime==='undefined'?null:adminRuntime.status,adminError:typeof adminRuntime==='undefined'?null:String(adminRuntime.error||'').slice(0,300)})").catch(e=>String(e));
+        throw Error('Independent browser failed '+label+': '+diag+'; recent Admin HTTP statuses: '+JSON.stringify(adminReadStatuses.slice(-15)));
       };
       return {socket,send:sendIsolated,evaluate:evaluateIsolated,wait:waitIsolated,
         navigate:async url=>{
