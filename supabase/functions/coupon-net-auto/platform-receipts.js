@@ -21,7 +21,7 @@ export async function reconcilePlatformReceipts({client,providerGet,getReports,g
   let result;
   try{
    if(!seller)throw Error('PLATFORM_NET_SELLER_UNAVAILABLE');
-   result=await readPlatformNetEvidence(receipt,{providerGet,getReports,getCsv:cachedCsv,sellerId:String(seller.id)});
+   result=await readPlatformNetEvidence(receipt,{providerGet,getReports,getCsv:cachedCsv,sellerId:String(seller.id),sha256});
   }
   catch{result={status:'provider_unavailable',reason:'RETRYABLE_PROVIDER_OR_REPORT_FAILURE',evidence:null};}
   if(!inspect){

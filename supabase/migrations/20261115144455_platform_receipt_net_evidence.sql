@@ -61,10 +61,12 @@ grant execute on function public.platform_receipt_net_sources() to service_role;
 
 create function public.platform_receipt_net_pending(p_limit integer default 2,p_inspect boolean default false)
 returns table(kind text,resource_id uuid,business_status text,gross_cents bigint,
- external_reference text,provider_order_id text,provider_payment_id text,paid_at timestamptz,reversed boolean)
+ external_reference text,provider_order_id text,provider_payment_id text,paid_at timestamptz,reversed boolean,
+ recorded_evidence_reference text,recorded_report_sha256 text)
 language sql stable security definer set search_path=pg_catalog as $fn$
- select s.* from public.platform_receipt_net_sources() s
+ select s.*,a.evidence_reference,a.report_sha256 from public.platform_receipt_net_sources() s
  left join public.platform_receipt_net_observations o using(kind,resource_id)
+ left join public.platform_receipt_net_audit a using(kind,resource_id)
  where p_inspect or o.last_checked_at is null or
    o.last_checked_at<clock_timestamp()-case when o.status in ('net_verified','reversed') then interval '6 hours' else interval '30 minutes' end
  order by coalesce(o.last_checked_at,'epoch'::timestamptz),s.paid_at

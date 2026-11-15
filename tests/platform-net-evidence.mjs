@@ -66,6 +66,11 @@ assert(calls.every(p=>p.startsWith('/v1/orders/')||p.startsWith('/v1/payments/')
 assert.equal((await readPlatformNetEvidence({...receipt,reversed:true},{providerGet(){throw Error('no provider request')}})).status,'reversed');
 assert.equal((await readPlatformNetEvidence(receipt,{...deps,getReports:async()=>({complete:false,reason:'INCOMPLETE'})})).status,'coverage_incomplete');
 assert.equal((await readPlatformNetEvidence(receipt,{...deps,getReports:async()=>({complete:true,files:[]})})).status,'awaiting_report');
+const historical={...receipt,recorded_evidence_reference:'mp-release:tamao-release-test.csv:123456789',recorded_report_sha256:'a'.repeat(64)};
+const revisit={...deps,sha256:async()=> 'a'.repeat(64),getReports:async()=>{throw Error('must not scan growing account history')}};
+assert.equal((await readPlatformNetEvidence(historical,revisit)).status,'net_verified');
+assert.equal((await readPlatformNetEvidence(historical,{...revisit,sha256:async()=> 'b'.repeat(64)})).status,'requires_review');
+assert.equal((await readPlatformNetEvidence({...historical,recorded_evidence_reference:'mp-release:../../unsafe.csv:123456789'},revisit)).status,'requires_review');
 
 let writes=0;
 const client={rpc:async(name,args)=>{

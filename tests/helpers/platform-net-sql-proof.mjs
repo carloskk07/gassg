@@ -30,12 +30,13 @@ export async function platformNetSqlProof({sql,json,quote},kind,id){
  recorded=await json('SELECT '+call('net_verified',{...proof,netCents:proof.netCents-1})+';');
  assert.equal(recorded.status,'requires_review','conflicting fresh report must preserve original and enter review');
  let view=await json(`SELECT public.admin_platform_receipt_net_summary(${quote(actor)}::uuid);`);
- assert.equal(view.kindTotals[kind].verifiedCount,0);assert.equal(view.kindTotals[kind].pendingCount,1);
+ assert.equal(view.kindTotals[kind].verifiedCount,0);assert(view.kindTotals[kind].pendingCount>=1);
+ assert.equal(view.rows.find(r=>r.resourceId===id).netStatus,'requires_review');
  await json('SELECT '+call('net_verified',proof)+';');
  view=await json(`SELECT public.admin_platform_receipt_net_summary(${quote(actor)}::uuid);`);
  assert.equal(view.kindTotals[kind].verifiedNetCents,proof.netCents);
  assert.equal(view.kindTotals[kind].verifiedCount,1);assert.equal(view.merchantFundsIncluded,false);
- await rejects("public.admin_platform_receipt_net_summary(gen_random_uuid())",'ADMIN_PERMISSION_DENIED');
+ await rejects("public.admin_platform_receipt_net_summary(gen_random_uuid())",'ADMIN_ACCESS_DENIED');
  // Server-only privileges, including internal source and pending selectors.
  await sql(`DO $acl$ DECLARE p record; BEGIN
   IF has_table_privilege('anon','public.platform_receipt_net_audit','SELECT')

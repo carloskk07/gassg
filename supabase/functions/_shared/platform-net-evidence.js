@@ -92,14 +92,27 @@ export function platformReleasedNetEvidence({receipt,sellerId,order=null,payment
 
 // Provider requests supplied by the authenticated machine worker are GET-only.
 // Report IDs nominate candidates, they never authorize the evidence by themselves.
-export async function readPlatformNetEvidence(receipt,{providerGet,getReports,getCsv,sellerId}){
+export async function readPlatformNetEvidence(receipt,{providerGet,getReports,getCsv,sellerId,sha256}){
  if(receipt.reversed)return {status:'reversed',reason:'LOCAL_REVERSAL_RECORDED',evidence:null};
- const discovery=await getReports({status:'paid',paid_at:receipt.paid_at});
- if(!discovery.complete)return {status:'coverage_incomplete',reason:discovery.reason,evidence:null};
- if(!Array.isArray(discovery.files)||discovery.files.length>10)throw Error('PLATFORM_NET_REPORT_LIMIT');
- if(!discovery.files.length)return {status:'awaiting_report',reason:'MP_RELEASE_NOT_FOUND',evidence:null};
  const reports=[];
- for(const fileName of discovery.files)reports.push({fileName,csv:await getCsv(fileName)});
+ if(receipt.recorded_evidence_reference){
+  // A recorded immutable report is re-read by its original name and hash,
+  // together with FRESH PSP facts. Growing daily account history must not
+  // make a previously proved receipt impossible to recheck after ten days.
+  const match=String(receipt.recorded_evidence_reference).match(/^mp-release:([A-Za-z0-9][A-Za-z0-9._-]{7,140}\.csv):([1-9][0-9]{2,19})$/);
+  if(!match||!/^[0-9a-f]{64}$/.test(receipt.recorded_report_sha256??''))
+   return {status:'requires_review',reason:'PLATFORM_RELEASE_STORED_PROOF_INVALID',evidence:null};
+  const csv=await getCsv(match[1]);
+  if(await sha256(csv)!==receipt.recorded_report_sha256)
+   return {status:'requires_review',reason:'PLATFORM_RELEASE_STORED_REPORT_CHANGED',evidence:null};
+  reports.push({fileName:match[1],csv});
+ }else{
+  const discovery=await getReports({status:'paid',paid_at:receipt.paid_at});
+  if(!discovery.complete)return {status:'coverage_incomplete',reason:discovery.reason,evidence:null};
+  if(!Array.isArray(discovery.files)||discovery.files.length>10)throw Error('PLATFORM_NET_REPORT_LIMIT');
+  if(!discovery.files.length)return {status:'awaiting_report',reason:'MP_RELEASE_NOT_FOUND',evidence:null};
+  for(const fileName of discovery.files)reports.push({fileName,csv:await getCsv(fileName)});
+ }
  const ids=[...new Set(reports.flatMap(r=>parseReleasedMoneyCsv(r.csv).rows
   .filter(row=>row.EXTERNAL_REFERENCE===receipt.external_reference&&numericId(row.SOURCE_ID)).map(row=>row.SOURCE_ID)))];
  if(receipt.kind==='advertising'&&numericId(receipt.provider_payment_id)&&!ids.includes(receipt.provider_payment_id))

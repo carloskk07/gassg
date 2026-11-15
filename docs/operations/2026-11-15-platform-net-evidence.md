@@ -45,7 +45,9 @@ O service role lê a projeção e grava exclusivamente pela RPC de evidência.
 A inspeção privada exige o mesmo token de máquina e não persiste nada.
 
 A agenda verifica divergências a cada 30 minutos, ou revisita evidências
-confirmadas a cada seis horas. Falha de rede/relatório fica pendente, sem
+confirmadas a cada seis horas. Na revisita, o arquivo original e seu hash
+são relidos com os fatos atuais do PSP: o crescimento do histórico diário
+da conta não impede a conferência de uma liberação antiga. Falha de rede/relatório fica pendente, sem
 confirmação falsa. Não exige novo Pix do proprietário nem outra revenda.
 
 ## Verificação exigida para considerar entregue
