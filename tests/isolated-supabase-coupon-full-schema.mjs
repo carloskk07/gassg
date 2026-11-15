@@ -235,8 +235,42 @@ const arriving=await callEdge('merchant-action',ownerToken,
  'ci-coupon-arriving-'+randomUUID());
 assert.equal(arriving.status,200,'coupon order arrival must be operational');
 assert.equal(arriving.body.status,'ARRIVING');
-const completedBody={orderId:orderRef,pin:buyerDispatch.body.deliveryPin,
+// Regression on the SAME voucher-backed delivery: a rejected PIN must never
+// settle the order, consume the real benefit twice or create a merchant debt.
+// Auth, Edge and complete-delivery RPC are real; all evidence stays local.
+const wrongCouponPin=buyerDispatch.body.deliveryPin==='0000'?'0001':'0000';
+const rejectedCouponBody={orderId:orderRef,pin:wrongCouponPin,
  expectedVersion:arriving.body.version,paymentConfirmed:true};
+const rejectedCouponKey='ci-coupon-invalid-pin-'+randomUUID();
+const rejectedCoupon=await callEdge('complete-delivery',ownerToken,
+ rejectedCouponBody,rejectedCouponKey);
+assert.equal(rejectedCoupon.status,422,'coupon order: incorrect PIN must fail');
+assert.equal(rejectedCoupon.body.error,'INVALID_PIN');
+const rejectedCouponReplay=await callEdge('complete-delivery',ownerToken,
+ rejectedCouponBody,rejectedCouponKey);
+assert.equal(rejectedCouponReplay.status,422,'same incorrect PIN must remain rejected');
+assert.equal(rejectedCouponReplay.body.error,'INVALID_PIN');
+const couponAfterWrong=await callEdge('get-order',buyerToken,{orderId:orderRef});
+assert.equal(couponAfterWrong.status,200);
+assert.equal(couponAfterWrong.body.status,'ARRIVING');
+assert.equal(couponAfterWrong.body.version,arriving.body.version+1,
+ 'invalid PIN replay must record only one failure');
+assert.equal(sql("SELECT pin_failures FROM public.orders WHERE id="+q(orderRef)+"::uuid"),'1');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+
+ q(orderRef)+"::uuid AND event_type='PIN_FAILED'"),'1');
+assert.equal(sql("SELECT consumed_at IS NULL FROM public.order_delivery_secrets WHERE order_id="+
+ q(orderRef)+"::uuid"),'t','correct delivery PIN must remain available');
+assert.equal(sql("SELECT status FROM public.clube_coupon_paid_issuances WHERE id="+
+ q(vouchers[0].id)+"::uuid"),'redeemed','failed delivery cannot redeem the coupon again');
+assert.equal(sql("SELECT count(*) FROM public.clube_coupon_paid_order_applications WHERE order_id="+
+ q(orderRef)+"::uuid"),'1','one applied coupon before and after failed PIN');
+assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements WHERE order_id="+
+ q(orderRef)+"::uuid"),'0','failed PIN cannot create merchant reimbursement liability');
+assert.equal(JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)::text;")).status,'ORDER_IN_PROGRESS',
+ 'financial reporting cannot classify failed PIN as a completed sale');
+const completedBody={orderId:orderRef,pin:buyerDispatch.body.deliveryPin,
+ expectedVersion:couponAfterWrong.body.version,paymentConfirmed:true};
 const completeKey='ci-coupon-complete-'+randomUUID();
 const settled=await callEdge('complete-delivery',ownerToken,completedBody,completeKey);
 assert.equal(settled.status,200,
