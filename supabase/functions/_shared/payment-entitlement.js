@@ -68,10 +68,16 @@ export async function readPaymentEntitlement(kind,admin,row){
   if(!lines?.length||lines.length>500||lines.some(l=>l.invoice_id!==row.id||!cents(l.fee_cents))||
     new Set(lines.map(l=>l.request_id)).size!==lines.length||
     lines.reduce((n,l)=>n+Number(l.fee_cents),0)!==Number(row.amount_cents))return verdict(false);
-  const accruals=await many(admin,'mobility_platform_fee_accruals_v1_835',
-   'request_id,driver_id,fee_cents',[['driver_id',row.driver_id]],501,
-   ['request_id',lines.map(l=>l.request_id)]);
-  return verdict(!!accruals&&accruals.length===lines.length&&lines.every(l=>
+  // Keep each REST URL below proxy limits even for a legitimate large batch.
+  const accruals=[];
+  for(let start=0;start<lines.length;start+=100){
+   const page=await many(admin,'mobility_platform_fee_accruals_v1_835',
+    'request_id,driver_id,fee_cents',[['driver_id',row.driver_id]],101,
+    ['request_id',lines.slice(start,start+100).map(l=>l.request_id)]);
+   if(!page)return verdict(false);
+   accruals.push(...page);
+  }
+  return verdict(accruals.length===lines.length&&lines.every(l=>
    accruals.some(a=>a.request_id===l.request_id&&a.driver_id===row.driver_id&&sameCents(a.fee_cents,l.fee_cents))));
  }
  if(kind==='advertising'){

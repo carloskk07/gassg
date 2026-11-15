@@ -60,4 +60,15 @@ for(const kind of Object.keys(evidenceTable)){
  await assert.rejects(reconcilePaymentJob(f.job,f.deps),/PAYMENT_ENTITLEMENT_READ_UNAVAILABLE/,
   'outage must retry; it is not a verified payment or an invented contradiction');
 }
+{
+ const f=receiptFixture('mobility');f.row.invoice_kind='fee';f.row.amount_cents=2500;
+ f.tables.mobility_fee_pix_evidence_v1_837[0].amount_cents=2500;
+ f.tables.mobility_fee_pix_invoice_lines_v1_837=Array.from({length:250},(_,n)=>({
+  invoice_id:f.row.id,request_id:'isolated-ride-'+n,fee_cents:10}));
+ f.tables.mobility_platform_fee_accruals_v1_835=f.tables.mobility_fee_pix_invoice_lines_v1_837
+  .map(l=>({request_id:l.request_id,driver_id:f.row.driver_id,fee_cents:l.fee_cents}));
+ assert.equal((await reconcilePaymentJob(f.job,f.deps)).outcome,'verified');
+ const pages=f.queries.filter(q=>q.table==='mobility_platform_fee_accruals_v1_835');
+ assert.equal(pages.length,3);assert(pages.every(p=>p.filters.find(([key])=>key==='request_id')[1].length<=100));
+}
 console.log('PASS: all paid families require their actual persisted entitlement before recovery can be verified.');
