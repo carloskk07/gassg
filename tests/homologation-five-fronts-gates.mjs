@@ -61,7 +61,9 @@ const common=[
  ['audit','tests/inline-handler-safety.mjs',
   'merchant email must not become executable inline JavaScript'],
  ['audit','tests/public-first-impression-v1-376.mjs',
-  'commercial public first paint']
+  'commercial public first paint'],
+ ['isolated','tests/isolated-public-aggregate-rpc-minimization.mjs',
+  'anonymous SECURITY DEFINER reads must not leak identity or provider fields']
 ];
 const catalog={audit,isolated};
 assert.match(isolated,/pull_request:/,
