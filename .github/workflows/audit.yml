@@ -215,6 +215,8 @@ jobs:
         run: node tests/mobility-prepaid-credit-ui-v1-838.mjs
       - name: V1.856 mobility Pix copy requires live provider status, QR lease and authenticated driver
         run: node tests/mobility-fee-pix-stale-copy-v1-856.mjs
+      - name: Mobility Pix bounded transport and original invoice recovery
+        run: node tests/mobility-pix-network-recovery.mjs
       - name: V1.857 merchant finance Pix expiry, scope isolation and proof on display
         run: node tests/merchant-billing-pix-display-lease-v1-857.mjs
       - name: V1.829 receipt immutability and no-fake-bank-proof contract
@@ -675,6 +677,8 @@ jobs:
         run: node tests/ads-visibility-single-use-challenges-v1-945.mjs
       - name: V1.946 advertiser return checks original approved provider payment without another checkout
         run: node tests/ads-advertiser-return-auto-reconcile-v1-946.mjs
+      - name: Ads latest owned payment snapshot and session recovery
+        run: node tests/ads-payment-snapshot-order.mjs
       - name: V1.919 unified finance homologation all modules and Pix purpose
         run: node tests/admin-finance-all-modules-v1-919.mjs
       - name: V1.927 original live financial checkouts from protected Admin

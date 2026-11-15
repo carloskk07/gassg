@@ -8,7 +8,7 @@
 
 const mobilityRuntime={phase:'idle',syncUnavailable:false,client:null,user:null,items:[],detail:null,
  program:null,programBusy:false,programSeq:0,
- pix:null,pixBusy:false,pixSeq:0,pixCopyBusy:false,pixVisibleUntil:0,pixTimer:null,
+ pix:null,pixBusy:false,pixSeq:0,pixCopyBusy:false,pixCheckRequired:false,pixVisibleUntil:0,pixTimer:null,
  welcomeClaimedUser:'',welcomeClaimInFlight:'',
  id:'',busy:false,notice:'',error:'',watch:null,poll:null,lastPublish:0,
  pushEnabled:false,pushBusy:false,
@@ -582,7 +582,7 @@ function mobilityPrepaidPlansPanel(){
    esc((Number(p.feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2}))+'%</p>'+
    '<p class="tiny muted">O valor vira crédito para abater taxas de corridas futuras. Não é mensalidade, não paga o valor da corrida e não é ressarcido em dinheiro.</p>'+
    '<button type="button" class="primary" onclick="mobilityFeePixRequest(\'plan\',\''+
-    esc(p.key)+'\')"'+(s.pixBusy?' disabled':'')+'>Comprar recarga '+esc(p.name)+'</button></div>').join('');
+    esc(p.key)+'\')"'+(s.pixBusy||s.pixCheckRequired?' disabled':'')+'>Comprar recarga '+esc(p.name)+'</button></div>').join('');
  return '<section class="mobility-start" aria-label="Planos pré-pagos de motoristas">'+
   '<h2>Planos com créditos para suas taxas</h2>'+
   '<p><strong>Saldo disponível: '+money(nums[0])+'</strong> · reservado para corridas: '+
@@ -637,10 +637,12 @@ function mobilityFeePixArm(){
 }
 function mobilityFeePixPanel(){
  const s=mobilityRuntime,b=s.program?.billing,p=s.pix;
- if(!b||Number(b.outstandingCents||0)<0)return '';
- const money=c=>esc(BRL.format(c/100)),due=Number(b.outstandingCents??0);
  const loading=(s.pixBusy||s.pixCopyBusy)?' disabled':'';
  const refresh='<button type="button" class="secondary" onclick="mobilityFeePixRequest(\'status\')"'+loading+'>Conferir pagamento no Mercado Pago</button>';
+ if(!b)return s.pixCheckRequired?'<div class="card flat"><h3>Conferência do pagamento</h3>'+
+  '<p>A cobrança original precisa ser conferida. Consulte o pagamento antes de emitir outra recarga ou taxa.</p>'+refresh+'</div>':'';
+ if(Number(b.outstandingCents||0)<0)return '';
+ const money=c=>esc(BRL.format(c/100)),due=Number(b.outstandingCents??0);
  const payable=p?.status==='active'&&s.pixVisibleUntil>Date.now()&&
    mobilityId.test(String(p.invoiceId||''))&&
    Date.parse(String(p.expiresAt||''))>Date.now()+60000&&
@@ -665,14 +667,15 @@ function mobilityFeePixPanel(){
   'Pagamento de taxas confirmado pela consulta ao Mercado Pago. O total atualizado consta no extrato.')+'</p>':'';
  const blocked=['expired','review_required'].includes(String(p?.status||''))?
   '<p class="tiny muted">Este Pix não está mais apto para pagamento. Confira o histórico com o suporte antes de emitir outra cobrança.</p>':'';
- const make=due>=100&&(!p||p.status==='paid')?
+ const make=!s.pixCheckRequired&&due>=100&&(!p||p.status==='paid')?
   '<button class="primary" type="button" onclick="mobilityFeePixRequest(\'charge\')"'+loading+'>Gerar Pix das taxas acumuladas</button>':'';
  const minimum=due>0&&due<100?
   '<p class="tiny muted">As taxas se acumulam até atingir R$ 1,00 para emissão de Pix.</p>':'';
  return '<div class="card flat"><h3>Pagamento da taxa TAMÃO</h3>'+
   '<p>Saldo de taxas ainda não confirmado como pago: <strong>'+money(due)+'</strong>.</p>'+
   '<p class="tiny muted">Este Pix movimenta exclusivamente taxas ou recargas de taxas, nunca o preço integral da corrida.</p>'+
-  paid+blocked+minimum+pix+make+((p||due>0)?refresh:'')+'</div>';
+  paid+blocked+minimum+pix+make+
+  ((p||due>0||s.pixCheckRequired||s.program?.benefits?.eligibleDriver===true)?refresh:'')+'</div>';
 }
 function mobilityFeeLedgerPanel(){
  const s=mobilityRuntime,b=s.program?.benefits,ledger=s.program?.billing;
@@ -683,7 +686,8 @@ function mobilityFeeLedgerPanel(){
    !Number.isSafeInteger(Number(ledger.outstandingCents))||Number(ledger.outstandingCents)<0||
    Number(ledger.accruedCents)!==Number(ledger.collectedCents)+Number(ledger.outstandingCents)||
    !Number.isSafeInteger(Number(ledger.recordedCount))||Number(ledger.recordedCount)<0||
-   !Array.isArray(ledger.entries)||ledger.entries.length>8)return '';
+   !Array.isArray(ledger.entries)||ledger.entries.length>8)
+  return s.pixCheckRequired?mobilityFeePixPanel():'';
  const money=cents=>esc(BRL.format(cents/100));
  const rows=ledger.entries.map(item=>{
   if(!item)return '';
@@ -801,30 +805,42 @@ async function mobilityClaimWelcomeOnAuth(){
 async function mobilityFeePixRequest(action,planKey=null,verifiedForCopy=false){
  const s=mobilityRuntime,userId=s.user?.id,epoch=s.sessionEpoch;
  if(s.pixBusy||(s.pixCopyBusy&&!verifiedForCopy)||
+   (s.pixCheckRequired&&action!=='status')||
    (verifiedForCopy&&action!=='status')||
    !s.client||!userId||!['charge','status','plan'].includes(action)||
    (action==='plan'&&!['essential','popular','professional'].includes(planKey))||
-   !s.program?.billing)return false;
+   (!s.program?.billing&&!(action==='status'&&s.pixCheckRequired)))return false;
  const seq=++s.pixSeq;
- s.pixBusy=true;s.error='';s.notice='';
+ s.pixBusy=true;s.pixCheckRequired=true;s.error='';s.notice='';
  // Don't leave a copied provider charge accessible while a new check
  // is in flight. An outage must not silently restore that old code.
  mobilityFeePixClearTimer();s.pixVisibleUntil=0;render();
  const same=()=>s.sessionEpoch===epoch&&s.user?.id===userId&&s.pixSeq===seq;
+ // One deadline covers Auth, transport, response body and the owned ledger.
+ // Timing out does not cancel a provider charge or authorize its replacement.
+ const controller=typeof AbortController==='function'?new AbortController():null;
+ let timer=null;
+ const deadline=new Promise((_,reject)=>{
+  if(typeof setTimeout==='function')timer=setTimeout(()=>{
+   controller?.abort();reject(Error('MOBILITY_PAYMENT_READ_TIMEOUT'));
+  },15000);
+ });
+ const bounded=promise=>Promise.race([promise,deadline]);
  try{
   // Never trust a previous tab's bearer token; verify the exact user.
-  const {data:{session},error:sessionError}=await s.client.auth.getSession();
+  const {data:{session},error:sessionError}=await bounded(s.client.auth.getSession());
   if(!same())return false;
   if(sessionError||!session?.access_token||session.user?.id!==userId)
     throw Error('Auth session unavailable');
   const base=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'');
   if(!/^https:\/\/[^/]+$/.test(base))throw Error('Invalid backend URL');
-  const response=await fetch(base+'/functions/v1/mobility-fee-pix',{
+  const response=await bounded(fetch(base+'/functions/v1/mobility-fee-pix',{
    method:'POST',headers:{'Authorization':'Bearer '+session.access_token,
     'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
-   body:JSON.stringify(action==='plan'?{action,planKey}:{action})
-  });
-  const data=await response.json();
+   body:JSON.stringify(action==='plan'?{action,planKey}:{action}),
+   ...(controller?{signal:controller.signal}:{})
+  }));
+  const data=await bounded(response.json());
   if(!same())return false;
   if(!response.ok||!data?.ok)throw Error('Provider not verified');
   const item=data.charge;
@@ -834,9 +850,10 @@ async function mobilityFeePixRequest(action,planKey=null,verifiedForCopy=false){
      (item.paidByProvider===true)!==(item.status==='paid')))
    throw Error('Unexpected invoice state');
   s.pix=item??null;
-  const updated=await mobilityLoadProgram();
+  const updated=await bounded(mobilityLoadProgram());
   if(!same())return false;
   if(!updated)throw Error('Finance readback failed');
+  s.pixCheckRequired=false;
   // Reveal only after both server response and authenticated ledger have
   // been checked. A paid/review-required invoice never receives a lease.
   mobilityFeePixArm();
@@ -855,9 +872,12 @@ async function mobilityFeePixRequest(action,planKey=null,verifiedForCopy=false){
   if(same()){
    mobilityFeePixHide();
    s.pix=null;
-   s.error='Não foi possível conferir a cobrança com o Mercado Pago. Atualize o extrato antes de repetir.';
+   s.error='Não foi possível conferir a cobrança com o Mercado Pago. Use Conferir pagamento para recuperar a cobrança original antes de emitir outra.';
   }
- }finally{if(same()){s.pixBusy=false;render()}}
+ }finally{
+  if(timer!==null&&typeof clearTimeout==='function')clearTimeout(timer);
+  if(same()){s.pixBusy=false;render()}
+ }
  return false;
 }
 async function mobilityCopyFeePix(){
@@ -996,7 +1016,7 @@ function mobilityClearSession(){
  if(frame){frame.removeAttribute?.('src');frame.remove?.()}
  s.user=null;s.items=[];s.detail=null;s.id='';
  s.program=null;s.programBusy=false;s.programSeq++;
- mobilityFeePixClearTimer();s.pix=null;s.pixBusy=false;s.pixCopyBusy=false;
+ mobilityFeePixClearTimer();s.pix=null;s.pixBusy=false;s.pixCopyBusy=false;s.pixCheckRequired=false;
  s.pixVisibleUntil=0;s.pixSeq++;
  s.welcomeClaimedUser='';s.welcomeClaimInFlight='';
  s.mapConsent=false;s.mapKey='';s.mapFrameAt=0;

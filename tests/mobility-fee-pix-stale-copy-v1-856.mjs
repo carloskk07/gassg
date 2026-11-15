@@ -60,8 +60,11 @@ assert.equal(await ctx.mobilityFeePixRequest('plan','essential'),false);
 assert.match(ctx.mobilityFeePixPanel(),/Pix copia e cola/);
 assert.match(ctx.mobilityFeePixPanel(),/QR Code Pix/);
 assert.match(ctx.mobilityFeePixPanel(),/Abrir cobrança no Mercado Pago/);
-assert.equal(timers.length,1);
-assert(timers[0].ms>60000,'display deadline follows the original provider expiry');
+const activeTimers=timers.filter(t=>!t.cancelled);
+assert.equal(activeTimers.length,1);
+assert(activeTimers[0].ms>60000,'display deadline follows the original provider expiry');
+assert(timers.filter(t=>t.ms===15000).every(t=>t.cancelled),
+ 'completed requests must clear their network deadline');
 assert.deepEqual(requests.map(x=>x.action),['plan']);
 
 // Explicit user click rechecks the exact existing invoice with the
@@ -80,6 +83,7 @@ let release;
 response=()=>new Promise(resolve=>{release=resolve});
 const first=ctx.mobilityCopyFeePix();
 await ctx.mobilityCopyFeePix();
+for(let i=0;i<20&&requests.length<2;i++)await Promise.resolve();
 assert.equal(requests.length,2);
 assert.equal(s.pixCopyBusy,true);
 assert.doesNotMatch(ctx.mobilityFeePixPanel(),/onclick="mobilityCopyFeePix\(\)">/);
