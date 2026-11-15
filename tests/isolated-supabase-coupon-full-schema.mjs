@@ -214,9 +214,33 @@ const contradictoryHtml=benefitDisclosure({...visibleCouponOrder,
 assert.match(contradictoryHtml,/Origem dos benefícios inconsistente ou indisponível/);
 assert.match(contradictoryHtml,/Cashback de outros saldos: <strong>não informado/);
 
+// Cross-portal financial consistency on the SAME coupon-backed SQL order.
+// Customer, Partner and Admin read their canonical authenticated Edge APIs;
+// snapshots must match the immutable order totals and never misstate a voucher
+// as money actually transferred to the merchant.
+const adminToken=await localActorSession(admin);
+const adminBefore=await callEdge('admin-ops',adminToken,{action:'summary'});
+assert.equal(adminBefore.status,200,
+ 'authenticated Admin must load full control summary for coupon order');
+const adminCouponOrder=(adminBefore.body.controlOrders||[]).find(o=>o.id===orderRef);
+assert.ok(adminCouponOrder,'Admin must see the same customer coupon order');
+assert.equal(adminCouponOrder.status,'OFFERED_TO_MERCHANT');
+assert.equal(adminCouponOrder.gross_total_cents,amounts.gross);
+assert.equal(adminCouponOrder.total_cents,amounts.total);
+assert.equal(visibleCouponOrder.grossTotalCents,amounts.gross);
+assert.equal(visibleCouponOrder.totalCents,amounts.total);
+assert.equal(visibleCouponOrder.couponAppliedCents,500);
 const created=await callEdge('get-order',buyerToken,{orderId:orderRef});
 assert.equal(created.status,200,'buyer must read coupon-backed order');
 assert.equal(created.body.status,'OFFERED_TO_MERCHANT');
+assert.equal(created.body.grossTotalCents,amounts.gross);
+assert.equal(created.body.totalCents,amounts.total);
+assert.equal(created.body.cashbackReservedCents,amounts.cashback);
+assert.equal(created.body.orderId,adminCouponOrder.id);
+assert.equal(visibleCouponOrder.orderId,created.body.orderId);
+assert.equal(adminCouponOrder.total_cents,created.body.totalCents);
+assert.equal(adminCouponOrder.gross_total_cents,created.body.grossTotalCents);
+console.log('PASS: customer get-order, merchant-orders and Admin summary read the SAME coupon-backed SQL order and exact gross/net totals.');
 const accepted=await callEdge('merchant-action',ownerToken,
  {orderId:orderRef,action:'accept',expectedVersion:created.body.version},
  'ci-coupon-accept-'+randomUUID());
