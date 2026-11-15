@@ -33,7 +33,11 @@ const ident=v=>{assert.match(v,/^[a-z][a-z0-9_]*$/);return '"'+v+'"'};
 // PostgreSQL json_agg may insert whitespace/newlines between its rows.
 // Parse the complete single SELECT result, preserving every receipt.
 const json=async statement=>JSON.parse((await sql(statement)).trim());
-const admin={from(table){
+const admin={async rpc(name,args){
+ assert(['admin_platform_receipt_net_summary','refund_recovery_expected_outstanding'].includes(name));
+ const params=Object.entries(args).map(([key,value])=>ident(key)+' => '+quote(value)).join(',');
+ return {data:await json('SELECT public.'+ident(name)+'('+params+');'),error:null};
+},from(table){
  const filters=[];let columns='*',limit=1001;
  const run=async single=>{
   const where=filters.length?' WHERE '+filters.join(' AND '):'';
@@ -143,7 +147,7 @@ try{
  assert.equal(checkout.status,'payment_approved');
  assert.equal((await readPaymentEntitlement('advertising',admin,checkout)).entitlementApplied,true);
  console.log('PASS: actual canonical advertiser checkout and provider event readback.');
- await platformNetSqlProof({sql,json,quote},'advertising',checkout.campaign_id);
+ await platformNetSqlProof({sql,json,quote,admin},'advertising',checkout.campaign_id);
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
 
  // Reuse existing completed rides and the funded/partially spent credit lot.
@@ -164,7 +168,7 @@ try{
  const fee=await row('mobility_fee_pix_invoices_v1_837',"provider_order_id='CI-READBACK-FEE-ORDER'");
  assert.equal((await readPaymentEntitlement('mobility',admin,fee)).entitlementApplied,true);
  console.log('PASS: actual mobility funded credit and allocated completed-ride fees match.');
- await platformNetSqlProof({sql,json,quote},'mobility',credit.id);
+ await platformNetSqlProof({sql,json,quote,admin},'mobility',credit.id);
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
  console.log('PASS: actual SQL receipt readback for redeemed coupons, canonical seller PSP, Ads, mobility credit/use and allocated fees; complete ROLLBACK, zero bank claims.');
 }finally{

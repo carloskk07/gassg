@@ -65,6 +65,8 @@ jobs:
         run: node tests/merchant-billing-entitlement.mjs
       - name: Next financial homologation reuses receipts and prepares an editable owned ad
         run: node tests/admin-finance-next-homologation.mjs
+      - name: Bind financial progress to original receipts and actual entitlements
+        run: node tests/finance-receipt-progress.mjs
       - name: Refunded coupon purchase remains completed without another charge
         run: node tests/admin-finance-refunded-receipt.mjs
       - name: Administrative read outage recovery and bounded refresh concurrency

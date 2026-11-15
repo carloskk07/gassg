@@ -1,3 +1,25 @@
+## 15/11/2026 — Homologação reconhece as etapas da cobrança original
+
+Continuação da PR #1007, sem repetir pagamentos. O painel de homologação passa
+a reaproveitar a conferência NET e as contrapartidas canônicas da recuperação
+Pix. Pagamento, benefício e líquido precisam corresponder à mesma cobrança;
+contagens globais ou créditos de outra operação não concluem recebimentos.
+A compra já devolvida exige protocolo do mesmo titular e todos os vouchers
+cancelados; seu líquido original fica apenas como histórico. Falha de leitura
+ou mudança de status impede confirmação e orienta retomar a cobrança original.
+
+O [dossiê](operations/2026-11-15-finance-receipt-progress.md) inclui limites da
+janela representativa, testes de divergência, integração SQL e gates finais.
+Os recebimentos originais de Essencial e publicidade têm NET comprovado na
+PR #1007; não gerar outro Pix para repetir essa confirmação.
+
+**Mantidas 14/19 frentes encerradas e cinco abertas (#2, #3, #4, #6 e #12)**.
+Esta correção encerra o acompanhamento das etapas de recebimento existentes,
+sem fabricar consumo comercial, autorização de fornecedor, comissão ou saque.
+A publicação e o resultado final constam na PR e no topo da issue #493.
+
+---
+
 ## 15/11/2026 — Central Financeira: líquido independente para receitas da plataforma
 
 Continuação da PR #1006, sem repetir os Pix e o estorno já comprovados.

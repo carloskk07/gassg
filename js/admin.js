@@ -6342,6 +6342,38 @@ function adminFinanceRenderPart(name,renderPart){
 
 // V1.919 — all module financial test evidence lives in this Admin workspace.
 // Switching a module is UI-only and never creates a payment, credit or refund.
+function adminFinanceReceiptProgressValid(p){
+ const flags=['readOnly','moneyMoved','receivingCompleted','refundCompleted','paymentRecorded',
+  'entitlementVerified','netRecorded','historicalNet','reviewRequired','commercialCycleVerified','bankPayoutVerified'];
+ if(p?.source!=='canonical_receipt_progress'||!flags.every(k=>typeof p[k]==='boolean')||
+  p.readOnly!==true||p.moneyMoved!==false||p.commercialCycleVerified!==false||p.bankPayoutVerified!==false||
+  !['receiving_completed','refunded','awaiting_net','awaiting_entitlement','requires_review',
+   'unavailable','outside_recent_window','no_receipt'].includes(p.state)||
+  !(p.netCents===null||Number.isSafeInteger(p.netCents)&&p.netCents>0)||
+  p.netRecorded!==(p.netCents!==null)||p.historicalNet&&(!p.netRecorded||p.state!=='refunded')||
+  p.receivingCompleted!==(p.state==='receiving_completed')||
+  p.receivingCompleted&&(!p.paymentRecorded||!p.entitlementVerified||!p.netRecorded||p.historicalNet||p.reviewRequired)||
+  p.refundCompleted&&(!['refunded','requires_review'].includes(p.state)||!p.paymentRecorded||!p.entitlementVerified)||
+  p.state==='requires_review'&&!p.reviewRequired)return false;
+ return true;
+}
+function adminFinanceReceiptProgressView(p,key,nextAction){
+ if(!adminFinanceReceiptProgressValid(p))return '<div class="notice danger">A conferência da cobrança precisa ser atualizada.</div>';
+ const labels={receiving_completed:'Recebimento concluído',refunded:p.refundCompleted?'Devolução concluída':'Devolução em conferência',
+  awaiting_net:'Aguardando líquido do provedor',awaiting_entitlement:'Conferir benefício da cobrança',
+  requires_review:'Conferir divergência',unavailable:'Consulta indisponível',
+  outside_recent_window:'Consultar recebimentos anteriores',no_receipt:'Sem recebimento confirmado'};
+ const entitlement=p.refundCompleted?'Cancelamento dos cupons':key==='advertising'?'Campanha vinculada':key==='coupons'?'Cupons vinculados':'Crédito ou benefício';
+ return '<div class="card flat" data-finance-receipt-progress="'+esc(p.state)+'">'+
+  '<h4>'+esc(labels[p.state])+'</h4>'+
+  '<div class="order-line"><strong>Pagamento:</strong> '+(p.paymentRecorded?'registrado':'sem comprovação nesta consulta')+'</div>'+
+  '<div class="order-line"><strong>'+esc(entitlement)+':</strong> '+(p.entitlementVerified?'conferido na mesma cobrança':'conferência pendente')+'</div>'+
+  '<div class="order-line"><strong>'+(p.historicalNet?'Líquido histórico':'Líquido liberado')+':</strong> '+
+    (p.netRecorded?adminMoney(p.netCents):'conferência pendente')+'</div>'+
+  (p.historicalNet?'<p class="tiny muted">Liberação anterior à devolução, preservada no histórico e fora dos valores vigentes.</p>':'')+
+  (typeof nextAction==='string'?'<p><strong>Próxima etapa:</strong> '+esc(nextAction)+'</p>':'')+
+  '<small>Esta consulta acompanha uma cobrança existente. Consumo, operação comercial e repasses têm comprovação própria.</small></div>';
+}
 function adminFinanceHomologationCatalog(){
  return [
   {key:'coupons',name:'Cupons pagos',detail:'3 cupons universais de R$ 5 por R$ 8,90',
@@ -6405,6 +6437,9 @@ async function adminFinanceHomologationRefresh(){
      r?.merchantRequiredForLab!==false||
      r?.proofScope!=='counts_and_configuration_only'||
      r?.assessmentVersion!=='v1.920'||
+     r.receiptProofScope!==undefined&&(r.receiptProofScope!=='same_receipt_entitlement_and_net'||
+       !['coupons','mobility','merchants','advertising'].every(key=>
+         adminFinanceReceiptProgressValid(r.modules?.find(m=>m.key===key)?.diagnosis?.receiptProgress)))||
      !Number.isSafeInteger(r?.labRecentCount)||r.labRecentCount<0||r.labRecentCount>6||
      !Array.isArray(r.modules)||r.modules.length!==keys.length||
      !keys.every(key=>r.modules.some(m=>m?.key===key&&
@@ -7432,7 +7467,7 @@ function adminFinanceHomologationView(d){
   '</div><span class="status-pill">SUPERADMIN</span></div>'+
   '<div class="card flat" id="admin-finance-module-homologation">'+
   '<h3>1. Escolha o módulo</h3>'+
-  (all.length?'<p class="tiny muted" role="status"><strong>7 módulos conferidos</strong>. Nenhum homologado automaticamente.</p>':
+  (all.length?'<p class="tiny muted" role="status"><strong>7 módulos conferidos</strong>. As etapas concluídas aparecem na cobrança correspondente.</p>':
     '<p class="tiny muted" role="status">Você pode conferir as evidências quando precisar.</p>')+
   '<div class="field-row"><div class="input-wrap">'+
   '<label for="admin-finance-homologation-module">Módulo que deseja testar</label>'+
@@ -7443,7 +7478,8 @@ function adminFinanceHomologationView(d){
   (note?'<p class="notice" role="status"><strong>Situação:</strong> '+
     esc(note.progressLabel||diagnoses[note.state]||'Indisponível')+'. <strong>Ciclo completo:</strong> pendente.</p>':
     '<p class="muted">Conferência necessária para exibir os registros deste módulo.</p>')+
-  (chosen.key==='coupons'&&Number.isSafeInteger(note?.recordedNetReceipts)&&note.recordedNetReceipts>0
+  (note?.receiptProgress?adminFinanceReceiptProgressView(note.receiptProgress,chosen.key,note.nextAction):'')+
+  (chosen.key==='coupons'&&!note?.receiptProgress&&Number.isSafeInteger(note?.recordedNetReceipts)&&note.recordedNetReceipts>0
    ?'<p class="notice" role="status"><strong>Líquido registrado em '+note.recordedNetReceipts+' fatura(s) de cupons.</strong> Reutilize os cupons já pagos para validar uso e devolução; não repita a compra para testar o recebimento.</p>':'')+
   (evidenceState.error?'<div class="notice danger" role="alert">'+esc(evidenceState.error)+'</div>':'')+
   '<details class="admin-finance-homologation-details"><summary>Evidências e requisitos deste módulo</summary>'+

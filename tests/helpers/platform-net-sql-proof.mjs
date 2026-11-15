@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import {readFinanceReceiptProgress} from '../../supabase/functions/admin-ops/finance-receipt-progress.js';
 // Only called inside the existing isolated, uncommitted canonical fixtures.
 // Synthetic report evidence proves software invariants, never bank settlement.
-export async function platformNetSqlProof({sql,json,quote},kind,id){
+export async function platformNetSqlProof({sql,json,quote,admin},kind,id){
  const source=await json(`SELECT row_to_json(s) FROM public.platform_receipt_net_sources() s WHERE kind=${quote(kind)} AND resource_id=${quote(id)}::uuid;`);
  assert(source);assert.equal(source.reversed,false);
  await sql('UPDATE public.clube_coupon_net_auto_config_v1_931 SET enabled=true WHERE id;');
@@ -36,6 +37,12 @@ export async function platformNetSqlProof({sql,json,quote},kind,id){
  view=await json(`SELECT public.admin_platform_receipt_net_summary(${quote(actor)}::uuid);`);
  assert.equal(view.kindTotals[kind].verifiedNetCents,proof.netCents);
  assert.equal(view.kindTotals[kind].verifiedCount,1);assert.equal(view.merchantFundsIncluded,false);
+ const progress=await readFinanceReceiptProgress(admin,actor);
+ const moduleKey=kind==='advertising'?'advertising':'mobility';
+ assert.equal(progress.modules[moduleKey].receivingCompleted,true);
+ assert.equal(progress.modules[moduleKey].entitlementVerified,true);
+ assert.equal(progress.modules[moduleKey].netCents,proof.netCents);
+ assert.equal(progress.modules[moduleKey].commercialCycleVerified,false);
  await rejects("public.admin_platform_receipt_net_summary(gen_random_uuid())",'ADMIN_ACCESS_DENIED');
  // Server-only privileges, including internal source and pending selectors.
  await sql(`DO $acl$ DECLARE p record; BEGIN
