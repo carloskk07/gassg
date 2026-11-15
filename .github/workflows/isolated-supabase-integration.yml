@@ -206,9 +206,13 @@ jobs:
         run: node tests/isolated-ads-independent-homologation-v1-892.mjs
       - name: Verify immutable refund facts raise PSP/manual conflicts in the existing Admin finance queue
         run: node tests/isolated-refund-provider-anchor-audit.mjs
+      - name: Verify real referral payout declaration, void and finance authority without bank claims
+        run: node tests/isolated-referral-payout-lifecycle.mjs
       - name: Verify disposable order evidence locally before optional archive
         run: |
           test -d test-results/isolated-order-evidence
+          test -s test-results/isolated-order-evidence/rede-indicacao.json
+          test -s test-results/isolated-order-evidence/rede-estorno.json
           count="$(find test-results/isolated-order-evidence -type f | wc -l)"
           test "$count" -ge 1
           echo "Verified $count local evidence files before finance integration continues"
@@ -225,8 +229,6 @@ jobs:
           path: test-results/isolated-order-evidence/
           if-no-files-found: error
           retention-days: 5
-      - name: Verify real referral payout declaration, void and finance authority without bank claims
-        run: node tests/isolated-referral-payout-lifecycle.mjs
       - name: Verify real local HTTP Ajuda intake through protected Admin resolution
         run: node tests/isolated-support-positive-journey.mjs
       - name: Verify REAL coupon payment, audited net and v8 checkout on disposable full schema
