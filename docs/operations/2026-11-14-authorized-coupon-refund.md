@@ -35,6 +35,50 @@ Os testes cobrem conta/valor/ordem divergentes, sandbox, validade, exposição
 anterior ou concorrente, resposta ambígua, repetição sem novo POST e falha de
 persistência. Os casos são simulados localmente; não constituem estorno real.
 
-Estado deste registro: implementação em validação, execução real ainda não
-realizada. Atualizar com a prova efetiva após execução; não declarar crédito
-na conta bancária do comprador a partir de um estado local do TAMÃO.
+## Resultado real — estorno confirmado
+
+Em **14/11/2026 às 20h55 de Brasília** (23h55 UTC), a operação privada
+respondeu HTTP 200 com `refundConfirmed=true`,
+`providerRefundVerified=true`, `providerPostAttempted=true`,
+`amountCents=890`, `cancelledCoupons=3` e `status=refunded`.
+Essa confirmação veio de um novo GET autenticado da ordem no Mercado Pago
+após o único POST, validado pelo verificador canônico; o retorno do POST
+isolado não foi utilizado como prova.
+
+Consulta independente ao banco confirmou fatura `refunded` com
+`refunded_at=2026-11-14T23:55:34.967435Z`, protocolo original `refunded`,
+exatamente três cupons `void` e zero usos históricos. A reserva de patrocínio
+de R$ 15 passou a `released` pelo trigger original, sem saldo reservado
+remanescente para esses cupons.
+
+A segunda execução de conferência, às **20h56 de Brasília**, retornou
+HTTP 200 com os mesmos resultados e **`providerPostAttempted=false`**.
+Releitura do banco preservou o horário do estorno e as contagens originais.
+Não houve nova cobrança, novo cupom nem segundo POST de devolução.
+
+A consulta dos outros módulos preservou plano Essencial com R$ 19,90
+disponíveis e zero reservado, publicidade com pagamento de R$ 19,90
+`payment_approved` e campanha `active`. Somente a compra de cupons de
+R$ 8,90 foi devolvida.
+
+Implementação integrada na [PR #1000](https://github.com/carloskk07/gassg/pull/1000),
+merge `acad352e1c0519da64806ef3fcd2dfa7395f7911`.
+`payment-reconcile` v5 ACTIVE: os 17 arquivos publicados foram relidos e
+comparados integralmente com o bundle aprovado; as 14 dependências anteriores
+foram preservadas. Nenhuma migração, sessão de usuário ou aprovação humana
+foi fabricada.
+
+Validação do head `ac6e0abd2b16e52920e1a2bf143b2d99381cdcbe`:
+[Audit aprovado](https://github.com/carloskk07/gassg/actions/runs/43653666575),
+[integração Supabase descartável aprovada](https://github.com/carloskk07/gassg/actions/runs/43653666516)
+e [revisão visual aprovada](https://github.com/carloskk07/gassg/actions/runs/43653666510).
+Na retomada também passaram as regressões locais de delegação, prova de
+estorno e recuperação das cinco famílias de pagamentos.
+
+**Conclusão deste ciclo específico:** compra paga original, devolução integral
+confirmada pelo Mercado Pago, cancelamento dos três benefícios, liberação da
+reserva e repetição sem novo POST comprovados. O crédito no extrato do banco
+do pagador não foi inspecionado. Isso encerra esta homologação específica de
+estorno; não comprova resgate comercial de cupons, consumo de tarifa,
+mobilidade, pedidos, comissões ou saques. A lista permanece em **13/19
+frentes técnicas encerradas e seis abertas**.

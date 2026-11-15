@@ -1,6 +1,25 @@
-## 14/11/2026 — Estorno específico de cupons autorizado pelo titular
+## 14/11/2026 — Estorno de R$ 8,90 confirmado e três cupons cancelados
 
-Continuidade de `main=f3b1af9c94708f5148e28e8ff8a08cc7eb1b389c` (PR #999). Após a proposta concreta de devolver R$ 8,90 da compra original e cancelar os três cupons de R$ 5 intactos, o titular respondeu “autorizo”. Preparada operação privada com escopo fixo, prazo curto, autenticação do cron, protocolo canônico como claim de um único POST e conferência GET independente. Sem fabricar sessão/ator humano, sem expor token e sem alterar publicidade paga ou crédito Essencial. A conciliação usa o resolvedor financeiro original. Implementação em validação; estorno real ainda não realizado. Detalhes e resultado devem permanecer em `docs/operations/2026-11-14-authorized-coupon-refund.md`.
+A [PR #1000](https://github.com/carloskk07/gassg/pull/1000) foi integrada em
+`acad352e1c0519da64806ef3fcd2dfa7395f7911`; `payment-reconcile` v5 ACTIVE
+foi relida com os 17 arquivos idênticos ao bundle aprovado. Às **20h55 de
+Brasília**, a devolução integral da compra original foi comprovada por GET
+autenticado do Mercado Pago após um único POST autorizado pelo titular.
+O TAMÃO registrou fatura e protocolo `refunded`, exatamente três cupons
+`void`, zero usos e a reserva original de R$ 15 `released`.
+
+Segunda conferência às **20h56 de Brasília** retornou novamente
+`refundConfirmed=true` e **`providerPostAttempted=false`**, preservando
+data, protocolo e contagens. O Essencial mantém R$ 19,90 disponíveis;
+publicidade permanece paga e campanha ativa. Nenhum novo Pix ou segundo
+estorno foi emitido. A prova e os checks estão em
+[registro operacional](operations/2026-11-14-authorized-coupon-refund.md).
+
+**Este ciclo específico de estorno está concluído no provedor e no TAMÃO.**
+O extrato bancário externo do pagador não foi inspecionado. A contagem fixa
+permanece em **13/19 frentes técnicas encerradas e seis abertas**; resgate
+comercial de cupons, consumo do crédito, mobilidade, venda online de pedido,
+fatos geradores, comissões e saques continuam com as lacunas já registradas.
 
 ---
 
