@@ -101,6 +101,26 @@ assert.ok(delivered.includes('A conciliação financeira pode estar em processam
 const settled=orderFor('SETTLED');
 assert.ok(settled.includes('Pedido concluído'));
 assert.ok(settled.includes('CONCLUÍDO'));
+// Customer must distinguish a paid Clube coupon from other wallet benefits,
+// including after cancellation. Never advertise the full benefit twice.
+const couponTracking=orderFor('SETTLED',{
+ cashbackReservedCents:650,couponAppliedCents:500,grossTotalCents:12650,totalCents:12000
+});
+assert.match(couponTracking,/R\$ 5,00 de cupom do Clube TAMÃO/);
+assert.match(couponTracking,/R\$ 1,50 de outros benefícios/);
+assert.doesNotMatch(couponTracking,/R\$ 6,50 de benefício usado/,
+ 'original gross benefit must not be counted a second time');
+const cancelledCoupon=orderFor('CANCELLED',{
+ cashbackReservedCents:500,couponAppliedCents:500,grossTotalCents:12500,totalCents:12000
+});
+assert.match(cancelledCoupon,/O valor original incluía R\$ 5,00 de cupom do Clube TAMÃO/,
+ 'cancelled order must not imply the coupon is currently spendable');
+assert.doesNotMatch(cancelledCoupon,/R\$ 5,00 de benefício usado/);
+const ordinaryBenefits=orderFor('SETTLED',{
+ cashbackReservedCents:150,couponAppliedCents:0,grossTotalCents:12150,totalCents:12000
+});
+assert.match(ordinaryBenefits,/R\$ 1,50 de benefício usado/,
+ 'ordinary benefit display must remain unchanged without a paid coupon');
 const lost=orderFor('AT_RISK',{riskReason:'Atraso observado <script>alert(1)</script>'});
 assert.ok(lost.includes('Acompanhamento prioritário'));
 assert.ok(!lost.includes('<script>'), 'Risk reasons must be escaped');
