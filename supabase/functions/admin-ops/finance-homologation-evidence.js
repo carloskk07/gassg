@@ -5,7 +5,7 @@ const ACTIONS={
  coupons:"Testar compra real de cupons pelo checkout próprio, emissão única, resgate, devolução e conciliação.",
  mobility:"Testar recarga real do plano, criação única do lote de créditos, consumo, cancelamento e estorno.",
  merchants:"Usar a conta de revenda já vinculada ao titular neste Admin: pagar uma recarga real, conferir o crédito e depois o consumo. Não é necessário ativar vendas para comprar créditos.",
- orders:"Testar PSP no Laboratório Pix. Pedido e repasse reais exigem vendedor e comprador legítimos.",
+ orders:"Concluir pedido, pagamento, entrega e cancelamento no ambiente isolado antes da abertura comercial. Vendedor e comprador legítimos são necessários para operar comercialmente.",
  advertising:"Testar checkout de campanha aprovada, webhook de pagamentos Ads e estorno com autorização explícita.",
  benefits:"Testar origem dos créditos, cashback, reversão e pagamento ao beneficiário real com prova independente.",
  professional_ads:"Testar contratação e cobrança reais sem criar diárias, impressões ou pagamentos fictícios."
@@ -30,7 +30,9 @@ export function evaluateFinanceHomologationEvidence(modules,signals,labHistory){
    !Number.isSafeInteger(row.amountCents)||row.amountCents<100||row.amountCents>500))
   throw new Error("INVALID_FINANCE_LAB_EVIDENCE");
  return modules.map(mod=>{
-   const key=mod.key,positive=signals[INDICATOR[key]];
+   const key=mod.key,refunds=key==='coupons'?(signals.couponRefunded??0):0;
+   if(!Number.isSafeInteger(refunds)||refunds<0)throw new Error("INVALID_FINANCE_EVIDENCE");
+   const positive=signals[INDICATOR[key]]+refunds;
    const selectedLab=labHistory.filter(row=>row.testPurpose===key);
    const latest=selectedLab[0]||null;
    // These mismatches require investigation but do not prove a fraud or missing settlement.
@@ -50,6 +52,8 @@ export function evaluateFinanceHomologationEvidence(modules,signals,labHistory){
    const couponReceipt=key==='coupons'&&signals.couponPaid>0&&signals.couponNetVerified>0&&!review;
    const adsReceipt=key==='advertising'&&positive>0&&!review;
    const progressLabel=review?"Registros divergentes: revisar a operação existente":
+     refunds>0&&signals.couponPaid===0?"Devolução registrada; compra anterior encerrada":
+     refunds>0?"Compras pagas e devoluções registradas; seguir as operações existentes":
      merchantReceipt&&credits>0?"Pagamento e crédito registrados; faltam consumo e reversão":
      merchantReceipt?"Pagamento identificado; conferir a liberação do crédito existente":
      couponReceipt?"Recebimento e líquido registrados; faltam uso e devolução":
@@ -63,9 +67,11 @@ export function evaluateFinanceHomologationEvidence(modules,signals,labHistory){
      labPixCount:selectedLab.length,
      latestLabWebhook:latest?.webhookEvidence??"none",
      recordedNetReceipts:key==='coupons'?signals.couponNetVerified:0,
-     recordedCredits:credits,progressLabel,
-     nextAction:merchantReceipt&&credits>0
-       ?"Usar os créditos já registrados para validar consumo e reversão. Recebimento e concessão do pacote já registrados; não pagar outra recarga para repetir essa prova."
+     recordedCredits:credits,recordedRefunds:refunds,progressLabel,
+     nextAction:refunds>0
+       ?"Preservar a devolução registrada e os cupons cancelados. Concluir os testes de resgate e cancelamento no ambiente isolado, sem repetir o pagamento nem reutilizar cupons devolvidos."
+       :merchantReceipt&&credits>0
+       ?"Preservar os créditos já registrados. Concluir os testes de consumo e reversão no ambiente isolado antes da operação comercial; não pagar outra recarga para repetir essa prova."
        :merchantReceipt
        ?"Conferir a liberação do crédito da cobrança já paga. Retomar a mesma ordem do provedor; não gerar outro Pix."
        :key==='professional_ads'&&terms===0

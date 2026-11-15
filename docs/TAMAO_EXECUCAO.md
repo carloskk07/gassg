@@ -1,3 +1,50 @@
+## 14/11/2026 — Prioridade corrigida: concluir tecnicamente antes de captar revendas
+
+O proprietário reiterou que não buscará revendas para terminar um site incompleto.
+A [issue #493](https://github.com/carloskk07/gassg/issues/493) já determina
+auditoria e correções de todos os módulos sem exigir novas revendas, Docker
+ou testes no Windows do titular. Ausência de oferta real bloqueia pedidos
+comerciais, mas não bloqueia desenvolvimento, testes ou demonstração isolada.
+Não retornar automaticamente ao cadastro empresarial como próxima tarefa.
+
+A revisão confirmou evidência técnica já existente, que deve ser reaproveitada:
+
+| Fluxo | Prova técnica existente no ambiente descartável |
+|---|---|
+| Pedido, entrega e taxa | Checkout positivo com Auth/Edge/PostgreSQL; entrega e consumo de tarifa pelos fluxos canônicos |
+| Pacotes das revendas | Quatro planos, crédito e consumo por pedido/PIN (`isolated-merchant-prepaid-lifecycle-v1-953.mjs`) |
+| Cupons | Emissão única, mínimo de compra, resgate, cancelamento e reemissão nos testes de cupom patrocinado e do parceiro |
+| Moto e carro | Jornadas de participantes, cancelamento, tarifa, recarga, reserva, consumo e reversão em PostgreSQL descartável |
+| Publicidade | Ciclo de campanha paga, recuperação e reversão sintética nos testes existentes; campanha própria paga e ativa em produção |
+| Bônus e indicações | Limites e concessões de bônus; declaração, cancelamento e permissões de saque em ambiente isolado; sem alegar liquidação bancária |
+| Suporte e permissões | Entrada HTTP de Ajuda, resolução protegida e inventário de ACL no esquema completo |
+
+Referência de execução já aprovada: [integração descartável #43656339883](https://github.com/carloskk07/gassg/actions/runs/43656339883),
+com os casos de consumo de pacote, resgate de cupom, mobilidade, publicidade,
+indicações e suporte. A demonstração em navegador existente também deve ser
+reaproveitada; uma demonstração com estado local não equivale ao teste integrado
+de três papéis com backend. Não solicitar instalação de ferramentas ao titular.
+
+**Falha reproduzida nesta revisão:** após a devolução autorizada, o diagnóstico
+contava apenas faturas `paid` e voltava a `pending_real_payment`. O painel
+ocultava a compra `refunded`, oferecia outro checkout e podia manter histórico
+pago desatualizado após conferir a fatura. Corrigidos os mesmos componentes:
+devolução permanece como registro financeiro, recibo estornado fica visível,
+o Admin não repete a compra do mesmo pacote para homologação e a consulta da
+fatura relê o histórico e retira o Pix antigo. Status e contadores locais não
+são promovidos a prova bancária. Nenhuma nova cobrança ou devolução é iniciada.
+
+**Próxima sequência de trabalho:** revisar lacunas técnicas contra os testes
+e jornadas existentes; corrigir defeitos reproduzidos; demonstrar a jornada
+integrada Cliente/Parceiro/Admin no ambiente isolado; fechar a preparação
+técnica e então tratar abertura comercial por modalidade. As operações reais
+já comprovadas (cupons, estorno, Essencial e publicidade) permanecem válidas.
+A lista histórica de 19 frentes conserva 13 encerradas e seis abertas; essas
+seis incluem critérios comerciais e não representam seis implementações
+ausentes. Esta revisão não encerra artificialmente nenhuma frente inteira.
+
+---
+
 ## 14/11/2026 — Estorno de R$ 8,90 confirmado e três cupons cancelados
 
 A [PR #1000](https://github.com/carloskk07/gassg/pull/1000) foi integrada em
