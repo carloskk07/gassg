@@ -355,6 +355,36 @@ const due=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("
 assert.equal(due.status,'MERCHANT_REIMBURSEMENT_DUE');
 assert.equal(due.merchantReimbursementCents,amounts.cashback);
 assert.equal(due.merchantExternalSettlementVerified,false);
+// On actual settlement, all three authenticated portals must agree again.
+// An internal reimbursement obligation is NOT proof the revenda was paid.
+const settledBuyerRead=await callEdge('get-order',buyerToken,{orderId:orderRef});
+assert.equal(settledBuyerRead.status,200);
+assert.equal(settledBuyerRead.body.status,'SETTLED');
+assert.equal(settledBuyerRead.body.grossTotalCents,amounts.gross);
+assert.equal(settledBuyerRead.body.totalCents,amounts.total);
+const merchantAfter=await callEdge('merchant-orders',ownerToken,{merchantId:merchant});
+assert.equal(merchantAfter.status,200);
+const closedCouponMerchant=merchantAfter.body.merchant?.recentClosedOrders?.find(
+ o=>o.orderId===orderRef);
+assert.ok(closedCouponMerchant,'merchant owner must recover settled coupon order in own closed history');
+assert.equal(closedCouponMerchant.status,'SETTLED');
+const adminAfter=await callEdge('admin-ops',adminToken,{action:'summary'});
+assert.equal(adminAfter.status,200);
+const closedCouponAdmin=(adminAfter.body.controlOrders||[]).find(o=>o.id===orderRef);
+assert.ok(closedCouponAdmin,'Admin control tower must retain the same settled coupon order');
+assert.equal(closedCouponAdmin.status,'SETTLED');
+assert.equal(closedCouponAdmin.gross_total_cents,settledBuyerRead.body.grossTotalCents);
+assert.equal(closedCouponAdmin.total_cents,settledBuyerRead.body.totalCents);
+const adminDebt=(adminAfter.body.finance?.cashbackReimbursements||[]).find(
+ r=>r.order_id===orderRef);
+assert.ok(adminDebt,'Admin finance must show the exact merchant obligation');
+assert.equal(adminDebt.status,'open');
+assert.equal(adminDebt.merchant_id,merchant);
+assert.equal(adminDebt.cashback_cents,due.merchantReimbursementCents);
+assert.equal(adminDebt.couponBacked,true);
+assert.equal(due.merchantExternalSettlementVerified,false,
+ 'unpaid reimbursement must not be presented as bank-settled');
+console.log('PASS: settled coupon order matches Client/Partner/Admin and Admin finance keeps the unpaid coupon reimbursement open.');
 // A reimbursement explicitly REVERSED while its parent order still says
 // SETTLED is contradictory. Never misreport it as ORDER_IN_PROGRESS.
 // Probe only in the disposable full-schema database and undo with ROLLBACK.
