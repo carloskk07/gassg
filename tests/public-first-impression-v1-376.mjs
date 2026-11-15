@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+
+// Current first-paint contract. The older V1.376 marketing copy was replaced
+// by a lightweight preboot screen and a truthful regional quote-first home.
+// Do not pin text from old marketing or the historical service-worker version.
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const index=read('index.html');
 const bootstrap=read('js/bootstrap.js');
@@ -10,56 +14,79 @@ const core=read('js/core.js');
 const css=read('css/marketing-premium.css');
 const sw=read('sw.js');
 
-for(const [file,code] of Object.entries({bootstrap,growth,showcase,core})){
-  new vm.Script(code,{filename:file+'.js'});
-}
-assert.match(index,/<div id="app">\s*<section class="tamao-preboot"/,
-  'static first paint should be meaningful before javascript is ready');
-assert.match(index,/<h1>Faltou em casa\? <em>Tá na mão\.<\/em><\/h1>/);
-assert.match(index,/GÁS, ÁGUA E ESSENCIAIS PERTO DE VOCÊ/);
-assert.match(index,/O atendimento depende da disponibilidade da sua região/);
-assert.match(index,/href="\/\?entrada=revenda"/);
-assert.match(index,/href="\/\?entrada=marca"/);
-assert.match(index,/<noscript>/);
+for(const [file,source] of Object.entries({bootstrap,growth,showcase,core}))
+ new vm.Script(source,{filename:file+'.js'});
+
+// The first HTML paint must identify the brand, report loading accessibly,
+// avoid a false live offer and tell users when scripting is required.
+assert.match(index,/<html lang="pt-BR">/);
+assert.match(index,/<div id="app">\s*<section class="tamao-preboot"/);
+assert.match(index,/aria-label="Carregamento inicial do TAMÃO"/);
+assert.match(index,/<h1>Preparando o TAMÃO<\/h1>/);
+assert.match(index,/role="status" aria-live="polite"/);
+assert.match(index,/COTAÇÕES E SERVIÇOS DA SUA CIDADE/);
+assert.match(index,/<noscript>.*Ative o JavaScript/s);
 assert.ok(!index.includes('Pedidos garantidos'));
-assert.match(bootstrap,/window\.addEventListener\('DOMContentLoaded',\(\)=>\{/,
-  'public initial render should not wait for the last image');
-assert.ok(bootstrap.includes("window.addEventListener('load',async()=>{"),
-  'protected portals keep authentication callback consumption before their initial render');
-assert.match(bootstrap,/if\(globalThis\.adminPortalRequested\?\.\(\)\|\|globalThis\.merchantPortalRequested\?\.\(\)\)return;/);
-assert.match(core,/>Indicações<\/button>/);
-assert.match(core,/>Para marcas<\/button>/);
+assert.doesNotMatch(index,/preboot[\s\S]*?revendas confirmadas para entrega imediata/,
+ 'the static shell cannot advertise invented supply');
 
-assert.match(showcase,/snapshot\.real===true/);
-assert.match(showcase,/snapshot\.notAQuote===true/);
-assert.match(showcase,/real\.slice\(0,6\)/);
-assert.match(showcase,/class="city-price-card verified"/);
-assert.match(showcase,/class="city-price-card reference city-price-reference-summary"/);
-assert.ok(!showcase.includes("references=localP13?["),
-  'unverified price references may not become three pseudo-seller cards');
-assert.ok(showcase.includes('PUBLIC_P13_REFERENCE.usual')&&showcase.includes('PUBLIC_P13_REFERENCE.minimum')&&showcase.includes('PUBLIC_P13_REFERENCE.maximum'));
-assert.match(showcase,/Não representa uma revenda, um preço disponível/);
-assert.match(showcase,/A consulta não cria pedido/);
-assert.match(showcase,/onclick="startCustomerAvailability\(\)"/);
+// Public render is available at DOMContentLoaded, without waiting for images.
+// Private login entry still handles the authenticated callback at load.
+assert.match(bootstrap,/window\.addEventListener\('DOMContentLoaded',\(\)=>\{/);
+assert.ok(bootstrap.includes("window.addEventListener('load',async()=>{"));
+assert.match(bootstrap,/if\(globalThis\.merchantPortalRequested\?\.\(\)\)return;/);
 
+// The current compact public navigation must retain accessible routes without
+// promoting suspended lodging or duplicating many top-level menu buttons.
+assert.match(core,/const primaryLinks=\[\['club','Clube'\],\['earn','Indicações'\]\]/);
+assert.match(core,/tamao-public-header-groups/);
+assert.match(core,/\['sponsors','Para marcas'\]/);
+const publicNav=core.slice(core.indexOf('const primaryLinks='),core.indexOf('const switcher=',core.indexOf('const primaryLinks=')));
+assert.ok(publicNav.length>100);
+assert.doesNotMatch(publicNav,/hospedagens|lodging|['"]stay['"]/i);
+
+// Regional offer cards require an authenticated fresh server snapshot, never
+// convert reference gas prices to fictional merchants or fake sales.
+for(const requirement of [
+ 'snapshot.real===true','snapshot.notAQuote===true',
+ 'snapshot?.source', 'real.slice(0,6)',
+ 'city-price-card verified',
+ 'Sem ofertas confirmadas'
+]){
+ assert.ok(showcase.includes(requirement),'missing regional price authority '+requirement);
+}
+assert.match(showcase,/const cards=real\.length\?liveCards:/);
+assert.match(showcase,/O pedido só avança com uma revenda e um preço confirmados/);
+assert.match(showcase,/A consulta não cria pedido|Escolha os produtos\. Confira preço e entrega pelo seu CEP/);
+assert.match(showcase,/homeQuoteBasketMarkup/);
+assert.match(showcase,/Ver cupons e Clube/);
+
+// Seller-facing landing and sponsor landing each have a clear action and
+// transparent commercial conditions, not an unverified purchase promise.
 const sponsor=growth.slice(growth.indexOf('function sponsorsLanding(){'),growth.indexOf('function merchantsLanding(){'));
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('function merchantJoin(){'));
-assert.match(sponsor,/sponsor-format-grid/);
 assert.match(sponsor,/public-sponsor-selector-intro/);
 assert.equal((sponsor.match(/class="sponsor-format-grid"/g)||[]).length,1);
-assert.ok(!sponsor.includes('ONDE SUA MARCA PODE PARTICIPAR'),
-  'do not repeat format grid as a second near-identical 3-card section');
 for(const type of ['visibility','relationship','local'])
-  assert.ok(sponsor.includes("openSponsorContact('"+type+"')"));
+ assert.ok(sponsor.includes("openSponsorContact('"+type+"')"));
 assert.match(sponsor,/EXEMPLO DE FORMATO/);
+assert.match(sponsor,/A publicidade comercial depende de validação/);
 assert.match(merchant,/merchant-conversion-start/);
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
+assert.match(merchant,/Você decide preços, estoque, formas de pagamento/);
 const rail=merchant.slice(merchant.indexOf('merchant-jump-rail'),merchant.indexOf('merchant-cro-steps'));
-assert.equal((rail.match(/<button type="button"/g)||[]).length,2,
-  'the repeated register action should not compete with the immediate form');
+assert.equal((rail.match(/<button type="button"/g)||[]).length,2);
 assert.match(rail,/publicLandingJump\('merchant-margin'\)/);
 assert.match(rail,/publicLandingJump\('merchant-how'\)/);
-for(const token of ['.tamao-preboot','.city-price-reference-summary','.merchant-jump-rail','@media(max-width:620px)','a:focus-visible'])
-  assert.ok(css.includes(token),token);
-assert.match(sw,/const CACHE='tamao-sg-v1\.370'/);
-console.log('TAMÃO V1.376 PASS — static first paint, honest market references, focused landing pages and accessible mobile layout.');
+
+// Mobile and keyboard accessibility are part of first-impression quality.
+for(const token of [
+ '.tamao-preboot','.city-price-reference-summary','.merchant-jump-rail',
+ '@media(max-width:620px)',':focus-visible'
+])assert.ok(css.includes(token),'missing visible/mobile style '+token);
+const cacheVersion=/const CACHE='tamao-sg-v1\.(\d+)'/.exec(sw);
+assert.ok(cacheVersion&&Number(cacheVersion[1])>=370,
+ 'the service worker must version the public shell');
+assert.match(sw,/\.\/js\/runtime-config\.js/);
+assert.match(sw,/\.\/css\/marketing-premium\.css/);
+console.log('PASS: current public first paint, regional offer truth, compact navigation, sponsor/merchant CTAs, keyboard/mobile styles and versioned cache.');

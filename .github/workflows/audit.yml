@@ -279,6 +279,16 @@ jobs:
         run: node tests/coupon-refund-mp-proof-v1-815.mjs
       - name: V1.816 buyer coupon-shop autoload and pre-sale disclosure
         run: node tests/clube-coupon-autoload-v1-816.mjs
+      - name: Buyer coupon purchase from real Club button, consent, duplicate click, Pix retry and account isolation
+        run: node tests/clube-coupon-purchase-click-journey.mjs
+      - name: Ensure five commercial fronts retain every required technical CI gate
+        run: node tests/homologation-five-fronts-gates.mjs
+      - name: Merchant approved company draft, saved-field readback and safe account switching
+        run: node tests/merchant-business-approved-draft.mjs
+      - name: Reject stored XSS in merchant team inline click handlers
+        run: node tests/inline-handler-safety.mjs
+      - name: Public first paint and responsive commercial presentation regression
+        run: node tests/public-first-impression-v1-376.mjs
       - name: V1.817 evidence-based owner-backed coupon funding (no fake bank deposit)
         run: node tests/clube-owner-guarantee-readiness-v1-817.mjs
       - name: V1.819 seller-verified commercial coupon sales and emergency suspension
