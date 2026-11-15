@@ -39,7 +39,7 @@ export async function platformNetSqlProof({sql,json,quote,admin},kind,id){
  assert.equal(view.kindTotals[kind].verifiedCount,1);assert.equal(view.merchantFundsIncluded,false);
  const progress=await readFinanceReceiptProgress(admin,actor);
  const moduleKey=kind==='advertising'?'advertising':'mobility';
- assert.equal(progress.modules[moduleKey].receivingCompleted,true);
+ assert.equal(progress.modules[moduleKey].receivingCompleted,true,JSON.stringify(progress));
  assert.equal(progress.modules[moduleKey].entitlementVerified,true);
  assert.equal(progress.modules[moduleKey].netCents,proof.netCents);
  assert.equal(progress.modules[moduleKey].commercialCycleVerified,false);

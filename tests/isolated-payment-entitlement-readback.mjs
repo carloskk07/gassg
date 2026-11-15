@@ -32,7 +32,15 @@ const quote=v=>"'"+String(v).replaceAll("'","''")+"'";
 const ident=v=>{assert.match(v,/^[a-z][a-z0-9_]*$/);return '"'+v+'"'};
 // PostgreSQL json_agg may insert whitespace/newlines between its rows.
 // Parse the complete single SELECT result, preserving every receipt.
-const json=async statement=>JSON.parse((await sql(statement)).trim());
+// The real reader may inspect different families concurrently. Keep those
+// read-only SELECTs in one ordered queue on this single psql session, so all
+// of them still see the SAME uncommitted canonical fixture transaction.
+let jsonReads=Promise.resolve();
+const json=statement=>{
+ const next=jsonReads.then(async()=>JSON.parse((await sql(statement)).trim()));
+ jsonReads=next.catch(()=>{});
+ return next;
+};
 const admin={async rpc(name,args){
  assert(['admin_platform_receipt_net_summary','refund_recovery_expected_outstanding'].includes(name));
  const params=Object.entries(args).map(([key,value])=>ident(key)+' => '+quote(value)).join(',');
