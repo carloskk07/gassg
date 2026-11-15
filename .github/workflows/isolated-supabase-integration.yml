@@ -170,6 +170,8 @@ jobs:
         run: node tests/isolated-mobility-prepaid-credit-v1-838.mjs
       - name: Verify full-schema browser RLS ACL and privileged RPC inventory
         run: node tests/isolated-full-schema-browser-acl.mjs
+      - name: Verify anon can read only reviewed public coupon and welcome aggregates
+        run: node tests/isolated-public-aggregate-rpc-minimization.mjs
       - name: Verify reviewed ACL launch gate and fail-closed policy mutation probes
         run: node tests/isolated-launch-security-fingerprint.mjs
       - name: Verify local Auth and actual Edge HTTP authentication guards
