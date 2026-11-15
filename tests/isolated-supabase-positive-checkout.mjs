@@ -430,6 +430,10 @@ assert.ok(new Date(reward.commission_available_at).getTime()>Date.now(),
  'pending referral must respect the configured hold period');
 assert.equal(sql("SELECT count(*) FROM public.order_reward_grants WHERE order_id="+q(orderId)+"::uuid"),'1');
 assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+q(orderId)+"::uuid AND user_id="+q(outsider.id)+"::uuid AND bucket='commission_pending' AND entry_type='referral_pending' AND amount_cents="+reward.referral_pending_cents),'1');
+const pendingSummary=await call('customer-summary',outsider.token,{});
+assert.equal(pendingSummary.status,200);
+assert.equal(pendingSummary.body.commissionPendingCents,reward.referral_pending_cents,'actual customer API must expose the pending SQL commission');
+assert.equal(pendingSummary.body.commissionAvailableCents,0,'pending reward cannot appear as available to the referrer');
 assert.equal(sql("SELECT count(*) FROM public.platform_receivables WHERE order_id="+q(orderId)+"::uuid AND platform_fee_cents="+reward.platform_fee_cents),'1',
  'fee must be booked as an internal receivable, not misrepresented as already paid');
 assert.equal(sql("SELECT count(*) FROM public.platform_referral_payout_claims_v1_263"),'0',
@@ -602,11 +606,15 @@ assert.equal(sql("SELECT product_code FROM public.order_items WHERE order_id="+q
 // The same Chrome portal test now views the second buyer and second accepted
 // order, again with the canonical authenticated Admin, not a mocked screen.
 const browserCheckoutBuyer=await createActor('customer-ui');
-await verifyIsolatedLivePortals({
+const browserJourney=await verifyIsolatedLivePortals({
  api:base,anon,buyer:testBuyer3,owner,adminActor,orderId:activeId,merchantId,
- recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true,driverActor:deliveryActor,browserCheckoutBuyer
+ recentClosedOrderId:orderId,exerciseCrossSessionDispatch:true,driverActor:deliveryActor,browserCheckoutBuyer,
+ referralJourney:{actor:outsider,code:promoCode,availableCents:reward.referral_pending_cents,referredCount:2,qualifiedCount:1}
 });
 assert.equal(sql("SELECT count(*) FROM public.orders WHERE customer_id="+q(browserCheckoutBuyer.id)+"::uuid"),'1','browser UI must create precisely one customer order');
+assert.match(browserJourney?.checkout?.orderId||'',/^[0-9a-f-]{36}$/i);
+assert.equal(sql("SELECT referrer_user_id="+q(outsider.id)+"::uuid AND referral_code="+q(promoCode)+" AND qualified_order_id IS NULL FROM public.referrals WHERE referred_user_id="+q(browserCheckoutBuyer.id)+"::uuid"),'t','real browser checkout must persist the original invitation without qualifying an undelivered order');
+assert.equal(sql("SELECT count(*) FROM public.order_reward_grants WHERE order_id="+q(browserJourney.checkout.orderId)+"::uuid"),'0','checkout alone cannot manufacture a commission');
 assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(activeId)+"::uuid"),'SETTLED',
  'driver offline staged PIN must settle the assigned order through authentic Edge after reconnection');
 assert.equal(sql("SELECT count(*) FROM public.merchant_sale_payment_attempts"),'0');

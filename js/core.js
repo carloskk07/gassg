@@ -409,7 +409,10 @@ function growthAttributionCode(){
     if(/^[A-Z0-9]{5,40}$/.test(value)&&
       Number.isFinite(Number(item?.expiresAt))&&
       Number(item.expiresAt)>Date.now())return value;
-    if(item)localStorage.removeItem(GROWTH_REF_STORAGE);
+    if(item){
+      if(String(state?.user?.referredBy||'').trim().toUpperCase()===value)state.user.referredBy=null;
+      localStorage.removeItem(GROWTH_REF_STORAGE);
+    }
   }catch{}
   const local=String(state?.user?.referredBy||'').trim().toUpperCase();
   return /^[A-Z0-9]{5,40}$/.test(local)?local:'';

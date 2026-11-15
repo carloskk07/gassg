@@ -9,12 +9,12 @@ import {auditProtectedEntryScreensV1980} from './isolated-protected-entry-screen
 
 // Browser exercise of EXISTING frontend code, pointed to localhost ONLY.
 // No production source, config, portal bundle or database is changed.
-export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false,driverActor=null,browserCheckoutBuyer=null}){
+export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor,orderId,merchantId,captureEvidence=false,recentClosedOrderId=null,exerciseCrossSessionDispatch=false,driverActor=null,browserCheckoutBuyer=null,referralJourney=null}){
  assert.equal(process.env.CI,'true');
  assert.equal(process.env.SUPABASE_ACCESS_TOKEN||'','');
  assert.match(api,/^http:\/\/127\.0\.0\.1:54321\/?$/);
  assert.ok(anon.length>20);
- for(const actor of [buyer,owner,adminActor,...(driverActor?[driverActor]:[])]){
+ for(const actor of [buyer,owner,adminActor,...(driverActor?[driverActor]:[]),...(referralJourney?[referralJourney.actor]:[])]){
   assert.ok(actor.session?.access_token?.length>100);
   assert.ok(typeof actor.session?.refresh_token==='string'&&actor.session.refresh_token.length>0,'refresh token required');
   assert.equal(actor.session.user?.id,actor.id);
@@ -47,7 +47,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
  const which=execFileSync('sh',['-c','command -v google-chrome || command -v chromium || command -v chromium-browser'],{encoding:'utf8'}).trim();
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-real-ui-'));
  const chrome=spawn(which,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--remote-allow-origins=*','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore',detached:true});
- let ws,seq=0;
+ let ws,seq=0,journeyEvidence=null;
  const pending=new Map(),violations=[],merchantAccessStatuses=[],adminReadStatuses=[];
  const sleep=ms=>new Promise(done=>setTimeout(done,ms));
  function send(method,params={}){
@@ -327,8 +327,16 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
 
       if(browserCheckoutBuyer){
         assert.equal(exerciseCrossSessionDispatch,true,'run browser checkout after independent dispatch');
-        const ui=await openRole('customer',browserCheckoutBuyer.session,'/#home',{trackExisting:false});
+        if(referralJourney)assert.match(referralJourney.code,/^[A-Z0-9]{6,20}$/);
+        const inbound=referralJourney?'/?ref='+encodeURIComponent(referralJourney.code)+'#home':'/#home';
+        const ui=await openRole('customer',browserCheckoutBuyer.session,inbound,{trackExisting:false});
         await ui.wait("liveRuntime.status==='ready'&&liveRuntime.session?.user?.id==="+JSON.stringify(browserCheckoutBuyer.id),'synthetic buyer ready');
+        if(referralJourney){
+          assert.equal(await ui.evaluate('growthAttributionCode()'),referralJourney.code,'real inbound invitation must be captured');
+          await ui.navigate(origin+'/#home');
+          await ui.wait("liveRuntime.status==='ready'&&liveRuntime.session?.user?.id==="+JSON.stringify(browserCheckoutBuyer.id),'buyer returns without invitation query');
+          assert.equal(await ui.evaluate('growthAttributionCode()'),referralJourney.code,'invitation must survive navigation without the URL parameter');
+        }
         assert.equal(await ui.evaluate("!localStorage.getItem('chama-live-order-id-v1')"),true,'browser buyer must have a clean cart/order');
         // The real public product-first home uses an explicit Água tile;
         // do not assert an optional secondary browse CTA from another layout.
@@ -402,6 +410,29 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         await merchantPage.wait("merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(created.id)+")",'partner sees new UI order',50000);
         await adminPage.navigate(origin+'/?admin=1#admin');
         await adminPage.wait("adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(created.id)+")",'Admin sees new UI order',50000);
+        if(referralJourney){
+          const referrerPage=await openRole('customer',referralJourney.actor.session,'/#refer',{trackExisting:false});
+          await referrerPage.wait("liveRuntime.status==='ready'&&liveRuntime.customerSummaryState==='ready'&&state.user.referralCode==="+JSON.stringify(referralJourney.code)+"&&!!document.querySelector('.earn-summary')",'referrer sees own real financial summary',50000);
+          const observed=JSON.parse(await referrerPage.evaluate("JSON.stringify({availableCents:Math.round(state.user.commissionAvailable*100),pendingCents:Math.round(state.user.commissionPending*100),referredCount:liveRuntime.referredCount,qualifiedCount:liveRuntime.qualifiedReferralCount,cards:Array.from(document.querySelectorAll('.earn-summary .earn-balance-card strong')).map(e=>e.textContent.trim()),link:document.querySelector('.referral-share-card .share-box')?.textContent})"));
+          assert.equal(observed.availableCents,referralJourney.availableCents,'referrer screen must show the matured SQL commission');
+          assert.equal(observed.pendingCents,0,'matured commission cannot remain pending on the screen');
+          assert.equal(observed.referredCount,referralJourney.referredCount);
+          assert.equal(observed.qualifiedCount,referralJourney.qualifiedCount);
+          const format=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+          assert.deepEqual(observed.cards,[format.format(referralJourney.availableCents/100),format.format(0),String(referralJourney.referredCount),String(referralJourney.qualifiedCount)],'visible balance cards must agree with the authenticated summary');
+          assert.ok(observed.link?.includes('?ref='+referralJourney.code),'referrer screen must display its own share link');
+          fs.mkdirSync(evidenceDir,{recursive:true});
+          for(const [name,viewport] of [['14-indicador-comissao-desktop',desktopViewport],['15-indicador-comissao-celular',{width:390,height:844,deviceScaleFactor:1,mobile:true}]]){
+            await referrerPage.send('Emulation.setDeviceMetricsOverride',viewport);
+            await referrerPage.evaluate("document.querySelector('.earn-summary').scrollIntoView({block:'center',behavior:'instant'});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
+            const shot=await referrerPage.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+            const png=Buffer.from(shot.data||'','base64');assert.ok(png.length>6000);
+            fs.writeFileSync(path.join(evidenceDir,name+'.png'),png);
+          }
+          journeyEvidence={scope:'isolated-real-auth-edge-postgres',productionAccess:false,bankTransfer:false,checkout:{orderId:created.id,status:created.status},referrer:{availableCents:observed.availableCents,pendingCents:observed.pendingCents,referredCount:observed.referredCount,qualifiedCount:observed.qualifiedCount}};
+          fs.writeFileSync(path.join(evidenceDir,'rede-indicacao.json'),JSON.stringify(journeyEvidence,null,2)+'\n');
+          console.log('PASS: real invitation link survives navigation -> customer DOM checkout -> partner/Admin same order -> referrer DOM balances and counts match local SQL; desktop/mobile proof.');
+        }
         console.log('PASS: real home CTA -> water cart -> address -> cash quote -> order submitted -> tracking; partner/Admin share new SQL ID.');
       }
       if(driverActor){
@@ -630,6 +661,7 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
   await verifyIndependentContexts();
   assert.deepEqual(violations,[],'browser must never contact production Supabase');
   console.log('PASS: real Chrome buyer, merchant and authorized Admin read the SAME localhost order; unauthorized buyer denied merchant and Admin; no remote backend requests.');
+  return journeyEvidence;
  }finally{
   if(ws){for(const [,p] of pending){clearTimeout(p.timer);p.reject(Error('Browser cleanup'))}ws.close()}
   // Chrome launches helper processes that can recreate profile files even
