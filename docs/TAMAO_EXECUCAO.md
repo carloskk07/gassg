@@ -1,3 +1,58 @@
+## 15/11/2026 — Pix de mobilidade: falha de rede recuperável sem nova cobrança
+
+A revisão reproduziu outro bloqueio na UI existente: a espera da sessão,
+requisição, corpo HTTP ou extrato podia permanecer pendente sem prazo e manter
+`pixBusy` indefinidamente. Quando a resposta de uma recarga se perdia, o Pix era
+apagado da tela; com zero taxas vencidas, também desaparecia o caminho para
+consultar a cobrança original. Falha do extrato escondia a área inteira.
+
+Uma janela de 15 segundos agora limita as quatro etapas. Falha ou timeout
+retira o QR antigo, libera o controle e mantém a conferência da cobrança
+original disponível. Enquanto o resultado for incerto, a interface impede
+nova recarga/taxa até concluir uma consulta de status. Essa consulta continua
+acessível mesmo com o catálogo financeiro indisponível e precisa reler o
+extrato autenticado antes de mostrar Pix ou crédito. O motorista também pode
+consultar a última cobrança após retornar à conta, mesmo sem taxas vencidas.
+Não há repetição automática de compra, cancelamento do Pix no provedor nem
+alteração de saldo. Timeout de outra sessão não interfere na conta atual.
+
+Teste novo executa o código real com falha em sessão, conexão, corpo e extrato,
+respostas tardias, recuperação por `status` e troca de conta. A prova é local
+e sintética; a publicação e a integração constam na PR desta continuação.
+
+---
+
+## 15/11/2026 — Publicidade: leitura financeira ordenada e continuidade entre contas
+
+Retomada de `main=0fe5416d3e4e9290bf2f1a3e54b1ec896bdaeead` (PR #1004),
+sem reiniciar as homologações pagas. Um teste com respostas HTTP controladas
+reproduziu o retorno de uma consulta antiga depois da leitura pós-pagamento:
+o histórico voltava de `payment_approved` para `checkout_ready`, podendo
+reexibir o Pix original já pago. A confirmação automática escrevia seu próprio
+snapshot fora da sequência da consulta comum, mantendo a mesma corrida.
+
+**Correção:** consulta manual, atualização da tela e releitura após conferir
+o provedor agora usam a mesma sequência, vinculada ao titular e à geração da
+sessão. Somente a resposta da leitura mais recente pode atualizar o histórico.
+Uma resposta anterior ao logout é ignorada mesmo ao entrar novamente na mesma
+conta. A conferência manual só anuncia pagamento depois de uma leitura separada
+do histórico do titular confirmar a mesma situação. Não há nova autoridade
+financeira, cobrança, crédito, publicação ou alteração do backend.
+
+**Continuidade da publicidade:** trocar de conta limpa histórico e operações
+locais da conta anterior e carrega as campanhas do titular atual. Respostas
+antigas não limpam o bloqueio de uma nova operação, não exibem confirmações
+na outra conta e não interrompem a verificação automática do novo titular.
+O recibo distingue campanha ativa, pausada, encerrada e aguardando publicação,
+sem mudar o prazo ou o estado da veiculação. O teste novo cobre sobreposição,
+Pix antigo, logout/login, troca de conta, leitura de confirmação divergente,
+troca de ciclo automático e situação real da campanha. Os testes são sintéticos;
+verificar os checks e a publicação na PR desta continuação antes de declarar
+produção atualizada. Mantidos os critérios comerciais das 19 frentes, sem
+promover estas correções a uma homologação bancária integral.
+
+---
+
 ## 15/11/2026 — Estorno consultável no Cliente/Admin e teste antigo fora da repetição
 
 Continuidade de `main=60829f2c27391011184fe5b4087de2d91d11e8dc` (PR #1003),

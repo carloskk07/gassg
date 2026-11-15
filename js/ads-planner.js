@@ -153,6 +153,7 @@ let tamaoAdsDraftRequestId=null;
 let tamaoAdsDraftBusy=false;
 let tamaoAdsMyState={userId:null,rows:[],status:'idle',fixedFeeSalesEnabled:false,
  homologationCampaignId:null,homologationExpiresAt:null};
+let tamaoAdsMyReadSeq=0;
 let tamaoAdsPurchaseBusy=false;
 let tamaoAdsRefundBusy=false;
 const tamaoAdsRefundRequestIds=new Map();
@@ -160,6 +161,44 @@ let tamaoAdsPurchaseScriptPromise=null;
 function tamaoAdsAccountVerified(){
   const u=globalThis.liveRuntime?.session?.user;
   return globalThis.liveReady?.()===true&&u?.id&&u.is_anonymous!==true&&!!u.email_confirmed_at;
+}
+function tamaoAdsSessionScope(){
+ return {userId:String(globalThis.liveRuntime?.session?.user?.id||''),
+  generation:Number(globalThis.liveRuntime?.authGeneration||0)};
+}
+function tamaoAdsSessionMatches(scope){
+ const current=tamaoAdsSessionScope();
+ return !!scope.userId&&tamaoAdsAccountVerified()&&
+  current.userId===scope.userId&&current.generation===scope.generation;
+}
+function tamaoAdsSyncOwner(){
+ const scope=tamaoAdsSessionScope();
+ if(!tamaoAdsAccountVerified())scope.userId='';
+ if(tamaoAdsMyState.userId!==scope.userId||
+    tamaoAdsMyState.authGeneration!==scope.generation){
+  ++tamaoAdsMyReadSeq;
+  tamaoAdsAutoPaymentStop();
+  tamaoAdsDraftBusy=false;tamaoAdsDraftRequestId=null;
+  tamaoAdsPurchaseBusy=false;tamaoAdsRefundBusy=false;
+  tamaoAdsRefundRequestIds.clear();
+  tamaoAdsMyState={userId:scope.userId,authGeneration:scope.generation,
+   rows:[],status:'idle',fixedFeeSalesEnabled:false,
+   homologationCampaignId:null,homologationExpiresAt:null};
+ }
+ return scope;
+}
+function tamaoAdsPaymentText(campaign){
+ const payment=String(campaign?.fixedFeeStatus||'');
+ if(payment==='payment_approved'){
+  const status=String(campaign.effectiveStatus||campaign.status||'');
+  if(status==='active')return 'Pagamento aprovado pelo provedor; campanha ativa.';
+  if(status==='paused')return 'Pagamento aprovado pelo provedor; campanha pausada.';
+  if(['ended','expired'].includes(status))return 'Pagamento aprovado pelo provedor; veiculação encerrada.';
+  return 'Pagamento aprovado pelo provedor; aguarda publicação.';
+ }
+ return payment==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
+  payment==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
+  payment==='checkout_ready'?'Pagamento ainda não confirmado.':'';
 }
 async function tamaoAdsAccountStart(){
   const email=String(document.getElementById('sponsor-account-email')?.value||'').trim();
@@ -171,6 +210,7 @@ async function tamaoAdsAccountStart(){
   }catch(e){toast(String(e?.message||'Não foi possível confirmar o e-mail.'))}
 }
 function tamaoAdsCampaignForm(){
+  tamaoAdsSyncOwner();
   if(!tamaoAdsAccountVerified())
     return '<section class="section"><div class="section-head"><div>'+
       '<span class="section-kicker">PUBLIQUE COM SEGURANÇA</span>'+
@@ -201,13 +241,11 @@ function tamaoAdsCampaignForm(){
       const canBuy=(s.fixedFeeSalesEnabled===true||testAuthorized)&&
         c.status==='approved'&&validPlan&&!pixReady&&
         (bought===''||bought==='checkout_ready'||bought==='reserved');
-      const payment=bought==='payment_approved'?'Pagamento aprovado pelo provedor; aguarda publicação.':
-        bought==='payment_reversed'?'Pagamento revertido; anúncio pausado.':
-        bought==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
-        bought==='checkout_ready'?'Pagamento ainda não confirmado.':'';
+      const payment=tamaoAdsPaymentText(c);
       const refundStatus=String(c.refundCaseStatus||'');
       const checkPayment=bought&&bought!=='payment_reversed'?
-        '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\''+id+'\')">'+
+        '<button type="button" class="secondary small" onclick="tamaoAdsVerifyPayment(\''+id+'\')" '+
+        (tamaoAdsPurchaseBusy?'disabled':'')+'>'+
         'Verificar pagamento</button>':'';
       const refundAction=bought==='payment_approved'&&!refundStatus?
         '<div class="card flat"><label for="ads-refund-choice-'+id+'">Motivo da solicitação</label>'+
@@ -292,6 +330,7 @@ function tamaoAdsCampaignForm(){
     '</section>';
 }
 async function tamaoAdsSubmitCampaign(){
+  const scope=tamaoAdsSyncOwner(),same=()=>tamaoAdsSessionMatches(scope);
   if(tamaoAdsDraftBusy)return;
   if(!tamaoAdsAccountVerified())return toast('Confirme o e-mail antes de enviar.');
   const val=id=>String(document.getElementById(id)?.value||'').trim();
@@ -319,23 +358,25 @@ async function tamaoAdsSubmitCampaign(){
       action:'submit',requestId:tamaoAdsDraftRequestId,advertiser,title,
       description,city,state,destination,budgetCents,durationDays
     });
+    if(!same())return;
     if(reply?.source!=='ads_independent_submit_v1_884'||reply?.paymentCreated!==false)
       throw Error('Não foi possível confirmar o cadastro do anúncio.');
     tamaoAdsDraftRequestId=null;
     if(result)result.textContent='Campanha recebida. Nenhuma cobrança foi gerada.';
     toast('Campanha enviada para análise sem cobrança.');
     await tamaoAdsMyRefresh({quiet:true});
-  }catch(e){if(result)result.textContent=String(e?.message||'Falha ao enviar. Tente novamente.')}
-  finally{tamaoAdsDraftBusy=false;if(button)button.disabled=false}
+  }catch(e){if(same()&&result)result.textContent=String(e?.message||'Falha ao enviar. Tente novamente.')}
+  finally{if(same()){tamaoAdsDraftBusy=false;if(button)button.disabled=false}}
 }
 // V1.946: returning from Mercado Pago already points to #sponsors.
 // Recheck the advertiser's ORIGINAL checkout without requiring a new click.
 // Only the provider-authoritative reconcile RPC and a SECOND owner-scoped
 // ledger read can label a payment approved. Never create a checkout here.
 // Three bounded attempts (1.2s, +3m, +6m) stay inside 8/hour API quota.
-const tamaoAdsAutoPayment={userId:null,campaignId:null,tries:0,
+const tamaoAdsAutoPayment={userId:null,campaignId:null,tries:0,epoch:0,
  startedAt:0,timer:null,busy:false};
 function tamaoAdsAutoPaymentStop(){
+ ++tamaoAdsAutoPayment.epoch;
  if(tamaoAdsAutoPayment.timer!=null&&typeof clearTimeout==='function')
   clearTimeout(tamaoAdsAutoPayment.timer);
  tamaoAdsAutoPayment.timer=null;
@@ -359,15 +400,18 @@ function tamaoAdsAutoReconcileOnReturn(userId){
  Object.assign(tamaoAdsAutoPayment,{
   userId,campaignId:match.id,tries:0,startedAt:Date.now(),busy:false
  });
- const same=()=>tamaoAdsAutoPayment.userId===userId&&
+ const epoch=tamaoAdsAutoPayment.epoch,scope=tamaoAdsSessionScope();
+ const current=()=>tamaoAdsAutoPayment.epoch===epoch;
+ const same=()=>current()&&tamaoAdsSessionMatches(scope)&&tamaoAdsAutoPayment.userId===userId&&
    tamaoAdsAutoPayment.campaignId===match.id&&
    String(globalThis.liveRuntime?.session?.user?.id||'')===userId&&
    tamaoAdsAccountVerified()&&route()==='sponsors';
  const poll=async()=>{
+  if(!current())return;
   tamaoAdsAutoPayment.timer=null;
   if(!same()||tamaoAdsAutoPayment.tries>=3||
     Date.now()-tamaoAdsAutoPayment.startedAt>900000){
-   tamaoAdsAutoPaymentStop();return;
+   if(current())tamaoAdsAutoPaymentStop();return;
   }
   if(document.visibilityState==='hidden'){
    tamaoAdsAutoPayment.timer=setTimeout(poll,180000);return;
@@ -383,54 +427,48 @@ function tamaoAdsAutoReconcileOnReturn(userId){
      (result.status==='payment_reversed'||
       (result.status==='payment_approved'&&result.paymentApproved===true))){
     // Never rely only on the PSP response or browser query string.
-    const ledger=await liveInvoke('ads-independent',{action:'mine'});
+    const applied=await tamaoAdsMyRefresh({quiet:true,autoReconcile:false});
     if(!same())return;
-    if(ledger?.source==='ads_independent_mine_v1_884'&&
-      ledger.noCharge===true&&Array.isArray(ledger.rows)&&
-      ledger.rows.some(x=>x.id===match.id&&x.fixedFeeStatus===result.status)){
-     tamaoAdsMyState={userId,rows:ledger.rows.slice(0,30),status:'ready',
-      fixedFeeSalesEnabled:ledger.fixedFeeSalesEnabled===true,
-      homologationCampaignId:String(ledger.homologationCampaignId||'')||null,
-      homologationExpiresAt:String(ledger.homologationExpiresAt||'')||null};
+    const campaign=tamaoAdsMyState.rows.find(x=>x.id===match.id);
+    if(applied===true&&campaign?.fixedFeeStatus===result.status){
      tamaoAdsAutoPaymentStop();
-     if(route()==='sponsors')render();
-     toast(result.status==='payment_approved'
-      ?'Pagamento da campanha confirmado. Aguarda liberação da veiculação.'
-      :'Pagamento revertido. A campanha não será publicada.');
+     toast(tamaoAdsPaymentText(campaign));
      return;
     }
    }
   }catch{/* An unverified reply cannot create payment or change campaign status. */}
-  finally{tamaoAdsAutoPayment.busy=false}
+  finally{if(current())tamaoAdsAutoPayment.busy=false}
   if(same()&&tamaoAdsAutoPayment.tries<3)
    tamaoAdsAutoPayment.timer=setTimeout(poll,180000);
-  else tamaoAdsAutoPaymentStop();
+  else if(current())tamaoAdsAutoPaymentStop();
  };
  tamaoAdsAutoPayment.timer=setTimeout(poll,1200);
 }
 async function tamaoAdsMyRefresh({quiet=false,autoReconcile=true}={}){
-  const userId=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(!tamaoAdsAccountVerified())return;
+  const scope=tamaoAdsSyncOwner(),userId=scope.userId;
+  if(!tamaoAdsSessionMatches(scope))return false;
+  const seq=++tamaoAdsMyReadSeq;
+  const same=()=>seq===tamaoAdsMyReadSeq&&tamaoAdsSessionMatches(scope);
   try{
     const r=await liveInvoke('ads-independent',{action:'mine'});
     if(r?.source!=='ads_independent_mine_v1_884'||r?.noCharge!==true||!Array.isArray(r.rows))
       throw Error('Consulta não confirmada.');
-    if(userId!==String(globalThis.liveRuntime?.session?.user?.id||''))return;
-    tamaoAdsMyState={userId,rows:r.rows.slice(0,30),status:'ready',
+    if(!same())return false;
+    tamaoAdsMyState={userId,authGeneration:scope.generation,rows:r.rows.slice(0,30),status:'ready',
       fixedFeeSalesEnabled:r.fixedFeeSalesEnabled===true,
       homologationCampaignId:String(r.homologationCampaignId||'')||null,
       homologationExpiresAt:String(r.homologationExpiresAt||'')||null};
     if(!quiet)toast('Campanhas atualizadas.');
     if(route()==='sponsors')render();
     if(autoReconcile)tamaoAdsAutoReconcileOnReturn(userId);return true;
-  }catch(e){if(!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'));return false;}
+  }catch(e){if(same()&&!quiet)toast(String(e?.message||'Não foi possível consultar as campanhas.'));return false;}
 }
 
 async function tamaoAdsCopyPix(campaignId){
- const actor=String(globalThis.liveRuntime?.session?.user?.id||'');
- if(!tamaoAdsAccountVerified()||!actor)return false;
+ const scope=tamaoAdsSyncOwner(),actor=scope.userId;
+ if(!tamaoAdsSessionMatches(scope))return false;
  if(await tamaoAdsMyRefresh({quiet:true})!==true)return false;
- if(actor!==String(globalThis.liveRuntime?.session?.user?.id||'')||tamaoAdsMyState.userId!==actor)return false;
+ if(!tamaoAdsSessionMatches(scope)||tamaoAdsMyState.userId!==actor)return false;
  const row=tamaoAdsMyState.rows.find(r=>r.id===campaignId);
  if(row?.fixedFeeStatus!=='checkout_ready'||row.fixedFeePixPayable!==true||
     Date.parse(String(row.fixedFeePixExpiresAt||''))<=Date.now()+60000)return false;
@@ -439,6 +477,7 @@ async function tamaoAdsCopyPix(campaignId){
 }
 
 async function tamaoAdsBuyCampaign(campaignId){
+ const scope=tamaoAdsSyncOwner(),same=()=>tamaoAdsSessionMatches(scope);
  if(tamaoAdsPurchaseBusy)return;
  if(!tamaoAdsAccountVerified())return toast('Confirme seu e-mail antes de contratar.');
  if(!/^[0-9a-f-]{36}$/i.test(campaignId))return toast('Campanha inválida.');
@@ -459,16 +498,20 @@ async function tamaoAdsBuyCampaign(campaignId){
    }
    await tamaoAdsPurchaseScriptPromise;
   }
+  if(!same())return;
   if(typeof globalThis.tamaoAdsPurchaseCampaign!=='function')
    throw Error('Pagamento indisponível.');
   await globalThis.tamaoAdsPurchaseCampaign(campaignId);
  }catch(error){
-  tamaoAdsPurchaseScriptPromise=null;
-  toast(String(error?.message||'Falha ao iniciar pagamento.'));
- }finally{tamaoAdsPurchaseBusy=false}
+  if(same()){
+   tamaoAdsPurchaseScriptPromise=null;
+   toast(String(error?.message||'Falha ao iniciar pagamento.'));
+  }
+ }finally{if(same())tamaoAdsPurchaseBusy=false}
 }
 
 async function tamaoAdsRequestRefund(campaignId){
+ const scope=tamaoAdsSyncOwner(),same=()=>tamaoAdsSessionMatches(scope);
  if(tamaoAdsRefundBusy)return;
  if(!tamaoAdsAccountVerified())return toast('Entre na sua conta para solicitar reembolso.');
  const text=tamaoAdsRefundReasonText(campaignId);
@@ -481,18 +524,22 @@ async function tamaoAdsRequestRefund(campaignId){
    action:'refund-request',campaignId,requestId:tamaoAdsRefundRequestIds.get(campaignId),
    reason:text
   });
+  if(!same())return;
   if(r?.source!=='ads_independent_refund_request_v1_887'||
     r?.refundIssued!==false||!r.caseId)throw Error('Solicitação não confirmada pelo servidor.');
   toast('Solicitação recebida. A campanha será pausada durante a análise.');
   await tamaoAdsMyRefresh({quiet:true});
- }catch(e){toast(String(e?.message||'Não foi possível registrar o pedido.'))}
- finally{tamaoAdsRefundBusy=false}
+ }catch(e){if(same())toast(String(e?.message||'Não foi possível registrar o pedido.'))}
+ finally{if(same())tamaoAdsRefundBusy=false}
 }
 
 async function tamaoAdsVerifyPayment(campaignId){
+ tamaoAdsSyncOwner();
  if(tamaoAdsPurchaseBusy)return;
  if(!tamaoAdsAccountVerified())return toast('Entre na conta antes de consultar.');
+ const scope=tamaoAdsSessionScope(),same=()=>tamaoAdsSessionMatches(scope);
  tamaoAdsPurchaseBusy=true;
+ render();
  try{
   if(typeof globalThis.tamaoAdsReconcileCampaign!=='function'){
    if(!tamaoAdsPurchaseScriptPromise){
@@ -507,14 +554,27 @@ async function tamaoAdsVerifyPayment(campaignId){
    }
    await tamaoAdsPurchaseScriptPromise;
   }
+  if(!same())return;
   if(typeof globalThis.tamaoAdsReconcileCampaign!=='function')
    throw Error('Consulta de pagamento não disponível.');
-  await globalThis.tamaoAdsReconcileCampaign(campaignId);
-  await tamaoAdsMyRefresh({quiet:true});
+  const result=await globalThis.tamaoAdsReconcileCampaign(campaignId);
+  if(!same()||!result)return;
+  const applied=await tamaoAdsMyRefresh({quiet:true});
+  if(!same())return;
+  if(applied!==true)throw Error('A consulta não atualizou o histórico. Confira a campanha antes de repetir.');
+  const campaign=tamaoAdsMyState.rows.find(c=>c.id===campaignId);
+  if(['payment_approved','payment_reversed'].includes(result.status)){
+   if(campaign?.fixedFeeStatus!==result.status||
+     (result.status==='payment_approved'&&result.paymentApproved!==true))
+    throw Error('O provedor e o histórico ainda precisam de conciliação. Atualize a campanha antes de repetir.');
+   toast(tamaoAdsPaymentText(campaign));
+  }else toast('A confirmação do pagamento ainda não foi localizada no provedor.');
  }catch(e){
-  tamaoAdsPurchaseScriptPromise=null;
-  toast(String(e?.message||'Não foi possível conferir o pagamento.'));
- }finally{tamaoAdsPurchaseBusy=false}
+  if(same()){
+   tamaoAdsPurchaseScriptPromise=null;
+   toast(String(e?.message||'Não foi possível conferir o pagamento.'));
+  }
+ }finally{if(same()){tamaoAdsPurchaseBusy=false;render()}}
 }
 
 async function tamaoAdsShowCityPublic(){
