@@ -29,7 +29,9 @@ const sql=statement=>new Promise((resolve,reject)=>{
 });
 const quote=v=>"'"+String(v).replaceAll("'","''")+"'";
 const ident=v=>{assert.match(v,/^[a-z][a-z0-9_]*$/);return '"'+v+'"'};
-const json=async statement=>JSON.parse((await sql(statement)).trim().split('\n').at(-1));
+// PostgreSQL json_agg may insert whitespace/newlines between its rows.
+// Parse the complete single SELECT result, preserving every receipt.
+const json=async statement=>JSON.parse((await sql(statement)).trim());
 const admin={from(table){
  const filters=[];let columns='*',limit=1001;
  const run=async single=>{
