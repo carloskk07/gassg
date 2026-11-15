@@ -6999,7 +6999,7 @@ async function adminFinanceRealAction(operation,choice=''){
   const pkg=state.data?.catalog?.packages?.find(p=>p.packageKey===choice);
   const pending=state.data?.history?.purchases?.some(p=>['prepared','awaiting_payment'].includes(p.status));
   const paid=state.data?.history?.purchases?.some(p=>
-   p.status==='paid'&&p.packageKey===choice);
+   ['paid','refunded'].includes(p.status)&&p.packageKey===choice);
   if(!pkg||pending||paid||state.data.catalog.couponSalesEnabled!==true||
      document.getElementById('admin-finance-real-coupon-terms')?.checked!==true||
      pkg.termsVersion!=='clube_coupon_terms_v1_813'||!consent())return;
@@ -7052,12 +7052,13 @@ async function adminFinanceRealAction(operation,choice=''){
   if(actor!==String(adminRuntime.session?.user?.id||'')||!adminFinanceRealAllowed(key))return;
   if(key==='coupons'){
    if(result?.ok!==true||!['purchase','check'].includes(operation))throw Error('Fatura real não confirmada.');
-   if(result.status==='paid')adminFinanceRealClearPayment();
+   if(['paid','refunded','cancelled','expired'].includes(result.status))adminFinanceRealClearPayment();
    else adminFinanceRealRememberPayment(key,result);
    state.message=result.status==='paid'
     ?'Pix pago e registrado no TAMÃO. Confira os benefícios e a situação do pagamento.'
+    :result.status==='refunded'?'Estorno registrado no TAMÃO. A compra está encerrada; os cupons devolvidos não podem ser utilizados.'
     :'Fatura original consultada. Se pagou, verifique o status; não gere outro Pix.';
-   if(operation==='purchase'||result.status==='paid'){
+   if(operation==='purchase'||['paid','refunded','cancelled','expired','review_required'].includes(result.status)){
     try{
      const updated=await adminFinanceRealApi('coupon-credit-pix',{action:'my-vouchers'});
      if(updated?.source==='clube_coupon_paid_my_vouchers_v1'&&
@@ -7083,7 +7084,7 @@ async function adminFinanceRealAction(operation,choice=''){
     state.data.billing=updated;adminFinanceRealClearPayment();
     if(result.entitlementApplied===true){
      adminFinanceRealMerchantStopWatch(state);
-     state.message='Pagamento confirmado e créditos liberados na carteira. A próxima validação é o consumo em pedido legítimo.';
+     state.message='Pagamento confirmado e créditos liberados na carteira. Consumo e reversão devem ser testados no ambiente isolado antes da operação comercial.';
      adminFinanceMerchantReceiptEvidence(state,result);
     }else{
      adminFinanceRealMerchantWatch(state,body.merchantId);
@@ -7150,7 +7151,13 @@ function adminFinanceRealPanel(key){
   const purchases=known.history?.purchases||[],packs=known.catalog?.packages||[];
   const pending=purchases.filter(p=>['prepared','awaiting_payment'].includes(p.status));
   const paid=purchases.filter(p=>p.status==='paid');
+  const refunded=purchases.filter(p=>p.status==='refunded');
   html+='<p>Compras desta conta: '+purchases.length+' · Ofertas comerciais autorizadas: '+packs.length+'</p>';
+  html+=refunded.slice(0,3).map(p=>'<div class="notice" role="status" aria-label="Compra de cupons estornada">'+
+   '<strong>Estorno registrado no TAMÃO · '+money(p.amountCents)+'</strong>'+
+   '<p>Compra encerrada. Os cupons desta compra foram cancelados. Não repita o pagamento para comprovar esta etapa.</p>'+
+   (p.refundStatus==='refunded'?'<p>Protocolo de devolução concluído.</p>':'<p>Confira o protocolo de devolução no histórico financeiro.</p>')+
+   action('Conferir compra original','adminFinanceRealAction(\'check\',\''+esc(p.invoiceId)+'\')')+'</div>').join('');
   if(paid.length)html+=paid.slice(0,3).map(p=>{
    const count=(known.history?.vouchers||[]).filter(v=>v.invoiceId===p.invoiceId&&v.status==='issued').length;
    // Never display one invoice's machine observations beside another paid Pix.
@@ -7187,12 +7194,12 @@ function adminFinanceRealPanel(key){
   if(pending.length)html+='<p class="notice">Fatura original aguardando confirmação. Consulta automática a cada 50 segundos nesta tela.</p>'+
    pending.slice(0,3).map(p=>action('Verificar pagamento agora ('+money(p.amountCents)+')',
     'adminFinanceRealAction(\'check\',\''+esc(p.invoiceId)+'\')')).join('');
-  else if(!paid.length&&packs.length)html+='<p><a href="https://tamao.com.br/#terms" target="_blank" rel="noopener noreferrer">Ler os termos completos do Clube TAMÃO</a></p>'+
+  else if(!paid.length&&!refunded.length&&packs.length)html+='<p><a href="https://tamao.com.br/#terms" target="_blank" rel="noopener noreferrer">Ler os termos completos do Clube TAMÃO</a></p>'+
    '<label class="check-row"><input type="checkbox" id="admin-finance-real-coupon-terms"> Li e aceito os termos, a validade e as regras de reembolso do pacote; sei que pode não haver revenda ativa.</label>'+
    packs.filter(p=>p.termsVersion==='clube_coupon_terms_v1_813').map(p=>
     '<p><strong>'+esc(p.title)+' · '+money(p.priceCents)+'</strong></p>'+
     action('Gerar checkout real deste pacote','adminFinanceRealAction(\'purchase\',\''+esc(p.packageKey)+'\')')).join('');
-  else html+='<p class="notice">Venda de cupons bloqueada pelos controles comerciais existentes. Regularize a Política comercial; o Admin não ignora esse bloqueio.</p>';
+  else if(!paid.length&&!refunded.length)html+='<p class="notice">Venda de cupons bloqueada pelos controles comerciais existentes. Regularize a Política comercial; o Admin não ignora esse bloqueio.</p>';
  }else if(key==='merchants'&&known){
   const billing=known.billing,charge=known.status?.charge;
   if(!billing?.accounts?.length)html+='<p class="notice">Esta conta não possui uma revenda vinculada como titular ou gerente. A homologação usará uma conta legítima; não é necessário ativar suas vendas.</p>';
@@ -7322,7 +7329,7 @@ function adminFinanceHomologationView(d){
  const remote=evidenceState.data?.modules?.find(m=>m.key===chosen.key);
  const realState=adminFinanceRealState();
  const couponPaid=chosen.key==='coupons'&&realState.loadedKey==='coupons'&&
-  (realState.data?.history?.purchases||[]).some(p=>p.status==='paid');
+  (realState.data?.history?.purchases||[]).some(p=>['paid','refunded'].includes(p.status));
  const lab=adminRuntime.financeLab||{};
  const readiness=lab.liveReadiness||null;
  const accountReady=readiness?.providerReady===true&&readiness.accountBound===true;

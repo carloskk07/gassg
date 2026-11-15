@@ -1217,6 +1217,7 @@ async function adminFinanceHomologationModules(admin:any,actorId:string){
   // proof of bank settlement, nor evidence that a related entitlement was issued.
   const indicators=[
     ["couponPaid","clube_coupon_paid_invoices","status","paid"],
+    ["couponRefunded","clube_coupon_paid_invoices","status","refunded"],
     ["couponNetVerified","clube_coupon_paid_invoices","net_proceeds_verified_at",null],
     ["mobilityPaid","mobility_fee_pix_invoices_v1_837","status","paid"],
     ["merchantCompleted","merchant_billing_provider_charges","status","completed"],

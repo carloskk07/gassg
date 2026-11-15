@@ -63,6 +63,8 @@ jobs:
         run: node tests/merchant-billing-entitlement.mjs
       - name: Next financial homologation reuses receipts and prepares an editable owned ad
         run: node tests/admin-finance-next-homologation.mjs
+      - name: Refunded coupon purchase remains completed without another charge
+        run: node tests/admin-finance-refunded-receipt.mjs
       - name: Paid advertising receipt follows publication and provides the correct next task
         run: node tests/admin-finance-ad-receipt-lifecycle.mjs
       - name: Finance approves and authorizes the exact owned ad before one recoverable checkout
