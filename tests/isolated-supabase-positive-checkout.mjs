@@ -5,6 +5,7 @@ import {verifyIsolatedLivePortals} from './isolated-live-portal-browser.mjs';
 import {startOwnerLocalDemo} from '../scripts/owner-local-demo-server.mjs';
 import {verifyOwnerLocalDemoBrowser} from './owner-local-demo-browser.mjs';
 import {verifyIsolatedPrivilegedRpc} from './isolated-discovery-privileged-rpc.mjs';
+import {verifyAnonymousDraftEditGuard} from './isolated-discovery-anonymous-ownership.mjs';
 
 // Positive quote -> checkout -> read in a DISPOSABLE local Supabase stack.
 // Synthetic cash-on-delivery only. No billing provider, Pix or paid rewards.
@@ -59,6 +60,7 @@ const buyer=await createActor('buyer');
 const owner=await createActor('owner');
 const outsider=await createActor('outsider');
 const adminActor=await createActor('admin');
+verifyAnonymousDraftEditGuard({sql,q,owner});
 const merchantId='00000000-0000-4000-8000-000000000026';
 const cnpj='00000000000000'; // explicit fictitious test identifier, never a genuine verification
 const postalCode='97300000';
