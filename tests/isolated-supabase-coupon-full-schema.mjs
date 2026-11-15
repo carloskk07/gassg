@@ -269,8 +269,47 @@ assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements W
 assert.equal(JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
  q(orderRef)+"::uuid)::text;")).status,'ORDER_IN_PROGRESS',
  'financial reporting cannot classify failed PIN as a completed sale');
+// The correct PIN alone is insufficient: the same authenticated Edge
+// endpoint must refuse a sale without confirmation of payment. No new
+// version, wallet credit, reimbursement or settled event may be created.
+const noPaymentCoupon=await callEdge('complete-delivery',ownerToken,{
+ orderId:orderRef,pin:buyerDispatch.body.deliveryPin,
+ expectedVersion:couponAfterWrong.body.version,paymentConfirmed:false
+},'ci-coupon-no-payment-'+randomUUID());
+assert.equal(noPaymentCoupon.status,409,'cash-on-delivery coupon order needs payment confirmation');
+assert.equal(noPaymentCoupon.body.error,'PAYMENT_CONFIRMATION_REQUIRED');
+const afterNoPayment=await callEdge('get-order',buyerToken,{orderId:orderRef});
+assert.equal(afterNoPayment.status,200);
+assert.equal(afterNoPayment.body.status,'ARRIVING');
+assert.equal(afterNoPayment.body.version,couponAfterWrong.body.version,
+ 'unpaid coupon delivery must not advance order version');
+assert.equal(sql("SELECT consumed_at IS NULL FROM public.order_delivery_secrets WHERE order_id="+
+ q(orderRef)+"::uuid"),'t');
+assert.equal(sql("SELECT count(*) FROM public.order_events WHERE order_id="+
+ q(orderRef)+"::uuid AND event_type='SETTLED'"),'0');
+assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements WHERE order_id="+
+ q(orderRef)+"::uuid"),'0');
+assert.equal(sql("SELECT count(*) FROM public.clube_coupon_paid_order_applications WHERE order_id="+
+ q(orderRef)+"::uuid"),'1');
+assert.equal(JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("+
+ q(orderRef)+"::uuid)::text;")).status,'ORDER_IN_PROGRESS');
+// A buyer who happens to know the PIN cannot impersonate the assigned
+// merchant or mark a coupon-backed delivery as paid.
+const forbiddenCouponCompletion=await callEdge('complete-delivery',buyerToken,{
+ orderId:orderRef,pin:buyerDispatch.body.deliveryPin,
+ expectedVersion:afterNoPayment.body.version,paymentConfirmed:true
+},'ci-coupon-foreign-delivery-'+randomUUID());
+assert.equal(forbiddenCouponCompletion.status,403,
+ 'customer cannot complete merchant-only delivery with the correct PIN');
+assert.equal(forbiddenCouponCompletion.body.error,'MERCHANT_ACCESS_DENIED');
+assert.equal(sql("SELECT status FROM public.orders WHERE id="+q(orderRef)+"::uuid"),
+ 'ARRIVING','wrong actor must not settle voucher-backed order');
+assert.equal(sql("SELECT count(*) FROM public.merchant_cashback_reimbursements WHERE order_id="+
+ q(orderRef)+"::uuid"),'0');
+assert.equal(sql("SELECT count(*) FROM public.clube_coupon_paid_order_applications WHERE order_id="+
+ q(orderRef)+"::uuid"),'1');
 const completedBody={orderId:orderRef,pin:buyerDispatch.body.deliveryPin,
- expectedVersion:couponAfterWrong.body.version,paymentConfirmed:true};
+ expectedVersion:afterNoPayment.body.version,paymentConfirmed:true};
 const completeKey='ci-coupon-complete-'+randomUUID();
 const settled=await callEdge('complete-delivery',ownerToken,completedBody,completeKey);
 assert.equal(settled.status,200,
