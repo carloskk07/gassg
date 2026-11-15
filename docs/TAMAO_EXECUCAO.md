@@ -1,3 +1,39 @@
+## 14/11/2026 — Recuperação automática do Admin e consultas sem sobreposição
+
+Continuidade de `main=47ac1f99d43380fed55bff2a78e9e4cfc159cfcc` (PR #1002),
+sem exigir revendas ou novos pagamentos. Leituras de seis horas de produção
+encontraram 579 respostas HTTP 200 do Admin (p95 de 8.225 ms; máximo de
+21.051 ms) e uma resposta HTTP 500 de 24.634 ms. Isso confirma lentidão/falha
+pontual em produção, mas não identifica a causa da falha anterior no runner.
+Advisories de saúde não retornaram ocorrências. Avisos de índices e ACL
+genéricos não foram promovidos a vulnerabilidades nem alterados em massa.
+
+**Defeitos reproduzidos:** `adminRefresh()` não marcava a consulta pendente,
+permitindo sobreposição de clique manual e polling; depois de uma falha o
+status passava a `unavailable`, mas o timer chamava `adminPoll()` apenas
+quando `adminReady()` era verdadeiro. O painel ficava sem recuperação
+automática, embora a sessão válida permanecesse disponível.
+
+**Correção:** uma consulta manual pendente bloqueia outro clique e o polling.
+A releitura obrigatória após uma ação continua criando uma consulta nova,
+para não reutilizar estado anterior à ação. O timer alcança o guard de
+recuperação, que só tenta o summary após um minuto, com aba visível, origem
+segura, sessão permanente presente e nenhuma ação/consulta concorrente.
+401 e acesso negado não são repetidos. Logout e troca de conta mantêm o
+cancelamento lógico das respostas antigas; mudança de papel limpa dados
+sensíveis e retira a área que deixou de ser permitida.
+
+**Prova necessária desta entrega:** teste unitário do código real cobre
+concorrência, releitura após ação, timeout, cooldown, aba oculta, troca de
+papel, origem inválida, sessão anônima, 401 e 403. O teste Chrome integrado
+interrompe somente leituras do Admin, restaura a conexão e exige que o timer
+recupere o mesmo pedido por Auth/Edge/PostgreSQL, sem clique nem replay de
+escrita. Conferir os checks e o SHA publicados na PR desta continuação.
+Nenhuma nova cobrança, devolução, crédito ou abertura comercial é criada.
+O contador histórico de 19 frentes não muda por esta correção de estabilidade.
+
+---
+
 ## 14/11/2026 — Prioridade corrigida: concluir tecnicamente antes de captar revendas
 
 O proprietário reiterou que não buscará revendas para terminar um site incompleto.

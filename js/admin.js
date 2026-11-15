@@ -57,6 +57,7 @@ const adminRuntime={
   session:null,
   data:null,
   actionPending:false,
+  refreshPending:0,
   error:null,
   notice:null,
   bootstrapStatus:null,
@@ -419,6 +420,7 @@ async function adminSendLogin(email){
 async function adminSignOut(){
   // Revoke every in-flight privileged read before the asynchronous sign-out.
   adminRuntime.refreshSeq++;
+  adminRuntime.refreshPending=0;
   adminRuntime.status='unauthenticated';
   adminRuntime.session=null;
   adminRuntime.data=null;
@@ -488,7 +490,9 @@ async function adminSignOut(){
 
 async function adminRefresh({silent=false}={}){
   if(!adminRuntime.client)return null;
+  if(!silent&&adminRuntime.refreshPending)return null;
   const seq=++adminRuntime.refreshSeq;
+  adminRuntime.refreshPending=seq;
   if(!silent)render();
   try{
     // A summary is safe to retry once after a transient network/5xx failure.
@@ -591,11 +595,13 @@ async function adminRefresh({silent=false}={}){
       return null;
     }
     adminRuntime.status='unavailable';
+    adminRuntime.lastPollAt=Date.now();
     adminRuntime.error=error?.code==='NETWORK_TIMEOUT'
       ?'A consulta administrativa excedeu o tempo limite, mesmo após nova tentativa. A conexão ou o servidor podem estar lentos. Tente novamente.'
       :String(error?.message||error);
     throw error;
   }finally{
+    if(adminRuntime.refreshPending===seq)adminRuntime.refreshPending=0;
     if(!silent)render();
   }
 }
@@ -636,12 +642,16 @@ function adminFocusedDraftActive(){
   return ['INPUT','TEXTAREA','SELECT'].includes(tag)||active.isContentEditable===true;
 }
 async function adminPoll(){
-  if(!adminReady()||adminRuntime.actionPending||adminRuntime.pollPending||document.visibilityState==='hidden')return;
+  const recovering=adminRuntime.status==='unavailable'&&adminRuntime.requested===true&&
+    adminOriginSafe()&&Boolean(adminRuntime.client&&adminRuntime.session?.access_token&&
+      adminRuntime.session?.user?.id&&adminRuntime.session.user.is_anonymous!==true);
+  if((!adminReady()&&!recovering)||adminRuntime.actionPending||adminRuntime.pollPending||
+     adminRuntime.refreshPending||document.visibilityState==='hidden')return;
   // As soon as the user leaves the field, the next scheduled poll resumes.
   if(adminFocusedDraftActive())return;
   const now=Date.now();
   const fastSections=new Set(['overview','orders','finance','incidents']);
-  const pollIntervalMs=fastSections.has(String(adminRuntime.section||''))?15000:60000;
+  const pollIntervalMs=!recovering&&fastSections.has(String(adminRuntime.section||''))?15000:60000;
   if(adminRuntime.lastPollAt&&now-adminRuntime.lastPollAt<pollIntervalMs)return;
   adminRuntime.lastPollAt=now;
   adminRuntime.pollPending=true;
@@ -11714,7 +11724,7 @@ function adminPage(){
   if(adminRuntime.status==='no-access')return adminNoAccessView();
   if(adminRuntime.status==='bootstrap-error')return adminBootstrapErrorView();
   if(adminRuntime.status!=='ready'||!adminRuntime.data){
-    return shell(`<section class="page"><h1 class="page-title">Não foi possível atualizar o Admin</h1><div class="notice danger" role="alert"><strong>Não foi possível carregar o painel.</strong><p>${esc(adminRuntime.error||'Tente novamente.')}</p><p>Os dados e as permissões precisam ser confirmados antes de qualquer operação.</p></div><button type="button" class="secondary full" style="margin-top:12px" onclick="adminRefresh()">Tentar novamente</button></section>`);
+    return shell(`<section class="page"><h1 class="page-title">Não foi possível atualizar o Admin</h1><div class="notice danger" role="alert"><strong>Não foi possível carregar o painel.</strong><p>${esc(adminRuntime.error||'Tente novamente.')}</p><p>Os dados e as permissões precisam ser confirmados antes de qualquer operação.</p>${adminRuntime.status==='unavailable'&&adminRuntime.session?.access_token?'<p>O painel verificará a conexão novamente em até um minuto enquanto esta aba estiver visível.</p>':''}</div><button type="button" class="secondary full" style="margin-top:12px" onclick="adminRefresh()" ${adminRuntime.refreshPending?'disabled':''}>${adminRuntime.refreshPending?'Conferindo…':'Tentar novamente'}</button></section>`);
   }
 
   const d=adminRuntime.data;
@@ -11988,7 +11998,7 @@ function adminPage(){
   return shell(`<section class="page admin-page">
     <header class="admin-page-header">
       <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1 tabindex="-1" id="admin-current-section-title">${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
-      <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
+      <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending||adminRuntime.refreshPending?'disabled':''}><span aria-hidden="true">↻</span> ${adminRuntime.refreshPending?'Conferindo…':'Atualizar'}</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
     </header>
     ${adminOperationalStrip(d)}
     <div class="admin-workspace-tools">${adminGlobalSearchView()}
