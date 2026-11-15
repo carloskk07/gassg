@@ -214,9 +214,33 @@ const contradictoryHtml=benefitDisclosure({...visibleCouponOrder,
 assert.match(contradictoryHtml,/Origem dos benefícios inconsistente ou indisponível/);
 assert.match(contradictoryHtml,/Cashback de outros saldos: <strong>não informado/);
 
+// Cross-portal financial consistency on the SAME coupon-backed SQL order.
+// Customer, Partner and Admin read their canonical authenticated Edge APIs;
+// snapshots must match the immutable order totals and never misstate a voucher
+// as money actually transferred to the merchant.
+const adminToken=await localActorSession(admin);
+const adminBefore=await callEdge('admin-ops',adminToken,{action:'summary'});
+assert.equal(adminBefore.status,200,
+ 'authenticated Admin must load full control summary for coupon order');
+const adminCouponOrder=(adminBefore.body.controlOrders||[]).find(o=>o.id===orderRef);
+assert.ok(adminCouponOrder,'Admin must see the same customer coupon order');
+assert.equal(adminCouponOrder.status,'OFFERED_TO_MERCHANT');
+assert.equal(adminCouponOrder.gross_total_cents,amounts.gross);
+assert.equal(adminCouponOrder.total_cents,amounts.total);
+assert.equal(visibleCouponOrder.grossTotalCents,amounts.gross);
+assert.equal(visibleCouponOrder.totalCents,amounts.total);
+assert.equal(visibleCouponOrder.couponAppliedCents,500);
 const created=await callEdge('get-order',buyerToken,{orderId:orderRef});
 assert.equal(created.status,200,'buyer must read coupon-backed order');
 assert.equal(created.body.status,'OFFERED_TO_MERCHANT');
+assert.equal(created.body.grossTotalCents,amounts.gross);
+assert.equal(created.body.totalCents,amounts.total);
+assert.equal(created.body.cashbackReservedCents,amounts.cashback);
+assert.equal(created.body.orderId,adminCouponOrder.id);
+assert.equal(visibleCouponOrder.orderId,created.body.orderId);
+assert.equal(adminCouponOrder.total_cents,created.body.totalCents);
+assert.equal(adminCouponOrder.gross_total_cents,created.body.grossTotalCents);
+console.log('PASS: customer get-order, merchant-orders and Admin summary read the SAME coupon-backed SQL order and exact gross/net totals.');
 const accepted=await callEdge('merchant-action',ownerToken,
  {orderId:orderRef,action:'accept',expectedVersion:created.body.version},
  'ci-coupon-accept-'+randomUUID());
@@ -331,6 +355,36 @@ const due=JSON.parse(sql("SELECT public.clube_coupon_paid_order_reconciliation("
 assert.equal(due.status,'MERCHANT_REIMBURSEMENT_DUE');
 assert.equal(due.merchantReimbursementCents,amounts.cashback);
 assert.equal(due.merchantExternalSettlementVerified,false);
+// On actual settlement, all three authenticated portals must agree again.
+// An internal reimbursement obligation is NOT proof the revenda was paid.
+const settledBuyerRead=await callEdge('get-order',buyerToken,{orderId:orderRef});
+assert.equal(settledBuyerRead.status,200);
+assert.equal(settledBuyerRead.body.status,'SETTLED');
+assert.equal(settledBuyerRead.body.grossTotalCents,amounts.gross);
+assert.equal(settledBuyerRead.body.totalCents,amounts.total);
+const merchantAfter=await callEdge('merchant-orders',ownerToken,{merchantId:merchant});
+assert.equal(merchantAfter.status,200);
+const closedCouponMerchant=merchantAfter.body.merchant?.recentClosedOrders?.find(
+ o=>o.orderId===orderRef);
+assert.ok(closedCouponMerchant,'merchant owner must recover settled coupon order in own closed history');
+assert.equal(closedCouponMerchant.status,'SETTLED');
+const adminAfter=await callEdge('admin-ops',adminToken,{action:'summary'});
+assert.equal(adminAfter.status,200);
+const closedCouponAdmin=(adminAfter.body.controlOrders||[]).find(o=>o.id===orderRef);
+assert.ok(closedCouponAdmin,'Admin control tower must retain the same settled coupon order');
+assert.equal(closedCouponAdmin.status,'SETTLED');
+assert.equal(closedCouponAdmin.gross_total_cents,settledBuyerRead.body.grossTotalCents);
+assert.equal(closedCouponAdmin.total_cents,settledBuyerRead.body.totalCents);
+const adminDebt=(adminAfter.body.finance?.cashbackReimbursements||[]).find(
+ r=>r.order_id===orderRef);
+assert.ok(adminDebt,'Admin finance must show the exact merchant obligation');
+assert.equal(adminDebt.status,'open');
+assert.equal(adminDebt.merchant_id,merchant);
+assert.equal(adminDebt.cashback_cents,due.merchantReimbursementCents);
+assert.equal(adminDebt.couponBacked,true);
+assert.equal(due.merchantExternalSettlementVerified,false,
+ 'unpaid reimbursement must not be presented as bank-settled');
+console.log('PASS: settled coupon order matches Client/Partner/Admin and Admin finance keeps the unpaid coupon reimbursement open.');
 // A reimbursement explicitly REVERSED while its parent order still says
 // SETTLED is contradictory. Never misreport it as ORDER_IN_PROGRESS.
 // Probe only in the disposable full-schema database and undo with ROLLBACK.
