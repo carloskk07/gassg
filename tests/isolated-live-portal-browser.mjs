@@ -495,8 +495,28 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         await adminPage.navigate(origin+'/?admin=1#admin');
         await adminPage.wait("adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+"&&o.status==='SETTLED')",
           'Admin sees driver delivery final status from real local database',50000);
+        // The assigned driver's terminal ACK must also reach the original
+        // revenda owner, not only the driver, buyer and Admin API snapshots.
+        await merchantPage.navigate(origin+'/?merchant=1#merchant');
+        await merchantPage.wait("merchantRuntime.status==='ready'&&merchantRuntime.merchant?.recentClosedOrders?.some(o=>o.orderId==="+JSON.stringify(orderId)+"&&o.status==='SETTLED')",
+          'partner owner sees actual completed delivery in closed order history',50000);
+        const ownerClosed=JSON.parse(await merchantPage.evaluate("JSON.stringify({order:merchantRuntime.merchant?.recentClosedOrders?.find(o=>o.orderId==="+JSON.stringify(orderId)+"),visible:document.querySelector('.merchant-recent-closed-orders')?.innerText||''})"));
+        assert.equal(ownerClosed.order?.status,'SETTLED');
+        assert.ok(ownerClosed.order?.publicCode&&ownerClosed.visible.includes(ownerClosed.order.publicCode),
+          'closed order must be visibly rendered for the merchant owner');
+        assert.equal(ownerClosed.order.customerPhone,undefined,
+          'closed merchant history may not expose buyer phone after final delivery');
+        assert.equal(ownerClosed.order.address,undefined,
+          'closed merchant history may not retain private buyer delivery address');
+        await merchantPage.evaluate("document.querySelector('.merchant-recent-closed-orders')?.scrollIntoView({block:'start'});true");
+        const ownerShot=await merchantPage.send('Page.captureScreenshot',
+          {format:'png',fromSurface:true,captureBeyondViewport:false});
+        const ownerPng=Buffer.from(ownerShot.data||'','base64');
+        assert.ok(ownerPng.length>6000&&ownerPng.subarray(0,8).toString('hex')==='89504e470d0a1a0a');
+        fs.mkdirSync(evidenceDir,{recursive:true});
+        fs.writeFileSync(path.join(evidenceDir,'13-parceiro-entrega-finalizada.png'),ownerPng);
         assert.deepEqual(violations,[],'real driver browser cannot reach the commercial Supabase');
-        console.log('PASS: real Auth driver 390px Chrome offline staged PIN, actual Edge arriving/delivery, minimal terminal proof, buyer/Admin settled and zero remote calls.');
+        console.log('PASS: real Auth driver 390px Chrome offline staged PIN, actual Edge arriving/delivery, owner revenda closed history, buyer/Admin settled and zero remote calls.');
       }
       assert.deepEqual(violations,[],'no independent tab may call commercial Supabase');
       console.log('PASS: three simultaneously isolated Chrome Auth contexts share one disposable SQL order'
