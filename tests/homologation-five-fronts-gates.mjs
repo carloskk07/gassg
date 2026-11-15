@@ -55,6 +55,14 @@ const gates={
    'referral review permissions']
  ]
 };
+const common=[
+ ['audit','tests/merchant-business-approved-draft.mjs',
+  'merchant saved owner identity and account-level form readback'],
+ ['audit','tests/inline-handler-safety.mjs',
+  'merchant email must not become executable inline JavaScript'],
+ ['audit','tests/public-first-impression-v1-376.mjs',
+  'commercial public first paint']
+];
 const catalog={audit,isolated};
 assert.match(isolated,/pull_request:/,
  'isolated technical test must run on PR');
@@ -79,5 +87,11 @@ for(const [front,scenarios] of Object.entries(gates)){
  }
 }
 assert.equal(Object.keys(gates).length,5);
-console.log('PASS: five technical fronts retain '+all.length+
- ' mandatory CI hooks; PR/daily isolation verified. Actual business acceptance still requires independent real-world proof.');
+for(const [workflow,path,scope] of common){
+ assert.ok(fs.existsSync(new URL(path,root)),'missing shared security/UX test '+path);
+ assert.ok(catalog[workflow].includes('run: node '+path),
+  'shared security/UX test disconnected: '+path);
+ all.push({front:'transversal',workflow,path,scope});
+}
+console.log('PASS: five commercial technical fronts plus cross-cutting security/UX retain '+
+ all.length+' mandatory CI hooks; PR/daily isolation verified. Actual commercial acceptance needs external proof.');
