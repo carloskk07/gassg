@@ -369,6 +369,11 @@ async function clubeCouponBuy(packageKey){
     // Old pending invoice must be resumed, never replaced with a second Pix.
     if(clubePaidCouponView.userId!==uid||clubePaidCouponView.status!=='ready'){
       await clubePaidCouponsRefresh();
+      // History may resolve for the old buyer after the browser changed users.
+      // Recheck authentication BEFORE issuing purchase/partner-purchase: a
+      // captured old-user history must never authorize a new-user Pix.
+      if(String(globalThis.liveRuntime?.session?.user?.id||'')!==uid||
+         clubeCouponShopState.userId!==uid)return;
       if(clubePaidCouponView.userId!==uid||clubePaidCouponView.status!=='ready')
         throw Error('COUPON_HISTORY_NOT_READY');
     }
