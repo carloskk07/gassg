@@ -95,7 +95,7 @@ function emittedClick(key){
 await ctx.refresh();
 assert.equal(ctx.state.userId,buyerA);
 assert.equal(ctx.state.status,'ready');
-assert.match(ctx.panel(),/3 cupons de R\$ 5,00/);
+assert.match(ctx.panel(),/3 cupons de R\$\s*5,00/);
 assert.equal(purchaseOps().length,0,'opening Club never issues a Pix');
 
 // Consent is required from the exact package checkbox. The screenshot-worthy
