@@ -510,6 +510,14 @@ const cancellation=JSON.parse(sql("SELECT public.admin_cancel_dispatched_order("
  q('ci-cancel-after-dispatch-'+randomUUID())+","+
  q('d'.repeat(64))+")::text;"));
 assert.equal(cancellation.status,'CANCELLED');
+const cancelledBuyerRead=await callEdge('get-order',buyerToken,{orderId:cancelOrderId});
+assert.equal(cancelledBuyerRead.status,200,
+ 'cancelled coupon order must remain readable in customer history');
+assert.equal(cancelledBuyerRead.body.status,'CANCELLED');
+assert.equal(cancelledBuyerRead.body.couponAppliedCents,500,
+ 'customer can review original coupon even after refund/cancellation');
+assert.equal(cancelledBuyerRead.body.totalCents,cancelOrder.totalCents,
+ 'cancellation must preserve original amount for the customer's receipt');
 assert.equal(sql("SELECT count(*) FROM public.wallet_entries WHERE order_id="+
  q(cancelOrderId)+"::uuid AND user_id="+q(user)+"::uuid AND bucket='cashback'"+
  " AND entry_type='cashback_release'"),'1');
