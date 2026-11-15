@@ -71,24 +71,58 @@ try{
  const snapshot=await before();
  assert.equal((await readPaymentEntitlement('coupon',admin,invoice)).entitlementApplied,true);
  assert.deepEqual(await before(),snapshot,'readback must not reissue a voucher');
+ console.log('PASS: actual canonical coupon grants and redeemed voucher readback.');
  // A direct seller PSP event is synthetic, local and applied only by the
  // existing canonical processor; its verification must match that seller.
- await sql(`DO $sale$ DECLARE o public.orders%rowtype; a uuid; BEGIN
+ await sql(`DO $sale$ DECLARE o public.orders%rowtype; a uuid; connection uuid; route uuid; sale_order uuid; BEGIN
   SELECT * INTO o FROM public.orders WHERE customer_id=${quote(invoice.customer_user_id)}::uuid
    AND total_cents>0 ORDER BY created_at DESC LIMIT 1;
   IF o.id IS NULL THEN RAISE EXCEPTION 'READBACK_LOCAL_ORDER_REQUIRED'; END IF;
+  -- A delivery-only order must NEVER acquire an automatic prepaid charge.
+  BEGIN
+   INSERT INTO public.merchant_sale_payment_attempts(order_id,merchant_id,provider,
+    checkout_mode,external_reference,amount_cents,currency,status)
+   VALUES(o.id,o.merchant_id,'mercadopago','hosted',gen_random_uuid()::text,
+    o.total_cents,'BRL','pending');
+   RAISE EXCEPTION 'READBACK_DELIVERY_ORDER_BECAME_PREPAID';
+  EXCEPTION WHEN SQLSTATE '40001' THEN
+   IF SQLERRM<>'PREPAID_PAYMENT_NOT_AUTHORIZED' THEN RAISE; END IF;
+  END;
+  -- Explicitly configured synthetic online account/route, only in ROLLBACK.
+  -- These placeholders are NOT PSP credentials and are never sent anywhere.
+  INSERT INTO public.merchant_payment_provider_accounts(merchant_id,provider,
+   provider_account_id,status,capabilities,access_token_ciphertext,access_token_nonce,connected_at)
+  VALUES(o.merchant_id,'mercadopago','CI-READBACK-SELLER','active',
+   '{"directSalePaymentsEnabled":true,"canValidateProviderTransactions":true}'::jsonb,
+   'CI-NOT-A-REAL-ENCRYPTED-TOKEN','CI-NOT-A-REAL-NONCE',clock_timestamp())
+  ON CONFLICT(merchant_id,provider) DO UPDATE SET status='active',
+   provider_account_id=excluded.provider_account_id,capabilities=excluded.capabilities,
+   access_token_ciphertext=excluded.access_token_ciphertext,access_token_nonce=excluded.access_token_nonce,
+   connected_at=excluded.connected_at RETURNING id INTO connection;
+  INSERT INTO public.merchant_payment_routes(merchant_id,payment_method,provider,
+   connection_id,channel,verification_mode,active,customer_label)
+  VALUES(o.merchant_id,'pix','mercadopago',connection,'online','provider_api',true,'Pix isolado')
+  ON CONFLICT(merchant_id,payment_method,provider,channel) DO UPDATE SET
+   connection_id=excluded.connection_id,verification_mode='provider_api',active=true RETURNING id INTO route;
+  INSERT INTO public.orders(public_code,customer_id,status,address_text,address_number,postal_code,
+   customer_phone_digits,payment_method,payment_timing,gross_total_cents,total_cents,
+   delivery_fee_cents_snapshot,merchant_id,version)
+  VALUES('CI-READBACK-'||substr(gen_random_uuid()::text,1,8),o.customer_id,'MERCHANT_ACCEPTED',
+   'Endereço exclusivamente sintético','1','97300000','51999998888','pix','prepaid',
+   1000,1000,0,o.merchant_id,1) RETURNING id INTO sale_order;
   INSERT INTO public.merchant_sale_payment_attempts(order_id,merchant_id,provider,
    checkout_mode,external_reference,amount_cents,currency,status,provider_order_id,
-   verification_level,funds_owner)
-  VALUES(o.id,o.merchant_id,'mercadopago','hosted',gen_random_uuid()::text,
-   o.total_cents,'BRL','pending','CI-READBACK-SALE-ORDER','provider','merchant') RETURNING id INTO a;
+   verification_level,funds_owner,payment_route_id,payment_method_snapshot)
+  VALUES(sale_order,o.merchant_id,'mercadopago','hosted',gen_random_uuid()::text,
+   1000,'BRL','pending','CI-READBACK-SALE-ORDER','provider','merchant',route,'pix') RETURNING id INTO a;
   PERFORM public.apply_merchant_sale_payment_event_v2('mercadopago','CI-READBACK-SALE-EVENT',
    'CI-READBACK-SALE-ORDER','CI-READBACK-SALE-PAYMENT','payment.updated','approved',
-   o.total_cents,'BRL',clock_timestamp(),repeat('d',64),'provider_api');
+   1000,'BRL',clock_timestamp(),repeat('d',64),'provider_api');
  END $sale$;`);
  const sale=await row('merchant_sale_payment_attempts',"provider_order_id='CI-READBACK-SALE-ORDER'");
  assert.equal(sale.status,'approved');
  assert.equal((await readPaymentEntitlement('merchant_sale',admin,sale)).entitlementApplied,true);
+ console.log('PASS: delivery-only charge denied; authorized synthetic online seller proof matches.');
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
 
  // Reuse the complete Ads fixture up to its existing cancellation stage.
@@ -99,6 +133,7 @@ try{
  const checkout=await row('ads_independent_checkouts_v1_886',"payment_id='955001'");
  assert.equal(checkout.status,'payment_approved');
  assert.equal((await readPaymentEntitlement('advertising',admin,checkout)).entitlementApplied,true);
+ console.log('PASS: actual canonical advertiser checkout and provider event readback.');
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
 
  // Reuse existing completed rides and the funded/partially spent credit lot.
@@ -118,8 +153,9 @@ try{
  END $fee$;`);
  const fee=await row('mobility_fee_pix_invoices_v1_837',"provider_order_id='CI-READBACK-FEE-ORDER'");
  assert.equal((await readPaymentEntitlement('mobility',admin,fee)).entitlementApplied,true);
+ console.log('PASS: actual mobility funded credit and allocated completed-ride fees match.');
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
  console.log('PASS: actual SQL receipt readback for redeemed coupons, canonical seller PSP, Ads, mobility credit/use and allocated fees; complete ROLLBACK, zero bank claims.');
 }finally{
- if(!pg.killed){try{await sql('ROLLBACK;')}catch{}pg.stdin.end();}
+ if(!pg.killed&&pg.exitCode===null){try{await sql('ROLLBACK;')}catch{}pg.stdin.end();}
 }
