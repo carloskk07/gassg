@@ -4,7 +4,7 @@
 
 ## Inventário executável
 
-A Auditoria do GitHub mantém `tests/homologation-five-fronts-gates.mjs`. O teste impede que os 17 vínculos obrigatórios entre cenários e workflows sejam perdidos sem falha de CI. Os workflows preservados são:
+A Auditoria do GitHub mantém `tests/homologation-five-fronts-gates.mjs`. O teste impede que os 20 vínculos obrigatórios entre cenários e workflows sejam perdidos sem falha de CI, incluindo três regressões transversais de formulário de revenda, segurança e primeira impressão. Os workflows preservados são:
 
 - `Audit`: regressões do código e do comportamento da UI; cada PR.
 - `TAMÃO isolated Supabase integration`: Auth, Edge Functions, PostgreSQL e Chrome descartáveis; cada PR e diariamente, sem credenciais de produção.
