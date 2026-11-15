@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {readPaymentEntitlement} from '../supabase/functions/_shared/payment-entitlement.js';
+import {platformNetSqlProof} from './helpers/platform-net-sql-proof.mjs';
 
 // Run the actual readback against PostgreSQL in the SAME uncommitted session
 // as the existing canonical fixtures. No hosted credentials or provider calls.
@@ -142,6 +143,7 @@ try{
  assert.equal(checkout.status,'payment_approved');
  assert.equal((await readPaymentEntitlement('advertising',admin,checkout)).entitlementApplied,true);
  console.log('PASS: actual canonical advertiser checkout and provider event readback.');
+ await platformNetSqlProof({sql,json,quote},'advertising',checkout.campaign_id);
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
 
  // Reuse existing completed rides and the funded/partially spent credit lot.
@@ -162,6 +164,7 @@ try{
  const fee=await row('mobility_fee_pix_invoices_v1_837',"provider_order_id='CI-READBACK-FEE-ORDER'");
  assert.equal((await readPaymentEntitlement('mobility',admin,fee)).entitlementApplied,true);
  console.log('PASS: actual mobility funded credit and allocated completed-ride fees match.');
+ await platformNetSqlProof({sql,json,quote},'mobility',credit.id);
  await sql('ROLLBACK;');assert.deepEqual(await before(),base);
  console.log('PASS: actual SQL receipt readback for redeemed coupons, canonical seller PSP, Ads, mobility credit/use and allocated fees; complete ROLLBACK, zero bank claims.');
 }finally{

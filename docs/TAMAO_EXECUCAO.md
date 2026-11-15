@@ -1,3 +1,24 @@
+## 15/11/2026 — Central Financeira: líquido independente para receitas da plataforma
+
+Continuação da PR #1006, sem repetir os Pix e o estorno já comprovados.
+A conferência automática de relatórios, antes restrita a cupons, passa a
+comparar também planos/taxas de revendas, motoristas e publicidade. Usa o
+mesmo cron privado, somente GET no PSP e uma projeção imutável da evidência,
+sem novo motor de crédito ou pagamento. Vendas pertencentes às revendas
+ficam fora das receitas da plataforma. O Admin mostra as quatro famílias,
+liberações, pendências e comprovantes; estorno preserva histórico sem contar
+como líquido corrente conferido.
+
+O [dossiê de aceite](operations/2026-11-15-platform-net-evidence.md) especifica
+validações de recebedor/Orders/Payments/CSV, conflitos entre relatórios, RLS,
+idempotência, integração SQL e releitura de produção. CI, publicação e NET
+observado devem ser confirmados na PR desta entrega e no início da issue #493.
+**Mantidas 14/19 frentes encerradas e cinco abertas (#2, #3, #4, #6 e #12)**;
+a prova comercial integral de #3 ainda depende dos eventos legítimos de
+consumo, comissão e repasse, que não são fabricados por esta automação.
+
+---
+
 ## 15/11/2026 — Encerramento técnico da frente #1 condicionado à entrega completa
 
 Retomada de `main=0bd59d35d5a731cddc9c006ec505a0e1d121e47f` (PR #1005),

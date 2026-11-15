@@ -5,6 +5,7 @@ import {mercadoPagoFetch,mercadoPagoConfigured,readMercadoPagoJson}
 import {couponReleasedNetEvidence,parseReleasedMoneyCsv}
  from "../admin-ops/coupon-release-evidence.js";
 import {inspectReportSearch,discoverInvoiceReleaseReports} from "./report-search.js";
+import {reconcilePlatformReceipts} from "./platform-receipts.js";
 
 // V1.931: machine-only read/compare/register; NOT a new payment or coupon engine.
 // Existing invoice row lock and sponsor/partner funding guards remain authoritative.
@@ -395,6 +396,34 @@ Deno.serve(async req=>{
     eligible:!!found.accepted,netCents:found.accepted?.netCents??null,
     legacyCandidates:legacyPayments.length});
   }
+  // Same private machine authentication and cron. This extension records
+  // evidence of platform NET only; the canonical coupon funding path below
+  // retains its own existing guards and cannot be bypassed by this projection.
+  const platformInspect=req.headers.get('X-Tamao-Platform-Net-Inspect')==='true';
+  let platformNet;
+  try{
+   platformNet=await reconcilePlatformReceipts({client,inspect:platformInspect,
+    sha256:sha256Hex,
+    providerGet:async(path:string)=>{
+     const response=await mercadoPagoFetch(path,{accessToken:mpToken,method:'GET',timeoutMs:8000});
+     if(!response.ok)throw Error('PLATFORM_NET_PROVIDER_UNAVAILABLE');
+     return readMercadoPagoJson(response);
+    },
+    getReports:(invoice:any)=>discoverInvoiceReleaseReports(invoice,async(path:string)=>{
+     const response=await mercadoPagoFetch(path,{accessToken:mpToken,method:'GET',timeoutMs:8000});
+     if(!response.ok)throw Error('PLATFORM_NET_REPORT_SEARCH_UNAVAILABLE');
+     return readMercadoPagoJson(response);
+    }),
+    getCsv:async(name:string)=>{
+     const response=await mercadoPagoFetch('/v1/account/release_report/'+encodeURIComponent(name),{
+      accessToken:mpToken,method:'GET',timeoutMs:8000});
+     if(!response.ok)throw Error('PLATFORM_NET_CSV_UNAVAILABLE');
+     return limitedCsv(response);
+    }
+   });
+  }catch{platformNet={source:'platform_receipt_net_evidence',available:false,
+    reason:'PLATFORM_NET_READBACK_UNAVAILABLE',moneyMoved:false,newChargesCreated:0};}
+  if(platformInspect)return json({ok:true,readOnly:true,platformNet});
   const {data:invoices,error:pendingError}=await client.rpc(
    "clube_coupon_net_auto_pending_v1_931",{p_limit:MAX_INVOICES});
   if(pendingError||!Array.isArray(invoices)||invoices.length>MAX_INVOICES)
@@ -432,7 +461,7 @@ Deno.serve(async req=>{
     }catch{/* Report list is required; never request under uncertain coverage. */}
    }
    return json({ok:true,checked:0,registered:0,review:0,waiting:0,
-     reportConfiguration,reportBackfill,providerReportQueue});
+     reportConfiguration,reportBackfill,providerReportQueue,platformNet});
   }
   const reports=await discoverReleaseReports(mpToken);
   // No POST to MP: a missing report may be a disabled account-wide schedule
@@ -490,7 +519,7 @@ Deno.serve(async req=>{
    else waiting++;
   }
   return json({ok:true,checked:invoices.length,registered,review,waiting,reportCorrelation,
-    reportConfiguration,reportBackfill,
+    reportConfiguration,reportBackfill,platformNet,
     providerReportQueue:{pendingAccountReports:reports.pending,
       failedAccountReports:reports.blocked,source:reports.source,
       coverageComplete:reports.complete,reason:reports.reason}});

@@ -7824,7 +7824,14 @@ Deno.serve(async(req:Request)=>{
       if(data?.source!=="database_complete"||!Array.isArray(data?.monthly)||!data?.kindTotals){
         throw new DomainError("FINANCE_HISTORY_NOT_READY","Histórico financeiro não disponível. Atualize e confira a migração.",503);
       }
-      return json(data,200,origin);
+      const {data:platformReceipts,error:netError}=await admin.rpc("admin_platform_receipt_net_summary",{
+        p_actor_user_id:user.id
+      });
+      if(netError||platformReceipts?.source!=="platform_receipt_net_summary"||
+        platformReceipts.readOnly!==true||platformReceipts.merchantFundsIncluded!==false||
+        platformReceipts.accountBalanceVerified!==false||!Array.isArray(platformReceipts.rows))
+        throw new DomainError("PLATFORM_NET_HISTORY_UNAVAILABLE","A conciliação dos recebimentos não pôde ser conferida. Atualize novamente.",503);
+      return json({...data,platformReceipts},200,origin);
     }
     if(action==="sale-payment-history"){
       if(!["superadmin","finance","readonly"].includes(String(adminAccess.admin_role||""))){

@@ -4903,6 +4903,43 @@ function adminBillingPaymentEventCard(event){
 }
 
 /* V1.188 — database-wide historical numbers, never estimated from recent rows. */
+function adminPlatformReceiptsValid(data){
+  const amount=v=>Number.isSafeInteger(v)&&v>=0;
+  const kinds=['billing','coupon','mobility','advertising'];
+  const statuses=['net_verified','awaiting_report','coverage_incomplete','provider_unavailable','requires_review','reversed'];
+  if(data?.source!=='platform_receipt_net_summary'||data.readOnly!==true||data.moneyMoved!==false||
+    data.merchantFundsIncluded!==false||data.accountBalanceVerified!==false||
+    !amount(data.totalCount)||!amount(data.returnedCount)||data.returnedCount>30||
+    data.returnedCount!==Math.min(30,data.totalCount)||data.truncated!==(data.totalCount>30)||
+    !Number.isFinite(Date.parse(String(data.generatedAt||'')))||!data.kindTotals||
+    !Array.isArray(data.rows)||data.rows.length!==data.returnedCount)return false;
+  let total=0;
+  for(const kind of kinds){
+    const r=data.kindTotals[kind];
+    if(!r||!['count','grossCents','verifiedCount','verifiedNetCents','reversedCount','pendingCount'].every(k=>amount(r[k]))||
+      r.verifiedCount+r.reversedCount+r.pendingCount!==r.count||r.verifiedNetCents>r.grossCents)return false;
+    total+=r.count;
+  }
+  return total===data.totalCount&&data.rows.every(r=>kinds.includes(r.kind)&&statuses.includes(r.netStatus)&&
+    /^[0-9a-f-]{36}$/i.test(String(r.resourceId||''))&&amount(r.grossCents)&&r.grossCents>0&&
+    Number.isFinite(Date.parse(String(r.paidAt||'')))&&
+    (r.netCents===null||amount(r.netCents)&&r.netCents>0&&r.netCents<=r.grossCents)&&
+    (r.netStatus!=='net_verified'||r.netCents!==null&&Number.isFinite(Date.parse(String(r.verifiedAt||'')))&&
+      String(r.evidenceReference||'').startsWith('mp-release:')));
+}
+
+function adminPlatformReceiptsView(data){
+  if(!adminPlatformReceiptsValid(data))return `<div class='notice'>Conciliação dos recebimentos indisponível. Atualize o histórico.</div>`;
+  const labels={billing:'Planos e taxas de revendas',coupon:'Pacotes de cupons',mobility:'Planos e taxas de motoristas',advertising:'Publicidade'};
+  const statuses={net_verified:'Líquido conferido',awaiting_report:'Aguardando relatório',coverage_incomplete:'Relatório incompleto',provider_unavailable:'Conferência indisponível',requires_review:'Conferir divergência',reversed:'Estornado ou em revisão após pagamento'};
+  const totals=Object.entries(labels).map(([kind,label])=>{
+    const r=data.kindTotals[kind];
+    return `<div class='admin-managerial-row'><div><strong>${esc(label)}</strong><small>${r.count} recebimento(s) • ${r.pendingCount} aguardando conferência • ${r.reversedCount} estornado(s) ou em revisão</small></div><div class='admin-finance-history-amount'><strong>${adminMoney(r.verifiedNetCents)} liberados e conferidos</strong><small>Bruto histórico: ${adminMoney(r.grossCents)}</small></div></div>`;
+  }).join('');
+  const rows=data.rows.map(r=>`<div class='admin-managerial-row'><div><strong>${esc(labels[r.kind])} • ${esc(statuses[r.netStatus])}</strong><small>${esc(formatDateTime(r.paidAt))} • ${esc(r.resourceId.slice(0,8))}</small>${r.evidenceReference?`<small>Comprovante: ${esc(r.evidenceReference)}</small>`:''}</div><div class='admin-finance-history-amount'><strong>Bruto: ${adminMoney(r.grossCents)}</strong><small>${r.netStatus==='net_verified'?'Líquido conferido':r.netStatus==='reversed'?'Líquido anterior à revisão/estorno':'Último líquido registrado'}: ${r.netCents===null?'aguardando comprovação':adminMoney(r.netCents)}</small>${r.lastCheckedAt?`<small>Conferido em ${esc(formatDateTime(r.lastCheckedAt))}</small>`:''}</div></div>`).join('');
+  return `<div class='card flat'><h3>Conciliação automática dos recebimentos</h3><p class='tiny muted'>O relatório do Mercado Pago confere o líquido liberado de planos, cupons, motoristas e publicidade. Vendas recebidas diretamente pelas revendas ficam fora destes totais.</p>${totals}<details><summary>Ver recebimentos e comprovantes (${data.returnedCount}${data.truncated?' mais recentes de '+data.totalCount:''})</summary>${rows||`<p class='tiny muted'>Nenhum recebimento confirmado no histórico.</p>`}</details><p class='tiny muted'>São liberações conferidas no provedor. Os valores não representam saldo atual da conta, lucro ou repasse bancário. Liberações anteriores de pagamentos estornados ficam apenas no histórico.</p></div>`;
+}
+
 function adminFinanceHistoryIsFresh(state,now=Date.now()){
   if(!state?.data||!state.checkedAt)return false;
   const t=Date.parse(state.checkedAt);
@@ -4921,7 +4958,7 @@ async function adminLoadFinanceHistory({force=false}={}){
     if(session!==adminRuntime.session||adminRuntime.status!=='ready'||!['superadmin','finance'].includes(adminCurrentRole()))return;
     const numeric=v=>Number.isSafeInteger(v)&&v>=0;
     if(data?.source!=='database_complete'||!Array.isArray(data.monthly)||data.monthly.length!==6
-      ||!data.kindTotals||!Number.isFinite(Date.parse(String(data.generatedAt||'')))
+      ||!data.kindTotals||!Number.isFinite(Date.parse(String(data.generatedAt||'')))||!adminPlatformReceiptsValid(data.platformReceipts)
       ||!['package_purchase','statement_payment','refund_recovery'].every(key=>{
         const row=data.kindTotals[key];
         return row&&['approvedCents','linkedRefundCents','approved30dCents','linkedRefund30dCents','approvedCount','linkedRefundCount'].every(field=>numeric(row[field]));
@@ -5151,6 +5188,7 @@ function adminFinanceHistoryView(){
     ${!data?`<div class='card flat'><p class='tiny muted'>${state.loading?'Consultando histórico completo…':'Ainda não há consulta histórica validada nesta sessão.'}</p></div>`:
     `<div class='tiny muted'>Fonte: banco completo • gerado em ${esc(formatDateTime(data.generatedAt))} • ${fresh?'Consulta recente':'Consulta desatualizada: confirme novamente'}</div>
      ${warnings}
+     ${adminPlatformReceiptsView(data.platformReceipts)}
      <div class='card flat'><h3>Histórico por tipo de recebimento</h3>${rows}</div>
      ${adminFinanceMonthlyComparisonView(data)}
      <div class='card flat' style='margin-top:12px'><h3>Evolução dos últimos seis meses</h3><div class='admin-finance-history-scroll'><table><thead><tr><th>Mês</th><th>Aprovado</th><th>Refund vinculado</th><th>Após refunds</th></tr></thead><tbody>${months}</tbody></table></div></div>
