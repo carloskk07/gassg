@@ -413,13 +413,19 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         if(referralJourney){
           const referrerPage=await openRole('customer',referralJourney.actor.session,'/#refer',{trackExisting:false});
           await referrerPage.wait("liveRuntime.status==='ready'&&liveRuntime.customerSummaryState==='ready'&&state.user.referralCode==="+JSON.stringify(referralJourney.code)+"&&!!document.querySelector('.earn-summary')",'referrer sees own real financial summary',50000);
+          const format=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+          const expectedCards=[format.format(referralJourney.availableCents/100),format.format(0),String(referralJourney.referredCount),String(referralJourney.qualifiedCount)];
+          // Backend values can finish hydrating before the route's DOM commits.
+          // Wait for the ACTUAL cards, not only state.user and API status;
+          // missing or stale rendering still fails with a bounded timeout.
+          await referrerPage.wait("JSON.stringify(Array.from(document.querySelectorAll('.earn-summary .earn-balance-card strong')).map(e=>e.textContent.trim()))==="+JSON.stringify(JSON.stringify(expectedCards)),
+            'referrer visible balances must catch up to authenticated canonical summary',15000);
           const observed=JSON.parse(await referrerPage.evaluate("JSON.stringify({availableCents:Math.round(state.user.commissionAvailable*100),pendingCents:Math.round(state.user.commissionPending*100),referredCount:liveRuntime.referredCount,qualifiedCount:liveRuntime.qualifiedReferralCount,cards:Array.from(document.querySelectorAll('.earn-summary .earn-balance-card strong')).map(e=>e.textContent.trim()),link:document.querySelector('.referral-share-card .share-box')?.textContent})"));
           assert.equal(observed.availableCents,referralJourney.availableCents,'referrer screen must show the matured SQL commission');
           assert.equal(observed.pendingCents,0,'matured commission cannot remain pending on the screen');
           assert.equal(observed.referredCount,referralJourney.referredCount);
           assert.equal(observed.qualifiedCount,referralJourney.qualifiedCount);
-          const format=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
-          assert.deepEqual(observed.cards,[format.format(referralJourney.availableCents/100),format.format(0),String(referralJourney.referredCount),String(referralJourney.qualifiedCount)],'visible balance cards must agree with the authenticated summary');
+          assert.deepEqual(observed.cards,expectedCards,'visible balance cards must agree with the authenticated summary');
           assert.ok(observed.link?.includes('?ref='+referralJourney.code),'referrer screen must display its own share link');
           fs.mkdirSync(evidenceDir,{recursive:true});
           for(const [name,viewport] of [['14-indicador-comissao-desktop',desktopViewport],['15-indicador-comissao-celular',{width:390,height:844,deviceScaleFactor:1,mobile:true}]]){
