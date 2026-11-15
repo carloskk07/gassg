@@ -196,7 +196,13 @@ assert.doesNotMatch(ctx.panel(),/Pagamento do seu pacote/,
  'old account invoice must be hidden immediately on switch');
 resolveFirst(makePix({invoiceId:invoiceA}));
 await originalBuyerPurchase;
-await ctx.refresh(); // initialize B after A's in-flight operation settles
+assert.equal(ctx.state.busy,false,'prior account purchase must release the busy state');
+// The real application re-renders after finally; panel() schedules the new
+// account's catalog via a microtask, not during the previous pending purchase.
+ctx.panel();
+await new Promise(resolve=>setTimeout(resolve,0));
+if(ctx.state.userId!==buyerB)await ctx.refresh();
+await new Promise(resolve=>setTimeout(resolve,0));
 assert.equal(ctx.state.userId,buyerB);
 assert.deepEqual(Object.keys(ctx.state.attempts),[]);
 assert.equal(ctx.state.purchase,null,'old account charge must not appear for B');
