@@ -400,6 +400,31 @@ Deno.serve(async(req:Request)=>{
       couponReturn={disposition:returned.disposition,cause:returned.cause};
     }
 
+    // The Club paid voucher is a component of cashback_reserved_cents.
+    // Read only the already-authorized order's original application, and
+    // never reveal voucher, invoice, provider or personal payment identifiers.
+    const {data:couponApplications,error:couponApplicationsError}=await admin
+      .from("clube_coupon_paid_order_applications")
+      .select("order_id,quoted_merchant_id,face_cents,original_order_cashback_cents,original_order_total_cents")
+      .eq("order_id",order.id)
+      .limit(2);
+    if(couponApplicationsError)throw couponApplicationsError;
+    if((couponApplications??[]).length>1)throw new DomainError("COUPON_ORDER_READBACK_MISMATCH",
+      "Não foi possível confirmar a composição do desconto.",503);
+    let couponAppliedCents=0;
+    if(couponApplications?.length){
+      const coupon=couponApplications[0];
+      const face=Number(coupon.face_cents);
+      if(coupon.order_id!==order.id||
+         coupon.quoted_merchant_id!==order.merchant_id||
+         !Number.isSafeInteger(face)||face<=0||
+         face>Number(order.cashback_reserved_cents)||
+         Number(coupon.original_order_cashback_cents)!==Number(order.cashback_reserved_cents)||
+         Number(coupon.original_order_total_cents)!==Number(order.total_cents))
+        throw new DomainError("COUPON_ORDER_READBACK_MISMATCH",
+          "Não foi possível confirmar a composição do desconto.",503);
+      couponAppliedCents=face;
+    }
     const deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT";
 
     const safeOrder={
@@ -433,6 +458,7 @@ Deno.serve(async(req:Request)=>{
       comparisonSavingsCents:Number(order.comparison_savings_cents??0),
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
+      couponAppliedCents,
       partnerFundedDiscountCents:partnerBenefit?.amount_cents??0,
       partnerCouponFundedCents:partnerCoupon?.face_cents??0,
       couponFundingModel:partnerCoupon?'partner_funded':null,
