@@ -331,7 +331,7 @@ window.addEventListener('load',async()=>{
     if(!globalThis.liveRequested?.()&&!globalThis.merchantPortalRequested?.()&&!globalThis.adminPortalRequested?.()&&housekeeping())render();
     if(globalThis.liveReady?.())livePoll().catch(()=>{});
     if(globalThis.merchantPortalRequested?.())merchantPoll().catch(()=>{});
-    if(globalThis.adminReady?.())adminPoll().catch(()=>{});
+    if(globalThis.adminPortalRequested?.())adminPoll().catch(()=>{});
   },5000);
 });
 

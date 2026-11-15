@@ -265,6 +265,16 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       await buyerPage.wait("typeof liveRuntime!=='undefined'&&liveRuntime.status==='ready'&&liveRuntime.order?.orderId==="+JSON.stringify(orderId),'buyer sees canonical order');
       const adminPage=await openRole('admin',adminActor.session,'/?admin=1#admin');
       await adminPage.wait("typeof adminRuntime!=='undefined'&&adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'Admin sees canonical order',55000);
+      // Force only a read outage; the actual timer must recover through the
+      // authenticated Edge. Rewind the local cooldown to avoid a minute sleep.
+      await adminPage.send('Network.setBlockedURLs',{urls:[api+'/functions/v1/admin-ops*']});
+      await adminPage.evaluate("(async()=>{try{await adminRefresh()}catch{};return true})()");
+      assert.equal(await adminPage.evaluate("adminRuntime.status"),'unavailable');
+      assert.equal(await adminPage.evaluate("document.querySelector('#app')?.textContent.includes('em até um minuto')"),true);
+      await adminPage.send('Network.setBlockedURLs',{urls:[]});
+      await adminPage.evaluate("adminRuntime.lastPollAt=Date.now()-61000;true");
+      await adminPage.wait("adminRuntime.status==='ready'&&adminRuntime.data?.controlOrders?.some(o=>o.id==="+JSON.stringify(orderId)+")",'real timer restores the same authorized Admin order after read outage',55000);
+      console.log('PASS: Admin timer recovers a blocked summary through real Auth/Edge/SQL without a user click or replaying a write.');
       // Read-only screen and viewport matrix with real authorized browser sessions.
       await auditAuthenticatedScreensV1973({adminPage,merchantPage});
       // V1.980: genuine anonymous Chrome profiles, no credentials, OTP
