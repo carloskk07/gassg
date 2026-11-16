@@ -23,12 +23,12 @@ const start=admin.indexOf('async function adminNetworkAdsBonusToggle(');
 const end=admin.indexOf('function adminNetworkFeePackagePanel()',start);
 assert.ok(start>0&&end>start,'Policy control isolated in Growth tab');
 const calls=[],toasts=[],confirms=[];
+let role='superadmin';
 const ctx=vm.createContext({
  adminNetworkFeePackageState:{moduleAds:{source:'network_module_ads_admin_v1_1042',
   readOnly:true,cashPayoutsEnabled:false,enabled:false,inviterBps:500,maturityDays:7,
   validatedAwards:0,reversedAwards:0}},
- role:'superadmin',
- adminCurrentRole(){return this.role},
+ adminCurrentRole:()=>role,
  adminPerform:async(action,payload)=>{calls.push({action,payload});return {
   source:'network_ads_bonus_policy_v1_1041',enabled:payload.enabled,cashPayoutsEnabled:false,moneyMoved:false};},
  adminNetworkFeePackageRefresh:async()=>null,
@@ -55,11 +55,11 @@ assert.equal(calls[0].action,'network-module-ads-set-enabled');
 assert.equal(calls[0].payload.enabled,true);
 assert.equal(calls[0].payload.termsReference,'TERMS-APPROVED-OWNER-2026-11');
 assert.match(confirms.at(-1),/saque permanecerá bloqueado/);
-ctx.role='finance';
+role='finance';
 assert.doesNotMatch(ctx.panel(),/Ativar somente para campanhas futuras/,'Finance role is read-only');
 await ctx.toggle(false);
 assert.equal(calls.length,1,'Finance cannot mutate Ads bonus policy');
-ctx.role='superadmin';
+role='superadmin';
 ctx.adminNetworkFeePackageState.moduleAds.enabled=true;
 assert.match(ctx.panel(),/Suspender novas apurações de anúncios/);
 await ctx.toggle(false);
