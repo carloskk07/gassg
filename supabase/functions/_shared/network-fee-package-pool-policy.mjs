@@ -28,8 +28,9 @@ function microsFromNet(netCents) {
  * Pure model for the daily pool: 10% of independently reconciled NET receipts
  * of fee-reducing prepaid packages only (merchant + moto/car).
  *
- * 80% of pool: equal participation; 20% of pool: verified merchant inviter,
- * but ONLY if also independently active/eligible. Otherwise 100% equal.
+ * 80% of each verified MERCHANT package pool: equal participation;
+ * 20% of that merchant pool: its verified inviter, but ONLY if active.
+ * Mobility packages are shared 100%. Otherwise 100% equal.
  * No extra 2% is charged to the platform.
  *
  * No RLS/PSP/activity evidence is manufactured here. A future canonical ledger
@@ -38,7 +39,7 @@ function microsFromNet(netCents) {
  * before any persistent credit is issued.
  */
 export function calculateNetworkPackageDailyPool({
-  sources = [], participants = [], at, carryMicroCents = 0, merchantInviterUserId = null
+  sources = [], participants = [], at, carryMicroCents = 0
 } = {}) {
   const atMs = Date.parse(at);
   if (!Number.isFinite(atMs) || typeof at !== 'string') throw new TypeError('at must be an ISO date');
@@ -48,6 +49,7 @@ export function calculateNetworkPackageDailyPool({
 
   const seenSource = new Set();
   let eligibleSourceCount = 0;
+  const verifiedSources = [];
   let poolMicroCents = carryMicroCents;
   for (const source of sources) {
     if (!source || !ALLOWED_SOURCES.has(source.kind)) throw new TypeError('only fee-reducing packages are eligible');
@@ -64,6 +66,7 @@ export function calculateNetworkPackageDailyPool({
     const grant = microsFromNet(net);
     if (!Number.isSafeInteger(poolMicroCents + grant)) throw new RangeError('pool overflow');
     poolMicroCents += grant;
+    verifiedSources.push({ source,grant });
     eligibleSourceCount++;
   }
 
@@ -81,19 +84,28 @@ export function calculateNetworkPackageDailyPool({
     unique.set(id, { userId:id, lastVerifiedActivityAt:member.lastVerifiedActivityAt });
   }
   const eligible = [...unique.keys()].sort();
-  const inviter = merchantInviterUserId == null ? null : uuid(merchantInviterUserId, 'merchantInviterUserId');
-  const inviterActive = inviter != null && unique.has(inviter);
-  const inviterBonusMicroCents = inviterActive
-    ? Math.floor(poolMicroCents * NETWORK_INVITER_SHARE_BPS_OF_POOL / 10_000)
-    : 0;
+  // Bonus is linked to EACH verified merchant package, never to mobility sales.
+  // A package has one independently confirmed first-touch merchant attribution.
+  // An inviter cannot award themselves a commission on their own package.
+  const inviterBonuses = new Map();
+  for(const {source,grant} of verifiedSources){
+    if(source.kind !== 'merchant_prepaid_fee' || source.merchantReferralVerified !== true ||
+      source.merchantInviterUserId == null) continue;
+    const id = uuid(source.merchantInviterUserId,'source.merchantInviterUserId');
+    if(!unique.has(id) || (source.purchaserUserId != null &&
+      uuid(source.purchaserUserId,'source.purchaserUserId') === id)) continue;
+    const bonus = Math.floor(grant * NETWORK_INVITER_SHARE_BPS_OF_POOL / 10_000);
+    inviterBonuses.set(id,(inviterBonuses.get(id)||0)+bonus);
+  }
+  const inviterBonusMicroCents = [...inviterBonuses.values()].reduce((a,b)=>a+b,0);
   const everyoneMicroCents = poolMicroCents - inviterBonusMicroCents;
   const equalMicroCents = eligible.length > 0
     ? Math.floor(everyoneMicroCents / eligible.length) : 0;
   const entries = eligible.map(userId => ({
     userId,
     activityMicroCents:equalMicroCents,
-    inviterBonusMicroCents:userId === inviter ? inviterBonusMicroCents : 0,
-    totalMicroCents:equalMicroCents + (userId === inviter ? inviterBonusMicroCents : 0)
+    inviterBonusMicroCents:inviterBonuses.get(userId)||0,
+    totalMicroCents:equalMicroCents + (inviterBonuses.get(userId)||0)
   }));
   const creditedMicroCents = entries.reduce((n,r) => n + r.totalMicroCents,0);
   const carryForwardMicroCents = poolMicroCents - creditedMicroCents;
