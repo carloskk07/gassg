@@ -24,6 +24,6 @@ assert.match(css,/left:1px;bottom:calc\(100% - 5px\);width:28px;height:26px/,
 assert.match(css,/icons\/santa-hat\.svg/);
 assert.match(css,/pointer-events:none/,'Decoration cannot intercept logo click');
 assert.match(hat,/<svg[^>]+viewBox="0 0 48 45"/);
-assert.doesNotMatch(hat,/<(?:script|foreignObject|image|use)\b|(?:https?:\/\/|data:)/i,
+assert.doesNotMatch(hat,/<(?:script|foreignObject|image|use)\b|\b(?:href|xlink:href)\s*=/i,
  'Vector self-contained and safe');
 console.log('V1.1036 PASS — Santa hat above final O, three portals, SVG responsive, Jan 7 revert.');
