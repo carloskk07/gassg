@@ -3536,21 +3536,30 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente Financeiro ou Superadmin consulta o fundo da Rede.",403);
       }
-      const [summary,conservation]=await Promise.all([
+      const [summary,conservation,payouts]=await Promise.all([
         admin.rpc("network_fee_package_admin_summary_v1_1030",{p_actor:user.id}),
-        admin.rpc("network_fee_package_conservation_v1_1030",{p_actor:user.id})
+        admin.rpc("network_fee_package_conservation_v1_1030",{p_actor:user.id}),
+        admin.rpc("network_fee_payout_program_overview_v1_1031",{p_actor:user.id})
       ]);
-      if(summary.error||conservation.error)throw summary.error||conservation.error;
+      if(summary.error||conservation.error||payouts.error)
+        throw summary.error||conservation.error||payouts.error;
       if(summary.data?.source!=="network_fee_package_admin_v1_1030"||
         summary.data.readOnly!==true||summary.data.payoutsEnabled!==false||
         conservation.data?.source!=="network_conservation_v1_1030"||
         conservation.data.readOnly!==true||
         conservation.data.payoutsEnabled!==false||
-        !Number.isSafeInteger(Number(conservation.data.violations))){
+        !Number.isSafeInteger(Number(conservation.data.violations))||
+        payouts.data?.source!=="network_payout_overview_v1_1031"||
+        payouts.data.readOnly!==true||payouts.data.payoutsEnabled!==false||
+        payouts.data.moneyMoved!==false||
+        !Number.isSafeInteger(Number(payouts.data.activeReservations))||
+        !Number.isSafeInteger(Number(payouts.data.reversalReviews))||
+        !Number.isSafeInteger(Number(payouts.data.reservedCents))){
         throw new DomainError("NETWORK_FINANCE_REPORT_UNVERIFIED",
           "Não foi possível conferir a contabilidade da Rede.",503);
       }
-      return json({...summary.data,conservation:conservation.data},200,origin);
+      return json({...summary.data,conservation:conservation.data,
+        payouts:payouts.data},200,origin);
     }
     if(action==="network-fee-package-set-enabled"){
       if(String(adminAccess.admin_role)!=="superadmin")
