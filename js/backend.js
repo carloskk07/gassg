@@ -1073,7 +1073,8 @@ async function liveSyncFinancialProfile({force=false}={}){
     referredCount:liveRuntime.referredCount,
     qualifiedReferralCount:liveRuntime.qualifiedReferralCount,
     comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
-    cashbackEarnedCents:liveRuntime.cashbackEarnedCents
+    cashbackEarnedCents:liveRuntime.cashbackEarnedCents,
+    networkPackage:liveRuntime.networkPackage??null
   });
   const seq=++liveRuntime.financialSyncSeq;
   const userId=liveRuntime.session?.user?.id;
@@ -1098,6 +1099,11 @@ async function liveSyncFinancialProfile({force=false}={}){
     liveRuntime.reorderPrediction=summary?.reorderPrediction??null;
     liveRuntime.referredCount=Math.max(0,Number(summary?.referredCount||0));
     liveRuntime.qualifiedReferralCount=Math.max(0,Number(summary?.qualifiedReferralCount||0));
+    if(summary?.networkPackage?.source==="network_fee_package_user_v1_1030"&&
+       summary.networkPackage.available===true&&summary.networkPackage.readOnly===true&&
+       summary.networkPackage.payoutsEnabled===false){
+      liveRuntime.networkPackage=summary.networkPackage;
+    }else liveRuntime.networkPackage=null;
     liveRuntime.comparisonSavingsCents=Math.max(0,Number(summary?.comparisonSavingsCents||0));
     liveRuntime.cashbackEarnedCents=Math.max(0,Number(summary?.cashbackEarnedCents||0));
     let activeOrderChanged=false;
@@ -1135,7 +1141,8 @@ async function liveSyncFinancialProfile({force=false}={}){
       referredCount:liveRuntime.referredCount,
       qualifiedReferralCount:liveRuntime.qualifiedReferralCount,
       comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
-      cashbackEarnedCents:liveRuntime.cashbackEarnedCents
+      cashbackEarnedCents:liveRuntime.cashbackEarnedCents,
+    networkPackage:liveRuntime.networkPackage??null
     });
     return before!==after||activeOrderChanged;
   }catch(error){
