@@ -75,6 +75,38 @@ Deno.serve(async(req:Request)=>{
       windowSeconds:60
     });
 
+    // A participant explicitly opening their statement does NOT become
+    // eligible for the 24-hour pool simply by reading the statement.
+    // Auth UID is derived from the verified token, never requestBody.userId.
+    if(requestBody?.statementOnly===true){
+      const category=String(requestBody.statementCategory??"all");
+      const page=requestBody.statementPage??1;
+      if(!["all","rede","cashback","clube"].includes(category)||
+         !Number.isSafeInteger(page)||page<1||page>100)
+        throw new DomainError("BENEFIT_STATEMENT_BAD_FILTER",
+          "Selecione um filtro ou página válida do extrato.",400);
+      const {data:statement,error:statementError}=await admin.rpc(
+        "network_member_benefit_statement_v1_1045",{
+          p_user:user.id,p_category:category,p_page:page,p_limit:12
+        });
+      if(statementError)throw statementError;
+      if(statement?.source!=="network_member_statement_v1_1045"||
+          statement.readOnly!==true||statement.moneyMoved!==false||
+          statement.category!==category||statement.page!==page||
+          statement.pageSize!==12||typeof statement.hasMore!=="boolean"||
+          !Array.isArray(statement.items)||statement.items.length>12||
+          !statement.items.every((item:Record<string,unknown>)=>
+            typeof item.title==="string"&&typeof item.origin==="string"&&
+            typeof item.detail==="string"&&typeof item.status==="string"&&
+            ["wallet","network","discount","transfer"].includes(String(item.money_type))&&
+            Number.isSafeInteger(item.amountCents)&&
+            Number.isSafeInteger(item.amountMicrocents)&&
+            typeof item.occurredAt==="string"&&item.unit==="BRL"))
+        throw new DomainError("BENEFIT_STATEMENT_UNVERIFIED",
+          "O extrato não pôde ser conferido no servidor.",503);
+      return json(statement,200,origin);
+    }
+
     const [
       {data,error},
       {data:benefitTotals,error:benefitTotalsError}

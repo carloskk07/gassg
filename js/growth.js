@@ -239,6 +239,7 @@ function club(){
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     ${clubePaidCouponPanel()}
+    <button class="ghost small" onclick="go('refer')">Meu extrato de vantagens →</button>
     ${typeof clubeCouponShopPanel==='function'?clubeCouponShopPanel():''}
     <section class="tamao-club-shop-now" aria-label="Usar as vantagens do Clube">
       <div><span class="section-kicker">SEU CLUBE NA PRÁTICA</span>
@@ -638,7 +639,8 @@ function refer(){
       <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da conferência de segurança e da validação das contas envolvidas, a comissão pode ser liberada.</p></div></div>
     </div></section>
 
-    <div class="card flat payout-card"><div><span class="section-kicker">SUAS COMISSÕES</span><h3>Tudo acompanhado em um só lugar.</h3><p class="muted">Consulte o que está em validação e o que já foi liberado. Os meios de recebimento são informados na conta conforme a disponibilidade.</p></div></div>
+    <div class="card flat payout-card"><div><span class="section-kicker">EXTRATO DE BENEFÍCIOS</span><h3>Tudo acompanhado em um só lugar.</h3><p class="muted">Origem das suas comissões e vantagens. Os meios de recebimento são informados na conta conforme a disponibilidade.</p><button class="secondary" onclick="import('/js/growth-benefits-statement.js').then(()=>tamaoBenefitsStatementOpen())">Ver extrato</button></div></div>
+    ${globalThis.tamaoBenefitsStatementPanel?.()||''}
   </section>`)
 }
 

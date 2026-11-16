@@ -33,6 +33,8 @@ jobs:
         run: node tests/network-cross-module-benefits-v1-1041.mjs
       - name: V1.1044 direct 5-percent NET rewards with owner-only policy, separate from shared pool
         run: node tests/network-direct-module-rewards-v1-1044.mjs
+      - name: V1.1045 authenticated benefits ledger provenance, privacy and read-only contract
+        run: node tests/network-member-benefit-statement-v1-1045.mjs
       - name: V1.1042 cross-module Ads benefits policy, ACL, terms and Admin no-cash controls
         run: node tests/network-module-ads-admin-v1-1042.mjs
       - name: Browser SDK integrity verify

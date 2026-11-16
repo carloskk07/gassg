@@ -176,6 +176,11 @@ jobs:
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
             --username=postgres --dbname=postgres --no-psqlrc \
             --set=ON_ERROR_STOP=1 --file=tests/sql/network-direct-module-rewards-v1-1044.sql
+      - name: V1.1045 isolated read-only member statement, subcent accounting and ACL (ROLLBACK)
+        run: |
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/network-member-benefit-statement-v1-1045.sql
       - name: V1.948 verified 100 welcome bonuses, 101 denied and Admin audit in rollback-only PostgreSQL
         run: node tests/isolated-welcome-first100-lifecycle-v1-948.mjs
       - name: V1.947 authoritative basket GLP versus non-GLP, ANP revocation and verified owner (ROLLBACK)
