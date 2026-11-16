@@ -3684,6 +3684,11 @@ async function adminNetworkFeePackageRefresh(){
     const result=await adminPerform('network-fee-package-status',{});
     if(result?.source!=='network_fee_package_admin_v1_1030'||
       result?.readOnly!==true||result?.payoutsEnabled!==false||
+      result.payouts?.source!=='network_payout_overview_v1_1031'||
+      result.payouts?.readOnly!==true||result.payouts?.payoutsEnabled!==false||
+      result.payouts?.moneyMoved!==false||
+      !Number.isSafeInteger(Number(result.payouts?.activeReservations))||
+      !Number.isSafeInteger(Number(result.payouts?.reversalReviews))||
       result.conservation?.source!=='network_conservation_v1_1030'||
       result.conservation?.readOnly!==true||
       !Number.isSafeInteger(Number(result.conservation.violations)))
@@ -3740,10 +3745,14 @@ function adminNetworkFeePackagePanel(){
       '<div class="kpi"><span class="label">Valor do fundo</span><strong>'+moneyMicro(d.totalPoolMicrocents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Em apuração</span><strong>'+moneyMicro(d.pendingMicrocents)+'</strong></div>'+
       '<div class="kpi"><span class="label">Validado, sem saque</span><strong>'+moneyMicro(d.validatedMicrocents)+'</strong></div>'+
-      '<div class="kpi"><span class="label">Sem elegíveis</span><strong>'+moneyMicro(d.unallocatedMicrocents)+'</strong></div></div>'+
+      '<div class="kpi"><span class="label">Sem elegíveis</span><strong>'+moneyMicro(d.unallocatedMicrocents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Reservas para saque (não pagas)</span><strong>'+Number(d.payouts?.activeReservations||0)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Revisões após estorno</span><strong>'+Number(d.payouts?.reversalReviews||0)+'</strong></div></div>'+
       '<p class="tiny muted">Conservação contábil: <strong>'+
       (d.conservation?.balanced===true?'confere':('REVISAR ('+d.conservation?.violations+')'))+
-      '</strong>. Saques automáticos continuam desabilitados. Nenhum saldo é criado sem prova de pagamento.</p>'+
+      '</strong>. Saques automáticos continuam desabilitados. '+Number(d.payouts?.activeReservations||0)+
+      ' reserva(s) contabilizada(s); valor ainda não transferido: '+BRL.format(Number(d.payouts?.reservedCents||0)/100)+
+      '. Sem prova externa do destinatário e do crédito bancário, nenhum valor aparece como pago.</p>'+
       (adminCurrentRole()==='superadmin'?
          (d.accrualEnabled?
          '<button class="secondary small" type="button" onclick="adminNetworkFeePackageToggle(false)">Pausar novas apurações</button>':
