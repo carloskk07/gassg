@@ -44,7 +44,7 @@ assert.match(backend,/liveRuntime\.networkDirect=null;/);
 assert.match(backend,/summary\?\.networkDirect\?\.available===true/);
 assert.match(ui,/Mais oportunidades:/);
 assert.match(ui,/Moto\/Carro e Clube parceiro/);
-assert.match(ui,/sem saque/);
+assert.match(ui,/não integram o saldo sacável/);
 assert.match(adminEdge,/network_direct_module_admin_v1_1044/);
 assert.match(adminEdge,/network_direct_module_set_enabled_v1_1044/);
 assert.match(adminEdge,/String\(adminAccess\.admin_role\)!=="superadmin"/);
