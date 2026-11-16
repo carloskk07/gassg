@@ -1089,7 +1089,10 @@ function merchantBillingLiveView(rt){
       )
         ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${rt.actionPending?'disabled':''}>${packageChargeExpired?'Gerar novo Pix':'Gerar/recuperar Pix'}</button>`
         : '';
-      action=`${chargeView||'<div class="notice risk" style="margin-top:8px"><strong>Solicitação pendente.</strong><br>Aguardando pagamento ou conferência financeira.</div>'}${retryPix}<button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`;
+      const offsetNotice=String(pendingPackage.merchantReference||'').startsWith('network-fee-offset:')
+        ?'<div class="notice" style="margin-top:8px"><strong>Bonificação reservada.</strong><br>O Pix abaixo já corresponde apenas ao restante do pacote. Se cancelar antes do pagamento, o abatimento ficará disponível novamente.</div>'
+        :'';
+      action=`${offsetNotice}${chargeView||'<div class="notice risk" style="margin-top:8px"><strong>Solicitação pendente.</strong><br>Aguardando pagamento ou conferência financeira.</div>'}${retryPix}<button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`;
     }else if(prepaid&&protectedDowngrade){
       action=`<div class="notice" style="margin-top:8px"><strong>Proteção do saldo atual.</strong><br>Enquanto houver crédito ou reserva no pacote ${esc(plan.displayName||'atual')}, você pode recarregar o mesmo pacote ou migrar para uma taxa menor. Este pacote ficará disponível quando o saldo atual terminar.</div>`;
     }else if(prepaid){
