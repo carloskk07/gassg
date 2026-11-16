@@ -137,12 +137,14 @@ assert.ok(edge.includes('providerAccepted:null,recipientCredited:false'));
 assert.doesNotMatch(edge,/MERCADOPAGO_ACCESS_TOKEN\b/);
 for(const text of ['adminNetworkPayoutLoadOnDemand','admin-network-payout.js'])
  assert.ok(admin.includes(text),'missing Admin lazy init');
-assert.ok(acquisition.includes('adminNetworkPayoutFallbackView()'));
+assert.ok(admin.includes('adminNetworkPayoutFallbackView()'));
+assert.ok(acquisition.includes('globalThis.adminNetworkFeePackagePanel?.()'),
+ 'Payout panel must be placed under existing lightweight Rede finance section');
 for(const text of ['adminNetworkPayoutRegister','adminNetworkPayoutReserve',
  'adminNetworkPayoutAuthorize','adminNetworkPayoutExecute',
  'adminNetworkPayoutReconcile','adminNetworkPayoutRecover',
  'adminNetworkPayoutConfirmBank','adminNetworkPayoutPolicy',
- 'Não clique em Enviar novamente','postRetried!==false',
+ 'NÃO clique em Enviar novamente','postRetried!==false',
  'adminNetworkPayoutFileHash'])
  assert.ok(ui.includes(text),'missing Admin finance UI '+text);
 assert.ok(audit.includes('node tests/network-payout-executor-contract-v1-1033.mjs'));
