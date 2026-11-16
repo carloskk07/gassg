@@ -279,6 +279,60 @@ function referralUrl(){
   const base=`${location.origin}${location.pathname}`;
   return `${base}?ref=${encodeURIComponent(state.user.referralCode)}#home`;
 }
+// A verified participation event requires an explicit visit to Rede,
+ // a permanent account and the authenticated customer-summary Edge route.
+ // No background heartbeat or marketing impression ever qualifies.
+let tamaoNetworkLastVisitAt=0;
+async function tamaoNetworkVisitFromUi(){
+  const now=Date.now();
+  if(!liveReady()||now-tamaoNetworkLastVisitAt<10*60*1000)return;
+  if(!['refer','earn'].includes(String(route())))return;
+  const actor=globalThis.liveRuntime?.session?.user?.id;
+  if(!actor)return;
+  tamaoNetworkLastVisitAt=now;
+  try{
+    const data=await liveInvoke('customer-summary',{networkVisit:true});
+    if(!liveReady()||globalThis.liveRuntime?.session?.user?.id!==actor)return;
+    const network=data?.networkPackage;
+    if(network?.source==='network_fee_package_user_v1_1030'&&
+        network.available===true&&network.readOnly===true&&
+        network.payoutsEnabled===false){
+      const before=JSON.stringify(globalThis.liveRuntime.networkPackage||null);
+      globalThis.liveRuntime.networkPackage=network;
+      if(before!==JSON.stringify(network)&&['refer','earn'].includes(String(route())))render();
+    }
+  }catch(e){
+    console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
+  }
+}
+function tamaoNetworkFeePackagePanel(){
+  const raw=globalThis.liveRuntime?.networkPackage;
+  const valid=raw?.source==='network_fee_package_user_v1_1030'&&
+    raw.readOnly===true&&raw.payoutsEnabled===false&&raw.available===true&&
+    ['pendingCents','validatedCents','awardSources'].every(k=>
+      Number.isSafeInteger(Number(raw[k]))&&Number(raw[k])>=0);
+  if(!valid)return '<section class="card flat"><h3>Participação nos pacotes de taxas</h3>'+
+    '<p class="muted tiny">O extrato desta modalidade ainda não está disponível. Nenhum ganho foi presumido.</p></section>';
+  const pending=BRL.format(Number(raw.pendingCents)/100);
+  const validated=BRL.format(Number(raw.validatedCents)/100);
+  const sources=Number(raw.awardSources);
+  return '<section class="card flat network-fee-package-statement" aria-label="Participação no fundo dos pacotes de taxas">'+
+    '<span class="section-kicker">REDE TAMÃO • PACOTES DE TAXAS REDUZIDAS</span>'+
+    '<h3>Seu resultado na distribuição dos pacotes</h3>'+
+    '<p class="muted tiny">O fundo usa até 10% do valor líquido de pacotes elegíveis de revendas e moto/carro. '+
+    'A participação considera visitas verificadas nas 24 horas da janela de distribuição. '+
+    'Pacotes de cupons não entram.</p>'+
+    '<div class="earn-summary"><div class="earn-balance-card"><span>Em apuração</span><strong>'+pending+'</strong>'+
+    '<small>Depende da validação do crédito pré-pago</small></div>'+
+    '<div class="earn-balance-card"><span>Validado</span><strong>'+validated+'</strong>'+
+    '<small>Ainda não sacável</small></div>'+
+    '<div class="earn-balance-card"><span>Pacotes com participação</span><strong>'+sources+'</strong>'+
+    '<small>Somente fontes financeiras comprovadas</small></div></div>'+
+    (!raw.accrualEnabled?'<div class="notice">A distribuição financeira dos pacotes ainda aguarda ativação das condições do programa.</div>':'')+
+    '<p class="tiny muted">Valores abaixo de R$ 0,01 permanecem contabilizados em frações. '+
+    'Participar não garante ganhos diários; não há saque automático habilitado.</p></section>';
+}
+
 let referralQrLoader=null;
 function ensureReferralQrLibrary(){
   if(typeof globalThis.qrcode==='function')return Promise.resolve(true);
@@ -431,6 +485,7 @@ function refer(){
       : '';
 
   if(hasReferral)setTimeout(renderReferralQr,0);
+  if(liveReady())setTimeout(tamaoNetworkVisitFromUi,0);
 
   const referralRateLabel=policyPercent(referralPilotRate());
   return shell(`<section class="page">
@@ -446,6 +501,7 @@ function refer(){
     </div>
     ${referralCard}
     ${identityCard}
+    ${tamaoNetworkFeePackagePanel()}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule a recompensa de primeiras compras qualificadas e entenda as regras antes de compartilhar.</p></div></div>
       <div class="calculator-card">
@@ -489,6 +545,7 @@ function growthNetworkIntro(){
   </section>`;
 }
 function earn(){
+  if(liveReady())setTimeout(tamaoNetworkVisitFromUi,0);
   const merchantSample=merchantEconomicsExample(120);
   const referralRateLabel=policyPercent(referralPilotRate());
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
