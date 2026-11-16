@@ -1,5 +1,21 @@
 // V1.1034 — one-click, user-scoped manual withdrawal request. No PSP call.
-const tamaoManualWithdrawal={userId:null,status:null,error:null,pending:false,key:null};
+const tamaoManualWithdrawal={userId:null,status:null,error:null,pending:false,key:null,generation:0};
+// A different authenticated participant must never inherit a pending request,
+// idempotency key, error or in-flight response from another browser session.
+function tamaoManualPayoutSession(){
+  const user=String(globalThis.liveRuntime?.session?.user?.id||'');
+  const s=tamaoManualWithdrawal;
+  if(s.userId!==user){
+    s.userId=user;s.status=null;s.error=null;s.pending=false;s.key=null;
+    s.generation++;
+  }
+  return {user,generation:s.generation};
+}
+function tamaoManualPayoutIsCurrent(user,generation){
+  return tamaoManualWithdrawal.userId===user&&
+    tamaoManualWithdrawal.generation===generation&&
+    String(globalThis.liveRuntime?.session?.user?.id||'')===user;
+}
 async function tamaoManualPayoutInvoke(body={},key=null){
   const user=String(globalThis.liveRuntime?.session?.user?.id||'');
   if(!globalThis.liveReady?.()||!user)throw Error('Entre em sua conta para consultar os saques.');
@@ -21,28 +37,34 @@ async function tamaoManualPayoutInvoke(body={},key=null){
   return data;
 }
 async function tamaoManualPayoutRefresh(){
-  const user=String(globalThis.liveRuntime?.session?.user?.id||'');
-  if(!user||tamaoManualWithdrawal.pending)return;
-  tamaoManualWithdrawal.pending=true;
+  const {user,generation}=tamaoManualPayoutSession();
+  const s=tamaoManualWithdrawal;
+  if(!user||s.pending)return;
+  s.pending=true;
   try{
     const result=await tamaoManualPayoutInvoke({action:'manual-status'});
+    if(!tamaoManualPayoutIsCurrent(user,generation))return;
     if(result?.source!=='network_manual_payout_status_v1_1034'||
        result?.readOnly!==true||result?.mode!=='manual'||
        result?.automaticPayouts!==false||
        !Number.isSafeInteger(Number(result.availableCents)))
       throw Error('Extrato de saques indisponível.');
-    tamaoManualWithdrawal.userId=user;
-    tamaoManualWithdrawal.status=result;
-    tamaoManualWithdrawal.error=null;
-  }catch(e){tamaoManualWithdrawal.error=String(e?.message||e)}
-  finally{tamaoManualWithdrawal.pending=false;
-    if(user===String(globalThis.liveRuntime?.session?.user?.id||'')&&
-       ['refer','earn'].includes(String(route())))render()}
+    s.status=result;
+    s.error=null;
+  }catch(e){
+    if(tamaoManualPayoutIsCurrent(user,generation))
+      s.error=String(e?.message||e);
+  }finally{
+    if(tamaoManualPayoutIsCurrent(user,generation)){
+      s.pending=false;
+      if(['refer','earn'].includes(String(route())))render();
+    }
+  }
 }
 async function tamaoManualPayoutRequest(){
-  const user=String(globalThis.liveRuntime?.session?.user?.id||'');
+  const {user,generation}=tamaoManualPayoutSession();
   const s=tamaoManualWithdrawal;
-  if(!user||s.userId!==user||s.pending||s.status?.canRequest!==true)return;
+  if(!user||s.pending||s.status?.canRequest!==true)return;
   const min=BRL.format(Number(s.status.minimumCents)/100);
   if(!confirm('Solicitar saque manual do saldo validado? O mínimo é '+min+
     '. O TAMÃO conferirá os dados antes de aprovar; após a aprovação, o prazo é de até 3 dias corridos.'))return;
@@ -50,6 +72,7 @@ async function tamaoManualPayoutRequest(){
   s.pending=true;
   try{
     const result=await tamaoManualPayoutInvoke({action:'manual-request'},s.key);
+    if(!tamaoManualPayoutIsCurrent(user,generation))return;
     if(result?.source!=='network_manual_request_v1_1034'||
        result?.state!=='requested'||result?.moneyMoved!==false)
       throw Error('Solicitação ainda não confirmada.');
@@ -57,14 +80,17 @@ async function tamaoManualPayoutRequest(){
     toast('Solicitação recebida. Aguardando conferência financeira e do destinatário.');
     s.status=null;
   }catch(e){
-    toast(String(e?.message||e)+' Consulte o status antes de solicitar novamente.');
+    if(tamaoManualPayoutIsCurrent(user,generation))
+      toast(String(e?.message||e)+' Consulte o status antes de solicitar novamente.');
   }finally{
-    s.pending=false;
-    await tamaoManualPayoutRefresh();
+    if(tamaoManualPayoutIsCurrent(user,generation)){
+      s.pending=false;
+      await tamaoManualPayoutRefresh();
+    }
   }
 }
 function tamaoNetworkManualPayoutDetailsPanel(){
-  const user=String(globalThis.liveRuntime?.session?.user?.id||'');
+  const {user}=tamaoManualPayoutSession();
   if(!user)return '';
   const s=tamaoManualWithdrawal;
   const d=s.userId===user?s.status:null;
