@@ -154,9 +154,9 @@ begin
  select * into v from public.network_fee_payout_reservations_v1_1031
    where id=p_reservation for update;
  if not found then raise exception 'NETWORK_PAYOUT_RESERVATION_UNKNOWN' using errcode='22023';end if;
- if v.state='reversal_review' then
-  raise exception 'NETWORK_PAYOUT_REVERSAL_REVIEW_REQUIRED' using errcode='22023';end if;
- if v.state='reserved' then
+ -- No Pix dispatch exists in this version; an owner's cancellation can
+ -- safely release a reservation under reversal review while keeping history.
+ if v.state in ('reserved','reversal_review') then
    update public.network_fee_payout_reservations_v1_1031
    set state='cancelled',cancelled_by=p_actor,cancelled_at=clock_timestamp()
    where id=p_reservation;
@@ -212,12 +212,33 @@ begin
  'payoutsEnabled',false,'bankSettlementVerified',false,
  'recipientVerified',false,'moneyMoved',false);
 end $fn$;
+-- Aggregated owner dashboard: never reveal user IDs, payout keys or identities.
+create function public.network_fee_payout_program_overview_v1_1031(p_actor uuid)
+returns jsonb language plpgsql stable security definer
+set search_path=pg_catalog as $fn$
+declare v_count bigint;v_review bigint;v_total bigint;
+begin
+ if not exists(select 1 from public.platform_admins
+   where user_id=p_actor and active and admin_role in ('superadmin','finance'))
+ then raise exception 'NETWORK_PAYOUT_READ_DENIED' using errcode='42501';end if;
+ select count(*) filter(where state<>'cancelled'),
+   count(*) filter(where state='reversal_review'),
+   coalesce(sum(amount_cents) filter(where state<>'cancelled'),0)
+ into v_count,v_review,v_total
+ from public.network_fee_payout_reservations_v1_1031;
+ return jsonb_build_object('source','network_payout_overview_v1_1031',
+ 'readOnly',true,'activeReservations',v_count,'reversalReviews',v_review,
+ 'reservedCents',v_total,'payoutsEnabled',false,
+ 'bankSettledCents',0,'providerConfigured',false,'moneyMoved',false);
+end $fn$;
 revoke all on function public.network_fee_payout_reserve_v1_1031(uuid,uuid,bigint,text),
  public.network_fee_payout_cancel_v1_1031(uuid,uuid),
  public.network_fee_payout_status_v1_1031(uuid,uuid),
+ public.network_fee_payout_program_overview_v1_1031(uuid),
  public.network_fee_payout_watch_reversal_v1_1031()
  from public,anon,authenticated;
 grant execute on function public.network_fee_payout_reserve_v1_1031(uuid,uuid,bigint,text),
  public.network_fee_payout_cancel_v1_1031(uuid,uuid),
- public.network_fee_payout_status_v1_1031(uuid,uuid) to service_role;
+ public.network_fee_payout_status_v1_1031(uuid,uuid),
+ public.network_fee_payout_program_overview_v1_1031(uuid) to service_role;
 commit;
