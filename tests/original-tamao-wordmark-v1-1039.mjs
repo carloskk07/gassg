@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const core=read('js/core.js');
+new vm.Script(core,{filename:'js/core.js'});
+assert.match(core,/<span class="brand-name">TAMÃO<\/span>/,'The original TAMÃO wordmark must be rendered');
+assert.equal((core.match(/class="brand-name"/g)||[]).length,1,'Exactly one shared header wordmark for all portals');
+assert.doesNotMatch(core,/tamaoSeasonalWordmark|tamao-santa-o|santa-hat\.svg/,'No Christmas decoration remains in the shared header');
+assert.doesNotMatch(read('css/base.css')+read('css/components.css'),/tamao-santa-o|santa-hat\.svg/,'No seasonal CSS dependency');
+assert.equal(fs.existsSync(new URL('../icons/santa-hat.svg',import.meta.url)),false,'Christmas asset must be removed');
+const shellBegin=core.indexOf('function shell(content){');
+const shellEnd=core.indexOf('// V1.985: close desktop disclosures',shellBegin);
+assert.ok(shellEnd>shellBegin,'Shared shell remains testable');
+assert.match(core.slice(shellBegin,shellEnd),/aria-label="Ir para o início do TAMÃO"/,'Brand button stays accessible');
+console.log('V1.1039 PASS: restored original TAMÃO wordmark for Cliente, Parceiro and Admin without decoration.');
