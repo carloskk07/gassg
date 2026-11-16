@@ -110,4 +110,64 @@ assert.match(ui,/reopenPrelaunchLead\(\\'customer\\'\)/);
 assert.match(ui,/if\(!consent\)return prelaunchMerchantFieldError/);
 assert.match(ui,/if\(!consent\)return toast/);
 assert.ok(audit.includes('node tests/commercial-lead-repeat-and-handler-v1-493.mjs'));
+// PRELAUNCH is a legitimate recruitment state: commerce may be disabled,
+// with no approved merchant, inventory, orders, or real payment. Both visible
+// forms still need to submit through the actual UI functions in this state.
+const leadStart=ui.indexOf('function prelaunchLeadSent(type){');
+const leadFinish=ui.indexOf('\n}',ui.indexOf('async function submitPrelaunchMerchantLead(){'))+2;
+assert.ok(leadStart>=0&&leadFinish>leadStart,'recruitment handlers must exist');
+const inputs={
+  '#prelaunch-submit':{disabled:false,textContent:'Quero receber aviso'},
+  '#prelaunch-result':{textContent:'',className:''},
+  '#prelaunch-name':{value:'Pessoa de Teste'},
+  '#prelaunch-phone':{value:'55999990000'},
+  '#prelaunch-postal':{value:'97300000'},
+  '#prelaunch-consent':{checked:true},
+  '#prelaunch-website':{value:''},
+  '#partner-submit':{disabled:false,textContent:'Cadastrar empresa'},
+  '#partner-result':{textContent:'',className:''},
+  '#partner-business':{value:'Revenda Fictícia de CI'},
+  '#partner-name':{value:'Sócia de Teste'},
+  '#partner-phone':{value:'55999990000'},
+  '#partner-postal':{value:''},
+  '#partner-consent':{checked:true},
+  '#partner-note':{value:''},
+  '#partner-website':{value:''}
+};
+const intake=[];
+const closedCommerce=vm.createContext({
+  document:{
+    getElementById:()=>null,
+    querySelector:selector=>inputs[selector]||null,
+    querySelectorAll:selector=>selector==='input[name="prelaunch-interest"]:checked'
+      ?[{value:'gas'}]:[]
+  },
+  localStorage:{setItem:()=>{},getItem:()=>null,removeItem:()=>{}},
+  state:{postalCode:'97300000',cart:{}},
+  liveRuntime:{marketStatus:{commerce_enabled:false,online_merchants:0}},
+  prelaunchLeadSubmit:async payload=>{
+    intake.push(payload);return {message:'Cadastro recebido.'};
+  },
+  toast:message=>{throw new Error('Unexpected lead validation: '+message)},
+  prelaunchMerchantFieldError:(_field,message)=>{throw new Error(message)}
+});
+vm.runInContext(ui.slice(leadStart,leadFinish)+
+  ';this.submitCustomer=submitPrelaunchCustomerLead;this.submitMerchant=submitPrelaunchMerchantLead;',closedCommerce);
+await closedCommerce.submitCustomer();
+await closedCommerce.submitMerchant();
+assert.equal(intake.length,2,'PRELAUNCH recruitment must not require a commercial offer');
+assert.equal(intake[0].leadType,'customer');
+assert.equal(intake[1].leadType,'merchant');
+assert.equal(inputs['#prelaunch-result'].className,'lead-result success');
+assert.equal(inputs['#partner-result'].className,'lead-result success');
+assert.equal(intake[0].consent,true);
+assert.equal(intake[1].consent,true);
+// Privacy consent remains mandatory despite the independence from commerce.
+inputs['#partner-consent'].checked=false;
+inputs['#partner-submit'].disabled=false;
+await closedCommerce.submitMerchant();
+assert.match(inputs['#partner-result'].textContent,/Confirme que podemos entrar em contato/);
+assert.equal(inputs['#partner-result'].className,'lead-result error');
+assert.equal(intake.length,2,'no lead may bypass consent');
+
 console.log('PASS #493: commercial leads return operational copy, reject invalid JSON, and support repeat consented submissions.');

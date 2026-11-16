@@ -1,6 +1,6 @@
 # TAMÃO — matriz de homologação das cinco frentes (15/11/2026)
 
-> Documento de engenharia, **não** autorização de vendas ou certificado de pagamentos reais. Fonte de continuidade: `docs/TAMAO_EXECUCAO.md` e issue #493. Toda evidência sintética precisa aparecer explicitamente como sintética.
+> Documento de engenharia para **encerramento técnico**. Não é certificado de pagamento bancário nem de operação comercial. **Eventos comerciais futuros não bloqueiam o encerramento técnico nem a captação em PRELAUNCH**. Fonte: `LAUNCH.md`, `docs/TAMAO_EXECUCAO.md` e issue #493. Toda evidência sintética deve ser identificada.
 
 ## Inventário executável
 
@@ -11,7 +11,7 @@ A Auditoria do GitHub mantém `tests/homologation-five-fronts-gates.mjs`. O test
 
 A proteção do vínculo é uma **verificação de instrumentação**: a aprovação real de cada cenário continua sendo o resultado independente do seu job.
 
-| Frente | Provas técnicas contínuas | Evidência externa ainda necessária |
+| Frente | Provas técnicas contínuas | Eventos operacionais posteriores (não bloqueadores do encerramento técnico) |
 |---|---|---|
 | #2 Cupons | Botão de compra com aceite, duplo clique, Pix pendente e recuperação; emissão e compra em SQL descartável; uso, cancelamento, devolução e ressarcimento | Consumo em compra comercial legítima, liquidação financeira quando aplicável e conferência do benefício recebido |
 | #3 Financeiro | Reconciliação e direitos financeiros das modalidades, publicidade, taxas de mobilidade, declaração e reversão de comissão | Confirmação independente dos PSPs e bancos em **eventos comerciais não comprovados**, incluindo repasses reais aos seus destinatários |
@@ -34,15 +34,31 @@ A proteção do vínculo é uma **verificação de instrumentação**: a aprova�
 
 **Limite de fidelidade:** este teste exercita o código de interface em ambiente Node/VM com respostas de Edge/PSP controladas, não uma compra com dinheiro real em Chrome. As provas complementares no banco e nas Edge Functions originais são executadas pela integração isolada. Não anunciar “Pix bancário aprovado” por causa deste teste.
 
-## Critério de liberação, por funcionalidade
+## Critérios independentes de aceite
 
-1. **Cobertura funcional:** comportamento positivo e adversarial, replays, concorrência, papéis e renderização; CI aprovado no commit entregue.
-2. **Prontidão operacional:** o próprio `platform_launch_readiness()` precisa confirmar fornecedor apto, oferta, owner, capacidade e pagamento, quando a modalidade depender deles.
-3. **Prova externa:** comprovantes autênticos por transação/participante, sem reproduzir operações já conciliadas.
-4. **Controle de risco:** estado da venda e configurações de segurança não devem ser alterados para passar um teste.
-5. **Publicação:** confirmar SHA dos três portais e versão de Edge Function afetada; merge sozinho não comprova deploy.
+### A. Encerrar as cinco frentes de software
 
-Em 15/11, os aceites #2, #3, #4, #6 e #12 ainda **não estavam encerrados**; a referência histórica é 14 de 19 frentes técnicas. Modificar a contagem somente depois de documentar evidência suficiente para cada aceite.
+Para cada frente, o aceite exige **código existente e verificável**, cenários positivos, negativos, concorrência, repetição, papéis/RLS, recuperação, apresentação nos portais, CI verde e publicação correspondente. Exigências específicas:
+
+- **#2 Cupons:** aquisição, reserva, aplicação elegível, limites, devolução, ressarcimento e estados de interface testados sem dinheiro real.
+- **#3 Financeiro:** cobranças, retorno/webhook, conciliação NET, divergência, estorno, tarifas, obrigações, reversão e proteção contra dupla liquidação validados com PSP controlado e banco descartável. Integrações reais já verificadas não precisam ser repetidas.
+- **#4 Pedidos:** jornada Cliente → Parceiro → Entregador → Admin, cotação, aceite, estoque, PIN, offline, recuperação, cancelamento e fechamento simulados fielmente e sem vazamento entre contas.
+- **#6 Revendas:** inscrição, aprovação e restrições, catálogo, estoque, entrega, condição de pagamento, habilitação, suspensão e faturamento validados com empresa **fictícia apenas na CI**.
+- **#12 Rede:** atribuição, convite, conversão, qualificação, carência, saldo, comissão, fraude, estorno e declaração/reversão financeira reproduzidos. **Se multinível, bônus de revenda ou saque automático fizerem parte do escopo aprovado, não chamá-los de implementados sem código e testes: finalizar ou registrá-los formalmente como expansão futura antes do aceite.**
+
+Esses critérios **não exigem** revenda, cliente, compra, entrega, saldo ou saque reais. Lacuna técnica comprovada permanece aberta até sua correção. A contagem histórica é 14/19, cinco frentes em revisão técnica; recontar por evidência, não por presença de pessoas.
+
+### B. Liberar captação de clientes e parceiros
+
+Independente das cinco frentes de vendas: confirmar site HTTPS, links e formulário reais, consentimento/privacidade, antiabuso, cadastros de cliente e revenda persistidos com deduplicação, leitura na fila Admin e tratamento de falhas. Validar em navegador/CI e produção por **leituras seguras** e prova de submissão somente quando autorizada; não criar leads fictícios em produção. É legítimo captar em `PRELAUNCH`, com comércio fechado e sem revenda ofertável.
+
+### C. Habilitar pedidos e movimentação financeira
+
+A operação individual continua subordinada a `platform_launch_readiness()`, documentação da revenda, oferta/estoque/capacidade/preço, recebimento correto, titularidade e verificações financeiras conforme aplicável. Só aceitar comprovantes verdadeiros para declarar uma **operação bancária efetuada**, sem convertê-la em pré-condição para buscar participantes. Um novo participante sem requisitos pode se cadastrar, mas não vender.
+
+### D. Publicação e controle
+
+Conferir SHA dos três portais, versão das Edge Functions afetadas, Audit, integração descartável, builds e readiness. Não afrouxar RLS, políticas de pagamentos, kill switches nem gates de transação para aprovar um checklist de captação.
 
 ## Continuidade sem recomeçar
 
