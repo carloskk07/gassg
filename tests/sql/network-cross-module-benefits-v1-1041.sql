@@ -11,6 +11,7 @@ declare
  v_admin uuid:=gen_random_uuid();
  v_ret jsonb;
  v_code text:='NETV1041TEST';
+ v_campaign uuid:=gen_random_uuid();
  v_denied boolean:=false;
 begin
  insert into auth.users(id,aud,role,is_anonymous,email,email_confirmed_at)
@@ -63,6 +64,40 @@ begin
  if v_ret->>'enabled'<>'false'
  or (select count(*) from public.network_module_ads_bonus_awards_v1_1041)<>0
  then raise exception 'BONUS_CREDIT_WHILE_DISABLED';end if;
+
+ -- Critical regression: disabling NEW awards must never freeze revocation of
+ -- an older award after its payment becomes invalid. All fixtures rollback.
+ insert into public.ads_independent_campaigns_v1_884(
+  id,owner_user_id,request_id,request_signature,advertiser_name,title,
+  description,city,state,destination_url,budget_cents,duration_days,status)
+ values(v_campaign,v_invitee,gen_random_uuid(),repeat('b',32),
+  'Empresa de testes','Campanha sintética para regressão',
+  'Descrição sintética somente para testar o estorno da Rede.',
+  'São Gabriel','RS','https://example.invalid/ads',1990,7,'submitted');
+ insert into public.ads_independent_checkouts_v1_886(
+  campaign_id,owner_user_id,request_id,external_reference,amount_cents,duration_days)
+ values(v_campaign,v_invitee,gen_random_uuid(),
+  'tamao-ads-ind-'||md5(v_campaign::text),1990,7);
+ -- The checkout is deliberately RESERVED, not paid. This is an old invalid
+ -- award fixture, NOT a new simulated payment or a real PSP receipt.
+ insert into public.network_module_ads_bonus_awards_v1_1041(
+  campaign_id,referred_user_id,inviter_user_id,net_cents,bonus_cents,
+  proof_reference,approved_at,matured_at)
+ values(v_campaign,v_invitee,v_inviter,1000,50,'TEST-INVALID-RECEIPT',
+  clock_timestamp()-interval '10 days',clock_timestamp()-interval '2 days');
+ v_ret:=public.network_module_ads_bonus_refresh_v1_1041(v_inviter);
+ if v_ret->>'enabled'<>'false' or v_ret->>'created'<>'0'
+    or v_ret->>'reversed'<>'1'
+    or (select status from public.network_module_ads_bonus_awards_v1_1041
+        where campaign_id=v_campaign)<>'reversed'
+    or (select reversed_at from public.network_module_ads_bonus_awards_v1_1041
+        where campaign_id=v_campaign) is null
+ then raise exception 'PAUSED_PROGRAM_MUST_REVERSE_INVALID_AWARD %',v_ret;end if;
+ v_ret:=public.network_module_ads_bonus_refresh_v1_1041(v_inviter);
+ if v_ret->>'created'<>'0' or v_ret->>'reversed'<>'0'
+    or (select count(*) from public.network_module_ads_bonus_awards_v1_1041
+        where status='validated')<>0
+ then raise exception 'PAUSED_REVERSAL_MUST_BE_IDEMPOTENT %',v_ret;end if;
 
  begin
    perform public.network_module_ads_bonus_set_enabled_v1_1041(
