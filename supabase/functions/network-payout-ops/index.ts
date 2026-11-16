@@ -168,9 +168,9 @@ Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return respond({error:"METHOD_NOT_ALLOWED"},405,origin);
   try{
     const user=await actor(req);
-    const db=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
-    await enforceApiQuota(db,{userId:user,actionName:"network-payout-ops",limit:40,windowSeconds:60});
-    const {data:permission,error:pe}=await db.from("platform_admins")
+    const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user,actionName:"network-payout-ops",limit:40,windowSeconds:60});
+    const {data:permission,error:pe}=await admin.from("platform_admins")
       .select("admin_role,active").eq("user_id",user).eq("active",true).maybeSingle();
     if(pe)throw pe;
     if(!permission||permission.admin_role!=="superadmin")
@@ -178,7 +178,7 @@ Deno.serve(async(req:Request)=>{
     const body=await readJsonBody(req);
     const action=String(body.action??"");
     const rpc=async(name:string,args:Record<string,unknown>)=>{
-      const {data,error}=await db.rpc(name,args);
+      const {data,error}=await admin.rpc(name,args);
       if(error)throw error;
       return data;
     };
