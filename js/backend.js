@@ -284,6 +284,7 @@ function liveForgetAccount(){
   liveRuntime.lastOrderTemplate=null;liveRuntime.reorderPrediction=null;
   liveRuntime.referredCount=liveRuntime.qualifiedReferralCount=0;
   liveRuntime.networkPackage=null;
+  liveRuntime.moduleBenefits=null;
   liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
   state.user=freshSeed().user;
   state.address='';state.postalCode='';state.addressNumber='';
@@ -1075,12 +1076,15 @@ async function liveSyncFinancialProfile({force=false}={}){
     qualifiedReferralCount:liveRuntime.qualifiedReferralCount,
     comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
     cashbackEarnedCents:liveRuntime.cashbackEarnedCents,
-    networkPackage:liveRuntime.networkPackage??null
+    networkPackage:liveRuntime.networkPackage??null,
+    moduleBenefits:liveRuntime.moduleBenefits??null
   });
   const seq=++liveRuntime.financialSyncSeq;
   const userId=liveRuntime.session?.user?.id;
   try{
-    const summary=await liveInvoke('customer-summary',{});
+    const invite=typeof growthAttributionCode==='function'?growthAttributionCode():'';
+    const summary=await liveInvoke('customer-summary',
+      /^[A-Z0-9]{5,40}$/.test(invite)?{referralCode:invite}:{});
     if(seq!==liveRuntime.financialSyncSeq||
        userId&&(!liveReady()||userId!==liveRuntime.session?.user?.id))return false;
     if(!summary||typeof summary!=='object'||
@@ -1105,6 +1109,11 @@ async function liveSyncFinancialProfile({force=false}={}){
        summary.networkPackage.payoutsEnabled===false){
       liveRuntime.networkPackage=summary.networkPackage;
     }else liveRuntime.networkPackage=null;
+    liveRuntime.moduleBenefits=summary?.moduleBenefits?.available===true&&
+      summary?.moduleBenefits?.source==='network_module_benefits_v1_1041'&&
+      summary?.moduleBenefits?.readOnly===true&&
+      summary?.moduleBenefits?.cashPayoutsEnabled===false
+        ?summary.moduleBenefits:null;
     liveRuntime.comparisonSavingsCents=Math.max(0,Number(summary?.comparisonSavingsCents||0));
     liveRuntime.cashbackEarnedCents=Math.max(0,Number(summary?.cashbackEarnedCents||0));
     let activeOrderChanged=false;
