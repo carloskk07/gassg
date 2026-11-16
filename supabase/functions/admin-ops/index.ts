@@ -145,6 +145,7 @@ function couponSellerTaxDocumentValid(value:unknown){
 }
 const ADMIN_READ_ACTIONS=new Set(["governance-gates","ads-institutional-read","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","welcome-campaign-read","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue","clube-coupon-auto-status"]);
 ADMIN_READ_ACTIONS.add("finance-owned-billing-read");
+ADMIN_READ_ACTIONS.add("network-fee-package-status");
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3529,6 +3530,52 @@ Deno.serve(async(req:Request)=>{
     });
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
+
+    if(action==="network-fee-package-status"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente Financeiro ou Superadmin consulta o fundo da Rede.",403);
+      }
+      const [summary,conservation]=await Promise.all([
+        admin.rpc("network_fee_package_admin_summary_v1_1030",{p_actor:user.id}),
+        admin.rpc("network_fee_package_conservation_v1_1030",{p_actor:user.id})
+      ]);
+      if(summary.error||conservation.error)throw summary.error||conservation.error;
+      if(summary.data?.source!=="network_fee_package_admin_v1_1030"||
+        summary.data.readOnly!==true||summary.data.payoutsEnabled!==false||
+        conservation.data?.source!=="network_conservation_v1_1030"||
+        conservation.data.readOnly!==true||
+        conservation.data.payoutsEnabled!==false||
+        !Number.isSafeInteger(Number(conservation.data.violations))){
+        throw new DomainError("NETWORK_FINANCE_REPORT_UNVERIFIED",
+          "Não foi possível conferir a contabilidade da Rede.",503);
+      }
+      return json({...summary.data,conservation:conservation.data},200,origin);
+    }
+    if(action==="network-fee-package-set-enabled"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o Superadmin altera a distribuição.",403);
+      if(typeof body.enabled!=="boolean"||
+        body.enabled===true&&(
+          typeof body.termsReference!=="string"||
+          body.termsReference.trim().length<12||
+          body.termsReference.trim().length>160)){
+        throw new DomainError("NETWORK_POLICY_TERMS_REQUIRED",
+          "Antes de ativar, identifique a versão aprovada dos termos.",400);
+      }
+      const {data,error}=await admin.rpc("network_fee_package_set_enabled_v1_1030",{
+        p_actor:user.id,p_enabled:body.enabled,
+        p_terms_reference:String(body.termsReference||"").trim()
+      });
+      if(error)throw error;
+      if(data?.source!=="network_policy_v1_1030"||
+        data.accrualEnabled!==body.enabled||data.payoutsEnabled!==false||
+        data.moneyMoved!==false)
+        throw new DomainError("NETWORK_POLICY_UPDATE_UNVERIFIED",
+          "Não foi possível confirmar a regra da Rede.",503);
+      return json(data,200,origin);
+    }
 
     if(action==="support-cases-page"){
       if(!["superadmin","operations","support"].includes(String(adminAccess.admin_role||"")))

@@ -63,7 +63,7 @@ Deno.serve(async(req:Request)=>{
 
   try{
     const user=await authenticatedUser(req);
-    await readJsonBody(req);
+    const requestBody=await readJsonBody(req);
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{
       auth:{persistSession:false,autoRefreshToken:false}
@@ -125,6 +125,36 @@ Deno.serve(async(req:Request)=>{
     if(recentOrdersError)throw recentOrdersError;
     if(referredCountError)throw referredCountError;
     if(qualifiedReferralCountError)throw qualifiedReferralCountError;
+
+    // Rede TAMÃO: an actual authenticated visit is explicitly signaled by
+    // the user's Rede page. Ordinary refresh/token renewal is NOT activity.
+    // No direct money writes: the financial statement comes from a separate
+    // private, reconciled 10%-fee-package ledger.
+    let networkPackage:Record<string,unknown>={available:false};
+    let networkVisit:Record<string,unknown>={recorded:false};
+    if(user.is_anonymous!==true){
+      if(requestBody?.networkVisit===true){
+        const {data:visit,error:visitError}=await admin.rpc(
+          "network_record_visit_v1_1030",{p_user:user.id,p_portal:"customer"});
+        if(!visitError&&visit?.source==="network_visit_v1_1030"){
+          networkVisit=visit;
+        }else if(visitError){
+          console.warn("network visit unavailable",String(visitError.message||""));
+        }
+      }
+      const {data:network,error:networkError}=await admin.rpc(
+        "network_user_fee_package_summary_v1_1030",{p_user:user.id});
+      if(!networkError&&network?.source==="network_fee_package_user_v1_1030"&&
+        network.readOnly===true&&network.payoutsEnabled===false&&
+        ["pendingMicrocents","validatedMicrocents","reversedMicrocents",
+          "pendingCents","validatedCents"].every(k=>
+            Number.isSafeInteger(network[k])&&network[k]>=0)){
+        networkPackage={available:true,...network};
+      }else if(networkError){
+        console.warn("network fee-package balance unavailable",
+          String(networkError.message||""));
+      }
+    }
 
     const settledIds=(recentOrders??[]).map((o)=>o.id);
     let recentItems:any[]=[];
@@ -199,6 +229,8 @@ Deno.serve(async(req:Request)=>{
       identityType:user.is_anonymous===true?"anonymous":"permanent",
       referredCount:Number(referredCount??0),
       qualifiedReferralCount:Number(qualifiedReferralCount??0),
+      networkPackage,
+      networkVisit,
       lastOrderTemplate,
       reorderPrediction,
       activeOrderId:activeOrder?.id??null,

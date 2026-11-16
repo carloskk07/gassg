@@ -141,6 +141,11 @@ jobs:
         run: node tests/isolated-accessible-merchant-plans-v1-824.mjs
       - name: V1.953 four prepaid plans, real order PIN fee consumption in isolated PostgreSQL
         run: node tests/isolated-merchant-prepaid-lifecycle-v1-953.mjs
+      - name: Rede V1.1030 real disposable PSP package NET activity 10 percent and reversal (ROLLBACK)
+        run: |
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/network-fee-package-lifecycle-v1-1030.sql
       - name: V1.948 verified 100 welcome bonuses, 101 denied and Admin audit in rollback-only PostgreSQL
         run: node tests/isolated-welcome-first100-lifecycle-v1-948.mjs
       - name: V1.947 authoritative basket GLP versus non-GLP, ANP revocation and verified owner (ROLLBACK)

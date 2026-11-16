@@ -788,7 +788,20 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("GROWTH_NETWORK_UNVERIFIED",
           "Não foi possível comprovar seu código de indicação.",503);
       }
-      return json(data,200,origin);
+      // Opening "Minha Rede" is a genuine authenticated visit. A prepaid
+      // package never credits a merchant merely for issuing an invitation.
+      const {error:visitError}=await admin.rpc("network_record_visit_v1_1030",{
+        p_user:user.id,p_portal:"merchant"
+      });
+      if(visitError)console.warn("merchant network visit unavailable",
+        String(visitError.message||""));
+      const {data:packageNetwork,error:networkError}=await admin.rpc(
+        "network_user_fee_package_summary_v1_1030",{p_user:user.id});
+      const verified=(!networkError&&
+        packageNetwork?.source==="network_fee_package_user_v1_1030"&&
+        packageNetwork?.readOnly===true&&packageNetwork?.payoutsEnabled===false);
+      return json({...data,packageNetwork:verified?
+        {...packageNetwork,available:true}:{available:false}},200,origin);
     }
     if(action==="enablement"){
       if(!canManage(role)){
