@@ -175,6 +175,8 @@ begin
      and (c.status<>'payment_approved' or c.provider_status<>'approved'
        or c.reversed_at is not null or o.status is distinct from 'net_verified'
        or exists(select 1 from public.ads_independent_refund_executions_v1_888 f
+          where f.campaign_id=c.campaign_id)
+       or exists(select 1 from public.ads_independent_refund_cases_v1_887 f
           where f.campaign_id=c.campaign_id))
  )
  update public.network_module_ads_bonus_awards_v1_1041 a
@@ -204,6 +206,8 @@ begin
    and c.reversed_at is null and c.approved_at is not null
    and c.approved_at>=b.bound_at and c.approved_at>=v_policy.effective_after
    and not exists(select 1 from public.ads_independent_refund_executions_v1_888 f
+     where f.campaign_id=c.campaign_id)
+   and not exists(select 1 from public.ads_independent_refund_cases_v1_887 f
      where f.campaign_id=c.campaign_id)
   order by c.owner_user_id,c.approved_at,c.campaign_id
  )
@@ -273,6 +277,31 @@ begin
   v_ride,v_club,v_ads
  from public.network_module_invite_bindings_v1_1041 b
  where b.inviter_user_id=p_inviter;
+ -- Applications created on the Partner portal already have independent
+ -- immutable CNPJ attribution in V1.229, without a customer-summary login.
+ -- Count reviewed/approved conversions but NEVER make them cash eligible.
+ select v_merchant+count(distinct m.applicant_user_id)
+  into v_merchant
+ from public.growth_merchant_application_attributions_v1_229 a
+ join public.merchant_applications m on m.id=a.application_id
+ where m.status='approved'
+  and ((a.inviter_kind='customer' and a.inviter_user_id=p_inviter) or
+       (a.inviter_kind='merchant' and exists(
+         select 1 from public.growth_merchant_invites_v1_226 g
+         where g.merchant_id=a.inviter_merchant_id and g.created_by=p_inviter)))
+  and not exists(select 1 from public.network_module_invite_bindings_v1_1041 b
+     where b.referred_user_id=m.applicant_user_id and b.inviter_user_id=p_inviter);
+ select v_invites+count(distinct m.applicant_user_id)
+  into v_invites
+ from public.growth_merchant_application_attributions_v1_229 a
+ join public.merchant_applications m on m.id=a.application_id
+ where m.status='approved'
+  and ((a.inviter_kind='customer' and a.inviter_user_id=p_inviter) or
+       (a.inviter_kind='merchant' and exists(
+         select 1 from public.growth_merchant_invites_v1_226 g
+         where g.merchant_id=a.inviter_merchant_id and g.created_by=p_inviter)))
+  and not exists(select 1 from public.network_module_invite_bindings_v1_1041 b
+     where b.referred_user_id=m.applicant_user_id and b.inviter_user_id=p_inviter);
  select coalesce(sum(bonus_cents),0) into v_ads_cents
  from public.network_module_ads_bonus_awards_v1_1041
  where inviter_user_id=p_inviter and status='validated';
