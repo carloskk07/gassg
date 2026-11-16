@@ -1,3 +1,19 @@
+# TAMÃO — critério vigente de liberação (15/11/2026)
+
+**Decisão do proprietário:** a plataforma não precisa de revenda, cliente, entrega, resgate ou saque *real* para encerrar desenvolvimento e permitir a captação de participantes. Exigir esses eventos antes da captação seria uma dependência circular. A evidência comercial externa entra no histórico da operação **depois** da entrada de participantes e não é uma pendência de implementação das 19 frentes.
+
+Há três permissões independentes:
+
+1. **Encerramento técnico da frente:** implementação completa do escopo combinado, regressões positivas e adversariais com código real em Auth/Edge/PostgreSQL/Chrome isolados, auditabilidade, proteção financeira/RLS, CI e deploy aprovados. Testes sintéticos devem ser rotulados; não se exigem dados, PIX ou empresas de produção. Falhas, recursos prometidos e cenários sem teste **continuam** pendências técnicas.
+2. **Captação e cadastro:** pode ocorrer em `PRELAUNCH` com `commerce_enabled=false`; exige formulários reais de cliente e revenda, consentimento, entrega à fila Admin, HTTPS e isolamento de dados, além de testes públicos e monitoração. Não precisa de revenda aprovada, oferta, compra ou recebimento. É permitido procurar participantes e receber seus interesses sem prometer entrega, economia ou comissão garantidas.
+3. **Venda, benefício e repasse:** só a transação da modalidade ativada exige os gates específicos (revenda documentalmente apta, oferta e estoque verdadeiros, capacidade, pagamento, destinatário, autorização e conferência do provedor). Ausência desses eventos antes do primeiro participante não invalida o software, mas o servidor continua bloqueando operações sem requisitos e nunca finge liquidá-las.
+
+**Medição:** manter separadamente (a) frentes tecnicamente encerradas sobre 19; (b) captação pronta/ativa; (c) modalidades de venda habilitadas; (d) operações efetivamente homologadas por evidências externas. Não somar os quatro indicadores, não encerrar código ainda não implementado e não transformar captação em vendas pelo simples sucesso da CI. A versão histórica 14/19 só muda mediante aceites técnicos documentados, não por uma alteração de rótulo.
+
+Referências: [matriz das cinco frentes](docs/operations/2026-11-15-five-fronts-test-matrix.md), [issue #493](https://github.com/carloskk07/gassg/issues/493).
+
+---
+
 # TAMÃO — lançamento e operação
 
 ## V1.62 — Central de Produção
