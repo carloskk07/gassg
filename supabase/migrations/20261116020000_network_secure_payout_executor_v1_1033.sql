@@ -25,6 +25,10 @@ create table public.network_payout_beneficiaries_v1_1033(
  verified_at timestamptz not null default clock_timestamp(),
  updated_at timestamptz not null default clock_timestamp()
 );
+-- The same Pix CPF cannot be silently attributed to multiple beneficiaries.
+create unique index network_payout_beneficiary_unique_pix_v1_1033
+ on public.network_payout_beneficiaries_v1_1033(pix_key_hash);
+
 create table public.network_payout_jobs_v1_1033(
  id uuid primary key default gen_random_uuid(),
  reservation_id uuid not null unique references public.network_fee_payout_reservations_v1_1031(id) on delete restrict,
