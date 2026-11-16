@@ -3810,7 +3810,8 @@ function adminNetworkFeePackagePanel(){
          '<button class="primary small" type="button" onclick="adminNetworkFeePackageToggle(true)" '+
          (d.conservation?.balanced!==true?'disabled':'')+
          '>Ativar apuração para vendas futuras</button></div>'):''):'')+
-    '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>';
+    '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>'+ 
+    (adminCurrentRole()==='superadmin'?(globalThis.adminNetworkPayoutPanel?.()||adminNetworkPayoutFallbackView()):'');
 }
 
 
