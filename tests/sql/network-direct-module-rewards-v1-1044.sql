@@ -100,12 +100,19 @@ begin
 
  -- Owner-subsidized Club coupon may show a paid/net-verified source, but is
  -- NOT funded by a merchant and must NEVER generate a direct cash bonus.
+ -- Seed a synthetic, unactivated unsponsored package. The CI database
+ -- intentionally has no production catalog rows; this is rollback-only.
+ insert into public.clube_coupon_paid_packages(
+   package_key,title,sale_price_cents,coupon_face_cents,coupons_per_pack,
+   valid_days,sponsored_by_owner,sale_enabled)
+ values('ci_direct_owner_1044','Pacote de teste isolado 1044',
+        1200,500,2,30,false,false);
  insert into public.clube_coupon_paid_invoices(
   id,customer_user_id,package_key,request_id,sale_price_cents,
   coupon_face_cents,coupons_per_pack,valid_days,status,paid_at,
   net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,
   sponsor_covered_cents,funding_mode_v1_846)
- values(v_club_invoice,v_referred,'homologacao_interna_20261027',gen_random_uuid(),
+ values(v_club_invoice,v_referred,'ci_direct_owner_1044',gen_random_uuid(),
   1200,500,2,30,'paid',v_paid_at,
   1120,'CI-ONLY-PLATFORM-FUNDED',v_paid_at+interval '1 hour',0,'platform_reimbursed');
  v_result:=public.network_direct_module_refresh_v1_1044(v_inviter);
