@@ -3670,6 +3670,55 @@ function adminOwnerFinanceFallbackView(){
     'Carregando ferramentas de gestão financeira…</p></section>';
 }
 
+// V1.1033 — payout executor is a deferred, superadmin-only finance module.
+const adminNetworkPayoutModuleUrl=(()=>{
+  try{
+    const script=document.currentScript;
+    if(!script?.src)return null;
+    const original=new URL(script.src,document.baseURI);
+    if(original.origin!==location.origin||!original.pathname.endsWith('/js/admin.js'))return null;
+    const next=new URL('admin-network-payout.js',original);
+    next.search=original.search;
+    return next.href;
+  }catch{return null}
+})();
+let adminNetworkPayoutModulePromise=null;
+let adminNetworkPayoutModuleError=null;
+async function adminNetworkPayoutLoadOnDemand(){
+  if(!adminReady()||adminRuntime.section!=='growth'||
+    !adminRoleCanSection('growth')||adminCurrentRole()!=='superadmin')return;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(typeof globalThis.adminNetworkPayoutPanel!=='function'){
+    if(!adminNetworkPayoutModulePromise){
+      adminNetworkPayoutModulePromise=new Promise((resolve,reject)=>{
+        if(!adminNetworkPayoutModuleUrl){
+          reject(Error('Módulo financeiro indisponível nesta publicação.'));return;
+        }
+        const script=document.createElement('script');
+        script.src=adminNetworkPayoutModuleUrl;script.async=true;
+        script.onload=()=>typeof globalThis.adminNetworkPayoutPanel==='function'
+          ?resolve(true):reject(Error('A central de saques não inicializou.'));
+        script.onerror=()=>reject(Error('Não foi possível carregar a central de saques.'));
+        document.head.appendChild(script);
+      }).finally(()=>{adminNetworkPayoutModulePromise=null});
+    }
+    try{await adminNetworkPayoutModulePromise}
+    catch(e){adminNetworkPayoutModuleError=String(e?.message||e);render();return;}
+  }
+  if(!adminReady()||adminRuntime.section!=='growth'||
+    adminCurrentRole()!=='superadmin'||actor!==String(adminRuntime.session?.user?.id||''))return;
+  adminNetworkPayoutModuleError=null;render();
+  if(typeof globalThis.adminNetworkPayoutRefresh==='function')
+    await globalThis.adminNetworkPayoutRefresh();
+}
+function adminNetworkPayoutFallbackView(){
+  if(adminCurrentRole()!=='superadmin')return '';
+  return '<section class="section"><div class="card flat"><h3>Execução segura de saques da Rede</h3>'+
+   '<p class="tiny muted">Fluxo com identificação, reserva, autorização por Pix, assinatura do provedor e comprovação bancária independente. Nenhum envio é automático.</p>'+
+   (adminNetworkPayoutModuleError?'<p class="notice danger">'+esc(adminNetworkPayoutModuleError)+'</p>':'')+
+   '<button class="secondary small" type="button" onclick="adminNetworkPayoutLoadOnDemand()">Abrir central de saques</button></div></section>';
+}
+
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
