@@ -639,7 +639,7 @@ function refer(){
       <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da conferência de segurança e da validação das contas envolvidas, a comissão pode ser liberada.</p></div></div>
     </div></section>
 
-    <div class="card flat payout-card"><div><span class="section-kicker">EXTRATO DE BENEFÍCIOS</span><h3>Vantagens bem explicadas.</h3><p class="muted">Origem das suas comissões e vantagens. Os meios de recebimento são informados na conta conforme a disponibilidade.</p><button class="secondary" onclick="import('/js/growth-benefits-statement.js').then(()=>tamaoBenefitsStatementOpen())">Ver extrato</button></div></div>
+    <div class="card flat payout-card"><div><span class="section-kicker">EXTRATO DE BENEFÍCIOS</span><h3>Tudo acompanhado em um só lugar.</h3><p class="muted">Origem das suas comissões e vantagens. Os meios de recebimento são informados na conta conforme a disponibilidade.</p><button class="secondary" onclick="import('/js/growth-benefits-statement.js').then(()=>tamaoBenefitsStatementOpen())">Ver extrato</button></div></div>
     ${globalThis.tamaoBenefitsStatementPanel?.()||''}
   </section>`)
 }
