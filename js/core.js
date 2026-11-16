@@ -910,7 +910,7 @@ function shell(content){
   function tamaoSeasonalWordmark(at=new Date()){
     const month=at.getMonth()+1, day=at.getDate();
     if(month===12||(month===11&&day>=15)||(month===1&&day<=6)){
-      return '<span class="brand-name">TAMÃ<span class="tamao-santa-o" style="position:relative;display:inline-block">O<img src="./icons/santa-hat.svg" alt="" aria-hidden="true" width="28" height="26" style="position:absolute;left:1px;bottom:calc(100% - 13px);pointer-events:none;max-width:none"></span></span>';
+      return '<span class="brand-name">TAMÃ<span class="tamao-santa-o" style="position:relative;display:inline-block">O<img src="./icons/santa-hat.svg" alt="" aria-hidden="true" width="21" height="20" style="position:absolute;left:1px;bottom:calc(100% - 9px);pointer-events:none;max-width:none"></span></span>';
     }
     return '<span class="brand-name">TAMÃO</span>';
   }
