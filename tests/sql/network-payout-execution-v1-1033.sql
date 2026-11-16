@@ -143,6 +143,36 @@ begin
   or (select state from public.network_fee_payout_reservations_v1_1031
    where id=v_other)<>'cancelled'
  then raise exception 'NETWORK_PAYOUT_CANCEL_PRE_DISPATCH';end if;
+ -- In an ambiguous POST, operator may only bind ids after official GET.
+ v_r:=public.network_fee_payout_reserve_v1_1031(v_owner,v_member,200,
+  'CI-RESERVATION-1033-THREE');
+ v_other:=(v_r->>'reservationId')::uuid;
+ v_j:=public.network_payout_prepare_v1_1033(v_owner,v_other);
+ v_x:=public.network_payout_authorize_v1_1033(
+  v_owner,(v_j->>'jobId')::uuid,200,repeat('a',64),'AUTORIZO PIX');
+ v_x:=public.network_payout_dispatch_begin_v1_1033(v_owner,(v_j->>'jobId')::uuid);
+ v_x:=public.network_payout_dispatch_result_v1_1033(
+  v_owner,(v_j->>'jobId')::uuid,null,null,true);
+ if v_x->>'state'<>'uncertain' then raise exception 'NETWORK_PAYOUT_UNCERTAIN_LOST';end if;
+ v_denied:=false;
+ begin perform public.network_payout_dispatch_begin_v1_1033(v_owner,(v_j->>'jobId')::uuid);
+ exception when sqlstate '40001' then v_denied:=true;end;
+ if not v_denied then raise exception 'NETWORK_PAYOUT_UNCERTAIN_DUPLICATE_POST';end if;
+ v_denied:=false;
+ begin perform public.network_payout_bind_ambiguous_v1_1033(
+  v_stranger,(v_j->>'jobId')::uuid,'POPTEST000000002033','TOPTEST000000002033');
+ exception when insufficient_privilege then v_denied:=true;end;
+ if not v_denied then raise exception 'NETWORK_PAYOUT_RECOVERY_ROLE_BYPASS';end if;
+ v_x:=public.network_payout_bind_ambiguous_v1_1033(
+  v_owner,(v_j->>'jobId')::uuid,'POPTEST000000002033','TOPTEST000000002033');
+ if v_x->>'providerBound'<>'true' or v_x->>'moneyConfirmed'<>'false'
+ then raise exception 'NETWORK_PAYOUT_RECOVERY_ASSERTS_CREDIT';end if;
+ v_denied:=false;
+ begin perform public.network_payout_bind_ambiguous_v1_1033(
+  v_owner,(v_j->>'jobId')::uuid,'POPTEST000000002034','TOPTEST000000002034');
+ exception when unique_violation then v_denied:=true;end;
+ if not v_denied then raise exception 'NETWORK_PAYOUT_PROVIDER_REBIND_ALLOWED';end if;
+
  -- Refund after proven Pix never releases previously paid award.
  v_x:=public.network_payout_observe_v1_1033(v_owner,v_id,
   'POPTEST000000001033','TOPTEST000000001033','refunded','refunded');
