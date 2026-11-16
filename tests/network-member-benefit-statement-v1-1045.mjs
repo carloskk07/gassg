@@ -46,7 +46,7 @@ assert.ok(edge.indexOf('if(requestBody?.statementOnly===true)')<
  'Statement reads should not record a 24-hour visit or run the full financial overview.');
 assert.match(growth,/growth-benefits-statement\.js/);
 assert.match(growth,/globalThis\.tamaoBenefitsStatementPanel\?\.\(\)/);
-assert.match(growth,/Ver o extrato de todas as minhas vantagens/);
+assert.match(growth,/Meu extrato de vantagens/);
 assert.match(history,/generation\+\+/);
 assert.match(history,/tamaoBenefitsStatementStillCurrent/);
 assert.match(history,/statementOnly:true/);
