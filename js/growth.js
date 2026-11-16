@@ -255,24 +255,62 @@ function club(){
   </section>`)
 }
 
+// V1.1040 — one first-touch invite code, distinct allowlisted destinations.
+// This is discovery/attribution, NOT authorization to accrue cross-module rewards.
+const TAMAO_NETWORK_INVITE_TARGETS=Object.freeze({
+  customer:Object.freeze({route:'home',label:'Clientes e produtos',message:'Consulte gás, água e essenciais no TAMÃO'}),
+  merchant:Object.freeze({route:'merchants',label:'Revendas',message:'Conheça o TAMÃO para revendas'}),
+  mobility:Object.freeze({route:'mobility',label:'Moto e carro',message:'Conheça os serviços de moto e carro no TAMÃO'}),
+  professional:Object.freeze({route:'advertise',label:'Profissionais',message:'Cadastre seu serviço ou conheça os profissionais no TAMÃO'}),
+  rides:Object.freeze({route:'rides',label:'Caronas',message:'Consulte caronas anunciadas no TAMÃO'}),
+  club:Object.freeze({route:'club',label:'Clube e cupons',message:'Conheça o Clube TAMÃO e seus benefícios'}),
+  sponsor:Object.freeze({route:'sponsors',label:'Anunciantes e marcas',message:'Divulgue sua marca no TAMÃO'})
+});
 function tamaoGrowthInviteUrl(audience='customer'){
+  const target=Object.hasOwn(TAMAO_NETWORK_INVITE_TARGETS,audience)
+    ?TAMAO_NETWORK_INVITE_TARGETS[audience]:TAMAO_NETWORK_INVITE_TARGETS.customer;
   const code=String(state.user?.referralCode||'').trim().toUpperCase();
   const activeCode=/^[A-Z0-9]{5,40}$/.test(code)?code:'';
-  const base='https://tamao.com.br/';
-  return base+(activeCode?'?ref='+encodeURIComponent(activeCode):'')+
-    (audience==='merchant'?'#merchants':'#home');
+  return 'https://tamao.com.br/'+(activeCode?'?ref='+encodeURIComponent(activeCode):'')+'#'+target.route;
 }
 async function shareTamaoGrowthInvite(audience='customer'){
-  const merchant=audience==='merchant';
-  const url=tamaoGrowthInviteUrl(merchant?'merchant':'customer');
-  const message=merchant
-    ?'Conhece uma revenda que gostaria de vender mais? Veja como participar do TAMÃO: '+url
-    :'Conheça o TAMÃO! Consulte gás, água e outros produtos na sua região: '+url;
+  const code=String(state.user?.referralCode||'').trim().toUpperCase();
+  if(!/^[A-Z0-9]{5,40}$/.test(code)){
+    toast('Entre na sua conta para obter um convite com indicação.');
+    return false;
+  }
+  const kind=Object.hasOwn(TAMAO_NETWORK_INVITE_TARGETS,audience)?audience:'customer';
+  const url=tamaoGrowthInviteUrl(kind);
+  const message=TAMAO_NETWORK_INVITE_TARGETS[kind].message+': '+url;
   try{
-    if(navigator.share){await navigator.share({title:'TAMÃO — Pediu? Tá na mão.',text:message,url});return;}
-    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(message);toast('Convite copiado para compartilhar');return;}
-    toast('Compartilhe o endereço: '+url);
-  }catch(e){if(e?.name!=='AbortError')toast('Não foi possível compartilhar; copie o endereço da página');}
+    if(navigator.share){await navigator.share({title:'Rede TAMÃO',text:message,url});return true;}
+    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(message);toast('Convite copiado para compartilhar');return true;}
+    toast('Compartilhe o endereço: '+url);return true;
+  }catch(e){
+    if(e?.name!=='AbortError')toast('Não foi possível compartilhar; copie o endereço da página');
+    return false;
+  }
+}
+function tamaoShareSelectedNetworkInvite(){
+  const target=String(document.getElementById('tamao-network-invite-target')?.value||'customer');
+  return shareTamaoGrowthInvite(target);
+}
+function tamaoNetworkInvitePicker(){
+  const hasCode=/^[A-Z0-9]{5,40}$/.test(String(state.user?.referralCode||'').trim().toUpperCase());
+  const options=Object.entries(TAMAO_NETWORK_INVITE_TARGETS)
+    .map(([key,target])=>'<option value="'+key+'">'+target.label+'</option>').join('');
+  return '<section class="card flat tamao-universal-invite" aria-label="Convide para qualquer modalidade do TAMÃO">'+
+    '<h2>Um convite para cada oportunidade</h2>'+
+    '<p class="muted tiny">Seu código é o mesmo para todos os módulos. Escolha o destino de quem você quer convidar.</p>'+
+    '<div class="field-row" style="align-items:flex-end;gap:10px;flex-wrap:wrap">'+
+      '<div class="input-wrap" style="flex:1;min-width:190px">'+
+        '<label for="tamao-network-invite-target">Quem você quer convidar?</label>'+
+        '<select class="input" id="tamao-network-invite-target">'+options+'</select>'+
+      '</div>'+
+      '<button type="button" class="primary" onclick="tamaoShareSelectedNetworkInvite()"'+(!hasCode?' disabled':'')+'>Compartilhar convite</button>'+
+    '</div>'+
+    '<p class="muted tiny">O link registra a origem do convite, sujeito à verificação. Comissões não são pagas por simples cadastro ou clique; cada modalidade depende das condições financeiras aplicáveis. Hospedagens seguem suspensas.</p>'+
+  '</section>';
 }
 function referralUrl(){
   if(!state.user.referralCode)return '';
@@ -543,6 +581,7 @@ function refer(){
       <div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com 1ª compra qualificada</small></div>
     </div>
     ${referralCard}
+    ${tamaoNetworkInvitePicker()}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
@@ -572,11 +611,11 @@ function growthNetworkIntro(){
   const authenticated=Boolean(state.user?.referralCode);
   return `<section class="section growth-network-intro" aria-label="Convide pessoas e revendas">
     <div class="section-head"><div><span class="section-kicker">REDE TAMÃO</span>
-      <h2>Convide pessoas. Ajude sua cidade a ter mais opções.</h2>
-      <p>Você pode compartilhar o TAMÃO com amigos ou apresentar uma revenda da sua região.</p></div></div>
+      <h2>Um convite para conectar toda a cidade.</h2>
+      <p>Seu convite pode apresentar produtos, revendas, serviços, caronas, Clube e oportunidades para anunciantes. Cada módulo tem suas próprias condições de benefício.</p></div></div>
     <div class="grid cards-3">
       <article class="card"><div class="feature-icon">🤝</div>
-        <h3>Convide amigos</h3><p class="muted tiny">Mais pessoas podem conhecer e consultar o TAMÃO. Benefícios por indicação dependem das campanhas elegíveis.</p>
+        <h3>Convide amigos</h3><p class="muted tiny">Compartilhe produtos e convide pessoas. Você também pode escolher serviços e outros módulos em Minhas indicações.</p>
         <button class="secondary full" onclick="shareTamaoGrowthInvite('customer')">Compartilhar com amigos</button></article>
       <article class="card"><div class="feature-icon">🏪</div>
         <h3>Conhece uma revenda?</h3><p class="muted tiny">Apresente o TAMÃO a uma empresa. Ela poderá se cadastrar e atender clientes após as verificações necessárias.</p>
@@ -596,7 +635,7 @@ function earn(){
     <div class="tamao-network-hero">
       <div class="tamao-network-intro">
         <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
-        <h1 class="page-title">Indique pessoas e revendas. Acompanhe seus convites.</h1>
+        <h1 class="page-title">Indique pessoas, serviços e empresas. Acompanhe seus convites.</h1>
         <p class="page-lead">Compartilhe seu convite com quem possa usar o TAMÃO. Uma comissão só pode surgir após a primeira compra qualificada, com validação e regras da campanha.</p>
         <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios com condições claras</span></div>
 

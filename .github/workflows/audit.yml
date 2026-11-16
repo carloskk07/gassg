@@ -27,6 +27,8 @@ jobs:
           done
       - name: V1.1039 original TAMÃO logo must remain unmodified in all portals
         run: node tests/original-tamao-wordmark-v1-1039.mjs
+      - name: V1.1040 universal network invitations for active TAMÃO modules
+        run: node tests/network-universal-invites-v1-1040.mjs
       - name: Browser SDK integrity verify
         run: |
           EXPECTED='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'
@@ -1259,7 +1261,7 @@ jobs:
           ! grep -Fq 'home-editorial-visual' /tmp/home.html
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
-          grep -Fq 'Indique pessoas e revendas. Acompanhe seus convites.' /tmp/earn.html
+          grep -Fq 'Indique pessoas, serviços e empresas. Acompanhe seus convites.' /tmp/earn.html
           grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
