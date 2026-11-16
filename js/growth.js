@@ -580,7 +580,7 @@ function tamaoNetworkModuleBenefitsPanel(){
     '<div class="merchant-kpis" style="margin-top:12px">'+cells+'</div>'+
     (ads>0?'<p class="muted tiny">Bonificações de publicidade contabilizadas: '+
       BRL.format(ads/100)+'. Ainda não disponíveis para saque ou abatimento.</p>':'')+
-    '<p class="muted tiny">Só contam operações verificadas pelo TAMÃO. Um clique, um cadastro isolado ou uma carona gratuita não geram dinheiro. Publicidade exige receita líquida comprovada e política habilitada; bonificações financeiras seguem em controle separado.</p>'+
+    '<p class="muted tiny"><strong>Mais oportunidades:</strong> Moto/Carro e Clube parceiro podem gerar até 5% do líquido da primeira compra elegível; profissionais que anunciam participam do bônus de publicidade. Exigem termos, prova financeira e não integram o saldo sacável.</p>'+
   '</section>';
 }
 function refer(){

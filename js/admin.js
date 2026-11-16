@@ -3751,6 +3751,17 @@ async function adminNetworkFeePackageRefresh(){
       !Number.isSafeInteger(result.moduleAds.validatedAwards)||
       !Number.isSafeInteger(result.moduleAds.reversedAwards))
       throw Error('Benefícios de publicidade ainda sem confirmação financeira');
+    if(result.moduleDirect?.source!=='network_direct_admin_v1_1044'||
+      result.moduleDirect.readOnly!==true||
+      result.moduleDirect.cashPayoutsEnabled!==false||
+      result.moduleDirect.moneyMoved!==false||
+      !['mobility','club'].every(k=>{
+        const m=result.moduleDirect.modules?.[k];
+        return typeof m?.enabled==='boolean'&&
+          ['inviterBps','maturityDays','validatedAwards','reversedAwards','validatedCents']
+            .every(x=>Number.isSafeInteger(m[x])&&m[x]>=0);
+      }))
+      throw Error('Bonificações diretas ainda sem confirmação financeira.');
     adminNetworkFeePackageState=result;
   }catch(e){
     adminNetworkFeePackageState={error:String(e?.message||e)};
@@ -3828,6 +3839,65 @@ function adminNetworkAdsBonusPanel(){
        (adminNetworkFeePackageBusy?'disabled':'')+'>Ativar somente para campanhas futuras</button>'):'')+
     '</div></section>';
 }
+async function adminNetworkDirectBonusToggle(module,enabled){
+  if(adminCurrentRole()!=='superadmin'||adminNetworkFeePackageBusy||
+    !['mobility','club'].includes(module))return;
+  const d=adminNetworkFeePackageState?.moduleDirect?.modules?.[module];
+  if(!d||typeof d.enabled!=='boolean'||d.enabled===enabled)return;
+  const termsReference=enabled?
+    String(document.getElementById('network-direct-terms-'+module)?.value||'').trim():'';
+  if(enabled&&!/^[^<>]{12,160}$/.test(termsReference))
+    return toast('Indique a versão real dos termos aprovados e publicados.');
+  if(!confirm(enabled?
+    'Ativar 5% do líquido apenas da primeira compra futura e elegível neste módulo? Saques continuam indisponíveis.':
+    'Suspender novos bônus diretos neste módulo? Os registros anteriores serão preservados e estornos continuarão sendo conferidos.'))return;
+  adminNetworkFeePackageBusy=true;
+  try{
+    const x=await adminPerform('network-direct-module-set-enabled',{module,enabled,termsReference});
+    if(x?.source!=='network_direct_policy_v1_1044'||x.module!==module||
+      x.enabled!==enabled||x.cashPayoutsEnabled!==false||x.moneyMoved!==false)
+      throw Error('A alteração não foi confirmada pelo banco.');
+    toast(enabled?'Bonificações futuras habilitadas; saques continuam desligados.':
+      'Novas bonificações diretas suspensas.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
+function adminNetworkDirectBonusPanel(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const root=adminNetworkFeePackageState?.moduleDirect;
+  if(root?.source!=='network_direct_admin_v1_1044'||root.readOnly!==true)return '';
+  return '<section class="section admin-network-direct-bonus">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE • INDICAÇÕES DIRETAS</span>'+
+    '<h3>Novos incentivos por serviço</h3>'+
+    '<p>Até 5% do líquido comprovado da primeira compra elegível. Valores separados do fundo coletivo e ainda sem saque.</p>'+
+    '</div></div><div class="grid cards-2">'+
+    [['mobility','Moto e carro','Primeiro pacote pré-pago integralmente usado, conciliado e maduro.'],
+     ['club','Clube TAMÃO','Primeiro pacote financiado pela revenda, sem subsídio do TAMÃO e sem pedido de estorno.']]
+    .map(([key,label,explain])=>{
+      const d=root.modules?.[key];
+      if(!d||typeof d.enabled!=='boolean')return '';
+      return '<div class="card flat"><h4>'+label+'</h4>'+
+        '<p class="muted tiny">'+explain+'</p><p><strong>'+
+        (d.enabled?'Apuração habilitada':'Apuração desativada')+'</strong></p>'+
+        '<div class="merchant-kpis">'+
+        '<div class="kpi"><span class="label">Comprovadas</span><strong>'+
+          d.validatedAwards+'</strong></div>'+
+        '<div class="kpi"><span class="label">Revertidas</span><strong>'+
+          d.reversedAwards+'</strong></div>'+
+        '<div class="kpi"><span class="label">Bonificação sem saque</span><strong>'+
+          BRL.format(d.validatedCents/100)+'</strong></div></div>'+
+        (adminCurrentRole()==='superadmin'?
+          (d.enabled?
+            '<button class="secondary small" onclick="adminNetworkDirectBonusToggle(\''+key+'\',false)">Suspender novas bonificações</button>':
+            '<label>Referência real dos termos publicados'+
+              '<input class="input" id="network-direct-terms-'+key+'" maxlength="160" '+
+              'placeholder="Identificação do documento aprovado"></label>'+
+            '<button class="primary small" onclick="adminNetworkDirectBonusToggle(\''+key+'\',true)" '+
+              (adminNetworkFeePackageBusy?'disabled':'')+'>Ativar para novas compras</button>'):'')+
+        '</div>';
+    }).join('')+
+    '</div><p class="tiny muted">Para profissionais, o bônus já existente de publicidade pode alcançar a primeira campanha paga — sem pagar duas vezes pela mesma campanha. O Clube não remunera cupons patrocinados pelo TAMÃO. Nenhum valor nesta seção integra a carteira sacável.</p></section>';
+}
 function adminNetworkFeePackagePanel(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const d=adminNetworkFeePackageState;
@@ -3870,6 +3940,7 @@ function adminNetworkFeePackagePanel(){
          '>Ativar apuração para vendas futuras</button></div>'):''):'')+
     '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>'+ 
     adminNetworkAdsBonusPanel()+
+    adminNetworkDirectBonusPanel()+
     (adminCurrentRole()==='superadmin'?(globalThis.adminNetworkPayoutPanel?.()||adminNetworkPayoutFallbackView()):'');
 }
 

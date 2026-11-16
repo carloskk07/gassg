@@ -285,6 +285,7 @@ function liveForgetAccount(){
   liveRuntime.referredCount=liveRuntime.qualifiedReferralCount=0;
   liveRuntime.networkPackage=null;
   liveRuntime.moduleBenefits=null;
+  liveRuntime.networkDirect=null;
   liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
   state.user=freshSeed().user;
   state.address='';state.postalCode='';state.addressNumber='';
@@ -1077,7 +1078,8 @@ async function liveSyncFinancialProfile({force=false}={}){
     comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
     cashbackEarnedCents:liveRuntime.cashbackEarnedCents,
     networkPackage:liveRuntime.networkPackage??null,
-    moduleBenefits:liveRuntime.moduleBenefits??null
+    moduleBenefits:liveRuntime.moduleBenefits??null,
+    networkDirect:liveRuntime.networkDirect??null
   });
   const seq=++liveRuntime.financialSyncSeq;
   const userId=liveRuntime.session?.user?.id;
@@ -1114,6 +1116,11 @@ async function liveSyncFinancialProfile({force=false}={}){
       summary?.moduleBenefits?.readOnly===true&&
       summary?.moduleBenefits?.cashPayoutsEnabled===false
         ?summary.moduleBenefits:null;
+    liveRuntime.networkDirect=summary?.networkDirect?.available===true&&
+      summary?.networkDirect?.source==='network_direct_summary_v1_1044'&&
+      summary?.networkDirect?.readOnly===true&&
+      summary?.networkDirect?.cashPayoutsEnabled===false
+        ?summary.networkDirect:null;
     liveRuntime.comparisonSavingsCents=Math.max(0,Number(summary?.comparisonSavingsCents||0));
     liveRuntime.cashbackEarnedCents=Math.max(0,Number(summary?.cashbackEarnedCents||0));
     let activeOrderChanged=false;

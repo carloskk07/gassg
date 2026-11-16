@@ -147,6 +147,12 @@ Deno.serve(async(req:Request)=>{
         if(bonusError)console.warn("Network ads benefits unavailable",String(bonusError.message||""));
       }
       if(requestBody?.networkVisit===true){
+        const {error:directError}=await admin.rpc("network_direct_module_refresh_v1_1044",
+          {p_inviter:user.id});
+        if(directError)console.warn("Network direct module benefits unavailable",
+          String(directError.message||""));
+      }
+      if(requestBody?.networkVisit===true){
         const {data:visit,error:visitError}=await admin.rpc(
           "network_record_visit_v1_1030",{p_user:user.id,p_portal:"customer"});
         if(!visitError&&visit?.source==="network_visit_v1_1030"){
@@ -182,6 +188,23 @@ Deno.serve(async(req:Request)=>{
         moduleBenefits={available:true,...verified};
       }else if(moduleError){
         console.warn("Network module benefits unavailable",String(moduleError.message||""));
+      }
+    }
+
+    let networkDirect:Record<string,unknown>={available:false};
+    if(user.is_anonymous!==true){
+      const {data:direct,error:directError}=await admin.rpc(
+        "network_direct_module_summary_v1_1044",{p_inviter:user.id});
+      const validModule=(m:Record<string,unknown>|undefined)=>
+        m&&typeof m.enabled==="boolean"&&
+        ["inviterBps","validatedAwards","reversedAwards","validatedCents"]
+          .every(k=>Number.isSafeInteger(m[k])&&(m[k] as number)>=0);
+      if(!directError&&direct?.source==="network_direct_summary_v1_1044"&&
+         direct.readOnly===true&&direct.cashPayoutsEnabled===false&&
+         validModule(direct?.modules?.mobility)&&validModule(direct?.modules?.club)){
+        networkDirect={available:true,...direct};
+      }else if(directError){
+        console.warn("Network direct bonus summary unavailable",String(directError.message||""));
       }
     }
 
@@ -260,6 +283,7 @@ Deno.serve(async(req:Request)=>{
       qualifiedReferralCount:Number(qualifiedReferralCount??0),
       networkPackage,
       moduleBenefits,
+      networkDirect,
       networkVisit,
       lastOrderTemplate,
       reorderPrediction,

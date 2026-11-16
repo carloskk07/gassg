@@ -37,8 +37,19 @@ Uma campanha publicitária paga poderá gerar ao indicador validamente atribuíd
 
 **Situação atual:** o registro de bonificações de publicidade é técnico e segregado; **não pode ser sacado nem usado como saldo de carteira**. A eventual disponibilização de uso/resgate requer integração específica, revisão e autorização comercial futura. Na data desta minuta, a bonificação está desativada em produção.
 
-## 7. Benefícios de outros módulos
-Produtos, profissionais, caronas, Clube e demais serviços podem registrar indicações e conversões verificadas sem atribuir pagamento adicional. O fato de um módulo participar da Rede **não implica que gere comissões, cashback ou participação nos 10%**. Um benefício monetário novo exigirá regras divulgadas e lastro de receita reconciliada, não simples recrutamento.
+## 7. Benefícios de outros módulos e novas bonificações diretas propostas
+
+Além das modalidades já descritas, poderão existir **bonificações diretas de até 5% da receita NET efetivamente comprovada**, uma única vez por pessoa indicada e por modalidade, nas seguintes condições:
+
+- **Moto/Carro:** primeira compra elegível de pacote pré-pago de redução de tarifas, desde que o pagamento esteja reconciliado, o crédito de taxas tenha sido integralmente utilizado, tenham transcorrido pelo menos sete dias e não haja disputa ou estorno. A base é a receita NET do pacote TAMÃO, **não o valor de uma corrida**.
+- **Clube:** primeira compra elegível de pacote de cupons **integralmente financiado pelo parceiro**, com acordo de responsabilidade assinado, sem patrocínio do TAMÃO, com receita NET verificada, maturação mínima de sete dias e sem reembolso pendente. **Pacotes subsidiados pelo TAMÃO nunca entram nesta bonificação.** A modalidade não estará disponível antes da autorização comercial efetiva da oferta pelo parceiro.
+- **Profissionais:** a publicação de perfil não paga comissão. Quando um profissional indicado contratar sua primeira campanha publicitária paga elegível, aplica-se **o benefício de anunciantes da seção 6**, sem pagar duas comissões pela mesma campanha.
+
+O bônus direto de Moto/Carro **não é retirado dos 10% do fundo coletivo** de pacotes; pode ser adicional a ele, elevando o incentivo combinado para até **15% do NET** de um pacote, conforme os limites de custo da plataforma. Não implica porcentagem de faturamento de terceiros.
+
+**Nesta fase, esses bônus ficam em registro segregado de valores verificados, sem poder de compra, transferência, abatimento ou saque.** Disponibilizar resgate exigirá regras adicionais, conciliação, conservação financeira e aprovação formal. Todas as políticas iniciam desativadas e só valem para transações futuras após publicação dos respectivos termos.
+
+Produtos, caronas e demais serviços continuam podendo registrar indicações e conquistas verificadas sem pagamento adicional por mero clique, publicação ou cadastro.
 
 ## 8. Condutas vedadas e proteção
 São proibidos: autoindicação, criação de contas artificiais, simulação de visitas ou compras, uso indevido de códigos, cadastro com documentos falsos, anúncios enganosos e tentativas de contornar estornos, limites ou verificações. A plataforma pode bloquear benefícios sob análise quando houver indícios objetivos, garantir canal de contestação e preservar registros necessários à auditoria. O tratamento de dados pessoais deve seguir a Política de Privacidade do TAMÃO e a legislação aplicável, com acesso limitado às informações necessárias para indicação, verificação financeira, prevenção de fraude e atendimento de direitos.
@@ -53,6 +64,7 @@ A futura versão aprovada indicará claramente **data de vigência e identificad
 - [ ] Confirmar a janela de 24 horas, maturação, regras de reversão e comunicação acessível aos participantes.
 - [ ] Confirmar o mínimo R$ 50,00 e o SLA de 72 horas após aprovação, sem Pix automático.
 - [ ] Manter a cláusula de bônus Ads até 5% NET **sem direito de saque nesta versão**.
+- [ ] Revisar o bônus direto de até 5% NET para Moto/Carro e Clube financiado pelo parceiro, incluindo o custo combinado de até 15% NET no Moto/Carro, sem direito de saque nesta versão.
 - [ ] Definir a forma de apresentar e registrar aceite verificável da versão aplicável.
 - [ ] Aprovar e publicar versão definitiva; somente depois registrar `terms_reference` real e ativar apuração de vendas futuras pelo Superadmin.
 
