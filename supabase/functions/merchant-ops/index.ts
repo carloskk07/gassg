@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","benefits-contract","coupon-benefits-contract","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-business-details","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","benefits-contract","coupon-benefits-contract","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-business-details","update-member-profile","network-fee-offset-status","network-fee-offset-prepare","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -802,6 +802,52 @@ Deno.serve(async(req:Request)=>{
         packageNetwork?.readOnly===true&&packageNetwork?.payoutsEnabled===false);
       return json({...data,packageNetwork:verified?
         {...packageNetwork,available:true}:{available:false}},200,origin);
+    }
+    if(action==="network-fee-offset-status"||action==="network-fee-offset-prepare"){
+      if(!canManage(role))throw new DomainError("NETWORK_OFFSET_PERMISSION_DENIED",
+        "Somente proprietário ou gerente pode aplicar suas próprias bonificações.",403);
+      if(action==="network-fee-offset-status"){
+        const {data,error}=await admin.rpc("network_fee_offset_status_v1_1032",{
+          p_user:user.id,p_merchant:merchantId
+        });
+        if(error)throw error;
+        if(data?.source!=="network_offset_status_v1_1032"||
+           data?.readOnly!==true||data?.userId!==user.id||
+           data?.merchantId!==merchantId||
+           !Number.isSafeInteger(Number(data?.availableCents))||
+           Number(data?.availableCents)<0||
+           data?.moneyMoved!==false)
+          throw new DomainError("NETWORK_OFFSET_STATUS_UNVERIFIED",
+            "Não foi possível verificar seu saldo disponível para abatimento.",503);
+        return json(data,200,origin);
+      }
+      const planKey=String(body.planKey??"").trim().toLowerCase();
+      if(!/^[a-z][a-z0-9_]{1,39}$/.test(planKey))
+        throw new DomainError("NETWORK_OFFSET_PLAN_INVALID","Pacote inválido.",400);
+      const amountCents=asPositiveInt(body.amountCents,"amountCents",{min:100,max:10000000});
+      const idempotencyKey=mutationIdempotencyKey(req);
+      const {data,error}=await admin.rpc("network_fee_offset_prepare_v1_1032",{
+        p_user:user.id,p_merchant:merchantId,
+        p_plan:planKey,p_amount_cents:amountCents,p_key:idempotencyKey
+      });
+      if(error){
+        const m=String(error.message??error);
+        if(/NETWORK_OFFSET_(TERMS_NOT_READY|INSUFFICIENT_BALANCE|PLAN_INVALID|MERCHANT_HOLD|REPLAY_CONFLICT|OVERALLOCATED)|PACKAGE_REQUEST_ALREADY_PENDING|PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT/.test(m))
+          throw new DomainError("NETWORK_OFFSET_NOT_AVAILABLE",
+            "O saldo, o pacote ou a cobrança mudou. Atualize o Financeiro e tente novamente.",409);
+        if(/NETWORK_OFFSET_BENEFICIARY_DENIED/.test(m))
+          throw new DomainError("NETWORK_OFFSET_ACCESS_DENIED","Este perfil não pode utilizar a bonificação.",403);
+        throw error;
+      }
+      if(data?.source!=="network_offset_prepare_v1_1032"||
+         data?.ok!==true||data?.merchantId!==merchantId||
+         data?.planKey!==planKey||data?.offsetCents!==amountCents||
+         typeof data?.paymentRequestId!=="string"||!UUID_RE.test(data.paymentRequestId)||
+         data?.moneyMoved!==false||
+         !["reserved","applied","reversal_review","cancelled"].includes(data?.state))
+        throw new DomainError("NETWORK_OFFSET_PREPARE_UNVERIFIED",
+          "O abatimento não foi confirmado. Confira a solicitação financeira antes de repetir.",503);
+      return json(data,200,origin);
     }
     if(action==="enablement"){
       if(!canManage(role)){
