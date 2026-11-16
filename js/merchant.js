@@ -520,17 +520,17 @@ function merchantGrowthNetworkSection(merchant){
       <p>Convide clientes e outras revendas. Uma empresa indicada pode criar seu cadastro, mas só poderá vender após habilitação.</p>
     </div></div>
     <div class="card flat">
-      <p class="muted">Tenha um link próprio da sua revenda para compartilhar. A rede registra interesses qualificados; novas recompensas financeiras ainda não estão habilitadas.</p>
+      <p class="muted">Convide em todos os módulos; cliques não geram comissão.</p>
       ${valid?`
         <div class="share-box">${esc(link('merchant'))}</div>
         <div class="merchant-kpis" style="margin-top:12px">
           <div class="kpi"><span class="label">Revendas interessadas</span><strong>${Math.max(0,Number(growth.merchantInterests||0))}</strong></div>
           <div class="kpi"><span class="label">Clientes interessados</span><strong>${Math.max(0,Number(growth.customerInterests||0))}</strong></div>
         </div>
-        <div class="order-actions" style="margin-top:14px">
-          <button class="primary" onclick="merchantGrowthShareFromUi('merchant')">Indicar outra revenda</button>
-          <button class="secondary" onclick="merchantGrowthShareFromUi('customer')">Convidar clientes</button>
-          <button class="ghost" onclick="merchantGrowthLoadFromUi()">Atualizar minha rede</button>
+        <div class="field-row" style="margin-top:14px">
+          <select id="merchant-network-target" aria-label="Quem convidar"><option value="merchant">Revenda</option><option value="customer">Cliente</option><option value="professional">Profissional</option><option value="mobility">Moto/Carro</option><option value="rides">Carona</option><option value="club">Clube</option><option value="sponsor">Anunciante</option></select>
+          <button class="primary" onclick="merchantGrowthShareFromUi(document.getElementById('merchant-network-target').value)">Convidar</button>
+          <button class="ghost" onclick="merchantGrowthLoadFromUi()">Atualizar</button>
         </div>`
         :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
       ${globalThis.merchantRuntime?.growthError?
@@ -544,18 +544,7 @@ function merchantGrowthNetworkSection(merchant){
           '</strong></div><div class="kpi"><span class="label">Minha participação validada</span><strong>'+
           BRL.format(Math.max(0,Number(growth.packageNetwork.validatedCents||0))/100)+
           '</strong></div></div>':''}
-      <div class="field-row" style="align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:10px">
-        <div class="input-wrap" style="flex:1;min-width:190px">
-          <label for="merchant-growth-target">Convide também para outros módulos</label>
-          <select class="input" id="merchant-growth-target">
-            <option value="professional">Profissionais</option><option value="mobility">Moto e carro</option>
-            <option value="rides">Caronas</option><option value="club">Clube TAMÃO</option>
-            <option value="sponsor">Anunciantes e marcas</option>
-          </select>
-        </div>
-        <button class="secondary" type="button" onclick="merchantGrowthShareSelected()">Compartilhar convite</button>
-      </div>
-      <p class="tiny muted">O convite isolado não gera comissão. A participação em pacotes de taxas depende de pagamentos líquidos comprovados, janela de 24h e conferência da revenda indicada. Os valores são individuais da sua conta e ainda não são sacáveis.</p>
+      <p class="tiny muted">O convite isolado não gera comissão. Pacotes exigem receitas comprovadas, atividade elegível e regras aprovadas; saldo não sacável.</p>
     </div>
   </section>`;
 }
@@ -589,18 +578,10 @@ async function merchantGrowthShareFromUi(type='merchant'){
     !/^TMR[A-F0-9]{24}$/.test(String(network?.inviteCode||''))){
     return toast('Carregue primeiro o código da sua revenda');
   }
-  const targets=Object.freeze({
-    customer:['home','Conheça os produtos no TAMÃO'],
-    merchant:['merchants','Conheça o TAMÃO para revendas'],
-    professional:['advertise','Cadastre seu serviço no TAMÃO'],
-    mobility:['mobility','Conheça os serviços de moto e carro no TAMÃO'],
-    rides:['rides','Conheça as caronas anunciadas no TAMÃO'],
-    club:['club','Conheça o Clube TAMÃO'],
-    sponsor:['sponsors','Divulgue sua marca no TAMÃO']
-  });
-  const target=Object.hasOwn(targets,type)?targets[type]:targets.merchant;
-  const url='https://tamao.com.br/?ref='+encodeURIComponent(network.inviteCode)+'#'+target[0];
-  const message=target[1]+': '+url;
+  const names=['customer','merchant','professional','mobility','rides','club','sponsor'];
+  const hashes=['home','merchants','advertise','mobility','rides','club','sponsors'];
+  const url='https://tamao.com.br/?ref='+encodeURIComponent(network.inviteCode)+'#'+hashes[Math.max(0,names.indexOf(type))];
+  const message='TAMÃO: '+url;
   try{
     if(navigator.share){await navigator.share({title:'Rede TAMÃO',text:message,url});return;}
     if(navigator.clipboard?.writeText){
@@ -609,9 +590,6 @@ async function merchantGrowthShareFromUi(type='merchant'){
     }
     toast('Copie o endereço exibido na área Minha rede');
   }catch(e){if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente');}
-}
-function merchantGrowthShareSelected(){
-  return merchantGrowthShareFromUi(String(document.getElementById('merchant-growth-target')?.value||'customer'));
 }
 function merchantRealPortalRequired(){
   return shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
