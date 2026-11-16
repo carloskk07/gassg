@@ -5874,7 +5874,7 @@ function adminPrelaunchLeadsSection(data){
   ]:[]),
   ...(current==='benefits'?[
    typeof adminWelcomeCampaignView==='function'?adminWelcomeCampaignView():'',
-   adminGrowthNetworkOverviewView(data?.growthNetwork),globalThis.adminNetworkFeePackagePanel?.(),(globalThis.adminNetworkPayoutPanel?.()||adminNetworkPayoutFallbackView()),adminClubeLaunchReadinessSection(),
+   adminGrowthNetworkOverviewView(data?.growthNetwork),globalThis.adminNetworkFeePackagePanel?.(),adminClubeLaunchReadinessSection(),
    adminClubeInterestSection(),adminClubeCampaignSection(),adminClubeTermsSection(),
    adminGrowthReferralReviewSection()
   ]:[]),
