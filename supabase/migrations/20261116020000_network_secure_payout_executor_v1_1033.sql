@@ -301,6 +301,355 @@ begin
    'externalProviderStatus',p_status,'externalProviderDetail',p_detail);
 end $fn$;
 
+-- Recover unknown provider results by GET only, never a second POST.
+create function public.network_payout_bind_ambiguous_v1_1033(
+ p_actor uuid,p_job uuid,p_payout text,p_transaction text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ if coalesce(p_payout,'') !~ '^POP[A-Za-z0-9_-]{8,75}
+-- A second independent receipt + matching beneficiary review is required.
+create function public.network_payout_bank_confirm_v1_1033(
+ p_actor uuid,p_job uuid,p_reference text,p_sha256 text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ if length(coalesce(p_reference,'')) not between 20 and 200
+ or coalesce(p_sha256,'') !~ '^[a-f0-9]{64}$'
+ then raise exception 'NETWORK_PAYOUT_BANK_EVIDENCE_REQUIRED' using errcode='22023';end if;
+ select * into v_j from public.network_payout_jobs_v1_1033
+ where id=p_job for update;
+ if not found or v_j.state<>'credited_unverified'
+  or v_j.provider_status<>'success' or v_j.provider_status_detail<>'accredited'
+  or v_j.provider_payout_id is null or v_j.provider_transaction_id is null
+  or exists(select 1 from public.network_fee_payout_reservations_v1_1031 r
+    where r.id=v_j.reservation_id and r.state='reversal_review')
+ then raise exception 'NETWORK_PAYOUT_INDEPENDENT_SETTLEMENT_NOT_READY'
+  using errcode='40001';end if;
+ update public.network_payout_jobs_v1_1033 set
+  state='paid',receipt_reference=p_reference,receipt_hash=p_sha256,
+  receipt_checked_by=p_actor,receipt_checked_at=clock_timestamp(),
+  updated_at=clock_timestamp() where id=p_job;
+ return jsonb_build_object('source','network_payout_bank_confirmation_v1_1033',
+  'jobId',p_job,'state','paid','evidenceRecorded',true);
+end $fn$;
+
+-- The V1.1031 cancellation was safe when no executor existed. With an
+-- executor it must NEVER release funds after a dispatch has been attempted.
+create or replace function public.network_fee_payout_cancel_v1_1031(
+ p_actor uuid,p_reservation uuid
+) returns jsonb language plpgsql volatile security definer
+set search_path=pg_catalog as $fn$
+declare v public.network_fee_payout_reservations_v1_1031%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ select * into v from public.network_fee_payout_reservations_v1_1031
+ where id=p_reservation for update;
+ if not found then raise exception 'NETWORK_PAYOUT_RESERVATION_UNKNOWN' using errcode='22023';end if;
+ if exists(select 1 from public.network_payout_jobs_v1_1033 j
+    where j.reservation_id=p_reservation and j.state<>'cancelled')
+ then raise exception 'NETWORK_PAYOUT_DISPATCH_OR_JOB_LOCKED'
+  using errcode='40001';end if;
+ if v.state in('reserved','reversal_review') then
+  update public.network_fee_payout_reservations_v1_1031
+   set state='cancelled',cancelled_by=p_actor,cancelled_at=clock_timestamp()
+   where id=p_reservation;
+ end if;
+ return jsonb_build_object('source','network_payout_cancel_v1_1031',
+  'state','cancelled','reservationId',p_reservation,
+  'moneyMoved',false,'fundsReleased',true);
+end $fn$;
+
+create function public.network_payout_cancel_prepared_v1_1033(
+ p_actor uuid,p_job uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ select * into v_j from public.network_payout_jobs_v1_1033 where id=p_job for update;
+ if not found or v_j.state<>'prepared' then
+  raise exception 'NETWORK_PAYOUT_CANCEL_NOT_SAFE' using errcode='40001';end if;
+ update public.network_payout_jobs_v1_1033 set state='cancelled',updated_at=clock_timestamp()
+ where id=p_job;
+ perform public.network_fee_payout_cancel_v1_1031(p_actor,v_j.reservation_id);
+ return jsonb_build_object('source','network_payout_safe_cancel_v1_1033',
+  'state','cancelled','jobId',p_job,'fundsReleased',true,'providerCalled',false);
+end $fn$;
+
+create function public.network_payout_overview_v1_1033(p_actor uuid)
+returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $fn$
+declare v_enabled boolean;v_jobs bigint;v_review bigint;v_paid bigint;v_held bigint;v_recent jsonb;
+begin
+ if not exists(select 1 from public.platform_admins a where a.user_id=p_actor
+   and a.active and a.admin_role in('superadmin','finance'))
+ then raise exception 'NETWORK_PAYOUT_READ_DENIED' using errcode='42501';end if;
+ select execution_enabled into v_enabled
+ from public.network_payout_execution_policy_v1_1033 where singleton;
+ select count(*),count(*) filter(where state in('uncertain','review')),
+   coalesce(sum(amount_cents) filter(where state='paid'),0),
+   coalesce(sum(amount_cents) filter(where state in(
+     'prepared','authorized','dispatching','uncertain','submitted','credited_unverified','review')),0)
+ into v_jobs,v_review,v_paid,v_held from public.network_payout_jobs_v1_1033;
+ select coalesce(jsonb_agg(jsonb_build_object(
+   'jobId',x.id,'userId',x.user_id,'amountCents',x.amount_cents,
+   'state',x.state,'createdAt',x.created_at)),'[]'::jsonb)
+ into v_recent from (
+   select id,user_id,amount_cents,state,created_at
+   from public.network_payout_jobs_v1_1033 order by created_at desc limit 12
+ ) x;
+ return jsonb_build_object('source','network_payout_executor_v1_1033',
+  'readOnly',true,'executionEnabled',coalesce(v_enabled,false),
+  'jobs',v_jobs,'recentJobs',v_recent,'needsReview',v_review,'paidWithIndependentProofCents',v_paid,
+  'inFlightOrReservedCents',v_held,
+  'providerCredentialsVerified',false,
+  'recipientProofRequired',true,
+  'autoTransferEnabled',false);
+end $fn$;
+
+create function public.network_payout_job_read_v1_1033(p_actor uuid,p_job uuid)
+returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ select * into v_j from public.network_payout_jobs_v1_1033 where id=p_job;
+ if not found then raise exception 'NETWORK_PAYOUT_JOB_UNKNOWN' using errcode='22023';end if;
+ return jsonb_build_object('source','network_payout_job_v1_1033',
+  'jobId',v_j.id,'reservationId',v_j.reservation_id,
+  'userId',v_j.user_id,'amountCents',v_j.amount_cents,
+  'pixKeyHash',v_j.pix_key_hash,
+  'state',v_j.state,'providerPayoutId',v_j.provider_payout_id,
+  'providerTransactionId',v_j.provider_transaction_id,
+  'providerStatus',v_j.provider_status,'providerDetail',v_j.provider_status_detail,
+  'externalReference',v_j.external_reference,
+  'receiptRecorded',v_j.receipt_hash is not null);
+end $fn$;
+
+create function public.network_payout_review_reversal_v1_1033()
+returns trigger language plpgsql security definer set search_path=pg_catalog as $fn$
+begin
+ if new.state='reversed' and old.state is distinct from new.state then
+  update public.network_payout_jobs_v1_1033 j
+  set state='review',review_reason='SOURCE_REVERSED',updated_at=clock_timestamp()
+  where j.state not in('cancelled','rejected','refunded','review') and exists(
+   select 1 from public.network_fee_payout_allocations_v1_1031 a
+   where a.reservation_id=j.reservation_id
+    and a.kind=new.kind and a.source_id=new.source_id);
+ end if;
+ return new;
+end $fn$;
+create trigger network_payout_source_review_trg_v1_1033
+ after update of state on public.network_fee_package_sources_v1_1030
+ for each row execute function public.network_payout_review_reversal_v1_1033();
+
+revoke all on function public.network_payout_assert_owner_v1_1033(uuid),
+ public.network_payout_beneficiary_register_v1_1033(uuid,uuid,text,text,text,text,text),
+ public.network_payout_set_execution_v1_1033(uuid,boolean,text),
+ public.network_payout_prepare_v1_1033(uuid,uuid),
+ public.network_payout_authorize_v1_1033(uuid,uuid,bigint,text,text),
+ public.network_payout_dispatch_begin_v1_1033(uuid,uuid),
+ public.network_payout_dispatch_result_v1_1033(uuid,uuid,text,text,boolean),
+ public.network_payout_observe_v1_1033(uuid,uuid,text,text,text,text),
+ public.network_payout_bind_ambiguous_v1_1033(uuid,uuid,text,text),
+ public.network_payout_bank_confirm_v1_1033(uuid,uuid,text,text),
+ public.network_payout_cancel_prepared_v1_1033(uuid,uuid),
+ public.network_payout_overview_v1_1033(uuid),
+ public.network_payout_job_read_v1_1033(uuid,uuid),
+ public.network_payout_review_reversal_v1_1033()
+ from public,anon,authenticated,service_role;
+grant execute on function public.network_payout_beneficiary_register_v1_1033(uuid,uuid,text,text,text,text,text),
+ public.network_payout_set_execution_v1_1033(uuid,boolean,text),
+ public.network_payout_prepare_v1_1033(uuid,uuid),
+ public.network_payout_authorize_v1_1033(uuid,uuid,bigint,text,text),
+ public.network_payout_dispatch_begin_v1_1033(uuid,uuid),
+ public.network_payout_dispatch_result_v1_1033(uuid,uuid,text,text,boolean),
+ public.network_payout_observe_v1_1033(uuid,uuid,text,text,text,text),
+ public.network_payout_bind_ambiguous_v1_1033(uuid,uuid,text,text),
+ public.network_payout_bank_confirm_v1_1033(uuid,uuid,text,text),
+ public.network_payout_cancel_prepared_v1_1033(uuid,uuid),
+ public.network_payout_overview_v1_1033(uuid),
+ public.network_payout_job_read_v1_1033(uuid,uuid) to service_role;
+-- Internal helper is callable by owner functions (SECURITY DEFINER) only.
+
+ or coalesce(p_transaction,'') !~ '^TOP[A-Za-z0-9_-]{8,75}
+-- A second independent receipt + matching beneficiary review is required.
+create function public.network_payout_bank_confirm_v1_1033(
+ p_actor uuid,p_job uuid,p_reference text,p_sha256 text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ if length(coalesce(p_reference,'')) not between 20 and 200
+ or coalesce(p_sha256,'') !~ '^[a-f0-9]{64}$'
+ then raise exception 'NETWORK_PAYOUT_BANK_EVIDENCE_REQUIRED' using errcode='22023';end if;
+ select * into v_j from public.network_payout_jobs_v1_1033
+ where id=p_job for update;
+ if not found or v_j.state<>'credited_unverified'
+  or v_j.provider_status<>'success' or v_j.provider_status_detail<>'accredited'
+  or v_j.provider_payout_id is null or v_j.provider_transaction_id is null
+  or exists(select 1 from public.network_fee_payout_reservations_v1_1031 r
+    where r.id=v_j.reservation_id and r.state='reversal_review')
+ then raise exception 'NETWORK_PAYOUT_INDEPENDENT_SETTLEMENT_NOT_READY'
+  using errcode='40001';end if;
+ update public.network_payout_jobs_v1_1033 set
+  state='paid',receipt_reference=p_reference,receipt_hash=p_sha256,
+  receipt_checked_by=p_actor,receipt_checked_at=clock_timestamp(),
+  updated_at=clock_timestamp() where id=p_job;
+ return jsonb_build_object('source','network_payout_bank_confirmation_v1_1033',
+  'jobId',p_job,'state','paid','evidenceRecorded',true);
+end $fn$;
+
+-- The V1.1031 cancellation was safe when no executor existed. With an
+-- executor it must NEVER release funds after a dispatch has been attempted.
+create or replace function public.network_fee_payout_cancel_v1_1031(
+ p_actor uuid,p_reservation uuid
+) returns jsonb language plpgsql volatile security definer
+set search_path=pg_catalog as $fn$
+declare v public.network_fee_payout_reservations_v1_1031%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ select * into v from public.network_fee_payout_reservations_v1_1031
+ where id=p_reservation for update;
+ if not found then raise exception 'NETWORK_PAYOUT_RESERVATION_UNKNOWN' using errcode='22023';end if;
+ if exists(select 1 from public.network_payout_jobs_v1_1033 j
+    where j.reservation_id=p_reservation and j.state<>'cancelled')
+ then raise exception 'NETWORK_PAYOUT_DISPATCH_OR_JOB_LOCKED'
+  using errcode='40001';end if;
+ if v.state in('reserved','reversal_review') then
+  update public.network_fee_payout_reservations_v1_1031
+   set state='cancelled',cancelled_by=p_actor,cancelled_at=clock_timestamp()
+   where id=p_reservation;
+ end if;
+ return jsonb_build_object('source','network_payout_cancel_v1_1031',
+  'state','cancelled','reservationId',p_reservation,
+  'moneyMoved',false,'fundsReleased',true);
+end $fn$;
+
+create function public.network_payout_cancel_prepared_v1_1033(
+ p_actor uuid,p_job uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ select * into v_j from public.network_payout_jobs_v1_1033 where id=p_job for update;
+ if not found or v_j.state<>'prepared' then
+  raise exception 'NETWORK_PAYOUT_CANCEL_NOT_SAFE' using errcode='40001';end if;
+ update public.network_payout_jobs_v1_1033 set state='cancelled',updated_at=clock_timestamp()
+ where id=p_job;
+ perform public.network_fee_payout_cancel_v1_1031(p_actor,v_j.reservation_id);
+ return jsonb_build_object('source','network_payout_safe_cancel_v1_1033',
+  'state','cancelled','jobId',p_job,'fundsReleased',true,'providerCalled',false);
+end $fn$;
+
+create function public.network_payout_overview_v1_1033(p_actor uuid)
+returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $fn$
+declare v_enabled boolean;v_jobs bigint;v_review bigint;v_paid bigint;v_held bigint;v_recent jsonb;
+begin
+ if not exists(select 1 from public.platform_admins a where a.user_id=p_actor
+   and a.active and a.admin_role in('superadmin','finance'))
+ then raise exception 'NETWORK_PAYOUT_READ_DENIED' using errcode='42501';end if;
+ select execution_enabled into v_enabled
+ from public.network_payout_execution_policy_v1_1033 where singleton;
+ select count(*),count(*) filter(where state in('uncertain','review')),
+   coalesce(sum(amount_cents) filter(where state='paid'),0),
+   coalesce(sum(amount_cents) filter(where state in(
+     'prepared','authorized','dispatching','uncertain','submitted','credited_unverified','review')),0)
+ into v_jobs,v_review,v_paid,v_held from public.network_payout_jobs_v1_1033;
+ select coalesce(jsonb_agg(jsonb_build_object(
+   'jobId',x.id,'userId',x.user_id,'amountCents',x.amount_cents,
+   'state',x.state,'createdAt',x.created_at)),'[]'::jsonb)
+ into v_recent from (
+   select id,user_id,amount_cents,state,created_at
+   from public.network_payout_jobs_v1_1033 order by created_at desc limit 12
+ ) x;
+ return jsonb_build_object('source','network_payout_executor_v1_1033',
+  'readOnly',true,'executionEnabled',coalesce(v_enabled,false),
+  'jobs',v_jobs,'recentJobs',v_recent,'needsReview',v_review,'paidWithIndependentProofCents',v_paid,
+  'inFlightOrReservedCents',v_held,
+  'providerCredentialsVerified',false,
+  'recipientProofRequired',true,
+  'autoTransferEnabled',false);
+end $fn$;
+
+create function public.network_payout_job_read_v1_1033(p_actor uuid,p_job uuid)
+returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $fn$
+declare v_j public.network_payout_jobs_v1_1033%rowtype;
+begin
+ perform public.network_payout_assert_owner_v1_1033(p_actor);
+ select * into v_j from public.network_payout_jobs_v1_1033 where id=p_job;
+ if not found then raise exception 'NETWORK_PAYOUT_JOB_UNKNOWN' using errcode='22023';end if;
+ return jsonb_build_object('source','network_payout_job_v1_1033',
+  'jobId',v_j.id,'reservationId',v_j.reservation_id,
+  'userId',v_j.user_id,'amountCents',v_j.amount_cents,
+  'pixKeyHash',v_j.pix_key_hash,
+  'state',v_j.state,'providerPayoutId',v_j.provider_payout_id,
+  'providerTransactionId',v_j.provider_transaction_id,
+  'providerStatus',v_j.provider_status,'providerDetail',v_j.provider_status_detail,
+  'externalReference',v_j.external_reference,
+  'receiptRecorded',v_j.receipt_hash is not null);
+end $fn$;
+
+create function public.network_payout_review_reversal_v1_1033()
+returns trigger language plpgsql security definer set search_path=pg_catalog as $fn$
+begin
+ if new.state='reversed' and old.state is distinct from new.state then
+  update public.network_payout_jobs_v1_1033 j
+  set state='review',review_reason='SOURCE_REVERSED',updated_at=clock_timestamp()
+  where j.state not in('cancelled','rejected','refunded','review') and exists(
+   select 1 from public.network_fee_payout_allocations_v1_1031 a
+   where a.reservation_id=j.reservation_id
+    and a.kind=new.kind and a.source_id=new.source_id);
+ end if;
+ return new;
+end $fn$;
+create trigger network_payout_source_review_trg_v1_1033
+ after update of state on public.network_fee_package_sources_v1_1030
+ for each row execute function public.network_payout_review_reversal_v1_1033();
+
+revoke all on function public.network_payout_assert_owner_v1_1033(uuid),
+ public.network_payout_beneficiary_register_v1_1033(uuid,uuid,text,text,text,text,text),
+ public.network_payout_set_execution_v1_1033(uuid,boolean,text),
+ public.network_payout_prepare_v1_1033(uuid,uuid),
+ public.network_payout_authorize_v1_1033(uuid,uuid,bigint,text,text),
+ public.network_payout_dispatch_begin_v1_1033(uuid,uuid),
+ public.network_payout_dispatch_result_v1_1033(uuid,uuid,text,text,boolean),
+ public.network_payout_observe_v1_1033(uuid,uuid,text,text,text,text),
+ public.network_payout_bind_ambiguous_v1_1033(uuid,uuid,text,text),
+ public.network_payout_bank_confirm_v1_1033(uuid,uuid,text,text),
+ public.network_payout_cancel_prepared_v1_1033(uuid,uuid),
+ public.network_payout_overview_v1_1033(uuid),
+ public.network_payout_job_read_v1_1033(uuid,uuid),
+ public.network_payout_review_reversal_v1_1033()
+ from public,anon,authenticated,service_role;
+grant execute on function public.network_payout_beneficiary_register_v1_1033(uuid,uuid,text,text,text,text,text),
+ public.network_payout_set_execution_v1_1033(uuid,boolean,text),
+ public.network_payout_prepare_v1_1033(uuid,uuid),
+ public.network_payout_authorize_v1_1033(uuid,uuid,bigint,text,text),
+ public.network_payout_dispatch_begin_v1_1033(uuid,uuid),
+ public.network_payout_dispatch_result_v1_1033(uuid,uuid,text,text,boolean),
+ public.network_payout_observe_v1_1033(uuid,uuid,text,text,text,text),
+ public.network_payout_bind_ambiguous_v1_1033(uuid,uuid,text,text),
+ public.network_payout_bank_confirm_v1_1033(uuid,uuid,text,text),
+ public.network_payout_cancel_prepared_v1_1033(uuid,uuid),
+ public.network_payout_overview_v1_1033(uuid),
+ public.network_payout_job_read_v1_1033(uuid,uuid) to service_role;
+-- Internal helper is callable by owner functions (SECURITY DEFINER) only.
+
+ then raise exception 'NETWORK_PAYOUT_RECOVERY_IDS_INVALID' using errcode='22023';end if;
+ select * into v_j from public.network_payout_jobs_v1_1033 where id=p_job for update;
+ if not found or v_j.state not in('uncertain','dispatching','submitted')
+ then raise exception 'NETWORK_PAYOUT_RECOVERY_NOT_ALLOWED' using errcode='40001';end if;
+ if (v_j.provider_payout_id is not null and v_j.provider_payout_id<>p_payout)
+  or (v_j.provider_transaction_id is not null and v_j.provider_transaction_id<>p_transaction)
+ then raise exception 'NETWORK_PAYOUT_RECOVERY_PROVIDER_CONFLICT' using errcode='23505';end if;
+ update public.network_payout_jobs_v1_1033
+ set state='submitted',provider_payout_id=p_payout,provider_transaction_id=p_transaction,
+   updated_at=clock_timestamp() where id=p_job;
+ return jsonb_build_object('source','network_payout_recovery_v1_1033',
+  'jobId',p_job,'state','submitted','providerBound',true,'moneyConfirmed',false);
+end $fn$;
+
 -- Provider success alone does NOT prove the destination belongs to this user.
 -- A second independent receipt + matching beneficiary review is required.
 create function public.network_payout_bank_confirm_v1_1033(
@@ -444,6 +793,7 @@ revoke all on function public.network_payout_assert_owner_v1_1033(uuid),
  public.network_payout_dispatch_begin_v1_1033(uuid,uuid),
  public.network_payout_dispatch_result_v1_1033(uuid,uuid,text,text,boolean),
  public.network_payout_observe_v1_1033(uuid,uuid,text,text,text,text),
+ public.network_payout_bind_ambiguous_v1_1033(uuid,uuid,text,text),
  public.network_payout_bank_confirm_v1_1033(uuid,uuid,text,text),
  public.network_payout_cancel_prepared_v1_1033(uuid,uuid),
  public.network_payout_overview_v1_1033(uuid),
@@ -457,6 +807,7 @@ grant execute on function public.network_payout_beneficiary_register_v1_1033(uui
  public.network_payout_dispatch_begin_v1_1033(uuid,uuid),
  public.network_payout_dispatch_result_v1_1033(uuid,uuid,text,text,boolean),
  public.network_payout_observe_v1_1033(uuid,uuid,text,text,text,text),
+ public.network_payout_bind_ambiguous_v1_1033(uuid,uuid,text,text),
  public.network_payout_bank_confirm_v1_1033(uuid,uuid,text,text),
  public.network_payout_cancel_prepared_v1_1033(uuid,uuid),
  public.network_payout_overview_v1_1033(uuid),
