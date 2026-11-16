@@ -46,7 +46,7 @@ Para cada frente, o aceite exige **código existente e verificável**, cenários
 - **#6 Revendas:** inscrição, aprovação e restrições, catálogo, estoque, entrega, condição de pagamento, habilitação, suspensão e faturamento validados com empresa **fictícia apenas na CI**.
 - **#12 Rede:** atribuição, convite, conversão, qualificação, carência, saldo, comissão, fraude, estorno e declaração/reversão financeira reproduzidos. **Se multinível, bônus de revenda ou saque automático fizerem parte do escopo aprovado, não chamá-los de implementados sem código e testes: finalizar ou registrá-los formalmente como expansão futura antes do aceite.**
 
-Esses critérios **não exigem** revenda, cliente, compra, entrega, saldo ou saque reais. Lacuna técnica comprovada permanece aberta até sua correção. A contagem histórica é 14/19, cinco frentes em revisão técnica; recontar por evidência, não por presença de pessoas.
+Esses critérios **não exigem** revenda, cliente, compra, entrega, saldo ou saque reais. Lacunas técnicas comprovadas permanecem abertas. A partir da revisão dos testes integrados, **#2, #3, #4 e #6 têm aceite técnico para encerramento**; **#12 permanece aberta** por ausência de rede multinível, bonificação operacional de revendas indicadas e saque automático. **18/19 tecnicamente concluídas após a CI e a publicação da PR deste aceite.** Consulte o [dossiê das quatro frentes](2026-11-15-four-fronts-technical-closeout.md). A contagem anterior 14/19 é histórica; não a restabelecer por ausência de participantes reais.
 
 ### B. Liberar captação de clientes e parceiros
 
