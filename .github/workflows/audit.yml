@@ -25,6 +25,8 @@ jobs:
             echo "Checking $f"
             node --check "$f"
           done
+      - name: V1.1036 Christmas hat anchored to final O and auto-reverted in January
+        run: node tests/christmas-hat-final-o-v1-1036.mjs
       - name: Browser SDK integrity verify
         run: |
           EXPECTED='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'
