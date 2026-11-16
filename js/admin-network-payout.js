@@ -315,7 +315,7 @@ function adminNetworkPayoutPanel(){
       '</div></details>'+
       '<details class="card flat" open><summary>Saques recentes</summary><div class="list">'+
       (recent||'<p class="tiny muted">Nenhum saque registrado.</p>')+'</div></details>')+
-      details)+
+      details+
     '</section>';
 }
 globalThis.adminNetworkPayoutPanel=adminNetworkPayoutPanel;
