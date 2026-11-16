@@ -905,16 +905,6 @@ function tamaoOpenAvailability(){
   return startHomeBrowse();
 }
 function shell(content){
-  // Local to shell: legacy isolated-render tests execute this function alone.
-  // Use the original TAMÃO type and green; accent only the final O.
-  function tamaoSeasonalWordmark(at=new Date()){
-    const month=at.getMonth()+1, day=at.getDate();
-    if(month===12||(month===11&&day>=15)||(month===1&&day<=6)){
-      return '<span class="brand-name">TAMÃ<span class="tamao-santa-o" style="position:relative;display:inline-block">O<img src="./icons/santa-hat.svg" alt="" aria-hidden="true" width="21" height="20" style="position:absolute;left:1px;bottom:calc(100% - 9px);pointer-events:none;max-width:none"></span></span>';
-    }
-    return '<span class="brand-name">TAMÃO</span>';
-  }
-
   const r=route();
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
@@ -966,7 +956,7 @@ function shell(content){
   <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
   <header class="topbar${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-header':''}"><div class="shell topbar-inner">
-    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div>${tamaoSeasonalWordmark()}<small>Pediu? Tá na mão.</small></div></button>
+    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
     ${desktopNav?'<nav class="desktop-only desktop-nav'+(!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':'')+'" aria-label="Navegação principal">'+desktopNav+'</nav>':''}
     ${switcher}
   </div></header>
