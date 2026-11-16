@@ -519,6 +519,8 @@ jobs:
         run: node tests/network-fee-payout-reservation-contract-v1-1031.mjs
       - name: Rede V1.1032 verified bonus offset and partial Pix settlement contract
         run: node tests/network-fee-package-offset-contract-v1-1032.mjs
+      - name: 'Rede V1.1033 Pix payout executor: identity, signature, idempotency, settlement proof'
+        run: node tests/network-payout-executor-contract-v1-1033.mjs
       - name: Merchant CNPJ first-touch referral V1.229 regression
         run: node tests/growth-cnpj-attribution-v1-229.mjs
       - name: CNPJ first-touch service-role immutability V1.229.1 regression
