@@ -615,8 +615,8 @@ function refer(){
       <div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com 1ª compra qualificada</small></div>
     </div>
     ${referralCard}
-    ${tamaoNetworkInvitePicker()}
-    ${tamaoNetworkModuleBenefitsPanel()}
+    ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
+    ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
