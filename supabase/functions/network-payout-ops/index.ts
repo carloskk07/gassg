@@ -128,6 +128,15 @@ function providerConfig(){
       "Credenciais exclusivas de Payouts em produção não disponíveis.",503);
   return {token,pem};
 }
+function providerReadToken(){
+  const token=(Deno.env.get("MERCADOPAGO_PAYOUTS_READ_ACCESS_TOKEN")??
+    Deno.env.get("MERCADOPAGO_PAYOUTS_WRITE_ACCESS_TOKEN")??"").trim();
+  if(!token.startsWith("APP_USR-")||token.length<30)
+    throw new DomainError("PAYOUT_READ_CREDENTIAL_MISSING",
+      "Credencial de consulta de saques não está configurada.",503);
+  // Reconciliation remains possible when new transfers are suspended.
+  return token;
+}
 async function signatureKey(pem:string){
   const body=pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s+/g,"");
   const raw=base64Bytes(body);
@@ -346,8 +355,50 @@ Deno.serve(async(req:Request)=>{
           message:"Envio com resultado incerto. Não tente pagar novamente; reconcilie com o provedor."},409,origin);
       }
     }
+    if(action==="recover"){
+      // A timeout/ambiguous result is NEVER replayed as a new transfer.
+      // The owner must retrieve POP/TOP IDs from the official provider portal.
+      const token=providerReadToken();
+      const jobId=requiredUuid(body.jobId,"Saque");
+      const payoutId=String(body.providerPayoutId??"").trim();
+      const transactionId=String(body.providerTransactionId??"").trim();
+      if(!/^POP[A-Za-z0-9_-]{8,75}$/.test(payoutId)||
+         !/^TOP[A-Za-z0-9_-]{8,75}$/.test(transactionId))
+        throw new DomainError("PAYOUT_RECOVERY_IDS_REQUIRED",
+          "Informe IDs oficiais do lote POP e transação TOP.",400);
+      const job=await rpc("network_payout_job_read_v1_1033",{
+        p_actor:user,p_job:jobId
+      });
+      if(!["uncertain","dispatching","submitted"].includes(job?.state))
+        throw new DomainError("PAYOUT_RECOVERY_INVALID_STATE",
+          "Este saque não necessita recuperação de lote.",409);
+      const path="/v1/payouts/"+encodeURIComponent(payoutId)+
+        "/transactions/"+encodeURIComponent(transactionId);
+      const data=await providerRequest(token,path,{
+        method:"GET",headers:{"Authorization":"Bearer "+token}
+      });
+      if(data.status!==200)
+        throw new DomainError("PAYOUT_RECOVERY_PROVIDER_NOT_VERIFIED",
+          "Não foi possível localizar os IDs informados no provedor.",409);
+      const matching=exactTransaction(data.data,{...job,
+        providerTransactionId:transactionId});
+      const bound=await rpc("network_payout_bind_ambiguous_v1_1033",{
+        p_actor:user,p_job:jobId,p_payout:payoutId,p_transaction:transactionId
+      });
+      if(bound?.source!=="network_payout_recovery_v1_1033"||
+        bound?.providerBound!==true)throw Error("PAYOUT_RECOVERY_NOT_BOUND");
+      const observed=await rpc("network_payout_observe_v1_1033",{
+        p_actor:user,p_job:jobId,p_payout:payoutId,p_transaction:transactionId,
+        p_status:matching.status,p_detail:matching.detail
+      });
+      if(observed?.source!=="network_payout_observation_v1_1033")
+        throw Error("PAYOUT_RECOVERY_OBSERVATION_FAILED");
+      return respond({source:"network_payout_recovered_v1_1033",
+        jobId,state:observed.state,recipientCredited:observed.state==="credited_unverified",
+        bankReceiptVerified:false,postRetried:false},200,origin);
+    }
     if(action==="reconcile"){
-      const cfg=providerConfig();
+      const token=providerReadToken();
       const jobId=requiredUuid(body.jobId,"Saque");
       const job=await rpc("network_payout_job_read_v1_1033",{
         p_actor:user,p_job:jobId
@@ -358,8 +409,8 @@ Deno.serve(async(req:Request)=>{
           "Falta identificação do lote no provedor. Não reenvie o Pix.",409);
       const path="/v1/payouts/"+encodeURIComponent(job.providerPayoutId)+
         "/transactions/"+encodeURIComponent(job.providerTransactionId);
-      const data=await providerRequest(cfg.token,path,{
-        method:"GET",headers:{"Authorization":"Bearer "+cfg.token}
+      const data=await providerRequest(token,path,{
+        method:"GET",headers:{"Authorization":"Bearer "+token}
       });
       if(data.status!==200)throw new DomainError("PAYOUT_PROVIDER_QUERY_FAILED",
         "Não foi possível conferir a transação na API de Payouts.",503);
