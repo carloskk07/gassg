@@ -176,6 +176,26 @@ async function adminNetworkPayoutReconcile(){
     toast('Status do provedor conferido: '+result.state+'. Ainda precisa de comprovante independente.');
   }catch(e){toast(String(e?.message||e))}
 }
+async function adminNetworkPayoutRecover(){
+  const j=adminNetworkPayoutRuntime.selected;
+  if(!j||!['uncertain','dispatching','submitted'].includes(j.state))return;
+  const payout=adminNetworkPayoutGet('network-payout-recover-pop');
+  const transaction=adminNetworkPayoutGet('network-payout-recover-top');
+  if(!/^POP[A-Za-z0-9_-]{8,75}$/.test(payout)||
+     !/^TOP[A-Za-z0-9_-]{8,75}$/.test(transaction))
+    return toast('Informe os identificadores oficiais POP/TOP obtidos no Mercado Pago.');
+  if(!confirm('Reconciliar IDs do provedor SEM gerar outro Pix? Nunca reenvie uma transferência incerta.'))return;
+  try{
+    const result=await adminNetworkPayoutWrite({
+      action:'recover',jobId:j.jobId,
+      providerPayoutId:payout,providerTransactionId:transaction
+    });
+    if(result?.source!=='network_payout_recovered_v1_1033'||
+       result.postRetried!==false)throw Error('Recuperação não comprovada.');
+    await adminNetworkPayoutSelect(j.jobId);
+    toast('Transação encontrada no provedor e vinculada sem novo envio.');
+  }catch(e){toast(String(e?.message||e))}
+}
 async function adminNetworkPayoutConfirmBank(){
   const j=adminNetworkPayoutRuntime.selected;
   if(!j||j.state!=='credited_unverified')return;
@@ -246,6 +266,13 @@ function adminNetworkPayoutPanel(){
       (['submitted','credited_unverified','paid','review'].includes(j.state)?
         action('Consultar transação oficial','adminNetworkPayoutReconcile()'):'')+
       '</div>'+
+      (['uncertain','dispatching'].includes(j.state)?
+        '<div class="form-stack"><h4>Recuperar envio incerto — somente consulta</h4>'+
+        '<p class="tiny muted">Localize os IDs de lote e transação pelo código '+esc(j.externalReference)+
+        ' no painel oficial do Mercado Pago. NÃO clique em Enviar novamente.</p>'+
+        field('network-payout-recover-pop','Lote MP Payouts','POP…')+
+        field('network-payout-recover-top','Transação MP Payouts','TOP…')+
+        action('Conferir pelo GET (sem Pix)','adminNetworkPayoutRecover()')+'</div>':'')+
       (j.state==='credited_unverified'?
         '<div class="form-stack"><h4>Comprovação independente do crédito</h4>'+
         field('network-payout-receipt-ref','Referência no extrato bancário','Comprovante oficial da transferência')+
@@ -302,3 +329,5 @@ globalThis.adminNetworkPayoutReconcile=adminNetworkPayoutReconcile;
 globalThis.adminNetworkPayoutConfirmBank=adminNetworkPayoutConfirmBank;
 globalThis.adminNetworkPayoutCancelPrepared=adminNetworkPayoutCancelPrepared;
 globalThis.adminNetworkPayoutPolicy=adminNetworkPayoutPolicy;
+
+globalThis.adminNetworkPayoutRecover=adminNetworkPayoutRecover;
