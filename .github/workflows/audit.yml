@@ -515,6 +515,8 @@ jobs:
         run: node tests/network-fee-package-pool-policy-v1-493.mjs
       - name: Rede canonical Auth Edge SQL and UI integration V1.1030
         run: node tests/network-fee-package-integration-v1-1030.mjs
+      - name: Rede V1.1031 payout reservation safety and idempotency contract
+        run: node tests/network-fee-payout-reservation-contract-v1-1031.mjs
       - name: Merchant CNPJ first-touch referral V1.229 regression
         run: node tests/growth-cnpj-attribution-v1-229.mjs
       - name: CNPJ first-touch service-role immutability V1.229.1 regression
