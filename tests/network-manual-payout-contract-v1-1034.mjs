@@ -6,6 +6,7 @@ const migration=read('supabase/migrations/20261116050000_network_manual_payout_3
 const integrated=read('tests/sql/network-manual-payout-3days-v1-1034.sql');
 const edge=read('supabase/functions/network-payout-ops/index.ts');
 const client=read('js/growth.js');
+const deferred=read('js/growth-manual-payout.js');
 const admin=read('js/admin-network-payout.js');
 const audit=read('.github/workflows/audit.yml');
 const ci=read('.github/workflows/isolated-supabase-integration.yml');
@@ -78,10 +79,14 @@ assert.ok(edge.includes('await actor(req)'));
 assert.ok(edge.includes('enforceApiQuota(admin'));
 for(const phrase of [
   'tamaoManualPayoutInvoke','tamaoManualPayoutRequest','tamaoManualPayoutRefresh',
-  'tamaoNetworkManualPayoutPanel','liveAccessToken()',
+  'tamaoNetworkManualPayoutDetailsPanel','liveAccessToken()',
   'network-payout-ops','3 dias corridos','manual-request',
-  'automaticPayouts!==false','tamaoNetworkManualPayoutPanel()'
-])assert.ok(client.includes(phrase),'missing user journey '+phrase);
+  'automaticPayouts!==false'
+])assert.ok(deferred.includes(phrase),'missing deferred self-service '+phrase);
+for(const phrase of [
+  'tamaoManualPayoutLoad','tamaoManualPayoutScriptUrl',
+  'growth-manual-payout.js','tamaoNetworkManualPayoutPanel()'
+])assert.ok(client.includes(phrase),'missing lazy user journey '+phrase);
 for(const phrase of [
  'adminNetworkManualPayoutPanel','adminNetworkManualPayoutApprove',
  'adminNetworkManualPayoutCancel','adminNetworkManualPayoutMarkPaid',
@@ -91,6 +96,7 @@ for(const phrase of [
  'globalThis.adminNetworkPayoutPanel=adminNetworkManualPayoutPanel'
 ])assert.ok(admin.includes(phrase),'missing Admin manual queue '+phrase);
 new vm.Script(client,{filename:'growth.js'});
+new vm.Script(deferred,{filename:'growth-manual-payout.js'});
 new vm.Script(admin,{filename:'admin-network-payout.js'});
 assert.ok(audit.includes('node tests/network-manual-payout-contract-v1-1034.mjs'));
 assert.ok(ci.includes('tests/sql/network-manual-payout-3days-v1-1034.sql'));
