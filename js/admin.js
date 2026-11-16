@@ -3742,6 +3742,15 @@ async function adminNetworkFeePackageRefresh(){
       result.conservation?.readOnly!==true||
       !Number.isSafeInteger(Number(result.conservation.violations)))
       throw Error('Conferência da Rede não validada pelo servidor');
+    if(result.moduleAds?.source!=='network_module_ads_admin_v1_1042'||
+      result.moduleAds.readOnly!==true||
+      result.moduleAds.cashPayoutsEnabled!==false||
+      typeof result.moduleAds.enabled!=='boolean'||
+      !Number.isSafeInteger(result.moduleAds.inviterBps)||
+      !Number.isSafeInteger(result.moduleAds.maturityDays)||
+      !Number.isSafeInteger(result.moduleAds.validatedAwards)||
+      !Number.isSafeInteger(result.moduleAds.reversedAwards))
+      throw Error('Benefícios de publicidade ainda sem confirmação financeira');
     adminNetworkFeePackageState=result;
   }catch(e){
     adminNetworkFeePackageState={error:String(e?.message||e)};
@@ -3769,6 +3778,55 @@ async function adminNetworkFeePackageToggle(enabled){
       'Novas apurações suspensas; histórico preservado.');
   }catch(e){toast(String(e?.message||e))}
   finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
+async function adminNetworkAdsBonusToggle(enabled){
+  if(adminCurrentRole()!=='superadmin'||adminNetworkFeePackageBusy)return;
+  const d=adminNetworkFeePackageState?.moduleAds;
+  if(d?.source!=='network_module_ads_admin_v1_1042'||d.readOnly!==true||
+     d.cashPayoutsEnabled!==false)return toast('Conferência dos anúncios não disponível.');
+  const termsReference=enabled?
+    String(document.getElementById('network-ads-bonus-terms')?.value||'').trim():'';
+  if(enabled&&!/^[^<>]{12,160}$/.test(termsReference))
+    return toast('Indique a versão dos termos aprovados e publicados.');
+  if(!confirm(enabled?
+    'Habilitar até 5% do líquido da PRIMEIRA campanha futura de anunciante indicado, após sete dias? O saque permanecerá bloqueado.':
+    'Suspender novas bonificações de publicidade? O histórico será preservado.'))return;
+  adminNetworkFeePackageBusy=true;
+  try{
+    const result=await adminPerform('network-module-ads-set-enabled',{enabled,termsReference});
+    if(result?.source!=='network_ads_bonus_policy_v1_1041'||
+       result.enabled!==enabled||result.cashPayoutsEnabled!==false||
+       result.moneyMoved!==false)
+      throw Error('Alteração não confirmada pelo servidor.');
+    toast(enabled?'Novas apurações de publicidade habilitadas; saque ainda bloqueado.':
+      'Novas bonificações de publicidade suspensas.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
+function adminNetworkAdsBonusPanel(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const d=adminNetworkFeePackageState?.moduleAds;
+  if(d?.source!=='network_module_ads_admin_v1_1042')return '';
+  return '<section class="section admin-network-ads-bonus">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE • OUTROS MÓDULOS</span>'+
+    '<h3>Indicação de anunciantes</h3>'+
+    '<p>Até '+(d.inviterBps/100).toLocaleString('pt-BR')+
+      '% da receita líquida confirmada da primeira campanha, após '+
+      d.maturityDays+' dias e sem estorno. Sem transferência automática.</p></div></div>'+
+    '<div class="card flat"><p><strong>'+
+      (d.enabled?'Apuração habilitada':'Apuração desativada')+'</strong></p>'+
+    '<div class="merchant-kpis"><div class="kpi"><span class="label">Bonificações verificadas</span>'+
+      '<strong>'+d.validatedAwards+'</strong></div>'+
+      '<div class="kpi"><span class="label">Revertidas</span><strong>'+
+      d.reversedAwards+'</strong></div></div>'+
+    '<p class="tiny muted">Esta é uma fonte separada do fundo de 10% dos pacotes. Não inclui cupons, vendas de mercadorias ou cliques. Ganhos ainda não são sacáveis.</p>'+
+    (adminCurrentRole()==='superadmin'?
+      (d.enabled?
+       '<button class="secondary small" type="button" onclick="adminNetworkAdsBonusToggle(false)">Suspender novas apurações de anúncios</button>':
+       '<label>Referência dos termos aprovados e publicados<input class="input" id="network-ads-bonus-terms" maxlength="160" placeholder="Identificação do documento já aprovado"></label>'+
+       '<button class="primary small" type="button" onclick="adminNetworkAdsBonusToggle(true)" '+
+       (adminNetworkFeePackageBusy?'disabled':'')+'>Ativar somente para campanhas futuras</button>'):'')+
+    '</div></section>';
 }
 function adminNetworkFeePackagePanel(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
@@ -3811,6 +3869,7 @@ function adminNetworkFeePackagePanel(){
          (d.conservation?.balanced!==true?'disabled':'')+
          '>Ativar apuração para vendas futuras</button></div>'):''):'')+
     '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>'+ 
+    adminNetworkAdsBonusPanel()+
     (adminCurrentRole()==='superadmin'?(globalThis.adminNetworkPayoutPanel?.()||adminNetworkPayoutFallbackView()):'');
 }
 
