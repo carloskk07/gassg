@@ -3699,6 +3699,9 @@ function adminGrowthSetWorkspaceTab(tab){
  if(tab==='budget')adminOwnerFinanceLoadOnDemand().catch(()=>{});
  if(tab==='benefits'&&typeof adminWelcomeCampaignLoad==='function')
   adminWelcomeCampaignLoad({silent:true}).catch(()=>{});
+ if(tab==='benefits'&&typeof adminNetworkFeePackageRefresh==='function'&&
+    ['superadmin','finance'].includes(adminCurrentRole()))
+  adminNetworkFeePackageRefresh().catch(()=>{});
 }
 function adminOrdersSetWorkspaceTab(tab){
  if(!adminReady()||adminRuntime.section!=='orders'||!adminRoleCanSection('orders'))return;
