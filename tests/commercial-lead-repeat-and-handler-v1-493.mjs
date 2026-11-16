@@ -137,6 +137,7 @@ const inputs={
 const intake=[];
 const closedCommerce=vm.createContext({
   document:{
+    getElementById:()=>null,
     querySelector:selector=>inputs[selector]||null,
     querySelectorAll:selector=>selector==='input[name="prelaunch-interest"]:checked'
       ?[{value:'gas'}]:[]
@@ -164,7 +165,9 @@ assert.equal(intake[1].consent,true);
 // Privacy consent remains mandatory despite the independence from commerce.
 inputs['#partner-consent'].checked=false;
 inputs['#partner-submit'].disabled=false;
-await assert.rejects(closedCommerce.submitMerchant(),/Confirme que podemos entrar em contato/);
+await closedCommerce.submitMerchant();
+assert.match(inputs['#partner-result'].textContent,/Confirme que podemos entrar em contato/);
+assert.equal(inputs['#partner-result'].className,'lead-result error');
 assert.equal(intake.length,2,'no lead may bypass consent');
 
 console.log('PASS #493: commercial leads return operational copy, reject invalid JSON, and support repeat consented submissions.');
