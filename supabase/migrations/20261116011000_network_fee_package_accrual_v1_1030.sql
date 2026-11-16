@@ -206,6 +206,11 @@ begin
      where e.last_visit_at>v_closed-interval '24 hours'
        and e.last_visit_at<=v_closed
        and e.user_id is distinct from v_src.buyer_user_id
+       -- The purchaser's entire merchant staff is not a disinterested
+       -- community member for its OWN fee-credit package.
+       and not exists(select 1 from public.merchant_members own
+         where own.merchant_id=v_src.merchant_id and own.user_id=e.user_id
+           and own.active)
        and not exists(select 1 from public.platform_admins z
          where z.user_id=e.user_id and z.active)
    ) eligible;
