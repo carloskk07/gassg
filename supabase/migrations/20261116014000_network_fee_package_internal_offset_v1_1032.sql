@@ -389,7 +389,7 @@ begin
     'reservationId',v_reservation,'state','reserved',
     'amountCents',p_amount_cents,'alreadyRecorded',false,
     'moneyMoved',false,'payoutProviderCalled',false);
-end $function$
+end $function$;
 
 CREATE OR REPLACE FUNCTION public.network_fee_payout_status_v1_1031(p_actor uuid, p_user uuid)
  RETURNS jsonb
@@ -423,7 +423,7 @@ begin
  'reservationCount',v_cnt,'reversalReviews',v_risks,
  'payoutsEnabled',false,'bankSettlementVerified',false,
  'recipientVerified',false,'moneyMoved',false);
-end $function$
+end $function$;
 
 -- Only a real provider-confirmed Pix remainder may approve the mixed package.
 CREATE OR REPLACE FUNCTION tamao_billing_private.resolve_merchant_billing_payment_request(p_actor_user_id uuid, p_payment_request_id uuid, p_action text, p_reference text, p_idempotency_key text, p_request_hash text, p_automatic_event_id uuid DEFAULT NULL::uuid)
@@ -772,7 +772,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 revoke all on function public.network_fee_offset_status_v1_1032(uuid,uuid),
  public.network_fee_offset_prepare_v1_1032(uuid,uuid,text,bigint,text),
