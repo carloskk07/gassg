@@ -535,7 +535,16 @@ function merchantGrowthNetworkSection(merchant){
         :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
       ${globalThis.merchantRuntime?.growthError?
         '<div class="notice danger">'+esc(globalThis.merchantRuntime.growthError)+'</div>':''}
-      <p class="tiny muted">Atribuição somente após cadastro consentido. Nenhum crédito, saque ou comissão de revenda é liberado por esse convite.</p>
+      ${valid&&growth?.packageNetwork?.available===true&&
+        growth.packageNetwork?.source==='network_fee_package_user_v1_1030'&&
+        growth.packageNetwork?.readOnly===true&&growth.packageNetwork?.payoutsEnabled===false
+        ?'<div class="merchant-kpis" style="margin-top:12px">'+
+          '<div class="kpi"><span class="label">Minha participação em apuração</span><strong>'+
+          BRL.format(Math.max(0,Number(growth.packageNetwork.pendingCents||0))/100)+
+          '</strong></div><div class="kpi"><span class="label">Minha participação validada</span><strong>'+
+          BRL.format(Math.max(0,Number(growth.packageNetwork.validatedCents||0))/100)+
+          '</strong></div></div>':''}
+      <p class="tiny muted">O convite isolado não gera comissão. A participação em pacotes de taxas depende de pagamentos líquidos comprovados, janela de 24h e conferência da revenda indicada. Os valores são individuais da sua conta e ainda não são sacáveis.</p>
     </div>
   </section>`;
 }
