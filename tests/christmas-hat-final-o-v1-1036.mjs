@@ -14,17 +14,18 @@ vm.runInContext(core.slice(start,end)+'\nthis.brand=tamaoSeasonalWordmark;',ctx)
 const wordmark=(month,day)=>ctx.brand(new Date(2026,month-1,day,12));
 for(const [month,day] of [[11,15],[11,16],[12,24],[12,25],[12,31],[1,1],[1,6]]){
  const mark=wordmark(month,day);
- assert.match(mark,/^TAMÃ<span class="tamao-santa-o"/,'Only final O gets decorative anchor');
+ assert.match(mark,/^<span class="brand-name">TAMÃ<span class="tamao-santa-o"/,'Only final O gets decorative anchor');
  assert.match(mark,/>O<img src="\.\/icons\/santa-hat\.svg"/,'The hat belongs directly after O');
  assert.match(mark,/left:1px;bottom:calc\(100% - 5px\)/,
    'Only positive left offset, not above Ã');
  assert.match(mark,/aria-hidden="true".*pointer-events:none/,'Decoration must be inert');
 }
 for(const [month,day] of [[11,14],[10,31],[1,7],[2,1],[7,20]])
- assert.equal(wordmark(month,day),'TAMÃO','Original logo outside Christmas season '+month+'/'+day);
-assert.match(core,/<span class="brand-name">\$\{tamaoSeasonalWordmark\(\)\}<\/span>/,
+ assert.equal(wordmark(month,day),'<span class="brand-name">TAMÃO</span>','Original logo outside Christmas season '+month+'/'+day);
+assert.match(core,/\$\{tamaoSeasonalWordmark\(\)\}/,
  'All three portal headers reuse the local seasonal wordmark');
-assert.equal((core.match(/class="brand-name"/g)||[]).length,1,'One shared header');
+assert.equal((core.match(/class="brand-name"/g)||[]).length,2,
+ 'One seasonal and one original wordmark alternative, never duplicated at runtime');
 assert.doesNotMatch(css,/tamao-santa-o/,'Do not inflate strictly budgeted startup CSS');
 assert.match(hat,/<svg[^>]+viewBox="0 0 48 45"/);
 assert.doesNotMatch(hat,/<(?:script|foreignObject|image|use)\b|\b(?:href|xlink:href)\s*=/i,
