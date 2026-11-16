@@ -113,7 +113,7 @@ assert.match(css,/\.merchant-conversion-intro>.merchant-share:focus-visible/,
  'keyboard focus stays visible on both CTAs');
 assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-intro/,
  'sharing and signup use responsive full-width controls on mobile');
-const startInvite=growth.indexOf('function tamaoGrowthInviteUrl(');
+const startInvite=growth.indexOf('const TAMAO_NETWORK_INVITE_TARGETS=');
 const endInvite=growth.indexOf('\nasync function shareTamaoGrowthInvite(',startInvite);
 assert.ok(startInvite>=0&&endInvite>startInvite);
 const invites=vm.createContext({state:{user:{referralCode:'ABCDE1'}},encodeURIComponent});
