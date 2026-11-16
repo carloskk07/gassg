@@ -46,7 +46,7 @@ for(const f of ['adminOwnerFundingLoadFromUi','adminOwnerFundingSaveFromUi'])
 for(const f of [
  'Compare ofertas pelo preço total para seu CEP',
  'Seu próximo convite pode abrir novas portas.',
- 'Indique pessoas e revendas. Acompanhe seus convites.',
+ 'Indique pessoas, serviços e empresas. Acompanhe seus convites.',
  'Tudo acompanhado em um só lugar.',
  'Uma parceria feita para gerar valor dos dois lados.',
  'uma primeira compra elegível','primeira compra válida',
