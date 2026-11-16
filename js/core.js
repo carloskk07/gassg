@@ -904,17 +904,17 @@ function tamaoOpenAvailability(){
   // Checkout still requires a server-verified merchant.
   return startHomeBrowse();
 }
-// V1.1036 — festive, reversible wordmark on all three portals.
-// The last O has its own positioning context: the hat never anchors to the Ã.
-// Browser-local season: 15 November through 6 January (inclusive).
-function tamaoSeasonalWordmark(at=new Date()){
-  const month=at.getMonth()+1, day=at.getDate();
-  if(month===12||(month===11&&day>=15)||(month===1&&day<=6)){
-    return 'TAMÃ<span class="tamao-santa-o">O</span>';
-  }
-  return 'TAMÃO';
-}
 function shell(content){
+  // Local to shell: legacy isolated-render tests execute this function alone.
+  // Use the original TAMÃO type and green; accent only the final O.
+  function tamaoSeasonalWordmark(at=new Date()){
+    const month=at.getMonth()+1, day=at.getDate();
+    if(month===12||(month===11&&day>=15)||(month===1&&day<=6)){
+      return 'TAMÃ<span class="tamao-santa-o" style="position:relative;display:inline-block">O<img src="./icons/santa-hat.svg" alt="" aria-hidden="true" width="28" height="26" style="position:absolute;left:1px;bottom:calc(100% - 5px);pointer-events:none;max-width:none"></span>';
+    }
+    return 'TAMÃO';
+  }
+
   const r=route();
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
