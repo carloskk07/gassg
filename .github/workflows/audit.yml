@@ -1261,7 +1261,7 @@ jobs:
           ! grep -Fq 'home-editorial-visual' /tmp/home.html
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
-          grep -Fq 'Indique pessoas e revendas. Acompanhe seus convites.' /tmp/earn.html
+          grep -Fq 'Indique pessoas, serviços e empresas. Acompanhe seus convites.' /tmp/earn.html
           grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
