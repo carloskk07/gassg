@@ -49,14 +49,13 @@ const store=vm.createContext({
  toast:message=>merchantToasts.push(message),
  document:{getElementById:()=>({value:'rides'})}
 });
-vm.runInContext(merchant.slice(merchantStart,merchantEnd)+'\nthis.shareMerchant=merchantGrowthShareFromUi;this.shareSelected=merchantGrowthShareSelected;',store);
+vm.runInContext(merchant.slice(merchantStart,merchantEnd)+'\nthis.shareMerchant=merchantGrowthShareFromUi;',store);
 for(const [kind,route] of Object.entries(routes)){
  await store.shareMerchant(kind);
  assert.match(merchantShared.at(-1),new RegExp('\\?ref=TMRA{24}#'+route+'$'),'Merchant link must keep code and route '+kind);
 }
-assert.equal(await store.shareSelected(),undefined,'Simple merchant dropdown uses referral share');
-assert.match(merchantShared.at(-1),/#rides$/);
-assert.match(merchant,/id="merchant-growth-target"/,'Merchant portal offers other verticals');
+assert.match(merchant,/merchantGrowthShareFromUi\(document\.getElementById\('merchant-network-target'\)\.value\)/,'Simple merchant dropdown reuses verified invite action');
+assert.match(merchant,/id="merchant-network-target"/,'Merchant portal offers other verticals');
 store.merchantRuntime.growthNetwork.inviteCode='INVALID';
 await store.shareMerchant('customer');
 assert.match(merchantToasts.at(-1),/Carregue primeiro/,'Merchant cannot share invalid code');
