@@ -103,6 +103,12 @@ begin
  if (select count(*) from public.network_fee_payout_allocations_v1_1031
    where reservation_id=v_id)<>1
  then raise exception 'NETWORK_PAYOUT_ALLOCATION_HISTORY_DELETED';end if;
+ v_second:=public.network_fee_payout_cancel_v1_1031(v_owner,v_id);
+ if v_second->>'state'<>'cancelled' then
+  raise exception 'NETWORK_PAYOUT_REVERSAL_CANCELLATION_FAILED';end if;
+ v_status:=public.network_fee_payout_status_v1_1031(v_owner,v_user);
+ if (v_status->>'availableCents')::bigint<>0 then
+  raise exception 'NETWORK_PAYOUT_REVERSED_AWARD_MUST_STAY_UNAVAILABLE';end if;
 
  raise notice 'V1.1031 PASS: financial reservation conservation, idempotency, owner ACL, cancellation, source reversal and no bank payout';
 end $test$;
