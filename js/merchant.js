@@ -527,10 +527,9 @@ function merchantGrowthNetworkSection(merchant){
           <div class="kpi"><span class="label">Revendas interessadas</span><strong>${Math.max(0,Number(growth.merchantInterests||0))}</strong></div>
           <div class="kpi"><span class="label">Clientes interessados</span><strong>${Math.max(0,Number(growth.customerInterests||0))}</strong></div>
         </div>
-        <div class="field-row" style="margin-top:14px">
-          <select id="merchant-network-target" aria-label="Quem convidar"><option value="merchant">Revenda</option><option value="customer">Cliente</option><option value="professional">Profissional</option><option value="mobility">Moto/Carro</option><option value="rides">Carona</option><option value="club">Clube</option><option value="sponsor">Anunciante</option></select>
+        <div class="field-row">
+          <select class="input" id="merchant-network-target" aria-label="Quem convidar"><option value="merchant">Revenda</option><option value="customer">Cliente</option><option value="professional">Profissional</option><option value="mobility">Moto/Carro</option><option value="rides">Carona</option><option value="club">Clube</option><option value="sponsor">Anunciante</option></select>
           <button class="primary" onclick="merchantGrowthShareFromUi(document.getElementById('merchant-network-target').value)">Convidar</button>
-          <button class="ghost" onclick="merchantGrowthLoadFromUi()">Atualizar</button>
         </div>`
         :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
       ${globalThis.merchantRuntime?.growthError?
@@ -578,9 +577,8 @@ async function merchantGrowthShareFromUi(type='merchant'){
     !/^TMR[A-F0-9]{24}$/.test(String(network?.inviteCode||''))){
     return toast('Carregue primeiro o código da sua revenda');
   }
-  const names=['customer','merchant','professional','mobility','rides','club','sponsor'];
-  const hashes=['home','merchants','advertise','mobility','rides','club','sponsors'];
-  const url='https://tamao.com.br/?ref='+encodeURIComponent(network.inviteCode)+'#'+hashes[Math.max(0,names.indexOf(type))];
+  const hash=({customer:'home',merchant:'merchants',professional:'advertise',mobility:'mobility',rides:'rides',club:'club',sponsor:'sponsors'})[type]||'merchants';
+  const url='https://tamao.com.br/?ref='+encodeURIComponent(network.inviteCode)+'#'+hash;
   const message='TAMÃO: '+url;
   try{
     if(navigator.share){await navigator.share({title:'Rede TAMÃO',text:message,url});return;}
