@@ -163,6 +163,7 @@ assert.equal(intake[0].consent,true);
 assert.equal(intake[1].consent,true);
 // Privacy consent remains mandatory despite the independence from commerce.
 inputs['#partner-consent'].checked=false;
+inputs['#partner-submit'].disabled=false;
 await assert.rejects(closedCommerce.submitMerchant(),/Confirme que podemos entrar em contato/);
 assert.equal(intake.length,2,'no lead may bypass consent');
 
