@@ -83,7 +83,7 @@ function tamaoBenefitsStatementMoney(e){
     (cash/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const value=micro>0&&cash===0?'menos de R$ 0,01':label;
   if(e.money_type==='discount')return value+' de desconto';
-  if(e.money_type==='transfer')return value+' solicitado';
+  if(e.money_type==='transfer')return value+' de saque';
   return (Number(e.amountMicrocents)<0?'−':'+')+value;
 }
 function tamaoBenefitsStatementPanel(){
