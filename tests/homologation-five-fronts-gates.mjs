@@ -95,5 +95,37 @@ for(const [workflow,path,scope] of common){
   'shared security/UX test disconnected: '+path);
  all.push({front:'transversal',workflow,path,scope});
 }
-console.log('PASS: five commercial technical fronts plus cross-cutting security/UX retain '+
- all.length+' mandatory CI hooks; PR/daily isolation verified. Actual commercial acceptance needs external proof.');
+// The four technical closeouts require executable regression code, not merely
+// workflow names or proof of the existence of commercial participants.
+// These source assertions complement (but never replace) the real CI jobs.
+const technicalEvidence=[
+ ['#2 coupons','tests/isolated-supabase-coupon-full-schema.mjs',
+  ['couponAppliedCents','reimbursement','refund','ROLLBACK']],
+ ['#3 finance','tests/isolated-payment-entitlement-readback.mjs',
+  ["readPaymentEntitlement('coupon'","readPaymentEntitlement('merchant_sale'",
+   "readPaymentEntitlement('advertising'","readPaymentEntitlement('mobility'",'ROLLBACK']],
+ ['#4 orders','tests/isolated-supabase-positive-checkout.mjs',
+  ['SETTLED','CANCELLED','PIN','compliance','admin']],
+ ['#6 merchants','tests/isolated-commercial-activation-evidence.mjs',
+  ['LAUNCH_ELIGIBLE_SUPPLY_REQUIRED','offerReadyMerchantCount','ROLLBACK']]
+];
+for(const [name,path,needles] of technicalEvidence){
+ const code=read(path);
+ for(const needle of needles)assert.ok(code.includes(needle),
+  name+' technical acceptance lost the real scenario: '+needle+' in '+path);
+}
+const fourFronts=read('docs/operations/2026-11-15-four-fronts-technical-closeout.md');
+for(const number of ['#2','#3','#4','#6','#12'])
+ assert.ok(fourFronts.includes(number),'technical review lacks '+number);
+assert.match(fourFronts,/18\/19 frentes tecnicamente concluídas/);
+assert.match(fourFronts,/#12 não está encerrada/);
+const nextScope=read('MARKETING.md');
+assert.match(nextScope,/reward_enabled=false/,
+ 'unimplemented merchant referral rewards cannot be represented as paid');
+const bankProof=read('tests/isolated-referral-payout-lifecycle.mjs');
+assert.match(bankProof,/bankSettlementVerified,false/,
+ 'referral provider observation cannot claim an unverified bank transfer');
+console.log('PASS: 4 technical front closeouts have live-source assertion coverage; '+ 
+ 'front #12 remains open for actual missing features. This is not bank evidence.');
+console.log('PASS: five technical fronts plus cross-cutting security/UX retain '+
+ all.length+' mandatory CI hooks; PR/daily isolation verified. External events only need proof once they occur.');
