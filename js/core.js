@@ -904,6 +904,16 @@ function tamaoOpenAvailability(){
   // Checkout still requires a server-verified merchant.
   return startHomeBrowse();
 }
+// V1.1036 — festive, reversible wordmark on all three portals.
+// The last O has its own positioning context: the hat never anchors to the Ã.
+// Browser-local season: 15 November through 6 January (inclusive).
+function tamaoSeasonalWordmark(at=new Date()){
+  const month=at.getMonth()+1, day=at.getDate();
+  if(month===12||(month===11&&day>=15)||(month===1&&day<=6)){
+    return 'TAMÃ<span class="tamao-santa-o">O</span>';
+  }
+  return 'TAMÃO';
+}
 function shell(content){
   const r=route();
   const adminPortal=globalThis.adminPortalRequested?.()===true;
@@ -956,7 +966,7 @@ function shell(content){
   <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
   <header class="topbar${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-header':''}"><div class="shell topbar-inner">
-    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
+    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">${tamaoSeasonalWordmark()}</span><small>Pediu? Tá na mão.</small></div></button>
     ${desktopNav?'<nav class="desktop-only desktop-nav'+(!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':'')+'" aria-label="Navegação principal">'+desktopNav+'</nav>':''}
     ${switcher}
   </div></header>
