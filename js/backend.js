@@ -283,6 +283,7 @@ function liveForgetAccount(){
   liveRuntime.offers=[];liveRuntime.lastCityCheck=null;
   liveRuntime.lastOrderTemplate=null;liveRuntime.reorderPrediction=null;
   liveRuntime.referredCount=liveRuntime.qualifiedReferralCount=0;
+  liveRuntime.networkPackage=null;
   liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
   state.user=freshSeed().user;
   state.address='';state.postalCode='';state.addressNumber='';
