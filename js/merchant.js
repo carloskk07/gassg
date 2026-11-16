@@ -543,7 +543,7 @@ function merchantGrowthNetworkSection(merchant){
           '</strong></div><div class="kpi"><span class="label">Minha participação validada</span><strong>'+
           BRL.format(Math.max(0,Number(growth.packageNetwork.validatedCents||0))/100)+
           '</strong></div></div>':''}
-      <p class="tiny muted">O convite isolado não gera comissão. Pacotes exigem receitas comprovadas, atividade elegível e regras aprovadas; saldo não sacável.</p>
+      <p class="tiny muted">O convite isolado não gera comissão. Pacotes exigem receita comprovada e elegibilidade. Os valores são individuais da sua conta e ainda não são sacáveis.</p>
     </div>
   </section>`;
 }
