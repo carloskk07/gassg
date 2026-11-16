@@ -105,9 +105,9 @@ begin
   coupon_face_cents,coupons_per_pack,valid_days,status,paid_at,
   net_proceeds_cents,net_proceeds_reference,net_proceeds_verified_at,
   sponsor_covered_cents,funding_mode_v1_846)
- values(v_club_invoice,v_referred,'all_products_3x5_sponsor',gen_random_uuid(),
-  890,500,3,90,'paid',v_paid_at,
-  820,'CI-ONLY-OWNER-SPONSORED',v_paid_at+interval '1 hour',680,'platform_reimbursed');
+ values(v_club_invoice,v_referred,'homologacao_interna_20261027',gen_random_uuid(),
+  1200,500,2,30,'paid',v_paid_at,
+  1120,'CI-ONLY-PLATFORM-FUNDED',v_paid_at+interval '1 hour',0,'platform_reimbursed');
  v_result:=public.network_direct_module_refresh_v1_1044(v_inviter);
  if v_result->>'createdClub'<>'0' or
   exists(select 1 from public.network_direct_module_awards_v1_1044
