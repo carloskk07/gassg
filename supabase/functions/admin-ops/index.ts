@@ -3536,13 +3536,25 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente Financeiro ou Superadmin consulta o fundo da Rede.",403);
       }
-      const [summary,conservation,payouts]=await Promise.all([
+      const [summary,conservation,payouts,direct]=await Promise.all([
         admin.rpc("network_fee_package_admin_summary_v1_1030",{p_actor:user.id}),
         admin.rpc("network_fee_package_conservation_v1_1030",{p_actor:user.id}),
-        admin.rpc("network_fee_payout_program_overview_v1_1031",{p_actor:user.id})
+        admin.rpc("network_fee_payout_program_overview_v1_1031",{p_actor:user.id}),
+        admin.rpc("network_direct_module_admin_v1_1044",{p_actor:user.id})
       ]);
-      if(summary.error||conservation.error||payouts.error)
-        throw summary.error||conservation.error||payouts.error;
+      if(summary.error||conservation.error||payouts.error||direct.error)
+        throw summary.error||conservation.error||payouts.error||direct.error;
+      if(direct.data?.source!=="network_direct_admin_v1_1044"||
+        direct.data.readOnly!==true||direct.data.cashPayoutsEnabled!==false||
+        direct.data.moneyMoved!==false||
+        !["mobility","club"].every(m=>
+          typeof direct.data.modules?.[m]?.enabled==="boolean"&&
+          Number.isSafeInteger(direct.data.modules[m].inviterBps)&&
+          Number.isSafeInteger(direct.data.modules[m].validatedAwards)&&
+          Number.isSafeInteger(direct.data.modules[m].reversedAwards)&&
+          Number.isSafeInteger(direct.data.modules[m].validatedCents)))
+        throw new DomainError("NETWORK_DIRECT_STATUS_UNVERIFIED",
+          "O resumo de bonificações diretas não foi confirmado.",503);
       if(summary.data?.source!=="network_fee_package_admin_v1_1030"||
         summary.data.readOnly!==true||summary.data.payoutsEnabled!==false||
         conservation.data?.source!=="network_conservation_v1_1030"||
@@ -3586,7 +3598,7 @@ Deno.serve(async(req:Request)=>{
         cashPayoutsEnabled:false
       };
       return json({...summary.data,conservation:conservation.data,
-        payouts:payouts.data,moduleAds},200,origin);
+        payouts:payouts.data,moduleAds,moduleDirect:direct.data},200,origin);
     }
     if(action==="network-fee-package-set-enabled"){
       if(String(adminAccess.admin_role)!=="superadmin")
@@ -3610,6 +3622,30 @@ Deno.serve(async(req:Request)=>{
         data.moneyMoved!==false)
         throw new DomainError("NETWORK_POLICY_UPDATE_UNVERIFIED",
           "Não foi possível confirmar a regra da Rede.",503);
+      return json(data,200,origin);
+    }
+
+    if(action==="network-direct-module-set-enabled"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o Superadmin pode alterar bonificações diretas.",403);
+      const kind=String(body.module||"");
+      if(!["mobility","club"].includes(kind)||typeof body.enabled!=="boolean"||
+        (body.enabled&&(
+          typeof body.termsReference!=="string"||
+          !/^[^<>]{12,160}$/.test(body.termsReference.trim()))))
+        throw new DomainError("NETWORK_DIRECT_POLICY_INVALID",
+          "Módulo ou referência real de termos aprovados inválidos.",400);
+      const {data,error}=await admin.rpc("network_direct_module_set_enabled_v1_1044",{
+        p_actor:user.id,p_module:kind,p_enabled:body.enabled,
+        p_terms_reference:body.enabled?body.termsReference.trim():null
+      });
+      if(error)throw error;
+      if(data?.source!=="network_direct_policy_v1_1044"||
+        data.module!==kind||data.enabled!==body.enabled||
+        data.cashPayoutsEnabled!==false||data.moneyMoved!==false)
+        throw new DomainError("NETWORK_DIRECT_POLICY_UNVERIFIED",
+          "A política não foi confirmada no banco.",503);
       return json(data,200,origin);
     }
 
