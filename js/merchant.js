@@ -1096,7 +1096,8 @@ function merchantBillingLiveView(rt){
       const pixAction=pixReady
         ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${current?'Gerar Pix para recarregar':'Gerar Pix e solicitar ativação'}</button><button class="ghost small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>Já paguei por outro meio</button>`
         : `<button class="secondary small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${pendingPackage?'Outro pacote já está pendente':current?'Informar pagamento da recarga':'Informar pagamento e solicitar ativação'}</button>`;
-      action=pixAction;
+      const bonusAction=`<button class="ghost small" style="margin-top:8px" onclick="merchantUseNetworkFeeOffsetFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>Usar bonificações</button>`;
+      action=pixAction+bonusAction;
     }
 
     return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação somente após confirmação financeira. O saldo é usado até o último centavo.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
@@ -1202,6 +1203,38 @@ function merchantBillingLiveView(rt){
     <div class="notice" style="margin-top:12px"><strong>Pix com conciliação automática.</strong><br>${pixReady?'Gere o Pix no próprio TAMÃO: o QR e o copia-e-cola ficam vinculados à solicitação, e o EndToEndId bancário volta pelo provedor sem digitação manual.':'A integração automática ainda não está configurada neste ambiente; o fluxo manual permanece disponível.'} Em qualquer rota, crédito ou quitação só acontecem após a confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
   </section>`;
+}
+
+async function merchantUseNetworkFeeOffsetFromUi(planKey){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const plan=(billing.plans||[]).find(p=>p.planKey===planKey&&p.billingMode==='prepaid_credit');
+  if(!plan)return toast('Pacote não encontrado');
+  if((billing.paymentRequests||[]).some(r=>r.status==='pending'&&r.requestKind==='package_purchase'))
+    return toast('Já existe um pacote pendente. Pague ou cancele a solicitação anterior.');
+  try{
+    await merchantLoadBillingFlow();
+    const balance=await globalThis.merchantNetworkFeeOffsetStatusImpl();
+    const price=Number(plan.purchaseAmountCents||0);
+    const used=Math.min(Number(balance.availableCents||0),price-100);
+    if(!balance.enabled||used<100)
+      return toast('Ainda não há bonificações validadas disponíveis para abatimento.');
+    const remainder=price-used;
+    if(!Number.isSafeInteger(price)||!Number.isSafeInteger(used)||remainder<100)
+      throw new Error('Valor do pacote ou bonificação inválido.');
+    if(!confirm('Usar '+BRL.format(used/100)+' de suas bonificações para '+
+      plan.displayName+'? O Pix será de '+BRL.format(remainder/100)+
+      '. A bonificação ficará reservada até a confirmação do pagamento.'))return;
+    const prepared=await globalThis.merchantPrepareNetworkFeeOffsetImpl(planKey,used);
+    if(prepared.remainingPixCents!==remainder)
+      throw new Error('O valor do Pix restante mudou. Consulte o Financeiro.');
+    try{
+      await merchantCreateBillingPixLive({planKey});
+      toast('Bonificação reservada. Pague apenas o Pix restante de '+BRL.format(remainder/100)+'.');
+    }catch(e){
+      toast('Abatimento reservado; gere ou recupere o Pix restante no pacote pendente. '+
+        String(e?.message||e));
+    }
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function merchantCreateBillingPackagePixFromUi(planKey){
