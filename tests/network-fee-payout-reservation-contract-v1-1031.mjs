@@ -12,6 +12,7 @@ const names=[
  'network_fee_payout_cancel_v1_1031',
  'network_fee_payout_status_v1_1031',
  'network_fee_payout_watch_reversal_v1_1031',
+ 'network_fee_payout_program_overview_v1_1031',
  'network_fee_payout_reversal_guard_v1_1031'
 ];
 for (const name of names)assert.ok(sql.includes(name),'missing migration: '+name);
