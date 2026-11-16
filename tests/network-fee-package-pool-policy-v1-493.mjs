@@ -37,9 +37,8 @@ assert.equal(v.externalPaymentExecuted,false);
 
 // Merchant inviter earns a bonus WITHIN, not in addition to, the 10% ceiling.
 v=calculateNetworkPackageDailyPool({
-  sources:[merchant()],at,
-  participants:[member(ids.a),member(ids.b),member(ids.c)],
-  merchantInviterUserId:ids.a
+  sources:[{...merchant(),merchantInviterUserId:ids.a,merchantReferralVerified:true}],at,
+  participants:[member(ids.a),member(ids.b),member(ids.c)]
 });
 assert.equal(v.poolMicroCents,197_000_000);
 assert.equal(v.inviterBonusMicroCents,39_400_000); // exactly 2% of NET inside 10%
@@ -51,12 +50,43 @@ assert.equal(v.creditedMicroCents+v.carryForwardMicroCents,v.poolMicroCents);
 
 // No verified inviter? All 10% returns to active group, not an extra founder fee.
 v=calculateNetworkPackageDailyPool({
-  sources:[merchant()],at,participants:[member(ids.a),member(ids.b)],
-  merchantInviterUserId:ids.c
+  sources:[{...merchant(),merchantInviterUserId:ids.c,merchantReferralVerified:true}],at,
+  participants:[member(ids.a),member(ids.b)]
 });
 assert.equal(v.inviterBonusMicroCents,0);
 assert.equal(v.entries[0].totalMicroCents,98_500_000);
 assert.equal(v.entries[1].totalMicroCents,98_500_000);
+
+
+// A referrer of a merchant package must not receive 2% of unrelated MOBILITY
+// plans sold the same day; only the verified merchant source generates bonus.
+v=calculateNetworkPackageDailyPool({
+  sources:[{...merchant(),merchantInviterUserId:ids.a,merchantReferralVerified:true},
+    {...mobility(),merchantInviterUserId:ids.a,merchantReferralVerified:true}],
+  at,participants:[member(ids.a),member(ids.b)]
+});
+assert.equal(v.poolMicroCents,296_000_000);
+assert.equal(v.inviterBonusMicroCents,39_400_000,
+  'bonus cannot attach to mobility NET');
+assert.equal(v.entries[0].totalMicroCents,167_700_000);
+assert.equal(v.entries[1].totalMicroCents,128_300_000);
+assert.equal(v.creditedMicroCents+v.carryForwardMicroCents,v.poolMicroCents);
+
+// Even a verified inviter cannot buy their own merchant package for a bonus.
+v=calculateNetworkPackageDailyPool({
+  sources:[{...merchant(),merchantInviterUserId:ids.a,
+    purchaserUserId:ids.a,merchantReferralVerified:true}],
+  at,participants:[member(ids.a),member(ids.b)]
+});
+assert.equal(v.inviterBonusMicroCents,0);
+assert.equal(v.creditedMicroCents,197_000_000);
+// Mere referral-code association, without server verification, earns nothing.
+v=calculateNetworkPackageDailyPool({
+  sources:[{...merchant(),merchantInviterUserId:ids.a,
+    merchantReferralVerified:false}],at,
+  participants:[member(ids.a),member(ids.b)]
+});
+assert.equal(v.inviterBonusMicroCents,0);
 
 // 24h activity is ONLY a verified, time-limited eligibility signal.
 // Multiple browser sessions of the same user can never multiply their share.
@@ -119,4 +149,4 @@ assert.throws(()=>run({participants:[member('invalid')]}),/UUID/);
 assert.throws(()=>run({sources:[{...merchant(),netCents:1_000_000_001,
   grossCents:1_000_000_001}]}),/supported amount/);
 
-console.log('PASS: 10% from NET verified fee-prepaid packages ONLY; 8% shared + 2% invited merchant inside same ceiling, 24h actual activity, anti-repeat/refund, exact micro-cent conservation. NO money transferred.');
+console.log('PASS: 10% from NET verified fee-prepaid packages ONLY; 8% + 2% only for independently attributed merchant packages inside the same ceiling, 24h actual activity, anti-repeat/refund, exact micro-cent conservation. NO money transferred.');
