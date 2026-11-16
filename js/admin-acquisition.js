@@ -2114,7 +2114,7 @@ function adminNetworkFeePackagePanel(){
   const d=adminNetworkFeePackageState;
   const moneyMicro=(v)=>{
     const n=Number(v);
-    return BRL.format(Math.floor(Number.isSafeInteger(n)&&n>=0?n:0)/100000000);
+    return BRL.format(Math.floor((Number.isSafeInteger(n)&&n>=0?n:0)/1000000)/100);
   };
   const label=d?.error?'Diagnóstico indisponível':
     !d?'Ainda não consultado':d.accrualEnabled?'Apuração habilitada':'Apuração pausada';
