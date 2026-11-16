@@ -331,3 +331,181 @@ globalThis.adminNetworkPayoutCancelPrepared=adminNetworkPayoutCancelPrepared;
 globalThis.adminNetworkPayoutPolicy=adminNetworkPayoutPolicy;
 
 globalThis.adminNetworkPayoutRecover=adminNetworkPayoutRecover;
+
+
+// TAMÃO V1.1034: operative payout mode is manual, never an automated PSP POST.
+const adminManualPayoutState={queue:null,pending:false,error:null};
+async function adminNetworkManualPayoutRefresh(){
+  if(!adminNetworkPayoutActor()||adminManualPayoutState.pending)return;
+  adminManualPayoutState.pending=true;
+  try{
+    const data=await adminNetworkPayoutInvoke({action:'manual-queue'});
+    if(data?.source!=='network_manual_queue_v1_1034'||
+       data?.readOnly!==true||data?.manualOnly!==true||
+       data?.paymentDays!==3||!Array.isArray(data.items))
+      throw Error('Fila de saques manuais não verificada.');
+    adminManualPayoutState.queue=data;
+    adminManualPayoutState.error=null;
+  }catch(e){adminManualPayoutState.error=String(e?.message||e)}
+  finally{adminManualPayoutState.pending=false;render()}
+}
+async function adminNetworkManualPayoutMinimum(){
+  const raw=String(document.getElementById('manual-payout-minimum')?.value||'');
+  const cents=raw===''?null:Number(raw);
+  if(cents!==null&&(!Number.isSafeInteger(cents)||cents<100))
+    return toast('Escolha um valor mínimo válido na lista.');
+  if(!confirm(cents===null?'Suspender novas solicitações de saque?':
+    'Definir saque mínimo da Rede em '+BRL.format(cents/100)+'? A regra não transfere dinheiro.'))return;
+  if(adminManualPayoutState.pending)return;
+  adminManualPayoutState.pending=true;
+  try{
+    const data=await adminNetworkPayoutInvoke({
+      action:'manual-set-minimum',minimumCents:cents,confirmation:'DEFINIR LIMITE'
+    });
+    if(data?.source!=='network_manual_policy_v1_1034'||
+      data?.minimumCents!==cents||data?.automaticPayouts!==false||
+      data?.moneyMoved!==false)throw Error('Limite não confirmado pelo banco.');
+    toast('Limite de saque salvo. Pagamento permanece manual.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminManualPayoutState.pending=false;await adminNetworkManualPayoutRefresh()}
+}
+async function adminNetworkManualPayoutApprove(id){
+  if(adminManualPayoutState.pending)return;
+  const req=(adminManualPayoutState.queue?.items||[]).find(x=>x.requestId===id);
+  if(!req||req.state!=='requested')return;
+  if(!confirm('Conferiu a identidade, a chave Pix CPF e o saldo VALIDADO de '+
+     BRL.format(Number(req.amountCents)/100)+'? O prazo de 3 DIAS CORRIDOS só começa após esta aprovação.'))return;
+  adminManualPayoutState.pending=true;
+  try{
+    const data=await adminNetworkPayoutInvoke({action:'manual-approve',
+       requestId:id,confirmation:'IDENTIDADE E SALDO CONFERIDOS'});
+    if(data?.source!=='network_manual_approval_v1_1034'||
+      data?.state!=='approved'||data?.moneyMoved!==false||
+      !Number.isFinite(Date.parse(data.dueAt)))
+      throw Error('Conferência não confirmada.');
+    toast('Conferido. Prazo de até 3 dias corridos iniciado; nenhum Pix enviado automaticamente.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminManualPayoutState.pending=false;await adminNetworkManualPayoutRefresh()}
+}
+async function adminNetworkManualPayoutCancel(id){
+  if(adminManualPayoutState.pending)return;
+  const req=(adminManualPayoutState.queue?.items||[]).find(x=>x.requestId===id);
+  if(!req||req.state!=='requested')return;
+  if(!confirm('Confirma que NÃO HOUVE pagamento bancário e que esta solicitação ainda não foi aprovada? A reserva será liberada.'))return;
+  adminManualPayoutState.pending=true;
+  try{
+    const data=await adminNetworkPayoutInvoke({action:'manual-cancel',
+       requestId:id,confirmation:'NAO HOUVE PAGAMENTO'});
+    if(data?.source!=='network_manual_cancel_v1_1034'||
+      data?.fundsReleased!==true||data?.bankTransferMade!==false)
+      throw Error('Cancelamento não confirmado.');
+    toast('Solicitação não aprovada cancelada. Saldo devolvido ao disponível.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminManualPayoutState.pending=false;await adminNetworkManualPayoutRefresh()}
+}
+async function adminNetworkManualPayoutMarkPaid(id){
+  if(adminManualPayoutState.pending)return;
+  const req=(adminManualPayoutState.queue?.items||[]).find(x=>x.requestId===id);
+  if(!req||req.state!=='approved')return;
+  const ref=String(document.getElementById('manual-payout-ref-'+id)?.value||'').trim();
+  if(ref.length<20)return toast('Informe a referência verificável do Pix bancário já realizado.');
+  const file=document.getElementById('manual-payout-file-'+id)?.files?.[0];
+  if(!file||!file.size||file.size>5242880)
+    return toast('Selecione o comprovante bancário real de até 5 MB.');
+  if(!confirm('Você já FEZ o Pix no banco e conferiu o beneficiário, o CPF, o valor exato '+
+    BRL.format(Number(req.amountCents)/100)+' e a referência no comprovante? Isto apenas registra o pagamento, não envia dinheiro.'))return;
+  adminManualPayoutState.pending=true;
+  try{
+    const raw=new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()));
+    const sha=[...raw].map(n=>n.toString(16).padStart(2,'0')).join('');
+    const data=await adminNetworkPayoutInvoke({
+      action:'manual-paid',requestId:id,amountCents:req.amountCents,
+      recipientPixHash:req.recipientPixHash,bankReference:ref,
+      receiptSha256:sha,confirmation:'CONFERI PIX EXTERNO E DESTINATARIO'
+    });
+    if(data?.source!=='network_manual_paid_record_v1_1034'||
+      data?.state!=='paid'||data?.manualEvidenceRecorded!==true||
+      data?.providerApiCalled!==false)
+      throw Error('Pagamento manual não registrado.');
+    toast('Pagamento externo registrado com comprovante. Nenhum Pix foi criado pelo TAMÃO.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminManualPayoutState.pending=false;await adminNetworkManualPayoutRefresh()}
+}
+function adminNetworkManualPayoutPanel(){
+  if(!adminNetworkPayoutActor())return '';
+  const d=adminManualPayoutState.queue,pending=adminManualPayoutState.pending;
+  const act=(label,call,variant='secondary')=>
+    '<button type="button" class="'+variant+' small" '+
+    (pending?'disabled ':'')+'onclick="'+call+'">'+esc(label)+'</button>';
+  const item=(r)=>{
+    const id=String(r.requestId||'');
+    if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+    const c=Number(r.amountCents);
+    if(!Number.isSafeInteger(c)||c<100)return '';
+    const due=r.dueAt?new Date(r.dueAt):null;
+    const overdue=r.state==='approved'&&due&&due.getTime()<Date.now();
+    return '<article class="card flat"><div class="section-head"><div><strong>'+
+      BRL.format(c/100)+'</strong> • '+esc(r.state)+
+      (overdue?' • PRAZO VENCIDO':'')+
+      '<p class="tiny muted">Conta: '+esc(String(r.userId||''))+
+      (due?' • pagar até '+esc(due.toLocaleString('pt-BR')):' • aguardando conferência')+
+      '</p></div></div>'+
+      (r.state==='requested'?
+        '<div class="order-actions">'+act('Aprovar após conferir','adminNetworkManualPayoutApprove(\''+id+'\')','primary')+
+        act('Cancelar sem pagar','adminNetworkManualPayoutCancel(\''+id+'\')','ghost')+'</div>':'')+
+      (r.state==='approved'?
+        '<p class="tiny muted">Efetue o Pix manualmente no seu banco. Confira o CPF com a identidade validada. Registre somente após pagamento efetivo.</p>'+
+        '<p class="tiny muted">Hash do CPF verificado: <code>'+esc(String(r.recipientPixHash||'').slice(0,14))+'…</code></p>'+
+        '<label>Referência única do Pix bancário'+
+        '<input class="input" id="manual-payout-ref-'+id+'" maxlength="200" placeholder="Identificador da transação efetuada no banco"></label>'+
+        '<label>Comprovante bancário real (arquivo local; apenas hash SHA-256 no TAMÃO)'+
+        '<input class="input" id="manual-payout-file-'+id+'" type="file" accept="application/pdf,image/*"></label>'+
+        act('Registrar pagamento já realizado','adminNetworkManualPayoutMarkPaid(\''+id+'\')','primary'):'')+
+      (r.state==='review'?'<p class="notice danger">Saldo ou origem sob revisão. Não pague nem libere a reserva sem resolver a divergência.</p>':'')+
+      '</article>';
+  };
+  const min=Number(d?.minimumCents);
+  const opts=[1000,2000,3000,5000,10000,20000];
+  const selector='<label for="manual-payout-minimum">Limite mínimo para solicitar</label>'+
+   '<select class="input" id="manual-payout-minimum">'+
+   '<option value="">Suspenso / não definido</option>'+
+   opts.map(v=>'<option value="'+v+'" '+(min===v?'selected':'')+'>'+
+      BRL.format(v/100)+'</option>').join('')+'</select>';
+  return '<section class="section admin-network-payouts"><div class="section-head">'+
+    '<div><span class="section-kicker">REDE TAMÃO • FINANCEIRO</span>'+
+    '<h3>Saques manuais — até 3 dias corridos</h3>'+
+    '<p>Solicitação ao atingir o limite; conferência de saldo e titularidade; Pix feito manualmente por você. Prazo contado da aprovação.</p></div>'+
+    act('Atualizar fila','adminNetworkManualPayoutRefresh()')+'</div>'+
+    (adminManualPayoutState.error?
+      '<p class="notice danger">'+esc(adminManualPayoutState.error)+'</p>':'')+
+    (!d?'<p class="muted">Consulte a fila de solicitações para configurar o limite e acompanhar os prazos.</p>':
+     '<div class="card flat"><div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Saque mínimo</span><strong>'+
+        (d.minimumCents==null?'Não definido':BRL.format(Number(d.minimumCents)/100))+'</strong></div>'+
+      '<div class="kpi"><span class="label">Solicitações abertas</span><strong>'+
+        d.items.length+'</strong></div>'+
+      '<div class="kpi"><span class="label">Prazo vencido</span><strong>'+
+        Number(d.overdueCount||0)+'</strong></div></div>'+
+      '<div class="form-stack">'+selector+
+        act('Salvar limite','adminNetworkManualPayoutMinimum()')+'</div></div>'+
+      '<details class="card flat"><summary>Validar identidade e chave Pix de um participante</summary>'+
+      '<div class="form-stack">'+
+      '<label>ID da conta do participante<input class="input" id="network-payout-user-id" placeholder="UUID do usuário"></label>'+
+      '<label>Chave Pix CPF do participante<input class="input" id="network-payout-cpf" placeholder="CPF verificado com documento"></label>'+
+      '<label>Referência da conferência<input class="input" id="network-payout-identity-ref" placeholder="Identificação e comprovante da verificação"></label>'+
+      '<label>Arquivo local de identificação (somente hash é enviado)'+
+      '<input class="input" id="network-payout-identity-file" type="file" accept="application/pdf,image/*"></label>'+
+      act('Confirmar beneficiário','adminNetworkPayoutRegister()')+'</div></details>'+
+      '<div class="form-stack"><h4>Fila de saques</h4>'+
+      (d.items.length?d.items.map(item).join(''):'<p class="tiny muted">Não há saques aguardando.</p>')+'</div>'+
+      '<p class="tiny muted">O TAMÃO não realiza Pix nesta modalidade. Após o pagamento externo, guarde o comprovante bancário original; apenas a referência e o hash são registrados aqui. Saques aprovados não liberam saldo ao serem cancelados.</p>')+
+    '</section>';
+}
+globalThis.adminNetworkManualPayoutRefresh=adminNetworkManualPayoutRefresh;
+globalThis.adminNetworkManualPayoutMinimum=adminNetworkManualPayoutMinimum;
+globalThis.adminNetworkManualPayoutApprove=adminNetworkManualPayoutApprove;
+globalThis.adminNetworkManualPayoutMarkPaid=adminNetworkManualPayoutMarkPaid;
+globalThis.adminNetworkManualPayoutCancel=adminNetworkManualPayoutCancel;
+// Keep the existing lazy boundary; show MANUAL mode first.
+globalThis.adminNetworkPayoutPanel=adminNetworkManualPayoutPanel;
+globalThis.adminNetworkPayoutRefresh=adminNetworkManualPayoutRefresh;

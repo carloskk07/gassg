@@ -305,6 +305,49 @@ async function tamaoNetworkVisitFromUi(){
     console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
   }
 }
+// V1.1034 — Manual payout UI is deferred to protect startup budgets.
+const tamaoManualPayoutScriptUrl=(()=>{
+  try{
+    const own=document.currentScript;
+    if(!own?.src)return null;
+    const path=new URL(own.src,document.baseURI);
+    if(path.origin!==location.origin||!path.pathname.endsWith('/js/growth.js'))return null;
+    const next=new URL('growth-manual-payout.js',path);
+    next.search=path.search;
+    return next.href;
+  }catch{return null}
+})();
+let tamaoManualPayoutLoadPromise=null;
+async function tamaoManualPayoutLoad(){
+  if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return;
+  if(typeof globalThis.tamaoNetworkManualPayoutDetailsPanel!=='function'){
+    if(!tamaoManualPayoutLoadPromise){
+      tamaoManualPayoutLoadPromise=new Promise((resolve,reject)=>{
+        if(!tamaoManualPayoutScriptUrl){reject(Error('Módulo de saques indisponível.'));return;}
+        const tag=document.createElement('script');
+        tag.src=tamaoManualPayoutScriptUrl;tag.async=true;
+        tag.onload=()=>globalThis.tamaoNetworkManualPayoutDetailsPanel
+          ?resolve(true):reject(Error('O módulo de saques não iniciou.'));
+        tag.onerror=()=>reject(Error('Não foi possível carregar o extrato de saques.'));
+        document.head.appendChild(tag);
+      }).finally(()=>{tamaoManualPayoutLoadPromise=null});
+    }
+    try{await tamaoManualPayoutLoadPromise}catch(e){
+      toast(String(e?.message||e));return;
+    }
+  }
+  await globalThis.tamaoManualPayoutRefresh?.();
+}
+function tamaoNetworkManualPayoutPanel(){
+  if(!globalThis.liveReady?.()||!globalThis.liveRuntime?.session?.user?.id)return '';
+  if(typeof globalThis.tamaoNetworkManualPayoutDetailsPanel==='function')
+    return globalThis.tamaoNetworkManualPayoutDetailsPanel();
+  return '<section class="card flat network-manual-payout">'+
+    '<h3>Saques da Rede TAMÃO</h3>'+
+    '<p class="tiny muted">Pagamento manual após atingir o limite e conferir os dados. Prazo de até 3 dias corridos após aprovação.</p>'+
+    '<button type="button" class="secondary small" onclick="tamaoManualPayoutLoad()">Consultar ou solicitar saque</button></section>';
+}
+
 function tamaoNetworkFeePackagePanel(){
   const raw=globalThis.liveRuntime?.networkPackage;
   const valid=raw?.source==='network_fee_package_user_v1_1030'&&
@@ -325,12 +368,12 @@ function tamaoNetworkFeePackagePanel(){
     '<div class="merchant-kpis network-package-kpis"><div class="kpi"><span class="label">Em apuração</span><strong>'+pending+'</strong>'+
     '<small>Depende da validação do crédito pré-pago</small></div>'+
     '<div class="kpi"><span class="label">Validado</span><strong>'+validated+'</strong>'+
-    '<small>Ainda não sacável</small></div>'+
+    '<small>Disponibilidade conforme limite e conferência</small></div>'+
     '<div class="kpi"><span class="label">Pacotes com participação</span><strong>'+sources+'</strong>'+
     '<small>Somente fontes financeiras comprovadas</small></div></div>'+
     (!raw.accrualEnabled?'<div class="notice">A distribuição financeira dos pacotes ainda aguarda ativação das condições do programa.</div>':'')+
     '<p class="tiny muted">Valores abaixo de R$ 0,01 permanecem contabilizados em frações. '+
-    'Participar não garante ganhos diários; não há saque automático habilitado.</p></section>';
+    'Participar não garante ganhos diários; os pagamentos de saque são manuais.</p></section>'+tamaoNetworkManualPayoutPanel();
 }
 
 let referralQrLoader=null;
