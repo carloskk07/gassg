@@ -16,7 +16,7 @@ const service=secrets.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const api="https://api.mercadopago.com";
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const sha64=/^[a-f0-9]{64}$/;
-const allowed=new Set(["https://admin.tamao.com.br","https://tamao-sg-admin.pages.dev"]);
+const allowed=new Set(["https://admin.tamao.com.br","https://tamao-sg-admin.pages.dev","https://tamao.com.br","https://parceiro.tamao.com.br"]);
 function originAllowed(v:string|null){
   return !v||allowed.has(v)||/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(v);
 }
@@ -170,11 +170,6 @@ Deno.serve(async(req:Request)=>{
     const user=await actor(req);
     const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user,actionName:"network-payout-ops",limit:40,windowSeconds:60});
-    const {data:permission,error:pe}=await admin.from("platform_admins")
-      .select("admin_role,active").eq("user_id",user).eq("active",true).maybeSingle();
-    if(pe)throw pe;
-    if(!permission||permission.admin_role!=="superadmin")
-      throw new DomainError("PAYOUT_SUPERADMIN_REQUIRED","Acesso restrito ao administrador responsável.",403);
     const body=await readJsonBody(req);
     const action=String(body.action??"");
     const rpc=async(name:string,args:Record<string,unknown>)=>{
@@ -182,6 +177,85 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return data;
     };
+    // Authenticated permanent participant only. No admin privilege is needed
+    // to see one own request or reserve verified awards. The PostgreSQL RPCs
+    // are service-only and the subject is ALWAYS the validated JWT user ID.
+    if(action==="manual-status"){
+      const data=await rpc("network_manual_payout_status_v1_1034",{p_user:user});
+      if(data?.source!=="network_manual_payout_status_v1_1034"||
+        data?.readOnly!==true||data?.mode!=="manual"||
+        data?.automaticPayouts!==false)
+        throw Error("MANUAL_PAYOUT_STATUS_UNVERIFIED");
+      return respond(data,200,origin);
+    }
+    if(action==="manual-request"){
+      const key=idempotency(req);
+      const data=await rpc("network_manual_payout_request_v1_1034",{
+        p_user:user,p_key:key
+      });
+      if(data?.source!=="network_manual_request_v1_1034"||
+        data?.moneyMoved!==false||!uuid.test(String(data.requestId||"")))
+        throw Error("MANUAL_PAYOUT_REQUEST_UNVERIFIED");
+      return respond(data,200,origin);
+    }
+    const {data:permission,error:pe}=await admin.from("platform_admins")
+      .select("admin_role,active").eq("user_id",user).eq("active",true).maybeSingle();
+    if(pe)throw pe;
+    if(!permission||permission.admin_role!=="superadmin")
+      throw new DomainError("PAYOUT_SUPERADMIN_REQUIRED","Acesso restrito ao administrador responsável.",403);
+    if(action==="manual-queue"){
+      const data=await rpc("network_manual_payout_queue_v1_1034",{p_actor:user});
+      if(data?.source!=="network_manual_queue_v1_1034"||
+        data?.readOnly!==true||data?.manualOnly!==true||
+        !Array.isArray(data.items))
+        throw Error("MANUAL_PAYOUT_QUEUE_UNVERIFIED");
+      return respond(data,200,origin);
+    }
+    if(action==="manual-set-minimum"){
+      const amount=body.minimumCents===null?null:amountCents(body.minimumCents);
+      const data=await rpc("network_manual_payout_policy_set_v1_1034",{
+        p_actor:user,p_minimum_cents:amount,p_confirm:body.confirmation
+      });
+      if(data?.source!=="network_manual_policy_v1_1034"||
+        data?.automaticPayouts!==false||data?.moneyMoved!==false)
+        throw Error("MANUAL_PAYOUT_MINIMUM_UNVERIFIED");
+      return respond(data,200,origin);
+    }
+    if(action==="manual-approve"){
+      const data=await rpc("network_manual_payout_approve_v1_1034",{
+        p_actor:user,p_request:requiredUuid(body.requestId,"Solicitação"),
+        p_confirm:body.confirmation
+      });
+      if(data?.source!=="network_manual_approval_v1_1034"||
+        data?.state!=="approved"||data?.moneyMoved!==false)
+        throw Error("MANUAL_PAYOUT_APPROVAL_UNVERIFIED");
+      return respond(data,200,origin);
+    }
+    if(action==="manual-paid"){
+      const data=await rpc("network_manual_payout_mark_paid_v1_1034",{
+        p_actor:user,p_request:requiredUuid(body.requestId,"Solicitação"),
+        p_amount_cents:amountCents(body.amountCents),
+        p_expected_pix_hash:requiredSha(body.recipientPixHash),
+        p_bank_reference:reference(body.bankReference),
+        p_receipt_sha256:requiredSha(body.receiptSha256),
+        p_confirm:body.confirmation
+      });
+      if(data?.source!=="network_manual_paid_record_v1_1034"||
+        data?.state!=="paid"||data?.manualEvidenceRecorded!==true||
+        data?.providerApiCalled!==false)
+        throw Error("MANUAL_PAYOUT_PAID_UNVERIFIED");
+      return respond(data,200,origin);
+    }
+    if(action==="manual-cancel"){
+      const data=await rpc("network_manual_payout_cancel_v1_1034",{
+        p_actor:user,p_request:requiredUuid(body.requestId,"Solicitação"),
+        p_confirm:body.confirmation
+      });
+      if(data?.source!=="network_manual_cancel_v1_1034"||
+        data?.state!=="cancelled"||data?.bankTransferMade!==false)
+        throw Error("MANUAL_PAYOUT_CANCEL_UNVERIFIED");
+      return respond(data,200,origin);
+    }
     if(action==="overview"){
       const data=await rpc("network_payout_overview_v1_1033",{p_actor:user});
       if(data?.source!=="network_payout_executor_v1_1033"||data?.readOnly!==true)
