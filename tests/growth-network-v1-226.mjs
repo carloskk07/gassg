@@ -121,8 +121,8 @@ mCtx.globalThis.merchantRuntime.growthNetwork={
  customerInterests:2,merchantInterests:3
 };
 html=mCtx.view({merchantId:'m1',memberRole:'manager'});
-assert.ok(html.includes('Indicar outra revenda'));
-assert.ok(html.includes('Convidar clientes'));
+assert.ok(html.includes('<option value="merchant">Revenda</option>'));
+assert.ok(html.includes('<option value="customer">Cliente</option>'));
 assert.ok(html.includes('Revendas interessadas'));
 assert.ok(html.includes('?ref=TMR'+'A'.repeat(24)+'#merchants'));
 assert.ok(!html.includes('Ganhos disponíveis'));
@@ -130,7 +130,7 @@ assert.ok(mCtx.view({merchantId:'m2',memberRole:'owner'}).includes('Gerar meu li
  'Never show another merchant code');
 
 // Sharing without a confirmed authenticated code must not invent attribution.
-const gStart=growth.indexOf('function tamaoGrowthInviteUrl(');
+const gStart=growth.indexOf('const TAMAO_NETWORK_INVITE_TARGETS=');
 const gEnd=growth.indexOf('function referralUrl()',gStart);
 assert.ok(gStart>0&&gEnd>gStart);
 const gCtx=vm.createContext({
