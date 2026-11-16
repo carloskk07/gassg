@@ -373,7 +373,7 @@ end $fn$;
 
 create function public.network_payout_overview_v1_1033(p_actor uuid)
 returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $fn$
-declare v_enabled boolean;v_jobs bigint;v_review bigint;v_paid bigint;v_held bigint;
+declare v_enabled boolean;v_jobs bigint;v_review bigint;v_paid bigint;v_held bigint;v_recent jsonb;
 begin
  if not exists(select 1 from public.platform_admins a where a.user_id=p_actor
    and a.active and a.admin_role in('superadmin','finance'))
@@ -385,9 +385,16 @@ begin
    coalesce(sum(amount_cents) filter(where state in(
      'prepared','authorized','dispatching','uncertain','submitted','credited_unverified','review')),0)
  into v_jobs,v_review,v_paid,v_held from public.network_payout_jobs_v1_1033;
+ select coalesce(jsonb_agg(jsonb_build_object(
+   'jobId',x.id,'userId',x.user_id,'amountCents',x.amount_cents,
+   'state',x.state,'createdAt',x.created_at)),'[]'::jsonb)
+ into v_recent from (
+   select id,user_id,amount_cents,state,created_at
+   from public.network_payout_jobs_v1_1033 order by created_at desc limit 12
+ ) x;
  return jsonb_build_object('source','network_payout_executor_v1_1033',
   'readOnly',true,'executionEnabled',coalesce(v_enabled,false),
-  'jobs',v_jobs,'needsReview',v_review,'paidWithIndependentProofCents',v_paid,
+  'jobs',v_jobs,'recentJobs',v_recent,'needsReview',v_review,'paidWithIndependentProofCents',v_paid,
   'inFlightOrReservedCents',v_held,
   'providerCredentialsVerified',false,
   'recipientProofRequired',true,
