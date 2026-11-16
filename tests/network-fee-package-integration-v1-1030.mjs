@@ -60,7 +60,7 @@ has(growth,['function tamaoNetworkVisitFromUi','networkVisit:true',
  'function tamaoNetworkFeePackagePanel()','Ainda não sacável','tamaoNetworkFeePackagePanel()']);
 has(backend,['liveRuntime.networkPackage=summary.networkPackage']);
 has(merchantUi,['growth.packageNetwork.pendingCents','Os valores são individuais da sua conta']);
-has(acquisition,['adminNetworkFeePackagePanel()']);
+has(acquisition,['globalThis.adminNetworkFeePackagePanel?.()']);
 has(adminUi,['function adminNetworkFeePackagePanel()','adminNetworkFeePackageToggle(true)',
  'adminNetworkFeePackageRefresh()','Conservação contábil']);
 has(bootstrap,['adminNetworkFeePackageRefresh,adminNetworkFeePackageToggle']);
