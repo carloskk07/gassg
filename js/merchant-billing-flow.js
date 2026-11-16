@@ -162,6 +162,71 @@ async function merchantCreateBillingPixImpl({planKey=null,statementId=null,refun
 }
 
 
+// A network reward can reduce the *real* Pix for a prepaid fee package.
+// It never marks a payment as paid, sends Pix or creates a transferable wallet.
+async function merchantNetworkFeeOffsetStatusImpl(){
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const actor=String(merchantRuntime.session?.user?.id||'');
+  const epoch=merchantRuntime.accessEpoch;
+  if(!merchantBillingSameActor(actor,merchantId,epoch))
+    throw new Error('Atualize o acesso da revenda antes de consultar bonificações.');
+  const data=await merchantInvoke('merchant-ops',{
+    merchantId,action:'network-fee-offset-status'
+  });
+  if(!merchantBillingSameActor(actor,merchantId,epoch))
+    throw new Error('O acesso à revenda mudou durante a consulta.');
+  if(data?.source!=='network_offset_status_v1_1032'||
+     data?.merchantId!==merchantId||data?.userId!==actor||
+     data?.readOnly!==true||data?.moneyMoved!==false||
+     !Number.isSafeInteger(data?.availableCents)||data.availableCents<0)
+    throw new Error('Não foi possível confirmar as bonificações disponíveis.');
+  return data;
+}
+
+async function merchantPrepareNetworkFeeOffsetImpl(planKey,amountCents){
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const actor=String(merchantRuntime.session?.user?.id||'');
+  const epoch=merchantRuntime.accessEpoch;
+  const same=()=>merchantBillingSameActor(actor,merchantId,epoch);
+  if(!same())throw new Error('Atualize o acesso da revenda antes de usar bonificações.');
+  if(merchantRuntime.actionPending)throw new Error('Outra operação financeira está em andamento.');
+  if(!/^[a-z][a-z0-9_]{1,39}$/.test(String(planKey||''))||
+    !Number.isSafeInteger(amountCents)||amountCents<100)
+    throw new Error('Valor ou pacote de abatimento inválido.');
+  merchantRuntime.actionPending=true;merchantRuntime.error=null;render();
+  try{
+    const idempotencyKey=liveIdempotency('network-fee-offset');
+    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,action:'network-fee-offset-prepare',planKey,amountCents
+    },{idempotencyKey}));
+    if(!same())throw new Error('Sua sessão mudou. Confira a solicitação antes de continuar.');
+    if(result?.source!=='network_offset_prepare_v1_1032'||result?.ok!==true||
+      result?.merchantId!==merchantId||result?.planKey!==planKey||
+      result?.offsetCents!==amountCents||result?.state!=='reserved'||
+      result?.moneyMoved!==false||typeof result?.paymentRequestId!=='string')
+      throw new Error('O abatimento não foi confirmado. Atualize o Financeiro antes de tentar novamente.');
+    const readStarted=Date.now();
+    const fresh=await merchantRefresh({silent:true});
+    if(!same()||!fresh||merchantRuntime.billing!==fresh.billing||
+      String(fresh.merchant?.merchantId||'')!==merchantId||
+      Date.parse(String(merchantRuntime.lastSyncAt||''))<readStarted)
+      throw new Error('A sessão mudou durante o abatimento. Confira o Financeiro.');
+    const row=(fresh.billing?.paymentRequests||[]).find(r=>r.id===result.paymentRequestId);
+    if(!row||row.status!=='pending'||row.planKey!==planKey||
+      row.requestKind!=='package_purchase'||
+      row.expectedAmountCents!==result.remainingPixCents)
+      throw new Error('O Pix restante não foi confirmado na cobrança. Confira o Financeiro.');
+    return result;
+  }catch(error){
+    if(same())merchantRuntime.error=String(error?.message||error);
+    throw error;
+  }finally{
+    if(same()){merchantRuntime.actionPending=false;render();}
+  }
+}
+globalThis.merchantNetworkFeeOffsetStatusImpl=merchantNetworkFeeOffsetStatusImpl;
+globalThis.merchantPrepareNetworkFeeOffsetImpl=merchantPrepareNetworkFeeOffsetImpl;
+
 globalThis.merchantBillingSameActor=merchantBillingSameActor;
 globalThis.merchantBillingRequestImpl=merchantBillingRequestImpl;
 globalThis.merchantCreateBillingPixImpl=merchantCreateBillingPixImpl;
