@@ -133,6 +133,19 @@ Deno.serve(async(req:Request)=>{
     let networkPackage:Record<string,unknown>={available:false};
     let networkVisit:Record<string,unknown>={recorded:false};
     if(user.is_anonymous!==true){
+      // The URL code is only a hint; Postgres verifies the inviter,
+      // permanent account, first-touch and self-referral before binding.
+      const hint=String(requestBody?.referralCode||"").trim().toUpperCase();
+      if(/^[A-Z0-9]{5,40}$/.test(hint)){
+        const {error:bindingError}=await admin.rpc("network_module_bind_invite_v1_1041",
+          {p_actor:user.id,p_code:hint});
+        if(bindingError)console.warn("Network first-touch unavailable",String(bindingError.message||""));
+      }
+      if(requestBody?.networkVisit===true){
+        const {error:bonusError}=await admin.rpc("network_module_ads_bonus_refresh_v1_1041",
+          {p_inviter:user.id});
+        if(bonusError)console.warn("Network ads benefits unavailable",String(bonusError.message||""));
+      }
       if(requestBody?.networkVisit===true){
         const {data:visit,error:visitError}=await admin.rpc(
           "network_record_visit_v1_1030",{p_user:user.id,p_portal:"customer"});
@@ -153,6 +166,22 @@ Deno.serve(async(req:Request)=>{
       }else if(networkError){
         console.warn("network fee-package balance unavailable",
           String(networkError.message||""));
+      }
+    }
+
+    let moduleBenefits:Record<string,unknown>={available:false};
+    if(user.is_anonymous!==true){
+      const {data:verified,error:moduleError}=await admin.rpc(
+        "network_module_benefits_summary_v1_1041",{p_inviter:user.id});
+      const names=["products","merchants","mobility","professionals","rides","club","advertising"];
+      if(!moduleError&&verified?.source==="network_module_benefits_v1_1041"&&
+        verified.readOnly===true&&verified.cashPayoutsEnabled===false&&
+        names.every(k=>Number.isSafeInteger(verified?.modules?.[k])&&verified.modules[k]>=0)&&
+        Number.isSafeInteger(verified.verifiedConversions)&&verified.verifiedConversions>=0&&
+        Number.isSafeInteger(verified.invitedAccounts)&&verified.invitedAccounts>=0){
+        moduleBenefits={available:true,...verified};
+      }else if(moduleError){
+        console.warn("Network module benefits unavailable",String(moduleError.message||""));
       }
     }
 
@@ -230,6 +259,7 @@ Deno.serve(async(req:Request)=>{
       referredCount:Number(referredCount??0),
       qualifiedReferralCount:Number(qualifiedReferralCount??0),
       networkPackage,
+      moduleBenefits,
       networkVisit,
       lastOrderTemplate,
       reorderPrediction,
