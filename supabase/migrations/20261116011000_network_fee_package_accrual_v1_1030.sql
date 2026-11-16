@@ -45,7 +45,7 @@ declare
  v_src record; v_old record; v_grant record;
  v_closed timestamptz; v_visit_users uuid[];
  v_count integer;v_i integer;v_user uuid;
- v_pool bigint;v_bonus bigint;v_shared bigint;v_each bigint;v_rem bigint;
+ v_pool bigint;v_bonus bigint;v_shared bigint;v_each bigint;v_rem bigint;v_share bigint;
  v_inviter uuid;v_paid record;
  v_source_count integer:=0;v_award_count integer:=0;
  v_matured integer:=0;v_reversed integer:=0;
@@ -256,13 +256,13 @@ begin
      v_rem:=mod(v_shared,v_count);
      for v_i in 1..v_count loop
        v_user:=v_visit_users[v_i];
-       if v_each+case when v_i<=v_rem then 1 else 0 end
-          +case when v_user=v_inviter then v_bonus else 0 end=0 then continue;end if;
+       v_share:=v_each;
+       if v_i<=v_rem then v_share:=v_share+1;end if;
+       if v_share=0 and v_user is distinct from v_inviter then continue;end if;
        insert into public.network_fee_package_awards_v1_1030(
         kind,source_id,user_id,equal_microcents,inviter_microcents)
        values(v_src.kind,v_src.source_id,v_user,
-         v_each+case when v_i<=v_rem then 1 else 0 end,
-         case when v_user=v_inviter then v_bonus else 0 end);
+         v_share,case when v_user=v_inviter then v_bonus else 0 end);
        v_award_count:=v_award_count+1;
      end loop;
    end if;
