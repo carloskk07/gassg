@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {DomainError,readJsonBody,enforceApiQuota} from "../_shared/domain.js";
+import {normalizePixCpf,assertCreatePayoutResponse,
+  assertGetPayoutTransaction,serializePayoutBody} from "../_shared/network-payout-protocol.js";
 
 // This function cannot auto-pay. Every outgoing Pix needs a superadmin
 // authorization, an independent recipient proof and its own explicit click.
@@ -93,15 +95,8 @@ async function recipientHash(cpf:string){
   return [...new Uint8Array(raw)].map(n=>n.toString(16).padStart(2,"0")).join("");
 }
 function validCpf(value:unknown){
-  const x=String(value??"").replace(/[.\s-]/g,"");
-  if(!/^\d{11}$/.test(x)||/^(\d)\1{10}$/.test(x))
-    throw new DomainError("PAYOUT_PIX_CPF_INVALID","Chave CPF inválida.",400);
-  for(let digits=9;digits<=10;digits++){
-    let sum=0;for(let i=0;i<digits;i++)sum+=Number(x[i])*(digits+1-i);
-    const check=(sum*10)%11%10;
-    if(check!==Number(x[digits]))throw new DomainError("PAYOUT_PIX_CPF_INVALID","Dígitos do CPF inválidos.",400);
-  }
-  return x;
+  try{return normalizePixCpf(value)}
+  catch{throw new DomainError("PAYOUT_PIX_CPF_INVALID","Chave CPF inválida ou inconsistente.",400)}
 }
 async function encryptCpf(cpf:string){
   const iv=crypto.getRandomValues(new Uint8Array(12));
@@ -161,30 +156,10 @@ async function providerRequest(token:string,path:string,options:RequestInit){
   }finally{clearTimeout(timer)}
 }
 function providerIds(x:any,reference:string,cents:number){
-  const tx=Array.isArray(x?.transactions)?x.transactions[0]:null;
-  const id=String(x?.id||"").trim();
-  const transaction=String(tx?.id||"").trim();
-  const r=String(tx?.external_reference||"").trim();
-  const gross=Number(tx?.amount?.value);
-  if(!/^POP[A-Za-z0-9_-]{8,75}$/.test(id)||!/^TOP[A-Za-z0-9_-]{8,75}$/.test(transaction)
-    ||r!==reference||tx?.amount?.currency!=="BRL"
-    ||!Number.isFinite(gross)||Math.round(gross*100)!==cents)
-    throw Error("PAYOUT_PROVIDER_RESPONSE_MISMATCH");
-  return {payoutId:id,transactionId:transaction};
+  return assertCreatePayoutResponse(x,reference,cents);
 }
 function exactTransaction(x:any,job:any){
-  const id=String(x?.id||"").trim();
-  const ext=String(x?.external_reference||"").trim();
-  const value=Number(x?.amount?.value);
-  if(id!==job.providerTransactionId||ext!==job.externalReference||
-     x?.amount?.currency!=="BRL"||!Number.isFinite(value)||
-     Math.round(value*100)!==job.amountCents)
-    throw Error("PAYOUT_TRANSACTION_MATCH_FAILED");
-  const status=String(x?.status||"").trim().toLowerCase();
-  const detail=String(x?.status_detail||"").trim().toLowerCase();
-  if(!/^[a-z_]{3,40}$/.test(status)||detail.length>80)
-    throw Error("PAYOUT_TRANSACTION_STATUS_INVALID");
-  return {status,detail};
+  return assertGetPayoutTransaction(x,job);
 }
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -307,17 +282,7 @@ Deno.serve(async(req:Request)=>{
       const external=String(r.externalReference||"");
       if(!/^TAMAONET[A-F0-9]{32}$/.test(external))
         throw new Error("PAYOUT_EXTERNAL_REFERENCE_INVALID");
-      const payoutBody=JSON.stringify({
-        external_reference:external,
-        description:"TAMAO network commission verified",
-        transactions:[{
-          description:"TAMAO verified network commission",
-          type:"pix",
-          pix:{type:"CPF",chave:cpf},
-          amount:{currency:"BRL",value:Number((cents/100).toFixed(2))},
-          external_reference:external
-        }]
-      });
+      const payoutBody=serializePayoutBody({cpf,cents,reference:external});
       const signature=await signedPayoutBody(signing,payoutBody);
       let result:any=null;
       try{
