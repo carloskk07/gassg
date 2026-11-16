@@ -16,8 +16,10 @@ for(const [month,day] of [[11,15],[11,16],[12,24],[12,25],[12,31],[1,1],[1,6]]){
  const mark=wordmark(month,day);
  assert.match(mark,/^<span class="brand-name">TAMÃ<span class="tamao-santa-o"/,'Only final O gets decorative anchor');
  assert.match(mark,/>O<img src="\.\/icons\/santa-hat\.svg"/,'The hat belongs directly after O');
- assert.match(mark,/left:1px;bottom:calc\(100% - 13px\)/,
+ assert.match(mark,/left:1px;bottom:calc\(100% - 9px\)/,
    'Only positive left offset, not above Ã');
+ assert.match(mark,/aria-hidden="true" width="21" height="20" style="position:absolute;left:1px;/,
+ 'Hat must be proportional to the 19px wordmark, not double the O width');
  assert.match(mark,/aria-hidden="true".*pointer-events:none/,'Decoration must be inert');
 }
 for(const [month,day] of [[11,14],[10,31],[1,7],[2,1],[7,20]])
