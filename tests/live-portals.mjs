@@ -105,10 +105,22 @@ for(const {role,path:dir} of built){
      assert.equal(html.includes('src="'+asset+'"'),role!=='admin',role+' public-only HTML '+module);
      assert.equal(sw.includes("'"+asset+"'"),role!=='admin',role+' public-only precache '+module);
    }
-  assert.equal(
-    fs.readFileSync(path.join(dir,'js','growth.js'),'utf8'),
-    compactReleasedGrowthComments(fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8')),
-    role+' ships only validated growth source with comments omitted');
+  let expectedGrowth=compactReleasedGrowthComments(
+    fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8'));
+  if(role==='merchant'){
+    for(const [a,b] of [
+      ['function tamaoNetworkInvitePicker(){','function referralUrl(){'],
+      ['function tamaoNetworkModuleBenefitsPanel(){','function refer(){']
+    ]){
+      const start=expectedGrowth.indexOf(a),end=expectedGrowth.indexOf(b,start);
+      assert.ok(start>=0&&end>start,'customer-only component must be identifiable');
+      expectedGrowth=expectedGrowth.slice(0,start)+expectedGrowth.slice(end);
+    }
+  }
+  assert.equal(fs.readFileSync(path.join(dir,'js','growth.js'),'utf8'),expectedGrowth,
+    role+' must ship validated role-isolated growth source without unreviewed rewriting');
+  if(role==='merchant')assert.doesNotMatch(expectedGrowth,/function tamaoNetworkModuleBenefitsPanel/,
+    'partner must not ship customer-only benefits UI');
 
   for(const module of ['admin-acquisition','admin','admin-activations']){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';

@@ -529,7 +529,21 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // All three portals ship the shared growth module; compact each identical
     // release copy so customer, merchant and admin budgets remain unchanged.
     const growthFile=path.join(target,'js','growth.js');
-    fs.writeFileSync(growthFile,compactReleasedGrowthComments(fs.readFileSync(growthFile,'utf8')),'utf8');
+    let growthContent=compactReleasedGrowthComments(fs.readFileSync(growthFile,'utf8'));
+    // Partner owns its own invite picker. Strip the customer-only rich
+    // modules, preserving the strict initial JS budget without weakening it.
+    if(role==='merchant'){
+      for(const [startToken,endToken] of [
+        ['function tamaoNetworkInvitePicker(){','function referralUrl(){'],
+        ['function tamaoNetworkModuleBenefitsPanel(){','function refer(){']
+      ]){
+        const start=growthContent.indexOf(startToken);
+        const end=growthContent.indexOf(endToken,start);
+        if(start<0||end<=start)throw new Error('Missing customer-only Rede component in merchant build');
+        growthContent=growthContent.slice(0,start)+growthContent.slice(end);
+      }
+    }
+    fs.writeFileSync(growthFile,growthContent,'utf8');
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};
     fs.writeFileSync(
       path.join(target,'js','runtime-config.js'),

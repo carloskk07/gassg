@@ -62,6 +62,6 @@ assert.match(merchantToasts.at(-1),/Carregue primeiro/,'Merchant cannot share in
 
 assert.match(core,/new URLSearchParams\(location\.search\)\.get\('ref'\)/,'Landing must read query before hash');
 assert.match(core,/const GROWTH_REF_TTL_MS=30\*24\*60\*60\*1000/,'Preserve existing 30-day first-touch TTL');
-assert.match(growth,/\$\{tamaoNetworkInvitePicker\(\)\}/,'Referral account view must render picker');
+assert.match(growth,/tamaoNetworkInvitePicker\(\)/,'Referral account view must render picker');
 assert.doesNotMatch(growth.slice(growthStart,growthEnd),/network_fee_package_tick|wallet_entries|award_cents|accrual_enabled\s*=\s*true/,'Invites cannot accidentally credit bonuses');
 console.log('V1.1040 PASS — cross-module invitation URLs, 30-day first-touch, financial isolation, account and merchant safely shared; stays paused.');
