@@ -30,6 +30,13 @@ begin
    repeat('b',64),'CI-EXTERNAL-IDENTITY-ONLY-1033');
  if v_x->>'verified'<>'true' or v_x->>'rawPixReturned'<>'false'
  then raise exception 'NETWORK_PAYOUT_RECIPIENT_LEAK';end if;
+ -- A single verified Pix CPF cannot belong to another beneficiary.
+ v_denied:=false;
+ begin perform public.network_payout_beneficiary_register_v1_1033(
+   v_owner,v_stranger,repeat('c',44),repeat('d',24),repeat('a',64),
+   repeat('c',64),'CI-OTHER-IDENTITY-1033-SYNTHETIC');
+ exception when unique_violation then v_denied:=true;end;
+ if not v_denied then raise exception 'NETWORK_PAYOUT_DUPLICATE_CPF_BENEFICIARY';end if;
  -- A synthetic only source, matured and fully traceable in rollback database.
  update public.network_fee_package_policy_v1_1030 set
   accrual_enabled=true,terms_approved_at=clock_timestamp(),
