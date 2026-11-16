@@ -10,7 +10,8 @@ const admin=read('supabase/functions/admin-ops/index.ts');
 const growth=read('js/growth.js');
 const backend=read('js/backend.js');
 const merchantUi=read('js/merchant.js');
-const adminUi=read('js/admin-acquisition.js');
+const adminUi=read('js/admin.js');
+const acquisition=read('js/admin-acquisition.js');
 const bootstrap=read('js/bootstrap.js');
 const integration=read('.github/workflows/isolated-supabase-integration.yml');
 const audit=read('.github/workflows/audit.yml');
@@ -59,7 +60,8 @@ has(growth,['function tamaoNetworkVisitFromUi','networkVisit:true',
  'function tamaoNetworkFeePackagePanel()','Ainda não sacável','tamaoNetworkFeePackagePanel()']);
 has(backend,['liveRuntime.networkPackage=summary.networkPackage']);
 has(merchantUi,['growth.packageNetwork.pendingCents','Os valores são individuais da sua conta']);
-has(adminUi,['adminNetworkFeePackagePanel()','adminNetworkFeePackageToggle(true)',
+has(acquisition,['adminNetworkFeePackagePanel()']);
+has(adminUi,['function adminNetworkFeePackagePanel()','adminNetworkFeePackageToggle(true)',
  'adminNetworkFeePackageRefresh()','Conservação contábil']);
 has(bootstrap,['adminNetworkFeePackageRefresh,adminNetworkFeePackageToggle']);
 has(integration,['network-fee-package-lifecycle-v1-1030.sql']);
