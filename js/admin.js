@@ -3673,6 +3673,89 @@ function adminOwnerFinanceFallbackView(){
 let adminAdvancedNavOpen=['prospects','enablement','catalog','activations','discovery','incidents','audit','system'].includes(adminRuntime.section);
 let adminAdsWorkspaceTab='campaigns';
 let adminIndependentAdsPane='campaigns';
+// Independent Rede financial controls; do not mix with prelaunch CRM counts
+// or the legacy illustrative 5%-merchant incentive.
+let adminNetworkFeePackageState=null;
+let adminNetworkFeePackageBusy=false;
+async function adminNetworkFeePackageRefresh(){
+  if(adminNetworkFeePackageBusy||!['superadmin','finance'].includes(adminCurrentRole()))return;
+  adminNetworkFeePackageBusy=true;
+  try{
+    const result=await adminPerform('network-fee-package-status',{});
+    if(result?.source!=='network_fee_package_admin_v1_1030'||
+      result?.readOnly!==true||result?.payoutsEnabled!==false||
+      result.conservation?.source!=='network_conservation_v1_1030'||
+      result.conservation?.readOnly!==true||
+      !Number.isSafeInteger(Number(result.conservation.violations)))
+      throw Error('Conferência da Rede não validada pelo servidor');
+    adminNetworkFeePackageState=result;
+  }catch(e){
+    adminNetworkFeePackageState={error:String(e?.message||e)};
+  }finally{adminNetworkFeePackageBusy=false;render();}
+}
+async function adminNetworkFeePackageToggle(enabled){
+  if(adminCurrentRole()!=='superadmin'||adminNetworkFeePackageBusy)return;
+  const status=adminNetworkFeePackageState;
+  if(!status||status.error||status.conservation?.balanced!==true)
+    return toast('Conclua primeiro a conferência dos valores da Rede.');
+  const termsReference=enabled?
+    String(document.getElementById('network-fee-terms-reference')?.value||'').trim():'';
+  if(enabled&&(!/^[^<>]{12,160}$/.test(termsReference)))
+    return toast('Informe a versão ou referência comprovada dos termos aprovados.');
+  if(!confirm(enabled?
+    'Ativar apenas futuras apurações de 10% dos pacotes de taxas? O saque continuará bloqueado.':
+    'Suspender novas apurações de pacotes? Valores históricos serão preservados.'))return;
+  adminNetworkFeePackageBusy=true;
+  try{
+    const x=await adminPerform('network-fee-package-set-enabled',{enabled,termsReference});
+    if(x?.source!=='network_policy_v1_1030'||x?.accrualEnabled!==enabled||
+       x?.payoutsEnabled!==false||x?.moneyMoved!==false)
+      throw Error('A decisão não foi confirmada pelo servidor');
+    toast(enabled?'Programa de apuração ativado; saques seguem desativados.':
+      'Novas apurações suspensas; histórico preservado.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
+function adminNetworkFeePackagePanel(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const d=adminNetworkFeePackageState;
+  const moneyMicro=(v)=>{
+    const n=Number(v);
+    return BRL.format(Math.floor((Number.isSafeInteger(n)&&n>=0?n:0)/1000000)/100);
+  };
+  const label=d?.error?'Diagnóstico indisponível':
+    !d?'Ainda não consultado':d.accrualEnabled?'Apuração habilitada':'Apuração pausada';
+  return '<section class="section admin-network-fee-packages">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE TAMÃO • FINANCEIRO</span>'+
+    '<h3>Pacotes de taxas reduzidas</h3>'+
+    '<p>10% do líquido confirmado: participação nas últimas 24h e incentivo à revenda verificada, dentro do mesmo limite. Não inclui cupons.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminNetworkFeePackageRefresh()" '+
+    (adminNetworkFeePackageBusy?'disabled':'')+'>Conferir valores</button></div>'+
+    '<div class="card flat"><p><strong>'+esc(label)+'</strong></p>'+
+    (d?.error?'<p class="notice danger">'+esc(d.error)+'</p>':'')+
+    (d&&!d.error?
+      '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Fontes conciliadas</span><strong>'+d.sourceCount+'</strong></div>'+
+      '<div class="kpi"><span class="label">Membros ativos em 24h</span><strong>'+d.membersActive24h+'</strong></div>'+
+      '<div class="kpi"><span class="label">Valor do fundo</span><strong>'+moneyMicro(d.totalPoolMicrocents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Em apuração</span><strong>'+moneyMicro(d.pendingMicrocents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Validado, sem saque</span><strong>'+moneyMicro(d.validatedMicrocents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Sem elegíveis</span><strong>'+moneyMicro(d.unallocatedMicrocents)+'</strong></div></div>'+
+      '<p class="tiny muted">Conservação contábil: <strong>'+
+      (d.conservation?.balanced===true?'confere':('REVISAR ('+d.conservation?.violations+')'))+
+      '</strong>. Saques automáticos continuam desabilitados. Nenhum saldo é criado sem prova de pagamento.</p>'+
+      (adminCurrentRole()==='superadmin'?
+         (d.accrualEnabled?
+         '<button class="secondary small" type="button" onclick="adminNetworkFeePackageToggle(false)">Pausar novas apurações</button>':
+         '<div class="form-stack"><label>Referência dos termos publicados e aprovados'+
+         '<input class="input" id="network-fee-terms-reference" maxlength="160" placeholder="Versão dos termos e evidência registrada"></label>'+
+         '<button class="primary small" type="button" onclick="adminNetworkFeePackageToggle(true)" '+
+         (d.conservation?.balanced!==true?'disabled':'')+
+         '>Ativar apuração para vendas futuras</button></div>'):''):'')+
+    '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>';
+}
+
+
 let adminGrowthWorkspaceTab='acquisition';
 let adminPartnersWorkspaceTab='queue';
 let adminOrdersWorkspaceTab='orders';
