@@ -57,7 +57,7 @@ has(admin,['network-fee-package-status','network-fee-package-set-enabled',
  'network_fee_package_set_enabled_v1_1030',
  'String(adminAccess.admin_role)!=="superadmin"']);
 has(growth,['function tamaoNetworkVisitFromUi','networkVisit:true',
- 'function tamaoNetworkFeePackagePanel()','Ainda não sacável','tamaoNetworkFeePackagePanel()']);
+ 'function tamaoNetworkFeePackagePanel()','Conforme limite e conferência','tamaoNetworkFeePackagePanel()']);
 has(backend,['liveRuntime.networkPackage=summary.networkPackage']);
 has(merchantUi,['growth.packageNetwork.pendingCents','Os valores são individuais da sua conta']);
 has(acquisition,['globalThis.adminNetworkFeePackagePanel?.()']);
