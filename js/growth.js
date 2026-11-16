@@ -549,6 +549,40 @@ function updateMerchantSimulator(){
   if(unit)unit.textContent=BRL.format(e.unitContribution);
   if(margin)margin.textContent=(Number.isFinite(e.marginPct)?e.marginPct:0).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 }
+// Server-verified milestones by vertical. These are counts, never paid coins.
+function tamaoNetworkModuleBenefitsPanel(){
+  const p=globalThis.liveRuntime?.moduleBenefits;
+  const items=[
+    ['products','Produtos'],['merchants','Revendas'],['mobility','Moto e carro'],
+    ['professionals','Profissionais'],['rides','Caronas'],
+    ['club','Clube'],['advertising','Publicidade']
+  ];
+  if(p?.available!==true||p?.readOnly!==true||p?.cashPayoutsEnabled!==false)
+    return '<section class="card flat" aria-label="Benefícios da Rede"><h2>Conquistas da Rede</h2>'+
+      '<p class="muted">Entre na sua conta para consultar indicações verificadas por modalidade.</p></section>';
+  const modules=p.modules||{};
+  const cells=items.map(([key,label])=>{
+    const value=Number(modules[key]);
+    return '<div class="kpi"><span class="label">'+label+
+      '</span><strong>'+(Number.isSafeInteger(value)&&value>=0?value:0)+
+      '</strong></div>';
+  }).join('');
+  const confirmed=Number.isSafeInteger(p.verifiedConversions)?p.verifiedConversions:0;
+  const invited=Number.isSafeInteger(p.invitedAccounts)?p.invitedAccounts:0;
+  const ads=Number.isSafeInteger(p.adsBonusValidatedCents)?p.adsBonusValidatedCents:0;
+  return '<section class="card flat" aria-label="Benefícios comprovados por modalidade">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE COMPLETA</span>'+
+      '<h2>Conquistas dos seus indicados</h2>'+
+      '<p>Um mesmo convite pode conectar pessoas a todos os serviços ativos.</p></div></div>'+
+    '<div class="merchant-kpis"><div class="kpi"><span class="label">Contas vinculadas</span><strong>'+invited+
+      '</strong></div><div class="kpi"><span class="label">Conversões verificadas</span><strong>'+confirmed+
+      '</strong></div></div>'+
+    '<div class="merchant-kpis" style="margin-top:12px">'+cells+'</div>'+
+    (ads>0?'<p class="muted tiny">Bonificações de publicidade contabilizadas: '+
+      BRL.format(ads/100)+'. Ainda não disponíveis para saque ou abatimento.</p>':'')+
+    '<p class="muted tiny">Só contam operações verificadas pelo TAMÃO. Um clique, um cadastro isolado ou uma carona gratuita não geram dinheiro. Publicidade exige receita líquida comprovada e política habilitada; bonificações financeiras seguem em controle separado.</p>'+
+  '</section>';
+}
 function refer(){
   const url=referralUrl();
   const live=globalThis.liveRequested?.()===true;
@@ -582,6 +616,7 @@ function refer(){
     </div>
     ${referralCard}
     ${tamaoNetworkInvitePicker()}
+    ${tamaoNetworkModuleBenefitsPanel()}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
