@@ -19,7 +19,11 @@ for(const tbl of ['network_module_invite_bindings_v1_1041',
 }
 for(const key of ['products','merchants','mobility','professionals','rides','club','advertising']){
  must(growth,"['"+key+"',",'User gets '+key+' benefit tracking');
- must(sql,key==='advertising'?"'advertising'":key==='products'?"'products'":'_'+key+'_', 'SQL must cover '+key);
+ const source={products:"public.orders",merchants:"public.merchant_applications",
+   mobility:"public.mobility_fee_pix_invoices_v1_837",
+   professionals:"l.vertical='professionals'",rides:"l.vertical='rides'",
+   club:"public.clube_coupon_paid_invoices",advertising:"r.kind='advertising'"}[key];
+ must(sql,source,'SQL must verify '+key+' from its own source');
 }
 must(sql,'on conflict(referred_user_id) do nothing','First valid source persists');
 must(sql,"v_inviter=p_actor",'Self attribution rejected');
