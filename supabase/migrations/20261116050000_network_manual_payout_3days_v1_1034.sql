@@ -86,7 +86,7 @@ begin
   where o.user_id=p_user and o.state<>'cancelled';
  select id,state,amount_cents,requested_at,approved_at,due_at
  into v_active from public.network_manual_payout_requests_v1_1034
- where user_id=p_user and state in('requested','approved','review')
+ where user_id=p_user
  order by requested_at desc limit 1;
  select exists(select 1 from public.network_payout_beneficiaries_v1_1033 b
   where b.user_id=p_user) into v_identity;
@@ -98,7 +98,7 @@ begin
   'availableCents',greatest(0,floor((v_total-v_reserved-v_offsets)::numeric/1000000)::bigint),
   'canRequest',coalesce(v_accrual,false) and v_min is not null
     and floor((v_total-v_reserved-v_offsets)::numeric/1000000)>=coalesce(v_min,10000001)
-    and v_active.id is null,
+    and (v_active.id is null or v_active.state not in('requested','approved','review')),
   'request',case when v_active.id is null then null else jsonb_build_object(
     'requestId',v_active.id,'state',v_active.state,'amountCents',v_active.amount_cents,
     'requestedAt',v_active.requested_at,'approvedAt',v_active.approved_at,'dueAt',v_active.due_at) end);
