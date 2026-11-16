@@ -583,6 +583,42 @@ function tamaoNetworkModuleBenefitsPanel(){
     '<p class="muted tiny">Só contam operações verificadas pelo TAMÃO. Um clique, um cadastro isolado ou uma carona gratuita não geram dinheiro. Publicidade exige receita líquida comprovada e política habilitada; bonificações financeiras seguem em controle separado.</p>'+
   '</section>';
 }
+// V1.1044: explain only independently verified, nonwithdrawable rewards.
+// Do not present a draft incentive as active, paid or part of the common 10%.
+function tamaoNetworkDirectBonusPanel(){
+  const d=globalThis.liveRuntime?.networkDirect;
+  const modules=d?.available===true&&d?.readOnly===true&&
+    d?.cashPayoutsEnabled===false?d.modules||{}:{};
+  const card=(title,detail,key,subtitle)=>{
+    const m=modules[key]||{};
+    const enabled=m.enabled===true;
+    const n=Number(m.validatedAwards);
+    const cents=Number(m.validatedCents);
+    const count=Number.isSafeInteger(n)&&n>=0?n:0;
+    const total=Number.isSafeInteger(cents)&&cents>=0?cents:0;
+    const summary=count>0?'Bonificações comprovadas: '+count+' • '+BRL.format(total/100)+
+      ' (sem saque)':'Nenhuma bonificação financeira confirmada';
+    return '<article class="card">'+
+      '<span class="section-kicker">'+(enabled?'APURAÇÃO HABILITADA':'AGUARDANDO ATIVAÇÃO')+'</span>'+
+      '<h3>'+title+'</h3><p class="muted tiny">'+detail+'</p>'+
+      '<p class="tiny"><strong>'+summary+'</strong></p>'+
+      '<p class="muted tiny">'+subtitle+'</p></article>';
+  };
+  return '<section class="section" aria-label="Oportunidades de indicação por serviço">'+
+    '<div class="section-head"><div><span class="section-kicker">UM LINK • VÁRIOS CAMINHOS</span>'+
+    '<h2>Indique além das compras</h2>'+
+    '<p>Mais formas de apresentar o TAMÃO a quem vai usar os serviços. Bonificação somente após receita própria comprovada e termos vigentes.</p></div></div>'+
+    '<div class="grid cards-3">'+
+    card('Moto e carro • até 5%', 'Do líquido do primeiro pacote pré-pago elegível adquirido e integralmente utilizado pelo motorista indicado.', 'mobility',
+      'Benefício direto independente do fundo coletivo de 10% dos pacotes.')+
+    card('Clube • até 5%', 'Do líquido do primeiro pacote de cupons pago com desconto financiado pela revenda, sem subsídio do TAMÃO.', 'club',
+      'Cupons financiados pelo TAMÃO não geram comissão de indicação.')+
+    '<article class="card"><span class="section-kicker">REGRAS DE PUBLICIDADE</span>'+
+      '<h3>Profissionais e anunciantes • até 5%</h3>'+
+      '<p class="muted tiny">Da receita líquida da primeira campanha publicitária paga de um anunciante indicado, inclusive profissional que anunciar.</p>'+
+      '<p class="muted tiny">A bonificação de publicidade é única e não se acumula com outra comissão profissional para a mesma campanha. Apuração atualmente sujeita a ativação e sem saque.</p></article>'+
+    '</div><p class="muted tiny">Não é renda garantida: novas bonificações dependem de regras aprovadas, pagamento verificado, maturação mínima e ausência de estorno. Por enquanto, esta trilha não integra o saldo sacável.</p></section>';
+}
 function refer(){
   const url=referralUrl();
   const live=globalThis.liveRequested?.()===true;
@@ -617,6 +653,7 @@ function refer(){
     ${referralCard}
     ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
     ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
+    ${typeof tamaoNetworkDirectBonusPanel==='function'?tamaoNetworkDirectBonusPanel():''}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
