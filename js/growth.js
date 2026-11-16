@@ -285,14 +285,14 @@ function referralUrl(){
 let tamaoNetworkLastVisitAt=0;
 async function tamaoNetworkVisitFromUi(){
   const now=Date.now();
-  if(!liveReady()||now-tamaoNetworkLastVisitAt<10*60*1000)return;
+  if(!globalThis.liveReady?.()||now-tamaoNetworkLastVisitAt<10*60*1000)return;
   if(!['refer','earn'].includes(String(route())))return;
   const actor=globalThis.liveRuntime?.session?.user?.id;
   if(!actor)return;
   tamaoNetworkLastVisitAt=now;
   try{
     const data=await liveInvoke('customer-summary',{networkVisit:true});
-    if(!liveReady()||globalThis.liveRuntime?.session?.user?.id!==actor)return;
+    if(!globalThis.liveReady?.()||globalThis.liveRuntime?.session?.user?.id!==actor)return;
     const network=data?.networkPackage;
     if(network?.source==='network_fee_package_user_v1_1030'&&
         network.available===true&&network.readOnly===true&&
@@ -485,7 +485,7 @@ function refer(){
       : '';
 
   if(hasReferral)setTimeout(renderReferralQr,0);
-  if(liveReady())setTimeout(tamaoNetworkVisitFromUi,0);
+  if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
 
   const referralRateLabel=policyPercent(referralPilotRate());
   return shell(`<section class="page">
@@ -545,7 +545,7 @@ function growthNetworkIntro(){
   </section>`;
 }
 function earn(){
-  if(liveReady())setTimeout(tamaoNetworkVisitFromUi,0);
+  if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
   const merchantSample=merchantEconomicsExample(120);
   const referralRateLabel=policyPercent(referralPilotRate());
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
