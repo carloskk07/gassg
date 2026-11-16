@@ -31,7 +31,7 @@ begin
  get diagnostics v_reversed=row_count;
  -- Suspending acquisition MUST NOT suspend refunds, disputes, or reversals.
  if not coalesce(v_policy.enabled,false) then
-   return jsonb_build_object('source','network_ads_bonus_v1_1043',
+   return jsonb_build_object('source','network_ads_bonus_v1_1041',
     'enabled',false,'created',0,'reversed',v_reversed,'cashPayoutsEnabled',false);
  end if;
 
