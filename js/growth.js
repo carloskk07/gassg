@@ -322,11 +322,11 @@ function tamaoNetworkFeePackagePanel(){
     '<p class="muted tiny">O fundo usa até 10% do valor líquido de pacotes elegíveis de revendas e moto/carro. '+
     'A participação considera visitas verificadas nas 24 horas da janela de distribuição. '+
     'Pacotes de cupons não entram.</p>'+
-    '<div class="earn-summary"><div class="earn-balance-card"><span>Em apuração</span><strong>'+pending+'</strong>'+
+    '<div class="merchant-kpis network-package-kpis"><div class="kpi"><span class="label">Em apuração</span><strong>'+pending+'</strong>'+
     '<small>Depende da validação do crédito pré-pago</small></div>'+
-    '<div class="earn-balance-card"><span>Validado</span><strong>'+validated+'</strong>'+
+    '<div class="kpi"><span class="label">Validado</span><strong>'+validated+'</strong>'+
     '<small>Ainda não sacável</small></div>'+
-    '<div class="earn-balance-card"><span>Pacotes com participação</span><strong>'+sources+'</strong>'+
+    '<div class="kpi"><span class="label">Pacotes com participação</span><strong>'+sources+'</strong>'+
     '<small>Somente fontes financeiras comprovadas</small></div></div>'+
     (!raw.accrualEnabled?'<div class="notice">A distribuição financeira dos pacotes ainda aguarda ativação das condições do programa.</div>':'')+
     '<p class="tiny muted">Valores abaixo de R$ 0,01 permanecem contabilizados em frações. '+
