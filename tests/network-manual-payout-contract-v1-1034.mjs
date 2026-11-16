@@ -100,4 +100,69 @@ new vm.Script(deferred,{filename:'growth-manual-payout.js'});
 new vm.Script(admin,{filename:'admin-network-payout.js'});
 assert.ok(audit.includes('node tests/network-manual-payout-contract-v1-1034.mjs'));
 assert.ok(ci.includes('tests/sql/network-manual-payout-3days-v1-1034.sql'));
+// V1.1035: a delayed HTTP response and an idempotency key from account A
+// must never update account B, nor block its own request / refresh.
+assert.ok(deferred.includes('tamaoManualPayoutSession'));
+assert.ok(deferred.includes('tamaoManualPayoutIsCurrent'));
+let releaseOldStatus=null,releaseOldRequest=null;
+let callCount=0,notices=0;
+const fakeStatus=(cents)=>({
+  source:'network_manual_payout_status_v1_1034',
+  readOnly:true,mode:'manual',automaticPayouts:false,
+  availableCents:cents,minimumCents:500,minimumConfigured:true,
+  canRequest:true,accrualEnabled:true
+});
+const browser={
+  liveRuntime:{session:{user:{id:'account-a'}}},
+  liveReady:()=>true,liveAccessToken:async()=> 'synthetic-token',
+  CHAMA_BACKEND:{url:'https://example.invalid',publishableKey:'test'},
+  chamaFetch:async()=>{
+    callCount++;
+    if(callCount===1)return await new Promise(resolve=>{releaseOldStatus=resolve});
+    if(callCount===3)return await new Promise(resolve=>{releaseOldRequest=resolve});
+    return {ok:true,json:async()=>fakeStatus(750)};
+  },
+  route:()=> 'refer',render:()=>{},
+  BRL:{format:(x)=>String(x)},esc:(x)=>String(x),
+  confirm:()=>true,toast:()=>{notices++},
+  crypto:{randomUUID:()=> '4a52aead-abcd-4444-8888-0123456789ab'}
+};
+const box=vm.createContext(browser);
+vm.runInContext(deferred,box,{filename:'growth-manual-payout.js'});
+const oldRefresh=vm.runInContext('tamaoManualPayoutRefresh()',box);
+for(let k=0;k<20&&!releaseOldStatus;k++)await Promise.resolve();
+assert.ok(releaseOldStatus,'old user read must be pending');
+vm.runInContext("tamaoManualWithdrawal.key='KEY-OF-ACCOUNT-A'",box);
+browser.liveRuntime.session.user.id='account-b';
+vm.runInContext('tamaoNetworkManualPayoutDetailsPanel()',box);
+let state=vm.runInContext('tamaoManualWithdrawal',box);
+assert.equal(state.userId,'account-b');
+assert.equal(state.key,null,'idempotency key must not migrate between accounts');
+assert.equal(state.pending,false,'prior request must not block new user');
+const newRefresh=vm.runInContext('tamaoManualPayoutRefresh()',box);
+await newRefresh;
+releaseOldStatus({ok:true,json:async()=>fakeStatus(9999)});
+await oldRefresh;
+state=vm.runInContext('tamaoManualWithdrawal',box);
+assert.equal(state.userId,'account-b');
+assert.equal(state.status.availableCents,750,'old response must not overwrite new balance');
+assert.equal(state.error,null,'old error must not leak to new user');
+assert.equal(state.pending,false);
+const oldRequest=vm.runInContext('tamaoManualPayoutRequest()',box);
+for(let k=0;k<20&&!releaseOldRequest;k++)await Promise.resolve();
+assert.ok(releaseOldRequest,'old user withdrawal POST must be pending');
+browser.liveRuntime.session.user.id='account-c';
+vm.runInContext('tamaoNetworkManualPayoutDetailsPanel()',box);
+releaseOldRequest({ok:true,json:async()=>({
+  source:'network_manual_request_v1_1034',state:'requested',moneyMoved:false
+})});
+await oldRequest;
+state=vm.runInContext('tamaoManualWithdrawal',box);
+assert.equal(state.userId,'account-c');
+assert.equal(state.key,null);
+assert.equal(state.status,null);
+assert.equal(state.pending,false);
+assert.equal(notices,0,'old account response must not display withdrawal success');
+assert.equal(callCount,3,'session switch must never replay the financial request');
+
 console.log('PASS V1.1034 manual only, configurable minimum, 3-calendar-day approval SLA, privacy, immutable source-backed reservations, admin proof and no outgoing PSP');
