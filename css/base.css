@@ -16,3 +16,11 @@ button,input,select{font:inherit}button{cursor:pointer}.app{min-height:100vh;pad
 .feature-card{min-height:150px}.feature-card .feature-icon{font-size:28px;margin-bottom:22px}.feature-card h3{font-size:18px}.feature-card p{font-size:13px;line-height:1.45;color:var(--muted)}
 .banner{background:linear-gradient(135deg,#10251b,#174d37);color:white;border-radius:28px;padding:24px;position:relative;overflow:hidden}.banner:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-60px;top:-80px;background:rgba(255,255,255,.08)}.banner p{color:#cfe2d8;max-width:520px}.banner .secondary{border-color:rgba(255,255,255,.2)}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(255,255,255,.96);backdrop-filter:blur(18px);border-top:1px solid var(--line);padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));display:grid;grid-template-columns:repeat(5,1fr)}.nav-btn{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;color:#6b776f;font-size:10px;font-weight:800;padding:5px 2px}.nav-btn span:first-child{font-size:20px}.nav-btn.active{color:var(--brand)}
+/* V1.1036 — Christmas accent on the final O only; original TAMÃO typography/green unchanged. */
+.brand-name{white-space:nowrap;overflow:visible}
+.brand-name .tamao-santa-o{position:relative;display:inline-block}
+.brand-name .tamao-santa-o::after{
+ content:"";pointer-events:none;position:absolute;z-index:1;
+ left:1px;bottom:calc(100% - 5px);width:28px;height:26px;
+ background:url('../icons/santa-hat.svg') center / contain no-repeat;
+}
