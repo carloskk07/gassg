@@ -3,6 +3,8 @@ import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261116012000_network_fee_payout_reservations_v1_1031.sql');
 const dbtest=read('tests/sql/network-fee-payout-reservations-v1-1031.sql');
+const admin=read('supabase/functions/admin-ops/index.ts');
+const ui=read('js/admin.js');
 const audit=read('.github/workflows/audit.yml');
 const integration=read('.github/workflows/isolated-supabase-integration.yml');
 const names=[
@@ -41,4 +43,11 @@ for (const term of [
 ])assert.ok(dbtest.includes(term),'missing disposable regression: '+term);
 assert.ok(audit.includes('node tests/network-fee-payout-reservation-contract-v1-1031.mjs'));
 assert.ok(integration.includes('network-fee-payout-reservations-v1-1031.sql'));
+for(const term of ['network_fee_payout_program_overview_v1_1031',
+ 'payouts.data.moneyMoved!==false', 'payouts:payouts.data'])
+ assert.ok(admin.includes(term),'Admin missing payout overview: '+term);
+for(const term of ['network_payout_overview_v1_1031',
+ 'Reservas para saque (não pagas)', 'Revisões após estorno',
+ 'Sem prova externa do destinatário'])
+ assert.ok(ui.includes(term),'UI missing payout transparency: '+term);
 console.log('PASS V1.1031 reserve-only, RLS, owner, idempotency, reversal, non-bank settlement contracts');
