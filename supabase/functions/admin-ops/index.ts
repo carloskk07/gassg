@@ -3558,8 +3558,35 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("NETWORK_FINANCE_REPORT_UNVERIFIED",
           "Não foi possível conferir a contabilidade da Rede.",503);
       }
+      const [adsPolicy,adsValidated,adsReversed]=await Promise.all([
+        admin.from("network_module_ads_bonus_policy_v1_1041")
+          .select("enabled,inviter_bps,maturation_days,terms_approved_at")
+          .eq("singleton",true).single(),
+        admin.from("network_module_ads_bonus_awards_v1_1041")
+          .select("campaign_id",{count:"exact",head:true}).eq("status","validated"),
+        admin.from("network_module_ads_bonus_awards_v1_1041")
+          .select("campaign_id",{count:"exact",head:true}).eq("status","reversed")
+      ]);
+      if(adsPolicy.error||adsValidated.error||adsReversed.error||
+         typeof adsPolicy.data?.enabled!=="boolean"||
+         !Number.isSafeInteger(adsPolicy.data.inviter_bps)||
+         !Number.isSafeInteger(adsPolicy.data.maturation_days)||
+         !Number.isSafeInteger(adsValidated.count)||
+         !Number.isSafeInteger(adsReversed.count))
+        throw new DomainError("NETWORK_MODULE_ADS_STATUS_UNVERIFIED",
+          "O resumo de benefícios de publicidade não foi confirmado.",503);
+      const moduleAds={
+        source:"network_module_ads_admin_v1_1042",readOnly:true,
+        enabled:adsPolicy.data.enabled,
+        inviterBps:adsPolicy.data.inviter_bps,
+        maturityDays:adsPolicy.data.maturation_days,
+        termsApproved:!!adsPolicy.data.terms_approved_at,
+        validatedAwards:adsValidated.count,
+        reversedAwards:adsReversed.count,
+        cashPayoutsEnabled:false
+      };
       return json({...summary.data,conservation:conservation.data,
-        payouts:payouts.data},200,origin);
+        payouts:payouts.data,moduleAds},200,origin);
     }
     if(action==="network-fee-package-set-enabled"){
       if(String(adminAccess.admin_role)!=="superadmin")
@@ -3584,6 +3611,28 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("NETWORK_POLICY_UPDATE_UNVERIFIED",
           "Não foi possível confirmar a regra da Rede.",503);
       return json(data,200,origin);
+    }
+
+    if(action==="network-module-ads-set-enabled"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Somente o Superadmin altera os benefícios da Rede.",403);
+      if(typeof body.enabled!=="boolean"||
+          (body.enabled===true&&
+          (typeof body.termsReference!=="string"||
+            !/^[^<>]{12,160}$/.test(body.termsReference.trim()))))
+        throw new DomainError("NETWORK_ADS_BENEFITS_TERMS_REQUIRED",
+          "Apresente a referência real dos termos aprovados.",400);
+      const {data,error}=await admin.rpc("network_module_ads_bonus_set_enabled_v1_1041",{
+        p_actor:user.id,p_enabled:body.enabled,
+        p_terms_reference:body.enabled?body.termsReference.trim():null
+      });
+      if(error)throw error;
+      if(data?.source!=="network_ads_bonus_policy_v1_1041"||
+        data.enabled!==body.enabled||data.cashPayoutsEnabled!==false)
+        throw new DomainError("NETWORK_ADS_BENEFITS_UNVERIFIED",
+          "A política de benefícios não foi confirmada no banco.",503);
+      return json({...data,moneyMoved:false},200,origin);
     }
 
     if(action==="support-cases-page"){
