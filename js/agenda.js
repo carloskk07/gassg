@@ -637,7 +637,7 @@ async function agendaJoinWaitlist(ev){
  s.busy=true;s.error='';s.notice='';
  try{
   const {data,error}=await s.client.rpc('agenda_join_waitlist',{
-   p_service_id:service,p_staff_id:staff||null,p_day:day,p_name:name,p_phone:phone
+   p_service_id:service,p_staff_id:staff||null,p_day:day,p_name:name,p_phone:phone,p_consent:true
   });
   if(error||!agendaUuid.test(String(data)))throw error||Error('waitlist unconfirmed');
   const verify=await s.client.from('agenda_waitlist').select('id,status')
