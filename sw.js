@@ -47,9 +47,9 @@ async function navigationNetworkFirst(req){
     const res=await fetch(req,{cache:'no-store'});
     if(res.ok){
       const contentType=String(res.headers.get('content-type')||'').toLowerCase();
-      // Independent editorial HTML must never overwrite the application's
+      // Independent editorial or appointment HTML must never overwrite the application's
       // offline shell; keep it under its own URL when visited.
-      const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
+      const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes|agenda)(?:\/|\/index\.html)?$/i
         .test(new URL(req.url).pathname);
       if(contentType.includes('text/html')&&!editorialPath){
         await cache.put('./index.html',res.clone());
