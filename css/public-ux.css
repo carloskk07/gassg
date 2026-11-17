@@ -218,19 +218,35 @@
 @media(max-width:759px){.tamao-storefront-step{display:none}.tamao-storefront .home-discover-filter button{padding-inline:10px}}
 @media(prefers-reduced-motion:reduce){.tamao-storefront .home-discover-grid .home-discover-tile{transition:none}.tamao-storefront .home-discover-tile:hover{transform:none}}
 
-/* V1.1055 — entrance menu; loaded on demand with public page styles. */
+/* V1.1056 — áreas de participantes, com navegação legível em tela pequena. */
 .tamao-account-access{z-index:80}
-.tamao-account-access>summary{list-style:none;display:flex;align-items:center;gap:6px;min-height:44px;padding:8px 11px;border:1px solid #bddbcc;border-radius:999px;color:#116145;background:#f4faf5;font-size:13px;font-weight:850;white-space:nowrap;cursor:pointer}
+.tamao-account-access>summary{list-style:none;display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:9px 13px;border:1px solid #c6ddce;border-radius:999px;background:#f5faf6;color:#116145;font-size:13px;font-weight:850;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}
 .tamao-account-access>summary::-webkit-details-marker{display:none}
-.tamao-account-access[open]>summary{background:#e3f2e8;border-color:#86bfa0}
-.tamao-account-access-panel{top:calc(100% + 10px);width:276px;max-width:calc(100vw - 28px);max-height:70vh;overflow-y:auto;padding:8px;border:1px solid #cfe3d6;border-radius:16px;box-shadow:0 16px 45px #123b2926}
-.tamao-account-access-panel a{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border-radius:10px;color:#174d38;text-decoration:none;font-size:13px;line-height:1.35}
-.tamao-account-access-panel a:hover,.tamao-account-access-panel a:focus-visible{background:#ebf6ee}
-.tamao-account-access-panel a small{color:#607568;font-size:12px}
-.tamao-account-access>summary:focus-visible,.tamao-account-access-panel a:focus-visible{outline:3px solid #bc8728;outline-offset:2px}
-@media(max-width:759px){.tamao-account-prompt{display:none}.tamao-account-access>summary{min-height:42px;padding:8px 9px;font-size:12px}}
-@media(max-width:390px){.tamao-public-header .topbar-inner{gap:5px}.tamao-account-access>summary{gap:3px;padding-inline:7px}}
-
+.tamao-account-access>summary>svg{width:17px;height:17px;flex:none}
+.tamao-account-access>summary>.tamao-account-chevron{width:12px;height:12px;transition:transform .15s}
+.tamao-account-access[open]>summary{border-color:#83b79b;background:#e9f6ee}
+.tamao-account-access[open]>.tamao-account-chevron,.tamao-account-access[open]>summary>.tamao-account-chevron{transform:rotate(180deg)}
+.tamao-account-access-panel{top:calc(100% + 11px);width:308px;max-width:calc(100vw - 24px);max-height:min(75vh,620px);overflow:auto;border:1px solid #d6e6da;border-radius:19px;box-shadow:0 22px 55px #0e34261f}
+.tamao-account-access-heading{padding:18px 18px 14px;background:linear-gradient(125deg,#e9f7ee,#f7faf6)}
+.tamao-account-access-heading strong{display:block;color:#174b34;font-size:16px;letter-spacing:-.025em}
+.tamao-account-access-heading small{display:block;margin-top:4px;color:#597364;font-size:12px;line-height:1.4}
+.tamao-account-access-panel nav{display:grid;gap:2px;padding:8px}
+.tamao-account-group{display:block;padding:10px 11px 5px;color:#62806e;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.tamao-account-group-business{margin-top:5px;border-top:1px solid #edf2ee;padding-top:14px}
+.tamao-account-entry{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;color:#1d4d38;text-decoration:none;min-height:58px}
+.tamao-account-entry-primary{background:#edf8f0}
+.tamao-account-entry:hover,.tamao-account-entry:focus-visible{background:#eaf5ed;color:#18543a}
+.tamao-account-entry-icon{flex:none;width:36px;height:36px;display:grid;place-items:center;border-radius:11px;background:#eff5f0;color:#22714e}
+.tamao-account-entry-primary .tamao-account-entry-icon{background:#d5efde;color:#0b6f47}
+.tamao-account-entry-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tamao-account-entry-copy{display:grid;gap:2px;min-width:0;flex:1}
+.tamao-account-entry-copy strong{font-size:13px;line-height:1.3;letter-spacing:-.01em}
+.tamao-account-entry-copy small{color:#637b6e;font-size:11px;line-height:1.35}
+.tamao-account-arrow{flex:none;color:#789987;font-size:22px;line-height:1}
+.tamao-account-access>summary:focus-visible,.tamao-account-entry:focus-visible{outline:3px solid #bd8d2d;outline-offset:2px}
+@media(max-width:759px){.tamao-account-access>summary{min-height:42px;padding:9px 11px;font-size:12px}.tamao-account-access-panel{max-height:calc(100dvh - 102px)}}
+@media(max-width:390px){.tamao-account-access>summary{gap:5px;padding-inline:9px}.tamao-account-access>summary>svg:first-child{width:16px;height:16px}}
+@media(prefers-reduced-motion:reduce){.tamao-account-access>summary,.tamao-account-chevron{transition:none}}
 /* V1.1055: compact header at 320px without hiding customer or member access. */
 @media(max-width:380px){
 .tamao-public-header .topbar-inner{padding-inline:10px;gap:5px}
