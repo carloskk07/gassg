@@ -51,7 +51,7 @@ assert.match(customer,/networkCelebra,/);
 assert.match(backend,/liveRuntime\.networkCelebra=null/);
 assert.ok(ui.includes('data?.networkCelebra'));
 assert.match(ui,/growth-celebra\.js/);
-assert.match(ui,/globalThis\\.tamaoNetworkCelebraPanel\\?\\.\\(\\)/);
+assert.ok(ui.includes('globalThis.tamaoNetworkCelebraPanel?.()'));
 assert.match(uiLazy,/function tamaoNetworkCelebraPanel/);
 assert.match(uiLazy,/CAMPANHA|Campanha em andamento/);
 assert.match(uiLazy,/não geram bônus/);
