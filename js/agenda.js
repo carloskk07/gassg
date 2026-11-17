@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],hours:[],bookings:[],mine:[],
- slug:'',publicProfile:null,serviceId:'',day:'',slots:[],selectedStart:'',
+ slug:'',publicProfile:null,directory:[],serviceId:'',day:'',slots:[],selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -28,8 +28,9 @@ function agendaSafeSlug(str){
   .replace(/-+/g,'-').replace(/^-|-$/g,'').slice(0,60);
 }
 function agendaToday(offset=0){
- const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'});
- return fmt.format(new Date(Date.now()+offset*86400000));
+ const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'});
+ const parts=Object.fromEntries(fmt.formatToParts(new Date(Date.now()+offset*86400000)).map(x=>[x.type,x.value]));
+ return parts.year+'-'+parts.month+'-'+parts.day;
 }
 function agendaNote(){
  const s=agendaRuntime;
@@ -149,6 +150,17 @@ function agendaPublicView(){
   '</section>'+ (p.services?.length?form:'<section class="agenda-panel"><h2>Em preparação</h2><p>Este profissional ainda não disponibilizou serviços para agendar.</p></section>')+
   '</div>';
 }
+function agendaDirectoryView(){
+ const list=agendaRuntime.directory;
+ return '<section class="agenda-panel"><h2>Encontre um horário</h2>'+
+ (list.length?'<div class="agenda-list">'+list.map(p=>
+  '<a href="'+esc(agendaShareLink(p.slug))+'">'+
+  (agendaPhotoUrl(p.photo_path)?'<img style="width:100%;height:125px;object-fit:cover;border-radius:12px" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':'')+
+  '<strong>'+esc(p.title)+'</strong><span>'+esc(p.city)+'</span>'+
+  '<span>Ver serviços e horários →</span></a>').join('')+'</div>':
+  '<p>As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.</p>')+
+ '</section>';
+}
 function agendaPage(){
  const s=agendaRuntime,slug=agendaSlug();
  const head='<section class="agenda-hero"><div><span class="section-kicker">TAMÃO AGENDA</span>'+
@@ -163,6 +175,7 @@ function agendaPage(){
  return shell('<section class="section agenda">'+head+agendaNote()+
   (slug?agendaPublicView():
     '<div class="agenda-intro"><h2>Agenda profissional do TAMÃO</h2><p>Ideal para barbearias, salões, estúdios, aulas e outros atendimentos com hora marcada. Você define seu horário e compartilha seu próprio link.</p></div>'+
+    agendaDirectoryView()+
     (!s.user?agendaLoginForm():agendaOwnerEditor())+
     (s.user&&s.mine.length?'<section class="agenda-panel"><h2>Reservas que fiz</h2>'+s.mine.map(b=>
      '<article class="agenda-booking"><span>'+esc(agendaDateTime(b.starts_at))+'</span><button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar</button></article>').join('')+'</section>':''))+
@@ -196,6 +209,7 @@ async function agendaInit(){
    history.replaceState(null,'',url.pathname+url.search+url.hash);
   }
   await agendaRefreshPublic();
+  if(!agendaSlug())await agendaRefreshDirectory();
  }catch(e){if(epoch===s.epoch){s.phase='failed';s.error='Não foi possível abrir a agenda. Confira sua conexão.';}}
  if(epoch===s.epoch && agendaRoute())render();
 }
@@ -228,6 +242,15 @@ async function agendaRefreshOwner(){
   .eq('customer_id',u.id).eq('status','confirmed').gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
 }
+async function agendaRefreshDirectory(){
+ const s=agendaRuntime;
+ try{
+  const {data,error}=await s.client.rpc('agenda_public_directory');
+  if(!error&&Array.isArray(data))s.directory=data.filter(p=>
+   agendaSlugPattern.test(String(p.slug||''))&&
+   typeof p.title==='string'&&typeof p.city==='string').slice(0,24);
+ }catch(_){/* Discovery remains optional while the new schema is rolling out. */}
+}
 async function agendaRefreshPublic(){
  const s=agendaRuntime,slug=agendaSlug();s.slug=slug;s.publicProfile=null;
  s.serviceId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
@@ -247,8 +270,8 @@ async function agendaLoadSlots(){
   const {data,error}=await s.client.rpc('agenda_available_slots',{p_service_id:service,p_day:day});
   if(s.serviceId!==service||s.day!==day)return;
   if(error)throw error;
-  s.slots=(data||[]).filter(x=>agendaUuid.test(x?.starts_at)?false: // date is ISO, never a UUID
-   typeof x?.starts_at==='string'&&Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
+  s.slots=(data||[]).filter(x=>typeof x?.starts_at==='string'&&
+   Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
  finally{if(s.serviceId===service&&s.day===day){s.slotBusy=false;if(agendaRoute())render();}}
 }
@@ -308,6 +331,7 @@ async function agendaSaveProfile(ev){
    if(error)throw error;page=withPhoto;s.page=page;
   }
   await agendaRefreshOwner();
+  await agendaRefreshDirectory();
   s.notice='Página salva. '+(page.published?'Seu link está disponível.':'Publique quando desejar receber agendamentos.');
  }catch(e){
   s.error=e?.code==='23505'?'Este link já está em uso. Escolha outro.':
@@ -377,7 +401,7 @@ async function agendaBook(ev){
   if(!agendaUuid.test(data?.id)||data.status!=='confirmed')throw Error('booking readback failed');
   const verify=await s.client.from('agenda_appointments').select('id,status,starts_at')
    .eq('id',data.id).eq('customer_id',s.user.id).maybeSingle();
-  if(verify.error||verify.data?.status!=='confirmed'||verify.data.starts_at!==instant)
+  if(verify.error||verify.data?.status!=='confirmed'||Date.parse(verify.data.starts_at)!==Date.parse(instant))
    throw Error('booking readback unavailable');
   s.notice='Horário confirmado para '+agendaDateTime(instant)+'. Você pode acompanhar ou cancelar pela sua conta.';
   s.selectedStart='';s.requestKey='';
