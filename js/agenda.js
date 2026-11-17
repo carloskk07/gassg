@@ -52,6 +52,31 @@ function agendaLoginForm(){
   '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Receber link de acesso</button>'+
   '<p class="tiny muted">Você recebe um link por e-mail. Não precisa criar uma senha.</p></form>';
 }
+function agendaQuickStartView(){
+ const s=agendaRuntime;
+ return '<section class="agenda-panel agenda-quick-start">'+
+  '<span class="section-kicker">COMECE EM POUCOS PASSOS</span>'+
+  '<h2>Crie sua agenda grátis</h2>'+
+  '<p>Informe o essencial. Seu link, a página e os primeiros horários serão preparados automaticamente.</p>'+
+  '<form id="agenda-quick-form" onsubmit="return agendaQuickCreate(event)">'+
+   '<label>Nome do negócio<input name="business" required autofocus minlength="3" maxlength="100" autocomplete="organization" placeholder="Ex.: Barbearia do João"></label>'+
+   '<label>Cidade<input name="city" required minlength="2" maxlength="100" value="São Gabriel" autocomplete="address-level2"></label>'+
+   '<div class="agenda-form-split">'+
+    '<label>Primeiro serviço<input name="service" required minlength="3" maxlength="100" placeholder="Ex.: Corte masculino"></label>'+
+    '<label>Preço (R$)<input name="price" required type="number" inputmode="decimal" min="0" max="20000" step=".01" value="0.00"></label>'+
+   '</div>'+
+   '<div class="agenda-form-split">'+
+    '<label>Duração<select name="duration">'+[15,30,45,60,75,90,120,150,180,240].map(m=>
+     '<option value="'+m+'"'+(m===30?' selected':'')+'>'+m+' minutos</option>').join('')+'</select></label>'+
+    '<label>Quando atende<select name="schedule">'+
+     '<option value="week_sat">Seg–sex 9h–18h, sáb 9h–13h</option>'+
+     '<option value="weekdays">Seg–sex 9h–18h</option>'+
+     '<option value="all_week">Todos os dias 9h–18h</option></select></label>'+
+   '</div>'+
+   '<p class="agenda-quick-hint">Você pode mudar tudo depois. Sem mensalidade e sem cobrar sinal de seus clientes.</p>'+
+   '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Criar e publicar minha agenda</button>'+
+  '</form></section>';
+}
 function agendaOwnerEditor(){
  const s=agendaRuntime,p=s.page||{},link=p.published&&p.slug?agendaShareLink(p.slug):'';
  const photo=(p.photo_paths||[]).length;
@@ -508,6 +533,63 @@ async function agendaLogin(ev){
   if(error)throw error;
   s.notice='Enviamos um link de acesso para seu e-mail.';
  }catch(e){s.error='Não foi possível enviar o link. Confira o e-mail e tente novamente.';}
+ s.busy=false;render();return false;
+}
+async function agendaQuickCreate(ev){
+ ev.preventDefault();
+ const s=agendaRuntime;
+ if(s.busy||!s.client||!s.user||s.page)return false;
+ const f=new FormData(ev.target),
+  title=String(f.get('business')||'').trim(),
+  city=String(f.get('city')||'').trim(),
+  service=String(f.get('service')||'').trim(),
+  duration=Number(f.get('duration')),
+  price=Number(f.get('price')),
+  schedule=String(f.get('schedule')||'week_sat');
+ const cents=Math.round(price*100);
+ if(title.length<3||title.length>100||city.length<2||city.length>100||
+  service.length<3||service.length>100||![15,30,45,60,75,90,120,150,180,240].includes(duration)||
+  !Number.isFinite(price)||price<0||price>20000||
+  Math.abs(price*100-cents)>0.000001||
+  !['week_sat','weekdays','all_week'].includes(schedule)){
+  s.error='Confira o nome, o serviço, o valor e os horários.';render();return false;
+ }
+ const weekdays=Array.from({length:schedule==='all_week'?7:5},(_,i)=>
+  ({weekday:schedule==='all_week'?i:i+1,opens_min:540,closes_min:1080}));
+ if(schedule==='week_sat')weekdays.push({weekday:6,opens_min:540,closes_min:780});
+ s.busy=true;s.error='';s.notice='';
+ let created=false,ready=false;
+ try{
+  const rawSlug=agendaSafeSlug(title).slice(0,49).replace(/-$/,'')||'meu-negocio';
+  const slug=rawSlug+'-'+crypto.randomUUID().replace(/-/g,'').slice(0,8);
+  // Publish last: incomplete setup must never receive customer bookings.
+  const {data:page,error:pageError}=await s.client.from('agenda_pages').insert({
+   slug,title,city,published:false
+  }).select('*').single();
+  if(pageError||!page?.id)throw pageError||Error('page not confirmed');
+  created=true;s.page=page;
+  const {data:serviceRow,error:serviceError}=await s.client.from('agenda_services').insert({
+   page_id:page.id,title:service,duration_min:duration,price_cents:cents
+  }).select('id').single();
+  if(serviceError||!serviceRow?.id)throw serviceError||Error('service not confirmed');
+  const {error:hoursError}=await s.client.rpc('agenda_replace_hours',{
+   p_page_id:page.id,p_hours:weekdays
+  });
+  if(hoursError)throw hoursError;
+  const {data:published,error:publishError}=await s.client.from('agenda_pages')
+   .update({published:true}).eq('id',page.id).select('*').single();
+  if(publishError||!published?.published)throw publishError||Error('publication not confirmed');
+  s.page=published;ready=true;
+  try{await agendaRefreshOwner();}catch(_){/* Published page is already confirmed. */}
+  try{await agendaRefreshDirectory();}catch(_){}
+  s.notice='Sua agenda está publicada! Compartilhe o link e comece a receber reservas gratuitas.';
+ }catch(e){
+  s.error=created?'Sua página foi guardada como rascunho. Complete os passos pendentes nas configurações e publique.':
+   (e?.code==='23505'?'Já existe uma agenda nesta conta. Atualize a página.':
+    'Não foi possível criar a agenda. Confira os dados e tente novamente.');
+  try{await agendaRefreshOwner();}catch(_){}
+ }
+ if(ready)s.ownerMode=true;
  s.busy=false;render();return false;
 }
 async function agendaSaveProfile(ev){
