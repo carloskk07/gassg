@@ -122,7 +122,7 @@ for(const {role,path:dir} of built){
   if(role==='merchant')assert.doesNotMatch(expectedGrowth,/function tamaoNetworkModuleBenefitsPanel/,
     'partner must not ship customer-only benefits UI');
 
-  for(const module of ['admin-acquisition','admin','admin-activations']){
+  for(const module of ['admin-acquisition','admin','admin-test-center','admin-activations']){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
     const cacheAsset="'./js/"+module+".js?v=test-sha'";
     const available=role==='admin';
