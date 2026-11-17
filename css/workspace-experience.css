@@ -164,3 +164,13 @@
 .admin-test-links .admin-test-page-link small{color:#526d5e;font-size:12px;line-height:1.5}
 .admin-test-links .admin-test-page-link:hover{border-color:#72ac8c;background:#f2faf4}
 .admin-test-links .admin-test-page-link:focus-visible{outline:3px solid #bc8728;outline-offset:3px}
+/* V1.1057 — safe, one-click QA simulation clearly separated from live actions. */
+.admin-test-demo-links .admin-test-simulation-link{min-height:116px;border:1px solid #9dcbb0;background:#f3faf5;box-shadow:0 2px 8px #103c2210}
+.admin-test-demo-links .admin-test-simulation-link:hover{background:#e8f6ed;border-color:#42865e}
+.admin-test-links .admin-test-safe-note{display:inline-flex;margin-top:auto;font-size:11px;font-weight:750;color:#256d49}
+.admin-test-more{margin:19px 0 28px;border:1px solid #d6e3da;border-radius:14px;padding:12px 15px;background:#fff}
+.admin-test-more>summary{cursor:pointer;font-weight:750;color:#17543b;min-height:44px;display:list-item;align-content:center}
+.admin-test-more[open]>summary{margin-bottom:11px}
+.admin-test-more>summary:focus-visible{outline:3px solid #bc8728;outline-offset:2px}
+@media(max-width:600px){.admin-test-links{grid-template-columns:1fr}.admin-test-demo-links .admin-test-simulation-link{min-height:96px}}
+
