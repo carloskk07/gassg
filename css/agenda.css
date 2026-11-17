@@ -85,3 +85,11 @@
  .agenda-block-form button{width:100%}
  .agenda-waitlist{padding:13px}
  .agenda-waiting-list .agenda-booking{min-width:0}}
+
+/* Link personalizado compartilhável sem upload de imagens para terceiros. */
+.agenda-qr-card{margin-top:16px;padding:14px;border-radius:16px;background:white;
+ border:1px solid #d1e9d9;display:grid;justify-items:start;gap:10px}
+.agenda-qr-card p{margin:0;font-weight:700;color:#215b3d}
+.agenda-qr-image{background:#fff;padding:12px;border-radius:12px}
+.agenda-qr-image svg{display:block;max-width:100%;height:auto;width:min(230px,100%)}
+@media(max-width:380px){.agenda-qr-card{padding:10px}.agenda-qr-image{padding:5px}}
