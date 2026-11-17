@@ -353,6 +353,7 @@ function agendaPublicView(){
  const choices=(p.services||[]).map(x=>
   '<option value="'+esc(x.id)+'"'+(s.serviceId===x.id?' selected':'')+'>'+esc(x.title)+' — '+agendaMoney(x.price_cents)+'</option>').join('');
  const date=s.day||agendaToday();
+ const dateShortcuts=[['Hoje',agendaToday()],['Amanhã',agendaToday(1)],['Depois',agendaToday(2)]];
  const isReschedule=!!s.rescheduleId;
  const slots=s.slots.map(x=>
   '<button type="button" class="'+(s.selectedStart===x.starts_at?'primary':'secondary')+
@@ -376,19 +377,25 @@ function agendaPublicView(){
    '</select></label>':'')+
   (isReschedule?'<p class="agenda-reschedule-hint">Escolha a nova data e um horário livre para remarcar sua reserva.</p>':'')+
   (service?'<p class="agenda-service-summary">'+esc(service.title)+' • '+service.duration_min+' min • '+agendaMoney(service.price_cents)+'</p>':'')+
-  (s.paymentQuote&&s.paymentQuote.service_id===s.serviceId?agendaDepositQuoteView(s.paymentQuote):'')+
-  '<label>Data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
+  (service?agendaDepositQuoteView(null):'')+
+  '<div class="agenda-date-shortcuts" role="group" aria-label="Datas rápidas">'+
+   dateShortcuts.map(([label,day])=>'<button type="button" class="'+(date===day?'primary':'secondary')+
+    '" aria-pressed="'+(date===day)+'" onclick="agendaChooseDay(\''+day+'\')">'+label+'</button>').join('')+
+  '</div>'+
+  '<label>Outra data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
-   (s.slotBusy?'<p>Consultando horários…</p>':s.dayClosed?'<p>Este profissional não atende nesta data. Escolha outro dia.</p>':slots||'<p>Nenhum horário livre nesta data. Escolha outro dia.</p>')+'</div>'+
+   (s.slotBusy?'<p>Consultando horários…</p>':s.dayClosed?'<p>Não há atendimento neste dia.</p>':slots||'<p>Não há horários livres nesta data.</p>')+'</div>'+
+  (!s.slotBusy&&!s.slots.length&&agendaNextDay(date)?
+   '<button type="button" class="secondary agenda-next-day" onclick="agendaChooseDay(\''+agendaNextDay(date)+'\')">Ver horários do dia seguinte</button>':'')+
   (s.selectedStart?(s.user?(isReschedule?
    '<div class="agenda-book-form"><h3>Confirme o novo horário</h3><p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
     '<button type="button" class="primary" onclick="agendaConfirmReschedule()"'+(s.busy?' disabled':'')+'>Confirmar remarcação</button> '+
     '<button type="button" class="secondary" onclick="agendaCancelReschedule()">Desistir</button></div>':
     '<form class="agenda-book-form" onsubmit="return agendaBook(event)">'+
      '<h3>Confirme sua reserva</h3>'+
-     '<label>Seu nome<input name="name" minlength="2" maxlength="90" required autocomplete="name"></label>'+
-     '<label>WhatsApp para confirmação<input name="phone" type="tel" maxlength="25" minlength="8" required autocomplete="tel" placeholder="+55 55 99999-9999"></label>'+
+     '<label>Seu nome<input name="name" minlength="2" maxlength="90" required autocomplete="name" value="'+esc(agendaSuggestedName(s.user))+'"></label>'+
+     '<label>WhatsApp para confirmação<input name="phone" type="tel" maxlength="25" minlength="8" required autocomplete="tel" value="'+esc(agendaSuggestedPhone(s.user))+'" placeholder="+55 55 99999-9999"></label>'+
      '<p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
      '<p class="tiny muted">Seu nome e WhatsApp serão compartilhados com este profissional. Reserva gratuita: nenhum sinal é cobrado pelo TAMÃO nesta versão.</p>'+
      '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>'):
