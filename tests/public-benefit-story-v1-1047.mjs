@@ -31,7 +31,8 @@ const live=customer.slice(customer.indexOf('if(!testDemo&&!internalPilot)return 
  customer.indexOf('const heroVisualCodes=',customer.indexOf('if(!testDemo&&!internalPilot)return shell(')));
 assert.equal((live.match(/tamaoHomeValueOverview\(\)/g)||[]).length,1,
  'Overview must be on real customer homepage exactly once');
-assert.ok(live.indexOf('${couponBanner}')<live.indexOf('${tamaoHomeValueOverview()}'));
+assert.ok(live.indexOf('${couponBanner}')<live.indexOf('tamaoHomeValueOverview()'),
+ 'Promoção do Clube deve continuar antes do bloco de vantagens na home real');
 assert.ok(live.includes('tamao-home-strip-template'));
 assert.ok(index.includes('class="tamao-storefront-benefit-strip"'));
 assert.ok(index.includes('<template id="tamao-home-strip-template">'));
