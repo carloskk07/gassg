@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
- phase:'idle',client:null,user:null,page:null,services:[],staff:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
- slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],selectedStart:'',
+ phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
+ slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -360,9 +360,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -394,9 +394,10 @@ async function agendaRefreshOwner(){
  if(e)throw e;if(epoch!==s.epoch||s.user?.id!==u.id)return;
  s.page=p;
  if(p){
-  const [services,staff,hours,bookings,closedDays,blocks,waiting]=await Promise.all([
+  const [services,staff,depositSettings,hours,bookings,closedDays,blocks,waiting]=await Promise.all([
    s.client.from('agenda_services').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_staff').select('*').eq('page_id',p.id).order('created_at'),
+   s.client.from('agenda_service_deposit_settings').select('service_id,percent,policy_text,policy_version').eq('owner_id',u.id).eq('page_id',p.id),
    s.client.from('agenda_hours').select('*').eq('page_id',p.id).order('weekday'),
    s.client.from('agenda_appointments').select('id,page_id,service_id,staff_id,reschedule_count,customer_name,customer_phone,starts_at,ends_at,status')
      .eq('owner_id',u.id).in('status',['confirmed','completed','no_show']).gte('starts_at',new Date(Date.now()-30*86400000).toISOString()).order('starts_at').limit(100),
@@ -405,9 +406,9 @@ async function agendaRefreshOwner(){
    s.client.from('agenda_waitlist').select('id,service_id,staff_id,day,customer_name,customer_phone,created_at').eq('owner_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('created_at').limit(100)
   ]);
   if(epoch!==s.epoch||s.user?.id!==u.id)return;
-  if(services.error||staff.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error)throw services.error||staff.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error;
-  s.services=services.data||[];s.staff=staff.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
- }else{s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
+  if(services.error||staff.error||depositSettings.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error)throw services.error||staff.error||depositSettings.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error;
+  s.services=services.data||[];s.staff=staff.data||[];s.depositSettings=depositSettings.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
+ }else{s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
  const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
  const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
@@ -438,16 +439,18 @@ async function agendaRefreshPublic(){
 }
 async function agendaLoadSlots(){
  const s=agendaRuntime,service=s.serviceId,day=s.day,staffId=s.staffId;
- s.selectedStart='';s.requestKey='';s.slots=[];s.dayClosed=false;if(!service||!day)return;
+ s.selectedStart='';s.requestKey='';s.slots=[];s.paymentQuote=null;s.dayClosed=false;if(!service||!day)return;
  s.slotBusy=true;render();
  try{
-  const [slots,closed]=await Promise.all([
+  const [slots,closed,deposit]=await Promise.all([
    s.client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
-   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
+   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day}),
+    s.client.rpc('agenda_deposit_quote',{p_service_id:service})
   ]);
   if(s.serviceId!==service||s.day!==day||s.staffId!==staffId)return;
   if(slots.error||closed.error)throw slots.error||closed.error;
   s.dayClosed=closed.data===true;
+   s.paymentQuote=deposit.error?null:deposit.data;
   s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
@@ -920,7 +923,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();
