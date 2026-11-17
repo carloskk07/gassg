@@ -359,7 +359,7 @@ async function agendaRefreshPublic(){
  const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
  if(s.rescheduleId&&!editing)s.rescheduleId='';
  s.serviceId=editing?.service_id||(data?.services||[])[0]?.id||'';
- s.staffId=editing?.staff_id||(data?.staff||[])[0]?.id||'';
+ s.staffId=editing?(editing.staff_id||''):((data?.staff||[])[0]?.id||'');
  if(s.serviceId)await agendaLoadSlots();
 }
 async function agendaLoadSlots(){
@@ -474,6 +474,35 @@ async function agendaToggleService(id){
  }catch(e){s.error='Não foi possível alterar este serviço.';}
  s.busy=false;render();
 }
+async function agendaSaveStaff(ev){
+ ev.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.page||!s.user||s.staff.length>=12)return false;
+ const name=String(new FormData(ev.target).get('name')||'').trim();
+ if(name.length<2||name.length>70){s.error='Informe um nome válido.';render();return false;}
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {error}=await s.client.from('agenda_staff').insert({page_id:s.page.id,name,active:true});
+  if(error)throw error;
+  await agendaRefreshOwner();s.notice='Colaborador adicionado. Ele já pode receber agendamentos.';
+ }catch(e){s.error='Não foi possível cadastrar o colaborador. Verifique sua equipe.';}
+ s.busy=false;render();return false;
+}
+async function agendaToggleStaff(id){
+ const s=agendaRuntime,t=s.staff.find(x=>x.id===id);
+ if(s.busy||!t||!s.page)return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {error}=await s.client.from('agenda_staff').update({active:!t.active})
+   .eq('id',id).eq('page_id',s.page.id);
+  if(error)throw error;
+  await agendaRefreshOwner();s.notice=t.active?'Agenda do colaborador pausada.':'Agenda do colaborador reativada.';
+ }catch(e){
+  s.error=e?.message?.includes('AGENDA_STAFF_HAS_BOOKINGS')?
+   'Este colaborador tem atendimentos confirmados. Resolva-os antes de pausar a agenda.':
+   'Não foi possível atualizar a agenda deste colaborador.';
+ }
+ s.busy=false;render();
+}
 async function agendaSaveHours(ev){
  ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.page)return false;
  const f=new FormData(ev.target),hours=[];
@@ -517,7 +546,7 @@ async function agendaSetClosedDay(day,closed){
 }
 async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
- if(s.busy||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
+ if(s.busy||s.rescheduleId||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
  if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
@@ -556,6 +585,63 @@ async function agendaBook(ev){
   }catch(_){s.error='O resultado não pôde ser confirmado. Confira suas reservas antes de tentar novamente.';}
  }
  s.busy=false;render();return false;
+}
+function agendaBeginReschedule(id){
+ const s=agendaRuntime;
+ const b=[...s.mine,...s.bookings].find(x=>x.id===id&&x.status==='confirmed');
+ if(!b||s.busy||!agendaUuid.test(b.id))return;
+ if(b.customer_id===s.user?.id&&b.reschedule_count>=2)return;
+ if(b.reschedule_count>=20)return;
+ const slug=b.slug||((s.page?.id===b.page_id)?s.page.slug:'');
+ if(!agendaSlugPattern.test(slug))return;
+ s.rescheduleId=id;s.error='';s.notice='Escolha o novo horário abaixo.';
+ const next='#agenda?profissional='+encodeURIComponent(slug);
+ if(location.hash===next)agendaRefreshPublic().then(()=>render()).catch(()=>{
+  s.error='Não foi possível abrir os horários.';render();
+ });
+ else location.hash=next;
+}
+function agendaCancelReschedule(){
+ const s=agendaRuntime;s.rescheduleId='';s.error='';s.notice='Remarcação interrompida. Sua reserva original está mantida.';
+ if(s.serviceId)agendaLoadSlots();else render();
+}
+async function agendaConfirmReschedule(){
+ const s=agendaRuntime;
+ if(!s.user||!s.client||s.busy||!agendaUuid.test(s.rescheduleId)||!s.selectedStart)return;
+ const current=[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.status==='confirmed');
+ if(!current||current.page_id!==s.publicProfile?.id||
+  current.service_id!==s.serviceId||(current.staff_id||'')!==s.staffId)return;
+ const target=s.selectedStart;
+ if(!s.slots.some(x=>x.starts_at===target))return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_reschedule_booking',{
+   p_appointment_id:current.id,p_expected_starts_at:current.starts_at,p_new_starts_at:target
+  });
+  if(error)throw error;
+  if(data?.status!=='confirmed'||data?.id!==current.id||Date.parse(data?.starts_at)!==Date.parse(target))
+   throw Error('readback failed');
+  const verify=await s.client.from('agenda_appointments').select('id,starts_at,status')
+   .eq('id',current.id).maybeSingle();
+  if(verify.error||verify.data?.status!=='confirmed'||
+   Date.parse(verify.data.starts_at)!==Date.parse(target))
+   throw Error('readback failed');
+  s.rescheduleId='';s.notice='Horário remarcado para '+agendaDateTime(target)+'. Atualize seu calendário com a nova reserva.';
+  await agendaRefreshOwner();await agendaLoadSlots();
+ }catch(e){
+  const result=await s.client.from('agenda_appointments').select('starts_at,status')
+   .eq('id',current.id).maybeSingle().catch(()=>({error:true}));
+  if(!result.error&&result.data?.status==='confirmed'&&
+     Date.parse(result.data.starts_at)===Date.parse(target)){
+   s.rescheduleId='';s.notice='Remarcação confirmada para '+agendaDateTime(target)+'.';
+   await agendaRefreshOwner();await agendaLoadSlots();
+  }else{
+   s.error=e?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')?
+    'Este horário foi reservado por outra pessoa. Escolha outro.':
+    'A remarcação não foi confirmada. Confira sua reserva antes de tentar novamente.';
+  }
+ }
+ s.busy=false;render();
 }
 async function agendaCancel(id){
  const s=agendaRuntime;
