@@ -88,7 +88,7 @@ returns table(
  id uuid,starts_at timestamptz,ends_at timestamptz,status text,
  page_id uuid,service_id uuid,page_title text,service_title text,slug text
 ) language sql stable security definer set search_path='pg_catalog'
-as $
+as $$
  select a.id,a.starts_at,a.ends_at,a.status,a.page_id,a.service_id,
   p.title,s.title,p.slug
  from public.agenda_appointments a
@@ -96,7 +96,7 @@ as $
  join public.agenda_services s on s.id=a.service_id and s.page_id=a.page_id
  where a.customer_id=auth.uid() and a.status='confirmed' and a.starts_at>=now()
  order by a.starts_at limit 50
-$;
+$$;
 revoke all on function public.agenda_my_bookings() from public,anon,authenticated;
 grant execute on function public.agenda_my_bookings() to authenticated;
 
