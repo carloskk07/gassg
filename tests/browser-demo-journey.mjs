@@ -150,7 +150,7 @@ try{
  await wait("document.readyState==='complete'&&window.TAMAO_BROWSER_DEMO===true&&window.ChamaTest?.getState?.()?.merchants?.length===3&&!!document.querySelector('#tamao-demo-progress')",'home + 3 synthetic merchants');
  assert.equal(await evaluate('window.CHAMA_INTERNAL_PILOT'),false);
  assert.equal(await evaluate('window.__CHAMA_TEST__'),true);
- assert.ok((await evaluate("document.getElementById('tamao-demo-browser-banner').innerText")).includes('Pedidos e valores fictícios'));
+ assert.ok((await evaluate("document.getElementById('tamao-demo-browser-banner').innerText")).includes('Modo teste · dados fictícios'));
  assert.equal((await demoState()).orders.length,0,'fresh Chrome profile must start with no orders');
  await snapshot('01-cliente-home-demo.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')?.includes(\"homeChooseProduct('WATER20')\"));if(!b)return false;b.click();return true})()");
@@ -169,9 +169,9 @@ try{
  await wait("document.querySelector('#tamao-demo-progress')?.textContent.includes('2/4')",'progress indicator after checkout',4500);
  await snapshot('02-cliente-pedido-aguardando.png');
  // Admin must show this exact ID and never require real login.
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin reads real in-browser synthetic order');
- assert.ok((await evaluate("document.querySelector('.tamao-demo-dialog').innerText")).includes('Não é o Admin autenticado'));
+ assert.ok((await evaluate("document.getElementById('tamao-demo-browser-banner').innerText")).includes('Modo teste · dados fictícios'));
  await snapshot('03-admin-pedido-aguardando.png');
  // Selecting Revenda must automatically switch to the assigned merchant:
  // the chosen offer need not correspond to the previously selected A.
@@ -218,7 +218,7 @@ try{
  await snapshot('04c-cliente-entrega-e-pin.png');
  // Owner can now operate the same order as a DRIVER, not return to the
  // merchant's settings. This is explicitly an online-only synthetic screen.
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador (simulação)'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Entregador — uma entrega por vez')&&document.querySelector('.tamao-demo-panel')?.textContent.includes("+JSON.stringify(o.id)+")",'driver sees only its synthetic active order');
  assert.ok(!(await evaluate("document.querySelector('.tamao-demo-panel').textContent")).includes(o.pin),
   'driver must ask customer for PIN, never display it in driver panel');
@@ -230,7 +230,7 @@ try{
  // Chromium viewport with NETWORK DISABLED, without changing any order.
  await send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
  await click("(()=>{const b=document.getElementById('tamao-demo-device-check');if(!b||!b.getClientRects().length)return false;b.click();return true})()");
- await wait("document.getElementById('tamao-demo-device-status')?.textContent.includes('Aprovado neste navegador')",
+ await wait("document.getElementById('tamao-demo-device-status')?.textContent.includes('Armazenamento protegido aprovado')",
    'Chrome WebCrypto and IndexedDB while offline',12000);
  assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','device check must never complete delivery');
  assert.equal(await evaluate("new Promise((resolve,reject)=>{const req=indexedDB.open('tamao-demo-device-crypto-check-v1',1);req.onsuccess=()=>{const db=req.result;const tx=db.transaction('checks','readonly');const check=tx.objectStore('checks').get('probe');check.onsuccess=()=>{resolve(check.result===undefined);db.close()};check.onerror=()=>reject(check.error)};req.onerror=()=>reject(req.error)})"),
@@ -238,18 +238,18 @@ try{
  await snapshot('04f-entregador-criptografia-sem-internet.png');
  await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:1000000,uploadThroughput:1000000});
  await wait('navigator.onLine===true','browser must report online after device capability check',10000);
- await wait("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));return !!b&&!b.disabled})()",
+ await wait("(()=>{const b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega'));return !!b&&!b.disabled})()",
   'driver completion UI must also be reenabled after reconnection',8000);
  assert.deepEqual(forbidden,[],'offline device check must never call commercial API or PSP');
  // Negative path: the real existing simulator refuses completion until both
  // customer PIN and an explicit synthetic cash receipt are present.
- await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));if(!p||!b)return false;p.value="+JSON.stringify(o.pin)+";b.click();return true})()");
+ await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega'));if(!p||!b)return false;p.value="+JSON.stringify(o.pin)+";b.click();return true})()");
  await wait("document.getElementById('tamao-demo-driver-status')?.textContent.includes('Confirme o recebimento')",'driver cannot settle without fictitious cash confirmation');
  assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','missing synthetic cash checkbox never settles');
- await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),c=document.getElementById('tamao-demo-driver-paid'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega simulada'));if(!p||!c||!b)return false;p.value="+JSON.stringify(o.pin)+";c.checked=true;b.click();return true})()");
- await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'&&document.querySelector('.tamao-demo-panel')?.textContent.includes('Entrega fictícia concluída')",'driver delivers with same PIN and cash rules');
+ await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),c=document.getElementById('tamao-demo-driver-paid'),b=Array.from(document.querySelectorAll('.tamao-demo-panel button')).find(x=>x.textContent.includes('Concluir entrega'));if(!p||!c||!b)return false;p.value="+JSON.stringify(o.pin)+";c.checked=true;b.click();return true})()");
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'&&document.querySelector('.tamao-demo-panel')?.textContent.includes('Entrega concluída')",'driver delivers with same PIN and cash rules');
  assert.equal((await demoState()).orders.at(-1).rewardsGranted,true,'same canonical simulator grants fictional benefits once');
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Concluídos: 1')&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin completed order');
  await snapshot('05-admin-pedido-concluido.png');
  // Settled orders must remain available from the Admin's customer perspective.
@@ -314,12 +314,12 @@ try{
  assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','bad PIN must leave P13 undelivered');
  // Exercise a synthetic encrypted receipt on the SAME P13 order and mobile UI,
  // first with the network truly offline; never call a commercial backend.
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador (simulação)'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.textContent.includes("+JSON.stringify(gas.id)+")",'P13 driver panel');
  await send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
- await wait("document.getElementById('tamao-demo-offline-save')&&!document.querySelector('.tamao-demo-panel button')?.textContent.includes('Concluir entrega simulada')",'driver offline-only save action',5500);
+ await wait("document.getElementById('tamao-demo-offline-save')&&!document.querySelector('.tamao-demo-panel button')?.textContent.includes('Concluir entrega')",'driver offline-only save action',5500);
  await click("(()=>{const p=document.getElementById('tamao-demo-driver-pin'),paid=document.getElementById('tamao-demo-driver-paid'),b=document.getElementById('tamao-demo-offline-save');if(!p||!paid||!b)return false;p.value="+JSON.stringify(gas.pin)+";paid.checked=true;b.click();return true})()");
- await wait("document.getElementById('tamao-demo-offline-status')?.textContent.includes('criptografado neste aparelho')",'encrypted local receipt',12000);
+ await wait("document.getElementById('tamao-demo-offline-status')?.textContent.includes('salvo e protegido neste aparelho')",'encrypted local receipt',12000);
  assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','offline receipt must not settle order');
  assert.equal(await evaluate("(async()=>{const db=await new Promise((ok,bad)=>{const r=indexedDB.open('tamao-demo-local-delivery-v1');r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error)});const proof=await new Promise((ok,bad)=>{const r=db.transaction('proofs','readonly').objectStore('proofs').get("+JSON.stringify(gas.id)+");r.onsuccess=()=>ok(r.result);r.onerror=()=>bad(r.error)});db.close();return !!proof&&proof.key?.extractable===false&&proof.ciphertext.length>20&&!JSON.stringify(proof).includes("+JSON.stringify(gas.pin)+")})()"),
    true,'IndexedDB must store opaque ciphertext and nonextractable key, not a plaintext PIN');
@@ -330,14 +330,14 @@ try{
  // not merely a JS variable in the same renderer.
  await send('Page.navigate',{url:base+'#home'});
  await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='ARRIVING'",'P13 order still pending after reload');
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador (simulação)'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Entregador'));if(!b)return false;b.click();return true})()");
  await wait("!!document.getElementById('tamao-demo-offline-replay')",'local receipt survives reload',12000);
  assert.equal((await demoState()).orders.at(-1).status,'ARRIVING','proof not applied automatically on reload');
  await click("(()=>{const b=document.getElementById('tamao-demo-offline-replay');if(!b)return false;b.click();return true})()");
- await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'&&document.getElementById('tamao-demo-offline-status')?.textContent.includes('Concluído apenas no simulador')",'P13 delivery simulated after explicit manual replay',12000);
+ await wait("window.ChamaTest.getState().orders.at(-1)?.status==='SETTLED'&&document.getElementById('tamao-demo-offline-status')?.textContent.includes('Conferência concluída neste ambiente')",'P13 delivery simulated after explicit manual replay',12000);
  assert.equal(await evaluate("new Promise((ok,bad)=>{const r=indexedDB.open('tamao-demo-local-delivery-v1');r.onsuccess=()=>{const db=r.result;const q=db.transaction('proofs','readonly').objectStore('proofs').get("+JSON.stringify(gas.id)+");q.onsuccess=()=>{ok(q.result===undefined);db.close()};q.onerror=()=>bad(q.error)};r.onerror=()=>bad(r.error)})"),
    true,'receipt must be removed only after simulated completion');
- await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin (resumo)'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Admin'));if(!b)return false;b.click();return true})()");
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.innerText.includes('Concluídos: 2')&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(gas.id)+")&&document.querySelector('.tamao-demo-dialog')?.textContent.includes("+JSON.stringify(o.id)+")",'Admin compares settled water and P13 orders');
  await snapshot('08-admin-gas-p13-e-agua-concluidos.png');
  await send('Page.navigate',{url:base+'#home'});
@@ -368,16 +368,16 @@ try{
  const cashbackBefore=beforeAbandon.user.cashback;
  await send('Page.navigate',{url:base+'#home'});
  await wait("window.ChamaTest?.getState?.()?.orders?.at(-1)?.status==='PREPARING'",'accepted order preserved across page reload');
- await wait("Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).some(b=>b.textContent.includes('Novo pedido de teste'))",
+ await wait("Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).some(b=>b.textContent.includes('Novo pedido (gás P13)'))",
    'prominent restart action for an existing test order');
  // Refusing the explicit confirmation must not alter any existing order.
- await click("(()=>{window.confirm=()=>false;const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Novo pedido de teste'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{window.confirm=()=>false;const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Novo pedido (gás P13)'));if(!b)return false;b.click();return true})()");
  await wait("route()==='tracking'&&window.ChamaTest.getState().orders.at(-1)?.status==='PREPARING'",
    'declining restart preserves order and tracking');
  assert.equal((await demoState()).orders.length,3,'no duplicate after declining restart');
  // Accept only in the browser-only test. The normal browser still shows
  // a real confirmation and never closes an order automatically.
- await click("(()=>{window.confirm=()=>true;const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Novo pedido de teste'));if(!b)return false;b.click();return true})()");
+ await click("(()=>{window.confirm=()=>true;const b=Array.from(document.querySelectorAll('#tamao-demo-browser-banner button')).find(x=>x.textContent.includes('Novo pedido (gás P13)'));if(!b)return false;b.click();return true})()");
  await wait("route()==='order'&&window.ChamaTest.getState().orders.at(-1)?.status==='CANCELLED'&&state.cart.P13===1",
    'accepted restart cancels only the synthetic order and opens the real checkout');
  const afterAbandon=await demoState();
@@ -390,7 +390,7 @@ try{
    stockBefore+1,'synthetic inventory returned once');
  assert.equal(afterAbandon.user.cashback,cashbackBefore+unfinishedOrder.cashbackReserved,
    'unused synthetic cashback restored without creating money');
- assert.ok(afterAbandon.orders[2].events.some(e=>e.title==='Teste encerrado para novo pedido'),
+ assert.ok(afterAbandon.orders[2].events.some(e=>e.title==='Pedido encerrado para iniciar outro'),
    'history states explicit cancellation rather than falsely marking delivery');
  assert.equal(afterAbandon.orders[2].paymentConfirmedAt,undefined);
  await snapshot('10-novo-pedido-apos-teste-pendente.png');
@@ -408,10 +408,10 @@ try{
  const directScenarios=[
   ['merchant',`route()==='merchant'&&state.mode==='merchant'`],
   ['driver',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Entregador —')`],
-  ['club',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Meu Clube — demonstração')`],
-  ['network',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Minha Rede — demonstração')`],
-  ['agenda',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Agenda profissional — demonstração')`],
-  ['admin',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Admin — resumo de pedidos simulados')`],
+  ['club',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Meu Clube')`],
+  ['network',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Minha Rede')`],
+  ['agenda',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Agenda profissional')`],
+  ['admin',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Admin — pedidos')`],
   ['customer',`route()==='home'&&state.mode==='customer'`],
   ['tracking',`route()==='tracking'&&state.mode==='customer'`]
  ];
@@ -421,9 +421,9 @@ try{
   assert.equal(await evaluate('window.__CHAMA_TEST__'),true);
   assert.equal(await evaluate('window.CHAMA_INTERNAL_PILOT'),false);
   if(role==='agenda'){
-   await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Reservar horário fictício'));if(!b)return false;b.click();return true})()");
+   await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Reservar horário'));if(!b)return false;b.click();return true})()");
    await wait("document.querySelector('.tamao-demo-panel')?.textContent.includes('Reservado')",'fictitious agenda booking');
-   await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Cancelar reserva fictícia'));if(!b)return false;b.click();return true})()");
+   await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Cancelar reserva'));if(!b)return false;b.click();return true})()");
    await wait("!document.querySelector('.tamao-demo-panel')?.textContent.includes('Reservado')",'fictitious agenda cancellation');
    await snapshot('11-admin-sem-login-agenda-simulada.png');
   }
