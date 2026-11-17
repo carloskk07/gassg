@@ -28,6 +28,10 @@ assert.match(vm.runInContext('agendaPhotoUrl("11111111-1111-4111-8111-1111111111
 assert.match(vm.runInContext('agendaShareLink("barbearia-sg")',ctx),/#agenda\?profissional=barbearia-sg$/);
 assert.match(vm.runInContext('agendaPage()',ctx),/TAMÃO AGENDA/);
 assert.match(landing,/js\/agenda\.js/);
+assert.match(landing,/js\/agenda-boot\.js/);
+assert.match(index,/js\/agenda-callback\.js/);
+assert.doesNotMatch(landing,/<script>/);
+assert.doesNotMatch(index,/<script>/);
 assert.match(landing,/js\/backend\.js/);
 assert.match(builder,/role==='customer'\)copyDir\(path\.join\(ROOT,'agenda'\)/);
 assert.match(index,/tamao-benefit-agenda-link/);
