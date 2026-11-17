@@ -25,7 +25,26 @@ assert.match(vm.runInContext('agendaToday()',ctx),/^\d{4}-\d{2}-\d{2}$/);
 assert.equal(vm.runInContext('agendaMoney(6000)',ctx).includes('60,00'),true);
 assert.equal(vm.runInContext('agendaPhotoUrl("https://evil.example/photo.jpg")',ctx),'');
 assert.match(vm.runInContext('agendaPhotoUrl("11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.webp")',ctx),/example\.supabase\.co\/storage\/v1\/object\/public/);
-assert.match(vm.runInContext('agendaShareLink("barbearia-sg")',ctx),/#agenda\?profissional=barbearia-sg$/);
+assert.equal(vm.runInContext('agendaShareLink("barbearia-sg")',ctx),'https://tamao.com.br/agenda/barbearia-sg');
+assert.equal(vm.runInContext('agendaShareLink("barbearia-são-gabriel")',ctx),'');
+ctx.location.pathname='/agenda/barbearia-do-joao';
+ctx.location.hash='#agenda';
+assert.equal(vm.runInContext('agendaSlug()',ctx),'barbearia-do-joao','Direct friendly link must open professional');
+ctx.location.pathname='/agenda/barbearia-do-joao/';
+assert.equal(vm.runInContext('agendaSlug()',ctx),'barbearia-do-joao','Trailing slash must work');
+ctx.location.pathname='/agenda/';
+ctx.location.hash='#agenda?profissional=barbearia-sg';
+assert.equal(vm.runInContext('agendaSlug()',ctx),'barbearia-sg','Old shared links must remain readable');
+ctx.location.pathname='/';
+assert.equal(vm.runInContext('agendaSlug()',ctx),'barbearia-sg','Old shop hash links must remain readable');
+assert.match(landing,/href="\/css\/agenda\.css"/);
+assert.match(landing,/src="\/js\/agenda\.js"/);
+assert.doesNotMatch(landing,/["']\.\.\/(js|css|icons)\//);
+const builderSource=readFileSync('scripts/build-live-portals.mjs','utf8');
+assert.match(builderSource,/\/agenda\/\* \/agenda\/index\.html 200/);
+assert.ok(builderSource.indexOf('/agenda/* /agenda/index.html 200')<
+ builderSource.indexOf('/* /index.html 200'),'Agenda rule must precede general storefront rewrite');
+
 assert.match(vm.runInContext('agendaPage()',ctx),/TAMÃO AGENDA/);
 assert.match(landing,/js\/agenda\.js/);
 assert.match(landing,/js\/agenda-boot\.js/);
@@ -220,11 +239,35 @@ vm.runInContext('agendaRefreshOwner=async()=>{};agendaRefreshDirectory=async()=>
 await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
 assert.deepEqual(ctx.quickEvents.map(x=>x.step),['insert','insert','hours','publish']);
 assert.equal(ctx.quickEvents[0].record.published,false,'Draft must precede service and weekly hours');
+assert.equal(ctx.quickEvents[0].record.slug,'barbearia-centro','Friendly slug should use business name without random suffix when available');
 assert.equal(ctx.quickEvents[1].record.price_cents,3500);
 assert.equal(ctx.quickEvents[2].args.p_hours.length,6);
 assert.equal(ctx.quickEvents[2].args.p_hours.find(h=>h.weekday===6).closes_min,780);
 assert.equal(ctx.quickEvents[3].record.published,true);
 assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true);
+
+const collisionEvents=[];
+ctx.collisionClient={
+ from(table){return {
+  insert(record){
+   collisionEvents.push({table,record});
+   if(table==='agenda_pages'&&collisionEvents.filter(x=>x.table==='agenda_pages').length===1)
+    return {select(){return {single:async()=>({data:null,error:{code:'23505',message:'slug already used'}})}}};
+   return {select(){return {single:async()=>({data:table==='agenda_pages'?quickPage:
+    {id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},error:null})}}};
+  },
+  update(record){return {eq(){return {select(){return {single:async()=>({data:{...quickPage,published:true},error:null})}}}}};}
+ }},
+ rpc(name,args){return Promise.resolve({data:args.p_hours.length,error:null});}
+};
+vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=collisionClient;',ctx);
+await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
+assert.equal(collisionEvents.filter(x=>x.table==='agenda_pages').length,2,'Conflict must retry only the slug');
+assert.equal(collisionEvents[0].record.slug,'barbearia-centro');
+assert.match(collisionEvents[1].record.slug,/^barbearia-centro-[a-f0-9]{6}$/);
+assert.equal(collisionEvents[1].record.published,false,'Never publish on conflict retry');
+assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true,'After safe collision retry user can publish');
+
 assert.match(vm.runInContext('agendaRuntime.notice',ctx),/publicada/);
 
 // Browser email-link navigation retains a slot, but NEVER confirms a booking.
