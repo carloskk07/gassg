@@ -211,7 +211,7 @@ function club(){
         <p class="tamao-club-offer-label">Preço do pacote: <strong data-coupon-price></strong></p>
         <p data-coupon-minimum></p>
         <p data-coupon-availability></p>
-        <details class="tamao-benefits-details"><summary>Detalhes de uso do pacote</summary><p class="tiny">As ofertas e revendas variam por CEP. Consulte valor, validade e condições ao usar um cupom. Entrar na conta não gera cobrança.</p></details>
+        <details class="tamao-benefits-details"><summary>Detalhes de uso do pacote</summary><p class="tiny">Ter um pacote não garante ofertas ou revendas disponíveis no seu CEP. Veja validade e condições ao usar. Entrar não gera cobrança.</p></details>
       </aside>
     </div>
     <div class="grid cards-3 tamao-club-visitor-grid" aria-label="Vantagens do Clube">
@@ -707,7 +707,7 @@ function earn(){
         <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Simulação para uma primeira compra elegível e validada, conforme a política comercial.</span></div>
         <button class="primary full" onclick="go('refer')">Conhecer as indicações →</button>
       </article>
-      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA QUEM JÁ TEM UM NEGÓCIO</span><h2>Sua empresa pode vender por mais um canal.</h2><p>Use o TAMÃO como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
+      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA QUEM JÁ TEM UM NEGÓCIO</span><h2>Sua empresa pode vender por mais um canal.</h2><p>Ganhe outra vitrine sem abandonar seus canais atuais.</p>
         <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode aumentar o ticket com vários produtos na mesma entrega</li></ul>
         <div class="opportunity-example"><small>Taxa sobre pedidos concluídos</small><strong>Taxa TAMÃO: ${merchantFeeLabel} por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
         <button class="primary full" onclick="go('merchants')">Quero conhecer a parceria →</button>
@@ -882,7 +882,7 @@ function sponsorsLanding(){
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Sem misturar ofertas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Limites e condições antes</small></div></div>
         </div>
-        <p>Um jeito de conectar sua marca à cidade. A publicação depende de inventário válido.</p>
+        <p>A publicação depende de inventário disponível.</p>
       </aside></div>
     </div>
     ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'')}
