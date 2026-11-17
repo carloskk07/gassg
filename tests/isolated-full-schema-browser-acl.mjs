@@ -39,6 +39,7 @@ FROM (
  OR has_table_privilege('authenticated',c.oid,'DELETE'))
 ) z`;
 const allowedTables={
+ agenda_closed_days:{anon:[],auth:['SELECT'],policies:['agenda_closed_days_owner_select']},
  agenda_pages:{anon:[],auth:['SELECT'],policies:['agenda_page_owner_select','agenda_page_owner_insert','agenda_page_owner_update']},
  agenda_services:{anon:[],auth:['SELECT'],policies:['agenda_services_owner_select','agenda_services_owner_insert','agenda_services_owner_update']},
  agenda_hours:{anon:[],auth:['DELETE','SELECT'],policies:['agenda_hours_owner_select','agenda_hours_owner_insert','agenda_hours_owner_update','agenda_hours_owner_delete']},
@@ -127,6 +128,9 @@ const expectedFunctions=[
  'agenda_available_slots(p_service_id uuid, p_day date)',
  'agenda_book_slot(p_service_id uuid, p_starts_at timestamp with time zone, p_name text, p_phone text, p_request_id uuid)',
  'agenda_cancel_booking(p_appointment_id uuid)',
+ 'agenda_day_is_closed(p_service_id uuid, p_day date)',
+ 'agenda_my_bookings()',
+ 'agenda_set_closed_day(p_day date, p_closed boolean)',
  'agenda_public_directory()',
  'agenda_public_page(p_slug text)',
  'agenda_replace_hours(p_page_id uuid, p_hours jsonb)',
@@ -184,7 +188,8 @@ assert.deepEqual(fns.map(x=>x.signature).sort(),expectedFunctions,
 for(const fn of fns){
  assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()',
   'agenda_available_slots(p_service_id uuid, p_day date)','agenda_public_directory()',
-  'agenda_public_page(p_slug text)'].includes(fn.signature),
+  'agenda_public_page(p_slug text)',
+  'agenda_day_is_closed(p_service_id uuid, p_day date)'].includes(fn.signature),
   fn.signature+' unexpected public EXECUTE privilege');
  assert.equal(fn.auth,true,fn.signature+' lacks intended authenticated access');
  assert.equal(fn.safeSearchPath,true,fn.signature+' has an unsafe search_path');
