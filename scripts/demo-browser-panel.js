@@ -34,6 +34,8 @@
   };
   let startOrderButton=null;
   let adminOpen=false;
+  let demoPreviewMode='';
+  const agendaDemoBooked=new Set();
   let driverOpen=false,driverOrderId=null,driverError='';
   let deviceCheckBusy=false,deviceCheckResult='';
   let localProofBusy=false,localProofMessage='',localProofAvailable=false;
@@ -437,7 +439,7 @@
     panel.append(button('Fechar',()=>setDriver(false)));
   }
   function setDriver(open){
-    driverOpen=Boolean(open);adminOpen=false;
+    driverOpen=Boolean(open);adminOpen=false;demoPreviewMode='';
     dialog.dataset.open=String(driverOpen);
     if(driverOpen){
       driverOrderId=currentOrder()?.id||null;
@@ -449,11 +451,66 @@
     }else nav.querySelector('button')?.focus();
   }
   function setAdmin(open){
-    adminOpen=Boolean(open);driverOpen=false;dialog.dataset.open=String(adminOpen);
+    adminOpen=Boolean(open);driverOpen=false;demoPreviewMode='';dialog.dataset.open=String(adminOpen);
     if(adminOpen)dialog.setAttribute('aria-label','Admin demonstrativo, dados fictícios');
     if(adminOpen)adminRenderedFingerprint='';
     if(adminOpen){drawAdmin();panel.querySelector('button')?.focus()}
     else nav.querySelector('button')?.focus();
+  }
+  // Extras available only in the statically published, disconnected
+  // browser simulator. No credentials, real reservations, coupons or money.
+  function drawDemoPreview(){
+    panel.replaceChildren();
+    const type=demoPreviewMode;
+    const notes=make('p','Prévia com dados fictícios. Não corresponde a uma conta real e não envia dados.');
+    if(type==='club'){
+      panel.append(make('h2','Meu Clube — demonstração'),notes);
+      const orders=read()?.orders||[];
+      const done=orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length;
+      panel.append(make('p','Compras fictícias concluídas neste navegador: '+done));
+      panel.append(make('p','Cupons, bônus e cashback reais são consultados somente por uma conta autorizada.'));
+      panel.append(button('Experimentar pedido fictício',()=>{setAdmin(false);beginP13()}));
+    }else if(type==='network'){
+      panel.append(make('h2','Minha Rede — demonstração'),notes);
+      const orders=read()?.orders||[];
+      panel.append(make('p','Atividades simuladas neste aparelho: '+orders.length+' pedido(s).'));
+      panel.append(make('p','Exemplo de extrato: indicação direta, rede ativa e benefícios de campanhas. Valores demonstrativos não são saldos sacáveis.'));
+      panel.append(make('p','Para ver indicações e comissões reais, use a conta do participante no site oficial.'));
+    }else if(type==='agenda'){
+      panel.append(make('h2','Agenda profissional — demonstração'),notes);
+      panel.append(make('p','Exemplo: Barbearia Modelo · Corte de cabelo · 30 minutos · sem pagamento.'));
+      panel.append(make('p','Escolha um horário; a reserva é simulada somente nesta página.'));
+      for(const time of ['09:00','10:30','14:00']){
+        const booked=agendaDemoBooked.has(time);
+        const row=make('div','');row.className='demo-order';
+        row.append(make('strong','Hoje às '+time+' · '+(booked?'Reservado':'Livre')));
+        row.append(button(booked?'Cancelar reserva fictícia':'Reservar horário fictício',()=>{
+          if(booked)agendaDemoBooked.delete(time);
+          else if(!agendaDemoBooked.has(time))agendaDemoBooked.add(time);
+          drawDemoPreview();
+        }));
+        panel.append(row);
+      }
+      panel.append(make('p','Esta prévia verifica a interação básica de reservar e cancelar, mas não homologa a agenda nem as notificações reais.'));
+    }
+    panel.append(button('Voltar ao Cliente fictício',openCustomer));
+    panel.append(button('Fechar prévia',()=>setAdmin(false)));
+  }
+  function openDemoPreview(type){
+    if(!['club','network','agenda'].includes(type))return;
+    demoPreviewMode=type;adminOpen=false;driverOpen=false;
+    dialog.dataset.open='true';
+    dialog.setAttribute('aria-label','Prévia demonstrativa de '+type);
+    drawDemoPreview();panel.querySelector('button')?.focus();
+  }
+  function openDemoScenario(role){
+    // Whitelist only: never accept a URL or code to execute.
+    if(!['customer','tracking','merchant','driver','admin','club','network','agenda'].includes(role))return;
+    if(role==='merchant')openMerchant();
+    else if(role==='driver')setDriver(true);
+    else if(role==='admin')setAdmin(true);
+    else if(['club','network','agenda'].includes(role))openDemoPreview(role);
+    else{openCustomer();globalThis.go?.(role==='tracking'?'tracking':'home')}
   }
   // The canonical merchant page re-renders after every action. Keep the
   // affected order visible instead of jumping back to the top of the page.
@@ -546,7 +603,7 @@
   }));
   dialog.append(panel);
   dialog.addEventListener('click',e=>{if(e.target===dialog){if(driverOpen)setDriver(false);else setAdmin(false)}});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen)setAdmin(false)}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen||demoPreviewMode)setAdmin(false)}});
   tools.append(heading,detail,nav);
   tools.append(progress);
   updateGuide();
@@ -559,4 +616,8 @@
   window.setInterval(()=>{updateGuide();if(adminOpen)drawAdmin();if(driverOpen)drawDriver()},1800);
   host.append(tools);
   document.body.append(dialog);
+  // Direct, one-click entrance from the protected Admin QA center. The
+  // query carries only the scenario name, never a session or customer data.
+  const scenario=new URLSearchParams(location.search).get('tamao_demo_role');
+  if(scenario)window.setTimeout(()=>openDemoScenario(scenario),0);
 })();
