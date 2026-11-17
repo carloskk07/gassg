@@ -40,6 +40,10 @@ assert.equal(vm.runInContext('agendaSlug()',ctx),'barbearia-sg','Old shop hash l
 assert.match(landing,/href="\/css\/agenda\.css"/);
 assert.match(landing,/src="\/js\/agenda\.js"/);
 assert.doesNotMatch(landing,/["']\.\.\/(js|css|icons)\//);
+const standaloneBoot=readFileSync('js/agenda-boot.js','utf8');
+assert.match(standaloneBoot,/DOMContentLoaded',render/);
+assert.doesNotMatch(standaloneBoot,/history\.replaceState\(null,'',location\.pathname/);
+
 const builderSource=readFileSync('scripts/build-live-portals.mjs','utf8');
 assert.match(builderSource,/\/agenda\/\* \/agenda\/index\.html 200/);
 assert.ok(builderSource.indexOf('/agenda/* /agenda/index.html 200')<
