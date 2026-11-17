@@ -78,15 +78,46 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
   <div id="toast" class="toast" aria-live="polite"></div>
   <template id="tamao-participant-access-template">
     <details class="tamao-account-access">
-      <summary aria-label="Acessos dos participantes"><span class="tamao-account-prompt">Já participa?</span> Entrar <span aria-hidden="true">⌄</span></summary>
-      <nav class="tamao-account-access-panel" aria-label="Acessar minha área no TAMÃO">
-        <a href="#club"><strong>Minha conta e Clube</strong><small>Cupons e compras</small></a>
-        <a href="#earn"><strong>Rede e indicações</strong><small>Convites e benefícios</small></a>
-        <a href="https://parceiro.tamao.com.br/"><strong>Revenda ou entregador</strong><small>Painel do parceiro</small></a>
-        <a href="/agenda/"><strong>Agenda de profissionais</strong><small>Horários e reservas</small></a>
-        <a href="#advertise"><strong>Anunciante</strong><small>Campanhas e serviços</small></a>
-        <a href="https://admin.tamao.com.br/"><strong>Administração</strong><small>Acesso restrito</small></a>
-      </nav>
+      <summary aria-label="Escolher minha área no TAMÃO">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+        <span>Entrar</span>
+        <svg class="tamao-account-chevron" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="tamao-account-access-panel">
+        <div class="tamao-account-access-heading">
+          <strong>Seu espaço no TAMÃO</strong>
+          <small>Escolha como deseja participar.</small>
+        </div>
+        <nav aria-label="Acessos dos participantes">
+          <span class="tamao-account-group">Para você</span>
+          <a class="tamao-account-entry tamao-account-entry-primary" href="#club">
+            <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
+            <span class="tamao-account-entry-copy"><strong>Minha conta e Clube</strong><small>Cupons, cashback e vantagens</small></span>
+            <span class="tamao-account-arrow" aria-hidden="true">›</span>
+          </a>
+          <a class="tamao-account-entry" href="#earn">
+            <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="m7.5 7.5 3.2 8M16.5 7.5l-3.2 8M8 6h8"/></svg></span>
+            <span class="tamao-account-entry-copy"><strong>Minha Rede</strong><small>Indicações e comissões</small></span>
+            <span class="tamao-account-arrow" aria-hidden="true">›</span>
+          </a>
+          <span class="tamao-account-group tamao-account-group-business">Para seu negócio</span>
+          <a class="tamao-account-entry" href="/agenda/">
+            <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17m-12 5h3"/></svg></span>
+            <span class="tamao-account-entry-copy"><strong>Minha agenda</strong><small>Serviços, horários e reservas</small></span>
+            <span class="tamao-account-arrow" aria-hidden="true">›</span>
+          </a>
+          <a class="tamao-account-entry" href="https://parceiro.tamao.com.br/">
+            <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10v10h16V10M3 5h18l-1 5H4L3 5ZM9 20v-7h6v7"/></svg></span>
+            <span class="tamao-account-entry-copy"><strong>Revenda ou entregador</strong><small>Pedidos e operação</small></span>
+            <span class="tamao-account-arrow" aria-hidden="true">›</span>
+          </a>
+          <a class="tamao-account-entry" href="#advertise">
+            <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4l12 5V5L3 10Zm12-3 5-3v16l-5-3M7 16l2 5h3l-2-4"/></svg></span>
+            <span class="tamao-account-entry-copy"><strong>Anunciante</strong><small>Campanhas e publicidade</small></span>
+            <span class="tamao-account-arrow" aria-hidden="true">›</span>
+          </a>
+        </nav>
+      </div>
     </details>
   </template>
   <div id="tamao-route-announcement" class="tamao-visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
