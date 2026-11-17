@@ -290,9 +290,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];
+    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -324,17 +324,18 @@ async function agendaRefreshOwner(){
  if(e)throw e;if(epoch!==s.epoch||s.user?.id!==u.id)return;
  s.page=p;
  if(p){
-  const [services,hours,bookings,closedDays]=await Promise.all([
+  const [services,staff,hours,bookings,closedDays]=await Promise.all([
    s.client.from('agenda_services').select('*').eq('page_id',p.id).order('created_at'),
+   s.client.from('agenda_staff').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_hours').select('*').eq('page_id',p.id).order('weekday'),
-   s.client.from('agenda_appointments').select('id,service_id,customer_name,customer_phone,starts_at,ends_at,status')
+   s.client.from('agenda_appointments').select('id,service_id,staff_id,reschedule_count,customer_name,customer_phone,starts_at,ends_at,status')
      .eq('owner_id',u.id).eq('status','confirmed').gte('starts_at',new Date(Date.now()-3600000).toISOString()).order('starts_at').limit(100),
    s.client.from('agenda_closed_days').select('day').eq('owner_id',u.id).gte('day',agendaToday()).order('day').limit(180)
   ]);
   if(epoch!==s.epoch||s.user?.id!==u.id)return;
-  if(services.error||hours.error||bookings.error||closedDays.error)throw services.error||hours.error||bookings.error||closedDays.error;
-  s.services=services.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];
- }else{s.services=[];s.hours=[];s.bookings=[];s.closedDays=[];}
+  if(services.error||staff.error||hours.error||bookings.error||closedDays.error)throw services.error||staff.error||hours.error||bookings.error||closedDays.error;
+  s.services=services.data||[];s.staff=staff.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];
+ }else{s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.closedDays=[];}
  const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
 }
@@ -349,34 +350,40 @@ async function agendaRefreshDirectory(){
 }
 async function agendaRefreshPublic(){
  const s=agendaRuntime,slug=agendaSlug();s.slug=slug;s.publicProfile=null;
- s.serviceId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
+ s.serviceId='';s.staffId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
  if(!slug||!s.client)return;
  const {data,error}=await s.client.rpc('agenda_public_page',{p_slug:slug});
  if(!agendaRoute()||agendaSlug()!==slug)return;
  if(error){s.error='Não foi possível consultar este profissional.';return;}
  s.publicProfile=data||null;
- s.serviceId=(data?.services||[])[0]?.id||'';
+ const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
+ if(s.rescheduleId&&!editing)s.rescheduleId='';
+ s.serviceId=editing?.service_id||(data?.services||[])[0]?.id||'';
+ s.staffId=editing?.staff_id||(data?.staff||[])[0]?.id||'';
  if(s.serviceId)await agendaLoadSlots();
 }
 async function agendaLoadSlots(){
- const s=agendaRuntime,service=s.serviceId,day=s.day;
+ const s=agendaRuntime,service=s.serviceId,day=s.day,staffId=s.staffId;
  s.selectedStart='';s.requestKey='';s.slots=[];s.dayClosed=false;if(!service||!day)return;
  s.slotBusy=true;render();
  try{
   const [slots,closed]=await Promise.all([
-   s.client.rpc('agenda_available_slots',{p_service_id:service,p_day:day}),
+   s.client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
    s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
   ]);
-  if(s.serviceId!==service||s.day!==day)return;
+  if(s.serviceId!==service||s.day!==day||s.staffId!==staffId)return;
   if(slots.error||closed.error)throw slots.error||closed.error;
   s.dayClosed=closed.data===true;
   s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
- finally{if(s.serviceId===service&&s.day===day){s.slotBusy=false;if(agendaRoute())render();}}
+ finally{if(s.serviceId===service&&s.day===day&&s.staffId===staffId){s.slotBusy=false;if(agendaRoute())render();}}
 }
-function agendaChooseService(id){const s=agendaRuntime;if(!(s.publicProfile?.services||[]).some(x=>x.id===id))return;
+function agendaChooseService(id){const s=agendaRuntime;if(s.rescheduleId||!(s.publicProfile?.services||[]).some(x=>x.id===id))return;
  s.serviceId=id;s.error='';agendaLoadSlots();}
+function agendaChooseStaff(id){const s=agendaRuntime;if(s.rescheduleId)return;
+ if(!(s.publicProfile?.staff||[]).some(x=>x.id===id))return;
+ s.staffId=id;s.error='';agendaLoadSlots();}
 function agendaChooseDay(day){const s=agendaRuntime;
  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(day)))return;
  if(day<agendaToday()||day>agendaToday(30))return;
@@ -515,11 +522,13 @@ async function agendaBook(ev){
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
  if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
+ if((s.publicProfile?.staff||[]).length&& !agendaUuid.test(s.staffId))return false;
  const request=s.requestKey,instant=s.selectedStart,service=s.serviceId;
  s.busy=true;s.error='';s.notice='';
  try{
-  const {data,error}=await s.client.rpc('agenda_book_slot',{
-   p_service_id:service,p_starts_at:instant,p_name:name,p_phone:phone,p_request_id:request
+  const {data,error}=await s.client.rpc('agenda_book_staff_slot',{
+   p_service_id:service,p_starts_at:instant,p_name:name,p_phone:phone,
+   p_request_id:request,p_staff_id:s.staffId||null
   });
   if(error)throw error;
   if(!agendaUuid.test(data?.id)||data.status!=='confirmed')throw Error('booking readback failed');
@@ -576,7 +585,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];
+  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();
