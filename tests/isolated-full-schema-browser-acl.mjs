@@ -205,6 +205,7 @@ assert.deepEqual(fns.map(x=>x.signature).sort(),expectedFunctions,
  'An unknown SECURITY DEFINER or overload was granted to the browser');
 for(const fn of fns){
  assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()',
+  'agenda_deposit_quote(p_service_id uuid)',
   'agenda_available_slots(p_service_id uuid, p_day date)','agenda_public_directory()',
   'agenda_public_page(p_slug text)',
   'agenda_day_is_closed(p_service_id uuid, p_day date)',
