@@ -121,19 +121,61 @@ function agendaOwnerEditor(){
      '<p class="tiny muted">Nenhuma folga programada.</p>'):
     '<p>Salve sua página para escolher suas folgas.</p>')+
   '</section>'+
-  '<section class="agenda-panel"><h2>Próximos atendimentos</h2>'+
+  '<section class="agenda-panel"><h2>Intervalos e pausas</h2>'+
+   '<p>Bloqueie um almoço, reunião ou compromisso para toda a equipe ou uma pessoa. Horários já reservados permanecem protegidos.</p>'+
+   (p.id?'<form class="agenda-block-form" onsubmit="return agendaAddBlock(event)">'+
+    '<label>Agenda<select name="staff"><option value="">Todo o estabelecimento</option>'+
+      s.staff.filter(t=>t.active).map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>').join('')+'</select></label>'+
+    '<label>Dia<input type="date" name="day" min="'+agendaToday()+'" max="'+agendaToday(180)+'" required></label>'+
+    '<label>Início<input type="time" name="start" step="1800" value="12:00" required></label>'+
+    '<label>Fim<input type="time" name="end" step="1800" value="13:00" required></label>'+
+    '<button class="secondary" type="submit"'+(s.busy?' disabled':'')+'>Bloquear intervalo</button></form>'+
+    (s.blocks.length?'<div class="agenda-staff-list">'+s.blocks.map(b=>{
+      const member=s.staff.find(t=>t.id===b.staff_id);
+      return '<div><strong>'+esc(member?.name||'Todo o estabelecimento')+'</strong>'+
+       '<span>'+esc(agendaDateTime(b.starts_at))+' — '+esc(agendaDateTime(b.ends_at))+'</span>'+
+       '<button type="button" class="secondary" data-id="'+esc(b.id)+
+       '" onclick="agendaRemoveBlock(this.dataset.id)">Liberar</button></div>';
+     }).join('')+'</div>':'<p class="tiny muted">Nenhuma pausa futura cadastrada.</p>'):
+     '<p>Salve a página para programar pausas.</p>')+'</section>'+
+  '<section class="agenda-panel"><h2>Lista de espera</h2>'+
+   '<p>Quando não encontrarem horário, os clientes podem deixar contato voluntariamente. Você entra em contato pelo WhatsApp, sem disparos automáticos.</p>'+
+   (s.waiting.length?'<div class="agenda-waiting-list">'+s.waiting.map(w=>{
+    const service=s.services.find(x=>x.id===w.service_id);
+    const member=s.staff.find(x=>x.id===w.staff_id);
+    const digits=String(w.customer_phone||'').replace(/\D/g,'');
+    const message='Olá, '+w.customer_name+'! Surgiu uma possibilidade para '+(service?.title||'seu atendimento')+' em '+agendaDateOnly(w.day)+'. Veja os horários disponíveis na agenda: '+(link||'');
+    return '<article class="agenda-booking"><strong>'+esc(w.customer_name)+'</strong>'+
+     '<span>'+esc([service?.title,member?.name,agendaDateOnly(w.day)].filter(Boolean).join(' • '))+'</span>'+
+     (digits.length>=8?'<a class="agenda-wa" target="_blank" rel="noopener noreferrer" href="https://wa.me/'+esc(digits)+'?text='+encodeURIComponent(message)+'">Falar pelo WhatsApp</a>':'')+
+     '<button type="button" class="secondary" data-id="'+esc(w.id)+
+     '" onclick="agendaCloseWaitlist(this.dataset.id,true)">Marcar como contatado</button>'+
+     '<button type="button" class="secondary" data-id="'+esc(w.id)+
+     '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Remover da fila</button></article>';
+   }).join('')+'</div>':'<p>Nenhuma pessoa na fila de espera neste momento.</p>')+'</section>'+
+  '<section class="agenda-panel"><h2>Atendimentos e histórico</h2>'+
+   '<p>'+s.bookings.filter(b=>b.status==='completed').length+' concluídos • '+
+     s.bookings.filter(b=>b.status==='no_show').length+' ausências registradas • '+
+     s.waiting.length+' na lista de espera (período recente).</p>'+
    (s.bookings.length?s.bookings.map(b=>{
     const serv=s.services.find(x=>x.id===b.service_id);
     const colleague=s.staff.find(x=>x.id===b.staff_id);
+    const past=Date.parse(b.ends_at)<=Date.now();
+    const upcoming=Date.parse(b.starts_at)>Date.now();
     return '<article class="agenda-booking"><strong>'+esc(b.customer_name)+'</strong>'+
-     '<span>'+esc(serv?.title||'Atendimento')+' • '+esc(agendaDateTime(b.starts_at))+(colleague?' • '+colleague.name:'')+'</span>'+
+     '<span>'+esc([serv?.title||'Atendimento',colleague?.name,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+
+     '<span>'+esc(b.status==='completed'?'Concluído':b.status==='no_show'?'Não compareceu':'Confirmado')+'</span>'+
      (b.customer_phone?'<span>Contato: '+esc(b.customer_phone)+'</span>':'')+
-     (b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
+     (b.status==='confirmed'&&b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
       '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
-      '" target="_blank" rel="noopener noreferrer">Conversar no WhatsApp</a>':'')+
-     '<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>'+ 
-     (b.reschedule_count<20?'<button type="button" class="secondary" onclick="agendaBeginReschedule(\''+esc(b.id)+'\')">Remarcar</button>':'')+ 
-     '<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button></article>';
+      '?text='+encodeURIComponent('Olá, '+b.customer_name+'! Este é um lembrete do seu horário em '+agendaDateTime(b.starts_at)+'.')+
+      '" target="_blank" rel="noopener noreferrer">Enviar lembrete pelo WhatsApp</a>':'')+
+     (b.status==='confirmed'?'<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>':'')+
+     (b.status==='confirmed'&&b.reschedule_count<20&&upcoming?'<button type="button" class="secondary" onclick="agendaBeginReschedule(\''+esc(b.id)+'\')">Remarcar</button>':'')+
+     (b.status==='confirmed'&&!past?'<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button>':'')+
+     (b.status==='confirmed'&&past?'<button type="button" class="secondary" onclick="agendaMarkAttendance(\''+esc(b.id)+'\',\'completed\')">Concluído</button>'+
+      '<button type="button" class="secondary" onclick="agendaMarkAttendance(\''+esc(b.id)+'\',\'no_show\')">Não compareceu</button>':'')+
+      '</article>';
    }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
   '</section></div>';
 }
