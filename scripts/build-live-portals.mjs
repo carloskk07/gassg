@@ -201,8 +201,6 @@ function patchIndex(html,portal,sourceSha){
       patched=patched.replace(tag,'');
     }
   }
-  // Agenda OTP callback only belongs to the public storefront.
-  if(role!=='customer')patched=patched.replace('<script src="./js/agenda-callback.js"></script>','');
   // A single release identity for every script and stylesheet. This prevents
   // browser/CDN caches from mixing assets across successive deployments.
   // Only release bundles are rewritten; the source index remains convenient
@@ -263,11 +261,6 @@ function patchServiceWorker(raw,sourceSha,role){
     const workspaceCss=",'./css/workspace-experience.css'";
     if(!scoped.includes(workspaceCss))throw new Error('Missing workspace stylesheet PWA entry');
     scoped=scoped.replace(workspaceCss,'');
-  }
-  if(role!=='customer'){
-    const agendaEntry=",'./js/agenda-callback.js'";
-    if(!scoped.includes(agendaEntry))throw new Error('Missing customer Agenda callback cache entry');
-    scoped=scoped.replace(agendaEntry,'');
   }
   if(role!=='merchant'){
     const merchantEntry=",'./js/merchant.js'";
