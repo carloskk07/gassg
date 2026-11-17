@@ -19,10 +19,13 @@ begin
     or has_table_privilege('anon','public.agenda_appointments','select')
     or has_table_privilege('authenticated','public.agenda_appointments','insert')
     or has_table_privilege('authenticated','public.agenda_appointments','update')
+    or has_table_privilege('anon','public.agenda_closed_days','select')
+    or has_table_privilege('authenticated','public.agenda_closed_days','insert')
  then raise exception 'AGENDA_PRIVATE_TABLE_EXPOSED';end if;
  if has_function_privilege('anon','public.agenda_book_slot(uuid,timestamptz,text,text,uuid)','execute')
     or has_function_privilege('anon','public.agenda_cancel_booking(uuid)','execute')
     or has_function_privilege('anon','public.agenda_replace_hours(uuid,jsonb)','execute')
+    or has_function_privilege('anon','public.agenda_set_closed_day(date,boolean)','execute')
  then raise exception 'AGENDA_WRITE_RPC_EXPOSED';end if;
  if not has_function_privilege('anon','public.agenda_available_slots(uuid,date)','execute')
  then raise exception 'AGENDA_PUBLIC_SLOTS_NOT_AVAILABLE';end if;
@@ -72,6 +75,44 @@ begin
  then raise exception 'AGENDA_CANCEL_NOT_REOPENED';end if;
  if (select count(*) from public.agenda_appointments where page_id=v_page and status='confirmed')<>1
  then raise exception 'AGENDA_ACTIVE_SLOT_UNEXPECTED';end if;
+
+ -- Closing a free day prevents new bookings in Postgres even if the UI is bypassed.
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ if not public.agenda_set_closed_day(v_day+7,true)
+ then raise exception 'AGENDA_CLOSE_DAY_FAILED';end if;
+ if not public.agenda_day_is_closed(v_service,v_day+7)
+ then raise exception 'AGENDA_DAY_CLOSED_NOT_VISIBLE';end if;
+ select starts_at into v_at from public.agenda_available_slots(v_service,v_day+7)
+ where label='10:00' limit 1;
+ if v_at is null then raise exception 'AGENDA_FUTURE_SLOT_UNAVAILABLE';end if;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ begin
+  perform public.agenda_book_slot(v_service,v_at,'Cliente Primeiro','+5555999999999',gen_random_uuid());
+  raise exception 'AGENDA_CLOSED_DAY_BOOKING_ACCEPTED';
+ exception when invalid_parameter_value then
+  if sqlerrm<>'AGENDA_DAY_CLOSED' then raise;end if;
+ end;
+ -- A customer can never block the professional's calendar.
+ begin
+  perform public.agenda_set_closed_day(v_day+7,false);
+  raise exception 'AGENDA_UNAUTHORIZED_DAY_CHANGE_ACCEPTED';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_OWNER_REQUIRED' then raise;end if;
+ end;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ perform public.agenda_set_closed_day(v_day+7,false);
+ if public.agenda_day_is_closed(v_service,v_day+7)
+ then raise exception 'AGENDA_DAY_STILL_CLOSED';end if;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ v_first:=public.agenda_book_slot(v_service,v_at,'Cliente Primeiro','+5555999999999',gen_random_uuid());
+ if v_first->>'status'<>'confirmed' then raise exception 'AGENDA_REOPENED_BOOKING_FAILED';end if;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ begin
+  perform public.agenda_set_closed_day(v_day+7,true);
+  raise exception 'AGENDA_EXISTING_BOOKING_WAS_BLOCKED';
+ exception when invalid_parameter_value then
+  if sqlerrm<>'AGENDA_DAY_HAS_BOOKINGS' then raise;end if;
+ end;
 end $test$;
 rollback;
-\echo 'PASS: Agenda private ACL, verified owner, public projection, idempotency, collision, cancellation, rebooking.'
+\echo 'PASS: Agenda ACL, booking idempotence, concurrency, cancellation, and protected professional holidays.'
