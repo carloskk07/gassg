@@ -728,8 +728,8 @@ function discoveryPage(){
   const titles={professionals:'Encontre profissionais para o que você precisa',
     rides:'Encontre caronas para sua próxima viagem',
     stays:'Encontre hospedagens para sua próxima viagem'};
-  const summaries={professionals:'Busque serviços por cidade e especialidade. Fale diretamente com quem anuncia.',
-    rides:'Procure por origem, destino e vagas publicadas. Combine os detalhes com o anunciante.',
+  const summaries={professionals:'Descubra quem pode ajudar na sua região. Compare especialidades e converse diretamente com profissionais anunciados.',
+    rides:'Compartilhe caminhos e descubra viagens anunciadas. Veja origens, destinos e vagas e converse diretamente com quem oferece a carona.',
     stays:'Explore opções por destino, perfil da hospedagem e número de hóspedes.'};
   const advertiseLabels={professionals:'Anunciar meus serviços',rides:'Oferecer uma carona',
     stays:'Anunciar hospedagem'};
@@ -743,7 +743,7 @@ function discoveryPage(){
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
        s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
        s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+
-       '<span>Cadastre seu serviço e receba contatos depois da análise.</span></div>'+
+       '<span>Mostre seu trabalho para quem precisa desse serviço. Seu anúncio passa por revisão antes da publicação.</span></div>'+
        '<a href="'+discoveryOwnerSignupLink(s.service)+'">Quero anunciar meu serviço →</a></div>':'')+
     '<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)">'+
     '<label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>'+
