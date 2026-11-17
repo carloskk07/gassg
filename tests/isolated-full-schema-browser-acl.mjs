@@ -39,6 +39,8 @@ FROM (
  OR has_table_privilege('authenticated',c.oid,'DELETE'))
 ) z`;
 const allowedTables={
+ agenda_staff_blocks:{anon:[],auth:['SELECT'],policies:['agenda_staff_blocks_owner_read']},
+ agenda_waitlist:{anon:[],auth:['SELECT'],policies:['agenda_waitlist_participants_read']},
  agenda_staff:{anon:[],auth:['SELECT'],policies:['agenda_staff_owner_select','agenda_staff_owner_insert','agenda_staff_owner_update']},
  agenda_closed_days:{anon:[],auth:['SELECT'],policies:['agenda_closed_days_owner_select']},
  agenda_pages:{anon:[],auth:['SELECT'],policies:['agenda_page_owner_select','agenda_page_owner_insert','agenda_page_owner_update']},
@@ -130,6 +132,11 @@ for(const row of columns){
   row.table+' unexpectedly grants a column or removes a scoped grant');
 }
 const expectedFunctions=[
+ 'agenda_add_staff_block(p_staff_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)',
+ 'agenda_close_waitlist(p_wait_id uuid, p_contacted boolean)',
+ 'agenda_join_waitlist(p_service_id uuid, p_staff_id uuid, p_day date, p_name text, p_phone text)',
+ 'agenda_mark_attendance(p_appointment_id uuid, p_result text)',
+ 'agenda_remove_staff_block(p_id uuid)',
  'agenda_available_slots(p_service_id uuid, p_day date)',
  'agenda_available_staff_slots(p_service_id uuid, p_day date, p_staff_id uuid)',
  'agenda_book_slot(p_service_id uuid, p_starts_at timestamp with time zone, p_name text, p_phone text, p_request_id uuid)',
