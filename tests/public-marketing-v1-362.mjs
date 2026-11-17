@@ -39,7 +39,7 @@ assert.ok(merchant.includes("openMerchantPortal(true)"),'primary merchant action
 assert.ok(merchant.includes('prelaunchMerchantLeadSection()'),'secondary lead form remains available');
 assert.ok(merchant.includes('merchant-panel-link')&&merchant.includes('openMerchantPortal()'),
  'existing partners need direct access to their portal');
-assert.ok(merchant.includes('Você continua no controle'),'merchant hero must state autonomy');
+assert.ok(merchant.includes('Você controla preços, estoque, pagamentos e entregas.'),'merchant hero must state autonomy');
 assert.ok(sponsors.includes('sponsor-format-grid')&&sponsors.includes('openSponsorContact()'),
  'sponsor choices and existing lead action are preserved');
 assert.ok(sponsors.includes('depend')||sponsors.includes('avaliação'),
