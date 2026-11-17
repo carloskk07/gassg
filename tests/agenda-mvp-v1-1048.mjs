@@ -146,7 +146,7 @@ assert.match(source,/agendaDownloadQr|agendaSharePublicLink|agendaToggleQr/);
 assert.match(source,/\/js\/qr-generator\.js/);
 assert.doesNotMatch(source,/https?:\/\/[^\s"']+qrcode/i);
 
-const depositMigration=readFileSync('supabase/migrations/20261117160000_agenda_sinal_finance_guard_v1_1052.sql','utf8');
+const depositMigration=readFileSync('supabase/migrations/20261117160314_agenda_sinal_finance_guard_v1_1052.sql','utf8');
 for(const expected of ['agenda_service_deposit_settings','agenda_set_deposit_policy',
  'agenda_deposit_quote','agenda_payment_control','agenda_payment_holds',
  'agenda_payment_attempts','agenda_payment_refunds','agenda_hold_disabled_guard',
