@@ -852,7 +852,7 @@ function runtimeStrip(){
   // Public discovery remains usable during session startup or a temporary
   // backend interruption. Checkout and security warnings retain their gates.
   if(['home','learn','earn','club','refer','merchants','sponsors','privacy','terms','contact',
-      'professionals','rides','stays','advertise','mobility']
+      'professionals','rides','stays','advertise','agenda','mobility']
       .includes(route())&&globalThis.liveRuntime?.status!=='unsafe-origin')return '';
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
     return '<div class="demo-strip"><span>ATENDIMENTO INDISPONÍVEL NESTA ORIGEM • use o endereço oficial do TAMÃO</span></div>';
@@ -898,7 +898,7 @@ function siteFooter({adminPortal=false}={}){
       '<a href="/para-revendas/">Para revendas</a>'+
       '<a href="/para-marcas/">Para marcas</a>'+
       '<a href="/indicacoes/">Rede de indicações</a></nav>':'';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><div class="tamao-footer-link-group"><strong>Conheça o TAMÃO</strong><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button></div><div class="tamao-footer-link-group"><strong>Serviços</strong><button onclick="go(\'professionals\')">Profissionais</button><button onclick="go(\'rides\')">Caronas</button><button onclick="go(\'mobility\')">Minhas corridas</button><button onclick="go(\'advertise\')">Anunciar</button></div><div class="tamao-footer-link-group"><strong>Atendimento e direitos</strong><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></div></nav>'+editorial+'</div></footer>';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><div class="tamao-footer-link-group"><strong>Conheça o TAMÃO</strong><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button></div><div class="tamao-footer-link-group"><strong>Serviços</strong><button onclick="go(\'professionals\')">Profissionais</button><button onclick="go(\'rides\')">Caronas</button><button onclick="go(\'mobility\')">Minhas corridas</button><button onclick="go(\'advertise\')">Anunciar</button><button onclick="go(\'agenda\')">Agenda online</button></div><div class="tamao-footer-link-group"><strong>Atendimento e direitos</strong><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></div></nav>'+editorial+'</div></footer>';
 }
 function tamaoOpenAvailability(){
   // Checkout still requires a server-verified merchant.
@@ -921,7 +921,7 @@ function shell(content){
   const primaryLinks=[['club','Clube'],['earn','Indicações']];
   const desktopGroups=[
     {label:'Serviços',links:[['professionals','Profissionais'],['mobility','Moto e carro'],
-      ['rides','Caronas'],['advertise','Anunciar serviço']]},
+      ['rides','Caronas'],['agenda','Agenda online'],['advertise','Anunciar serviço']]},
     {label:'Conheça',links:[['learn','Como funciona'],['merchants','Para revendas'],
       ['sponsors','Para marcas']]}
   ];
