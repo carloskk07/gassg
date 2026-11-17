@@ -344,4 +344,20 @@ end $;
 revoke all on function public.agenda_replace_hours(uuid,jsonb) from public,anon,authenticated;
 grant execute on function public.agenda_replace_hours(uuid,jsonb) to authenticated;
 
+
+-- Public directory is discovery-only; unpublished or empty pages are omitted.
+create function public.agenda_public_directory()
+returns table(slug text,title text,city text,about text,photo_path text)
+language sql stable security definer set search_path='pg_catalog'
+as $
+ select p.slug,p.title,p.city,left(p.about,180),p.photo_paths[1]
+ from public.agenda_pages p
+ where p.published and exists(
+  select 1 from public.agenda_services s where s.page_id=p.id and s.active
+ ) and exists(select 1 from public.agenda_hours h where h.page_id=p.id)
+ order by p.created_at desc limit 24
+$;
+revoke all on function public.agenda_public_directory() from public,anon,authenticated;
+grant execute on function public.agenda_public_directory() to anon,authenticated;
+
 commit;
