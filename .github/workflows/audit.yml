@@ -43,6 +43,8 @@ jobs:
         run: node tests/agenda-mvp-v1-1048.mjs
       - name: V1.1055 protected Admin QA and visible participant access
         run: node tests/admin-test-center-member-entry-v1-1055.mjs
+      - name: V1.1056 simpler public participant access without Admin link
+        run: node tests/participant-entry-v1-1056.mjs
       - name: V1.1042 cross-module Ads benefits policy, ACL, terms and Admin no-cash controls
         run: node tests/network-module-ads-admin-v1-1042.mjs
       - name: Browser SDK integrity verify
