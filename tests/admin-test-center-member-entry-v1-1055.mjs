@@ -74,20 +74,22 @@ vm.runInNewContext(core.slice(start,end)+'\nthis.draw=shell;',customer);
 const result=customer.draw('CONTEUDO');
 assert.match(result,/tamao-account-access/);
 assert.match(entry,/id="tamao-participant-access-template"/);
-assert.match(result,/Já participa\?/);
+assert.match(result,/Escolher minha área no TAMÃO/);
 assert.match(result,/Minha conta e Clube/);
 assert.match(result,/parceiro\.tamao\.com\.br/);
 assert.match(result,/href="\/agenda\/"/);
 assert.match(result,/Anunciante/);
-assert.match(result,/Administração/);
+assert.doesNotMatch(result,/Administração|href="https:\/\/admin\.tamao\.com\.br\/"/);
+assert.match(result,/Seu espaço no TAMÃO/);
+assert.match(result,/Minha agenda/);
 customer.adminPortalRequested=()=>true;
 assert.doesNotMatch(customer.draw('CONTEUDO'),/tamao-account-access/);
 customer.adminPortalRequested=()=>false;
 customer.merchantPortalRequested=()=>true;
 assert.doesNotMatch(customer.draw('CONTEUDO'),/tamao-account-access/);
 assert.match(core,/p\.contains\(event\.target\)/);
-assert.match(marketing,/@media\(max-width:759px\).*tamao-account-prompt/s);
-assert.match(marketing,/tamao-account-access-panel a:focus-visible/);
+assert.match(marketing,/@media\(max-width:759px\).*tamao-account-access/s);
+assert.match(marketing,/tamao-account-entry:focus-visible/);
 assert.match(workspace,/admin-test-links/);
 
 // Admin QA code stays out of public and merchant deployment bundles.
