@@ -51,6 +51,14 @@ O bônus direto de Moto/Carro **não é retirado dos 10% do fundo coletivo** de 
 
 Produtos, caronas e demais serviços continuam podendo registrar indicações e conquistas verificadas sem pagamento adicional por mero clique, publicação ou cadastro.
 
+## 7-A. Campanhas especiais da Rede (proposta V1.1046)
+
+Campanhas festivas opcionais poderão reconhecer **uma primeira conversão real e qualificada por participante e por ocasião**, exclusivamente quando o operador autorizar uma versão publicada de termos, prazo e orçamento máximo verificáveis. A parcela sazonal poderá adicionar **até 1 ponto percentual da receita líquida NET confirmada** de um pacote pré-pago elegível ou da primeira campanha paga de um anunciante indicado, com teto por pessoa e limite agregado de despesas. A promoção não incide sobre cupons subsidiados pelo operador, visitas, cadastros, caronas gratuitas ou vendas de terceiros. A base deve ser uma bonificação principal já validada e ainda não estornada.
+
+A divulgação informará início e término da janela, limite individual, orçamento e condições, incluindo a possibilidade de esgotamento do teto. Novos bônus não serão criados após esgotamento. A primeira compra elegível deve ocorrer após aprovação da campanha; a validação posterior pode levar até 45 dias depois do término. Estornos e cancelamentos eliminam valores apurados mesmo após suspensão da promoção.
+
+**Os bônus sazonais permanecem segregados e não têm saque, transferência, abatimento ou uso como cashback nesta versão.** Qualquer disponibilidade financeira futura exige nova política homologada. A campanha não garante ganho mínimo, remuneração diária nem acesso a uma fonte de renda. O teto de orçamento autorizado não deve ser confundido com saldo bancário depositado.
+
 ## 8. Condutas vedadas e proteção
 São proibidos: autoindicação, criação de contas artificiais, simulação de visitas ou compras, uso indevido de códigos, cadastro com documentos falsos, anúncios enganosos e tentativas de contornar estornos, limites ou verificações. A plataforma pode bloquear benefícios sob análise quando houver indícios objetivos, garantir canal de contestação e preservar registros necessários à auditoria. O tratamento de dados pessoais deve seguir a Política de Privacidade do TAMÃO e a legislação aplicável, com acesso limitado às informações necessárias para indicação, verificação financeira, prevenção de fraude e atendimento de direitos.
 
@@ -64,6 +72,7 @@ A futura versão aprovada indicará claramente **data de vigência e identificad
 - [ ] Confirmar a janela de 24 horas, maturação, regras de reversão e comunicação acessível aos participantes.
 - [ ] Confirmar o mínimo R$ 50,00 e o SLA de 72 horas após aprovação, sem Pix automático.
 - [ ] Manter a cláusula de bônus Ads até 5% NET **sem direito de saque nesta versão**.
+- [ ] Aprovar regras sazonais, margem combinada de até 16% NET em certos pacotes Moto/Carro, limites individuais, teto de orçamento e indisponibilidade de saque.
 - [ ] Revisar o bônus direto de até 5% NET para Moto/Carro e Clube financiado pelo parceiro, incluindo o custo combinado de até 15% NET no Moto/Carro, sem direito de saque nesta versão.
 - [ ] Definir a forma de apresentar e registrar aceite verificável da versão aplicável.
 - [ ] Aprovar e publicar versão definitiva; somente depois registrar `terms_reference` real e ativar apuração de vendas futuras pelo Superadmin.
