@@ -328,7 +328,7 @@ async function agendaRefreshOwner(){
    s.client.from('agenda_services').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_staff').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_hours').select('*').eq('page_id',p.id).order('weekday'),
-   s.client.from('agenda_appointments').select('id,service_id,staff_id,reschedule_count,customer_name,customer_phone,starts_at,ends_at,status')
+   s.client.from('agenda_appointments').select('id,page_id,service_id,staff_id,reschedule_count,customer_name,customer_phone,starts_at,ends_at,status')
      .eq('owner_id',u.id).eq('status','confirmed').gte('starts_at',new Date(Date.now()-3600000).toISOString()).order('starts_at').limit(100),
    s.client.from('agenda_closed_days').select('day').eq('owner_id',u.id).gte('day',agendaToday()).order('day').limit(180)
   ]);
