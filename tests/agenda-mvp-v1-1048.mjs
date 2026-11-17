@@ -79,7 +79,7 @@ assert.match(ics,/TRIGGER:-PT1H/);
 assert.match(ics,/SUMMARY:Corte\\, barba\\; agenda/);
 assert.equal(vm.runInContext('agendaIcsContent({id:"not-uuid",starts_at:"2026-11-20T13:00:00Z",ends_at:"2026-11-20T13:45:00Z"},"Invalid")',ctx),'');
 assert.equal(vm.runInContext('agendaIcsContent({id:"11111111-1111-4111-8111-111111111111",starts_at:"2026-11-20T13:45:00Z",ends_at:"2026-11-20T13:00:00Z"},"Invalid")',ctx),'');
-const advanced=readFileSync('supabase/migrations/20261117130000_agenda_equipes_remarcacao_v1_1050.sql','utf8');
+const advanced=readFileSync('supabase/migrations/20261117115553_agenda_equipes_remarcacao_v1_1050.sql','utf8');
 for(const word of ['agenda_staff_owner_select','agenda_staff_owner_insert',
  'agenda_staff_owner_update','agenda_booking_staff_guard','agenda_available_staff_slots',
  'agenda_book_staff_slot','agenda_reschedule_booking','AGENDA_STAFF_SELECTION_REQUIRED',
