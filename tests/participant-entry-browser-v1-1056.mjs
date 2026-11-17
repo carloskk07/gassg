@@ -43,7 +43,7 @@ try{
    const details=document.querySelector('.tamao-account-access');
    if(!details)return {error:'Menu ausente'};
    const summary=details.querySelector('summary');
-   summary.click();await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
+   details.open=false;summary.click();await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
    const panel=details.querySelector('.tamao-account-access-panel');
    const box=panel.getBoundingClientRect(),button=summary.getBoundingClientRect();
    return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
