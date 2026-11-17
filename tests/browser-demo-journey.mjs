@@ -403,6 +403,33 @@ try{
  assert.equal(fresh.orders[2].status,'CANCELLED','previous cancelled order cannot block again');
  assert.deepEqual(forbidden,[],'repeat checkout must not contact backend or PSP');
 
+
+ // V1.1057: superadmin clicks require no separate account in the isolated demo.
+ const directScenarios=[
+  ['merchant',`route()==='merchant'&&state.mode==='merchant'`],
+  ['driver',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Entregador —')`],
+  ['club',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Meu Clube — demonstração')`],
+  ['network',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Minha Rede — demonstração')`],
+  ['agenda',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Agenda profissional — demonstração')`],
+  ['admin',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Admin — resumo de pedidos simulados')`],
+  ['customer',`route()==='home'&&state.mode==='customer'`],
+  ['tracking',`route()==='tracking'&&state.mode==='customer'`]
+ ];
+ for(const [role,condition] of directScenarios){
+  await send('Page.navigate',{url:base+'?tamao_demo_role='+role+'#home'});
+  await wait("window.TAMAO_BROWSER_DEMO===true&&("+condition+")",'direct no-login '+role,12000);
+  assert.equal(await evaluate('window.__CHAMA_TEST__'),true);
+  assert.equal(await evaluate('window.CHAMA_INTERNAL_PILOT'),false);
+  if(role==='agenda'){
+   await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Reservar horário fictício'));if(!b)return false;b.click();return true})()");
+   await wait("document.querySelector('.tamao-demo-panel')?.textContent.includes('Reservado')",'fictitious agenda booking');
+   await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Cancelar reserva fictícia'));if(!b)return false;b.click();return true})()");
+   await wait("!document.querySelector('.tamao-demo-panel')?.textContent.includes('Reservado')",'fictitious agenda cancellation');
+   await snapshot('11-admin-sem-login-agenda-simulada.png');
+  }
+  if(role==='merchant')await snapshot('12-admin-sem-login-revenda-simulada.png');
+ }
+ assert.deepEqual(forbidden,[],'QA shortcuts must not contact production or PSP');
  assert.deepEqual(forbidden,[],'P13 demo must never contact the production backend or PSP');
  console.log('PASS: hosted demo mobile Chrome WATER20 + P13 synthetic orders, two completed Admin entries, incorrect PIN and unpaid delivery rejected, reload persisted, zero production API/PSP.');
 }finally{
