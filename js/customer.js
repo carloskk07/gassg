@@ -91,8 +91,6 @@ function tamaoHomeBenefits({compact=false}={}){
   </section>`;
 }
 
-/* V1.1047 — public benefits overview: feature discovery, not a financial promise.
-   Keep legal/transaction rules at the action point; no benefit is activated here. */
 function tamaoHomeValueOverview(){
   return globalThis.document?.getElementById('tamao-home-benefits-template')?.innerHTML||'';
 }
@@ -661,7 +659,7 @@ function home(){
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
     </section>`:''}
-    <div class="tamao-storefront-benefit-strip"><div><strong>Mais motivos para fazer parte do TAMÃO</strong><span>Clube, cashback, indicações, serviços e oportunidades para negócios.</span></div><a href="#tamao-all-benefits">Conhecer todas as vantagens ↓</a></div></div>
+    ${globalThis.document?.getElementById('tamao-home-strip-template')?.innerHTML||''}
     ${couponBanner}
     ${tamaoHomeValueOverview()}
     ${adHomeSlot}
