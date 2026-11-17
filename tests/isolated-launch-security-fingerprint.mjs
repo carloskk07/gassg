@@ -15,10 +15,10 @@ const sql=q=>execFileSync('psql',[
 const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
- tableDigest:'b9af268e87e1fd2c40e7b6f18fa3b60f',
- rpcDigest:'6bd9d484039ed419ec4e0ae8bd14edc0',
- tableCount:7,rpcCount:36
-},'Local canonical migrated schema must match the explicitly reviewed PR #1020 ACL baseline');
+ tableDigest:'f741c20ee83b8e92f38028f42845d38a',
+ rpcDigest:'e50b806b328cd292e8a01d6cbb29a061',
+ tableCount:11,rpcCount:42
+},'Local canonical migrated schema must match the reviewed Agenda V1.1048 ACL baseline');
 const ready=()=>JSON.parse(sql("SELECT public.platform_launch_readiness()"));
 const launch=ready();
 assert.equal(launch.operationMode,'PRELAUNCH');
