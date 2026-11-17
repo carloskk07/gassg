@@ -20,7 +20,7 @@ const anonRead=name=>{
  return JSON.parse(output.split('\n').find(x=>x.trim().startsWith('{'))||'null');
 };
 const required=['clube_coupon_home_prices_v1_820','welcome_bonus_status_v1_815',
- 'agenda_available_slots','agenda_available_staff_slots','agenda_day_is_closed','agenda_public_directory','agenda_public_page'];
+ 'agenda_available_slots','agenda_deposit_quote','agenda_available_staff_slots','agenda_day_is_closed','agenda_public_directory','agenda_public_page'];
 const actual=JSON.parse(sql(
  "SELECT coalesce(jsonb_agg(p.proname ORDER BY p.proname),'[]'::jsonb)::text "+
  "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "+
