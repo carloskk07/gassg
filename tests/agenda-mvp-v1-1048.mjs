@@ -43,6 +43,8 @@ assert.doesNotMatch(landing,/["']\.\.\/(js|css|icons)\//);
 const standaloneBoot=readFileSync('js/agenda-boot.js','utf8');
 assert.match(standaloneBoot,/DOMContentLoaded',render/);
 assert.match(standaloneBoot,/addEventListener\('popstate',render\)/);
+const swSource=readFileSync('sw.js','utf8');
+assert.match(swSource,/\^\\\/agenda\(\?:\\\/\|\$\)/,'Direct Agenda paths must never replace storefront offline HTML');
 assert.match(source,/history\.pushState\(null,'',next\.pathname\)/);
 assert.match(source,/history\.replaceState\(null,'',new URL\(agendaShareLink\(returnSlug\)\)\.pathname\)/);
 assert.doesNotMatch(standaloneBoot,/history\.replaceState\(null,'',location\.pathname/);
