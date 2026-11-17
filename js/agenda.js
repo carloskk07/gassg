@@ -466,13 +466,19 @@ function agendaPage(){
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
  return shell('<section class="section agenda">'+head+agendaNote()+
   (slug?agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView():
-    '<div class="agenda-intro"><h2>Agenda profissional do TAMÃO</h2><p>Ideal para barbearias, salões, estúdios, aulas e outros atendimentos com hora marcada. Você define seu horário e compartilha seu próprio link.</p></div>'+
-    agendaDirectoryView()+
+   (s.ownerMode&&!s.user?
+    '<section class="agenda-panel agenda-fast-entry"><h2>Primeiro, confirme seu e-mail</h2>'+
+     '<p>Um link de acesso basta. Depois você cria e publica sua agenda rapidamente.</p>'+
+     agendaLoginForm()+
+     '<button type="button" class="secondary" onclick="agendaStopOwner()">Voltar às agendas</button></section>':
+    (s.user&&(s.page||s.ownerMode)?agendaOwnerEditor():
+     '<div class="agenda-intro"><h2>Atende clientes com hora marcada?</h2>'+
+      '<p>Crie sua página, configure seu primeiro serviço e receba reservas online sem mensalidade.</p>'+
+      '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda grátis</button></div>')+
     agendaMyBookingsView()+agendaMyWaitingView()+
-    (!s.user?agendaLoginForm():(s.page||s.ownerMode?agendaOwnerEditor():
-     '<section class="agenda-panel"><h2>É profissional?</h2><p>Crie gratuitamente sua página e controle seus horários.</p>'+
-     '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda</button></section>')+
-     '<p><button type="button" class="secondary" onclick="agendaLogout()">Sair da conta</button></p>'))+
+    (s.page?'<details class="agenda-other-pages"><summary>Encontrar outros profissionais</summary>'+agendaDirectoryView()+'</details>':
+     agendaDirectoryView())+
+    (s.user?'<p class="agenda-logout"><button type="button" class="secondary" onclick="agendaLogout()">Sair da conta</button></p>':'')))+
   '</section>');
 }
 async function agendaInit(){
@@ -500,7 +506,8 @@ async function agendaInit(){
   if(s.user)await agendaRefreshOwner();
   if(new URLSearchParams(location.search).get('agenda')==='1'){
    const url=new URL(location.href);const returnSlug=agendaSlug();
-   url.searchParams.delete('agenda');url.searchParams.delete('profissional');
+   if(url.searchParams.get('criar')==='1'&&!returnSlug)s.ownerMode=true;
+   url.searchParams.delete('agenda');url.searchParams.delete('profissional');url.searchParams.delete('criar');
    url.hash='agenda'+(returnSlug?'?profissional='+encodeURIComponent(returnSlug):'');
    history.replaceState(null,'',url.pathname+url.search+url.hash);
   }
@@ -616,7 +623,7 @@ async function agendaLogin(ev){
  s.busy=true;s.error='';s.notice='';
  try{
   const slug=agendaSlug();const url=location.origin+'/?agenda=1'+
-   (slug?'&profissional='+encodeURIComponent(slug):'');
+   (slug?'&profissional='+encodeURIComponent(slug):(s.ownerMode?'&criar=1':''));
   const {error}=await s.client.auth.signInWithOtp({email,options:{emailRedirectTo:url}});
   if(error)throw error;
   s.notice='Enviamos um link de acesso para seu e-mail.';
@@ -1136,7 +1143,8 @@ async function agendaCopyLink(){
 }
 function agendaGoMyPage(){location.hash='#agenda';}
 
-function agendaStartOwner(){agendaRuntime.ownerMode=true;render();}
+function agendaStartOwner(){agendaRuntime.ownerMode=true;agendaRuntime.error='';render();}
+function agendaStopOwner(){agendaRuntime.ownerMode=false;agendaRuntime.error='';render();}
 async function agendaLogout(){
  const s=agendaRuntime;if(!s.client||!s.user||s.busy)return;
  s.busy=true;s.error='';
