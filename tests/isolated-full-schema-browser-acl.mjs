@@ -134,7 +134,7 @@ for(const row of columns){
 const expectedFunctions=[
  'agenda_add_staff_block(p_staff_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)',
  'agenda_close_waitlist(p_wait_id uuid, p_contacted boolean)',
- 'agenda_join_waitlist(p_service_id uuid, p_staff_id uuid, p_day date, p_name text, p_phone text)',
+ 'agenda_join_waitlist(p_service_id uuid, p_staff_id uuid, p_day date, p_name text, p_phone text, p_consent boolean)',
  'agenda_mark_attendance(p_appointment_id uuid, p_result text)',
  'agenda_remove_staff_block(p_id uuid)',
  'agenda_available_slots(p_service_id uuid, p_day date)',
