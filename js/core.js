@@ -946,7 +946,7 @@ function shell(content){
 
   // Reuse safe static markup without increasing the customer's JS startup budget.
   const accountAccess=adminPortal||merchantPortal||testDemo?'':
-    document.getElementById('tamao-participant-access-template')?.innerHTML||'';
+    globalThis.document?.getElementById('tamao-participant-access-template')?.innerHTML||'';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal&&!merchantAuthenticated
