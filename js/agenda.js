@@ -33,6 +33,52 @@ function agendaToday(offset=0){
  const parts=Object.fromEntries(fmt.formatToParts(new Date(Date.now()+offset*86400000)).map(x=>[x.type,x.value]));
  return parts.year+'-'+parts.month+'-'+parts.day;
 }
+function agendaNextDay(day){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(String(day||''))||day>=agendaToday(30))return '';
+ const next=new Date(day+'T12:00:00Z');
+ if(!Number.isFinite(next.getTime()))return '';
+ next.setUTCDate(next.getUTCDate()+1);
+ const result=next.toISOString().slice(0,10);
+ return result<=agendaToday(30)?result:'';
+}
+// Only the selected public slot is retained for email-link login; no contacts or tokens.
+const agendaPendingKey='tamao-agenda-pending-v1';
+function agendaClearPendingChoice(){
+ try{localStorage.removeItem(agendaPendingKey);}catch(_){}
+}
+function agendaRememberPendingChoice(){
+ const s=agendaRuntime,slug=agendaSlug();
+ if(s.user||!slug||!s.selectedStart)return;
+ try{localStorage.setItem(agendaPendingKey,JSON.stringify({
+  slug,serviceId:s.serviceId,staffId:s.staffId,day:s.day,instant:s.selectedStart,
+  createdAt:Date.now()
+ }));}catch(_){}
+}
+function agendaReadPendingChoice(slug){
+ try{
+  const saved=JSON.parse(localStorage.getItem(agendaPendingKey)||'null');
+  if(!saved)return null;
+  if(saved.slug!==slug||!agendaSlugPattern.test(saved.slug)||
+   !agendaUuid.test(saved.serviceId)||
+   (saved.staffId&&!agendaUuid.test(saved.staffId))||
+   !/^\d{4}-\d{2}-\d{2}$/.test(String(saved.day||''))||
+   saved.day<agendaToday()||saved.day>agendaToday(30)||
+   !Number.isFinite(Date.parse(saved.instant))||
+   !Number.isFinite(saved.createdAt)||
+   saved.createdAt>Date.now()+60000||Date.now()-saved.createdAt>3600000){
+   agendaClearPendingChoice();return null;
+  }
+  return saved;
+ }catch(_){agendaClearPendingChoice();return null;}
+}
+function agendaSuggestedName(user){
+ const name=String(user?.user_metadata?.full_name||user?.user_metadata?.name||'').trim();
+ return name.length>=2&&name.length<=90?name:'';
+}
+function agendaSuggestedPhone(user){
+ const phone=String(user?.phone||'').trim();
+ return /^\+?[0-9 ()-]{8,25}$/.test(phone)?phone:'';
+}
 function agendaNote(){
  const s=agendaRuntime;
  return (s.notice?'<p class="agenda-note" role="status">'+esc(s.notice)+'</p>':'')+
