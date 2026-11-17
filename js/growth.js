@@ -679,7 +679,7 @@ function earn(){
         <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
         <h1 class="page-title">Compartilhe o TAMÃO. Veja sua Rede ganhar vida.</h1>
         <p class="page-lead">Convide amigos e empresas. Veja suas indicações, conquistas e benefícios em um só lugar.</p>
-        <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios com condições claras</span></div>
+        <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios por campanha</span></div>
 
       </div>
       <aside class="tamao-network-illustration" aria-label="Como a Rede TAMÃO aproxima consumidores e revendas">
