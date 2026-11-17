@@ -49,8 +49,9 @@ async function navigationNetworkFirst(req){
       const contentType=String(res.headers.get('content-type')||'').toLowerCase();
       // Independent editorial or appointment HTML must never overwrite the application's
       // offline shell; keep it under its own URL when visited.
-      const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes|agenda)(?:\/|\/index\.html)?$/i
-        .test(new URL(req.url).pathname);
+      const navPath=new URL(req.url).pathname;
+      const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
+        .test(navPath)||/^\/agenda(?:\/|$)/i.test(navPath);
       if(contentType.includes('text/html')&&!editorialPath){
         await cache.put('./index.html',res.clone());
       }else{
