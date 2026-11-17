@@ -943,6 +943,21 @@ function shell(content){
             '<button type="button" aria-current="'+(r===id?'page':'false')+
             '" onclick="go(\''+id+'\')">'+label+'</button>').join('')+
           '</div></details>').join('');
+
+  // V1.1055 — one obvious, permanent participant entrance on every public page.
+  // Links only navigate; authentication stays in each official protected portal.
+  const accountAccess=(!adminPortal&&!merchantPortal&&!testDemo)
+    ? '<details class="tamao-account-access">'+
+      '<summary aria-label="Acessos dos participantes"><span class="tamao-account-prompt">Já participa?</span> Entrar <span aria-hidden="true">⌄</span></summary>'+
+      '<nav class="tamao-account-access-panel" aria-label="Acessar minha área no TAMÃO">'+
+        '<a href="#club"><strong>Minha conta e Clube</strong><small>Cupons e compras</small></a>'+
+        '<a href="#earn"><strong>Rede e indicações</strong><small>Convites e benefícios</small></a>'+
+        '<a href="https://parceiro.tamao.com.br/"><strong>Revenda ou entregador</strong><small>Painel do parceiro</small></a>'+
+        '<a href="/agenda/"><strong>Agenda de profissionais</strong><small>Horários e reservas</small></a>'+
+        '<a href="#advertise"><strong>Anunciante</strong><small>Campanhas e serviços</small></a>'+
+        '<a href="https://admin.tamao.com.br/"><strong>Administração</strong><small>Acesso restrito</small></a>'+
+      '</nav></details>'
+    : '';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal&&!merchantAuthenticated
@@ -958,7 +973,7 @@ function shell(content){
   <header class="topbar${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-header':''}"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
     ${desktopNav?'<nav class="desktop-only desktop-nav'+(!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':'')+'" aria-label="Navegação principal">'+desktopNav+'</nav>':''}
-    ${switcher}
+    ${accountAccess}${switcher}
   </div></header>
   <main id="tamao-main" class="shell" tabindex="-1">${content}</main>
   ${!adminPortal&&!testDemo&&r!=='contact'?`<a class="tamao-help-shortcut" href="https://tamao.com.br/?tamao_help=${merchantPortal?'revenda':'cliente'}&modulo=${encodeURIComponent(r)}#contact">Ajuda / Reportar erro</a>`:''}
