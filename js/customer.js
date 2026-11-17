@@ -94,23 +94,7 @@ function tamaoHomeBenefits({compact=false}={}){
 /* V1.1047 — public benefits overview: feature discovery, not a financial promise.
    Keep legal/transaction rules at the action point; no benefit is activated here. */
 function tamaoHomeValueOverview(){
-  return `<section id="tamao-all-benefits" class="section tamao-all-benefits" aria-label="Descubra todas as vantagens do TAMÃO">
-    <div class="tamao-benefits-heading"><span class="section-kicker">UM TAMÃO DE VANTAGENS</span>
-      <h2>Tem muito mais para você no TAMÃO.</h2>
-      <p>Comprar, economizar, encontrar serviços, indicar pessoas ou fazer seu negócio aparecer. Tudo começa escolhendo o que faz sentido para você.</p></div>
-    <div class="tamao-benefits-grid">
-      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🔎</span><h3>Compare e escolha com tranquilidade</h3><p>Veja produtos, preços e entrega para seu CEP. Acompanhe seus pedidos em um só lugar.</p><button type="button" onclick="homeDiscoverFocus()">Explorar produtos <span aria-hidden="true">→</span></button></article>
-      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🎟️</span><h3>O Clube valoriza suas compras</h3><p>Descubra cupons, acompanhe seu cashback e veja os benefícios que já estão na sua conta.</p><button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button></article>
-      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🤝</span><h3>Indicar também é participar</h3><p>Convide amigos e negócios para diferentes áreas do TAMÃO. Acompanhe indicações, conquistas e a origem de cada benefício no extrato.</p><button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button></article>
-      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🛵</span><h3>Serviços para facilitar o seu dia</h3><p>Encontre moto, carro, profissionais e caronas anunciadas. Escolha com quem conversar e combine o atendimento.</p><button type="button" onclick="go('professionals')">Encontrar profissionais <span aria-hidden="true">→</span></button></article>
-      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🏪</span><h3>Sua revenda pode crescer aqui</h3><p>Mostre seus produtos, receba oportunidades de pedidos e mantenha o controle da sua operação.</p><button type="button" onclick="go('merchants')">Quero ser parceiro <span aria-hidden="true">→</span></button></article>
-      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">📣</span><h3>Sua marca mais perto da cidade</h3><p>Apresente sua empresa com campanhas locais e descubra ações que valorizam a relação com clientes.</p><button type="button" onclick="go('sponsors')">Divulgar minha marca <span aria-hidden="true">→</span></button></article>
-    </div>
-    <details class="tamao-benefits-details"><summary>Como funcionam os benefícios e campanhas?</summary>
-      <p>Os benefícios variam conforme o produto, a cidade, a campanha e a situação da sua conta. Cupons, cashback, comissões e bônus só são utilizados ou creditados quando estiverem habilitados e os critérios forem atendidos. Antes de comprar, participar de uma campanha ou solicitar saque, você verá as condições específicas e os valores correspondentes.</p>
-      <button type="button" onclick="go('earn')">Ver regras e oportunidades da Rede →</button>
-    </details>
-  </section>`;
+  return globalThis.document?.getElementById('tamao-home-benefits-template')?.innerHTML||'';
 }
 
 function customerProductName(code,p=products[code]){
