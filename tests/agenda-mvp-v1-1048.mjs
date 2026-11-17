@@ -29,7 +29,8 @@ assert.match(vm.runInContext('agendaShareLink("barbearia-sg")',ctx),/#agenda\?pr
 assert.match(vm.runInContext('agendaPage()',ctx),/TAMÃO AGENDA/);
 assert.match(landing,/js\/agenda\.js/);
 assert.match(landing,/js\/agenda-boot\.js/);
-assert.match(readFileSync('scripts/generate-runtime-config.mjs','utf8'),/agenda=1/);
+assert.match(readFileSync('scripts/generate-runtime-config.mjs','utf8'),/location\.pathname/);
+assert.match(readFileSync('js/runtime-config.js','utf8'),/location\.pathname/);
 assert.doesNotMatch(index,/agenda-callback\.js/);
 assert.doesNotMatch(landing,/<script>/);
 assert.doesNotMatch(index,/<script>/);
