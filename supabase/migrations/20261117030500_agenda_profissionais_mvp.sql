@@ -303,4 +303,45 @@ begin
 end $$;
 revoke all on function public.agenda_cancel_booking(uuid) from public,anon,authenticated;
 grant execute on function public.agenda_cancel_booking(uuid) to authenticated;
+
+-- Atomic owner weekly schedule update; never expose a partial timetable.
+create function public.agenda_replace_hours(p_page_id uuid,p_hours jsonb)
+returns integer language plpgsql security definer set search_path='pg_catalog'
+as $
+declare v_owner uuid:=(select auth.uid());v_hour jsonb;v_dow integer;v_start integer;v_end integer;v_seen integer[]:='{}';v_count integer:=0;
+begin
+ if v_owner is null or not public.discovery_verified_account()
+  or not exists(select 1 from public.agenda_pages p where p.id=p_page_id and p.owner_id=v_owner)
+ then raise exception 'AGENDA_OWNER_REQUIRED' using errcode='42501';end if;
+ if jsonb_typeof(p_hours)<>'array' or jsonb_array_length(p_hours)>7
+ then raise exception 'AGENDA_HOURS_INVALID' using errcode='22023';end if;
+ perform 1 from public.agenda_pages where id=p_page_id for update;
+ for v_hour in select value from jsonb_array_elements(p_hours) loop
+  if jsonb_typeof(v_hour)<>'object'
+    or not (v_hour ? 'weekday' and v_hour ? 'opens_min' and v_hour ? 'closes_min')
+    or (v_hour->>'weekday') !~ '^[0-6]
+    or (v_hour->>'opens_min') !~ '^[0-9]{1,4}
+    or (v_hour->>'closes_min') !~ '^[0-9]{1,4}
+  then raise exception 'AGENDA_HOURS_INVALID' using errcode='22023';end if;
+  v_dow:=(v_hour->>'weekday')::integer;
+  v_start:=(v_hour->>'opens_min')::integer;
+  v_end:=(v_hour->>'closes_min')::integer;
+  if v_dow=any(v_seen) or v_start<0 or v_start>1380
+    or v_end<30 or v_end>1440 or v_start>=v_end
+    or v_start%30<>0 or v_end%30<>0
+  then raise exception 'AGENDA_HOURS_INVALID' using errcode='22023';end if;
+  v_seen:=array_append(v_seen,v_dow);
+ end loop;
+ delete from public.agenda_hours where page_id=p_page_id;
+ for v_hour in select value from jsonb_array_elements(p_hours) loop
+  insert into public.agenda_hours(page_id,owner_id,weekday,opens_min,closes_min)
+  values (p_page_id,v_owner,(v_hour->>'weekday')::integer,
+   (v_hour->>'opens_min')::integer,(v_hour->>'closes_min')::integer);
+  v_count:=v_count+1;
+ end loop;
+ return v_count;
+end $;
+revoke all on function public.agenda_replace_hours(uuid,jsonb) from public,anon,authenticated;
+grant execute on function public.agenda_replace_hours(uuid,jsonb) to authenticated;
+
 commit;
