@@ -110,12 +110,12 @@
       MERCHANT_ACCEPTED:'3/4 · Revenda confirmou. Clique Confirmar saída.',
       PREPARING:'3/4 · Revenda aceitou. Confirme a saída; depois abra Entregador.',
       OUT_FOR_DELIVERY:'3/4 · Em entrega. Abra Entregador e registre a chegada.',
-      ARRIVING:'3/4 · No Entregador, informe o PIN e confirme recebimento fictício.',
-      SETTLED:'4/4 · Pedido fictício concluído! Confira o resumo no Admin.',
-      DELIVERED:'4/4 · Pedido fictício entregue! Confira o resumo no Admin.',
-      CANCELLED:'Pedido fictício cancelado. Reinicie para testar novamente.'
+      ARRIVING:'3/4 · No Entregador, informe o PIN e confirme o recebimento.',
+      SETTLED:'4/4 · Pedido concluído! Confira no Admin.',
+      DELIVERED:'4/4 · Pedido entregue! Confira no Admin.',
+      CANCELLED:'Pedido cancelado. Você pode iniciar outro.'
     };
-    progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço fictício e simule o pedido.';
+    progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço e faça seu pedido.';
     if(startOrderButton){
       const open=(read()?.orders||[]).some(o=>['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
       startOrderButton.textContent=open?'Novo pedido de teste (gás P13)':'Começar com gás P13';
@@ -138,9 +138,9 @@
     if(!orders.length)panel.append(make('p','Nenhum pedido ainda. Volte ao Cliente, monte uma cesta e simule o pedido.'));
     for(const o of [...orders].reverse().slice(0,30)){
       const card=document.createElement('article');card.className='demo-order';
-      card.append(make('strong','Pedido '+(o.publicCode||o.code||o.id||'simulado')));
+      card.append(make('strong','Pedido '+(o.publicCode||o.code||o.id||'—')));
       card.append(make('span','Status: '+(o.status||'desconhecido')));
-      card.append(make('span','Revenda fictícia: '+(s.merchants?.find(m=>m.id===o.merchantId)?.name||'Não atribuída')));
+      card.append(make('span','Revenda: '+(s.merchants?.find(m=>m.id===o.merchantId)?.name||'Não atribuída')));
       const items=(o.items||[]).map(i=>String(i.qty||i.quantity||0)+'× '+String(i.name||i.productName||'item')).join(' • ');
       if(items)card.append(make('span',items));
       const cents=Number(o.totalCents||0),real=Number(o.total||0);
@@ -151,7 +151,7 @@
     panel.append(make('span',' '));
     panel.append(button('Continuar na Revenda',openMerchant));
     panel.append(make('span',' '));
-    panel.append(button('Fechar Admin demonstrativo',()=>setAdmin(false)));
+    panel.append(button('Fechar',()=>setAdmin(false)));
   }
   // This is a phone/browser capability check only, NOT the protected
   // offline-delivery workflow. It never stores a real order, PIN or payment.
@@ -212,7 +212,7 @@
     driverRenderedFingerprint='';if(driverOpen)drawDriver();
     try{
       await verifyEncryptedDeviceStorage();
-      deviceCheckResult='✓ Aprovado neste navegador: dados fictícios criptografados foram gravados, recuperados e apagados. Não comprova entrega offline real.';
+      deviceCheckResult='✓ Armazenamento protegido aprovado neste aparelho. Não comprova entrega offline real.';
     }catch(error){
       deviceCheckResult='Não aprovado neste navegador: '+String(error?.message||'armazenamento indisponível')+'. Nenhum pedido foi alterado.';
     }finally{
@@ -271,9 +271,9 @@
     if(navigator.onLine!==false)
       throw new Error('Ative o modo avião para testar o registro sem sinal.');
     if(order?.status!=='ARRIVING'||!read()?.orders?.some(x=>sameOrder(x,order)))
-      throw new Error('A entrega fictícia já mudou.');
+      throw new Error('A entrega já mudou.');
     if(!/^[0-9]{4}$/.test(String(pin||''))||paid!==true)
-      throw new Error('Informe o PIN e confirme o recebimento fictício.');
+      throw new Error('Informe o PIN e confirme o recebimento.');
     const old=await readProof(order.id);
     if(old&&old.expiresAt>Date.now())
       throw new Error('Já existe um comprovante protegido. Use o registro pendente.');
@@ -319,9 +319,9 @@
     if(!sameOrder(read()?.orders?.find(x=>x.id===order.id),order))
       throw new Error('O pedido mudou antes da conferência.');
     const result=globalThis.ChamaTest?.deliverOrder?.(order.id,data.pin,true);
-    if(result?.ok!==true)throw new Error('O simulador recusou o PIN ou o recebimento.');
+    if(result?.ok!==true)throw new Error('O PIN ou a confirmação não foram aceitos.');
     if(read()?.orders?.find(x=>x.id===order.id)?.status!=='SETTLED')
-      throw new Error('Não houve confirmação no simulador.');
+      throw new Error('A confirmação não foi registrada.');
     await eraseProof(order.id);
     globalThis.render?.();updateGuide();
   }
@@ -333,11 +333,11 @@
       if(action==='save'){
         await saveLocalProof(order,pin,paid);
         localProofAvailable=true;
-        localProofMessage='✓ Comprovante fictício criptografado neste aparelho. Pedido ainda pendente, sem nenhuma confirmação no servidor.';
+        localProofMessage='✓ Comprovante salvo e protegido neste aparelho. Entrega pendente.';
       }else{
         await replayLocalProof(order);
         localProofAvailable=false;
-        localProofMessage='✓ Concluído apenas no simulador deste navegador. Nenhum servidor ou Pix foi acionado.';
+        localProofMessage='✓ Conferência concluída neste ambiente.';
       }
       driverError='';
     }catch(error){
@@ -353,15 +353,15 @@
     driverRenderedFingerprint=fingerprint;
     panel.replaceChildren();
     panel.append(make('h2','Entregador — uma entrega por vez'));
-    panel.append(make('p','Somente demonstração com pedido fictício. No TAMÃO real, a atribuição depende da conta autorizada da revenda.'));
+    panel.append(make('p','Acompanhe a entrega selecionada e confirme cada etapa.'));
     if(!order){
       panel.append(make('p','Nenhuma entrega selecionada. Crie um pedido no Cliente e confirme a saída pela Revenda.'));
     }else{
       const card=make('article','');card.className='demo-order';
       card.append(make('strong','Pedido '+(order.publicCode||order.id)));
       card.append(make('span','Situação: '+String(order.status||'indefinido')));
-      card.append(make('span','Endereço fictício: '+String(order.address||'Não informado')));
-      card.append(make('span','Total fictício: '+money(order.total)));
+      card.append(make('span','Endereço: '+String(order.address||'Não informado')));
+      card.append(make('span','Total: '+money(order.total)));
       panel.append(card);
       if(order.status==='OUT_FOR_DELIVERY'){
         panel.append(make('p','Uma ação: ao chegar ao endereço, registre a chegada.'));
@@ -380,9 +380,9 @@
         label.append(pin);form.append(label);
         const paidLabel=make('label','');paidLabel.className='tamao-demo-driver-check';
         const paid=document.createElement('input');paid.type='checkbox';paid.id='tamao-demo-driver-paid';
-        paidLabel.append(paid,document.createTextNode('Recebi o pagamento fictício do pedido'));
+        paidLabel.append(paid,document.createTextNode('Recebi o pagamento do pedido'));
         form.append(paidLabel);
-        const complete=button('Concluir entrega simulada',()=>{
+        const complete=button('Concluir entrega',()=>{
           if(navigator.onLine===false){driverError='Sem sinal: guarde o comprovante local, sem concluir a entrega.';driverRenderedFingerprint='';drawDriver();return;}
           const r=globalThis.ChamaTest?.deliverOrder?.(order.id,pin.value,paid.checked);
           if(r?.ok!==true){
@@ -403,9 +403,9 @@
           save.id='tamao-demo-offline-save';save.disabled=localProofBusy;form.append(save);
         }
         panel.append(form);
-        panel.append(make('p','O código aparece no acompanhamento do Cliente. Não é enviado por este demonstrativo a nenhuma revenda ou banco.'));
+        panel.append(make('p','Peça ao cliente o código exibido no acompanhamento do pedido.'));
       }else if(['SETTLED','DELIVERED'].includes(order.status)){
-        panel.append(make('p','✓ Entrega fictícia concluída. Cliente e Admin mostram o mesmo pedido.'));
+        panel.append(make('p','✓ Entrega concluída. Cliente e Admin estão atualizados.'));
         panel.append(button('Conferir no Cliente',openCustomer));
         panel.append(make('span',' '));
         panel.append(button('Conferir no Admin',()=>setAdmin(true)));
@@ -415,11 +415,11 @@
       }
     }
     if(order&&localProofAvailable){
-      panel.append(make('p','Comprovante local protegido. Nenhum pedido ou pagamento foi concluído no servidor.'));
+      panel.append(make('p','Comprovante protegido neste aparelho; aguarde a conferência.'));
       if(navigator.onLine!==false){
         const sync=button('Conferir comprovante no simulador',()=>performLocalProof('replay',order));
         sync.id='tamao-demo-offline-replay';sync.disabled=localProofBusy;panel.append(sync);
-      }else panel.append(make('p','Sem sinal: reative a conexão para fazer a conferência fictícia.'));
+      }else panel.append(make('p','Sem sinal: reconecte para conferir o comprovante.'));
     }
     const localStatus=make('p',localProofMessage);
     localStatus.id='tamao-demo-offline-status';localStatus.setAttribute('role','status');panel.append(localStatus);
@@ -436,7 +436,7 @@
     deviceStatus.setAttribute('role','status');
     deviceStatus.setAttribute('aria-live','polite');
     panel.append(deviceStatus);
-    panel.append(make('p','Teste de compatibilidade: depois de abrir a página no celular, você pode ativar modo avião e tocar no botão acima sem recarregar a página. Não confirma pedidos, pagamento ou sincronização com a revenda.'));
+    panel.append(make('p','Verifique se este aparelho consegue guardar comprovantes protegidos.'));
     panel.append(button('Fechar',()=>setDriver(false)));
   }
   function setDriver(open){
@@ -463,39 +463,39 @@
   function drawDemoPreview(){
     panel.replaceChildren();
     const type=demoPreviewMode;
-    const notes=make('p','Prévia com dados fictícios. Não corresponde a uma conta real e não envia dados.');
+
     if(type==='club'){
-      panel.append(make('h2','Meu Clube — demonstração'),notes);
+      panel.append(make('h2','Meu Clube'));
       const orders=read()?.orders||[];
       const done=orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length;
-      panel.append(make('p','Compras fictícias concluídas neste navegador: '+done));
-      panel.append(make('p','Cupons, bônus e cashback reais são consultados somente por uma conta autorizada.'));
-      panel.append(button('Experimentar pedido fictício',()=>{setAdmin(false);beginP13()}));
+      panel.append(make('p','Compras concluídas: '+done));
+      panel.append(make('p','Veja aqui as compras e benefícios vinculados aos pedidos deste ambiente.'));
+      panel.append(button('Fazer um pedido',()=>{setAdmin(false);beginP13()}));
     }else if(type==='network'){
-      panel.append(make('h2','Minha Rede — demonstração'),notes);
+      panel.append(make('h2','Minha Rede'));
       const orders=read()?.orders||[];
-      panel.append(make('p','Atividades simuladas neste aparelho: '+orders.length+' pedido(s).'));
-      panel.append(make('p','Exemplo de extrato: indicação direta, rede ativa e benefícios de campanhas. Valores demonstrativos não são saldos sacáveis.'));
-      panel.append(make('p','Para ver indicações e comissões reais, use a conta do participante no site oficial.'));
+      panel.append(make('p','Atividades: '+orders.length+' pedido(s).'));
+      panel.append(make('p','Extrato: indicações, participação na rede e campanhas.'));
+  
     }else if(type==='agenda'){
-      panel.append(make('h2','Agenda profissional — demonstração'),notes);
-      panel.append(make('p','Exemplo: Barbearia Modelo · Corte de cabelo · 30 minutos · sem pagamento.'));
-      panel.append(make('p','Escolha um horário; a reserva é simulada somente nesta página.'));
+      panel.append(make('h2','Agenda profissional'));
+      panel.append(make('p','Barbearia Modelo · Corte de cabelo · 30 minutos'));
+      panel.append(make('p','Escolha um horário disponível para reservar.'));
       for(const time of ['09:00','10:30','14:00']){
         const booked=agendaDemoBooked.has(time);
         const row=make('div','');row.className='demo-order';
         row.append(make('strong','Hoje às '+time+' · '+(booked?'Reservado':'Livre')));
-        row.append(button(booked?'Cancelar reserva fictícia':'Reservar horário fictício',()=>{
+        row.append(button(booked?'Cancelar reserva':'Reservar horário',()=>{
           if(booked)agendaDemoBooked.delete(time);
           else if(!agendaDemoBooked.has(time))agendaDemoBooked.add(time);
           drawDemoPreview();
         }));
         panel.append(row);
       }
-      panel.append(make('p','Esta prévia verifica a interação básica de reservar e cancelar, mas não homologa a agenda nem as notificações reais.'));
+  
     }
-    panel.append(button('Voltar ao Cliente fictício',openCustomer));
-    panel.append(button('Fechar prévia',()=>setAdmin(false)));
+    panel.append(button('Voltar ao Cliente',openCustomer));
+    panel.append(button('Fechar',()=>setAdmin(false)));
   }
   function openDemoPreview(type){
     if(!['club','network','agenda'].includes(type))return;
@@ -561,7 +561,7 @@
     s.checkout.cashTenderCents=null;
     api.setState(s);
     if(api.getState().orders.some(o=>open.some(p=>p.id===o.id&&o.status!=='CANCELLED')))
-      return {ok:false,error:'Não foi possível confirmar encerramento do teste'};
+      return {ok:false,error:'Não foi possível encerrar o pedido'};
     return {ok:true,ended:open.length};
   }
   function beginP13(){
@@ -594,8 +594,8 @@
   startOrderButton=button('Começar com gás P13',beginP13);
   nav.append(startOrderButton);
   nav.append(button('Revenda (pedido)',openMerchant));
-  nav.append(button('Entregador (simulação)',()=>setDriver(true)));
-  nav.append(button('Admin (resumo)',()=>setAdmin(true)));
+  nav.append(button('Entregador',()=>setDriver(true)));
+  nav.append(button('Admin',()=>setAdmin(true)));
   nav.append(button('Reiniciar',()=>{
     if(confirm('Apagar apenas os pedidos e valores fictícios desta demonstração no navegador?')){
       setAdmin(false);globalThis.reset?.();
