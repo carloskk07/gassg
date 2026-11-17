@@ -594,7 +594,7 @@ function refer(){
   const referredCount=live?Math.max(0,Number(globalThis.liveRuntime?.referredCount||0)):0;
   const qualifiedReferralCount=live?Math.max(0,Number(globalThis.liveRuntime?.qualifiedReferralCount||0)):0;
   const referralCard=hasReferral
-    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">O QR e o link apontam para o mesmo código pessoal. Quem entrar por eles continua sujeito às regras de primeira compra qualificada.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
+    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">QR e link usam o mesmo código. Comissões exigem primeira compra válida.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
     : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do TAMÃO.</div>';
   const identityCard=live&&!permanent
     ? `<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>`
@@ -610,7 +610,7 @@ function refer(){
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
     <span class="eyebrow">CONVIDE ALGUÉM PARA CONHECER</span>
     <h1 class="page-title">Seu próximo convite pode abrir novas portas.</h1>
-    <p class="muted page-lead">Construa sua Rede TAMÃO no seu ritmo. Compartilhe seu link com amigos, apresente o aplicativo a quem precisa e acompanhe seus convidados e as compras qualificadas.</p>
+    <p class="muted page-lead">Compartilhe seu link e acompanhe os benefícios das indicações verificadas.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -624,7 +624,7 @@ function refer(){
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule a recompensa de primeiras compras qualificadas e entenda as regras antes de compartilhar.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule benefícios de primeiras compras válidas.</p></div></div>
       <div class="calculator-card">
         <div class="calculator-inputs">
           <div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()" list="rqn"><datalist id="rqn"><option value="5"><option value="10"><option value="50"></datalist></div>
