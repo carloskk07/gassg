@@ -246,17 +246,9 @@ function agendaDateTime(value){
  catch{return 'Data indisponível';}
 }
 function agendaDepositQuoteView(q){
- const price=Number(q.price_cents)||0,percent=Number(q.percent)||0;
- if(percent===0)return '<p class="agenda-deposit-summary">Sem sinal: a reserva é gratuita e o valor do serviço é pago diretamente ao profissional.</p>';
- const deposit=Number(q.deposit_cents)||0,remaining=Number(q.remaining_cents)||0;
- return '<div class="agenda-deposit-summary">'+
-   '<strong>Sinal planejado: '+percent+'%</strong>'+
-   '<p>Valor do serviço: '+agendaMoney(price)+' • Futuro sinal: '+agendaMoney(deposit)+
-   ' • Restante no atendimento: '+agendaMoney(remaining)+'</p>'+
-   '<p><strong>Sem cobrança antecipada nesta versão.</strong> O agendamento continua gratuito. '+
-   'Quando houver pagamento online autorizado, o sinal será abatido do preço total e recebido pelo profissional.</p>'+
-   '<p class="tiny muted">Condições informadas: '+esc(q.policy_text||'Respeitam-se os direitos de cancelamento e reembolso do consumidor.')+'</p>'+
-  '</div>';
+ // Until professional OAuth and financial reconciliation are homologated,
+ // planned percentages belong only in the owner's editor.
+ return '<p class="agenda-deposit-summary">Agendamento gratuito, sem sinal antecipado. O valor do serviço é pago diretamente ao profissional.</p>';
 }
 function agendaPublicView(){
  const s=agendaRuntime,p=s.publicProfile;
