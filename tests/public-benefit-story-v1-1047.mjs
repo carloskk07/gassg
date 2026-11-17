@@ -3,13 +3,15 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const customer=read('js/customer.js'),growth=read('js/growth.js');
-const index=read('index.html'),css=read('css/benefit-story.css');
+const index=read('index.html'),css=index;
 new vm.Script(customer,{filename:'customer.js'});
 new vm.Script(growth,{filename:'growth.js'});
 const a=customer.indexOf('function tamaoHomeValueOverview(){');
 const b=customer.indexOf('\nfunction customerProductName(',a);
 assert.ok(a>0&&b>a,'Benefits renderer must be independent of test demo');
-const ctx=vm.createContext({});
+const match=index.match(/<template id="tamao-home-benefits-template">([\s\S]*?)<\/template>/);
+assert.ok(match,'Public benefits template must exist');
+const ctx=vm.createContext({document:{getElementById:id=>id==='tamao-home-benefits-template'?{innerHTML:match[1]}:null}});
 vm.runInContext(customer.slice(a,b)+'\nthis.result=tamaoHomeValueOverview();',ctx);
 const html=ctx.result;
 assert.match(html,/Um TAMÃO de vantagens/i);
@@ -32,7 +34,7 @@ assert.equal((live.match(/tamaoHomeValueOverview\(\)/g)||[]).length,1,
 assert.ok(live.indexOf('${couponBanner}')<live.indexOf('${tamaoHomeValueOverview()}'));
 assert.ok(live.includes('class="tamao-storefront-benefit-strip"'));
 assert.ok(live.includes('href="#tamao-all-benefits"'));
-assert.ok(index.includes('./css/benefit-story.css'));
+assert.ok(index.includes('<style id="tamao-benefit-story-css">'));
 assert.ok(index.includes('Mais vantagens para as suas compras!'));
 for(const cssRule of ['.tamao-benefits-grid','.tamao-benefit-tile','@media(max-width:900px)','@media(max-width:650px)']){
  assert.ok(css.includes(cssRule),'Missing responsive style '+cssRule);
