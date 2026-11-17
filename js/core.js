@@ -972,11 +972,10 @@ function shell(content){
 }
 // V1.985: close desktop disclosures on outside interaction or Escape, preserving native summary keyboard behavior.
 function tamaoPublicMenuDismiss(event){
-  const panels=document.querySelectorAll('.tamao-nav-more[open],.tamao-account-access[open]');
-  for(const panel of panels){
-    if(event.type==='pointerdown'&&!panel.contains(event.target))panel.open=false;
-    else if(event.type==='keydown'&&event.key==='Escape'&&panel.contains(event.target)){
-      panel.open=false;panel.querySelector('summary')?.focus();
+  for(const p of document.querySelectorAll('.tamao-nav-more[open],.tamao-account-access[open]')){
+    if(event.type==='pointerdown'&&!p.contains(event.target))p.open=false;
+    else if(event.type==='keydown'&&event.key==='Escape'&&p.contains(event.target)){
+      p.open=false;p.querySelector('summary')?.focus();
     }
   }
 }
