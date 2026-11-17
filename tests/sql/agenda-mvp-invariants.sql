@@ -26,6 +26,7 @@ begin
     or has_function_privilege('anon','public.agenda_cancel_booking(uuid)','execute')
     or has_function_privilege('anon','public.agenda_replace_hours(uuid,jsonb)','execute')
     or has_function_privilege('anon','public.agenda_set_closed_day(date,boolean)','execute')
+    or has_function_privilege('anon','public.agenda_my_bookings()','execute')
  then raise exception 'AGENDA_WRITE_RPC_EXPOSED';end if;
  if not has_function_privilege('anon','public.agenda_available_slots(uuid,date)','execute')
  then raise exception 'AGENDA_PUBLIC_SLOTS_NOT_AVAILABLE';end if;
@@ -113,6 +114,15 @@ begin
  exception when invalid_parameter_value then
   if sqlerrm<>'AGENDA_DAY_HAS_BOOKINGS' then raise;end if;
  end;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ if not exists(
+  select 1 from public.agenda_my_bookings() mine
+  where mine.id=(v_first->>'id')::uuid and mine.page_title='Barbearia verificada CI'
+    and mine.service_title='Corte simples' and mine.slug='barbearia-integracao-ci'
+ ) then raise exception 'AGENDA_CUSTOMER_DETAILS_MISSING';end if;
+ perform set_config('request.jwt.claim.sub',v_second::text,true);
+ if exists(select 1 from public.agenda_my_bookings() mine where mine.id=(v_first->>'id')::uuid)
+ then raise exception 'AGENDA_CUSTOMER_DETAILS_CROSSED_ACCOUNTS';end if;
 end $test$;
 rollback;
 \echo 'PASS: Agenda ACL, booking idempotence, concurrency, cancellation, and protected professional holidays.'
