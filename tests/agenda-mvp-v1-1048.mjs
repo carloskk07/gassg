@@ -115,4 +115,26 @@ vm.runInContext('agendaRuntime.mine=[{id:"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
 assert.match(vm.runInContext('agendaMyBookingsView()',ctx),/Remarcar/);
 assert.match(vm.runInContext('agendaMyBookingsView()',ctx),/Ana/);
 assert.match(vm.runInContext('agendaIcsContent({...agendaRuntime.mine[0],reschedule_count:2},"Corte")',ctx),/SEQUENCE:2/);
-console.log('PASS: TAMÃO Agenda equipe, remarcação, folgas, privacidade, ICS e sem cobrança real.');
+const operations=readFileSync('supabase/migrations/20261117140000_agenda_operacao_v1_1051.sql','utf8');
+for(const word of ['agenda_waitlist_participants_read','agenda_staff_blocks_owner_read',
+ 'agenda_join_waitlist','agenda_close_waitlist','agenda_add_staff_block',
+ 'agenda_remove_staff_block','agenda_mark_attendance','agenda_staff_block_booking_guard',
+ 'agenda_booking_events','AGENDA_BLOCK_HAS_BOOKINGS','AGENDA_STAFF_BLOCKED',
+ 'AGENDA_WAITLIST_NOT_ALLOWED','AGENDA_ATTENDANCE_INVALID'])
+ assert.match(operations,new RegExp(word));
+assert.doesNotMatch(operations,/mercadopago|mp_access_token|pix|payment_attempt|split_payments/i);
+for(const handler of ['agendaAddBlock','agendaRemoveBlock','agendaJoinWaitlist',
+ 'agendaCloseWaitlist','agendaMarkAttendance','agendaMyWaitingView'])
+ assert.match(source,new RegExp(handler));
+assert.match(source,/consent/);
+assert.match(source,/sem disparos automáticos/);
+assert.match(css,/agenda-block-form|agenda-waitlist/);
+vm.runInContext('agendaRuntime.waiting=[{id:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",customer_name:"Carla",customer_phone:"+5555999999999",day:"2026-11-25"}]',ctx);
+assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Lista de espera/);
+assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Marcar como contatado/);
+vm.runInContext('agendaRuntime.myWaiting=[{id:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",day:"2026-11-25"}]',ctx);
+assert.match(vm.runInContext('agendaMyWaitingView()',ctx),/Sair da lista/);
+vm.runInContext('agendaRuntime.selectedStart="";agendaRuntime.slots=[];agendaRuntime.slotBusy=false;agendaRuntime.dayClosed=false;',ctx);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Entrar na lista de espera/);
+assert.match(vm.runInContext('agendaLocalHourToInstant("2026-11-23","12:30")',ctx),/2026-11-23T15:30:00.000Z/);
+console.log('PASS: Agenda equipe, fila opt-in, pausas, presença, folgas, privacidade e calendário.');
