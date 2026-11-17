@@ -15,10 +15,10 @@ const ctx={
 };
 vm.runInNewContext(qa+'\nthis.view=adminTestCenterView;',ctx);
 const view=ctx.view();
-assert.match(view,/Testar sem fazer outro login/);
-assert.match(view,/Ambiente demonstrativo, separado da produção/);
-assert.match(view,/Conferir páginas reais do site/);
-assert.match(view,/algumas exigem login/);
+assert.match(view,/Testar páginas/);
+assert.match(view,/Modo teste · dados fictícios/);
+assert.match(view,/Abrir páginas oficiais/);
+assert.match(view,/acesso autenticado quando necessário/);
 assert.match(view,/Financeiro e Pix/);
 assert.equal((view.match(/data-admin-demo=/g)||[]).length,8);
 for(const role of ['customer','tracking','merchant','driver','club','network','agenda','admin']){
@@ -36,8 +36,8 @@ assert.match(demo,/new URLSearchParams\(location\.search\)\.get\('tamao_demo_rol
 assert.match(demo,/\['customer','tracking','merchant','driver','admin','club','network','agenda'\]/);
 assert.match(demo,/function openDemoPreview\(type\)/);
 assert.match(demo,/agendaDemoBooked/);
-assert.match(demo,/Cancelar reserva fictícia/);
-assert.match(demo,/Reservar horário fictício/);
+assert.match(demo,/Cancelar reserva/);
+assert.match(demo,/Reservar horário/);
 assert.doesNotMatch(demo,/fetch\(['"]https:\/\/lgugwujpunhslavewffd|service_role|generateLink|signInWithOtp/);
 assert.match(builder,/demo-no-backend\.invalid/);
 assert.match(builder,/globalThis\.__CHAMA_TEST__=true/);

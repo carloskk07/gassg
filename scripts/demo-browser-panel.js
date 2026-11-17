@@ -6,12 +6,14 @@
   if(!host)return;
   const style=document.createElement('style');
   style.textContent=[
-    '#tamao-demo-browser-banner{position:sticky;top:0;z-index:90000;background:#fff1c7;color:#3e2810;font:600 12px/1.4 system-ui,sans-serif;border-bottom:2px solid #b67a17}',
-    '.tamao-demo-tools{max-width:1200px;margin:auto;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 12px}',
+    '#tamao-demo-browser-banner{position:sticky;top:0;z-index:90000;background:#f8fbf9;color:#214c39;font:600 12px/1.4 system-ui,sans-serif;border-bottom:1px solid #dce9e0;box-shadow:0 2px 12px #163b2410}',
+    '.tamao-demo-tools{max-width:1280px;margin:auto;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:7px 12px}',
     '.tamao-demo-tools strong{font-weight:800}.tamao-demo-tools span{font-weight:500}',
-    '.tamao-demo-tools button{border:1px solid #945d00;background:#fff9eb;color:#44300d;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer}',
-    '.tamao-demo-tools button:focus-visible{outline:3px solid #433312;outline-offset:2px}',
-    '.tamao-demo-progress{width:100%;font-weight:700;font-size:12px;text-align:center;color:#70440c}',
+    '.tamao-demo-tools button{border:1px solid #cfdfd3;background:#fff;color:#22553c;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer}',
+    '.tamao-demo-tools button:focus-visible{outline:3px solid #bd882c;outline-offset:2px}',
+    '.tamao-demo-progress{width:100%;font-weight:650;font-size:11px;text-align:center;color:#527263}',
+    '.tamao-demo-menu-toggle{display:none!important}',
+    '.tamao-demo-brand{font-size:14px;letter-spacing:-.03em}.tamao-demo-mode{font-size:11px;color:#4d7660;padding:5px 9px;border:1px solid #d6e5db;border-radius:999px;background:#fff;white-space:nowrap}.tamao-demo-nav{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}.tamao-demo-nav button:hover{background:#eaf6ee;border-color:#92b99f}',
     '.tamao-demo-dialog{position:fixed;z-index:90010;inset:0;background:rgba(9,22,19,.66);display:none;place-items:center;padding:18px}',
     '.tamao-demo-dialog[data-open="true"]{display:grid}',
     '.tamao-demo-panel{background:#fff;color:#1a2923;border-radius:16px;max-width:760px;width:100%;max-height:82vh;overflow-y:auto;padding:24px;font:14px/1.5 system-ui,sans-serif;box-shadow:0 18px 50px #0004}',
@@ -19,19 +21,32 @@
     '.tamao-demo-panel .demo-order{border:1px solid #ccd8d0;border-radius:10px;margin:10px 0;padding:12px;display:grid;gap:3px}',
     '.tamao-demo-panel .demo-amount{font-size:20px;font-weight:750}.tamao-demo-panel button{padding:9px 14px;border:1px solid #256f51;border-radius:8px;background:#effaf2;color:#134932;cursor:pointer}',
     '.tamao-demo-panel .demo-stats{display:flex;gap:12px;flex-wrap:wrap}.tamao-demo-panel .demo-stats span{padding:10px;background:#ecf5f0;border-radius:9px}',
+    '.tamao-demo-offline-help{margin:12px 0;border:1px solid #e2eae5;border-radius:10px;padding:8px 12px;color:#3b6750}.tamao-demo-offline-help summary{cursor:pointer;font-size:12px;font-weight:700;min-height:32px;display:list-item;align-content:center}.tamao-demo-offline-help p{font-size:12px;color:#587563}',
     '.tamao-demo-driver-form{display:grid;gap:12px;max-width:460px}.tamao-demo-driver-form label{display:grid;gap:5px;font-weight:650}.tamao-demo-driver-form input[type=text]{width:100%;padding:11px;font:inherit;border:1px solid #879e93;border-radius:8px}.tamao-demo-driver-check{display:flex!important;align-items:center;gap:8px}.tamao-demo-driver-check input{width:20px;height:20px}.tamao-demo-driver-status{font-weight:650;color:#69451b}',
-    '@media(max-width:600px){.tamao-demo-tools{justify-content:center}.tamao-demo-tools>div{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}.tamao-demo-tools>span{font-size:11px}}'
+    '@media(max-width:600px){.tamao-demo-tools{justify-content:space-between;gap:6px;padding:7px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-menu-toggle{display:inline-flex!important;align-items:center;justify-content:center;padding:6px 9px!important;font-size:11px!important}.tamao-demo-nav{display:none!important;width:100%;order:4}.tamao-demo-tools[data-menu-open=true] .tamao-demo-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px;order:5}}'
   ].join('\n');
   document.head.appendChild(style);
   const tools=document.createElement('div');tools.className='tamao-demo-tools';
-  const heading=document.createElement('strong');heading.textContent='🧪 TAMÃO — DEMONSTRAÇÃO INTERATIVA';
-  const detail=document.createElement('span');detail.textContent='Pedidos e valores fictícios • sem cadastro, Pix ou cobrança real';
-  const nav=document.createElement('div');
+  const heading=document.createElement('strong');heading.textContent='TAMÃO';heading.className='tamao-demo-brand';
+  const detail=document.createElement('span');detail.textContent='Modo teste · dados fictícios';detail.className='tamao-demo-mode';
+  const nav=document.createElement('div');nav.className='tamao-demo-nav';nav.id='tamao-demo-nav';
   const progress=document.createElement('div');progress.className='tamao-demo-progress';progress.id='tamao-demo-progress';progress.setAttribute('role','status');
   const button=(label,fn)=>{
     const el=document.createElement('button');el.type='button';el.textContent=label;
     el.addEventListener('click',fn);return el;
   };
+  const areaToggle=button('Áreas ▾',()=>{
+    const expanded=tools.dataset.menuOpen!=='true';
+    tools.dataset.menuOpen=String(expanded);areaToggle.setAttribute('aria-expanded',String(expanded));
+  });
+  areaToggle.className='tamao-demo-menu-toggle';
+  areaToggle.setAttribute('aria-controls','tamao-demo-nav');
+  areaToggle.setAttribute('aria-expanded','false');
+  tools.dataset.menuOpen='false';
+  nav.addEventListener('click',event=>{
+    if(!event.target?.closest?.('button'))return;
+    tools.dataset.menuOpen='false';areaToggle.setAttribute('aria-expanded','false');
+  });
   let startOrderButton=null;
   let adminOpen=false;
   let demoPreviewMode='';
@@ -105,19 +120,19 @@
     const o=currentOrder();
     const status=o?.status||'';
     const steps={
-      OFFERED_TO_MERCHANT:'2/4 · Pedido enviado. Abra Revenda e clique Aceitar pedido.',
-      MERCHANT_ACCEPTED:'3/4 · Revenda confirmou. Clique Confirmar saída.',
-      PREPARING:'3/4 · Revenda aceitou. Confirme a saída; depois abra Entregador.',
-      OUT_FOR_DELIVERY:'3/4 · Em entrega. Abra Entregador e registre a chegada.',
-      ARRIVING:'3/4 · No Entregador, informe o PIN e confirme recebimento fictício.',
-      SETTLED:'4/4 · Pedido fictício concluído! Confira o resumo no Admin.',
-      DELIVERED:'4/4 · Pedido fictício entregue! Confira o resumo no Admin.',
-      CANCELLED:'Pedido fictício cancelado. Reinicie para testar novamente.'
+      OFFERED_TO_MERCHANT:'2/4 · Pedido enviado. Abra Revenda.',
+      MERCHANT_ACCEPTED:'3/4 · Revenda confirmou. Prepare a saída.',
+      PREPARING:'3/4 · Confirme a saída e abra Entregador.',
+      OUT_FOR_DELIVERY:'3/4 · Em entrega. Abra Entregador.',
+      ARRIVING:'3/4 · Informe o PIN e conclua a entrega.',
+      SETTLED:'4/4 · Pedido concluído! Confira no Admin.',
+      DELIVERED:'4/4 · Pedido entregue! Confira no Admin.',
+      CANCELLED:'Pedido cancelado. Você pode iniciar outro.'
     };
-    progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço fictício e simule o pedido.';
+    progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto.';
     if(startOrderButton){
       const open=(read()?.orders||[]).some(o=>['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
-      startOrderButton.textContent=open?'Novo pedido de teste (gás P13)':'Começar com gás P13';
+      startOrderButton.textContent=open?'Novo pedido (gás P13)':'Começar com gás P13';
     }
   }
   function drawAdmin(){
@@ -125,21 +140,21 @@
     if(signature===adminRenderedFingerprint&&panel.childElementCount)return;
     adminRenderedFingerprint=signature;
     panel.replaceChildren();
-    panel.append(make('h2','Admin — resumo de pedidos simulados'));
-    panel.append(make('p','Projeção local de leitura dos pedidos criados no mesmo navegador. Não é o Admin autenticado nem o banco de produção.'));
+    panel.append(make('h2','Admin — pedidos'));
+    panel.append(make('p','Acompanhe os pedidos criados neste ambiente.'));
     const s=read();const orders=s?.orders||[];
     const stats=make('div','');stats.className='demo-stats';
     const active=orders.filter(o=>!['CANCELLED','SETTLED','DELIVERED','REJECTED'].includes(o.status)).length;
-    for(const [label,value] of [['Pedidos fictícios',orders.length],['Em atendimento',active],['Concluídos',orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length]]){
+    for(const [label,value] of [['Pedidos',orders.length],['Em atendimento',active],['Concluídos',orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length]]){
       stats.append(make('span',label+': '+value));
     }
     panel.append(stats);
-    if(!orders.length)panel.append(make('p','Nenhum pedido ainda. Volte ao Cliente, monte uma cesta e simule o pedido.'));
+    if(!orders.length)panel.append(make('p','Nenhum pedido ainda. Abra Cliente para começar.'));
     for(const o of [...orders].reverse().slice(0,30)){
       const card=document.createElement('article');card.className='demo-order';
-      card.append(make('strong','Pedido '+(o.publicCode||o.code||o.id||'simulado')));
+      card.append(make('strong','Pedido '+(o.publicCode||o.code||o.id||'—')));
       card.append(make('span','Status: '+(o.status||'desconhecido')));
-      card.append(make('span','Revenda fictícia: '+(s.merchants?.find(m=>m.id===o.merchantId)?.name||'Não atribuída')));
+      card.append(make('span','Revenda: '+(s.merchants?.find(m=>m.id===o.merchantId)?.name||'Não atribuída')));
       const items=(o.items||[]).map(i=>String(i.qty||i.quantity||0)+'× '+String(i.name||i.productName||'item')).join(' • ');
       if(items)card.append(make('span',items));
       const cents=Number(o.totalCents||0),real=Number(o.total||0);
@@ -150,7 +165,7 @@
     panel.append(make('span',' '));
     panel.append(button('Continuar na Revenda',openMerchant));
     panel.append(make('span',' '));
-    panel.append(button('Fechar Admin demonstrativo',()=>setAdmin(false)));
+    panel.append(button('Fechar',()=>setAdmin(false)));
   }
   // This is a phone/browser capability check only, NOT the protected
   // offline-delivery workflow. It never stores a real order, PIN or payment.
@@ -211,7 +226,7 @@
     driverRenderedFingerprint='';if(driverOpen)drawDriver();
     try{
       await verifyEncryptedDeviceStorage();
-      deviceCheckResult='✓ Aprovado neste navegador: dados fictícios criptografados foram gravados, recuperados e apagados. Não comprova entrega offline real.';
+      deviceCheckResult='✓ Armazenamento protegido aprovado neste aparelho. Não comprova entrega offline real.';
     }catch(error){
       deviceCheckResult='Não aprovado neste navegador: '+String(error?.message||'armazenamento indisponível')+'. Nenhum pedido foi alterado.';
     }finally{
@@ -270,9 +285,9 @@
     if(navigator.onLine!==false)
       throw new Error('Ative o modo avião para testar o registro sem sinal.');
     if(order?.status!=='ARRIVING'||!read()?.orders?.some(x=>sameOrder(x,order)))
-      throw new Error('A entrega fictícia já mudou.');
+      throw new Error('A entrega já mudou.');
     if(!/^[0-9]{4}$/.test(String(pin||''))||paid!==true)
-      throw new Error('Informe o PIN e confirme o recebimento fictício.');
+      throw new Error('Informe o PIN e confirme o recebimento.');
     const old=await readProof(order.id);
     if(old&&old.expiresAt>Date.now())
       throw new Error('Já existe um comprovante protegido. Use o registro pendente.');
@@ -318,9 +333,9 @@
     if(!sameOrder(read()?.orders?.find(x=>x.id===order.id),order))
       throw new Error('O pedido mudou antes da conferência.');
     const result=globalThis.ChamaTest?.deliverOrder?.(order.id,data.pin,true);
-    if(result?.ok!==true)throw new Error('O simulador recusou o PIN ou o recebimento.');
+    if(result?.ok!==true)throw new Error('O PIN ou a confirmação não foram aceitos.');
     if(read()?.orders?.find(x=>x.id===order.id)?.status!=='SETTLED')
-      throw new Error('Não houve confirmação no simulador.');
+      throw new Error('A confirmação não foi registrada.');
     await eraseProof(order.id);
     globalThis.render?.();updateGuide();
   }
@@ -332,11 +347,11 @@
       if(action==='save'){
         await saveLocalProof(order,pin,paid);
         localProofAvailable=true;
-        localProofMessage='✓ Comprovante fictício criptografado neste aparelho. Pedido ainda pendente, sem nenhuma confirmação no servidor.';
+        localProofMessage='✓ Comprovante salvo e protegido neste aparelho. Entrega pendente.';
       }else{
         await replayLocalProof(order);
         localProofAvailable=false;
-        localProofMessage='✓ Concluído apenas no simulador deste navegador. Nenhum servidor ou Pix foi acionado.';
+        localProofMessage='✓ Conferência concluída neste ambiente.';
       }
       driverError='';
     }catch(error){
@@ -352,15 +367,15 @@
     driverRenderedFingerprint=fingerprint;
     panel.replaceChildren();
     panel.append(make('h2','Entregador — uma entrega por vez'));
-    panel.append(make('p','Somente demonstração com pedido fictício. No TAMÃO real, a atribuição depende da conta autorizada da revenda.'));
+    panel.append(make('p','Acompanhe a entrega selecionada e confirme cada etapa.'));
     if(!order){
       panel.append(make('p','Nenhuma entrega selecionada. Crie um pedido no Cliente e confirme a saída pela Revenda.'));
     }else{
       const card=make('article','');card.className='demo-order';
       card.append(make('strong','Pedido '+(order.publicCode||order.id)));
       card.append(make('span','Situação: '+String(order.status||'indefinido')));
-      card.append(make('span','Endereço fictício: '+String(order.address||'Não informado')));
-      card.append(make('span','Total fictício: '+money(order.total)));
+      card.append(make('span','Endereço: '+String(order.address||'Não informado')));
+      card.append(make('span','Total: '+money(order.total)));
       panel.append(card);
       if(order.status==='OUT_FOR_DELIVERY'){
         panel.append(make('p','Uma ação: ao chegar ao endereço, registre a chegada.'));
@@ -379,9 +394,9 @@
         label.append(pin);form.append(label);
         const paidLabel=make('label','');paidLabel.className='tamao-demo-driver-check';
         const paid=document.createElement('input');paid.type='checkbox';paid.id='tamao-demo-driver-paid';
-        paidLabel.append(paid,document.createTextNode('Recebi o pagamento fictício do pedido'));
+        paidLabel.append(paid,document.createTextNode('Recebi o pagamento do pedido'));
         form.append(paidLabel);
-        const complete=button('Concluir entrega simulada',()=>{
+        const complete=button('Concluir entrega',()=>{
           if(navigator.onLine===false){driverError='Sem sinal: guarde o comprovante local, sem concluir a entrega.';driverRenderedFingerprint='';drawDriver();return;}
           const r=globalThis.ChamaTest?.deliverOrder?.(order.id,pin.value,paid.checked);
           if(r?.ok!==true){
@@ -402,9 +417,9 @@
           save.id='tamao-demo-offline-save';save.disabled=localProofBusy;form.append(save);
         }
         panel.append(form);
-        panel.append(make('p','O código aparece no acompanhamento do Cliente. Não é enviado por este demonstrativo a nenhuma revenda ou banco.'));
+        panel.append(make('p','Peça ao cliente o código exibido no acompanhamento do pedido.'));
       }else if(['SETTLED','DELIVERED'].includes(order.status)){
-        panel.append(make('p','✓ Entrega fictícia concluída. Cliente e Admin mostram o mesmo pedido.'));
+        panel.append(make('p','✓ Entrega concluída. Cliente e Admin estão atualizados.'));
         panel.append(button('Conferir no Cliente',openCustomer));
         panel.append(make('span',' '));
         panel.append(button('Conferir no Admin',()=>setAdmin(true)));
@@ -414,18 +429,21 @@
       }
     }
     if(order&&localProofAvailable){
-      panel.append(make('p','Comprovante local protegido. Nenhum pedido ou pagamento foi concluído no servidor.'));
+      panel.append(make('p','Comprovante protegido neste aparelho; aguarde a conferência.'));
       if(navigator.onLine!==false){
-        const sync=button('Conferir comprovante no simulador',()=>performLocalProof('replay',order));
+        const sync=button('Conferir comprovante',()=>performLocalProof('replay',order));
         sync.id='tamao-demo-offline-replay';sync.disabled=localProofBusy;panel.append(sync);
-      }else panel.append(make('p','Sem sinal: reative a conexão para fazer a conferência fictícia.'));
+      }else panel.append(make('p','Sem sinal: reconecte para conferir o comprovante.'));
     }
     const localStatus=make('p',localProofMessage);
     localStatus.id='tamao-demo-offline-status';localStatus.setAttribute('role','status');panel.append(localStatus);
     const status=make('p',driverError);
     status.id='tamao-demo-driver-status';status.className='tamao-demo-driver-status';
     status.setAttribute('role','status');panel.append(status);
-    panel.append(make('p','Sem sinal: o demonstrativo pode guardar apenas um comprovante fictício criptografado. Não sincroniza com servidor real, e recarregar a página sem internet não funciona nesta demonstração. A entrega comercial offline continua em homologação.'));
+    const offlineHelp=make('details','');offlineHelp.className='tamao-demo-offline-help';
+    offlineHelp.append(make('summary','Como funciona sem internet'),
+      make('p','O comprovante protegido fica neste aparelho até a reconexão. Este modo não sincroniza com o servidor comercial e não funciona após recarregar a página sem sinal. A entrega comercial offline continua em homologação.'));
+    panel.append(offlineHelp);
     const deviceButton=button('Verificar armazenamento protegido deste aparelho',runDeviceCheck);
     deviceButton.id='tamao-demo-device-check';
     deviceButton.disabled=deviceCheckBusy;
@@ -435,7 +453,7 @@
     deviceStatus.setAttribute('role','status');
     deviceStatus.setAttribute('aria-live','polite');
     panel.append(deviceStatus);
-    panel.append(make('p','Teste de compatibilidade: depois de abrir a página no celular, você pode ativar modo avião e tocar no botão acima sem recarregar a página. Não confirma pedidos, pagamento ou sincronização com a revenda.'));
+    panel.append(make('p','Verifique se este aparelho consegue guardar comprovantes protegidos.'));
     panel.append(button('Fechar',()=>setDriver(false)));
   }
   function setDriver(open){
@@ -462,39 +480,39 @@
   function drawDemoPreview(){
     panel.replaceChildren();
     const type=demoPreviewMode;
-    const notes=make('p','Prévia com dados fictícios. Não corresponde a uma conta real e não envia dados.');
+
     if(type==='club'){
-      panel.append(make('h2','Meu Clube — demonstração'),notes);
+      panel.append(make('h2','Meu Clube'));
       const orders=read()?.orders||[];
       const done=orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length;
-      panel.append(make('p','Compras fictícias concluídas neste navegador: '+done));
-      panel.append(make('p','Cupons, bônus e cashback reais são consultados somente por uma conta autorizada.'));
-      panel.append(button('Experimentar pedido fictício',()=>{setAdmin(false);beginP13()}));
+      panel.append(make('p','Compras concluídas: '+done));
+      panel.append(make('p','Veja aqui as compras e benefícios vinculados aos pedidos deste ambiente.'));
+      panel.append(button('Fazer um pedido',()=>{setAdmin(false);beginP13()}));
     }else if(type==='network'){
-      panel.append(make('h2','Minha Rede — demonstração'),notes);
+      panel.append(make('h2','Minha Rede'));
       const orders=read()?.orders||[];
-      panel.append(make('p','Atividades simuladas neste aparelho: '+orders.length+' pedido(s).'));
-      panel.append(make('p','Exemplo de extrato: indicação direta, rede ativa e benefícios de campanhas. Valores demonstrativos não são saldos sacáveis.'));
-      panel.append(make('p','Para ver indicações e comissões reais, use a conta do participante no site oficial.'));
+      panel.append(make('p','Atividades: '+orders.length+' pedido(s).'));
+      panel.append(make('p','Extrato: indicações, participação na rede e campanhas.'));
+  
     }else if(type==='agenda'){
-      panel.append(make('h2','Agenda profissional — demonstração'),notes);
-      panel.append(make('p','Exemplo: Barbearia Modelo · Corte de cabelo · 30 minutos · sem pagamento.'));
-      panel.append(make('p','Escolha um horário; a reserva é simulada somente nesta página.'));
+      panel.append(make('h2','Agenda profissional'));
+      panel.append(make('p','Barbearia Modelo · Corte de cabelo · 30 minutos'));
+      panel.append(make('p','Escolha um horário disponível para reservar.'));
       for(const time of ['09:00','10:30','14:00']){
         const booked=agendaDemoBooked.has(time);
         const row=make('div','');row.className='demo-order';
         row.append(make('strong','Hoje às '+time+' · '+(booked?'Reservado':'Livre')));
-        row.append(button(booked?'Cancelar reserva fictícia':'Reservar horário fictício',()=>{
+        row.append(button(booked?'Cancelar reserva':'Reservar horário',()=>{
           if(booked)agendaDemoBooked.delete(time);
           else if(!agendaDemoBooked.has(time))agendaDemoBooked.add(time);
           drawDemoPreview();
         }));
         panel.append(row);
       }
-      panel.append(make('p','Esta prévia verifica a interação básica de reservar e cancelar, mas não homologa a agenda nem as notificações reais.'));
+  
     }
-    panel.append(button('Voltar ao Cliente fictício',openCustomer));
-    panel.append(button('Fechar prévia',()=>setAdmin(false)));
+    panel.append(button('Voltar ao Cliente',openCustomer));
+    panel.append(button('Fechar',()=>setAdmin(false)));
   }
   function openDemoPreview(type){
     if(!['club','network','agenda'].includes(type))return;
@@ -533,7 +551,7 @@
       ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
     if(!s||open.some(o=>o.deliveredAt||o.paymentConfirmedAt||
         o.inventoryReserved===true&&!s.merchants?.some(m=>m.id===o.merchantId)))
-      return {ok:false,error:'Pedido não pode ser encerrado com segurança. Use Reiniciar para zerar somente os testes.'};
+      return {ok:false,error:'O pedido não pôde ser encerrado. Use Reiniciar para limpar o ambiente.'};
     for(const o of open){
       if(o.inventoryReserved===true){
         const m=s.merchants.find(x=>x.id===o.merchantId);
@@ -552,15 +570,15 @@
       o.demoAbandonedAt=new Date().toISOString();
       if(!Array.isArray(o.events))o.events=[];
       o.events.push({status:'CANCELLED',time:o.demoAbandonedAt,
-        title:'Teste encerrado para novo pedido',
-        desc:'Simulação encerrada sem entrega, cobrança ou pagamento real.'});
+        title:'Pedido encerrado para iniciar outro',
+        desc:'Pedido cancelado antes da entrega.'});
     }
     s.cart=api.normalizeCart({});
     s.checkout.useCashback=false;
     s.checkout.cashTenderCents=null;
     api.setState(s);
     if(api.getState().orders.some(o=>open.some(p=>p.id===o.id&&o.status!=='CANCELLED')))
-      return {ok:false,error:'Não foi possível confirmar encerramento do teste'};
+      return {ok:false,error:'Não foi possível encerrar o pedido'};
     return {ok:true,ended:open.length};
   }
   function beginP13(){
@@ -568,7 +586,7 @@
     const existing=(read()?.orders||[]).filter(o=>
       ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
     if(existing.length){
-      const answer=confirm('Existe um pedido fictício em andamento. Encerrar este teste e começar outro? O histórico será mantido, e o cashback e estoque reservados serão devolvidos. Nenhum pedido real será alterado.');
+      const answer=confirm('Já existe um pedido em andamento. Encerrar e começar outro? O histórico será preservado e os valores reservados serão devolvidos.');
       if(!answer){
         globalThis.setMode?.('customer');
         globalThis.go?.('tracking');
@@ -578,7 +596,7 @@
     }
     const result=endOpenDemoOrders();
     if(result?.ok!==true){
-      alert(result?.error||'Não foi possível preparar outro pedido fictício.');
+      alert(result?.error||'Não foi possível preparar outro pedido.');
       updateGuide();
       return;
     }
@@ -593,10 +611,10 @@
   startOrderButton=button('Começar com gás P13',beginP13);
   nav.append(startOrderButton);
   nav.append(button('Revenda (pedido)',openMerchant));
-  nav.append(button('Entregador (simulação)',()=>setDriver(true)));
-  nav.append(button('Admin (resumo)',()=>setAdmin(true)));
+  nav.append(button('Entregador',()=>setDriver(true)));
+  nav.append(button('Admin',()=>setAdmin(true)));
   nav.append(button('Reiniciar',()=>{
-    if(confirm('Apagar apenas os pedidos e valores fictícios desta demonstração no navegador?')){
+    if(confirm('Limpar os pedidos e valores deste ambiente?')){
       setAdmin(false);globalThis.reset?.();
       void clearProofs().catch(()=>{});
     }
@@ -604,7 +622,7 @@
   dialog.append(panel);
   dialog.addEventListener('click',e=>{if(e.target===dialog){if(driverOpen)setDriver(false);else setAdmin(false)}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen||demoPreviewMode)setAdmin(false)}});
-  tools.append(heading,detail,nav);
+  tools.append(heading,detail,areaToggle,nav);
   tools.append(progress);
   updateGuide();
   const onConnectionChange=()=>{

@@ -7,14 +7,14 @@ function adminTestCenterView(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return '';
   const demoBase='https://carloskk07.github.io/gassg/?tamao_demo_role=';
   const demoChoices=[
-    ['Cliente — compra e pedido','customer','Escolher produtos e montar pedidos fictícios'],
-    ['Acompanhar pedido','tracking','Consultar pedidos criados neste navegador'],
-    ['Revenda — atendimento','merchant','Aceitar e preparar pedidos simulados'],
-    ['Entregador','driver','Chegada, PIN e conclusão fictícia'],
-    ['Clube e benefícios','club','Explorar uma conta demonstrativa'],
-    ['Rede e indicações','network','Ver benefícios fictícios e suas origens'],
-    ['Agenda profissional','agenda','Criar e cancelar reservas fictícias'],
-    ['Admin demonstrativo','admin','Ver os pedidos simulados sem sair do teste']
+    ['Cliente · compras','customer','Escolher produtos e fazer pedidos'],
+    ['Acompanhar pedido','tracking','Ver o andamento dos pedidos'],
+    ['Revenda · pedidos','merchant','Aceitar e preparar pedidos'],
+    ['Entregador','driver','Chegada, PIN e conclusão'],
+    ['Clube e benefícios','club','Ver compras e vantagens'],
+    ['Rede e indicações','network','Ver atividades e extratos'],
+    ['Agenda profissional','agenda','Organizar, reservar e cancelar horários'],
+    ['Painel de pedidos','admin','Ver os pedidos do ambiente']
   ];
   const publicPages=[
     ['Home e produtos','https://tamao.com.br/#home','Vitrine e preços publicados'],
@@ -55,7 +55,7 @@ function adminTestCenterView(){
     '" target="_blank" rel="noopener noreferrer" data-admin-demo="'+scenario+'">'+
     '<strong>'+esc(title)+' <span aria-hidden="true">↗</span></strong>'+
     '<small>'+esc(description)+'</small>'+
-    '<span class="admin-test-safe-note">Sem outro login · Somente simulação</span></a>'
+    '</a>'
   ).join('');
   const pages=publicPages.map(([title,url,description])=>
     '<a class="card flat admin-test-page-link" href="'+url+'" target="_blank" rel="noopener noreferrer">'+
@@ -66,17 +66,17 @@ function adminTestCenterView(){
     '<strong>'+esc(title)+'</strong><small>'+esc(description)+'</small></button>'
   ).join('');
   return '<section class="section admin-test-center" aria-label="Central de testes">'+
-    '<h2>Testar sem fazer outro login</h2>'+
-    '<p class="muted">Clique no que deseja experimentar. Você pode alternar entre Cliente, Revenda, Entregador e outras telas em um simulador interativo. Não é preciso cadastrar contas para esses testes.</p>'+
-    '<div class="notice"><strong>Ambiente demonstrativo, separado da produção.</strong> Os pedidos, horários, valores e benefícios são fictícios, não mexem nos cadastros existentes e não movimentam dinheiro. Estes atalhos não concedem acesso às contas privadas dos participantes.</div>'+
+    '<h2>Testar páginas</h2>'+
+    '<p class="muted">Escolha uma área e experimente os fluxos sem outro login.</p>'+
+    '<p class="admin-test-context"><span aria-hidden="true">●</span> Modo teste · dados fictícios · sem cobranças</p>'+
     '<div class="admin-test-links admin-test-demo-links">'+sims+'</div>'+
-    '<details class="admin-test-more"><summary>Conferir páginas reais do site <span class="muted tiny">(algumas exigem login)</span></summary>'+
-    '<p class="muted tiny">Aqui você abre as páginas oficiais. Para dados privados e operações reais, o site continua solicitando a conta correspondente — isso não é uma falha do modo demonstrativo.</p>'+
+    '<details class="admin-test-more"><summary>Abrir páginas oficiais <span class="muted tiny">(acesso autenticado quando necessário)</span></summary>'+
+    '<p class="muted tiny">Para operações privadas, use a conta autorizada correspondente.</p>'+
     '<div class="admin-test-links">'+pages+'</div></details>'+
     '<h2>Verificações no próprio Admin</h2>'+
-    '<p class="muted">Estas funções utilizam seu login atual e não exigem entrar novamente.</p>'+
+    '<p class="muted">Acesse as ferramentas com sua sessão administrativa atual.</p>'+
     '<div class="admin-test-links">'+tools+'</div>'+
-    '<p class="muted tiny">Simular telas é diferente de validar transações de produção. A homologação financeira continua nas verificações autenticadas do Admin.</p>'+
+
     '</section>';
 }
 if(typeof document!=='undefined')document.addEventListener('click',function(event){

@@ -39,12 +39,12 @@ const ctx={
 vm.runInNewContext(qa+'\nthis.view=adminTestCenterView;',ctx);
 let panel=ctx.view();
 assert.match(panel,/Central de testes/);
-assert.match(panel,/Testar sem fazer outro login/);
+assert.match(panel,/Testar páginas/);
 assert.match(panel,/tamao_demo_role=customer/);
 assert.match(panel,/tamao_demo_role=merchant/);
 assert.match(panel,/tamao_demo_role=driver/);
-assert.match(panel,/Ambiente demonstrativo/);
-assert.match(panel,/Conferir páginas reais do site/);
+assert.match(panel,/Modo teste · dados fictícios/);
+assert.match(panel,/Abrir páginas oficiais/);
 for(const item of ['Home e produtos','Minha conta e Clube','Rede e indicações',
   'Agenda','Moto e carro','Caronas','Publicidade','Portal da revenda'])
   assert.ok(panel.includes(item),'QA center must include '+item);
