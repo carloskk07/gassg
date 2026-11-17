@@ -81,4 +81,23 @@ create trigger agenda_bookings_closed_day_guard
  before insert or update of starts_at,status on public.agenda_appointments
  for each row execute function public.agenda_closed_day_booking_guard();
 
+-- A customer sees the actual provider and service in their account.
+-- No cross-account data and no exposure of customer phone/name.
+create function public.agenda_my_bookings()
+returns table(
+ id uuid,starts_at timestamptz,ends_at timestamptz,status text,
+ page_id uuid,service_id uuid,page_title text,service_title text,slug text
+) language sql stable security definer set search_path='pg_catalog'
+as $
+ select a.id,a.starts_at,a.ends_at,a.status,a.page_id,a.service_id,
+  p.title,s.title,p.slug
+ from public.agenda_appointments a
+ join public.agenda_pages p on p.id=a.page_id
+ join public.agenda_services s on s.id=a.service_id and s.page_id=a.page_id
+ where a.customer_id=auth.uid() and a.status='confirmed' and a.starts_at>=now()
+ order by a.starts_at limit 50
+$;
+revoke all on function public.agenda_my_bookings() from public,anon,authenticated;
+grant execute on function public.agenda_my_bookings() to authenticated;
+
 commit;
