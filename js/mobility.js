@@ -729,7 +729,7 @@ function mobilityPage(){
  const top='<header class="mobility-hero"><span class="section-kicker">TAMÃO • MOBILIDADE</span>'+
  '<h1>'+(intent?'Continue seu atendimento':'Precisa de moto ou carro?')+'</h1>'+
  '<p>'+(intent?'Entre para continuar com o profissional selecionado. Nenhuma solicitação é enviada sem sua confirmação.':
- 'Encontre um profissional anunciado, combine os detalhes e solicite o atendimento. O deslocamento só é exibido com autorização do motorista.')+'</p></header>'+(intent?'':discover);
+ 'Encontre moto ou carro para o seu dia a dia, escolha um profissional da região e combine o atendimento com praticidade. Você decide quando pedir.')+'</p></header>'+(intent?'':discover);
  const note=s.notice?'<p class="notice success" role="status">'+esc(s.notice)+'</p>':'';
  const error=s.error?'<p class="notice danger" role="alert">'+esc(s.error)+'</p>':'';
  const stale=s.syncUnavailable?'<p class="notice danger" role="status">Sem atualização do servidor. Estado da corrida, motorista e informações podem estar desatualizados. Confira sua conexão e toque em Atualizar atendimentos.</p>':'';
@@ -745,7 +745,7 @@ function mobilityPage(){
   note+error+'<form class="mobility-form" onsubmit="return mobilityLogin(event)">'+
   '<label>E-mail<input name="email" type="email" required maxlength="254" autocomplete="email" placeholder="voce@exemplo.com"></label>'+
   '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button></form></section>'+
-  '<aside class="mobility-driver-panel"><span class="section-kicker">É PROFISSIONAL?</span><h2>Quer receber solicitações?</h2><p>Anuncie seu serviço para que clientes encontrem seu contato. Você decide quando atender e se compartilha sua localização.</p>'+
+  '<aside class="mobility-driver-panel"><span class="section-kicker">É PROFISSIONAL?</span><h2>Seu serviço pode alcançar mais pessoas.</h2><p>Apresente seu trabalho no TAMÃO e receba contatos interessados. Você escolhe quais atendimentos aceitar e quando compartilhar sua localização.</p>'+
   '<div class="mobility-driver-links"><a href="/?anunciar=moto#advertise">Sou mototaxista e quero anunciar →</a>'+
   '<a href="/?anunciar=carro#advertise">Sou motorista e quero anunciar →</a></div></aside></div>'+
   '<p class="mobility-support"><a href="/#contact">Precisa de ajuda? Fale com o suporte TAMÃO</a></p></section>');
