@@ -230,3 +230,13 @@
 .tamao-account-access>summary:focus-visible,.tamao-account-access-panel a:focus-visible{outline:3px solid #bc8728;outline-offset:2px}
 @media(max-width:759px){.tamao-account-prompt{display:none}.tamao-account-access>summary{min-height:42px;padding:8px 9px;font-size:12px}}
 @media(max-width:390px){.tamao-public-header .topbar-inner{gap:5px}.tamao-account-access>summary{gap:3px;padding-inline:7px}}
+
+/* V1.1055: compact header at 320px without hiding customer or member access. */
+@media(max-width:380px){
+.tamao-public-header .topbar-inner{padding-inline:10px;gap:5px}
+.tamao-public-header .brand-button{min-width:0}
+.tamao-public-header .brandmark{width:34px;height:34px;border-radius:10px}
+.tamao-public-header .brand{gap:6px}
+.tamao-public-header .brand small{display:none}
+.tamao-public-header .tamao-header-cta{padding-inline:8px}
+}
