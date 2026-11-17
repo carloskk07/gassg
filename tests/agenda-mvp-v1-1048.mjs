@@ -115,7 +115,7 @@ vm.runInContext('agendaRuntime.mine=[{id:"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
 assert.match(vm.runInContext('agendaMyBookingsView()',ctx),/Remarcar/);
 assert.match(vm.runInContext('agendaMyBookingsView()',ctx),/Ana/);
 assert.match(vm.runInContext('agendaIcsContent({...agendaRuntime.mine[0],reschedule_count:2},"Corte")',ctx),/SEQUENCE:2/);
-const operations=readFileSync('supabase/migrations/20261117140000_agenda_operacao_v1_1051.sql','utf8');
+const operations=readFileSync('supabase/migrations/20261117135108_agenda_operacao_v1_1051.sql','utf8');
 for(const word of ['agenda_waitlist_participants_read','agenda_staff_blocks_owner_read',
  'agenda_join_waitlist','agenda_close_waitlist','agenda_add_staff_block',
  'agenda_remove_staff_block','agenda_mark_attendance','agenda_staff_block_booking_guard',
