@@ -2,7 +2,7 @@
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],staff:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
  slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],selectedStart:'',
- notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false
+ notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const agendaSlugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -85,7 +85,11 @@ function agendaOwnerEditor(){
    '<label class="agenda-publish"><input type="checkbox" name="published"'+(p.published?' checked':'')+'> Disponibilizar minha página para agendamentos</label>'+
    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar minha página</button>'+
   '</form>'+(link?'<p class="agenda-link">Seu link: <a href="'+esc(link)+'">'+esc(link)+'</a></p>'+
-   '<button type="button" class="secondary" onclick="agendaCopyLink()">Copiar link</button>':'')+
+   '<button type="button" class="secondary" onclick="agendaCopyLink()">Copiar link</button> '+
+    '<button type="button" class="secondary" onclick="agendaSharePublicLink()">Compartilhar</button> '+
+    '<button type="button" class="secondary" onclick="agendaToggleQr()">Mostrar QR Code</button>'+ 
+    (s.qrOpen?'<div class="agenda-qr-card"><p>Escaneie para abrir minha agenda</p>'+agendaQrMarkup(p.slug)+
+     '<button type="button" class="secondary" onclick="agendaDownloadQr()">Salvar QR Code</button></div>':''):'')+
   '<p class="tiny muted">A página é gratuita. Por enquanto, reservas não recebem sinal antecipado.</p></section>'+
   '<section class="agenda-panel"><h2>Serviços e preços</h2>'+
    (p.id?'<form class="agenda-service-row" onsubmit="return agendaSaveService(event)">'+
@@ -848,6 +852,58 @@ async function agendaCancel(id){
   if(s.serviceId)await agendaLoadSlots();
  }catch(_){s.error='Não foi possível cancelar. Confira sua agenda antes de tentar novamente.';}
  s.busy=false;render();
+}
+function agendaQrSvg(slug){
+ if(typeof globalThis.qrcode!=='function'||!agendaSlugPattern.test(String(slug||'')))return '';
+ try{
+  const qr=globalThis.qrcode(0,'M');
+  qr.addData(agendaShareLink(slug));
+  qr.make();
+  const svg=qr.createSvgTag(4,2);
+  return typeof svg==='string'&&svg.startsWith('<svg')&&svg.length<150000?svg:'';
+ }catch(_){return '';}
+}
+function agendaQrMarkup(slug){
+ const svg=agendaQrSvg(slug);
+ return svg?'<div class="agenda-qr-image" role="img" aria-label="QR Code da página do profissional">'+svg+'</div>':
+  '<p class="tiny muted">Não foi possível criar o QR Code. Copie o link acima.</p>';
+}
+async function agendaLoadQr(){
+ if(typeof globalThis.qrcode==='function')return true;
+ return await new Promise(resolve=>{
+  const script=document.createElement('script');
+  script.src='/js/qr-generator.js';script.async=true;
+  script.onload=()=>resolve(typeof globalThis.qrcode==='function');
+  script.onerror=()=>resolve(false);
+  document.head.appendChild(script);
+ });
+}
+async function agendaToggleQr(){
+ const s=agendaRuntime;if(!s.page?.slug||!s.page.published)return;
+ if(s.qrOpen){s.qrOpen=false;render();return;}
+ const loaded=await agendaLoadQr();
+ if(!loaded){s.error='Não foi possível preparar o QR Code. Use o link de compartilhamento.';render();return;}
+ s.qrOpen=true;s.error='';render();
+}
+function agendaDownloadQr(){
+ const s=agendaRuntime;
+ if(!s.page?.published)return;
+ const svg=agendaQrSvg(s.page.slug);
+ if(!svg){s.error='QR Code indisponível. Copie o link da página.';render();return;}
+ const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
+ const link=document.createElement('a');
+ link.href=url;link.download='tamao-agenda-'+s.page.slug+'.svg';
+ document.body.appendChild(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+async function agendaSharePublicLink(){
+ const s=agendaRuntime;if(!s.page?.slug||!s.page.published)return;
+ const url=agendaShareLink(s.page.slug);
+ if(typeof navigator.share==='function'){
+  try{await navigator.share({title:s.page.title||'Minha Agenda TAMÃO',url});return;}
+  catch(e){if(e?.name==='AbortError')return;}
+ }
+ agendaCopyLink();
 }
 async function agendaCopyLink(){
  const s=agendaRuntime;if(!s.page?.slug||!s.page.published)return;
