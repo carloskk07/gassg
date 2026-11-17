@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
- phase:'idle',client:null,user:null,page:null,services:[],staff:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
- slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],selectedStart:'',
+ phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
+ slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -98,6 +98,27 @@ function agendaOwnerEditor(){
     '<label>Preço R$<input type="number" name="price" inputmode="decimal" min="0" max="20000" step=".01" required value="0.00"></label>'+
     '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
     '<p>Salve sua página para adicionar os serviços.</p>')+
+  '</section>'+
+  '<section class="agenda-panel"><h2>Condições de sinal dos serviços</h2>'+
+   '<p>Planeje um sinal opcional para a futura cobrança online, abatido do total do serviço. Os valores abaixo são apenas uma prévia: não existe cobrança de sinal ativa.</p>'+
+   (s.services.length?s.services.map(service=>{
+    const policy=s.depositSettings.find(x=>x.service_id===service.id);
+    const percent=Number(policy?.percent)||0;
+    const signal=Math.round(Number(service.price_cents||0)*percent/100);
+    const defaultText='O sinal, quando disponível, abate do preço total. As condições de cancelamento e reembolso devem respeitar os direitos do consumidor.';
+    return '<form class="agenda-deposit-form" data-id="'+esc(service.id)+
+      '" onsubmit="return agendaSaveDepositPolicy(event)">'+
+      '<h3>'+esc(service.title)+'</h3>'+
+      '<label>Sinal pretendido<select name="percent">'+
+       [0,10,20,25,30,50].map(v=>'<option value="'+v+'"'+(v===percent?' selected':'')+'>'+
+        (v===0?'Sem sinal':v+'% do valor do serviço')+'</option>').join('')+'</select></label>'+
+      '<p class="agenda-deposit-estimate">Preço '+agendaMoney(service.price_cents)+
+       ' • Sinal estimado '+agendaMoney(signal)+' • Restante '+agendaMoney(service.price_cents-signal)+'</p>'+
+      '<label>Política de cancelamento e reembolso<textarea name="policy" rows="3" minlength="30" maxlength="500" required>'+
+        esc(policy?.policy_text||defaultText)+'</textarea></label>'+
+      '<p class="tiny muted">Simulação: não emite Pix, não debita cartão e não transforma reservas gratuitas em pagas.</p>'+
+      '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Salvar condições</button></form>';
+   }).join(''):'<p>Cadastre um serviço para configurar as condições.</p>')+
   '</section>'+
   '<section class="agenda-panel"><h2>Equipe e agendas simultâneas</h2>'+
    '<p>Cadastre até 12 colaboradores. Cada um terá horários livres independentes, dentro do expediente geral do estabelecimento.</p>'+
@@ -224,6 +245,11 @@ function agendaDateTime(value){
   day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));}
  catch{return 'Data indisponível';}
 }
+function agendaDepositQuoteView(q){
+ // Until professional OAuth and financial reconciliation are homologated,
+ // planned percentages belong only in the owner's editor.
+ return '<p class="agenda-deposit-summary">Agendamento gratuito, sem sinal antecipado. O valor do serviço é pago diretamente ao profissional.</p>';
+}
 function agendaPublicView(){
  const s=agendaRuntime,p=s.publicProfile;
  if(!p)return '<section class="agenda-panel"><h1>Página não disponível</h1><p>Confira o link enviado pelo profissional.</p><a href="/#professionals">Encontrar profissionais</a></section>';
@@ -254,6 +280,7 @@ function agendaPublicView(){
    '</select></label>':'')+
   (isReschedule?'<p class="agenda-reschedule-hint">Escolha a nova data e um horário livre para remarcar sua reserva.</p>':'')+
   (service?'<p class="agenda-service-summary">'+esc(service.title)+' • '+service.duration_min+' min • '+agendaMoney(service.price_cents)+'</p>':'')+
+  (s.paymentQuote&&s.paymentQuote.service_id===s.serviceId?agendaDepositQuoteView(s.paymentQuote):'')+
   '<label>Data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
@@ -360,9 +387,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -394,9 +421,10 @@ async function agendaRefreshOwner(){
  if(e)throw e;if(epoch!==s.epoch||s.user?.id!==u.id)return;
  s.page=p;
  if(p){
-  const [services,staff,hours,bookings,closedDays,blocks,waiting]=await Promise.all([
+  const [services,staff,depositSettings,hours,bookings,closedDays,blocks,waiting]=await Promise.all([
    s.client.from('agenda_services').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_staff').select('*').eq('page_id',p.id).order('created_at'),
+   s.client.from('agenda_service_deposit_settings').select('service_id,percent,policy_text,policy_version').eq('owner_id',u.id).eq('page_id',p.id),
    s.client.from('agenda_hours').select('*').eq('page_id',p.id).order('weekday'),
    s.client.from('agenda_appointments').select('id,page_id,service_id,staff_id,reschedule_count,customer_name,customer_phone,starts_at,ends_at,status')
      .eq('owner_id',u.id).in('status',['confirmed','completed','no_show']).gte('starts_at',new Date(Date.now()-30*86400000).toISOString()).order('starts_at').limit(100),
@@ -405,9 +433,9 @@ async function agendaRefreshOwner(){
    s.client.from('agenda_waitlist').select('id,service_id,staff_id,day,customer_name,customer_phone,created_at').eq('owner_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('created_at').limit(100)
   ]);
   if(epoch!==s.epoch||s.user?.id!==u.id)return;
-  if(services.error||staff.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error)throw services.error||staff.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error;
-  s.services=services.data||[];s.staff=staff.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
- }else{s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
+  if(services.error||staff.error||depositSettings.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error)throw services.error||staff.error||depositSettings.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error;
+  s.services=services.data||[];s.staff=staff.data||[];s.depositSettings=depositSettings.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
+ }else{s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
  const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
  const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
@@ -438,16 +466,18 @@ async function agendaRefreshPublic(){
 }
 async function agendaLoadSlots(){
  const s=agendaRuntime,service=s.serviceId,day=s.day,staffId=s.staffId;
- s.selectedStart='';s.requestKey='';s.slots=[];s.dayClosed=false;if(!service||!day)return;
+ s.selectedStart='';s.requestKey='';s.slots=[];s.paymentQuote=null;s.dayClosed=false;if(!service||!day)return;
  s.slotBusy=true;render();
  try{
-  const [slots,closed]=await Promise.all([
+  const [slots,closed,deposit]=await Promise.all([
    s.client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
-   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
+   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day}),
+    s.client.rpc('agenda_deposit_quote',{p_service_id:service})
   ]);
   if(s.serviceId!==service||s.day!==day||s.staffId!==staffId)return;
   if(slots.error||closed.error)throw slots.error||closed.error;
   s.dayClosed=closed.data===true;
+   s.paymentQuote=deposit.error?null:deposit.data;
   s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
@@ -519,6 +549,29 @@ async function agendaSaveProfile(ev){
    'Não foi possível concluir tudo. Confira sua página antes de repetir o envio.';
   try{await agendaRefreshOwner();}catch{}
  }
+ s.busy=false;render();return false;
+}
+async function agendaSaveDepositPolicy(ev){
+ ev.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.page||!s.user)return false;
+ const id=ev.target?.dataset?.id;
+ if(!agendaUuid.test(id)||!s.services.some(x=>x.id===id))return false;
+ const f=new FormData(ev.target),percent=Number(f.get('percent'));
+ const policy=String(f.get('policy')||'').trim();
+ if(![0,10,20,25,30,50].includes(percent)||policy.length<30||policy.length>500){
+  s.error='Confira o percentual e a política de reembolso.';render();return false;
+ }
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_set_deposit_policy',{
+   p_service_id:id,p_percent:percent,p_policy_text:policy
+  });
+  if(error||data?.service_id!==id||data?.percent!==percent||
+    data?.charges_enabled!==false)throw error||Error('policy confirmation invalid');
+  await agendaRefreshOwner();
+  if(s.serviceId===id)await agendaLoadSlots();
+  s.notice='Condições salvas. A cobrança antecipada permanece desligada.';
+ }catch(e){s.error='Não foi possível salvar o sinal planejado. Nenhuma cobrança foi iniciada.';}
  s.busy=false;render();return false;
 }
 async function agendaSaveService(ev){
@@ -920,7 +973,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();

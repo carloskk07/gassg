@@ -39,6 +39,7 @@ FROM (
  OR has_table_privilege('authenticated',c.oid,'DELETE'))
 ) z`;
 const allowedTables={
+ agenda_service_deposit_settings:{anon:[],auth:['SELECT'],policies:['agenda_deposit_settings_owner_read']},
  agenda_staff_blocks:{anon:[],auth:['SELECT'],policies:['agenda_staff_blocks_owner_read']},
  agenda_waitlist:{anon:[],auth:['SELECT'],policies:['agenda_waitlist_participants_read']},
  agenda_staff:{anon:[],auth:['SELECT'],policies:['agenda_staff_owner_select','agenda_staff_owner_insert','agenda_staff_owner_update']},
@@ -132,6 +133,8 @@ for(const row of columns){
   row.table+' unexpectedly grants a column or removes a scoped grant');
 }
 const expectedFunctions=[
+ 'agenda_deposit_quote(p_service_id uuid)',
+ 'agenda_set_deposit_policy(p_service_id uuid, p_percent smallint, p_policy_text text)',
  'agenda_add_staff_block(p_staff_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)',
  'agenda_close_waitlist(p_wait_id uuid, p_contacted boolean)',
  'agenda_join_waitlist(p_service_id uuid, p_staff_id uuid, p_day date, p_name text, p_phone text, p_consent boolean)',
@@ -202,6 +205,7 @@ assert.deepEqual(fns.map(x=>x.signature).sort(),expectedFunctions,
  'An unknown SECURITY DEFINER or overload was granted to the browser');
 for(const fn of fns){
  assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()',
+  'agenda_deposit_quote(p_service_id uuid)',
   'agenda_available_slots(p_service_id uuid, p_day date)','agenda_public_directory()',
   'agenda_public_page(p_slug text)',
   'agenda_day_is_closed(p_service_id uuid, p_day date)',
