@@ -202,7 +202,7 @@ function discoveryOwnerRequestModule(){
 }
 /* Page styles load on demand. */
 function tamaoEnsurePublicExperienceStyles(page){
-  if(!['home','order','tracking','learn','club','earn','refer','merchants','sponsors','professionals','rides','stays','mobility','advertise','merchant-join','merchant-team','contact'].includes(page)||
+  if(!['home','order','tracking','learn','club','earn','refer','merchants','sponsors','professionals','rides','stays','mobility','advertise','merchant-join','merchant-team','contact','privacy','terms'].includes(page)||
      globalThis.adminPortalRequested?.()||
      document.querySelector('link[href*="/css/public-ux.css"]'))return;
   const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
