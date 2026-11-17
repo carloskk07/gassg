@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],hours:[],bookings:[],mine:[],
- slug:'',publicProfile:null,directory:[],serviceId:'',day:'',slots:[],selectedStart:'',
+ slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',day:'',slots:[],selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -135,9 +135,9 @@ function agendaPublicView(){
     '<form class="agenda-book-form" onsubmit="return agendaBook(event)">'+
      '<h3>Confirme sua reserva</h3>'+
      '<label>Seu nome<input name="name" minlength="2" maxlength="90" required autocomplete="name"></label>'+
-     '<label>Telefone (opcional)<input name="phone" type="tel" maxlength="25" placeholder="+55 ..."></label>'+
+     '<label>WhatsApp para confirmação<input name="phone" type="tel" maxlength="25" minlength="8" required autocomplete="tel" placeholder="+55 55 99999-9999"></label>'+
      '<p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
-     '<p class="tiny muted">Agendamento gratuito. Qualquer pagamento eventual será combinado diretamente com o profissional; o TAMÃO não recebe sinal nesta versão.</p>'+
+     '<p class="tiny muted">Seu nome e WhatsApp serão compartilhados com este profissional. Reserva gratuita: nenhum sinal é cobrado pelo TAMÃO nesta versão.</p>'+
      '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>':
     '<div class="agenda-login-prompt"><p>Entre pelo seu e-mail para confirmar este horário.</p>'+agendaLoginForm()+'</div>'):'')+
   '</section>';
@@ -197,9 +197,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];
+    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -241,7 +241,7 @@ async function agendaRefreshOwner(){
   if(services.error||hours.error||bookings.error)throw services.error||hours.error||bookings.error;
   s.services=services.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];
  }else{s.services=[];s.hours=[];s.bookings=[];}
- const mine=await s.client.from('agenda_appointments').select('id,starts_at,status')
+ const mine=await s.client.from('agenda_appointments').select('id,starts_at,status,page_id,service_id')
   .eq('customer_id',u.id).eq('status','confirmed').gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
 }
@@ -393,6 +393,7 @@ async function agendaBook(ev){
  if(s.busy||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
+ if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
  const request=s.requestKey,instant=s.selectedStart,service=s.serviceId;
  s.busy=true;s.error='';s.notice='';
