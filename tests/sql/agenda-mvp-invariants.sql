@@ -83,13 +83,15 @@ begin
 
  -- Closing a free day prevents new bookings in Postgres even if the UI is bypassed.
  perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ select starts_at into v_at from public.agenda_available_slots(v_service,v_day+7)
+ where label='10:00' limit 1;
+ if v_at is null then raise exception 'AGENDA_FUTURE_SLOT_UNAVAILABLE';end if;
  if not public.agenda_set_closed_day(v_day+7,true)
  then raise exception 'AGENDA_CLOSE_DAY_FAILED';end if;
  if not public.agenda_day_is_closed(v_service,v_day+7)
  then raise exception 'AGENDA_DAY_CLOSED_NOT_VISIBLE';end if;
- select starts_at into v_at from public.agenda_available_slots(v_service,v_day+7)
- where label='10:00' limit 1;
- if v_at is null then raise exception 'AGENDA_FUTURE_SLOT_UNAVAILABLE';end if;
+ if exists(select 1 from public.agenda_available_slots(v_service,v_day+7))
+ then raise exception 'AGENDA_CLOSED_DAY_SLOTS_ADVERTISED';end if;
  perform set_config('request.jwt.claim.sub',v_buyer::text,true);
  begin
   perform public.agenda_book_slot(v_service,v_at,'Cliente Primeiro','+5555999999999',gen_random_uuid());
