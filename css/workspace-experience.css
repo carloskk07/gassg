@@ -154,3 +154,13 @@
 .admin-task-disclosure .admin-task-navigator select{width:100%;min-width:0;flex:none;min-height:44px}
 .admin-task-disclosure:focus-within{outline:2px solid #71ad87;outline-offset:2px}
 @media(max-width:820px){.admin-workspace-tools{flex-direction:column;gap:9px}.admin-workspace-tools>.admin-global-search,.admin-workspace-tools>.admin-task-disclosure{width:100%}.admin-task-disclosure .admin-task-navigator{min-width:0}.admin-task-disclosure>summary{min-height:44px}}
+
+/* V1.1055 — authenticated QA navigation, no alternate identity. */
+.admin-test-center h2{margin:24px 0 9px}
+.admin-test-center p{line-height:1.6}
+.admin-test-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:10px;margin:13px 0 23px}
+.admin-test-links .admin-test-page-link{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0;min-height:89px;text-align:left;text-decoration:none;cursor:pointer;border:1px solid #d4e5d9}
+.admin-test-links .admin-test-page-link strong{font-size:14px;color:#18573e}
+.admin-test-links .admin-test-page-link small{color:#526d5e;font-size:12px;line-height:1.5}
+.admin-test-links .admin-test-page-link:hover{border-color:#72ac8c;background:#f2faf4}
+.admin-test-links .admin-test-page-link:focus-visible{outline:3px solid #bc8728;outline-offset:3px}
