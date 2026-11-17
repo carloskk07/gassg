@@ -79,4 +79,40 @@ assert.match(ics,/TRIGGER:-PT1H/);
 assert.match(ics,/SUMMARY:Corte\\, barba\\; agenda/);
 assert.equal(vm.runInContext('agendaIcsContent({id:"not-uuid",starts_at:"2026-11-20T13:00:00Z",ends_at:"2026-11-20T13:45:00Z"},"Invalid")',ctx),'');
 assert.equal(vm.runInContext('agendaIcsContent({id:"11111111-1111-4111-8111-111111111111",starts_at:"2026-11-20T13:45:00Z",ends_at:"2026-11-20T13:00:00Z"},"Invalid")',ctx),'');
-console.log('PASS: TAMÃO Agenda ACL, folgas, ICS calendário e proteção de datas; pagamentos continuam desligados.');
+const advanced=readFileSync('supabase/migrations/20261117115553_agenda_equipes_remarcacao_v1_1050.sql','utf8');
+for(const word of ['agenda_staff_owner_select','agenda_staff_owner_insert',
+ 'agenda_staff_owner_update','agenda_booking_staff_guard','agenda_available_staff_slots',
+ 'agenda_book_staff_slot','agenda_reschedule_booking','AGENDA_STAFF_SELECTION_REQUIRED',
+ 'AGENDA_SLOT_ALREADY_TAKEN','AGENDA_BOOKING_CHANGED','AGENDA_DAY_CLOSED',
+ 'agenda_my_bookings'])assert.match(advanced,new RegExp(word));
+assert.match(advanced,/revoke all on function public\.agenda_reschedule_booking/);
+assert.match(advanced,/grant execute on function public\.agenda_available_staff_slots.*to anon,authenticated/);
+assert.match(source,/agendaBeginReschedule/);
+assert.match(source,/agendaConfirmReschedule/);
+assert.match(source,/agendaChooseStaff/);
+assert.match(source,/agenda_book_staff_slot/);
+assert.match(source,/agenda_available_staff_slots/);
+assert.match(source,/Remarcar/);
+assert.match(source,/SEQUENCE:/);
+assert.doesNotMatch(advanced,/mercadopago|mp_access_token|pix|payment_attempt|split_payments/i);
+
+vm.runInContext('agendaRuntime.phase="ready";agendaRuntime.user={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};',ctx);
+vm.runInContext('agendaRuntime.page={id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",title:"Barbearia Centro",slug:"barbearia-centro",published:true,photo_paths:[],city:"São Gabriel"};',ctx);
+vm.runInContext('agendaRuntime.staff=[{id:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",name:"Ana",active:true}];',ctx);
+vm.runInContext('agendaRuntime.services=[{id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",title:"Corte",duration_min:45,price_cents:6000,active:true}];',ctx);
+assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Equipe e agendas simultâneas/);
+assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Ana/);
+vm.runInContext('agendaRuntime.publicProfile={id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",slug:"barbearia-centro",title:"Barbearia Centro",services:agendaRuntime.services,staff:agendaRuntime.staff,city:"São Gabriel"};',ctx);
+vm.runInContext('agendaRuntime.serviceId="dddddddd-dddd-4ddd-8ddd-dddddddddddd";agendaRuntime.staffId="cccccccc-cccc-4ccc-8ccc-cccccccccccc";agendaRuntime.day="2026-11-23";',ctx);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Profissional/);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Ana/);
+vm.runInContext('agendaRuntime.selectedStart="2026-11-23T14:00:00Z";agendaRuntime.rescheduleId="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";',ctx);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Confirmar remarcação/);
+assert.doesNotMatch(vm.runInContext('agendaPublicView()',ctx),/Confirmar horário gratuitamente/);
+vm.runInContext('agendaRuntime.rescheduleId="";',ctx);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Confirmar horário gratuitamente/);
+vm.runInContext('agendaRuntime.mine=[{id:"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",starts_at:"2026-11-23T14:00:00Z",ends_at:"2026-11-23T14:45:00Z",status:"confirmed",page_title:"Barbearia Centro",service_title:"Corte",staff_title:"Ana",reschedule_count:0,slug:"barbearia-centro"}];',ctx);
+assert.match(vm.runInContext('agendaMyBookingsView()',ctx),/Remarcar/);
+assert.match(vm.runInContext('agendaMyBookingsView()',ctx),/Ana/);
+assert.match(vm.runInContext('agendaIcsContent({...agendaRuntime.mine[0],reschedule_count:2},"Corte")',ctx),/SEQUENCE:2/);
+console.log('PASS: TAMÃO Agenda equipe, remarcação, folgas, privacidade, ICS e sem cobrança real.');

@@ -59,3 +59,15 @@
 .agenda-closed-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:#f2f8f4;border:1px solid #d8e9dc;border-radius:12px}
 .agenda-closed-list>div span{font-weight:750;color:#245b3f}
 @media(max-width:390px){.agenda-closed-list>div{align-items:flex-start;flex-direction:column}}
+
+/* Agenda para equipes: opções legíveis, ações de remarcação e adaptação mobile. */
+.agenda-staff-add{display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px}
+.agenda-staff-list{display:grid;gap:8px;margin-top:16px}
+.agenda-staff-list>div{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+ padding:12px;border:1px solid #d9e8db;border-radius:13px;background:#f7fbf8}
+.agenda-staff-list strong{color:#164d34}
+.agenda-staff-list span{color:#5d715f;font-size:13px;margin-right:auto}
+.agenda-reschedule-hint{border-left:3px solid #188256;padding:11px 14px;
+ background:#f1faf3;border-radius:8px;color:#235f41}
+@media(max-width:540px){.agenda-staff-add{grid-template-columns:1fr}
+ .agenda-staff-list>div{align-items:flex-start;flex-direction:column}}

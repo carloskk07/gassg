@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
- phase:'idle',client:null,user:null,page:null,services:[],hours:[],bookings:[],mine:[],closedDays:[],dayClosed:false,
- slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',day:'',slots:[],selectedStart:'',
+ phase:'idle',client:null,user:null,page:null,services:[],staff:[],hours:[],bookings:[],mine:[],closedDays:[],dayClosed:false,
+ slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -95,6 +95,17 @@ function agendaOwnerEditor(){
     '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
     '<p>Salve sua página para adicionar os serviços.</p>')+
   '</section>'+
+  '<section class="agenda-panel"><h2>Equipe e agendas simultâneas</h2>'+
+   '<p>Cadastre até 12 colaboradores. Cada um terá horários livres independentes, dentro do expediente geral do estabelecimento.</p>'+
+   (p.id?'<form class="agenda-staff-add" onsubmit="return agendaSaveStaff(event)">'+
+    '<label>Nome do colaborador<input name="name" required minlength="2" maxlength="70" placeholder="Ex.: Ana"></label>'+
+    '<button type="submit" class="primary"'+(s.busy||s.staff.length>=12?' disabled':'')+'>Adicionar colaborador</button></form>'+
+    (s.staff.length?'<div class="agenda-staff-list">'+s.staff.map(t=>
+     '<div><strong>'+esc(t.name)+'</strong><span>'+(t.active?'Recebendo agendamentos':'Pausado')+'</span>'+
+     '<button type="button" class="secondary" data-staff="'+esc(t.id)+
+     '" onclick="agendaToggleStaff(this.dataset.staff)">'+(t.active?'Pausar agenda':'Reativar')+'</button></div>').join('')+'</div>':
+     '<p class="tiny muted">Sem equipe cadastrada, a agenda individual permanece disponível.</p>'):
+    '<p>Salve a página para cadastrar colaboradores.</p>')+'</section>'+
   '<section class="agenda-panel"><h2>Meus horários</h2><p>Marque os dias em que atende. Horários ocupados ficam indisponíveis automaticamente.</p>'+
    (p.id?'<form onsubmit="return agendaSaveHours(event)">'+allDays+
     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar horários</button></form>':
@@ -113,13 +124,15 @@ function agendaOwnerEditor(){
   '<section class="agenda-panel"><h2>Próximos atendimentos</h2>'+
    (s.bookings.length?s.bookings.map(b=>{
     const serv=s.services.find(x=>x.id===b.service_id);
+    const colleague=s.staff.find(x=>x.id===b.staff_id);
     return '<article class="agenda-booking"><strong>'+esc(b.customer_name)+'</strong>'+
-     '<span>'+esc(serv?.title||'Atendimento')+' • '+esc(agendaDateTime(b.starts_at))+'</span>'+
+     '<span>'+esc(serv?.title||'Atendimento')+' • '+esc(agendaDateTime(b.starts_at))+(colleague?' • '+colleague.name:'')+'</span>'+
      (b.customer_phone?'<span>Contato: '+esc(b.customer_phone)+'</span>':'')+
      (b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
       '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
       '" target="_blank" rel="noopener noreferrer">Conversar no WhatsApp</a>':'')+
      '<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>'+ 
+     (b.reschedule_count<20?'<button type="button" class="secondary" onclick="agendaBeginReschedule(\''+esc(b.id)+'\')">Remarcar</button>':'')+ 
      '<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button></article>';
    }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
   '</section></div>';
@@ -140,6 +153,7 @@ function agendaIcsContent(booking,title){
   'CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
   'UID:'+booking.id+'@tamao.com.br','DTSTAMP:'+stamp(new Date()),
   'DTSTART:'+stamp(start),'DTEND:'+stamp(end),
+  'SEQUENCE:'+Math.max(0,Math.min(20,Number(booking.reschedule_count)||0)),
   'SUMMARY:'+agendaIcsEscape(title||'Atendimento no TAMÃO'),
   'DESCRIPTION:'+agendaIcsEscape('Reserva confirmada. Consulte TAMÃO Agenda para cancelar ou reagendar.'),
   'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
@@ -151,7 +165,7 @@ function agendaDownloadCalendar(id){
  if(!b||b.status!=='confirmed')return;
  const service=s.services.find(x=>x.id===b.service_id);
  const label=service?.title||b.service_title||'Atendimento';
- const title=b.page_title?label+' — '+b.page_title:'Atendimento: '+label;
+ const title=b.page_title?label+' — '+b.page_title+(b.staff_title?' ('+b.staff_title+')':''):'Atendimento: '+label;
  const data=agendaIcsContent(b,title);
  if(!data)return;
  const url=URL.createObjectURL(new Blob([data],{type:'text/calendar;charset=utf-8'}));
@@ -171,24 +185,32 @@ function agendaPublicView(){
  const choices=(p.services||[]).map(x=>
   '<option value="'+esc(x.id)+'"'+(s.serviceId===x.id?' selected':'')+'>'+esc(x.title)+' — '+agendaMoney(x.price_cents)+'</option>').join('');
  const date=s.day||agendaToday();
+ const isReschedule=!!s.rescheduleId;
  const slots=s.slots.map(x=>
   '<button type="button" class="'+(s.selectedStart===x.starts_at?'primary':'secondary')+
   '" aria-pressed="'+(s.selectedStart===x.starts_at)+'" onclick="agendaSelectSlot(\''+esc(x.starts_at)+'\')">'+esc(x.label)+'</button>').join('');
  const form='<section class="agenda-panel"><h2>Escolha seu horário</h2>'+
-  '<label>Serviço<select onchange="agendaChooseService(this.value)">'+choices+'</select></label>'+
+  '<label>Serviço<select'+(isReschedule?' disabled':'')+' onchange="agendaChooseService(this.value)">'+choices+'</select></label>'+
+  (p.staff?.length?'<label>Profissional<select'+(isReschedule?' disabled':'')+' onchange="agendaChooseStaff(this.value)">'+
+   p.staff.map(t=>'<option value="'+esc(t.id)+'"'+(s.staffId===t.id?' selected':'')+'>'+esc(t.name)+'</option>').join('')+
+   '</select></label>':'')+
+  (isReschedule?'<p class="agenda-reschedule-hint">Escolha a nova data e um horário livre para remarcar sua reserva.</p>':'')+
   (service?'<p class="agenda-service-summary">'+esc(service.title)+' • '+service.duration_min+' min • '+agendaMoney(service.price_cents)+'</p>':'')+
   '<label>Data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
    (s.slotBusy?'<p>Consultando horários…</p>':s.dayClosed?'<p>Este profissional não atende nesta data. Escolha outro dia.</p>':slots||'<p>Nenhum horário livre nesta data. Escolha outro dia.</p>')+'</div>'+
-  (s.selectedStart?(s.user?
+  (s.selectedStart?(s.user?(isReschedule?
+   '<div class="agenda-book-form"><h3>Confirme o novo horário</h3><p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
+    '<button type="button" class="primary" onclick="agendaConfirmReschedule()"'+(s.busy?' disabled':'')+'>Confirmar remarcação</button> '+
+    '<button type="button" class="secondary" onclick="agendaCancelReschedule()">Desistir</button></div>':
     '<form class="agenda-book-form" onsubmit="return agendaBook(event)">'+
      '<h3>Confirme sua reserva</h3>'+
      '<label>Seu nome<input name="name" minlength="2" maxlength="90" required autocomplete="name"></label>'+
      '<label>WhatsApp para confirmação<input name="phone" type="tel" maxlength="25" minlength="8" required autocomplete="tel" placeholder="+55 55 99999-9999"></label>'+
      '<p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
      '<p class="tiny muted">Seu nome e WhatsApp serão compartilhados com este profissional. Reserva gratuita: nenhum sinal é cobrado pelo TAMÃO nesta versão.</p>'+
-     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>':
+     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>'):
     '<div class="agenda-login-prompt"><p>Entre pelo seu e-mail para confirmar este horário.</p>'+agendaLoginForm()+'</div>'):'')+
   '</section>';
  return '<div class="agenda-public-grid"><section class="agenda-panel agenda-showcase">'+
@@ -221,10 +243,12 @@ function agendaMyBookingsView(){
    const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
    const service=profile?.services?.find(x=>x.id===b.service_id);
    return '<article class="agenda-booking"><strong>'+esc(b.page_title||profile?.title||'Atendimento no TAMÃO')+'</strong>'+
-    '<span>'+esc([b.service_title||service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+ 
+    '<span>'+esc([b.service_title||service?.title,b.staff_title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+ 
     (agendaSlugPattern.test(b.slug||'')?'<a class="agenda-wa" href="'+esc(agendaShareLink(b.slug))+'">Ver página do profissional</a>':'')+
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
     '" onclick="agendaDownloadCalendar(this.dataset.id)">Adicionar ao calendário</button>'+ 
+    (b.reschedule_count<2?'<button type="button" class="secondary" data-id="'+esc(b.id)+
+    '" onclick="agendaBeginReschedule(this.dataset.id)">Remarcar</button>':'')+ 
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
     '" onclick="agendaCancel(this.dataset.id)">Cancelar reserva</button></article>';
   }).join('')+'</section>';
@@ -266,9 +290,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];
+    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -300,17 +324,18 @@ async function agendaRefreshOwner(){
  if(e)throw e;if(epoch!==s.epoch||s.user?.id!==u.id)return;
  s.page=p;
  if(p){
-  const [services,hours,bookings,closedDays]=await Promise.all([
+  const [services,staff,hours,bookings,closedDays]=await Promise.all([
    s.client.from('agenda_services').select('*').eq('page_id',p.id).order('created_at'),
+   s.client.from('agenda_staff').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_hours').select('*').eq('page_id',p.id).order('weekday'),
-   s.client.from('agenda_appointments').select('id,service_id,customer_name,customer_phone,starts_at,ends_at,status')
+   s.client.from('agenda_appointments').select('id,page_id,service_id,staff_id,reschedule_count,customer_name,customer_phone,starts_at,ends_at,status')
      .eq('owner_id',u.id).eq('status','confirmed').gte('starts_at',new Date(Date.now()-3600000).toISOString()).order('starts_at').limit(100),
    s.client.from('agenda_closed_days').select('day').eq('owner_id',u.id).gte('day',agendaToday()).order('day').limit(180)
   ]);
   if(epoch!==s.epoch||s.user?.id!==u.id)return;
-  if(services.error||hours.error||bookings.error||closedDays.error)throw services.error||hours.error||bookings.error||closedDays.error;
-  s.services=services.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];
- }else{s.services=[];s.hours=[];s.bookings=[];s.closedDays=[];}
+  if(services.error||staff.error||hours.error||bookings.error||closedDays.error)throw services.error||staff.error||hours.error||bookings.error||closedDays.error;
+  s.services=services.data||[];s.staff=staff.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];
+ }else{s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.closedDays=[];}
  const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
 }
@@ -325,34 +350,40 @@ async function agendaRefreshDirectory(){
 }
 async function agendaRefreshPublic(){
  const s=agendaRuntime,slug=agendaSlug();s.slug=slug;s.publicProfile=null;
- s.serviceId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
+ s.serviceId='';s.staffId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
  if(!slug||!s.client)return;
  const {data,error}=await s.client.rpc('agenda_public_page',{p_slug:slug});
  if(!agendaRoute()||agendaSlug()!==slug)return;
  if(error){s.error='Não foi possível consultar este profissional.';return;}
  s.publicProfile=data||null;
- s.serviceId=(data?.services||[])[0]?.id||'';
+ const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
+ if(s.rescheduleId&&!editing)s.rescheduleId='';
+ s.serviceId=editing?.service_id||(data?.services||[])[0]?.id||'';
+ s.staffId=editing?(editing.staff_id||''):((data?.staff||[])[0]?.id||'');
  if(s.serviceId)await agendaLoadSlots();
 }
 async function agendaLoadSlots(){
- const s=agendaRuntime,service=s.serviceId,day=s.day;
+ const s=agendaRuntime,service=s.serviceId,day=s.day,staffId=s.staffId;
  s.selectedStart='';s.requestKey='';s.slots=[];s.dayClosed=false;if(!service||!day)return;
  s.slotBusy=true;render();
  try{
   const [slots,closed]=await Promise.all([
-   s.client.rpc('agenda_available_slots',{p_service_id:service,p_day:day}),
+   s.client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
    s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
   ]);
-  if(s.serviceId!==service||s.day!==day)return;
+  if(s.serviceId!==service||s.day!==day||s.staffId!==staffId)return;
   if(slots.error||closed.error)throw slots.error||closed.error;
   s.dayClosed=closed.data===true;
   s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
- finally{if(s.serviceId===service&&s.day===day){s.slotBusy=false;if(agendaRoute())render();}}
+ finally{if(s.serviceId===service&&s.day===day&&s.staffId===staffId){s.slotBusy=false;if(agendaRoute())render();}}
 }
-function agendaChooseService(id){const s=agendaRuntime;if(!(s.publicProfile?.services||[]).some(x=>x.id===id))return;
+function agendaChooseService(id){const s=agendaRuntime;if(s.rescheduleId||!(s.publicProfile?.services||[]).some(x=>x.id===id))return;
  s.serviceId=id;s.error='';agendaLoadSlots();}
+function agendaChooseStaff(id){const s=agendaRuntime;if(s.rescheduleId)return;
+ if(!(s.publicProfile?.staff||[]).some(x=>x.id===id))return;
+ s.staffId=id;s.error='';agendaLoadSlots();}
 function agendaChooseDay(day){const s=agendaRuntime;
  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(day)))return;
  if(day<agendaToday()||day>agendaToday(30))return;
@@ -443,6 +474,35 @@ async function agendaToggleService(id){
  }catch(e){s.error='Não foi possível alterar este serviço.';}
  s.busy=false;render();
 }
+async function agendaSaveStaff(ev){
+ ev.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.page||!s.user||s.staff.length>=12)return false;
+ const name=String(new FormData(ev.target).get('name')||'').trim();
+ if(name.length<2||name.length>70){s.error='Informe um nome válido.';render();return false;}
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {error}=await s.client.from('agenda_staff').insert({page_id:s.page.id,name,active:true});
+  if(error)throw error;
+  await agendaRefreshOwner();s.notice='Colaborador adicionado. Ele já pode receber agendamentos.';
+ }catch(e){s.error='Não foi possível cadastrar o colaborador. Verifique sua equipe.';}
+ s.busy=false;render();return false;
+}
+async function agendaToggleStaff(id){
+ const s=agendaRuntime,t=s.staff.find(x=>x.id===id);
+ if(s.busy||!t||!s.page)return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {error}=await s.client.from('agenda_staff').update({active:!t.active})
+   .eq('id',id).eq('page_id',s.page.id);
+  if(error)throw error;
+  await agendaRefreshOwner();s.notice=t.active?'Agenda do colaborador pausada.':'Agenda do colaborador reativada.';
+ }catch(e){
+  s.error=e?.message?.includes('AGENDA_STAFF_HAS_BOOKINGS')?
+   'Este colaborador tem atendimentos confirmados. Resolva-os antes de pausar a agenda.':
+   'Não foi possível atualizar a agenda deste colaborador.';
+ }
+ s.busy=false;render();
+}
 async function agendaSaveHours(ev){
  ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.page)return false;
  const f=new FormData(ev.target),hours=[];
@@ -486,16 +546,18 @@ async function agendaSetClosedDay(day,closed){
 }
 async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
- if(s.busy||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
+ if(s.busy||s.rescheduleId||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
  const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
  if(name.length<2||name.length>90){s.error='Informe seu nome.';render();return false;}
  if(!/^\+?[0-9 ()-]{8,25}$/.test(phone)){s.error='Informe um WhatsApp válido para confirmar o horário.';render();return false;}
  if(!s.requestKey)s.requestKey=crypto.randomUUID();
+ if((s.publicProfile?.staff||[]).length&& !agendaUuid.test(s.staffId))return false;
  const request=s.requestKey,instant=s.selectedStart,service=s.serviceId;
  s.busy=true;s.error='';s.notice='';
  try{
-  const {data,error}=await s.client.rpc('agenda_book_slot',{
-   p_service_id:service,p_starts_at:instant,p_name:name,p_phone:phone,p_request_id:request
+  const {data,error}=await s.client.rpc('agenda_book_staff_slot',{
+   p_service_id:service,p_starts_at:instant,p_name:name,p_phone:phone,
+   p_request_id:request,p_staff_id:s.staffId||null
   });
   if(error)throw error;
   if(!agendaUuid.test(data?.id)||data.status!=='confirmed')throw Error('booking readback failed');
@@ -523,6 +585,64 @@ async function agendaBook(ev){
   }catch(_){s.error='O resultado não pôde ser confirmado. Confira suas reservas antes de tentar novamente.';}
  }
  s.busy=false;render();return false;
+}
+function agendaBeginReschedule(id){
+ const s=agendaRuntime;
+ const b=[...s.mine,...s.bookings].find(x=>x.id===id&&x.status==='confirmed');
+ if(!b||s.busy||!agendaUuid.test(b.id))return;
+ if(b.customer_id===s.user?.id&&b.reschedule_count>=2)return;
+ if(b.reschedule_count>=20)return;
+ const slug=b.slug||((s.page?.id===b.page_id)?s.page.slug:'');
+ if(!agendaSlugPattern.test(slug))return;
+ s.rescheduleId=id;s.error='';s.notice='Escolha o novo horário abaixo.';
+ const next='#agenda?profissional='+encodeURIComponent(slug);
+ if(location.hash===next)agendaRefreshPublic().then(()=>render()).catch(()=>{
+  s.error='Não foi possível abrir os horários.';render();
+ });
+ else location.hash=next;
+}
+function agendaCancelReschedule(){
+ const s=agendaRuntime;s.rescheduleId='';s.error='';s.notice='Remarcação interrompida. Sua reserva original está mantida.';
+ if(s.serviceId)agendaLoadSlots();else render();
+}
+async function agendaConfirmReschedule(){
+ const s=agendaRuntime;
+ if(!s.user||!s.client||s.busy||!agendaUuid.test(s.rescheduleId)||!s.selectedStart)return;
+ const current=[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.status==='confirmed');
+ if(!current||current.page_id!==s.publicProfile?.id||
+  current.service_id!==s.serviceId||(current.staff_id||'')!==s.staffId)return;
+ const target=s.selectedStart;
+ if(!s.slots.some(x=>x.starts_at===target))return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_reschedule_booking',{
+   p_appointment_id:current.id,p_expected_starts_at:current.starts_at,p_new_starts_at:target
+  });
+  if(error)throw error;
+  if(data?.status!=='confirmed'||data?.id!==current.id||Date.parse(data?.starts_at)!==Date.parse(target))
+   throw Error('readback failed');
+  const verify=await s.client.from('agenda_appointments').select('id,starts_at,status')
+   .eq('id',current.id).maybeSingle();
+  if(verify.error||verify.data?.status!=='confirmed'||
+   Date.parse(verify.data.starts_at)!==Date.parse(target))
+   throw Error('readback failed');
+  s.rescheduleId='';s.notice='Horário remarcado para '+agendaDateTime(target)+'. Atualize seu calendário com a nova reserva.';
+  await agendaRefreshOwner();await agendaLoadSlots();
+ }catch(e){
+  let result={error:true};
+  try{result=await s.client.from('agenda_appointments').select('starts_at,status')
+    .eq('id',current.id).maybeSingle();}catch(_){}
+  if(!result.error&&result.data?.status==='confirmed'&&
+     Date.parse(result.data.starts_at)===Date.parse(target)){
+   s.rescheduleId='';s.notice='Remarcação confirmada para '+agendaDateTime(target)+'.';
+   await agendaRefreshOwner();await agendaLoadSlots();
+  }else{
+   s.error=e?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')?
+    'Este horário foi reservado por outra pessoa. Escolha outro.':
+    'A remarcação não foi confirmada. Confira sua reserva antes de tentar novamente.';
+  }
+ }
+ s.busy=false;render();
 }
 async function agendaCancel(id){
  const s=agendaRuntime;
@@ -552,7 +672,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];
+  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();
