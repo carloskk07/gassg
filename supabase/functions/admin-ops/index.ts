@@ -3536,14 +3536,25 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente Financeiro ou Superadmin consulta o fundo da Rede.",403);
       }
-      const [summary,conservation,payouts,direct]=await Promise.all([
+      const [summary,conservation,payouts,direct,celebra]=await Promise.all([
         admin.rpc("network_fee_package_admin_summary_v1_1030",{p_actor:user.id}),
         admin.rpc("network_fee_package_conservation_v1_1030",{p_actor:user.id}),
         admin.rpc("network_fee_payout_program_overview_v1_1031",{p_actor:user.id}),
-        admin.rpc("network_direct_module_admin_v1_1044",{p_actor:user.id})
+        admin.rpc("network_direct_module_admin_v1_1044",{p_actor:user.id}),
+        admin.rpc("network_celebra_admin_v1_1046",{p_actor:user.id})
       ]);
-      if(summary.error||conservation.error||payouts.error||direct.error)
-        throw summary.error||conservation.error||payouts.error||direct.error;
+      if(summary.error||conservation.error||payouts.error||direct.error||celebra.error)
+        throw summary.error||conservation.error||payouts.error||direct.error||celebra.error;
+      if(celebra.data?.source!=="network_celebra_admin_v1_1046"||
+         celebra.data.readOnly!==true||celebra.data.moneyMoved!==false||
+         celebra.data.cashPayoutsEnabled!==false||
+         !Array.isArray(celebra.data.items)||celebra.data.items.length!==2||
+         !celebra.data.items.every((c:Record<string,unknown>)=>
+           typeof c.key==="string"&&typeof c.enabled==="boolean"&&
+           ["budgetLimitCents","spentCents","memberLimitCents","extraBps",
+             "validatedAwards","reversedAwards"].every(k=>Number.isSafeInteger(c[k]))))
+        throw new DomainError("NETWORK_CELEBRA_STATUS_UNVERIFIED",
+          "Não foi possível conferir as campanhas especiais.",503);
       if(direct.data?.source!=="network_direct_admin_v1_1044"||
         direct.data.readOnly!==true||direct.data.cashPayoutsEnabled!==false||
         direct.data.moneyMoved!==false||
@@ -3598,7 +3609,8 @@ Deno.serve(async(req:Request)=>{
         cashPayoutsEnabled:false
       };
       return json({...summary.data,conservation:conservation.data,
-        payouts:payouts.data,moduleAds,moduleDirect:direct.data},200,origin);
+        payouts:payouts.data,moduleAds,moduleDirect:direct.data,
+        celebra:celebra.data},200,origin);
     }
     if(action==="network-fee-package-set-enabled"){
       if(String(adminAccess.admin_role)!=="superadmin")
@@ -3622,6 +3634,34 @@ Deno.serve(async(req:Request)=>{
         data.moneyMoved!==false)
         throw new DomainError("NETWORK_POLICY_UPDATE_UNVERIFIED",
           "Não foi possível confirmar a regra da Rede.",503);
+      return json(data,200,origin);
+    }
+
+    if(action==="network-celebra-set-enabled"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A campanha especial só pode ser autorizada pelo Superadmin.",403);
+      const campaign=String(body.campaign||"");
+      const budget=Number(body.budgetCents);
+      const terms=String(body.termsReference||"").trim();
+      if(!["natal_2026","ano_novo_2027"].includes(campaign)||
+         typeof body.enabled!=="boolean"||
+         (body.enabled&&(!Number.isSafeInteger(budget)||
+           ![2000,5000,10000].includes(budget)||
+           !/^[^<>]{12,160}$/.test(terms))))
+        throw new DomainError("NETWORK_CELEBRA_POLICY_INVALID",
+          "Selecione a campanha, um orçamento máximo e os termos aprovados.",400);
+      const {data,error}=await admin.rpc("network_celebra_set_enabled_v1_1046",{
+        p_actor:user.id,p_key:campaign,p_enabled:body.enabled,
+        p_budget_cents:body.enabled?budget:null,
+        p_terms_reference:body.enabled?terms:null
+      });
+      if(error)throw error;
+      if(data?.source!=="network_celebra_policy_v1_1046"||
+         data.campaignKey!==campaign||data.enabled!==body.enabled||
+         data.cashPayoutsEnabled!==false||data.moneyMoved!==false)
+        throw new DomainError("NETWORK_CELEBRA_POLICY_UNVERIFIED",
+          "O estado da campanha não foi confirmado.",503);
       return json(data,200,origin);
     }
 
