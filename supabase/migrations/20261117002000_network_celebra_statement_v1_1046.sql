@@ -3,7 +3,7 @@
 -- Movimentações da carteira NÃO são somadas ao fundo da Rede ou ao valor de cupons.
 begin;
 
-create function public.network_member_benefit_statement_v1_1045(
+create or replace function public.network_member_benefit_statement_v1_1045(
  p_user uuid,p_category text default 'all',p_page integer default 1,p_limit integer default 12
 ) returns jsonb language plpgsql stable security definer
 set search_path=pg_catalog as $fn$
