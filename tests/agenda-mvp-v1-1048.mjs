@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
 const source=readFileSync('js/agenda.js','utf8');
-const migration=readFileSync('supabase/migrations/20261117030500_agenda_profissionais_mvp.sql','utf8');
+const migration=readFileSync('supabase/migrations/20261117032111_agenda_profissionais_mvp.sql','utf8');
 const landing=readFileSync('agenda/index.html','utf8');
 const builder=readFileSync('scripts/build-live-portals.mjs','utf8');
 const index=readFileSync('index.html','utf8');
