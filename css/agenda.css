@@ -93,3 +93,15 @@
 .agenda-qr-image{background:#fff;padding:12px;border-radius:12px}
 .agenda-qr-image svg{display:block;max-width:100%;height:auto;width:min(230px,100%)}
 @media(max-width:380px){.agenda-qr-card{padding:10px}.agenda-qr-image{padding:5px}}
+
+/* Planejamento financeiro: sinal nunca parece um botão de pagamento ativo. */
+.agenda-deposit-form{display:grid;gap:11px;background:#f8fbf9;
+ padding:16px;border:1px solid #d7e8dd;border-radius:16px;margin:12px 0}
+.agenda-deposit-form h3{font-size:17px;margin:0;color:#194e37}
+.agenda-deposit-estimate,.agenda-deposit-summary{background:#f1f8f3;
+ border:1px solid #cfe3d4;padding:12px 14px;border-radius:12px;color:#214f37}
+.agenda-deposit-summary{margin:12px 0}
+.agenda-deposit-summary p{margin:.35rem 0;line-height:1.45}
+.agenda-deposit-form textarea{width:100%;min-height:88px}
+@media(max-width:500px){.agenda-deposit-form{padding:12px}
+ .agenda-deposit-estimate{overflow-wrap:anywhere}}
