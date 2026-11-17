@@ -73,8 +73,8 @@ jobs:
             --window-size=1280,900 --virtual-time-budget=4500 \
             --user-data-dir="/tmp/tamao-web-demo-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --dump-dom "http://127.0.0.1:4185/#home" > /tmp/tamao-demo-home.html
-          grep -Fq "DEMONSTRAÇÃO INTERATIVA" /tmp/tamao-demo-home.html
-          grep -Fq "Admin (resumo)" /tmp/tamao-demo-home.html
+          grep -Fq "Modo teste · dados fictícios" /tmp/tamao-demo-home.html
+          grep -Fq "Admin" /tmp/tamao-demo-home.html
           grep -Fq "Revenda Parceira A" /tmp/tamao-demo-home.html || grep -Fq "tamaoOpenAvailability()" /tmp/tamao-demo-home.html
           ! grep -Fq "lgugwujpunhslavewffd" /tmp/tamao-demo-home.html
 
@@ -125,8 +125,8 @@ jobs:
           curl --fail --silent --show-error --location --retry 6 \
             --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 25 \
             "${PAGE_URL}js/demo-browser-panel.js" -o /tmp/tamao-demo-script.js
-          grep -Fq "Demonstração interativa (sem vendas reais)" /tmp/tamao-demo-page.html
-          grep -Fq "DEMONSTRAÇÃO INTERATIVA" /tmp/tamao-demo-script.js
+          grep -Fq "TAMÃO — Área de testes" /tmp/tamao-demo-page.html
+          grep -Fq "Modo teste · dados fictícios" /tmp/tamao-demo-script.js
       - name: Record VERIFIED link only after public response
         env:
           GH_TOKEN: ${{ github.token }}
