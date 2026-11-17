@@ -231,6 +231,18 @@ function agendaPublicView(){
  const slots=s.slots.map(x=>
   '<button type="button" class="'+(s.selectedStart===x.starts_at?'primary':'secondary')+
   '" aria-pressed="'+(s.selectedStart===x.starts_at)+'" onclick="agendaSelectSlot(\''+esc(x.starts_at)+'\')">'+esc(x.label)+'</button>').join('');
+ const waitingAlready=s.myWaiting.some(w=>w.service_id===s.serviceId &&
+   (w.staff_id||'')===s.staffId && w.day===date);
+ const queueForm=!isReschedule&&!s.slotBusy&&!s.dayClosed&&!s.slots.length&&service ?
+   '<div class="agenda-waitlist"><h3>Quer entrar na lista de espera?</h3>'+
+    '<p>Deixe um contato e o estabelecimento poderá conversar com você pelo WhatsApp quando surgir uma vaga. A lista não reserva um horário e não envia mensagens automáticas.</p>'+
+    (waitingAlready?'<p class="agenda-note">Você já está na fila para esse dia.</p>':
+     s.user?'<form onsubmit="return agendaJoinWaitlist(event)">'+
+      '<label>Seu nome<input name="name" required minlength="2" maxlength="90" autocomplete="name"></label>'+
+      '<label>WhatsApp<input name="phone" type="tel" required minlength="8" maxlength="25" autocomplete="tel"></label>'+
+      '<label class="agenda-publish"><input name="consent" type="checkbox" required> Autorizo compartilhar meu nome, WhatsApp e dia desejado com este profissional para contato sobre a vaga.</label>'+
+      '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Entrar na lista de espera</button></form>':
+     agendaLoginForm())+'</div>':'';
  const form='<section class="agenda-panel"><h2>Escolha seu horário</h2>'+
   '<label>Serviço<select'+(isReschedule?' disabled':'')+' onchange="agendaChooseService(this.value)">'+choices+'</select></label>'+
   (p.staff?.length?'<label>Profissional<select'+(isReschedule?' disabled':'')+' onchange="agendaChooseStaff(this.value)">'+
@@ -254,7 +266,7 @@ function agendaPublicView(){
      '<p class="tiny muted">Seu nome e WhatsApp serão compartilhados com este profissional. Reserva gratuita: nenhum sinal é cobrado pelo TAMÃO nesta versão.</p>'+
      '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>'):
     '<div class="agenda-login-prompt"><p>Entre pelo seu e-mail para confirmar este horário.</p>'+agendaLoginForm()+'</div>'):'')+
-  '</section>';
+  queueForm+'</section>';
  return '<div class="agenda-public-grid"><section class="agenda-panel agenda-showcase">'+
   '<span class="section-kicker">PROFISSIONAL NO TAMÃO</span><h1>'+esc(p.title)+'</h1>'+
   '<p>'+esc(p.about||'Agende seu atendimento pelo TAMÃO.')+'</p>'+
@@ -275,6 +287,18 @@ function agendaDirectoryView(){
   '<span>Ver serviços e horários →</span></a>').join('')+'</div>':
   '<p>As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.</p>')+
  '</section>';
+}
+function agendaMyWaitingView(){
+ const s=agendaRuntime;if(!s.user||!s.myWaiting.length)return '';
+ return '<section class="agenda-panel"><h2>Minhas listas de espera</h2>'+
+  '<p>O estabelecimento poderá chamar pelo WhatsApp. A lista não garante nem confirma horários.</p>'+
+  s.myWaiting.map(w=>{
+   const member=s.publicProfile?.staff?.find(t=>t.id===w.staff_id);
+   return '<article class="agenda-booking"><strong>'+esc(agendaDateOnly(w.day))+'</strong>'+
+    '<span>'+esc([member?.name,'Aguardando contato do profissional'].filter(Boolean).join(' • '))+'</span>'+
+    '<button type="button" class="secondary" data-id="'+esc(w.id)+
+    '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Sair da lista</button></article>';
+  }).join('')+'</section>';
 }
 function agendaMyBookingsView(){
  const s=agendaRuntime;
@@ -307,10 +331,10 @@ function agendaPage(){
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
  return shell('<section class="section agenda">'+head+agendaNote()+
-  (slug?agendaPublicView()+agendaMyBookingsView():
+  (slug?agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView():
     '<div class="agenda-intro"><h2>Agenda profissional do TAMÃO</h2><p>Ideal para barbearias, salões, estúdios, aulas e outros atendimentos com hora marcada. Você define seu horário e compartilha seu próprio link.</p></div>'+
     agendaDirectoryView()+
-    agendaMyBookingsView()+
+    agendaMyBookingsView()+agendaMyWaitingView()+
     (!s.user?agendaLoginForm():(s.page||s.ownerMode?agendaOwnerEditor():
      '<section class="agenda-panel"><h2>É profissional?</h2><p>Crie gratuitamente sua página e controle seus horários.</p>'+
      '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda</button></section>')+
