@@ -126,7 +126,7 @@ begin
  then raise exception 'AGENDA_PAYMENTS_NOT_HOMOLOGATED' using errcode='42501';end if;
  -- Holds are only valid in an independently verified server-side flow.
  -- Direct client access is never permitted, regardless of payment control.
- if current_user not in ('postgres','service_role')
+ if coalesce(current_setting('request.jwt.claim.role',true),'')<>'service_role'
  then raise exception 'AGENDA_PAYMENT_SERVER_ONLY' using errcode='42501';end if;
  return new;
 end $$;
