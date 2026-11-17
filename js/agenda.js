@@ -79,6 +79,7 @@ function agendaQuickStartView(){
 }
 function agendaOwnerEditor(){
  const s=agendaRuntime,p=s.page||{},link=p.published&&p.slug?agendaShareLink(p.slug):'';
+ if(!p.id)return agendaQuickStartView();
  const photo=(p.photo_paths||[]).length;
  const allDays=agendaDays.map((label,i)=>{
   const found=s.hours.find(h=>h.weekday===i);
@@ -96,7 +97,82 @@ function agendaOwnerEditor(){
   '<button class="secondary" type="submit"'+(s.busy?' disabled':'')+'>Salvar</button>'+
   '<button class="secondary" type="button" onclick="agendaToggleService(\''+esc(service.id)+'\')"'+(s.busy?' disabled':'')+'>'+ (service.active?'Pausar':'Reativar')+'</button></form>'
  ).join('');
+ const ready=!!p.published && s.services.some(x=>x.active)&&s.hours.length>0;
+ const upcoming=s.bookings.filter(x=>x.status==='confirmed'&&Date.parse(x.starts_at)>Date.now()).length;
  return '<div class="agenda-owner-grid">'+
+  '<section class="agenda-panel agenda-owner-overview">'+
+   '<span class="section-kicker">MINHA AGENDA</span>'+
+   '<h2>'+esc(p.title)+'</h2>'+
+   '<p class="agenda-status">'+(ready?'Sua agenda está pronta para receber clientes.':
+    'Faltam alguns ajustes para receber novos agendamentos.')+'</p>'+
+   '<div class="agenda-overview-stats">'+
+    '<span><strong>'+upcoming+'</strong> próximas reservas</span>'+
+    '<span><strong>'+s.services.filter(x=>x.active).length+'</strong> serviços</span>'+
+    '<span><strong>'+s.hours.length+'</strong> dias de atendimento</span>'+
+   '</div>'+
+   (link&&ready?'<p class="agenda-link">Seu link: <a href="'+esc(link)+'">'+esc(link)+'</a></p>'+
+    '<div class="agenda-overview-actions">'+
+     '<button type="button" class="primary" onclick="agendaSharePublicLink()">Compartilhar agenda</button>'+
+     '<button type="button" class="secondary" onclick="agendaCopyLink()">Copiar link</button>'+
+     '<a class="agenda-action-link" href="'+esc(link)+'">Ver como cliente</a></div>':
+    '<p class="tiny muted">Adicione um serviço, defina os horários e publique nos ajustes da página.</p>')+
+  '</section>'+
+  '<section class="agenda-panel"><h2>Serviços e preços</h2>'+
+   (p.id?'<form class="agenda-service-row" onsubmit="return agendaSaveService(event)">'+
+    '<label>Serviço<input required minlength="3" maxlength="100" name="title" placeholder="Ex.: Corte masculino"></label>'+
+    '<label>Duração<select name="duration">'+[15,30,45,60,75,90,120,150,180,240].map(m=>'<option value="'+m+'"'+(m===30?' selected':'')+'>'+m+' min</option>').join('')+'</select></label>'+
+    '<label>Preço R$<input type="number" name="price" inputmode="decimal" min="0" max="20000" step=".01" required value="0.00"></label>'+
+    '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
+    '<p>Salve sua página para adicionar os serviços.</p>')+
+  '</section>'+
+  '<details class="agenda-hours-wrap"'+(s.hours.length?'':' open')+'><summary>Horários de atendimento • '+s.hours.length+' dias por semana</summary>'+ 
+  '<section class="agenda-panel"><h2>Meus horários</h2><p>Marque os dias em que atende. Horários ocupados ficam indisponíveis automaticamente.</p>'+
+   (p.id?'<form onsubmit="return agendaSaveHours(event)">'+allDays+
+    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar horários</button></form>':
+    '<p>Salve sua página para configurar a agenda.</p>')+'</section>'+
+  '</details>'+ 
+  '<section class="agenda-panel"><h2>Atendimentos e histórico</h2>'+
+   '<p>'+s.bookings.filter(b=>b.status==='completed').length+' concluídos • '+
+     s.bookings.filter(b=>b.status==='no_show').length+' ausências registradas • '+
+     s.waiting.length+' na lista de espera (período recente).</p>'+
+   (s.bookings.length?s.bookings.map(b=>{
+    const serv=s.services.find(x=>x.id===b.service_id);
+    const colleague=s.staff.find(x=>x.id===b.staff_id);
+    const past=Date.parse(b.ends_at)<=Date.now();
+    const upcoming=Date.parse(b.starts_at)>Date.now();
+    return '<article class="agenda-booking"><strong>'+esc(b.customer_name)+'</strong>'+
+     '<span>'+esc([serv?.title||'Atendimento',colleague?.name,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+
+     '<span>'+esc(b.status==='completed'?'Concluído':b.status==='no_show'?'Não compareceu':'Confirmado')+'</span>'+
+     (b.customer_phone?'<span>Contato: '+esc(b.customer_phone)+'</span>':'')+
+     (b.status==='confirmed'&&b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
+      '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
+      '?text='+encodeURIComponent('Olá, '+b.customer_name+'! Este é um lembrete do seu horário em '+agendaDateTime(b.starts_at)+'.')+
+      '" target="_blank" rel="noopener noreferrer">Enviar lembrete pelo WhatsApp</a>':'')+
+     (b.status==='confirmed'?'<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>':'')+
+     (b.status==='confirmed'&&b.reschedule_count<20&&upcoming?'<button type="button" class="secondary" onclick="agendaBeginReschedule(\''+esc(b.id)+'\')">Remarcar</button>':'')+
+     (b.status==='confirmed'&&!past?'<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button>':'')+
+     (b.status==='confirmed'&&past?'<button type="button" class="secondary" onclick="agendaMarkAttendance(\''+esc(b.id)+'\',\'completed\')">Concluído</button>'+
+      '<button type="button" class="secondary" onclick="agendaMarkAttendance(\''+esc(b.id)+'\',\'no_show\')">Não compareceu</button>':'')+
+      '</article>';
+   }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
+  '</section>'+
+  '<section class="agenda-panel"><h2>Lista de espera</h2>'+
+   '<p>Quando não encontrarem horário, os clientes podem deixar contato voluntariamente. Você entra em contato pelo WhatsApp, sem disparos automáticos.</p>'+
+   (s.waiting.length?'<div class="agenda-waiting-list">'+s.waiting.map(w=>{
+    const service=s.services.find(x=>x.id===w.service_id);
+    const member=s.staff.find(x=>x.id===w.staff_id);
+    const digits=String(w.customer_phone||'').replace(/\D/g,'');
+    const message='Olá, '+w.customer_name+'! Surgiu uma possibilidade para '+(service?.title||'seu atendimento')+' em '+agendaDateOnly(w.day)+'. Veja os horários disponíveis na agenda: '+(link||'');
+    return '<article class="agenda-booking"><strong>'+esc(w.customer_name)+'</strong>'+
+     '<span>'+esc([service?.title,member?.name,agendaDateOnly(w.day)].filter(Boolean).join(' • '))+'</span>'+
+     (digits.length>=8?'<a class="agenda-wa" target="_blank" rel="noopener noreferrer" href="https://wa.me/'+esc(digits)+'?text='+encodeURIComponent(message)+'">Falar pelo WhatsApp</a>':'')+
+     '<button type="button" class="secondary" data-id="'+esc(w.id)+
+     '" onclick="agendaCloseWaitlist(this.dataset.id,true)">Marcar como contatado</button>'+
+     '<button type="button" class="secondary" data-id="'+esc(w.id)+
+     '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Remover da fila</button></article>';
+   }).join('')+'</div>':'<p>Nenhuma pessoa na fila de espera neste momento.</p>')+'</section>'+
+  '<details class="agenda-more"'+(!ready?' open':'')+'><summary>Personalizar página, equipe e ajustes opcionais</summary>'+ 
+  '<div class="agenda-more-grid">'+
   '<section class="agenda-panel"><h2>Minha página</h2><p>Apresente seu trabalho e compartilhe o link com seus clientes.</p>'+
   '<form id="agenda-profile-form" onsubmit="return agendaSaveProfile(event)">'+
    '<label>Nome do estabelecimento<input required minlength="3" maxlength="100" name="title" value="'+esc(p.title||'')+'" placeholder="Ex.: Barbearia do João"></label>'+
@@ -116,35 +192,6 @@ function agendaOwnerEditor(){
     (s.qrOpen?'<div class="agenda-qr-card"><p>Escaneie para abrir minha agenda</p>'+agendaQrMarkup(p.slug)+
      '<button type="button" class="secondary" onclick="agendaDownloadQr()">Salvar QR Code</button></div>':''):'')+
   '<p class="tiny muted">A página é gratuita. Por enquanto, reservas não recebem sinal antecipado.</p></section>'+
-  '<section class="agenda-panel"><h2>Serviços e preços</h2>'+
-   (p.id?'<form class="agenda-service-row" onsubmit="return agendaSaveService(event)">'+
-    '<label>Serviço<input required minlength="3" maxlength="100" name="title" placeholder="Ex.: Corte masculino"></label>'+
-    '<label>Duração<select name="duration">'+[15,30,45,60,75,90,120,150,180,240].map(m=>'<option value="'+m+'"'+(m===30?' selected':'')+'>'+m+' min</option>').join('')+'</select></label>'+
-    '<label>Preço R$<input type="number" name="price" inputmode="decimal" min="0" max="20000" step=".01" required value="0.00"></label>'+
-    '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
-    '<p>Salve sua página para adicionar os serviços.</p>')+
-  '</section>'+
-  '<section class="agenda-panel"><h2>Condições de sinal dos serviços</h2>'+
-   '<p>Planeje um sinal opcional para a futura cobrança online, abatido do total do serviço. Os valores abaixo são apenas uma prévia: não existe cobrança de sinal ativa.</p>'+
-   (s.services.length?s.services.map(service=>{
-    const policy=s.depositSettings.find(x=>x.service_id===service.id);
-    const percent=Number(policy?.percent)||0;
-    const signal=Math.round(Number(service.price_cents||0)*percent/100);
-    const defaultText='O sinal, quando disponível, abate do preço total. As condições de cancelamento e reembolso devem respeitar os direitos do consumidor.';
-    return '<form class="agenda-deposit-form" data-id="'+esc(service.id)+
-      '" onsubmit="return agendaSaveDepositPolicy(event)">'+
-      '<h3>'+esc(service.title)+'</h3>'+
-      '<label>Sinal pretendido<select name="percent">'+
-       [0,10,20,25,30,50].map(v=>'<option value="'+v+'"'+(v===percent?' selected':'')+'>'+
-        (v===0?'Sem sinal':v+'% do valor do serviço')+'</option>').join('')+'</select></label>'+
-      '<p class="agenda-deposit-estimate">Preço '+agendaMoney(service.price_cents)+
-       ' • Sinal estimado '+agendaMoney(signal)+' • Restante '+agendaMoney(service.price_cents-signal)+'</p>'+
-      '<label>Política de cancelamento e reembolso<textarea name="policy" rows="3" minlength="30" maxlength="500" required>'+
-        esc(policy?.policy_text||defaultText)+'</textarea></label>'+
-      '<p class="tiny muted">Simulação: não emite Pix, não debita cartão e não transforma reservas gratuitas em pagas.</p>'+
-      '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Salvar condições</button></form>';
-   }).join(''):'<p>Cadastre um serviço para configurar as condições.</p>')+
-  '</section>'+
   '<section class="agenda-panel"><h2>Equipe e agendas simultâneas</h2>'+
    '<p>Cadastre até 12 colaboradores. Cada um terá horários livres independentes, dentro do expediente geral do estabelecimento.</p>'+
    (p.id?'<form class="agenda-staff-add" onsubmit="return agendaSaveStaff(event)">'+
@@ -156,10 +203,6 @@ function agendaOwnerEditor(){
      '" onclick="agendaToggleStaff(this.dataset.staff)">'+(t.active?'Pausar agenda':'Reativar')+'</button></div>').join('')+'</div>':
      '<p class="tiny muted">Sem equipe cadastrada, a agenda individual permanece disponível.</p>'):
     '<p>Salve a página para cadastrar colaboradores.</p>')+'</section>'+
-  '<section class="agenda-panel"><h2>Meus horários</h2><p>Marque os dias em que atende. Horários ocupados ficam indisponíveis automaticamente.</p>'+
-   (p.id?'<form onsubmit="return agendaSaveHours(event)">'+allDays+
-    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar horários</button></form>':
-    '<p>Salve sua página para configurar a agenda.</p>')+'</section>'+
   '<section class="agenda-panel"><h2>Folgas e dias indisponíveis</h2>'+
    '<p>Marque férias, feriados e outros dias sem atendimento. Horários já reservados devem ser tratados antes do bloqueio.</p>'+
    (p.id?'<form onsubmit="return agendaAddClosedDay(event)">'+
@@ -188,46 +231,28 @@ function agendaOwnerEditor(){
        '" onclick="agendaRemoveBlock(this.dataset.id)">Liberar</button></div>';
      }).join('')+'</div>':'<p class="tiny muted">Nenhuma pausa futura cadastrada.</p>'):
      '<p>Salve a página para programar pausas.</p>')+'</section>'+
-  '<section class="agenda-panel"><h2>Lista de espera</h2>'+
-   '<p>Quando não encontrarem horário, os clientes podem deixar contato voluntariamente. Você entra em contato pelo WhatsApp, sem disparos automáticos.</p>'+
-   (s.waiting.length?'<div class="agenda-waiting-list">'+s.waiting.map(w=>{
-    const service=s.services.find(x=>x.id===w.service_id);
-    const member=s.staff.find(x=>x.id===w.staff_id);
-    const digits=String(w.customer_phone||'').replace(/\D/g,'');
-    const message='Olá, '+w.customer_name+'! Surgiu uma possibilidade para '+(service?.title||'seu atendimento')+' em '+agendaDateOnly(w.day)+'. Veja os horários disponíveis na agenda: '+(link||'');
-    return '<article class="agenda-booking"><strong>'+esc(w.customer_name)+'</strong>'+
-     '<span>'+esc([service?.title,member?.name,agendaDateOnly(w.day)].filter(Boolean).join(' • '))+'</span>'+
-     (digits.length>=8?'<a class="agenda-wa" target="_blank" rel="noopener noreferrer" href="https://wa.me/'+esc(digits)+'?text='+encodeURIComponent(message)+'">Falar pelo WhatsApp</a>':'')+
-     '<button type="button" class="secondary" data-id="'+esc(w.id)+
-     '" onclick="agendaCloseWaitlist(this.dataset.id,true)">Marcar como contatado</button>'+
-     '<button type="button" class="secondary" data-id="'+esc(w.id)+
-     '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Remover da fila</button></article>';
-   }).join('')+'</div>':'<p>Nenhuma pessoa na fila de espera neste momento.</p>')+'</section>'+
-  '<section class="agenda-panel"><h2>Atendimentos e histórico</h2>'+
-   '<p>'+s.bookings.filter(b=>b.status==='completed').length+' concluídos • '+
-     s.bookings.filter(b=>b.status==='no_show').length+' ausências registradas • '+
-     s.waiting.length+' na lista de espera (período recente).</p>'+
-   (s.bookings.length?s.bookings.map(b=>{
-    const serv=s.services.find(x=>x.id===b.service_id);
-    const colleague=s.staff.find(x=>x.id===b.staff_id);
-    const past=Date.parse(b.ends_at)<=Date.now();
-    const upcoming=Date.parse(b.starts_at)>Date.now();
-    return '<article class="agenda-booking"><strong>'+esc(b.customer_name)+'</strong>'+
-     '<span>'+esc([serv?.title||'Atendimento',colleague?.name,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+
-     '<span>'+esc(b.status==='completed'?'Concluído':b.status==='no_show'?'Não compareceu':'Confirmado')+'</span>'+
-     (b.customer_phone?'<span>Contato: '+esc(b.customer_phone)+'</span>':'')+
-     (b.status==='confirmed'&&b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
-      '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
-      '?text='+encodeURIComponent('Olá, '+b.customer_name+'! Este é um lembrete do seu horário em '+agendaDateTime(b.starts_at)+'.')+
-      '" target="_blank" rel="noopener noreferrer">Enviar lembrete pelo WhatsApp</a>':'')+
-     (b.status==='confirmed'?'<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>':'')+
-     (b.status==='confirmed'&&b.reschedule_count<20&&upcoming?'<button type="button" class="secondary" onclick="agendaBeginReschedule(\''+esc(b.id)+'\')">Remarcar</button>':'')+
-     (b.status==='confirmed'&&!past?'<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button>':'')+
-     (b.status==='confirmed'&&past?'<button type="button" class="secondary" onclick="agendaMarkAttendance(\''+esc(b.id)+'\',\'completed\')">Concluído</button>'+
-      '<button type="button" class="secondary" onclick="agendaMarkAttendance(\''+esc(b.id)+'\',\'no_show\')">Não compareceu</button>':'')+
-      '</article>';
-   }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
-  '</section></div>';
+  '<section class="agenda-panel"><h2>Condições de sinal dos serviços</h2>'+
+   '<p>Planeje um sinal opcional para a futura cobrança online, abatido do total do serviço. Os valores abaixo são apenas uma prévia: não existe cobrança de sinal ativa.</p>'+
+   (s.services.length?s.services.map(service=>{
+    const policy=s.depositSettings.find(x=>x.service_id===service.id);
+    const percent=Number(policy?.percent)||0;
+    const signal=Math.round(Number(service.price_cents||0)*percent/100);
+    const defaultText='O sinal, quando disponível, abate do preço total. As condições de cancelamento e reembolso devem respeitar os direitos do consumidor.';
+    return '<form class="agenda-deposit-form" data-id="'+esc(service.id)+
+      '" onsubmit="return agendaSaveDepositPolicy(event)">'+
+      '<h3>'+esc(service.title)+'</h3>'+
+      '<label>Sinal pretendido<select name="percent">'+
+       [0,10,20,25,30,50].map(v=>'<option value="'+v+'"'+(v===percent?' selected':'')+'>'+
+        (v===0?'Sem sinal':v+'% do valor do serviço')+'</option>').join('')+'</select></label>'+
+      '<p class="agenda-deposit-estimate">Preço '+agendaMoney(service.price_cents)+
+       ' • Sinal estimado '+agendaMoney(signal)+' • Restante '+agendaMoney(service.price_cents-signal)+'</p>'+
+      '<label>Política de cancelamento e reembolso<textarea name="policy" rows="3" minlength="30" maxlength="500" required>'+
+        esc(policy?.policy_text||defaultText)+'</textarea></label>'+
+      '<p class="tiny muted">Simulação: não emite Pix, não debita cartão e não transforma reservas gratuitas em pagas.</p>'+
+      '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Salvar condições</button></form>';
+   }).join(''):'<p>Cadastre um serviço para configurar as condições.</p>')+
+  '</section>'+
+  '</div></details></div>';
 }
 function agendaDateOnly(value){
  return /^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value).split('-').reverse().join('/'):'Data inválida';
