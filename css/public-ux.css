@@ -244,7 +244,7 @@
 .tamao-account-entry-copy small{color:#637b6e;font-size:11px;line-height:1.35}
 .tamao-account-arrow{flex:none;color:#789987;font-size:22px;line-height:1}
 .tamao-account-access>summary:focus-visible,.tamao-account-entry:focus-visible{outline:3px solid #bd8d2d;outline-offset:2px}
-@media(max-width:759px){.tamao-account-access>summary{min-height:42px;padding:9px 11px;font-size:12px}.tamao-account-access-panel{max-height:calc(100dvh - 102px)}}
+@media(max-width:759px){.tamao-account-access>summary{min-height:42px;padding:9px 11px;font-size:12px}.tamao-account-access-panel{position:fixed;top:74px;right:10px;width:min(308px,calc(100vw - 20px));max-height:calc(100dvh - 94px)}}
 @media(max-width:390px){.tamao-account-access>summary{gap:5px;padding-inline:9px}.tamao-account-access>summary>svg:first-child{display:none}}
 @media(prefers-reduced-motion:reduce){.tamao-account-access>summary,.tamao-account-chevron{transition:none}}
 /* V1.1055: compact header at 320px without hiding customer or member access. */
