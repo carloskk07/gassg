@@ -20,7 +20,7 @@ const anonRead=name=>{
  return JSON.parse(output.split('\n').find(x=>x.trim().startsWith('{'))||'null');
 };
 const required=['clube_coupon_home_prices_v1_820','welcome_bonus_status_v1_815',
- 'agenda_available_slots','agenda_day_is_closed','agenda_public_directory','agenda_public_page'];
+ 'agenda_available_slots','agenda_available_staff_slots','agenda_day_is_closed','agenda_public_directory','agenda_public_page'];
 const actual=JSON.parse(sql(
  "SELECT coalesce(jsonb_agg(p.proname ORDER BY p.proname),'[]'::jsonb)::text "+
  "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "+
@@ -55,6 +55,8 @@ assert.equal(sql("SELECT has_function_privilege('anon',"+
 // Appointment discovery allows only non-identifying, published business data.
 assert.equal(sql("SELECT has_table_privilege('anon','public.agenda_appointments','SELECT')"),'f');
 assert.equal(sql("SELECT has_table_privilege('anon','public.agenda_pages','SELECT')"),'f');
+assert.equal(sql("SELECT has_table_privilege('anon','public.agenda_staff','SELECT')"),'f');
+assert.equal(sql("SELECT has_function_privilege('anon','public.agenda_reschedule_booking(uuid,timestamptz,timestamptz)','EXECUTE')"),'f');
 assert.equal(sql("SELECT public.agenda_public_page('no-such-professional') IS NULL"),'t');
 assert.equal(sql("SELECT public.agenda_day_is_closed(null::uuid,current_date)"),'f');
 assert.equal(sql("SELECT has_function_privilege('anon','public.agenda_my_bookings()','EXECUTE')"),'f');
