@@ -944,20 +944,9 @@ function shell(content){
             '" onclick="go(\''+id+'\')">'+label+'</button>').join('')+
           '</div></details>').join('');
 
-  // V1.1055 — one obvious, permanent participant entrance on every public page.
-  // Links only navigate; authentication stays in each official protected portal.
-  const accountAccess=(!adminPortal&&!merchantPortal&&!testDemo)
-    ? '<details class="tamao-account-access">'+
-      '<summary aria-label="Acessos dos participantes"><span class="tamao-account-prompt">Já participa?</span> Entrar <span aria-hidden="true">⌄</span></summary>'+
-      '<nav class="tamao-account-access-panel" aria-label="Acessar minha área no TAMÃO">'+
-        '<a href="#club"><strong>Minha conta e Clube</strong><small>Cupons e compras</small></a>'+
-        '<a href="#earn"><strong>Rede e indicações</strong><small>Convites e benefícios</small></a>'+
-        '<a href="https://parceiro.tamao.com.br/"><strong>Revenda ou entregador</strong><small>Painel do parceiro</small></a>'+
-        '<a href="/agenda/"><strong>Agenda de profissionais</strong><small>Horários e reservas</small></a>'+
-        '<a href="#advertise"><strong>Anunciante</strong><small>Campanhas e serviços</small></a>'+
-        '<a href="https://admin.tamao.com.br/"><strong>Administração</strong><small>Acesso restrito</small></a>'+
-      '</nav></details>'
-    : '';
+  // Reuse safe static markup without increasing the customer's JS startup budget.
+  const accountAccess=adminPortal||merchantPortal||testDemo?'':
+    document.getElementById('tamao-participant-access-template')?.innerHTML||'';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal&&!merchantAuthenticated
@@ -983,12 +972,11 @@ function shell(content){
 }
 // V1.985: close desktop disclosures on outside interaction or Escape, preserving native summary keyboard behavior.
 function tamaoPublicMenuDismiss(event){
-  const account=typeof document!=='undefined'?document.querySelector('.tamao-account-access'):null;
-  if(account?.open){
-    if(event.type==='pointerdown'&&!account.contains(event.target))account.open=false;
-    if(event.type==='keydown'&&event.key==='Escape'&&account.contains(event.target)){
-      account.open=false;
-      account.querySelector('summary')?.focus();
+  const a=document.querySelector('.tamao-account-access');
+  if(a?.open){
+    if(event.type==='pointerdown'&&!a.contains(event.target))a.open=false;
+    if(event.type==='keydown'&&event.key==='Escape'){
+      a.open=false;a.querySelector('summary')?.focus();
     }
   }
   const nav=typeof document!=='undefined'?document.querySelector('.tamao-public-nav'):null;
