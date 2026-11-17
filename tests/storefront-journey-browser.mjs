@@ -88,7 +88,7 @@ try{
   await geometry('city chooser',width);
   await run("document.querySelector('.city-price-chooser>summary').click()");
   await run("document.querySelector('[data-tamao-filter=water]').click()");
-  assert.ok(await run("[...document.querySelectorAll('.home-discover-tile')].filter(x=>!x.hidden).every(x=>x.dataset.tamaoDiscoverKind==='water')"),'Category filter works');
+  await waitFor("[...document.querySelectorAll('.home-discover-tile')].filter(x=>!x.hidden).length>0&&[...document.querySelectorAll('.home-discover-tile')].filter(x=>!x.hidden).every(x=>x.dataset.tamaoDiscoverKind==='water')",'Category filter works');
   await run("[...document.querySelectorAll('.home-discover-tile')].find(x=>!x.hidden).click()");
   await waitFor("location.hash==='#order'&&!!document.querySelector('.buyer-cart-selection')",'selected basket');
   let data=await run("({editorOpen:document.querySelector('.buyer-cart-edit').open,steps:document.querySelectorAll('.buyer-journey button').length,cart:document.querySelector('.buyer-cart-selection').textContent})");
