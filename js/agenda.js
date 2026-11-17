@@ -562,42 +562,52 @@ async function agendaRefreshPublic(){
  if(error){s.error='Não foi possível consultar este profissional.';return;}
  s.publicProfile=data||null;
  const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
+ const pending=!editing&&s.user?agendaReadPendingChoice(slug):null;
  if(s.rescheduleId&&!editing)s.rescheduleId='';
- s.serviceId=editing?.service_id||(data?.services||[])[0]?.id||'';
- s.staffId=editing?(editing.staff_id||''):((data?.staff||[])[0]?.id||'');
+ s.serviceId=editing?.service_id||
+  ((data?.services||[]).some(x=>x.id===pending?.serviceId)?pending.serviceId:(data?.services||[])[0]?.id)||'';
+ s.staffId=editing?(editing.staff_id||''):
+  ((data?.staff||[]).some(x=>x.id===pending?.staffId)?pending.staffId:(data?.staff||[])[0]?.id)||'';
+ if(pending)s.day=pending.day;
  if(s.serviceId)await agendaLoadSlots();
+ // A previous choice is never a booking; always verify it is still available.
+ if(pending&&s.serviceId===pending.serviceId&&s.staffId===(pending.staffId||'')&&
+  s.slots.some(x=>x.starts_at===pending.instant)){
+  s.selectedStart=pending.instant;s.requestKey=crypto.randomUUID();
+ }
+ if(pending)agendaClearPendingChoice();
 }
 async function agendaLoadSlots(){
  const s=agendaRuntime,service=s.serviceId,day=s.day,staffId=s.staffId;
  s.selectedStart='';s.requestKey='';s.slots=[];s.paymentQuote=null;s.dayClosed=false;if(!service||!day)return;
  s.slotBusy=true;render();
  try{
-  const [slots,closed,deposit]=await Promise.all([
+  const [slots,closed]=await Promise.all([
    s.client.rpc('agenda_available_staff_slots',{p_service_id:service,p_day:day,p_staff_id:staffId||null}),
-   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day}),
-    s.client.rpc('agenda_deposit_quote',{p_service_id:service})
+   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
   ]);
   if(s.serviceId!==service||s.day!==day||s.staffId!==staffId)return;
   if(slots.error||closed.error)throw slots.error||closed.error;
   s.dayClosed=closed.data===true;
-   s.paymentQuote=deposit.error?null:deposit.data;
+
   s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
  finally{if(s.serviceId===service&&s.day===day&&s.staffId===staffId){s.slotBusy=false;if(agendaRoute())render();}}
 }
 function agendaChooseService(id){const s=agendaRuntime;if(s.rescheduleId||!(s.publicProfile?.services||[]).some(x=>x.id===id))return;
- s.serviceId=id;s.error='';agendaLoadSlots();}
+ s.serviceId=id;s.error='';agendaClearPendingChoice();agendaLoadSlots();}
 function agendaChooseStaff(id){const s=agendaRuntime;if(s.rescheduleId)return;
  if(!(s.publicProfile?.staff||[]).some(x=>x.id===id))return;
- s.staffId=id;s.error='';agendaLoadSlots();}
+ s.staffId=id;s.error='';agendaClearPendingChoice();agendaLoadSlots();}
 function agendaChooseDay(day){const s=agendaRuntime;
  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(day)))return;
  if(day<agendaToday()||day>agendaToday(30))return;
- s.day=day;s.error='';agendaLoadSlots();}
+ s.day=day;s.error='';agendaClearPendingChoice();agendaLoadSlots();}
 function agendaSelectSlot(instant){
  const s=agendaRuntime;if(!s.slots.some(x=>x.starts_at===instant))return;
- s.selectedStart=instant;s.requestKey=crypto.randomUUID();s.error='';render();
+ s.selectedStart=instant;s.requestKey=crypto.randomUUID();s.error='';
+ agendaRememberPendingChoice();render();
 }
 async function agendaLogin(ev){
  ev.preventDefault();const s=agendaRuntime;
@@ -975,7 +985,7 @@ async function agendaBook(ev){
   if(verify.error||verify.data?.status!=='confirmed'||Date.parse(verify.data.starts_at)!==Date.parse(instant))
    throw Error('booking readback unavailable');
   s.notice='Horário confirmado para '+agendaDateTime(instant)+'. Você pode acompanhar ou cancelar pela sua conta.';
-  s.selectedStart='';s.requestKey='';
+  s.selectedStart='';s.requestKey='';agendaClearPendingChoice();
   await agendaRefreshOwner();
   await agendaLoadSlots();
  }catch(e){
@@ -986,7 +996,7 @@ async function agendaBook(ev){
     .eq('request_id',request).eq('customer_id',s.user.id).maybeSingle();
    if(readback.data?.status==='confirmed'){
     s.notice='Reserva confirmada para '+agendaDateTime(readback.data.starts_at)+'.';
-    s.selectedStart='';s.requestKey='';await agendaRefreshOwner();await agendaLoadSlots();
+    s.selectedStart='';s.requestKey='';agendaClearPendingChoice();await agendaRefreshOwner();await agendaLoadSlots();
    }else{
     s.error=e?.message?.includes('AGENDA_SLOT_ALREADY_TAKEN')?'Este horário acabou de ser escolhido. Atualize os horários.':
      'Não foi possível confirmar. Confira sua conta antes de repetir.';
