@@ -159,8 +159,8 @@ vm.runInContext('agendaRuntime.paymentQuote={service_id:"dddddddd-dddd-4ddd-8ddd
 const planned=vm.runInContext('agendaPublicView()',ctx);
 assert.match(planned,/Sinal planejado: 25%/);
 assert.match(planned,/Sem cobrança antecipada nesta versão/);
-assert.match(planned,/R\$ 15,00/);
-assert.match(planned,/R\$ 45,00/);
+assert.match(planned,/R\$\s*15,00/);
+assert.match(planned,/R\$\s*45,00/);
 vm.runInContext('agendaRuntime.depositSettings=[{service_id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",percent:25,policy_text:"A política de cancelamento atende os direitos do consumidor."}]',ctx);
 assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Condições de sinal dos serviços/);
 assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Sinal estimado/);
