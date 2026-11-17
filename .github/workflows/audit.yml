@@ -37,6 +37,8 @@ jobs:
         run: node tests/network-member-benefit-statement-v1-1045.mjs
       - name: V1.1046 seasonal reward budget, owner approval, UX and financial guardrails
         run: node tests/network-celebra-v1-1046.mjs
+      - name: V1.1047 value-first public copy with honest benefits and responsive paths
+        run: node tests/public-benefit-story-v1-1047.mjs
       - name: V1.1042 cross-module Ads benefits policy, ACL, terms and Admin no-cash controls
         run: node tests/network-module-ads-admin-v1-1042.mjs
       - name: Browser SDK integrity verify
