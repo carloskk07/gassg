@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
- phase:'idle',client:null,user:null,page:null,services:[],hours:[],bookings:[],mine:[],closedDays:[],dayClosed:false,
- slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',day:'',slots:[],selectedStart:'',
+ phase:'idle',client:null,user:null,page:null,services:[],staff:[],hours:[],bookings:[],mine:[],closedDays:[],dayClosed:false,
+ slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -95,6 +95,17 @@ function agendaOwnerEditor(){
     '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
     '<p>Salve sua página para adicionar os serviços.</p>')+
   '</section>'+
+  '<section class="agenda-panel"><h2>Equipe e agendas simultâneas</h2>'+
+   '<p>Cadastre até 12 colaboradores. Cada um terá horários livres independentes, dentro do expediente geral do estabelecimento.</p>'+
+   (p.id?'<form class="agenda-staff-add" onsubmit="return agendaSaveStaff(event)">'+
+    '<label>Nome do colaborador<input name="name" required minlength="2" maxlength="70" placeholder="Ex.: Ana"></label>'+
+    '<button type="submit" class="primary"'+(s.busy||s.staff.length>=12?' disabled':'')+'>Adicionar colaborador</button></form>'+
+    (s.staff.length?'<div class="agenda-staff-list">'+s.staff.map(t=>
+     '<div><strong>'+esc(t.name)+'</strong><span>'+(t.active?'Recebendo agendamentos':'Pausado')+'</span>'+
+     '<button type="button" class="secondary" data-staff="'+esc(t.id)+
+     '" onclick="agendaToggleStaff(this.dataset.staff)">'+(t.active?'Pausar agenda':'Reativar')+'</button></div>').join('')+'</div>':
+     '<p class="tiny muted">Sem equipe cadastrada, a agenda individual permanece disponível.</p>'):
+    '<p>Salve a página para cadastrar colaboradores.</p>')+'</section>'+
   '<section class="agenda-panel"><h2>Meus horários</h2><p>Marque os dias em que atende. Horários ocupados ficam indisponíveis automaticamente.</p>'+
    (p.id?'<form onsubmit="return agendaSaveHours(event)">'+allDays+
     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar horários</button></form>':
@@ -113,13 +124,15 @@ function agendaOwnerEditor(){
   '<section class="agenda-panel"><h2>Próximos atendimentos</h2>'+
    (s.bookings.length?s.bookings.map(b=>{
     const serv=s.services.find(x=>x.id===b.service_id);
+    const colleague=s.staff.find(x=>x.id===b.staff_id);
     return '<article class="agenda-booking"><strong>'+esc(b.customer_name)+'</strong>'+
-     '<span>'+esc(serv?.title||'Atendimento')+' • '+esc(agendaDateTime(b.starts_at))+'</span>'+
+     '<span>'+esc(serv?.title||'Atendimento')+' • '+esc(agendaDateTime(b.starts_at))+(colleague?' • '+colleague.name:'')+'</span>'+
      (b.customer_phone?'<span>Contato: '+esc(b.customer_phone)+'</span>':'')+
      (b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
       '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
       '" target="_blank" rel="noopener noreferrer">Conversar no WhatsApp</a>':'')+
      '<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>'+ 
+     (b.reschedule_count<20?'<button type="button" class="secondary" onclick="agendaBeginReschedule(\''+esc(b.id)+'\')">Remarcar</button>':'')+ 
      '<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button></article>';
    }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
   '</section></div>';
@@ -140,6 +153,7 @@ function agendaIcsContent(booking,title){
   'CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
   'UID:'+booking.id+'@tamao.com.br','DTSTAMP:'+stamp(new Date()),
   'DTSTART:'+stamp(start),'DTEND:'+stamp(end),
+  'SEQUENCE:'+Math.max(0,Math.min(20,Number(booking.reschedule_count)||0)),
   'SUMMARY:'+agendaIcsEscape(title||'Atendimento no TAMÃO'),
   'DESCRIPTION:'+agendaIcsEscape('Reserva confirmada. Consulte TAMÃO Agenda para cancelar ou reagendar.'),
   'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
@@ -151,7 +165,7 @@ function agendaDownloadCalendar(id){
  if(!b||b.status!=='confirmed')return;
  const service=s.services.find(x=>x.id===b.service_id);
  const label=service?.title||b.service_title||'Atendimento';
- const title=b.page_title?label+' — '+b.page_title:'Atendimento: '+label;
+ const title=b.page_title?label+' — '+b.page_title+(b.staff_title?' ('+b.staff_title+')':''):'Atendimento: '+label;
  const data=agendaIcsContent(b,title);
  if(!data)return;
  const url=URL.createObjectURL(new Blob([data],{type:'text/calendar;charset=utf-8'}));
