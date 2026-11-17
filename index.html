@@ -59,6 +59,10 @@ details.tamao-network-clarity p{margin:0 0 15px;font-size:13px;line-height:1.6;c
 details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;outline-offset:3px}
   </style>
   <title>TAMÃO — Faltou em casa? Tá na mão.</title>
+  <script>/* Agenda email callback: preserve the SDK token fragment locally. */
+  if(new URLSearchParams(location.search).get('agenda')==='1')
+    location.replace('/agenda/'+location.search+location.hash);
+  </script>
 </head>
 <body>
   <div id="app">
