@@ -12,6 +12,7 @@
     '.tamao-demo-tools button{border:1px solid #cfdfd3;background:#fff;color:#22553c;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer}',
     '.tamao-demo-tools button:focus-visible{outline:3px solid #bd882c;outline-offset:2px}',
     '.tamao-demo-progress{width:100%;font-weight:650;font-size:11px;text-align:center;color:#527263}',
+    '.tamao-demo-menu-toggle{display:none!important}',
     '.tamao-demo-brand{font-size:14px;letter-spacing:-.03em}.tamao-demo-mode{font-size:11px;color:#4d7660;padding:5px 9px;border:1px solid #d6e5db;border-radius:999px;background:#fff;white-space:nowrap}.tamao-demo-nav{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}.tamao-demo-nav button:hover{background:#eaf6ee;border-color:#92b99f}',
     '.tamao-demo-dialog{position:fixed;z-index:90010;inset:0;background:rgba(9,22,19,.66);display:none;place-items:center;padding:18px}',
     '.tamao-demo-dialog[data-open="true"]{display:grid}',
@@ -22,18 +23,30 @@
     '.tamao-demo-panel .demo-stats{display:flex;gap:12px;flex-wrap:wrap}.tamao-demo-panel .demo-stats span{padding:10px;background:#ecf5f0;border-radius:9px}',
     '.tamao-demo-offline-help{margin:12px 0;border:1px solid #e2eae5;border-radius:10px;padding:8px 12px;color:#3b6750}.tamao-demo-offline-help summary{cursor:pointer;font-size:12px;font-weight:700;min-height:32px;display:list-item;align-content:center}.tamao-demo-offline-help p{font-size:12px;color:#587563}',
     '.tamao-demo-driver-form{display:grid;gap:12px;max-width:460px}.tamao-demo-driver-form label{display:grid;gap:5px;font-weight:650}.tamao-demo-driver-form input[type=text]{width:100%;padding:11px;font:inherit;border:1px solid #879e93;border-radius:8px}.tamao-demo-driver-check{display:flex!important;align-items:center;gap:8px}.tamao-demo-driver-check input{width:20px;height:20px}.tamao-demo-driver-status{font-weight:650;color:#69451b}',
-    '@media(max-width:600px){.tamao-demo-tools{justify-content:center;gap:6px;padding:6px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-nav{display:grid;width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px}}'
+    '@media(max-width:600px){.tamao-demo-tools{justify-content:space-between;gap:6px;padding:7px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-menu-toggle{display:inline-flex!important;align-items:center;justify-content:center;padding:6px 9px!important;font-size:11px!important}.tamao-demo-nav{display:none!important;width:100%;order:4}.tamao-demo-tools[data-menu-open=true] .tamao-demo-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px;order:5}}'
   ].join('\n');
   document.head.appendChild(style);
   const tools=document.createElement('div');tools.className='tamao-demo-tools';
   const heading=document.createElement('strong');heading.textContent='TAMÃO';heading.className='tamao-demo-brand';
   const detail=document.createElement('span');detail.textContent='Modo teste · dados fictícios';detail.className='tamao-demo-mode';
-  const nav=document.createElement('div');nav.className='tamao-demo-nav';
+  const nav=document.createElement('div');nav.className='tamao-demo-nav';nav.id='tamao-demo-nav';
   const progress=document.createElement('div');progress.className='tamao-demo-progress';progress.id='tamao-demo-progress';progress.setAttribute('role','status');
   const button=(label,fn)=>{
     const el=document.createElement('button');el.type='button';el.textContent=label;
     el.addEventListener('click',fn);return el;
   };
+  const areaToggle=button('Áreas ▾',()=>{
+    const expanded=tools.dataset.menuOpen!=='true';
+    tools.dataset.menuOpen=String(expanded);areaToggle.setAttribute('aria-expanded',String(expanded));
+  });
+  areaToggle.className='tamao-demo-menu-toggle';
+  areaToggle.setAttribute('aria-controls','tamao-demo-nav');
+  areaToggle.setAttribute('aria-expanded','false');
+  tools.dataset.menuOpen='false';
+  nav.addEventListener('click',event=>{
+    if(!event.target?.closest?.('button'))return;
+    tools.dataset.menuOpen='false';areaToggle.setAttribute('aria-expanded','false');
+  });
   let startOrderButton=null;
   let adminOpen=false;
   let demoPreviewMode='';
@@ -107,16 +120,16 @@
     const o=currentOrder();
     const status=o?.status||'';
     const steps={
-      OFFERED_TO_MERCHANT:'2/4 · Pedido enviado. Abra Revenda e clique Aceitar pedido.',
-      MERCHANT_ACCEPTED:'3/4 · Revenda confirmou. Clique Confirmar saída.',
-      PREPARING:'3/4 · Revenda aceitou. Confirme a saída; depois abra Entregador.',
-      OUT_FOR_DELIVERY:'3/4 · Em entrega. Abra Entregador e registre a chegada.',
-      ARRIVING:'3/4 · No Entregador, informe o PIN e confirme o recebimento.',
+      OFFERED_TO_MERCHANT:'2/4 · Pedido enviado. Abra Revenda.',
+      MERCHANT_ACCEPTED:'3/4 · Revenda confirmou. Prepare a saída.',
+      PREPARING:'3/4 · Confirme a saída e abra Entregador.',
+      OUT_FOR_DELIVERY:'3/4 · Em entrega. Abra Entregador.',
+      ARRIVING:'3/4 · Informe o PIN e conclua a entrega.',
       SETTLED:'4/4 · Pedido concluído! Confira no Admin.',
       DELIVERED:'4/4 · Pedido entregue! Confira no Admin.',
       CANCELLED:'Pedido cancelado. Você pode iniciar outro.'
     };
-    progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço e faça seu pedido.';
+    progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto.';
     if(startOrderButton){
       const open=(read()?.orders||[]).some(o=>['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
       startOrderButton.textContent=open?'Novo pedido (gás P13)':'Começar com gás P13';
@@ -609,7 +622,7 @@
   dialog.append(panel);
   dialog.addEventListener('click',e=>{if(e.target===dialog){if(driverOpen)setDriver(false);else setAdmin(false)}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen||demoPreviewMode)setAdmin(false)}});
-  tools.append(heading,detail,nav);
+  tools.append(heading,detail,areaToggle,nav);
   tools.append(progress);
   updateGuide();
   const onConnectionChange=()=>{
