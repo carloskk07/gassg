@@ -16,6 +16,8 @@ declare
  v_second_booking jsonb;
  v_staff uuid;v_staff2 uuid;v_team_start timestamptz;v_team_new timestamptz;
  v_booking jsonb;v_parallel jsonb;v_rescheduled jsonb;
+ v_pause_id uuid;v_wait_id uuid;v_wait_again uuid;v_history_id uuid;
+ v_pause_start timestamptz;v_pause_end timestamptz;
 begin
  if has_table_privilege('anon','public.agenda_pages','select')
     or has_table_privilege('anon','public.agenda_appointments','select')
@@ -223,6 +225,125 @@ begin
   'public.agenda_reschedule_booking(uuid,timestamptz,timestamptz)','execute')
   or has_table_privilege('anon','public.agenda_staff','select')
  then raise exception 'AGENDA_TEAM_ACL_EXPOSED';end if;
+
+ -- V1.1051: owner may stop a single collaborator without stopping another.
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ insert into public.agenda_hours(page_id,owner_id,weekday,opens_min,closes_min)
+ values(v_page,v_owner,extract(dow from v_day+8)::int,540,1080)
+ on conflict(page_id,weekday) do nothing;
+ v_pause_start:=((v_day+8)::timestamp+interval '13 hours') at time zone 'America/Sao_Paulo';
+ v_pause_end:=v_pause_start+interval '60 minutes';
+ v_pause_id:=public.agenda_add_staff_block(v_staff,v_pause_start,v_pause_end);
+ if v_pause_id is null then raise exception 'AGENDA_PAUSE_CREATE_FAILED';end if;
+ if exists(select 1 from public.agenda_available_staff_slots(v_service,v_day+8,v_staff)
+  where starts_at=v_pause_start)
+ then raise exception 'AGENDA_PAUSE_STAFF_SLOT_VISIBLE';end if;
+ if not exists(select 1 from public.agenda_available_staff_slots(v_service,v_day+8,v_staff2)
+  where starts_at=v_pause_start)
+ then raise exception 'AGENDA_PAUSE_BLOCKED_OTHER_STAFF';end if;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ begin
+  perform public.agenda_book_staff_slot(v_service,v_pause_start,'Cliente Primeiro',
+   '+5555999999999',gen_random_uuid(),v_staff);
+  raise exception 'AGENDA_PAUSE_BOOKING_ACCEPTED';
+ exception when invalid_parameter_value then
+  if sqlerrm<>'AGENDA_STAFF_BLOCKED' then raise;end if;
+ end;
+ begin
+  perform public.agenda_remove_staff_block(v_pause_id);
+  raise exception 'AGENDA_PAUSE_REMOVED_BY_CUSTOMER';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_OWNER_REQUIRED' then raise;end if;
+ end;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ begin
+  perform public.agenda_add_staff_block(v_staff,v_team_new,v_team_new+interval '30 minutes');
+  raise exception 'AGENDA_BLOCK_EXISTING_BOOKING';
+ exception when invalid_parameter_value then
+  if sqlerrm<>'AGENDA_BLOCK_HAS_BOOKINGS' then raise;end if;
+ end;
+ if not public.agenda_remove_staff_block(v_pause_id)
+ then raise exception 'AGENDA_REMOVE_BLOCK_FAILED';end if;
+ if not exists(select 1 from public.agenda_available_staff_slots(v_service,v_day+8,v_staff)
+  where starts_at=v_pause_start)
+ then raise exception 'AGENDA_REMOVED_BLOCK_STILL_HELD';end if;
+
+ -- Waitlist is deliberately *not* a confirmed appointment.
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ v_wait_id:=public.agenda_join_waitlist(
+  v_service,v_staff,v_day+9,'Cliente Primeiro','+5555999999999');
+ v_wait_again:=public.agenda_join_waitlist(
+  v_service,v_staff,v_day+9,'Cliente Primeiro','+5555999999999');
+ if v_wait_id is null or v_wait_id<>v_wait_again
+ then raise exception 'AGENDA_WAITLIST_NOT_IDEMPOTENT';end if;
+ if not exists(select 1 from public.agenda_waitlist w
+  where w.id=v_wait_id and w.customer_id=v_buyer and w.status='waiting')
+ then raise exception 'AGENDA_WAITLIST_NOT_STORED';end if;
+ if (select count(*) from public.agenda_appointments a where a.page_id=v_page and
+    (a.starts_at at time zone 'America/Sao_Paulo')::date=v_day+9)>0
+ then raise exception 'AGENDA_WAITLIST_FABRICATED_BOOKING';end if;
+ begin
+  perform public.agenda_close_waitlist(v_wait_id,true);
+  raise exception 'AGENDA_CUSTOMER_CLAIMED_CONTACT';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_WAITLIST_NOT_ALLOWED' then raise;end if;
+ end;
+ begin
+  perform public.agenda_close_waitlist(v_wait_id,null);
+  raise exception 'AGENDA_WAITLIST_NULL_BYPASS';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_LOGIN_REQUIRED' then raise;end if;
+ end;
+ perform set_config('request.jwt.claim.sub',v_second::text,true);
+ begin
+  perform public.agenda_close_waitlist(v_wait_id,false);
+  raise exception 'AGENDA_WAITLIST_CROSS_ACCOUNT';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_WAITLIST_NOT_ALLOWED' then raise;end if;
+ end;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ if not public.agenda_close_waitlist(v_wait_id,true)
+ then raise exception 'AGENDA_WAITLIST_CONTACTED_FAILED';end if;
+ if (select status from public.agenda_waitlist where id=v_wait_id)<>'contacted'
+ then raise exception 'AGENDA_WAITLIST_CONTACT_STATUS';end if;
+
+ -- Attendance can be finalized only after the appointment and only by owner.
+ -- A synthetic *past* booking is inserted directly in disposable PostgreSQL.
+ insert into public.agenda_appointments(
+  page_id,owner_id,customer_id,service_id,staff_id,request_id,
+  customer_name,customer_phone,starts_at,ends_at)
+ values(v_page,v_owner,v_buyer,v_service,v_staff,gen_random_uuid(),
+  'Cliente Primeiro','+5555999999999',now()-interval '2 days',now()-interval '2 days'+interval '45 minutes')
+ returning id into v_history_id;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ begin
+  perform public.agenda_mark_attendance(v_history_id,'completed');
+  raise exception 'AGENDA_CUSTOMER_MARKED_ATTENDANCE';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_ATTENDANCE_NOT_ALLOWED' then raise;end if;
+ end;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ if not public.agenda_mark_attendance(v_history_id,'completed')
+ then raise exception 'AGENDA_ATTENDANCE_FAILED';end if;
+ if (select status from public.agenda_appointments where id=v_history_id)<>'completed'
+ then raise exception 'AGENDA_ATTENDANCE_NOT_WRITTEN';end if;
+ if (select count(*) from public.agenda_booking_events
+   where appointment_id=v_history_id and event_kind in('created','status_changed'))<>2
+ then raise exception 'AGENDA_EVENT_LOG_INCOMPLETE';end if;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ begin
+  perform public.agenda_cancel_booking(v_history_id);
+  raise exception 'AGENDA_COMPLETED_CANCELLED';
+ exception when invalid_parameter_value then
+  if sqlerrm<>'AGENDA_CANCEL_FINALIZED' then raise;end if;
+ end;
+ if has_table_privilege('anon','public.agenda_waitlist','SELECT')
+  or has_table_privilege('anon','public.agenda_staff_blocks','SELECT')
+  or has_table_privilege('authenticated','public.agenda_waitlist','INSERT')
+  or has_table_privilege('authenticated','public.agenda_booking_events','SELECT')
+  or has_function_privilege('anon','public.agenda_join_waitlist(uuid,uuid,date,text,text)','EXECUTE')
+  or has_function_privilege('anon','public.agenda_mark_attendance(uuid,text)','EXECUTE')
+ then raise exception 'AGENDA_V1051_PRIVILEGES_EXPOSED';end if;
 end $test$;
 rollback;
-\echo 'PASS: Agenda equipe paralela, idempotência, remarcação, RLS, folgas e reservas atômicas.'
+\echo 'PASS: Agenda equipe, pausas por pessoa, lista opt-in, presença, imutabilidade, auditoria e RLS.'
