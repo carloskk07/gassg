@@ -1080,8 +1080,7 @@ async function liveSyncFinancialProfile({force=false}={}){
     cashbackEarnedCents:liveRuntime.cashbackEarnedCents,
     networkPackage:liveRuntime.networkPackage??null,
     moduleBenefits:liveRuntime.moduleBenefits??null,
-    networkDirect:liveRuntime.networkDirect??null,
-    networkCelebra:liveRuntime.networkCelebra??null
+    networkDirect:liveRuntime.networkDirect??null
   });
   const seq=++liveRuntime.financialSyncSeq;
   const userId=liveRuntime.session?.user?.id;
@@ -1123,12 +1122,6 @@ async function liveSyncFinancialProfile({force=false}={}){
       summary?.networkDirect?.readOnly===true&&
       summary?.networkDirect?.cashPayoutsEnabled===false
         ?summary.networkDirect:null;
-    liveRuntime.networkCelebra=summary?.networkCelebra?.available===true&&
-      summary?.networkCelebra?.source==='network_celebra_user_v1_1046'&&
-      summary?.networkCelebra?.readOnly===true&&
-      summary?.networkCelebra?.cashPayoutsEnabled===false&&
-      Array.isArray(summary?.networkCelebra?.items)?
-        summary.networkCelebra:null;
     liveRuntime.comparisonSavingsCents=Math.max(0,Number(summary?.comparisonSavingsCents||0));
     liveRuntime.cashbackEarnedCents=Math.max(0,Number(summary?.cashbackEarnedCents||0));
     let activeOrderChanged=false;
