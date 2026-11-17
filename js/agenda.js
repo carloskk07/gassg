@@ -517,8 +517,13 @@ async function agendaInit(){
    const url=new URL(location.href);const returnSlug=agendaSlug();
    if(url.searchParams.get('criar')==='1'&&!returnSlug)s.ownerMode=true;
    url.searchParams.delete('agenda');url.searchParams.delete('profissional');url.searchParams.delete('criar');
-   url.hash='agenda'+(returnSlug?'?profissional='+encodeURIComponent(returnSlug):'');
-   history.replaceState(null,'',url.pathname+url.search+url.hash);
+   if(returnSlug&&/^\/agenda(?:\/|$)/.test(location.pathname)){
+    // Preserve the verified magic-link session, but restore the clean link.
+    history.replaceState(null,'',new URL(agendaShareLink(returnSlug)).pathname);
+   }else{
+    url.hash='agenda'+(returnSlug?'?profissional='+encodeURIComponent(returnSlug):'');
+    history.replaceState(null,'',url.pathname+url.search+url.hash);
+   }
   }
   await agendaRefreshPublic();
   if(!agendaSlug())await agendaRefreshDirectory();
@@ -1048,11 +1053,21 @@ function agendaBeginReschedule(id){
  const slug=b.slug||((s.page?.id===b.page_id)?s.page.slug:'');
  if(!agendaSlugPattern.test(slug))return;
  s.rescheduleId=id;s.error='';s.notice='Escolha o novo horário abaixo.';
- const next='#agenda?profissional='+encodeURIComponent(slug);
- if(location.hash===next)agendaRefreshPublic().then(()=>render()).catch(()=>{
-  s.error='Não foi possível abrir os horários.';render();
- });
- else location.hash=next;
+ if(/^\/agenda(?:\/|$)/.test(location.pathname)){
+  const next=new URL(agendaShareLink(slug));
+  if(location.pathname!==next.pathname){
+   history.pushState(null,'',next.pathname);
+  }
+  agendaRefreshPublic().then(()=>render()).catch(()=>{
+   s.error='Não foi possível abrir os horários.';render();
+  });
+ }else{
+  const next='#agenda?profissional='+encodeURIComponent(slug);
+  if(location.hash===next)agendaRefreshPublic().then(()=>render()).catch(()=>{
+   s.error='Não foi possível abrir os horários.';render();
+  });
+  else location.hash=next;
+ }
 }
 function agendaCancelReschedule(){
  const s=agendaRuntime;s.rescheduleId='';s.error='';s.notice='Remarcação interrompida. Sua reserva original está mantida.';
@@ -1173,7 +1188,12 @@ function agendaRememberPanel(which,open){
  if(which==='hours')s.hoursOpen=!!open;
  if(which==='advanced')s.advancedOpen=!!open;
 }
-function agendaGoMyPage(){location.hash='#agenda';}
+function agendaGoMyPage(){
+ if(/^\/agenda(?:\/|$)/.test(location.pathname)){
+  history.pushState(null,'','/agenda/');
+  agendaRefreshPublic().then(()=>render()).catch(()=>render());
+ }else location.hash='#agenda';
+}
 
 function agendaStartOwner(){agendaRuntime.ownerMode=true;agendaRuntime.error='';render();}
 function agendaStopOwner(){agendaRuntime.ownerMode=false;agendaRuntime.error='';render();}
