@@ -47,6 +47,7 @@ export function buildRuntimeConfig(env=process.env,{requirePortalRole=false}={})
     ...originKeys.map(k=>`globalThis.${k}=${JSON.stringify(origins[k])};`),
     `globalThis.CHAMA_TURNSTILE_SITE_KEY=${JSON.stringify(turnstileSiteKey)};`,
     `globalThis.CHAMA_PORTAL_ROLE=${JSON.stringify(portalRole)};`,
+    ...(portalRole==='customer'?["if(location.pathname==='/'&&new URLSearchParams(location.search).get('agenda')==='1')location.replace('/agenda/'+location.search+location.hash);"]:[]),
     ''
   ].join('\n');
 }

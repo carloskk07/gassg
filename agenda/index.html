@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="theme-color" content="#116b49">
+ <meta name="description" content="TAMÃO Agenda: agende serviços com profissionais e crie sua própria página com horários disponíveis.">
+ <meta name="robots" content="index,follow,max-image-preview:large">
+ <link rel="canonical" href="https://tamao.com.br/agenda/">
+ <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+ <link rel="stylesheet" href="../css/agenda.css">
+ <title>TAMÃO Agenda — Agendamentos para profissionais</title>
+ <style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f6faf7;color:#203d2b;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button,input,textarea,select{font:inherit}
+  a{color:inherit}
+  .agenda-site-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px max(16px,calc((100vw - 1150px)/2));background:#fff;border-bottom:1px solid #e1ede5}
+  .agenda-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#125c3d;font-size:19px;font-weight:900;letter-spacing:-.03em}
+  .agenda-brand img{height:37px;width:37px}
+  .agenda-top-links{display:flex;flex-wrap:wrap;gap:10px}
+  .agenda-top-links a{padding:8px 12px;text-decoration:none;color:#176345;border-radius:10px;font-weight:750}
+  .agenda-top-links a:hover{background:#eaf5ee}
+  .agenda-site-footer{text-align:center;padding:25px 15px 35px;border-top:1px solid #e3ebe5;color:#52705c}
+  .agenda-site-footer a{margin:0 8px}
+  .section-kicker{display:inline-block;font-size:11px;font-weight:850;letter-spacing:.12em;color:#2c8e5e}
+  .tiny{font-size:12px}.muted{color:#637568}.section{display:block}
+  @media(max-width:540px){.agenda-site-head{align-items:flex-start;flex-direction:column;padding:13px 16px}.agenda-top-links a{padding:5px 8px;font-size:13px}}
+ </style>
+</head>
+<body>
+ <header class="agenda-site-head">
+  <a class="agenda-brand" href="/"><img src="../icons/icon.svg" alt="">TAMÃO <span style="font-weight:650">Agenda</span></a>
+  <nav class="agenda-top-links" aria-label="Acessos do TAMÃO">
+   <a href="/">Produtos</a>
+   <a href="/#professionals">Profissionais</a>
+   <a href="/agenda/">Minha agenda</a>
+  </nav>
+ </header>
+ <div id="app"><main class="agenda"><p role="status">Preparando os agendamentos…</p></main></div>
+ <footer class="agenda-site-footer"><a href="/#terms">Termos</a> <a href="/#privacy">Privacidade</a> <a href="/#contact">Ajuda e contato</a></footer>
+ <noscript>Ative o JavaScript para consultar horários e organizar seus atendimentos.</noscript>
+ <script src="../js/runtime-config.js"></script>
+ <script src="../js/backend.js"></script>
+ 
+ <script src="../js/agenda-boot.js"></script>
+ <script src="../js/agenda.js"></script>
+ 
+</body>
+</html>

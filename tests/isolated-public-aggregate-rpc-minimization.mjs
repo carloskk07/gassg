@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 
-// Security Advisor: both intentional public SECURITY DEFINER functions must
+// Security Advisor: all intentional public SECURITY DEFINER functions must
 // return read-only anonymous storefront aggregates without identity or money
 // transfer metadata. All operations target CI localhost PostgreSQL only.
 assert.equal(process.env.CI,'true');
@@ -19,7 +19,8 @@ const anonRead=name=>{
   'SELECT public.'+name+'()::text; ROLLBACK;');
  return JSON.parse(output.split('\n').find(x=>x.trim().startsWith('{'))||'null');
 };
-const required=['clube_coupon_home_prices_v1_820','welcome_bonus_status_v1_815'];
+const required=['clube_coupon_home_prices_v1_820','welcome_bonus_status_v1_815',
+ 'agenda_available_slots','agenda_public_directory','agenda_public_page'];
 const actual=JSON.parse(sql(
  "SELECT coalesce(jsonb_agg(p.proname ORDER BY p.proname),'[]'::jsonb)::text "+
  "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "+
@@ -51,4 +52,8 @@ for(const key of ['awardCents','claimed','remaining'])
 assert.equal(sql("SELECT has_function_privilege('anon',"+
  "'public.claim_welcome_bonus_v1_815()','EXECUTE')"),'f',
  'anon may read campaign status but never claim a bonus');
-console.log('PASS: two public definer RPCs reveal only approved aggregates; anonymous claim is denied.');
+// Appointment discovery allows only non-identifying, published business data.
+assert.equal(sql("SELECT has_table_privilege('anon','public.agenda_appointments','SELECT')"),'f');
+assert.equal(sql("SELECT has_table_privilege('anon','public.agenda_pages','SELECT')"),'f');
+assert.equal(sql("SELECT public.agenda_public_page('no-such-professional') IS NULL"),'t');
+console.log('PASS: public definer inventory reviewed, published-page projections only, no private agenda table grants or anonymous claims.');

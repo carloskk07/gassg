@@ -55,6 +55,10 @@ for(const dir of dirs){
   if(!fs.existsSync(src))throw new Error('Diretório público ausente: '+dir);
   fs.cpSync(src,path.join(out,dir),{recursive:true});
 }
+// The TAMÃO Agenda is a separate public app; copying only root js/css
+// silently produces a 404 in official Cloudflare production.
+if(!fs.existsSync(path.join(root,'agenda','index.html')))throw new Error('TAMÃO Agenda public page missing');
+fs.cpSync(path.join(root,'agenda'),path.join(out,'agenda'),{recursive:true});
 
 function patchCloudflareIndex(){
   const file=path.join(out,'index.html');
@@ -84,7 +88,7 @@ function patchCloudflareManifest(){
 function cloudflareHeaders(){
   const lines=[
     '/*',
-    "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; script-src-elem 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://lgugwujpunhslavewffd.supabase.co wss://lgugwujpunhslavewffd.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; media-src 'none'; upgrade-insecure-requests",
+    "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; script-src-elem 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lgugwujpunhslavewffd.supabase.co; font-src 'self' data:; connect-src 'self' https://lgugwujpunhslavewffd.supabase.co wss://lgugwujpunhslavewffd.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; media-src 'none'; upgrade-insecure-requests",
     '  X-Content-Type-Options: nosniff',
     '  X-Frame-Options: DENY',
     '  Referrer-Policy: strict-origin-when-cross-origin',

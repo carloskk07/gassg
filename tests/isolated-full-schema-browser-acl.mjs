@@ -39,6 +39,10 @@ FROM (
  OR has_table_privilege('authenticated',c.oid,'DELETE'))
 ) z`;
 const allowedTables={
+ agenda_pages:{anon:[],auth:['SELECT'],policies:['agenda_page_owner_select','agenda_page_owner_insert','agenda_page_owner_update']},
+ agenda_services:{anon:[],auth:['SELECT'],policies:['agenda_services_owner_select','agenda_services_owner_insert','agenda_services_owner_update']},
+ agenda_hours:{anon:[],auth:['DELETE','SELECT'],policies:['agenda_hours_owner_select','agenda_hours_owner_insert','agenda_hours_owner_update','agenda_hours_owner_delete']},
+ agenda_appointments:{anon:[],auth:['SELECT'],policies:['agenda_appointments_participants_read']},
  discovery_documents:{anon:[],auth:['DELETE','SELECT'],policies:['discovery_document_owner_or_admin_read','discovery_document_owner_delete']},
  discovery_professional_details:{anon:['SELECT'],auth:['INSERT','SELECT','UPDATE'],policies:['discovery_professional_visible','discovery_professional_draft_insert','discovery_professional_draft_update']},
  discovery_ride_details:{anon:['SELECT'],auth:['INSERT','SELECT','UPDATE'],policies:['discovery_ride_visible','discovery_ride_draft_insert','discovery_ride_draft_update']},
@@ -89,6 +93,18 @@ const listingUpdate=[
  'state_code','title','updated_at','whatsapp_e164'
 ];
 const expectedColumns={
+ agenda_pages:[
+   ...['slug','title','about','city','public_area','whatsapp_e164','photo_paths','published']
+     .flatMap(c=>['authenticated:INSERT:'+c,'authenticated:UPDATE:'+c])
+ ],
+ agenda_services:[
+   ...['page_id','title','duration_min','price_cents','active'].map(c=>'authenticated:INSERT:'+c),
+   ...['title','duration_min','price_cents','active'].map(c=>'authenticated:UPDATE:'+c)
+ ],
+ agenda_hours:[
+   ...['page_id','weekday','opens_min','closes_min'].map(c=>'authenticated:INSERT:'+c),
+   ...['opens_min','closes_min'].map(c=>'authenticated:UPDATE:'+c)
+ ],
  discovery_documents:['kind','listing_id','object_path']
   .map(col=>'authenticated:INSERT:'+col),
  discovery_listings:[
@@ -108,6 +124,12 @@ for(const row of columns){
   row.table+' unexpectedly grants a column or removes a scoped grant');
 }
 const expectedFunctions=[
+ 'agenda_available_slots(p_service_id uuid, p_day date)',
+ 'agenda_book_slot(p_service_id uuid, p_starts_at timestamp with time zone, p_name text, p_phone text, p_request_id uuid)',
+ 'agenda_cancel_booking(p_appointment_id uuid)',
+ 'agenda_public_directory()',
+ 'agenda_public_page(p_slug text)',
+ 'agenda_replace_hours(p_page_id uuid, p_hours jsonb)',
  'claim_my_pilot_partner_invite(p_application_id uuid, p_token text)',
  'discovery_admin_city_matrix(p_limit integer)',
  'discovery_admin_listing_overview(p_limit integer)',
@@ -160,7 +182,9 @@ const fns=JSON.parse(sql(qFunctions));
 assert.deepEqual(fns.map(x=>x.signature).sort(),expectedFunctions,
  'An unknown SECURITY DEFINER or overload was granted to the browser');
 for(const fn of fns){
- assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()'].includes(fn.signature),
+ assert.equal(fn.anon,['welcome_bonus_status_v1_815()','clube_coupon_home_prices_v1_820()',
+  'agenda_available_slots(p_service_id uuid, p_day date)','agenda_public_directory()',
+  'agenda_public_page(p_slug text)'].includes(fn.signature),
   fn.signature+' unexpected public EXECUTE privilege');
  assert.equal(fn.auth,true,fn.signature+' lacks intended authenticated access');
  assert.equal(fn.safeSearchPath,true,fn.signature+' has an unsafe search_path');

@@ -739,7 +739,7 @@ function discoveryPage(){
     '<p>'+esc(shortcut?.summary||summaries[kind])+'</p></div>'+
     (!shortcut?'<button type="button" class="discovery-hero-advertise" onclick="go(\'advertise\')">'+advertiseLabels[kind]+' <span aria-hidden="true">→</span></button>':'')+
     '</header>'+
-    (kind==='professionals'?discoveryServiceLinks(s.service):'')+
+    (kind==='professionals'?'<div class="discovery-onboard-strip"><div><strong>Precisa de um horário marcado?</strong><span>Conheça as agendas profissionais com reservas pelo TAMÃO.</span></div><a href="/agenda/">Ver agendas disponíveis →</a></div>'+discoveryServiceLinks(s.service):'')+
     (shortcut?'<div class="discovery-onboard-strip"><div><strong>Você trabalha com '+esc(
        s.service==='moto'?'mototáxi':s.service==='carro'?'carro ou táxi':
        s.service==='fretes'?'fretes ou mudanças':'entregas')+'?</strong>'+

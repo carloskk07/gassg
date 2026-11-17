@@ -453,6 +453,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.mkdirSync(target,{recursive:true});
     for(const file of STATIC_FILES)fs.copyFileSync(path.join(ROOT,file),path.join(target,file));
     for(const dir of STATIC_DIRS)copyDir(path.join(ROOT,dir),path.join(target,dir));
+    if(role!=='customer'){
+      for(const file of ['agenda.js','agenda-boot.js','agenda-callback.js'])
+        fs.rmSync(path.join(target,'js',file),{force:true});
+      fs.rmSync(path.join(target,'css','agenda.css'),{force:true});
+    }
+    // The Agenda is an independent customer-only page: zero startup JS on the storefront.
+    if(role==='customer')copyDir(path.join(ROOT,'agenda'),path.join(target,'agenda'));
     // Heavy merchant operations and the optional price confirmation flow
     // are only shipped to the revenda portal, never customer or admin.
     if(role!=='merchant'){

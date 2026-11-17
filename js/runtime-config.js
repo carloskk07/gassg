@@ -17,3 +17,5 @@ globalThis.CHAMA_INTERNAL_PILOT=
 if(globalThis.CHAMA_INTERNAL_PILOT===true){
   globalThis.__CHAMA_TEST__=true;
 }
+
+if(location.pathname==='/'&&new URLSearchParams(location.search).get('agenda')==='1')location.replace('/agenda/'+location.search+location.hash);
