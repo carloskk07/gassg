@@ -20,6 +20,7 @@
     '.tamao-demo-panel .demo-order{border:1px solid #ccd8d0;border-radius:10px;margin:10px 0;padding:12px;display:grid;gap:3px}',
     '.tamao-demo-panel .demo-amount{font-size:20px;font-weight:750}.tamao-demo-panel button{padding:9px 14px;border:1px solid #256f51;border-radius:8px;background:#effaf2;color:#134932;cursor:pointer}',
     '.tamao-demo-panel .demo-stats{display:flex;gap:12px;flex-wrap:wrap}.tamao-demo-panel .demo-stats span{padding:10px;background:#ecf5f0;border-radius:9px}',
+    '.tamao-demo-offline-help{margin:12px 0;border:1px solid #e2eae5;border-radius:10px;padding:8px 12px;color:#3b6750}.tamao-demo-offline-help summary{cursor:pointer;font-size:12px;font-weight:700;min-height:32px;display:list-item;align-content:center}.tamao-demo-offline-help p{font-size:12px;color:#587563}',
     '.tamao-demo-driver-form{display:grid;gap:12px;max-width:460px}.tamao-demo-driver-form label{display:grid;gap:5px;font-weight:650}.tamao-demo-driver-form input[type=text]{width:100%;padding:11px;font:inherit;border:1px solid #879e93;border-radius:8px}.tamao-demo-driver-check{display:flex!important;align-items:center;gap:8px}.tamao-demo-driver-check input{width:20px;height:20px}.tamao-demo-driver-status{font-weight:650;color:#69451b}',
     '@media(max-width:600px){.tamao-demo-tools{justify-content:center;gap:6px;padding:6px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-nav{display:grid;width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px}}'
   ].join('\n');
@@ -118,7 +119,7 @@
     progress.textContent=steps[status]||'1/4 · Cliente: escolha um produto, informe um endereço e faça seu pedido.';
     if(startOrderButton){
       const open=(read()?.orders||[]).some(o=>['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
-      startOrderButton.textContent=open?'Novo pedido de teste (gás P13)':'Começar com gás P13';
+      startOrderButton.textContent=open?'Novo pedido (gás P13)':'Começar com gás P13';
     }
   }
   function drawAdmin(){
@@ -135,7 +136,7 @@
       stats.append(make('span',label+': '+value));
     }
     panel.append(stats);
-    if(!orders.length)panel.append(make('p','Nenhum pedido ainda. Volte ao Cliente, monte uma cesta e simule o pedido.'));
+    if(!orders.length)panel.append(make('p','Nenhum pedido ainda. Abra Cliente para começar.'));
     for(const o of [...orders].reverse().slice(0,30)){
       const card=document.createElement('article');card.className='demo-order';
       card.append(make('strong','Pedido '+(o.publicCode||o.code||o.id||'—')));
@@ -417,7 +418,7 @@
     if(order&&localProofAvailable){
       panel.append(make('p','Comprovante protegido neste aparelho; aguarde a conferência.'));
       if(navigator.onLine!==false){
-        const sync=button('Conferir comprovante no simulador',()=>performLocalProof('replay',order));
+        const sync=button('Conferir comprovante',()=>performLocalProof('replay',order));
         sync.id='tamao-demo-offline-replay';sync.disabled=localProofBusy;panel.append(sync);
       }else panel.append(make('p','Sem sinal: reconecte para conferir o comprovante.'));
     }
@@ -426,7 +427,10 @@
     const status=make('p',driverError);
     status.id='tamao-demo-driver-status';status.className='tamao-demo-driver-status';
     status.setAttribute('role','status');panel.append(status);
-    panel.append(make('p','Sem sinal: o demonstrativo pode guardar apenas um comprovante fictício criptografado. Não sincroniza com servidor real, e recarregar a página sem internet não funciona nesta demonstração. A entrega comercial offline continua em homologação.'));
+    const offlineHelp=make('details','');offlineHelp.className='tamao-demo-offline-help';
+    offlineHelp.append(make('summary','Como funciona sem internet'),
+      make('p','O comprovante protegido fica neste aparelho até a reconexão. Este modo não sincroniza com o servidor comercial e não funciona após recarregar a página sem sinal. A entrega comercial offline continua em homologação.'));
+    panel.append(offlineHelp);
     const deviceButton=button('Verificar armazenamento protegido deste aparelho',runDeviceCheck);
     deviceButton.id='tamao-demo-device-check';
     deviceButton.disabled=deviceCheckBusy;
@@ -534,7 +538,7 @@
       ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
     if(!s||open.some(o=>o.deliveredAt||o.paymentConfirmedAt||
         o.inventoryReserved===true&&!s.merchants?.some(m=>m.id===o.merchantId)))
-      return {ok:false,error:'Pedido não pode ser encerrado com segurança. Use Reiniciar para zerar somente os testes.'};
+      return {ok:false,error:'O pedido não pôde ser encerrado. Use Reiniciar para limpar o ambiente.'};
     for(const o of open){
       if(o.inventoryReserved===true){
         const m=s.merchants.find(x=>x.id===o.merchantId);
@@ -553,8 +557,8 @@
       o.demoAbandonedAt=new Date().toISOString();
       if(!Array.isArray(o.events))o.events=[];
       o.events.push({status:'CANCELLED',time:o.demoAbandonedAt,
-        title:'Teste encerrado para novo pedido',
-        desc:'Simulação encerrada sem entrega, cobrança ou pagamento real.'});
+        title:'Pedido encerrado para iniciar outro',
+        desc:'Pedido cancelado antes da entrega.'});
     }
     s.cart=api.normalizeCart({});
     s.checkout.useCashback=false;
@@ -569,7 +573,7 @@
     const existing=(read()?.orders||[]).filter(o=>
       ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status));
     if(existing.length){
-      const answer=confirm('Existe um pedido fictício em andamento. Encerrar este teste e começar outro? O histórico será mantido, e o cashback e estoque reservados serão devolvidos. Nenhum pedido real será alterado.');
+      const answer=confirm('Já existe um pedido em andamento. Encerrar e começar outro? O histórico será preservado e os valores reservados serão devolvidos.');
       if(!answer){
         globalThis.setMode?.('customer');
         globalThis.go?.('tracking');
@@ -579,7 +583,7 @@
     }
     const result=endOpenDemoOrders();
     if(result?.ok!==true){
-      alert(result?.error||'Não foi possível preparar outro pedido fictício.');
+      alert(result?.error||'Não foi possível preparar outro pedido.');
       updateGuide();
       return;
     }
@@ -597,7 +601,7 @@
   nav.append(button('Entregador',()=>setDriver(true)));
   nav.append(button('Admin',()=>setAdmin(true)));
   nav.append(button('Reiniciar',()=>{
-    if(confirm('Apagar apenas os pedidos e valores fictícios desta demonstração no navegador?')){
+    if(confirm('Limpar os pedidos e valores deste ambiente?')){
       setAdmin(false);globalThis.reset?.();
       void clearProofs().catch(()=>{});
     }
