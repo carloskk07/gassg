@@ -185,24 +185,32 @@ function agendaPublicView(){
  const choices=(p.services||[]).map(x=>
   '<option value="'+esc(x.id)+'"'+(s.serviceId===x.id?' selected':'')+'>'+esc(x.title)+' — '+agendaMoney(x.price_cents)+'</option>').join('');
  const date=s.day||agendaToday();
+ const isReschedule=!!s.rescheduleId;
  const slots=s.slots.map(x=>
   '<button type="button" class="'+(s.selectedStart===x.starts_at?'primary':'secondary')+
   '" aria-pressed="'+(s.selectedStart===x.starts_at)+'" onclick="agendaSelectSlot(\''+esc(x.starts_at)+'\')">'+esc(x.label)+'</button>').join('');
  const form='<section class="agenda-panel"><h2>Escolha seu horário</h2>'+
-  '<label>Serviço<select onchange="agendaChooseService(this.value)">'+choices+'</select></label>'+
+  '<label>Serviço<select'+(isReschedule?' disabled':'')+' onchange="agendaChooseService(this.value)">'+choices+'</select></label>'+
+  (p.staff?.length?'<label>Profissional<select'+(isReschedule?' disabled':'')+' onchange="agendaChooseStaff(this.value)">'+
+   p.staff.map(t=>'<option value="'+esc(t.id)+'"'+(s.staffId===t.id?' selected':'')+'>'+esc(t.name)+'</option>').join('')+
+   '</select></label>':'')+
+  (isReschedule?'<p class="agenda-reschedule-hint">Escolha a nova data e um horário livre para remarcar sua reserva.</p>':'')+
   (service?'<p class="agenda-service-summary">'+esc(service.title)+' • '+service.duration_min+' min • '+agendaMoney(service.price_cents)+'</p>':'')+
   '<label>Data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
    (s.slotBusy?'<p>Consultando horários…</p>':s.dayClosed?'<p>Este profissional não atende nesta data. Escolha outro dia.</p>':slots||'<p>Nenhum horário livre nesta data. Escolha outro dia.</p>')+'</div>'+
-  (s.selectedStart?(s.user?
+  (s.selectedStart?(s.user?(isReschedule?
+   '<div class="agenda-book-form"><h3>Confirme o novo horário</h3><p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
+    '<button type="button" class="primary" onclick="agendaConfirmReschedule()"'+(s.busy?' disabled':'')+'>Confirmar remarcação</button> '+
+    '<button type="button" class="secondary" onclick="agendaCancelReschedule()">Desistir</button></div>':
     '<form class="agenda-book-form" onsubmit="return agendaBook(event)">'+
      '<h3>Confirme sua reserva</h3>'+
      '<label>Seu nome<input name="name" minlength="2" maxlength="90" required autocomplete="name"></label>'+
      '<label>WhatsApp para confirmação<input name="phone" type="tel" maxlength="25" minlength="8" required autocomplete="tel" placeholder="+55 55 99999-9999"></label>'+
      '<p>'+esc(agendaDateTime(s.selectedStart))+'</p>'+
      '<p class="tiny muted">Seu nome e WhatsApp serão compartilhados com este profissional. Reserva gratuita: nenhum sinal é cobrado pelo TAMÃO nesta versão.</p>'+
-     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>':
+     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>'):
     '<div class="agenda-login-prompt"><p>Entre pelo seu e-mail para confirmar este horário.</p>'+agendaLoginForm()+'</div>'):'')+
   '</section>';
  return '<div class="agenda-public-grid"><section class="agenda-panel agenda-showcase">'+
@@ -235,10 +243,12 @@ function agendaMyBookingsView(){
    const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
    const service=profile?.services?.find(x=>x.id===b.service_id);
    return '<article class="agenda-booking"><strong>'+esc(b.page_title||profile?.title||'Atendimento no TAMÃO')+'</strong>'+
-    '<span>'+esc([b.service_title||service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+ 
+    '<span>'+esc([b.service_title||service?.title,b.staff_title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+ 
     (agendaSlugPattern.test(b.slug||'')?'<a class="agenda-wa" href="'+esc(agendaShareLink(b.slug))+'">Ver página do profissional</a>':'')+
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
     '" onclick="agendaDownloadCalendar(this.dataset.id)">Adicionar ao calendário</button>'+ 
+    (b.reschedule_count<2?'<button type="button" class="secondary" data-id="'+esc(b.id)+
+    '" onclick="agendaBeginReschedule(this.dataset.id)">Remarcar</button>':'')+ 
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
     '" onclick="agendaCancel(this.dataset.id)">Cancelar reserva</button></article>';
   }).join('')+'</section>';
