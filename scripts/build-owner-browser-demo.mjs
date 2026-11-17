@@ -51,8 +51,9 @@ fs.writeFileSync(bootstrap,js);
 // A human-facing demo must not look like an automated test runner.
 const corePath=path.join(output,'js/core.js');
 let core=fs.readFileSync(corePath,'utf8');
-core=replaceOnce(core,'Ambiente isolado de teste automatizado',
- '🧪 Demonstração interativa • nenhum pedido ou pagamento real');
+core=replaceOnce(core,
+  "return '<div class=\"demo-strip\"><span>Ambiente isolado de teste automatizado</span><button onclick=\"reset()\">Reiniciar teste</button></div>';",
+  "return '';");
 fs.writeFileSync(corePath,core);
 // The canonical merchant copy describes a legally meaningful real acceptance.
 // On a static fictitious demo this would be misleading; change only the copy
@@ -60,7 +61,7 @@ fs.writeFileSync(corePath,core);
 const merchantPath=path.join(output,'js/merchant.js');
 let merchant=fs.readFileSync(merchantPath,'utf8');
 merchant=replaceOnce(merchant,'Aceitar significa assumir compromisso real de atendimento.',
-  'Simulação: aceitar este pedido não cria venda, entrega ou compromisso real.');
+  'Aceite e acompanhe o atendimento deste pedido.');
 fs.writeFileSync(merchantPath,merchant);
 // Avoid existing production service workers and speculative third-party fetches.
 const htmlPath=path.join(output,'index.html');
@@ -72,16 +73,16 @@ html=replaceOnce(html,'content="index,follow,max-image-preview:large"',
  'content="noindex,nofollow,noarchive,nosnippet"');
 html=replaceOnce(html,'<link rel="canonical" href="https://tamao.com.br/" />','');
 html=replaceOnce(html,'<title>TAMÃO — Faltou em casa? Tá na mão.</title>',
- '<title>TAMÃO — Demonstração interativa (sem vendas reais)</title>');
+ '<title>TAMÃO — Área de testes</title>');
 html=replaceOnce(html,'<script defer src="./js/bootstrap.js"></script>',
  '<script defer src="./js/bootstrap.js"></script>\n  <script defer src="./js/demo-browser-panel.js"></script>');
-html=replaceOnce(html,'<body>','<body>\n  <div id="tamao-demo-browser-banner" aria-label="Simulação sem vendas reais"></div>');
+html=replaceOnce(html,'<body>','<body>\n  <div id="tamao-demo-browser-banner" aria-label="Modo teste: dados fictícios"></div>');
 fs.writeFileSync(htmlPath,html);
 fs.writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 const manifestPath=path.join(output,'manifest.webmanifest');
 const manifest=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-manifest.name='TAMÃO — Demonstração (dados fictícios)';
-manifest.short_name='TAMÃO DEMO';
+manifest.name='TAMÃO — Área de testes (dados fictícios)';
+manifest.short_name='TAMÃO TESTE';
 manifest.start_url='./#home';
 manifest.scope='./';
 fs.writeFileSync(manifestPath,JSON.stringify(manifest,null,2)+'\n');
