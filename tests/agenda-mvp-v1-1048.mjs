@@ -66,7 +66,7 @@ assert.doesNotMatch(daysMigration,/grant execute on function public\.agenda_set_
 assert.match(source,/agendaDownloadCalendar/);
 assert.match(source,/agenda_set_closed_day/);
 assert.match(source,/agenda_day_is_closed/);
-assert.match(source,/Este profissional não atende nesta data/);
+assert.match(source,/Não há atendimento neste dia/);
 assert.match(source,/rpc\('agenda_my_bookings'\)/);
 assert.match(css+readFileSync('css/agenda.css','utf8'),/agenda-closed-list/);
 assert.equal(vm.runInContext('agendaDateOnly("2026-11-20")',ctx),'20/11/2026');
@@ -164,4 +164,119 @@ vm.runInContext('agendaRuntime.depositSettings=[{service_id:"dddddddd-dddd-4ddd-
 assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Condições de sinal dos serviços/);
 assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Sinal estimado/);
 console.log('PASS: Agenda sinal estimado, sem checkout, OAuth pendente, valores e políticas.');
+
+// V1.1053 — the owner is not forced through eight separate forms.
+const quickHtml=vm.runInContext('agendaQuickStartView()',ctx);
+assert.match(quickHtml,/Crie sua agenda grátis/);
+assert.match(quickHtml,/Criar e publicar minha agenda/);
+assert.match(quickHtml,/Primeiro serviço/);
+assert.doesNotMatch(quickHtml,/Condições de sinal dos serviços|Equipe e agendas simultâneas/);
+assert.match(css,/agenda-quick-start|agenda-date-shortcuts|agenda-more/);
+assert.match(source,/const \[slots,closed\]=await Promise\.all/);
+assert.doesNotMatch(source,/rpc\('agenda_deposit_quote'/);
+const savedPage=vm.runInContext('agendaOwnerEditor()',ctx);
+assert.ok(savedPage.indexOf('MINHA AGENDA')<savedPage.indexOf('Serviços e preços'));
+assert.ok(savedPage.indexOf('Serviços e preços')<savedPage.indexOf('Personalizar página, equipe e ajustes opcionais'));
+assert.match(savedPage,/<details class="agenda-more"/);
+assert.match(savedPage,/<summary>Horários de atendimento/);
+assert.match(source,/ontoggle="agendaRememberPanel/);
+vm.runInContext('agendaRememberPanel("advanced",true);agendaRememberPanel("hours",true)',ctx);
+assert.equal(vm.runInContext('agendaRuntime.advancedOpen && agendaRuntime.hoursOpen',ctx),true);
+const expanded=vm.runInContext('agendaOwnerEditor()',ctx);
+assert.match(expanded,/class="agenda-more" open/);
+assert.match(expanded,/class="agenda-hours-wrap" open/);
+vm.runInContext('agendaRememberPanel("advanced",false);agendaRememberPanel("hours",false)',ctx);
+
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Hoje/);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Amanhã/);
+assert.match(vm.runInContext('agendaPublicView()',ctx),/Ver horários do dia seguinte/);
+
+// One form creates a DRAFT, then service, weekly hours and finally publishes.
+ctx.FormData=class{constructor(form){this.form=form}get(name){return this.form[name]??null}};
+ctx.quickEvents=[];
+const quickPage={
+ id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',slug:'barbearia-centro-11111111',
+ title:'Barbearia Centro',city:'São Gabriel',published:false,photo_paths:[]
+};
+const quickClient={
+ from(table){return {
+  insert(record){
+   ctx.quickEvents.push({step:'insert',table,record});
+   return {select(){return {single:async()=>({data:table==='agenda_pages'?quickPage:
+    {id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'},error:null})}}};
+  },
+  update(record){
+   ctx.quickEvents.push({step:'publish',table,record});
+   return {eq(){return {select(){return {single:async()=>({data:{...quickPage,published:true},error:null})}}}}};
+  }
+ }},
+ rpc(name,args){
+  ctx.quickEvents.push({step:'hours',name,args});
+  return Promise.resolve({data:args.p_hours.length,error:null});
+ }
+};
+ctx.quickClient=quickClient;
+vm.runInContext('agendaRefreshOwner=async()=>{};agendaRefreshDirectory=async()=>{};agendaRuntime.client=quickClient;agendaRuntime.page=null;agendaRuntime.ownerMode=true;agendaRuntime.busy=false;agendaRuntime.user={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};',ctx);
+await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
+assert.deepEqual(ctx.quickEvents.map(x=>x.step),['insert','insert','hours','publish']);
+assert.equal(ctx.quickEvents[0].record.published,false,'Draft must precede service and weekly hours');
+assert.equal(ctx.quickEvents[1].record.price_cents,3500);
+assert.equal(ctx.quickEvents[2].args.p_hours.length,6);
+assert.equal(ctx.quickEvents[2].args.p_hours.find(h=>h.weekday===6).closes_min,780);
+assert.equal(ctx.quickEvents[3].record.published,true);
+assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),true);
+assert.match(vm.runInContext('agendaRuntime.notice',ctx),/publicada/);
+
+// Browser email-link navigation retains a slot, but NEVER confirms a booking.
+const store=new Map();
+ctx.localStorage={getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value),
+ removeItem:key=>store.delete(key)};
+const nextDay=vm.runInContext('agendaToday(2)',ctx);
+const slot=vm.runInContext('agendaLocalHourToInstant("'+nextDay+'","12:00")',ctx);
+ctx.slotClient={
+ rpc(name,args){
+  ctx.quickEvents.push({step:'read',name,args});
+  if(name==='agenda_public_page')return Promise.resolve({data:{
+   id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',slug:'barbearia-sg',title:'Barbearia SG',
+   city:'São Gabriel',services:[{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',title:'Corte',duration_min:30,price_cents:3500}],
+   staff:[{id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',name:'Ana'}]},error:null});
+  if(name==='agenda_available_staff_slots')return Promise.resolve({data:[{starts_at:slot,label:'12:00'}],error:null});
+  if(name==='agenda_day_is_closed')return Promise.resolve({data:false,error:null});
+  throw Error('Unexpected RPC '+name);
+ }
+};
+vm.runInContext('agendaRuntime.user=null;agendaRuntime.client=slotClient;agendaRuntime.publicProfile=null;agendaRuntime.rescheduleId="";agendaRuntime.serviceId="dddddddd-dddd-4ddd-8ddd-dddddddddddd";agendaRuntime.staffId="cccccccc-cccc-4ccc-8ccc-cccccccccccc";agendaRuntime.day="'+nextDay+'";agendaRuntime.slots=[{starts_at:"'+slot+'",label:"12:00"}];',ctx);
+vm.runInContext('agendaSelectSlot("'+slot+'")',ctx);
+assert.match(store.get('tamao-agenda-pending-v1'),/barbearia-sg/);
+assert.doesNotMatch(store.get('tamao-agenda-pending-v1'),/phone|email|customer_name/);
+vm.runInContext('agendaRuntime.user={id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};',ctx);
+await vm.runInContext('agendaRefreshPublic()',ctx);
+assert.equal(vm.runInContext('agendaRuntime.selectedStart',ctx),slot);
+assert.equal(store.size,0,'Resume must erase the locally stored slot');
+assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_book_staff_slot').length,0);
+assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_available_staff_slots').length,1);
+assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_day_is_closed').length,1);
+assert.equal(ctx.quickEvents.filter(x=>x.name==='agenda_deposit_quote').length,0);
+
+// No approval if a service could not be saved: leave an unpublished draft.
+ctx.quickEvents=[];
+ctx.failedClient={
+ from(table){return {
+  insert(record){
+   ctx.quickEvents.push({step:'insert',table,record});
+   return {select(){return {single:async()=>table==='agenda_services'?
+    {data:null,error:{code:'400',message:'temporary failed service'}}:
+    {data:quickPage,error:null}}}};
+  },
+  update(){throw Error('No publication permitted after partial failure')}
+ }},
+ rpc(){throw Error('No weekly hours after service failure')}
+};
+vm.runInContext('agendaRuntime.page=null;agendaRuntime.busy=false;agendaRuntime.client=failedClient;',ctx);
+await vm.runInContext('agendaQuickCreate({preventDefault(){},target:{business:"Barbearia Centro",city:"São Gabriel",service:"Corte",duration:"30",price:"35.00",schedule:"week_sat"}})',ctx);
+assert.equal(ctx.quickEvents.length,2);
+assert.equal(vm.runInContext('agendaRuntime.page.published',ctx),false);
+assert.match(vm.runInContext('agendaRuntime.error',ctx),/rascunho/);
+console.log('PASS: Agenda V1.1053 rápida, RLS-only signup, draft-first publication, dates, login continuity, minimal calls, partial failure safely unpublished.');
+
 
