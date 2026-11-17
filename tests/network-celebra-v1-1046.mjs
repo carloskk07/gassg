@@ -49,7 +49,7 @@ assert.match(customer,/network_celebra_refresh_v1_1046/);
 assert.match(customer,/network_celebra_user_summary_v1_1046/);
 assert.match(customer,/networkCelebra,/);
 assert.match(backend,/liveRuntime\.networkCelebra=null/);
-assert.match(ui,/data\\?\\.networkCelebra/);
+assert.ok(ui.includes('data?.networkCelebra'));
 assert.match(ui,/growth-celebra\.js/);
 assert.match(ui,/globalThis\\.tamaoNetworkCelebraPanel\\?\\.\\(\\)/);
 assert.match(uiLazy,/function tamaoNetworkCelebraPanel/);
