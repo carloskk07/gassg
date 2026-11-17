@@ -172,5 +172,9 @@
 .admin-test-more>summary{cursor:pointer;font-weight:750;color:#17543b;min-height:44px;display:list-item;align-content:center}
 .admin-test-more[open]>summary{margin-bottom:11px}
 .admin-test-more>summary:focus-visible{outline:3px solid #bc8728;outline-offset:2px}
+.admin-test-context{display:inline-flex;align-items:center;gap:6px;color:#486b55;font-weight:650;font-size:12px;margin:4px 0 12px!important}
+.admin-test-context span{color:#31845d;font-size:10px}
+.admin-test-demo-links .admin-test-simulation-link{min-height:95px}
+
 @media(max-width:600px){.admin-test-links{grid-template-columns:1fr}.admin-test-demo-links .admin-test-simulation-link{min-height:96px}}
 
