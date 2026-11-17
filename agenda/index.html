@@ -42,19 +42,9 @@
  <noscript>Ative o JavaScript para consultar horários e organizar seus atendimentos.</noscript>
  <script src="../js/runtime-config.js"></script>
  <script src="../js/backend.js"></script>
- <script>
-  const BRL=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
-  const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  function route(){return 'agenda';}
-  function shell(content){return '<main id="tamao-main">'+content+'</main>';}
-  function render(){const el=document.getElementById('app');if(!el||typeof agendaPage!=='function')return;
-    el.innerHTML=agendaPage();agendaAfterRender();}
-  window.addEventListener('hashchange',()=>render());
- </script>
+ 
+ <script src="../js/agenda-boot.js"></script>
  <script src="../js/agenda.js"></script>
- <script>
-  if(!location.hash){history.replaceState(null,'',location.pathname+location.search+'#agenda');}
-  render();
- </script>
+ 
 </body>
 </html>
