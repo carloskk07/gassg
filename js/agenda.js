@@ -150,7 +150,9 @@ function agendaDownloadCalendar(id){
  const s=agendaRuntime,b=[...s.mine,...s.bookings].find(x=>x.id===id);
  if(!b||b.status!=='confirmed')return;
  const service=s.services.find(x=>x.id===b.service_id);
- const data=agendaIcsContent(b,service?.title?'Atendimento: '+service.title:'Atendimento no TAMÃO');
+ const label=service?.title||b.service_title||'Atendimento';
+ const title=b.page_title?label+' — '+b.page_title:'Atendimento: '+label;
+ const data=agendaIcsContent(b,title);
  if(!data)return;
  const url=URL.createObjectURL(new Blob([data],{type:'text/calendar;charset=utf-8'}));
  const a=document.createElement('a');a.href=url;a.download='tamao-agenda-'+id+'.ics';
@@ -218,8 +220,9 @@ function agendaMyBookingsView(){
   s.mine.map(b=>{
    const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
    const service=profile?.services?.find(x=>x.id===b.service_id);
-   return '<article class="agenda-booking"><strong>'+esc(profile?.title||'Atendimento no TAMÃO')+'</strong>'+
-    '<span>'+esc([service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+
+   return '<article class="agenda-booking"><strong>'+esc(b.page_title||profile?.title||'Atendimento no TAMÃO')+'</strong>'+
+    '<span>'+esc([b.service_title||service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+ 
+    (agendaSlugPattern.test(b.slug||'')?'<a class="agenda-wa" href="'+esc(agendaShareLink(b.slug))+'">Ver página do profissional</a>':'')+
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
     '" onclick="agendaDownloadCalendar(this.dataset.id)">Adicionar ao calendário</button>'+ 
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
@@ -308,8 +311,7 @@ async function agendaRefreshOwner(){
   if(services.error||hours.error||bookings.error||closedDays.error)throw services.error||hours.error||bookings.error||closedDays.error;
   s.services=services.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];
  }else{s.services=[];s.hours=[];s.bookings=[];s.closedDays=[];}
- const mine=await s.client.from('agenda_appointments').select('id,starts_at,ends_at,status,page_id,service_id')
-  .eq('customer_id',u.id).eq('status','confirmed').gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
+ const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
 }
 async function agendaRefreshDirectory(){
