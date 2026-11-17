@@ -64,6 +64,8 @@ assert.ok(panel.includes('focusAssignedOrder'));
 assert.ok(!read('js/core.js').includes('Ambiente isolado de teste automatizado'));
 assert.ok(!read('js/core.js').includes('demo-strip\"><span>Ambiente isolado'));
 assert.ok(read('js/merchant.js').includes('Aceite e acompanhe o atendimento deste pedido.'));
+assert.ok(!read('js/customer.js').includes("'● AMBIENTE DE TESTE'"));
+assert.ok(read('js/customer.js').includes("'● BENEFÍCIOS TAMÃO'"));
 assert.ok(!read('js/merchant.js').includes('Aceitar significa assumir compromisso real de atendimento.'));
 
 
