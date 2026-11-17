@@ -573,6 +573,128 @@ async function agendaToggleStaff(id){
  }
  s.busy=false;render();
 }
+function agendaLocalHourToInstant(day,hour){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!/^\d{2}:\d{2}$/.test(hour))return '';
+ // Use timezone data, not the visitor's device clock. Brazil currently UTC-3,
+ // but the Intl zone lookup also handles historical/future policy changes.
+ const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',timeZoneName:'shortOffset'});
+ const tz=fmt.formatToParts(new Date(day+'T12:00:00Z')).find(p=>p.type==='timeZoneName')?.value||'';
+ const hit=/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(tz);
+ if(!hit)return '';
+ const offset=(hit[1]==='+'?1:-1)*(Number(hit[2])*60+Number(hit[3]||0));
+ const d=new Date(day+'T'+hour+':00Z');
+ if(!Number.isFinite(d.valueOf()))return '';
+ return new Date(d.valueOf()-offset*60000).toISOString();
+}
+async function agendaAddBlock(ev){
+ ev.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.user||!s.page)return false;
+ const f=new FormData(ev.target),day=String(f.get('day')||'');
+ const start=agendaLocalHourToInstant(day,String(f.get('start')||''));
+ const end=agendaLocalHourToInstant(day,String(f.get('end')||''));
+ const staffId=String(f.get('staff')||'');
+ if(!start||!end||Date.parse(end)<=Date.parse(start)||Date.parse(end)-Date.parse(start)>12*3600000 ||
+  day<agendaToday()||day>agendaToday(180)||staffId&&!s.staff.some(t=>t.id===staffId&&t.active)){
+  s.error='Confira o dia, o horário e o colaborador.';render();return false;
+ }
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_add_staff_block',{
+   p_staff_id:staffId||null,p_start:start,p_end:end
+  });
+  if(error||!agendaUuid.test(String(data)))throw error||Error('block unconfirmed');
+  await agendaRefreshOwner();
+  if(s.serviceId&&day===s.day)await agendaLoadSlots();
+  s.notice='Intervalo indisponível cadastrado.';
+ }catch(e){
+  s.error=e?.message?.includes('AGENDA_BLOCK_HAS_BOOKINGS')?
+   'Este intervalo já contém uma reserva confirmada. Resolva o atendimento antes de bloquear.':
+   'Não foi possível bloquear o intervalo. Confira sua agenda.';
+ }
+ s.busy=false;render();return false;
+}
+async function agendaRemoveBlock(id){
+ const s=agendaRuntime;if(s.busy||!s.page||!s.blocks.some(x=>x.id===id))return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_remove_staff_block',{p_id:id});
+  if(error||data!==true)throw error||Error('remove unconfirmed');
+  await agendaRefreshOwner();
+  if(s.serviceId)await agendaLoadSlots();
+  s.notice='Intervalo liberado.';
+ }catch(e){s.error='Não foi possível liberar este intervalo.';}
+ s.busy=false;render();
+}
+async function agendaJoinWaitlist(ev){
+ ev.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.user||!s.publicProfile||!s.serviceId||s.rescheduleId)return false;
+ const f=new FormData(ev.target),name=String(f.get('name')||'').trim(),phone=String(f.get('phone')||'').trim();
+ if(f.get('consent')!=='on'||name.length<2||name.length>90||
+   !/^\+?[0-9 ()-]{8,25}$/.test(phone)){
+  s.error='Confira seu nome, WhatsApp e autorização de contato.';render();return false;
+ }
+ const service=s.serviceId,staff=s.staffId,day=s.day;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_join_waitlist',{
+   p_service_id:service,p_staff_id:staff||null,p_day:day,p_name:name,p_phone:phone
+  });
+  if(error||!agendaUuid.test(String(data)))throw error||Error('waitlist unconfirmed');
+  const verify=await s.client.from('agenda_waitlist').select('id,status')
+   .eq('id',data).eq('customer_id',s.user.id).maybeSingle();
+  if(verify.error||verify.data?.status!=='waiting')throw Error('waitlist readback unavailable');
+  await agendaRefreshOwner();
+  s.notice='Pedido de contato registrado. O profissional poderá chamar pelo WhatsApp se surgir vaga.';
+ }catch(e){
+  // A network timeout can commit; never imply the request failed without readback.
+  let found=false;
+  try{
+   let q=s.client.from('agenda_waitlist').select('id').eq('customer_id',s.user.id)
+    .eq('service_id',service).eq('day',day).eq('status','waiting');
+   q=staff?q.eq('staff_id',staff):q.is('staff_id',null);
+   const check=await q.maybeSingle();
+   found=!!check.data?.id;
+   if(found)await agendaRefreshOwner();
+  }catch(_){}
+  s.error=found?'':'Não foi possível confirmar sua entrada na fila. Consulte suas listas antes de repetir.';
+  if(found)s.notice='Sua participação na lista de espera está registrada.';
+ }
+ s.busy=false;render();return false;
+}
+async function agendaCloseWaitlist(id,contacted){
+ const s=agendaRuntime;
+ if(s.busy||!agendaUuid.test(id)||
+  !(s.waiting.some(x=>x.id===id)||(!contacted&&s.myWaiting.some(x=>x.id===id))))return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_close_waitlist',{
+   p_wait_id:id,p_contacted:contacted===true
+  });
+  if(error||data!==true)throw error||Error('close waitlist failed');
+  await agendaRefreshOwner();
+  s.notice=contacted?'Contato registrado na lista.':'Participação retirada da lista.';
+ }catch(e){s.error='Não foi possível alterar a lista. Tente novamente.';}
+ s.busy=false;render();
+}
+async function agendaMarkAttendance(id,result){
+ const s=agendaRuntime;
+ const booking=s.bookings.find(b=>b.id===id);
+ if(s.busy||!booking||booking.status!=='confirmed'||Date.parse(booking.ends_at)>Date.now()||
+  !['completed','no_show'].includes(result))return;
+ if(result==='no_show'&&!confirm('Registrar que o cliente não compareceu? Esta conclusão não pode ser desfeita pela agenda.'))return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_mark_attendance',{
+   p_appointment_id:id,p_result:result
+  });
+  if(error||data!==true)throw error||Error('attendance unconfirmed');
+  const verify=await s.client.from('agenda_appointments').select('id,status').eq('id',id).maybeSingle();
+  if(verify.error||verify.data?.status!==result)throw Error('attendance readback unavailable');
+  await agendaRefreshOwner();
+  s.notice=result==='completed'?'Atendimento concluído registrado.':'Ausência registrada.';
+ }catch(e){s.error='Não foi possível confirmar a conclusão. Confira o histórico.';}
+ s.busy=false;render();
+}
 async function agendaSaveHours(ev){
  ev.preventDefault();const s=agendaRuntime;if(s.busy||!s.page)return false;
  const f=new FormData(ev.target),hours=[];
