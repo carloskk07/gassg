@@ -32,7 +32,9 @@ const live=customer.slice(customer.indexOf('if(!testDemo&&!internalPilot)return 
 assert.equal((live.match(/tamaoHomeValueOverview\(\)/g)||[]).length,1,
  'Overview must be on real customer homepage exactly once');
 assert.ok(live.indexOf('${couponBanner}')<live.indexOf('${tamaoHomeValueOverview()}'));
-assert.ok(live.includes('class="tamao-storefront-benefit-strip"'));
+assert.ok(live.includes('tamao-home-strip-template'));
+assert.ok(index.includes('class="tamao-storefront-benefit-strip"'));
+assert.ok(index.includes('<template id="tamao-home-strip-template">'));
 assert.ok(live.includes('href="#tamao-all-benefits"'));
 assert.ok(index.includes('<style id="tamao-benefit-story-css">'));
 assert.ok(index.includes('Mais vantagens para as suas compras!'));
