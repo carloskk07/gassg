@@ -66,7 +66,7 @@ assert.doesNotMatch(daysMigration,/grant execute on function public\.agenda_set_
 assert.match(source,/agendaDownloadCalendar/);
 assert.match(source,/agenda_set_closed_day/);
 assert.match(source,/agenda_day_is_closed/);
-assert.match(source,/Este profissional não atende nesta data/);
+assert.match(source,/Não há atendimento neste dia/);
 assert.match(source,/rpc\('agenda_my_bookings'\)/);
 assert.match(css+readFileSync('css/agenda.css','utf8'),/agenda-closed-list/);
 assert.equal(vm.runInContext('agendaDateOnly("2026-11-20")',ctx),'20/11/2026');
