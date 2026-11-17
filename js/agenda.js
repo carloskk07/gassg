@@ -2,7 +2,7 @@
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
  slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
- notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false
+ notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false,advancedOpen:false,hoursOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const agendaSlugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -171,7 +171,8 @@ function agendaOwnerEditor(){
     '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
     '<p>Salve sua página para adicionar os serviços.</p>')+
   '</section>'+
-  '<details class="agenda-hours-wrap"'+(s.hours.length?'':' open')+'><summary>Horários de atendimento • '+s.hours.length+' dias por semana</summary>'+ 
+  '<details class="agenda-hours-wrap"'+(s.hoursOpen||!s.hours.length?' open':'')+
+   ' ontoggle="agendaRememberPanel(\'hours\',this.open)"><summary>Horários de atendimento • '+s.hours.length+' dias por semana</summary>'+ 
   '<section class="agenda-panel"><h2>Meus horários</h2><p>Marque os dias em que atende. Horários ocupados ficam indisponíveis automaticamente.</p>'+
    (p.id?'<form onsubmit="return agendaSaveHours(event)">'+allDays+
     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar horários</button></form>':
@@ -217,7 +218,8 @@ function agendaOwnerEditor(){
      '<button type="button" class="secondary" data-id="'+esc(w.id)+
      '" onclick="agendaCloseWaitlist(this.dataset.id,false)">Remover da fila</button></article>';
    }).join('')+'</div>':'<p>Nenhuma pessoa na fila de espera neste momento.</p>')+'</section>'+
-  '<details class="agenda-more"'+(!ready?' open':'')+'><summary>Personalizar página, equipe e ajustes opcionais</summary>'+ 
+  '<details class="agenda-more"'+(s.advancedOpen||!ready?' open':'')+
+   ' ontoggle="agendaRememberPanel(\'advanced\',this.open)"><summary>Personalizar página, equipe e ajustes opcionais</summary>'+ 
   '<div class="agenda-more-grid">'+
   '<section class="agenda-panel"><h2>Minha página</h2><p>Apresente seu trabalho e compartilhe o link com seus clientes.</p>'+
   '<form id="agenda-profile-form" onsubmit="return agendaSaveProfile(event)">'+
@@ -496,7 +498,7 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
     s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
@@ -1141,6 +1143,11 @@ async function agendaCopyLink(){
  catch{s.notice='Copie o endereço do link exibido na sua página.';}
  render();
 }
+function agendaRememberPanel(which,open){
+ const s=agendaRuntime;
+ if(which==='hours')s.hoursOpen=!!open;
+ if(which==='advanced')s.advancedOpen=!!open;
+}
 function agendaGoMyPage(){location.hash='#agenda';}
 
 function agendaStartOwner(){agendaRuntime.ownerMode=true;agendaRuntime.error='';render();}
@@ -1151,7 +1158,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
+  s.user=null;s.ownerMode=false;s.advancedOpen=false;s.hoursOpen=false;s.page=null;s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.mine=[];s.waiting=[];s.myWaiting=[];s.blocks=[];s.closedDays=[];s.rescheduleId='';
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();
