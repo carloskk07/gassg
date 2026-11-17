@@ -281,7 +281,7 @@ function patchServiceWorker(raw,sourceSha,role){
   }
   if(role!=='admin'){
     // Only the administrative bundle may precache privileged UI modules.
-    for(const module of ['admin-acquisition','admin','admin-activations']){
+    for(const module of ['admin-acquisition','admin','admin-test-center','admin-activations']){
       const entry=",'./js/"+module+".js'";
       if(!scoped.includes(entry))throw new Error('Missing expected admin cache entry: '+module);
       scoped=scoped.replace(entry,'');
