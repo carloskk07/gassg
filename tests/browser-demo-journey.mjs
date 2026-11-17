@@ -152,6 +152,21 @@ try{
  assert.equal(await evaluate('window.__CHAMA_TEST__'),true);
  assert.ok((await evaluate("document.getElementById('tamao-demo-browser-banner').innerText")).includes('Modo teste · dados fictícios'));
  assert.equal((await demoState()).orders.length,0,'fresh Chrome profile must start with no orders');
+ assert.equal(await evaluate("document.querySelectorAll('.tamao-demo-mode').length"),1,'Only one test-environment identifier');
+ assert.equal(await evaluate("document.querySelectorAll('.demo-strip').length"),0,'No redundant simulation banner');
+ assert.equal(await evaluate("getComputedStyle(document.querySelector('.tamao-demo-nav')).display"),'none',
+   'Mobile header should start with the Areas menu collapsed');
+ await send('Emulation.setDeviceMetricsOverride',{width:320,height:840,deviceScaleFactor:1,mobile:true});
+ const narrow=await evaluate("(()=>{const b=document.querySelector('.tamao-demo-menu-toggle')?.getBoundingClientRect(),m=document.querySelector('.tamao-demo-mode')?.getBoundingClientRect();return {width:document.documentElement.scrollWidth,toggle:!!b&&b.width>0&&b.right<=322,mode:!!m&&m.right<=322}})()");
+ assert.ok(narrow.toggle&&narrow.mode&&narrow.width<=322,'320px toolbar must not overflow: '+JSON.stringify(narrow));
+ await click("(()=>{const b=document.querySelector('.tamao-demo-menu-toggle');if(!b?.getClientRects().length)return false;b.click();return true})()");
+ await wait("document.querySelector('.tamao-demo-menu-toggle')?.getAttribute('aria-expanded')==='true'&&getComputedStyle(document.querySelector('.tamao-demo-nav')).display==='grid'",'show compact Areas menu');
+ assert.ok((await evaluate("document.documentElement.scrollWidth"))<=322,'320px expanded menu must not overflow');
+ await snapshot('00-menu-areas-320.png');
+ await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-nav button')].find(x=>x.textContent.includes('Cliente · acompanhar pedido'));if(!b?.getClientRects().length)return false;b.click();return true})()");
+ await wait("document.querySelector('.tamao-demo-menu-toggle')?.getAttribute('aria-expanded')==='false'&&getComputedStyle(document.querySelector('.tamao-demo-nav')).display==='none'",'selecting a profile closes the menu');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:840,deviceScaleFactor:1,mobile:true});
+
  await snapshot('01-cliente-home-demo.png');
  await click("(()=>{const b=Array.from(document.querySelectorAll('button')).find(x=>x.getAttribute('onclick')?.includes(\"homeChooseProduct('WATER20')\"));if(!b)return false;b.click();return true})()");
  await wait("route()==='order'&&state.cart?.WATER20>0",'water product click');
