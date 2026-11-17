@@ -569,14 +569,24 @@ async function agendaRefreshDirectory(){
    typeof p.title==='string'&&typeof p.city==='string').slice(0,24);
  }catch(_){/* Discovery remains optional while the new schema is rolling out. */}
 }
+function agendaPageIdentity(profile){
+ if(typeof document==='undefined')return;
+ const valid=profile&&agendaSlugPattern.test(String(profile.slug||''))&&String(profile.slug).length<=60;
+ const name=valid?String(profile.title||'').trim().slice(0,100):'';
+ document.title=name?name+' | TAMÃO Agenda':'TAMÃO Agenda — Agendamentos para profissionais';
+ const canonical=document.querySelector('link[rel="canonical"]');
+ if(canonical)canonical.href=valid?agendaShareLink(profile.slug):'https://tamao.com.br/agenda/';
+}
 async function agendaRefreshPublic(){
  const s=agendaRuntime,slug=agendaSlug();s.slug=slug;s.publicProfile=null;
+ agendaPageIdentity(null);
  s.serviceId='';s.staffId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
  if(!slug||!s.client)return;
  const {data,error}=await s.client.rpc('agenda_public_page',{p_slug:slug});
  if(!agendaRoute()||agendaSlug()!==slug)return;
  if(error){s.error='Não foi possível consultar este profissional.';return;}
  s.publicProfile=data||null;
+ agendaPageIdentity(s.publicProfile);
  const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
  const pending=!editing&&s.user?agendaReadPendingChoice(slug):null;
  if(s.rescheduleId&&!editing)s.rescheduleId='';
