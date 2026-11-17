@@ -130,6 +130,10 @@ begin
  perform set_config('request.jwt.claim.sub',v_owner::text,true);
  insert into public.agenda_staff(page_id,owner_id,name) values
   (v_page,v_owner,'Ana'),(v_page,v_owner,'Bruno');
+ insert into public.agenda_hours(page_id,owner_id,weekday,opens_min,closes_min)
+ values(v_page,v_owner,extract(dow from v_day+3)::int,540,1080),
+       (v_page,v_owner,extract(dow from v_day+4)::int,540,1080)
+ on conflict(page_id,weekday) do nothing;
  select id into v_staff from public.agenda_staff where page_id=v_page and name='Ana';
  select id into v_staff2 from public.agenda_staff where page_id=v_page and name='Bruno';
  if (public.agenda_public_page('barbearia-integracao-ci')->'staff'->0->>'name') is null
