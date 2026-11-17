@@ -972,23 +972,12 @@ function shell(content){
 }
 // V1.985: close desktop disclosures on outside interaction or Escape, preserving native summary keyboard behavior.
 function tamaoPublicMenuDismiss(event){
-  const a=document.querySelector('.tamao-account-access');
-  if(a?.open){
-    if(event.type==='pointerdown'&&!a.contains(event.target))a.open=false;
-    if(event.type==='keydown'&&event.key==='Escape'){
-      a.open=false;a.querySelector('summary')?.focus();
+  const panels=document.querySelectorAll('.tamao-nav-more[open],.tamao-account-access[open]');
+  for(const panel of panels){
+    if(event.type==='pointerdown'&&!panel.contains(event.target))panel.open=false;
+    else if(event.type==='keydown'&&event.key==='Escape'&&panel.contains(event.target)){
+      panel.open=false;panel.querySelector('summary')?.focus();
     }
-  }
-  const nav=typeof document!=='undefined'?document.querySelector('.tamao-public-nav'):null;
-  if(!nav)return;
-  const open=nav.querySelectorAll('.tamao-nav-more[open]');
-  if(!open.length)return;
-  if(event.type==='keydown'){
-    if(event.key!=='Escape'||!nav.contains(event.target))return;
-    open.forEach(panel=>{panel.open=false});
-    open[0].querySelector('summary')?.focus();
-  }else if(event.type==='pointerdown'&&!nav.contains(event.target)){
-    open.forEach(panel=>{panel.open=false});
   }
 }
 if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
