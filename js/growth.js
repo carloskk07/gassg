@@ -341,9 +341,9 @@ async function tamaoNetworkVisitFromUi(){
       if(before!==JSON.stringify(network)&&['refer','earn'].includes(String(route())))render();
     }
     const c=data?.networkCelebra;
-    if(c?.source==='network_celebra_user_v1_1046'&&Array.isArray(c.items)){
-      globalThis.liveRuntime.networkCelebra={available:true,...c};
-      if(c.items.length)import('/js/growth-celebra.js').then(()=>render()).catch(()=>{});
+    if(c?.available&&c.items?.length){
+      globalThis.liveRuntime.networkCelebra=c;
+      import('/js/growth-celebra.js').then(render).catch(()=>{});
     }
   }catch(e){
     console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
@@ -586,7 +586,7 @@ function tamaoNetworkModuleBenefitsPanel(){
     '<div class="merchant-kpis" style="margin-top:12px">'+cells+'</div>'+
     (ads>0?'<p class="muted tiny">Bonificações de publicidade contabilizadas: '+
       BRL.format(ads/100)+'. Ainda não disponíveis para saque ou abatimento.</p>':'')+
-    '<p class="muted tiny"><strong>Sua participação importa.</strong> Indique serviços úteis, acompanhe conquistas e consulte seu extrato.</p>'+
+    '<p class="muted tiny"><strong>Mais oportunidades:</strong> Moto/Carro e Clube parceiro, além de publicidade. Bonificações verificadas não integram o saldo sacável.</p>'+
   '</section>';
 }
 function refer(){
