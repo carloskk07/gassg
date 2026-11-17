@@ -60,10 +60,7 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
 .tamao-benefit-agenda-link{display:flex;align-items:center;justify-content:center;min-height:42px;margin-top:8px;border:1px solid #c7dfd0;border-radius:12px;color:#10643e;background:#f5faf5;font-size:13px;font-weight:800;text-decoration:none;text-align:center;padding:8px 10px}.tamao-benefit-agenda-link:hover{background:#eaf5ed}.tamao-benefit-agenda-link:focus-visible{outline:3px solid #b98121;outline-offset:3px}
   </style>
   <title>TAMÃO — Faltou em casa? Tá na mão.</title>
-  <script>/* Agenda email callback: preserve the SDK token fragment locally. */
-  if(new URLSearchParams(location.search).get('agenda')==='1')
-    location.replace('/agenda/'+location.search+location.hash);
-  </script>
+  
 </head>
 <body>
   <div id="app">
@@ -93,6 +90,7 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
     </main>
   </template>
   <script src="./js/runtime-config.js"></script>
+  <script src="./js/agenda-callback.js"></script>
   <script defer src="./js/turnstile.js"></script>
   <script defer src="./js/backend.js"></script>
   <script defer src="./js/core.js"></script>
