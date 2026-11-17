@@ -85,7 +85,7 @@ assert.doesNotMatch(customer.draw('CONTEUDO'),/tamao-account-access/);
 customer.adminPortalRequested=()=>false;
 customer.merchantPortalRequested=()=>true;
 assert.doesNotMatch(customer.draw('CONTEUDO'),/tamao-account-access/);
-assert.match(core,/panel\.contains\(event\.target\)/);
+assert.match(core,/p\.contains\(event\.target\)/);
 assert.match(marketing,/@media\(max-width:759px\).*tamao-account-prompt/s);
 assert.match(marketing,/tamao-account-access-panel a:focus-visible/);
 assert.match(workspace,/admin-test-links/);
