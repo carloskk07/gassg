@@ -50,7 +50,7 @@ try{
     open:details.open,summary:summary.textContent.trim(),links:[...panel.querySelectorAll('a')].map(a=>a.getAttribute('href')),
     text:panel.textContent.trim(),left:box.left,right:box.right,
     height:box.height,buttonHeight:button.height,
-    visible:getComputedStyle(panel).display!=='none',color:getComputedStyle(summary).color};
+    visible:getComputedStyle(panel).display!=='none',connected:details.isConnected,color:getComputedStyle(summary).color};
   })()`);
   assert.ok(data&&!data.error,JSON.stringify(data));
   assert.equal(data.width,width);assert.equal(data.open,true);
@@ -60,7 +60,7 @@ try{
   assert.doesNotMatch(data.text,/Administraç|admin\.tamao\.com\.br/i);
   assert.ok(data.scrollWidth<=width+2,'Documento excede a tela '+width+': '+data.scrollWidth);
   assert.ok(data.left>=-2&&data.right<=width+2,'Menu cortado em '+width+'px: '+JSON.stringify(data));
-  assert.ok(data.buttonHeight>=42&&data.visible,'Botão ou painel inacessível');
+  assert.ok(data.buttonHeight>=42&&data.visible&&data.connected,'Botão ou painel inacessível '+JSON.stringify(data));
   found.push(data);
   if([320,390,1120].includes(width)){
    const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
