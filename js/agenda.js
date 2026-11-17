@@ -115,7 +115,7 @@ function agendaDateTime(value){
 }
 function agendaPublicView(){
  const s=agendaRuntime,p=s.publicProfile;
- if(!p)return '<section class="agenda-panel"><h1>Página não disponível</h1><p>Confira o link enviado pelo profissional.</p><a href="#professionals">Encontrar profissionais</a></section>';
+ if(!p)return '<section class="agenda-panel"><h1>Página não disponível</h1><p>Confira o link enviado pelo profissional.</p><a href="/#professionals">Encontrar profissionais</a></section>';
  const service=(p.services||[]).find(x=>x.id===s.serviceId);
  const choices=(p.services||[]).map(x=>
   '<option value="'+esc(x.id)+'"'+(s.serviceId===x.id?' selected':'')+'>'+esc(x.title)+' — '+agendaMoney(x.price_cents)+'</option>').join('');
@@ -167,7 +167,7 @@ function agendaPage(){
  '<h1>'+ (slug?'Seu próximo atendimento, sem complicação.':'Sua agenda organizada. Seus clientes mais perto.')+'</h1>'+
  '<p>'+(slug?'Escolha um serviço e veja os horários disponíveis em poucos passos.':
   'Tenha uma página exclusiva, organize serviços e receba reservas online — sem mensalidade para começar.')+'</p></div>'+
- '<a href="#professionals">Explorar profissionais</a></section>';
+ '<a href="/#professionals">Explorar profissionais</a></section>';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section agenda">'+head+'<p>Carregando agenda…</p></section>');
  if(s.phase==='failed')return shell('<section class="section agenda">'+head+agendaNote()+
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
