@@ -456,3 +456,16 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
 #tamao-main h1:focus{outline:2px solid #167b56}
+
+/* V1.1055 — acesso de participantes sempre visível, inclusive em telas pequenas. */
+.tamao-account-access{position:relative;flex:0 0 auto;z-index:80}
+.tamao-account-access>summary{list-style:none;display:flex;align-items:center;gap:6px;min-height:44px;padding:8px 11px;border:1px solid #bddbcc;border-radius:999px;color:#116145;background:#f4faf5;font-size:13px;font-weight:850;white-space:nowrap;cursor:pointer}
+.tamao-account-access>summary::-webkit-details-marker{display:none}
+.tamao-account-access[open]>summary{background:#e3f2e8;border-color:#86bfa0}
+.tamao-account-access-panel{position:absolute;z-index:90;right:0;top:calc(100% + 10px);width:276px;max-width:calc(100vw - 28px);max-height:70vh;overflow-y:auto;padding:8px;border:1px solid #cfe3d6;border-radius:16px;background:#fff;box-shadow:0 16px 45px #123b2926}
+.tamao-account-access-panel a{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border-radius:10px;color:#174d38;text-decoration:none;font-size:13px;line-height:1.35}
+.tamao-account-access-panel a:hover,.tamao-account-access-panel a:focus-visible{background:#ebf6ee}
+.tamao-account-access-panel a small{color:#607568;font-size:12px}
+.tamao-account-access>summary:focus-visible,.tamao-account-access-panel a:focus-visible{outline:3px solid #bc8728;outline-offset:2px}
+@media(max-width:759px){.tamao-account-prompt{display:none}.tamao-account-access>summary{min-height:42px;padding:8px 9px;font-size:12px}}
+@media(max-width:390px){.tamao-public-header .topbar-inner{gap:5px}.tamao-account-access>summary{gap:3px;padding-inline:7px}}
