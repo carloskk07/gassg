@@ -71,3 +71,17 @@
  background:#f1faf3;border-radius:8px;color:#235f41}
 @media(max-width:540px){.agenda-staff-add{grid-template-columns:1fr}
  .agenda-staff-list>div{align-items:flex-start;flex-direction:column}}
+
+/* TAMÃO Agenda — pausas, fila opt-in e histórico mobile. */
+.agenda-block-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.agenda-block-form label{min-width:0}
+.agenda-block-form button{grid-column:1/-1;justify-self:start}
+.agenda-waitlist{margin-top:16px;padding:16px;border:1px solid #cfe6d6;border-radius:16px;background:#f7fbf7}
+.agenda-waitlist form{display:grid;gap:12px}
+.agenda-waitlist h3{margin-top:0}
+.agenda-waiting-list{display:grid;gap:10px}
+.agenda-waiting-list .agenda-booking{overflow-wrap:anywhere}
+@media(max-width:500px){.agenda-block-form{grid-template-columns:1fr}
+ .agenda-block-form button{width:100%}
+ .agenda-waitlist{padding:13px}
+ .agenda-waiting-list .agenda-booking{min-width:0}}
