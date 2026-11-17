@@ -19,7 +19,10 @@ function adminTestCenterView(){
     ['Como funciona','https://tamao.com.br/#learn','Orientações para visitantes'],
     ['Contato e ajuda','https://tamao.com.br/#contact','Atendimento e relatos'],
     ['Hospedagens','https://tamao.com.br/#stays','Rota suspensa: conferir aviso'],
-    ['Privacidade e termos','https://tamao.com.br/#privacy','Informações legais']
+    ['Privacidade','https://tamao.com.br/#privacy','Tratamento de dados'],
+    ['Termos','https://tamao.com.br/#terms','Condições de uso'],
+    ['Cadastro de revenda','https://tamao.com.br/#merchant-join','Primeiro acesso do parceiro'],
+    ['Página de convite','https://tamao.com.br/#refer','Indicação de participantes']
   ];
   const checks=[
     ['Pedidos e entregas','orders','Histórico, etapas e testes internos'],
