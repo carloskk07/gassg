@@ -29,7 +29,8 @@ section.focus({preventScroll:true});
 return true;
 }
 
-// Clube uses authenticated session and deferred catalog.
+// Paid coupons share the customer's authenticated Supabase session.
+// Club purchase buttons live in deferred catalog; wallet is read-only.
 const clubePaidCouponView={
 userId:null,status:'idle',purchases:[],vouchers:[],error:null,
 checkoutEnabled:false
