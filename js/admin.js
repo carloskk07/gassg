@@ -3346,6 +3346,7 @@ async function adminDiscoveryDocuments(id){
 
 const ADMIN_SECTION_ROLES={
   overview:new Set(['superadmin','readonly','operations','finance','support','compliance']),
+  testcenter:new Set(['superadmin']),
   orders:new Set(['superadmin','operations','finance','support']),
   customers:new Set(['superadmin','operations','finance','support']),
   partners:new Set(['superadmin','operations','compliance']),
@@ -3373,6 +3374,7 @@ function adminFirstSectionForRole(role=adminCurrentRole()){
 function adminSectionMeta(section=adminRuntime.section){
   return ({
     overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
+    testcenter:{kicker:'VERIFICAÇÃO DE TELAS',title:'Central de testes',description:'Abra as páginas públicas e faça verificações administrativas sem repetir o login.'},
     orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
     customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
     partners:{kicker:'REDE DE REVENDA',title:'Revendas',description:'Veja cadastros, documentos e o que falta para cada revenda começar a atender.'},
@@ -3407,6 +3409,7 @@ function adminRelativeTime(value){
 function adminNavIcon(id){
   const paths={
     overview:'<path d="M4 12a8 8 0 1 1 16 0v7a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-7Z"/><path d="M8 11h8"/>',
+    testcenter:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 12 3 3 5-6"/>',
     orders:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
     customers:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     prospects:'<path d="M3 4h18v16H3zM7 9h4M7 13h8M7 17h10"/>',
@@ -4078,6 +4081,7 @@ function adminPartnersSetWorkspaceTab(tab){
 // This selector navigates only to known read/workspaces. It never submits forms,
 // changes business states, calls the payment provider or bypasses role checks.
 const ADMIN_TASK_NAV_ITEMS=[
+ {id:'testcenter',section:'testcenter',label:'Testes — abrir páginas e conferir módulos'},
  {id:'orders',section:'orders',label:'Pedidos — acompanhar entregas'},
  {id:'support',section:'orders',tab:'support',label:'Atendimento — suporte e relatos'},
  {id:'partners-queue',section:'partners',tab:'queue',label:'Revendas — fila e situação'},
@@ -4161,7 +4165,7 @@ function adminQuickGo(section){
  adminSetSection(section);
 }
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','growth','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system','activations','discovery'];
+  const allowed=['overview','testcenter','orders','customers','partners','growth','prospects','enablement','catalog','finance','ads','alerts','incidents','audit','system','activations','discovery'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
@@ -12368,6 +12372,7 @@ function adminPage(){
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
       <div class="admin-nav-group">Dia a dia</div>
       ${adminMenuButton('overview','Início','⌂')}
+      ${adminMenuButton('testcenter','Testar páginas','✓')}
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length+pendingHelpReports))}
       ${adminMenuButton('partners','Revendas','◇',badge(partnerAttention))}
       ${adminMenuButton('customers','Clientes','◎')}
@@ -12410,6 +12415,7 @@ function adminPage(){
       ${menu}
       <main class="admin-main">
         ${adminPanel('overview',overviewContent)}
+        ${adminPanel('testcenter',sectionActive('testcenter')?adminTestCenterView():'')}
         ${adminPanel('orders',ordersContent)}
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}

@@ -943,6 +943,10 @@ function shell(content){
             '<button type="button" aria-current="'+(r===id?'page':'false')+
             '" onclick="go(\''+id+'\')">'+label+'</button>').join('')+
           '</div></details>').join('');
+
+  // Reuse safe static markup without increasing the customer's JS startup budget.
+  const accountAccess=adminPortal||merchantPortal||testDemo?'':
+    globalThis.document?.getElementById('tamao-participant-access-template')?.innerHTML||'';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     :merchantPortal&&!merchantAuthenticated
@@ -958,7 +962,7 @@ function shell(content){
   <header class="topbar${!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-header':''}"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
     ${desktopNav?'<nav class="desktop-only desktop-nav'+(!adminPortal&&!merchantPortal&&!testDemo?' tamao-public-nav':'')+'" aria-label="Navegação principal">'+desktopNav+'</nav>':''}
-    ${switcher}
+    ${accountAccess}${switcher}
   </div></header>
   <main id="tamao-main" class="shell" tabindex="-1">${content}</main>
   ${!adminPortal&&!testDemo&&r!=='contact'?`<a class="tamao-help-shortcut" href="https://tamao.com.br/?tamao_help=${merchantPortal?'revenda':'cliente'}&modulo=${encodeURIComponent(r)}#contact">Ajuda / Reportar erro</a>`:''}
@@ -968,16 +972,11 @@ function shell(content){
 }
 // V1.985: close desktop disclosures on outside interaction or Escape, preserving native summary keyboard behavior.
 function tamaoPublicMenuDismiss(event){
-  const nav=typeof document!=='undefined'?document.querySelector('.tamao-public-nav'):null;
-  if(!nav)return;
-  const open=nav.querySelectorAll('.tamao-nav-more[open]');
-  if(!open.length)return;
-  if(event.type==='keydown'){
-    if(event.key!=='Escape'||!nav.contains(event.target))return;
-    open.forEach(panel=>{panel.open=false});
-    open[0].querySelector('summary')?.focus();
-  }else if(event.type==='pointerdown'&&!nav.contains(event.target)){
-    open.forEach(panel=>{panel.open=false});
+  for(const p of document.querySelectorAll('.tamao-nav-more[open],.tamao-account-access[open]')){
+    if(event.type==='pointerdown'&&!p.contains(event.target))p.open=false;
+    else if(event.type==='keydown'&&event.key==='Escape'&&p.contains(event.target)){
+      p.open=false;p.querySelector('summary')?.focus();
+    }
   }
 }
 if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){

@@ -55,26 +55,37 @@ assert.doesNotMatch(render(),/tamao-public-nav/,'Protected Admin must not show c
 state.admin=false;state.merchant=true;
 assert.doesNotMatch(render(),/tamao-public-nav/,'Protected partner must not show customer desktop menu');
 state.merchant=false;
-// Exact handler: outside click or Escape closes; in-nav click must not close.
+// Both disclosure groups and the new member entrance must close on
+// outside click and Escape, but never close the clicked group itself.
 const code=core.slice(stop,core.indexOf('function bottomNav(r){',stop));
-const open=[{open:true,focus:0},{open:true,focus:0}];
-const panels=open.map(x=>({get open(){return x.open},set open(v){x.open=v},
- querySelector:()=>({focus:()=>{x.focus++}})}));
-const navMock={
- querySelectorAll:()=>panels.filter(x=>x.open),
- contains:target=>target?.withinNav===true
+const open=[{open:true,focus:0},{open:true,focus:0},{open:true,focus:0}];
+const panels=open.map((x,i)=>({
+ get open(){return x.open},set open(v){x.open=v},
+ contains:target=>i===2?target?.withinAccount===true:target?.withinNav===true,
+ querySelector:()=>({focus:()=>{x.focus++}})
+}));
+const documentMock={
+ querySelectorAll:selector=>{
+  assert.equal(selector,'.tamao-nav-more[open],.tamao-account-access[open]');
+  return panels.filter(x=>x.open);
+ },
+ addEventListener(){}
 };
-const documentMock={querySelector:()=>navMock,addEventListener(){}};
 const events=vm.createContext({document:documentMock,globalThis:{},String});
 vm.runInContext(code+'\nthis.dismiss=tamaoPublicMenuDismiss;',events);
 events.dismiss({type:'pointerdown',target:{withinNav:true}});
-assert.deepEqual(open.map(x=>x.open),[true,true],'Click inside nav leaves it open');
-events.dismiss({type:'pointerdown',target:{withinNav:false}});
-assert.deepEqual(open.map(x=>x.open),[false,false],'Click outside closes menus');
-open[0].open=true;
+assert.deepEqual(open.map(x=>x.open),[true,true,false],
+ 'Click inside public nav keeps its groups open and closes the member dropdown');
+events.dismiss({type:'pointerdown',target:{withinNav:false,withinAccount:false}});
+assert.deepEqual(open.map(x=>x.open),[false,false,false],'Outside click closes all menus');
+open[0].open=true;open[2].open=true;
 events.dismiss({type:'keydown',key:'Escape',target:{withinNav:true}});
-assert.equal(open[0].open,false,'Escape closes menu');
-assert.equal(open[0].focus,1,'Escape restores focus to summary');
+assert.deepEqual(open.map(x=>x.open),[false,false,true],
+ 'Escape within nav closes it, but preserves unrelated member dropdown');
+assert.equal(open[0].focus,1,'Escape restores focus to desktop summary');
+events.dismiss({type:'keydown',key:'Escape',target:{withinAccount:true}});
+assert.equal(open[2].open,false,'Escape closes account menu');
+assert.equal(open[2].focus,1,'Escape restores focus to account summary');
 for(const p of [
  /\.tamao-public-nav>button\[aria-current="page"\]/,
  /\.tamao-public-nav \.tamao-nav-more\.is-current>summary/,

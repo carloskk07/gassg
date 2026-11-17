@@ -456,3 +456,6 @@ padding:20px 15px;margin-block:20px 24px;border-radius:22px;
 @media(max-width:420px){.tamao-coupon-banner{padding:19px 15px}.tamao-coupon-banner-actions button{flex:1 1 100%;width:100%}.tamao-coupon-banner-tags{gap:6px}.tamao-coupon-banner-tags span{padding:6px 9px}.tamao-coupon-banner h2{font-size:27px}}
 .tamao-welcome-offer[hidden]{display:none!important}
 #tamao-main h1:focus{outline:2px solid #167b56}
+
+.tamao-account-access{position:relative;flex:0 0 auto}
+.tamao-account-access-panel{position:absolute;right:0;z-index:80;background:#fff}
