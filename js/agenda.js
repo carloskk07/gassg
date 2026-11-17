@@ -10,7 +10,8 @@ const agendaDays=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábad
 function agendaRoute(){return route()==='agenda'&&!globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();}
 function agendaSlug(){
  const x=String(location.hash||'').split('?')[1]||'';
- try{const value=new URLSearchParams(x).get('profissional')||'';
+ try{const value=new URLSearchParams(x).get('profissional')||
+   new URLSearchParams(location.search).get('profissional')||'';
   return agendaSlugPattern.test(value)&&value.length<=60?value:'';}catch{return '';}
 }
 function agendaShareLink(slug){
@@ -204,8 +205,10 @@ async function agendaInit(){
   });
   s.phase='ready';
   if(s.user)await agendaRefreshOwner();
-  if(location.search.includes('agenda=1')){
-   const url=new URL(location.href);url.searchParams.delete('agenda');
+  if(new URLSearchParams(location.search).get('agenda')==='1'){
+   const url=new URL(location.href);const returnSlug=agendaSlug();
+   url.searchParams.delete('agenda');url.searchParams.delete('profissional');
+   url.hash='agenda'+(returnSlug?'?profissional='+encodeURIComponent(returnSlug):'');
    history.replaceState(null,'',url.pathname+url.search+url.hash);
   }
   await agendaRefreshPublic();
@@ -291,8 +294,8 @@ async function agendaLogin(ev){
  if(s.busy||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||!s.client)return false;
  s.busy=true;s.error='';s.notice='';
  try{
-  const slug=agendaSlug();const url=location.origin+location.pathname+'?agenda=1#agenda'+
-   (slug?'?profissional='+encodeURIComponent(slug):'');
+  const slug=agendaSlug();const url=location.origin+'/?agenda=1'+
+   (slug?'&profissional='+encodeURIComponent(slug):'');
   const {error}=await s.client.auth.signInWithOtp({email,options:{emailRedirectTo:url}});
   if(error)throw error;
   s.notice='Enviamos um link de acesso para seu e-mail.';
