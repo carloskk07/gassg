@@ -179,6 +179,14 @@ assert.ok(savedPage.indexOf('MINHA AGENDA')<savedPage.indexOf('Serviços e preç
 assert.ok(savedPage.indexOf('Serviços e preços')<savedPage.indexOf('Personalizar página, equipe e ajustes opcionais'));
 assert.match(savedPage,/<details class="agenda-more"/);
 assert.match(savedPage,/<summary>Horários de atendimento/);
+assert.match(source,/ontoggle="agendaRememberPanel/);
+vm.runInContext('agendaRememberPanel("advanced",true);agendaRememberPanel("hours",true)',ctx);
+assert.equal(vm.runInContext('agendaRuntime.advancedOpen && agendaRuntime.hoursOpen',ctx),true);
+const expanded=vm.runInContext('agendaOwnerEditor()',ctx);
+assert.match(expanded,/class="agenda-more" open/);
+assert.match(expanded,/class="agenda-hours-wrap" open/);
+vm.runInContext('agendaRememberPanel("advanced",false);agendaRememberPanel("hours",false)',ctx);
+
 assert.match(vm.runInContext('agendaPublicView()',ctx),/Hoje/);
 assert.match(vm.runInContext('agendaPublicView()',ctx),/Amanhã/);
 assert.match(vm.runInContext('agendaPublicView()',ctx),/Ver horários do dia seguinte/);
