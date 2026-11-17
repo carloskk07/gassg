@@ -3762,6 +3762,15 @@ async function adminNetworkFeePackageRefresh(){
             .every(x=>Number.isSafeInteger(m[x])&&m[x]>=0);
       }))
       throw Error('Bonificações diretas ainda sem confirmação financeira.');
+    if(result.celebra?.source!=='network_celebra_admin_v1_1046'||
+       result.celebra.readOnly!==true||result.celebra.moneyMoved!==false||
+       result.celebra.cashPayoutsEnabled!==false||
+       !Array.isArray(result.celebra.items)||result.celebra.items.length!==2||
+       !result.celebra.items.every(c=>typeof c.enabled==='boolean'&&
+         ['extraBps','budgetLimitCents','spentCents','memberLimitCents',
+           'validatedAwards','reversedAwards'].every(k=>
+             Number.isSafeInteger(c[k])&&c[k]>=0)))
+      throw Error('Campanhas especiais ainda sem verificação.');
     adminNetworkFeePackageState=result;
   }catch(e){
     adminNetworkFeePackageState={error:String(e?.message||e)};
@@ -3898,6 +3907,48 @@ function adminNetworkDirectBonusPanel(){
     }).join('')+
     '</div><p class="tiny muted">Para profissionais, o bônus já existente de publicidade pode alcançar a primeira campanha paga — sem pagar duas vezes pela mesma campanha. O Clube não remunera cupons patrocinados pelo TAMÃO. Nenhum valor nesta seção integra a carteira sacável.</p></section>';
 }
+function adminNetworkCelebraLoad(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return;
+  if(globalThis.adminCelebraPanel){render();return}
+  if(globalThis.adminCelebraModuleLoading)return;
+  globalThis.adminCelebraModuleLoading=true;
+  import('/js/admin-celebra.js').then(()=>{
+    globalThis.adminCelebraModuleLoading=false;render();
+  }).catch(()=>{
+    globalThis.adminCelebraModuleLoading=false;
+    toast('Não foi possível abrir as campanhas especiais.');
+  });
+}
+async function adminNetworkCelebraToggle(key,enabled){
+  if(adminCurrentRole()!=='superadmin'||adminNetworkFeePackageBusy||
+    !['natal_2026','ano_novo_2027'].includes(key))return;
+  const c=adminNetworkFeePackageState?.celebra?.items?.find(c=>c.key===key);
+  if(!c||c.enabled===enabled)return;
+  const budget=enabled?
+    Number(document.getElementById('celebra-budget-'+key)?.value):0;
+  const terms=enabled?
+    String(document.getElementById('celebra-terms-'+key)?.value||'').trim():'';
+  if(enabled&&(![2000,5000,10000].includes(budget)||!/^[^<>]{12,160}$/.test(terms)))
+    return toast('Escolha o teto de despesas e informe a referência dos termos aprovados.');
+  if(!confirm(enabled?
+      'Autorizar campanha especial com limite total de '+BRL.format(budget/100)+
+      '? Somente compras futuras elegíveis, nunca visita/cadastro. A promoção não cria saques automáticos.':
+      'Suspender novos bônus desta campanha? Estornos de valores anteriores continuarão sendo verificados.'))
+    return;
+  adminNetworkFeePackageBusy=true;
+  try{
+    const result=await adminPerform('network-celebra-set-enabled',{
+      campaign:key,enabled,budgetCents:budget,termsReference:terms
+    });
+    if(result?.source!=='network_celebra_policy_v1_1046'||
+      result.campaignKey!==key||result.enabled!==enabled||
+      result.cashPayoutsEnabled!==false||result.moneyMoved!==false)
+      throw Error('A campanha não foi confirmada pelo banco.');
+    toast(enabled?'Campanha preparada para o período, respeitando os limites.':
+      'Novas bonificações especiais suspensas.');
+  }catch(e){toast(String(e?.message||e))}
+  finally{adminNetworkFeePackageBusy=false;await adminNetworkFeePackageRefresh();}
+}
 function adminNetworkFeePackagePanel(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const d=adminNetworkFeePackageState;
@@ -3941,6 +3992,8 @@ function adminNetworkFeePackagePanel(){
     '</div><p class="tiny muted">Este fundo é separado do cashback e da indicação direta. Ganhos em validação não são dinheiro sacável. A oferta depende de condições aprovadas.</p></section>'+ 
     adminNetworkAdsBonusPanel()+
     adminNetworkDirectBonusPanel()+
+    (globalThis.adminCelebraPanel?.()||
+      '<section class="card flat"><h3>TAMÃO Celebra</h3><p class="muted tiny">Campanhas especiais com orçamento limitado, data definida e benefícios exclusivamente de receita verificada.</p><button class="secondary small" onclick="adminNetworkCelebraLoad()">Ver campanhas de Natal e Ano Novo</button></section>')+
     (adminCurrentRole()==='superadmin'?(globalThis.adminNetworkPayoutPanel?.()||adminNetworkPayoutFallbackView()):'');
 }
 

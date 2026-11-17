@@ -185,6 +185,12 @@ Deno.serve(async(req:Request)=>{
           String(directError.message||""));
       }
       if(requestBody?.networkVisit===true){
+        const {error:celebraError}=await admin.rpc("network_celebra_refresh_v1_1046",
+          {p_inviter:user.id});
+        if(celebraError)console.warn("Celebration benefits unavailable",
+          String(celebraError.message||""));
+      }
+      if(requestBody?.networkVisit===true){
         const {data:visit,error:visitError}=await admin.rpc(
           "network_record_visit_v1_1030",{p_user:user.id,p_portal:"customer"});
         if(!visitError&&visit?.source==="network_visit_v1_1030"){
@@ -237,6 +243,27 @@ Deno.serve(async(req:Request)=>{
         networkDirect={available:true,...direct};
       }else if(directError){
         console.warn("Network direct bonus summary unavailable",String(directError.message||""));
+      }
+    }
+
+    let networkCelebra:Record<string,unknown>={available:false};
+    if(user.is_anonymous!==true){
+      const {data:celebra,error:celebraError}=await admin.rpc(
+        "network_celebra_user_summary_v1_1046",{p_user:user.id});
+      if(!celebraError&&celebra?.source==="network_celebra_user_v1_1046"&&
+         celebra.readOnly===true&&celebra.cashPayoutsEnabled===false&&
+         Array.isArray(celebra.items)&&celebra.items.length<=2&&
+         celebra.items.every((c:Record<string,unknown>)=>
+           typeof c.key==="string"&&typeof c.title==="string"&&
+           typeof c.message==="string"&&
+           ["upcoming","active","ended"].includes(String(c.phase))&&
+           Number.isSafeInteger(c.extraBps)&&
+           Number.isSafeInteger(c.memberLimitCents)&&
+           Number.isSafeInteger(c.validatedCents)&&
+           typeof c.startsAt==="string"&&typeof c.endsAt==="string")){
+        networkCelebra={available:true,...celebra};
+      }else if(celebraError){
+        console.warn("Celebration summary unavailable",String(celebraError.message||""));
       }
     }
 
@@ -316,6 +343,7 @@ Deno.serve(async(req:Request)=>{
       networkPackage,
       moduleBenefits,
       networkDirect,
+      networkCelebra,
       networkVisit,
       lastOrderTemplate,
       reorderPrediction,

@@ -340,6 +340,11 @@ async function tamaoNetworkVisitFromUi(){
       globalThis.liveRuntime.networkPackage=network;
       if(before!==JSON.stringify(network)&&['refer','earn'].includes(String(route())))render();
     }
+    const c=data?.networkCelebra;
+    if(c?.available&&c.items?.length){
+      globalThis.liveRuntime.networkCelebra=c;
+      import('/js/growth-celebra.js').then(render).catch(()=>{});
+    }
   }catch(e){
     console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
   }
@@ -581,7 +586,7 @@ function tamaoNetworkModuleBenefitsPanel(){
     '<div class="merchant-kpis" style="margin-top:12px">'+cells+'</div>'+
     (ads>0?'<p class="muted tiny">Bonificações de publicidade contabilizadas: '+
       BRL.format(ads/100)+'. Ainda não disponíveis para saque ou abatimento.</p>':'')+
-    '<p class="muted tiny"><strong>Mais oportunidades:</strong> Moto/Carro e Clube parceiro podem gerar até 5% do líquido da primeira compra elegível; profissionais que anunciam participam do bônus de publicidade. Exigem termos, prova financeira e não integram o saldo sacável.</p>'+
+    '<p class="muted tiny"><strong>Mais oportunidades:</strong> Moto/Carro e Clube parceiro, além de publicidade. Bonificações verificadas não integram o saldo sacável.</p>'+
   '</section>';
 }
 function refer(){
@@ -592,7 +597,7 @@ function refer(){
   const referredCount=live?Math.max(0,Number(globalThis.liveRuntime?.referredCount||0)):0;
   const qualifiedReferralCount=live?Math.max(0,Number(globalThis.liveRuntime?.qualifiedReferralCount||0)):0;
   const referralCard=hasReferral
-    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">O QR e o link apontam para o mesmo código pessoal. Quem entrar por eles continua sujeito às regras de primeira compra qualificada.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
+    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">Seu código é pessoal. Comissão exige primeira compra qualificada.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
     : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do TAMÃO.</div>';
   const identityCard=live&&!permanent
     ? `<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>`
@@ -608,7 +613,7 @@ function refer(){
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
     <span class="eyebrow">CONVIDE ALGUÉM PARA CONHECER</span>
     <h1 class="page-title">Seu próximo convite pode abrir novas portas.</h1>
-    <p class="muted page-lead">Construa sua Rede TAMÃO no seu ritmo. Compartilhe seu link com amigos, apresente o aplicativo a quem precisa e acompanhe seus convidados e as compras qualificadas.</p>
+    <p class="muted page-lead">Compartilhe seu link e acompanhe os benefícios das indicações verificadas.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -618,10 +623,11 @@ function refer(){
     ${referralCard}
     ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
     ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
+    ${globalThis.tamaoNetworkCelebraPanel?.()||''}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule a recompensa de primeiras compras qualificadas e entenda as regras antes de compartilhar.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule benefícios de primeiras compras válidas.</p></div></div>
       <div class="calculator-card">
         <div class="calculator-inputs">
           <div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()" list="rqn"><datalist id="rqn"><option value="5"><option value="10"><option value="50"></datalist></div>
@@ -629,14 +635,14 @@ function refer(){
         </div>
         <div class="calculator-result"><small>Resultado da simulação</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × ${referralRateLabel}</span></div>
       </div>
-      <div class="notice" style="margin-top:12px"><strong>Uma indicação qualificada faz a diferença.</strong><br>A comissão é calculada sobre a primeira compra válida do novo cliente indicado, após entrega, pagamento e validação. Compras posteriores não geram outra comissão de aquisição.</div>
+      <div class="notice" style="margin-top:12px"><strong>Uma indicação qualificada faz a diferença.</strong><br>A comissão é calculada sobre a primeira compra válida do novo cliente indicado, após validação. Compras posteriores não geram outra comissão de aquisição.</div>
     </section>
 
     <section class="section"><div class="section-head"><div><h2>Quando a indicação pode gerar comissão</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Compartilhe seu link</strong><p>Envie para quem realmente possa se interessar pelo TAMÃO.</p></div></div>
-      <div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra válida</strong><p>Cadastro sozinho e compras posteriores do mesmo cliente não criam nova comissão.</p></div></div>
+      <div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra válida</strong><p>Cadastro e compras posteriores não criam nova comissão.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>A venda é concluída</strong><p>A entrega e o pagamento precisam ser confirmados.</p></div></div>
-      <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da conferência de segurança e da validação das contas envolvidas, a comissão pode ser liberada.</p></div></div>
+      <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Após validação das contas envolvidas, a comissão pode ser liberada.</p></div></div>
     </div></section>
 
     <div class="card flat payout-card"><div><span class="section-kicker">EXTRATO DE BENEFÍCIOS</span><h3>Tudo acompanhado em um só lugar.</h3><p class="muted">Origem das suas comissões e vantagens. Os meios de recebimento são informados na conta conforme a disponibilidade.</p><button class="secondary" onclick="import('/js/growth-benefits-statement.js').then(()=>tamaoBenefitsStatementOpen())">Ver extrato</button></div></div>

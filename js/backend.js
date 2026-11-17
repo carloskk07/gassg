@@ -286,6 +286,7 @@ function liveForgetAccount(){
   liveRuntime.networkPackage=null;
   liveRuntime.moduleBenefits=null;
   liveRuntime.networkDirect=null;
+  liveRuntime.networkCelebra=null;
   liveRuntime.comparisonSavingsCents=liveRuntime.cashbackEarnedCents=0;
   state.user=freshSeed().user;
   state.address='';state.postalCode='';state.addressNumber='';
