@@ -13,7 +13,6 @@ const TAMAO_PUBLIC_PAGE_IDENTITY=Object.freeze({
   stays:['Hospedagens indisponíveis — TAMÃO','A modalidade de hospedagens está suspensa. O TAMÃO não aceita anúncios nem reservas de hospedagem neste momento.'],
   mobility:['Corrida — TAMÃO','Moto, carro e GPS com consentimento.'],
   advertise:['Anunciar no TAMÃO — Meus anúncios','Cadastre serviços e caronas para revisão, respeitando a disponibilidade de cada modalidade.'],
-  agenda:['TAMÃO Agenda — Organize atendimentos e marque horários','Crie sua página profissional, organize os horários e receba agendamentos gratuitos pelo TAMÃO.'],
   sponsors:['Para marcas — Divulgue no TAMÃO','Conheça opções de divulgação regional, campanhas de benefício e parcerias com o comércio local.'],
   contact:['Contato — TAMÃO','Fale com o TAMÃO sobre compras, revendas, publicidade, parceria ou atendimento.'],
   privacy:['Privacidade — TAMÃO','Veja como o TAMÃO trata dados pessoais e protege sua privacidade.'],
@@ -201,30 +200,9 @@ function discoveryOwnerRequestModule(){
   script.onerror=()=>{discoveryOwnerModuleError=true;render();};
   document.head.appendChild(script);
 }
-let agendaModuleRequested=false,agendaModuleError=false;
-function agendaLoadingPage(){
- return tamaoPublicModuleState({title:'TAMÃO Agenda',
-  loading:'Carregando serviços e horários do profissional.',error:agendaModuleError,retry:'agendaRetryModule'});
-}
-function agendaRetryModule(){
- agendaModuleRequested=false;agendaModuleError=false;agendaRequestModule();render();
-}
-function agendaRequestModule(){
- if(agendaModuleRequested||typeof agendaPage==='function'||route()!=='agenda'||
-  globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
- agendaModuleRequested=true;
- const suffix=document.querySelector('script[src*="/js/bootstrap.js"]')?.src.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
- if(!document.querySelector('link[href*="/css/agenda.css"]')){
-  const style=document.createElement('link');
-  style.rel='stylesheet';style.href='./css/agenda.css'+suffix;document.head.appendChild(style);
- }
- const script=document.createElement('script');script.src='./js/agenda.js'+suffix;
- script.onload=()=>render();script.onerror=()=>{agendaModuleError=true;render();};
- document.head.appendChild(script);
-}
 /* Page styles load on demand. */
 function tamaoEnsurePublicExperienceStyles(page){
-  if(!['home','order','tracking','learn','club','earn','refer','merchants','sponsors','professionals','rides','stays','mobility','advertise','agenda','merchant-join','merchant-team','contact'].includes(page)||
+  if(!['home','order','tracking','learn','club','earn','refer','merchants','sponsors','professionals','rides','stays','mobility','advertise','merchant-join','merchant-team','contact'].includes(page)||
      globalThis.adminPortalRequested?.()||
      document.querySelector('link[href*="/css/public-ux.css"]'))return;
   const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
@@ -256,7 +234,7 @@ function render(){
     const r=discoveryOwnerReturnPending()?'advertise':
       mobilityReturnIntent()?'mobility':route();
     tamaoEnsurePublicExperienceStyles(r);
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,agenda:typeof agendaPage==='function'?agendaPage:agendaLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)typeof merchantUiRender==='function'
       ?merchantUiRender(app,(pages[r]||home)()):app.innerHTML=(pages[r]||home)();
@@ -266,8 +244,6 @@ function render(){
     queueMicrotask(()=>discoveryRequestModule());
     queueMicrotask(()=>globalThis.discoveryOwnerAfterRender?.());
     queueMicrotask(()=>discoveryOwnerRequestModule());
-    queueMicrotask(()=>globalThis.agendaAfterRender?.());
-    queueMicrotask(()=>agendaRequestModule());
     queueMicrotask(()=>globalThis.mobilityAfterRender?.());
     queueMicrotask(()=>mobilityRequestModule());
   }catch(e){
