@@ -581,8 +581,22 @@ function tamaoNetworkModuleBenefitsPanel(){
     '<div class="merchant-kpis" style="margin-top:12px">'+cells+'</div>'+
     (ads>0?'<p class="muted tiny">Bonificações de publicidade contabilizadas: '+
       BRL.format(ads/100)+'. Ainda não disponíveis para saque ou abatimento.</p>':'')+
-    '<p class="muted tiny"><strong>Mais oportunidades:</strong> Moto/Carro e Clube parceiro podem gerar até 5% do líquido da primeira compra elegível; profissionais que anunciam participam do bônus de publicidade. Exigem termos, prova financeira e não integram o saldo sacável.</p>'+
+    '<p class="muted tiny"><strong>Obrigado por construir essa rede.</strong> Compartilhar serviços úteis ajuda mais pessoas a conhecer o TAMÃO. Acompanhe cada conquista e benefício no seu extrato, com regras transparentes.</p>'+
   '</section>';
+}
+function tamaoNetworkCelebraSurface(){
+  const data=globalThis.liveRuntime?.networkCelebra;
+  if(data?.available!==true||!Array.isArray(data.items)||!data.items.length)return '';
+  if(typeof globalThis.tamaoNetworkCelebraPanel==='function')
+    return globalThis.tamaoNetworkCelebraPanel();
+  if(!globalThis.tamaoCelebraLoading){
+    globalThis.tamaoCelebraLoading=true;
+    import('/js/growth-celebra.js').then(()=>{
+      globalThis.tamaoCelebraLoading=false;
+      if(['refer','earn'].includes(String(route())))render();
+    }).catch(()=>{globalThis.tamaoCelebraLoading=false});
+  }
+  return '';
 }
 function refer(){
   const url=referralUrl();
@@ -618,6 +632,7 @@ function refer(){
     ${referralCard}
     ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
     ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
+    ${tamaoNetworkCelebraSurface()}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
