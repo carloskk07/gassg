@@ -153,7 +153,7 @@ for(const expected of ['agenda_service_deposit_settings','agenda_set_deposit_pol
  'AGENDA_PAYMENTS_NOT_HOMOLOGATED','refunds_homologated','provider_webhook_homologated'])
  assert.match(depositMigration,new RegExp(expected));
 assert.match(source,/agendaDepositQuoteView|agendaSaveDepositPolicy|agenda_deposit_quote/);
-assert.match(source,/Sem cobrança antecipada nesta versão/);
+assert.match(source,/Agendamento gratuito, sem sinal antecipado/);
 assert.match(source,/cobrança antecipada permanece desligada/);
 vm.runInContext('agendaRuntime.paymentQuote={service_id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",price_cents:6000,percent:25,deposit_cents:1500,remaining_cents:4500,charges_enabled:false,policy_text:"Reembolso de acordo com a lei."};',ctx);
 const planned=vm.runInContext('agendaPublicView()',ctx);
