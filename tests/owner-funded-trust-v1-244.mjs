@@ -46,13 +46,13 @@ for(const f of ['adminOwnerFundingLoadFromUi','adminOwnerFundingSaveFromUi'])
 for(const f of [
  'Compare ofertas pelo preço total para seu CEP',
  'Seu próximo convite pode abrir novas portas.',
- 'Indique pessoas, serviços e empresas. Acompanhe seus convites.',
+ 'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.',
  'Tudo acompanhado em um só lugar.',
  'Uma parceria feita para gerar valor dos dois lados.',
  'uma primeira compra elegível','primeira compra válida',
  'A comissão é calculada sobre a primeira compra válida'
 ])assert.ok(grow.includes(f),'Missing truthful marketing text: '+f);
-assert.ok(grow.includes('Divulgue sua marca com investimento e entrega claros.'),'Sponsorship value must be stated without fictitious impact or fabricated reach');
+assert.ok(grow.includes('Sua marca mais presente nas escolhas da cidade.') && grow.includes('A publicação depende de inventário disponível.'),'Publicidade deve destacar o valor, preservar limites de inventário e não inventar alcance');
 for(const f of [
  'Mais economia na escolha. Mais vantagens para voltar.',
  'Compare preços e encontre oportunidades de economia','Seu pedido, com etapas que você acompanha'
