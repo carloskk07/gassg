@@ -629,8 +629,9 @@ async function agendaConfirmReschedule(){
   s.rescheduleId='';s.notice='Horário remarcado para '+agendaDateTime(target)+'. Atualize seu calendário com a nova reserva.';
   await agendaRefreshOwner();await agendaLoadSlots();
  }catch(e){
-  const result=await s.client.from('agenda_appointments').select('starts_at,status')
-   .eq('id',current.id).maybeSingle().catch(()=>({error:true}));
+  let result={error:true};
+  try{result=await s.client.from('agenda_appointments').select('starts_at,status')
+    .eq('id',current.id).maybeSingle();}catch(_){}
   if(!result.error&&result.data?.status==='confirmed'&&
      Date.parse(result.data.starts_at)===Date.parse(target)){
    s.rescheduleId='';s.notice='Remarcação confirmada para '+agendaDateTime(target)+'.';
