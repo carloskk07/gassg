@@ -109,7 +109,7 @@ function agendaQuickStartView(){
    '<label>Cidade<input name="city" required minlength="2" maxlength="100" value="São Gabriel" autocomplete="address-level2"></label>'+
    '<div class="agenda-form-split">'+
     '<label>Primeiro serviço<input name="service" required minlength="3" maxlength="100" placeholder="Ex.: Corte masculino"></label>'+
-    '<label>Preço (R$)<input name="price" required type="number" inputmode="decimal" min="0" max="20000" step=".01" value="0.00"></label>'+
+    '<label>Preço (R$)<input name="price" required type="number" inputmode="decimal" min="0" max="20000" step=".01" placeholder="Ex.: 35,00"></label>'+
    '</div>'+
    '<div class="agenda-form-split">'+
     '<label>Duração<select name="duration">'+[15,30,45,60,75,90,120,150,180,240].map(m=>
