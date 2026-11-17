@@ -1,4 +1,4 @@
-// V1.906 — propostas não vinculantes.
+// V1.906 — propostas selecionáveis, sem promessa de preço, estoque ou veiculação.
 const MERCHANT_ADS_COPY_PRESETS=Object.freeze({
   introduction:Object.freeze({title:'Conheça esta revenda no TAMÃO',description:'Veja as informações desta revenda e consulte pelo TAMÃO quais produtos e condições estão disponíveis para seu endereço.'}),
   products:Object.freeze({title:'Confira os produtos da revenda',description:'Consulte o catálogo apresentado pela revenda e verifique disponibilidade, preço e prazo para o seu endereço antes de pedir.'}),
@@ -14,7 +14,7 @@ function merchantAdsCampaignPresetChanged(key){
   const drawer=document.getElementById('ads-campaign-custom-text');
   if(drawer)drawer.open=false;
 }
-// Ads: propostas sem veiculação.
+// TAMÃO Ads V1.233 — private creative proposals, never served as paid placement.
 function merchantAdsCampaignSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
   const rt=globalThis.merchantRuntime||{};
@@ -110,7 +110,7 @@ async function merchantAdsCampaignAct(operation){
     }
   }finally{rt.adsCampaignLoading=false;render();}
 }
-// Termos de negociação sem aceite.
+// V1.242 — view negotiated terms and register nonbinding awareness.
 function merchantClubeTermsSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
   const rt=globalThis.merchantRuntime||{};
@@ -215,7 +215,7 @@ function merchantClubeTermsReplyFromUi(key,operation){
     consent:operation==='read_for_discussion'});
 }
 
-// Clube: intenção sem patrocínio.
+// V1.240 — only interest in possible Clube sponsorship, never a funded campaign.
 function merchantClubeInterestSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
   const rt=globalThis.merchantRuntime||{};
@@ -330,7 +330,7 @@ function merchantClubeInterestWithdrawFromUi(key){
   return merchantClubeInterestCall(key,'withdraw');
 }
 
-// Publicidade: interesse não é compra.
+// V1.232 — expression of interest, not a purchase of advertising.
 function merchantAdsInterestSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
   const rt=globalThis.merchantRuntime||{};
@@ -426,7 +426,7 @@ function merchantAdsInterestWithdrawFromUi(){
   if(!confirm('Retirar o interesse da sua revenda em publicidade? Não há cobrança a cancelar.'))return;
   return merchantAdsInterestCall('withdraw');
 }
-// Números sempre confirmados pelo servidor.
+// TAMÃO Negócios V1.231 — figures from the authenticated server, never fake samples.
 function merchantBusinessPulseSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
   const merchantId=String(merchant?.merchantId||'');
@@ -812,7 +812,7 @@ function merchantDriverLivePage(rt){
   const offline=(typeof navigator!=='undefined'&&navigator.onLine===false)||rt.status==='unavailable';
   if(offline&&!globalThis.merchantDriverOfflineAllowed?.(rt))
     return shell('<section class="page"><h1>Entre novamente online</h1><p>Sessão vencida ou acesso revogado. Entregas protegidas.</p><button onclick="merchantLiveRefresh()">Reconectar</button></section>');
-  // Entregas requerem snapshot atual.
+  // Only a current server snapshot can authorize delivery actions.
   const priority={ARRIVING:0,OUT_FOR_DELIVERY:1,PREPARING:2,AT_RISK:3};
   const ordered=[...orders].sort((a,b)=>
     (priority[String(a?.status||'')]??4)-(priority[String(b?.status||'')]??4));
@@ -904,7 +904,8 @@ function merchantTeamPage(){
   </section>`);
 }
 
-// Pix depende de prova recente do PSP na sessão.
+// Only a freshly verified PSP response may unlock an active Pix in the
+// current merchant session; every regular refresh clears this transient proof.
 function merchantAcceptVerifiedBillingPix(result,merchantId){
   const charge=result?.charge||null;
   const rt=globalThis.merchantRuntime;
