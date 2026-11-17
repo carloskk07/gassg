@@ -7,8 +7,9 @@ const admin=read('js/admin.js');
 const qa=read('js/admin-test-center.js');
 const core=read('js/core.js');
 const html=read('index.html');
-const marketing=read('css/marketing-premium.css');
+const marketing=read('css/public-ux.css');
 const workspace=read('css/workspace-experience.css');
+const entry=read('index.html');
 const builder=read('scripts/build-live-portals.mjs');
 const serviceWorker=read('sw.js');
 
@@ -66,11 +67,13 @@ assert.ok(start>=0&&end>start);
 const customer={
   route:()=> 'home',runtimeStrip:()=>'',siteFooter:()=>'',bottomNav:()=>'',esc:String,
   adminPortalRequested:()=>false,merchantPortalRequested:()=>false,
-  __CHAMA_TEST__:false,liveRuntime:{}
+  __CHAMA_TEST__:false,liveRuntime:{},
+  document:{getElementById:()=>({innerHTML:entry.match(/<template id="tamao-participant-access-template">([\s\S]*?)<\/template>/)?.[1]||''})}
 };
 vm.runInNewContext(core.slice(start,end)+'\nthis.draw=shell;',customer);
 const result=customer.draw('CONTEUDO');
 assert.match(result,/tamao-account-access/);
+assert.match(entry,/id="tamao-participant-access-template"/);
 assert.match(result,/Já participa\?/);
 assert.match(result,/Minha conta e Clube/);
 assert.match(result,/parceiro\.tamao\.com\.br/);
