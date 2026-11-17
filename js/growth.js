@@ -19,7 +19,8 @@ return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 }
 
 
-// Public page jumps are allowlisted.
+// V1.365: accessible, local jumps keep visitors on their chosen public page.
+// Whitelist prevents arbitrary DOM selectors or external navigation.
 function publicLandingJump(sectionId){
 if(!['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
 const section=document.getElementById(sectionId);
@@ -186,7 +187,8 @@ function club(){
     globalThis.cshop=1;import('/js/clube-coupon-shop.js').then(render,()=>globalThis.cshop=0);
   }
   globalThis.clubeCouponWatchAuth?.();
-  // Show only catalog-confirmed offers.
+  // V1.969: the verified package is the destination, not a third generic
+  // benefit pitch. Hidden until the public catalog confirms real prices.
   if(!member)return shell(`<section class="page tamao-club-visitor">
     <div class="tamao-club-visitor-focus">
       <div class="tamao-club-visitor-hero">
@@ -818,7 +820,9 @@ async function shareReferral(){
   }
 }
 
-// Sponsorship interest uses contact, never creates a campaign.
+// V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
+// V1.301 — send partnership interest into the existing protected contact channel,
+// without new storage, third-party redirects or a fake sponsor activation.
 function openSponsorContact(format='general',quoteBrief=''){
   // Carry only the visitor's public contact intent for anonymous page metrics.
   // No campaign is activated and no identity is included in analytics.
