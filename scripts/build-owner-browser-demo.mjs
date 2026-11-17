@@ -55,6 +55,14 @@ core=replaceOnce(core,
   "return '<div class=\"demo-strip\"><span>Ambiente isolado de teste automatizado</span><button onclick=\"reset()\">Reiniciar teste</button></div>';",
   "return '';");
 fs.writeFileSync(corePath,core);
+// Keep customer screens focused on the purchase journey. The hosted demo
+// already has one small persistent test label in its navigation.
+const customerPath=path.join(output,'js/customer.js');
+let customer=fs.readFileSync(customerPath,'utf8');
+customer=replaceOnce(customer,"'● AMBIENTE DE TESTE'","'● BENEFÍCIOS TAMÃO'");
+customer=replaceOnce(customer,"'Ambiente isolado de teste automatizado'",
+  "'Escolha os produtos e informe o CEP para continuar.'");
+fs.writeFileSync(customerPath,customer);
 // The canonical merchant copy describes a legally meaningful real acceptance.
 // On a static fictitious demo this would be misleading; change only the copy
 // emitted into the Pages artifact, not merchant.js in production.
