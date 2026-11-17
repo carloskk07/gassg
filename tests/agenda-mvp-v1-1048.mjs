@@ -4,7 +4,8 @@ import vm from 'node:vm';
 
 const source=readFileSync('js/agenda.js','utf8');
 const migration=readFileSync('supabase/migrations/20261117030500_agenda_profissionais_mvp.sql','utf8');
-const bootstrap=readFileSync('js/bootstrap.js','utf8');
+const landing=readFileSync('agenda/index.html','utf8');
+const builder=readFileSync('scripts/build-live-portals.mjs','utf8');
 const core=readFileSync('js/core.js','utf8');
 const customer=readFileSync('js/customer.js','utf8');
 const discovery=readFileSync('js/discovery.js','utf8');
@@ -26,9 +27,9 @@ assert.equal(vm.runInContext('agendaPhotoUrl("https://evil.example/photo.jpg")',
 assert.match(vm.runInContext('agendaPhotoUrl("11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.webp")',ctx),/example\.supabase\.co\/storage\/v1\/object\/public/);
 assert.match(vm.runInContext('agendaShareLink("barbearia-sg")',ctx),/#agenda\?profissional=barbearia-sg$/);
 assert.match(vm.runInContext('agendaPage()',ctx),/TAMÃO AGENDA/);
-assert.match(bootstrap,/agenda:typeof agendaPage==='function'/);
-assert.match(bootstrap,/js\/agenda\.js/);
-assert.match(bootstrap,/agendaRequestModule/);
+assert.match(landing,/js\/agenda\.js/);
+assert.match(landing,/js\/backend\.js/);
+assert.match(builder,/role==='customer'\)copyDir\(path\.join\(ROOT,'agenda'\)/);
 assert.match(core,/Agenda online/);
 assert.match(customer,/Agendar horário/);
 assert.match(discovery,/Ver agendas disponíveis/);
