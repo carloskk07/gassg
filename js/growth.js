@@ -340,6 +340,12 @@ async function tamaoNetworkVisitFromUi(){
       globalThis.liveRuntime.networkPackage=network;
       if(before!==JSON.stringify(network)&&['refer','earn'].includes(String(route())))render();
     }
+    const c=data?.networkCelebra;
+    if(c?.source==='network_celebra_user_v1_1046'&&c.readOnly===true&&
+       c.cashPayoutsEnabled===false&&Array.isArray(c.items)){
+      globalThis.liveRuntime.networkCelebra={available:true,...c};
+      if(['refer','earn'].includes(String(route())))render();
+    }
   }catch(e){
     console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
   }
@@ -581,22 +587,8 @@ function tamaoNetworkModuleBenefitsPanel(){
     '<div class="merchant-kpis" style="margin-top:12px">'+cells+'</div>'+
     (ads>0?'<p class="muted tiny">Bonificações de publicidade contabilizadas: '+
       BRL.format(ads/100)+'. Ainda não disponíveis para saque ou abatimento.</p>':'')+
-    '<p class="muted tiny"><strong>Obrigado por construir essa rede.</strong> Compartilhar serviços úteis ajuda mais pessoas a conhecer o TAMÃO. Acompanhe cada conquista e benefício no seu extrato, com regras transparentes.</p>'+
+    '<p class="muted tiny"><strong>Sua participação importa.</strong> Indique serviços úteis, acompanhe conquistas e consulte seu extrato.</p>'+
   '</section>';
-}
-function tamaoNetworkCelebraSurface(){
-  const data=globalThis.liveRuntime?.networkCelebra;
-  if(data?.available!==true||!Array.isArray(data.items)||!data.items.length)return '';
-  if(typeof globalThis.tamaoNetworkCelebraPanel==='function')
-    return globalThis.tamaoNetworkCelebraPanel();
-  if(!globalThis.tamaoCelebraLoading){
-    globalThis.tamaoCelebraLoading=true;
-    import('/js/growth-celebra.js').then(()=>{
-      globalThis.tamaoCelebraLoading=false;
-      if(['refer','earn'].includes(String(route())))render();
-    }).catch(()=>{globalThis.tamaoCelebraLoading=false});
-  }
-  return '';
 }
 function refer(){
   const url=referralUrl();
@@ -614,6 +606,11 @@ function refer(){
       ? '<div class="notice success" style="margin-top:14px"><strong>Conta habilitada para comissão.</strong><br>Vendas elegíveis ainda passam pela janela de validação antes de se tornarem saldo disponível.</div>'
       : '';
 
+  if(globalThis.liveRuntime?.networkCelebra?.items?.length&&
+     !globalThis.tamaoNetworkCelebraPanel&&!globalThis.celebLoading){
+    globalThis.celebLoading=true;
+    import('/js/growth-celebra.js').then(()=>render()).catch(()=>{});
+  }
   if(hasReferral)setTimeout(renderReferralQr,0);
   if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
 
@@ -632,7 +629,7 @@ function refer(){
     ${referralCard}
     ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
     ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
-    ${tamaoNetworkCelebraSurface()}
+    ${globalThis.tamaoNetworkCelebraPanel?.()||''}
     ${identityCard}
     ${tamaoNetworkFeePackagePanel()}
 
