@@ -1,6 +1,6 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
- phase:'idle',client:null,user:null,page:null,services:[],hours:[],bookings:[],mine:[],
+ phase:'idle',client:null,user:null,page:null,services:[],hours:[],bookings:[],mine:[],closedDays:[],dayClosed:false,
  slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',day:'',slots:[],selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false
 };
@@ -99,6 +99,17 @@ function agendaOwnerEditor(){
    (p.id?'<form onsubmit="return agendaSaveHours(event)">'+allDays+
     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar horários</button></form>':
     '<p>Salve sua página para configurar a agenda.</p>')+'</section>'+
+  '<section class="agenda-panel"><h2>Folgas e dias indisponíveis</h2>'+
+   '<p>Marque férias, feriados e outros dias sem atendimento. Horários já reservados devem ser tratados antes do bloqueio.</p>'+
+   (p.id?'<form onsubmit="return agendaAddClosedDay(event)">'+
+    '<label>Dia sem atendimento<input type="date" name="day" required min="'+agendaToday()+'" max="'+agendaToday(180)+'"></label>'+
+    '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Bloquear este dia</button></form>'+
+    (s.closedDays.length?'<div class="agenda-closed-list">'+s.closedDays.map(d=>
+     '<div><span>'+esc(agendaDateOnly(d.day))+'</span>'+
+     '<button type="button" class="secondary" data-day="'+esc(d.day)+'" onclick="agendaSetClosedDay(this.dataset.day,false)">Liberar dia</button></div>').join('')+'</div>':
+     '<p class="tiny muted">Nenhuma folga programada.</p>'):
+    '<p>Salve sua página para escolher suas folgas.</p>')+
+  '</section>'+
   '<section class="agenda-panel"><h2>Próximos atendimentos</h2>'+
    (s.bookings.length?s.bookings.map(b=>{
     const serv=s.services.find(x=>x.id===b.service_id);
@@ -108,9 +119,45 @@ function agendaOwnerEditor(){
      (b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
       '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
       '" target="_blank" rel="noopener noreferrer">Conversar no WhatsApp</a>':'')+
+     '<button type="button" class="secondary" onclick="agendaDownloadCalendar(\''+esc(b.id)+'\')">Adicionar ao calendário</button>'+ 
      '<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button></article>';
    }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
   '</section></div>';
+}
+function agendaDateOnly(value){
+ return /^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value).split('-').reverse().join('/'):'Data inválida';
+}
+function agendaIcsEscape(value){
+ return String(value??'').slice(0,320).replace(/\r\n?/g,'\n').replace(/\\/g,'\\\\')
+  .replace(/\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');
+}
+function agendaIcsContent(booking,title){
+ const start=new Date(booking?.starts_at),end=new Date(booking?.ends_at);
+ if(!agendaUuid.test(String(booking?.id||''))||!Number.isFinite(start.valueOf())||
+  !Number.isFinite(end.valueOf())||end<=start)return '';
+ const stamp=d=>d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+ return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//TAMAO//Agenda//PT-BR',
+  'CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
+  'UID:'+booking.id+'@tamao.com.br','DTSTAMP:'+stamp(new Date()),
+  'DTSTART:'+stamp(start),'DTEND:'+stamp(end),
+  'SUMMARY:'+agendaIcsEscape(title||'Atendimento no TAMÃO'),
+  'DESCRIPTION:'+agendaIcsEscape('Reserva confirmada. Consulte TAMÃO Agenda para cancelar ou reagendar.'),
+  'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
+  'DESCRIPTION:Lembrete do atendimento','END:VALARM',
+  'END:VEVENT','END:VCALENDAR',''].join('\r\n');
+}
+function agendaDownloadCalendar(id){
+ const s=agendaRuntime,b=[...s.mine,...s.bookings].find(x=>x.id===id);
+ if(!b||b.status!=='confirmed')return;
+ const service=s.services.find(x=>x.id===b.service_id);
+ const label=service?.title||b.service_title||'Atendimento';
+ const title=b.page_title?label+' — '+b.page_title:'Atendimento: '+label;
+ const data=agendaIcsContent(b,title);
+ if(!data)return;
+ const url=URL.createObjectURL(new Blob([data],{type:'text/calendar;charset=utf-8'}));
+ const a=document.createElement('a');a.href=url;a.download='tamao-agenda-'+id+'.ics';
+ document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function agendaDateTime(value){
  try{return new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',
@@ -133,7 +180,7 @@ function agendaPublicView(){
   '<label>Data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
-   (s.slotBusy?'<p>Consultando horários…</p>':slots||'<p>Nenhum horário livre nesta data. Escolha outro dia.</p>')+'</div>'+
+   (s.slotBusy?'<p>Consultando horários…</p>':s.dayClosed?'<p>Este profissional não atende nesta data. Escolha outro dia.</p>':slots||'<p>Nenhum horário livre nesta data. Escolha outro dia.</p>')+'</div>'+
   (s.selectedStart?(s.user?
     '<form class="agenda-book-form" onsubmit="return agendaBook(event)">'+
      '<h3>Confirme sua reserva</h3>'+
@@ -173,8 +220,11 @@ function agendaMyBookingsView(){
   s.mine.map(b=>{
    const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
    const service=profile?.services?.find(x=>x.id===b.service_id);
-   return '<article class="agenda-booking"><strong>'+esc(profile?.title||'Atendimento no TAMÃO')+'</strong>'+
-    '<span>'+esc([service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+
+   return '<article class="agenda-booking"><strong>'+esc(b.page_title||profile?.title||'Atendimento no TAMÃO')+'</strong>'+
+    '<span>'+esc([b.service_title||service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+ 
+    (agendaSlugPattern.test(b.slug||'')?'<a class="agenda-wa" href="'+esc(agendaShareLink(b.slug))+'">Ver página do profissional</a>':'')+
+    '<button type="button" class="secondary" data-id="'+esc(b.id)+
+    '" onclick="agendaDownloadCalendar(this.dataset.id)">Adicionar ao calendário</button>'+ 
     '<button type="button" class="secondary" data-id="'+esc(b.id)+
     '" onclick="agendaCancel(this.dataset.id)">Cancelar reserva</button></article>';
   }).join('')+'</section>';
@@ -216,9 +266,9 @@ async function agendaInit(){
   s.user=user.data?.user||null;
   s.authReady=true;
   s.client.auth.onAuthStateChange((type,session)=>{
-   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];render();return;}
+   if(type==='SIGNED_OUT'){s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];render();return;}
    if(type==='SIGNED_IN'&&session?.user?.id!==s.user?.id){
-    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];
+    s.user=session.user;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];
     Promise.resolve().then(()=>agendaRefreshOwner()).then(()=>render()).catch(()=>{});
    }
   });
@@ -250,18 +300,18 @@ async function agendaRefreshOwner(){
  if(e)throw e;if(epoch!==s.epoch||s.user?.id!==u.id)return;
  s.page=p;
  if(p){
-  const [services,hours,bookings]=await Promise.all([
+  const [services,hours,bookings,closedDays]=await Promise.all([
    s.client.from('agenda_services').select('*').eq('page_id',p.id).order('created_at'),
    s.client.from('agenda_hours').select('*').eq('page_id',p.id).order('weekday'),
-   s.client.from('agenda_appointments').select('id,service_id,customer_name,customer_phone,starts_at,status')
-     .eq('owner_id',u.id).eq('status','confirmed').gte('starts_at',new Date(Date.now()-3600000).toISOString()).order('starts_at').limit(100)
+   s.client.from('agenda_appointments').select('id,service_id,customer_name,customer_phone,starts_at,ends_at,status')
+     .eq('owner_id',u.id).eq('status','confirmed').gte('starts_at',new Date(Date.now()-3600000).toISOString()).order('starts_at').limit(100),
+   s.client.from('agenda_closed_days').select('day').eq('owner_id',u.id).gte('day',agendaToday()).order('day').limit(180)
   ]);
   if(epoch!==s.epoch||s.user?.id!==u.id)return;
-  if(services.error||hours.error||bookings.error)throw services.error||hours.error||bookings.error;
-  s.services=services.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];
- }else{s.services=[];s.hours=[];s.bookings=[];}
- const mine=await s.client.from('agenda_appointments').select('id,starts_at,status,page_id,service_id')
-  .eq('customer_id',u.id).eq('status','confirmed').gte('starts_at',new Date().toISOString()).order('starts_at').limit(50);
+  if(services.error||hours.error||bookings.error||closedDays.error)throw services.error||hours.error||bookings.error||closedDays.error;
+  s.services=services.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];
+ }else{s.services=[];s.hours=[];s.bookings=[];s.closedDays=[];}
+ const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
 }
 async function agendaRefreshDirectory(){
@@ -286,13 +336,17 @@ async function agendaRefreshPublic(){
 }
 async function agendaLoadSlots(){
  const s=agendaRuntime,service=s.serviceId,day=s.day;
- s.selectedStart='';s.requestKey='';s.slots=[];if(!service||!day)return;
+ s.selectedStart='';s.requestKey='';s.slots=[];s.dayClosed=false;if(!service||!day)return;
  s.slotBusy=true;render();
  try{
-  const {data,error}=await s.client.rpc('agenda_available_slots',{p_service_id:service,p_day:day});
+  const [slots,closed]=await Promise.all([
+   s.client.rpc('agenda_available_slots',{p_service_id:service,p_day:day}),
+   s.client.rpc('agenda_day_is_closed',{p_service_id:service,p_day:day})
+  ]);
   if(s.serviceId!==service||s.day!==day)return;
-  if(error)throw error;
-  s.slots=(data||[]).filter(x=>typeof x?.starts_at==='string'&&
+  if(slots.error||closed.error)throw slots.error||closed.error;
+  s.dayClosed=closed.data===true;
+  s.slots=(s.dayClosed?[]:(slots.data||[])).filter(x=>typeof x?.starts_at==='string'&&
    Number.isFinite(Date.parse(x.starts_at))&&/^\d{2}:\d{2}$/.test(x.label)).slice(0,36);
  }catch(e){s.error='Não foi possível consultar horários. Tente outra data.';}
  finally{if(s.serviceId===service&&s.day===day){s.slotBusy=false;if(agendaRoute())render();}}
@@ -407,6 +461,29 @@ async function agendaSaveHours(ev){
  }catch(e){s.error='Não foi possível salvar os horários.';}
  s.busy=false;render();return false;
 }
+async function agendaAddClosedDay(ev){
+ ev.preventDefault();
+ const day=String(new FormData(ev.target).get('day')||'');
+ await agendaSetClosedDay(day,true);return false;
+}
+async function agendaSetClosedDay(day,closed){
+ const s=agendaRuntime;
+ if(s.busy||!s.page||!s.user||!/^\d{4}-\d{2}-\d{2}$/.test(day)||
+  day<agendaToday()||day>agendaToday(180))return;
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_set_closed_day',{p_day:day,p_closed:closed});
+  if(error||data!==true)throw error||Error('day update unconfirmed');
+  await agendaRefreshOwner();
+  if(s.serviceId&&s.day===day)await agendaLoadSlots();
+  s.notice=closed?'Dia bloqueado para novos agendamentos.':'Dia liberado para agendamentos.';
+ }catch(e){
+  s.error=e?.message?.includes('AGENDA_DAY_HAS_BOOKINGS')?
+   'Este dia já tem reservas confirmadas. Resolva esses atendimentos antes de bloquear.':
+   'Não foi possível alterar a folga. Confira sua agenda antes de repetir.';
+ }
+ s.busy=false;render();
+}
 async function agendaBook(ev){
  ev.preventDefault();const s=agendaRuntime;
  if(s.busy||!s.user||!s.selectedStart||!agendaUuid.test(s.serviceId))return false;
@@ -475,7 +552,7 @@ async function agendaLogout(){
  try{
   const {error}=await s.client.auth.signOut();
   if(error)throw error;
-  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];
+  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];s.closedDays=[];
   s.notice='Você saiu da conta.';
  }catch(_){s.error='Não foi possível sair. Tente novamente.';}
  s.busy=false;render();
