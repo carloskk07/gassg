@@ -1,5 +1,5 @@
 -- TAMÃO V1.1050 — equipe opcional, slots por colaborador e remarcação atômica.
--- No Pix, OAuth tokens, payouts, commerce switches or real reminders.
+-- No charging, provider credentials, payouts, commerce switches or outbound reminders.
 begin;
 
 create table public.agenda_staff (
