@@ -6,12 +6,13 @@
   if(!host)return;
   const style=document.createElement('style');
   style.textContent=[
-    '#tamao-demo-browser-banner{position:sticky;top:0;z-index:90000;background:#fff1c7;color:#3e2810;font:600 12px/1.4 system-ui,sans-serif;border-bottom:2px solid #b67a17}',
-    '.tamao-demo-tools{max-width:1200px;margin:auto;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 12px}',
+    '#tamao-demo-browser-banner{position:sticky;top:0;z-index:90000;background:#f8fbf9;color:#214c39;font:600 12px/1.4 system-ui,sans-serif;border-bottom:1px solid #dce9e0;box-shadow:0 2px 12px #163b2410}',
+    '.tamao-demo-tools{max-width:1280px;margin:auto;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:7px 12px}',
     '.tamao-demo-tools strong{font-weight:800}.tamao-demo-tools span{font-weight:500}',
-    '.tamao-demo-tools button{border:1px solid #945d00;background:#fff9eb;color:#44300d;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer}',
-    '.tamao-demo-tools button:focus-visible{outline:3px solid #433312;outline-offset:2px}',
-    '.tamao-demo-progress{width:100%;font-weight:700;font-size:12px;text-align:center;color:#70440c}',
+    '.tamao-demo-tools button{border:1px solid #cfdfd3;background:#fff;color:#22553c;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer}',
+    '.tamao-demo-tools button:focus-visible{outline:3px solid #bd882c;outline-offset:2px}',
+    '.tamao-demo-progress{width:100%;font-weight:650;font-size:11px;text-align:center;color:#527263}',
+    '.tamao-demo-brand{font-size:14px;letter-spacing:-.03em}.tamao-demo-mode{font-size:11px;color:#4d7660;padding:5px 9px;border:1px solid #d6e5db;border-radius:999px;background:#fff;white-space:nowrap}.tamao-demo-nav{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}.tamao-demo-nav button:hover{background:#eaf6ee;border-color:#92b99f}',
     '.tamao-demo-dialog{position:fixed;z-index:90010;inset:0;background:rgba(9,22,19,.66);display:none;place-items:center;padding:18px}',
     '.tamao-demo-dialog[data-open="true"]{display:grid}',
     '.tamao-demo-panel{background:#fff;color:#1a2923;border-radius:16px;max-width:760px;width:100%;max-height:82vh;overflow-y:auto;padding:24px;font:14px/1.5 system-ui,sans-serif;box-shadow:0 18px 50px #0004}',
@@ -20,13 +21,13 @@
     '.tamao-demo-panel .demo-amount{font-size:20px;font-weight:750}.tamao-demo-panel button{padding:9px 14px;border:1px solid #256f51;border-radius:8px;background:#effaf2;color:#134932;cursor:pointer}',
     '.tamao-demo-panel .demo-stats{display:flex;gap:12px;flex-wrap:wrap}.tamao-demo-panel .demo-stats span{padding:10px;background:#ecf5f0;border-radius:9px}',
     '.tamao-demo-driver-form{display:grid;gap:12px;max-width:460px}.tamao-demo-driver-form label{display:grid;gap:5px;font-weight:650}.tamao-demo-driver-form input[type=text]{width:100%;padding:11px;font:inherit;border:1px solid #879e93;border-radius:8px}.tamao-demo-driver-check{display:flex!important;align-items:center;gap:8px}.tamao-demo-driver-check input{width:20px;height:20px}.tamao-demo-driver-status{font-weight:650;color:#69451b}',
-    '@media(max-width:600px){.tamao-demo-tools{justify-content:center}.tamao-demo-tools>div{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}.tamao-demo-tools>span{font-size:11px}}'
+    '@media(max-width:600px){.tamao-demo-tools{justify-content:center;gap:6px;padding:6px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-nav{display:grid;width:100%;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px}}'
   ].join('\n');
   document.head.appendChild(style);
   const tools=document.createElement('div');tools.className='tamao-demo-tools';
-  const heading=document.createElement('strong');heading.textContent='🧪 TAMÃO — DEMONSTRAÇÃO INTERATIVA';
-  const detail=document.createElement('span');detail.textContent='Pedidos e valores fictícios • sem cadastro, Pix ou cobrança real';
-  const nav=document.createElement('div');
+  const heading=document.createElement('strong');heading.textContent='TAMÃO';heading.className='tamao-demo-brand';
+  const detail=document.createElement('span');detail.textContent='Modo teste · dados fictícios';detail.className='tamao-demo-mode';
+  const nav=document.createElement('div');nav.className='tamao-demo-nav';
   const progress=document.createElement('div');progress.className='tamao-demo-progress';progress.id='tamao-demo-progress';progress.setAttribute('role','status');
   const button=(label,fn)=>{
     const el=document.createElement('button');el.type='button';el.textContent=label;
@@ -125,12 +126,12 @@
     if(signature===adminRenderedFingerprint&&panel.childElementCount)return;
     adminRenderedFingerprint=signature;
     panel.replaceChildren();
-    panel.append(make('h2','Admin — resumo de pedidos simulados'));
-    panel.append(make('p','Projeção local de leitura dos pedidos criados no mesmo navegador. Não é o Admin autenticado nem o banco de produção.'));
+    panel.append(make('h2','Admin — pedidos'));
+    panel.append(make('p','Acompanhe os pedidos criados neste ambiente.'));
     const s=read();const orders=s?.orders||[];
     const stats=make('div','');stats.className='demo-stats';
     const active=orders.filter(o=>!['CANCELLED','SETTLED','DELIVERED','REJECTED'].includes(o.status)).length;
-    for(const [label,value] of [['Pedidos fictícios',orders.length],['Em atendimento',active],['Concluídos',orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length]]){
+    for(const [label,value] of [['Pedidos',orders.length],['Em atendimento',active],['Concluídos',orders.filter(o=>['SETTLED','DELIVERED'].includes(o.status)).length]]){
       stats.append(make('span',label+': '+value));
     }
     panel.append(stats);
