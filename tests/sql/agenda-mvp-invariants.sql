@@ -17,6 +17,7 @@ declare
  v_staff uuid;v_staff2 uuid;v_team_start timestamptz;v_team_new timestamptz;
  v_booking jsonb;v_parallel jsonb;v_rescheduled jsonb;
  v_pause_id uuid;v_wait_id uuid;v_wait_again uuid;v_history_id uuid;
+ v_quote jsonb;v_saved_policy jsonb;
  v_pause_start timestamptz;v_pause_end timestamptz;
 begin
  if has_table_privilege('anon','public.agenda_pages','select')
@@ -348,6 +349,72 @@ begin
   or has_function_privilege('anon','public.agenda_join_waitlist(uuid,uuid,date,text,text,boolean)','EXECUTE')
   or has_function_privilege('anon','public.agenda_mark_attendance(uuid,text)','EXECUTE')
  then raise exception 'AGENDA_V1051_PRIVILEGES_EXPOSED';end if;
+
+ -- V1.1052: owner can plan a signal, but cannot issue a charge.
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ v_saved_policy:=public.agenda_set_deposit_policy(v_service,25::smallint,
+  'Em futura operação paga o sinal abate do total e os reembolsos seguem o CDC.');
+ if (v_saved_policy->>'percent')::integer<>25
+  or v_saved_policy->>'charges_enabled'<>'false'
+ then raise exception 'AGENDA_DEPOSIT_POLICY_NOT_FAIL_CLOSED';end if;
+ v_quote:=public.agenda_deposit_quote(v_service);
+ if (v_quote->>'price_cents')::integer<>6000
+  or (v_quote->>'deposit_cents')::integer<>1500
+  or (v_quote->>'remaining_cents')::integer<>4500
+  or (v_quote->>'percent')::integer<>25
+  or v_quote->>'charges_enabled'<>'false'
+  or v_quote->'methods'<>'[]'::jsonb
+ then raise exception 'AGENDA_DEPOSIT_QUOTE_WRONG';end if;
+ v_saved_policy:=public.agenda_set_deposit_policy(v_service,25::smallint,
+  'Em futura operação paga o sinal abate do total e os reembolsos seguem o CDC.');
+ if (select policy_version from public.agenda_service_deposit_settings
+    where service_id=v_service)<>1
+ then raise exception 'AGENDA_POLICY_REPLAY_CHANGED_VERSION';end if;
+ perform set_config('request.jwt.claim.sub',v_buyer::text,true);
+ if (public.agenda_deposit_quote(v_service)->>'percent')::integer<>25
+ then raise exception 'AGENDA_PUBLIC_QUOTE_MISSING';end if;
+ begin
+  perform public.agenda_set_deposit_policy(v_service,50::smallint,
+   'Alteração indevida das condições por um cliente sem autorização.');
+  raise exception 'AGENDA_FOREIGN_PAYMENT_POLICY_ACCEPTED';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_POLICY_NOT_ALLOWED' then raise;end if;
+ end;
+ begin
+  perform public.agenda_set_deposit_policy(v_service,77::smallint,
+   'Percentual fora do catálogo dos sinais permitidos pela plataforma.');
+  raise exception 'AGENDA_DEPOSIT_PERCENT_UNBOUNDED';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_POLICY_NOT_ALLOWED' then raise;end if;
+ end;
+ if has_table_privilege('anon','public.agenda_service_deposit_settings','SELECT')
+  or has_table_privilege('anon','public.agenda_payment_control','SELECT')
+  or has_table_privilege('authenticated','public.agenda_payment_control','UPDATE')
+  or has_table_privilege('authenticated','public.agenda_payment_holds','INSERT')
+  or has_table_privilege('authenticated','public.agenda_payment_attempts','SELECT')
+  or has_table_privilege('authenticated','public.agenda_payment_refunds','SELECT')
+  or has_function_privilege('anon','public.agenda_set_deposit_policy(uuid,smallint,text)','EXECUTE')
+  or not has_function_privilege('anon','public.agenda_deposit_quote(uuid)','EXECUTE')
+ then raise exception 'AGENDA_FINANCE_BROWSER_EXPOSED';end if;
+ perform set_config('request.jwt.claim.sub',v_owner::text,true);
+ if exists(select 1 from public.agenda_payment_control
+  where singleton and (charges_enabled or oauth_recipient_homologated or provider_webhook_homologated
+   or refunds_homologated or reconciler_homologated or live_finance_approved))
+ then raise exception 'AGENDA_FINANCE_FLAG_NOT_SAFE';end if;
+ begin
+  insert into public.agenda_payment_holds(
+   page_id,owner_id,customer_id,service_id,staff_id,request_id,
+   starts_at,ends_at,expires_at,snapshot_price_cents,snapshot_percent,
+   deposit_cents,remaining_cents,policy_version,recipient_provider_account_id)
+  values(v_page,v_owner,v_buyer,v_service,v_staff,gen_random_uuid(),
+   now()+interval '3 days',now()+interval '3 days 45 minutes',
+   now()+interval '10 minutes',6000,25,1500,4500,1,'future-oauth-recipient-id');
+  raise exception 'AGENDA_PAYMENT_HOLD_INSERTED_WITHOUT_HOMOLOGATION';
+ exception when insufficient_privilege then
+  if sqlerrm<>'AGENDA_PAYMENTS_NOT_HOMOLOGATED' then raise;end if;
+ end;
+ if (select count(*) from public.agenda_payment_holds)<>0
+ then raise exception 'AGENDA_FINANCE_HOLD_GHOST_ROW';end if;
 end $test$;
 rollback;
-\echo 'PASS: Agenda equipe, pausas por pessoa, lista opt-in, presença, imutabilidade, auditoria e RLS.'
+\echo 'PASS: Agenda sem taxa, sinal 25% apenas cotação, checkout bloqueado, ACL, fila, remarcação e auditoria.'
