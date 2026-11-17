@@ -145,4 +145,24 @@ assert.match(qrSvg,/path|rect/);
 assert.match(source,/agendaDownloadQr|agendaSharePublicLink|agendaToggleQr/);
 assert.match(source,/\/js\/qr-generator\.js/);
 assert.doesNotMatch(source,/https?:\/\/[^\s"']+qrcode/i);
-console.log('PASS: Agenda operação, consentimento, QR local, pausas, equipe e histórico.');
+
+const depositMigration=readFileSync('supabase/migrations/20261117160000_agenda_sinal_finance_guard_v1_1052.sql','utf8');
+for(const expected of ['agenda_service_deposit_settings','agenda_set_deposit_policy',
+ 'agenda_deposit_quote','agenda_payment_control','agenda_payment_holds',
+ 'agenda_payment_attempts','agenda_payment_refunds','agenda_hold_disabled_guard',
+ 'AGENDA_PAYMENTS_NOT_HOMOLOGATED','refunds_homologated','provider_webhook_homologated'])
+ assert.match(depositMigration,new RegExp(expected));
+assert.match(source,/agendaDepositQuoteView|agendaSaveDepositPolicy|agenda_deposit_quote/);
+assert.match(source,/Sem cobrança antecipada nesta versão/);
+assert.match(source,/cobrança antecipada permanece desligada/);
+vm.runInContext('agendaRuntime.paymentQuote={service_id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",price_cents:6000,percent:25,deposit_cents:1500,remaining_cents:4500,charges_enabled:false,policy_text:"Reembolso de acordo com a lei."};',ctx);
+const planned=vm.runInContext('agendaPublicView()',ctx);
+assert.match(planned,/Sinal planejado: 25%/);
+assert.match(planned,/Sem cobrança antecipada nesta versão/);
+assert.match(planned,/R\$ 15,00/);
+assert.match(planned,/R\$ 45,00/);
+vm.runInContext('agendaRuntime.depositSettings=[{service_id:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",percent:25,policy_text:"A política de cancelamento atende os direitos do consumidor."}]',ctx);
+assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Condições de sinal dos serviços/);
+assert.match(vm.runInContext('agendaOwnerEditor()',ctx),/Sinal estimado/);
+console.log('PASS: Agenda sinal estimado, sem checkout, OAuth pendente, valores e políticas.');
+
