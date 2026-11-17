@@ -15,7 +15,7 @@ const ctx=vm.createContext({
  location:{origin:'https://tamao.com.br',pathname:'/',hash:'#agenda?profissional=barbearia-sg',search:''},
  CHAMA_BACKEND:{url:'https://example.supabase.co',publishableKey:'public-key'},
  BRL:new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),
- render(){},route(){return 'agenda'},esc:s=>String(s??''),
+ render(){},route(){return 'agenda'},shell:s=>s,esc:s=>String(s??''),
  crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}
 });
 vm.runInContext(source,ctx,{filename:'js/agenda.js'});
