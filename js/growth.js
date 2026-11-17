@@ -341,10 +341,9 @@ async function tamaoNetworkVisitFromUi(){
       if(before!==JSON.stringify(network)&&['refer','earn'].includes(String(route())))render();
     }
     const c=data?.networkCelebra;
-    if(c?.source==='network_celebra_user_v1_1046'&&c.readOnly===true&&
-       c.cashPayoutsEnabled===false&&Array.isArray(c.items)){
+    if(c?.source==='network_celebra_user_v1_1046'&&Array.isArray(c.items)){
       globalThis.liveRuntime.networkCelebra={available:true,...c};
-      if(['refer','earn'].includes(String(route())))render();
+      if(c.items.length)import('/js/growth-celebra.js').then(()=>render()).catch(()=>{});
     }
   }catch(e){
     console.warn('Registro de participação indisponível; nenhum saldo foi creditado',e);
@@ -606,11 +605,6 @@ function refer(){
       ? '<div class="notice success" style="margin-top:14px"><strong>Conta habilitada para comissão.</strong><br>Vendas elegíveis ainda passam pela janela de validação antes de se tornarem saldo disponível.</div>'
       : '';
 
-  if(globalThis.liveRuntime?.networkCelebra?.items?.length&&
-     !globalThis.tamaoNetworkCelebraPanel&&!globalThis.celebLoading){
-    globalThis.celebLoading=true;
-    import('/js/growth-celebra.js').then(()=>render()).catch(()=>{});
-  }
   if(hasReferral)setTimeout(renderReferralQr,0);
   if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
 
