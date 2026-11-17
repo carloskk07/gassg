@@ -661,7 +661,7 @@ function home(){
     </section>`:''}
     ${globalThis.document?.getElementById('tamao-home-strip-template')?.innerHTML||''}
     ${couponBanner}
-    ${tamaoHomeValueOverview()}
+    ${typeof tamaoHomeValueOverview==='function'?tamaoHomeValueOverview():''}
     ${adHomeSlot}
     ${tamaoDiscoveryEntryHub()}
     ${reorderCard}
