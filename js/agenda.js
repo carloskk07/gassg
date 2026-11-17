@@ -99,6 +99,27 @@ function agendaOwnerEditor(){
     '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Adicionar serviço</button></form>'+serviceCards:
     '<p>Salve sua página para adicionar os serviços.</p>')+
   '</section>'+
+  '<section class="agenda-panel"><h2>Condições de sinal dos serviços</h2>'+
+   '<p>Planeje um sinal opcional para a futura cobrança online, abatido do total do serviço. Os valores abaixo são apenas uma prévia: não existe cobrança de sinal ativa.</p>'+
+   (s.services.length?s.services.map(service=>{
+    const policy=s.depositSettings.find(x=>x.service_id===service.id);
+    const percent=Number(policy?.percent)||0;
+    const signal=Math.round(Number(service.price_cents||0)*percent/100);
+    const defaultText='O sinal, quando disponível, abate do preço total. As condições de cancelamento e reembolso devem respeitar os direitos do consumidor.';
+    return '<form class="agenda-deposit-form" data-id="'+esc(service.id)+
+      '" onsubmit="return agendaSaveDepositPolicy(event)">'+
+      '<h3>'+esc(service.title)+'</h3>'+
+      '<label>Sinal pretendido<select name="percent">'+
+       [0,10,20,25,30,50].map(v=>'<option value="'+v+'"'+(v===percent?' selected':'')+'>'+
+        (v===0?'Sem sinal':v+'% do valor do serviço')+'</option>').join('')+'</select></label>'+
+      '<p class="agenda-deposit-estimate">Preço '+agendaMoney(service.price_cents)+
+       ' • Sinal estimado '+agendaMoney(signal)+' • Restante '+agendaMoney(service.price_cents-signal)+'</p>'+
+      '<label>Política de cancelamento e reembolso<textarea name="policy" rows="3" minlength="30" maxlength="500" required>'+
+        esc(policy?.policy_text||defaultText)+'</textarea></label>'+
+      '<p class="tiny muted">Simulação: não emite Pix, não debita cartão e não transforma reservas gratuitas em pagas.</p>'+
+      '<button type="submit" class="secondary"'+(s.busy?' disabled':'')+'>Salvar condições</button></form>';
+   }).join(''):'<p>Cadastre um serviço para configurar as condições.</p>')+
+  '</section>'+
   '<section class="agenda-panel"><h2>Equipe e agendas simultâneas</h2>'+
    '<p>Cadastre até 12 colaboradores. Cada um terá horários livres independentes, dentro do expediente geral do estabelecimento.</p>'+
    (p.id?'<form class="agenda-staff-add" onsubmit="return agendaSaveStaff(event)">'+
@@ -224,6 +245,19 @@ function agendaDateTime(value){
   day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));}
  catch{return 'Data indisponível';}
 }
+function agendaDepositQuoteView(q){
+ const price=Number(q.price_cents)||0,percent=Number(q.percent)||0;
+ if(percent===0)return '<p class="agenda-deposit-summary">Sem sinal: a reserva é gratuita e o valor do serviço é pago diretamente ao profissional.</p>';
+ const deposit=Number(q.deposit_cents)||0,remaining=Number(q.remaining_cents)||0;
+ return '<div class="agenda-deposit-summary">'+
+   '<strong>Sinal planejado: '+percent+'%</strong>'+
+   '<p>Valor do serviço: '+agendaMoney(price)+' • Futuro sinal: '+agendaMoney(deposit)+
+   ' • Restante no atendimento: '+agendaMoney(remaining)+'</p>'+
+   '<p><strong>Sem cobrança antecipada nesta versão.</strong> O agendamento continua gratuito. '+
+   'Quando houver pagamento online autorizado, o sinal será abatido do preço total e recebido pelo profissional.</p>'+
+   '<p class="tiny muted">Condições informadas: '+esc(q.policy_text||'Respeitam-se os direitos de cancelamento e reembolso do consumidor.')+'</p>'+
+  '</div>';
+}
 function agendaPublicView(){
  const s=agendaRuntime,p=s.publicProfile;
  if(!p)return '<section class="agenda-panel"><h1>Página não disponível</h1><p>Confira o link enviado pelo profissional.</p><a href="/#professionals">Encontrar profissionais</a></section>';
@@ -254,6 +288,7 @@ function agendaPublicView(){
    '</select></label>':'')+
   (isReschedule?'<p class="agenda-reschedule-hint">Escolha a nova data e um horário livre para remarcar sua reserva.</p>':'')+
   (service?'<p class="agenda-service-summary">'+esc(service.title)+' • '+service.duration_min+' min • '+agendaMoney(service.price_cents)+'</p>':'')+
+  (s.paymentQuote&&s.paymentQuote.service_id===s.serviceId?agendaDepositQuoteView(s.paymentQuote):'')+
   '<label>Data<input type="date" value="'+esc(date)+'" min="'+agendaToday()+'" max="'+agendaToday(30)+'" onchange="agendaChooseDay(this.value)"></label>'+
   '<p class="tiny muted">Horários disponíveis, no fuso de Brasília.</p>'+
   '<div class="agenda-slot-grid" role="group" aria-label="Horários disponíveis">'+
@@ -522,6 +557,29 @@ async function agendaSaveProfile(ev){
    'Não foi possível concluir tudo. Confira sua página antes de repetir o envio.';
   try{await agendaRefreshOwner();}catch{}
  }
+ s.busy=false;render();return false;
+}
+async function agendaSaveDepositPolicy(ev){
+ ev.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.page||!s.user)return false;
+ const id=ev.target?.dataset?.id;
+ if(!agendaUuid.test(id)||!s.services.some(x=>x.id===id))return false;
+ const f=new FormData(ev.target),percent=Number(f.get('percent'));
+ const policy=String(f.get('policy')||'').trim();
+ if(![0,10,20,25,30,50].includes(percent)||policy.length<30||policy.length>500){
+  s.error='Confira o percentual e a política de reembolso.';render();return false;
+ }
+ s.busy=true;s.error='';s.notice='';
+ try{
+  const {data,error}=await s.client.rpc('agenda_set_deposit_policy',{
+   p_service_id:id,p_percent:percent,p_policy_text:policy
+  });
+  if(error||data?.service_id!==id||data?.percent!==percent||
+    data?.charges_enabled!==false)throw error||Error('policy confirmation invalid');
+  await agendaRefreshOwner();
+  if(s.serviceId===id)await agendaLoadSlots();
+  s.notice='Condições salvas. A cobrança antecipada permanece desligada.';
+ }catch(e){s.error='Não foi possível salvar o sinal planejado. Nenhuma cobrança foi iniciada.';}
  s.busy=false;render();return false;
 }
 async function agendaSaveService(ev){
