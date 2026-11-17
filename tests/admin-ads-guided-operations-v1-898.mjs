@@ -179,7 +179,7 @@ assert.match(ads,/adminIndependentAdsBusy=true/);
 assert.match(ads,/expectedVersion:state.fixedFeeSalesVersion/);
 const builder=read('scripts/build-live-portals.mjs');
 const stripper=read('scripts/strip-admin-css.mjs');
-assert.match(builder,/\['admin-acquisition','admin','admin-activations','admin-ads-independent'\]/,
+assert.match(builder,/\['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent'\]/,
  'Admin Ads code must not be released to Cliente or Revenda portals');
 assert.match(stripper,/PROTECTED_ADMIN_SCRIPTS=.*'admin-ads-independent.js'/,
  'Admin-only Ads classes must not prevent public CSS stripping');
