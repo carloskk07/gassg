@@ -224,7 +224,7 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Indique pessoas, serviços e empresas. Acompanhe seus convites.')","earn route");
+await waitFor("document.body.innerText.includes('Compartilhe o TAMÃO. Veja sua Rede ganhar vida.')","earn route");
 body=await text();
 assert.match(body,/Conhece alguém que gostaria de usar o TAMÃO\?/);
 assert.match(body,/Nenhum compartilhamento, cadastro isolado ou convite garante pagamento/);
