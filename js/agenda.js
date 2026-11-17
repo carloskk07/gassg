@@ -8,14 +8,21 @@ const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const agendaSlugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const agendaDays=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 function agendaRoute(){return route()==='agenda'&&!globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();}
+// Path URLs are canonical; legacy query/hash links continue resolving.
 function agendaSlug(){
+ const path=String(location.pathname||'');
+ const match=/^\/agenda\/([a-z0-9-]+)\/?$/.exec(path);
+ if(match)return agendaSlugPattern.test(match[1])&&match[1].length<=60?match[1]:'';
  const x=String(location.hash||'').split('?')[1]||'';
- try{const value=new URLSearchParams(x).get('profissional')||
+ try{
+  const value=new URLSearchParams(x).get('profissional')||
    new URLSearchParams(location.search).get('profissional')||'';
-  return agendaSlugPattern.test(value)&&value.length<=60?value:'';}catch{return '';}
+  return agendaSlugPattern.test(value)&&value.length<=60?value:'';
+ }catch{return '';}
 }
 function agendaShareLink(slug){
- return location.origin+location.pathname+'#agenda?profissional='+encodeURIComponent(slug);
+ if(!agendaSlugPattern.test(String(slug||''))||slug.length>60)return '';
+ return 'https://tamao.com.br/agenda/'+encodeURIComponent(slug);
 }
 function agendaMoney(cents){return BRL.format(Math.max(0,Number(cents)||0)/100);}
 function agendaPhotoUrl(path){
@@ -657,13 +664,21 @@ async function agendaQuickCreate(ev){
  s.busy=true;s.error='';s.notice='';
  let created=false,ready=false;
  try{
-  const rawSlug=agendaSafeSlug(title).slice(0,49).replace(/-$/,'')||'meu-negocio';
-  const slug=rawSlug+'-'+crypto.randomUUID().replace(/-/g,'').slice(0,8);
+  const rawSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
+  // Prefer the establishment name. Add a short suffix only when already used.
+  // UNIQUE in PostgreSQL handles concurrent claims safely.
+  let page=null;
+  for(let attempt=0;attempt<3;attempt++){
+   const suffix=attempt?'-'+crypto.randomUUID().replace(/-/g,'').slice(0,6):'';
+   const slug=rawSlug.slice(0,60-suffix.length).replace(/-$/,'')+suffix;
+   const {data,error}=await s.client.from('agenda_pages').insert({
+    slug,title,city,published:false
+   }).select('*').single();
+   if(!error){page=data;break;}
+   if(error.code!=='23505'||attempt===2)throw error;
+  }
   // Publish last: incomplete setup must never receive customer bookings.
-  const {data:page,error:pageError}=await s.client.from('agenda_pages').insert({
-   slug,title,city,published:false
-  }).select('*').single();
-  if(pageError||!page?.id)throw pageError||Error('page not confirmed');
+  if(!page?.id)throw Error('agenda draft was not confirmed');
   created=true;s.page=page;
   const {data:serviceRow,error:serviceError}=await s.client.from('agenda_services').insert({
    page_id:page.id,title:service,duration_min:duration,price_cents:cents
