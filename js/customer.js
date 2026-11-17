@@ -470,7 +470,7 @@ function tamaoDiscoveryEntryHub(){
   ['🚚','Pedir um frete','Carretos e mudanças','/?servico=fretes#professionals'],
   ['📦','Pedir uma entrega','Motoboys e entregadores','/?servico=entregas#professionals'],
   ['🛠️','Profissionais','Serviços para sua casa','/#professionals'],
-  ['📅','Agendar horário','Barbearia, beleza e outros serviços','/#agenda'],
+  ['📅','Agendar horário','Barbearia, beleza e outros serviços','/agenda/'],
   ['🚙','Caronas','Viagens compartilhadas','/#rides']
  ];
  const tile=([icon,title,description,href])=>
@@ -486,7 +486,7 @@ function tamaoDiscoveryEntryHub(){
   '<div class="intent-grid tamao-home-services-grid tamao-home-support-grid" aria-label="Mais serviços">'+cards.slice(2).map(tile).join('')+'</div>'+
   '<div class="tamao-home-partner-strip"><div><strong>Seu negócio também pode estar no TAMÃO.</strong>'+
    '<span>Divulgue serviços ou apresente sua revenda para novos clientes.</span></div>'+
-   '<div class="tamao-home-partner-actions"><a href="/#agenda">Criar minha agenda ↗</a><a href="/#advertise">Anunciar serviço ↗</a>'+
+   '<div class="tamao-home-partner-actions"><a href="/agenda/">Criar minha agenda ↗</a><a href="/#advertise">Anunciar serviço ↗</a>'+
    '<a href="/#merchants">Cadastrar revenda ↗</a></div></div>'+
   '<p class="tiny muted tamao-home-services-note">Consulte anúncios publicados e confirme condições com o anunciante.</p>'+
   '</section>';
