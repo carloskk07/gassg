@@ -35,7 +35,7 @@ assert.ok(live.indexOf('${couponBanner}')<live.indexOf('${tamaoHomeValueOverview
 assert.ok(live.includes('tamao-home-strip-template'));
 assert.ok(index.includes('class="tamao-storefront-benefit-strip"'));
 assert.ok(index.includes('<template id="tamao-home-strip-template">'));
-assert.ok(live.includes('href="#tamao-all-benefits"'));
+assert.ok(index.includes('href="#tamao-all-benefits"'));
 assert.ok(index.includes('<style id="tamao-benefit-story-css">'));
 assert.ok(index.includes('Mais vantagens para as suas compras!'));
 for(const cssRule of ['.tamao-benefits-grid','.tamao-benefit-tile','@media(max-width:900px)','@media(max-width:650px)']){
