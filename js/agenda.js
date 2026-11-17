@@ -105,6 +105,9 @@ function agendaOwnerEditor(){
     return '<article class="agenda-booking"><strong>'+esc(b.customer_name)+'</strong>'+
      '<span>'+esc(serv?.title||'Atendimento')+' • '+esc(agendaDateTime(b.starts_at))+'</span>'+
      (b.customer_phone?'<span>Contato: '+esc(b.customer_phone)+'</span>':'')+
+     (b.customer_phone&&/^\+?[0-9 ()-]{8,25}$/.test(b.customer_phone)?
+      '<a class="agenda-wa" href="https://wa.me/'+esc(b.customer_phone.replace(/\D/g,''))+
+      '" target="_blank" rel="noopener noreferrer">Conversar no WhatsApp</a>':'')+
      '<button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar horário</button></article>';
    }).join(''):'<p>Quando receber um agendamento, ele aparecerá aqui.</p>')+
   '</section></div>';
@@ -162,6 +165,20 @@ function agendaDirectoryView(){
   '<p>As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.</p>')+
  '</section>';
 }
+function agendaMyBookingsView(){
+ const s=agendaRuntime;
+ if(!s.user||!s.mine.length)return '';
+ return '<section class="agenda-panel"><h2>Minhas reservas</h2>'+
+  '<p>Seus próximos horários. Você pode cancelar aqui quando precisar.</p>'+
+  s.mine.map(b=>{
+   const profile=s.publicProfile?.id===b.page_id?s.publicProfile:null;
+   const service=profile?.services?.find(x=>x.id===b.service_id);
+   return '<article class="agenda-booking"><strong>'+esc(profile?.title||'Atendimento no TAMÃO')+'</strong>'+
+    '<span>'+esc([service?.title,agendaDateTime(b.starts_at)].filter(Boolean).join(' • '))+'</span>'+
+    '<button type="button" class="secondary" data-id="'+esc(b.id)+
+    '" onclick="agendaCancel(this.dataset.id)">Cancelar reserva</button></article>';
+  }).join('')+'</section>';
+}
 function agendaPage(){
  const s=agendaRuntime,slug=agendaSlug();
  const head='<section class="agenda-hero"><div><span class="section-kicker">TAMÃO AGENDA</span>'+
@@ -174,12 +191,14 @@ function agendaPage(){
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
  return shell('<section class="section agenda">'+head+agendaNote()+
-  (slug?agendaPublicView():
+  (slug?agendaPublicView()+agendaMyBookingsView():
     '<div class="agenda-intro"><h2>Agenda profissional do TAMÃO</h2><p>Ideal para barbearias, salões, estúdios, aulas e outros atendimentos com hora marcada. Você define seu horário e compartilha seu próprio link.</p></div>'+
     agendaDirectoryView()+
-    (!s.user?agendaLoginForm():agendaOwnerEditor())+
-    (s.user&&s.mine.length?'<section class="agenda-panel"><h2>Reservas que fiz</h2>'+s.mine.map(b=>
-     '<article class="agenda-booking"><span>'+esc(agendaDateTime(b.starts_at))+'</span><button type="button" class="secondary" onclick="agendaCancel(\''+esc(b.id)+'\')">Cancelar</button></article>').join('')+'</section>':''))+
+    agendaMyBookingsView()+
+    (!s.user?agendaLoginForm():(s.page||s.ownerMode?agendaOwnerEditor():
+     '<section class="agenda-panel"><h2>É profissional?</h2><p>Crie gratuitamente sua página e controle seus horários.</p>'+
+     '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda</button></section>')+
+     '<p><button type="button" class="secondary" onclick="agendaLogout()">Sair da conta</button></p>'))+
   '</section>');
 }
 async function agendaInit(){
@@ -448,3 +467,16 @@ async function agendaCopyLink(){
  render();
 }
 function agendaGoMyPage(){location.hash='#agenda';}
+
+function agendaStartOwner(){agendaRuntime.ownerMode=true;render();}
+async function agendaLogout(){
+ const s=agendaRuntime;if(!s.client||!s.user||s.busy)return;
+ s.busy=true;s.error='';
+ try{
+  const {error}=await s.client.auth.signOut();
+  if(error)throw error;
+  s.user=null;s.ownerMode=false;s.page=null;s.services=[];s.hours=[];s.bookings=[];s.mine=[];
+  s.notice='Você saiu da conta.';
+ }catch(_){s.error='Não foi possível sair. Tente novamente.';}
+ s.busy=false;render();
+}
