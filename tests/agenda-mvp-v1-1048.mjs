@@ -52,7 +52,7 @@ assert.match(migration,/agenda_public_directory/);
 assert.match(migration,/grant execute on function public\.agenda_book_slot.*to authenticated/i);
 assert.doesNotMatch(migration,/grant execute on function public\.agenda_book_slot.*to anon/i);
 assert.doesNotMatch(migration,/mercadopago|pix|payment_attempt|split_payments/i);
-const daysMigration=readFileSync('supabase/migrations/20261117110000_agenda_folgas_v1_1049.sql','utf8');
+const daysMigration=readFileSync('supabase/migrations/20261117111221_agenda_folgas_v1_1049.sql','utf8');
 assert.match(daysMigration,/agenda_closed_days_owner_select/);
 assert.match(daysMigration,/agenda_set_closed_day/);
 assert.match(daysMigration,/AGENDA_DAY_HAS_BOOKINGS/);
