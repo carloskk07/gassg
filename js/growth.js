@@ -194,7 +194,7 @@ function club(){
       <div class="tamao-club-visitor-hero">
         <span class="eyebrow">CLUBE TAMÃO</span>
         <h1>Suas compras podem render muito mais no Clube TAMÃO.</h1>
-        <p>Cupons para economizar, cashback para aproveitar nas próximas compras e todas as suas vantagens reunidas em um só lugar.</p>
+        <p>Cupons, cashback e suas vantagens em um só lugar. Entre no Clube e conheça o que pode aproveitar.</p>
         <form class="form-stack tamao-club-access" data-tamao-account-context="club" onsubmit="return tamaoWelcomeRegister(event)">
           <label for="clube-visitor-coupon-email">Seu e-mail</label>
           <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
@@ -654,7 +654,7 @@ function growthNetworkIntro(){
   return `<section class="section growth-network-intro" aria-label="Convide pessoas e revendas">
     <div class="section-head"><div><span class="section-kicker">REDE TAMÃO</span>
       <h2>Um convite para conectar toda a cidade.</h2>
-      <p>Uma indicação pode abrir portas em produtos, revendas, serviços, caronas, Clube e publicidade. Compartilhe, acompanhe suas conquistas e veja o que cada modalidade oferece.</p></div></div>
+      <p>Indique produtos, revendas, serviços, caronas, Clube ou marcas. Acompanhe seus convites e conquistas.</p></div></div>
     <div class="grid cards-3">
       <article class="card"><div class="feature-icon">🤝</div>
         <h3>Convide amigos</h3><p class="muted tiny">Compartilhe produtos e convide pessoas. Você também pode escolher serviços e outros módulos em Minhas indicações.</p>
@@ -678,7 +678,7 @@ function earn(){
       <div class="tamao-network-intro">
         <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
         <h1 class="page-title">Compartilhe o TAMÃO. Veja sua Rede ganhar vida.</h1>
-        <p class="page-lead">Seu convite conecta amigos, serviços e negócios. Acompanhe indicações, reconhecimentos e benefícios em uma área feita para valorizar sua participação.</p>
+        <p class="page-lead">Convide amigos e empresas. Veja suas indicações, conquistas e benefícios em um só lugar.</p>
         <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios com condições claras</span></div>
 
       </div>
@@ -702,7 +702,7 @@ function earn(){
 
     <details class="tamao-network-clarity"><summary>Como funcionam os benefícios financeiros?</summary><p>O Clube reúne cupons e cashback de compras elegíveis; a Rede acompanha convites e indicações. Comissões exigem eventos reais, programa habilitado e validação. Um compartilhamento ou cadastro isolado não gera pagamento; empresas vendem após habilitação comercial.</p></details>
     <div class="opportunity-grid main-opportunities">
-      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Compartilhe seu link pessoal, ajude mais gente a encontrar boas opções e acompanhe as indicações. Primeiras compras elegíveis podem gerar comissão após a validação.</p>
+      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Seu link aproxima pessoas de boas opções. Acompanhe suas indicações e eventuais comissões de compras qualificadas.</p>
         <ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Histórico de conquistas e origem dos benefícios no extrato</li></ul>
         <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Simulação para uma primeira compra elegível e validada, conforme a política comercial.</span></div>
         <button class="primary full" onclick="go('refer')">Conhecer as indicações →</button>
@@ -865,7 +865,7 @@ function sponsorsLanding(){
       <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca mais presente nas escolhas da cidade.</h1>
-      <p class="page-lead">Mostre sua marca para quem explora produtos e serviços locais. Escolha sua região, conheça formatos de divulgação e planeje uma campanha com orçamento e entrega acompanháveis.</p>
+      <p class="page-lead">Aproxime sua marca das escolhas locais. Conheça formatos de divulgação, regiões e campanhas com orçamento acompanhado.</p>
       <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
@@ -922,7 +922,7 @@ function merchantsLanding(){
     <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
     <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
-    <p class="muted page-lead">Sua revenda ganha uma vitrine local, oportunidades de pedidos organizados e novas formas de relacionamento por meio da Rede. Sem abandonar o balcão ou o WhatsApp. <strong>Você decide seus preços, produtos, estoque, pagamentos e entregas.</strong></p>
+    <p class="muted page-lead">Mostre seus produtos a novos clientes, organize pedidos e participe da Rede. Sem abrir mão do balcão ou WhatsApp. <strong>Você controla preços, estoque, pagamentos e entregas.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
