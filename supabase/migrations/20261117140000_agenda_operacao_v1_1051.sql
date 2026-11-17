@@ -112,7 +112,7 @@ create function public.agenda_close_waitlist(p_wait_id uuid,p_contacted boolean)
 returns boolean language plpgsql security definer set search_path='pg_catalog' as $$
 declare v_user uuid:=(select auth.uid());v_owner uuid;v_customer uuid;v_status text;
 begin
- if v_user is null or p_wait_id is null
+ if v_user is null or p_wait_id is null or p_contacted is null
  then raise exception 'AGENDA_LOGIN_REQUIRED' using errcode='42501';end if;
  select owner_id,customer_id,status into v_owner,v_customer,v_status
  from public.agenda_waitlist where id=p_wait_id for update;
@@ -216,7 +216,7 @@ returns boolean language plpgsql security definer set search_path='pg_catalog' a
 declare v_owner uuid:=(select auth.uid());v_row public.agenda_appointments%rowtype;
 begin
  if v_owner is null or not public.discovery_verified_account() or
-  p_result not in('completed','no_show')
+  p_result is null or p_result not in('completed','no_show')
  then raise exception 'AGENDA_ATTENDANCE_NOT_ALLOWED' using errcode='42501';end if;
  select * into v_row from public.agenda_appointments where id=p_appointment_id for update;
  if not found or v_row.owner_id<>v_owner
