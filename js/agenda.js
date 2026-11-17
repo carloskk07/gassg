@@ -8,14 +8,21 @@ const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const agendaSlugPattern=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const agendaDays=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 function agendaRoute(){return route()==='agenda'&&!globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();}
+// Path URLs are canonical; legacy query/hash links continue resolving.
 function agendaSlug(){
+ const path=String(location.pathname||'');
+ const match=/^\/agenda\/([a-z0-9-]+)\/?$/.exec(path);
+ if(match)return agendaSlugPattern.test(match[1])&&match[1].length<=60?match[1]:'';
  const x=String(location.hash||'').split('?')[1]||'';
- try{const value=new URLSearchParams(x).get('profissional')||
+ try{
+  const value=new URLSearchParams(x).get('profissional')||
    new URLSearchParams(location.search).get('profissional')||'';
-  return agendaSlugPattern.test(value)&&value.length<=60?value:'';}catch{return '';}
+  return agendaSlugPattern.test(value)&&value.length<=60?value:'';
+ }catch{return '';}
 }
 function agendaShareLink(slug){
- return location.origin+location.pathname+'#agenda?profissional='+encodeURIComponent(slug);
+ if(!agendaSlugPattern.test(String(slug||''))||slug.length>60)return '';
+ return 'https://tamao.com.br/agenda/'+encodeURIComponent(slug);
 }
 function agendaMoney(cents){return BRL.format(Math.max(0,Number(cents)||0)/100);}
 function agendaPhotoUrl(path){
@@ -510,8 +517,13 @@ async function agendaInit(){
    const url=new URL(location.href);const returnSlug=agendaSlug();
    if(url.searchParams.get('criar')==='1'&&!returnSlug)s.ownerMode=true;
    url.searchParams.delete('agenda');url.searchParams.delete('profissional');url.searchParams.delete('criar');
-   url.hash='agenda'+(returnSlug?'?profissional='+encodeURIComponent(returnSlug):'');
-   history.replaceState(null,'',url.pathname+url.search+url.hash);
+   if(returnSlug&&/^\/agenda(?:\/|$)/.test(location.pathname)){
+    // Preserve the verified magic-link session, but restore the clean link.
+    history.replaceState(null,'',new URL(agendaShareLink(returnSlug)).pathname);
+   }else{
+    url.hash='agenda'+(returnSlug?'?profissional='+encodeURIComponent(returnSlug):'');
+    history.replaceState(null,'',url.pathname+url.search+url.hash);
+   }
   }
   await agendaRefreshPublic();
   if(!agendaSlug())await agendaRefreshDirectory();
@@ -562,14 +574,24 @@ async function agendaRefreshDirectory(){
    typeof p.title==='string'&&typeof p.city==='string').slice(0,24);
  }catch(_){/* Discovery remains optional while the new schema is rolling out. */}
 }
+function agendaPageIdentity(profile){
+ if(typeof document==='undefined')return;
+ const valid=profile&&agendaSlugPattern.test(String(profile.slug||''))&&String(profile.slug).length<=60;
+ const name=valid?String(profile.title||'').trim().slice(0,100):'';
+ document.title=name?name+' | TAMÃO Agenda':'TAMÃO Agenda — Agendamentos para profissionais';
+ const canonical=document.querySelector('link[rel="canonical"]');
+ if(canonical)canonical.href=valid?agendaShareLink(profile.slug):'https://tamao.com.br/agenda/';
+}
 async function agendaRefreshPublic(){
  const s=agendaRuntime,slug=agendaSlug();s.slug=slug;s.publicProfile=null;
+ agendaPageIdentity(null);
  s.serviceId='';s.staffId='';s.selectedStart='';s.slots=[];s.day=agendaToday();s.requestKey='';
  if(!slug||!s.client)return;
  const {data,error}=await s.client.rpc('agenda_public_page',{p_slug:slug});
  if(!agendaRoute()||agendaSlug()!==slug)return;
  if(error){s.error='Não foi possível consultar este profissional.';return;}
  s.publicProfile=data||null;
+ agendaPageIdentity(s.publicProfile);
  const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
  const pending=!editing&&s.user?agendaReadPendingChoice(slug):null;
  if(s.rescheduleId&&!editing)s.rescheduleId='';
@@ -657,13 +679,21 @@ async function agendaQuickCreate(ev){
  s.busy=true;s.error='';s.notice='';
  let created=false,ready=false;
  try{
-  const rawSlug=agendaSafeSlug(title).slice(0,49).replace(/-$/,'')||'meu-negocio';
-  const slug=rawSlug+'-'+crypto.randomUUID().replace(/-/g,'').slice(0,8);
+  const rawSlug=agendaSafeSlug(title).slice(0,60).replace(/-$/,'')||'meu-negocio';
+  // Prefer the establishment name. Add a short suffix only when already used.
+  // UNIQUE in PostgreSQL handles concurrent claims safely.
+  let page=null;
+  for(let attempt=0;attempt<3;attempt++){
+   const suffix=attempt?'-'+crypto.randomUUID().replace(/-/g,'').slice(0,6):'';
+   const slug=rawSlug.slice(0,60-suffix.length).replace(/-$/,'')+suffix;
+   const {data,error}=await s.client.from('agenda_pages').insert({
+    slug,title,city,published:false
+   }).select('*').single();
+   if(!error){page=data;break;}
+   if(error.code!=='23505'||attempt===2)throw error;
+  }
   // Publish last: incomplete setup must never receive customer bookings.
-  const {data:page,error:pageError}=await s.client.from('agenda_pages').insert({
-   slug,title,city,published:false
-  }).select('*').single();
-  if(pageError||!page?.id)throw pageError||Error('page not confirmed');
+  if(!page?.id)throw Error('agenda draft was not confirmed');
   created=true;s.page=page;
   const {data:serviceRow,error:serviceError}=await s.client.from('agenda_services').insert({
    page_id:page.id,title:service,duration_min:duration,price_cents:cents
@@ -1023,11 +1053,21 @@ function agendaBeginReschedule(id){
  const slug=b.slug||((s.page?.id===b.page_id)?s.page.slug:'');
  if(!agendaSlugPattern.test(slug))return;
  s.rescheduleId=id;s.error='';s.notice='Escolha o novo horário abaixo.';
- const next='#agenda?profissional='+encodeURIComponent(slug);
- if(location.hash===next)agendaRefreshPublic().then(()=>render()).catch(()=>{
-  s.error='Não foi possível abrir os horários.';render();
- });
- else location.hash=next;
+ if(/^\/agenda(?:\/|$)/.test(location.pathname)){
+  const next=new URL(agendaShareLink(slug));
+  if(location.pathname!==next.pathname){
+   history.pushState(null,'',next.pathname);
+  }
+  agendaRefreshPublic().then(()=>render()).catch(()=>{
+   s.error='Não foi possível abrir os horários.';render();
+  });
+ }else{
+  const next='#agenda?profissional='+encodeURIComponent(slug);
+  if(location.hash===next)agendaRefreshPublic().then(()=>render()).catch(()=>{
+   s.error='Não foi possível abrir os horários.';render();
+  });
+  else location.hash=next;
+ }
 }
 function agendaCancelReschedule(){
  const s=agendaRuntime;s.rescheduleId='';s.error='';s.notice='Remarcação interrompida. Sua reserva original está mantida.';
@@ -1148,7 +1188,12 @@ function agendaRememberPanel(which,open){
  if(which==='hours')s.hoursOpen=!!open;
  if(which==='advanced')s.advancedOpen=!!open;
 }
-function agendaGoMyPage(){location.hash='#agenda';}
+function agendaGoMyPage(){
+ if(/^\/agenda(?:\/|$)/.test(location.pathname)){
+  history.pushState(null,'','/agenda/');
+  agendaRefreshPublic().then(()=>render()).catch(()=>render());
+ }else location.hash='#agenda';
+}
 
 function agendaStartOwner(){agendaRuntime.ownerMode=true;agendaRuntime.error='';render();}
 function agendaStopOwner(){agendaRuntime.ownerMode=false;agendaRuntime.error='';render();}

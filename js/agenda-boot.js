@@ -10,7 +10,7 @@ function render(){
  agendaAfterRender();
 }
 window.addEventListener('hashchange',render);
-window.addEventListener('DOMContentLoaded',()=>{
- if(!location.hash)history.replaceState(null,'',location.pathname+location.search+'#agenda');
- render();
-});
+window.addEventListener('popstate',render);
+// The standalone Agenda already owns this route; do not append #agenda to
+// clean /agenda/estabelecimento URLs. Legacy #agenda links remain supported.
+window.addEventListener('DOMContentLoaded',render);
