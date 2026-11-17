@@ -273,9 +273,9 @@ begin
  -- Waitlist is deliberately *not* a confirmed appointment.
  perform set_config('request.jwt.claim.sub',v_buyer::text,true);
  v_wait_id:=public.agenda_join_waitlist(
-  v_service,v_staff,v_day+9,'Cliente Primeiro','+5555999999999');
+  v_service,v_staff,v_day+9,'Cliente Primeiro','+5555999999999',true);
  v_wait_again:=public.agenda_join_waitlist(
-  v_service,v_staff,v_day+9,'Cliente Primeiro','+5555999999999');
+  v_service,v_staff,v_day+9,'Cliente Primeiro','+5555999999999',true);
  if v_wait_id is null or v_wait_id<>v_wait_again
  then raise exception 'AGENDA_WAITLIST_NOT_IDEMPOTENT';end if;
  if not exists(select 1 from public.agenda_waitlist w
@@ -308,6 +308,8 @@ begin
  then raise exception 'AGENDA_WAITLIST_CONTACTED_FAILED';end if;
  if (select status from public.agenda_waitlist where id=v_wait_id)<>'contacted'
  then raise exception 'AGENDA_WAITLIST_CONTACT_STATUS';end if;
+ if exists(select 1 from public.agenda_waitlist where id=v_wait_id and (customer_name is not null or customer_phone is not null))
+ then raise exception 'AGENDA_CONTACT_NOT_SCRUBBED';end if;
 
  -- Attendance can be finalized only after the appointment and only by owner.
  -- A synthetic *past* booking is inserted directly in disposable PostgreSQL.
@@ -343,7 +345,7 @@ begin
   or has_table_privilege('anon','public.agenda_staff_blocks','SELECT')
   or has_table_privilege('authenticated','public.agenda_waitlist','INSERT')
   or has_table_privilege('authenticated','public.agenda_booking_events','SELECT')
-  or has_function_privilege('anon','public.agenda_join_waitlist(uuid,uuid,date,text,text)','EXECUTE')
+  or has_function_privilege('anon','public.agenda_join_waitlist(uuid,uuid,date,text,text,boolean)','EXECUTE')
   or has_function_privilege('anon','public.agenda_mark_attendance(uuid,text)','EXECUTE')
  then raise exception 'AGENDA_V1051_PRIVILEGES_EXPOSED';end if;
 end $test$;
