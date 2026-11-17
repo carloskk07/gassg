@@ -46,7 +46,7 @@ assert.match(panel,/tamao_demo_role=driver/);
 assert.match(panel,/Ambiente demonstrativo/);
 assert.match(panel,/Conferir páginas reais do site/);
 for(const item of ['Home e produtos','Minha conta e Clube','Rede e indicações',
-  'Agenda','Moto e carro','Caronas','Publicidade','Painel da revenda'])
+  'Agenda','Moto e carro','Caronas','Publicidade','Portal da revenda'])
   assert.ok(panel.includes(item),'QA center must include '+item);
 assert.match(panel,/target="_blank" rel="noopener noreferrer"/);
 assert.doesNotMatch(qa,/setSession|access_token|impersonat\w*\s*\(|service_role|signInWithPassword|paymentCreated/);
