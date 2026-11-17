@@ -70,10 +70,12 @@ assert.equal((sponsor.match(/class="sponsor-format-grid"/g)||[]).length,1);
 for(const type of ['visibility','relationship','local'])
  assert.ok(sponsor.includes("openSponsorContact('"+type+"')"));
 assert.match(sponsor,/EXEMPLO DE FORMATO/);
-assert.match(sponsor,/A publicidade comercial depende de validação/);
+assert.match(sponsor,/A publicação depende de inventário disponível/,
+ 'O benefício de divulgação não pode prometer inventário inexistente');
 assert.match(merchant,/merchant-conversion-start/);
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
-assert.match(merchant,/Você decide preços, estoque, formas de pagamento/);
+assert.match(merchant,/Você controla preços, estoque, pagamentos e entregas/,
+ 'A revenda mantém autonomia comercial mesmo com copy mais acolhedora');
 const rail=merchant.slice(merchant.indexOf('merchant-jump-rail'),merchant.indexOf('merchant-cro-steps'));
 assert.equal((rail.match(/<button type="button"/g)||[]).length,2);
 assert.match(rail,/publicLandingJump\('merchant-margin'\)/);

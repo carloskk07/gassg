@@ -91,6 +91,10 @@ function tamaoHomeBenefits({compact=false}={}){
   </section>`;
 }
 
+function tamaoHomeValueOverview(){
+  return globalThis.document?.getElementById('tamao-home-benefits-template')?.innerHTML||'';
+}
+
 function customerProductName(code,p=products[code]){
   const kg=glpKgForProductCode(code);
   if(kg!==null)return kg===13?'Botijão de cozinha 13 kg':`Botijão de gás ${kg} kg`;
@@ -654,8 +658,10 @@ function home(){
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
-    </section>`:''}</div>
+    </section>`:''}
+    ${globalThis.document?.getElementById('tamao-home-strip-template')?.innerHTML||''}
     ${couponBanner}
+    ${typeof tamaoHomeValueOverview==='function'?tamaoHomeValueOverview():''}
     ${adHomeSlot}
     ${tamaoDiscoveryEntryHub()}
     ${reorderCard}

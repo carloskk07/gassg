@@ -37,6 +37,8 @@ jobs:
         run: node tests/network-member-benefit-statement-v1-1045.mjs
       - name: V1.1046 seasonal reward budget, owner approval, UX and financial guardrails
         run: node tests/network-celebra-v1-1046.mjs
+      - name: V1.1047 value-first public copy with honest benefits and responsive paths
+        run: node tests/public-benefit-story-v1-1047.mjs
       - name: V1.1042 cross-module Ads benefits policy, ACL, terms and Admin no-cash controls
         run: node tests/network-module-ads-admin-v1-1042.mjs
       - name: Browser SDK integrity verify
@@ -1271,12 +1273,12 @@ jobs:
           ! grep -Fq 'home-editorial-visual' /tmp/home.html
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
-          grep -Fq 'Indique pessoas, serviços e empresas. Acompanhe seus convites.' /tmp/earn.html
+          grep -Fq 'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.' /tmp/earn.html
           grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
-          grep -q "Sua revenda mais visível." /tmp/merchants.html
-          grep -Fq 'Divulgue sua marca com investimento e entrega claros.' /tmp/sponsors.html
+          grep -Fq 'Você controla preços, estoque, pagamentos e entregas.' /tmp/merchants.html
+          grep -Fq 'Sua marca mais presente nas escolhas da cidade.' /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
           grep -Fq 'Mais clientes descobrindo sua revenda.' /tmp/merchants.html
           grep -Fq 'Recebimento direto na revenda' /tmp/merchants.html

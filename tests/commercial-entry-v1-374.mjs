@@ -26,7 +26,8 @@ assert.ok(heroEnd>0);
 const hero=sponsorHtml.slice(0,heroEnd);
 assert.ok(!hero.includes('sponsor-intent-quick'),
  'no duplicate three-choice selector in the hero');
-assert.ok(hero.includes('Divulgue sua marca com investimento e entrega claros.'));
+assert.ok(hero.includes('Sua marca mais presente nas escolhas da cidade.') && sponsorHtml.includes('A publicação depende de inventário disponível.'),
+ 'Proposta de divulgação acolhedora sem prometer inventário inexistente');
 assert.ok(sponsorHtml.includes('sponsor-format-grid'));
 assert.ok(sponsorHtml.includes('Que tipo de divulgação você procura?'));
 for(const intent of ['visibility','relationship','local']){

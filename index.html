@@ -23,6 +23,41 @@
   <link rel="stylesheet" href="./css/base.css" />
   <link rel="stylesheet" href="./css/components.css" />
   <link rel="stylesheet" href="./css/marketing-premium.css" />
+  <style id="tamao-benefit-story-css">
+/* V1.1047 — benefit-first public communication, no activation or financial claim */
+.tamao-storefront-benefit-strip{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:14px 0 18px;padding:16px 20px;border:1px solid #cfe7d6;border-radius:18px;background:#f0f8f2;color:#194632}
+.tamao-storefront-benefit-strip>div{display:grid;gap:4px;min-width:0}
+.tamao-storefront-benefit-strip strong{font-size:16px;line-height:1.3;letter-spacing:-.025em}
+.tamao-storefront-benefit-strip span{font-size:13px;line-height:1.55;color:#476b54}
+.tamao-storefront-benefit-strip a{display:inline-flex;align-items:center;flex-shrink:0;min-height:44px;padding:10px 14px;border:1px solid #a6cbb0;border-radius:12px;background:#fff;color:#0e6042;font-size:13px;font-weight:850;text-decoration:none}
+.tamao-storefront-benefit-strip a:hover{background:#e0f2e5}
+.tamao-all-benefits{scroll-margin-top:100px;margin-block:clamp(26px,4vw,42px)}
+.tamao-benefits-heading{max-width:850px;margin:0 0 19px}
+.tamao-benefits-heading h2{margin:8px 0 9px;color:#123e2c;font-size:clamp(26px,3.5vw,39px);line-height:1.14;letter-spacing:-.045em;text-wrap:balance}
+.tamao-benefits-heading p{margin:0;font-size:15px;line-height:1.65;color:#4b6856}
+.tamao-benefits-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.tamao-benefit-tile{min-width:0;display:flex;flex-direction:column;align-items:flex-start;padding:clamp(18px,2vw,25px);border:1px solid #d6e5db;border-radius:21px;background:#fff;box-shadow:0 9px 24px rgba(11,67,41,.05)}
+.tamao-benefit-emoji{display:grid;place-items:center;width:48px;height:48px;flex:0 0 48px;border-radius:15px;background:#e9f5ee;font-size:25px;margin-bottom:13px}
+.tamao-benefit-tile:nth-child(2) .tamao-benefit-emoji,.tamao-benefit-tile:nth-child(6) .tamao-benefit-emoji{background:#fff2d7}
+.tamao-benefit-tile h3{margin:0 0 8px;color:#133e2d;font-size:20px;line-height:1.2;letter-spacing:-.025em;text-wrap:balance}
+.tamao-benefit-tile p{margin:0 0 18px;color:#526a59;font-size:13px;line-height:1.6}
+.tamao-benefit-tile button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:45px;margin-top:auto;padding:10px 13px;border:1px solid #c3dfcc;border-radius:12px;background:#edf7f0;color:#0c5a3e;text-align:left;cursor:pointer;font-size:13px;font-weight:850}
+.tamao-benefit-tile button:hover{background:#def0e3;border-color:#a1cbb0}
+.tamao-benefits-details{margin-top:15px;padding:0 17px;border:1px solid #d8e5db;border-radius:15px;background:#fcfdfa;color:#345b44}
+.tamao-benefits-details summary{padding:15px 0;cursor:pointer;font-size:13px;font-weight:800}
+.tamao-benefits-details p{margin:0 0 12px;font-size:13px;line-height:1.65;color:#526957}
+.tamao-benefits-details button{margin:0 0 16px;padding:9px 12px;border:1px solid #d0e2d4;border-radius:9px;background:#f0f7f2;color:#0d6044;font-weight:750;cursor:pointer}
+.tamao-benefit-tile button:focus-visible,.tamao-storefront-benefit-strip a:focus-visible,.tamao-benefits-details summary:focus-visible,.tamao-benefits-details button:focus-visible{outline:3px solid #b98121;outline-offset:3px}
+@media(max-width:900px){.tamao-benefits-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.tamao-storefront-benefit-strip{flex-direction:column;align-items:stretch;padding:16px;gap:11px}.tamao-storefront-benefit-strip a{justify-content:center}.tamao-benefits-grid{grid-template-columns:minmax(0,1fr);gap:10px}.tamao-benefit-tile{padding:18px;border-radius:17px}.tamao-benefit-tile h3{font-size:19px}.tamao-benefits-heading h2{font-size:29px}}
+@media(prefers-reduced-motion:reduce){.tamao-all-benefits,.tamao-storefront-benefit-strip{scroll-behavior:auto}}
+
+/* Accessible, opt-in explanations on Rede and Clube pages */
+details.tamao-network-clarity{margin:14px 0 20px;padding:0 17px;border:1px solid #dce8dd;border-radius:13px;background:#f8fbf8}
+details.tamao-network-clarity summary{padding:14px 0;cursor:pointer;font-size:13px;font-weight:850;color:#1a6041}
+details.tamao-network-clarity p{margin:0 0 15px;font-size:13px;line-height:1.6;color:#476953}
+details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;outline-offset:3px}
+  </style>
   <title>TAMÃO — Faltou em casa? Tá na mão.</title>
 </head>
 <body>
@@ -72,7 +107,7 @@
   <div class="tamao-coupon-banner-copy">
     <span class="tamao-coupon-banner-kicker"><span aria-hidden="true">✦</span> CLUBE TAMÃO <span class="tamao-coupon-banner-dot" aria-hidden="true"></span> CUPONS E DESCONTOS</span>
     <h2>Cupons TAMÃO. <em>Mais economia nas suas compras.</em></h2>
-    <p>Consulte os pacotes de cupons disponíveis, confira as condições e aproveite descontos em compras elegíveis. Você também pode acompanhar cashback e indicações no Clube.</p>
+    <p>Mais vantagens para as suas compras! Conheça os cupons do Clube, acompanhe seu cashback e descubra como aproveitar sua Rede TAMÃO.</p>
     <aside class="tamao-coupon-price-board" hidden aria-label="Preço cadastrado do pacote geral de cupons" style="margin:18px 0;padding:17px 19px;background:#f3ffe9;border:1px solid #c4e8ba;border-radius:15px;color:#174d36;max-width:100%;box-sizing:border-box">
       <span style="font-size:12px;font-weight:850;letter-spacing:.03em">PACOTE GERAL · TODOS OS PRODUTOS ELEGÍVEIS</span>
       <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:9px 0">
@@ -106,7 +141,7 @@
       <button type="button" class="tamao-coupon-banner-main" onclick="go('club')">Ver cupons disponíveis <span aria-hidden="true">→</span></button>
       <button type="button" class="tamao-coupon-banner-alt" onclick="go('earn')">Conhecer a Rede TAMÃO</button>
     </div>
-    <small>Benefícios, pacotes disponíveis e regras de uso são confirmados no Clube e no pedido.</small>
+    <small>Valores, benefícios e condições são confirmados no Clube antes da compra.</small>
   </div>
   <div class="tamao-coupon-banner-scene" aria-hidden="true">
     <div class="tamao-coupon-banner-glow"></div>
@@ -119,6 +154,28 @@
     <div class="tamao-coupon-banner-sticker">💚 <span>Cashback<br><strong>e benefícios</strong></span></div>
   </div>
  </section>
+  </template>
+  <template id="tamao-home-strip-template">
+<div class="tamao-storefront-benefit-strip"><div><strong>Mais motivos para fazer parte do TAMÃO</strong><span>Clube, cashback, indicações, serviços e oportunidades para negócios.</span></div><a href="#tamao-all-benefits">Conhecer todas as vantagens ↓</a></div></div>
+  </template>
+  <template id="tamao-home-benefits-template">
+<section id="tamao-all-benefits" class="section tamao-all-benefits" aria-label="Descubra todas as vantagens do TAMÃO">
+    <div class="tamao-benefits-heading"><span class="section-kicker">UM TAMÃO DE VANTAGENS</span>
+      <h2>Tem muito mais para você no TAMÃO.</h2>
+      <p>Comprar, economizar, encontrar serviços, indicar pessoas ou fazer seu negócio aparecer. Tudo começa escolhendo o que faz sentido para você.</p></div>
+    <div class="tamao-benefits-grid">
+      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🔎</span><h3>Compare e escolha com tranquilidade</h3><p>Veja produtos, preços e entrega para seu CEP. Acompanhe seus pedidos em um só lugar.</p><button type="button" onclick="homeDiscoverFocus()">Explorar produtos <span aria-hidden="true">→</span></button></article>
+      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🎟️</span><h3>O Clube valoriza suas compras</h3><p>Descubra cupons, acompanhe seu cashback e veja os benefícios que já estão na sua conta.</p><button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button></article>
+      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🤝</span><h3>Indicar também é participar</h3><p>Convide amigos e negócios para diferentes áreas do TAMÃO. Acompanhe indicações, conquistas e a origem de cada benefício no extrato.</p><button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button></article>
+      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🛵</span><h3>Serviços para facilitar o seu dia</h3><p>Encontre moto, carro, profissionais e caronas anunciadas. Escolha com quem conversar e combine o atendimento.</p><button type="button" onclick="go('professionals')">Encontrar profissionais <span aria-hidden="true">→</span></button></article>
+      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">🏪</span><h3>Sua revenda pode crescer aqui</h3><p>Mostre seus produtos, receba oportunidades de pedidos e mantenha o controle da sua operação.</p><button type="button" onclick="go('merchants')">Quero ser parceiro <span aria-hidden="true">→</span></button></article>
+      <article class="tamao-benefit-tile"><span class="tamao-benefit-emoji" aria-hidden="true">📣</span><h3>Sua marca mais perto da cidade</h3><p>Apresente sua empresa com campanhas locais e descubra ações que valorizam a relação com clientes.</p><button type="button" onclick="go('sponsors')">Divulgar minha marca <span aria-hidden="true">→</span></button></article>
+    </div>
+    <details class="tamao-benefits-details"><summary>Como funcionam os benefícios e campanhas?</summary>
+      <p>Os benefícios variam conforme o produto, a cidade, a campanha e a situação da sua conta. Cupons, cashback, comissões e bônus só são utilizados ou creditados quando estiverem habilitados e os critérios forem atendidos. Antes de comprar, participar de uma campanha ou solicitar saque, você verá as condições específicas e os valores correspondentes.</p>
+      <button type="button" onclick="go('earn')">Ver regras e oportunidades da Rede →</button>
+    </details>
+  </section>
   </template>
   <template id="tamao-coupon-terms-template">
   <p>Quando um pacote estiver disponível para compra, o TAMÃO informará antes do Pix o preço, a quantidade e o valor de cada desconto, o prazo de uso e a compra mínima. Cada cupom poderá ser utilizado uma vez, em apenas um pedido elegível, de acordo com o catálogo, a disponibilidade de revendas para o CEP e as regras informadas no pacote. A compra dos cupons não reserva produto, entrega nem disponibilidade de uma loja; os direitos de desconto ficam vinculados à conta do comprador.</p>

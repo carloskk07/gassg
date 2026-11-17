@@ -14,9 +14,9 @@ const ctx={
 };
 vm.runInNewContext(src.slice(start,end)+';this.club=club;',ctx);
 const guest=ctx.club();
-assert.match(guest,/Cupons na sua conta/);
-assert.match(guest,/Cashback elegível/);
-assert.match(guest,/Compare pelo CEP/);
+assert.match(guest,/Descontos para aproveitar/);
+assert.match(guest,/Cashback para voltar/);
+assert.match(guest,/Mais controle da sua economia/);
 assert.match(guest,/value="login"/);
 assert.match(guest,/value="register"/);
 assert.doesNotMatch(guest,/SEU CASHBACK DISPONÍVEL|R\$ 0\.00|member-vouchers/);
@@ -26,7 +26,7 @@ assert.match(ctx.club(),/R\$ 7\.25/,'Internal demo uses explicit test flag to ex
 ctx.globalThis.__CHAMA_TEST__=false;
 ctx.globalThis.liveReady=()=>true;
 ctx.globalThis.liveRuntime.session={user:{id:'member-1',is_anonymous:false,email_confirmed_at:null}};
-assert.match(ctx.club(),/Cupons na sua conta/,'Pending email remains public');
+assert.match(ctx.club(),/Descontos para aproveitar/,'Pending email remains public');
 ctx.globalThis.liveRuntime.session={user:{id:'member-1',is_anonymous:false,email_confirmed_at:'2026-11-07T00:00:00Z'}};
 ctx.state.user={cashback:7.25,purchases:2,cashbackDebt:0};
 const member=ctx.club();

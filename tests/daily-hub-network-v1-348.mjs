@@ -65,8 +65,10 @@ assert.equal(focusContext.jump('unknown'),false);
 const earn=growth.slice(growth.indexOf('function earn(){'),growth.indexOf('\nfunction ',growth.indexOf('function earn(){')+15));
 assert.match(earn,/tamao-network-hero/);
 assert.match(earn,/tamao-network-illustration/);
-assert.match(earn,/Nenhum compartilhamento, cadastro isolado ou convite garante pagamento/);
-assert.match(earn,/Comissão depende de uma compra real, válida e das condições de cada programa/);
+assert.match(earn,/Um compartilhamento ou cadastro isolado não gera pagamento/,
+ 'A Rede não deve prometer pagamentos por convites sem conversão válida');
+assert.match(earn,/Comissões exigem eventos reais, programa habilitado e validação/,
+ 'A Rede precisa condicionar comissões a transações verificadas e programa habilitado');
 assert.match(earn,/go\('refer'\)/);
 assert.match(earn,/go\('club'\)/);
 assert.match(earn,/go\('merchants'\)/);
