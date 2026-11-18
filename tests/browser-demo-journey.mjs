@@ -423,8 +423,8 @@ try{
  const directScenarios=[
   ['merchant',`route()==='merchant'&&state.mode==='merchant'`],
   ['driver',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Entregador —')`],
-  ['club',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Meu Clube')`],
-  ['network',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Minha Rede')`],
+  ['club',`route()==='club'&&document.querySelector('#tamao-main')?.textContent.includes('CLUBE TAMÃO')`],
+  ['network',`route()==='refer'&&document.querySelector('#tamao-main')?.textContent.includes('SEU LINK PESSOAL')`],
   ['agenda',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Agenda profissional')`],
   ['admin',`document.querySelector('.tamao-demo-dialog[data-open="true"]')?.textContent.includes('Admin — pedidos')`],
   ['customer',`route()==='home'&&state.mode==='customer'`],
@@ -435,6 +435,20 @@ try{
   await wait("window.TAMAO_BROWSER_DEMO===true&&("+condition+")",'direct no-login '+role,12000);
   assert.equal(await evaluate('window.__CHAMA_TEST__'),true);
   assert.equal(await evaluate('window.CHAMA_INTERNAL_PILOT'),false);
+  const workspace=['driver','admin','agenda'].includes(role);
+  const pageProof=await evaluate("(()=>{const app=document.querySelector('.app'),p=document.querySelector('.tamao-demo-dialog');return {app:getComputedStyle(app).display,workspace:getComputedStyle(p).display,pageRole:p.getAttribute('role'),hash:location.hash,width:document.documentElement.scrollWidth}})()");
+  if(workspace){
+   assert.equal(pageProof.app,'none',role+' must hide entire Home');
+   assert.equal(pageProof.workspace,'block',role+' must render as a separate full-page view');
+   assert.equal(pageProof.pageRole,'main','workspace is a page, not a modal');
+   assert.equal(pageProof.hash,'#teste-'+role,'workspace has distinct URL');
+   assert.ok(pageProof.width<=392,'workspace must fit mobile: '+JSON.stringify(pageProof));
+   if(role==='admin')await snapshot('13-admin-pagina-separada.png');
+   if(role==='driver')await snapshot('14-entregador-pagina-separada.png');
+  }else{
+   assert.notEqual(pageProof.app,'none','native '+role+' must display its routed page');
+   assert.equal(pageProof.workspace,'none','native '+role+' must not use a modal');
+  }
   if(role==='agenda'){
    await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent.includes('Reservar horário'));if(!b)return false;b.click();return true})()");
    await wait("document.querySelector('.tamao-demo-panel')?.textContent.includes('Reservado')",'fictitious agenda booking');
@@ -444,6 +458,16 @@ try{
   }
   if(role==='merchant')await snapshot('12-admin-sem-login-revenda-simulada.png');
  }
+ await send('Page.navigate',{url:base+'?tamao_demo_role=admin#home'});
+ await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.textContent.includes('Admin — pedidos')",'admin page before returning to customer');
+ await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-panel button')].find(x=>x.textContent==='Fechar');if(!b)return false;b.click();return true})()");
+ await wait("route()==='tracking'&&getComputedStyle(document.querySelector('.app')).display!=='none'&&document.querySelector('.tamao-demo-dialog')?.dataset.open==='false'",'closing Admin restores customer route');
+ assert.equal(await evaluate("new URLSearchParams(location.search).get('tamao_demo_role')"),'customer');
+ await send('Page.navigate',{url:base+'?tamao_demo_role=admin#home'});
+ await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.textContent.includes('Admin — pedidos')",'admin for switching');
+ await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-nav button')].find(x=>x.textContent==='Agenda');if(!b?.getClientRects().length)return false;b.click();return true})()");
+ await wait("location.hash==='#teste-agenda'&&document.querySelector('.tamao-demo-panel')?.textContent.includes('Agenda profissional')",'Admin to separate Agenda page');
+ assert.equal(await evaluate("getComputedStyle(document.querySelector('.app')).display"),'none');
  assert.deepEqual(forbidden,[],'QA shortcuts must not contact production or PSP');
  assert.deepEqual(forbidden,[],'P13 demo must never contact the production backend or PSP');
  console.log('PASS: hosted demo mobile Chrome WATER20 + P13 synthetic orders, two completed Admin entries, incorrect PIN and unpaid delivery rejected, reload persisted, zero production API/PSP.');
