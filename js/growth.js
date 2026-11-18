@@ -320,7 +320,7 @@ function tamaoGrowthInviteUrl(audience='customer'){
     ?TAMAO_NETWORK_INVITE_TARGETS[audience]:TAMAO_NETWORK_INVITE_TARGETS.customer;
   const code=String(state.user?.referralCode||'').trim().toUpperCase();
   const activeCode=/^[A-Z0-9]{5,40}$/.test(code)?code:'';
-  return tamaoNetworkPageLink(activeCode,{audience});
+  return activeCode?tamaoNetworkPageLink(activeCode,{audience}):'https://tamao.com.br/#'+target.route;
 }
 async function shareTamaoGrowthInvite(audience='customer'){
   const code=String(state.user?.referralCode||'').trim().toUpperCase();
