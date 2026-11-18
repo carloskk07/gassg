@@ -744,7 +744,7 @@ function adminClearSearch(){
   render();
 }
 function adminFocusSearch(){
-  const input=document.getElementById('admin-global-search');
+  const input=document.getElementById(adminRuntime.section==='testcenter'?'admin-support-search':'admin-global-search');
   if(!input)return;
   input.focus();
   input.select();
@@ -12408,7 +12408,7 @@ function adminPage(){
       <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending||adminRuntime.refreshPending?'disabled':''}><span aria-hidden="true">↻</span> ${adminRuntime.refreshPending?'Conferindo…':'Atualizar'}</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
     </header>
     ${adminOperationalStrip(d)}
-    <div class="admin-workspace-tools">${adminGlobalSearchView()}
+    <div class="admin-workspace-tools">${sectionActive('testcenter')?'':adminGlobalSearchView()}
     ${adminTaskNavView()}</div>
     ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
     <div class="admin-workspace">

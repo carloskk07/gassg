@@ -39,7 +39,8 @@ const ctx={
 vm.runInNewContext(qa+'\nthis.view=adminTestCenterView;',ctx);
 let panel=ctx.view();
 assert.match(panel,/Áreas oficiais do TAMÃO/);
-assert.match(panel,/Gerenciar e ajudar participantes/);
+assert.match(panel,/Localizar e ajudar alguém/);
+assert.match(panel,/Configurações e suporte/);
 assert.ok(panel.indexOf('Áreas oficiais do TAMÃO') < panel.indexOf('Testes isolados (opcional)'));
 assert.match(panel,/data-admin-official-page/);
 assert.match(panel,/tamao_demo_role=customer/);
@@ -60,12 +61,12 @@ const registered={};
 const withDocument={...ctx,document:{addEventListener:(type,callback)=>{registered[type]=callback}}};
 vm.runInNewContext(qa,withDocument);
 assert.equal(typeof registered.click,'function');
-registered.click({target:{closest:()=>({getAttribute:()=> 'orders'})}});
+registered.click({target:{closest:selector=>selector==='[data-admin-test-section]'?{getAttribute:()=> 'orders'}:null}});
 assert.deepEqual(accessed,['orders']);
-registered.click({target:{closest:()=>({getAttribute:()=> 'evil'})}});
+registered.click({target:{closest:selector=>selector==='[data-admin-test-section]'?{getAttribute:()=> 'evil'}:null}});
 assert.deepEqual(accessed,['orders']);
 role='readonly';
-registered.click({target:{closest:()=>({getAttribute:()=> 'finance'})}});
+registered.click({target:{closest:selector=>selector==='[data-admin-test-section]'?{getAttribute:()=> 'finance'}:null}});
 assert.deepEqual(accessed,['orders']);
 
 // Public shell shows a visible entrance on every customer page, including mobile.
