@@ -189,7 +189,7 @@
     panel.append(make('span',' '));
     panel.append(button('Continuar na Revenda',openMerchant));
     panel.append(make('span',' '));
-    panel.append(button('Fechar',()=>setAdmin(false)));
+    panel.append(button('Fechar',openCustomer));
   }
   // This is a phone/browser capability check only, NOT the protected
   // offline-delivery workflow. It never stores a real order, PIN or payment.
@@ -478,7 +478,7 @@
     deviceStatus.setAttribute('aria-live','polite');
     panel.append(deviceStatus);
     panel.append(make('p','Verifique se este aparelho consegue guardar comprovantes protegidos.'));
-    panel.append(button('Fechar',()=>setDriver(false)));
+    panel.append(button('Fechar',openCustomer));
   }
   function setDriver(open){
     driverOpen=Boolean(open);adminOpen=false;demoPreviewMode='';
@@ -536,7 +536,7 @@
   
     }
     panel.append(button('Voltar ao Cliente',openCustomer));
-    panel.append(button('Fechar',()=>setAdmin(false)));
+    panel.append(button('Fechar',openCustomer));
   }
   function openDemoPreview(type){
     if(!['club','network','agenda'].includes(type))return;
@@ -650,7 +650,7 @@
   }));
   dialog.append(panel);
   // A dedicated page does not close on background taps; use its explicit controls.
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen||demoPreviewMode)setAdmin(false)}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(driverOpen||adminOpen||demoPreviewMode))openCustomer();});
   tools.append(heading,detail,areaToggle,nav);
   tools.append(progress);
   updateGuide();
