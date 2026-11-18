@@ -15,6 +15,7 @@ assert.match(menu,/Para você/);
 assert.match(menu,/Para seu negócio/);
 for(const [href,label] of [
  ['#club','Minha conta e Clube'],
+ ['#tracking','Meus pedidos'],
  ['#earn','Minha Rede'],
  ['/agenda/','Minha agenda'],
  ['https://parceiro.tamao.com.br/','Revenda ou entregador'],
@@ -23,7 +24,7 @@ for(const [href,label] of [
  assert.ok(menu.includes('href="'+href+'"'),href+' não encontrado');
  assert.ok(menu.includes('<strong>'+label+'</strong>'),label+' não encontrado');
 }
-assert.equal((menu.match(/class="tamao-account-entry(?: tamao-account-entry-primary)?"/g)||[]).length,5);
+assert.equal((menu.match(/class="tamao-account-entry(?: tamao-account-entry-primary)?"/g)||[]).length,6);
 assert.doesNotMatch(menu,/admin\.tamao\.com\.br|Administraç|superadmin|painel administrativo/i,
  'Admin não deve estar na navegação pública');
 assert.match(core,/accountAccess=adminPortal\|\|merchantPortal\|\|testDemo\?'':/);
@@ -33,4 +34,4 @@ assert.match(css,/@media\(max-width:390px\)/);
 assert.match(css,/tamao-account-entry:focus-visible/);
 assert.match(css,/\.tamao-account-access-panel\{[^}]*max-width:calc\(100vw - 24px\)/);
 assert.match(builder,/role==='customer'/);
-console.log('V1.1056 PASS: menu de entrada com cinco áreas, sem Admin público, estilos e navegação acessível.');
+console.log('V1.1056 PASS: menu de entrada com seis áreas, sem Admin público, estilos e navegação acessível.');
