@@ -39,7 +39,7 @@ assert.equal((empty.match(/id="agenda-directory"/g)||[]).length,1);
 setup({ownerMode:true});
 const auth=render();
 assert.match(auth,/Primeiro, confirme seu e-mail/);
-assert.ok(auth.indexOf('Primeiro, confirme seu e-mail')<auth.indexOf('id="agenda-directory"'));
+assert.doesNotMatch(auth,/id="agenda-directory"/,'Owner login stays focused until authentication');
 ctx.location.pathname='/agenda/barbearia-da-praca';
 setup({ownerMode:false,slug:'barbearia-da-praca'});
 const direct=render();
