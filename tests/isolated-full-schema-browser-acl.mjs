@@ -39,6 +39,8 @@ FROM (
  OR has_table_privilege('authenticated',c.oid,'DELETE'))
 ) z`;
 const allowedTables={
+ // Reviewed Agenda design table: published pages are readable, writes require owner+verification RLS.
+ agenda_page_design:{anon:['SELECT'],auth:['INSERT','SELECT','UPDATE'],policies:['agenda_design_public_select','agenda_design_owner_insert','agenda_design_owner_update']},
  agenda_service_deposit_settings:{anon:[],auth:['SELECT'],policies:['agenda_deposit_settings_owner_read']},
  agenda_staff_blocks:{anon:[],auth:['SELECT'],policies:['agenda_staff_blocks_owner_read']},
  agenda_waitlist:{anon:[],auth:['SELECT'],policies:['agenda_waitlist_participants_read']},
