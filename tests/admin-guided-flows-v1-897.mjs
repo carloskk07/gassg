@@ -103,7 +103,7 @@ x.open('not-real');assert.equal(x.rendered,1);
 x.role=false;x.open('orders');assert.equal(x.rendered,1);
 
 // Task picker "Suporte" must actually select the support sub-workspace.
-const nav=take('function adminSelectTaskFromUi(){','function adminTaskNavView(){');
+const nav=take('function adminOpenTask(taskId){','function adminTaskNavView(){');
 const sel={adminOrdersWorkspaceTab:'orders',adminPartnersWorkspaceTab:'queue',
  adminRuntime:{financeWorkspace:'summary'},chosen:'support',section:'',
  adminReady:()=>true,
