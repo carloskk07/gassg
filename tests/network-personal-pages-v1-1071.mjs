@@ -106,9 +106,11 @@ function makeNode(id){
 function landing(search){
  const ids=Object.fromEntries(['title','message','primary','inviter','areas'].map(id=>[id,makeNode(id)]));
  const body={classList:{active:'theme-clean',replace(old,next){if(this.active===old)this.active=next}}};
- const doc={body,getElementById:id=>ids[id],createElement:tag=>makeNode(tag)};
+ const exits=[makeNode('brand-link'),makeNode('footer-link')];
+ const doc={body,getElementById:id=>ids[id],createElement:tag=>makeNode(tag),
+  querySelectorAll:selector=>selector==='.logo, footer a'?exits:[]};
  vm.runInNewContext(page,{location:{search},URLSearchParams,document:doc,console});
- return {ids,body};
+ return {ids,body,exits};
 }
 let actual=landing('?ref='+owner+'&a=merchant&t=gold&n=Ana&m='+encodeURIComponent('Conheça nossa plataforma'));
 assert.equal(actual.body.classList.active,'theme-gold');
@@ -120,6 +122,11 @@ let primary=new URL(actual.ids.primary.href);
 assert.equal(primary.searchParams.get('ref'),owner);
 assert.equal(primary.hash,'#merchants');
 assert.equal(actual.ids.areas.children.length,7);
+for(const exit of actual.exits){
+ const url=new URL(exit.href);
+ assert.equal(url.searchParams.get('ref'),owner,'Brand and footer links must retain first-touch code');
+ assert.equal(url.hash,'#home');
+}
 for(const node of actual.ids.areas.children){
  const route=new URL(node.href);
  assert.equal(route.origin,'https://tamao.com.br','Never open external redirect');
