@@ -59,6 +59,8 @@ for(const dir of dirs){
 // silently produces a 404 in official Cloudflare production.
 if(!fs.existsSync(path.join(root,'agenda','index.html')))throw new Error('TAMÃO Agenda public page missing');
 fs.cpSync(path.join(root,'agenda'),path.join(out,'agenda'),{recursive:true});
+if(!fs.existsSync(path.join(root,'convite','index.html')))throw new Error('Página pública de convite ausente');
+fs.cpSync(path.join(root,'convite'),path.join(out,'convite'),{recursive:true});
 
 function patchCloudflareIndex(){
   const file=path.join(out,'index.html');
