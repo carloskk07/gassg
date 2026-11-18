@@ -134,7 +134,7 @@ function agendaQuickStartView(){
 // when the actual page owner is editing their established booking business.
 let agendaNativePageLoading=false,agendaNativePageFailed=false;
 function agendaNativePageOwnerPanel(id){
- if(!agendaUuid.test(String(id||'')))return '';
+ if(typeof document==='undefined'||!agendaUuid.test(String(id||'')))return '';
  if(typeof globalThis.tamaoNativePagePanel==='function')
   return globalThis.tamaoNativePagePanel('agenda',id);
  if(agendaNativePageFailed)return '<p class="tiny muted">Não foi possível carregar a página de divulgação.</p>';
