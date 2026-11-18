@@ -35,6 +35,8 @@ jobs:
         run: node tests/network-direct-module-rewards-v1-1044.mjs
       - name: V1.1045 authenticated benefits ledger provenance, privacy and read-only contract
         run: node tests/network-member-benefit-statement-v1-1045.mjs
+      - name: V1.1065 participant ledger understandable origins and actual payout states
+        run: node tests/member-benefits-clarity-v1-1065.mjs
       - name: V1.1046 seasonal reward budget, owner approval, UX and financial guardrails
         run: node tests/network-celebra-v1-1046.mjs
       - name: V1.1047 value-first public copy with honest benefits and responsive paths
