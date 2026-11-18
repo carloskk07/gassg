@@ -531,7 +531,7 @@ function merchantGrowthNetworkSection(merchant){
           <button class="primary" onclick="merchantGrowthShareFromUi(document.getElementById('merchant-network-target').value)">Convidar</button>
         </div>`
         :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
-      ${valid&&typeof tamaoNetworkPageBuilder==='function'?tamaoNetworkPageBuilder('merchant'):''}
+      ${valid&&typeof tamaoNetworkPageBuilderPanel==='function'?tamaoNetworkPageBuilderPanel('merchant'):''}
       ${globalThis.merchantRuntime?.growthError?
         '<div class="notice danger">'+esc(globalThis.merchantRuntime.growthError)+'</div>':''}
       ${valid&&growth?.packageNetwork?.available===true&&
@@ -578,7 +578,8 @@ async function merchantGrowthShareFromUi(type='merchant'){
     return toast('Carregue primeiro o código da sua revenda');
   }
   const audience=['customer','merchant','professional','mobility','rides','club','sponsor'].includes(type)?type:'merchant';
-  const linkOptions=tamaoNetworkPageFormOptions('merchant')||{};
+  const linkOptions=typeof globalThis.tamaoNetworkPageFormOptions==='function'
+    ?tamaoNetworkPageFormOptions('merchant')||{}:{};
   const url=tamaoNetworkPageLink(network.inviteCode,{...linkOptions,audience});
   const message='TAMÃO: '+url;
   try{
