@@ -1,4 +1,8 @@
 /* TAMÃO Agenda — temas configuráveis em páginas de profissionais reais. */
+.agenda-premium.font-modern,.agenda-design-live.font-modern{font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
+.agenda-premium.font-classic,.agenda-design-live.font-classic{font-family:Georgia,'Times New Roman',serif}
+.agenda-premium.font-friendly,.agenda-design-live.font-friendly{font-family:'Trebuchet MS',Verdana,sans-serif}
+
 .agenda-design-editor{grid-column:1/-1;scroll-margin-top:24px}
 .agenda-design-editor form{display:grid;gap:20px}
 .agenda-design-editor fieldset{border:1px solid #d7e5dc;border-radius:17px;padding:18px;min-width:0}
