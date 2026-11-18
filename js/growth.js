@@ -291,7 +291,7 @@ function tamaoNetworkPageLink(code,options={}){
  const u=new URL('https://tamao.com.br/convite/');
  u.searchParams.set('ref',value);u.searchParams.set('a',audience);
  if(theme!=='clean')u.searchParams.set('t',theme);
- if(name&&/^[\p{L}\p{M}0-9 .'\-]{1,48}$/u.test(name))u.searchParams.set('n',name);
+ if(name&&/^[\p{L}\p{M}0-9 .&'\-]{1,48}$/u.test(name))u.searchParams.set('n',name);
  if(message&&!/[\u0000-\u001f<>]/.test(message))u.searchParams.set('m',message);
  return u.href;
 }
