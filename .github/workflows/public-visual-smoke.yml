@@ -9,6 +9,9 @@ on:
       - 'js/agenda.js'
       - 'js/agenda-design.js'
       - 'tests/agenda-one-minute-premium-browser-v1-1070.mjs'
+      - 'convite/**'
+      - 'js/growth.js'
+      - 'tests/network-personal-pages-browser-v1-1071.mjs'
       - 'tests/agenda-premium-example-browser-v1-1068.mjs'
       - 'js/customer.js'
       - 'js/ads-display.js'
@@ -117,6 +120,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/agenda-one-minute-premium-browser-v1-1070.mjs
+
+      - name: V1.1071 real Chrome premium personalized invitations and first-touch URLs
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/network-personal-pages-browser-v1-1071.mjs
 
       - name: Verify storefront, cart editing, refresh and Club across 20 viewport widths
         env:
