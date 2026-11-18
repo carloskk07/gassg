@@ -22,6 +22,7 @@ function agendaDesignCurrent(){
   template:agendaDesignThemes[d.template]?d.template:'clean',
   primary_color:agendaDesignColor(d.primary_color,t.primary),
   accent_color:agendaDesignColor(d.accent_color,t.accent),
+  font_style:['modern','classic','friendly'].includes(d.font_style)?d.font_style:'modern',
   headline:String(d.headline||'').slice(0,100),
   tagline:String(d.tagline||'').slice(0,220),
   cover_index:agendaDesignIndex(d.cover_index),
@@ -80,7 +81,7 @@ function agendaDesignPreviewMarkup(input,profile){
  const primary=agendaDesignColor(input.primary_color,theme.primary);
  const accent=agendaDesignColor(input.accent_color,theme.accent);
  const cover=agendaDesignPhoto(profile,input.cover_index);
- return '<div class="agenda-design-live theme-'+template+'" style="--ap-primary:'+primary+';--ap-accent:'+accent+'">'+
+ return '<div class="agenda-design-live theme-'+template+' font-'+(['modern','classic','friendly'].includes(input.font_style)?input.font_style:'modern')+'" style="--ap-primary:'+primary+';--ap-accent:'+accent+'">'+
   '<div class="agenda-design-live-cover">'+(cover?'<img src="'+esc(cover)+'" alt="">':'')+
   '<strong>'+agendaDesignEscape(input.headline||profile.title||'Seu estabelecimento')+'</strong>'+
   '<span>'+agendaDesignEscape(input.tagline||'Seu atendimento, do seu jeito.')+'</span></div>'+
@@ -108,6 +109,7 @@ function agendaDesignOwnerEditor(){
   '<fieldset><legend>2 · Personalize o visual e o conteúdo</legend><div class="agenda-design-two">'+
    '<label>Cor principal <input name="primary_color" type="color" value="'+esc(d.primary_color)+'"></label>'+
    '<label>Cor de destaque <input name="accent_color" type="color" value="'+esc(d.accent_color)+'"></label>'+
+   '<label>Estilo da fonte <select name="font_style">'+[['modern','Moderna'],['classic','Clássica'],['friendly','Acolhedora']].map(([v,l])=>'<option value="'+v+'"'+(v===d.font_style?' selected':'')+'>'+l+'</option>').join('')+'</select></label>'+
    '<label>Título em destaque <input name="headline" maxlength="100" value="'+agendaDesignEscape(d.headline)+'" placeholder="'+agendaDesignEscape(p.title)+'"></label>'+
    '<label>Frase de apresentação <input name="tagline" maxlength="220" value="'+agendaDesignEscape(d.tagline)+'" placeholder="Seu cuidado merece o melhor"></label>'+
   '</div>'+
@@ -181,6 +183,7 @@ function agendaDesignPreview(){
  target.innerHTML=agendaDesignPreviewMarkup({
   template,primary_color:agendaDesignColor(f.get('primary_color'),t.primary),
   accent_color:agendaDesignColor(f.get('accent_color'),t.accent),
+  font_style:f.get('font_style'),
   headline:f.get('headline'),tagline:f.get('tagline'),cover_index:f.get('cover_index')
  },agendaRuntime.page);
 }
@@ -205,6 +208,7 @@ async function agendaDesignSave(event){
   page_id:s.page.id,template,
   primary_color:agendaDesignColor(f.get('primary_color'),theme.primary),
   accent_color:agendaDesignColor(f.get('accent_color'),theme.accent),
+  font_style:['modern','classic','friendly'].includes(f.get('font_style'))?f.get('font_style'):'modern',
   headline:String(f.get('headline')||'').trim(),
   tagline:String(f.get('tagline')||'').trim(),
   cover_index:agendaDesignIndex(f.get('cover_index')),
@@ -295,7 +299,7 @@ function agendaDesignPublicView(p,bookingForm){
   (insta?'<a target="_blank" rel="noopener noreferrer" href="https://www.instagram.com/'+encodeURIComponent(insta)+'/">Instagram</a>':'')+
   '</div></section>':'';
  const booking=realService.length?bookingForm:'<section class="agenda-panel"><h2>Em preparação</h2><p>Os serviços ainda não estão disponíveis para agendar.</p></section>';
- return '<div class="agenda-premium theme-'+d.template+'" style="--ap-primary:'+color+';--ap-accent:'+accent+'">'+
+ return '<div class="agenda-premium theme-'+d.template+' font-'+d.font_style+'" style="--ap-primary:'+color+';--ap-accent:'+accent+'">'+
   '<nav class="agenda-premium-nav" aria-label="Navegação do estabelecimento"><a href="#inicio">'+safe(p.title)+'</a>'+
   '<div><a href="#servicos">Serviços</a>'+(d.show_about?'<a href="#sobre">Sobre</a>':'')+
   (d.show_team&&team.length?'<a href="#equipe">Equipe</a>':'')+
