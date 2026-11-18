@@ -97,7 +97,9 @@ function agendaDesignOwnerEditor(){
   '<div class="agenda-design-heading"><div><span class="section-kicker">SUA IDENTIDADE</span><h2>Personalize sua página</h2>'+
   '<p>Escolha um estilo, ajuste os detalhes e veja uma prévia. As reservas continuam na sua agenda oficial.</p></div>'+
   (p.published?'<a class="agenda-design-view" href="'+esc(agendaShareLink(p.slug))+'" target="_blank" rel="noopener noreferrer">Abrir minha página</a>':'')+'</div>'+
-  '<form id="agenda-design-form" onsubmit="return agendaDesignSave(event)" oninput="agendaDesignPreview()" onchange="agendaDesignPreview()">'+
+  '<div class="agenda-design-upload"><label>Adicionar foto à minha página ('+photos.length+'/6)'+
+  '<input type="file" accept="image/jpeg,image/png,image/webp" onchange="agendaDesignUploadPhoto(event)"'+(photos.length>=6||s.busy?' disabled':'')+'></label></div>'+
+  '<form id="agenda-design-form" onsubmit="return agendaDesignSave(event)" oninput="agendaDesignPreview()" onchange="agendaDesignThemeChanged(event)">'+
   '<fieldset class="agenda-design-models"><legend>1 · Escolha um modelo</legend><div class="agenda-design-model-grid">'+
   Object.entries(agendaDesignThemes).map(([key,theme])=>
    '<label class="agenda-design-model theme-'+key+'"><input type="radio" name="template" value="'+key+'"'+(key===d.template?' checked':'')+'>'+
@@ -127,6 +129,49 @@ function agendaDesignOwnerEditor(){
   '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar personalização</button>'+
   '<p class="agenda-design-hint">O visual salvo aparece no seu link oficial quando a agenda estiver publicada. Fotos e informações são controladas por você.</p>'+
   '</form></section>';
+}
+function agendaDesignThemeChanged(event){
+ const form=document.getElementById('agenda-design-form');
+ if(event?.target?.name==='template'&&form){
+  const theme=agendaDesignThemes[event.target.value];
+  if(theme){
+   const primary=form.querySelector('[name="primary_color"]');
+   const accent=form.querySelector('[name="accent_color"]');
+   if(primary)primary.value=theme.primary;
+   if(accent)accent.value=theme.accent;
+  }
+ }
+ agendaDesignPreview();
+}
+async function agendaDesignUploadPhoto(event){
+ const s=agendaRuntime,p=s.page;
+ const file=event?.target?.files?.[0]||null;
+ if(!file||s.busy||!p?.id||!s.user?.id)return;
+ if((p.photo_paths||[]).length>=6||!['image/jpeg','image/png','image/webp'].includes(file.type)||
+  file.size<1||file.size>5242880){
+  s.error='Escolha uma foto JPG, PNG ou WebP de até 5 MB. O limite é de seis imagens.';render();return;
+ }
+ const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
+ const key=s.user.id+'/'+crypto.randomUUID()+'.'+ext;
+ s.busy=true;s.error='';s.notice='';
+ let uploaded=false;
+ try{
+  const result=await s.client.storage.from('tamao-discovery-photos').upload(key,file,{
+   contentType:file.type,cacheControl:'3600',upsert:false
+  });
+  if(result.error)throw result.error;uploaded=true;
+  const {data,error}=await s.client.from('agenda_pages').update({
+   photo_paths:[...(p.photo_paths||[]),key]
+  }).eq('id',p.id).eq('owner_id',s.user.id).select('*').single();
+  if(error||!data?.photo_paths?.includes(key))throw error||Error('photo not recorded');
+  s.page=data;
+  await agendaRefreshOwner();
+  s.notice='Foto adicionada! Agora você pode escolhê-la como capa, marca ou imagem de serviços e equipe.';
+ }catch(_){
+  if(uploaded){try{await s.client.storage.from('tamao-discovery-photos').remove([key]);}catch(_){}}
+  s.error='Não foi possível adicionar a foto. Suas reservas permanecem inalteradas.';
+ }
+ s.busy=false;render();
 }
 function agendaDesignPreview(){
  const form=document.getElementById('agenda-design-form'),target=document.getElementById('agenda-design-preview');
