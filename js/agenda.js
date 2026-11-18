@@ -411,7 +411,7 @@ function agendaPublicView(){
      '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>'):
     '<div class="agenda-login-prompt"><p>Entre pelo seu e-mail para confirmar este horário.</p>'+agendaLoginForm()+'</div>'):'')+
   queueForm+'</section>';
- if(s.design&&typeof agendaDesignPublicView==='function')return agendaDesignPublicView(p,form);
+ if(typeof agendaDesignPublicView==='function')return agendaDesignPublicView(p,form);
  return '<div class="agenda-public-grid"><section class="agenda-panel agenda-showcase">'+
   '<span class="section-kicker">PROFISSIONAL NO TAMÃO</span><h1>'+esc(p.title)+'</h1>'+
   '<p>'+esc(p.about||'Agende seu atendimento pelo TAMÃO.')+'</p>'+
@@ -613,7 +613,7 @@ function agendaPage(){
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
  // A customized professional page is a standalone storefront, not a subpanel of the TAMÃO landing.
- if(slug&&s.publicProfile?.id&&s.design&&typeof agendaDesignPublicView==='function')
+ if(slug&&s.publicProfile?.id&&typeof agendaDesignPublicView==='function')
   return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+'</section>');
  const ownerInvite='<div class="agenda-intro"><div class="agenda-example-invite">'+
   '<div class="agenda-example-copy"><span class="section-kicker">SUA MARCA PODE TER UMA PÁGINA ASSIM</span>'+
