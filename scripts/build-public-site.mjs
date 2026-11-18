@@ -3,6 +3,7 @@ import path from 'node:path';
 import {buildRuntimeConfig} from './generate-runtime-config.mjs';
 import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from './build-public-landing-pages.mjs';
 import {writeDiscoveryLandingPages,DISCOVERY_LANDING_SLUGS} from './build-discovery-landings.mjs';
+import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from './cloudflare-native-routes-v1-1073.mjs';
 
 const root=path.resolve(new URL('..',import.meta.url).pathname);
 const outName=process.argv[2]||'dist';
@@ -145,6 +146,7 @@ if(cloudflare){
   patchCloudflareManifest();
   writeSeoPolicy();
   fs.writeFileSync(path.join(out,'_headers'),cloudflareHeaders(),'utf8');
+  fs.writeFileSync(path.join(out,'_redirects'),TAMAO_CLOUDFLARE_NATIVE_ROUTES,'utf8');
 
   if(liveRuntime){
     const runtimeEnv={...process.env,CHAMA_PORTAL_ROLE:'customer'};
@@ -175,6 +177,7 @@ if(cloudflare){
   const headers=fs.readFileSync(path.join(out,'_headers'),'utf8');
   if(!headers.includes('Content-Security-Policy:'))throw new Error('Cloudflare build sem CSP por header');
   if(!headers.includes('X-Frame-Options: DENY'))throw new Error('Cloudflare build sem proteção de frame');
+  if(fs.readFileSync(path.join(out,'_redirects'),'utf8')!==TAMAO_CLOUDFLARE_NATIVE_ROUTES)throw new Error('Cloudflare sem rotas canônicas de participantes e Agenda');
   if(indexing){
     if(!html.includes('name="robots" content="index,follow"'))throw new Error('build indexável ainda contém noindex');
     if(!robots.includes('Allow: /')||!fs.existsSync(path.join(out,'sitemap.xml')))throw new Error('SEO público incompleto');
