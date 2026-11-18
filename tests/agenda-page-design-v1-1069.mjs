@@ -45,6 +45,8 @@ const ownerHtml=ctx.agendaDesignOwnerEditor();
 for(const target of ['Black Gold','Elegance','Clean','Salvar personalização','Foto de capa','Foto da marca','Fotos dos serviços','Fotos da equipe','Localização','Instagram'])
  assert.ok(ownerHtml.includes(target),'owner editor missing '+target);
 assert.ok(ownerHtml.includes('name="service_'+serviceId+'"'));
+assert.ok(ownerHtml.includes('agendaDesignUploadPhoto(event)'),'Direct photo upload must remain in editor');
+assert.match(src,/function agendaDesignThemeChanged\(event\)/);
 assert.ok(ownerHtml.includes('name="staff_'+staffId+'"'));
 const publicHtml=ctx.agendaDesignPublicView({...profile,photo_paths:undefined},'<section class="agenda-panel" id="existing-booking">REAL BOOKING</section>');
 for(const target of ['theme-black-gold','Corte &amp; Estilo','Ana &amp; Cia','R$ 85,00','REAL BOOKING','Atendimento sob medida','https://www.instagram.com/salao.novo/'])
