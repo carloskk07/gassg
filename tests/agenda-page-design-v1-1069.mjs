@@ -17,6 +17,10 @@ assert.match(css,/@media\(max-width:540px\)/);
 assert.match(css,/\.agenda-premium\.font-classic/);
 assert.match(migration,/font_style in \('modern','classic','friendly'\)/);
 assert.match(css,/\.agenda-premium-book/);
+assert.match(css,/\.agenda\.agenda-standalone-profile/);
+assert.match(css,/\.agenda-premium-lightbox::backdrop/);
+assert.match(agenda,/agenda-standalone-profile/);
+assert.match(src,/function agendaDesignGalleryOpen\(event,index\)/);
 assert.match(migration,/enable row level security/i);
 assert.match(migration,/for select to anon,authenticated/);
 assert.match(migration,/tamao_acl\.agenda_design_published\(page_id\)/);
@@ -54,6 +58,8 @@ const publicHtml=ctx.agendaDesignPublicView({...profile,photo_paths:undefined},'
 for(const target of ['theme-black-gold','Corte &amp; Estilo','Ana &amp; Cia','R$ 85,00','REAL BOOKING','Atendimento sob medida','https://www.instagram.com/salao.novo/'])
  assert.ok(publicHtml.includes(target),'public premium page missing '+target);
 assert.ok(publicHtml.includes('https://valid.example/picture.webp'));
+assert.ok(publicHtml.includes('agenda-premium-gallery-dialog'),'Lightbox should render with photos');
+assert.ok(publicHtml.includes('TAMÃO Agenda</a>'),'Professional footer should link to the platform');
 assert.ok(publicHtml.includes('Salão &lt;Novo&gt;'),'Public title must be HTML-escaped');
 assert.ok(!publicHtml.includes('Salão <Novo>'),'No raw user HTML');
 assert.ok(!publicHtml.includes('reservas fictícias'),'No fake booking content');
