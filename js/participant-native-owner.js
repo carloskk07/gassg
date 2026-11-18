@@ -89,7 +89,7 @@ function tamaoNativePagePanel(kind,subjectId=''){
  if(cache.loading)return '<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2><p role="status">Consultando a página…</p></section>';
  if(cache.error)return '<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2>'+
   '<p class="muted">'+esc(cache.error)+'</p><button type="button" class="secondary" onclick="tamaoNativePageRetry(\''+kind+'\',\''+subjectId+'\')">Tentar novamente</button></section>';
- const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId),p=cache.page||{};
+ const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId),p={...(cache.page||{}),...(cache.draft||{})};
  const url=tamaoNativePagePublicLink(kind,subjectId);
  const nice={merchant:'Minha página da revenda',customer:'Minha página de indicações',
   listing:'Minha página de serviços',agenda:'Minha página profissional'}[kind];
@@ -137,12 +137,13 @@ async function tamaoNativePageSave(kind,subjectId,published){
  const headline=container.querySelector('[name="headline"]')?.value||'';
  const tagline=container.querySelector('[name="tagline"]')?.value||'';
  const previous=cache.page?.published===true;
+ cache.draft={theme,headline,tagline};
  cache.busy=true;cache.error='';cache.savedMessage='';render();
  try{
   const result=await tamaoNativePageApi(kind,{action:'save',kind,subjectId,published,theme,headline,tagline});
   const updated=tamaoNativePagesCache.get(key);
   if(updated){
-   updated.page=result.page;
+   updated.page=result.page;updated.draft=null;
    updated.savedMessage=published?'Sua página está publicada e pronta para compartilhar.':'Sua página não está mais visível publicamente.';
    updated.busy=false;updated.error='';
   }
