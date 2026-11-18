@@ -2,7 +2,6 @@
 -- The profile design is independent of appointments, prices and payment settings.
 create table if not exists public.agenda_page_design (
  page_id uuid primary key references public.agenda_pages(id) on delete cascade,
- owner_id uuid not null default auth.uid() references auth.users(id),
  template text not null default 'clean'
    constraint agenda_design_template_allowed check (template in ('black-gold','elegance','clean')),
  primary_color text not null default '#174f48'
@@ -46,7 +45,6 @@ revoke all on function tamao_acl.agenda_design_published(uuid) from public;
 grant usage on schema tamao_acl to anon,authenticated;
 grant execute on function tamao_acl.agenda_design_published(uuid) to anon,authenticated;
 
-create index if not exists agenda_page_design_owner_idx on public.agenda_page_design(owner_id);
 alter table public.agenda_page_design enable row level security;
 revoke all on public.agenda_page_design from public,anon,authenticated;
 grant select on public.agenda_page_design to anon,authenticated;
@@ -57,7 +55,7 @@ drop policy if exists agenda_design_public_select on public.agenda_page_design;
 create policy agenda_design_public_select on public.agenda_page_design
  for select to anon,authenticated
  using (
-  owner_id=(select auth.uid())
+  exists(select 1 from public.agenda_pages p where p.id=page_id and p.owner_id=(select auth.uid()))
   or (select tamao_acl.agenda_design_published(page_id))
  );
 -- A user cannot create a design under somebody else's page or reassign ownership.
@@ -65,16 +63,16 @@ drop policy if exists agenda_design_owner_insert on public.agenda_page_design;
 create policy agenda_design_owner_insert on public.agenda_page_design
  for insert to authenticated
  with check (
-  owner_id=(select auth.uid()) and (select public.discovery_verified_account())
+  (select public.discovery_verified_account())
   and exists(select 1 from public.agenda_pages p
    where p.id=page_id and p.owner_id=(select auth.uid()))
  );
 drop policy if exists agenda_design_owner_update on public.agenda_page_design;
 create policy agenda_design_owner_update on public.agenda_page_design
  for update to authenticated
- using (owner_id=(select auth.uid()))
+ using (exists(select 1 from public.agenda_pages p where p.id=page_id and p.owner_id=(select auth.uid())))
  with check (
-  owner_id=(select auth.uid()) and (select public.discovery_verified_account())
+  (select public.discovery_verified_account())
   and exists(select 1 from public.agenda_pages p
    where p.id=page_id and p.owner_id=(select auth.uid()))
  );
