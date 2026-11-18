@@ -36,7 +36,7 @@ assert.match(ts,/from\("profiles"\)/);
 assert.match(ts,/data\.user\.is_anonymous===true/);
 assert.match(ts,/\.eq\("published",true\)/);
 assert.match(ts,/\.eq\("active",true\)/);
-assert.match(ts,/\.eq\("status",/); // via source and listing RPC
+assert.match(ts,/m\.status!=="active"/);
 assert.match(ts,/discovery_public_search/);
 assert.match(ts,/p_listing_id:page\.subject_id/);
 assert.match(ts,/if\(!listing\)throw new PageError\("NOT_FOUND"/);
