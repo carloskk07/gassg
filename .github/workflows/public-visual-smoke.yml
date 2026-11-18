@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'agenda/**'
+      - 'js/agenda.js'
+      - 'tests/agenda-premium-example-browser-v1-1068.mjs'
       - 'js/customer.js'
       - 'js/ads-display.js'
       - 'css/**'
@@ -98,6 +101,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/participant-entry-browser-v1-1056.mjs
+
+      - name: V1.1068 Black Gold example — real Chrome mobile/desktop, gallery and safe booking preview
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/agenda-premium-example-browser-v1-1068.mjs
 
       - name: Verify storefront, cart editing, refresh and Club across 20 viewport widths
         env:
