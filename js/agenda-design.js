@@ -240,6 +240,22 @@ function agendaDesignChooseService(id){
  s.serviceId=id;s.selectedStart='';s.error='';
  void agendaLoadSlots().then(()=>{document.getElementById('agenda-premium-book')?.scrollIntoView({behavior:'smooth',block:'start'});});
 }
+// Enlarged gallery is browser-only; these are the business owner's approved photo paths.
+function agendaDesignGalleryOpen(event,index){
+ const dlg=document.getElementById('agenda-premium-gallery-dialog');
+ const full=dlg?.querySelector('img');
+ const paths=agendaRuntime.publicProfile?.photos||[];
+ if(!dlg||!full||typeof dlg.showModal!=='function'||
+  !Number.isSafeInteger(index)||index<0||index>=paths.length)return true;
+ const src=agendaPhotoUrl(paths[index]);
+ if(!src)return true;
+ full.src=src;
+ full.alt='Foto '+(index+1)+' do estabelecimento';
+ event?.preventDefault?.();
+ dlg.showModal();
+ dlg.querySelector('button')?.focus?.();
+ return false;
+}
 function agendaDesignPublicView(p,bookingForm){
  const s=agendaRuntime,d=agendaDesignCurrent();
  const safe=agendaDesignEscape;
@@ -287,9 +303,10 @@ function agendaDesignPublicView(p,bookingForm){
  const gallery=d.show_gallery&&photos.length?'<section class="agenda-premium-section" id="galeria">'+
   '<div class="agenda-premium-heading"><span>NOSSO ESPAÇO</span><h2>Galeria</h2></div><div class="agenda-premium-gallery">'+
   photos.map((path,i)=>{const src=agendaPhotoUrl(path);
-   return src?'<a href="'+esc(src)+'" target="_blank" rel="noopener noreferrer" aria-label="Abrir foto '+(i+1)+'">'+
+   return src?'<a href="'+esc(src)+'" target="_blank" rel="noopener noreferrer" onclick="return agendaDesignGalleryOpen(event,'+i+')" aria-label="Ampliar foto '+(i+1)+'">'+
     '<img loading="lazy" src="'+esc(src)+'" alt="Foto '+(i+1)+' de '+safe(p.title)+'"></a>':'';}).join('')+
-  '</div></section>':'';
+  '</div><dialog class="agenda-premium-lightbox" id="agenda-premium-gallery-dialog" aria-label="Fotografia ampliada" onclick="if(event.target===this)this.close()">'+
+  '<button type="button" onclick="this.closest(\'dialog\').close()">Fechar foto ×</button><img alt="" src="" loading="lazy"></dialog></section>':'';
  const contacts=d.show_location?'<section class="agenda-premium-section agenda-premium-location" id="localizacao">'+
   '<div class="agenda-premium-heading"><span>VENHA NOS CONHECER</span><h2>Localização e contato</h2></div>'+
   '<p>'+safe(area||p.city||'Consulte a localização com o estabelecimento.')+'</p>'+
@@ -308,5 +325,5 @@ function agendaDesignPublicView(p,bookingForm){
   hero+highlights+'<div class="agenda-premium-main">'+about+services+teamSection+gallery+
   '<section class="agenda-premium-section agenda-premium-book" id="agenda-premium-book">'+
   '<div class="agenda-premium-heading"><span>AGENDA ONLINE</span><h2>Escolha um horário</h2></div>'+booking+'</section>'+
-  contacts+'</div><footer class="agenda-premium-footer">'+safe(p.title)+' · Agendamento pelo TAMÃO Agenda</footer></div>';
+  contacts+'</div><footer class="agenda-premium-footer">'+safe(p.title)+' · Agendamento pelo <a href="/agenda/">TAMÃO Agenda</a></footer></div>';
 }
