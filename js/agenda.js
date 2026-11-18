@@ -130,6 +130,27 @@ function agendaQuickStartView(){
    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Criar e publicar minha agenda</button>'+
   '</form></section>';
 }
+// V1.1072 — the standalone Agenda loads the shared native publisher only
+// when the actual page owner is editing their established booking business.
+let agendaNativePageLoading=false,agendaNativePageFailed=false;
+function agendaNativePageOwnerPanel(id){
+ if(!agendaUuid.test(String(id||'')))return '';
+ if(typeof globalThis.tamaoNativePagePanel==='function')
+  return globalThis.tamaoNativePagePanel('agenda',id);
+ if(agendaNativePageFailed)return '<p class="tiny muted">Não foi possível carregar a página de divulgação.</p>';
+ if(!agendaNativePageLoading){
+  agendaNativePageLoading=true;
+  const s=document.querySelector('script[src*="/js/agenda.js"]')?.src||'';
+  const version=s.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+  const tag=document.createElement('script');
+  tag.src='/js/participant-native-owner.js'+version;
+  tag.onload=()=>{agendaNativePageLoading=false;render();};
+  tag.onerror=()=>{agendaNativePageLoading=false;agendaNativePageFailed=true;render();};
+  document.head.appendChild(tag);
+ }
+ return '<section class="agenda-panel"><h2>Minha página TAMÃO</h2><p role="status">Preparando o link da sua página comercial…</p></section>';
+}
+
 function agendaOwnerEditor(){
  const s=agendaRuntime,p=s.page||{},link=p.published&&p.slug?agendaShareLink(p.slug):'';
  if(!p.id)return agendaQuickStartView();
@@ -171,6 +192,7 @@ function agendaOwnerEditor(){
     '<p class="tiny muted">Adicione um serviço, defina os horários e publique nos ajustes da página.</p>')+
   '</section>'+
   (typeof agendaDesignOwnerEditor==='function'?agendaDesignOwnerEditor():'')+
+  agendaNativePageOwnerPanel(p.id)+
   '<section class="agenda-panel"><h2>Serviços e preços</h2>'+
    (p.id?'<form class="agenda-service-row" onsubmit="return agendaSaveService(event)">'+
     '<label>Serviço<input required minlength="3" maxlength="100" name="title" placeholder="Ex.: Corte masculino"></label>'+
