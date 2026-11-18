@@ -146,7 +146,7 @@ function agendaDesignOwnerEditor(){
   '<p>Seu nome, serviços e horários já entram automaticamente. Escolha um visual e salve — o restante é opcional.</p></div>'+
   '<span class="agenda-design-state">'+(saved?'Visual personalizado':'Pronto para escolher')+'</span></div>'+
   '<form id="agenda-design-form" onsubmit="return agendaDesignSave(event)" oninput="agendaDesignPreview()" onchange="agendaDesignThemeChanged(event)">'+
-   '<fieldset class="agenda-design-models"><legend>Escolha o visual da sua página</legend>'+
+   '<fieldset class="agenda-design-models"><legend>Escolha um modelo de visual para sua página</legend>'+
     '<div class="agenda-design-model-grid">'+
     Object.entries(agendaDesignThemes).map(([key,theme])=>
      '<label class="agenda-design-model theme-'+key+'"><input type="radio" name="template" value="'+key+'"'+(key===d.template?' checked':'')+'>'+
@@ -184,12 +184,12 @@ function agendaDesignOwnerEditor(){
      agendaDesignImagesPreview(p)+
      '<div class="agenda-design-two"><label>Foto de capa<select name="cover_index">'+agendaDesignPhotoOptions(p,d.cover_index)+'</select></label>'+
       '<label>Foto da marca<select name="logo_index">'+agendaDesignPhotoOptions(p,d.logo_index)+'</select></label></div>'+
-     '<details><summary>Escolher fotos para cada serviço</summary><div class="agenda-design-two">'+
+     '<details><summary>Fotos dos serviços</summary><div class="agenda-design-two">'+
       agendaDesignPhotoAssignments(s.services,d.service_images,'service',p)+'</div></details>'+
-     '<details><summary>Escolher fotos para cada pessoa da equipe</summary><div class="agenda-design-two">'+
+     '<details><summary>Fotos da equipe</summary><div class="agenda-design-two">'+
       agendaDesignPhotoAssignments(s.staff,d.staff_images,'staff',p)+'</div></details>'+
     '</fieldset>'+
-    '<fieldset><legend>Apresentação e contato</legend>'+
+    '<fieldset><legend>Apresentação, Localização e contato</legend>'+
      '<label>Seus diferenciais (até quatro frases, uma por linha)<textarea name="highlights" rows="3" maxlength="290" placeholder="Atendimento com hora marcada">'+agendaDesignEscape(d.highlights.join('\n'))+'</textarea></label>'+
      '<div class="agenda-design-two"><label>Endereço público (opcional)<input name="street_address" maxlength="180" value="'+agendaDesignEscape(d.street_address)+'" placeholder="Rua, número e bairro"></label>'+
       '<label>Instagram (opcional)<input name="instagram" maxlength="40" pattern="[a-zA-Z0-9._]{0,30}" value="'+agendaDesignEscape(d.instagram)+'" placeholder="usuario"></label></div>'+
