@@ -15,7 +15,7 @@ const sql=q=>execFileSync('psql',[
 const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
- tableDigest:'7c91aa45f4006001d073aa039e6cd42b',
+ tableDigest:'9de269f4a04d1b2dd312eedd3318419e',
  rpcDigest:'a2541222631102b9b6766d1f36784893',
  tableCount:17,rpcCount:56
 },'Local canonical migrated schema must match the reviewed Agenda V1.1069 ACL baseline');

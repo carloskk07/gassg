@@ -7,6 +7,8 @@ on:
       - 'index.html'
       - 'agenda/**'
       - 'js/agenda.js'
+      - 'js/agenda-design.js'
+      - 'tests/agenda-one-minute-premium-browser-v1-1070.mjs'
       - 'tests/agenda-premium-example-browser-v1-1068.mjs'
       - 'js/customer.js'
       - 'js/ads-display.js'
@@ -108,6 +110,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/agenda-premium-example-browser-v1-1068.mjs
+
+      - name: V1.1070 premium Agenda — real Chrome owner and public pages at 320–1280 px
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/agenda-one-minute-premium-browser-v1-1070.mjs
 
       - name: Verify storefront, cart editing, refresh and Club across 20 viewport widths
         env:
