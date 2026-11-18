@@ -173,7 +173,7 @@ export async function verifyOwnerLocalDemoBrowser({roles,customerId}){
     assert.ok(typeof code==='string'&&code.length>4,'merchant public order code missing');
     const adminCode=await admin.evaluate("adminRuntime.data.controlOrders.find(o=>o.id==="+JSON.stringify(orderId)+")?.public_code");
     assert.equal(adminCode,code,'Admin/merchant public code must agree');
-    const selectedOrders=await admin.evaluate("(()=>{const button=Array.from(document.querySelectorAll('.admin-nav-item')).find(b=>b.getAttribute('onclick')?.includes(\"adminSetSection('orders')\"));if(!button)return false;button.click();return true})()");
+    const selectedOrders=await admin.evaluate("(()=>{const button=Array.from(document.querySelectorAll('.admin-nav-item')).find(b=>b.getAttribute('onclick')?.includes(\"adminOpenTask('orders')\"));if(!button)return false;button.click();return true})()");
     assert.equal(selectedOrders,true,'owner demo Admin must open Pedidos through actual navigation');
     await admin.wait("adminRuntime.section==='orders'&&Array.from(document.querySelectorAll('.order-card .order-id')).some(x=>x.textContent.trim()==="+JSON.stringify(code)+")",'Admin must render canonical order card',17000);
     const dir=path.resolve('test-results/isolated-order-evidence');
