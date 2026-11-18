@@ -256,3 +256,31 @@
 .tamao-public-header .brand small{display:none}
 .tamao-public-header .tamao-header-cta{padding-inline:8px}
 }
+
+/* V1.1065 — readable, read-only participant benefits statement. */
+.tamao-member-benefit-statement{max-width:1080px;margin-inline:auto}
+.tamao-member-benefit-statement>.section-head p{max-width:70ch;line-height:1.6}
+.tamao-statement-filters{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0 19px}
+.tamao-statement-filters button{min-height:44px;padding:10px 15px;border-radius:11px;touch-action:manipulation}
+.tamao-statement-filters button:focus-visible{outline:3px solid #ba831d;outline-offset:3px}
+.tamao-statement-month{margin:23px 0 8px;color:#1a5438;font-size:15px;line-height:1.4;font-weight:850;letter-spacing:-.018em}
+.tamao-member-benefit-statement .tamao-benefit-statement-entry{min-width:0;margin:0;padding:17px 19px;border:1px solid #d9e9de;border-radius:16px;background:#fff;box-shadow:0 4px 13px #17462d0a}
+.tamao-statement-entry-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(145px,32%);gap:14px;align-items:start}
+.tamao-statement-entry-label{display:grid;justify-items:start;gap:5px;min-width:0}
+.tamao-statement-entry-label strong{color:#17432e;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+.tamao-statement-entry-label small{color:#5a7163;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.tamao-statement-kind{display:inline-block;font-size:11px;line-height:1.3;font-weight:800;color:#1d6745;background:#ebf7ee;padding:4px 9px;border-radius:100px}
+.tamao-statement-entry-money{display:grid;justify-items:end;gap:7px;min-width:0;text-align:right;overflow-wrap:anywhere}
+.tamao-statement-entry-money strong{font-size:15px;line-height:1.35;color:#164b34;font-variant-numeric:tabular-nums}
+.tamao-statement-status{font-size:12px;font-weight:750;color:#456654}
+.tamao-statement-waiting .tamao-statement-status{color:#92652c}
+.tamao-statement-inactive .tamao-statement-status{color:#8f4b4b}
+.tamao-statement-entry-detail{margin:11px 0 0;padding-top:10px;border-top:1px solid #eaf0eb;color:#526c5b;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+@media(max-width:580px){
+ .tamao-member-benefit-statement .tamao-benefit-statement-entry{padding:14px 13px;border-radius:14px}
+ .tamao-statement-entry-top{grid-template-columns:minmax(0,1fr);gap:8px}
+ .tamao-statement-entry-money{justify-items:start;text-align:left}
+ .tamao-statement-entry-label strong{font-size:15px}
+ .tamao-statement-filters{gap:7px}
+ .tamao-statement-filters button{flex:1 1 auto}
+}
