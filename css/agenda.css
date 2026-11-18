@@ -197,3 +197,26 @@
 @media(max-width:500px){
  .agenda-directory-pagination button{width:100%}
 }
+
+
+/* V1.1068 — show a real premium example beside professional onboarding. */
+.agenda-example-invite{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(220px,.7fr);gap:23px;align-items:center}
+.agenda-example-invite .section-kicker{color:#14734d}
+.agenda-example-copy h2{margin:6px 0 10px;line-height:1.17;letter-spacing:-.025em}
+.agenda-example-copy p{max-width:570px}
+.agenda-example-actions{display:flex;align-items:center;flex-wrap:wrap;gap:11px 17px;margin-top:20px}
+.agenda-example-actions>button{padding:10px 16px}
+.agenda-example-link{color:#08724b;font-weight:850;text-decoration:underline;text-underline-offset:4px;font-size:13px}
+.agenda-example-link:focus-visible,.agenda-example-preview:focus-visible{outline:3px solid #e5ae4f;outline-offset:3px}
+.agenda-example-preview{position:relative;display:block;aspect-ratio:370/230;overflow:hidden;border-radius:17px;text-decoration:none;border:1px solid #bd9e6b;box-shadow:0 12px 25px #1c3e2b1b;background:#17120f}
+.agenda-example-preview img{width:100%;height:100%;object-fit:cover}
+.agenda-example-preview::after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#1b110ce8,#1b110c16 65%)}
+.agenda-example-preview>span{position:absolute;z-index:1;left:18px;bottom:15px;display:grid;gap:2px}
+.agenda-example-preview strong{font:700 26px/1.1 Georgia,serif;color:#ffdb95}
+.agenda-example-preview small{font-size:12px;color:#fff5e4;font-weight:700}
+@media(max-width:680px){
+ .agenda-example-invite{grid-template-columns:minmax(0,1fr);gap:15px}
+ .agenda-example-preview{max-width:500px;aspect-ratio:16/8.5}
+ .agenda-example-actions{align-items:stretch}
+ .agenda-example-actions>button{min-height:46px}
+}
