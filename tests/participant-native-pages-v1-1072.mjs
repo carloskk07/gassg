@@ -48,17 +48,17 @@ assert.match(ts,/no-store/);
 assert.doesNotMatch(ts,/create-order|wallet_entries|commission_ledger|payment_intents|price_cents|available_stock/);
 assert.match(cfg,/\[functions\.participant-pages\]\s*verify_jwt = false/);
 assert.match(getOffers,/requestedMerchantId=body\.directMerchantId==null/);
-assert.match(getOffers,/candidates\.filter\(\(candidate\)=>candidate\.merchantId===requestedMerchantId\)/);
+assert.match(getOffers,/candidates\.filter\(candidate=>candidate\.merchantId===requestedMerchantId\)/);
 assert.match(getOffers,/INVALID_MERCHANT_CHOICE/);
 assert.match(getOffers,/market_city_offer_scope/);
 assert.match(getOffers,/create_quote_snapshot_v3/);
 assert.match(getOffers,/market_filter_delivery_payment_merchants/);
 assert.match(getOffers,/filter_delivery_compatible_merchants/);
-const start=getOffers.indexOf('    const chosen = chooseOffers(');
+const start=getOffers.indexOf('    if(requestedMerchantId){\n      const selectedCandidates=');
 const end=getOffers.indexOf('\n    if (!chosen.length)',start);
 assert.ok(start>0&&end>start);
 const excerpt=getOffers.slice(start,end).replace(/ as Array<.*>;/s,';');
-assert.match(excerpt,/requestedMerchantId\s*\?/);
+assert.match(excerpt,/if\(requestedMerchantId\)/);
 for(const [selected,ids] of [
  ['',["one","two"]],
  ['one',["one"]],
