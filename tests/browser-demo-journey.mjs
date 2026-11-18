@@ -465,6 +465,8 @@ try{
  assert.equal(await evaluate("new URLSearchParams(location.search).get('tamao_demo_role')"),'customer');
  await send('Page.navigate',{url:base+'?tamao_demo_role=admin#home'});
  await wait("document.querySelector('.tamao-demo-dialog[data-open=\"true\"]')?.textContent.includes('Admin — pedidos')",'admin for switching');
+ await click("(()=>{const b=document.querySelector('.tamao-demo-menu-toggle');if(!b?.getClientRects().length)return false;b.click();return true})()");
+ await wait("document.querySelector('.tamao-demo-menu-toggle')?.getAttribute('aria-expanded')==='true'",'mobile Areas menu opens from separate Admin page');
  await click("(()=>{const b=[...document.querySelectorAll('.tamao-demo-nav button')].find(x=>x.textContent==='Agenda');if(!b?.getClientRects().length)return false;b.click();return true})()");
  await wait("location.hash==='#teste-agenda'&&document.querySelector('.tamao-demo-panel')?.textContent.includes('Agenda profissional')",'Admin to separate Agenda page');
  assert.equal(await evaluate("getComputedStyle(document.querySelector('.app')).display"),'none');
