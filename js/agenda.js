@@ -465,9 +465,9 @@ function agendaMyBookingsView(){
 function agendaPage(){
  const s=agendaRuntime,slug=agendaSlug();
  const head='<section class="agenda-hero"><div><span class="section-kicker">TAMÃO AGENDA</span>'+
- '<h1>'+ (slug?'Seu próximo atendimento, sem complicação.':'Sua agenda organizada. Seus clientes mais perto.')+'</h1>'+
+ '<h1>'+ (slug?'Seu próximo atendimento, sem complicação.':(!s.user&&s.directory.length?'Encontre seu próximo horário no TAMÃO.':'Sua agenda organizada. Seus clientes mais perto.'))+'</h1>'+
  '<p>'+(slug?'Escolha um serviço e veja os horários disponíveis em poucos passos.':
-  'Tenha uma página exclusiva, organize serviços e receba reservas online — sem mensalidade para começar.')+'</p></div>'+
+  (!s.user&&s.directory.length?'Consulte profissionais e horários. Atende com hora marcada? Você também pode criar sua agenda gratuitamente.':'Tenha uma página exclusiva, organize serviços e receba reservas online — sem mensalidade para começar.'))+'</p></div>'+
  '<a href="'+(slug?'/agenda/':(!s.user&&s.directory.length?'#agenda-directory':'/#professionals'))+'">'+
  (slug?'Ver outras agendas':(!s.user&&s.directory.length?'Escolher um horário':'Explorar profissionais'))+'</a></section>';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section agenda">'+head+'<p>Carregando agenda…</p></section>');
