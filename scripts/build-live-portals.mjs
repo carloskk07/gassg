@@ -464,6 +464,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // The Agenda is an independent customer-only page: zero startup JS on the storefront.
     if(role==='customer')copyDir(path.join(ROOT,'agenda'),path.join(target,'agenda'));
     if(role==='customer')copyDir(path.join(ROOT,'convite'),path.join(target,'convite'));
+    if(role==='customer')copyDir(path.join(ROOT,'p'),path.join(target,'p'));
     // Heavy merchant operations and the optional price confirmation flow
     // are only shipped to the revenda portal, never customer or admin.
     if(role!=='merchant'){
@@ -569,7 +570,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     if(role==='customer')writeDiscoveryLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),
-      role==='customer'?'/convite/* /convite/index.html 200\n/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
+      role==='customer'?'/p/* /p/index.html 200\n/convite/* /convite/index.html 200\n/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,
       portalRole:role,
