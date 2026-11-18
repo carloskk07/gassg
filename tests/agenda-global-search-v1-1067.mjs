@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const source=read('js/agenda.js');
-const migration=read('supabase/migrations/20261118133000_agenda_global_search_v1_1067.sql');
+const migration=read('supabase/migrations/20261118142340_agenda_global_search_v1_1067.sql');
 const css=read('css/agenda.css');
 const ci=read('.github/workflows/isolated-supabase-integration.yml');
 const audit=read('.github/workflows/audit.yml');
