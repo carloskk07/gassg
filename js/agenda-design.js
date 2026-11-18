@@ -202,7 +202,7 @@ async function agendaDesignSave(event){
   if(index>=0&&index<(s.page.photo_paths||[]).length)staff_images[row.id]=index;
  }
  const data={
-  page_id:s.page.id,owner_id:s.user.id,template,
+  page_id:s.page.id,template,
   primary_color:agendaDesignColor(f.get('primary_color'),theme.primary),
   accent_color:agendaDesignColor(f.get('accent_color'),theme.accent),
   headline:String(f.get('headline')||'').trim(),
