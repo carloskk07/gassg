@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
- slug:'',publicProfile:null,directory:[],ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
+ slug:'',publicProfile:null,directory:[],directoryQuery:'',ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false,advancedOpen:false,hoursOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -420,14 +420,70 @@ function agendaPublicView(){
   '</section>'+ (p.services?.length?form:'<section class="agenda-panel"><h2>Em preparação</h2><p>Este profissional ainda não disponibilizou serviços para agendar.</p></section>')+
   '</div>';
 }
+// Filter only public profiles already returned by the authorized directory RPC.
+// Searching never reveals owner contacts or requests extra private records.
+function agendaDirectorySearchText(value){
+ return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .toLocaleLowerCase('pt-BR').trim().replace(/\s+/g,' ');
+}
+function agendaDirectoryMatches(profile,query){
+ const tokens=agendaDirectorySearchText(query).slice(0,80).split(' ').filter(Boolean);
+ if(!tokens.length)return true;
+ const searchable=agendaDirectorySearchText([profile?.title,profile?.city].filter(Boolean).join(' '));
+ return tokens.every(token=>searchable.includes(token));
+}
+function agendaDirectoryFilter(value){
+ const s=agendaRuntime;
+ s.directoryQuery=String(value||'').slice(0,80);
+ const panel=document.getElementById('agenda-directory');
+ if(!panel)return 0;
+ let visible=0;
+ for(const card of panel.querySelectorAll('[data-agenda-directory-card]')){
+  const index=Number(card.getAttribute('data-agenda-index'));
+  const profile=Number.isSafeInteger(index)&&index>=0?s.directory[index]:null;
+  const matches=!!profile&&agendaDirectoryMatches(profile,s.directoryQuery);
+  card.hidden=!matches;
+  if(matches)visible++;
+ }
+ const feedback=panel.querySelector('#agenda-directory-result');
+ if(feedback)feedback.textContent=agendaDirectoryResultCopy(visible,s.directory.length,s.directoryQuery);
+ return visible;
+}
+function agendaDirectoryResultCopy(visible,total,query){
+ if(!String(query||'').trim())return total===1?'1 profissional publicado':'Mostrando '+total+' profissionais publicados';
+ return visible===0?'Nenhum profissional corresponde à busca. Tente outro nome ou cidade.':
+  visible===1?'1 profissional encontrado':visible+' profissionais encontrados';
+}
+function agendaDirectoryClearSearch(){
+ const input=document.getElementById('agenda-directory-search');
+ if(input)input.value='';
+ agendaDirectoryFilter('');
+ input?.focus();
+}
 function agendaDirectoryView(){
  const list=agendaRuntime.directory;
+ const query=String(agendaRuntime.directoryQuery||'').slice(0,80);
+ const count=list.filter(p=>agendaDirectoryMatches(p,query)).length;
  return '<section id="agenda-directory" class="agenda-panel agenda-directory"><h2>Encontre um horário</h2>'+
- (list.length?'<div class="agenda-list">'+list.map(p=>
-  '<a href="'+esc(agendaShareLink(p.slug))+'">'+
-  (agendaPhotoUrl(p.photo_path)?'<img style="width:100%;height:125px;object-fit:cover;border-radius:12px" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':'')+
-  '<strong>'+esc(p.title)+'</strong><span>'+esc(p.city)+'</span>'+
-  '<span>Ver serviços e horários →</span></a>').join('')+'</div>':
+ (list.length?
+  '<p class="agenda-directory-intro">Procure um profissional pelo nome ou pela cidade e consulte os serviços e horários na página dele.</p>'+
+  '<div class="agenda-directory-search" role="search">'+
+   '<label for="agenda-directory-search">Nome ou cidade</label>'+
+   '<div class="agenda-directory-search-row"><input id="agenda-directory-search" type="search" maxlength="80" autocomplete="off"'+
+     ' placeholder="Ex.: barbearia ou São Gabriel" aria-controls="agenda-directory-cards" value="'+esc(query)+'"'+
+     ' oninput="agendaDirectoryFilter(this.value)">'+
+    '<button type="button" class="secondary" onclick="agendaDirectoryClearSearch()">Limpar busca</button></div>'+
+  '</div>'+
+  '<p id="agenda-directory-result" class="agenda-directory-result" role="status" aria-live="polite">'+
+   esc(agendaDirectoryResultCopy(count,list.length,query))+'</p>'+
+  '<div id="agenda-directory-cards" class="agenda-list">'+list.map((p,index)=>
+   '<a class="agenda-directory-card" data-agenda-directory-card data-agenda-index="'+index+'"'+
+    (agendaDirectoryMatches(p,query)?'':' hidden')+
+    ' href="'+esc(agendaShareLink(p.slug))+'">'+
+    (agendaPhotoUrl(p.photo_path)?'<img class="agenda-directory-photo" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':
+     '<span class="agenda-directory-placeholder" aria-hidden="true">📅</span>')+
+    '<strong>'+esc(p.title)+'</strong><span class="agenda-directory-city">'+esc(p.city)+'</span>'+
+    '<span class="agenda-directory-visit">Ver serviços e horários <span aria-hidden="true">→</span></span></a>').join('')+'</div>':
   '<p>As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.</p>')+
  '</section>';
 }
