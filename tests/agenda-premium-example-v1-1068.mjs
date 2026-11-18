@@ -22,7 +22,7 @@ assert.match(html,/https:\/\/unsplash\.com\/license/);
 assert.match(html,/aria-live="polite"/);
 assert.match(html,/<dialog id="gallery-dialog"/);
 assert.match(html,/\/agenda\/\?agenda=1&amp;criar=1/);
-assert.match(html,/href="\/agenda\/exemplo\/"/);
+assert.match(html,/<link rel="canonical" href="https:\/\/tamao\.com\.br\/agenda\/exemplo\/"/);
 assert.match(html,/href="\/agenda\/"/);
 assert.match(html,/\/agenda\/exemplo\/style\.css/);
 assert.match(html,/\/agenda\/exemplo\/page\.js/);
