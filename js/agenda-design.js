@@ -24,10 +24,10 @@ function agendaDesignSuggestedTheme(profile){
  if(/\b(salao|beleza|estetica|spa|manicure|maquiagem|cabeleireiro|sobrancelhas)\b/.test(name))return 'elegance';
  return 'clean';
 }
-function agendaDesignCurrent(){
- const s=agendaRuntime, saved=s.design||null;
- const draft=s.designDraftOwnerId===s.page?.id?s.designDraft:null;
- const d=draft||saved||{},suggested=agendaDesignSuggestedTheme(s.page);
+function agendaDesignCurrent(profile=agendaRuntime.page||agendaRuntime.publicProfile){
+ const s=agendaRuntime,saved=s.design&&(!s.design.page_id||s.design.page_id===profile?.id)?s.design:null;
+ const draft=s.designDraftOwnerId===profile?.id?s.designDraft:null;
+ const d=draft||saved||{},suggested=agendaDesignSuggestedTheme(profile);
  const chosen=agendaDesignThemes[d.template]?d.template:(saved?'clean':suggested);
  const t=agendaDesignThemes[chosen];
  return {
@@ -37,7 +37,7 @@ function agendaDesignCurrent(){
   font_style:['modern','classic','friendly'].includes(d.font_style)?d.font_style:'modern',
   headline:String(d.headline||'').slice(0,100),
   tagline:String(d.tagline||'').slice(0,220),
-  cover_index:d.cover_index==null&&!saved&&(s.page?.photo_paths||[]).length?0:agendaDesignIndex(d.cover_index),
+  cover_index:d.cover_index==null&&!saved&&(profile?.photo_paths||profile?.photos||[]).length?0:agendaDesignIndex(d.cover_index),
   logo_index:agendaDesignIndex(d.logo_index),
   service_images:d.service_images&&typeof d.service_images==='object'?d.service_images:{},
   staff_images:d.staff_images&&typeof d.staff_images==='object'?d.staff_images:{},
@@ -346,7 +346,7 @@ function agendaDesignGalleryOpen(event,index){
  return false;
 }
 function agendaDesignPublicView(p,bookingForm){
- const s=agendaRuntime,d=agendaDesignCurrent();
+ const s=agendaRuntime,d=agendaDesignCurrent(p);
  const safe=agendaDesignEscape;
  const title=d.headline||p.title;
  const color=agendaDesignColor(d.primary_color,agendaDesignThemes[d.template].primary);
