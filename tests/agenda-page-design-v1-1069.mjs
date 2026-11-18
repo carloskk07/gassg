@@ -12,7 +12,7 @@ assert.ok(html.indexOf('/js/agenda-design.js')<html.indexOf('/js/agenda.js'),'lo
 assert.match(agenda,/await agendaDesignLoadOwner\(\)/);
 assert.match(agenda,/await agendaDesignLoadPublic\(s\.publicProfile\)/);
 assert.match(agenda,/agendaDesignOwnerEditor\(\)/);
-assert.match(agenda,/if\(s\.design\)return agendaDesignPublicView\(p,form\)/);
+assert.match(agenda,/if\(s\.design&&typeof agendaDesignPublicView==='function'\)return agendaDesignPublicView\(p,form\)/);
 assert.match(css,/@media\(max-width:540px\)/);
 assert.match(css,/\.agenda-premium-book/);
 assert.match(migration,/enable row level security/i);
