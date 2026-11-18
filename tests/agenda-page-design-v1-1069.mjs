@@ -69,6 +69,17 @@ assert.equal(ctx.agendaDesignIndex('100'),-1);
 assert.equal(ctx.agendaDesignPhoto(profile,99),'');
 const clean=ctx.agendaDesignPreviewMarkup({template:'clean',headline:'Teste <script>',tagline:'Seguro',cover_index:-1},profile);
 assert.ok(clean.includes('Teste &lt;script&gt;'));assert.ok(!clean.includes('<script>'));
+const rich=ctx.agendaDesignPreviewMarkup({
+ template:'black-gold',headline:'Nova <Casa>',tagline:'Qualidade e conforto',
+ cover_index:0,logo_index:0,service_images:{[serviceId]:0},staff_images:{[staffId]:0},
+ highlights:['Atendimento sob medida'],show_gallery:true,show_team:true,show_about:true,
+ show_location:true,street_address:'Rua das Flores, 9',font_style:'classic'
+},profile);
+for(const expected of ['agenda-design-live-service','agenda-design-live-team','agenda-design-live-gallery','agenda-design-live-benefits','Rua das Flores, 9','Corte &amp; Estilo','Ana &amp; Cia','Nova &lt;Casa&gt;'])
+ assert.ok(rich.includes(expected),'Live preview missing actual data: '+expected);
+assert.ok(!rich.includes('Nova <Casa>'),'Preview must escape user content');
+assert.ok(!rich.includes('Confirmar reserva'),'The editor preview must never book');
+
 runtime.design=null;
 assert.ok(ctx.agendaDesignOwnerEditor().includes('Escolha um modelo'),'No-config owner can customize');
 console.log('TAMÃO Agenda V1.1069: editor, premium real page, safe escaping and SQL ACL contracts passed.');
