@@ -229,6 +229,7 @@ function tamaoEnsurePublicExperienceStyles(page){
   document.head.appendChild(link);
 }
 let renderLock=false;
+let tamaoLastPublicRenderRoute='';
 function render(){
   if(renderLock)return;
   renderLock=true;
@@ -252,8 +253,14 @@ function render(){
     tamaoEnsurePublicExperienceStyles(r);
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
+    const menuOpen=r===tamaoLastPublicRenderRoute&&app?.querySelector('.tamao-account-access')?.open===true;
     if(app)typeof merchantUiRender==='function'
       ?merchantUiRender(app,(pages[r]||home)()):app.innerHTML=(pages[r]||home)();
+    if(menuOpen){
+      const menu=app?.querySelector('.tamao-account-access');
+      if(menu)menu.open=true;
+    }
+    tamaoLastPublicRenderRoute=r;
     updatePublicPageIdentity(r);
     queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
     queueMicrotask(()=>globalThis.discoveryAfterRender?.());
