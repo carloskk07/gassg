@@ -82,8 +82,18 @@ function tamaoBenefitsStatementMoney(e){
   const label=typeof BRL!=='undefined'?BRL.format(cash/100):
     (cash/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const value=micro>0&&cash===0?'menos de R$ 0,01':label;
-  if(e.money_type==='discount')return value+' de desconto';
-  if(e.money_type==='transfer')return value+' de saque';
+  // Coupon face value is not withdrawable cash and can be used or expired.
+  if(e.money_type==='discount'){
+    const description={used:'Desconto utilizado',cancelled:'Cupom cancelado',
+      expired:'Cupom vencido',reserved:'Cupom reservado',review:'Cupom em análise'};
+    return (description[e.status]||'Cupom de desconto')+': '+value;
+  }
+  // A withdrawal request must never look like a paid bank transfer.
+  if(e.money_type==='transfer'){
+    const description={paid:'Saque pago',approved:'Saque aprovado',
+      cancelled:'Saque cancelado',review:'Saque em conferência'};
+    return (description[e.status]||'Saque solicitado')+': '+value;
+  }
   return (Number(e.amountMicrocents)<0?'−':'+')+value;
 }
 function tamaoBenefitsStatementPanel(){
@@ -103,28 +113,48 @@ function tamaoBenefitsStatementPanel(){
     ' small" aria-pressed="'+(state.category===key?'true':'false')+
     '" onclick="tamaoBenefitsStatementFilter(\''+key+'\')">'+name+'</button>'
   ).join('');
+  const kindNames={
+    wallet:'Movimento de saldo',network:'Participação na Rede',
+    discount:'Cupom de desconto',transfer:'Solicitação de saque'
+  };
+  let previousMonth='';
   const entries=state.items.map(e=>{
     const money=tamaoBenefitsStatementMoney(e);
     const date=new Date(e.occurredAt);
-    const when=Number.isFinite(date.getTime())?
-      new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).format(date):'Data indisponível';
+    const validDate=Number.isFinite(date.getTime());
+    const when=validDate?
+      new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).format(date):
+      'Data indisponível';
+    const period=validDate?
+      new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(date):
+      'Data a confirmar';
+    const monthTitle=period.charAt(0).toLocaleUpperCase('pt-BR')+period.slice(1);
+    const monthHeading=previousMonth===period?'':'<h3 class="tamao-statement-month">'+
+      esc(monthTitle)+'</h3>';
+    previousMonth=period;
     const title=String(e.title).slice(0,100);
     const origin=String(e.origin).slice(0,100);
     const detail=String(e.detail).slice(0,250);
     const status=titles[e.status]||'Registrado';
-    return '<article class="card flat tamao-benefit-statement-entry">'+
-      '<div class="section-head"><div><strong>'+esc(title)+'</strong>'+
-      '<p class="tiny muted">'+esc(origin)+' · '+when+'</p></div>'+
-      '<div class="text-right"><strong>'+esc(money)+'</strong>'+
-      '<p class="tiny muted">'+esc(status)+'</p></div></div>'+
-      '<p class="tiny muted">'+esc(detail)+'</p></article>';
+    const tone=['reversed','cancelled','expired'].includes(e.status)?'inactive':
+      ['pending','review','reserved','approved','validated'].includes(e.status)?'waiting':
+      ['paid','used','available'].includes(e.status)?'complete':'neutral';
+    const kind=kindNames[e.money_type]||'Benefício registrado';
+    return monthHeading+'<article class="card flat tamao-benefit-statement-entry tamao-statement-'+tone+'">'+
+      '<div class="tamao-statement-entry-top">'+
+        '<div class="tamao-statement-entry-label"><span class="tamao-statement-kind">'+esc(kind)+'</span>'+
+          '<strong>'+esc(title)+'</strong><small>'+esc(origin)+' · '+esc(when)+'</small></div>'+
+        '<div class="tamao-statement-entry-money"><strong>'+esc(money)+'</strong>'+
+          '<span class="tamao-statement-status">'+esc(status)+'</span></div>'+
+      '</div>'+
+      '<p class="tamao-statement-entry-detail">'+esc(detail)+'</p></article>';
   }).join('');
   return '<section class="section tamao-member-benefit-statement" aria-label="Extrato de benefícios por origem">'+
     '<div class="section-head"><div><span class="section-kicker">CADA VANTAGEM TEM UMA HISTÓRIA</span>'+
     '<h2>Seu extrato de benefícios</h2>'+
     '<p>Veja de onde veio cada crédito, comissão e desconto e acompanhe as conferências.</p>'+
     '</div></div>'+
-    '<nav class="field-row" aria-label="Filtrar extrato">'+tabs+'</nav>'+
+    '<nav class="field-row tamao-statement-filters" aria-label="Filtrar extrato">'+tabs+'</nav>'+
     '<div class="form-stack" aria-live="polite">'+entries+
     (!entries&&!state.busy&&!state.error?
       '<p class="muted tiny">Ainda não há lançamentos nesta categoria. Os benefícios aparecem aqui quando são registrados.</p>':'')+
