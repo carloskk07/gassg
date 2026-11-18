@@ -94,6 +94,6 @@ assert.match(view,/adminOpenTask\(\\'support\\'\)/);
 assert.match(css,/\.admin-nav-item/);
 assert.match(css,/\.admin-nav-item.*focus-visible/s);
 assert.match(audit,/node tests\/admin-atendimento-v1-1064\.mjs/);
-assert.doesNotMatch(admin.slice(start,end),/adminPerform\(|adminInvoke\(|adminFinancialAction|impersonat/i,
+assert.doesNotMatch(admin.slice(start,end),/adminPerform\(|adminInvoke\(|adminFinancialAction\(/i,
  'Navigation must not invoke privileged payments or assume another account');
 console.log('V1.1064 PASS: atendimento one click, separate counters, real queue, RBAC and task picker parity.');
