@@ -20,7 +20,8 @@ const anonRead=name=>{
  return JSON.parse(output.split('\n').find(x=>x.trim().startsWith('{'))||'null');
 };
 const required=['clube_coupon_home_prices_v1_820','welcome_bonus_status_v1_815',
- 'agenda_available_slots','agenda_deposit_quote','agenda_available_staff_slots','agenda_day_is_closed','agenda_public_directory','agenda_public_page'];
+ 'agenda_available_slots','agenda_deposit_quote','agenda_available_staff_slots','agenda_day_is_closed','agenda_public_directory',
+ 'agenda_search_directory','agenda_public_page'];
 const actual=JSON.parse(sql(
  "SELECT coalesce(jsonb_agg(p.proname ORDER BY p.proname),'[]'::jsonb)::text "+
  "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "+
@@ -60,5 +61,14 @@ assert.equal(sql("SELECT has_function_privilege('anon','public.agenda_reschedule
 assert.equal(sql("SELECT public.agenda_public_page('no-such-professional') IS NULL"),'t');
 assert.equal(sql("SELECT public.agenda_day_is_closed(null::uuid,current_date)"),'f');
 assert.equal(sql("SELECT has_function_privilege('anon','public.agenda_my_bookings()','EXECUTE')"),'f');
+assert.equal(sql("SELECT has_function_privilege('anon',"+
+ "'public.agenda_search_directory(text,integer,integer)','EXECUTE')"),'t');
+const agendaSearchColumns=sql("SELECT pg_get_function_result("+
+ "'public.agenda_search_directory(text,integer,integer)'::regprocedure)");
+for(const col of ['slug text','title text','city text','about text','photo_path text','total_count bigint'])
+ assert.ok(agendaSearchColumns.includes(col),'only reviewed public columns: '+col);
+for(const sensitive of ['owner_id','customer_id','customer_phone','whatsapp_e164','booking_id'])
+ assert.ok(!agendaSearchColumns.includes(sensitive),'directory search must never reveal '+sensitive);
+
 assert.equal(sql("SELECT has_function_privilege('anon','public.agenda_set_closed_day(date,boolean)','EXECUTE')"),'f');
 console.log('PASS: public definer inventory reviewed, published-page projections only, no private agenda table grants or anonymous claims.');
