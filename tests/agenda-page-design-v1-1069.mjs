@@ -12,7 +12,7 @@ assert.ok(html.indexOf('/js/agenda-design.js')<html.indexOf('/js/agenda.js'),'lo
 assert.match(agenda,/await agendaDesignLoadOwner\(\)/);
 assert.match(agenda,/await agendaDesignLoadPublic\(s\.publicProfile\)/);
 assert.match(agenda,/agendaDesignOwnerEditor\(\)/);
-assert.match(agenda,/if\(s\.design&&typeof agendaDesignPublicView==='function'\)return agendaDesignPublicView\(p,form\)/);
+assert.match(agenda,/if\(typeof agendaDesignPublicView==='function'\)return agendaDesignPublicView\(p,form\)/);
 assert.match(css,/@media\(max-width:540px\)/);
 assert.match(css,/\.agenda-premium\.font-classic/);
 assert.match(migration,/font_style in \('modern','classic','friendly'\)/);
@@ -20,6 +20,7 @@ assert.match(css,/\.agenda-premium-book/);
 assert.match(css,/\.agenda\.agenda-standalone-profile/);
 assert.match(css,/\.agenda-premium-lightbox::backdrop/);
 assert.match(agenda,/agenda-standalone-profile/);
+assert.match(agenda,/if\(slug&&s\.publicProfile\?\.id&&typeof agendaDesignPublicView==='function'\)/);
 assert.match(src,/function agendaDesignGalleryOpen\(event,index\)/);
 assert.match(migration,/enable row level security/i);
 assert.match(migration,/for select to anon,authenticated/);
