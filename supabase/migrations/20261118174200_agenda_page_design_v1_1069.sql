@@ -41,9 +41,7 @@ create schema if not exists tamao_acl;
 create or replace function tamao_acl.agenda_design_published(p_page_id uuid)
 returns boolean
 language sql stable security definer set search_path to 'pg_catalog'
-as $
- select exists(select 1 from public.agenda_pages p where p.id=p_page_id and p.published);
-$;
+as 'select exists(select 1 from public.agenda_pages p where p.id=p_page_id and p.published);';
 revoke all on function tamao_acl.agenda_design_published(uuid) from public;
 grant usage on schema tamao_acl to anon,authenticated;
 grant execute on function tamao_acl.agenda_design_published(uuid) to anon,authenticated;
