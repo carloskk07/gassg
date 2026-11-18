@@ -436,12 +436,13 @@ try{
   assert.equal(await evaluate('window.__CHAMA_TEST__'),true);
   assert.equal(await evaluate('window.CHAMA_INTERNAL_PILOT'),false);
   const workspace=['driver','admin','agenda'].includes(role);
-  const pageProof=await evaluate("(()=>{const app=document.querySelector('.app'),p=document.querySelector('.tamao-demo-dialog');return {app:getComputedStyle(app).display,workspace:getComputedStyle(p).display,pageRole:p.getAttribute('role'),hash:location.hash,width:document.documentElement.scrollWidth}})()");
+  const pageProof=await evaluate("(()=>{const app=document.querySelector('.app'),p=document.querySelector('.tamao-demo-dialog');return {app:getComputedStyle(app).display,workspace:getComputedStyle(p).display,pageRole:p.getAttribute('role'),hash:location.hash,scrollTop:window.scrollY,width:document.documentElement.scrollWidth}})()");
   if(workspace){
    assert.equal(pageProof.app,'none',role+' must hide entire Home');
    assert.equal(pageProof.workspace,'block',role+' must render as a separate full-page view');
    assert.equal(pageProof.pageRole,'main','workspace is a page, not a modal');
    assert.equal(pageProof.hash,'#teste-'+role,'workspace has distinct URL');
+   assert.ok(pageProof.scrollTop<=12,'workspace must open at top: '+JSON.stringify(pageProof));
    assert.ok(pageProof.width<=392,'workspace must fit mobile: '+JSON.stringify(pageProof));
    if(role==='admin')await snapshot('13-admin-pagina-separada.png');
    if(role==='driver')await snapshot('14-entregador-pagina-separada.png');
