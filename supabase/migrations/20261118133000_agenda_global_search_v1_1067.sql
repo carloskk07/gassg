@@ -21,12 +21,12 @@ as $search$
  with request as (
   select
    pg_catalog.translate(
-    pg_catalog.lower(pg_catalog.btrim(pg_catalog.left(pg_catalog.coalesce(p_query,''),80))),
+    pg_catalog.lower(pg_catalog.btrim(pg_catalog.left(coalesce(p_query,''),80))),
     'áàâãäéèêëíìîïóòôõöúùûüç',
     'aaaaaeeeeiiiiooooouuuuc'
    ) as terms,
-   pg_catalog.greatest(1,pg_catalog.least(pg_catalog.coalesce(p_limit,12),24)) as take,
-   pg_catalog.greatest(0,pg_catalog.coalesce(p_offset,0)) as skip
+   greatest(1,least(coalesce(p_limit,12),24)) as take,
+   greatest(0,coalesce(p_offset,0)) as skip
  ),
  eligible as (
   select p.id,p.slug,p.title,p.city,pg_catalog.left(p.about,180) as about,
