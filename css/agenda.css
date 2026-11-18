@@ -184,3 +184,16 @@
  .agenda-directory .agenda-list .agenda-directory-card{transition:none}
  .agenda-directory .agenda-list .agenda-directory-card:hover{transform:none}
 }
+
+
+/* V1.1067 — global public Agenda search, responsive pagination. */
+.agenda-directory-pagination{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:15px 0 0}
+.agenda-directory-pagination button{min-height:46px;padding:11px 19px}
+.agenda-directory-result{min-height:1.3rem}
+.agenda-directory #agenda-directory-cards[hidden]{display:none!important}
+.agenda-directory #agenda-directory-empty[hidden]{display:none!important}
+.agenda-directory #agenda-directory-empty{margin:12px 0;color:#54705d}
+.agenda-directory-pagination button:focus-visible{outline:3px solid #c39228;outline-offset:3px}
+@media(max-width:500px){
+ .agenda-directory-pagination button{width:100%}
+}

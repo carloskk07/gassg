@@ -125,6 +125,11 @@ jobs:
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
             --username=postgres --dbname=postgres --no-psqlrc \
             --set=ON_ERROR_STOP=1 --file=tests/sql/agenda-mvp-invariants.sql
+      - name: V1.1067 public Agenda global directory pagination and anon ACL (ROLLBACK)
+        run: |
+          PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \
+            --username=postgres --dbname=postgres --no-psqlrc \
+            --set=ON_ERROR_STOP=1 --file=tests/sql/agenda-global-search-v1-1067.sql
       - name: Automatic payment recovery queue, five sources, leases and private authorization (ROLLBACK)
         run: |
           PGPASSWORD=postgres psql --host=127.0.0.1 --port=54322 \

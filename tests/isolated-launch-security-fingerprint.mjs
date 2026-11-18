@@ -16,9 +16,9 @@ const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
  tableDigest:'45caac3d2036da0b2e6cb1772436fe7d',
- rpcDigest:'7a1342b570ed46b605d2f7284d2e62ca',
- tableCount:16,rpcCount:55
-},'Local canonical migrated schema must match the reviewed Agenda V1.1052 ACL baseline');
+ rpcDigest:'a2541222631102b9b6766d1f36784893',
+ tableCount:16,rpcCount:56
+},'Local canonical migrated schema must match the reviewed Agenda V1.1067 ACL baseline');
 const ready=()=>JSON.parse(sql("SELECT public.platform_launch_readiness()"));
 const launch=ready();
 assert.equal(launch.operationMode,'PRELAUNCH');

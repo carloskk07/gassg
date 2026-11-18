@@ -1,7 +1,7 @@
 /* TAMÃO Agenda: optional professional booking module; no payment processing. */
 const agendaRuntime={
  phase:'idle',client:null,user:null,page:null,services:[],staff:[],depositSettings:[],hours:[],bookings:[],mine:[],waiting:[],myWaiting:[],blocks:[],closedDays:[],dayClosed:false,
- slug:'',publicProfile:null,directory:[],directoryQuery:'',ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
+ slug:'',publicProfile:null,directory:[],directoryQuery:'',directoryTotal:0,directoryMode:'idle',directoryLoading:false,directoryLoadingMore:false,directoryError:'',directoryRequest:0,directoryTimer:null,ownerMode:false,serviceId:'',staffId:'',rescheduleId:'',day:'',slots:[],paymentQuote:null,selectedStart:'',
  notice:'',error:'',busy:false,slotBusy:false,requestKey:'',epoch:0,authReady:false,qrOpen:false,advancedOpen:false,hoursOpen:false
 };
 const agendaUuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -435,7 +435,18 @@ function agendaDirectoryMatches(profile,query){
 function agendaDirectoryFilter(value){
  const s=agendaRuntime;
  s.directoryQuery=String(value||'').slice(0,80);
- const panel=document.getElementById('agenda-directory');
+ // Search the whole published directory on the server. Keep the input focused
+ // while replacing only result cards, never the search field or parent page.
+ if(s.client&&s.directoryMode!=='legacy'){
+  if(s.directoryTimer)clearTimeout(s.directoryTimer);
+  ++s.directoryRequest; // Reject responses for a query already changed.
+  s.directoryLoading=true;s.directoryLoadingMore=false;s.directoryError='';
+  agendaDirectorySyncDom();
+  s.directoryTimer=setTimeout(()=>{s.directoryTimer=null;void agendaRefreshDirectory();},320);
+  return 0;
+ }
+ // Compatibility for older database deployments and isolated offline tests.
+ const panel=globalThis.document?.getElementById('agenda-directory');
  if(!panel)return 0;
  let visible=0;
  for(const card of panel.querySelectorAll('[data-agenda-directory-card]')){
@@ -454,18 +465,80 @@ function agendaDirectoryResultCopy(visible,total,query){
  return visible===0?'Nenhum profissional corresponde à busca. Tente outro nome ou cidade.':
   visible===1?'1 profissional encontrado':visible+' profissionais encontrados';
 }
+function agendaDirectoryStatus(){
+ const s=agendaRuntime;
+ if(s.directoryLoading&&!s.directoryLoadingMore)return 'Buscando profissionais…';
+ if(s.directoryError)return s.directoryError;
+ const localMatches=s.directory.filter(p=>agendaDirectoryMatches(p,s.directoryQuery)).length;
+ if(s.directoryMode==='legacy')return 'Exibindo resultados disponíveis nesta consulta. '+
+  agendaDirectoryResultCopy(localMatches,s.directory.length,s.directoryQuery);
+ const total=s.directoryMode==='server'?s.directoryTotal:s.directory.length;
+ if(total===0)return String(s.directoryQuery||'').trim()?
+  'Nenhum profissional corresponde à busca. Tente outro nome ou cidade.':
+  'Nenhum profissional publicado por enquanto.';
+ if(s.directoryMode==='server'&&total>s.directory.length)
+  return 'Mostrando '+s.directory.length+' de '+total+' profissionais'+
+   (s.directoryQuery.trim()?' encontrados.':' publicados.');
+ return agendaDirectoryResultCopy(
+  s.directoryMode==='server'?total:localMatches,total,s.directoryQuery);
+}
+function agendaDirectoryCards(){
+ const s=agendaRuntime,query=String(s.directoryQuery||'').slice(0,80);
+ return s.directory.map((p,index)=>
+   '<a class="agenda-directory-card" data-agenda-directory-card data-agenda-index="'+index+'"'+
+    (s.directoryMode==='server'||agendaDirectoryMatches(p,query)?'':' hidden')+
+    ' href="'+esc(agendaShareLink(p.slug))+'">'+
+    (agendaPhotoUrl(p.photo_path)?'<img class="agenda-directory-photo" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':
+     '<span class="agenda-directory-placeholder" aria-hidden="true">📅</span>')+
+    '<strong>'+esc(p.title)+'</strong><span class="agenda-directory-city">'+esc(p.city)+'</span>'+
+    (typeof p.about==='string'&&p.about.trim()?'<p class="agenda-directory-about">'+esc(p.about.slice(0,180))+'</p>':'')+
+    '<span class="agenda-directory-visit">Ver serviços e horários <span aria-hidden="true">→</span></span></a>').join('');
+}
+function agendaDirectoryMoreMarkup(){
+ const s=agendaRuntime;
+ return s.directoryMode==='server'&&s.directory.length<s.directoryTotal?
+  '<button type="button" class="secondary" onclick="agendaDirectoryMore()"'+
+   (s.directoryLoading?' disabled aria-busy="true"':'')+'>'+
+   (s.directoryLoading&&s.directoryLoadingMore?'Carregando…':'Ver mais profissionais')+'</button>':'';
+}
+function agendaDirectorySyncDom(){
+ const s=agendaRuntime,panel=globalThis.document?.getElementById('agenda-directory');
+ if(!panel)return;
+ const cards=panel.querySelector('#agenda-directory-cards');
+ if(cards){
+  cards.innerHTML=agendaDirectoryCards();
+  cards.hidden=s.directoryLoading&&!s.directoryLoadingMore;
+ }
+ const feedback=panel.querySelector('#agenda-directory-result');
+ if(feedback)feedback.textContent=agendaDirectoryStatus();
+ const empty=panel.querySelector('#agenda-directory-empty');
+ if(empty){
+  empty.hidden=s.directoryLoading||!!s.directory.length&&!s.directoryError;
+  empty.textContent=s.directoryError?'A consulta falhou. Verifique a conexão e tente novamente.':
+   s.directoryQuery.trim()?'Nenhum profissional encontrado nesta busca.':
+   'As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.';
+ }
+ const actions=panel.querySelector('#agenda-directory-pagination');
+ if(actions)actions.innerHTML=agendaDirectoryMoreMarkup()+
+  (s.directoryError?'<button type="button" class="secondary" onclick="agendaRefreshDirectory()">Tentar novamente</button>':'');
+}
 function agendaDirectoryClearSearch(){
- const input=document.getElementById('agenda-directory-search');
+ const input=globalThis.document?.getElementById('agenda-directory-search');
  if(input)input.value='';
  agendaDirectoryFilter('');
  input?.focus();
 }
+function agendaDirectoryMore(){
+ const s=agendaRuntime;
+ if(s.directoryMode!=='server'||s.directoryLoading||s.directory.length>=s.directoryTotal)return;
+ void agendaRefreshDirectory({append:true});
+}
 function agendaDirectoryView(){
- const list=agendaRuntime.directory;
- const query=String(agendaRuntime.directoryQuery||'').slice(0,80);
- const count=list.filter(p=>agendaDirectoryMatches(p,query)).length;
+ const s=agendaRuntime;
+ const query=String(s.directoryQuery||'').slice(0,80);
+ const loading=s.directoryLoading&&!s.directoryLoadingMore;
+ const empty=s.directory.length===0||Boolean(s.directoryError);
  return '<section id="agenda-directory" class="agenda-panel agenda-directory"><h2>Encontre um horário</h2>'+
- (list.length?
   '<p class="agenda-directory-intro">Busque pelo nome, cidade ou especialidade descrita pelo profissional. Consulte os horários na página dele.</p>'+
   '<div class="agenda-directory-search" role="search">'+
    '<label for="agenda-directory-search">Nome, especialidade ou cidade</label>'+
@@ -475,18 +548,16 @@ function agendaDirectoryView(){
     '<button type="button" class="secondary" onclick="agendaDirectoryClearSearch()">Limpar busca</button></div>'+
   '</div>'+
   '<p id="agenda-directory-result" class="agenda-directory-result" role="status" aria-live="polite">'+
-   esc(agendaDirectoryResultCopy(count,list.length,query))+'</p>'+
-  '<div id="agenda-directory-cards" class="agenda-list">'+list.map((p,index)=>
-   '<a class="agenda-directory-card" data-agenda-directory-card data-agenda-index="'+index+'"'+
-    (agendaDirectoryMatches(p,query)?'':' hidden')+
-    ' href="'+esc(agendaShareLink(p.slug))+'">'+
-    (agendaPhotoUrl(p.photo_path)?'<img class="agenda-directory-photo" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':
-     '<span class="agenda-directory-placeholder" aria-hidden="true">📅</span>')+
-    '<strong>'+esc(p.title)+'</strong><span class="agenda-directory-city">'+esc(p.city)+'</span>'+
-    (typeof p.about==='string'&&p.about.trim()?'<p class="agenda-directory-about">'+esc(p.about.slice(0,180))+'</p>':'')+
-    '<span class="agenda-directory-visit">Ver serviços e horários <span aria-hidden="true">→</span></span></a>').join('')+'</div>':
-  '<p>As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.</p>')+
- '</section>';
+   esc(agendaDirectoryStatus())+'</p>'+
+  '<div id="agenda-directory-cards" class="agenda-list"'+(loading?' hidden':'')+'>'+agendaDirectoryCards()+'</div>'+
+  '<p id="agenda-directory-empty"'+(loading||!empty?' hidden':'')+'>'+
+   (s.directoryError?'A consulta falhou. Verifique a conexão e tente novamente.':
+    query.trim()?'Nenhum profissional encontrado nesta busca.':
+    'As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.')+'</p>'+
+  (s.directoryMode==='legacy'?'<p class="tiny muted">Busca limitada aos profissionais desta consulta. Não representa todo o diretório.</p>':'')+
+  '<div id="agenda-directory-pagination" class="agenda-directory-pagination">'+agendaDirectoryMoreMarkup()+
+   (s.directoryError?'<button type="button" class="secondary" onclick="agendaRefreshDirectory()">Tentar novamente</button>':'')+
+  '</div></section>';
 }
 function agendaMyWaitingView(){
  const s=agendaRuntime;if(!s.user||!s.myWaiting.length)return '';
@@ -635,14 +706,55 @@ async function agendaRefreshOwner(){
  const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
  if(epoch===s.epoch&&s.user?.id===u.id&&!queue.error)s.myWaiting=queue.data||[];
 }
-async function agendaRefreshDirectory(){
+async function agendaRefreshDirectory({append=false}={}){
  const s=agendaRuntime;
+ if(!s.client)return;
+ if(s.directoryTimer){clearTimeout(s.directoryTimer);s.directoryTimer=null;}
+ if(append&&(s.directoryMode!=='server'||s.directoryLoading||s.directory.length>=s.directoryTotal))return;
+ const requested=++s.directoryRequest;
+ const query=String(s.directoryQuery||'').trim().slice(0,80);
+ const offset=append?s.directory.length:0;
+ s.directoryLoading=true;s.directoryLoadingMore=append;s.directoryError='';
+ agendaDirectorySyncDom();
+ const valid=data=>(Array.isArray(data)?data:[]).filter(p=>
+  p&&agendaSlugPattern.test(String(p.slug||''))&&String(p.slug).length<=60&&
+  typeof p.title==='string'&&typeof p.city==='string'
+ ).slice(0,append?12:24);
  try{
-  const {data,error}=await s.client.rpc('agenda_public_directory');
-  if(!error&&Array.isArray(data))s.directory=data.filter(p=>
-   agendaSlugPattern.test(String(p.slug||''))&&
-   typeof p.title==='string'&&typeof p.city==='string').slice(0,24);
- }catch(_){/* Discovery remains optional while the new schema is rolling out. */}
+  const result=await s.client.rpc('agenda_search_directory',{
+   p_query:query,p_limit:12,p_offset:offset
+  });
+  if(requested!==s.directoryRequest)return;
+  if(result.error){
+   // Production rollout fallback: the old public API remains available while
+   // the additive migration reaches the live database.
+   if(!append&&['PGRST202','42883'].includes(String(result.error.code||''))){
+    const old=await s.client.rpc('agenda_public_directory');
+    if(requested!==s.directoryRequest)return;
+    if(old.error)throw old.error;
+    s.directory=valid(old.data).slice(0,24);
+    s.directoryTotal=s.directory.length;s.directoryMode='legacy';
+   }else throw result.error;
+  }else{
+   if(!Array.isArray(result.data))throw Error('AGENDA_DIRECTORY_INVALID_RESPONSE');
+   const items=valid(result.data).slice(0,12);
+   const total=Number(result.data[0]?.total_count??0);
+   if(!Number.isSafeInteger(total)||total<offset+items.length)
+    throw Error('AGENDA_DIRECTORY_INVALID_TOTAL');
+   s.directory=append?[...s.directory,...items]:items;
+   s.directoryTotal=total;s.directoryMode='server';
+  }
+  s.directoryError='';
+ }catch(_){
+  if(requested!==s.directoryRequest)return;
+  s.directoryError='Não foi possível buscar profissionais. Tente novamente.';
+  if(!append){s.directory=[];s.directoryTotal=0;}
+ }finally{
+  if(requested===s.directoryRequest){
+   s.directoryLoading=false;s.directoryLoadingMore=false;
+   agendaDirectorySyncDom();
+  }
+ }
 }
 function agendaPageIdentity(profile){
  if(typeof document==='undefined')return;
