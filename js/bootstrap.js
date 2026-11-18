@@ -50,6 +50,22 @@ function tamaoPublicEntryIntent(){
     return ['revenda','cadastro-revenda','marca','indicar','agua','gas','clube'].includes(value)?value:'';
   }catch{return ''}
 }
+// V1.1072: a merchant's page can preselect one real catalogue product.
+// Never overwrite an existing buyer basket or create an order on URL entry.
+let tamaoDirectSellerCartEntrySeen=false;
+function tamaoDirectSellerCartEntry(){
+ if(tamaoDirectSellerCartEntrySeen)return false;
+ if(globalThis.__CHAMA_TEST__===true||globalThis.CHAMA_INTERNAL_PILOT===true||
+  globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
+ const p=new URLSearchParams(location.search),seller=String(p.get('seller')||'').toLowerCase();
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(seller))return false;
+ tamaoDirectSellerCartEntrySeen=true;
+ const item=String(p.get('item')||'').trim().toUpperCase();
+ if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(item)||hasCartItems())return false;
+ state.cart=normalizeCart({[item]:1});
+ save();return true;
+}
+
 let tamaoSignupHandoffAttempted=false;
 function tamaoPublicEntryRoute(){
   if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.()||
@@ -292,6 +308,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     return;
   }
   if(globalThis.merchantPortalRequested?.())return;
+  tamaoDirectSellerCartEntry();
   tamaoPublicEntryRoute();
   render();
 });
