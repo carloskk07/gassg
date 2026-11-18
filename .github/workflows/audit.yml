@@ -47,6 +47,8 @@ jobs:
         run: node tests/agenda-journeys-v1-1063.mjs
       - name: V1.1066 public Agenda searchable directory with accent and safety checks
         run: node tests/agenda-directory-search-v1-1066.mjs
+      - name: V1.1067 global public Agenda directory, pagination and SQL permissions
+        run: node tests/agenda-global-search-v1-1067.mjs
       - name: V1.1055 protected Admin QA and visible participant access
         run: node tests/admin-test-center-member-entry-v1-1055.mjs
       - name: V1.1056 simpler public participant access without Admin link
