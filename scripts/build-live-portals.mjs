@@ -404,7 +404,10 @@ export function compactReleasedGrowthComments(source){
    throw new Error('Missing canonical growth contracts');
  const omitted=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
  if(omitted.length<18)throw new Error('Growth comments compaction contract changed');
- const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+ // Release-only whitespace compaction. Do not change canonical source or HTML contents.
+ // Strip indentation only when the next character is non-whitespace; scripts stay syntactically checked.
+ const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+  .replace(/^ {1,6}(?=\S)/gm,'');
  validateClassicScriptSyntax(released,'emitted growth.js');
  return released;
 }
