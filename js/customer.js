@@ -121,7 +121,8 @@ async function startHomeOrder({addFeatured=true}={}){
     const changed=Boolean(postalCode)&&postalCode!==String(state.postalCode||'');
     if(postalCode)state.postalCode=postalCode;
     if(changed){
-      // Keep the CEP, not a previous address or quote.
+      // Carry the postal code forward, but never carry a street, number or
+      // quotation certified for a different delivery address.
       state.address='';
       state.addressNumber='';
       if(globalThis.liveRuntime){
@@ -153,7 +154,7 @@ async function startHomeOrder({addFeatured=true}={}){
   }
 }
 
-// Preserve cart and CEP; do not add gas.
+// Product-first entry: preserve the existing cart and CEP, never silently add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
@@ -653,9 +654,9 @@ function home(){
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
     ${homeIntentGuide}
     ${globalThis.document?.getElementById('tamao-home-journeys-template')?.innerHTML||''}
-    ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
-      <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produtos <span aria-hidden="true">→</span> 2. Seu CEP <span aria-hidden="true">→</span> 3. Opções</span></div>
-      <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
+    ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Produtos do TAMÃO">
+      <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produto → 2. CEP → 3. Ofertas</span></div>
+      <div class="home-discover-filter" role="group" aria-label="Categorias">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
     </section>`:''}
