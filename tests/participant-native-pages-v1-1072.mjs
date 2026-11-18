@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const ts=read('supabase/functions/participant-pages/index.ts');
-const schema=read('supabase/migrations/20261118213900_participant_native_pages_v1_1072.sql');
+const schema=read('supabase/migrations/20261118230909_participant_native_pages_v1_1072.sql');
 const getOffers=read('supabase/functions/get-offers/index.ts');
 const backend=read('js/backend.js'),customer=read('js/customer.js'),bootstrap=read('js/bootstrap.js');
 const merchant=read('js/merchant.js'),discoveryOwner=read('js/discovery-owner.js'),growth=read('js/growth.js');
