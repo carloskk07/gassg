@@ -610,9 +610,16 @@ function agendaPage(){
  if(s.phase==='failed')return shell('<section class="section agenda">'+head+agendaNote()+
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
- const ownerInvite='<div class="agenda-intro"><h2>Atende clientes com hora marcada?</h2>'+
-  '<p>Crie sua página, configure seu primeiro serviço e receba reservas online sem mensalidade.</p>'+
-  '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda grátis</button></div>';
+ const ownerInvite='<div class="agenda-intro"><div class="agenda-example-invite">'+
+  '<div class="agenda-example-copy"><span class="section-kicker">SUA MARCA PODE TER UMA PÁGINA ASSIM</span>'+
+   '<h2>Atende clientes com hora marcada?</h2>'+
+   '<p>Crie sua página, personalize serviços, equipe e horários. Veja primeiro como uma apresentação profissional pode ficar.</p>'+
+   '<div class="agenda-example-actions"><button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda grátis</button>'+
+   '<a class="agenda-example-link" href="/agenda/exemplo/">Explorar página exemplo <span aria-hidden="true">↗</span></a></div></div>'+
+  '<a class="agenda-example-preview" href="/agenda/exemplo/" aria-label="Conheça a página ilustrativa Barbearia Black Gold">'+
+   '<img src="https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&amp;fit=crop&amp;w=740&amp;q=76"'+
+    ' loading="lazy" width="370" height="230" alt="Interior de barbearia elegante, imagem ilustrativa">'+
+   '<span><strong>Black Gold</strong><small>Conheça a vitrine premium ↗</small></span></a></div></div>';
  return shell('<section class="section agenda">'+head+agendaNote()+
   (slug?agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView():
    (s.ownerMode&&!s.user?
