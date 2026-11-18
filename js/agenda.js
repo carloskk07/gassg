@@ -469,7 +469,9 @@ function agendaDirectoryStatus(){
  const s=agendaRuntime;
  if(s.directoryLoading&&!s.directoryLoadingMore)return 'Buscando profissionais…';
  if(s.directoryError)return s.directoryError;
- if(s.directoryMode==='legacy')return 'Exibindo resultados disponíveis nesta consulta.';
+ const localMatches=s.directory.filter(p=>agendaDirectoryMatches(p,s.directoryQuery)).length;
+ if(s.directoryMode==='legacy')return 'Exibindo resultados disponíveis nesta consulta. '+
+  agendaDirectoryResultCopy(localMatches,s.directory.length,s.directoryQuery);
  const total=s.directoryMode==='server'?s.directoryTotal:s.directory.length;
  if(total===0)return String(s.directoryQuery||'').trim()?
   'Nenhum profissional corresponde à busca. Tente outro nome ou cidade.':
@@ -477,7 +479,8 @@ function agendaDirectoryStatus(){
  if(s.directoryMode==='server'&&total>s.directory.length)
   return 'Mostrando '+s.directory.length+' de '+total+' profissionais'+
    (s.directoryQuery.trim()?' encontrados.':' publicados.');
- return agendaDirectoryResultCopy(total,total,s.directoryQuery);
+ return agendaDirectoryResultCopy(
+  s.directoryMode==='server'?total:localMatches,total,s.directoryQuery);
 }
 function agendaDirectoryCards(){
  const s=agendaRuntime,query=String(s.directoryQuery||'').slice(0,80);
