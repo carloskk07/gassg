@@ -31,7 +31,7 @@ for(const role of ['customer','tracking','merchant','driver','club','network','a
   'Missing isolated one-click demo '+role);
 }
 assert.match(view,/<details class="admin-test-more"><summary>Testes isolados/);
-assert.match(view,/data-admin-support-entity/);
+assert.match(view,/admin-support-hub-feedback/);
 assert.match(view,/https:\/\/parceiro\.tamao\.com\.br\//);
 assert.doesNotMatch(view,/<a[^>]*data-admin-demo[^>]*href="https:\/\/parceiro\.tamao\.com\.br\//);
 assert.doesNotMatch(view,/access_token|refresh_token|token=|service_role|signInWithOtp/);
