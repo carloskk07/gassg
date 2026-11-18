@@ -520,6 +520,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
     }
+    // Keep the immutable bootstrap source readable; remove comments that are
+    // documentary only from the isolated portal release, not its behavior.
+    const bootstrapEntry=path.join(target,'js','bootstrap.js');
+    const releasedBootstrap=fs.readFileSync(bootstrapEntry,'utf8')
+      .replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+    validateClassicScriptSyntax(releasedBootstrap,'emitted bootstrap.js');
+    fs.writeFileSync(bootstrapEntry,releasedBootstrap,'utf8');
     // V1.1072: reduce only release-side backend comments and indentation.
     // Canonical source and feature contracts are retained byte-for-byte.
     const backendEntry=path.join(target,'js','backend.js');
