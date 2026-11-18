@@ -157,3 +157,29 @@
 .agenda-directory .agenda-list a:hover{border-color:#8ac6a3;box-shadow:0 9px 24px rgba(16,80,51,.12);transform:translateY(-2px)}
 .agenda-directory .agenda-list a:focus-visible{outline:3px solid #e5ae4f;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.agenda-directory .agenda-list a{transition:none}.agenda-directory .agenda-list a:hover{transform:none}}
+
+/* V1.1066 — Search the real public directory without another login or page load. */
+.agenda-directory{scroll-margin-top:94px}
+.agenda-directory-intro{margin:0 0 16px}
+.agenda-directory-search{display:grid;gap:6px;margin:12px 0 8px}
+.agenda-directory-search>label{display:block;font-weight:750;color:#254d38;font-size:13px}
+.agenda-directory-search-row{display:flex;align-items:stretch;gap:9px}
+.agenda-directory-search-row input[type="search"]{flex:1 1 220px;min-width:0;min-height:46px;background:#fff}
+.agenda-directory-search-row button{flex:0 0 auto;min-height:46px;padding:10px 14px}
+.agenda-directory-result{margin:7px 0 14px!important;font-size:13px;color:#42664f!important;font-weight:700}
+.agenda-directory .agenda-list a[hidden]{display:none!important}
+.agenda-directory .agenda-list .agenda-directory-card{gap:9px;overflow:hidden;transition:box-shadow .15s ease,border-color .15s ease,transform .15s ease}
+.agenda-directory .agenda-list .agenda-directory-card:hover{border-color:#8fc8a6;box-shadow:0 10px 20px #17462d15;transform:translateY(-2px)}
+.agenda-directory .agenda-list .agenda-directory-card:focus-visible{outline:3px solid #c39228;outline-offset:3px}
+.agenda-directory-photo,.agenda-directory-placeholder{display:block;width:100%;height:132px;object-fit:cover;border-radius:12px;background:#eff7f1}
+.agenda-directory-placeholder{display:grid;place-items:center;font-size:32px;color:#215a41}
+.agenda-directory .agenda-list .agenda-directory-visit{color:#08764d;font-weight:800;margin-top:auto}
+@media(max-width:500px){
+ .agenda-directory-search-row{flex-direction:column;gap:8px}
+ .agenda-directory-search-row button{align-self:stretch}
+ .agenda-directory-photo,.agenda-directory-placeholder{height:150px}
+}
+@media(prefers-reduced-motion:reduce){
+ .agenda-directory .agenda-list .agenda-directory-card{transition:none}
+ .agenda-directory .agenda-list .agenda-directory-card:hover{transform:none}
+}
