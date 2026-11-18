@@ -41,6 +41,14 @@ assert.ok(panel.includes('crypto.subtle.generateKey'));
 assert.ok(panel.includes('crypto.subtle.encrypt'));
 assert.ok(panel.includes('crypto.subtle.decrypt'));
 assert.ok(panel.includes('Modo teste · dados fictícios'));
+assert.ok(panel.includes('tamao-demo-workspace-open .app{display:none!important}'));
+assert.ok(panel.includes("dialog.setAttribute('role','main')"));
+assert.ok(panel.includes("url.hash='teste-'+name"));
+assert.ok(panel.includes("globalThis.go?.('club')"));
+assert.ok(panel.includes("globalThis.go?.('refer')"));
+assert.ok(panel.includes("openDemoPreview(role)"));
+assert.ok(!panel.includes("dialog.setAttribute('aria-modal','true')"));
+
 assert.ok(!panel.includes('merchantCompleteDeliveryLive('),'no real delivery endpoint in offline simulation');
 assert.ok(panel.includes('Verificar armazenamento protegido deste aparelho'));
 assert.ok(panel.includes('tamao-demo-device-check'));
