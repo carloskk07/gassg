@@ -654,7 +654,7 @@ function home(){
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
     ${homeIntentGuide}
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Produtos do TAMÃO">
-      <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produto → 2. CEP → 3. Ofertas</span></div>
+      <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produto → 2. Seu CEP → 3. Ofertas</span></div>
       <div class="home-discover-filter" role="group" aria-label="Categorias">${discoveryFilters}</div>
       <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque.</p>
       <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
