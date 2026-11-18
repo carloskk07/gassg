@@ -511,9 +511,8 @@ function merchantGrowthNetworkSection(merchant){
     growth?.source==='merchant_network_v1_226'&&
     /^TMR[A-F0-9]{24}$/.test(String(growth?.inviteCode||''))&&
     growth?.rewardEnabled===false;
-  const link=(type)=>'https://tamao.com.br/?ref='+
-    encodeURIComponent(valid?growth.inviteCode:'')+
-    (type==='merchant'?'#merchants':'#home');
+  const link=(type)=>valid&&typeof tamaoNetworkPageLink==='function'
+    ?tamaoNetworkPageLink(growth.inviteCode,{audience:type}):'';
   return `<section class="section merchant-growth-network" id="merchant-growth-network">
     <div class="section-head"><div><span class="section-kicker">REDE TAMÃO</span>
       <h2>Minha rede de indicações</h2>
@@ -532,6 +531,7 @@ function merchantGrowthNetworkSection(merchant){
           <button class="primary" onclick="merchantGrowthShareFromUi(document.getElementById('merchant-network-target').value)">Convidar</button>
         </div>`
         :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
+      ${valid&&typeof tamaoNetworkPageBuilder==='function'?tamaoNetworkPageBuilder('merchant'):''}
       ${globalThis.merchantRuntime?.growthError?
         '<div class="notice danger">'+esc(globalThis.merchantRuntime.growthError)+'</div>':''}
       ${valid&&growth?.packageNetwork?.available===true&&
@@ -577,8 +577,9 @@ async function merchantGrowthShareFromUi(type='merchant'){
     !/^TMR[A-F0-9]{24}$/.test(String(network?.inviteCode||''))){
     return toast('Carregue primeiro o código da sua revenda');
   }
-  const hash=({customer:'home',merchant:'merchants',professional:'advertise',mobility:'mobility',rides:'rides',club:'club',sponsor:'sponsors'})[type]||'merchants';
-  const url='https://tamao.com.br/?ref='+encodeURIComponent(network.inviteCode)+'#'+hash;
+  const audience=['customer','merchant','professional','mobility','rides','club','sponsor'].includes(type)?type:'merchant';
+  const linkOptions=tamaoNetworkPageFormOptions('merchant')||{};
+  const url=tamaoNetworkPageLink(network.inviteCode,{...linkOptions,audience});
   const message='TAMÃO: '+url;
   try{
     if(navigator.share){await navigator.share({title:'Rede TAMÃO',text:message,url});return;}
