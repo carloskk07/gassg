@@ -68,12 +68,12 @@ async function owner(req:Request){
  const token=String(req.headers.get("Authorization")||"").replace(/^Bearer\s+/,"").trim();
  if(!token)throw new PageError("LOGIN_REQUIRED",401);
  const {data,error}=await auth.auth.getUser(token);
- if(error||!data?.user||!UUID.test(data.user.id))throw new PageError("LOGIN_REQUIRED",401);
+ if(error||!data?.user||!UUID.test(data.user.id)||data.user.is_anonymous===true)throw new PageError("LOGIN_REQUIRED",401);
  return data.user.id;
 }
 async function sourceFor(kind:string,subject:string,actor:string|null,publishing:boolean){
  if(kind==="customer"){
-  if(actor!==subject)throw new PageError("NOT_OWNER",403);
+  if(actor&&actor!==subject)throw new PageError("NOT_OWNER",403);
   return {title:"Meu TAMÃO",kind,subjectId:subject,ownerId:actor,canPublish:true};
  }
  if(kind==="merchant"){
@@ -149,9 +149,10 @@ async function view(slug:string){
   theme:THEMES.has(page.template)?page.template:"clean",
   referralCode:code,
   items:[] as Array<{code:string,name:string}>,photos:[] as string[],
-  city:"",state:"",details:"",agendaSlug:"",listingId:"",vertical:""
+  city:"",state:"",details:"",agendaSlug:"",listingId:"",vertical:"",merchantId:""
  };
  if(page.kind==="merchant"){
+  base.merchantId=page.subject_id;
   const {data:info,error:infoError}=await admin.from("merchant_business_details")
     .select("trade_name,city,state").eq("merchant_id",page.subject_id).maybeSingle();
   if(infoError)throw infoError;
