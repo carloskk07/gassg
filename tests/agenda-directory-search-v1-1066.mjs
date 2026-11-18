@@ -88,6 +88,30 @@ assert.equal(focusCount,1);
 assert.equal(ctx.agendaRuntime?.directoryQuery,undefined);
 assert.equal(vm.runInContext('agendaRuntime.directoryQuery',ctx),'');
 
+// Returning customers must see their own confirmed appointments before the
+// business-owner invitation, without a second login or duplicated cards.
+setup({directoryQuery:'',user:{id:'returning-customer'},page:null,ownerMode:false,
+ mine:[{id:'11111111-1111-4111-8111-111111111111',
+   slug:'barbearia-da-praca',page_title:'Barbearia da Praça',
+   service_title:'Corte masculino',staff_title:'João',
+   starts_at:'2026-12-04T14:00:00-03:00',reschedule_count:0}],
+ myWaiting:[]});
+const returning=vm.runInContext('agendaPage()',ctx);
+assert.match(returning,/Suas reservas e novos horários/);
+assert.equal((returning.match(/<h2>Minhas reservas<\/h2>/g)||[]).length,1);
+assert.ok(returning.indexOf('<h2>Minhas reservas</h2>')<returning.indexOf('id="agenda-directory"'));
+assert.ok(returning.indexOf('id="agenda-directory"')<returning.indexOf('class="agenda-intro"'));
+assert.match(returning,/Corte masculino/);
+assert.match(returning,/href="\/agenda\/barbearia-da-praca"/);
+assert.doesNotMatch(returning,/Primeiro, confirme seu e-mail/);
+
+setup({mine:[],myWaiting:[]});
+const newCustomer=vm.runInContext('agendaPage()',ctx);
+assert.match(newCustomer,/Encontre seu próximo horário no TAMÃO/);
+assert.ok(newCustomer.indexOf('id="agenda-directory"')<newCustomer.indexOf('class="agenda-intro"'),
+ 'Logged-in customer without bookings should discover real professionals first');
+assert.equal((newCustomer.match(/id="agenda-directory"/g)||[]).length,1);
+
 // Search is a public read-only filter; it must not call mutation APIs.
 const start=source.indexOf('function agendaDirectorySearchText(');
 const end=source.indexOf('function agendaMyWaitingView(',start);
