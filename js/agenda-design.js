@@ -154,7 +154,7 @@ async function agendaDesignUploadPhoto(event){
  const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
  const key=s.user.id+'/'+crypto.randomUUID()+'.'+ext;
  s.busy=true;s.error='';s.notice='';
- let uploaded=false;
+ let uploaded=false,linked=false;
  try{
   const result=await s.client.storage.from('tamao-discovery-photos').upload(key,file,{
    contentType:file.type,cacheControl:'3600',upsert:false
@@ -164,11 +164,11 @@ async function agendaDesignUploadPhoto(event){
    photo_paths:[...(p.photo_paths||[]),key]
   }).eq('id',p.id).eq('owner_id',s.user.id).select('*').single();
   if(error||!data?.photo_paths?.includes(key))throw error||Error('photo not recorded');
-  s.page=data;
-  await agendaRefreshOwner();
+  linked=true;s.page=data;
+  try{await agendaRefreshOwner();}catch(_){s.page=data;}
   s.notice='Foto adicionada! Agora você pode escolhê-la como capa, marca ou imagem de serviços e equipe.';
  }catch(_){
-  if(uploaded){try{await s.client.storage.from('tamao-discovery-photos').remove([key]);}catch(_){}}
+  if(uploaded&&!linked){try{await s.client.storage.from('tamao-discovery-photos').remove([key]);}catch(_){}}
   s.error='Não foi possível adicionar a foto. Suas reservas permanecem inalteradas.';
  }
  s.busy=false;render();
