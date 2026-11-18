@@ -520,6 +520,14 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
     }
+    // V1.1072: reduce only release-side backend comments and indentation.
+    // Canonical source and feature contracts are retained byte-for-byte.
+    const backendEntry=path.join(target,'js','backend.js');
+    const compactBackend=fs.readFileSync(backendEntry,'utf8')
+      .replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+      .replace(/^ {1,2}(?=\S)/gm,'');
+    validateClassicScriptSyntax(compactBackend,'emitted backend.js');
+    fs.writeFileSync(backendEntry,compactBackend,'utf8');
     // Shared core comments are documentation, not required initial JS bytes.
     const coreFile=path.join(target,'js','core.js');
     fs.writeFileSync(coreFile,compactReleasedCoreComments(fs.readFileSync(coreFile,'utf8')),'utf8');
