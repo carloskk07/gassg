@@ -15,7 +15,7 @@ const sql=q=>execFileSync('psql',[
 const read=()=>JSON.parse(sql("SELECT public.tamao_launch_acl_posture_v1()"));
 const baseline=read();
 assert.deepEqual(baseline,{
- tableDigest:'a997534815d9d199529516ad70b510f1',
+ tableDigest:'7c91aa45f4006001d073aa039e6cd42b',
  rpcDigest:'a2541222631102b9b6766d1f36784893',
  tableCount:17,rpcCount:56
 },'Local canonical migrated schema must match the reviewed Agenda V1.1069 ACL baseline');
@@ -36,6 +36,10 @@ const blocked=(query,code)=>{
   'A new grant, weakened policy or function MUST restore the launch block '+code);
  assert.deepEqual(read(),baseline,'transaction rollback must restore exact ACL');
 };
+blocked('GRANT DELETE ON public.agenda_page_design TO authenticated;',
+ 'browser_sensitive_table_acl');
+blocked('ALTER POLICY agenda_design_public_select ON public.agenda_page_design USING (true);',
+ 'browser_sensitive_table_acl');
 blocked('GRANT SELECT ON public.merchants TO authenticated;',
  'browser_sensitive_table_acl');
 blocked('GRANT SELECT(cnpj) ON public.merchants TO authenticated;',
