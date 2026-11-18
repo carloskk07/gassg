@@ -1,0 +1,254 @@
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {createClient} from "npm:@supabase/supabase-js@2.117.2";
+
+// V1.1072 — one real public page per authorized participant or published listing.
+// Public reads contain only allowlisted information from approved business sources.
+// All owner writes require auth.getUser and a fresh owner/manager relationship.
+// No purchases, commissions, money movement or referral writes occur here.
+const URL_BASE=Deno.env.get("SUPABASE_URL")||"";
+const keys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")||"{}");
+const secrets=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}");
+const PUB=keys.default||Deno.env.get("SUPABASE_ANON_KEY")||"";
+const SECRET=secrets.default||Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
+const ORIGINS=new Set([
+ "https://tamao.com.br","https://www.tamao.com.br",
+ "https://parceiro.tamao.com.br","https://admin.tamao.com.br"
+]);
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SLUG=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const KINDS=new Set(["merchant","customer","listing","agenda"]);
+const THEMES=new Set(["clean","gold","rose"]);
+const TABLE="participant_pages_v1_1072";
+
+class PageError extends Error {
+ constructor(public code:string,public status:number=400){super(code);}
+}
+function allowed(origin:string|null){
+ return !origin||ORIGINS.has(origin)||/^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin);
+}
+function headers(origin:string|null){
+ return {
+  "Access-Control-Allow-Origin":origin&&allowed(origin)?origin:"https://tamao.com.br",
+  "Access-Control-Allow-Headers":"authorization, apikey, content-type",
+  "Access-Control-Allow-Methods":"POST, OPTIONS",
+  "Cache-Control":"no-store",
+  "Vary":"Origin",
+  "Content-Type":"application/json; charset=utf-8",
+  "X-Content-Type-Options":"nosniff"
+ };
+}
+function reply(data:unknown,status=200,origin:string|null=null){
+ return new Response(JSON.stringify(data),{status,headers:headers(origin)});
+}
+const clean=(s:unknown,max:number)=>String(s??"").trim().slice(0,max);
+function safeText(value:unknown,max:number){
+ const text=clean(value,max);
+ if(/[\u0000-\u001f<>]/.test(text))throw new PageError("INVALID_TEXT");
+ return text;
+}
+function normalizeSlug(value:string){
+ return value.normalize("NFKD").replace(/[\u0300-\u036f]/g,"")
+   .toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")
+   .slice(0,55).replace(/-+$/,"")||"participante";
+}
+function cleanUUID(value:unknown){
+ const id=clean(value,40).toLowerCase();
+ if(!UUID.test(id))throw new PageError("INVALID_SUBJECT");
+ return id;
+}
+function imageKeys(keys:unknown){
+ if(!Array.isArray(keys))return [];
+ return [...new Set(keys.filter(x=>typeof x==="string"&&
+  /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(x)))].slice(0,6);
+}
+const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
+const auth=createClient(URL_BASE,PUB,{auth:{persistSession:false,autoRefreshToken:false}});
+
+async function owner(req:Request){
+ const token=String(req.headers.get("Authorization")||"").replace(/^Bearer\s+/,"").trim();
+ if(!token)throw new PageError("LOGIN_REQUIRED",401);
+ const {data,error}=await auth.auth.getUser(token);
+ if(error||!data?.user||!UUID.test(data.user.id))throw new PageError("LOGIN_REQUIRED",401);
+ return data.user.id;
+}
+async function sourceFor(kind:string,subject:string,actor:string|null,publishing:boolean){
+ if(kind==="customer"){
+  if(actor!==subject)throw new PageError("NOT_OWNER",403);
+  return {title:"Meu TAMÃO",kind,subjectId:subject,ownerId:actor,canPublish:true};
+ }
+ if(kind==="merchant"){
+  if(actor){
+   const {data:membership,error}=await admin.from("merchant_members")
+    .select("user_id,member_role,active")
+    .eq("merchant_id",subject).eq("user_id",actor).eq("active",true)
+    .in("member_role",["owner","manager"]).maybeSingle();
+   if(error)throw error;
+   if(!membership)throw new PageError("NOT_OWNER",403);
+  }
+  const {data:m,error}=await admin.from("merchants")
+   .select("id,name,status").eq("id",subject).maybeSingle();
+  if(error)throw error;
+  if(!m||m.status==="rejected")throw new PageError("NOT_FOUND",404);
+  if(publishing&&m.status!=="active")throw new PageError("NOT_PUBLISHED",409);
+  return {title:clean(m.name,120),kind,subjectId:subject,ownerId:actor,
+    canPublish:m.status==="active"};
+ }
+ if(kind==="listing"){
+  const {data:l,error}=await admin.from("discovery_listings")
+   .select("id,owner_id,title,vertical,status").eq("id",subject).maybeSingle();
+  if(error)throw error;
+  if(!l||l.vertical==="stays")throw new PageError("NOT_FOUND",404);
+  if(actor&&l.owner_id!==actor)throw new PageError("NOT_OWNER",403);
+  if(publishing&&l.status!=="published")throw new PageError("NOT_PUBLISHED",409);
+  return {title:clean(l.title,120),kind,subjectId:subject,
+    ownerId:l.owner_id,canPublish:l.status==="published",vertical:l.vertical};
+ }
+ if(kind==="agenda"){
+  const {data:a,error}=await admin.from("agenda_pages")
+   .select("id,owner_id,title,published,slug").eq("id",subject).maybeSingle();
+  if(error)throw error;
+  if(!a)throw new PageError("NOT_FOUND",404);
+  if(actor&&a.owner_id!==actor)throw new PageError("NOT_OWNER",403);
+  if(publishing&&!a.published)throw new PageError("NOT_PUBLISHED",409);
+  return {title:clean(a.title,120),kind,subjectId:subject,
+    ownerId:a.owner_id,canPublish:a.published,agendaSlug:a.slug};
+ }
+ throw new PageError("INVALID_KIND");
+}
+async function refFor(kind:string,subjectId:string,ownerId:string){
+ if(kind==="merchant"){
+  const {data,error}=await admin.from("growth_merchant_invites_v1_226")
+    .select("invite_code").eq("merchant_id",subjectId).maybeSingle();
+  if(error)throw error;
+  const code=String(data?.invite_code||"");
+  return /^TMR[A-F0-9]{24}$/.test(code)?code:"";
+ }
+ const {data,error}=await admin.from("profiles")
+  .select("referral_code").eq("user_id",ownerId).maybeSingle();
+ if(error)throw error;
+ const code=clean(data?.referral_code,40).toUpperCase();
+ return /^[A-Z0-9]{5,40}$/.test(code)?code:"";
+}
+function publicURL(slug:string){return "https://tamao.com.br/p/"+slug+"/";}
+async function view(slug:string){
+ if(slug.length<4||slug.length>80||!SLUG.test(slug))throw new PageError("NOT_FOUND",404);
+ const {data:page,error}=await admin.from(TABLE)
+  .select("kind,subject_id,owner_id,slug,template,headline,tagline,published")
+  .eq("slug",slug).eq("published",true).maybeSingle();
+ if(error)throw error;
+ if(!page)throw new PageError("NOT_FOUND",404);
+ const source=await sourceFor(page.kind,page.subject_id,null,true);
+ if(!source.canPublish)throw new PageError("NOT_FOUND",404);
+ const code=await refFor(page.kind,page.subject_id,page.owner_id);
+ const base={
+  source:"participant_native_page_v1_1072",
+  kind:page.kind,slug:page.slug,url:publicURL(page.slug),
+  name:source.title,
+  headline:clean(page.headline,110)||source.title,
+  tagline:clean(page.tagline,320),
+  theme:THEMES.has(page.template)?page.template:"clean",
+  referralCode:code,
+  items:[] as Array<{code:string,name:string}>,photos:[] as string[],
+  city:"",state:"",details:"",agendaSlug:"",listingId:"",vertical:""
+ };
+ if(page.kind==="merchant"){
+  const {data:info,error:infoError}=await admin.from("merchant_business_details")
+    .select("trade_name,city,state").eq("merchant_id",page.subject_id).maybeSingle();
+  if(infoError)throw infoError;
+  // Public merchant identity is the approved merchant name; never legal name,
+  // owner, CNPJ, delivery address, personal phone or financial state.
+  base.city=clean(info?.city,100);base.state=clean(info?.state,2);
+  const {data:catalog,error:catalogError}=await admin.from("catalog_items")
+    .select("product_code,product_name").eq("merchant_id",page.subject_id)
+    .eq("active",true).order("product_code",{ascending:true}).limit(20);
+  if(catalogError)throw catalogError;
+  base.items=(catalog||[]).filter(i=>/^[A-Z][A-Z0-9_]{1,31}$/.test(i.product_code))
+   .map(i=>({code:i.product_code,name:clean(i.product_name,80)}));
+ }
+ if(page.kind==="listing"){
+  const {data:list,error:listError}=await admin.rpc("discovery_public_search",{
+   p_listing_id:page.subject_id,
+   p_vertical:source.vertical,
+   p_limit:1
+  });
+  if(listError)throw listError;
+  const listing=Array.isArray(list)?list.find(x=>x?.id===page.subject_id):null;
+  if(!listing)throw new PageError("NOT_FOUND",404);
+  base.listingId=page.subject_id;base.vertical=source.vertical;
+  base.name=clean(listing.title,120)||source.title;
+  base.city=clean(listing.city_name,120);base.state=clean(listing.state_code,2);
+  base.details=clean(listing.description,2000);
+  base.photos=imageKeys(listing.photo_urls);
+ }
+ if(page.kind==="agenda"){
+  const {data:a,error:aErr}=await admin.from("agenda_pages")
+   .select("slug,about,city,photo_paths").eq("id",page.subject_id).eq("published",true).maybeSingle();
+  if(aErr)throw aErr;
+  if(!a)throw new PageError("NOT_FOUND",404);
+  base.agendaSlug=String(a.slug||"");base.city=clean(a.city,100);
+  base.details=clean(a.about,1000);
+  // The Agenda owns its image presentation; avoid assuming storage ACL here.
+ }
+ return base;
+}
+async function save(body:Record<string,unknown>,actor:string){
+ const kind=clean(body.kind,25),subject=kind==="customer"?actor:cleanUUID(body.subjectId);
+ if(!KINDS.has(kind))throw new PageError("INVALID_KIND");
+ const published=body.published===true;
+ const source=await sourceFor(kind,subject,actor,published);
+ const template=clean(body.theme,25)||"clean";
+ if(!THEMES.has(template))throw new PageError("INVALID_THEME");
+ const headline=safeText(body.headline,110),tagline=safeText(body.tagline,320);
+ const {data:existing,error:readError}=await admin.from(TABLE)
+  .select("id,slug,owner_id").eq("kind",kind).eq("subject_id",subject).maybeSingle();
+ if(readError)throw readError;
+ const slug=existing?.slug||normalizeSlug(source.title)+"-"+subject.replace(/-/g,"").slice(0,12);
+ if(!SLUG.test(slug)||slug.length>80)throw new PageError("INVALID_SLUG");
+ const input={
+  kind,subject_id:subject,owner_id:existing?.owner_id||actor,slug,template,
+  headline,tagline,published,updated_at:new Date().toISOString()
+ };
+ const {data,error}=await admin.from(TABLE).upsert(input,{onConflict:"kind,subject_id"})
+  .select("kind,subject_id,slug,template,headline,tagline,published").single();
+ if(error)throw error;
+ return {source:"participant_native_page_v1_1072",page:{
+  kind:data.kind,subjectId:data.subject_id,slug:data.slug,url:publicURL(data.slug),
+  theme:data.template,headline:data.headline,tagline:data.tagline,published:data.published
+ }};
+}
+async function mine(body:Record<string,unknown>,actor:string){
+ const kind=clean(body.kind,25),subject=kind==="customer"?actor:cleanUUID(body.subjectId);
+ if(!KINDS.has(kind))throw new PageError("INVALID_KIND");
+ await sourceFor(kind,subject,actor,false);
+ const {data,error}=await admin.from(TABLE)
+  .select("kind,subject_id,slug,template,headline,tagline,published")
+  .eq("kind",kind).eq("subject_id",subject).maybeSingle();
+ if(error)throw error;
+ return {source:"participant_native_page_v1_1072",page:data?{
+  kind:data.kind,subjectId:data.subject_id,slug:data.slug,url:publicURL(data.slug),
+  theme:data.template,headline:data.headline,tagline:data.tagline,published:data.published
+ }:null};
+}
+
+Deno.serve(async req=>{
+ const origin=req.headers.get("Origin");
+ if(!allowed(origin))return reply({error:"ORIGIN_NOT_ALLOWED"},403,origin);
+ if(req.method==="OPTIONS")return new Response("ok",{headers:headers(origin)});
+ if(req.method!=="POST")return reply({error:"METHOD_NOT_ALLOWED"},405,origin);
+ try{
+  const raw=await req.text();
+  if(raw.length>6000)throw new PageError("PAYLOAD_TOO_LARGE",413);
+  let body:Record<string,unknown>;
+  try{body=JSON.parse(raw)}catch{throw new PageError("INVALID_JSON")}
+  if(!body||typeof body!=="object"||Array.isArray(body))throw new PageError("INVALID_JSON");
+  const action=clean(body.action,20);
+  if(action==="view")return reply(await view(clean(body.slug,82).toLowerCase()),200,origin);
+  if(action!=="save"&&action!=="mine")throw new PageError("INVALID_ACTION");
+  const user=await owner(req);
+  return reply(action==="save"?await save(body,user):await mine(body,user),200,origin);
+ }catch(e){
+  if(e instanceof PageError)return reply({error:e.code},e.status,origin);
+  console.error("participant-pages failed",e instanceof Error?e.message:String(e));
+  return reply({error:"UNAVAILABLE"},503,origin);
+ }
+});
