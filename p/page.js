@@ -1,0 +1,121 @@
+/* V1.1072 — native, verified public participant page.
+ * Never trust URL names, arbitrary photos, destination URLs, or money claims. */
+(()=>{
+ "use strict";
+ const PROJECT="https://lgugwujpunhslavewffd.supabase.co";
+ const API=PROJECT+"/functions/v1/participant-pages";
+ const slug=decodeURIComponent(location.pathname.match(/^\/p\/([a-z0-9-]+)\/?$/)?.[1]||"");
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ const codePattern=/^[A-Z0-9]{5,40}$/;
+ const $=id=>document.getElementById(id);
+ const text=(id,value)=>{const el=$(id);if(el)el.textContent=String(value||"")};
+ function official(ref,params={},hash="home"){
+  const u=new URL("https://tamao.com.br/");
+  if(codePattern.test(String(ref||"")))u.searchParams.set("ref",ref);
+  for(const [key,value] of Object.entries(params))if(value!==null&&value!=="")u.searchParams.set(key,String(value));
+  u.hash=hash;return u.href;
+ }
+ function leaveLinks(ref){
+  for(const anchor of document.querySelectorAll(".brand,footer a,#discover"))
+   anchor.href=official(ref,{},"home");
+ }
+ function photo(key){
+  if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||"")))return "";
+  return PROJECT+"/storage/v1/object/public/tamao-discovery-photos/"+
+   String(key).split("/").map(encodeURIComponent).join("/");
+ }
+ function showMissing(){
+  $("loading").hidden=true;$("content").hidden=true;$("missing").hidden=false;
+  document.title="Página indisponível • TAMÃO";
+ }
+ function offerURL(ref,seller,item=""){
+  return official(ref,{seller,item}, "order");
+ }
+ function iconForProduct(code){
+  return /^P(?:1|13|20|45|90)/.test(code)?"🔥":
+   /^WATER/.test(code)?"💧":/^WOOD/.test(code)?"🪵":/^ICE/.test(code)?"🧊":"🛍️";
+ }
+ async function load(){
+  if(slug.length<4||slug.length>80||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return showMissing();
+  const ctl=new AbortController(),timeout=setTimeout(()=>ctl.abort(),12000);
+  let data;
+  try{
+   const res=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"view",slug}),signal:ctl.signal,cache:"no-store"});
+   if(!res.ok)throw Error("NOT_AVAILABLE");
+   data=await res.json();
+  }catch{showMissing();return}finally{clearTimeout(timeout)}
+  if(data?.source!=="participant_native_page_v1_1072"||
+    data?.slug!==slug||!["merchant","customer","listing","agenda"].includes(data.kind))return showMissing();
+  const theme=["clean","gold","rose"].includes(data.theme)?data.theme:"clean";
+  document.body.className="theme-"+theme;
+  const ref=codePattern.test(String(data.referralCode||""))?data.referralCode:"";
+  leaveLinks(ref);
+  const title=String(data.headline||data.name||"").slice(0,110);
+  const name=String(data.name||"").slice(0,120);
+  text("page-title",title);text("card-name",name);
+  text("tagline",String(data.tagline||(
+   data.kind==="merchant"?"Conheça esta revenda e consulte produtos disponíveis para sua região.":
+   data.kind==="listing"?"Conheça os serviços e as condições do anunciante.":
+   data.kind==="agenda"?"Veja os serviços e agende diretamente com este profissional.":
+   "Conheça o TAMÃO e as oportunidades da Rede."
+  )).slice(0,320));
+  const place=[String(data.city||"").slice(0,120),String(data.state||"").slice(0,2)].filter(Boolean).join("/");
+  text("place",place);$("place").hidden=!place;
+  text("kind",({merchant:"REVENDA NO TAMÃO",customer:"MINHA REDE TAMÃO",
+   listing:data.vertical==="rides"?"CARONAS":"PROFISSIONAL NO TAMÃO",
+   agenda:"AGENDA PROFISSIONAL"})[data.kind]);
+  const main=$("main-action");let action="",description="";
+  if(data.kind==="merchant"&&uuid.test(String(data.merchantId||""))){
+   action=offerURL(ref,data.merchantId);
+   main.textContent="Comprar desta revenda →";
+   description="Esta página direciona a consulta à revenda escolhida. O pedido só pode ser feito quando houver cobertura, estoque, preço e operação habilitada. O aceite continua obrigatório.";
+   const items=Array.isArray(data.items)?data.items:[];
+   const holder=$("items");holder.replaceChildren();
+   for(const item of items.slice(0,20)){
+    if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(item.code||"")))continue;
+    const article=document.createElement("article");
+    const emoji=document.createElement("span");emoji.className="emoji";emoji.textContent=iconForProduct(item.code);
+    const title=document.createElement("strong");title.textContent=String(item.name||item.code).slice(0,80);
+    const note=document.createElement("small");note.textContent="Preço e entrega confirmados no checkout.";
+    const button=document.createElement("a");button.href=offerURL(ref,data.merchantId,item.code);button.textContent="Consultar este produto →";
+    article.append(emoji,title,note,button);holder.appendChild(article);
+   }
+   $("catalog").hidden=holder.children.length===0;
+  }else if(data.kind==="listing"&&uuid.test(String(data.listingId||""))&&
+   ["professionals","rides"].includes(data.vertical)){
+   action=official(ref,{listing:data.listingId},data.vertical);
+   main.textContent=data.vertical==="rides"?"Consultar esta carona →":"Solicitar este serviço →";
+   description="O anúncio é consultado novamente no TAMÃO. Contato, disponibilidade e condições dependem da informação atual do anunciante.";
+   const images=Array.isArray(data.photos)?data.photos:[],out=$("photos");out.replaceChildren();
+   for(const key of images.slice(0,6)){
+    const url=photo(key);if(!url)continue;
+    const img=document.createElement("img");img.src=url;img.alt="Foto publicada pelo anunciante";img.loading="lazy";img.decoding="async";
+    out.appendChild(img);
+   }
+   out.hidden=out.children.length===0;
+  }else if(data.kind==="agenda"&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.agendaSlug||"")){
+   const u=new URL("https://tamao.com.br/agenda/"+encodeURIComponent(data.agendaSlug)+"/");
+   if(ref)u.searchParams.set("ref",ref);
+   action=u.href;main.textContent="Agendar horário →";
+   description="A disponibilidade e a confirmação são controladas pelo agendamento oficial do profissional.";
+  }else if(data.kind==="customer"){
+   action=official(ref,{},"home");main.textContent="Conhecer o TAMÃO →";
+   description="Este é o espaço de divulgação de um participante. O convite não assegura ganhos nem vantagens por simples acesso.";
+  }else return showMissing();
+  main.href=action;text("honesty",description);
+  const details=String(data.details||"").trim().slice(0,2000);
+  text("details",details);$("about").hidden=!details;
+  $("share").onclick=async()=>{
+   const share={title:name+" • TAMÃO",text:"Conheça esta página no TAMÃO",url:location.href};
+   try{
+    if(navigator.share){await navigator.share(share);return}
+    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(share.url);$("share").textContent="Link copiado ✓";return}
+   }catch(e){if(e?.name==="AbortError")return;}
+   $("share").textContent="Copie o endereço desta página";
+  };
+  document.title=name+" • TAMÃO";
+  $("loading").hidden=true;$("content").hidden=false;$("missing").hidden=true;
+ }
+ load();
+})();

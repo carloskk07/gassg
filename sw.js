@@ -51,7 +51,7 @@ async function navigationNetworkFirst(req){
       // offline shell; keep it under its own URL when visited.
       const navPath=new URL(req.url).pathname;
       const editorialPath=/^\/(?:como-funciona|para-revendas|para-marcas|indicacoes)(?:\/|\/index\.html)?$/i
-        .test(navPath)||/^\/agenda(?:\/|$)/i.test(navPath)||/^\/convite(?:\/|$)/i.test(navPath);
+        .test(navPath)||/^\/agenda(?:\/|$)/i.test(navPath)||/^\/convite(?:\/|$)/i.test(navPath)||/^\/p(?:\/|$)/i.test(navPath);
       if(contentType.includes('text/html')&&!editorialPath){
         await cache.put('./index.html',res.clone());
       }else{

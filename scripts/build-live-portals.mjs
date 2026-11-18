@@ -464,6 +464,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // The Agenda is an independent customer-only page: zero startup JS on the storefront.
     if(role==='customer')copyDir(path.join(ROOT,'agenda'),path.join(target,'agenda'));
     if(role==='customer')copyDir(path.join(ROOT,'convite'),path.join(target,'convite'));
+    if(role==='customer')copyDir(path.join(ROOT,'p'),path.join(target,'p'));
     // Heavy merchant operations and the optional price confirmation flow
     // are only shipped to the revenda portal, never customer or admin.
     if(role!=='merchant'){
@@ -519,6 +520,21 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
         fs.writeFileSync(filename,compactReleasedCssComments(source),'utf8');
       }
     }
+    // Keep the immutable bootstrap source readable; remove comments that are
+    // documentary only from the isolated portal release, not its behavior.
+    const bootstrapEntry=path.join(target,'js','bootstrap.js');
+    const releasedBootstrap=fs.readFileSync(bootstrapEntry,'utf8')
+      .replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+    validateClassicScriptSyntax(releasedBootstrap,'emitted bootstrap.js');
+    fs.writeFileSync(bootstrapEntry,releasedBootstrap,'utf8');
+    // V1.1072: reduce only release-side backend comments and indentation.
+    // Canonical source and feature contracts are retained byte-for-byte.
+    const backendEntry=path.join(target,'js','backend.js');
+    const compactBackend=fs.readFileSync(backendEntry,'utf8')
+      .replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+      .replace(/^ {1,2}(?=\S)/gm,'');
+    validateClassicScriptSyntax(compactBackend,'emitted backend.js');
+    fs.writeFileSync(backendEntry,compactBackend,'utf8');
     // Shared core comments are documentation, not required initial JS bytes.
     const coreFile=path.join(target,'js','core.js');
     fs.writeFileSync(coreFile,compactReleasedCoreComments(fs.readFileSync(coreFile,'utf8')),'utf8');
@@ -569,7 +585,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     if(role==='customer')writeDiscoveryLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),
-      role==='customer'?'/convite/* /convite/index.html 200\n/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
+      role==='customer'?'/p/* /p/index.html 200\n/convite/* /convite/index.html 200\n/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,
       portalRole:role,

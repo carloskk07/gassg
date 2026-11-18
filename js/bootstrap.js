@@ -50,6 +50,22 @@ function tamaoPublicEntryIntent(){
     return ['revenda','cadastro-revenda','marca','indicar','agua','gas','clube'].includes(value)?value:'';
   }catch{return ''}
 }
+// V1.1072: a merchant's page can preselect one real catalogue product.
+// Never overwrite an existing buyer basket or create an order on URL entry.
+let tamaoDirectSellerCartEntrySeen=false;
+function tamaoDirectSellerCartEntry(){
+ if(tamaoDirectSellerCartEntrySeen)return false;
+ if(globalThis.__CHAMA_TEST__===true||globalThis.CHAMA_INTERNAL_PILOT===true||
+  globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return false;
+ const p=new URLSearchParams(location.search),seller=String(p.get('seller')||'').toLowerCase();
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(seller))return false;
+ tamaoDirectSellerCartEntrySeen=true;
+ const item=String(p.get('item')||'').trim().toUpperCase();
+ if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(item)||hasCartItems())return false;
+ state.cart=normalizeCart({[item]:1});
+ save();return true;
+}
+
 let tamaoSignupHandoffAttempted=false;
 function tamaoPublicEntryRoute(){
   if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.()||
@@ -213,6 +229,7 @@ function tamaoEnsurePublicExperienceStyles(page){
   document.head.appendChild(link);
 }
 let renderLock=false;
+let tamaoLastPublicRenderRoute='';
 function render(){
   if(renderLock)return;
   renderLock=true;
@@ -236,8 +253,14 @@ function render(){
     tamaoEnsurePublicExperienceStyles(r);
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
+    const menuOpen=r===tamaoLastPublicRenderRoute&&app?.querySelector('.tamao-account-access')?.open===true;
     if(app)typeof merchantUiRender==='function'
       ?merchantUiRender(app,(pages[r]||home)()):app.innerHTML=(pages[r]||home)();
+    if(menuOpen){
+      const menu=app?.querySelector('.tamao-account-access');
+      if(menu)menu.open=true;
+    }
+    tamaoLastPublicRenderRoute=r;
     updatePublicPageIdentity(r);
     queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
     queueMicrotask(()=>globalThis.discoveryAfterRender?.());
@@ -292,6 +315,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     return;
   }
   if(globalThis.merchantPortalRequested?.())return;
+  tamaoDirectSellerCartEntry();
   tamaoPublicEntryRoute();
   render();
 });

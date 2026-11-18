@@ -61,6 +61,8 @@ if(!fs.existsSync(path.join(root,'agenda','index.html')))throw new Error('TAMÃO
 fs.cpSync(path.join(root,'agenda'),path.join(out,'agenda'),{recursive:true});
 if(!fs.existsSync(path.join(root,'convite','index.html')))throw new Error('Página pública de convite ausente');
 fs.cpSync(path.join(root,'convite'),path.join(out,'convite'),{recursive:true});
+if(!fs.existsSync(path.join(root,'p','index.html')))throw new Error('Página de participante ausente');
+fs.cpSync(path.join(root,'p'),path.join(out,'p'),{recursive:true});
 
 function patchCloudflareIndex(){
   const file=path.join(out,'index.html');

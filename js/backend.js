@@ -621,12 +621,31 @@ function liveAddressDraftReady(){
     && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''))
     && hasCartItems();
 }
+// V1.1072 — intentional direct-storefront selection. No cookie or persistent
+// buyer preference: only an explicit seller URL changes the current quote scope.
+const TAMAO_DIRECT_SELLER_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function tamaoDirectSellerId(){
+ try{
+  const raw=String(new URLSearchParams(location.search).get('seller')||'').trim().toLowerCase();
+  return !raw?'':TAMAO_DIRECT_SELLER_UUID.test(raw)?raw:'invalid';
+ }catch{return ''}
+}
+function tamaoDirectSellerAllOptions(){
+ if(!TAMAO_DIRECT_SELLER_UUID.test(tamaoDirectSellerId()))return false;
+ const url=new URL(location.href);
+ url.searchParams.delete('seller');url.searchParams.delete('item');
+ history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+ liveInvalidateOfferAddressDraft();
+ render();return true;
+}
+
 function liveOfferRequestFingerprint(){
   if(!liveAddressDraftReady())return null;
   return JSON.stringify({
     postalCode:state.postalCode,
     addressNumber:String(state.addressNumber||'').trim().toUpperCase(),
     items:liveCartItems(),
+    directMerchantId:tamaoDirectSellerId(),
     paymentMethod:state.checkout.paymentMethod,
     deliveryWindowStart:state.checkout.deliveryMode==='scheduled'
       ?state.checkout.deliveryWindowStart:null,
@@ -692,6 +711,13 @@ async function liveRefreshOffers({silent=false}={}){
     return liveRuntime.offers;
   }
   const seq=++liveRuntime.offerRequestSeq;
+  if(tamaoDirectSellerId()==='invalid'){
+    liveRuntime.offers=[];
+    liveRuntime.error='O link desta revenda está inválido. Volte à página da empresa ou consulte todas as ofertas.';
+    liveRuntime.loadingOffers=false;
+    if(!silent)render();
+    return [];
+  }
   if(!liveReady()||!liveAddressDraftReady()){
     liveRuntime.offers=[];
   liveRuntime.sponsoredSlot=null;
@@ -735,6 +761,7 @@ async function liveRefreshOffers({silent=false}={}){
   if(!silent)render();
   try{
     const data=await liveInvoke('get-offers',{
+      ...(TAMAO_DIRECT_SELLER_UUID.test(tamaoDirectSellerId())?{directMerchantId:tamaoDirectSellerId()}:{}),
       postalCode:postalCodeSnapshot,
       addressNumber:addressNumberSnapshot,
       items:itemsSnapshot,

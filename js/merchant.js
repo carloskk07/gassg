@@ -531,7 +531,10 @@ function merchantGrowthNetworkSection(merchant){
           <button class="primary" onclick="merchantGrowthShareFromUi(document.getElementById('merchant-network-target').value)">Convidar</button>
         </div>`
         :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
-      ${valid&&typeof tamaoNetworkPageBuilderPanel==='function'?tamaoNetworkPageBuilderPanel('merchant'):''}
+      ${typeof tamaoParticipantNativePanel==='function'?tamaoParticipantNativePanel('merchant',merchantId):''}
+      ${valid&&typeof tamaoNetworkPageBuilderPanel==='function'?
+        '<details class="card flat" style="margin-top:15px"><summary>Outros convites da Rede TAMÃO</summary>'+
+         tamaoNetworkPageBuilderPanel('merchant')+'</details>':''}
       ${globalThis.merchantRuntime?.growthError?
         '<div class="notice danger">'+esc(globalThis.merchantRuntime.growthError)+'</div>':''}
       ${valid&&growth?.packageNetwork?.available===true&&

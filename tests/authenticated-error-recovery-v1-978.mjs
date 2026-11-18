@@ -18,7 +18,7 @@ function extract(source,start,end){
 }
 // Inject failures into the real render() implementation, rather than
 // only checking strings. Reload is a user action, never automatically invoked.
-const renderSource=extract(bootstrap,'let renderLock=false;\nfunction render(){',
+const renderSource=extract(bootstrap,'let renderLock=false;',
  'window.addEventListener(\'hashchange\'');
 function brokenPage(role){
  const app={innerHTML:''};

@@ -44,13 +44,19 @@ try{
    if(!details)return {error:'Menu ausente'};
    const summary=details.querySelector('summary');
    details.open=false;summary.click();await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
-   const panel=details.querySelector('.tamao-account-access-panel');
-   const box=panel.getBoundingClientRect(),button=summary.getBoundingClientRect();
+   // The page may re-render while a live session/city snapshot arrives.
+   // Validate the ACTUAL connected menu, not a detached pre-render node.
+   const live=document.querySelector('.tamao-account-access');
+   if(!live)return {error:'Menu desapareceu durante renderização'};
+   const currentSummary=live.querySelector('summary');
+   const panel=live.querySelector('.tamao-account-access-panel');
+   if(!currentSummary||!panel)return {error:'Painel perdeu seus controles'};
+   const box=panel.getBoundingClientRect(),button=currentSummary.getBoundingClientRect();
    return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
-    open:details.open,summary:summary.textContent.trim(),links:[...panel.querySelectorAll('a')].map(a=>a.getAttribute('href')),
+    open:live.open,summary:currentSummary.textContent.trim(),links:[...panel.querySelectorAll('a')].map(a=>a.getAttribute('href')),
     text:panel.textContent.trim(),left:box.left,right:box.right,
     height:box.height,buttonHeight:button.height,
-    visible:getComputedStyle(panel).display!=='none',connected:details.isConnected,color:getComputedStyle(summary).color};
+    visible:getComputedStyle(panel).display!=='none',connected:live.isConnected,color:getComputedStyle(currentSummary).color};
   })()`);
   assert.ok(data&&!data.error,JSON.stringify(data));
   assert.equal(data.width,width);assert.equal(data.open,true);

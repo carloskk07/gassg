@@ -315,6 +315,25 @@ function tamaoNetworkPageBuilderPanel(portal='customer'){
  return '<p class="muted tiny" aria-live="polite">Preparando sua página de divulgação…</p>';
 }
 
+// V1.1072 — real owner page loaded only in a participant workspace.
+let tamaoParticipantNativeLoading=false,tamaoParticipantNativeFailed=false;
+function tamaoParticipantNativePanel(kind,id=''){
+ if(typeof globalThis.tamaoNativePagePanel==='function')
+  return globalThis.tamaoNativePagePanel(kind,id);
+ if(tamaoParticipantNativeFailed)return '<p class="tiny muted">A página do participante está temporariamente indisponível.</p>';
+ if(!tamaoParticipantNativeLoading&&typeof document!=='undefined'){
+  tamaoParticipantNativeLoading=true;
+  const source=document.querySelector('script[src*="/js/growth.js"]')?.src||'';
+  const version=source.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+  const tag=document.createElement('script');
+  tag.src='/js/participant-native-owner.js'+version;
+  tag.onload=()=>{tamaoParticipantNativeLoading=false;render();};
+  tag.onerror=()=>{tamaoParticipantNativeLoading=false;tamaoParticipantNativeFailed=true;render();};
+  document.head.appendChild(tag);
+ }
+ return '<section class="card flat"><h2>Minha página TAMÃO</h2><p role="status">Preparando sua página com os dados do cadastro…</p></section>';
+}
+
 function tamaoGrowthInviteUrl(audience='customer'){
   const target=Object.hasOwn(TAMAO_NETWORK_INVITE_TARGETS,audience)
     ?TAMAO_NETWORK_INVITE_TARGETS[audience]:TAMAO_NETWORK_INVITE_TARGETS.customer;
@@ -363,6 +382,8 @@ function tamaoNetworkInvitePicker(){
 }
 function referralUrl(){
   if(!state.user.referralCode)return '';
+  const own=typeof globalThis.tamaoNativePagePublicLink==='function'?tamaoNativePagePublicLink('customer',''):'';
+  if(own)return own;
   return typeof globalThis.tamaoNetworkPageCurrentLink==='function'
     ?tamaoNetworkPageCurrentLink('customer')
     :tamaoNetworkPageLink(tamaoNetworkPageVerifiedCode('customer'),{audience:'customer'});
@@ -671,7 +692,8 @@ function refer(){
     </div>
     ${referralCard}
     ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
-    ${tamaoNetworkPageBuilderPanel('customer')}
+    ${hasReferral?tamaoParticipantNativePanel('customer',''):''}
+    <details class="card flat" style="margin:18px 0"><summary>Convidar para outras áreas do TAMÃO</summary>${tamaoNetworkPageBuilderPanel('customer')}</details>
     ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
     ${globalThis.tamaoNetworkCelebraPanel?.()||''}
     ${identityCard}

@@ -476,7 +476,8 @@ function discoveryOwnerPage(){
     const review=canEdit?'<button type="button" onclick="discoveryOwnerSubmit(\''+id+'\')"'+
       (needsCleanup?' disabled title="Conclua a limpeza dos comprovantes pendentes"':'')+
       '>Enviar para revisão</button>':'';
-    const publicLink=discoveryOwnerPublishedLink(x);
+    const native=typeof globalThis.tamaoNativePagePublicLink==='function'?tamaoNativePagePublicLink('listing',id):'';
+    const publicLink=native||discoveryOwnerPublishedLink(x);
     const share=publicLink?
       '<a class="secondary" href="'+esc(publicLink)+'" target="_blank" rel="noopener noreferrer">Ver anúncio</a>'+
       '<a class="secondary" href="https://wa.me/?text='+encodeURIComponent(
@@ -498,7 +499,10 @@ function discoveryOwnerPage(){
       '<p class="tiny muted">Vagas indisponíveis para edição; confira o horário ou atualize a página.</p>':'';
     return '<article class="discovery-owner-item"><strong>'+esc(x.title)+'</strong>'+
       '<small>'+esc(x.vertical)+' · '+esc(x.city_name)+' / '+esc(x.state_code)+' · '+esc(x.status)+'</small>'+
-      '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div>'+seats+'</article>';
+      '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div>'+seats+
+      (x.status==='published'&&['professionals','rides'].includes(x.vertical)&&
+        typeof tamaoParticipantNativePanel==='function'
+         ?tamaoParticipantNativePanel('listing',id):'')+'</article>';
   }).join('');
   const kind=s.editor?.vertical||s.kind;
   const d=s.editor||(kind==='professionals'&&preset?{occupation:preset.name}:{});

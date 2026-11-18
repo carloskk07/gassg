@@ -169,6 +169,13 @@ Deno.serve(async (req: Request) => {
     const addressNumber=normalizeAddressNumber(body.addressNumber);
     const items = normalizeItems(body.items);
     const deliveryWindow=normalizeDeliveryWindow(body as Record<string,unknown>);
+    // Direct merchant pages are an explicit buyer choice, NOT a new ranking
+    // signal. Only this customer request is scoped; all city/compliance,
+    // payment, stock, price and quote checks still run unchanged.
+    const requestedMerchantId=body.directMerchantId==null?"":String(body.directMerchantId).trim().toLowerCase();
+    if(requestedMerchantId&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(requestedMerchantId)){
+      throw new DomainError("INVALID_MERCHANT_CHOICE","Link de revenda inválido.",400);
+    }
     const paymentMethod=String(body.paymentMethod??"pix").trim().toLowerCase();
     if(!["pix","card","cash"].includes(paymentMethod)){
       throw new DomainError("INVALID_PAYMENT_METHOD","Forma de pagamento inválida.",400);
@@ -465,6 +472,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // The normal organic ranking remains byte-for-byte identical.
+    // A direct-storefront visitor explicitly chose a merchant, so narrow the
+    // candidate pool before the existing ranking, quote and ad gates run.
+    if(requestedMerchantId){
+      const selectedCandidates=candidates.filter(candidate=>candidate.merchantId===requestedMerchantId);
+      candidates.splice(0,candidates.length,...selectedCandidates);
+    }
     const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
     if (!chosen.length) return json({
       offers:[],

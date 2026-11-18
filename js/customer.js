@@ -1053,8 +1053,15 @@ function orderPage(){
   const selectedCart=cartProducts.filter(([code])=>Number(state.cart?.[code]||0)>0);
   const selectedCartUnits=selectedCart.reduce((total,[code])=>total+Number(state.cart[code]),0);
   const selectedCartCopy=selectedCart.map(([code,product])=>Number(state.cart[code])+'× '+customerProductName(code,product)).join(' · ');
+  const directSeller=typeof tamaoDirectSellerId==='function'?tamaoDirectSellerId():'';
+  const directSellerPanel=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(directSeller)
+    ?'<aside class="card flat" style="margin:14px 0 20px;padding:17px;border:1px solid #b9ddc4;background:#f1f8f2;border-radius:15px" aria-label="Compra direcionada à revenda">'+
+     '<strong>Você está comprando pela página de uma revenda.</strong><p class="muted" style="margin:7px 0 12px">Esta consulta mostra ofertas somente da empresa escolhida. Se ela não atender seu CEP, não trocamos de revenda automaticamente.</p>'+
+     '<button type="button" class="secondary small" onclick="tamaoDirectSellerAllOptions()">Ver opções de todas as revendas</button></aside>'
+    :directSeller==='invalid'?'<div class="notice danger">Link de revenda inválido. Volte à página da empresa antes de solicitar uma compra.</div>':'';
   return shell(`<section class="page tamao-checkout-page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Escolha os produtos, informe o CEP e confira o total com entrega antes de enviar.</p>
 ${buyerGuide}
+${directSellerPanel}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}

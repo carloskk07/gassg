@@ -124,3 +124,7 @@ verify_jwt = false
 
 [functions.payment-reconcile]
 verify_jwt = false
+
+# Public participant page read; owner writes require a verified Auth session inside the function.
+[functions.participant-pages]
+verify_jwt = false
