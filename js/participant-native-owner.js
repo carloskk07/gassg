@@ -5,6 +5,12 @@ const tamaoNativePagesCache=new Map();
 const TAMAO_NATIVE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function tamaoNativePageKind(kind){return ['merchant','listing','agenda','customer'].includes(kind)?kind:'';}
 function tamaoNativePageKey(kind,id){return kind+':'+(kind==='customer'?'self':id);}
+function tamaoNativePageSessionId(kind){
+ const session=kind==='merchant'?globalThis.merchantRuntime?.session:
+  kind==='listing'?{user:globalThis.discoveryOwner?.user}:
+  kind==='agenda'?{user:globalThis.agendaRuntime?.user}:globalThis.liveRuntime?.session;
+ return String(session?.user?.id||'');
+}
 function tamaoNativePageClient(kind){
  return kind==='merchant'?globalThis.merchantRuntime?.client:
   kind==='listing'?globalThis.discoveryOwner?.client:
@@ -45,7 +51,7 @@ async function tamaoNativePageMine(kind,subjectId){
  if(!tamaoNativePageKind(kind)||kind!=='customer'&&!TAMAO_NATIVE_ID.test(String(subjectId||'')))return;
  const key=tamaoNativePageKey(kind,subjectId),cache=tamaoNativePagesCache.get(key);
  if(cache?.loading)return;
- const marker={...cache,loading:true,error:''};tamaoNativePagesCache.set(key,marker);
+ const marker={...cache,loading:true,error:'',userId:tamaoNativePageSessionId(kind)};tamaoNativePagesCache.set(key,marker);
  try{
   const session=await tamaoNativePageAuthenticated(kind);
   const res=await tamaoNativePageApi(kind,{action:'mine',kind,subjectId});
@@ -63,7 +69,10 @@ function tamaoNativePagePublicLink(kind,subjectId){
 }
 function tamaoNativePagePanel(kind,subjectId=''){
  if(!tamaoNativePageKind(kind)||kind!=='customer'&&!TAMAO_NATIVE_ID.test(String(subjectId||'')))return '';
- const key=tamaoNativePageKey(kind,subjectId),cache=tamaoNativePagesCache.get(key);
+ const key=tamaoNativePageKey(kind,subjectId);
+ let cache=tamaoNativePagesCache.get(key);
+ const sessionId=tamaoNativePageSessionId(kind);
+ if(cache?.userId&&cache.userId!==sessionId){tamaoNativePagesCache.delete(key);cache=null;}
  if(!cache||(!cache.loaded&&!cache.loading)){
   tamaoNativePageMine(kind,subjectId);
   return '<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2><p role="status">Preparando sua página com os dados do seu cadastro…</p></section>';
