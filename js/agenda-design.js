@@ -77,16 +77,52 @@ function agendaDesignPhotoAssignments(rows,map,kind,profile){
 }
 function agendaDesignPreviewMarkup(input,profile){
  const template=agendaDesignThemes[input.template]?input.template:'clean';
- const theme=agendaDesignThemes[template];
+ const theme=agendaDesignThemes[template],safe=agendaDesignEscape;
  const primary=agendaDesignColor(input.primary_color,theme.primary);
  const accent=agendaDesignColor(input.accent_color,theme.accent);
+ const font=['modern','classic','friendly'].includes(input.font_style)?input.font_style:'modern';
  const cover=agendaDesignPhoto(profile,input.cover_index);
- return '<div class="agenda-design-live theme-'+template+' font-'+(['modern','classic','friendly'].includes(input.font_style)?input.font_style:'modern')+'" style="--ap-primary:'+primary+';--ap-accent:'+accent+'">'+
+ const logo=agendaDesignPhoto(profile,input.logo_index);
+ const services=(agendaRuntime.services||profile.services||[]).filter(x=>x.active!==false).slice(0,3);
+ const team=(agendaRuntime.staff||profile.staff||[]).filter(x=>x.active!==false).slice(0,4);
+ const photos=(profile.photo_paths||profile.photos||[]).slice(0,4);
+ const section=(k)=>input[k]!==false;
+ const imageFor=(map,id)=>agendaDesignPhoto(profile,map&&map[id]);
+ const heading=(kicker,title)=>'<div class="agenda-design-live-heading"><small>'+kicker+'</small><h3>'+title+'</h3></div>';
+ const cards=services.length?services.map(item=>{
+  const img=imageFor(input.service_images,item.id);
+  return '<article class="agenda-design-live-service">'+
+   (img?'<img src="'+esc(img)+'" alt="">':'<span class="agenda-design-live-image" aria-hidden="true">✦</span>')+
+   '<div><strong>'+safe(item.title)+'</strong><small>'+safe(item.duration_min||30)+' min · '+agendaMoney(item.price_cents||0)+'</small></div></article>';
+ }).join(''):'<p>Seus serviços aparecerão aqui.</p>';
+ const highlights=Array.isArray(input.highlights)?input.highlights.slice(0,4).filter(Boolean):[];
+ return '<div class="agenda-design-live theme-'+template+' font-'+font+'" style="--ap-primary:'+primary+';--ap-accent:'+accent+'">'+
+  '<div class="agenda-design-live-top"><span>'+safe(profile.title||'Seu estabelecimento')+'</span><span>Serviços · Reservas</span></div>'+
   '<div class="agenda-design-live-cover">'+(cover?'<img src="'+esc(cover)+'" alt="">':'')+
-  '<strong>'+agendaDesignEscape(input.headline||profile.title||'Seu estabelecimento')+'</strong>'+
-  '<span>'+agendaDesignEscape(input.tagline||'Seu atendimento, do seu jeito.')+'</span></div>'+
-  '<div class="agenda-design-live-content"><b>Serviços e agendamentos</b><small>O agendamento real utiliza seus serviços e horários.</small>'+
-  '<span class="agenda-design-live-button">Escolher horário</span></div></div>';
+   (logo?'<img class="agenda-design-live-logo" src="'+esc(logo)+'" alt="">':'<span class="agenda-design-live-mark" aria-hidden="true">✦</span>')+
+   '<strong>'+safe(input.headline||profile.title||'Seu estabelecimento')+'</strong>'+
+   '<span>'+safe(input.tagline||'Seu atendimento, do seu jeito.')+'</span>'+
+   '<span class="agenda-design-live-hero-button">Agendar horário</span></div>'+
+  (section('show_highlights')&&highlights.length?'<div class="agenda-design-live-benefits">'+highlights.map(x=>'<span>✦ '+safe(x)+'</span>').join('')+'</div>':'')+
+  '<div class="agenda-design-live-content">'+
+   (section('show_about')&&profile.about?heading('NOSSA HISTÓRIA','Sobre o estabelecimento')+'<p>'+safe(profile.about)+'</p>':'')+
+   heading('O QUE OFERECEMOS','Serviços e preços')+'<div class="agenda-design-live-services">'+cards+'</div>'+
+   (section('show_team')&&team.length?heading('PROFISSIONAIS','Nossa equipe')+
+    '<div class="agenda-design-live-team">'+team.map(item=>{
+     const photo=imageFor(input.staff_images,item.id);
+     return '<div>'+(photo?'<img src="'+esc(photo)+'" alt="">':'<span aria-hidden="true">✦</span>')+
+      '<strong>'+safe(item.name)+'</strong></div>';
+    }).join('')+'</div>':'')+
+   (section('show_gallery')&&photos.length?heading('NOSSO ESPAÇO','Galeria')+
+    '<div class="agenda-design-live-gallery">'+photos.map(path=>{
+     const src=agendaPhotoUrl(path);
+     return src?'<img src="'+esc(src)+'" alt="Foto do espaço">':'';
+    }).join('')+'</div>':'')+
+   (section('show_location')?heading('CONTATO','Onde estamos')+
+    '<p>'+safe([input.street_address||'',profile.public_area||'',profile.city||''].filter(Boolean).join(', ')||'Escolha seu endereço na personalização.')+'</p>':'')+
+   '<div class="agenda-design-live-cta"><strong>Escolha um serviço e reserve seu horário</strong>'+
+    '<small>O agendamento oficial utiliza sua disponibilidade real.</small></div>'+
+   '</div><footer class="agenda-design-live-footer">'+safe(profile.title||'Seu estabelecimento')+' · TAMÃO Agenda</footer></div>';
 }
 function agendaDesignOwnerEditor(){
  const s=agendaRuntime,p=s.page;
@@ -180,11 +216,19 @@ function agendaDesignPreview(){
  if(!form||!target||!agendaRuntime.page)return;
  const f=new FormData(form),template=f.get('template');
  const t=agendaDesignThemes[template]||agendaDesignThemes.clean;
+ const service_images={},staff_images={};
+ for(const row of agendaRuntime.services||[])service_images[row.id]=agendaDesignIndex(f.get('service_'+row.id));
+ for(const row of agendaRuntime.staff||[])staff_images[row.id]=agendaDesignIndex(f.get('staff_'+row.id));
  target.innerHTML=agendaDesignPreviewMarkup({
   template,primary_color:agendaDesignColor(f.get('primary_color'),t.primary),
   accent_color:agendaDesignColor(f.get('accent_color'),t.accent),
-  font_style:f.get('font_style'),
-  headline:f.get('headline'),tagline:f.get('tagline'),cover_index:f.get('cover_index')
+  font_style:f.get('font_style'),logo_index:f.get('logo_index'),
+  headline:f.get('headline'),tagline:f.get('tagline'),cover_index:f.get('cover_index'),
+  service_images,staff_images,highlights:String(f.get('highlights')||'').split('\n').map(x=>x.trim()).filter(Boolean),
+  street_address:f.get('street_address'),
+  show_about:f.get('show_about')==='on',show_team:f.get('show_team')==='on',
+  show_gallery:f.get('show_gallery')==='on',show_location:f.get('show_location')==='on',
+  show_highlights:f.get('show_highlights')==='on'
  },agendaRuntime.page);
 }
 async function agendaDesignSave(event){
