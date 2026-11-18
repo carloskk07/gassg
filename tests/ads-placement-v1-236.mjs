@@ -44,7 +44,7 @@ for(const part of [
 assert.doesNotMatch(sql,/grant (select|insert|update|delete|all) on public\.ads_placement_controls_v1_236 to service_role/i);
 assert.doesNotMatch(sql,/alter table.*drop constraint/i);
 for(const part of [
- 'const chosen = chooseOffers(candidates)',
+ 'const chosen = chooseOffers(',
  'const quotedMerchantIds:string[]=[]',
  'quotedMerchantIds.push(candidate.merchantId)',
  'ads_sponsored_slot_v1_236',
@@ -56,10 +56,12 @@ for(const part of [
  'sponsoredSlot,',
  'offers:publicOffers,'
 ])assert.ok(offers.includes(part),'Offer isolate missing: '+part);
-const rank=offers.indexOf('const chosen = chooseOffers(candidates)');
+const rank=offers.indexOf('const chosen = chooseOffers(');
 const placement=offers.indexOf('ads_sponsored_slot_v1_236');
 const output=offers.indexOf('return json({\n      offers:publicOffers,');
 assert.ok(rank>=0&&placement>rank&&output>placement,'Placement must run only after ranking and quote generation');
+assert.ok(offers.includes('candidates.filter((candidate)=>candidate.merchantId===requestedMerchantId)')&&
+ offers.includes(':candidates)'),'Native storefronts must scope deliberately; ordinary sponsored placement must not change broad market ranking');
 for(const part of [
  'function checkoutSponsoredEditorial()',
  "slot.label!=='Patrocinado'",
