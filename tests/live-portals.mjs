@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import path from 'node:path';
 import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore,compactReleasedCssComments,compactReleasedGrowthComments} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
+import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from '../scripts/cloudflare-native-routes-v1-1073.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
 
 const origins={
@@ -226,6 +227,9 @@ for(const {role,path:dir} of built){
   }
   assert.ok(fs.existsSync(path.join(dir,'_headers')));
   assert.ok(fs.existsSync(path.join(dir,'_redirects')));
+  const cloudflareRoutes=fs.readFileSync(path.join(dir,'_redirects'),'utf8');
+  assert.equal(cloudflareRoutes,role==='customer'?TAMAO_CLOUDFLARE_NATIVE_ROUTES:'/* /index.html 200\n',
+   'Official Cloudflare portal did not emit verified deep-link rules: '+role);
   assert.ok(!fs.existsSync(path.join(dir,'supabase')));
   assert.ok(!fs.existsSync(path.join(dir,'tests')));
   assert.ok(!fs.existsSync(path.join(dir,'scripts')));
