@@ -121,3 +121,23 @@
  .agenda-premium-book .agenda-slot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(prefers-reduced-motion:reduce){.agenda-premium-gallery img{transition:none}}
+
+
+/* A professional premium page has its own full-width identity, no TAMÃO hero or duplicate navigation. */
+body:has(.agenda-standalone-profile)>.agenda-site-head,
+body:has(.agenda-standalone-profile)>.agenda-site-footer{display:none}
+body:has(.agenda-standalone-profile){background:#f5f6f3}
+.agenda.agenda-standalone-profile{display:block;max-width:none;width:100%;margin:0;padding:0}
+.agenda-standalone-profile>.agenda-premium{border-radius:0;box-shadow:none}
+.agenda-standalone-profile>.agenda-note,
+.agenda-standalone-profile>.agenda-error{max-width:1100px;margin:12px auto}
+.agenda-premium-footer a{color:inherit;text-underline-offset:3px;font-weight:850}
+.agenda-premium-lightbox{position:fixed;inset:0;max-width:min(96vw,1100px);max-height:94dvh;margin:auto;padding:14px;border:1px solid #b9b9b9;background:#151818;border-radius:16px;color:white;box-shadow:0 25px 90px #0008}
+.agenda-premium-lightbox::backdrop{background:#070907d9}
+.agenda-premium-lightbox button{display:block;margin:0 0 11px auto;padding:9px 16px;border:1px solid #d6c6a7;border-radius:9px;background:#e7cf9c;color:#191a19;font-weight:800;cursor:pointer}
+.agenda-premium-lightbox img{display:block;max-width:calc(96vw - 30px);max-height:calc(94dvh - 88px);height:auto;width:auto;object-fit:contain;margin:auto;border-radius:9px}
+.agenda-premium-lightbox button:focus-visible{outline:3px solid #caa86c;outline-offset:3px}
+@media(max-width:480px){
+ .agenda-premium-lightbox{padding:8px;max-width:98vw}
+ .agenda-premium-lightbox img{max-width:calc(98vw - 16px)}
+}
