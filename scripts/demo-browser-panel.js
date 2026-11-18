@@ -68,6 +68,16 @@
   // Unlike the old dark modal, workspaces are dedicated full-width pages.
   // Hide the customer storefront entirely so it does not appear or receive focus
   // behind Admin, Entregador or Agenda. The simulation stays browser-only.
+  function focusWorkspaceTop(){
+    const title=panel.querySelector('h2');
+    if(title){
+      title.setAttribute('tabindex','-1');
+      title.focus({preventScroll:true});
+    }
+    // The previous viewport may have been scrolled down on a customer's order.
+    // Do not jump to the last Admin action button upon entering a new page.
+    window.scrollTo({top:0,left:0,behavior:'instant'});
+  }
   function setWorkspaceOpen(open,role=''){
     const active=Boolean(open);
     document.body.classList.toggle('tamao-demo-workspace-open',active);
@@ -489,14 +499,14 @@
       if(driverOrderId)void checkSavedProof(driverOrderId);
       dialog.setAttribute('aria-label','Entregador — área de testes');
       drawDriver();
-      panel.querySelector('button')?.focus();
+      focusWorkspaceTop();
     }else nav.querySelector('button')?.focus();
   }
   function setAdmin(open){
     adminOpen=Boolean(open);driverOpen=false;demoPreviewMode='';setWorkspaceOpen(adminOpen,'admin');
     if(adminOpen)dialog.setAttribute('aria-label','Admin — área de testes');
     if(adminOpen)adminRenderedFingerprint='';
-    if(adminOpen){drawAdmin();panel.querySelector('button')?.focus()}
+    if(adminOpen){drawAdmin();focusWorkspaceTop()}
     else nav.querySelector('button')?.focus();
   }
   // Extras available only in the statically published, disconnected
@@ -543,7 +553,7 @@
     demoPreviewMode=type;adminOpen=false;driverOpen=false;
     setWorkspaceOpen(true,type);
     dialog.setAttribute('aria-label','Área '+type+' de testes');
-    drawDemoPreview();panel.querySelector('button')?.focus();
+    drawDemoPreview();focusWorkspaceTop();
   }
   function openDemoScenario(role){
     // Whitelist only: never accept a URL or code to execute.
