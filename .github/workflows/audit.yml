@@ -45,6 +45,8 @@ jobs:
         run: node tests/agenda-mvp-v1-1048.mjs
       - name: V1.1063 real-first Agenda directory, safe owner onboarding and keyboard cards
         run: node tests/agenda-journeys-v1-1063.mjs
+      - name: V1.1066 public Agenda searchable directory with accent and safety checks
+        run: node tests/agenda-directory-search-v1-1066.mjs
       - name: V1.1055 protected Admin QA and visible participant access
         run: node tests/admin-test-center-member-entry-v1-1055.mjs
       - name: V1.1056 simpler public participant access without Admin link
