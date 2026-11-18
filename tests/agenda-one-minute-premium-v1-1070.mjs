@@ -145,7 +145,7 @@ const wrongPage={...profile,id:'10700000-0000-4000-8000-000000000099',title:'ClÃ
 runtime.page=wrongPage;
 assert.notEqual(ctx.agendaDesignCurrent().headline,values.headline,
  'Draft from another page must never leak between participants');
-assert.equal(ctx.agendaDesignCurrent().template,'black-gold','Saved design is still in runtime but new page cannot inherit old template');
+assert.equal(ctx.agendaDesignCurrent().template,'clean','Foreign page must use its own default, never another ownerâ€™s saved theme');
 runtime.design=null;
 assert.equal(ctx.agendaDesignCurrent().template,'clean');
 runtime.page=profile;
