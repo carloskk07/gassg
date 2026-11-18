@@ -59,6 +59,12 @@
   dialog.setAttribute('role','main');
   dialog.setAttribute('aria-label','Área administrativa de testes');
   const panel=document.createElement('section');panel.className='tamao-demo-panel';
+  function setDemoRole(role){
+    if(!['customer','tracking','merchant','driver','admin','club','network','agenda'].includes(role))return;
+    const url=new URL(location.href);
+    url.searchParams.set('tamao_demo_role',role);
+    history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+  }
   // Unlike the old dark modal, workspaces are dedicated full-width pages.
   // Hide the customer storefront entirely so it does not appear or receive focus
   // behind Admin, Entregador or Agenda. The simulation stays browser-only.
@@ -114,6 +120,7 @@
   function openCustomer(){
     setAdmin(false);
     globalThis.setMode?.('customer');
+    setDemoRole('customer');
     updateGuide();
   }
   function openMerchant(){
@@ -129,6 +136,7 @@
       }
     }
     globalThis.setMode?.('merchant');
+    setDemoRole('merchant');
     updateGuide();
     window.setTimeout(focusAssignedOrder,100);
   }
@@ -544,9 +552,9 @@
     else if(role==='driver')setDriver(true);
     else if(role==='admin')setAdmin(true);
     else if(role==='agenda')openDemoPreview(role);
-    else if(role==='club'){openCustomer();globalThis.go?.('club')}
-    else if(role==='network'){openCustomer();globalThis.go?.('refer')}
-    else{openCustomer();globalThis.go?.(role==='tracking'?'tracking':'home')}
+    else if(role==='club'){openCustomer();globalThis.go?.('club');setDemoRole('club')}
+    else if(role==='network'){openCustomer();globalThis.go?.('refer');setDemoRole('network')}
+    else{openCustomer();globalThis.go?.(role==='tracking'?'tracking':'home');setDemoRole(role)}
   }
   // The canonical merchant page re-renders after every action. Keep the
   // affected order visible instead of jumping back to the top of the page.
