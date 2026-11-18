@@ -10,6 +10,9 @@ on:
       - 'js/agenda-design.js'
       - 'tests/agenda-one-minute-premium-browser-v1-1070.mjs'
       - 'convite/**'
+      - 'p/**'
+      - 'js/participant-native-owner.js'
+      - 'tests/participant-native-pages-browser-v1-1072.mjs'
       - 'js/growth.js'
       - 'tests/network-personal-pages-browser-v1-1071.mjs'
       - 'tests/agenda-premium-example-browser-v1-1068.mjs'
@@ -127,6 +130,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/network-personal-pages-browser-v1-1071.mjs
+
+      - name: V1.1072 real Chrome native participant storefront and exact merchant links
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/participant-native-pages-browser-v1-1072.mjs
 
       - name: Verify storefront, cart editing, refresh and Club across 20 viewport widths
         env:
