@@ -472,11 +472,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // A page visitor must never silently be transferred to another seller.
-    // Without a direct choice, chooseOffers(candidates) is untouched.
-    const chosen = chooseOffers(requestedMerchantId
-      ?candidates.filter((candidate)=>candidate.merchantId===requestedMerchantId)
-      :candidates) as Array<{candidate:Candidate;label:string}>;
+    // The normal organic ranking remains byte-for-byte identical.
+    // A direct-storefront visitor explicitly chose a merchant, so narrow the
+    // candidate pool before the existing ranking, quote and ad gates run.
+    if(requestedMerchantId){
+      const selectedCandidates=candidates.filter(candidate=>candidate.merchantId===requestedMerchantId);
+      candidates.splice(0,candidates.length,...selectedCandidates);
+    }
+    const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
     if (!chosen.length) return json({
       offers:[],
       ...addressMeta
