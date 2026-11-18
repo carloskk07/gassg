@@ -238,6 +238,8 @@ async function agendaDesignUploadPhoto(event){
   file.size<1||file.size>5242880){
   s.error='Escolha uma foto JPG, PNG ou WebP de até 5 MB. O limite é de seis imagens.';render();return;
  }
+ const form=document.getElementById('agenda-design-form');
+ if(form){s.designDraft=agendaDesignReadForm(form);s.designDraftOwnerId=p.id;}
  const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[file.type];
  const key=s.user.id+'/'+crypto.randomUUID()+'.'+ext;
  s.busy=true;s.error='';s.notice='';
@@ -260,71 +262,65 @@ async function agendaDesignUploadPhoto(event){
  }
  s.busy=false;render();
 }
-function agendaDesignPreview(){
- const form=document.getElementById('agenda-design-form'),target=document.getElementById('agenda-design-preview');
- if(!form||!target||!agendaRuntime.page)return;
- const f=new FormData(form),template=f.get('template');
- const t=agendaDesignThemes[template]||agendaDesignThemes.clean;
- const service_images={},staff_images={};
- for(const row of agendaRuntime.services||[])service_images[row.id]=agendaDesignIndex(f.get('service_'+row.id));
- for(const row of agendaRuntime.staff||[])staff_images[row.id]=agendaDesignIndex(f.get('staff_'+row.id));
- target.innerHTML=agendaDesignPreviewMarkup({
-  template,primary_color:agendaDesignColor(f.get('primary_color'),t.primary),
-  accent_color:agendaDesignColor(f.get('accent_color'),t.accent),
-  font_style:f.get('font_style'),logo_index:f.get('logo_index'),
-  headline:f.get('headline'),tagline:f.get('tagline'),cover_index:f.get('cover_index'),
-  service_images,staff_images,highlights:String(f.get('highlights')||'').split('\n').map(x=>x.trim()).filter(Boolean),
-  street_address:f.get('street_address'),
-  show_about:f.get('show_about')==='on',show_team:f.get('show_team')==='on',
-  show_gallery:f.get('show_gallery')==='on',show_location:f.get('show_location')==='on',
-  show_highlights:f.get('show_highlights')==='on'
- },agendaRuntime.page);
-}
-async function agendaDesignSave(event){
- event.preventDefault();const s=agendaRuntime;
- if(s.busy||!s.user?.id||!s.page?.id||s.designUnavailable)return false;
- const f=new FormData(event.target),template=String(f.get('template')||'');
- if(!agendaDesignThemes[template]){s.error='Escolha um dos modelos disponíveis.';render();return false;}
- const theme=agendaDesignThemes[template];
- const highlights=String(f.get('highlights')||'').split('\n').map(x=>x.trim()).filter(Boolean);
- const instagram=String(f.get('instagram')||'').trim().replace(/^@/,'');
- const service_images={},staff_images={};
- for(const row of s.services){
-  const index=agendaDesignIndex(f.get('service_'+row.id));
-  if(index>=0&&index<(s.page.photo_paths||[]).length)service_images[row.id]=index;
+
+/* One canonical snapshot drives the live preview, saving and unsaved-photo recovery. */
+function agendaDesignReadForm(form){
+ const s=agendaRuntime,p=s.page||{},f=new FormData(form);
+ const template=String(f.get('template')||''),theme=agendaDesignThemes[template]||agendaDesignThemes.clean;
+ const photos=p.photo_paths||[],service_images={},staff_images={};
+ for(const row of s.services||[]){
+  const i=agendaDesignIndex(f.get('service_'+row.id));
+  if(i>=0&&i<photos.length)service_images[row.id]=i;
  }
- for(const row of s.staff){
-  const index=agendaDesignIndex(f.get('staff_'+row.id));
-  if(index>=0&&index<(s.page.photo_paths||[]).length)staff_images[row.id]=index;
+ for(const row of s.staff||[]){
+  const i=agendaDesignIndex(f.get('staff_'+row.id));
+  if(i>=0&&i<photos.length)staff_images[row.id]=i;
  }
- const data={
-  page_id:s.page.id,template,
+ return {
+  page_id:p.id,template,
   primary_color:agendaDesignColor(f.get('primary_color'),theme.primary),
   accent_color:agendaDesignColor(f.get('accent_color'),theme.accent),
   font_style:['modern','classic','friendly'].includes(f.get('font_style'))?f.get('font_style'):'modern',
-  headline:String(f.get('headline')||'').trim(),
-  tagline:String(f.get('tagline')||'').trim(),
+  headline:String(f.get('headline')||'').trim(),tagline:String(f.get('tagline')||'').trim(),
   cover_index:agendaDesignIndex(f.get('cover_index')),
   logo_index:agendaDesignIndex(f.get('logo_index')),
   service_images,staff_images,
-  highlights,street_address:String(f.get('street_address')||'').trim(),
-  instagram,
+  highlights:String(f.get('highlights')||'').split('\n').map(x=>x.trim()).filter(Boolean),
+  street_address:String(f.get('street_address')||'').trim(),
+  instagram:String(f.get('instagram')||'').trim().replace(/^@/,''),
   show_about:f.get('show_about')==='on',show_team:f.get('show_team')==='on',
   show_gallery:f.get('show_gallery')==='on',show_location:f.get('show_location')==='on',
   show_highlights:f.get('show_highlights')==='on'
  };
- if(data.headline.length>100||data.tagline.length>220||data.street_address.length>180||
-  highlights.length>4||highlights.some(x=>x.length>70)||
-  !/^[A-Za-z0-9._]{0,30}$/.test(instagram)){
-  s.error='Revise o título, os destaques, o endereço e o Instagram.';render();return false;
+}
+function agendaDesignPreview(){
+ const form=document.getElementById('agenda-design-form'),target=document.getElementById('agenda-design-preview');
+ if(!form||!target||!agendaRuntime.page)return;
+ target.innerHTML=agendaDesignPreviewMarkup(agendaDesignReadForm(form),agendaRuntime.page);
+}
+async function agendaDesignSave(event){
+ event.preventDefault();const s=agendaRuntime;
+ if(s.busy||!s.user?.id||!s.page?.id||s.designUnavailable)return false;
+ const data=agendaDesignReadForm(event.target);
+ // Keeping a failed save in memory prevents a participant from having to type twice.
+ s.designDraft=data;s.designDraftOwnerId=s.page.id;
+ if(!agendaDesignThemes[data.template]||data.headline.length>100||data.tagline.length>220||
+  data.street_address.length>180||data.highlights.length>4||
+  data.highlights.some(x=>x.length>70)||
+  !/^[A-Za-z0-9._]{0,30}$/.test(data.instagram)){
+  s.error='Revise o texto e os dados de contato destacados na personalização.';
+  render();return false;
  }
  s.busy=true;s.error='';s.notice='';
  try{
-  const {data:updated,error}=await s.client.from('agenda_page_design').upsert(data,{onConflict:'page_id'}).select('*').single();
+  const {data:updated,error}=await s.client.from('agenda_page_design')
+   .upsert(data,{onConflict:'page_id'}).select('*').single();
   if(error||!updated||updated.page_id!==s.page.id)throw error||Error('design not confirmed');
-  s.design=updated;
-  s.notice='Personalização salva! '+(s.page.published?'Seu link oficial já apresenta o novo visual.':'Publique sua agenda para mostrar a nova página.');
- }catch(_){s.error='Não foi possível salvar o visual. Nada mudou nas suas reservas.';}
+  s.design=updated;s.designDraft=null;s.designDraftOwnerId='';
+  s.notice='Visual salvo! '+(s.page.published?'Seu link oficial já apresenta a nova página.':'Sua página está preparada. Publique a agenda para receber reservas.');
+ }catch(_){
+  s.error='Não foi possível salvar. Suas escolhas foram preservadas; tente novamente.';
+ }
  s.busy=false;render();return false;
 }
 function agendaDesignChooseService(id){
