@@ -29,6 +29,8 @@
  document.getElementById('title').textContent=data.heading;
  document.getElementById('message').textContent=message||data.subtitle;
  document.getElementById('primary').href=withRef(data.hash);
+ // Keep attribution intact even when a visitor uses the brand header or footer.
+ for(const a of document.querySelectorAll?.('.logo, footer a')||[])a.href=withRef('home');
  document.getElementById('primary').firstChild.textContent=data.label+' ';
  if(name){
   const el=document.getElementById('inviter');
