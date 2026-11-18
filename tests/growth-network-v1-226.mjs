@@ -109,7 +109,8 @@ assert.ok(mStart>=0&&mEnd>mStart);
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;");
 const mCtx=vm.createContext({globalThis:{merchantRuntime:{growthNetwork:null}},
- esc,Number,String,encodeURIComponent,toast:()=>{},navigator:{},render:()=>{}});
+ esc,Number,String,encodeURIComponent,toast:()=>{},navigator:{},render:()=>{},URL,URLSearchParams});
+vm.runInContext(growth.slice(growth.indexOf('const TAMAO_NETWORK_INVITE_TARGETS='),growth.indexOf('function referralUrl()')),mCtx);
 vm.runInContext(merchant.slice(mStart,mEnd)+
   '\nthis.view=merchantGrowthNetworkSection;',mCtx);
 assert.equal(mCtx.view({merchantId:'m1',memberRole:'operator'}),'');
@@ -124,7 +125,8 @@ html=mCtx.view({merchantId:'m1',memberRole:'manager'});
 assert.ok(html.includes('<option value="merchant">Revenda</option>'));
 assert.ok(html.includes('<option value="customer">Cliente</option>'));
 assert.ok(html.includes('Revendas interessadas'));
-assert.ok(html.includes('?ref=TMR'+'A'.repeat(24)+'#merchants'));
+assert.ok(html.includes('/convite/?ref=TMR'+'A'.repeat(24)+'&amp;a=merchant')||
+ html.includes('/convite/?ref=TMR'+'A'.repeat(24)+'&a=merchant'),'Merchant branded link retains its issued code');
 assert.ok(!html.includes('Ganhos disponíveis'));
 assert.ok(mCtx.view({merchantId:'m2',memberRole:'owner'}).includes('Gerar meu link'),
  'Never show another merchant code');
@@ -135,11 +137,11 @@ const gEnd=growth.indexOf('function referralUrl()',gStart);
 assert.ok(gStart>0&&gEnd>gStart);
 const gCtx=vm.createContext({
  state:{user:{referralCode:''}},navigator:{},
- encodeURIComponent,toast:()=>{},location:{}
+ encodeURIComponent,toast:()=>{},location:{},URL,URLSearchParams
 });
 vm.runInContext(growth.slice(gStart,gEnd)+'\nthis.url=tamaoGrowthInviteUrl;',gCtx);
 assert.equal(gCtx.url('merchant'),'https://tamao.com.br/#merchants');
 gCtx.state.user.referralCode='FRIEND55';
-assert.equal(gCtx.url('merchant'),'https://tamao.com.br/?ref=FRIEND55#merchants');
+assert.equal(gCtx.url('merchant'),'https://tamao.com.br/convite/?ref=FRIEND55&a=merchant');
 
 console.log('V1.226 PASS — first-touch referral, private merchant network, no payout, origin-scoped acquisition and visible sharing.');
