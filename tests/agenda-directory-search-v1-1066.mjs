@@ -20,14 +20,14 @@ const ctx=vm.createContext({
 vm.runInContext(source,ctx);
 const setup=data=>vm.runInContext('Object.assign(agendaRuntime,'+JSON.stringify(data)+')',ctx);
 const directory=[
- {slug:'barbearia-da-praca',title:'Barbearia da Praça',city:'São Gabriel',photo_path:''},
- {slug:'studio-flor',title:'Estúdio Flor',city:'Porto Alegre',photo_path:''},
- {slug:'clinica-sorriso',title:'Clínica <script>privado</script>',city:'São Gabriel',photo_path:''}
+ {slug:'barbearia-da-praca',title:'Barbearia da Praça',city:'São Gabriel',about:'Cortes e barba',photo_path:''},
+ {slug:'studio-flor',title:'Estúdio Flor',city:'Porto Alegre',about:'Maquiagem e cabelo',photo_path:''},
+ {slug:'clinica-sorriso',title:'Clínica <script>privado</script>',city:'São Gabriel',about:'<img src=x onerror=alert(1)>',photo_path:''}
 ];
 setup({phase:'ready',user:null,page:null,ownerMode:false,directory,directoryQuery:''});
 const view=()=>vm.runInContext('agendaDirectoryView()',ctx);
 const plain=view();
-assert.match(plain,/Nome ou cidade/);
+assert.match(plain,/Nome, especialidade ou cidade/);
 assert.match(plain,/type="search"/);
 assert.match(plain,/oninput="agendaDirectoryFilter\(this.value\)"/);
 assert.match(plain,/aria-controls="agenda-directory-cards"/);
@@ -37,9 +37,14 @@ assert.equal((plain.match(/data-agenda-directory-card/g)||[]).length,3);
 assert.match(plain,/https:\/\/tamao.com.br\/agenda\/barbearia-da-praca/);
 assert.doesNotMatch(plain,/<script>privado<\/script>/,'No HTML injection from a professional title');
 assert.match(plain,/&lt;script&gt;privado&lt;\/script&gt;/);
+assert.doesNotMatch(plain,/<img src=x onerror=alert\(1\)>/);
+assert.match(plain,/&lt;img src=x onerror=alert\(1\)&gt;/);
+assert.match(plain,/Maquiagem e cabelo/);
 assert.equal(ctx.agendaDirectoryMatches(directory[0],'barbearia Sao Gabriel'),true);
 assert.equal(ctx.agendaDirectoryMatches(directory[1],'flor porto'),true);
 assert.equal(ctx.agendaDirectoryMatches(directory[1],'Gabriel'),false);
+assert.equal(ctx.agendaDirectoryMatches(directory[1],'MAQUIAGEM'),true);
+assert.equal(ctx.agendaDirectoryMatches(directory[0],'barba'),true);
 assert.equal(ctx.agendaDirectoryMatches(directory[0],'praça'),true);
 assert.equal(ctx.agendaDirectoryMatches(directory[0],'PRACA'),true);
 
@@ -62,6 +67,8 @@ assert.equal(count.textContent,'1 profissional encontrado');
 assert.equal(ctx.agendaDirectoryFilter('cidade inexistente'),0);
 assert.ok(cards.every(c=>c.hidden));
 assert.match(count.textContent,/Nenhum profissional corresponde/);
+assert.equal(ctx.agendaDirectoryFilter('maquiagem'),1);
+assert.deepEqual(cards.map(c=>c.hidden),[true,false,true]);
 assert.equal(ctx.agendaDirectoryFilter('Porto Alegre'),1);
 assert.deepEqual(cards.map(c=>c.hidden),[true,false,true]);
 assert.equal(ctx.agendaDirectoryFilter(''),3);
@@ -87,7 +94,7 @@ const end=source.indexOf('function agendaMyWaitingView(',start);
 const searchSource=source.slice(start,end);
 assert.doesNotMatch(searchSource,/\.from\(|\.rpc\(|insert\(|delete\(|update\(|localStorage|sessionStorage|fetch\(/);
 for(const name of ['.agenda-directory-search-row', '.agenda-directory .agenda-list a[hidden]',
- '.agenda-directory-placeholder', '@media(max-width:500px)', '@media(prefers-reduced-motion:reduce)'])
+ '.agenda-directory-placeholder', '.agenda-directory-about', '@media(max-width:500px)', '@media(prefers-reduced-motion:reduce)'])
  assert.ok(css.includes(name),'Missing accessible mobile style: '+name);
 assert.match(audit,/node tests\/agenda-directory-search-v1-1066\.mjs/);
 console.log('V1.1066 PASS: real published directory, accent-insensitive search, safe markup, no login or new database calls.');
