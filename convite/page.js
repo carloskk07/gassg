@@ -21,7 +21,7 @@
  const theme=Object.hasOwn(themes,params.get('t'))?params.get('t'):'clean';
  const sender=String(params.get('n')||'').trim().slice(0,48);
  const personalized=String(params.get('m')||'').trim().slice(0,140);
- const name=/^[\p{L}\p{M}0-9 .'\-]{1,48}$/u.test(sender)?sender:'';
+ const name=/^[\p{L}\p{M}0-9 .&'\-]{1,48}$/u.test(sender)?sender:'';
  const message=personalized&&!/[\u0000-\u001f<>]/.test(personalized)?personalized:'';
  const data=targets[area];
  const withRef=hash=>'https://tamao.com.br/'+(code?'?ref='+encodeURIComponent(code):'')+'#'+hash;
