@@ -4,13 +4,16 @@ import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const growth=read('js/growth.js'),merchant=read('js/merchant.js');
 const page=read('convite/page.js'),html=read('convite/index.html'),css=read('convite/style.css');
+const editor=read('js/network-pages-editor.js');new vm.Script(editor,{filename:'js/network-pages-editor.js'});
 const editorCss=read('css/network-pages.css'),index=read('index.html');
 const live=read('scripts/build-live-portals.mjs'),publicBuild=read('scripts/build-public-site.mjs');
 const core=read('js/core.js');
 new vm.Script(growth,{filename:'js/growth.js'});
 new vm.Script(page,{filename:'convite/page.js'});
 new vm.Script(merchant,{filename:'js/merchant.js'});
-assert.match(index,/href="\.\/css\/network-pages\.css"/);
+assert.doesNotMatch(index,/href="\.\/css\/network-pages\.css"/,'Editor CSS must not slow down the public homepage');
+assert.match(growth,/new URL\('\/css\/network-pages\.css'/);
+assert.match(growth,/new URL\('\/js\/network-pages-editor\.js'/);
 assert.match(live,/copyDir\(path\.join\(ROOT,'convite'\),path\.join\(target,'convite'\)\)/);
 assert.match(live,/\/convite\/\* \/convite\/index\.html 200/);
 assert.match(publicBuild,/fs\.cpSync\(path\.join\(root,'convite'\)/);
@@ -42,7 +45,8 @@ const ctx=vm.createContext({
  document:{getElementById:id=>elements.get(id)||null},URL,URLSearchParams,console,
  navigator:{clipboard:{writeText:async()=>{}}},toast:()=>{},esc:escape
 });
-vm.runInContext(growth.slice(start,end)+'\nthis.build=tamaoNetworkPageBuilder;this.code=tamaoNetworkPageVerifiedCode;this.url=tamaoNetworkPageLink;this.form=tamaoNetworkPageFormOptions;this.changed=tamaoNetworkPageChanged;',ctx);
+vm.runInContext(growth.slice(start,end),ctx);
+vm.runInContext(editor+'\nthis.build=tamaoNetworkPageBuilder;this.code=tamaoNetworkPageVerifiedCode;this.url=tamaoNetworkPageLink;this.form=tamaoNetworkPageFormOptions;this.changed=tamaoNetworkPageChanged;',ctx);
 assert.equal(ctx.code('customer'),owner);
 assert.equal(ctx.code('merchant'),merchantCode);
 for(const [a,hash] of Object.entries({customer:'home',merchant:'merchants',
