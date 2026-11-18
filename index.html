@@ -58,7 +58,28 @@ details.tamao-network-clarity summary{padding:14px 0;cursor:pointer;font-size:13
 details.tamao-network-clarity p{margin:0 0 15px;font-size:13px;line-height:1.6;color:#476953}
 details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;outline-offset:3px}
 .tamao-benefit-agenda-link{display:flex;align-items:center;justify-content:center;min-height:42px;margin-top:8px;border:1px solid #c7dfd0;border-radius:12px;color:#10643e;background:#f5faf5;font-size:13px;font-weight:800;text-decoration:none;text-align:center;padding:8px 10px}.tamao-benefit-agenda-link:hover{background:#eaf5ed}.tamao-benefit-agenda-link:focus-visible{outline:3px solid #b98121;outline-offset:3px}
-  </style>
+  
+/* V1.1062 — Fast paths: one visible choice, existing verified routes only. */
+.tamao-quick-paths{margin:15px 0 22px;padding:clamp(17px,2.8vw,27px);border:1px solid #d5e5db;border-radius:23px;background:linear-gradient(140deg,#f7fbf7,#fff 65%);box-shadow:0 10px 28px #103f2b0b}
+.tamao-quick-paths-heading h2{font-size:clamp(22px,2.7vw,31px);line-height:1.16;letter-spacing:-.04em;color:#123d2c;margin:5px 0 5px}
+.tamao-quick-paths-heading p{margin:0 0 16px;font-size:13px;line-height:1.5;color:#506c59}
+.tamao-quick-paths-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.tamao-quick-path{box-sizing:border-box;position:relative;display:flex;flex-direction:column;align-items:flex-start;min-width:0;min-height:152px;padding:17px 15px 15px;border:1px solid #d5e7dc;border-radius:17px;background:#fff;text-align:left;text-decoration:none;color:#183f2e;box-shadow:0 4px 14px #18432e0a;cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.tamao-quick-path:hover{transform:translateY(-2px);border-color:#70b58b;box-shadow:0 9px 22px #15483118}
+.tamao-quick-path-primary{background:#eaf6ed;border-color:#a7d1b5}
+.tamao-quick-path-icon{display:grid;place-items:center;width:39px;height:39px;margin-bottom:12px;border-radius:12px;background:#eaf5ee;font-size:21px}
+.tamao-quick-path-primary .tamao-quick-path-icon{background:#d6eddf}
+.tamao-quick-path strong{font-size:15px;line-height:1.28;letter-spacing:-.015em;padding-right:13px}
+.tamao-quick-path small{margin-top:5px;padding-right:10px;color:#53715d;font-size:12px;line-height:1.45}
+.tamao-quick-path-arrow{position:absolute;right:14px;top:18px;color:#08774d;font-weight:900}
+.tamao-quick-paths-more{display:flex;flex-wrap:wrap;align-items:center;gap:9px 15px;margin-top:16px;color:#4d6959;font-size:12px}
+.tamao-quick-paths-more a{color:#086b49;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.tamao-quick-path:focus-visible,.tamao-quick-paths-more a:focus-visible{outline:3px solid #b58020;outline-offset:3px}
+@media(max-width:900px){.tamao-quick-paths-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.tamao-quick-paths{padding:16px 13px;border-radius:18px}.tamao-quick-paths-grid{gap:8px}.tamao-quick-path{min-height:145px;padding:14px 12px}.tamao-quick-path strong{font-size:13px}.tamao-quick-path small{font-size:11px}.tamao-quick-path-icon{width:33px;height:33px;font-size:18px;margin-bottom:10px}.tamao-quick-path-arrow{right:11px;top:13px}}
+@media(prefers-reduced-motion:reduce){.tamao-quick-path{transition:none}.tamao-quick-path:hover{transform:none}}
+
+</style>
   <title>TAMÃO — Faltou em casa? Tá na mão.</title>
   
 </head>
@@ -93,6 +114,11 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
           <a class="tamao-account-entry tamao-account-entry-primary" href="#club">
             <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg></span>
             <span class="tamao-account-entry-copy"><strong>Minha conta e Clube</strong><small>Cupons, cashback e vantagens</small></span>
+            <span class="tamao-account-arrow" aria-hidden="true">›</span>
+          </a>
+          <a class="tamao-account-entry" href="#tracking">
+            <span class="tamao-account-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>
+            <span class="tamao-account-entry-copy"><strong>Meus pedidos</strong><small>Acompanhar compras e entregas</small></span>
             <span class="tamao-account-arrow" aria-hidden="true">›</span>
           </a>
           <a class="tamao-account-entry" href="#earn">
@@ -150,7 +176,47 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
   <script defer src="./js/admin-test-center.js"></script>
   <script defer src="./js/admin-activations.js"></script>
   <script defer src="./js/bootstrap.js"></script>
-  <template id="tamao-coupon-home-template">
+    <template id="tamao-home-journeys-template">
+    <section class="tamao-quick-paths" aria-labelledby="tamao-quick-paths-title">
+      <div class="tamao-quick-paths-heading"><div>
+        <span class="section-kicker">SEU TAMÃO, DO SEU JEITO</span>
+        <h2 id="tamao-quick-paths-title">O que você quer fazer hoje?</h2>
+        <p>Escolha uma opção e vá direto ao que precisa.</p>
+      </div></div>
+      <div class="tamao-quick-paths-grid">
+        <button type="button" class="tamao-quick-path tamao-quick-path-primary" onclick="homeDiscoverFocus()">
+          <span class="tamao-quick-path-icon" aria-hidden="true">🛒</span>
+          <strong>Comprar produtos</strong>
+          <small>Gás, água e essenciais para seu CEP</small>
+          <span class="tamao-quick-path-arrow" aria-hidden="true">→</span>
+        </button>
+        <a class="tamao-quick-path" href="/agenda/">
+          <span class="tamao-quick-path-icon" aria-hidden="true">📅</span>
+          <strong>Agendar horário</strong>
+          <small>Veja a agenda de profissionais</small>
+          <span class="tamao-quick-path-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tamao-quick-path" href="#professionals">
+          <span class="tamao-quick-path-icon" aria-hidden="true">🔎</span>
+          <strong>Encontrar profissionais</strong>
+          <small>Conheça serviços disponíveis na região</small>
+          <span class="tamao-quick-path-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="tamao-quick-path" href="#club">
+          <span class="tamao-quick-path-icon" aria-hidden="true">🎁</span>
+          <strong>Ver meus benefícios</strong>
+          <small>Clube, cupons e cashback da conta</small>
+          <span class="tamao-quick-path-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+      <div class="tamao-quick-paths-more">
+        <span>Quer fazer seu negócio crescer ou convidar alguém?</span>
+        <a href="#merchants">Tenho uma empresa <span aria-hidden="true">→</span></a>
+        <a href="#earn">Quero indicar <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </template>
+<template id="tamao-coupon-home-template">
 <section class="tamao-coupon-banner" aria-label="Promoção de cupons e benefícios Clube TAMÃO">
   <div class="tamao-coupon-banner-copy">
     <span class="tamao-coupon-banner-kicker"><span aria-hidden="true">✦</span> CLUBE TAMÃO <span class="tamao-coupon-banner-dot" aria-hidden="true"></span> CUPONS E DESCONTOS</span>
