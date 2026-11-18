@@ -29,6 +29,8 @@ jobs:
         run: node tests/original-tamao-wordmark-v1-1039.mjs
       - name: V1.1040 universal network invitations for active TAMÃO modules
         run: node tests/network-universal-invites-v1-1040.mjs
+      - name: V1.1071 premium invitation pages, seven vertical links and first-touch safety
+        run: node tests/network-personal-pages-v1-1071.mjs
       - name: V1.1041 verified cross-module benefit accounting and RLS contract
         run: node tests/network-cross-module-benefits-v1-1041.mjs
       - name: V1.1044 direct 5-percent NET rewards with owner-only policy, separate from shared pool
