@@ -16,16 +16,28 @@ function agendaDesignPhoto(profile,value){
  const index=agendaDesignIndex(value);
  return index>=0&&index<images.length?agendaPhotoUrl(images[index]):'';
 }
+
+/* A good starting point without questions or mandatory design fields. */
+function agendaDesignSuggestedTheme(profile){
+ const name=String(profile?.title||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(/\b(barbearia|barber|tattoo|tatuagem)\b/.test(name))return 'black-gold';
+ if(/\b(salao|beleza|estetica|spa|manicure|maquiagem|cabeleireiro|sobrancelhas)\b/.test(name))return 'elegance';
+ return 'clean';
+}
 function agendaDesignCurrent(){
- const d=agendaRuntime.design||{},t=agendaDesignThemes[d.template]||agendaDesignThemes.clean;
+ const s=agendaRuntime, saved=s.design||null;
+ const draft=s.designDraftOwnerId===s.page?.id?s.designDraft:null;
+ const d=draft||saved||{},suggested=agendaDesignSuggestedTheme(s.page);
+ const chosen=agendaDesignThemes[d.template]?d.template:(saved?'clean':suggested);
+ const t=agendaDesignThemes[chosen];
  return {
-  template:agendaDesignThemes[d.template]?d.template:'clean',
+  template:chosen,
   primary_color:agendaDesignColor(d.primary_color,t.primary),
   accent_color:agendaDesignColor(d.accent_color,t.accent),
   font_style:['modern','classic','friendly'].includes(d.font_style)?d.font_style:'modern',
   headline:String(d.headline||'').slice(0,100),
   tagline:String(d.tagline||'').slice(0,220),
-  cover_index:agendaDesignIndex(d.cover_index),
+  cover_index:d.cover_index==null&&!saved&&(s.page?.photo_paths||[]).length?0:agendaDesignIndex(d.cover_index),
   logo_index:agendaDesignIndex(d.logo_index),
   service_images:d.service_images&&typeof d.service_images==='object'?d.service_images:{},
   staff_images:d.staff_images&&typeof d.staff_images==='object'?d.staff_images:{},
@@ -127,46 +139,83 @@ function agendaDesignPreviewMarkup(input,profile){
 function agendaDesignOwnerEditor(){
  const s=agendaRuntime,p=s.page;
  if(!p?.id)return '';
- if(s.designUnavailable)return '<section class="agenda-panel" role="alert"><h2>Personalização visual</h2><p>O editor visual está indisponível. A agenda e as reservas continuam funcionando normalmente.</p></section>';
- const d=agendaDesignCurrent();
- const photos=p.photo_paths||[];
+ if(s.designUnavailable)return '<section class="agenda-panel" role="alert"><h2>Personalização visual</h2><p>O editor visual está indisponível. A agenda e os agendamentos continuam funcionando normalmente.</p></section>';
+ const d=agendaDesignCurrent(),photos=p.photo_paths||[],saved=!!s.design;
  return '<section class="agenda-panel agenda-design-editor" id="agenda-design-editor">'+
-  '<div class="agenda-design-heading"><div><span class="section-kicker">SUA IDENTIDADE</span><h2>Personalize sua página</h2>'+
-  '<p>Escolha um estilo, ajuste os detalhes e veja uma prévia. As reservas continuam na sua agenda oficial.</p></div>'+
-  (p.published?'<a class="agenda-design-view" href="'+esc(agendaShareLink(p.slug))+'" target="_blank" rel="noopener noreferrer">Abrir minha página</a>':'')+'</div>'+
-  '<div class="agenda-design-upload"><label>Adicionar foto à minha página ('+photos.length+'/6)'+
-  '<input type="file" accept="image/jpeg,image/png,image/webp" onchange="agendaDesignUploadPhoto(event)"'+(photos.length>=6||s.busy?' disabled':'')+'></label></div>'+
+  '<div class="agenda-design-heading"><div><span class="section-kicker">SUA PÁGINA PREMIUM</span><h2>Seu negócio, seu estilo.</h2>'+
+  '<p>Seu nome, serviços e horários já entram automaticamente. Escolha um visual e salve — o restante é opcional.</p></div>'+
+  '<span class="agenda-design-state">'+(saved?'Visual personalizado':'Pronto para escolher')+'</span></div>'+
   '<form id="agenda-design-form" onsubmit="return agendaDesignSave(event)" oninput="agendaDesignPreview()" onchange="agendaDesignThemeChanged(event)">'+
-  '<fieldset class="agenda-design-models"><legend>1 · Escolha um modelo</legend><div class="agenda-design-model-grid">'+
-  Object.entries(agendaDesignThemes).map(([key,theme])=>
-   '<label class="agenda-design-model theme-'+key+'"><input type="radio" name="template" value="'+key+'"'+(key===d.template?' checked':'')+'>'+
-   '<span class="agenda-design-model-art"><span class="agenda-design-model-rule"></span><b>SEU NEGÓCIO</b><i>Agende com facilidade</i></span>'+
-   '<strong>'+theme.title+'</strong><small>'+theme.caption+'</small></label>').join('')+'</div></fieldset>'+
-  '<fieldset><legend>2 · Personalize o visual e o conteúdo</legend><div class="agenda-design-two">'+
-   '<label>Cor principal <input name="primary_color" type="color" value="'+esc(d.primary_color)+'"></label>'+
-   '<label>Cor de destaque <input name="accent_color" type="color" value="'+esc(d.accent_color)+'"></label>'+
-   '<label>Estilo da fonte <select name="font_style">'+[['modern','Moderna'],['classic','Clássica'],['friendly','Acolhedora']].map(([v,l])=>'<option value="'+v+'"'+(v===d.font_style?' selected':'')+'>'+l+'</option>').join('')+'</select></label>'+
-   '<label>Título em destaque <input name="headline" maxlength="100" value="'+agendaDesignEscape(d.headline)+'" placeholder="'+agendaDesignEscape(p.title)+'"></label>'+
-   '<label>Frase de apresentação <input name="tagline" maxlength="220" value="'+agendaDesignEscape(d.tagline)+'" placeholder="Seu cuidado merece o melhor"></label>'+
-  '</div>'+
-  '<h3>Suas fotografias</h3>'+agendaDesignImagesPreview(p)+
-  '<div class="agenda-design-two"><label>Foto de capa <select name="cover_index">'+agendaDesignPhotoOptions(p,d.cover_index)+'</select></label>'+
-   '<label>Foto da marca <select name="logo_index">'+agendaDesignPhotoOptions(p,d.logo_index)+'</select></label></div>'+
-  '<details><summary>Fotos dos serviços</summary><div class="agenda-design-two">'+
-   agendaDesignPhotoAssignments(s.services,d.service_images,'service',p)+'</div></details>'+
-  '<details><summary>Fotos da equipe</summary><div class="agenda-design-two">'+
-   agendaDesignPhotoAssignments(s.staff,d.staff_images,'staff',p)+'</div></details>'+
-  '<label>Seus diferenciais (uma frase por linha, até 4)<textarea name="highlights" rows="3" maxlength="290" placeholder="Atendimento com horário marcado">'+
-   agendaDesignEscape(d.highlights.join('\n'))+'</textarea></label>'+
-  '<div class="agenda-design-two"><label>Endereço público (opcional)<input name="street_address" maxlength="180" value="'+agendaDesignEscape(d.street_address)+'" placeholder="Rua, número e bairro"></label>'+
-  '<label>Instagram (opcional)<input name="instagram" maxlength="40" pattern="[a-zA-Z0-9._]{0,30}" value="'+agendaDesignEscape(d.instagram)+'" placeholder="usuario"></label></div>'+
-  '<div class="agenda-design-toggles">'+
-   [['show_about','Sobre'],['show_team','Equipe'],['show_gallery','Galeria'],['show_location','Localização'],['show_highlights','Destaques']].map(([k,label])=>
-    '<label><input type="checkbox" name="'+k+'"'+(d[k]?' checked':'')+'> '+label+'</label>').join('')+'</div></fieldset>'+
-  '<fieldset><legend>3 · Visualize e publique</legend><div id="agenda-design-preview" aria-live="polite">'+agendaDesignPreviewMarkup(d,p)+'</div></fieldset>'+
-  '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar personalização</button>'+
-  '<p class="agenda-design-hint">O visual salvo aparece no seu link oficial quando a agenda estiver publicada. Fotos e informações são controladas por você.</p>'+
+   '<fieldset class="agenda-design-models"><legend>Escolha o visual da sua página</legend>'+
+    '<div class="agenda-design-model-grid">'+
+    Object.entries(agendaDesignThemes).map(([key,theme])=>
+     '<label class="agenda-design-model theme-'+key+'"><input type="radio" name="template" value="'+key+'"'+(key===d.template?' checked':'')+'>'+
+     '<span class="agenda-design-model-art"><span class="agenda-design-model-rule"></span><b>'+agendaDesignEscape(p.title)+'</b><i>Agende com facilidade</i></span>'+
+     '<strong>'+theme.title+'</strong><small>'+theme.caption+'</small></label>').join('')+'</div></fieldset>'+
+   '<div class="agenda-design-quick-actions">'+
+    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>'+(saved?'Salvar meu visual':'Usar este visual')+'</button>'+
+    (p.published&&p.slug?'<a class="agenda-design-view" href="'+esc(agendaShareLink(p.slug))+'" target="_blank" rel="noopener noreferrer">Ver minha página</a>':
+     '<button type="button" class="secondary" onclick="agendaDesignOpenPublishing()">Publicar minha agenda</button>')+
+   '</div>'+
+   '<p class="agenda-design-hint">'+(p.published?
+    'Seu link já funciona. A alteração visual aparece nele depois de salvar.':
+    'A personalização não publica a agenda sozinha. Você decide quando disponibilizar seus horários.')+'</p>'+
+   '<details class="agenda-design-preview-wrap"'+(!saved?' open':'')+'>'+
+    '<summary>Ver a prévia da página</summary>'+
+    '<div class="agenda-design-preview-tools" aria-label="Formato da prévia">'+
+     '<button type="button" class="secondary" aria-pressed="true" onclick="agendaDesignPreviewSize(this,\'desktop\')">Computador</button>'+
+     '<button type="button" class="secondary" aria-pressed="false" onclick="agendaDesignPreviewSize(this,\'mobile\')">Celular</button></div>'+
+    '<div id="agenda-design-preview" class="agenda-design-preview-frame" aria-live="polite">'+agendaDesignPreviewMarkup(d,p)+'</div>'+
+   '</details>'+
+   '<details class="agenda-design-advanced"><summary>Personalizar mais <span>(opcional)</span></summary>'+
+    '<div class="agenda-design-advanced-content">'+
+    '<p class="agenda-design-hint">Só altere o que quiser. Cores, fontes, fotos e textos já têm uma apresentação pronta.</p>'+
+    '<fieldset><legend>Cores e textos</legend><div class="agenda-design-two">'+
+     '<label>Cor principal<input name="primary_color" type="color" value="'+esc(d.primary_color)+'"></label>'+
+     '<label>Cor de destaque<input name="accent_color" type="color" value="'+esc(d.accent_color)+'"></label>'+
+     '<label>Estilo da fonte<select name="font_style">'+[['modern','Moderna'],['classic','Clássica'],['friendly','Acolhedora']].map(([v,l])=>
+      '<option value="'+v+'"'+(v===d.font_style?' selected':'')+'>'+l+'</option>').join('')+'</select></label>'+
+     '<label>Título em destaque<input name="headline" maxlength="100" value="'+agendaDesignEscape(d.headline)+'" placeholder="'+agendaDesignEscape(p.title)+'"></label>'+
+     '<label>Frase de apresentação<input name="tagline" maxlength="220" value="'+agendaDesignEscape(d.tagline)+'" placeholder="Seu atendimento, do seu jeito"></label>'+
+    '</div></fieldset>'+
+    '<fieldset><legend>Fotos</legend>'+
+     '<div class="agenda-design-upload"><label>Adicionar fotos ('+photos.length+'/6)'+
+      '<input type="file" accept="image/jpeg,image/png,image/webp" onchange="agendaDesignUploadPhoto(event)"'+(photos.length>=6||s.busy?' disabled':'')+'></label></div>'+
+     agendaDesignImagesPreview(p)+
+     '<div class="agenda-design-two"><label>Foto de capa<select name="cover_index">'+agendaDesignPhotoOptions(p,d.cover_index)+'</select></label>'+
+      '<label>Foto da marca<select name="logo_index">'+agendaDesignPhotoOptions(p,d.logo_index)+'</select></label></div>'+
+     '<details><summary>Escolher fotos para cada serviço</summary><div class="agenda-design-two">'+
+      agendaDesignPhotoAssignments(s.services,d.service_images,'service',p)+'</div></details>'+
+     '<details><summary>Escolher fotos para cada pessoa da equipe</summary><div class="agenda-design-two">'+
+      agendaDesignPhotoAssignments(s.staff,d.staff_images,'staff',p)+'</div></details>'+
+    '</fieldset>'+
+    '<fieldset><legend>Apresentação e contato</legend>'+
+     '<label>Seus diferenciais (até quatro frases, uma por linha)<textarea name="highlights" rows="3" maxlength="290" placeholder="Atendimento com hora marcada">'+agendaDesignEscape(d.highlights.join('\n'))+'</textarea></label>'+
+     '<div class="agenda-design-two"><label>Endereço público (opcional)<input name="street_address" maxlength="180" value="'+agendaDesignEscape(d.street_address)+'" placeholder="Rua, número e bairro"></label>'+
+      '<label>Instagram (opcional)<input name="instagram" maxlength="40" pattern="[a-zA-Z0-9._]{0,30}" value="'+agendaDesignEscape(d.instagram)+'" placeholder="usuario"></label></div>'+
+     '<div class="agenda-design-toggles">'+
+      [['show_about','Sobre'],['show_team','Equipe'],['show_gallery','Galeria'],['show_location','Localização'],['show_highlights','Destaques']].map(([k,label])=>
+       '<label><input type="checkbox" name="'+k+'"'+(d[k]?' checked':'')+'> '+label+'</label>').join('')+'</div>'+
+    '</fieldset>'+
+    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar personalização</button>'+
+    '</div></details>'+
   '</form></section>';
+}
+function agendaDesignPreviewSize(button,size){
+ const target=document.getElementById('agenda-design-preview');
+ if(!target||!['mobile','desktop'].includes(size))return;
+ target.classList.toggle('is-mobile',size==='mobile');
+ const parent=button?.parentElement;
+ for(const b of parent?.querySelectorAll('button')||[])b.setAttribute('aria-pressed',String(b===button));
+}
+function agendaDesignOpenPublishing(){
+ const form=document.getElementById('agenda-profile-form');
+ const pane=form?.closest('details');
+ if(!form||!pane)return;
+ pane.open=true;
+ form.scrollIntoView({behavior:'smooth',block:'center'});
+ const publish=form.querySelector('[name="published"]');
+ publish?.focus();
 }
 function agendaDesignThemeChanged(event){
  const form=document.getElementById('agenda-design-form');
