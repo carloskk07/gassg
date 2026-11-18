@@ -45,6 +45,8 @@ jobs:
         run: node tests/admin-test-center-member-entry-v1-1055.mjs
       - name: V1.1056 simpler public participant access without Admin link
         run: node tests/participant-entry-v1-1056.mjs
+      - name: V1.1062 quick customer journeys and participant order access
+        run: node tests/visitor-journeys-v1-1062.mjs
       - name: V1.1057 direct Admin QA demo access without another login
         run: node tests/admin-demo-entry-v1-1057.mjs
       - name: V1.1061 official Admin owner support and real participant 360 access

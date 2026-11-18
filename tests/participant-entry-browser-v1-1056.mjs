@@ -55,8 +55,8 @@ try{
   assert.ok(data&&!data.error,JSON.stringify(data));
   assert.equal(data.width,width);assert.equal(data.open,true);
   assert.match(data.summary,/Entrar/);
-  assert.equal(data.links.length,5,'Cinco áreas de acesso');
-  assert.deepEqual(data.links,['#club','#earn','/agenda/','https://parceiro.tamao.com.br/','#advertise']);
+  assert.equal(data.links.length,6,'Seis áreas de acesso');
+  assert.deepEqual(data.links,['#club','#tracking','#earn','/agenda/','https://parceiro.tamao.com.br/','#advertise']);
   assert.doesNotMatch(data.text,/Administraç|admin\.tamao\.com\.br/i);
   assert.ok(data.scrollWidth<=width+2,'Documento excede a tela '+width+': '+data.scrollWidth);
   assert.ok(data.left>=-2&&data.right<=width+2,'Menu cortado em '+width+'px: '+JSON.stringify(data));
@@ -68,4 +68,4 @@ try{
   }
  }
 }finally{fs.writeFileSync(path.join(out,'participant-entry-v1-1056-results.json'),JSON.stringify(found,null,2)+'\n');ws.close()}
-console.log('V1.1056 PASS: menu aberto, 5 acessos, nenhum Admin, sem corte a 320/360/390/760/1120 px.');
+console.log('V1.1056 PASS: menu aberto, 6 acessos, nenhum Admin, sem corte a 320/360/390/760/1120 px.');
