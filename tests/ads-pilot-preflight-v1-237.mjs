@@ -87,7 +87,8 @@ const ux=[
  'Publicidade pública: <strong>desligada</strong>'
 ];
 for(const text of ux)assert.ok(ui.includes(text),'Missing honest UI: '+text);
-assert.ok(offers.includes('const chosen = chooseOffers(candidates)'), 'Organic ranking must remain intact');
+assert.ok(offers.includes('const chosen = chooseOffers(requestedMerchantId')&&
+ offers.includes(':candidates) as Array'), 'Organic ranking must remain intact on plain TAMÃO entries, while direct seller page scopes intentional quotes');
 assert.ok(offers.includes('ads_sponsored_slot_v1_236'), 'Sponsored editorial separate from quotes');
 assert.match(workflow,/- name: TAMÃO Ads V1\.237 real-offer pilot evidence contract\s+run: node tests\/ads-pilot-preflight-v1-237\.mjs/);
 console.log('V1.237 PASS — pilot eligibility uses offer-scope, private ACL and permanently no billable Ads');
