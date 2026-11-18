@@ -50,9 +50,12 @@ assert.match(source,/history\.replaceState\(null,'',new URL\(agendaShareLink\(re
 assert.doesNotMatch(standaloneBoot,/history\.replaceState\(null,'',location\.pathname/);
 
 const builderSource=readFileSync('scripts/build-live-portals.mjs','utf8');
-assert.match(builderSource,/\/agenda\/\* \/agenda\/index\.html 200/);
-assert.ok(builderSource.indexOf('/agenda/* /agenda/index.html 200')<
- builderSource.indexOf('/* /index.html 200'),'Agenda rule must precede general storefront rewrite');
+const nativeRoutes=readFileSync('scripts/cloudflare-native-routes-v1-1073.mjs','utf8');
+assert.match(builderSource,/role==='customer'\?TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
+assert.match(nativeRoutes,/\/agenda\/:slug\/ \/agenda\/index\.html 200/);
+assert.ok(nativeRoutes.indexOf('/agenda/exemplo/')<
+ nativeRoutes.indexOf('/agenda/:slug/'),'Agenda example must take priority over personal slugs');
+assert.doesNotMatch(nativeRoutes,/\/\* \/index\.html 200/,'Generic SPA fallback must never override Agenda pages');
 
 assert.match(vm.runInContext('agendaPage()',ctx),/TAMÃO AGENDA/);
 assert.match(landing,/js\/agenda\.js/);
