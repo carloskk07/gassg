@@ -178,3 +178,11 @@
 
 @media(max-width:600px){.admin-test-links{grid-template-columns:1fr}.admin-test-demo-links .admin-test-simulation-link{min-height:96px}}
 
+
+/* V1.1060 — official public pages and admin management are the primary experience. */
+.admin-official-links .admin-test-page-link{min-height:101px;border-color:#cbded3;background:#fff}
+.admin-official-links .admin-test-page-link:hover{background:#f0f8f3}
+.admin-official-management .admin-test-page-link{border-color:#bddbc9;background:#f7fbf8}
+.admin-support-scope{border-left:3px solid #8eb9a2;padding:9px 13px;margin:8px 0 23px!important;color:#466954;font-size:13px;line-height:1.55}
+.admin-test-center .admin-test-more{margin-top:26px}
+.admin-test-center .admin-test-more .admin-test-simulation-link{min-height:94px}
