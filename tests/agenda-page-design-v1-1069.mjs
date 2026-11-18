@@ -14,6 +14,8 @@ assert.match(agenda,/await agendaDesignLoadPublic\(s\.publicProfile\)/);
 assert.match(agenda,/agendaDesignOwnerEditor\(\)/);
 assert.match(agenda,/if\(s\.design&&typeof agendaDesignPublicView==='function'\)return agendaDesignPublicView\(p,form\)/);
 assert.match(css,/@media\(max-width:540px\)/);
+assert.match(css,/\.agenda-premium\.font-classic/);
+assert.match(migration,/font_style in \('modern','classic','friendly'\)/);
 assert.match(css,/\.agenda-premium-book/);
 assert.match(migration,/enable row level security/i);
 assert.match(migration,/for select to anon,authenticated/);
@@ -42,7 +44,7 @@ const ctx={agendaRuntime:runtime,esc:escape,agendaPhotoUrl:path=>path===photo?'h
  document:{getElementById:()=>null},console};
 vm.createContext(ctx);vm.runInContext(src,ctx);
 const ownerHtml=ctx.agendaDesignOwnerEditor();
-for(const target of ['Black Gold','Elegance','Clean','Salvar personalização','Foto de capa','Foto da marca','Fotos dos serviços','Fotos da equipe','Localização','Instagram'])
+for(const target of ['Black Gold','Elegance','Clean','Estilo da fonte','Salvar personalização','Foto de capa','Foto da marca','Fotos dos serviços','Fotos da equipe','Localização','Instagram'])
  assert.ok(ownerHtml.includes(target),'owner editor missing '+target);
 assert.ok(ownerHtml.includes('name="service_'+serviceId+'"'));
 assert.ok(ownerHtml.includes('agendaDesignUploadPhoto(event)'),'Direct photo upload must remain in editor');
