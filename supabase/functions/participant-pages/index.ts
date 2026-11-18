@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
+import {readJsonBody,enforceApiQuota,DomainError} from "../_shared/domain.js";
 
 // V1.1072 — one real public page per authorized participant or published listing.
 // Public reads contain only allowlisted information from approved business sources.
@@ -242,18 +243,16 @@ Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:headers(origin)});
  if(req.method!=="POST")return reply({error:"METHOD_NOT_ALLOWED"},405,origin);
  try{
-  const raw=await req.text();
-  if(raw.length>6000)throw new PageError("PAYLOAD_TOO_LARGE",413);
-  let body:Record<string,unknown>;
-  try{body=JSON.parse(raw)}catch{throw new PageError("INVALID_JSON")}
-  if(!body||typeof body!=="object"||Array.isArray(body))throw new PageError("INVALID_JSON");
+  const body=await readJsonBody(req,{maxBytes:6000}) as Record<string,unknown>;
   const action=clean(body.action,20);
   if(action==="view")return reply(await view(clean(body.slug,82).toLowerCase()),200,origin);
   if(action!=="save"&&action!=="mine")throw new PageError("INVALID_ACTION");
   const user=await owner(req);
+  await enforceApiQuota(admin,{userId:user,actionName:"participant-pages-owner",limit:30,windowSeconds:60});
   return reply(action==="save"?await save(body,user):await mine(body,user),200,origin);
  }catch(e){
   if(e instanceof PageError)return reply({error:e.code},e.status,origin);
+  if(e instanceof DomainError)return reply({error:e.code},e.status,origin);
   console.error("participant-pages failed",e instanceof Error?e.message:String(e));
   return reply({error:"UNAVAILABLE"},503,origin);
  }
