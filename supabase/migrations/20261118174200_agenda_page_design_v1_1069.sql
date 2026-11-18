@@ -34,6 +34,20 @@ create table if not exists public.agenda_page_design (
  show_highlights boolean not null default true,
  updated_at timestamptz not null default now()
 );
+-- The public Agenda RPC intentionally keeps agenda_pages private under RLS.
+-- A narrow internal boolean check allows public themes only for published pages,
+-- without opening the underlying owner profile table to public SELECT.
+create schema if not exists tamao_acl;
+create or replace function tamao_acl.agenda_design_published(p_page_id uuid)
+returns boolean
+language sql stable security definer set search_path to 'pg_catalog'
+as $
+ select exists(select 1 from public.agenda_pages p where p.id=p_page_id and p.published);
+$;
+revoke all on function tamao_acl.agenda_design_published(uuid) from public;
+grant usage on schema tamao_acl to anon,authenticated;
+grant execute on function tamao_acl.agenda_design_published(uuid) to anon,authenticated;
+
 create index if not exists agenda_page_design_owner_idx on public.agenda_page_design(owner_id);
 alter table public.agenda_page_design enable row level security;
 revoke all on public.agenda_page_design from public,anon,authenticated;
@@ -46,7 +60,7 @@ create policy agenda_design_public_select on public.agenda_page_design
  for select to anon,authenticated
  using (
   owner_id=(select auth.uid())
-  or exists(select 1 from public.agenda_pages p where p.id=page_id and p.published)
+  or (select tamao_acl.agenda_design_published(page_id))
  );
 -- A user cannot create a design under somebody else's page or reassign ownership.
 drop policy if exists agenda_design_owner_insert on public.agenda_page_design;
