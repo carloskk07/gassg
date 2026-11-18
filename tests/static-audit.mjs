@@ -339,7 +339,8 @@ assert.ok(backend.includes('liveRuntime.pollPending')&&backend.includes('merchan
 assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRuntime.refreshSeq'),'refresh da revenda não pode aceitar resposta antiga sobre uma mais nova');
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('pollIntervalMs')&&admin.includes('fastSections')&&admin.includes('15000')&&admin.includes('60000'),'admin deve serializar refresh e usar polling adaptativo sem repetir summary completo a cada 5 segundos');
 assert.ok(admin.includes("adminMenuButton('overview','Início'")&&
- admin.includes("adminMenuButton('orders','Pedidos'")&&
+ admin.includes("adminMenuTaskButton('orders','Pedidos'")&&
+ admin.includes("adminMenuTaskButton('support','Atendimento'")&&
  admin.includes("adminMenuButton('customers','Clientes'")&&
  admin.includes("adminMenuButton('partners','Revendas'")&&
  admin.includes("adminMenuButton('growth','Crescimento'")&&
