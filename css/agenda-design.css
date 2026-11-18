@@ -5,6 +5,10 @@
 .agenda-design-editor legend{font-size:15px;font-weight:850;color:#1b5036;padding:0 8px}
 .agenda-design-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
 .agenda-design-heading p{margin:3px 0 15px}
+.agenda-design-upload{background:#eff8f2;border:1px dashed #80b596;border-radius:13px;padding:13px;margin:12px 0 20px}
+.agenda-design-upload label{font-size:14px;font-weight:850;color:#18543d}
+.agenda-design-upload input{display:block;width:100%;min-height:44px;margin-top:7px}
+
 .agenda-design-view{border:1px solid #bddac9;background:#f2f9f4;border-radius:12px;padding:10px 12px;font-weight:800;text-decoration:none;white-space:nowrap}
 .agenda-design-model-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .agenda-design-model{display:grid!important;gap:4px!important;padding:9px;border:2px solid #dae7df;border-radius:15px;cursor:pointer;background:white}
