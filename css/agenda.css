@@ -149,3 +149,11 @@
 @media(max-width:390px){.agenda-overview-actions{display:grid;grid-template-columns:1fr}
  .agenda-overview-actions button,.agenda-action-link{width:100%;justify-content:center}
  .agenda-date-shortcuts button{padding:10px 4px}}
+
+
+/* V1.1063 — published schedules lead; owner setup stays first when directory is empty. */
+.agenda-directory{scroll-margin-top:94px}
+.agenda-directory .agenda-list a{transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.agenda-directory .agenda-list a:hover{border-color:#8ac6a3;box-shadow:0 9px 24px rgba(16,80,51,.12);transform:translateY(-2px)}
+.agenda-directory .agenda-list a:focus-visible{outline:3px solid #e5ae4f;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.agenda-directory .agenda-list a{transition:none}.agenda-directory .agenda-list a:hover{transform:none}}
