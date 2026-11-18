@@ -116,7 +116,7 @@ async function sourceFor(kind:string,subject:string,actor:string|null,publishing
  }
  throw new PageError("INVALID_KIND");
 }
-// Merchant TMR... codes invite OTHER merchants only; create-order intentionally
+// Merchant TMR... codes invite OTHER merchants only; the checkout intentionally
 // rejects TMR for customer referrals. A storefront therefore uses the verified
 // participating account's CUSTOMER network code, while sellerId separately
 // binds the store. This preserves old reward rules instead of fabricating grants.
