@@ -3372,6 +3372,12 @@ function adminFirstSectionForRole(role=adminCurrentRole()){
 }
 
 function adminSectionMeta(section=adminRuntime.section){
+  // Pedidos e atendimento são tarefas distintas, ainda que compartilhem
+  // as permissões e a leitura protegida do mesmo módulo operacional.
+  if(section==='orders'&&adminOrdersWorkspaceTab==='support')return {
+    kicker:'CENTRAL DE ATENDIMENTO',title:'Atendimento',
+    description:'Acompanhe solicitações, relatos e retornos dos participantes com a conta Admin autorizada.'
+  };
   return ({
     overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
     testcenter:{kicker:'ACESSO À PLATAFORMA',title:'Áreas oficiais',description:'Navegue pelas páginas reais do TAMÃO e gerencie participantes com as ferramentas do Admin.'},
@@ -4125,11 +4131,12 @@ function adminCurrentTaskFromState(choices=adminTaskNavChoices()){
  });
  return active?.id||'';
 }
-function adminSelectTaskFromUi(){
- if(!adminReady())return;
- const taskId=String(document.getElementById('admin-task-nav')?.value||'');
- const task=adminTaskNavChoices().find(t=>t.id===taskId);
- if(!task)return;
+function adminOpenTask(taskId){
+ // Use the very same role-scoped task allowlist as the Admin task picker.
+ // Navigation never creates a payment, impersonates an account or bypasses RBAC.
+ if(!adminReady())return false;
+ const task=adminTaskNavChoices().find(t=>t.id===String(taskId||''));
+ if(!task)return false;
  if(task.section==='orders')adminOrdersWorkspaceTab=task.tab||'orders';
  if(task.section==='partners')adminPartnersWorkspaceTab=task.tab;
  if(task.section==='ads'){
@@ -4139,6 +4146,10 @@ function adminSelectTaskFromUi(){
  if(task.section==='growth')adminGrowthWorkspaceTab=task.tab;
  if(task.section==='finance')adminRuntime.financeWorkspace=task.tab;
  adminSetSection(task.section);
+ return true;
+}
+function adminSelectTaskFromUi(){
+ return adminOpenTask(document.getElementById('admin-task-nav')?.value);
 }
 function adminTaskNavView(){
  const choices=adminTaskNavChoices();
@@ -4217,6 +4228,20 @@ function adminSetSection(section){
   });
 }
 
+function adminMenuTaskButton(taskId,label,icon,badge=''){
+ // Only tasks already granted to the current Admin role can be shown.
+ const choices=adminTaskNavChoices();
+ const task=choices.find(item=>item.id===taskId);
+ if(!task)return '';
+ const active=adminCurrentTaskFromState(choices)===taskId;
+ return '<button class="admin-nav-item '+(active?'active':'')+
+   '" type="button" onclick="adminOpenTask(\''+taskId+'\')" aria-current="'+
+   (active?'page':'false')+'">'+
+   '<span class="admin-nav-icon" aria-hidden="true">'+adminNavIcon(icon)+'</span>'+
+   '<span class="admin-nav-label">'+esc(label)+'</span>'+
+   (badge!==''?'<span class="admin-nav-badge">'+esc(String(badge))+'</span>':'')+
+   '</button>';
+}
 function adminMenuButton(id,label,icon,badge=''){
   if(!adminRoleCanSection(id))return '';
   const active=adminRuntime.section===id;
@@ -12192,7 +12217,8 @@ function adminPage(){
       <div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>O que você quer fazer?</h2>
       <p>Escolha uma área. Consultas não precisam de formulários nem confirmações.</p></div></div>
       <div class="admin-quick-grid">
-        ${adminRoleCanSection('orders')?'<button type="button" onclick="adminQuickGo(\'orders\')"><strong>Pedidos</strong><small>Acompanhar entregas e atendimento</small></button>':''}
+        ${adminRoleCanSection('orders')?'<button type="button" onclick="adminOpenTask(\'orders\')"><strong>Pedidos</strong><small>Acompanhar entregas</small></button>':''}
+        ${adminRoleCanSection('orders')?'<button type="button" onclick="adminOpenTask(\'support\')"><strong>Atendimento</strong><small>Mensagens e relatos dos participantes</small></button>':''}
         ${adminRoleCanSection('ads')?'<button type="button" onclick="adminQuickGo(\'ads\')"><strong>Publicidade</strong><small>Anunciantes, campanhas e pagamento</small></button>':''}
         ${adminRoleCanSection('finance')?'<button type="button" onclick="adminQuickGo(\'finance\')"><strong>Financeiro</strong><small>Verificar cobranças e conciliação</small></button>':''}
         ${adminRoleCanSection('partners')?'<button type="button" onclick="adminQuickGo(\'partners\')"><strong>Revendas</strong><small>Cadastros e situação operacional</small></button>':''}
@@ -12373,7 +12399,8 @@ function adminPage(){
       <div class="admin-nav-group">Dia a dia</div>
       ${adminMenuButton('overview','Início','⌂')}
       ${adminMenuButton('testcenter','Áreas oficiais','✓')}
-      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length+pendingHelpReports))}
+      ${adminMenuTaskButton('orders','Pedidos','orders',badge(activeOrderAttention))}
+      ${adminMenuTaskButton('support','Atendimento','customers',badge(openSupportCases.length+pendingHelpReports))}
       ${adminMenuButton('partners','Revendas','◇',badge(partnerAttention))}
       ${adminMenuButton('customers','Clientes','◎')}
       ${adminMenuButton('alerts','Alertas','!',adminOperationalAlertBadge())}

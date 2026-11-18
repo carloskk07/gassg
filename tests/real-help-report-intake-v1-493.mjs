@@ -62,7 +62,8 @@ assert.ok(html.indexOf('Cliente: problema')<html.indexOf('Revenda: erro'));
 assert.doesNotMatch(html,/Pedido privado|Publicidade/);
 assert.match(html,/adminHelpReportsPage\(0\)/);
 assert.match(admin,/adminProblemReportsSection\(d\)/);
-assert.match(admin,/activeOrderAttention\+openSupportCases\.length\+pendingHelpReports/);
+assert.match(admin,/badge\(activeOrderAttention\)/,'Pedidos should show only operational risk');
+assert.match(admin,/badge\(openSupportCases\.length\+pendingHelpReports\)/,'Atendimento should show genuine support backlog');
 
 
 // Security regression: a support report must retain role/module but never

@@ -53,6 +53,8 @@ jobs:
         run: node tests/admin-demo-entry-v1-1057.mjs
       - name: V1.1061 official Admin owner support and real participant 360 access
         run: node tests/admin-real-support-hub-v1-1061.mjs
+      - name: V1.1064 direct attendance Admin task and safe role-based navigation
+        run: node tests/admin-atendimento-v1-1064.mjs
       - name: V1.1042 cross-module Ads benefits policy, ACL, terms and Admin no-cash controls
         run: node tests/network-module-ads-admin-v1-1042.mjs
       - name: Browser SDK integrity verify
