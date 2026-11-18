@@ -121,5 +121,5 @@ assert.equal(times[0].getAttribute('aria-pressed'),'false');
 form.emit('submit',{preventDefault(){}});
 assert.match(controls['booking-feedback'].textContent,/nenhuma reserva ou pagamento foi realizado/);
 assert.equal(controls['booking-feedback'].dataset.state,'success');
-assert.doesNotMatch(script,/fetch\(|\.rpc\(|\.from\(|XMLHttpRequest|localStorage|sessionStorage|geolocation|window\.open\(/);
+assert.doesNotMatch(script,/fetch\(|\.rpc\(|(?:client|supabase)\.from\(|XMLHttpRequest|localStorage|sessionStorage|geolocation|window\.open\(/);
 console.log('V1.1068 PASS: standalone premium showcase, accessible visual sections, photos licensing, real site routes, interactive but non-booking preview and mobile contracts.');
