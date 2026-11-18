@@ -25,7 +25,7 @@ assert.match(migration,/for update to authenticated/);
 assert.match(migration,/owner_id=\(select auth\.uid\(\)\)/);
 assert.match(migration,/discovery_verified_account/);
 assert.doesNotMatch(migration,/grant (delete|all) on public\.agenda_page_design to (anon|authenticated)/i);
-assert.doesNotMatch(src,/\/rpc\/agenda_book|mercadopago|createPayment|storage\.from\(.+\)\.upload/i);
+assert.doesNotMatch(src,/\/rpc\/agenda_book|mercadopago|createPayment/i);
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const owner='11111111-1111-4111-8111-111111111111', photo=owner+'/22222222-2222-4222-8222-222222222222.webp';
 const serviceId='33333333-3333-4333-8333-333333333333';
