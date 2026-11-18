@@ -14,7 +14,7 @@ assert.match(sql,/set local role authenticated/);
 assert.match(sql,/AGENDA_CROSS_OWNER_INSERT_ALLOWED/);
 assert.match(sql,/AGENDA_ANON_SAW_UNPUBLISHED_DESIGN/);
 assert.match(sql,/rollback;/);
-assert.match(agenda,/agenda_book_slot/,'Real booking flow stays in the original Agenda module');
+assert.match(agenda,/agenda_book_staff_slot|agenda_book_slot/,'Real booking flow stays in the original Agenda module');
 assert.doesNotMatch(source,/agenda_book_slot|mercadopago|payment_attempt|PIX_GENERAT/i,
  'Visual-only code must never create bookings or financial activity');
 
