@@ -1,6 +1,14 @@
 /* TAMÃO V1.1072 — simple, verified owner editor for real participant pages.
  * Loaded only in authenticated participant workspaces, never storefront startup.
  * No duplicate product, driver or appointment registration is created. */
+(function tamaoNativePageStyles(){
+ if(document.querySelector('link[href*="participant-native-owner.css"]'))return;
+ const source=document.querySelector('script[src*="participant-native-owner.js"]')?.src||'';
+ const v=source.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+ const link=document.createElement('link');link.rel='stylesheet';
+ link.href='/css/participant-native-owner.css'+v;
+ document.head.appendChild(link);
+})();
 const tamaoNativePagesCache=new Map();
 const TAMAO_NATIVE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function tamaoNativePageKind(kind){return ['merchant','listing','agenda','customer'].includes(kind)?kind:'';}
