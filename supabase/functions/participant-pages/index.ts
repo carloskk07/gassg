@@ -116,19 +116,23 @@ async function sourceFor(kind:string,subject:string,actor:string|null,publishing
  }
  throw new PageError("INVALID_KIND");
 }
+// Merchant TMR... codes invite OTHER merchants only; create-order intentionally
+// rejects TMR for customer referrals. A storefront therefore uses the verified
+// participating account's CUSTOMER network code, while sellerId separately
+// binds the store. This preserves old reward rules instead of fabricating grants.
 async function refFor(kind:string,subjectId:string,ownerId:string){
  if(kind==="merchant"){
-  const {data,error}=await admin.from("growth_merchant_invites_v1_226")
-    .select("invite_code").eq("merchant_id",subjectId).maybeSingle();
-  if(error)throw error;
-  const code=String(data?.invite_code||"");
-  return /^TMR[A-F0-9]{24}$/.test(code)?code:"";
+  const {data:member,error:memberError}=await admin.from("merchant_members")
+   .select("user_id").eq("merchant_id",subjectId).eq("user_id",ownerId)
+   .eq("active",true).in("member_role",["owner","manager"]).maybeSingle();
+  if(memberError)throw memberError;
+  if(!member)return "";
  }
  const {data,error}=await admin.from("profiles")
   .select("referral_code").eq("user_id",ownerId).maybeSingle();
  if(error)throw error;
  const code=clean(data?.referral_code,40).toUpperCase();
- return /^[A-Z0-9]{5,40}$/.test(code)?code:"";
+ return /^[A-Z0-9]{5,40}$/.test(code)&&!/^TMR[A-F0-9]{24}$/.test(code)?code:"";
 }
 function publicURL(slug:string){return "https://tamao.com.br/p/"+slug+"/";}
 async function view(slug:string){
