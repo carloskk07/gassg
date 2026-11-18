@@ -612,6 +612,9 @@ function agendaPage(){
  if(s.phase==='failed')return shell('<section class="section agenda">'+head+agendaNote()+
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
+ // A customized professional page is a standalone storefront, not a subpanel of the TAMÃO landing.
+ if(slug&&s.publicProfile?.id&&s.design&&typeof agendaDesignPublicView==='function')
+  return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+'</section>');
  const ownerInvite='<div class="agenda-intro"><div class="agenda-example-invite">'+
   '<div class="agenda-example-copy"><span class="section-kicker">SUA MARCA PODE TER UMA PÁGINA ASSIM</span>'+
    '<h2>Atende clientes com hora marcada?</h2>'+
