@@ -14,16 +14,16 @@
     '.tamao-demo-progress{width:100%;font-weight:650;font-size:11px;text-align:center;color:#527263}',
     '.tamao-demo-menu-toggle{display:none!important}',
     '.tamao-demo-brand{font-size:14px;letter-spacing:-.03em}.tamao-demo-mode{font-size:11px;color:#4d7660;padding:5px 9px;border:1px solid #d6e5db;border-radius:999px;background:#fff;white-space:nowrap}.tamao-demo-nav{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}.tamao-demo-nav button:hover{background:#eaf6ee;border-color:#92b99f}',
-    '.tamao-demo-dialog{position:fixed;z-index:90010;inset:0;background:rgba(9,22,19,.66);display:none;place-items:center;padding:18px}',
-    '.tamao-demo-dialog[data-open="true"]{display:grid}',
-    '.tamao-demo-panel{background:#fff;color:#1a2923;border-radius:16px;max-width:760px;width:100%;max-height:82vh;overflow-y:auto;padding:24px;font:14px/1.5 system-ui,sans-serif;box-shadow:0 18px 50px #0004}',
+    '.tamao-demo-workspace-open .app{display:none!important}.tamao-demo-dialog{box-sizing:border-box;display:none;position:relative;width:100%;min-height:calc(100vh - 75px);background:#f4f8f5;padding:30px 16px 64px}',
+    '.tamao-demo-dialog[data-open="true"]{display:block}',
+    '.tamao-demo-panel{box-sizing:border-box;margin:0 auto;background:#fff;color:#1a2923;border-radius:18px;max-width:1100px;width:100%;min-height:450px;padding:28px;font:14px/1.5 system-ui,sans-serif;border:1px solid #e0eae3;box-shadow:0 8px 24px #143e2310}',
     '.tamao-demo-panel h2{font-size:22px;margin:0 0 4px}.tamao-demo-panel p{margin:6px 0 12px}',
     '.tamao-demo-panel .demo-order{border:1px solid #ccd8d0;border-radius:10px;margin:10px 0;padding:12px;display:grid;gap:3px}',
     '.tamao-demo-panel .demo-amount{font-size:20px;font-weight:750}.tamao-demo-panel button{padding:9px 14px;border:1px solid #256f51;border-radius:8px;background:#effaf2;color:#134932;cursor:pointer}',
     '.tamao-demo-panel .demo-stats{display:flex;gap:12px;flex-wrap:wrap}.tamao-demo-panel .demo-stats span{padding:10px;background:#ecf5f0;border-radius:9px}',
     '.tamao-demo-offline-help{margin:12px 0;border:1px solid #e2eae5;border-radius:10px;padding:8px 12px;color:#3b6750}.tamao-demo-offline-help summary{cursor:pointer;font-size:12px;font-weight:700;min-height:32px;display:list-item;align-content:center}.tamao-demo-offline-help p{font-size:12px;color:#587563}',
     '.tamao-demo-driver-form{display:grid;gap:12px;max-width:460px}.tamao-demo-driver-form label{display:grid;gap:5px;font-weight:650}.tamao-demo-driver-form input[type=text]{width:100%;padding:11px;font:inherit;border:1px solid #879e93;border-radius:8px}.tamao-demo-driver-check{display:flex!important;align-items:center;gap:8px}.tamao-demo-driver-check input{width:20px;height:20px}.tamao-demo-driver-status{font-weight:650;color:#69451b}',
-    '@media(max-width:600px){.tamao-demo-tools{justify-content:space-between;gap:6px;padding:7px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-menu-toggle{display:inline-flex!important;align-items:center;justify-content:center;padding:6px 9px!important;font-size:11px!important}.tamao-demo-nav{display:none!important;width:100%;order:4}.tamao-demo-tools[data-menu-open=true] .tamao-demo-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px;order:5}}'
+    '@media(max-width:600px){.tamao-demo-dialog{min-height:calc(100vh - 60px);padding:12px 10px 32px}.tamao-demo-panel{min-height:calc(100vh - 110px);padding:18px;border-radius:13px}.tamao-demo-tools{justify-content:space-between;gap:6px;padding:7px 10px}.tamao-demo-brand{font-size:13px}.tamao-demo-menu-toggle{display:inline-flex!important;align-items:center;justify-content:center;padding:6px 9px!important;font-size:11px!important}.tamao-demo-nav{display:none!important;width:100%;order:4}.tamao-demo-tools[data-menu-open=true] .tamao-demo-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.tamao-demo-nav button{min-height:39px;padding:5px 6px;font-size:11px}.tamao-demo-progress{font-size:11px;order:5}}'
   ].join('\n');
   document.head.appendChild(style);
   const tools=document.createElement('div');tools.className='tamao-demo-tools';
@@ -56,9 +56,41 @@
   let localProofBusy=false,localProofMessage='',localProofAvailable=false;
   let adminRenderedFingerprint='',driverRenderedFingerprint='';
   const dialog=document.createElement('div');dialog.className='tamao-demo-dialog';
-  dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
-  dialog.setAttribute('aria-label','Admin demonstrativo, dados fictícios');
+  dialog.setAttribute('role','main');
+  dialog.setAttribute('aria-label','Área administrativa de testes');
   const panel=document.createElement('section');panel.className='tamao-demo-panel';
+  function setDemoRole(role){
+    if(!['customer','tracking','merchant','driver','admin','club','network','agenda'].includes(role))return;
+    const url=new URL(location.href);
+    url.searchParams.set('tamao_demo_role',role);
+    history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+  }
+  // Unlike the old dark modal, workspaces are dedicated full-width pages.
+  // Hide the customer storefront entirely so it does not appear or receive focus
+  // behind Admin, Entregador or Agenda. The simulation stays browser-only.
+  function focusWorkspaceTop(){
+    const title=panel.querySelector('h2');
+    if(title){
+      title.setAttribute('tabindex','-1');
+      title.focus({preventScroll:true});
+    }
+    // The previous viewport may have been scrolled down on a customer's order.
+    // Do not jump to the last Admin action button upon entering a new page.
+    window.scrollTo({top:0,left:0,behavior:'instant'});
+  }
+  function setWorkspaceOpen(open,role=''){
+    const active=Boolean(open);
+    document.body.classList.toggle('tamao-demo-workspace-open',active);
+    dialog.dataset.open=String(active);
+    if(!active)return;
+    const name=['driver','admin','agenda','club','network'].includes(role)?role:'admin';
+    const url=new URL(location.href);
+    url.searchParams.set('tamao_demo_role',name);
+    url.hash='teste-'+name;
+    history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+    window.scrollTo(0,0);
+  }
+
   const escapeText=x=>String(x??'');
   const make=(name,text)=>{const el=document.createElement(name);el.textContent=escapeText(text);return el};
   const money=value=>'R$ '+Number(value||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -98,6 +130,7 @@
   function openCustomer(){
     setAdmin(false);
     globalThis.setMode?.('customer');
+    setDemoRole('customer');
     updateGuide();
   }
   function openMerchant(){
@@ -113,6 +146,7 @@
       }
     }
     globalThis.setMode?.('merchant');
+    setDemoRole('merchant');
     updateGuide();
     window.setTimeout(focusAssignedOrder,100);
   }
@@ -165,7 +199,7 @@
     panel.append(make('span',' '));
     panel.append(button('Continuar na Revenda',openMerchant));
     panel.append(make('span',' '));
-    panel.append(button('Fechar',()=>setAdmin(false)));
+    panel.append(button('Fechar',openCustomer));
   }
   // This is a phone/browser capability check only, NOT the protected
   // offline-delivery workflow. It never stores a real order, PIN or payment.
@@ -454,25 +488,25 @@
     deviceStatus.setAttribute('aria-live','polite');
     panel.append(deviceStatus);
     panel.append(make('p','Verifique se este aparelho consegue guardar comprovantes protegidos.'));
-    panel.append(button('Fechar',()=>setDriver(false)));
+    panel.append(button('Fechar',openCustomer));
   }
   function setDriver(open){
     driverOpen=Boolean(open);adminOpen=false;demoPreviewMode='';
-    dialog.dataset.open=String(driverOpen);
+    setWorkspaceOpen(driverOpen,'driver');
     if(driverOpen){
       driverOrderId=currentOrder()?.id||null;
       driverError='';deviceCheckResult='';localProofMessage='';localProofAvailable=false;driverRenderedFingerprint='';
       if(driverOrderId)void checkSavedProof(driverOrderId);
-      dialog.setAttribute('aria-label','Entregador demonstrativo, dados fictícios');
+      dialog.setAttribute('aria-label','Entregador — área de testes');
       drawDriver();
-      panel.querySelector('button')?.focus();
+      focusWorkspaceTop();
     }else nav.querySelector('button')?.focus();
   }
   function setAdmin(open){
-    adminOpen=Boolean(open);driverOpen=false;demoPreviewMode='';dialog.dataset.open=String(adminOpen);
-    if(adminOpen)dialog.setAttribute('aria-label','Admin demonstrativo, dados fictícios');
+    adminOpen=Boolean(open);driverOpen=false;demoPreviewMode='';setWorkspaceOpen(adminOpen,'admin');
+    if(adminOpen)dialog.setAttribute('aria-label','Admin — área de testes');
     if(adminOpen)adminRenderedFingerprint='';
-    if(adminOpen){drawAdmin();panel.querySelector('button')?.focus()}
+    if(adminOpen){drawAdmin();focusWorkspaceTop()}
     else nav.querySelector('button')?.focus();
   }
   // Extras available only in the statically published, disconnected
@@ -512,14 +546,14 @@
   
     }
     panel.append(button('Voltar ao Cliente',openCustomer));
-    panel.append(button('Fechar',()=>setAdmin(false)));
+    panel.append(button('Fechar',openCustomer));
   }
   function openDemoPreview(type){
     if(!['club','network','agenda'].includes(type))return;
     demoPreviewMode=type;adminOpen=false;driverOpen=false;
-    dialog.dataset.open='true';
-    dialog.setAttribute('aria-label','Prévia demonstrativa de '+type);
-    drawDemoPreview();panel.querySelector('button')?.focus();
+    setWorkspaceOpen(true,type);
+    dialog.setAttribute('aria-label','Área '+type+' de testes');
+    drawDemoPreview();focusWorkspaceTop();
   }
   function openDemoScenario(role){
     // Whitelist only: never accept a URL or code to execute.
@@ -527,8 +561,10 @@
     if(role==='merchant')openMerchant();
     else if(role==='driver')setDriver(true);
     else if(role==='admin')setAdmin(true);
-    else if(['club','network','agenda'].includes(role))openDemoPreview(role);
-    else{openCustomer();globalThis.go?.(role==='tracking'?'tracking':'home')}
+    else if(role==='agenda')openDemoPreview(role);
+    else if(role==='club'){openCustomer();globalThis.go?.('club');setDemoRole('club')}
+    else if(role==='network'){openCustomer();globalThis.go?.('refer');setDemoRole('network')}
+    else{openCustomer();globalThis.go?.(role==='tracking'?'tracking':'home');setDemoRole(role)}
   }
   // The canonical merchant page re-renders after every action. Keep the
   // affected order visible instead of jumping back to the top of the page.
@@ -612,6 +648,9 @@
   nav.append(startOrderButton);
   nav.append(button('Revenda (pedido)',openMerchant));
   nav.append(button('Entregador',()=>setDriver(true)));
+  nav.append(button('Clube',()=>openDemoScenario('club')));
+  nav.append(button('Rede',()=>openDemoScenario('network')));
+  nav.append(button('Agenda',()=>openDemoScenario('agenda')));
   nav.append(button('Admin',()=>setAdmin(true)));
   nav.append(button('Reiniciar',()=>{
     if(confirm('Limpar os pedidos e valores deste ambiente?')){
@@ -620,8 +659,8 @@
     }
   }));
   dialog.append(panel);
-  dialog.addEventListener('click',e=>{if(e.target===dialog){if(driverOpen)setDriver(false);else setAdmin(false)}});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(driverOpen)setDriver(false);else if(adminOpen||demoPreviewMode)setAdmin(false)}});
+  // A dedicated page does not close on background taps; use its explicit controls.
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(driverOpen||adminOpen||demoPreviewMode))openCustomer();});
   tools.append(heading,detail,areaToggle,nav);
   tools.append(progress);
   updateGuide();
