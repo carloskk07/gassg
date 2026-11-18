@@ -521,17 +521,27 @@ function agendaMyBookingsView(){
 }
 function agendaPage(){
  const s=agendaRuntime,slug=agendaSlug();
+ const customerWithBookings=!slug&&!!s.user&&!s.page&&!s.ownerMode&&
+  (s.mine.length>0||s.myWaiting.length>0);
+ const finding=!slug&&!s.page&&!s.ownerMode&&s.directory.length>0;
+ const directoryFirst=finding&&!customerWithBookings;
  const head='<section class="agenda-hero"><div><span class="section-kicker">TAMÃO AGENDA</span>'+
- '<h1>'+ (slug?'Seu próximo atendimento, sem complicação.':(!s.user&&s.directory.length?'Encontre seu próximo horário no TAMÃO.':'Sua agenda organizada. Seus clientes mais perto.'))+'</h1>'+
+ '<h1>'+ (slug?'Seu próximo atendimento, sem complicação.':
+  customerWithBookings?'Suas reservas e novos horários.':
+  finding?'Encontre seu próximo horário no TAMÃO.':'Sua agenda organizada. Seus clientes mais perto.')+'</h1>'+
  '<p>'+(slug?'Escolha um serviço e veja os horários disponíveis em poucos passos.':
-  (!s.user&&s.directory.length?'Consulte profissionais e horários. Atende com hora marcada? Você também pode criar sua agenda gratuitamente.':'Tenha uma página exclusiva, organize serviços e receba reservas online — sem mensalidade para começar.'))+'</p></div>'+
- '<a href="'+(slug?'/agenda/':(!s.user&&s.directory.length?'#agenda-directory':'/#professionals'))+'">'+
- (slug?'Ver outras agendas':(!s.user&&s.directory.length?'Escolher um horário':'Explorar profissionais'))+'</a></section>';
+  customerWithBookings?'Acompanhe suas reservas e procure outros profissionais quando precisar.':
+  finding?'Consulte profissionais e horários. Atende com hora marcada? Você também pode criar sua agenda gratuitamente.':
+  'Tenha uma página exclusiva, organize serviços e receba reservas online — sem mensalidade para começar.')+'</p></div>'+
+ '<a href="'+(slug?'/agenda/':finding?'#agenda-directory':'/#professionals')+'">'+
+ (slug?'Ver outras agendas':finding?'Escolher um horário':'Explorar profissionais')+'</a></section>';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section agenda">'+head+'<p>Carregando agenda…</p></section>');
  if(s.phase==='failed')return shell('<section class="section agenda">'+head+agendaNote()+
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
- const directoryFirst=!slug&&!s.user&&!s.ownerMode&&!s.page&&s.directory.length>0;
+ const ownerInvite='<div class="agenda-intro"><h2>Atende clientes com hora marcada?</h2>'+
+  '<p>Crie sua página, configure seu primeiro serviço e receba reservas online sem mensalidade.</p>'+
+  '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda grátis</button></div>';
  return shell('<section class="section agenda">'+head+agendaNote()+
   (slug?agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView():
    (s.ownerMode&&!s.user?
@@ -539,14 +549,14 @@ function agendaPage(){
      '<p>Um link de acesso basta. Depois você cria e publica sua agenda rapidamente.</p>'+
      agendaLoginForm()+
      '<button type="button" class="secondary" onclick="agendaStopOwner()">Voltar às agendas</button></section>':
+    (customerWithBookings?agendaMyBookingsView()+agendaMyWaitingView():'')+
     (directoryFirst?agendaDirectoryView():'')+
     (s.user&&(s.page||s.ownerMode)?agendaOwnerEditor():
-     '<div class="agenda-intro"><h2>Atende clientes com hora marcada?</h2>'+
-      '<p>Crie sua página, configure seu primeiro serviço e receba reservas online sem mensalidade.</p>'+
-      '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda grátis</button></div>')+
-    agendaMyBookingsView()+agendaMyWaitingView()+
+     customerWithBookings?'':ownerInvite)+
+    (customerWithBookings?'':agendaMyBookingsView()+agendaMyWaitingView())+
     (s.page?'<details class="agenda-other-pages"><summary>Encontrar outros profissionais</summary>'+agendaDirectoryView()+'</details>':
      directoryFirst?'':agendaDirectoryView())+
+    (customerWithBookings?ownerInvite:'')+
     (s.user?'<p class="agenda-logout"><button type="button" class="secondary" onclick="agendaLogout()">Sair da conta</button></p>':'')))+
   '</section>');
 }
