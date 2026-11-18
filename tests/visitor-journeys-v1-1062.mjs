@@ -28,8 +28,8 @@ assert.equal((live.match(/tamao-home-journeys-template/g)||[]).length,1,
   'Somente um painel de caminhos, na página inicial oficial');
 assert.ok(live.indexOf('regionalPriceSection')<live.indexOf('tamao-home-journeys-template'),
   'Oferta e disponibilidade confirmadas devem continuar antes dos atalhos');
-assert.ok(live.indexOf('tamao-home-journeys-template')<live.indexOf('home-discover-grid'),
-  'Atalhos devem estar visíveis antes do catálogo extenso');
+assert.ok(live.indexOf('home-discover-grid')<live.indexOf('tamao-home-journeys-template'),
+  'Produtos devem ficar primeiro, inclusive em telas de 320px');
 for(const name of ['.tamao-quick-paths-grid','.tamao-quick-path:focus-visible',
   '@media(max-width:900px)','@media(max-width:520px)','@media(prefers-reduced-motion:reduce)']){
   assert.ok(page.includes(name),'Layout responsivo e acessível: '+name);
