@@ -266,12 +266,61 @@ const TAMAO_NETWORK_INVITE_TARGETS=Object.freeze({
   club:Object.freeze({route:'club',label:'Clube e cupons',message:'Conheça o Clube TAMÃO e seus benefícios'}),
   sponsor:Object.freeze({route:'sponsors',label:'Anunciantes e marcas',message:'Divulgue sua marca no TAMÃO'})
 });
+// V1.1071: light URL/link contract remains in startup; the editor is deferred.
+function tamaoNetworkPageVerifiedCode(portal='customer'){
+ if(portal==='merchant'){
+  const runtime=globalThis.merchantRuntime||{},m=runtime.merchant||{},n=runtime.growthNetwork||{};
+  return n.merchantId===m.merchantId&&m.merchantId&&
+   n.source==='merchant_network_v1_226'&&n.rewardEnabled===false&&
+   /^TMR[A-F0-9]{24}$/.test(String(n.inviteCode||''))?n.inviteCode:'';
+ }
+ const code=String(state.user?.referralCode||'').trim().toUpperCase();
+ return /^[A-Z0-9]{5,40}$/.test(code)?code:'';
+}
+function tamaoNetworkPageLink(code,options={}){
+ const value=String(code||'').trim().toUpperCase();
+ if(!/^[A-Z0-9]{5,40}$/.test(value))return '';
+ const audience=Object.hasOwn(TAMAO_NETWORK_INVITE_TARGETS,options.audience)?
+  options.audience:'customer';
+ const theme=['clean','gold','rose'].includes(options.theme)?
+  options.theme:'clean';
+ const name=String(options.name||'').trim().slice(0,48);
+ const message=String(options.message||'').trim().slice(0,140);
+ const u=new URL('https://tamao.com.br/convite/');
+ u.searchParams.set('ref',value);u.searchParams.set('a',audience);
+ if(theme!=='clean')u.searchParams.set('t',theme);
+ if(name&&/^[\p{L}\p{M}0-9 .&'\-]{1,48}$/u.test(name))u.searchParams.set('n',name);
+ if(message&&!/[\u0000-\u001f<>]/.test(message))u.searchParams.set('m',message);
+ return u.href;
+}
+
+let tamaoNetworkPageEditorLoading=false,tamaoNetworkPageEditorFailed=false;
+function tamaoNetworkPageBuilderPanel(portal='customer'){
+ if(typeof globalThis.tamaoNetworkPageBuilder==='function')return globalThis.tamaoNetworkPageBuilder(portal);
+ if(tamaoNetworkPageEditorFailed)return '<p class="muted tiny">Não foi possível carregar a personalização. Seu link comum continua disponível.</p>';
+ if(!tamaoNetworkPageEditorLoading&&typeof document!=='undefined'){
+  tamaoNetworkPageEditorLoading=true;
+  const reference=document.querySelector('script[src*="growth.js"]')?.src||location.origin+'/js/growth.js';
+  const v=new URL(reference);
+  const version=v.search;
+  const css=document.createElement('link');css.rel='stylesheet';
+  css.href=new URL('/css/network-pages.css'+version,location.origin).href;
+  document.head.appendChild(css);
+  const js=document.createElement('script');
+  js.src=new URL('/js/network-pages-editor.js'+version,location.origin).href;
+  js.onload=()=>{tamaoNetworkPageEditorLoading=false;render();};
+  js.onerror=()=>{tamaoNetworkPageEditorLoading=false;tamaoNetworkPageEditorFailed=true;render();};
+  document.head.appendChild(js);
+ }
+ return '<p class="muted tiny" aria-live="polite">Preparando sua página de divulgação…</p>';
+}
+
 function tamaoGrowthInviteUrl(audience='customer'){
   const target=Object.hasOwn(TAMAO_NETWORK_INVITE_TARGETS,audience)
     ?TAMAO_NETWORK_INVITE_TARGETS[audience]:TAMAO_NETWORK_INVITE_TARGETS.customer;
   const code=String(state.user?.referralCode||'').trim().toUpperCase();
   const activeCode=/^[A-Z0-9]{5,40}$/.test(code)?code:'';
-  return 'https://tamao.com.br/'+(activeCode?'?ref='+encodeURIComponent(activeCode):'')+'#'+target.route;
+  return activeCode?tamaoNetworkPageLink(activeCode,{audience}):'https://tamao.com.br/#'+target.route;
 }
 async function shareTamaoGrowthInvite(audience='customer'){
   const code=String(state.user?.referralCode||'').trim().toUpperCase();
@@ -314,8 +363,9 @@ function tamaoNetworkInvitePicker(){
 }
 function referralUrl(){
   if(!state.user.referralCode)return '';
-  const base=`${location.origin}${location.pathname}`;
-  return `${base}?ref=${encodeURIComponent(state.user.referralCode)}#home`;
+  return typeof globalThis.tamaoNetworkPageCurrentLink==='function'
+    ?tamaoNetworkPageCurrentLink('customer')
+    :tamaoNetworkPageLink(tamaoNetworkPageVerifiedCode('customer'),{audience:'customer'});
 }
 // A verified participation event requires an explicit visit to Rede,
  // a permanent account and the authenticated customer-summary Edge route.
@@ -621,6 +671,7 @@ function refer(){
     </div>
     ${referralCard}
     ${typeof tamaoNetworkInvitePicker==='function'?tamaoNetworkInvitePicker():''}
+    ${tamaoNetworkPageBuilderPanel('customer')}
     ${typeof tamaoNetworkModuleBenefitsPanel==='function'?tamaoNetworkModuleBenefitsPanel():''}
     ${globalThis.tamaoNetworkCelebraPanel?.()||''}
     ${identityCard}

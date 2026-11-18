@@ -404,7 +404,10 @@ export function compactReleasedGrowthComments(source){
    throw new Error('Missing canonical growth contracts');
  const omitted=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
  if(omitted.length<18)throw new Error('Growth comments compaction contract changed');
- const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+ // Release-only whitespace compaction. Do not change canonical source or HTML contents.
+ // Strip indentation only when the next character is non-whitespace; scripts stay syntactically checked.
+ const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+  .replace(/^ {1,6}(?=\S)/gm,'');
  validateClassicScriptSyntax(released,'emitted growth.js');
  return released;
 }
@@ -460,6 +463,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     }
     // The Agenda is an independent customer-only page: zero startup JS on the storefront.
     if(role==='customer')copyDir(path.join(ROOT,'agenda'),path.join(target,'agenda'));
+    if(role==='customer')copyDir(path.join(ROOT,'convite'),path.join(target,'convite'));
     // Heavy merchant operations and the optional price confirmation flow
     // are only shipped to the revenda portal, never customer or admin.
     if(role!=='merchant'){
@@ -565,7 +569,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     if(role==='customer')writeDiscoveryLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),
-      role==='customer'?'/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
+      role==='customer'?'/convite/* /convite/index.html 200\n/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,
       portalRole:role,
