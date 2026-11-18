@@ -11,15 +11,23 @@ values
  ('10700000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000',
   'authenticated','authenticated','agenda-premium-owner-b@example.invalid',now(),false,now(),now()),
  ('10700000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000',
-  'authenticated','authenticated','agenda-premium-unverified@example.invalid',null,true,now(),now());
+  'authenticated','authenticated','agenda-premium-unverified@example.invalid',now(),false,now(),now());
+-- The existing Agenda trigger requires a verified owner identity for profile creation.
+-- Create each disposable profile under its real simulated owner, then revoke C's verification.
+select set_config('request.jwt.claim.sub','10700000-0000-4000-8000-000000000001',true);
 insert into public.agenda_pages(id,owner_id,slug,title,city,published)
-values
- ('10700000-0000-4000-8000-000000000011','10700000-0000-4000-8000-000000000001',
-  'agenda-premium-rls-public-a','Barbearia A','São Gabriel',true),
- ('10700000-0000-4000-8000-000000000022','10700000-0000-4000-8000-000000000002',
-  'agenda-premium-rls-private-b','Clínica B','São Gabriel',false),
- ('10700000-0000-4000-8000-000000000033','10700000-0000-4000-8000-000000000003',
-  'agenda-premium-rls-anonymous-c','Agenda C','São Gabriel',false);
+values('10700000-0000-4000-8000-000000000011','10700000-0000-4000-8000-000000000001',
+ 'agenda-premium-rls-public-a','Barbearia A','São Gabriel',true);
+select set_config('request.jwt.claim.sub','10700000-0000-4000-8000-000000000002',true);
+insert into public.agenda_pages(id,owner_id,slug,title,city,published)
+values('10700000-0000-4000-8000-000000000022','10700000-0000-4000-8000-000000000002',
+ 'agenda-premium-rls-private-b','Clínica B','São Gabriel',false);
+select set_config('request.jwt.claim.sub','10700000-0000-4000-8000-000000000003',true);
+insert into public.agenda_pages(id,owner_id,slug,title,city,published)
+values('10700000-0000-4000-8000-000000000033','10700000-0000-4000-8000-000000000003',
+ 'agenda-premium-rls-anonymous-c','Agenda C','São Gabriel',false);
+update auth.users set is_anonymous=true,email_confirmed_at=null
+where id='10700000-0000-4000-8000-000000000003';
 insert into public.agenda_page_design(page_id,template,headline)
 values ('10700000-0000-4000-8000-000000000011','black-gold','Marca A');
 
