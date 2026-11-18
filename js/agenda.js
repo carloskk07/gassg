@@ -170,6 +170,7 @@ function agendaOwnerEditor(){
      '<a class="agenda-action-link" href="'+esc(link)+'">Ver como cliente</a></div>':
     '<p class="tiny muted">Adicione um serviço, defina os horários e publique nos ajustes da página.</p>')+
   '</section>'+
+  (typeof agendaDesignOwnerEditor==='function'?agendaDesignOwnerEditor():'')+
   '<section class="agenda-panel"><h2>Serviços e preços</h2>'+
    (p.id?'<form class="agenda-service-row" onsubmit="return agendaSaveService(event)">'+
     '<label>Serviço<input required minlength="3" maxlength="100" name="title" placeholder="Ex.: Corte masculino"></label>'+
@@ -410,6 +411,7 @@ function agendaPublicView(){
      '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Confirmar horário gratuitamente</button></form>'):
     '<div class="agenda-login-prompt"><p>Entre pelo seu e-mail para confirmar este horário.</p>'+agendaLoginForm()+'</div>'):'')+
   queueForm+'</section>';
+ if(typeof agendaDesignPublicView==='function')return agendaDesignPublicView(p,form);
  return '<div class="agenda-public-grid"><section class="agenda-panel agenda-showcase">'+
   '<span class="section-kicker">PROFISSIONAL NO TAMÃO</span><h1>'+esc(p.title)+'</h1>'+
   '<p>'+esc(p.about||'Agende seu atendimento pelo TAMÃO.')+'</p>'+
@@ -610,6 +612,9 @@ function agendaPage(){
  if(s.phase==='failed')return shell('<section class="section agenda">'+head+agendaNote()+
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
+ // A customized professional page is a standalone storefront, not a subpanel of the TAMÃO landing.
+ if(slug&&s.publicProfile?.id&&typeof agendaDesignPublicView==='function')
+  return shell('<section class="section agenda agenda-standalone-profile">'+agendaNote()+agendaPublicView()+'</section>');
  const ownerInvite='<div class="agenda-intro"><div class="agenda-example-invite">'+
   '<div class="agenda-example-copy"><span class="section-kicker">SUA MARCA PODE TER UMA PÁGINA ASSIM</span>'+
    '<h2>Atende clientes com hora marcada?</h2>'+
@@ -708,6 +713,7 @@ async function agendaRefreshOwner(){
   if(services.error||staff.error||depositSettings.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error)throw services.error||staff.error||depositSettings.error||hours.error||bookings.error||closedDays.error||blocks.error||waiting.error;
   s.services=services.data||[];s.staff=staff.data||[];s.depositSettings=depositSettings.data||[];s.hours=hours.data||[];s.bookings=bookings.data||[];s.closedDays=closedDays.data||[];s.blocks=blocks.data||[];s.waiting=waiting.data||[];
  }else{s.services=[];s.staff=[];s.depositSettings=[];s.hours=[];s.bookings=[];s.closedDays=[];s.blocks=[];s.waiting=[];}
+ if(typeof agendaDesignLoadOwner==='function')await agendaDesignLoadOwner();
  const mine=await s.client.rpc('agenda_my_bookings');
  if(epoch===s.epoch&&s.user?.id===u.id&&!mine.error)s.mine=mine.data||[];
  const queue=await s.client.from('agenda_waitlist').select('id,page_id,service_id,staff_id,day,created_at').eq('customer_id',u.id).eq('status','waiting').gte('day',agendaToday()).order('day').limit(12);
@@ -780,6 +786,7 @@ async function agendaRefreshPublic(){
  if(!agendaRoute()||agendaSlug()!==slug)return;
  if(error){s.error='Não foi possível consultar este profissional.';return;}
  s.publicProfile=data||null;
+ if(typeof agendaDesignLoadPublic==='function')await agendaDesignLoadPublic(s.publicProfile);
  agendaPageIdentity(s.publicProfile);
  const editing=s.rescheduleId?[...s.mine,...s.bookings].find(x=>x.id===s.rescheduleId&&x.page_id===data?.id):null;
  const pending=!editing&&s.user?agendaReadPendingChoice(slug):null;

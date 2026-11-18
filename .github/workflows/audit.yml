@@ -51,6 +51,8 @@ jobs:
         run: node tests/agenda-global-search-v1-1067.mjs
       - name: V1.1068 premium illustrative Agenda showcase and no fake bookings
         run: node tests/agenda-premium-example-v1-1068.mjs
+      - name: V1.1069 owner-controlled Agenda themes and real premium booking page
+        run: node tests/agenda-page-design-v1-1069.mjs
       - name: V1.1055 protected Admin QA and visible participant access
         run: node tests/admin-test-center-member-entry-v1-1055.mjs
       - name: V1.1056 simpler public participant access without Admin link
