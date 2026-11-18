@@ -121,8 +121,7 @@ async function startHomeOrder({addFeatured=true}={}){
     const changed=Boolean(postalCode)&&postalCode!==String(state.postalCode||'');
     if(postalCode)state.postalCode=postalCode;
     if(changed){
-      // Carry the postal code forward, but never carry a street, number or
-      // quotation certified for a different delivery address.
+      // Keep the CEP, not a previous address or quote.
       state.address='';
       state.addressNumber='';
       if(globalThis.liveRuntime){
@@ -154,7 +153,7 @@ async function startHomeOrder({addFeatured=true}={}){
   }
 }
 
-// Product-first entry: preserve the existing cart and CEP, never silently add gas.
+// Preserve cart and CEP; do not add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
 }
