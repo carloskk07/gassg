@@ -653,6 +653,7 @@ function home(){
     '<section class="section tamao-quote-fallback"><h1>'+esc('Tamão '+homeRegion.city+'/'+homeRegion.state)+
     '</h1><p>Escolha os produtos e consulte as ofertas para o seu CEP.</p></section>'}
     ${homeIntentGuide}
+    ${globalThis.document?.getElementById('tamao-home-journeys-template')?.innerHTML||''}
     ${discoveryTiles?`<section id="home-discover" class="home-discover tamao-home-catalog" aria-label="Catálogo de produtos do TAMÃO">
       <div class="home-discover-heading"><div><h2 tabindex="-1">O que você precisa hoje?</h2></div><span class="tamao-storefront-step">1. Produtos <span aria-hidden="true">→</span> 2. Seu CEP <span aria-hidden="true">→</span> 3. Opções</span></div>
       <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
