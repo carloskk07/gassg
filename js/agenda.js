@@ -429,7 +429,7 @@ function agendaDirectorySearchText(value){
 function agendaDirectoryMatches(profile,query){
  const tokens=agendaDirectorySearchText(query).slice(0,80).split(' ').filter(Boolean);
  if(!tokens.length)return true;
- const searchable=agendaDirectorySearchText([profile?.title,profile?.city].filter(Boolean).join(' '));
+ const searchable=agendaDirectorySearchText([profile?.title,profile?.city,profile?.about].filter(Boolean).join(' '));
  return tokens.every(token=>searchable.includes(token));
 }
 function agendaDirectoryFilter(value){
@@ -466,11 +466,11 @@ function agendaDirectoryView(){
  const count=list.filter(p=>agendaDirectoryMatches(p,query)).length;
  return '<section id="agenda-directory" class="agenda-panel agenda-directory"><h2>Encontre um horário</h2>'+
  (list.length?
-  '<p class="agenda-directory-intro">Procure um profissional pelo nome ou pela cidade e consulte os serviços e horários na página dele.</p>'+
+  '<p class="agenda-directory-intro">Busque pelo nome, cidade ou especialidade descrita pelo profissional. Consulte os horários na página dele.</p>'+
   '<div class="agenda-directory-search" role="search">'+
-   '<label for="agenda-directory-search">Nome ou cidade</label>'+
+   '<label for="agenda-directory-search">Nome, especialidade ou cidade</label>'+
    '<div class="agenda-directory-search-row"><input id="agenda-directory-search" type="search" maxlength="80" autocomplete="off"'+
-     ' placeholder="Ex.: barbearia ou São Gabriel" aria-controls="agenda-directory-cards" value="'+esc(query)+'"'+
+     ' placeholder="Ex.: barbearia, corte ou São Gabriel" aria-controls="agenda-directory-cards" value="'+esc(query)+'"'+
      ' oninput="agendaDirectoryFilter(this.value)">'+
     '<button type="button" class="secondary" onclick="agendaDirectoryClearSearch()">Limpar busca</button></div>'+
   '</div>'+
@@ -483,6 +483,7 @@ function agendaDirectoryView(){
     (agendaPhotoUrl(p.photo_path)?'<img class="agenda-directory-photo" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':
      '<span class="agenda-directory-placeholder" aria-hidden="true">📅</span>')+
     '<strong>'+esc(p.title)+'</strong><span class="agenda-directory-city">'+esc(p.city)+'</span>'+
+    (typeof p.about==='string'&&p.about.trim()?'<p class="agenda-directory-about">'+esc(p.about.slice(0,180))+'</p>':'')+
     '<span class="agenda-directory-visit">Ver serviços e horários <span aria-hidden="true">→</span></span></a>').join('')+'</div>':
   '<p>As páginas dos profissionais aparecerão aqui assim que disponibilizarem serviços e horários.</p>')+
  '</section>';
