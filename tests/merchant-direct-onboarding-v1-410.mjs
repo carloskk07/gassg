@@ -116,10 +116,10 @@ assert.match(css,/@media\(max-width:620px\)\{\.merchant-conversion-intro/,
 const startInvite=growth.indexOf('const TAMAO_NETWORK_INVITE_TARGETS=');
 const endInvite=growth.indexOf('\nasync function shareTamaoGrowthInvite(',startInvite);
 assert.ok(startInvite>=0&&endInvite>startInvite);
-const invites=vm.createContext({state:{user:{referralCode:'ABCDE1'}},encodeURIComponent});
+const invites=vm.createContext({state:{user:{referralCode:'ABCDE1'}},encodeURIComponent,URL,URLSearchParams});
 vm.runInContext(growth.slice(startInvite,endInvite)+';this.invite=tamaoGrowthInviteUrl;',invites);
-assert.equal(invites.invite('merchant'),'https://tamao.com.br/?ref=ABCDE1#merchants',
- 'merchant share enters the existing landing with attributable signup');
+assert.equal(invites.invite('merchant'),'https://tamao.com.br/convite/?ref=ABCDE1&a=merchant',
+ 'merchant invitation points to the branded page, whose official CTA keeps ref in the signup route');
 invites.state.user.referralCode='';
 assert.equal(invites.invite('merchant'),'https://tamao.com.br/#merchants',
  'visitors may share the merchant entry without signing in or inventing referral codes');
