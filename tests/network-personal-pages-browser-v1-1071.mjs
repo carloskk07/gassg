@@ -39,7 +39,7 @@ try{
   await send('Page.navigate',{url:base+'/convite/?ref=FRIEND88&a=merchant&t=gold&n=Ana'});
   let ready=false;
   for(let attempt=0;attempt<65;attempt++){
-   ready=await evalJs("document.readyState==='complete'&&document.querySelector('#primary')?.href.includes('ref=FRIEND88')&&!!document.querySelector('link[href*=style.css]')?.sheet");
+   ready=await evalJs("document.readyState==='complete'&&document.querySelector('#primary')?.href.includes('ref=FRIEND88')&&!!document.querySelector('link[href*=\"style.css\"]')?.sheet");
    if(ready)break;await wait(180);
   }
   assert.equal(ready,true,'Page must load and retain original invite code '+width);
