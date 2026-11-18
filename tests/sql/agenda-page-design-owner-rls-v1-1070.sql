@@ -106,6 +106,8 @@ end $unverified$;
 reset role;
 
 -- Publishing a page reveals its theme but not the private agenda_pages table.
+-- The existing page trigger also verifies the acting owner on publication.
+select set_config('request.jwt.claim.sub','10700000-0000-4000-8000-000000000002',true);
 update public.agenda_pages set published=true
 where id='10700000-0000-4000-8000-000000000022';
 set local role anon;
