@@ -102,7 +102,7 @@ assert.equal((returning.match(/<h2>Minhas reservas<\/h2>/g)||[]).length,1);
 assert.ok(returning.indexOf('<h2>Minhas reservas</h2>')<returning.indexOf('id="agenda-directory"'));
 assert.ok(returning.indexOf('id="agenda-directory"')<returning.indexOf('class="agenda-intro"'));
 assert.match(returning,/Corte masculino/);
-assert.match(returning,/href="\/agenda\/barbearia-da-praca"/);
+assert.match(returning,/href="https:\/\/tamao.com.br\/agenda\/barbearia-da-praca"/);
 assert.doesNotMatch(returning,/Primeiro, confirme seu e-mail/);
 
 setup({mine:[],myWaiting:[]});
