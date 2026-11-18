@@ -422,7 +422,7 @@ function agendaPublicView(){
 }
 function agendaDirectoryView(){
  const list=agendaRuntime.directory;
- return '<section class="agenda-panel"><h2>Encontre um horário</h2>'+
+ return '<section id="agenda-directory" class="agenda-panel agenda-directory"><h2>Encontre um horário</h2>'+
  (list.length?'<div class="agenda-list">'+list.map(p=>
   '<a href="'+esc(agendaShareLink(p.slug))+'">'+
   (agendaPhotoUrl(p.photo_path)?'<img style="width:100%;height:125px;object-fit:cover;border-radius:12px" loading="lazy" src="'+esc(agendaPhotoUrl(p.photo_path))+'" alt="">':'')+
@@ -468,11 +468,13 @@ function agendaPage(){
  '<h1>'+ (slug?'Seu próximo atendimento, sem complicação.':'Sua agenda organizada. Seus clientes mais perto.')+'</h1>'+
  '<p>'+(slug?'Escolha um serviço e veja os horários disponíveis em poucos passos.':
   'Tenha uma página exclusiva, organize serviços e receba reservas online — sem mensalidade para começar.')+'</p></div>'+
- '<a href="/#professionals">Explorar profissionais</a></section>';
+ '<a href="'+(slug?'/agenda/':(!s.user&&s.directory.length?'#agenda-directory':'/#professionals'))+'">'+
+ (slug?'Ver outras agendas':(!s.user&&s.directory.length?'Escolher um horário':'Explorar profissionais'))+'</a></section>';
  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section agenda">'+head+'<p>Carregando agenda…</p></section>');
  if(s.phase==='failed')return shell('<section class="section agenda">'+head+agendaNote()+
   '<button type="button" onclick="agendaRetry()">Tentar novamente</button></section>');
  if(slug && s.slug!==slug)return shell('<section class="section agenda">'+head+'<p>Consultando a página do profissional…</p></section>');
+ const directoryFirst=!slug&&!s.user&&!s.ownerMode&&!s.page&&s.directory.length>0;
  return shell('<section class="section agenda">'+head+agendaNote()+
   (slug?agendaPublicView()+agendaMyBookingsView()+agendaMyWaitingView():
    (s.ownerMode&&!s.user?
@@ -480,13 +482,14 @@ function agendaPage(){
      '<p>Um link de acesso basta. Depois você cria e publica sua agenda rapidamente.</p>'+
      agendaLoginForm()+
      '<button type="button" class="secondary" onclick="agendaStopOwner()">Voltar às agendas</button></section>':
+    (directoryFirst?agendaDirectoryView():'')+
     (s.user&&(s.page||s.ownerMode)?agendaOwnerEditor():
      '<div class="agenda-intro"><h2>Atende clientes com hora marcada?</h2>'+
       '<p>Crie sua página, configure seu primeiro serviço e receba reservas online sem mensalidade.</p>'+
       '<button class="primary" type="button" onclick="agendaStartOwner()">Criar minha agenda grátis</button></div>')+
     agendaMyBookingsView()+agendaMyWaitingView()+
     (s.page?'<details class="agenda-other-pages"><summary>Encontrar outros profissionais</summary>'+agendaDirectoryView()+'</details>':
-     agendaDirectoryView())+
+     directoryFirst?'':agendaDirectoryView())+
     (s.user?'<p class="agenda-logout"><button type="button" class="secondary" onclick="agendaLogout()">Sair da conta</button></p>':'')))+
   '</section>');
 }
