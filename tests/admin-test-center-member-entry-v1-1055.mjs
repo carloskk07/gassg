@@ -23,7 +23,7 @@ vm.runInNewContext(aclSource+'\nthis.can=adminRoleCanSection;',roles);
 assert.equal(roles.can('testcenter','superadmin'),true);
 for(const role of ['readonly','finance','operations','support','compliance','anonymous'])
   assert.equal(roles.can('testcenter',role),false);
-assert.match(admin,/adminMenuButton\('testcenter','Testar páginas'/);
+assert.match(admin,/adminMenuButton\('testcenter','Áreas oficiais'/);
 assert.match(admin,/adminPanel\('testcenter',sectionActive\('testcenter'\)/);
 assert.match(admin,/const allowed=\['overview','testcenter','orders'/);
 assert.match(admin,/adminRoleCanSection\(requested\)/);
@@ -38,15 +38,17 @@ const ctx={
 };
 vm.runInNewContext(qa+'\nthis.view=adminTestCenterView;',ctx);
 let panel=ctx.view();
-assert.match(panel,/Central de testes/);
-assert.match(panel,/Testar páginas/);
+assert.match(panel,/Áreas oficiais do TAMÃO/);
+assert.match(panel,/Gerenciar e ajudar participantes/);
+assert.ok(panel.indexOf('Áreas oficiais do TAMÃO') < panel.indexOf('Testes isolados (opcional)'));
+assert.match(panel,/data-admin-official-page/);
 assert.match(panel,/tamao_demo_role=customer/);
 assert.match(panel,/tamao_demo_role=merchant/);
 assert.match(panel,/tamao_demo_role=driver/);
 assert.match(panel,/Modo teste · dados fictícios/);
-assert.match(panel,/Abrir páginas oficiais/);
-for(const item of ['Home e produtos','Minha conta e Clube','Rede e indicações',
-  'Agenda','Moto e carro','Caronas','Publicidade','Portal da revenda'])
+assert.match(panel,/Testes isolados/);
+for(const item of ['Início e produtos','Clube TAMÃO','Rede e indicações',
+  'Agenda profissional','Moto e carro','Caronas','Publicidade','Portal de revendas'])
   assert.ok(panel.includes(item),'QA center must include '+item);
 assert.match(panel,/target="_blank" rel="noopener noreferrer"/);
 assert.doesNotMatch(qa,/setSession|access_token|impersonat\w*\s*\(|service_role|signInWithPassword|paymentCreated/);

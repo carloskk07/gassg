@@ -3374,7 +3374,7 @@ function adminFirstSectionForRole(role=adminCurrentRole()){
 function adminSectionMeta(section=adminRuntime.section){
   return ({
     overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
-    testcenter:{kicker:'VERIFICAÇÃO DE TELAS',title:'Central de testes',description:'Abra as páginas públicas e faça verificações administrativas sem repetir o login.'},
+    testcenter:{kicker:'ACESSO À PLATAFORMA',title:'Áreas oficiais',description:'Navegue pelas páginas reais do TAMÃO e gerencie participantes com as ferramentas do Admin.'},
     orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
     customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
     partners:{kicker:'REDE DE REVENDA',title:'Revendas',description:'Veja cadastros, documentos e o que falta para cada revenda começar a atender.'},
@@ -12372,7 +12372,7 @@ function adminPage(){
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
       <div class="admin-nav-group">Dia a dia</div>
       ${adminMenuButton('overview','Início','⌂')}
-      ${adminMenuButton('testcenter','Testar páginas','✓')}
+      ${adminMenuButton('testcenter','Áreas oficiais','✓')}
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length+pendingHelpReports))}
       ${adminMenuButton('partners','Revendas','◇',badge(partnerAttention))}
       ${adminMenuButton('customers','Clientes','◎')}

@@ -15,17 +15,20 @@ const ctx={
 };
 vm.runInNewContext(qa+'\nthis.view=adminTestCenterView;',ctx);
 const view=ctx.view();
-assert.match(view,/Testar páginas/);
+assert.match(view,/Áreas oficiais do TAMÃO/);
+assert.match(view,/Gerenciar e ajudar participantes/);
+assert.match(view,/data-admin-official-page/);
+assert.ok(view.indexOf('Áreas oficiais do TAMÃO')<view.indexOf('Testes isolados (opcional)'), 'official pages must come before the simulation');
 assert.match(view,/Modo teste · dados fictícios/);
-assert.match(view,/Abrir páginas oficiais/);
-assert.match(view,/acesso autenticado quando necessário/);
+assert.match(view,/Testes isolados \(opcional\)/);
+assert.match(view,/precisam de uma ferramenta administrativa autorizada/);
 assert.match(view,/Financeiro e Pix/);
 assert.equal((view.match(/data-admin-demo=/g)||[]).length,8);
 for(const role of ['customer','tracking','merchant','driver','club','network','agenda','admin']){
  assert.ok(view.includes('https://carloskk07.github.io/gassg/?tamao_demo_role='+role),
   'Missing isolated one-click demo '+role);
 }
-assert.match(view,/<details class="admin-test-more">/);
+assert.match(view,/<details class="admin-test-more"><summary>Testes isolados/);
 assert.match(view,/https:\/\/parceiro\.tamao\.com\.br\//);
 assert.doesNotMatch(view,/<a[^>]*data-admin-demo[^>]*href="https:\/\/parceiro\.tamao\.com\.br\//);
 assert.doesNotMatch(view,/access_token|refresh_token|token=|service_role|signInWithOtp/);
