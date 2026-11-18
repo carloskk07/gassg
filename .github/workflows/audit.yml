@@ -53,6 +53,8 @@ jobs:
         run: node tests/agenda-premium-example-v1-1068.mjs
       - name: V1.1069 owner-controlled Agenda themes and real premium booking page
         run: node tests/agenda-page-design-v1-1069.mjs
+      - name: V1.1070 one-minute premium editor, defaults, uploads, resilience and isolation
+        run: node tests/agenda-one-minute-premium-v1-1070.mjs
       - name: V1.1055 protected Admin QA and visible participant access
         run: node tests/admin-test-center-member-entry-v1-1055.mjs
       - name: V1.1056 simpler public participant access without Admin link
