@@ -197,6 +197,11 @@ async function save(body:Record<string,unknown>,actor:string){
  if(!KINDS.has(kind))throw new PageError("INVALID_KIND");
  const published=body.published===true;
  const source=await sourceFor(kind,subject,actor,published);
+ // The same page must be a usable network link, never a silent untracked
+ // landing. Existing verified attribution codes are reused, not fabricated.
+ if(published&&!(await refFor(kind,subject,source.ownerId||actor))){
+  throw new PageError("NO_REFERRAL_CODE",409);
+ }
  const template=clean(body.theme,25)||"clean";
  if(!THEMES.has(template))throw new PageError("INVALID_THEME");
  const headline=safeText(body.headline,110),tagline=safeText(body.tagline,320);
