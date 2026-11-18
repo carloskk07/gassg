@@ -46,6 +46,7 @@ async function tamaoNativePageApi(kind,payload){
   const messages={
    NOT_OWNER:'Esta página pertence a outro participante.',
    NOT_PUBLISHED:'Para publicar, ative primeiro seu cadastro ou anúncio oficial.',
+   NO_REFERRAL_CODE:'Ative primeiro o seu código na Rede TAMÃO para publicar uma página que registre indicações.',
    LOGIN_REQUIRED:'Entre novamente na sua conta para salvar a página.',
    UNAVAILABLE:'Não foi possível atualizar sua página. Tente novamente.',
    INVALID_TEXT:'Revise o nome ou a mensagem da página.',
