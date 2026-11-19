@@ -11,7 +11,7 @@ const between=(start,end)=>{
  return backend.slice(a,b);
 };
 const source=[
- between('async function liveSyncFinancialProfile(','\nasync function liveUpgradeAccount('),
+ between('async function liveSyncFinancialProfile(','\nasync function liveSyncMarketStatus('),
  between('async function liveGetOrder(','\nasync function liveStartMerchantPayment('),
  between('async function livePoll(','\n\nconst merchantRuntime=')
 ].join('\n');
