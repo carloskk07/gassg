@@ -49,7 +49,11 @@ assert.match(runtime,/Explorar página exemplo/);
 assert.match(runtime,/agendaStartOwner\(\)/);
 const nativeRoutes=read('scripts/cloudflare-native-routes-v1-1073.mjs');
 assert.match(build,/TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
-assert.match(nativeRoutes,/\/agenda\/exemplo\/ \/agenda\/exemplo\/index\.html 200/);
+const routeFunction=read('functions/_shared/native-route.js');
+assert.match(routeFunction,/isPremiumExample=kind==='agenda'&&slug==='exemplo'/);
+assert.match(routeFunction,/images\.unsplash\.com/);
+assert.doesNotMatch(nativeRoutes,/\/agenda\/exemplo\/ \/agenda\/exemplo\/index\.html 200/,
+ 'No Cloudflare cyclic rewrite may obscure the premium example');
 assert.ok(nativeRoutes.indexOf('/agenda/exemplo/')<
           nativeRoutes.indexOf('/agenda/:slug/'),'Specific premium example must take priority over professional slug router');
 assert.match(build,/copyDir\(path\.join\(ROOT,'agenda'\),path\.join\(target,'agenda'\)\)/);
