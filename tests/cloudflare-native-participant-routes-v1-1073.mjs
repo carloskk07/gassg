@@ -9,7 +9,7 @@ const rules=redirects.trim().split(/\r?\n/).map(x=>{
  assert.ok(m,'Malformed Cloudflare rule '+x);
  return {from:m[1],to:m[2],status:Number(m[3])};
 });
-assert.ok(rules.length>=6);
+assert.ok(rules.length>=4,'Only the four verified static/fallback rules remain; Agenda professionals use Cloudflare Functions');
 assert.ok(!rules.some(x=>x.from==='/*'),'SPA fallback must not shadow participant links');
 function match(route,template){
  const keys=[];
