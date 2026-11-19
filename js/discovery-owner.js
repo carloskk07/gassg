@@ -701,7 +701,12 @@ async function discoveryOwnerRefresh(){
     /(motorista|t[aá]xi|taxista)/i.test(occupation)?'carro':'';
    return [d.listing_id,mode];
   }));
-  const withDriver=items.map(x=>({...x,driverMode:modes.get(x.id)||''}));
+  // Preserve original references for every ordinary listing. Only actual
+  // motorist profiles need a specialized page discriminator.
+  const withDriver=items.map(x=>{
+   const mode=modes.get(x.id)||'';
+   return mode?{...x,driverMode:mode}:x;
+  });
   const rideIds=withDriver.filter(x=>x.vertical==='rides'&&x.status==='published').map(x=>x.id);
   if(!rideIds.length){s.items=withDriver;return true;}
   // The owner's authenticated RLS view returns only these approved rides.
