@@ -433,8 +433,10 @@ function homeProductGroup(code,product){
   if(/^WATER/.test(productCode))return 'water';
   return 'other';
 }
+let homePreferredProductGroup='all';
 function homeFilterProducts(group){
   const chosen=['all','gas','water','other'].includes(group)?group:'all';
+  homePreferredProductGroup=chosen;
   const grid=document.getElementById('home-discover-grid');
   if(!grid)return false;
   let visible=0;
@@ -453,6 +455,10 @@ function homeFilterProducts(group){
     ?visible+' produtos em destaque.'
     :visible+' '+(visible===1?'produto nesta categoria.':'produtos nesta categoria.');
   return true;
+}
+function homeRestoreProductFilter(){
+  if(homePreferredProductGroup==='all')return false;
+  return homeFilterProducts(homePreferredProductGroup);
 }
 function homeDiscoverFocus(){
   const panel=document.getElementById('home-discover');
