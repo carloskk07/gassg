@@ -52,7 +52,7 @@ assert.doesNotMatch(standaloneBoot,/history\.replaceState\(null,'',location\.pat
 const builderSource=readFileSync('scripts/build-live-portals.mjs','utf8');
 const nativeRoutes=readFileSync('scripts/cloudflare-native-routes-v1-1073.mjs','utf8');
 assert.match(builderSource,/role==='customer'\?TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
-assert.match(nativeRoutes,/\/agenda\/:slug\/ \/agenda\/index\.html 200/);
+assert.match(nativeRoutes,/\/agenda\/:slug\/ \/agenda\/\?profissional=:slug 302/);
 assert.ok(nativeRoutes.indexOf('/agenda/exemplo/')<
  nativeRoutes.indexOf('/agenda/:slug/'),'Agenda example must take priority over personal slugs');
 assert.doesNotMatch(nativeRoutes,/\/\* \/index\.html 200/,'Generic SPA fallback must never override Agenda pages');

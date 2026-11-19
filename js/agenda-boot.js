@@ -9,6 +9,21 @@ function render(){
  app.innerHTML=agendaPage();
  agendaAfterRender();
 }
+// Cloudflare serves verified deep links through /agenda/?profissional=slug.
+// Restore the professional's permanent short address in the current history
+// entry without making a second request or changing booking ownership.
+function agendaRestorePublishedVanity(){
+ try{
+  if(location.pathname!=='/agenda/')return false;
+  const slug=String(new URLSearchParams(location.search).get('profissional')||'');
+  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length>60)return false;
+  const url=new URL(location.href);
+  url.pathname='/agenda/'+slug+'/';url.searchParams.delete('profissional');
+  history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+  return true;
+ }catch{return false}
+}
+agendaRestorePublishedVanity();
 // The TAMÃO network stores first-touch hints in the same origin for 30 days.
 // An Agenda appointment is not itself a paid referral event.
 function agendaCaptureFirstTouchInvitation(){
