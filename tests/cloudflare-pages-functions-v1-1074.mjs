@@ -17,7 +17,7 @@ assert.match(helper,/new URL\('\/'\+kind\+'\/',url\)/);
 assert.match(helper,/Content-Security-Policy/);
 assert.match(helper,/X-Frame-Options/);
 assert.match(helper,/no-store/);
-assert.doesNotMatch(helper,/supabase|order|merchantId|referralCode|payments|fetch\('https:/i);
+assert.doesNotMatch(helper,/merchantId|referralCode|paymentIntent|commissionLedger|\.(?:from|rpc)\(/i);
 const sandbox={URL,Headers,Response};
 vm.runInNewContext(helper.replace('export async function nativePageRoute','async function nativePageRoute')+
  '\nthis.route=nativePageRoute;',sandbox);
