@@ -5,7 +5,7 @@ export const TAMAO_PAGES_FUNCTIONS_CUSTOMER=Object.freeze({
  version:1,
  include:['/p/*','/agenda/*'],
  exclude:['/p/index.html','/p/page.js','/p/style.css',
-  '/agenda/index.html','/agenda/exemplo/page.js','/agenda/exemplo/style.css']
+  '/agenda/index.html','/agenda/exemplo/*']
 });
 export const TAMAO_PAGES_FUNCTIONS_OTHER=Object.freeze({
  version:1,
