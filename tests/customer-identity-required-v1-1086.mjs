@@ -14,6 +14,7 @@ assert.match(read('js/customer-registration-deferred.js'),/returnToCheckout\?'pe
 assert.match(read('js/bootstrap.js'),/pedido:'order'/);
 assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone\}\)/);
 assert.match(signup,/function tamaoAccountGateMarkup\(/);
+assert.match(signup,/route\(\)==='order'&&typeof render==='function'\)render\(\)/);
 assert.match(read('js/customer-registration-deferred.js'),/tamaoRegisterIdentifiedAccount/);
 assert.match(home,/id="tamao-welcome-name"/);
 assert.match(home,/id="tamao-welcome-phone"/);

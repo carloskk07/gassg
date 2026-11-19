@@ -229,3 +229,8 @@ function tamaoAccountGateMarkup(){
     ?'':(document.getElementById('tamao-checkout-identity-template')?.innerHTML||'');
 }
 globalThis.tamaoAccountGateMarkup=tamaoAccountGateMarkup;
+
+// The campaign module loads after window.load. A deep link to checkout may
+// have painted before this module existed; reconcile that one route exactly
+// once so the mandatory identification form is never missing.
+if(typeof route==='function'&&route()==='order'&&typeof render==='function')render();
