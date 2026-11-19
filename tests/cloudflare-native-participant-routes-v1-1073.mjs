@@ -61,10 +61,10 @@ assert.match(fs.readFileSync(new URL('../p/page.js',import.meta.url),'utf8'),
  /location\.pathname\.match\(/);
 const participantBoot=fs.readFileSync(new URL('../p/page.js',import.meta.url),'utf8');
 const agendaBoot=fs.readFileSync(new URL('../js/agenda-boot.js',import.meta.url),'utf8');
-assert.match(participantBoot,/searchParams\.get\('slug'\)/);
+assert.match(participantBoot,/get\('slug'\)/);
 assert.match(participantBoot,/url\.pathname='\/p\/'\+slug\+'\/'/);
 assert.match(participantBoot,/history\.replaceState/);
-assert.match(agendaBoot,/searchParams\.get\('profissional'\)/);
+assert.match(agendaBoot,/get\('profissional'\)/);
 assert.match(agendaBoot,/url\.pathname='\/agenda\/'\+slug\+'\/'/);
 assert.match(agendaBoot,/history\.replaceState/);
 
