@@ -45,3 +45,6 @@
 .tamao-native-page-mini[data-layout="split"] .tamao-native-page-mini-art{order:1}
 .tamao-native-page-mini[data-layout="centered"] .tamao-native-page-mini-copy{order:1}
 .tamao-native-page-mini[data-layout="centered"] .tamao-native-page-mini-art{order:-1}
+
+.tamao-native-page-actions .tamao-native-page-whatsapp{background:#ecfaf2;color:#125c39;border:1px solid #bbdfc8}
+.tamao-native-page-actions .tamao-native-page-whatsapp:hover{background:#daf2e6}

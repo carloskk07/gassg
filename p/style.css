@@ -68,3 +68,9 @@ body.theme-ocean .next{background:#e4f2f6}body.theme-sunset .next{background:#f7
  body[data-layout="centered"] .copy{align-items:center;text-align:center}
  body[data-layout="centered"] .actions{justify-content:center}
 }
+
+/* V1.1082: independent user-initiated WhatsApp sharing, compact and accessible. */
+.actions>*{max-width:100%;overflow-wrap:anywhere}
+.actions #whatsapp-share{background:#edf9f2;color:#175d3a;border-color:#c1e2cb}
+.actions #whatsapp-share:hover{background:#dff4e7}
+@media(max-width:760px){.actions #whatsapp-share{flex:1 1 100%;min-width:0}}

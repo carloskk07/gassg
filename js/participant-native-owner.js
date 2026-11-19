@@ -151,7 +151,8 @@ function tamaoNativePagePanel(kind,subjectId=''){
    <button type="button" class="primary" onclick="tamaoNativePageSave('${kind}','${subjectId}',true)"${cache.busy?' disabled':''}>${cache.busy?'Salvando…':p.published?'Salvar e atualizar página':'Criar e publicar minha página'}</button>
    ${p.published?`<button type="button" class="secondary" onclick="tamaoNativePageSave('${kind}','${subjectId}',false)"${cache.busy?' disabled':''}>Despublicar</button>`:''}
    ${url?`<a class="secondary" href="${E(url)}" target="_blank" rel="noopener noreferrer">Ver página</a>`:''}
-   ${url?`<button class="secondary" type="button" onclick="tamaoNativePageShare('${kind}','${subjectId}')">Compartilhar</button>`:''}
+   ${url?`<button class="secondary" type="button" onclick="tamaoNativePageShare('${kind}','${subjectId}')">Copiar ou compartilhar</button>`:''}
+   ${url?`<a class="secondary tamao-native-page-whatsapp" href="https://wa.me/?text=${encodeURIComponent('Conheça minha página no TAMÃO: '+url)}" target="_blank" rel="noopener noreferrer nofollow">Enviar pelo WhatsApp</a>`:''}
   </div>
   ${url?`<p class="tamao-native-page-url"><strong>Meu endereço:</strong> <a href="${E(url)}" target="_blank" rel="noopener noreferrer">${E(url)}</a></p>`:''}
   ${cache.savedMessage?`<p role="status" class="tiny">${E(cache.savedMessage)}</p>`:''}
