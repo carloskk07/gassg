@@ -8,7 +8,7 @@ const between=(text,start,end)=>{
  const a=text.indexOf(start),b=text.indexOf(end,a+start.length);
  assert.ok(a>=0&&b>a,start);return text.slice(a,b);
 };
-const source=between(backend,'async function liveSyncFinancialProfile(','\nasync function liveUpgradeAccount(')+
+const source=between(backend,'async function liveSyncFinancialProfile(','\nasync function liveSyncMarketStatus(')+
  between(backend,'async function liveGetOrder(','\nasync function liveStartMerchantPayment(')+
  between(backend,'async function livePoll(','\n\nconst merchantRuntime=')+
  between(customer,'async function customerRefreshOrders(','\nfunction tracking(){');
