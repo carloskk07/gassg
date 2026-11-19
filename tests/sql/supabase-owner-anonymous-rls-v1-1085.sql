@@ -7,7 +7,12 @@ INSERT INTO auth.users(id,instance_id,aud,role,email,email_confirmed_at,is_anony
 VALUES
  (:'p_id'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','verified-ci-1085@example.org',now(),false,now(),now()),
  (:'a_id'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',null,null,true,now(),now());
--- The official Agenda forbids unverified owners even to privileged writes.
+-- The official Agenda verifies the actor against auth.uid() even when
+-- postgres seeds data. Model the real verified user's request claims before
+-- inserting the page; never bypass or remove the Agenda guard.
+SELECT set_config('request.jwt.claim.sub',:'p_id',true);
+SELECT set_config('request.jwt.claims',
+ jsonb_build_object('sub',:'p_id','role','authenticated','is_anonymous',false)::text,true);
 INSERT INTO public.agenda_pages(owner_id,slug,title,city,published)
 VALUES (:'p_id'::uuid,'seguro-profissional-ci-1085','Barbearia CI verificada','São Gabriel',true);
 -- Legacy/private page data can exist for an anonymous Auth identity. Verify
