@@ -191,11 +191,37 @@ function safeAdvertiserURL(raw:unknown){
    &&u.href.length<=300?u.href:"";
  }catch{return ""}
 }
+
+// V1.1083: only photo keys already published by the official owner source.
+// This is never a new upload, a freely chosen remote URL or an extra permission.
+async function approvedPagePhotos(kind:string,subject:string,source:any):Promise<string[]>{
+ if(!source?.canPublish)return [];
+ if(kind==="agenda"){
+  const {data,error}=await admin.from("agenda_pages")
+   .select("photo_paths").eq("id",subject).eq("published",true).maybeSingle();
+  if(error)throw error;
+  return imageKeys(data?.photo_paths);
+ }
+ if(kind==="listing"||kind==="driver"){
+  const {data,error}=await admin.rpc("discovery_public_search",{
+   p_listing_id:subject,p_vertical:source.vertical,p_limit:1
+  });
+  if(error)throw error;
+  const row=Array.isArray(data)?data.find(x=>x?.id===subject):null;
+  return imageKeys(row?.photo_urls);
+ }
+ return [];
+}
+function preferredPublicPhoto(photos:string[],preferred:string):string[]{
+ if(!preferred||!photos.includes(preferred)||photos[0]===preferred)return photos;
+ return [preferred,...photos.filter(key=>key!==preferred)];
+}
+
 function publicURL(slug:string){return "https://tamao.com.br/p/"+slug+"/";}
 async function view(slug:string){
  if(slug.length<4||slug.length>80||!SLUG.test(slug))throw new PageError("NOT_FOUND",404);
  const {data:page,error}=await admin.from(TABLE)
-  .select("kind,subject_id,owner_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,headline,tagline,published")
+  .select("kind,subject_id,owner_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,hero_photo_key,headline,tagline,published")
   .eq("slug",slug).eq("published",true).maybeSingle();
  if(error)throw error;
  if(!page)throw new PageError("NOT_FOUND",404);
@@ -288,6 +314,7 @@ async function view(slug:string){
   // approved photo bucket; reuse only strict storage keys, never signed URLs.
   base.photos=imageKeys(a.photo_paths);
  }
+ base.photos=preferredPublicPhoto(base.photos,clean(page.hero_photo_key,100));
  return base;
 }
 async function save(body:Record<string,unknown>,actor:string){
@@ -306,6 +333,13 @@ async function save(body:Record<string,unknown>,actor:string){
  if(!LAYOUTS.has(layout))throw new PageError("INVALID_LAYOUT");
  const showAbout=body.showAbout!==false,showGallery=body.showGallery!==false;
  const showCatalog=body.showCatalog!==false,showDiscover=body.showDiscover!==false;
+ const heroPhotoKey=clean(body.heroPhotoKey,100);
+ if(heroPhotoKey){
+  if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(heroPhotoKey))
+   throw new PageError("INVALID_COVER");
+  const permitted=await approvedPagePhotos(kind,subject,source);
+  if(!permitted.includes(heroPhotoKey))throw new PageError("INVALID_COVER",403);
+ }
  const headline=safeText(body.headline,110),tagline=safeText(body.tagline,320);
  const {data:existing,error:readError}=await admin.from(TABLE)
   .select("id,slug,owner_id").eq("kind",kind).eq("subject_id",subject).maybeSingle();
@@ -317,16 +351,16 @@ async function save(body:Record<string,unknown>,actor:string){
   // manager leaves; keep the permanent slug but refresh its referral owner.
   kind,subject_id:subject,owner_id:actor,slug,template,layout,
   show_about:showAbout,show_gallery:showGallery,show_catalog:showCatalog,show_discover:showDiscover,
-  headline,tagline,published,updated_at:new Date().toISOString()
+  hero_photo_key:heroPhotoKey,headline,tagline,published,updated_at:new Date().toISOString()
  };
  const {data,error}=await admin.from(TABLE).upsert(input,{onConflict:"kind,subject_id"})
-  .select("kind,subject_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,headline,tagline,published").single();
+  .select("kind,subject_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,hero_photo_key,headline,tagline,published").single();
  if(error)throw error;
  return {source:"participant_native_page_v1_1072",identityName:source.title,page:{
   kind:data.kind,subjectId:data.subject_id,slug:data.slug,url:publicURL(data.slug),
   theme:data.template,layout:data.layout,showAbout:data.show_about,
   showGallery:data.show_gallery,showCatalog:data.show_catalog,showDiscover:data.show_discover,
-  headline:data.headline,tagline:data.tagline,published:data.published
+  heroPhotoKey:data.hero_photo_key,headline:data.headline,tagline:data.tagline,published:data.published
  }};
 }
 async function mine(body:Record<string,unknown>,actor:string){
@@ -334,14 +368,15 @@ async function mine(body:Record<string,unknown>,actor:string){
  if(!KINDS.has(kind))throw new PageError("INVALID_KIND");
  const source=await sourceFor(kind,subject,actor,false);
  const {data,error}=await admin.from(TABLE)
-  .select("kind,subject_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,headline,tagline,published")
+  .select("kind,subject_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,hero_photo_key,headline,tagline,published")
   .eq("kind",kind).eq("subject_id",subject).maybeSingle();
  if(error)throw error;
- return {source:"participant_native_page_v1_1072",identityName:source.title,page:data?{
+ const photoChoices=await approvedPagePhotos(kind,subject,source);
+ return {source:"participant_native_page_v1_1072",identityName:source.title,photoChoices,page:data?{
   kind:data.kind,subjectId:data.subject_id,slug:data.slug,url:publicURL(data.slug),
   theme:data.template,layout:data.layout,showAbout:data.show_about,
   showGallery:data.show_gallery,showCatalog:data.show_catalog,showDiscover:data.show_discover,
-  headline:data.headline,tagline:data.tagline,published:data.published
+  heroPhotoKey:data.hero_photo_key,headline:data.headline,tagline:data.tagline,published:data.published
  }:null};
 }
 
