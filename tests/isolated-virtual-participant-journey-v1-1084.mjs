@@ -290,6 +290,6 @@ try{
  fs.mkdirSync('test-results/virtual-participant',{recursive:true});
  fs.writeFileSync('test-results/virtual-participant/report.json',JSON.stringify(trace,null,2)+'\n');
 }
-assert.equal(trace.events.length,16,'All expected journey checkpoints must execute');
+assert.equal(trace.events.length,18,'All expected journey checkpoints must execute');
 console.log('V1.1084 PASS — '+trace.events.length+
  ' connected steps in real disposable Auth/Edge/PostgreSQL + zero live data and zero payments.');
