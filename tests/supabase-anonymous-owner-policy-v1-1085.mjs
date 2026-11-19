@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const root=new URL('../',import.meta.url);
+const read=p=>fs.readFileSync(new URL(p,root),'utf8');
+const sql=read('supabase/migrations/20261119200000_supabase_anonymous_owner_boundaries_v1_1085.sql');
+const proof=read('tests/sql/supabase-owner-anonymous-rls-v1-1085.sql');
+const integration=read('.github/workflows/isolated-supabase-integration.yml');
+assert.equal((sql.match(/CREATE POLICY tamao_verified_owner_v1_1085/g)||[]).length,12);
+assert.equal((sql.match(/CREATE POLICY tamao_verified_(insert|update|delete)_v1_1085/g)||[]).length,15);
+assert.match(sql,/CREATE POLICY tamao_discovery_bucket_verified_v1_1085/);
+assert.match(sql,/AS RESTRICTIVE FOR ALL TO authenticated/);
+assert.match(sql,/auth\.jwt\(\)->>'is_anonymous'/);
+assert.match(sql,/public\.discovery_verified_account\(\)/);
+assert.match(sql,/bucket_id NOT IN \('tamao-discovery-documents','tamao-discovery-photos'\)/);
+assert.doesNotMatch(sql,/\b(?:REVOKE|GRANT|DROP POLICY|DISABLE ROW LEVEL SECURITY|ALTER TABLE|UPDATE|DELETE FROM|TRUNCATE|SECURITY INVOKER)\b/i);
+assert.doesNotMatch(sql,/CREATE POLICY [^\n]+ ON public\.discovery_vertical_cities/);
+assert.doesNotMatch(sql,/CREATE POLICY [^\n]+ ON public\.orders/);
+assert.doesNotMatch(sql,/CREATE POLICY [^\n]+ ON public\.profiles/);
+for(const name of ['agenda_page_design','discovery_listings','discovery_professional_details','discovery_ride_details','discovery_stay_details'])
+ assert.ok(!sql.includes('ON public.'+name+' AS RESTRICTIVE FOR ALL'),'Public read must remain open for '+name);
+assert.match(proof,/ANONYMOUS_JWT_READS_PRIVATE_AGENDA/);
+assert.match(proof,/ANONYMOUS_DB_USER_SPOOFED_JWT_CLAIM/);
+assert.match(proof,/PUBLIC_AGENDA_BROKEN/);
+assert.match(proof,/ROLLBACK;/);
+assert.match(integration,/tests\/sql\/supabase-owner-anonymous-rls-v1-1085\.sql/);
+console.log('PASS V1.1085: 28 additive non-anonymous owner/Storage policy guards; anonymous public browsing retained.');
