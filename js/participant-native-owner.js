@@ -51,7 +51,8 @@ async function tamaoNativePageApi(kind,payload){
    UNAVAILABLE:'Não foi possível atualizar sua página. Tente novamente.',
    INVALID_TEXT:'Revise o nome ou a mensagem da página.',
    INVALID_THEME:'Selecione um estilo válido.',
-   INVALID_LAYOUT:'Selecione um formato de página válido.'
+   INVALID_LAYOUT:'Selecione um formato de página válido.',
+   INVALID_COVER:'Escolha uma foto pública e aprovada do seu cadastro.'
   };
   throw Error(messages[code]||'Não foi possível consultar esta página ('+code+').');
  }
@@ -66,9 +67,18 @@ async function tamaoNativePageMine(kind,subjectId){
   const session=await tamaoNativePageAuthenticated(kind);
   const res=await tamaoNativePageApi(kind,{action:'mine',kind,subjectId});
   if((await tamaoNativePageAuthenticated(kind)).user.id!==session.user.id)return;
-  tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,page:res.page||null,identityName:res.identityName||'',userId:session.user.id,error:''});
+  if(tamaoNativePagesCache.get(key)!==marker)return;
+  const photoChoices=Array.isArray(res.photoChoices)?res.photoChoices.filter(x=>
+   typeof x==='string'&&/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(x)).slice(0,6):[];
+  tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,
+   page:res.page||null,photoChoices,identityName:res.identityName||'',
+   userId:session.user.id,error:''});
  }catch(e){
-  tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,error:String(e?.message||e),page:null});
+  // Old requests must never replace a different account's editor or its photos.
+  if(tamaoNativePagesCache.get(key)!==marker||
+     marker.userId!==tamaoNativePageSessionId(kind))return;
+  tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,
+   error:String(e?.message||e),page:null});
  }
  if(typeof render==='function')render();
 }
@@ -113,6 +123,19 @@ function tamaoNativePagePanel(kind,subjectId=''){
  const labelName=E(cache.identityName||'Seu perfil TAMÃO');
  const title=E(p.headline||cache.identityName||'Seu perfil TAMÃO');
  const sub=E(p.tagline||copy);
+ const photos=Array.isArray(cache.photoChoices)?cache.photoChoices.filter(x=>
+  typeof x==='string'&&/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(x)).slice(0,6):[];
+ const imageURL=key=>'https://lgugwujpunhslavewffd.supabase.co/storage/v1/object/public/tamao-discovery-photos/'+
+  key.split('/').map(encodeURIComponent).join('/');
+ const selectedPhoto=photos.includes(p.heroPhotoKey)?p.heroPhotoKey:'';
+ const activePhoto=selectedPhoto||photos[0]||'';
+ const coverSelector=photos.length?'<details class="tamao-native-page-cover-select"><summary>Foto de destaque (opcional)</summary>'+
+  '<div class="tamao-native-page-cover-options" role="radiogroup" aria-label="Escolher foto de capa">'+
+  '<label class="tamao-native-page-cover-choice"><input type="radio" name="heroPhotoKey" value=""'+
+   (!selectedPhoto?' checked':'')+'><span>Automática</span></label>'+
+  photos.map((key,i)=>'<label class="tamao-native-page-cover-choice"><input type="radio" name="heroPhotoKey" value="'+E(key)+'"'+
+   (selectedPhoto===key?' checked':'')+'><img src="'+E(imageURL(key))+'" alt="Foto '+(i+1)+'" loading="lazy"><span>Foto '+(i+1)+'</span></label>').join('')+
+  '</div><p class="tiny muted">São fotos já aprovadas no seu cadastro. Se a escolhida for removida, a página usará outra foto publicada.</p></details>':'';
  const event=`tamaoNativePagePreview('${kind}','${subjectId}')`;
  return `<section class="card flat tamao-native-page-panel" id="${id}" aria-label="${nice}">
   <div class="tamao-native-page-heading"><span class="section-kicker">SUA PRESENÇA DIGITAL</span>
@@ -124,6 +147,7 @@ function tamaoNativePagePanel(kind,subjectId=''){
      <label>Estilo visual<select class="input" name="theme">${options(themes,chosenTheme)}</select></label>
      <label>Formato da página<select class="input" name="layout">${options(layouts,chosenLayout)}</select></label>
     </div>
+    ${coverSelector}
     <details><summary>Ajustar textos (opcional)</summary>
      <label>Frase principal<input class="input" name="headline" maxlength="110" value="${E(p.headline)}" placeholder="Usar o nome oficial automaticamente"></label>
      <label>Mensagem de apresentação<textarea class="input" name="tagline" maxlength="320" rows="3" placeholder="Uma frase sobre seu atendimento">${E(p.tagline)}</textarea></label>
@@ -139,7 +163,7 @@ function tamaoNativePagePanel(kind,subjectId=''){
    <aside class="tamao-native-page-preview" aria-label="Prévia visual da página">
     <span class="tamao-native-page-preview-label">PRÉVIA IMEDIATA</span>
     <div class="tamao-native-page-mini" data-theme="${chosenTheme}" data-layout="${chosenLayout}">
-     <div class="tamao-native-page-mini-art" aria-hidden="true"><span>✦</span><strong>${labelName}</strong></div>
+     <div class="tamao-native-page-mini-art" aria-hidden="true"><img data-preview="cover" class="tamao-native-page-cover-photo" ${activePhoto?'src="'+E(imageURL(activePhoto))+'"':'hidden'} alt=""><span>✦</span><strong>${labelName}</strong></div>
      <div class="tamao-native-page-mini-copy"><span>ESPAÇO OFICIAL TAMÃO</span>
       <strong data-preview="headline">${title}</strong><p data-preview="tagline">${sub}</p><div class="tamao-native-page-mini-cta">Conhecer esta atividade →</div>
      </div>
@@ -178,6 +202,16 @@ function tamaoNativePagePreview(kind,subjectId){
   'Conheça esta atividade e as oportunidades no TAMÃO.';
  preview.querySelector('[data-preview="headline"]').textContent=title;
  preview.querySelector('[data-preview="tagline"]').textContent=tagline;
+ const photos=Array.isArray(cache?.photoChoices)?cache.photoChoices:[];
+ const selected=form.querySelector('[name="heroPhotoKey"]:checked')?.value||'';
+ const key=(photos.includes(selected)?selected:'')||photos[0]||'';
+ const photo=preview.querySelector('[data-preview="cover"]');
+ if(photo){
+  photo.hidden=!key;
+  if(key&&/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(key))
+   photo.src='https://lgugwujpunhslavewffd.supabase.co/storage/v1/object/public/tamao-discovery-photos/'+
+    key.split('/').map(encodeURIComponent).join('/');
+ }
 }
 
 function tamaoNativePageRetry(kind,id){
@@ -197,13 +231,14 @@ async function tamaoNativePageSave(kind,subjectId,published){
  const showCatalog=value('showCatalog'),showDiscover=value('showDiscover');
  const headline=container.querySelector('[name="headline"]')?.value||'';
  const tagline=container.querySelector('[name="tagline"]')?.value||'';
+ const heroPhotoKey=container.querySelector('[name="heroPhotoKey"]:checked')?.value||'';
  const previous=cache.page?.published===true;
  const startedUser=tamaoNativePageSessionId(kind);
- cache.draft={theme,layout,showAbout,showGallery,showCatalog,showDiscover,headline,tagline};
+ cache.draft={theme,layout,showAbout,showGallery,showCatalog,showDiscover,headline,tagline,heroPhotoKey};
  cache.busy=true;cache.error='';cache.savedMessage='';render();
  try{
   const result=await tamaoNativePageApi(kind,{action:'save',kind,subjectId,published,theme,layout,
-   showAbout,showGallery,showCatalog,showDiscover,headline,tagline});
+   showAbout,showGallery,showCatalog,showDiscover,headline,tagline,heroPhotoKey});
   if(tamaoNativePageSessionId(kind)!==startedUser)return;
   const updated=tamaoNativePagesCache.get(key);
   if(updated&&updated.userId===startedUser){
