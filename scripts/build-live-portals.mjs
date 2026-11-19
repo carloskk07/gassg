@@ -1,3 +1,4 @@
+import {tamaoPagesFunctionsRouting} from './cloudflare-functions-routes-v1-1074.mjs';
 import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from './cloudflare-native-routes-v1-1073.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -587,6 +588,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),
       role==='customer'?TAMAO_CLOUDFLARE_NATIVE_ROUTES:'/* /index.html 200\n','utf8');
+    fs.writeFileSync(path.join(target,'_routes.json'),tamaoPagesFunctionsRouting(role),'utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,
       portalRole:role,
