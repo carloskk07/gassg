@@ -186,3 +186,34 @@ CREATE POLICY tamao_discovery_bucket_verified_v1_1085
  ((SELECT (auth.jwt()->>'is_anonymous')::boolean) IS DISTINCT FROM TRUE)))) WITH CHECK ((bucket_id NOT IN ('tamao-discovery-documents','tamao-discovery-photos')
  OR ((SELECT public.discovery_verified_account()) AND
  ((SELECT (auth.jwt()->>'is_anonymous')::boolean) IS DISTINCT FROM TRUE))));
+
+-- TAMÃO commerce readiness maintains an exact browser-ACL fingerprint.
+-- A stricter RLS policy legitimately changes tableDigest. Update ONLY the
+-- pinned table digest in the reviewed, service-only readiness function. Its
+-- behavior, grants, privileges, security definer and RPC digest stay intact.
+-- Source MD5 is checked to prevent patching unknown production function code.
+DO $tamao$
+DECLARE
+ v_ddl text;
+ v_original_md5 text;
+ v_posture text;
+ v_readiness jsonb;
+BEGIN
+ SELECT md5(prosrc),pg_get_functiondef(oid)
+ INTO v_original_md5,v_ddl FROM pg_proc
+ WHERE oid='public.platform_launch_readiness()'::regprocedure
+   AND prosecdef=true;
+ IF v_original_md5 IS DISTINCT FROM 'bd2526b912aeb1c4d829550ea3b3a999'
+ THEN RAISE EXCEPTION 'TAMAO_LAUNCH_READINESS_UNREVIEWED_SOURCE';END IF;
+ IF (length(v_ddl)-length(replace(v_ddl,'bcaea107616e3c2713787a71efd4c7ff','')))<>32
+ THEN RAISE EXCEPTION 'TAMAO_ACL_FINGERPRINT_ANCHOR_CHANGED';END IF;
+ v_posture:=public.tamao_launch_acl_posture_v1()->>'tableDigest';
+ IF v_posture IS DISTINCT FROM 'da666df0fb875fc8066c156483b5e9d8'
+ THEN RAISE EXCEPTION 'TAMAO_NEW_POLICY_ACL_DIGEST_UNEXPECTED: %',v_posture;END IF;
+ EXECUTE replace(v_ddl,'bcaea107616e3c2713787a71efd4c7ff','da666df0fb875fc8066c156483b5e9d8');
+ v_readiness:=public.platform_launch_readiness();
+ IF (v_readiness->'securityBlockers') ? 'browser_sensitive_table_acl'
+ THEN RAISE EXCEPTION 'TAMAO_ACL_BLOCKER_NOT_CLEARED';END IF;
+ IF (v_readiness->>'commerceEnabled')::boolean IS DISTINCT FROM false
+ THEN RAISE EXCEPTION 'TAMAO_COMMERCIAL_SWITCH_CHANGED';END IF;
+END $tamao$;
