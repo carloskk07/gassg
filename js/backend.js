@@ -444,6 +444,11 @@ async function backendInit(){
     }
     liveRuntime.session=session;
     liveRuntime.status='ready';
+    const savedAccountPhone=String(session.user?.user_metadata?.phone||'').replace(/\D/g,'');
+    if(!state.checkout.customerPhoneDigits&&/^[0-9]{10,11}$/.test(savedAccountPhone)){
+      state.checkout.customerPhoneDigits=savedAccountPhone;
+      save();
+    }
     client.auth.onAuthStateChange((_event,next)=>{
       if(liveRuntime.status==='ready'&&liveRuntime.session?.user?.id&&
          liveRuntime.session.user.id!==next?.user?.id)liveForgetAccount();

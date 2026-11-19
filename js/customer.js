@@ -1066,7 +1066,9 @@ function orderPage(){
      '<button type="button" class="secondary small" onclick="tamaoDirectSellerAllOptions()">Ver opções de todas as revendas</button></aside>'
     :directSeller==='invalid'?'<div class="notice danger">Link de revenda inválido. Volte à página da empresa antes de solicitar uma compra.</div>':'';
   return shell(`<section class="page tamao-checkout-page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">Faça seu pedido</h1><p class="muted page-lead">Escolha os produtos, informe o CEP e confira o total com entrega antes de enviar.</p>
+${typeof tamaoAccountGateMarkup==='function'?tamaoAccountGateMarkup():''}
 ${buyerGuide}
+${!testDemo&&!ready?'<div class="notice">Para ver ofertas reais e pedir, confirme sua conta com nome, telefone e e-mail. Sua cesta continua disponível.</div>':''}
 ${directSellerPanel}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}

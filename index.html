@@ -239,7 +239,11 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
         <button type="button" class="tamao-coupon-banner-main" onclick="tamaoWelcomeShowSignup()">Criar conta e ganhar R$ 1 <span aria-hidden="true">→</span></button>
       </div>
       <form class="tamao-welcome-signup" hidden onsubmit="return tamaoWelcomeRegister(event)" style="padding:12px 0;max-width:440px">
-        <label for="tamao-welcome-email" style="display:block;font-weight:700;margin:0 0 7px">Seu e-mail para confirmar o cadastro</label>
+        <label for="tamao-welcome-name" style="display:block;font-weight:700;margin:0 0 7px">Nome e sobrenome</label>
+        <input id="tamao-welcome-name" name="full_name" type="text" autocomplete="name" required maxlength="100" class="input" placeholder="Seu nome completo" style="display:block;width:100%;box-sizing:border-box;margin-bottom:10px">
+        <label for="tamao-welcome-phone" style="display:block;font-weight:700;margin:0 0 7px">Telefone com DDD</label>
+        <input id="tamao-welcome-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required maxlength="18" class="input" placeholder="(55) 99999-9999" style="display:block;width:100%;box-sizing:border-box;margin-bottom:10px">
+        <label for="tamao-welcome-email" style="display:block;font-weight:700;margin:0 0 7px">E-mail para confirmar e recuperar sua conta</label>
         <input id="tamao-welcome-email" name="email" type="email" autocomplete="email" required maxlength="160" class="input" placeholder="voce@email.com" style="display:block;width:100%;max-width:100%;box-sizing:border-box;margin-bottom:10px">
         <div class="tamao-coupon-banner-actions" style="margin:0 0 8px">
           <button type="submit" class="tamao-coupon-banner-main">Enviar confirmação por e-mail</button>

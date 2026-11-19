@@ -152,13 +152,13 @@ async function tamaoClubSendAccess(email){
   const value=String(email||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw Error('INVALID_EMAIL');
   const runtime=globalThis.liveRuntime;
-  if(globalThis.liveReady?.()!==true||!runtime?.client?.auth||
+  if(!runtime?.client?.auth||
      typeof customerOriginSafe!=='function'||customerOriginSafe()!==true)
     throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
   const client=runtime.client,userId=runtime.session?.user?.id;
   if(!globalThis.chamaTurnstile?.challenge)throw Error('AUTH_PROTECTION_UNAVAILABLE');
   const captchaToken=await globalThis.chamaTurnstile.challenge('customer_login');
-  if(!captchaToken||globalThis.liveReady?.()!==true||customerOriginSafe()!==true||
+  if(!captchaToken||customerOriginSafe()!==true||
      runtime!==globalThis.liveRuntime||client!==runtime.client||
      userId!==runtime.session?.user?.id)throw Error('ACCOUNT_CONTEXT_CHANGED');
   const redirect=new URL('/',location.origin);
@@ -179,6 +179,17 @@ async function tamaoWelcomeRegister(event){
   const button=form?.querySelector('button[type=submit]');
   const buttons=clubEntry?Array.from(form.querySelectorAll('button[type=submit]')):[button].filter(Boolean);
   const email=String(field?.value||'').trim().toLowerCase();
+  const login=clubEntry&&event.submitter?.value!=='register';
+  const fullName=String(form?.querySelector('input[name="full_name"]')?.value||'').trim().replace(/\s+/g,' ');
+  const phone=String(form?.querySelector('input[name="phone"]')?.value||'').replace(/\D/g,'');
+  if(!login&&(fullName.length<5||fullName.split(' ').length<2||fullName.length>100)){
+    if(status)status.textContent='Informe nome e sobrenome.';
+    form?.querySelector('input[name="full_name"]')?.focus();return false;
+  }
+  if(!login&&!/^[0-9]{10,11}$/.test(phone)){
+    if(status)status.textContent='Informe telefone com DDD.';
+    form?.querySelector('input[name="phone"]')?.focus();return false;
+  }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     if(status)status.textContent='Informe um e-mail válido.';
     return false;
@@ -187,9 +198,8 @@ async function tamaoWelcomeRegister(event){
   buttons.forEach(item=>item.disabled=true);
   if(status)status.textContent='Preparando confirmação…';
   try{
-    const login=clubEntry&&event.submitter?.value!=='register';
     if(!login&&typeof liveUpgradeAccount!=='function')throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
-    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email);
+    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email,{fullName,phone});
     if(status)status.textContent=result?.alreadyPermanent
       ?'Sua conta já está cadastrada. Consulte seu saldo e benefícios no Clube.'
       :result?.accessRequested?'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.':
@@ -206,3 +216,25 @@ async function tamaoWelcomeRegister(event){
   return false;
 }
 Object.assign(globalThis,{tamaoWelcomeShowSignup,tamaoWelcomeRegister});
+
+// The signup is on the order page even when welcome campaigns are inactive.
+// Never ask for a delivery address merely to create an account.
+function tamaoAccountGateMarkup(){
+  if(globalThis.__CHAMA_TEST__===true||globalThis.tamaoAccountProfileReady?.())return '';
+  return '<aside id="tamao-checkout-identity" class="card flat" aria-label="Cadastro para comprar" '+
+    'style="padding:20px;margin-bottom:18px;border:1px solid #b9dfc5;border-radius:18px;background:#f3faf4">'+
+    '<strong style="display:block;font-size:18px">Crie sua conta para pedir com segurança.</strong>'+
+    '<p>Informe nome, telefone e e-mail. O endereço da entrega é confirmado somente ao fazer um pedido.</p>'+
+    '<form class="form-stack tamao-welcome-signup" onsubmit="return tamaoWelcomeRegister(event)">'+
+      '<label for="tamao-order-name">Nome e sobrenome</label>'+
+      '<input id="tamao-order-name" name="full_name" class="input" required maxlength="100" autocomplete="name" placeholder="Seu nome completo">'+
+      '<label for="tamao-order-phone">Telefone com DDD</label>'+
+      '<input id="tamao-order-phone" name="phone" type="tel" class="input" required maxlength="18" autocomplete="tel" inputmode="tel" placeholder="(55) 99999-9999">'+
+      '<label for="tamao-order-email">E-mail</label>'+
+      '<input id="tamao-order-email" name="email" type="email" class="input" required maxlength="160" autocomplete="email" placeholder="voce@email.com">'+
+      '<button type="submit" class="primary">Confirmar meus dados</button>'+
+      '<p data-welcome-signup-status role="status"></p>'+
+      '<small>Já tem conta? Entre pelo Clube TAMÃO, usando seu e-mail.</small>'+
+    '</form></aside>';
+}
+globalThis.tamaoAccountGateMarkup=tamaoAccountGateMarkup;
