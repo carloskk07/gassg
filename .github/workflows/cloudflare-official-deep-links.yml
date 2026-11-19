@@ -1,0 +1,22 @@
+name: TAMÃO official deep-link HTTP probe
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/cloudflare-official-deep-links-v1-1074.mjs'
+      - '.github/workflows/cloudflare-official-deep-links.yml'
+      - 'scripts/cloudflare-native-routes-v1-1073.mjs'
+      - 'scripts/build-cloudflare-portal.mjs'
+      - 'scripts/build-live-portals.mjs'
+      - 'p/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deep-links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect real Cloudflare HTTP outside PWA
+        run: node tests/cloudflare-official-deep-links-v1-1074.mjs
