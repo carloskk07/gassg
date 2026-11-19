@@ -196,7 +196,7 @@ assert.match(markup,/class="tamao-coupon-banner-main" onclick="tamaoWelcomeShowS
 assert.doesNotMatch(markup,/onclick="go\('club'\)">Quero participar/);
 assert.ok(bonus.includes("clube_coupon_home_prices_v1_820") && bonus.includes("all_products_3x5_sponsor"));
 assert.ok(bonus.includes('tamaoLoadCustomerRegistration()'),'welcome signup must lazily load real account registration');
-assert.ok(get('js/customer-registration-deferred.js').includes('liveUpgradeAccount(email,{fullName,phone})'),
+assert.ok(get('js/customer-registration-deferred.js').includes('liveUpgradeAccount(email,{fullName,phone,returnToCheckout:checkoutEntry})'),
   'registration must collect buyer name and phone before confirming email');
 assert.ok(css.includes('.tamao-coupon-banner-ticket')&&css.includes('@media(max-width:760px)'),'voucher must be responsive');
 assert.ok(start>html.indexOf('<div id="toast"'),'banner template must survive app route rendering');

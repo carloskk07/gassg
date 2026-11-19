@@ -408,7 +408,7 @@ async function backendInit(){
     liveRuntime.error='A compra online exige o endereço oficial e seguro do TAMÃO.';
     return false;
   }
-  if(liveRuntime.status==='ready')return true;
+  if(liveRuntime.status==='ready'||liveRuntime.status==='guest')return true;
   liveRuntime.status='loading';
   liveRuntime.error=null;
   try{

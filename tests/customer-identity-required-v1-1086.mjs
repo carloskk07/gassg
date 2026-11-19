@@ -12,7 +12,7 @@ assert.match(signup,/function tamaoAccountProfileReady\(/);
 assert.match(read('js/customer-registration-deferred.js'),/signInWithOtp\(\{/);
 assert.match(read('js/customer-registration-deferred.js'),/returnToCheckout\?'pedido':'clube'/);
 assert.match(read('js/bootstrap.js'),/pedido:'order'/);
-assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone\}\)/);
+assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone,returnToCheckout:checkoutEntry\}\)/);
 assert.match(signup,/function tamaoAccountGateMarkup\(/);
 assert.match(signup,/route\(\)==='order'&&typeof render==='function'\)render\(\)/);
 assert.match(read('js/customer-registration-deferred.js'),/tamaoRegisterIdentifiedAccount/);
