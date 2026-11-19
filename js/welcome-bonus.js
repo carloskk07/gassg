@@ -175,7 +175,10 @@ function tamaoWelcomeRegister(event){
   const form=event.currentTarget;
   if(!form||form.dataset.tamaoAuthLoading==='1')return false;
   form.dataset.tamaoAuthLoading='1';
-  tamaoLoadCustomerRegistration().then(()=>globalThis.tamaoRegisterForm(event))
+  // Native Event.currentTarget is cleared when dispatch returns. Preserve
+  // the form and submitter before lazy-loading the registration script.
+  const submitted={currentTarget:form,submitter:event.submitter,preventDefault:()=>{}};
+  tamaoLoadCustomerRegistration().then(()=>globalThis.tamaoRegisterForm(submitted))
     .catch(()=>{
       const status=form.querySelector('[data-welcome-signup-status]');
       if(status)status.textContent='Não foi possível carregar o cadastro. Tente novamente.';
