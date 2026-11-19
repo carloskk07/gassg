@@ -197,22 +197,26 @@ async function tamaoNativePageSave(kind,subjectId,published){
  const headline=container.querySelector('[name="headline"]')?.value||'';
  const tagline=container.querySelector('[name="tagline"]')?.value||'';
  const previous=cache.page?.published===true;
+ const startedUser=tamaoNativePageSessionId(kind);
  cache.draft={theme,layout,showAbout,showGallery,showCatalog,showDiscover,headline,tagline};
  cache.busy=true;cache.error='';cache.savedMessage='';render();
  try{
-  const startedUser=tamaoNativePageSessionId(kind);
   const result=await tamaoNativePageApi(kind,{action:'save',kind,subjectId,published,theme,layout,
    showAbout,showGallery,showCatalog,showDiscover,headline,tagline});
   if(tamaoNativePageSessionId(kind)!==startedUser)return;
   const updated=tamaoNativePagesCache.get(key);
-  if(updated){
+  if(updated&&updated.userId===startedUser){
    updated.page=result.page;updated.draft=null;updated.identityName=result.identityName||updated.identityName||'';
    updated.savedMessage=published?'Sua página está publicada e pronta para compartilhar.':'Sua página não está mais visível publicamente.';
    updated.busy=false;updated.error='';
   }
  }catch(e){
+  if(tamaoNativePageSessionId(kind)!==startedUser)return;
   const updated=tamaoNativePagesCache.get(key);
-  if(updated){updated.busy=false;updated.savedMessage=String(e?.message||e);updated.page=cache.page||{published:previous};}
+  if(updated&&updated.userId===startedUser){
+   updated.busy=false;updated.savedMessage=String(e?.message||e);
+   updated.page=cache.page||{published:previous};
+  }
  }finally{render();}
 }
 async function tamaoNativePageShare(kind,subjectId){
