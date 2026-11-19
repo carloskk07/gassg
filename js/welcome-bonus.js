@@ -1,3 +1,23 @@
+let tamaoRegistrationLoader=null;
+async function tamaoLoadCustomerRegistration(){
+  if(!tamaoRegistrationLoader){
+    tamaoRegistrationLoader=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      const source=document.querySelector('script[src*="welcome-bonus.js"]')?.src||location.href;
+      const v=new URL(source).searchParams.get('v')||'';
+      script.src='./js/customer-registration-deferred.js'+(v?'?v='+encodeURIComponent(v):'');
+      script.async=true;
+      script.onload=()=>typeof globalThis.tamaoRegisterIdentifiedAccount==='function'
+        ?resolve(true):reject(Error('Cadastro não inicializou.'));
+      script.onerror=()=>reject(Error('Cadastro indisponível. Tente novamente.'));
+      document.head.appendChild(script);
+    }).catch(error=>{tamaoRegistrationLoader=null;throw error;});
+  }
+  await tamaoRegistrationLoader;
+  return true;
+}
+
+globalThis.tamaoLoadCustomerRegistration=tamaoLoadCustomerRegistration;
 /* Welcome bonus #815: server is sole authority for the promotion and wallet.
    Absence of an authoritative response is not an available promotion. */
 const tamaoWelcomeBonus={status:null,lastUser:null,lastClaimTryAt:0,inflight:false};

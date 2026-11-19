@@ -444,11 +444,6 @@ async function backendInit(){
     }
     liveRuntime.session=session;
     liveRuntime.status='ready';
-    const savedAccountPhone=String(session.user?.user_metadata?.phone||'').replace(/\D/g,'');
-    if(!state.checkout.customerPhoneDigits&&/^[0-9]{10,11}$/.test(savedAccountPhone)){
-      state.checkout.customerPhoneDigits=savedAccountPhone;
-      save();
-    }
     client.auth.onAuthStateChange((_event,next)=>{
       if(liveRuntime.status==='ready'&&liveRuntime.session?.user?.id&&
          liveRuntime.session.user.id!==next?.user?.id)liveForgetAccount();
@@ -1217,26 +1212,10 @@ function tamaoAccountProfileReady(){
     Boolean(user.email_confirmed_at)&&name.length>=5&&name.length<=100&&
     name.split(' ').length>=2&&/^[0-9]{10,11}$/.test(phone);
 }
-let tamaoRegistrationLoader=null;
-async function tamaoLoadCustomerRegistration(){
-  if(!tamaoRegistrationLoader){
-    tamaoRegistrationLoader=new Promise((resolve,reject)=>{
-      const script=document.createElement('script');
-      const source=document.querySelector('script[src*="welcome-bonus.js"]')?.src||location.href;
-      const v=new URL(source).searchParams.get('v')||'';
-      script.src='./js/customer-registration-deferred.js'+(v?'?v='+encodeURIComponent(v):'');
-      script.async=true;
-      script.onload=()=>typeof globalThis.tamaoRegisterIdentifiedAccount==='function'
-        ?resolve(true):reject(Error('Cadastro não inicializou.'));
-      script.onerror=()=>reject(Error('Cadastro indisponível. Tente novamente.'));
-      document.head.appendChild(script);
-    }).catch(error=>{tamaoRegistrationLoader=null;throw error;});
-  }
-  await tamaoRegistrationLoader;
-  return true;
-}
 async function liveUpgradeAccount(email,profile={}){
-  await tamaoLoadCustomerRegistration();
+  if(typeof globalThis.tamaoLoadCustomerRegistration!=='function')
+    throw Error('Cadastro ainda não está disponível. Atualize a página.');
+  await globalThis.tamaoLoadCustomerRegistration();
   return globalThis.tamaoRegisterIdentifiedAccount(email,profile);
 }
 
