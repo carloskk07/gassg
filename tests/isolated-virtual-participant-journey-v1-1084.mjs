@@ -269,7 +269,9 @@ try{
  // The entire local database is discarded by CI. Also remove the fixture here
  // to catch accidental persistence within this disposable job.
  if(agendaPage&&UUID.test(agendaPage)){
-  sql('delete from public.agenda_appointments where page_id='+quote(agendaPage)+'::uuid;'+
+  sql('delete from public.agenda_booking_events where appointment_id in ('+
+   'select id from public.agenda_appointments where page_id='+quote(agendaPage)+'::uuid);'+
+   'delete from public.agenda_appointments where page_id='+quote(agendaPage)+'::uuid;'+
    'delete from public.participant_pages_v1_1072 where subject_id='+quote(agendaPage)+'::uuid;'+
    'delete from public.agenda_pages where id='+quote(agendaPage)+'::uuid;');
  }
