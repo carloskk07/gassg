@@ -180,13 +180,13 @@ async function refFor(kind:string,subjectId:string,ownerId:string){
 }
 function safeAdvertiserURL(raw:unknown){
  const value=String(raw||"").trim();
- if(value.length<15||value.length>300||/[<>\\s@\\\\]/.test(value))return "";
+ if(value.length<15||value.length>300||/[<>\s@\\]/.test(value))return "";
  try{
   const u=new URL(value),host=u.hostname.toLowerCase();
   return u.protocol==="https:"&&!u.username&&!u.password&&(!u.port||u.port==="443")
    &&host.includes(".")&&!host.endsWith(".local")&&!host.endsWith(".internal")
    &&!host.endsWith(".localhost")&&host!=="localhost"
-   &&!/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(host)&&!host.startsWith("[")
+   &&!/^\d+\.\d+\.\d+\.\d+$/.test(host)&&!host.startsWith("[")
    &&u.href.length<=300?u.href:"";
  }catch{return ""}
 }
