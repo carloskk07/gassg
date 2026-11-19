@@ -19,7 +19,7 @@ assert.doesNotMatch(sql,/CREATE POLICY [^\n]+ ON public\.orders/);
 assert.doesNotMatch(sql,/CREATE POLICY [^\n]+ ON public\.profiles/);
 for(const name of ['agenda_page_design','discovery_listings','discovery_professional_details','discovery_ride_details','discovery_stay_details'])
  assert.ok(!sql.includes('ON public.'+name+' AS RESTRICTIVE FOR ALL'),'Public read must remain open for '+name);
-assert.match(proof,/ANONYMOUS_JWT_READS_PRIVATE_AGENDA/);
+assert.match(proof,/ANONYMOUS_JWT_READS_OWN_PRIVATE_PAGE/);
 assert.match(proof,/ANONYMOUS_DB_USER_SPOOFED_JWT_CLAIM/);
 assert.match(proof,/PUBLIC_AGENDA_BROKEN/);
 assert.match(proof,/ROLLBACK;/);

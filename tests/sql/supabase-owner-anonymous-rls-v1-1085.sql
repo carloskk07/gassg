@@ -7,10 +7,15 @@ INSERT INTO auth.users(id,instance_id,aud,role,email,email_confirmed_at,is_anony
 VALUES
  (:'p_id'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','verified-ci-1085@example.org',now(),false,now(),now()),
  (:'a_id'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',null,null,true,now(),now());
+-- The official Agenda forbids unverified owners even to privileged writes.
 INSERT INTO public.agenda_pages(owner_id,slug,title,city,published)
+VALUES (:'p_id'::uuid,'seguro-profissional-ci-1085','Barbearia CI verificada','São Gabriel',true);
+-- Legacy/private page data can exist for an anonymous Auth identity. Verify
+-- its own JWT cannot read that row even though both IDs match.
+INSERT INTO public.participant_pages_v1_1072(owner_id,kind,subject_id,slug,published)
 VALUES
- (:'p_id'::uuid,'seguro-profissional-ci-1085','Barbearia CI verificada','São Gabriel',true),
- (:'a_id'::uuid,'seguro-anonimo-ci-1085','Ficticio anonimo CI','São Gabriel',true);
+ (:'p_id'::uuid,'customer',:'p_id'::uuid,'seguro-verificado-ci-1085',false),
+ (:'a_id'::uuid,'customer',:'a_id'::uuid,'seguro-anonimo-ci-1085',false);
 
 -- Real permanent user, actual owner — must still access their configuration.
 SET LOCAL ROLE authenticated;
@@ -21,7 +26,9 @@ DO $test$
 BEGIN
  IF (SELECT count(*) FROM public.agenda_pages WHERE slug='seguro-profissional-ci-1085')<>1
  THEN RAISE EXCEPTION 'PERMANENT_OWNER_RLS_REGRESSION';END IF;
- IF (SELECT count(*) FROM public.agenda_pages WHERE slug='seguro-anonimo-ci-1085')<>0
+ IF (SELECT count(*) FROM public.participant_pages_v1_1072 WHERE slug='seguro-verificado-ci-1085')<>1
+ THEN RAISE EXCEPTION 'VERIFIED_PAGE_OWNER_BROKEN';END IF;
+ IF (SELECT count(*) FROM public.participant_pages_v1_1072 WHERE slug='seguro-anonimo-ci-1085')<>0
  THEN RAISE EXCEPTION 'FOREIGN_OWNER_RLS_BROKEN';END IF;
 END $test$;
 
@@ -31,8 +38,8 @@ SELECT set_config('request.jwt.claims',
  jsonb_build_object('sub',:'a_id','role','authenticated','is_anonymous',true)::text,true);
 DO $test$
 BEGIN
- IF (SELECT count(*) FROM public.agenda_pages WHERE slug='seguro-anonimo-ci-1085')<>0
- THEN RAISE EXCEPTION 'ANONYMOUS_JWT_READS_PRIVATE_AGENDA';END IF;
+ IF (SELECT count(*) FROM public.participant_pages_v1_1072 WHERE slug='seguro-anonimo-ci-1085')<>0
+ THEN RAISE EXCEPTION 'ANONYMOUS_JWT_READS_OWN_PRIVATE_PAGE';END IF;
  IF (SELECT count(*) FROM public.agenda_pages WHERE slug='seguro-profissional-ci-1085')<>0
  THEN RAISE EXCEPTION 'ANONYMOUS_JWT_READS_FOREIGN_AGENDA';END IF;
 END $test$;
@@ -43,7 +50,7 @@ SELECT set_config('request.jwt.claims',
  jsonb_build_object('sub',:'a_id','role','authenticated','is_anonymous',false)::text,true);
 DO $test$
 BEGIN
- IF (SELECT count(*) FROM public.agenda_pages WHERE slug='seguro-anonimo-ci-1085')<>0
+ IF (SELECT count(*) FROM public.participant_pages_v1_1072 WHERE slug='seguro-anonimo-ci-1085')<>0
  THEN RAISE EXCEPTION 'ANONYMOUS_DB_USER_SPOOFED_JWT_CLAIM';END IF;
 END $test$;
 
@@ -55,6 +62,8 @@ DO $test$
 BEGIN
  IF (SELECT count(*) FROM public.agenda_pages WHERE slug='seguro-profissional-ci-1085')<>1
  THEN RAISE EXCEPTION 'VERIFIED_OWNER_NO_JWT_CLAIM_REGRESSION';END IF;
+ IF (SELECT count(*) FROM public.participant_pages_v1_1072 WHERE slug='seguro-verificado-ci-1085')<>1
+ THEN RAISE EXCEPTION 'VERIFIED_NATIVE_PAGE_NO_JWT_CLAIM_REGRESSION';END IF;
 END $test$;
 
 -- A public Agenda must remain readable using the genuinely anonymous 'anon'
