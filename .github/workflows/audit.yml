@@ -35,6 +35,10 @@ jobs:
         run: node tests/participant-native-pages-v1-1072.mjs
       - name: Native driver and independent advertiser page guard V1.1080
         run: node tests/participant-native-driver-ads-v1-1080.mjs
+      - name: V1.1081 premium page design, safe sections and live owner preview
+        run: node tests/participant-native-premium-design-v1-1081.mjs
+      - name: V1.1081 premium owner editor live behavior and session-race regression
+        run: node tests/participant-native-premium-owner-runtime-v1-1081.mjs
       - name: V1.1075 premium product photos and approved professional cover
         run: node tests/participant-native-premium-media-v1-1075.mjs
       - name: V1.1073 Cloudflare native participant deep links and asset safety
