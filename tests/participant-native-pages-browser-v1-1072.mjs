@@ -41,7 +41,7 @@ try{
   "String(url).includes('/functions/v1/participant-pages')"+
   "?Promise.resolve(new Response(JSON.stringify("+JSON.stringify(fixture)+"),"+
   "{status:200,headers:{'Content-Type':'application/json'}})):orig(url,opts);})();";
- await send('Page.addScriptToEvaluateOnNewDocument',{source:injected});
+ const firstScript=await send('Page.addScriptToEvaluateOnNewDocument',{source:injected});
  for(const width of [320,360,390,760,1280]){
   await send('Emulation.setDeviceMetricsOverride',{width,height:900,screenWidth:width,screenHeight:900,deviceScaleFactor:1,mobile:width<760});
   await send('Page.navigate',{url:base+'/p/index.html'});
@@ -50,7 +50,7 @@ try{
    if(ready)break;await wait(140);
   }
   assert.equal(ready,true,'Real participant page must render at '+width);
-  const data=await evaluate("(()=>{const c=document.querySelector('#main-action'),r=c.getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth,title:document.querySelector('#page-title').textContent,theme:document.body.className,href:c.href,ctaVisible:r.width>0&&r.height>45,ctaFits:r.left>=-1&&r.right<=innerWidth+1,items:[...document.querySelectorAll('#items a')].map(x=>x.href),hidden:document.querySelector('#missing').hidden}})()");
+  const data=await evaluate("(()=>{const c=document.querySelector('#main-action'),r=c.getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth,title:document.querySelector('#page-title').textContent,theme:document.body.className,href:c.href,ctaVisible:r.width>0&&r.height>45,ctaFits:r.left>=-1&&r.right<=innerWidth+1,items:[...document.querySelectorAll('#items a')].map(x=>x.href),photos:[...document.querySelectorAll('#items .product-visual')].map(e=>({cls:e.className,background:getComputedStyle(e).backgroundImage})),coverCount:document.querySelectorAll('#cover-products .product-visual').length,coverHidden:document.querySelector('#cover-products').hidden,hidden:document.querySelector('#missing').hidden}})()");
   assert.equal(data.title,fixture.headline);assert.equal(data.theme,'theme-gold');
   assert.equal(data.hidden,true);
   assert.ok(data.scroll<=width+2,'Horizontal overflow '+width+' '+data.scroll);
@@ -61,6 +61,12 @@ try{
   assert.equal(u.searchParams.get('seller'),shopId);
   assert.equal(u.hash,'#order');
   assert.equal(data.items.length,2);
+  assert.equal(data.photos.length,2,'Merchant catalog must show two real product images');
+  assert.ok(data.photos[0].cls.includes('product-visual-gas'));
+  assert.ok(data.photos[1].cls.includes('product-visual-water'));
+  for(const photo of data.photos)assert.match(photo.background,/tamao-products-sprite\.webp/);
+  assert.equal(data.coverCount,2,'Real products also illustrate the shop hero');
+  assert.equal(data.coverHidden,false);
   for(const link of data.items){
    const item=new URL(link);
    assert.equal(item.searchParams.get('seller'),shopId);
@@ -73,8 +79,39 @@ try{
    fs.writeFileSync(path.join(outDir,'participant-native-v1-1072-'+width+'.png'),Buffer.from(screenshot.data,'base64'));
   }
  }
+ // A real published professional photo must become the hero cover, not only
+ // remain buried below the text. All synthetic data stays in local Chrome.
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:firstScript.identifier});
+ const listingId='33333333-2222-4333-8444-555555555555';
+ const key='11111111-2222-4333-8444-555555555555/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.jpg';
+ const profile={...fixture,kind:'listing',slug:'profissional-de-teste-1075',
+  name:'Profissional Exemplo',headline:'Atendimento personalizado',
+  listingId,vertical:'professionals',merchantId:'',items:[],photos:[key],theme:'rose'};
+ const source="(()=>{history.replaceState(null,'','/p/"+profile.slug+"/');"+
+  "const orig=window.fetch.bind(window);window.fetch=(url,opts)=>"+
+  "String(url).includes('/functions/v1/participant-pages')"+
+  "?Promise.resolve(new Response(JSON.stringify("+JSON.stringify(profile)+"),"+
+  "{status:200,headers:{'Content-Type':'application/json'}})):orig(url,opts);})();";
+ await send('Page.addScriptToEvaluateOnNewDocument',{source});
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:900,screenWidth:390,screenHeight:900,deviceScaleFactor:1,mobile:true});
+ await send('Page.navigate',{url:base+'/p/index.html'});
+ let coverReady=false;
+ for(let i=0;i<55;i++){
+  coverReady=await evaluate("document.querySelector('#visual-card.over-photo')!==null&&document.querySelector('.visual-photo')!==null&&document.querySelector('#content')?.hidden===false");
+  if(coverReady)break;await wait(140);
+ }
+ assert.equal(coverReady,true,'Published professional cover photo must render');
+ const listingResult=await evaluate("(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,hero:document.querySelector('.visual-photo')?.src,images:document.querySelectorAll('#photos img').length,headline:document.querySelector('#page-title').textContent,destination:document.querySelector('#main-action')?.href}))()");
+ assert.equal(listingResult.headline,'Atendimento personalizado');
+ assert.ok(listingResult.hero?.endsWith(key),'Use only approved media belonging to the published listing');
+ assert.equal(listingResult.images,1,'Photo remains available in portfolio');
+ assert.ok(listingResult.scroll<=392,'Professional hero must not cause mobile overflow');
+ const destination=new URL(listingResult.destination);
+ assert.equal(destination.searchParams.get('listing'),listingId);
+ assert.equal(destination.searchParams.get('ref'),ref);
+ assert.equal(destination.hash,'#professionals');
 }finally{
  fs.writeFileSync(path.join(outDir,'participant-native-browser-v1-1072.json'),JSON.stringify(rows,null,2)+'\n');
  ws.close();await fetch(cdp+'/json/close/'+tab.id).catch(()=>{});
 }
-console.log('V1.1072 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
+console.log('V1.1075 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
