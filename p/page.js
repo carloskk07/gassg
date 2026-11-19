@@ -42,6 +42,20 @@
  function offerURL(ref,seller,item=""){
   return official(ref,{seller,item}, "order");
  }
+ // An advertiser's approved HTTPS destination is NOT a TAMÃO checkout.
+ // Do not append participant tokens to third-party sites.
+ function externalAdvertiserURL(raw){
+  const value=String(raw||"").trim();
+  if(value.length<15||value.length>300||/[<>\s@\\]/.test(value))return "";
+  try{
+   const u=new URL(value),host=u.hostname.toLowerCase();
+   return u.protocol==="https:"&&!u.username&&!u.password&&(!u.port||u.port==="443")
+    &&host.includes(".")&&!host.endsWith(".local")&&!host.endsWith(".internal")
+    &&!host.endsWith(".localhost")&&host!=="localhost"
+    &&!/^\d+\.\d+\.\d+\.\d+$/.test(host)&&!host.startsWith("[")
+    &&u.href.length<=300?u.href:"";
+  }catch{return ""}
+ }
  // The same five *real* product photos used in the TAMÃO storefront sprite.
  // Unknown product types keep a neutral catalog illustration, never a fake
  // photo of a product that the merchant does not actually sell.
@@ -95,7 +109,7 @@
    data=await res.json();
   }catch{showMissing();return}finally{clearTimeout(timeout)}
   if(data?.source!=="participant_native_page_v1_1072"||
-    data?.slug!==slug||!["merchant","customer","listing","agenda"].includes(data.kind))return showMissing();
+    data?.slug!==slug||!["merchant","customer","listing","agenda","driver","advertiser"].includes(data.kind))return showMissing();
   const theme=["clean","gold","rose"].includes(data.theme)?data.theme:"clean";
   document.body.className="theme-"+theme;
   const ref=codePattern.test(String(data.referralCode||""))?data.referralCode:"";
@@ -106,6 +120,8 @@
   text("tagline",String(data.tagline||(
    data.kind==="merchant"?"Conheça esta revenda e consulte produtos disponíveis para sua região.":
    data.kind==="listing"?"Conheça os serviços e as condições do anunciante.":
+   data.kind==="driver"?"Conheça o motorista e solicite atendimento pela plataforma.":
+   data.kind==="advertiser"?"Conheça esta empresa e sua campanha na região.":
    data.kind==="agenda"?"Veja os serviços e agende diretamente com este profissional.":
    "Conheça o TAMÃO e as oportunidades da Rede."
   )).slice(0,320));
@@ -113,7 +129,8 @@
   text("place",place);$("place").hidden=!place;
   text("kind",({merchant:"REVENDA NO TAMÃO",customer:"MINHA REDE TAMÃO",
    listing:data.vertical==="rides"?"CARONAS":"PROFISSIONAL NO TAMÃO",
-   agenda:"AGENDA PROFISSIONAL"})[data.kind]);
+   agenda:"AGENDA PROFISSIONAL",driver:"MOTORISTA NO TAMÃO",
+   advertiser:"PUBLICIDADE • ANUNCIANTE INDEPENDENTE"})[data.kind]);
   const main=$("main-action");let action="",description="";
   if(data.kind==="merchant"&&uuid.test(String(data.merchantId||""))){
    action=offerURL(ref,data.merchantId);
@@ -146,6 +163,20 @@
    main.textContent=data.vertical==="rides"?"Consultar esta carona →":"Solicitar este serviço →";
    description="O anúncio é consultado novamente no TAMÃO. Contato, disponibilidade e condições dependem da informação atual do anunciante.";
    showParticipantPhotos(data.photos);
+  }else if(data.kind==="driver"&&uuid.test(String(data.listingId||""))&&
+   data.vertical==="professionals"&&["moto","carro"].includes(data.driverMode)){
+   action=official(ref,{corrida:data.listingId,modalidade:data.driverMode},"mobility");
+   main.textContent=data.driverMode==="moto"?"Solicitar uma moto →":"Solicitar um carro →";
+   description="O TAMÃO confere novamente o anúncio e a categoria do veículo antes de enviar qualquer solicitação. Disponibilidade, valor e atendimento dependem de confirmação do motorista.";
+   showParticipantPhotos(data.photos);
+  }else if(data.kind==="advertiser"&&uuid.test(String(data.campaignId||""))&&
+   externalAdvertiserURL(data.destinationUrl)){
+   action=externalAdvertiserURL(data.destinationUrl);
+   main.textContent="Conhecer a empresa →";
+   main.target="_blank";
+   main.rel="noopener noreferrer nofollow sponsored";
+   main.referrerPolicy="no-referrer";
+   description="Publicidade identificada. Este link leva ao site informado pelo anunciante. Não constitui oferta de venda, pagamento ou garantia de atendimento pelo TAMÃO.";
   }else if(data.kind==="agenda"&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.agendaSlug||"")){
    const u=new URL("https://tamao.com.br/agenda/"+encodeURIComponent(data.agendaSlug)+"/");
    if(ref)u.searchParams.set("ref",ref);
