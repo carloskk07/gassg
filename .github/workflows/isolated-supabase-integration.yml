@@ -241,6 +241,8 @@ jobs:
         run: node tests/isolated-launch-security-fingerprint.mjs
       - name: Verify local Auth and actual Edge HTTP authentication guards
         run: node tests/isolated-supabase-http-smoke.mjs
+      - name: V1.1084 virtual barbershop full owner to published page to booking, rollback
+        run: node tests/isolated-virtual-participant-journey-v1-1084.mjs
       - name: Verify real quote to create-order to get-order against disposable database
         run: node tests/isolated-supabase-positive-checkout.mjs
       - name: V1.843 REAL partner-funded product welcome complete checkout, refund and fee settlement
