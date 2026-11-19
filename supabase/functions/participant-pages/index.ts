@@ -145,6 +145,9 @@ async function view(slug:string){
  const source=await sourceFor(page.kind,page.subject_id,null,true);
  if(!source.canPublish)throw new PageError("NOT_FOUND",404);
  const code=await refFor(page.kind,page.subject_id,page.owner_id);
+ // A published link must never silently lose its verified first-touch identity
+ // when the original manager's privileges or referral eligibility changes.
+ if(!code)throw new PageError('NOT_FOUND',404);
  const base={
   source:"participant_native_page_v1_1072",
   kind:page.kind,slug:page.slug,url:publicURL(page.slug),
@@ -163,6 +166,11 @@ async function view(slug:string){
   if(infoError)throw infoError;
   // Public merchant identity is the approved merchant name; never legal name,
   // owner, CNPJ, delivery address, personal phone or financial state.
+  const tradeName=clean(info?.trade_name,120);
+  if(tradeName){
+   base.name=tradeName;
+   if(!clean(page.headline,110))base.headline=tradeName;
+  }
   base.city=clean(info?.city,100);base.state=clean(info?.state,2);
   const {data:catalog,error:catalogError}=await admin.from("catalog_items")
     .select("product_code,product_name").eq("merchant_id",page.subject_id)
@@ -193,7 +201,9 @@ async function view(slug:string){
   if(!a)throw new PageError("NOT_FOUND",404);
   base.agendaSlug=String(a.slug||"");base.city=clean(a.city,100);
   base.details=clean(a.about,1000);
-  // The Agenda owns its image presentation; avoid assuming storage ACL here.
+  // Agenda already publishes these owner-uploaded photos in the same public
+  // approved photo bucket; reuse only strict storage keys, never signed URLs.
+  base.photos=imageKeys(a.photo_paths);
  }
  return base;
 }
@@ -216,7 +226,9 @@ async function save(body:Record<string,unknown>,actor:string){
  const slug=existing?.slug||normalizeSlug(source.title)+"-"+subject.replace(/-/g,"").slice(0,12);
  if(!SLUG.test(slug)||slug.length>80)throw new PageError("INVALID_SLUG");
  const input={
-  kind,subject_id:subject,owner_id:existing?.owner_id||actor,slug,template,
+  // An authorized new manager can take over a store page after a prior
+  // manager leaves; keep the permanent slug but refresh its referral owner.
+  kind,subject_id:subject,owner_id:actor,slug,template,
   headline,tagline,published,updated_at:new Date().toISOString()
  };
  const {data,error}=await admin.from(TABLE).upsert(input,{onConflict:"kind,subject_id"})
