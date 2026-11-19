@@ -333,12 +333,15 @@ async function save(body:Record<string,unknown>,actor:string){
  if(!LAYOUTS.has(layout))throw new PageError("INVALID_LAYOUT");
  const showAbout=body.showAbout!==false,showGallery=body.showGallery!==false;
  const showCatalog=body.showCatalog!==false,showDiscover=body.showDiscover!==false;
- const heroPhotoKey=clean(body.heroPhotoKey,100);
+ let heroPhotoKey=clean(body.heroPhotoKey,100);
  if(heroPhotoKey){
-  if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(heroPhotoKey))
-   throw new PageError("INVALID_COVER");
-  const permitted=await approvedPagePhotos(kind,subject,source);
-  if(!permitted.includes(heroPhotoKey))throw new PageError("INVALID_COVER",403);
+  const valid=/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp)$/.test(heroPhotoKey);
+  const permitted=valid?await approvedPagePhotos(kind,subject,source):[];
+  if(!valid||!permitted.includes(heroPhotoKey)){
+   // An expired/removed photo must never prevent its owner from unpublishing.
+   if(published)throw new PageError("INVALID_COVER",403);
+   heroPhotoKey="";
+  }
  }
  const headline=safeText(body.headline,110),tagline=safeText(body.tagline,320);
  const {data:existing,error:readError}=await admin.from(TABLE)

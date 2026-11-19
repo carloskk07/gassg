@@ -14,7 +14,9 @@ assert.doesNotMatch(migration,/GRANT|ALTER POLICY|DISABLE ROW LEVEL SECURITY|TRU
 assert.match(edge,/async function approvedPagePhotos\(kind:string,subject:string,source:any\)/);
 assert.match(edge,/\.rpc\("discovery_public_search"/);
 assert.match(edge,/\.eq\("published",true\)\.maybeSingle\(\)/);
-assert.match(edge,/if\(!permitted\.includes\(heroPhotoKey\)\)throw new PageError\("INVALID_COVER",403\)/);
+assert.match(edge,/if\(published\)throw new PageError\("INVALID_COVER",403\)/);
+assert.match(edge,/if\(!valid\|\|!permitted\.includes\(heroPhotoKey\)\)/);
+assert.match(edge,/heroPhotoKey="";/);
 assert.match(edge,/hero_photo_key:heroPhotoKey/);
 assert.match(edge,/photoChoices,page:data\?/);
 assert.match(edge,/base\.photos=preferredPublicPhoto\(base\.photos,clean\(page\.hero_photo_key,100\)\)/);
