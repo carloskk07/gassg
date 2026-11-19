@@ -63,6 +63,27 @@
   if(!kind)visual.textContent="✦";
   return visual;
  }
+ // Reuse only the professional's already approved listing or Agenda photos.
+ // No new uploads, public personal data, or external image-service accounts.
+ function showParticipantPhotos(keys){
+  const out=$("photos");out.replaceChildren();
+  for(const key of (Array.isArray(keys)?keys:[]).slice(0,6)){
+   const url=photo(key);if(!url)continue;
+   const img=document.createElement("img");
+   img.src=url;img.alt="Foto publicada pelo participante";
+   img.loading="lazy";img.decoding="async";out.appendChild(img);
+  }
+  out.hidden=out.children.length===0;
+  const first=out.querySelector("img");
+  if(first){
+   const heroPhoto=document.createElement("img");
+   heroPhoto.src=first.src;heroPhoto.className="visual-photo";heroPhoto.alt="";
+   heroPhoto.decoding="async";heroPhoto.fetchPriority="high";
+   $("visual-card").parentElement.prepend(heroPhoto);
+   $("visual-card").classList.add("over-photo");
+  }
+ }
+
  async function load(){
   if(slug.length<4||slug.length>80||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return showMissing();
   const ctl=new AbortController(),timeout=setTimeout(()=>ctl.abort(),12000);
@@ -124,29 +145,13 @@
    action=official(ref,{listing:data.listingId},data.vertical);
    main.textContent=data.vertical==="rides"?"Consultar esta carona →":"Solicitar este serviço →";
    description="O anúncio é consultado novamente no TAMÃO. Contato, disponibilidade e condições dependem da informação atual do anunciante.";
-   const images=Array.isArray(data.photos)?data.photos:[],out=$("photos");out.replaceChildren();
-   for(const key of images.slice(0,6)){
-    const url=photo(key);if(!url)continue;
-    const img=document.createElement("img");img.src=url;img.alt="Foto publicada pelo anunciante";img.loading="lazy";img.decoding="async";
-    out.appendChild(img);
-   }
-   out.hidden=out.children.length===0;
-   // Lead with the participant's own approved photo, without inventing a
-   // storefront/logo or loading an external, uncontrolled image provider.
-   const first=out.querySelector("img");
-   if(first){
-    const heroPhoto=document.createElement("img");
-    heroPhoto.src=first.src;
-    heroPhoto.className="visual-photo";heroPhoto.alt="";
-    heroPhoto.decoding="async";heroPhoto.fetchPriority="high";
-    $("visual-card").parentElement.prepend(heroPhoto);
-    $("visual-card").classList.add("over-photo");
-   }
+   showParticipantPhotos(data.photos);
   }else if(data.kind==="agenda"&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.agendaSlug||"")){
    const u=new URL("https://tamao.com.br/agenda/"+encodeURIComponent(data.agendaSlug)+"/");
    if(ref)u.searchParams.set("ref",ref);
    action=u.href;main.textContent="Agendar horário →";
    description="A disponibilidade e a confirmação são controladas pelo agendamento oficial do profissional.";
+   showParticipantPhotos(data.photos);
   }else if(data.kind==="customer"){
    action=official(ref,{},"home");main.textContent="Conhecer o TAMÃO →";
    description="Este é o espaço de divulgação de um participante. O convite não assegura ganhos nem vantagens por simples acesso.";
