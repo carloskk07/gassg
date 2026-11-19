@@ -48,3 +48,14 @@
 
 .tamao-native-page-actions .tamao-native-page-whatsapp{background:#ecfaf2;color:#125c39;border:1px solid #bbdfc8}
 .tamao-native-page-actions .tamao-native-page-whatsapp:hover{background:#daf2e6}
+
+/* V1.1083 — private owner selection from only the official public gallery. */
+.tamao-native-page-cover-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:9px;margin:0 14px 12px}
+.tamao-native-page-form .tamao-native-page-cover-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:9px 7px;margin:0;border:1px solid #d4e7d9;border-radius:12px;cursor:pointer;font-size:11px;font-weight:750;text-align:center;background:#fff;min-width:0}
+.tamao-native-page-cover-choice:has(input:checked){border:2px solid #176d4a;background:#ecf8ef}
+.tamao-native-page-form .tamao-native-page-cover-choice input{width:17px;height:17px;min-height:17px;margin:0;accent-color:#127448}
+.tamao-native-page-cover-choice img{width:100%;height:66px;object-fit:cover;border-radius:8px;background:#e9eee9}
+.tamao-native-page-mini-art{position:relative;isolation:isolate;overflow:hidden}
+.tamao-native-page-mini-art>.tamao-native-page-cover-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.62;z-index:-1}
+.tamao-native-page-mini-art>.tamao-native-page-cover-photo[hidden]{display:none!important}
+.tamao-native-page-mini-art:has(>.tamao-native-page-cover-photo:not([hidden]))>span,.tamao-native-page-mini-art:has(>.tamao-native-page-cover-photo:not([hidden]))>strong{text-shadow:0 1px 8px #000b}
