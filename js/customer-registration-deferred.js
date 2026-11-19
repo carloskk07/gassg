@@ -16,11 +16,18 @@ async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone=''}={}){
   if(session?.user){
     if(session.user.email_confirmed_at){
       if(session.user.email?.toLowerCase()!==value)throw Error('Entre na conta deste e-mail.');
-      const {error}=await liveRuntime.client.auth.updateUser({data:profile});
+      const {data,error}=await liveRuntime.client.auth.updateUser({data:profile});
       if(error)throw error;
+      // An existing verified customer who completes the missing contact
+      // fields must see the unlocked checkout immediately, without logging
+      // out or retaining an outdated in-memory account snapshot.
+      if(data?.user?.id===session.user.id){
+        liveRuntime.session={...session,user:data.user};
+      }
       state.user.cashEarningEligible=true;
       state.user.identityType='permanent';
       save();
+      if(typeof render==='function')render();
       return {alreadyPermanent:true,profileUpdated:true};
     }
     const {data,error}=await liveRuntime.client.auth.updateUser({email:value,data:profile});
@@ -47,6 +54,7 @@ async function tamaoRegisterForm(event){
   event.preventDefault();
   const form=event.currentTarget;
   const clubEntry=form?.dataset?.tamaoAccountContext==='club';
+  const checkoutEntry=Boolean(form?.closest?.('#tamao-checkout-identity'));
   const field=form?.querySelector('input[type=email]');
   const status=form?.querySelector('[data-welcome-signup-status]');
   const button=form?.querySelector('button[type=submit]');
@@ -77,6 +85,7 @@ async function tamaoRegisterForm(event){
       ?'Sua conta já está cadastrada. Consulte seu saldo e benefícios no Clube.'
       :result?.accessRequested?'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.':
        clubEntry?'Enviamos a confirmação para seu e-mail. Abra a mensagem para confirmar sua conta.':
+       checkoutEntry?'Enviamos a confirmação para seu e-mail. Confira sua caixa de entrada para finalizar o cadastro e voltar ao seu pedido.':
        'Enviamos a confirmação para seu e-mail. Conclua a confirmação para participar, sujeito às vagas e às regras da campanha.';
     if(field&&result?.alreadyPermanent!==true)field.value='';
   }catch{
