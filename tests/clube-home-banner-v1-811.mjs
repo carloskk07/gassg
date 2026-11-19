@@ -195,7 +195,9 @@ assert.match(markup,/data-coupon-minimum/);
 assert.match(markup,/class="tamao-coupon-banner-main" onclick="tamaoWelcomeShowSignup\(\)"/);
 assert.doesNotMatch(markup,/onclick="go\('club'\)">Quero participar/);
 assert.ok(bonus.includes("clube_coupon_home_prices_v1_820") && bonus.includes("all_products_3x5_sponsor"));
-assert.ok(bonus.includes("liveUpgradeAccount(email)"),'welcome signup must use real account confirmation');
+assert.ok(bonus.includes('tamaoLoadCustomerRegistration()'),'welcome signup must lazily load real account registration');
+assert.ok(get('js/customer-registration-deferred.js').includes('liveUpgradeAccount(email,{fullName,phone})'),
+  'registration must collect buyer name and phone before confirming email');
 assert.ok(css.includes('.tamao-coupon-banner-ticket')&&css.includes('@media(max-width:760px)'),'voucher must be responsive');
 assert.ok(start>html.indexOf('<div id="toast"'),'banner template must survive app route rendering');
 console.log('V1.811 PASS — truthful, responsive campaign banner as static HTML, two home routes and no merchant JS cost.');
