@@ -476,7 +476,9 @@ function discoveryOwnerPage(){
     const review=canEdit?'<button type="button" onclick="discoveryOwnerSubmit(\''+id+'\')"'+
       (needsCleanup?' disabled title="Conclua a limpeza dos comprovantes pendentes"':'')+
       '>Enviar para revisão</button>':'';
-    const native=typeof globalThis.tamaoNativePagePublicLink==='function'?tamaoNativePagePublicLink('listing',id):'';
+    // Reuse the existing published mobility listing; no second driver signup.
+    const pageKind=x.vertical==='professionals'&&['moto','carro'].includes(x.driverMode)?'driver':'listing';
+    const native=typeof globalThis.tamaoNativePagePublicLink==='function'?tamaoNativePagePublicLink(pageKind,id):'';
     const publicLink=native||discoveryOwnerPublishedLink(x);
     const share=publicLink?
       '<a class="secondary" href="'+esc(publicLink)+'" target="_blank" rel="noopener noreferrer">Ver anúncio</a>'+
@@ -502,7 +504,7 @@ function discoveryOwnerPage(){
       '<div class="discovery-owner-actions">'+edit+review+share+pause+'</div>'+seats+
       (x.status==='published'&&['professionals','rides'].includes(x.vertical)&&
         typeof tamaoParticipantNativePanel==='function'
-         ?tamaoParticipantNativePanel('listing',id):'')+'</article>';
+         ?tamaoParticipantNativePanel(pageKind,id):'')+'</article>';
   }).join('');
   const kind=s.editor?.vertical||s.kind;
   const d=s.editor||(kind==='professionals'&&preset?{occupation:preset.name}:{});
@@ -682,15 +684,33 @@ async function discoveryOwnerRefresh(){
   if(error)throw error;
   if(!Array.isArray(data))throw Error('Invalid owner listings response');
   const items=data.filter(x=>x&&/^[a-f0-9-]{36}$/.test(String(x.id||'')));
-  const rideIds=items.filter(x=>x.vertical==='rides'&&x.status==='published').map(x=>x.id);
-  if(!rideIds.length){s.items=items;return true;}
+  // A single owner-scoped read identifies actual approved transport profiles.
+  // The server independently checks the listing, occupation and city on publish.
+  const professionalIds=items.filter(x=>x.vertical==='professionals'&&x.status==='published')
+   .map(x=>x.id);
+  let driverDetails=[];
+  if(professionalIds.length){
+   const result=await s.client.from('discovery_professional_details')
+    .select('listing_id,occupation').in('listing_id',professionalIds);
+   if(!current())return false;
+   if(!result.error&&Array.isArray(result.data))driverDetails=result.data;
+  }
+  const modes=new Map(driverDetails.map(d=>{
+   const occupation=String(d.occupation||'');
+   const mode=/(motot[aá]xi|moto.?taxi)/i.test(occupation)?'moto':
+    /(motorista|t[aá]xi|taxista)/i.test(occupation)?'carro':'';
+   return [d.listing_id,mode];
+  }));
+  const withDriver=items.map(x=>({...x,driverMode:modes.get(x.id)||''}));
+  const rideIds=withDriver.filter(x=>x.vertical==='rides'&&x.status==='published').map(x=>x.id);
+  if(!rideIds.length){s.items=withDriver;return true;}
   // The owner's authenticated RLS view returns only these approved rides.
   const seats=await s.client.from('discovery_ride_details')
     .select('listing_id,seats_total,seats_available,departure_at').in('listing_id',rideIds);
   if(!current())return false;
   if(seats.error||!Array.isArray(seats.data))throw seats.error||Error('Invalid seats response');
   const byId=new Map(seats.data.filter(x=>rideIds.includes(x.listing_id)).map(x=>[x.listing_id,x]));
-  s.items=items.map(x=>byId.has(x.id)?{...x,liveSeats:byId.get(x.id)}:x);
+  s.items=withDriver.map(x=>byId.has(x.id)?{...x,liveSeats:byId.get(x.id)}:x);
   return true;
 }
 async function discoveryOwnerUpdateRideSeats(ev,id){
