@@ -18,7 +18,8 @@ const ORIGINS=new Set([
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const KINDS=new Set(["merchant","customer","listing","agenda","driver","advertiser"]);
-const THEMES=new Set(["clean","gold","rose"]);
+const THEMES=new Set(["clean","gold","rose","ocean","sunset","midnight"]);
+const LAYOUTS=new Set(["split","centered","editorial"]);
 const TABLE="participant_pages_v1_1072";
 
 class PageError extends Error {
@@ -194,7 +195,7 @@ function publicURL(slug:string){return "https://tamao.com.br/p/"+slug+"/";}
 async function view(slug:string){
  if(slug.length<4||slug.length>80||!SLUG.test(slug))throw new PageError("NOT_FOUND",404);
  const {data:page,error}=await admin.from(TABLE)
-  .select("kind,subject_id,owner_id,slug,template,headline,tagline,published")
+  .select("kind,subject_id,owner_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,headline,tagline,published")
   .eq("slug",slug).eq("published",true).maybeSingle();
  if(error)throw error;
  if(!page)throw new PageError("NOT_FOUND",404);
@@ -215,6 +216,9 @@ async function view(slug:string){
   headline:clean(page.headline,110)||source.title,
   tagline:clean(page.tagline,320),
   theme:THEMES.has(page.template)?page.template:"clean",
+  layout:LAYOUTS.has(page.layout)?page.layout:"split",
+  showAbout:page.show_about!==false,showGallery:page.show_gallery!==false,
+  showCatalog:page.show_catalog!==false,showDiscover:page.show_discover!==false,
   referralCode:code,
   items:[] as Array<{code:string,name:string}>,photos:[] as string[],
   city:"",state:"",details:"",agendaSlug:"",listingId:"",vertical:"",merchantId:"",
@@ -298,6 +302,10 @@ async function save(body:Record<string,unknown>,actor:string){
  }
  const template=clean(body.theme,25)||"clean";
  if(!THEMES.has(template))throw new PageError("INVALID_THEME");
+ const layout=clean(body.layout,20)||"split";
+ if(!LAYOUTS.has(layout))throw new PageError("INVALID_LAYOUT");
+ const showAbout=body.showAbout!==false,showGallery=body.showGallery!==false;
+ const showCatalog=body.showCatalog!==false,showDiscover=body.showDiscover!==false;
  const headline=safeText(body.headline,110),tagline=safeText(body.tagline,320);
  const {data:existing,error:readError}=await admin.from(TABLE)
   .select("id,slug,owner_id").eq("kind",kind).eq("subject_id",subject).maybeSingle();
@@ -307,28 +315,33 @@ async function save(body:Record<string,unknown>,actor:string){
  const input={
   // An authorized new manager can take over a store page after a prior
   // manager leaves; keep the permanent slug but refresh its referral owner.
-  kind,subject_id:subject,owner_id:actor,slug,template,
+  kind,subject_id:subject,owner_id:actor,slug,template,layout,
+  show_about:showAbout,show_gallery:showGallery,show_catalog:showCatalog,show_discover:showDiscover,
   headline,tagline,published,updated_at:new Date().toISOString()
  };
  const {data,error}=await admin.from(TABLE).upsert(input,{onConflict:"kind,subject_id"})
-  .select("kind,subject_id,slug,template,headline,tagline,published").single();
+  .select("kind,subject_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,headline,tagline,published").single();
  if(error)throw error;
- return {source:"participant_native_page_v1_1072",page:{
+ return {source:"participant_native_page_v1_1072",identityName:source.title,page:{
   kind:data.kind,subjectId:data.subject_id,slug:data.slug,url:publicURL(data.slug),
-  theme:data.template,headline:data.headline,tagline:data.tagline,published:data.published
+  theme:data.template,layout:data.layout,showAbout:data.show_about,
+  showGallery:data.show_gallery,showCatalog:data.show_catalog,showDiscover:data.show_discover,
+  headline:data.headline,tagline:data.tagline,published:data.published
  }};
 }
 async function mine(body:Record<string,unknown>,actor:string){
  const kind=clean(body.kind,25),subject=kind==="customer"?actor:cleanUUID(body.subjectId);
  if(!KINDS.has(kind))throw new PageError("INVALID_KIND");
- await sourceFor(kind,subject,actor,false);
+ const source=await sourceFor(kind,subject,actor,false);
  const {data,error}=await admin.from(TABLE)
-  .select("kind,subject_id,slug,template,headline,tagline,published")
+  .select("kind,subject_id,slug,template,layout,show_about,show_gallery,show_catalog,show_discover,headline,tagline,published")
   .eq("kind",kind).eq("subject_id",subject).maybeSingle();
  if(error)throw error;
- return {source:"participant_native_page_v1_1072",page:data?{
+ return {source:"participant_native_page_v1_1072",identityName:source.title,page:data?{
   kind:data.kind,subjectId:data.subject_id,slug:data.slug,url:publicURL(data.slug),
-  theme:data.template,headline:data.headline,tagline:data.tagline,published:data.published
+  theme:data.template,layout:data.layout,showAbout:data.show_about,
+  showGallery:data.show_gallery,showCatalog:data.show_catalog,showDiscover:data.show_discover,
+  headline:data.headline,tagline:data.tagline,published:data.published
  }:null};
 }
 

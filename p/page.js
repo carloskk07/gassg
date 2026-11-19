@@ -110,8 +110,10 @@
   }catch{showMissing();return}finally{clearTimeout(timeout)}
   if(data?.source!=="participant_native_page_v1_1072"||
     data?.slug!==slug||!["merchant","customer","listing","agenda","driver","advertiser"].includes(data.kind))return showMissing();
-  const theme=["clean","gold","rose"].includes(data.theme)?data.theme:"clean";
+  const theme=["clean","gold","rose","ocean","sunset","midnight"].includes(data.theme)?data.theme:"clean";
+  const layout=["split","centered","editorial"].includes(data.layout)?data.layout:"split";
   document.body.className="theme-"+theme;
+  document.body.dataset.layout=layout;
   const ref=codePattern.test(String(data.referralCode||""))?data.referralCode:"";
   leaveLinks(ref);
   const title=String(data.headline||data.name||"").slice(0,110);
@@ -188,8 +190,11 @@
    description="Este é o espaço de divulgação de um participante. O convite não assegura ganhos nem vantagens por simples acesso.";
   }else return showMissing();
   main.href=action;text("honesty",description);
+  if(data.showGallery===false)$("photos").hidden=true;
+  if(data.showCatalog===false)$("catalog").hidden=true;
+  $("next").hidden=data.showDiscover===false;
   const details=String(data.details||"").trim().slice(0,2000);
-  text("details",details);$("about").hidden=!details;
+  text("details",details);$("about").hidden=!details||data.showAbout===false;
   $("share").onclick=async()=>{
    const share={title:name+" • TAMÃO",text:"Conheça esta página no TAMÃO",url:location.href};
    try{

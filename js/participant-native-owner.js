@@ -50,7 +50,8 @@ async function tamaoNativePageApi(kind,payload){
    LOGIN_REQUIRED:'Entre novamente na sua conta para salvar a página.',
    UNAVAILABLE:'Não foi possível atualizar sua página. Tente novamente.',
    INVALID_TEXT:'Revise o nome ou a mensagem da página.',
-   INVALID_THEME:'Selecione um estilo válido.'
+   INVALID_THEME:'Selecione um estilo válido.',
+   INVALID_LAYOUT:'Selecione um formato de página válido.'
   };
   throw Error(messages[code]||'Não foi possível consultar esta página ('+code+').');
  }
@@ -65,7 +66,7 @@ async function tamaoNativePageMine(kind,subjectId){
   const session=await tamaoNativePageAuthenticated(kind);
   const res=await tamaoNativePageApi(kind,{action:'mine',kind,subjectId});
   if((await tamaoNativePageAuthenticated(kind)).user.id!==session.user.id)return;
-  tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,page:res.page||null,userId:session.user.id,error:''});
+  tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,page:res.page||null,identityName:res.identityName||'',userId:session.user.id,error:''});
  }catch(e){
   tamaoNativePagesCache.set(key,{...marker,loading:false,loaded:true,error:String(e?.message||e),page:null});
  }
@@ -86,46 +87,98 @@ function tamaoNativePagePanel(kind,subjectId=''){
   tamaoNativePageMine(kind,subjectId);
   return '<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2><p role="status">Preparando sua página com os dados do seu cadastro…</p></section>';
  }
+ const E=x=>esc(String(x??''));
  if(cache.loading)return '<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2><p role="status">Consultando a página…</p></section>';
- if(cache.error)return '<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2>'+
-  '<p class="muted">'+esc(cache.error)+'</p><button type="button" class="secondary" onclick="tamaoNativePageRetry(\''+kind+'\',\''+subjectId+'\')">Tentar novamente</button></section>';
- const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId),p={...(cache.page||{}),...(cache.draft||{})};
+ if(cache.error)return `<section class="card flat tamao-native-page-panel"><h2>Minha página TAMÃO</h2><p class="muted">${E(cache.error)}</p><button type="button" class="secondary" onclick="tamaoNativePageRetry('${kind}','${subjectId}')">Tentar novamente</button></section>`;
+ const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId);
+ const p={...(cache.page||{}),...(cache.draft||{})};
  const url=tamaoNativePagePublicLink(kind,subjectId);
  const nice={merchant:'Minha página da revenda',customer:'Minha página de indicações',
   listing:'Minha página de serviços',agenda:'Minha página profissional',
   driver:'Minha página de motorista',advertiser:'Minha página do anunciante'}[kind];
- const escape=x=>esc(String(x||''));
- return '<section class="card flat tamao-native-page-panel" id="'+id+'" aria-label="'+nice+'">'+
-  '<div class="tamao-native-page-heading"><span class="section-kicker">MINHA IDENTIDADE NO TAMÃO</span>'+
-  '<h2>'+nice+'</h2><p>Os dados reais do seu cadastro aparecem automaticamente. '+
-  (kind==='merchant'?'Clientes podem conhecer seus produtos e comprar diretamente da sua revenda, se houver atendimento habilitado.':
-   kind==='listing'?'Clientes podem conhecer o anúncio e entrar em contato pelo caminho oficial.':
-   kind==='agenda'?'Clientes podem conhecer você e agendar pela sua Agenda.':
-   kind==='driver'?'Divulgue seu serviço de moto ou carro e receba solicitações pela área oficial.':
-   kind==='advertiser'?'Apresente sua empresa e o endereço aprovado da campanha, sem cobrar nada por esta página.':
-   'Compartilhe seu espaço para apresentar o TAMÃO com seu código de indicação.')+
-  '</p></div>'+
-  '<div class="tamao-native-page-form">'+
-   '<label>Estilo da página<select class="input" name="theme">'+
-    [['clean','Clean'],['gold','Black Gold'],['rose','Elegance']].map(([val,label])=>
-      '<option value="'+val+'"'+((p.theme||'clean')===val?' selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
-   '<details><summary>Personalizar apresentação (opcional)</summary>'+
-    '<label>Frase de destaque<input class="input" name="headline" maxlength="110" value="'+escape(p.headline)+'" placeholder="O nome do cadastro já aparece automaticamente"></label>'+
-    '<label>Uma mensagem sobre você ou sua empresa<textarea class="input" name="tagline" maxlength="320" rows="3" placeholder="Diga em poucas palavras por que visitar sua página">'+escape(p.tagline)+'</textarea></label>'+
-   '</details>'+
-  '</div>'+
-  '<div class="tamao-native-page-actions">'+
-   '<button type="button" class="primary" onclick="tamaoNativePageSave(\''+kind+'\',\''+subjectId+'\',true)"'+(cache.busy?' disabled':'')+'>'+
-    (p.published?'Salvar e atualizar página':'Criar e publicar minha página')+'</button>'+
-   (p.published?'<button type="button" class="secondary" onclick="tamaoNativePageSave(\''+kind+'\',\''+subjectId+'\',false)"'+(cache.busy?' disabled':'')+'>Despublicar</button>':'')+
-   (url?'<a class="secondary" href="'+escape(url)+'" target="_blank" rel="noopener noreferrer">Ver página</a>':'')+
-   (url?'<button class="secondary" type="button" onclick="tamaoNativePageShare(\''+kind+'\',\''+subjectId+'\')">Compartilhar</button>':'')+
-  '</div>'+
-  (url?'<p class="tamao-native-page-url"><strong>Meu endereço:</strong> <a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer">'+escape(url)+'</a></p>':'')+
-  (cache.savedMessage?'<p role="status" class="tiny">'+escape(cache.savedMessage)+'</p>':'')+
-  '<p class="tiny muted">Sua página permanece com o mesmo endereço. As indicações seguem a elegibilidade da Rede; esta página não concede bônus por cliques nem altera taxas.</p>'+
- '</section>';
+ const copy={merchant:'Seus produtos e sua revenda, com pedido direcionado para você.',
+  listing:'Seu serviço e o caminho oficial para o cliente entrar em contato.',
+  agenda:'Seu perfil e o caminho direto para agendamentos.',
+  driver:'Sua atividade de moto ou carro e as solicitações oficiais.',
+  advertiser:'Sua empresa e o endereço aprovado da campanha.',
+  customer:'Seu convite personalizado para apresentar o TAMÃO.'}[kind];
+ const themes=[['clean','Natural'],['gold','Black Gold'],['rose','Elegance'],
+  ['ocean','Ocean'],['sunset','Terracota'],['midnight','Midnight']];
+ const layouts=[['split','Destaque dividido'],['centered','Capa em destaque'],['editorial','Editorial']];
+ const chosenTheme=themes.some(t=>t[0]===p.theme)?p.theme:'clean';
+ const chosenLayout=layouts.some(t=>t[0]===p.layout)?p.layout:'split';
+ const options=(values,current)=>values.map(([value,label])=>
+  `<option value="${value}"${value===current?' selected':''}>${label}</option>`).join('');
+ const check=(name,label,value)=>`<label class="tamao-native-page-check"><input type="checkbox" name="${name}"${value!==false?' checked':''}><span>${label}</span></label>`;
+ const labelName=E(cache.identityName||'Seu perfil TAMÃO');
+ const title=E(p.headline||cache.identityName||'Seu perfil TAMÃO');
+ const sub=E(p.tagline||copy);
+ const event=`tamaoNativePagePreview('${kind}','${subjectId}')`;
+ return `<section class="card flat tamao-native-page-panel" id="${id}" aria-label="${nice}">
+  <div class="tamao-native-page-heading"><span class="section-kicker">SUA PRESENÇA DIGITAL</span>
+   <h2>${nice}</h2><p>${copy} <strong>Escolha um visual, confira a prévia e publique.</strong> Seu cadastro oficial preenche o restante.</p>
+  </div>
+  <div class="tamao-native-page-workspace">
+   <div class="tamao-native-page-form" oninput="${event}" onchange="${event}">
+    <div class="tamao-native-page-design">
+     <label>Estilo visual<select class="input" name="theme">${options(themes,chosenTheme)}</select></label>
+     <label>Formato da página<select class="input" name="layout">${options(layouts,chosenLayout)}</select></label>
+    </div>
+    <details><summary>Ajustar textos (opcional)</summary>
+     <label>Frase principal<input class="input" name="headline" maxlength="110" value="${E(p.headline)}" placeholder="Usar o nome oficial automaticamente"></label>
+     <label>Mensagem de apresentação<textarea class="input" name="tagline" maxlength="320" rows="3" placeholder="Uma frase sobre seu atendimento">${E(p.tagline)}</textarea></label>
+    </details>
+    <details><summary>Escolher o que aparece (opcional)</summary>
+     ${check('showAbout','Sobre a atividade',p.showAbout)}
+     ${['listing','driver','agenda'].includes(kind)?check('showGallery','Galeria de fotos já publicadas',p.showGallery):''}
+     ${kind==='merchant'?check('showCatalog','Produtos da minha revenda',p.showCatalog):''}
+     ${check('showDiscover','Convite para conhecer outras áreas do TAMÃO',p.showDiscover)}
+     <p class="tiny muted">Imagens, serviços e produtos vêm do seu cadastro oficial. O botão principal mantém o destino correto e as regras da Rede.</p>
+    </details>
+   </div>
+   <aside class="tamao-native-page-preview" aria-label="Prévia visual da página">
+    <span class="tamao-native-page-preview-label">PRÉVIA IMEDIATA</span>
+    <div class="tamao-native-page-mini" data-theme="${chosenTheme}" data-layout="${chosenLayout}">
+     <div class="tamao-native-page-mini-art" aria-hidden="true"><span>✦</span><strong>${labelName}</strong></div>
+     <div class="tamao-native-page-mini-copy"><span>ESPAÇO OFICIAL TAMÃO</span>
+      <strong data-preview="headline">${title}</strong><p data-preview="tagline">${sub}</p><div class="tamao-native-page-mini-cta">Conhecer esta atividade →</div>
+     </div>
+    </div>
+    <p class="tiny muted">A página publicada exibirá apenas seus dados e imagens aprovados. A prévia não publica alterações.</p>
+   </aside>
+  </div>
+  <div class="tamao-native-page-actions">
+   <button type="button" class="primary" onclick="tamaoNativePageSave('${kind}','${subjectId}',true)"${cache.busy?' disabled':''}>${cache.busy?'Salvando…':p.published?'Salvar e atualizar página':'Criar e publicar minha página'}</button>
+   ${p.published?`<button type="button" class="secondary" onclick="tamaoNativePageSave('${kind}','${subjectId}',false)"${cache.busy?' disabled':''}>Despublicar</button>`:''}
+   ${url?`<a class="secondary" href="${E(url)}" target="_blank" rel="noopener noreferrer">Ver página</a>`:''}
+   ${url?`<button class="secondary" type="button" onclick="tamaoNativePageShare('${kind}','${subjectId}')">Compartilhar</button>`:''}
+  </div>
+  ${url?`<p class="tamao-native-page-url"><strong>Meu endereço:</strong> <a href="${E(url)}" target="_blank" rel="noopener noreferrer">${E(url)}</a></p>`:''}
+  ${cache.savedMessage?`<p role="status" class="tiny">${E(cache.savedMessage)}</p>`:''}
+  <p class="tiny muted">Seu link permanece o mesmo ao personalizar. Indicações dependem das regras de elegibilidade; visitas não geram recompensas por si só.</p>
+ </section>`;
 }
+
+function tamaoNativePagePreview(kind,subjectId){
+ const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId);
+ const container=document.getElementById(id);
+ if(!container)return;
+ const form=container.querySelector('.tamao-native-page-form');
+ const preview=container.querySelector('.tamao-native-page-mini');
+ if(!form||!preview)return;
+ const theme=form.querySelector('[name="theme"]')?.value||'clean';
+ const layout=form.querySelector('[name="layout"]')?.value||'split';
+ preview.dataset.theme=['clean','gold','rose','ocean','sunset','midnight'].includes(theme)?theme:'clean';
+ preview.dataset.layout=['split','centered','editorial'].includes(layout)?layout:'split';
+ const cache=tamaoNativePagesCache.get(tamaoNativePageKey(kind,subjectId));
+ const name=String(cache?.identityName||'Seu perfil TAMÃO');
+ const title=String(form.querySelector('[name="headline"]')?.value||'').trim()||name;
+ const tagline=String(form.querySelector('[name="tagline"]')?.value||'').trim()||
+  'Conheça esta atividade e as oportunidades no TAMÃO.';
+ preview.querySelector('[data-preview="headline"]').textContent=title;
+ preview.querySelector('[data-preview="tagline"]').textContent=tagline;
+}
+
 function tamaoNativePageRetry(kind,id){
  tamaoNativePagesCache.delete(tamaoNativePageKey(kind,id));
  tamaoNativePageMine(kind,id);
@@ -137,16 +190,23 @@ async function tamaoNativePageSave(kind,subjectId,published){
  const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId),container=document.getElementById(id);
  if(!container)return;
  const theme=container.querySelector('[name="theme"]')?.value||'clean';
+ const layout=container.querySelector('[name="layout"]')?.value||'split';
+ const value=name=>container.querySelector('[name="'+name+'"]')?.checked!==false;
+ const showAbout=value('showAbout'),showGallery=value('showGallery');
+ const showCatalog=value('showCatalog'),showDiscover=value('showDiscover');
  const headline=container.querySelector('[name="headline"]')?.value||'';
  const tagline=container.querySelector('[name="tagline"]')?.value||'';
  const previous=cache.page?.published===true;
- cache.draft={theme,headline,tagline};
+ cache.draft={theme,layout,showAbout,showGallery,showCatalog,showDiscover,headline,tagline};
  cache.busy=true;cache.error='';cache.savedMessage='';render();
  try{
-  const result=await tamaoNativePageApi(kind,{action:'save',kind,subjectId,published,theme,headline,tagline});
+  const startedUser=tamaoNativePageSessionId(kind);
+  const result=await tamaoNativePageApi(kind,{action:'save',kind,subjectId,published,theme,layout,
+   showAbout,showGallery,showCatalog,showDiscover,headline,tagline});
+  if(tamaoNativePageSessionId(kind)!==startedUser)return;
   const updated=tamaoNativePagesCache.get(key);
   if(updated){
-   updated.page=result.page;updated.draft=null;
+   updated.page=result.page;updated.draft=null;updated.identityName=result.identityName||updated.identityName||'';
    updated.savedMessage=published?'Sua página está publicada e pronta para compartilhar.':'Sua página não está mais visível publicamente.';
    updated.busy=false;updated.error='';
   }
