@@ -48,7 +48,7 @@ resolveChallenge('captcha');resolveChallenge=null;
 await assert.rejects(stale,/ACCOUNT_CONTEXT_CHANGED/);
 assert.equal(requests.length,0,'Late CAPTCHA cannot log into changed account');
 const field={value:'  MEMBER@EXAMPLE.INVALID  '},status={textContent:''};
-const fullName={value:'Cliente Verificado'},phone={value:'51999999999'};
+const fullName={value:'Cliente Verificado',focus(){}},phone={value:'51999999999',focus(){}};
 const buttons=[{disabled:false},{disabled:false}];
 const form={dataset:{tamaoAccountContext:'club'},
  querySelector:q=>q==='input[type=email]'?field:
