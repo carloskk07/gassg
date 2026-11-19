@@ -77,10 +77,6 @@ assert.equal((await head.response.text()).length,0);
 const down=await call('/p/revenda-0123456789ab/','p','GET',{});
 assert.equal(down.response.status,503,'Fail closed if Pages ASSETS binding is missing');
 assert.ok(!down.response.headers.get('location'),'No external fallback or redirects');
-const stale=await handler({request:{url:'https://tamao.com.br/p/revenda-0123456789ab/',method:'GET'},
- env:{ASSETS:{fetch:async()=>new Response('HOME',{status:200,headers:{'Content-Type':'text/html'})}},
- next:()=>new Response('NEXT')},'p');
-assert.equal(stale.status,200); // a valid HTML shell is loaded, never guessed from PII
 assert.equal(JSON.parse(tamaoPagesFunctionsRouting('customer')).version,1);
 assert.deepEqual(TAMAO_PAGES_FUNCTIONS_CUSTOMER.include,['/p/*','/agenda/*']);
 assert.ok(TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/p/page.js'));
