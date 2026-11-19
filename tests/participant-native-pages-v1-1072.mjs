@@ -46,6 +46,14 @@ assert.match(ts,/if\(publishing&&!a\.published\)/);
 assert.match(ts,/if\(publishing&&m\.status!=="active"\)/);
 assert.match(ts,/if\(publishing&&l\.status!=="published"\)/);
 assert.match(ts,/NO_REFERRAL_CODE/);
+assert.match(ts,/if\(!code\)throw new PageError\('NOT_FOUND',404\)/,
+ 'A revoked owner must never leave a public page with a missing referral');
+assert.match(ts,/kind,subject_id:subject,owner_id:actor,slug,template/,
+ 'Authorized new store manager must take over page referral ownership');
+assert.match(ts,/base\.name=tradeName/,
+ 'Published merchant page should use configured trade name');
+assert.match(ts,/base\.photos=imageKeys\(a\.photo_paths\)/,
+ 'Published Agenda photos must be reused without collecting them again');
 assert.match(ts,/no-store/);
 assert.doesNotMatch(ts,/create-order|wallet_entries|commission_ledger|payment_intents|price_cents|available_stock/);
 assert.match(cfg,/\[functions\.participant-pages\]\s*verify_jwt = false/);
