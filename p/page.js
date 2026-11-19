@@ -4,7 +4,18 @@
  "use strict";
  const PROJECT="https://lgugwujpunhslavewffd.supabase.co";
  const API=PROJECT+"/functions/v1/participant-pages";
- const slug=decodeURIComponent(location.pathname.match(/^\/p\/([a-z0-9-]+)\/?$/)?.[1]||"");
+ const pathSlug=location.pathname.match(/^\/p\/([a-z0-9-]+)\/?$/)?.[1]||"";
+ const transfer=location.pathname==='/p/'?
+  String(new URLSearchParams(location.search).get('slug')||''):"";
+ const slug=pathSlug||(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(transfer)&&transfer.length<=80?transfer:"");
+ // Cloudflare verified 302 fallback serves the static page. Restore its
+ // original premium short link locally without another network round trip.
+ if(!pathSlug&&slug&&location.pathname==='/p/'){
+  const url=new URL(location.href);
+  url.pathname='/p/'+slug+'/';
+  url.searchParams.delete('slug');
+  history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+ }
  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  const codePattern=/^[A-Z0-9]{5,40}$/;
  const $=id=>document.getElementById(id);
