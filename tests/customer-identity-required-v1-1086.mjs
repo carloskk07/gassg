@@ -6,8 +6,12 @@ const home=read('index.html'),growth=read('js/growth.js'),buyer=read('js/custome
 const edge=read('supabase/functions/create-order/index.ts');
 assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/,'Site must not mint anonymous users on entry');
 assert.match(backend,/liveRuntime.status='guest'/);
+assert.doesNotMatch(backend,/globalThis\.liveUpgradeAccount=liveUpgradeAccount/,
+  'entry script must not use a declaration moved to the deferred module');
 assert.match(signup,/function tamaoAccountProfileReady\(/);
 assert.match(read('js/customer-registration-deferred.js'),/signInWithOtp\(\{/);
+assert.match(read('js/customer-registration-deferred.js'),/returnToCheckout\?'pedido':'clube'/);
+assert.match(read('js/bootstrap.js'),/pedido:'order'/);
 assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone\}\)/);
 assert.match(signup,/function tamaoAccountGateMarkup\(/);
 assert.match(read('js/customer-registration-deferred.js'),/tamaoRegisterIdentifiedAccount/);

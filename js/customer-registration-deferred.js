@@ -1,4 +1,4 @@
-async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone=''}={}){
+async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone='',returnToCheckout=false}={}){
   if(!liveRuntime?.client?.auth||!customerOriginSafe())
     throw new Error('Cadastro indisponível no endereço atual.');
   const value=String(email||'').trim().toLowerCase();
@@ -39,7 +39,7 @@ async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone=''}={}){
   const captchaToken=await globalThis.chamaTurnstile.challenge('customer_login');
   if(!captchaToken)throw Error('Verificação de segurança indisponível.');
   const redirect=new URL('/',location.origin);
-  redirect.searchParams.set('entrada','clube');
+  redirect.searchParams.set('entrada',returnToCheckout?'pedido':'clube');
   const {error}=await liveRuntime.client.auth.signInWithOtp({
     email:value,options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true,
       captchaToken,data:profile}
@@ -80,7 +80,7 @@ async function tamaoRegisterForm(event){
   if(status)status.textContent='Preparando confirmação…';
   try{
     if(!login&&typeof liveUpgradeAccount!=='function')throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
-    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email,{fullName,phone});
+    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email,{fullName,phone,returnToCheckout:checkoutEntry});
     if(status)status.textContent=result?.alreadyPermanent
       ?'Sua conta já está cadastrada. Consulte seu saldo e benefícios no Clube.'
       :result?.accessRequested?'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.':

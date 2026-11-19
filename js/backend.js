@@ -3039,7 +3039,7 @@ globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveStartMerchantPayment=liveStartMerchantPayment;
 globalThis.liveCustomerAction=liveCustomerAction;
-globalThis.liveUpgradeAccount=liveUpgradeAccount;
+// Account registration is intentionally supplied by the deferred welcome module.
 globalThis.livePoll=livePoll;
 globalThis.liveSyncMarketStatus=liveSyncMarketStatus;
 globalThis.liveRefreshCityPriceBoard=liveRefreshCityPriceBoard;

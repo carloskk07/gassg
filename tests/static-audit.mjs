@@ -290,7 +290,8 @@ assert.ok(!runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN='https://carloskk07.git
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
-assert.ok(backend.includes("signInAnonymously"),'modo live do cliente precisa de Auth anônimo');
+assert.ok(!backend.includes('signInAnonymously')&&backend.includes("liveRuntime.status='guest'"),
+  'visitor may browse without minting an anonymous Auth user');
 assert.ok(backend.includes("customerPortalParams.get('merchant')!=='1'&&customerPortalParams.get('admin')!=='1'"),'cliente real deve ser o modo padrão fora dos portais privilegiados');
 assert.ok(backend.includes('prelaunchExamplesEnabled'),'compatibilidade técnica de supply inicial precisa permanecer explicitamente governada');
 assert.ok(backend.includes("liveInvoke('market-status'"),'frontend deve consultar autoridade server-side antes de decidir exemplos');
@@ -303,8 +304,11 @@ assert.ok(core.includes("eligible[0].roles=['Disponível agora']"),'piloto inter
 assert.ok(core.includes('Never hydrate those fields from browser storage'),'produção não pode restaurar autoridade financeira/merchant de storage');
 assert.ok(merchant.includes('Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.'),'rota merchant sem portal real deve falhar fechado');
 assert.ok(!growth.includes('Lista de interesse Plus registrada — demonstração'),'produção não pode fingir registro de benefício futuro');
-assert.ok(backend.includes("chamaTurnstile.challenge"),'nova identidade anônima deve exigir desafio Turnstile');
-assert.ok(backend.includes("options:{captchaToken}"),'token Turnstile deve ser entregue ao Auth do Supabase');
+const deferredRegister=read('js/customer-registration-deferred.js');
+assert.ok(deferredRegister.includes("chamaTurnstile.challenge('customer_login')"),
+  'identified signup must require Turnstile');
+assert.ok(deferredRegister.includes('captchaToken,data:profile'),
+  'verified signup forwards captcha and full contact profile');
 const turnstile=read('js/turnstile.js');
 assert.ok(turnstile.includes('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'),'Turnstile deve carregar a API oficial em modo explícito');
 assert.ok(turnstile.includes('action:safeAction'),'helper Turnstile deve validar e encaminhar action específica');
@@ -523,7 +527,9 @@ assert.ok(merchant.includes('merchantLivePage'),'UI deve possuir painel real da 
 assert.ok(merchant.includes('Endereço protegido até o aceite'),'painel real não pode expor endereço antes do aceite');
 assert.ok(merchant.includes('Pagamento recebido'),'painel real deve exigir confirmação de pagamento');
 assert.ok(core.includes('grossCents*100'),'demo deve calcular cashback proporcional ao pedido');
-assert.ok(backend.includes('liveUpgradeAccount'),'cliente anônimo precisa poder vincular identidade permanente sem trocar de usuário');
+assert.ok(read('js/welcome-bonus.js').includes('async function liveUpgradeAccount(')&&
+  deferredRegister.includes('tamaoRegisterIdentifiedAccount'),
+  'guest identity can be upgraded by a deferred, recoverable account flow');
 assert.ok(growth.includes('Vincule um e-mail à sua conta')&&growth.includes('Conta habilitada para comissão.'),'UI deve explicar o gate de identidade para comissão disponível');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('cashEarningEligible'),'resumo financeiro precisa expor elegibilidade de comissão');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('ACTIVE_ORDER_STATUSES'),'customer-summary precisa recuperar pedido ativo server-side');
