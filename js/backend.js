@@ -865,7 +865,7 @@ function liveIdempotency(prefix){
 
 async function liveCreateOrder(quoteId){
   if(liveRuntime.actionPending)return;
-  if(!tamaoAccountProfileReady()){
+  if(!globalThis.tamaoAccountProfileReady?.()){
     toast('Antes de comprar, confirme seu nome, telefone e e-mail.');
     document.getElementById('tamao-checkout-identity')?.scrollIntoView?.({behavior:'smooth',block:'start'});
     return;
@@ -1204,20 +1204,6 @@ async function liveSyncFinancialProfile({force=false}={}){
   }
 }
 
-function tamaoAccountProfileReady(){
-  const user=liveRuntime?.session?.user;
-  const name=String(user?.user_metadata?.full_name||'').trim().replace(/\s+/g,' ');
-  const phone=String(user?.user_metadata?.phone||'').replace(/\D/g,'');
-  return liveReady()&&user?.is_anonymous!==true&&Boolean(user?.email)&&
-    Boolean(user.email_confirmed_at)&&name.length>=5&&name.length<=100&&
-    name.split(' ').length>=2&&/^[0-9]{10,11}$/.test(phone);
-}
-async function liveUpgradeAccount(email,profile={}){
-  if(typeof globalThis.tamaoLoadCustomerRegistration!=='function')
-    throw Error('Cadastro ainda não está disponível. Atualize a página.');
-  await globalThis.tamaoLoadCustomerRegistration();
-  return globalThis.tamaoRegisterIdentifiedAccount(email,profile);
-}
 
 async function liveSyncMarketStatus({force=false}={}){
   if(!liveReady())return null;

@@ -6,7 +6,7 @@ const home=read('index.html'),growth=read('js/growth.js'),buyer=read('js/custome
 const edge=read('supabase/functions/create-order/index.ts');
 assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/,'Site must not mint anonymous users on entry');
 assert.match(backend,/liveRuntime.status='guest'/);
-assert.match(backend,/function tamaoAccountProfileReady\(/);
+assert.match(signup,/function tamaoAccountProfileReady\(/);
 assert.match(read('js/customer-registration-deferred.js'),/signInWithOtp\(\{/);
 assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone\}\)/);
 assert.match(signup,/function tamaoAccountGateMarkup\(/);

@@ -1,3 +1,19 @@
+function tamaoAccountProfileReady(){
+  const user=liveRuntime?.session?.user;
+  const name=String(user?.user_metadata?.full_name||'').trim().replace(/\s+/g,' ');
+  const phone=String(user?.user_metadata?.phone||'').replace(/\D/g,'');
+  return liveReady()&&user?.is_anonymous!==true&&Boolean(user?.email)&&
+    Boolean(user.email_confirmed_at)&&name.length>=5&&name.length<=100&&
+    name.split(' ').length>=2&&/^[0-9]{10,11}$/.test(phone);
+}
+async function liveUpgradeAccount(email,profile={}){
+  if(typeof globalThis.tamaoLoadCustomerRegistration!=='function')
+    throw Error('Cadastro ainda não está disponível. Atualize a página.');
+  await globalThis.tamaoLoadCustomerRegistration();
+  return globalThis.tamaoRegisterIdentifiedAccount(email,profile);
+}
+
+Object.assign(globalThis,{tamaoAccountProfileReady,liveUpgradeAccount});
 let tamaoRegistrationLoader=null;
 async function tamaoLoadCustomerRegistration(){
   if(!tamaoRegistrationLoader){
