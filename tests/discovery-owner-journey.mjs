@@ -117,6 +117,13 @@ const client={
    const filter={};
    const query={
     eq(k,v){filter[k]=v;return query;},
+    // Real owner-scoped professional detail lookup used to identify Moto/Carro.
+    // Leave the electrician as a generic professional in this journey.
+    async in(key,ids){
+     assert.equal(name,'discovery_professional_details');
+     assert.equal(key,'listing_id');
+     return {data:ids.map(id=>({listing_id:id,occupation:'Eletricista'})),error:null};
+    },
     async maybeSingle(){
      if(name==='discovery_documents')
       return {data:privateDocs.find(d=>Object.entries(filter).every(([k,v])=>d[k]===v))||null,error:null};
