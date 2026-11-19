@@ -43,6 +43,8 @@ jobs:
         run: node tests/participant-social-preview-v1-1082.mjs
       - name: V1.1083 only approved hero photos and owner session isolation
         run: node tests/participant-hero-photo-v1-1083.mjs
+      - name: V1.1084 virtual participant local-only journey safety contract
+        run: node tests/virtual-participant-safety-v1-1084.mjs
       - name: V1.1075 premium product photos and approved professional cover
         run: node tests/participant-native-premium-media-v1-1075.mjs
       - name: V1.1073 Cloudflare native participant deep links and asset safety
