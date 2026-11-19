@@ -50,7 +50,7 @@ try{
    if(ready)break;await wait(140);
   }
   assert.equal(ready,true,'Real participant page must render at '+width);
-  const data=await evaluate("(()=>{const c=document.querySelector('#main-action'),r=c.getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth,title:document.querySelector('#page-title').textContent,theme:document.body.className,href:c.href,ctaVisible:r.width>0&&r.height>45,ctaFits:r.left>=-1&&r.right<=innerWidth+1,items:[...document.querySelectorAll('#items a')].map(x=>x.href),hidden:document.querySelector('#missing').hidden}})()");
+  const data=await evaluate("(()=>{const c=document.querySelector('#main-action'),r=c.getBoundingClientRect();return {width:innerWidth,scroll:document.documentElement.scrollWidth,title:document.querySelector('#page-title').textContent,theme:document.body.className,href:c.href,ctaVisible:r.width>0&&r.height>45,ctaFits:r.left>=-1&&r.right<=innerWidth+1,items:[...document.querySelectorAll('#items a')].map(x=>x.href),photos:[...document.querySelectorAll('#items .product-visual')].map(e=>({cls:e.className,background:getComputedStyle(e).backgroundImage})),coverCount:document.querySelectorAll('#cover-products .product-visual').length,coverHidden:document.querySelector('#cover-products').hidden,hidden:document.querySelector('#missing').hidden}})()");
   assert.equal(data.title,fixture.headline);assert.equal(data.theme,'theme-gold');
   assert.equal(data.hidden,true);
   assert.ok(data.scroll<=width+2,'Horizontal overflow '+width+' '+data.scroll);
@@ -61,6 +61,12 @@ try{
   assert.equal(u.searchParams.get('seller'),shopId);
   assert.equal(u.hash,'#order');
   assert.equal(data.items.length,2);
+  assert.equal(data.photos.length,2,'Merchant catalog must show two real product images');
+  assert.ok(data.photos[0].cls.includes('product-visual-gas'));
+  assert.ok(data.photos[1].cls.includes('product-visual-water'));
+  for(const photo of data.photos)assert.match(photo.background,/tamao-products-sprite\.webp/);
+  assert.equal(data.coverCount,2,'Real products also illustrate the shop hero');
+  assert.equal(data.coverHidden,false);
   for(const link of data.items){
    const item=new URL(link);
    assert.equal(item.searchParams.get('seller'),shopId);
@@ -77,4 +83,4 @@ try{
  fs.writeFileSync(path.join(outDir,'participant-native-browser-v1-1072.json'),JSON.stringify(rows,null,2)+'\n');
  ws.close();await fetch(cdp+'/json/close/'+tab.id).catch(()=>{});
 }
-console.log('V1.1072 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
+console.log('V1.1075 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
