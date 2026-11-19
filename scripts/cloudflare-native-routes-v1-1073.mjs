@@ -6,7 +6,6 @@
 export const TAMAO_CLOUDFLARE_NATIVE_ROUTES=[
   '/agenda/index.html /agenda/ 301',
   '/agenda/exemplo /agenda/exemplo/ 301',
-  '/agenda/exemplo/ /agenda/exemplo/index.html 200',
   '/agenda/:slug /agenda/:slug/ 301',
   '/agenda/:slug/ /agenda/?profissional=:slug 302',
   '/p/:slug/ /p/?slug=:slug 302',
