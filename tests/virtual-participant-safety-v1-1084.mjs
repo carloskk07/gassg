@@ -7,7 +7,8 @@ assert.match(script,/assert\.equal\(process\.env\.SUPABASE_ACCESS_TOKEN\|\|'',''
 assert.match(script,/127\\\.0\\\.0\\\.1\|localhost/);
 assert.match(script,/status','-o','env'/);
 assert.match(script,/real localhost Auth, Edge, Data API and SQL/);
-assert.match(script,/functions\/v1\/participant-pages/);
+assert.match(script,/post\('participant-pages'/);
+assert.match(script,/functions\/v1\/'\+slug/);
 assert.match(script,/agenda_book_staff_slot/);
 assert.match(script,/agenda_cancel_booking/);
 assert.match(script,/referralCode,referral/);
