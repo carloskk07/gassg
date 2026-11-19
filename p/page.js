@@ -42,9 +42,26 @@
  function offerURL(ref,seller,item=""){
   return official(ref,{seller,item}, "order");
  }
- function iconForProduct(code){
-  return /^P(?:1|13|20|45|90)/.test(code)?"🔥":
-   /^WATER/.test(code)?"💧":/^WOOD/.test(code)?"🪵":/^ICE/.test(code)?"🧊":"🛍️";
+ // The same five *real* product photos used in the TAMÃO storefront sprite.
+ // Unknown product types keep a neutral catalog illustration, never a fake
+ // photo of a product that the merchant does not actually sell.
+ function productPhotoClass(code,label){
+  const c=String(code||"").toUpperCase(),name=String(label||"").normalize("NFD")
+   .replace(/[\u0300-\u036f]/g,"").toUpperCase();
+  if(/^P(?:1|13|20|45|90)(?:$|_)/.test(c)||/^GAS\b/.test(name))return "gas";
+  if(/^(?:WATER|AGUA)/.test(c)||/\bAGUA\b/.test(name))return "water";
+  if(/^(?:CHARCOAL|CARVAO)/.test(c)||/\bCARVAO\b/.test(name))return "charcoal";
+  if(/^(?:WOOD|LENHA)/.test(c)||/\bLENHA\b/.test(name))return "wood";
+  if(/^(?:ICE|GELO)/.test(c)||/\bGELO\b/.test(name))return "ice";
+  return "";
+ }
+ function productVisual(item){
+  const kind=productPhotoClass(item.code,item.name);
+  const visual=document.createElement("div");
+  visual.className="product-visual"+(kind?" product-visual-"+kind:" product-visual-generic");
+  visual.setAttribute("aria-hidden","true");
+  if(!kind)visual.textContent="✦";
+  return visual;
  }
  async function load(){
   if(slug.length<4||slug.length>80||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return showMissing();
@@ -86,13 +103,22 @@
    for(const item of items.slice(0,20)){
     if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(item.code||"")))continue;
     const article=document.createElement("article");
-    const emoji=document.createElement("span");emoji.className="emoji";emoji.textContent=iconForProduct(item.code);
+    const visual=productVisual(item);
     const title=document.createElement("strong");title.textContent=String(item.name||item.code).slice(0,80);
     const note=document.createElement("small");note.textContent="Preço e entrega confirmados no checkout.";
     const button=document.createElement("a");button.href=offerURL(ref,data.merchantId,item.code);button.textContent="Consultar este produto →";
-    article.append(emoji,title,note,button);holder.appendChild(article);
+    article.append(visual,title,note,button);holder.appendChild(article);
    }
    $("catalog").hidden=holder.children.length===0;
+   const featured=$("cover-products");
+   if(featured){
+    featured.replaceChildren();
+    for(const item of items.slice(0,3)){
+     if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(item.code||"")))continue;
+     featured.appendChild(productVisual(item));
+    }
+    featured.hidden=featured.children.length===0;
+   }
   }else if(data.kind==="listing"&&uuid.test(String(data.listingId||""))&&
    ["professionals","rides"].includes(data.vertical)){
    action=official(ref,{listing:data.listingId},data.vertical);
@@ -105,6 +131,17 @@
     out.appendChild(img);
    }
    out.hidden=out.children.length===0;
+   // Lead with the participant's own approved photo, without inventing a
+   // storefront/logo or loading an external, uncontrolled image provider.
+   const first=out.querySelector("img");
+   if(first){
+    const heroPhoto=document.createElement("img");
+    heroPhoto.src=first.src;
+    heroPhoto.className="visual-photo";heroPhoto.alt="";
+    heroPhoto.decoding="async";heroPhoto.fetchPriority="high";
+    $("visual-card").parentElement.prepend(heroPhoto);
+    $("visual-card").classList.add("over-photo");
+   }
   }else if(data.kind==="agenda"&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.agendaSlug||"")){
    const u=new URL("https://tamao.com.br/agenda/"+encodeURIComponent(data.agendaSlug)+"/");
    if(ref)u.searchParams.set("ref",ref);
