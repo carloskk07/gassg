@@ -26,4 +26,6 @@ assert.match(edge,/user\.user_metadata\?\.phone/);
 assert.ok(edge.indexOf('CUSTOMER_VERIFIED_ACCOUNT_REQUIRED')<edge.indexOf('validateIdempotencyKey(req.headers'));
 assert.match(edge,/create_order_from_quote_v8/);
 assert.match(read('tests/isolated-supabase-positive-checkout.mjs'),/Cliente Verificado CI/);
+assert.match(read('tests/isolated-supabase-positive-checkout.mjs'),/CUSTOMER_VERIFIED_ACCOUNT_REQUIRED/);
+assert.match(read('tests/isolated-supabase-positive-checkout.mjs'),/CUSTOMER_PROFILE_REQUIRED/);
 console.log('PASS V1.1086: no automatic anonymous Auth, name/phone/email registration and server buyer gate.');
