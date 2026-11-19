@@ -17,7 +17,7 @@ const ORIGINS=new Set([
 ]);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG=/^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const KINDS=new Set(["merchant","customer","listing","agenda"]);
+const KINDS=new Set(["merchant","customer","listing","agenda","driver","advertiser"]);
 const THEMES=new Set(["clean","gold","rose"]);
 const TABLE="participant_pages_v1_1072";
 
@@ -94,6 +94,50 @@ async function sourceFor(kind:string,subject:string,actor:string|null,publishing
   return {title:clean(m.name,120),kind,subjectId:subject,ownerId:actor,
     canPublish:m.status==="active"};
  }
+ if(kind==="driver"){
+  // Mobility providers are already approved professional listings. A driver
+  // page never creates a second identity or bypasses the city activation.
+  const {data:l,error}=await admin.from("discovery_listings")
+   .select("id,owner_id,title,vertical,status,state_code,city_key")
+   .eq("id",subject).maybeSingle();
+  if(error)throw error;
+  if(!l||l.vertical!=="professionals")throw new PageError("NOT_FOUND",404);
+  if(actor&&l.owner_id!==actor)throw new PageError("NOT_OWNER",403);
+  const {data:d,error:detailError}=await admin.from("discovery_professional_details")
+   .select("occupation").eq("listing_id",subject).maybeSingle();
+  if(detailError)throw detailError;
+  const occupation=String(d?.occupation||"");
+  const moto=/(motot[aá]xi|moto.?taxi)/i.test(occupation);
+  const carro=!moto&&/(motorista|t[aá]xi|taxista)/i.test(occupation);
+  if(!moto&&!carro)throw new PageError("NOT_FOUND",404);
+  const {data:city,error:cityError}=await admin.from("discovery_vertical_cities")
+   .select("enabled").eq("vertical","professionals")
+   .eq("state_code",l.state_code).eq("city_key",l.city_key).maybeSingle();
+  if(cityError)throw cityError;
+  const canPublish=l.status==="published"&&city?.enabled===true;
+  if(publishing&&!canPublish)throw new PageError("NOT_PUBLISHED",409);
+  return {title:clean(l.title,120),kind,subjectId:subject,ownerId:l.owner_id,
+   canPublish,vertical:"professionals",driverMode:moto?"moto":"carro"};
+ }
+ if(kind==="advertiser"){
+  // Independent Ads already have a verified owner and an Admin-moderated
+  // campaign. Inactive, paused and expired campaigns cannot expose pages.
+  const {data:c,error}=await admin.from("ads_independent_campaigns_v1_884")
+   .select("id,owner_user_id,advertiser_name,title,description,city,state,destination_url,status,run_started_at,run_ends_at")
+   .eq("id",subject).maybeSingle();
+  if(error)throw error;
+  if(!c)throw new PageError("NOT_FOUND",404);
+  if(actor&&c.owner_user_id!==actor)throw new PageError("NOT_OWNER",403);
+  const now=Date.now();
+  const canPublish=c.status==="active"&&
+   Number.isFinite(Date.parse(String(c.run_started_at||"")))&&
+   Date.parse(String(c.run_started_at))<=now&&
+   Date.parse(String(c.run_ends_at||""))>now&&
+   Boolean(safeAdvertiserURL(c.destination_url));
+  if(publishing&&!canPublish)throw new PageError("NOT_PUBLISHED",409);
+  return {title:clean(c.advertiser_name,120),kind,subjectId:subject,
+   ownerId:c.owner_user_id,canPublish,advertiser:c};
+ }
  if(kind==="listing"){
   const {data:l,error}=await admin.from("discovery_listings")
    .select("id,owner_id,title,vertical,status").eq("id",subject).maybeSingle();
@@ -134,6 +178,18 @@ async function refFor(kind:string,subjectId:string,ownerId:string){
  const code=clean(data?.referral_code,40).toUpperCase();
  return /^[A-Z0-9]{5,40}$/.test(code)&&!/^TMR[A-F0-9]{24}$/.test(code)?code:"";
 }
+function safeAdvertiserURL(raw:unknown){
+ const value=String(raw||"").trim();
+ if(value.length<15||value.length>300||/[<>\s@\\]/.test(value))return "";
+ try{
+  const u=new URL(value),host=u.hostname.toLowerCase();
+  return u.protocol==="https:"&&!u.username&&!u.password&&(!u.port||u.port==="443")
+   &&host.includes(".")&&!host.endsWith(".local")&&!host.endsWith(".internal")
+   &&!host.endsWith(".localhost")&&host!=="localhost"
+   &&!/^\d+\.\d+\.\d+\.\d+$/.test(host)&&!host.startsWith("[")
+   &&u.href.length<=300?u.href:"";
+ }catch{return ""}
+}
 function publicURL(slug:string){return "https://tamao.com.br/p/"+slug+"/";}
 async function view(slug:string){
  if(slug.length<4||slug.length>80||!SLUG.test(slug))throw new PageError("NOT_FOUND",404);
@@ -144,6 +200,10 @@ async function view(slug:string){
  if(!page)throw new PageError("NOT_FOUND",404);
  const source=await sourceFor(page.kind,page.subject_id,null,true);
  if(!source.canPublish)throw new PageError("NOT_FOUND",404);
+ // A changed owner must not inherit the previous owner's first-touch code.
+ // Merchant managers are checked independently in refFor().
+ if(!["merchant","customer"].includes(page.kind)&&source.ownerId!==page.owner_id)
+  throw new PageError("NOT_FOUND",404);
  const code=await refFor(page.kind,page.subject_id,page.owner_id);
  // A published link must never silently lose its verified first-touch identity
  // when the original manager's privileges or referral eligibility changes.
@@ -157,7 +217,8 @@ async function view(slug:string){
   theme:THEMES.has(page.template)?page.template:"clean",
   referralCode:code,
   items:[] as Array<{code:string,name:string}>,photos:[] as string[],
-  city:"",state:"",details:"",agendaSlug:"",listingId:"",vertical:"",merchantId:""
+  city:"",state:"",details:"",agendaSlug:"",listingId:"",vertical:"",merchantId:"",
+  driverMode:"",campaignId:"",destinationUrl:""
  };
  if(page.kind==="merchant"){
   base.merchantId=page.subject_id;
@@ -179,7 +240,17 @@ async function view(slug:string){
   base.items=(catalog||[]).filter(i=>/^[A-Z][A-Z0-9_]{1,31}$/.test(i.product_code))
    .map(i=>({code:i.product_code,name:clean(i.product_name,80)}));
  }
- if(page.kind==="listing"){
+ if(page.kind==="advertiser"){
+  const c=source.advertiser;
+  if(!c||!safeAdvertiserURL(c.destination_url))throw new PageError("NOT_FOUND",404);
+  base.name=clean(c.advertiser_name,120);
+  if(!clean(page.headline,110))base.headline=clean(c.title,80);
+  base.city=clean(c.city,100);base.state=clean(c.state,2);
+  base.details=clean(c.description,240);
+  base.campaignId=page.subject_id;
+  base.destinationUrl=safeAdvertiserURL(c.destination_url);
+ }
+ if(page.kind==="listing"||page.kind==="driver"){
   const {data:list,error:listError}=await admin.rpc("discovery_public_search",{
    p_listing_id:page.subject_id,
    p_vertical:source.vertical,
@@ -188,6 +259,14 @@ async function view(slug:string){
   if(listError)throw listError;
   const listing=Array.isArray(list)?list.find(x=>x?.id===page.subject_id):null;
   if(!listing)throw new PageError("NOT_FOUND",404);
+  if(page.kind==="driver"){
+   const occupation=String(listing.occupation||"");
+   const moto=/(motot[aá]xi|moto.?taxi)/i.test(occupation);
+   const carro=!moto&&/(motorista|t[aá]xi|taxista)/i.test(occupation);
+   if((source.driverMode==="moto"&&!moto)||(source.driverMode==="carro"&&!carro))
+    throw new PageError("NOT_FOUND",404);
+   base.driverMode=source.driverMode||"";
+  }
   base.listingId=page.subject_id;base.vertical=source.vertical;
   base.name=clean(listing.title,120)||source.title;
   base.city=clean(listing.city_name,120);base.state=clean(listing.state_code,2);

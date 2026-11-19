@@ -19,8 +19,11 @@ assert.match(script,/const first=out\.querySelector\("img"\)/);
 assert.match(script,/heroPhoto\.src=first\.src/);
 assert.match(script,/function showParticipantPhotos\(keys\)/);
 assert.match(script,/showParticipantPhotos\(data\.photos\)/);
-assert.equal(script.split('showParticipantPhotos(data.photos);').length-1,2,
- 'Both listing and Agenda must reuse approved public photos');
+assert.equal(script.split('showParticipantPhotos(data.photos);').length-1,3,
+ 'Published listing, driver and Agenda must reuse only approved public photos');
+assert.match(script,/data\.kind==="driver"/);
+assert.match(script,/data\.kind==="listing"/);
+assert.match(script,/data\.kind==="agenda"/);
 assert.match(script,/out\.hidden=out\.children\.length===0/);
 assert.match(script,/heroPhoto\.alt=""/);
 assert.match(script,/heroPhoto\.decoding="async"/);

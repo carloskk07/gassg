@@ -294,7 +294,11 @@ function tamaoAdsCampaignForm(){
         '<p>Preço cadastrado: '+tamaoAdsFormatMoney(fee)+' por '+days+' dias</p>'+
         (payment?'<p role="status">'+esc(payment)+'</p>':'')+
         '<small>Impressões faturáveis por CPM: 0. Receita exibida ao anunciante: não se aplica.</small>'+
-        pixPanel+buy+checkPayment+refundAction+'</article>';
+        pixPanel+buy+checkPayment+refundAction+
+        (c.status==='active'&&String(c.effectiveStatus||c.status)==='active'&&
+         Date.parse(String(c.runEndsAt||''))>Date.now()&&
+         typeof tamaoParticipantNativePanel==='function'
+          ?tamaoParticipantNativePanel('advertiser',id):'')+'</article>';
     }).join(''):'';
   return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+

@@ -120,7 +120,7 @@ try{
   "String(url).includes('/functions/v1/participant-pages')"+
   "?Promise.resolve(new Response(JSON.stringify("+JSON.stringify(appointment)+"),"+
   "{status:200,headers:{'Content-Type':'application/json'}})):orig(url,opts);})();";
- await send('Page.addScriptToEvaluateOnNewDocument',{source:appointmentSource});
+ const appointmentScript=await send('Page.addScriptToEvaluateOnNewDocument',{source:appointmentSource});
  await send('Page.navigate',{url:base+'/p/index.html'});
  let agendaReady=false;
  for(let i=0;i<55;i++){
@@ -137,8 +137,65 @@ try{
  assert.equal(booking.pathname,'/agenda/agenda-de-exemplo/');
  assert.equal(booking.searchParams.get('ref'),ref);
 
+
+ // V1.1080: native mobility handoff preserves the chosen driver, mode and
+ // first-touch referral, using the approved listing photo on mobile.
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:appointmentScript.identifier});
+ const driver={...profile,kind:'driver',slug:'motorista-da-cidade-1080',driverMode:'moto',theme:'gold'};
+ const injectFixture=record=>"(()=>{history.replaceState(null,'','/p/"+record.slug+"/');"+
+  "const orig=window.fetch.bind(window);window.fetch=(url,opts)=>"+
+  "String(url).includes('/functions/v1/participant-pages')"+
+  "?Promise.resolve(new Response(JSON.stringify("+JSON.stringify(record)+"),"+
+  "{status:200,headers:{'Content-Type':'application/json'}})):orig(url,opts);})();";
+ const driverScript=await send('Page.addScriptToEvaluateOnNewDocument',{source:injectFixture(driver)});
+ await send('Page.navigate',{url:base+'/p/index.html'});
+ let driverReady=false;
+ for(let i=0;i<55;i++){
+  driverReady=await evaluate("document.querySelector('#content')?.hidden===false&&document.querySelector('#main-action')?.href.includes('modalidade=moto')");
+  if(driverReady)break;await wait(140);
+ }
+ assert.equal(driverReady,true,'Driver page must open native Moto/Carro request');
+ const driverResult=await evaluate("(()=>({scroll:document.documentElement.scrollWidth,href:document.querySelector('#main-action')?.href,portrait:document.querySelector('.visual-photo')?.src,label:document.querySelector('#kind')?.textContent}))()");
+ const driverLink=new URL(driverResult.href);
+ assert.equal(driverLink.searchParams.get('corrida'),listingId);
+ assert.equal(driverLink.searchParams.get('modalidade'),'moto');
+ assert.equal(driverLink.searchParams.get('ref'),ref);
+ assert.equal(driverLink.hash,'#mobility');
+ assert.ok(driverResult.portrait?.endsWith(key));
+ assert.ok(driverResult.scroll<=392);
+ rows.push({kind:'driver',route:driverLink.href,scroll:driverResult.scroll});
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:driverScript.identifier});
+
+ // A paid creative may link to an already moderated external destination
+ // without leaking the TAMÃO first-touch code to the advertiser site.
+ const advertiser={...profile,kind:'advertiser',slug:'marca-local-premium-1080',
+  name:'Marca Local',headline:'Sua próxima descoberta começa aqui',
+  tagline:'Conheça a campanha de uma marca da sua cidade.',
+  campaignId:'77777777-2222-4333-8444-555555555555',
+  destinationUrl:'https://empresa.example.com/oferta',photos:[],listingId:'',vertical:'',
+  details:'Apresentamos as novidades e os serviços da empresa.',theme:'rose'};
+ const advertiserScript=await send('Page.addScriptToEvaluateOnNewDocument',{source:injectFixture(advertiser)});
+ await send('Page.navigate',{url:base+'/p/index.html'});
+ let adsReady=false;
+ for(let i=0;i<55;i++){
+  adsReady=await evaluate("document.querySelector('#content')?.hidden===false&&document.querySelector('#main-action')?.href.includes('empresa.example.com')");
+  if(adsReady)break;await wait(140);
+ }
+ assert.equal(adsReady,true,'Published independent advertiser page must render');
+ const adResult=await evaluate("(()=>({scroll:document.documentElement.scrollWidth,href:document.querySelector('#main-action')?.href,target:document.querySelector('#main-action')?.target,rel:document.querySelector('#main-action')?.rel,referrer:document.querySelector('#main-action')?.referrerPolicy,label:document.querySelector('#kind')?.textContent}))()");
+ assert.equal(adResult.href,'https://empresa.example.com/oferta');
+ assert.equal(adResult.target,'_blank');
+ assert.match(adResult.rel,/sponsored/);
+ assert.match(adResult.rel,/noopener/);
+ assert.equal(adResult.referrer,'no-referrer');
+ assert.ok(!adResult.href.includes('ref='));
+ assert.match(adResult.label,/PUBLICIDADE/);
+ assert.ok(adResult.scroll<=392);
+ rows.push({kind:'advertiser',external:adResult.href,scroll:adResult.scroll});
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:advertiserScript.identifier});
+
 }finally{
  fs.writeFileSync(path.join(outDir,'participant-native-browser-v1-1072.json'),JSON.stringify(rows,null,2)+'\n');
  ws.close();await fetch(cdp+'/json/close/'+tab.id).catch(()=>{});
 }
-console.log('V1.1078 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
+console.log('V1.1080 PASS — merchant, professional, Agenda, driver and independent advertiser native pages in Chromium.');

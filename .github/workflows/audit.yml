@@ -33,6 +33,8 @@ jobs:
         run: node tests/network-personal-pages-v1-1071.mjs
       - name: V1.1072 real participant pages, owner authorization and exact-seller checkout
         run: node tests/participant-native-pages-v1-1072.mjs
+      - name: Native driver and independent advertiser page guard V1.1080
+        run: node tests/participant-native-driver-ads-v1-1080.mjs
       - name: V1.1075 premium product photos and approved professional cover
         run: node tests/participant-native-premium-media-v1-1075.mjs
       - name: V1.1073 Cloudflare native participant deep links and asset safety
