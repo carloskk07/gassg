@@ -92,7 +92,7 @@ try{
   "String(url).includes('/functions/v1/participant-pages')"+
   "?Promise.resolve(new Response(JSON.stringify("+JSON.stringify(profile)+"),"+
   "{status:200,headers:{'Content-Type':'application/json'}})):orig(url,opts);})();";
- await send('Page.addScriptToEvaluateOnNewDocument',{source});
+ const listingScript=await send('Page.addScriptToEvaluateOnNewDocument',{source});
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:900,screenWidth:390,screenHeight:900,deviceScaleFactor:1,mobile:true});
  await send('Page.navigate',{url:base+'/p/index.html'});
  let coverReady=false;
@@ -110,8 +110,35 @@ try{
  assert.equal(destination.searchParams.get('listing'),listingId);
  assert.equal(destination.searchParams.get('ref'),ref);
  assert.equal(destination.hash,'#professionals');
+ // The same owner-uploaded photo must also lead the Agenda profile.
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:listingScript.identifier});
+ const appointment={...profile,kind:'agenda',slug:'agenda-profissional-1078',
+  name:'Agenda de Exemplo',headline:'Seu horário, seu cuidado',
+  agendaSlug:'agenda-de-exemplo',listingId:'',vertical:'',photos:[key],theme:'clean'};
+ const appointmentSource="(()=>{history.replaceState(null,'','/p/"+appointment.slug+"/');"+
+  "const orig=window.fetch.bind(window);window.fetch=(url,opts)=>"+
+  "String(url).includes('/functions/v1/participant-pages')"+
+  "?Promise.resolve(new Response(JSON.stringify("+JSON.stringify(appointment)+"),"+
+  "{status:200,headers:{'Content-Type':'application/json'}})):orig(url,opts);})();";
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:appointmentSource});
+ await send('Page.navigate',{url:base+'/p/index.html'});
+ let agendaReady=false;
+ for(let i=0;i<55;i++){
+  agendaReady=await evaluate("document.querySelector('#visual-card.over-photo')!==null&&document.querySelector('#content')?.hidden===false&&document.querySelector('#main-action')?.href.includes('/agenda/agenda-de-exemplo/')");
+  if(agendaReady)break;await wait(140);
+ }
+ assert.equal(agendaReady,true,'Published Agenda cover and own booking CTA must render');
+ const agendaResult=await evaluate("(()=>({scroll:document.documentElement.scrollWidth,title:document.querySelector('#page-title').textContent,hero:document.querySelector('.visual-photo')?.src,images:document.querySelectorAll('#photos img').length,href:document.querySelector('#main-action')?.href}))()");
+ assert.equal(agendaResult.title,'Seu horário, seu cuidado');
+ assert.ok(agendaResult.hero?.endsWith(key),'Reuse only already approved Agenda photos');
+ assert.equal(agendaResult.images,1);
+ assert.ok(agendaResult.scroll<=392,'Agenda photo must fit a narrow mobile screen');
+ const booking=new URL(agendaResult.href);
+ assert.equal(booking.pathname,'/agenda/agenda-de-exemplo/');
+ assert.equal(booking.searchParams.get('ref'),ref);
+
 }finally{
  fs.writeFileSync(path.join(outDir,'participant-native-browser-v1-1072.json'),JSON.stringify(rows,null,2)+'\n');
  ws.close();await fetch(cdp+'/json/close/'+tab.id).catch(()=>{});
 }
-console.log('V1.1075 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
+console.log('V1.1078 PASS — real-data merchant page, explicit chosen seller and original referral in mobile/desktop Chromium.');
