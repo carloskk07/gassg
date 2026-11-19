@@ -153,3 +153,7 @@ jobs:
           TAMAO_REQUIRE_LIVE_PORTALS: '1'
           TAMAO_EXPECTED_SOURCE_SHA: ${{ github.sha }}
         run: node tests/remote-admin-readiness.mjs
+      - name: Real customer deep-link routing (outside service worker)
+        env:
+          TAMAO_REQUIRE_DEEP_LINKS: '1'
+        run: node tests/cloudflare-official-deep-links-v1-1074.mjs
