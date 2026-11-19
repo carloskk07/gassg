@@ -136,6 +136,17 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await authenticatedUser(req);
+    if(user.is_anonymous===true||!user.email||!user.email_confirmed_at)
+      throw new DomainError("CUSTOMER_VERIFIED_ACCOUNT_REQUIRED",
+        "Confirme seu e-mail para fazer pedidos. Visitantes não podem comprar.",403);
+    const customerName=String(user.user_metadata?.full_name??"").trim().replace(/\s+/g," ");
+    const accountPhone=String(user.user_metadata?.phone??"").replace(/\D/g,"");
+    if(customerName.length<5||customerName.length>100||
+      customerName.split(" ").length<2||
+      !/^[\p{L}][\p{L} .'-]{3,99}$/u.test(customerName)||
+      !/^[0-9]{10,11}$/.test(accountPhone))
+      throw new DomainError("CUSTOMER_PROFILE_REQUIRED",
+        "Complete nome e telefone com DDD no cadastro antes de comprar.",403);
     const idempotencyKey = validateIdempotencyKey(req.headers.get("Idempotency-Key"));
     const body = await readJsonBody(req);
 

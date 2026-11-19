@@ -428,20 +428,20 @@ async function backendInit(){
     let {data:{session},error}=await client.auth.getSession();
     if(error)throw error;
 
-    if(!session){
-      if(!globalThis.chamaTurnstile?.challenge){
-        throw new Error('Proteção anti-bot indisponível');
-      }
-      const captchaToken=await globalThis.chamaTurnstile.challenge('anonymous_signin');
-      if(!captchaToken)throw new Error('Token anti-bot ausente');
-      const response=await client.auth.signInAnonymously({
-        options:{captchaToken}
+    // Browsing never creates an Auth account. Previous anonymous accounts
+    // can still be upgraded without losing their first-touch referral code.
+    if(!session?.access_token||session.user?.is_anonymous===true){
+      liveRuntime.session=session||null;
+      liveRuntime.status='guest';
+      client.auth.onAuthStateChange((event,next)=>{
+        if(['SIGNED_IN','USER_UPDATED'].includes(event)&&
+          next?.user?.is_anonymous===false&&next.user.email_confirmed_at){
+          location.reload();
+        }
       });
-      if(response.error)throw response.error;
-      session=response.data.session;
+      render();
+      return true;
     }
-    if(!session?.access_token)throw new Error('Sessão anônima não foi criada');
-
     liveRuntime.session=session;
     liveRuntime.status='ready';
     client.auth.onAuthStateChange((_event,next)=>{
@@ -865,6 +865,11 @@ function liveIdempotency(prefix){
 
 async function liveCreateOrder(quoteId){
   if(liveRuntime.actionPending)return;
+  if(!tamaoAccountProfileReady()){
+    toast('Antes de comprar, confirme seu nome, telefone e e-mail.');
+    document.getElementById('tamao-checkout-identity')?.scrollIntoView?.({behavior:'smooth',block:'start'});
+    return;
+  }
   // A previous tracked order is not proof that this checkout succeeded.
   const trackedOrderBeforeCheckout=String(liveRuntime.orderId||'');
   let confirmedOrderId=null;
@@ -1199,22 +1204,55 @@ async function liveSyncFinancialProfile({force=false}={}){
   }
 }
 
-async function liveUpgradeAccount(email){
-  if(!liveReady())throw new Error('Modo live não está pronto');
+function tamaoAccountProfileReady(){
+  const user=liveRuntime?.session?.user;
+  const name=String(user?.user_metadata?.full_name||'').trim().replace(/\s+/g,' ');
+  const phone=String(user?.user_metadata?.phone||'').replace(/\D/g,'');
+  return liveReady()&&user?.is_anonymous!==true&&Boolean(user?.email)&&
+    Boolean(user.email_confirmed_at)&&name.length>=5&&name.length<=100&&
+    name.split(' ').length>=2&&/^[0-9]{10,11}$/.test(phone);
+}
+async function liveUpgradeAccount(email,{fullName='',phone=''}={}){
+  if(!liveRuntime?.client?.auth||!customerOriginSafe())
+    throw new Error('Cadastro indisponível no endereço atual.');
   const value=String(email||'').trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
+  const name=String(fullName||'').trim().replace(/\s+/g,' ');
+  const digits=String(phone||'').replace(/\D/g,'');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe e-mail válido.');
+  if(name.length<5||name.length>100||name.split(' ').length<2||
+     !/^[\p{L}][\p{L} .'-]{3,99}$/u.test(name))
+     throw new Error('Informe nome e sobrenome.');
+  if(!/^[0-9]{10,11}$/.test(digits))
+    throw new Error('Informe telefone com DDD.');
+  const profile={full_name:name,phone:digits};
   const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
-  if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
-  if(session.user.email_confirmed_at){
-    state.user.cashEarningEligible=true;
-    state.user.identityType='permanent';
-    save();
-    return {alreadyPermanent:true};
+  if(sessionError)throw sessionError;
+  if(session?.user){
+    if(session.user.email_confirmed_at){
+      if(session.user.email?.toLowerCase()!==value)throw Error('Entre na conta deste e-mail.');
+      const {error}=await liveRuntime.client.auth.updateUser({data:profile});
+      if(error)throw error;
+      state.user.cashEarningEligible=true;
+      state.user.identityType='permanent';
+      save();
+      return {alreadyPermanent:true,profileUpdated:true};
+    }
+    const {data,error}=await liveRuntime.client.auth.updateUser({email:value,data:profile});
+    if(error)throw error;
+    liveRuntime.identityUpgradePending=value;
+    return {pending:true,email:value,user:data?.user||null};
   }
-  const {data,error}=await liveRuntime.client.auth.updateUser({email:value});
+  if(!globalThis.chamaTurnstile?.challenge)throw Error('Proteção anti-bot indisponível.');
+  const captchaToken=await globalThis.chamaTurnstile.challenge('customer_login');
+  if(!captchaToken)throw Error('Verificação de segurança indisponível.');
+  const redirect=new URL('/',location.origin);
+  redirect.searchParams.set('entrada','clube');
+  const {error}=await liveRuntime.client.auth.signInWithOtp({
+    email:value,options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true,
+      captchaToken,data:profile}
+  });
   if(error)throw error;
-  liveRuntime.identityUpgradePending=value;
-  return {pending:true,email:value,user:data?.user??null};
+  return {pending:true,email:value};
 }
 
 async function liveSyncMarketStatus({force=false}={}){
