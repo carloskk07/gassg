@@ -1,3 +1,4 @@
+import {TAMAO_CLOUDFLARE_NATIVE_ROUTES} from './cloudflare-native-routes-v1-1073.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import os from 'node:os';
@@ -585,7 +586,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     if(role==='customer')writeDiscoveryLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),
-      role==='customer'?'/p/* /p/index.html 200\n/convite/* /convite/index.html 200\n/agenda/exemplo/* /agenda/exemplo/index.html 200\n/agenda/* /agenda/index.html 200\n/* /index.html 200\n':'/* /index.html 200\n','utf8');
+      role==='customer'?TAMAO_CLOUDFLARE_NATIVE_ROUTES:'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,
       portalRole:role,

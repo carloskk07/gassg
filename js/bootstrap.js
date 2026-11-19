@@ -261,6 +261,7 @@ function render(){
       if(menu)menu.open=true;
     }
     tamaoLastPublicRenderRoute=r;
+    if(r==='home'&&typeof homeRestoreProductFilter==='function')homeRestoreProductFilter();
     updatePublicPageIdentity(r);
     queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
     queueMicrotask(()=>globalThis.discoveryAfterRender?.());

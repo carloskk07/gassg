@@ -15,7 +15,8 @@ assert.doesNotMatch(index,/href="\.\/css\/network-pages\.css"/,'Editor CSS must 
 assert.match(growth,/new URL\('\/css\/network-pages\.css'/);
 assert.match(growth,/new URL\('\/js\/network-pages-editor\.js'/);
 assert.match(live,/copyDir\(path\.join\(ROOT,'convite'\),path\.join\(target,'convite'\)\)/);
-assert.match(live,/\/convite\/\* \/convite\/index\.html 200/);
+assert.match(live,/TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
+assert.match(read('scripts/cloudflare-native-routes-v1-1073.mjs'),/\/convite\/:slug\/ \/convite\/index\.html 200/);
 assert.match(publicBuild,/fs\.cpSync\(path\.join\(root,'convite'\)/);
 assert.match(core,/new URLSearchParams\(location\.search\)\.get\('ref'\)/);
 assert.match(html,/<meta name="robots" content="noindex,follow/);
