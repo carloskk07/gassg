@@ -88,7 +88,7 @@ assert.match(merchant,/tamaoParticipantNativePanel\('merchant',merchantId\)/);
 assert.match(discoveryOwner,/tamaoParticipantNativePanel\('listing',id\)/);
 assert.match(build,/copyDir\(path\.join\(ROOT,'p'\),path\.join\(target,'p'\)\)/);
 assert.match(build,/TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
-assert.match(read('scripts/cloudflare-native-routes-v1-1073.mjs'),/\/p\/:slug\/ \/p\/index\.html 200/);
+assert.match(read('scripts/cloudflare-native-routes-v1-1073.mjs'),/\/p\/:slug\/ \/p\/\?slug=:slug 302/);
 assert.match(staticBuild,/fs\.cpSync\(path\.join\(root,'p'\)/);
 assert.match(sw,/\/p\(\?:\\\/\|\$\)/);
 assert.match(html,/id="main-action"/);
