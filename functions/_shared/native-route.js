@@ -17,7 +17,8 @@ export async function nativePageRoute(context,kind){
   if(segments.length!==2||segments[0]!==kind)return next();
   const slug=segments[1];
   const max=kind==='agenda'?60:80;
-  if(slug.length<4||slug.length>max||!ALLOWED_SLUG.test(slug))return next();
+  if(slug.length<4||slug.length>max||!ALLOWED_SLUG.test(slug)||
+    (kind==='agenda'&&slug==='exemplo'))return next();
   if(!env?.ASSETS?.fetch){
     return new Response('Serviço temporariamente indisponível.',{
       status:503,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}
@@ -25,8 +26,7 @@ export async function nativePageRoute(context,kind){
   }
   // Static directory root, not /index.html: Pages canonicalizes index.html
   // to / and would otherwise return a 301 instead of the HTML shell.
-  const isPremiumExample=kind==='agenda'&&slug==='exemplo';
-  const assetUrl=new URL(isPremiumExample?'/agenda/exemplo/':'/'+kind+'/',url);
+  const assetUrl=new URL('/'+kind+'/',url);
   const staticPage=await env.ASSETS.fetch(assetUrl.toString());
   if(!staticPage.ok||!String(staticPage.headers.get('Content-Type')||'').toLowerCase().includes('text/html')){
     return new Response('Página temporariamente indisponível.',{
@@ -36,10 +36,7 @@ export async function nativePageRoute(context,kind){
   const headers=new Headers(staticPage.headers);
   headers.set('Content-Type','text/html; charset=utf-8');
   headers.set('Cache-Control','no-store');
-  headers.set('Content-Security-Policy',isPremiumExample
-    ?CSP.replace("img-src 'self' data: blob: https://lgugwujpunhslavewffd.supabase.co;",
-      "img-src 'self' data: blob: https://lgugwujpunhslavewffd.supabase.co https://images.unsplash.com;")
-    :CSP);
+  headers.set('Content-Security-Policy',CSP);
   headers.set('X-Content-Type-Options','nosniff');
   headers.set('X-Frame-Options','DENY');
   headers.set('Referrer-Policy','strict-origin-when-cross-origin');
