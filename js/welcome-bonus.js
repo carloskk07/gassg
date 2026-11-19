@@ -217,24 +217,8 @@ async function tamaoWelcomeRegister(event){
 }
 Object.assign(globalThis,{tamaoWelcomeShowSignup,tamaoWelcomeRegister});
 
-// The signup is on the order page even when welcome campaigns are inactive.
-// Never ask for a delivery address merely to create an account.
 function tamaoAccountGateMarkup(){
-  if(globalThis.__CHAMA_TEST__===true||globalThis.tamaoAccountProfileReady?.())return '';
-  return '<aside id="tamao-checkout-identity" class="card flat" aria-label="Cadastro para comprar" '+
-    'style="padding:20px;margin-bottom:18px;border:1px solid #b9dfc5;border-radius:18px;background:#f3faf4">'+
-    '<strong style="display:block;font-size:18px">Crie sua conta para pedir com segurança.</strong>'+
-    '<p>Informe nome, telefone e e-mail. O endereço da entrega é confirmado somente ao fazer um pedido.</p>'+
-    '<form class="form-stack tamao-welcome-signup" onsubmit="return tamaoWelcomeRegister(event)">'+
-      '<label for="tamao-order-name">Nome e sobrenome</label>'+
-      '<input id="tamao-order-name" name="full_name" class="input" required maxlength="100" autocomplete="name" placeholder="Seu nome completo">'+
-      '<label for="tamao-order-phone">Telefone com DDD</label>'+
-      '<input id="tamao-order-phone" name="phone" type="tel" class="input" required maxlength="18" autocomplete="tel" inputmode="tel" placeholder="(55) 99999-9999">'+
-      '<label for="tamao-order-email">E-mail</label>'+
-      '<input id="tamao-order-email" name="email" type="email" class="input" required maxlength="160" autocomplete="email" placeholder="voce@email.com">'+
-      '<button type="submit" class="primary">Confirmar meus dados</button>'+
-      '<p data-welcome-signup-status role="status"></p>'+
-      '<small>Já tem conta? Entre pelo Clube TAMÃO, usando seu e-mail.</small>'+
-    '</form></aside>';
+  return globalThis.__CHAMA_TEST__===true||globalThis.tamaoAccountProfileReady?.()
+    ?'':(document.getElementById('tamao-checkout-identity-template')?.innerHTML||'');
 }
 globalThis.tamaoAccountGateMarkup=tamaoAccountGateMarkup;

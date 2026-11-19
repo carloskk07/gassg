@@ -33,7 +33,7 @@ async function scenario({result=null,previousId='old-previous-order',activeAfter
     user:{referredBy:''}
   };
   const context=vm.createContext({
-    liveRuntime:runtime,state,
+    liveRuntime:runtime,state,tamaoAccountProfileReady:()=>true,
     location:{search:''},URLSearchParams,Date,Number,String,Math,
     CHAMA_BACKEND:{orderStorageKey:'test-order-id'},
     liveIdempotency:()=> 'create-order:test-key',

@@ -273,6 +273,22 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
   </div>
  </section>
   </template>
+  <template id="tamao-checkout-identity-template">
+<aside id="tamao-checkout-identity" class="card flat" aria-label="Cadastro para comprar" style="padding:20px;margin-bottom:18px;border:1px solid #b9dfc5;border-radius:18px;background:#f3faf4">
+<strong style="display:block;font-size:18px">Crie sua conta para pedir com segurança.</strong>
+<p>Informe nome, telefone e e-mail. O endereço da entrega é confirmado somente quando você fizer o pedido.</p>
+<form class="form-stack tamao-welcome-signup" onsubmit="return tamaoWelcomeRegister(event)">
+<label for="tamao-order-name">Nome e sobrenome</label>
+<input id="tamao-order-name" name="full_name" class="input" required maxlength="100" autocomplete="name" placeholder="Seu nome completo">
+<label for="tamao-order-phone">Telefone com DDD</label>
+<input id="tamao-order-phone" name="phone" type="tel" class="input" required maxlength="18" autocomplete="tel" inputmode="tel" placeholder="(55) 99999-9999">
+<label for="tamao-order-email">E-mail</label>
+<input id="tamao-order-email" name="email" type="email" class="input" required maxlength="160" autocomplete="email" placeholder="voce@email.com">
+<button type="submit" class="primary">Confirmar meus dados</button>
+<p data-welcome-signup-status role="status"></p>
+<small>Já tem conta? Entre pelo Clube TAMÃO usando seu e-mail.</small>
+</form></aside>
+</template>
   <template id="tamao-home-strip-template">
 <div class="tamao-storefront-benefit-strip"><div><strong>Mais motivos para fazer parte do TAMÃO</strong><span>Clube, cashback, indicações, serviços e oportunidades para negócios.</span></div><a href="#tamao-all-benefits">Conhecer todas as vantagens ↓</a></div></div>
   </template>
