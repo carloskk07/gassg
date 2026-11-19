@@ -42,7 +42,7 @@ const deepLinks=[
  ['/p/cliente-0123456789ab/?ref=ABCDE1','p','/p/'],
  ['/agenda/barbearia-do-joao/','agenda','/agenda/'],
  ['/agenda/barbearia-do-joao','agenda','/agenda/'],
- ['/agenda/exemplo/','agenda','/agenda/exemplo/']
+
 ];
 for(const [path,kind,target] of deepLinks){
  const before=events.length;
@@ -62,7 +62,7 @@ const before=events.length;
 for(const [path,kind,method] of [
  ['/p/index.html','p'],['/p/page.js','p'],['/p/style.css','p'],
  ['/p/','p'],['/p/abc/','p'],['/p/a%2Fb/','p'],
- ['/agenda/index.html','agenda'],
+ ['/agenda/index.html','agenda'],['/agenda/exemplo/','agenda'],['/agenda/exemplo','agenda'],
  ['/agenda/agenda.js','agenda'],
  ['/p/revenda-0123456789ab/','p','POST'],
  ['/agenda/joao-0123456789ab/','agenda','POST']
@@ -82,9 +82,9 @@ assert.equal(JSON.parse(tamaoPagesFunctionsRouting('customer')).version,1);
 assert.deepEqual(TAMAO_PAGES_FUNCTIONS_CUSTOMER.include,['/p/*','/agenda/*']);
 assert.ok(TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/p/page.js'));
 assert.ok(TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/p/style.css'));
-assert.ok(!TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/agenda/exemplo/*'));
-assert.ok(TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/agenda/exemplo/page.js'));
-assert.ok(TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/agenda/exemplo/style.css'));
+assert.ok(TAMAO_PAGES_FUNCTIONS_CUSTOMER.exclude.includes('/agenda/exemplo/*'));
+assert.ok(!TAMAO_PAGES_FUNCTIONS_CUSTOMER.include.includes('/*'));
+
 assert.ok(!TAMAO_PAGES_FUNCTIONS_CUSTOMER.include.includes('/*'),'No homepage or financial operation may pay a Function invocation');
 assert.ok(!TAMAO_PAGES_FUNCTIONS_OTHER.include.includes('/p/*'));
 assert.match(build,/fs\.writeFileSync\(path\.join\(target,'_routes\.json'\),tamaoPagesFunctionsRouting\(role\)/);
