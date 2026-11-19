@@ -135,7 +135,7 @@ async function sourceFor(kind:string,subject:string,actor:string|null,publishing
    Date.parse(String(c.run_ends_at||""))>now&&
    Boolean(safeAdvertiserURL(c.destination_url));
   if(publishing&&!canPublish)throw new PageError("NOT_PUBLISHED",409);
-  return {title:clean(c.title,80),kind,subjectId:subject,
+  return {title:clean(c.advertiser_name,120),kind,subjectId:subject,
    ownerId:c.owner_user_id,canPublish,advertiser:c};
  }
  if(kind==="listing"){
@@ -200,6 +200,10 @@ async function view(slug:string){
  if(!page)throw new PageError("NOT_FOUND",404);
  const source=await sourceFor(page.kind,page.subject_id,null,true);
  if(!source.canPublish)throw new PageError("NOT_FOUND",404);
+ // A changed owner must not inherit the previous owner's first-touch code.
+ // Merchant managers are checked independently in refFor().
+ if(!["merchant","customer"].includes(page.kind)&&source.ownerId!==page.owner_id)
+  throw new PageError("NOT_FOUND",404);
  const code=await refFor(page.kind,page.subject_id,page.owner_id);
  // A published link must never silently lose its verified first-touch identity
  // when the original manager's privileges or referral eligibility changes.
@@ -240,6 +244,7 @@ async function view(slug:string){
   const c=source.advertiser;
   if(!c||!safeAdvertiserURL(c.destination_url))throw new PageError("NOT_FOUND",404);
   base.name=clean(c.advertiser_name,120);
+  if(!clean(page.headline,110))base.headline=clean(c.title,80);
   base.city=clean(c.city,100);base.state=clean(c.state,2);
   base.details=clean(c.description,240);
   base.campaignId=page.subject_id;
