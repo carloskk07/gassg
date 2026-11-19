@@ -49,9 +49,13 @@ assert.match(runtime,/Explorar página exemplo/);
 assert.match(runtime,/agendaStartOwner\(\)/);
 const nativeRoutes=read('scripts/cloudflare-native-routes-v1-1073.mjs');
 assert.match(build,/TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
-assert.match(nativeRoutes,/\/agenda\/exemplo\/ \/agenda\/exemplo\/index\.html 200/);
-assert.ok(nativeRoutes.indexOf('/agenda/exemplo/')<
-          nativeRoutes.indexOf('/agenda/:slug/'),'Specific premium example must take priority over professional slug router');
+const routeFunction=read('functions/_shared/native-route.js');
+assert.match(routeFunction,/kind==='agenda'&&slug==='exemplo'/);
+const functionsRoutes=read('scripts/cloudflare-functions-routes-v1-1074.mjs');
+assert.match(functionsRoutes,/\/agenda\/exemplo\/\*/,'Premium illustrative page must remain static');
+assert.doesNotMatch(nativeRoutes,/\/agenda\/exemplo\/ \/agenda\/exemplo\/index\.html 200/,
+ 'No Cloudflare cyclic rewrite may obscure the premium example');
+assert.doesNotMatch(nativeRoutes,/\/agenda\/:slug\/ /,'Native Cloudflare Function handles professionals, no redirect may shadow the premium sample');
 assert.match(build,/copyDir\(path\.join\(ROOT,'agenda'\),path\.join\(target,'agenda'\)\)/);
 assert.match(workflow,/node tests\/agenda-premium-example-v1-1068\.mjs/);
 

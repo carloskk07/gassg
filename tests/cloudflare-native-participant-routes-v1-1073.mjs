@@ -9,7 +9,7 @@ const rules=redirects.trim().split(/\r?\n/).map(x=>{
  assert.ok(m,'Malformed Cloudflare rule '+x);
  return {from:m[1],to:m[2],status:Number(m[3])};
 });
-assert.ok(rules.length>=6);
+assert.ok(rules.length>=4,'Only the four verified static/fallback rules remain; Agenda professionals use Cloudflare Functions');
 assert.ok(!rules.some(x=>x.from==='/*'),'SPA fallback must not shadow participant links');
 function match(route,template){
  const keys=[];
@@ -32,8 +32,8 @@ function dispatch(url){
 for(const [input,expected] of [
  ['/p/minha-revenda-123/','/p/?slug=minha-revenda-123'],
  ['/p/meu-perfil-de-cliente-4/?ref=ABCDE1','/p/?slug=meu-perfil-de-cliente-4'],
- ['/agenda/profissional-x/','/agenda/?profissional=profissional-x'],
- ['/agenda/exemplo/','/agenda/exemplo/index.html'],
+ ['/agenda/profissional-x/','/agenda/profissional-x/'],
+ ['/agenda/exemplo/','/agenda/exemplo/'],
  ['/convite/codigo/','/convite/?a=customer'],
  ['/p/page.js','/p/page.js'],
  ['/p/style.css','/p/style.css'],
@@ -46,8 +46,10 @@ for(const [input,expected] of [
 }
 assert.equal(dispatch('/p/revenda-123/?ref=ABCDE1').query,'?ref=ABCDE1');
 assert.equal(dispatch('/p/revenda-123/').status,302);
-assert.equal(dispatch('/agenda/outro-profissional/').status,302);
-assert.equal(dispatch('/agenda/exemplo/').status,200);
+assert.equal(dispatch('/agenda/outro-profissional/').status,200,'Actual Agenda function serves slug without redirect');
+assert.equal(dispatch('/agenda/exemplo/').status,200,'Illustrative sample stays a static page');
+assert.ok(!redirects.includes('/agenda/exemplo/ /agenda/exemplo/index.html 200'));
+
 assert.equal(dispatch('/agenda/exemplo').status,301);
 const liveBuild=fs.readFileSync(new URL('../scripts/build-live-portals.mjs',import.meta.url),'utf8');
 const publicBuild=fs.readFileSync(new URL('../scripts/build-public-site.mjs',import.meta.url),'utf8');

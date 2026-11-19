@@ -227,6 +227,18 @@ for(const {role,path:dir} of built){
   }
   assert.ok(fs.existsSync(path.join(dir,'_headers')));
   assert.ok(fs.existsSync(path.join(dir,'_redirects')));
+  assert.ok(fs.existsSync(path.join(dir,'_routes.json')),'Pages Functions deployment allowlist missing');
+  const pageRoutes=JSON.parse(fs.readFileSync(path.join(dir,'_routes.json'),'utf8'));
+  assert.equal(pageRoutes.version,1,'Pages Functions route format');
+  if(role==='customer'){
+    assert.deepEqual(pageRoutes.include,['/p/*','/agenda/*']);
+    assert.ok(pageRoutes.exclude.includes('/p/page.js'));
+    assert.ok(pageRoutes.exclude.includes('/agenda/exemplo/*'));
+    assert.ok(!pageRoutes.include.includes('/*'),'Never bill marketplace startup for native Pages Functions');
+  }else{
+    assert.ok(!pageRoutes.include.includes('/p/*'));
+    assert.ok(!pageRoutes.include.includes('/agenda/*'));
+  }
   const cloudflareRoutes=fs.readFileSync(path.join(dir,'_redirects'),'utf8');
   assert.equal(cloudflareRoutes,role==='customer'?TAMAO_CLOUDFLARE_NATIVE_ROUTES:'/* /index.html 200\n',
    'Official Cloudflare portal did not emit verified deep-link rules: '+role);
