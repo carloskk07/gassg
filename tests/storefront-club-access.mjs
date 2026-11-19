@@ -24,6 +24,9 @@ const ctx=vm.createContext({
 });
 vm.runInContext(welcome+'\n'+deferred+
  '\nthis.api={login:tamaoClubSendAccess,submit:tamaoRegisterForm};',ctx);
+// Rebind only the registration transport; browser script declares its own
+// liveUpgradeAccount function, so a stub passed before evaluation is shadowed.
+ctx.liveUpgradeAccount=async (email,profile)=>{upgrades.push({email,profile});return {pending:true};};
 const {login,submit}=ctx.api;
 await assert.rejects(login('invalid'),/INVALID_EMAIL/);
 safe=false;
