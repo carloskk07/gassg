@@ -1218,7 +1218,7 @@ function tamaoAccountProfileReady(){
     name.split(' ').length>=2&&/^[0-9]{10,11}$/.test(phone);
 }
 let tamaoRegistrationLoader=null;
-async function liveUpgradeAccount(email,profile={}){
+async function tamaoLoadCustomerRegistration(){
   if(!tamaoRegistrationLoader){
     tamaoRegistrationLoader=new Promise((resolve,reject)=>{
       const script=document.createElement('script');
@@ -1233,6 +1233,10 @@ async function liveUpgradeAccount(email,profile={}){
     }).catch(error=>{tamaoRegistrationLoader=null;throw error;});
   }
   await tamaoRegistrationLoader;
+  return true;
+}
+async function liveUpgradeAccount(email,profile={}){
+  await tamaoLoadCustomerRegistration();
   return globalThis.tamaoRegisterIdentifiedAccount(email,profile);
 }
 

@@ -8,7 +8,7 @@ assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/,'Site must not mint
 assert.match(backend,/liveRuntime.status='guest'/);
 assert.match(backend,/function tamaoAccountProfileReady\(/);
 assert.match(read('js/customer-registration-deferred.js'),/signInWithOtp\(\{/);
-assert.match(signup,/liveUpgradeAccount\(email,\{fullName,phone\}\)/);
+assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone\}\)/);
 assert.match(signup,/function tamaoAccountGateMarkup\(/);
 assert.match(read('js/customer-registration-deferred.js'),/tamaoRegisterIdentifiedAccount/);
 assert.match(home,/id="tamao-welcome-name"/);
