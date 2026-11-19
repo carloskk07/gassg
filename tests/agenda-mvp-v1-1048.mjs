@@ -52,9 +52,13 @@ assert.doesNotMatch(standaloneBoot,/history\.replaceState\(null,'',location\.pat
 const builderSource=readFileSync('scripts/build-live-portals.mjs','utf8');
 const nativeRoutes=readFileSync('scripts/cloudflare-native-routes-v1-1073.mjs','utf8');
 assert.match(builderSource,/role==='customer'\?TAMAO_CLOUDFLARE_NATIVE_ROUTES/);
-assert.match(nativeRoutes,/\/agenda\/:slug\/ \/agenda\/\?profissional=:slug 302/);
-assert.ok(nativeRoutes.indexOf('/agenda/exemplo/')<
- nativeRoutes.indexOf('/agenda/:slug/'),'Agenda example must take priority over personal slugs');
+assert.doesNotMatch(nativeRoutes,/\/agenda\/:slug\/ \/agenda\/\?profissional=:slug 302/,
+ 'Only Cloudflare Pages Functions may serve real Agenda deep links');
+const nativeHandler=readFileSync('functions/agenda/[slug].js','utf8');
+assert.match(nativeHandler,/nativePageRoute\(context,'agenda'\)/);
+const functionRoutes=readFileSync('scripts/cloudflare-functions-routes-v1-1074.mjs','utf8');
+assert.match(functionRoutes,/include:\['\/p\/\*','\/agenda\/\*'\]/);
+assert.match(functionRoutes,/\/agenda\/exemplo\/\*/,'Illustrative premium example stays static');
 assert.doesNotMatch(nativeRoutes,/\/\* \/index\.html 200/,'Generic SPA fallback must never override Agenda pages');
 
 assert.match(vm.runInContext('agendaPage()',ctx),/TAMÃO AGENDA/);
