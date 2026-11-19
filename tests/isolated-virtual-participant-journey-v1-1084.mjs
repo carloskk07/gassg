@@ -75,8 +75,8 @@ async function actor(role){
  return user;
 }
 const post=(slug,body,token)=>request('/functions/v1/'+slug,{body,token});
-const rest=(resource,{method='GET',body,token=null,prefer=null}={})=>request(
- '/rest/v1/'+resource,{method,body,token,
+const rest=(resource,{method,body,token=null,prefer=null}={})=>request(
+ '/rest/v1/'+resource,{method:method||(body!==undefined?'POST':'GET'),body,token,
  headers:prefer?{Prefer:prefer}:{}});
 const oneRow=async (result,label)=>{
  assert.ok(result.status>=200&&result.status<300,
