@@ -7,8 +7,10 @@ assert.equal(origin,'https://tamao.com.br');
 const paths=[
  {path:'/p/',expected:'participant'},
  {path:'/p/sem-cadastro-de-teste-1074/',expected:'participant'},
+ {path:'/p/sem-cadastro-de-teste-1074/?ref=ABCDE1',expected:'participant',expectedRef:'ABCDE1'},
  {path:'/agenda/',expected:'agenda'},
  {path:'/agenda/profissional-inexistente-1074/',expected:'agenda'},
+ {path:'/agenda/profissional-inexistente-1074/?ref=ABCDE1',expected:'agenda',expectedRef:'ABCDE1'},
  {path:'/convite/',expected:'convite'},
  {path:'/convite/link-de-teste-1074/',expected:'convite'}
 ];
@@ -33,6 +35,8 @@ for(const sample of paths){
   continue;
  }
  rows.push({path:sample.path,status,finalUrl,contentType,
+  expectedRef:sample.expectedRef||'',
+  finalRef:new URL(finalUrl).searchParams.get('ref')||'',
   expected:sample.expected,
   signatureMatches:signatures[sample.expected].test(text),
   rootStorefront:/Pediu\? Tá na mão|id="tamao-initial-splash"|Carregando preços, serviços/i.test(text),
@@ -44,5 +48,7 @@ if(process.env.TAMAO_REQUIRE_DEEP_LINKS==='1'){
   assert.equal(entry.status,200,'HTTP status '+entry.path);
   assert.equal(entry.signatureMatches,true,'Correct app HTML must be served at '+entry.path);
   assert.equal(entry.rootStorefront,false,'Root storefront wrongly served at '+entry.path);
+  if(entry.expectedRef)assert.equal(entry.finalRef,entry.expectedRef,
+    'Native share/booking link lost original first-touch referral parameter at '+entry.path);
  }
 }
