@@ -39,6 +39,8 @@ jobs:
         run: node tests/participant-native-premium-design-v1-1081.mjs
       - name: V1.1081 premium owner editor live behavior and session-race regression
         run: node tests/participant-native-premium-owner-runtime-v1-1081.mjs
+      - name: V1.1082 published participant social previews and safe WhatsApp sharing
+        run: node tests/participant-social-preview-v1-1082.mjs
       - name: V1.1075 premium product photos and approved professional cover
         run: node tests/participant-native-premium-media-v1-1075.mjs
       - name: V1.1073 Cloudflare native participant deep links and asset safety
