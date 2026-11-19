@@ -11,17 +11,17 @@
 })();
 const tamaoNativePagesCache=new Map();
 const TAMAO_NATIVE_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function tamaoNativePageKind(kind){return ['merchant','listing','agenda','customer'].includes(kind)?kind:'';}
+function tamaoNativePageKind(kind){return ['merchant','listing','agenda','customer','driver','advertiser'].includes(kind)?kind:'';}
 function tamaoNativePageKey(kind,id){return kind+':'+(kind==='customer'?'self':id);}
 function tamaoNativePageSessionId(kind){
  const session=kind==='merchant'?globalThis.merchantRuntime?.session:
-  kind==='listing'?{user:globalThis.discoveryOwner?.user}:
+  ['listing','driver'].includes(kind)?{user:globalThis.discoveryOwner?.user}:
   kind==='agenda'?{user:globalThis.agendaRuntime?.user}:globalThis.liveRuntime?.session;
  return String(session?.user?.id||'');
 }
 function tamaoNativePageClient(kind){
  return kind==='merchant'?globalThis.merchantRuntime?.client:
-  kind==='listing'?globalThis.discoveryOwner?.client:
+  ['listing','driver'].includes(kind)?globalThis.discoveryOwner?.client:
   kind==='agenda'?globalThis.agendaRuntime?.client:globalThis.liveRuntime?.client;
 }
 async function tamaoNativePageAuthenticated(kind){
@@ -92,7 +92,8 @@ function tamaoNativePagePanel(kind,subjectId=''){
  const id='tamao-native-page-'+kind+'-'+(kind==='customer'?'self':subjectId),p={...(cache.page||{}),...(cache.draft||{})};
  const url=tamaoNativePagePublicLink(kind,subjectId);
  const nice={merchant:'Minha página da revenda',customer:'Minha página de indicações',
-  listing:'Minha página de serviços',agenda:'Minha página profissional'}[kind];
+  listing:'Minha página de serviços',agenda:'Minha página profissional',
+  driver:'Minha página de motorista',advertiser:'Minha página do anunciante'}[kind];
  const escape=x=>esc(String(x||''));
  return '<section class="card flat tamao-native-page-panel" id="'+id+'" aria-label="'+nice+'">'+
   '<div class="tamao-native-page-heading"><span class="section-kicker">MINHA IDENTIDADE NO TAMÃO</span>'+
@@ -100,6 +101,8 @@ function tamaoNativePagePanel(kind,subjectId=''){
   (kind==='merchant'?'Clientes podem conhecer seus produtos e comprar diretamente da sua revenda, se houver atendimento habilitado.':
    kind==='listing'?'Clientes podem conhecer o anúncio e entrar em contato pelo caminho oficial.':
    kind==='agenda'?'Clientes podem conhecer você e agendar pela sua Agenda.':
+   kind==='driver'?'Divulgue seu serviço de moto ou carro e receba solicitações pela área oficial.':
+   kind==='advertiser'?'Apresente sua empresa e o endereço aprovado da campanha, sem cobrar nada por esta página.':
    'Compartilhe seu espaço para apresentar o TAMÃO com seu código de indicação.')+
   '</p></div>'+
   '<div class="tamao-native-page-form">'+
