@@ -40,7 +40,7 @@ async function createActor(kind){
  const res=await fetch(base+'/auth/v1/admin/users',{
   method:'POST',headers:adminHeaders,
   body:JSON.stringify({email,password,email_confirm:true,
-    user_metadata:kind==='buyer'?{full_name:'Cliente Verificado CI',phone:'11999999999'}:{}}),
+    user_metadata:{full_name:'Cliente Verificado CI',phone:'11999999999'}}),
   signal:AbortSignal.timeout(30000)
  });
  assert.ok([200,201].includes(res.status),'local Auth create user HTTP '+res.status);
