@@ -265,7 +265,7 @@ async function view(slug:string){
    const carro=!moto&&/(motorista|t[aá]xi|taxista)/i.test(occupation);
    if((source.driverMode==="moto"&&!moto)||(source.driverMode==="carro"&&!carro))
     throw new PageError("NOT_FOUND",404);
-   base.driverMode=source.driverMode;
+   base.driverMode=source.driverMode||"";
   }
   base.listingId=page.subject_id;base.vertical=source.vertical;
   base.name=clean(listing.title,120)||source.title;
