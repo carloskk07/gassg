@@ -194,8 +194,53 @@ try{
  rows.push({kind:'advertiser',external:adResult.href,scroll:adResult.scroll});
  await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:advertiserScript.identifier});
 
+ // V1.1081: real public page respects curated styling and section visibility.
+ // Fixture is local to Chromium, with no production registration or payment.
+ const customized={...profile,slug:'profissional-ocean-1081',theme:'ocean',layout:'editorial',
+  headline:'Profissional personalizado',showGallery:false,showAbout:false,showDiscover:false};
+ const customScript=await send('Page.addScriptToEvaluateOnNewDocument',{source:injectFixture(customized)});
+ await send('Emulation.setDeviceMetricsOverride',{width:320,height:900,screenWidth:320,screenHeight:900,deviceScaleFactor:1,mobile:true});
+ await send('Page.navigate',{url:base+'/p/index.html'});
+ let customReady=false;for(let i=0;i<55;i++){
+  customReady=await evaluate("document.querySelector('#content')?.hidden===false&&document.querySelector('#main-action')?.href.includes('listing=')");
+  if(customReady)break;await wait(140);
+ }
+ assert.equal(customReady,true,'Premium editorial must render on 320px phone');
+ const customResult=await evaluate("(()=>({theme:document.body.className,layout:document.body.dataset.layout,scroll:document.documentElement.scrollWidth,photosHidden:document.querySelector('#photos').hidden,hero:document.querySelector('.visual-photo')?.src,aboutHidden:document.querySelector('#about').hidden,discoverHidden:document.querySelector('#next').hidden,href:document.querySelector('#main-action').href}))()");
+ assert.equal(customResult.theme,'theme-ocean');
+ assert.equal(customResult.layout,'editorial');
+ assert.equal(customResult.photosHidden,true);
+ assert.equal(customResult.aboutHidden,true);
+ assert.equal(customResult.discoverHidden,true);
+ assert.ok(customResult.hero?.endsWith(key),'Hidden gallery must not remove approved cover');
+ assert.equal(new URL(customResult.href).searchParams.get('ref'),ref);
+ assert.equal(new URL(customResult.href).searchParams.get('listing'),listingId);
+ assert.ok(customResult.scroll<=322,'Editorial design cannot overflow 320px');
+ rows.push({kind:'premium-editorial',scroll:customResult.scroll,theme:customResult.theme});
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:customScript.identifier});
+
+ const merchantPremium={...fixture,slug:'revenda-sunset-1081',theme:'sunset',layout:'centered',showCatalog:false,showDiscover:false};
+ const merchantPremiumScript=await send('Page.addScriptToEvaluateOnNewDocument',{source:injectFixture(merchantPremium)});
+ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,screenWidth:1280,screenHeight:900,deviceScaleFactor:1,mobile:false});
+ await send('Page.navigate',{url:base+'/p/index.html'});
+ let premiumMerchantReady=false;for(let i=0;i<55;i++){
+  premiumMerchantReady=await evaluate("document.querySelector('#content')?.hidden===false&&document.querySelector('#main-action')?.href.includes('seller=')");
+  if(premiumMerchantReady)break;await wait(140);
+ }
+ assert.equal(premiumMerchantReady,true,'Premium centered merchant must render');
+ const merchantResult=await evaluate("(()=>({theme:document.body.className,layout:document.body.dataset.layout,scroll:document.documentElement.scrollWidth,catalogHidden:document.querySelector('#catalog').hidden,products:document.querySelectorAll('#cover-products .product-visual').length,href:document.querySelector('#main-action').href}))()");
+ assert.equal(merchantResult.theme,'theme-sunset');
+ assert.equal(merchantResult.layout,'centered');
+ assert.equal(merchantResult.catalogHidden,true);
+ assert.equal(merchantResult.products,2,'Optional catalog must not remove actual catalog visual');
+ assert.equal(new URL(merchantResult.href).searchParams.get('seller'),shopId,'Exact revenda remains bound');
+ assert.equal(new URL(merchantResult.href).searchParams.get('ref'),ref,'Referral is preserved');
+ assert.ok(merchantResult.scroll<=1282);
+ rows.push({kind:'premium-merchant',scroll:merchantResult.scroll,theme:merchantResult.theme});
+ await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:merchantPremiumScript.identifier});
+
 }finally{
  fs.writeFileSync(path.join(outDir,'participant-native-browser-v1-1072.json'),JSON.stringify(rows,null,2)+'\n');
  ws.close();await fetch(cdp+'/json/close/'+tab.id).catch(()=>{});
 }
-console.log('V1.1080 PASS — merchant, professional, Agenda, driver and independent advertiser native pages in Chromium.');
+console.log('V1.1081 PASS — all native participant page routes, premium style and section choices in Chromium.');

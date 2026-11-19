@@ -25,6 +25,7 @@ for(const label of ['Minha página da revenda','Minha página profissional','Min
 for(const kind of ['clean','gold','rose','ocean','sunset','midnight']){assert.ok(owner.includes("['"+kind+"'"),kind);assert.ok(page.includes('"'+kind+'"'),kind);assert.ok(pageCss.includes('theme-'+kind)||['clean'].includes(kind));}
 for(const layout of ['split','centered','editorial']){assert.ok(owner.includes("['"+layout+"'"),layout);assert.ok(page.includes('"'+layout+'"'),layout);}
 assert.match(css,/\.tamao-native-page-workspace/);
+assert.match(css,/mini\[data-layout="split"\].*mini-copy\{order:0\}/);
 assert.match(css,/@media\(max-width:520px\)/);
 assert.match(pageCss,/body\[data-layout="centered"\]/);
 assert.match(pageCss,/body\[data-layout="editorial"\]/);

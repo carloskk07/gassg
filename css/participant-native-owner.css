@@ -39,3 +39,9 @@
 .tamao-native-page-mini[data-layout="editorial"]{grid-template-columns:1.05fr .95fr}
 @media(max-width:850px){.tamao-native-page-workspace{grid-template-columns:1fr}.tamao-native-page-preview{position:static}}
 @media(max-width:520px){.tamao-native-page-design{grid-template-columns:1fr}.tamao-native-page-preview{padding:10px}.tamao-native-page-mini-copy{padding:14px 11px}.tamao-native-page-mini-art{padding:15px 10px}}
+
+/* Preview follows the public split hero: copy first, art second. */
+.tamao-native-page-mini[data-layout="split"] .tamao-native-page-mini-copy{order:0}
+.tamao-native-page-mini[data-layout="split"] .tamao-native-page-mini-art{order:1}
+.tamao-native-page-mini[data-layout="centered"] .tamao-native-page-mini-copy{order:1}
+.tamao-native-page-mini[data-layout="centered"] .tamao-native-page-mini-art{order:-1}
