@@ -71,7 +71,7 @@ try{
   const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');const beforeFaq=faq.open;faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {beforeFaq,budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
   assert.equal(actions.budget,'1990');
   assert.equal(actions.days,'7');
-  assert.match(actions.quote,/1\.658 visualizações verificadas/);
+  assert.match(actions.quote,/R\$ 19,90 por 7 dias/);
   assert.equal(actions.focused,'sponsor-pricing');
   assert.notEqual(actions.faqOpened,actions.beforeFaq,'FAQ must toggle on click: '+JSON.stringify(actions));
   assert.equal(actions.hash,'#sponsors');
