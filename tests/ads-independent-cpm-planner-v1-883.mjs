@@ -8,7 +8,8 @@ const audit=read('supabase/migrations/20261013235900_ads_placement_gate_v1_236.s
 const contract=read('supabase/migrations/20261016030000_ads_sales_planning_v1_309.sql');
 const section=read('js/ads-planner.js');
 assert.match(growth,/function tamaoAdsPlannerLoad\(\)/);
-assert.match(growth,/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(read('js/sponsors-premium.js'),/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
 assert.match(growth,/new URL\('ads-planner\.js'\+\(current\?new URL\(current\)\.search/);
 assert.ok(!growth.includes('TAMAO_ADS_PROPOSED_CPM_CENTS'),
   'CPM planner must not increase initial customer JavaScript budget');
@@ -39,7 +40,8 @@ for(const label of [
  'Sem garantia de entrega ou cobrança nesta etapa',
  'Publicidade regional é independente de cadastrar uma revenda'
 ])assert.ok(html.includes(label),'missing truthful planning terms: '+label);
-assert.match(growth,/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(read('js/sponsors-premium.js'),/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
 assert.ok(section.includes("openSponsorContact('visibility',detail)"));
 assert.match(audit,/public_enabled boolean not null default false check\(public_enabled=false\)/);
 assert.match(audit,/billing_enabled boolean not null default false check\(billing_enabled=false\)/);
