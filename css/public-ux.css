@@ -492,3 +492,24 @@
 .sponsor-placement-action button:hover{background:#dcf1e3}
 @media(max-width:760px){.sponsor-placement-gallery{grid-template-columns:minmax(0,1fr)}.sponsor-placement-body{min-height:0}.sponsor-premium-placements{margin:30px 0 39px}.sponsor-placement-browser{padding-inline:15px}}
 @media(max-width:390px){.sponsor-placement-body{padding:18px 15px}.sponsor-placement-caption{padding:16px}.sponsor-placement-context strong{font-size:18px}.sponsor-placement-ad{padding:15px}.sponsor-premium-v1090 .sponsor-premium-starting{align-items:flex-start}}
+
+
+/* V1.1091 — private creative preview and focused budget-to-advertiser handoff. */
+.sponsor-premium-workspace #sponsor-account-step{scroll-margin-top:110px}
+.sponsor-premium-workspace .sponsor-budget-actions .primary{flex:1 1 225px;justify-content:center}
+.sponsor-premium-workspace .sponsor-budget-actions .secondary{flex:0 1 auto}
+.sponsor-creative-preview-panel{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:center;gap:18px 24px;padding:22px;border:1px solid #cfe5d6;border-radius:19px;background:linear-gradient(125deg,#f1f9f2,#fff 53%,#faf6eb)}
+.sponsor-creative-preview-copy{min-width:0}
+.sponsor-creative-preview-copy h3{font-size:clamp(19px,2.3vw,26px);letter-spacing:-.04em;line-height:1.13;color:#18492f;margin:8px 0 11px}
+.sponsor-creative-preview-copy p{color:#587365;font-size:12px;line-height:1.7;margin:0}
+.sponsor-creative-preview-ad{display:grid;min-width:0;gap:8px;padding:20px;border:1px solid #d5e4d8;border-radius:16px;background:#fff;box-shadow:0 10px 25px #0e3b2714}
+.sponsor-creative-preview-ad>span{font-size:9px;font-weight:950;letter-spacing:.1em;color:#1d8558}
+.sponsor-creative-preview-ad>small{color:#315b43;font-size:12px;font-weight:800;overflow-wrap:anywhere}
+.sponsor-creative-preview-ad>strong{font-size:clamp(18px,2.1vw,23px);line-height:1.22;letter-spacing:-.04em;color:#143f2a;overflow-wrap:anywhere}
+.sponsor-creative-preview-ad>p{margin:0;color:#617568;font-size:12px;line-height:1.65;overflow-wrap:anywhere;white-space:pre-line}
+.sponsor-creative-preview-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:9px}
+.sponsor-creative-preview-bottom small{max-width:100%;color:#607568;font-size:11px;overflow-wrap:anywhere}
+.sponsor-creative-preview-bottom span{display:inline-flex;align-items:center;min-height:37px;padding:9px 11px;border-radius:9px;background:#0d7048;color:#fff;font-size:11px;font-weight:850}
+.sponsor-creative-preview-note{grid-column:1/-1;font-size:10px;color:#708174;line-height:1.5}
+@media(max-width:790px){.sponsor-creative-preview-panel{grid-template-columns:minmax(0,1fr)}.sponsor-creative-preview-copy{max-width:60ch}}
+@media(max-width:420px){.sponsor-creative-preview-panel{padding:15px;gap:14px}.sponsor-creative-preview-ad{padding:15px}.sponsor-premium-workspace .sponsor-budget-actions .primary{flex:none}}
