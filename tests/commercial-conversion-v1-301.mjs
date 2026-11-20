@@ -25,9 +25,11 @@ assert.equal((sponsor.match(/onclick="openSponsorContact\(\)"/g)||[]).length,1,
  'one general sponsor inquiry in the final section');
 assert.doesNotMatch(sponsor,/sponsor-intent-quick/);
 assert.match(sponsor,/sponsor-format-grid/);
-for(const goal of ['visibility','relationship','local'])
+for(const goal of ['relationship','local'])
  assert.equal(sponsor.split("openSponsorContact('"+goal+"')").length-1,1,
-  'one specific path for '+goal);
+  'one specific partner inquiry for '+goal);
+assert.match(sponsor,/Criar anúncio da minha empresa/);
+assert.doesNotMatch(sponsor,/openSponsorContact\('visibility'\)/);
 assert.match(sponsor,/Publicidade para diferentes momentos/);
 assert.match(sponsor,/PUBLICIDADE IDENTIFICADA/);
 assert.match(sponsor,/inventário disponível/);
