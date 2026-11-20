@@ -46,10 +46,13 @@ for(const key of ['sponsor-hero-layout','sponsor-hero-copy','sponsor-premium-vis
 }
 assert.ok(html.indexOf('sponsor-hero-copy')<html.indexOf('sponsor-premium-visual'));
 assert.equal((html.match(/class="sponsor-premium-visual"/g)||[]).length,1);
-for(const format of ['visibility','relationship','local']){
+for(const format of ['relationship','local']){
  assert.ok(html.includes("openSponsorContact('"+format+"')"),
-  'every campaign format must retain the real sponsor lead');
+  'partnership enquiries keep their existing protected contact flow');
 }
+assert.ok(html.includes("sponsorJumpTo('sponsor-pricing')")&&
+ html.includes('Criar anúncio da minha empresa'),
+ 'independent advertisers go directly to their live campaign manager');
 assert.ok(html.includes('openSponsorContact()'));
 assert.ok(!/clientes garantidos|mais de [0-9]+ mil|resultados garantidos/i.test(html));
 const sponsorStart=growth.indexOf('function sponsorsLanding(){');
