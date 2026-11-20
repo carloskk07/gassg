@@ -5,6 +5,10 @@ import vm from 'node:vm';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const backend=read('js/backend.js');
 const customer=read('js/customer.js');
+const bootstrap=read('js/bootstrap.js');
+assert.match(bootstrap,/\['home','order','tracking'\]\.includes\(route\(\)\)/,
+  'Homepage must initialize guest board after load, not only checkout');
+
 const migration=read('supabase/migrations/20261120020000_public_city_price_board_guest_v1_1087.sql');
 assert.match(migration,/grant execute on function public\.public_city_price_board_v1_341\(text,text\) to anon;/i);
 assert.doesNotMatch(migration,/grant (?:select|insert|update|delete|all) on (?:table|all tables)/i);
