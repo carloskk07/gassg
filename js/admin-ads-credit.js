@@ -2,6 +2,19 @@
 // Authentication, permissions and database ACL are enforced by admin-ops.
 let adminCreditAdsState={actor:'',status:'idle',rows:[],gate:null,totals:null,error:''};
 let adminCreditAdsBusy=false;
+async function adminCreditAdsRequest(action,body={}){
+ const token=await adminAccessToken();
+ if(!adminReady()||!token)throw Error('A autenticação administrativa expirou.');
+ const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/ads-credit',{
+  method:'POST',cache:'no-store',
+  headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey,
+    Authorization:'Bearer '+token},
+  body:JSON.stringify({action,...body})
+ });
+ const data=await response.json().catch(()=>null);
+ if(!response.ok)throw Error(data?.message||data?.error||'Erro de publicidade por créditos');
+ return data;
+}
 async function adminCreditAdsRefresh(){
  const actor=String(adminRuntime?.session?.user?.id||'');
  if(!actor||!adminReady()||adminCreditAdsBusy)return false;
@@ -10,7 +23,7 @@ async function adminCreditAdsRefresh(){
   actor,status:'loading',rows:[],gate:null,totals:null,error:''};
  else adminCreditAdsState.status='loading';
  try{
-  const r=await adminInvoke({action:'ads-credit-admin-read'});
+  const r=await adminCreditAdsRequest('admin-read');
   if(actor!==String(adminRuntime?.session?.user?.id||''))return false;
   if(r?.source!=='ads_credit_admin_read_v1_1098'||!Array.isArray(r.rows)||
      !r.gate||!Number.isSafeInteger(r.gate.centsPerView))
@@ -105,7 +118,7 @@ async function adminCreditAdsDecide(id,version){
  };
  adminCreditAdsBusy=true;
  try{
-  const r=await adminPerform('ads-credit-admin-action',{
+  const r=await adminCreditAdsRequest('admin-action',{
    campaignId:id,version,decision,reason:reasons[decision]});
   if(actor!==String(adminRuntime?.session?.user?.id||''))return false;
   if(r?.source!=='ads_credit_admin_action_v1_1098'||r.campaignId!==id)
