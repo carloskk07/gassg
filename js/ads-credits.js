@@ -213,8 +213,8 @@ function tamaoCreditMarkup(){
   '<h4>Pagamentos aguardando confirmação</h4>'+
   pendingTopups.map(t=>'<div class="tamao-credit-pending-item"><span>Pix de '+
     tamaoCreditMoney(t.amountCents)+'</span>'+
-    '<button type="button" class="secondary small" onclick="tamaoCreditReconcile(\\''+
-    t.id+'\\')"'+(tamaoCreditState.busy?' disabled':'')+'>'+
+    '<button type="button" class="secondary small" onclick="tamaoCreditReconcile(&quot;'+
+    t.id+'&quot;)"'+(tamaoCreditState.busy?' disabled':'')+'>'+
     'Conferir pagamento</button></div>').join('')+
   '<small>O TAMÃO confere diretamente no Mercado Pago. Esta ação não cria nova cobrança.</small>'+
   '</section>':'';
