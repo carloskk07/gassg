@@ -71,8 +71,10 @@ assert.match(sponsor,/sponsor-premium-hero/);
 assert.match(sponsor,/PUBLICIDADE IDENTIFICADA/);
 assert.match(sponsor,/sponsor-premium-faq/);
 assert.equal((sponsor.match(/class="sponsor-format-grid"/g)||[]).length,1);
-for(const type of ['visibility','relationship','local'])
+for(const type of ['relationship','local'])
  assert.ok(sponsor.includes("openSponsorContact('"+type+"')"));
+assert.ok(sponsor.includes("Criar anúncio da minha empresa")&&sponsor.includes("sponsorJumpTo('sponsor-pricing')"),
+ 'Direct advertiser creation must not detour through generic contact');
 assert.match(sponsor,/Apresentação ilustrativa, não é anúncio publicado/);
 assert.match(sponsor,/inventário disponível/,
  'A divulgação não pode prometer inventário inexistente');
