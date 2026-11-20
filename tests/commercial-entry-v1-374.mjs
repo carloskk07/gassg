@@ -32,10 +32,13 @@ assert.ok(hero.includes('Sua marca merece')&&sponsorHtml.includes('inventário d
 assert.ok(sponsorHtml.includes('sponsor-format-grid'));
 assert.ok(sponsorHtml.includes('Publicidade para diferentes momentos'));
 assert.ok(sponsorHtml.includes('sponsor-real-campaign-form'));
-for(const intent of ['visibility','relationship','local']){
+for(const intent of ['relationship','local']){
   assert.equal(sponsorHtml.split("openSponsorContact('"+intent+"')").length-1,1,
-   'Sponsor objectives each have a single real action: '+intent);
+   'Sponsor partnership objectives have one real action: '+intent);
 }
+assert.ok(sponsorHtml.includes("sponsorJumpTo('sponsor-pricing')") &&
+ sponsorHtml.includes('Criar anúncio da minha empresa'),
+ 'Independent advertiser must go directly to real campaign creation');
 assert.equal(sponsorHtml.split('openSponsorContact()').length-1,1,
  'Generic commercial contact must remain available, not duplicated');
 assert.ok(sponsorHtml.includes('sponsor-premium-visual'));
