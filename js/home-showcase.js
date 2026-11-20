@@ -140,7 +140,7 @@ function homeRegionalPriceBoard(region){
  return '<section class="city-price-board tamao-quote-first'+(real.length?'':' tamao-quote-no-offer')+'" aria-label="Produtos e disponibilidade em '+esc(place)+'">'+
   '<div class="city-price-heading"><div><span class="section-kicker">O ESSENCIAL, PERTO DE VOCÊ</span>'+
    '<h1>Faltou em casa? <span>Tá na mão.</span></h1><p>Escolha os produtos. Confira preço e entrega pelo seu CEP.</p></div>'+controls+'</div>'+
-  (real.length?'<details class="tamao-city-market"><summary>Preços informados na cidade'+(checkedLabel?' <small>Atualizado '+esc(checkedLabel)+'</small>':'')+'</summary><div class="city-price-grid">'+cards+'</div>'+
+  (real.length?'<details class="tamao-city-market" open><summary>Preços informados na cidade'+(checkedLabel?' <small>Atualizado '+esc(checkedLabel)+'</small>':'')+'</summary><div class="city-price-grid">'+cards+'</div>'+
    (globalThis.liveReady?.()===true?'<button type="button" class="secondary small" onclick="homeRefreshQuotePrices()">Atualizar preços informados</button>':'')+
    '<p class="city-price-disclaimer">Preço final, descontos e entrega são confirmados na consulta por CEP.</p></details>':
    '<div class="tamao-storefront-availability">'+cards+'</div>')+
