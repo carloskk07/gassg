@@ -43,4 +43,16 @@ Recarga é bloqueada pelo banco até que **todos** estejam true. Endpoint `ads-c
 
 Após confirmação de nome, telefone e e-mail, a seção **Créditos de publicidade** deve mostrar saldo, consumos e extrato. Se os gates estiverem desligados, só apresenta situação informativa; não oferece Pix ou promessa de entrega. Quando habilitada com os testes financeiros completos: escolha recarga → aceite claro → Pix no site → prova do Mercado Pago → crédito idempotente → saldo disponível → campanha aprovada → visualizações elegíveis auditadas → débito atômico → pausa ao acabar.
 
-**Status desta PR:** implementação inicial da carteira e Pix, **não é o lançamento comercial do novo modelo**. A parte de campanha por crédito e a medição faturável ainda são um bloqueio para produção. Não comunicar como "pronto para cobrar" até todos os portões acima serem fechados.
+## V1.1098 — campanhas integradas, ainda sem abertura financeira
+
+A camada de campanhas está implementada com autenticação identificada e confirmada, envio idempotente, revisão administrativa, aprovação, publicação somente com saldo, pausa, retomada e encerramento. O espaço patrocinado possui desafio temporário emitido no servidor, conferência de tempo visível de no mínimo 1 segundo e 50% da peça, janela de deduplicação por origem pseudonimizada de 24 horas, limite piloto de 200 débitos por campanha/24h e débito transacional, sem saldo negativo. A campanha é pausada automaticamente quando o saldo não comporta outra visualização. O frontend preserva o rascunho ao mudar de recarga; a recarga Pix pendente pode ser recuperada ou conciliada sem emissão duplicada.
+
+A antiga contratação por prazo segue em área separada e mantém seus direitos, histórico e fluxo de reembolso próprio. Nenhum pagamento da campanha de homologação do fundador é convertido automaticamente.
+
+**Verificações técnicas:** GitHub Actions compila Cliente, Revenda e Admin separadamente, valida CSS/JS inicial, testa a página real no Chrome, executa o ledger e o ciclo de anúncios em PostgreSQL descartável com `ROLLBACK`. O teste isolado é necessário, mas NÃO substitui conferência de transações reais no Mercado Pago, aceitação jurídica/contábil e monitoramento antifraude.
+
+**Estado comercial exigido antes da ativação:** manter `recharge_enabled=false`, `view_debit_enabled=false` e `evidence_audited=false` em produção. A interface deve informar que o pagamento está indisponível e não deve gerar Pix. É permitido instalar tabelas e servir páginas de cadastro/revisão sem iniciar cobrança, contanto que os serviços e bancos sejam publicados em ordem controlada e a produção seja verificada.
+
+**Limitações explícitas:** a medição usa desafio controlado no servidor, hash de sinais de origem e declaração de visibilidade do navegador. Isso é uma filtragem técnica, NÃO auditoria externa independente ou garantia contra tráfego automatizado avançado. Não afirmar que impressões são certificadas. O preço inicial de R$ 0,02 por visualização é apenas referência técnica e precisa de aprovação comercial antes da venda. A política comercial deve preservar direitos legais de restituição onde se aplicarem.
+
+**Critérios para fechar lançamento comercial:** teste real Pix → webhook assinado → saldo na mesma conta → aprovação do anúncio → visualização por visitante elegível → débito único → pausa por saldo → refund/chargeback e congelamento, com evidência registrada; revisão de fraude, LGPD, termos e contabilização; auditoria completa sem falhas e verificação dos três portais no SHA publicado.
