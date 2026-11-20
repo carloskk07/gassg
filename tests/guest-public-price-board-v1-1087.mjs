@@ -17,7 +17,7 @@ assert.match(bootstrap,/\['order','tracking'\]\.includes\(route\(\)\)/);
 assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/);
 assert.match(backend,/if\(!session\?\.access_token\|\|session\.user\?\.is_anonymous===true\)/);
 assert.match(customer,/const disabled=!testDemo&&!ready&&!preview&&!globalThis\.customerOriginSafe\?\.\(\)/);
-assert.match(acquisition,/globalThis\.tamaoGuestCityPriceBoard\?\.\(\)/);
+assert.match(acquisition,/globalThis\.tamaoGuestCityPriceBoard\(\)/);
 assert.match(showcase,/globalThis\.addEventListener\?\.\('load'/);
 assert.match(showcase,/guest-price-board\.js/);
 assert.match(guest,/CHAMA_BACKEND\.url\+'\/functions\/v1\/public-city-prices'/);
