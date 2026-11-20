@@ -45,6 +45,6 @@ async function tamaoGuestCityPriceBoard(){
 }
 globalThis.tamaoGuestCityPriceBoard=tamaoGuestCityPriceBoard;
 if(route()==='home')tamaoGuestCityPriceBoard().catch(()=>{});
-window.addEventListener('hashchange',()=>{
+globalThis.addEventListener?.('hashchange',()=>{
  if(route()==='home')tamaoGuestCityPriceBoard().catch(()=>{});
 });
