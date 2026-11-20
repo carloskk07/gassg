@@ -54,13 +54,14 @@ async function tamaoRegisterForm(event){
   event.preventDefault();
   const form=event.currentTarget;
   const clubEntry=form?.dataset?.tamaoAccountContext==='club';
+  const checkoutLogin=form?.dataset?.tamaoAccountContext==='checkout-login';
   const checkoutEntry=Boolean(form?.closest?.('#tamao-checkout-identity'));
   const field=form?.querySelector('input[type=email]');
   const status=form?.querySelector('[data-welcome-signup-status]');
   const button=form?.querySelector('button[type=submit]');
   const buttons=clubEntry?Array.from(form.querySelectorAll('button[type=submit]')):[button].filter(Boolean);
   const email=String(field?.value||'').trim().toLowerCase();
-  const login=clubEntry&&event.submitter?.value!=='register';
+  const login=checkoutLogin||(clubEntry&&event.submitter?.value!=='register');
   const fullName=String(form?.querySelector('input[name="full_name"]')?.value||'').trim().replace(/\s+/g,' ');
   const phone=String(form?.querySelector('input[name="phone"]')?.value||'').replace(/\D/g,'');
   if(!login&&(fullName.length<5||fullName.split(' ').length<2||fullName.length>100)){
@@ -80,17 +81,19 @@ async function tamaoRegisterForm(event){
   if(status)status.textContent='Preparando confirmação…';
   try{
     if(!login&&typeof liveUpgradeAccount!=='function')throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
-    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email,{fullName,phone,returnToCheckout:checkoutEntry});
+    const result=login?await tamaoClubSendAccess(email,{returnToCheckout:checkoutEntry}):await liveUpgradeAccount(email,{fullName,phone,returnToCheckout:checkoutEntry});
     if(status)status.textContent=result?.alreadyPermanent
       ?'Sua conta já está cadastrada. Consulte seu saldo e benefícios no Clube.'
-      :result?.accessRequested?'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.':
+      :result?.accessRequested?(checkoutLogin
+        ?'Enviamos um link para seu e-mail. Abra-o neste navegador para voltar à sua cesta.'
+        :'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.'):
        clubEntry?'Enviamos a confirmação para seu e-mail. Abra a mensagem para confirmar sua conta.':
        checkoutEntry?'Enviamos a confirmação para seu e-mail. Confira sua caixa de entrada para finalizar o cadastro e voltar ao seu pedido.':
        'Enviamos a confirmação para seu e-mail. Conclua a confirmação para participar, sujeito às vagas e às regras da campanha.';
     if(field&&result?.alreadyPermanent!==true)field.value='';
   }catch{
-    if(status)status.textContent=clubEntry
-      ?'Não foi possível enviar o acesso. Confira o e-mail e a conexão. Se for seu primeiro acesso, escolha “Criar minha conta”.'
+    if(status)status.textContent=login
+      ?'Não foi possível enviar o acesso. Confira o e-mail e a conexão; se ainda não tem conta, use o cadastro.'
       :'Não foi possível enviar a confirmação. Confira a conexão e tente novamente.';
   }finally{
     buttons.forEach(item=>item.disabled=false);

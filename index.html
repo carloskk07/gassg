@@ -286,8 +286,19 @@ details.tamao-network-clarity summary:focus-visible{outline:3px solid #b98121;ou
 <input id="tamao-order-email" name="email" type="email" class="input" required maxlength="160" autocomplete="email" placeholder="voce@email.com">
 <button type="submit" class="primary">Confirmar meus dados</button>
 <p data-welcome-signup-status role="status"></p>
-<small>Já tem conta? Entre pelo Clube TAMÃO usando seu e-mail.</small>
-</form></aside>
+<small>Enviamos um link de confirmação por e-mail. Não é necessário cadastrar endereço antes de escolher a entrega.</small>
+</form>
+<details class="tamao-checkout-returning" style="margin-top:16px;padding-top:14px;border-top:1px solid #c9e2d1">
+<summary style="cursor:pointer;font-weight:800;color:#155c45">Já tenho conta — entrar sem sair da compra</summary>
+<form class="form-stack tamao-checkout-login-form" data-tamao-account-context="checkout-login" onsubmit="return tamaoWelcomeRegister(event)" style="margin-top:12px">
+<label for="tamao-order-login-email">E-mail da sua conta</label>
+<input id="tamao-order-login-email" name="email" type="email" class="input" required maxlength="160" autocomplete="email" placeholder="voce@email.com">
+<button type="submit" class="secondary">Enviar link de acesso</button>
+<p data-welcome-signup-status role="status" aria-live="polite"></p>
+<small>O link abre sua conta e traz você de volta à cesta neste navegador. Entrar não cria um pedido ou cobrança.</small>
+</form>
+</details>
+</aside>
 </template>
   <template id="tamao-home-strip-template">
 <div class="tamao-storefront-benefit-strip"><div><strong>Mais motivos para fazer parte do TAMÃO</strong><span>Clube, cashback, indicações, serviços e oportunidades para negócios.</span></div><a href="#tamao-all-benefits">Conhecer todas as vantagens ↓</a></div></div>
