@@ -34,6 +34,28 @@ async function digest(value:string){
  const result=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
  return Array.from(new Uint8Array(result),x=>x.toString(16).padStart(2,"0")).join("");
 }
+async function boundedJson(req:Request,maxBytes=512){
+ const declared=Number(req.headers.get("content-length")||0);
+ if(Number.isFinite(declared)&&declared>maxBytes)throw new Error("PAYLOAD_TOO_LARGE");
+ const reader=req.body?.getReader();
+ if(!reader)return {};
+ const decoder=new TextDecoder();
+ let total=0,text="";
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   total+=value?.byteLength||0;
+   if(total>maxBytes){
+    try{await reader.cancel()}catch{}
+    throw new Error("PAYLOAD_TOO_LARGE");
+   }
+   text+=decoder.decode(value,{stream:true});
+  }
+  text+=decoder.decode();
+ }finally{try{reader.releaseLock()}catch{}}
+ try{return JSON.parse(text)}catch{throw new Error("INVALID_JSON")}
+}
 const admin=URL_BASE&&SECRET?createClient(URL_BASE,SECRET,{
  auth:{persistSession:false,autoRefreshToken:false}
 }):null;
@@ -48,10 +70,13 @@ Deno.serve(async req=>{
  if(!/application\/json/i.test(req.headers.get("content-type")||""))
   return reply({error:"INVALID_CONTENT_TYPE"},415,origin);
  try{
-  const raw=await req.text();
-  if(raw.length>512)return reply({error:"PAYLOAD_TOO_LARGE"},413,origin);
   let input;
-  try{input=JSON.parse(raw)}catch{return reply({error:"INVALID_JSON"},400,origin)}
+  try{input=await boundedJson(req,512)}
+  catch(e){
+   const code=e instanceof Error?e.message:"INVALID_JSON";
+   return reply({error:code==="PAYLOAD_TOO_LARGE"?code:"INVALID_JSON"},
+    code==="PAYLOAD_TOO_LARGE"?413:400,origin);
+  }
   if(!input||typeof input!=="object"||Array.isArray(input))
    return reply({error:"INVALID_PAYLOAD"},400,origin);
   const city=String(input.p_city??"").trim();
