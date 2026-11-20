@@ -28,26 +28,33 @@ assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===tr
 assert.ok(home.includes("const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()'"),
  'public customer entry continues to use vetted order flows');
 
-const sponsorStart=growth.indexOf('function sponsorsLanding(){');
-const merchantStart=growth.indexOf('\nfunction merchantsLanding(){',sponsorStart);
-const sponsor=growth.slice(sponsorStart,merchantStart);
-assert.ok(sponsorStart>=0&&merchantStart>sponsorStart);
-const sponsorEnv=vm.createContext({shell:html=>html});
-vm.runInContext(sponsor+'\nthis.getPage=sponsorsLanding;',sponsorEnv);
+const sponsor=read('js/sponsors-premium.js');
+assert.match(growth,/function sponsorsLanding\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
+const sponsorEnv=vm.createContext({shell:html=>html,globalThis:{
+ tamaoAdsPlannerLoad:()=>{},
+ tamaoAdsPlannerSection:()=>'<section id="real-sponsored-manager"></section>'
+}});
+vm.runInContext(sponsor+'\nthis.getPage=sponsorsLandingPremium;',sponsorEnv);
 const html=sponsorEnv.getPage();
-for(const key of ['sponsor-hero-layout','sponsor-hero-copy','sponsor-visual-story',
- 'sponsor-visual-feature','sponsor-visual-details','EXEMPLO DE FORMATO',
- 'A publicação depende de inventário disponível.','aria-label="Exemplo de apresentação']){
+for(const key of ['sponsor-hero-layout','sponsor-hero-copy','sponsor-premium-visual',
+ 'sponsor-premium-ad-mock','PUBLICIDADE IDENTIFICADA',
+ 'Apresentação ilustrativa, não é anúncio publicado.',
+ 'inventário disponível','aria-label="Prévia ilustrativa de anúncio identificado"',
+ 'sponsor-premium-faq','real-sponsored-manager']){
  assert.ok(html.includes(key),'sponsor story lacks '+key);
 }
-assert.ok(html.indexOf('sponsor-hero-copy')<html.indexOf('sponsor-visual-story'));
-assert.equal((html.match(/class="sponsor-visual-story"/g)||[]).length,1);
+assert.ok(html.indexOf('sponsor-hero-copy')<html.indexOf('sponsor-premium-visual'));
+assert.equal((html.match(/class="sponsor-premium-visual"/g)||[]).length,1);
 for(const format of ['visibility','relationship','local']){
  assert.ok(html.includes("openSponsorContact('"+format+"')"),
   'every campaign format must retain the real sponsor lead');
 }
 assert.ok(html.includes('openSponsorContact()'));
 assert.ok(!/clientes garantidos|mais de [0-9]+ mil|resultados garantidos/i.test(html));
+const sponsorStart=growth.indexOf('function sponsorsLanding(){');
+const merchantStart=growth.indexOf('\nfunction merchantsLanding(){',sponsorStart);
+assert.ok(sponsorStart>=0&&merchantStart>sponsorStart);
 const merchantEnd=growth.indexOf('\nfunction merchantJoin(){',merchantStart);
 const merchant=growth.slice(merchantStart,merchantEnd);
 assert.ok(merchant.includes('merchant-visual-economy'));
@@ -61,10 +68,14 @@ assert.ok(merchant.includes('openMerchantPortal(true)'),
 assert.ok(merchant.includes('merchant-margin')&&merchant.includes('merchant-how'),
  'existing calculator and how-it-works destinations must remain');
 
-for(const name of ['.home-buying-steps-list','.sponsor-visual-story',
- '.sponsor-hero-layout','.merchant-visual-economy',
+for(const name of ['.home-buying-steps-list',
+ '.merchant-visual-economy',
  '@media(max-width:1000px)','@media(max-width:620px)',
  '@media(max-width:370px)']){
  assert.ok(css.includes(name),'responsive styles missing '+name);
 }
+const premiumCss=read('css/public-ux.css');
+for(const cls of ['.sponsor-premium-visual','.sponsor-premium-v1090 .sponsor-hero-layout',
+ '@media(max-width:700px)','@media(max-width:410px)'])
+ assert.ok(premiumCss.includes(cls),'Missing new premium sponsor responsive CSS '+cls);
 console.log('TAMÃO V1.372 PASS — accurate visitor guidance and campaign/merchant storytelling.');
