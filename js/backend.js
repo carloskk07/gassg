@@ -495,6 +495,10 @@ async function liveAccessToken(){
 async function liveInvoke(name,body={},options={}){
   if(!liveReady())throw new Error('Modo live não está pronto');
   const token=await liveAccessToken();
+  // Callers with account-bound drafts may revoke an in-flight session lookup.
+  // Recheck immediately before sending so another account cannot submit it.
+  if(typeof options.sessionGuard==='function'&&options.sessionGuard()!==true)
+    throw new Error('A conta mudou. Retome a operação na conta atual.');
   const headers={
     'Content-Type':'application/json',
     'apikey':CHAMA_BACKEND.publishableKey,

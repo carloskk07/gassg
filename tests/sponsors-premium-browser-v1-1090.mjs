@@ -46,7 +46,9 @@ try{
   await send('Emulation.setDeviceMetricsOverride',{
    width,height:920,screenWidth:width,screenHeight:920,deviceScaleFactor:1,mobile:width<800
   });
-  await send('Page.navigate',{url:origin+'/#sponsors'});
+  // A distinct document per viewport prevents the preceding synthetic account
+  // from surviving Chrome's same-document navigation to an identical hash URL.
+  await send('Page.navigate',{url:origin+'/?credit_visual_width='+width+'#sponsors'});
   let ready=false;
   for(let attempt=0;attempt<100;attempt++){
    ready=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-v1090 .sponsor-premium-hero');return document.readyState==='complete'&&!!hero&&!!document.querySelector('#sponsor-pricing')&&document.querySelectorAll('[data-sponsor-demo-budget]').length===4&&getComputedStyle(hero).backgroundImage.includes('gradient')})()");
@@ -80,7 +82,7 @@ try{
   assert.equal(actions.hash,'#sponsors');
   assert.deepEqual(actions.buttons,['true','false','false','false']);
   // Personalized visuals must work without a logged-in user at every viewport.
-  const demo=await evaluate("(()=>{document.querySelector('[data-sponsor-demo-goal=intro]').click();const input=document.getElementById('sponsor-demo-company');input.value='Ateliê & Cia';input.dispatchEvent(new Event('input',{bubbles:true}));const sector=document.querySelector('[data-sponsor-demo-sector=\"services\"]');sector.click();const brands=[...document.querySelectorAll('[data-sponsor-demo=\"brand\"]')].map(x=>x.textContent);const headline=document.querySelector('[data-sponsor-demo=\"headline\"]').textContent;const sectorActive=sector.getAttribute('aria-pressed');const persisted=JSON.parse(sessionStorage.getItem('tamao-sponsor-showcase-v1092')||'null');document.querySelector('.sponsor-demo-continue').click();return {brands,headline,sectorActive,persisted,focus:document.activeElement?.id||'',width:document.documentElement.scrollWidth}})()");
+  const demo=await evaluate("(()=>{document.querySelector('[data-sponsor-demo-goal=intro]').click();const input=document.getElementById('sponsor-demo-company');input.value='Ateliê & Cia';input.dispatchEvent(new Event('input',{bubbles:true}));const sector=document.querySelector('[data-sponsor-demo-sector=\"services\"]');sector.click();const brands=[...document.querySelectorAll('[data-sponsor-demo=\"brand\"]')].map(x=>x.textContent);const headline=document.querySelector('[data-sponsor-demo=\"headline\"]').textContent;const sectorActive=sector.getAttribute('aria-pressed');document.querySelector('.sponsor-demo-continue').click();const persisted=JSON.parse(sessionStorage.getItem('tamao-sponsor-showcase-v1092')||'null');return {brands,headline,sectorActive,persisted,focus:document.activeElement?.id||'',width:document.documentElement.scrollWidth}})()");
   assert.ok(demo.brands.length>=3,'Both public mockups and the hero must be updated');
   assert.ok(demo.brands.every(name=>name==='Ateliê & Cia'),'All examples must share the selected brand');
   assert.match(demo.headline,/serviços da nossa cidade/);
@@ -108,7 +110,59 @@ try{
   assert.equal(brief.summary,'R$ 99,90 em créditos');
   assert.equal(brief.budget,9990);
   assert.ok(brief.width<=width+3,'Credit preview overflows at '+width);
-  results.push({width,...first,...actions,demo,studio,placements,brief});
+  // Only this disposable origin gets a synthetic account and wallet reader.
+  // Exercise the actual authenticated credit DOM without a production request.
+  let creditReady=false;
+  for(let attempt=0;attempt<50;attempt++){
+   creditReady=await evaluate("typeof tamaoCreditRefresh==='function'");
+   if(creditReady)break;
+   await sleep(100);
+  }
+  assert.ok(creditReady,'Credit module must load at '+width);
+  const credits=await evaluate(`(async()=>{
+   globalThis.liveRuntime.session={user:{id:'isolated-advertiser'}};
+   globalThis.liveRuntime.authGeneration=(globalThis.liveRuntime.authGeneration||0)+1;
+   tamaoAdsAccountVerified=()=>true;
+   tamaoCreditInvoke=async body=>{
+    if(body.action!=='mine')throw Error('Unexpected write in visual fixture');
+    return {source:'ads_credit_balance_v1_1097',balanceCents:0,centsPerView:2,
+     totalSpentCents:0,totalLoadedCents:0,rechargeEnabled:false,billingEnabled:false,
+     entries:[],campaigns:[],topups:[],frozen:false};
+   };
+   await tamaoCreditRefresh();
+   document.querySelector('.sponsor-demo-continue').click();
+   const form=document.getElementById('tamao-credit-campaign-form');
+   form.scrollIntoView({block:'start',behavior:'instant'});
+   await new Promise(r=>requestAnimationFrame(r));
+   return {company:document.getElementById('tamao-credit-c-advertiser').value,
+    title:document.getElementById('tamao-credit-c-title').value,
+    description:document.getElementById('tamao-credit-c-description').value,
+    consent:document.getElementById('tamao-credit-c-terms').checked,
+    destination:document.getElementById('tamao-credit-c-destination').value,
+    formTag:form.tagName,checkColor:getComputedStyle(form.querySelector('.check-row')).color,
+    checkHeight:form.querySelector('.check-row').getBoundingClientRect().height,
+    minInputWidth:Math.min(...[...form.querySelectorAll('.input')].map(el=>el.getBoundingClientRect().width)),
+    inputFont:parseFloat(getComputedStyle(form.querySelector('.input')).fontSize),
+    width:document.documentElement.scrollWidth,
+    fieldsFit:[...form.querySelectorAll('input,textarea,select,button')]
+      .every(el=>{const r=el.getBoundingClientRect();return r.left>=-2&&r.right<=innerWidth+3})};
+  })()`);
+  assert.equal(credits.company,'Ateliê & Cia');
+  assert.match(credits.title,/Tem novidade nos nossos serviços/);
+  assert.equal(credits.description,'Novidades especiais no nosso site');
+  assert.equal(credits.consent,false);
+  assert.equal(credits.destination,'');
+  assert.equal(credits.formTag,'FORM');
+  assert.equal(credits.checkColor,'rgb(36, 62, 50)','Consent must be legible on the white form');
+  assert.ok(credits.inputFont>=16,'Form inputs must remain readable and avoid mobile zoom');
+  assert.ok(credits.fieldsFit&&credits.width<=width+3,'Credit form overflow at '+width);
+  if(width<=390){
+   assert.ok(credits.minInputWidth>=width*.66,'Nested margins must not squeeze the mobile form');
+   assert.ok(credits.checkHeight<240,'Consent must remain compact and left-aligned on mobile');
+  }
+  const creditShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
+  fs.writeFileSync(path.join(out,'ads-credit-form-v1-1100-'+width+'.png'),Buffer.from(creditShot.data,'base64'));
+  results.push({width,...first,...actions,demo,studio,placements,brief,credits});
 
  }
 }finally{
