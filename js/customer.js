@@ -601,9 +601,13 @@ function home(){
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : globalThis.liveRuntime?.status==='loading'
               ? 'Conectando ao serviço.'
-              : 'Escolha os produtos e consulte ofertas para seu CEP.';
+              : liveRuntime?.status==='guest'
+                ? 'Explore os produtos e os preços regionais divulgados. Confirme sua conta para validar a entrega e o valor final pelo CEP.'
+                : 'Escolha os produtos e consulte ofertas para seu CEP.';
 
-  const disabled=!testDemo&&!ready&&!preview;
+  // Visitors can choose products before creating an account. Only sending
+  // orders or issuing exact delivery quotes requires verified Auth.
+  const disabled=!testDemo&&!ready&&!preview&&liveRuntime?.status!=='guest';
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
   const homeProductEntries=Object.entries(products)
     .filter(([code,p])=>!p.hidden&&(
