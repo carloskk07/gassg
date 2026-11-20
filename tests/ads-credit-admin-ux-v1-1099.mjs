@@ -108,4 +108,38 @@ assert.ok(!context.adminCreditPilotPanel().includes('Gerar Pix de R$ 19,90'));
 context.adminCurrentRole=()=> 'finance';
 assert.equal(context.adminCreditPilotPanel(),'');
 assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision),false);
+// V1.1102: a signed webhook settles while the Admin keeps its Pix open.
+// Automatic observation must update the wallet and totals without a second charge.
+context.adminCurrentRole=()=> 'superadmin';
+context.adminIndependentAdsPane='credit';
+context.document.visibilityState='visible';
+let autoReads=0,autoReconciles=0,autoTotals=0;
+context.adminCreditAdsRefresh=async()=>{autoTotals++;return true;};
+context.adminCreditAdsRequest=async action=>{
+ if(action==='admin-pilot-read'){
+  autoReads++;
+  return {...pilotData,status:'approved',balanceCents:1990,topupId:first,canStart:false};
+ }
+ if(action==='reconcile'){autoReconciles++;return {source:'ads_credit_payment_fact_v1_1097',status:'approved'};}
+ throw Error('Unexpected Ads action '+action);
+};
+const scopeAfter=context.adminCreditPilotScope();
+scopeAfter.data={...pilotData,status:'pix_pending',topupId:first,balanceCents:0,canStart:false};
+assert.equal(await context.adminCreditPilotWatchTick(),true);
+assert.equal(scopeAfter.data.status,'approved');
+assert.equal(scopeAfter.data.balanceCents,1990);
+assert.equal(autoReads,1);
+assert.equal(autoReconciles,0,'A first background read must not unnecessarily call Mercado Pago');
+assert.equal(autoTotals,1,'The Ads total must also refresh after confirmation');
+assert.equal(await context.adminCreditPilotWatchTick(),false,
+ 'Already confirmed Pix must not keep polling');
+assert.equal(autoReads,1);
+scopeAfter.data={...pilotData,status:'pix_pending',topupId:first,canStart:false,balanceCents:0};
+context.document.visibilityState='hidden';
+assert.equal(await context.adminCreditPilotWatchTick(),false,'Never poll a hidden Admin tab');
+assert.equal(autoReads,1);
+context.document.visibilityState='visible';
+context.adminIndependentAdsPane='finance';
+assert.equal(await context.adminCreditPilotWatchTick(),false,'Never poll outside the Ads credit pane');
+console.log('PASS V1.1102: live Pix confirmation refreshes Admin wallet and Ads totals without a second charge.');
 console.log('PASS V1.1099: admin Ads moderation priority, exact status filtering, real rejection reason, stale-version guard and disabled billing visibility.');
