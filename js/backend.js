@@ -621,8 +621,6 @@ function liveAddressDraftReady(){
     && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''))
     && hasCartItems();
 }
-// V1.1072 — intentional direct-storefront selection. No cookie or persistent
-// buyer preference: only an explicit seller URL changes the current quote scope.
 const TAMAO_DIRECT_SELLER_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function tamaoDirectSellerId(){
  try{
@@ -900,8 +898,6 @@ async function liveCreateOrder(quoteId){
   liveRuntime.error=null;
   render();
   const idempotencyKey=liveIdempotency('create-order');
-  // V1.252 — use only the current first-party inbound UTM from this page.
-  // No persistent cross-session identifier and no claim that UTM proves causality.
   const ownerCampaignTag=(()=>{
     const p=new URLSearchParams(location.search);
     if(p.get('utm_source')!=='tamao'||p.get('utm_medium')!=='owner_campaign')return null;
@@ -2435,8 +2431,6 @@ async function merchantTeamLoadLive({silent=false}={}){
   }
 }
 
-// Lazy merchant-only operations: do not inflate first-render JS in the
-// partner portal. The script shares this exact release SHA and server gates.
 let merchantMutationLoader=null;
 function merchantMutationScopeKey(){
  const rt=merchantRuntime;
