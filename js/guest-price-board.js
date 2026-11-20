@@ -14,7 +14,7 @@ async function tamaoGuestCityPriceBoard(){
  if(rt.cityPriceSnapshot?.city===city&&rt.cityPriceSnapshot?.state===uf&&
     Date.now()-Number(rt.lastCityPriceBoardAt||0)<90000)return rt.cityPriceSnapshot;
  const sequence=++tamaoGuestPriceBoardSeq;
- const response=await fetch(CHAMA_BACKEND.url+'/rest/v1/rpc/public_city_price_board_v1_341',{
+ const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/public-city-prices',{
    method:'POST',cache:'no-store',
    headers:{'apikey':CHAMA_BACKEND.publishableKey,'Content-Type':'application/json'},
    body:JSON.stringify({p_city:city,p_state:uf})
