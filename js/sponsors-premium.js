@@ -184,13 +184,13 @@ function sponsorsLandingPremium(){
      <div class="sponsor-demo-sector-field">
        <span class="sponsor-demo-control-label">Qual é seu segmento?</span>
        <div class="sponsor-demo-options" role="group" aria-label="Escolha o tipo de negócio">
-         ${Object.entries(TAMAO_SPONSOR_DEMO_PRESETS).map(([key,value])=>'<button type="button" data-sponsor-demo-sector="'+key+'" aria-pressed="'+String(demo.sector===key)+'" onclick="sponsorDemoSelect(\\''+key+'\\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
+         ${Object.entries(TAMAO_SPONSOR_DEMO_PRESETS).map(([key,value])=>'<button type="button" data-sponsor-demo-sector="'+key+'" aria-pressed="'+String(demo.sector===key)+'" onclick="sponsorDemoSelect(\''+key+'\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
        </div>
      </div>
      <div class="sponsor-demo-goals-field">
        <span class="sponsor-demo-control-label">O que você quer divulgar?</span>
        <div class="sponsor-demo-goals" role="group" aria-label="Objetivo da campanha">
-         ${Object.entries(TAMAO_SPONSOR_DEMO_GOALS).map(([key,value])=>'<button type="button" data-sponsor-demo-goal="'+key+'" aria-pressed="'+String(demo.goal===key)+'" onclick="sponsorDemoGoal(\\''+key+'\\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
+         ${Object.entries(TAMAO_SPONSOR_DEMO_GOALS).map(([key,value])=>'<button type="button" data-sponsor-demo-goal="'+key+'" aria-pressed="'+String(demo.goal===key)+'" onclick="sponsorDemoGoal(\''+key+'\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
        </div>
      </div>
      <div class="sponsor-demo-message-field">
