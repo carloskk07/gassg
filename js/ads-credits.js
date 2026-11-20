@@ -12,6 +12,9 @@ function tamaoCreditVerified(){return typeof tamaoAdsAccountVerified==='function
  tamaoAdsAccountVerified()&&tamaoCreditActor().length>0}
 function tamaoCreditPixHtml(pix){
  if(!pix?.pixCode||!Number.isSafeInteger(pix?.amountCents))return '';
+ if(Date.parse(String(pix.expiresAt||''))<=Date.now()+60000)
+  return '<section class="tamao-credit-pix"><p>A validade deste Pix terminou. '+ 
+   'Confira o pagamento no histórico antes de iniciar outra recarga.</p></section>';
  const safeCode=tamaoCreditEscape(pix.pixCode);
  const qr=typeof globalThis.tamaoPixMarkup==='function'
   ?globalThis.tamaoPixMarkup(pix.pixCode,{amountCents:pix.amountCents}):'';
@@ -31,6 +34,39 @@ const tamaoCreditCampaignStatusLabels={
 };
 let tamaoCreditCampaignRequest=null,tamaoCreditCampaignBusy=false,
  tamaoCreditCampaignFingerprint='',tamaoCreditActionBusy=false;
+
+let tamaoCreditDraftActor='',tamaoCreditClearDraftOnPaint=false;
+const tamaoCreditDraft={advertiser:'',title:'',description:'',destination:'',
+ city:'São Gabriel',state:'RS',terms:false};
+const tamaoCreditDraftFields={
+ advertiser:'tamao-credit-c-advertiser',title:'tamao-credit-c-title',
+ description:'tamao-credit-c-description',destination:'tamao-credit-c-destination',
+ city:'tamao-credit-c-city',state:'tamao-credit-c-state'
+};
+function tamaoCreditDraftReset(actor=''){
+ tamaoCreditDraftActor=actor;
+ Object.assign(tamaoCreditDraft,{advertiser:'',title:'',description:'',
+  destination:'',city:'São Gabriel',state:'RS',terms:false});
+}
+function tamaoCreditDraftSave(){
+ if(!tamaoCreditVerified()||tamaoCreditDraftActor!==tamaoCreditActor())return;
+ for(const [key,id] of Object.entries(tamaoCreditDraftFields)){
+  const input=document.getElementById(id);
+  if(input)tamaoCreditDraft[key]=String(input.value??'');
+ }
+ const consent=document.getElementById('tamao-credit-c-terms');
+ if(consent)tamaoCreditDraft.terms=consent.checked===true;
+}
+function tamaoCreditDraftRestore(){
+ if(!tamaoCreditVerified())return;
+ for(const [key,id] of Object.entries(tamaoCreditDraftFields)){
+  const input=document.getElementById(id);
+  if(input)input.value=tamaoCreditDraft[key];
+ }
+ const consent=document.getElementById('tamao-credit-c-terms');
+ if(consent)consent.checked=tamaoCreditDraft.terms===true;
+}
+
 function tamaoCreditCampaignHtml(data){
  const campaigns=Array.isArray(data.campaigns)?data.campaigns:[];
  const list=campaigns.map(c=>{
@@ -113,6 +149,7 @@ async function tamaoCreditCampaignSubmit(){
   if(r?.source!=='ads_credit_campaign_submit_v1_1098'||!r.campaignId)
    throw Error('O servidor não confirmou a proposta.');
   tamaoCreditCampaignRequest=null;tamaoCreditCampaignFingerprint='';
+  tamaoCreditDraftReset(actor);tamaoCreditClearDraftOnPaint=true;
   await tamaoCreditRefresh();
   return true;
  }catch(e){if(actor===tamaoCreditActor()&&status)
@@ -237,8 +274,14 @@ async function tamaoCreditRenderQr(){
 }
 function tamaoCreditPaint(){
  const el=document.getElementById('tamao-credit-mount');
- if(el){el.innerHTML=tamaoCreditMarkup();
-  tamaoCreditRenderQr().catch(()=>{});}
+ if(!el)return;
+ const actor=tamaoCreditVerified()?tamaoCreditActor():'';
+ if(tamaoCreditDraftActor!==actor)tamaoCreditDraftReset(actor);
+ if(!tamaoCreditClearDraftOnPaint)tamaoCreditDraftSave();
+ el.innerHTML=tamaoCreditMarkup();
+ tamaoCreditClearDraftOnPaint=false;
+ tamaoCreditDraftRestore();
+ tamaoCreditRenderQr().catch(()=>{});
 }
 async function tamaoCreditRefresh(){
  if(!tamaoCreditVerified()){tamaoCreditState.actor='';tamaoCreditState.data=null;
@@ -254,6 +297,19 @@ async function tamaoCreditRefresh(){
     !Array.isArray(data.campaigns))
    throw Error('O saldo não foi confirmado pelo servidor.');
   tamaoCreditState.actor=actor;tamaoCreditState.data=data;
+  // Recover a still-payable Pix after a page refresh without ever creating a
+  // second charge. The server only returns Pix data to the verified owner.
+  const pending=Array.isArray(data.topups)?data.topups.find(t=>
+   t.status==='pix_pending'&&typeof t.pixCode==='string'&&
+   Number.isSafeInteger(t.amountCents)&&
+   Date.parse(String(t.expiresAt||''))>Date.now()+60000):null;
+  if(pending)tamaoCreditState.pix={source:'ads_credit_topup_v1_1097',
+   status:'pix_pending',topupId:pending.id,
+   amountCents:pending.amountCents,pixCode:pending.pixCode,
+   expiresAt:pending.expiresAt};
+  else if(!tamaoCreditState.pix||!data.topups?.some(t=>
+   t.id===tamaoCreditState.pix.topupId&&t.status==='pix_pending'))
+   tamaoCreditState.pix=null;
   tamaoCreditState.loaded=true;return true;
  }catch(error){
   if(tamaoCreditActor()===actor)tamaoCreditState.error=
