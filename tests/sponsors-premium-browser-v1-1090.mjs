@@ -92,7 +92,14 @@ try{
   assert.equal(demo.persisted.preparing,true);
   assert.equal(demo.focus,'sponsor-pricing');
   assert.ok(demo.width<=width+3,'Interactive options must not overflow at '+width);
-  results.push({width,...first,...actions,demo});
+  // V1.1094: creative choices and user-entered copy must remain live and safe at every width.
+  const studio=await evaluate("(()=>{const goal=document.querySelector('[data-sponsor-demo-goal=\\\"news\\\"]');goal.click();const input=document.getElementById('sponsor-demo-message');input.value='Novidades especiais no nosso site';input.dispatchEvent(new Event('input',{bubbles:true}));return {goalPressed:goal.getAttribute('aria-pressed'),headline:document.querySelector('[data-sponsor-demo=\\\"headline\\\"]').textContent,copy:document.querySelector('[data-sponsor-demo=\\\"copy\\\"]').textContent,monogram:document.querySelector('[data-sponsor-demo=\\\"monogram\\\"]').textContent,scrollWidth:document.documentElement.scrollWidth}})()");
+  assert.equal(studio.goalPressed,'true');
+  assert.match(studio.headline,/Tem novidade nos nossos serviços/);
+  assert.equal(studio.copy,'Novidades especiais no nosso site');
+  assert.equal(studio.monogram,'A');
+  assert.ok(studio.scrollWidth<=width+3,'Premium studio overflows at '+width);
+  results.push({width,...first,...actions,demo,studio});
 
  }
 }finally{
