@@ -101,13 +101,13 @@ assert.match(earnHtml,/go\('merchants'\)/);
 
 // Sponsors: three objectives exactly once, plus one contact entry.
 // The existing live planner remains in place and no revenue is invented.
-const spStart=growth.indexOf('function sponsorsLanding(){');
-const spEnd=growth.indexOf('\nfunction merchantsLanding(){',spStart);
-const spSrc=growth.slice(spStart,spEnd);
+const spSrc=read('js/sponsors-premium.js');
+assert.match(growth,/function sponsorsLanding\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
 const sponsorCtx=vm.createContext({shell:x=>x,globalThis:{
  tamaoAdsPlannerLoad:()=>{},tamaoAdsPlannerSection:()=>'<div id="verified-public-planner"></div>'
 }});
-vm.runInContext(spSrc+';this.sponsors=sponsorsLanding;',sponsorCtx);
+vm.runInContext(spSrc+';this.sponsors=sponsorsLandingPremium;',sponsorCtx);
 const sponsors=sponsorCtx.sponsors();
 assert.match(sponsors,/verified-public-planner/);
 assert.match(sponsors,/sponsor-format-grid/);
