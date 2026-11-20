@@ -18,7 +18,7 @@ const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
  "https://tamao-sg-cliente.pages.dev","https://admin.tamao.com.br"]);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRICE_OPTIONS=new Set([1990,4990,9990,19990]);
-const cors=origin=>({"Access-Control-Allow-Origin":origin&&ORIGINS.has(origin)?origin:"null",
+const cors=(origin:string|null)=>({"Access-Control-Allow-Origin":origin&&ORIGINS.has(origin)?origin:"null",
  "Access-Control-Allow-Headers":"authorization,apikey,content-type",
  "Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"});
 function respond(data:any,status:number,origin:string|null){
@@ -54,6 +54,8 @@ async function providerSearch(token:string,ref:string){
  const choice=selectIndependentAdsPayment(listing,ref);
  if(choice.kind==="review")throw Error("ADS_CREDIT_MULTIPLE_PROVIDER_PAYMENTS");
  if(choice.kind==="none")return null;
+ if(typeof choice.paymentId!=='string'||!/^\d{5,30}$/.test(choice.paymentId))
+  throw Error("ADS_CREDIT_PROVIDER_ID_INVALID");
  return await getPayment(token,choice.paymentId);
 }
 async function finishPix(admin:any,row:any,p:any,sellerId:string){
