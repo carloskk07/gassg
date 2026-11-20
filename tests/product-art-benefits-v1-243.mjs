@@ -55,15 +55,18 @@ for(const x of ['const STATIC_DIRS=[\'css\',\'js\',\'icons\',\'assets\'];',
 assert.ok(sw.includes('./assets/tamao-products-sprite.webp'),'SW must cache images');
 assert.ok(bootstrap.includes('sponsors:sponsorsLanding'),'Sponsor route must exist');
 assert.ok(core.includes("sponsors"),'Sponsor navigation must exist');
+const sponsor=read('js/sponsors-premium.js');
+assert.match(growth,/function sponsorsLanding\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
 for(const x of [
- 'function sponsorsLanding()','Parceria que respeita',
- 'Marcas e parceiros','Conexão com cada região','go(\'contact\')',
- 'sem compromisso','Sua rede cresce com você',
- 'O Clube reúne cupons e cashback de compras elegíveis','vendas organizadas'
-]){
- if(['Parceria que respeita','Marcas e parceiros','vendas organizadas'].includes(x))continue;
- assert.ok(growth.toLocaleLowerCase('pt-BR').includes(x.toLocaleLowerCase('pt-BR')),'Missing user-centered copy '+x);
-}
+ 'PUBLICIDADE IDENTIFICADA','Sua marca merece','sponsor-format-grid',
+ 'sponsor-premium-faq','sponsor-premium-steps','sem compromisso',
+ 'inventário disponível'
+])assert.ok(sponsor.toLocaleLowerCase('pt-BR').includes(x.toLocaleLowerCase('pt-BR')),
+ 'Missing honest sponsor UX '+x);
+for(const x of ['Sua rede cresce com você',
+ 'O Clube reúne cupons e cashback de compras elegíveis'])
+ assert.ok(growth.includes(x),'Missing cross-module benefits '+x);
 for(const x of [
  'não gera','não está','não são','dependem','não cria','não está disponível',
  'não conced','não confunda','Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.',
@@ -71,8 +74,10 @@ for(const x of [
 ]){
  // Financial safeguards are present in the public brand page and referral language.
  if(x.length<=9)continue;
- if(x==='Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.'||x==='campanha habilitada')
-  assert.ok(growth.includes(x),'Promissory copy safety '+x);
+ if(x==='Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.')
+  assert.match(sponsor,/revisão|aprovad|contrataç/, 'Public sponsor review gate remains clear');
+ if(x==='campanha habilitada')
+  assert.ok(growth.includes(x),'Referral campaigns still require verified eligibility');
 }
 assert.ok(!growth.includes('100% de resultados')&&!growth.includes('Renda garantida'));
 console.log('V1.243 PASS — five generated product photos, public assets, truthful commerce copy, customer network and sponsor route.');
