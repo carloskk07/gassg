@@ -26,8 +26,19 @@ const TAMAO_SPONSOR_DEMO_PLACEMENTS=Object.freeze({
  home:Object.freeze({label:'Na página inicial',context:'Descobertas perto de você',caption:'Produtos, serviços e novidades da sua região'}),
  brands:Object.freeze({label:'Na área de marcas',context:'Marcas da nossa região',caption:'Conheça empresas e iniciativas locais'})
 });
+// Values match the existing official fixed-fee planning choices. They are a
+// private local selection, not a reservation, payment or publishing operation.
+const TAMAO_SPONSOR_DEMO_PLANS=Object.freeze({
+ 1990:Object.freeze({value:1990,price:'R$ 19,90',days:7}),
+ 4990:Object.freeze({value:4990,price:'R$ 49,90',days:15}),
+ 9990:Object.freeze({value:9990,price:'R$ 99,90',days:30}),
+ 19990:Object.freeze({value:19990,price:'R$ 199,90',days:30})
+});
 const TAMAO_SPONSOR_DEMO_KEY='tamao-sponsor-showcase-v1092';
-const tamaoSponsorDemoState={sector:'commerce',goal:'intro',placement:'home',company:'',message:'',preparing:false};
+const tamaoSponsorDemoState={
+ sector:'commerce',goal:'intro',placement:'home',company:'',message:'',
+ budget:4990,budgetChosen:false,preparing:false
+};
 function sponsorDemoSafeText(text){
  return String(text||'').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,48);
 }
@@ -50,6 +61,11 @@ function sponsorDemoRestore(){
    tamaoSponsorDemoState.message=sponsorDemoSafeText(data.message).replace(/\s+/g,' ').trim();
   if(data&&Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PLACEMENTS,data.placement))
    tamaoSponsorDemoState.placement=data.placement;
+  const chosenBudget=Number(data?.budget);
+  if(Number.isSafeInteger(chosenBudget)&&
+     Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PLANS,chosenBudget))
+   tamaoSponsorDemoState.budget=chosenBudget;
+  tamaoSponsorDemoState.budgetChosen=data?.budgetChosen===true;
   tamaoSponsorDemoState.preparing=data?.preparing===true;
  }catch{}
 }
@@ -62,12 +78,15 @@ function sponsorDemoPresentation(){
  const sector=tamaoSponsorDemoState.sector,goal=tamaoSponsorDemoState.goal;
  const placement=tamaoSponsorDemoState.placement;
  const location=TAMAO_SPONSOR_DEMO_PLACEMENTS[placement]||TAMAO_SPONSOR_DEMO_PLACEMENTS.home;
+ const plan=TAMAO_SPONSOR_DEMO_PLANS[tamaoSponsorDemoState.budget]||
+  TAMAO_SPONSOR_DEMO_PLANS[4990];
  const data=TAMAO_SPONSOR_DEMO_PRESETS[sector]||TAMAO_SPONSOR_DEMO_PRESETS.commerce;
  const brand=tamaoSponsorDemoState.company.trim()||'A SUA MARCA AQUI';
  const first=[...tamaoSponsorDemoState.company.trim()].find(ch=>/[\p{L}\p{N}]/u.test(ch))||'M';
  const headline=goal==='news'?data.newsHeadline:goal==='visit'?data.visitHeadline:data.headline;
  const baseCopy=goal==='news'?data.newsCopy:goal==='visit'?data.visitCopy:data.copy;
- return {sector,goal,placement,context:location.context,caption:location.caption,brand,
+ return {sector,goal,placement,context:location.context,caption:location.caption,
+  planLabel:plan.price+' · '+plan.days+' dias',brand,
   monogram:first.toLocaleUpperCase('pt-BR'),...data,
   headline,copy:tamaoSponsorDemoState.message||baseCopy,
   goalLabel:TAMAO_SPONSOR_DEMO_GOALS[goal]?.label||TAMAO_SPONSOR_DEMO_GOALS.intro.label};
@@ -75,7 +94,7 @@ function sponsorDemoPresentation(){
 function sponsorDemoPaint(){
  if(typeof document==='undefined')return false;
  const demo=sponsorDemoPresentation();
- for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram','context','caption']){
+ for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram','context','caption','planLabel']){
   for(const element of document.querySelectorAll('[data-sponsor-demo="'+field+'"]'))
    element.textContent=String(demo[field]);
  }
@@ -93,6 +112,10 @@ function sponsorDemoPaint(){
  for(const option of document.querySelectorAll('[data-sponsor-demo-placement]')){
   const chosen=option.getAttribute('data-sponsor-demo-placement')===demo.placement;
   option.setAttribute('aria-pressed',String(chosen));
+ }
+ for(const option of document.querySelectorAll('[data-sponsor-demo-budget]')){
+  const selected=Number(option.getAttribute('data-sponsor-demo-budget'))===tamaoSponsorDemoState.budget;
+  option.setAttribute('aria-pressed',String(selected));
  }
  return true;
 }
@@ -137,6 +160,22 @@ function sponsorDemoMessage(){
  sponsorDemoSave();
  return sponsorDemoPaint();
 }
+function sponsorDemoBudget(value){
+ const budget=Number(value);
+ if(!Number.isSafeInteger(budget)||
+    !Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PLANS,budget))return false;
+ tamaoSponsorDemoState.budget=budget;
+ tamaoSponsorDemoState.budgetChosen=true;
+ sponsorDemoSave();
+ const painted=sponsorDemoPaint();
+ const status=document.getElementById('sponsor-demo-status');
+ if(status){
+  const plan=TAMAO_SPONSOR_DEMO_PLANS[budget];
+  status.textContent='Referência selecionada: '+plan.price+' por '+plan.days+
+   ' dias. A contratação dependerá de revisão e confirmação.';
+ }
+ return painted;
+}
 function sponsorDemoContinue(){
  tamaoSponsorDemoState.preparing=true;
  sponsorDemoSave();
@@ -147,10 +186,14 @@ function sponsorDemoContinue(){
   if(input&&!String(input.value||'').trim()&&value)input.value=value;
  }
  globalThis.tamaoAdsUpdateCreativePreview?.();
+ if(tamaoSponsorDemoState.budgetChosen)
+  globalThis.tamaoAdsChooseBudget?.(tamaoSponsorDemoState.budget);
  return sponsorJumpTo('sponsor-pricing');
 }
 // Used only to prefill an EMPTY campaign draft after explicit continuation.
 // Never fills a person's name, e-mail, phone, or payment fields.
+globalThis.tamaoSponsorDemoBudget=()=>tamaoSponsorDemoState.preparing&&
+ tamaoSponsorDemoState.budgetChosen?tamaoSponsorDemoState.budget:null;
 globalThis.tamaoSponsorDemoCompany=()=>tamaoSponsorDemoState.preparing?
   tamaoSponsorDemoState.company.trim():'';
 globalThis.tamaoSponsorDemoCreative=()=>{
@@ -209,7 +252,7 @@ function sponsorsLandingPremium(){
   </aside>
  </div>
    <div class="sponsor-demo-panel">
-     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Veja sua campanha ganhar forma.</strong><small>Teste a apresentação sem criar conta. Escolha, personalize e descubra como sua empresa pode aparecer.</small></div>
+     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Sua campanha começa aqui.</strong><small>Teste a apresentação sem criar conta. Personalize sua marca e escolha o período para montar a proposta.</small></div>
      <div class="sponsor-demo-name-field">
        <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
        <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
@@ -230,9 +273,17 @@ function sponsorsLandingPremium(){
        <label for="sponsor-demo-message">Sua mensagem <span>(opcional · até 48 caracteres)</span></label>
        <input id="sponsor-demo-message" class="input" maxlength="48" type="text" placeholder="Ou use o texto sugerido ao lado" value="${sponsorDemoEscape(tamaoSponsorDemoState.message)}" oninput="sponsorDemoMessage()">
      </div>
+     <div class="sponsor-demo-budget-field">
+       <span class="sponsor-demo-control-label">Escolha o investimento de referência</span>
+       <div class="sponsor-demo-plans" role="group" aria-label="Escolha o valor e o período da campanha">
+         ${Object.values(TAMAO_SPONSOR_DEMO_PLANS).map(plan=>'<button type="button" data-sponsor-demo-budget="'+plan.value+'" aria-pressed="'+String(tamaoSponsorDemoState.budget===plan.value)+'" onclick="sponsorDemoBudget('+plan.value+')"><strong>'+plan.price+'</strong><small>'+plan.days+' dias</small></button>').join('')}
+       </div>
+       <small class="sponsor-demo-plan-note">Valores de referência. Disponibilidade e condições são confirmadas antes da contratação.</small>
+     </div>
      <div class="sponsor-demo-action">
-       <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Preparar esta campanha <span aria-hidden="true">→</span></button>
-       <small>Sem cadastro para testar. Sem cobrança ao continuar.</small>
+       <span class="sponsor-demo-plan-summary">Sua escolha: <strong data-sponsor-demo="planLabel">${sponsorDemoEscape(demo.planLabel)}</strong></span>
+       <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Continuar com esta proposta <span aria-hidden="true">→</span></button>
+       <small>Teste livre, sem cadastro. Confirme seus dados somente quando decidir enviar.</small>
      </div>
      <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">Prévia ilustrativa e privada: nenhum anúncio é publicado ou cobrado aqui.</p>
    </div>
@@ -290,11 +341,11 @@ function sponsorsLandingPremium(){
  <p class="sponsor-premium-format-note">Para criar um anúncio independente, use o formulário abaixo. As outras opções começam com uma conversa sem compromisso.</p>
 </section>
 <section class="sponsor-premium-how" aria-label="Como criar um anúncio">
- <div class="sponsor-premium-section-heading"><span class="section-kicker">COMEÇAR É SIMPLES</span><h2>Três etapas para preparar sua campanha.</h2></div>
+ <div class="sponsor-premium-section-heading"><span class="section-kicker">DO RASCUNHO À PUBLICAÇÃO</span><h2>Você sabe o que acontece em cada etapa.</h2></div>
  <ol class="sponsor-premium-steps">
-  <li><span>01</span><div><h3>Escolha região e orçamento</h3><p>Veja valores de planejamento e o prazo relacionado.</p></div></li>
-  <li><span>02</span><div><h3>Apresente sua marca</h3><p>Confirme o e-mail e informe nome da empresa, texto e site oficial.</p></div></li>
-  <li><span>03</span><div><h3>Acompanhe a revisão</h3><p>O envio não cobra nem publica automaticamente. Você acompanha a proposta na sua conta.</p></div></li>
+  <li><span>01</span><div><h3>Prepare a proposta</h3><p>Personalize a marca, escolha cidade e orçamento e confirme sua conta.</p></div></li>
+  <li><span>02</span><div><h3>Receba a análise</h3><p>Verificamos a mensagem, a região e a disponibilidade antes da contratação.</p></div></li>
+  <li><span>03</span><div><h3>Acompanhe sua campanha</h3><p>Se aprovada e contratada, acompanhe as informações disponíveis na sua conta.</p></div></li>
  </ol>
 </section>
 <section class="sponsor-premium-workspace" id="sponsor-pricing" tabindex="-1" aria-label="Planejar e cadastrar anúncio">
