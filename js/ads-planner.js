@@ -96,6 +96,30 @@ function tamaoAdsCreditsLoad(){
 }
 function tamaoAdsPlannerSection(){
  tamaoAdsCreditsLoad();
+ if(globalThis.tamaoAdsCreditModeEnabled===true){
+  const verified=typeof tamaoAdsAccountVerified==='function'&&tamaoAdsAccountVerified();
+  if(verified&&tamaoAdsMyState?.status==='idle'&&typeof setTimeout==='function'){
+   tamaoAdsMyState.status='loading';
+   setTimeout(()=>tamaoAdsMyRefresh({quiet:true}),0);
+  }
+  const legacy=verified&&tamaoAdsMyState?.status==='ready'&&
+   Array.isArray(tamaoAdsMyState.rows)&&tamaoAdsMyState.rows.length>0?
+    '<details class="tamao-credit-legacy-history"><summary>Consultar contratos e pagamentos anteriores</summary>'+
+     tamaoAdsCampaignForm()+'</details>':'';
+  return '<section class="section sponsor-budget-builder tamao-credit-intro" id="sponsor-pricing" aria-label="Publicidade com créditos por visualização">'+
+   '<div class="section-head"><div><span class="section-kicker">INVESTIMENTO SOB CONTROLE</span>'+
+   '<h2>Carregue créditos. Pague apenas pelas visualizações elegíveis.</h2>'+
+   '<p>Sem pacote de sete dias, mensalidade ou cobrança acima do saldo. Sua empresa define a cidade, envia a peça e acompanha o consumo na própria conta.</p></div></div>'+
+   '<div class="tamao-credit-steps">'+
+    '<div><strong>01 · Carregue quando quiser</strong><p>Escolha R$ 19,90 ou outro valor, pague por Pix e acompanhe o saldo confirmado.</p></div>'+
+    '<div><strong>02 · Divulgue na sua cidade</strong><p>Uma campanha aprovada aparece quando há público e crédito disponível.</p></div>'+
+    '<div><strong>03 · Acompanhe o consumo</strong><p>O valor por visualização e o extrato estão no seu painel. Você pode pausar a divulgação.</p></div>'+
+   '</div>'+
+   '<p class="tiny muted">A publicidade depende da audiência disponível. Visualizações repetidas ou inválidas não devem gerar débito; filtros de tráfego são aplicados pelo servidor.</p>'+
+   '</section>'+
+   (verified?legacy:tamaoAdsCampaignForm());
+ }
+ tamaoAdsCreditsLoad();
   // The visitor can carry a deliberately selected preview plan into this real
   // form. The official whitelist remains authoritative; this never charges.
   const requestedBudget=Number(globalThis.tamaoSponsorDemoBudget?.()||4990);
