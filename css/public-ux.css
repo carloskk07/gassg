@@ -550,3 +550,35 @@
 @media(prefers-reduced-motion:reduce){
  .sponsor-premium-v1090 .sponsor-demo-options button,.sponsor-premium-v1090 .sponsor-premium-ad-art{transition:none}
 }
+
+
+/* V1.1093 — premium hero balance: controls live in their own full-width band. */
+.sponsor-premium-v1090 .sponsor-demo-panel{
+ margin-top:22px;padding:17px 20px;
+ display:grid;grid-template-columns:minmax(165px,.9fr) minmax(190px,1fr) minmax(255px,1.25fr) minmax(150px,.9fr);
+ align-items:center;gap:10px 15px;
+ background:linear-gradient(125deg,#f6fbf7,#fff 50%,#fcf8eb);
+ border-color:#c9e5d0;box-shadow:0 12px 23px #02281b1d;
+}
+.sponsor-premium-v1090 .sponsor-demo-name-field{display:grid;min-width:0;gap:7px}
+.sponsor-premium-v1090 .sponsor-demo-name-field label{min-width:0}
+.sponsor-premium-v1090 .sponsor-demo-panel-head{align-content:center}
+.sponsor-premium-v1090 .sponsor-demo-panel-head strong{font-size:16px}
+.sponsor-premium-v1090 .sponsor-demo-options{align-self:center}
+.sponsor-premium-v1090 .sponsor-demo-continue{align-self:center;min-height:46px}
+.sponsor-premium-v1090 .sponsor-demo-feedback{grid-column:1/-1;margin:0;padding-top:9px;border-top:1px solid #e2ece3}
+@media(min-width:720px) and (max-width:1099px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{
+   grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px
+ }
+}
+@media(max-width:719px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{
+   grid-template-columns:minmax(0,1fr);gap:11px;
+   margin-top:16px;padding:16px;
+ }
+ .sponsor-premium-v1090 .sponsor-demo-panel-head{gap:5px}
+}
+@media(max-width:360px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{padding:13px 11px}
+}
