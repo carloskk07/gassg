@@ -22,8 +22,12 @@ const TAMAO_SPONSOR_DEMO_GOALS=Object.freeze({
  news:Object.freeze({label:'Divulgar novidade'}),
  visit:Object.freeze({label:'Atrair visitas'})
 });
+const TAMAO_SPONSOR_DEMO_PLACEMENTS=Object.freeze({
+ home:Object.freeze({label:'Na página inicial',context:'Descobertas perto de você',caption:'Produtos, serviços e novidades da sua região'}),
+ brands:Object.freeze({label:'Na área de marcas',context:'Marcas da nossa região',caption:'Conheça empresas e iniciativas locais'})
+});
 const TAMAO_SPONSOR_DEMO_KEY='tamao-sponsor-showcase-v1092';
-const tamaoSponsorDemoState={sector:'commerce',goal:'intro',company:'',message:'',preparing:false};
+const tamaoSponsorDemoState={sector:'commerce',goal:'intro',placement:'home',company:'',message:'',preparing:false};
 function sponsorDemoSafeText(text){
  return String(text||'').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,48);
 }
@@ -44,6 +48,8 @@ function sponsorDemoRestore(){
    tamaoSponsorDemoState.goal=data.goal;
   if(data&&typeof data.message==='string')
    tamaoSponsorDemoState.message=sponsorDemoSafeText(data.message).replace(/\s+/g,' ').trim();
+  if(data&&Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PLACEMENTS,data.placement))
+   tamaoSponsorDemoState.placement=data.placement;
   tamaoSponsorDemoState.preparing=data?.preparing===true;
  }catch{}
 }
@@ -54,30 +60,38 @@ function sponsorDemoSave(){
 }
 function sponsorDemoPresentation(){
  const sector=tamaoSponsorDemoState.sector,goal=tamaoSponsorDemoState.goal;
+ const placement=tamaoSponsorDemoState.placement;
+ const location=TAMAO_SPONSOR_DEMO_PLACEMENTS[placement]||TAMAO_SPONSOR_DEMO_PLACEMENTS.home;
  const data=TAMAO_SPONSOR_DEMO_PRESETS[sector]||TAMAO_SPONSOR_DEMO_PRESETS.commerce;
  const brand=tamaoSponsorDemoState.company.trim()||'A SUA MARCA AQUI';
  const first=[...tamaoSponsorDemoState.company.trim()].find(ch=>/[\p{L}\p{N}]/u.test(ch))||'M';
  const headline=goal==='news'?data.newsHeadline:goal==='visit'?data.visitHeadline:data.headline;
  const baseCopy=goal==='news'?data.newsCopy:goal==='visit'?data.visitCopy:data.copy;
- return {sector,goal,brand,monogram:first.toLocaleUpperCase('pt-BR'),...data,
+ return {sector,goal,placement,context:location.context,caption:location.caption,brand,
+  monogram:first.toLocaleUpperCase('pt-BR'),...data,
   headline,copy:tamaoSponsorDemoState.message||baseCopy,
   goalLabel:TAMAO_SPONSOR_DEMO_GOALS[goal]?.label||TAMAO_SPONSOR_DEMO_GOALS.intro.label};
 }
 function sponsorDemoPaint(){
  if(typeof document==='undefined')return false;
  const demo=sponsorDemoPresentation();
- for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram']){
+ for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram','context','caption']){
   for(const element of document.querySelectorAll('[data-sponsor-demo="'+field+'"]'))
    element.textContent=String(demo[field]);
  }
  const art=document.querySelector('.sponsor-premium-ad-art');
  art?.setAttribute('data-demo-sector',demo.sector);
+ document.querySelector('.sponsor-premium-visual')?.setAttribute('data-demo-placement',demo.placement);
  for(const option of document.querySelectorAll('[data-sponsor-demo-sector]')){
   const chosen=option.getAttribute('data-sponsor-demo-sector')===demo.sector;
   option.setAttribute('aria-pressed',String(chosen));
  }
  for(const option of document.querySelectorAll('[data-sponsor-demo-goal]')){
   const chosen=option.getAttribute('data-sponsor-demo-goal')===demo.goal;
+  option.setAttribute('aria-pressed',String(chosen));
+ }
+ for(const option of document.querySelectorAll('[data-sponsor-demo-placement]')){
+  const chosen=option.getAttribute('data-sponsor-demo-placement')===demo.placement;
   option.setAttribute('aria-pressed',String(chosen));
  }
  return true;
@@ -96,6 +110,15 @@ function sponsorDemoSelect(sector){
  const painted=sponsorDemoPaint();
  const status=document.getElementById('sponsor-demo-status');
  if(status)status.textContent='Prévia ilustrativa para '+TAMAO_SPONSOR_DEMO_PRESETS[sector].label.toLowerCase()+' atualizada. Nenhuma campanha foi criada.';
+ return painted;
+}
+function sponsorDemoPlacement(placement){
+ if(!Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PLACEMENTS,placement))return false;
+ tamaoSponsorDemoState.placement=placement;
+ sponsorDemoSave();
+ const painted=sponsorDemoPaint();
+ const status=document.getElementById('sponsor-demo-status');
+ if(status)status.textContent='Exemplo ilustrativo alterado: '+TAMAO_SPONSOR_DEMO_PLACEMENTS[placement].label+'. A campanha ainda não existe.';
  return painted;
 }
 function sponsorDemoGoal(goal){
@@ -162,8 +185,17 @@ function sponsorsLandingPremium(){
    <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Envio sem pagamento</span></div>
    <p class="sponsor-premium-starting"><strong>Desde R$ 19,90</strong> para planejar 7 dias de divulgação <span>· Condições confirmadas antes de contratar</span></p>
   </div>
-  <aside class="sponsor-premium-visual" aria-label="Prévia ilustrativa de anúncio identificado">
+  <aside class="sponsor-premium-visual" data-demo-placement="${demo.placement}" aria-label="Prévia ilustrativa de anúncio identificado">
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
+   <div class="sponsor-preview-switch" role="group" aria-label="Ver anúncio em diferentes espaços">
+     <button type="button" data-sponsor-demo-placement="home" aria-pressed="${String(demo.placement==='home')}" onclick="sponsorDemoPlacement('home')">Página inicial</button>
+     <button type="button" data-sponsor-demo-placement="brands" aria-pressed="${String(demo.placement==='brands')}" onclick="sponsorDemoPlacement('brands')">Área de marcas</button>
+   </div>
+   <div class="sponsor-preview-context" aria-hidden="true">
+     <small data-sponsor-demo="caption">${sponsorDemoEscape(demo.caption)}</small>
+     <strong data-sponsor-demo="context">${sponsorDemoEscape(demo.context)}</strong>
+     <div class="sponsor-preview-pills"><span></span><span></span><span></span></div>
+   </div>
    <div class="sponsor-premium-ad-mock">
     <span class="sponsor-premium-ad-tag">PUBLICIDADE IDENTIFICADA</span>
     <div class="sponsor-premium-ad-art" data-demo-sector="${demo.sector}" aria-hidden="true"><span class="sponsor-premium-ad-orbit"></span><span class="sponsor-premium-ad-shape" data-sponsor-demo="monogram">${sponsorDemoEscape(demo.monogram)}</span><span class="sponsor-premium-art-caption" data-sponsor-demo="label">${sponsorDemoEscape(demo.label)}</span></div>
@@ -172,6 +204,7 @@ function sponsorsLandingPremium(){
     <p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p>
     <span class="sponsor-premium-ad-action">Conhecer a empresa <span aria-hidden="true">↗</span></span>
    </div>
+   <div class="sponsor-preview-after" aria-hidden="true"><span></span><span></span><span></span></div>
    <p class="sponsor-premium-visual-note">Apresentação ilustrativa, não é anúncio publicado. Localização e exibição dependem de revisão e inventário disponível.</p>
   </aside>
  </div>
