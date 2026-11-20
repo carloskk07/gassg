@@ -41,9 +41,9 @@ function homeChooseMarketCity(){
   try{localStorage.setItem(TAMAO_HOME_REGION_KEY,JSON.stringify({city:name,state:uf}))}catch{}
   if(globalThis.liveRuntime)globalThis.liveRuntime.cityPriceSnapshot=null;
   render();
-  const pending=globalThis.liveReady?.()
-    ?globalThis.liveRefreshCityPriceBoard?.({force:true})
-    :globalThis.tamaoGuestCityPriceBoard?.();
+  const pending=!globalThis.liveReady?.()&&globalThis.tamaoGuestCityPriceBoard
+    ?globalThis.tamaoGuestCityPriceBoard()
+    :globalThis.liveRefreshCityPriceBoard?.({force:true});
   pending?.then?.(()=>render()).catch?.(()=>{});
 }
 
