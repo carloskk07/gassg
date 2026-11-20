@@ -440,6 +440,14 @@ async function backendInit(){
         }
       });
       render();
+      // The city price board contains only public aggregated estimates.
+      // Guests may read it without creating an anonymous Auth account.
+      // Exact CEP-specific quotes, benefits and orders remain behind Auth.
+      liveRefreshCityPriceBoard({force:true})
+        .then(board=>{
+          if(board&&liveRuntime.status==='guest'&&route()==='home')render();
+        })
+        .catch(()=>{}); // A price-board outage must never block the public site.
       return true;
     }
     liveRuntime.session=session;
@@ -1256,7 +1264,7 @@ async function liveSyncMarketStatus({force=false}={}){
 
 const CUSTOMER_CITY_BOARD_REFRESH_MS=90*1000;
 async function liveRefreshCityPriceBoard({force=false}={}){
-  if(!liveReady()||!liveRuntime.client||typeof homeMarketRegion!=='function')return null;
+  if(!(liveReady()||liveRuntime.status==='guest')||!liveRuntime.client||typeof homeMarketRegion!=='function')return null;
   const region=homeMarketRegion();
   const city=String(region?.city||''),uf=String(region?.state||'');
   if(!/^[\p{L}\p{M} .'-]{2,80}$/u.test(city)||!/^[A-Z]{2}$/.test(uf))return null;
