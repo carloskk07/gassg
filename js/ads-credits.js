@@ -177,8 +177,10 @@ async function tamaoCreditCampaignAction(campaignId,version,decision){
  }finally{tamaoCreditActionBusy=false;}
 }
 async function tamaoCreditReconcile(topupId){
- if(!tamaoCreditVerified()||!tamaoCreditState.pix||tamaoCreditState.busy)return false;
- if(tamaoCreditState.pix.topupId!==topupId)return false;
+ if(!tamaoCreditVerified()||tamaoCreditState.busy)return false;
+ const pending=tamaoCreditState.data?.topups?.find(t=>
+   t.id===topupId&&t.status==='pix_pending');
+ if(!pending)return false;
  const actor=tamaoCreditActor();tamaoCreditState.busy=true;
  try{
   const reply=await liveInvoke('ads-credit',{action:'reconcile',topupId});
@@ -204,6 +206,18 @@ function tamaoCreditMarkup(){
  const balance=Number(d.balanceCents)||0,price=Number(d.centsPerView)||0;
  const active=d.rechargeEnabled===true&&d.billingEnabled===true&&!d.frozen;
  const entries=Array.isArray(d.entries)?d.entries:[];
+ const pendingTopups=(Array.isArray(d.topups)?d.topups:[])
+  .filter(t=>t.status==='pix_pending'&&/^[0-9a-f-]{36}$/i.test(String(t.id||'')))
+  .slice(0,3);
+ const pendingHtml=pendingTopups.length?'<section class="tamao-credit-pending">'+
+  '<h4>Pagamentos aguardando confirmação</h4>'+
+  pendingTopups.map(t=>'<div class="tamao-credit-pending-item"><span>Pix de '+
+    tamaoCreditMoney(t.amountCents)+'</span>'+
+    '<button type="button" class="secondary small" onclick="tamaoCreditReconcile(\\''+
+    t.id+'\\')"'+(tamaoCreditState.busy?' disabled':'')+'>'+
+    'Conferir pagamento</button></div>').join('')+
+  '<small>O TAMÃO confere diretamente no Mercado Pago. Esta ação não cria nova cobrança.</small>'+
+  '</section>':'';
  const events=entries.slice(0,12).map(x=>{
   const date=Date.parse(String(x.at||''));
   const text=x.operation==='topup'?'Crédito confirmado':x.operation==='view'?
@@ -233,7 +247,7 @@ function tamaoCreditMarkup(){
    ' visualizações faturáveis, se houver audiência elegível. Isso não garante alcance.</p>':
   '<p class="tamao-credit-awaiting">As novas recargas e a cobrança por visualização ainda não estão liberadas. Os saldos existentes e os anúncios contratados anteriormente continuam separados e protegidos.</p>')+
   (d.frozen?'<p class="notice">Conta publicitária em conferência financeira. Nenhuma nova cobrança ou consumo será iniciado.</p>':'')+
-  plans+tamaoCreditPixHtml(tamaoCreditState.pix)+
+  plans+tamaoCreditPixHtml(tamaoCreditState.pix)+pendingHtml+
   tamaoCreditCampaignHtml(d)+
   '<p role="status" id="tamao-credit-message">'+tamaoCreditEscape(tamaoCreditState.error)+'</p>'+
   '<details class="tamao-credit-statement"><summary>Ver extrato de créditos e consumos</summary>'+
