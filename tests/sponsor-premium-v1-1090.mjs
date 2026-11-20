@@ -85,7 +85,7 @@ assert.match(adHtml,/sponsor-budget-choices/);
 assert.match(adHtml,/sponsor-budget-method/);
 assert.match(adHtml,/Como funcionam a medição e a cobrança/);
 assert.match(adHtml,/sponsor-ad-live-slot/);
-assert.match(adHtml,/tamaoAdsCampaignForm\(\)/,'Actual independent advertiser workflow retained');
+assert.match(adHtml,/sponsor-account-email/,'Actual independent advertiser sign-in remains in the planner');
 for(const price of ['R$ 19,90','R$ 49,90','R$ 99,90','R$ 199,90'])
  assert.ok(adHtml.includes(price),'Missing real budget choice: '+price);
 assert.equal((adHtml.match(/data-sponsor-budget="/g)||[]).length,4);
