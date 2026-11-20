@@ -2,6 +2,14 @@
 // Authentication, permissions and database ACL are enforced by admin-ops.
 let adminCreditAdsState={actor:'',status:'idle',rows:[],gate:null,totals:null,error:''};
 let adminCreditAdsBusy=false;
+let adminCreditAdsFilter='all';
+function adminCreditAdsChooseFilter(value){
+ const allowed=['all','submitted','approved','active','paused','rejected','ended'];
+ if(!allowed.includes(value))return false;
+ adminCreditAdsFilter=value;
+ if(adminRuntime?.section==='ads'&&typeof render==='function')render();
+ return true;
+}
 async function adminCreditAdsRequest(action,body={}){
  const token=await adminAccessToken();
  if(!adminReady()||!token)throw Error('A autenticação administrativa expirou.');
@@ -62,12 +70,28 @@ function adminCreditAdsPanel(){
   return '<fieldset><legend>Escolha a ação</legend>'+
    options.map(([v,label])=>'<label class="admin-option-row"><input type="radio" name="credit-admin-'+id+
      '" value="'+v+'"> '+label+'</label>').join('')+'</fieldset>'+
+   '<label class="input-wrap" for="credit-reason-'+id+'">Motivo da decisão'+
+   '<textarea id="credit-reason-'+id+'" class="input" maxlength="500" rows="2" '+
+    'placeholder="Obrigatório para rejeitar ou encerrar; opcional nas demais ações."></textarea></label>'+ 
    '<label class="admin-option-row"><input type="checkbox" id="credit-ack-'+id+'"> '+
     'Conferi o anúncio e autorizo a decisão selecionada.</label>'+
    '<button type="button" class="secondary small" onclick="adminCreditAdsDecide(\''+id+'\','+
      Number(c.version)+')"'+(adminCreditAdsBusy?' disabled':'')+'>Confirmar ação marcada</button>';
  };
- const rows=current?data.rows.map(c=>
+ const allRows=current?data.rows:[];
+ const priorities={submitted:0,approved:1,paused:2,active:3,rejected:4,ended:5};
+ const counts=Object.fromEntries(Object.keys(names).map(k=>[k,allRows.filter(c=>c.status===k).length]));
+ const options=[['all','Todas'],...Object.entries(names).map(([k,label])=>[k,label])];
+ const filters='<label class="input-wrap" for="credit-admin-filter">Ver campanhas'+
+  '<select id="credit-admin-filter" class="input" onchange="adminCreditAdsChooseFilter(this.value)">'+
+  options.map(([value,label])=>'<option value="'+value+'"'+
+   (adminCreditAdsFilter===value?' selected':'')+'>'+
+   esc(label)+' ('+(value==='all'?allRows.length:counts[value])+')</option>').join('')+
+  '</select></label>';
+ const visibleRows=allRows.filter(c=>adminCreditAdsFilter==='all'||c.status===adminCreditAdsFilter)
+  .slice().sort((a,b)=>(priorities[a.status]??6)-(priorities[b.status]??6)||
+   String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+ const rows=current?visibleRows.map(c=>
   '<article class="card flat"><span class="section-kicker">ANUNCIANTE REGIONAL</span>'+
    '<h4>'+esc(String(c.advertiser||''))+'</h4>'+
    '<strong>'+esc(String(c.title||''))+'</strong>'+
@@ -95,7 +119,10 @@ function adminCreditAdsPanel(){
    '<p role="status">Recargas '+(g.rechargeEnabled?'habilitadas':'desligadas')+
    ' · Débitos '+(g.billingEnabled?'habilitados':'desligados')+
    ' · Validação de evidências '+(g.evidenceEnabled?'habilitada':'desligada')+'</p>'+
-   '<div class="grid cards-2">'+(rows||'<p>Nenhuma campanha por créditos cadastrada.</p>')+'</div>':
+   '<p class="tiny muted">'+counts.submitted+' aguardando revisão · '+counts.approved+
+   ' aguardando publicação · '+counts.active+' em divulgação · '+counts.paused+' pausadas.</p>'+ 
+   filters+
+  '<div class="grid cards-2">'+(rows||'<p>Nenhuma campanha nesta situação.</p>')+'</div>':
    '<p role="status">'+esc(data.error||'Consultando campanhas e saldos…')+'</p>')+
   '</section>';
 }
@@ -108,6 +135,10 @@ async function adminCreditAdsDecide(id,version){
  if(!row||!['approve','reject','publish','pause','resume','end'].includes(decision)||
     document.getElementById('credit-ack-'+id)?.checked!==true)
   return toast('Marque uma decisão e confirme que revisou a campanha.');
+ const manuallyEntered=String(document.getElementById('credit-reason-'+id)?.value||'')
+  .trim().replace(/\s+/g,' ').slice(0,500);
+ if(['reject','end'].includes(decision)&&manuallyEntered.length<12)
+  return toast('Informe um motivo real com pelo menos 12 caracteres para rejeitar ou encerrar.');
  const reasons={
   approve:'Anúncio revisado e aprovado para veiculação por créditos.',
   reject:'Anúncio rejeitado após conferência do conteúdo apresentado.',
@@ -119,7 +150,7 @@ async function adminCreditAdsDecide(id,version){
  adminCreditAdsBusy=true;
  try{
   const r=await adminCreditAdsRequest('admin-action',{
-   campaignId:id,version,decision,reason:reasons[decision]});
+   campaignId:id,version,decision,reason:manuallyEntered.length>=12?manuallyEntered:reasons[decision]});
   if(actor!==String(adminRuntime?.session?.user?.id||''))return false;
   if(r?.source!=='ads_credit_admin_action_v1_1098'||r.campaignId!==id)
    throw Error('A decisão não foi confirmada no servidor.');
@@ -129,5 +160,6 @@ async function adminCreditAdsDecide(id,version){
    toast(String(e?.message||'Não foi possível aplicar a decisão.'));return false;
  }finally{adminCreditAdsBusy=false;await adminCreditAdsRefresh();}
 }
+globalThis.adminCreditAdsChooseFilter=adminCreditAdsChooseFilter;
 globalThis.adminCreditAdsPanel=adminCreditAdsPanel;
 globalThis.adminCreditAdsRefresh=adminCreditAdsRefresh;

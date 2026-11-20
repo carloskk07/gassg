@@ -63,6 +63,8 @@ jobs:
         run: node tests/sponsor-contextual-preview-v1-1095.mjs
       - name: V1.1097 prepaid Ads wallet, signed Pix, legacy isolation and fail-closed public controls
         run: node tests/ads-prepaid-credit-v1-1097.mjs
+      - name: V1.1099 premium Ads admin queue, reasoned moderation and preserved payment gates
+        run: node tests/ads-credit-admin-ux-v1-1099.mjs
       - name: V1.1096 premium plan selection, secure consent and real advertiser budget handoff
         run: node tests/sponsor-campaign-brief-v1-1096.mjs
       - name: V1.1090 identified advertiser registration and returning sponsor OTP journey
