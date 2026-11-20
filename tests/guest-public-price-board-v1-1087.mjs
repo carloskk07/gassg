@@ -62,7 +62,7 @@ const first=await ctx.tamaoGuestCityPriceBoard();
 assert.equal(first.source,board.source);
 assert.equal(first.notAQuote,true);
 assert.equal(requests.length,1);
-assert.ok(requests[0].url.endsWith('/rest/v1/rpc/public_city_price_board_v1_341'));
+assert.ok(requests[0].url.endsWith('/functions/v1/public-city-prices'));
 assert.equal(requests[0].options.method,'POST');
 assert.equal(requests[0].options.headers.apikey,'sb_publishable_example');
 assert.equal(requests[0].options.headers.Authorization,undefined);
