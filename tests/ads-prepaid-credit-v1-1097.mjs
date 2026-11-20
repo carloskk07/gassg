@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=read('supabase/migrations/20261120190000_ads_credit_wallet_v1_1097.sql');
+const sql=read('supabase/migrations/20261120204840_ads_credit_wallet_v1_1097.sql');
 const edge=read('supabase/functions/ads-credit/index.ts');
 const webhook=read('supabase/functions/ads-payment-webhook-mercadopago/index.ts');
 const client=read('js/ads-credits.js');
