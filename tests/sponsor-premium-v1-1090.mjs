@@ -7,9 +7,10 @@ const growth=read('js/growth.js');
 const planner=read('js/ads-planner.js');
 const css=read('css/public-ux.css');
 const boot=read('js/bootstrap.js');
-const start=growth.indexOf('function sponsorJumpTo(');
-const end=growth.indexOf('\nfunction merchantsLanding(){',start);
-assert.ok(start>=0&&end>start,'Premium sponsor landing lives in existing route');
+const premium=read('js/sponsors-premium.js');
+assert.match(growth,/function sponsorsLanding\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
+assert.match(premium,/globalThis\.tamaoSponsorPremiumLanding=sponsorsLandingPremium/);
 let mounted=0;
 let scrolled='',focused='';
 const targets=Object.fromEntries(['sponsor-formats','sponsor-pricing','sponsor-faq'].map(id=>[id,{
@@ -24,7 +25,7 @@ const sponsorCtx=vm.createContext({
     tamaoAdsPlannerSection:()=>'<section id="real-advertiser-form">Existing live campaign manager</section>'
   }
 });
-vm.runInContext(growth.slice(start,end)+';this.premium=sponsorsLanding;this.jump=sponsorJumpTo;',sponsorCtx);
+vm.runInContext(premium+';this.premium=sponsorsLandingPremium;this.jump=sponsorJumpTo;',sponsorCtx);
 const html=sponsorCtx.premium();
 assert.equal(mounted,1,'Deferred live planner must still be loaded');
 for(const marker of [
