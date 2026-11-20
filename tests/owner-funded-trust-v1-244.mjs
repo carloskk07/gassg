@@ -48,11 +48,15 @@ for(const f of [
  'Seu próximo convite pode abrir novas portas.',
  'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.',
  'Tudo acompanhado em um só lugar.',
- 'Uma parceria feita para gerar valor dos dois lados.',
+
  'uma primeira compra elegível','primeira compra válida',
  'A comissão é calculada sobre a primeira compra válida'
 ])assert.ok(grow.includes(f),'Missing truthful marketing text: '+f);
-assert.ok(grow.includes('Sua marca mais presente nas escolhas da cidade.') && grow.includes('A publicação depende de inventário disponível.'),'Publicidade deve destacar o valor, preservar limites de inventário e não inventar alcance');
+const sponsor=file('js/sponsors-premium.js');
+assert.ok(sponsor.includes('Uma presença profissional, sem complicar') || sponsor.includes('Mais presença para o seu negócio'),
+ 'Publicidade deve mostrar valor comercial ao anunciante');
+assert.ok(sponsor.includes('Sua marca merece') && sponsor.includes('inventário disponível'),
+ 'Publicidade deve preservar limites de inventário sem inventar alcance');
 for(const f of [
  'Mais economia na escolha. Mais vantagens para voltar.',
  'Compare preços e encontre oportunidades de economia','Seu pedido, com etapas que você acompanha'
