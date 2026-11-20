@@ -26,8 +26,7 @@ const TAMAO_SPONSOR_DEMO_PLACEMENTS=Object.freeze({
  home:Object.freeze({label:'Na página inicial',context:'Descobertas perto de você',caption:'Produtos, serviços e novidades da sua região'}),
  brands:Object.freeze({label:'Na área de marcas',context:'Marcas da nossa região',caption:'Conheça empresas e iniciativas locais'})
 });
-// Values match the existing official fixed-fee planning choices. They are a
-// private local selection, not a reservation, payment or publishing operation.
+// Prepaid credit values: preview-only, no payment or publishing side effects.
 const TAMAO_SPONSOR_DEMO_PLANS=Object.freeze({
  1990:Object.freeze({value:1990,price:'R$ 19,90',days:7}),
  4990:Object.freeze({value:4990,price:'R$ 49,90',days:15}),
@@ -86,7 +85,7 @@ function sponsorDemoPresentation(){
  const headline=goal==='news'?data.newsHeadline:goal==='visit'?data.visitHeadline:data.headline;
  const baseCopy=goal==='news'?data.newsCopy:goal==='visit'?data.visitCopy:data.copy;
  return {sector,goal,placement,context:location.context,caption:location.caption,
-  planLabel:plan.price+' · '+plan.days+' dias',brand,
+  planLabel:plan.price+' em créditos',brand,
   monogram:first.toLocaleUpperCase('pt-BR'),...data,
   headline,copy:tamaoSponsorDemoState.message||baseCopy,
   goalLabel:TAMAO_SPONSOR_DEMO_GOALS[goal]?.label||TAMAO_SPONSOR_DEMO_GOALS.intro.label};
@@ -171,8 +170,7 @@ function sponsorDemoBudget(value){
  const status=document.getElementById('sponsor-demo-status');
  if(status){
   const plan=TAMAO_SPONSOR_DEMO_PLANS[budget];
-  status.textContent='Referência selecionada: '+plan.price+' por '+plan.days+
-   ' dias. A contratação dependerá de revisão e confirmação.';
+  status.textContent='Valor selecionado: '+plan.price+' em créditos. Nenhum Pix é criado aqui.';
  }
  return painted;
 }
@@ -187,7 +185,7 @@ function sponsorDemoContinue(){
  }
  globalThis.tamaoAdsUpdateCreativePreview?.();
  if(tamaoSponsorDemoState.budgetChosen)
-  globalThis.tamaoAdsChooseBudget?.(tamaoSponsorDemoState.budget);
+  globalThis.tamaoCreditChoose?.(tamaoSponsorDemoState.budget);
  return sponsorJumpTo('sponsor-pricing');
 }
 // Used only to prefill an EMPTY campaign draft after explicit continuation.
@@ -213,6 +211,7 @@ function sponsorJumpTo(id){
  return true;
 }
 function sponsorsLandingPremium(){
+ globalThis.tamaoAdsCreditModeEnabled=true;
   const demo=sponsorDemoPresentation();
   return shell(`<section class="page tamao-sponsors-page sponsor-premium-v1090">
 <header class="tamao-sponsor-hero sponsor-premium-hero">
@@ -226,7 +225,7 @@ function sponsorsLandingPremium(){
     <button type="button" class="sponsor-premium-link" onclick="sponsorJumpTo('sponsor-formats')">Conhecer os formatos <span aria-hidden="true">↗</span></button>
    </div>
    <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Envio sem pagamento</span></div>
-   <p class="sponsor-premium-starting"><strong>Desde R$ 19,90</strong> para planejar 7 dias de divulgação <span>· Condições confirmadas antes de contratar</span></p>
+   <p class="sponsor-premium-starting"><strong>Desde R$ 19,90</strong> para investir em publicidade por visualização <span>· Condições confirmadas antes de contratar</span></p>
   </div>
   <aside class="sponsor-premium-visual" data-demo-placement="${demo.placement}" aria-label="Prévia ilustrativa de anúncio identificado">
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
@@ -252,7 +251,7 @@ function sponsorsLandingPremium(){
   </aside>
  </div>
    <div class="sponsor-demo-panel">
-     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Sua campanha começa aqui.</strong><small>Teste a apresentação sem criar conta. Personalize sua marca e escolha o período para montar a proposta.</small></div>
+     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Sua campanha começa aqui.</strong><small>Teste a apresentação sem criar conta. Personalize sua marca e escolha o valor de crédito para montar a proposta.</small></div>
      <div class="sponsor-demo-name-field">
        <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
        <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
@@ -274,9 +273,9 @@ function sponsorsLandingPremium(){
        <input id="sponsor-demo-message" class="input" maxlength="48" type="text" placeholder="Ou use o texto sugerido ao lado" value="${sponsorDemoEscape(tamaoSponsorDemoState.message)}" oninput="sponsorDemoMessage()">
      </div>
      <div class="sponsor-demo-budget-field">
-       <span class="sponsor-demo-control-label">Escolha o investimento de referência</span>
-       <div class="sponsor-demo-plans" role="group" aria-label="Escolha o valor e o período da campanha">
-         ${Object.values(TAMAO_SPONSOR_DEMO_PLANS).map(plan=>'<button type="button" data-sponsor-demo-budget="'+plan.value+'" aria-pressed="'+String(tamaoSponsorDemoState.budget===plan.value)+'" onclick="sponsorDemoBudget('+plan.value+')"><strong>'+plan.price+'</strong><small>'+plan.days+' dias</small></button>').join('')}
+       <span class="sponsor-demo-control-label">Escolha quanto carregar em créditos</span>
+       <div class="sponsor-demo-plans" role="group" aria-label="Escolha um valor de créditos publicitários">
+         ${Object.values(TAMAO_SPONSOR_DEMO_PLANS).map(plan=>'<button type="button" data-sponsor-demo-budget="'+plan.value+'" aria-pressed="'+String(tamaoSponsorDemoState.budget===plan.value)+'" onclick="sponsorDemoBudget('+plan.value+')"><strong>'+plan.price+'</strong><small>'+'créditos</small></button>').join('')}
        </div>
        <small class="sponsor-demo-plan-note">Valores de referência. Disponibilidade e condições são confirmadas antes da contratação.</small>
      </div>
@@ -291,7 +290,7 @@ function sponsorsLandingPremium(){
 <div class="sponsor-premium-trust-rail" aria-label="O que sua empresa encontra no TAMÃO">
  <div><span aria-hidden="true">⌖</span><strong>Presença por cidade</strong><small>Você indica a região de interesse.</small></div>
  <div><span aria-hidden="true">✦</span><strong>Sua marca identificada</strong><small>Conteúdo patrocinado claramente sinalizado.</small></div>
- <div><span aria-hidden="true">◷</span><strong>Prazo e orçamento</strong><small>Condições conhecidas antes da contratação.</small></div>
+ <div><span aria-hidden="true">◷</span><strong>Saldo e consumo</strong><small>Desconto por visualização elegível.</small></div>
  <div><span aria-hidden="true">▤</span><strong>Acompanhamento</strong><small>Status da campanha em sua conta.</small></div>
 </div>
 <section class="sponsor-premium-placements" id="sponsor-placements" tabindex="-1" aria-label="Onde sua marca pode aparecer">
@@ -349,7 +348,7 @@ function sponsorsLandingPremium(){
  </ol>
 </section>
 <section class="sponsor-premium-workspace" id="sponsor-pricing" tabindex="-1" aria-label="Planejar e cadastrar anúncio">
- <div class="sponsor-premium-section-heading"><span class="section-kicker">CRIE SUA CAMPANHA</span><h2>Comece com uma proposta clara.</h2><p>Escolha uma referência de investimento e envie o anúncio para análise. Condições e possibilidade de exibição são conferidas antes de qualquer pagamento.</p></div>
+ <div class="sponsor-premium-section-heading"><span class="section-kicker">CRIE SUA CAMPANHA</span><h2>Comece com uma proposta clara.</h2><p>Envie a peça para análise e acompanhe o saldo de publicidade na sua conta, sem pacote de dias.</p></div>
  <div id="tamao-credit-mount" aria-live="polite"></div>
  ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'<p role="status">Carregando opções de campanha…</p>')}
 </section>
@@ -357,10 +356,10 @@ function sponsorsLandingPremium(){
  <div class="sponsor-premium-section-heading"><span class="section-kicker">TRANSPARÊNCIA</span><h2>Respostas para anunciar com confiança.</h2></div>
  <div class="sponsor-premium-faq-list">
   <details><summary>Preciso ter uma revenda no TAMÃO?</summary><p>Não. Marcas, empresas e profissionais podem enviar anúncios independentes para análise.</p></details>
-  <details><summary>Quanto custa anunciar?</summary><p>Existem referências de planejamento a partir de R$ 19,90 por 7 dias. O orçamento selecionado não é cobrança nem reserva de público; os termos da contratação são confirmados antes do pagamento.</p></details>
+  <details><summary>Quanto custa anunciar?</summary><p>As recargas começam em R$ 19,90. Cada visualização elegível desconta o preço exibido na conta, sem prazo curto de consumo.</p></details>
   <details><summary>Quantas pessoas verão meu anúncio?</summary><p>Não prometemos audiência, cliques ou conversões. A entrega depende de inventário disponível, e os sinais de visualização seguem os critérios de medição informados.</p></details>
   <details><summary>O anúncio vai ao ar quando eu envio?</summary><p>Não. Primeiro a campanha é revisada; a publicação depende da aprovação e das condições operacionais e comerciais.</p></details>
-  <details><summary>Como acompanho a campanha?</summary><p>Depois de entrar com seu e-mail confirmado, consulte a seção Minhas campanhas para acompanhar a situação registrada.</p></details>
+  <details><summary>Como acompanho a campanha?</summary><p>Com e-mail confirmado, acompanhe saldo, extrato, visualizações cobradas e situação das campanhas na mesma área.</p></details>
  </div>
 </section>
 <section class="sponsor-premium-closing" aria-label="Comece a divulgar sua empresa">
