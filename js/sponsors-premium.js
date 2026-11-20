@@ -125,18 +125,20 @@ function sponsorsLandingPremium(){
     <span class="sponsor-premium-ad-action">Conhecer a empresa <span aria-hidden="true">↗</span></span>
    </div>
    <p class="sponsor-premium-visual-note">Apresentação ilustrativa, não é anúncio publicado. Localização e exibição dependem de revisão e inventário disponível.</p>
+  </aside>
+ </div>
    <div class="sponsor-demo-panel">
-     <div class="sponsor-demo-panel-head"><strong>Veja a sua marca aqui</strong><small>Experimente sem cadastro e sem enviar dados.</small></div>
-     <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
-     <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
+     <div class="sponsor-demo-panel-head"><strong>Veja a sua marca aqui</strong><small>Teste a apresentação sem criar conta.</small></div>
+     <div class="sponsor-demo-name-field">
+       <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
+       <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
+     </div>
      <div class="sponsor-demo-options" role="group" aria-label="Escolha o tipo de negócio">
        ${Object.entries(TAMAO_SPONSOR_DEMO_PRESETS).map(([key,value])=>'<button type="button" data-sponsor-demo-sector="'+key+'" aria-pressed="'+String(demo.sector===key)+'" onclick="sponsorDemoSelect(\''+key+'\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
      </div>
      <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Continuar com minha marca <span aria-hidden="true">→</span></button>
      <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">A prévia é privada e ilustrativa. O nome escolhido fica somente nesta aba.</p>
    </div>
-  </aside>
- </div>
 </header>
 <div class="sponsor-premium-trust-rail" aria-label="O que sua empresa encontra no TAMÃO">
  <div><span aria-hidden="true">⌖</span><strong>Presença por cidade</strong><small>Você indica a região de interesse.</small></div>

@@ -66,6 +66,11 @@ try{
   assert.equal(first.planCount,4);
   assert.equal(first.accountInput,true,'Real advertiser signup input must remain available');
   assert.ok(first.scrollWidth<=width+3,'Sponsor page horizontal overflow at '+width+': '+JSON.stringify(first));
+  const geometry=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-hero');const row=hero.querySelector('.sponsor-hero-layout');const panel=hero.querySelector('.sponsor-demo-panel');const badge=hero.querySelector('.sponsor-premium-eyebrow');const preview=hero.querySelector('.sponsor-premium-browser');return {panelSibling:panel.parentElement===row.parentElement,panelAfter:panel.getBoundingClientRect().top>=row.getBoundingClientRect().bottom-3,badgeDelta:Math.abs(badge.getBoundingClientRect().top-preview.getBoundingClientRect().top)}})()");
+  assert.equal(geometry.panelSibling,true,'Brand customization must not inflate the right column');
+  assert.equal(geometry.panelAfter,true,'Controls belong below the two-column hero');
+  if(width>=1100)assert.ok(geometry.badgeDelta<90,
+   'Sponsor headline and preview misaligned at '+width+': '+JSON.stringify(geometry));
   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(out,'sponsors-premium-v1-1090-'+width+'.png'),Buffer.from(shot.data,'base64'));
   const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');const beforeFaq=faq.open;faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {beforeFaq,budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
