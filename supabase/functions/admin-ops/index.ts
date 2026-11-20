@@ -143,7 +143,7 @@ function couponSellerTaxDocumentValid(value:unknown){
  sum=v.slice(0,13).reduce((n,x,i)=>n+x*weights2[i],0);
  return v[12]===first&&v[13]===(sum%11<2?0:11-sum%11);
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","ads-credit-admin-read","ads-institutional-read","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","welcome-campaign-read","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue","clube-coupon-auto-status"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","ads-institutional-read","commercial-intake-read","ads-independent-read","ads-independent-psp-preflight","ads-independent-refunds-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","support-reports-page","support-cases-page","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","clube-sponsor-status","owner-evidence-queue","owner-budget-queue","welcome-campaign-read","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue","clube-coupon-auto-status"]);
 ADMIN_READ_ACTIONS.add("finance-owned-billing-read");
 ADMIN_READ_ACTIONS.add("network-fee-package-status");
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
@@ -159,7 +159,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
     "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","public-request-status","incident-action","operational-alert-ack"]),
-  compliance:new Set(["ads-credit-admin-action","clube-campaign-review",
+  compliance:new Set(["clube-campaign-review",
     "growth-referral-review","ads-campaign-review","ads-preview-issue","ads-preview-confirm","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
   ]),
@@ -8509,39 +8509,6 @@ Deno.serve(async(req:Request)=>{
         !Number.isSafeInteger(data.version)||data.version<1)
         throw new DomainError("ADS_INSTITUTIONAL_ACTION_UNVERIFIED",
           "Não foi possível confirmar a decisão institucional.",503);
-      return json(data,200,origin);
-    }
-    if(action==="ads-credit-admin-read"){
-      if(!["superadmin","operations","compliance","finance"].includes(String(adminAccess.admin_role||"")))
-        throw new DomainError("ADMIN_PERMISSION_DENIED","Acesso à publicidade por créditos negado.",403);
-      const {data,error}=await admin.rpc("ads_credit_admin_read_v1_1098",{p_actor:user.id});
-      if(error)throw error;
-      if(data?.source!=="ads_credit_admin_read_v1_1098"||
-         !Array.isArray(data.rows)||data.rows.length>50||!data.gate||
-         !Number.isSafeInteger(data.gate.centsPerView)||
-         data.rows.some((r:any)=>!UUID_RE.test(String(r.id||""))||
-           !Number.isSafeInteger(r.version)||r.version<1))
-        throw new DomainError("ADS_CREDIT_READ_UNVERIFIED","Estado das campanhas não confirmado.",503);
-      return json(data,200,origin);
-    }
-    if(action==="ads-credit-admin-action"){
-      if(!["superadmin","compliance"].includes(String(adminAccess.admin_role||"")))
-        throw new DomainError("ADMIN_PERMISSION_DENIED","Sem permissão para revisar anúncios.",403);
-      const decision=String(body.decision||"");
-      const campaign=String(body.campaignId||"");
-      const version=Number(body.version);
-      const reason=String(body.reason||"").trim();
-      if(!UUID_RE.test(campaign)||!Number.isSafeInteger(version)||version<1||
-        !["approve","reject","publish","pause","resume","end"].includes(decision)||
-        reason.length<12||reason.length>500)
-        throw new DomainError("ADS_CREDIT_DECISION_INVALID","Escolha uma decisão e confirme sua justificativa.",400);
-      const {data,error}=await admin.rpc("ads_credit_admin_action_v1_1098",{
-        p_actor:user.id,p_campaign:campaign,p_expected_version:version,
-        p_action:decision,p_reason:reason
-      });
-      if(error)throw error;
-      if(data?.source!=="ads_credit_admin_action_v1_1098"||data.campaignId!==campaign)
-        throw new DomainError("ADS_CREDIT_ACTION_UNVERIFIED","A decisão não foi confirmada.",503);
       return json(data,200,origin);
     }
     if(action==="ads-independent-read"){
