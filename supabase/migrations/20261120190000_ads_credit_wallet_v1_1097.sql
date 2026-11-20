@@ -144,8 +144,7 @@ BEGIN
  IF p_amount NOT IN(1990,4990,9990,19990)
  THEN RAISE EXCEPTION 'ADS_CREDIT_AMOUNT_INVALID' USING errcode='22023';END IF;
  IF NOT EXISTS(SELECT 1 FROM public.ads_credit_controls_v1_1097
-  WHERE singleton AND recharge_enabled AND view_debit_enabled
-   AND evidence_audited)
+  WHERE singleton AND recharge_enabled AND view_debit_enabled AND evidence_audited)
  THEN RAISE EXCEPTION 'ADS_CREDIT_RECHARGE_DISABLED' USING errcode='42501';END IF;
  SELECT * INTO v FROM public.ads_credit_topups_v1_1097
   WHERE request_id=p_request FOR UPDATE;
@@ -160,7 +159,7 @@ BEGIN
   THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_FROZEN' USING errcode='42501';END IF;
   IF EXISTS(SELECT 1 FROM public.ads_credit_topups_v1_1097
     WHERE owner_user_id=p_owner AND status IN('reserved','creating','pix_pending')
-     AND created_at>clock_timestamp()-interval '3 days')
+      AND created_at>clock_timestamp()-interval '3 days')
   THEN RAISE EXCEPTION 'ADS_CREDIT_PENDING_TOPUP_EXISTS' USING errcode='42501';END IF;
   INSERT INTO public.ads_credit_topups_v1_1097(
    owner_user_id,request_id,external_reference,amount_cents)
@@ -176,8 +175,8 @@ BEGIN
   'status',v.status,'paymentId',v.provider_payment_id);
 END;$fn$;
 
--- Only one open payment intention per owner: recover instead of creating a
--- second Pix. A timed-out provider POST is NEVER retried blindly.
+
+-- A claimed Pix can never be blindly posted twice after a network timeout.
 CREATE OR REPLACE FUNCTION public.ads_credit_topup_claim_v1_1097(
  p_owner uuid,p_topup uuid
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
@@ -210,252 +209,7 @@ CREATE OR REPLACE FUNCTION public.ads_credit_topup_attach_v1_1097(
 SET search_path TO 'pg_catalog' AS $fn$
 DECLARE t public.ads_credit_topups_v1_1097%ROWTYPE;
 BEGIN
- IF p_payment !~ '^[0-9]{5,30}
--- The event is idempotent, and every wallet mutation happens in one transaction.
-CREATE OR REPLACE FUNCTION public.ads_credit_payment_fact_v1_1097(
- p_event_key text,p_reference text,p_payment text,p_collector text,p_amount integer,
- p_status text,p_status_detail text,p_live boolean
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'pg_catalog' AS $fn$
-DECLARE t public.ads_credit_topups_v1_1097%ROWTYPE;
- w public.ads_credit_wallets_v1_1097%ROWTYPE;
- v_status text; v_delta bigint:=0; v_recorded bigint;
-BEGIN
- IF p_event_key !~ '^[0-9a-f]{64}$' OR
-  p_payment !~ '^[0-9]{5,30}$' OR p_collector !~ '^[0-9]{4,20}$'
-  OR p_live IS DISTINCT FROM true OR
-  p_status NOT IN ('approved','refunded','charged_back','pending','in_process','cancelled','rejected')
-  OR length(coalesce(p_status_detail,''))>120
- THEN RAISE EXCEPTION 'ADS_CREDIT_PROVIDER_EVIDENCE_INVALID' USING errcode='42501';END IF;
- SELECT * INTO t FROM public.ads_credit_topups_v1_1097
-  WHERE external_reference=p_reference FOR UPDATE;
- IF NOT FOUND OR t.amount_cents<>p_amount OR
-   t.status NOT IN('pix_pending','approved','reversed','review_required')
- THEN RAISE EXCEPTION 'ADS_CREDIT_REFERENCE_INVALID' USING errcode='42501';END IF;
- IF t.collector_id IS NOT NULL AND t.collector_id<>p_collector OR
-   t.provider_payment_id IS NOT NULL AND t.provider_payment_id<>p_payment
- THEN RAISE EXCEPTION 'ADS_CREDIT_PAYMENT_IDENTITY_CONFLICT' USING errcode='42501';END IF;
- SELECT * INTO w FROM public.ads_credit_wallets_v1_1097
-  WHERE owner_user_id=t.owner_user_id FOR UPDATE;
- IF NOT FOUND THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_MISSING' USING errcode='42501';END IF;
- IF EXISTS(SELECT 1 FROM public.ads_credit_ledger_v1_1097 WHERE event_key=p_event_key)
- THEN RETURN jsonb_build_object('source','ads_credit_payment_fact_v1_1097',
-  'replayed',true,'status',t.status,'balanceCents',w.balance_cents);END IF;
- v_status:=t.status;
- IF p_status='approved' AND p_status_detail='accredited' AND t.status='pix_pending' THEN
-  v_delta:=t.amount_cents;
-  UPDATE public.ads_credit_wallets_v1_1097 SET
-   balance_cents=balance_cents+v_delta,
-   total_loaded_cents=total_loaded_cents+v_delta,
-   updated_at=clock_timestamp()
-   WHERE owner_user_id=t.owner_user_id;
-  v_status:='approved';
-  UPDATE public.ads_credit_topups_v1_1097 SET
-   status=v_status,provider_payment_id=p_payment,collector_id=p_collector,
-   provider_status=p_status,paid_at=clock_timestamp(),updated_at=clock_timestamp()
-   WHERE id=t.id;
- ELSIF p_status IN ('refunded','charged_back') AND t.status='approved' THEN
-  v_delta:=-least(w.balance_cents,t.amount_cents::bigint);
-  UPDATE public.ads_credit_wallets_v1_1097 SET
-   balance_cents=balance_cents+v_delta,
-   disputed_cents=disputed_cents+(t.amount_cents+v_delta),
-   frozen=true,updated_at=clock_timestamp()
-   WHERE owner_user_id=t.owner_user_id;
-  v_status:='reversed';
-  UPDATE public.ads_credit_topups_v1_1097 SET
-   status=v_status,provider_status=p_status,reversed_at=clock_timestamp(),
-   updated_at=clock_timestamp() WHERE id=t.id;
- ELSE
-  RETURN jsonb_build_object('source','ads_credit_payment_fact_v1_1097',
-   'recorded',false,'status',v_status,'balanceCents',w.balance_cents);
- END IF;
- SELECT balance_cents INTO v_recorded FROM public.ads_credit_wallets_v1_1097
-  WHERE owner_user_id=t.owner_user_id;
- INSERT INTO public.ads_credit_ledger_v1_1097(
-  owner_user_id,event_key,topup_id,operation,delta_cents,balance_after_cents)
- VALUES(t.owner_user_id,p_event_key,t.id,
-  CASE WHEN v_status='approved' THEN 'topup' ELSE 'reversal' END,v_delta,v_recorded);
- RETURN jsonb_build_object('source','ads_credit_payment_fact_v1_1097',
-  'recorded',true,'status',v_status,'balanceCents',v_recorded);
-END;$fn$;
-
--- Billable views require a distinct audited proof and explicit commercial
--- activation. Browser "confirm" claims are NEVER fed into this procedure.
-CREATE OR REPLACE FUNCTION public.ads_credit_debit_verified_v1_1097(
- p_view uuid
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'pg_catalog' AS $fn$
-DECLARE v public.ads_credit_verified_views_v1_1097%ROWTYPE;
- w public.ads_credit_wallets_v1_1097%ROWTYPE; price integer;
- key text; new_balance bigint;
-BEGIN
- SELECT * INTO v FROM public.ads_credit_verified_views_v1_1097
-  WHERE id=p_view FOR UPDATE;
- IF NOT FOUND OR v.eligible IS DISTINCT FROM true OR
-  v.reviewed_at IS NULL OR v.reviewed_by IS NULL
- THEN RAISE EXCEPTION 'ADS_CREDIT_AUDITED_PROOF_REQUIRED' USING errcode='42501';END IF;
- SELECT cents_per_view INTO price FROM public.ads_credit_controls_v1_1097
-  WHERE singleton AND view_debit_enabled AND evidence_audited;
- IF price IS NULL THEN
-  RAISE EXCEPTION 'ADS_CREDIT_BILLING_DISABLED' USING errcode='42501';END IF;
- key:='verified-view:'||v.id::text;
- SELECT * INTO w FROM public.ads_credit_wallets_v1_1097
-  WHERE owner_user_id=v.owner_user_id FOR UPDATE;
- IF NOT FOUND OR w.frozen THEN
-  RAISE EXCEPTION 'ADS_CREDIT_WALLET_LOCKED' USING errcode='42501';END IF;
- IF EXISTS(SELECT 1 FROM public.ads_credit_ledger_v1_1097 WHERE event_key=key)
- THEN RETURN jsonb_build_object('source','ads_credit_debit_verified_v1_1097',
-   'replayed',true,'balanceCents',w.balance_cents);END IF;
- IF w.balance_cents<price THEN RETURN jsonb_build_object(
-  'source','ads_credit_debit_verified_v1_1097','charged',false,
-  'reason','insufficient_balance','balanceCents',w.balance_cents);END IF;
- UPDATE public.ads_credit_wallets_v1_1097 SET
-  balance_cents=balance_cents-price,total_spent_cents=total_spent_cents+price,
-  updated_at=clock_timestamp() WHERE owner_user_id=v.owner_user_id
- RETURNING balance_cents INTO new_balance;
- INSERT INTO public.ads_credit_ledger_v1_1097(
-  owner_user_id,event_key,source_view_id,operation,delta_cents,balance_after_cents)
- VALUES(v.owner_user_id,key,v.id,'view',-price,new_balance);
- RETURN jsonb_build_object('source','ads_credit_debit_verified_v1_1097',
-  'charged',true,'chargedCents',price,'balanceCents',new_balance);
-END;$fn$;
-
-DO $perm$ DECLARE f record;
-BEGIN
- FOR f IN SELECT oid::regprocedure::text AS signature
-  FROM pg_proc WHERE pronamespace='public'::regnamespace
-   AND proname IN('ads_credit_balance_v1_1097',
-     'ads_credit_topup_reserve_v1_1097','ads_credit_topup_claim_v1_1097',
-     'ads_credit_topup_attach_v1_1097','ads_credit_payment_fact_v1_1097',
-     'ads_credit_debit_verified_v1_1097') LOOP
-  EXECUTE 'REVOKE ALL ON FUNCTION '||f.signature||' FROM PUBLIC,anon,authenticated';
-  EXECUTE 'GRANT EXECUTE ON FUNCTION '||f.signature||' TO service_role';
- END LOOP;
-END;$perm$;
-COMMIT;
- OR p_collector !~ '^[0-9]{4,20}
--- The event is idempotent, and every wallet mutation happens in one transaction.
-CREATE OR REPLACE FUNCTION public.ads_credit_payment_fact_v1_1097(
- p_event_key text,p_reference text,p_payment text,p_collector text,p_amount integer,
- p_status text,p_status_detail text,p_live boolean
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'pg_catalog' AS $fn$
-DECLARE t public.ads_credit_topups_v1_1097%ROWTYPE;
- w public.ads_credit_wallets_v1_1097%ROWTYPE;
- v_status text; v_delta bigint:=0; v_recorded bigint;
-BEGIN
- IF p_event_key !~ '^[0-9a-f]{64}$' OR
-  p_payment !~ '^[0-9]{5,30}$' OR p_collector !~ '^[0-9]{4,20}$'
-  OR p_live IS DISTINCT FROM true OR
-  p_status NOT IN ('approved','refunded','charged_back','pending','in_process','cancelled','rejected')
-  OR length(coalesce(p_status_detail,''))>120
- THEN RAISE EXCEPTION 'ADS_CREDIT_PROVIDER_EVIDENCE_INVALID' USING errcode='42501';END IF;
- SELECT * INTO t FROM public.ads_credit_topups_v1_1097
-  WHERE external_reference=p_reference FOR UPDATE;
- IF NOT FOUND OR t.amount_cents<>p_amount OR
-   t.status NOT IN('pix_pending','approved','reversed','review_required')
- THEN RAISE EXCEPTION 'ADS_CREDIT_REFERENCE_INVALID' USING errcode='42501';END IF;
- IF t.collector_id IS NOT NULL AND t.collector_id<>p_collector OR
-   t.provider_payment_id IS NOT NULL AND t.provider_payment_id<>p_payment
- THEN RAISE EXCEPTION 'ADS_CREDIT_PAYMENT_IDENTITY_CONFLICT' USING errcode='42501';END IF;
- SELECT * INTO w FROM public.ads_credit_wallets_v1_1097
-  WHERE owner_user_id=t.owner_user_id FOR UPDATE;
- IF NOT FOUND THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_MISSING' USING errcode='42501';END IF;
- IF EXISTS(SELECT 1 FROM public.ads_credit_ledger_v1_1097 WHERE event_key=p_event_key)
- THEN RETURN jsonb_build_object('source','ads_credit_payment_fact_v1_1097',
-  'replayed',true,'status',t.status,'balanceCents',w.balance_cents);END IF;
- v_status:=t.status;
- IF p_status='approved' AND p_status_detail='accredited' AND t.status='pix_pending' THEN
-  v_delta:=t.amount_cents;
-  UPDATE public.ads_credit_wallets_v1_1097 SET
-   balance_cents=balance_cents+v_delta,
-   total_loaded_cents=total_loaded_cents+v_delta,
-   updated_at=clock_timestamp()
-   WHERE owner_user_id=t.owner_user_id;
-  v_status:='approved';
-  UPDATE public.ads_credit_topups_v1_1097 SET
-   status=v_status,provider_payment_id=p_payment,collector_id=p_collector,
-   provider_status=p_status,paid_at=clock_timestamp(),updated_at=clock_timestamp()
-   WHERE id=t.id;
- ELSIF p_status IN ('refunded','charged_back') AND t.status='approved' THEN
-  v_delta:=-least(w.balance_cents,t.amount_cents::bigint);
-  UPDATE public.ads_credit_wallets_v1_1097 SET
-   balance_cents=balance_cents+v_delta,
-   disputed_cents=disputed_cents+(t.amount_cents+v_delta),
-   frozen=true,updated_at=clock_timestamp()
-   WHERE owner_user_id=t.owner_user_id;
-  v_status:='reversed';
-  UPDATE public.ads_credit_topups_v1_1097 SET
-   status=v_status,provider_status=p_status,reversed_at=clock_timestamp(),
-   updated_at=clock_timestamp() WHERE id=t.id;
- ELSE
-  RETURN jsonb_build_object('source','ads_credit_payment_fact_v1_1097',
-   'recorded',false,'status',v_status,'balanceCents',w.balance_cents);
- END IF;
- SELECT balance_cents INTO v_recorded FROM public.ads_credit_wallets_v1_1097
-  WHERE owner_user_id=t.owner_user_id;
- INSERT INTO public.ads_credit_ledger_v1_1097(
-  owner_user_id,event_key,topup_id,operation,delta_cents,balance_after_cents)
- VALUES(t.owner_user_id,p_event_key,t.id,
-  CASE WHEN v_status='approved' THEN 'topup' ELSE 'reversal' END,v_delta,v_recorded);
- RETURN jsonb_build_object('source','ads_credit_payment_fact_v1_1097',
-  'recorded',true,'status',v_status,'balanceCents',v_recorded);
-END;$fn$;
-
--- Billable views require a distinct audited proof and explicit commercial
--- activation. Browser "confirm" claims are NEVER fed into this procedure.
-CREATE OR REPLACE FUNCTION public.ads_credit_debit_verified_v1_1097(
- p_view uuid
-) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'pg_catalog' AS $fn$
-DECLARE v public.ads_credit_verified_views_v1_1097%ROWTYPE;
- w public.ads_credit_wallets_v1_1097%ROWTYPE; price integer;
- key text; new_balance bigint;
-BEGIN
- SELECT * INTO v FROM public.ads_credit_verified_views_v1_1097
-  WHERE id=p_view FOR UPDATE;
- IF NOT FOUND OR v.eligible IS DISTINCT FROM true OR
-  v.reviewed_at IS NULL OR v.reviewed_by IS NULL
- THEN RAISE EXCEPTION 'ADS_CREDIT_AUDITED_PROOF_REQUIRED' USING errcode='42501';END IF;
- SELECT cents_per_view INTO price FROM public.ads_credit_controls_v1_1097
-  WHERE singleton AND view_debit_enabled AND evidence_audited;
- IF price IS NULL THEN
-  RAISE EXCEPTION 'ADS_CREDIT_BILLING_DISABLED' USING errcode='42501';END IF;
- key:='verified-view:'||v.id::text;
- SELECT * INTO w FROM public.ads_credit_wallets_v1_1097
-  WHERE owner_user_id=v.owner_user_id FOR UPDATE;
- IF NOT FOUND OR w.frozen THEN
-  RAISE EXCEPTION 'ADS_CREDIT_WALLET_LOCKED' USING errcode='42501';END IF;
- IF EXISTS(SELECT 1 FROM public.ads_credit_ledger_v1_1097 WHERE event_key=key)
- THEN RETURN jsonb_build_object('source','ads_credit_debit_verified_v1_1097',
-   'replayed',true,'balanceCents',w.balance_cents);END IF;
- IF w.balance_cents<price THEN RETURN jsonb_build_object(
-  'source','ads_credit_debit_verified_v1_1097','charged',false,
-  'reason','insufficient_balance','balanceCents',w.balance_cents);END IF;
- UPDATE public.ads_credit_wallets_v1_1097 SET
-  balance_cents=balance_cents-price,total_spent_cents=total_spent_cents+price,
-  updated_at=clock_timestamp() WHERE owner_user_id=v.owner_user_id
- RETURNING balance_cents INTO new_balance;
- INSERT INTO public.ads_credit_ledger_v1_1097(
-  owner_user_id,event_key,source_view_id,operation,delta_cents,balance_after_cents)
- VALUES(v.owner_user_id,key,v.id,'view',-price,new_balance);
- RETURN jsonb_build_object('source','ads_credit_debit_verified_v1_1097',
-  'charged',true,'chargedCents',price,'balanceCents',new_balance);
-END;$fn$;
-
-DO $perm$ DECLARE f record;
-BEGIN
- FOR f IN SELECT oid::regprocedure::text AS signature
-  FROM pg_proc WHERE pronamespace='public'::regnamespace
-   AND proname IN('ads_credit_balance_v1_1097',
-     'ads_credit_topup_reserve_v1_1097','ads_credit_payment_fact_v1_1097',
-     'ads_credit_debit_verified_v1_1097') LOOP
-  EXECUTE 'REVOKE ALL ON FUNCTION '||f.signature||' FROM PUBLIC,anon,authenticated';
-  EXECUTE 'GRANT EXECUTE ON FUNCTION '||f.signature||' TO service_role';
- END LOOP;
-END;$perm$;
-COMMIT;
-
+ IF p_payment !~ '^[0-9]{5,30}$' OR p_collector !~ '^[0-9]{4,20}$'
  OR length(coalesce(p_code,'')) NOT BETWEEN 20 AND 1500 OR
  p_expires<=clock_timestamp()+interval '60 seconds'
  OR p_expires>clock_timestamp()+interval '3 days'
@@ -594,7 +348,8 @@ BEGIN
  FOR f IN SELECT oid::regprocedure::text AS signature
   FROM pg_proc WHERE pronamespace='public'::regnamespace
    AND proname IN('ads_credit_balance_v1_1097',
-     'ads_credit_topup_reserve_v1_1097','ads_credit_payment_fact_v1_1097',
+     'ads_credit_topup_reserve_v1_1097','ads_credit_topup_claim_v1_1097',
+     'ads_credit_topup_attach_v1_1097','ads_credit_payment_fact_v1_1097',
      'ads_credit_debit_verified_v1_1097') LOOP
   EXECUTE 'REVOKE ALL ON FUNCTION '||f.signature||' FROM PUBLIC,anon,authenticated';
   EXECUTE 'GRANT EXECUTE ON FUNCTION '||f.signature||' TO service_role';
