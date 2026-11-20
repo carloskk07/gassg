@@ -59,10 +59,10 @@ const values={
 };
 sandbox.document={getElementById:id=>values[id]||null};
 sandbox.update();
-assert.match(values['sponsor-cpm-result'].textContent,/4\.158 visualizações verificadas/);
+assert.match(values['sponsor-cpm-result'].textContent,/R\$ 49,90 por 15 dias/);
 values['sponsor-cpm-budget'].value='1990';
 sandbox.update();
-assert.match(values['sponsor-cpm-result'].textContent,/1\.658 visualizações verificadas/);
+assert.match(values['sponsor-cpm-result'].textContent,/R\$ 19,90 por 7 dias/);
 values['sponsor-cpm-budget'].value='4990';
 let outbound=null;
 sandbox.openSponsorContact=(kind,brief)=>{outbound={kind,brief}};
