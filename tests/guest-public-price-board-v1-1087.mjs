@@ -16,9 +16,9 @@ assert.doesNotMatch(migration,/grant execute on function public\.(?:create_order
 assert.match(migration,/TAMAO_GUEST_CITY_BOARD_CONTRACT_DRIFT/);
 assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/);
 assert.match(backend,/if\(!session\?\.access_token\|\|session\.user\?\.is_anonymous===true\)/);
-assert.match(backend,/liveRefreshCityPriceBoard\(\{force:true\}\)\s*\.then\(board/);
+assert.match(backend,/liveRefreshCityPriceBoard\(\)\.then\(v/);
 assert.match(customer,/liveRuntime\?\.status!=='guest'/);
-assert.match(customer,/Confirme sua conta para validar a entrega e o valor final pelo CEP/);
+assert.match(customer,/Confirme sua conta para consultar entrega e total/);
 
 const begin=backend.indexOf('const CUSTOMER_CITY_BOARD_REFRESH_MS=');
 const end=backend.indexOf('\nfunction prelaunchExamplesEnabled()',begin);
