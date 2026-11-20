@@ -1,7 +1,7 @@
 // TAMÃO V1.1090 — premium sponsor-only experience, loaded on demand.
 // Keeps the customer homepage lightweight; this module never enables billing.
 function sponsorJumpTo(id){
- if(!['sponsor-formats','sponsor-pricing','sponsor-faq'].includes(id))return false;
+ if(!['sponsor-formats','sponsor-pricing','sponsor-faq','sponsor-placements','sponsor-account-step'].includes(id))return false;
  const section=document.getElementById(id);
  if(!section)return false;
  const reduce=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
@@ -21,7 +21,8 @@ function sponsorsLandingPremium(){
     <button type="button" class="primary sponsor-premium-main-cta" onclick="sponsorJumpTo('sponsor-pricing')">Criar meu anúncio <span aria-hidden="true">→</span></button>
     <button type="button" class="sponsor-premium-link" onclick="sponsorJumpTo('sponsor-formats')">Conhecer os formatos <span aria-hidden="true">↗</span></button>
    </div>
-   <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Proposta antes de pagar</span></div>
+   <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Envio sem pagamento</span></div>
+   <p class="sponsor-premium-starting"><strong>Desde R$ 19,90</strong> para planejar 7 dias de divulgação <span>· Condições confirmadas antes de contratar</span></p>
   </div>
   <aside class="sponsor-premium-visual" aria-label="Prévia ilustrativa de anúncio identificado">
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
@@ -43,6 +44,35 @@ function sponsorsLandingPremium(){
  <div><span aria-hidden="true">◷</span><strong>Prazo e orçamento</strong><small>Condições conhecidas antes da contratação.</small></div>
  <div><span aria-hidden="true">▤</span><strong>Acompanhamento</strong><small>Status da campanha em sua conta.</small></div>
 </div>
+<section class="sponsor-premium-placements" id="sponsor-placements" tabindex="-1" aria-label="Onde sua marca pode aparecer">
+ <div class="sponsor-premium-section-heading">
+  <span class="section-kicker">VEJA ONDE SUA MARCA PODE APARECER</span>
+  <h2>Uma divulgação que combina com a experiência do TAMÃO.</h2>
+  <p>O público reconhece sua marca em espaços de publicidade identificada. Conheça dois contextos de apresentação previstos na plataforma.</p>
+ </div>
+ <div class="sponsor-placement-gallery">
+  <article class="sponsor-placement-frame">
+   <div class="sponsor-placement-browser"><strong>TAMÃO</strong><small>Início • Produtos e serviços</small><span aria-hidden="true">● ● ●</span></div>
+   <div class="sponsor-placement-body">
+    <div class="sponsor-placement-context"><span>NA PÁGINA INICIAL</span><strong>Descubra produtos, serviços e novidades na sua região.</strong></div>
+    <div class="sponsor-placement-faux-products" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="sponsor-placement-ad"><small>PUBLICIDADE · EMPRESA</small><strong>Sua empresa com uma mensagem clara.</strong><p>Um espaço para apresentar sua marca aos visitantes da cidade.</p><span>Conhecer a empresa ↗</span></div>
+   </div>
+   <div class="sponsor-placement-caption"><strong>01 · Página inicial</strong><p>Um espaço contextual para campanhas elegíveis na navegação pública.</p></div>
+  </article>
+  <article class="sponsor-placement-frame">
+   <div class="sponsor-placement-browser"><strong>TAMÃO</strong><small>Publicidade local</small><span aria-hidden="true">● ● ●</span></div>
+   <div class="sponsor-placement-body sponsor-placement-body-brands">
+    <div class="sponsor-placement-context"><span>NA ÁREA DE MARCAS</span><strong>Descubra iniciativas de empresas da região.</strong></div>
+    <div class="sponsor-placement-ad sponsor-placement-ad-brands"><small>PUBLICIDADE · EMPRESA</small><strong>Conheça o que sua marca oferece.</strong><p>Seu anúncio identificado e seu próprio site como destino.</p><span>Conhecer o anunciante ↗</span></div>
+    <div class="sponsor-placement-faux-lines" aria-hidden="true"><span></span><span></span></div>
+   </div>
+   <div class="sponsor-placement-caption"><strong>02 · Área de publicidade</strong><p>Outra oportunidade de apresentação quando houver inventário na cidade.</p></div>
+  </article>
+ </div>
+ <p class="sponsor-placement-caveat">Representações ilustrativas dos espaços já previstos na plataforma. A posição, a duração e a veiculação efetiva dependem de inventário, revisão e condições aprovadas; não representam campanha ativa.</p>
+ <div class="sponsor-placement-action"><button type="button" class="secondary" onclick="sponsorJumpTo('sponsor-pricing')">Preparar meu anúncio para avaliação <span aria-hidden="true">→</span></button></div>
+</section>
 <section class="sponsor-premium-why" aria-label="Vantagens de anunciar no TAMÃO">
  <div class="sponsor-premium-section-heading"><span class="section-kicker">VISIBILIDADE PARA QUEM EMPREENDE</span><h2>Mais presença para o seu negócio, sem complicar sua rotina.</h2><p>Você não precisa vender produtos pelo TAMÃO para divulgar a sua marca. Campanhas independentes seguem critérios de revisão, região e disponibilidade.</p></div>
  <div class="sponsor-premium-value-grid">
@@ -54,7 +84,7 @@ function sponsorsLandingPremium(){
 <section class="section sponsor-formats sponsor-premium-formats" id="sponsor-formats" tabindex="-1" aria-label="Formatos para sua campanha">
  <div class="sponsor-premium-section-heading"><span class="section-kicker">ESCOLHA SEU OBJETIVO</span><h2>Publicidade para diferentes momentos do seu negócio.</h2><p>Comece com um anúncio identificado ou converse sobre uma ação de benefícios e parcerias regionais.</p></div>
  <div class="sponsor-format-grid">
-  <article><span>01 / VISIBILIDADE</span><span class="sponsor-premium-format-icon" aria-hidden="true">✦</span><h3>Anúncio da sua empresa</h3><p>Apresente sua marca em áreas elegíveis do TAMÃO, conforme a cidade e a disponibilidade de espaços.</p><button type="button" onclick="openSponsorContact('visibility')">Quero divulgar minha marca <span aria-hidden="true">→</span></button></article>
+  <article><span>01 / VISIBILIDADE</span><span class="sponsor-premium-format-icon" aria-hidden="true">✦</span><h3>Anúncio da sua empresa</h3><p>Apresente sua marca em áreas elegíveis do TAMÃO, conforme a cidade e a disponibilidade de espaços.</p><button type="button" onclick="sponsorJumpTo('sponsor-pricing')">Criar anúncio da minha empresa <span aria-hidden="true">→</span></button></article>
   <article><span>02 / RELACIONAMENTO</span><span class="sponsor-premium-format-icon" aria-hidden="true">♡</span><h3>Ações com benefícios</h3><p>Converse sobre campanhas com vantagens para clientes, orçamento e regras previamente combinados.</p><button type="button" onclick="openSponsorContact('relationship')">Conversar sobre benefícios <span aria-hidden="true">→</span></button></article>
   <article><span>03 / COMÉRCIO LOCAL</span><span class="sponsor-premium-format-icon" aria-hidden="true">◇</span><h3>Parceria regional</h3><p>Estude ações com revendas elegíveis, quando houver parceiros e operação disponíveis na cidade.</p><button type="button" onclick="openSponsorContact('local')">Explorar parceria regional <span aria-hidden="true">→</span></button></article>
  </div>
