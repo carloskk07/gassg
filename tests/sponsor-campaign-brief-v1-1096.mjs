@@ -36,7 +36,7 @@ const doc={
 };
 const g={sessionStorage:storage,matchMedia:()=>({matches:true}),
  tamaoAdsPlannerLoad:()=>{},tamaoAdsPlannerSection:()=>'<section>official real planner</section>',
- tamaoAdsChooseBudget:v=>{chosen.push(v);return true;},
+ tamaoCreditChoose:v=>{chosen.push(v);return true;},
  tamaoAdsUpdateCreativePreview:()=>{rendered++}};
 const context={document:doc,shell:x=>x,globalThis:g,
  liveInvoke:()=>{posted++;throw new Error('Forbidden live call');}};
@@ -56,8 +56,8 @@ assert.equal(context.choose(999),false);
 assert.equal(context.choose(9990),true);
 assert.equal(plans[2].attrs['aria-pressed'],'true');
 assert.equal(plans[1].attrs['aria-pressed'],'false');
-assert.equal(previewTexts.planLabel[0].textContent,'R$ 99,90 · 30 dias');
-assert.ok(status.textContent.includes('antes da contratação') || status.textContent.includes('revisão'));
+assert.equal(previewTexts.planLabel[0].textContent,'R$ 99,90 em créditos');
+assert.match(status.textContent,/Nenhum Pix|Nenhuma cobrança/);
 assert.equal(g.tamaoSponsorDemoBudget(),null);
 assert.equal(posted,0);
 assert.equal(chosen.length,0,'Selecting preview must not mutate official form automatically');
@@ -97,4 +97,4 @@ vm.runInContext(studio+';this.page=sponsorsLandingPremium;',fresh);
 assert.ok(fresh.page().includes('data-sponsor-demo-budget="9990" aria-pressed="true"'));
 assert.equal(fresh.globalThis.tamaoSponsorDemoBudget(),9990);
 assert.equal(posted,0,'No campaign, impression, payment or backend write');
-console.log('PASS V1.1096: secure 4-price selection, consented handoff, official budget and days, safe default, session restore, zero backend writes.');
+console.log('PASS V1.1096/V1.1098: secure 4-value credit selection, consented handoff, legacy compatibility, safe default, session restore, zero backend writes.');
