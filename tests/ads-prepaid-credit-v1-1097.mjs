@@ -63,4 +63,42 @@ vm.runInContext(client+';this.money=tamaoCreditMoney;this.choose=tamaoCreditChoo
 assert.equal(context.money(1990),'R$ 19,90');
 assert.equal(context.choose(999),false);
 assert.equal(context.choose(19990),true);
+
+assert.ok(sql.includes("'pixCode',CASE WHEN t.status='pix_pending'"),
+ 'Owner must be able to recover a valid Pix after page refresh');
+assert.ok(client.includes("tamaoCreditDraftSave")&&client.includes("tamaoCreditDraftRestore"),
+ 'The campaign draft must survive credit plan changes and wallet refreshes');
+assert.ok(client.includes('tamaoCreditReconcile(&quot;'),
+ 'Pending Pix confirmation must be reachable directly from payment history');
+const ids={
+ 'tamao-credit-c-advertiser':{value:'Minha loja'},
+ 'tamao-credit-c-title':{value:'Campanha especial do comércio'},
+ 'tamao-credit-c-description':{value:'Conheça nossa empresa e nossos serviços na região.'},
+ 'tamao-credit-c-city':{value:'São Gabriel'},
+ 'tamao-credit-c-state':{value:'RS'},
+ 'tamao-credit-c-destination':{value:'https://example.com'},
+ 'tamao-credit-c-terms':{checked:true}
+};
+const ui={
+ document:{getElementById:key=>ids[key]||null},
+ globalThis:{liveRuntime:{session:{user:{id:'owner-1'}}}},
+ tamaoAdsAccountVerified:()=>true,
+ Date,Intl,console
+};
+vm.createContext(ui);
+vm.runInContext(client+';this.draftReset=tamaoCreditDraftReset;'+
+ 'this.draftSave=tamaoCreditDraftSave;this.draftRestore=tamaoCreditDraftRestore;',ui);
+ui.draftReset('owner-1');
+ui.draftSave();
+ids['tamao-credit-c-title'].value='';
+ids['tamao-credit-c-terms'].checked=false;
+ui.draftRestore();
+assert.equal(ids['tamao-credit-c-title'].value,'Campanha especial do comércio');
+assert.equal(ids['tamao-credit-c-terms'].checked,true);
+ui.draftReset('owner-2');
+ui.draftRestore();
+assert.equal(ids['tamao-credit-c-title'].value,'');
+assert.equal(ids['tamao-credit-c-terms'].checked,false,
+ 'Campaign consent must not leak to another advertiser');
+
 console.log('PASS V1.1097: privacy, false-by-default financial gates, idempotent credit reconciliation, private wallet and no legacy financial mutation.');
