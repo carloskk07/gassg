@@ -582,3 +582,76 @@
 @media(max-width:360px){
  .sponsor-premium-v1090 .sponsor-demo-panel{padding:13px 11px}
 }
+
+/* V1.1094 — editorial creative studio: design, responsive layout and accessible controls. */
+.sponsor-premium-v1090 .sponsor-demo-panel{
+ grid-template-columns:minmax(0,.92fr) minmax(0,1fr) minmax(0,1.16fr);
+ align-items:start;gap:15px 19px;padding:22px 24px;margin-top:23px;
+ border:1px solid #e0e7d8;border-radius:19px;
+ background:linear-gradient(125deg,#fffdf8 0%,#f8fbf8 58%,#eff8f1 100%);
+ box-shadow:0 18px 34px #011e141a,inset 0 1px #fff;
+}
+.sponsor-premium-v1090 .sponsor-demo-panel-head{display:grid;gap:7px;align-content:center;min-height:74px}
+.sponsor-demo-studio-kicker{font-size:10px;font-weight:950;letter-spacing:.15em;color:#a67722}
+.sponsor-premium-v1090 .sponsor-demo-panel-head strong{font-size:19px;letter-spacing:-.045em;line-height:1.18}
+.sponsor-premium-v1090 .sponsor-demo-panel-head small{font-size:12px;max-width:38ch;line-height:1.5}
+.sponsor-demo-sector-field,.sponsor-demo-goals-field,.sponsor-demo-message-field,.sponsor-demo-action{display:grid;gap:9px;min-width:0}
+.sponsor-demo-control-label{font-size:12px;font-weight:850;color:#24573c;line-height:1.3}
+.sponsor-premium-v1090 .sponsor-demo-panel label{font-size:12px}
+.sponsor-premium-v1090 .sponsor-demo-panel :is(.sponsor-demo-name-field input,.sponsor-demo-message-field input){min-height:50px;border-radius:11px}
+.sponsor-premium-v1090 .sponsor-demo-options{gap:7px}
+.sponsor-premium-v1090 .sponsor-demo-options button{min-height:50px;font-size:11px;line-height:1.25}
+.sponsor-demo-goals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.sponsor-demo-goals button{
+ min-width:0;min-height:53px;padding:8px 5px;border-radius:11px;line-height:1.25;
+ border:1px solid #cbded0;background:#fff;color:#355f47;
+ font-size:11px;font-weight:800;cursor:pointer;white-space:normal;
+ transition:background .16s ease,border-color .16s ease;
+}
+.sponsor-demo-goals button:hover{background:#e7f5eb;border-color:#8bbda0}
+.sponsor-demo-goals button[aria-pressed="true"]{background:#0f6245;color:#fff;border-color:#0f6245;box-shadow:0 5px 12px #0b573922}
+.sponsor-premium-v1090 .sponsor-demo-continue{
+ min-height:53px;padding:12px 15px;border-color:#e1b966;border-radius:12px;
+ background:linear-gradient(125deg,#f6d589,#f1c66d);color:#25442e;
+ box-shadow:0 9px 19px #9a702722;font-size:13px;
+}
+.sponsor-premium-v1090 .sponsor-demo-continue:hover{background:#ffe3a0;border-color:#dcae50}
+.sponsor-demo-action small{font-size:11px;color:#567664;line-height:1.4}
+.sponsor-premium-v1090 .sponsor-demo-feedback{
+ grid-column:1/-1;padding-top:11px;border-top:1px solid #e1ece3;color:#647e6c;
+}
+.sponsor-premium-v1090 .sponsor-premium-ad-art{
+ height:146px;isolation:isolate;
+}
+.sponsor-premium-v1090 .sponsor-premium-ad-orbit{width:205px;height:205px;right:4%;transform:translateX(25%);border-color:#fff9}
+.sponsor-premium-v1090 .sponsor-premium-ad-shape{
+ display:grid;place-items:center;width:89px;height:89px;border-radius:25px;
+ background:linear-gradient(145deg,#ffffff33,#ffffff10);
+ border:1px solid #ffffff99;box-shadow:0 16px 26px #001b1833,inset 0 1px #fff7;
+ backdrop-filter:blur(3px);color:#fff;font-size:58px;font-weight:900;line-height:1;
+}
+.sponsor-premium-art-caption{
+ position:absolute;top:11px;left:12px;padding:6px 10px;
+ border:1px solid #fff6;border-radius:30px;background:#ffffffdf;
+ color:#24563d;font-size:10px;font-weight:900;letter-spacing:.02em;
+}
+.sponsor-premium-v1090 :is(.sponsor-demo-goals button,.sponsor-demo-panel input):focus-visible{outline:3px solid #bd8425;outline-offset:3px}
+@media(min-width:720px) and (max-width:1099px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+ .sponsor-premium-v1090 .sponsor-demo-panel-head{min-height:0}
+ .sponsor-premium-v1090 .sponsor-demo-action{align-self:end}
+}
+@media(max-width:719px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{grid-template-columns:minmax(0,1fr);padding:18px;gap:13px}
+ .sponsor-premium-v1090 .sponsor-demo-panel-head{min-height:0}
+ .sponsor-demo-goals button{min-height:48px}
+ .sponsor-premium-v1090 .sponsor-premium-ad-art{height:130px}
+}
+@media(max-width:360px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{padding:15px 12px}
+ .sponsor-demo-goals{gap:5px}
+ .sponsor-demo-goals button{font-size:10px;padding:7px 4px}
+}
+@media(prefers-reduced-motion:reduce){
+ .sponsor-demo-goals button{transition:none}
+}
