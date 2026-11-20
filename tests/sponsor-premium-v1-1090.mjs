@@ -115,4 +115,48 @@ for(const key of [
 ])assert.ok(css.includes(key),'Premium layout must remain accessible/responsive: '+key);
 assert.match(boot,/sponsors:\['Anuncie no TAMÃO — Publicidade local'/);
 assert.match(read('.github/workflows/audit.yml'),/tests\/sponsor-premium-v1-1090\.mjs/);
+
+assert.match(planner,/function tamaoAdsUpdateCreativePreview\(\)/);
+assert.match(planner,/sponsor-creative-preview-ad/);
+assert.match(planner,/oninput="tamaoAdsUpdateCreativePreview\(\)"/);
+assert.match(planner,/id="sponsor-account-step"/);
+assert.match(planner,/function tamaoAdsContinueToCreative\(\)/);
+const creativeNodes=new Map([
+ ['sponsor-ad-company',{value:'Minha empresa'}],
+ ['sponsor-ad-title',{value:'Um anúncio seguro e profissional'}],
+ ['sponsor-ad-copy',{value:'Conheça nossos serviços e informações oficiais.'}],
+ ['sponsor-ad-url',{value:'https://exemplo.com.br/oferta'}]
+]);
+for(const key of ['sponsor-creative-brand','sponsor-creative-title','sponsor-creative-message','sponsor-creative-domain'])
+ creativeNodes.set(key,{textContent:''});
+let previewServerWrites=0;
+const creativeCtx=vm.createContext({
+ document:{getElementById:id=>creativeNodes.get(id)||null},
+ globalThis:{liveRuntime:{session:null},liveReady:()=>false},
+ URL,console,
+ liveInvoke:()=>{previewServerWrites++;throw Error('Preview cannot create ad or impression')}
+});
+vm.runInContext(planner+';this.updateCreative=tamaoAdsUpdateCreativePreview;',creativeCtx);
+assert.equal(creativeCtx.updateCreative(),true);
+assert.equal(creativeNodes.get('sponsor-creative-brand').textContent,'Minha empresa');
+assert.equal(creativeNodes.get('sponsor-creative-domain').textContent,'exemplo.com.br');
+creativeNodes.get('sponsor-ad-title').value='<img src=x onerror=alert(1)>';
+creativeNodes.get('sponsor-ad-url').value='javascript:alert(1)';
+creativeCtx.updateCreative();
+assert.equal(creativeNodes.get('sponsor-creative-title').textContent,'<img src=x onerror=alert(1)>',
+ 'User content must be inserted only as text, never HTML');
+assert.equal(creativeNodes.get('sponsor-creative-domain').textContent,'Seu site oficial',
+ 'Unsafe destinations cannot be portrayed as approved URLs');
+assert.equal(previewServerWrites,0,'Preview cannot touch live backend or count impressions');
+
+const nextTarget={scrollIntoView:()=>{focused='creative-scroll'},focus:()=>{focused='creative-focus'}};
+const continueCtx=vm.createContext({
+ document:{getElementById:id=>id==='sponsor-account-step'?nextTarget:null},
+ route:()=> 'sponsors',
+ globalThis:{matchMedia:()=>({matches:false})}
+});
+vm.runInContext(planner+';this.next=tamaoAdsContinueToCreative;',continueCtx);
+assert.equal(continueCtx.next(),true);
+assert.equal(focused,'creative-focus');
+
 console.log('PASS V1.1090: high-trust sponsor landing, truthfully labeled preview, real budget controls, live campaign flow and responsive accessible design.');
