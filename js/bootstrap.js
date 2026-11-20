@@ -334,7 +334,7 @@ window.addEventListener('load',async()=>{
   }else if(!globalThis.adminPortalRequested?.()){
     tamaoPublicEntryRoute();
     render();
-    if(globalThis.liveRequested?.()&&(['home','order','tracking'].includes(route())||route()==='club'
+    if(globalThis.liveRequested?.()&&(['order','tracking'].includes(route())||route()==='club'
       ||/(?:^#|&)access_token=/.test(String(globalThis.location?.hash||''))
       ||/"access_token"\s*:/.test(localStorage.getItem('chama-sg-customer-auth-v2')||''))){
       await backendInit();
