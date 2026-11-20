@@ -55,6 +55,8 @@ jobs:
         run: node tests/customer-checkout-returning-v1-1089.mjs
       - name: V1.1090 premium sponsor value, ethical campaign preview and interactive budget controls
         run: node tests/sponsor-premium-v1-1090.mjs
+      - name: V1.1090 identified advertiser registration and returning sponsor OTP journey
+        run: node tests/sponsor-account-identified-v1-1090.mjs
       - name: V1.1075 premium product photos and approved professional cover
         run: node tests/participant-native-premium-media-v1-1075.mjs
       - name: V1.1073 Cloudflare native participant deep links and asset safety
