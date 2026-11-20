@@ -224,25 +224,73 @@ function tamaoAdsPaymentText(campaign){
   payment==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
   payment==='checkout_ready'?'Pagamento ainda não confirmado.':'';
 }
-async function tamaoAdsAccountStart(){
-  const email=String(document.getElementById('sponsor-account-email')?.value||'').trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return toast('Informe um e-mail válido.');
+async function tamaoAdsAccountStart(mode='register'){
+  const returning=mode==='login';
+  if(mode!=='register'&&!returning)return false;
+  const emailId=returning?'sponsor-account-login-email':'sponsor-account-email';
+  const email=String(document.getElementById(emailId)?.value||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return toast('Informe um e-mail válido.');
+  let fullName='',phone='';
+  if(!returning){
+    fullName=String(document.getElementById('sponsor-account-name')?.value||'').trim().replace(/\s+/g,' ');
+    phone=String(document.getElementById('sponsor-account-phone')?.value||'').replace(/\D/g,'');
+    if(fullName.length<5||fullName.length>100||fullName.split(' ').length<2||
+       !/^[\p{L}][\p{L} .'-]{3,99}$/u.test(fullName))
+      return toast('Informe seu nome e sobrenome.');
+    if(!/^[0-9]{10,11}$/.test(phone))
+      return toast('Informe telefone com DDD.');
+  }
+  const submit=document.getElementById(returning?'sponsor-account-login-send':'sponsor-account-register-send');
+  const status=document.getElementById('sponsor-account-status');
+  if(submit?.disabled)return false;
+  if(submit)submit.disabled=true;
+  if(status)status.textContent='Preparando seu acesso seguro…';
   try{
-    const r=await liveUpgradeAccount(email);
-    toast(r?.alreadyPermanent?'Conta confirmada.':'Enviamos a confirmação para seu e-mail.');
-    render();
-  }catch(e){toast(String(e?.message||'Não foi possível confirmar o e-mail.'))}
+    const reply=returning
+      ?await tamaoClubSendAccess(email)
+      :await liveUpgradeAccount(email,{fullName,phone,returnToCheckout:false});
+    if(reply?.alreadyPermanent){
+      if(status)status.textContent='Sua conta está pronta. Você já pode enviar o anúncio para revisão.';
+      if(typeof render==='function')render();
+    }else{
+      if(status)status.textContent=returning
+        ?'Enviamos um link de entrada para seu e-mail. Abra-o neste navegador para voltar à sua campanha.'
+        :'Enviamos a confirmação para seu e-mail. Confirme o cadastro para preparar a campanha.';
+    }
+    return true;
+  }catch{
+    if(status)status.textContent=returning
+      ?'Não foi possível enviar o link. Confira seu e-mail e tente novamente.'
+      :'Não foi possível iniciar o cadastro. Verifique seus dados e tente novamente.';
+    return false;
+  }finally{
+    if(submit)submit.disabled=false;
+  }
 }
 function tamaoAdsCampaignForm(){
   tamaoAdsSyncOwner();
   if(!tamaoAdsAccountVerified())
-    return '<section class="section"><div class="section-head"><div>'+
-      '<span class="section-kicker">PUBLIQUE COM SEGURANÇA</span>'+
-      '<h2>Envie seu anúncio para revisão.</h2><p>Use um e-mail confirmado. A proposta e o anúncio não geram cobrança.</p></div></div>'+
-      '<div class="card flat" style="max-width:650px">'+
-      '<label for="sponsor-account-email">Seu e-mail</label>'+
-      '<input id="sponsor-account-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br">'+
-      '<button type="button" class="secondary" onclick="tamaoAdsAccountStart()">Confirmar meu e-mail</button></div></section>';
+    return '<section class="section sponsor-access-start" aria-label="Acesso seguro do anunciante"><div class="section-head"><div>'+
+      '<span class="section-kicker">SUA CONTA DE ANUNCIANTE</span>'+
+      '<h2>Apresente sua empresa com segurança.</h2><p>Primeiro acesso? Informe seus dados e confirme o e-mail. Já tem conta? Entre sem repetir o cadastro. Nenhuma dessas ações cria cobrança ou anúncio.</p></div></div>'+
+      '<div class="card flat sponsor-account-entry">'+
+      '<div class="sponsor-account-form-grid">'+
+      '<label for="sponsor-account-name">Nome e sobrenome'+
+      '<input id="sponsor-account-name" class="input" maxlength="100" autocomplete="name" placeholder="Seu nome completo"></label>'+
+      '<label for="sponsor-account-phone">Telefone com DDD'+
+      '<input id="sponsor-account-phone" class="input" maxlength="18" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></label></div>'+
+      '<label for="sponsor-account-email">E-mail para confirmar sua conta'+
+      '<input id="sponsor-account-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br"></label>'+
+      '<button id="sponsor-account-register-send" type="button" class="primary" onclick="tamaoAdsAccountStart()">Criar conta e enviar confirmação →</button>'+
+      '<details class="sponsor-account-returning"><summary>Já tenho conta — entrar só com e-mail</summary>'+
+      '<label for="sponsor-account-login-email">E-mail da sua conta'+
+      '<input id="sponsor-account-login-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br"></label>'+
+      '<button id="sponsor-account-login-send" type="button" class="secondary" onclick="tamaoAdsAccountStart(\'login\')">Enviar link de acesso</button>'+
+      '</details>'+
+      '<p id="sponsor-account-status" role="status" aria-live="polite"></p>'+
+      '<small>A confirmação da conta é necessária para enviar a campanha à análise. O envio do anúncio não publica nem gera Pix.</small>'+
+      '</div></section>';
   const s=tamaoAdsMyState;
   if(s.status==='idle'&&typeof setTimeout==='function'){
     s.status='loading';
