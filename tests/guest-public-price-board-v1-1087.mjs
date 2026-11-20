@@ -8,6 +8,7 @@ const customer=read('js/customer.js');
 const bootstrap=read('js/bootstrap.js');
 const acquisition=read('js/acquisition.js');
 const showcase=read('js/home-showcase.js');
+const guest=read('js/guest-price-board.js');
 const migration=read('supabase/migrations/20261120020000_public_city_price_board_guest_v1_1087.sql');
 
 // First landing must NOT open customer Auth or mint an anonymous user.
@@ -17,7 +18,8 @@ assert.match(backend,/if\(!session\?\.access_token\|\|session\.user\?\.is_anonym
 assert.match(customer,/const disabled=!testDemo&&!ready&&!preview&&!customerOriginSafe\(\)/);
 assert.match(acquisition,/globalThis\.tamaoGuestCityPriceBoard\?\.\(\)/);
 assert.match(showcase,/window\.addEventListener\('load'/);
-assert.match(showcase,/CHAMA_BACKEND\.url\+'\/rest\/v1\/rpc\/public_city_price_board_v1_341'/);
+assert.match(showcase,/guest-price-board\.js/);
+assert.match(guest,/CHAMA_BACKEND\.url\+'\/rest\/v1\/rpc\/public_city_price_board_v1_341'/);
 
 // The sole database permission is an aggregate, read-only, city-scoped RPC.
 assert.match(migration,/grant execute on function public\.public_city_price_board_v1_341\(text,text\) to anon;/i);
@@ -25,10 +27,10 @@ assert.doesNotMatch(migration,/grant (?:select|insert|update|delete|all) on (?:t
 assert.doesNotMatch(migration,/grant execute on function public\.(?:create_order|create_quote|customer_summary)/i);
 assert.match(migration,/TAMAO_GUEST_CITY_BOARD_CONTRACT_DRIFT/);
 
-const begin=showcase.indexOf('let tamaoGuestPriceBoardSeq=0;');
-const end=showcase.indexOf("\nwindow.addEventListener('load',",begin);
+const begin=guest.indexOf('let tamaoGuestPriceBoardSeq=0;');
+const end=guest.indexOf("\nif(route()==='home')tamaoGuestCityPriceBoard()",begin);
 assert.ok(begin>0&&end>begin);
-const publicReader=showcase.slice(begin,end);
+const publicReader=guest.slice(begin,end);
 const now=new Date().toISOString();
 const board={
  source:'public_city_price_board_v1_341',
