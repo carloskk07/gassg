@@ -248,8 +248,8 @@ async function tamaoAdsAccountStart(mode='register'){
   if(status)status.textContent='Preparando seu acesso seguro…';
   try{
     const reply=returning
-      ?await tamaoClubSendAccess(email)
-      :await liveUpgradeAccount(email,{fullName,phone,returnToCheckout:false});
+      ?await tamaoClubSendAccess(email,{returnToSponsor:true})
+      :await liveUpgradeAccount(email,{fullName,phone,returnToSponsor:true});
     if(reply?.alreadyPermanent){
       if(status)status.textContent='Sua conta está pronta. Você já pode enviar o anúncio para revisão.';
       if(typeof render==='function')render();
