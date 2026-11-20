@@ -306,6 +306,18 @@ function tamaoAdsPublicDemoCompanyAttr(){
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
  return ' value="'+encoded+'"';
 }
+// V1.1094 — only an explicitly continued, private creative draft may prefill
+// EMPTY campaign fields; the advertiser still edits/reviews before submitting.
+function tamaoAdsPublicDemoCreative(field){
+ if(!['headline','copy'].includes(field))return '';
+ const get=globalThis.tamaoSponsorDemoCreative;
+ const item=typeof get==='function'?get():null;
+ if(!item||typeof item!=='object')return '';
+ const size=field==='headline'?80:240;
+ const value=String(item[field]||'').trim().slice(0,size);
+ return value.replace(/[&<>"']/g,ch=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
 function tamaoAdsCampaignForm(){
   tamaoAdsSyncOwner();
   if(!tamaoAdsAccountVerified())
@@ -418,7 +430,8 @@ function tamaoAdsCampaignForm(){
     '<div class="field-row"><label class="input-wrap">Empresa'+
     '<input id="sponsor-ad-company" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="120" autocomplete="organization"'+tamaoAdsPublicDemoCompanyAttr()+' required></label>'+
     '<label class="input-wrap">Título da campanha'+
-    '<input id="sponsor-ad-title" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="80" placeholder="Apresente sua marca na cidade" required></label></div>'+
+    '<input id="sponsor-ad-title" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="80" placeholder="Apresente sua marca na cidade"'+
+       (tamaoAdsPublicDemoCreative('headline')?' value="'+tamaoAdsPublicDemoCreative('headline')+'"':'')+' required></label></div>'+
     '<div class="input-wrap"><label for="sponsor-ad-template">Modelo para preencher título e mensagem (opcional)</label>'+
     '<select id="sponsor-ad-template" class="input">'+
     '<option value="">Escolha como apresentar sua empresa</option>'+
@@ -428,7 +441,8 @@ function tamaoAdsCampaignForm(){
     '<button type="button" class="secondary small" onclick="tamaoAdsCampaignUseModel(document.getElementById(\'sponsor-ad-template\').value)">Preencher modelo para revisar</button>'+
     '<small>O modelo usa apenas o nome informado. Confira e edite antes de enviar.</small></div>'+
     '<label class="input-wrap">Mensagem do anúncio (20 a 240 caracteres)'+
-    '<textarea id="sponsor-ad-copy" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="240" rows="3" placeholder="Explique claramente o que sua empresa oferece." required></textarea></label>'+
+    '<textarea id="sponsor-ad-copy" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="240" rows="3" placeholder="Explique claramente o que sua empresa oferece." required>'+
+       tamaoAdsPublicDemoCreative('copy')+'</textarea></label>'+
     '<label class="input-wrap">Site oficial do anúncio (HTTPS)'+
     '<input id="sponsor-ad-url" class="input" oninput="tamaoAdsUpdateCreativePreview()" inputmode="url" maxlength="300" placeholder="https://suaempresa.com.br" required></label>'+
     '<section class="sponsor-creative-preview-panel" aria-label="Veja seu anúncio antes de enviar">'+

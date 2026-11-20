@@ -57,6 +57,8 @@ jobs:
         run: node tests/sponsor-premium-v1-1090.mjs
       - name: V1.1092 live advertiser showcase, privacy, safe preview and identified handoff
         run: node tests/sponsor-interactive-showcase-v1-1092.mjs
+      - name: V1.1094 premium creative studio previews, consented draft and secure markup
+        run: node tests/sponsor-creative-studio-v1-1094.mjs
       - name: V1.1090 identified advertiser registration and returning sponsor OTP journey
         run: node tests/sponsor-account-identified-v1-1090.mjs
       - name: V1.1075 premium product photos and approved professional cover
