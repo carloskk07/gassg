@@ -502,7 +502,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // Admin implementation must not be distributed with customer/merchant
     // bundles. API authorization still remains strictly server-side.
     if(role!=='admin'){
-      for(const module of ['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent']){
+      for(const module of ['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent','admin-ads-credit']){
         fs.rmSync(path.join(target,'js',module+'.js'));
       }
       // Deliver only CSS needed by the public portals. Keep every shared
