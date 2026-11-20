@@ -46,7 +46,9 @@ try{
   await send('Emulation.setDeviceMetricsOverride',{
    width,height:920,screenWidth:width,screenHeight:920,deviceScaleFactor:1,mobile:width<800
   });
-  await send('Page.navigate',{url:origin+'/#sponsors'});
+  // A distinct document per viewport prevents the preceding synthetic account
+  // from surviving Chrome's same-document navigation to an identical hash URL.
+  await send('Page.navigate',{url:origin+'/?credit_visual_width='+width+'#sponsors'});
   let ready=false;
   for(let attempt=0;attempt<100;attempt++){
    ready=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-v1090 .sponsor-premium-hero');return document.readyState==='complete'&&!!hero&&!!document.querySelector('#sponsor-pricing')&&document.querySelectorAll('[data-sponsor-demo-budget]').length===4&&getComputedStyle(hero).backgroundImage.includes('gradient')})()");

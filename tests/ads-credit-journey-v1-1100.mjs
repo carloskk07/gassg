@@ -133,6 +133,28 @@ function harness(saved=storage()){
 
 // The whole network call is bounded and an eventual late body has no authority.
 {
+ const h=harness();await h.load();h.fields['tamao-credit-terms'].checked=true;
+ const first=h.context.tamaoCreditTopup(),lost=h.calls.at(-1);
+ lost.reject(Error('Lost after provider creation'));await first;
+ const restored=harness(h.saved);
+ const pending={id:topupId,amountCents:1990,status:'pix_pending',pixCode:'already-created-pix',
+  expiresAt:new Date(Date.now()+3600000).toISOString()};
+ await restored.load(wallet(0,[pending]));
+ assert.equal(restored.state().topupId,topupId);
+ const poll=[...restored.timers.values()].find(t=>t.ms===30000);
+ restored.fields['tamao-credit-campaign-form'].contains=()=>true;
+ const before=restored.calls.length;poll.fn();await flush();
+ assert.equal(restored.calls.length,before,'Polling must not replace a focused campaign form');
+ restored.fields['tamao-credit-campaign-form'].contains=()=>false;
+ const next=[...restored.timers.values()].filter(t=>t.ms===30000).at(-1);next.fn();
+ restored.calls.at(-1).resolve(wallet(1990,[{...pending,status:'approved'}]));await flush();
+ assert.equal(restored.state().pix,null);assert.equal(restored.state().requestId,null,
+  'Payment after reload must clear the original intention without another Pix request');
+ assert.equal(restored.calls.filter(c=>c.body.action==='topup').length,0);
+}
+
+// The whole network call is bounded and an eventual late body has no authority.
+{
  const h=harness();const p=h.context.tamaoCreditRefresh(),late=h.calls.at(-1);
  const timer=[...h.timers.values()].find(t=>t.ms===20000);assert.ok(timer);timer.fn();
  assert.equal(await p,false);assert.equal(h.state().loading,false);

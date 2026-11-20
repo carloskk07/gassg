@@ -74,6 +74,8 @@ function tamaoCreditSchedule(scope){
   tamaoCreditAutoTimer=null;
   if(!tamaoCreditMatches(scope)||!document.getElementById('tamao-credit-mount'))return;
   if(document.visibilityState==='hidden')return tamaoCreditSchedule(scope);
+  if(document.getElementById('tamao-credit-campaign-form')?.contains?.(document.activeElement))
+   return tamaoCreditSchedule(scope);
   if(tamaoCreditState.busy||tamaoCreditState.loading)return tamaoCreditSchedule(scope);
   tamaoCreditRefresh();
  },30000);
@@ -419,10 +421,11 @@ async function tamaoCreditRefresh(){
    t.status==='pix_pending'&&typeof t.pixCode==='string'&&
    Number.isSafeInteger(t.amountCents)&&
    Date.parse(String(t.expiresAt||''))>Date.now()+60000):null;
-  if(pending)tamaoCreditState.pix={source:'ads_credit_topup_v1_1097',
+  if(pending){tamaoCreditState.topupId=pending.id;
+   tamaoCreditState.pix={source:'ads_credit_topup_v1_1097',
    status:'pix_pending',topupId:pending.id,
    amountCents:pending.amountCents,pixCode:pending.pixCode,
-   expiresAt:pending.expiresAt};
+   expiresAt:pending.expiresAt};}
   else tamaoCreditState.pix=null;
   if(Array.isArray(data.topups)&&data.topups.some(t=>
     t.id===tamaoCreditState.topupId&&['approved','reversed'].includes(t.status))){
