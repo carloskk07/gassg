@@ -169,7 +169,7 @@ function homeQuoteCouponRail(){
 
 // TAMAO_GUEST_PRICE_LOADER_START
 // Deferred public pricing: no Auth SDK on the first home render.
-window.addEventListener('load',()=>{
+globalThis.addEventListener?.('load',()=>{
  if(!globalThis.liveRequested?.())return;
  const el=document.createElement('script');
  const tag=document.querySelector('script[src*="home-showcase.js"]')?.src||'';
