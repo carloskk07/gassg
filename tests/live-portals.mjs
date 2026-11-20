@@ -171,6 +171,22 @@ for(const {role,path:dir} of built){
     await pendingAuth;
     await Promise.resolve();
     assert.equal(renderCount,2,'Admin must paint the authenticated or error result');
+    // An authenticated link opens only the credit workspace. It must never
+    // prepare the payment or read the pane without the authorized role.
+    for(const role of ['superadmin','finance']){
+      let onReady;
+      const navigation=[];
+      const linked={window:{addEventListener:(_type,fn)=>{onReady=fn}},
+        globalThis:{location:{search:'?publicidade=creditos'},adminPortalRequested:()=>true,adminCreditAdsLoad:()=>navigation.push('read')},
+        URLSearchParams,location:{search:'?publicidade=creditos'},adminReady:()=>true,
+        adminCurrentRole:()=>role,adminBackendInit:()=>Promise.resolve(true),
+        adminSetSection:v=>navigation.push(v),adminAdsWorkspaceTab:'',adminIndependentAdsPane:'',
+        route:()=> 'admin',render:()=>{}};
+      vm.runInNewContext(startupCode[0],linked,{timeout:1000});onReady();
+      await Promise.resolve();await Promise.resolve();
+      assert.deepEqual(navigation,role==='superadmin'?['ads','read']:[]);
+      if(role==='superadmin')assert.equal(linked.adminIndependentAdsPane,'credit');
+    }
     assert.equal((bootstrap.match(/adminBackendInit\(\)/g)||[]).length,1,
       'Window load must not launch a second Admin authentication');
     // Execute the actual released bootstrap render against the dedicated

@@ -205,7 +205,7 @@ function adminCreditPilotPanel(){
  const rawId=String(d?.topupId||'');
  const id=/^[0-9a-f-]{36}$/i.test(rawId)?rawId:'';
  const validId=!!id;
- const allowStart=d?.canStart===true||d?.status==='reserved';
+ const allowStart=d?.providerReady===true&&(d.canStart===true||d.status==='reserved');
  const check=validId&&['reserved','creating','pix_pending','approved','review_required'].includes(d.status);
  const code=d?.status==='pix_pending'&&Date.parse(d.expiresAt)>Date.now()+60000&&
   typeof globalThis.tamaoPixCodeValid==='function'&&globalThis.tamaoPixCodeValid(d.pixCode,1990)?d.pixCode:'';
@@ -220,8 +220,9 @@ function adminCreditPilotPanel(){
  return '<section class="card flat form-stack" aria-label="Homologação da carteira de publicidade">'+
   '<h4>Homologação do Pix da carteira</h4>'+
   '<p>Confira a recarga de R$ 19,90 na sua própria carteira antes de abrir as vendas. O saldo entra após a confirmação do Mercado Pago.</p>'+
-  (d?'<p role="status"><strong>'+esc(status[d.status]||'Em conferência')+'</strong>'+
+  (d?'<p role="status"><strong>'+esc(d.status==='idle'&&d.providerReady!==true?'Aguardando o Mercado Pago':status[d.status]||'Em conferência')+'</strong>'+
    (Number.isSafeInteger(d.balanceCents)?' · Saldo da carteira '+esc(adminMoney(d.balanceCents)):'')+'</p>':'')+
+  (d?.providerReady===false?'<p>A conexão com o Mercado Pago precisa de conferência. Atualize o painel para consultar novamente.</p>':'')+
   controls+pix+(check?'<button type="button" class="secondary small" onclick="adminCreditPilotRun(&quot;check&quot;,&quot;'+id+'&quot;,'+state.revision+')"'+disabled+'>Conferir no Mercado Pago</button>':'')+
   '<span role="status" id="credit-pilot-notice">'+esc(state.error||(state.busy?'Consultando o Mercado Pago…':''))+'</span></section>';
 }
@@ -230,7 +231,7 @@ async function adminCreditPilotRun(operation,renderedId,revision){
  if(!state.actor||state.revision!==revision||state.busy||!d||adminRuntime.section!=='ads'||
     String(d.topupId||'')!==renderedId)return false;
  if(operation==='prepare'){
-  if(!(d.canStart||d.status==='reserved')||document.getElementById('credit-pilot-consent')?.checked!==true)
+  if(d.providerReady!==true||!(d.canStart||d.status==='reserved')||document.getElementById('credit-pilot-consent')?.checked!==true)
    return toast('Marque a autorização para emitir o Pix de R$ 19,90.');
  }else if(operation!=='check'||!renderedId)return false;
  state.busy=true;state.error='';render();

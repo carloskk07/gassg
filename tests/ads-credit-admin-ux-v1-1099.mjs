@@ -81,7 +81,7 @@ assert.equal(context.adminCreditAdsChooseFilter('active'),true);
 // The Admin pilot is read-only on entry. A real receipt needs its own
 // selection, the same rendered session and the fixed server-side amount.
 const pilotCalls=[];
-let pilotData={source:'admin_ads_credit_pilot_v1_1101',status:'idle',canStart:true,topupId:null,amountCents:1990,balanceCents:0};
+let pilotData={source:'admin_ads_credit_pilot_v1_1101',status:'idle',canStart:true,providerReady:true,topupId:null,amountCents:1990,balanceCents:0};
 context.adminCreditAdsRequest=async(action,body={})=>{
  pilotCalls.push({action,body});
  if(action==='admin-pilot-read')return pilotData;
@@ -94,6 +94,8 @@ const scope=context.adminCreditPilotScope();
 await context.adminCreditPilotRead(scope);
 assert.match(context.adminCreditPilotPanel(),/Gerar Pix de R\$ 19,90/);
 assert.deepEqual(pilotCalls.map(x=>x.action),['admin-pilot-read']);
+pilotData.providerReady=false;assert.ok(!context.adminCreditPilotPanel().includes('Gerar Pix de R$ 19,90'));
+pilotData.providerReady=true;
 assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision),false);
 fields['credit-pilot-consent']={checked:true};
 assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision+1),false);

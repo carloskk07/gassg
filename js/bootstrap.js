@@ -312,13 +312,15 @@ window.addEventListener('DOMContentLoaded',()=>{
     const init=adminBackendInit();
     if(route()!=='admin')go('admin');
     render();
-    init.then(()=>{
-      if(adminReady()&&adminCurrentRole()==='superadmin'&&new URLSearchParams(location.search).get('publicidade')==='creditos'){
+    init.then(render).catch(()=>{adminRuntime.status='unavailable';render()});
+    if(globalThis.location?.search&&new URLSearchParams(globalThis.location.search).get('publicidade')==='creditos'){
+      init.then(ready=>{
+        if(!ready||!adminReady()||adminCurrentRole()!=='superadmin')return;
         adminAdsWorkspaceTab='campaigns';adminIndependentAdsPane='credit';
         adminSetSection('ads');
         globalThis.adminCreditAdsLoad?.();
-      }else render();
-    }).catch(()=>{adminRuntime.status='unavailable';render()});
+      }).catch(()=>{});
+    }
     return;
   }
   if(globalThis.merchantPortalRequested?.())return;

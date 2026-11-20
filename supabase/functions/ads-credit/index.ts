@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {readJsonBody,enforceApiQuota} from "../_shared/domain.js";
 import {mercadoPagoFetch,readMercadoPagoJson} from "../_shared/mercadopago.js";
-import {independentAdsCredentialConfig,verifyIndependentAdsSeller} from "../_shared/ads-platform-credentials.mjs";
+import {independentAdsCredentialConfig,verifyIndependentAdsSeller,independentAdsProviderReadiness} from "../_shared/ads-platform-credentials.mjs";
 import {recordAdsCreditPayment} from "../_shared/ads-credit-payment.mjs";
 import {adsPixProof} from "../_shared/ads-native-pix.mjs";
 import {selectIndependentAdsPayment} from "../_shared/ads-independent-payment-search.mjs";
@@ -177,7 +177,9 @@ Deno.serve(async(req:Request)=>{
   }
   if(action==="admin-pilot-read"){
    const data=await rpc(admin,"admin_ads_credit_pilot_v1_1101",{p_actor:user.id,p_operation:"read",p_previous:null});
-   return respond(data,200,origin);
+   if(data.status==="other_owner")return respond(data,200,origin);
+   const readiness=await independentAdsProviderReadiness((key:string)=>Deno.env.get(key));
+   return respond({...data,providerReady:readiness.readyForFinancialHomologation===true},200,origin);
   }
   if(pilot&&(body.acceptPilotTerms!==true||
     (body.previousTopup!=null&&!UUID.test(String(body.previousTopup)))))

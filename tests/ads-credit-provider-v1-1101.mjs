@@ -63,6 +63,7 @@ function fixture({initial='reserved',listing=empty,payment=basePayment,attached=
   selectIndependentAdsPayment,readMercadoPagoJson:r=>r.json(),mercadoPagoFetch:provider,
   independentAdsCredentialConfig:()=>({checkoutConfigured:true,webhookConfigured:true,tokenConfigured:true,
    sellerConfigured:true,signedWebhookConfigured:true}),
+  independentAdsProviderReadiness:async()=>({readyForFinancialHomologation:true}),
   verifyIndependentAdsSeller:async()=>({token:'fixture',sellerId:seller})
  };
  vm.runInNewContext(js,context);
