@@ -67,7 +67,9 @@ let html=context.show();
 assert.match(html,/id="sponsor-demo-company"/);
 assert.match(html,/oninput="sponsorDemoType\(\)"/);
 assert.match(html,/sponsorDemoContinue\(\)/);
-assert.match(html,/Prévia no navegador|Experimente sem cadastro e sem enviar dados/);
+assert.match(html,/Teste a apresentação sem criar conta/);
+assert.match(html,/<\/aside>\s*<\/div>\s*<div class="sponsor-demo-panel">/s,
+ 'Interactive brand controls must be outside the visual mock and below the two-column hero');
 assert.equal((html.match(/data-sponsor-demo-sector="/g)||[]).length,3);
 assert.match(html,/data-sponsor-demo="brand"/);
 assert.match(html,/sponsor-placement-gallery/);
