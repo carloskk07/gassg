@@ -12,13 +12,13 @@ const ORIGINS=new Set([
  "https://tamao.com.br","https://www.tamao.com.br",
  "https://tamao-sg-cliente.pages.dev","https://carloskk07.github.io"
 ]);
-function allowed(origin){
+function allowed(origin:string|null){
  return Boolean(origin&&(ORIGINS.has(origin)||
   /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)));
 }
-function headers(origin){
+function headers(origin:string|null){
  return {
-  "Access-Control-Allow-Origin":allowed(origin)?origin:"null",
+  "Access-Control-Allow-Origin":allowed(origin)?String(origin):"null",
   "Access-Control-Allow-Headers":"apikey, content-type",
   "Access-Control-Allow-Methods":"POST, OPTIONS",
   "Vary":"Origin",
@@ -27,10 +27,10 @@ function headers(origin){
   "Content-Type":"application/json; charset=utf-8"
  };
 }
-function reply(payload,status,origin){
+function reply(payload:unknown,status:number,origin:string|null){
  return new Response(JSON.stringify(payload),{status,headers:headers(origin)});
 }
-async function digest(value){
+async function digest(value:string){
  const result=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
  return Array.from(new Uint8Array(result),x=>x.toString(16).padStart(2,"0")).join("");
 }
@@ -86,7 +86,7 @@ Deno.serve(async req=>{
    !Array.isArray(data.products)||data.products.length!==data.productCount||
    data.products.length>120||
    !Number.isFinite(Date.parse(String(data.checkedAt||"")))||
-   data.products.some(p=>!p||!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(p.code||""))||
+   data.products.some((p:any)=>!p||!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(p.code||""))||
     !Number.isSafeInteger(p.fromCents)||p.fromCents<=0||
     !Number.isSafeInteger(p.toCents)||p.toCents<p.fromCents||
     !Number.isSafeInteger(p.merchantCount)||p.merchantCount<1||
@@ -94,7 +94,7 @@ Deno.serve(async req=>{
    throw new Error("PRICE_BOARD_INTEGRITY");
   // Project only reviewed public numeric fields. Never expose merchant IDs,
   // buyer identity, addresses, balance, discounts, or a checkout quote token.
-  const products=data.products.map(p=>({
+  const products=data.products.map((p:any)=>({
    code:p.code,fromCents:p.fromCents,toCents:p.toCents,
    merchantCount:p.merchantCount,updatedAt:p.updatedAt
   }));
