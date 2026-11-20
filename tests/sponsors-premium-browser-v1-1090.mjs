@@ -99,7 +99,12 @@ try{
   assert.equal(studio.copy,'Novidades especiais no nosso site');
   assert.equal(studio.monogram,'A');
   assert.ok(studio.scrollWidth<=width+3,'Premium studio overflows at '+width);
-  results.push({width,...first,...actions,demo,studio});
+  const placements=await evaluate("(()=>{const brands=document.querySelector('[data-sponsor-demo-placement=brands]');brands.click();const region=document.querySelector('.sponsor-premium-visual');const result={placement:region.getAttribute('data-demo-placement'),active:brands.getAttribute('aria-pressed'),context:document.querySelector('[data-sponsor-demo=context]')?.textContent||'',width:document.documentElement.scrollWidth};document.querySelector('[data-sponsor-demo-placement=home]').click();return result})()");
+  assert.equal(placements.placement,'brands');
+  assert.equal(placements.active,'true');
+  assert.match(placements.context,/Marcas da nossa região/);
+  assert.ok(placements.width<=width+3,'Contextual preview overflow at '+width);
+  results.push({width,...first,...actions,demo,studio,placements});
 
  }
 }finally{
