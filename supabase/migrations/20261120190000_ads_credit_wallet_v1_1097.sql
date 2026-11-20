@@ -144,7 +144,8 @@ BEGIN
  IF p_amount NOT IN(1990,4990,9990,19990)
  THEN RAISE EXCEPTION 'ADS_CREDIT_AMOUNT_INVALID' USING errcode='22023';END IF;
  IF NOT EXISTS(SELECT 1 FROM public.ads_credit_controls_v1_1097
-  WHERE singleton AND recharge_enabled)
+  WHERE singleton AND recharge_enabled AND view_debit_enabled
+   AND evidence_audited)
  THEN RAISE EXCEPTION 'ADS_CREDIT_RECHARGE_DISABLED' USING errcode='42501';END IF;
  SELECT * INTO v FROM public.ads_credit_topups_v1_1097
   WHERE request_id=p_request FOR UPDATE;
@@ -157,6 +158,10 @@ BEGIN
   IF EXISTS(SELECT 1 FROM public.ads_credit_wallets_v1_1097
    WHERE owner_user_id=p_owner AND frozen)
   THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_FROZEN' USING errcode='42501';END IF;
+  IF EXISTS(SELECT 1 FROM public.ads_credit_topups_v1_1097
+    WHERE owner_user_id=p_owner AND status IN('reserved','creating','pix_pending')
+     AND created_at>clock_timestamp()-interval '3 days')
+  THEN RAISE EXCEPTION 'ADS_CREDIT_PENDING_TOPUP_EXISTS' USING errcode='42501';END IF;
   INSERT INTO public.ads_credit_topups_v1_1097(
    owner_user_id,request_id,external_reference,amount_cents)
   VALUES(p_owner,p_request,'tamao-ads-credit-'||replace(p_request::text,'-',''),p_amount)
@@ -180,7 +185,7 @@ SET search_path TO 'pg_catalog' AS $fn$
 DECLARE t public.ads_credit_topups_v1_1097%ROWTYPE; allowed boolean;
 BEGIN
  SELECT recharge_enabled INTO allowed FROM public.ads_credit_controls_v1_1097
-  WHERE singleton;
+  WHERE singleton AND view_debit_enabled AND evidence_audited;
  IF allowed IS DISTINCT FROM true
  THEN RAISE EXCEPTION 'ADS_CREDIT_RECHARGE_DISABLED' USING errcode='42501';END IF;
  SELECT * INTO t FROM public.ads_credit_topups_v1_1097
