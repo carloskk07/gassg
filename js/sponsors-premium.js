@@ -350,6 +350,7 @@ function sponsorsLandingPremium(){
 </section>
 <section class="sponsor-premium-workspace" id="sponsor-pricing" tabindex="-1" aria-label="Planejar e cadastrar anúncio">
  <div class="sponsor-premium-section-heading"><span class="section-kicker">CRIE SUA CAMPANHA</span><h2>Comece com uma proposta clara.</h2><p>Escolha uma referência de investimento e envie o anúncio para análise. Condições e possibilidade de exibição são conferidas antes de qualquer pagamento.</p></div>
+ <div id="tamao-credit-mount" aria-live="polite"></div>
  ${(globalThis.tamaoAdsPlannerLoad?.(),globalThis.tamaoAdsPlannerSection?.()||'<p role="status">Carregando opções de campanha…</p>')}
 </section>
 <section class="sponsor-premium-faq" id="sponsor-faq" tabindex="-1" aria-label="Dúvidas de quem anuncia">
