@@ -7,9 +7,9 @@ const sponsor=read('js/sponsors-premium.js');
 const css=read('css/public-ux.css');
 const audit=read('.github/workflows/audit.yml');
 assert.doesNotThrow(()=>new vm.Script(sponsor));
-assert.match(audit,/tests\\/sponsor-contextual-preview-v1-1095\\.mjs/);
-assert.match(css,/\.sponsor-preview-switch button\[aria-pressed="true"\]/);
-assert.match(css,/\.sponsor-premium-visual\[data-demo-placement="brands"\]/);
+assert.ok(audit.includes('tests/sponsor-contextual-preview-v1-1095.mjs'));
+assert.ok(css.includes('.sponsor-preview-switch button[aria-pressed="true"]'));
+assert.ok(css.includes('.sponsor-premium-visual[data-demo-placement="brands"]'));
 
 const entries=new Map(), storage={
  getItem:k=>entries.get(k)||null,
@@ -38,8 +38,8 @@ const doc={
   return null;
  },
  querySelectorAll(key){
-  const match=/^\\[data-sponsor-demo="(\\w+)"\\]$/.exec(key);
-  if(match)return fields[match[1]]||[];
+  const match=key.startsWith('[data-sponsor-demo="')&&key.endsWith('"]')?key.slice('[data-sponsor-demo="'.length,-2):null;
+  if(match)return fields[match]||[];
   if(key==='[data-sponsor-demo-placement]')return placements;
   return [];
  }
@@ -75,7 +75,7 @@ assert.equal(context.type(),true);
 assert.equal(fields.brand[0].textContent,nameInput.value);
 const html=context.show();
 assert.match(html,/data-demo-placement="brands"/);
-assert.match(html,/&lt;img src=x onerror=alert\\(1\\)&gt;/);
+assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
 assert.doesNotMatch(html,/<img src=x onerror=/);
 assert.equal(backendWrites,0,'Changing preview must not publish, pay or count impressions');
 
