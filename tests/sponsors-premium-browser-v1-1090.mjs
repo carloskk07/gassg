@@ -76,7 +76,19 @@ try{
   assert.notEqual(actions.faqOpened,actions.beforeFaq,'FAQ must toggle on click: '+JSON.stringify(actions));
   assert.equal(actions.hash,'#sponsors');
   assert.deepEqual(actions.buttons,['true','false','false','false']);
-  results.push({width,...first,...actions});
+  // Personalized visuals must work without a logged-in user at every viewport.
+  const demo=await evaluate("(()=>{const input=document.getElementById('sponsor-demo-company');input.value='Ateliê & Cia';input.dispatchEvent(new Event('input',{bubbles:true}));const sector=document.querySelector('[data-sponsor-demo-sector=\"services\"]');sector.click();const brands=[...document.querySelectorAll('[data-sponsor-demo=\"brand\"]')].map(x=>x.textContent);const headline=document.querySelector('[data-sponsor-demo=\"headline\"]').textContent;const sectorActive=sector.getAttribute('aria-pressed');const persisted=JSON.parse(sessionStorage.getItem('tamao-sponsor-showcase-v1092')||'null');document.querySelector('.sponsor-demo-continue').click();return {brands,headline,sectorActive,persisted,focus:document.activeElement?.id||'',width:document.documentElement.scrollWidth}})()");
+  assert.ok(demo.brands.length>=3,'Both public mockups and the hero must be updated');
+  assert.ok(demo.brands.every(name=>name==='Ateliê & Cia'),'All examples must share the selected brand');
+  assert.match(demo.headline,/serviços da nossa cidade/);
+  assert.equal(demo.sectorActive,'true');
+  assert.equal(demo.persisted.company,'Ateliê & Cia');
+  assert.equal(demo.persisted.sector,'services');
+  assert.equal(demo.persisted.preparing,true);
+  assert.equal(demo.focus,'sponsor-pricing');
+  assert.ok(demo.width<=width+3,'Interactive options must not overflow at '+width);
+  results.push({width,...first,...actions,demo});
+
  }
 }finally{
  fs.writeFileSync(path.join(out,'sponsors-premium-v1-1090-results.json'),JSON.stringify(results,null,2)+'\n');
