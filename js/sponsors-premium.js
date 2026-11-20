@@ -186,6 +186,7 @@ function sponsorDemoContinue(){
  globalThis.tamaoAdsUpdateCreativePreview?.();
  if(tamaoSponsorDemoState.budgetChosen)
   globalThis.tamaoCreditChoose?.(tamaoSponsorDemoState.budget);
+ globalThis.tamaoCreditPrepareFromStudio?.();
  return sponsorJumpTo('sponsor-pricing');
 }
 // Used only to prefill an EMPTY campaign draft after explicit continuation.
@@ -198,6 +199,9 @@ globalThis.tamaoSponsorDemoCreative=()=>{
  if(!tamaoSponsorDemoState.preparing)return null;
  const demo=sponsorDemoPresentation();
  return {headline:demo.headline,copy:demo.copy};
+};
+globalThis.tamaoSponsorDemoConsume=()=>{
+ tamaoSponsorDemoState.preparing=false;sponsorDemoSave();
 };
 sponsorDemoRestore();
 

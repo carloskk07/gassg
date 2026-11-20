@@ -108,7 +108,53 @@ try{
   assert.equal(brief.summary,'R$ 99,90 em créditos');
   assert.equal(brief.budget,9990);
   assert.ok(brief.width<=width+3,'Credit preview overflows at '+width);
-  results.push({width,...first,...actions,demo,studio,placements,brief});
+  // Only this disposable origin gets a synthetic account and wallet reader.
+  // Exercise the actual authenticated credit DOM without a production request.
+  let creditReady=false;
+  for(let attempt=0;attempt<50;attempt++){
+   creditReady=await evaluate("typeof tamaoCreditRefresh==='function'");
+   if(creditReady)break;
+   await sleep(100);
+  }
+  assert.ok(creditReady,'Credit module must load at '+width);
+  const credits=await evaluate(`(async()=>{
+   globalThis.liveRuntime.session={user:{id:'isolated-advertiser'}};
+   globalThis.liveRuntime.authGeneration=(globalThis.liveRuntime.authGeneration||0)+1;
+   tamaoAdsAccountVerified=()=>true;
+   tamaoCreditInvoke=async body=>{
+    if(body.action!=='mine')throw Error('Unexpected write in visual fixture');
+    return {source:'ads_credit_balance_v1_1097',balanceCents:0,centsPerView:2,
+     totalSpentCents:0,totalLoadedCents:0,rechargeEnabled:false,billingEnabled:false,
+     entries:[],campaigns:[],topups:[],frozen:false};
+   };
+   await tamaoCreditRefresh();
+   document.querySelector('.sponsor-demo-continue').click();
+   const form=document.getElementById('tamao-credit-campaign-form');
+   form.scrollIntoView({block:'start',behavior:'instant'});
+   await new Promise(r=>requestAnimationFrame(r));
+   return {company:document.getElementById('tamao-credit-c-advertiser').value,
+    title:document.getElementById('tamao-credit-c-title').value,
+    description:document.getElementById('tamao-credit-c-description').value,
+    consent:document.getElementById('tamao-credit-c-terms').checked,
+    destination:document.getElementById('tamao-credit-c-destination').value,
+    formTag:form.tagName,checkColor:getComputedStyle(form.querySelector('.check-row')).color,
+    inputFont:parseFloat(getComputedStyle(form.querySelector('.input')).fontSize),
+    width:document.documentElement.scrollWidth,
+    fieldsFit:[...form.querySelectorAll('input,textarea,select,button')]
+      .every(el=>{const r=el.getBoundingClientRect();return r.left>=-2&&r.right<=innerWidth+3})};
+  })()`);
+  assert.equal(credits.company,'Ateliê & Cia');
+  assert.match(credits.title,/Tem novidade nos nossos serviços/);
+  assert.equal(credits.description,'Novidades especiais no nosso site');
+  assert.equal(credits.consent,false);
+  assert.equal(credits.destination,'');
+  assert.equal(credits.formTag,'FORM');
+  assert.equal(credits.checkColor,'rgb(36, 62, 50)','Consent must be legible on the white form');
+  assert.ok(credits.inputFont>=16,'Form inputs must remain readable and avoid mobile zoom');
+  assert.ok(credits.fieldsFit&&credits.width<=width+3,'Credit form overflow at '+width);
+  const creditShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
+  fs.writeFileSync(path.join(out,'ads-credit-form-v1-1100-'+width+'.png'),Buffer.from(creditShot.data,'base64'));
+  results.push({width,...first,...actions,demo,studio,placements,brief,credits});
 
  }
 }finally{

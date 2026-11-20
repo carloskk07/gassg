@@ -65,6 +65,8 @@ jobs:
         run: node tests/ads-prepaid-credit-v1-1097.mjs
       - name: V1.1099 premium Ads admin queue, reasoned moderation and preserved payment gates
         run: node tests/ads-credit-admin-ux-v1-1099.mjs
+      - name: V1.1100 complete credit journey, original Pix recovery and session isolation
+        run: node tests/ads-credit-journey-v1-1100.mjs
       - name: V1.1096 premium plan selection, secure consent and real advertiser budget handoff
         run: node tests/sponsor-campaign-brief-v1-1096.mjs
       - name: V1.1090 identified advertiser registration and returning sponsor OTP journey
