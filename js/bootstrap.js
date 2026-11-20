@@ -13,7 +13,7 @@ const TAMAO_PUBLIC_PAGE_IDENTITY=Object.freeze({
   stays:['Hospedagens indisponíveis — TAMÃO','A modalidade de hospedagens está suspensa. O TAMÃO não aceita anúncios nem reservas de hospedagem neste momento.'],
   mobility:['Corrida — TAMÃO','Moto, carro e GPS com consentimento.'],
   advertise:['Anunciar no TAMÃO — Meus anúncios','Cadastre serviços e caronas para revisão, respeitando a disponibilidade de cada modalidade.'],
-  sponsors:['Para marcas — Divulgue no TAMÃO','Conheça opções de divulgação regional, campanhas de benefício e parcerias com o comércio local.'],
+  sponsors:['Anuncie no TAMÃO — Publicidade local','Divulgue sua marca na sua cidade. Conheça os formatos de publicidade, planeje o orçamento e envie sua campanha para análise.'],
   contact:['Contato — TAMÃO','Fale com o TAMÃO sobre compras, revendas, publicidade, parceria ou atendimento.'],
   privacy:['Privacidade — TAMÃO','Veja como o TAMÃO trata dados pessoais e protege sua privacidade.'],
   terms:['Termos de uso — TAMÃO','Consulte as condições de utilização da plataforma TAMÃO.'],
