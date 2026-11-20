@@ -101,7 +101,14 @@ const edgeCtx={
  crypto:webcrypto,TextEncoder,Response,Request,Date,JSON,Number,String,Array,
  console:{error:()=>{}}
 };
-vm.runInNewContext(edge.replace(/^import .+;\r?\n/gm,''),edgeCtx);
+const runnable=edge.replace(/^import .+;\r?\n/gm,'')
+ .replace('function allowed(origin:string|null)','function allowed(origin)')
+ .replace('function headers(origin:string|null)','function headers(origin)')
+ .replace('function reply(payload:unknown,status:number,origin:string|null)',
+   'function reply(payload,status,origin)')
+ .replace('async function digest(value:string)','async function digest(value)')
+ .replace(/\(p:any\)=>/g,'p=>');
+vm.runInNewContext(runnable,edgeCtx);
 assert.equal(typeof edgeHandler,'function');
 const request=(origin='https://tamao.com.br',key='sb_publishable_example')=>
  new Request('https://example.supabase.co/functions/v1/public-city-prices',{
