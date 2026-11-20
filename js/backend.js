@@ -428,8 +428,7 @@ async function backendInit(){
     let {data:{session},error}=await client.auth.getSession();
     if(error)throw error;
 
-    // Browsing never creates an Auth account. Previous anonymous accounts
-    // can still be upgraded without losing their first-touch referral code.
+    // Guests do not create accounts; older sessions can upgrade.
     if(!session?.access_token||session.user?.is_anonymous===true){
       liveRuntime.session=session||null;
       liveRuntime.status='guest';
@@ -440,14 +439,7 @@ async function backendInit(){
         }
       });
       render();
-      // The city price board contains only public aggregated estimates.
-      // Guests may read it without creating an anonymous Auth account.
-      // Exact CEP-specific quotes, benefits and orders remain behind Auth.
-      liveRefreshCityPriceBoard({force:true})
-        .then(board=>{
-          if(board&&liveRuntime.status==='guest'&&route()==='home')render();
-        })
-        .catch(()=>{}); // A price-board outage must never block the public site.
+      liveRefreshCityPriceBoard().then(v=>{if(v&&route()==='home')render()}).catch(()=>{});
       return true;
     }
     liveRuntime.session=session;
