@@ -5,6 +5,19 @@ let adminIndependentAdsState={loadedFor:null,rows:[],deliveryEnabled:false,
  homologationCampaignId:null,homologationExpiresAt:null,
  refundCases:null};
 let adminIndependentAdsBusy=false;
+function adminCreditAdsLoad(){
+ if(globalThis.adminCreditAdsPanel){globalThis.adminCreditAdsRefresh?.().catch(()=>{});return}
+ if(globalThis.adminCreditAdsLoading)return;
+ globalThis.adminCreditAdsLoading=true;
+ const src=document.querySelector('script[src*="admin-ads-independent.js"]')?.src||
+  location.origin+'/js/admin-ads-independent.js';
+ const tag=document.createElement('script');
+ tag.src=new URL('admin-ads-credit.js'+new URL(src).search,src).href;
+ tag.onload=()=>{globalThis.adminCreditAdsLoading=false;
+  globalThis.adminCreditAdsRefresh?.().catch(()=>{});render()};
+ tag.onerror=()=>{globalThis.adminCreditAdsLoading=false};
+ document.head.append(tag);
+}
 let adminIndependentAdsProviderPreflight=null;
 async function adminIndependentAdsRefresh(){
  const actor=String(adminRuntime?.session?.user?.id||'');
@@ -272,12 +285,13 @@ async function adminIndependentRefundProvider(operation,caseId,version){
 }
 // Pure UI navigation. A pane switch never opens a payment or changes campaign state.
 function adminIndependentAdsOpenPane(pane){
- if(!['institutional','campaigns','finance','refunds'].includes(pane)||
+ if(!['institutional','campaigns','credit','finance','refunds'].includes(pane)||
    (pane==='institutional'&&adminCurrentRole()!=='superadmin')||
    !adminReady()||adminRuntime.section!=='ads'||adminAdsWorkspaceTab!=='campaigns'||
    !['superadmin','operations','compliance','finance'].includes(adminCurrentRole()))return;
  adminIndependentAdsPane=pane;
  render();
+ if(pane==='credit')adminCreditAdsLoad();
 }
 
 // Finance V1.919: expose the SAME marked Ads authorization within the
@@ -345,7 +359,7 @@ function adminAdsIndependentSection(){
    testExpires>Date.now());
  const eligibleTestCampaigns=v?.rows?.filter(c=>c.status==='approved'&&
    c.budgetCents===1990&&c.durationDays===7&&!c.fixedFeeStatus)||[];
- const pane=['institutional','campaigns','finance','refunds'].includes(adminIndependentAdsPane)?
+ const pane=['institutional','campaigns','credit','finance','refunds'].includes(adminIndependentAdsPane)?
   adminIndependentAdsPane:'campaigns';
  const reviewCount=v?.rows?.filter(c=>c.status==='submitted').length||0;
  const refundCount=v?.refundCases?.filter(c=>!['provider_reversed','rejected','closed'].includes(String(c.status))).length||0;
@@ -448,7 +462,8 @@ function adminAdsIndependentSection(){
   (adminIndependentAdsBusy?'disabled':'')+'>Atualizar campanhas</button></div>'+
   '<div class="admin-task-tabs" role="group" aria-label="Tarefas de anúncios independentes">'+
    (role==='superadmin'?adsPane('institutional','Institucional grátis',adminInstitutionalAdsState.rows.length):'')+
-   adsPane('campaigns','Comercial paga',reviewCount)+
+   adsPane('credit','Créditos por visualização',0)+
+   adsPane('campaigns','Contratos anteriores',reviewCount)+
    adsPane('finance','Configuração e vendas',0)+
    adsPane('refunds','Reembolsos',refundCount)+'</div>'+
     '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
@@ -570,6 +585,8 @@ function adminAdsIndependentSection(){
    '<p class="muted">Atualize para conferir propostas reais e os controles de publicação.</p>')
   ):'')+
   (pane==='institutional'&&canAct?adminInstitutionalAdsPanel():'')+
+  (pane==='credit'?(globalThis.adminCreditAdsPanel?.()||
+    '<p role="status">Carregando a área segura de créditos…</p>'):'')+
   '</section>';
 }
 
