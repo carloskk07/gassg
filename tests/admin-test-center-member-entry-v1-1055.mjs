@@ -105,6 +105,6 @@ assert.match(workspace,/admin-test-links/);
 assert.match(html,/<script defer src="\.\/js\/admin-test-center\.js"><\/script>/);
 assert.match(serviceWorker,/'\.\/js\/admin-test-center\.js'/);
 assert.match(builder,/for\(const module of \['admin-acquisition','admin','admin-test-center','admin-activations'\]\)/);
-assert.match(builder,/for\(const module of \['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent'\]\)/);
+assert.match(builder,/for\(const module of \['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent','admin-ads-credit'\]\)/);
 
 console.log('V1.1055: controlled Admin QA navigation + accessible participant login passed.');
