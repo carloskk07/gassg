@@ -513,3 +513,40 @@
 .sponsor-creative-preview-note{grid-column:1/-1;font-size:10px;color:#708174;line-height:1.5}
 @media(max-width:790px){.sponsor-creative-preview-panel{grid-template-columns:minmax(0,1fr)}.sponsor-creative-preview-copy{max-width:60ch}}
 @media(max-width:420px){.sponsor-creative-preview-panel{padding:15px;gap:14px}.sponsor-creative-preview-ad{padding:15px}.sponsor-premium-workspace .sponsor-budget-actions .primary{flex:none}}
+
+
+/* V1.1092 — brand-personalized examples, still strictly illustrative. */
+.sponsor-premium-v1090 .sponsor-demo-panel{display:grid;gap:11px;margin-top:14px;padding:17px 16px;border:1px solid #c9e1d0;border-radius:15px;background:linear-gradient(140deg,#fff,#f3f9f4);box-shadow:inset 0 1px #ffffffab}
+.sponsor-demo-panel-head{display:grid;gap:4px}
+.sponsor-demo-panel-head strong{color:#154a33;font-size:16px;line-height:1.3;letter-spacing:-.02em}
+.sponsor-demo-panel-head small{color:#567763;font-size:11px;line-height:1.5}
+.sponsor-demo-panel label{display:flex;align-items:baseline;justify-content:space-between;gap:6px;color:#26573d;font-size:12px;font-weight:850}
+.sponsor-demo-panel label span{color:#6a8472;font-size:10px;font-weight:600}
+.sponsor-demo-panel #sponsor-demo-company{width:100%;min-height:46px;box-sizing:border-box;border:1px solid #bcd8c7;background:#fff;border-radius:10px;padding:11px 13px;color:#163c2b;font-size:14px}
+.sponsor-demo-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.sponsor-demo-options button{min-width:0;min-height:43px;padding:9px 7px;border:1px solid #bdd6c5;border-radius:10px;background:#edf7f0;color:#245d40;font-size:11px;font-weight:850;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.sponsor-demo-options button:hover{background:#e0f2e6;border-color:#65a981}
+.sponsor-demo-options button[aria-pressed="true"]{background:#0c6e46;color:#fff;border-color:#0c6e46;box-shadow:0 3px 10px #0a64442b}
+.sponsor-premium-v1090 .sponsor-demo-continue{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:45px;width:100%;padding:10px 13px;border:1px solid #12754b;border-radius:11px;background:#116c48;color:#fff;font-size:12px;font-weight:900;text-align:left;cursor:pointer}
+.sponsor-premium-v1090 .sponsor-demo-continue:hover{background:#0b5639}
+.sponsor-demo-feedback{font-size:10px;color:#6b806e;line-height:1.5;margin:0}
+.sponsor-premium-v1090 .sponsor-premium-ad-art{transition:background .2s ease}
+.sponsor-premium-v1090 .sponsor-premium-ad-art[data-demo-sector="services"]{background:radial-gradient(circle at 78% 28%,#a6dbcc 0,transparent 42%),linear-gradient(125deg,#174c64,#1a7c78)}
+.sponsor-premium-v1090 .sponsor-premium-ad-art[data-demo-sector="food"]{background:radial-gradient(circle at 77% 28%,#edbf88 0,transparent 42%),linear-gradient(127deg,#6b3a29,#a05f3f)}
+.sponsor-premium-v1090 .sponsor-premium-ad-art[data-demo-sector="commerce"]{background:radial-gradient(circle at 78% 30%,#e8cc8a 0,transparent 39%),linear-gradient(126deg,#0d5b44,#2e8a61)}
+.sponsor-premium-v1090 :is([data-sponsor-demo="brand"],[data-sponsor-demo="headline"],[data-sponsor-demo="copy"]){overflow-wrap:anywhere}
+.sponsor-premium-v1090 .sponsor-placement-ad>small [data-sponsor-demo="brand"]{font-weight:900;letter-spacing:.02em}
+.sponsor-premium-v1090 .sponsor-demo-panel :is(button,input):focus-visible{outline:3px solid #bd8425;outline-offset:3px}
+@media(max-width:700px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{padding:15px}
+ .sponsor-premium-v1090 .sponsor-demo-panel-head strong{font-size:15px}
+ .sponsor-premium-v1090 .sponsor-demo-options button{font-size:11px}
+}
+@media(max-width:360px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{padding:13px 11px}
+ .sponsor-demo-options{gap:5px}
+ .sponsor-demo-options button{padding:8px 3px;font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .sponsor-premium-v1090 .sponsor-demo-options button,.sponsor-premium-v1090 .sponsor-premium-ad-art{transition:none}
+}
