@@ -112,10 +112,13 @@ const sponsors=sponsorCtx.sponsors();
 assert.match(sponsors,/verified-public-planner/);
 assert.match(sponsors,/sponsor-format-grid/);
 assert.doesNotMatch(sponsors,/sponsor-intent-quick|tamao-sponsor-footer/);
-for(const goal of ['visibility','relationship','local']){
+for(const goal of ['relationship','local']){
  assert.equal(sponsors.split("openSponsorContact('"+goal+"')").length-1,1,
   'do not render duplicate CTAs for '+goal);
 }
+assert.match(sponsors,/Criar anúncio da minha empresa/);
+assert.match(sponsors,/sponsorJumpTo\('sponsor-pricing'\)/);
+assert.doesNotMatch(sponsors,/openSponsorContact\('visibility'\)/);
 assert.match(sponsors,/openSponsorContact\(\)/);
 assert.match(sponsors,/inventário disponível/);
 
