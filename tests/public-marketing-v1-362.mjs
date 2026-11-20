@@ -98,8 +98,10 @@ assert.ok(read('js/acquisition.js').includes('id="partner-interest"'),'merchant 
 assert.match(learn,/buyer-jump-rail/);
 assert.match(learn,/id="buyer-guide-steps" tabindex="-1"/);
 assert.match(learn,/id="buyer-guide-questions" tabindex="-1"/);
-for(const key of ['visibility','relationship','local'])
-  assert.ok(sponsors.includes("openSponsorContact('"+key+"')"),'missing sponsor contact action '+key);
+for(const key of ['relationship','local'])
+  assert.ok(sponsors.includes("openSponsorContact('"+key+"')"),'missing sponsor partnership action '+key);
+assert.ok(sponsors.includes("Criar anúncio da minha empresa")&&sponsors.includes("sponsorJumpTo('sponsor-pricing')"),
+  'independent advertiser needs direct creation rather than generic contact');
 assert.match(sponsors,/sponsor-premium-formats/);
 assert.ok(core.includes('sponsors'),'public sponsor route preserved');
 const bootstrap=read('js/bootstrap.js');
