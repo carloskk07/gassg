@@ -428,7 +428,8 @@ async function backendInit(){
     let {data:{session},error}=await client.auth.getSession();
     if(error)throw error;
 
-    // Guests do not create accounts; older sessions can upgrade.
+    // Browsing never creates an Auth account. Previous anonymous accounts
+    // can still be upgraded without losing their first-touch referral code.
     if(!session?.access_token||session.user?.is_anonymous===true){
       liveRuntime.session=session||null;
       liveRuntime.status='guest';
@@ -439,7 +440,6 @@ async function backendInit(){
         }
       });
       render();
-      liveRefreshCityPriceBoard().then(v=>{if(v&&route()==='home')render()}).catch(()=>{});
       return true;
     }
     liveRuntime.session=session;
@@ -621,6 +621,8 @@ function liveAddressDraftReady(){
     && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''))
     && hasCartItems();
 }
+// V1.1072 — intentional direct-storefront selection. No cookie or persistent
+// buyer preference: only an explicit seller URL changes the current quote scope.
 const TAMAO_DIRECT_SELLER_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function tamaoDirectSellerId(){
  try{
@@ -898,6 +900,8 @@ async function liveCreateOrder(quoteId){
   liveRuntime.error=null;
   render();
   const idempotencyKey=liveIdempotency('create-order');
+  // V1.252 — use only the current first-party inbound UTM from this page.
+  // No persistent cross-session identifier and no claim that UTM proves causality.
   const ownerCampaignTag=(()=>{
     const p=new URLSearchParams(location.search);
     if(p.get('utm_source')!=='tamao'||p.get('utm_medium')!=='owner_campaign')return null;
@@ -1252,7 +1256,7 @@ async function liveSyncMarketStatus({force=false}={}){
 
 const CUSTOMER_CITY_BOARD_REFRESH_MS=90*1000;
 async function liveRefreshCityPriceBoard({force=false}={}){
-  if(!(liveReady()||liveRuntime.status==='guest')||!liveRuntime.client||typeof homeMarketRegion!=='function')return null;
+  if(!liveReady()||!liveRuntime.client||typeof homeMarketRegion!=='function')return null;
   const region=homeMarketRegion();
   const city=String(region?.city||''),uf=String(region?.state||'');
   if(!/^[\p{L}\p{M} .'-]{2,80}$/u.test(city)||!/^[A-Z]{2}$/.test(uf))return null;
@@ -2431,6 +2435,8 @@ async function merchantTeamLoadLive({silent=false}={}){
   }
 }
 
+// Lazy merchant-only operations: do not inflate first-render JS in the
+// partner portal. The script shares this exact release SHA and server gates.
 let merchantMutationLoader=null;
 function merchantMutationScopeKey(){
  const rt=merchantRuntime;
