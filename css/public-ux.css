@@ -438,3 +438,18 @@
 .sponsor-premium-workspace .sponsor-budget-method #sponsor-cpm-note{margin:12px 0 0}
 @media(max-width:790px){.sponsor-premium-workspace .sponsor-budget-choices{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:430px){.sponsor-premium-workspace .sponsor-budget-choice{min-height:75px}.sponsor-premium-workspace .sponsor-budget-actions{display:grid}.sponsor-premium-workspace .sponsor-budget-actions button{width:100%}}
+
+
+/* V1.1090 — identified advertiser registration and one-click returning access. */
+.sponsor-premium-workspace .sponsor-account-entry{display:grid;gap:12px;max-width:680px!important}
+.sponsor-premium-workspace .sponsor-account-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.sponsor-premium-workspace .sponsor-account-entry label{display:grid;gap:7px;font-size:12px;font-weight:850;color:#26543b}
+.sponsor-premium-workspace .sponsor-account-entry input{width:100%;min-width:0;min-height:46px;box-sizing:border-box}
+.sponsor-premium-workspace .sponsor-account-entry>button{justify-self:start;min-height:47px}
+.sponsor-premium-workspace .sponsor-account-entry>small{font-size:11px;line-height:1.65;color:#627567}
+.sponsor-premium-workspace .sponsor-account-entry #sponsor-account-status:not(:empty){padding:11px 13px;background:#eaf6ed;border-left:3px solid #168253;border-radius:8px;font-size:12px;color:#275640}
+.sponsor-premium-workspace .sponsor-account-returning{padding:12px 15px;border:1px solid #d4e6d8;border-radius:13px;background:#f9fcfa}
+.sponsor-premium-workspace .sponsor-account-returning summary{cursor:pointer;font-size:13px;font-weight:850;color:#11633f;min-height:35px}
+.sponsor-premium-workspace .sponsor-account-returning[open]{display:grid;gap:11px}
+.sponsor-premium-workspace .sponsor-account-returning[open] button{justify-self:start;min-height:44px}
+@media(max-width:560px){.sponsor-premium-workspace .sponsor-account-form-grid{grid-template-columns:minmax(0,1fr)}.sponsor-premium-workspace .sponsor-account-entry>button{width:100%}}
