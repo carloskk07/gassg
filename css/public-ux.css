@@ -418,3 +418,23 @@
 @media(prefers-reduced-motion:reduce){
  .sponsor-premium-v1090 *{scroll-behavior:auto!important;animation:none!important}
 }
+
+
+/* V1.1090 advertiser planner: one-tap budgets with accessible native fallback. */
+.sponsor-premium-workspace .sponsor-budget-eyebrow{font-weight:900;letter-spacing:.11em;font-size:10px;color:#447458}
+.sponsor-premium-workspace .sponsor-budget-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.sponsor-premium-workspace .sponsor-budget-choice{display:grid;align-content:center;justify-items:start;gap:5px;min-width:0;min-height:81px;padding:14px 13px;border:1px solid #d2e4d7;border-radius:13px;background:#f9fcf9;color:#224e37;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.sponsor-premium-workspace .sponsor-budget-choice strong{font-size:clamp(15px,1.7vw,20px);line-height:1.2;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.sponsor-premium-workspace .sponsor-budget-choice small{font-size:11px;color:#5d7866}
+.sponsor-premium-workspace .sponsor-budget-choice:hover{border-color:#77b48c;background:#edf8f0}
+.sponsor-premium-workspace .sponsor-budget-choice[aria-pressed="true"]{background:#e2f4e7;border:2px solid #13804e;box-shadow:0 0 0 2px #b9dfc4;color:#095837;padding:13px 12px}
+.sponsor-premium-workspace .sponsor-budget-choice[aria-pressed="true"] small{color:#2f7650}
+.sponsor-premium-workspace .sponsor-budget-actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px;margin:8px 0}
+.sponsor-premium-workspace .sponsor-budget-actions button{min-height:46px;padding:10px 17px}
+.sponsor-premium-workspace .sponsor-budget-method{padding:0 15px;border:1px solid #dbe7dd;border-radius:13px;background:#fbfdfb}
+.sponsor-premium-workspace .sponsor-budget-method summary{cursor:pointer;min-height:44px;padding:14px 0;font-size:12px;font-weight:850;color:#38604a}
+.sponsor-premium-workspace .sponsor-budget-method[open]{padding-bottom:12px}
+.sponsor-premium-workspace .sponsor-budget-method .merchant-kpis{margin-top:6px}
+.sponsor-premium-workspace .sponsor-budget-method #sponsor-cpm-note{margin:12px 0 0}
+@media(max-width:790px){.sponsor-premium-workspace .sponsor-budget-choices{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.sponsor-premium-workspace .sponsor-budget-choice{min-height:75px}.sponsor-premium-workspace .sponsor-budget-actions{display:grid}.sponsor-premium-workspace .sponsor-budget-actions button{width:100%}}
