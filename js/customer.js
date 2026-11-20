@@ -602,11 +602,9 @@ function home(){
             : globalThis.liveRuntime?.status==='loading'
               ? 'Conectando ao serviço.'
               : liveRuntime?.status==='guest'
-                ? 'Explore os produtos e os preços regionais divulgados. Confirme sua conta para validar a entrega e o valor final pelo CEP.'
+                ? 'Veja preços regionais. Confirme sua conta para consultar entrega e total.'
                 : 'Escolha os produtos e consulte ofertas para seu CEP.';
 
-  // Visitors can choose products before creating an account. Only sending
-  // orders or issuing exact delivery quotes requires verified Auth.
   const disabled=!testDemo&&!ready&&!preview&&liveRuntime?.status!=='guest';
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
   const homeProductEntries=Object.entries(products)
