@@ -47,7 +47,9 @@ assert.match(growth,/<h1 class="page-title">Compartilhe o TAMÃO\. Veja sua Rede
 assert.match(growth,/<details class="tamao-network-clarity">/);
 assert.match(growth,/Comissões exigem eventos reais, programa habilitado e validação/);
 assert.match(growth,/prima|primeira compra qualificada/i);
-assert.match(growth,/Sua marca merece <em>ser vista<\/em> por quem vive a sua cidade/);
-assert.match(growth,/PUBLICIDADE IDENTIFICADA/);
-assert.match(growth,/inventário disponível/);
+const sponsor=read('js/sponsors-premium.js');
+assert.match(sponsor,/Sua marca merece <em>ser vista<\/em> por quem vive a sua cidade/);
+assert.match(sponsor,/PUBLICIDADE IDENTIFICADA/);
+assert.match(sponsor,/inventário disponível/);
+assert.match(growth,/sponsors-premium\.js/);
 console.log('V1.1047 PASS — real home + 6 destinations, Club, Rede, commercial pages and honest details');
