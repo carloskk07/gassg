@@ -40,7 +40,8 @@
 .tamao-credit-plans button:focus-visible,
 .tamao-credit-workspace button:focus-visible{outline:3px solid #ffd278;outline-offset:3px}
 .tamao-credit-workspace .check-row{
- color:#f1fbf5;line-height:1.5;margin:8px 0 17px;
+ color:#243e32;background:#f4faf6;line-height:1.5;margin:8px 0 17px;
+ text-align:left;align-items:flex-start;
 }
 .tamao-credit-workspace .primary{
  border-color:#f5d28a;background:#f5d28a;color:#184831;
@@ -109,3 +110,11 @@
  .tamao-credit-workspace{padding:20px 12px}
  .sponsor-premium-workspace .tamao-credit-campaign-form.card.flat.form-stack{padding:16px 12px;border-radius:14px}
 }
+.tamao-credit-pending{margin:16px 0;padding:16px;border:1px solid #b9d7c5;border-radius:14px;background:#f4faf6;color:#203e2c}
+.tamao-credit-pending h4{margin:0 0 10px;color:#153e29}
+.tamao-credit-pending-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.tamao-credit-pending-item + .tamao-credit-pending-item{margin-top:10px}
+.tamao-credit-pending-item small{display:block;margin-top:3px;color:#3e604c}
+.tamao-credit-pending-item button,.tamao-credit-pix button{min-height:44px}
+.tamao-credit-statement{margin:18px 0}
+.tamao-credit-statement h4{margin:16px 0 4px;color:#fff}

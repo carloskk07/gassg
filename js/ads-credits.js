@@ -66,6 +66,10 @@ function tamaoCreditPending(data=tamaoCreditState.data){
  return (Array.isArray(data?.topups)?data.topups:[]).filter(t=>
   ['reserved','creating','pix_pending','review_required'].includes(t.status));
 }
+const tamaoCreditFinished=['approved','reversed','unpaid','closed_unissued'];
+const tamaoCreditPaymentLabels={reserved:'Aguardando emissão',creating:'Em conferência',
+ pix_pending:'Aguardando pagamento',approved:'Pagamento confirmado',unpaid:'Pagamento não concluído',
+ closed_unissued:'Encerrada sem emissão',reversed:'Pagamento revertido',review_required:'Em revisão financeira'};
 function tamaoCreditSchedule(scope){
  if(tamaoCreditAutoTimer!==null)clearTimeout(tamaoCreditAutoTimer);
  tamaoCreditAutoTimer=null;
@@ -82,9 +86,12 @@ function tamaoCreditSchedule(scope){
 }
 function tamaoCreditPixHtml(pix){
  if(!pix?.pixCode||!Number.isSafeInteger(pix?.amountCents))return '';
- if(Date.parse(String(pix.expiresAt||''))<=Date.now()+60000)
+ const expires=Date.parse(String(pix.expiresAt||''));
+ if(!Number.isFinite(expires)||expires<=Date.now()+60000)
   return '<section class="tamao-credit-pix"><p>A validade deste Pix terminou. '+ 
    'Confira o pagamento no histórico antes de iniciar outra recarga.</p></section>';
+ if(typeof globalThis.tamaoPixCodeValid==='function'&&!globalThis.tamaoPixCodeValid(pix.pixCode,pix.amountCents))
+  return '<p role="status">O código Pix não pôde ser validado. Confira a recarga no histórico.</p>';
  const safeCode=tamaoCreditEscape(pix.pixCode);
  const qr=typeof globalThis.tamaoPixMarkup==='function'
   ?globalThis.tamaoPixMarkup(pix.pixCode,{amountCents:pix.amountCents}):'';
@@ -277,15 +284,19 @@ async function tamaoCreditReconcile(topupId){
  const scope=tamaoCreditSyncOwner();
  if(!tamaoCreditVerified()||tamaoCreditState.busy)return false;
  const pending=tamaoCreditState.data?.topups?.find(t=>
-   t.id===topupId&&t.status==='pix_pending');
+   t.id===topupId&&['reserved','creating','pix_pending','review_required'].includes(t.status));
  if(!pending)return false;
  tamaoCreditState.busy=true;
  try{
   const reply=await tamaoCreditInvoke({action:'reconcile',topupId});
   if(!tamaoCreditMatches(scope))return false;
   if(reply?.source!=='ads_credit_payment_fact_v1_1097')throw Error('Provedor não confirmou o pagamento.');
-  if(reply.status==='approved'||reply.status==='reversed')tamaoCreditState.pix=null;
-  await tamaoCreditRefresh();
+  if(tamaoCreditFinished.includes(reply.status))tamaoCreditState.pix=null;
+  const refreshed=await tamaoCreditRefresh();
+  if(tamaoCreditMatches(scope)&&refreshed){
+   const latest=tamaoCreditState.data.topups?.find(t=>t.id===topupId);
+   if(latest)tamaoCreditState.error=tamaoCreditPaymentLabels[latest.status]||'Recarga consultada.';
+  }
   return true;
  }catch(e){if(tamaoCreditMatches(scope))
    tamaoCreditState.error='A confirmação ainda não chegou. Confira seu Pix antes de repetir.';
@@ -309,15 +320,22 @@ function tamaoCreditMarkup(){
  const pendingTopups=tamaoCreditPending(d)
   .filter(t=>/^[0-9a-f-]{36}$/i.test(String(t.id||'')))
   .slice(0,3);
- const pendingHtml=pendingTopups.length?'<section class="tamao-credit-pending">'+
-  '<h4>Pagamentos aguardando confirmação</h4>'+
-  pendingTopups.map(t=>'<div class="tamao-credit-pending-item"><span>Pix de '+
-    tamaoCreditMoney(t.amountCents)+'</span>'+
-    (t.status==='pix_pending'?'<button type="button" class="secondary small" onclick="tamaoCreditReconcile(&quot;'+
-    t.id+'&quot;)"'+(tamaoCreditState.busy?' disabled':'')+'>'+
-    'Conferir pagamento</button>':'<span>Em conferência. Atualize o saldo para acompanhar.</span>')+'</div>').join('')+
-  '<small>O TAMÃO confere diretamente no Mercado Pago. Esta ação não cria nova cobrança.</small>'+
+ const pixHtml=tamaoCreditPixHtml(tamaoCreditState.pix);
+ const needsCheck=pendingTopups.filter(t=>t.id!==tamaoCreditState.pix?.topupId||!pixHtml.includes('tamao-credit-pix-code'));
+ const pendingHtml=needsCheck.length?'<section class="tamao-credit-pending">'+
+  '<h4>Recargas em andamento</h4>'+
+  needsCheck.map(t=>'<div class="tamao-credit-pending-item"><span><strong>Pix de '+
+    tamaoCreditMoney(t.amountCents)+'</strong><small>'+
+    (t.status==='pix_pending'?'Confira o resultado no Mercado Pago':tamaoCreditPaymentLabels[t.status])+
+    '</small></span><button type="button" class="secondary small" onclick="tamaoCreditReconcile(&quot;'+
+    t.id+'&quot;)"'+(tamaoCreditState.busy?' disabled':'')+'>Conferir pagamento</button></div>').join('')+
   '</section>':'';
+ const history=(Array.isArray(d.topups)?d.topups:[]).slice(0,20).map(t=>{
+  const date=Date.parse(String(t.createdAt||''));
+  return '<li><span>'+tamaoCreditEscape(tamaoCreditPaymentLabels[t.status]||'Em conferência')+
+   '</span><strong>'+tamaoCreditMoney(t.amountCents)+'</strong><small>'+
+   (Number.isFinite(date)?new Date(date).toLocaleDateString('pt-BR'):'')+'</small></li>';
+ }).join('');
  const events=entries.slice(0,12).map(x=>{
   const date=Date.parse(String(x.at||''));
   const text=x.operation==='topup'?'Crédito confirmado':x.operation==='view'?
@@ -327,7 +345,8 @@ function tamaoCreditMarkup(){
    '</small></li>';
  }).join('');
  const locked=tamaoCreditState.busy||tamaoCreditState.loading||pendingTopups.length>0||!!tamaoCreditState.requestId;
- const plans=active?'<div class="tamao-credit-plans" role="group" aria-label="Escolha quanto carregar">'+
+ const mayPrepare=!pendingTopups.some(t=>['pix_pending','review_required'].includes(t.status));
+ const plans=active&&mayPrepare?'<div class="tamao-credit-plans" role="group" aria-label="Escolha quanto carregar">'+
   tamaoCreditPlans.map(value=>'<button type="button" data-tamao-credit-plan="'+value+
    '" aria-pressed="'+String(tamaoCreditState.amountCents===value)+
    '" onclick="tamaoCreditChoose('+value+')"'+(locked?' disabled':'')+'>'+tamaoCreditMoney(value)+'</button>').join('')+
@@ -351,12 +370,14 @@ function tamaoCreditMarkup(){
    ' visualizações faturáveis, se houver audiência elegível. Isso não garante alcance.</p>':
   '<p class="tamao-credit-awaiting">As novas recargas e a cobrança por visualização ainda não estão liberadas. Os saldos existentes e os anúncios contratados anteriormente continuam separados e protegidos.</p>')+
   (d.frozen?'<p class="notice">Conta publicitária em conferência financeira. Nenhuma nova cobrança ou consumo será iniciado.</p>':'')+
-  plans+tamaoCreditPixHtml(tamaoCreditState.pix)+pendingHtml+
-  tamaoCreditCampaignHtml(d)+
+  plans+pixHtml+pendingHtml+
   '<p role="status" id="tamao-credit-message">'+tamaoCreditEscape(tamaoCreditState.error)+'</p>'+
-  '<details class="tamao-credit-statement"><summary>Ver extrato de créditos e consumos</summary>'+
+  '<details id="tamao-credit-statement" class="tamao-credit-statement"><summary>Ver extrato de créditos e consumos</summary>'+
+  (history?'<h4>Minhas recargas</h4><ul>'+history+'</ul>':'')+
+  (events?'<h4>Movimentações do saldo</h4>':'')+
   (events?'<ul>'+events+'</ul>':'<p>O extrato aparecerá quando houver recargas ou consumo confirmado.</p>')+
   '<button type="button" class="secondary" onclick="tamaoCreditRefresh()">Atualizar meu saldo</button></details>'+
+  tamaoCreditCampaignHtml(d)+
   '<small>Os créditos não são sacáveis nem transferíveis pela rotina normal. Questões legais, contestações de pagamento e correções de cobrança seguem os procedimentos aplicáveis.</small>'+
   '</section>';
 }
@@ -377,13 +398,17 @@ async function tamaoCreditRenderQr(){
     document.head.append(script);
    });
   }
-  if(!await tamaoCreditQrLoader)return false;
+  if(!await tamaoCreditQrLoader){
+   tamaoCreditQrLoader=null;
+   if(target.isConnected)target.textContent='Use o código Pix copia e cola abaixo.';
+   return false;
+  }
  }
  if(document.getElementById('tamao-credit-qrcode')!==target)return false;
  try{
   const qr=globalThis.qrcode(0,'M');
   qr.addData(code);qr.make();
-  target.innerHTML=qr.createSvgTag({cellSize:5,margin:2,scalable:true});
+  target.innerHTML=qr.createSvgTag({cellSize:5,margin:20,scalable:true});
   const svg=target.querySelector('svg');
   if(svg){svg.setAttribute('aria-label','Pix da recarga de publicidade TAMÃO');
    svg.setAttribute('role','img');svg.style.maxWidth='225px';svg.style.width='100%';}
@@ -398,7 +423,10 @@ function tamaoCreditPaint(){
  // The old DOM may still belong to the previous account. Never save its
  // fields into the new account's freshly reset draft.
  if(tamaoCreditMountedScope===key&&!tamaoCreditClearDraftOnPaint)tamaoCreditDraftSave();
+ const keepStatement=tamaoCreditMountedScope===key&&document.getElementById('tamao-credit-statement')?.open;
  el.innerHTML=tamaoCreditMarkup();
+ const statement=document.getElementById('tamao-credit-statement');
+ if(keepStatement&&statement)statement.open=true;
  tamaoCreditMountedScope=key;
  tamaoCreditClearDraftOnPaint=false;
  tamaoCreditDraftRestore();
@@ -430,9 +458,16 @@ async function tamaoCreditRefresh(){
    amountCents:pending.amountCents,pixCode:pending.pixCode,
    expiresAt:pending.expiresAt};}
   else tamaoCreditState.pix=null;
-  if(Array.isArray(data.topups)&&data.topups.some(t=>
-    t.id===tamaoCreditState.topupId&&['approved','reversed'].includes(t.status))){
-   tamaoCreditState.requestId=null;tamaoCreditState.topupId=null;
+  const open=tamaoCreditPending(data)[0];
+  if(open&&/^[0-9a-f-]{36}$/i.test(String(open.requestId||''))&&tamaoCreditPlans.includes(open.amountCents)){
+   // The owner can recover the same provider obligation on a second device.
+   tamaoCreditState.requestId=open.requestId;tamaoCreditState.topupId=open.id;
+   tamaoCreditState.requestAmount=open.amountCents;tamaoCreditState.amountCents=open.amountCents;
+   tamaoCreditRememberRequest();
+  }else if(Array.isArray(data.topups)&&data.topups.some(t=>
+    (t.id===tamaoCreditState.topupId||t.requestId&&t.requestId===tamaoCreditState.requestId)&&
+    tamaoCreditFinished.includes(t.status))){
+   tamaoCreditState.requestId=null;tamaoCreditState.topupId=null;tamaoCreditState.requestAmount=0;
    tamaoCreditRememberRequest();
   }
   tamaoCreditState.loaded=true;return true;
@@ -454,11 +489,12 @@ function tamaoCreditChoose(value){
 }
 async function tamaoCreditTopup(){
  const scope=tamaoCreditSyncOwner();
- if(!tamaoCreditVerified()||tamaoCreditState.busy)return false;
+ if(!scope.actor||tamaoCreditState.busy)return false;
+ if(tamaoCreditMountedScope!==scope.actor+':'+scope.generation){tamaoCreditPaint();return false;}
  const pending=tamaoCreditPending();
  if(tamaoCreditState.loading||pending.some(t=>['pix_pending','review_required'].includes(t.status))||
     pending.length&&!tamaoCreditState.requestId)return false;
- if(tamaoCreditState.data?.rechargeEnabled!==true||
+ if(tamaoCreditState.data?.frozen||tamaoCreditState.data?.rechargeEnabled!==true||
     tamaoCreditState.data?.billingEnabled!==true)return false;
  if(document.getElementById('tamao-credit-terms')?.checked!==true){
   tamaoCreditState.error='Confirme as condições da recarga antes de gerar o Pix.';
@@ -474,7 +510,7 @@ async function tamaoCreditTopup(){
    requestId:tamaoCreditState.requestId,amountCents:amount,acceptCreditTerms:true});
   if(!tamaoCreditMatches(scope))return false;
   if(data?.source!=='ads_credit_topup_v1_1097')throw Error('Pix não confirmado.');
-  if(['approved','reversed'].includes(data.status)){
+  if(tamaoCreditFinished.includes(data.status)){
    tamaoCreditState.requestId=null;tamaoCreditRememberRequest();
   }
   if(data.status==='pix_pending'&&typeof data.pixCode==='string'&&

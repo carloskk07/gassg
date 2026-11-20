@@ -191,6 +191,33 @@ function harness(saved=storage()){
  b.reject(Error('Temporary error'));await fresh;assert.equal(h.state().busy,false);
 }
 
+// A second device has only the server's owner-scoped intention. A terminal
+// response must unlock the picker even when the browser never saw a QR.
+{
+ const h=harness();const original=randomUUID();
+ const reserved={id:topupId,amountCents:4990,status:'reserved',requestId:original};
+ await h.load(wallet(0,[reserved]));
+ assert.equal(h.state().requestId,original);assert.equal(h.state().amountCents,4990);
+ const check=h.context.tamaoCreditReconcile(topupId);
+ assert.equal(h.calls.at(-1).body.action,'reconcile');
+ h.calls.at(-1).resolve({source:'ads_credit_payment_fact_v1_1097',status:'unpaid'});await flush();
+ h.calls.at(-1).resolve(wallet(0,[{...reserved,status:'unpaid'}]));await check;
+ assert.equal(h.state().requestId,null);assert.equal(h.state().pix,null);
+ assert.equal(h.context.tamaoCreditChoose(9990),true);
+ assert.match(h.mount.innerHTML,/Pagamento não concluído/);
+ assert.equal(h.calls.filter(c=>c.body.action==='topup').length,0);
+ await h.load({...wallet(),frozen:true});
+ assert.equal(await h.context.tamaoCreditTopup(),false);
+}
+{
+ const h=harness();await h.load();h.fields['tamao-credit-terms'].checked=true;
+ const call=h.context.tamaoCreditTopup(),lost=h.calls.at(-1);lost.reject(Error('lost'));await call;
+ const fresh=harness(h.saved);
+ await fresh.load(wallet(1990,[{id:topupId,requestId:lost.body.requestId,amountCents:1990,status:'approved'}]));
+ assert.equal(fresh.state().requestId,null,'Confirmed server UUID releases a lost response without another topup');
+ assert.equal(fresh.context.tamaoCreditChoose(4990),true);
+}
+
 // Real liveInvoke rechecks the caller's lease AFTER awaiting the access token.
 {
  const backend=read('js/backend.js');

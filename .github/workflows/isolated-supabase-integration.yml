@@ -276,6 +276,8 @@ jobs:
         run: node tests/isolated-ads-institutional-v1-916.mjs
       - name: V1.1097 real prepaid wallet, replay denial and audit-gated debit in disposable Postgres
         run: node tests/isolated-ads-credit-wallet-v1-1097.mjs
+      - name: V1.1101 early Pix, nonpayment, cumulative reversals and recovery on disposable Postgres
+        run: node tests/isolated-ads-credit-recovery-v1-1101.mjs
       - name: V1.1098 prepaid campaign workflow, safe-view billing and old-contract protection
         run: node tests/isolated-ads-credit-campaigns-v1-1098.mjs
       - name: V1.955 complete paid independent advertising cycle and synthetic PSP reversal (ROLLBACK)

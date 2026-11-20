@@ -457,7 +457,8 @@ function adminAdsIndependentSection(){
  return '<section class="section" aria-label="Publicação independente do TAMÃO Ads">'+
   '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • ANUNCIANTES INDEPENDENTES</span>'+
   '<h3>Campanhas sem cadastro de revenda</h3>'+
-  '<p>Análise e entrega não faturável. Sinais do navegador não constituem prova de cobrança.</p></div>'+
+  (pane==='credit'?'<p>Carteira de publicidade, campanhas em análise e recargas por Pix.</p>':
+   '<p>Análise e entrega não faturável. Sinais do navegador não constituem prova de cobrança.</p>')+'</div>'+
   '<button type="button" class="secondary small" onclick="adminIndependentAdsRefresh()" '+
   (adminIndependentAdsBusy?'disabled':'')+'>Atualizar campanhas</button></div>'+
   '<div class="admin-task-tabs" role="group" aria-label="Tarefas de anúncios independentes">'+
@@ -466,12 +467,12 @@ function adminAdsIndependentSection(){
    adsPane('campaigns','Contratos anteriores',reviewCount)+
    adsPane('finance','Configuração e vendas',0)+
    adsPane('refunds','Reembolsos',refundCount)+'</div>'+
-    '<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
+  (pane==='credit'?'':'<div class="merchant-kpis"><div class="kpi"><span class="label">Entrega pública independente</span>'+
    '<strong>'+(delivery?'Habilitada':'Desligada')+'</strong></div>'+
    '<div class="kpi"><span class="label">CPM por visualizações</span><strong>Inativo</strong></div>'+
    '<div class="kpi"><span class="label">Vendas de período fixo</span><strong>'+
      (sales?'Habilitadas':'Desligadas')+'</strong></div>'+
-   '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>'+
+   '<div class="kpi"><span class="label">Campanhas</span><strong>'+Number(v?.rows?.length||0)+'</strong></div></div>')+
   (pane==='finance'?(
   (canAct?'<div class="card flat"><h4>Teste financeiro de publicidade dentro do Admin</h4>'+
     '<p>Primeiro, confira o recebedor e o webhook sem cobrar. Depois, selecione uma campanha comercial aprovada e autorize um único checkout REAL de R$ 19,90, no painel abaixo. '+
@@ -757,3 +758,7 @@ async function adminInstitutionalAdsDecide(id,version){
  finally{s.pending=false}
  await adminInstitutionalAdsRefresh();return true;
 }
+
+// A protected deep link can select this pane before the lazy module arrives.
+if(typeof adminReady==='function'&&adminReady()&&adminRuntime.section==='ads'&&
+   typeof adminIndependentAdsPane!=='undefined'&&adminIndependentAdsPane==='credit')adminCreditAdsLoad();

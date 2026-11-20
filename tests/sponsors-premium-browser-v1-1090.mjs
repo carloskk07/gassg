@@ -162,7 +162,27 @@ try{
   }
   const creditShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(out,'ads-credit-form-v1-1100-'+width+'.png'),Buffer.from(creditShot.data,'base64'));
-  results.push({width,...first,...actions,demo,studio,placements,brief,credits});
+  const history=await evaluate(`(async()=>{
+   const topup={id:'11111111-1111-4111-8111-111111111111',requestId:'22222222-2222-4222-8222-222222222222',
+    amountCents:4990,status:'creating',createdAt:'2026-11-19T15:00:00Z'};
+   const oldRead=tamaoCreditInvoke;
+   tamaoCreditInvoke=async body=>({...await oldRead(body),rechargeEnabled:true,billingEnabled:true,topups:[topup]});
+   await tamaoCreditRefresh();
+   const item=document.querySelector('.tamao-credit-pending-item');
+   const summary=document.getElementById('tamao-credit-statement');
+   summary.open=true;await tamaoCreditRefresh();
+   const current=document.getElementById('tamao-credit-statement');
+   const button=document.querySelector('.tamao-credit-pending-item button');
+   const consent=document.getElementById('tamao-credit-terms').closest('label');
+   return {hasPending:item.textContent.includes('Em conferência'),open:current.open,
+    history:current.textContent.includes('Minhas recargas'),buttonHeight:button.getBoundingClientRect().height,
+    buttonRight:button.getBoundingClientRect().right,color:getComputedStyle(consent).color,
+    width:document.documentElement.scrollWidth};
+  })()`);
+  assert.ok(history.hasPending&&history.open&&history.history);
+  assert.ok(history.buttonHeight>=44&&history.buttonRight<=width+3&&history.width<=width+3);
+  assert.equal(history.color,'rgb(36, 62, 50)','Payment consent must be readable on a light surface');
+  results.push({width,...first,...actions,demo,studio,placements,brief,credits,history});
 
  }
 }finally{

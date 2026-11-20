@@ -313,6 +313,14 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(route()!=='admin')go('admin');
     render();
     init.then(render).catch(()=>{adminRuntime.status='unavailable';render()});
+    if(globalThis.location?.search&&new URLSearchParams(globalThis.location.search).get('publicidade')==='creditos'){
+      init.then(ready=>{
+        if(!ready||!adminReady()||adminCurrentRole()!=='superadmin')return;
+        adminAdsWorkspaceTab='campaigns';adminIndependentAdsPane='credit';
+        adminSetSection('ads');
+        globalThis.adminCreditAdsLoad?.();
+      }).catch(()=>{});
+    }
     return;
   }
   if(globalThis.merchantPortalRequested?.())return;

@@ -11,8 +11,10 @@ function adminCreditAdsChooseFilter(value){
  return true;
 }
 async function adminCreditAdsRequest(action,body={}){
+ const actor=String(adminRuntime?.session?.user?.id||''),role=adminCurrentRole();
+ const pilot=(action.startsWith('admin-pilot-')||action==='reconcile')?adminCreditPilotScope():null;
  const token=await adminAccessToken();
- if(!adminReady()||!token)throw Error('A autenticação administrativa expirou.');
+ if((pilot&&pilot!==adminCreditPilotScope())||!adminReady()||!token||!actor||actor!==String(adminRuntime?.session?.user?.id||'')||role!==adminCurrentRole())throw Error('A autenticação administrativa expirou.');
  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/ads-credit',{
   method:'POST',cache:'no-store',
   headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey,
@@ -27,6 +29,8 @@ async function adminCreditAdsRefresh(){
  const actor=String(adminRuntime?.session?.user?.id||'');
  if(!actor||!adminReady()||adminCreditAdsBusy)return false;
  adminCreditAdsBusy=true;
+ const pilot=adminCreditPilotScope();
+ const readingPilot=pilot.actor?adminCreditPilotRead(pilot):null;
  if(adminCreditAdsState.actor!==actor)adminCreditAdsState={
   actor,status:'loading',rows:[],gate:null,totals:null,error:''};
  else adminCreditAdsState.status='loading';
@@ -47,6 +51,7 @@ async function adminCreditAdsRefresh(){
   }
   return false;
  }finally{
+  await readingPilot;
   adminCreditAdsBusy=false;
   if(adminRuntime?.section==='ads')render();
  }
@@ -58,16 +63,17 @@ function adminCreditAdsPanel(){
  const money=value=>adminMoney(Number(value)||0);
  const names={submitted:'Em análise',approved:'Aprovada',active:'Em divulgação',
   paused:'Pausada',rejected:'Rejeitada',ended:'Encerrada'};
+ const deliveryOpen=current&&data.gate.rechargeEnabled===true&&data.gate.billingEnabled===true&&data.gate.evidenceEnabled===true;
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
   const options=status==='submitted'?[['approve','Aprovar anúncio'],['reject','Rejeitar']]:
-   status==='approved'?[['publish','Publicar com saldo'],['reject','Rejeitar']]:
+   status==='approved'?[...(deliveryOpen?[['publish','Publicar com saldo']]:[]),['reject','Rejeitar'],['end','Encerrar']]:
    status==='active'?[['pause','Pausar'],['end','Encerrar']]:
-   status==='paused'?[['resume','Retomar com saldo'],['end','Encerrar']]:[];
+   status==='paused'?[...(deliveryOpen?[['resume','Retomar com saldo']]:[]),['end','Encerrar']]:[];
   if(!options.length)return '';
   const id=String(c.id||'');
-  return '<fieldset><legend>Escolha a ação</legend>'+
+  return ((!deliveryOpen&&['approved','paused'].includes(status))?'<p>O anúncio pode entrar em divulgação quando a cobrança por visualização estiver liberada.</p>':'')+'<fieldset><legend>Escolha a ação</legend>'+
    options.map(([v,label])=>'<label class="admin-option-row"><input type="radio" name="credit-admin-'+id+
      '" value="'+v+'"> '+label+'</label>').join('')+'</fieldset>'+
    '<label class="input-wrap" for="credit-reason-'+id+'">Motivo da decisão'+
@@ -107,7 +113,7 @@ function adminCreditAdsPanel(){
   '<h3>Campanhas por visualização</h3>'+
   '<p>Revisão de criativos e controle dos saldos, sem pacote de dias. Os lançamentos antigos permanecem no histórico anterior.</p></div>'+
   '<button type="button" class="secondary small" onclick="adminCreditAdsRefresh()">Atualizar</button></div>'+
-  (current?'<div class="merchant-kpis">'+
+  (current?adminCreditPilotPanel()+'<div class="merchant-kpis">'+
    '<div class="kpi"><span class="label">Preço por visualização</span><strong>'+
     money(g.centsPerView)+'</strong></div>'+
    '<div class="kpi"><span class="label">Saldo total</span><strong>'+
@@ -135,6 +141,10 @@ async function adminCreditAdsDecide(id,version){
  if(!row||!['approve','reject','publish','pause','resume','end'].includes(decision)||
     document.getElementById('credit-ack-'+id)?.checked!==true)
   return toast('Marque uma decisão e confirme que revisou a campanha.');
+ if(!['superadmin','compliance'].includes(adminCurrentRole()))return false;
+ const gate=adminCreditAdsState.gate;
+ if(['publish','resume'].includes(decision)&&!(gate?.rechargeEnabled&&gate.billingEnabled&&gate.evidenceEnabled))
+  return toast('A divulgação por créditos aguarda a liberação financeira.');
  const manuallyEntered=String(document.getElementById('credit-reason-'+id)?.value||'')
   .trim().replace(/\s+/g,' ').slice(0,500);
  if(['reject','end'].includes(decision)&&manuallyEntered.length<12)
@@ -159,6 +169,97 @@ async function adminCreditAdsDecide(id,version){
  }catch(e){if(actor===String(adminRuntime?.session?.user?.id||''))
    toast(String(e?.message||'Não foi possível aplicar a decisão.'));return false;
  }finally{adminCreditAdsBusy=false;await adminCreditAdsRefresh();}
+}
+let adminCreditPilotRevision=0;
+let adminCreditPilotState={actor:'',login:'',revision:0,data:null,error:'',busy:false,sequence:0};
+function adminCreditPilotScope(){
+ const actor=adminReady()&&adminCurrentRole()==='superadmin'?String(adminRuntime?.session?.user?.id||''):'';
+ const login=actor?String(adminRuntime.session.user.last_sign_in_at||''):'';
+ if(adminCreditPilotState.actor!==actor||adminCreditPilotState.login!==login)
+  adminCreditPilotState={actor,login,revision:++adminCreditPilotRevision,data:null,error:'',busy:false,sequence:0};
+ return adminCreditPilotState;
+}
+async function adminCreditPilotRead(state){
+ const sequence=++state.sequence;
+ try{
+  const data=await adminCreditAdsRequest('admin-pilot-read');
+  if(adminCreditPilotScope()!==state||state.sequence!==sequence)return false;
+  if(data?.source!=='admin_ads_credit_pilot_v1_1101'||typeof data.canStart!=='boolean')
+   throw Error('Leitura incompleta');
+  state.data=data;state.error='';return true;
+ }catch{
+  if(adminCreditPilotScope()===state&&state.sequence===sequence){
+   state.data=null;state.error='Não foi possível consultar a recarga de homologação. Atualize o painel.';
+  }
+  return false;
+ }
+}
+function adminCreditPilotPanel(){
+ const state=adminCreditPilotScope();
+ if(!state.actor)return '';
+ const d=state.data;
+ const status={idle:'Pronta para iniciar',reserved:'Aguardando emissão',creating:'Em conferência no Mercado Pago',
+  pix_pending:'Aguardando pagamento',approved:'Pagamento confirmado',unpaid:'Pagamento não concluído',
+  closed_unissued:'Encerrada sem emissão',reversed:'Pagamento revertido',review_required:'Em revisão financeira',
+  other_owner:'Em acompanhamento por outro superadministrador'};
+ const rawId=String(d?.topupId||'');
+ const id=/^[0-9a-f-]{36}$/i.test(rawId)?rawId:'';
+ const validId=!!id;
+ const allowStart=d?.providerReady===true&&(d.canStart===true||d.status==='reserved');
+ const check=validId&&['reserved','creating','pix_pending','approved','review_required'].includes(d.status);
+ const code=d?.status==='pix_pending'&&Date.parse(d.expiresAt)>Date.now()+60000&&
+  typeof globalThis.tamaoPixCodeValid==='function'&&globalThis.tamaoPixCodeValid(d.pixCode,1990)?d.pixCode:'';
+ const disabled=state.busy?' disabled':'';
+ const controls=allowStart?'<label class="admin-option-row"><input type="checkbox" id="credit-pilot-consent"'+disabled+'>'+
+  ' Autorizo a emissão de um Pix real de R$ 19,90 para a minha carteira de publicidade.</label>'+
+  '<button type="button" class="primary small" onclick="adminCreditPilotRun(&quot;prepare&quot;,&quot;'+id+'&quot;,'+state.revision+')"'+disabled+'>'+
+  (d.status==='reserved'?'Retomar emissão do Pix':'Gerar Pix de R$ 19,90')+'</button>':'';
+ const pix=code?(globalThis.tamaoPixMarkup?.(code,{amountCents:1990,label:'QR Code da homologação de publicidade'})||'')+
+  '<label class="input-wrap">Pix copia e cola<textarea class="input" id="credit-pilot-code" rows="3" readonly>'+esc(code)+'</textarea></label>'+
+  '<button type="button" class="secondary small" onclick="adminCreditPilotCopy()">Copiar Pix</button>':'';
+ return '<section class="card flat form-stack" aria-label="Homologação da carteira de publicidade">'+
+  '<h4>Homologação do Pix da carteira</h4>'+
+  '<p>Confira a recarga de R$ 19,90 na sua própria carteira antes de abrir as vendas. O saldo entra após a confirmação do Mercado Pago.</p>'+
+  (d?'<p role="status"><strong>'+esc(d.status==='idle'&&d.providerReady!==true?'Aguardando o Mercado Pago':status[d.status]||'Em conferência')+'</strong>'+
+   (Number.isSafeInteger(d.balanceCents)?' · Saldo da carteira '+esc(adminMoney(d.balanceCents)):'')+'</p>':'')+
+  (d?.providerReady===false?'<p>A conexão com o Mercado Pago precisa de conferência. Atualize o painel para consultar novamente.</p>':'')+
+  controls+pix+(check?'<button type="button" class="secondary small" onclick="adminCreditPilotRun(&quot;check&quot;,&quot;'+id+'&quot;,'+state.revision+')"'+disabled+'>Conferir no Mercado Pago</button>':'')+
+  '<span role="status" id="credit-pilot-notice">'+esc(state.error||(state.busy?'Consultando o Mercado Pago…':''))+'</span></section>';
+}
+async function adminCreditPilotRun(operation,renderedId,revision){
+ const state=adminCreditPilotScope(),d=state.data;
+ if(!state.actor||state.revision!==revision||state.busy||!d||adminRuntime.section!=='ads'||
+    String(d.topupId||'')!==renderedId)return false;
+ if(operation==='prepare'){
+  if(d.providerReady!==true||!(d.canStart||d.status==='reserved')||document.getElementById('credit-pilot-consent')?.checked!==true)
+   return toast('Marque a autorização para emitir o Pix de R$ 19,90.');
+ }else if(operation!=='check'||!renderedId)return false;
+ state.busy=true;state.error='';render();
+ try{
+  const response=operation==='prepare'?await adminCreditAdsRequest('admin-pilot-prepare',{
+   previousTopup:renderedId||null,acceptPilotTerms:true}):
+   await adminCreditAdsRequest('reconcile',{topupId:renderedId});
+  if(adminCreditPilotScope()!==state)return false;
+  if(response?.source!==(operation==='prepare'?'ads_credit_topup_v1_1097':'ads_credit_payment_fact_v1_1097'))
+   throw Error('Confirmação indisponível');
+  return await adminCreditPilotRead(state);
+ }catch{
+  if(adminCreditPilotScope()===state){
+   await adminCreditPilotRead(state);
+   if(adminCreditPilotScope()===state)state.error='Confira a situação da cobrança antes de tentar novamente.';
+  }
+  return false;
+ }finally{
+  if(adminCreditPilotScope()===state){state.busy=false;if(adminRuntime.section==='ads')render();}
+ }
+}
+async function adminCreditPilotCopy(){
+ const state=adminCreditPilotScope(),field=document.getElementById('credit-pilot-code');
+ if(!state.actor||state.data?.status!=='pix_pending'||!field||field.value!==state.data.pixCode||
+   Date.parse(state.data.expiresAt)<=Date.now()+60000)return false;
+ try{await navigator.clipboard.writeText(field.value);
+  if(adminCreditPilotScope()===state)toast('Pix copiado.');return true;
+ }catch{if(adminCreditPilotScope()===state){field.focus();field.select();toast('Código selecionado para copiar.');}return false;}
 }
 globalThis.adminCreditAdsChooseFilter=adminCreditAdsChooseFilter;
 globalThis.adminCreditAdsPanel=adminCreditAdsPanel;
