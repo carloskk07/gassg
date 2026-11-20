@@ -73,7 +73,7 @@ try{
   assert.equal(actions.days,'7');
   assert.match(actions.quote,/1\.658 visualizações verificadas/);
   assert.equal(actions.focused,'sponsor-pricing');
-  assert.equal(actions.faqOpened,true);
+  assert.equal(actions.faqOpened,true,'FAQ interaction: '+JSON.stringify(actions));
   assert.equal(actions.hash,'#sponsors');
   assert.deepEqual(actions.buttons,['true','false','false','false']);
   results.push({width,...first,...actions});
