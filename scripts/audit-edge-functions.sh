@@ -24,7 +24,9 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       # Narrow public information endpoint: no Auth identity, no buyer data, no SQL anon grants.
       grep -q 'const ORIGINS=new Set' "$f" || { echo "$f missing origin allowlist"; exit 1; }
       grep -q 'req.headers.get("apikey")!==PUB' "$f" || { echo "$f missing request key gate"; exit 1; }
-      grep -q 'raw.length>512' "$f" || { echo "$f missing request size limit"; exit 1; }
+      grep -q 'boundedJson(req,512)' "$f" || { echo "$f missing bounded JSON parser"; exit 1; }
+      grep -q 'getReader()' "$f" || { echo "$f must limit request data while streaming"; exit 1; }
+      grep -q 'total>maxBytes' "$f" || { echo "$f missing hard payload limit"; exit 1; }
       grep -q 'consume_hashed_api_quota' "$f" || { echo "$f missing quota RPC"; exit 1; }
       grep -q 'p_limit:60,p_window_seconds:3600' "$f" || { echo "$f missing bounded request rate"; exit 1; }
       grep -q 'public_city_price_board_v1_341' "$f" || { echo "$f missing read-only aggregated authority"; exit 1; }
