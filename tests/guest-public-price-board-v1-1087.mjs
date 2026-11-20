@@ -98,7 +98,7 @@ const edgeCtx={
      return {data:remoteBoard,error:null};
    return {data:null,error:new Error('Unexpected RPC')};
  }}),
- crypto:webcrypto,TextEncoder,Response,Request,Date,JSON,Number,String,Array,
+ crypto:webcrypto,TextEncoder,TextDecoder,Response,Request,Date,JSON,Number,String,Array,
  console:{error:()=>{}}
 };
 const runnable=edge.replace(/^import .+;\r?\n/gm,'')
@@ -107,6 +107,8 @@ const runnable=edge.replace(/^import .+;\r?\n/gm,'')
  .replace('function reply(payload:unknown,status:number,origin:string|null)',
    'function reply(payload,status,origin)')
  .replace('async function digest(value:string)','async function digest(value)')
+ .replace('async function boundedJson(req:Request,maxBytes=512)',
+   'async function boundedJson(req,maxBytes=512)')
  .replace(/\(p:any\)=>/g,'p=>');
 vm.runInNewContext(runnable,edgeCtx);
 assert.equal(typeof edgeHandler,'function');
