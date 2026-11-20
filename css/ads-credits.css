@@ -80,11 +80,15 @@
 .tamao-credit-steps p{font-size:1rem;color:#425b4e;line-height:1.55;margin:7px 0 0}
 .tamao-credit-campaigns{margin-top:25px}
 .tamao-credit-campaigns>.section-head{margin:0 0 18px}
-.tamao-credit-campaign-form{padding:20px;margin-bottom:24px;color:#243e32}
+.tamao-credit-campaign-form{padding:20px;margin-bottom:24px;color:#243e32;scroll-margin-top:96px}
 .tamao-credit-campaigns>.section-head h3{color:#fff}
 .tamao-credit-campaigns>.section-head p{color:#d3ebe0}
 .tamao-credit-campaign-form .input-wrap,.tamao-credit-campaign-form .check-row{color:#243e32}
-.tamao-credit-campaign-form .input{font-size:1rem;min-width:0}
+.tamao-credit-campaign-form .input{font:inherit;font-size:1rem;min-width:0}
+.tamao-credit-campaign-form textarea.input{min-height:112px;line-height:1.5;resize:vertical}
+.tamao-credit-campaign-form .check-row{display:flex;align-items:flex-start;text-align:left;gap:10px;padding:14px}
+.tamao-credit-campaign-form .check-row>input{flex:0 0 auto;width:18px;height:18px;margin:3px 0 0}
+.tamao-credit-campaign-form .check-row>span{flex:1;min-width:0;text-align:left;line-height:1.5}
 .tamao-credit-campaign-form .field-row>*{min-width:0}
 .tamao-credit-campaign-form .primary{min-height:48px}
 .tamao-credit-campaigns-list>h3,.tamao-credit-campaigns-list>p{color:#f7fffa}
@@ -100,3 +104,8 @@
 .tamao-credit-legacy-history>summary{cursor:pointer;font-weight:750;color:#22513c}
 .tamao-credit-legacy-history #sponsor-account-step>.card.flat.form-stack:first-of-type{display:none}
 @media(max-width:750px){.tamao-credit-steps,.tamao-credit-campaigns-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:560px){
+ .sponsor-premium-workspace:has(.tamao-credit-workspace){padding:0;border:0;background:none;box-shadow:none}
+ .tamao-credit-workspace{padding:20px 12px}
+ .sponsor-premium-workspace .tamao-credit-campaign-form.card.flat.form-stack{padding:16px 12px;border-radius:14px}
+}

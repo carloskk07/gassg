@@ -140,6 +140,8 @@ try{
     consent:document.getElementById('tamao-credit-c-terms').checked,
     destination:document.getElementById('tamao-credit-c-destination').value,
     formTag:form.tagName,checkColor:getComputedStyle(form.querySelector('.check-row')).color,
+    checkHeight:form.querySelector('.check-row').getBoundingClientRect().height,
+    minInputWidth:Math.min(...[...form.querySelectorAll('.input')].map(el=>el.getBoundingClientRect().width)),
     inputFont:parseFloat(getComputedStyle(form.querySelector('.input')).fontSize),
     width:document.documentElement.scrollWidth,
     fieldsFit:[...form.querySelectorAll('input,textarea,select,button')]
@@ -154,6 +156,10 @@ try{
   assert.equal(credits.checkColor,'rgb(36, 62, 50)','Consent must be legible on the white form');
   assert.ok(credits.inputFont>=16,'Form inputs must remain readable and avoid mobile zoom');
   assert.ok(credits.fieldsFit&&credits.width<=width+3,'Credit form overflow at '+width);
+  if(width<=390){
+   assert.ok(credits.minInputWidth>=width*.66,'Nested margins must not squeeze the mobile form');
+   assert.ok(credits.checkHeight<240,'Consent must remain compact and left-aligned on mobile');
+  }
   const creditShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(out,'ads-credit-form-v1-1100-'+width+'.png'),Buffer.from(creditShot.data,'base64'));
   results.push({width,...first,...actions,demo,studio,placements,brief,credits});
