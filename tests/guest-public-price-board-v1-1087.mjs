@@ -25,7 +25,7 @@ assert.match(guest,/CHAMA_BACKEND\.url\+'\/functions\/v1\/public-city-prices'/);
 // Public reader is isolated behind an Edge service key; no anon database grant.
 assert.match(edge,/consume_hashed_api_quota/);
 assert.match(edge,/public_city_price_board_v1_341/);
-assert.match(edge,/data\.products\.map\(p=>/);
+assert.match(edge,/data\.products\.map\(\(p:any\)=>/);
 assert.match(edge,/req\.headers\.get\("apikey"\)!==PUB/);
 assert.match(edge,/return reply\(\{error:"RATE_LIMITED"/);
 assert.ok(!fs.existsSync(new URL('../supabase/migrations/20261120020000_public_city_price_board_guest_v1_1087.sql',import.meta.url)));
