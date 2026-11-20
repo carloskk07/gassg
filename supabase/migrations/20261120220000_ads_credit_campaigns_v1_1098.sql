@@ -279,6 +279,11 @@ BEGIN
    AND NOT EXISTS(SELECT 1 FROM public.ads_credit_view_receipts_v1_1098 v
     WHERE v.campaign_id=ads_credit_campaigns_v1_1098.id AND v.viewer_hash=p_viewer_hash
     AND v.recorded_at>clock_timestamp()-interval '24 hours')
+   -- Defensive pilot cap: even a rotation of addresses cannot consume the
+   -- campaign balance without bound in a day. This is NOT a time-based fee.
+   AND (SELECT count(*) FROM public.ads_credit_view_receipts_v1_1098 v
+    WHERE v.campaign_id=ads_credit_campaigns_v1_1098.id
+      AND v.recorded_at>clock_timestamp()-interval '24 hours')<200
   ORDER BY (SELECT count(*) FROM public.ads_credit_view_receipts_v1_1098 v
      WHERE v.campaign_id=ads_credit_campaigns_v1_1098.id
        AND v.recorded_at>clock_timestamp()-interval '24 hours') ASC,
@@ -343,6 +348,10 @@ BEGIN
    AND recorded_at>clock_timestamp()-interval '24 hours')
  THEN RETURN jsonb_build_object('source','ads_credit_confirm_v1_1098',
   'recognized',true,'charged',false,'reason','duplicate_viewer');END IF;
+ IF (SELECT count(*) FROM public.ads_credit_view_receipts_v1_1098
+  WHERE campaign_id=c.id AND recorded_at>clock_timestamp()-interval '24 hours')>=200
+ THEN RETURN jsonb_build_object('source','ads_credit_confirm_v1_1098',
+  'recognized',true,'charged',false,'reason','daily_safety_limit');END IF;
  INSERT INTO public.ads_credit_view_receipts_v1_1098(
   token,campaign_id,owner_user_id,viewer_hash,visible_ms,visible_percent,charged_cents)
  VALUES(p_token,c.id,c.owner_user_id,p_viewer_hash,p_visible_ms,p_visible_percent,price)
@@ -353,6 +362,13 @@ BEGIN
  INSERT INTO public.ads_credit_ledger_v1_1097(
   owner_user_id,event_key,source_view_id,operation,delta_cents,balance_after_cents)
  VALUES(c.owner_user_id,'credit-view:'||receipt_id::text,receipt_id,'view',-price,next_balance);
+ -- Stop delivery as soon as the balance cannot cover one more view.
+ -- The owner may resume later after a verified top-up.
+ IF next_balance<price THEN
+  UPDATE public.ads_credit_campaigns_v1_1098 SET
+   status='paused',version=version+1,updated_at=clock_timestamp()
+   WHERE id=c.id;
+ END IF;
  RETURN jsonb_build_object('source','ads_credit_confirm_v1_1098',
   'recognized',true,'charged',true,'chargedCents',price,'balanceCents',next_balance);
 END;$fn$;
