@@ -40,7 +40,8 @@ const handlers=between(ads,'function adminIndependentAdsOpenPane(pane){','functi
 const view=ads.slice(ads.indexOf('function adminAdsIndependentSection(){'));
 vm.runInContext(handlers+view+'\nthis.openPane=adminIndependentAdsOpenPane;this.view=adminAdsIndependentSection;',context);
 let html=context.view();
-assert.match(html,/Comercial paga/);
+assert.match(html,/Contratos anteriores/);
+ assert.match(html,/Créditos por visualização/);
 assert.match(html,/Institucional grátis/);
 assert.match(html,/Configuração e vendas/);
 assert.match(html,/Reembolsos/);
