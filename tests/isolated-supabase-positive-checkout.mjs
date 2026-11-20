@@ -39,7 +39,8 @@ async function createActor(kind){
  const password='Ephemeral!'+randomUUID();
  const res=await fetch(base+'/auth/v1/admin/users',{
   method:'POST',headers:adminHeaders,
-  body:JSON.stringify({email,password,email_confirm:true}),
+  body:JSON.stringify({email,password,email_confirm:true,
+    user_metadata:{full_name:'Cliente Verificado CI',phone:'11999999999'}}),
   signal:AbortSignal.timeout(30000)
  });
  assert.ok([200,201].includes(res.status),'local Auth create user HTTP '+res.status);
@@ -229,6 +230,25 @@ sql("UPDATE public.merchants SET status='active',online=true,updated_at=clock_ti
 assert.equal(sql("SELECT status||':'||online::text FROM public.merchants WHERE id="+q(merchantId)+"::uuid"),'active:true',
  'restore disposable merchant before checkout smoke');
 console.log('PASS: pending owner saves a business profile exactly once; active owner edit requires review; buyer/invalid input refused; checkout fixture restored.');
+
+// V1.1086: real Edge must refuse visitor identities even with a valid quote.
+// This does not change or invoke a production account or payment.
+sql("UPDATE auth.users SET is_anonymous=true WHERE id="+q(buyer.id)+"::uuid;");
+const anonymousBuyer=await call('create-order',buyer.token,request,
+ {'Idempotency-Key':idempotency});
+assert.equal(anonymousBuyer.status,403,'Auth guest must not order');
+assert.equal(anonymousBuyer.body.error,'CUSTOMER_VERIFIED_ACCOUNT_REQUIRED');
+sql("UPDATE auth.users SET is_anonymous=false WHERE id="+q(buyer.id)+"::uuid;");
+const originalMeta=sql("SELECT raw_user_meta_data::text FROM auth.users WHERE id="+q(buyer.id)+"::uuid;");
+sql("UPDATE auth.users SET raw_user_meta_data='{}'::jsonb WHERE id="+q(buyer.id)+"::uuid;");
+const emptyContact=await call('create-order',buyer.token,request,
+ {'Idempotency-Key':idempotency});
+assert.equal(emptyContact.status,403,'Incomplete permanent profile cannot order');
+assert.equal(emptyContact.body.error,'CUSTOMER_PROFILE_REQUIRED');
+sql("UPDATE auth.users SET raw_user_meta_data="+q(originalMeta)+"::jsonb WHERE id="+q(buyer.id)+"::uuid;");
+assert.equal(sql('SELECT count(*) FROM public.orders'),'0',
+ 'Rejected anonymous and unregistered orders must not create database orders');
+console.log('PASS V1.1086 — real Edge rejects Auth guest and missing buyer name/phone before any order write.');
 
 const first=await call('create-order',buyer.token,request,{'Idempotency-Key':idempotency});
 assert.equal(first.status,201,'checkout error: '+JSON.stringify(first.body).slice(0,500));

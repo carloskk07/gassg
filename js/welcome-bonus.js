@@ -1,3 +1,39 @@
+function tamaoAccountProfileReady(){
+  const user=liveRuntime?.session?.user;
+  const name=String(user?.user_metadata?.full_name||'').trim().replace(/\s+/g,' ');
+  const phone=String(user?.user_metadata?.phone||'').replace(/\D/g,'');
+  return liveReady()&&user?.is_anonymous!==true&&Boolean(user?.email)&&
+    Boolean(user.email_confirmed_at)&&name.length>=5&&name.length<=100&&
+    name.split(' ').length>=2&&/^[0-9]{10,11}$/.test(phone);
+}
+async function liveUpgradeAccount(email,profile={}){
+  if(typeof globalThis.tamaoLoadCustomerRegistration!=='function')
+    throw Error('Cadastro ainda não está disponível. Atualize a página.');
+  await globalThis.tamaoLoadCustomerRegistration();
+  return globalThis.tamaoRegisterIdentifiedAccount(email,profile);
+}
+
+Object.assign(globalThis,{tamaoAccountProfileReady,liveUpgradeAccount});
+let tamaoRegistrationLoader=null;
+async function tamaoLoadCustomerRegistration(){
+  if(!tamaoRegistrationLoader){
+    tamaoRegistrationLoader=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      const source=document.querySelector('script[src*="welcome-bonus.js"]')?.src||location.href;
+      const v=new URL(source).searchParams.get('v')||'';
+      script.src='./js/customer-registration-deferred.js'+(v?'?v='+encodeURIComponent(v):'');
+      script.async=true;
+      script.onload=()=>typeof globalThis.tamaoRegisterIdentifiedAccount==='function'
+        ?resolve(true):reject(Error('Cadastro não inicializou.'));
+      script.onerror=()=>reject(Error('Cadastro indisponível. Tente novamente.'));
+      document.head.appendChild(script);
+    }).catch(error=>{tamaoRegistrationLoader=null;throw error;});
+  }
+  await tamaoRegistrationLoader;
+  return true;
+}
+
+globalThis.tamaoLoadCustomerRegistration=tamaoLoadCustomerRegistration;
 /* Welcome bonus #815: server is sole authority for the promotion and wallet.
    Absence of an authoritative response is not an available promotion. */
 const tamaoWelcomeBonus={status:null,lastUser:null,lastClaimTryAt:0,inflight:false};
@@ -152,13 +188,13 @@ async function tamaoClubSendAccess(email){
   const value=String(email||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw Error('INVALID_EMAIL');
   const runtime=globalThis.liveRuntime;
-  if(globalThis.liveReady?.()!==true||!runtime?.client?.auth||
+  if(!runtime?.client?.auth||
      typeof customerOriginSafe!=='function'||customerOriginSafe()!==true)
     throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
   const client=runtime.client,userId=runtime.session?.user?.id;
   if(!globalThis.chamaTurnstile?.challenge)throw Error('AUTH_PROTECTION_UNAVAILABLE');
   const captchaToken=await globalThis.chamaTurnstile.challenge('customer_login');
-  if(!captchaToken||globalThis.liveReady?.()!==true||customerOriginSafe()!==true||
+  if(!captchaToken||customerOriginSafe()!==true||
      runtime!==globalThis.liveRuntime||client!==runtime.client||
      userId!==runtime.session?.user?.id)throw Error('ACCOUNT_CONTEXT_CHANGED');
   const redirect=new URL('/',location.origin);
@@ -170,39 +206,31 @@ async function tamaoClubSendAccess(email){
   if(error)throw error;
   return {accessRequested:true};
 }
-async function tamaoWelcomeRegister(event){
+function tamaoWelcomeRegister(event){
   event.preventDefault();
   const form=event.currentTarget;
-  const clubEntry=form?.dataset?.tamaoAccountContext==='club';
-  const field=form?.querySelector('input[type=email]');
-  const status=form?.querySelector('[data-welcome-signup-status]');
-  const button=form?.querySelector('button[type=submit]');
-  const buttons=clubEntry?Array.from(form.querySelectorAll('button[type=submit]')):[button].filter(Boolean);
-  const email=String(field?.value||'').trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    if(status)status.textContent='Informe um e-mail válido.';
-    return false;
-  }
-  if(buttons.some(item=>item.disabled))return false;
-  buttons.forEach(item=>item.disabled=true);
-  if(status)status.textContent='Preparando confirmação…';
-  try{
-    const login=clubEntry&&event.submitter?.value!=='register';
-    if(!login&&typeof liveUpgradeAccount!=='function')throw Error('ACCOUNT_SERVICE_UNAVAILABLE');
-    const result=login?await tamaoClubSendAccess(email):await liveUpgradeAccount(email);
-    if(status)status.textContent=result?.alreadyPermanent
-      ?'Sua conta já está cadastrada. Consulte seu saldo e benefícios no Clube.'
-      :result?.accessRequested?'Solicitamos seu link de acesso. Confira o e-mail e abra a mensagem neste navegador.':
-       clubEntry?'Enviamos a confirmação para seu e-mail. Abra a mensagem para confirmar sua conta.':
-       'Enviamos a confirmação para seu e-mail. Conclua a confirmação para participar, sujeito às vagas e às regras da campanha.';
-    if(field&&result?.alreadyPermanent!==true)field.value='';
-  }catch{
-    if(status)status.textContent=clubEntry
-      ?'Não foi possível enviar o acesso. Confira o e-mail e a conexão. Se for seu primeiro acesso, escolha “Criar minha conta”.'
-      :'Não foi possível enviar a confirmação. Confira a conexão e tente novamente.';
-  }finally{
-    buttons.forEach(item=>item.disabled=false);
-  }
+  if(!form||form.dataset.tamaoAuthLoading==='1')return false;
+  form.dataset.tamaoAuthLoading='1';
+  // Native Event.currentTarget is cleared when dispatch returns. Preserve
+  // the form and submitter before lazy-loading the registration script.
+  const submitted={currentTarget:form,submitter:event.submitter,preventDefault:()=>{}};
+  tamaoLoadCustomerRegistration().then(()=>globalThis.tamaoRegisterForm(submitted))
+    .catch(()=>{
+      const status=form.querySelector('[data-welcome-signup-status]');
+      if(status)status.textContent='Não foi possível carregar o cadastro. Tente novamente.';
+    }).finally(()=>{delete form.dataset.tamaoAuthLoading;});
   return false;
 }
+
 Object.assign(globalThis,{tamaoWelcomeShowSignup,tamaoWelcomeRegister});
+
+function tamaoAccountGateMarkup(){
+  return globalThis.__CHAMA_TEST__===true||globalThis.tamaoAccountProfileReady?.()
+    ?'':(document.getElementById('tamao-checkout-identity-template')?.innerHTML||'');
+}
+globalThis.tamaoAccountGateMarkup=tamaoAccountGateMarkup;
+
+// The campaign module loads after window.load. A deep link to checkout may
+// have painted before this module existed; reconcile that one route exactly
+// once so the mandatory identification form is never missing.
+if(typeof route==='function'&&route()==='order'&&typeof render==='function')render();

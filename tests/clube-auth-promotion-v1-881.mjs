@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const backend=read('js/backend.js'),growth=read('js/growth.js'),module=read('js/clube-coupon-shop.js');
-assert.ok(backend.includes("if(session.user.email_confirmed_at){"),
+assert.ok(read('js/customer-registration-deferred.js').includes("if(session.user.email_confirmed_at){"),
  'Upgrade cannot mark an email-pending account permanent');
 assert.ok(backend.includes('if(liveRuntime.status===\'ready\'&&liveRuntime.session?.user?.id&&'),
  'Original account-switch isolation is preserved');

@@ -47,7 +47,7 @@ function announcePublicPageNavigation(){
 function tamaoPublicEntryIntent(){
   try{
     const value=String(new URLSearchParams(location.search).get('entrada')||'').trim().toLowerCase();
-    return ['revenda','cadastro-revenda','marca','indicar','agua','gas','clube'].includes(value)?value:'';
+    return ['revenda','cadastro-revenda','marca','indicar','agua','gas','clube','pedido'].includes(value)?value:'';
   }catch{return ''}
 }
 // V1.1072: a merchant's page can preselect one real catalogue product.
@@ -87,7 +87,7 @@ function tamaoPublicEntryRoute(){
     openMerchantPortal(true);
     return true;
   }
-  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn',clube:'club'}[intent];
+  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn',clube:'club',pedido:'order'}[intent];
   if(!destination)return false;
   go(destination);
   return true;

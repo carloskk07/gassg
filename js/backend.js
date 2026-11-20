@@ -408,7 +408,7 @@ async function backendInit(){
     liveRuntime.error='A compra online exige o endereço oficial e seguro do TAMÃO.';
     return false;
   }
-  if(liveRuntime.status==='ready')return true;
+  if(liveRuntime.status==='ready'||liveRuntime.status==='guest')return true;
   liveRuntime.status='loading';
   liveRuntime.error=null;
   try{
@@ -428,20 +428,20 @@ async function backendInit(){
     let {data:{session},error}=await client.auth.getSession();
     if(error)throw error;
 
-    if(!session){
-      if(!globalThis.chamaTurnstile?.challenge){
-        throw new Error('Proteção anti-bot indisponível');
-      }
-      const captchaToken=await globalThis.chamaTurnstile.challenge('anonymous_signin');
-      if(!captchaToken)throw new Error('Token anti-bot ausente');
-      const response=await client.auth.signInAnonymously({
-        options:{captchaToken}
+    // Browsing never creates an Auth account. Previous anonymous accounts
+    // can still be upgraded without losing their first-touch referral code.
+    if(!session?.access_token||session.user?.is_anonymous===true){
+      liveRuntime.session=session||null;
+      liveRuntime.status='guest';
+      client.auth.onAuthStateChange((event,next)=>{
+        if(['SIGNED_IN','USER_UPDATED'].includes(event)&&
+          next?.user?.is_anonymous===false&&next.user.email_confirmed_at){
+          location.reload();
+        }
       });
-      if(response.error)throw response.error;
-      session=response.data.session;
+      render();
+      return true;
     }
-    if(!session?.access_token)throw new Error('Sessão anônima não foi criada');
-
     liveRuntime.session=session;
     liveRuntime.status='ready';
     client.auth.onAuthStateChange((_event,next)=>{
@@ -865,6 +865,11 @@ function liveIdempotency(prefix){
 
 async function liveCreateOrder(quoteId){
   if(liveRuntime.actionPending)return;
+  if(!globalThis.tamaoAccountProfileReady?.()){
+    toast('Antes de comprar, confirme seu nome, telefone e e-mail.');
+    document.getElementById('tamao-checkout-identity')?.scrollIntoView?.({behavior:'smooth',block:'start'});
+    return;
+  }
   // A previous tracked order is not proof that this checkout succeeded.
   const trackedOrderBeforeCheckout=String(liveRuntime.orderId||'');
   let confirmedOrderId=null;
@@ -1199,23 +1204,6 @@ async function liveSyncFinancialProfile({force=false}={}){
   }
 }
 
-async function liveUpgradeAccount(email){
-  if(!liveReady())throw new Error('Modo live não está pronto');
-  const value=String(email||'').trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
-  const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
-  if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
-  if(session.user.email_confirmed_at){
-    state.user.cashEarningEligible=true;
-    state.user.identityType='permanent';
-    save();
-    return {alreadyPermanent:true};
-  }
-  const {data,error}=await liveRuntime.client.auth.updateUser({email:value});
-  if(error)throw error;
-  liveRuntime.identityUpgradePending=value;
-  return {pending:true,email:value,user:data?.user??null};
-}
 
 async function liveSyncMarketStatus({force=false}={}){
   if(!liveReady())return null;
@@ -3051,7 +3039,7 @@ globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveStartMerchantPayment=liveStartMerchantPayment;
 globalThis.liveCustomerAction=liveCustomerAction;
-globalThis.liveUpgradeAccount=liveUpgradeAccount;
+// Account registration is intentionally supplied by the deferred welcome module.
 globalThis.livePoll=livePoll;
 globalThis.liveSyncMarketStatus=liveSyncMarketStatus;
 globalThis.liveRefreshCityPriceBoard=liveRefreshCityPriceBoard;

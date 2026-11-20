@@ -196,6 +196,10 @@ function club(){
         <h1>Suas compras podem render muito mais no Clube TAMÃO.</h1>
         <p>Cupons, cashback e suas vantagens em um só lugar. Entre no Clube e conheça o que pode aproveitar.</p>
         <form class="form-stack tamao-club-access" data-tamao-account-context="club" onsubmit="return tamaoWelcomeRegister(event)">
+          <label for="clube-visitor-coupon-name">Nome e sobrenome (para criar conta)</label>
+          <input id="clube-visitor-coupon-name" name="full_name" class="input" type="text" autocomplete="name" placeholder="Nome e sobrenome" maxlength="100">
+          <label for="clube-visitor-coupon-phone">Telefone com DDD (para criar conta)</label>
+          <input id="clube-visitor-coupon-phone" name="phone" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999" maxlength="18">
           <label for="clube-visitor-coupon-email">Seu e-mail</label>
           <input id="clube-visitor-coupon-email" name="email" class="input" type="email" autocomplete="email" placeholder="voce@email.com" maxlength="160" required>
           <button type="submit" class="primary" name="intent" value="login">Entrar no meu Clube →</button>

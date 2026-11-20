@@ -223,6 +223,13 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
       }
       const merchantPage=await openRole('merchant',owner.session,'/?merchant=1#merchant');
       await merchantPage.wait("typeof merchantRuntime!=='undefined'&&merchantRuntime.status==='ready'&&merchantRuntime.orders.some(o=>o.orderId==="+JSON.stringify(orderId)+")",'merchant sees canonical order');
+      // The authenticated Edge snapshot can become ready before the first
+      // merchant DOM paint. Verify the actual delivery counter has rendered,
+      // rather than comparing a transient null with an authoritative order.
+      await merchantPage.wait(
+        "!!document.querySelector('.merchant-unified-delivery .merchant-unified-number')&&"+
+        "!!document.querySelector('.merchant-unified-delivery button')",
+        'merchant delivery summary visible after canonical order',25000);
       const preparation=JSON.parse(await merchantPage.evaluate("JSON.stringify({expected:merchantRuntime.orders.filter(o=>['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)).length,shown:Number(document.querySelector('.merchant-unified-delivery .merchant-unified-number')?.textContent),action:document.querySelector('.merchant-unified-delivery button')?.textContent})"));
       assert.ok(preparation.expected>0,'real SQL fixture contains preparation/delivery work');
       assert.equal(preparation.shown,preparation.expected,'preparation cannot appear as zero deliveries');

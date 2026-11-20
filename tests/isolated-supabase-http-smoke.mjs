@@ -68,7 +68,8 @@ let uid=null;
 try{
   const create=await fetch(base+'/auth/v1/admin/users',{
     method:'POST',headers:adminHeaders,
-    body:JSON.stringify({email,password,email_confirm:true}),
+    body:JSON.stringify({email,password,email_confirm:true,
+      user_metadata:{full_name:'Cliente Segurança CI',phone:'51999999999'}}),
     signal:AbortSignal.timeout(30000)
   });
   assert.ok(create.status===200||create.status===201,

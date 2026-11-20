@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const backend=read('js/backend.js'),signup=read('js/welcome-bonus.js');
+const home=read('index.html'),growth=read('js/growth.js'),buyer=read('js/customer.js');
+const edge=read('supabase/functions/create-order/index.ts');
+assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/,'Site must not mint anonymous users on entry');
+assert.match(backend,/liveRuntime.status='guest'/);
+assert.doesNotMatch(backend,/globalThis\.liveUpgradeAccount=liveUpgradeAccount/,
+  'entry script must not use a declaration moved to the deferred module');
+assert.match(signup,/function tamaoAccountProfileReady\(/);
+assert.match(read('js/customer-registration-deferred.js'),/signInWithOtp\(\{/);
+assert.match(read('js/customer-registration-deferred.js'),/returnToCheckout\?'pedido':'clube'/);
+assert.match(read('js/bootstrap.js'),/pedido:'order'/);
+assert.match(read('js/customer-registration-deferred.js'),/liveUpgradeAccount\(email,\{fullName,phone,returnToCheckout:checkoutEntry\}\)/);
+assert.match(signup,/function tamaoAccountGateMarkup\(/);
+assert.match(signup,/route\(\)==='order'&&typeof render==='function'\)render\(\)/);
+assert.match(read('js/customer-registration-deferred.js'),/tamaoRegisterIdentifiedAccount/);
+assert.match(home,/id="tamao-welcome-name"/);
+assert.match(home,/id="tamao-welcome-phone"/);
+assert.match(growth,/id="clube-visitor-coupon-name"/);
+assert.match(growth,/id="clube-visitor-coupon-phone"/);
+assert.match(buyer,/tamaoAccountGateMarkup\(\)/);
+for(const name of ['tamao-order-name','tamao-order-phone','tamao-order-email'])
+ assert.ok(home.includes(name));
+assert.match(edge,/CUSTOMER_VERIFIED_ACCOUNT_REQUIRED/);
+assert.match(edge,/CUSTOMER_PROFILE_REQUIRED/);
+assert.match(edge,/user\.email_confirmed_at/);
+assert.match(edge,/user\.user_metadata\?\.full_name/);
+assert.match(edge,/user\.user_metadata\?\.phone/);
+assert.ok(edge.indexOf('CUSTOMER_VERIFIED_ACCOUNT_REQUIRED')<edge.indexOf('validateIdempotencyKey(req.headers'));
+assert.match(edge,/create_order_from_quote_v8/);
+assert.match(read('tests/isolated-supabase-positive-checkout.mjs'),/Cliente Verificado CI/);
+assert.match(read('tests/isolated-supabase-positive-checkout.mjs'),/CUSTOMER_VERIFIED_ACCOUNT_REQUIRED/);
+assert.match(read('tests/isolated-supabase-positive-checkout.mjs'),/CUSTOMER_PROFILE_REQUIRED/);
+console.log('PASS V1.1086: no automatic anonymous Auth, name/phone/email registration and server buyer gate.');

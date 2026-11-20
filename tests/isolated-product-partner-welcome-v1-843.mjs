@@ -40,7 +40,8 @@ async function actor(label){
  const password='Isolated!'+randomUUID();
  const headers={apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'};
  const created=await fetch(base+'/auth/v1/admin/users',{
-  method:'POST',headers,body:JSON.stringify({email,password,email_confirm:true}),
+  method:'POST',headers,body:JSON.stringify({email,password,email_confirm:true,
+    user_metadata:{full_name:'Comprador Verificado CI',phone:'11999999999'}}),
   signal:AbortSignal.timeout(20000)
  });
  assert.ok([200,201].includes(created.status),label+' local Auth');
