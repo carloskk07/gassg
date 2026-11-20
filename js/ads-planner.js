@@ -80,14 +80,19 @@ function tamaoAdsBudgetRequest(){
   openSponsorContact('visibility',detail);
 }
 function tamaoAdsPlannerSection(){
-  const preset=tamaoAdsBudgetPreview(4990);
+  // The visitor can carry a deliberately selected preview plan into this real
+  // form. The official whitelist remains authoritative; this never charges.
+  const requestedBudget=Number(globalThis.tamaoSponsorDemoBudget?.()||4990);
+  const initialBudget=TAMAO_ADS_PREVIEW_BUDGETS.includes(requestedBudget)?requestedBudget:4990;
+  const initialDays=tamaoAdsFixedDays(initialBudget);
+  const preset=tamaoAdsBudgetPreview(initialBudget);
   const fixedSales=tamaoAdsMyState?.fixedFeeSalesEnabled===true;
   const options=TAMAO_ADS_PREVIEW_BUDGETS.map(v=>
-    '<option value="'+v+'"'+(v===4990?' selected':'')+'>'+tamaoAdsFormatMoney(v)+
+    '<option value="'+v+'"'+(v===initialBudget?' selected':'')+'>'+tamaoAdsFormatMoney(v)+
       ' · '+tamaoAdsFixedDays(v)+' dias</option>').join('');
   const quickChoices=TAMAO_ADS_PREVIEW_BUDGETS.map(v=>
-    '<button type="button" class="sponsor-budget-choice'+(v===4990?' is-selected':'')+
-      '" data-sponsor-budget="'+v+'" aria-pressed="'+(v===4990?'true':'false')+
+    '<button type="button" class="sponsor-budget-choice'+(v===initialBudget?' is-selected':'')+
+      '" data-sponsor-budget="'+v+'" aria-pressed="'+(v===initialBudget?'true':'false')+
       '" onclick="tamaoAdsChooseBudget('+v+')">'+
       '<strong>'+tamaoAdsFormatMoney(v)+'</strong><small>'+tamaoAdsFixedDays(v)+
       ' dias</small></button>').join('');
@@ -103,13 +108,13 @@ function tamaoAdsPlannerSection(){
     '<div class="input-wrap"><label for="sponsor-cpm-budget">'+
        (fixedSales?'Preço fixo do pacote':'Orçamento escolhido')+'</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
     '<div class="input-wrap"><label for="sponsor-cpm-days">Período correspondente</label><select id="sponsor-cpm-days" class="input" disabled aria-label="Prazo definido pelo pacote">'+
-      '<option value="7">7 dias</option><option value="15" selected>15 dias</option><option value="30">30 dias</option></select></div></div>'+
+      '<option value="7"'+(initialDays===7?' selected':'')+'>7 dias</option><option value="15"'+(initialDays===15?' selected':'')+'>15 dias</option><option value="30"'+(initialDays===30?' selected':'')+'>30 dias</option></select></div></div>'+
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-city">Cidade onde quer divulgar</label><input id="sponsor-cpm-city" class="input" maxlength="80" autocomplete="address-level2" placeholder="Ex.: São Gabriel"></div>'+
     '<div class="input-wrap"><label for="sponsor-cpm-state">Estado (UF)</label><select id="sponsor-cpm-state" class="input" autocomplete="address-level1" aria-describedby="sponsor-cpm-note">'+
      TAMAO_ADS_UFS.map(uf=>'<option value="'+uf+'"'+(uf==='RS'?' selected':'')+'>'+uf+'</option>').join('')+
     '</select></div></div>'+
-    '<p id="sponsor-cpm-result" role="status" aria-live="polite">Orçamento em análise: R$ 49,90 por 15 dias. O envio da proposta não gera cobrança nem garante exibição.</p>'+
+    '<p id="sponsor-cpm-result" role="status" aria-live="polite">Orçamento em análise: '+tamaoAdsFormatMoney(initialBudget)+' por '+initialDays+' dias. O envio da proposta não gera cobrança nem garante exibição.</p>'+
     '<div class="sponsor-budget-actions"><button type="button" class="primary" onclick="tamaoAdsContinueToCreative()">Continuar e preparar meu anúncio →</button>'+ 
     '<button type="button" class="secondary" onclick="tamaoAdsBudgetRequest()">Solicitar proposta personalizada</button>'+ 
     '<button type="button" class="secondary" onclick="tamaoAdsShowCityPublic()">Ver publicidade ativa nesta cidade</button></div>'+

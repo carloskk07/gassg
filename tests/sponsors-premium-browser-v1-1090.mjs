@@ -73,7 +73,7 @@ try{
    'Sponsor headline and preview misaligned at '+width+': '+JSON.stringify(geometry));
   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(out,'sponsors-premium-v1-1090-'+width+'.png'),Buffer.from(shot.data,'base64'));
-  const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');const beforeFaq=faq.open;faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {beforeFaq,budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
+  const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();document.querySelectorAll('[data-sponsor-demo-budget]')[0].click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');const beforeFaq=faq.open;faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {beforeFaq,budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
   assert.equal(actions.budget,'1990');
   assert.equal(actions.days,'7');
   assert.match(actions.quote,/R\$ 19,90 por 7 dias/);
@@ -104,7 +104,14 @@ try{
   assert.equal(placements.active,'true');
   assert.match(placements.context,/Marcas da nossa região/);
   assert.ok(placements.width<=width+3,'Contextual preview overflow at '+width);
-  results.push({width,...first,...actions,demo,studio,placements});
+  const brief=await evaluate("(()=>{const plan=document.querySelectorAll('[data-sponsor-demo-budget]')[2];plan.click();const chosen=plan.getAttribute('aria-pressed');const other=document.querySelectorAll('[data-sponsor-demo-budget]')[1].getAttribute('aria-pressed');const summary=document.querySelector('[data-sponsor-demo=planLabel]').textContent;document.querySelector('.sponsor-demo-continue').click();return {chosen,other,summary,budget:document.getElementById('sponsor-cpm-budget').value,days:document.getElementById('sponsor-cpm-days').value,width:document.documentElement.scrollWidth}})()");
+  assert.equal(brief.chosen,'true');
+  assert.equal(brief.other,'false');
+  assert.equal(brief.summary,'R$ 99,90 · 30 dias');
+  assert.equal(brief.budget,'9990');
+  assert.equal(brief.days,'30');
+  assert.ok(brief.width<=width+3,'Brief overflows at '+width);
+  results.push({width,...first,...actions,demo,studio,placements,brief});
 
  }
 }finally{

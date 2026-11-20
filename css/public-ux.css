@@ -729,3 +729,108 @@
 @media(prefers-reduced-motion:reduce){
  .sponsor-preview-switch button,.sponsor-preview-context{transition:none}
 }
+
+
+/* V1.1096 — campaign brief: a single premium creation-to-budget flow. */
+.sponsor-premium-v1090 .sponsor-demo-panel{
+ display:grid;
+ grid-template-columns:minmax(0,.9fr) minmax(0,1.08fr) minmax(0,1.16fr);
+ grid-template-areas:
+   "intro name sector"
+   "goal message message"
+   "budget budget action"
+   "feedback feedback feedback";
+ gap:18px 20px;
+ padding:24px 25px;
+ border-radius:23px;
+ background:linear-gradient(120deg,#fff 0%,#f7fbf7 55%,#fffbf0 100%);
+}
+.sponsor-premium-v1090 .sponsor-demo-panel-head{grid-area:intro}
+.sponsor-premium-v1090 .sponsor-demo-name-field{grid-area:name}
+.sponsor-premium-v1090 .sponsor-demo-sector-field{grid-area:sector}
+.sponsor-premium-v1090 .sponsor-demo-goals-field{grid-area:goal}
+.sponsor-premium-v1090 .sponsor-demo-message-field{grid-area:message}
+.sponsor-premium-v1090 .sponsor-demo-budget-field{
+ grid-area:budget;display:grid;gap:10px;min-width:0;
+ padding:16px 18px;border:1px solid #dbe9de;border-radius:16px;background:#fff;
+}
+.sponsor-premium-v1090 .sponsor-demo-action{
+ grid-area:action;display:grid;align-content:end;gap:10px;min-width:0;
+ padding:14px 15px;border:1px solid #decda8;border-radius:16px;
+ background:linear-gradient(145deg,#fff9e8,#f7f1df);
+}
+.sponsor-premium-v1090 .sponsor-demo-feedback{
+ grid-area:feedback;grid-column:auto;min-width:0;
+ margin:0;padding-top:12px;border-top:1px solid #e6e9dd;
+}
+.sponsor-premium-v1090 .sponsor-demo-plans{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
+}
+.sponsor-premium-v1090 .sponsor-demo-plans button{
+ display:grid;align-content:center;justify-items:start;min-width:0;gap:4px;
+ min-height:61px;padding:9px 12px;border:1px solid #cddfd1;
+ border-radius:12px;background:#f8fcf9;color:#26573c;
+ text-align:left;cursor:pointer;transition:background .14s,border-color .14s,box-shadow .14s;
+}
+.sponsor-premium-v1090 .sponsor-demo-plans button strong{
+ font-size:clamp(12px,1.2vw,15px);white-space:nowrap;font-weight:900;line-height:1.1;
+}
+.sponsor-premium-v1090 .sponsor-demo-plans button small{
+ font-size:11px;color:inherit;opacity:.75;
+}
+.sponsor-premium-v1090 .sponsor-demo-plans button[aria-pressed="true"]{
+ background:#0e6244;color:#fff;border-color:#0e6244;
+ box-shadow:inset 0 0 0 1px #d8f4df55,0 6px 16px #08472e25;
+}
+.sponsor-premium-v1090 .sponsor-demo-plans button:hover{
+ border-color:#2b8b5b;
+}
+.sponsor-premium-v1090 .sponsor-demo-plan-note{
+ font-size:11px;line-height:1.5;color:#667b6e;
+}
+.sponsor-premium-v1090 .sponsor-demo-plan-summary{
+ font-size:12px;line-height:1.5;color:#56704d;
+}
+.sponsor-premium-v1090 .sponsor-demo-plan-summary strong{
+ display:block;font-size:17px;line-height:1.25;
+ font-weight:900;letter-spacing:-.035em;color:#13482e;
+}
+.sponsor-premium-v1090 .sponsor-demo-action>small{
+ color:#687761;line-height:1.5;
+}
+.sponsor-premium-v1090 .sponsor-demo-panel :is(.sponsor-demo-plans button,.sponsor-demo-continue):focus-visible{
+ outline:3px solid #bd8425;outline-offset:3px;
+}
+@media(min-width:720px) and (max-width:1099px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-areas:
+   "intro name"
+   "sector sector"
+   "goal message"
+   "budget budget"
+   "action action"
+   "feedback feedback";
+ }
+ .sponsor-premium-v1090 .sponsor-demo-action{padding:16px}
+}
+@media(max-width:719px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"intro" "name" "sector" "goal" "message" "budget" "action" "feedback";
+  padding:18px 16px;gap:15px;
+ }
+ .sponsor-premium-v1090 .sponsor-demo-budget-field{padding:14px}
+ .sponsor-premium-v1090 .sponsor-demo-plans{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .sponsor-premium-v1090 .sponsor-demo-plans button{min-height:55px}
+ .sponsor-premium-v1090 .sponsor-demo-action{padding:14px}
+}
+@media(max-width:360px){
+ .sponsor-premium-v1090 .sponsor-demo-panel{padding:15px 12px}
+ .sponsor-premium-v1090 .sponsor-demo-plans{gap:7px}
+ .sponsor-premium-v1090 .sponsor-demo-plans button{padding:10px 9px}
+ .sponsor-premium-v1090 .sponsor-demo-plans button strong{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+ .sponsor-premium-v1090 .sponsor-demo-plans button{transition:none}
+}
