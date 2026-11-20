@@ -49,6 +49,8 @@ jobs:
         run: node tests/supabase-anonymous-owner-policy-v1-1085.mjs
       - name: V1.1086 buyer registration, verified contact and delivery security
         run: node tests/customer-identity-required-v1-1086.mjs
+      - name: V1.1087 public regional price board for guests without anonymous Auth
+        run: node tests/guest-public-price-board-v1-1087.mjs
       - name: V1.1075 premium product photos and approved professional cover
         run: node tests/participant-native-premium-media-v1-1075.mjs
       - name: V1.1073 Cloudflare native participant deep links and asset safety
