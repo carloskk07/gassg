@@ -55,7 +55,7 @@ const status={textContent:''};
 const button={disabled:false};
 const form={
  dataset:{tamaoAccountContext:'checkout-login'},
- closest:sel=>sel==='#tamao-checkout-identity'?{}:null,
+ closest:sel=>sel==='#tamao-checkout-identity'&&form.dataset.tamaoAccountContext!=='club'?{}:null,
  querySelector:sel=>{
   if(sel==='input[type=email]')return field;
   if(sel==='[data-welcome-signup-status]')return status;
