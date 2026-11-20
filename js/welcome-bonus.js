@@ -184,7 +184,7 @@ function tamaoWelcomeShowSignup(){
 }
 // Existing members request a login link; registration preserves the visitor's
 // anonymous account through the existing upgrade path. Neither action is a purchase.
-async function tamaoClubSendAccess(email){
+async function tamaoClubSendAccess(email,{returnToCheckout=false}={}){
   const value=String(email||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw Error('INVALID_EMAIL');
   const runtime=globalThis.liveRuntime;
@@ -200,7 +200,7 @@ async function tamaoClubSendAccess(email){
   const redirect=new URL('/',location.origin);
   // Auth uses the URL fragment for tokens. Preserve the destination in a
   // query hint so the SDK can consume its fragment before opening the Club.
-  redirect.searchParams.set('entrada','clube');
+  redirect.searchParams.set('entrada',returnToCheckout?'pedido':'clube');
   const {error}=await client.auth.signInWithOtp({email:value,
     options:{emailRedirectTo:redirect.toString(),shouldCreateUser:false,captchaToken}});
   if(error)throw error;
