@@ -61,6 +61,8 @@ jobs:
         run: node tests/sponsor-creative-studio-v1-1094.mjs
       - name: V1.1095 premium advertiser placements, safe preview and consented visitor session
         run: node tests/sponsor-contextual-preview-v1-1095.mjs
+      - name: V1.1096 premium plan selection, secure consent and real advertiser budget handoff
+        run: node tests/sponsor-campaign-brief-v1-1096.mjs
       - name: V1.1090 identified advertiser registration and returning sponsor OTP journey
         run: node tests/sponsor-account-identified-v1-1090.mjs
       - name: V1.1075 premium product photos and approved professional cover
