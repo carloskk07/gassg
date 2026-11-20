@@ -87,6 +87,13 @@ function tamaoAdsCreditsLoad(){
  globalThis.tamaoCreditLoading=true;
  const src=document.querySelector('script[src*="ads-planner.js"]')?.src||
   location.origin+'/js/ads-planner.js';
+ if(!document.querySelector('link[data-tamao-credit-style]')){
+  const style=document.createElement('link');
+  style.rel='stylesheet';
+  style.setAttribute('data-tamao-credit-style','true');
+  style.href=new URL('../css/ads-credits.css'+new URL(src).search,src).href;
+  document.head.append(style);
+ }
  const tag=document.createElement('script');
  tag.src=new URL('ads-credits.js'+new URL(src).search,src).href;
  tag.onload=()=>{globalThis.tamaoCreditLoading=false;
@@ -106,7 +113,7 @@ function tamaoAdsPlannerSection(){
    Array.isArray(tamaoAdsMyState.rows)&&tamaoAdsMyState.rows.length>0?
     '<details class="tamao-credit-legacy-history"><summary>Consultar contratos e pagamentos anteriores</summary>'+
      tamaoAdsCampaignForm()+'</details>':'';
-  return '<section class="section sponsor-budget-builder tamao-credit-intro" id="sponsor-pricing" aria-label="Publicidade com créditos por visualização">'+
+  return '<section class="section sponsor-budget-builder tamao-credit-intro" aria-label="Publicidade com créditos por visualização">'+
    '<div class="section-head"><div><span class="section-kicker">INVESTIMENTO SOB CONTROLE</span>'+
    '<h2>Carregue créditos. Pague apenas pelas visualizações elegíveis.</h2>'+
    '<p>Sem pacote de sete dias, mensalidade ou cobrança acima do saldo. Sua empresa define a cidade, envia a peça e acompanha o consumo na própria conta.</p></div></div>'+
