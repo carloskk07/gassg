@@ -42,7 +42,9 @@ function homeChooseMarketCity(){
   // Changing a showcase never transfers cart, verified CEP, address or a quote.
   if(globalThis.liveRuntime)globalThis.liveRuntime.cityPriceSnapshot=null;
   render();
-  const pending=globalThis.liveRefreshCityPriceBoard?.({force:true});
+  const pending=globalThis.liveReady?.()
+    ?globalThis.liveRefreshCityPriceBoard?.({force:true})
+    :globalThis.tamaoGuestCityPriceBoard?.();
   pending?.then?.(()=>render()).catch?.(()=>{});
 }
 
