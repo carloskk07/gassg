@@ -4,7 +4,9 @@ ALTER TABLE public.ads_credit_topups_v1_1097
  DROP CONSTRAINT ads_credit_topups_v1_1097_status_check,
  ADD CONSTRAINT ads_credit_topups_v1_1097_status_check CHECK(status IN
  ('reserved','creating','pix_pending','approved','reversed','review_required','unpaid','closed_unissued')),
+ ADD COLUMN admin_pilot boolean NOT NULL DEFAULT false,
  ADD COLUMN reversed_cents integer NOT NULL DEFAULT 0 CHECK(reversed_cents BETWEEN 0 AND amount_cents);
+CREATE INDEX ads_credit_pilot_created_v1_1101 ON public.ads_credit_topups_v1_1097(created_at DESC) WHERE admin_pilot;
 UPDATE public.ads_credit_topups_v1_1097 SET reversed_cents=amount_cents WHERE status='reversed';
 
 CREATE OR REPLACE FUNCTION public.ads_credit_balance_v1_1097(p_owner uuid)
@@ -93,13 +95,14 @@ CREATE OR REPLACE FUNCTION public.ads_credit_topup_claim_v1_1097(
 SET search_path TO 'pg_catalog' AS $fn$
 DECLARE t public.ads_credit_topups_v1_1097%ROWTYPE; allowed boolean;
 BEGIN
- SELECT recharge_enabled INTO allowed FROM public.ads_credit_controls_v1_1097
-  WHERE singleton AND view_debit_enabled AND evidence_audited;
- IF allowed IS DISTINCT FROM true
- THEN RAISE EXCEPTION 'ADS_CREDIT_RECHARGE_DISABLED' USING errcode='42501';END IF;
  SELECT * INTO t FROM public.ads_credit_topups_v1_1097
   WHERE id=p_topup AND owner_user_id=p_owner FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'ADS_CREDIT_TOPUP_DENIED' USING errcode='42501';END IF;
+ SELECT recharge_enabled INTO allowed FROM public.ads_credit_controls_v1_1097
+  WHERE singleton AND view_debit_enabled AND evidence_audited;
+ IF allowed IS DISTINCT FROM true AND NOT (t.admin_pilot AND t.amount_cents=1990 AND
+   EXISTS(SELECT 1 FROM public.platform_admins WHERE user_id=p_owner AND active AND admin_role='superadmin'))
+ THEN RAISE EXCEPTION 'ADS_CREDIT_RECHARGE_DISABLED' USING errcode='42501';END IF;
  IF t.status='reserved' AND t.created_at+interval '1 day'>clock_timestamp()+interval '1 minute' THEN
   PERFORM 1 FROM public.ads_credit_wallets_v1_1097 WHERE owner_user_id=p_owner AND NOT frozen FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_FROZEN' USING errcode='42501';END IF;
@@ -253,6 +256,59 @@ BEGIN
  RETURN jsonb_build_object('source','ads_credit_apply_payment_v1_1101','recorded',recorded,
   'status',next_status,'balanceCents',w.balance_cents);
 END;$fn$;
+
+-- One real founder checkout on the existing ledger. Reading or opening the Admin
+-- never creates a wallet or intention. The public reserve and all view gates stay closed.
+CREATE FUNCTION public.admin_ads_credit_pilot_v1_1101(p_actor uuid,p_operation text,p_previous uuid DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'pg_catalog' AS $fn$
+DECLARE
+ t public.ads_credit_topups_v1_1097%ROWTYPE;
+ gate public.ads_credit_controls_v1_1097%ROWTYPE;
+ req uuid; fresh boolean; balance bigint; frozen_wallet boolean;
+BEGIN
+ IF p_operation IS NULL OR p_operation NOT IN ('read','prepare') OR NOT EXISTS(
+  SELECT 1 FROM public.platform_admins a JOIN auth.users u ON u.id=a.user_id
+   WHERE a.user_id=p_actor AND a.active AND a.admin_role='superadmin'
+    AND u.email_confirmed_at IS NOT NULL AND u.is_anonymous IS FALSE)
+ THEN RAISE EXCEPTION 'ADS_CREDIT_PILOT_DENIED' USING errcode='42501';END IF;
+ IF p_operation='prepare' THEN
+  SELECT * INTO STRICT gate FROM public.ads_credit_controls_v1_1097 WHERE singleton FOR UPDATE;
+ ELSE
+  SELECT * INTO STRICT gate FROM public.ads_credit_controls_v1_1097 WHERE singleton;
+ END IF;
+ SELECT * INTO t FROM public.ads_credit_topups_v1_1097 WHERE admin_pilot
+  ORDER BY created_at DESC,id DESC LIMIT 1;
+ IF t.id IS NOT NULL AND t.owner_user_id<>p_actor THEN
+  RETURN jsonb_build_object('source','admin_ads_credit_pilot_v1_1101','status','other_owner','canStart',false);
+ END IF;
+ SELECT balance_cents,frozen INTO balance,frozen_wallet FROM public.ads_credit_wallets_v1_1097
+  WHERE owner_user_id=p_actor;
+ fresh:=NOT gate.recharge_enabled AND NOT coalesce(frozen_wallet,false) AND
+  (t.id IS NULL OR t.status IN ('unpaid','closed_unissued')) AND
+  NOT EXISTS(SELECT 1 FROM public.ads_credit_topups_v1_1097
+    WHERE owner_user_id=p_actor AND status IN ('reserved','creating','pix_pending','review_required'))
+  AND NOT EXISTS(SELECT 1 FROM public.ads_credit_topups_v1_1097
+    WHERE admin_pilot AND (paid_at IS NOT NULL OR status='reversed'));
+ IF p_operation='prepare' AND fresh AND p_previous IS NOT DISTINCT FROM t.id THEN
+  INSERT INTO public.ads_credit_wallets_v1_1097(owner_user_id) VALUES(p_actor) ON CONFLICT DO NOTHING;
+  PERFORM 1 FROM public.ads_credit_wallets_v1_1097 WHERE owner_user_id=p_actor AND NOT frozen FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_FROZEN' USING errcode='42501';END IF;
+  IF EXISTS(SELECT 1 FROM public.ads_credit_topups_v1_1097 WHERE owner_user_id=p_actor
+    AND status IN ('reserved','creating','pix_pending','review_required'))
+  THEN RAISE EXCEPTION 'ADS_CREDIT_PENDING_TOPUP_EXISTS' USING errcode='42501';END IF;
+  req:=gen_random_uuid();
+  INSERT INTO public.ads_credit_topups_v1_1097(owner_user_id,request_id,external_reference,amount_cents,admin_pilot)
+   VALUES(p_actor,req,'tamao-ads-credit-'||replace(req::text,'-',''),1990,true) RETURNING * INTO t;
+  fresh:=false;
+ END IF;
+ RETURN jsonb_build_object('source','admin_ads_credit_pilot_v1_1101','status',coalesce(t.status,'idle'),
+  'canStart',fresh,'topupId',t.id,'requestId',t.request_id,'externalReference',t.external_reference,
+  'amountCents',1990,'balanceCents',coalesce(balance,0),'expiresAt',t.pix_expires_at,
+  'pixCode',CASE WHEN t.status='pix_pending' AND t.pix_expires_at>clock_timestamp()+interval '1 minute'
+   THEN t.pix_code ELSE NULL END);
+END;$fn$;
+REVOKE ALL ON FUNCTION public.admin_ads_credit_pilot_v1_1101(uuid,text,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_ads_credit_pilot_v1_1101(uuid,text,uuid) TO service_role;
 
 -- Older workers and the original RPC continue to use the same transaction and response contract.
 CREATE OR REPLACE FUNCTION public.ads_credit_payment_fact_v1_1097(

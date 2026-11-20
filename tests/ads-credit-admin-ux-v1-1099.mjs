@@ -78,4 +78,32 @@ assert.equal(await context.adminCreditAdsDecide(first,2),false,
  'Stale version must fail before requesting an admin mutation');
 assert.equal(calls.length,1);
 assert.equal(context.adminCreditAdsChooseFilter('active'),true);
+// The Admin pilot is read-only on entry. A real receipt needs its own
+// selection, the same rendered session and the fixed server-side amount.
+const pilotCalls=[];
+let pilotData={source:'admin_ads_credit_pilot_v1_1101',status:'idle',canStart:true,topupId:null,amountCents:1990,balanceCents:0};
+context.adminCreditAdsRequest=async(action,body={})=>{
+ pilotCalls.push({action,body});
+ if(action==='admin-pilot-read')return pilotData;
+ assert.equal(action,'admin-pilot-prepare');
+ pilotData={...pilotData,canStart:false,status:'pix_pending',topupId:first,pixCode:'test-code',
+  expiresAt:new Date(Date.now()+86400000).toISOString()};
+ return {source:'ads_credit_topup_v1_1097',status:'pix_pending'};
+};
+const scope=context.adminCreditPilotScope();
+await context.adminCreditPilotRead(scope);
+assert.match(context.adminCreditPilotPanel(),/Gerar Pix de R\$ 19,90/);
+assert.deepEqual(pilotCalls.map(x=>x.action),['admin-pilot-read']);
+assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision),false);
+fields['credit-pilot-consent']={checked:true};
+assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision+1),false);
+assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision),true);
+assert.equal(pilotCalls.filter(x=>x.action==='admin-pilot-prepare').length,1);
+context.tamaoPixCodeValid=()=>true;context.tamaoPixMarkup=()=>'<svg aria-label="QR Code"></svg>';
+assert.match(context.adminCreditPilotPanel(),/QR Code/);
+assert.match(context.adminCreditPilotPanel(),/Copiar Pix/);
+assert.ok(!context.adminCreditPilotPanel().includes('Gerar Pix de R$ 19,90'));
+context.adminCurrentRole=()=> 'finance';
+assert.equal(context.adminCreditPilotPanel(),'');
+assert.equal(await context.adminCreditPilotRun('prepare','',scope.revision),false);
 console.log('PASS V1.1099: admin Ads moderation priority, exact status filtering, real rejection reason, stale-version guard and disabled billing visibility.');

@@ -56,3 +56,12 @@ A antiga contratação por prazo segue em área separada e mantém seus direitos
 **Limitações explícitas:** a medição usa desafio controlado no servidor, hash de sinais de origem e declaração de visibilidade do navegador. Isso é uma filtragem técnica, NÃO auditoria externa independente ou garantia contra tráfego automatizado avançado. Não afirmar que impressões são certificadas. O preço inicial de R$ 0,02 por visualização é apenas referência técnica e precisa de aprovação comercial antes da venda. A política comercial deve preservar direitos legais de restituição onde se aplicarem.
 
 **Critérios para fechar lançamento comercial:** teste real Pix → webhook assinado → saldo na mesma conta → aprovação do anúncio → visualização por visitante elegível → débito único → pausa por saldo → refund/chargeback e congelamento, com evidência registrada; revisão de fraude, LGPD, termos e contabilização; auditoria completa sem falhas e verificação dos três portais no SHA publicado.
+
+
+## V1.1101 — homologação privada do Pix
+
+No Admin, abra [Créditos por visualização](https://admin.tamao.com.br/?publicidade=creditos#admin). Abrir o painel consulta a situação atual. O superadministrador autenticado marca a autorização e escolhe **Gerar Pix de R$ 19,90**. O painel mostra o QR, o código para copiar e a conferência pelo Mercado Pago. A aprovação credita a carteira do titular pelo fluxo financeiro normal. A operação não habilita publicidade paga ao público.
+
+O banco conserva uma intenção de homologação por vez. Uma nova tentativa exige a confirmação de que a anterior terminou sem pagamento. Depois da recarga confirmada ou revertida, o painel acompanha a operação já existente. A referência, o pagamento, o recebedor, a moeda e o valor devem coincidir com a consulta ao provedor. Notificação e conferência manual usam o mesmo lançamento. A devolução parcial considera o total já revertido e congela a carteira para revisão.
+
+A habilitação da cobrança por visualizações continua dependendo da validação da entrega. O pagamento anterior da campanha por dias tem histórico e conciliação próprios.

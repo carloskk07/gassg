@@ -30,7 +30,11 @@ function fixture({initial='reserved',listing=empty,payment=basePayment,attached=
    trace.push(name);
    let payload={};
    if(name==='ads_credit_topup_reserve_v1_1097')payload={topupId,externalReference:reference};
-   else if(name==='ads_credit_topup_claim_v1_1097'){assert.equal(row.status,'reserved');row.status='creating';payload={canCreate:true};}
+   else if(name==='admin_ads_credit_pilot_v1_1101'){
+    assert.equal(args.p_actor,owner);
+    if(args.p_operation==='read')payload={status:'idle',canStart:true};
+    else {row.admin_pilot=true;payload={topupId,requestId,externalReference:reference};}
+   }else if(name==='ads_credit_topup_claim_v1_1097'){assert.equal(row.status,'reserved');row.status='creating';payload={canCreate:true};}
    else if(name==='ads_credit_close_unissued_v1_1101')payload={status:row.status};
    else if(name===factName){
     facts.push(args);row.provider_payment_id=args.p_payment;
@@ -62,10 +66,10 @@ function fixture({initial='reserved',listing=empty,payment=basePayment,attached=
   verifyIndependentAdsSeller:async()=>({token:'fixture',sellerId:seller})
  };
  vm.runInNewContext(js,context);
- async function send(action='topup'){
+ async function send(action='topup',extra={},origin='https://tamao.com.br'){
   const response=await handler(new Request('https://test.invalid',{method:'POST',headers:{
-   origin:'https://tamao.com.br',authorization:'Bearer fixture','content-type':'application/json'},
-   body:JSON.stringify({action,topupId,requestId,amountCents:1990,acceptCreditTerms:true})}));
+   origin,authorization:'Bearer fixture','content-type':'application/json'},
+   body:JSON.stringify({action,topupId,requestId,amountCents:1990,acceptCreditTerms:true,...extra})}));
   return {status:response.status,body:await response.json()};
  }
  return {row,trace,facts,send};
@@ -104,6 +108,12 @@ for(const change of [{collector_id:'999999'},{live_mode:false},{transaction_amou
  assert.equal((await f.send('reconcile')).status,503);
  assert.equal(f.facts.length,0);assert.equal(posts(f),0);
 }
+const pilot=fixture(),adminOrigin='https://admin.tamao.com.br';
+assert.equal((await pilot.send('admin-pilot-read',{},adminOrigin)).body.canStart,true);assert.equal(posts(pilot),0);
+assert.equal((await pilot.send('admin-pilot-prepare',{acceptPilotTerms:true})).status,403);
+assert.equal((await pilot.send('admin-pilot-prepare',{},adminOrigin)).status,400);assert.equal(posts(pilot),0);
+assert.equal((await pilot.send('admin-pilot-prepare',{acceptPilotTerms:true,amountCents:19990},adminOrigin)).body.status,'approved');
+assert.equal(posts(pilot),1);assert.equal(pilot.facts[0].p_amount,1990);
 const amounts=[],keys=[];
 const args={paymentId,reference,sellerId:seller,amount:1990};
 const fake={rpc:async(name,p)=>{assert.equal(name,factName);amounts.push(p.p_refunded_cents);

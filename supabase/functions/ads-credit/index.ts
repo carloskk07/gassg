@@ -112,13 +112,16 @@ Deno.serve(async(req:Request)=>{
   const body:any=await readJsonBody(req,{maxBytes:3000});
   const action=String(body.action||"");
   if(!["mine","topup","reconcile","campaign-submit","campaign-owner",
-      "admin-read","admin-action"].includes(action))
+      "admin-read","admin-action","admin-pilot-read","admin-pilot-prepare"].includes(action))
    return respond({error:"UNKNOWN_ACTION"},400,origin);
+  const pilot=action==="admin-pilot-prepare";
+  if((pilot||action==="admin-pilot-read")&&origin!=="https://admin.tamao.com.br")
+   return respond({error:"ADMIN_ORIGIN_REQUIRED"},403,origin);
   const user=await sessionUser(req);
   if(!user)return respond({error:"VERIFIED_ACCOUNT_REQUIRED"},401,origin);
   const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
   await enforceApiQuota(admin,{userId:user.id,actionName:"ads-credit-"+action,
-    limit:action==="mine"?120:action==="admin-read"?120:action==="campaign-owner"?35:8,
+    limit:action==="mine"?120:(action==="admin-read"||action==="admin-pilot-read")?120:action==="campaign-owner"?35:8,
     windowSeconds:3600});
   if(action==="mine"){
    const [data,campaigns]=await Promise.all([
@@ -172,6 +175,18 @@ Deno.serve(async(req:Request)=>{
    });
    return respond(data,200,origin);
   }
+  if(action==="admin-pilot-read"){
+   const data=await rpc(admin,"admin_ads_credit_pilot_v1_1101",{p_actor:user.id,p_operation:"read",p_previous:null});
+   return respond(data,200,origin);
+  }
+  if(pilot&&(body.acceptPilotTerms!==true||
+    (body.previousTopup!=null&&!UUID.test(String(body.previousTopup)))))
+   return respond({error:"PILOT_CONFIRMATION_REQUIRED"},400,origin);
+  if(pilot){
+   const read=await rpc(admin,"admin_ads_credit_pilot_v1_1101",{p_actor:user.id,p_operation:"read",p_previous:null});
+   if(read.status==="other_owner"||(!read.topupId&&read.canStart!==true))
+    return respond({error:"ADS_CREDIT_PILOT_UNAVAILABLE",message:"Consulte a homologação no painel."},409,origin);
+  }
   const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
   if(!config.checkoutConfigured||!config.webhookConfigured||
      !config.tokenConfigured||!config.sellerConfigured||
@@ -188,17 +203,24 @@ Deno.serve(async(req:Request)=>{
    const recovered=await recoverPayment(admin,row,token,sellerId);
    return respond({...recovered,source:"ads_credit_payment_fact_v1_1097"},200,origin);
   }
-  const requestId=String(body.requestId||"");
-  const amount=Number(body.amountCents);
-  if(!UUID.test(requestId)||!Number.isSafeInteger(amount)||!PRICE_OPTIONS.has(amount)||
-    body.acceptCreditTerms!==true)
+  let requestId=String(body.requestId||"");
+  const amount=pilot?1990:Number(body.amountCents);
+  if(!pilot&&(!UUID.test(requestId)||!Number.isSafeInteger(amount)||!PRICE_OPTIONS.has(amount)||
+    body.acceptCreditTerms!==true))
    return respond({error:"TOPUP_REQUEST_INVALID"},400,origin);
-  const reserved=await rpc(admin,"ads_credit_topup_reserve_v1_1097",{
+  const reserved=pilot?await rpc(admin,"admin_ads_credit_pilot_v1_1101",{
+   p_actor:user.id,p_operation:"prepare",p_previous:body.previousTopup??null
+  }):await rpc(admin,"ads_credit_topup_reserve_v1_1097",{
    p_owner:user.id,p_request:requestId,p_amount:amount});
+  if(pilot){
+   if(!reserved.topupId||!UUID.test(String(reserved.requestId)))
+    return respond({error:"ADS_CREDIT_PILOT_UNAVAILABLE",message:"Consulte a homologação no painel."},409,origin);
+   requestId=reserved.requestId;
+  }
   const {data:row,error}=await admin.from("ads_credit_topups_v1_1097")
    .select("*").eq("id",reserved.topupId).eq("owner_user_id",user.id).maybeSingle();
   if(error||!row||row.external_reference!==reserved.externalReference||
-    row.amount_cents!==amount)throw Error("ADS_CREDIT_RESERVATION_MISMATCH");
+    row.request_id!==requestId||row.amount_cents!==amount||(pilot&&row.admin_pilot!==true))throw Error("ADS_CREDIT_RESERVATION_MISMATCH");
   const result=(data:any,reused=true)=>respond({...data,source:"ads_credit_topup_v1_1097",reused},200,origin);
   if(["approved","reversed","review_required","unpaid","closed_unissued"].includes(row.status))
    return result({status:row.status,topupId:row.id,amountCents:amount});
@@ -238,6 +260,8 @@ Deno.serve(async(req:Request)=>{
   return result(await handlePayment(admin,row,payment,sellerId),false);
  }catch(e){
   const message=String((e as any)?.message||"");
+  if(message.includes("ADS_CREDIT_PILOT_DENIED"))
+   return respond({error:"ADS_CREDIT_PILOT_DENIED"},403,origin);
   if(message.includes("ADS_CREDIT_RECHARGE_DISABLED"))
    return respond({error:"ADS_CREDIT_RECHARGE_DISABLED",
     message:"As novas recargas aguardam validação financeira."},409,origin);

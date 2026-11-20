@@ -10,6 +10,43 @@ const baseline=psql('SELECT count(*) FROM public.ads_credit_topups_v1_1097');
 psql(`
 BEGIN;
 SET LOCAL plpgsql.check_asserts=on;
+SAVEPOINT private_pilot;
+DO $pilot$
+DECLARE own uuid; first jsonb; duplicate jsonb; result jsonb; id uuid; blocked boolean:=false;
+BEGIN
+ SELECT user_id INTO STRICT own FROM public.platform_admins WHERE active AND admin_role='superadmin' LIMIT 1;
+ UPDATE auth.users SET is_anonymous=false,email_confirmed_at=now() WHERE id=own;
+ first:=public.admin_ads_credit_pilot_v1_1101(own,'read');
+ ASSERT first->>'status'='idle' AND first->>'canStart'='true','Closed commercial gate must allow reading pilot readiness';
+ ASSERT NOT EXISTS(SELECT 1 FROM public.ads_credit_topups_v1_1097) AND NOT EXISTS(
+  SELECT 1 FROM public.ads_credit_wallets_v1_1097),'Opening Admin initiated money';
+ BEGIN PERFORM public.admin_ads_credit_pilot_v1_1101(gen_random_uuid(),'prepare');
+ EXCEPTION WHEN SQLSTATE '42501' THEN blocked:=true;END;
+ ASSERT blocked,'Only verified active superadmin can start';
+ first:=public.admin_ads_credit_pilot_v1_1101(own,'prepare');
+ id:=(first->>'topupId')::uuid;
+ ASSERT first->>'amountCents'='1990' AND first->>'status'='reserved','Pilot did not reserve exact R$19.90';
+ duplicate:=public.admin_ads_credit_pilot_v1_1101(own,'prepare');
+ ASSERT duplicate->>'requestId'=first->>'requestId','Double click reserved another Pix';
+ blocked:=false;
+ BEGIN PERFORM public.ads_credit_topup_reserve_v1_1097(own,(first->>'requestId')::uuid,1990);
+ EXCEPTION WHEN SQLSTATE '42501' THEN blocked:=true;END;
+ ASSERT blocked,'Commercial endpoint could use Admin permission';
+ result:=public.ads_credit_topup_claim_v1_1097(own,id);
+ ASSERT result->>'canCreate'='true','Restricted pilot could not test provider';
+ result:=public.ads_credit_topup_claim_v1_1097(own,id);
+ ASSERT result->>'canCreate'='false','Pilot claimed another POST';
+ result:=public.ads_credit_apply_payment_v1_1101(repeat('e',64),first->>'externalReference','99000000000','1234567',
+  1990,'approved','accredited',true,0);
+ ASSERT result->>'balanceCents'='1990','Pilot did not credit actual wallet contract';
+ duplicate:=public.admin_ads_credit_pilot_v1_1101(own,'prepare',id);
+ ASSERT duplicate->>'canStart'='false' AND duplicate->>'status'='approved','Another paid pilot was offered';
+ ASSERT (SELECT count(*)=1 FROM public.ads_credit_topups_v1_1097 WHERE admin_pilot);
+ ASSERT NOT (SELECT recharge_enabled OR view_debit_enabled OR evidence_audited
+    FROM public.ads_credit_controls_v1_1097 WHERE singleton),'Pilot enabled commercial billing';
+ ASSERT NOT has_function_privilege('authenticated','public.admin_ads_credit_pilot_v1_1101(uuid,text,uuid)','EXECUTE');
+END;$pilot$;
+ROLLBACK TO private_pilot;
 UPDATE public.ads_credit_controls_v1_1097 SET recharge_enabled=true,view_debit_enabled=true,evidence_audited=true WHERE singleton;
 CREATE FUNCTION pg_temp.reserve_claim(owner_id uuid,req uuid) RETURNS text LANGUAGE plpgsql AS $$
 DECLARE r jsonb;

@@ -312,7 +312,13 @@ window.addEventListener('DOMContentLoaded',()=>{
     const init=adminBackendInit();
     if(route()!=='admin')go('admin');
     render();
-    init.then(render).catch(()=>{adminRuntime.status='unavailable';render()});
+    init.then(()=>{
+      if(adminReady()&&adminCurrentRole()==='superadmin'&&new URLSearchParams(location.search).get('publicidade')==='creditos'){
+        adminAdsWorkspaceTab='campaigns';adminIndependentAdsPane='credit';
+        adminSetSection('ads');
+        globalThis.adminCreditAdsLoad?.();
+      }else render();
+    }).catch(()=>{adminRuntime.status='unavailable';render()});
     return;
   }
   if(globalThis.merchantPortalRequested?.())return;
