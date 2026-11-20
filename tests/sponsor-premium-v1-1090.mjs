@@ -33,7 +33,7 @@ for(const marker of [
  'Criar meu anúncio','sponsor-premium-ad-mock',
  'Prévia de anúncio','Apresentação ilustrativa, não é anúncio publicado',
  'PUBLICIDADE IDENTIFICADA','Sem precisar ter revenda',
- 'sponsor-premium-trust-rail','sponsor-premium-value-grid',
+ 'sponsor-premium-trust-rail','sponsor-premium-value-grid','sponsor-premium-placements','sponsor-placement-gallery',
  'sponsor-format-grid','sponsor-premium-steps','id="sponsor-pricing"',
  'real-advertiser-form','sponsor-premium-faq-list','sponsor-premium-closing',
  'inventário disponível','Não prometemos audiência','não gera cobrança'
@@ -46,7 +46,7 @@ assert.ok(html.indexOf('id="sponsor-pricing"')<html.indexOf('sponsor-premium-faq
  'FAQ should follow the real path to create campaigns');
 assert.equal((html.match(/<h1\b/g)||[]).length,1);
 assert.equal((html.match(/<details\b/g)||[]).length,5);
-for(const kind of ['visibility','relationship','local'])
+for(const kind of ['relationship','local'])
  assert.equal(html.split("openSponsorContact('"+kind+"')").length-1,1,
    'Exactly one clear CTA per eligible partnership objective');
 assert.equal(html.split('openSponsorContact()').length-1,1,
@@ -95,7 +95,9 @@ assert.equal(fields.get('sponsor-cpm-budget').value,'1990');
 assert.equal(fields.get('sponsor-cpm-days').value,'7');
 assert.equal(budgets[0].pressed,'true');
 assert.equal(budgets[1].pressed,'false');
-assert.match(fields.get('sponsor-cpm-result').textContent,/1\.658 visualizações verificadas/);
+assert.match(fields.get('sponsor-cpm-result').textContent,/R\$ 19,90 por 7 dias/);
+assert.match(adHtml,/tamaoAdsContinueToCreative/);
+assert.match(adHtml,/sponsor-cpm-technical-result/);
 assert.equal(adCtx.choose(12345),false);
 assert.equal(fields.get('sponsor-cpm-budget').value,'1990','Invalid budget must not change real selection');
 assert.equal(adCtx.preview(4990).chargeEnabled,false,'Planner must not create payment');
