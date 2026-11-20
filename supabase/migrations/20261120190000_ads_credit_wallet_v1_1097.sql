@@ -120,7 +120,12 @@ BEGIN
   'centsPerView',gate.cents_per_view,
   'topups',coalesce((SELECT jsonb_agg(jsonb_build_object(
     'id',t.id,'amountCents',t.amount_cents,'status',t.status,
-    'createdAt',t.created_at,'paidAt',t.paid_at) ORDER BY t.created_at DESC)
+    'createdAt',t.created_at,'paidAt',t.paid_at,
+    'pixCode',CASE WHEN t.status='pix_pending' AND
+     t.pix_expires_at>clock_timestamp()+interval '60 seconds'
+     THEN t.pix_code ELSE null END,
+    'expiresAt',CASE WHEN t.status='pix_pending' THEN
+     t.pix_expires_at ELSE null END) ORDER BY t.created_at DESC)
     FROM (SELECT * FROM public.ads_credit_topups_v1_1097
       WHERE owner_user_id=p_owner ORDER BY created_at DESC LIMIT 20)t),'[]'::jsonb),
   'entries',coalesce((SELECT jsonb_agg(jsonb_build_object(
