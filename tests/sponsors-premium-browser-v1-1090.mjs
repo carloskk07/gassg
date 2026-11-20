@@ -68,12 +68,12 @@ try{
   assert.ok(first.scrollWidth<=width+3,'Sponsor page horizontal overflow at '+width+': '+JSON.stringify(first));
   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(out,'sponsors-premium-v1-1090-'+width+'.png'),Buffer.from(shot.data,'base64'));
-  const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
+  const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');const beforeFaq=faq.open;faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {beforeFaq,budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
   assert.equal(actions.budget,'1990');
   assert.equal(actions.days,'7');
   assert.match(actions.quote,/1\.658 visualizações verificadas/);
   assert.equal(actions.focused,'sponsor-pricing');
-  assert.equal(actions.faqOpened,true,'FAQ interaction: '+JSON.stringify(actions));
+  assert.notEqual(actions.faqOpened,actions.beforeFaq,'FAQ must toggle on click: '+JSON.stringify(actions));
   assert.equal(actions.hash,'#sponsors');
   assert.deepEqual(actions.buttons,['true','false','false','false']);
   results.push({width,...first,...actions});
