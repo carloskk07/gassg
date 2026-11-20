@@ -37,7 +37,7 @@ for(const label of [
  'CPM em avaliação','Cobrança agora','R$ 12,00','R$ 0,00',
  'tamaoAdsBudgetQuote()','tamaoAdsBudgetRequest()',
  '50% do anúncio visível durante 1 segundo contínuo',
- 'Sem garantia de entrega ou cobrança nesta etapa',
+ 'O envio da proposta não gera cobrança nem garante exibição',
  'Publicidade regional é independente de cadastrar uma revenda'
 ])assert.ok(html.includes(label),'missing truthful planning terms: '+label);
 assert.match(read('js/sponsors-premium.js'),/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
