@@ -46,7 +46,7 @@ function isSafeHttpsDestination(value:unknown){
 async function hashViewer(req:Request){
   // Never store raw IP, UA, cookies, contact details or arbitrary browser IDs.
   // Treat browser-originated visibility signals as diagnostic only.
-  const ip=clean(req.headers.get("cf-connecting-ip")||req.headers.get("x-real-ip")||"not-provided",128);
+  const ip=clean(req.headers.get("cf-connecting-ip")||"not-provided",128);
   const ua=clean(req.headers.get("user-agent")||"unknown",256);
   const secret=SECRET.slice(0,96);
   const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),
@@ -80,9 +80,31 @@ Deno.serve(async(req:Request)=>{
         source:"ads_independent_issue_v1_884",slot:null,noCharge:true,billingEnabled:false
       },200,origin);
       const viewerHash=await hashViewer(req);
+      const viewer=String(req.headers.get("authorization")||"").startsWith("Bearer ")
+        ?await sessionUser(req):null;
       // A city used only as a homepage showcase is NOT the buyer's location.
       // This explicit scope never touches paid inventory or creates a charge.
       if(body.institutionalOnly!==true){
+        // Paid advertising is only eligible when the platform edge has a
+        // trusted address signal; NEVER trust a browser-supplied x-real-ip.
+        if(req.headers.get("cf-connecting-ip")){
+          const {data:credit,error:creditError}=await admin.rpc("ads_credit_issue_v1_1098",{
+            p_city:city,p_state:state,p_viewer_hash:viewerHash,
+            p_viewer_user:viewer?.id||null
+          });
+          if(creditError)throw creditError;
+          if(credit?.source!=="ads_credit_issue_v1_1098" ||
+             typeof credit?.billingEnabled!=="boolean" ||
+             typeof credit?.noCharge!=="boolean")
+            throw Error("ADS_CREDIT_ISSUE_UNVERIFIED");
+          if(credit.slot){
+            if(credit.billingEnabled!==true||credit.noCharge!==false ||
+              credit.pricingMode!=="prepaid_per_view" ||
+              !uuid.test(String(credit.slot.challenge||"")))
+              throw Error("ADS_CREDIT_SLOT_CONTRACT_MISMATCH");
+            return respond(credit,200,origin);
+          }
+        }
         const {data,error}=await admin.rpc("ads_independent_issue_v1_884",{
           p_city:city,p_state:state,p_viewer_hash:viewerHash
         });
@@ -115,6 +137,27 @@ Deno.serve(async(req:Request)=>{
         visibleMs<1000||visibleMs>60000||visiblePercent<50||visiblePercent>100)
         return respond({countedForDiagnostics:false,billable:false,reason:"invalid_claim"},200,origin);
       const viewerHash=await hashViewer(req);
+      const viewer=String(req.headers.get("authorization")||"").startsWith("Bearer ")
+        ?await sessionUser(req):null;
+      // Credit claims are charged only after server-side challenge validation.
+      // This is not third-party certified measurement: no self-report alone
+      // is enough to debit a wallet.
+      if(req.headers.get("cf-connecting-ip")){
+        const {data:credit,error:creditError}=await admin.rpc("ads_credit_confirm_v1_1098",{
+          p_token:challenge,p_viewer_hash:viewerHash,p_visible_ms:visibleMs,
+          p_visible_percent:visiblePercent,p_viewer_user:viewer?.id||null
+        });
+        if(creditError)throw creditError;
+        if(credit?.source!=="ads_credit_confirm_v1_1098"||
+           typeof credit.recognized!=="boolean"||typeof credit.charged!=="boolean")
+          throw Error("ADS_CREDIT_CONFIRM_UNVERIFIED");
+        if(credit.recognized){
+          return respond({source:"ads_credit_confirm_v1_1098",
+            billable:credit.charged===true,
+            countedForDiagnostics:credit.charged===true,
+            reason:credit.reason||"credit_view_checked"},200,origin);
+        }
+      }
       const {data:institutional,error:institutionalError}=
         await admin.rpc("ads_institutional_confirm_v1_916",{
           p_token:challenge,p_viewer_hash:viewerHash,
