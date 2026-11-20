@@ -18,6 +18,22 @@ const ORIGINS=new Set(["https://tamao.com.br","https://www.tamao.com.br",
  "https://tamao-sg-cliente.pages.dev","https://admin.tamao.com.br"]);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRICE_OPTIONS=new Set([1990,4990,9990,19990]);
+const STATES=new Set(["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS",
+ "MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"]);
+function clean(value:unknown,max:number){
+ return String(value??"").trim().replace(/\s+/g," ").slice(0,max);
+}
+function safeDestination(value:unknown){
+ const raw=String(value??"").trim();
+ if(raw.length<15||raw.length>300||/[<>\s@\\]/.test(raw))return false;
+ try{
+  const x=new URL(raw),host=x.hostname.toLowerCase();
+  return x.protocol==="https:"&&!x.username&&!x.password&&(!x.port||x.port==="443")&&
+    host.includes(".")&&!host.endsWith(".local")&&!host.endsWith(".internal")&&
+    !host.endsWith(".localhost")&&host!=="localhost"&&
+    !/^\d+\.\d+\.\d+\.\d+$/.test(host)&&!host.startsWith("[");
+ }catch{return false}
+}
 const cors=(origin:string|null)=>({"Access-Control-Allow-Origin":origin&&ORIGINS.has(origin)?origin:"null",
  "Access-Control-Allow-Headers":"authorization,apikey,content-type",
  "Access-Control-Allow-Methods":"POST,OPTIONS","Vary":"Origin"});
@@ -96,15 +112,65 @@ Deno.serve(async(req:Request)=>{
  try{
   const body:any=await readJsonBody(req,{maxBytes:3000});
   const action=String(body.action||"");
-  if(!["mine","topup","reconcile"].includes(action))
+  if(!["mine","topup","reconcile","campaign-submit","campaign-owner",
+      "admin-read","admin-action"].includes(action))
    return respond({error:"UNKNOWN_ACTION"},400,origin);
   const user=await sessionUser(req);
   if(!user)return respond({error:"VERIFIED_ACCOUNT_REQUIRED"},401,origin);
   const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
   await enforceApiQuota(admin,{userId:user.id,actionName:"ads-credit-"+action,
-    limit:action==="mine"?120:8,windowSeconds:3600});
+    limit:action==="mine"?120:action==="admin-read"?120:action==="campaign-owner"?35:8,
+    windowSeconds:3600});
   if(action==="mine"){
-   const data=await rpc(admin,"ads_credit_balance_v1_1097",{p_owner:user.id});
+   const [data,campaigns]=await Promise.all([
+    rpc(admin,"ads_credit_balance_v1_1097",{p_owner:user.id}),
+    rpc(admin,"ads_credit_campaigns_mine_v1_1098",{p_owner:user.id})
+   ]);
+   return respond({...data,campaigns:campaigns.rows},200,origin);
+  }
+  if(action==="campaign-submit"){
+   const request=String(body.requestId||"");
+   const advertiser=clean(body.advertiser,120),title=clean(body.title,80),
+    description=clean(body.description,240),city=clean(body.city,100),
+    state=clean(body.state,2).toUpperCase();
+   const destination=String(body.destination||"").trim();
+   if(!UUID.test(request)||advertiser.length<2||title.length<12||
+    description.length<20||city.length<2||!STATES.has(state)||
+    !safeDestination(destination)||body.acceptCampaignTerms!==true)
+    return respond({error:"ADS_CREDIT_CREATIVE_INVALID",
+     message:"Confira empresa, mensagem, cidade, destino HTTPS e aceite."},400,origin);
+   const data=await rpc(admin,"ads_credit_campaign_submit_v1_1098",{
+    p_owner:user.id,p_request:request,p_advertiser:advertiser,p_title:title,
+    p_description:description,p_city:city,p_state:state,p_destination:destination
+   });
+   return respond(data,200,origin);
+  }
+  if(action==="campaign-owner"){
+   const id=String(body.campaignId||""),version=Number(body.version),
+    choice=String(body.decision||"");
+   if(!UUID.test(id)||!Number.isSafeInteger(version)||version<1||
+    !["pause","resume"].includes(choice))
+    return respond({error:"ADS_CREDIT_ACTION_INVALID"},400,origin);
+   const data=await rpc(admin,"ads_credit_campaign_owner_action_v1_1098",{
+    p_owner:user.id,p_campaign:id,p_expected_version:version,p_action:choice
+   });
+   return respond(data,200,origin);
+  }
+  if(action==="admin-read"||action==="admin-action"){
+   if(action==="admin-read"){
+    const data=await rpc(admin,"ads_credit_admin_read_v1_1098",{p_actor:user.id});
+    return respond(data,200,origin);
+   }
+   const id=String(body.campaignId||""),version=Number(body.version),
+    choice=String(body.decision||""),reason=clean(body.reason,500);
+   if(!UUID.test(id)||!Number.isSafeInteger(version)||version<1||
+    !["approve","reject","publish","pause","resume","end"].includes(choice)||
+    reason.length<12)
+    return respond({error:"ADS_CREDIT_ADMIN_ACTION_INVALID"},400,origin);
+   const data=await rpc(admin,"ads_credit_admin_action_v1_1098",{
+    p_actor:user.id,p_campaign:id,p_expected_version:version,
+    p_action:choice,p_reason:reason
+   });
    return respond(data,200,origin);
   }
   const config=independentAdsCredentialConfig((key:string)=>Deno.env.get(key));
