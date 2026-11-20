@@ -16,7 +16,7 @@ const edge=read('supabase/functions/public-city-prices/index.ts');
 assert.match(bootstrap,/\['order','tracking'\]\.includes\(route\(\)\)/);
 assert.doesNotMatch(backend,/\.auth\.signInAnonymously\s*\(/);
 assert.match(backend,/if\(!session\?\.access_token\|\|session\.user\?\.is_anonymous===true\)/);
-assert.match(customer,/const disabled=!testDemo&&!ready&&!preview&&!customerOriginSafe\(\)/);
+assert.match(customer,/const disabled=!testDemo&&!ready&&!preview&&!globalThis\.customerOriginSafe\?\.\(\)/);
 assert.match(acquisition,/globalThis\.tamaoGuestCityPriceBoard\?\.\(\)/);
 assert.match(showcase,/globalThis\.addEventListener\?\.\('load'/);
 assert.match(showcase,/guest-price-board\.js/);
