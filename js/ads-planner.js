@@ -295,6 +295,17 @@ function tamaoAdsUpdateCreativePreview(){
  set('sponsor-creative-domain',host);
  return true;
 }
+// Prefill only a business name the visitor explicitly continued from the public
+// personalized preview. Never infer identity, overwrite an existing draft, or submit.
+function tamaoAdsPublicDemoCompanyAttr(){
+ const get=globalThis.tamaoSponsorDemoCompany;
+ if(typeof get!=='function')return '';
+ const name=String(get()||'').trim().slice(0,48);
+ if(!name)return '';
+ const encoded=name.replace(/[&<>"']/g,ch=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ return ' value="'+encoded+'"';
+}
 function tamaoAdsCampaignForm(){
   tamaoAdsSyncOwner();
   if(!tamaoAdsAccountVerified())
@@ -405,7 +416,7 @@ function tamaoAdsCampaignForm(){
     '<p>Sem revenda, sem cobrança antecipada. O anúncio só será exibido após revisão e autorização de entrega.</p></div></div>'+
     '<div class="card flat form-stack" style="max-width:780px">'+
     '<div class="field-row"><label class="input-wrap">Empresa'+
-    '<input id="sponsor-ad-company" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="120" autocomplete="organization" required></label>'+
+    '<input id="sponsor-ad-company" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="120" autocomplete="organization"'+tamaoAdsPublicDemoCompanyAttr()+' required></label>'+
     '<label class="input-wrap">Título da campanha'+
     '<input id="sponsor-ad-title" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="80" placeholder="Apresente sua marca na cidade" required></label></div>'+
     '<div class="input-wrap"><label for="sponsor-ad-template">Modelo para preencher título e mensagem (opcional)</label>'+

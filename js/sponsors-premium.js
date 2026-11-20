@@ -1,5 +1,94 @@
 // TAMÃO V1.1090 — premium sponsor-only experience, loaded on demand.
 // Keeps the customer homepage lightweight; this module never enables billing.
+
+// V1.1092 — interactive ad showcase. Company names remain private to this tab.
+// Presets are illustrative, never a live booking, advertiser, or publication.
+const TAMAO_SPONSOR_DEMO_PRESETS=Object.freeze({
+ commerce:Object.freeze({label:'Comércio',symbol:'◇',headline:'Novidades que vale a pena conhecer.',
+  copy:'Descubra produtos e novidades no site oficial da empresa.'}),
+ services:Object.freeze({label:'Serviços',symbol:'✦',headline:'Conheça os serviços da nossa cidade.',
+  copy:'Saiba mais sobre o trabalho e os canais oficiais da empresa.'}),
+ food:Object.freeze({label:'Gastronomia',symbol:'◉',headline:'Novos sabores para descobrir na cidade.',
+  copy:'Conheça o cardápio, as novidades e o site oficial do negócio.'})
+});
+const TAMAO_SPONSOR_DEMO_KEY='tamao-sponsor-showcase-v1092';
+const tamaoSponsorDemoState={sector:'commerce',company:'',preparing:false};
+function sponsorDemoSafeText(text){
+ return String(text||'').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,48);
+}
+function sponsorDemoEscape(text){
+ return String(text||'').replace(/[&<>"']/g,ch=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function sponsorDemoRestore(){
+ try{
+  const raw=globalThis.sessionStorage?.getItem(TAMAO_SPONSOR_DEMO_KEY);
+  if(!raw)return;
+  const data=JSON.parse(raw);
+  if(data&&Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PRESETS,data.sector))
+   tamaoSponsorDemoState.sector=data.sector;
+  if(data&&typeof data.company==='string')
+   tamaoSponsorDemoState.company=sponsorDemoSafeText(data.company);
+  tamaoSponsorDemoState.preparing=data?.preparing===true;
+ }catch{}
+}
+function sponsorDemoSave(){
+ try{
+  globalThis.sessionStorage?.setItem(TAMAO_SPONSOR_DEMO_KEY,JSON.stringify(tamaoSponsorDemoState));
+ }catch{}
+}
+function sponsorDemoPresentation(){
+ const sector=tamaoSponsorDemoState.sector;
+ const data=TAMAO_SPONSOR_DEMO_PRESETS[sector]||TAMAO_SPONSOR_DEMO_PRESETS.commerce;
+ return {sector,brand:tamaoSponsorDemoState.company.trim()||'A SUA MARCA AQUI',...data};
+}
+function sponsorDemoPaint(){
+ if(typeof document==='undefined')return false;
+ const demo=sponsorDemoPresentation();
+ for(const field of ['brand','headline','copy','label','symbol']){
+  for(const element of document.querySelectorAll('[data-sponsor-demo="'+field+'"]'))
+   element.textContent=String(demo[field]);
+ }
+ const art=document.querySelector('.sponsor-premium-ad-art');
+ art?.setAttribute('data-demo-sector',demo.sector);
+ for(const option of document.querySelectorAll('[data-sponsor-demo-sector]')){
+  const chosen=option.getAttribute('data-sponsor-demo-sector')===demo.sector;
+  option.setAttribute('aria-pressed',String(chosen));
+ }
+ return true;
+}
+function sponsorDemoType(){
+ const input=document.getElementById('sponsor-demo-company');
+ if(!input)return false;
+ tamaoSponsorDemoState.company=sponsorDemoSafeText(input.value);
+ sponsorDemoSave();
+ return sponsorDemoPaint();
+}
+function sponsorDemoSelect(sector){
+ if(!Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_PRESETS,sector))return false;
+ tamaoSponsorDemoState.sector=sector;
+ sponsorDemoSave();
+ const painted=sponsorDemoPaint();
+ const status=document.getElementById('sponsor-demo-status');
+ if(status)status.textContent='Prévia ilustrativa para '+TAMAO_SPONSOR_DEMO_PRESETS[sector].label.toLowerCase()+' atualizada. Nenhuma campanha foi criada.';
+ return painted;
+}
+function sponsorDemoContinue(){
+ tamaoSponsorDemoState.preparing=true;
+ sponsorDemoSave();
+ const company=document.getElementById('sponsor-ad-company');
+ if(company&&!String(company.value||'').trim()&&tamaoSponsorDemoState.company.trim()){
+  company.value=tamaoSponsorDemoState.company.trim();
+  globalThis.tamaoAdsUpdateCreativePreview?.();
+ }
+ return sponsorJumpTo('sponsor-pricing');
+}
+// Used only to prefill an EMPTY campaign draft after explicit continuation.
+// Never fills a person's name, e-mail, phone, or payment fields.
+globalThis.tamaoSponsorDemoCompany=()=>tamaoSponsorDemoState.preparing?
+  tamaoSponsorDemoState.company.trim():'';
+sponsorDemoRestore();
+
 function sponsorJumpTo(id){
  if(!['sponsor-formats','sponsor-pricing','sponsor-faq','sponsor-placements','sponsor-account-step'].includes(id))return false;
  const section=document.getElementById(id);
@@ -10,6 +99,7 @@ function sponsorJumpTo(id){
  return true;
 }
 function sponsorsLandingPremium(){
+  const demo=sponsorDemoPresentation();
   return shell(`<section class="page tamao-sponsors-page sponsor-premium-v1090">
 <header class="tamao-sponsor-hero sponsor-premium-hero">
  <div class="sponsor-hero-layout">
@@ -18,7 +108,7 @@ function sponsorsLandingPremium(){
    <h1 class="page-title">Sua marca merece <em>ser vista</em> por quem vive a sua cidade.</h1>
    <p class="page-lead">Apresente sua empresa, seus serviços e suas novidades em um espaço pensado para conectar negócios e pessoas. Escolha a região e prepare sua campanha com clareza.</p>
    <div class="sponsor-premium-actions">
-    <button type="button" class="primary sponsor-premium-main-cta" onclick="sponsorJumpTo('sponsor-pricing')">Criar meu anúncio <span aria-hidden="true">→</span></button>
+    <button type="button" class="primary sponsor-premium-main-cta" onclick="sponsorDemoContinue()">Criar meu anúncio <span aria-hidden="true">→</span></button>
     <button type="button" class="sponsor-premium-link" onclick="sponsorJumpTo('sponsor-formats')">Conhecer os formatos <span aria-hidden="true">↗</span></button>
    </div>
    <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Envio sem pagamento</span></div>
@@ -28,13 +118,23 @@ function sponsorsLandingPremium(){
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
    <div class="sponsor-premium-ad-mock">
     <span class="sponsor-premium-ad-tag">PUBLICIDADE IDENTIFICADA</span>
-    <div class="sponsor-premium-ad-art" aria-hidden="true"><span class="sponsor-premium-ad-orbit"></span><span class="sponsor-premium-ad-shape">✦</span></div>
-    <span class="sponsor-premium-ad-brand">A SUA MARCA AQUI</span>
-    <strong>Seu negócio em destaque nas escolhas da cidade.</strong>
-    <p>Uma apresentação clara e profissional para o público conhecer sua empresa.</p>
+    <div class="sponsor-premium-ad-art" data-demo-sector="${demo.sector}" aria-hidden="true"><span class="sponsor-premium-ad-orbit"></span><span class="sponsor-premium-ad-shape" data-sponsor-demo="symbol">${sponsorDemoEscape(demo.symbol)}</span></div>
+    <span class="sponsor-premium-ad-brand" data-sponsor-demo="brand">${sponsorDemoEscape(demo.brand)}</span>
+    <strong data-sponsor-demo="headline">${sponsorDemoEscape(demo.headline)}</strong>
+    <p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p>
     <span class="sponsor-premium-ad-action">Conhecer a empresa <span aria-hidden="true">↗</span></span>
    </div>
    <p class="sponsor-premium-visual-note">Apresentação ilustrativa, não é anúncio publicado. Localização e exibição dependem de revisão e inventário disponível.</p>
+   <div class="sponsor-demo-panel">
+     <div class="sponsor-demo-panel-head"><strong>Veja a sua marca aqui</strong><small>Experimente sem cadastro e sem enviar dados.</small></div>
+     <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
+     <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
+     <div class="sponsor-demo-options" role="group" aria-label="Escolha o tipo de negócio">
+       ${Object.entries(TAMAO_SPONSOR_DEMO_PRESETS).map(([key,value])=>'<button type="button" data-sponsor-demo-sector="'+key+'" aria-pressed="'+String(demo.sector===key)+'" onclick="sponsorDemoSelect(\''+key+'\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
+     </div>
+     <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Continuar com minha marca <span aria-hidden="true">→</span></button>
+     <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">A prévia é privada e ilustrativa. O nome escolhido fica somente nesta aba.</p>
+   </div>
   </aside>
  </div>
 </header>
@@ -56,7 +156,7 @@ function sponsorsLandingPremium(){
    <div class="sponsor-placement-body">
     <div class="sponsor-placement-context"><span>NA PÁGINA INICIAL</span><strong>Descubra produtos, serviços e novidades na sua região.</strong></div>
     <div class="sponsor-placement-faux-products" aria-hidden="true"><span></span><span></span><span></span></div>
-    <div class="sponsor-placement-ad"><small>PUBLICIDADE · EMPRESA</small><strong>Sua empresa com uma mensagem clara.</strong><p>Um espaço para apresentar sua marca aos visitantes da cidade.</p><span>Conhecer a empresa ↗</span></div>
+    <div class="sponsor-placement-ad"><small>PUBLICIDADE · <span data-sponsor-demo="brand">${sponsorDemoEscape(demo.brand)}</span></small><strong data-sponsor-demo="headline">${sponsorDemoEscape(demo.headline)}</strong><p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p><span>Conhecer a empresa ↗</span></div>
    </div>
    <div class="sponsor-placement-caption"><strong>01 · Página inicial</strong><p>Um espaço contextual para campanhas elegíveis na navegação pública.</p></div>
   </article>
@@ -64,7 +164,7 @@ function sponsorsLandingPremium(){
    <div class="sponsor-placement-browser"><strong>TAMÃO</strong><small>Publicidade local</small><span aria-hidden="true">● ● ●</span></div>
    <div class="sponsor-placement-body sponsor-placement-body-brands">
     <div class="sponsor-placement-context"><span>NA ÁREA DE MARCAS</span><strong>Descubra iniciativas de empresas da região.</strong></div>
-    <div class="sponsor-placement-ad sponsor-placement-ad-brands"><small>PUBLICIDADE · EMPRESA</small><strong>Conheça o que sua marca oferece.</strong><p>Seu anúncio identificado e seu próprio site como destino.</p><span>Conhecer o anunciante ↗</span></div>
+    <div class="sponsor-placement-ad sponsor-placement-ad-brands"><small>PUBLICIDADE · <span data-sponsor-demo="brand">${sponsorDemoEscape(demo.brand)}</span></small><strong data-sponsor-demo="headline">${sponsorDemoEscape(demo.headline)}</strong><p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p><span>Conhecer o anunciante ↗</span></div>
     <div class="sponsor-placement-faux-lines" aria-hidden="true"><span></span><span></span></div>
    </div>
    <div class="sponsor-placement-caption"><strong>02 · Área de publicidade</strong><p>Outra oportunidade de apresentação quando houver inventário na cidade.</p></div>
