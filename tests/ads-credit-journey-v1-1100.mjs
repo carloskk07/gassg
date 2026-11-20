@@ -80,6 +80,22 @@ function harness(saved=storage()){
 
 // The actual public studio fills the new credit form after explicit continuation.
 {
+ const h=harness();await h.load();
+ Object.assign(h.fields['tamao-credit-c-advertiser'],{value:'Empresa privada A'});
+ h.fields['tamao-credit-c-title'].value='Proposta privada da conta anterior';
+ h.fields['tamao-credit-c-description'].value='Mensagem privada com detalhes da conta anterior.';
+ h.fields['tamao-credit-c-destination'].value='https://example.com';
+ h.fields['tamao-credit-c-city'].value='São Gabriel';
+ h.fields['tamao-credit-c-terms'].checked=true;
+ h.account('owner-b',2);
+ assert.equal(await h.context.tamaoCreditCampaignSubmit(),false,
+  'A click on an old form cannot submit its fields under a new account');
+ assert.equal(h.calls.length,1,'Stale DOM must be replaced before any submission');
+ assert.equal(h.state().data,null);
+}
+
+// The actual public studio fills the new credit form after explicit continuation.
+{
  const h=harness();await h.load();vm.runInContext(studio,h.context);
  h.context.sponsorJumpTo=()=>true;
  h.context.sponsorDemoContinue();

@@ -212,6 +212,9 @@ function tamaoCreditCampaignHtml(data){
 async function tamaoCreditCampaignSubmit(){
  const scope=tamaoCreditSyncOwner();
  if(tamaoCreditCampaignBusy||!tamaoCreditVerified())return false;
+ if(tamaoCreditMountedScope!==scope.actor+':'+scope.generation){
+  tamaoCreditPaint();return false;
+ }
  const val=id=>String(document.getElementById(id)?.value||'').trim();
  const advertiser=val('tamao-credit-c-advertiser'),title=val('tamao-credit-c-title'),
   description=val('tamao-credit-c-description'),city=val('tamao-credit-c-city'),
