@@ -167,6 +167,7 @@ function homeQuoteCouponRail(){
   '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>';
 }
 
+// TAMAO_GUEST_PRICE_LOADER_START
 // Deferred public pricing: no Auth SDK on the first home render.
 window.addEventListener('load',()=>{
  if(!globalThis.liveRequested?.())return;
@@ -176,3 +177,4 @@ window.addEventListener('load',()=>{
  el.src='./js/guest-price-board.js'+(v?'?v='+encodeURIComponent(v):'');
  el.async=true;document.head.appendChild(el);
 });
+// TAMAO_GUEST_PRICE_LOADER_END
