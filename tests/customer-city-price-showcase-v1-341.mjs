@@ -99,6 +99,8 @@ const real={
 };
 env=mkContext(real);
 html=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"confirmed"})',env);
+assert.match(html,/<details class="tamao-city-market" open>/,
+ 'A vitrine deve mostrar preços verificados imediatamente ao visitante, sem clique extra ou login');
 assert.match(html,/R\$ 118.90/);
 assert.match(html,/R\$ 126.00/);
 assert.match(html,/R\$ 18.50/);
