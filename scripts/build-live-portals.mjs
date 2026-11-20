@@ -551,6 +551,18 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.writeFileSync(homeQuote,compactReleasedHomeQuoteComments(fs.readFileSync(homeQuote,'utf8')),'utf8');
     }
     if(role==='merchant'){
+      // Public regional pricing loads on the customer portal only.
+      const homeFile=path.join(target,'js','home-showcase.js');
+      const homeSource=fs.readFileSync(homeFile,'utf8');
+      const open='// TAMAO_GUEST_PRICE_LOADER_START';
+      const close='// TAMAO_GUEST_PRICE_LOADER_END';
+      const from=homeSource.indexOf(open),to=homeSource.indexOf(close,from);
+      if(from<0||to<=from||homeSource.indexOf(open,from+1)>=0)
+        throw new Error('Customer-only pricing loader boundary changed');
+      fs.writeFileSync(homeFile,homeSource.slice(0,from)+homeSource.slice(to+close.length),'utf8');
+      fs.rmSync(path.join(target,'js','guest-price-board.js'),{force:true});
+    }
+    if(role==='merchant'){
       const merchantFile=path.join(target,'js','merchant.js');
       fs.writeFileSync(merchantFile,
         compactReleasedMerchantComments(fs.readFileSync(merchantFile,'utf8')),'utf8');

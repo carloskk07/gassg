@@ -166,3 +166,15 @@ function homeQuoteCouponRail(){
   '<div><strong>'+title+'</strong><p>'+message+'</p></div>'+
   '<button type="button" onclick="go(\'club\')">Ver cupons e Clube →</button></div>';
 }
+
+// TAMAO_GUEST_PRICE_LOADER_START
+// Deferred public pricing: no Auth SDK on the first home render.
+globalThis.addEventListener?.('load',()=>{
+ if(!globalThis.liveRequested?.())return;
+ const el=document.createElement('script');
+ const tag=document.querySelector('script[src*="home-showcase.js"]')?.src||'';
+ const v=tag?new URL(tag).searchParams.get('v'):'';
+ el.src='./js/guest-price-board.js'+(v?'?v='+encodeURIComponent(v):'');
+ el.async=true;document.head.appendChild(el);
+});
+// TAMAO_GUEST_PRICE_LOADER_END

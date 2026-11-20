@@ -39,10 +39,11 @@ function homeChooseMarketCity(){
   if(!/^[\p{L}\p{M} .'-]{2,80}$/u.test(name)||!/^[A-Z]{2}$/.test(uf))
     return toast('Informe o nome da cidade e a sigla do estado.');
   try{localStorage.setItem(TAMAO_HOME_REGION_KEY,JSON.stringify({city:name,state:uf}))}catch{}
-  // Changing a showcase never transfers cart, verified CEP, address or a quote.
   if(globalThis.liveRuntime)globalThis.liveRuntime.cityPriceSnapshot=null;
   render();
-  const pending=globalThis.liveRefreshCityPriceBoard?.({force:true});
+  const pending=!globalThis.liveReady?.()&&globalThis.tamaoGuestCityPriceBoard
+    ?globalThis.tamaoGuestCityPriceBoard()
+    :globalThis.liveRefreshCityPriceBoard?.({force:true});
   pending?.then?.(()=>render()).catch?.(()=>{});
 }
 

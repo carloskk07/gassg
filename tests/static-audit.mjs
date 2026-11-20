@@ -1876,6 +1876,19 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
       source.includes('ALLOWED_ORIGINS'),entry.name+' precisa consulta protegida');
     assert.ok(!source.includes('sendPushNotification')&&!source.includes('merchant_push_cron_tick'),
       entry.name+' só pode ler dados');
+  }else if(entry.name==='public-city-prices'){
+    assert.ok(source.includes('boundedJson(req,512)')&&
+      source.includes('getReader()')&&source.includes('total>maxBytes'),
+      'Preço regional público precisa leitura incremental de JSON com limite');
+    assert.ok(source.includes('consume_hashed_api_quota')&&
+      source.includes('p_limit:60,p_window_seconds:3600')&&
+      source.includes('req.headers.get("apikey")!==PUB')&&
+      source.includes('const ORIGINS=new Set'),
+      'Preço regional público exige quota por hash, chave e origem');
+    assert.ok(source.includes('public_city_price_board_v1_341')&&
+      source.includes('data.products.map')&&
+      !source.includes('admin.from(')&&!source.includes('auth.getUser'),
+      'Preço regional público só pode projetar dados agregados sem identidade');
   }else{
     assert.ok(source.includes('readJsonBody(req'),entry.name+' precisa usar leitura de JSON com limite');
     if(entry.name==='coupon-credit-pix')assert.ok(source.includes('readJsonBody(req,{maxBytes:4096})')&&

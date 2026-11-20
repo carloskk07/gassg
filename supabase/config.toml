@@ -128,3 +128,8 @@ verify_jwt = false
 # Public participant page read; owner writes require a verified Auth session inside the function.
 [functions.participant-pages]
 verify_jwt = false
+
+# V1.1087: public informational regional prices. Handler validates origin,
+# publishable key, rate limit and allowlisted output; no browser DB grants.
+[functions.public-city-prices]
+verify_jwt = false

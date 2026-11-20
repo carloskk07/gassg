@@ -603,7 +603,7 @@ function home(){
               ? 'Conectando ao serviço.'
               : 'Escolha os produtos e consulte ofertas para seu CEP.';
 
-  const disabled=!testDemo&&!ready&&!preview;
+  const disabled=!testDemo&&!ready&&!preview&&!globalThis.customerOriginSafe?.();
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
   const homeProductEntries=Object.entries(products)
     .filter(([code,p])=>!p.hidden&&(
