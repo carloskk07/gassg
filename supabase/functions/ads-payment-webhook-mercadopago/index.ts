@@ -80,7 +80,7 @@ Deno.serve(async(req:Request)=>{
   const detail=String(payment?.status_detail||"");
   if(String(payment?.id||"")!==paymentId||
     collectorId!==sellerId||
-    !(/^(?:tamao-ads-[0-9a-f]{32}-v[0-9]+|tamao-ads-ind-[0-9a-f]{32})$/.test(reference))||
+    !(/^(?:tamao-ads-[0-9a-f]{32}-v[0-9]+|tamao-ads-ind-[0-9a-f]{32}|tamao-ads-credit-[0-9a-f]{32})$/.test(reference))||
     currency!=="BRL"||amount===null||!Number.isSafeInteger(amount)||
     amount<1000||amount>5000000||
     providerStatus.length<3||providerStatus.length>48||detail.length>120)
@@ -89,6 +89,24 @@ Deno.serve(async(req:Request)=>{
     auth:{persistSession:false,autoRefreshToken:false}
   });
   const independent=/^tamao-ads-ind-[0-9a-f]{32}$/.test(reference);
+  const prepaid=/^tamao-ads-credit-[0-9a-f]{32}$/.test(reference);
+  if(prepaid){
+    // A signed webhook alone is not proof of a payment: we also GET the
+    // exact live Pix from the provider and match account/reference/amount.
+    if(payment?.live_mode!==true||payment?.payment_method_id!=="pix")
+      return json({error:"ADS_CREDIT_LIVE_PIX_REQUIRED"},403);
+    const key=await digest("ads-credit1097|"+paymentId+"|"+providerStatus+"|"+detail);
+    const {data,error}=await client.rpc("ads_credit_payment_fact_v1_1097",{
+      p_event_key:key,p_reference:reference,p_payment:paymentId,
+      p_collector:collectorId,p_amount:amount,
+      p_status:providerStatus,p_status_detail:detail,p_live:true
+    });
+    if(error)throw error;
+    if(data?.source!=="ads_credit_payment_fact_v1_1097")
+      return json({error:"ADS_CREDIT_LEDGER_UNVERIFIED"},503);
+    return json({ok:true,received:true,creditLedgerVerified:true,
+      status:data.status,recorded:data.recorded===true});
+  }
   if(!independent&&config.mode!=="dedicated")
     return json({ok:true,recorded:false,reason:"legacy_ads_disabled"});
   if(independent){
