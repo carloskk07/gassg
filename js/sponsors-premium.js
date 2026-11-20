@@ -1,18 +1,29 @@
 // TAMÃO V1.1090 — premium sponsor-only experience, loaded on demand.
 // Keeps the customer homepage lightweight; this module never enables billing.
 
-// V1.1092 — interactive ad showcase. Company names remain private to this tab.
+// V1.1094 — interactive creative studio, with explicit draft handoff and no live ad delivery.
 // Presets are illustrative, never a live booking, advertiser, or publication.
 const TAMAO_SPONSOR_DEMO_PRESETS=Object.freeze({
  commerce:Object.freeze({label:'Comércio',symbol:'◇',headline:'Novidades que vale a pena conhecer.',
-  copy:'Descubra produtos e novidades no site oficial da empresa.'}),
+  copy:'Descubra produtos e novidades no site oficial da empresa.',
+  newsHeadline:'Uma novidade especial para conhecer.',newsCopy:'Acompanhe os lançamentos e as novidades desta loja.',
+  visitHeadline:'Conheça o nosso espaço na internet.',visitCopy:'Explore o catálogo e as informações da empresa no site oficial.'}),
  services:Object.freeze({label:'Serviços',symbol:'✦',headline:'Conheça os serviços da nossa cidade.',
-  copy:'Saiba mais sobre o trabalho e os canais oficiais da empresa.'}),
+  copy:'Saiba mais sobre o trabalho e os canais oficiais da empresa.',
+  newsHeadline:'Tem novidade nos nossos serviços.',newsCopy:'Descubra novidades, especialidades e formas de atendimento.',
+  visitHeadline:'Descubra mais sobre nossos serviços.',visitCopy:'Conheça o trabalho da empresa e seus canais oficiais.'}),
  food:Object.freeze({label:'Gastronomia',symbol:'◉',headline:'Novos sabores para descobrir na cidade.',
-  copy:'Conheça o cardápio, as novidades e o site oficial do negócio.'})
+  copy:'Conheça o cardápio, as novidades e o site oficial do negócio.',
+  newsHeadline:'Uma novidade para quem gosta de comer bem.',newsCopy:'Descubra os sabores e novidades preparados pelo estabelecimento.',
+  visitHeadline:'Conheça nosso cardápio e novidades.',visitCopy:'Visite o site oficial para conhecer o cardápio e a empresa.'})
+});
+const TAMAO_SPONSOR_DEMO_GOALS=Object.freeze({
+ intro:Object.freeze({label:'Apresentar a marca'}),
+ news:Object.freeze({label:'Divulgar novidade'}),
+ visit:Object.freeze({label:'Atrair visitas'})
 });
 const TAMAO_SPONSOR_DEMO_KEY='tamao-sponsor-showcase-v1092';
-const tamaoSponsorDemoState={sector:'commerce',company:'',preparing:false};
+const tamaoSponsorDemoState={sector:'commerce',goal:'intro',company:'',message:'',preparing:false};
 function sponsorDemoSafeText(text){
  return String(text||'').replace(/[\u0000-\u001f\u007f]/g,'').slice(0,48);
 }
@@ -29,6 +40,10 @@ function sponsorDemoRestore(){
    tamaoSponsorDemoState.sector=data.sector;
   if(data&&typeof data.company==='string')
    tamaoSponsorDemoState.company=sponsorDemoSafeText(data.company);
+  if(data&&Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_GOALS,data.goal))
+   tamaoSponsorDemoState.goal=data.goal;
+  if(data&&typeof data.message==='string')
+   tamaoSponsorDemoState.message=sponsorDemoSafeText(data.message).replace(/\s+/g,' ').trim();
   tamaoSponsorDemoState.preparing=data?.preparing===true;
  }catch{}
 }
@@ -38,14 +53,20 @@ function sponsorDemoSave(){
  }catch{}
 }
 function sponsorDemoPresentation(){
- const sector=tamaoSponsorDemoState.sector;
+ const sector=tamaoSponsorDemoState.sector,goal=tamaoSponsorDemoState.goal;
  const data=TAMAO_SPONSOR_DEMO_PRESETS[sector]||TAMAO_SPONSOR_DEMO_PRESETS.commerce;
- return {sector,brand:tamaoSponsorDemoState.company.trim()||'A SUA MARCA AQUI',...data};
+ const brand=tamaoSponsorDemoState.company.trim()||'A SUA MARCA AQUI';
+ const first=[...tamaoSponsorDemoState.company.trim()].find(ch=>/[\p{L}\p{N}]/u.test(ch))||'M';
+ const headline=goal==='news'?data.newsHeadline:goal==='visit'?data.visitHeadline:data.headline;
+ const baseCopy=goal==='news'?data.newsCopy:goal==='visit'?data.visitCopy:data.copy;
+ return {sector,goal,brand,monogram:first.toLocaleUpperCase('pt-BR'),...data,
+  headline,copy:tamaoSponsorDemoState.message||baseCopy,
+  goalLabel:TAMAO_SPONSOR_DEMO_GOALS[goal]?.label||TAMAO_SPONSOR_DEMO_GOALS.intro.label};
 }
 function sponsorDemoPaint(){
  if(typeof document==='undefined')return false;
  const demo=sponsorDemoPresentation();
- for(const field of ['brand','headline','copy','label','symbol']){
+ for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram']){
   for(const element of document.querySelectorAll('[data-sponsor-demo="'+field+'"]'))
    element.textContent=String(demo[field]);
  }
@@ -53,6 +74,10 @@ function sponsorDemoPaint(){
  art?.setAttribute('data-demo-sector',demo.sector);
  for(const option of document.querySelectorAll('[data-sponsor-demo-sector]')){
   const chosen=option.getAttribute('data-sponsor-demo-sector')===demo.sector;
+  option.setAttribute('aria-pressed',String(chosen));
+ }
+ for(const option of document.querySelectorAll('[data-sponsor-demo-goal]')){
+  const chosen=option.getAttribute('data-sponsor-demo-goal')===demo.goal;
   option.setAttribute('aria-pressed',String(chosen));
  }
  return true;
@@ -73,20 +98,43 @@ function sponsorDemoSelect(sector){
  if(status)status.textContent='Prévia ilustrativa para '+TAMAO_SPONSOR_DEMO_PRESETS[sector].label.toLowerCase()+' atualizada. Nenhuma campanha foi criada.';
  return painted;
 }
+function sponsorDemoGoal(goal){
+ if(!Object.prototype.hasOwnProperty.call(TAMAO_SPONSOR_DEMO_GOALS,goal))return false;
+ tamaoSponsorDemoState.goal=goal;
+ sponsorDemoSave();
+ const painted=sponsorDemoPaint();
+ const status=document.getElementById('sponsor-demo-status');
+ if(status)status.textContent='Objetivo selecionado: '+TAMAO_SPONSOR_DEMO_GOALS[goal].label+'. Prévia privada atualizada.';
+ return painted;
+}
+function sponsorDemoMessage(){
+ const input=document.getElementById('sponsor-demo-message');
+ if(!input)return false;
+ tamaoSponsorDemoState.message=sponsorDemoSafeText(input.value).replace(/\s+/g,' ').trim();
+ sponsorDemoSave();
+ return sponsorDemoPaint();
+}
 function sponsorDemoContinue(){
  tamaoSponsorDemoState.preparing=true;
  sponsorDemoSave();
- const company=document.getElementById('sponsor-ad-company');
- if(company&&!String(company.value||'').trim()&&tamaoSponsorDemoState.company.trim()){
-  company.value=tamaoSponsorDemoState.company.trim();
-  globalThis.tamaoAdsUpdateCreativePreview?.();
+ const demo=sponsorDemoPresentation();
+ for(const [id,value] of [['sponsor-ad-company',tamaoSponsorDemoState.company.trim()],
+   ['sponsor-ad-title',demo.headline],['sponsor-ad-copy',demo.copy]]){
+  const input=document.getElementById(id);
+  if(input&&!String(input.value||'').trim()&&value)input.value=value;
  }
+ globalThis.tamaoAdsUpdateCreativePreview?.();
  return sponsorJumpTo('sponsor-pricing');
 }
 // Used only to prefill an EMPTY campaign draft after explicit continuation.
 // Never fills a person's name, e-mail, phone, or payment fields.
 globalThis.tamaoSponsorDemoCompany=()=>tamaoSponsorDemoState.preparing?
   tamaoSponsorDemoState.company.trim():'';
+globalThis.tamaoSponsorDemoCreative=()=>{
+ if(!tamaoSponsorDemoState.preparing)return null;
+ const demo=sponsorDemoPresentation();
+ return {headline:demo.headline,copy:demo.copy};
+};
 sponsorDemoRestore();
 
 function sponsorJumpTo(id){
@@ -118,7 +166,7 @@ function sponsorsLandingPremium(){
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
    <div class="sponsor-premium-ad-mock">
     <span class="sponsor-premium-ad-tag">PUBLICIDADE IDENTIFICADA</span>
-    <div class="sponsor-premium-ad-art" data-demo-sector="${demo.sector}" aria-hidden="true"><span class="sponsor-premium-ad-orbit"></span><span class="sponsor-premium-ad-shape" data-sponsor-demo="symbol">${sponsorDemoEscape(demo.symbol)}</span></div>
+    <div class="sponsor-premium-ad-art" data-demo-sector="${demo.sector}" aria-hidden="true"><span class="sponsor-premium-ad-orbit"></span><span class="sponsor-premium-ad-shape" data-sponsor-demo="monogram">${sponsorDemoEscape(demo.monogram)}</span><span class="sponsor-premium-art-caption" data-sponsor-demo="label">${sponsorDemoEscape(demo.label)}</span></div>
     <span class="sponsor-premium-ad-brand" data-sponsor-demo="brand">${sponsorDemoEscape(demo.brand)}</span>
     <strong data-sponsor-demo="headline">${sponsorDemoEscape(demo.headline)}</strong>
     <p data-sponsor-demo="copy">${sponsorDemoEscape(demo.copy)}</p>
@@ -127,17 +175,33 @@ function sponsorsLandingPremium(){
    <p class="sponsor-premium-visual-note">Apresentação ilustrativa, não é anúncio publicado. Localização e exibição dependem de revisão e inventário disponível.</p>
   </aside>
  </div>
-   <div class="sponsor-demo-panel">
-     <div class="sponsor-demo-panel-head"><strong>Veja a sua marca aqui</strong><small>Teste a apresentação sem criar conta.</small></div>
+   <div class="sponsor-demo-panel" aria-label="Estúdio interativo de anúncios">
+     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Veja sua campanha ganhar forma.</strong><small>Escolha, personalize e descubra como sua empresa pode aparecer.</small></div>
      <div class="sponsor-demo-name-field">
        <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
        <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
      </div>
-     <div class="sponsor-demo-options" role="group" aria-label="Escolha o tipo de negócio">
-       ${Object.entries(TAMAO_SPONSOR_DEMO_PRESETS).map(([key,value])=>'<button type="button" data-sponsor-demo-sector="'+key+'" aria-pressed="'+String(demo.sector===key)+'" onclick="sponsorDemoSelect(\''+key+'\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
+     <div class="sponsor-demo-sector-field">
+       <span class="sponsor-demo-control-label">Qual é seu segmento?</span>
+       <div class="sponsor-demo-options" role="group" aria-label="Escolha o tipo de negócio">
+         ${Object.entries(TAMAO_SPONSOR_DEMO_PRESETS).map(([key,value])=>'<button type="button" data-sponsor-demo-sector="'+key+'" aria-pressed="'+String(demo.sector===key)+'" onclick="sponsorDemoSelect(\\''+key+'\\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
+       </div>
      </div>
-     <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Continuar com minha marca <span aria-hidden="true">→</span></button>
-     <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">A prévia é privada e ilustrativa. O nome escolhido fica somente nesta aba.</p>
+     <div class="sponsor-demo-goals-field">
+       <span class="sponsor-demo-control-label">O que você quer divulgar?</span>
+       <div class="sponsor-demo-goals" role="group" aria-label="Objetivo da campanha">
+         ${Object.entries(TAMAO_SPONSOR_DEMO_GOALS).map(([key,value])=>'<button type="button" data-sponsor-demo-goal="'+key+'" aria-pressed="'+String(demo.goal===key)+'" onclick="sponsorDemoGoal(\\''+key+'\\')">'+sponsorDemoEscape(value.label)+'</button>').join('')}
+       </div>
+     </div>
+     <div class="sponsor-demo-message-field">
+       <label for="sponsor-demo-message">Sua mensagem <span>(opcional · até 48 caracteres)</span></label>
+       <input id="sponsor-demo-message" class="input" maxlength="48" type="text" placeholder="Ou use o texto sugerido ao lado" value="${sponsorDemoEscape(tamaoSponsorDemoState.message)}" oninput="sponsorDemoMessage()">
+     </div>
+     <div class="sponsor-demo-action">
+       <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Preparar esta campanha <span aria-hidden="true">→</span></button>
+       <small>Sem cadastro para testar. Sem cobrança ao continuar.</small>
+     </div>
+     <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">Prévia ilustrativa e privada: nenhum anúncio é publicado ou cobrado aqui.</p>
    </div>
 </header>
 <div class="sponsor-premium-trust-rail" aria-label="O que sua empresa encontra no TAMÃO">
