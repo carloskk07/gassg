@@ -1,3 +1,4 @@
+import {recordAdsCreditPayment} from "../_shared/ads-credit-payment.mjs";
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
@@ -95,13 +96,9 @@ Deno.serve(async(req:Request)=>{
     // exact live Pix from the provider and match account/reference/amount.
     if(payment?.live_mode!==true||payment?.payment_method_id!=="pix")
       return json({error:"ADS_CREDIT_LIVE_PIX_REQUIRED"},403);
-    const key=await digest("ads-credit1097|"+paymentId+"|"+providerStatus+"|"+detail);
-    const {data,error}=await client.rpc("ads_credit_payment_fact_v1_1097",{
-      p_event_key:key,p_reference:reference,p_payment:paymentId,
-      p_collector:collectorId,p_amount:amount,
-      p_status:providerStatus,p_status_detail:detail,p_live:true
+    const data=await recordAdsCreditPayment(client,payment,{
+      paymentId,reference,amount,sellerId
     });
-    if(error)throw error;
     if(data?.source!=="ads_credit_payment_fact_v1_1097")
       return json({error:"ADS_CREDIT_LEDGER_UNVERIFIED"},503);
     return json({ok:true,received:true,creditLedgerVerified:true,

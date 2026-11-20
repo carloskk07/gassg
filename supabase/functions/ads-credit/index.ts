@@ -1,8 +1,9 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
 import {readJsonBody,enforceApiQuota} from "../_shared/domain.js";
-import {mercadoPagoFetch,readMercadoPagoJson,moneyToCents} from "../_shared/mercadopago.js";
+import {mercadoPagoFetch,readMercadoPagoJson} from "../_shared/mercadopago.js";
 import {independentAdsCredentialConfig,verifyIndependentAdsSeller} from "../_shared/ads-platform-credentials.mjs";
+import {recordAdsCreditPayment} from "../_shared/ads-credit-payment.mjs";
 import {adsPixProof} from "../_shared/ads-native-pix.mjs";
 import {selectIndependentAdsPayment} from "../_shared/ads-independent-payment-search.mjs";
 
@@ -67,39 +68,37 @@ async function providerSearch(token:string,ref:string){
   encodeURIComponent(ref)+"&limit=10",{accessToken:token});
  if(!res.ok)throw Error("ADS_CREDIT_PROVIDER_SEARCH_FAILED");
  const listing:any=await readMercadoPagoJson(res);
- const choice=selectIndependentAdsPayment(listing,ref);
+ const choice=selectIndependentAdsPayment(listing,ref,"credit");
  if(choice.kind==="review")throw Error("ADS_CREDIT_MULTIPLE_PROVIDER_PAYMENTS");
  if(choice.kind==="none")return null;
  if(typeof choice.paymentId!=='string'||!/^\d{5,30}$/.test(choice.paymentId))
   throw Error("ADS_CREDIT_PROVIDER_ID_INVALID");
  return await getPayment(token,choice.paymentId);
 }
-async function finishPix(admin:any,row:any,p:any,sellerId:string){
+async function recordPayment(admin:any,row:any,p:any,sellerId:string){
+ return await recordAdsCreditPayment(admin,p,{paymentId:String(row.provider_payment_id||p.id),
+  reference:row.external_reference,amount:row.amount_cents,sellerId});
+}
+// When the PSP settles first, account for the payment without requiring a still-payable QR.
+async function handlePayment(admin:any,row:any,p:any,sellerId:string){
+ if(p.status!=="pending"||Date.parse(String(p.date_of_expiration||""))<=Date.now()+60000){
+  const fact=await recordPayment(admin,row,p,sellerId);
+  return {status:fact.status,topupId:row.id,amountCents:row.amount_cents};
+ }
  const proof=adsPixProof(p,row,sellerId);
- return await rpc(admin,"ads_credit_topup_attach_v1_1097",{
+ const attached=await rpc(admin,"ads_credit_topup_attach_v1_1097",{
   p_owner:row.owner_user_id,p_topup:row.id,p_payment:proof.id,
   p_collector:proof.collector,p_code:proof.code,p_expires:proof.expiresAt});
+ return {status:attached.status,topupId:row.id,amountCents:row.amount_cents,
+  pixCode:attached.pixCode,expiresAt:attached.expiresAt};
 }
-async function reconcile(admin:any,row:any,token:string,sellerId:string){
- const paymentId=String(row.provider_payment_id||"");
- if(!/^\d{5,30}$/.test(paymentId))
-  throw Error("ADS_CREDIT_PAYMENT_NOT_ATTACHED");
- const p=await getPayment(token,paymentId);
- if(p.live_mode!==true||p.external_reference!==row.external_reference||
-   moneyToCents(p.transaction_amount)!==row.amount_cents||p.currency_id!=="BRL"||
-   String(p.collector_id??p.collector?.id??"")!==sellerId||
-   p.payment_method_id!=="pix")
-   throw Error("ADS_CREDIT_PROVIDER_PROOF_INVALID");
- const detail=String(p.status_detail||"");
- if(detail.length>120)throw Error("ADS_CREDIT_STATUS_INVALID");
- const input="adscredit1097|"+paymentId+"|"+p.status+"|"+detail;
- const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(input));
- const eventKey=[...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,"0")).join("");
- return await rpc(admin,"ads_credit_payment_fact_v1_1097",{
-  p_event_key:eventKey,p_reference:row.external_reference,
-  p_payment:paymentId,p_collector:sellerId,p_amount:row.amount_cents,
-  p_status:String(p.status||""),p_status_detail:detail,p_live:true
- });
+async function recoverPayment(admin:any,row:any,token:string,sellerId:string){
+ const payment=row.provider_payment_id?await getPayment(token,row.provider_payment_id):
+  await providerSearch(token,row.external_reference);
+ if(payment)return await handlePayment(admin,row,payment,sellerId);
+ const closed=await rpc(admin,"ads_credit_close_unissued_v1_1101",{
+  p_owner:row.owner_user_id,p_topup:row.id});
+ return {status:closed.status,topupId:row.id,amountCents:row.amount_cents};
 }
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get("origin");
@@ -186,8 +185,8 @@ Deno.serve(async(req:Request)=>{
     .eq("id",topupId).eq("owner_user_id",user.id).maybeSingle();
    if(error)throw error;
    if(!row)return respond({error:"TOPUP_NOT_FOUND"},404,origin);
-   const status=await reconcile(admin,row,token,sellerId);
-   return respond(status,200,origin);
+   const recovered=await recoverPayment(admin,row,token,sellerId);
+   return respond({...recovered,source:"ads_credit_payment_fact_v1_1097"},200,origin);
   }
   const requestId=String(body.requestId||"");
   const amount=Number(body.amountCents);
@@ -200,31 +199,26 @@ Deno.serve(async(req:Request)=>{
    .select("*").eq("id",reserved.topupId).eq("owner_user_id",user.id).maybeSingle();
   if(error||!row||row.external_reference!==reserved.externalReference||
     row.amount_cents!==amount)throw Error("ADS_CREDIT_RESERVATION_MISMATCH");
-  if(row.status==="approved"||row.status==="reversed"||row.status==="review_required")
-   return respond({source:"ads_credit_topup_v1_1097",status:row.status},200,origin);
-  if(row.status==="pix_pending"){
-   if(Date.parse(String(row.pix_expires_at))>Date.now()+60000){
-    return respond({source:"ads_credit_topup_v1_1097",status:"pix_pending",
-     topupId:row.id,pixCode:row.pix_code,expiresAt:row.pix_expires_at,
-     amountCents:row.amount_cents,reused:true},200,origin);
-   }
-   return respond({error:"ADS_CREDIT_PIX_EXPIRED",
-    message:"Esta cobrança expirou. Confira a conciliação antes de criar outra."},409,origin);
-  }
+  const result=(data:any,reused=true)=>respond({...data,source:"ads_credit_topup_v1_1097",reused},200,origin);
+  if(["approved","reversed","review_required","unpaid","closed_unissued"].includes(row.status))
+   return result({status:row.status,topupId:row.id,amountCents:amount});
+  if(row.status==="pix_pending"&&Date.parse(String(row.pix_expires_at))>Date.now()+60000)
+   return result({status:row.status,topupId:row.id,amountCents:amount,pixCode:row.pix_code,
+    expiresAt:row.pix_expires_at});
+  const expiry=Date.parse(row.created_at)+86400000;
+  if(row.status!=="reserved"||!Number.isFinite(expiry)||expiry<=Date.now()+60000)
+   return result(await recoverPayment(admin,row,token,sellerId));
+  // Look up the unique reference before claiming the one permitted POST. A read
+  // outage therefore leaves a retryable reservation, not a stranded charge.
+  if(typeof user.email!=="string"||!/^\S+@\S+\.\S+$/.test(user.email))
+   return respond({error:"VERIFIED_EMAIL_REQUIRED"},401,origin);
+  let payment=await providerSearch(token,row.external_reference);
   const claim=await rpc(admin,"ads_credit_topup_claim_v1_1097",{
    p_owner:user.id,p_topup:row.id});
-  if(claim.canCreate!==true&&claim.status!=="creating")
-   return respond({error:"ADS_CREDIT_INTENTION_REVIEW_REQUIRED"},409,origin);
-  // An already-claimed reservation may have created a payment before a timeout.
-  // Recovery checks MP; it NEVER repeats the POST.
-  let payment=await providerSearch(token,row.external_reference);
+  if(claim.canCreate!==true)
+   return result({status:claim.status,topupId:row.id,amountCents:amount});
   if(!payment){
-   if(claim.canCreate!==true)
-    return respond({error:"ADS_CREDIT_PAYMENT_PENDING",
-     message:"A confirmação do provedor ainda não apareceu; não foi criado outro Pix."},409,origin);
-   if(typeof user.email!=="string"||!/^\S+@\S+\.\S+$/.test(user.email))
-    return respond({error:"VERIFIED_EMAIL_REQUIRED"},401,origin);
-   const expiresAt=new Date(Date.now()+86400000).toISOString();
+   const expiresAt=new Date(expiry).toISOString();
    const response=await mercadoPagoFetch("/v1/payments",{
     accessToken:token,method:"POST",
     idempotencyKey:"tamao-credit-"+requestId,
@@ -241,16 +235,15 @@ Deno.serve(async(req:Request)=>{
     throw Error("ADS_CREDIT_PAYMENT_ID_UNCONFIRMED");
    payment=await getPayment(token,String(created.id));
   }
-  const attached=await finishPix(admin,row,payment,sellerId);
-  return respond({source:"ads_credit_topup_v1_1097",
-   status:"pix_pending",topupId:row.id,amountCents:amount,
-   pixCode:attached.pixCode,expiresAt:attached.expiresAt,
-   reused:claim.canCreate!==true},200,origin);
+  return result(await handlePayment(admin,row,payment,sellerId),false);
  }catch(e){
   const message=String((e as any)?.message||"");
   if(message.includes("ADS_CREDIT_RECHARGE_DISABLED"))
    return respond({error:"ADS_CREDIT_RECHARGE_DISABLED",
     message:"As novas recargas aguardam validação financeira."},409,origin);
+  if(message.includes("ADS_CREDIT_PENDING_TOPUP_EXISTS")||message.includes("ADS_CREDIT_MULTIPLE_PROVIDER_PAYMENTS"))
+   return respond({error:"ADS_CREDIT_PAYMENT_PENDING",
+    message:"Há uma recarga em conferência. Consulte o histórico antes de emitir outro Pix."},409,origin);
   console.error("ads-credit payment",e instanceof Error?e.name:"unknown");
   return respond({error:"ADS_CREDIT_OPERATION_UNAVAILABLE",
    message:"Não foi possível confirmar a operação. Consulte o saldo antes de tentar novamente."},503,origin);

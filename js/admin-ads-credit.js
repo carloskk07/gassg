@@ -58,16 +58,17 @@ function adminCreditAdsPanel(){
  const money=value=>adminMoney(Number(value)||0);
  const names={submitted:'Em análise',approved:'Aprovada',active:'Em divulgação',
   paused:'Pausada',rejected:'Rejeitada',ended:'Encerrada'};
+ const deliveryOpen=current&&data.gate.rechargeEnabled===true&&data.gate.billingEnabled===true&&data.gate.evidenceEnabled===true;
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
   const options=status==='submitted'?[['approve','Aprovar anúncio'],['reject','Rejeitar']]:
-   status==='approved'?[['publish','Publicar com saldo'],['reject','Rejeitar']]:
+   status==='approved'?[...(deliveryOpen?[['publish','Publicar com saldo']]:[]),['reject','Rejeitar'],['end','Encerrar']]:
    status==='active'?[['pause','Pausar'],['end','Encerrar']]:
-   status==='paused'?[['resume','Retomar com saldo'],['end','Encerrar']]:[];
+   status==='paused'?[...(deliveryOpen?[['resume','Retomar com saldo']]:[]),['end','Encerrar']]:[];
   if(!options.length)return '';
   const id=String(c.id||'');
-  return '<fieldset><legend>Escolha a ação</legend>'+
+  return ((!deliveryOpen&&['approved','paused'].includes(status))?'<p>O anúncio pode entrar em divulgação quando a cobrança por visualização estiver liberada.</p>':'')+'<fieldset><legend>Escolha a ação</legend>'+
    options.map(([v,label])=>'<label class="admin-option-row"><input type="radio" name="credit-admin-'+id+
      '" value="'+v+'"> '+label+'</label>').join('')+'</fieldset>'+
    '<label class="input-wrap" for="credit-reason-'+id+'">Motivo da decisão'+
@@ -135,6 +136,10 @@ async function adminCreditAdsDecide(id,version){
  if(!row||!['approve','reject','publish','pause','resume','end'].includes(decision)||
     document.getElementById('credit-ack-'+id)?.checked!==true)
   return toast('Marque uma decisão e confirme que revisou a campanha.');
+ if(!['superadmin','compliance'].includes(adminCurrentRole()))return false;
+ const gate=adminCreditAdsState.gate;
+ if(['publish','resume'].includes(decision)&&!(gate?.rechargeEnabled&&gate.billingEnabled&&gate.evidenceEnabled))
+  return toast('A divulgação por créditos aguarda a liberação financeira.');
  const manuallyEntered=String(document.getElementById('credit-reason-'+id)?.value||'')
   .trim().replace(/\s+/g,' ').slice(0,500);
  if(['reject','end'].includes(decision)&&manuallyEntered.length<12)

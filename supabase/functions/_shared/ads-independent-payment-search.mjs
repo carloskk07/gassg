@@ -1,8 +1,10 @@
 // TAMÃO Ads V1.891: only a uniquely paginated provider payment is reconcilable.
-export function selectIndependentAdsPayment(listing,reference){
+export function selectIndependentAdsPayment(listing,reference,kind="legacy"){
  const paging=listing?.paging;
  const results=listing?.results;
- if(!/^tamao-ads-ind-[0-9a-f]{32}$/.test(String(reference||""))||
+ const valid=kind==="legacy"?/^tamao-ads-ind-[0-9a-f]{32}$/:
+  kind==="credit"?/^tamao-ads-credit-[0-9a-f]{32}$/:null;
+ if(!valid?.test(String(reference||""))||
     !Array.isArray(results)||!Number.isSafeInteger(paging?.total)||
     paging.total<0||!Number.isSafeInteger(paging?.offset)||paging.offset!==0)
   return {kind:"review"};
