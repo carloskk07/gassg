@@ -79,7 +79,23 @@ function tamaoAdsBudgetRequest(){
     ' impressões verificadas, sem promessa de entrega. Solicito avaliar inventário e condições antes de qualquer cobrança.';
   openSponsorContact('visibility',detail);
 }
+// Load wallet UI only on the advertiser page; no anonymous identity is created.
+function tamaoAdsCreditsLoad(){
+ if(typeof document?.createElement!=='function'||typeof setTimeout!=='function')return;
+ if(globalThis.tamaoCreditBoot){setTimeout(()=>globalThis.tamaoCreditBoot?.(),0);return}
+ if(globalThis.tamaoCreditLoading)return;
+ globalThis.tamaoCreditLoading=true;
+ const src=document.querySelector('script[src*="ads-planner.js"]')?.src||
+  location.origin+'/js/ads-planner.js';
+ const tag=document.createElement('script');
+ tag.src=new URL('ads-credits.js'+new URL(src).search,src).href;
+ tag.onload=()=>{globalThis.tamaoCreditLoading=false;
+  setTimeout(()=>globalThis.tamaoCreditBoot?.(),0)};
+ tag.onerror=()=>{globalThis.tamaoCreditLoading=false};
+ document.head.append(tag);
+}
 function tamaoAdsPlannerSection(){
+ tamaoAdsCreditsLoad();
   // The visitor can carry a deliberately selected preview plan into this real
   // form. The official whitelist remains authoritative; this never charges.
   const requestedBudget=Number(globalThis.tamaoSponsorDemoBudget?.()||4990);
