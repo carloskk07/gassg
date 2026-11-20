@@ -154,6 +154,10 @@ BEGIN
  ELSE
   INSERT INTO public.ads_credit_wallets_v1_1097(owner_user_id) VALUES(p_owner)
    ON CONFLICT(owner_user_id) DO NOTHING;
+  -- Serialize two different recarga requests for the same owner before
+  -- checking for a pending Pix. A reused request remains idempotent.
+  PERFORM 1 FROM public.ads_credit_wallets_v1_1097
+   WHERE owner_user_id=p_owner FOR UPDATE;
   IF EXISTS(SELECT 1 FROM public.ads_credit_wallets_v1_1097
    WHERE owner_user_id=p_owner AND frozen)
   THEN RAISE EXCEPTION 'ADS_CREDIT_WALLET_FROZEN' USING errcode='42501';END IF;
