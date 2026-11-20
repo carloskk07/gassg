@@ -18,7 +18,8 @@ function tamaoCreditPixHtml(pix){
  return '<section class="tamao-credit-pix" aria-label="Pagamento Pix da recarga">'+
   '<h4>Pix da recarga</h4><p>Confira '+tamaoCreditMoney(pix.amountCents)+
   ' e pague pelo app do seu banco. O saldo será liberado após a confirmação do provedor.</p>'+
-  qr+'<label>Pix copia e cola<textarea id="tamao-credit-pix-code" class="input" readonly rows="3">'+
+  (qr||'<div id="tamao-credit-qrcode" role="img" aria-label="QR Code para pagar a recarga" class="tamao-credit-qr-placeholder">Gerando QR Code…</div>')+
+  '<label>Pix copia e cola<textarea id="tamao-credit-pix-code" class="input" readonly rows="3">'+
   safeCode+'</textarea></label><button type="button" class="secondary" onclick="tamaoCreditCopyPix()">Copiar Pix</button>'+
   '<button type="button" class="secondary" onclick="tamaoCreditReconcile(\''+
   tamaoCreditEscape(pix.topupId)+'\')">Conferir pagamento</button></section>';
@@ -204,9 +205,40 @@ function tamaoCreditMarkup(){
   '<small>Os créditos não são sacáveis nem transferíveis pela rotina normal. Questões legais, contestações de pagamento e correções de cobrança seguem os procedimentos aplicáveis.</small>'+
   '</section>';
 }
+let tamaoCreditQrLoader=null;
+async function tamaoCreditRenderQr(){
+ const target=document.getElementById('tamao-credit-qrcode');
+ const code=String(tamaoCreditState.pix?.pixCode||'');
+ if(!target||!code)return false;
+ if(typeof globalThis.qrcode!=='function'){
+  if(!tamaoCreditQrLoader){
+   tamaoCreditQrLoader=new Promise(resolve=>{
+    const script=document.createElement('script');
+    const src=document.querySelector('script[src*="ads-credits.js"]')?.src||
+       location.origin+'/js/ads-credits.js';
+    script.src=new URL('qr-generator.js'+new URL(src).search,src).href;
+    script.onload=()=>resolve(typeof globalThis.qrcode==='function');
+    script.onerror=()=>resolve(false);
+    document.head.append(script);
+   });
+  }
+  if(!await tamaoCreditQrLoader)return false;
+ }
+ if(document.getElementById('tamao-credit-qrcode')!==target)return false;
+ try{
+  const qr=globalThis.qrcode(0,'M');
+  qr.addData(code);qr.make();
+  target.innerHTML=qr.createSvgTag({cellSize:5,margin:2,scalable:true});
+  const svg=target.querySelector('svg');
+  if(svg){svg.setAttribute('aria-label','Pix da recarga de publicidade TAMÃO');
+   svg.setAttribute('role','img');svg.style.maxWidth='225px';svg.style.width='100%';}
+  return true;
+ }catch{target.textContent='QR indisponível. Use o Pix copia e cola abaixo.';return false;}
+}
 function tamaoCreditPaint(){
  const el=document.getElementById('tamao-credit-mount');
- if(el)el.innerHTML=tamaoCreditMarkup();
+ if(el){el.innerHTML=tamaoCreditMarkup();
+  tamaoCreditRenderQr().catch(()=>{});}
 }
 async function tamaoCreditRefresh(){
  if(!tamaoCreditVerified()){tamaoCreditState.actor='';tamaoCreditState.data=null;
