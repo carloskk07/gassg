@@ -1340,7 +1340,7 @@ jobs:
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
           grep -Fq 'Você controla preços, estoque, pagamentos e entregas.' /tmp/merchants.html
-          grep -Fq 'Sua marca mais presente nas escolhas da cidade.' /tmp/sponsors.html
+          grep -Fq 'Sua marca merece' /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
           grep -Fq 'Mais clientes descobrindo sua revenda.' /tmp/merchants.html
           grep -Fq 'Recebimento direto na revenda' /tmp/merchants.html
