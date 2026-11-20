@@ -202,7 +202,7 @@ function homeQuoteSyncPostal(input){
  const digits=String(input.value||'').replace(/\D/g,'').slice(0,8);
  const formatted=digits.length>5?digits.slice(0,5)+'-'+digits.slice(5):digits;
  input.value=formatted;
-
+ // Hide a previous server quote as soon as someone edits a different CEP.
  if(digits!==String(state.postalCode||'').replace(/\D/g,'')){
   globalThis.liveInvalidateOfferAddressDraft?.();
   homeQuoteUpdateBasket();
@@ -247,12 +247,13 @@ function homeQuoteGoToOrder(){
  go('order');return true;
 }
 
+// Product-only one-tap addition: no address requirement or claimed live price.
 function homeQuoteQuickAdd(code){
  const sku=String(code||'').trim().toUpperCase();
  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(sku)||!products[sku]||products[sku].hidden){
   toast('Este produto não está disponível para selecionar.');return false;
  }
-
+ // Only the currently displayed city quote can provide this control.
  if(!document.querySelector?.('[data-city-quote-code="'+sku+'"]'))return false;
  const current=Number(state.cart?.[sku]||0);
  if(!Number.isInteger(current)||current<0||current>=99){
@@ -600,11 +601,9 @@ function home(){
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : globalThis.liveRuntime?.status==='loading'
               ? 'Conectando ao serviço.'
-              : liveRuntime?.status==='guest'
-                ? 'Veja preços regionais. Confirme sua conta para consultar entrega e total.'
-                : 'Escolha os produtos e consulte ofertas para seu CEP.';
+              : 'Escolha os produtos e consulte ofertas para seu CEP.';
 
-  const disabled=!testDemo&&!ready&&!preview&&liveRuntime?.status!=='guest';
+  const disabled=!testDemo&&!ready&&!preview&&!customerOriginSafe();
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
   const homeProductEntries=Object.entries(products)
     .filter(([code,p])=>!p.hidden&&(
