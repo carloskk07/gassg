@@ -63,15 +63,21 @@ assert.match(showcase,/Ver cupons e Clube/);
 
 // Seller-facing landing and sponsor landing each have a clear action and
 // transparent commercial conditions, not an unverified purchase promise.
-const sponsor=growth.slice(growth.indexOf('function sponsorsLanding(){'),growth.indexOf('function merchantsLanding(){'));
+const sponsor=read('js/sponsors-premium.js');
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('function merchantJoin(){'));
-assert.match(sponsor,/public-sponsor-selector-intro/);
+assert.match(growth,/function tamaoSponsorPremiumLoad/);
+assert.match(growth,/sponsors-premium\.js/);
+assert.match(sponsor,/sponsor-premium-hero/);
+assert.match(sponsor,/PUBLICIDADE IDENTIFICADA/);
+assert.match(sponsor,/sponsor-premium-faq/);
 assert.equal((sponsor.match(/class="sponsor-format-grid"/g)||[]).length,1);
-for(const type of ['visibility','relationship','local'])
+for(const type of ['relationship','local'])
  assert.ok(sponsor.includes("openSponsorContact('"+type+"')"));
-assert.match(sponsor,/EXEMPLO DE FORMATO/);
-assert.match(sponsor,/A publicação depende de inventário disponível/,
- 'O benefício de divulgação não pode prometer inventário inexistente');
+assert.ok(sponsor.includes("Criar anúncio da minha empresa")&&sponsor.includes("sponsorJumpTo('sponsor-pricing')"),
+ 'Direct advertiser creation must not detour through generic contact');
+assert.match(sponsor,/Apresentação ilustrativa, não é anúncio publicado/);
+assert.match(sponsor,/inventário disponível/,
+ 'A divulgação não pode prometer inventário inexistente');
 assert.match(merchant,/merchant-conversion-start/);
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
 assert.match(merchant,/Você controla preços, estoque, pagamentos e entregas/,

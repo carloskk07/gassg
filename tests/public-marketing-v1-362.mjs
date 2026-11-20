@@ -32,7 +32,9 @@ assert.ok(home.includes('home-first-visit'),
  'unserved markets must keep honest first-visit path');
 
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('\nfunction merchantJoin(){'));
-const sponsors=growth.slice(growth.indexOf('function sponsorsLanding(){'),growth.indexOf('\nfunction ',growth.indexOf('function sponsorsLanding(){')+1));
+const sponsors=read('js/sponsors-premium.js');
+assert.match(growth,/function tamaoSponsorPremiumLoad/);
+assert.match(growth,/sponsors-premium\.js/);
 const learn=growth.slice(growth.indexOf('function learn(){'),growth.indexOf('\nfunction ',growth.indexOf('function learn(){')+1));
 const earn=growth.slice(growth.indexOf('function earn(){'),growth.indexOf('\nfunction ',growth.indexOf('function earn(){')+1));
 assert.ok(merchant.includes("openMerchantPortal(true)"),'primary merchant action opens live registration');
@@ -96,9 +98,11 @@ assert.ok(read('js/acquisition.js').includes('id="partner-interest"'),'merchant 
 assert.match(learn,/buyer-jump-rail/);
 assert.match(learn,/id="buyer-guide-steps" tabindex="-1"/);
 assert.match(learn,/id="buyer-guide-questions" tabindex="-1"/);
-for(const key of ['visibility','relationship','local'])
-  assert.ok(sponsors.includes("openSponsorContact('"+key+"')"),'missing sponsor contact action '+key);
-assert.match(sponsors,/public-sponsor-selector-intro/);
+for(const key of ['relationship','local'])
+  assert.ok(sponsors.includes("openSponsorContact('"+key+"')"),'missing sponsor partnership action '+key);
+assert.ok(sponsors.includes("Criar anúncio da minha empresa")&&sponsors.includes("sponsorJumpTo('sponsor-pricing')"),
+  'independent advertiser needs direct creation rather than generic contact');
+assert.match(sponsors,/sponsor-premium-formats/);
 assert.ok(core.includes('sponsors'),'public sponsor route preserved');
 const bootstrap=read('js/bootstrap.js');
 assert.ok(bootstrap.includes('openSponsorContact,publicLandingJump,startOrder'),

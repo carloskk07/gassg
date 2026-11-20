@@ -11,7 +11,11 @@ for(const [name,source] of Object.entries({planner,display,growth,home,admin,adm
  assert.doesNotThrow(()=>new vm.Script(source,{filename:name+'.js'}),'Invalid '+name);
 assert.match(planner,/function tamaoAdsCampaignForm\(\)/);
 assert.match(planner,/tamaoAdsAccountVerified\(\)/);
-assert.match(planner,/liveUpgradeAccount\(email\)/);
+assert.match(planner,/liveUpgradeAccount\(email,\{fullName,phone,returnToSponsor:true\}\)/);
+assert.match(planner,/tamaoClubSendAccess\(email,\{returnToSponsor:true\}\)/);
+assert.match(planner,/sponsor-account-name/);
+assert.match(planner,/sponsor-account-phone/);
+assert.match(planner,/sponsor-account-login-email/);
 assert.match(planner,/async function tamaoAdsSubmitCampaign\(\)/);
 assert.match(planner,/liveInvoke\('ads-independent'/);
 assert.match(planner,/action:'submit',requestId:tamaoAdsDraftRequestId/);

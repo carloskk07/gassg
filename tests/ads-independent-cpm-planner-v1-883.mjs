@@ -8,7 +8,8 @@ const audit=read('supabase/migrations/20261013235900_ads_placement_gate_v1_236.s
 const contract=read('supabase/migrations/20261016030000_ads_sales_planning_v1_309.sql');
 const section=read('js/ads-planner.js');
 assert.match(growth,/function tamaoAdsPlannerLoad\(\)/);
-assert.match(growth,/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(read('js/sponsors-premium.js'),/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
 assert.match(growth,/new URL\('ads-planner\.js'\+\(current\?new URL\(current\)\.search/);
 assert.ok(!growth.includes('TAMAO_ADS_PROPOSED_CPM_CENTS'),
   'CPM planner must not increase initial customer JavaScript budget');
@@ -36,10 +37,11 @@ for(const label of [
  'CPM em avaliação','Cobrança agora','R$ 12,00','R$ 0,00',
  'tamaoAdsBudgetQuote()','tamaoAdsBudgetRequest()',
  '50% do anúncio visível durante 1 segundo contínuo',
- 'Sem garantia de entrega ou cobrança nesta etapa',
+ 'O envio da proposta não gera cobrança nem garante exibição',
  'Publicidade regional é independente de cadastrar uma revenda'
 ])assert.ok(html.includes(label),'missing truthful planning terms: '+label);
-assert.match(growth,/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(read('js/sponsors-premium.js'),/globalThis\.tamaoAdsPlannerSection\?\.\(\)/);
+assert.match(growth,/sponsors-premium\.js/);
 assert.ok(section.includes("openSponsorContact('visibility',detail)"));
 assert.match(audit,/public_enabled boolean not null default false check\(public_enabled=false\)/);
 assert.match(audit,/billing_enabled boolean not null default false check\(billing_enabled=false\)/);
@@ -57,10 +59,10 @@ const values={
 };
 sandbox.document={getElementById:id=>values[id]||null};
 sandbox.update();
-assert.match(values['sponsor-cpm-result'].textContent,/4\.158 visualizações verificadas/);
+assert.match(values['sponsor-cpm-result'].textContent,/R\$ 49,90 por 15 dias/);
 values['sponsor-cpm-budget'].value='1990';
 sandbox.update();
-assert.match(values['sponsor-cpm-result'].textContent,/1\.658 visualizações verificadas/);
+assert.match(values['sponsor-cpm-result'].textContent,/R\$ 19,90 por 7 dias/);
 values['sponsor-cpm-budget'].value='4990';
 let outbound=null;
 sandbox.openSponsorContact=(kind,brief)=>{outbound={kind,brief}};

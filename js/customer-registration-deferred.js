@@ -1,4 +1,4 @@
-async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone='',returnToCheckout=false}={}){
+async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone='',returnToCheckout=false,returnToSponsor=false}={}){
   if(!liveRuntime?.client?.auth||!customerOriginSafe())
     throw new Error('Cadastro indisponível no endereço atual.');
   const value=String(email||'').trim().toLowerCase();
@@ -39,7 +39,7 @@ async function tamaoRegisterIdentifiedAccount(email,{fullName='',phone='',return
   const captchaToken=await globalThis.chamaTurnstile.challenge('customer_login');
   if(!captchaToken)throw Error('Verificação de segurança indisponível.');
   const redirect=new URL('/',location.origin);
-  redirect.searchParams.set('entrada',returnToCheckout?'pedido':'clube');
+  redirect.searchParams.set('entrada',returnToSponsor?'marca':(returnToCheckout?'pedido':'clube'));
   const {error}=await liveRuntime.client.auth.signInWithOtp({
     email:value,options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true,
       captchaToken,data:profile}

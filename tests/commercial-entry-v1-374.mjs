@@ -13,30 +13,37 @@ const first=growth.indexOf('function sponsorsLanding(){');
 const second=growth.indexOf('function merchantsLanding(){',first);
 const end=growth.indexOf('\nfunction merchantJoin(){',second);
 assert.ok(first>=0&&second>first&&end>second);
-const sponsor=growth.slice(first,second);
+const sponsor=read('js/sponsors-premium.js');
 const merchant=growth.slice(second,end);
-
-// V1.969: one sponsor contact CTA above the public price planner; each
-// specific commercial objective appears ONCE after that verified planner.
-const sponsorSandbox=vm.createContext({shell:x=>x});
-vm.runInContext(sponsor+'\nthis.page=sponsorsLanding;',sponsorSandbox);
+assert.match(growth,/sponsors-premium\.js/);
+const sponsorSandbox=vm.createContext({shell:x=>x,globalThis:{
+ tamaoAdsPlannerLoad:()=>{},
+ tamaoAdsPlannerSection:()=>'<section id="sponsor-real-campaign-form"></section>'
+}});
+vm.runInContext(sponsor+'\nthis.page=sponsorsLandingPremium;',sponsorSandbox);
 const sponsorHtml=sponsorSandbox.page();
-const heroEnd=sponsorHtml.indexOf('public-sponsor-selector-intro');
-assert.ok(heroEnd>0);
+const heroEnd=sponsorHtml.indexOf('id="sponsor-pricing"');
+assert.ok(heroEnd>0,'Premium commercial story must precede technical budget planner');
 const hero=sponsorHtml.slice(0,heroEnd);
 assert.ok(!hero.includes('sponsor-intent-quick'),
- 'no duplicate three-choice selector in the hero');
-assert.ok(hero.includes('Sua marca mais presente nas escolhas da cidade.') && sponsorHtml.includes('A publicação depende de inventário disponível.'),
- 'Proposta de divulgação acolhedora sem prometer inventário inexistente');
+ 'No duplicate choice selector in the sponsor hero');
+assert.ok(hero.includes('Sua marca merece')&&sponsorHtml.includes('inventário disponível'),
+ 'Explain value without promising unproven inventory');
 assert.ok(sponsorHtml.includes('sponsor-format-grid'));
-assert.ok(sponsorHtml.includes('Que tipo de divulgação você procura?'));
-for(const intent of ['visibility','relationship','local']){
+assert.ok(sponsorHtml.includes('Publicidade para diferentes momentos'));
+assert.ok(sponsorHtml.includes('sponsor-real-campaign-form'));
+for(const intent of ['relationship','local']){
   assert.equal(sponsorHtml.split("openSponsorContact('"+intent+"')").length-1,1,
-   'the original detailed sponsor format must be selectable exactly once: '+intent);
+   'Sponsor partnership objectives have one real action: '+intent);
 }
-assert.ok(hero.includes('openSponsorContact()'),'generic contact also available');
-assert.ok(sponsorHtml.includes('sponsor-visual-story'),'conceptual visual remains');
-assert.ok(sponsorHtml.includes('EXEMPLO DE FORMATO'),'example labeling remains');
+assert.ok(sponsorHtml.includes("sponsorJumpTo('sponsor-pricing')") &&
+ sponsorHtml.includes('Criar anúncio da minha empresa'),
+ 'Independent advertiser must go directly to real campaign creation');
+assert.equal(sponsorHtml.split('openSponsorContact()').length-1,1,
+ 'Generic commercial contact must remain available, not duplicated');
+assert.ok(sponsorHtml.includes('sponsor-premium-visual'));
+assert.ok(sponsorHtml.includes('PUBLICIDADE IDENTIFICADA'));
+assert.ok(sponsorHtml.includes('Apresentação ilustrativa, não é anúncio publicado'));
 assert.ok(!/resultados garantidos|milhares de clientes garantidos/i.test(sponsorHtml));
 
 // Merchant onboarding starts immediately after commercial proposition,

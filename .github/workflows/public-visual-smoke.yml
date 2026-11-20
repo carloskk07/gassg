@@ -30,6 +30,9 @@ on:
       - 'scripts/build-public-landing-pages.mjs'
       - 'tests/public-visual-browser-v1-413.mjs'
       - 'tests/ads-cta-browser-v1-984.mjs'
+      - 'tests/sponsors-premium-browser-v1-1090.mjs'
+      - 'js/sponsors-premium.js'
+      - 'js/ads-planner.js'
       - 'tests/desktop-nav-browser-v1-985.mjs'
       - 'tests/participant-entry-browser-v1-1056.mjs'
       - 'tests/storefront-journey-browser.mjs'
@@ -101,6 +104,13 @@ jobs:
           TAMAO_VISUAL_CDP: http://127.0.0.1:9230
           TAMAO_VISUAL_OUTPUT: public-visual-screenshots
         run: node tests/ads-cta-browser-v1-984.mjs
+
+      - name: V1.1090 sponsor sales page in real Chrome — 320 to 1280 px
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/sponsors-premium-browser-v1-1090.mjs
 
       - name: Verify desktop navigation is compact and functional in real Chrome (PR only)
         env:

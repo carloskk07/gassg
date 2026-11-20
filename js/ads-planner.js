@@ -30,11 +30,34 @@ function tamaoAdsBudgetQuote(){
   if(!node)return;
   if(!quote){node.textContent='Selecione um orçamento válido.';return}
   const count=quote.maxViewableImpressions.toLocaleString('pt-BR');
-  node.textContent=tamaoAdsMyState?.fixedFeeSalesEnabled===true?
-    'Pacote de preço fixo: '+tamaoAdsFormatMoney(budget)+
-    ' pelo período escolhido. Não há garantia de visualizações ou cobrança por CPM.':
-    'Equivalência do teto: até '+count+
-    ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.';
+  for(const option of document.querySelectorAll?.('[data-sponsor-budget]')||[]){
+    const active=Number(option.getAttribute('data-sponsor-budget'))===budget;
+    option.setAttribute('aria-pressed',String(active));
+    option.classList?.toggle('is-selected',active);
+  }
+  node.textContent='Orçamento em análise: '+tamaoAdsFormatMoney(budget)+' por '+duration+
+    ' dias. O envio da proposta não gera cobrança nem garante exibição.';
+  const details=document.getElementById('sponsor-cpm-technical-result');
+  if(details)details.textContent='Equivalência matemática do teto: até '+count+
+    ' visualizações verificadas somente se houver público suficiente. Esta conta não é previsão de audiência nem compromisso de entrega.';
+}
+function tamaoAdsChooseBudget(value){
+ const budget=Number(value);
+ if(!tamaoAdsBudgetPreview(budget))return false;
+ const select=document.getElementById('sponsor-cpm-budget');
+ if(!select)return false;
+ select.value=String(budget);
+ tamaoAdsBudgetQuote();
+ return true;
+}
+function tamaoAdsContinueToCreative(){
+  if(typeof route==='function'&&route()!=='sponsors')return false;
+  const target=document.getElementById('sponsor-account-step');
+  if(!target)return false;
+  const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
+  target.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});
+  target.focus?.({preventScroll:true});
+  return true;
 }
 function tamaoAdsBudgetRequest(){
   const quote=tamaoAdsBudgetPreview(Number(document.getElementById('sponsor-cpm-budget')?.value));
@@ -62,38 +85,46 @@ function tamaoAdsPlannerSection(){
   const options=TAMAO_ADS_PREVIEW_BUDGETS.map(v=>
     '<option value="'+v+'"'+(v===4990?' selected':'')+'>'+tamaoAdsFormatMoney(v)+
       ' · '+tamaoAdsFixedDays(v)+' dias</option>').join('');
-  return '<section class="section" aria-label="Planejar uma campanha publicitária sem compromisso">'+
-    '<div class="section-head"><div><span class="section-kicker">PLANEJE SUA DIVULGAÇÃO</span>'+
-    '<h2>'+(fixedSales?'Divulgue sua marca com preço e prazo definidos.':
-      'Um orçamento claro, sem pagar por visualizações inventadas.')+'</h2>'+
-    '<p>Publicidade regional é independente de cadastrar uma revenda. Estime seu teto de investimento e peça uma proposta.</p></div></div>'+
-    '<div class="card flat form-stack" style="max-width:780px">'+
-    '<div class="merchant-kpis"><div class="kpi"><span class="label">'+
-      (fixedSales?'Veiculação com preço fixo':'CPM em avaliação')+'</span><strong>'+
-      (fixedSales?'Pacote selecionado':'R$ 12,00')+'</strong><small>'+
-      (fixedSales?'sem cobrança por cada visualização':'por 1.000 visualizações verificadas')+'</small></div>'+
-    '<div class="kpi"><span class="label">'+(fixedSales?'CPM faturável':'Cobrança agora')+
-       '</span><strong>R$ 0,00</strong><small>'+
-      (fixedSales?'o período contratado é cobrado apenas depois da aprovação':'exibições comerciais ainda não habilitadas')+
-      '</small></div></div>'+
+  const quickChoices=TAMAO_ADS_PREVIEW_BUDGETS.map(v=>
+    '<button type="button" class="sponsor-budget-choice'+(v===4990?' is-selected':'')+
+      '" data-sponsor-budget="'+v+'" aria-pressed="'+(v===4990?'true':'false')+
+      '" onclick="tamaoAdsChooseBudget('+v+')">'+
+      '<strong>'+tamaoAdsFormatMoney(v)+'</strong><small>'+tamaoAdsFixedDays(v)+
+      ' dias</small></button>').join('');
+  return '<section class="section sponsor-budget-builder" aria-label="Planejar uma campanha publicitária sem compromisso">'+
+    '<div class="section-head"><div><span class="section-kicker">ORÇAMENTO DA SUA CAMPANHA</span>'+
+    '<h2>'+(fixedSales?'Conheça o valor e o prazo antes de contratar.':
+      'Escolha a faixa de investimento que faz sentido.')+'</h2>'+
+    '<p>Publicidade regional é independente de cadastrar uma revenda. Selecione uma opção e prepare a proposta, sem pagamento nesta etapa.</p></div></div>'+
+    '<div class="card flat form-stack">'+
+    '<span class="sponsor-budget-eyebrow">OPÇÕES PARA PLANEJAMENTO</span>'+
+    '<div class="sponsor-budget-choices" role="group" aria-label="Escolha seu orçamento de divulgação">'+quickChoices+'</div>'+
     '<div class="field-row">'+
     '<div class="input-wrap"><label for="sponsor-cpm-budget">'+
-       (fixedSales?'Preço fixo do pacote':'Teto de investimento')+'</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
-    '<div class="input-wrap"><label for="sponsor-cpm-days">Prazo do pacote</label><select id="sponsor-cpm-days" class="input" disabled aria-label="Prazo definido pelo pacote">'+
+       (fixedSales?'Preço fixo do pacote':'Orçamento escolhido')+'</label><select id="sponsor-cpm-budget" class="input" onchange="tamaoAdsBudgetQuote()">'+options+'</select></div>'+
+    '<div class="input-wrap"><label for="sponsor-cpm-days">Período correspondente</label><select id="sponsor-cpm-days" class="input" disabled aria-label="Prazo definido pelo pacote">'+
       '<option value="7">7 dias</option><option value="15" selected>15 dias</option><option value="30">30 dias</option></select></div></div>'+
     '<div class="field-row">'+
-    '<div class="input-wrap"><label for="sponsor-cpm-city">Cidade <small>(opcional)</small></label><input id="sponsor-cpm-city" class="input" maxlength="80" autocomplete="address-level2" placeholder="Ex.: São Gabriel"></div>'+
+    '<div class="input-wrap"><label for="sponsor-cpm-city">Cidade onde quer divulgar</label><input id="sponsor-cpm-city" class="input" maxlength="80" autocomplete="address-level2" placeholder="Ex.: São Gabriel"></div>'+
     '<div class="input-wrap"><label for="sponsor-cpm-state">Estado (UF)</label><select id="sponsor-cpm-state" class="input" autocomplete="address-level1" aria-describedby="sponsor-cpm-note">'+
      TAMAO_ADS_UFS.map(uf=>'<option value="'+uf+'"'+(uf==='RS'?' selected':'')+'>'+uf+'</option>').join('')+
     '</select></div></div>'+
-    '<p id="sponsor-cpm-result" role="status" aria-live="polite">Equivalência do teto: até '+
-    preset.maxViewableImpressions.toLocaleString('pt-BR')+
-    ' visualizações verificadas se houver público suficiente. Sem garantia de entrega ou cobrança nesta etapa.</p>'+
+    '<p id="sponsor-cpm-result" role="status" aria-live="polite">Orçamento em análise: R$ 49,90 por 15 dias. O envio da proposta não gera cobrança nem garante exibição.</p>'+
+    '<div class="sponsor-budget-actions"><button type="button" class="primary" onclick="tamaoAdsContinueToCreative()">Continuar e preparar meu anúncio →</button>'+ 
+    '<button type="button" class="secondary" onclick="tamaoAdsBudgetRequest()">Solicitar proposta personalizada</button>'+ 
+    '<button type="button" class="secondary" onclick="tamaoAdsShowCityPublic()">Ver publicidade ativa nesta cidade</button></div>'+
+    '<details class="sponsor-budget-method"><summary>Como funcionam a medição e a cobrança?</summary>'+
+    '<div class="merchant-kpis"><div class="kpi"><span class="label">'+
+      (fixedSales?'Veiculação com preço fixo':'CPM em avaliação')+'</span><strong>'+
+      (fixedSales?'Pacote selecionado':'R$ 12,00')+'</strong><small>'+
+      (fixedSales?'valor por período, não por impressão':'por 1.000 visualizações verificadas')+'</small></div>'+
+    '<div class="kpi"><span class="label">'+(fixedSales?'CPM faturável':'Cobrança agora')+
+       '</span><strong>R$ 0,00</strong><small>'+
+      (fixedSales?'a cobrança exige aprovação e condições válidas':'exibições comerciais ainda não habilitadas')+
+      '</small></div></div>'+
     '<p id="sponsor-cpm-note" class="tiny muted">Uma visualização exigirá pelo menos 50% do anúncio visível durante 1 segundo contínuo, além de filtros contra tráfego inválido. A estimativa não é reserva nem garantia de público; somente condições verificadas poderão gerar contrato e cobrança.</p>'+
-    '<button type="button" class="primary" onclick="tamaoAdsBudgetRequest()">'+
-       (fixedSales?'Consultar condições antes de contratar':'Solicitar proposta sem pagar →')+
-      '</button>'+
-    '<button type="button" class="secondary" onclick="tamaoAdsShowCityPublic()">Ver publicidade ativa nesta cidade</button>'+
+    '<p id="sponsor-cpm-technical-result" class="tiny muted">Equivalência matemática do teto: até '+preset.maxViewableImpressions.toLocaleString('pt-BR')+' visualizações, somente se houver público suficiente. Não é previsão de audiência.</p>'+
+    '</details>'+
     '<div id="sponsor-ad-live-slot" class="section" aria-label="Anúncio patrocinado disponível na região"></div>'+
     '</div></section>'+tamaoAdsCampaignForm();
 }
@@ -131,6 +162,7 @@ function tamaoAdsCampaignUseModel(key){
   (title.value!==nextTitle||description.value!==nextDescription)&&
   !confirm('Substituir o título e a mensagem atuais pelo modelo selecionado?'))return false;
  title.value=nextTitle;description.value=nextDescription;
+ if(typeof tamaoAdsUpdateCreativePreview==='function')tamaoAdsUpdateCreativePreview();
  return true;
 }
 // Refund requests are self-declared motives, not proof of PSP reversal or wrongdoing.
@@ -200,25 +232,92 @@ function tamaoAdsPaymentText(campaign){
   payment==='reserved'?'Checkout em verificação. Não faça outra cobrança.':
   payment==='checkout_ready'?'Pagamento ainda não confirmado.':'';
 }
-async function tamaoAdsAccountStart(){
-  const email=String(document.getElementById('sponsor-account-email')?.value||'').trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return toast('Informe um e-mail válido.');
+async function tamaoAdsAccountStart(mode='register'){
+  const returning=mode==='login';
+  if(mode!=='register'&&!returning)return false;
+  const emailId=returning?'sponsor-account-login-email':'sponsor-account-email';
+  const email=String(document.getElementById(emailId)?.value||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return toast('Informe um e-mail válido.');
+  let fullName='',phone='';
+  if(!returning){
+    fullName=String(document.getElementById('sponsor-account-name')?.value||'').trim().replace(/\s+/g,' ');
+    phone=String(document.getElementById('sponsor-account-phone')?.value||'').replace(/\D/g,'');
+    if(fullName.length<5||fullName.length>100||fullName.split(' ').length<2||
+       !/^[\p{L}][\p{L} .'-]{3,99}$/u.test(fullName))
+      return toast('Informe seu nome e sobrenome.');
+    if(!/^[0-9]{10,11}$/.test(phone))
+      return toast('Informe telefone com DDD.');
+  }
+  const submit=document.getElementById(returning?'sponsor-account-login-send':'sponsor-account-register-send');
+  const status=document.getElementById('sponsor-account-status');
+  if(submit?.disabled)return false;
+  if(submit)submit.disabled=true;
+  if(status)status.textContent='Preparando seu acesso seguro…';
   try{
-    const r=await liveUpgradeAccount(email);
-    toast(r?.alreadyPermanent?'Conta confirmada.':'Enviamos a confirmação para seu e-mail.');
-    render();
-  }catch(e){toast(String(e?.message||'Não foi possível confirmar o e-mail.'))}
+    const reply=returning
+      ?await tamaoClubSendAccess(email,{returnToSponsor:true})
+      :await liveUpgradeAccount(email,{fullName,phone,returnToSponsor:true});
+    if(reply?.alreadyPermanent){
+      if(status)status.textContent='Sua conta está pronta. Você já pode enviar o anúncio para revisão.';
+      if(typeof render==='function')render();
+    }else{
+      if(status)status.textContent=returning
+        ?'Enviamos um link de entrada para seu e-mail. Abra-o neste navegador para voltar à sua campanha.'
+        :'Enviamos a confirmação para seu e-mail. Confirme o cadastro para preparar a campanha.';
+    }
+    return true;
+  }catch{
+    if(status)status.textContent=returning
+      ?'Não foi possível enviar o link. Confira seu e-mail e tente novamente.'
+      :'Não foi possível iniciar o cadastro. Verifique seus dados e tente novamente.';
+    return false;
+  }finally{
+    if(submit)submit.disabled=false;
+  }
+}
+// V1.1091 — private draft preview: text only; never emits an impression or opens an external URL.
+function tamaoAdsUpdateCreativePreview(){
+ const val=id=>String(document.getElementById(id)?.value||'').trim();
+ const set=(id,value)=>{
+  const el=document.getElementById(id);
+  if(el)el.textContent=value;
+ };
+ set('sponsor-creative-brand',val('sponsor-ad-company')||'Nome da sua empresa');
+ set('sponsor-creative-title',val('sponsor-ad-title')||'Seu título aparecerá aqui');
+ set('sponsor-creative-message',val('sponsor-ad-copy')||'Descreva brevemente o que sua empresa oferece.');
+ const destination=val('sponsor-ad-url');
+ let host='Seu site oficial';
+ try{
+  const parsed=new URL(destination);
+  if(parsed.protocol==='https:'&&parsed.hostname)host=parsed.hostname;
+ }catch{}
+ set('sponsor-creative-domain',host);
+ return true;
 }
 function tamaoAdsCampaignForm(){
   tamaoAdsSyncOwner();
   if(!tamaoAdsAccountVerified())
-    return '<section class="section"><div class="section-head"><div>'+
-      '<span class="section-kicker">PUBLIQUE COM SEGURANÇA</span>'+
-      '<h2>Envie seu anúncio para revisão.</h2><p>Use um e-mail confirmado. A proposta e o anúncio não geram cobrança.</p></div></div>'+
-      '<div class="card flat" style="max-width:650px">'+
-      '<label for="sponsor-account-email">Seu e-mail</label>'+
-      '<input id="sponsor-account-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br">'+
-      '<button type="button" class="secondary" onclick="tamaoAdsAccountStart()">Confirmar meu e-mail</button></div></section>';
+    return '<section id="sponsor-account-step" tabindex="-1" class="section sponsor-access-start" aria-label="Acesso seguro do anunciante"><div class="section-head"><div>'+
+      '<span class="section-kicker">SUA CONTA DE ANUNCIANTE</span>'+
+      '<h2>Apresente sua empresa com segurança.</h2><p>Primeiro acesso? Informe seus dados e confirme o e-mail. Já tem conta? Entre sem repetir o cadastro. Nenhuma dessas ações cria cobrança ou anúncio.</p></div></div>'+
+      '<div class="card flat sponsor-account-entry">'+
+      '<div class="sponsor-account-form-grid">'+
+      '<label for="sponsor-account-name">Nome e sobrenome'+
+      '<input id="sponsor-account-name" class="input" maxlength="100" autocomplete="name" placeholder="Seu nome completo"></label>'+
+      '<label for="sponsor-account-phone">Telefone com DDD'+
+      '<input id="sponsor-account-phone" class="input" maxlength="18" type="tel" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></label></div>'+
+      '<label for="sponsor-account-email">E-mail para confirmar sua conta'+
+      '<input id="sponsor-account-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br"></label>'+
+      '<button id="sponsor-account-register-send" type="button" class="primary" onclick="tamaoAdsAccountStart()">Criar conta e enviar confirmação →</button>'+
+      '<details class="sponsor-account-returning"><summary>Já tenho conta — entrar só com e-mail</summary>'+
+      '<label for="sponsor-account-login-email">E-mail da sua conta'+
+      '<input id="sponsor-account-login-email" class="input" autocomplete="email" type="email" maxlength="160" placeholder="voce@empresa.com.br"></label>'+
+      '<button id="sponsor-account-login-send" type="button" class="secondary" onclick="tamaoAdsAccountStart(\'login\')">Enviar link de acesso</button>'+
+      '</details>'+
+      '<p id="sponsor-account-status" role="status" aria-live="polite"></p>'+
+      '<small>A confirmação da conta é necessária para enviar a campanha à análise. O envio do anúncio não publica nem gera Pix.</small>'+
+      '</div></section>';
   const s=tamaoAdsMyState;
   if(s.status==='idle'&&typeof setTimeout==='function'){
     s.status='loading';
@@ -300,15 +399,15 @@ function tamaoAdsCampaignForm(){
          typeof tamaoParticipantNativePanel==='function'
           ?tamaoParticipantNativePanel('advertiser',id):'')+'</article>';
     }).join(''):'';
-  return '<section class="section" aria-label="Cadastrar anúncio sem revenda">'+
+  return '<section id="sponsor-account-step" tabindex="-1" class="section" aria-label="Cadastrar anúncio sem revenda">'+
     '<div class="section-head"><div><span class="section-kicker">ANUNCIANTE INDEPENDENTE</span>'+
     '<h2>Envie a peça para análise.</h2>'+
     '<p>Sem revenda, sem cobrança antecipada. O anúncio só será exibido após revisão e autorização de entrega.</p></div></div>'+
     '<div class="card flat form-stack" style="max-width:780px">'+
     '<div class="field-row"><label class="input-wrap">Empresa'+
-    '<input id="sponsor-ad-company" class="input" maxlength="120" autocomplete="organization" required></label>'+
+    '<input id="sponsor-ad-company" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="120" autocomplete="organization" required></label>'+
     '<label class="input-wrap">Título da campanha'+
-    '<input id="sponsor-ad-title" class="input" maxlength="80" placeholder="Apresente sua marca na cidade" required></label></div>'+
+    '<input id="sponsor-ad-title" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="80" placeholder="Apresente sua marca na cidade" required></label></div>'+
     '<div class="input-wrap"><label for="sponsor-ad-template">Modelo para preencher título e mensagem (opcional)</label>'+
     '<select id="sponsor-ad-template" class="input">'+
     '<option value="">Escolha como apresentar sua empresa</option>'+
@@ -318,9 +417,20 @@ function tamaoAdsCampaignForm(){
     '<button type="button" class="secondary small" onclick="tamaoAdsCampaignUseModel(document.getElementById(\'sponsor-ad-template\').value)">Preencher modelo para revisar</button>'+
     '<small>O modelo usa apenas o nome informado. Confira e edite antes de enviar.</small></div>'+
     '<label class="input-wrap">Mensagem do anúncio (20 a 240 caracteres)'+
-    '<textarea id="sponsor-ad-copy" class="input" maxlength="240" rows="3" placeholder="Explique claramente o que sua empresa oferece." required></textarea></label>'+
+    '<textarea id="sponsor-ad-copy" class="input" oninput="tamaoAdsUpdateCreativePreview()" maxlength="240" rows="3" placeholder="Explique claramente o que sua empresa oferece." required></textarea></label>'+
     '<label class="input-wrap">Site oficial do anúncio (HTTPS)'+
-    '<input id="sponsor-ad-url" class="input" inputmode="url" maxlength="300" placeholder="https://suaempresa.com.br" required></label>'+
+    '<input id="sponsor-ad-url" class="input" oninput="tamaoAdsUpdateCreativePreview()" inputmode="url" maxlength="300" placeholder="https://suaempresa.com.br" required></label>'+
+    '<section class="sponsor-creative-preview-panel" aria-label="Veja seu anúncio antes de enviar">'+
+    '<div class="sponsor-creative-preview-copy"><span class="section-kicker">VEJA SUA PEÇA GANHAR FORMA</span><h3>Uma prévia do que o público poderá conhecer.</h3><p>Altere o texto acima e veja a apresentação atualizar aqui. Antes de aparecer para visitantes, sua campanha precisa de revisão e aprovação.</p></div>'+
+    '<div class="sponsor-creative-preview-ad">'+
+      '<span>PUBLICIDADE · PRÉVIA PRIVADA</span>'+
+      '<small id="sponsor-creative-brand">Nome da sua empresa</small>'+
+      '<strong id="sponsor-creative-title">Seu título aparecerá aqui</strong>'+
+      '<p id="sponsor-creative-message">Descreva brevemente o que sua empresa oferece.</p>'+
+      '<div class="sponsor-creative-preview-bottom"><small id="sponsor-creative-domain">Seu site oficial</small><span>Conhecer o anunciante ↗</span></div>'+
+    '</div>'+
+    '<small class="sponsor-creative-preview-note">A prévia é particular e não é registrada como impressão ou anúncio publicado. Texto e link passam por revisão antes da ativação.</small>'+
+    '</section>'+
     '<p class="tiny muted">Cidade, UF, prazo e orçamento são os mesmos selecionados na simulação acima.</p>'+
     '<label class="check-row"><input type="checkbox" id="sponsor-ad-terms">'+
     '<span>Confirmo que represento a empresa e autorizo a revisão da peça. A veiculação está sujeita a aprovação; não há venda ou Pix nesta etapa.</span></label>'+
