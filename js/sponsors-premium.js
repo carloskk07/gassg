@@ -175,8 +175,8 @@ function sponsorsLandingPremium(){
    <p class="sponsor-premium-visual-note">Apresentação ilustrativa, não é anúncio publicado. Localização e exibição dependem de revisão e inventário disponível.</p>
   </aside>
  </div>
-   <div class="sponsor-demo-panel" aria-label="Estúdio interativo de anúncios">
-     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Veja sua campanha ganhar forma.</strong><small>Escolha, personalize e descubra como sua empresa pode aparecer.</small></div>
+   <div class="sponsor-demo-panel">
+     <div class="sponsor-demo-panel-head"><span class="sponsor-demo-studio-kicker">✦ ESTÚDIO DE ANÚNCIOS</span><strong>Veja sua campanha ganhar forma.</strong><small>Teste a apresentação sem criar conta. Escolha, personalize e descubra como sua empresa pode aparecer.</small></div>
      <div class="sponsor-demo-name-field">
        <label for="sponsor-demo-company">Nome da empresa <span>(opcional)</span></label>
        <input id="sponsor-demo-company" class="input" maxlength="48" autocomplete="organization" type="text" placeholder="Ex.: Minha empresa" value="${sponsorDemoEscape(tamaoSponsorDemoState.company)}" oninput="sponsorDemoType()">
