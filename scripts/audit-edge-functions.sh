@@ -20,6 +20,21 @@ fi
 
 for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | sort); do
   case "$f" in
+    supabase/functions/public-city-prices/index.ts)
+      # Narrow public information endpoint: no Auth identity, no buyer data, no SQL anon grants.
+      grep -q 'const ORIGINS=new Set' "$f" || { echo "$f missing origin allowlist"; exit 1; }
+      grep -q 'req.headers.get("apikey")!==PUB' "$f" || { echo "$f missing request key gate"; exit 1; }
+      grep -q 'raw.length>512' "$f" || { echo "$f missing request size limit"; exit 1; }
+      grep -q 'consume_hashed_api_quota' "$f" || { echo "$f missing quota RPC"; exit 1; }
+      grep -q 'p_limit:60,p_window_seconds:3600' "$f" || { echo "$f missing bounded request rate"; exit 1; }
+      grep -q 'public_city_price_board_v1_341' "$f" || { echo "$f missing read-only aggregated authority"; exit 1; }
+      test "$(grep -c 'admin.rpc(' "$f")" -eq 2 || { echo "$f added an unexpected privileged RPC"; exit 1; }
+      ! grep -q 'admin.from(' "$f" || { echo "$f cannot directly read tables"; exit 1; }
+      grep -q 'data.products.map' "$f" || { echo "$f missing public projection"; exit 1; }
+      grep -q 'notAQuote:true' "$f" || { echo "$f must deny checkout authority"; exit 1; }
+      ! grep -q 'auth.getUser' "$f" || { echo "$f must not register or require Auth users"; exit 1; }
+      grep -q '\[functions.public-city-prices\]' supabase/config.toml || { echo "$f missing intentional public endpoint config"; exit 1; }
+      ;;
     supabase/functions/capture-prelaunch-lead/index.ts)
       grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
       grep -q 'capture_prelaunch_lead_idempotent' "$f" || { echo "$f missing transactional lead authority"; exit 1; }
