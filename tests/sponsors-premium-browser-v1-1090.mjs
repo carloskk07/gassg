@@ -49,12 +49,12 @@ try{
   await send('Page.navigate',{url:origin+'/#sponsors'});
   let ready=false;
   for(let attempt=0;attempt<100;attempt++){
-   ready=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-v1090 .sponsor-premium-hero');return document.readyState==='complete'&&!!hero&&!!document.querySelector('#sponsor-cpm-budget')&&document.querySelectorAll('[data-sponsor-budget]').length===4&&getComputedStyle(hero).backgroundImage.includes('gradient')})()");
+   ready=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-v1090 .sponsor-premium-hero');return document.readyState==='complete'&&!!hero&&!!document.querySelector('#sponsor-pricing')&&document.querySelectorAll('[data-sponsor-demo-budget]').length===4&&getComputedStyle(hero).backgroundImage.includes('gradient')})()");
    if(ready)break;
    await sleep(200);
   }
   assert.ok(ready,'Advertiser page did not load its premium module, planner and CSS at '+width+'px');
-  const first=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-hero');const ad=document.querySelector('.sponsor-premium-ad-mock');const cta=document.querySelector('.sponsor-premium-main-cta');const rect=cta.getBoundingClientRect();return {title:document.title,h1:hero.querySelector('h1')?.textContent||'',heroBackground:getComputedStyle(hero).backgroundImage,adLabel:ad?.querySelector('.sponsor-premium-ad-tag')?.textContent||'',adNote:document.querySelector('.sponsor-premium-visual-note')?.textContent||'',ctaHeight:rect.height,ctaLeft:rect.left,ctaRight:rect.right,faqCount:document.querySelectorAll('.sponsor-premium-faq details').length,planCount:document.querySelectorAll('[data-sponsor-budget]').length,scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth,accountInput:!!document.getElementById('sponsor-account-email')}})()");
+  const first=await evaluate("(()=>{const hero=document.querySelector('.sponsor-premium-hero');const ad=document.querySelector('.sponsor-premium-ad-mock');const cta=document.querySelector('.sponsor-premium-main-cta');const rect=cta.getBoundingClientRect();return {title:document.title,h1:hero.querySelector('h1')?.textContent||'',heroBackground:getComputedStyle(hero).backgroundImage,adLabel:ad?.querySelector('.sponsor-premium-ad-tag')?.textContent||'',adNote:document.querySelector('.sponsor-premium-visual-note')?.textContent||'',ctaHeight:rect.height,ctaLeft:rect.left,ctaRight:rect.right,faqCount:document.querySelectorAll('.sponsor-premium-faq details').length,planCount:document.querySelectorAll('[data-sponsor-demo-budget]').length,scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth,accountInput:!!document.getElementById('sponsor-account-email')}})()");
   assert.match(first.title,/Anuncie no TAMÃO/);
   assert.match(first.h1,/Sua marca merece/);
   assert.match(first.heroBackground,/gradient/);
@@ -73,12 +73,10 @@ try{
    'Sponsor headline and preview misaligned at '+width+': '+JSON.stringify(geometry));
   const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   fs.writeFileSync(path.join(out,'sponsors-premium-v1-1090-'+width+'.png'),Buffer.from(shot.data,'base64'));
-  const actions=await evaluate("(async()=>{const one=document.querySelector('[data-sponsor-budget=\"1990\"]');one.click();document.querySelectorAll('[data-sponsor-demo-budget]')[0].click();const budget=document.getElementById('sponsor-cpm-budget');const days=document.getElementById('sponsor-cpm-days');const quote=document.getElementById('sponsor-cpm-result').textContent;document.querySelector('.sponsor-premium-main-cta').click();const focused=document.activeElement?.id||'';const faq=document.querySelector('.sponsor-premium-faq details');const beforeFaq=faq.open;faq.querySelector('summary').click();await new Promise(r=>requestAnimationFrame(r));return {beforeFaq,budget:budget.value,days:days.value,quote,focused,faqOpened:faq.open,hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-budget]')].map(x=>x.getAttribute('aria-pressed'))}})()");
-  assert.equal(actions.budget,'1990');
-  assert.equal(actions.days,'7');
-  assert.match(actions.quote,/R\$ 19,90 por 7 dias/);
+  const actions=await evaluate("(async()=>{\n const one=document.querySelector('[data-sponsor-demo-budget=\"1990\"]');\n one.click();\n const summary=document.querySelector('[data-sponsor-demo=planLabel]').textContent;\n document.querySelector('.sponsor-premium-main-cta').click();\n const focused=document.activeElement?.id||'';\n const faq=document.querySelector('.sponsor-premium-faq details');\n const beforeFaq=faq.open;\n faq.querySelector('summary').click();\n await new Promise(r=>requestAnimationFrame(r));\n return {summary,focused,beforeFaq,faqOpened:faq.open,\n hash:location.hash,buttons:[...document.querySelectorAll('[data-sponsor-demo-budget]')]\n .map(x=>x.getAttribute('aria-pressed'))};\n})()");
+  assert.equal(actions.summary,'R$ 19,90 em créditos');
   assert.equal(actions.focused,'sponsor-pricing');
-  assert.notEqual(actions.faqOpened,actions.beforeFaq,'FAQ must toggle on click: '+JSON.stringify(actions));
+  assert.notEqual(actions.faqOpened,actions.beforeFaq);
   assert.equal(actions.hash,'#sponsors');
   assert.deepEqual(actions.buttons,['true','false','false','false']);
   // Personalized visuals must work without a logged-in user at every viewport.
@@ -104,13 +102,12 @@ try{
   assert.equal(placements.active,'true');
   assert.match(placements.context,/Marcas da nossa região/);
   assert.ok(placements.width<=width+3,'Contextual preview overflow at '+width);
-  const brief=await evaluate("(()=>{const plan=document.querySelectorAll('[data-sponsor-demo-budget]')[2];plan.click();const chosen=plan.getAttribute('aria-pressed');const other=document.querySelectorAll('[data-sponsor-demo-budget]')[1].getAttribute('aria-pressed');const summary=document.querySelector('[data-sponsor-demo=planLabel]').textContent;document.querySelector('.sponsor-demo-continue').click();return {chosen,other,summary,budget:document.getElementById('sponsor-cpm-budget').value,days:document.getElementById('sponsor-cpm-days').value,width:document.documentElement.scrollWidth}})()");
+  const brief=await evaluate("(()=>{\n const plan=document.querySelectorAll('[data-sponsor-demo-budget]')[2];\n plan.click();\n const chosen=plan.getAttribute('aria-pressed');\n const other=document.querySelectorAll('[data-sponsor-demo-budget]')[1].getAttribute('aria-pressed');\n const summary=document.querySelector('[data-sponsor-demo=planLabel]').textContent;\n document.querySelector('.sponsor-demo-continue').click();\n return {chosen,other,summary,budget:globalThis.tamaoSponsorDemoBudget?.(),\n  width:document.documentElement.scrollWidth};\n})()");
   assert.equal(brief.chosen,'true');
   assert.equal(brief.other,'false');
-  assert.equal(brief.summary,'R$ 99,90 · 30 dias');
-  assert.equal(brief.budget,'9990');
-  assert.equal(brief.days,'30');
-  assert.ok(brief.width<=width+3,'Brief overflows at '+width);
+  assert.equal(brief.summary,'R$ 99,90 em créditos');
+  assert.equal(brief.budget,9990);
+  assert.ok(brief.width<=width+3,'Credit preview overflows at '+width);
   results.push({width,...first,...actions,demo,studio,placements,brief});
 
  }
@@ -118,4 +115,4 @@ try{
  fs.writeFileSync(path.join(out,'sponsors-premium-v1-1090-results.json'),JSON.stringify(results,null,2)+'\n');
  ws.close();
 }
-console.log('PASS V1.1090 real Chrome: 320/360/390/768/1280, hero contrast, no overflow, 4 real budgets, FAQ and actionable CTA.');
+console.log('PASS V1.1090 real Chrome: 320/360/390/768/1280, hero contrast, no overflow, 4 prepaid credit values, FAQ and actionable CTA.');

@@ -118,6 +118,10 @@ verify_jwt = false
 [functions.ads-independent-checkout]
 verify_jwt = false
 
+# V1.1097: JWT verified inside Edge; prepaid advertising remains gated in SQL.
+[functions.ads-credit]
+verify_jwt = false
+
 # V1.931 — authenticated with private Vault cron bearer and database-side SHA-256.
 [functions.coupon-net-auto]
 verify_jwt = false

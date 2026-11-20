@@ -40,7 +40,8 @@ const handlers=between(ads,'function adminIndependentAdsOpenPane(pane){','functi
 const view=ads.slice(ads.indexOf('function adminAdsIndependentSection(){'));
 vm.runInContext(handlers+view+'\nthis.openPane=adminIndependentAdsOpenPane;this.view=adminAdsIndependentSection;',context);
 let html=context.view();
-assert.match(html,/Comercial paga/);
+assert.match(html,/Contratos anteriores/);
+ assert.match(html,/Créditos por visualização/);
 assert.match(html,/Institucional grátis/);
 assert.match(html,/Configuração e vendas/);
 assert.match(html,/Reembolsos/);
@@ -179,7 +180,7 @@ assert.match(ads,/adminIndependentAdsBusy=true/);
 assert.match(ads,/expectedVersion:state.fixedFeeSalesVersion/);
 const builder=read('scripts/build-live-portals.mjs');
 const stripper=read('scripts/strip-admin-css.mjs');
-assert.match(builder,/\['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent'\]/,
+assert.match(builder,/\['admin-acquisition','admin','admin-test-center','admin-activations','admin-ads-independent','admin-ads-credit'\]/,
  'Admin Ads code must not be released to Cliente or Revenda portals');
 assert.match(stripper,/PROTECTED_ADMIN_SCRIPTS=.*'admin-ads-independent.js'/,
  'Admin-only Ads classes must not prevent public CSS stripping');

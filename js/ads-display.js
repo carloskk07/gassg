@@ -1,5 +1,6 @@
-// V1.884 — sponsored creative surface. Browser visibility signals are NOT
-// independently audited impressions and never create a payable amount.
+// Legacy V1.884 views are diagnostics only. Prepaid V1.1098 ads use the
+// separate server-gated billing path after challenge, cooldown and wallet checks.
+
 const tamaoAdsDisplayCache=new Map();
 let tamaoAdsViewportObserver=null;
 let tamaoAdsViewTimer=null;
@@ -11,9 +12,11 @@ function tamaoAdsPublicGateway(payload){
  const base=String(config?.url||'').trim();
  const key=String(config?.publishableKey||'').trim();
  if(!base||!key)throw Error('ADS_NOT_CONFIGURED');
+ const token=String(globalThis.liveRuntime?.session?.access_token||'');
  return fetch(base+'/functions/v1/ads-independent',{
   method:'POST',cache:'no-store',
-  headers:{'Content-Type':'application/json','apikey':key},
+  headers:{'Content-Type':'application/json','apikey':key,
+   ...(token?{authorization:'Bearer '+token}:{})},
   body:JSON.stringify(payload)
  }).then(async response=>{
    let data=null;try{data=await response.json()}catch{}
@@ -92,7 +95,7 @@ function tamaoAdsDraw(target,slot){
     await tamaoAdsPublicGateway({action:'confirm',challenge:token,
      visibleMs:Math.min(60000,elapsed),visiblePercent:Math.min(100,Math.floor(ratio*100)),
      tabVisible:true});
-   }catch{/* Never interrupt client navigation for non-billable analytics. */}
+   }catch{/* Never interrupt client navigation for advertising measurement. */}
   },1250);
  };
  tamaoAdsViewportObserver=new IntersectionObserver(entries=>{
@@ -132,8 +135,12 @@ async function tamaoAdsDisplaySlot(city,state,targetId,{institutionalOnly=false}
   const r=await tamaoAdsPublicGateway({action:'serve',city:name,state:uf,
     ...(institutionalOnly?{institutionalOnly:true}:{})});
   if(seq!==tamaoAdsLoadSequence)return;
-  if(r?.source!=='ads_independent_issue_v1_884'||r?.billingEnabled!==false||
-     r?.noCharge!==true)return;
+  const credit=r?.source==='ads_credit_issue_v1_1098' &&
+    r?.pricingMode==='prepaid_per_view' && r?.billingEnabled===true &&
+    r?.noCharge===false;
+  const legacy=r?.source==='ads_independent_issue_v1_884' &&
+    r?.billingEnabled===false && r?.noCharge===true;
+  if(!credit&&!legacy)return;
   const slot=r.slot||null;
   // No paid advertising is ever displayed against an inferred region.
   if(institutionalOnly&&slot&&slot.label!=='Institucional'){
