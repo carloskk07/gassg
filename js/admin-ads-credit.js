@@ -189,7 +189,9 @@ async function adminCreditPilotRead(state){
   state.data=data;state.error='';return true;
  }catch{
   if(adminCreditPilotScope()===state&&state.sequence===sequence){
-   state.data=null;state.error='Não foi possível consultar a recarga de homologação. Atualize o painel.';
+   // Keep the last verified pending topup so a transient read failure cannot
+   // permanently stop automatic confirmation until the page is reloaded.
+   state.error='Não foi possível consultar a recarga de homologação. Nova conferência automática em instantes.';
   }
   return false;
  }
@@ -260,6 +262,56 @@ async function adminCreditPilotCopy(){
  try{await navigator.clipboard.writeText(field.value);
   if(adminCreditPilotScope()===state)toast('Pix copiado.');return true;
  }catch{if(adminCreditPilotScope()===state){field.focus();field.select();toast('Código selecionado para copiar.');}return false;}
+}
+// A signed Mercado Pago webhook can settle while the protected Admin is open.
+// Observe the authoritative wallet without reissuing Pix or trusting the browser.
+let adminCreditPilotWatchBusy=false;
+let adminCreditPilotWatchTopup='';
+let adminCreditPilotWatchNextProbe=0;
+let adminCreditPilotWatchProbes=0;
+async function adminCreditPilotWatchTick(){
+ const state=adminCreditPilotScope(),before=state.data;
+ if(adminCreditPilotWatchBusy||!state.actor||!adminReady()||state.busy||
+    adminCreditAdsBusy||adminRuntime?.section!=='ads'||
+    (typeof adminIndependentAdsPane!=='undefined'&&adminIndependentAdsPane!=='credit')||
+    document.visibilityState==='hidden'||
+    !['reserved','creating','pix_pending','review_required'].includes(before?.status))
+  return false;
+ adminCreditPilotWatchBusy=true;
+ try{
+  const topupId=String(before.topupId||'');
+  if(topupId!==adminCreditPilotWatchTopup){
+   adminCreditPilotWatchTopup=topupId;
+   adminCreditPilotWatchProbes=0;
+   adminCreditPilotWatchNextProbe=Date.now()+12000;
+  }
+  // Bounded, idempotent fallback when a signed webhook is delayed or lost.
+  // The server independently GETs Mercado Pago and validates the exact live Pix.
+  if(before.status==='pix_pending'&&/^[0-9a-f-]{36}$/i.test(topupId)&&
+     adminCreditPilotWatchProbes<5&&Date.now()>=adminCreditPilotWatchNextProbe){
+   const delays=[30000,60000,120000,240000,480000];
+   adminCreditPilotWatchNextProbe=Date.now()+delays[adminCreditPilotWatchProbes++];
+   try{await adminCreditAdsRequest('reconcile',{topupId});}catch{}
+  }
+  const read=await adminCreditPilotRead(state);
+  if(!read||adminCreditPilotScope()!==state)return false;
+  const after=state.data;
+  const changed=after.status!==before.status||after.balanceCents!==before.balanceCents||
+    after.pixCode!==before.pixCode;
+  if(changed&&after.status==='approved'){
+   // The pilot widget and the total Ads KPIs must transition together.
+   await adminCreditAdsRefresh();
+   if(adminCreditPilotScope()===state)toast('Pix confirmado! Crédito disponível na carteira.');
+  }else if(changed&&adminRuntime?.section==='ads')render();
+  return changed;
+ }finally{adminCreditPilotWatchBusy=false;}
+}
+if(typeof window!=='undefined'&&typeof window.setInterval==='function'){
+ window.setInterval(()=>{void adminCreditPilotWatchTick().catch(()=>{});},8000);
+ if(typeof document.addEventListener==='function')
+  document.addEventListener('visibilitychange',()=>{
+   if(document.visibilityState==='visible')void adminCreditPilotWatchTick().catch(()=>{});
+  });
 }
 globalThis.adminCreditAdsChooseFilter=adminCreditAdsChooseFilter;
 globalThis.adminCreditAdsPanel=adminCreditAdsPanel;
