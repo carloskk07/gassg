@@ -112,7 +112,7 @@ Deno.serve(async(req:Request)=>{
   const body:any=await readJsonBody(req,{maxBytes:3000});
   const action=String(body.action||"");
   if(!["mine","topup","reconcile","campaign-submit","campaign-owner",
-      "admin-read","admin-action","admin-pilot-read","admin-pilot-prepare"].includes(action))
+      "admin-read","admin-action","admin-commercial","admin-pilot-read","admin-pilot-prepare"].includes(action))
    return respond({error:"UNKNOWN_ACTION"},400,origin);
   const pilot=action==="admin-pilot-prepare";
   if((pilot||action==="admin-pilot-read")&&origin!=="https://admin.tamao.com.br")
@@ -174,6 +174,40 @@ Deno.serve(async(req:Request)=>{
     p_action:choice,p_reason:reason
    });
    return respond(data,200,origin);
+  }
+  if(action==="admin-commercial"){
+   // Emergency stop and explicit opening are restricted to the identified,
+   // active platform superadministrator, not a browser-maintained role label.
+   const operation=String(body.operation||"");
+   const expected=Number(body.expectedVersion);
+   if(!["open","pause"].includes(operation)||!Number.isSafeInteger(expected)||
+      expected<1||body.acknowledgeFinancialControls!==true)
+    return respond({error:"ADS_CREDIT_COMMERCIAL_CONSENT_REQUIRED"},400,origin);
+   const {data:access,error:accessError}=await admin.from("platform_admins")
+    .select("admin_role,active").eq("user_id",user.id).maybeSingle();
+   if(accessError||!access||access.active!==true||access.admin_role!=="superadmin")
+    return respond({error:"ADS_CREDIT_SUPERADMIN_REQUIRED"},403,origin);
+   if(operation==="open"){
+    const readiness=await independentAdsProviderReadiness((key:string)=>Deno.env.get(key));
+    if(readiness.readyForFinancialHomologation!==true)
+     return respond({error:"ADS_CREDIT_PROVIDER_NOT_READY"},503,origin);
+   }
+   const enabled=operation==="open";
+   // All three flags flip together under a version CAS. An old Admin tab
+   // cannot reopen charges after another superadmin paused the system.
+   const {data:gate,error:gateError}=await admin.from("ads_credit_controls_v1_1097")
+    .update({recharge_enabled:enabled,view_debit_enabled:enabled,
+      evidence_audited:enabled,version:expected+1,updated_by:user.id,
+      updated_at:new Date().toISOString()})
+    .eq("singleton",true).eq("version",expected).eq("cents_per_view",2)
+    .select("version,recharge_enabled,view_debit_enabled,evidence_audited,cents_per_view")
+    .maybeSingle();
+   if(gateError)throw gateError;
+   if(!gate)return respond({error:"ADS_CREDIT_COMMERCIAL_VERSION_CONFLICT"},409,origin);
+   return respond({source:"ads_credit_commercial_controls_v1_1105",
+    version:gate.version,rechargeEnabled:gate.recharge_enabled,
+    billingEnabled:gate.view_debit_enabled,evidenceEnabled:gate.evidence_audited,
+    centsPerView:gate.cents_per_view},200,origin);
   }
   if(action==="admin-pilot-read"){
    const data=await rpc(admin,"admin_ads_credit_pilot_v1_1101",{p_actor:user.id,p_operation:"read",p_previous:null});

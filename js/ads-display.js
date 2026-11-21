@@ -121,7 +121,11 @@ async function tamaoAdsDisplaySlot(city,state,targetId,{institutionalOnly=false}
  const name=String(city||'').trim(),uf=String(state||'').trim().toUpperCase();
  const target=String(targetId||'');
  if(name.length<2||name.length>100||!/^[A-Z]{2}$/.test(uf)||!/^tamao-ads-home-slot$|^sponsor-ad-live-slot$/.test(target))return;
- const key=uf+'/'+name.toLocaleUpperCase('pt-BR')+'/'+(institutionalOnly?'institutional':'regional');
+ // An advertiser-controlled preview city is not reliable evidence of a visitor's
+ // market. Never spend a participant's credits in the campaign planning area.
+ const previewOnly=target==='sponsor-ad-live-slot';
+ const billableRegion=!institutionalOnly&&!previewOnly;
+ const key=uf+'/'+name.toLocaleUpperCase('pt-BR')+'/'+(billableRegion?'regional':'institutional');
  const existing=tamaoAdsDisplayCache.get(key);
  const current=Date.now();
  const seq=++tamaoAdsLoadSequence;
@@ -133,7 +137,7 @@ async function tamaoAdsDisplaySlot(city,state,targetId,{institutionalOnly=false}
  }
  try{
   const r=await tamaoAdsPublicGateway({action:'serve',city:name,state:uf,
-    ...(institutionalOnly?{institutionalOnly:true}:{})});
+    ...(!billableRegion?{institutionalOnly:true}:{})});
   if(seq!==tamaoAdsLoadSequence)return;
   const credit=r?.source==='ads_credit_issue_v1_1098' &&
     r?.pricingMode==='prepaid_per_view' && r?.billingEnabled===true &&
@@ -143,7 +147,7 @@ async function tamaoAdsDisplaySlot(city,state,targetId,{institutionalOnly=false}
   if(!credit&&!legacy)return;
   const slot=r.slot||null;
   // No paid advertising is ever displayed against an inferred region.
-  if(institutionalOnly&&slot&&slot.label!=='Institucional'){
+  if(!billableRegion&&slot&&slot.label!=='Institucional'){
     tamaoAdsDraw(target,null);return;
   }
   // A challenge is single-use. Re-request a fresh challenge for every

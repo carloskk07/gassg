@@ -2,6 +2,7 @@
 // Authentication, permissions and database ACL are enforced by admin-ops.
 let adminCreditAdsState={actor:'',status:'idle',rows:[],gate:null,totals:null,error:''};
 let adminCreditAdsBusy=false;
+let adminCreditCommercialBusy=false;
 let adminCreditAdsFilter='all';
 function adminCreditAdsChooseFilter(value){
  const allowed=['all','submitted','approved','active','paused','rejected','ended'];
@@ -64,6 +65,20 @@ function adminCreditAdsPanel(){
  const names={submitted:'Em análise',approved:'Aprovada',active:'Em divulgação',
   paused:'Pausada',rejected:'Rejeitada',ended:'Encerrada'};
  const deliveryOpen=current&&data.gate.rechargeEnabled===true&&data.gate.billingEnabled===true&&data.gate.evidenceEnabled===true;
+ const commercialControl=current&&adminCurrentRole()==='superadmin'?
+  '<div class="card flat form-stack" aria-label="Abertura comercial da publicidade">'+
+  '<h4>'+(deliveryOpen?'Publicidade por visualização habilitada':'Abertura comercial de anúncios')+'</h4>'+
+  '<p>'+(deliveryOpen?'Recargas e débitos por visualização estão ativos. A pausa interrompe novas cobranças sem alterar os saldos.':
+   'Abra somente após conferir os testes financeiros. O valor será R$ 0,02 por visualização elegível.')+'</p>'+
+  '<label class="admin-option-row"><input type="checkbox" id="credit-commercial-ack"'+
+  (adminCreditCommercialBusy?' disabled':'')+'> '+
+  (deliveryOpen?'Confirmo que desejo interromper novas cobranças e recargas.':
+   'Conferi os testes financeiros e autorizo a abertura comercial por créditos.')+'</label>'+
+  '<button type="button" class="'+(deliveryOpen?'secondary':'primary')+
+  ' small" onclick="adminCreditCommercialRun(&quot;'+(deliveryOpen?'pause':'open')+
+  '&quot;,'+Number(data.gate.version)+')"'+(adminCreditCommercialBusy?' disabled':'')+'>'+
+  (deliveryOpen?'Pausar cobranças e recargas':'Abrir publicidade por visualização')+
+  '</button></div>':'';
  const actions=c=>{
   if(!canAct)return '';
   const status=String(c.status||'');
@@ -124,13 +139,45 @@ function adminCreditAdsPanel(){
     money(t.spent)+'</strong></div></div>'+
    '<p role="status">Recargas '+(g.rechargeEnabled?'habilitadas':'desligadas')+
    ' · Débitos '+(g.billingEnabled?'habilitados':'desligados')+
-   ' · Validação de evidências '+(g.evidenceEnabled?'habilitada':'desligada')+'</p>'+
+   ' · Validação de evidências '+(g.evidenceEnabled?'habilitada':'desligada')+'</p>'+commercialControl+
    '<p class="tiny muted">'+counts.submitted+' aguardando revisão · '+counts.approved+
    ' aguardando publicação · '+counts.active+' em divulgação · '+counts.paused+' pausadas.</p>'+ 
    filters+
   '<div class="grid cards-2">'+(rows||'<p>Nenhuma campanha nesta situação.</p>')+'</div>':
    '<p role="status">'+esc(data.error||'Consultando campanhas e saldos…')+'</p>')+
   '</section>';
+}
+async function adminCreditCommercialRun(operation,expectedVersion){
+ const actor=String(adminRuntime?.session?.user?.id||'');
+ if(!actor||!adminReady()||adminCurrentRole()!=='superadmin'||
+   adminCreditAdsState.actor!==actor||adminCreditAdsState.status!=='ready'||
+   adminCreditCommercialBusy||adminCreditAdsBusy)return false;
+ if(!['open','pause'].includes(operation)||
+   !Number.isSafeInteger(Number(expectedVersion))||
+   Number(expectedVersion)!==Number(adminCreditAdsState.gate?.version))return false;
+ if(document.getElementById('credit-commercial-ack')?.checked!==true){
+  toast('Marque a confirmação antes de alterar a abertura comercial.');return false;
+ }
+ adminCreditCommercialBusy=true;
+ try{
+  const result=await adminCreditAdsRequest('admin-commercial',{
+   operation,expectedVersion:Number(expectedVersion),
+   acknowledgeFinancialControls:true
+  });
+  if(actor!==String(adminRuntime?.session?.user?.id||'')||
+    result?.source!=='ads_credit_commercial_controls_v1_1105'||
+    !Number.isSafeInteger(result.version))return false;
+  toast(operation==='pause'?'Novas cobranças e recargas pausadas.':
+   'Publicidade por visualização habilitada. Campanhas ainda exigem aprovação.');
+  return true;
+ }catch(e){
+  if(actor===String(adminRuntime?.session?.user?.id||''))toast(
+   'Não foi possível alterar a abertura comercial. Atualize o painel e tente novamente.');
+  return false;
+ }finally{
+  adminCreditCommercialBusy=false;
+  if(actor===String(adminRuntime?.session?.user?.id||''))await adminCreditAdsRefresh();
+ }
 }
 async function adminCreditAdsDecide(id,version){
  const actor=String(adminRuntime?.session?.user?.id||'');
