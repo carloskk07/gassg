@@ -9,7 +9,7 @@ return shell(`<section class="page learn-premium">
       <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / GUIA DE COMPRA</span>
       <h1 id="learn-hero-title">Simples para pedir. <em>Claro para acompanhar.</em></h1>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
-      <p>Encontre gás, água e itens essenciais. Consulte as opções para seu endereço, confira as condições antes de pedir e acompanhe as etapas informadas pela revenda.</p>
+      <p>Encontre gás, água e itens essenciais nas revendas da sua região. Confira o valor e as condições antes de solicitar. A revenda confirma o atendimento; você acompanha cada etapa informada.</p>
       <div class="learn-hero-actions">
         <button type="button" class="learn-button learn-button-primary" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button>
         <button type="button" class="learn-button learn-button-outline" onclick="publicLandingJump('buyer-guide-steps')">Ver como funciona <span aria-hidden="true">↘</span></button>
@@ -91,6 +91,21 @@ return shell(`<section class="page learn-premium">
     <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">01</span><span><strong>Quero comprar</strong><small>Veja as opções da sua região.</small></span><button type="button" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button></div>
     <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">02</span><span><strong>Já tenho um pedido</strong><small>Consulte o andamento da entrega.</small></span><button type="button" onclick="go('tracking')">Acompanhar <span aria-hidden="true">→</span></button></div>
     <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">03</span><span><strong>Quero benefícios</strong><small>Conheça cupons e créditos elegíveis.</small></span><button type="button" onclick="go('club')">Conhecer o Clube <span aria-hidden="true">→</span></button></div>
+    <div class="learn-trust-disclosure" aria-labelledby="learn-transparency-title">
+      <div class="learn-trust-disclosure-copy">
+        <span class="learn-trust-disclosure-icon" aria-hidden="true">i</span>
+        <div>
+          <span class="learn-label">COMPROMISSO COM A CLAREZA</span>
+          <strong id="learn-transparency-title">Você sabe com quem está comprando e o que acontece depois.</strong>
+          <small>O TAMÃO conecta e organiza; a revenda aceita e realiza a entrega. O pedido só é confirmado após o aceite da revenda. Preços e condições são apresentados antes de solicitar.</small>
+        </div>
+      </div>
+      <nav class="learn-trust-disclosure-links" aria-label="Atendimento e informações oficiais">
+        <button type="button" onclick="go('contact')">Falar com o TAMÃO <span aria-hidden="true">↗</span></button>
+        <button type="button" onclick="go('terms')">Termos de uso <span aria-hidden="true">↗</span></button>
+        <button type="button" onclick="go('privacy')">Privacidade <span aria-hidden="true">↗</span></button>
+      </nav>
+    </div>
   </section>
 
   <section class="learn-section learn-steps" id="buyer-guide-steps" tabindex="-1" aria-labelledby="learn-steps-title">
