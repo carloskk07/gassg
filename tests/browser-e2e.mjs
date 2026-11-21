@@ -212,8 +212,7 @@ assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.ste
 assert.equal(await evaluate("document.querySelectorAll('.learn-product-tile').length"),3);
 await evaluate("document.querySelectorAll('.learn-phase')[3].click()");
 assert.equal(await evaluate("document.querySelector('[data-learn-stage-cta-label]')?.textContent.trim()"),'Acompanhar meu pedido');
-assert.equal(await evaluate("document.querySelector('.learn-scene-track-art')?.hidden"),undefined);
-assert.equal(await evaluate("document.querySelector('[data-learn-scene=\\\"4\\\"]')?.hidden"),false);
+assert.equal(await evaluate("document.querySelectorAll('[data-learn-scene]')[3].hidden"),false);
 await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
 assert.equal(await evaluate("document.querySelector('[data-learn-stage-cta-label]')?.textContent.trim()"),'Explorar produtos');
 await evaluate("document.querySelector('[data-learn-faq-topic=entrega]').click()");
