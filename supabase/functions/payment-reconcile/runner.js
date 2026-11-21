@@ -40,7 +40,7 @@ async function reconcileOriginalAdsCredit(row,read,deps){
  if(!/^tamao-ads-credit-[0-9a-f]{32}$/.test(reference))
   return {outcome:'review',reason:'ADS_CREDIT_REFERENCE_INVALID',businessStatus:row.status};
  const {token,sellerId}=await deps.adsCredentials();
- if(!/^APP_USR-\\S{20,}$/.test(token||'')||!/^[0-9]{4,20}$/.test(String(sellerId||'')))
+ if(!/^APP_USR-\S{20,}$/.test(token||'')||!/^[0-9]{4,20}$/.test(String(sellerId||'')))
   throw Error('ADS_CREDIT_PROVIDER_NOT_CONFIGURED');
  let paymentId=String(row.provider_payment_id||'');
  if(!paymentId){
@@ -53,7 +53,7 @@ async function reconcileOriginalAdsCredit(row,read,deps){
    return {outcome:'pending',reason:'ADS_CREDIT_PAYMENT_NOT_FOUND',businessStatus:row.status};
   paymentId=selection.paymentId;
  }
- if(!/^\\d{5,30}$/.test(paymentId))
+ if(!/^\d{5,30}$/.test(paymentId))
   return {outcome:'review',reason:'ADS_CREDIT_PROVIDER_ID_INVALID',businessStatus:row.status};
  const payment=await providerGet('/v1/payments/'+encodeURIComponent(paymentId),token);
  // The common recordAdsCreditPayment helper checks fresh LIVE PSP status,
