@@ -710,3 +710,5 @@
 @media(max-width:980px){.merchant-v1120-custom-ticket{flex:1 1 100%;min-width:0}}
 @media(max-width:520px){.merchant-v1120-brand-demo{padding:12px;margin:0 0 13px}.merchant-landing-v1117 .merchant-v1117-ticketbar{gap:14px}.merchant-v1120-custom-ticket{flex:1 1 100%;min-width:0}.merchant-v1120-brand-words strong{font-size:17px}}
 @media(prefers-reduced-motion:reduce){.merchant-v1120-brand-demo{scroll-behavior:auto}}
+
+.merchant-v1120-brand-name{display:block;max-width:100%;overflow-wrap:anywhere}
