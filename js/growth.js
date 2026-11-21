@@ -1094,8 +1094,9 @@ function merchantsLanding(){
       <span class="merchant-v1114-index-heading">CONHEÇA A PARCERIA</span>
       <button type="button" onclick="publicLandingJump('merchant-benefits')"><b>01</b><span>Benefícios</span><span aria-hidden="true">↗</span></button>
       <button type="button" onclick="publicLandingJump('merchant-terms')"><b>02</b><span>Condições claras</span><span aria-hidden="true">↗</span></button>
-      <button type="button" onclick="publicLandingJump('merchant-how')"><b>03</b><span>Como funciona</span><span aria-hidden="true">↗</span></button>
-      <button type="button" onclick="publicLandingJump('merchant-faq')"><b>04</b><span>Dúvidas frequentes</span><span aria-hidden="true">↗</span></button>
+      <button type="button" onclick="publicLandingJump('merchant-plans')"><b>03</b><span>Pacotes e economia</span><span aria-hidden="true">↗</span></button>
+      <button type="button" onclick="publicLandingJump('merchant-how')"><b>04</b><span>Como funciona</span><span aria-hidden="true">↗</span></button>
+      <button type="button" onclick="publicLandingJump('merchant-faq')"><b>05</b><span>Dúvidas frequentes</span><span aria-hidden="true">↗</span></button>
     </nav>
 
     ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do TAMÃO.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
@@ -1130,6 +1131,18 @@ function merchantsLanding(){
       </div>
     </section>
 
+    <section class="merchant-v1115-plans" id="merchant-plans" tabindex="-1" aria-label="Pacotes de redução de taxas">
+      <div class="merchant-v1115-plans-head">
+        <div><span class="section-kicker">MAIS CONTROLE SOBRE O QUE VOCÊ PAGA</span><h2>Uma taxa menor faz diferença em cada venda.</h2><p>Comece no Flex Diário, sem recarga antecipada, ou escolha créditos para acessar percentuais menores. A recarga não é mensalidade adicional: ela é usada para pagar taxas.</p></div>
+        <div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>6,5%</strong><small>com Alto Volume ativo e saldo disponível</small></div>
+      </div>
+      <div class="merchant-v1115-plans-grid">${planCards}</div>
+      <div class="merchant-v1115-plans-bottom">
+        <div><strong>Como funciona o pré-pago?</strong><p>Escolha um pacote no Financeiro do Portal da Revenda, pague a recarga e aguarde a confirmação. O crédito cobre as taxas dos pedidos concluídos; a receita da venda continua sendo sua. Acompanhe o saldo e confira os valores atuais no painel antes de contratar.</p></div>
+        <button class="secondary merchant-v1115-plans-cta" type="button" onclick="openMerchantPortal(true)">Conhecer os planos no Portal <span aria-hidden="true">→</span></button>
+      </div>
+      <p class="merchant-v1115-plans-fine">Economia ilustrativa por pedido de R$ 120, em comparação com o Flex Diário de 9%. Só existe economia quando a tarifa reduzida é efetivamente aplicada. Recargas não garantem pedidos ou lucro; condições podem ser alteradas pelo administrador.</p>
+    </section>
     <section class="section merchant-v1114-simulator" id="merchant-margin" tabindex="-1"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Quer analisar sua margem com mais detalhes?</h2><p>O cálculo completo fica disponível para quem quiser informar os próprios custos e avaliar cenários sem promessas de lucro.</p></div></div>
       <details class="merchant-v1114-simulator-details">
         <summary><span><strong>Abrir calculadora de margem</strong><small>Inclua valor médio, custos, entrega, impostos e forma de pagamento</small></span><span aria-hidden="true">+</span></summary>
