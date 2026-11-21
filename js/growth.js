@@ -986,24 +986,6 @@ return globalThis.tamaoSponsorPremiumLanding();
 '</div></section>');
 }
 
-function merchantPlanTicketPreview(value){
-const ticket=Number(value);
-if(![100,120,200].includes(ticket)||typeof document==='undefined')return false;
-const section=document.getElementById('merchant-plans');
-if(!section)return false;
-const currency=BRL.format(ticket);
-section.querySelectorAll('[data-merchant-ticket]').forEach(button=>{
- button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-merchant-ticket'))===ticket));
-});
-section.querySelectorAll('[data-merchant-order-ticket]').forEach(element=>{element.textContent=currency;});
-section.querySelectorAll('[data-merchant-saving-bps]').forEach(element=>{
- const bps=Number(element.getAttribute('data-merchant-saving-bps'));
- if(Number.isInteger(bps)&&bps>=0&&bps<=2000)
-  element.textContent=BRL.format(ticket*bps/10000);
-});
-return true;
-}
-
 function tamaoMerchantExecutiveStyles(){
 if(typeof document==='undefined')return;
 if(!document.getElementById('merchant-executive-styles')){
@@ -1176,9 +1158,9 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <div class="merchant-v1117-ticketbar">
 <div class="merchant-v1117-ticketbar-copy"><span>COMPARE EM SEGUNDOS</span><strong>Veja quanto a taxa diminui na sua venda.</strong><small>Escolha um valor ilustrativo de pedido para comparar os planos.</small></div>
 <div class="merchant-v1117-ticketbar-controls" role="group" aria-label="Valor ilustrativo do pedido">
-<button type="button" data-merchant-ticket="100" aria-pressed="false" onclick="merchantPlanTicketPreview(100)">R$ 100</button>
-<button type="button" data-merchant-ticket="120" aria-pressed="true" onclick="merchantPlanTicketPreview(120)">R$ 120</button>
-<button type="button" data-merchant-ticket="200" aria-pressed="false" onclick="merchantPlanTicketPreview(200)">R$ 200</button>
+<button type="button" data-merchant-ticket="100" aria-pressed="false" onclick="globalThis.merchantPlanTicketPreview?.(100)">R$ 100</button>
+<button type="button" data-merchant-ticket="120" aria-pressed="true" onclick="globalThis.merchantPlanTicketPreview?.(120)">R$ 120</button>
+<button type="button" data-merchant-ticket="200" aria-pressed="false" onclick="globalThis.merchantPlanTicketPreview?.(200)">R$ 200</button>
 </div>
 </div>
 <div class="merchant-v1115-plans-grid">${planCards}</div>
