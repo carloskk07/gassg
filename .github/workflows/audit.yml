@@ -1366,7 +1366,13 @@ jobs:
           grep -Fq 'Moto, carro e muito mais. Tá na mão.' /tmp/home.html
           ! grep -Fq 'home-editorial-visual' /tmp/home.html
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
-          grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
+          # The learn route progressively loads the premium guide; either render
+          # must keep the buyer action, and loaded premium content has four steps.
+          grep -Fq 'COMO FUNCIONA O TAMÃO' /tmp/learn.html
+          grep -Fq 'startHomeBrowse()' /tmp/learn.html
+          if grep -Fq 'class="learn-hero"' /tmp/learn.html; then
+            grep -Fq 'learn-step-grid' /tmp/learn.html
+          fi
           grep -Fq 'Compartilhe o TAMÃO. Veja sua Rede ganhar vida.' /tmp/earn.html
           grep -q "Faça seu pedido" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
