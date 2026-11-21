@@ -913,29 +913,29 @@ if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente
 // V1.301 — send partnership interest into the existing protected contact channel,
 // without new storage, third-party redirects or a fake sponsor activation.
 function openSponsorContact(format='general',quoteBrief=''){
-// Carry only the visitor's public contact intent for anonymous page metrics.
-// No campaign is activated and no identity is included in analytics.
-globalThis.tamaoPublicContactAudience='merchant';
-const messages={
-general:'Tenho interesse em uma parceria de divulgação com o TAMÃO. Gostaria de conversar sobre minha região, categorias e formatos disponíveis.',
-visibility:'Minha marca quer conversar sobre divulgação identificada no TAMÃO. Gostaria de informar cidade, categoria e objetivo da campanha.',
-relationship:'Minha marca quer avaliar uma ação de benefícios para clientes do TAMÃO. Gostaria de conversar sobre público, orçamento e limites da campanha.',
-local:'Minha marca quer estudar uma ação regional em parceria com revendas do TAMÃO. Gostaria de informar cidade e categoria de interesse.'
-};
-const focus=()=>{
-if(route()!=='contact')return;
-const type=document.getElementById('public-request-kind');
-if(type){type.value='sponsor';globalThis.contactKindChanged?.()}
-const message=document.getElementById('public-request-message');
-if(message&&!String(message.value||'').trim()){
-message.value=messages[Object.prototype.hasOwnProperty.call(messages,format)?format:'general']+
-(quoteBrief?'\n'+String(quoteBrief).trim().slice(0,450):'');
-}
-document.querySelector('.public-contact-card')?.scrollIntoView({behavior:'smooth',block:'start'});
-document.getElementById('public-contact-name')?.focus({preventScroll:true});
-};
-if(route()!=='contact'){go('contact');setTimeout(focus,160);return}
-focus();
+  // Carry only the visitor's public contact intent for anonymous page metrics.
+  // No campaign is activated and no identity is included in analytics.
+  globalThis.tamaoPublicContactAudience='merchant';
+  const messages={
+    general:'Tenho interesse em uma parceria de divulgação com o TAMÃO. Gostaria de conversar sobre minha região, categorias e formatos disponíveis.',
+    visibility:'Minha marca quer conversar sobre divulgação identificada no TAMÃO. Gostaria de informar cidade, categoria e objetivo da campanha.',
+    relationship:'Minha marca quer avaliar uma ação de benefícios para clientes do TAMÃO. Gostaria de conversar sobre público, orçamento e limites da campanha.',
+    local:'Minha marca quer estudar uma ação regional em parceria com revendas do TAMÃO. Gostaria de informar cidade e categoria de interesse.'
+  };
+  const focus=()=>{
+    if(route()!=='contact')return;
+    const type=document.getElementById('public-request-kind');
+    if(type){type.value='sponsor';globalThis.contactKindChanged?.()}
+    const message=document.getElementById('public-request-message');
+    if(message&&!String(message.value||'').trim()){
+      message.value=messages[Object.prototype.hasOwnProperty.call(messages,format)?format:'general']+
+        (quoteBrief?'\n'+String(quoteBrief).trim().slice(0,450):'');
+    }
+    document.querySelector('.public-contact-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+    document.getElementById('public-contact-name')?.focus({preventScroll:true});
+  };
+  if(route()!=='contact'){go('contact');setTimeout(focus,160);return}
+  focus();
 }
 function tamaoAdsPlannerLoad(){
 if(globalThis.tamaoAdsPlannerSection||globalThis.tamaoAdsLoading)return;
