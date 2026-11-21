@@ -1,5 +1,8 @@
 /* Loaded only on the public #learn route. */
 function learnPremiumPage(){
+// A route re-render starts with a clean visible search state.
+learnPremiumFaqState.topic='todos';
+learnPremiumFaqState.query='';
 return shell(`<section class="page learn-premium">
   <section class="learn-hero" aria-labelledby="learn-hero-title">
     <div class="learn-hero-copy">
