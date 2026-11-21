@@ -279,6 +279,8 @@ jobs:
         run: node tests/learn-signature-interaction-v1-1125.mjs
       - name: Editorial #learn path and stage integrity V1.1126
         run: node tests/learn-editorial-journey-v1-1126.mjs
+      - name: Concierge premium help and truthful paths V1.1127
+        run: node tests/learn-concierge-v1-1127.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
@@ -1372,7 +1374,7 @@ jobs:
           ! grep -Fq 'hero marketing-hero' /tmp/home.html
           # The learn route progressively loads the premium guide; either render
           # must keep the buyer action, and loaded premium content has four steps.
-          grep -Fq 'A EXPERIÊNCIA TAMÃO, PASSO A PASSO' /tmp/learn.html
+          grep -Fq 'TAMÃO · DO PEDIDO À ENTREGA' /tmp/learn.html
           grep -Fq 'startHomeBrowse()' /tmp/learn.html
           if grep -Fq 'class="learn-hero"' /tmp/learn.html; then
             grep -Fq 'learn-step-grid' /tmp/learn.html

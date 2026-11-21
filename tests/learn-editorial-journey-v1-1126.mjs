@@ -9,7 +9,7 @@ const bootstrap=read('js/bootstrap.js');
 
 new vm.Script(source,{filename:'js/learn-premium.js'});
 const pageCtx=vm.createContext({shell:s=>s});
-vm.runInContext(source.slice(0,source.indexOf('\nfunction learnPremiumSelectStep('))+'\nthis.page=learnPremiumPage;',pageCtx);
+vm.runInContext(source+'\nthis.page=learnPremiumPage;',pageCtx);
 const markup=pageCtx.page();
 
 assert.equal((markup.match(/data-learn-scene="\d"/g)||[]).length,4);

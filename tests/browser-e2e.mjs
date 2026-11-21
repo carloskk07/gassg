@@ -194,10 +194,11 @@ await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=nu
 await evaluate("go('learn')");
 await waitFor("document.querySelector('.learn-hero') && document.querySelector('.learn-step-grid')","premium learn route");
 body=await text();
-assert.match(body,/Tudo mais simples/);
+assert.match(body,/Simples para pedir/);
+assert.match(body,/Claro para acompanhar/);
 assert.match(body,/UMA RELAÇÃO TRANSPARENTE/);
 assert.match(body,/A revenda precisa aceitar/);
-assert.match(body,/GUIA DA SUA JORNADA/);
+assert.match(body,/SUA JORNADA, SEM SURPRESAS/);
 await evaluate("document.querySelectorAll('.learn-phase')[2].click()");
 assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'3',
  'selecting the third buyer guide step must update the live illustration');
@@ -208,6 +209,15 @@ assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"3\"]')?
 assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"1\"]')?.hidden"),true);
 await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
 assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
+await evaluate("document.querySelector('[data-learn-faq-topic=entrega]').click()");
+assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),3);
+await evaluate("(()=>{const input=document.querySelector('#learn-faq-search');input.value='código';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),1);
+assert.equal(await evaluate("document.querySelector('.learn-faq-items details:not([hidden]) summary')?.textContent.includes('entrega')"),true);
+await evaluate("(()=>{const input=document.querySelector('#learn-faq-search');input.value='palavra-inexistente';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+assert.equal(await evaluate("document.querySelector('[data-learn-faq-empty]').hidden"),false);
+await evaluate("document.querySelector('[data-learn-faq-empty] button').click()");
+assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),8);
 await auditDom('learn');
 
 await evaluate("go('privacy')");

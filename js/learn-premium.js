@@ -1,12 +1,15 @@
 /* Loaded only on the public #learn route. */
 function learnPremiumPage(){
+// A route re-render starts with a clean visible search state.
+learnPremiumFaqState.topic='todos';
+learnPremiumFaqState.query='';
 return shell(`<section class="page learn-premium">
   <section class="learn-hero" aria-labelledby="learn-hero-title">
     <div class="learn-hero-copy">
-      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> A EXPERIÊNCIA TAMÃO, PASSO A PASSO</span>
-      <h1 id="learn-hero-title">Tudo mais simples, <em>do primeiro clique à entrega.</em></h1>
+      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO · DO PEDIDO À ENTREGA</span>
+      <h1 id="learn-hero-title">Simples para pedir. <em>Claro para acompanhar.</em></h1>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
-      <p>Encontre gás, água e itens essenciais em um só lugar. Consulte as opções para o seu endereço, veja o valor antes de confirmar e acompanhe cada etapa do pedido.</p>
+      <p>Encontre gás, água e itens essenciais com uma jornada transparente. Consulte as condições para seu endereço, escolha com liberdade e acompanhe as informações da revenda.</p>
       <div class="learn-hero-actions">
         <button type="button" class="learn-button learn-button-primary" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button>
         <button type="button" class="learn-button learn-button-outline" onclick="publicLandingJump('buyer-guide-steps')">Ver como funciona <span aria-hidden="true">↘</span></button>
@@ -18,7 +21,7 @@ return shell(`<section class="page learn-premium">
       </div>
     </div>
     <div class="learn-visual" data-step="1" aria-label="Guia interativo de quatro etapas">
-      <div class="learn-visual-top"><span class="learn-visual-dot"></span><span>GUIA DA SUA JORNADA</span><span class="learn-visual-star" aria-hidden="true">✳</span></div>
+      <div class="learn-visual-top"><span class="learn-visual-dot"></span><span>SUA JORNADA, SEM SURPRESAS</span><span class="learn-visual-star" aria-hidden="true">✳</span></div>
       <div class="learn-visual-intro"><span data-learn-step-count>01 / 04</span><strong data-learn-step-heading>O que você precisa hoje?</strong><small data-learn-step-caption>Você começa escolhendo, sem compromisso.</small></div>
 
       <div class="learn-visual-scenes" aria-hidden="true">
@@ -116,16 +119,44 @@ return shell(`<section class="page learn-premium">
   </section>
 
   <section class="learn-faq" id="buyer-guide-questions" tabindex="-1" aria-labelledby="learn-faq-title">
-    <div class="learn-faq-heading"><span class="learn-label">04 — SEM DÚVIDAS</span><h2 id="learn-faq-title">Tudo explicado, <em>sem letras miúdas.</em></h2><p>Informações importantes para escolher e pedir com tranquilidade.</p><button class="learn-contact-link" type="button" onclick="go('contact')">Precisa de ajuda? Fale com o TAMÃO <span aria-hidden="true">→</span></button></div>
-    <div class="learn-faq-items">
-      <details open><summary>Posso consultar produtos sem criar uma conta?</summary><p>Sim. Você pode explorar os produtos disponíveis. Para concluir uma compra, é necessário se identificar com nome, telefone e e-mail confirmado; o endereço de entrega é solicitado na compra.</p></details>
-      <details><summary>Preciso comprar gás para pedir água ou outros itens?</summary><p>Não. Quando houver oferta para o produto na sua região, você pode montar uma cesta sem gás.</p></details>
-      <details><summary>O preço pode mudar depois que eu escolho?</summary><p>O valor escolhido não muda sem sua autorização. Caso seja apresentada uma alternativa mais cara, você decide se deseja aceitá-la.</p></details>
-      <details><summary>Como sei que a revenda assumiu o pedido?</summary><p>O pedido só é confirmado quando uma revenda aceita. A indicação de saída para entrega aparece quando a revenda informa essa etapa.</p></details>
-      <details><summary>E se ninguém aceitar meu pedido?</summary><p>Sem aceite, o pedido não é confirmado. O TAMÃO pode procurar outra opção e informa quando não houver atendimento disponível.</p></details>
-      <details><summary>Como a entrega é concluída?</summary><p>A conclusão requer confirmação do pagamento e o código de recebimento do pedido. Informe o código somente após receber o que comprou.</p></details>
-      <details><summary>Como funcionam cashback e indicações?</summary><p>Compras elegíveis podem gerar créditos para uso no TAMÃO. Indicações podem gerar comissões em campanhas habilitadas, após os critérios de compra, entrega, pagamento e validação. Consulte as regras do Clube e da Rede.</p></details>
-      <details><summary>Tenho uma revenda. Posso participar?</summary><p>Sim. Revendas podem solicitar participação, cadastrar produtos que comercializam e, quando aplicável, comprovar as autorizações necessárias para vender gás.</p></details>
+    <div class="learn-faq-heading">
+      <span class="learn-label">04 — CENTRAL DE RESPOSTAS</span>
+      <h2 id="learn-faq-title">Sua dúvida merece <em>uma resposta clara.</em></h2>
+      <p>Encontre a informação que precisa sem procurar em textos longos. Filtre por assunto ou pesquise diretamente.</p>
+      <div class="learn-faq-support"><span class="learn-faq-support-icon" aria-hidden="true">?</span><div><strong>Não encontrou o que precisava?</strong><small>Nosso canal de atendimento está disponível para receber sua solicitação.</small><button class="learn-contact-link" type="button" onclick="go('contact')">Falar com o TAMÃO <span aria-hidden="true">→</span></button></div></div>
+    </div>
+    <div class="learn-faq-workspace">
+      <div class="learn-faq-tools">
+        <label for="learn-faq-search">O QUE VOCÊ DESEJA SABER?</label>
+        <div class="learn-faq-search-frame">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.6" cy="10.6" r="6.2"/><path d="m15.4 15.4 5.1 5.1"/></svg>
+          <input id="learn-faq-search" type="search" autocomplete="off" maxlength="80" placeholder="Ex.: preço, entrega, cashback..." oninput="learnPremiumSearchFaq(this.value)" aria-controls="learn-faq-results"/>
+        </div>
+        <div class="learn-faq-topics" role="group" aria-label="Filtrar dúvidas por assunto">
+          <button type="button" class="is-active" aria-pressed="true" data-learn-faq-topic="todos" onclick="learnPremiumSetFaqTopic('todos')">Todas</button>
+          <button type="button" aria-pressed="false" data-learn-faq-topic="compra" onclick="learnPremiumSetFaqTopic('compra')">Compra</button>
+          <button type="button" aria-pressed="false" data-learn-faq-topic="entrega" onclick="learnPremiumSetFaqTopic('entrega')">Entrega</button>
+          <button type="button" aria-pressed="false" data-learn-faq-topic="beneficios" onclick="learnPremiumSetFaqTopic('beneficios')">Benefícios</button>
+          <button type="button" aria-pressed="false" data-learn-faq-topic="cadastro" onclick="learnPremiumSetFaqTopic('cadastro')">Cadastro</button>
+        </div>
+        <p class="learn-faq-count" role="status" aria-live="polite" aria-atomic="true" data-learn-faq-count>8 perguntas para explorar</p>
+      </div>
+      <div class="learn-faq-items" id="learn-faq-results">
+      <details open data-learn-faq-category="cadastro"><summary>Posso consultar produtos sem criar uma conta?</summary><p>Sim. Você pode explorar os produtos disponíveis. Para concluir uma compra, é necessário se identificar com nome, telefone e e-mail confirmado; o endereço de entrega é solicitado na compra.</p></details>
+      <details data-learn-faq-category="compra"><summary>Preciso comprar gás para pedir água ou outros itens?</summary><p>Não. Quando houver oferta para o produto na sua região, você pode montar uma cesta sem gás.</p></details>
+      <details data-learn-faq-category="compra"><summary>O preço pode mudar depois que eu escolho?</summary><p>O valor escolhido não muda sem sua autorização. Caso seja apresentada uma alternativa mais cara, você decide se deseja aceitá-la.</p></details>
+      <details data-learn-faq-category="entrega"><summary>Como sei que a revenda assumiu o pedido?</summary><p>O pedido só é confirmado quando uma revenda aceita. A indicação de saída para entrega aparece quando a revenda informa essa etapa.</p></details>
+      <details data-learn-faq-category="entrega"><summary>E se ninguém aceitar meu pedido?</summary><p>Sem aceite, o pedido não é confirmado. O TAMÃO pode procurar outra opção e informa quando não houver atendimento disponível.</p></details>
+      <details data-learn-faq-category="entrega"><summary>Como a entrega é concluída?</summary><p>A conclusão requer confirmação do pagamento e o código de recebimento do pedido. Informe o código somente após receber o que comprou.</p></details>
+      <details data-learn-faq-category="beneficios"><summary>Como funcionam cashback e indicações?</summary><p>Compras elegíveis podem gerar créditos para uso no TAMÃO. Indicações podem gerar comissões em campanhas habilitadas, após os critérios de compra, entrega, pagamento e validação. Consulte as regras do Clube e da Rede.</p></details>
+      <details data-learn-faq-category="cadastro"><summary>Tenho uma revenda. Posso participar?</summary><p>Sim. Revendas podem solicitar participação, cadastrar produtos que comercializam e, quando aplicável, comprovar as autorizações necessárias para vender gás.</p></details>
+      </div>
+      <div class="learn-faq-empty" data-learn-faq-empty hidden>
+        <span aria-hidden="true">⌕</span>
+        <strong>Nenhuma resposta para esta busca.</strong>
+        <p>Tente uma palavra diferente ou selecione outra categoria.</p>
+        <button type="button" onclick="learnPremiumClearFaq()">Mostrar todas as dúvidas <span aria-hidden="true">→</span></button>
+      </div>
     </div>
   </section>
 
@@ -185,4 +216,55 @@ function learnPremiumJump(sectionId){
   section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
   section.focus({preventScroll:true});
   return true;
+}
+
+
+/** Find help locally; never sends typed text or saves browsing context. */
+const learnPremiumFaqState={topic:'todos',query:''};
+function learnPremiumNormalizeText(text){
+  return String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLocaleLowerCase('pt-BR').trim();
+}
+function learnPremiumApplyFaq(){
+  if(typeof document==='undefined')return false;
+  const root=document.querySelector('.learn-premium .learn-faq');
+  if(!root)return false;
+  const cards=[...root.querySelectorAll('.learn-faq-items details[data-learn-faq-category]')];
+  const query=learnPremiumNormalizeText(learnPremiumFaqState.query);
+  const selected=learnPremiumFaqState.topic;
+  let count=0;
+  cards.forEach(card=>{
+    const topic=card.getAttribute('data-learn-faq-category');
+    const words=learnPremiumNormalizeText(card.textContent);
+    const show=(selected==='todos'||selected===topic)&&(!query||words.includes(query));
+    card.hidden=!show;
+    if(show){count++;if(query)card.open=true;}
+  });
+  root.querySelectorAll('[data-learn-faq-topic]').forEach(button=>{
+    const active=button.getAttribute('data-learn-faq-topic')===selected;
+    button.setAttribute('aria-pressed',String(active));
+    button.classList.toggle('is-active',active);
+  });
+  const label=root.querySelector('[data-learn-faq-count]');
+  if(label)label.textContent=count===1?'1 pergunta encontrada':count+' perguntas encontradas';
+  const empty=root.querySelector('[data-learn-faq-empty]');
+  if(empty)empty.hidden=count!==0;
+  return count;
+}
+function learnPremiumSetFaqTopic(topic){
+  if(!['todos','compra','entrega','beneficios','cadastro'].includes(topic))return false;
+  learnPremiumFaqState.topic=topic;
+  return learnPremiumApplyFaq();
+}
+function learnPremiumSearchFaq(value){
+  learnPremiumFaqState.query=String(value||'').slice(0,80);
+  return learnPremiumApplyFaq();
+}
+function learnPremiumClearFaq(){
+  learnPremiumFaqState.topic='todos';
+  learnPremiumFaqState.query='';
+  if(typeof document==='undefined')return false;
+  const input=document.querySelector('.learn-premium #learn-faq-search');
+  if(input)input.value='';
+  return learnPremiumApplyFaq();
 }
