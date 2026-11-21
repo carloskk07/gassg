@@ -48,7 +48,7 @@ assert.match(initial,/R\$ 0,02 por visualização elegível/);
 assert.match(initial,/Recargas a partir de R\$ 19,90, sem pacote de dias/);
 assert.match(initial,/até 995 visualizações faturáveis/);
 assert.match(initial,/Quando uma visualização é cobrada\?/);
-assert.match(initial,/Crie sua campanha/);
+assert.match(initial,/CRIE SUA CAMPANHA/);
 
 assert.ok(initial.includes('R$ 19,90'));
 assert.ok(initial.includes('R$ 49,90'));
