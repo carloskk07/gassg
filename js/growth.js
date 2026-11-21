@@ -576,7 +576,8 @@ function merchantEconomicsExample(orderReais,count=1){
 const amount=Math.max(0,Number(orderReais)||0);
 const qty=Math.max(1,Math.trunc(Number(count)||1));
 const gross=roundMoney(amount*qty);
-const fee=roundMoney(gross*MERCHANT_PUBLIC_BILLING_PLANS[0].bps/10000);
+const verifiedPlans=globalThis.tamaoMerchantPublicPlans?.status==='ready'?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS;
+const fee=roundMoney(gross*verifiedPlans[0].bps/10000);
 return {gross,fee,merchantNet:roundMoney(gross-fee)};
 }
 function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0,feeRate=merchantPilotFeeRate()}={}){
@@ -760,10 +761,11 @@ return `<section class="section growth-network-intro" aria-label="Convide pessoa
 </section>`;
 }
 function earn(){
+if(typeof tamaoMerchantExecutiveStyles==='function')tamaoMerchantExecutiveStyles();
 if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
 const merchantSample=merchantEconomicsExample(120);
 const referralRateLabel=policyPercent(referralPilotRate());
-const merchantFeeLabel=policyPercent(MERCHANT_PUBLIC_BILLING_PLANS[0].bps/10000);
+const merchantFeeLabel=policyPercent((globalThis.tamaoMerchantPublicPlans?.status==='ready'?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS)[0].bps/10000);
 return shell(`<section class="page tamao-earn-page">
 <div class="tamao-network-hero">
 <div class="tamao-network-intro">
@@ -1013,14 +1015,15 @@ const plans=verified?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_B
 const flex=plans[0];
 const cheapest=Math.min(...plans.map(p=>p.bps));
 const tariffStamp=verified?'Condições conferidas no catálogo oficial':'Valores de referência. Confira as taxas no Financeiro antes de contratar';
-const planSummary=plans.slice(1).map(p=>esc(p.name)+' '+policyPercent(p.bps/10000)).join(', ');
+const safePlanName=value=>String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+const planSummary=plans.slice(1).map(p=>safePlanName(p.name)+' '+policyPercent(p.bps/10000)).join(', ');
 const merchantFeeLabel=policyPercent(flex.bps/10000);
 const initial=merchantMarginExample({salePrice:referenceTicket,orders:50,feeRate:flex.bps/10000});
-const planOptions=plans.map(p=>'<option value="'+p.key+'">'+esc(p.name)+' • '+policyPercent(p.bps/10000)+'</option>').join('');
+const planOptions=plans.map(p=>'<option value="'+p.key+'">'+safePlanName(p.name)+' • '+policyPercent(p.bps/10000)+'</option>').join('');
 const planCards=plans.slice(1).map(p=>{
 const rate=p.bps/10000,saving=(flex.bps-p.bps)/10000;
 return '<article class="merchant-v1115-plan'+(p.key==='credit_09990'?' merchant-v1115-plan-featured':'')+'">'+
-'<div class="merchant-v1115-plan-top"><span>'+esc(p.name)+'</span>'+(p.key==='credit_09990'?'<em>PARA QUEM VENDE MAIS</em>':'')+'</div>'+
+'<div class="merchant-v1115-plan-top"><span>'+safePlanName(p.name)+'</span>'+(p.key==='credit_09990'?'<em>PARA QUEM VENDE MAIS</em>':'')+'</div>'+
 '<strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small>'+
 '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
 '<div class="merchant-v1115-plan-savings">Economia na taxa de uma venda de '+BRL.format(referenceTicket)+': <strong>'+BRL.format(referenceTicket*saving)+'</strong></div>'+
