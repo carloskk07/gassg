@@ -11,8 +11,9 @@ vm.runInContext(source+'\nthis.page=learnPremiumPage;',pageCtx);
 const markup=pageCtx.page();
 
 assert.equal((markup.match(/class="learn-phase(?: is-active)?"/g)||[]).length,4,'four accessible selector buttons');
-assert.equal((markup.match(/aria-pressed="true"/g)||[]).length,1,'one active step');
-assert.equal((markup.match(/aria-pressed="false"/g)||[]).length,3);
+const phaseControls=[...markup.matchAll(/<button\b[^>]*class="learn-phase(?: is-active)?"[^>]*>/g)].map(match=>match[0]);
+assert.equal(phaseControls.filter(tag=>tag.includes('aria-pressed="true"')).length,1,'only one journey step is active');
+assert.equal(phaseControls.filter(tag=>tag.includes('aria-pressed="false"')).length,3);
 assert.equal((markup.match(/class="learn-step"/g)||[]).length,4,'original journey must remain intact');
 assert.equal((markup.match(/class="learn-step-art" aria-hidden="true"><svg /g)||[]).length,4,'all four journey steps must retain their own SVG illustration');
 assert.match(markup,/aria-label="Explorar as etapas do pedido"/);
