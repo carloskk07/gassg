@@ -336,7 +336,9 @@ export function compactReleasedCoreComments(source){
     !source.includes('function bottomNav(r)'))throw new Error('Core bundle contract changed');
   const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(comments.length<20)throw new Error('Core navigation comments contract changed');
-  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+    // Generated bundle only; trim indentation, never strip data or statements.
+    .replace(/^ {2,}(?=\S)/gm,'');
   validateClassicScriptSyntax(released,'emitted core.js');
   return released;
 }
