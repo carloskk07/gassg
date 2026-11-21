@@ -67,6 +67,8 @@ jobs:
         run: node tests/ads-credit-admin-ux-v1-1099.mjs
       - name: V1.1100 complete credit journey, original Pix recovery and session isolation
         run: node tests/ads-credit-journey-v1-1100.mjs
+      - name: V1.1112 premium revenda invitation, accurate rates and live portal CTA
+        run: node tests/merchant-premium-landing-v1-1112.mjs
       - name: V1.1105 live ad preview cannot charge a customer's wallet
         run: node tests/ads-credit-commercial-ui-v1-1105.mjs
       - name: V1.1101 actual Ads Pix handler, provider search, confirmation and duplicate protection
