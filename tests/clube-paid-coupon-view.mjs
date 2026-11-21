@@ -110,7 +110,7 @@ vm.runInContext("clubeCouponShopState.userId='"+buyer+"';clubeCouponShopState.pu
 ctx.clubeCouponPixAutoStart(invoice);
 assert.equal(timers.size,1,'only one watcher on original invoice');
 const [firstId,first]=[...timers.entries()][0];
-assert.equal(first.ms,60000,'limited first status check');
+assert.equal(first.ms,15000,'limited first status check');
 timers.delete(firstId);await first.fn();await flush();
 assert.equal(actions.filter(x=>x==='invoice-status').length,1);
 assert.equal(actions.filter(x=>x==='my-vouchers').length,1);
