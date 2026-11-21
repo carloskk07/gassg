@@ -275,6 +275,10 @@ function patchServiceWorker(raw,sourceSha,role){
     const lazyEntry=",'./js/admin-activations.js'";
     if(!scoped.includes(lazyEntry))throw new Error('Missing admin activations precache entry');
     scoped=scoped.replace(lazyEntry,'');
+    for(const entry of [",'./js/learn-premium.js'",",'./css/learn-premium.css'"]){
+      if(!scoped.includes(entry))throw new Error('Missing lazy buyer guide PWA entry');
+      scoped=scoped.replace(entry,'');
+    }
     for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
       const entry=",'./js/"+module+".js'";
       if(!scoped.includes(entry))throw new Error('Missing public-only PWA entry: '+module);
@@ -488,6 +492,11 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       fs.rmSync(path.join(target,'js','discovery.js'),{force:true});
       fs.rmSync(path.join(target,'js','discovery-owner.js'),{force:true});
       fs.rmSync(path.join(target,'css','discovery.css'),{force:true});
+    }
+    // Buyer-only editorial assets must not be shipped to the admin portal.
+    if(role==='admin'){
+      fs.rmSync(path.join(target,'js','learn-premium.js'),{force:true});
+      fs.rmSync(path.join(target,'css','learn-premium.css'),{force:true});
     }
     // Split only the released admin bundle; keep one canonical source file
     // for older static regressions and local development. No code is copied,

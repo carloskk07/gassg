@@ -228,6 +228,28 @@ function tamaoEnsurePublicExperienceStyles(page){
   link.href='./css/public-ux.css'+version;
   document.head.appendChild(link);
 }
+// The premium buyer guide loads only on #learn, preserving first-paint budgets.
+let tamaoLearnPremiumRequested=false;
+function tamaoEnsureLearnPremium(page){
+  if(page!=='learn'||globalThis.adminPortalRequested?.()||
+    globalThis.merchantPortalRequested?.())return;
+  const base=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
+  const version=base.match(/\?v=[A-Za-z0-9._-]+/)?.[0]||'';
+  if(!document.querySelector('link[data-tamao-learn-premium]')){
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.setAttribute('data-tamao-learn-premium','');
+    link.href='./css/learn-premium.css'+version;
+    document.head.appendChild(link);
+  }
+  if(tamaoLearnPremiumRequested||typeof learnPremiumPage==='function')return;
+  tamaoLearnPremiumRequested=true;
+  const script=document.createElement('script');
+  script.src='./js/learn-premium.js'+version;
+  script.onload=()=>{if(route()==='learn')render();};
+  script.onerror=()=>{tamaoLearnPremiumRequested=false;};
+  document.head.appendChild(script);
+}
 let renderLock=false;
 let tamaoLastPublicRenderRoute='';
 function render(){
@@ -251,6 +273,7 @@ function render(){
     const r=discoveryOwnerReturnPending()?'advertise':
       mobilityReturnIntent()?'mobility':route();
     tamaoEnsurePublicExperienceStyles(r);
+    tamaoEnsureLearnPremium(r);
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,advertise:typeof discoveryOwnerPage==='function'?discoveryOwnerPage:discoveryOwnerLoadingPage,mobility:typeof mobilityPage==='function'?mobilityPage:mobilityLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     const menuOpen=r===tamaoLastPublicRenderRoute&&app?.querySelector('.tamao-account-access')?.open===true;

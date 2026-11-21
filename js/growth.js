@@ -812,53 +812,7 @@ return shell(`<section class="page tamao-earn-page">
 }
 
 function learn(){
-return shell(`<section class="page">
-<span class="eyebrow">COMO FUNCIONA O TAMÃO</span>
-<h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1>
-<p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Depois, informe o CEP para conferir as opções, o valor e o prazo da sua região antes de confirmar.</p>
-<div class="journey-invite">
-<span class="journey-invite-icon" aria-hidden="true">🏡</span>
-<div><strong>Do gás à água, o que você precisa está no mesmo lugar.</strong><span>Você escolhe, a revenda confirma e o TAMÃO mostra o andamento.</span></div>
-<button class="primary" onclick="startHomeBrowse()">Escolher meus produtos →</button>
-</div>
-
-<nav class="public-page-jump-rail buyer-jump-rail" aria-label="Explore as respostas para começar">
-<button type="button" onclick="publicLandingJump('buyer-guide-steps')"><span aria-hidden="true">🧺</span><span><strong>Veja as quatro etapas</strong><small>Da escolha até o recebimento</small></span><b aria-hidden="true">↓</b></button>
-<button type="button" onclick="publicLandingJump('buyer-guide-questions')"><span aria-hidden="true">💬</span><span><strong>Tire suas dúvidas</strong><small>Pagamento, preços e confirmação</small></span><b aria-hidden="true">↓</b></button>
-</nav>
-
-<section class="section" id="buyer-guide-steps" tabindex="-1"><div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>Do CEP à entrega, veja como funciona.</h2></div></div><div class="how-grid">
-<div class="how-card"><span>1</span><div><strong>Monte sua cesta</strong><p>Escolha gás e/ou produtos essenciais disponíveis.</p></div></div>
-<div class="how-card"><span>2</span><div><strong>Confirme seu endereço</strong><p>Procuramos revendas que possam entregar esses produtos no seu endereço.</p></div></div>
-<div class="how-card"><span>3</span><div><strong>Escolha uma opção</strong><p>Compare valor total e previsão de entrega antes de confirmar.</p></div></div>
-<div class="how-card"><span>4</span><div><strong>Acompanhe</strong><p>Você acompanha quando a revenda aceita, prepara e sai para entregar.</p></div></div>
-</div></section>
-
-<section class="section"><div class="section-head"><div><span class="section-kicker">MAIS TRANQUILIDADE</span><h2>Você não precisa ficar sem resposta.</h2></div></div><div class="grid cards-3">
-<div class="card feature-card"><div class="feature-icon">💲</div><h3>Valor antes de confirmar</h3><p>Você vê o total da opção antes de criar o pedido.</p></div>
-<div class="card feature-card"><div class="feature-icon">✅</div><h3>Parceiro precisa confirmar</h3><p>A revenda precisa aceitar antes de o pedido ser confirmado. Você vê essa confirmação no acompanhamento.</p></div>
-<div class="card feature-card"><div class="feature-icon">📍</div><h3>Acompanhamento por etapas</h3><p>Você vê quando o pedido está sendo preparado, já saiu ou está chegando.</p></div>
-</div></section>
-
-<section class="section" id="buyer-guide-questions" tabindex="-1"><div class="section-head"><div><span class="section-kicker">A GENTE EXPLICA</span><h2>O que você gostaria de saber?</h2></div></div><div class="faq-list">
-<details open><summary>Preciso comprar gás para pedir água, carvão, lenha ou gelo?</summary><p>Não. Quando houver oferta real para o produto, você pode montar uma cesta sem gás.</p></details>
-<details><summary>O preço pode mudar depois que eu escolho?</summary><p>Depois que você escolhe, o valor não muda sem sua autorização. Se outra revenda oferecer uma alternativa mais cara, você decide se aceita.</p></details>
-<details><summary>Como sei que alguém realmente assumiu meu pedido?</summary><p>O pedido é confirmado quando a revenda aceita. O aviso “A caminho” só aparece quando ela informa que saiu para entregar.</p></details>
-<details><summary>E se o parceiro aceitar e depois não puder sair para entregar?</summary><p>O TAMÃO pode procurar outra revenda disponível. Se o preço for maior, pediremos sua autorização antes de trocar.</p></details>
-<details><summary>E se ninguém aceitar?</summary><p>Sem aceite da revenda, o pedido não é confirmado. O sistema pode buscar outra opção e avisa se não houver ninguém disponível.</p></details>
-<details><summary>Como a entrega é concluída?</summary><p>A conclusão exige confirmação de pagamento e o código de recebimento do pedido. Informe esse código somente quando o pedido estiver com você.</p></details>
-<details><summary>Como funciona o cashback?</summary><p>Compras elegíveis podem gerar crédito para reduzir compras futuras dentro do TAMÃO. O saldo aparece no Clube TAMÃO.</p></details>
-<details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. Quando a campanha de indicação estiver disponível, a primeira compra qualificada de cada novo cliente indicado pode gerar comissão após entrega, pagamento e validação. Compras posteriores do mesmo cliente não geram outra comissão de aquisição.</p></details>
-<details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. Cada revenda pode cadastrar outros produtos que comercializa. Para vender gás, precisa comprovar as autorizações exigidas.</p></details>
-</div></section>
-
-<aside class="tamao-buyer-benefit-bridge" aria-label="Outras formas de participar do TAMÃO">
-<div><span class="section-kicker">ALÉM DA PRIMEIRA COMPRA</span><h2>O TAMÃO também conecta vantagens e pessoas.</h2><p>Conheça o Clube para acompanhar seus créditos elegíveis e descubra a Rede TAMÃO para convidar amigos e empresas.</p></div>
-<button type="button" onclick="go('earn')">Explorar benefícios e indicações <span aria-hidden="true">→</span></button>
-</aside>
-
-<div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos e consultar entrega →</button><button class="secondary" onclick="go('merchants')">Minha empresa pode vender?</button></div>
-</section>`)
+return typeof learnPremiumPage==='function'?learnPremiumPage():shell(`<section class="page"><span class="eyebrow">COMO FUNCIONA O TAMÃO</span><h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1><p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Consulte a disponibilidade para seu endereço, confira o valor e aguarde a confirmação da revenda.</p><div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos →</button><button class="secondary" onclick="go('contact')">Falar com o TAMÃO</button></div></section>`);
 }
 
 async function activateCashAccount(){

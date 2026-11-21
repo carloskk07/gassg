@@ -135,6 +135,7 @@ for(const width of [320,360,390]){
   for(const routeName of ['learn','earn','merchants','club','sponsors','order','tracking','contact','privacy','terms']){
     await evaluate("go("+JSON.stringify(routeName)+")");
     await waitFor("document.querySelector('#app') && document.querySelector('#app').innerText.length>20",'mobile '+routeName+' '+width);
+    if(routeName==='learn')await waitFor("document.querySelector('.learn-hero') && document.querySelector('.learn-step-grid')",'premium learn mobile '+width);
     await auditDom(routeName+' mobile '+width+'px');
   }
 }
@@ -191,10 +192,11 @@ assert.match(await evaluate("adminRuntime.bootstrapError='Falha simulada';adminB
 await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=null");
 
 await evaluate("go('learn')");
-await waitFor("document.body.innerText.includes('Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.')","learn route");
+await waitFor("document.querySelector('.learn-hero') && document.querySelector('.learn-step-grid')","premium learn route");
 body=await text();
-assert.match(body,/A GENTE EXPLICA/);
-assert.match(body,/Parceiro precisa confirmar/);
+assert.match(body,/Tudo mais simples/);
+assert.match(body,/CONFIANÇA SE CONSTRÓI COM CLAREZA/);
+assert.match(body,/A revenda precisa aceitar/);
 await auditDom('learn');
 
 await evaluate("go('privacy')");
