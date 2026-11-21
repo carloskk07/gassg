@@ -1149,6 +1149,7 @@ function merchantsLanding(){
       <div class="merchant-v1114-simulator-body">
       <div class="calculator-card merchant-calculator merchant-margin-calculator">
         <div class="calculator-inputs merchant-margin-inputs">
+          <div class="input-wrap merchant-v1115-plan-select"><label for="merchant-sim-plan">Plano para simular</label><select id="merchant-sim-plan" class="input" onchange="updateMerchantSimulator()">${planOptions}</select><small>Simulação com plano ativo e crédito suficiente, quando aplicável.</small></div>
           <div class="input-wrap"><label for="merchant-sim-orders">Pedidos adicionais</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="50" oninput="updateMerchantSimulator()" list="mqn"><datalist id="mqn"><option value="10"><option value="20"><option value="50"></datalist></div>
           <div class="input-wrap"><label for="merchant-sim-ticket">Preço médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="0.01" step="0.01" value="120.00" oninput="updateMerchantSimulator()"></div>
           <div class="input-wrap"><label for="merchant-sim-product-cost">Custo do produto por pedido (R$)</label><input id="merchant-sim-product-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Informe seu custo real" oninput="updateMerchantSimulator()"><small>Obrigatório para estimar contribuição e margem.</small></div>
@@ -1158,7 +1159,7 @@ function merchantsLanding(){
         </div>
         <div class="economics-results merchant-margin-results">
           <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(initial.gross)}</strong></div>
-          <div><small>Taxa TAMÃO (${merchantFeeLabel})</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
+          <div><small id="merchant-sim-plan-label">Taxa TAMÃO (${merchantFeeLabel})</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
           <div><small>Custos próprios informados</small><strong id="merchant-sim-costs">Informe o custo do produto</strong></div>
           <div class="highlight"><small>Contribuição estimada após os custos informados</small><strong id="merchant-sim-contribution">—</strong></div>
           <div><small>Contribuição estimada por pedido</small><strong id="merchant-sim-unit">—</strong></div>
@@ -1232,11 +1233,12 @@ function merchantsLanding(){
       <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
       <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O TAMÃO considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
       <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
-      <details><summary>Quando existe a taxa de ${merchantFeeLabel}?</summary><p>Na política comercial atual, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. O percentual exibido é sincronizado com a política vigente para novos pedidos.</p></details>
+      <details><summary>Qual é a taxa de cada plano?</summary><p>O Flex Diário cobra 9% sobre pedidos concluídos. Com créditos antecipados: Essencial 8%, Popular 7,5%, Profissional 7% e Alto Volume 6,5%, conforme plano ativo e saldo disponível. Verifique as condições atuais no Financeiro antes de contratar.</p></details>
       <details><summary>Quem define preço, estoque e entrega?</summary><p>A sua revenda. Você define o preço de cada produto, o estoque, o frete, a previsão de entrega e quando pode atender.</p></details>
       <details><summary>Como recebo o dinheiro da venda?</summary><p>O cliente paga diretamente à sua revenda, conforme a forma de pagamento oferecida. O TAMÃO não recebe o valor para depois fazer um repasse.</p></details>
       <details><summary>Preciso ter Mercado Pago ou contratar um novo serviço?</summary><p>Não para receber na entrega. A revenda pode disponibilizar dinheiro, Pix ou cartão na maquininha, conforme o que realmente aceita. Integrações automáticas com provedores dependem de homologação.</p></details>
-      <details><summary>Tenho que pagar para começar?</summary><p>No plano comercial diário atual, não há exigência de comprar um pacote de crédito antecipadamente para se cadastrar. A taxa TAMÃO é apurada sobre pedidos concluídos, conforme a política comercial vigente.</p></details>
+      <details><summary>Tenho que pagar para começar?</summary><p>Não. O cadastro é gratuito. O Flex Diário funciona sem recarga antecipada: a taxa de 9% é apurada sobre pedidos concluídos. Os pacotes são opcionais.</p></details>
+      <details><summary>Comprar crédito significa pagar uma taxa extra?</summary><p>Não. A recarga é um adiantamento usado para pagar taxas da plataforma. Ela não compra produtos nem garante pedidos; a tarifa reduzida depende do plano ativo e do saldo disponível.</p></details>
       <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O TAMÃO pode procurar outra revenda antes da saída. Mantenha preços, estoque e disponibilidade em dia e avise o quanto antes quando não puder cumprir uma entrega.</p></details>
       <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
     </div></section>
