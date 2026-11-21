@@ -1023,6 +1023,7 @@ function merchantsLanding(){
             <div><small>MODELO COMERCIAL ATUAL</small><strong>Sem mensalidade</strong></div>
             <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong></div>
           </div>
+          <p class="merchant-v1112-caption">Visão ilustrativa dos recursos. A ativação depende da aprovação e configuração da revenda.</p>
         </div>
       </aside>
     </div>
