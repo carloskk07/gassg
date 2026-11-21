@@ -16,7 +16,7 @@ assert.doesNotMatch(home,/Sem ofertas confirmadas[^\n]*R\$\s*115/i);
 assert.match(marketing,/#tamao-main h1:focus\{outline:2px solid/);
 assert.match(publicUx,/\.tamao-quote-no-offer \.city-price-empty/);
 assert.match(publicUx,/\.merchant-landing-premium \.page-title\{font-size:clamp/);
-assert.match(growth,/Mais clientes descobrindo sua revenda\. <span class="headline-accent">Mais oportunidades de pedidos/);
+assert.match(growth,/Sua revenda mais visível\. <span class="merchant-v1112-accent">Seu negócio no controle/);
 assert.match(growth,/Mostre seus produtos a novos clientes, organize pedidos e participe da Rede/);
 assert.match(growth,/Você controla preços, estoque, pagamentos e entregas/,
  'A comunicação acolhedora deve preservar a autonomia comercial da revenda');

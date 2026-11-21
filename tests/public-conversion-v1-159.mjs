@@ -23,7 +23,7 @@ const checks=[
  [customer,'Cadastrar minha empresa','intenção revenda'],
  [growth,'Mostre seus produtos a novos clientes, organize pedidos e participe da Rede','convite verdadeiro para revendas'],
  [growth,'Você controla preços, estoque, pagamentos e entregas.','autonomia comercial sem pedidos garantidos'],
- [growth,'Recebimento direto na revenda','fluxo financeiro sem repasse'],
+ [growth,'Recebimento direto na sua revenda','fluxo financeiro sem repasse'],
  [growth,'merchantMarginExample','simulador preservado'],
  [growth,'FAÇA AS CONTAS DO SEU JEITO','CTA sobre custos claros'],
 ];
@@ -35,7 +35,7 @@ for(const [src,fragment] of [
  [growth,'não para prometer lucro'],
  [growth,'Sem exclusividade'],
  [growth,'A taxa do TAMÃO só é cobrada sobre pedidos concluídos'],
- [growth,'Quero levar minha empresa ao TAMÃO'],
+ [growth,'Quero cadastrar minha revenda'],
  [acquisition,'AVISO DE DISPONIBILIDADE'],
  [acquisition,'Sem compromisso de compra'],
  [acquisition,'Me avise quando puder pedir'],

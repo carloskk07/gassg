@@ -60,7 +60,7 @@ const merchantStart=growth.indexOf('\nfunction merchantsLanding(){',sponsorStart
 assert.ok(sponsorStart>=0&&merchantStart>sponsorStart);
 const merchantEnd=growth.indexOf('\nfunction merchantJoin(){',merchantStart);
 const merchant=growth.slice(merchantStart,merchantEnd);
-assert.ok(merchant.includes('merchant-visual-economy'));
+assert.ok(merchant.includes('merchant-v1112-window'));
 assert.ok(merchant.includes('TAXA POR PEDIDO CONCLUÍDO'));
 assert.ok(merchant.includes('${merchantFeeLabel}'),
  'merchant hero must display the policy-derived rate, not a hard-coded fee');
@@ -71,9 +71,9 @@ assert.ok(merchant.includes('openMerchantPortal(true)'),
 assert.ok(merchant.includes('merchant-margin')&&merchant.includes('merchant-how'),
  'existing calculator and how-it-works destinations must remain');
 
+assert.ok(read('css/merchant-landing-executive.css').includes('.merchant-v1112-window-footer'));
 for(const name of ['.home-buying-steps-list',
- '.merchant-visual-economy',
- '@media(max-width:1000px)','@media(max-width:620px)',
+  '@media(max-width:1000px)','@media(max-width:620px)',
  '@media(max-width:370px)']){
  assert.ok(css.includes(name),'responsive styles missing '+name);
 }

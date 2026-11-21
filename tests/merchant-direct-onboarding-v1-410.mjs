@@ -124,10 +124,10 @@ invites.state.user.referralCode='';
 assert.equal(invites.invite('merchant'),'https://tamao.com.br/#merchants',
  'visitors may share the merchant entry without signing in or inventing referral codes');
 
-assert.ok(growth.includes('class="merchant-secondary-lead" open'),
- 'visible two-field contact must be expanded on first visit');
-assert.ok(growth.includes('Quero anunciar meu comércio com nome e WhatsApp'),
- 'visitor sees the low-friction advertising entry');
+assert.ok(growth.includes('<details class="merchant-secondary-lead">'),
+ 'the optional contact form should not distract from the real registration CTA');
+assert.ok(growth.includes('Prefiro deixar meu contato para conversar sobre a parceria'),
+ 'the alternative contact path is available on demand');
 assert.ok(growth.includes('openMerchantPortal(true)'),
  'the complete authenticated signup remains available');
 assert.equal((growth.slice(growth.indexOf('function merchantsLanding(){'),

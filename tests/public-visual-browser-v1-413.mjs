@@ -8,7 +8,7 @@ const out=path.resolve(process.env.TAMAO_VISUAL_OUTPUT||'public-visual-screensho
 fs.mkdirSync(out,{recursive:true});
 const sleep=ms=>new Promise(done=>setTimeout(done,ms));
 const cases=[
- ['home','/'],['como-funciona','/como-funciona/'],
+ ['home','/'],['merchants-app','/#merchants'],['como-funciona','/como-funciona/'],
  ['para-revendas','/para-revendas/'],['para-marcas','/para-marcas/'],
  ['indicacoes','/indicacoes/']
 ];
@@ -61,7 +61,10 @@ async function readDOM(){
   benefitPanels:document.querySelectorAll('.tamao-perks-panel').length,
   compactPerks:document.querySelectorAll('.tamao-value-compact .tamao-perks-panel').length,
   campaignBanners:document.querySelectorAll('.tamao-coupon-banner').length,
-  visibleCatalogue:document.querySelectorAll('.home-discover-tile:not([hidden])').length
+  visibleCatalogue:document.querySelectorAll('.home-discover-tile:not([hidden])').length,
+  merchantPremium:!!document.querySelector('.merchant-landing-v1112 .merchant-v1112-window'),
+  merchantStyleLoaded:!!document.getElementById('merchant-executive-styles')?.sheet,
+  merchantSignup:!!document.querySelector('.merchant-v1112-primary[onclick="openMerchantPortal(true)"]')
  }})())`;
  const res=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
  if(res.exceptionDetails)throw new Error('DOM evaluate exception: '+res.exceptionDetails.text);
@@ -69,7 +72,7 @@ async function readDOM(){
 }
 async function awaitReady(label){
  for(let i=0;i<60;i++){
-  const selector=label.startsWith('home ')?'.tamao-quote-first .city-price-heading :is(h1,h2)':'h1';
+  const selector=label.startsWith('home ')?'.tamao-quote-first .city-price-heading :is(h1,h2)':label.startsWith('merchants-app ')?'.merchant-landing-v1112 h1':'h1';
   const state=await send('Runtime.evaluate',{expression:
    "document.readyState==='complete'&&!!document.querySelector("+JSON.stringify(selector)+")",returnByValue:true});
   if(state.result?.value)return;
@@ -87,6 +90,8 @@ const results=[],issues=[];
 try{
  await send('Page.enable');await send('Runtime.enable');
  for(const [name,route] of cases){
+  // Candidate-only: production read-only verification runs before main is published.
+  if(name==='merchants-app'&&new URL(origin).hostname==='tamao.com.br')continue;
   for(const size of sizes){
    await send('Emulation.setDeviceMetricsOverride',{
     width:size.width,height:size.height,deviceScaleFactor:1,mobile:size.width<800,
@@ -105,7 +110,8 @@ try{
    if(data.headingLeft< -2||data.headingRight>size.width+2)issues.push(name+' '+size.width+': clipped heading');
    if(!data.heading)issues.push(name+' '+size.width+': empty heading');
    if(data.brokenImages.length)issues.push(name+' '+size.width+': broken images '+data.brokenImages.join(','));
-   if(name!=='home'&&data.savingsScene!==1)issues.push(name+' '+size.width+': expected one distinct visual benefit scene');
+   if(name!=='home'&&name!=='merchants-app'&&data.savingsScene!==1)issues.push(name+' '+size.width+': expected one distinct visual benefit scene');
+   if(name==='merchants-app'&&(!data.merchantPremium||!data.merchantStyleLoaded||!data.merchantSignup))issues.push(name+' '+size.width+': missing premium revenda page, lazy style or real CTA');
    if(name==='home'&&data.campaignBanners!==1)issues.push(name+' '+size.width+': expected one Club campaign banner');
    if(name==='home'&&data.benefitPanels!==0)issues.push(name+' '+size.width+': redundant benefit panels remain');
    if(name==='home'&&data.visibleCatalogue===0)issues.push(name+' '+size.width+': catalogue missing');
@@ -117,4 +123,4 @@ try{
 }
 for(const problem of issues)console.error('VISUAL: '+problem);
 assert.equal(issues.length,0,'Public visitor viewport regression; inspect uploaded browser screenshots and audit.json');
-console.log('TAMÃO V1.413 visual PASS: five real browser pages × three viewport widths, without horizontal overflow.');
+console.log('TAMÃO V1.413 visual PASS: six real browser pages × three viewport widths, without horizontal overflow.');

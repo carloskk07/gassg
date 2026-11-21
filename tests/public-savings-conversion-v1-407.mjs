@@ -24,16 +24,17 @@ assert.doesNotMatch(benefits,/em preparação|ainda não estão disponíveis|pro
 assert.doesNotMatch(club,/em preparação|futura campanha|pacotes de descontos para quem quer pagar menos|venda e resgate ainda não/i);
 assert.ok(club.includes('tamao-club-shop-now')&&club.includes("go('home')"),
  'club must lead to live shopping, not a dead-end hypothetical package');
-for(const text of ['Mais clientes descobrindo sua revenda','Mais oportunidades de pedidos',
- 'Mais clientes podem encontrar você','mais chances de receber pedidos',
- 'Apareça nas consultas da sua região','Preços, estoque e promoções continuam sob seu controle.']){
+for(const text of ['Sua revenda mais visível','Seu negócio no controle',
+ 'Mostre seus produtos a novos clientes','Seja uma opção para clientes que ainda não conhecem sua revenda',
+ 'Seja encontrada na sua região','Você controla preços, estoque, pagamentos e entregas.']){
   assert.ok(merchant.toLowerCase().includes(text.toLowerCase()),'merchant must explain '+text);
 }
 const marketingCss=read('css/marketing-premium.css');
 for(const selector of [
  '.home-saving-headlines','.tamao-action-now','.tamao-club-shop-now',
- '.merchant-demand-grid','@media(max-width:800px)'
+ '@media(max-width:800px)'
 ])assert.ok(marketingCss.includes(selector),'missing '+selector);
+assert.ok(read('css/merchant-landing-executive.css').includes('.merchant-v1112-value-grid'),'premium revenda value cards must be responsive');
 assert.match(index,/Encontre gás, água e essenciais/,'SEO must still describe real local products');
 assert.match(index,/oportunidades para revendas/i,'SEO still presents merchant benefits');
 assert.doesNotMatch(index,/<nav aria-label="Conheça o TAMÃO">/,'do not restore a competing preboot menu');
