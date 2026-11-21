@@ -1172,7 +1172,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 
 <section class="merchant-v1114-distribution"><details><summary><span><small>CRITÉRIOS DE OFERTA</small><strong>Como o TAMÃO apresenta as opções aos clientes?</strong><em>Preço, prazo e capacidade de atendimento são considerados.</em></span><span aria-hidden="true">+</span></summary>
 <div class="merchant-v1114-distribution-body">
-<div class="distribution-grid"><div class="distribution-card"><strong>Preço total</strong></div><div class="distribution-card"><strong>Prazo de entrega</strong></div><div class="distribution-card"><strong>Estoque e confiança</strong></div><div class="distribution-card"><strong>Equilíbrio entre ofertas parecidas</strong></div></div>
+<div class="distribution-grid"><div class="distribution-card"><strong>Preço total</strong></div><div class="distribution-card"><strong>Prazo de entrega</strong></div><div class="distribution-card"><strong>Estoque e confiança</strong></div><div class="distribution-card"><strong>Pedidos bem distribuídos</strong></div></div>
 <div class="notice" style="margin-top:12px"><strong>Regra importante:</strong> o TAMÃO não coloca uma oferta claramente pior na frente só para distribuir pedidos. Esse ajuste vale para opções parecidas.</div>
 </div></details>
 </section>
@@ -1231,7 +1231,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
 </div></section>
 
-<section class="section merchant-v1114-last-cta"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'SUA REVENDA TEM ESPAÇO AQUI'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Pronto para apresentar seu negócio?'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'Cadastro gratuito, sujeito à aprovação. Sem exclusividade.'}</p></div><button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Cadastrar minha revenda →'}</button></div></section>
+<section class="section merchant-v1114-last-cta"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'SUA REVENDA TEM ESPAÇO AQUI'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Pronto para apresentar seu negócio?'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'Cadastro gratuito, sujeito à aprovação. Sem promessa de pedidos ou exclusividade.'}</p></div><button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Cadastrar minha revenda →'}</button></div></section>
 </section>`)
 }
 function currentMerchantPilotInviteToken(){
