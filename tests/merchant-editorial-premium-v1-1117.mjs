@@ -83,7 +83,7 @@ assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
-assert.match(growth,/merchant-public-plans\.js\?v=1118/);
+assert.match(growth,/merchant-public-plans\.js\?v=1119/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
 assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
@@ -104,7 +104,7 @@ for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
 assert.ok(css.includes('prefers-reduced-motion:reduce'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(css.includes(':focus-visible'));
-assert.match(sw,/CACHE='tamao-sg-v1\.1118'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1119'/);
 
 const startReceipt=lazy.indexOf('function merchantPlanReceiptPreview(key,ticketValue){');
 const endReceipt=lazy.indexOf('globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;',startReceipt);
@@ -146,5 +146,29 @@ assert.equal(receiptContext.receiptPreview('credit_04990',200),true);
 assert.equal(receiptOutputs.balance.textContent,'Saldo insuficiente');
 assert.match(receiptOutputs.status.textContent,/Saldo insuficiente/);
 assert.doesNotMatch(lazy.slice(startReceipt,endReceipt),/fetch\(|\.rpc\(|merchant-billing-pix/);
+
+
+assert.match(lazy,/function merchantPlanCoverageCount\(ticket,bps,cents\)/);
+assert.match(lazy,/function merchantPlanCoverageRefresh\(ticket\)/);
+assert.match(lazy,/merchant-v1119-ways-grid/);
+assert.match(lazy,/data-merchant-way-signup/);
+assert.match(lazy,/data-merchant-receipt-coverage/);
+assert.match(growth,/merchant-v1119-conversion-actions/);
+for(const cls of ['.merchant-v1119-coverage','.merchant-v1119-ways-grid',
+ '.merchant-v1119-receipt-coverage','.merchant-v1119-conversion-actions'])
+ assert.ok(css.includes(cls),'Missing premium V1.1119 UI '+cls);
+const coverageStart=lazy.indexOf('function merchantPlanCoverageCount(ticket,bps,cents){');
+const coverageEnd=lazy.indexOf('function merchantPlanCoverageRefresh(ticket){',coverageStart);
+assert.ok(coverageStart>0&&coverageEnd>coverageStart);
+const coverageContext={};
+vm.runInNewContext(lazy.slice(coverageStart,coverageEnd)+';this.count=merchantPlanCoverageCount;',coverageContext);
+assert.equal(coverageContext.count(120,800,1990),2);
+assert.equal(coverageContext.count(200,800,1990),1);
+assert.equal(coverageContext.count(100,650,19990),30);
+assert.equal(coverageContext.count(120,700,9990),11);
+assert.equal(coverageContext.count(120,0,1990),null);
+assert.equal(coverageContext.count(120,800,-1),null);
+assert.equal(coverageContext.count(99,800,1990),null);
+assert.doesNotMatch(lazy.slice(coverageStart,coverageEnd),/fetch\(|\.rpc\(|billing-pix/);
 
 console.log('V1.1117 PASS: premium art direction, live billing plan integrity, accessible one-tap savings and real signup.');
