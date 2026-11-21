@@ -1266,56 +1266,56 @@ if(route()!=='merchant-join')go('merchant-join');
 else render();
 }
 function merchantJoin(){
-if(globalThis.merchantPortalRequested?.()){
-const rt=globalThis.merchantRuntime||{};
-if(['disabled','loading'].includes(rt.status)){
-return shell('<section class="page"><h1 class="page-title">Cadastro de parceiro</h1><div class="empty card">Conectando à sua conta…</div></section>');
-}
-if(rt.status==='unsafe-origin')return merchantLivePage();
-if(rt.status==='unavailable'||(rt.status==='no-access'&&rt.applicationFetchError)){
-// Do not collect registration data while auth or the applicant's own
-// records are unverified: a retry must recheck the real session first.
-return shell('<section class="page"><h1 class="page-title">Continuar cadastro da revenda</h1>'+
-'<div class="notice danger" role="alert">Não foi possível confirmar sua conta e os cadastros já enviados. Nenhum novo cadastro foi registrado.</div>'+
-'<button type="button" class="primary" onclick="location.reload()">Tentar novamente com segurança</button></section>');
-}
-if(rt.status==='unauthenticated')return merchantLiveLoginView();
-}
-if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.()){
-// The customer bundle excludes merchant.js; retain the exact public
-// handoff without loading partner operations or authentication code.
-return typeof merchantRealPortalRequired==='function'
-?merchantRealPortalRequired()
-:shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
-}
-const prospectInvite=globalThis.merchantPortalRequested?.()?currentMerchantProspectInviteToken():'';
-const pilotInvite=prospectInvite?'':globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
-const prospectDetails=prospectInvite?globalThis.merchantProspectInviteDetails?.():null;
-const rt=globalThis.merchantRuntime||{};
-const ownApplications=globalThis.merchantPortalRequested?.()&&Array.isArray(rt.ownApplications)
-?rt.ownApplications:[];
-const newApplication=rt.newApplicationMode===true&&!prospectInvite&&!pilotInvite;
-const ownApplication=newApplication?null:globalThis.merchantOwnApplicationForInvite?.()||null;
-const ownSelector=!prospectInvite&&!pilotInvite&&ownApplications.length
-?'<div class="card flat form-stack" style="margin-bottom:14px"><label for="merchant-existing-application">Escolha a empresa que deseja cadastrar ou revisar</label>'+
-'<select id="merchant-existing-application" class="input" onchange="merchantPickOwnApplicationFromUi(this.value)">'+
-ownApplications.map(a=>'<option value="'+esc(a.id)+'"'+(!newApplication&&a.id===ownApplication?.id?' selected':'')+'>'+
-esc(a.company_name||'Empresa')+' — '+esc(a.status==='approved'?'aprovada':a.status==='rejected'?'corrigir cadastro':'em análise')+
-'</option>').join('')+
-'<option value="__new__"'+(newApplication?' selected':'')+'>Cadastrar outra empresa</option></select>'+
-'<small class="muted">Cada CNPJ tem seu próprio cadastro. A autorização de vendas é separada.</small></div>'
-:'';
-const ownStatus=String(ownApplication?.status||'');
-const ownNotice=ownStatus==='pending'
-?'<div class="notice" style="margin-bottom:14px"><strong>Cadastro já recebido.</strong> '+esc(ownApplication.company_name||'Sua empresa')+' está aguardando análise. Você pode revisar e atualizar os dados sem abrir outro cadastro.</div>'
-:ownStatus==='rejected'
-?'<div class="notice" style="margin-bottom:14px"><strong>Cadastro precisa de correção.</strong> Confira os dados e reenvie para nova análise.</div>'
-:ownStatus==='approved'
-?'<div class="notice success" style="margin-bottom:14px"><strong>Cadastro aprovado.</strong> O recebimento de pedidos exige outras validações operacionais.</div>'
-:'';
-const prefillCnpj=String(prospectDetails?.cnpj||ownApplication?.cnpj||'');
-const prefillCompany=String(ownApplication?.company_name||prospectDetails?.companyName||'');
-return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownSelector}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Cadastre sua empresa agora. A liberação comercial exige aprovação e as verificações próprias da categoria.</small></form></section>`)
+  if(globalThis.merchantPortalRequested?.()){
+    const rt=globalThis.merchantRuntime||{};
+    if(['disabled','loading'].includes(rt.status)){
+      return shell('<section class="page"><h1 class="page-title">Cadastro de parceiro</h1><div class="empty card">Conectando à sua conta…</div></section>');
+    }
+    if(rt.status==='unsafe-origin')return merchantLivePage();
+    if(rt.status==='unavailable'||(rt.status==='no-access'&&rt.applicationFetchError)){
+      // Do not collect registration data while auth or the applicant's own
+      // records are unverified: a retry must recheck the real session first.
+      return shell('<section class="page"><h1 class="page-title">Continuar cadastro da revenda</h1>'+
+        '<div class="notice danger" role="alert">Não foi possível confirmar sua conta e os cadastros já enviados. Nenhum novo cadastro foi registrado.</div>'+
+        '<button type="button" class="primary" onclick="location.reload()">Tentar novamente com segurança</button></section>');
+    }
+    if(rt.status==='unauthenticated')return merchantLiveLoginView();
+  }
+  if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.()){
+    // The customer bundle excludes merchant.js; retain the exact public
+    // handoff without loading partner operations or authentication code.
+    return typeof merchantRealPortalRequired==='function'
+      ?merchantRealPortalRequired()
+      :shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
+  }
+  const prospectInvite=globalThis.merchantPortalRequested?.()?currentMerchantProspectInviteToken():'';
+  const pilotInvite=prospectInvite?'':globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
+  const prospectDetails=prospectInvite?globalThis.merchantProspectInviteDetails?.():null;
+  const rt=globalThis.merchantRuntime||{};
+  const ownApplications=globalThis.merchantPortalRequested?.()&&Array.isArray(rt.ownApplications)
+    ?rt.ownApplications:[];
+  const newApplication=rt.newApplicationMode===true&&!prospectInvite&&!pilotInvite;
+  const ownApplication=newApplication?null:globalThis.merchantOwnApplicationForInvite?.()||null;
+  const ownSelector=!prospectInvite&&!pilotInvite&&ownApplications.length
+    ?'<div class="card flat form-stack" style="margin-bottom:14px"><label for="merchant-existing-application">Escolha a empresa que deseja cadastrar ou revisar</label>'+
+      '<select id="merchant-existing-application" class="input" onchange="merchantPickOwnApplicationFromUi(this.value)">'+
+      ownApplications.map(a=>'<option value="'+esc(a.id)+'"'+(!newApplication&&a.id===ownApplication?.id?' selected':'')+'>'+
+        esc(a.company_name||'Empresa')+' — '+esc(a.status==='approved'?'aprovada':a.status==='rejected'?'corrigir cadastro':'em análise')+
+        '</option>').join('')+
+      '<option value="__new__"'+(newApplication?' selected':'')+'>Cadastrar outra empresa</option></select>'+
+      '<small class="muted">Cada CNPJ tem seu próprio cadastro. A autorização de vendas é separada.</small></div>'
+    :'';
+  const ownStatus=String(ownApplication?.status||'');
+  const ownNotice=ownStatus==='pending'
+    ?'<div class="notice" style="margin-bottom:14px"><strong>Cadastro já recebido.</strong> '+esc(ownApplication.company_name||'Sua empresa')+' está aguardando análise. Você pode revisar e atualizar os dados sem abrir outro cadastro.</div>'
+    :ownStatus==='rejected'
+      ?'<div class="notice" style="margin-bottom:14px"><strong>Cadastro precisa de correção.</strong> Confira os dados e reenvie para nova análise.</div>'
+      :ownStatus==='approved'
+        ?'<div class="notice success" style="margin-bottom:14px"><strong>Cadastro aprovado.</strong> O recebimento de pedidos exige outras validações operacionais.</div>'
+        :'';
+  const prefillCnpj=String(prospectDetails?.cnpj||ownApplication?.cnpj||'');
+  const prefillCompany=String(ownApplication?.company_name||prospectDetails?.companyName||'');
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownSelector}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Cadastre sua empresa agora. A liberação comercial exige aprovação e as verificações próprias da categoria.</small></form></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){
@@ -1334,74 +1334,74 @@ if(input){input.setAttribute('aria-invalid','true');input.focus();}
 return toast(message);
 }
 async function joinMerchant(){
-const cnpj=document.querySelector('#j-cnpj')?.value.trim()||'';
-const name=document.querySelector('#j-name')?.value.trim()||'';
-const owner=document.querySelector('#j-owner')?.value.trim()||'';
-const phone=document.querySelector('#j-phone')?.value.trim()||'';
-const address=document.querySelector('#j-address')?.value.trim()||'';
-const referralCode=String(document.querySelector('#j-referral-code')?.value||'')
-.trim().toUpperCase();
-if(!isValidCnpjShape(cnpj))return merchantJoinInvalid('j-cnpj','Informe um CNPJ válido no formato atual');
-if(name.length<2)return merchantJoinInvalid('j-name','Informe o nome da empresa');
-if(owner.length<2)return merchantJoinInvalid('j-owner','Informe o nome do responsável');
-if(!isValidPhoneShape(phone))return merchantJoinInvalid('j-phone','Informe um WhatsApp válido com DDD');
-if(address.length<5)return merchantJoinInvalid('j-address','Informe o endereço da empresa');
-if(referralCode&&!/^[A-Z0-9]{5,40}$/.test(referralCode))
-return merchantJoinInvalid('j-referral-code','Confira o código de indicação.');
-document.querySelectorAll('.merchant-join-form [aria-invalid="true"]').forEach(el=>el.removeAttribute('aria-invalid'));
+  const cnpj=document.querySelector('#j-cnpj')?.value.trim()||'';
+  const name=document.querySelector('#j-name')?.value.trim()||'';
+  const owner=document.querySelector('#j-owner')?.value.trim()||'';
+  const phone=document.querySelector('#j-phone')?.value.trim()||'';
+  const address=document.querySelector('#j-address')?.value.trim()||'';
+  const referralCode=String(document.querySelector('#j-referral-code')?.value||'')
+    .trim().toUpperCase();
+  if(!isValidCnpjShape(cnpj))return merchantJoinInvalid('j-cnpj','Informe um CNPJ válido no formato atual');
+  if(name.length<2)return merchantJoinInvalid('j-name','Informe o nome da empresa');
+  if(owner.length<2)return merchantJoinInvalid('j-owner','Informe o nome do responsável');
+  if(!isValidPhoneShape(phone))return merchantJoinInvalid('j-phone','Informe um WhatsApp válido com DDD');
+  if(address.length<5)return merchantJoinInvalid('j-address','Informe o endereço da empresa');
+  if(referralCode&&!/^[A-Z0-9]{5,40}$/.test(referralCode))
+    return merchantJoinInvalid('j-referral-code','Confira o código de indicação.');
+  document.querySelectorAll('.merchant-join-form [aria-invalid="true"]').forEach(el=>el.removeAttribute('aria-invalid'));
 
 
-if(globalThis.merchantPortalRequested?.()){
-if(!globalThis.merchantRuntime?.session?.access_token)return toast('Entre com seu e-mail antes de enviar o cadastro');
-const submitBtn=document.querySelector('.merchant-join-form button[type="submit"]');
-if(submitBtn?.dataset.submitting==='true')return;
-const previousLabel=submitBtn?.textContent||'';
-if(submitBtn){submitBtn.dataset.submitting='true';submitBtn.disabled=true;submitBtn.textContent='Enviando cadastro…';}
-try{
-const prospectInviteToken=currentMerchantProspectInviteToken();
-const pilotInviteToken=prospectInviteToken?'':currentMerchantPilotInviteToken();
-const result=await merchantSubmitApplicationLive({
-cnpj,
-companyName:name.slice(0,90),
-responsibleName:owner.slice(0,90),
-phone,
-address:address.slice(0,160),
-...(referralCode?{referralCode}:{}),
-...(pilotInviteToken?{pilotInviteToken}:{}),
-...(prospectInviteToken?{prospectInviteToken}:{})
-});
-toast(result?.growthReferral?.recorded===true
-?'Cadastro recebido. A origem do convite foi registrada para análise.'
-:result?.prospectInvite?.linked?'Convite vinculado. Cadastro enviado para análise'
-:result?.pilotPartner?.pilotPartnerName?'Cadastro vinculado e enviado para análise'
-:'Cadastro enviado para análise');
-if(globalThis.merchantRuntime){
-globalThis.merchantRuntime.newApplicationMode=false;
-globalThis.merchantRuntime.selectedApplicationId=String(result?.applicationId||'')||null;
-}
-if(result?.pilotPartner)clearCurrentMerchantPilotInviteToken();
-if(result?.prospectInvite?.linked)clearCurrentMerchantProspectInviteToken();
-globalThis.merchantRuntime.notice=result?.pilotPartner?.pilotPartnerName
-? 'Cadastro vinculado ao parceiro '+String(result.pilotPartner.pilotPartnerName)+'. Aguarde a aprovação e as validações operacionais.'
-: 'Cadastro '+String(result?.companyName||name)+' recebido. Aguarde a validação e o vínculo da operação.';
-go('merchant');
-render();
-return;
-}catch(e){
-toast(String(e?.message||e));
-return;
-}finally{
-if(submitBtn){submitBtn.dataset.submitting='false';submitBtn.disabled=false;submitBtn.textContent=previousLabel;}
-}
-}
+  if(globalThis.merchantPortalRequested?.()){
+    if(!globalThis.merchantRuntime?.session?.access_token)return toast('Entre com seu e-mail antes de enviar o cadastro');
+    const submitBtn=document.querySelector('.merchant-join-form button[type="submit"]');
+    if(submitBtn?.dataset.submitting==='true')return;
+    const previousLabel=submitBtn?.textContent||'';
+    if(submitBtn){submitBtn.dataset.submitting='true';submitBtn.disabled=true;submitBtn.textContent='Enviando cadastro…';}
+    try{
+      const prospectInviteToken=currentMerchantProspectInviteToken();
+      const pilotInviteToken=prospectInviteToken?'':currentMerchantPilotInviteToken();
+      const result=await merchantSubmitApplicationLive({
+        cnpj,
+        companyName:name.slice(0,90),
+        responsibleName:owner.slice(0,90),
+        phone,
+        address:address.slice(0,160),
+        ...(referralCode?{referralCode}:{}),
+        ...(pilotInviteToken?{pilotInviteToken}:{}),
+        ...(prospectInviteToken?{prospectInviteToken}:{})
+      });
+      toast(result?.growthReferral?.recorded===true
+        ?'Cadastro recebido. A origem do convite foi registrada para análise.'
+        :result?.prospectInvite?.linked?'Convite vinculado. Cadastro enviado para análise'
+        :result?.pilotPartner?.pilotPartnerName?'Cadastro vinculado e enviado para análise'
+        :'Cadastro enviado para análise');
+      if(globalThis.merchantRuntime){
+        globalThis.merchantRuntime.newApplicationMode=false;
+        globalThis.merchantRuntime.selectedApplicationId=String(result?.applicationId||'')||null;
+      }
+      if(result?.pilotPartner)clearCurrentMerchantPilotInviteToken();
+      if(result?.prospectInvite?.linked)clearCurrentMerchantProspectInviteToken();
+      globalThis.merchantRuntime.notice=result?.pilotPartner?.pilotPartnerName
+        ? 'Cadastro vinculado ao parceiro '+String(result.pilotPartner.pilotPartnerName)+'. Aguarde a aprovação e as validações operacionais.'
+        : 'Cadastro '+String(result?.companyName||name)+' recebido. Aguarde a validação e o vínculo da operação.';
+      go('merchant');
+      render();
+      return;
+    }catch(e){
+      toast(String(e?.message||e));
+      return;
+    }finally{
+      if(submitBtn){submitBtn.dataset.submitting='false';submitBtn.disabled=false;submitBtn.textContent=previousLabel;}
+    }
+  }
 
-if(globalThis.__CHAMA_TEST__!==true){
-openMerchantPortal();
-return;
-}
+  if(globalThis.__CHAMA_TEST__!==true){
+    openMerchantPortal();
+    return;
+  }
 
-const normalized=normalizeCnpj(cnpj);
-if(state.onboarding.some(x=>normalizeCnpj(x.cnpj)===normalized))return toast('Este CNPJ já foi enviado para análise');
-state.onboarding.push({cnpj:normalized,name:name.slice(0,90),owner:owner.slice(0,90),phone:onlyDigits(phone),address:address.slice(0,160),status:'Em análise',createdAt:nowIso()});
-save();toast('Cadastro enviado para análise');go('merchants');
+  const normalized=normalizeCnpj(cnpj);
+  if(state.onboarding.some(x=>normalizeCnpj(x.cnpj)===normalized))return toast('Este CNPJ já foi enviado para análise');
+  state.onboarding.push({cnpj:normalized,name:name.slice(0,90),owner:owner.slice(0,90),phone:onlyDigits(phone),address:address.slice(0,160),status:'Em análise',createdAt:nowIso()});
+  save();toast('Cadastro enviado para análise');go('merchants');
 }
