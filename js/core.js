@@ -1113,12 +1113,17 @@ if(globalThis.__CHAMA_TEST__){
   };
   w.run=run;w.timer=setTimeout(run,35000);
  };
+ // Resuming after banking or reconnect checks only the same payment.
+ function resumeVisiblePayments(){
+  if(typeof document!=='undefined'&&document.visibilityState==='hidden')return;
+  for(const w of watches.values()){
+   if(w.timer!==null&&typeof clearTimeout==='function')clearTimeout(w.timer);
+   w.timer=null;
+   Promise.resolve().then(()=>w.run?.()).catch(()=>{});
+  }
+ }
  if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
-  document.addEventListener('visibilitychange',()=>{
-   if(document.visibilityState==='hidden')return;
-   for(const w of watches.values()){
-    if(w.timer!==null&&typeof clearTimeout==='function')clearTimeout(w.timer);
-    w.run?.();
-   }
-  });
+  document.addEventListener('visibilitychange',resumeVisiblePayments);
+ if(typeof window!=='undefined'&&typeof window.addEventListener==='function')
+  window.addEventListener('online',resumeVisiblePayments);
 })();
