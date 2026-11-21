@@ -48,6 +48,6 @@ for(const style of ['.merchant-landing-v1113','.merchant-v1113-products','.merch
  '.merchant-v1113-positioning','.merchant-v1113-controlbar','@media(max-width:520px)',
  'prefers-reduced-motion:reduce'])
  assert.ok(css.includes(style),'Missing V1.1113 style '+style);
-assert.match(sw,/CACHE='tamao-sg-v1\.1116'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1117'/);
 assert.match(sw,/\.\/assets\/tamao-products-sprite\.webp/);
 console.log('V1.1113 PASS: visual catalogue, dynamic rate, real signup, accurate trust claims and responsive styles.');
