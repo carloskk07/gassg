@@ -83,7 +83,7 @@ assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
-assert.match(growth,/merchant-public-plans\.js\?v=1119/);
+assert.match(growth,/merchant-public-plans\.js\?v=1120/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
 assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
@@ -104,7 +104,7 @@ for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
 assert.ok(css.includes('prefers-reduced-motion:reduce'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(css.includes(':focus-visible'));
-assert.match(sw,/CACHE='tamao-sg-v1\.1119'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1120'/);
 
 const startReceipt=lazy.indexOf('function merchantPlanReceiptPreview(key,ticketValue){');
 const endReceipt=lazy.indexOf('globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;',startReceipt);
@@ -168,7 +168,85 @@ assert.equal(coverageContext.count(100,650,19990),30);
 assert.equal(coverageContext.count(120,700,9990),11);
 assert.equal(coverageContext.count(120,0,1990),null);
 assert.equal(coverageContext.count(120,800,-1),null);
-assert.equal(coverageContext.count(99,800,1990),null);
+assert.equal(coverageContext.count(0.99,800,1990),null);
+assert.equal(coverageContext.count(125.90,800,1990),1);
+assert.equal(coverageContext.count(125.90,650,19990),24);
 assert.doesNotMatch(lazy.slice(coverageStart,coverageEnd),/fetch\(|\.rpc\(|billing-pix/);
+
+
+new vm.Script(lazy,{filename:'js/merchant-public-plans.js'});
+assert.match(lazy,/function merchantBrandPreviewHydrate\(\)/);
+assert.match(lazy,/function merchantPlanCustomTicketPreview\(value\)/);
+assert.match(lazy,/input\.addEventListener\('change'/);
+assert.match(lazy,/display\.textContent=value\|\|'Sua revenda'/);
+assert.match(lazy,/merchantPreviewAmount\|\|activeTicket/);
+assert.match(lazy,/input\.inputMode='decimal'/);
+assert.match(lazy,/merchant-v1120-brand-demo/);
+assert.match(lazy,/merchant-v1120-custom-ticket/);
+for(const cls of ['.merchant-v1120-brand-demo','.merchant-v1120-brand-input',
+ '.merchant-v1120-custom-ticket','.merchant-v1120-brand-name'])
+ assert.ok(css.includes(cls),'V1.1120 UI missing '+cls);
+
+const customStart=lazy.indexOf('function merchantPlanCustomTicketPreview(value){');
+const customEnd=lazy.indexOf('function merchantPlanCustomTicketChange(input){',customStart);
+assert.ok(customStart>0&&customEnd>customStart);
+const customRefs=[{textContent:''}];
+const customSavings=[{getAttribute:k=>k==='data-merchant-saving-bps'?'100':null,textContent:''}];
+const customButtons=[{pressed:'',setAttribute(k,v){if(k==='aria-pressed')this.pressed=v}}];
+const customSection={
+ getAttribute:k=>k==='data-merchant-flex-bps'?'900':null,
+ querySelectorAll:sel=>sel==='[data-merchant-ticket]'?customButtons:
+  sel==='[data-merchant-order-ticket]'?customRefs:
+  sel==='[data-merchant-saving-bps]'?customSavings:[],
+ querySelector:sel=>sel==='[data-merchant-compare-plan][aria-pressed="true"]'?
+  {getAttribute:()=> 'credit_01990'}:null
+};
+const customCalls=[];
+const customCtx={document:{getElementById:id=>id==='merchant-plans'?customSection:null},
+ BRL:{format:money},
+ merchantPlanReceiptPreview:(key,ticket)=>{customCalls.push(['receipt',key,ticket]);return true},
+ merchantPlanCoverageRefresh:ticket=>{customCalls.push(['coverage',ticket]);return true}};
+customCtx.globalThis=customCtx;
+vm.runInNewContext(lazy.slice(customStart,customEnd)+';this.customPreview=merchantPlanCustomTicketPreview;',customCtx);
+assert.equal(customCtx.customPreview('125,90'),true);
+assert.equal(customRefs[0].textContent,'R$ 125,90');
+assert.equal(customSavings[0].textContent,'R$ 1,26');
+assert.equal(customCtx.merchantPreviewAmount,125.9);
+assert.equal(customCalls[0][1],'credit_01990');
+assert.equal(customCalls[0][2],125.9);
+assert.equal(customCtx.customPreview('0,99'),false);
+assert.equal(customCtx.customPreview('10000,01'),false);
+assert.equal(customCtx.customPreview('125,999'),false);
+assert.equal(customCtx.customPreview('<svg onload=alert(1)>'),false);
+assert.doesNotMatch(lazy.slice(customStart,customEnd),/fetch\(|localStorage|sessionStorage|\.rpc\(/);
+
+const brandStart=lazy.indexOf('function merchantBrandPreviewHydrate(){');
+const brandEnd=lazy.indexOf('globalThis.merchantBrandPreviewHydrate=merchantBrandPreviewHydrate;',brandStart);
+assert.ok(brandStart>0&&brandEnd>brandStart);
+const brandListeners={};
+const brandInput={value:'',addEventListener:(name,cb)=>{brandListeners[name]=cb}};
+const brandName={textContent:''},brandLetter={textContent:''};
+const brandBlock={className:'',innerHTML:'',querySelector:s=>
+ s==='input'?brandInput:s==='.merchant-v1120-brand-name'?brandName:
+ s==='.merchant-v1120-brand-monogram'?brandLetter:null};
+let appended=null;
+const intro={insertAdjacentElement:(position,node)=>{assert.equal(position,'afterend');appended=node}};
+const showcase={querySelector:s=>
+ s==='.merchant-v1120-window-intro'||s==='.merchant-v1112-window-intro'?intro:
+ s==='.merchant-v1120-brand-demo'?appended:null};
+const brandCtx={document:{
+ querySelector:s=>s==='.merchant-v1112-window'?showcase:null,
+ createElement:tag=>{assert.equal(tag,'div');return brandBlock}
+}};
+brandCtx.globalThis=brandCtx;
+vm.runInNewContext(lazy.slice(brandStart,brandEnd)+';this.brandPreview=merchantBrandPreviewHydrate;',brandCtx);
+assert.equal(brandCtx.brandPreview(),true);
+brandInput.value='<img src=x onerror=alert(1)>';
+brandListeners.input();
+assert.equal(brandName.textContent,'<img src=x onerror=alert(1)>');
+assert.equal(brandLetter.textContent,'<');
+assert.ok(!brandBlock.innerHTML.includes('onerror=alert'));
+assert.equal(brandCtx.brandPreview(),true,'Hydration is idempotent');
+assert.doesNotMatch(lazy.slice(brandStart,brandEnd),/fetch\(|localStorage|sessionStorage|\.rpc\(/);
 
 console.log('V1.1117 PASS: premium art direction, live billing plan integrity, accessible one-tap savings and real signup.');
