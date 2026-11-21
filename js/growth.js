@@ -576,7 +576,7 @@ function merchantEconomicsExample(orderReais,count=1){
   const amount=Math.max(0,Number(orderReais)||0);
   const qty=Math.max(1,Math.trunc(Number(count)||1));
   const gross=roundMoney(amount*qty);
-  const fee=roundMoney(gross*merchantPilotFeeRate());
+  const fee=roundMoney(gross*MERCHANT_PUBLIC_BILLING_PLANS[0].bps/10000);
   return {gross,fee,merchantNet:roundMoney(gross-fee)};
 }
 function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0,feeRate=merchantPilotFeeRate()}={}){
@@ -762,7 +762,7 @@ function earn(){
   if(globalThis.liveReady?.())setTimeout(tamaoNetworkVisitFromUi,0);
   const merchantSample=merchantEconomicsExample(120);
   const referralRateLabel=policyPercent(referralPilotRate());
-  const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
+  const merchantFeeLabel=policyPercent(MERCHANT_PUBLIC_BILLING_PLANS[0].bps/10000);
   return shell(`<section class="page tamao-earn-page">
     <div class="tamao-network-hero">
       <div class="tamao-network-intro">
@@ -799,7 +799,7 @@ function earn(){
       </article>
       <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA QUEM JÁ TEM UM NEGÓCIO</span><h2>Sua empresa pode vender por mais um canal.</h2><p>Ganhe outra vitrine sem abandonar seus canais atuais.</p>
         <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode aumentar o ticket com vários produtos na mesma entrega</li></ul>
-        <div class="opportunity-example"><small>Taxa sobre pedidos concluídos</small><strong>Taxa TAMÃO: ${merchantFeeLabel} por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
+        <div class="opportunity-example"><small>Plano Flex Diário, sem recarga</small><strong>Taxa TAMÃO: ${merchantFeeLabel} por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
         <button class="primary full" onclick="go('merchants')">Quero conhecer a parceria →</button>
       </article>
     </div>
