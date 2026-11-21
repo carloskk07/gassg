@@ -277,6 +277,8 @@ jobs:
         run: node tests/learn-premium-trust-v1-1124.mjs
       - name: Signature premium #learn interaction V1.1125
         run: node tests/learn-signature-interaction-v1-1125.mjs
+      - name: Editorial #learn path and stage integrity V1.1126
+        run: node tests/learn-editorial-journey-v1-1126.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
