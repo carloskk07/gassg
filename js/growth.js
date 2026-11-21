@@ -970,7 +970,16 @@ function sponsorsLanding(){
   '</div></section>');
 }
 
+function tamaoMerchantExecutiveStyles(){
+  if(typeof document==='undefined'||document.getElementById('merchant-executive-styles'))return;
+  const link=document.createElement('link');
+  link.id='merchant-executive-styles';
+  link.rel='stylesheet';
+  link.href='./css/merchant-landing-executive.css?v=1112';
+  document.head.appendChild(link);
+}
 function merchantsLanding(){
+  tamaoMerchantExecutiveStyles();
   const portal=globalThis.merchantPortalRequested?.()===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const cta=internalPilot?"setMode('merchant')":"openMerchantPortal(true)";
