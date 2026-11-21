@@ -358,3 +358,6 @@
 
 /* Public tariff verification is intentionally compact and never masquerades as a sales guarantee. */
 .merchant-landing-v1115 .merchant-v1115-plans-fine[role='status']{margin:0 0 17px;color:#315e46;font-weight:700;font-size:11px}
+
+.merchant-landing-v1115 .merchant-v1115-tariff-state{margin:9px 0 0;padding:0 12px;color:#d3eadd;font-size:11px;line-height:1.5;text-align:right}
+@media(max-width:760px){.merchant-landing-v1115 .merchant-v1115-tariff-state{text-align:left}}
