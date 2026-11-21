@@ -9,15 +9,15 @@ return shell(`<section class="page learn-premium">
       <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / GUIA DE COMPRA</span>
       <h1 id="learn-hero-title">Simples para pedir. <em>Claro para acompanhar.</em></h1>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
-      <p>Encontre gás, água e itens essenciais com uma jornada transparente. Consulte as condições para seu endereço, escolha com liberdade e acompanhe as informações da revenda.</p>
+      <p>Encontre gás, água e itens essenciais. Consulte as opções para seu endereço, confira as condições antes de pedir e acompanhe as etapas informadas pela revenda.</p>
       <div class="learn-hero-actions">
         <button type="button" class="learn-button learn-button-primary" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button>
         <button type="button" class="learn-button learn-button-outline" onclick="publicLandingJump('buyer-guide-steps')">Ver como funciona <span aria-hidden="true">↘</span></button>
       </div>
       <div class="learn-hero-assurances" aria-label="Compromissos da experiência">
-        <span><i aria-hidden="true">✓</i> Preço antes do pedido</span>
+        <span><i aria-hidden="true">✓</i> Consulte sem criar conta</span>
+        <span><i aria-hidden="true">✓</i> Confira o valor antes do pedido</span>
         <span><i aria-hidden="true">✓</i> Revenda confirma o aceite</span>
-        <span><i aria-hidden="true">✓</i> Acompanhamento por etapas</span>
       </div>
     </div>
     <div class="learn-visual" data-step="1" aria-label="Guia interativo de quatro etapas">
@@ -87,8 +87,8 @@ return shell(`<section class="page learn-premium">
   </nav>
 
   <section class="learn-trust-strip" aria-labelledby="learn-path-title">
-    <div class="learn-trust-intro"><span class="learn-label">SEU PRÓXIMO PASSO</span><strong id="learn-path-title">Onde você está na jornada?</strong><small>Escolha seu caminho. Sem etapas desnecessárias.</small></div>
-    <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">01</span><span><strong>Quero comprar</strong><small>Explore os produtos disponíveis.</small></span><button type="button" onclick="startHomeBrowse()">Ver produtos <span aria-hidden="true">→</span></button></div>
+    <div class="learn-trust-intro"><span class="learn-label">VOCÊ ESCOLHE</span><strong id="learn-path-title">Seu próximo passo.</strong><small>Encontre o caminho certo para você.</small></div>
+    <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">01</span><span><strong>Quero comprar</strong><small>Veja as opções da sua região.</small></span><button type="button" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button></div>
     <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">02</span><span><strong>Já tenho um pedido</strong><small>Consulte o andamento da entrega.</small></span><button type="button" onclick="go('tracking')">Acompanhar <span aria-hidden="true">→</span></button></div>
     <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">03</span><span><strong>Quero benefícios</strong><small>Conheça cupons e créditos elegíveis.</small></span><button type="button" onclick="go('club')">Conhecer o Clube <span aria-hidden="true">→</span></button></div>
   </section>
