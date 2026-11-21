@@ -11,6 +11,7 @@ import {verifySeller,recoverReservedPreference,reconcileProviderPayment}
  from "../ads-independent-checkout/handlers.ts";
 import {reconcilePaymentJob,PAYMENT_SOURCES} from "./runner.js";
 import {readPaymentEntitlement} from "../_shared/payment-entitlement.js";
+import {recordAdsCreditPayment} from "../_shared/ads-credit-payment.mjs";
 import {verifiedOrderPix} from "../_shared/order-pix-proof.mjs";
 import {prepareAdsPix,recoverAdsPix} from "../_shared/ads-native-pix.mjs";
 import {adsPixDependencies} from "../ads-independent-checkout/handlers.ts";
@@ -121,6 +122,7 @@ Deno.serve(async(req:Request)=>{
    },
    routes:{handlePlatformBillingOrder,handlePaidCouponOrder,handleMobilityFeeOrder,
     handleMerchantSaleOrder,verifySeller,recoverReservedPreference,reconcileProviderPayment,
+    recordAdsCreditPayment,
     recoverAdsPix:(row:any,token:string,sellerId:string)=>recoverAdsPix(adsPixDependencies(admin,null),row,token,sellerId)},
    providerGet:async(path:string,accessToken:string)=>{
     const response=await mercadoPagoFetch(path,{accessToken,method:'GET',timeoutMs:8000});
