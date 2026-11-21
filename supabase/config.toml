@@ -137,3 +137,7 @@ verify_jwt = false
 # publishable key, rate limit and allowlisted output; no browser DB grants.
 [functions.public-city-prices]
 verify_jwt = false
+
+# Public read-only tariff catalogue, with key/origin/quota checks in the handler.
+[functions.merchant-public-plans]
+verify_jwt = false
