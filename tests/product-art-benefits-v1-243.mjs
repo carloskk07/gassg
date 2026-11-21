@@ -64,7 +64,7 @@ for(const x of [
  'inventário disponível'
 ])assert.ok(sponsor.toLocaleLowerCase('pt-BR').includes(x.toLocaleLowerCase('pt-BR')),
  'Missing honest sponsor UX '+x);
-for(const x of ['Sua rede cresce com você',
+for(const x of ['Uma página para compartilhar',
  'O Clube reúne cupons e cashback de compras elegíveis'])
  assert.ok(growth.includes(x),'Missing cross-module benefits '+x);
 for(const x of [
