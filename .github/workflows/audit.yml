@@ -1364,10 +1364,10 @@ jobs:
           grep -Fq 'Você controla preços, estoque, pagamentos e entregas.' /tmp/merchants.html
           grep -Fq 'Sua marca merece' /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
-          grep -Fq 'Mais clientes descobrindo sua revenda.' /tmp/merchants.html
-          grep -Fq 'Recebimento direto na revenda' /tmp/merchants.html
-          grep -Fq 'COMECE A VENDER PELO TAMÃO' /tmp/merchants.html
-          grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
+          grep -Fq 'Sua revenda mais visível.' /tmp/merchants.html
+          grep -Fq 'Recebimento direto na sua revenda' /tmp/merchants.html
+          grep -Fq 'SEU PRÓXIMO PASSO' /tmp/merchants.html
+          grep -q "Quero cadastrar minha revenda" /tmp/merchants.html
           grep -q "Aviso de Privacidade" /tmp/privacy.html
           grep -q "Seus direitos" /tmp/privacy.html
           grep -q "Termos de Uso" /tmp/terms.html
