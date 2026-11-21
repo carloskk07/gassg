@@ -1,5 +1,14 @@
 const DEFAULT_REFERRAL_PILOT_RATE=0.02;
 const DEFAULT_MERCHANT_PILOT_FEE_RATE=0.075;
+// Tabela comercial de revendas, validada em merchant_billing_plans (21/11/2026).
+// reward_policy (7,5%) NAO representa a taxa do Flex Diario (9%).
+const MERCHANT_PUBLIC_BILLING_PLANS=Object.freeze([
+  Object.freeze({key:'flex_daily',name:'Flex Diário',bps:900,cents:0}),
+  Object.freeze({key:'credit_01990',name:'Essencial',bps:800,cents:1990}),
+  Object.freeze({key:'credit_04990',name:'Popular',bps:750,cents:4990}),
+  Object.freeze({key:'credit_09990',name:'Profissional',bps:700,cents:9990}),
+  Object.freeze({key:'credit_19990',name:'Alto Volume',bps:650,cents:19990})
+]);
 
 function currentCommercialRate(field,fallback){
 const policy=globalThis.liveRuntime?.marketStatus?.commercialPolicy;
@@ -22,7 +31,7 @@ return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 // V1.365: accessible, local jumps keep visitors on their chosen public page.
 // Whitelist prevents arbitrary DOM selectors or external navigation.
 function publicLandingJump(sectionId){
-if(!['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
+if(!['merchant-benefits','merchant-terms','merchant-plans','merchant-margin','merchant-how','merchant-faq','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
 const section=document.getElementById(sectionId);
 if(!section)return false;
 section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
@@ -570,7 +579,7 @@ function merchantEconomicsExample(orderReais,count=1){
   const fee=roundMoney(gross*merchantPilotFeeRate());
   return {gross,fee,merchantNet:roundMoney(gross-fee)};
 }
-function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0}={}){
+function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0,feeRate=merchantPilotFeeRate()}={}){
   const price=Math.max(0,Number(salePrice)||0);
   const qty=Math.min(10000,Math.max(1,Math.trunc(Number(orders)||1)));
   const unitProductCost=Math.max(0,Number(productCost)||0);
@@ -578,7 +587,8 @@ function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,
   const unitPaymentCost=Math.max(0,Number(paymentCost)||0);
   const taxPct=Math.min(100,Math.max(0,Number(taxRate)||0));
   const gross=roundMoney(price*qty);
-  const chamaFee=roundMoney(gross*merchantPilotFeeRate());
+  const safeRate=Number.isFinite(Number(feeRate))&&Number(feeRate)>=0&&Number(feeRate)<=0.5?Number(feeRate):merchantPilotFeeRate();
+  const chamaFee=roundMoney(gross*safeRate);
   const productCosts=roundMoney(unitProductCost*qty);
   const deliveryCosts=roundMoney(unitDeliveryCost*qty);
   const paymentCosts=roundMoney(unitPaymentCost*qty);
@@ -608,7 +618,10 @@ function updateMerchantSimulator(){
   const deliveryCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-delivery-cost')?.value)||0));
   const paymentCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-payment-cost')?.value)||0));
   const taxRate=Math.min(100,Math.max(0,Number(document.querySelector('#merchant-sim-tax-rate')?.value)||0));
-  const e=merchantMarginExample({salePrice,orders,productCost,deliveryCost,paymentCost,taxRate});
+  const selectedPlan=MERCHANT_PUBLIC_BILLING_PLANS.find(p=>p.key===document.querySelector('#merchant-sim-plan')?.value)||MERCHANT_PUBLIC_BILLING_PLANS[0];
+  const e=merchantMarginExample({salePrice,orders,productCost,deliveryCost,paymentCost,taxRate,feeRate:selectedPlan.bps/10000});
+  const selectedLabel=document.querySelector('#merchant-sim-plan-label');
+  if(selectedLabel)selectedLabel.textContent='Taxa TAMÃO ('+policyPercent(selectedPlan.bps/10000)+')';
   const gross=document.querySelector('#merchant-sim-gross');
   const fee=document.querySelector('#merchant-sim-fee');
   const costs=document.querySelector('#merchant-sim-costs');
@@ -975,7 +988,7 @@ function tamaoMerchantExecutiveStyles(){
   const link=document.createElement('link');
   link.id='merchant-executive-styles';
   link.rel='stylesheet';
-  link.href='./css/merchant-landing-executive.css?v=1114';
+  link.href='./css/merchant-landing-executive.css?v=1115';
   document.head.appendChild(link);
 }
 function merchantsLanding(){
@@ -985,11 +998,23 @@ function merchantsLanding(){
   const cta=internalPilot?"setMode('merchant')":"openMerchantPortal(true)";
   const ctaLabel=internalPilot?'Abrir ambiente interno':'Cadastrar minha empresa';
   const referenceTicket=120.00;
-  const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
-  const initial=merchantMarginExample({salePrice:referenceTicket,orders:50});
+  const plans=MERCHANT_PUBLIC_BILLING_PLANS;
+  const flex=plans[0];
+  const merchantFeeLabel=policyPercent(flex.bps/10000);
+  const initial=merchantMarginExample({salePrice:referenceTicket,orders:50,feeRate:flex.bps/10000});
+  const planOptions=plans.map(p=>'<option value="'+p.key+'">'+p.name+' • '+policyPercent(p.bps/10000)+'</option>').join('');
+  const planCards=plans.slice(1).map(p=>{
+    const rate=p.bps/10000,saving=(flex.bps-p.bps)/10000;
+    return '<article class="merchant-v1115-plan'+(p.key==='credit_09990'?' merchant-v1115-plan-featured':'')+'">'+
+      '<div class="merchant-v1115-plan-top"><span>'+p.name+'</span>'+(p.key==='credit_09990'?'<em>PARA QUEM VENDE MAIS</em>':'')+'</div>'+
+      '<strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small>'+
+      '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
+      '<div class="merchant-v1115-plan-savings">Economia na taxa de uma venda de '+BRL.format(referenceTicket)+': <strong>'+BRL.format(referenceTicket*saving)+'</strong></div>'+
+      '<p>O crédito paga as taxas dos pedidos. A taxa reduzida depende do plano ativo e do saldo disponível.</p></article>';
+  }).join('');
 
 
-  return shell(`<section class="page merchant-landing merchant-landing-v1112 merchant-landing-v1113 merchant-landing-v1114">
+  return shell(`<section class="page merchant-landing merchant-landing-v1112 merchant-landing-v1113 merchant-landing-v1114 merchant-landing-v1115">
     <div class="merchant-landing-premium merchant-v1112-hero">
       <div class="merchant-landing-premium-copy">
         <span class="merchant-v1112-kicker"><span class="merchant-v1112-kicker-mark" aria-hidden="true"></span> TAMÃO NEGÓCIOS <span>PARA REVENDAS</span></span>
@@ -998,13 +1023,14 @@ function merchantsLanding(){
         <p class="merchant-v1113-positioning">Sua empresa em um canal local adicional, com atendimento na região em que você atua.</p>
         <div class="hero-actions merchant-hero-actions">
           <button type="button" class="primary merchant-v1112-primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero cadastrar minha revenda'} <span aria-hidden="true">→</span></button>
-          <button type="button" class="secondary merchant-v1112-secondary" onclick="publicLandingJump('merchant-margin')">Entender as taxas</button>
+          <button type="button" class="secondary merchant-v1112-secondary" onclick="publicLandingJump('merchant-plans')">Comparar taxas e pacotes</button>
           <button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>
         </div>
         <div class="merchant-v1112-promise" aria-label="Condições da parceria">
           <span><b aria-hidden="true">✓</b> Sem mensalidade no modelo atual</span>
           <span><b aria-hidden="true">✓</b> Recebimento direto na sua revenda</span>
           <span><b aria-hidden="true">✓</b> Sem exclusividade</span>
+          <span><b aria-hidden="true">✓</b> Taxas menores com crédito antecipado</span>
         </div>
         <p class="merchant-v1112-approval">Cadastro sem cobrança. A liberação das vendas depende da conferência dos dados e das autorizações aplicáveis.</p>
       </div>
@@ -1037,7 +1063,7 @@ function merchantsLanding(){
           </div>
           <div class="merchant-v1112-window-footer">
             <div><small>MODELO COMERCIAL ATUAL</small><strong>Sem mensalidade</strong></div>
-            <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong></div>
+            <div><small>FLEX DIÁRIO · SEM RECARGA</small><strong>${merchantFeeLabel}</strong></div>
           </div>
           <p class="merchant-v1112-caption">Visão ilustrativa dos recursos. Fotos de produtos; não representam ofertas ou revendas cadastradas. A ativação depende de aprovação.</p>
         </div>
@@ -1093,12 +1119,12 @@ function merchantsLanding(){
     <section class="merchant-v1114-pricing" id="merchant-terms" tabindex="-1" aria-label="Condições comerciais da parceria">
       <div class="merchant-v1114-pricing-heading"><span class="section-kicker">TRANSPARÊNCIA COMERCIAL</span><h2>Saiba exatamente o que a plataforma cobra.</h2><p>Sem assinatura mensal no modelo atual. Você recebe o pagamento do cliente pela forma disponibilizada pela sua revenda.</p></div>
       <div class="merchant-v1114-pricing-grid">
-        <div class="merchant-v1114-pricing-rate"><span>TAXA ATUAL POR PEDIDO CONCLUÍDO</span><strong>${merchantFeeLabel}</strong><small>do valor bruto do pedido concluído</small></div>
+        <div class="merchant-v1114-pricing-rate"><span>FLEX DIÁRIO · SEM RECARGA</span><strong>${merchantFeeLabel}</strong><small>por pedido concluído; com pacotes, a taxa pode cair até 6,5%</small></div>
         <div class="merchant-v1114-pricing-example">
           <span>EXEMPLO ILUSTRATIVO DA TAXA</span>
           <div><span>Valor da venda</span><strong>${BRL.format(referenceTicket)}</strong></div>
-          <div><span>Taxa TAMÃO (${merchantFeeLabel})</span><strong>${BRL.format(referenceTicket * merchantPilotFeeRate())}</strong></div>
-          <p>Esse valor é apenas a taxa da plataforma. Custos dos produtos, entregas, meios de pagamento e tributos são de responsabilidade da revenda e não entram neste exemplo.</p>
+          <div><span>Taxa TAMÃO (${merchantFeeLabel})</span><strong>${BRL.format(referenceTicket * flex.bps/10000)}</strong></div>
+          <p>Exemplo com o Flex Diário (9%). Nos pacotes pré-pagos a taxa é menor e debitada dos créditos confirmados. Custos próprios e tributos não estão incluídos.</p>
         </div>
         <div class="merchant-v1114-pricing-assurance"><span>QUEM RECEBE A VENDA?</span><strong>A sua revenda.</strong><p>O TAMÃO não retém o valor do pedido para fazer um repasse depois. A cobrança da plataforma é tratada separadamente.</p></div>
       </div>
