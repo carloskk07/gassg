@@ -35,7 +35,10 @@ const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growt
 const sponsors=read('js/sponsors-premium.js');
 assert.match(growth,/function tamaoSponsorPremiumLoad/);
 assert.match(growth,/sponsors-premium\.js/);
-const learn=growth.slice(growth.indexOf('function learn(){'),growth.indexOf('\nfunction ',growth.indexOf('function learn(){')+1));
+const learn=read('js/learn-premium.js');
+const learnCss=read('css/learn-premium.css');
+new vm.Script(learn,{filename:'js/learn-premium.js'});
+assert.match(growth,/function learn\(\)/,'public learn entrypoint must retain fallback');
 const earn=growth.slice(growth.indexOf('function earn(){'),growth.indexOf('\nfunction ',growth.indexOf('function earn(){')+1));
 assert.ok(merchant.includes("openMerchantPortal(true)"),'primary merchant action opens live registration');
 assert.ok(merchant.includes('prelaunchMerchantLeadSection()'),'secondary lead form remains available');
@@ -99,7 +102,8 @@ assert.match(merchant,/id="merchant-margin" tabindex="-1"/);
 assert.match(merchant,/id="merchant-how" tabindex="-1"/);
 assert.ok(merchant.includes('prelaunchMerchantLeadSection()'),'merchant lead component still renders');
 assert.ok(read('js/acquisition.js').includes('id="partner-interest"'),'merchant lead section anchor must exist');
-assert.match(learn,/buyer-jump-rail/);
+assert.match(learn,/learn-hero-actions/);
+assert.match(learn,/publicLandingJump\('buyer-guide-steps'\)/);
 assert.match(learn,/id="buyer-guide-steps" tabindex="-1"/);
 assert.match(learn,/id="buyer-guide-questions" tabindex="-1"/);
 for(const key of ['relationship','local'])
@@ -181,8 +185,10 @@ assert.ok(earn.includes('compras elegíveis')&&earn.includes('campanha')&&
  earn.includes('habilitação comercial'),'visible conditions must be truthful');
 assert.ok(!earn.includes('tamao-customer-growth'),
  'remove the old duplicate growth grid after introducing the new guide');
-assert.ok(learn.includes('tamao-buyer-benefit-bridge')&&learn.includes("go('earn')"),
- 'buyer information should surface benefits without misleading users about discounts');
+assert.ok(learn.includes('learn-benefits-grid')&&learn.includes("go('earn')")&&learn.includes("go('club')"),
+ 'premium buyer guide should surface only eligible real benefits');
+for(const selector of ['.learn-benefits-grid','.learn-faq-items','@media(max-width:700px)'])
+ assert.ok(learnCss.includes(selector),'premium buyer guide styles missing: '+selector);
 for(const cls of ['.tamao-benefit-guide-grid','.tamao-benefit-guide-card',
   '.benefit-condition','.tamao-buyer-benefit-bridge','@media(max-width:760px)']){
   assert.ok(css.includes(cls),'benefit UI must be responsive and accessible: '+cls);
