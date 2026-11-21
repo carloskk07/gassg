@@ -18,7 +18,7 @@ const context={
 };
 const html=vm.runInNewContext(source+'\nmerchantsLanding()',context);
 const hero=html.slice(0,html.indexOf('merchant-v1112-trust'));
-assert.match(hero,/class="page merchant-landing merchant-landing-v1112 merchant-landing-v1113 merchant-landing-v1114 merchant-landing-v1115"/);
+assert.match(hero,/class="page merchant-landing merchant-landing-v1112 merchant-landing-v1113 merchant-landing-v1114 merchant-landing-v1115 merchant-landing-v1117"/);
 assert.match(hero,/Sua revenda mais visível/);
 assert.match(hero,/merchant-v1113-products/);
 assert.equal((hero.match(/class="tamao-product-photo product-/g)||[]).length,3);
@@ -33,7 +33,7 @@ assert.match(hero,/onclick="openMerchantPortal\(true\)">Quero cadastrar minha re
 assert.match(hero,/onclick="openMerchantPortal\(\)">Já sou parceiro/);
 assert.ok(hero.indexOf('merchant-v1112-primary')<hero.indexOf('merchant-v1112-promise'),
  'Primary signup must precede fine-print benefits');
-assert.match(source,/link\.href='\.\/css\/merchant-landing-executive\.css\?v=1116'/);
+assert.match(source,/link\.href='\.\/css\/merchant-landing-executive\.css\?v=1117'/);
 assert.match(html,/id="merchant-margin" tabindex="-1"/);
 assert.match(html,/id="merchant-how" tabindex="-1"/);
 assert.match(html,/preload-none-expected-never-here|merchant-sim-product-cost/);
