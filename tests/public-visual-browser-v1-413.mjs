@@ -120,7 +120,7 @@ try{
    if(!data.heading)issues.push(name+' '+size.width+': empty heading');
    if(data.brokenImages.length)issues.push(name+' '+size.width+': broken images '+data.brokenImages.join(','));
    if(name!=='home'&&name!=='merchants-app'&&data.savingsScene!==1)issues.push(name+' '+size.width+': expected one distinct visual benefit scene');
-   if(name==='merchants-app'&&(!data.merchantPremium||!data.merchantStyleLoaded||!data.merchantSignup||!data.merchantPremiumHero||data.merchantProductPhotos!==3||!data.merchantPhotoAsset||data.merchantExecutiveNav!==4||!data.merchantPricing||data.merchantFiveCategories!==5||!data.merchantProgressiveCalc||data.merchantCardCount!==3))issues.push(name+' '+size.width+': missing premium revenda page, catalogue photos, lazy style or real CTA');
+   if(name==='merchants-app'&&(!data.merchantPremium||!data.merchantStyleLoaded||!data.merchantSignup||!data.merchantPremiumHero||data.merchantProductPhotos!==3||!data.merchantPhotoAsset||data.merchantExecutiveNav!==5||!data.merchantPricing||data.merchantFiveCategories!==5||!data.merchantProgressiveCalc||data.merchantCardCount!==3))issues.push(name+' '+size.width+': missing premium revenda page, catalogue photos, lazy style or real CTA');
    if(name==='merchants-app'&&data.merchantPrimaryTop>size.height-35)issues.push(name+' '+size.width+': cadastro principal abaixo da primeira tela ('+data.merchantPrimaryTop+'px)');
    if(name==='home'&&data.campaignBanners!==1)issues.push(name+' '+size.width+': expected one Club campaign banner');
    if(name==='home'&&data.benefitPanels!==0)issues.push(name+' '+size.width+': redundant benefit panels remain');
