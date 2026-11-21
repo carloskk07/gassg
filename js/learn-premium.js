@@ -20,7 +20,25 @@ return shell(`<section class="page learn-premium">
     <div class="learn-visual" data-step="1" aria-label="Guia interativo de quatro etapas">
       <div class="learn-visual-top"><span class="learn-visual-dot"></span><span>GUIA DA SUA JORNADA</span><span class="learn-visual-star" aria-hidden="true">✳</span></div>
       <div class="learn-visual-intro"><span data-learn-step-count>01 / 04</span><strong data-learn-step-heading>O que você precisa hoje?</strong><small data-learn-step-caption>Você começa escolhendo, sem compromisso.</small></div>
-      <div class="learn-visual-products" aria-label="Categorias que você pode encontrar"><span><i aria-hidden="true">◈</i> Gás</span><span><i aria-hidden="true">◈</i> Água</span><span><i aria-hidden="true">◈</i> Essenciais</span></div>
+
+      <div class="learn-visual-scenes" aria-hidden="true">
+        <div class="learn-visual-scene" data-learn-scene="1">
+          <span class="learn-scene-title">Escolha por categoria</span>
+          <div class="learn-scene-products"><span>◈ &nbsp; Gás</span><span>◈ &nbsp; Água</span><span>◈ &nbsp; Essenciais</span></div>
+        </div>
+        <div class="learn-visual-scene" data-learn-scene="2" hidden>
+          <span class="learn-scene-title">Consulta por região</span>
+          <div class="learn-scene-location"><span class="learn-scene-pin">⌖</span><span>Seu endereço</span><i></i><span>Opções de atendimento</span></div>
+        </div>
+        <div class="learn-visual-scene" data-learn-scene="3" hidden>
+          <span class="learn-scene-title">Confirmação com transparência</span>
+          <div class="learn-scene-review"><span class="learn-scene-review-mark">✓</span><span>Você confere as condições</span><span class="learn-scene-review-arrow">→</span><span>A revenda confirma o aceite</span></div>
+        </div>
+        <div class="learn-visual-scene" data-learn-scene="4" hidden>
+          <span class="learn-scene-title">Acompanhamento por etapas</span>
+          <div class="learn-scene-track"><span>Solicitação</span><i></i><span>Aceite</span><i></i><span>Entrega</span></div>
+        </div>
+      </div>
       <div class="learn-visual-guide-label">ESCOLHA UMA ETAPA PARA EXPLORAR <span aria-hidden="true">↘</span></div>
       <div class="learn-visual-flow" role="group" aria-label="Explorar as etapas do pedido">
         <button type="button" class="learn-phase is-active" aria-pressed="true" onclick="learnPremiumSelectStep(1)"><b>01</b><span>Escolha</span></button><i aria-hidden="true"></i>
@@ -32,12 +50,21 @@ return shell(`<section class="page learn-premium">
     </div>
   </section>
 
-  <div class="learn-trust-strip" aria-label="O que esperar do TAMÃO">
-    <div class="learn-trust-intro"><span class="learn-label">O ESSENCIAL, BEM FEITO</span><strong>Clareza é parte do serviço.</strong></div>
-    <div><span class="learn-strip-icon" aria-hidden="true">01</span><span><strong>Ofertas da sua região</strong><small>Disponibilidade consultada pelo endereço</small></span></div>
-    <div><span class="learn-strip-icon" aria-hidden="true">02</span><span><strong>Controle na sua mão</strong><small>Você escolhe antes de finalizar</small></span></div>
-    <div><span class="learn-strip-icon" aria-hidden="true">03</span><span><strong>Informação durante a entrega</strong><small>Etapas informadas pela revenda</small></span></div>
-  </div>
+
+  <nav class="learn-quick-index" aria-label="Explorar esta página">
+    <span>IR DIRETO AO QUE IMPORTA</span>
+    <button type="button" onclick="publicLandingJump('buyer-guide-steps')"><b>01</b> Como funciona</button>
+    <button type="button" onclick="learnPremiumJump('learn-confidence')"><b>02</b> Sua confiança</button>
+    <button type="button" onclick="learnPremiumJump('learn-benefits')"><b>03</b> Benefícios</button>
+    <button type="button" onclick="publicLandingJump('buyer-guide-questions')"><b>04</b> Dúvidas</button>
+  </nav>
+
+  <section class="learn-trust-strip" aria-labelledby="learn-path-title">
+    <div class="learn-trust-intro"><span class="learn-label">SEU PRÓXIMO PASSO</span><strong id="learn-path-title">Onde você está na jornada?</strong><small>Escolha seu caminho. Sem etapas desnecessárias.</small></div>
+    <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">01</span><span><strong>Quero comprar</strong><small>Explore os produtos disponíveis.</small></span><button type="button" onclick="startHomeBrowse()">Ver produtos <span aria-hidden="true">→</span></button></div>
+    <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">02</span><span><strong>Já tenho um pedido</strong><small>Consulte o andamento da entrega.</small></span><button type="button" onclick="go('tracking')">Acompanhar <span aria-hidden="true">→</span></button></div>
+    <div class="learn-trust-path"><span class="learn-strip-icon" aria-hidden="true">03</span><span><strong>Quero benefícios</strong><small>Conheça cupons e créditos elegíveis.</small></span><button type="button" onclick="go('club')">Conhecer o Clube <span aria-hidden="true">→</span></button></div>
+  </section>
 
   <section class="learn-section learn-steps" id="buyer-guide-steps" tabindex="-1" aria-labelledby="learn-steps-title">
     <div class="learn-section-header">
@@ -52,31 +79,32 @@ return shell(`<section class="page learn-premium">
     </div>
   </section>
 
-  <section class="learn-confidence" aria-labelledby="learn-confidence-title">
+  <section class="learn-confidence" id="learn-confidence" tabindex="-1" aria-labelledby="learn-confidence-title">
     <div class="learn-confidence-story">
       <span class="learn-label">02 — UMA RELAÇÃO TRANSPARENTE</span>
-      <h2 id="learn-confidence-title">Você sabe <em>quem faz o quê.</em></h2>
-      <p>O TAMÃO conecta você às revendas participantes e organiza as informações do pedido. A revenda é responsável por aceitar, preparar e realizar a entrega.</p>
+
+      <h2 id="learn-confidence-title">Cada um com seu papel. <em>Você com o controle.</em></h2>
+      <p>Confiança começa quando todos sabem exatamente qual é a sua responsabilidade — sem promessas difíceis de cumprir.</p>
       <ul class="learn-confidence-list">
-        <li><span aria-hidden="true">✓</span><div><strong>O valor aparece antes de confirmar</strong><small>Se uma alternativa mais cara for oferecida, você decide se aceita.</small></div></li>
-        <li><span aria-hidden="true">✓</span><div><strong>O pedido depende do aceite</strong><small>Sem confirmação da revenda, não apresentamos a entrega como garantida.</small></div></li>
-        <li><span aria-hidden="true">✓</span><div><strong>As atualizações têm significado</strong><small>O andamento reflete as etapas informadas pelo parceiro.</small></div></li>
+        <li><span aria-hidden="true">T</span><div><strong>O TAMÃO conecta e organiza</strong><small>Reúne opções de compra, informações e o acompanhamento do pedido.</small></div></li>
+        <li><span aria-hidden="true">R</span><div><strong>A revenda confirma e entrega</strong><small>Aceita a solicitação, prepara o produto e informa as etapas da entrega.</small></div></li>
+        <li><span aria-hidden="true">✓</span><div><strong>Você escolhe e confere</strong><small>Analisa o valor, decide sobre alternativas e confirma o recebimento após a entrega.</small></div></li>
       </ul>
     </div>
     <aside class="learn-confidence-panel" aria-label="Transparência na entrega">
       <span class="learn-confidence-panel-tag">TRANSPARÊNCIA EM CADA ETAPA</span><span class="learn-confidence-seal" aria-hidden="true">T<span>✓</span></span>
-      <h3>Da solicitação à sua porta.</h3>
+
+      <h3>O que merece sua atenção.</h3>
       <div class="learn-timeline">
-        <div><span class="learn-timeline-mark">1</span><span><strong>Solicitação enviada</strong><small>Aguardando o aceite da revenda.</small></span></div>
-        <div><span class="learn-timeline-mark">2</span><span><strong>Pedido aceito</strong><small>A revenda confirma que vai atender.</small></span></div>
-        <div><span class="learn-timeline-mark">3</span><span><strong>Preparação e saída</strong><small>O parceiro informa o andamento.</small></span></div>
-        <div><span class="learn-timeline-mark">4</span><span><strong>Recebimento</strong><small>Confira o pedido e confirme a entrega.</small></span></div>
+        <div><span class="learn-timeline-mark">1</span><span><strong>Antes de confirmar</strong><small>Veja o valor total e as condições disponíveis para seu endereço.</small></span></div>
+        <div><span class="learn-timeline-mark">2</span><span><strong>Depois de solicitar</strong><small>A revenda ainda precisa aceitar para que o pedido seja confirmado.</small></span></div>
+        <div><span class="learn-timeline-mark">3</span><span><strong>No momento da entrega</strong><small>Confira os itens e só então informe o código de recebimento.</small></span></div>
       </div>
-      <p class="learn-panel-footnote">Os horários e a disponibilidade dependem das revendas da sua região.</p>
+      <p class="learn-panel-footnote">Disponibilidade, horários e atualizações dependem das revendas que atendem sua região.</p>
     </aside>
   </section>
 
-  <section class="learn-benefits" aria-labelledby="learn-benefits-title">
+  <section class="learn-benefits" id="learn-benefits" tabindex="-1" aria-labelledby="learn-benefits-title">
     <div class="learn-section-header">
       <div><span class="learn-label">03 — MAIS POSSIBILIDADES</span><h2 id="learn-benefits-title">Mais motivos para <em>fazer parte.</em></h2></div>
       <p>Além de comprar, você pode conhecer os benefícios oferecidos pela plataforma.</p>
@@ -132,6 +160,9 @@ function learnPremiumSelectStep(value){
   });
   const visual=root.querySelector('.learn-visual');
   if(visual)visual.dataset.step=String(step);
+  root.querySelectorAll('[data-learn-scene]').forEach(scene=>{
+    scene.hidden=scene.getAttribute('data-learn-scene')!==String(step);
+  });
   const values={
     '[data-learn-step-count]':String(step).padStart(2,'0')+' / 04',
     '[data-learn-step-heading]':entry[0],
@@ -143,5 +174,15 @@ function learnPremiumSelectStep(value){
     const element=root.querySelector(selector);
     if(element)element.textContent=copy;
   }
+  return true;
+}
+
+/** Whitelisted local section jumps, no route switching or arbitrary selectors. */
+function learnPremiumJump(sectionId){
+  if(!['learn-confidence','learn-benefits'].includes(sectionId)||typeof document==='undefined')return false;
+  const section=document.getElementById(sectionId);
+  if(!section)return false;
+  section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
+  section.focus({preventScroll:true});
   return true;
 }
