@@ -70,6 +70,15 @@ const render=plans=>vm.runInNewContext(source+';merchantsLanding()',{
 });
 const html=render(merchantPlans);
 assert.match(html,/merchant-landing-v1117/);
+
+assert.match(html,/merchant-v1118-receipt/);
+assert.match(html,/O crédito paga a taxa/);
+assert.equal((html.match(/data-merchant-compare-plan="/g)||[]).length,4);
+assert.match(html,/data-merchant-receipt-balance>R\$ 10,30/);
+assert.match(html,/merchantPlanReceiptPreview/);
+assert.match(lazy,/function merchantPlanReceiptPreview\(key,ticketValue\)/);
+assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
+
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
@@ -94,5 +103,47 @@ for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
 assert.ok(css.includes('prefers-reduced-motion:reduce'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(css.includes(':focus-visible'));
-assert.match(sw,/CACHE='tamao-sg-v1\.1117'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1118'/);
+
+const startReceipt=lazy.indexOf('function merchantPlanReceiptPreview(key,ticketValue){');
+const endReceipt=lazy.indexOf('globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;',startReceipt);
+assert.ok(startReceipt>0&&endReceipt>startReceipt,'Receipt helper must stay in lazy module');
+const makeChoice=(key,bps,credit,name)=>{
+ const attrs={'data-merchant-compare-plan':key,'data-merchant-plan-bps':String(bps),
+  'data-merchant-plan-credit-cents':String(credit),'data-merchant-plan-name':name,
+  'aria-pressed':String(key==='credit_01990')};
+ return {getAttribute:k=>attrs[k],setAttribute:(k,v)=>{attrs[k]=String(v)}};
+};
+const choices=[makeChoice('credit_01990',800,1990,'Essencial'),makeChoice('credit_04990',750,4990,'Popular')];
+const receiptOutputs=Object.fromEntries(['plan','flex','fee','saving','credit','balance','status'].map(k=>[k,{textContent:''}]));
+const receiptTicket=[{getAttribute:k=>k==='aria-pressed'?'true':k==='data-merchant-ticket'?'120':null}];
+const receiptSection={
+ getAttribute:k=>k==='data-merchant-flex-bps'?'900':null,
+ querySelectorAll:s=>{
+  if(s==='[data-merchant-compare-plan]')return choices;
+  if(s==='[data-merchant-ticket]')return receiptTicket;
+  const match=/^\[data-merchant-receipt-([a-z]+)\]$/.exec(s);
+  if(match&&receiptOutputs[match[1]])return [receiptOutputs[match[1]]];
+  throw new Error('Unexpected receipt selector '+s);
+ }
+};
+const receiptContext={BRL:{format:money},document:{getElementById:k=>
+ k==='merchant-plans'?receiptSection:k==='merchant-plan-receipt'?{}:null}};
+vm.runInNewContext(lazy.slice(startReceipt,endReceipt)+';this.receiptPreview=merchantPlanReceiptPreview;',receiptContext);
+assert.equal(receiptContext.receiptPreview('credit_01990',200),true);
+assert.equal(receiptOutputs.flex.textContent,'R$ 18,00');
+assert.equal(receiptOutputs.fee.textContent,'R$ 16,00');
+assert.equal(receiptOutputs.saving.textContent,'R$ 2,00');
+assert.equal(receiptOutputs.balance.textContent,'R$ 3,90');
+assert.equal(receiptContext.receiptPreview('credit_04990',120),true);
+assert.equal(receiptOutputs.fee.textContent,'R$ 9,00');
+assert.equal(receiptOutputs.balance.textContent,'R$ 40,90');
+assert.equal(choices[1].getAttribute('aria-pressed'),'true');
+assert.equal(receiptContext.receiptPreview('invalid',120),false);
+choices[1].setAttribute('data-merchant-plan-credit-cents','100');
+assert.equal(receiptContext.receiptPreview('credit_04990',200),true);
+assert.equal(receiptOutputs.balance.textContent,'Saldo insuficiente');
+assert.match(receiptOutputs.status.textContent,/Saldo insuficiente/);
+assert.doesNotMatch(lazy.slice(startReceipt,endReceipt),/fetch\(|\.rpc\(|merchant-billing-pix/);
+
 console.log('V1.1117 PASS: premium art direction, live billing plan integrity, accessible one-tap savings and real signup.');

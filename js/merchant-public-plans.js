@@ -86,7 +86,52 @@ section.querySelectorAll('[data-merchant-saving-bps]').forEach(element=>{
  if(Number.isInteger(bps)&&bps>=0&&bps<=2000)
   element.textContent=BRL.format(ticket*bps/10000);
 });
+const active=typeof section.querySelector==='function'
+ ?section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]'):null;
+if(active)merchantPlanReceiptPreview(active.getAttribute('data-merchant-compare-plan'),ticket);
 return true;
 }
 
+// Read-only merchant billing example: no requests, transactions or account writes.
+function merchantPlanReceiptPreview(key,ticketValue){
+ if(typeof document==='undefined')return false;
+ const section=document.getElementById('merchant-plans');
+ if(!section)return false;
+ const choices=Array.from(section.querySelectorAll('[data-merchant-compare-plan]'));
+ const choice=choices.find(el=>el.getAttribute('data-merchant-compare-plan')===key);
+ if(!choice)return false;
+ const activeTicket=Array.from(section.querySelectorAll('[data-merchant-ticket]'))
+  .find(el=>el.getAttribute('aria-pressed')==='true');
+ const ticket=Number(ticketValue===undefined?activeTicket?.getAttribute('data-merchant-ticket'):ticketValue);
+ if(![100,120,200].includes(ticket))return false;
+ const flexBps=Number(section.getAttribute('data-merchant-flex-bps'));
+ const planBps=Number(choice.getAttribute('data-merchant-plan-bps'));
+ const creditCents=Number(choice.getAttribute('data-merchant-plan-credit-cents'));
+ if(![flexBps,planBps,creditCents].every(Number.isSafeInteger)||
+    flexBps<0||flexBps>2000||planBps<0||planBps>2000||
+    creditCents<0||creditCents>10000000)return false;
+ const flexFeeCents=Math.round(ticket*flexBps/100);
+ const planFeeCents=Math.round(ticket*planBps/100);
+ const enough=creditCents>=planFeeCents;
+ const write=(name,value)=>section.querySelectorAll('[data-merchant-receipt-'+name+']')
+  .forEach(el=>{el.textContent=value});
+ const money=cents=>BRL.format(cents/100);
+ write('plan',choice.getAttribute('data-merchant-plan-name')||'Pacote');
+ write('flex',money(flexFeeCents));
+ write('fee',money(planFeeCents));
+ write('saving',money(flexFeeCents-planFeeCents));
+ write('credit',money(creditCents));
+ write('balance',enough?money(creditCents-planFeeCents):'Saldo insuficiente');
+ write('status',enough
+  ?'Com pagamento confirmado e saldo disponível, a taxa é debitada dos créditos.'
+  :'Saldo insuficiente neste exemplo. A tarifa reduzida exige crédito disponível.');
+ choices.forEach(el=>el.setAttribute('aria-pressed',
+  String(el.getAttribute('data-merchant-compare-plan')===key)));
+ if(ticketValue===undefined){
+  const receipt=document.getElementById('merchant-plan-receipt');
+  receipt?.scrollIntoView?.({behavior:'auto',block:'nearest'});
+ }
+ return true;
+}
+globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;
 globalThis.merchantPlanTicketPreview=merchantPlanTicketPreview;
