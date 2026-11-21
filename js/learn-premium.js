@@ -155,6 +155,7 @@ return shell(`<section class="page learn-premium">
         <div><span class="learn-timeline-mark">2</span><span><strong>Depois de solicitar</strong><small>A revenda ainda precisa aceitar para que o pedido seja confirmado.</small></span></div>
         <div><span class="learn-timeline-mark">3</span><span><strong>No momento da entrega</strong><small>Confira os itens e só então informe o código de recebimento.</small></span></div>
       </div>
+      <img class="learn-confidence-art" src="./assets/learn-delivery-signature-v1133.svg" width="780" height="265" loading="lazy" decoding="async" alt="Ilustração de uma entrega de itens essenciais em direção a uma casa." />
       <p class="learn-panel-footnote">Disponibilidade, horários e atualizações dependem das revendas que atendem sua região.</p>
     </aside>
   </section>
