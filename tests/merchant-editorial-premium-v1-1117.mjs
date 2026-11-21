@@ -1,0 +1,95 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const growth=read('js/growth.js');
+const css=read('css/merchant-landing-executive.css');
+const sw=read('sw.js');
+
+new vm.Script(growth,{filename:'js/growth.js'});
+const helperStart=growth.indexOf('function merchantPlanTicketPreview(value){');
+const helperEnd=growth.indexOf('\nfunction tamaoMerchantExecutiveStyles(){',helperStart);
+assert.ok(helperStart>0&&helperEnd>helperStart,'Quick comparison helper must be isolated and readable');
+
+const money=value=>'R$ '+Number(value).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const tickets=[100,120,200].map(value=>({
+ value,
+ attrs:{'aria-pressed':String(value===120)},
+ getAttribute(name){return name==='data-merchant-ticket'?String(this.value):this.attrs[name]},
+ setAttribute(name,value){this.attrs[name]=String(value)}
+}));
+const reference=[{textContent:''},{textContent:''},{textContent:''},{textContent:''},{textContent:''}];
+const savings=[100,150,200,250].map(bps=>({
+ bps,textContent:'',
+ getAttribute(name){return name==='data-merchant-saving-bps'?String(this.bps):null}
+}));
+const section={querySelectorAll(selector){
+ if(selector==='[data-merchant-ticket]')return tickets;
+ if(selector==='[data-merchant-order-ticket]')return reference;
+ if(selector==='[data-merchant-saving-bps]')return savings;
+ throw new Error('Unknown query '+selector);
+}};
+const context={
+ document:{getElementById:id=>id==='merchant-plans'?section:null},
+ BRL:{format:money}
+};
+vm.runInNewContext(growth.slice(helperStart,helperEnd)+';this.preview=merchantPlanTicketPreview;',context);
+assert.equal(context.preview(200),true);
+assert.deepEqual(tickets.map(b=>b.attrs['aria-pressed']),['false','false','true']);
+assert.ok(reference.every(item=>item.textContent==='R$ 200,00'));
+assert.deepEqual(savings.map(x=>x.textContent),['R$ 2,00','R$ 3,00','R$ 4,00','R$ 5,00']);
+assert.equal(context.preview(100),true);
+assert.deepEqual(tickets.map(b=>b.attrs['aria-pressed']),['true','false','false']);
+assert.deepEqual(savings.map(x=>x.textContent),['R$ 1,00','R$ 1,50','R$ 2,00','R$ 2,50']);
+assert.equal(context.preview(99),false,'Invalid or unlisted ticket must not change the visible rates');
+assert.equal(context.preview('abc'),false);
+assert.equal(context.preview(120),true);
+assert.deepEqual(savings.map(x=>x.textContent),['R$ 1,20','R$ 1,80','R$ 2,40','R$ 3,00']);
+assert.deepEqual(tickets.map(b=>b.attrs['aria-pressed']),['false','true','false']);
+
+const start=growth.indexOf('function tamaoMerchantExecutiveStyles(){');
+const end=growth.indexOf('\nfunction currentMerchantPilotInviteToken(){',start);
+assert.ok(start>=0&&end>start);
+const source=growth.slice(start,end);
+const merchantPlans=[
+ {key:'flex_daily',name:'Flex Diário',bps:900,cents:0},
+ {key:'credit_01990',name:'Essencial',bps:800,cents:1990},
+ {key:'credit_04990',name:'Popular',bps:750,cents:4990},
+ {key:'credit_09990',name:'Profissional',bps:700,cents:9990},
+ {key:'credit_19990',name:'Alto Volume',bps:650,cents:19990}
+];
+const render=plans=>vm.runInNewContext(source+';merchantsLanding()',{
+ globalThis:{merchantPortalRequested:()=>false,CHAMA_INTERNAL_PILOT:false},
+ MERCHANT_PUBLIC_BILLING_PLANS:plans,
+ policyPercent:rate=>Number(rate*100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%',
+ merchantMarginExample:()=>({gross:6000,chamaFee:540}),
+ prelaunchMerchantLeadSection:()=>'<form id="partner-interest"></form>',
+ BRL:{format:money},shell:html=>html
+});
+const html=render(merchantPlans);
+assert.match(html,/merchant-landing-v1117/);
+assert.match(html,/merchant-v1117-ticketbar/);
+assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
+assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
+assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
+assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
+assert.match(html,/merchant-v1115-plan-featured[\s\S]*?Alto Volume/);
+assert.match(html,/MAIOR REDUÇÃO DE TAXA/);
+assert.match(html,/FLEX DIÁRIO · SEM RECARGA/);
+assert.match(html,/Crédito antecipado/);
+assert.match(html,/Condições conferidas no catálogo oficial|Valores de referência\. Confira as taxas/);
+assert.ok(html.includes('onclick="openMerchantPortal(true)"'),'All options must keep actual signup');
+assert.doesNotMatch(html,/Pedidos garantidos|mensalidade obrigatória|Renda garantida/);
+
+for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
+ '.merchant-v1117-ticketbar-controls button[aria-pressed="true"]',
+ '.merchant-landing-v1117 .merchant-v1115-plan-featured',
+ '.merchant-landing-v1117 .merchant-v1114-index']){
+ assert.ok(css.includes(cls),'Missing premium design token '+cls);
+}
+assert.ok(css.includes('prefers-reduced-motion:reduce'));
+assert.ok(css.includes('@media(max-width:520px)'));
+assert.ok(css.includes(':focus-visible'));
+assert.match(sw,/CACHE='tamao-sg-v1\.1117'/);
+console.log('V1.1117 PASS: premium art direction, live billing plan integrity, accessible one-tap savings and real signup.');
