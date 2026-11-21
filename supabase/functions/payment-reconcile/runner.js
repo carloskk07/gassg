@@ -1,12 +1,14 @@
 // Server-owned queue only. Reuses the same provider-verified business handlers
 // as the webhooks; no new charge, refund, credit or coupon engine lives here.
 import {readPaymentEntitlement} from '../_shared/payment-entitlement.js';
+import {selectIndependentAdsPayment} from '../_shared/ads-independent-payment-search.mjs';
 export const PAYMENT_SOURCES=Object.freeze({
  billing:{table:'merchant_billing_provider_charges',id:'id',amount:'amount_cents',reference:'correlation_id',order:'provider_charge_id',paid:['completed']},
  coupon:{table:'clube_coupon_paid_invoices',id:'id',amount:'sale_price_cents',reference:'id',order:'provider_order_id',paid:['paid']},
  mobility:{table:'mobility_fee_pix_invoices_v1_837',id:'id',amount:'amount_cents',reference:'external_reference',order:'provider_order_id',paid:['paid']},
  merchant_sale:{table:'merchant_sale_payment_attempts',id:'id',amount:'amount_cents',reference:'external_reference',order:'provider_order_id',paid:['approved']},
- advertising:{table:'ads_independent_checkouts_v1_886',id:'campaign_id',amount:'amount_cents',reference:'external_reference',paid:['payment_approved']}
+ advertising:{table:'ads_independent_checkouts_v1_886',id:'campaign_id',amount:'amount_cents',reference:'external_reference',paid:['payment_approved']},
+ ads_credit:{table:'ads_credit_topups_v1_1097',id:'id',amount:'amount_cents',reference:'external_reference',paid:['approved']}
 });
 const safeId=value=>/^[A-Za-z0-9_-]{6,240}$/.test(String(value||''));
 const reason=value=>String(value||'PROVIDER_RECHECK_REQUIRED').replace(/[^A-Za-z0-9_]/g,'_').slice(0,100);
@@ -28,6 +30,59 @@ export function uniqueProviderOrder(list,reference,amount,moneyToCents){
  return String(order.id);
 }
 
+// Same server-side provider/ledger settlement used by the Ads credit webhook.
+// Never create a new Pix or infer successful credit from provider ACK alone.
+async function reconcileOriginalAdsCredit(row,read,deps){
+ const {admin,providerGet,routes}=deps;
+ if(row.status==='reserved')
+  return {outcome:'pending',reason:'ADS_CREDIT_NOT_ISSUED',businessStatus:row.status};
+ const reference=String(row.external_reference||'');
+ if(!/^tamao-ads-credit-[0-9a-f]{32}$/.test(reference))
+  return {outcome:'review',reason:'ADS_CREDIT_REFERENCE_INVALID',businessStatus:row.status};
+ const {token,sellerId}=await deps.adsCredentials();
+ if(!/^APP_USR-\S{20,}$/.test(token||'')||!/^[0-9]{4,20}$/.test(String(sellerId||'')))
+  throw Error('ADS_CREDIT_PROVIDER_NOT_CONFIGURED');
+ let paymentId=String(row.provider_payment_id||'');
+ if(!paymentId){
+  const query=new URLSearchParams({external_reference:reference,limit:'2',offset:'0'});
+  const listing=await providerGet('/v1/payments/search?'+query,token);
+  const selection=selectIndependentAdsPayment(listing,reference,'credit');
+  if(selection.kind==='review')
+   return {outcome:'review',reason:'ADS_CREDIT_PROVIDER_SEARCH_AMBIGUOUS',businessStatus:row.status};
+  if(selection.kind==='none')
+   return {outcome:'pending',reason:'ADS_CREDIT_PAYMENT_NOT_FOUND',businessStatus:row.status};
+  paymentId=selection.paymentId;
+ }
+ if(!/^\d{5,30}$/.test(paymentId))
+  return {outcome:'review',reason:'ADS_CREDIT_PROVIDER_ID_INVALID',businessStatus:row.status};
+ const payment=await providerGet('/v1/payments/'+encodeURIComponent(paymentId),token);
+ // The common recordAdsCreditPayment helper checks fresh LIVE PSP status,
+ // fixed seller, exact reference, amount and currency before a locked RPC.
+ if(typeof routes.recordAdsCreditPayment!=='function')
+  throw Error('ADS_CREDIT_HANDLER_UNAVAILABLE');
+ const fact=await routes.recordAdsCreditPayment(admin,payment,{
+  paymentId,reference,amount:row.amount_cents,sellerId:String(sellerId)
+ });
+ if(fact?.source!=='ads_credit_payment_fact_v1_1097')
+  throw Error('ADS_CREDIT_PROVIDER_FACT_UNVERIFIED');
+ row=await read();
+ const status=String(payment?.status||'');
+ if(status==='in_mediation'||row.status==='review_required')
+  return {outcome:'review',reason:'ADS_CREDIT_PAYMENT_REVIEW',businessStatus:row.status};
+ if(status==='approved'&&row.status==='approved'){
+  const entitlement=await readPaymentEntitlement('ads_credit',admin,row);
+  if(entitlement.reviewRequired)
+   return {outcome:'review',reason:'ADS_CREDIT_LEDGER_INCONSISTENT',businessStatus:row.status};
+  if(!entitlement.entitlementApplied)
+   return {outcome:'pending',reason:'ADS_CREDIT_NOT_CREDITED',businessStatus:row.status};
+  return {outcome:'verified',reason:'PROVIDER_AND_LEDGER_CONFIRMED',businessStatus:row.status};
+ }
+ if(['refunded','charged_back','cancelled','rejected'].includes(status)&&
+    ['reversed','unpaid'].includes(row.status))
+  return {outcome:'closed',reason:'PROVIDER_STATE_RECORDED',businessStatus:row.status};
+ return {outcome:'pending',reason:'AWAITING_PROVIDER_OR_LEDGER',businessStatus:row.status};
+}
+
 export async function reconcilePaymentJob(job,deps){
  const {admin,routes,providerGet,moneyToCents}=deps;
  const spec=Object.hasOwn(PAYMENT_SOURCES,String(job?.kind))?PAYMENT_SOURCES[job.kind]:null;
@@ -43,6 +98,7 @@ export async function reconcilePaymentJob(job,deps){
  const amount=Number(row[spec.amount]),reference=String(row[spec.reference]||'');
  if(!Number.isSafeInteger(amount)||amount<1||!reference||reference.length>160)
   throw Error('LOCAL_PAYMENT_BINDING_INVALID');
+ if(job.kind==='ads_credit')return reconcileOriginalAdsCredit(row,read,deps);
  const provider=job.kind==='advertising'?'mercadopago':String(row.provider||'mercadopago');
  if(provider!=='mercadopago')return {outcome:'review',reason:'PROVIDER_ADAPTER_REQUIRED',businessStatus:row.status};
  let response;

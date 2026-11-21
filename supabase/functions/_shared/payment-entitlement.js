@@ -80,6 +80,26 @@ export async function readPaymentEntitlement(kind,admin,row){
   return verdict(accruals.length===lines.length&&lines.every(l=>
    accruals.some(a=>a.request_id===l.request_id&&a.driver_id===row.driver_id&&sameCents(a.fee_cents,l.fee_cents))));
  }
+ // A provider acknowledgement cannot claim a credit without exactly one
+ // immutable topup ledger row in the correct account and verified wallet.
+ if(kind==='ads_credit'){
+  if(!dated(row.paid_at)||!present(row.provider_payment_id)||
+     !present(row.owner_user_id)||!cents(row.amount_cents)||
+     Number(row.reversed_cents)!==0)return verdict(false);
+  const lines=await many(admin,'ads_credit_ledger_v1_1097',
+   'id,topup_id,owner_user_id,operation,delta_cents',
+   [['topup_id',row.id]],51);
+  const wallet=await one(admin,'ads_credit_wallets_v1_1097',
+   'owner_user_id,total_loaded_cents,frozen',
+   [['owner_user_id',row.owner_user_id]]);
+  const loaded=lines?.filter(x=>x.operation==='topup')||[];
+  return verdict(!!wallet&&!!lines&&wallet.owner_user_id===row.owner_user_id&&
+   Number.isSafeInteger(Number(wallet.total_loaded_cents))&&
+   Number(wallet.total_loaded_cents)>=Number(row.amount_cents)&&
+   loaded.length===1&&lines.length===1&&
+   lines[0].topup_id===row.id&&lines[0].owner_user_id===row.owner_user_id&&
+   Number(lines[0].delta_cents)===Number(row.amount_cents));
+ }
  if(kind==='advertising'){
   if(!dated(row.approved_at)||!present(row.payment_id)||!present(row.owner_user_id))return verdict(false);
   const campaign=await one(admin,'ads_independent_campaigns_v1_884',
