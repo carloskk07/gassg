@@ -287,6 +287,8 @@ jobs:
         run: node tests/learn-editorial-signature-v1-1129.mjs
       - name: Luxury edition open editorial composition V1.1130
         run: node tests/learn-luxury-edition-v1-1130.mjs
+      - name: Premium buyer first-fold clarity V1.1131
+        run: node tests/learn-first-fold-v1-1131.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
