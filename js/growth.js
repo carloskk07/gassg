@@ -878,35 +878,35 @@ toast(/manual linking|identity linking/i.test(msg)?'A ativação por e-mail est�
 }
 
 function referralSharePayload(url,region){
-const city=String(region?.city||'').trim().slice(0,80);
-const state=String(region?.state||'').trim().toUpperCase();
-const place=city&&/^[A-Z]{2}$/.test(state)?`em ${city}/${state}`:'na sua região';
-return {
-title:'TAMÃO — Pediu? Tá na mão.',
-text:`Conheça o TAMÃO! Consulte gás, água e itens essenciais ${place}, confira a disponibilidade pelo CEP e compartilhe: ${url}`,
-url
-};
+  const city=String(region?.city||'').trim().slice(0,80);
+  const state=String(region?.state||'').trim().toUpperCase();
+  const place=city&&/^[A-Z]{2}$/.test(state)?`em ${city}/${state}`:'na sua região';
+  return {
+    title:'TAMÃO — Pediu? Tá na mão.',
+    text:`Conheça o TAMÃO! Consulte gás, água e itens essenciais ${place}, confira a disponibilidade pelo CEP e compartilhe: ${url}`,
+    url
+  };
 }
 
 async function shareReferral(){
-const url=referralUrl();
-if(!url)return toast('Link de indicação indisponível no momento');
-const region=typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-const payload=referralSharePayload(url,region);
-try{
-if(navigator.share){
-await navigator.share(payload);
-return;
-}
-if(navigator.clipboard?.writeText){
-await navigator.clipboard.writeText(payload.text);
-toast('Link copiado');
-return;
-}
-toast('Copie o link exibido acima');
-}catch(e){
-if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente');
-}
+  const url=referralUrl();
+  if(!url)return toast('Link de indicação indisponível no momento');
+  const region=typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
+  const payload=referralSharePayload(url,region);
+  try{
+    if(navigator.share){
+      await navigator.share(payload);
+      return;
+    }
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(payload.text);
+      toast('Link copiado');
+      return;
+    }
+    toast('Copie o link exibido acima');
+  }catch(e){
+    if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente');
+  }
 }
 
 // V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
