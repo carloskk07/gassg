@@ -1010,7 +1010,7 @@ return '<article class="merchant-v1115-plan'+(p.key==='credit_09990'?' merchant-
 '<strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small>'+
 '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
 '<div class="merchant-v1115-plan-savings">Economia na taxa de uma venda de '+BRL.format(referenceTicket)+': <strong>'+BRL.format(referenceTicket*saving)+'</strong></div>'+
-'<p>O crédito paga as taxas dos pedidos. A taxa reduzida depende do plano ativo e do saldo disponível.</p></article>';
+'<p>Créditos usados nas taxas; percentual reduzido sujeito a saldo e plano ativo.</p></article>';
 }).join('');
 
 
@@ -1108,7 +1108,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <div class="merchant-v1112-section-heading">
 <span class="section-kicker">FEITO PARA NEGÓCIOS LOCAIS</span>
 <h2>Uma presença digital à altura da sua revenda.</h2>
-<p>A plataforma coloca mais uma porta de entrada para seu negócio. A relação com seus clientes e a responsabilidade pela operação continuam com a sua empresa.</p>
+<p>Um novo canal de vendas com a identidade e a autonomia da sua revenda.</p>
 </div>
 <div class="merchant-v1112-value-grid">
 <article><span class="merchant-v1112-value-number">01</span><h3>Sua própria vitrine</h3><p>Apresente seu catálogo, preços e disponibilidade a clientes que procuram produtos na região atendida pela sua revenda.</p><span class="merchant-v1114-card-note">VITRINE E CATÁLOGO</span></article>
@@ -1133,7 +1133,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 
 <section class="merchant-v1115-plans" id="merchant-plans" tabindex="-1" aria-label="Pacotes de redução de taxas">
 <div class="merchant-v1115-plans-head">
-<div><span class="section-kicker">MAIS CONTROLE SOBRE O QUE VOCÊ PAGA</span><h2>Uma taxa menor faz diferença em cada venda.</h2><p>Comece no Flex Diário, sem recarga antecipada, ou escolha créditos para acessar percentuais menores. A recarga não é mensalidade adicional: ela é usada para pagar taxas.</p></div>
+<div><span class="section-kicker">MAIS CONTROLE SOBRE O QUE VOCÊ PAGA</span><h2>Uma taxa menor faz diferença em cada venda.</h2><p>No Flex Diário não há recarga. Com créditos antecipados, sua tarifa por pedido pode ser menor.</p></div>
 <div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>6,5%</strong><small>com Alto Volume ativo e saldo disponível</small></div>
 </div>
 <div class="merchant-v1115-plans-grid">${planCards}</div>
@@ -1172,12 +1172,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 
 <section class="merchant-v1114-distribution"><details><summary><span><small>CRITÉRIOS DE OFERTA</small><strong>Como o TAMÃO apresenta as opções aos clientes?</strong><em>Preço, prazo e capacidade de atendimento são considerados.</em></span><span aria-hidden="true">+</span></summary>
 <div class="merchant-v1114-distribution-body">
-<div class="distribution-grid">
-<div class="distribution-card"><span>1</span><strong>Preço total</strong><p>O cliente precisa enxergar uma condição competitiva.</p></div>
-<div class="distribution-card"><span>2</span><strong>Prazo real</strong><p>O prazo e a capacidade de entrega também contam.</p></div>
-<div class="distribution-card"><span>3</span><strong>Confiança operacional</strong><p>Estoque, consistência e cumprimento ajudam a construir reputação.</p></div>
-<div class="distribution-card"><span>4</span><strong>Pedidos bem distribuídos</strong><p>Quando as ofertas são parecidas, o número de pedidos em andamento pode ajudar a equilibrar as oportunidades.</p></div>
-</div>
+<div class="distribution-grid"><div class="distribution-card"><strong>Preço total</strong></div><div class="distribution-card"><strong>Prazo de entrega</strong></div><div class="distribution-card"><strong>Estoque e confiança</strong></div><div class="distribution-card"><strong>Equilíbrio entre ofertas parecidas</strong></div></div>
 <div class="notice" style="margin-top:12px"><strong>Regra importante:</strong> o TAMÃO não coloca uma oferta claramente pior na frente só para distribuir pedidos. Esse ajuste vale para opções parecidas.</div>
 </div></details>
 </section>
@@ -1216,14 +1211,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 </section>
 
 </div>
-<section class="section merchant-v1114-controls"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ CONTROLA</span><h2>Sua operação continua sendo sua.</h2></div></div>
-<div class="control-grid">
-<div class="control-item"><span>💲</span><div><strong>Preço por produto</strong><small>Atualize e reconfirme cada SKU.</small></div></div>
-<div class="control-item"><span>📦</span><div><strong>Estoque</strong><small>Somente item ativo e disponível entra nas ofertas.</small></div></div>
-<div class="control-item"><span>⏱️</span><div><strong>Prazo e taxa de entrega</strong><small>Configure a condição comercial da operação.</small></div></div>
-<div class="control-item"><span>🟢</span><div><strong>Online ou offline</strong><small>Pare de receber novos pedidos quando precisar.</small></div></div>
-</div>
-</section>
+
 
 <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">COMECE COM O BÁSICO</span><h2>Comece pelo cadastro. As verificações vêm depois.</h2><p>Você pode cadastrar sua empresa agora. Antes de liberar as vendas, conferimos os dados do responsável e, no caso do gás, as autorizações exigidas.</p></div>
 <div class="requirement-list"><span>✓ Dados e CNPJ da empresa</span><span>✓ Responsável autorizado</span><span>✓ Endereço e área de atendimento</span><span>✓ ANP vigente para comercializar GLP</span></div>
