@@ -67,6 +67,8 @@ jobs:
         run: node tests/ads-credit-admin-ux-v1-1099.mjs
       - name: V1.1100 complete credit journey, original Pix recovery and session isolation
         run: node tests/ads-credit-journey-v1-1100.mjs
+      - name: V1.1114 revendas executive journey, honest pricing and accessible progressive details
+        run: node tests/merchant-commercial-experience-v1-1114.mjs
       - name: V1.1113 premium photo catalogue, above-fold real signup and policy accuracy
         run: node tests/merchant-premium-catalogue-v1-1113.mjs
       - name: V1.1112 premium revenda invitation, accurate rates and live portal CTA
