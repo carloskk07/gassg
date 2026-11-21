@@ -26,7 +26,7 @@ assert.ok(club.includes('tamao-club-shop-now')&&club.includes("go('home')"),
  'club must lead to live shopping, not a dead-end hypothetical package');
 for(const text of ['Sua revenda mais visível','Seu negócio no controle',
  'Mostre seus produtos a novos clientes','Seja uma opção para clientes que ainda não conhecem sua revenda',
- 'Seja encontrada na sua região','Você controla preços, estoque, pagamentos e entregas.']){
+ 'Sua própria vitrine','Você controla preços, estoque, pagamentos e entregas.']){
   assert.ok(merchant.toLowerCase().includes(text.toLowerCase()),'merchant must explain '+text);
 }
 const marketingCss=read('css/marketing-premium.css');
