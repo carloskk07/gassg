@@ -240,7 +240,7 @@ body=await text();
 assert.match(body,/7,5%/);
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/Preço importa\. Atendimento também\./);
-assert.match(body,/VENDA PELO TAMÃO/);
+assert.match(body,/TAMÃO NEGÓCIOS/);
 assert.equal(await evaluate("document.querySelector('#merchant-sim-product-cost').value"),'');
 assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),'—');
 assert.match(await evaluate("document.querySelector('#merchant-sim-costs').textContent"),/Informe o custo do produto/);
