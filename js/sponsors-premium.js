@@ -85,7 +85,7 @@ function sponsorDemoPresentation(){
  const headline=goal==='news'?data.newsHeadline:goal==='visit'?data.visitHeadline:data.headline;
  const baseCopy=goal==='news'?data.newsCopy:goal==='visit'?data.visitCopy:data.copy;
  return {sector,goal,placement,context:location.context,caption:location.caption,
-  planLabel:plan.price+' em créditos',brand,
+  planLabel:plan.price+' em créditos',viewEstimate:Math.floor(plan.value/2).toLocaleString('pt-BR'),brand,
   monogram:first.toLocaleUpperCase('pt-BR'),...data,
   headline,copy:tamaoSponsorDemoState.message||baseCopy,
   goalLabel:TAMAO_SPONSOR_DEMO_GOALS[goal]?.label||TAMAO_SPONSOR_DEMO_GOALS.intro.label};
@@ -93,7 +93,7 @@ function sponsorDemoPresentation(){
 function sponsorDemoPaint(){
  if(typeof document==='undefined')return false;
  const demo=sponsorDemoPresentation();
- for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram','context','caption','planLabel']){
+ for(const field of ['brand','headline','copy','label','symbol','goalLabel','monogram','context','caption','planLabel','viewEstimate']){
   for(const element of document.querySelectorAll('[data-sponsor-demo="'+field+'"]'))
    element.textContent=String(demo[field]);
  }
@@ -170,11 +170,16 @@ function sponsorDemoBudget(value){
  const status=document.getElementById('sponsor-demo-status');
  if(status){
   const plan=TAMAO_SPONSOR_DEMO_PLANS[budget];
-  status.textContent='Valor selecionado: '+plan.price+' em créditos. Nenhum Pix é criado aqui.';
+  status.textContent='Valor selecionado: '+plan.price+' em créditos. Até '+
+   Math.floor(plan.value/2).toLocaleString('pt-BR')+
+   ' visualizações faturáveis, se houver audiência. Nenhum Pix é criado aqui.';
  }
  return painted;
 }
 function sponsorDemoContinue(){
+ // Continuing explicitly accepts the amount already displayed, even if the
+ // advertiser did not click the selected default again. No payment occurs here.
+ tamaoSponsorDemoState.budgetChosen=true;
  tamaoSponsorDemoState.preparing=true;
  sponsorDemoSave();
  const demo=sponsorDemoPresentation();
@@ -285,6 +290,7 @@ function sponsorsLandingPremium(){
      </div>
      <div class="sponsor-demo-action">
        <span class="sponsor-demo-plan-summary">Sua escolha: <strong data-sponsor-demo="planLabel">${sponsorDemoEscape(demo.planLabel)}</strong></span>
+       <p class="sponsor-demo-view-estimate" role="note"><span>Potencial matemático do saldo</span><strong>Até <span data-sponsor-demo="viewEstimate">${sponsorDemoEscape(demo.viewEstimate)}</span> visualizações faturáveis</strong><small>Não é garantia de entrega: depende da audiência, da revisão e do inventário.</small></p>
        <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Continuar com esta proposta <span aria-hidden="true">→</span></button>
        <small>Teste livre, sem cadastro. Confirme seus dados somente quando decidir enviar.</small>
      </div>

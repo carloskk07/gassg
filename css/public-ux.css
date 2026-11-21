@@ -795,6 +795,13 @@
  display:block;font-size:17px;line-height:1.25;
  font-weight:900;letter-spacing:-.035em;color:#13482e;
 }
+.sponsor-premium-v1090 .sponsor-demo-view-estimate{
+ display:grid;gap:3px;margin:0;padding:10px 12px;border:1px solid #d8e9ce;
+ border-radius:11px;background:#ffffffd6;color:#536e57;line-height:1.4;
+}
+.sponsor-premium-v1090 .sponsor-demo-view-estimate>span{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.sponsor-premium-v1090 .sponsor-demo-view-estimate strong{font-size:15px;font-weight:900;letter-spacing:-.025em;color:#154d30}
+.sponsor-premium-v1090 .sponsor-demo-view-estimate small{font-size:10px;line-height:1.5;color:#66796b}
 .sponsor-premium-v1090 .sponsor-demo-action>small{
  color:#687761;line-height:1.5;
 }

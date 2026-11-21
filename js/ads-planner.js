@@ -118,9 +118,9 @@ function tamaoAdsPlannerSection(){
    '<h2>Carregue créditos. Pague apenas pelas visualizações elegíveis.</h2>'+
    '<p>Sem pacote de sete dias, mensalidade ou cobrança acima do saldo. Sua empresa define a cidade, envia a peça e acompanha o consumo na própria conta.</p></div></div>'+
    '<div class="tamao-credit-steps">'+
-    '<div><strong>01 · Carregue quando quiser</strong><p>Escolha R$ 19,90 ou outro valor, pague por Pix e acompanhe o saldo confirmado.</p></div>'+
-    '<div><strong>02 · Divulgue na sua cidade</strong><p>Uma campanha aprovada aparece quando há público e crédito disponível.</p></div>'+
-    '<div><strong>03 · Acompanhe o consumo</strong><p>O valor por visualização e o extrato estão no seu painel. Você pode pausar a divulgação.</p></div>'+
+    '<div><strong>01 · Envie sua proposta</strong><p>Crie sua campanha regional, confirme a conta e aguarde a análise administrativa. Enviar é gratuito.</p></div>'+
+    '<div><strong>02 · Carregue créditos por Pix</strong><p>Após a análise, escolha a recarga a partir de R$ 19,90. O saldo aparece depois da confirmação automática do pagamento.</p></div>'+
+    '<div><strong>03 · Acompanhe e controle</strong><p>Quando a campanha estiver ativa, visualize o custo, o saldo e cada consumo elegível no extrato. Pause quando quiser.</p></div>'+
    '</div>'+
    '<p class="tiny muted">A publicidade depende da audiência disponível. Visualizações repetidas ou inválidas não devem gerar débito; filtros de tráfego são aplicados pelo servidor.</p>'+
    '</section>'+

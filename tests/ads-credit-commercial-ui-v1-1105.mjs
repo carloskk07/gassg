@@ -13,6 +13,11 @@ for(const [name,code] of Object.entries({display,planner,studio}))
  assert.doesNotThrow(()=>new vm.Script(code,{filename:name+'.js'}));
 assert.match(studio,/globalThis\.tamaoAdsCreditModeEnabled=true/);
 assert.match(planner,/if\(globalThis\.tamaoAdsCreditModeEnabled===true\)/);
+assert.match(planner,/01 · Envie sua proposta/);
+assert.match(planner,/02 · Carregue créditos por Pix/);
+assert.match(planner,/03 · Acompanhe e controle/);
+assert.doesNotMatch(planner,/01 · Carregue quando quiser/,
+ 'The advertiser journey must show review before prepaid Pix');
 assert.match(studio,/id="tamao-credit-mount"/);
 assert.match(edge,/ads_credit_issue_v1_1098/);
 assert.match(edge,/ads_credit_confirm_v1_1098/);
