@@ -12,6 +12,7 @@ const growth=read('js/growth.js');
 const showcase=read('js/home-showcase.js');
 const core=read('js/core.js');
 const css=read('css/marketing-premium.css');
+const merchantCss=read('css/merchant-landing-executive.css');
 const sw=read('sw.js');
 
 for(const [file,source] of Object.entries({bootstrap,growth,showcase,core}))
@@ -90,9 +91,10 @@ for(const id of ['merchant-benefits','merchant-terms','merchant-how','merchant-f
 
 // Mobile and keyboard accessibility are part of first-impression quality.
 for(const token of [
- '.tamao-preboot','.city-price-reference-summary','.merchant-v1114-index',
+ '.tamao-preboot','.city-price-reference-summary',
  '@media(max-width:620px)',':focus-visible'
 ])assert.ok(css.includes(token),'missing visible/mobile style '+token);
+assert.ok(merchantCss.includes('.merchant-v1114-index')&&merchantCss.includes('.merchant-v1114-index button:focus-visible'),'merchant commercial navigation must have real scoped and keyboard-accessible styles');
 const cacheVersion=/const CACHE='tamao-sg-v1\.(\d+)'/.exec(sw);
 assert.ok(cacheVersion&&Number(cacheVersion[1])>=370,
  'the service worker must version the public shell');
