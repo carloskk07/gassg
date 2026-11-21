@@ -214,6 +214,8 @@ assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details
 await evaluate("(()=>{const input=document.querySelector('#learn-faq-search');input.value='código';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
 assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),1);
 assert.equal(await evaluate("document.querySelector('.learn-faq-items details:not([hidden]) summary')?.textContent.includes('entrega')"),true);
+await evaluate("(()=>{const input=document.querySelector('#learn-faq-search');input.value='palavra-inexistente';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+assert.equal(await evaluate("document.querySelector('[data-learn-faq-empty]').hidden"),false);
 await evaluate("document.querySelector('[data-learn-faq-empty] button').click()");
 assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),8);
 await auditDom('learn');
