@@ -96,7 +96,7 @@ return shell(`<section class="page learn-premium">
         <span class="learn-trust-disclosure-icon" aria-hidden="true">i</span>
         <div>
           <span class="learn-label">COMPROMISSO COM A CLAREZA</span>
-          <strong id="learn-transparency-title">Você sabe com quem está comprando e o que acontece depois.</strong>
+          <strong id="learn-transparency-title">Você sabe quem confirma o pedido e o que acontece depois.</strong>
           <small>O TAMÃO conecta e organiza; a revenda aceita e realiza a entrega. O pedido só é confirmado após o aceite da revenda. Preços e condições são apresentados antes de solicitar.</small>
         </div>
       </div>
