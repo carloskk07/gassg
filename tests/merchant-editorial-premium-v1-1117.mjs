@@ -83,9 +83,16 @@ assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
-assert.match(growth,/merchant-public-plans\.js\?v=1121/);
+assert.match(growth,/merchant-public-plans\.js\?v=1122/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
+assert.equal((html.match(/O crédito abate taxas; a redução depende do plano ativo e do saldo/g)||[]).length,0,
+  'Identical disclaimers must not repeat in each card');
+assert.match(html,/Como funciona o pré-pago\?/);
+assert.match(lazy,/merchant-v1122-selected/);
+assert.match(lazy,/Ver taxa e saldo/);
+assert.ok(css.includes('.merchant-v1115-plan.merchant-v1122-selected'));
+
 assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
 assert.match(html,/merchant-v1115-plan-featured[\s\S]*?Alto Volume/);
 assert.match(html,/MAIOR REDUÇÃO DE TAXA/);
@@ -104,7 +111,7 @@ for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
 assert.ok(css.includes('prefers-reduced-motion:reduce'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(css.includes(':focus-visible'));
-assert.match(sw,/CACHE='tamao-sg-v1\.1121'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1122'/);
 
 const startReceipt=lazy.indexOf('function merchantPlanReceiptPreview(key,ticketValue){');
 const endReceipt=lazy.indexOf('globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;',startReceipt);
@@ -140,6 +147,8 @@ assert.equal(receiptContext.receiptPreview('credit_04990',120),true);
 assert.equal(receiptOutputs.fee.textContent,'R$ 9,00');
 assert.equal(receiptOutputs.balance.textContent,'R$ 40,90');
 assert.equal(choices[1].getAttribute('aria-pressed'),'true');
+assert.equal(choices[0].getAttribute('aria-pressed'),'false');
+
 assert.equal(receiptContext.receiptPreview('invalid',120),false);
 choices[1].setAttribute('data-merchant-plan-credit-cents','100');
 assert.equal(receiptContext.receiptPreview('credit_04990',200),true);

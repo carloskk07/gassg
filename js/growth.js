@@ -992,13 +992,13 @@ if(!document.getElementById('merchant-executive-styles')){
 const link=document.createElement('link');
 link.id='merchant-executive-styles';
 link.rel='stylesheet';
-link.href='./css/merchant-landing-executive.css?v=1121';
+link.href='./css/merchant-landing-executive.css?v=1122';
 document.head.appendChild(link);
 }
 if(!document.getElementById('merchant-public-plans-script')){
 const script=document.createElement('script');
 script.id='merchant-public-plans-script';
-script.src='./js/merchant-public-plans.js?v=1121';
+script.src='./js/merchant-public-plans.js?v=1122';
 script.async=true;
 document.head.appendChild(script);
 }else globalThis.tamaoMerchantPublicPlansLoad?.();
@@ -1029,7 +1029,7 @@ return '<article class="merchant-v1115-plan merchant-v1117-plan'+(p.bps===cheape
 '<div class="merchant-v1117-plan-rate"><strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small></div>'+
 '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
 '<div class="merchant-v1115-plan-savings"><span>Economia na taxa por venda de <span data-merchant-order-ticket>'+BRL.format(referenceTicket)+'</span></span><strong data-merchant-saving-bps="'+(flex.bps-p.bps)+'">'+BRL.format(referenceTicket*saving)+'</strong></div>'+
-'<p>O crédito abate taxas; a redução depende do plano ativo e do saldo.</p></article>';
+'</article>';
 }).join('');
 
 
