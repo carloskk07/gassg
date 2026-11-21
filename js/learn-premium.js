@@ -73,7 +73,7 @@ return shell(`<section class="page learn-premium">
         <button type="button" class="learn-phase" aria-pressed="false" onclick="learnPremiumSelectStep(4)"><b>04</b><span>Acompanhe</span></button>
       </div>
       <div class="learn-visual-bottom" aria-live="polite" aria-atomic="true"><span class="learn-visual-check" aria-hidden="true">✓</span><span><strong data-learn-step-title>Você decide antes de confirmar.</strong><small data-learn-step-description>Explore os produtos antes de escolher como seguir.</small></span></div>
-      <button class="learn-visual-next" type="button" onclick="learnPremiumStageAction()" data-learn-stage-cta>Explorar produtos <span aria-hidden="true">→</span></button>
+      <button class="learn-visual-next" type="button" onclick="learnPremiumStageAction()" data-learn-stage-cta><span data-learn-stage-cta-label>Explorar produtos</span><span aria-hidden="true">→</span></button>
     </div>
   </section>
 
@@ -215,8 +215,8 @@ function learnPremiumSelectStep(value){
   });
   const visual=root.querySelector('.learn-visual');
   if(visual)visual.dataset.step=String(step);
-  const stageAction=root.querySelector('[data-learn-stage-cta]');
-  if(stageAction)stageAction.innerHTML=(step===4?'Acompanhar meu pedido':'Explorar produtos')+' <span aria-hidden="true">→</span>';
+  const stageActionLabel=root.querySelector('[data-learn-stage-cta-label]');
+  if(stageActionLabel)stageActionLabel.textContent=step===4?'Acompanhar meu pedido':'Explorar produtos';
   root.querySelectorAll('[data-learn-scene]').forEach(scene=>{
     scene.hidden=scene.getAttribute('data-learn-scene')!==String(step);
   });
@@ -297,7 +297,8 @@ function learnPremiumClearFaq(){
 
 /** Contextual handoff only to existing customer routes, with no fake checkout. */
 function learnPremiumStageAction(){
-  const step=Number(document?.querySelector?.('.learn-premium .learn-visual')?.dataset?.step||1);
+  if(typeof document==='undefined')return false;
+  const step=Number(document.querySelector('.learn-premium .learn-visual')?.dataset?.step||1);
   if(step===4){if(typeof go==='function')go('tracking');return 'tracking';}
   if(typeof startHomeBrowse==='function')startHomeBrowse();
   return 'products';
