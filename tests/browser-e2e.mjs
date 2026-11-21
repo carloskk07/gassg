@@ -195,8 +195,9 @@ await evaluate("go('learn')");
 await waitFor("document.querySelector('.learn-hero') && document.querySelector('.learn-step-grid')","premium learn route");
 body=await text();
 assert.match(body,/Tudo mais simples/);
-assert.match(body,/CONFIANÇA SE CONSTRÓI COM CLAREZA/);
+assert.match(body,/UMA RELAÇÃO TRANSPARENTE/);
 assert.match(body,/A revenda precisa aceitar/);
+assert.match(body,/GUIA DA SUA JORNADA/);
 await auditDom('learn');
 
 await evaluate("go('privacy')");
