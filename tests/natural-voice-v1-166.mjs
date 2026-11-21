@@ -16,7 +16,7 @@ for(const [source,phrase,why] of [
  [acquisition,'Seu pedido de aviso para','confirmação do interesse sem simular atendimento'],
  [acquisition,'Anunciar é diferente de receber pedidos pela plataforma.','entrada gradual para anúncio sem ativar vendas'],
  [growth,'Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.','página de explicação'],
- [growth,'A taxa do TAMÃO só é cobrada sobre pedidos concluídos.','política comercial sem engano'],
+ [growth,'a taxa da plataforma incide sobre o valor bruto de cada pedido concluído.','política comercial sem engano'],
  [growth,'O cliente paga diretamente à sua revenda','dinheiro do cliente direto ao fornecedor'],
  [merchant,'Entrar no painel da revenda','login com destino claro'],
  [merchant,'O cadastro da empresa passa por conferência','liberação comercial controlada']

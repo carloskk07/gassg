@@ -34,7 +34,7 @@ for(const [src,fragment] of [
  [growth,'Não para receber na entrega.'],
  [growth,'não para prometer lucro'],
  [growth,'Sem exclusividade'],
- [growth,'A taxa do TAMÃO só é cobrada sobre pedidos concluídos'],
+ [growth,'a taxa da plataforma incide sobre o valor bruto de cada pedido concluído'],
  [growth,'Quero cadastrar minha revenda'],
  [acquisition,'AVISO DE DISPONIBILIDADE'],
  [acquisition,'Sem compromisso de compra'],

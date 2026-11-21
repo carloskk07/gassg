@@ -65,10 +65,10 @@ for(const token of [
 assert.ok(boot.includes('homeFilterProducts,homeDiscoverFocus'),'browser callbacks must be wired');
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('\nfunction merchantJoin(){'));
 assert.ok(merchant.includes('merchant-landing-premium-visual'));
-assert.ok(merchant.indexOf('merchant-hero-actions')<merchant.indexOf('merchant-cro-steps'),
+assert.ok(merchant.indexOf('merchant-hero-actions')<merchant.indexOf('merchant-v1114-benefits'),
  'registration CTA should precede lengthy steps and finance explanations');
 assert.ok(merchant.includes('Visão ilustrativa dos recursos.'));
-assert.ok(merchant.includes('Após habilitação'));
+assert.ok(merchant.includes('A liberação das vendas depende da conferência dos dados'));
 for(const token of ['.home-editorial-visual','.home-discover-tile[hidden]',
  '.home-discover-filter button[aria-pressed="true"]','.merchant-landing-premium',
  '@media(max-width:600px)','prefers-reduced-motion'])

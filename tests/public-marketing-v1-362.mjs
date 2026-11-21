@@ -88,7 +88,10 @@ assert.doesNotMatch(sponsors,/\d+[.,]?\d*% (?:de )?(?:conversão|alcance)|milhar
 
 
 // V1.365: decisional shortcuts must target real sections and be keyboard-friendly.
-assert.match(merchant,/merchant-jump-rail/);
+assert.match(merchant,/merchant-v1114-index/);
+assert.match(merchant,/publicLandingJump\('merchant-benefits'\)/);
+assert.match(merchant,/publicLandingJump\('merchant-terms'\)/);
+assert.match(merchant,/publicLandingJump\('merchant-faq'\)/);
 assert.match(merchant,/publicLandingJump\('merchant-margin'\)/);
 assert.match(merchant,/publicLandingJump\('merchant-how'\)/);
 assert.match(merchant,/id="merchant-margin" tabindex="-1"/);

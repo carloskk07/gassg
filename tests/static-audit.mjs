@@ -234,14 +234,14 @@ assert.ok(financePolicy.includes('cashback_bps=100'),'migração financeira inic
 assert.ok(!growth.includes('Taxa TAMÃO: 7,5% por pedido concluído')&&!growth.includes('× 2%'),'landing live não pode congelar percentuais comerciais que o admin consegue alterar');
 assert.ok(growth.includes('FAÇA AS CONTAS DO SEU JEITO')&&growth.includes('merchant-sim-fee'),'revenda precisa visualizar taxa e margem incremental em uma jornada amigável');
 assert.ok(growth.includes('merchant-sim-product-cost')&&growth.includes('merchant-sim-delivery-cost')&&growth.includes('merchant-sim-payment-cost')&&growth.includes('merchant-sim-tax-rate'),'simulador da revenda precisa aceitar custos próprios antes de estimar margem');
-assert.ok(growth.includes('O simulador separa faturamento, taxa TAMÃO e despesas')&&growth.includes('não para prometer lucro'),'landing da revenda não pode confundir receita com lucro');
+assert.ok(growth.includes('O cálculo completo fica disponível')&&growth.includes('não para prometer lucro'),'landing da revenda não pode confundir receita com lucro');
 assert.ok(growth.includes("productCostRaw!==''")&&growth.includes("contribution.textContent='—'"),'simulador não pode exibir margem antes de o parceiro informar o custo do produto');
 assert.ok(growth.includes('Obrigatório para estimar contribuição e margem.'),'UI deve explicar por que o custo do produto é necessário');
 assert.ok(growth.includes('Sem exclusividade')&&growth.includes('canal adicional'),'parceria precisa deixar claro que não substitui telefone/WhatsApp/canais próprios');
-assert.ok(growth.includes('Preço importa. Atendimento também.')&&growth.includes('Pedidos bem distribuídos'),'landing precisa explicar distribuição sem prometer rodízio cego');
-assert.ok(growth.includes('APROVEITE MELHOR SUA ESTRUTURA')&&growth.includes('Uma entrega. Mais possibilidades para sua empresa.'),'multiproduto deve ser vendido como oportunidade de cesta compatível');
+assert.ok(growth.includes('CRITÉRIOS DE OFERTA')&&growth.includes('Pedidos bem distribuídos'),'landing precisa explicar distribuição sem prometer rodízio cego');
+assert.ok(growth.includes('CATÁLOGO MAIS COMPLETO')&&growth.includes('Uma entrega. Mais possibilidades.'),'multiproduto deve ser vendido como oportunidade de cesta compatível');
 assert.ok(growth.includes('Venda, recebimento e taxa TAMÃO são separados.')&&growth.includes('O TAMÃO não recebe a venda para depois repassar.'),'parceiro precisa entender que venda da revenda e cobranças TAMÃO são fluxos separados');
-assert.ok(growth.includes('SUA EMPRESA. SUA CIDADE. SEU MERCADO.')&&growth.includes('não promete volume de pedidos nem renda'),'parceria deve funcionar para várias cidades sem prometer demanda');
+assert.ok(growth.includes('SUA REVENDA TEM ESPAÇO AQUI')&&growth.includes('Sem promessa de pedidos ou exclusividade'),'parceria deve funcionar para várias cidades sem prometer demanda');
 assert.ok(growth.includes("internalPilot?'Abrir ambiente interno'"),'ambiente interno deve permanecer separado do portal de parceiros');
 assert.ok(customer.includes('✓ Revenda apta a atender'),'oferta real deve comunicar elegibilidade operacional sem expor a revenda antes do aceite');
 assert.ok(growth.includes('Simulação para uma primeira compra elegível e validada, conforme a política comercial.'),'marketing de indicação precisa explicar que simulação não é renda garantida');
@@ -252,7 +252,7 @@ assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.
 assert.ok(growth.includes('Você controla preços, estoque, pagamentos e entregas.')||growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','🤝','Indicar','go']"),'navegação móvel precisa dar acesso direto à rede de indicações');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.1113'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.1114'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
 assert.ok(!sw.includes("req.mode==='navigate'?'./index.html':req"),'navegação não-HTML não pode envenenar a chave do app shell');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');

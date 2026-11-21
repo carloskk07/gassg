@@ -12,6 +12,7 @@ const growth=read('js/growth.js');
 const showcase=read('js/home-showcase.js');
 const core=read('js/core.js');
 const css=read('css/marketing-premium.css');
+const merchantCss=read('css/merchant-landing-executive.css');
 const sw=read('sw.js');
 
 for(const [file,source] of Object.entries({bootstrap,growth,showcase,core}))
@@ -82,16 +83,18 @@ assert.match(merchant,/merchant-conversion-start/);
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
 assert.match(merchant,/Você controla preços, estoque, pagamentos e entregas/,
  'A revenda mantém autonomia comercial mesmo com copy mais acolhedora');
-const rail=merchant.slice(merchant.indexOf('merchant-jump-rail'),merchant.indexOf('merchant-cro-steps'));
-assert.equal((rail.match(/<button type="button"/g)||[]).length,2);
-assert.match(rail,/publicLandingJump\('merchant-margin'\)/);
-assert.match(rail,/publicLandingJump\('merchant-how'\)/);
+const rail=merchant.slice(merchant.indexOf('class="merchant-v1114-index"'),merchant.indexOf('</nav>',merchant.indexOf('class="merchant-v1114-index"')));
+assert.ok(rail.length>0,'o índice comercial deve existir');
+assert.equal((rail.match(/<button type="button"/g)||[]).length,4,'quatro capítulos acessíveis devem estar disponíveis');
+for(const id of ['merchant-benefits','merchant-terms','merchant-how','merchant-faq'])
+ assert.ok(rail.includes("publicLandingJump('"+id+"')"),'atalho comercial faltando: '+id);
 
 // Mobile and keyboard accessibility are part of first-impression quality.
 for(const token of [
- '.tamao-preboot','.city-price-reference-summary','.merchant-jump-rail',
+ '.tamao-preboot','.city-price-reference-summary',
  '@media(max-width:620px)',':focus-visible'
 ])assert.ok(css.includes(token),'missing visible/mobile style '+token);
+assert.ok(merchantCss.includes('.merchant-v1114-index')&&merchantCss.includes('.merchant-v1114-index button:focus-visible'),'merchant commercial navigation must have real scoped and keyboard-accessible styles');
 const cacheVersion=/const CACHE='tamao-sg-v1\.(\d+)'/.exec(sw);
 assert.ok(cacheVersion&&Number(cacheVersion[1])>=370,
  'the service worker must version the public shell');

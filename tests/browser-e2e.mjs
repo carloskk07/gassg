@@ -239,7 +239,11 @@ await waitFor("document.body.innerText.includes('FAÇA AS CONTAS DO SEU JEITO')"
 body=await text();
 assert.match(body,/7,5%/);
 assert.match(body,/Sem exclusividade/);
-assert.match(body,/Preço importa\. Atendimento também\./);
+assert.match(body,/Como o TAMÃO apresenta as opções aos clientes\?/);
+assert.match(body,/Saiba exatamente o que a plataforma cobra\./);
+assert.equal(await evaluate("document.querySelector('.merchant-v1114-simulator-details')?.open"),false,'a calculadora avançada não deve sobrecarregar a primeira visita');
+await evaluate("document.querySelector('.merchant-v1114-simulator-details').open=true");
+assert.equal(await evaluate("document.querySelector('.merchant-v1114-simulator-details')?.open"),true,'simulador acessível para fazer as contas');
 assert.match(body,/TAMÃO NEGÓCIOS/);
 assert.equal(await evaluate("document.querySelector('#merchant-sim-product-cost').value"),'');
 assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),'—');
