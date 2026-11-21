@@ -90,6 +90,8 @@ const results=[],issues=[];
 try{
  await send('Page.enable');await send('Runtime.enable');
  for(const [name,route] of cases){
+  // Candidate-only: production read-only verification runs before main is published.
+  if(name==='merchants-app'&&new URL(origin).hostname==='tamao.com.br')continue;
   for(const size of sizes){
    await send('Emulation.setDeviceMetricsOverride',{
     width:size.width,height:size.height,deviceScaleFactor:1,mobile:size.width<800,
