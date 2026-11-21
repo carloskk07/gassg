@@ -83,7 +83,7 @@ assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
-assert.match(growth,/merchant-public-plans\.js\?v=1122/);
+assert.match(growth,/merchant-public-plans\.js\?v=1123/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
 assert.equal((html.match(/O crédito abate taxas; a redução depende do plano ativo e do saldo/g)||[]).length,0,
@@ -111,7 +111,7 @@ for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
 assert.ok(css.includes('prefers-reduced-motion:reduce'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(css.includes(':focus-visible'));
-assert.match(sw,/CACHE='tamao-sg-v1\.1122'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1123'/);
 
 const startReceipt=lazy.indexOf('function merchantPlanReceiptPreview(key,ticketValue){');
 const endReceipt=lazy.indexOf('globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;',startReceipt);
@@ -258,5 +258,92 @@ assert.equal(brandLetter.textContent,'<');
 assert.ok(!brandBlock.innerHTML.includes('onerror=alert'));
 assert.equal(brandCtx.brandPreview(),true,'Hydration is idempotent');
 assert.doesNotMatch(lazy.slice(brandStart,brandEnd),/fetch\(|localStorage|sessionStorage|\.rpc\(/);
+
+
+// V1.1123: interactive executive tour is self-contained, read-only and keyboard accessible.
+assert.doesNotMatch(html,/merchant-v1123-tour-tabs/,'Tour belongs to the merchant-only lazy module');
+assert.match(lazy,/function merchantExecutiveTourHydrate\(\)/);
+assert.match(lazy,/merchantExecutiveTourHydrate\(\);\s*const section=document\.getElementById/);
+assert.match(lazy,/role="tablist"/);
+assert.match(lazy,/aria-controls="merchant-v1123-view-pedidos"/);
+assert.match(lazy,/aria-controls="merchant-v1123-view-financeiro"/);
+assert.match(lazy,/aria-labelledby/);
+assert.match(lazy,/event\.key==='ArrowRight'/);
+assert.match(lazy,/event\.key==='ArrowLeft'/);
+for(const selector of ['.merchant-v1123-tour-tabs','.merchant-v1123-tour-panel[hidden]',
+ '.merchant-v1123-tour-steps','.merchant-v1123-money-grid',
+ '.merchant-v1123-tour-tabs button:focus-visible'])
+ assert.ok(css.includes(selector),'Missing V1.1123 premium tour style '+selector);
+assert.match(lazy,/Sua venda pertence à sua revenda/);
+assert.match(lazy,/Você aceita quando puder/);
+assert.match(lazy,/Recebimento direto/);
+const tourStart=lazy.indexOf('function merchantExecutiveTourHydrate(){');
+const tourEnd=lazy.indexOf('globalThis.merchantExecutiveTourHydrate=merchantExecutiveTourHydrate;',tourStart);
+assert.ok(tourStart>0&&tourEnd>tourStart);
+const tourSource=lazy.slice(tourStart,tourEnd);
+assert.doesNotMatch(tourSource,/fetch\(|localStorage|sessionStorage|\.rpc\(|\.insert\(|\.update\(/);
+const tourTabs=['vitrine','pedidos','financeiro'].map(key=>{
+ const attrs={'data-merchant-tour-tab':key,'aria-selected':'false'};
+ return {
+  attrs,handlers:{},tabIndex:-1,focused:false,
+  getAttribute(name){return this.attrs[name]},
+  setAttribute(name,value){this.attrs[name]=String(value)},
+  addEventListener(name,handler){this.handlers[name]=handler},
+  focus(){this.focused=true}
+ };
+});
+let tourNode=null;
+const built=[];
+function makeTourNode(tag){
+ const node={tag,className:'',id:'',innerHTML:'',hidden:false,children:[],attrs:{},
+  setAttribute(name,value){this.attrs[name]=String(value)},
+  appendChild(child){this.children.push(child)},
+  insertAdjacentElement(where,child){assert.equal(where,'afterend');this.after=child},
+  querySelectorAll(selector){
+   if(selector==='[role="tab"]'&&this===tourNode)return tourTabs;
+   return [];
+  }};
+ built.push(node);
+ return node;
+}
+const tourIntro={insertAdjacentElement(where,node){assert.equal(where,'afterend');tourNode=node}};
+const tourBrand={},tourProducts={},tourControlbar={};
+const tourShowcase={querySelector(selector){
+ return {
+  '.merchant-v1123-tour':tourNode,
+  '.merchant-v1112-window-intro':tourIntro,
+  '.merchant-v1120-brand-demo':tourBrand,
+  '.merchant-v1113-products':tourProducts,
+  '.merchant-v1113-controlbar':tourControlbar
+ }[selector]||null;
+}};
+const tourContext={document:{
+ querySelector(selector){return selector==='.merchant-v1112-window'?tourShowcase:null},
+ createElement:makeTourNode
+}};
+tourContext.globalThis=tourContext;
+vm.runInNewContext(tourSource+';this.runTour=merchantExecutiveTourHydrate;',tourContext);
+assert.equal(tourContext.runTour(),true);
+assert.equal(built.length,4,'Only navigation and 3 read-only panels created');
+assert.equal(tourTabs[0].getAttribute('aria-selected'),'true');
+assert.equal(built[1].hidden,false);
+assert.equal(built[2].hidden,true);
+assert.equal(built[3].hidden,true);
+assert.equal(built[1].children.length,3,'Existing brand, product and control panels reused');
+tourTabs[1].handlers.click();
+assert.equal(tourTabs[1].getAttribute('aria-selected'),'true');
+assert.equal(built[1].hidden,true);
+assert.equal(built[2].hidden,false);
+let prevented=false;
+tourTabs[1].handlers.keydown({key:'ArrowRight',preventDefault(){prevented=true}});
+assert.equal(prevented,true);
+assert.equal(tourTabs[2].getAttribute('aria-selected'),'true');
+assert.equal(built[3].hidden,false);
+assert.equal(tourTabs[2].focused,true);
+tourTabs[2].handlers.keydown({key:'Home',preventDefault(){}});
+assert.equal(tourTabs[0].getAttribute('aria-selected'),'true');
+assert.equal(built[1].hidden,false);
+assert.equal(tourContext.runTour(),true,'Tour hydration must be idempotent');
+assert.equal(built.length,4,'No duplicate panels on refresh');
 
 console.log('V1.1117 PASS: premium art direction, live billing plan integrity, accessible one-tap savings and real signup.');

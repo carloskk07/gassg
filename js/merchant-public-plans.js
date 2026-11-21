@@ -238,7 +238,7 @@ function merchantBrandPreviewHydrate(){
   '<label class="merchant-v1120-brand-label" for="merchant-brand-try">Experimente com o nome da sua revenda</label>'+
   '<input id="merchant-brand-try" class="merchant-v1120-brand-input" type="text" maxlength="42" '+
    'autocomplete="off" spellcheck="false" placeholder="Nome da sua revenda">'+
-  '<small class="merchant-v1120-brand-hint">Prévia temporária. Nada é enviado nem cadastrado aqui.</small>';
+  '<small class="merchant-v1120-brand-hint">Experimente sua identidade. O nome não é salvo neste campo.</small>';
  const input=block.querySelector('input');
  const display=block.querySelector('.merchant-v1120-brand-name');
  const monogram=block.querySelector('.merchant-v1120-brand-monogram');
@@ -256,11 +256,108 @@ function merchantBrandPreviewHydrate(){
 }
 globalThis.merchantBrandPreviewHydrate=merchantBrandPreviewHydrate;
 
+
+// Interactive tour of actual merchant capabilities; no artificial orders or financial data.
+function merchantExecutiveTourHydrate(){
+ if(typeof document==='undefined')return false;
+ const showcase=document.querySelector('.merchant-v1112-window');
+ if(!showcase)return false;
+ if(showcase.querySelector('.merchant-v1123-tour'))return true;
+ const intro=showcase.querySelector('.merchant-v1112-window-intro');
+ const brand=showcase.querySelector('.merchant-v1120-brand-demo');
+ const products=showcase.querySelector('.merchant-v1113-products');
+ const controlbar=showcase.querySelector('.merchant-v1113-controlbar');
+ if(!intro||!brand||!products||!controlbar)return false;
+ const nav=document.createElement('div');
+ nav.className='merchant-v1123-tour';
+ nav.innerHTML=
+ '<div class="merchant-v1123-tour-caption">CONHEÇA O PORTAL EM 3 VISÕES</div>'+
+ '<div class="merchant-v1123-tour-tabs" role="tablist" aria-label="Explore recursos para revendas">'+
+ '<button type="button" role="tab" id="merchant-v1123-tab-vitrine" data-merchant-tour-tab="vitrine" aria-controls="merchant-v1123-view-vitrine" aria-selected="true" tabindex="0">Vitrine</button>'+
+ '<button type="button" role="tab" id="merchant-v1123-tab-pedidos" data-merchant-tour-tab="pedidos" aria-controls="merchant-v1123-view-pedidos" aria-selected="false" tabindex="-1">Pedidos</button>'+
+ '<button type="button" role="tab" id="merchant-v1123-tab-financeiro" data-merchant-tour-tab="financeiro" aria-controls="merchant-v1123-view-financeiro" aria-selected="false" tabindex="-1">Recebimento</button>'+
+ '</div>';
+ const vitrine=document.createElement('section');
+ vitrine.className='merchant-v1123-tour-panel merchant-v1123-vitrine';
+ vitrine.id='merchant-v1123-view-vitrine';
+ vitrine.setAttribute('role','tabpanel');
+ vitrine.setAttribute('aria-labelledby','merchant-v1123-tab-vitrine');
+ vitrine.tabIndex=0;
+ const orders=document.createElement('section');
+ orders.className='merchant-v1123-tour-panel merchant-v1123-tour-process';
+ orders.id='merchant-v1123-view-pedidos';
+ orders.setAttribute('role','tabpanel');
+ orders.setAttribute('aria-labelledby','merchant-v1123-tab-pedidos');
+ orders.tabIndex=0;
+ orders.innerHTML=
+  '<span class="merchant-v1123-tour-kicker">PEDIDOS SEM PERDER AUTONOMIA</span>'+
+  '<h3>O pedido chega. A decisão é sua.</h3>'+
+  '<ol class="merchant-v1123-tour-steps">'+
+   '<li><b>01</b><div><strong>Cliente encontra sua revenda</strong><small>Produtos e área de atendimento cadastrados.</small></div></li>'+
+   '<li><b>02</b><div><strong>Você aceita quando puder</strong><small>Controle disponibilidade, estoque e prazo.</small></div></li>'+
+   '<li><b>03</b><div><strong>Entrega acompanhada</strong><small>Confirmação da saída e do recebimento.</small></div></li>'+
+  '</ol>'+
+  '<p class="merchant-v1123-tour-note">Seu painel organiza o atendimento desde a solicitação até a entrega.</p>';
+ const finance=document.createElement('section');
+ finance.className='merchant-v1123-tour-panel merchant-v1123-tour-finance';
+ finance.id='merchant-v1123-view-financeiro';
+ finance.setAttribute('role','tabpanel');
+ finance.setAttribute('aria-labelledby','merchant-v1123-tab-financeiro');
+ finance.tabIndex=0;
+ finance.innerHTML=
+  '<span class="merchant-v1123-tour-kicker">DINHEIRO COM FLUXO TRANSPARENTE</span>'+
+  '<h3>Sua venda pertence à sua revenda.</h3>'+
+  '<div class="merchant-v1123-money-grid">'+
+   '<div><span>01 · VENDA</span><strong>Recebimento direto</strong><small>O cliente paga pelos meios aceitos pela sua empresa.</small></div>'+
+   '<div><span>02 · PLATAFORMA</span><strong>Taxa separada</strong><small>O TAMÃO registra a cobrança da plataforma sem reter a venda.</small></div>'+
+  '</div>'+
+  '<p class="merchant-v1123-tour-note">Escolha Flex sem recarga ou créditos antecipados opcionais. As tarifas oficiais estão na comparação abaixo.</p>';
+ intro.insertAdjacentElement('afterend',nav);
+ nav.insertAdjacentElement('afterend',vitrine);
+ vitrine.appendChild(brand);
+ vitrine.appendChild(products);
+ vitrine.appendChild(controlbar);
+ vitrine.insertAdjacentElement('afterend',orders);
+ orders.insertAdjacentElement('afterend',finance);
+ const keys=['vitrine','pedidos','financeiro'];
+ const panes=[vitrine,orders,finance];
+ const tabs=Array.from(nav.querySelectorAll('[role="tab"]'));
+ if(tabs.length!==keys.length)return false;
+ const activate=key=>{
+  const index=keys.indexOf(key);
+  if(index<0)return false;
+  panes.forEach((panel,i)=>{panel.hidden=i!==index});
+  tabs.forEach((tab,i)=>{
+   tab.setAttribute('aria-selected',String(i===index));
+   tab.tabIndex=i===index?0:-1;
+  });
+  return true;
+ };
+ tabs.forEach((tab,i)=>{
+  tab.addEventListener('click',()=>activate(keys[i]));
+  tab.addEventListener('keydown',event=>{
+   const selected=keys.findIndex((_,j)=>tabs[j].getAttribute('aria-selected')==='true');
+   const current=selected<0?i:selected;
+   const next=event.key==='ArrowRight'?(current+1)%keys.length:
+    event.key==='ArrowLeft'?(current+keys.length-1)%keys.length:
+    event.key==='Home'?0:event.key==='End'?keys.length-1:-1;
+   if(next<0)return;
+   event.preventDefault();
+   activate(keys[next]);
+   tabs[next].focus();
+  });
+ });
+ activate('vitrine');
+ return true;
+}
+globalThis.merchantExecutiveTourHydrate=merchantExecutiveTourHydrate;
+
 /* Build the explanatory receipt only when the merchant landing is visited.
    This keeps customer checkout below its strict initial JS budget. */
 function merchantPlanReceiptHydrate(){
  if(typeof document==='undefined')return false;
  merchantBrandPreviewHydrate();
+ merchantExecutiveTourHydrate();
  const section=document.getElementById('merchant-plans');
  const grid=section?.querySelector('.merchant-v1115-plans-grid');
  if(!grid)return false;
