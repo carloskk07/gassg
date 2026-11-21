@@ -4,12 +4,13 @@ import vm from 'node:vm';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const growth=read('js/growth.js');
+const lazy=read('js/merchant-public-plans.js');
 const css=read('css/merchant-landing-executive.css');
 const sw=read('sw.js');
 
 new vm.Script(growth,{filename:'js/growth.js'});
-const helperStart=growth.indexOf('function merchantPlanTicketPreview(value){');
-const helperEnd=growth.indexOf('\nfunction tamaoMerchantExecutiveStyles(){',helperStart);
+const helperStart=lazy.indexOf('function merchantPlanTicketPreview(value){');
+const helperEnd=lazy.indexOf('\nglobalThis.merchantPlanTicketPreview=merchantPlanTicketPreview;',helperStart);
 assert.ok(helperStart>0&&helperEnd>helperStart,'Quick comparison helper must be isolated and readable');
 
 const money=value=>'R$ '+Number(value).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -34,7 +35,7 @@ const context={
  document:{getElementById:id=>id==='merchant-plans'?section:null},
  BRL:{format:money}
 };
-vm.runInNewContext(growth.slice(helperStart,helperEnd)+';this.preview=merchantPlanTicketPreview;',context);
+vm.runInNewContext(lazy.slice(helperStart,helperEnd)+';this.preview=merchantPlanTicketPreview;',context);
 assert.equal(context.preview(200),true);
 assert.deepEqual(tickets.map(b=>b.attrs['aria-pressed']),['false','false','true']);
 assert.ok(reference.every(item=>item.textContent==='R$ 200,00'));
@@ -71,6 +72,8 @@ const html=render(merchantPlans);
 assert.match(html,/merchant-landing-v1117/);
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
+assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
+assert.match(growth,/merchant-public-plans\.js\?v=1116/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
 assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
