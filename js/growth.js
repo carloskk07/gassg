@@ -580,7 +580,7 @@ const verifiedPlans=globalThis.tamaoMerchantPublicPlans?.status==='ready'?global
 const fee=roundMoney(gross*verifiedPlans[0].bps/10000);
 return {gross,fee,merchantNet:roundMoney(gross-fee)};
 }
-function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0,feeRate=merchantPilotFeeRate()}={}){
+function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0,feeRate=(globalThis.tamaoMerchantPublicPlans?.status==='ready'?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS)[0].bps/10000}={}){
 const price=Math.max(0,Number(salePrice)||0);
 const qty=Math.min(10000,Math.max(1,Math.trunc(Number(orders)||1)));
 const unitProductCost=Math.max(0,Number(productCost)||0);
@@ -588,7 +588,7 @@ const unitDeliveryCost=Math.max(0,Number(deliveryCost)||0);
 const unitPaymentCost=Math.max(0,Number(paymentCost)||0);
 const taxPct=Math.min(100,Math.max(0,Number(taxRate)||0));
 const gross=roundMoney(price*qty);
-const safeRate=Number.isFinite(Number(feeRate))&&Number(feeRate)>=0&&Number(feeRate)<=0.5?Number(feeRate):merchantPilotFeeRate();
+const safeRate=Number.isFinite(Number(feeRate))&&Number(feeRate)>=0&&Number(feeRate)<=0.5?Number(feeRate):MERCHANT_PUBLIC_BILLING_PLANS[0].bps/10000;
 const chamaFee=roundMoney(gross*safeRate);
 const productCosts=roundMoney(unitProductCost*qty);
 const deliveryCosts=roundMoney(unitDeliveryCost*qty);
@@ -1081,7 +1081,7 @@ return shell(`<section class="page merchant-landing merchant-landing-v1112 merch
 <div class="merchant-v1112-window-footer">
 <div><small>MODELO COMERCIAL ATUAL</small><strong>Sem mensalidade</strong></div>
 <div><small>FLEX DIÁRIO · SEM RECARGA</small><strong>${merchantFeeLabel}</strong></div>
-</div>
+</div><p class="merchant-v1115-tariff-state" role="status">${tariffStamp}</p>
 <p class="merchant-v1112-caption">Visão ilustrativa dos recursos. Fotos de produtos; não representam ofertas ou revendas cadastradas. A ativação depende de aprovação.</p>
 </div>
 </aside>
