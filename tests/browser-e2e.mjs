@@ -203,6 +203,9 @@ assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.ste
  'selecting the third buyer guide step must update the live illustration');
 assert.equal(await evaluate("document.querySelector('.learn-phase[aria-pressed=true]')?.textContent.includes('Confirme')"),true);
 assert.equal(await evaluate("document.querySelector('[data-learn-step-count]')?.textContent"),'03 / 04');
+assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"3\"]')?.hidden"),false,
+ 'third step must change the illustration, not merely its text');
+assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"1\"]')?.hidden"),true);
 await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
 assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
 await auditDom('learn');
