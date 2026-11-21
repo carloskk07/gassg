@@ -8,6 +8,9 @@ new vm.Script(source,{filename:'js/learn-premium.js'});
 const context=vm.createContext({shell:markup=>markup});
 vm.runInContext(source+'\nthis.page=learnPremiumPage;',context);
 const markup=context.page();
+vm.runInContext("learnPremiumFaqState.topic='entrega';learnPremiumFaqState.query='velho';learnPremiumPage();",context);
+assert.equal(vm.runInContext("learnPremiumFaqState.topic",context),'todos','route revisit resets filter');
+assert.equal(vm.runInContext("learnPremiumFaqState.query",context),'','route revisit resets query');
 
 for(const anchor of [
  'id="learn-faq-search"','oninput="learnPremiumSearchFaq(this.value)"',
