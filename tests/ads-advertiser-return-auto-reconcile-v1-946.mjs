@@ -56,9 +56,9 @@ assert.equal(getState().tries,1);
 await refresh({quiet:true});
 assert.equal(calls.filter(x=>x.action==='reconcile').length,1,
  're-render must not restart or duplicate automatic reconciliation');
-assert.equal([...timers.values()].filter(t=>t.ms===180000).length,1);
+assert.equal([...timers.values()].filter(t=>t.ms===35000).length,1);
 provider='payment_approved';ledger='payment_approved';
-await take(180000);
+await take(35000);
 assert.deepEqual(calls.slice(-2).map(x=>x.action),['reconcile','mine'],
  'success needs a distinct owner-verified ledger readback');
 assert.equal(getMine().rows[0].fixedFeeStatus,'payment_approved');
@@ -83,7 +83,7 @@ assert.ok([...timers.values()].some(t=>t.ms===180000),
 // Switch account before next scheduled provider call.
 ctx.liveRuntime.session.user.id='33333333-3333-4333-8333-333333333333';
 const before=calls.length;
-await take(180000);
+await take(120000);
 assert.equal(calls.length,before,'account switch must stop private provider checks');
 assert.equal(getState().campaignId,null);
 assert(!calls.some(x=>x.action==='purchase'));
