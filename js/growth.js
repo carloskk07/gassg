@@ -992,7 +992,7 @@ function merchantsLanding(){
           <span><b aria-hidden="true">✓</b> Sem exclusividade</span>
         </div>
         <div class="hero-actions merchant-hero-actions">
-          <button type="button" class="primary merchant-v1112-primary" onclick="\${cta}">\${internalPilot?ctaLabel:'Quero cadastrar minha revenda'} <span aria-hidden="true">→</span></button>
+          <button type="button" class="primary merchant-v1112-primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero cadastrar minha revenda'} <span aria-hidden="true">→</span></button>
           <button type="button" class="secondary merchant-v1112-secondary" onclick="publicLandingJump('merchant-margin')">Entender as taxas</button>
           <button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>
         </div>
@@ -1012,7 +1012,7 @@ function merchantsLanding(){
           </div>
           <div class="merchant-v1112-window-footer">
             <div><small>MODELO COMERCIAL ATUAL</small><strong>Sem mensalidade</strong></div>
-            <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>\${merchantFeeLabel}</strong></div>
+            <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong></div>
           </div>
         </div>
       </aside>
