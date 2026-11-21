@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 640" role="img" aria-labelledby="t d">
+<title id="t">Essenciais TAMÃO</title><desc id="d">Composição artística de um botijão de gás, um galão de água e uma caixa com produtos essenciais.</desc>
+<defs>
+<linearGradient id="forest" x1="0" x2="1" y2="1"><stop stop-color="#0b3528"/><stop offset=".56" stop-color="#13523d"/><stop offset="1" stop-color="#0a2d25"/></linearGradient>
+<radialGradient id="glow"><stop stop-color="#e8c992" stop-opacity=".48"/><stop offset="1" stop-color="#e6c28e" stop-opacity="0"/></radialGradient>
+<linearGradient id="metal"><stop stop-color="#6e817a"/><stop offset=".12" stop-color="#ebeee9"/><stop offset=".34" stop-color="#a8b3ad"/><stop offset=".55" stop-color="#f8f8f2"/><stop offset=".8" stop-color="#8d9992"/><stop offset="1" stop-color="#50645c"/></linearGradient>
+<linearGradient id="metalTop" x1="0" x2=".2" y2="1"><stop stop-color="#f9f7f0"/><stop offset=".52" stop-color="#9dac9f"/><stop offset="1" stop-color="#4a6154"/></linearGradient>
+<linearGradient id="water" x1="0" y1="0" x2="1" y2=".1"><stop stop-color="#3d8a9a" stop-opacity=".87"/><stop offset=".2" stop-color="#d9f4ea" stop-opacity=".66"/><stop offset=".43" stop-color="#74bacc" stop-opacity=".88"/><stop offset=".77" stop-color="#cbeae4" stop-opacity=".67"/><stop offset="1" stop-color="#2d788e" stop-opacity=".92"/></linearGradient>
+<linearGradient id="box" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f2cb8e"/><stop offset=".6" stop-color="#c89558"/><stop offset="1" stop-color="#94653c"/></linearGradient>
+<linearGradient id="gold" x1="0" x2="1" y2="1"><stop stop-color="#ffe6af"/><stop offset=".5" stop-color="#cf9c52"/><stop offset="1" stop-color="#8b642f"/></linearGradient>
+<linearGradient id="paper" x1="0" x2="0" y2="1"><stop stop-color="#fffaf0"/><stop offset="1" stop-color="#d9e1d4"/></linearGradient>
+<filter id="shadow" x="-40%" y="-70%" width="180%" height="230%"><feGaussianBlur stdDeviation="23"/></filter>
+<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="17" flood-color="#001d13" flood-opacity=".31"/></filter>
+<clipPath id="frame"><rect x="8" y="8" width="844" height="624" rx="34"/></clipPath>
+</defs>
+<g clip-path="url(#frame)">
+<rect width="860" height="640" fill="url(#forest)"/>
+<circle cx="600" cy="140" r="340" fill="url(#glow)"/>
+<path d="M460 0H860V640H720V176Q720 95 628 95H460Z" fill="#fff5d5" opacity=".043"/>
+<path d="M-80 242C172 59 320 98 509 84s292-103 416-81" stroke="#efdaa9" stroke-opacity=".22" stroke-width="2" fill="none"/>
+<path d="M-60 297C185 126 337 156 533 143S782 28 922 38" stroke="#ead4a4" stroke-opacity=".1" stroke-width="2" fill="none"/>
+<circle cx="731" cy="125" r="7" fill="#efd09d"/><circle cx="759" cy="161" r="3" fill="#efd09d" opacity=".6"/>
+<path d="M670 50v39M651 69h39" stroke="#e5bd79" stroke-opacity=".72" stroke-width="2"/>
+<ellipse cx="427" cy="543" rx="341" ry="63" fill="#001d14" opacity=".57" filter="url(#shadow)"/>
+<path d="M80 495Q425 477 781 495V640H80Z" fill="#fff9df" opacity=".12"/>
+<path d="M78 494Q437 480 783 494" stroke="#f9dfaa" stroke-width="3" stroke-opacity=".33" fill="none"/>
+<g filter="url(#soft)">
+<!-- metal gas cylinder -->
+<ellipse cx="248" cy="502" rx="126" ry="30" fill="#092a20" opacity=".42"/>
+<rect x="213" y="180" width="70" height="34" rx="8" fill="url(#metalTop)" stroke="#aebcb0" stroke-width="3"/>
+<path d="M195 227V198Q195 167 223 167H272Q300 167 300 198V227H282V198Q282 186 268 186H227Q213 186 213 198V227Z" fill="url(#metal)" stroke="#82978a" stroke-width="2"/>
+<path d="M173 274Q178 239 208 231H289Q319 239 324 274L332 458Q330 493 298 502H200Q168 493 166 458Z" fill="url(#metal)" stroke="#8ba39a" stroke-width="3"/>
+<ellipse cx="249" cy="274" rx="76" ry="18" fill="#dde2db" opacity=".74"/>
+<path d="M173 309Q249 325 325 308" stroke="#eef4eb" opacity=".65" stroke-width="3" fill="none"/>
+<path d="M170 433Q249 454 329 433" stroke="#3f5c51" opacity=".34" stroke-width="3" fill="none"/>
+<rect x="197" y="333" width="105" height="67" rx="10" fill="#f9f8ec" opacity=".8"/>
+<path d="M215 365h71m-62 13h51" stroke="#126148" stroke-width="6" stroke-linecap="round" opacity=".88"/>
+<path d="M187 281v180" stroke="#fff" stroke-opacity=".22" stroke-width="8" stroke-linecap="round"/>
+<!-- water bottle -->
+<ellipse cx="447" cy="522" rx="107" ry="25" fill="#001f18" opacity=".3"/>
+<rect x="420" y="169" width="61" height="24" rx="6" fill="#186d91"/>
+<rect x="429" y="188" width="43" height="25" rx="8" fill="#7bd1d8"/>
+<path d="M402 213L393 252Q356 274 356 307V467Q356 508 393 515H508Q546 506 546 467V307Q546 277 511 252L500 213Z" fill="url(#water)" stroke="#c5e8df" stroke-opacity=".68" stroke-width="4"/>
+<ellipse cx="450" cy="214" rx="49" ry="13" fill="#c6e7e4" opacity=".55"/>
+<path d="M364 326Q450 347 539 326M359 392Q453 410 541 390M360 461Q451 482 541 460" fill="none" stroke="#def5e8" stroke-opacity=".45" stroke-width="10"/>
+<path d="M390 268Q377 337 386 468" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="12" stroke-linecap="round"/>
+<path d="M508 283Q521 337 518 458" fill="none" stroke="#206b7b" stroke-opacity=".34" stroke-width="11" stroke-linecap="round"/>
+<!-- box essentials -->
+<ellipse cx="655" cy="517" rx="120" ry="25" fill="#001f18" opacity=".32"/>
+<rect x="577" y="289" width="50" height="129" rx="10" fill="#fff3d7"/>
+<rect x="586" y="273" width="32" height="26" rx="7" fill="#d9c6a0"/>
+<rect x="591" y="244" width="22" height="31" rx="6" fill="url(#gold)"/>
+<path d="M591 338h21" stroke="#aa8d60" stroke-width="3"/>
+<path d="M644 269h65v147h-65z" fill="#f6e3ad" stroke="#c79d5d" stroke-width="3"/>
+<path d="M656 289h40m-40 12h38m-38 14h28" stroke="#b68b54" stroke-width="3" opacity=".7"/>
+<path d="M716 316l45 16-15 100-51-5Z" fill="#d9e2c4"/>
+<path d="M715 333l29 11" stroke="#7a9d74" stroke-width="6"/>
+<path d="M554 390L661 420L767 385L758 506Q660 532 568 504Z" fill="url(#box)" stroke="#a8753f" stroke-width="3"/>
+<path d="M554 390L661 420L668 510L568 504Z" fill="#e4b777" opacity=".63"/>
+<path d="M661 420l106-35-9 121-90 4Z" fill="#ae7948" opacity=".62"/>
+<path d="M554 390l-33 45 127 38 13-53Z" fill="#f9da9d"/>
+<path d="M661 420l106-35 29 39-121 46Z" fill="#deb476"/>
+<path d="M603 466l44 13" stroke="#fff0c8" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+</g>
+<path d="M95 565h673" stroke="#ffdfaa" stroke-width="1.5" opacity=".35"/>
+<g fill="#f6dfb1" opacity=".78"><circle cx="122" cy="145" r="4"/><circle cx="148" cy="117" r="2"/><circle cx="781" cy="258" r="5"/></g>
+</g></svg>
