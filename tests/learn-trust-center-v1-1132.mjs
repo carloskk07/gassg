@@ -23,7 +23,7 @@ for(const page of ['contactPage','privacyPage','termsPage']){
   assert.match(legal,new RegExp('function '+page+'\\('));
 }
 assert.equal((html.match(/class="learn-trust-path"/g)||[]).length,3);
-assert.equal((html.match(/data-learn-scene="\\d"/g)||[]).length,4);
+assert.equal((html.match(/data-learn-scene="[1-4]"/g)||[]).length,4);
 assert.match(html,/id="learn-faq-search"/);
 assert.match(css,/learn-trust-disclosure-links/);
 assert.match(css,/@media\(max-width:700px\)/);
