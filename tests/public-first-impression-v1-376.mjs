@@ -82,14 +82,15 @@ assert.match(merchant,/merchant-conversion-start/);
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
 assert.match(merchant,/Você controla preços, estoque, pagamentos e entregas/,
  'A revenda mantém autonomia comercial mesmo com copy mais acolhedora');
-const rail=merchant.slice(merchant.indexOf('merchant-jump-rail'),merchant.indexOf('merchant-cro-steps'));
-assert.equal((rail.match(/<button type="button"/g)||[]).length,2);
-assert.match(rail,/publicLandingJump\('merchant-margin'\)/);
-assert.match(rail,/publicLandingJump\('merchant-how'\)/);
+const rail=merchant.slice(merchant.indexOf('class="merchant-v1114-index"'),merchant.indexOf('</nav>',merchant.indexOf('class="merchant-v1114-index"')));
+assert.ok(rail.length>0,'o índice comercial deve existir');
+assert.equal((rail.match(/<button type="button"/g)||[]).length,4,'quatro capítulos acessíveis devem estar disponíveis');
+for(const id of ['merchant-benefits','merchant-terms','merchant-how','merchant-faq'])
+ assert.ok(rail.includes("publicLandingJump('"+id+"')"),'atalho comercial faltando: '+id);
 
 // Mobile and keyboard accessibility are part of first-impression quality.
 for(const token of [
- '.tamao-preboot','.city-price-reference-summary','.merchant-jump-rail',
+ '.tamao-preboot','.city-price-reference-summary','.merchant-v1114-index',
  '@media(max-width:620px)',':focus-visible'
 ])assert.ok(css.includes(token),'missing visible/mobile style '+token);
 const cacheVersion=/const CACHE='tamao-sg-v1\.(\d+)'/.exec(sw);
