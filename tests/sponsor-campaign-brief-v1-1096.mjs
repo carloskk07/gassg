@@ -63,6 +63,8 @@ assert.equal(context.choose(9990),true);
 assert.equal(plans[2].attrs['aria-pressed'],'true');
 assert.equal(plans[1].attrs['aria-pressed'],'false');
 assert.equal(previewTexts.planLabel[0].textContent,'R$ 99,90 em créditos');
+assert.equal(vm.runInContext('sponsorDemoPresentation().viewEstimate',context),'4.995',
+ 'Every displayed credit choice must update its mathematical view equivalence');
 assert.match(status.textContent,/Nenhum Pix|Nenhuma cobrança/);
 assert.equal(g.tamaoSponsorDemoBudget(),null);
 assert.equal(posted,0);
@@ -103,4 +105,27 @@ vm.runInContext(studio+';this.page=sponsorsLandingPremium;',fresh);
 assert.ok(fresh.page().includes('data-sponsor-demo-budget="9990" aria-pressed="true"'));
 assert.equal(fresh.globalThis.tamaoSponsorDemoBudget(),9990);
 assert.equal(posted,0,'No campaign, impression, payment or backend write');
+
+// V1.1107: clicking Continue must carry the visibly selected DEFAULT too.
+// Picking a button twice must not be required to preserve a displayed budget.
+const defaultChoices=[],defaultStore=new Map();
+const defaultGlobal={sessionStorage:{
+ getItem:k=>defaultStore.get(k)||null,
+ setItem:(k,v)=>defaultStore.set(k,v)
+},matchMedia:()=>({matches:true}),tamaoAdsPlannerLoad:()=>{},
+ tamaoAdsPlannerSection:()=>'<section>official real planner</section>',
+ tamaoCreditChoose:value=>{defaultChoices.push(value);return true}};
+const defaultCtx={document:doc,shell:x=>x,globalThis:defaultGlobal};
+vm.createContext(defaultCtx);
+vm.runInContext(studio+';this.continueDefault=sponsorDemoContinue;this.defaultPage=sponsorsLandingPremium;',defaultCtx);
+assert.equal(defaultGlobal.tamaoSponsorDemoBudget(),null,
+ 'Uncontinued public preview is not an authorized commercial handoff');
+assert.match(defaultCtx.defaultPage(),/Até <span data-sponsor-demo="viewEstimate">2\.495<\/span> visualizações faturáveis/,
+ 'The chosen R$ 49,90 visibly shows at most 2,495 billable views, not a promise');
+assert.equal(defaultCtx.continueDefault(),true);
+assert.deepEqual(defaultChoices,[4990],
+ 'Continue must honor the budget already shown to the visitor without an extra click');
+assert.equal(defaultGlobal.tamaoSponsorDemoBudget(),4990);
+assert.equal(JSON.parse(defaultStore.get('tamao-sponsor-showcase-v1092')).budgetChosen,true);
+assert.equal(posted,0,'A credit preview and handoff must never issue Pix or a paid view');
 console.log('PASS V1.1096/V1.1098: secure 4-value credit selection, consented handoff, legacy compatibility, safe default, session restore, zero backend writes.');
