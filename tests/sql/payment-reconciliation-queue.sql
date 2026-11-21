@@ -29,14 +29,27 @@ begin
  if (select count(*) from pg_trigger where not tgisinternal and tgname in (
   'payment_reconciliation_billing','payment_reconciliation_coupon',
   'payment_reconciliation_mobility','payment_reconciliation_advertising',
-  'payment_reconciliation_merchant_sale'))<>5 then
-  raise exception 'all five source tables must enqueue future changes';
+  'payment_reconciliation_merchant_sale','payment_reconciliation_ads_credit'))<>6 then
+  raise exception 'all six source tables must enqueue future changes';
+ end if;
+end $test$;
+-- V1.1104: credit topup entries are private and the server worker owns their receipt.
+do $test$
+begin
+ if (select count(*) from pg_trigger where not tgisinternal and tgname='payment_reconciliation_ads_credit')<>1 then
+  raise exception 'credit Pix trigger missing';
+ end if;
+ if (select count(*) from public.platform_payment_reconciliation_queue where kind='ads_credit'
+   and resource_id in (select id from public.ads_credit_topups_v1_1097
+     where status<>'reserved'))<>
+    (select count(*) from public.ads_credit_topups_v1_1097 where status<>'reserved') then
+  raise exception 'credit Pix queue backfill incomplete';
  end if;
 end $test$;
 delete from public.platform_payment_reconciliation_queue;
 update public.platform_payment_reconciliation_config set enabled=true,token_sha256=repeat('a',64) where id;
 insert into public.platform_payment_reconciliation_queue(kind,resource_id,next_check_at)
-select (array['billing','coupon','mobility','advertising','merchant_sale'])[1+(n%5)],
+select (array['billing','coupon','mobility','advertising','merchant_sale','ads_credit'])[1+(n%6)],
  ('90000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'2000-01-01'::timestamptz
 from generate_series(1,10) n;
 create temp table claims_a as select * from public.platform_payment_reconciliation_claim(4);
@@ -60,4 +73,4 @@ begin
  if (select count(*) from public.platform_payment_reconciliation_claim(8))<>0 then raise exception 'leased/backoff jobs claimed again'; end if;
 end $test$;
 rollback;
-\echo 'PASS: private queue, five source triggers, disabled activation, bounded leases, stale replies and scheduled retry.'
+\echo 'PASS: private queue, six source triggers, disabled activation, bounded leases, stale replies and scheduled retry.'
