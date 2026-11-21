@@ -812,7 +812,7 @@ return shell(`<section class="page tamao-earn-page">
 }
 
 function learn(){
-return typeof learnPremiumPage==='function'?learnPremiumPage():shell(`<section class="page"><span class="eyebrow">COMO FUNCIONA O TAMÃO</span><h1 class="page-title">Escolha, confira e acompanhe.</h1><p class="muted page-lead">Consulte os produtos para o seu endereço, veja as opções de valor e entrega e aguarde a confirmação da revenda.</p><div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos →</button><button class="secondary" onclick="go('contact')">Falar com o TAMÃO</button></div></section>`);
+return typeof learnPremiumPage==='function'?learnPremiumPage():shell(`<section class="page"><span class="eyebrow">COMO FUNCIONA O TAMÃO</span><h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1><p class="muted page-lead">Consulte os produtos para o seu endereço, veja as opções de valor e entrega e aguarde a confirmação da revenda.</p><div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos →</button><button class="secondary" onclick="go('contact')">Falar com o TAMÃO</button></div></section>`);
 }
 
 async function activateCashAccount(){
