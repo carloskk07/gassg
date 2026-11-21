@@ -474,3 +474,247 @@
   .learn-quick-index button{font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){.learn-quick-index button{transition:none}}
+
+
+/* V1.1127 — editorial concierge: clear typography, useful help, restrained luxury. */
+.learn-premium .learn-hero{
+  min-height:550px;
+  grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+  gap:clamp(26px,4.7vw,68px);
+  background:
+    radial-gradient(ellipse at 90% 18%,rgba(104,202,132,.17),transparent 46%),
+    radial-gradient(ellipse at 3% 90%,rgba(155,207,133,.13),transparent 49%),
+    linear-gradient(115deg,#082d25,#104b39 64%,#0a694c);
+}
+.learn-premium .learn-hero h1{
+  max-width:13.5ch;
+  font-size:clamp(39px,4.55vw,61px);
+  line-height:1.045;
+  letter-spacing:-.064em;
+}
+.learn-premium .learn-hero h1 em{
+  color:#caeeca;
+  text-shadow:0 0 0 transparent;
+}
+.learn-premium .learn-hero-copy>p{
+  max-width:45ch;
+  font-size:clamp(14px,1.32vw,16px);
+  line-height:1.78;
+}
+.learn-premium .learn-hero-fine-line{
+  width:75px;height:3px;margin:25px 0 23px;
+  background:linear-gradient(90deg,#f3d28b,#f2bb5f 67%,transparent);
+}
+.learn-premium .learn-hero-assurances{margin-top:6px}
+.learn-premium .learn-visual{border-radius:22px;background:linear-gradient(155deg,#fffefa,#f6f9f3)}
+.learn-premium .learn-visual-top{font-size:10px}
+.learn-premium .learn-quick-index{margin-top:19px}
+.learn-premium .learn-faq{
+  grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);
+  gap:clamp(23px,3.5vw,48px);
+  align-items:stretch;
+  margin:10px 0 74px;
+}
+.learn-premium .learn-faq-heading{
+  position:relative;
+  align-self:stretch;
+  overflow:hidden;
+  padding:clamp(27px,3.4vw,45px);
+  border-radius:25px;
+  background:
+    radial-gradient(ellipse at 90% 90%,rgba(74,156,99,.2),transparent 50%),
+    linear-gradient(145deg,#0b392e,#0d533c);
+  color:#eff9f1;
+}
+.learn-premium .learn-faq-heading::after{
+  content:"";position:absolute;pointer-events:none;
+  width:210px;height:210px;right:-107px;bottom:-110px;
+  border:1px solid rgba(234,253,229,.13);
+  border-radius:50%;
+  box-shadow:0 0 0 38px rgba(236,255,232,.027),0 0 0 76px rgba(236,255,232,.024);
+}
+.learn-premium .learn-faq-heading .learn-label{color:#dbedb0}
+.learn-premium .learn-faq-heading h2{
+  margin:23px 0 18px;
+  max-width:14ch;
+  color:#fff;
+  line-height:1.1;
+  font-size:clamp(30px,3.15vw,42px);
+}
+.learn-premium .learn-faq-heading h2 em{color:#c7efca}
+.learn-premium .learn-faq-heading>p{
+  max-width:36ch;color:#c7e0d2;
+  font-size:13.5px;line-height:1.78;
+  margin-bottom:32px;
+}
+.learn-premium .learn-faq-support{
+  display:flex;
+  align-items:flex-start;
+  gap:15px;
+  padding:19px;
+  border:1px solid rgba(213,245,220,.23);
+  border-radius:17px;
+  background:rgba(255,255,255,.065);
+  position:relative;z-index:1;
+}
+.learn-premium .learn-faq-support-icon{
+  display:grid;place-items:center;
+  flex:0 0 35px;width:35px;height:35px;
+  border-radius:12px;background:#ebc375;color:#204b36;
+  font-weight:900;font-size:19px;
+}
+.learn-premium .learn-faq-support strong{
+  display:block;margin-bottom:7px;
+  color:#fff;font-size:13px;line-height:1.4;
+}
+.learn-premium .learn-faq-support small{
+  display:block;
+  color:#c8e0d0;
+  font-size:11.5px;line-height:1.65;
+  margin-bottom:12px;
+}
+.learn-premium .learn-faq-support .learn-contact-link{
+  color:#ffdf95;border-color:rgba(255,223,149,.5);
+  font-size:12px;
+}
+.learn-premium .learn-faq-workspace{min-width:0}
+.learn-premium .learn-faq-tools{
+  padding:20px 20px 13px;
+  margin-bottom:13px;
+  border:1px solid #d9e7dc;
+  border-radius:18px;
+  background:linear-gradient(150deg,#f6faf4,#fff);
+}
+.learn-premium .learn-faq-tools>label{
+  display:block;
+  margin-bottom:11px;
+  color:#3b6350;
+  font-weight:900;font-size:10px;letter-spacing:.095em;
+}
+.learn-premium .learn-faq-search-frame{
+  display:flex;align-items:center;gap:11px;
+  min-width:0;
+  height:53px;
+  padding:0 15px;
+  border:1px solid #cadfd0;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 5px 16px rgba(18,78,43,.035);
+  transition:border-color .18s,box-shadow .18s;
+}
+.learn-premium .learn-faq-search-frame:focus-within{
+  border-color:#17845d;
+  box-shadow:0 0 0 3px rgba(5,124,82,.11);
+}
+.learn-premium .learn-faq-search-frame svg{
+  flex:0 0 20px;width:20px;height:20px;color:#60846e;
+}
+.learn-premium #learn-faq-search{
+  appearance:none;
+  width:100%;min-width:0;height:100%;
+  padding:0;margin:0;
+  outline:0;border:0;border-radius:0;
+  font-size:13px;color:#173e2b;background:transparent;
+  box-shadow:none;
+}
+.learn-premium #learn-faq-search::placeholder{color:#718b79;opacity:1}
+.learn-premium .learn-faq-topics{
+  display:flex;flex-wrap:wrap;gap:6px;
+  margin-top:14px;
+}
+.learn-premium .learn-faq-topics button{
+  appearance:none;cursor:pointer;
+  min-height:34px;padding:8px 12px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#587361;
+  font-size:11px;font-weight:800;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.learn-premium .learn-faq-topics button.is-active{
+  background:#0a7653;border-color:#0a7653;color:#fff;
+}
+.learn-premium .learn-faq-topics button:not(.is-active):hover{
+  background:#eaf4eb;border-color:#d8e8db;color:#0d674a;
+}
+.learn-premium .learn-faq-count{
+  display:block;
+  margin:13px 0 0;
+  padding-top:11px;
+  border-top:1px solid #e0ede2;
+  font-size:10.5px;
+  color:#617e6d;
+  font-weight:750;
+}
+.learn-premium .learn-faq-items{gap:9px}
+.learn-premium .learn-faq-items details[hidden]{display:none!important}
+.learn-premium .learn-faq-items details{
+  border-radius:13px;
+  border-color:#dce8df;
+  box-shadow:0 4px 12px rgba(17,65,38,.025);
+}
+.learn-premium .learn-faq-items details[open]{
+  border-color:#abd4b9;
+  box-shadow:0 13px 23px rgba(14,76,38,.06);
+}
+.learn-premium .learn-faq-items summary{
+  font-size:13px;
+  min-height:61px;
+  padding:17px 18px;
+}
+.learn-premium .learn-faq-items details p{line-height:1.75}
+.learn-premium .learn-faq-empty{
+  text-align:center;
+  padding:35px 22px;
+  border:1px dashed #b9d6c2;
+  border-radius:16px;
+  background:#f8fbf7;
+}
+.learn-premium .learn-faq-empty[hidden]{display:none!important}
+.learn-premium .learn-faq-empty>span{
+  display:block;
+  margin-bottom:8px;
+  font-size:30px;color:#0a8057;
+}
+.learn-premium .learn-faq-empty strong{
+  display:block;color:#214b35;font-size:15px;
+}
+.learn-premium .learn-faq-empty p{
+  font-size:12px;color:#67836d;line-height:1.6;margin:9px 0 17px;
+}
+.learn-premium .learn-faq-empty button{
+  display:inline-flex;gap:12px;align-items:center;
+  padding:11px 15px;background:#0c7755;
+  border:1px solid #0c7755;border-radius:11px;
+  color:#fff;font-size:12px;font-weight:850;
+}
+.learn-premium .learn-faq-empty button span{font-size:17px}
+@media(max-width:900px){
+  .learn-premium .learn-hero{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:23px}
+  .learn-premium .learn-hero h1{font-size:clamp(35px,4.6vw,48px)}
+  .learn-premium .learn-faq{gap:19px}
+  .learn-premium .learn-faq-heading{padding:26px}
+}
+@media(max-width:700px){
+  .learn-premium .learn-hero{grid-template-columns:1fr;gap:25px;min-height:0}
+  .learn-premium .learn-hero h1{font-size:clamp(37px,8.5vw,50px);max-width:15ch}
+  .learn-premium .learn-faq{grid-template-columns:1fr;gap:15px;margin:0 0 54px}
+  .learn-premium .learn-faq-heading{padding:28px 25px;border-radius:21px}
+  .learn-premium .learn-faq-heading h2{max-width:19ch;margin:12px 0 10px}
+  .learn-premium .learn-faq-heading>p{max-width:50ch;margin-bottom:18px}
+  .learn-premium .learn-faq-support{padding:15px}
+  .learn-premium .learn-faq-tools{padding:16px 14px 11px}
+  .learn-premium .learn-faq-topics button{font-size:11px}
+}
+@media(max-width:420px){
+  .learn-premium .learn-hero h1{font-size:clamp(35px,9.3vw,43px)}
+  .learn-premium .learn-faq-topics{gap:5px}
+  .learn-premium .learn-faq-topics button{font-size:10.5px;padding:8px 10px}
+  .learn-premium .learn-faq-heading{padding:26px 19px}
+  .learn-premium .learn-faq-heading h2{font-size:32px}
+}
+@media(prefers-reduced-motion:reduce){
+  .learn-premium .learn-faq-search-frame,
+  .learn-premium .learn-faq-topics button{transition:none}
+}
