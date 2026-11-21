@@ -69,3 +69,24 @@ globalThis.addEventListener?.('hashchange',()=>{
  if(typeof route==='function'&&['merchants','earn'].includes(route()))
    tamaoMerchantPublicPlansLoad();
 });
+
+// Only the commercial landing downloads this optional, read-only calculator.
+function merchantPlanTicketPreview(value){
+const ticket=Number(value);
+if(![100,120,200].includes(ticket)||typeof document==='undefined')return false;
+const section=document.getElementById('merchant-plans');
+if(!section)return false;
+const currency=BRL.format(ticket);
+section.querySelectorAll('[data-merchant-ticket]').forEach(button=>{
+ button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-merchant-ticket'))===ticket));
+});
+section.querySelectorAll('[data-merchant-order-ticket]').forEach(element=>{element.textContent=currency;});
+section.querySelectorAll('[data-merchant-saving-bps]').forEach(element=>{
+ const bps=Number(element.getAttribute('data-merchant-saving-bps'));
+ if(Number.isInteger(bps)&&bps>=0&&bps<=2000)
+  element.textContent=BRL.format(ticket*bps/10000);
+});
+return true;
+}
+
+globalThis.merchantPlanTicketPreview=merchantPlanTicketPreview;
