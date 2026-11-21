@@ -8,7 +8,7 @@ const styles=read('css/merchant-landing-executive.css');
 const sw=read('sw.js');
 new vm.Script(growth,{filename:'growth.js'});
 
-const start=growth.indexOf('function merchantsLanding(){');
+const start=growth.indexOf('function tamaoMerchantExecutiveStyles(){');
 const end=growth.indexOf('\nfunction currentMerchantPilotInviteToken(){',start);
 assert.ok(start>0&&end>start,'merchant marketing route exists');
 const merchants=growth.slice(start,end);
