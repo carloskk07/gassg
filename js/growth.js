@@ -1073,7 +1073,7 @@ function merchantsLanding(){
       <div class="merchant-v1112-value-grid">
         <article><span class="merchant-v1112-value-number">01</span><h3>Seja encontrada na sua região</h3><p>Mostre gás, água e outros itens do seu catálogo a quem consulta disponibilidade no endereço informado.</p></article>
         <article><span class="merchant-v1112-value-number">02</span><h3>Decida cada atendimento</h3><p>Controle o estoque, o prazo e a área de entrega. Só aceite pedidos que sua operação pode cumprir.</p></article>
-        <article><span class="merchant-v1112-value-number">03</span><h3>Sua rede cresce com você</h3><p>Tenha sua página para compartilhar e acompanhe pedidos, histórico e convites vinculados à sua rede.</p></article>
+        <article><span class="merchant-v1112-value-number">03</span><h3>Sua rede cresce com você</h3><p>Tenha sua página para compartilhar e acompanhe pedidos, histórico e convites vinculados à sua rede. Os benefícios da Rede seguem as regras de cada campanha habilitada.</p></article>
       </div>
     </section>
 
