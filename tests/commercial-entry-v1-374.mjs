@@ -59,7 +59,9 @@ assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1,
 assert.ok(merchant.includes("internalPilot?'':`<section class=\"merchant-conversion-start\""),
  'internal-only mode must never show live interest form');
 assert.ok(merchant.includes('openMerchantPortal(true)'),'main CTA opens actual signup');
-assert.ok(merchant.includes('policyPercent(merchantPilotFeeRate())'));
+assert.ok(merchant.includes('const merchantFeeLabel=policyPercent(flex.bps/10000)')&&
+ merchant.includes("const verified=globalThis.tamaoMerchantPublicPlans?.status==='ready'"),
+ 'Merchant pricing must use verified live billing plans, not old referral/reward policy');
 assert.ok(merchant.includes('merchant-margin')&&merchant.includes('merchant-how'));
 assert.ok(merchant.includes('A liberação das vendas depende da conferência dos dados'));
 assert.ok(merchant.includes('O cliente paga diretamente à sua revenda'));
