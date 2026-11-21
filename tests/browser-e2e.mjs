@@ -195,8 +195,16 @@ await evaluate("go('learn')");
 await waitFor("document.querySelector('.learn-hero') && document.querySelector('.learn-step-grid')","premium learn route");
 body=await text();
 assert.match(body,/Tudo mais simples/);
-assert.match(body,/CONFIANÇA SE CONSTRÓI COM CLAREZA/);
+assert.match(body,/UMA RELAÇÃO TRANSPARENTE/);
 assert.match(body,/A revenda precisa aceitar/);
+assert.match(body,/GUIA DA SUA JORNADA/);
+await evaluate("document.querySelectorAll('.learn-phase')[2].click()");
+assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'3',
+ 'selecting the third buyer guide step must update the live illustration');
+assert.equal(await evaluate("document.querySelector('.learn-phase[aria-pressed=true]')?.textContent.includes('Confirme')"),true);
+assert.equal(await evaluate("document.querySelector('[data-learn-step-count]')?.textContent"),'03 / 04');
+await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
+assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
 await auditDom('learn');
 
 await evaluate("go('privacy')");
