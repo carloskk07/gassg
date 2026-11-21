@@ -712,3 +712,11 @@
 @media(prefers-reduced-motion:reduce){.merchant-v1120-brand-demo{scroll-behavior:auto}}
 
 .merchant-v1120-brand-name{display:block;max-width:100%;overflow-wrap:anywhere}
+
+
+/* V1.1121: above-the-fold CTA balance after adding the live brand preview. */
+@media(min-width:991px){
+ .merchant-landing-v1117 .merchant-v1112-hero{align-items:start}
+ .merchant-landing-v1117 .merchant-landing-premium-copy{justify-content:flex-start;align-self:start;padding-top:clamp(6px,1.4vw,20px)}
+ .merchant-landing-v1117 .merchant-v1112-visual{align-self:start}
+}
