@@ -70,13 +70,13 @@ for(const x of ['Uma página para compartilhar',
 for(const x of [
  'não gera','não está','não são','dependem','não cria','não está disponível',
  'não conced','não confunda','Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.',
- 'campanha habilitada'
+ 'campanhas efetivamente habilitadas'
 ]){
  // Financial safeguards are present in the public brand page and referral language.
  if(x.length<=9)continue;
  if(x==='Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.')
   assert.match(sponsor,/revisão|aprovad|contrataç/, 'Public sponsor review gate remains clear');
- if(x==='campanha habilitada')
+ if(x==='campanhas efetivamente habilitadas')
   assert.ok(growth.includes(x),'Referral campaigns still require verified eligibility');
 }
 assert.ok(!growth.includes('100% de resultados')&&!growth.includes('Renda garantida'));
