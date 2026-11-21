@@ -13,7 +13,7 @@ assert.ok(!edge.includes('auth.getUser')&&!edge.includes('req.text()'));
 assert.ok(!/grant\s+.*\s+on\s+public\.merchant_billing_plans/i.test(edge));
 assert.ok(growth.includes("tamaoMerchantPublicPlans?.status==='ready'"));
 assert.ok(growth.includes("safePlanName(p.name)"));
-assert.ok(growth.includes('merchant-public-plans.js?v=1117'));
+assert.ok(growth.includes('merchant-public-plans.js?v=1118'));
 const plans=[
  {plan_key:'flex_daily',display_name:'Flex Diário',billing_mode:'postpaid_daily',platform_fee_bps:900,purchase_amount_cents:null,credit_grant_cents:null,active:true,sort_order:10},
  {plan_key:'credit_01990',display_name:'Essencial',billing_mode:'prepaid_credit',platform_fee_bps:800,purchase_amount_cents:1990,credit_grant_cents:1990,active:true,sort_order:20},

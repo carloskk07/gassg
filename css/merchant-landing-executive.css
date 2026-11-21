@@ -607,3 +607,36 @@
   transition:none;transform:none;
  }
 }
+
+
+/* V1.1118: recibo didático para créditos e taxas — apresentação somente leitura. */
+.merchant-landing-v1117 .merchant-v1118-plan-action{display:flex;align-items:center;justify-content:space-between;gap:9px;width:100%;margin-top:15px;padding:12px 13px;border:1px solid #bdd7c4;border-radius:11px;background:#eaf5ec;color:#13563b;font:inherit;font-size:12px;font-weight:850;cursor:pointer;text-align:left;transition:background .18s ease,transform .18s ease}
+.merchant-landing-v1117 .merchant-v1118-plan-action:hover{background:#d8eddf;transform:translateY(-1px)}
+.merchant-landing-v1117 .merchant-v1118-plan-action[aria-pressed="true"]{background:#0b6748;border-color:#0b6748;color:#fff}
+.merchant-landing-v1117 .merchant-v1115-plan-featured .merchant-v1118-plan-action{background:rgba(231,209,158,.14);border-color:rgba(231,209,158,.5);color:#f6e4bd}
+.merchant-landing-v1117 .merchant-v1115-plan-featured .merchant-v1118-plan-action[aria-pressed="true"]{background:#eccd93;border-color:#eccd93;color:#0b3326}
+.merchant-landing-v1117 .merchant-v1118-plan-action:focus-visible{outline:3px solid #d3a354;outline-offset:3px}
+.merchant-v1118-receipt{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:20px 26px;align-items:center;margin:19px 0 0;padding:clamp(19px,3vw,33px);border-radius:21px;background:radial-gradient(ellipse at 100% -20%,rgba(211,170,92,.2),transparent 51%),linear-gradient(125deg,#123e30,#082d23);border:1px solid #285944;box-shadow:0 19px 40px rgba(8,58,35,.13);color:#f8fcf5;scroll-margin-top:100px}
+.merchant-v1118-receipt-head>span{font-size:10px;font-weight:900;letter-spacing:.16em;color:#e5c48c}
+.merchant-v1118-receipt-head h3{font-size:clamp(24px,2.55vw,35px);font-weight:850;letter-spacing:-.047em;line-height:1.14;margin:13px 0 13px;color:#fffdf8;text-wrap:balance}
+.merchant-v1118-receipt-head h3 em{font-style:normal;color:#dfc289}
+.merchant-v1118-receipt-head p{font-size:13px;line-height:1.7;color:#d0e2d4;max-width:45ch}
+.merchant-v1118-receipt-head p strong{color:#fff}
+.merchant-v1118-receipt-body{min-width:0;padding:19px;border-radius:16px;background:#fffefa;color:#123a2c}
+.merchant-v1118-receipt-title{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid #e0e9df}
+.merchant-v1118-receipt-title>span{font-size:10px;color:#64806c;font-weight:900;letter-spacing:.1em}
+.merchant-v1118-receipt-title>strong{font-size:13px;color:#165a3d}
+.merchant-v1118-receipt-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.merchant-v1118-receipt-numbers>div{display:flex;flex-direction:column;gap:7px;min-width:0;padding:12px;border-radius:11px;background:#f4f7f2}
+.merchant-v1118-receipt-numbers span,.merchant-v1118-receipt-balance span{font-size:10px;line-height:1.4;color:#526d5d;font-weight:650}
+.merchant-v1118-receipt-numbers strong{font-size:clamp(15px,1.8vw,22px);letter-spacing:-.04em;color:#193f2e;font-variant-numeric:tabular-nums}
+.merchant-v1118-receipt-numbers .merchant-v1118-receipt-highlight{background:#e5f3e8}
+.merchant-v1118-receipt-numbers .merchant-v1118-receipt-highlight strong{color:#08734d}
+.merchant-v1118-receipt-balance{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:12px;border-top:1px solid #e0e9df}
+.merchant-v1118-receipt-balance>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.merchant-v1118-receipt-balance strong{font-size:16px;color:#173e2d;letter-spacing:-.03em}
+.merchant-v1118-receipt-status{margin:12px 0 0;font-size:11px;line-height:1.6;color:#4f735b}
+.merchant-v1118-receipt-note{grid-column:1/-1;margin:0;padding-top:14px;border-top:1px solid rgba(222,243,226,.18);font-size:11px;line-height:1.7;color:#d3e1d3}
+@media(max-width:900px){.merchant-v1118-receipt{grid-template-columns:1fr}.merchant-v1118-receipt-head p{max-width:75ch}}
+@media(max-width:520px){.merchant-v1118-receipt{padding:17px;gap:15px}.merchant-v1118-receipt-body{padding:12px}.merchant-v1118-receipt-numbers{grid-template-columns:1fr;gap:6px}.merchant-v1118-receipt-numbers>div{flex-direction:row;align-items:center;justify-content:space-between;padding:10px}.merchant-v1118-receipt-numbers strong{font-size:18px}.merchant-v1118-receipt-balance strong{font-size:14px;overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){.merchant-landing-v1117 .merchant-v1118-plan-action{transition:none}}
