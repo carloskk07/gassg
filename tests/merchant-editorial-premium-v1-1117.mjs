@@ -73,7 +73,7 @@ assert.match(html,/merchant-landing-v1117/);
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
-assert.match(growth,/merchant-public-plans\.js\?v=1116/);
+assert.match(growth,/merchant-public-plans\.js\?v=1117/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
 assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
