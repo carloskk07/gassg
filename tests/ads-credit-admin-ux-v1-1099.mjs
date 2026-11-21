@@ -47,6 +47,10 @@ assert.ok(html.includes('Motivo da decisão'));
 assert.ok(!html.includes('Retomar com saldo'),'Closed delivery must not offer an unavailable resumption');
 context.testData.gate={centsPerView:2,rechargeEnabled:true,billingEnabled:true,evidenceEnabled:true};
 assert.ok(context.adminCreditAdsPanel().includes('Retomar com saldo'));
+const archiveHtml=context.adminCreditAdsPanel();
+assert.match(archiveHtml,/<details class="card flat admin-credit-pilot-history">/);
+assert.match(archiveHtml,/Consultar homologação financeira anterior/);
+
 context.testData.gate={centsPerView:2,rechargeEnabled:false,billingEnabled:false,evidenceEnabled:false};
 assert.ok(html.includes('Obrigatório para rejeitar ou encerrar'));
 assert.ok(html.includes('Recargas desligadas · Débitos desligados'));

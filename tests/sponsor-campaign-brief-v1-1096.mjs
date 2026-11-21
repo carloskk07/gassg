@@ -44,6 +44,12 @@ vm.createContext(context);
 vm.runInContext(studio+';this.page=sponsorsLandingPremium;this.choose=sponsorDemoBudget;this.continueDraft=sponsorDemoContinue;',context);
 const initial=context.page();
 assert.equal((initial.match(/data-sponsor-demo-budget="/g)||[]).length,4);
+assert.match(initial,/R\$ 0,02 por visualização elegível/);
+assert.match(initial,/Recargas a partir de R\$ 19,90, sem pacote de dias/);
+assert.match(initial,/até 995 visualizações faturáveis/);
+assert.match(initial,/Quando uma visualização é cobrada\?/);
+assert.match(initial,/CRIE SUA CAMPANHA/);
+
 assert.ok(initial.includes('R$ 19,90'));
 assert.ok(initial.includes('R$ 49,90'));
 assert.ok(initial.includes('R$ 99,90'));

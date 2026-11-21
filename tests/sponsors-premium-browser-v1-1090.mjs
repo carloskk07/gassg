@@ -64,7 +64,7 @@ try{
   assert.match(first.adNote,/ilustrativa/);
   assert.ok(first.ctaHeight>=44,'Sponsor CTA too small at '+width);
   assert.ok(first.ctaLeft>=-2&&first.ctaRight<=width+2,'Sponsor CTA outside viewport at '+width);
-  assert.equal(first.faqCount,5);
+  assert.equal(first.faqCount,6,'Commercial FAQ includes per-view pricing and eligibility');
   assert.equal(first.planCount,4);
   assert.equal(first.accountInput,true,'Real advertiser signup input must remain available');
   assert.ok(first.scrollWidth<=width+3,'Sponsor page horizontal overflow at '+width+': '+JSON.stringify(first));

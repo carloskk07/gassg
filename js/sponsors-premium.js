@@ -228,8 +228,8 @@ function sponsorsLandingPremium(){
     <button type="button" class="primary sponsor-premium-main-cta" onclick="sponsorDemoContinue()">Criar meu anúncio <span aria-hidden="true">→</span></button>
     <button type="button" class="sponsor-premium-link" onclick="sponsorJumpTo('sponsor-formats')">Conhecer os formatos <span aria-hidden="true">↗</span></button>
    </div>
-   <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Envio sem pagamento</span></div>
-   <p class="sponsor-premium-starting"><strong>Desde R$ 19,90</strong> para investir em publicidade por visualização <span>· Condições confirmadas antes de contratar</span></p>
+   <div class="sponsor-premium-hero-proof"><span>✓ Sem precisar ter revenda</span><span>✓ Escolha sua região</span><span>✓ Proposta gratuita</span></div>
+   <p class="sponsor-premium-starting"><strong>R$ 0,02 por visualização elegível</strong> <span>· Recargas a partir de R$ 19,90, sem pacote de dias</span></p>
   </div>
   <aside class="sponsor-premium-visual" data-demo-placement="${demo.placement}" aria-label="Prévia ilustrativa de anúncio identificado">
    <div class="sponsor-premium-browser"><span class="sponsor-premium-browser-dots" aria-hidden="true">● ● ●</span><strong>TAMÃO</strong><small>Prévia de anúncio</small></div>
@@ -281,14 +281,14 @@ function sponsorsLandingPremium(){
        <div class="sponsor-demo-plans" role="group" aria-label="Escolha um valor de créditos publicitários">
          ${Object.values(TAMAO_SPONSOR_DEMO_PLANS).map(plan=>'<button type="button" data-sponsor-demo-budget="'+plan.value+'" aria-pressed="'+String(tamaoSponsorDemoState.budget===plan.value)+'" onclick="sponsorDemoBudget('+plan.value+')"><strong>'+plan.price+'</strong><small>'+'créditos</small></button>').join('')}
        </div>
-       <small class="sponsor-demo-plan-note">Valores de referência. Disponibilidade e condições são confirmadas antes da contratação.</small>
+       <small class="sponsor-demo-plan-note">São créditos para consumir por visualizações elegíveis, não pacotes de dias. A entrega depende da audiência disponível.</small>
      </div>
      <div class="sponsor-demo-action">
        <span class="sponsor-demo-plan-summary">Sua escolha: <strong data-sponsor-demo="planLabel">${sponsorDemoEscape(demo.planLabel)}</strong></span>
        <button type="button" class="sponsor-demo-continue" onclick="sponsorDemoContinue()">Continuar com esta proposta <span aria-hidden="true">→</span></button>
        <small>Teste livre, sem cadastro. Confirme seus dados somente quando decidir enviar.</small>
      </div>
-     <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">Prévia ilustrativa e privada: nenhum anúncio é publicado ou cobrado aqui.</p>
+     <p id="sponsor-demo-status" class="sponsor-demo-feedback" role="status" aria-live="polite">Personalize sua proposta. Não é necessário pagar para preparar ou enviar o anúncio.</p>
    </div>
 </header>
 <div class="sponsor-premium-trust-rail" aria-label="O que sua empresa encontra no TAMÃO">
@@ -347,8 +347,8 @@ function sponsorsLandingPremium(){
  <div class="sponsor-premium-section-heading"><span class="section-kicker">DO RASCUNHO À PUBLICAÇÃO</span><h2>Você sabe o que acontece em cada etapa.</h2></div>
  <ol class="sponsor-premium-steps">
   <li><span>01</span><div><h3>Prepare a proposta</h3><p>Personalize a marca, escolha cidade e orçamento e confirme sua conta.</p></div></li>
-  <li><span>02</span><div><h3>Receba a análise</h3><p>Verificamos a mensagem, a região e a disponibilidade antes da contratação.</p></div></li>
-  <li><span>03</span><div><h3>Acompanhe sua campanha</h3><p>Se aprovada e contratada, acompanhe as informações disponíveis na sua conta.</p></div></li>
+  <li><span>02</span><div><h3>Receba a análise</h3><p>O TAMÃO revisa o conteúdo. Depois, você pode carregar créditos por Pix e acompanhar o saldo.</p></div></li>
+  <li><span>03</span><div><h3>Divulgue com controle</h3><p>Com anúncio publicado e crédito disponível, acompanhe visualizações elegíveis e descontos no extrato. Pause quando quiser.</p></div></li>
  </ol>
 </section>
 <section class="sponsor-premium-workspace" id="sponsor-pricing" tabindex="-1" aria-label="Planejar e cadastrar anúncio">
@@ -360,7 +360,8 @@ function sponsorsLandingPremium(){
  <div class="sponsor-premium-section-heading"><span class="section-kicker">TRANSPARÊNCIA</span><h2>Respostas para anunciar com confiança.</h2></div>
  <div class="sponsor-premium-faq-list">
   <details><summary>Preciso ter uma revenda no TAMÃO?</summary><p>Não. Marcas, empresas e profissionais podem enviar anúncios independentes para análise.</p></details>
-  <details><summary>Quanto custa anunciar?</summary><p>As recargas começam em R$ 19,90. Cada visualização elegível desconta o preço exibido na conta, sem prazo curto de consumo.</p></details>
+  <details><summary>Quanto custa anunciar?</summary><p>R$ 0,02 por visualização elegível. As recargas começam em R$ 19,90 e o saldo fica disponível para anúncios, sem pacote de dias. Por exemplo, R$ 19,90 pode cobrir até 995 visualizações faturáveis, se houver audiência. Não é uma promessa de alcance.</p></details>
+   <details><summary>Quando uma visualização é cobrada?</summary><p>Após a exibição de pelo menos 50% do anúncio por um segundo contínuo e as verificações do servidor. O sistema evita cobrar novamente a mesma identidade de visitante na mesma campanha durante 24 horas. Os critérios não representam certificação independente de audiência.</p></details>
   <details><summary>Quantas pessoas verão meu anúncio?</summary><p>Não prometemos audiência, cliques ou conversões. A entrega depende de inventário disponível, e os sinais de visualização seguem os critérios de medição informados.</p></details>
   <details><summary>O anúncio vai ao ar quando eu envio?</summary><p>Não. Primeiro a campanha é revisada; a publicação depende da aprovação e das condições operacionais e comerciais.</p></details>
   <details><summary>Como acompanho a campanha?</summary><p>Com e-mail confirmado, acompanhe saldo, extrato, visualizações cobradas e situação das campanhas na mesma área.</p></details>
