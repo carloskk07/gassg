@@ -69,6 +69,8 @@ jobs:
         run: node tests/ads-credit-journey-v1-1100.mjs
       - name: V1.1101 actual Ads Pix handler, provider search, confirmation and duplicate protection
         run: node tests/ads-credit-provider-v1-1101.mjs
+      - name: V1.1103 automatic payment status, read-only recovery and participant safety
+        run: node tests/sitewide-payment-confirmation-v1-1103.mjs
       - name: V1.1096 premium plan selection, secure consent and real advertiser budget handoff
         run: node tests/sponsor-campaign-brief-v1-1096.mjs
       - name: V1.1090 identified advertiser registration and returning sponsor OTP journey
