@@ -27,19 +27,42 @@ return shell(`<section class="page learn-premium">
       <div class="learn-visual-scenes" aria-hidden="true">
         <div class="learn-visual-scene" data-learn-scene="1">
           <span class="learn-scene-title">Escolha por categoria</span>
-          <div class="learn-scene-products"><span>◈ &nbsp; Gás</span><span>◈ &nbsp; Água</span><span>◈ &nbsp; Essenciais</span></div>
+          <div class="learn-scene-products learn-scene-products-art" aria-hidden="true">
+            <span class="learn-product-tile"><svg viewBox="0 0 58 58" fill="none" aria-hidden="true"><rect x="15" y="14" width="28" height="35" rx="7" fill="#DCEFE3" stroke="#187755" stroke-width="2"/><path d="M24 14V8h10v6m-12-6h14M22 24h14M24 36h10" stroke="#187755" stroke-width="2" stroke-linecap="round"/><path d="M18 43h22" stroke="#A2C6AB" stroke-width="1.5"/></svg><b>Gás</b></span>
+            <span class="learn-product-tile"><svg viewBox="0 0 58 58" fill="none" aria-hidden="true"><path d="M22 9h14v8l5 7v19c0 4-4 6-12 6s-12-2-12-6V24l5-7V9Z" fill="#DDEDF2" stroke="#247C88" stroke-width="2"/><path d="M22 17h14M18 27h22M21 36h16" stroke="#6FB1B6" stroke-width="2" stroke-linecap="round"/></svg><b>Água</b></span>
+            <span class="learn-product-tile"><svg viewBox="0 0 58 58" fill="none" aria-hidden="true"><path d="M12 22 29 13l17 9v19L29 50 12 41V22Z" fill="#FFF0D7" stroke="#A87935" stroke-width="2"/><path d="m12 22 17 9 17-9M29 31v19M20 18l18 9" stroke="#B48D56" stroke-width="1.8" stroke-linejoin="round"/></svg><b>Essenciais</b></span>
+          </div>
         </div>
         <div class="learn-visual-scene" data-learn-scene="2" hidden>
           <span class="learn-scene-title">Consulta por região</span>
-          <div class="learn-scene-location"><span class="learn-scene-pin">⌖</span><span>Seu endereço</span><i></i><span>Opções de atendimento</span></div>
+          <div class="learn-scene-map" aria-hidden="true">
+            <svg viewBox="0 0 340 95" preserveAspectRatio="xMidYMid meet" fill="none">
+              <path d="M0 27H340M0 72H340M52 0V95M113 0V95M228 0V95M289 0V95" stroke="#DCE8DF" stroke-width="1"/>
+              <path d="M58 70c43-48 70-49 114-14s74 15 111-18" stroke="#13805B" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="3 8"/>
+              <circle cx="58" cy="70" r="16" fill="#E4F1E8" stroke="#0C7F56" stroke-width="2"/><circle cx="58" cy="70" r="5" fill="#0C7F56"/>
+              <path d="M283 15c-12 0-20 8-20 20 0 14 20 35 20 35s20-21 20-35c0-12-8-20-20-20Z" fill="#0A7652"/>
+              <circle cx="283" cy="35" r="7.5" fill="#E9F8E8"/>
+            </svg>
+            <span>Seu endereço</span><span>Atendimento conforme a região</span>
+          </div>
         </div>
         <div class="learn-visual-scene" data-learn-scene="3" hidden>
           <span class="learn-scene-title">Confirmação com transparência</span>
-          <div class="learn-scene-review"><span class="learn-scene-review-mark">✓</span><span>Você confere as condições</span><span class="learn-scene-review-arrow">→</span><span>A revenda confirma o aceite</span></div>
+          <div class="learn-scene-review learn-scene-review-art" aria-hidden="true">
+             <span class="learn-scene-review-card"><svg viewBox="0 0 36 36" fill="none"><rect x="8" y="5" width="20" height="26" rx="5" fill="#EDF5EA" stroke="#157455" stroke-width="1.8"/><path d="M13 13h10M13 18h10M13 23h6" stroke="#448A67" stroke-width="2" stroke-linecap="round"/></svg><b>Você confere</b></span>
+             <span class="learn-scene-review-arrow">→</span>
+             <span class="learn-scene-review-card"><svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="13" fill="#E0F0E6" stroke="#148258" stroke-width="1.8"/><path d="m11 18 5 5 10-11" stroke="#147952" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Revenda aceita</b></span>
+          </div>
         </div>
         <div class="learn-visual-scene" data-learn-scene="4" hidden>
           <span class="learn-scene-title">Acompanhamento por etapas</span>
-          <div class="learn-scene-track"><span>Solicitação</span><i></i><span>Aceite</span><i></i><span>Entrega</span></div>
+          <div class="learn-scene-track learn-scene-track-art" aria-hidden="true">
+            <span><svg viewBox="0 0 36 36" fill="none"><rect x="8" y="5" width="20" height="26" rx="4" fill="#E4F2E8" stroke="#177957" stroke-width="1.7"/><path d="M13 13h10M13 19h7" stroke="#177957" stroke-width="1.8" stroke-linecap="round"/></svg><b>Solicitação</b></span>
+            <i></i>
+            <span><svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="13" fill="#E6F3E7" stroke="#187B58" stroke-width="1.7"/><path d="m12 18 4 4 8-9" stroke="#187B58" stroke-width="2.2" stroke-linecap="round"/></svg><b>Aceite</b></span>
+            <i></i>
+            <span><svg viewBox="0 0 36 36" fill="none"><path d="M4 12h17v13H4V12Zm17 5h6l5 5v3H21v-8Z" fill="#E6F3E8" stroke="#187B58" stroke-width="1.8" stroke-linejoin="round"/><circle cx="11" cy="26" r="3" fill="#D7F0DF" stroke="#187B58" stroke-width="1.7"/><circle cx="26" cy="26" r="3" fill="#D7F0DF" stroke="#187B58" stroke-width="1.7"/></svg><b>Entrega</b></span>
+          </div>
         </div>
       </div>
       <div class="learn-visual-guide-label">ESCOLHA UMA ETAPA PARA EXPLORAR <span aria-hidden="true">↘</span></div>
@@ -50,6 +73,7 @@ return shell(`<section class="page learn-premium">
         <button type="button" class="learn-phase" aria-pressed="false" onclick="learnPremiumSelectStep(4)"><b>04</b><span>Acompanhe</span></button>
       </div>
       <div class="learn-visual-bottom" aria-live="polite" aria-atomic="true"><span class="learn-visual-check" aria-hidden="true">✓</span><span><strong data-learn-step-title>Você decide antes de confirmar.</strong><small data-learn-step-description>Explore os produtos antes de escolher como seguir.</small></span></div>
+      <button class="learn-visual-next" type="button" onclick="learnPremiumStageAction()" data-learn-stage-cta><span data-learn-stage-cta-label>Explorar produtos</span><span aria-hidden="true">→</span></button>
     </div>
   </section>
 
@@ -191,6 +215,8 @@ function learnPremiumSelectStep(value){
   });
   const visual=root.querySelector('.learn-visual');
   if(visual)visual.dataset.step=String(step);
+  const stageActionLabel=root.querySelector('[data-learn-stage-cta-label]');
+  if(stageActionLabel)stageActionLabel.textContent=step===4?'Acompanhar meu pedido':'Explorar produtos';
   root.querySelectorAll('[data-learn-scene]').forEach(scene=>{
     scene.hidden=scene.getAttribute('data-learn-scene')!==String(step);
   });
@@ -267,4 +293,13 @@ function learnPremiumClearFaq(){
   const input=document.querySelector('.learn-premium #learn-faq-search');
   if(input)input.value='';
   return learnPremiumApplyFaq();
+}
+
+/** Contextual handoff only to existing customer routes, with no fake checkout. */
+function learnPremiumStageAction(){
+  if(typeof document==='undefined')return false;
+  const step=Number(document.querySelector('.learn-premium .learn-visual')?.dataset?.step||1);
+  if(step===4){if(typeof go==='function')go('tracking');return 'tracking';}
+  if(typeof startHomeBrowse==='function')startHomeBrowse();
+  return 'products';
 }

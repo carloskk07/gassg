@@ -209,6 +209,12 @@ assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"3\"]')?
 assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"1\"]')?.hidden"),true);
 await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
 assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
+assert.equal(await evaluate("document.querySelectorAll('.learn-product-tile').length"),3);
+await evaluate("document.querySelectorAll('.learn-phase')[3].click()");
+assert.equal(await evaluate("document.querySelector('[data-learn-stage-cta-label]')?.textContent.trim()"),'Acompanhar meu pedido');
+assert.equal(await evaluate("document.querySelectorAll('[data-learn-scene]')[3].hidden"),false);
+await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
+assert.equal(await evaluate("document.querySelector('[data-learn-stage-cta-label]')?.textContent.trim()"),'Explorar produtos');
 await evaluate("document.querySelector('[data-learn-faq-topic=entrega]').click()");
 assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),3);
 await evaluate("(()=>{const input=document.querySelector('#learn-faq-search');input.value='código';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
