@@ -74,8 +74,10 @@ globalThis.addEventListener?.('hashchange',()=>{
 // Credit coverage is an illustration of fully payable fees, never an order forecast.
 function merchantPlanCoverageCount(ticket,bps,cents){
  const t=Number(ticket),rate=Number(bps),credit=Number(cents);
- if(![100,120,200].includes(t)||![rate,credit].every(Number.isSafeInteger)||
-   rate<0||rate>2000||credit<0||credit>10000000)return null;
+ const rounded=Math.round(t*100);
+ if(!Number.isFinite(t)||t<1||t>10000||Math.abs(t*100-rounded)>.00001||
+   ![rate,credit].every(Number.isSafeInteger)||rate<0||rate>2000||
+   credit<0||credit>10000000)return null;
  const fee=Math.round(t*rate/100);
  return fee>0?Math.floor(credit/fee):null;
 }
@@ -106,6 +108,11 @@ const ticket=Number(value);
 if(![100,120,200].includes(ticket)||typeof document==='undefined')return false;
 const section=document.getElementById('merchant-plans');
 if(!section)return false;
+globalThis.merchantPreviewAmount=ticket;
+const custom=section.querySelector?.('#merchant-v1120-order-value');
+if(custom)custom.value='';
+const status=document.getElementById('merchant-v1120-custom-status');
+if(status)status.textContent='Valor de referência selecionado: '+BRL.format(ticket)+'.';
 const currency=BRL.format(ticket);
 section.querySelectorAll('[data-merchant-ticket]').forEach(button=>{
  button.setAttribute('aria-pressed',String(Number(button.getAttribute('data-merchant-ticket'))===ticket));
@@ -133,8 +140,9 @@ function merchantPlanReceiptPreview(key,ticketValue){
  if(!choice)return false;
  const activeTicket=Array.from(section.querySelectorAll('[data-merchant-ticket]'))
   .find(el=>el.getAttribute('aria-pressed')==='true');
- const ticket=Number(ticketValue===undefined?activeTicket?.getAttribute('data-merchant-ticket'):ticketValue);
- if(![100,120,200].includes(ticket))return false;
+ const ticket=Number(ticketValue===undefined?(globalThis.merchantPreviewAmount||activeTicket?.getAttribute('data-merchant-ticket')):ticketValue);
+ const ticketCents=Math.round(ticket*100);
+ if(!Number.isFinite(ticket)||ticket<1||ticket>10000||Math.abs(ticket*100-ticketCents)>.00001)return false;
  const flexBps=Number(section.getAttribute('data-merchant-flex-bps'));
  const planBps=Number(choice.getAttribute('data-merchant-plan-bps'));
  const creditCents=Number(choice.getAttribute('data-merchant-plan-credit-cents'));
@@ -168,10 +176,87 @@ if(typeof section.querySelector==='function'&&section.querySelector('[data-merch
 globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;
 globalThis.merchantPlanTicketPreview=merchantPlanTicketPreview;
 
+
+// Optional read-only comparison with a custom order value.
+function merchantPlanCustomTicketPreview(value){
+ const ticket=Number(typeof value==='string'?value.trim().replace(',','.'):value),cents=Math.round(ticket*100);
+ if(!Number.isFinite(ticket)||ticket<1||ticket>10000||Math.abs(ticket*100-cents)>.00001)return false;
+ if(typeof document==='undefined')return false;
+ const section=document.getElementById('merchant-plans');
+ if(!section)return false;
+ const amount=cents/100,flexBps=Number(section.getAttribute('data-merchant-flex-bps'));
+ if(!Number.isSafeInteger(flexBps)||flexBps<0||flexBps>2000)return false;
+ section.querySelectorAll('[data-merchant-ticket]').forEach(button=>button.setAttribute('aria-pressed','false'));
+ section.querySelectorAll('[data-merchant-order-ticket]').forEach(el=>{el.textContent=BRL.format(amount)});
+ section.querySelectorAll('[data-merchant-saving-bps]').forEach(el=>{
+  const bps=Number(el.getAttribute('data-merchant-saving-bps'));
+  if(Number.isSafeInteger(bps)&&bps>=0&&bps<=2000){
+   const planBps=flexBps-bps;
+   const delta=Math.round(amount*flexBps/100)-Math.round(amount*planBps/100);
+   el.textContent=BRL.format(delta/100);
+  }
+ });
+ globalThis.merchantPreviewAmount=amount;
+ const active=section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]');
+ if(active)merchantPlanReceiptPreview(active.getAttribute('data-merchant-compare-plan'),amount);
+ merchantPlanCoverageRefresh(amount);
+ return true;
+}
+function merchantPlanCustomTicketChange(input){
+ const value=input?.value;
+ const status=document.getElementById('merchant-v1120-custom-status');
+ if(!merchantPlanCustomTicketPreview(value)){
+  if(status)status.textContent='Informe um valor entre R$ 1,00 e R$ 10.000,00, com até duas casas decimais.';
+  return false;
+ }
+ if(status)status.textContent='Comparação atualizada para '+BRL.format(Number(String(value).replace(',','.')))+'.';
+ return true;
+}
+globalThis.merchantPlanCustomTicketPreview=merchantPlanCustomTicketPreview;
+globalThis.merchantPlanCustomTicketChange=merchantPlanCustomTicketChange;
+
+
+// Preview the visitor's own brand locally; never sends, stores or publishes the text.
+function merchantBrandPreviewHydrate(){
+ if(typeof document==='undefined')return false;
+ const showcase=document.querySelector('.merchant-v1112-window');
+ if(!showcase)return false;
+ if(showcase.querySelector('.merchant-v1120-brand-demo'))return true;
+ const intro=showcase.querySelector('.merchant-v1112-window-intro');
+ if(!intro)return false;
+ const block=document.createElement('div');
+ block.className='merchant-v1120-brand-demo';
+ block.innerHTML='<div class="merchant-v1120-brand-identity">'+
+  '<span class="merchant-v1120-brand-monogram" aria-hidden="true">S</span>'+
+  '<div class="merchant-v1120-brand-words"><small>SUA VITRINE NO TAMÃO</small>'+
+  '<strong class="merchant-v1120-brand-name">Sua revenda</strong>'+
+  '<span>Seu catálogo • Sua operação</span></div></div>'+
+  '<label class="merchant-v1120-brand-label" for="merchant-brand-try">Experimente com o nome da sua revenda</label>'+
+  '<input id="merchant-brand-try" class="merchant-v1120-brand-input" type="text" maxlength="42" '+
+   'autocomplete="off" spellcheck="false" placeholder="Nome da sua revenda">'+
+  '<small class="merchant-v1120-brand-hint">Prévia temporária. Nada é enviado nem cadastrado aqui.</small>';
+ const input=block.querySelector('input');
+ const display=block.querySelector('.merchant-v1120-brand-name');
+ const monogram=block.querySelector('.merchant-v1120-brand-monogram');
+ const refresh=()=>{
+  const value=String(input.value||'').replace(/\s+/g,' ').trim().slice(0,42);
+  globalThis.merchantPreviewBrandName=value;
+  display.textContent=value||'Sua revenda';
+  monogram.textContent=(value||'Sua revenda').charAt(0).toLocaleUpperCase('pt-BR');
+ };
+ input.addEventListener('input',refresh);
+ input.value=String(globalThis.merchantPreviewBrandName||'').slice(0,42);
+ refresh();
+ intro.insertAdjacentElement('afterend',block);
+ return true;
+}
+globalThis.merchantBrandPreviewHydrate=merchantBrandPreviewHydrate;
+
 /* Build the explanatory receipt only when the merchant landing is visited.
    This keeps customer checkout below its strict initial JS budget. */
 function merchantPlanReceiptHydrate(){
  if(typeof document==='undefined')return false;
+ merchantBrandPreviewHydrate();
  const section=document.getElementById('merchant-plans');
  const grid=section?.querySelector('.merchant-v1115-plans-grid');
  if(!grid)return false;
@@ -259,9 +344,33 @@ function merchantPlanReceiptHydrate(){
  const flex=plans[0],lowest=prepaid.reduce((best,next)=>next.bps<best.bps?next:best);
  section.querySelector('[data-merchant-way-flex]').textContent=(flex.bps/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
  section.querySelector('[data-merchant-way-prepaid]').textContent='A partir de '+(lowest.bps/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+ const ticketbar=section.querySelector('.merchant-v1117-ticketbar');
+ if(ticketbar&&!ticketbar.querySelector('.merchant-v1120-custom-ticket')){
+  const label=document.createElement('label');
+  label.className='merchant-v1120-custom-ticket';
+  label.setAttribute('for','merchant-v1120-order-value');
+  const title=document.createElement('span');
+  title.textContent='OUTRO VALOR DO PEDIDO (R$)';
+  const input=document.createElement('input');
+  input.id='merchant-v1120-order-value';
+  input.type='text';input.inputMode='decimal';input.maxLength=10;
+  input.placeholder='Ex.: 125,90';
+  input.setAttribute('aria-describedby','merchant-v1120-custom-status');
+  const status=document.createElement('small');
+  status.id='merchant-v1120-custom-status';status.setAttribute('role','status');
+  status.textContent='Use o valor médio da sua revenda.';
+  input.addEventListener('change',()=>merchantPlanCustomTicketChange(input));
+  label.append(title,input,status);
+  ticketbar.appendChild(label);
+ }
  const selected=section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]');
  const selectedTicket=section.querySelector('[data-merchant-ticket][aria-pressed="true"]');
- const ticket=Number(selectedTicket?.getAttribute('data-merchant-ticket')||120);
+ const ticket=Number(globalThis.merchantPreviewAmount||selectedTicket?.getAttribute('data-merchant-ticket')||120);
+ if(![100,120,200].includes(ticket)){
+  const custom=section.querySelector('#merchant-v1120-order-value');
+  if(custom)custom.value=String(ticket);
+  return merchantPlanCustomTicketPreview(ticket);
+ }
  const result=merchantPlanReceiptPreview(selected?.getAttribute('data-merchant-compare-plan')||prepaid[0].key,ticket);
  merchantPlanCoverageRefresh(ticket);
  return result;

@@ -992,13 +992,13 @@ if(!document.getElementById('merchant-executive-styles')){
 const link=document.createElement('link');
 link.id='merchant-executive-styles';
 link.rel='stylesheet';
-link.href='./css/merchant-landing-executive.css?v=1119';
+link.href='./css/merchant-landing-executive.css?v=1120';
 document.head.appendChild(link);
 }
 if(!document.getElementById('merchant-public-plans-script')){
 const script=document.createElement('script');
 script.id='merchant-public-plans-script';
-script.src='./js/merchant-public-plans.js?v=1119';
+script.src='./js/merchant-public-plans.js?v=1120';
 script.async=true;
 document.head.appendChild(script);
 }else globalThis.tamaoMerchantPublicPlansLoad?.();
