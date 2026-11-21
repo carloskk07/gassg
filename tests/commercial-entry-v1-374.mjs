@@ -51,8 +51,8 @@ assert.ok(!/resultados garantidos|milhares de clientes garantidos/i.test(sponsor
 assert.ok(merchant.indexOf('merchant-landing-premium')>=0);
 const conversion=merchant.indexOf('merchant-conversion-start');
 assert.ok(conversion>merchant.indexOf('merchant-landing-premium'));
-assert.ok(conversion<merchant.indexOf('public-page-jump-rail'));
-assert.ok(conversion<merchant.indexOf('merchant-cro-steps'));
+assert.ok(conversion<merchant.indexOf('merchant-v1114-index'));
+assert.ok(conversion<merchant.indexOf('merchant-v1114-benefits'));
 assert.ok(conversion<merchant.indexOf('id="merchant-margin"'));
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1,
  'existing interest form must render once');
@@ -61,7 +61,7 @@ assert.ok(merchant.includes("internalPilot?'':`<section class=\"merchant-convers
 assert.ok(merchant.includes('openMerchantPortal(true)'),'main CTA opens actual signup');
 assert.ok(merchant.includes('policyPercent(merchantPilotFeeRate())'));
 assert.ok(merchant.includes('merchant-margin')&&merchant.includes('merchant-how'));
-assert.ok(merchant.includes('Após habilitação'));
+assert.ok(merchant.includes('A liberação das vendas depende da conferência dos dados'));
 assert.ok(merchant.includes('O cliente paga diretamente à sua revenda'));
 
 // Progressive disclosure reduces mobile clutter but retains every validation
