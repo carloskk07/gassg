@@ -7,7 +7,7 @@ const source=read('js/learn-premium.js');
 const css=read('css/learn-premium.css');
 new vm.Script(source,{filename:'js/learn-premium.js'});
 const pageCtx=vm.createContext({shell:markup=>markup});
-vm.runInContext(source.slice(0,source.indexOf('\nfunction learnPremiumSelectStep('))+'\nthis.page=learnPremiumPage;',pageCtx);
+vm.runInContext(source+'\nthis.page=learnPremiumPage;',pageCtx);
 const markup=pageCtx.page();
 
 assert.equal((markup.match(/class="learn-phase(?: is-active)?"/g)||[]).length,4,'four accessible selector buttons');
