@@ -198,6 +198,13 @@ assert.match(body,/Tudo mais simples/);
 assert.match(body,/UMA RELAÇÃO TRANSPARENTE/);
 assert.match(body,/A revenda precisa aceitar/);
 assert.match(body,/GUIA DA SUA JORNADA/);
+await evaluate("document.querySelectorAll('.learn-phase')[2].click()");
+assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'3',
+ 'selecting the third buyer guide step must update the live illustration');
+assert.equal(await evaluate("document.querySelector('.learn-phase[aria-pressed=true]')?.textContent.includes('Confirme')"),true);
+assert.equal(await evaluate("document.querySelector('[data-learn-step-count]')?.textContent"),'03 / 04');
+await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
+assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
 await auditDom('learn');
 
 await evaluate("go('privacy')");
