@@ -6,7 +6,7 @@ learnPremiumFaqState.query='';
 return shell(`<section class="page learn-premium">
   <section class="learn-hero" aria-labelledby="learn-hero-title">
     <div class="learn-hero-copy">
-      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO · DO PEDIDO À ENTREGA</span>
+      <span class="learn-eyebrow"><span class="learn-eyebrow-mark" aria-hidden="true"></span> TAMÃO / GUIA DE COMPRA</span>
       <h1 id="learn-hero-title">Simples para pedir. <em>Claro para acompanhar.</em></h1>
       <span class="learn-hero-fine-line" aria-hidden="true"></span>
       <p>Encontre gás, água e itens essenciais com uma jornada transparente. Consulte as condições para seu endereço, escolha com liberdade e acompanhe as informações da revenda.</p>
@@ -66,7 +66,7 @@ return shell(`<section class="page learn-premium">
         </div>
       </div>
       <div class="learn-visual-guide-label">ESCOLHA UMA ETAPA PARA EXPLORAR <span aria-hidden="true">↘</span></div>
-      <div class="learn-visual-flow" role="group" aria-label="Explorar as etapas do pedido">
+      <div class="learn-visual-flow" role="group" aria-label="Explorar as etapas do pedido" onkeydown="learnPremiumStageKeydown(event)">
         <button type="button" class="learn-phase is-active" aria-pressed="true" onclick="learnPremiumSelectStep(1)"><b>01</b><span>Escolha</span></button><i aria-hidden="true"></i>
         <button type="button" class="learn-phase" aria-pressed="false" onclick="learnPremiumSelectStep(2)"><b>02</b><span>Consulte</span></button><i aria-hidden="true"></i>
         <button type="button" class="learn-phase" aria-pressed="false" onclick="learnPremiumSelectStep(3)"><b>03</b><span>Confirme</span></button><i aria-hidden="true"></i>
@@ -119,7 +119,7 @@ return shell(`<section class="page learn-premium">
       </ul>
     </div>
     <aside class="learn-confidence-panel" aria-label="Transparência na entrega">
-      <span class="learn-confidence-panel-tag">TRANSPARÊNCIA EM CADA ETAPA</span><span class="learn-confidence-seal" aria-hidden="true">T<span>✓</span></span>
+      <span class="learn-confidence-panel-tag">TRANSPARÊNCIA EM CADA ETAPA</span><span class="learn-confidence-seal" aria-hidden="true">T.</span>
 
       <h3>O que merece sua atenção.</h3>
       <div class="learn-timeline">
@@ -302,4 +302,23 @@ function learnPremiumStageAction(){
   if(step===4){if(typeof go==='function')go('tracking');return 'tracking';}
   if(typeof startHomeBrowse==='function')startHomeBrowse();
   return 'products';
+}
+
+/** Native arrow-key navigation for the four public, informative journey stages. */
+function learnPremiumStageKeydown(event){
+  if(!event||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return false;
+  const group=event.currentTarget;
+  if(!group||typeof document==='undefined')return false;
+  const buttons=Array.from(group.querySelectorAll('.learn-phase'));
+  const current=buttons.indexOf(document.activeElement);
+  if(current<0||buttons.length!==4)return false;
+  let next=current;
+  if(event.key==='Home')next=0;
+  else if(event.key==='End')next=buttons.length-1;
+  else if(event.key==='ArrowRight')next=(current+1)%buttons.length;
+  else next=(current+buttons.length-1)%buttons.length;
+  event.preventDefault();
+  const activated=learnPremiumSelectStep(next+1);
+  if(activated)buttons[next].focus();
+  return activated;
 }
