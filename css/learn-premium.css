@@ -888,9 +888,9 @@
 }
 .learn-premium .learn-hero{
   isolation:isolate;
-  min-height:600px;
-  gap:clamp(32px,4.4vw,62px);
-  padding:clamp(36px,5vw,68px);
+  min-height:0;
+  gap:clamp(27px,3.8vw,54px);
+  padding:clamp(32px,3.8vw,52px);
   border:1px solid #e4e7db;
   border-radius:27px;
   background:linear-gradient(122deg,#fafaf4 0%,#f7f7f0 57%,#f0f4ea 100%);
@@ -907,15 +907,15 @@
   box-shadow:0 0 0 26px rgba(117,142,118,.028),0 0 0 58px rgba(117,142,118,.024);
 }
 .learn-premium .learn-hero .learn-eyebrow{
-  margin-bottom:35px;padding:0 0 0 17px;
+  margin-bottom:23px;padding:0 0 0 14px;
   background:transparent;border:0;border-left:2px solid #b39056;
   border-radius:0;color:#537262;
   font-size:10px;letter-spacing:.17em;font-weight:900;
 }
 .learn-premium .learn-hero .learn-eyebrow-mark{display:none}
 .learn-premium .learn-hero h1{
-  max-width:13.5ch;margin-bottom:0;
-  font-size:clamp(40px,4.55vw,60px);
+  max-width:14ch;margin-bottom:0;
+  font-size:clamp(39px,4.12vw,55px);
   line-height:1.065;letter-spacing:-.061em;
   color:#153a2d;font-weight:860;
 }
@@ -930,16 +930,16 @@
 }
 .learn-premium .learn-hero-fine-line{
   width:48px;height:2px;
-  margin:29px 0 24px;
+  margin:19px 0 18px;
   background:#b48a50;
 }
 .learn-premium .learn-hero-copy>p{
   max-width:45ch;
   font-size:clamp(14px,1.23vw,15px);
   color:#607367;line-height:1.86;
-  margin-bottom:28px;
+  margin-bottom:21px;
 }
-.learn-premium .learn-hero-actions{gap:12px;margin-bottom:34px}
+.learn-premium .learn-hero-actions{gap:10px;margin-bottom:20px}
 .learn-premium .learn-button{
   border-radius:10px;
   font-size:13px;font-weight:800;
@@ -959,7 +959,7 @@
 }
 .learn-premium .learn-hero .learn-button-outline:hover{background:#f1f7ed}
 .learn-premium .learn-hero-assurances{
-  padding-top:19px;gap:8px 16px;
+  padding-top:15px;gap:8px 16px;
   border-top:1px solid #dfe7dd;
   color:#607d6c;font-size:10.5px;font-weight:700;
 }
@@ -970,7 +970,7 @@
 .learn-premium .learn-visual{
   color:#fff;
   transform:none;
-  padding:clamp(23px,2.5vw,34px);
+  padding:clamp(20px,2.1vw,27px);
   border:1px solid #225747;border-radius:20px;
   background:linear-gradient(158deg,#0b4233 0%,#0a3429 70%,#092d25 100%);
   box-shadow:0 24px 49px rgba(9,52,35,.16);
@@ -983,7 +983,7 @@
 .learn-premium .learn-visual-top{color:#d1e3d5;letter-spacing:.115em}
 .learn-premium .learn-visual-dot{width:7px;height:7px;background:#dcb778}
 .learn-premium .learn-visual-star{color:#cba86e;font-size:15px;opacity:.8}
-.learn-premium .learn-visual-intro{margin-top:30px;gap:7px}
+.learn-premium .learn-visual-intro{margin-top:19px;gap:5px}
 .learn-premium .learn-visual-intro>span{color:#dfbd85;font-size:10px}
 .learn-premium .learn-visual-intro strong{
   color:#f7f9f3;font-size:clamp(24px,2.35vw,30px);
@@ -994,7 +994,8 @@
   background:linear-gradient(143deg,#f6f8f1,#eaf3e7);
   border:1px solid #d7e5d4;
   border-radius:13px;
-  margin:21px 0 20px;
+  margin:14px 0 14px;
+  min-height:117px;
 }
 .learn-premium .learn-visual-guide-label{
   color:#c2d8c9;
@@ -1159,6 +1160,40 @@
   background:linear-gradient(115deg,#0b4332,#0a6548);
   box-shadow:none;
 }
+
+/* First-fold clarity: real product CTA visible before the visitor scrolls.
+   Keep all four illustrated scenes and keyboard controls intact. */
+.learn-premium .learn-hero-copy{justify-content:center}
+.learn-premium .learn-visual-scene{min-height:115px;padding:11px 14px;gap:7px}
+.learn-premium .learn-scene-products-art>.learn-product-tile{min-height:75px;padding:6px 4px;gap:3px}
+.learn-premium .learn-product-tile svg{height:42px;width:42px}
+.learn-premium .learn-scene-map svg{height:57px}
+.learn-premium .learn-scene-review-art>.learn-scene-review-card{min-height:75px;padding:7px 4px;gap:4px}
+.learn-premium .learn-scene-review-card svg{height:29px;width:29px}
+.learn-premium .learn-scene-track-art>span{min-height:75px;padding:6px 3px;gap:4px}
+.learn-premium .learn-scene-track-art>span svg{height:30px;width:30px}
+.learn-premium .learn-visual-guide-label{padding-top:11px}
+.learn-premium .learn-visual-flow{padding:9px 0 10px}
+.learn-premium .learn-visual-bottom{min-height:64px;padding:10px 12px;margin-bottom:9px}
+.learn-premium .learn-visual-next{min-height:43px;padding:9px 13px}
+.learn-premium .learn-trust-strip{margin-bottom:68px}
+.learn-premium .learn-trust-strip>.learn-trust-intro{
+  padding:20px;
+  background:#f0f5ed;
+}
+.learn-premium .learn-trust-intro strong{font-size:18px}
+.learn-premium .learn-trust-strip>.learn-trust-path{padding:17px 16px;gap:9px}
+.learn-premium .learn-trust-path>.learn-strip-icon{width:29px;height:29px;flex-basis:29px}
+.learn-premium .learn-trust-path button{padding-top:8px}
+@media(min-width:1001px) and (max-height:780px){
+  .learn-premium .learn-hero{padding:30px 40px;gap:40px}
+  .learn-premium .learn-hero .learn-eyebrow{margin-bottom:16px}
+  .learn-premium .learn-hero h1{font-size:clamp(38px,3.85vw,51px)}
+  .learn-premium .learn-hero-fine-line{margin:16px 0 13px}
+  .learn-premium .learn-hero-copy>p{font-size:14px;line-height:1.66;margin-bottom:16px}
+  .learn-premium .learn-hero-actions{margin-bottom:14px}
+}
+
 @media(max-width:1000px){
   .learn-premium .learn-hero{gap:28px;padding:clamp(30px,4vw,48px)}
   .learn-premium .learn-step-grid{gap:0 25px}
