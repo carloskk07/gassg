@@ -761,3 +761,75 @@
 @media(prefers-reduced-motion:reduce){
  .merchant-landing-v1117 .merchant-v1115-plan{transition:none}
 }
+
+
+/* TAMÃO V1.1123 — guided merchant capability tour, no fake orders or payments. */
+.merchant-v1123-tour{margin:0 0 14px}
+.merchant-v1123-tour-caption{margin:0 0 7px;color:#b6d7c2;font-size:9px;font-weight:900;letter-spacing:.115em}
+.merchant-v1123-tour-tabs{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;
+ border:1px solid rgba(216,235,220,.19);border-radius:13px;
+ background:rgba(3,34,25,.38);
+}
+.merchant-v1123-tour-tabs button{
+ display:block;min-width:0;min-height:39px;padding:9px 6px;
+ border:1px solid transparent;border-radius:9px;
+ background:transparent;color:#c4ddcb;
+ font:inherit;font-size:11px;font-weight:850;letter-spacing:-.01em;
+ text-align:center;white-space:nowrap;cursor:pointer;
+ transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+}
+.merchant-v1123-tour-tabs button:hover{background:rgba(255,255,255,.12);color:#fff}
+.merchant-v1123-tour-tabs button[aria-selected="true"]{
+ background:#f7f8ed;border-color:#e9ddba;color:#124432;
+ box-shadow:0 3px 12px rgba(0,0,0,.16);
+}
+.merchant-v1123-tour-tabs button:focus-visible{
+ outline:3px solid #e6bd70;outline-offset:3px;position:relative;z-index:1;
+}
+.merchant-v1123-tour-panel[hidden]{display:none!important}
+.merchant-v1123-tour-panel{min-width:0}
+.merchant-v1123-tour-panel:focus-visible{outline:2px solid #e6bd70;outline-offset:3px;border-radius:11px}
+.merchant-v1123-vitrine .merchant-v1120-brand-demo{margin-top:0}
+.merchant-v1123-tour-process,.merchant-v1123-tour-finance{
+ padding:18px 15px 15px;border:1px solid rgba(226,242,226,.19);
+ border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.095),rgba(255,255,255,.035));
+ min-height:260px;
+}
+.merchant-v1123-tour-kicker{
+ display:block;color:#e5cc96;font-size:9px;font-weight:950;letter-spacing:.095em;line-height:1.45;
+}
+.merchant-v1123-tour-panel h3{
+ margin:8px 0 17px;color:#fffcf4;font-size:clamp(18px,2.05vw,25px);
+ line-height:1.19;font-weight:900;letter-spacing:-.035em;text-wrap:balance;
+}
+.merchant-v1123-tour-steps{display:grid;gap:8px;padding:0;margin:0;list-style:none}
+.merchant-v1123-tour-steps li{
+ display:flex;align-items:flex-start;gap:11px;padding:11px 12px;border-radius:12px;
+ background:rgba(255,255,255,.07);border:1px solid rgba(224,239,222,.12);
+}
+.merchant-v1123-tour-steps li>b{
+ display:grid;place-items:center;flex:0 0 31px;width:31px;height:31px;
+ border-radius:9px;background:rgba(225,194,136,.17);color:#eed29f;font-size:10px;font-weight:950;
+}
+.merchant-v1123-tour-steps li>div{min-width:0;display:grid;gap:3px}
+.merchant-v1123-tour-steps strong{color:#f7fff7;font-size:12px;line-height:1.34}
+.merchant-v1123-tour-steps small{color:#bdd8c6;font-size:10px;line-height:1.45}
+.merchant-v1123-tour-note{margin:13px 0 0;color:#bad8c5;font-size:10px;line-height:1.62}
+.merchant-v1123-money-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.merchant-v1123-money-grid>div{
+ display:flex;flex-direction:column;min-width:0;gap:8px;padding:16px 13px;
+ border-radius:13px;border:1px solid rgba(223,237,219,.19);background:rgba(255,255,255,.07);
+}
+.merchant-v1123-money-grid span{font-size:9px;letter-spacing:.09em;color:#dabb82;font-weight:900}
+.merchant-v1123-money-grid strong{font-size:17px;letter-spacing:-.03em;line-height:1.24;color:#f7fff6}
+.merchant-v1123-money-grid small{font-size:11px;line-height:1.55;color:#c5dfce}
+@media(max-width:520px){
+ .merchant-v1123-tour-tabs button{font-size:10px;min-height:41px;padding:9px 3px}
+ .merchant-v1123-tour-process,.merchant-v1123-tour-finance{min-height:0;padding:15px 12px}
+ .merchant-v1123-tour-panel h3{font-size:21px}
+ .merchant-v1123-money-grid{grid-template-columns:1fr}
+ .merchant-v1123-money-grid>div{gap:5px;padding:12px}
+ .merchant-v1123-tour-note{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.merchant-v1123-tour-tabs button{transition:none}}
