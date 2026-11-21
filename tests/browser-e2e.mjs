@@ -191,8 +191,13 @@ assert.match(await evaluate("adminRuntime.bootstrapStatus='not_reserved';adminNo
 assert.match(await evaluate("adminRuntime.bootstrapError='Falha simulada';adminBootstrapErrorView()"),/Nenhuma permissão foi concedida por fallback/);
 await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=null");
 
+await send('Emulation.setDeviceMetricsOverride',{width:1366,height:768,deviceScaleFactor:1,mobile:false,screenWidth:1366,screenHeight:768});
 await evaluate("go('learn')");
 await waitFor("document.querySelector('.learn-hero') && document.querySelector('.learn-step-grid')","premium learn route");
+assert.equal(await evaluate("(()=>{const c=document.querySelector('.learn-hero .learn-button-primary');if(!c)return false;const r=c.getBoundingClientRect();return r.width>0&&r.height>0&&r.top>=0&&r.bottom<=window.innerHeight-8;})()"),true,
+ 'first primary product CTA should be visible without scrolling on a 1366x768 desktop');
+assert.equal(await evaluate("(()=>{const c=document.querySelector('.learn-hero .learn-button-outline');if(!c)return false;const r=c.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom<=window.innerHeight-8;})()"),true,
+ 'guide action should be visible in the initial desktop viewport');
 body=await text();
 assert.match(body,/Simples para pedir/);
 assert.match(body,/Claro para acompanhar/);
@@ -230,6 +235,7 @@ assert.equal(await evaluate("document.querySelector('[data-learn-faq-empty]').hi
 await evaluate("document.querySelector('[data-learn-faq-empty] button').click()");
 assert.equal(await evaluate("document.querySelectorAll('.learn-faq-items details:not([hidden])').length"),8);
 await auditDom('learn');
+await clearViewportOverride();
 
 await evaluate("go('privacy')");
 await waitFor("document.body.innerText.includes('Aviso de Privacidade')","privacy route");
