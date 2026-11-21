@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const read = name => fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const growth=read('js/growth.js');
-const styles=read('css/marketing-premium.css');
+const styles=read('css/merchant-landing-executive.css');
 const sw=read('sw.js');
 new vm.Script(growth,{filename:'growth.js'});
 
