@@ -1417,3 +1417,15 @@
 @media(prefers-reduced-motion:reduce){
   .learn-premium .learn-cover-visual img{transition:none}
 }
+
+/* Distinct illustrated editorial delivery chapter, V1.1133. */
+.learn-premium .learn-confidence-art{
+  display:block;width:100%;height:auto;max-height:170px;object-fit:cover;
+  border-radius:15px;margin:5px 0 17px;
+  border:1px solid rgba(243,218,170,.22);
+  box-shadow:0 13px 25px rgba(0,30,20,.12);
+}
+.learn-premium .learn-confidence-panel .learn-panel-footnote{margin-top:0}
+@media(max-width:700px){
+  .learn-premium .learn-confidence-art{max-height:154px;border-radius:12px}
+}
