@@ -1138,7 +1138,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 </div>
 <div class="merchant-v1115-plans-grid">${planCards}</div>
 <div class="merchant-v1115-plans-bottom">
-<div><strong>Como funciona o pré-pago?</strong><p>Escolha um pacote no Financeiro do Portal da Revenda, pague a recarga e aguarde a confirmação. O crédito cobre as taxas dos pedidos concluídos; a receita da venda continua sendo sua. Acompanhe o saldo e confira os valores atuais no painel antes de contratar.</p></div>
+<div><strong>Como funciona o pré-pago?</strong><p>Escolha um pacote no Financeiro do Portal da Revenda, pague a recarga e aguarde a confirmação. Os créditos pagam taxas; o valor da venda segue com a revenda. Consulte saldo e condições no painel.</p></div>
 <button class="secondary merchant-v1115-plans-cta" type="button" onclick="openMerchantPortal(true)">Conhecer os planos no Portal <span aria-hidden="true">→</span></button>
 </div>
 <p class="merchant-v1115-plans-fine">Economia ilustrativa por pedido de R$ 120, em comparação com o Flex Diário de 9%. Só existe economia quando a tarifa reduzida é efetivamente aplicada. Recargas não garantem pedidos ou lucro; condições podem ser alteradas pelo administrador.</p>
@@ -1213,25 +1213,25 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 </div>
 
 
-<section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">COMECE COM O BÁSICO</span><h2>Comece pelo cadastro. As verificações vêm depois.</h2><p>Você pode cadastrar sua empresa agora. Antes de liberar as vendas, conferimos os dados do responsável e, no caso do gás, as autorizações exigidas.</p></div>
+<section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">COMECE COM O BÁSICO</span><h2>Comece pelo cadastro. As verificações vêm depois.</h2><p>Cadastre-se agora. A ativação depende de conferência dos dados e das licenças aplicáveis.</p></div>
 <div class="requirement-list"><span>✓ Dados e CNPJ da empresa</span><span>✓ Responsável autorizado</span><span>✓ Endereço e área de atendimento</span><span>✓ ANP vigente para comercializar GLP</span></div>
 </div></section>
 
 <section class="section merchant-v1114-faq" id="merchant-faq" tabindex="-1"><div class="section-head"><div><span class="section-kicker">RESPOSTAS PARA DECIDIR COM TRANQUILIDADE</span><h2>O que você precisa saber antes de começar.</h2></div></div><div class="faq-list">
 <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
-<details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O TAMÃO considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
+<details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não. Preço total, prazo e confiança são considerados na seleção.</p></details>
 <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
 <details><summary>Qual é a taxa de cada plano?</summary><p>O Flex Diário cobra 9% sobre pedidos concluídos. Com créditos antecipados: Essencial 8%, Popular 7,5%, Profissional 7% e Alto Volume 6,5%, conforme plano ativo e saldo disponível. Verifique as condições atuais no Financeiro antes de contratar.</p></details>
 <details><summary>Quem define preço, estoque e entrega?</summary><p>A sua revenda. Você define o preço de cada produto, o estoque, o frete, a previsão de entrega e quando pode atender.</p></details>
-<details><summary>Como recebo o dinheiro da venda?</summary><p>O cliente paga diretamente à sua revenda, conforme a forma de pagamento oferecida. O TAMÃO não recebe o valor para depois fazer um repasse.</p></details>
-<details><summary>Preciso ter Mercado Pago ou contratar um novo serviço?</summary><p>Não para receber na entrega. A revenda pode disponibilizar dinheiro, Pix ou cartão na maquininha, conforme o que realmente aceita. Integrações automáticas com provedores dependem de homologação.</p></details>
+<details><summary>Como recebo o dinheiro da venda?</summary><p>O cliente paga diretamente à sua revenda. O TAMÃO não retém a venda.</p></details>
+<details><summary>Preciso ter Mercado Pago ou contratar um novo serviço?</summary><p>Não para receber na entrega. Você pode receber na entrega por dinheiro, Pix ou cartão, conforme sua operação.</p></details>
 <details><summary>Tenho que pagar para começar?</summary><p>Não. O cadastro é gratuito. O Flex Diário funciona sem recarga antecipada: a taxa de 9% é apurada sobre pedidos concluídos. Os pacotes são opcionais.</p></details>
 <details><summary>Comprar crédito significa pagar uma taxa extra?</summary><p>Não. A recarga é um adiantamento usado para pagar taxas da plataforma. Ela não compra produtos nem garante pedidos; a tarifa reduzida depende do plano ativo e do saldo disponível.</p></details>
-<details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O TAMÃO pode procurar outra revenda antes da saída. Mantenha preços, estoque e disponibilidade em dia e avise o quanto antes quando não puder cumprir uma entrega.</p></details>
+<details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>Avise antes da saída; o TAMÃO poderá procurar outra revenda.</p></details>
 <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
 </div></section>
 
-<section class="section merchant-v1114-last-cta"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'SUA REVENDA TEM ESPAÇO AQUI'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Pronto para apresentar seu negócio?'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'O cadastro é gratuito. Nossa equipe confere os dados e as autorizações antes da liberação das vendas. Sem promessa de pedidos ou exclusividade.'}</p></div><button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Cadastrar minha revenda →'}</button></div></section>
+<section class="section merchant-v1114-last-cta"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'SUA REVENDA TEM ESPAÇO AQUI'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Pronto para apresentar seu negócio?'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'Cadastro gratuito, sujeito à aprovação. Sem exclusividade.'}</p></div><button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Cadastrar minha revenda →'}</button></div></section>
 </section>`)
 }
 function currentMerchantPilotInviteToken(){
