@@ -128,7 +128,9 @@ function adminCreditAdsPanel(){
   '<h3>Campanhas por visualização</h3>'+
   '<p>Revisão de criativos e controle dos saldos, sem pacote de dias. Os lançamentos antigos permanecem no histórico anterior.</p></div>'+
   '<button type="button" class="secondary small" onclick="adminCreditAdsRefresh()">Atualizar</button></div>'+
-  (current?adminCreditPilotPanel()+'<div class="merchant-kpis">'+
+  (current?(deliveryOpen?
+   '<details class="card flat admin-credit-pilot-history"><summary>Consultar homologação financeira anterior</summary>'+adminCreditPilotPanel()+'</details>':
+   adminCreditPilotPanel())+'<div class="merchant-kpis">'+
    '<div class="kpi"><span class="label">Preço por visualização</span><strong>'+
     money(g.centsPerView)+'</strong></div>'+
    '<div class="kpi"><span class="label">Saldo total</span><strong>'+
