@@ -12,13 +12,27 @@ return shell(`<section class="page learn-premium">
       <p>Encontre gás, água e itens essenciais nas revendas da sua região. Confira o valor e as condições antes de solicitar. A revenda confirma o atendimento; você acompanha cada etapa informada.</p>
       <div class="learn-hero-actions">
         <button type="button" class="learn-button learn-button-primary" onclick="startHomeBrowse()">Explorar produtos <span aria-hidden="true">→</span></button>
-        <button type="button" class="learn-button learn-button-outline" onclick="publicLandingJump('buyer-guide-steps')">Ver como funciona <span aria-hidden="true">↘</span></button>
+        <button type="button" class="learn-button learn-button-outline" onclick="learnPremiumJump('learn-guided-tour')">Ver como funciona <span aria-hidden="true">↘</span></button>
       </div>
       <div class="learn-hero-assurances" aria-label="Compromissos da experiência">
         <span><i aria-hidden="true">✓</i> Consulte sem criar conta</span>
         <span><i aria-hidden="true">✓</i> Confira o valor antes do pedido</span>
         <span><i aria-hidden="true">✓</i> Revenda confirma o aceite</span>
       </div>
+    </div>
+    <figure class="learn-cover-visual">
+      <img src="./assets/learn-essentials-signature-v1133.svg" width="860" height="640" decoding="async" fetchpriority="high" alt="Composição ilustrada de gás, água e produtos essenciais." />
+      <figcaption class="learn-cover-caption"><span>ESSENCIAIS DO DIA A DIA</span><strong>Da sua região para a sua rotina.</strong></figcaption>
+    </figure>
+  </section>
+
+  <section class="learn-guided-tour" id="learn-guided-tour" tabindex="-1" aria-labelledby="learn-tour-title">
+    <div class="learn-guide-intro">
+      <span class="learn-label">CONHEÇA A EXPERIÊNCIA</span>
+      <h2 id="learn-tour-title">Cada escolha, <em>com mais clareza.</em></h2>
+      <p>Veja o caminho do pedido, da consulta às informações da revenda. Escolha uma etapa para entender os detalhes.</p>
+      <div class="learn-guide-ornament" aria-hidden="true"><span>01</span><i></i><span>02</span><i></i><span>03</span><i></i><span>04</span></div>
+      <p class="learn-guide-footnote">O pedido depende da disponibilidade e do aceite da revenda.</p>
     </div>
     <div class="learn-visual" data-step="1" aria-label="Guia interativo de quatro etapas">
       <div class="learn-visual-top"><span class="learn-visual-dot"></span><span>SUA JORNADA, SEM SURPRESAS</span><span class="learn-visual-star" aria-hidden="true">✳</span></div>
@@ -76,7 +90,6 @@ return shell(`<section class="page learn-premium">
       <button class="learn-visual-next" type="button" onclick="learnPremiumStageAction()" data-learn-stage-cta><span data-learn-stage-cta-label>Explorar produtos</span><span aria-hidden="true">→</span></button>
     </div>
   </section>
-
 
   <nav class="learn-quick-index" aria-label="Explorar esta página">
     <span>IR DIRETO AO QUE IMPORTA</span>
@@ -251,7 +264,7 @@ function learnPremiumSelectStep(value){
 
 /** Whitelisted local section jumps, no route switching or arbitrary selectors. */
 function learnPremiumJump(sectionId){
-  if(!['learn-confidence','learn-benefits'].includes(sectionId)||typeof document==='undefined')return false;
+  if(!['learn-confidence','learn-benefits','learn-guided-tour'].includes(sectionId)||typeof document==='undefined')return false;
   const section=document.getElementById(sectionId);
   if(!section)return false;
   section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
