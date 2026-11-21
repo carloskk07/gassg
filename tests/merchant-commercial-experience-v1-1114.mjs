@@ -57,7 +57,7 @@ assert.doesNotMatch(html,/merchant-cro-steps|merchant-value-strip|founder-band/,
 assert.doesNotMatch(html,/10\.000 clientes|Pedidos garantidos|Renda garantida|revendas fictícias/i);
 assert.match(internal,/onclick="setMode\('merchant'\)">Abrir ambiente interno/);
 assert.doesNotMatch(internal,/id="partner-interest"/);
-assert.match(source,/link\.href='\.\/css\/merchant-landing-executive\.css\?v=1116'/);
+assert.match(source,/link\.href='\.\/css\/merchant-landing-executive\.css\?v=1117'/);
 for(const klass of ['.merchant-v1114-index','.merchant-v1114-pricing','.merchant-v1114-pricing-grid',
  '.merchant-v1114-simulator-details','.merchant-v1114-distribution','.merchant-v1114-catalogue-grid',
  '.merchant-v1114-operations','.merchant-v1114-faq','.merchant-v1114-last-cta'])
