@@ -201,6 +201,7 @@ const benefitSandbox=vm.createContext({
  merchantEconomicsExample:()=>({fee:5,merchantNet:115}),
  referralPilotRate:()=>0.05,
  merchantPilotFeeRate:()=>0.06,
+ MERCHANT_PUBLIC_BILLING_PLANS:[{key:'flex_daily',name:'Flex Diário',bps:900,cents:0}],
  policyPercent:rate=>String(rate*100)+'%',
  referralExample:()=>6,
  BRL:{format:n=>'R$ '+Number(n).toFixed(2)},
