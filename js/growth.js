@@ -1104,7 +1104,6 @@ ${internalPilot?'':`<section class="merchant-conversion-start" aria-label="Apres
 <div class="merchant-v1119-conversion-actions">
 <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
 <button type="button" class="secondary merchant-share" onclick="shareTamaoGrowthInvite('merchant')">Indicar revenda ↗</button>
-<small>Cadastro gratuito. Sua revenda escolhe quando atender.</small>
 </div>
 </div>
 <details class="merchant-secondary-lead"><summary>Prefiro deixar meu contato para conversar sobre a parceria</summary>
