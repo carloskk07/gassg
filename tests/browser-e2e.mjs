@@ -209,6 +209,11 @@ assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"3\"]')?
 assert.equal(await evaluate("document.querySelector('[data-learn-scene=\"1\"]')?.hidden"),true);
 await evaluate("document.querySelectorAll('.learn-phase')[0].click()");
 assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
+await evaluate("(()=>{const b=document.querySelectorAll('.learn-phase')[0];b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));})()");
+assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'2');
+assert.equal(await evaluate("document.querySelector('.learn-phase[aria-pressed=true]')?.textContent.includes('Consulte')"),true);
+await evaluate("(()=>{const b=document.querySelectorAll('.learn-phase')[1];b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true,cancelable:true}));})()");
+assert.equal(await evaluate("document.querySelector('.learn-visual').dataset.step"),'1');
 assert.equal(await evaluate("document.querySelectorAll('.learn-product-tile').length"),3);
 await evaluate("document.querySelectorAll('.learn-phase')[3].click()");
 assert.equal(await evaluate("document.querySelector('[data-learn-stage-cta-label]')?.textContent.trim()"),'Acompanhar meu pedido');
