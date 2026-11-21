@@ -155,7 +155,7 @@ ctx.liveInvoke=async(name,request)=>{
 };
 ctx.clubePaidCouponsRefresh=async()=>{autoRefreshes++};
 ctx.autoCheckStart(invoiceId);
-const firstAuto=timerCalls.slice(earlierTimers).find(t=>t.ms===60000&&!t.cancelled);
+const firstAuto=timerCalls.slice(earlierTimers).find(t=>t.ms===15000&&!t.cancelled);
 assert.ok(firstAuto,'existing unpaid invoice schedules one bounded lookup');
 firstAuto.cancelled=true; // simulate a one-shot browser timeout firing
 await firstAuto.fn();
@@ -179,7 +179,7 @@ ctx.state.purchase=makePurchase();
 const priorChecks=autoChecks;
 const nextTimerOffset=timerCalls.length;
 ctx.autoCheckStart(invoiceId);
-const pendingAfterSwitch=timerCalls.slice(nextTimerOffset).find(t=>t.ms===60000&&!t.cancelled);
+const pendingAfterSwitch=timerCalls.slice(nextTimerOffset).find(t=>t.ms===15000&&!t.cancelled);
 assert.ok(pendingAfterSwitch);
 ctx.liveRuntime.session.user.id='different-buyer';
 pendingAfterSwitch.cancelled=true;
