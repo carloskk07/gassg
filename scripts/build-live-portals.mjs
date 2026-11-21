@@ -190,10 +190,6 @@ function patchIndex(html,portal,sourceSha){
     patched=patched.replace(lazyTag,'');
     // The protected portal must not parse storefront, referral or editorial JS.
     // Their public APIs are only exported by bootstrap on non-admin origins.
-    for(const entry of [",'./js/learn-premium.js'",",'./css/learn-premium.css'"]){
-      if(!scoped.includes(entry))throw new Error('Missing lazy buyer guide PWA entry');
-      scoped=scoped.replace(entry,'');
-    }
     for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
       const tag='<script defer src="./js/'+module+'.js"></script>';
       if(!patched.includes(tag))throw new Error('Missing public-only script: '+module);
@@ -279,6 +275,10 @@ function patchServiceWorker(raw,sourceSha,role){
     const lazyEntry=",'./js/admin-activations.js'";
     if(!scoped.includes(lazyEntry))throw new Error('Missing admin activations precache entry');
     scoped=scoped.replace(lazyEntry,'');
+    for(const entry of [",'./js/learn-premium.js'",",'./css/learn-premium.css'"]){
+      if(!scoped.includes(entry))throw new Error('Missing lazy buyer guide PWA entry');
+      scoped=scoped.replace(entry,'');
+    }
     for(const module of ['analytics','acquisition','legal','home-showcase','customer','growth']){
       const entry=",'./js/"+module+".js'";
       if(!scoped.includes(entry))throw new Error('Missing public-only PWA entry: '+module);
