@@ -83,7 +83,7 @@ fields['credit-commercial-ack'].checked=true;
 assert.equal(await adminCtx.adminCreditCommercialRun('open',2),false,
  'An old UI cannot override a newer financial gate');
 assert.equal(await adminCtx.adminCreditCommercialRun('open',1),true);
-assert.deepEqual(auditCalls[0].body,{
+assert.deepEqual(JSON.parse(JSON.stringify(auditCalls[0].body)),{
  operation:'open',expectedVersion:1,acknowledgeFinancialControls:true
 });
 adminRole='finance';
