@@ -85,8 +85,8 @@ assert.match(merchant,/Você controla preços, estoque, pagamentos e entregas/,
  'A revenda mantém autonomia comercial mesmo com copy mais acolhedora');
 const rail=merchant.slice(merchant.indexOf('class="merchant-v1114-index"'),merchant.indexOf('</nav>',merchant.indexOf('class="merchant-v1114-index"')));
 assert.ok(rail.length>0,'o índice comercial deve existir');
-assert.equal((rail.match(/<button type="button"/g)||[]).length,4,'quatro capítulos acessíveis devem estar disponíveis');
-for(const id of ['merchant-benefits','merchant-terms','merchant-how','merchant-faq'])
+assert.equal((rail.match(/<button type="button"/g)||[]).length,5,'cinco capítulos acessíveis devem estar disponíveis');
+for(const id of ['merchant-benefits','merchant-terms','merchant-plans','merchant-how','merchant-faq'])
  assert.ok(rail.includes("publicLandingJump('"+id+"')"),'atalho comercial faltando: '+id);
 
 // Mobile and keyboard accessibility are part of first-impression quality.

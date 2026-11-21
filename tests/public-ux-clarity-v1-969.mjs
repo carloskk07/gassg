@@ -60,7 +60,7 @@ assert.match(customer,/\$\{couponBanner\}/);
 // Public Club displays exactly one verified offer card beside a compact hero,
 // never hardcoded paid packages or a Pix button for unverified visitors.
 const clubStart=growth.indexOf('function club(){');
-const clubEnd=growth.indexOf('  const purchases=',clubStart);
+const clubEnd=growth.indexOf('const purchases=',clubStart);
 assert(clubStart>=0&&clubEnd>clubStart);
 const guestSrc=growth.slice(clubStart,clubEnd)+'  return "";}\nthis.club=club;';
 const guestCtx=vm.createContext({globalThis:{document:null,liveReady:()=>false,
@@ -81,7 +81,8 @@ assert.match(guest,/Ter um pacote não garante ofertas ou revendas disponíveis/
 const earnStart=growth.indexOf('function earn(){'),earnEnd=growth.indexOf('\nfunction learn(){',earnStart);
 const earnSrc=growth.slice(earnStart,earnEnd);
 const econCtx=vm.createContext({
- merchantEconomicsExample:()=>({fee:9,merchantNet:111}),
+ merchantEconomicsExample:()=>({fee:10.8,merchantNet:109.2}),
+  MERCHANT_PUBLIC_BILLING_PLANS:[{key:'flex_daily',bps:900}],
  referralPilotRate:()=>.02,merchantPilotFeeRate:()=>.075,
  policyPercent:n=>(n*100).toFixed(1)+'%',
  referralExample:n=>n*.02,BRL:{format:n=>'R$ '+Number(n).toFixed(2)},

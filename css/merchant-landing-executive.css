@@ -314,3 +314,44 @@
  .merchant-v1114-controls .control-grid{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){.merchant-landing-v1114 :is(.merchant-v1114-index button,.merchant-v1114-simulator-details>summary){transition:none}}
+
+
+/* V1.1115 — catálogo comercial de revendas. Taxas e valores validados com
+   merchant_billing_plans; cartões não iniciam cobrança e nunca prometem pedidos. */
+.merchant-landing-v1115 #merchant-plans{scroll-margin-top:115px}
+.merchant-v1115-plans{margin:27px 0 39px;padding:clamp(24px,3.5vw,44px);border-radius:27px;border:1px solid #cfe2d5;background:radial-gradient(circle at 98% 0,rgba(214,186,119,.22),transparent 39%),linear-gradient(145deg,#f6faf5,#eaf4eb 75%,#f6f8ef);box-shadow:0 19px 52px rgba(18,65,42,.08)}
+.merchant-v1115-plans-head{display:grid;grid-template-columns:minmax(0,1fr) 205px;gap:clamp(20px,4vw,55px);align-items:end;margin-bottom:26px}
+.merchant-v1115-plans-head h2{max-width:19ch;margin:10px 0 13px;color:#173e2e;font-size:clamp(29px,3.7vw,46px);line-height:1.1;letter-spacing:-.054em;text-wrap:balance}
+.merchant-v1115-plans-head p{margin:0;max-width:68ch;color:#54705c;font-size:14px;line-height:1.75}
+.merchant-v1115-plans-hero-stat{padding:18px 21px;border-radius:19px;background:#0c4e38;color:#fff;box-shadow:0 15px 25px rgba(15,79,54,.16)}
+.merchant-v1115-plans-hero-stat span{display:block;color:#cce8d5;font-size:10px;letter-spacing:.12em;font-weight:900}
+.merchant-v1115-plans-hero-stat strong{display:block;margin:5px 0;color:#fff;font-size:clamp(43px,5vw,64px);line-height:1.1;letter-spacing:-.065em}
+.merchant-v1115-plans-hero-stat small{display:block;color:#c9dfcf;font-size:11px;line-height:1.55}
+.merchant-v1115-plans-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.merchant-v1115-plan{min-width:0;display:flex;flex-direction:column;padding:22px 19px 19px;border:1px solid #d7e5d8;border-radius:20px;background:#fffefa;box-shadow:0 9px 25px rgba(29,65,38,.06);transition:transform .18s ease,border-color .18s ease}
+.merchant-v1115-plan:hover{transform:translateY(-3px);border-color:#94c1a2}
+.merchant-v1115-plan-featured{border:2px solid #198158;background:#f7fdf8;box-shadow:0 15px 34px rgba(11,111,66,.14)}
+.merchant-v1115-plan-top{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;min-height:22px}
+.merchant-v1115-plan-top span{font-weight:900;color:#214734;font-size:13px}
+.merchant-v1115-plan-top em{font-size:8px;font-weight:900;font-style:normal;letter-spacing:.04em;color:#0e6c48;background:#dcefe2;padding:5px 6px;border-radius:7px}
+.merchant-v1115-plan-rate{display:block;margin:18px 0 0;color:#086948;font-size:clamp(41px,3.8vw,58px);font-weight:950;line-height:1;letter-spacing:-.066em}
+.merchant-v1115-plan>small{font-size:11px;color:#5c7464;margin:5px 0 18px}
+.merchant-v1115-plan-credit{display:grid;gap:7px;margin-top:auto;padding:13px 0;border-top:1px solid #dfe9e0;border-bottom:1px solid #dfe9e0}
+.merchant-v1115-plan-credit span{font-size:10px;color:#61776a}
+.merchant-v1115-plan-credit b{font-size:22px;color:#193f2f;letter-spacing:-.03em}
+.merchant-v1115-plan-savings{margin:14px 0 0;color:#415f4e;font-size:11px;line-height:1.55}
+.merchant-v1115-plan-savings strong{display:block;color:#0c6e4a;font-size:21px;line-height:1.2;margin-top:2px}
+.merchant-v1115-plan>p{margin:12px 0 0;color:#6d8174;font-size:10px;line-height:1.55}
+.merchant-v1115-plans-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:22px;margin-top:19px;padding:22px 24px;border:1px solid #cfe3d3;border-radius:17px;background:#fff}
+.merchant-v1115-plans-bottom strong{font-size:15px;color:#1b4934}
+.merchant-v1115-plans-bottom p{max-width:85ch;margin:7px 0 0;font-size:12px;line-height:1.65;color:#5a7361}
+.merchant-v1115-plans-cta{min-height:48px;white-space:normal;font-weight:800}
+.merchant-v1115-plans-fine{margin:16px 0 0;color:#667f6c;font-size:10px;line-height:1.65}
+.merchant-v1115-plan-select{grid-column:1/-1}
+.merchant-v1115-plan-select select{width:100%;min-height:44px}
+.merchant-v1115-plan-select small{display:block;color:#687e6f;font-size:11px;margin-top:5px}
+.merchant-landing-v1115 :is(.merchant-v1115-plans-cta,.merchant-v1115-plan-select select):focus-visible{outline:3px solid #b68636;outline-offset:3px}
+@media(max-width:1050px){.merchant-v1115-plans-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.merchant-v1115-plan-rate{font-size:53px}}
+@media(max-width:760px){.merchant-v1115-plans{padding:23px 17px;border-radius:21px}.merchant-v1115-plans-head{grid-template-columns:1fr;gap:15px}.merchant-v1115-plans-head h2{font-size:31px}.merchant-v1115-plans-hero-stat{display:grid;grid-template-columns:1fr auto;gap:0 11px;align-items:center}.merchant-v1115-plans-hero-stat strong{grid-column:2;grid-row:1/3;margin:0;font-size:46px}.merchant-v1115-plans-bottom{grid-template-columns:1fr;padding:20px}.merchant-v1115-plans-cta{width:100%}}
+@media(max-width:520px){.merchant-v1115-plans-grid{grid-template-columns:1fr;gap:10px}.merchant-v1115-plan{padding:17px;display:grid;grid-template-columns:1fr 1fr;column-gap:13px}.merchant-v1115-plan-top{grid-column:1/-1}.merchant-v1115-plan-rate{font-size:46px;margin:13px 0 0}.merchant-v1115-plan>small{grid-column:1;margin:4px 0 0}.merchant-v1115-plan-credit{grid-column:2;grid-row:2/4;border-top:0;border-bottom:0;border-left:1px solid #e0e8df;padding:10px 0 5px 13px}.merchant-v1115-plan-credit b{font-size:19px}.merchant-v1115-plan-savings{grid-column:1/-1;border-top:1px solid #e0e8df;padding-top:12px}.merchant-v1115-plan-savings strong{font-size:20px}.merchant-v1115-plan>p{grid-column:1/-1}.merchant-v1115-plans-head h2{font-size:29px}}
+@media(prefers-reduced-motion:reduce){.merchant-v1115-plan{transition:none}.merchant-v1115-plan:hover{transform:none}}
