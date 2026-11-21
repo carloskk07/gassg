@@ -21,7 +21,7 @@ assert.match(markup,/onclick="startHomeBrowse\(\)"/);
 assert.match(markup,/id="learn-confidence" tabindex="-1"/);
 assert.match(markup,/id="learn-benefits" tabindex="-1"/);
 assert.match(markup,/A revenda ainda precisa aceitar/);
-assert.match(markup,/confirme o recebimento/);
+assert.match(markup,/código de recebimento/);
 assert.match(markup,/O TAMÃO conecta e organiza/);
 assert.match(markup,/A revenda confirma e entrega/);
 assert.match(markup,/Você escolhe e confere/);
