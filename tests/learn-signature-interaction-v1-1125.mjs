@@ -14,7 +14,7 @@ assert.equal((markup.match(/class="learn-phase(?: is-active)?"/g)||[]).length,4,
 assert.equal((markup.match(/aria-pressed="true"/g)||[]).length,1,'one active step');
 assert.equal((markup.match(/aria-pressed="false"/g)||[]).length,3);
 assert.equal((markup.match(/class="learn-step"/g)||[]).length,4,'original journey must remain intact');
-assert.equal((markup.match(/<svg /g)||[]).length,4,'use real line illustrations instead of ambiguous glyphs');
+assert.equal((markup.match(/class="learn-step-art" aria-hidden="true"><svg /g)||[]).length,4,'all four journey steps must retain their own SVG illustration');
 assert.match(markup,/aria-label="Explorar as etapas do pedido"/);
 assert.match(markup,/aria-live="polite"/);
 assert.match(markup,/data-learn-step-title/);
