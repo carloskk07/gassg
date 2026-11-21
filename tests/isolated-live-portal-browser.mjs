@@ -398,6 +398,10 @@ export async function verifyIsolatedLivePortals({api,anon,buyer,owner,adminActor
         await ui.send('Page.reload');
         await ui.wait("liveRuntime.status==='ready'&&liveRuntime.customerSummaryState==='error'&&!liveRuntime.orderId",
           'failed summary with no local order reference must remain unverified');
+        // The async error state can become ready just before the visible
+        // route commits its next frame. Prove the real DOM, not merely state.
+        await ui.wait("document.querySelector('#app')?.innerText.includes('consulta dos seus pedidos ainda não foi confirmada')",
+          'buyer must SEE the unverified-payment/summary recovery notice after reload',10000);
         assert.equal(await ui.evaluate("document.querySelector('#app')?.innerText.includes('consulta dos seus pedidos ainda não foi confirmada')"),true);
         assert.equal(await ui.evaluate("document.querySelector('#app')?.innerText.includes('Nenhum pedido em andamento encontrado')"),false);
         await ui.send('Network.setBlockedURLs',{urls:[]});
