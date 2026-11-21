@@ -640,3 +640,45 @@
 @media(max-width:900px){.merchant-v1118-receipt{grid-template-columns:1fr}.merchant-v1118-receipt-head p{max-width:75ch}}
 @media(max-width:520px){.merchant-v1118-receipt{padding:17px;gap:15px}.merchant-v1118-receipt-body{padding:12px}.merchant-v1118-receipt-numbers{grid-template-columns:1fr;gap:6px}.merchant-v1118-receipt-numbers>div{flex-direction:row;align-items:center;justify-content:space-between;padding:10px}.merchant-v1118-receipt-numbers strong{font-size:18px}.merchant-v1118-receipt-balance strong{font-size:14px;overflow-wrap:anywhere}}
 @media(prefers-reduced-motion:reduce){.merchant-landing-v1117 .merchant-v1118-plan-action{transition:none}}
+
+
+/* V1.1119 — premium conversion, decision paths and transparent credit coverage */
+.merchant-landing-v1117 .merchant-conversion-start{margin:14px 0 27px;padding:clamp(20px,3vw,34px);border-color:#ccded0;background:linear-gradient(130deg,#fffefa,#f4faf5 85%);box-shadow:0 17px 38px rgba(13,67,40,.07)}
+.merchant-landing-v1117 .merchant-conversion-intro{grid-template-columns:minmax(0,1fr) minmax(235px,300px);gap:6px 24px}
+.merchant-landing-v1117 .merchant-conversion-intro h2{font-size:clamp(25px,2.9vw,35px);line-height:1.1;max-width:18ch}
+.merchant-landing-v1117 .merchant-conversion-proof{gap:7px;display:flex;flex-wrap:wrap;margin:14px 0 0}
+.merchant-landing-v1117 .merchant-conversion-proof span{padding:10px 11px;border-radius:10px;border:1px solid #d9e8dd;background:#fff}
+.merchant-landing-v1117 .merchant-v1119-conversion-actions{grid-column:2;grid-row:1/5;display:flex;flex-direction:column;gap:10px;align-self:center}
+.merchant-landing-v1117 .merchant-v1119-conversion-actions .merchant-live-signup-cta,.merchant-landing-v1117 .merchant-v1119-conversion-actions .merchant-share{grid-row:auto;grid-column:auto;width:100%;min-height:48px;margin:0}
+.merchant-landing-v1117 .merchant-v1119-conversion-actions small{color:#688171;font-size:10px;text-align:center;line-height:1.55}
+.merchant-landing-v1117 .merchant-secondary-lead{margin-top:20px;padding-top:15px}
+.merchant-v1119-ways{margin:0 0 21px}
+.merchant-v1119-ways-title{margin:0 0 12px}
+.merchant-v1119-ways-title span{display:block;font-size:10px;font-weight:900;letter-spacing:.12em;color:#257550}
+.merchant-v1119-ways-title h3{color:#153c2a;letter-spacing:-.04em;font-size:clamp(23px,2.6vw,30px);margin:5px 0 0}
+.merchant-v1119-ways-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.merchant-v1119-way{min-width:0;display:grid;grid-template-columns:1fr auto;align-content:start;gap:8px 12px;padding:21px 19px;border:1px solid #d9e7dc;border-radius:16px;background:#fffefa;box-shadow:0 8px 22px rgba(15,58,36,.04)}
+.merchant-v1119-way>span{grid-column:1/-1;color:#688574;font-size:9px;font-weight:900;letter-spacing:.13em}
+.merchant-v1119-way>strong{grid-column:1;grid-row:2;color:#143f2d;font-size:17px;letter-spacing:-.025em}
+.merchant-v1119-way>b{grid-column:2;grid-row:2;color:#0c7850;font-size:clamp(29px,3.4vw,40px);letter-spacing:-.055em;line-height:1.05}
+.merchant-v1119-way>p{grid-column:1/-1;min-height:33px;margin:0;color:#637b68;font-size:12px;line-height:1.5}
+.merchant-v1119-way>button{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;background:#eaf5ec;border:1px solid #c5dfcd;color:#14583f;border-radius:11px;cursor:pointer;text-align:left;font:inherit;font-size:12px;font-weight:900}
+.merchant-v1119-way>button:hover{background:#dbf0e1}
+.merchant-v1119-way-prepaid{background:linear-gradient(140deg,#194f3b,#0b3529);border-color:#1c6147;box-shadow:0 11px 25px rgba(5,54,34,.12)}
+.merchant-v1119-way-prepaid>span,.merchant-v1119-way-prepaid>p{color:#c7decb}
+.merchant-v1119-way-prepaid>strong,.merchant-v1119-way-prepaid>b{color:#fffdf5}
+.merchant-v1119-way-prepaid>button{background:#e7c790;border-color:#e7c790;color:#143c29}
+.merchant-v1119-way-prepaid>button:hover{background:#f2dba9}
+.merchant-v1119-ways-note{margin:10px 2px 0;color:#617d6a;font-size:11px;line-height:1.6}
+.merchant-v1119-coverage{display:flex;flex-direction:column;gap:4px;margin:12px 0 0;padding:11px 12px;border:1px solid #e3ede4;border-radius:12px;background:#f6f8f3}
+.merchant-v1119-coverage>span{font-size:9px;line-height:1.3;font-weight:900;letter-spacing:.085em;color:#628272}
+.merchant-v1119-coverage strong{font-size:18px;line-height:1.2;letter-spacing:-.035em;color:#125d40;font-variant-numeric:tabular-nums}
+.merchant-v1119-coverage small{font-size:10px;color:#637d6c}
+.merchant-landing-v1117 .merchant-v1115-plan-featured .merchant-v1119-coverage{background:rgba(255,255,255,.08);border-color:rgba(230,244,224,.18)}
+.merchant-landing-v1117 .merchant-v1115-plan-featured .merchant-v1119-coverage>span,.merchant-landing-v1117 .merchant-v1115-plan-featured .merchant-v1119-coverage small{color:#c5dac8}
+.merchant-landing-v1117 .merchant-v1115-plan-featured .merchant-v1119-coverage strong{color:#f0d195}
+.merchant-v1119-receipt-coverage{margin:12px 0 0;padding:10px 12px;border-radius:9px;color:#155e41;background:#eaf5ed;font-size:11px;font-weight:850;line-height:1.5}
+.merchant-landing-v1117 .merchant-v1119-way button:focus-visible{outline:3px solid #d3a354;outline-offset:3px}
+@media(max-width:760px){.merchant-landing-v1117 .merchant-conversion-intro{grid-template-columns:1fr;gap:8px}.merchant-landing-v1117 .merchant-v1119-conversion-actions{grid-column:1;grid-row:auto;align-self:stretch;margin-top:7px}.merchant-v1119-ways-grid{grid-template-columns:1fr}.merchant-v1119-way>p{min-height:0}}
+@media(max-width:520px){.merchant-landing-v1117 .merchant-conversion-start{padding:20px 16px}.merchant-landing-v1117 .merchant-conversion-proof span{padding:9px 10px}.merchant-landing-v1117 .merchant-v1115-plan .merchant-v1119-coverage{grid-column:1/-1;grid-row:4}.merchant-landing-v1117 .merchant-v1115-plan .merchant-v1118-plan-action{grid-column:1/-1;grid-row:5}.merchant-landing-v1117 .merchant-v1115-plan>p{grid-row:6}.merchant-v1119-way{padding:17px}.merchant-v1119-way>b{font-size:32px}}
+@media(prefers-reduced-motion:reduce){.merchant-v1119-way>button{transition:none}}

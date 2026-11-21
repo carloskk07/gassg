@@ -992,13 +992,13 @@ if(!document.getElementById('merchant-executive-styles')){
 const link=document.createElement('link');
 link.id='merchant-executive-styles';
 link.rel='stylesheet';
-link.href='./css/merchant-landing-executive.css?v=1118';
+link.href='./css/merchant-landing-executive.css?v=1119';
 document.head.appendChild(link);
 }
 if(!document.getElementById('merchant-public-plans-script')){
 const script=document.createElement('script');
 script.id='merchant-public-plans-script';
-script.src='./js/merchant-public-plans.js?v=1118';
+script.src='./js/merchant-public-plans.js?v=1119';
 script.async=true;
 document.head.appendChild(script);
 }else globalThis.tamaoMerchantPublicPlansLoad?.();
@@ -1101,8 +1101,10 @@ ${internalPilot?'':`<section class="merchant-conversion-start" aria-label="Apres
 <div class="merchant-conversion-proof" aria-label="Como começar">
 <span><b>01</b> Acesse com seu e-mail</span><span><b>02</b> Cadastre a empresa</span><span><b>03</b> Prepare seu catálogo</span>
 </div>
+<div class="merchant-v1119-conversion-actions">
 <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
 <button type="button" class="secondary merchant-share" onclick="shareTamaoGrowthInvite('merchant')">Indicar revenda ↗</button>
+</div>
 </div>
 <details class="merchant-secondary-lead"><summary>Prefiro deixar meu contato para conversar sobre a parceria</summary>
 ${prelaunchMerchantLeadSection()}

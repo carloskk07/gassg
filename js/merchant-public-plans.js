@@ -70,6 +70,36 @@ globalThis.addEventListener?.('hashchange',()=>{
    tamaoMerchantPublicPlansLoad();
 });
 
+
+// Credit coverage is an illustration of fully payable fees, never an order forecast.
+function merchantPlanCoverageCount(ticket,bps,cents){
+ const t=Number(ticket),rate=Number(bps),credit=Number(cents);
+ if(![100,120,200].includes(t)||![rate,credit].every(Number.isSafeInteger)||
+   rate<0||rate>2000||credit<0||credit>10000000)return null;
+ const fee=Math.round(t*rate/100);
+ return fee>0?Math.floor(credit/fee):null;
+}
+function merchantPlanCoverageRefresh(ticket){
+ if(typeof document==='undefined')return false;
+ const section=document.getElementById('merchant-plans');
+ if(!section)return false;
+ section.querySelectorAll('[data-merchant-coverage-for]').forEach(card=>{
+  const count=merchantPlanCoverageCount(ticket,Number(card.getAttribute('data-merchant-plan-bps')),Number(card.getAttribute('data-merchant-plan-credit-cents')));
+  const value=card.querySelector('[data-merchant-coverage-value]');
+  const caption=card.querySelector('[data-merchant-coverage-caption]');
+  if(value)value.textContent=count===null?'Não aplicável':count+' '+(count===1?'taxa completa':'taxas completas');
+  if(caption)caption.textContent='Com pedido ilustrativo de '+BRL.format(Number(ticket));
+ });
+ const active=section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]');
+ const result=section.querySelector('[data-merchant-receipt-coverage]');
+ if(active&&result){
+  const count=merchantPlanCoverageCount(ticket,Number(active.getAttribute('data-merchant-plan-bps')),Number(active.getAttribute('data-merchant-plan-credit-cents')));
+  result.textContent=count===null?'Consulte as condições aplicáveis.':
+   'A recarga cobre até '+count+' '+(count===1?'taxa completa':'taxas completas')+' com este valor de pedido.';
+ }
+ return true;
+}
+
 // Only the commercial landing downloads this optional, read-only calculator.
 function merchantPlanTicketPreview(value){
 const ticket=Number(value);
@@ -89,6 +119,7 @@ section.querySelectorAll('[data-merchant-saving-bps]').forEach(element=>{
 const active=typeof section.querySelector==='function'
  ?section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]'):null;
 if(active)merchantPlanReceiptPreview(active.getAttribute('data-merchant-compare-plan'),ticket);
+if(typeof section.querySelector==='function'&&section.querySelector('[data-merchant-coverage-for]'))merchantPlanCoverageRefresh(ticket);
 return true;
 }
 
@@ -127,6 +158,7 @@ function merchantPlanReceiptPreview(key,ticketValue){
   :'Saldo insuficiente neste exemplo. A tarifa reduzida exige crédito disponível.');
  choices.forEach(el=>el.setAttribute('aria-pressed',
   String(el.getAttribute('data-merchant-compare-plan')===key)));
+if(typeof section.querySelector==='function'&&section.querySelector('[data-merchant-coverage-for]'))merchantPlanCoverageRefresh(ticket);
  if(ticketValue===undefined){
   const receipt=document.getElementById('merchant-plan-receipt');
   receipt?.scrollIntoView?.({behavior:'auto',block:'nearest'});
@@ -163,7 +195,14 @@ function merchantPlanReceiptHydrate(){
   button.setAttribute('aria-controls','merchant-plan-receipt');
   button.setAttribute('aria-pressed',String(i===0));
   button.addEventListener('click',()=>merchantPlanReceiptPreview(plan.key));
+  const coverage=document.createElement('div');
+  coverage.className='merchant-v1119-coverage';
+  coverage.setAttribute('data-merchant-coverage-for',plan.key);
+  coverage.setAttribute('data-merchant-plan-bps',String(plan.bps));
+  coverage.setAttribute('data-merchant-plan-credit-cents',String(plan.cents));
+  coverage.innerHTML='<span>ESTA RECARGA COBRE ATÉ</span><strong data-merchant-coverage-value>—</strong><small data-merchant-coverage-caption></small>';
   const caption=card.querySelector('p');
+  if(caption)card.insertBefore(coverage,caption);else card.appendChild(coverage);
   if(caption)card.insertBefore(button,caption);else card.appendChild(button);
  });
  if(!document.getElementById('merchant-plan-receipt')){
@@ -189,16 +228,43 @@ function merchantPlanReceiptHydrate(){
 <div><span>Crédito carregado</span><strong data-merchant-receipt-credit>—</strong></div>
 <div><span>Saldo ilustrativo após uma taxa</span><strong data-merchant-receipt-balance>—</strong></div>
 </div>
+<p class="merchant-v1119-receipt-coverage" data-merchant-receipt-coverage></p>
 <p class="merchant-v1118-receipt-status" data-merchant-receipt-status role="status" aria-live="polite" aria-atomic="true">Comparando valores do catálogo.</p>
 </div>
 <p class="merchant-v1118-receipt-note">Exemplo de um pedido, sem realizar cobranças. Os créditos são um adiantamento para taxas do TAMÃO, não o pagamento de uma tarifa extra. A redução depende do pacote ativo e de saldo suficiente.</p>
 `;
   grid.insertAdjacentElement('afterend',receipt);
  }
+ if(!section.querySelector('.merchant-v1119-ways')){
+  const ways=document.createElement('section');
+  ways.className='merchant-v1119-ways';
+  ways.setAttribute('aria-label','Duas maneiras de começar');
+  ways.innerHTML=`
+  <div class="merchant-v1119-ways-title"><span>DECIDA COM CLAREZA</span><h3>O seu jeito de começar.</h3></div>
+  <div class="merchant-v1119-ways-grid">
+   <article class="merchant-v1119-way"><span>01 / SEM RECARGA</span><strong>Flex Diário</strong><b data-merchant-way-flex>—</b>
+    <p>Tarifa por pedido concluído, sem comprar créditos antes.</p>
+    <button type="button" data-merchant-way-signup>Cadastrar minha revenda <span aria-hidden="true">→</span></button>
+   </article>
+   <article class="merchant-v1119-way merchant-v1119-way-prepaid"><span>02 / COM CRÉDITOS</span><strong>Tarifas reduzidas</strong><b data-merchant-way-prepaid>—</b>
+    <p>Créditos antecipados para pagar taxas menores, conforme o plano e o saldo.</p>
+    <button type="button" data-merchant-way-compare>Ver pacotes <span aria-hidden="true">→</span></button>
+   </article>
+  </div>
+  <p class="merchant-v1119-ways-note">Cadastro gratuito nos dois caminhos. Os pacotes são opcionais e ficam no Financeiro da revenda.</p>`;
+  section.insertBefore(ways,section.querySelector('.merchant-v1117-ticketbar')||grid);
+  ways.querySelector('[data-merchant-way-signup]')?.addEventListener('click',()=>openMerchantPortal(true));
+  ways.querySelector('[data-merchant-way-compare]')?.addEventListener('click',()=>grid.scrollIntoView({block:'start',behavior:'auto'}));
+ }
+ const flex=plans[0],lowest=prepaid.reduce((best,next)=>next.bps<best.bps?next:best);
+ section.querySelector('[data-merchant-way-flex]').textContent=(flex.bps/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+ section.querySelector('[data-merchant-way-prepaid]').textContent='A partir de '+(lowest.bps/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
  const selected=section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]');
  const selectedTicket=section.querySelector('[data-merchant-ticket][aria-pressed="true"]');
  const ticket=Number(selectedTicket?.getAttribute('data-merchant-ticket')||120);
- return merchantPlanReceiptPreview(selected?.getAttribute('data-merchant-compare-plan')||prepaid[0].key,ticket);
+ const result=merchantPlanReceiptPreview(selected?.getAttribute('data-merchant-compare-plan')||prepaid[0].key,ticket);
+ merchantPlanCoverageRefresh(ticket);
+ return result;
 }
 globalThis.merchantPlanReceiptHydrate=merchantPlanReceiptHydrate;
 setTimeout(merchantPlanReceiptHydrate,0);
