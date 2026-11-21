@@ -45,7 +45,9 @@ assert.ok(html.indexOf('sponsor-formats')<html.indexOf('id="sponsor-pricing"'),
 assert.ok(html.indexOf('id="sponsor-pricing"')<html.indexOf('sponsor-premium-faq'),
  'FAQ should follow the real path to create campaigns');
 assert.equal((html.match(/<h1\b/g)||[]).length,1);
-assert.equal((html.match(/<details\b/g)||[]).length,5);
+assert.equal((html.match(/<details\b/g)||[]).length,6,'Clear price and eligible-view rules need dedicated FAQ entries');
+assert.match(html,/R\$ 0,02 por visualização elegível/);
+assert.match(html,/Quando uma visualização é cobrada\?/);
 for(const kind of ['relationship','local'])
  assert.equal(html.split("openSponsorContact('"+kind+"')").length-1,1,
    'Exactly one clear CTA per eligible partnership objective');
