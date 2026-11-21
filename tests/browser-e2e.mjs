@@ -231,13 +231,14 @@ assert.match(await evaluate("document.querySelector('details.tamao-network-clari
  'Condições financeiras continuam disponíveis na explicação da Rede');
 assert.match(body,/Sua empresa pode vender por mais um canal/);
 assert.match(body,/2%/);
-assert.match(body,/Taxa TAMÃO: 7,5% por pedido concluído/);
+assert.match(body,/Taxa TAMÃO: 9% por pedido concluído/);
 await auditDom('earn');
 
 await evaluate("go('merchants')");
 await waitFor("document.body.innerText.includes('FAÇA AS CONTAS DO SEU JEITO')","merchant commercial route");
 body=await text();
-assert.match(body,/7,5%/);
+assert.match(body,/9%/);
+assert.match(body,/6,5%/);
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/Como o TAMÃO apresenta as opções aos clientes\?/);
 assert.match(body,/Saiba exatamente o que a plataforma cobra\./);
@@ -250,10 +251,10 @@ assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution'
 assert.match(await evaluate("document.querySelector('#merchant-sim-costs').textContent"),/Informe o custo do produto/);
 await evaluate("document.querySelector('#merchant-sim-orders').value='20'; document.querySelector('#merchant-sim-ticket').value='150'; document.querySelector('#merchant-sim-product-cost').value='100'; document.querySelector('#merchant-sim-delivery-cost').value='5'; document.querySelector('#merchant-sim-payment-cost').value='2'; document.querySelector('#merchant-sim-tax-rate').value='0'; updateMerchantSimulator()");
 assert.match(await evaluate("document.querySelector('#merchant-sim-gross').textContent"),/3\.000,00/);
-assert.match(await evaluate("document.querySelector('#merchant-sim-fee').textContent"),/225,00/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-fee').textContent"),/270,00/);
 assert.match(await evaluate("document.querySelector('#merchant-sim-costs').textContent"),/2\.140,00/);
-assert.match(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),/635,00/);
-assert.match(await evaluate("document.querySelector('#merchant-sim-unit').textContent"),/31,75/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),/590,00/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-unit').textContent"),/29,50/);
 await auditDom('merchant acquisition');
 
 await evaluate("go('home')");

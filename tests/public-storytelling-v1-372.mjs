@@ -61,7 +61,8 @@ assert.ok(sponsorStart>=0&&merchantStart>sponsorStart);
 const merchantEnd=growth.indexOf('\nfunction merchantJoin(){',merchantStart);
 const merchant=growth.slice(merchantStart,merchantEnd);
 assert.ok(merchant.includes('merchant-v1112-window'));
-assert.ok(merchant.includes('TAXA POR PEDIDO CONCLUÍDO'));
+assert.ok(merchant.includes('FLEX DIÁRIO · SEM RECARGA')&&merchant.includes('merchant-v1115-plans'),
+ 'Merchant should disclose the current Flex entry and prepaid fee comparisons');
 assert.ok(merchant.includes('${merchantFeeLabel}'),
  'merchant hero must display the policy-derived rate, not a hard-coded fee');
 assert.ok(merchant.includes('Sem mensalidade'));

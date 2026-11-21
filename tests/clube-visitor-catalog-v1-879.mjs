@@ -20,7 +20,7 @@ assert.ok(purchaseEdge.indexOf('if(operation==="my-vouchers")')<actionGate &&
  purchaseEdge.indexOf('if(operation==="invoice-status")')<actionGate,
  'Previously issued vouchers and existing invoices remain accessible for reconciliation');
 const begin=growth.indexOf('function club(){');
-const end=growth.indexOf('  const purchases=',begin);
+const end=growth.indexOf('const purchases=',begin);
 assert.ok(begin>=0&&end>begin,'Club visitor branch must exist');
 
 // Exercise the actual guest rendering, not just inspect the HTML literal.

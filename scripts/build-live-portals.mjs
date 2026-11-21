@@ -336,7 +336,9 @@ export function compactReleasedCoreComments(source){
     !source.includes('function bottomNav(r)'))throw new Error('Core bundle contract changed');
   const comments=[...source.matchAll(/^[ \t]*\/\/[^\n]*\n/gm)];
   if(comments.length<20)throw new Error('Core navigation comments contract changed');
-  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'');
+  const released=source.replace(/^[ \t]*\/\/[^\n]*\n/gm,'')
+    // Generated bundle only; trim indentation, never strip data or statements.
+    .replace(/^ {2,}(?=\S)/gm,'');
   validateClassicScriptSyntax(released,'emitted core.js');
   return released;
 }
@@ -431,7 +433,9 @@ export function compactReleasedMerchantComments(source){
     .replace(/^ {2,}(?=(?:const|let|var|return|if|for|while|switch|case|break|continue|function|async|try|catch|finally|throw|else|await)\b)/gm,'')
     .replace(/^ {2,}(?=[A-Za-z_$][\w$]*[.(=])/gm,'')
     // Keep the reviewed source intact; remove only nonsemantic HTML indentation in release.
-    .replace(/^[ \t]{2,}(?=<[A-Za-z/]|\$\{)/gm,'');
+    .replace(/^[ \t]{2,}(?=<[A-Za-z/]|\$\{)/gm,'')
+    // Build artifact only: compact residual indentation; source and semantics remain unchanged.
+    .replace(/^ {2,}(?=\S)/gm,'');
   if(Buffer.byteLength(source,'utf8')-Buffer.byteLength(released,'utf8')<3000)
     throw new Error('Merchant startup savings no longer validated');
   validateClassicScriptSyntax(released,'emitted merchant.js');

@@ -20,6 +20,17 @@ fi
 
 for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | sort); do
   case "$f" in
+    supabase/functions/merchant-public-plans/index.ts)
+      grep -q 'const ORIGINS=new Set' "$f" || { echo "$f missing origin allowlist"; exit 1; }
+      grep -q 'req.headers.get("apikey")!==PUB' "$f" || { echo "$f missing public-key gate"; exit 1; }
+      grep -q 'getReader()' "$f" || { echo "$f missing streaming body limit"; exit 1; }
+      grep -q 'consume_hashed_api_quota' "$f" || { echo "$f missing public rate quota"; exit 1; }
+      grep -q 'merchant_billing_plans' "$f" || { echo "$f missing source-of-truth billing table"; exit 1; }
+      grep -q '.eq("active",true)' "$f" || { echo "$f must return active plans only"; exit 1; }
+      grep -q 'data.map(p=>' "$f" || { echo "$f missing bounded public field projection"; exit 1; }
+      ! grep -q 'auth.getUser' "$f" || { echo "$f must not create an anonymous auth account"; exit 1; }
+      grep -q '\[functions.merchant-public-plans\]' supabase/config.toml || { echo "$f missing explicit JWT opt-out"; exit 1; }
+      ;;
     supabase/functions/public-city-prices/index.ts)
       # Narrow public information endpoint: no Auth identity, no buyer data, no SQL anon grants.
       grep -q 'const ORIGINS=new Set' "$f" || { echo "$f missing origin allowlist"; exit 1; }

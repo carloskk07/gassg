@@ -48,7 +48,7 @@ rt.session={user:verified,access_token:'verified-token'};
 callback('SIGNED_IN',{user:{...verified,id:'other-user'},access_token:'bad'});
 assert.equal(rt.session.user.id,'buyer-id','No cross-account promotion in coupon observer');
 
-const clStart=growth.indexOf('function club(){'),clEnd=growth.indexOf('\n  if(!member)',clStart);
+const clStart=growth.indexOf('function club(){'),clEnd=growth.indexOf('\nif(!member)',clStart);
 assert.ok(clStart>=0&&clEnd>clStart);
 const scope={globalThis:{__CHAMA_TEST__:false,liveReady:()=>true,document:null,liveRuntime:rt,
   clubeCouponWatchAuth:()=>{}},shell:html=>html,render:()=>{},console};

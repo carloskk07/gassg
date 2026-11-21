@@ -135,7 +135,7 @@ for(let k=0;k<3000;k++){
   assert.ok(e.chamaFee>=0);
   assert.ok(e.knownCosts>=0);
   assert.equal(e.contribution,moneyRound(e.gross-e.chamaFee-e.knownCosts));
-  assert.equal(e.chamaFee,moneyRound(e.gross*0.075));
+  assert.equal(e.chamaFee,moneyRound(e.gross*0.09),'Fuzz uses real 9% Flex billing baseline, not historical 7.5% reward policy');
   assert.equal(e.unitContribution,moneyRound(e.contribution/orders));
   marginCases++;
 }
