@@ -83,7 +83,7 @@ assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
 assert.match(html,/merchant-v1117-ticketbar/);
 assert.equal((html.match(/data-merchant-ticket="/g)||[]).length,3);
 assert.match(html,/globalThis\.merchantPlanTicketPreview\?\.\(100\)/);
-assert.match(growth,/merchant-public-plans\.js\?v=1120/);
+assert.match(growth,/merchant-public-plans\.js\?v=1121/);
 assert.equal((html.match(/aria-pressed="true"/g)||[]).length,1);
 assert.equal((html.match(/data-merchant-saving-bps="/g)||[]).length,4);
 assert.match(html,/data-merchant-saving-bps="250">R\$ 3,00/);
@@ -104,7 +104,7 @@ for(const cls of ['.merchant-landing-v1117','.merchant-v1117-ticketbar',
 assert.ok(css.includes('prefers-reduced-motion:reduce'));
 assert.ok(css.includes('@media(max-width:520px)'));
 assert.ok(css.includes(':focus-visible'));
-assert.match(sw,/CACHE='tamao-sg-v1\.1120'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1121'/);
 
 const startReceipt=lazy.indexOf('function merchantPlanReceiptPreview(key,ticketValue){');
 const endReceipt=lazy.indexOf('globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;',startReceipt);
@@ -175,6 +175,7 @@ assert.doesNotMatch(lazy.slice(coverageStart,coverageEnd),/fetch\(|\.rpc\(|billi
 
 
 new vm.Script(lazy,{filename:'js/merchant-public-plans.js'});
+assert.ok(css.includes('merchant-landing-v1117 .merchant-landing-premium-copy{justify-content:flex-start'),'Desktop CTA must remain above fold after brand preview');
 assert.match(lazy,/function merchantBrandPreviewHydrate\(\)/);
 assert.match(lazy,/function merchantPlanCustomTicketPreview\(value\)/);
 assert.match(lazy,/input\.addEventListener\('change'/);
