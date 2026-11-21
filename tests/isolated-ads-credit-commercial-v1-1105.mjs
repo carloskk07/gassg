@@ -17,7 +17,7 @@ psql(String.raw`
 BEGIN;
 DO $commercial$
 DECLARE
- own uuid; campaign uuid; token uuid; r jsonb; price integer; v integer:=1;
+ own uuid; campaign uuid; challenge_token uuid; r jsonb; price integer; v integer:=1;
  balance bigint; n integer; viewer text;
 BEGIN
  SELECT user_id INTO STRICT own FROM public.platform_admins
@@ -60,21 +60,21 @@ BEGIN
   IF r->>'billingEnabled'<>'true' OR r->>'pricingMode'<>'prepaid_per_view'
     OR r->'slot'->>'campaignId'<>campaign::text
   THEN RAISE EXCEPTION 'ADS_REAL_INVENTORY_MISSING';END IF;
-  token:=(r->'slot'->>'challenge')::uuid;
+  challenge_token:=(r->'slot'->>'challenge')::uuid;
   IF n=1 THEN
-   r:=public.ads_credit_confirm_v1_1098(token,viewer,1600,75,NULL);
+   r:=public.ads_credit_confirm_v1_1098(challenge_token,viewer,1600,75,NULL);
    IF r->>'charged'<>'false' THEN RAISE EXCEPTION 'ADS_PREMATURE_CHARGED';END IF;
-   r:=public.ads_credit_confirm_v1_1098(token,viewer,1600,49,NULL);
+   r:=public.ads_credit_confirm_v1_1098(challenge_token,viewer,1600,49,NULL);
    IF r->>'charged'<>'false' THEN RAISE EXCEPTION 'ADS_INVALID_VISIBILITY_CHARGED';END IF;
-   r:=public.ads_credit_confirm_v1_1098(token,repeat('f',64),1600,75,NULL);
+   r:=public.ads_credit_confirm_v1_1098(challenge_token,repeat('f',64),1600,75,NULL);
    IF r->>'charged'<>'false' THEN RAISE EXCEPTION 'ADS_DIFFERENT_VIEWER_CHARGED';END IF;
   END IF;
   UPDATE public.ads_credit_challenges_v1_1098
-   SET issued_at=clock_timestamp()-interval '2 seconds' WHERE token=token;
-  r:=public.ads_credit_confirm_v1_1098(token,viewer,1600,75,NULL);
+   SET issued_at=clock_timestamp()-interval '2 seconds' WHERE token=challenge_token;
+  r:=public.ads_credit_confirm_v1_1098(challenge_token,viewer,1600,75,NULL);
   IF r->>'charged'<>'true' OR r->>'chargedCents'<>'2'
   THEN RAISE EXCEPTION 'ADS_ELIGIBLE_VIEW_NOT_CHARGED_ONCE';END IF;
-  r:=public.ads_credit_confirm_v1_1098(token,viewer,1600,75,NULL);
+  r:=public.ads_credit_confirm_v1_1098(challenge_token,viewer,1600,75,NULL);
   IF r->>'charged'<>'false' OR r->>'reason'<>'replay'
   THEN RAISE EXCEPTION 'ADS_SAME_TOKEN_CHARGED_TWICE';END IF;
   IF n=1 THEN
