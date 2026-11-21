@@ -720,3 +720,44 @@
  .merchant-landing-v1117 .merchant-landing-premium-copy{justify-content:flex-start;align-self:start;padding-top:clamp(6px,1.4vw,20px)}
  .merchant-landing-v1117 .merchant-v1112-visual{align-self:start}
 }
+
+
+/* TAMÃO V1.1122 — editorial refinement: one shared explanation, clear selected plan. */
+.merchant-landing-v1117 .merchant-v1115-plan{
+ display:flex;flex-direction:column;gap:0;
+ transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.merchant-landing-v1117 .merchant-v1115-plan .merchant-v1119-coverage{
+ margin-top:15px;
+}
+.merchant-landing-v1117 .merchant-v1115-plan .merchant-v1118-plan-action{
+ margin-top:auto;min-height:47px;padding-block:13px;
+ font-size:12.5px;letter-spacing:-.01em;
+}
+.merchant-landing-v1117 .merchant-v1115-plan.merchant-v1122-selected{
+ outline:2px solid #159363;outline-offset:2px;
+ border-color:#14825a;
+ box-shadow:0 21px 42px rgba(13,90,58,.14);
+}
+.merchant-landing-v1117 .merchant-v1115-plan-featured.merchant-v1122-selected{
+ outline-color:#e7c183;border-color:#e7c183;
+ box-shadow:0 23px 44px rgba(5,48,31,.26);
+}
+.merchant-landing-v1117 .merchant-v1115-plan.merchant-v1122-selected .merchant-v1115-plan-top span{
+ text-decoration:underline;text-decoration-color:rgba(20,139,83,.3);text-underline-offset:5px;
+}
+.merchant-landing-v1117 .merchant-v1115-plan-featured.merchant-v1122-selected .merchant-v1115-plan-top span{
+ text-decoration-color:#d4bc87;
+}
+.merchant-landing-v1117 .merchant-v1115-plan .merchant-v1119-coverage{
+ margin-bottom:16px;
+}
+.merchant-landing-v1117 .merchant-v1115-plan-savings>span{font-size:12px;line-height:1.45}
+.merchant-landing-v1117 .merchant-v1119-coverage strong{font-size:19px}
+@media(max-width:520px){
+ .merchant-landing-v1117 .merchant-v1115-plan .merchant-v1119-coverage{grid-row:auto;margin-bottom:12px}
+ .merchant-landing-v1117 .merchant-v1115-plan .merchant-v1118-plan-action{grid-row:auto;min-height:48px}
+}
+@media(prefers-reduced-motion:reduce){
+ .merchant-landing-v1117 .merchant-v1115-plan{transition:none}
+}

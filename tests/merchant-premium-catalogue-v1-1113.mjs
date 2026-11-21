@@ -33,7 +33,7 @@ assert.match(hero,/onclick="openMerchantPortal\(true\)">Quero cadastrar minha re
 assert.match(hero,/onclick="openMerchantPortal\(\)">Já sou parceiro/);
 assert.ok(hero.indexOf('merchant-v1112-primary')<hero.indexOf('merchant-v1112-promise'),
  'Primary signup must precede fine-print benefits');
-assert.match(source,/link\.href='\.\/css\/merchant-landing-executive\.css\?v=1121'/);
+assert.match(source,/link\.href='\.\/css\/merchant-landing-executive\.css\?v=1122'/);
 assert.match(html,/id="merchant-margin" tabindex="-1"/);
 assert.match(html,/id="merchant-how" tabindex="-1"/);
 assert.match(html,/preload-none-expected-never-here|merchant-sim-product-cost/);
@@ -48,6 +48,6 @@ for(const style of ['.merchant-landing-v1113','.merchant-v1113-products','.merch
  '.merchant-v1113-positioning','.merchant-v1113-controlbar','@media(max-width:520px)',
  'prefers-reduced-motion:reduce'])
  assert.ok(css.includes(style),'Missing V1.1113 style '+style);
-assert.match(sw,/CACHE='tamao-sg-v1\.1121'/);
+assert.match(sw,/CACHE='tamao-sg-v1\.1122'/);
 assert.match(sw,/\.\/assets\/tamao-products-sprite\.webp/);
 console.log('V1.1113 PASS: visual catalogue, dynamic rate, real signup, accurate trust claims and responsive styles.');

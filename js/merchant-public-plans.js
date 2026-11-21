@@ -164,8 +164,12 @@ function merchantPlanReceiptPreview(key,ticketValue){
  write('status',enough
   ?'Com pagamento confirmado e saldo disponível, a taxa é debitada dos créditos.'
   :'Saldo insuficiente neste exemplo. A tarifa reduzida exige crédito disponível.');
- choices.forEach(el=>el.setAttribute('aria-pressed',
-  String(el.getAttribute('data-merchant-compare-plan')===key)));
+ choices.forEach(el=>{
+   const isSelected=el.getAttribute('data-merchant-compare-plan')===key;
+   el.setAttribute('aria-pressed',String(isSelected));
+   const card=el.closest?.('.merchant-v1115-plan');
+   card?.classList?.toggle('merchant-v1122-selected',isSelected);
+ });
 if(typeof section.querySelector==='function'&&section.querySelector('[data-merchant-coverage-for]'))merchantPlanCoverageRefresh(ticket);
  if(ticketValue===undefined){
   const receipt=document.getElementById('merchant-plan-receipt');
@@ -272,7 +276,8 @@ function merchantPlanReceiptHydrate(){
   const button=document.createElement('button');
   button.type='button';
   button.className='merchant-v1118-plan-action';
-  button.textContent='Entender este pacote →';
+  button.textContent='Ver taxa e saldo →';
+  button.setAttribute('aria-label','Ver taxa e saldo do pacote '+plan.name);
   button.setAttribute('data-merchant-compare-plan',plan.key);
   button.setAttribute('data-merchant-plan-bps',String(plan.bps));
   button.setAttribute('data-merchant-plan-credit-cents',String(plan.cents));
@@ -300,7 +305,7 @@ function merchantPlanReceiptHydrate(){
 <div class="merchant-v1118-receipt-head">
 <span>TRANSPARÊNCIA EM CADA PEDIDO</span>
 <h3>O crédito paga a taxa. <em>Não é uma segunda cobrança.</em></h3>
-<p>Escolha “Entender este pacote” acima. Veja uma venda de <strong data-merchant-order-ticket>R$ 120,00</strong> em um exemplo ilustrativo.</p>
+<p>Selecione um pacote acima. Veja uma venda de <strong data-merchant-order-ticket>R$ 120,00</strong> em um exemplo ilustrativo.</p>
 </div>
 <div class="merchant-v1118-receipt-body">
 <div class="merchant-v1118-receipt-title"><span>EXEMPLO DE COBRANÇA</span><strong data-merchant-receipt-plan>—</strong></div>
