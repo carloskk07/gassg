@@ -49,5 +49,5 @@ for(const selector of [
   '.merchant-landing-v1112 button:focus-visible',
   '@media(max-width:690px)','prefers-reduced-motion:reduce'
 ])assert.ok(styles.includes(selector),'responsive/commercial layout missing '+selector);
-assert.ok(/tamao-sg-v1\.(?:1112|1113)/.test(sw),'updated JS and CSS must refresh service-worker cache');
+assert.ok(/tamao-sg-v1\.(?:1112|1113|1114)/.test(sw),'updated JS and CSS must refresh service-worker cache');
 console.log('V1.1112: premium merchant page, truthful commercial terms, real actions and mobile safety verified');
