@@ -83,7 +83,9 @@ for(const selector of ['.home-starter-neutral','.nav-btn-shop',
   assert.ok(css.includes(selector),'missing V1.364 mobile conversion rule '+selector);
 }
 const learnCtas=learn.match(/onclick="startHomeBrowse\(\)"/g)||[];
-assert.equal(learnCtas.length,2,'both educational CTAs must open the product chooser');
+assert.equal(learnCtas.length,3,'hero, next-step guide and final CTA must open the same real product chooser');
+assert.match(learn,/class="learn-trust-path"[^]*?onclick="go\('tracking'\)"/,
+ 'an existing buyer must have direct access to the official order tracking route');
 assert.ok(!learn.includes('onclick="startCustomerAvailability()"'),
  'educational pages must never pre-select a featured gas product');
 assert.doesNotMatch(sponsors,/\d+[.,]?\d*% (?:de )?(?:conversão|alcance)|milhares de clientes/i,
