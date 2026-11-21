@@ -1889,6 +1889,16 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
       source.includes('data.products.map')&&
       !source.includes('admin.from(')&&!source.includes('auth.getUser'),
       'Preço regional público só pode projetar dados agregados sem identidade');
+  }else if(entry.name==='merchant-public-plans'){
+    assert.ok(source.includes('boundedEmptyObject(req)')&&source.includes('getReader()')&&source.includes('total>64'),
+      'Catálogo comercial público precisa leitura incremental limitada');
+    assert.ok(source.includes('req.headers.get("apikey")!==PUB')&&
+      source.includes('consume_hashed_api_quota')&&source.includes('const ORIGINS=new Set'),
+      'Catálogo comercial público precisa origem, chave e quota');
+    assert.ok(source.includes('.from("merchant_billing_plans")')&&
+      source.includes('.eq("active",true)')&&source.includes('data.map(p=>')&&
+      !source.includes('auth.getUser'),
+      'Catálogo comercial deve revelar somente taxas e planos ativos, sem identidade');
   }else{
     assert.ok(source.includes('readJsonBody(req'),entry.name+' precisa usar leitura de JSON com limite');
     if(entry.name==='coupon-credit-pix')assert.ok(source.includes('readJsonBody(req,{maxBytes:4096})')&&
