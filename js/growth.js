@@ -618,7 +618,8 @@ const productCost=hasProductCost?Math.min(100000,parsedProductCost):0;
 const deliveryCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-delivery-cost')?.value)||0));
 const paymentCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-payment-cost')?.value)||0));
 const taxRate=Math.min(100,Math.max(0,Number(document.querySelector('#merchant-sim-tax-rate')?.value)||0));
-const selectedPlan=MERCHANT_PUBLIC_BILLING_PLANS.find(p=>p.key===document.querySelector('#merchant-sim-plan')?.value)||MERCHANT_PUBLIC_BILLING_PLANS[0];
+const activePlans=globalThis.tamaoMerchantPublicPlans?.status==='ready'?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS;
+const selectedPlan=activePlans.find(p=>p.key===document.querySelector('#merchant-sim-plan')?.value)||activePlans[0];
 const e=merchantMarginExample({salePrice,orders,productCost,deliveryCost,paymentCost,taxRate,feeRate:selectedPlan.bps/10000});
 const selectedLabel=document.querySelector('#merchant-sim-plan-label');
 if(selectedLabel)selectedLabel.textContent='Taxa TAMÃO ('+policyPercent(selectedPlan.bps/10000)+')';
@@ -984,12 +985,21 @@ return globalThis.tamaoSponsorPremiumLanding();
 }
 
 function tamaoMerchantExecutiveStyles(){
-if(typeof document==='undefined'||document.getElementById('merchant-executive-styles'))return;
+if(typeof document==='undefined')return;
+if(!document.getElementById('merchant-executive-styles')){
 const link=document.createElement('link');
 link.id='merchant-executive-styles';
 link.rel='stylesheet';
-link.href='./css/merchant-landing-executive.css?v=1115';
+link.href='./css/merchant-landing-executive.css?v=1116';
 document.head.appendChild(link);
+}
+if(!document.getElementById('merchant-public-plans-script')){
+const script=document.createElement('script');
+script.id='merchant-public-plans-script';
+script.src='./js/merchant-public-plans.js?v=1116';
+script.async=true;
+document.head.appendChild(script);
+}else globalThis.tamaoMerchantPublicPlansLoad?.();
 }
 function merchantsLanding(){
 tamaoMerchantExecutiveStyles();
@@ -998,15 +1008,19 @@ const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
 const cta=internalPilot?"setMode('merchant')":"openMerchantPortal(true)";
 const ctaLabel=internalPilot?'Abrir ambiente interno':'Cadastrar minha empresa';
 const referenceTicket=120.00;
-const plans=MERCHANT_PUBLIC_BILLING_PLANS;
+const verified=globalThis.tamaoMerchantPublicPlans?.status==='ready';
+const plans=verified?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS;
 const flex=plans[0];
+const cheapest=Math.min(...plans.map(p=>p.bps));
+const tariffStamp=verified?'Condições conferidas no catálogo oficial':'Valores de referência. Confira as taxas no Financeiro antes de contratar';
+const planSummary=plans.slice(1).map(p=>esc(p.name)+' '+policyPercent(p.bps/10000)).join(', ');
 const merchantFeeLabel=policyPercent(flex.bps/10000);
 const initial=merchantMarginExample({salePrice:referenceTicket,orders:50,feeRate:flex.bps/10000});
-const planOptions=plans.map(p=>'<option value="'+p.key+'">'+p.name+' • '+policyPercent(p.bps/10000)+'</option>').join('');
+const planOptions=plans.map(p=>'<option value="'+p.key+'">'+esc(p.name)+' • '+policyPercent(p.bps/10000)+'</option>').join('');
 const planCards=plans.slice(1).map(p=>{
 const rate=p.bps/10000,saving=(flex.bps-p.bps)/10000;
 return '<article class="merchant-v1115-plan'+(p.key==='credit_09990'?' merchant-v1115-plan-featured':'')+'">'+
-'<div class="merchant-v1115-plan-top"><span>'+p.name+'</span>'+(p.key==='credit_09990'?'<em>PARA QUEM VENDE MAIS</em>':'')+'</div>'+
+'<div class="merchant-v1115-plan-top"><span>'+esc(p.name)+'</span>'+(p.key==='credit_09990'?'<em>PARA QUEM VENDE MAIS</em>':'')+'</div>'+
 '<strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small>'+
 '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
 '<div class="merchant-v1115-plan-savings">Economia na taxa de uma venda de '+BRL.format(referenceTicket)+': <strong>'+BRL.format(referenceTicket*saving)+'</strong></div>'+
@@ -1120,12 +1134,12 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <section class="merchant-v1114-pricing" id="merchant-terms" tabindex="-1" aria-label="Condições comerciais da parceria">
 <div class="merchant-v1114-pricing-heading"><span class="section-kicker">TRANSPARÊNCIA COMERCIAL</span><h2>Saiba exatamente o que a plataforma cobra.</h2><p>Sem assinatura mensal no modelo atual. Você recebe o pagamento do cliente pela forma disponibilizada pela sua revenda.</p></div>
 <div class="merchant-v1114-pricing-grid">
-<div class="merchant-v1114-pricing-rate"><span>FLEX DIÁRIO · SEM RECARGA</span><strong>${merchantFeeLabel}</strong><small>por pedido concluído; com pacotes, a taxa pode cair até 6,5%</small></div>
+<div class="merchant-v1114-pricing-rate"><span>FLEX DIÁRIO · SEM RECARGA</span><strong>${merchantFeeLabel}</strong><small>por pedido concluído; com pacotes, a taxa pode cair até ${policyPercent(cheapest/10000)}</small></div>
 <div class="merchant-v1114-pricing-example">
 <span>EXEMPLO ILUSTRATIVO DA TAXA</span>
 <div><span>Valor da venda</span><strong>${BRL.format(referenceTicket)}</strong></div>
 <div><span>Taxa TAMÃO (${merchantFeeLabel})</span><strong>${BRL.format(referenceTicket * flex.bps/10000)}</strong></div>
-<p>Exemplo com o Flex Diário (9%). Nos pacotes pré-pagos a taxa é menor e debitada dos créditos confirmados. Custos próprios e tributos não estão incluídos.</p>
+<p>Exemplo com o Flex Diário (${merchantFeeLabel}). Nos pacotes pré-pagos a taxa é menor e debitada dos créditos confirmados. Custos próprios e tributos não estão incluídos.</p>
 </div>
 <div class="merchant-v1114-pricing-assurance"><span>QUEM RECEBE A VENDA?</span><strong>A sua revenda.</strong><p>O TAMÃO não retém o valor do pedido para fazer um repasse depois. A cobrança da plataforma é tratada separadamente.</p></div>
 </div>
@@ -1134,14 +1148,14 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <section class="merchant-v1115-plans" id="merchant-plans" tabindex="-1" aria-label="Pacotes de redução de taxas">
 <div class="merchant-v1115-plans-head">
 <div><span class="section-kicker">MAIS CONTROLE SOBRE O QUE VOCÊ PAGA</span><h2>Uma taxa menor faz diferença em cada venda.</h2><p>No Flex Diário não há recarga. Com créditos antecipados, sua tarifa por pedido pode ser menor.</p></div>
-<div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>6,5%</strong><small>com Alto Volume ativo e saldo disponível</small></div>
+<div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>${policyPercent(cheapest/10000)}</strong><small>com Alto Volume ativo e saldo disponível</small></div>
 </div>
-<div class="merchant-v1115-plans-grid">${planCards}</div>
+<p class="merchant-v1115-plans-fine" role="status">${tariffStamp}</p><div class="merchant-v1115-plans-grid">${planCards}</div>
 <div class="merchant-v1115-plans-bottom">
 <div><strong>Como funciona o pré-pago?</strong><p>Escolha um pacote no Financeiro do Portal da Revenda, pague a recarga e aguarde a confirmação. Os créditos pagam taxas; o valor da venda segue com a revenda. Consulte saldo e condições no painel.</p></div>
 <button class="secondary merchant-v1115-plans-cta" type="button" onclick="openMerchantPortal(true)">Conhecer os planos no Portal <span aria-hidden="true">→</span></button>
 </div>
-<p class="merchant-v1115-plans-fine">Economia ilustrativa por pedido de R$ 120, em comparação com o Flex Diário de 9%. Só existe economia quando a tarifa reduzida é efetivamente aplicada. Recargas não garantem pedidos ou lucro; condições podem ser alteradas pelo administrador.</p>
+<p class="merchant-v1115-plans-fine">Economia ilustrativa por pedido de R$ 120, em comparação com o Flex Diário de ${merchantFeeLabel}. Só existe economia quando a tarifa reduzida é efetivamente aplicada. Recargas não garantem pedidos ou lucro; condições podem ser alteradas pelo administrador.</p>
 </section>
 <section class="section merchant-v1114-simulator" id="merchant-margin" tabindex="-1"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Quer analisar sua margem com mais detalhes?</h2><p>O cálculo completo fica disponível para quem quiser informar os próprios custos e avaliar cenários sem promessas de lucro.</p></div></div>
 <details class="merchant-v1114-simulator-details">
@@ -1221,11 +1235,11 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
 <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não. Preço total, prazo e confiança são considerados na seleção.</p></details>
 <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
-<details><summary>Qual é a taxa de cada plano?</summary><p>No Flex Diário, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. A tarifa é de 9%. Com créditos antecipados: Essencial 8%, Popular 7,5%, Profissional 7% e Alto Volume 6,5%, conforme plano ativo e saldo disponível. Verifique as condições atuais no Financeiro antes de contratar.</p></details>
+<details><summary>Qual é a taxa de cada plano?</summary><p>No Flex Diário, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. A tarifa é de ${merchantFeeLabel}. Com créditos antecipados: ${planSummary}, conforme plano ativo e saldo disponível. Verifique as condições atuais no Financeiro antes de contratar.</p></details>
 <details><summary>Quem define preço, estoque e entrega?</summary><p>A sua revenda. Você define o preço de cada produto, o estoque, o frete, a previsão de entrega e quando pode atender.</p></details>
 <details><summary>Como recebo o dinheiro da venda?</summary><p>O cliente paga diretamente à sua revenda. O TAMÃO não retém a venda.</p></details>
 <details><summary>Preciso ter Mercado Pago ou contratar um novo serviço?</summary><p>Não para receber na entrega. Você pode receber na entrega por dinheiro, Pix ou cartão, conforme sua operação.</p></details>
-<details><summary>Tenho que pagar para começar?</summary><p>Não. O cadastro é gratuito. O Flex Diário funciona sem recarga antecipada: a taxa de 9% é apurada sobre pedidos concluídos. Os pacotes são opcionais.</p></details>
+<details><summary>Tenho que pagar para começar?</summary><p>Não. O cadastro é gratuito. O Flex Diário funciona sem recarga antecipada: a taxa de ${merchantFeeLabel} é apurada sobre pedidos concluídos. Os pacotes são opcionais.</p></details>
 <details><summary>Comprar crédito significa pagar uma taxa extra?</summary><p>Não. A recarga é um adiantamento usado para pagar taxas da plataforma. Ela não compra produtos nem garante pedidos; a tarifa reduzida depende do plano ativo e do saldo disponível.</p></details>
 <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>Avise antes da saída; o TAMÃO poderá procurar outra revenda.</p></details>
 <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
