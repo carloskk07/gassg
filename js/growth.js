@@ -992,13 +992,13 @@ if(!document.getElementById('merchant-executive-styles')){
 const link=document.createElement('link');
 link.id='merchant-executive-styles';
 link.rel='stylesheet';
-link.href='./css/merchant-landing-executive.css?v=1116';
+link.href='./css/merchant-landing-executive.css?v=1117';
 document.head.appendChild(link);
 }
 if(!document.getElementById('merchant-public-plans-script')){
 const script=document.createElement('script');
 script.id='merchant-public-plans-script';
-script.src='./js/merchant-public-plans.js?v=1116';
+script.src='./js/merchant-public-plans.js?v=1117';
 script.async=true;
 document.head.appendChild(script);
 }else globalThis.tamaoMerchantPublicPlansLoad?.();
@@ -1014,6 +1014,7 @@ const verified=globalThis.tamaoMerchantPublicPlans?.status==='ready';
 const plans=verified?globalThis.tamaoMerchantPublicPlans.plans:MERCHANT_PUBLIC_BILLING_PLANS;
 const flex=plans[0];
 const cheapest=Math.min(...plans.map(p=>p.bps));
+const cheapestPlan=plans.find(p=>p.bps===cheapest)||flex;
 const tariffStamp=verified?'Condições conferidas no catálogo oficial':'Valores de referência. Confira as taxas no Financeiro antes de contratar';
 const safePlanName=value=>String(value||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
 const planSummary=plans.slice(1).map(p=>safePlanName(p.name)+' '+policyPercent(p.bps/10000)).join(', ');
@@ -1022,16 +1023,16 @@ const initial=merchantMarginExample({salePrice:referenceTicket,orders:50,feeRate
 const planOptions=plans.map(p=>'<option value="'+p.key+'">'+safePlanName(p.name)+' • '+policyPercent(p.bps/10000)+'</option>').join('');
 const planCards=plans.slice(1).map(p=>{
 const rate=p.bps/10000,saving=(flex.bps-p.bps)/10000;
-return '<article class="merchant-v1115-plan'+(p.key==='credit_09990'?' merchant-v1115-plan-featured':'')+'">'+
-'<div class="merchant-v1115-plan-top"><span>'+safePlanName(p.name)+'</span>'+(p.key==='credit_09990'?'<em>PARA QUEM VENDE MAIS</em>':'')+'</div>'+
-'<strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small>'+
+return '<article class="merchant-v1115-plan merchant-v1117-plan'+(p.bps===cheapest&&p.key!==flex.key?' merchant-v1115-plan-featured':'')+'">'+
+'<div class="merchant-v1115-plan-top"><span>'+safePlanName(p.name)+'</span>'+(p.bps===cheapest&&p.key!==flex.key?'<em>MAIOR REDUÇÃO DE TAXA</em>':'')+'</div>'+
+'<div class="merchant-v1117-plan-rate"><strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small></div>'+
 '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
-'<div class="merchant-v1115-plan-savings">Economia na taxa de uma venda de '+BRL.format(referenceTicket)+': <strong>'+BRL.format(referenceTicket*saving)+'</strong></div>'+
-'<p>Créditos usados nas taxas; percentual reduzido sujeito a saldo e plano ativo.</p></article>';
+'<div class="merchant-v1115-plan-savings"><span>Economia na taxa por venda de <span data-merchant-order-ticket>'+BRL.format(referenceTicket)+'</span></span><strong data-merchant-saving-bps="'+(flex.bps-p.bps)+'">'+BRL.format(referenceTicket*saving)+'</strong></div>'+
+'<p>O crédito abate taxas; a redução depende do plano ativo e do saldo.</p></article>';
 }).join('');
 
 
-return shell(`<section class="page merchant-landing merchant-landing-v1112 merchant-landing-v1113 merchant-landing-v1114 merchant-landing-v1115">
+return shell(`<section class="page merchant-landing merchant-landing-v1112 merchant-landing-v1113 merchant-landing-v1114 merchant-landing-v1115 merchant-landing-v1117">
 <div class="merchant-landing-premium merchant-v1112-hero">
 <div class="merchant-landing-premium-copy">
 <span class="merchant-v1112-kicker"><span class="merchant-v1112-kicker-mark" aria-hidden="true"></span> TAMÃO NEGÓCIOS <span>PARA REVENDAS</span></span>
@@ -1151,14 +1152,23 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 <section class="merchant-v1115-plans" id="merchant-plans" tabindex="-1" aria-label="Pacotes de redução de taxas">
 <div class="merchant-v1115-plans-head">
 <div><span class="section-kicker">MAIS CONTROLE SOBRE O QUE VOCÊ PAGA</span><h2>Uma taxa menor faz diferença em cada venda.</h2><p>No Flex Diário não há recarga. Com créditos antecipados, sua tarifa por pedido pode ser menor.</p></div>
-<div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>${policyPercent(cheapest/10000)}</strong><small>com Alto Volume ativo e saldo disponível</small></div>
+<div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>${policyPercent(cheapest/10000)}</strong><small>${cheapestPlan.key===flex.key?'por pedido concluído':'com '+safePlanName(cheapestPlan.name)+' ativo e saldo disponível'}</small></div>
 </div>
-<p class="merchant-v1115-plans-fine" role="status">${tariffStamp}</p><div class="merchant-v1115-plans-grid">${planCards}</div>
+<p class="merchant-v1115-plans-fine" role="status">${tariffStamp}</p>
+<div class="merchant-v1117-ticketbar">
+<div class="merchant-v1117-ticketbar-copy"><span>COMPARE EM SEGUNDOS</span><strong>Veja quanto a taxa diminui na sua venda.</strong><small>Escolha um valor ilustrativo de pedido para comparar os planos.</small></div>
+<div class="merchant-v1117-ticketbar-controls" role="group" aria-label="Valor ilustrativo do pedido">
+<button type="button" data-merchant-ticket="100" aria-pressed="false" onclick="globalThis.merchantPlanTicketPreview?.(100)">R$ 100</button>
+<button type="button" data-merchant-ticket="120" aria-pressed="true" onclick="globalThis.merchantPlanTicketPreview?.(120)">R$ 120</button>
+<button type="button" data-merchant-ticket="200" aria-pressed="false" onclick="globalThis.merchantPlanTicketPreview?.(200)">R$ 200</button>
+</div>
+</div>
+<div class="merchant-v1115-plans-grid">${planCards}</div>
 <div class="merchant-v1115-plans-bottom">
 <div><strong>Como funciona o pré-pago?</strong><p>Escolha um pacote no Financeiro do Portal da Revenda, pague a recarga e aguarde a confirmação. Os créditos pagam taxas; o valor da venda segue com a revenda. Consulte saldo e condições no painel.</p></div>
 <button class="secondary merchant-v1115-plans-cta" type="button" onclick="openMerchantPortal(true)">Conhecer os planos no Portal <span aria-hidden="true">→</span></button>
 </div>
-<p class="merchant-v1115-plans-fine">Economia ilustrativa por pedido de R$ 120, em comparação com o Flex Diário de ${merchantFeeLabel}. Só existe economia quando a tarifa reduzida é efetivamente aplicada. Recargas não garantem pedidos ou lucro; condições podem ser alteradas pelo administrador.</p>
+<p class="merchant-v1115-plans-fine">Economia ilustrativa por pedido de <span data-merchant-order-ticket>${BRL.format(referenceTicket)}</span>, em comparação com o Flex Diário de ${merchantFeeLabel}. Só existe economia quando a tarifa reduzida é efetivamente aplicada. Recargas não garantem pedidos ou lucro; condições podem ser alteradas pelo administrador.</p>
 </section>
 <section class="section merchant-v1114-simulator" id="merchant-margin" tabindex="-1"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Quer analisar sua margem com mais detalhes?</h2><p>O cálculo completo fica disponível para quem quiser informar os próprios custos e avaliar cenários sem promessas de lucro.</p></div></div>
 <details class="merchant-v1114-simulator-details">
