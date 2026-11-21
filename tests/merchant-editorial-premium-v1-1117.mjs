@@ -71,12 +71,13 @@ const render=plans=>vm.runInNewContext(source+';merchantsLanding()',{
 const html=render(merchantPlans);
 assert.match(html,/merchant-landing-v1117/);
 
-assert.match(html,/merchant-v1118-receipt/);
-assert.match(html,/O crédito paga a taxa/);
-assert.equal((html.match(/data-merchant-compare-plan="/g)||[]).length,4);
-assert.match(html,/data-merchant-receipt-balance>R\$ 10,30/);
-assert.match(html,/merchantPlanReceiptPreview/);
+assert.doesNotMatch(html,/merchant-v1118-receipt|data-merchant-compare-plan=/,
+ 'The receipt must load only on merchant visit, not in customer initial JS');
+assert.match(growth,/merchantPlanReceiptHydrate/);
+assert.match(lazy,/function merchantPlanReceiptHydrate\(\)/);
 assert.match(lazy,/function merchantPlanReceiptPreview\(key,ticketValue\)/);
+assert.match(lazy,/grid.insertAdjacentElement\('afterend',receipt\)/);
+assert.match(lazy,/setTimeout\(merchantPlanReceiptHydrate,0\)/);
 assert.ok(css.includes('.merchant-v1118-receipt-numbers'));
 
 assert.match(html,/merchant-v1117-ticketbar/);

@@ -135,3 +135,70 @@ function merchantPlanReceiptPreview(key,ticketValue){
 }
 globalThis.merchantPlanReceiptPreview=merchantPlanReceiptPreview;
 globalThis.merchantPlanTicketPreview=merchantPlanTicketPreview;
+
+/* Build the explanatory receipt only when the merchant landing is visited.
+   This keeps customer checkout below its strict initial JS budget. */
+function merchantPlanReceiptHydrate(){
+ if(typeof document==='undefined')return false;
+ const section=document.getElementById('merchant-plans');
+ const grid=section?.querySelector('.merchant-v1115-plans-grid');
+ if(!grid)return false;
+ const state=globalThis.tamaoMerchantPublicPlans;
+ const plans=state?.status==='ready'&&Array.isArray(state.plans)
+  ?state.plans:MERCHANT_PUBLIC_BILLING_PLANS;
+ const prepaid=plans.slice(1),cards=Array.from(grid.querySelectorAll('article.merchant-v1115-plan'));
+ if(!prepaid.length||cards.length!==prepaid.length)return false;
+ section.setAttribute('data-merchant-flex-bps',String(plans[0].bps));
+ prepaid.forEach((plan,i)=>{
+  const card=cards[i];
+  if(card.querySelector('[data-merchant-compare-plan]'))return;
+  const button=document.createElement('button');
+  button.type='button';
+  button.className='merchant-v1118-plan-action';
+  button.textContent='Entender este pacote →';
+  button.setAttribute('data-merchant-compare-plan',plan.key);
+  button.setAttribute('data-merchant-plan-bps',String(plan.bps));
+  button.setAttribute('data-merchant-plan-credit-cents',String(plan.cents));
+  button.setAttribute('data-merchant-plan-name',plan.name);
+  button.setAttribute('aria-controls','merchant-plan-receipt');
+  button.setAttribute('aria-pressed',String(i===0));
+  button.addEventListener('click',()=>merchantPlanReceiptPreview(plan.key));
+  const caption=card.querySelector('p');
+  if(caption)card.insertBefore(button,caption);else card.appendChild(button);
+ });
+ if(!document.getElementById('merchant-plan-receipt')){
+  const receipt=document.createElement('section');
+  receipt.className='merchant-v1118-receipt';
+  receipt.id='merchant-plan-receipt';
+  receipt.tabIndex=-1;
+  receipt.setAttribute('aria-label','Exemplo detalhado da cobrança da taxa');
+  receipt.innerHTML=`
+<div class="merchant-v1118-receipt-head">
+<span>TRANSPARÊNCIA EM CADA PEDIDO</span>
+<h3>O crédito paga a taxa. <em>Não é uma segunda cobrança.</em></h3>
+<p>Escolha “Entender este pacote” acima. Veja uma venda de <strong data-merchant-order-ticket>R$ 120,00</strong> em um exemplo ilustrativo.</p>
+</div>
+<div class="merchant-v1118-receipt-body">
+<div class="merchant-v1118-receipt-title"><span>EXEMPLO DE COBRANÇA</span><strong data-merchant-receipt-plan>—</strong></div>
+<div class="merchant-v1118-receipt-numbers">
+<div><span>Taxa sem recarga (Flex)</span><strong data-merchant-receipt-flex>—</strong></div>
+<div><span>Taxa com este pacote</span><strong data-merchant-receipt-fee>—</strong></div>
+<div class="merchant-v1118-receipt-highlight"><span>Diferença nesta venda</span><strong data-merchant-receipt-saving>—</strong></div>
+</div>
+<div class="merchant-v1118-receipt-balance">
+<div><span>Crédito carregado</span><strong data-merchant-receipt-credit>—</strong></div>
+<div><span>Saldo ilustrativo após uma taxa</span><strong data-merchant-receipt-balance>—</strong></div>
+</div>
+<p class="merchant-v1118-receipt-status" data-merchant-receipt-status role="status" aria-live="polite" aria-atomic="true">Comparando valores do catálogo.</p>
+</div>
+<p class="merchant-v1118-receipt-note">Exemplo de um pedido, sem realizar cobranças. Os créditos são um adiantamento para taxas do TAMÃO, não o pagamento de uma tarifa extra. A redução depende do pacote ativo e de saldo suficiente.</p>
+`;
+  grid.insertAdjacentElement('afterend',receipt);
+ }
+ const selected=section.querySelector('[data-merchant-compare-plan][aria-pressed="true"]');
+ const selectedTicket=section.querySelector('[data-merchant-ticket][aria-pressed="true"]');
+ const ticket=Number(selectedTicket?.getAttribute('data-merchant-ticket')||120);
+ return merchantPlanReceiptPreview(selected?.getAttribute('data-merchant-compare-plan')||prepaid[0].key,ticket);
+}
+globalThis.merchantPlanReceiptHydrate=merchantPlanReceiptHydrate;
+setTimeout(merchantPlanReceiptHydrate,0);

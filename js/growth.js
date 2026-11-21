@@ -1005,6 +1005,7 @@ document.head.appendChild(script);
 }
 function merchantsLanding(){
 tamaoMerchantExecutiveStyles();
+if(globalThis.merchantPlanReceiptHydrate)setTimeout(globalThis.merchantPlanReceiptHydrate,0);
 const portal=globalThis.merchantPortalRequested?.()===true;
 const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
 const cta=internalPilot?"setMode('merchant')":"openMerchantPortal(true)";
@@ -1021,10 +1022,6 @@ const planSummary=plans.slice(1).map(p=>safePlanName(p.name)+' '+policyPercent(p
 const merchantFeeLabel=policyPercent(flex.bps/10000);
 const initial=merchantMarginExample({salePrice:referenceTicket,orders:50,feeRate:flex.bps/10000});
 const planOptions=plans.map(p=>'<option value="'+p.key+'">'+safePlanName(p.name)+' • '+policyPercent(p.bps/10000)+'</option>').join('');
-const previewPlan=plans.slice(1)[0]||flex;
-const previewFlexFeeCents=Math.round(referenceTicket*flex.bps/100);
-const previewPlanFeeCents=Math.round(referenceTicket*previewPlan.bps/100);
-const previewCreditEnough=previewPlan.cents>=previewPlanFeeCents;
 const planCards=plans.slice(1).map(p=>{
 const rate=p.bps/10000,saving=(flex.bps-p.bps)/10000;
 return '<article class="merchant-v1115-plan merchant-v1117-plan'+(p.bps===cheapest&&p.key!==flex.key?' merchant-v1115-plan-featured':'')+'">'+
@@ -1032,7 +1029,6 @@ return '<article class="merchant-v1115-plan merchant-v1117-plan'+(p.bps===cheape
 '<div class="merchant-v1117-plan-rate"><strong class="merchant-v1115-plan-rate">'+policyPercent(rate)+'</strong><small>por pedido concluído</small></div>'+
 '<div class="merchant-v1115-plan-credit"><span>Crédito antecipado</span><b>'+BRL.format(p.cents/100)+'</b></div>'+
 '<div class="merchant-v1115-plan-savings"><span>Economia na taxa por venda de <span data-merchant-order-ticket>'+BRL.format(referenceTicket)+'</span></span><strong data-merchant-saving-bps="'+(flex.bps-p.bps)+'">'+BRL.format(referenceTicket*saving)+'</strong></div>'+
-'<button type="button" class="merchant-v1118-plan-action" data-merchant-compare-plan="'+p.key+'" data-merchant-plan-bps="'+p.bps+'" data-merchant-plan-credit-cents="'+p.cents+'" data-merchant-plan-name="'+safePlanName(p.name)+'" aria-controls="merchant-plan-receipt" aria-pressed="'+String(p.key===previewPlan.key)+'" onclick="globalThis.merchantPlanReceiptPreview?.(&#39;'+p.key+'&#39;)">Entender este pacote <span aria-hidden="true">→</span></button>'+
 '<p>O crédito abate taxas; a redução depende do plano ativo e do saldo.</p></article>';
 }).join('');
 
@@ -1154,7 +1150,7 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 </div>
 </section>
 
-<section class="merchant-v1115-plans" id="merchant-plans" tabindex="-1" data-merchant-flex-bps="${flex.bps}" aria-label="Pacotes de redução de taxas">
+<section class="merchant-v1115-plans" id="merchant-plans" tabindex="-1" aria-label="Pacotes de redução de taxas">
 <div class="merchant-v1115-plans-head">
 <div><span class="section-kicker">MAIS CONTROLE SOBRE O QUE VOCÊ PAGA</span><h2>Uma taxa menor faz diferença em cada venda.</h2><p>No Flex Diário não há recarga. Com créditos antecipados, sua tarifa por pedido pode ser menor.</p></div>
 <div class="merchant-v1115-plans-hero-stat"><span>TAXA A PARTIR DE</span><strong>${policyPercent(cheapest/10000)}</strong><small>${cheapestPlan.key===flex.key?'por pedido concluído':'com '+safePlanName(cheapestPlan.name)+' ativo e saldo disponível'}</small></div>
@@ -1169,28 +1165,6 @@ ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Voc
 </div>
 </div>
 <div class="merchant-v1115-plans-grid">${planCards}</div>
-
-<section class="merchant-v1118-receipt" id="merchant-plan-receipt" tabindex="-1" aria-label="Exemplo detalhado da cobrança da taxa">
-<div class="merchant-v1118-receipt-head">
-<span>TRANSPARÊNCIA EM CADA PEDIDO</span>
-<h3>O crédito paga a taxa. <em>Não é uma segunda cobrança.</em></h3>
-<p>Escolha “Entender este pacote” acima. Veja como fica uma venda de <strong data-merchant-order-ticket>${BRL.format(referenceTicket)}</strong>, usando os valores ilustrativos da página.</p>
-</div>
-<div class="merchant-v1118-receipt-body">
-<div class="merchant-v1118-receipt-title"><span>EXEMPLO DE COBRANÇA</span><strong data-merchant-receipt-plan>${safePlanName(previewPlan.name)}</strong></div>
-<div class="merchant-v1118-receipt-numbers">
-<div><span>Taxa sem recarga (Flex)</span><strong data-merchant-receipt-flex>${BRL.format(previewFlexFeeCents/100)}</strong></div>
-<div><span>Taxa com este pacote</span><strong data-merchant-receipt-fee>${BRL.format(previewPlanFeeCents/100)}</strong></div>
-<div class="merchant-v1118-receipt-highlight"><span>Diferença nesta venda</span><strong data-merchant-receipt-saving>${BRL.format((previewFlexFeeCents-previewPlanFeeCents)/100)}</strong></div>
-</div>
-<div class="merchant-v1118-receipt-balance">
-<div><span>Crédito carregado</span><strong data-merchant-receipt-credit>${BRL.format(previewPlan.cents/100)}</strong></div>
-<div><span>Saldo ilustrativo após uma taxa</span><strong data-merchant-receipt-balance>${previewCreditEnough?BRL.format((previewPlan.cents-previewPlanFeeCents)/100):'Saldo insuficiente'}</strong></div>
-</div>
-<p class="merchant-v1118-receipt-status" data-merchant-receipt-status role="status" aria-live="polite" aria-atomic="true">${previewCreditEnough?'Com pagamento confirmado e saldo disponível, a taxa é debitada dos créditos.':'Saldo insuficiente neste exemplo. A tarifa reduzida exige crédito disponível.'}</p>
-</div>
-<p class="merchant-v1118-receipt-note">Simulação de um pedido, sem realizar cobranças. Os créditos são um adiantamento para taxas do TAMÃO, não o pagamento de uma tarifa extra. A redução depende do pacote ativo e de saldo suficiente.</p>
-</section>
 <div class="merchant-v1115-plans-bottom">
 <div><strong>Como funciona o pré-pago?</strong><p>Escolha um pacote no Financeiro do Portal da Revenda, pague a recarga e aguarde a confirmação. Os créditos pagam taxas; o valor da venda segue com a revenda. Consulte saldo e condições no painel.</p></div>
 <button class="secondary merchant-v1115-plans-cta" type="button" onclick="openMerchantPortal(true)">Conhecer os planos no Portal <span aria-hidden="true">→</span></button>
