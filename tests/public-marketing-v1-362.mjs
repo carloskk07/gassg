@@ -92,7 +92,8 @@ assert.match(merchant,/merchant-v1114-index/);
 assert.match(merchant,/publicLandingJump\('merchant-benefits'\)/);
 assert.match(merchant,/publicLandingJump\('merchant-terms'\)/);
 assert.match(merchant,/publicLandingJump\('merchant-faq'\)/);
-assert.match(merchant,/publicLandingJump\('merchant-margin'\)/);
+assert.match(merchant,/publicLandingJump\('merchant-plans'\)/);
+assert.match(merchant,/id="merchant-plans" tabindex="-1"/);
 assert.match(merchant,/publicLandingJump\('merchant-how'\)/);
 assert.match(merchant,/id="merchant-margin" tabindex="-1"/);
 assert.match(merchant,/id="merchant-how" tabindex="-1"/);
@@ -119,7 +120,7 @@ const jumpStart=growth.indexOf('function publicLandingJump(');
 const jumpEnd=growth.indexOf('\nfunction club(){',jumpStart);
 assert.ok(jumpStart>=0&&jumpEnd>jumpStart,'jump helper must exist');
 const records={scrolled:[],focused:[]};
-const validIds=new Set(['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions']);
+const validIds=new Set(['merchant-plans','merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions']);
 const jumpContext=vm.createContext({
  document:{getElementById:id=>validIds.has(id)?{
   scrollIntoView:options=>records.scrolled.push([id,options.block,options.behavior]),
@@ -128,10 +129,11 @@ const jumpContext=vm.createContext({
  globalThis:{matchMedia:()=>({matches:true})}
 });
 vm.runInContext(growth.slice(jumpStart,jumpEnd)+'\nthis.jump=publicLandingJump;',jumpContext);
+assert.equal(jumpContext.jump('merchant-plans'),true);
 assert.equal(jumpContext.jump('merchant-margin'),true);
 assert.equal(jumpContext.jump('buyer-guide-questions'),true);
 assert.equal(jumpContext.jump('evil-selector'),false);
-assert.deepEqual(records.scrolled.map(a=>a[0]),['merchant-margin','buyer-guide-questions']);
+assert.deepEqual(records.scrolled.map(a=>a[0]),['merchant-plans','merchant-margin','buyer-guide-questions']);
 assert.ok(records.scrolled.every(a=>a[2]==='auto'),'reduced-motion system setting respected');
 assert.ok(records.focused.every(a=>a[1]===true),'focus should follow scroll without a second scroll');
 const sponsorStart=growth.indexOf('function openSponsorContact(');
