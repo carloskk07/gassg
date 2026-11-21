@@ -2264,12 +2264,12 @@ function liveTracking(){
               (globalThis.tamaoPixMarkup?.(onlinePayment.pixCode,{amountCents:Number(o.totalCents)})||'')+
               '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(onlinePayment.pixCode)+'</textarea></label>'+
               '<button type="button" class="primary" data-order-id="'+esc(o.orderId)+'" onclick="liveCopyOrderPix(this.dataset.orderId)">Copiar código Pix</button>'+
-              '<p>O valor é recebido pela revenda. A confirmação aparece neste acompanhamento.</p></section>'
+              '<p role="status">Conferindo automaticamente o pagamento com a revenda. A confirmação aparece neste acompanhamento, sem gerar outro Pix.</p></section>'
           : onlinePayment.checkoutUrl
             ? `<div class="notice" style="margin-top:14px"><strong>Pagamento direto à revenda disponível.</strong><br>O valor vai direto para a conta Mercado Pago do parceiro; o TAMÃO apenas valida a transação.<div class="order-actions"><button class="primary small" data-order-id="${esc(o.orderId)}" onclick="liveStartMerchantPayment(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>Continuar pagamento</button></div></div>`
             : onlinePayment.canStart===true
               ? `<div class="notice" style="margin-top:14px"><strong>Pague direto à revenda.</strong><br>${o.paymentMethod==='pix'?'O Pix será mostrado aqui no TAMÃO.':'Você será levado ao Mercado Pago da revenda.'} O TAMÃO não recebe nem repassa o valor do pedido.<div class="order-actions"><button class="primary small" data-order-id="${esc(o.orderId)}" onclick="liveStartMerchantPayment(this.dataset.orderId)" ${liveRuntime.actionPending?'disabled':''}>${o.paymentMethod==='pix'?'Gerar Pix do pedido':'Pagar com Mercado Pago'}</button></div></div>`
-              : '<div class="notice" style="margin-top:14px"><strong>Aguardando confirmação do pagamento.</strong><br>Atualize o pedido para consultar novamente o estado informado pelo provedor.</div>'
+              : '<div class="notice" style="margin-top:14px"><strong>Aguardando confirmação do pagamento.</strong><br>Estamos acompanhando a cobrança original automaticamente. Você também pode atualizar o pedido para conferir o registro.</div>'
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
