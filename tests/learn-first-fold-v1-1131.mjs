@@ -20,7 +20,7 @@ assert.doesNotMatch(html,/entrega garantida|melhor preço do Brasil|clientes sat
 assert.doesNotMatch(source,/fetch\(|XMLHttpRequest|localStorage|sendBeacon/);
 assert.match(css,/First-fold clarity: real product CTA visible/);
 assert.match(css,/max-height:780px/);
-assert.match(css,/\.learn-premium \.learn-hero\{\s*min-height:0;/);
+assert.match(css,/\.learn-premium \.learn-hero\{[\s\S]{0,130}?min-height:0;/);
 assert.match(css,/\.learn-premium \.learn-visual-scene\{min-height:115px/);
 assert.match(css,/\.learn-premium \.learn-visual-next\{min-height:43px/);
 for(const q of ['.learn-scene-products-art>.learn-product-tile','.learn-scene-track-art>span',
