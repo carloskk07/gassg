@@ -34,6 +34,27 @@ async function digest(value:string){
  const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
  return Array.from(new Uint8Array(hash),v=>v.toString(16).padStart(2,"0")).join("");
 }
+async function boundedEmptyObject(req:Request){
+ const reader=req.body?.getReader();
+ if(!reader)return false;
+ let total=0,body="";
+ const decoder=new TextDecoder();
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   total+=value?.byteLength||0;
+   if(total>64){
+    try{await reader.cancel()}catch{}
+    return false;
+   }
+   body+=decoder.decode(value,{stream:true});
+  }
+  body+=decoder.decode();
+ }finally{try{reader.releaseLock()}catch{}}
+ return body.trim()==="{}";
+}
+
 const admin=URL_BASE&&SECRET?createClient(URL_BASE,SECRET,{
  auth:{persistSession:false,autoRefreshToken:false}
 }):null;
@@ -53,8 +74,7 @@ Deno.serve(async(req:Request)=>{
  try{
   // No body parameters, merchant identifier, login, financial action or
   // user-provided filter can influence the returned catalogue.
-  const body=await req.text();
-  if(body.length>64||body.trim()!=="{}")
+  if(!await boundedEmptyObject(req))
    return reply({error:"INVALID_PAYLOAD"},400,origin);
   const ip=String(req.headers.get("cf-connecting-ip")||
    req.headers.get("x-real-ip")||
