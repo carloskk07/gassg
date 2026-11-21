@@ -661,7 +661,7 @@ function mobilityFeePixPanel(){
    '<label>Pix copia e cola<textarea id="mobility-fee-pix-br" readonly rows="3">'+esc(p.brCode)+'</textarea></label>'+
    '<button type="button" class="secondary" onclick="mobilityCopyFeePix()"'+loading+'>Copiar código Pix</button> '+
    link+'<p class="tiny muted">Validade até '+esc(mobilityFormatDate(p.expiresAt))+
-   '. A confirmação só aparece depois da consulta ao Mercado Pago.</p></div>':'';
+   '. A situação deste Pix é conferida automaticamente no Mercado Pago. Nenhuma nova cobrança é gerada pela consulta.</p></div>':'';
  const paid=p?.status==='paid'?
   '<p role="status">'+(isPlan?'Recarga confirmada pelo Mercado Pago e creditada na carteira.':
   'Pagamento de taxas confirmado pela consulta ao Mercado Pago. O total atualizado consta no extrato.')+'</p>':'';

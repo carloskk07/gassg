@@ -11,6 +11,8 @@ function tamaoCreditActor(){return String(globalThis.liveRuntime?.session?.user?
 function tamaoCreditVerified(){return typeof tamaoAdsAccountVerified==='function'&&
  tamaoAdsAccountVerified()&&tamaoCreditActor().length>0}
 let tamaoCreditReadSeq=0,tamaoCreditMountedScope='',tamaoCreditAutoTimer=null;
+// Bounded provider fallback for an already issued, owner-scoped Pix only.
+const tamaoCreditProviderWatch={actor:'',generation:-1,topupId:'',attempts:0,nextAt:0,busy:false};
 function tamaoCreditScope(){return {
  actor:tamaoCreditVerified()?tamaoCreditActor():'',
  generation:Number(globalThis.liveRuntime?.authGeneration||0)
@@ -33,6 +35,8 @@ function tamaoCreditSyncOwner(){
   ++tamaoCreditReadSeq;
   if(tamaoCreditAutoTimer!==null)clearTimeout(tamaoCreditAutoTimer);
   tamaoCreditAutoTimer=null;
+  Object.assign(tamaoCreditProviderWatch,{actor:scope.actor,generation:scope.generation,
+   topupId:'',attempts:0,nextAt:0,busy:false});
   Object.assign(tamaoCreditState,{actor:scope.actor,generation:scope.generation,
    loading:false,loaded:false,error:'',data:null,amountCents:1990,requestId:null,
    requestAmount:0,topupId:null,busy:false,pix:null});
@@ -81,8 +85,32 @@ function tamaoCreditSchedule(scope){
   if(document.getElementById('tamao-credit-campaign-form')?.contains?.(document.activeElement))
    return tamaoCreditSchedule(scope);
   if(tamaoCreditState.busy||tamaoCreditState.loading)return tamaoCreditSchedule(scope);
-  tamaoCreditRefresh();
+  void tamaoCreditObservePayment(scope).catch(()=>{});
  },30000);
+}
+async function tamaoCreditObservePayment(scope){
+ // Read the owner's ledger first. A remaining unpaid Pix is then checked
+ // by the authenticated provider-reconciliation endpoint (no Pix creation).
+ if(!await tamaoCreditRefresh()||!tamaoCreditMatches(scope))return false;
+ const item=tamaoCreditPending().find(t=>t.status==='pix_pending'&&
+   /^[0-9a-f-]{36}$/i.test(String(t.id||'')));
+ if(!item)return true;
+ const watch=tamaoCreditProviderWatch;
+ if(watch.actor!==scope.actor||watch.generation!==scope.generation)return false;
+ if(watch.topupId!==item.id)
+  Object.assign(watch,{topupId:item.id,attempts:0,nextAt:0,busy:false});
+ if(watch.busy||watch.attempts>=3||Date.now()<watch.nextAt||
+   document.visibilityState==='hidden'||tamaoCreditState.busy)return true;
+ watch.busy=true;
+ watch.nextAt=Date.now()+[60000,180000,480000][watch.attempts++];
+ try{
+  const result=await tamaoCreditInvoke({action:'reconcile',topupId:item.id});
+  if(!tamaoCreditMatches(scope)||watch.topupId!==item.id)return false;
+  if(result?.source==='ads_credit_payment_fact_v1_1097')
+   return await tamaoCreditRefresh();
+ }catch{/* Keep original Pix in pending state until verified. */}
+ finally{watch.busy=false;}
+ return false;
 }
 function tamaoCreditPixHtml(pix){
  if(!pix?.pixCode||!Number.isSafeInteger(pix?.amountCents))return '';
@@ -97,7 +125,7 @@ function tamaoCreditPixHtml(pix){
   ?globalThis.tamaoPixMarkup(pix.pixCode,{amountCents:pix.amountCents}):'';
  return '<section class="tamao-credit-pix" aria-label="Pagamento Pix da recarga">'+
   '<h4>Pix da recarga</h4><p>Confira '+tamaoCreditMoney(pix.amountCents)+
-  ' e pague pelo app do seu banco. O saldo será liberado após a confirmação do provedor.</p>'+
+  ' e pague pelo app do seu banco. Conferimos este Pix automaticamente e atualizamos seu saldo após confirmação do provedor.</p>'+
   (qr||'<div id="tamao-credit-qrcode" role="img" aria-label="QR Code para pagar a recarga" class="tamao-credit-qr-placeholder">Gerando QR Code…</div>')+
   '<label>Pix copia e cola<textarea id="tamao-credit-pix-code" class="input" readonly rows="3">'+
   safeCode+'</textarea></label><button type="button" class="secondary" onclick="tamaoCreditCopyPix()">Copiar Pix</button>'+
@@ -326,7 +354,7 @@ function tamaoCreditMarkup(){
   '<h4>Recargas em andamento</h4>'+
   needsCheck.map(t=>'<div class="tamao-credit-pending-item"><span><strong>Pix de '+
     tamaoCreditMoney(t.amountCents)+'</strong><small>'+
-    (t.status==='pix_pending'?'Confira o resultado no Mercado Pago':tamaoCreditPaymentLabels[t.status])+
+    (t.status==='pix_pending'?'Conferindo automaticamente no Mercado Pago':tamaoCreditPaymentLabels[t.status])+
     '</small></span><button type="button" class="secondary small" onclick="tamaoCreditReconcile(&quot;'+
     t.id+'&quot;)"'+(tamaoCreditState.busy?' disabled':'')+'>Conferir pagamento</button></div>').join('')+
   '</section>':'';

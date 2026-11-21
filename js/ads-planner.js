@@ -443,7 +443,7 @@ function tamaoAdsCampaignForm(){
         (globalThis.tamaoPixMarkup?.(c.fixedFeePixCode,{amountCents:fee})||'')+
         '<label>Pix copia e cola<textarea class="input" readonly rows="3">'+esc(c.fixedFeePixCode)+'</textarea></label>'+
         '<button type="button" class="primary" onclick="tamaoAdsCopyPix(\''+id+'\')">Copiar código Pix</button>'+
-        '<p>Validade: '+esc(new Date(c.fixedFeePixExpiresAt).toLocaleString('pt-BR'))+'. A confirmação aparece aqui.</p></section>':'';
+        '<p>Validade: '+esc(new Date(c.fixedFeePixExpiresAt).toLocaleString('pt-BR'))+'. Conferimos automaticamente. A aprovação aparece aqui após validação no provedor.</p></section>':'';
       if(pixReady&&typeof globalThis.tamaoPixWatch==='function'){
         const actor=s.userId;
         globalThis.tamaoPixWatch('ads:'+actor+':'+id,()=>route()==='sponsors'&&tamaoAdsAccountVerified()&&
@@ -563,7 +563,7 @@ async function tamaoAdsSubmitCampaign(){
 // Recheck the advertiser's ORIGINAL checkout without requiring a new click.
 // Only the provider-authoritative reconcile RPC and a SECOND owner-scoped
 // ledger read can label a payment approved. Never create a checkout here.
-// Three bounded attempts (1.2s, +3m, +6m) stay inside 8/hour API quota.
+// Three bounded attempts (1.2s, +35s, +2m) stay inside 8/hour API quota.
 const tamaoAdsAutoPayment={userId:null,campaignId:null,tries:0,epoch:0,
  startedAt:0,timer:null,busy:false};
 function tamaoAdsAutoPaymentStop(){
@@ -630,7 +630,7 @@ function tamaoAdsAutoReconcileOnReturn(userId){
   }catch{/* An unverified reply cannot create payment or change campaign status. */}
   finally{if(current())tamaoAdsAutoPayment.busy=false}
   if(same()&&tamaoAdsAutoPayment.tries<3)
-   tamaoAdsAutoPayment.timer=setTimeout(poll,180000);
+   tamaoAdsAutoPayment.timer=setTimeout(poll,tamaoAdsAutoPayment.tries===1?35000:120000);
   else if(current())tamaoAdsAutoPaymentStop();
  };
  tamaoAdsAutoPayment.timer=setTimeout(poll,1200);

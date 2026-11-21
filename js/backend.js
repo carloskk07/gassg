@@ -1328,11 +1328,21 @@ async function livePoll(){
       // Only pending support needs follow-up after the order is terminal.
       const open=liveRuntime.order.supportCases?.some(c=>
         ['open','in_review'].includes(c?.status));
-      if(!open||Date.now()-liveRuntime.terminalSupportAttemptAt<60000){
+      // A closed order can still await a provider confirmation or refund.
+      // Continue reading the original payment only; never issue a checkout.
+      const payment=liveRuntime.order.onlinePayment||{};
+      const unresolved=liveRuntime.order.paymentTiming==='prepaid'&&
+        ['pix','card'].includes(liveRuntime.order.paymentMethod)&&
+        ['pending','checkout_ready','review_required'].includes(String(payment.status||''));
+      const now=Date.now();
+      const supportDue=open&&now-(liveRuntime.terminalSupportAttemptAt||0)>=60000;
+      const paymentDue=unresolved&&now-(liveRuntime.terminalPaymentAttemptAt||0)>=30000;
+      if(!supportDue&&!paymentDue){
         if(changed)render();
         return;
       }
-      liveRuntime.terminalSupportAttemptAt=Date.now();
+      if(supportDue)liveRuntime.terminalSupportAttemptAt=now;
+      if(paymentDue)liveRuntime.terminalPaymentAttemptAt=now;
     }
     const requestedOrderId=liveRuntime.orderId;
     try{

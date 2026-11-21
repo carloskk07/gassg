@@ -104,7 +104,7 @@ function clubeCouponPixAutoStart(invoiceId){
    if(active())w.timer=setTimeout(poll,70000);
  };
  w.run=poll;
- w.timer=setTimeout(poll,60000);
+ w.timer=setTimeout(poll,15000);
 }
 // A QR, external payment link, and copyable BR Code can outlive merchant
 // eligibility in an open tab. Keep them on-screen only briefly; a new
