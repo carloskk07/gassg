@@ -78,12 +78,12 @@ ledger='checkout_ready';provider='payment_approved';
 await refresh({quiet:true});
 await take(1200);
 assert.equal(getMine().rows[0].fixedFeeStatus,'checkout_ready');
-assert.ok([...timers.values()].some(t=>t.ms===180000),
+assert.ok([...timers.values()].some(t=>t.ms===35000),
  'unverified ledger readback keeps bounded automatic follow-up');
 // Switch account before next scheduled provider call.
 ctx.liveRuntime.session.user.id='33333333-3333-4333-8333-333333333333';
 const before=calls.length;
-await take(120000);
+await take(35000);
 assert.equal(calls.length,before,'account switch must stop private provider checks');
 assert.equal(getState().campaignId,null);
 assert(!calls.some(x=>x.action==='purchase'));
