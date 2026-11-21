@@ -64,7 +64,11 @@ async function readDOM(){
   visibleCatalogue:document.querySelectorAll('.home-discover-tile:not([hidden])').length,
   merchantPremium:!!document.querySelector('.merchant-landing-v1112 .merchant-v1112-window'),
   merchantStyleLoaded:!!document.getElementById('merchant-executive-styles')?.sheet,
-  merchantSignup:!!document.querySelector('.merchant-v1112-primary[onclick="openMerchantPortal(true)"]')
+  merchantSignup:!!document.querySelector('.merchant-v1112-primary[onclick="openMerchantPortal(true)"]'),
+  merchantPremiumHero:!!document.querySelector('.merchant-landing-v1113 .merchant-v1112-hero'),
+  merchantProductPhotos:document.querySelectorAll('.merchant-v1113-product .tamao-product-photo').length,
+  merchantPhotoAsset:getComputedStyle(document.querySelector('.merchant-v1113-product-main .tamao-product-photo')||document.body).backgroundImage.includes('tamao-products-sprite.webp'),
+  merchantPrimaryTop:Math.round(document.querySelector('.merchant-v1112-primary')?.getBoundingClientRect().top??9999)
  }})())`;
  const res=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
  if(res.exceptionDetails)throw new Error('DOM evaluate exception: '+res.exceptionDetails.text);
@@ -111,7 +115,8 @@ try{
    if(!data.heading)issues.push(name+' '+size.width+': empty heading');
    if(data.brokenImages.length)issues.push(name+' '+size.width+': broken images '+data.brokenImages.join(','));
    if(name!=='home'&&name!=='merchants-app'&&data.savingsScene!==1)issues.push(name+' '+size.width+': expected one distinct visual benefit scene');
-   if(name==='merchants-app'&&(!data.merchantPremium||!data.merchantStyleLoaded||!data.merchantSignup))issues.push(name+' '+size.width+': missing premium revenda page, lazy style or real CTA');
+   if(name==='merchants-app'&&(!data.merchantPremium||!data.merchantStyleLoaded||!data.merchantSignup||!data.merchantPremiumHero||data.merchantProductPhotos!==3||!data.merchantPhotoAsset))issues.push(name+' '+size.width+': missing premium revenda page, catalogue photos, lazy style or real CTA');
+   if(name==='merchants-app'&&data.merchantPrimaryTop>size.height-35)issues.push(name+' '+size.width+': cadastro principal abaixo da primeira tela ('+data.merchantPrimaryTop+'px)');
    if(name==='home'&&data.campaignBanners!==1)issues.push(name+' '+size.width+': expected one Club campaign banner');
    if(name==='home'&&data.benefitPanels!==0)issues.push(name+' '+size.width+': redundant benefit panels remain');
    if(name==='home'&&data.visibleCatalogue===0)issues.push(name+' '+size.width+': catalogue missing');
