@@ -14,7 +14,7 @@ assert.match(html,/id="learn-faq-search"/);
 assert.match(html,/class="learn-trust-path"/);
 assert.equal((html.match(/class="learn-trust-path"/g)||[]).length,3);
 assert.equal((html.match(/data-learn-scene="\d"/g)||[]).length,4);
-assert.match(html,/Sua região, suas opções/);
+assert.match(source,/Sua região, suas opções/);
 assert.match(html,/Sem aceite, o pedido não é confirmado/);
 assert.doesNotMatch(html,/entrega garantida|melhor preço do Brasil|clientes satisfeitos \d+/i);
 assert.doesNotMatch(source,/fetch\(|XMLHttpRequest|localStorage|sendBeacon/);
