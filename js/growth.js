@@ -979,36 +979,53 @@ function merchantsLanding(){
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   const initial=merchantMarginExample({salePrice:referenceTicket,orders:50});
 
-  return shell(`<section class="page merchant-landing">
-    <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
-    <span class="eyebrow">VENDA PELO TAMÃO</span>
-    <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
-    <p class="muted page-lead">Mostre seus produtos a novos clientes, organize pedidos e participe da Rede. Sem abrir mão do balcão ou WhatsApp. <strong>Você controla preços, estoque, pagamentos e entregas.</strong></p>
-    <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
+
+  return shell(`<section class="page merchant-landing merchant-landing-v1112">
+    <div class="merchant-landing-premium merchant-v1112-hero">
+      <div class="merchant-landing-premium-copy">
+        <span class="merchant-v1112-kicker"><span class="merchant-v1112-kicker-mark" aria-hidden="true"></span> TAMÃO NEGÓCIOS <span>PARA REVENDAS</span></span>
+        <h1 class="page-title">Sua revenda mais visível. <span class="merchant-v1112-accent">Seu negócio no controle.</span></h1>
+        <p class="page-lead">Mostre seus produtos a novos clientes, organize pedidos e participe da Rede. O TAMÃO aproxima sua empresa de quem procura produtos essenciais na região em que você atende. <strong>Você controla preços, estoque, pagamentos e entregas.</strong></p>
+        <div class="merchant-v1112-promise" aria-label="Condições da parceria">
+          <span><b aria-hidden="true">✓</b> Sem mensalidade no modelo atual</span>
+          <span><b aria-hidden="true">✓</b> Recebimento direto na sua revenda</span>
+          <span><b aria-hidden="true">✓</b> Sem exclusividade</span>
+        </div>
         <div class="hero-actions merchant-hero-actions">
-      <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
-      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'})">Ver quanto custa vender</button>
-      ${portal?'<button type="button" class="merchant-panel-link" onclick="go(\'merchant\')">Voltar ao meu painel ↗</button>':String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim()?'<button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>':''}
-    </div>
-    </div>
-    <aside class="merchant-landing-premium-visual" aria-label="Recursos para organizar o dia a dia da revenda">
-      <span class="merchant-visual-kicker">SEU NEGÓCIO. SUA ROTINA.</span>
-      <h2>Mais organização.<br><em>Mais possibilidades.</em></h2>
-      <div class="merchant-visual-list">
-        <div><span aria-hidden="true">📦</span><p><strong>Pedidos em um só lugar</strong><small>Veja as etapas que pedem sua atenção.</small></p></div>
-        <div><span aria-hidden="true">🧺</span><p><strong>Catálogo sob controle</strong><small>Preços, produtos e estoque definidos por você.</small></p></div>
-        <div><span aria-hidden="true">🤝</span><p><strong>Rede que aproxima</strong><small>Compartilhe e apresente sua revenda.</small></p></div>
+          <button type="button" class="primary merchant-v1112-primary" onclick="\${cta}">\${internalPilot?ctaLabel:'Quero cadastrar minha revenda'} <span aria-hidden="true">→</span></button>
+          <button type="button" class="secondary merchant-v1112-secondary" onclick="publicLandingJump('merchant-margin')">Entender as taxas</button>
+          <button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>
+        </div>
+        <p class="merchant-v1112-approval">Cadastro sem cobrança. A liberação das vendas depende da conferência dos dados e das autorizações aplicáveis.</p>
       </div>
-      <div class="merchant-visual-economy" aria-label="Condições comerciais da revenda">
-        <div><small>MODELO ATUAL</small><strong>Sem mensalidade</strong></div>
-        <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong></div>
-      </div>
-      <p class="merchant-visual-disclaimer">Visão ilustrativa dos recursos. Taxa aplicada sobre pedidos concluídos, conforme a política comercial. Pedidos dependem da habilitação e da disponibilidade da operação.</p>
-    </aside></div>
-    ${internalPilot?'':`<section class="merchant-conversion-start" aria-label="Apresente sua empresa ao TAMÃO">
+      <aside class="merchant-landing-premium-visual merchant-v1112-visual" aria-label="O que a revenda organiza no Portal TAMÃO">
+        <div class="merchant-v1112-window">
+          <div class="merchant-v1112-window-head">
+            <span class="merchant-v1112-brand"><span class="merchant-v1112-brand-icon" aria-hidden="true">T</span> PORTAL DA REVENDA</span>
+            <span class="merchant-v1112-dot-label">SUA OPERAÇÃO</span>
+          </div>
+          <div class="merchant-v1112-window-intro"><small>UM LUGAR PARA CUIDAR DO NEGÓCIO</small><h2>Da vitrine à entrega.<br> Tudo mais organizado.</h2></div>
+          <div class="merchant-v1112-window-list">
+            <div><span class="merchant-v1112-step" aria-hidden="true">01</span><p><strong>Vitrine da sua empresa</strong><small>Produtos, preços e disponibilidade</small></p><span aria-hidden="true">↗</span></div>
+            <div><span class="merchant-v1112-step" aria-hidden="true">02</span><p><strong>Pedidos em um só lugar</strong><small>Aceite, preparação e entrega</small></p><span aria-hidden="true">↗</span></div>
+            <div><span class="merchant-v1112-step" aria-hidden="true">03</span><p><strong>Resultados e relacionamento</strong><small>Histórico, rede e acompanhamento</small></p><span aria-hidden="true">↗</span></div>
+          </div>
+          <div class="merchant-v1112-window-footer">
+            <div><small>MODELO COMERCIAL ATUAL</small><strong>Sem mensalidade</strong></div>
+            <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>\${merchantFeeLabel}</strong></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <section class="merchant-v1112-trust" aria-label="Por que participar do TAMÃO">
+      <div><span aria-hidden="true">01 /</span><strong>Mais um canal de vendas</strong><p>Seja uma opção para clientes que ainda não conhecem sua revenda.</p></div>
+      <div><span aria-hidden="true">02 /</span><strong>Autonomia de verdade</strong><p>Você define preços, área atendida e quando pode receber novos pedidos.</p></div>
+      <div><span aria-hidden="true">03 /</span><strong>Parceria com transparência</strong><p>Condições comerciais claras, antes de começar a operar.</p></div>
+    </section>
+        ${internalPilot?'':`<section class="merchant-conversion-start" aria-label="Apresente sua empresa ao TAMÃO">
       <div class="merchant-conversion-intro">
-        <span class="section-kicker">COMECE A VENDER PELO TAMÃO</span>
-        <h2>Cadastre sua revenda em um só lugar.</h2>
+        <span class="section-kicker">SEU PRÓXIMO PASSO</span>
+        <h2>Comece com um cadastro simples.</h2>
         <p>Entre com seu e-mail, informe os dados da empresa e prepare produtos, preços e entregas no Portal das Revendas.</p>
         <div class="merchant-conversion-proof" aria-label="Como começar">
           <span><b>01</b> Acesse com seu e-mail</span><span><b>02</b> Cadastre a empresa</span><span><b>03</b> Prepare seu catálogo</span>
@@ -1016,7 +1033,7 @@ function merchantsLanding(){
         <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
         <button type="button" class="secondary merchant-share" onclick="shareTamaoGrowthInvite('merchant')">Indicar revenda ↗</button>
       </div>
-      <details class="merchant-secondary-lead" open><summary>Quero anunciar meu comércio com nome e WhatsApp</summary>
+      <details class="merchant-secondary-lead"><summary>Prefiro deixar meu contato para conversar sobre a parceria</summary>
         ${prelaunchMerchantLeadSection()}
       </details>
     </section>`}
@@ -1040,53 +1057,14 @@ function merchantsLanding(){
 
 
 
-    <section class="merchant-demand-story" aria-label="O que sua revenda ganha com o TAMÃO">
-      <div class="merchant-demand-heading"><span class="section-kicker">VISIBILIDADE QUE PODE VIRAR PEDIDOS</span><h2>Não espere o cliente já conhecer sua revenda para vender.</h2>
-        <p>Apareça nas consultas da sua região e mostre gás, água e produtos complementares na mesma cesta. Você decide quando pode atender.</p></div>
-      <div class="merchant-demand-grid">
-        <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua vitrine aparece em mais consultas da região.</p></article>
-        <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Pedidos organizados; você decide o aceite.</p></article>
-        <article><span aria-hidden="true">🔁</span><strong>Mais motivos para o cliente voltar</strong><p>Histórico e benefícios de campanhas elegíveis podem apoiar a recompra.</p></article>
-      </div>
-      <p class="merchant-demand-note">Preços, estoque e promoções continuam sob seu controle.</p>
-    </section>
-    <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Amplie sua vitrine sem mudar sua operação: o cliente encontra o que você pode entregar.</p></div></div>
-      <div class="grid cards-3 partner-benefits">
-        <div class="card"><div class="feature-icon">📈</div><h3>Mais oportunidades de venda</h3><p class="muted tiny">Seja uma opção para quem consulta gás e itens essenciais na área atendida pela sua empresa.</p></div>
-        <div class="card"><div class="feature-icon">🧺</div><h3>Mais valor em cada entrega</h3><p class="muted tiny">Ofereça água, carvão, lenha e gelo na mesma cesta de compra.</p></div>
-        <div class="card"><div class="feature-icon">🔁</div><h3>Clientes que podem voltar</h3><p class="muted tiny">O histórico ajuda o cliente a recomprar quando precisar.</p></div>
-      </div>
-      <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
-    </section>
 
-    <section class="section merchant-business-intro">
-      <div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS</span>
-      <h2>Pedidos, números e relacionamento no mesmo lugar.</h2>
-      <p>Acompanhe pedidos, entregas e resultados em um só lugar.</p></div></div>
-      <div class="grid cards-3 partner-benefits">
-        <div class="card"><div class="feature-icon">🛒</div><h3>Venda do seu jeito</h3>
-          <p class="muted tiny">Seus produtos, preços, estoque e entregas continuam sob seu controle. Novos pedidos chegam organizados ao painel.</p></div>
-        <div class="card"><div class="feature-icon">📊</div><h3>Entenda seus resultados</h3>
-          <p class="muted tiny">Acompanhe vendas concluídas, cancelamentos, reversões e produtos mais vendidos com dados da própria operação no TAMÃO.</p></div>
-        <div class="card"><div class="feature-icon">📣</div><h3>Ajude mais gente a descobrir sua empresa</h3>
-          <p class="muted tiny">Compartilhe seu link da Rede TAMÃO. Publicidade patrocinada e ferramentas Pro serão opções separadas quando estiverem disponíveis.</p></div>
+    <section class="merchant-v1112-value" aria-label="O que muda para sua revenda">
+      <div class="merchant-v1112-section-heading"><span class="section-kicker">UM CANAL A MAIS. DO SEU JEITO.</span><h2>O TAMÃO amplia sua presença sem complicar sua rotina.</h2><p>O relacionamento com seus clientes continua seu. A plataforma ajuda a conectar procura, oferta e operação.</p></div>
+      <div class="merchant-v1112-value-grid">
+        <article><span class="merchant-v1112-value-number">01</span><h3>Seja encontrada na sua região</h3><p>Mostre gás, água e outros itens do seu catálogo a quem consulta disponibilidade no endereço informado.</p></article>
+        <article><span class="merchant-v1112-value-number">02</span><h3>Decida cada atendimento</h3><p>Controle o estoque, o prazo e a área de entrega. Só aceite pedidos que sua operação pode cumprir.</p></article>
+        <article><span class="merchant-v1112-value-number">03</span><h3>Crie relacionamento</h3><p>Tenha sua página para compartilhar e acompanhe pedidos, histórico e convites vinculados à sua rede.</p></article>
       </div>
-      <p class="tiny muted">A divulgação patrocinada é identificada e não altera a ordem orgânica das ofertas.</p>
-    </section>
-
-    <section class="section tamao-merchant-differentials">
-      <div class="section-head"><div><span class="section-kicker">POR QUE FAZER PARTE</span>
-        <h2>Sua revenda tem seu jeito. O TAMÃO respeita isso.</h2>
-        <p>Mais um canal de vendas, sem exigir que você abra mão da clientela, das formas de receber ou dos produtos que já comercializa.</p></div></div>
-      <div class="grid cards-3 tamao-value-grid">
-        <article class="card"><span class="tamao-value-icon">💳</span><h3>O pagamento da venda é seu</h3>
-          <p>O comprador paga diretamente à revenda pela forma oferecida. O TAMÃO não recebe o dinheiro do produto para depois repassar.</p></article>
-        <article class="card"><span class="tamao-value-icon">📦</span><h3>Mais produtos na mesma conversa</h3>
-          <p>Mostre água, carvão, lenha, gelo e os demais itens autorizados da sua operação. Uma cesta maior pode tornar cada entrega mais interessante.</p></article>
-        <article class="card"><span class="tamao-value-icon">🤝</span><h3>Sua rede cresce com você</h3>
-          <p>Compartilhe seu link, apresente clientes e outras revendas e acompanhe os interesses vinculados. Benefícios financeiros só são devidos quando houver campanha habilitada e conversão elegível.</p></article>
-      </div>
-      <div class="tamao-value-actions"><button type="button" class="secondary" onclick="go('sponsors')">Conhecer oportunidades com marcas →</button></div>
     </section>
 
     <section class="section" id="merchant-margin" tabindex="-1"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Uma venda a mais vale quanto para o seu negócio?</h2><p>Experimente cenários com seus próprios custos. O simulador separa faturamento, taxa TAMÃO e despesas para ajudar você a decidir com clareza.</p></div></div>
