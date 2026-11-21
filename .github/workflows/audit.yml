@@ -275,6 +275,8 @@ jobs:
         run: node tests/storefront-club-access.mjs
       - name: Premium #learn buyer guide V1.1124
         run: node tests/learn-premium-trust-v1-1124.mjs
+      - name: Signature premium #learn interaction V1.1125
+        run: node tests/learn-signature-interaction-v1-1125.mjs
       - name: Public UX clarity and no-duplicate journey V1.969
         run: node tests/public-ux-clarity-v1-969.mjs
       - name: V1.981 modernizacao de UX nos tres portais, sem alterar regras comerciais
