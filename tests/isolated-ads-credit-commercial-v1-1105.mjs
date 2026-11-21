@@ -75,7 +75,12 @@ BEGIN
   IF r->>'charged'<>'true' OR r->>'chargedCents'<>'2'
   THEN RAISE EXCEPTION 'ADS_ELIGIBLE_VIEW_NOT_CHARGED_ONCE';END IF;
   r:=public.ads_credit_confirm_v1_1098(challenge_token,viewer,1600,75,NULL);
-  IF r->>'charged'<>'false' OR r->>'reason'<>'replay'
+  -- On the last cent, the campaign has already auto-paused. The
+  -- repeated token is rejected earlier as not eligible, not as a replay.
+  -- Both paths must fail closed without creating a second debit.
+  IF r->>'charged'<>'false' OR
+   (n<3 AND r->>'reason'<>'replay') OR
+   (n=3 AND r->>'reason' NOT IN ('replay','not_eligible'))
   THEN RAISE EXCEPTION 'ADS_SAME_TOKEN_CHARGED_TWICE';END IF;
   IF n=1 THEN
    r:=public.ads_credit_issue_v1_1098('São Gabriel','RS',viewer,NULL);
