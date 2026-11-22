@@ -734,7 +734,7 @@ function mobilityPage(){
      <small>Veja os anúncios de moto e escolha com quem combinar.</small>
      <span class="mobility-choice-cta">Explorar opções <span aria-hidden="true">→</span></span>
     </span>
-    <span class="mobility-choice-image"><img src="${mobilityMotoPhoto}" alt="" loading="lazy" decoding="async" width="400" height="360"></span>
+    <span class="mobility-choice-image"><span class="mobility-choice-fallback" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="46" r="9"></circle><circle cx="49" cy="46" r="9"></circle><path d="M15 46h14l8-17h9l5 17M28 46l-9-19H9M30 23h13l5 6M37 30l-5 16"></path></svg></span><img src="${mobilityMotoPhoto}" alt="" loading="eager" decoding="async" fetchpriority="low" width="400" height="360"></span>
    </a>
    <a class="mobility-provider-card mobility-choice-carro" href="/?servico=carro#professionals" aria-label="Encontrar motorista — consultar anúncios de carro">
     <span class="mobility-choice-copy">
@@ -743,7 +743,7 @@ function mobilityPage(){
      <small>Conheça motoristas anunciados e combine os detalhes.</small>
      <span class="mobility-choice-cta">Explorar opções <span aria-hidden="true">→</span></span>
     </span>
-    <span class="mobility-choice-image"><img src="${mobilityCarPhoto}" alt="" loading="lazy" decoding="async" width="400" height="360"></span>
+    <span class="mobility-choice-image"><span class="mobility-choice-fallback" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 40l6-16h36l6 16v12h-7v-5H15v5H8V40Z"></path><path d="m16 39 4-10h24l4 10H16Z"></path><path d="M13 45h6m26 0h6"></path></svg></span><img src="${mobilityCarPhoto}" alt="" loading="eager" decoding="async" fetchpriority="low" width="400" height="360"></span>
    </a>
   </nav>`;
  const clarity=intent?'':`
