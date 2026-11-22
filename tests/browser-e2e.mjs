@@ -282,7 +282,7 @@ assert.equal(await evaluate("document.querySelectorAll('[data-earn-scenario]').l
 await evaluate("earnPremiumScenarioChoose(10)");
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\"10\"]')?.getAttribute('aria-pressed')"),'true');
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(120,10))"));
-assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\\\"5\\\"]')?.getAttribute('aria-pressed')"),'false');
+assert.equal(await evaluate("document.querySelector('[data-earn-scenario=\"5\"]')?.getAttribute('aria-pressed')"),'false');
 assert.equal(await evaluate("document.querySelectorAll('[data-earn-ticket-preset]').length"),3);
 await evaluate("earnPremiumTicketPreset(200)");
 assert.equal(await evaluate("document.querySelector('[data-earn-scenario-total]')?.textContent"),await evaluate("BRL.format(referralExample(200,10))"));
