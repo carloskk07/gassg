@@ -83,7 +83,7 @@
 .mobility-page .mobility-choice-copy small{display:block;max-width:29ch;margin-top:12px;color:#526659;font-size:12px;line-height:1.55;font-weight:550}
 .mobility-choice-cta{display:inline-flex;align-items:center;gap:10px;margin-top:20px;padding:11px 14px;border-radius:50px;background:#133e2d;color:#fff;font-weight:850;font-size:12px;line-height:1.2;white-space:nowrap}
 .mobility-choice-cta span{font-size:18px;font-weight:500;line-height:.7}
-.mobility-choice-image{position:absolute;inset:0 0 0 auto;width:48%;overflow:hidden}
+.mobility-page .mobility-choices .mobility-choice-image{display:block;flex:none;position:absolute;inset:0 0 0 auto;width:48%;overflow:hidden}
 .mobility-choice-image::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#fbf9f3 0%,rgba(251,249,243,.85) 15%,rgba(251,249,243,0) 60%),linear-gradient(0deg,rgba(19,55,40,.08),transparent)}
 .mobility-choice-carro .mobility-choice-image::after{background:linear-gradient(90deg,#ebf3ee 0%,rgba(235,243,238,.83) 15%,rgba(235,243,238,0) 60%)}
 .mobility-choice-image img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;filter:saturate(.8);transition:transform .35s ease}
