@@ -16,7 +16,8 @@ for(const label of ['Acessar minha Rede','COMISSÃO DE INDICAÇÃO DIRETA','Fund
 assert.match(page,/R\$ 120/);
 assert.match(page,/2%/);
 assert.match(page,/R\$ 12,00/);
-assert.equal((page.match(/<details>/g)||[]).length,7);
+assert.equal((page.match(/<details>/g)||[]).length,6);
+assert.match(page,/<details class="earn-simulator-settings">/);
 assert.equal((page.match(/data-earn-scenario="/g)||[]).length,3);
 assert.match(page,/Quanto suas indicações/);
 assert.match(page,/SIMULADOR DE COMISSÕES/);
