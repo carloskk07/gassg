@@ -3536,15 +3536,28 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADMIN_PERMISSION_DENIED",
           "Somente Financeiro ou Superadmin consulta o fundo da Rede.",403);
       }
-      const [summary,conservation,payouts,direct,celebra]=await Promise.all([
+      const [summary,conservation,payouts,direct,celebra,adsPool]=await Promise.all([
         admin.rpc("network_fee_package_admin_summary_v1_1030",{p_actor:user.id}),
         admin.rpc("network_fee_package_conservation_v1_1030",{p_actor:user.id}),
         admin.rpc("network_fee_payout_program_overview_v1_1031",{p_actor:user.id}),
         admin.rpc("network_direct_module_admin_v1_1044",{p_actor:user.id}),
-        admin.rpc("network_celebra_admin_v1_1046",{p_actor:user.id})
+        admin.rpc("network_celebra_admin_v1_1046",{p_actor:user.id}),
+        admin.rpc("network_ads_pool_admin_summary_v1_1154",{p_actor:user.id})
       ]);
-      if(summary.error||conservation.error||payouts.error||direct.error||celebra.error)
-        throw summary.error||conservation.error||payouts.error||direct.error||celebra.error;
+      if(summary.error||conservation.error||payouts.error||direct.error||celebra.error||adsPool.error)
+        throw summary.error||conservation.error||payouts.error||direct.error||celebra.error||adsPool.error;
+      if(adsPool.data?.source!=="network_ads_pool_admin_v1_1154"||
+        adsPool.data?.readOnly!==true||adsPool.data?.payoutsEnabled!==false||
+        adsPool.data?.poolBps!==1000||
+        typeof adsPool.data?.accrualEnabled!=="boolean"||
+        typeof adsPool.data?.redemptionTermsApproved!=="boolean"||
+        !Array.isArray(adsPool.data?.sources)||
+        !adsPool.data.sources.every((item:Record<string,unknown>)=>
+          ["ads_verified_view","ads_fixed_campaign"].includes(String(item.kind))&&
+          ["receipts","poolMicrocents","pendingMicrocents","validatedMicrocents",
+            "reversedMicrocents","unallocatedMicrocents"].every(k=>Number.isSafeInteger(Number(item[k]))&&Number(item[k])>=0)))
+        throw new DomainError("NETWORK_ADS_POOL_STATUS_UNVERIFIED",
+          "O fundo da publicidade não passou na conferência.",503);
       if(celebra.data?.source!=="network_celebra_admin_v1_1046"||
          celebra.data.readOnly!==true||celebra.data.moneyMoved!==false||
          celebra.data.cashPayoutsEnabled!==false||
@@ -3610,7 +3623,28 @@ Deno.serve(async(req:Request)=>{
       };
       return json({...summary.data,conservation:conservation.data,
         payouts:payouts.data,moduleAds,moduleDirect:direct.data,
-        celebra:celebra.data},200,origin);
+        adsPool:adsPool.data,celebra:celebra.data},200,origin);
+    }
+    if(action==="network-ads-pool-terms-set"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A aprovação de termos da Rede exige Superadmin.",403);
+      const ref=String(body.termsReference||"").trim();
+      if(typeof body.approved!=="boolean"||
+         (body.approved&&!/^[^<>]{12,160}$/.test(ref)))
+        throw new DomainError("NETWORK_ADS_TERMS_NOT_PUBLISHED",
+          "Informe a referência de termos efetivamente publicados e aprovados.",400);
+      const {data,error}=await admin.rpc("network_ads_pool_terms_set_v1_1155",{
+        p_actor:user.id,p_approved:body.approved,
+        p_reference:body.approved?ref:null
+      });
+      if(error)throw error;
+      if(data?.source!=="network_ads_pool_terms_v1_1155"||
+          data.termsApproved!==body.approved||
+          data.moneyMoved!==false||data.automaticPayouts!==false)
+        throw new DomainError("NETWORK_ADS_TERMS_UPDATE_UNVERIFIED",
+          "A decisão de resgate publicitário não foi confirmada.",503);
+      return json(data,200,origin);
     }
     if(action==="network-fee-package-set-enabled"){
       if(String(adminAccess.admin_role)!=="superadmin")
