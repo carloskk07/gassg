@@ -407,7 +407,7 @@ await waitFor("document.body.innerText.includes('Seu próximo convite pode abrir
 body=await text();
 assert.match(body,/Tudo acompanhado em um só lugar/);
 assert.match(body,/R\$\s*24,00/);
-assert.match(body,/em cada compra qualificada/i);
+assert.match(body,/A comissão de 2% pode se repetir a cada compra válida/i);
 assert.match(body,/Compras posteriores também podem gerar comissão/i);
 assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),false);
 await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.querySelector('#ref-sim-ticket').value='150'; updateReferralSimulator()");
